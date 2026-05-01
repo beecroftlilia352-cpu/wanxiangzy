@@ -16,7 +16,14 @@ const MODELS: { value: LingyaModel; label: string; desc: string; badge?: string;
   { value: "doubao-seedream-4-5-251128", label: "Seedream 4.5", desc: "4K · 2分/次", badge: "新", icon: "/model-icons/doubao.png" },
 ];
 
-const DEFAULT_POSE_PROMPT = `保持图1中的场景、人物身份、脸部特征、发型、服装、服装材质、颜色、图案、光影和摄影质感一致，生成一张四宫格图片。四个格子分别展示同一人物的四个不同姿势：正面自然站立、侧身回头、手扶头发、轻微行走转身。要求真实商业摄影质感，人物比例一致，服装褶皱自然，背景透视一致。负面约束：不要换脸，不要换衣服，不要改变场景，不要生成多余人物，不要扭曲手指和肢体，不要塑料皮肤，不要AI渲染感。`;
+const DEFAULT_POSE_PROMPT = `High-end fashion magazine editorial photography, same person from 图1, same face identity, hairstyle, body proportion, clothing, fabric texture, color, pattern, lighting and photography quality. Professional studio lighting with soft key light and natural fill. Hyper-realistic skin texture with natural pores. photorealistic, 8K ultra-detailed, cinematic color grade, sharp details.
+
+姿势1：正面自然站立，双手自然下垂或轻触口袋，眼神直视镜头，自信微笑。镜头：medium shot, 35mm lens, eye level angle
+姿势2：侧身45度，回头微笑看向镜头，一手轻抚头发，优雅放松。镜头：medium close-up, 50mm lens, slight low angle
+姿势3：正面微微弯腰前倾，双手交叉或撑在膝盖上，俏皮可爱表情。镜头：close-up, 85mm lens, eye level angle
+姿势4：行走或转身的动态姿势，衣服随风飘动，自然抓拍感。镜头：full body, 24mm lens, slight high angle
+
+负面约束：不要换脸，不要换衣服，不要改变场景，不要生成多余人物，不要扭曲手指和肢体，不要塑料皮肤，不要AI渲染感。`;
 
 export default function PosePage() {
   const router = useRouter();
@@ -273,7 +280,7 @@ export default function PosePage() {
             <h3 className="font-bold text-sm mb-3">提示词</h3>
             <div className="relative">
               <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)}
-                className="w-full h-40 px-3 py-2 pr-10 rounded-lg border text-xs focus:ring-2 focus:ring-purple-200 outline-none resize-none leading-relaxed" />
+                className="w-full h-56 px-3 py-2 pr-10 rounded-lg border text-xs focus:ring-2 focus:ring-purple-200 outline-none resize-y leading-relaxed whitespace-pre-wrap" />
               <button onClick={optimizePrompt} disabled={isOptimizing || !mainImage}
                 className="absolute right-2 top-2 p-1.5 rounded-md bg-purple-50 text-purple-500 hover:bg-purple-100 disabled:opacity-30"
                 title="视觉 AI 优化提示词">
