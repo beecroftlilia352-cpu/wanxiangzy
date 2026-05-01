@@ -109,6 +109,7 @@ ${roleLines}
     }
 
     const data = JSON.parse(resText);
+    console.log("[analyze] LLM 完整响应:", JSON.stringify(data).slice(0, 1000));
     const prompt = extractMessageText(data).trim();
 
     if (prompt) {
