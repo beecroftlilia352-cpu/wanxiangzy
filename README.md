@@ -118,7 +118,7 @@ curl -H "Authorization: Bearer $JOB_PROCESSOR_SECRET" \
   http://localhost:3000/api/jobs/process-generations
 ```
 
-生产环境建议配置定时任务每 1 分钟请求一次 `/api/jobs/process-generations`。在 Vercel 上可以直接设置 `CRON_SECRET`，本接口同时兼容 `JOB_PROCESSOR_SECRET` 和 `CRON_SECRET`。
+生产环境建议配置定时任务每 1 分钟请求一次 `/api/jobs/process-generations`，使用 `JOB_PROCESSOR_SECRET` 或 `CRON_SECRET` 作为 Bearer Token。
 
 ### 6. AWS Tag 自动部署
 
