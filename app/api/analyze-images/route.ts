@@ -54,23 +54,25 @@ ${roleLines}
 请按以下结构生成提示词（直接输出提示词内容，不要输出标题和编号，用逗号和句号自然连接）：
 
 1. 类型：拍摄风格（如 High-end luxury fashion magazine editorial studio photography）
-2. 主体：人物描述（年龄、风格、真实感、皮肤质感），${model_face_url ? `脸部特征参考图${faceImageNumber}` : "自然真实的人脸"}
-3. 穿着：详细描述服装品类、搭配风格、配饰（耳环/包包/鞋子等，根据服装风格智能匹配）
+2. 主体：人物描述（年龄、风格、真实感、皮肤质感），${model_face_url ? `脸部特征严格保持图${faceImageNumber}模特脸的五官、肤色、发型和气质` : "自然真实的人脸，皮肤保留毛孔和轻微瑕疵"}
+3. 穿着：详细描述图${clothingRefs.join("、")}的服装品类、版型、颜色、材质、图案、细节（纽扣/拉链/口袋/刺绣/印花等），搭配风格，智能匹配配饰（耳环/项链/包包/鞋子等）
 4. 姿态：优雅自信的姿势描述，自然动态，与镜头的眼神交流
 5. 拍摄设备：具体相机和镜头参数（如 Shot on medium format camera, 85mm f/1.4 prime lens，根据图片风格选择最合适的设备）
 6. 拍摄效果：景深、焦点、画面质感（如 ultra-shallow depth of field, crisp focus on model）
-7. 灯光：专业灯光设置（主光/辅光/轮廓光/背景光，根据参考图的光影风格自动匹配最佳灯光方案）
-8. 背景：背景描述（根据参考图自动匹配，如 Clean seamless studio background / 自然户外场景）
-9. 皮肤质感：真实皮肤描述（毛孔、纹理、自然瑕疵、不过度磨皮）
+7. 灯光：专业灯光设置（主光/辅光/轮廓光/背景光，${reference_url ? `根据图${referenceImageNumber}参考图的光影风格自动匹配最佳灯光方案` : "根据服装风格选择合适的灯光方案"})
+8. 背景：${reference_url ? `严格保持图${referenceImageNumber}参考图的背景场景、构图角度、空间透视不变` : "背景描述（根据服装风格自动匹配）"}
+9. 皮肤质感：真实皮肤描述（毛孔、纹理、自然瑕疵、不过度磨皮、真实肤色）
 10. 图像质量：技术参数（photorealistic, 8K ultra-detailed, high contrast, cinematic color grade, commercial fashion catalog quality, sharp details, raw photo quality）
 
 要求：
 - 所有参数必须根据输入图片智能分析，不要使用固定模板
 - 拍摄设备、灯光方案、背景风格必须与参考图一致
-- 服装描述必须忠实于上传的服装图
+- 服装描述必须忠实于上传的服装图，保留所有细节
+- ${model_face_url ? `最终人物脸部必须替换为图${faceImageNumber}的模特脸` : "人物脸部自然真实"}
 - 用英文生成摄影技术参数，用中文描述服装和风格细节
-- 最终输出为一段连贯的提示词，150-250字，不要分点，不要解释
-- 必须去 AI 味：强调真实摄影质感、自然光影、真实皮肤${style ? `\n\n用户当前提示词（仅供参考方向，不要照搬，必须基于图片分析重新生成）：\n${style}` : ""}`;
+- 最终输出为一段连贯的提示词，200-300字，不要分点，不要解释
+- 必须去 AI 味：强调真实摄影质感、自然光影、真实皮肤、布料褶皱、缝线纹理
+- 负面约束：不要改变参考图场景，不要生成多余人物，不要扭曲身体和服装，不要塑料皮肤，不要蜡像感，不要卡通感，不要AI渲染感${style ? `\n\n用户当前提示词（仅供参考方向，不要照搬，必须基于图片分析重新生成）：\n${style}` : ""}`;
 
     const fallbackPrompt = buildFallbackPrompt({
       clothingCount: clothing_urls.length,
@@ -171,15 +173,17 @@ function buildFallbackPrompt(params: {
   style?: string;
 }) {
   const clothingRefs = Array.from({ length: params.clothingCount }, (_, index) => `图${index + 1}`);
-  const clothingText = params.clothingCount > 1
-    ? `${clothingRefs.join("、")}的服装搭配成一套完整穿搭`
-    : "图1的服装";
-  const referenceText = params.hasReference
-    ? `严格保持图${params.referenceImageNumber}参考图的背景、构图、镜头角度、光影、姿势、身体比例和人物位置不变。`
-    : "生成自然的单人时尚摄影构图，主体清晰，姿势自然。";
-  const faceText = params.hasModelFace
-    ? `将最终人物脸部替换为图${params.faceImageNumber}的模特脸，身份自然一致。`
-    : "人物脸部自然真实，皮肤保留自然纹理。";
+  const clothingText = clothingRefs.join("、");
 
-  return `High-end luxury fashion magazine editorial studio photography, full body portrait, wearing ${clothingText}, elegant confident posture, natural dynamic fashion pose. Shot on medium format camera, 85mm f/1.4 prime lens, ultra-shallow depth of field, crisp focus on model. Professional premium studio lighting: key light from large soft octabox, gentle fill light, delicate rim light. Clean seamless studio background. Hyper-realistic skin texture, natural pores, smooth yet realistic dermis. photorealistic, 8K ultra-detailed, high contrast, cinematic color grade, commercial fashion catalog quality, sharp details, raw photo quality. ${referenceText}${faceText}保留服装版型、颜色、材质、图案和细节，不要多余人物、身体扭曲、塑料皮肤、蜡像感、卡通感或AI渲染感。${params.style?.trim() ? ` ${params.style.trim()}` : ""}`;
+  const referenceText = params.hasReference
+    ? `严格保持图${params.referenceImageNumber}参考图的背景场景、构图角度、光影方向、人物姿势和身体比例不变。`
+    : "Clean seamless light grey studio background, minimalist aesthetic, natural single-person fashion photography composition.";
+  const faceText = params.hasModelFace
+    ? `最终人物脸部严格替换为图${params.faceImageNumber}的模特脸，保持五官、肤色、发型和气质一致。`
+    : "Hyper-realistic skin texture, natural pores, smooth yet realistic dermis, natural skin tone with subtle imperfections.";
+  const clothingDetail = params.clothingCount > 1
+    ? `将${clothingText}的服装搭配成一套完整穿搭，保留每件服装的版型、颜色、材质、图案、纹理和细节（纽扣/拉链/口袋/刺绣/印花等），服装自然贴合人体，布料褶皱真实。`
+    : `忠实还原${clothingText}的服装品类、版型、颜色、材质、图案和所有细节，服装自然贴合人体，布料褶皱和缝线纹理真实。`;
+
+  return `High-end luxury fashion magazine editorial studio photography, full body portrait of a young woman with natural real-person appearance, wearing clothing from ${clothingText}. ${clothingDetail} Elegant and confident posture, natural dynamic fashion pose, subtle eye contact with camera. Shot on medium format camera, 85mm f/1.4 prime lens, ultra-shallow depth of field, crisp focus on model. Professional premium studio lighting: key light from large soft octabox, gentle fill light, delicate rim light to outline body contours, minimal shadow control. ${referenceText} ${faceText} photorealistic, 8K ultra-detailed, high contrast, cinematic color grade, commercial fashion catalog quality, sharp details, raw photo quality. No extra people, no body distortion, no plastic skin, no wax figure look, no cartoon style, no AI rendering artifacts, no fake glow. ${params.style?.trim() ? params.style.trim() : ""}`;
 }
