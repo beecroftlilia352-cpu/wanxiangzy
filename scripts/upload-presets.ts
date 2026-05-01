@@ -75,9 +75,17 @@ async function main() {
     await uploadFile("references", path.join(REFERENCES_DIR, file), file);
   }
 
-  console.log("\nDone! Update PRESET_MODELS and PRESET_REFERENCES URLs in:");
-  console.log("  - app/create/page.tsx");
-  console.log("  - app/model/page.tsx (if applicable)");
+  // garment-3d refs
+  const GARMENT_REFS_DIR = path.resolve(__dirname, "../public/garment-3d-refs");
+  if (fs.existsSync(GARMENT_REFS_DIR)) {
+    console.log("\n=== Uploading garment-3d references ===");
+    const garmentRefFiles = fs.readdirSync(GARMENT_REFS_DIR).filter((f) => /\.(jpg|jpeg|png|webp)$/i.test(f));
+    for (const file of garmentRefFiles) {
+      await uploadFile("references", path.join(GARMENT_REFS_DIR, file), `garment-3d/${file}`);
+    }
+  }
+
+  console.log("\nDone! Update preset URLs in code.");
 }
 
 main().catch(console.error);
