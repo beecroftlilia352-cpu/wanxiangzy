@@ -12,7 +12,7 @@ import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize
 type GarmentType = "上装" | "下装" | "连体衣" | "其他";
 type OutputMode = "reference" | "prompt";
 
-const DEFAULT_PROMPT = "衣服变为类似穿在人身上的立体效果，向左微微旋转，保持背景不变。";
+const DEFAULT_PROMPT = "衣服变为类似穿在人身上的立体效果，向左微微旋转，使用干净白色背景。";
 
 const MODELS: { value: LingyaModel; label: string; desc: string; badge?: string; icon: string }[] = [
   { value: "gpt-image-2", label: "GPT-Image-2", desc: "4K · 4积分", badge: "最新", icon: "/model-icons/openai.svg" },
@@ -440,7 +440,7 @@ export default function Garment3dPage() {
                   <textarea
                     value={prompt}
                     onChange={(e) => { setPrompt(e.target.value); setPromptOverride(null); }}
-                    placeholder="描述衣服的立体角度、厚度、旋转方向、背景保留方式等"
+                    placeholder="描述衣服的立体角度、厚度、旋转方向、背景风格等"
                     className="w-full px-3 py-2 pr-10 rounded-lg border text-xs focus:ring-2 focus:ring-purple-200 outline-none resize-none h-24"
                   />
                   <button
@@ -689,14 +689,17 @@ function buildGarment3dPrompt(params: {
     ? "图像角色：图1是用户上传的服装图，图2是3D立体效果参考图。"
     : "图像角色：图1是用户上传的服装图。";
   const referenceLine = params.hasReference
-    ? "参考图2的立体角度、布料厚度、阴影结构和商业棚拍质感，但不要复制图2的颜色、图案、文字或具体款式。"
-    : "按照用户提示生成类似穿在人身上的3D立体展示效果。";
+    ? "参考图2的立体角度、布料厚度、阴影结构、背景风格和商业棚拍质感，但不要复制图2的颜色、图案、文字或具体款式。"
+    : "按照用户提示生成类似穿在人身上的3D立体展示效果，使用干净白色背景。";
+  const backgroundLine = params.hasReference
+    ? "画面要求：主体居中，边缘干净，真实商业棚拍质感，柔和自然阴影，背景参考图2的背景风格、明暗和空间感。"
+    : "画面要求：主体居中，边缘干净，真实商业棚拍质感，柔和自然阴影，干净白色背景。";
 
   return `${roles}
 任务：将图1的${params.garmentType || "服装"}从平面图或人台图转换为无真人、无头部、无脸、无手的3D立体服装展示图。
 ${referenceLine}
 严格保留图1服装的版型、颜色、材质、纹理、图案、纽扣、拉链、口袋、帽绳、袖口、裤腰、裤脚等细节。
 用户要求：${params.prompt.trim() || DEFAULT_PROMPT}
-画面要求：主体居中，边缘干净，真实商业棚拍质感，柔和自然阴影，背景保持图1背景不变或尽量接近原背景。
+${backgroundLine}
 负面约束：不要生成真人身体，不要生成模特脸，不要多件衣服，不要改变服装品类，不要改变主要颜色，不要扭曲文字和 logo。`;
 }
