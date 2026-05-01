@@ -102,14 +102,65 @@ export interface UploadResult {
 }
 
 /**
+ * 压缩图片（超过 maxSizeMB 时自动压缩）
+ */
+async function compressImage(file: File, maxSizeMB: number = 10): Promise<File> {
+  if (file.size <= maxSizeMB * 1024 * 1024) return file;
+
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      let { width, height } = img;
+
+      // 按比例缩小（最大边 2048px）
+      const maxDim = 2048;
+      if (width > maxDim || height > maxDim) {
+        const ratio = Math.min(maxDim / width, maxDim / height);
+        width = Math.round(width * ratio);
+        height = Math.round(height * ratio);
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d")!;
+      ctx.drawImage(img, 0, 0, width, height);
+
+      // 逐步降低质量直到小于限制
+      let quality = 0.85;
+      const tryCompress = () => {
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) { resolve(file); return; }
+            if (blob.size > maxSizeMB * 1024 * 1024 && quality > 0.3) {
+              quality -= 0.1;
+              tryCompress();
+            } else {
+              resolve(new File([blob], file.name, { type: "image/jpeg" }));
+            }
+          },
+          "image/jpeg",
+          quality
+        );
+      };
+      tryCompress();
+    };
+    img.onerror = () => resolve(file);
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+/**
  * 上传图片到 imgbb（通过服务端 API 代理）
  */
 export async function uploadImage(file: File): Promise<UploadResult> {
+  const compressed = await compressImage(file, 10);
+
   const base64 = await new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result as string);
     reader.onerror = reject;
-    reader.readAsDataURL(file);
+    reader.readAsDataURL(compressed);
   });
 
   const res = await fetch("/api/upload-image", {
