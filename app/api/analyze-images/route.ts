@@ -50,20 +50,36 @@ export async function POST(request: NextRequest) {
     if (reference_url) allImageRefs.push(`图${referenceImageNumber}`);
     if (model_face_url) allImageRefs.push(`图${faceImageNumber}`);
 
-    const textPrompt = `分析这些图片，生成一段AI换装提示词。
+    const textPrompt = `你是顶级商业时尚摄影师和 AI 换装提示词工程师。请仔细分析所有图片，生成一段高质量的结构化提示词。
 
+图片说明：
 ${roleLines}
 
-生成规则：
-1. 【最重要】提示词中必须出现所有图号：${allImageRefs.join("、")}，缺任何一个图号都会导致生成失败
-2. 【最重要】${reference_url ? `必须在提示词开头强调：100%保持图${referenceImageNumber}参考图的姿势、身体角度、四肢位置、头部朝向、手部动作、背景、构图、镜头角度、光影、人物位置完全不变` : "根据图片分析合适的姿势和构图"}
-3. 根据参考图判断拍摄风格（街拍/棚拍/户外/电商等），不要固定用同一种
-4. 用中文描述服装和风格，用英文写摄影参数
-5. 一段话，150-250字，不要分段，不要解释
-6. 包含：${reference_url ? "姿势锁定声明、" : ""}拍摄风格、人物描述、服装细节、相机镜头、灯光、背景、皮肤质感、图像质量
-7. 结尾加上：photorealistic, 8K, cinematic color, sharp details
-8. 不要编造图中没有的配饰或元素
-9. 负面：不要AI味、不要塑料皮肤、不要蜡像感、不要卡通${reference_url ? "、不要改变姿势" : ""}${style ? `\n\n用户当前提示词（仅供参考，不要照搬）：\n${style}` : ""}`;
+请按以下要求生成提示词（直接输出，不要标题和编号，逗号句号自然连接）：
+
+【硬性约束】
+1. 必须出现所有图号：${allImageRefs.join("、")}，缺任何一个都会导致生成失败
+2. ${reference_url ? `100%保持图${referenceImageNumber}的姿势、身体角度、四肢位置、头部朝向、手部动作、背景、构图、镜头角度、光影、人物位置完全不变` : "根据图片分析合适的姿势和构图"}
+3. 不要编造图中没有的配饰或元素
+
+【内容要求】
+1. 类型：根据参考图分析拍摄风格（街拍/棚拍/户外/电商/杂志/小红书等）
+2. 主体：${model_face_url ? `人物描述，脸部严格使用图${faceImageNumber}的五官、肤色、发型和气质` : "自然真实的人物描述"}
+3. 穿着：详细描述${clothingRefs.join("、")}的服装品类、版型、颜色、材质、图案、纹理、细节（纽扣/拉链/口袋/刺绣等）
+4. 姿态：${reference_url ? `严格保持图${referenceImageNumber}的姿势` : "自然优雅的姿势描述"}
+5. 拍摄设备：根据风格选择合适的相机镜头参数（如 medium format camera, 85mm f/1.4）
+6. 拍摄效果：景深、焦点、画面质感
+7. 灯光：专业灯光设置（主光/辅光/轮廓光），根据参考图匹配
+8. 背景：${reference_url ? `严格保持图${referenceImageNumber}的背景场景` : "根据风格匹配背景"}
+9. 皮肤质感：真实皮肤，毛孔、纹理、自然瑕疵、不过度磨皮
+10. 图像质量：photorealistic, 8K ultra-detailed, high contrast, cinematic color grade, commercial fashion catalog quality, sharp details, raw photo quality
+
+【格式要求】
+- 用中文描述服装和风格，用英文写摄影技术参数
+- 一段连贯的话，250-350字，不要分段，不要解释
+- 必须去AI味：强调真实摄影质感、自然光影、真实皮肤、布料褶皱
+
+【负面约束】${reference_url ? "不要改变参考图姿势和场景，" : ""}不要生成多余人物，不要扭曲身体和服装，不要塑料皮肤，不要蜡像感，不要卡通感，不要AI渲染感${style ? `\n\n用户当前提示词（仅供参考方向，不要照搬，必须基于图片分析重新生成）：\n${style}` : ""}`;
 
     const fallbackPrompt = buildFallbackPrompt({
       clothingCount: clothing_urls.length,
@@ -86,7 +102,7 @@ ${roleLines}
     const requestBody = {
       model: llm.model,
       messages: [{ role: "user", content: [{ type: "text", text: textPrompt }, ...imageContents] }],
-      max_tokens: 500,
+      max_tokens: 800,
     };
 
     console.log("[analyze] 发送图片数量:", imageContents.length, "provider:", llm.provider, "模型:", llm.model);
