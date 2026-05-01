@@ -18,7 +18,7 @@ function ImgSkeleton({ src, alt, className }: {
   );
 }
 import { useTryOnStore } from "@/lib/store/tryon-store";
-import { fileToBase64, MAX_CLOTHING_FILES, downloadImage, generateDownloadFilename } from "@/lib/utils";
+import { fileToBase64, MAX_CLOTHING_FILES, downloadImage, generateDownloadFilename, uploadImage } from "@/lib/utils";
 import { createClient, getCachedProfileCredits, setCachedProfileCredits } from "@/lib/supabase/client";
 import { getCreditCost, getSupportedImageSizes, buildTryOnPrompt, type LingyaModel, type ImageSize, type AspectRatio } from "@/lib/api/lingya";
 import { toast } from "sonner";
@@ -221,18 +221,32 @@ export default function CreatePage() {
         const preview = await fileToBase64(f);
         previews.push(preview);
         validFiles.push(f);
-        newUrls.push(preview); // 直接用 base64，不上传
       } catch { toast.error(`${f.name} 处理失败`); }
     }
 
     if (validFiles.length > 0) {
+      toast.info(`正在上传 ${validFiles.length} 张图片...`);
+      const uploadResults = await Promise.allSettled(
+        validFiles.map((f) => uploadImage(f))
+      );
+
+      for (let i = 0; i < uploadResults.length; i++) {
+        const result = uploadResults[i];
+        if (result.status === "fulfilled") {
+          newUrls.push(result.value.url);
+        } else {
+          toast.error(`${validFiles[i].name} 上传失败`);
+          newUrls.push(previews[i]);
+        }
+      }
+
       store.setClothing([...store.clothingFiles, ...validFiles], [...store.clothingPreviews, ...previews]);
       setUploadedClothingUrls(prev => [...prev, ...newUrls]);
       setPromptOverride(null);
       toast.success(`${validFiles.length} 件衣服已就绪`);
     }
     setIsUploading(false);
-  }, [store, supabase]);
+  }, [store]);
 
   // 删除服装时同步删除已上传的 URL
   const removeClothing = (index: number) => {
@@ -245,7 +259,13 @@ export default function CreatePage() {
     const file = e.target.files?.[0]; if (!file) return;
     const base64 = await fileToBase64(file);
     setCustomModelPreview(base64);
-    store.setSelectedModel({ id: "custom", name: "自定义", image_url: base64, gender: "female", is_preset: false, user_id: null });
+    toast.info("正在上传模特图...");
+    try {
+      const result = await uploadImage(file);
+      store.setSelectedModel({ id: "custom", name: "自定义", image_url: result.url, gender: "female", is_preset: false, user_id: null });
+    } catch {
+      store.setSelectedModel({ id: "custom", name: "自定义", image_url: base64, gender: "female", is_preset: false, user_id: null });
+    }
     setPromptOverride(null);
     toast.success("模特已选择");
   };
@@ -254,7 +274,13 @@ export default function CreatePage() {
     const file = e.target.files?.[0]; if (!file) return;
     const base64 = await fileToBase64(file);
     setCustomRefPreview(base64);
-    store.setReferenceImage({ id: "custom", url: base64, label: "自定义参考", category: "style", is_preset: false, user_id: null });
+    toast.info("正在上传参考图...");
+    try {
+      const result = await uploadImage(file);
+      store.setReferenceImage({ id: "custom", url: result.url, label: "自定义参考", category: "style", is_preset: false, user_id: null });
+    } catch {
+      store.setReferenceImage({ id: "custom", url: base64, label: "自定义参考", category: "style", is_preset: false, user_id: null });
+    }
     setPromptOverride(null);
     toast.success("参考图已选择");
   };

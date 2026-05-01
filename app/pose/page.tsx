@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Download, Loader2, PersonStanding, Sparkles, Upload, Wand, X } from "lucide-react";
 import { toast } from "sonner";
 import { createClient, getCachedProfileCredits, setCachedProfileCredits } from "@/lib/supabase/client";
-import { downloadImage, fileToBase64, generateDownloadFilename } from "@/lib/utils";
+import { downloadImage, fileToBase64, generateDownloadFilename, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
 import { FeatureTabs } from "@/components/FeatureTabs";
 
@@ -82,6 +82,14 @@ export default function PosePage() {
     setMainImage(base64);
     setResultUrls([]);
     setError("");
+
+    toast.info("正在上传主图...");
+    try {
+      const result = await uploadImage(file);
+      setMainImage(result.url);
+    } catch {
+      // 保留 base64 作为降级
+    }
     toast.success("主图已选择");
   }
 

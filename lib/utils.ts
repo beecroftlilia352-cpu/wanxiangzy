@@ -92,3 +92,31 @@ export const ACCEPTED_IMAGE_TYPES = {
 
 export const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 export const MAX_CLOTHING_FILES = 5;
+
+export interface UploadResult {
+  url: string;
+  display_url: string;
+  delete_url: string;
+  width: number;
+  height: number;
+}
+
+/**
+ * 上传图片到 imgbb（通过服务端 API 代理）
+ */
+export async function uploadImage(file: File): Promise<UploadResult> {
+  const form = new FormData();
+  form.append("image", file);
+
+  const res = await fetch("/api/upload-image", {
+    method: "POST",
+    body: form,
+  });
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || `上传失败 (${res.status})`);
+  }
+
+  return res.json();
+}

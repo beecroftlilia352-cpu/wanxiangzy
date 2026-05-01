@@ -6,7 +6,7 @@ import { Camera, Download, Loader2, Sparkles, Upload, UserRound, Wand, X } from 
 import { toast } from "sonner";
 import { FeatureTabs } from "@/components/FeatureTabs";
 import { createClient, getCachedProfileCredits, setCachedProfileCredits } from "@/lib/supabase/client";
-import { downloadImage, fileToBase64, generateDownloadFilename } from "@/lib/utils";
+import { downloadImage, fileToBase64, generateDownloadFilename, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
 
 type Gender = "female" | "male";
@@ -124,6 +124,7 @@ export default function ModelPage() {
       toast.error("最多上传 3 张参考图");
       return;
     }
+    toast.info(`正在上传 ${incoming.length} 张参考图...`);
     const next: string[] = [];
     for (const file of incoming) {
       if (!file.type.startsWith("image/")) continue;
@@ -131,7 +132,12 @@ export default function ModelPage() {
         toast.error(`${file.name} 超过 10MB`);
         continue;
       }
-      next.push(await fileToBase64(file));
+      try {
+        const result = await uploadImage(file);
+        next.push(result.url);
+      } catch {
+        next.push(await fileToBase64(file));
+      }
     }
     if (next.length) {
       setReferenceUrls((prev) => [...prev, ...next].slice(0, 3));
@@ -157,10 +163,19 @@ export default function ModelPage() {
       toast.error(`${file.name} 超过 10MB`);
       return;
     }
-    setHairReferenceUrl(await fileToBase64(file));
+    const base64 = await fileToBase64(file);
+    setHairReferenceUrl(base64);
     setHairStyle(null);
     setResultUrls([]);
     setError("");
+
+    toast.info("正在上传发型参考图...");
+    try {
+      const result = await uploadImage(file);
+      setHairReferenceUrl(result.url);
+    } catch {
+      // 保留 base64 作为降级
+    }
     toast.success("已上传发型参考图");
   }
 
@@ -175,10 +190,19 @@ export default function ModelPage() {
       toast.error(`${file.name} 超过 10MB`);
       return;
     }
-    setHairColorReferenceUrl(await fileToBase64(file));
+    const base64 = await fileToBase64(file);
+    setHairColorReferenceUrl(base64);
     setHairColor(null);
     setResultUrls([]);
     setError("");
+
+    toast.info("正在上传发色参考图...");
+    try {
+      const result = await uploadImage(file);
+      setHairColorReferenceUrl(result.url);
+    } catch {
+      // 保留 base64 作为降级
+    }
     toast.success("已上传发色参考图");
   }
 

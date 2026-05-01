@@ -6,7 +6,7 @@ import { Box, ChevronRight, Download, Loader2, Plus, Sparkles, Upload, Wand, X, 
 import { toast } from "sonner";
 import { FeatureTabs } from "@/components/FeatureTabs";
 import { createClient, getCachedProfileCredits, setCachedProfileCredits } from "@/lib/supabase/client";
-import { downloadImage, fileToBase64, generateDownloadFilename } from "@/lib/utils";
+import { downloadImage, fileToBase64, generateDownloadFilename, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
 
 type GarmentType = "上装" | "下装" | "连体衣" | "其他";
@@ -131,6 +131,14 @@ export default function Garment3dPage() {
     setGarmentName(file.name);
     setResultUrls([]);
     setError(null);
+
+    toast.info("正在上传服装图...");
+    try {
+      const result = await uploadImage(file);
+      setGarmentUrl(result.url);
+    } catch {
+      // 保留 base64 作为降级
+    }
     toast.success("服装图已准备");
   }
 
@@ -143,6 +151,14 @@ export default function Garment3dPage() {
     const base64 = await fileToBase64(file);
     setCustomReferenceUrl(base64);
     setPromptOverride(null);
+
+    toast.info("正在上传参考图...");
+    try {
+      const result = await uploadImage(file);
+      setCustomReferenceUrl(result.url);
+    } catch {
+      // 保留 base64 作为降级
+    }
     toast.success("参考图已选择");
   }
 
