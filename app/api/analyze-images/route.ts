@@ -1,6 +1,6 @@
 /**
  * POST /api/analyze-images
- * 用视觉模型分析图片生成提示词
+ * 用视觉模型分析图片生成结构化摄影级提示词
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -8,7 +8,7 @@ import { requireApiUser } from "@/lib/api/auth";
 import { getChatCompletionsUrl, getLlmConfig } from "@/lib/api/llm-provider";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 
-const ANALYZE_TIMEOUT_MS = Number(process.env.LINGYA_ANALYZE_TIMEOUT_MS || 25000);
+const ANALYZE_TIMEOUT_MS = Number(process.env.LINGYA_ANALYZE_TIMEOUT_MS || 30000);
 
 export async function POST(request: NextRequest) {
   try {
@@ -20,12 +20,12 @@ export async function POST(request: NextRequest) {
 
     const { clothing_urls, model_face_url, reference_url, style } = await request.json();
     if (!clothing_urls?.length) return NextResponse.json({ prompt: "" });
-    if (!Array.isArray(clothing_urls) || clothing_urls.some((url) => typeof url !== "string")) {
+    if (!Array.isArray(clothing_urls) || clothing_urls.some((url: unknown) => typeof url !== "string")) {
       return NextResponse.json({ prompt: "" });
     }
 
-    // 构建图片内容。顺序必须与提示词里的图号完全一致。
-    const imageContents: any[] = [];
+    // 构建图片内容
+    const imageContents: Array<{ type: string; image_url: { url: string } }> = [];
     for (const url of clothing_urls) {
       imageContents.push({ type: "image_url", image_url: { url } });
     }
@@ -35,28 +35,43 @@ export async function POST(request: NextRequest) {
     const clothingRefs = clothing_urls.map((_: string, index: number) => `图${index + 1}`);
     const referenceImageNumber = clothing_urls.length + 1;
     const faceImageNumber = clothing_urls.length + (reference_url ? 2 : 1);
+
     const roleLines = [
-      `${clothingRefs.join("、")}：服装图，用于提取衣服的版型、颜色、材质、图案和细节。`,
+      `${clothingRefs.join("、")}：用户上传的服装图，仔细分析服装的品类、版型、颜色、材质、图案、纹理、细节（纽扣/拉链/口袋/刺绣/印花等）。`,
       reference_url
-        ? `图${referenceImageNumber}：参考图，用于锁定最终画面的背景、构图、镜头角度、光影、姿势、身体比例和人物位置。`
+        ? `图${referenceImageNumber}：参考图，分析并提取人物姿势、身体比例、构图角度、背景场景、光影方向、摄影风格。`
         : "",
       model_face_url
-        ? `图${faceImageNumber}：模特脸图，用于替换最终人物的脸部身份。`
+        ? `图${faceImageNumber}：模特脸图，分析五官特征、肤色、发型、气质风格。`
         : "",
     ].filter(Boolean).join("\n");
 
-    const textPrompt = `你是商业时尚摄影修图指导和 AI 换装提示词工程师。请严格按下面的图像编号理解输入，不要重新猜测图片角色。
+    const textPrompt = `你是顶级商业时尚摄影师和 AI 换装提示词工程师。请仔细分析以下所有图片，然后生成一段高质量的结构化提示词。
 
+图片说明：
 ${roleLines}
 
-请输出一段可直接用于图像生成模型的中文提示词，目标是“真实摄影感、自然商业大片质感、去 AI 味”。要求：
-1. 明确写出图号和任务关系。
-2. ${reference_url ? `要求保持图${referenceImageNumber}参考图的背景、构图、镜头角度、光影、姿势、身体比例和人物位置不变。` : "要求生成自然的单人时尚摄影构图。"}
-3. ${model_face_url ? `要求将最终人物脸部替换为图${faceImageNumber}的模特脸。` : "要求保持人物脸部自然真实。"}
-4. 保留服装的版型、颜色、材质、图案和细节，使服装自然贴合人体。
-5. 加入摄影真实感描述：真实相机拍摄、自然环境光或棚拍柔光、真实阴影、布料褶皱、缝线纹理、皮肤毛孔和轻微瑕疵、不过度磨皮、颜色不过饱和。
-6. 加入负面约束：不要改变参考图场景，不要生成多余人物，不要扭曲身体和服装，不要塑料皮肤，不要蜡像感，不要过度锐化，不要卡通感，不要 AI 渲染感，不要虚假光晕。
-7. 语言要像专业摄影执行指令，简洁但具体，80-140字，只输出最终提示词，不要解释，不要分点。${style ? `\n用户当前提示词（仅供参考方向，不要照搬原文，必须重新生成完整新提示词）：\n${style}` : ""}`;
+请按以下结构生成提示词（直接输出提示词内容，不要输出标题和编号，用逗号和句号自然连接）：
+
+1. 类型：拍摄风格（如 High-end luxury fashion magazine editorial studio photography）
+2. 主体：人物描述（年龄、风格、真实感、皮肤质感），${model_face_url ? `脸部特征参考图${faceImageNumber}` : "自然真实的人脸"}
+3. 穿着：详细描述服装品类、搭配风格、配饰（耳环/包包/鞋子等，根据服装风格智能匹配）
+4. 姿态：优雅自信的姿势描述，自然动态，与镜头的眼神交流
+5. 拍摄设备：具体相机和镜头参数（如 Shot on medium format camera, 85mm f/1.4 prime lens，根据图片风格选择最合适的设备）
+6. 拍摄效果：景深、焦点、画面质感（如 ultra-shallow depth of field, crisp focus on model）
+7. 灯光：专业灯光设置（主光/辅光/轮廓光/背景光，根据参考图的光影风格自动匹配最佳灯光方案）
+8. 背景：背景描述（根据参考图自动匹配，如 Clean seamless studio background / 自然户外场景）
+9. 皮肤质感：真实皮肤描述（毛孔、纹理、自然瑕疵、不过度磨皮）
+10. 图像质量：技术参数（photorealistic, 8K ultra-detailed, high contrast, cinematic color grade, commercial fashion catalog quality, sharp details, raw photo quality）
+
+要求：
+- 所有参数必须根据输入图片智能分析，不要使用固定模板
+- 拍摄设备、灯光方案、背景风格必须与参考图一致
+- 服装描述必须忠实于上传的服装图
+- 用英文生成摄影技术参数，用中文描述服装和风格细节
+- 最终输出为一段连贯的提示词，150-250字，不要分点，不要解释
+- 必须去 AI 味：强调真实摄影质感、自然光影、真实皮肤${style ? `\n\n用户当前提示词（仅供参考方向，不要照搬，必须基于图片分析重新生成）：\n${style}` : ""}`;
+
     const fallbackPrompt = buildFallbackPrompt({
       clothingCount: clothing_urls.length,
       referenceImageNumber,
@@ -78,7 +93,7 @@ ${roleLines}
     const requestBody = {
       model: llm.model,
       messages: [{ role: "user", content: [{ type: "text", text: textPrompt }, ...imageContents] }],
-      max_tokens: 200,
+      max_tokens: 500,
     };
 
     console.log("[analyze] 发送图片数量:", imageContents.length, "provider:", llm.provider, "模型:", llm.model);
@@ -115,25 +130,30 @@ ${roleLines}
       return NextResponse.json({ prompt: fallbackPrompt, source: "fallback", reason: "empty_llm_content" });
     }
 
-  } catch (err: any) {
-    if (err?.name === "AbortError") {
+  } catch (err: unknown) {
+    if (err instanceof Error && err.name === "AbortError") {
       console.warn(`[analyze] 超过 ${ANALYZE_TIMEOUT_MS}ms，跳过视觉提示词优化`);
       return NextResponse.json({ prompt: "", skipped: true, reason: "timeout" });
     }
-    console.error("[analyze] 异常:", err.message, err.stack);
+    console.error("[analyze] 异常:", err);
     return NextResponse.json({ prompt: "" });
   }
 }
 
-function extractMessageText(data: any): string {
-  const content = data?.choices?.[0]?.message?.content;
+function extractMessageText(data: Record<string, unknown>): string {
+  const choices = data?.choices as Array<Record<string, unknown>> | undefined;
+  const message = choices?.[0]?.message as Record<string, unknown> | undefined;
+  const content = message?.content;
   if (typeof content === "string") return content;
   if (Array.isArray(content)) {
     return content
-      .map((item) => {
+      .map((item: unknown) => {
         if (typeof item === "string") return item;
-        if (typeof item?.text === "string") return item.text;
-        if (typeof item?.content === "string") return item.content;
+        if (typeof item === "object" && item !== null) {
+          const obj = item as Record<string, unknown>;
+          if (typeof obj.text === "string") return obj.text;
+          if (typeof obj.content === "string") return obj.content;
+        }
         return "";
       })
       .filter(Boolean)
@@ -160,7 +180,6 @@ function buildFallbackPrompt(params: {
   const faceText = params.hasModelFace
     ? `将最终人物脸部替换为图${params.faceImageNumber}的模特脸，身份自然一致。`
     : "人物脸部自然真实，皮肤保留自然纹理。";
-  const styleText = params.style?.trim() ? ` ${params.style.trim()}` : "";
 
-  return `图像角色：${clothingRefs.join("、")}是服装图。任务：让人物穿上${clothingText}。${referenceText}${faceText}保留服装版型、颜色、材质、图案和细节，布料褶皱自然贴合人体，真实相机拍摄，柔和光影，皮肤不过度磨皮，不要多余人物、身体扭曲、塑料皮肤、蜡像感、卡通感或 AI 渲染感。${styleText}`;
+  return `High-end luxury fashion magazine editorial studio photography, full body portrait, wearing ${clothingText}, elegant confident posture, natural dynamic fashion pose. Shot on medium format camera, 85mm f/1.4 prime lens, ultra-shallow depth of field, crisp focus on model. Professional premium studio lighting: key light from large soft octabox, gentle fill light, delicate rim light. Clean seamless studio background. Hyper-realistic skin texture, natural pores, smooth yet realistic dermis. photorealistic, 8K ultra-detailed, high contrast, cinematic color grade, commercial fashion catalog quality, sharp details, raw photo quality. ${referenceText}${faceText}保留服装版型、颜色、材质、图案和细节，不要多余人物、身体扭曲、塑料皮肤、蜡像感、卡通感或AI渲染感。${params.style?.trim() ? ` ${params.style.trim()}` : ""}`;
 }
