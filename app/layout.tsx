@@ -6,6 +6,10 @@ import { HeaderClient } from "@/components/HeaderClient";
 export const metadata: Metadata = {
   title: "万象衣造 AI｜VastWearGen",
   description: "万象衣造 AI｜VastWearGen，提供服装上身、姿势裂变和专属模特生成。",
+  icons: {
+    icon: [{ url: "/gemini-icon.png", type: "image/png" }],
+    apple: [{ url: "/gemini-icon.png", type: "image/png" }],
+  },
 };
 
 export default function RootLayout({

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { clearCachedProfileCredits, createClient, getCachedProfileCredits, setCachedProfileCredits, subscribeToProfileCredits } from "@/lib/supabase/client";
 import { Coins } from "lucide-react";
@@ -130,6 +131,15 @@ export function HeaderClient() {
     <header className="sticky top-0 z-50 border-b bg-white/90 backdrop-blur-md">
       <div className="h-14 px-6 flex items-center justify-between">
         <a href="/" className="flex items-center gap-2 font-bold text-base leading-none">
+          <Image
+            src="/gemini-icon.png"
+            alt=""
+            width={28}
+            height={28}
+            className="h-7 w-7 flex-shrink-0 rounded-md object-contain"
+            priority
+            aria-hidden="true"
+          />
           <span className="gradient-brand-text">万象衣造 AI｜VastWearGen</span>
         </a>
 
