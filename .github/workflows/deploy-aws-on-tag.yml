@@ -1,0 +1,82 @@
+name: Deploy AWS on tag
+
+on:
+  push:
+    tags:
+      - "*"
+
+concurrency:
+  group: aws-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to EC2
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout tagged source
+        uses: actions/checkout@v4
+
+      - name: Create deployment archive
+        run: |
+          set -euo pipefail
+          mkdir -p .deploy
+          tar \
+            --exclude='./.git' \
+            --exclude='./.github' \
+            --exclude='./.next' \
+            --exclude='./.vercel' \
+            --exclude='./.deploy' \
+            --exclude='./node_modules' \
+            --exclude='./.env.local' \
+            --exclude='./.env.production' \
+            --exclude='./*.log' \
+            -czf .deploy/app.tar.gz .
+
+      - name: Configure SSH
+        env:
+          AWS_HOST: ${{ secrets.AWS_HOST }}
+          AWS_PORT: ${{ secrets.AWS_PORT }}
+          AWS_SSH_PRIVATE_KEY: ${{ secrets.AWS_SSH_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$AWS_HOST"
+          test -n "$AWS_SSH_PRIVATE_KEY"
+          AWS_PORT="${AWS_PORT:-22}"
+          mkdir -p ~/.ssh
+          printf '%s\n' "$AWS_SSH_PRIVATE_KEY" > ~/.ssh/aws_deploy_key
+          chmod 600 ~/.ssh/aws_deploy_key
+          ssh-keyscan -p "$AWS_PORT" -H "$AWS_HOST" >> ~/.ssh/known_hosts
+
+      - name: Upload deployment archive
+        env:
+          AWS_HOST: ${{ secrets.AWS_HOST }}
+          AWS_PORT: ${{ secrets.AWS_PORT }}
+          AWS_USER: ${{ secrets.AWS_USER }}
+        run: |
+          set -euo pipefail
+          AWS_PORT="${AWS_PORT:-22}"
+          AWS_USER="${AWS_USER:-ec2-user}"
+          scp -P "$AWS_PORT" -i ~/.ssh/aws_deploy_key .deploy/app.tar.gz \
+            "$AWS_USER@$AWS_HOST:/tmp/wanxiangzy-${GITHUB_RUN_ID}.tar.gz"
+
+      - name: Deploy on EC2
+        env:
+          AWS_HOST: ${{ secrets.AWS_HOST }}
+          AWS_PORT: ${{ secrets.AWS_PORT }}
+          AWS_USER: ${{ secrets.AWS_USER }}
+          AWS_APP_DIR: ${{ secrets.AWS_APP_DIR }}
+          AWS_APP_NAME: ${{ secrets.AWS_APP_NAME }}
+          TAG_NAME: ${{ github.ref_name }}
+          DEPLOY_ARCHIVE: /tmp/wanxiangzy-${{ github.run_id }}.tar.gz
+        run: |
+          set -euo pipefail
+          AWS_PORT="${AWS_PORT:-22}"
+          AWS_USER="${AWS_USER:-ec2-user}"
+          quote() { printf '%q' "$1"; }
+          REMOTE_ENV="AWS_APP_DIR=$(quote "${AWS_APP_DIR:-}") AWS_APP_NAME=$(quote "${AWS_APP_NAME:-}") TAG_NAME=$(quote "$TAG_NAME") DEPLOY_ARCHIVE=$(quote "$DEPLOY_ARCHIVE")"
+          ssh -p "$AWS_PORT" -i ~/.ssh/aws_deploy_key "$AWS_USER@$AWS_HOST" \
+            "$REMOTE_ENV bash -s" \
+            < scripts/deploy-aws-release.sh

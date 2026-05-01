@@ -120,7 +120,36 @@ curl -H "Authorization: Bearer $JOB_PROCESSOR_SECRET" \
 
 生产环境建议配置定时任务每 1 分钟请求一次 `/api/jobs/process-generations`。在 Vercel 上可以直接设置 `CRON_SECRET`，本接口同时兼容 `JOB_PROCESSOR_SECRET` 和 `CRON_SECRET`。
 
-### 6. 添加预设模特和参考图
+### 6. AWS Tag 自动部署
+
+仓库内置 GitHub Actions：推送任意 Git tag 后自动部署到 EC2。
+
+先在 GitHub 仓库 `Settings -> Secrets and variables -> Actions` 添加：
+
+```env
+AWS_HOST=你的 EC2 公网 IP 或域名
+AWS_USER=ec2-user
+AWS_SSH_PRIVATE_KEY=你的 EC2 私钥内容
+AWS_PORT=22
+AWS_APP_DIR=/home/ec2-user/apps/wanxiangzy
+AWS_APP_NAME=wanxiangzy
+```
+
+在 EC2 上只需手动创建一次生产环境文件：
+
+```bash
+mkdir -p ~/apps/wanxiangzy/shared
+nano ~/apps/wanxiangzy/shared/.env.production
+```
+
+之后本地打 tag 并推送即可部署：
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+### 7. 添加预设模特和参考图
 
 将模特头像放入 `public/models/`，参考图放入 `public/references/`：
 - `public/models/female-1.jpg` ~ `female-3.jpg`
