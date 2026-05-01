@@ -1,0 +1,51 @@
+name: Trigger Vercel deploy hook
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      disable_build_cache:
+        description: "Trigger Vercel without build cache"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+
+concurrency:
+  group: vercel-deploy-hook
+  cancel-in-progress: true
+
+jobs:
+  trigger:
+    name: Trigger Vercel
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Trigger deploy hook
+        env:
+          VERCEL_DEPLOY_HOOK_URL: ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}
+          DISABLE_BUILD_CACHE: ${{ github.event.inputs.disable_build_cache || 'false' }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${VERCEL_DEPLOY_HOOK_URL:-}" ]; then
+            echo "::error::Missing repository secret VERCEL_DEPLOY_HOOK_URL"
+            exit 1
+          fi
+
+          HOOK_URL="$VERCEL_DEPLOY_HOOK_URL"
+          if [ "$DISABLE_BUILD_CACHE" = "true" ]; then
+            if [[ "$HOOK_URL" == *\?* ]]; then
+              HOOK_URL="${HOOK_URL}&buildCache=false"
+            else
+              HOOK_URL="${HOOK_URL}?buildCache=false"
+            fi
+          fi
+
+          curl --fail --show-error --silent --request POST "$HOOK_URL"
+          echo "Vercel deploy hook triggered for ${GITHUB_SHA}"
