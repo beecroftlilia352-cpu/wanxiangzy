@@ -381,12 +381,28 @@ export default function Garment3dPage() {
                     <button
                       key={ref.id}
                       onClick={() => { setSelectedReference(ref); setCustomReferenceUrl(""); setPromptOverride(null); }}
-                      className={`relative aspect-square rounded-lg overflow-hidden border bg-gray-50 ${
+                      className={`group relative aspect-square rounded-lg overflow-hidden border bg-gray-50 ${
                         !customReferenceUrl && selectedReference.id === ref.id ? "border-purple-500 ring-2 ring-purple-100" : "border-gray-200"
                       }`}
                       title={ref.label}
                     >
                       <img src={ref.url} alt={ref.label} className="w-full h-full object-cover" />
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        onClick={(e) => { e.stopPropagation(); setLightboxSrc(ref.url); }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setLightboxSrc(ref.url);
+                          }
+                        }}
+                        className="absolute right-1.5 top-1.5 w-7 h-7 rounded-full bg-white/90 text-gray-700 shadow-sm opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity flex items-center justify-center hover:bg-white"
+                        title="放大预览"
+                      >
+                        <ZoomIn className="w-3.5 h-3.5" />
+                      </span>
                     </button>
                   ))}
                   <button
