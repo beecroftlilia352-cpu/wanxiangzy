@@ -53,7 +53,7 @@ ${roleLines}
 
 请按以下结构生成提示词（直接输出提示词内容，不要输出标题和编号，用逗号和句号自然连接）：
 
-1. 类型：拍摄风格（如 High-end luxury fashion magazine editorial studio photography）
+1. 类型：拍摄风格（必须根据参考图分析判断，可能是以下之一或组合：街拍时尚 street fashion photography、杂志 editorial photography、电商产品 e-commerce catalog photography、户外自然光 outdoor natural light photography、棚拍 studio photography、小红书风格 lifestyle photography、韩系 Korean style photography、欧美 Western style photography 等，不要每次都用同一种风格）
 2. 主体：人物描述（年龄、风格、真实感、皮肤质感），${model_face_url ? `脸部特征严格保持图${faceImageNumber}模特脸的五官、肤色、发型和气质` : "自然真实的人脸，皮肤保留毛孔和轻微瑕疵"}
 3. 穿着：详细描述图${clothingRefs.join("、")}的服装品类、版型、颜色、材质、图案、细节（纽扣/拉链/口袋/刺绣/印花等），搭配风格，智能匹配配饰（耳环/项链/包包/鞋子等）
 4. 姿态：优雅自信的姿势描述，自然动态，与镜头的眼神交流
@@ -187,5 +187,5 @@ function buildFallbackPrompt(params: {
     ? `将${clothingText}的服装搭配成一套完整穿搭，保留每件服装的版型、颜色、材质、图案、纹理和细节（纽扣/拉链/口袋/刺绣/印花等），服装自然贴合人体，布料褶皱真实。`
     : `忠实还原${clothingText}的服装品类、版型、颜色、材质、图案和所有细节，服装自然贴合人体，布料褶皱和缝线纹理真实。`;
 
-  return `High-end luxury fashion magazine editorial studio photography, full body portrait of a young woman with natural real-person appearance, wearing clothing from ${clothingText}. ${clothingDetail} Elegant and confident posture, natural dynamic fashion pose, subtle eye contact with camera. Shot on medium format camera, 85mm f/1.4 prime lens, ultra-shallow depth of field, crisp focus on model. Professional premium studio lighting: key light from large soft octabox, gentle fill light, delicate rim light to outline body contours, minimal shadow control. ${referenceText} ${faceText} photorealistic, 8K ultra-detailed, high contrast, cinematic color grade, commercial fashion catalog quality, sharp details, raw photo quality. No extra people, no body distortion, no plastic skin, no wax figure look, no cartoon style, no AI rendering artifacts, no fake glow. ${params.style?.trim() ? params.style.trim() : ""}`;
+  return `Fashion photography, full body portrait of a young woman with natural real-person appearance, wearing clothing from ${clothingText}. ${clothingDetail} Elegant and confident posture, natural dynamic fashion pose, subtle eye contact with camera. Shot on medium format camera, 85mm f/1.4 prime lens, ultra-shallow depth of field, crisp focus on model. Professional studio lighting: key light from soft octabox, gentle fill light, delicate rim light. ${referenceText} ${faceText} photorealistic, 8K ultra-detailed, high contrast, cinematic color grade, commercial fashion catalog quality, sharp details, raw photo quality. No extra people, no body distortion, no plastic skin, no wax figure look, no cartoon style, no AI rendering artifacts. ${params.style?.trim() ? params.style.trim() : ""}`;
 }
