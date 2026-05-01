@@ -90,6 +90,7 @@ export default function CreatePage() {
   const [customStyle, setCustomStyle] = useState("");
   const [optimizing, setOptimizing] = useState(false);
   const [showPromptPreview, setShowPromptPreview] = useState(false);
+  const [promptOverride, setPromptOverride] = useState<string | null>(null);
 
   // 本地路径转 base64（预设图片用本地路径，API 服务器访问不到，需要转 base64）
   const urlToBase64 = async (url: string): Promise<string> => {
@@ -145,6 +146,13 @@ export default function CreatePage() {
 
   const costPerImage = getCreditCost(aiModel, imageSize, aspectRatio);
   const totalCost = costPerImage * store.clothingFiles.length * genCount;
+  const promptPreview = buildTryOnPrompt({
+    clothingCount: store.clothingFiles.length || 1,
+    hasModelFace: !!store.selectedModel,
+    hasReference: !!store.referenceImage,
+    style: customStyle || undefined,
+  });
+  const finalPrompt = promptOverride ?? (store.promptUsed || promptPreview.prompt);
 
   // ---- AI 优化提示词 ----
   const handleOptimizePrompt = async () => {
@@ -159,6 +167,39 @@ export default function CreatePage() {
       if (data.optimized) { setCustomStyle(data.optimized); toast.success("提示词已优化"); }
     } catch { toast.error("优化失败"); }
     setOptimizing(false);
+  };
+
+  const handleAnalyzeFullPrompt = async () => {
+    if (!uploadedClothingUrls.length) { toast.error("请先上传衣服"); return; }
+    setOptimizing(true);
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 30000);
+      const res = await fetch("/api/analyze-images", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
+        body: JSON.stringify({
+          clothing_urls: uploadedClothingUrls,
+          model_face_url: store.selectedModel?.image_url,
+          reference_url: store.referenceImage?.url,
+          style: finalPrompt,
+        }),
+      }).finally(() => clearTimeout(timeout));
+
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.prompt) {
+        setPromptOverride(data.prompt);
+        store.setPromptUsed(data.prompt);
+        toast.success("视觉 AI 已优化完整提示词");
+      } else {
+        toast.error(data.error || "AI 暂时没有返回优化结果");
+      }
+    } catch (err: any) {
+      toast.error(err?.name === "AbortError" ? "AI 分析超时" : "AI 分析失败");
+    } finally {
+      setOptimizing(false);
+    }
   };
 
   // ---- 文件处理：选择后立即上传 ----
@@ -187,6 +228,7 @@ export default function CreatePage() {
     if (validFiles.length > 0) {
       store.setClothing([...store.clothingFiles, ...validFiles], [...store.clothingPreviews, ...previews]);
       setUploadedClothingUrls(prev => [...prev, ...newUrls]);
+      setPromptOverride(null);
       toast.success(`${validFiles.length} 件衣服已就绪`);
     }
     setIsUploading(false);
@@ -196,6 +238,7 @@ export default function CreatePage() {
   const removeClothing = (index: number) => {
     store.removeClothing(index);
     setUploadedClothingUrls(prev => prev.filter((_, i) => i !== index));
+    setPromptOverride(null);
   };
 
   const handleCustomModel = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -203,6 +246,7 @@ export default function CreatePage() {
     const base64 = await fileToBase64(file);
     setCustomModelPreview(base64);
     store.setSelectedModel({ id: "custom", name: "自定义", image_url: base64, gender: "female", is_preset: false, user_id: null });
+    setPromptOverride(null);
     toast.success("模特已选择");
   };
 
@@ -211,6 +255,7 @@ export default function CreatePage() {
     const base64 = await fileToBase64(file);
     setCustomRefPreview(base64);
     store.setReferenceImage({ id: "custom", url: base64, label: "自定义参考", category: "style", is_preset: false, user_id: null });
+    setPromptOverride(null);
     toast.success("参考图已选择");
   };
 
@@ -228,9 +273,14 @@ export default function CreatePage() {
 
       let finalStyle = customStyle || "";
       let usedAiPrompt = false;
+      if (promptOverride?.trim()) {
+        finalStyle = promptOverride.trim();
+        usedAiPrompt = true;
+        store.setPromptUsed(finalStyle);
+      }
       const enablePromptAnalysis = process.env.NEXT_PUBLIC_ENABLE_PROMPT_ANALYSIS === "true";
 
-      if (enablePromptAnalysis) {
+      if (enablePromptAnalysis && !usedAiPrompt) {
         toast.info("AI 正在分析图片...");
         try {
           const analyzeController = new AbortController();
@@ -427,6 +477,7 @@ export default function CreatePage() {
                   onClick={async () => {
                     const base64Url = await urlToBase64(ref.url);
                     store.setReferenceImage({ ...ref, url: base64Url, is_preset: true, user_id: null } as any);
+                    setPromptOverride(null);
                   }}
                   className={`group relative rounded-lg overflow-hidden border-2 transition-all cursor-pointer ${
                     store.referenceImage?.id === ref.id ? "border-purple-500 ring-1 ring-purple-200" : "border-transparent hover:border-gray-300"
@@ -504,6 +555,7 @@ export default function CreatePage() {
                     const base64Url = await urlToBase64(m.image_url);
                     setCustomModelPreview(null);
                     store.setSelectedModel({ ...m, image_url: base64Url, is_preset: true, user_id: null });
+                    setPromptOverride(null);
                   }}
                   className={`group relative rounded-lg overflow-hidden border-2 transition-all cursor-pointer ${
                     store.selectedModel?.id === m.id ? "border-purple-500 ring-1 ring-purple-200" : "border-transparent hover:border-gray-300"
@@ -583,7 +635,7 @@ export default function CreatePage() {
           <section>
             <h3 className="font-bold text-sm mb-3">风格指令（补充）</h3>
             <div className="relative">
-              <textarea value={customStyle} onChange={(e) => setCustomStyle(e.target.value)}
+              <textarea value={customStyle} onChange={(e) => { setCustomStyle(e.target.value); setPromptOverride(null); }}
                 placeholder="可选：补充额外的风格方向..."
                 className="w-full px-3 py-2 pr-10 rounded-lg border text-xs focus:ring-2 focus:ring-purple-200 outline-none resize-none h-14" />
               <button onClick={handleOptimizePrompt} disabled={optimizing || !customStyle.trim()}
@@ -594,7 +646,7 @@ export default function CreatePage() {
             </div>
             <div className="flex flex-wrap gap-1.5 mt-2">
               {STYLE_PRESETS.map((s, i) => (
-                <button key={i} onClick={() => setCustomStyle(s)}
+                <button key={i} onClick={() => { setCustomStyle(s); setPromptOverride(null); }}
                   className="px-2 py-0.5 rounded-full bg-gray-50 border text-[10px] text-gray-500 hover:bg-purple-50 hover:text-purple-600 transition-all">{s}</button>
               ))}
             </div>
@@ -835,59 +887,61 @@ export default function CreatePage() {
       )}
 
       {/* ========== 提示词预览 ========== */}
-      {showPromptPreview && (() => {
-        // 优先显示 AI 生成的，否则显示默认模板
-        const { prompt: defaultPrompt, imageRoles } = buildTryOnPrompt({
-          clothingCount: store.clothingFiles.length || 1,
-          hasModelFace: !!store.selectedModel,
-          hasReference: !!store.referenceImage,
-          style: customStyle || undefined,
-        });
-        const displayPrompt = store.promptUsed || defaultPrompt;
-        const isAi = !!store.promptUsed;
+      {showPromptPreview && (
+        <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-6"
+          onClick={() => setShowPromptPreview(false)}>
+          <div className="bg-white rounded-2xl max-w-lg w-full max-h-[80vh] overflow-hidden shadow-2xl"
+            onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-3 border-b">
+              <h3 className="font-bold text-sm">{promptOverride || store.promptUsed ? "完整提示词" : "默认提示词模板"}</h3>
+              <button onClick={() => setShowPromptPreview(false)} className="p-1 rounded hover:bg-gray-100">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
 
-        return (
-          <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-6"
-            onClick={() => setShowPromptPreview(false)}>
-            <div className="bg-white rounded-2xl max-w-lg w-full max-h-[80vh] overflow-hidden shadow-2xl"
-              onClick={(e) => e.stopPropagation()}>
-              <div className="flex items-center justify-between px-5 py-3 border-b">
-                <h3 className="font-bold text-sm">{isAi ? "AI 生成的提示词" : "默认提示词模板"}</h3>
-                <button onClick={() => setShowPromptPreview(false)} className="p-1 rounded hover:bg-gray-100">
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              {/* 图片角色 */}
-              <div className="px-5 py-2 bg-gray-50 border-b">
-                <div className="flex gap-2 flex-wrap">
-                  {imageRoles.map((role, i) => (
-                    <span key={i} className="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 text-[10px] font-medium">
-                      图{i + 1}：{role}
-                    </span>
-                  ))}
-                  {customStyle && (
-                    <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-medium">
-                      + 风格补充
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              <div className="px-5 py-4 overflow-y-auto max-h-[55vh]">
-                <pre className="text-xs text-gray-700 whitespace-pre-wrap leading-relaxed font-sans">{displayPrompt}</pre>
-              </div>
-
-              <div className="px-5 py-3 border-t bg-gray-50 flex justify-end gap-2">
-                <button onClick={() => { navigator.clipboard.writeText(displayPrompt); toast.success("已复制"); }}
-                  className="px-4 py-1.5 rounded-full border text-xs font-medium hover:bg-gray-50">复制</button>
-                <button onClick={() => setShowPromptPreview(false)}
-                  className="px-4 py-1.5 rounded-full gradient-brand text-white text-xs font-medium">关闭</button>
+            <div className="px-5 py-2 bg-gray-50 border-b">
+              <div className="flex gap-2 flex-wrap">
+                {promptPreview.imageRoles.map((role, i) => (
+                  <span key={i} className="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 text-[10px] font-medium">
+                    图{i + 1}：{role}
+                  </span>
+                ))}
+                {customStyle && (
+                  <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-medium">
+                    + 风格补充
+                  </span>
+                )}
               </div>
             </div>
+
+            <div className="px-5 py-4 overflow-y-auto max-h-[55vh] space-y-3">
+              <textarea
+                value={finalPrompt}
+                onChange={(e) => {
+                  setPromptOverride(e.target.value);
+                  store.setPromptUsed(e.target.value);
+                }}
+                className="w-full min-h-[220px] px-3 py-2 rounded-lg border text-xs text-gray-700 leading-relaxed outline-none focus:ring-2 focus:ring-purple-200 resize-y"
+              />
+              <button
+                onClick={handleAnalyzeFullPrompt}
+                disabled={optimizing || !uploadedClothingUrls.length}
+                className="w-full py-2 rounded-lg border border-dashed border-purple-200 text-xs font-medium text-purple-600 hover:bg-purple-50 disabled:opacity-40 flex items-center justify-center gap-1.5"
+              >
+                {optimizing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand className="w-3.5 h-3.5" />}
+                视觉 AI 分析图片并优化
+              </button>
+            </div>
+
+            <div className="px-5 py-3 border-t bg-gray-50 flex justify-end gap-2">
+              <button onClick={() => { navigator.clipboard.writeText(finalPrompt); toast.success("已复制"); }}
+                className="px-4 py-1.5 rounded-full border text-xs font-medium hover:bg-gray-50">复制</button>
+              <button onClick={() => setShowPromptPreview(false)}
+                className="px-4 py-1.5 rounded-full gradient-brand text-white text-xs font-medium">关闭</button>
+            </div>
           </div>
-        );
-      })()}
+        </div>
+      )}
     </div>
   );
 }
