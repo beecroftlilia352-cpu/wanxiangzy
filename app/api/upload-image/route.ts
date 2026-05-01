@@ -48,14 +48,15 @@ export async function POST(request: Request) {
     });
 
     if (!res.ok) {
-      console.error("[upload-image] imgbb error:", res.status);
+      const errBody = await res.text().catch(() => "");
+      console.error("[upload-image] imgbb error:", res.status, errBody);
       return NextResponse.json({ error: "图片上传失败" }, { status: 502 });
     }
 
     const data = await res.json();
 
     if (!data.success) {
-      console.error("[upload-image] imgbb failed:", data);
+      console.error("[upload-image] imgbb failed:", JSON.stringify(data));
       return NextResponse.json({ error: "图片上传失败" }, { status: 502 });
     }
 
