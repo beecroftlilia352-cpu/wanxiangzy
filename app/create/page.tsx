@@ -18,7 +18,7 @@ function ImgSkeleton({ src, alt, className }: {
   );
 }
 import { useTryOnStore } from "@/lib/store/tryon-store";
-import { fileToBase64, MAX_CLOTHING_FILES, downloadImage } from "@/lib/utils";
+import { fileToBase64, MAX_CLOTHING_FILES, downloadImage, generateDownloadFilename } from "@/lib/utils";
 import { createClient, getCachedProfileCredits, setCachedProfileCredits } from "@/lib/supabase/client";
 import { getCreditCost, getSupportedImageSizes, buildTryOnPrompt, type LingyaModel, type ImageSize, type AspectRatio } from "@/lib/api/lingya";
 import { toast } from "sonner";
@@ -824,7 +824,7 @@ export default function CreatePage() {
                     className="block max-h-[calc(100dvh-180px)] max-w-[calc(100vw-2rem)] lg:max-h-[calc(100vh-180px)] lg:max-w-[calc(100vw-540px)] w-auto h-auto object-contain"
                     onError={(e) => { (e.target as HTMLImageElement).src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext x='50' y='50' text-anchor='middle' dominant-baseline='middle' font-size='14' fill='%23999'%3E加载失败%3C/text%3E%3C/svg%3E"; }} />
                   <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button onClick={(e) => { e.stopPropagation(); downloadImage(url, `tryon-${i + 1}.png`); }}
+                    <button onClick={(e) => { e.stopPropagation(); downloadImage(url, generateDownloadFilename("tryon", i)); }}
                       className="w-9 h-9 rounded-full bg-white/90 shadow-lg flex items-center justify-center hover:bg-white">
                       <Download className="w-4 h-4" />
                     </button>

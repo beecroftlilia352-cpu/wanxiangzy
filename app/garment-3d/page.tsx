@@ -6,7 +6,7 @@ import { Box, ChevronRight, Download, Loader2, Plus, Sparkles, Upload, Wand, X, 
 import { toast } from "sonner";
 import { FeatureTabs } from "@/components/FeatureTabs";
 import { createClient, getCachedProfileCredits, setCachedProfileCredits } from "@/lib/supabase/client";
-import { downloadImage, fileToBase64 } from "@/lib/utils";
+import { downloadImage, fileToBase64, generateDownloadFilename } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
 
 type GarmentType = "上装" | "下装" | "连体衣" | "其他";
@@ -667,7 +667,7 @@ export default function Garment3dPage() {
                   <img src={url} className="block max-h-[calc(100dvh-180px)] max-w-[calc(100vw-2rem)] lg:max-h-[calc(100vh-180px)] lg:max-w-[calc(100vw-540px)] w-auto h-auto object-contain" />
                   <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
-                      onClick={(e) => { e.stopPropagation(); downloadImage(url, `garment-3d-${index + 1}.png`); }}
+                      onClick={(e) => { e.stopPropagation(); downloadImage(url, generateDownloadFilename("garment-3d", index)); }}
                       className="w-9 h-9 rounded-full bg-white/90 shadow-lg flex items-center justify-center hover:bg-white"
                     >
                       <Download className="w-4 h-4" />

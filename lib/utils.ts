@@ -24,6 +24,31 @@ export function fileToBase64(file: File): Promise<string> {
   });
 }
 
+/**
+ * 生成最佳实践下载文件名
+ * 格式: {prefix}-{YYYYMMDD}-{HHmmss}-{序号}.{ext}
+ * 示例: vastweargen-tryon-20260502-143022-01.png
+ */
+export function generateDownloadFilename(prefix: string, index: number, ext = "png"): string {
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const date = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}`;
+  const time = `${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+  const seq = String(index + 1).padStart(2, "0");
+  return `vastweargen-${prefix}-${date}-${time}-${seq}.${ext}`;
+}
+
+/**
+ * 从 URL 推断文件扩展名
+ */
+function inferExt(url: string): string {
+  const lower = url.toLowerCase();
+  if (lower.includes(".jpg") || lower.includes(".jpeg")) return "jpg";
+  if (lower.includes(".webp")) return "webp";
+  if (lower.includes(".png")) return "png";
+  return "png";
+}
+
 export async function downloadImage(url: string, filename: string) {
   try {
     const downloadUrl = url.startsWith("http")
@@ -41,8 +66,21 @@ export async function downloadImage(url: string, filename: string) {
     document.body.removeChild(a);
     URL.revokeObjectURL(blobUrl);
   } catch {
-    // 降级：直接打开链接
     window.open(url, "_blank");
+  }
+}
+
+/**
+ * 批量下载图片（逐个触发，避免浏览器拦截）
+ */
+export async function downloadImages(urls: string[], prefix: string) {
+  for (let i = 0; i < urls.length; i++) {
+    const ext = inferExt(urls[i]);
+    const filename = generateDownloadFilename(prefix, i, ext);
+    await downloadImage(urls[i], filename);
+    if (i < urls.length - 1) {
+      await new Promise((r) => setTimeout(r, 300));
+    }
   }
 }
 

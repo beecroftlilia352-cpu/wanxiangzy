@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Download, Clock, CheckCircle, XCircle, Loader2, Coins, X } from "lucide-react";
+import { downloadImage, generateDownloadFilename } from "@/lib/utils";
 
 export default function HistoryPage() {
   const [state, setState] = useState<"loading" | "noauth" | "error" | "empty" | "ready">("loading");
@@ -115,14 +116,22 @@ export default function HistoryPage() {
                         className="w-full aspect-[3/4] object-cover bg-gray-50"
                         alt={`历史结果 ${i + 1}`}
                       />
-                      <a
-                        href={`/api/download-image?url=${encodeURIComponent(u)}&filename=${encodeURIComponent(`tryon-${i + 1}.jpg`)}`}
-                        download
-                        onClick={(e) => e.stopPropagation()}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const ext = u.toLowerCase().includes(".jpg") || u.toLowerCase().includes(".jpeg") ? "jpg" : "png";
+                          const dateStr = g.created_at
+                            ? new Date(g.created_at).toISOString().slice(0, 10).replace(/-/g, "")
+                            : "";
+                          const filename = dateStr
+                            ? `vastweargen-history-${dateStr}-${String(i + 1).padStart(2, "0")}.${ext}`
+                            : generateDownloadFilename("history", i, ext);
+                          downloadImage(u, filename);
+                        }}
                         className="absolute bottom-1 right-1 w-6 h-6 rounded-full bg-white/90 shadow flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                       >
                         <Download className="w-3 h-3" />
-                      </a>
+                      </button>
                     </div>
                   ))}</div>
                 </div>

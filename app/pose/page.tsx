@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Download, Loader2, PersonStanding, Sparkles, Upload, Wand, X } from "lucide-react";
 import { toast } from "sonner";
 import { createClient, getCachedProfileCredits, setCachedProfileCredits } from "@/lib/supabase/client";
-import { downloadImage, fileToBase64 } from "@/lib/utils";
+import { downloadImage, fileToBase64, generateDownloadFilename } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
 import { FeatureTabs } from "@/components/FeatureTabs";
 
@@ -400,7 +400,7 @@ export default function PosePage() {
               <div key={url} className="relative group rounded-2xl overflow-hidden shadow-2xl bg-white cursor-zoom-in"
                 onClick={() => setLightboxSrc(url)}>
                 <img src={url} className="block max-h-[calc(100dvh-180px)] max-w-[calc(100vw-2rem)] lg:max-h-[calc(100vh-180px)] lg:max-w-[calc(100vw-540px)] w-auto h-auto object-contain" />
-                <button onClick={(e) => { e.stopPropagation(); downloadImage(url, `pose-grid-${i + 1}.jpg`); }}
+                <button onClick={(e) => { e.stopPropagation(); downloadImage(url, generateDownloadFilename("pose", i, "jpg")); }}
                   className="absolute top-3 right-3 w-9 h-9 rounded-full bg-white/90 shadow-lg flex items-center justify-center hover:bg-white opacity-0 group-hover:opacity-100 transition-opacity">
                   <Download className="w-4 h-4" />
                 </button>
