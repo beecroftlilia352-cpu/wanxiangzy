@@ -287,10 +287,10 @@ export default function ModelPage() {
   }
 
   return (
-    <div className="h-[calc(100vh-56px)] flex">
+    <div className="min-h-[calc(100dvh-56px)] lg:h-[calc(100vh-56px)] flex flex-col lg:flex-row bg-gray-50 lg:bg-white">
       <FeatureTabs active="model" />
-      <div className="w-[460px] border-r bg-white flex flex-col overflow-hidden">
-        <div className="flex-1 overflow-y-auto p-5 space-y-6">
+      <div className="w-full lg:w-[460px] border-b lg:border-b-0 lg:border-r bg-white flex flex-col overflow-visible lg:overflow-hidden">
+        <div className="flex-1 overflow-visible lg:overflow-y-auto p-4 sm:p-5 space-y-6">
           <section>
             <h3 className="font-bold text-sm mb-3 flex items-center gap-2">
               <Upload className="w-4 h-4 text-purple-500" /> 上传参考图
@@ -524,7 +524,7 @@ export default function ModelPage() {
           </section>
         </div>
 
-        <div className="border-t p-4 space-y-2 bg-white">
+        <div className="border-t p-3 sm:p-4 space-y-2 bg-white">
           <div className="flex items-center justify-between text-xs">
             <span className="text-gray-400">{referenceUrls.length} 张参考图 · {cost} × {genCount}</span>
             {isAuthenticated
@@ -540,9 +540,9 @@ export default function ModelPage() {
         </div>
       </div>
 
-      <div className="flex-1 relative overflow-hidden">
+      <div className="min-h-[360px] lg:min-h-0 flex-1 relative overflow-hidden">
         {!isGenerating && resultUrls.length === 0 && !error && (
-          <div className="h-full flex items-center justify-center bg-gradient-to-br from-purple-50 via-white to-pink-50">
+          <div className="min-h-[360px] lg:h-full flex items-center justify-center bg-gradient-to-br from-purple-50 via-white to-pink-50 px-4">
             <div className="text-center">
               <div className="w-28 h-28 mx-auto mb-6 rounded-3xl bg-gradient-to-br from-purple-100 to-pink-100 flex items-center justify-center shadow-lg shadow-purple-100">
                 <Sparkles className="w-12 h-12 text-purple-400" />
@@ -554,7 +554,7 @@ export default function ModelPage() {
         )}
 
         {isGenerating && (
-          <div className="h-full p-8 flex items-center justify-center" style={{ background: "#f0f0f5" }}>
+          <div className="min-h-[360px] lg:h-full p-4 sm:p-8 flex items-center justify-center" style={{ background: "#f0f0f5" }}>
             <div style={{
               position: "absolute", top: "10%", left: "20%", width: "300px", height: "300px",
               borderRadius: "50%", filter: "blur(80px)", opacity: 0.4,
@@ -566,7 +566,7 @@ export default function ModelPage() {
               background: "radial-gradient(circle, #f472b6, #c084fc, transparent)",
             }} />
 
-            <div className={`${genCount === 1 ? "max-w-sm" : "grid grid-cols-2 gap-5 max-w-lg"} w-full relative z-10`}>
+            <div className={`${genCount === 1 ? "max-w-sm" : "grid grid-cols-2 gap-3 sm:gap-5 max-w-lg"} w-full relative z-10`}>
               {Array.from({ length: genCount }).map((_, i) => (
                 <div key={i} className="rounded-2xl overflow-hidden"
                   style={{
@@ -640,11 +640,11 @@ export default function ModelPage() {
         )}
 
         {resultUrls.length > 0 && (
-          <div className="h-full p-6 flex items-center justify-center bg-gray-50 animate-fade-in">
+          <div className="min-h-[360px] lg:h-full p-4 sm:p-6 flex items-center justify-center bg-gray-50 animate-fade-in">
             {resultUrls.map((url, i) => (
               <div key={url} className="relative group rounded-2xl overflow-hidden shadow-2xl bg-white cursor-zoom-in"
                 onClick={() => setLightboxSrc(url)}>
-                <img src={url} className="block max-h-[calc(100vh-180px)] max-w-[calc(100vw-560px)] w-auto h-auto object-contain" />
+                <img src={url} className="block max-h-[calc(100dvh-180px)] max-w-[calc(100vw-2rem)] lg:max-h-[calc(100vh-180px)] lg:max-w-[calc(100vw-560px)] w-auto h-auto object-contain" />
                 <button onClick={(e) => { e.stopPropagation(); downloadImage(url, `exclusive-model-${i + 1}.jpg`); }}
                   className="absolute top-3 right-3 w-9 h-9 rounded-full bg-white/90 shadow-lg flex items-center justify-center hover:bg-white opacity-0 group-hover:opacity-100 transition-opacity">
                   <Download className="w-4 h-4" />
@@ -655,7 +655,7 @@ export default function ModelPage() {
         )}
 
         {error && (
-          <div className="h-full flex items-center justify-center bg-gray-50">
+          <div className="min-h-[360px] lg:h-full flex items-center justify-center bg-gray-50 px-4">
             <div className="text-center">
               <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-red-100 flex items-center justify-center"><X className="w-8 h-8 text-red-400" /></div>
               <p className="text-red-500 font-medium mb-1">生成失败</p>

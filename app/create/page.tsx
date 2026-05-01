@@ -388,11 +388,11 @@ export default function CreatePage() {
   };
 
   return (
-    <div className="h-[calc(100vh-56px)] flex">
+    <div className="min-h-[calc(100dvh-56px)] lg:h-[calc(100vh-56px)] flex flex-col lg:flex-row bg-gray-50 lg:bg-white">
       <FeatureTabs active="tryon" />
       {/* ========== LEFT PANEL ========== */}
-      <div className="w-[460px] border-r bg-white flex flex-col overflow-hidden">
-        <div className="flex-1 overflow-y-auto p-5 space-y-6">
+      <div className="w-full lg:w-[460px] border-b lg:border-b-0 lg:border-r bg-white flex flex-col overflow-visible lg:overflow-hidden">
+        <div className="flex-1 overflow-visible lg:overflow-y-auto p-4 sm:p-5 space-y-6">
 
           {/* ---- 服装（整个区域可拖拽） ---- */}
           <section
@@ -676,7 +676,7 @@ export default function CreatePage() {
         </div>
 
         {/* ---- 底部 ---- */}
-        <div className="border-t p-4 space-y-2 bg-white">
+        <div className="border-t p-3 sm:p-4 space-y-2 bg-white">
           <div className="flex items-center justify-between text-xs">
             <span className="text-gray-400">{store.clothingFiles.length} 件 × {costPerImage} × {genCount} 次</span>
             {isAuthenticated
@@ -693,10 +693,10 @@ export default function CreatePage() {
       </div>
 
       {/* ========== RIGHT PANEL ========== */}
-      <div className="flex-1 relative overflow-hidden">
+      <div className="min-h-[360px] lg:min-h-0 flex-1 relative overflow-hidden">
         {/* Idle */}
         {!store.isGenerating && store.resultUrls.length === 0 && !store.error && (
-          <div className="h-full flex items-center justify-center relative overflow-hidden">
+          <div className="min-h-[360px] lg:h-full flex items-center justify-center relative overflow-hidden px-4">
             {/* 渐变背景 */}
             <div className="absolute inset-0 bg-gradient-to-br from-purple-50 via-white to-pink-50" />
             {/* 装饰圆 */}
@@ -716,7 +716,7 @@ export default function CreatePage() {
 
         {/* ==== 生成中：毛玻璃流光卡片 ==== */}
         {store.isGenerating && (
-          <div className="h-full p-8 flex items-center justify-center" style={{ background: "#f0f0f5" }}>
+          <div className="min-h-[360px] lg:h-full p-4 sm:p-8 flex items-center justify-center" style={{ background: "#f0f0f5" }}>
             {/* 背景装饰光斑 */}
             <div style={{
               position: "absolute", top: "10%", left: "20%", width: "300px", height: "300px",
@@ -729,7 +729,7 @@ export default function CreatePage() {
               background: "radial-gradient(circle, #f472b6, #c084fc, transparent)",
             }} />
 
-            <div className="grid grid-cols-2 gap-5 max-w-lg w-full relative z-10">
+            <div className="grid grid-cols-2 gap-3 sm:gap-5 max-w-lg w-full relative z-10">
               {Array.from({ length: genCount }).map((_, i) => (
                 <div key={i} className="rounded-2xl overflow-hidden"
                   style={{
@@ -814,14 +814,14 @@ export default function CreatePage() {
 
         {/* Result */}
         {store.resultUrls.length > 0 && (
-          <div className="h-full p-6 flex items-center justify-center bg-gray-50 animate-fade-in">
-            <div className="flex gap-4 items-center justify-center max-w-full overflow-x-auto">
+          <div className="min-h-[360px] lg:h-full p-4 sm:p-6 flex items-center justify-center bg-gray-50 animate-fade-in">
+            <div className="flex gap-4 items-center justify-start lg:justify-center max-w-full overflow-x-auto">
               {store.resultUrls.map((url, i) => (
                 <div key={i} className="relative group rounded-2xl overflow-hidden shadow-2xl bg-white flex-shrink-0 cursor-zoom-in"
                   style={{ maxHeight: "calc(100vh - 180px)" }}
                   onClick={() => setLightboxSrc(url)}>
                   <img src={url}
-                    className="block max-h-[calc(100vh-180px)] max-w-[calc(100vw-540px)] w-auto h-auto object-contain"
+                    className="block max-h-[calc(100dvh-180px)] max-w-[calc(100vw-2rem)] lg:max-h-[calc(100vh-180px)] lg:max-w-[calc(100vw-540px)] w-auto h-auto object-contain"
                     onError={(e) => { (e.target as HTMLImageElement).src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext x='50' y='50' text-anchor='middle' dominant-baseline='middle' font-size='14' fill='%23999'%3E加载失败%3C/text%3E%3C/svg%3E"; }} />
                   <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button onClick={(e) => { e.stopPropagation(); downloadImage(url, `tryon-${i + 1}.png`); }}
@@ -837,7 +837,7 @@ export default function CreatePage() {
 
         {/* Error */}
         {store.error && (
-          <div className="h-full flex items-center justify-center bg-gray-50 animate-fade-in">
+          <div className="min-h-[360px] lg:h-full flex items-center justify-center bg-gray-50 animate-fade-in px-4">
             <div className="text-center">
               <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-red-100 flex items-center justify-center"><X className="w-8 h-8 text-red-400" /></div>
               <p className="text-red-500 font-medium mb-1">生成失败</p>
@@ -850,7 +850,7 @@ export default function CreatePage() {
 
         {/* Bottom bar */}
         {store.resultUrls.length > 0 && (
-          <div className="absolute bottom-0 left-0 right-0 bg-white/80 backdrop-blur-md border-t px-6 py-3 flex items-center justify-between">
+          <div className="absolute bottom-0 left-0 right-0 bg-white/80 backdrop-blur-md border-t px-4 sm:px-6 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <span className="text-xs text-gray-400">AI 换装结果</span>
               {store.promptUsed && (

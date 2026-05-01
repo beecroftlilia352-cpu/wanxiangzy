@@ -13,7 +13,7 @@ export function FeatureTabs({ active }: { active: FeatureKey }) {
   ];
 
   return (
-    <aside className="w-[92px] border-r bg-white flex flex-col items-center py-4 gap-2">
+    <aside className="w-full lg:w-[92px] border-b lg:border-b-0 lg:border-r bg-white flex flex-row lg:flex-col items-center gap-2 overflow-x-auto px-3 py-2 lg:px-0 lg:py-4">
       {items.map((item) => {
         const Icon = item.icon;
         const isActive = active === item.key;
@@ -21,7 +21,7 @@ export function FeatureTabs({ active }: { active: FeatureKey }) {
           <a
             key={item.key}
             href={item.href}
-            className={`w-[72px] h-[72px] rounded-xl flex flex-col items-center justify-center gap-1.5 text-[11px] font-medium transition-all ${
+            className={`h-12 min-w-[74px] lg:h-[72px] lg:w-[72px] rounded-xl flex flex-col items-center justify-center gap-1 lg:gap-1.5 text-[10px] lg:text-[11px] font-medium transition-all ${
               isActive
                 ? "bg-purple-50 text-purple-600 ring-1 ring-purple-200 shadow-sm"
                 : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"

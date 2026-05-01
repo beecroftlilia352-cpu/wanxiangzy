@@ -29,19 +29,19 @@ export default function HomePage() {
   return (
     <div>
       {/* Hero */}
-      <section className="relative overflow-hidden py-24 px-4">
+      <section className="relative overflow-hidden px-4 py-14 sm:py-20 lg:py-24">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-purple-100 via-white to-white" />
         <div className="relative max-w-4xl mx-auto text-center">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-purple-50 text-purple-700 text-sm font-medium mb-8">
+          <div className="inline-flex max-w-full items-center gap-2 rounded-full bg-purple-50 px-3 py-1.5 text-xs font-medium text-purple-700 sm:px-4 sm:text-sm mb-8">
             <Sparkles className="w-4 h-4" />
-            基于前沿 AI 多图融合的虚拟换装引擎
+            <span className="truncate">基于前沿 AI 多图融合的虚拟换装引擎</span>
           </div>
-          <h1 className="text-5xl md:text-6xl font-extrabold tracking-tight mb-6 leading-tight">
+          <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight mb-6 leading-tight">
             AI 虚拟换装，
             <br />
             <span className="gradient-brand-text">一键生成时尚大片</span>
           </h1>
-          <p className="text-lg text-gray-500 max-w-2xl mx-auto mb-10">
+          <p className="text-base sm:text-lg text-gray-500 max-w-2xl mx-auto mb-10">
             上传服装、选择模特和参考图，AI 自动将衣服穿在参考图的姿势和风格上，
             并替换为模特的面部。业内领先的虚拟试衣体验。
           </p>
@@ -56,9 +56,9 @@ export default function HomePage() {
       </section>
 
       {/* How It Works */}
-      <section className="max-w-6xl mx-auto px-4 py-24">
-        <h2 className="text-3xl font-bold text-center mb-16">四步出大片</h2>
-        <div className="grid md:grid-cols-4 gap-8">
+      <section className="max-w-6xl mx-auto px-4 py-14 sm:py-20 lg:py-24">
+        <h2 className="text-2xl sm:text-3xl font-bold text-center mb-10 sm:mb-16">四步出大片</h2>
+        <div className="grid gap-8 sm:grid-cols-2 md:grid-cols-4">
           {STEPS.map((s, i) => (
             <div key={i} className="text-center group">
               <div className="w-16 h-16 mx-auto mb-4 rounded-2xl gradient-brand flex items-center justify-center shadow-lg shadow-purple-100 group-hover:scale-110 transition-transform">
@@ -75,12 +75,12 @@ export default function HomePage() {
       </section>
 
       {/* Features */}
-      <section className="bg-gray-50 py-24 px-4">
+      <section className="bg-gray-50 px-4 py-14 sm:py-20 lg:py-24">
         <div className="max-w-6xl mx-auto">
-          <h2 className="text-3xl font-bold text-center mb-16">
+          <h2 className="text-2xl sm:text-3xl font-bold text-center mb-10 sm:mb-16">
             为什么选择 万象衣造 AI｜VastWearGen
           </h2>
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid gap-5 sm:grid-cols-2 md:grid-cols-3 sm:gap-8">
             {[
               {
                 title: "业内最强画质",

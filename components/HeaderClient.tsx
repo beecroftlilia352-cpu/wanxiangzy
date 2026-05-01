@@ -129,8 +129,8 @@ export function HeaderClient() {
 
   return (
     <header className="sticky top-0 z-50 border-b bg-white/90 backdrop-blur-md">
-      <div className="h-14 px-6 flex items-center justify-between">
-        <a href="/" className="flex items-center gap-2 font-bold text-base leading-none">
+      <div className="min-h-14 px-3 py-2 sm:h-14 sm:px-6 sm:py-0 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <a href="/" className="flex min-w-0 items-center gap-2 font-bold text-base leading-none">
           <Image
             src="/gemini-icon.png"
             alt=""
@@ -140,10 +140,13 @@ export function HeaderClient() {
             priority
             aria-hidden="true"
           />
-          <span className="gradient-brand-text">万象衣造 AI｜VastWearGen</span>
+          <span className="gradient-brand-text truncate">
+            <span className="sm:hidden">万象衣造 AI</span>
+            <span className="hidden sm:inline">万象衣造 AI｜VastWearGen</span>
+          </span>
         </a>
 
-        <nav className="flex items-center gap-5 text-sm leading-none">
+        <nav className="flex w-full items-center justify-between gap-3 text-sm leading-none sm:w-auto sm:justify-start sm:gap-5">
           <a href="/create" className="hover:text-purple-600 transition-colors font-medium">开始创作</a>
           <a href="/history" className="hover:text-purple-600 transition-colors font-medium">历史记录</a>
 

@@ -292,10 +292,10 @@ export default function Garment3dPage() {
   }
 
   return (
-    <div className="h-[calc(100vh-56px)] flex">
+    <div className="min-h-[calc(100dvh-56px)] lg:h-[calc(100vh-56px)] flex flex-col lg:flex-row bg-gray-50 lg:bg-white">
       <FeatureTabs active="garment3d" />
-      <div className="w-[460px] border-r bg-white flex flex-col overflow-hidden">
-        <div className="flex-1 overflow-y-auto p-5 space-y-6">
+      <div className="w-full lg:w-[460px] border-b lg:border-b-0 lg:border-r bg-white flex flex-col overflow-visible lg:overflow-hidden">
+        <div className="flex-1 overflow-visible lg:overflow-y-auto p-4 sm:p-5 space-y-6">
           <section
             onDragEnter={(e) => { e.preventDefault(); setIsDragging(true); }}
             onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
@@ -533,7 +533,7 @@ export default function Garment3dPage() {
           </section>
         </div>
 
-        <div className="border-t p-4 space-y-2 bg-white">
+        <div className="border-t p-3 sm:p-4 space-y-2 bg-white">
           <div className="flex items-center justify-between text-xs">
             <span className="text-gray-400">{costPerImage} × {genCount} 张</span>
             {isAuthenticated
@@ -552,9 +552,9 @@ export default function Garment3dPage() {
         </div>
       </div>
 
-      <div className="flex-1 relative overflow-hidden bg-gray-50">
+      <div className="min-h-[360px] lg:min-h-0 flex-1 relative overflow-hidden bg-gray-50">
         {!isGenerating && resultUrls.length === 0 && !error && (
-          <div className="h-full flex items-center justify-center bg-gradient-to-br from-white via-purple-50 to-pink-50">
+          <div className="min-h-[360px] lg:h-full flex items-center justify-center bg-gradient-to-br from-white via-purple-50 to-pink-50 px-4">
             <div className="text-center">
               <div className="w-28 h-28 mx-auto mb-6 rounded-3xl bg-white shadow-lg shadow-purple-100 flex items-center justify-center">
                 <Box className="w-12 h-12 text-purple-400" />
@@ -566,7 +566,7 @@ export default function Garment3dPage() {
         )}
 
         {isGenerating && (
-          <div className="h-full p-8 flex items-center justify-center" style={{ background: "#f0f0f5" }}>
+          <div className="min-h-[360px] lg:h-full p-4 sm:p-8 flex items-center justify-center" style={{ background: "#f0f0f5" }}>
             <div style={{
               position: "absolute", top: "10%", left: "20%", width: "300px", height: "300px",
               borderRadius: "50%", filter: "blur(80px)", opacity: 0.4,
@@ -578,7 +578,7 @@ export default function Garment3dPage() {
               background: "radial-gradient(circle, #f472b6, #c084fc, transparent)",
             }} />
 
-            <div className="grid grid-cols-2 gap-5 max-w-lg w-full relative z-10">
+            <div className="grid grid-cols-2 gap-3 sm:gap-5 max-w-lg w-full relative z-10">
               {Array.from({ length: genCount }).map((_, i) => (
                 <div key={i} className="rounded-2xl overflow-hidden"
                   style={{
@@ -656,15 +656,15 @@ export default function Garment3dPage() {
         )}
 
         {resultUrls.length > 0 && (
-          <div className="h-full p-6 flex items-center justify-center animate-fade-in">
-            <div className="flex gap-4 items-center justify-center max-w-full overflow-x-auto">
+          <div className="min-h-[360px] lg:h-full p-4 sm:p-6 flex items-center justify-center animate-fade-in">
+            <div className="flex gap-4 items-center justify-start lg:justify-center max-w-full overflow-x-auto">
               {resultUrls.map((url, index) => (
                 <div
                   key={index}
                   className="relative group rounded-2xl overflow-hidden shadow-2xl bg-white flex-shrink-0 cursor-zoom-in"
                   onClick={() => setLightboxSrc(url)}
                 >
-                  <img src={url} className="block max-h-[calc(100vh-180px)] max-w-[calc(100vw-540px)] w-auto h-auto object-contain" />
+                  <img src={url} className="block max-h-[calc(100dvh-180px)] max-w-[calc(100vw-2rem)] lg:max-h-[calc(100vh-180px)] lg:max-w-[calc(100vw-540px)] w-auto h-auto object-contain" />
                   <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
                       onClick={(e) => { e.stopPropagation(); downloadImage(url, `garment-3d-${index + 1}.png`); }}
@@ -676,7 +676,7 @@ export default function Garment3dPage() {
                 </div>
               ))}
             </div>
-            <div className="absolute bottom-0 left-0 right-0 bg-white/80 backdrop-blur-md border-t px-6 py-3 flex items-center justify-between">
+            <div className="absolute bottom-0 left-0 right-0 bg-white/80 backdrop-blur-md border-t px-4 sm:px-6 py-3 flex items-center justify-between gap-2">
               <span className="text-xs text-gray-400">服装转3D结果</span>
               <button onClick={() => { setResultUrls([]); setProgress(0); }} className="px-4 py-1.5 rounded-full border text-xs font-medium hover:bg-gray-50">
                 重新创作 <ChevronRight className="inline w-3 h-3" />
@@ -686,7 +686,7 @@ export default function Garment3dPage() {
         )}
 
         {error && (
-          <div className="h-full flex items-center justify-center">
+          <div className="min-h-[360px] lg:h-full flex items-center justify-center px-4">
             <div className="text-center">
               <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-red-100 flex items-center justify-center">
                 <X className="w-8 h-8 text-red-400" />

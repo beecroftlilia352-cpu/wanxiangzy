@@ -79,19 +79,19 @@ export default function HistoryPage() {
   );
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
-      <div className="flex items-center justify-between mb-6">
+    <div className="max-w-4xl mx-auto px-4 py-6 sm:py-8">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold">历史记录</h1>
           <p className="text-gray-400 text-sm">{rows.length} 条</p>
         </div>
-        <a href="/create" className="px-4 py-2 rounded-full gradient-brand text-white text-sm font-medium">新创作</a>
+        <a href="/create" className="inline-flex w-full sm:w-auto justify-center px-4 py-2 rounded-full gradient-brand text-white text-sm font-medium">新创作</a>
       </div>
       <div className="space-y-3">
         {rows.map((g: any) => (
           <div key={g.id} className="bg-white border rounded-xl p-4 hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-3">
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
                 {g.status === "completed" ? <CheckCircle className="w-4 h-4 text-green-500" /> :
                  g.status === "failed" ? <XCircle className="w-4 h-4 text-red-500" /> :
                  <Loader2 className="w-4 h-4 text-yellow-500 animate-spin" />}
@@ -100,11 +100,11 @@ export default function HistoryPage() {
               </div>
               <span className="text-xs text-amber-600 flex items-center gap-1"><Coins className="w-3 h-3" />{g.credits_cost || g.credits_used}</span>
             </div>
-            <div className="flex gap-4">
+            <div className="flex gap-4 min-w-0">
               {g.result_urls?.length > 0 && (
-                <div className="flex-1">
+                <div className="min-w-0 flex-1">
                   <p className="text-[10px] text-gray-400 mb-1">结果</p>
-                  <div className="flex gap-2">{g.result_urls.map((u: string, i: number) => (
+                  <div className="flex gap-2 overflow-x-auto pb-1">{g.result_urls.map((u: string, i: number) => (
                     <div
                       key={i}
                       className="relative group rounded-lg overflow-hidden border w-24 cursor-zoom-in"
