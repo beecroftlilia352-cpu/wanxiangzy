@@ -1,4 +1,4 @@
-name: Trigger Vercel deploy hook
+name: Deploy Vercel production
 
 on:
   push:
@@ -6,8 +6,8 @@ on:
       - main
   workflow_dispatch:
     inputs:
-      disable_build_cache:
-        description: "Trigger Vercel without build cache"
+      force:
+        description: "Deploy without Vercel build cache"
         required: false
         default: "false"
         type: choice
@@ -16,70 +16,68 @@ on:
           - "true"
 
 concurrency:
-  group: vercel-deploy-hook
+  group: vercel-production
   cancel-in-progress: true
 
 jobs:
-  trigger:
-    name: Trigger Vercel
+  deploy:
+    name: Deploy Vercel
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 30
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 
     steps:
-      - name: Trigger deploy hook
-        env:
-          VERCEL_DEPLOY_HOOK_URL: ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}
-          DISABLE_BUILD_CACHE: ${{ github.event.inputs.disable_build_cache || 'false' }}
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Validate Vercel secrets
         run: |
           set -euo pipefail
 
-          if [ -z "${VERCEL_DEPLOY_HOOK_URL:-}" ]; then
-            echo "::error::Missing repository secret VERCEL_DEPLOY_HOOK_URL"
+          if [ -z "${VERCEL_TOKEN:-}" ]; then
+            echo "::error::Missing repository secret VERCEL_TOKEN"
             exit 1
           fi
 
-          HOOK_URL="$(printf '%s' "$VERCEL_DEPLOY_HOOK_URL" | tr -d '\r\n[:space:]')"
-          if [ "$DISABLE_BUILD_CACHE" = "true" ]; then
-            if [[ "$HOOK_URL" == *\?* ]]; then
-              HOOK_URL="${HOOK_URL}&buildCache=false"
-            else
-              HOOK_URL="${HOOK_URL}?buildCache=false"
-            fi
+          if [ -z "${VERCEL_ORG_ID:-}" ]; then
+            echo "::error::Missing repository secret VERCEL_ORG_ID"
+            exit 1
           fi
 
-          response_file="$(mktemp)"
-          http_code="$(
-            curl \
-              --location \
-              --show-error \
-              --silent \
-              --request POST \
-              --output "$response_file" \
-              --write-out "%{http_code}" \
-              "$HOOK_URL"
-          )"
+          if [ -z "${VERCEL_PROJECT_ID:-}" ]; then
+            echo "::error::Missing repository secret VERCEL_PROJECT_ID"
+            exit 1
+          fi
 
-          echo "GitHub SHA: ${GITHUB_SHA}"
-          echo "Vercel hook HTTP status: ${http_code}"
-          echo "Vercel hook response:"
-          cat "$response_file"
-          echo
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Pull Vercel production settings
+        run: vercel pull --yes --environment=production --token "$VERCEL_TOKEN"
+
+      - name: Build Vercel output
+        run: vercel build --prod --token "$VERCEL_TOKEN"
+
+      - name: Deploy to Vercel production
+        env:
+          FORCE_DEPLOY: ${{ github.event.inputs.force || 'false' }}
+        run: |
+          set -euo pipefail
+
+          args=(deploy --prebuilt --prod --archive=tgz --token "$VERCEL_TOKEN")
+          if [ "$FORCE_DEPLOY" = "true" ]; then
+            args+=(--force)
+          fi
+
+          deployment_url="$(vercel "${args[@]}")"
+          echo "Deployment URL: $deployment_url"
 
           {
-            echo "### Vercel Deploy Hook"
+            echo "### Vercel Production Deployment"
             echo
             echo "- GitHub SHA: \`${GITHUB_SHA}\`"
-            echo "- HTTP status: \`${http_code}\`"
-            echo
-            echo "\`\`\`json"
-            cat "$response_file"
-            echo
-            echo "\`\`\`"
+            echo "- Deployment URL: $deployment_url"
           } >> "$GITHUB_STEP_SUMMARY"
-
-          if [ "${http_code#2}" = "$http_code" ]; then
-            echo "::error::Vercel deploy hook returned HTTP ${http_code}"
-            exit 1
-          fi
-
-          echo "Vercel deploy hook triggered for ${GITHUB_SHA}"
