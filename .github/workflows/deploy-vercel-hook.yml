@@ -38,7 +38,7 @@ jobs:
             exit 1
           fi
 
-          HOOK_URL="$VERCEL_DEPLOY_HOOK_URL"
+          HOOK_URL="$(printf '%s' "$VERCEL_DEPLOY_HOOK_URL" | tr -d '\r\n[:space:]')"
           if [ "$DISABLE_BUILD_CACHE" = "true" ]; then
             if [[ "$HOOK_URL" == *\?* ]]; then
               HOOK_URL="${HOOK_URL}&buildCache=false"
@@ -47,5 +47,39 @@ jobs:
             fi
           fi
 
-          curl --fail --show-error --silent --request POST "$HOOK_URL"
+          response_file="$(mktemp)"
+          http_code="$(
+            curl \
+              --location \
+              --show-error \
+              --silent \
+              --request POST \
+              --output "$response_file" \
+              --write-out "%{http_code}" \
+              "$HOOK_URL"
+          )"
+
+          echo "GitHub SHA: ${GITHUB_SHA}"
+          echo "Vercel hook HTTP status: ${http_code}"
+          echo "Vercel hook response:"
+          cat "$response_file"
+          echo
+
+          {
+            echo "### Vercel Deploy Hook"
+            echo
+            echo "- GitHub SHA: \`${GITHUB_SHA}\`"
+            echo "- HTTP status: \`${http_code}\`"
+            echo
+            echo "\`\`\`json"
+            cat "$response_file"
+            echo
+            echo "\`\`\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "${http_code#2}" = "$http_code" ]; then
+            echo "::error::Vercel deploy hook returned HTTP ${http_code}"
+            exit 1
+          fi
+
           echo "Vercel deploy hook triggered for ${GITHUB_SHA}"
