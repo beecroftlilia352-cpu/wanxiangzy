@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { clearCachedProfileCredits, createClient, getCachedProfileCredits, subscribeToProfileCredits } from "@/lib/supabase/client";
+import { clearCachedProfileCredits, createClient, getCachedProfileCredits, setCachedProfileCredits, subscribeToProfileCredits } from "@/lib/supabase/client";
 import { Coins } from "lucide-react";
 
 export function HeaderClient() {
@@ -9,31 +9,80 @@ export function HeaderClient() {
   const [email, setEmail] = useState<string | null>(null);
   const [credits, setCredits] = useState<number | null>(null);
   const [authReady, setAuthReady] = useState(false);
+  const [creditsReady, setCreditsReady] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const loadedCreditsForUserRef = useRef<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
+    async function loadProfileFromApi() {
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 10000);
+      try {
+        const res = await fetch("/api/profile", {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+
+        if (cancelled) return false;
+        if (res.status === 401) {
+          loadedCreditsForUserRef.current = null;
+          setEmail(null);
+          setCredits(null);
+          setAuthReady(true);
+          setCreditsReady(true);
+          return true;
+        }
+
+        const payload = await res.json().catch(() => ({}));
+        if (!res.ok || !payload.user) return false;
+
+        loadedCreditsForUserRef.current = payload.user.id;
+        setEmail(payload.user.email ?? null);
+        setCredits(payload.credits ?? 0);
+        setCachedProfileCredits(payload.user.id, payload.credits ?? 0);
+        setAuthReady(true);
+        setCreditsReady(true);
+        return true;
+      } catch {
+        return false;
+      } finally {
+        window.clearTimeout(timeout);
+      }
+    }
+
     async function loadUserCredits(user: { id: string; email?: string | null }) {
       setEmail(user.email ?? null);
       setAuthReady(true);
+      setCreditsReady(false);
       loadedCreditsForUserRef.current = user.id;
+      const apiLoaded = await loadProfileFromApi();
+      if (apiLoaded) return;
+
       const profileCredits = await getCachedProfileCredits(user.id);
 
       if (!cancelled && loadedCreditsForUserRef.current === user.id) {
         setCredits(profileCredits);
+        setCreditsReady(true);
       }
     }
 
-    supabase.auth.getUser().then(({ data }) => {
+    loadProfileFromApi().then((loaded) => {
+      if (loaded || cancelled) return;
+      return supabase.auth.getUser();
+    }).then((result) => {
+      if (!result || cancelled) return;
+      const { data } = result;
       if (data.user) {
         loadUserCredits(data.user);
       } else {
         setAuthReady(true);
+        setCreditsReady(true);
       }
     }).catch(() => {
       setAuthReady(true);
+      setCreditsReady(true);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_e, session) => {
@@ -44,12 +93,14 @@ export function HeaderClient() {
         setEmail(null);
         setCredits(null);
         setAuthReady(true);
+        setCreditsReady(true);
       }
     });
 
     const unsubscribeCredits = subscribeToProfileCredits(({ userId, credits: nextCredits }) => {
       if (loadedCreditsForUserRef.current === userId) {
         setCredits(nextCredits);
+        setCreditsReady(true);
       }
     });
 
@@ -65,6 +116,7 @@ export function HeaderClient() {
     clearCachedProfileCredits();
     setEmail(null);
     setCredits(null);
+    setCreditsReady(false);
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), 2000);
     await fetch("/api/logout", { method: "POST", cache: "no-store", signal: controller.signal }).catch(() => {});
@@ -89,12 +141,14 @@ export function HeaderClient() {
             <div className="h-7 w-[92px] rounded-full bg-gray-100 animate-pulse" />
           ) : email ? (
             <div className="flex items-center gap-2">
-              {credits !== null && (
-                <a href="/create" className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200 hover:bg-amber-100 transition-colors">
-                  <Coins className="w-3.5 h-3.5 text-amber-500" />
-                  <span className="text-xs font-bold text-amber-700">{credits}</span>
-                </a>
-              )}
+              <a href="/create" className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200 hover:bg-amber-100 transition-colors min-w-[52px] justify-center">
+                <Coins className="w-3.5 h-3.5 text-amber-500" />
+                {creditsReady ? (
+                  <span className="text-xs font-bold text-amber-700">{credits ?? "--"}</span>
+                ) : (
+                  <span className="h-3 w-5 rounded bg-amber-100 animate-pulse" />
+                )}
+              </a>
               <button
                 type="button"
                 onClick={handleLogout}
