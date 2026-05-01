@@ -411,20 +411,24 @@ export default function Garment3dPage() {
             )}
 
             {outputMode === "prompt" && (
-              <div className="relative mt-3">
-                <textarea
-                  value={prompt}
-                  onChange={(e) => { setPrompt(e.target.value); setPromptOverride(null); }}
-                  className="w-full px-3 py-2 pr-10 rounded-lg border text-xs focus:ring-2 focus:ring-purple-200 outline-none resize-none h-24"
-                />
-                <button
-                  onClick={optimizePrompt}
-                  disabled={isOptimizing || !garmentUrl}
-                  className="absolute right-2 top-2 p-1.5 rounded-md bg-purple-50 text-purple-500 hover:bg-purple-100 disabled:opacity-30"
-                  title="视觉 AI 优化提示词"
-                >
-                  {isOptimizing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand className="w-3.5 h-3.5" />}
-                </button>
+              <div className="mt-3">
+                <h3 className="font-bold text-sm mb-3">描述3D效果</h3>
+                <div className="relative">
+                  <textarea
+                    value={prompt}
+                    onChange={(e) => { setPrompt(e.target.value); setPromptOverride(null); }}
+                    placeholder="描述衣服的立体角度、厚度、旋转方向、背景保留方式等"
+                    className="w-full px-3 py-2 pr-10 rounded-lg border text-xs focus:ring-2 focus:ring-purple-200 outline-none resize-none h-24"
+                  />
+                  <button
+                    onClick={optimizePrompt}
+                    disabled={isOptimizing || !garmentUrl}
+                    className="absolute right-2 top-2 p-1.5 rounded-md bg-purple-50 text-purple-500 hover:bg-purple-100 disabled:opacity-30"
+                    title="视觉 AI 优化提示词"
+                  >
+                    {isOptimizing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
               </div>
             )}
           </section>
