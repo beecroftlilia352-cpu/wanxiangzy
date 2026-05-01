@@ -1,40 +1,50 @@
 -- ============================================================
 -- RLS 策略补全 — 在 Supabase SQL Editor 中运行
 -- 补充 models / reference_images / generations 缺失的写入策略
+-- 使用 DROP IF EXISTS 避免重复创建报错
 -- ============================================================
 
 -- models 表：用户可增删改自己的模特
+DROP POLICY IF EXISTS "Users can insert own models" ON public.models;
 CREATE POLICY "Users can insert own models"
   ON public.models FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update own models" ON public.models;
 CREATE POLICY "Users can update own models"
   ON public.models FOR UPDATE
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can delete own models" ON public.models;
 CREATE POLICY "Users can delete own models"
   ON public.models FOR DELETE
   USING (auth.uid() = user_id);
 
 -- reference_images 表：用户可增删改自己的参考图
+DROP POLICY IF EXISTS "Users can insert own references" ON public.reference_images;
 CREATE POLICY "Users can insert own references"
   ON public.reference_images FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update own references" ON public.reference_images;
 CREATE POLICY "Users can update own references"
   ON public.reference_images FOR UPDATE
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can delete own references" ON public.reference_images;
 CREATE POLICY "Users can delete own references"
   ON public.reference_images FOR DELETE
   USING (auth.uid() = user_id);
 
 -- generations 表：禁止客户端直接更新（service_role 绕过 RLS）
+DROP POLICY IF EXISTS "Service role can update generations" ON public.generations;
+DROP POLICY IF EXISTS "No client update on generations" ON public.generations;
 CREATE POLICY "No client update on generations"
   ON public.generations FOR UPDATE
   USING (false);
 
 -- generations 表：用户可删除自己的记录
+DROP POLICY IF EXISTS "Users can delete own generations" ON public.generations;
 CREATE POLICY "Users can delete own generations"
   ON public.generations FOR DELETE
   USING (auth.uid() = user_id);
