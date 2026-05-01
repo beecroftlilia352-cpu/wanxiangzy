@@ -58,8 +58,37 @@ jobs:
       - name: Pull Vercel production settings
         run: vercel pull --yes --environment=production --token "$VERCEL_TOKEN"
 
+      - name: Validate pulled production env
+        run: |
+          set -euo pipefail
+
+          env_file=".vercel/.env.production.local"
+          if [ ! -f "$env_file" ]; then
+            echo "::error::Vercel production env file was not pulled: $env_file"
+            exit 1
+          fi
+
+          missing=0
+          for key in NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY; do
+            if ! grep -qE "^${key}=.+" "$env_file"; then
+              echo "::error::Missing ${key} in Vercel Production Environment Variables"
+              missing=1
+            else
+              echo "${key}=present"
+            fi
+          done
+
+          if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
+
       - name: Build Vercel output
-        run: vercel build --prod --token "$VERCEL_TOKEN"
+        run: |
+          set -euo pipefail
+          set -a
+          . .vercel/.env.production.local
+          set +a
+          vercel build --prod --token "$VERCEL_TOKEN"
 
       - name: Deploy to Vercel production
         env:
