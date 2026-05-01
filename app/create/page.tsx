@@ -25,25 +25,27 @@ import { toast } from "sonner";
 import { FeatureTabs } from "@/components/FeatureTabs";
 
 // ---- 预设数据 ----
+const SUPABASE_STORAGE = "https://mtdfvnhphpulhjtnmubw.supabase.co/storage/v1/object/public";
+
 const PRESET_MODELS = [
-  { id: "m0", name: "自然", image_url: "/models/model-natural-smile.jpg", gender: "female" as const },
-  { id: "m1", name: "甜妹", image_url: "/models/model-18542-0875a4d282bb.jpg", gender: "female" as const },
-  { id: "m2", name: "优雅", image_url: "/models/model-22921-89d4664cd1b0.jpg", gender: "female" as const },
-  { id: "m3", name: "红裙", image_url: "/models/model-26829-dca5c791efa8.jpg", gender: "female" as const },
-  { id: "m4", name: "酷飒", image_url: "/models/model-97612-bdc397740113.jpg", gender: "female" as const },
-  { id: "m5", name: "清纯", image_url: "/models/model-35127-693ee11382eb.png", gender: "female" as const },
+  { id: "m0", name: "自然", image_url: `${SUPABASE_STORAGE}/models/model-natural-smile.jpg`, gender: "female" as const },
+  { id: "m1", name: "甜妹", image_url: `${SUPABASE_STORAGE}/models/model-18542-0875a4d282bb.jpg`, gender: "female" as const },
+  { id: "m2", name: "优雅", image_url: `${SUPABASE_STORAGE}/models/model-22921-89d4664cd1b0.jpg`, gender: "female" as const },
+  { id: "m3", name: "红裙", image_url: `${SUPABASE_STORAGE}/models/model-26829-dca5c791efa8.jpg`, gender: "female" as const },
+  { id: "m4", name: "酷飒", image_url: `${SUPABASE_STORAGE}/models/model-97612-bdc397740113.jpg`, gender: "female" as const },
+  { id: "m5", name: "清纯", image_url: `${SUPABASE_STORAGE}/models/model-35127-693ee11382eb.png`, gender: "female" as const },
 ];
 
 const PRESET_REFERENCES = [
-  { id: "r1", url: "/references/reference-108513-b6db713a5d2f.jpg", label: "白T街头", category: "scene" as const },
-  { id: "r2", url: "/references/reference-56020-dc1aa74e5515.jpg", label: "黑蕾丝夜景", category: "style" as const },
-  { id: "r3", url: "/references/reference-23353-c281a160d01d.jpg", label: "白衫桥边", category: "style" as const },
-  { id: "r4", url: "/references/reference-soft-blue-cardigan.jpg", label: "蓝衫光影", category: "pose" as const },
-  { id: "r5", url: "/references/reference-white-top-denim-shorts.jpg", label: "白顶牛仔", category: "pose" as const },
-  { id: "r6", url: "/references/reference-mens-black-knitwear.jpg", label: "男款木墙", category: "pose" as const },
-  { id: "r7", url: "/references/reference-grey-tank-denim-culottes.jpg", label: "灰背心牛仔", category: "style" as const },
-  { id: "r8", url: "/references/reference-striped-top-white-skirt.png", label: "条纹白裙", category: "scene" as const },
-  { id: "r9", url: "/references/reference-cafe-wide-leg-pants.jpg", label: "咖啡阔腿", category: "scene" as const },
+  { id: "r1", url: `${SUPABASE_STORAGE}/references/reference-108513-b6db713a5d2f.jpg`, label: "白T街头", category: "scene" as const },
+  { id: "r2", url: `${SUPABASE_STORAGE}/references/reference-56020-dc1aa74e5515.jpg`, label: "黑蕾丝夜景", category: "style" as const },
+  { id: "r3", url: `${SUPABASE_STORAGE}/references/reference-23353-c281a160d01d.jpg`, label: "白衫桥边", category: "style" as const },
+  { id: "r4", url: `${SUPABASE_STORAGE}/references/reference-soft-blue-cardigan.jpg`, label: "蓝衫光影", category: "pose" as const },
+  { id: "r5", url: `${SUPABASE_STORAGE}/references/reference-white-top-denim-shorts.jpg`, label: "白顶牛仔", category: "pose" as const },
+  { id: "r6", url: `${SUPABASE_STORAGE}/references/reference-mens-black-knitwear.jpg`, label: "男款木墙", category: "pose" as const },
+  { id: "r7", url: `${SUPABASE_STORAGE}/references/reference-grey-tank-denim-culottes.jpg`, label: "灰背心牛仔", category: "style" as const },
+  { id: "r8", url: `${SUPABASE_STORAGE}/references/reference-striped-top-white-skirt.png`, label: "条纹白裙", category: "scene" as const },
+  { id: "r9", url: `${SUPABASE_STORAGE}/references/reference-cafe-wide-leg-pants.jpg`, label: "咖啡阔腿", category: "scene" as const },
 ];
 
 const MODELS: { value: LingyaModel; label: string; desc: string; badge?: string; icon: string }[] = [
@@ -94,23 +96,6 @@ export default function CreatePage() {
   const [showPromptPreview, setShowPromptPreview] = useState(false);
   const [promptOverride, setPromptOverride] = useState<string | null>(null);
 
-  // 本地路径转 base64（预设图片用本地路径，API 服务器访问不到，需要转 base64）
-  const base64Cache = useRef<Map<string, string>>(new Map());
-  const urlToBase64 = async (url: string): Promise<string> => {
-    if (url.startsWith("data:")) return url;
-    if (url.startsWith("http")) return url;
-    const cached = base64Cache.current.get(url);
-    if (cached) return cached;
-    const res = await fetch(url);
-    const blob = await res.blob();
-    const result = await new Promise<string>((resolve) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.readAsDataURL(blob);
-    });
-    base64Cache.current.set(url, result);
-    return result;
-  };
   const [customModelPreview, setCustomModelPreview] = useState<string | null>(null);
   const [customRefPreview, setCustomRefPreview] = useState<string | null>(null);
   const [isDraggingClothing, setIsDraggingClothing] = useState(false);
@@ -504,9 +489,8 @@ export default function CreatePage() {
             <div className="grid grid-cols-3 gap-2">
               {PRESET_REFERENCES.map((ref) => (
                 <div key={ref.id} role="button" tabIndex={0}
-                  onClick={async () => {
-                    const base64Url = await urlToBase64(ref.url);
-                    store.setReferenceImage({ ...ref, url: base64Url, is_preset: true, user_id: null } as any);
+                  onClick={() => {
+                    store.setReferenceImage({ ...ref, is_preset: true, user_id: null } as any);
                     setPromptOverride(null);
                   }}
                   className={`group relative rounded-lg overflow-hidden border-2 transition-all cursor-pointer ${
@@ -581,10 +565,9 @@ export default function CreatePage() {
               </button>
               {PRESET_MODELS.map((m) => (
                 <div key={m.id} role="button" tabIndex={0}
-                  onClick={async () => {
-                    const base64Url = await urlToBase64(m.image_url);
+                  onClick={() => {
                     setCustomModelPreview(null);
-                    store.setSelectedModel({ ...m, image_url: base64Url, is_preset: true, user_id: null });
+                    store.setSelectedModel({ ...m, is_preset: true, user_id: null });
                     setPromptOverride(null);
                   }}
                   className={`group relative rounded-lg overflow-hidden border-2 transition-all cursor-pointer ${

@@ -46,35 +46,19 @@ export async function POST(request: NextRequest) {
         : "",
     ].filter(Boolean).join("\n");
 
-    const textPrompt = `你是顶级商业时尚摄影师和 AI 换装提示词工程师。请仔细分析以下所有图片，然后生成一段高质量的结构化提示词。
+    const textPrompt = `分析这些图片，生成一段AI换装提示词。
 
-图片说明：
 ${roleLines}
 
-请按以下结构生成提示词（直接输出提示词内容，不要输出标题和编号，用逗号和句号自然连接）：
-
-1. 类型：拍摄风格（必须根据参考图分析判断，可能是以下之一或组合：街拍时尚 street fashion photography、杂志 editorial photography、电商产品 e-commerce catalog photography、户外自然光 outdoor natural light photography、棚拍 studio photography、小红书风格 lifestyle photography、韩系 Korean style photography、欧美 Western style photography 等，不要每次都用同一种风格）
-2. 主体：人物描述（年龄、风格、真实感、皮肤质感），${model_face_url ? `脸部特征严格保持图${faceImageNumber}模特脸的五官、肤色、发型和气质` : "自然真实的人脸，皮肤保留毛孔和轻微瑕疵"}
-3. 穿着：详细描述图${clothingRefs.join("、")}的服装品类、版型、颜色、材质、图案、细节（纽扣/拉链/口袋/刺绣/印花等），搭配风格，智能匹配配饰（耳环/项链/包包/鞋子等）
-4. 姿态：优雅自信的姿势描述，自然动态，与镜头的眼神交流
-5. 拍摄设备：具体相机和镜头参数（如 Shot on medium format camera, 85mm f/1.4 prime lens，根据图片风格选择最合适的设备）
-6. 拍摄效果：景深、焦点、画面质感（如 ultra-shallow depth of field, crisp focus on model）
-7. 灯光：专业灯光设置（主光/辅光/轮廓光/背景光，${reference_url ? `根据图${referenceImageNumber}参考图的光影风格自动匹配最佳灯光方案` : "根据服装风格选择合适的灯光方案"})
-8. 背景：${reference_url ? `严格保持图${referenceImageNumber}参考图的背景场景、构图角度、空间透视不变` : "背景描述（根据服装风格自动匹配）"}
-9. 皮肤质感：真实皮肤描述（毛孔、纹理、自然瑕疵、不过度磨皮、真实肤色）
-10. 图像质量：技术参数（photorealistic, 8K ultra-detailed, high contrast, cinematic color grade, commercial fashion catalog quality, sharp details, raw photo quality）
-
-要求：
-- 【最重要】最终提示词中必须出现图号引用（图1、图2、图3等），这是图片生成模型识别图片角色的唯一方式，缺失图号将导致生成失败
-- 图号引用示例："穿着图1的白色连衣裙"、"参考图2的背景和光影"、"脸部替换为图3的模特脸"
-- 所有参数必须根据输入图片智能分析，不要使用固定模板
-- 拍摄设备、灯光方案、背景风格必须与参考图一致
-- 服装描述必须忠实于上传的服装图，保留所有细节
-- ${model_face_url ? `最终人物脸部必须替换为图${faceImageNumber}的模特脸` : "人物脸部自然真实"}
-- 用英文生成摄影技术参数，用中文描述服装和风格细节
-- 最终输出为一段连贯的提示词，200-300字，不要分点，不要解释
-- 必须去 AI 味：强调真实摄影质感、自然光影、真实皮肤、布料褶皱、缝线纹理
-- 负面约束：不要改变参考图场景，不要生成多余人物，不要扭曲身体和服装，不要塑料皮肤，不要蜡像感，不要卡通感，不要AI渲染感${style ? `\n\n用户当前提示词（仅供参考方向，不要照搬，必须基于图片分析重新生成）：\n${style}` : ""}`;
+生成规则：
+1. 必须在提示词中写明图号（图1、图2等），例如"穿着图1的外套"、"参考图2的背景"、"脸部使用图3"
+2. 根据参考图判断拍摄风格（街拍/棚拍/户外/电商等），不要固定用同一种
+3. 用中文描述服装和风格，用英文写摄影参数
+4. 一段话，150-250字，不要分段，不要解释
+5. 包含：拍摄风格、人物描述、服装细节、姿势、相机镜头、灯光、背景、皮肤质感、图像质量
+6. 结尾加上：photorealistic, 8K, cinematic color, sharp details
+7. 不要编造图中没有的配饰或元素
+8. 负面：不要AI味、不要塑料皮肤、不要蜡像感、不要卡通${style ? `\n\n用户当前提示词（仅供参考，不要照搬）：\n${style}` : ""}`;
 
     const fallbackPrompt = buildFallbackPrompt({
       clothingCount: clothing_urls.length,
