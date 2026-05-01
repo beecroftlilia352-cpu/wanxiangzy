@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { clearCachedProfileCredits, createClient, getCachedProfileCredits } from "@/lib/supabase/client";
+import { clearCachedProfileCredits, createClient, getCachedProfileCredits, subscribeToProfileCredits } from "@/lib/supabase/client";
 import { Coins } from "lucide-react";
 
 export function HeaderClient() {
@@ -18,12 +18,12 @@ export function HeaderClient() {
     async function loadUserCredits(user: { id: string; email?: string | null }) {
       setEmail(user.email ?? null);
       setAuthReady(true);
-      if (loadedCreditsForUserRef.current === user.id) return;
-
       loadedCreditsForUserRef.current = user.id;
       const profileCredits = await getCachedProfileCredits(user.id);
 
-      if (!cancelled) setCredits(profileCredits);
+      if (!cancelled && loadedCreditsForUserRef.current === user.id) {
+        setCredits(profileCredits);
+      }
     }
 
     supabase.auth.getUser().then(({ data }) => {
@@ -47,8 +47,15 @@ export function HeaderClient() {
       }
     });
 
+    const unsubscribeCredits = subscribeToProfileCredits(({ userId, credits: nextCredits }) => {
+      if (loadedCreditsForUserRef.current === userId) {
+        setCredits(nextCredits);
+      }
+    });
+
     return () => {
       cancelled = true;
+      unsubscribeCredits();
       subscription.unsubscribe();
     };
   }, [supabase]);

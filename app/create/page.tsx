@@ -19,7 +19,7 @@ function ImgSkeleton({ src, alt, className }: {
 }
 import { useTryOnStore } from "@/lib/store/tryon-store";
 import { fileToBase64, MAX_CLOTHING_FILES, downloadImage } from "@/lib/utils";
-import { createClient, getCachedProfileCredits } from "@/lib/supabase/client";
+import { createClient, getCachedProfileCredits, setCachedProfileCredits } from "@/lib/supabase/client";
 import { getCreditCost, getSupportedImageSizes, buildTryOnPrompt, type LingyaModel, type ImageSize, type AspectRatio } from "@/lib/api/lingya";
 import { toast } from "sonner";
 import { FeatureTabs } from "@/components/FeatureTabs";
@@ -81,6 +81,7 @@ export default function CreatePage() {
   const [genCount, setGenCount] = useState(1);
 
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [credits, setCredits] = useState<number | null>(null);
   const [aiModel, setAiModel] = useState<LingyaModel>("gpt-image-2");
@@ -122,14 +123,16 @@ export default function CreatePage() {
     supabase.auth.getUser().then(({ data }) => {
       if (data.user) {
         setIsAuthenticated(true);
+        setUserId(data.user.id);
         getCachedProfileCredits(data.user.id).then(setCredits);
       }
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
       if (session?.user) {
         setIsAuthenticated(true);
+        setUserId(session.user.id);
         getCachedProfileCredits(session.user.id).then(setCredits);
-      } else { setIsAuthenticated(false); setCredits(null); }
+      } else { setIsAuthenticated(false); setUserId(null); setCredits(null); }
     });
     return () => subscription.unsubscribe();
   }, []);
@@ -287,12 +290,22 @@ export default function CreatePage() {
 
       if (!res.ok) {
         const e = await res.json();
-        if (res.status === 402) { toast.error(e.error); setCredits(e.balance ?? 0); store.setError(e.error); return; }
+        if (res.status === 402) {
+          const nextCredits = e.balance ?? 0;
+          toast.error(e.error);
+          setCredits(nextCredits);
+          if (userId) setCachedProfileCredits(userId, nextCredits);
+          store.setError(e.error);
+          return;
+        }
         throw new Error(e.error || "生成失败");
       }
 
       const { generation_id, credits_remaining } = await res.json();
-      if (credits_remaining !== undefined) setCredits(credits_remaining);
+      if (credits_remaining !== undefined) {
+        setCredits(credits_remaining);
+        if (userId) setCachedProfileCredits(userId, credits_remaining);
+      }
       store.updateProgress(25);
 
       // ---- Step 3: 轮询进度 ----

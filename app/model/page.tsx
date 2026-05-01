@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Camera, Download, Loader2, Sparkles, Upload, UserRound, Wand, X } from "lucide-react";
 import { toast } from "sonner";
 import { FeatureTabs } from "@/components/FeatureTabs";
-import { createClient, getCachedProfileCredits } from "@/lib/supabase/client";
+import { createClient, getCachedProfileCredits, setCachedProfileCredits } from "@/lib/supabase/client";
 import { downloadImage, fileToBase64 } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
 
@@ -55,6 +55,7 @@ export default function ModelPage() {
   const hairColorInputRef = useRef<HTMLInputElement>(null);
 
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
   const [credits, setCredits] = useState<number | null>(null);
   const [referenceUrls, setReferenceUrls] = useState<string[]>([]);
   const [gender, setGender] = useState<Gender>("female");
@@ -93,15 +94,18 @@ export default function ModelPage() {
     supabase.auth.getUser().then(({ data }) => {
       if (data.user) {
         setIsAuthenticated(true);
+        setUserId(data.user.id);
         getCachedProfileCredits(data.user.id).then(setCredits);
       }
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
       if (session?.user) {
         setIsAuthenticated(true);
+        setUserId(session.user.id);
         getCachedProfileCredits(session.user.id).then(setCredits);
       } else {
         setIsAuthenticated(false);
+        setUserId(null);
         setCredits(null);
       }
     });
@@ -242,10 +246,17 @@ export default function ModelPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        if (res.status === 402) setCredits(data.balance ?? 0);
+        if (res.status === 402) {
+          const nextCredits = data.balance ?? 0;
+          setCredits(nextCredits);
+          if (userId) setCachedProfileCredits(userId, nextCredits);
+        }
         throw new Error(data.error || "生成失败");
       }
-      if (data.credits_remaining !== undefined) setCredits(data.credits_remaining);
+      if (data.credits_remaining !== undefined) {
+        setCredits(data.credits_remaining);
+        if (userId) setCachedProfileCredits(userId, data.credits_remaining);
+      }
       setProgress(25);
 
       let attempts = 0;
