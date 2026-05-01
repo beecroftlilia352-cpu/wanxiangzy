@@ -1,8 +1,36 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-APP_NAME="${AWS_APP_NAME:-wanxiangzy}"
-BASE_DIR="${AWS_APP_DIR:-$HOME/apps/wanxiangzy}"
+trim_value() {
+  local value="${1-}"
+  value="${value//$'\r'/}"
+  value="${value//$'\n'/}"
+  value="${value#"${value%%[![:space:]]*}"}"
+  value="${value%"${value##*[![:space:]]}"}"
+  printf '%s' "$value"
+}
+
+APP_NAME="$(trim_value "${AWS_APP_NAME:-wanxiangzy}")"
+if [ -z "$APP_NAME" ]; then
+  APP_NAME="wanxiangzy"
+fi
+
+BASE_DIR="$(trim_value "${AWS_APP_DIR:-}")"
+if [ -z "$BASE_DIR" ]; then
+  BASE_DIR="$HOME/apps/wanxiangzy"
+fi
+case "$BASE_DIR" in
+  "~")
+    BASE_DIR="$HOME"
+    ;;
+  "~/"*)
+    BASE_DIR="$HOME/${BASE_DIR#~/}"
+    ;;
+esac
+if [ "$BASE_DIR" != "/" ]; then
+  BASE_DIR="${BASE_DIR%/}"
+fi
+
 ARCHIVE="${DEPLOY_ARCHIVE:?DEPLOY_ARCHIVE is required}"
 TAG="${TAG_NAME:-manual-$(date +%Y%m%d%H%M%S)}"
 SAFE_TAG="$(printf '%s' "$TAG" | tr -c 'A-Za-z0-9._-' '-')"
