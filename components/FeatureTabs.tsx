@@ -1,12 +1,15 @@
 "use client";
 
-import { PersonStanding, Shirt, UserRound } from "lucide-react";
+import { Box, PersonStanding, Shirt, UserRound } from "lucide-react";
 
-export function FeatureTabs({ active }: { active: "tryon" | "pose" | "model" }) {
-  const items = [
-    { key: "tryon" as const, href: "/create", label: "服装上身", icon: Shirt },
-    { key: "pose" as const, href: "/pose", label: "姿势裂变", icon: PersonStanding },
-    { key: "model" as const, href: "/model", label: "专属模特", icon: UserRound },
+type FeatureKey = "tryon" | "pose" | "model" | "garment3d";
+
+export function FeatureTabs({ active }: { active: FeatureKey }) {
+  const items: { key: FeatureKey; href: string; label: string; icon: typeof Shirt }[] = [
+    { key: "tryon", href: "/create", label: "服装上身", icon: Shirt },
+    { key: "pose", href: "/pose", label: "姿势裂变", icon: PersonStanding },
+    { key: "model", href: "/model", label: "专属模特", icon: UserRound },
+    { key: "garment3d", href: "/garment-3d", label: "服装转3D", icon: Box },
   ];
 
   return (
