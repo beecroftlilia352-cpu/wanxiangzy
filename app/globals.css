@@ -1,0 +1,143 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+    --primary: 262 83% 58%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 262 83% 58%;
+    --radius: 0.75rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-gray-200;
+  }
+  body {
+    @apply bg-white text-gray-900 antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+@layer components {
+  .gradient-brand {
+    @apply bg-gradient-to-r from-purple-600 via-fuchsia-500 to-pink-500;
+  }
+  .gradient-brand-text {
+    @apply bg-gradient-to-r from-purple-600 via-fuchsia-500 to-pink-500 bg-clip-text text-transparent;
+  }
+  .card-hover {
+    @apply transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5;
+  }
+}
+
+/* ---- 即梦风格动态渐变背景 ---- */
+.bg-gradient-animate {
+  background: linear-gradient(-45deg, #1a0533, #2d1b69, #0f0c29, #1b0a2e, #302b63, #24243e);
+  background-size: 400% 400%;
+  animation: gradientShift 8s ease infinite;
+}
+
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  25% { background-position: 100% 0%; }
+  50% { background-position: 100% 50%; }
+  75% { background-position: 0% 100%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* ---- 粒子动画 ---- */
+.particle {
+  animation: particleFloat linear infinite;
+  opacity: 0;
+}
+
+@keyframes particleFloat {
+  0% { transform: translateY(0) scale(0); opacity: 0; }
+  10% { opacity: 0.8; }
+  50% { opacity: 0.4; }
+  100% { transform: translateY(-100vh) scale(1.5); opacity: 0; }
+}
+
+/* ---- 旋转光环 ---- */
+.animate-spin-slow {
+  animation: spin 4s linear infinite;
+  transform-origin: center;
+}
+
+.animate-spin-slow-reverse {
+  animation: spin 6s linear infinite reverse;
+  transform-origin: center;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* ---- 淡入 ---- */
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ---- 放大镜光标 ---- */
+.cursor-zoom-in {
+  cursor: zoom-in;
+}
+.cursor-zoom-out {
+  cursor: zoom-out;
+}
+
+/* ---- 卡片渐变占位符 ---- */
+.bg-gradient-card-placeholder {
+  background: linear-gradient(135deg, #1e0a3c, #2d1b69, #1a0533, #302b63);
+  background-size: 300% 300%;
+  animation: gradientShift 6s ease infinite;
+}
+
+/* ---- 流光效果 ---- */
+.bg-shimmer {
+  background: linear-gradient(
+    105deg,
+    transparent 20%,
+    rgba(168, 85, 247, 0.15) 40%,
+    rgba(236, 72, 153, 0.15) 50%,
+    rgba(168, 85, 247, 0.15) 60%,
+    transparent 80%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2.5s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.3; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(1.05); }
+}
