@@ -255,6 +255,13 @@ export default function Garment3dPage() {
         if (userId) setCachedProfileCredits(userId, data.credits_remaining);
       }
 
+      if (data.status === "completed") {
+        setProgress(100);
+        setResultUrls(data.result_urls || []);
+        toast.success("服装转3D完成");
+        return;
+      }
+
       let attempts = 0;
       while (attempts < 120) {
         await new Promise((resolve) => setTimeout(resolve, 2000));

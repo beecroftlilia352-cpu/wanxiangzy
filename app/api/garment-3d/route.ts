@@ -13,6 +13,8 @@ import { resolveImageInputs } from "@/lib/api/image-inputs.server";
 type GarmentType = "上装" | "下装" | "连体衣" | "其他";
 type OutputMode = "reference" | "prompt";
 
+export const maxDuration = 60;
+
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createServerSupabase();
@@ -87,7 +89,7 @@ export async function POST(request: NextRequest) {
       generation_id: gen.id,
     });
 
-    runGarment3dPipeline({
+    const resultUrls = await runGarment3dPipeline({
       generationId: gen.id,
       garmentUrl: garment_url,
       referenceUrl: mode === "reference" ? reference_url || null : null,
@@ -103,13 +105,14 @@ export async function POST(request: NextRequest) {
       originalCredits: profile.credits,
       userId: user.id,
       genCount,
-    }).catch((err) => console.error("[garment-3d] pipeline error:", err));
+    });
 
     return NextResponse.json({
       generation_id: gen.id,
       credits_cost: totalCost,
       credits_remaining: newBalance,
-      status: "processing_tryon",
+      status: "completed",
+      result_urls: resultUrls,
     });
   } catch (err: any) {
     console.error("[garment-3d] POST error:", err);
@@ -188,6 +191,7 @@ async function runGarment3dPipeline(params: {
       result_urls: resultUrls,
       completed_at: new Date().toISOString(),
     });
+    return resultUrls;
   } catch (err: any) {
     console.error(`[garment-3d] failed for ${params.generationId}:`, err);
     const refundAmount = getCreditCost(params.model, params.imageSize, params.aspectRatio) * params.genCount;
@@ -200,6 +204,7 @@ async function runGarment3dPipeline(params: {
       generation_id: params.generationId,
     });
     await update({ status: "failed", error_message: err.message });
+    throw err;
   }
 }
 
