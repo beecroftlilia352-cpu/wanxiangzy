@@ -29,9 +29,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "图片不能超过 10MB" }, { status: 400 });
     }
 
+    // 去掉 data:image/xxx;base64, 前缀
+    const base64Data = image.includes(",") ? image.split(",")[1] : image;
+
     const imgbbForm = new FormData();
     imgbbForm.append("key", apiKey);
-    imgbbForm.append("image", image);
+    imgbbForm.append("image", base64Data);
     imgbbForm.append("name", name || "upload");
 
     const res = await fetch(IMGBB_API_URL, {
