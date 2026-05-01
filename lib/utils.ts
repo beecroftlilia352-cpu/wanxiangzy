@@ -105,12 +105,16 @@ export interface UploadResult {
  * 上传图片到 imgbb（通过服务端 API 代理）
  */
 export async function uploadImage(file: File): Promise<UploadResult> {
-  const form = new FormData();
-  form.append("image", file);
+  const arrayBuffer = await file.arrayBuffer();
+  const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
 
   const res = await fetch("/api/upload-image", {
     method: "POST",
-    body: form,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      image: base64,
+      name: file.name.replace(/\.[^.]+$/, ""),
+    }),
   });
 
   if (!res.ok) {
