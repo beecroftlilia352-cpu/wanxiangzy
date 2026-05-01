@@ -46,20 +46,24 @@ export async function POST(request: NextRequest) {
         : "",
     ].filter(Boolean).join("\n");
 
+    const allImageRefs = [...clothingRefs];
+    if (reference_url) allImageRefs.push(`图${referenceImageNumber}`);
+    if (model_face_url) allImageRefs.push(`图${faceImageNumber}`);
+
     const textPrompt = `分析这些图片，生成一段AI换装提示词。
 
 ${roleLines}
 
 生成规则：
-1. 【最重要】提示词中必须出现所有图号：${clothingRefs.join("、")}${reference_url ? `、图${referenceImageNumber}` : ""}${model_face_url ? `、图${faceImageNumber}` : ""}，缺任何一个图号都会导致生成失败
-2. 【最重要】必须在提示词开头强调：100%保持图${referenceImageNumber}参考图的姿势、身体角度、四肢位置、头部朝向、手部动作、背景、构图、镜头角度、光影、人物位置完全不变
+1. 【最重要】提示词中必须出现所有图号：${allImageRefs.join("、")}，缺任何一个图号都会导致生成失败
+2. 【最重要】${reference_url ? `必须在提示词开头强调：100%保持图${referenceImageNumber}参考图的姿势、身体角度、四肢位置、头部朝向、手部动作、背景、构图、镜头角度、光影、人物位置完全不变` : "根据图片分析合适的姿势和构图"}
 3. 根据参考图判断拍摄风格（街拍/棚拍/户外/电商等），不要固定用同一种
 4. 用中文描述服装和风格，用英文写摄影参数
 5. 一段话，150-250字，不要分段，不要解释
-6. 包含：姿势锁定声明、拍摄风格、人物描述、服装细节、相机镜头、灯光、背景、皮肤质感、图像质量
+6. 包含：${reference_url ? "姿势锁定声明、" : ""}拍摄风格、人物描述、服装细节、相机镜头、灯光、背景、皮肤质感、图像质量
 7. 结尾加上：photorealistic, 8K, cinematic color, sharp details
 8. 不要编造图中没有的配饰或元素
-9. 负面：不要AI味、不要塑料皮肤、不要蜡像感、不要卡通、不要改变姿势${style ? `\n\n用户当前提示词（仅供参考，不要照搬）：\n${style}` : ""}`;
+9. 负面：不要AI味、不要塑料皮肤、不要蜡像感、不要卡通${reference_url ? "、不要改变姿势" : ""}${style ? `\n\n用户当前提示词（仅供参考，不要照搬）：\n${style}` : ""}`;
 
     const fallbackPrompt = buildFallbackPrompt({
       clothingCount: clothing_urls.length,
