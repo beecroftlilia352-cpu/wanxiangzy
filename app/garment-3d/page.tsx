@@ -52,6 +52,7 @@ export default function Garment3dPage() {
   const [selectedReference, setSelectedReference] = useState(REFERENCE_PRESETS[0]);
   const [customReferenceUrl, setCustomReferenceUrl] = useState("");
   const [prompt, setPrompt] = useState(DEFAULT_PROMPT);
+  const [promptOverride, setPromptOverride] = useState<string | null>(null);
 
   const [aiModel, setAiModel] = useState<LingyaModel>("gpt-image-2");
   const [aspectRatio, setAspectRatio] = useState<Extract<AspectRatio, "1:1" | "3:4">>("1:1");
@@ -72,7 +73,7 @@ export default function Garment3dPage() {
   const totalCost = costPerImage * genCount;
   const activeReferenceUrl = customReferenceUrl || selectedReference.url;
 
-  const finalPrompt = useMemo(() => {
+  const builtPrompt = useMemo(() => {
     return buildGarment3dPrompt({
       garmentType: garmentType === "其他" ? customGarmentType || "其他服装" : garmentType,
       outputMode,
@@ -80,6 +81,7 @@ export default function Garment3dPage() {
       prompt,
     });
   }, [activeReferenceUrl, customGarmentType, garmentType, outputMode, prompt]);
+  const finalPrompt = promptOverride ?? builtPrompt;
 
   const imageRoles = outputMode === "reference"
     ? ["图1：用户上传服装图", "图2：3D立体效果参考图"]
@@ -140,6 +142,7 @@ export default function Garment3dPage() {
     }
     const base64 = await fileToBase64(file);
     setCustomReferenceUrl(base64);
+    setPromptOverride(null);
     toast.success("参考图已选择");
   }
 
@@ -169,12 +172,19 @@ export default function Garment3dPage() {
           garment_url: garmentUrl,
           garment_type: garmentType,
           custom_garment_type: customGarmentType,
-          prompt,
+          prompt: finalPrompt,
         }),
       });
       const data = await res.json();
       if (data.prompt) {
+        const optimizedPrompt = buildGarment3dPrompt({
+          garmentType: garmentType === "其他" ? customGarmentType || "其他服装" : garmentType,
+          outputMode,
+          hasReference: outputMode === "reference" && !!activeReferenceUrl,
+          prompt: data.prompt,
+        });
         setPrompt(data.prompt);
+        setPromptOverride(optimizedPrompt);
         toast.success("视觉 AI 已优化提示词");
       } else {
         toast.error("AI 暂时没有返回优化结果");
@@ -225,6 +235,7 @@ export default function Garment3dPage() {
           aspect_ratio: aspectRatio,
           image_size: imageSize,
           prompt,
+          final_prompt: finalPrompt,
           gen_count: genCount,
         }),
       });
@@ -350,13 +361,13 @@ export default function Garment3dPage() {
             <h3 className="font-bold text-sm mb-3">出图模式</h3>
             <div className="grid grid-cols-2 gap-2 mb-3">
               <button
-                onClick={() => setOutputMode("reference")}
+                onClick={() => { setOutputMode("reference"); setPromptOverride(null); }}
                 className={`py-2 rounded-lg border text-xs font-medium ${outputMode === "reference" ? "border-purple-500 bg-purple-50 text-purple-600" : "border-gray-200"}`}
               >
                 选择参考图
               </button>
               <button
-                onClick={() => setOutputMode("prompt")}
+                onClick={() => { setOutputMode("prompt"); setPromptOverride(null); }}
                 className={`py-2 rounded-lg border text-xs font-medium ${outputMode === "prompt" ? "border-purple-500 bg-purple-50 text-purple-600" : "border-gray-200"}`}
               >
                 自定义提示词
@@ -369,7 +380,7 @@ export default function Garment3dPage() {
                   {REFERENCE_PRESETS.map((ref) => (
                     <button
                       key={ref.id}
-                      onClick={() => { setSelectedReference(ref); setCustomReferenceUrl(""); }}
+                      onClick={() => { setSelectedReference(ref); setCustomReferenceUrl(""); setPromptOverride(null); }}
                       className={`relative aspect-square rounded-lg overflow-hidden border bg-gray-50 ${
                         !customReferenceUrl && selectedReference.id === ref.id ? "border-purple-500 ring-2 ring-purple-100" : "border-gray-200"
                       }`}
@@ -399,27 +410,23 @@ export default function Garment3dPage() {
               </div>
             )}
 
-            <div className="relative mt-3">
-              <textarea
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                className="w-full px-3 py-2 pr-10 rounded-lg border text-xs focus:ring-2 focus:ring-purple-200 outline-none resize-none h-24"
-              />
-              <button
-                onClick={optimizePrompt}
-                disabled={isOptimizing || !garmentUrl}
-                className="absolute right-2 top-2 p-1.5 rounded-md bg-purple-50 text-purple-500 hover:bg-purple-100 disabled:opacity-30"
-                title="视觉 AI 优化提示词"
-              >
-                {isOptimizing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand className="w-3.5 h-3.5" />}
-              </button>
-            </div>
-            <button
-              onClick={() => setShowPromptPreview(true)}
-              className="mt-2 w-full py-2 rounded-lg border border-dashed border-gray-300 text-xs text-gray-500 hover:border-purple-300 hover:text-purple-600 transition-all flex items-center justify-center gap-1.5"
-            >
-              <ZoomIn className="w-3.5 h-3.5" /> 查看完整提示词
-            </button>
+            {outputMode === "prompt" && (
+              <div className="relative mt-3">
+                <textarea
+                  value={prompt}
+                  onChange={(e) => { setPrompt(e.target.value); setPromptOverride(null); }}
+                  className="w-full px-3 py-2 pr-10 rounded-lg border text-xs focus:ring-2 focus:ring-purple-200 outline-none resize-none h-24"
+                />
+                <button
+                  onClick={optimizePrompt}
+                  disabled={isOptimizing || !garmentUrl}
+                  className="absolute right-2 top-2 p-1.5 rounded-md bg-purple-50 text-purple-500 hover:bg-purple-100 disabled:opacity-30"
+                  title="视觉 AI 优化提示词"
+                >
+                  {isOptimizing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand className="w-3.5 h-3.5" />}
+                </button>
+              </div>
+            )}
           </section>
 
           <section>
@@ -476,8 +483,15 @@ export default function Garment3dPage() {
             </div>
           </section>
 
+          <button
+            onClick={() => setShowPromptPreview(true)}
+            className="w-full py-2 rounded-lg border border-dashed border-gray-300 text-xs text-gray-500 hover:border-purple-300 hover:text-purple-600 transition-all flex items-center justify-center gap-1.5"
+          >
+            <ZoomIn className="w-3.5 h-3.5" /> 查看完整提示词
+          </button>
+
           <section>
-            <h3 className="font-bold text-sm mb-3">数量</h3>
+            <h3 className="font-bold text-sm mb-3">生成数量</h3>
             <div className="grid grid-cols-4 gap-2">
               {[1, 2, 3, 4].map((n) => (
                 <button
@@ -599,8 +613,20 @@ export default function Garment3dPage() {
                 </span>
               ))}
             </div>
-            <div className="px-5 py-4 overflow-y-auto max-h-[55vh]">
-              <pre className="text-xs text-gray-700 whitespace-pre-wrap leading-relaxed font-sans">{finalPrompt}</pre>
+            <div className="px-5 py-4 overflow-y-auto max-h-[55vh] space-y-3">
+              <textarea
+                value={finalPrompt}
+                onChange={(e) => setPromptOverride(e.target.value)}
+                className="w-full min-h-[220px] px-3 py-2 rounded-lg border text-xs text-gray-700 leading-relaxed outline-none focus:ring-2 focus:ring-purple-200 resize-y"
+              />
+              <button
+                onClick={optimizePrompt}
+                disabled={isOptimizing || !garmentUrl}
+                className="w-full py-2 rounded-lg border border-dashed border-purple-200 text-xs font-medium text-purple-600 hover:bg-purple-50 disabled:opacity-40 flex items-center justify-center gap-1.5"
+              >
+                {isOptimizing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand className="w-3.5 h-3.5" />}
+                视觉 AI 分析图片并优化
+              </button>
             </div>
             <div className="px-5 py-3 border-t bg-gray-50 flex justify-end gap-2">
               <button onClick={() => { navigator.clipboard.writeText(finalPrompt); toast.success("已复制"); }} className="px-4 py-1.5 rounded-full border text-xs font-medium hover:bg-gray-50">

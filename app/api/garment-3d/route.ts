@@ -29,11 +29,12 @@ export async function POST(request: NextRequest) {
       aspect_ratio,
       image_size,
       prompt,
+      final_prompt,
       gen_count,
     } = await request.json();
 
     if (!garment_url) return NextResponse.json({ error: "请上传服装图" }, { status: 400 });
-    if (!prompt?.trim()) return NextResponse.json({ error: "缺少提示词" }, { status: 400 });
+    if (!prompt?.trim() && !final_prompt?.trim()) return NextResponse.json({ error: "缺少提示词" }, { status: 400 });
 
     const model: LingyaModel = ai_model || "gpt-image-2";
     const aspectRatio: AspectRatio = aspect_ratio === "1:1" ? "1:1" : "3:4";
@@ -93,7 +94,7 @@ export async function POST(request: NextRequest) {
       model,
       aspectRatio,
       imageSize: size,
-      prompt: buildServerPrompt({
+      prompt: final_prompt?.trim() || buildServerPrompt({
         garmentType: finalGarmentType,
         outputMode: mode,
         hasReference: !!reference_url && mode === "reference",
