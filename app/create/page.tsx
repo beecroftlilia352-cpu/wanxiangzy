@@ -189,7 +189,7 @@ export default function CreatePage() {
           clothing_urls: uploadedClothingUrls,
           model_face_url: store.selectedModel?.image_url,
           reference_url: store.referenceImage?.url,
-          style: finalPrompt,
+          style: customStyle || undefined,
         }),
       }).finally(() => clearTimeout(timeout));
 
