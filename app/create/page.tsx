@@ -963,11 +963,19 @@ export default function CreatePage() {
               </button>
             </div>
 
-            <div className="px-5 py-3 border-t bg-gray-50 flex justify-end gap-2">
-              <button onClick={() => { navigator.clipboard.writeText(finalPrompt); toast.success("已复制"); }}
-                className="px-4 py-1.5 rounded-full border text-xs font-medium hover:bg-gray-50">复制</button>
-              <button onClick={() => setShowPromptPreview(false)}
-                className="px-4 py-1.5 rounded-full gradient-brand text-white text-xs font-medium">关闭</button>
+            <div className="px-5 py-3 border-t bg-gray-50 flex justify-between gap-2">
+              <button onClick={() => {
+                setPromptOverride(null);
+                store.setPromptUsed("");
+                toast.success("已重置为默认提示词");
+              }}
+                className="px-4 py-1.5 rounded-full border border-dashed border-gray-300 text-xs font-medium text-gray-500 hover:border-purple-300 hover:text-purple-600 transition-colors">重置默认</button>
+              <div className="flex gap-2">
+                <button onClick={() => { navigator.clipboard.writeText(finalPrompt); toast.success("已复制"); }}
+                  className="px-4 py-1.5 rounded-full border text-xs font-medium hover:bg-gray-50">复制</button>
+                <button onClick={() => setShowPromptPreview(false)}
+                  className="px-4 py-1.5 rounded-full gradient-brand text-white text-xs font-medium">关闭</button>
+              </div>
             </div>
           </div>
         </div>
