@@ -93,17 +93,21 @@ export default function CreatePage() {
   const [promptOverride, setPromptOverride] = useState<string | null>(null);
 
   // 本地路径转 base64（预设图片用本地路径，API 服务器访问不到，需要转 base64）
+  const base64Cache = useRef<Map<string, string>>(new Map());
   const urlToBase64 = async (url: string): Promise<string> => {
-    if (url.startsWith("data:")) return url; // 已经是 base64
-    if (url.startsWith("http")) return url; // 远程 URL，直接用
-    // 本地路径，fetch 后转 base64
+    if (url.startsWith("data:")) return url;
+    if (url.startsWith("http")) return url;
+    const cached = base64Cache.current.get(url);
+    if (cached) return cached;
     const res = await fetch(url);
     const blob = await res.blob();
-    return new Promise((resolve) => {
+    const result = await new Promise<string>((resolve) => {
       const reader = new FileReader();
       reader.onload = () => resolve(reader.result as string);
       reader.readAsDataURL(blob);
     });
+    base64Cache.current.set(url, result);
+    return result;
   };
   const [customModelPreview, setCustomModelPreview] = useState<string | null>(null);
   const [customRefPreview, setCustomRefPreview] = useState<string | null>(null);

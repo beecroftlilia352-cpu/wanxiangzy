@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
     const auth = await requireApiUser();
     if (auth.response) return auth.response;
 
-    const limit = checkRateLimit(`optimize-prompt:${auth.user.id}`, 20, 60_000);
+    const limit = await checkRateLimit(`optimize-prompt:${auth.user.id}`, 20, 60_000);
     if (!limit.ok) return rateLimitResponse(limit.retryAfterSeconds);
 
     const body = await request.json();

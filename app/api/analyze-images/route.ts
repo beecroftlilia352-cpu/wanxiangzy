@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
     const auth = await requireApiUser();
     if (auth.response) return auth.response;
 
-    const limit = checkRateLimit(`analyze-images:${auth.user.id}`, 20, 60_000);
+    const limit = await checkRateLimit(`analyze-images:${auth.user.id}`, 20, 60_000);
     if (!limit.ok) return rateLimitResponse(limit.retryAfterSeconds);
 
     const { clothing_urls, model_face_url, reference_url, style } = await request.json();

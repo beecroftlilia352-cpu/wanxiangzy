@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
     const auth = await requireApiUser();
     if (auth.response) return auth.response;
 
-    const limit = checkRateLimit(`model-analyze:${auth.user.id}`, 20, 60_000);
+    const limit = await checkRateLimit(`model-analyze:${auth.user.id}`, 20, 60_000);
     if (!limit.ok) return rateLimitResponse(limit.retryAfterSeconds);
 
     const llm = getLlmConfig("vision");

@@ -1,35 +1,51 @@
 import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 
-type Bucket = {
-  count: number;
-  resetAt: number;
-};
+const BUCKET_TABLE = "rate_limit_buckets";
 
-const buckets = new Map<string, Bucket>();
+function getAdminClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return null;
+  return createClient(url, key);
+}
 
-export function checkRateLimit(
+export async function checkRateLimit(
   key: string,
   limit: number,
   windowMs: number
-): { ok: true } | { ok: false; retryAfterSeconds: number } {
+): Promise<{ ok: true } | { ok: false; retryAfterSeconds: number }> {
+  const supabase = getAdminClient();
+  if (!supabase) return { ok: true };
+
   const now = Date.now();
-  const bucket = buckets.get(key);
+  const windowStart = now - windowMs;
 
-  if (!bucket || bucket.resetAt <= now) {
-    buckets.set(key, { count: 1, resetAt: now + windowMs });
-    cleanupBuckets(now);
-    return { ok: true };
-  }
+  try {
+    const { data, error } = await supabase.rpc("check_rate_limit", {
+      p_key: key,
+      p_limit: limit,
+      p_window_start: new Date(windowStart).toISOString(),
+      p_now: new Date(now).toISOString(),
+      p_window_ms: windowMs,
+    });
 
-  if (bucket.count >= limit) {
+    if (error) {
+      console.error("[rate-limit] rpc error:", error.message);
+      return { ok: true };
+    }
+
+    const row = Array.isArray(data) ? data[0] : data;
+    if (row?.allowed) return { ok: true };
+
     return {
       ok: false,
-      retryAfterSeconds: Math.max(1, Math.ceil((bucket.resetAt - now) / 1000)),
+      retryAfterSeconds: Math.max(1, Math.ceil((row?.retry_after_ms ?? windowMs) / 1000)),
     };
+  } catch (err) {
+    console.error("[rate-limit] error:", err);
+    return { ok: true };
   }
-
-  bucket.count += 1;
-  return { ok: true };
 }
 
 export function rateLimitResponse(retryAfterSeconds: number) {
@@ -40,12 +56,4 @@ export function rateLimitResponse(retryAfterSeconds: number) {
       headers: { "Retry-After": String(retryAfterSeconds) },
     }
   );
-}
-
-function cleanupBuckets(now: number) {
-  if (buckets.size < 5000) return;
-
-  for (const [key, bucket] of buckets) {
-    if (bucket.resetAt <= now) buckets.delete(key);
-  }
 }

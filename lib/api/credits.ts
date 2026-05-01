@@ -70,17 +70,31 @@ export async function failGenerationWithRefund(
     errorMessage: string;
   }
 ) {
-  const { error } = await supabase.rpc("fail_generation_with_credit_refund", {
-    p_user_id: params.userId,
-    p_generation_id: params.generationId,
-    p_amount: params.amount,
-    p_reason: params.reason,
-    p_error_message: params.errorMessage,
-  });
+  const maxRetries = 3;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    const { error } = await supabase.rpc("fail_generation_with_credit_refund", {
+      p_user_id: params.userId,
+      p_generation_id: params.generationId,
+      p_amount: params.amount,
+      p_reason: params.reason,
+      p_error_message: params.errorMessage,
+    });
 
-  if (error) {
-    console.error("[credits] refund rpc failed:", error.message);
+    if (!error) return;
+
+    console.error(
+      `[credits] refund rpc failed (attempt ${attempt}/${maxRetries}):`,
+      error.message
+    );
+
+    if (attempt < maxRetries) {
+      await new Promise((r) => setTimeout(r, 1000 * attempt));
+    }
   }
+
+  console.error(
+    `[credits] CRITICAL: refund failed after ${maxRetries} attempts for generation ${params.generationId}, user ${params.userId}, amount ${params.amount}`
+  );
 }
 
 export function errorToResponsePayload(err: unknown) {

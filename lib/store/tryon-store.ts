@@ -27,7 +27,7 @@ interface TryOnStore {
   updateProgress: (progress: number) => void;
   setResult: (urls: string[]) => void;
   setPromptUsed: (prompt: string) => void;
-  setError: (error: string) => void;
+  setError: (error: string | null) => void;
   reset: () => void;
 }
 

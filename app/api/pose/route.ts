@@ -6,6 +6,7 @@ import {
   errorToResponsePayload,
 } from "@/lib/api/credits";
 import { startGenerationJob, type GenerationJobPayload } from "@/lib/api/generation-jobs";
+import { handleGenerationStatusGet } from "@/lib/api/generation-status";
 
 const POSE_ASPECT_RATIO = "3:4" as const;
 
@@ -58,25 +59,5 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-  try {
-    const supabase = await createServerSupabase();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: "请先登录" }, { status: 401 });
-
-    const generationId = request.nextUrl.searchParams.get("generation_id");
-    if (!generationId) return NextResponse.json({ error: "Missing generation_id" }, { status: 400 });
-
-    const { data: gen } = await supabase
-      .from("generations").select("*").eq("id", generationId).eq("user_id", user.id).single();
-
-    if (!gen) return NextResponse.json({ error: "Not found" }, { status: 404 });
-
-    return NextResponse.json({
-      status: gen.status === "queued" ? "processing_tryon" : gen.status,
-      result_urls: gen.result_urls || [],
-      error: gen.error_message,
-    });
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
-  }
+  return handleGenerationStatusGet(request.nextUrl.searchParams.get("generation_id"));
 }

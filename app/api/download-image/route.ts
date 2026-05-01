@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
   const auth = await requireApiUser();
   if (auth.response) return auth.response;
 
-  const limit = checkRateLimit(`download:${auth.user.id}`, 30, 60_000);
+  const limit = await checkRateLimit(`download:${auth.user.id}`, 30, 60_000);
   if (!limit.ok) return rateLimitResponse(limit.retryAfterSeconds);
 
   const imageUrl = request.nextUrl.searchParams.get("url");

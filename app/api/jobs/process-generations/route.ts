@@ -33,13 +33,10 @@ function validateProcessorAuth(request: NextRequest) {
   const expectedSecret = process.env.JOB_PROCESSOR_SECRET || process.env.CRON_SECRET;
 
   if (!expectedSecret) {
-    if (process.env.NODE_ENV === "production") {
-      return NextResponse.json(
-        { error: "JOB_PROCESSOR_SECRET 或 CRON_SECRET 未配置" },
-        { status: 500 }
-      );
-    }
-    return null;
+    return NextResponse.json(
+      { error: "JOB_PROCESSOR_SECRET 或 CRON_SECRET 未配置" },
+      { status: 500 }
+    );
   }
 
   const authorization = request.headers.get("authorization") || "";
