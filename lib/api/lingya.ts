@@ -262,11 +262,12 @@ export function buildTryOnPrompt(params: {
 
   // ---- 核心提示词（显式编号 + 保留/替换约束） ----
   const skinAndQuality = "真实皮肤质感，可见毛孔、自然纹理和轻微瑕疵，不过度磨皮。photorealistic, 8K ultra-detailed, high contrast, cinematic color grade, commercial fashion catalog quality, sharp details, raw photo quality。";
+  const poseLock = "【最重要】必须100%保持参考图的姿势、身体角度、四肢位置、头部朝向、手部动作完全一致，不能有任何改变。背景、构图、镜头角度、光影、人物位置也不能变。";
 
   if (params.hasReference && params.hasModelFace) {
-    prompt = `图像角色：${clothingRefs.join("、")}是服装图，图${referenceImageNumber}是参考图，图${faceImageNumber}是模特脸图。任务：将${clothingText}穿在图${referenceImageNumber}参考图中的人物身上，并将人物脸部替换为图${faceImageNumber}的模特脸。严格保持图${referenceImageNumber}的背景、构图、镜头角度、光影、姿势、身体比例和人物位置不变。保留服装的版型、颜色、材质、图案和细节，使服装自然贴合人体。${skinAndQuality}不要改变参考图场景，不要生成多余人物，不要改变发型以外的主体身份特征。`;
+    prompt = `图像角色：${clothingRefs.join("、")}是服装图，图${referenceImageNumber}是参考图，图${faceImageNumber}是模特脸图。任务：将${clothingText}穿在图${referenceImageNumber}参考图中的人物身上，并将人物脸部替换为图${faceImageNumber}的模特脸。${poseLock}保留服装的版型、颜色、材质、图案和细节，使服装自然贴合人体。${skinAndQuality}不要改变参考图场景，不要生成多余人物，不要改变发型以外的主体身份特征。`;
   } else if (params.hasReference && !params.hasModelFace) {
-    prompt = `图像角色：${clothingRefs.join("、")}是服装图，图${referenceImageNumber}是参考图。任务：将${clothingText}穿在图${referenceImageNumber}参考图中的人物身上。严格保持图${referenceImageNumber}的背景、构图、镜头角度、光影、姿势、身体比例、人物位置和脸部身份不变。保留服装的版型、颜色、材质、图案和细节，使服装自然贴合人体。${skinAndQuality}不要改变参考图场景，不要生成多余人物。`;
+    prompt = `图像角色：${clothingRefs.join("、")}是服装图，图${referenceImageNumber}是参考图。任务：将${clothingText}穿在图${referenceImageNumber}参考图中的人物身上。${poseLock}保留服装的版型、颜色、材质、图案和细节，使服装自然贴合人体。${skinAndQuality}不要改变参考图场景，不要生成多余人物，脸部身份保持不变。`;
   } else if (!params.hasReference && params.hasModelFace) {
     prompt = `图像角色：${clothingRefs.join("、")}是服装图，图${faceImageNumber}是模特脸图。任务：生成一张时尚换装照片，让人物穿上${clothingText}，脸部身份使用图${faceImageNumber}的模特脸。保留服装的版型、颜色、材质、图案和细节，使服装自然贴合人体。${skinAndQuality}姿势自然，光影真实，单人半身或全身构图，不要生成多余人物。`;
   } else {
