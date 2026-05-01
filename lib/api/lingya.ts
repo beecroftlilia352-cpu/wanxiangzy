@@ -9,12 +9,45 @@ export type LingyaModel = "gpt-image-2" | "doubao-seedream-4-5-251128" | "nano-b
 export type AspectRatio = "auto" | "1:1" | "9:16" | "16:9" | "4:3" | "3:4" | "2:3" | "3:2" | "4:5" | "5:4" | "21:9";
 export type ImageSize = "1K" | "2K" | "4K";
 
+const LINGYA_MODELS: LingyaModel[] = [
+  "gpt-image-2",
+  "doubao-seedream-4-5-251128",
+  "nano-banana-pro",
+  "nano-banana-2",
+];
+
+const ASPECT_RATIOS: AspectRatio[] = [
+  "auto",
+  "1:1",
+  "9:16",
+  "16:9",
+  "4:3",
+  "3:4",
+  "2:3",
+  "3:2",
+  "4:5",
+  "5:4",
+  "21:9",
+];
+
 export const CREDIT_COSTS: Record<LingyaModel, Record<ImageSize, number>> = {
   "gpt-image-2":      { "1K": 2, "2K": 3, "4K": 4 },
   "doubao-seedream-4-5-251128": { "1K": 1, "2K": 1, "4K": 2 },
   "nano-banana-pro":   { "1K": 2, "2K": 3, "4K": 4 },
   "nano-banana-2":     { "1K": 1, "2K": 2, "4K": 3 },
 };
+
+export function normalizeLingyaModel(value: unknown): LingyaModel {
+  return typeof value === "string" && LINGYA_MODELS.includes(value as LingyaModel)
+    ? (value as LingyaModel)
+    : "gpt-image-2";
+}
+
+export function normalizeAspectRatio(value: unknown, fallback: AspectRatio = "3:4"): AspectRatio {
+  return typeof value === "string" && ASPECT_RATIOS.includes(value as AspectRatio)
+    ? (value as AspectRatio)
+    : fallback;
+}
 
 export function getCreditCost(model: LingyaModel, size: ImageSize = "1K", aspectRatio?: AspectRatio): number {
   return CREDIT_COSTS[model]?.[normalizeImageSize(model, size, aspectRatio)] ?? 1;

@@ -1,18 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireApiUser } from "@/lib/api/auth";
+import { getChatCompletionsUrl, getLlmConfig } from "@/lib/api/llm-provider";
+import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 
-const LLM_VISION_MODEL = process.env.LINGYA_VISION_MODEL || "gpt-4o-mini";
 const ANALYZE_TIMEOUT_MS = Number(process.env.LINGYA_ANALYZE_TIMEOUT_MS || 25000);
 
 export async function POST(request: NextRequest) {
   try {
-    const apiKey = process.env.LINGYA_API_KEY;
-    if (!apiKey) return NextResponse.json({ prompt: "" });
+    const auth = await requireApiUser();
+    if (auth.response) return auth.response;
+
+    const limit = checkRateLimit(`model-analyze:${auth.user.id}`, 20, 60_000);
+    if (!limit.ok) return rateLimitResponse(limit.retryAfterSeconds);
+
+    const llm = getLlmConfig("vision");
+    if (!llm.apiKey) return NextResponse.json({ prompt: "" });
 
     const { reference_urls, hair_reference_url, hair_color_reference_url, gender, hair_style, hair_color, prompt } = await request.json();
     if (!reference_urls?.length) return NextResponse.json({ prompt: "" });
 
-    const baseUrl = normalizeOpenAiCompatibleBaseUrl(process.env.LINGYA_BASE_URL || "");
-    if (!baseUrl) return NextResponse.json({ prompt: "" });
+    if (!llm.baseUrl) return NextResponse.json({ prompt: "" });
 
     const roleLines = reference_urls
       .map((_: string, index: number) => `图${index + 1}：专属模特参考图，用于提取同一人物的脸型、五官、肤色、气质和真实身份特征。`)
@@ -49,12 +56,12 @@ ${prompt || ""}
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), ANALYZE_TIMEOUT_MS);
-    const res = await fetch(`${baseUrl}/chat/completions`, {
+    const res = await fetch(getChatCompletionsUrl(llm), {
       method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      headers: { Authorization: `Bearer ${llm.apiKey}`, "Content-Type": "application/json" },
       signal: controller.signal,
       body: JSON.stringify({
-        model: LLM_VISION_MODEL,
+        model: llm.model,
         messages: [{
           role: "user",
           content: [
@@ -76,10 +83,4 @@ ${prompt || ""}
     console.error("[model/analyze] error:", err);
     return NextResponse.json({ prompt: "" });
   }
-}
-
-function normalizeOpenAiCompatibleBaseUrl(value: string): string {
-  const baseUrl = value.replace(/\/+$/, "");
-  if (!baseUrl) return "";
-  return baseUrl.endsWith("/v1") ? baseUrl : `${baseUrl}/v1`;
 }

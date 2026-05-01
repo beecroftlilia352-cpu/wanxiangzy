@@ -6,12 +6,19 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-
-const LLM_TEXT_MODEL = process.env.LINGYA_TEXT_MODEL || "gpt-4o-mini";
+import { requireApiUser } from "@/lib/api/auth";
+import { getChatCompletionsUrl, getLlmConfig } from "@/lib/api/llm-provider";
+import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 
 export async function POST(request: NextRequest) {
   let style = "";
   try {
+    const auth = await requireApiUser();
+    if (auth.response) return auth.response;
+
+    const limit = checkRateLimit(`optimize-prompt:${auth.user.id}`, 20, 60_000);
+    if (!limit.ok) return rateLimitResponse(limit.retryAfterSeconds);
+
     const body = await request.json();
     style = body.style || "";
 
@@ -19,24 +26,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "缺少 style 参数" }, { status: 400 });
     }
 
-    const apiKey = process.env.LINGYA_API_KEY;
-    if (!apiKey) {
+    const llm = getLlmConfig("text");
+    if (!llm.apiKey) {
       return NextResponse.json({ error: "API Key 未配置" }, { status: 500 });
     }
-    const baseUrl = getLlmBaseUrl();
-    if (!baseUrl) {
-      return NextResponse.json({ error: "Base URL 未配置，请在 .env.local 设置 LINGYA_BASE_URL" }, { status: 500 });
+    if (!llm.baseUrl) {
+      return NextResponse.json({ error: "Base URL 未配置" }, { status: 500 });
     }
 
     // 调用 chat completions 接口
-    const res = await fetch(`${baseUrl}/chat/completions`, {
+    const res = await fetch(getChatCompletionsUrl(llm), {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${apiKey}`,
+        Authorization: `Bearer ${llm.apiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: LLM_TEXT_MODEL,
+        model: llm.model,
         messages: [
           {
             role: "system",
@@ -83,16 +89,6 @@ export async function POST(request: NextRequest) {
     const fallback = expandStyleFallback(style);
     return NextResponse.json({ original: style, optimized: fallback, source: "fallback" });
   }
-}
-
-function getLlmBaseUrl(): string {
-  return normalizeOpenAiCompatibleBaseUrl(process.env.LINGYA_BASE_URL || "");
-}
-
-function normalizeOpenAiCompatibleBaseUrl(value: string): string {
-  const baseUrl = value.replace(/\/+$/, "");
-  if (!baseUrl) return "";
-  return baseUrl.endsWith("/v1") ? baseUrl : `${baseUrl}/v1`;
 }
 
 // ---- 本地降级模板 ----

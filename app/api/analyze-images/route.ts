@@ -4,22 +4,25 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { requireApiUser } from "@/lib/api/auth";
+import { getChatCompletionsUrl, getLlmConfig } from "@/lib/api/llm-provider";
+import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 
-const LLM_VISION_MODEL = process.env.LINGYA_VISION_MODEL || "gpt-4o-mini";
 const ANALYZE_TIMEOUT_MS = Number(process.env.LINGYA_ANALYZE_TIMEOUT_MS || 25000);
 
 export async function POST(request: NextRequest) {
   try {
-    const apiKey = process.env.LINGYA_API_KEY;
-    if (!apiKey) return NextResponse.json({ prompt: "" });
-    const baseUrl = getLlmBaseUrl();
-    if (!baseUrl) {
-      console.error("[analyze] Base URL 未配置，请在 .env.local 设置 LINGYA_BASE_URL");
-      return NextResponse.json({ prompt: "", error: "Base URL 未配置" }, { status: 500 });
-    }
+    const auth = await requireApiUser();
+    if (auth.response) return auth.response;
+
+    const limit = checkRateLimit(`analyze-images:${auth.user.id}`, 20, 60_000);
+    if (!limit.ok) return rateLimitResponse(limit.retryAfterSeconds);
 
     const { clothing_urls, model_face_url, reference_url, style } = await request.json();
     if (!clothing_urls?.length) return NextResponse.json({ prompt: "" });
+    if (!Array.isArray(clothing_urls) || clothing_urls.some((url) => typeof url !== "string")) {
+      return NextResponse.json({ prompt: "" });
+    }
 
     // 构建图片内容。顺序必须与提示词里的图号完全一致。
     const imageContents: any[] = [];
@@ -54,20 +57,37 @@ ${roleLines}
 5. 加入摄影真实感描述：真实相机拍摄、自然环境光或棚拍柔光、真实阴影、布料褶皱、缝线纹理、皮肤毛孔和轻微瑕疵、不过度磨皮、颜色不过饱和。
 6. 加入负面约束：不要改变参考图场景，不要生成多余人物，不要扭曲身体和服装，不要塑料皮肤，不要蜡像感，不要过度锐化，不要卡通感，不要 AI 渲染感，不要虚假光晕。
 7. 语言要像专业摄影执行指令，简洁但具体，80-140字，只输出最终提示词，不要解释，不要分点。${style ? `\n用户风格补充：${style}` : ""}`;
+    const fallbackPrompt = buildFallbackPrompt({
+      clothingCount: clothing_urls.length,
+      referenceImageNumber,
+      faceImageNumber,
+      hasReference: !!reference_url,
+      hasModelFace: !!model_face_url,
+      style,
+    });
+
+    const llm = getLlmConfig("vision");
+    if (!llm.apiKey) {
+      return NextResponse.json({ prompt: fallbackPrompt, source: "fallback", reason: "missing_api_key" });
+    }
+    if (!llm.baseUrl) {
+      console.error("[analyze] Base URL 未配置");
+      return NextResponse.json({ prompt: fallbackPrompt, source: "fallback", reason: "missing_base_url" });
+    }
 
     const requestBody = {
-      model: LLM_VISION_MODEL,
+      model: llm.model,
       messages: [{ role: "user", content: [{ type: "text", text: textPrompt }, ...imageContents] }],
       max_tokens: 200,
     };
 
-    console.log("[analyze] 发送图片数量:", imageContents.length, "模型:", LLM_VISION_MODEL);
+    console.log("[analyze] 发送图片数量:", imageContents.length, "provider:", llm.provider, "模型:", llm.model);
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), ANALYZE_TIMEOUT_MS);
-    const res = await fetch(`${baseUrl}/chat/completions`, {
+    const res = await fetch(getChatCompletionsUrl(llm), {
       method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      headers: { Authorization: `Bearer ${llm.apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify(requestBody),
       signal: controller.signal,
     }).finally(() => clearTimeout(timeout));
@@ -77,19 +97,23 @@ ${roleLines}
 
     if (!res.ok) {
       console.error("[analyze] API 错误:", res.status, resText);
-      return NextResponse.json({ prompt: "" });
+      return NextResponse.json({
+        prompt: fallbackPrompt,
+        source: "fallback",
+        reason: `llm_http_${res.status}`,
+      });
     }
 
     const data = JSON.parse(resText);
-    const prompt = data.choices?.[0]?.message?.content?.trim() || "";
+    const prompt = extractMessageText(data).trim();
 
     if (prompt) {
       console.log("[analyze] 生成的提示词:", prompt);
+      return NextResponse.json({ prompt, source: llm.provider });
     } else {
       console.warn("[analyze] 返回空提示词，响应:", JSON.stringify(data).slice(0, 300));
+      return NextResponse.json({ prompt: fallbackPrompt, source: "fallback", reason: "empty_llm_content" });
     }
-
-    return NextResponse.json({ prompt });
 
   } catch (err: any) {
     if (err?.name === "AbortError") {
@@ -101,12 +125,42 @@ ${roleLines}
   }
 }
 
-function getLlmBaseUrl(): string {
-  return normalizeOpenAiCompatibleBaseUrl(process.env.LINGYA_BASE_URL || "");
+function extractMessageText(data: any): string {
+  const content = data?.choices?.[0]?.message?.content;
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) {
+    return content
+      .map((item) => {
+        if (typeof item === "string") return item;
+        if (typeof item?.text === "string") return item.text;
+        if (typeof item?.content === "string") return item.content;
+        return "";
+      })
+      .filter(Boolean)
+      .join("\n");
+  }
+  return "";
 }
 
-function normalizeOpenAiCompatibleBaseUrl(value: string): string {
-  const baseUrl = value.replace(/\/+$/, "");
-  if (!baseUrl) return "";
-  return baseUrl.endsWith("/v1") ? baseUrl : `${baseUrl}/v1`;
+function buildFallbackPrompt(params: {
+  clothingCount: number;
+  referenceImageNumber: number;
+  faceImageNumber: number;
+  hasReference: boolean;
+  hasModelFace: boolean;
+  style?: string;
+}) {
+  const clothingRefs = Array.from({ length: params.clothingCount }, (_, index) => `图${index + 1}`);
+  const clothingText = params.clothingCount > 1
+    ? `${clothingRefs.join("、")}的服装搭配成一套完整穿搭`
+    : "图1的服装";
+  const referenceText = params.hasReference
+    ? `严格保持图${params.referenceImageNumber}参考图的背景、构图、镜头角度、光影、姿势、身体比例和人物位置不变。`
+    : "生成自然的单人时尚摄影构图，主体清晰，姿势自然。";
+  const faceText = params.hasModelFace
+    ? `将最终人物脸部替换为图${params.faceImageNumber}的模特脸，身份自然一致。`
+    : "人物脸部自然真实，皮肤保留自然纹理。";
+  const styleText = params.style?.trim() ? ` ${params.style.trim()}` : "";
+
+  return `图像角色：${clothingRefs.join("、")}是服装图。任务：让人物穿上${clothingText}。${referenceText}${faceText}保留服装版型、颜色、材质、图案和细节，布料褶皱自然贴合人体，真实相机拍摄，柔和光影，皮肤不过度磨皮，不要多余人物、身体扭曲、塑料皮肤、蜡像感、卡通感或 AI 渲染感。${styleText}`;
 }

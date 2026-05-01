@@ -1,18 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireApiUser } from "@/lib/api/auth";
+import { getChatCompletionsUrl, getLlmConfig } from "@/lib/api/llm-provider";
+import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 
-const LLM_VISION_MODEL = process.env.LINGYA_VISION_MODEL || "gpt-4o-mini";
 const ANALYZE_TIMEOUT_MS = Number(process.env.LINGYA_ANALYZE_TIMEOUT_MS || 25000);
 
 export async function POST(request: NextRequest) {
   try {
-    const apiKey = process.env.LINGYA_API_KEY;
-    if (!apiKey) return NextResponse.json({ prompt: "" });
+    const auth = await requireApiUser();
+    if (auth.response) return auth.response;
+
+    const limit = checkRateLimit(`garment-3d-analyze:${auth.user.id}`, 20, 60_000);
+    if (!limit.ok) return rateLimitResponse(limit.retryAfterSeconds);
+
+    const llm = getLlmConfig("vision");
+    if (!llm.apiKey) return NextResponse.json({ prompt: "" });
 
     const { garment_url, garment_type, custom_garment_type, prompt } = await request.json();
     if (!garment_url) return NextResponse.json({ prompt: "" });
 
-    const baseUrl = normalizeOpenAiCompatibleBaseUrl(process.env.LINGYA_BASE_URL || "");
-    if (!baseUrl) return NextResponse.json({ prompt: "" });
+    if (!llm.baseUrl) return NextResponse.json({ prompt: "" });
 
     const finalType = garment_type === "其他"
       ? custom_garment_type?.trim() || "其他服装"
@@ -33,12 +40,12 @@ ${prompt || ""}
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), ANALYZE_TIMEOUT_MS);
-    const res = await fetch(`${baseUrl}/chat/completions`, {
+    const res = await fetch(getChatCompletionsUrl(llm), {
       method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      headers: { Authorization: `Bearer ${llm.apiKey}`, "Content-Type": "application/json" },
       signal: controller.signal,
       body: JSON.stringify({
-        model: LLM_VISION_MODEL,
+        model: llm.model,
         messages: [{
           role: "user",
           content: [
@@ -58,10 +65,4 @@ ${prompt || ""}
     console.error("[garment-3d/analyze] error:", err);
     return NextResponse.json({ prompt: "" });
   }
-}
-
-function normalizeOpenAiCompatibleBaseUrl(value: string): string {
-  const baseUrl = value.replace(/\/+$/, "");
-  if (!baseUrl) return "";
-  return baseUrl.endsWith("/v1") ? baseUrl : `${baseUrl}/v1`;
 }

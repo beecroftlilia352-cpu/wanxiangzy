@@ -1,4 +1,4 @@
-# 万象衣造 AI｜VastWearGen — 智能虚拟换装
+﻿# 万象衣造 AI｜VastWearGen — 智能虚拟换装
 
 业内最佳实践的 AI 虚拟换装网站。上传服装，选择模特和参考图，AI 自动将衣服穿在参考图风格上，并替换为模特的面部。
 
@@ -59,8 +59,27 @@ cp .env.local.example .env.local
 ```env
 # Supabase — https://supabase.com 免费创建项目
 NEXT_PUBLIC_SUPABASE_URL=https://xxxxx.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOi...
-SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOi...
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+
+# Lingya 图像生成 API
+LINGYA_BASE_URL=https://api.lingyaai.cn
+LINGYA_API_KEY=your-lingya-api-key
+
+# 图片分析 / 提示词优化 LLM，一键切换 xiaomi 或 lingya
+ANALYZE_LLM_PROVIDER=xiaomi
+XIAOMI_MIMO_API_KEY=your-xiaomi-mimo-api-key
+XIAOMI_MIMO_BASE_URL=https://api.xiaomimimo.com
+# tp- 开头的 Token Plan key 通常使用对应区域网关：
+# XIAOMI_MIMO_BASE_URL=https://token-plan-sgp.xiaomimimo.com
+XIAOMI_MIMO_MODEL=mimo-v2.5-pro
+XIAOMI_MIMO_TEXT_MODEL=mimo-v2.5-pro
+XIAOMI_MIMO_VISION_MODEL=mimo-v2.5
+
+# 后台生成任务处理器
+JOB_PROCESSOR_SECRET=change-me
+GENERATION_JOB_BATCH_SIZE=2
+GENERATION_JOB_STALE_MINUTES=8
 
 # FASHN AI — https://fashn.ai 注册获取 API Key
 FASHN_API_KEY=fashn_xxxxx
@@ -71,7 +90,10 @@ REPLICATE_API_TOKEN=r8_xxxxx
 
 ### 3. 初始化 Supabase
 
-在 Supabase Dashboard → SQL Editor 中运行 `supabase/schema.sql` 创建所有表和策略。
+在 Supabase Dashboard → SQL Editor 中依次运行：
+- `supabase/schema.sql`
+- `supabase/credits-update.sql`
+- `supabase/atomic-credit-rpc.sql`
 
 然后在 Supabase Dashboard → Storage 中手动创建 4 个 Bucket（均设为 public）：
 - `clothing`
@@ -87,7 +109,18 @@ npm run dev
 
 打开 http://localhost:3000
 
-### 5. 添加预设模特和参考图
+### 5. 后台任务处理
+
+生成接口会先写入 `generations.job_payload`，再由后台处理器认领执行。接口返回后即使运行环境中断，任务也能通过处理器继续恢复：
+
+```bash
+curl -H "Authorization: Bearer $JOB_PROCESSOR_SECRET" \
+  http://localhost:3000/api/jobs/process-generations
+```
+
+生产环境建议配置定时任务每 1 分钟请求一次 `/api/jobs/process-generations`。在 Vercel 上可以直接设置 `CRON_SECRET`，本接口同时兼容 `JOB_PROCESSOR_SECRET` 和 `CRON_SECRET`。
+
+### 6. 添加预设模特和参考图
 
 将模特头像放入 `public/models/`，参考图放入 `public/references/`：
 - `public/models/female-1.jpg` ~ `female-3.jpg`

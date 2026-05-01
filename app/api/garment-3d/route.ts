@@ -1,14 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase/server";
 import {
-  generateImage,
   getCreditCost,
   normalizeImageSize,
+  normalizeLingyaModel,
   type AspectRatio,
   type ImageSize,
   type LingyaModel,
 } from "@/lib/api/lingya";
-import { resolveImageInputs } from "@/lib/api/image-inputs.server";
+import {
+  createDebitedGeneration,
+  errorToResponsePayload,
+} from "@/lib/api/credits";
+import { startGenerationJob, type GenerationJobPayload } from "@/lib/api/generation-jobs";
 
 type GarmentType = "上装" | "下装" | "连体衣" | "其他";
 type OutputMode = "reference" | "prompt";
@@ -35,88 +39,62 @@ export async function POST(request: NextRequest) {
       gen_count,
     } = await request.json();
 
-    if (!garment_url) return NextResponse.json({ error: "请上传服装图" }, { status: 400 });
+    if (!garment_url || typeof garment_url !== "string") return NextResponse.json({ error: "请上传服装图" }, { status: 400 });
+    if (reference_url && typeof reference_url !== "string") return NextResponse.json({ error: "参考图无效" }, { status: 400 });
     if (!prompt?.trim() && !final_prompt?.trim()) return NextResponse.json({ error: "缺少提示词" }, { status: 400 });
 
-    const model: LingyaModel = ai_model || "gpt-image-2";
+    const model: LingyaModel = normalizeLingyaModel(ai_model);
     const aspectRatio: AspectRatio = aspect_ratio === "1:1" ? "1:1" : "3:4";
     const size: ImageSize = normalizeImageSize(model, image_size || "1K", aspectRatio);
     const genCount = Math.min(Math.max(Number(gen_count) || 1, 1), 4);
     const costPerImage = getCreditCost(model, size, aspectRatio);
     const totalCost = costPerImage * genCount;
 
-    const { data: profile } = await supabase
-      .from("profiles").select("credits").eq("id", user.id).single();
-
-    if (!profile || profile.credits < totalCost) {
-      return NextResponse.json({
-        error: `积分不足。需要 ${totalCost}，余额 ${profile?.credits ?? 0}`,
-        required: totalCost,
-        balance: profile?.credits ?? 0,
-      }, { status: 402 });
-    }
-
-    const newBalance = profile.credits - totalCost;
-    await supabase.from("profiles").update({ credits: newBalance }).eq("id", user.id);
-
     const finalGarmentType = garment_type === "其他"
       ? custom_garment_type?.trim() || "其他服装"
       : garment_type || "服装";
     const mode: OutputMode = output_mode === "reference" ? "reference" : "prompt";
-
-    const { data: gen, error: insertError } = await supabase.from("generations").insert({
-      user_id: user.id,
-      clothing_urls: [garment_url],
-      model_face_url: null,
-      reference_url: mode === "reference" ? reference_url || null : null,
-      status: "processing_tryon",
-      credits_used: totalCost,
-      credits_cost: totalCost,
-      ai_model: model,
-      image_size: size,
-    }).select("id").single();
-
-    if (insertError) {
-      await supabase.from("profiles").update({ credits: profile.credits }).eq("id", user.id);
-      throw new Error(`创建记录失败: ${insertError.message}`);
-    }
-
-    await supabase.from("credit_logs").insert({
-      user_id: user.id,
-      amount: -totalCost,
-      balance: newBalance,
-      reason: `服装转3D ${genCount} 张(${model}, ${size})`,
-      generation_id: gen.id,
+    const finalPrompt = final_prompt?.trim() || buildServerPrompt({
+      garmentType: finalGarmentType,
+      outputMode: mode,
+      hasReference: !!reference_url && mode === "reference",
+      userPrompt: prompt,
     });
-
-    const resultUrls = await runGarment3dPipeline({
-      generationId: gen.id,
+    const jobPayload: GenerationJobPayload = {
+      kind: "garment3d",
       garmentUrl: garment_url,
       referenceUrl: mode === "reference" ? reference_url || null : null,
-      model,
+      aiModel: model,
       aspectRatio,
       imageSize: size,
-      prompt: final_prompt?.trim() || buildServerPrompt({
-        garmentType: finalGarmentType,
-        outputMode: mode,
-        hasReference: !!reference_url && mode === "reference",
-        userPrompt: prompt,
-      }),
-      originalCredits: profile.credits,
-      userId: user.id,
+      prompt: finalPrompt,
       genCount,
+    };
+
+    const debit = await createDebitedGeneration(supabase, {
+      userId: user.id,
+      clothingUrls: [garment_url],
+      modelFaceUrl: null,
+      referenceUrl: mode === "reference" ? reference_url || null : null,
+      creditsCost: totalCost,
+      aiModel: model,
+      imageSize: size,
+      reason: `服装转3D ${genCount} 张(${model}, ${size})`,
+      jobPayload,
     });
 
+    startGenerationJob(debit.generationId);
+
     return NextResponse.json({
-      generation_id: gen.id,
+      generation_id: debit.generationId,
       credits_cost: totalCost,
-      credits_remaining: newBalance,
-      status: "completed",
-      result_urls: resultUrls,
+      credits_remaining: debit.creditsRemaining,
+      status: "processing_tryon",
     });
   } catch (err: any) {
     console.error("[garment-3d] POST error:", err);
-    return NextResponse.json({ error: err.message || "Internal server error" }, { status: 500 });
+    const payload = errorToResponsePayload(err);
+    return NextResponse.json(payload.body, { status: payload.status });
   }
 }
 
@@ -135,76 +113,12 @@ export async function GET(request: NextRequest) {
     if (!gen) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     return NextResponse.json({
-      status: gen.status,
+      status: gen.status === "queued" ? "processing_tryon" : gen.status,
       result_urls: gen.result_urls || [],
       error: gen.error_message,
     });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
-  }
-}
-
-async function runGarment3dPipeline(params: {
-  generationId: string;
-  garmentUrl: string;
-  referenceUrl: string | null;
-  model: LingyaModel;
-  aspectRatio: AspectRatio;
-  imageSize: ImageSize;
-  prompt: string;
-  originalCredits: number;
-  userId: string;
-  genCount: number;
-}) {
-  const { createClient } = await import("@supabase/supabase-js");
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
-
-  const update = (data: Record<string, any>) =>
-    supabase.from("generations").update(data).eq("id", params.generationId);
-
-  try {
-    await update({ status: "processing_tryon" });
-    const imageInputs = await resolveImageInputs({
-      clothingUrls: [params.garmentUrl, ...(params.referenceUrl ? [params.referenceUrl] : [])],
-    });
-    const resultUrls: string[] = [];
-
-    for (let i = 0; i < params.genCount; i++) {
-      const result = await generateImage({
-        model: params.model,
-        prompt: params.prompt,
-        aspect_ratio: params.aspectRatio,
-        image: imageInputs.clothingUrls,
-        image_size: params.imageSize,
-      });
-
-      const resultUrl = result.url || result.b64_json;
-      if (!resultUrl) throw new Error("图片生成接口未返回结果 URL");
-      resultUrls.push(resultUrl);
-    }
-
-    await update({
-      status: "completed",
-      result_urls: resultUrls,
-      completed_at: new Date().toISOString(),
-    });
-    return resultUrls;
-  } catch (err: any) {
-    console.error(`[garment-3d] failed for ${params.generationId}:`, err);
-    const refundAmount = getCreditCost(params.model, params.imageSize, params.aspectRatio) * params.genCount;
-    await supabase.from("profiles").update({ credits: params.originalCredits }).eq("id", params.userId);
-    await supabase.from("credit_logs").insert({
-      user_id: params.userId,
-      amount: refundAmount,
-      balance: params.originalCredits,
-      reason: "服装转3D失败退款",
-      generation_id: params.generationId,
-    });
-    await update({ status: "failed", error_message: err.message });
-    throw err;
   }
 }
 

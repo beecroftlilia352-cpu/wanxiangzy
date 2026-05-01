@@ -5,8 +5,12 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase/server";
-import { batchTryOn, getCreditCost, normalizeImageSize, type LingyaModel, type AspectRatio, type ImageSize } from "@/lib/api/lingya";
-import { resolveImageInputs } from "@/lib/api/image-inputs.server";
+import { getCreditCost, normalizeAspectRatio, normalizeImageSize, normalizeLingyaModel, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
+import {
+  createDebitedGeneration,
+  errorToResponsePayload,
+} from "@/lib/api/credits";
+import { startGenerationJob, type GenerationJobPayload } from "@/lib/api/generation-jobs";
 
 export async function POST(request: NextRequest) {
   try {
@@ -20,71 +24,65 @@ export async function POST(request: NextRequest) {
       ai_model, aspect_ratio, image_size, style, gen_count, raw_prompt,
     } = body;
 
-    const genCount = Math.min(Math.max(gen_count || 1, 1), 4);
+    const genCount = Math.min(Math.max(Number(gen_count) || 1, 1), 4);
 
-    if (!clothing_urls?.length) {
+    if (!Array.isArray(clothing_urls) || !clothing_urls.length) {
       return NextResponse.json({ error: "缺少 clothing_urls" }, { status: 400 });
     }
+    if (clothing_urls.length > 5 || clothing_urls.some((url) => typeof url !== "string")) {
+      return NextResponse.json({ error: "clothing_urls 无效" }, { status: 400 });
+    }
+    if (
+      (model_face_url && typeof model_face_url !== "string") ||
+      (reference_url && typeof reference_url !== "string")
+    ) {
+      return NextResponse.json({ error: "图片参数无效" }, { status: 400 });
+    }
 
-    const model: LingyaModel = ai_model || "gpt-image-2";
-    const size: ImageSize = normalizeImageSize(model, image_size || "1K", aspect_ratio || "3:4");
-    const costPerImage = getCreditCost(model, size);
+    const model: LingyaModel = normalizeLingyaModel(ai_model);
+    const aspectRatio = normalizeAspectRatio(aspect_ratio);
+    const size: ImageSize = normalizeImageSize(model, image_size || "1K", aspectRatio);
+    const costPerImage = getCreditCost(model, size, aspectRatio);
     const totalCost = costPerImage * clothing_urls.length * genCount;
+    const jobPayload: GenerationJobPayload = {
+      kind: "tryon",
+      clothingUrls: clothing_urls,
+      modelFaceUrl: model_face_url || null,
+      referenceUrl: reference_url || null,
+      aiModel: model,
+      aspectRatio,
+      imageSize: size,
+      style,
+      genCount,
+      rawPrompt: raw_prompt,
+    };
 
-    // 检查积分
-    const { data: profile } = await supabase
-      .from("profiles").select("credits").eq("id", user.id).single();
-
-    if (!profile || profile.credits < totalCost) {
-      return NextResponse.json({
-        error: `积分不足。需要 ${totalCost}，余额 ${profile?.credits ?? 0}`,
-        required: totalCost,
-        balance: profile?.credits ?? 0,
-      }, { status: 402 });
-    }
-
-    // 扣除积分
-    const newBalance = profile.credits - totalCost;
-    await supabase.from("profiles").update({ credits: newBalance }).eq("id", user.id);
-
-    // 创建记录
-    const { data: gen, error: insertError } = await supabase.from("generations").insert({
-      user_id: user.id, clothing_urls, model_face_url: model_face_url || null,
-      reference_url: reference_url || null, status: "processing_tryon",
-      credits_used: totalCost, credits_cost: totalCost, ai_model: model, image_size: size,
-    }).select("id").single();
-
-    if (insertError) {
-      // 创建记录失败，退还积分
-      await supabase.from("profiles").update({ credits: profile.credits }).eq("id", user.id);
-      throw new Error(`创建记录失败: ${insertError.message}`);
-    }
-
-    await supabase.from("credit_logs").insert({
-      user_id: user.id, amount: -totalCost, balance: newBalance,
+    const debit = await createDebitedGeneration(supabase, {
+      userId: user.id,
+      clothingUrls: clothing_urls,
+      modelFaceUrl: model_face_url || null,
+      referenceUrl: reference_url || null,
+      creditsCost: totalCost,
+      aiModel: model,
+      imageSize: size,
       reason: `生成 ${clothing_urls.length} 张 (${model}, ${size})`,
-      generation_id: gen.id,
+      jobPayload,
     });
 
-    // 启动后台任务（不等待完成）
-    runPipeline(
-      gen.id, clothing_urls, model_face_url, reference_url,
-      model, aspect_ratio, size, style, profile.credits, user.id, genCount, raw_prompt
-    ).catch((err) => {
-      console.error("[tryon] pipeline error:", err);
-    });
+    startGenerationJob(debit.generationId);
 
     // 立即返回
     return NextResponse.json({
-      generation_id: gen!.id,
+      generation_id: debit.generationId,
       credits_cost: totalCost,
-      credits_remaining: newBalance,
+      credits_remaining: debit.creditsRemaining,
       status: "processing_tryon",
     });
 
   } catch (err: any) {
     console.error("[tryon] POST error:", err);
-    return NextResponse.json({ error: err.message || "Internal server error" }, { status: 500 });
+    const payload = errorToResponsePayload(err);
+    return NextResponse.json(payload.body, { status: payload.status });
   }
 }
 
@@ -103,76 +101,11 @@ export async function GET(request: NextRequest) {
     if (!gen) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     return NextResponse.json({
-      status: gen.status,
+      status: gen.status === "queued" ? "processing_tryon" : gen.status,
       result_urls: gen.result_urls || [],
       error: gen.error_message,
     });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
-  }
-}
-
-// ---- 后台 Pipeline ----
-async function runPipeline(
-  generationId: string,
-  clothingUrls: string[],
-  modelFaceUrl: string | undefined,
-  referenceUrl: string | undefined,
-  aiModel: LingyaModel,
-  aspectRatio: AspectRatio | undefined,
-  imageSize: ImageSize,
-  style: string | undefined,
-  originalCredits: number,
-  userId: string,
-  genCount: number = 1,
-  rawPrompt?: string,
-) {
-  const { createClient } = await import("@supabase/supabase-js");
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
-
-  const update = (data: Record<string, any>) =>
-    supabase.from("generations").update(data).eq("id", generationId);
-
-  try {
-    await update({ status: "processing_tryon" });
-
-    // 生成 genCount 次，每次独立调用
-    const allResultUrls: string[] = [];
-
-    for (let i = 0; i < genCount; i++) {
-      const imageInputs = await resolveImageInputs({ clothingUrls, modelFaceUrl, referenceUrl });
-      const { resultUrls } = await batchTryOn({
-        model: aiModel,
-        clothingUrls: imageInputs.clothingUrls,
-        modelFaceUrl: imageInputs.modelFaceUrl,
-        referenceUrl: imageInputs.referenceUrl,
-        aspect_ratio: aspectRatio || "3:4",
-        image_size: imageSize,
-        style,
-        raw_prompt: rawPrompt,
-      });
-      allResultUrls.push(...resultUrls);
-    }
-
-    await update({
-      status: "completed",
-      result_urls: allResultUrls,
-      completed_at: new Date().toISOString(),
-    });
-
-  } catch (err: any) {
-    console.error(`[pipeline] failed for ${generationId}:`, err);
-
-    const refundAmount = clothingUrls.length * getCreditCost(aiModel, imageSize) * genCount;
-    await supabase.from("profiles").update({ credits: originalCredits }).eq("id", userId);
-    await supabase.from("credit_logs").insert({
-      user_id: userId, amount: refundAmount, balance: originalCredits,
-      reason: "生成失败退还", generation_id: generationId,
-    });
-
-    await update({ status: "failed", error_message: err.message });
   }
 }

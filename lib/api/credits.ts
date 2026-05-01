@@ -1,0 +1,131 @@
+type SupabaseLike = {
+  rpc: (
+    fn: string,
+    args: Record<string, unknown>
+  ) => PromiseLike<{ data: unknown; error: { message?: string } | null }>;
+};
+
+export class CreditError extends Error {
+  status: number;
+  required?: number;
+  balance?: number;
+
+  constructor(message: string, status = 500, details?: { required?: number; balance?: number }) {
+    super(message);
+    this.name = "CreditError";
+    this.status = status;
+    this.required = details?.required;
+    this.balance = details?.balance;
+  }
+}
+
+export async function createDebitedGeneration(
+  supabase: SupabaseLike,
+  params: {
+    userId: string;
+    clothingUrls: string[];
+    modelFaceUrl?: string | null;
+    referenceUrl?: string | null;
+    creditsCost: number;
+    aiModel: string;
+    imageSize: string;
+    reason: string;
+    jobPayload?: Record<string, unknown>;
+  }
+): Promise<{ generationId: string; creditsRemaining: number }> {
+  const { data, error } = await supabase.rpc("create_generation_with_credit_debit", {
+    p_user_id: params.userId,
+    p_clothing_urls: params.clothingUrls,
+    p_model_face_url: params.modelFaceUrl ?? null,
+    p_reference_url: params.referenceUrl ?? null,
+    p_credits_cost: params.creditsCost,
+    p_ai_model: params.aiModel,
+    p_image_size: params.imageSize,
+    p_reason: params.reason,
+    p_job_payload: params.jobPayload ?? {},
+  });
+
+  if (error) {
+    throw normalizeCreditRpcError(error.message, params.creditsCost);
+  }
+
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!isDebitedGenerationRow(row)) {
+    throw new CreditError("积分事务返回异常");
+  }
+
+  return {
+    generationId: row.generation_id,
+    creditsRemaining: row.credits_remaining,
+  };
+}
+
+export async function failGenerationWithRefund(
+  supabase: SupabaseLike,
+  params: {
+    userId: string;
+    generationId: string;
+    amount: number;
+    reason: string;
+    errorMessage: string;
+  }
+) {
+  const { error } = await supabase.rpc("fail_generation_with_credit_refund", {
+    p_user_id: params.userId,
+    p_generation_id: params.generationId,
+    p_amount: params.amount,
+    p_reason: params.reason,
+    p_error_message: params.errorMessage,
+  });
+
+  if (error) {
+    console.error("[credits] refund rpc failed:", error.message);
+  }
+}
+
+export function errorToResponsePayload(err: unknown) {
+  if (err instanceof CreditError) {
+    return {
+      status: err.status,
+      body: {
+        error: err.message,
+        required: err.required,
+        balance: err.balance,
+      },
+    };
+  }
+
+  const message = err instanceof Error ? err.message : "Internal server error";
+  return { status: 500, body: { error: message } };
+}
+
+function normalizeCreditRpcError(message = "", required: number) {
+  const insufficient = message.match(/INSUFFICIENT_CREDITS:(\d+)/);
+  if (insufficient) {
+    const balance = Number(insufficient[1]);
+    return new CreditError(`积分不足。需要 ${required}，余额 ${balance}`, 402, {
+      required,
+      balance,
+    });
+  }
+
+  if (
+    message.includes("create_generation_with_credit_debit") ||
+    message.includes("Could not find the function")
+  ) {
+    return new CreditError("数据库缺少积分事务函数，请先运行 supabase/atomic-credit-rpc.sql");
+  }
+
+  return new CreditError(message || "积分事务失败");
+}
+
+function isDebitedGenerationRow(
+  value: unknown
+): value is { generation_id: string; credits_remaining: number } {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as { generation_id?: unknown }).generation_id === "string" &&
+    typeof (value as { credits_remaining?: unknown }).credits_remaining === "number"
+  );
+}
