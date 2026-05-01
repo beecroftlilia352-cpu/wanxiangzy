@@ -14,7 +14,11 @@ export async function POST(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "请先登录" }, { status: 401 });
 
-    const { reference_urls, hair_reference_url, hair_color_reference_url, ai_model, aspect_ratio, image_size, prompt, gen_count } = await request.json();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let body: any;
+    try { body = await request.json(); }
+    catch { return NextResponse.json({ error: "请求格式无效" }, { status: 400 }); }
+    const { reference_urls, hair_reference_url, hair_color_reference_url, ai_model, aspect_ratio, image_size, prompt, gen_count } = body;
     if (!Array.isArray(reference_urls) || !reference_urls.length) return NextResponse.json({ error: "请上传 1-3 张参考图" }, { status: 400 });
     if (reference_urls.length > 3) return NextResponse.json({ error: "参考图最多 3 张" }, { status: 400 });
     if (reference_urls.some((url) => typeof url !== "string")) return NextResponse.json({ error: "参考图无效" }, { status: 400 });

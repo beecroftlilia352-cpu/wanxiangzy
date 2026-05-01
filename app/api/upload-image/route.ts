@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/api/auth";
+import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 
 const IMGBB_API_URL = "https://api.imgbb.com/1/upload";
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -8,6 +9,9 @@ export async function POST(request: Request) {
   try {
     const { user, response } = await requireApiUser();
     if (!user) return response;
+
+    const limit = await checkRateLimit(`upload:${user.id}`, 30, 60_000);
+    if (!limit.ok) return rateLimitResponse(limit.retryAfterSeconds);
 
     const apiKey = process.env.IMGBB_API_KEY;
     if (!apiKey) {
@@ -44,8 +48,7 @@ export async function POST(request: Request) {
     });
 
     if (!res.ok) {
-      const errText = await res.text().catch(() => "");
-      console.error("[upload-image] imgbb error:", res.status, errText);
+      console.error("[upload-image] imgbb error:", res.status);
       return NextResponse.json({ error: "图片上传失败" }, { status: 502 });
     }
 
@@ -64,8 +67,7 @@ export async function POST(request: Request) {
       height: data.data.height,
     });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "上传异常";
-    console.error("[upload-image] error:", message);
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("[upload-image] error:", err);
+    return NextResponse.json({ error: "图片上传失败" }, { status: 500 });
   }
 }

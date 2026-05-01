@@ -26,6 +26,10 @@ export async function POST(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "请先登录" }, { status: 401 });
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let body: any;
+    try { body = await request.json(); }
+    catch { return NextResponse.json({ error: "请求格式无效" }, { status: 400 }); }
     const {
       garment_url,
       garment_type,
@@ -38,7 +42,7 @@ export async function POST(request: NextRequest) {
       prompt,
       final_prompt,
       gen_count,
-    } = await request.json();
+    } = body;
 
     if (!garment_url || typeof garment_url !== "string") return NextResponse.json({ error: "请上传服装图" }, { status: 400 });
     if (reference_url && typeof reference_url !== "string") return NextResponse.json({ error: "参考图无效" }, { status: 400 });

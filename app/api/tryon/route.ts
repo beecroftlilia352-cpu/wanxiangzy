@@ -19,7 +19,10 @@ export async function POST(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "请先登录" }, { status: 401 });
 
-    const body = await request.json();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let body: any;
+    try { body = await request.json(); }
+    catch { return NextResponse.json({ error: "请求格式无效" }, { status: 400 }); }
     const {
       clothing_urls, model_face_url, reference_url,
       ai_model, aspect_ratio, image_size, style, gen_count, raw_prompt,

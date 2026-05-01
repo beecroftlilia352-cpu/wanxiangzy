@@ -121,8 +121,8 @@ export default function Garment3dPage() {
       toast.error("请上传图片文件");
       return;
     }
-    if (file.size > 12 * 1024 * 1024) {
-      toast.error("图片不能超过 12MB");
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("图片不能超过 10MB");
       return;
     }
 
@@ -162,15 +162,21 @@ export default function Garment3dPage() {
     toast.success("参考图已选择");
   }
 
+  const base64Cache = useRef<Map<string, string>>(new Map());
   async function urlToBase64(url: string) {
     if (url.startsWith("data:")) return url;
+    if (url.startsWith("http")) return url;
+    const cached = base64Cache.current.get(url);
+    if (cached) return cached;
     const res = await fetch(url);
     const blob = await res.blob();
-    return new Promise<string>((resolve) => {
+    const result = await new Promise<string>((resolve) => {
       const reader = new FileReader();
       reader.onload = () => resolve(reader.result as string);
       reader.readAsDataURL(blob);
     });
+    base64Cache.current.set(url, result);
+    return result;
   }
 
   async function optimizePrompt() {

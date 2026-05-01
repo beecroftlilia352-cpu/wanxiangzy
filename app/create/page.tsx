@@ -73,6 +73,8 @@ const STYLE_PRESETS = [
   "街拍潮流，酷感十足", "极简白底电商图", "户外自然光，清新明亮",
 ];
 
+const ENABLE_PROMPT_ANALYSIS = process.env.NEXT_PUBLIC_ENABLE_PROMPT_ANALYSIS === "true";
+
 export default function CreatePage() {
   const router = useRouter();
   const supabase = createClient();
@@ -308,9 +310,7 @@ export default function CreatePage() {
         usedAiPrompt = true;
         store.setPromptUsed(finalStyle);
       }
-      const enablePromptAnalysis = process.env.NEXT_PUBLIC_ENABLE_PROMPT_ANALYSIS === "true";
-
-      if (enablePromptAnalysis && !usedAiPrompt) {
+      if (ENABLE_PROMPT_ANALYSIS && !usedAiPrompt) {
         toast.info("AI 正在分析图片...");
         try {
           const analyzeController = new AbortController();
@@ -872,7 +872,7 @@ export default function CreatePage() {
               <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-red-100 flex items-center justify-center"><X className="w-8 h-8 text-red-400" /></div>
               <p className="text-red-500 font-medium mb-1">生成失败</p>
               <p className="text-sm text-gray-400 mb-4 max-w-sm">{store.error}</p>
-              <button onClick={() => { store.setError(null!); handleGenerate(); }}
+              <button onClick={() => { store.setError(null); handleGenerate(); }}
                 className="px-5 py-2 rounded-full border text-sm font-medium hover:bg-gray-50">重试</button>
             </div>
           </div>

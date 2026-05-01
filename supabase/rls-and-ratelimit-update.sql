@@ -29,11 +29,22 @@ CREATE POLICY "Users can delete own references"
   ON public.reference_images FOR DELETE
   USING (auth.uid() = user_id);
 
--- generations 表：仅 service_role 可更新（通过 RPC）
-CREATE POLICY "Service role can update generations"
+-- generations 表：禁止客户端直接更新（service_role 绕过 RLS）
+CREATE POLICY "No client update on generations"
   ON public.generations FOR UPDATE
-  USING (true)
-  WITH CHECK (true);
+  USING (false);
+
+-- generations 表：用户可删除自己的记录
+CREATE POLICY "Users can delete own generations"
+  ON public.generations FOR DELETE
+  USING (auth.uid() = user_id);
+
+-- 索引优化
+CREATE INDEX IF NOT EXISTS generations_user_created_idx
+  ON public.generations (user_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS credit_logs_user_created_idx
+  ON public.credit_logs (user_id, created_at DESC);
 
 -- ============================================================
 -- 限流器表和 RPC
@@ -63,7 +74,8 @@ DECLARE
 BEGIN
   SELECT count, window_start INTO v_count, v_window_start
   FROM public.rate_limit_buckets
-  WHERE key = p_key;
+  WHERE key = p_key
+  FOR UPDATE;
 
   IF NOT FOUND THEN
     INSERT INTO public.rate_limit_buckets (key, count, window_start, updated_at)
@@ -104,3 +116,5 @@ AS $$
   DELETE FROM public.rate_limit_buckets
   WHERE updated_at < now() - interval '10 minutes';
 $$;
+
+GRANT EXECUTE ON FUNCTION public.cleanup_rate_limit_buckets() TO service_role;

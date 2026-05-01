@@ -11,7 +11,8 @@ import { NextRequest, NextResponse } from "next/server";
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  const next = searchParams.get("next") || "/create";
+  const nextParam = searchParams.get("next") || "/create";
+  const next = nextParam.startsWith("/") && !nextParam.startsWith("//") ? nextParam : "/create";
 
   if (code) {
     const supabase = await createServerSupabase();
@@ -22,6 +23,5 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // 如果失败，回到登录页
   return NextResponse.redirect(`${origin}/login`);
 }

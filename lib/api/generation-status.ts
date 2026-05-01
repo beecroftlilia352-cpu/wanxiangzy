@@ -25,7 +25,7 @@ export async function handleGenerationStatusGet(generationId: string | null) {
     if (!gen) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     return NextResponse.json({
-      status: gen.status === "queued" ? "processing" : gen.status,
+      status: gen.status,
       result_urls: gen.result_urls || [],
       error: gen.error_message,
     });

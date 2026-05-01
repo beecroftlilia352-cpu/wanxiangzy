@@ -16,7 +16,11 @@ export async function POST(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "请先登录" }, { status: 401 });
 
-    const { main_image_url, ai_model, image_size, prompt } = await request.json();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let body: any;
+    try { body = await request.json(); }
+    catch { return NextResponse.json({ error: "请求格式无效" }, { status: 400 }); }
+    const { main_image_url, ai_model, image_size, prompt } = body;
     if (!main_image_url || typeof main_image_url !== "string") return NextResponse.json({ error: "缺少主图" }, { status: 400 });
     if (!prompt?.trim()) return NextResponse.json({ error: "缺少提示词" }, { status: 400 });
 

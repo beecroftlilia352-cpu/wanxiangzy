@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runNextGenerationJobs } from "@/lib/api/generation-jobs";
+import { createClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,6 +19,9 @@ async function handleProcessRequest(request: NextRequest) {
   if (authError) return authError;
 
   try {
+    // 清理过期限流记录（异步，不阻塞主流程）
+    cleanupRateLimitBuckets().catch(() => {});
+
     const result = await runNextGenerationJobs(getBatchLimit(request));
     return NextResponse.json({ ok: true, ...result });
   } catch (err) {
@@ -27,6 +31,14 @@ async function handleProcessRequest(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+async function cleanupRateLimitBuckets() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return;
+  const supabase = createClient(url, key);
+  await supabase.rpc("cleanup_rate_limit_buckets");
 }
 
 function validateProcessorAuth(request: NextRequest) {
