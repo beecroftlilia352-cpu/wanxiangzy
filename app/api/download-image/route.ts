@@ -11,6 +11,10 @@ const DEFAULT_ALLOWED_HOSTS = [
   "fashn.ai",
   "*.lingyaai.cn",
   "lingyaai.cn",
+  "*.sssai.vip",
+  "sssai.vip",
+  "i.ibb.co",
+  "*.ibb.co",
 ];
 
 export async function GET(request: NextRequest) {
