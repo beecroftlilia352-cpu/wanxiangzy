@@ -59,6 +59,8 @@ ${roleLines}${hairReferenceLine}${hairColorReferenceLine}
 12. 图像质量：photorealistic, 8K ultra-detailed, high contrast, cinematic color grade, commercial fashion catalog quality, sharp details on facial features, raw photo quality
 
 要求：
+- 【最重要】最终提示词中必须出现图号引用（图1、图2、图3等），这是图片生成模型识别图片角色的唯一方式，缺失图号将导致生成失败
+- 图号引用示例："融合图1到图${reference_urls.length}的共同身份特征"、"发型参考图${reference_urls.length + 1}"、"发色参考图${reference_urls.length + 2}"
 - 所有参数必须根据输入图片智能分析，不要使用固定模板
 - 图1到图${reference_urls.length}必须融合为同一人物身份，保持一致性
 - 五官细节必须清晰自然，不能模糊或变形

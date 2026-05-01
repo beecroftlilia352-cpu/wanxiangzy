@@ -65,6 +65,8 @@ ${roleLines}
 10. 图像质量：技术参数（photorealistic, 8K ultra-detailed, high contrast, cinematic color grade, commercial fashion catalog quality, sharp details, raw photo quality）
 
 要求：
+- 【最重要】最终提示词中必须出现图号引用（图1、图2、图3等），这是图片生成模型识别图片角色的唯一方式，缺失图号将导致生成失败
+- 图号引用示例："穿着图1的白色连衣裙"、"参考图2的背景和光影"、"脸部替换为图3的模特脸"
 - 所有参数必须根据输入图片智能分析，不要使用固定模板
 - 拍摄设备、灯光方案、背景风格必须与参考图一致
 - 服装描述必须忠实于上传的服装图，保留所有细节

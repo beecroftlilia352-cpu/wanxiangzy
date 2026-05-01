@@ -44,6 +44,7 @@ export async function POST(request: NextRequest) {
 10. 图像质量：photorealistic, 8K ultra-detailed, high contrast, commercial e-commerce catalog quality, sharp fabric details, raw photo quality
 
 要求：
+- 【最重要】最终提示词中必须出现"图1"引用（如"忠实还原图1的服装"、"根据图1判断正面或背面"），这是图片生成模型识别图片的唯一方式
 - 所有参数必须根据输入图片智能分析
 - 服装必须100%忠实于原图，不能改变任何细节
 - 用英文生成摄影技术参数，用中文描述服装细节
