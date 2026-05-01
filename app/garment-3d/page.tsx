@@ -566,16 +566,91 @@ export default function Garment3dPage() {
         )}
 
         {isGenerating && (
-          <div className="h-full flex items-center justify-center">
-            <div className="w-[260px] rounded-2xl bg-white border shadow-sm p-6 text-center">
-              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-purple-50 flex items-center justify-center">
-                <Loader2 className="w-7 h-7 text-purple-500 animate-spin" />
-              </div>
-              <p className="font-bold text-sm text-gray-700 mb-2">正在生成立体服装图</p>
-              <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
-                <div className="h-full gradient-brand transition-all" style={{ width: `${progress}%` }} />
-              </div>
-              <p className="text-xs text-gray-400 mt-2">{Math.round(progress)}%</p>
+          <div className="h-full p-8 flex items-center justify-center" style={{ background: "#f0f0f5" }}>
+            <div style={{
+              position: "absolute", top: "10%", left: "20%", width: "300px", height: "300px",
+              borderRadius: "50%", filter: "blur(80px)", opacity: 0.4,
+              background: "radial-gradient(circle, #e879f9, #a78bfa, transparent)",
+            }} />
+            <div style={{
+              position: "absolute", bottom: "15%", right: "15%", width: "250px", height: "250px",
+              borderRadius: "50%", filter: "blur(80px)", opacity: 0.3,
+              background: "radial-gradient(circle, #f472b6, #c084fc, transparent)",
+            }} />
+
+            <div className="grid grid-cols-2 gap-5 max-w-lg w-full relative z-10">
+              {Array.from({ length: genCount }).map((_, i) => (
+                <div key={i} className="rounded-2xl overflow-hidden"
+                  style={{
+                    background: "rgba(255, 255, 255, 0.25)",
+                    backdropFilter: "blur(20px)",
+                    WebkitBackdropFilter: "blur(20px)",
+                    border: "1px solid rgba(255, 255, 255, 0.4)",
+                    boxShadow: "0 8px 32px rgba(168, 85, 247, 0.15), inset 0 1px 0 rgba(255,255,255,0.5)",
+                  }}>
+                  <div className="aspect-[3/4] relative overflow-hidden"
+                    style={{
+                      background: "linear-gradient(135deg, rgba(232,121,249,0.15), rgba(167,139,250,0.2), rgba(244,114,182,0.15))",
+                    }}>
+                    <div style={{
+                      position: "absolute", inset: 0,
+                      background: "linear-gradient(120deg, transparent 0%, transparent 30%, rgba(232,121,249,0.08) 40%, rgba(255,255,255,0.15) 48%, rgba(255,255,255,0.2) 50%, rgba(255,255,255,0.15) 52%, rgba(167,139,250,0.08) 60%, transparent 70%, transparent 100%)",
+                      backgroundSize: "300% 100%",
+                      animation: "shimmer 4s ease-in-out infinite",
+                    }} />
+                    <div style={{
+                      position: "absolute", inset: 0,
+                      background: "linear-gradient(160deg, transparent 0%, transparent 35%, rgba(244,114,182,0.06) 45%, rgba(255,255,255,0.1) 50%, rgba(192,132,252,0.06) 55%, transparent 65%, transparent 100%)",
+                      backgroundSize: "250% 100%",
+                      animation: "shimmer 5.5s ease-in-out infinite reverse",
+                    }} />
+                    <div style={{
+                      position: "absolute", inset: 0,
+                      background: "radial-gradient(ellipse 80% 60% at 50% 50%, rgba(232,121,249,0.06), transparent)",
+                      animation: "pulse 3s ease-in-out infinite",
+                    }} />
+                    <div style={{
+                      position: "absolute", inset: 0, opacity: 0.03,
+                      backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")",
+                    }} />
+
+                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                      <div className="relative w-16 h-16 mb-4">
+                        <svg className="w-full h-full" viewBox="0 0 100 100"
+                          style={{ animation: "spin 5s linear infinite", transformOrigin: "center", filter: "drop-shadow(0 0 8px rgba(232,121,249,0.4))" }}>
+                          <defs>
+                            <linearGradient id={`garment3d-g${i}`} x1="0%" y1="0%" x2="100%" y2="100%">
+                              <stop offset="0%" stopColor="#e879f9">
+                                <animate attributeName="stop-color" values="#e879f9;#a78bfa;#f472b6;#e879f9" dur="4s" repeatCount="indefinite" />
+                              </stop>
+                              <stop offset="100%" stopColor="#a78bfa">
+                                <animate attributeName="stop-color" values="#a78bfa;#f472b6;#e879f9;#a78bfa" dur="4s" repeatCount="indefinite" />
+                              </stop>
+                            </linearGradient>
+                          </defs>
+                          <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="4" />
+                          <circle cx="50" cy="50" r="42" fill="none" stroke={`url(#garment3d-g${i})`} strokeWidth="4"
+                            strokeLinecap="round" strokeDasharray="180 264" />
+                          <circle cx="50" cy="50" r="34" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="2" />
+                        </svg>
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <span className="text-2xl font-black" style={{
+                            background: "linear-gradient(135deg, #e879f9, #a78bfa, #f472b6)",
+                            WebkitBackgroundClip: "text",
+                            WebkitTextFillColor: "transparent",
+                            filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.1))",
+                          }}>{Math.round(progress)}</span>
+                          <span className="text-xs font-bold ml-0.5" style={{ color: "rgba(168,85,247,0.5)" }}>%</span>
+                        </div>
+                      </div>
+
+                      <p className="text-xs font-medium" style={{ color: "rgba(168,85,247,0.7)" }}>
+                        {progress < 20 ? "准备中..." : progress < 90 ? "AI 生成中..." : "即将完成..."}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}
