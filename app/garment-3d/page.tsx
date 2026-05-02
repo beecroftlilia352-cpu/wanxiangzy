@@ -6,13 +6,16 @@ import { Box, ChevronRight, Download, Loader2, Plus, Sparkles, Upload, Wand, X, 
 import { toast } from "sonner";
 import { FeatureTabs } from "@/components/FeatureTabs";
 import { createClient, getCachedProfileCredits, setCachedProfileCredits } from "@/lib/supabase/client";
-import { downloadImage, fileToBase64, generateDownloadFilename, uploadImage } from "@/lib/utils";
+import { downloadImage, generateDownloadFilename, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
+import { takeApplyPayload } from "@/lib/history-apply";
 
 type GarmentType = "上装" | "下装" | "连体衣" | "其他";
 type OutputMode = "reference" | "prompt";
 
-const DEFAULT_PROMPT = "衣服变为类似穿在人身上的立体效果，向左微微旋转，使用干净白色背景。";
+const DEFAULT_PROMPT = "衣服变为类似穿在人身上的立体效果，微微向左旋转，保留原始版型、面料厚度、纹理和所有细节，使用干净白色或浅灰棚拍背景。";
+const GARMENT_3D_QUALITY =
+  "photorealistic, 8K ultra-detailed, high contrast, commercial e-commerce catalog quality, sharp fabric details, raw photo quality";
 
 const MODELS: { value: LingyaModel; label: string; desc: string; badge?: string; icon: string }[] = [
   { value: "gpt-image-2", label: "GPT-Image-2", desc: "4K · 4积分", badge: "最新", icon: "/model-icons/openai.svg" },
@@ -116,6 +119,35 @@ export default function Garment3dPage() {
     if (!nextSizes.includes(imageSize)) setImageSize(nextSizes[0]);
   }, [aiModel, aspectRatio, imageSize]);
 
+  useEffect(() => {
+    const payload = takeApplyPayload("garment3d");
+    if (!payload) return;
+
+    setGarmentUrl(payload.garmentUrl);
+    setGarmentName("历史服装图");
+    setGarmentType(
+      payload.garmentType === "上装" || payload.garmentType === "下装" || payload.garmentType === "连体衣"
+        ? payload.garmentType
+        : "其他"
+    );
+    setCustomGarmentType(
+      payload.garmentType && !["上装", "下装", "连体衣"].includes(payload.garmentType)
+        ? payload.garmentType
+        : ""
+    );
+    setOutputMode(payload.outputMode || (payload.referenceUrl ? "reference" : "prompt"));
+    setCustomReferenceUrl(payload.referenceUrl || "");
+    setAiModel(payload.aiModel);
+    setAspectRatio(payload.aspectRatio === "1:1" ? "1:1" : "3:4");
+    setImageSize(payload.imageSize);
+    setGenCount(payload.genCount);
+    setPrompt(payload.userPrompt || payload.prompt);
+    setPromptOverride(payload.prompt);
+    setResultUrls([]);
+    setError(null);
+    toast.success("已套用历史参数");
+  }, []);
+
   async function handleGarmentFiles(files: FileList | File[]) {
     const file = Array.from(files)[0];
     if (!file) return;
@@ -128,8 +160,6 @@ export default function Garment3dPage() {
       return;
     }
 
-    const base64 = await fileToBase64(file);
-    setGarmentUrl(base64);
     setGarmentName(file.name);
     setResultUrls([]);
     setError(null);
@@ -138,10 +168,11 @@ export default function Garment3dPage() {
     try {
       const result = await uploadImage(file);
       setGarmentUrl(result.url);
+      toast.success("服装图已准备");
     } catch {
-      // 保留 base64 作为降级
+      setGarmentUrl("");
+      toast.error("服装图上传失败，请重试");
     }
-    toast.success("服装图已准备");
   }
 
   async function handleCustomReference(file?: File) {
@@ -150,18 +181,17 @@ export default function Garment3dPage() {
       toast.error("请上传图片文件");
       return;
     }
-    const base64 = await fileToBase64(file);
-    setCustomReferenceUrl(base64);
     setPromptOverride(null);
 
     toast.info("正在上传参考图...");
     try {
       const result = await uploadImage(file);
       setCustomReferenceUrl(result.url);
+      toast.success("参考图已选择");
     } catch {
-      // 保留 base64 作为降级
+      setCustomReferenceUrl("");
+      toast.error("参考图上传失败，请重试");
     }
-    toast.success("参考图已选择");
   }
 
   const base64Cache = useRef<Map<string, string>>(new Map());
@@ -740,6 +770,23 @@ export default function Garment3dPage() {
               ))}
             </div>
             <div className="px-5 py-4 overflow-y-auto max-h-[55vh] space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  ["模型", aiModel],
+                  ["比例", aspectRatio],
+                  ["分辨率", imageSize],
+                  ["生成张数", `${genCount}`],
+                  ["服装类型", garmentType === "其他" ? customGarmentType || "其他" : garmentType],
+                  ["输出模式", outputMode === "reference" ? "参考图模式" : "提示词模式"],
+                  ["3D参考图", outputMode === "reference" && activeReferenceUrl ? "已使用" : "未使用"],
+                  ["用户输入", prompt || "无"],
+                ].map(([label, value]) => (
+                  <div key={label} className="rounded-lg border bg-gray-50 px-3 py-2">
+                    <p className="text-[10px] text-gray-400">{label}</p>
+                    <p className="text-xs font-medium text-gray-700 break-words">{value}</p>
+                  </div>
+                ))}
+              </div>
               <textarea
                 value={finalPrompt}
                 onChange={(e) => setPromptOverride(e.target.value)}
@@ -788,11 +835,9 @@ function buildGarment3dPrompt(params: {
     ? "图像角色：图1是用户上传的服装图，图2是3D立体效果参考图。"
     : "图像角色：图1是用户上传的服装图。";
   const referenceLine = params.hasReference
-    ? "参考图2的立体角度、布料厚度、阴影结构、背景风格和商业棚拍质感，但不要复制图2的颜色、图案、文字或具体款式。"
+    ? "参考图2只用于学习立体角度、布料厚度、支撑形态、阴影结构和商业棚拍光影，不参考图2的背景元素、颜色、图案、文字或具体款式。"
     : "按照用户提示生成类似穿在人身上的3D立体展示效果，使用干净白色背景。";
-  const backgroundLine = params.hasReference
-    ? "画面要求：主体居中，边缘干净，真实商业棚拍质感，柔和自然阴影，背景参考图2的背景风格、明暗和空间感。"
-    : "画面要求：主体居中，边缘干净，真实商业棚拍质感，柔和自然阴影，干净白色背景。";
+  const backgroundLine = "画面要求：主体居中，边缘干净，真实商业棚拍质感，柔和自然阴影，背景使用干净白色或浅灰棚拍背景，不带场景杂物。";
 
   return `${roles}
 任务：将图1的${params.garmentType || "服装"}从平面图或人台图转换为无真人、无头部、无脸、无手的3D立体服装展示图。
@@ -800,5 +845,6 @@ ${referenceLine}
 严格保留图1服装的版型、颜色、材质、纹理、图案、纽扣、拉链、口袋、帽绳、袖口、裤腰、裤脚等细节。
 用户要求：${params.prompt.trim() || DEFAULT_PROMPT}
 ${backgroundLine}
+图像质量：${GARMENT_3D_QUALITY}。
 负面约束：不要生成真人身体，不要生成模特脸，不要多件衣服，不要改变服装品类，不要改变主要颜色，不要扭曲文字和 logo。`;
 }

@@ -4,6 +4,8 @@ import { getChatCompletionsUrl, getLlmConfig } from "@/lib/api/llm-provider";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 
 const ANALYZE_TIMEOUT_MS = Number(process.env.LINGYA_ANALYZE_TIMEOUT_MS || 30000);
+const GARMENT_3D_QUALITY =
+  "photorealistic, 8K ultra-detailed, high contrast, commercial e-commerce catalog quality, sharp fabric details, raw photo quality";
 
 export async function POST(request: NextRequest) {
   try {
@@ -41,7 +43,7 @@ export async function POST(request: NextRequest) {
 7. 灯光：Professional product photography lighting: soft diffused key light, gentle fill to show fabric texture, subtle rim light for edge definition, minimal harsh shadows
 8. 背景：干净白色或浅灰棚拍背景，主体居中，边缘干净
 9. 布料质感：真实布料体积感，自然褶皱、缝线纹理、面料光泽和厚度
-10. 图像质量：photorealistic, 8K ultra-detailed, high contrast, commercial e-commerce catalog quality, sharp fabric details, raw photo quality
+10. 图像质量：${GARMENT_3D_QUALITY}
 
 要求：
 - 【最重要】最终提示词中必须出现"图1"引用（如"忠实还原图1的服装"、"根据图1判断正面或背面"），这是图片生成模型识别图片的唯一方式
@@ -77,10 +79,29 @@ ${prompt || ""}`;
 
     if (!res.ok) return NextResponse.json({ prompt: "" });
     const data = await res.json();
-    return NextResponse.json({ prompt: data.choices?.[0]?.message?.content?.trim() || "" });
+    const analyzedPrompt = data.choices?.[0]?.message?.content?.trim() || "";
+    return NextResponse.json({ prompt: enforcePromptRequirements(analyzedPrompt) });
   } catch (err: unknown) {
     if (err instanceof Error && err.name === "AbortError") return NextResponse.json({ prompt: "", skipped: true });
     console.error("[garment-3d/analyze] error:", err);
     return NextResponse.json({ prompt: "" });
   }
+}
+
+function enforcePromptRequirements(prompt: string) {
+  if (!prompt) return "";
+
+  let nextPrompt = prompt.replace(/\s+/g, " ").trim();
+  if (!nextPrompt.includes("图1")) {
+    nextPrompt = `图像角色：图1是用户上传的服装图。${nextPrompt}`;
+  }
+
+  const missingQuality = GARMENT_3D_QUALITY
+    .split(", ")
+    .filter((dimension) => !nextPrompt.includes(dimension));
+  if (missingQuality.length) {
+    nextPrompt = `${nextPrompt} ${GARMENT_3D_QUALITY}`;
+  }
+
+  return nextPrompt;
 }

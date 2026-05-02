@@ -262,7 +262,7 @@ export function buildTryOnPrompt(params: {
 
   // ---- 核心提示词（显式编号 + 保留/替换约束） ----
   const skinAndQuality = "真实皮肤质感，可见毛孔、自然纹理和轻微瑕疵，不过度磨皮。photorealistic, 8K ultra-detailed, high contrast, cinematic color grade, commercial fashion catalog quality, sharp details, raw photo quality。";
-  const poseLock = "【最重要】必须100%保持参考图的姿势、身体角度、四肢位置、头部朝向、手部动作完全一致，不能有任何改变。背景、构图、镜头角度、光影、人物位置也不能变。";
+  const poseLock = "【最重要】优先保持参考图的姿势、身体角度、四肢位置、头部朝向、手部动作、背景、构图、镜头角度、光影方向和人物位置；允许为了服装真实贴合人体产生自然褶皱、遮挡关系和边缘轮廓调整。";
 
   if (params.hasReference && params.hasModelFace) {
     prompt = `图像角色：${clothingRefs.join("、")}是服装图，图${referenceImageNumber}是参考图，图${faceImageNumber}是模特脸图。任务：将${clothingText}穿在图${referenceImageNumber}参考图中的人物身上，并将人物脸部替换为图${faceImageNumber}的模特脸。${poseLock}保留服装的版型、颜色、材质、图案和细节，使服装自然贴合人体。${skinAndQuality}不要改变参考图场景，不要生成多余人物，不要改变发型以外的主体身份特征。`;

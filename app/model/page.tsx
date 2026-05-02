@@ -6,8 +6,9 @@ import { Camera, Download, Loader2, Sparkles, Upload, UserRound, Wand, X } from 
 import { toast } from "sonner";
 import { FeatureTabs } from "@/components/FeatureTabs";
 import { createClient, getCachedProfileCredits, setCachedProfileCredits } from "@/lib/supabase/client";
-import { downloadImage, fileToBase64, generateDownloadFilename, uploadImage } from "@/lib/utils";
+import { downloadImage, generateDownloadFilename, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
+import { takeApplyPayload } from "@/lib/history-apply";
 
 type Gender = "female" | "male";
 
@@ -46,6 +47,8 @@ const HAIR_COLORS = [
   { value: "铂金白色", label: "白金", image: "/exclusive-model/female-platinum-long.png" },
   { value: "柔粉色", label: "粉色", image: "/exclusive-model/female-pink-long.png" },
 ];
+const MODEL_QUALITY =
+  "photorealistic, 8K ultra-detailed, commercial portrait quality, cinematic color grade, sharp facial details, sharp hair details, raw photo quality";
 
 export default function ModelPage() {
   const router = useRouter();
@@ -117,6 +120,27 @@ export default function ModelPage() {
     if (!nextSizes.includes(imageSize)) setImageSize(nextSizes[0]);
   }, [aiModel, aspectRatio, imageSize]);
 
+  useEffect(() => {
+    const payload = takeApplyPayload("model");
+    if (!payload) return;
+
+    setReferenceUrls(payload.referenceUrls);
+    setHairReferenceUrl(payload.hairReferenceUrl || null);
+    setHairColorReferenceUrl(payload.hairColorReferenceUrl || null);
+    setGender(payload.gender || "female");
+    setHairStyle(payload.hairStyle || null);
+    setHairColor(payload.hairColor || null);
+    setAiModel(payload.aiModel);
+    setAspectRatio(payload.aspectRatio);
+    setImageSize(payload.imageSize);
+    setGenCount(payload.genCount);
+    setPromptTouched(true);
+    setPrompt(payload.prompt);
+    setResultUrls([]);
+    setError("");
+    toast.success("已套用历史参数");
+  }, []);
+
   async function addFiles(files?: FileList | File[]) {
     if (!files) return;
     const incoming = Array.from(files).slice(0, 3 - referenceUrls.length);
@@ -136,7 +160,7 @@ export default function ModelPage() {
         const result = await uploadImage(file);
         next.push(result.url);
       } catch {
-        next.push(await fileToBase64(file));
+        toast.error(`${file.name} 上传失败，请重试`);
       }
     }
     if (next.length) {
@@ -163,8 +187,6 @@ export default function ModelPage() {
       toast.error(`${file.name} 超过 10MB`);
       return;
     }
-    const base64 = await fileToBase64(file);
-    setHairReferenceUrl(base64);
     setHairStyle(null);
     setResultUrls([]);
     setError("");
@@ -173,10 +195,11 @@ export default function ModelPage() {
     try {
       const result = await uploadImage(file);
       setHairReferenceUrl(result.url);
+      toast.success("已上传发型参考图");
     } catch {
-      // 保留 base64 作为降级
+      setHairReferenceUrl(null);
+      toast.error("发型参考图上传失败，请重试");
     }
-    toast.success("已上传发型参考图");
   }
 
   async function uploadHairColorReference(files?: FileList | File[]) {
@@ -190,8 +213,6 @@ export default function ModelPage() {
       toast.error(`${file.name} 超过 10MB`);
       return;
     }
-    const base64 = await fileToBase64(file);
-    setHairColorReferenceUrl(base64);
     setHairColor(null);
     setResultUrls([]);
     setError("");
@@ -200,10 +221,11 @@ export default function ModelPage() {
     try {
       const result = await uploadImage(file);
       setHairColorReferenceUrl(result.url);
+      toast.success("已上传发色参考图");
     } catch {
-      // 保留 base64 作为降级
+      setHairColorReferenceUrl(null);
+      toast.error("发色参考图上传失败，请重试");
     }
-    toast.success("已上传发色参考图");
   }
 
   async function optimizePrompt() {
@@ -265,6 +287,9 @@ export default function ModelPage() {
           gen_count: genCount,
           hair_reference_url: hairReferenceUrl,
           hair_color_reference_url: hairColorReferenceUrl,
+          gender,
+          hair_style: hairStyle,
+          hair_color: hairColor,
           prompt,
         }),
       });
@@ -727,5 +752,5 @@ function buildDefaultPrompt(refCount: number, gender: Gender, hairStyle: string 
     ? `图像角色：${refs} 是同一个专属模特的人物参考图，用于提取共同的人物身份、脸型、五官比例、肤色、气质和真实面部特征；${extraRoles}。`
     : `图像角色：${refs} 是同一个专属模特的参考图，用于提取共同的人物身份、脸型、五官比例、肤色、气质和真实面部特征。`;
 
-  return `${imageRoleText}任务：融合 ${refs} 的人物特征，生成一张真实摄影质感的${genderText}专属模特半身头像/模特卡照片。${hairStyleText}；${hairColorText}。保持人物身份一致，白色基础上衣，干净浅灰棚拍背景，柔和商业摄影布光，皮肤保留自然纹理和轻微瑕疵，发丝细节真实。负面约束：不要生成多个人，不要换成陌生脸，不要把发型/发色参考图当成人脸身份，不要过度磨皮，不要塑料皮肤，不要蜡像感，不要卡通感，不要畸形五官，不要文字水印。`;
+  return `${imageRoleText}任务：融合 ${refs} 的人物特征，生成一张真实摄影质感的${genderText}专属模特半身头像/模特卡照片。${hairStyleText}；${hairColorText}。保持人物身份一致，白色基础上衣，干净浅灰棚拍背景，柔和商业摄影布光，皮肤保留自然纹理和轻微瑕疵，发丝细节真实。图像质量：${MODEL_QUALITY}。负面约束：不要生成多个人，不要换成陌生脸，不要把发型/发色参考图当成人脸身份，不要过度磨皮，不要塑料皮肤，不要蜡像感，不要卡通感，不要畸形五官，不要文字水印。`;
 }

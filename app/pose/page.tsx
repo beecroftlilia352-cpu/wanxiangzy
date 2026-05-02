@@ -5,9 +5,10 @@ import { useRouter } from "next/navigation";
 import { Download, Loader2, PersonStanding, Sparkles, Upload, Wand, X } from "lucide-react";
 import { toast } from "sonner";
 import { createClient, getCachedProfileCredits, setCachedProfileCredits } from "@/lib/supabase/client";
-import { downloadImage, fileToBase64, generateDownloadFilename, uploadImage } from "@/lib/utils";
+import { downloadImage, generateDownloadFilename, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
 import { FeatureTabs } from "@/components/FeatureTabs";
+import { takeApplyPayload } from "@/lib/history-apply";
 
 const MODELS: { value: LingyaModel; label: string; desc: string; badge?: string; icon: string }[] = [
   { value: "gpt-image-2", label: "GPT-Image-2", desc: "4K · 4分/次", badge: "最新", icon: "/model-icons/openai.svg" },
@@ -16,12 +17,12 @@ const MODELS: { value: LingyaModel; label: string; desc: string; badge?: string;
   { value: "doubao-seedream-4-5-251128", label: "Seedream 4.5", desc: "4K · 2分/次", badge: "新", icon: "/model-icons/doubao.png" },
 ];
 
-const DEFAULT_POSE_PROMPT = `High-end fashion magazine editorial photography, same person from 图1, same face identity, hairstyle, body proportion, clothing, fabric texture, color, pattern, lighting and photography quality. Professional studio lighting with soft key light and natural fill. Hyper-realistic skin texture with natural pores. photorealistic, 8K ultra-detailed, cinematic color grade, sharp details.
+const DEFAULT_POSE_PROMPT = `High-end fashion magazine editorial photography, same person from 图1, same face identity, hairstyle, body proportion, clothing, fabric texture, color, pattern, scene, lighting and photography quality. Four-panel pose variation from the same fashion photo series, consistent framing, same camera distance, same lens style, same background and color grade. Professional studio lighting with soft key light and natural fill. Hyper-realistic skin texture with natural pores. photorealistic, 8K ultra-detailed, cinematic color grade, sharp details.
 
-姿势1：正面自然站立，双手自然下垂或轻触口袋，眼神直视镜头，自信微笑。镜头：medium shot, 35mm lens, eye level angle
-姿势2：侧身45度，回头微笑看向镜头，一手轻抚头发，优雅放松。镜头：medium close-up, 50mm lens, slight low angle
-姿势3：正面微微弯腰前倾，双手交叉或撑在膝盖上，俏皮可爱表情。镜头：close-up, 85mm lens, eye level angle
-姿势4：行走或转身的动态姿势，衣服随风飘动，自然抓拍感。镜头：full body, 24mm lens, slight high angle
+姿势1：正面自然站立，双手自然下垂或轻触口袋，眼神直视镜头，自信微笑。镜头：consistent medium full-body framing, 50mm lens, eye level angle
+姿势2：身体轻微侧转30度，肩线放松，一手轻抚头发或整理衣领，优雅自然。镜头：consistent medium full-body framing, 50mm lens, eye level angle
+姿势3：重心轻微偏移，一手叉腰或扶腰，另一只手自然下垂，展示服装腰线和廓形。镜头：consistent medium full-body framing, 50mm lens, eye level angle
+姿势4：轻微迈步或转身的自然动态，衣服产生真实褶皱和垂坠，不改变服装结构。镜头：consistent medium full-body framing, 50mm lens, eye level angle
 
 负面约束：不要换脸，不要换衣服，不要改变场景，不要生成多余人物，不要扭曲手指和肢体，不要塑料皮肤，不要AI渲染感。`;
 
@@ -75,6 +76,19 @@ export default function PosePage() {
     if (!nextSizes.includes(imageSize)) setImageSize(nextSizes[0]);
   }, [aiModel, imageSize]);
 
+  useEffect(() => {
+    const payload = takeApplyPayload("pose");
+    if (!payload) return;
+
+    setMainImage(payload.mainImageUrl);
+    setAiModel(payload.aiModel);
+    setImageSize(payload.imageSize);
+    setPrompt(payload.prompt);
+    setResultUrls([]);
+    setError("");
+    toast.success("已套用历史参数");
+  }, []);
+
   async function handleFile(file?: File) {
     if (!file) return;
     if (!file.type.startsWith("image/")) {
@@ -85,8 +99,6 @@ export default function PosePage() {
       toast.error("图片不能超过 10MB");
       return;
     }
-    const base64 = await fileToBase64(file);
-    setMainImage(base64);
     setResultUrls([]);
     setError("");
 
@@ -94,10 +106,11 @@ export default function PosePage() {
     try {
       const result = await uploadImage(file);
       setMainImage(result.url);
+      toast.success("主图已选择");
     } catch {
-      // 保留 base64 作为降级
+      setMainImage("");
+      toast.error("主图上传失败，请重试");
     }
-    toast.success("主图已选择");
   }
 
   async function optimizePrompt() {

@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
     let body: any;
     try { body = await request.json(); }
     catch { return NextResponse.json({ error: "请求格式无效" }, { status: 400 }); }
-    const { reference_urls, hair_reference_url, hair_color_reference_url, ai_model, aspect_ratio, image_size, prompt, gen_count } = body;
+    const { reference_urls, hair_reference_url, hair_color_reference_url, gender, hair_style, hair_color, ai_model, aspect_ratio, image_size, prompt, gen_count } = body;
     if (!Array.isArray(reference_urls) || !reference_urls.length) return NextResponse.json({ error: "请上传 1-3 张参考图" }, { status: 400 });
     if (reference_urls.length > 3) return NextResponse.json({ error: "参考图最多 3 张" }, { status: 400 });
     if (reference_urls.some((url) => typeof url !== "string")) return NextResponse.json({ error: "参考图无效" }, { status: 400 });
@@ -41,6 +41,9 @@ export async function POST(request: NextRequest) {
       referenceUrls: reference_urls,
       hairReferenceUrl: hair_reference_url || null,
       hairColorReferenceUrl: hair_color_reference_url || null,
+      gender: gender === "male" ? "male" : "female",
+      hairStyle: typeof hair_style === "string" ? hair_style : null,
+      hairColor: typeof hair_color === "string" ? hair_color : null,
       aiModel: model,
       aspectRatio,
       imageSize: size,

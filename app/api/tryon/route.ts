@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
     const aspectRatio = normalizeAspectRatio(aspect_ratio);
     const size: ImageSize = normalizeImageSize(model, image_size || "1K", aspectRatio);
     const costPerImage = getCreditCost(model, size, aspectRatio);
-    const totalCost = costPerImage * clothing_urls.length * genCount;
+    const totalCost = costPerImage * genCount;
     const jobPayload: GenerationJobPayload = {
       kind: "tryon",
       clothingUrls: clothing_urls,
@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
       creditsCost: totalCost,
       aiModel: model,
       imageSize: size,
-      reason: `生成 ${clothing_urls.length} 张 (${model}, ${size})`,
+      reason: `生成 ${genCount} 张，输入 ${clothing_urls.length} 件服装 (${model}, ${size})`,
       jobPayload,
     });
 

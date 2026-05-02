@@ -18,6 +18,9 @@ import { handleGenerationStatusGet } from "@/lib/api/generation-status";
 type GarmentType = "上装" | "下装" | "连体衣" | "其他";
 type OutputMode = "reference" | "prompt";
 
+const GARMENT_3D_QUALITY =
+  "photorealistic, 8K ultra-detailed, high contrast, commercial e-commerce catalog quality, sharp fabric details, raw photo quality";
+
 export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
@@ -69,6 +72,9 @@ export async function POST(request: NextRequest) {
       kind: "garment3d",
       garmentUrl: garment_url,
       referenceUrl: mode === "reference" ? reference_url || null : null,
+      garmentType: finalGarmentType,
+      outputMode: mode,
+      userPrompt: prompt,
       aiModel: model,
       aspectRatio,
       imageSize: size,
@@ -117,11 +123,9 @@ function buildServerPrompt(params: {
     ? "图像角色：图1是用户上传的服装图，图2是3D立体服装参考图。"
     : "图像角色：图1是用户上传的服装图。";
   const referenceLine = params.hasReference
-    ? "参考图2的服装立体感、袖身厚度、阴影结构、空间角度、背景风格和棚拍质感，但不要复制图2的颜色、图案、文字或具体款式。"
+    ? "参考图2只用于学习服装立体感、袖身厚度、支撑形态、阴影结构、空间角度和棚拍光影，不参考图2的背景元素、颜色、图案、文字或具体款式。"
     : "根据用户提示生成类似穿在人身上的立体效果，使用干净白色背景。";
-  const backgroundLine = params.hasReference
-    ? "背景参考图2的背景风格、明暗和空间感。"
-    : "背景使用干净白色棚拍背景。";
+  const backgroundLine = "背景使用干净白色或浅灰棚拍背景，主体居中，边缘干净，真实商业棚拍质感。";
 
-  return `${roles} 任务：将图1的${params.garmentType}从平面图或人台图转换为无真人、无头部、无脸、无手的3D立体服装展示图。${referenceLine} 严格保留图1服装的版型、颜色、材质、纹理、图案、纽扣、拉链、口袋、帽绳、袖口、裤腰、裤脚等细节。${backgroundLine} 主体居中，边缘干净，真实商业棚拍质感。${params.userPrompt.trim()} 负面约束：不要生成真人身体、不要生成模特脸、不要多件衣服、不要改变衣服品类、不要扭曲文字和 logo、不要改变主要颜色。`;
+  return `${roles} 任务：将图1的${params.garmentType}从平面图或人台图转换为无真人、无头部、无脸、无手的3D立体服装展示图。${referenceLine} 严格保留图1服装的版型、颜色、材质、纹理、图案、纽扣、拉链、口袋、帽绳、袖口、裤腰、裤脚等细节。${backgroundLine} ${params.userPrompt.trim()} 图像质量：${GARMENT_3D_QUALITY}。负面约束：不要生成真人身体、不要生成模特脸、不要多件衣服、不要改变衣服品类、不要扭曲文字和 logo、不要改变主要颜色。`;
 }

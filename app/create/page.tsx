@@ -23,6 +23,7 @@ import { createClient, getCachedProfileCredits, setCachedProfileCredits } from "
 import { getCreditCost, getSupportedImageSizes, buildTryOnPrompt, type LingyaModel, type ImageSize, type AspectRatio } from "@/lib/api/lingya";
 import { toast } from "sonner";
 import { FeatureTabs } from "@/components/FeatureTabs";
+import { takeApplyPayload } from "@/lib/history-apply";
 
 // ---- 预设数据 ----
 const SUPABASE_STORAGE = "https://mtdfvnhphpulhjtnmubw.supabase.co/storage/v1/object/public";
@@ -135,13 +136,61 @@ export default function CreatePage() {
     if (!nextImageSizes.includes(imageSize)) setImageSize(nextImageSizes[0]);
   }, [aiModel, aspectRatio, imageSize]);
 
+  useEffect(() => {
+    const payload = takeApplyPayload("tryon");
+    if (!payload) return;
+
+    const files = payload.clothingUrls.map((_, index) =>
+      new File([], `history-clothing-${index + 1}.jpg`, { type: "image/jpeg" })
+    );
+    store.setClothing(files, payload.clothingUrls);
+    setUploadedClothingUrls(payload.clothingUrls);
+    if (payload.modelFaceUrl) {
+      store.setSelectedModel({
+        id: "history-model",
+        name: "历史模特",
+        image_url: payload.modelFaceUrl,
+        gender: "female",
+        is_preset: false,
+        user_id: null,
+      });
+    } else {
+      store.setSelectedModel(null);
+    }
+    if (payload.referenceUrl) {
+      store.setReferenceImage({
+        id: "history-reference",
+        url: payload.referenceUrl,
+        label: "历史参考",
+        category: "style",
+        is_preset: false,
+        user_id: null,
+      });
+    } else {
+      store.setReferenceImage(null);
+    }
+    setAiModel(payload.aiModel);
+    setAspectRatio(payload.aspectRatio);
+    setImageSize(payload.imageSize);
+    setGenCount(payload.genCount);
+    setCustomStyle(payload.style || "");
+    setPromptOverride(payload.rawPrompt || null);
+    store.setPromptUsed(payload.rawPrompt || "");
+    toast.success("已套用历史参数");
+  }, []);
+
   const costPerImage = getCreditCost(aiModel, imageSize, aspectRatio);
-  const totalCost = costPerImage * store.clothingFiles.length * genCount;
+  const totalCost = costPerImage * genCount;
   const promptPreview = buildTryOnPrompt({
     clothingCount: store.clothingFiles.length || 1,
     hasModelFace: !!store.selectedModel,
     hasReference: !!store.referenceImage,
     style: customStyle || undefined,
+  });
+  const analysisBasePrompt = buildTryOnPrompt({
+    clothingCount: store.clothingFiles.length || 1,
+    hasModelFace: !!store.selectedModel,
+    hasReference: !!store.referenceImage,
   });
   const finalPrompt = promptOverride ?? (store.promptUsed || promptPreview.prompt);
 
@@ -174,7 +223,8 @@ export default function CreatePage() {
           clothing_urls: uploadedClothingUrls,
           model_face_url: store.selectedModel?.image_url,
           reference_url: store.referenceImage?.url,
-          style: customStyle || undefined,
+          base_prompt: analysisBasePrompt.prompt,
+          user_style: customStyle || undefined,
         }),
       }).finally(() => clearTimeout(timeout));
 
@@ -220,21 +270,26 @@ export default function CreatePage() {
       const uploadResults = await Promise.allSettled(
         validFiles.map((f) => uploadImage(f))
       );
+      const uploadedFiles: File[] = [];
+      const uploadedPreviews: string[] = [];
 
       for (let i = 0; i < uploadResults.length; i++) {
         const result = uploadResults[i];
         if (result.status === "fulfilled") {
           newUrls.push(result.value.url);
+          uploadedFiles.push(validFiles[i]);
+          uploadedPreviews.push(previews[i]);
         } else {
-          toast.error(`${validFiles[i].name} 上传失败`);
-          newUrls.push(previews[i]);
+          toast.error(`${validFiles[i].name} 上传失败，请重试`);
         }
       }
 
-      store.setClothing([...store.clothingFiles, ...validFiles], [...store.clothingPreviews, ...previews]);
-      setUploadedClothingUrls(prev => [...prev, ...newUrls]);
-      setPromptOverride(null);
-      toast.success(`${validFiles.length} 件衣服已就绪`);
+      if (newUrls.length > 0) {
+        store.setClothing([...store.clothingFiles, ...uploadedFiles], [...store.clothingPreviews, ...uploadedPreviews]);
+        setUploadedClothingUrls(prev => [...prev, ...newUrls]);
+        setPromptOverride(null);
+        toast.success(`${newUrls.length} 件衣服已就绪`);
+      }
     }
     setIsUploading(false);
   }, [store]);
@@ -254,11 +309,12 @@ export default function CreatePage() {
     try {
       const result = await uploadImage(file);
       store.setSelectedModel({ id: "custom", name: "自定义", image_url: result.url, gender: "female", is_preset: false, user_id: null });
+      setPromptOverride(null);
+      toast.success("模特已选择");
     } catch {
-      store.setSelectedModel({ id: "custom", name: "自定义", image_url: base64, gender: "female", is_preset: false, user_id: null });
+      setCustomModelPreview(null);
+      toast.error("模特图上传失败，请重试");
     }
-    setPromptOverride(null);
-    toast.success("模特已选择");
   };
 
   const handleCustomRef = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -269,11 +325,12 @@ export default function CreatePage() {
     try {
       const result = await uploadImage(file);
       store.setReferenceImage({ id: "custom", url: result.url, label: "自定义参考", category: "style", is_preset: false, user_id: null });
+      setPromptOverride(null);
+      toast.success("参考图已选择");
     } catch {
-      store.setReferenceImage({ id: "custom", url: base64, label: "自定义参考", category: "style", is_preset: false, user_id: null });
+      setCustomRefPreview(null);
+      toast.error("参考图上传失败，请重试");
     }
-    setPromptOverride(null);
-    toast.success("参考图已选择");
   };
 
   // ---- 生成（识图 → 生成提示词 → 生成图片） ----
@@ -308,7 +365,8 @@ export default function CreatePage() {
               clothing_urls: uploadedClothingUrls,
               model_face_url: store.selectedModel?.image_url,
               reference_url: store.referenceImage?.url,
-          style: finalPrompt,
+              base_prompt: analysisBasePrompt.prompt,
+              user_style: customStyle || undefined,
             }),
           }).finally(() => clearTimeout(analyzeTimeout));
 
@@ -691,7 +749,7 @@ export default function CreatePage() {
         {/* ---- 底部 ---- */}
         <div className="border-t p-3 sm:p-4 space-y-2 bg-white">
           <div className="flex items-center justify-between text-xs">
-            <span className="text-gray-400">{store.clothingFiles.length} 件 × {costPerImage} × {genCount} 次</span>
+            <span className="text-gray-400">{store.clothingFiles.length} 件服装 · {costPerImage} × {genCount} 张</span>
             {isAuthenticated
               ? <span className="font-bold text-amber-600">消耗 {totalCost} · 余额 {credits ?? "—"}</span>
               : <span className="text-gray-400">登录后查看积分</span>
@@ -928,6 +986,23 @@ export default function CreatePage() {
             </div>
 
             <div className="px-5 py-4 overflow-y-auto max-h-[55vh] space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  ["模型", aiModel],
+                  ["比例", aspectRatio],
+                  ["分辨率", imageSize],
+                  ["生成张数", `${genCount}`],
+                  ["服装数量", `${uploadedClothingUrls.length}`],
+                  ["模特脸", store.selectedModel ? "已使用" : "未使用"],
+                  ["参考图", store.referenceImage ? "已使用" : "未使用"],
+                  ["用户输入", customStyle || "无"],
+                ].map(([label, value]) => (
+                  <div key={label} className="rounded-lg border bg-gray-50 px-3 py-2">
+                    <p className="text-[10px] text-gray-400">{label}</p>
+                    <p className="text-xs font-medium text-gray-700 break-words">{value}</p>
+                  </div>
+                ))}
+              </div>
               <textarea
                 value={finalPrompt}
                 onChange={(e) => {

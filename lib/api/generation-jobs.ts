@@ -27,6 +27,9 @@ export type GenerationJobPayload =
       referenceUrls: string[];
       hairReferenceUrl?: string | null;
       hairColorReferenceUrl?: string | null;
+      gender?: "female" | "male";
+      hairStyle?: string | null;
+      hairColor?: string | null;
       aiModel: LingyaModel;
       aspectRatio: AspectRatio;
       imageSize: ImageSize;
@@ -44,6 +47,9 @@ export type GenerationJobPayload =
       kind: "garment3d";
       garmentUrl: string;
       referenceUrl?: string | null;
+      garmentType?: string;
+      outputMode?: "reference" | "prompt";
+      userPrompt?: string;
       aiModel: LingyaModel;
       aspectRatio: AspectRatio;
       imageSize: ImageSize;
