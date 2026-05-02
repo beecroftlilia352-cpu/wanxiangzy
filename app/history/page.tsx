@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Download, Clock, XCircle, Loader2, Coins, X, RotateCcw, Copy, Maximize2, Eye, ImageIcon, ZoomIn, ZoomOut } from "lucide-react";
 import { downloadImage, generateDownloadFilename } from "@/lib/utils";
 import { getApplyPath, saveApplyPayload, type HistoryJobPayload } from "@/lib/history-apply";
+import { buildTryOnPrompt } from "@/lib/api/lingya";
 
 const HISTORY_PAGE_SIZE = 12;
 
@@ -806,7 +807,16 @@ function getRowPayload(row: HistoryRow) {
 }
 
 function getPromptText(payload: HistoryJobPayload) {
-  if (payload.kind === "tryon") return payload.rawPrompt || payload.style || "";
+  if (payload.kind === "tryon") {
+    if (payload.rawPrompt?.trim()) return payload.rawPrompt;
+
+    return buildTryOnPrompt({
+      clothingCount: payload.clothingUrls.length || 1,
+      hasModelFace: !!payload.modelFaceUrl,
+      hasReference: !!payload.referenceUrl,
+      style: payload.style || undefined,
+    }).prompt;
+  }
   return payload.prompt || "";
 }
 

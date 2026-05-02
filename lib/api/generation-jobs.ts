@@ -8,6 +8,7 @@ import {
 } from "@/lib/api/lingya";
 import { failGenerationWithRefund } from "@/lib/api/credits";
 import { resolveImageInputs } from "@/lib/api/image-inputs.server";
+import { persistGeneratedImageUrls } from "@/lib/api/result-image-storage";
 import { enforcePosePromptRequirements } from "@/lib/pose-prompt";
 
 export type GenerationJobPayload =
@@ -134,12 +135,13 @@ async function runClaimedJob(
   try {
     const payload = parseJobPayload(job.job_payload);
     const resultUrls = await executePayload(payload);
+    const persistedResultUrls = await persistGeneratedImageUrls(resultUrls, job.id);
 
     const { data, error } = await supabase
       .from("generations")
       .update({
         status: "completed",
-        result_urls: resultUrls,
+        result_urls: persistedResultUrls,
         processing_started_at: null,
         completed_at: new Date().toISOString(),
       })
