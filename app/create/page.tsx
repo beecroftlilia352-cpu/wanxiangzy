@@ -76,8 +76,6 @@ const STYLE_PRESETS = [
   "街拍潮流，酷感十足", "极简白底电商图", "户外自然光，清新明亮",
 ];
 
-const ENABLE_PROMPT_ANALYSIS = process.env.NEXT_PUBLIC_ENABLE_PROMPT_ANALYSIS === "true";
-
 export default function CreatePage() {
   const router = useRouter();
   const supabase = createClient();
@@ -352,44 +350,7 @@ export default function CreatePage() {
         usedAiPrompt = true;
         store.setPromptUsed(finalStyle);
       }
-      if (ENABLE_PROMPT_ANALYSIS && !usedAiPrompt) {
-        toast.info("AI 正在分析图片...");
-        try {
-          const analyzeController = new AbortController();
-          const analyzeTimeout = setTimeout(() => analyzeController.abort(), 30000);
-          const analyzeRes = await fetch("/api/analyze-images", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            signal: analyzeController.signal,
-            body: JSON.stringify({
-              clothing_urls: uploadedClothingUrls,
-              model_face_url: store.selectedModel?.image_url,
-              reference_url: store.referenceImage?.url,
-              base_prompt: analysisBasePrompt.prompt,
-              user_style: customStyle || undefined,
-            }),
-          }).finally(() => clearTimeout(analyzeTimeout));
-
-          if (analyzeRes.ok) {
-            const { prompt } = await analyzeRes.json();
-            if (prompt) {
-              finalStyle = prompt;
-              usedAiPrompt = true;
-              store.setPromptUsed(prompt);
-              console.log("[generate] AI 生成的提示词:", prompt);
-            } else {
-              console.warn("[generate] 图片分析返回空，使用默认提示词");
-            }
-          } else {
-            const errData = await analyzeRes.json().catch(() => ({}));
-            console.warn("[generate] 图片分析失败:", errData.error || analyzeRes.status, "使用默认提示词");
-          }
-        } catch (err: any) {
-          console.warn("[generate] 图片分析超时或失败，使用默认提示词:", err?.message || err);
-        }
-      } else {
-        console.log("[generate] 跳过图片分析，使用默认编号模板");
-      }
+      console.log("[generate] 跳过自动图片分析，使用当前提示词");
 
       store.updateProgress(15);
       toast.info("正在提交生成任务...");
