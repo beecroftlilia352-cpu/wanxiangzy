@@ -8,6 +8,7 @@ import {
 } from "@/lib/api/lingya";
 import { failGenerationWithRefund } from "@/lib/api/credits";
 import { resolveImageInputs } from "@/lib/api/image-inputs.server";
+import { enforcePosePromptRequirements } from "@/lib/pose-prompt";
 
 export type GenerationJobPayload =
   | {
@@ -218,7 +219,7 @@ async function executePayload(payload: GenerationJobPayload): Promise<string[]> 
     const imageInputs = await resolveImageInputs({ clothingUrls: [payload.mainImageUrl] });
     const result = await generateImage({
       model: payload.aiModel,
-      prompt: payload.prompt,
+      prompt: enforcePosePromptRequirements(payload.prompt),
       aspect_ratio: "3:4",
       image: imageInputs.clothingUrls,
       image_size: payload.imageSize,

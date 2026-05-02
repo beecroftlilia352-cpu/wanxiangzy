@@ -7,6 +7,7 @@ import {
 } from "@/lib/api/credits";
 import { startGenerationJob, type GenerationJobPayload } from "@/lib/api/generation-jobs";
 import { handleGenerationStatusGet } from "@/lib/api/generation-status";
+import { enforcePosePromptRequirements } from "@/lib/pose-prompt";
 
 const POSE_ASPECT_RATIO = "3:4" as const;
 
@@ -27,12 +28,13 @@ export async function POST(request: NextRequest) {
     const model: LingyaModel = normalizeLingyaModel(ai_model);
     const size: ImageSize = normalizeImageSize(model, image_size || "1K", POSE_ASPECT_RATIO);
     const totalCost = getCreditCost(model, size, POSE_ASPECT_RATIO);
+    const finalPrompt = enforcePosePromptRequirements(prompt);
     const jobPayload: GenerationJobPayload = {
       kind: "pose",
       mainImageUrl: main_image_url,
       aiModel: model,
       imageSize: size,
-      prompt,
+      prompt: finalPrompt,
     };
 
     const debit = await createDebitedGeneration(supabase, {

@@ -56,7 +56,7 @@ export default function Garment3dPage() {
   const [outputMode, setOutputMode] = useState<OutputMode>("reference");
   const [selectedReference, setSelectedReference] = useState(REFERENCE_PRESETS[0]);
   const [customReferenceUrl, setCustomReferenceUrl] = useState("");
-  const [prompt, setPrompt] = useState(DEFAULT_PROMPT);
+  const [prompt, setPrompt] = useState("");
   const [promptOverride, setPromptOverride] = useState<string | null>(null);
 
   const [aiModel, setAiModel] = useState<LingyaModel>("gpt-image-2");
@@ -422,13 +422,21 @@ export default function Garment3dPage() {
             <h3 className="font-bold text-sm mb-3">出图模式</h3>
             <div className="grid grid-cols-2 gap-2 mb-3">
               <button
-                onClick={() => { setOutputMode("reference"); setPromptOverride(null); }}
+                onClick={() => {
+                  setOutputMode("reference");
+                  setPromptOverride(null);
+                  if (prompt.trim() === DEFAULT_PROMPT) setPrompt("");
+                }}
                 className={`py-2 rounded-lg border text-xs font-medium ${outputMode === "reference" ? "border-purple-500 bg-purple-50 text-purple-600" : "border-gray-200"}`}
               >
                 选择参考图
               </button>
               <button
-                onClick={() => { setOutputMode("prompt"); setPromptOverride(null); }}
+                onClick={() => {
+                  setOutputMode("prompt");
+                  setPromptOverride(null);
+                  if (!prompt.trim()) setPrompt(DEFAULT_PROMPT);
+                }}
                 className={`py-2 rounded-lg border text-xs font-medium ${outputMode === "prompt" ? "border-purple-500 bg-purple-50 text-purple-600" : "border-gray-200"}`}
               >
                 自定义提示词
@@ -487,27 +495,34 @@ export default function Garment3dPage() {
               </div>
             )}
 
-            {outputMode === "prompt" && (
-              <div className="mt-3">
-                <h3 className="font-bold text-sm mb-3">描述3D效果</h3>
-                <div className="relative">
-                  <textarea
-                    value={prompt}
-                    onChange={(e) => { setPrompt(e.target.value); setPromptOverride(null); }}
-                    placeholder="描述衣服的立体角度、厚度、旋转方向、背景风格等"
-                    className="w-full px-3 py-2 pr-10 rounded-lg border text-xs focus:ring-2 focus:ring-purple-200 outline-none resize-none h-24"
-                  />
-                  <button
-                    onClick={optimizePrompt}
-                    disabled={isOptimizing || !garmentUrl}
-                    className="absolute right-2 top-2 p-1.5 rounded-md bg-purple-50 text-purple-500 hover:bg-purple-100 disabled:opacity-30"
-                    title="视觉 AI 优化提示词"
-                  >
-                    {isOptimizing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand className="w-3.5 h-3.5" />}
-                  </button>
-                </div>
+            <div className="mt-3">
+              <h3 className="font-bold text-sm mb-3">
+                {outputMode === "reference" ? "补充生成要求（可选）" : "描述3D效果"}
+              </h3>
+              <div className="relative">
+                <textarea
+                  value={prompt}
+                  onChange={(e) => { setPrompt(e.target.value); setPromptOverride(null); }}
+                  placeholder={outputMode === "reference"
+                    ? "可补充角度、厚度、背景、布料质感等要求；参考图只负责立体结构和棚拍光影"
+                    : "描述衣服的立体角度、厚度、旋转方向、背景风格等"}
+                  className="w-full px-3 py-2 pr-10 rounded-lg border text-xs focus:ring-2 focus:ring-purple-200 outline-none resize-none h-24"
+                />
+                <button
+                  onClick={optimizePrompt}
+                  disabled={isOptimizing || !garmentUrl}
+                  className="absolute right-2 top-2 p-1.5 rounded-md bg-purple-50 text-purple-500 hover:bg-purple-100 disabled:opacity-30"
+                  title="视觉 AI 优化提示词"
+                >
+                  {isOptimizing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand className="w-3.5 h-3.5" />}
+                </button>
               </div>
-            )}
+              {outputMode === "reference" && (
+                <p className="mt-1.5 text-[11px] text-gray-400">
+                  参考图用于锁定立体感、厚度、空间角度和棚拍光影；这里输入的文字会作为额外生成要求一起进入最终提示词。
+                </p>
+              )}
+            </div>
           </section>
 
           <section>
@@ -838,12 +853,17 @@ function buildGarment3dPrompt(params: {
     ? "参考图2只用于学习立体角度、布料厚度、支撑形态、阴影结构和商业棚拍光影，不参考图2的背景元素、颜色、图案、文字或具体款式。"
     : "按照用户提示生成类似穿在人身上的3D立体展示效果，使用干净白色背景。";
   const backgroundLine = "画面要求：主体居中，边缘干净，真实商业棚拍质感，柔和自然阴影，背景使用干净白色或浅灰棚拍背景，不带场景杂物。";
+  const userRequirement = params.prompt.trim()
+    ? `用户补充要求：${params.prompt.trim()}`
+    : params.hasReference
+      ? "用户补充要求：无，优先按照图2的立体角度、厚度、支撑形态和棚拍光影生成。"
+      : `用户要求：${DEFAULT_PROMPT}`;
 
   return `${roles}
 任务：将图1的${params.garmentType || "服装"}从平面图或人台图转换为无真人、无头部、无脸、无手的3D立体服装展示图。
 ${referenceLine}
 严格保留图1服装的版型、颜色、材质、纹理、图案、纽扣、拉链、口袋、帽绳、袖口、裤腰、裤脚等细节。
-用户要求：${params.prompt.trim() || DEFAULT_PROMPT}
+${userRequirement}
 ${backgroundLine}
 图像质量：${GARMENT_3D_QUALITY}。
 负面约束：不要生成真人身体，不要生成模特脸，不要多件衣服，不要改变服装品类，不要改变主要颜色，不要扭曲文字和 logo。`;
