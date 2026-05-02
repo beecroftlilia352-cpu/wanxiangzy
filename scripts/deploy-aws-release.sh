@@ -81,7 +81,25 @@ cd "$BASE_DIR/current"
 pm2 start npm --name "$APP_NAME" -- start
 pm2 save
 
-find "$BASE_DIR/releases" -mindepth 1 -maxdepth 1 -type d | sort | head -n -5 | xargs -r rm -rf
+CURRENT_TARGET="$(readlink -f "$BASE_DIR/current" 2>/dev/null || true)"
+mapfile -t OLD_RELEASES < <(
+  find "$BASE_DIR/releases" -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\n' |
+    sort -rn |
+    awk 'NR > 5 { sub(/^[^ ]+ /, ""); print }'
+)
+
+for OLD_RELEASE in "${OLD_RELEASES[@]}"; do
+  if [ "$OLD_RELEASE" = "$RELEASE_DIR" ] || [ "$OLD_RELEASE" = "$CURRENT_TARGET" ]; then
+    continue
+  fi
+  rm -rf -- "$OLD_RELEASE"
+done
+
+if [ ! -d "$RELEASE_DIR" ]; then
+  echo "Deployment release directory was removed unexpectedly: $RELEASE_DIR" >&2
+  exit 1
+fi
+
 rm -f "$ARCHIVE"
 
 echo "Deployed $APP_NAME from tag $TAG"
