@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Download, Clock, XCircle, Loader2, Coins, X, RotateCcw, Copy, Maximize2, Eye, ImageIcon } from "lucide-react";
+import { Download, Clock, XCircle, Loader2, Coins, X, RotateCcw, Copy, Maximize2, Eye, ImageIcon, ZoomIn, ZoomOut } from "lucide-react";
 import { downloadImage, generateDownloadFilename } from "@/lib/utils";
 import { getApplyPath, saveApplyPayload, type HistoryJobPayload } from "@/lib/history-apply";
 
@@ -42,6 +42,7 @@ export default function HistoryPage() {
   const [detailRow, setDetailRow] = useState<HistoryRow | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailResultIndex, setDetailResultIndex] = useState(0);
+  const [detailZoom, setDetailZoom] = useState(100);
 
   useEffect(() => {
     let cancelled = false;
@@ -132,6 +133,7 @@ export default function HistoryPage() {
     setDetailLoading(true);
     try {
       setDetailResultIndex(initialResultIndex);
+      setDetailZoom(100);
       setDetailRow(await fetchHistoryDetail(row));
     } catch (error) {
       alert(error instanceof Error ? error.message : "参数加载失败");
@@ -159,10 +161,7 @@ export default function HistoryPage() {
   };
 
   if (state === "loading") return (
-    <div className="max-w-4xl mx-auto px-4 py-20 text-center">
-      <Loader2 className="w-8 h-8 mx-auto animate-spin text-purple-500" />
-      <p className="text-gray-400 text-sm mt-3">加载中...</p>
-    </div>
+    <HistoryLoadingSkeleton />
   );
 
   if (state === "noauth") return (
@@ -190,6 +189,7 @@ export default function HistoryPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:py-8">
+      <HistorySkeletonStyles />
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-xs font-medium text-gray-400">作品库</p>
@@ -228,7 +228,7 @@ export default function HistoryPage() {
                     {status}
                   </span>
                   {resultUrls.length > 1 && (
-                    <span className="absolute bottom-3 left-3 rounded-full bg-black/60 px-2.5 py-1 text-[11px] font-medium text-white">
+                    <span className="absolute bottom-3 left-3 rounded-full border border-white/70 bg-white/80 px-2.5 py-1 text-[11px] font-medium text-gray-700 shadow-sm backdrop-blur">
                       {resultUrls.length} 张结果
                     </span>
                   )}
@@ -320,6 +320,9 @@ export default function HistoryPage() {
             </article>
           );
         })}
+        {loadingMore && Array.from({ length: 2 }).map((_, index) => (
+          <HistoryCardSkeleton key={`loading-more-${index}`} />
+        ))}
       </div>
 
       <div className="mt-8 flex justify-center">
@@ -338,23 +341,18 @@ export default function HistoryPage() {
         )}
       </div>
       {detailLoading && (
-        <div className="fixed inset-0 z-[120] bg-black/20 backdrop-blur-[1px] flex items-center justify-center p-4">
-          <div className="rounded-2xl bg-white px-5 py-4 shadow-xl flex items-center gap-3 text-sm text-gray-600">
-            <Loader2 className="w-4 h-4 animate-spin text-purple-500" />
-            加载参数...
-          </div>
-        </div>
+        <DetailLoadingSkeleton />
       )}
       {detailRow && (
         <div
-          className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/30 p-3 backdrop-blur-xl sm:p-6"
           onClick={() => setDetailRow(null)}
         >
           <div
-            className="bg-white rounded-2xl max-w-6xl w-full max-h-[92vh] overflow-hidden shadow-2xl flex flex-col"
+            className="flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-[28px] border border-white/70 bg-white/85 shadow-[0_28px_90px_rgba(15,23,42,0.28)] backdrop-blur-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-5 border-b bg-white">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/70 bg-white/70 px-4 py-3 backdrop-blur-xl sm:px-5">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <h3 className="font-bold text-sm">{formatKind(detailPayload?.kind)}</h3>
@@ -366,7 +364,7 @@ export default function HistoryPage() {
                 <button
                   onClick={() => selectedResultUrl && downloadHistoryResult(detailRow, selectedResultUrl, selectedResultIndex)}
                   disabled={!selectedResultUrl}
-                  className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white/75 px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm backdrop-blur hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Download className="w-3.5 h-3.5" />
                   下载
@@ -383,27 +381,28 @@ export default function HistoryPage() {
                     套用
                   </button>
                 )}
-                <button onClick={() => setDetailRow(null)} className="p-1.5 rounded-full hover:bg-gray-100" aria-label="关闭">
+                <button onClick={() => setDetailRow(null)} className="rounded-full p-1.5 hover:bg-white/80" aria-label="关闭">
                   <X className="w-4 h-4" />
                 </button>
               </div>
             </div>
 
-            <div className="grid flex-1 min-h-0 overflow-y-auto lg:grid-cols-[minmax(0,1.15fr)_380px] lg:overflow-hidden">
-              <section className="min-h-[420px] bg-neutral-950 p-3 sm:p-5 flex flex-col gap-3">
-                <div className="relative flex min-h-[320px] flex-1 items-center justify-center overflow-hidden rounded-xl bg-black">
+            <div className="grid min-h-0 flex-1 overflow-y-auto bg-white/35 lg:grid-cols-[minmax(0,1.15fr)_380px] lg:overflow-hidden">
+              <section className="flex min-h-[440px] flex-col gap-4 bg-[#eef0f3] p-3 sm:p-5">
+                <div className="relative flex min-h-[330px] flex-1 items-center justify-center overflow-hidden rounded-[22px] bg-[#eef0f3]">
                   {selectedResultUrl ? (
                     <button
                       type="button"
                       onClick={() => setLightboxSrc(selectedResultUrl)}
-                      className="group flex h-full w-full items-center justify-center"
+                      className="group flex h-full w-full items-center justify-center p-2 sm:p-4"
                     >
                       <img
                         src={selectedResultUrl}
-                        className="max-h-[64vh] w-full object-contain"
+                        className="max-h-[62vh] w-full object-contain transition-transform duration-200"
+                        style={{ transform: `scale(${detailZoom / 100})` }}
                         alt={`生成结果 ${selectedResultIndex + 1}`}
                       />
-                      <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full bg-black/55 px-2.5 py-1 text-[11px] text-white opacity-0 transition-opacity group-hover:opacity-100">
+                      <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full border border-white/70 bg-white/80 px-2.5 py-1 text-[11px] text-gray-700 opacity-0 shadow-sm backdrop-blur transition-opacity group-hover:opacity-100">
                         <Maximize2 className="w-3 h-3" />
                         放大
                       </span>
@@ -414,10 +413,35 @@ export default function HistoryPage() {
                     </div>
                   )}
                   {detailResults.length > 0 && (
-                    <div className="absolute left-3 top-3 rounded-full bg-black/55 px-2.5 py-1 text-[11px] text-white">
+                    <div className="absolute left-3 top-3 rounded-full border border-white/70 bg-white/80 px-2.5 py-1 text-[11px] font-medium text-gray-700 shadow-sm backdrop-blur">
                       {selectedResultIndex + 1} / {detailResults.length}
                     </div>
                   )}
+                </div>
+
+                <div className="flex flex-col gap-3 px-1 sm:flex-row sm:items-center">
+                  <div className="flex items-center gap-2 text-xs font-medium text-gray-500">
+                    <ZoomOut className="h-4 w-4" />
+                    <input
+                      type="range"
+                      min="70"
+                      max="150"
+                      step="5"
+                      value={detailZoom}
+                      onChange={(event) => setDetailZoom(Number(event.target.value))}
+                      className="h-2 w-full min-w-48 cursor-pointer accent-purple-500 sm:w-64"
+                      aria-label="缩放生成结果"
+                    />
+                    <ZoomIn className="h-4 w-4" />
+                    <span className="w-10 text-right tabular-nums text-gray-700">{detailZoom}%</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setDetailZoom(100)}
+                    className="rounded-full border border-gray-200/80 bg-white/50 px-3 py-1.5 text-xs font-medium text-gray-600 backdrop-blur hover:bg-white/80"
+                  >
+                    重置
+                  </button>
                 </div>
 
                 {detailResults.length > 0 && (
@@ -426,9 +450,12 @@ export default function HistoryPage() {
                       <button
                         type="button"
                         key={`${url}-${index}`}
-                        onClick={() => setDetailResultIndex(index)}
-                        className={`h-20 w-16 flex-shrink-0 overflow-hidden rounded-lg border-2 bg-neutral-900 transition ${
-                          selectedResultIndex === index ? "border-white" : "border-white/10 opacity-70 hover:opacity-100"
+                        onClick={() => {
+                          setDetailResultIndex(index);
+                          setDetailZoom(100);
+                        }}
+                        className={`h-20 w-16 flex-shrink-0 overflow-hidden rounded-xl border-2 bg-white shadow-sm transition ${
+                          selectedResultIndex === index ? "border-purple-500 ring-2 ring-purple-100" : "border-white/80 opacity-75 hover:opacity-100"
                         }`}
                       >
                         <img src={url} className="h-full w-full object-cover" alt={`结果缩略图 ${index + 1}`} />
@@ -438,7 +465,7 @@ export default function HistoryPage() {
                 )}
               </section>
 
-              <aside className="space-y-5 overflow-y-auto bg-white p-4 sm:p-5 lg:max-h-[calc(92vh-57px)]">
+              <aside className="space-y-5 overflow-y-auto border-l border-white/70 bg-white/75 p-4 backdrop-blur-xl sm:p-5 lg:max-h-[calc(92vh-57px)]">
                 <section>
                   <h4 className="mb-2 text-xs font-bold text-gray-900">生成信息</h4>
                   <div className="grid grid-cols-2 gap-x-4 gap-y-3">
@@ -460,9 +487,20 @@ export default function HistoryPage() {
                           type="button"
                           key={`${image.label}-${index}`}
                           onClick={() => setLightboxSrc(image.url)}
-                          className="min-w-0 text-left"
+                          className="group min-w-0 rounded-xl text-left outline-none focus-visible:ring-2 focus-visible:ring-purple-400 focus-visible:ring-offset-2"
                         >
-                          <img src={image.url} className="h-24 w-full rounded-lg border bg-gray-50 object-cover" alt={image.label} />
+                          <div className="relative h-24 overflow-hidden rounded-xl border border-gray-200 bg-gray-50 shadow-sm transition duration-200 group-hover:-translate-y-0.5 group-hover:shadow-md">
+                            <img
+                              src={image.url}
+                              className="h-full w-full object-cover transition duration-300 group-hover:scale-110 group-focus-visible:scale-110"
+                              alt={image.label}
+                            />
+                            <div className="absolute inset-0 flex items-center justify-center bg-slate-950/0 transition duration-200 group-hover:bg-slate-950/18 group-focus-visible:bg-slate-950/18">
+                              <span className="flex h-8 w-8 scale-90 items-center justify-center rounded-full border border-white/70 bg-white/85 text-gray-700 opacity-0 shadow-sm backdrop-blur transition duration-200 group-hover:scale-100 group-hover:opacity-100 group-focus-visible:scale-100 group-focus-visible:opacity-100">
+                                <ZoomIn className="h-4 w-4" />
+                              </span>
+                            </div>
+                          </div>
                           <p className="mt-1 truncate text-[10px] text-gray-500">{image.label}</p>
                         </button>
                       ))}
@@ -509,24 +547,189 @@ export default function HistoryPage() {
       )}
       {lightboxSrc && (
         <div
-          className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-8 cursor-zoom-out"
+          className="fixed inset-0 z-[100] flex cursor-zoom-out items-center justify-center bg-slate-950/35 p-5 backdrop-blur-xl"
           onClick={() => setLightboxSrc(null)}
         >
-          <img
-            src={lightboxSrc}
-            className="max-w-full max-h-full object-contain rounded-xl shadow-2xl"
-            alt="历史记录大图预览"
-          />
+          <div className="flex max-h-full max-w-full items-center justify-center rounded-[28px] border border-white/70 bg-white/75 p-4 shadow-[0_28px_90px_rgba(15,23,42,0.32)] backdrop-blur-2xl">
+            <img
+              src={lightboxSrc}
+              className="max-h-[86vh] max-w-full object-contain rounded-[20px] shadow-2xl"
+              alt="历史记录大图预览"
+            />
+          </div>
           <button
             type="button"
             onClick={() => setLightboxSrc(null)}
-            className="absolute top-6 right-6 w-10 h-10 rounded-full bg-white/20 text-white flex items-center justify-center hover:bg-white/30"
+            className="absolute right-6 top-6 flex h-10 w-10 items-center justify-center rounded-full border border-white/70 bg-white/80 text-gray-700 shadow-sm backdrop-blur hover:bg-white"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
       )}
     </div>
+  );
+}
+
+function HistoryLoadingSkeleton() {
+  return (
+    <div className="mx-auto max-w-6xl px-4 py-6 sm:py-8">
+      <HistorySkeletonStyles />
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="space-y-3">
+          <SkeletonBlock className="h-3 w-16 rounded-full" />
+          <SkeletonBlock className="h-8 w-36 rounded-xl" />
+          <SkeletonBlock className="h-4 w-44 rounded-full" />
+        </div>
+        <SkeletonBlock className="h-10 w-full rounded-full sm:w-28" />
+      </div>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        {Array.from({ length: 6 }).map((_, index) => (
+          <HistoryCardSkeleton key={index} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function HistoryCardSkeleton() {
+  return (
+    <article className="history-skeleton-card overflow-hidden rounded-2xl border border-white/80 bg-white/85 shadow-sm">
+      <div className="flex flex-col sm:flex-row">
+        <SkeletonBlock className="aspect-[4/5] rounded-none sm:w-44 sm:flex-shrink-0 sm:aspect-[3/4] md:w-52" />
+        <div className="flex flex-1 flex-col p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="space-y-2">
+              <SkeletonBlock className="h-5 w-24 rounded-full" />
+              <SkeletonBlock className="h-3 w-20 rounded-full" />
+            </div>
+            <SkeletonBlock className="h-7 w-14 rounded-full" />
+          </div>
+          <div className="mt-5 grid grid-cols-3 gap-3">
+            <div className="space-y-2">
+              <SkeletonBlock className="h-3 w-8 rounded-full" />
+              <SkeletonBlock className="h-4 w-16 rounded-full" />
+            </div>
+            <div className="space-y-2">
+              <SkeletonBlock className="h-3 w-8 rounded-full" />
+              <SkeletonBlock className="h-4 w-12 rounded-full" />
+            </div>
+            <div className="space-y-2">
+              <SkeletonBlock className="h-3 w-8 rounded-full" />
+              <SkeletonBlock className="h-4 w-10 rounded-full" />
+            </div>
+          </div>
+          <div className="mt-5 flex gap-2">
+            <SkeletonBlock className="h-8 w-24 rounded-full" />
+            <SkeletonBlock className="h-8 w-16 rounded-full" />
+            <SkeletonBlock className="h-8 w-16 rounded-full" />
+          </div>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function DetailLoadingSkeleton() {
+  return (
+    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/25 p-3 backdrop-blur-xl sm:p-6">
+      <div className="grid max-h-[86vh] w-full max-w-5xl overflow-hidden rounded-[28px] border border-white/75 bg-white/85 shadow-[0_28px_90px_rgba(15,23,42,0.28)] backdrop-blur-2xl lg:grid-cols-[minmax(0,1.2fr)_340px]">
+        <div className="bg-[#eef0f3] p-5">
+          <div className="mb-4 flex items-center justify-between">
+            <SkeletonBlock className="h-4 w-20 rounded-full" />
+            <SkeletonBlock className="h-8 w-24 rounded-full" />
+          </div>
+          <SkeletonBlock className="h-[52vh] min-h-72 rounded-[24px]" />
+          <div className="mt-4 flex items-center gap-3">
+            <SkeletonBlock className="h-2 flex-1 rounded-full" />
+            <SkeletonBlock className="h-8 w-16 rounded-full" />
+          </div>
+        </div>
+        <div className="space-y-5 bg-white/75 p-5">
+          <div className="space-y-3">
+            <SkeletonBlock className="h-4 w-20 rounded-full" />
+            <div className="grid grid-cols-2 gap-3">
+              {Array.from({ length: 8 }).map((_, index) => (
+                <div key={index} className="space-y-2 border-b border-gray-100 pb-2">
+                  <SkeletonBlock className="h-3 w-12 rounded-full" />
+                  <SkeletonBlock className="h-4 w-16 rounded-full" />
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="space-y-3">
+            <SkeletonBlock className="h-4 w-20 rounded-full" />
+            <div className="grid grid-cols-3 gap-2">
+              {Array.from({ length: 3 }).map((_, index) => (
+                <SkeletonBlock key={index} className="h-24 rounded-xl" />
+              ))}
+            </div>
+          </div>
+          <SkeletonBlock className="h-32 rounded-xl" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SkeletonBlock({ className }: { className: string }) {
+  return <div className={`history-skeleton ${className}`} />;
+}
+
+function HistorySkeletonStyles() {
+  return (
+    <style>{`
+      .history-skeleton {
+        position: relative;
+        overflow: hidden;
+        background: linear-gradient(110deg, #eef1f5 8%, #f8fafc 18%, #e7ebf1 33%);
+        background-size: 220% 100%;
+        animation: history-skeleton-sweep 1.35s ease-in-out infinite;
+      }
+
+      .history-skeleton::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        transform: translateX(-120%);
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.72), transparent);
+        animation: history-skeleton-glow 1.6s ease-in-out infinite;
+      }
+
+      .history-skeleton-card {
+        animation: history-skeleton-float 2.8s ease-in-out infinite;
+      }
+
+      .history-skeleton-card:nth-child(2n) {
+        animation-delay: 0.16s;
+      }
+
+      .history-skeleton-card:nth-child(3n) {
+        animation-delay: 0.28s;
+      }
+
+      @keyframes history-skeleton-sweep {
+        0% { background-position: 120% 0; }
+        100% { background-position: -120% 0; }
+      }
+
+      @keyframes history-skeleton-glow {
+        0% { transform: translateX(-120%); }
+        55%, 100% { transform: translateX(120%); }
+      }
+
+      @keyframes history-skeleton-float {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-3px); }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .history-skeleton,
+        .history-skeleton::after,
+        .history-skeleton-card {
+          animation: none;
+        }
+      }
+    `}</style>
   );
 }
 
