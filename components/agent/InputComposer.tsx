@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, useCallback, useEffect, type KeyboardEvent, type ClipboardEvent } from "react";
-import { Paperclip, Sparkles, Zap, Settings, ChevronDown, X } from "lucide-react";
+import { Paperclip, Sparkles, ArrowUp, Settings, X, Loader2 } from "lucide-react";
 import type { ChatImage, GenerationParams, AgentMode } from "@/lib/agent/types";
 import type { LingyaModel, AspectRatio, ImageSize } from "@/lib/api/lingya";
 import { detectMentionTrigger, insertMention } from "@/lib/agent/mention-parser";
@@ -27,16 +27,14 @@ type Props = {
 };
 
 const MODEL_OPTS = [
-  { value: "gpt-image-2", label: "GPT Image", desc: "OpenAI 图像模型" },
-  { value: "doubao-seedream-4-5-251128", label: "Seedream", desc: "字节跳动图像模型" },
-  { value: "nano-banana-2", label: "Nano Banana", desc: "轻量图像模型" },
+  { value: "gpt-image-2", label: "GPT Image", desc: "OpenAI" },
+  { value: "doubao-seedream-4-5-251128", label: "Seedream", desc: "字节" },
+  { value: "nano-banana-2", label: "Nano Banana", desc: "轻量" },
 ];
 const RATIO_OPTS = [
-  { value: "3:4", label: "3:4", desc: "竖版" },
-  { value: "1:1", label: "1:1", desc: "正方形" },
-  { value: "9:16", label: "9:16", desc: "长竖版" },
-  { value: "4:3", label: "4:3", desc: "横版" },
-  { value: "16:9", label: "16:9", desc: "宽屏" },
+  { value: "3:4", label: "3:4" }, { value: "1:1", label: "1:1" },
+  { value: "9:16", label: "9:16" }, { value: "4:3", label: "4:3" },
+  { value: "16:9", label: "16:9" },
 ];
 const SIZE_OPTS = [
   { value: "1K", label: "1K", desc: "标准" },
@@ -55,7 +53,6 @@ export function InputComposer({
   const [cursorPos, setCursorPos] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
-  // 点击外部关闭设置面板
   useEffect(() => {
     if (!settingsOpen) return;
     const close = () => setSettingsOpen(false);
@@ -67,7 +64,7 @@ export function InputComposer({
     const el = textareaRef.current;
     if (!el) return;
     el.style.height = "auto";
-    el.style.height = `${Math.min(el.scrollHeight, 100)}px`;
+    el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
     const pos = el.selectionStart ?? 0;
     setCursorPos(pos);
     setMentionState(detectMentionTrigger(el.value, pos));
@@ -104,173 +101,168 @@ export function InputComposer({
     if (files.length > 0) onAddImages(files);
   };
 
+  const canSend = !isSending && !isAIWriting && (inputText.trim().length > 0 || inputImages.length > 0);
   const modelLabel = MODEL_OPTS.find((o) => o.value === params.model)?.label || "模型";
 
   return (
     <div
-      className="border-t border-slate-200/80 bg-white/95 backdrop-blur-xl"
+      className="border-t border-slate-200/60 bg-white/80 backdrop-blur-xl"
       onDragEnter={(e) => { e.preventDefault(); setIsDragging(true); }}
       onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
       onDragOver={(e) => e.preventDefault()}
       onDrop={handleDrop}
     >
-      <div className="mx-auto max-w-3xl px-4 py-3 sm:px-6">
+      <div className="mx-auto max-w-3xl px-4 pb-4 pt-3 sm:px-6">
         {isDragging && (
-          <div className="mb-2 flex items-center justify-center rounded-xl border-2 border-dashed border-violet-300 bg-violet-50/50 py-5 text-sm font-bold text-violet-500">
+          <div className="mb-3 flex items-center justify-center rounded-2xl border-2 border-dashed border-violet-300 bg-violet-50/50 py-6 text-sm font-bold text-violet-500">
             拖放图片到这里
           </div>
         )}
 
         <ImageTray images={inputImages} onAdd={onAddImages} onRemove={onRemoveImage} />
 
-        {/* 输入行 */}
+        {/* 主输入框 — ChatGPT/Gemini 风格胶囊形 */}
         <div className="relative">
           <MentionDropdown images={inputImages} query={mentionState.query} onSelect={handleMentionSelect} visible={mentionState.active} />
 
-          <div className="flex items-end gap-2">
+          <div className="flex items-end rounded-2xl border border-slate-200 bg-white shadow-sm transition-all focus-within:border-violet-300 focus-within:shadow-[0_0_0_3px_rgba(139,92,246,0.08)]">
+            {/* 📎 上传按钮 */}
             <input ref={fileRef} type="file" accept="image/*" multiple className="hidden"
               onChange={(e) => { onAddImages(Array.from(e.target.files || [])); e.target.value = ""; }} />
             <button onClick={() => fileRef.current?.click()}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-400 transition-colors hover:border-violet-300 hover:text-violet-500"
+              className="flex h-11 w-11 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-violet-500"
               title="上传图片">
-              <Paperclip className="h-4 w-4" />
+              <Paperclip className="h-[18px] w-[18px]" />
             </button>
 
+            {/* 文本输入 */}
             <textarea ref={textareaRef} value={inputText}
               onChange={(e) => { onTextChange(e.target.value); handleInput(); }}
               onKeyDown={handleKeyDown} onPaste={handlePaste} onClick={handleInput}
-              placeholder={inputImages.length > 0 ? "输入指令，用 @图N 引用图片..." : "上传图片后输入指令，用 @ 绑定图片..."}
+              placeholder={inputImages.length > 0 ? "输入指令，用 @图N 引用图片..." : "上传图片后输入指令..."}
               rows={1}
-              className="min-h-[40px] max-h-[100px] flex-1 resize-none rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none transition-all placeholder:text-slate-300 focus:border-violet-300 focus:ring-2 focus:ring-violet-100"
+              className="min-h-[44px] max-h-[120px] flex-1 resize-none py-3 text-sm leading-relaxed outline-none placeholder:text-slate-300"
             />
 
-            {/* 设置按钮 */}
-            <div className="relative">
-              <button onClick={(e) => { e.stopPropagation(); setSettingsOpen(!settingsOpen); }}
-                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border text-slate-400 transition-all ${
-                  settingsOpen ? "border-violet-300 bg-violet-50 text-violet-500" : "border-slate-200 hover:border-violet-300 hover:text-violet-500"
-                }`} title="生成设置">
-                <Settings className="h-4 w-4" />
+            {/* ✨ AI 帮写 */}
+            {inputImages.length > 0 && (
+              <button onClick={onAIWrite} disabled={isAIWriting}
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-amber-400 transition-colors hover:bg-amber-50 hover:text-amber-500 disabled:opacity-40"
+                title="AI 帮写：根据图片优化提示词">
+                {isAIWriting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
               </button>
+            )}
 
-              {/* 设置弹框 */}
-              {settingsOpen && (
-                <div onClick={(e) => e.stopPropagation()}
-                  className="absolute bottom-full right-0 mb-2 w-72 rounded-2xl border border-slate-200 bg-white p-4 shadow-xl">
-                  <div className="mb-3 flex items-center justify-between">
-                    <span className="text-sm font-bold text-slate-800">生成设置</span>
-                    <button onClick={() => setSettingsOpen(false)} className="rounded-md p-1 text-slate-400 hover:bg-slate-100">
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-
-                  {/* 模型 */}
-                  <div className="mb-3">
-                    <label className="mb-1.5 block text-xs font-bold text-slate-500">模型</label>
-                    <div className="grid grid-cols-3 gap-1.5">
-                      {MODEL_OPTS.map((o) => (
-                        <button key={o.value} onClick={() => onParamsChange({ model: o.value as LingyaModel })}
-                          className={`rounded-lg border px-2 py-2 text-center transition-all ${
-                            params.model === o.value
-                              ? "border-violet-300 bg-violet-50 text-violet-700 shadow-sm"
-                              : "border-slate-200 text-slate-600 hover:border-violet-200"
-                          }`}>
-                          <span className="block text-xs font-bold">{o.label}</span>
-                          <span className="block text-[10px] text-slate-400">{o.desc}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* 比例 */}
-                  <div className="mb-3">
-                    <label className="mb-1.5 block text-xs font-bold text-slate-500">比例</label>
-                    <div className="flex gap-1.5">
-                      {RATIO_OPTS.map((o) => (
-                        <button key={o.value} onClick={() => onParamsChange({ aspectRatio: o.value as AspectRatio })}
-                          className={`flex-1 rounded-lg border px-1.5 py-1.5 text-center transition-all ${
-                            params.aspectRatio === o.value
-                              ? "border-violet-300 bg-violet-50 text-violet-700"
-                              : "border-slate-200 text-slate-500 hover:border-violet-200"
-                          }`}>
-                          <span className="block text-xs font-bold">{o.label}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* 尺寸 */}
-                  <div className="mb-3">
-                    <label className="mb-1.5 block text-xs font-bold text-slate-500">尺寸</label>
-                    <div className="flex gap-1.5">
-                      {SIZE_OPTS.map((o) => (
-                        <button key={o.value} onClick={() => onParamsChange({ imageSize: o.value as ImageSize })}
-                          className={`flex-1 rounded-lg border px-2 py-1.5 text-center transition-all ${
-                            params.imageSize === o.value
-                              ? "border-violet-300 bg-violet-50 text-violet-700"
-                              : "border-slate-200 text-slate-500 hover:border-violet-200"
-                          }`}>
-                          <span className="block text-xs font-bold">{o.label}</span>
-                          <span className="block text-[10px] text-slate-400">{o.desc}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* 张数 */}
-                  <div>
-                    <label className="mb-1.5 block text-xs font-bold text-slate-500">生成张数</label>
-                    <div className="flex gap-1.5">
-                      {[1, 2, 3, 4].map((n) => (
-                        <button key={n} onClick={() => onParamsChange({ count: n })}
-                          className={`flex-1 rounded-lg border py-2 text-center text-sm font-bold transition-all ${
-                            params.count === n
-                              ? "border-violet-300 bg-violet-50 text-violet-700"
-                              : "border-slate-200 text-slate-500 hover:border-violet-200"
-                          }`}>{n}</button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* 当前配置摘要 */}
-                  <div className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-[11px] text-slate-400">
-                    {modelLabel} · {params.aspectRatio} · {params.imageSize} · {params.count}张
-                    {mode === "agent" && <span className="ml-1 font-bold text-amber-600">· {estimatedCredits}积分</span>}
-                  </div>
-                </div>
-              )}
-            </div>
+            {/* 发送按钮 */}
+            <button onClick={onSend} disabled={!canSend}
+              className={`mr-1.5 mb-1.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-all ${
+                canSend
+                  ? "bg-violet-600 text-white shadow-sm hover:bg-violet-700"
+                  : "bg-slate-100 text-slate-300"
+              }`}>
+              <ArrowUp className="h-4 w-4" strokeWidth={2.5} />
+            </button>
           </div>
         </div>
 
-        {/* 底部操作栏 */}
-        <div className="mt-2 flex items-center gap-2">
+        {/* 底部工具栏 — 紧凑一行 */}
+        <div className="mt-2 flex items-center gap-1.5 px-1">
           <ModeToggle mode={mode} onChange={onModeChange} />
 
-          {/* 配置摘要标签 */}
-          <button onClick={(e) => { e.stopPropagation(); setSettingsOpen(true); }}
-            className="flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] text-slate-400 transition-colors hover:border-violet-200 hover:text-violet-500">
-            {modelLabel} · {params.aspectRatio} · {params.imageSize} · {params.count}张
-          </button>
+          <div className="mx-0.5 h-4 w-px bg-slate-200" />
+
+          {/* 设置按钮 + 配置摘要 */}
+          <div className="relative">
+            <button onClick={(e) => { e.stopPropagation(); setSettingsOpen(!settingsOpen); }}
+              className={`flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-medium transition-all ${
+                settingsOpen ? "bg-violet-50 text-violet-600" : "text-slate-400 hover:bg-slate-50 hover:text-slate-600"
+              }`}>
+              <Settings className="h-3 w-3" />
+              {modelLabel} · {params.aspectRatio} · {params.count}张
+            </button>
+
+            {settingsOpen && (
+              <div onClick={(e) => e.stopPropagation()}
+                className="absolute bottom-full left-0 mb-2 w-72 rounded-2xl border border-slate-200 bg-white p-4 shadow-xl">
+                <div className="mb-3 flex items-center justify-between">
+                  <span className="text-sm font-bold text-slate-800">生成设置</span>
+                  <button onClick={() => setSettingsOpen(false)} className="rounded-md p-1 text-slate-400 hover:bg-slate-100">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+
+                <div className="mb-3">
+                  <label className="mb-1.5 block text-xs font-bold text-slate-500">模型</label>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {MODEL_OPTS.map((o) => (
+                      <button key={o.value} onClick={() => onParamsChange({ model: o.value as LingyaModel })}
+                        className={`rounded-lg border px-2 py-2 text-center transition-all ${
+                          params.model === o.value ? "border-violet-300 bg-violet-50 text-violet-700 shadow-sm" : "border-slate-200 text-slate-600 hover:border-violet-200"
+                        }`}>
+                        <span className="block text-xs font-bold">{o.label}</span>
+                        <span className="block text-[10px] text-slate-400">{o.desc}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mb-3">
+                  <label className="mb-1.5 block text-xs font-bold text-slate-500">比例</label>
+                  <div className="flex gap-1.5">
+                    {RATIO_OPTS.map((o) => (
+                      <button key={o.value} onClick={() => onParamsChange({ aspectRatio: o.value as AspectRatio })}
+                        className={`flex-1 rounded-lg border py-1.5 text-center text-xs font-bold transition-all ${
+                          params.aspectRatio === o.value ? "border-violet-300 bg-violet-50 text-violet-700" : "border-slate-200 text-slate-500 hover:border-violet-200"
+                        }`}>{o.label}</button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mb-3">
+                  <label className="mb-1.5 block text-xs font-bold text-slate-500">尺寸</label>
+                  <div className="flex gap-1.5">
+                    {SIZE_OPTS.map((o) => (
+                      <button key={o.value} onClick={() => onParamsChange({ imageSize: o.value as ImageSize })}
+                        className={`flex-1 rounded-lg border py-1.5 text-center transition-all ${
+                          params.imageSize === o.value ? "border-violet-300 bg-violet-50 text-violet-700" : "border-slate-200 text-slate-500 hover:border-violet-200"
+                        }`}>
+                        <span className="block text-xs font-bold">{o.label}</span>
+                        <span className="block text-[10px] text-slate-400">{o.desc}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="mb-1.5 block text-xs font-bold text-slate-500">生成张数</label>
+                  <div className="flex gap-1.5">
+                    {[1, 2, 3, 4].map((n) => (
+                      <button key={n} onClick={() => onParamsChange({ count: n })}
+                        className={`flex-1 rounded-lg border py-2 text-center text-sm font-bold transition-all ${
+                          params.count === n ? "border-violet-300 bg-violet-50 text-violet-700" : "border-slate-200 text-slate-500 hover:border-violet-200"
+                        }`}>{n}</button>
+                    ))}
+                  </div>
+                </div>
+
+                {mode === "agent" && (
+                  <div className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-[11px] font-bold text-amber-600">
+                    预估消耗 {estimatedCredits} 积分
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
 
           <div className="flex-1" />
 
-          <button onClick={onAIWrite} disabled={inputImages.length === 0 || isAIWriting}
-            className="flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-bold text-amber-700 transition-all hover:bg-amber-100 disabled:opacity-40">
-            <Sparkles className={`h-3 w-3 ${isAIWriting ? "animate-spin" : ""}`} />
-            {isAIWriting ? "分析中..." : "AI 帮写"}
-          </button>
-
-          <button onClick={onSend}
-            disabled={isSending || isAIWriting || (!inputText.trim() && inputImages.length === 0)}
-            className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-violet-600 to-pink-600 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-violet-200 transition-opacity hover:opacity-90 disabled:opacity-30">
-            <Zap className="h-3.5 w-3.5" /> 发送
-            {mode === "agent" && <span className="opacity-70">({estimatedCredits}分)</span>}
-          </button>
+          {mode === "agent" && (
+            <span className="text-[11px] font-medium text-amber-500">{estimatedCredits}分</span>
+          )}
         </div>
 
-        <p className="mt-1.5 text-[11px] text-slate-300">
-          Enter 发送 · Shift+Enter 换行 · 输入 @ 绑定图片
+        <p className="mt-1 text-center text-[11px] text-slate-300">
+          Enter 发送 · Shift+Enter 换行 · @ 绑定图片
         </p>
       </div>
     </div>
