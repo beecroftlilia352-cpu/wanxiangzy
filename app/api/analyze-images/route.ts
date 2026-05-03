@@ -5,10 +5,9 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/api/auth";
+import { logger } from "@/lib/logger";
 import { getChatCompletionsUrl, getLlmConfig } from "@/lib/api/llm-provider";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
-
-export const maxDuration = 60;
 import {
   TRYON_CLOTHING_IMAGE_ROLE_RULE,
   TRYON_FIT_RULE,
@@ -160,7 +159,7 @@ ${userStyle || "无"}
       max_tokens: 800,
     };
 
-    console.log("[analyze] 发送图片数量:", imageContents.length, "provider:", llm.provider, "模型:", llm.model);
+    logger.info("[analyze] 发送图片数量:", imageContents.length, "provider:", llm.provider, "模型:", llm.model);
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), ANALYZE_TIMEOUT_MS);
@@ -172,9 +171,10 @@ ${userStyle || "无"}
     }).finally(() => clearTimeout(timeout));
 
     const resText = await res.text();
+    logger.info("[analyze] 响应 status:", res.status);
 
     if (!res.ok) {
-      console.error("[analyze] API 错误:", res.status);
+      logger.error("[analyze] API 错误:", res.status);
       return NextResponse.json({
         prompt: fallbackPrompt,
         source: "fallback",
@@ -183,6 +183,7 @@ ${userStyle || "无"}
     }
 
     const data = JSON.parse(resText);
+    logger.debug("[analyze] LLM 响应已接收");
     const prompt = extractMessageText(data).trim();
 
     if (prompt) {
@@ -194,23 +195,23 @@ ${userStyle || "无"}
         hasModelFace: !!model_face_url,
         referenceImageNumber,
       });
-      console.log("[analyze] 提示词生成完成, 长度:", checked.prompt.length);
+      logger.info("[analyze] 提示词生成完成, 长度:", checked.prompt.length);
       return NextResponse.json({
         prompt: checked.prompt,
         source: checked.repaired ? `${llm.provider}_repaired` : llm.provider,
         missing_refs: checked.missingRefs.length ? checked.missingRefs : undefined,
       });
     } else {
-      console.warn("[analyze] 返回空提示词，响应:", JSON.stringify(data).slice(0, 300));
+      logger.warn("[analyze] 返回空提示词");
       return NextResponse.json({ prompt: fallbackPrompt, source: "fallback", reason: "empty_llm_content" });
     }
 
   } catch (err: unknown) {
     if (err instanceof Error && err.name === "AbortError") {
-      console.warn(`[analyze] 超过 ${ANALYZE_TIMEOUT_MS}ms，跳过视觉提示词优化`);
+      logger.warn("[analyze] 视觉分析超时，跳过");
       return NextResponse.json({ prompt: "", skipped: true, reason: "timeout" });
     }
-    console.error("[analyze] 异常:", err);
+    logger.error("[analyze] 异常:", err);
     return NextResponse.json({ prompt: "" });
   }
 }

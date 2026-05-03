@@ -38,7 +38,7 @@ async function cleanupRateLimitBuckets() {
     const supabase = getAdminClient();
     await supabase.rpc("cleanup_rate_limit_buckets");
   } catch {
-    // admin client 未配置时静默跳过
+    // Admin client not configured, skip cleanup
   }
 }
 

@@ -24,6 +24,8 @@ import { ModuleHeader } from "@/components/ModuleHeader";
 import { ModelPromptPreview } from "@/components/ModelPromptPreview";
 import { PreviewGuide } from "@/components/PreviewGuide";
 import { RepairPromptPanel } from "@/components/RepairPromptPanel";
+import { LoadingStage } from "@/components/studio/LoadingStage";
+import { ErrorStage } from "@/components/studio/ErrorStage";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
 import { createClient, getCachedProfileCredits, setCachedProfileCredits } from "@/lib/supabase/client";
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
@@ -743,15 +745,7 @@ export default function ModelBackgroundPage() {
         )}
 
         {isGenerating && (
-          <div className="studio-loading-stage min-h-[260px] sm:min-h-[360px] lg:h-full p-4 sm:p-8 flex items-center justify-center">
-            <div className="relative h-64 w-52 overflow-hidden rounded-[28px] border border-white/50 bg-white/30 shadow-2xl backdrop-blur-2xl">
-              <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-violet-100 via-pink-50 to-sky-100" />
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <div className="text-3xl font-black text-violet-500">{Math.round(progress)}%</div>
-                <p className="mt-2 text-xs font-bold text-violet-400">AI 生成中...</p>
-              </div>
-            </div>
-          </div>
+          <LoadingStage genCount={1} progress={progress} />
         )}
 
         {resultUrls.length > 0 && (
@@ -766,17 +760,13 @@ export default function ModelBackgroundPage() {
         )}
 
         {error && (
-          <div className="studio-result-stage min-h-[260px] sm:min-h-[360px] lg:h-full flex items-center justify-center px-4">
-            <div className="text-center">
-              <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-red-100 flex items-center justify-center">
-                <X className="w-8 h-8 text-red-400" />
-              </div>
-              <p className="text-red-500 font-medium mb-1">生成失败</p>
-              <p className="text-sm text-gray-400 mb-4 max-w-sm">{error}</p>
-              <RepairPromptPanel kind="tryon" onRepair={handleRepairGenerate} disabled={isGenerating} className="mb-3 max-w-md" />
-              <button onClick={() => setError("")} className="px-5 py-2 rounded-full border text-sm font-medium hover:bg-gray-50">重试</button>
-            </div>
-          </div>
+          <ErrorStage
+            error={error}
+            onRetry={() => setError("")}
+            onRepair={handleRepairGenerate}
+            isGenerating={isGenerating}
+            repairKind="modelBackground"
+          />
         )}
       </div>
 

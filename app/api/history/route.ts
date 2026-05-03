@@ -103,8 +103,8 @@ export async function GET(request: Request) {
     return NextResponse.json({ rows, hasMore, nextCursor });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "历史记录加载失败";
-    console.error("[history] error:", err);
-    return NextResponse.json({ error: message }, { status: 500 });
+    if (process.env.NODE_ENV === "development") console.error("[history] error:", err);
+    return NextResponse.json({ error: "历史记录加载失败" }, { status: 500 });
   }
 }
 

@@ -29,6 +29,8 @@ import { ModelPromptPreview } from "@/components/ModelPromptPreview";
 import { ClientPortal } from "@/components/ClientPortal";
 import { ModuleHeader } from "@/components/ModuleHeader";
 import { PreviewGuide } from "@/components/PreviewGuide";
+import { LoadingStage } from "@/components/studio/LoadingStage";
+import { ErrorStage } from "@/components/studio/ErrorStage";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
 import { takeApplyPayload } from "@/lib/history-apply";
 import { applyRepairPrompt } from "@/lib/generation-repair";
@@ -462,8 +464,8 @@ export default function CreatePage() {
       } else {
         toast.error(data.error || "暂时没有返回优化结果");
       }
-    } catch (err: unknown) {
-      toast.error(err instanceof Error && err.name === "AbortError" ? "视觉分析超时" : "视觉分析失败");
+    } catch (err: any) {
+      toast.error(err?.name === "AbortError" ? "视觉分析超时" : "视觉分析失败");
     } finally {
       setOptimizing(false);
     }
@@ -713,9 +715,9 @@ export default function CreatePage() {
         }
       }
       throw new Error("生成超时");
-    } catch (err: unknown) {
-      store.setError(err instanceof Error ? err.message : "操作失败");
-      toast.error(err instanceof Error ? err.message : "操作失败");
+    } catch (err: any) {
+      store.setError(err.message);
+      toast.error(err.message);
     }
   };
 
@@ -1370,100 +1372,7 @@ export default function CreatePage() {
 
         {/* ==== 生成中：毛玻璃流光卡片 ==== */}
         {store.isGenerating && (
-          <div className="studio-loading-stage min-h-[260px] sm:min-h-[360px] lg:h-full p-4 sm:p-8 flex items-center justify-center">
-            {/* 背景装饰光斑 */}
-            <div style={{
-              position: "absolute", top: "10%", left: "20%", width: "300px", height: "300px",
-              borderRadius: "50%", filter: "blur(80px)", opacity: 0.4,
-              background: "radial-gradient(circle, #e879f9, #a78bfa, transparent)",
-            }} />
-            <div style={{
-              position: "absolute", bottom: "15%", right: "15%", width: "250px", height: "250px",
-              borderRadius: "50%", filter: "blur(80px)", opacity: 0.3,
-              background: "radial-gradient(circle, #f472b6, #a78bfa, transparent)",
-            }} />
-
-            <div className={`w-full relative z-10 ${genCount >= 3 ? "grid grid-cols-2 gap-3 sm:gap-5 max-w-[min(720px,100%)] mx-auto" : "flex flex-wrap justify-center gap-3 sm:gap-5"}`}>
-              {Array.from({ length: genCount }).map((_, i) => (
-                <div key={i} className={`rounded-2xl overflow-hidden ${genCount >= 3 ? "w-full" : genCount <= 2 ? "max-w-[min(420px,calc(50%-12px))] w-full sm:max-w-[min(420px,calc(50%-20px))]" : "max-w-[min(340px,calc(50%-12px))] w-full sm:max-w-[min(340px,calc(50%-20px))]"}`}
-                  style={{
-                    background: "rgba(255, 255, 255, 0.25)",
-                    backdropFilter: "blur(20px)",
-                    WebkitBackdropFilter: "blur(20px)",
-                    border: "1px solid rgba(255, 255, 255, 0.4)",
-                    boxShadow: "0 8px 32px rgba(168, 85, 247, 0.15), inset 0 1px 0 rgba(255,255,255,0.5)",
-                  }}>
-                  <div className="aspect-[3/4] relative overflow-hidden"
-                    style={{
-                      background: "linear-gradient(135deg, rgba(232,121,249,0.15), rgba(167,139,250,0.2), rgba(244,114,182,0.15))",
-                    }}>
-
-                    {/* 柔和波动光效 */}
-                    <div style={{
-                      position: "absolute", inset: 0,
-                      background: "linear-gradient(120deg, transparent 0%, transparent 30%, rgba(232,121,249,0.08) 40%, rgba(255,255,255,0.15) 48%, rgba(255,255,255,0.2) 50%, rgba(255,255,255,0.15) 52%, rgba(167,139,250,0.08) 60%, transparent 70%, transparent 100%)",
-                      backgroundSize: "300% 100%",
-                      animation: "shimmer 4s ease-in-out infinite",
-                    }} />
-                    <div style={{
-                      position: "absolute", inset: 0,
-                      background: "linear-gradient(160deg, transparent 0%, transparent 35%, rgba(244,114,182,0.06) 45%, rgba(255,255,255,0.1) 50%, rgba(192,132,252,0.06) 55%, transparent 65%, transparent 100%)",
-                      backgroundSize: "250% 100%",
-                      animation: "shimmer 5.5s ease-in-out infinite reverse",
-                    }} />
-                    <div style={{
-                      position: "absolute", inset: 0,
-                      background: "radial-gradient(ellipse 80% 60% at 50% 50%, rgba(232,121,249,0.06), transparent)",
-                      animation: "pulse 3s ease-in-out infinite",
-                    }} />
-
-                    {/* 玻璃噪点纹理 */}
-                    <div style={{
-                      position: "absolute", inset: 0, opacity: 0.03,
-                      backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")",
-                    }} />
-
-                    {/* 中心内容 */}
-                    <div className="absolute inset-0 flex flex-col items-center justify-center">
-                      <div className="relative w-16 h-16 mb-4">
-                        <svg className="w-full h-full" viewBox="0 0 100 100"
-                          style={{ animation: "spin 5s linear infinite", transformOrigin: "center", filter: "drop-shadow(0 0 8px rgba(232,121,249,0.4))" }}>
-                          <defs>
-                            <linearGradient id={`g${i}`} x1="0%" y1="0%" x2="100%" y2="100%">
-                              <stop offset="0%" stopColor="#e879f9">
-                                <animate attributeName="stop-color" values="#e879f9;#a78bfa;#f472b6;#e879f9" dur="4s" repeatCount="indefinite" />
-                              </stop>
-                              <stop offset="100%" stopColor="#a78bfa">
-                                <animate attributeName="stop-color" values="#a78bfa;#f472b6;#e879f9;#a78bfa" dur="4s" repeatCount="indefinite" />
-                              </stop>
-                            </linearGradient>
-                          </defs>
-                          <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="4" />
-                          <circle cx="50" cy="50" r="42" fill="none" stroke={`url(#g${i})`} strokeWidth="4"
-                            strokeLinecap="round" strokeDasharray="180 264" />
-                          <circle cx="50" cy="50" r="34" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="2" />
-                        </svg>
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <span className="text-2xl font-black" style={{
-                            background: "linear-gradient(135deg, #e879f9, #a78bfa, #f472b6)",
-                            WebkitBackgroundClip: "text",
-                            WebkitTextFillColor: "transparent",
-                            filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.1))",
-                          }}>{Math.round(store.generationProgress)}</span>
-                          <span className="text-xs font-bold ml-0.5" style={{ color: "rgba(168,85,247,0.5)" }}>%</span>
-                        </div>
-                      </div>
-
-                      <p className="text-xs font-medium" style={{ color: "rgba(168,85,247,0.7)" }}>
-                        {store.generationProgress < 20 ? "准备中..." :
-                         store.generationProgress < 90 ? "生成中..." : "即将完成..."}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+          <LoadingStage genCount={genCount} progress={store.generationProgress} />
         )}
 
         {/* Result */}
@@ -1477,21 +1386,13 @@ export default function CreatePage() {
 
         {/* Error */}
         {store.error && (
-          <div className="studio-result-stage min-h-[260px] sm:min-h-[360px] lg:h-full flex items-center justify-center animate-fade-in px-4">
-            <div className="text-center">
-              <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-red-100 flex items-center justify-center"><X className="w-8 h-8 text-red-400" /></div>
-              <p className="text-red-500 font-medium mb-1">生成失败</p>
-              <p className="text-sm text-gray-400 mb-4 max-w-sm">{store.error}</p>
-              <RepairPromptPanel
-                kind="tryon"
-                onRepair={handleRepairGenerate}
-                disabled={store.isGenerating}
-                className="mx-auto mb-3 max-w-md"
-              />
-              <button onClick={() => { store.setError(null); handleGenerate(); }}
-                className="px-5 py-2 rounded-full border text-sm font-medium hover:bg-gray-50">重试</button>
-            </div>
-          </div>
+          <ErrorStage
+            error={store.error}
+            onRetry={() => { store.setError(null); handleGenerate(); }}
+            onRepair={handleRepairGenerate}
+            isGenerating={store.isGenerating}
+            repairKind="tryon"
+          />
         )}
 
         {/* Bottom bar */}

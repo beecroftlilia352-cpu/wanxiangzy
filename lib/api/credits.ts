@@ -82,10 +82,9 @@ export async function failGenerationWithRefund(
 
     if (!error) return;
 
-    console.error(
-      `[credits] refund rpc failed (attempt ${attempt}/${maxRetries}):`,
-      error.message
-    );
+    if (process.env.NODE_ENV === "development") {
+      console.error(`[credits] refund rpc failed (attempt ${attempt}/${maxRetries}):`, error.message);
+    }
 
     if (attempt < maxRetries) {
       await new Promise((r) => setTimeout(r, 1000 * attempt));

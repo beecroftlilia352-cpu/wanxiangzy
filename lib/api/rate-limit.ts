@@ -3,22 +3,22 @@ import { getAdminClient } from "@/lib/supabase/admin";
 
 const BUCKET_TABLE = "rate_limit_buckets";
 
-/**
- * 检查速率限制（fail-closed 设计）
- * 当 Supabase 不可用时，拒绝请求而非放行，防止限流失效。
- */
+function getRateLimitClient() {
+  try {
+    return getAdminClient();
+  } catch {
+    console.warn("[rate-limit] Supabase admin client unavailable");
+    return null;
+  }
+}
+
 export async function checkRateLimit(
   key: string,
   limit: number,
   windowMs: number
 ): Promise<{ ok: true } | { ok: false; retryAfterSeconds: number }> {
-  let supabase;
-  try {
-    supabase = getAdminClient();
-  } catch {
-    console.error("[rate-limit] Supabase admin client 初始化失败，拒绝请求");
-    return { ok: false, retryAfterSeconds: 60 };
-  }
+  const supabase = getRateLimitClient();
+  if (!supabase) return { ok: false, retryAfterSeconds: 30 };
 
   const now = Date.now();
   const windowStart = now - windowMs;
@@ -34,7 +34,6 @@ export async function checkRateLimit(
 
     if (error) {
       console.error("[rate-limit] rpc error:", error.message);
-      // fail-closed: RPC 失败时拒绝请求
       return { ok: false, retryAfterSeconds: 30 };
     }
 
@@ -47,7 +46,6 @@ export async function checkRateLimit(
     };
   } catch (err) {
     console.error("[rate-limit] error:", err);
-    // fail-closed: 异常时拒绝请求
     return { ok: false, retryAfterSeconds: 30 };
   }
 }

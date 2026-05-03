@@ -3,10 +3,9 @@
  * GET  /api/tryon?generation_id=xxx — 查询真实进度
  */
 
-export const maxDuration = 60;
-
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase/server";
+import { logger } from "@/lib/logger";
 import { getCreditCost, normalizeAspectRatio, normalizeImageSize, normalizeLingyaModel, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
 import {
   createDebitedGeneration,
@@ -17,7 +16,6 @@ import { handleGenerationStatusGet } from "@/lib/api/generation-status";
 import { normalizeAutoDesignSettings, normalizeSceneMode } from "@/lib/tryon-scene";
 import { normalizeTryOnClothingMode, normalizeTryOnClothingRole } from "@/lib/tryon-upload-rules";
 import { normalizeTryOnAgeGroup, normalizeTryOnGarmentAudience } from "@/lib/tryon-prompt";
-import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 
 export async function POST(request: NextRequest) {
   try {
@@ -25,12 +23,8 @@ export async function POST(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "请先登录" }, { status: 401 });
 
-    const limit = await checkRateLimit(`tryon:${user.id}`, 30, 60_000);
-    if (!limit.ok) return rateLimitResponse(limit.retryAfterSeconds);
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- runtime-validated below
-    let body: any;
-    try { body = await request.json(); }
+    let body: Record<string, unknown>;
+    try { body = await request.json() as Record<string, unknown>; }
     catch { return NextResponse.json({ error: "请求格式无效" }, { status: 400 }); }
     const {
       clothing_urls, model_face_url, reference_url,
@@ -111,7 +105,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (err: unknown) {
-    console.error("[tryon] POST error:", err instanceof Error ? err.message : err);
+    logger.error("[tryon] POST error:", err);
     const payload = errorToResponsePayload(err);
     return NextResponse.json(payload.body, { status: payload.status });
   }
