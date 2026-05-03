@@ -11,6 +11,40 @@ const MODULE_API: Record<string, string> = {
   pose: "/api/pose", model_background: "/api/model-background", garment_3d: "/api/garment-3d",
 };
 
+/**
+ * 移除文本中的 JSON 块（```json...``` 或裸 JSON 对象）
+ * 防止 LLM 返回的 JSON 结构泄露到用户可见的消息中
+ */
+function stripJsonBlocks(text: string): string {
+  return text
+    .replace(/```json\s*[\s\S]*?```/g, "")
+    .replace(/```\s*[\s\S]*?```/g, "")
+    .replace(/\{[\s]*"(reply|action|module|imageMapping|prompt|style)"[\s\S]*?\}/g, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+/**
+ * 从 LLM 累积的原始内容中提取 reply 和 action
+ * 处理 LLM 在 JSON 前后附带解释文字的情况
+ */
+function extractReplyFromRaw(raw: string): { reply: string; action?: string; module?: string } | null {
+  // 尝试提取 JSON 块
+  const jsonMatch = raw.match(/\{[\s\S]*"reply"[\s\S]*\}/);
+  if (!jsonMatch) return null;
+  try {
+    const parsed = JSON.parse(jsonMatch[0]);
+    if (typeof parsed.reply === "string") {
+      return {
+        reply: parsed.reply,
+        action: typeof parsed.action === "string" ? parsed.action : undefined,
+        module: typeof parsed.module === "string" ? parsed.module : undefined,
+      };
+    }
+  } catch {}
+  return null;
+}
+
 type Store = {
   conversations: Conversation[];
   activeId: string | null;
@@ -415,9 +449,8 @@ export const useAgentStore = create<Store>((set, get) => ({
         body: JSON.stringify({ message: trimmed, images: imageUrls, history, mode }),
       });
 
-      let chatData: { reply?: string; action?: string; module?: string; generation_id?: string; credits_cost?: number } = {};
+      let chatData: { reply?: string; action?: string; module?: string; imageMapping?: Record<string, unknown>; prompt?: string; style?: string } = {};
 
-      // 检查是否是流式响应
       const contentType = chatRes.headers.get("content-type") || "";
 
       if (contentType.includes("text/event-stream") && chatRes.body) {
@@ -425,57 +458,69 @@ export const useAgentStore = create<Store>((set, get) => ({
         const reader = chatRes.body.getReader();
         const decoder = new TextDecoder();
         let buffer = "";
+        let rawAccum = "";
 
         try {
           while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
+            const { done: streamDone, value } = await reader.read();
+            if (streamDone) break;
 
             buffer += decoder.decode(value, { stream: true });
             const lines = buffer.split("\n");
             buffer = lines.pop() || "";
 
             for (const line of lines) {
-              const trimmed = line.trim();
-              if (!trimmed || !trimmed.startsWith("data: ")) continue;
+              const trimmedLine = line.trim();
+              if (!trimmedLine || !trimmedLine.startsWith("data: ")) continue;
               try {
-                const parsed = JSON.parse(trimmed.slice(6));
+                const parsed = JSON.parse(trimmedLine.slice(6));
                 if (parsed.chunk) {
-                  // 增量更新 AI 消息内容
+                  rawAccum += parsed.chunk;
+                  // 流式中：显示纯文本（不解析 markdown）
                   set((s) => ({
                     messages: s.messages.map((m) =>
-                      m.id === aiMsg.id ? { ...m, content: (m.content || "") + parsed.chunk } : m
+                      m.id === aiMsg.id ? { ...m, content: stripJsonBlocks(rawAccum) } : m
                     ),
                   }));
                 }
                 if (parsed.done) {
                   chatData = parsed;
-                  // 流完成，用 LLM 解析后的干净 reply 替换内容，标记 streamingDone
-                  const finalReply = typeof parsed.reply === "string" ? parsed.reply : (get().messages.find((m) => m.id === aiMsg.id)?.content || "");
-                  set((s) => ({
-                    messages: s.messages.map((m) =>
-                      m.id === aiMsg.id ? { ...m, content: finalReply, streamingDone: true } : m
-                    ),
-                  }));
                 }
               } catch {}
             }
           }
-        } catch {
-          // stream error, use whatever we have
+        } catch { /* stream error */ }
+
+        // 流结束：用 done 事件的 reply（干净版本），或从累积内容中提取
+        let finalContent = "";
+        if (typeof chatData.reply === "string" && chatData.reply) {
+          finalContent = chatData.reply;
+        } else {
+          // 没有 done 事件 → 从累积的原始内容中提取 reply
+          const extracted = extractReplyFromRaw(rawAccum);
+          if (extracted) {
+            finalContent = extracted.reply;
+            if (!chatData.action && extracted.action) chatData = extracted;
+          } else {
+            finalContent = stripJsonBlocks(rawAccum);
+          }
         }
+
+        set((s) => ({
+          messages: s.messages.map((m) =>
+            m.id === aiMsg.id ? { ...m, content: finalContent, streamingDone: true } : m
+          ),
+        }));
       } else {
         // 非流式降级
-        chatData = await chatRes.json();
-        // 非流式直接完成
-        const finalReply = typeof chatData.reply === "string" ? chatData.reply : "";
-        if (finalReply) {
-          set((s) => ({
-            messages: s.messages.map((m) =>
-              m.id === aiMsg.id ? { ...m, content: finalReply, streamingDone: true } : m
-            ),
-          }));
-        }
+        const json = await chatRes.json();
+        chatData = json;
+        const finalReply = typeof json.reply === "string" ? json.reply : "";
+        set((s) => ({
+          messages: s.messages.map((m) =>
+            m.id === aiMsg.id ? { ...m, content: finalReply || "处理完成。", streamingDone: true } : m
+          ),
+        }));
       }
 
       if (chatData.action === "generate" && imageUrls.length > 0) {

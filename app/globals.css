@@ -681,82 +681,175 @@
 }
 
 /* ---- Agent 消息 Markdown 样式 ---- */
+/* ---- Agent Markdown 样式（GPT 级别） ---- */
 .prose-agent {
-  line-height: 1.65;
+  line-height: 1.7;
+  font-size: 14px;
+  word-break: break-word;
 }
+
+/* 段落 */
 .prose-agent p {
-  margin: 0 0 0.5em;
+  margin: 0 0 0.65em;
 }
 .prose-agent p:last-child {
   margin-bottom: 0;
 }
+
+/* 标题 */
+.prose-agent h1,
+.prose-agent h2,
+.prose-agent h3,
+.prose-agent h4 {
+  font-weight: 700;
+  margin: 1em 0 0.4em;
+  line-height: 1.35;
+  color: #0f172a;
+}
+.prose-agent h1 { font-size: 1.25em; }
+.prose-agent h2 {
+  font-size: 1.1em;
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid #f1f5f9;
+}
+.prose-agent h3 { font-size: 1em; }
+.prose-agent h4 { font-size: 0.95em; }
+
+/* 粗体/斜体 */
 .prose-agent strong {
   font-weight: 700;
   color: #0f172a;
 }
 .prose-agent em {
   font-style: italic;
+  color: #475569;
 }
+
+/* 列表 */
 .prose-agent ul,
 .prose-agent ol {
-  margin: 0.4em 0;
-  padding-left: 1.4em;
+  margin: 0.4em 0 0.65em;
+  padding-left: 1.6em;
 }
 .prose-agent li {
-  margin: 0.15em 0;
+  margin: 0.2em 0;
+  line-height: 1.65;
 }
 .prose-agent li::marker {
   color: #a78bfa;
 }
+.prose-agent li > p {
+  margin: 0;
+}
+
+/* 代码 */
 .prose-agent code {
   background: #f1f5f9;
   border-radius: 4px;
   padding: 0.15em 0.4em;
-  font-size: 0.85em;
-  font-family: ui-monospace, monospace;
+  font-size: 0.88em;
+  font-family: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+  color: #e11d48;
 }
 .prose-agent pre {
   background: #f8fafc;
   border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  padding: 0.75em 1em;
-  margin: 0.5em 0;
+  border-radius: 10px;
+  padding: 0.85em 1em;
+  margin: 0.6em 0;
   overflow-x: auto;
-  font-size: 0.82em;
+  font-size: 0.85em;
+  line-height: 1.5;
 }
 .prose-agent pre code {
   background: none;
   padding: 0;
   border-radius: 0;
+  color: inherit;
+  font-size: inherit;
 }
+
+/* 引用 */
 .prose-agent blockquote {
   border-left: 3px solid #a78bfa;
-  padding-left: 0.75em;
-  margin: 0.5em 0;
+  padding: 0.4em 0 0.4em 0.85em;
+  margin: 0.6em 0;
   color: #64748b;
+  background: #faf5ff;
+  border-radius: 0 8px 8px 0;
 }
+.prose-agent blockquote p {
+  margin: 0;
+}
+
+/* 链接 */
 .prose-agent a {
   color: #7c3aed;
   text-decoration: underline;
   text-underline-offset: 2px;
+  text-decoration-color: rgba(124, 58, 237, 0.3);
 }
 .prose-agent a:hover {
   color: #6d28d9;
+  text-decoration-color: rgba(124, 58, 237, 0.6);
 }
+
+/* 分割线 */
 .prose-agent hr {
   border: none;
   border-top: 1px solid #e2e8f0;
-  margin: 0.75em 0;
+  margin: 1em 0;
 }
-.prose-agent h1,
-.prose-agent h2,
-.prose-agent h3 {
+
+/* 表格 */
+.prose-agent table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.6em 0;
+  font-size: 0.9em;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+}
+.prose-agent thead th {
+  background: #f8fafc;
+  border-bottom: 2px solid #e2e8f0;
+  padding: 0.6em 0.85em;
+  text-align: left;
   font-weight: 700;
-  margin: 0.6em 0 0.3em;
+  color: #334155;
+  white-space: nowrap;
 }
-.prose-agent h1 { font-size: 1.15em; }
-.prose-agent h2 { font-size: 1.05em; }
-.prose-agent h3 { font-size: 1em; }
+.prose-agent tbody td {
+  border-bottom: 1px solid #f1f5f9;
+  padding: 0.5em 0.85em;
+  color: #475569;
+}
+.prose-agent tbody tr:last-child td {
+  border-bottom: none;
+}
+.prose-agent tbody tr:hover {
+  background: #faf5ff;
+}
+
+/* 删除线 */
+.prose-agent del {
+  color: #94a3b8;
+  text-decoration: line-through;
+}
+
+/* 任务列表 */
+.prose-agent input[type="checkbox"] {
+  margin-right: 0.4em;
+  accent-color: #7c3aed;
+}
+
+/* 图片 */
+.prose-agent img {
+  max-width: 100%;
+  border-radius: 8px;
+  margin: 0.5em 0;
+}
 
 /* ---- Agent 思考动画 ---- */
 @keyframes thinking-dot {
