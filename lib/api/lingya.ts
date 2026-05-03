@@ -146,12 +146,13 @@ export async function generateImage(input: GenerateInput, retries = 2): Promise<
     response_format: "url",
   };
 
-  if (!isSeedreamModel(input.model)) {
+  if (!isSeedreamModel(input.model) && input.model !== "gpt-image-2") {
     body.aspect_ratio = input.aspect_ratio || "3:4";
   }
   if (input.image && input.image.length > 0) body.image = input.image;
-  if (input.image_size && input.model === "gpt-image-2") {
-    body.size = resolvePixelSize(input.image_size, input.aspect_ratio || "3:4");
+  if (input.model === "gpt-image-2") {
+    // gpt-image-2 只接受标准尺寸，不接受自定义像素值或 aspect_ratio
+    body.size = input.image_size ? resolveGptImage2Size(input.aspect_ratio || "3:4") : "auto";
     body.quality = "auto";
   }
   if (input.image_size && isSeedreamModel(input.model)) {
@@ -289,6 +290,25 @@ function getImageProvider(model: LingyaModel): { name: string; apiBase: string; 
     apiBase: getImageApiBaseUrl(),
     apiKey: process.env.LINGYA_API_KEY,
   };
+}
+
+/**
+ * gpt-image-2 只接受标准尺寸，映射宽高比到 API 支持的值
+ */
+function resolveGptImage2Size(aspectRatio: AspectRatio): string {
+  const map: Record<string, string> = {
+    "1:1": "1024x1024",
+    "3:4": "1024x1536",
+    "4:3": "1536x1024",
+    "9:16": "1024x1792",
+    "16:9": "1792x1024",
+    "2:3": "1024x1536",
+    "3:2": "1536x1024",
+    "4:5": "1024x1280",
+    "5:4": "1280x1024",
+    "21:9": "1792x768",
+  };
+  return map[aspectRatio] || "auto";
 }
 
 function resolvePixelSize(imageSize: ImageSize, aspectRatio: AspectRatio): string {
