@@ -250,10 +250,18 @@ function formatTimeShort(ts: string): string {
 
 /**
  * 流式 Markdown 渲染器
- * useDeferredValue 让 React 在流式接收 chunk 时批量更新 markdown 渲染，
- * 避免未闭合语法（**、|、#）闪烁为原始格式。
+ * 策略：始终渲染 useDeferredValue（延迟版本），
+ * 流式期间显示光标动画，完成后光标消失。
+ * 用户看到的始终是已渲染的 Markdown，不会看到原始语法。
  */
 const StreamingMarkdown = memo(function StreamingMarkdown({ content }: { content: string }) {
   const deferred = useDeferredValue(content);
-  return <ReactMarkdown remarkPlugins={[remarkGfm]}>{deferred}</ReactMarkdown>;
+  const isStreaming = deferred !== content;
+
+  return (
+    <>
+      <ReactMarkdown remarkPlugins={[remarkGfm]}>{deferred}</ReactMarkdown>
+      {isStreaming && <span className="inline-block h-4 w-0.5 animate-pulse bg-violet-400 align-middle ml-0.5" />}
+    </>
+  );
 });
