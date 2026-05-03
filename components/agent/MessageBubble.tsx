@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import { Bot, User, Loader2, CheckCircle2, AlertCircle, Download, ZoomIn, RefreshCw, Copy, Sparkles } from "lucide-react";
-import { useState, useDeferredValue, memo } from "react";
+import { useState, useEffect, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { Message } from "@/lib/agent/types";
@@ -249,19 +249,49 @@ function formatTimeShort(ts: string): string {
 }
 
 /**
- * 流式 Markdown 渲染器
- * 策略：始终渲染 useDeferredValue（延迟版本），
- * 流式期间显示光标动画，完成后光标消失。
- * 用户看到的始终是已渲染的 Markdown，不会看到原始语法。
+ * 流式 Markdown 渲染器 — 两阶段策略
+ *
+ * 流式中：纯文本渲染（干净，无 #、**、| 等原始语法）
+ * 流完成：切换为 Markdown 渲染（表格、粗体一次成型）
+ *
+ * 用法：content 每次 chunk 更新时传入，组件自动判断是否还在流式。
+ * 当 content 停止变化超过 300ms，判定为流完成。
  */
-const StreamingMarkdown = memo(function StreamingMarkdown({ content }: { content: string }) {
-  const deferred = useDeferredValue(content);
-  const isStreaming = deferred !== content;
+function StreamingMarkdown({ content }: { content: string }) {
+  const [isStreaming, setIsStreaming] = useState(true);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const prevLenRef = useRef(0);
 
-  return (
-    <>
-      <ReactMarkdown remarkPlugins={[remarkGfm]}>{deferred}</ReactMarkdown>
-      {isStreaming && <span className="inline-block h-4 w-0.5 animate-pulse bg-violet-400 align-middle ml-0.5" />}
-    </>
-  );
-});
+  useEffect(() => {
+    // 内容在增长 → 还在流式
+    if (content.length !== prevLenRef.current) {
+      prevLenRef.current = content.length;
+      setIsStreaming(true);
+
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => {
+        setIsStreaming(false);
+      }, 300);
+    }
+
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [content]);
+
+  // 首次无内容 → 不渲染
+  if (!content) return null;
+
+  // 流式中：纯文本，保留换行，不解析 markdown 语法
+  if (isStreaming) {
+    return (
+      <div className="whitespace-pre-wrap">
+        {content}
+        <span className="inline-block h-4 w-0.5 animate-pulse bg-violet-400 align-middle ml-0.5" />
+      </div>
+    );
+  }
+
+  // 流完成：Markdown 渲染
+  return <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>;
+}
