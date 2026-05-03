@@ -3,8 +3,27 @@
 import { create } from "zustand";
 import { v4 } from "./uuid";
 import type { AgentImage, AgentMessage, AgentTask, ModuleKey } from "@/lib/agent/types";
-import { matchIntent, getModuleInfo } from "@/lib/agent/intent-matcher";
+import { getModuleInfo } from "@/lib/agent/intent-matcher";
 import { uploadImage } from "@/lib/utils";
+
+const MODULE_LABELS: Record<string, string> = {
+  tryon: "服装上身",
+  grass: "服装种草图",
+  model: "专属模特",
+  pose: "姿势裂变",
+  model_background: "换背景/换模特",
+  garment_3d: "服装 3D",
+};
+
+// API 路径映射
+const MODULE_API: Record<string, string> = {
+  tryon: "/api/tryon",
+  grass: "/api/grass",
+  model: "/api/model",
+  pose: "/api/pose",
+  model_background: "/api/model-background",
+  garment_3d: "/api/garment-3d",
+};
 
 type AgentStore = {
   messages: AgentMessage[];
@@ -25,20 +44,12 @@ function uid(): string {
   return v4();
 }
 
-function addMessage(
-  set: (fn: (s: AgentStore) => Partial<AgentStore>) => void,
-  msg: AgentMessage
-) {
-  set((s) => ({ messages: [...s.messages, msg] }));
-}
-
 function startPolling(
   get: () => AgentStore,
   set: (fn: (s: AgentStore) => Partial<AgentStore>) => void,
   task: AgentTask
 ) {
-  const moduleInfo = getModuleInfo(task.module);
-  const pollUrl = `/api/${task.module === "model_background" ? "model-background" : task.module}?generation_id=${task.generationId}`;
+  const pollUrl = `${MODULE_API[task.module] || `/api/${task.module}`}?generation_id=${task.generationId}`;
 
   const timer = setInterval(async () => {
     try {
@@ -49,16 +60,13 @@ function startPolling(
       const status = data.status as string;
       const resultUrls: string[] = Array.isArray(data.result_urls) ? data.result_urls : [];
 
-      // API 返回 status 字符串，映射为进度百分比
       const STATUS_PROGRESS: Record<string, number> = {
         uploading: 10,
         queued: 20,
         processing_tryon: 50,
         processing_face_swap: 70,
       };
-      const progress = resultUrls.length > 0
-        ? 100
-        : STATUS_PROGRESS[status] ?? 30;
+      const progress = resultUrls.length > 0 ? 100 : (STATUS_PROGRESS[status] ?? 30);
 
       set((s) => {
         const updated = new Map(s.activeTasks);
@@ -71,12 +79,10 @@ function startPolling(
           existing.resultUrls = resultUrls;
           updated.set(task.id, { ...existing });
 
-          // Update the message that contains this task
           const messages = s.messages.map((m) =>
             m.task?.id === task.id ? { ...m, task: { ...existing } } : m
           );
 
-          // Stop polling
           const timers = new Map(s.pollTimers);
           const t = timers.get(task.id);
           if (t) clearInterval(t);
@@ -113,7 +119,7 @@ function startPolling(
         return { activeTasks: updated, messages };
       });
     } catch {
-      // ignore poll errors, will retry
+      // ignore poll errors
     }
   }, 2000);
 
@@ -129,20 +135,16 @@ async function executeTask(
   set: (fn: (s: AgentStore) => Partial<AgentStore>) => void,
   task: AgentTask
 ) {
-  const apiPath = task.module === "model_background"
-    ? "/api/model-background"
-    : `/api/${task.module}`;
+  const apiPath = MODULE_API[task.module] || `/api/${task.module}`;
 
   set((s) => {
     const updated = new Map(s.activeTasks);
     task.status = "calling_api";
     task.progress = 5;
     updated.set(task.id, { ...task });
-
     const messages = s.messages.map((m) =>
       m.task?.id === task.id ? { ...m, task: { ...task } } : m
     );
-
     return { activeTasks: updated, messages };
   });
 
@@ -154,10 +156,7 @@ async function executeTask(
     });
 
     const data = await res.json();
-
-    if (!res.ok) {
-      throw new Error(data.error || `HTTP ${res.status}`);
-    }
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
 
     task.generationId = data.generation_id;
     task.creditsCost = data.credits_cost ?? 0;
@@ -216,91 +215,125 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
       isProcessing: true,
     }));
 
-    // Match intent
-    const intent = matchIntent(trimmed);
+    try {
+      // Build conversation history for LLM
+      const history = get().messages
+        .filter((m) => m.role === "user" || m.role === "assistant")
+        .slice(-12)
+        .map((m) => ({
+          role: m.role as "user" | "assistant",
+          content: m.task
+            ? `${m.content}\n[执行了 ${MODULE_LABELS[m.task.module] || m.task.module} 任务]`
+            : m.content,
+        }));
 
-    if (intent.intent === "unknown") {
+      // Call LLM-powered agent API
+      const res = await fetch("/api/agent/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: trimmed,
+          imageUrls: userImages.map((img) => img.url).filter(Boolean),
+          history,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error(`API error ${res.status}`);
+      }
+
+      const data = await res.json();
+      const { reply, intent, params: llmParams, missing, confidence } = data;
+
+      // If LLM identified an intent with high confidence
+      if (intent && confidence >= 0.5) {
+        const moduleInfo = getModuleInfo(intent as ModuleKey);
+
+        if (moduleInfo) {
+          // Merge LLM params with uploaded images
+          const mergedParams: Record<string, unknown> = { ...moduleInfo.defaultParams, ...llmParams };
+
+          // Auto-fill image slots from uploaded images
+          const primarySlot = moduleInfo.requiredImages[0];
+          if (userImages.length > 0 && primarySlot) {
+            if (primarySlot.max > 1 && !mergedParams[primarySlot.key]) {
+              mergedParams[primarySlot.key] = userImages.map((img) => img.url).filter(Boolean);
+            } else if (!mergedParams[primarySlot.key]) {
+              mergedParams[primarySlot.key] = userImages[0].url;
+            }
+          }
+
+          // Check if all required images are present
+          const hasAllRequired = moduleInfo.requiredImages
+            .filter((s) => s.min > 0)
+            .every((s) => {
+              const val = mergedParams[s.key];
+              if (Array.isArray(val)) return val.length >= s.min;
+              return !!val;
+            });
+
+          if (hasAllRequired) {
+            // All info ready → show confirm card
+            const task: AgentTask = {
+              id: uid(),
+              module: intent as ModuleKey,
+              label: moduleInfo.label,
+              params: mergedParams,
+              status: "pending",
+              progress: 0,
+              resultUrls: [],
+              error: null,
+              creditsCost: 0,
+            };
+
+            const assistantMsg: AgentMessage = {
+              id: uid(),
+              role: "assistant",
+              content: reply || `好的，我来帮你做**${moduleInfo.label}**。`,
+              task,
+              timestamp: Date.now(),
+            };
+
+            set((s) => {
+              const updated = new Map(s.activeTasks);
+              updated.set(task.id, task);
+              return {
+                messages: [...s.messages, assistantMsg],
+                activeTasks: updated,
+                isProcessing: false,
+              };
+            });
+            return;
+          }
+        }
+      }
+
+      // Otherwise show LLM's conversational reply
       const assistantMsg: AgentMessage = {
         id: uid(),
         role: "assistant",
-        content: intent.clarification || "我不太理解你的意思，请描述一下你想做什么。",
+        content: reply || "我不太理解你的意思，请再描述一下。",
         timestamp: Date.now(),
       };
-      set((s) => ({ messages: [...s.messages, assistantMsg], isProcessing: false }));
-      return;
-    }
 
-    const moduleInfo = getModuleInfo(intent.intent);
-    if (!moduleInfo) return;
-
-    // Build params with uploaded images
-    const params: Record<string, unknown> = { ...intent.params };
-    const primarySlot = moduleInfo.requiredImages[0];
-
-    if (userImages.length > 0 && primarySlot) {
-      if (primarySlot.max > 1) {
-        params[primarySlot.key] = userImages.map((img) => img.url);
-      } else {
-        params[primarySlot.key] = userImages[0].url;
-      }
-    }
-
-    // Check if we have required images
-    const hasRequiredImages = moduleInfo.requiredImages
-      .filter((s) => s.min > 0)
-      .every((s) => {
-        const val = params[s.key];
-        if (Array.isArray(val)) return val.length >= s.min;
-        return !!val;
-      });
-
-    if (!hasRequiredImages) {
-      const missingSlots = moduleInfo.requiredImages.filter((s) => s.min > 0);
-      const askMsg: AgentMessage = {
+      set((s) => ({
+        messages: [...s.messages, assistantMsg],
+        isProcessing: false,
+      }));
+    } catch (err) {
+      // Fallback: show error message
+      const errorMsg: AgentMessage = {
         id: uid(),
         role: "assistant",
-        content: `好的，我来帮你做**${moduleInfo.label}**。\n\n请上传以下图片：\n${missingSlots.map((s) => `• ${s.label}`).join("\n")}`,
+        content: "AI 服务暂时不可用，请稍后重试。",
         timestamp: Date.now(),
       };
-      // Store pending intent for when user uploads images
+
       set((s) => ({
-        messages: [...s.messages, askMsg],
+        messages: [...s.messages, errorMsg],
         isProcessing: false,
-        _pendingIntent: intent,
-      } as Partial<AgentStore>));
-      return;
+      }));
     }
-
-    // Show confirm card
-    const confirmTask: AgentTask = {
-      id: uid(),
-      module: intent.intent,
-      label: moduleInfo.label,
-      params,
-      status: "pending",
-      progress: 0,
-      resultUrls: [],
-      error: null,
-      creditsCost: 0,
-    };
-
-    const confirmMsg: AgentMessage = {
-      id: uid(),
-      role: "assistant",
-      content: `我识别到你想做**${moduleInfo.label}**，参数如下：`,
-      task: confirmTask,
-      timestamp: Date.now(),
-    };
-
-    set((s) => {
-      const updated = new Map(s.activeTasks);
-      updated.set(confirmTask.id, confirmTask);
-      return {
-        messages: [...s.messages, confirmMsg],
-        activeTasks: updated,
-        isProcessing: false,
-      };
-    });
   },
 
   attachImages: async (files: File[]) => {
@@ -314,9 +347,7 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
         const result = await uploadImage(file);
         set((s) => ({
           pendingImages: s.pendingImages.map((p) =>
-            p.preview === preview
-              ? { ...p, url: result.url, uploading: false }
-              : p
+            p.preview === preview ? { ...p, url: result.url, uploading: false } : p
           ),
         }));
       } catch {
