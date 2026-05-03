@@ -466,36 +466,58 @@ export const useAgentStore = create<Store>((set, get) => ({
         const decoder = new TextDecoder();
         let buffer = "";
 
+        // 处理 SSE 行的函数
+        const processLine = (line: string) => {
+          const trimmedLine = line.trim();
+          if (!trimmedLine || !trimmedLine.startsWith("data: ")) return;
+          try {
+            const parsed = JSON.parse(trimmedLine.slice(6));
+            if (parsed.chunk) {
+              set((s) => ({
+                messages: s.messages.map((m) =>
+                  m.id === aiMsg.id ? { ...m, content: (m.content || "") + parsed.chunk } : m
+                ),
+              }));
+            }
+            if (parsed.done) {
+              chatData = parsed;
+            }
+          } catch {}
+        };
+
         try {
           while (true) {
             const { done: streamDone, value } = await reader.read();
-            if (streamDone) break;
 
-            buffer += decoder.decode(value, { stream: true });
+            if (value) {
+              buffer += decoder.decode(value, { stream: true });
+            }
+
             const lines = buffer.split("\n");
-            buffer = lines.pop() || "";
+            // 最后一个可能是不完整的行，保留到下次
+            buffer = streamDone ? "" : (lines.pop() || "");
 
             for (const line of lines) {
-              const trimmedLine = line.trim();
-              if (!trimmedLine || !trimmedLine.startsWith("data: ")) continue;
-              try {
-                const parsed = JSON.parse(trimmedLine.slice(6));
-                if (parsed.chunk) {
-                  // 流式中：显示纯文本（不解析 markdown）
-                  set((s) => ({
-                    messages: s.messages.map((m) =>
-                      m.id === aiMsg.id ? { ...m, content: (m.content || "") + parsed.chunk } : m
-                    ),
-                  }));
-                }
-                if (parsed.done) {
-                  // done 事件包含完整的结构化数据（reply/action/module 等）
-                  chatData = parsed;
-                }
-              } catch {}
+              processLine(line);
             }
+
+            if (streamDone) break;
           }
         } catch { /* stream error */ }
+
+        // 处理 buffer 中残留的最后一行（done 事件经常在这里）
+        if (buffer.trim()) {
+          processLine(buffer);
+        }
+
+        // 安全网：如果 done 事件仍然缺失，从消息内容中提取
+        if (!chatData.action) {
+          const currentContent = get().messages.find((m) => m.id === aiMsg.id)?.content || "";
+          const extracted = extractReplyFromRaw(currentContent);
+          if (extracted) {
+            chatData = { ...chatData, ...extracted };
+          }
+        }
 
         // 流结束：用 done 事件的 reply 替换（服务器保证干净）
         const finalReply = typeof chatData.reply === "string" && chatData.reply
