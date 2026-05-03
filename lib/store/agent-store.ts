@@ -2,486 +2,377 @@
 
 import { create } from "zustand";
 import { v4 } from "./uuid";
-import type {
-  Conversation,
-  ChatMessage,
-  ChatImage,
-  GenerationResult,
-  GenerationParams,
-} from "@/lib/agent/types";
+import type { Conversation, Message, ChatImage, GenerationResult, GenerationParams, AgentMode } from "@/lib/agent/types";
 import { DEFAULT_PARAMS } from "@/lib/agent/types";
-import { loadConversations, saveConversations } from "@/lib/agent/conversation-storage";
 import { uploadImage } from "@/lib/utils";
 
 const MODULE_API: Record<string, string> = {
-  tryon: "/api/tryon",
-  grass: "/api/grass",
-  model: "/api/model",
-  pose: "/api/pose",
-  model_background: "/api/model-background",
-  garment_3d: "/api/garment-3d",
+  tryon: "/api/tryon", grass: "/api/grass", model: "/api/model",
+  pose: "/api/pose", model_background: "/api/model-background", garment_3d: "/api/garment-3d",
 };
 
-type AgentStore = {
+type Store = {
   conversations: Conversation[];
-  activeConversationId: string | null;
+  activeId: string | null;
+  messages: Message[];
   inputText: string;
   inputImages: ChatImage[];
+  mode: AgentMode;
   params: GenerationParams;
-  isGenerating: boolean;
-  pollTimers: Map<string, ReturnType<typeof setInterval>>;
+  isSending: boolean;
+  isLoadingConv: boolean;
+  sidebarOpen: boolean;
 
-  // 会话管理
-  createConversation: () => void;
-  switchConversation: (id: string) => void;
-  deleteConversation: (id: string) => void;
-  clearAllConversations: () => void;
-
-  // 输入
+  loadConversations: () => Promise<void>;
+  createConversation: () => Promise<void>;
+  switchConversation: (id: string) => Promise<void>;
+  deleteConversation: (id: string) => Promise<void>;
+  updateConversationImages: () => Promise<void>;
   setInputText: (text: string) => void;
-  addInputImages: (files: File[]) => Promise<void>;
-  removeInputImage: (index: number) => void;
-  setParams: (params: Partial<GenerationParams>) => void;
-
-  // 核心操作
+  addImages: (files: File[]) => Promise<void>;
+  removeImage: (index: number) => void;
+  setMode: (mode: AgentMode) => void;
+  setParams: (p: Partial<GenerationParams>) => void;
+  setSidebarOpen: (open: boolean) => void;
   sendMessage: () => Promise<void>;
   aiWrite: () => Promise<void>;
-  retryGeneration: (messageId: string) => Promise<void>;
-
-  // 计算
-  activeConversation: () => Conversation | null;
-  estimatedCredits: () => number;
+  retryMessage: (messageId: string) => Promise<void>;
 };
 
-function uid(): string {
-  return v4();
-}
-
-function getActiveConv(conversations: Conversation[], id: string | null): Conversation | null {
+function activeConv(conversations: Conversation[], id: string | null): Conversation | null {
   return conversations.find((c) => c.id === id) || null;
 }
 
-function updateConversation(
-  conversations: Conversation[],
-  id: string,
-  updater: (c: Conversation) => Conversation
-): Conversation[] {
-  return conversations.map((c) => (c.id === id ? updater(c) : c));
-}
-
-function startPolling(
-  get: () => AgentStore,
-  set: (fn: (s: AgentStore) => Partial<AgentStore>) => void,
-  conversationId: string,
-  messageId: string,
-  generationId: string,
-  module: string
-) {
-  const pollUrl = `${MODULE_API[module] || `/api/${module}`}?generation_id=${generationId}`;
-
+function startPolling(get: () => Store, set: (fn: (s: Store) => Partial<Store>) => void, msgId: string, genId: string, module: string) {
+  const url = `${MODULE_API[module] || `/api/${module}`}?generation_id=${genId}`;
   const timer = setInterval(async () => {
     try {
-      const res = await fetch(pollUrl);
+      const res = await fetch(url);
       if (!res.ok) return;
       const data = await res.json();
-
       const status = data.status as string;
       const resultUrls: string[] = Array.isArray(data.result_urls) ? data.result_urls : [];
+      const PROGRESS: Record<string, number> = { uploading: 10, queued: 20, processing_tryon: 50, processing_face_swap: 70 };
+      const progress = resultUrls.length > 0 ? 100 : (PROGRESS[status] ?? 30);
+      const done = status === "completed" || resultUrls.length > 0;
+      const failed = status === "failed";
 
-      const STATUS_PROGRESS: Record<string, number> = {
-        uploading: 10, queued: 20, processing_tryon: 50, processing_face_swap: 70,
-      };
-      const progress = resultUrls.length > 0 ? 100 : (STATUS_PROGRESS[status] ?? 30);
-
-      const isDone = status === "completed" || resultUrls.length > 0;
-      const isFailed = status === "failed";
-
-      if (isDone || isFailed) {
-        // 停止轮询
-        const timers = get().pollTimers;
-        const t = timers.get(messageId);
-        if (t) clearInterval(t);
-        const newTimers = new Map(timers);
-        newTimers.delete(messageId);
+      if (done || failed) {
+        clearInterval(timer);
+        // 更新 DB
+        const gen: GenerationResult = {
+          status: done ? "completed" : "failed", progress: 100, resultUrls,
+          error: failed ? (data.error || "生成失败") : undefined,
+        };
+        fetch(`/api/conversations/${get().activeId}/messages`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ role: "assistant", content: done ? "" : "生成失败", generation: gen, mode: "agent" }),
+        }).catch(() => {});
 
         set((s) => ({
-          pollTimers: newTimers,
-          isGenerating: false,
-          conversations: updateConversation(s.conversations, conversationId, (c) => ({
-            ...c,
-            updatedAt: Date.now(),
-            messages: c.messages.map((m) =>
-              m.id === messageId && m.generation
-                ? {
-                    ...m,
-                    generation: {
-                      ...m.generation,
-                      status: isDone ? "completed" : "failed",
-                      progress: 100,
-                      resultUrls,
-                      error: isFailed ? (data.error || "生成失败") : undefined,
-                    },
-                  }
-                : m
-            ),
-          })),
+          isSending: false,
+          messages: s.messages.map((m) =>
+            m.id === msgId && m.generation
+              ? { ...m, generation: { ...m.generation, status: done ? "completed" : "failed", progress: 100, resultUrls, error: failed ? (data.error || "生成失败") : undefined } }
+              : m
+          ),
         }));
         return;
       }
 
-      // 更新进度
       set((s) => ({
-        conversations: updateConversation(s.conversations, conversationId, (c) => ({
-          ...c,
-          messages: c.messages.map((m) =>
-            m.id === messageId && m.generation
-              ? { ...m, generation: { ...m.generation, progress, status: "generating" } }
-              : m
-          ),
-        })),
+        messages: s.messages.map((m) =>
+          m.id === msgId && m.generation ? { ...m, generation: { ...m.generation, progress, status: "generating" } } : m
+        ),
       }));
-    } catch {
-      // ignore
-    }
+    } catch {}
   }, 2000);
-
-  set((s) => {
-    const timers = new Map(s.pollTimers);
-    timers.set(messageId, timer);
-    return { pollTimers: timers };
-  });
 }
 
-// 持久化中间件
-function persist(get: () => AgentStore) {
-  const { conversations } = get();
-  saveConversations(conversations);
-}
+export const useAgentStore = create<Store>((set, get) => ({
+  conversations: [],
+  activeId: null,
+  messages: [],
+  inputText: "",
+  inputImages: [],
+  mode: "agent",
+  params: { ...DEFAULT_PARAMS },
+  isSending: false,
+  isLoadingConv: false,
+  sidebarOpen: false,
 
-export const useAgentStore = create<AgentStore>((set, get) => {
-  // 初始化时加载对话
-  const initialConversations = loadConversations();
-  const initialActiveId = initialConversations.length > 0
-    ? initialConversations[initialConversations.length - 1].id
-    : null;
-
-  return {
-    conversations: initialConversations,
-    activeConversationId: initialActiveId,
-    inputText: "",
-    inputImages: [],
-    params: { ...DEFAULT_PARAMS },
-    isGenerating: false,
-    pollTimers: new Map(),
-
-    activeConversation: () => getActiveConv(get().conversations, get().activeConversationId),
-
-    estimatedCredits: () => {
-      const { params, inputImages } = get();
-      const model = params.model;
-      const baseCost = model === "gpt-image-2" ? 4 : model === "doubao-seedream-4-5-251128" ? 2 : 3;
-      return baseCost * params.count;
-    },
-
-    createConversation: () => {
-      const newConv: Conversation = {
-        id: uid(),
-        title: "新对话",
-        messages: [],
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      };
-      set((s) => {
-        const conversations = [...s.conversations, newConv];
-        saveConversations(conversations);
-        return {
-          conversations,
-          activeConversationId: newConv.id,
-          inputText: "",
-          inputImages: [],
-        };
-      });
-    },
-
-    switchConversation: (id: string) => {
-      set({ activeConversationId: id, inputText: "", inputImages: [] });
-    },
-
-    deleteConversation: (id: string) => {
-      set((s) => {
-        const conversations = s.conversations.filter((c) => c.id !== id);
-        const activeId =
-          s.activeConversationId === id
-            ? conversations.length > 0
-              ? conversations[conversations.length - 1].id
-              : null
-            : s.activeConversationId;
-        saveConversations(conversations);
-        return { conversations, activeConversationId: activeId };
-      });
-    },
-
-    clearAllConversations: () => {
-      set({ conversations: [], activeConversationId: null, inputText: "", inputImages: [] });
-      saveConversations([]);
-    },
-
-    setInputText: (text: string) => set({ inputText: text }),
-
-    addInputImages: async (files: File[]) => {
-      const currentImages = get().inputImages;
-      const startIndex = currentImages.length;
-
-      const newImages: ChatImage[] = files.map((file, i) => ({
-        index: startIndex + i + 1,
-        url: URL.createObjectURL(file),
-        fileName: file.name,
-        uploading: true,
-      }));
-
-      set((s) => ({ inputImages: [...s.inputImages, ...newImages] }));
-
-      // 逐个上传
-      for (let i = 0; i < files.length; i++) {
-        const img = newImages[i];
-        try {
-          const result = await uploadImage(files[i]);
-          set((s) => ({
-            inputImages: s.inputImages.map((im) =>
-              im.index === img.index ? { ...im, hostedUrl: result.url, uploading: false } : im
-            ),
-          }));
-        } catch {
-          set((s) => ({
-            inputImages: s.inputImages
-              .filter((im) => im.index !== img.index)
-              .map((im, idx) => ({ ...im, index: idx + 1 })),
-          }));
-        }
+  loadConversations: async () => {
+    set({ isLoadingConv: true });
+    try {
+      const res = await fetch("/api/conversations");
+      if (!res.ok) return;
+      const data = await res.json();
+      set({ conversations: data, isLoadingConv: false });
+      // 如果有对话但没有活跃的，选第一个
+      if (data.length > 0 && !get().activeId) {
+        get().switchConversation(data[0].id);
       }
-    },
+    } catch {
+      set({ isLoadingConv: false });
+    }
+  },
 
-    removeInputImage: (index: number) => {
-      set((s) => {
-        const removed = s.inputImages[index];
-        if (removed?.url?.startsWith("blob:")) URL.revokeObjectURL(removed.url);
-        const remaining = s.inputImages.filter((_, i) => i !== index);
-        // 重新编号
-        const reindexed = remaining.map((img, i) => ({ ...img, index: i + 1 }));
-        return { inputImages: reindexed };
+  createConversation: async () => {
+    try {
+      const res = await fetch("/api/conversations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: "新对话", mode: get().mode }),
       });
-    },
-
-    setParams: (params: Partial<GenerationParams>) => {
-      set((s) => ({ params: { ...s.params, ...params } }));
-    },
-
-    sendMessage: async () => {
-      const { inputText, inputImages, params, activeConversationId, conversations } = get();
-      const trimmed = inputText.trim();
-      if (!trimmed && inputImages.length === 0) return;
-
-      let convId = activeConversationId;
-
-      // 如果没有活跃对话，创建一个
-      if (!convId) {
-        const newConv: Conversation = {
-          id: uid(),
-          title: trimmed.slice(0, 20) || `图片生成 ${new Date().toLocaleString("zh-CN")}`,
-          messages: [],
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
-        };
-        convId = newConv.id;
-        set((s) => ({
-          conversations: [...s.conversations, newConv],
-          activeConversationId: convId,
-        }));
-      }
-
-      // 构建用户消息
-      const userMsg: ChatMessage = {
-        id: uid(),
-        role: "user",
-        content: trimmed,
-        images: inputImages.length > 0 ? [...inputImages] : undefined,
-        timestamp: Date.now(),
-      };
-
-      // 更新对话标题
-      const titleUpdate = trimmed
-        ? trimmed.slice(0, 20)
-        : `图片生成 ${new Date().toLocaleString("zh-CN")}`;
-
-      // 添加用户消息 + 清空输入
+      if (!res.ok) return;
+      const conv = await res.json();
       set((s) => ({
+        conversations: [conv, ...s.conversations],
+        activeId: conv.id,
+        messages: [],
         inputText: "",
         inputImages: [],
-        isGenerating: true,
-        conversations: updateConversation(s.conversations, convId!, (c) => ({
-          ...c,
-          title: c.messages.length === 0 ? titleUpdate : c.title,
-          updatedAt: Date.now(),
-          messages: [...c.messages, userMsg],
-        })),
       }));
+    } catch {}
+  },
 
-      // 添加 AI 消息（pending 状态）
-      const aiMsgId = uid();
-      const aiMsg: ChatMessage = {
-        id: aiMsgId,
-        role: "assistant",
-        content: "",
-        generation: {
-          status: "pending",
-          progress: 0,
-          resultUrls: [],
-        },
-        timestamp: Date.now(),
-      };
+  switchConversation: async (id: string) => {
+    set({ activeId: id, messages: [], inputText: "", inputImages: [], isSending: false });
+    // 加载对话的图片和消息
+    const conv = get().conversations.find((c) => c.id === id);
+    if (conv) {
+      set({ inputImages: Array.isArray(conv.images) ? conv.images : [], mode: conv.mode || "agent" });
+    }
+    try {
+      const res = await fetch(`/api/conversations/${id}/messages`);
+      if (res.ok) set({ messages: await res.json() });
+    } catch {}
+  },
 
-      set((s) => ({
-        conversations: updateConversation(s.conversations, convId!, (c) => ({
-          ...c,
-          messages: [...c.messages, aiMsg],
-        })),
-      }));
+  deleteConversation: async (id: string) => {
+    try {
+      await fetch(`/api/conversations/${id}`, { method: "DELETE" });
+      set((s) => {
+        const convs = s.conversations.filter((c) => c.id !== id);
+        const newActive = s.activeId === id ? (convs.length > 0 ? convs[0].id : null) : s.activeId;
+        return { conversations: convs, activeId: newActive, messages: newActive ? s.messages : [] };
+      });
+      if (get().activeId) get().switchConversation(get().activeId!);
+    } catch {}
+  },
 
-      // 调用生成 API
+  updateConversationImages: async () => {
+    const { activeId, inputImages } = get();
+    if (!activeId) return;
+    try {
+      await fetch(`/api/conversations/${activeId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ images: inputImages }),
+      });
+    } catch {}
+  },
+
+  setInputText: (text: string) => set({ inputText: text }),
+
+  addImages: async (files: File[]) => {
+    const current = get().inputImages;
+    const startIdx = current.length;
+    const placeholders: ChatImage[] = files.map((f, i) => ({
+      index: startIdx + i + 1, url: URL.createObjectURL(f), fileName: f.name, uploading: true,
+    }));
+    set((s) => ({ inputImages: [...s.inputImages, ...placeholders] }));
+
+    for (let i = 0; i < files.length; i++) {
       try {
-        const imageUrls = inputImages
-          .map((img) => img.hostedUrl || img.url)
-          .filter(Boolean);
+        const result = await uploadImage(files[i]);
+        set((s) => ({
+          inputImages: s.inputImages.map((img) =>
+            img.index === placeholders[i].index ? { ...img, hostedUrl: result.url, uploading: false } : img
+          ),
+        }));
+      } catch {
+        set((s) => ({
+          inputImages: s.inputImages.filter((img) => img.index !== placeholders[i].index)
+            .map((img, idx) => ({ ...img, index: idx + 1 })),
+        }));
+      }
+    }
+    // 持久化图片到对话
+    get().updateConversationImages();
+  },
 
-        // 构建历史上下文
-        const conv = get().conversations.find((c) => c.id === convId);
-        const history = (conv?.messages || [])
-          .filter((m) => m.role === "user" || m.role === "assistant")
-          .slice(-6)
-          .map((m) => ({
-            role: m.role,
-            content: m.generation?.resultUrls?.length
-              ? `[生成了 ${m.generation.resultUrls.length} 张图片]`
-              : m.content,
-          }));
+  removeImage: (index: number) => {
+    set((s) => {
+      const removed = s.inputImages[index];
+      if (removed?.url?.startsWith("blob:")) URL.revokeObjectURL(removed.url);
+      const remaining = s.inputImages.filter((_, i) => i !== index).map((img, i) => ({ ...img, index: i + 1 }));
+      return { inputImages: remaining };
+    });
+    get().updateConversationImages();
+  },
 
+  setMode: (mode: AgentMode) => {
+    set({ mode });
+    const { activeId } = get();
+    if (activeId) {
+      fetch(`/api/conversations/${activeId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode }),
+      }).catch(() => {});
+    }
+  },
+
+  setParams: (p: Partial<GenerationParams>) => set((s) => ({ params: { ...s.params, ...p } })),
+  setSidebarOpen: (open: boolean) => set({ sidebarOpen: open }),
+
+  sendMessage: async () => {
+    const { inputText, inputImages, mode, activeId, params, conversations } = get();
+    const trimmed = inputText.trim();
+    if (!trimmed && inputImages.length === 0) return;
+
+    let convId = activeId;
+    if (!convId) {
+      await get().createConversation();
+      convId = get().activeId;
+      if (!convId) return;
+    }
+
+    // 保存用户消息到 DB
+    const userMsgData = {
+      role: "user" as const, content: trimmed,
+      images: inputImages.map((img) => ({ index: img.index, url: img.hostedUrl || img.url, fileName: img.fileName })),
+      mode,
+    };
+
+    // 更新对话标题
+    const conv = get().conversations.find((c) => c.id === convId);
+    if (conv && conv.title === "新对话") {
+      fetch(`/api/conversations/${convId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: trimmed.slice(0, 25) || "图片生成" }),
+      }).catch(() => {});
+      set((s) => ({
+        conversations: s.conversations.map((c) =>
+          c.id === convId ? { ...c, title: trimmed.slice(0, 25) || "图片生成" } : c
+        ),
+      }));
+    }
+
+    set({ inputText: "", isSending: true });
+
+    // 添加用户消息到 UI
+    const userMsg: Message = {
+      id: v4(), conversation_id: convId, ...userMsgData,
+      generation: null, params: {}, created_at: new Date().toISOString(),
+    };
+
+    // 添加 AI 消息占位
+    const aiMsg: Message = {
+      id: v4(), conversation_id: convId, role: "assistant", content: "",
+      images: [], generation: mode === "agent" ? { status: "pending", progress: 0, resultUrls: [] } : null,
+      params: {}, mode, created_at: new Date().toISOString(),
+    };
+
+    set((s) => ({ messages: [...s.messages, userMsg, aiMsg] }));
+
+    // 保存用户消息到 DB
+    fetch(`/api/conversations/${convId}/messages`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(userMsgData),
+    }).catch(() => {});
+
+    try {
+      const imageUrls = inputImages.map((img) => ({ index: img.index, url: img.hostedUrl || img.url })).filter((img) => img.url);
+
+      const history = get().messages
+        .filter((m) => m.id !== userMsg.id && m.id !== aiMsg.id)
+        .slice(-10)
+        .map((m) => ({ role: m.role, content: m.content || (m.generation?.resultUrls?.length ? `[生成了图片]` : "") }));
+
+      if (mode === "chat") {
+        // Chat 模式
+        const res = await fetch("/api/agent/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: trimmed, images: imageUrls, history }),
+        });
+        const data = await res.json();
+        const reply = data.reply || "我没有理解你的意思。";
+
+        set((s) => ({
+          isSending: false,
+          messages: s.messages.map((m) => m.id === aiMsg.id ? { ...m, content: reply } : m),
+        }));
+
+        // 保存 AI 回复到 DB
+        fetch(`/api/conversations/${convId}/messages`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ role: "assistant", content: reply, mode: "chat" }),
+        }).catch(() => {});
+      } else {
+        // Agent 模式
         const res = await fetch("/api/agent/generate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            message: trimmed || "根据上传的图片生成",
-            images: imageUrls.map((url, i) => ({ index: i + 1, url })),
-            params: {
-              model: params.model,
-              aspectRatio: params.aspectRatio,
-              imageSize: params.imageSize,
-              count: params.count,
-            },
+            message: trimmed, images: imageUrls,
+            params: { model: params.model, aspectRatio: params.aspectRatio, imageSize: params.imageSize, count: params.count },
             history,
           }),
         });
-
         const data = await res.json();
 
         if (!res.ok || !data.generation_id) {
           throw new Error(data.error || "生成失败");
         }
 
-        // 更新 AI 消息为 generating 状态
         set((s) => ({
-          conversations: updateConversation(s.conversations, convId!, (c) => ({
-            ...c,
-            messages: c.messages.map((m) =>
-              m.id === aiMsgId
-                ? {
-                    ...m,
-                    generation: {
-                      status: "generating" as const,
-                      progress: 10,
-                      resultUrls: [],
-                      generationId: data.generation_id,
-                      creditsUsed: data.credits_cost,
-                      module: data.module,
-                    },
-                  }
-                : m
-            ),
-          })),
+          messages: s.messages.map((m) =>
+            m.id === aiMsg.id ? { ...m, generation: { status: "generating", progress: 10, resultUrls: [], generationId: data.generation_id, creditsUsed: data.credits_cost, module: data.module } } : m
+          ),
         }));
 
-        // 开始轮询
-        startPolling(get, set, convId!, aiMsgId, data.generation_id, data.module || "tryon");
-      } catch (err) {
-        set((s) => ({
-          isGenerating: false,
-          conversations: updateConversation(s.conversations, convId!, (c) => ({
-            ...c,
-            messages: c.messages.map((m) =>
-              m.id === aiMsgId
-                ? {
-                    ...m,
-                    content: err instanceof Error ? err.message : "生成失败",
-                    generation: {
-                      status: "failed" as const,
-                      progress: 0,
-                      resultUrls: [],
-                      error: err instanceof Error ? err.message : "生成失败",
-                    },
-                  }
-                : m
-            ),
-          })),
-        }));
+        startPolling(get, set, aiMsg.id, data.generation_id, data.module || "tryon");
       }
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : "处理失败";
+      set((s) => ({
+        isSending: false,
+        messages: s.messages.map((m) =>
+          m.id === aiMsg.id ? { ...m, content: errMsg, generation: mode === "agent" ? { status: "failed", progress: 0, resultUrls: [], error: errMsg } : null } : m
+        ),
+      }));
+    }
+  },
 
-      // 持久化
-      persist(get);
-    },
-
-    aiWrite: async () => {
-      const { inputImages } = get();
-      if (inputImages.length === 0) return;
-
-      const imageUrls = inputImages.map((img) => img.hostedUrl || img.url).filter(Boolean);
-
-      try {
-        const res = await fetch("/api/agent/ai-write", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            images: imageUrls,
-            currentPrompt: get().inputText,
-          }),
-        });
-
-        const data = await res.json();
-        if (data.optimizedPrompt) {
-          set({ inputText: data.optimizedPrompt });
-        }
-      } catch {
-        // 静默失败
-      }
-    },
-
-    retryGeneration: async (messageId: string) => {
-      // 找到对应消息，重新发送
-      const conv = getActiveConv(get().conversations, get().activeConversationId);
-      if (!conv) return;
-
-      const msg = conv.messages.find((m) => m.id === messageId);
-      if (!msg) return;
-
-      // 找到前一条用户消息
-      const msgIndex = conv.messages.findIndex((m) => m.id === messageId);
-      const userMsg = conv.messages.slice(0, msgIndex).reverse().find((m) => m.role === "user");
-      if (!userMsg) return;
-
-      // 重新设置输入并发送
-      set({
-        inputText: userMsg.content,
-        inputImages: userMsg.images || [],
+  aiWrite: async () => {
+    const { inputImages } = get();
+    if (inputImages.length === 0) return;
+    const urls = inputImages.map((img) => img.hostedUrl || img.url).filter(Boolean);
+    try {
+      const res = await fetch("/api/agent/ai-write", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ images: urls, currentPrompt: get().inputText }),
       });
-      await get().sendMessage();
-    },
-  };
-});
+      const data = await res.json();
+      if (data.optimizedPrompt) set({ inputText: data.optimizedPrompt });
+    } catch {}
+  },
+
+  retryMessage: async (messageId: string) => {
+    const { messages } = get();
+    const idx = messages.findIndex((m) => m.id === messageId);
+    if (idx < 1) return;
+    const userMsg = messages[idx - 1];
+    if (userMsg.role !== "user") return;
+    set({ inputText: userMsg.content, inputImages: userMsg.images || [] });
+    await get().sendMessage();
+  },
+}));
