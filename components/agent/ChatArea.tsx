@@ -97,25 +97,41 @@ export function ChatArea({ messages, sessionImages, isSending, onOpenImage, onRe
           ))}
         </AnimatePresence>
 
-        {/* 思考中指示器 */}
-        {isSending && messages.length > 0 && messages[messages.length - 1].role === "user" && (
+        {/* 思考中指示器 — 最后一条 AI 消息还没有内容时显示 */}
+        {isSending && (() => {
+          const last = messages[messages.length - 1];
+          return last && last.role === "assistant" && !last.content && !last.generation;
+        })() && (
           <div className="flex gap-3">
-            <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-pink-500 text-white">
-              <Bot className="h-4 w-4" />
+            <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-pink-500 text-white shadow-md shadow-violet-200">
+              <Bot className="h-4 w-4 animate-pulse" />
             </div>
-            <div className="flex items-center gap-2 rounded-2xl rounded-bl-md border border-slate-200/80 bg-white px-4 py-3 text-sm text-slate-500">
-              <div className="flex gap-1">
-                <span className="h-2 w-2 animate-bounce rounded-full bg-violet-400 [animation-delay:0ms]" />
-                <span className="h-2 w-2 animate-bounce rounded-full bg-violet-400 [animation-delay:150ms]" />
-                <span className="h-2 w-2 animate-bounce rounded-full bg-violet-400 [animation-delay:300ms]" />
-              </div>
-              <span className="text-xs font-medium">分析中...</span>
+            <div className="flex items-center gap-3 rounded-2xl rounded-bl-md border border-violet-100 bg-gradient-to-r from-violet-50 to-pink-50 px-4 py-3">
+              <ThinkingDots />
+              <span className="text-xs font-semibold text-violet-600">思考中...</span>
             </div>
           </div>
         )}
 
         <div ref={bottomRef} />
       </div>
+    </div>
+  );
+}
+
+function ThinkingDots() {
+  return (
+    <div className="flex items-center gap-1">
+      {[0, 1, 2].map((i) => (
+        <span
+          key={i}
+          className="inline-block h-2 w-2 rounded-full bg-violet-400"
+          style={{
+            animation: "thinking-dot 1.4s ease-in-out infinite",
+            animationDelay: `${i * 0.2}s`,
+          }}
+        />
+      ))}
     </div>
   );
 }
