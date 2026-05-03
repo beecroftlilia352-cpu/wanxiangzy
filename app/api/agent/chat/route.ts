@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
       return tryNonStream(providers, messages);
     }
 
-    // 流式处理
+    // 流式处理 — 只转发 reply 内容，不暴露原始 JSON 给客户端
     const reader = llmResponse.body.getReader();
     const decoder = new TextDecoder();
 
@@ -110,6 +110,7 @@ export async function POST(request: NextRequest) {
       async start(controller) {
         let buffer = "";
         let fullContent = "";
+        let lastReplyLen = 0;  // 已发送的 reply 长度
 
         try {
           while (true) {
@@ -129,15 +130,22 @@ export async function POST(request: NextRequest) {
                 const delta = parsed.choices?.[0]?.delta?.content;
                 if (delta) {
                   fullContent += delta;
-                  controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ chunk: delta })}\n\n`));
+                  // 尝试从累积内容中增量提取 reply 文本
+                  const replyText = extractReplyIncremental(fullContent);
+                  if (replyText.length > lastReplyLen) {
+                    const newPart = replyText.slice(lastReplyLen);
+                    lastReplyLen = replyText.length;
+                    controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ chunk: newPart })}\n\n`));
+                  }
                 }
               } catch {}
             }
           }
         } catch {}
 
-        // 流结束：从累积内容中提取 JSON
+        // 流结束：完整提取结构化数据
         const extracted = extractResponse(fullContent, hasImages === true);
+        // 如果增量提取的 reply 和最终提取的不同，用最终版本替换
         controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ done: true, ...extracted })}\n\n`));
         controller.close();
       },
@@ -158,6 +166,48 @@ export async function POST(request: NextRequest) {
  * 从 LLM 累积内容中提取结构化响应
  * 处理各种 LLM 输出格式：纯 JSON、JSON+解释文字、markdown 包裹的 JSON
  */
+/**
+ * 从不完整的 JSON 中增量提取 reply 字段值
+ * 用于流式场景：JSON 还没闭合，但 reply 值已经在增长
+ *
+ * 原理：找 "reply":" 的位置，提取后面的所有字符直到遇到
+ * 未转义的 "（后跟 , 或 }），即为当前已知的 reply 内容。
+ */
+function extractReplyIncremental(content: string): string {
+  // 找 "reply": " 或 "reply":" 的位置
+  const match = content.match(/"reply"\s*:\s*"/);
+  if (!match || match.index == null) return "";
+
+  const start = match.index + match[0].length;
+  let result = "";
+  let i = start;
+  let escaped = false;
+
+  while (i < content.length) {
+    const ch = content[i];
+    if (escaped) {
+      // 处理转义字符
+      result += ch === "n" ? "\n" : ch === "t" ? "\t" : ch === '"' ? '"' : ch === "\\" ? "\\" : `\\${ch}`;
+      escaped = false;
+    } else if (ch === "\\") {
+      escaped = true;
+    } else if (ch === '"') {
+      // 检查是否是值的结束引号（后面跟 , 或 } 或空白）
+      const next = content[i + 1];
+      if (next === "," || next === "}" || next === " " || next === "\n" || next === undefined) {
+        break;
+      }
+      // 否则可能是 JSON 中其他字段的引号，继续
+      result += ch;
+    } else {
+      result += ch;
+    }
+    i++;
+  }
+
+  return result;
+}
+
 function extractResponse(content: string, hasImages: boolean): {
   reply: string; action: string; module: string | null;
   imageMapping: Record<string, unknown>; prompt: string; style: string | null;

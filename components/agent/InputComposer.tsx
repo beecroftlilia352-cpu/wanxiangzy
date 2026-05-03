@@ -25,6 +25,7 @@ type Props = {
   onParamsChange: (params: Partial<GenerationParams>) => void;
   onSend: () => void;
   onAIWrite: () => void;
+  onPreview?: (url: string) => void;
 };
 
 const MODEL_OPTS = [
@@ -49,7 +50,7 @@ function getCreditForCombo(model: LingyaModel, size: ImageSize, ratio: AspectRat
 
 export function InputComposer({
   inputText, inputImages, params, mode, isSending, isAIWriting, estimatedCredits,
-  onTextChange, onAddImages, onRemoveImage, onModeChange, onParamsChange, onSend, onAIWrite,
+  onTextChange, onAddImages, onRemoveImage, onModeChange, onParamsChange, onSend, onAIWrite, onPreview,
 }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -121,14 +122,14 @@ export function InputComposer({
       onDragOver={(e) => e.preventDefault()}
       onDrop={handleDrop}
     >
-      <div className="mx-auto max-w-3xl px-4 pb-3 pt-2 sm:px-6">
+      <div className="mx-auto max-w-4xl px-4 pb-3 pt-2 sm:px-6">
         {isDragging && (
           <div className="mb-2 flex items-center justify-center rounded-xl border-2 border-dashed border-violet-300 bg-violet-50/50 py-5 text-sm font-bold text-violet-500">
             拖放图片到这里
           </div>
         )}
 
-        <ImageTray images={inputImages} onAdd={onAddImages} onRemove={onRemoveImage} />
+        <ImageTray images={inputImages} onAdd={onAddImages} onRemove={onRemoveImage} onPreview={onPreview} />
 
         {/* 输入容器 */}
         <div className="relative">

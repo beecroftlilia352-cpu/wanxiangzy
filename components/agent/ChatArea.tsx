@@ -84,7 +84,7 @@ export function ChatArea({ messages, sessionImages, isSending, onOpenImage, onRe
   return (
     <div className="relative min-h-0 flex-1 overflow-hidden">
       <div ref={scrollRef} onScroll={handleScroll} className="h-full overflow-y-auto px-4 py-4 sm:px-6">
-        <div className="mx-auto max-w-3xl space-y-1">
+        <div className="mx-auto max-w-4xl space-y-1">
           <AnimatePresence initial={false}>
             {messages.map((msg, i) => (
               <MessageBubble
