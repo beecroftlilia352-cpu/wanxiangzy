@@ -32,6 +32,7 @@ type Store = {
   setInputText: (text: string) => void;
   addImages: (files: File[]) => Promise<void>;
   removeImage: (index: number) => void;
+  triggerAnalysis: () => Promise<void>;
   setMode: (mode: AgentMode) => void;
   setParams: (p: Partial<GenerationParams>) => void;
   setSidebarOpen: (open: boolean) => void;
@@ -204,7 +205,11 @@ export const useAgentStore = create<Store>((set, get) => ({
     // 持久化图片到对话
     get().updateConversationImages();
 
-    // 不再自动分析，等用户输入指令后统一处理
+    // 上传完成后自动分析图片
+    const readyImages = get().inputImages.filter((img) => !img.uploading);
+    if (readyImages.length > 0) {
+      get().triggerAnalysis();
+    }
   },
 
   removeImage: (index: number) => {
@@ -215,6 +220,103 @@ export const useAgentStore = create<Store>((set, get) => ({
       return { inputImages: remaining };
     });
     get().updateConversationImages();
+  },
+
+  triggerAnalysis: async () => {
+    const { inputImages, activeId, messages, isSending } = get();
+    if (isSending) return;
+    const readyImages = inputImages.filter((img) => !img.uploading && img.hostedUrl);
+    if (readyImages.length === 0) return;
+
+    // 不重复分析：如果已有 AI 分析消息则跳过
+    const hasAnalysis = messages.some((m) => m.role === "assistant" && m.content.length > 0);
+    if (hasAnalysis) return;
+
+    // 确保有对话
+    let convId = activeId;
+    if (!convId) {
+      await get().createConversation();
+      convId = get().activeId;
+      if (!convId) return;
+    }
+
+    set({ isSending: true });
+
+    const aiMsgId = v4();
+    const aiMsg: Message = {
+      id: aiMsgId, conversation_id: convId, role: "assistant", content: "",
+      images: [], generation: null, params: {}, mode: "chat", created_at: new Date().toISOString(),
+    };
+    set((s) => ({ messages: [...s.messages, aiMsg] }));
+
+    try {
+      const imageUrls = readyImages.map((img) => ({ index: img.index, url: img.hostedUrl! }));
+      const fileNames = readyImages.map((img) => `图${img.index}: ${img.fileName}`).join("、");
+
+      const res = await fetch("/api/agent/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: `用户刚上传了 ${readyImages.length} 张图片（${fileNames}）。请简要分析每张图片的内容（品类、颜色、风格），然后告诉用户可以用这些图片做什么。回复简洁，用 Markdown 列表格式。`,
+          images: imageUrls,
+          mode: "chat",
+        }),
+      });
+
+      if (res.headers.get("content-type")?.includes("text/event-stream") && res.body) {
+        // 流式读取
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed || !trimmed.startsWith("data: ")) continue;
+            try {
+              const parsed = JSON.parse(trimmed.slice(6));
+              if (parsed.chunk) {
+                set((s) => ({
+                  messages: s.messages.map((m) =>
+                    m.id === aiMsgId ? { ...m, content: (m.content || "") + parsed.chunk } : m
+                  ),
+                }));
+              }
+            } catch {}
+          }
+        }
+      } else {
+        const data = await res.json();
+        const reply = data.reply || `已收到 ${readyImages.length} 张图片。`;
+        set((s) => ({
+          messages: s.messages.map((m) =>
+            m.id === aiMsgId ? { ...m, content: reply } : m
+          ),
+        }));
+      }
+
+      // 保存到 DB
+      const finalMsg = get().messages.find((m) => m.id === aiMsgId);
+      if (finalMsg?.content) {
+        fetch(`/api/conversations/${convId}/messages`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ role: "assistant", content: finalMsg.content, mode: "chat" }),
+        }).catch(() => {});
+      }
+    } catch {
+      set((s) => ({
+        messages: s.messages.map((m) =>
+          m.id === aiMsgId ? { ...m, content: `已收到 ${readyImages.length} 张图片，输入指令告诉我你想做什么。` } : m
+        ),
+      }));
+    }
+
+    set({ isSending: false });
   },
 
   setMode: (mode: AgentMode) => {
