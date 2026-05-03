@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
     } else {
       userContent.push({
         type: "text",
-        text: `模式：${mode || "agent"}\n用户消息：${message.trim()}`,
+        text: `模式：${mode || "agent"}\n用户消息：${(message || "").trim()}`,
       });
     }
     messages.push({ role: "user", content: userContent });
