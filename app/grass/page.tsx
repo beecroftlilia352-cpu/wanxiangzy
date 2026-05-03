@@ -367,7 +367,7 @@ export default function GrassPage() {
     <div className="studio-workbench min-h-[calc(100dvh-64px)] lg:h-[calc(100vh-64px)] flex flex-col lg:flex-row">
       <FeatureTabs active="grass" />
       <div className="studio-parameters w-full lg:w-[472px] border-b lg:border-b-0 lg:border-r flex flex-col overflow-visible lg:overflow-hidden">
-        <div className="studio-parameters-scroll flex-1 overflow-visible lg:overflow-y-auto p-4 sm:p-5 space-y-6">
+        <div className="studio-parameters-scroll flex-1 overflow-visible lg:overflow-y-auto p-3 sm:p-5 space-y-4 sm:space-y-6">
           <ModuleHeader title="服装种草图" tooltip="上传服装或穿搭图，保持同款穿搭不变，生成街拍、咖啡店、自拍、居家等真实种草内容图。" />
 
           <section
@@ -628,7 +628,7 @@ export default function GrassPage() {
           </section>
         </div>
 
-        <div className="studio-runbar border-t p-3 sm:p-4 space-y-2">
+        <div className="studio-runbar border-t p-3 sm:p-4 space-y-2 sticky bottom-0 z-10 lg:static">
           <div className="flex items-center justify-between text-xs"><span className="text-gray-400">{garmentUrl ? `${effectiveReferenceUrl ? 2 : 1} 张输入图` : "未上传"} · {genCount} 张</span>{isAuthenticated ? <span className="font-bold text-orange-500">消耗 {cost} · 余额 {credits ?? "-"}</span> : <span className="text-orange-500">登录后生成</span>}</div>
           <button onClick={() => generate()} disabled={isGenerating || !garmentUrl} className="w-full py-3 rounded-xl gradient-brand text-white text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-40 hover:opacity-90 shadow-lg shadow-purple-200">
             <Sparkles className="w-4 h-4" /> {!isAuthenticated ? "登录后生成" : isGenerating ? "生成中..." : `生成 ${genCount} 张`}
@@ -638,7 +638,7 @@ export default function GrassPage() {
 
       <div className="studio-canvas relative flex-1 min-h-[520px] lg:h-full overflow-hidden">
         {!isGenerating && resultUrls.length === 0 && !error && (
-          <div className="studio-empty-stage min-h-[360px] lg:h-full flex items-center justify-center px-4">
+          <div className="studio-empty-stage min-h-[260px] sm:min-h-[360px] lg:h-full flex items-center justify-center px-4">
             <PreviewGuide
               title="生成服装种草图"
               subtitle="图1始终是服装硬参考，图2或文字只决定场景、姿势、构图和社媒氛围。"
@@ -653,10 +653,10 @@ export default function GrassPage() {
           </div>
         )}
         {isGenerating && (
-          <div className="studio-loading-stage min-h-[360px] lg:h-full p-4 sm:p-8 flex items-center justify-center"><div className="relative h-64 w-52 overflow-hidden rounded-[28px] border border-white/50 bg-white/30 shadow-2xl backdrop-blur-2xl"><div className="absolute inset-0 animate-pulse bg-gradient-to-br from-violet-100 via-pink-50 to-sky-100" /><div className="absolute inset-0 flex flex-col items-center justify-center"><div className="text-3xl font-black text-violet-500">{Math.round(progress)}%</div><p className="mt-2 text-xs font-bold text-violet-400">AI 生成中...</p></div></div></div>
+          <div className="studio-loading-stage min-h-[260px] sm:min-h-[360px] lg:h-full p-4 sm:p-8 flex items-center justify-center"><div className="relative h-64 w-52 overflow-hidden rounded-[28px] border border-white/50 bg-white/30 shadow-2xl backdrop-blur-2xl"><div className="absolute inset-0 animate-pulse bg-gradient-to-br from-violet-100 via-pink-50 to-sky-100" /><div className="absolute inset-0 flex flex-col items-center justify-center"><div className="text-3xl font-black text-violet-500">{Math.round(progress)}%</div><p className="mt-2 text-xs font-bold text-violet-400">AI 生成中...</p></div></div></div>
         )}
         {resultUrls.length > 0 && (
-          <div className="studio-result-stage min-h-[360px] overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:h-full flex flex-col animate-fade-in">
+          <div className="studio-result-stage min-h-[260px] sm:min-h-[360px] overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:h-full flex flex-col animate-fade-in">
             <div className="flex min-h-0 flex-1 items-center justify-center">
               <ResultImageGrid urls={resultUrls} filenamePrefix="grass" extension="jpg" onOpen={setLightboxSrc} />
             </div>
@@ -664,7 +664,7 @@ export default function GrassPage() {
           </div>
         )}
         {error && (
-          <div className="studio-result-stage min-h-[360px] lg:h-full flex items-center justify-center px-4"><div className="text-center"><div className="w-16 h-16 mx-auto mb-3 rounded-full bg-red-100 flex items-center justify-center"><X className="w-8 h-8 text-red-400" /></div><p className="text-red-500 font-medium mb-1">生成失败</p><p className="text-sm text-gray-400 mb-4 max-w-sm">{error}</p><RepairPromptPanel kind="grass" onRepair={handleRepairGenerate} disabled={isGenerating} className="mb-3 max-w-md" /><button onClick={() => setError("")} className="px-5 py-2 rounded-full border text-sm font-medium hover:bg-gray-50">重试</button></div></div>
+          <div className="studio-result-stage min-h-[260px] sm:min-h-[360px] lg:h-full flex items-center justify-center px-4"><div className="text-center"><div className="w-16 h-16 mx-auto mb-3 rounded-full bg-red-100 flex items-center justify-center"><X className="w-8 h-8 text-red-400" /></div><p className="text-red-500 font-medium mb-1">生成失败</p><p className="text-sm text-gray-400 mb-4 max-w-sm">{error}</p><RepairPromptPanel kind="grass" onRepair={handleRepairGenerate} disabled={isGenerating} className="mb-3 max-w-md" /><button onClick={() => setError("")} className="px-5 py-2 rounded-full border text-sm font-medium hover:bg-gray-50">重试</button></div></div>
         )}
       </div>
 

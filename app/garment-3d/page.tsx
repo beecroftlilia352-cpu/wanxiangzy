@@ -429,7 +429,7 @@ export default function Garment3dPage() {
     <div className="studio-workbench min-h-[calc(100dvh-64px)] lg:h-[calc(100vh-64px)] flex flex-col lg:flex-row">
       <FeatureTabs active="garment3d" />
       <div className="studio-parameters w-full lg:w-[472px] border-b lg:border-b-0 lg:border-r flex flex-col overflow-visible lg:overflow-hidden">
-        <div className="studio-parameters-scroll flex-1 overflow-visible lg:overflow-y-auto p-4 sm:p-5 space-y-6">
+        <div className="studio-parameters-scroll flex-1 overflow-visible lg:overflow-y-auto p-3 sm:p-5 space-y-4 sm:space-y-6">
           <ModuleHeader
             title="服装 3D"
             tooltip="上传单张清晰服装图，将平铺、挂拍或人台服装转成更有厚度、体积和材质表达的商品展示图。"
@@ -748,7 +748,7 @@ export default function Garment3dPage() {
           </section>
         </div>
 
-        <div className="studio-runbar border-t p-3 sm:p-4 space-y-2">
+        <div className="studio-runbar border-t p-3 sm:p-4 space-y-2 sticky bottom-0 z-10 lg:static">
           <div className="flex items-center justify-between text-xs">
             <span className="text-gray-400">{costPerImage} × {genCount} 张</span>
             {isAuthenticated
@@ -767,9 +767,9 @@ export default function Garment3dPage() {
         </div>
       </div>
 
-      <div className="studio-canvas min-h-[360px] lg:min-h-0 flex-1 relative overflow-hidden">
+      <div className="studio-canvas min-h-[260px] sm:min-h-[360px] lg:min-h-0 flex-1 relative overflow-hidden">
         {!isGenerating && resultUrls.length === 0 && !error && (
-          <div className="studio-empty-stage min-h-[360px] lg:h-full flex items-center justify-center px-4">
+          <div className="studio-empty-stage min-h-[260px] sm:min-h-[360px] lg:h-full flex items-center justify-center px-4">
             <PreviewGuide
               title="服装转 3D 商品图"
               subtitle="把平铺、挂拍或人台图转成更有厚度、体积和材质表现的棚拍商品图。"
@@ -785,7 +785,7 @@ export default function Garment3dPage() {
         )}
 
         {isGenerating && (
-          <div className="studio-loading-stage min-h-[360px] lg:h-full p-4 sm:p-8 flex items-center justify-center">
+          <div className="studio-loading-stage min-h-[260px] sm:min-h-[360px] lg:h-full p-4 sm:p-8 flex items-center justify-center">
             <div style={{
               position: "absolute", top: "10%", left: "20%", width: "300px", height: "300px",
               borderRadius: "50%", filter: "blur(80px)", opacity: 0.4,
@@ -875,7 +875,7 @@ export default function Garment3dPage() {
         )}
 
         {resultUrls.length > 0 && (
-          <div className="studio-result-stage min-h-[360px] overflow-y-auto overflow-x-hidden p-4 pb-28 sm:p-6 sm:pb-28 lg:h-full animate-fade-in">
+          <div className="studio-result-stage min-h-[260px] sm:min-h-[360px] overflow-y-auto overflow-x-hidden p-4 pb-28 sm:p-6 sm:pb-28 lg:h-full animate-fade-in">
             <div className="flex min-h-full items-center justify-center">
               <ResultImageGrid urls={resultUrls} filenamePrefix="garment-3d" onOpen={setLightboxSrc} />
             </div>
@@ -895,7 +895,7 @@ export default function Garment3dPage() {
         )}
 
         {error && (
-          <div className="min-h-[360px] lg:h-full flex items-center justify-center px-4">
+          <div className="min-h-[260px] sm:min-h-[360px] lg:h-full flex items-center justify-center px-4">
             <div className="text-center">
               <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-red-100 flex items-center justify-center">
                 <X className="w-8 h-8 text-red-400" />

@@ -732,7 +732,7 @@ export default function CreatePage() {
       <FeatureTabs active="tryon" />
       {/* ========== LEFT PANEL ========== */}
       <div className="studio-parameters w-full lg:w-[472px] border-b lg:border-b-0 lg:border-r flex flex-col overflow-visible lg:overflow-hidden">
-        <div className="studio-parameters-scroll flex-1 overflow-visible lg:overflow-y-auto p-4 sm:p-5 space-y-6">
+        <div className="studio-parameters-scroll flex-1 overflow-visible lg:overflow-y-auto p-3 sm:p-5 space-y-4 sm:space-y-6">
           <ModuleHeader
             title="服装上身"
             tooltip="上传单件或多件服装，选择模特与参考场景，生成可直接用于商品展示、主图延展和内容投放的成片。"
@@ -1325,7 +1325,7 @@ export default function CreatePage() {
         </div>
 
         {/* ---- 底部 ---- */}
-        <div className="studio-runbar border-t p-3 sm:p-4 space-y-2">
+        <div className="studio-runbar border-t p-3 sm:p-4 space-y-2 sticky bottom-0 z-10 lg:static">
           <div className="flex items-center justify-between text-xs">
             <span className="text-gray-400">{clothingMode === "multi" ? "多件搭配" : "单件上身"} · {store.clothingFiles.length} 张输入 · {costPerImage} × {genCount} 张</span>
             {isAuthenticated
@@ -1342,10 +1342,10 @@ export default function CreatePage() {
       </div>
 
       {/* ========== RIGHT PANEL ========== */}
-      <div className="studio-canvas min-h-[360px] lg:min-h-0 flex-1 relative overflow-hidden">
+      <div className="studio-canvas min-h-[260px] sm:min-h-[360px] lg:min-h-0 flex-1 relative overflow-hidden">
         {/* Idle */}
         {!store.isGenerating && store.resultUrls.length === 0 && !store.error && (
-          <div className="min-h-[360px] lg:h-full flex items-center justify-center relative overflow-hidden px-4">
+          <div className="min-h-[260px] sm:min-h-[360px] lg:h-full flex items-center justify-center relative overflow-hidden px-4">
             {/* 渐变背景 */}
             <div className="studio-empty-stage absolute inset-0" />
             {/* 装饰圆 */}
@@ -1370,7 +1370,7 @@ export default function CreatePage() {
 
         {/* ==== 生成中：毛玻璃流光卡片 ==== */}
         {store.isGenerating && (
-          <div className="studio-loading-stage min-h-[360px] lg:h-full p-4 sm:p-8 flex items-center justify-center">
+          <div className="studio-loading-stage min-h-[260px] sm:min-h-[360px] lg:h-full p-4 sm:p-8 flex items-center justify-center">
             {/* 背景装饰光斑 */}
             <div style={{
               position: "absolute", top: "10%", left: "20%", width: "300px", height: "300px",
@@ -1468,7 +1468,7 @@ export default function CreatePage() {
 
         {/* Result */}
         {store.resultUrls.length > 0 && (
-          <div className="studio-result-stage min-h-[360px] overflow-y-auto overflow-x-hidden p-4 pb-24 sm:p-6 sm:pb-28 lg:h-full animate-fade-in">
+          <div className="studio-result-stage min-h-[260px] sm:min-h-[360px] overflow-y-auto overflow-x-hidden p-4 pb-24 sm:p-6 sm:pb-28 lg:h-full animate-fade-in">
             <div className="flex min-h-full items-center justify-center">
               <ResultImageGrid urls={store.resultUrls} filenamePrefix="tryon" onOpen={setLightboxSrc} />
             </div>
@@ -1477,7 +1477,7 @@ export default function CreatePage() {
 
         {/* Error */}
         {store.error && (
-          <div className="studio-result-stage min-h-[360px] lg:h-full flex items-center justify-center animate-fade-in px-4">
+          <div className="studio-result-stage min-h-[260px] sm:min-h-[360px] lg:h-full flex items-center justify-center animate-fade-in px-4">
             <div className="text-center">
               <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-red-100 flex items-center justify-center"><X className="w-8 h-8 text-red-400" /></div>
               <p className="text-red-500 font-medium mb-1">生成失败</p>

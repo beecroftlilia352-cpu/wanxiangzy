@@ -380,7 +380,7 @@ export default function ModelBackgroundPage() {
     <div className="studio-workbench min-h-[calc(100dvh-64px)] lg:h-[calc(100vh-64px)] flex flex-col lg:flex-row">
       <FeatureTabs active="modelBackground" />
       <div className="studio-parameters w-full lg:w-[472px] border-b lg:border-b-0 lg:border-r flex flex-col overflow-visible lg:overflow-hidden">
-        <div className="studio-parameters-scroll flex-1 overflow-visible lg:overflow-y-auto p-4 sm:p-5 space-y-5">
+        <div className="studio-parameters-scroll flex-1 overflow-visible lg:overflow-y-auto p-3 sm:p-5 space-y-4 sm:space-y-5">
           <ModuleHeader title="换背景" tooltip="默认只替换原图背景，人物、服装和穿搭保持不变；切换到换模特时需要先选择或上传模特参考图。" />
 
           <section
@@ -713,7 +713,7 @@ export default function ModelBackgroundPage() {
             </div>
           </section>
         </div>
-        <div className="studio-runbar space-y-2 border-t p-3 sm:p-4">
+        <div className="studio-runbar space-y-2 border-t p-3 sm:p-4 sticky bottom-0 z-10 lg:static">
           <div className="flex items-center justify-between text-xs">
             <span className="text-gray-400">{sourceUrl ? "原图已上传" : "等待上传原图"} · {genCount} 张</span>
             {isAuthenticated ? <span className="font-bold text-orange-500">消耗 {cost} · 余额 {credits ?? "-"}</span> : <span className="text-orange-500">登录后生成</span>}
@@ -727,7 +727,7 @@ export default function ModelBackgroundPage() {
 
       <div className="studio-canvas relative flex-1 min-h-[520px] lg:h-full overflow-hidden">
         {!isGenerating && resultUrls.length === 0 && !error && (
-          <div className="studio-empty-stage min-h-[360px] lg:h-full flex items-center justify-center px-4">
+          <div className="studio-empty-stage min-h-[260px] sm:min-h-[360px] lg:h-full flex items-center justify-center px-4">
             <PreviewGuide
               title="创建模特换背景作品"
               subtitle="默认只换背景；切到换模特相关模式时，必须先选择或上传模特参考图。"
@@ -743,7 +743,7 @@ export default function ModelBackgroundPage() {
         )}
 
         {isGenerating && (
-          <div className="studio-loading-stage min-h-[360px] lg:h-full p-4 sm:p-8 flex items-center justify-center">
+          <div className="studio-loading-stage min-h-[260px] sm:min-h-[360px] lg:h-full p-4 sm:p-8 flex items-center justify-center">
             <div className="relative h-64 w-52 overflow-hidden rounded-[28px] border border-white/50 bg-white/30 shadow-2xl backdrop-blur-2xl">
               <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-violet-100 via-pink-50 to-sky-100" />
               <div className="absolute inset-0 flex flex-col items-center justify-center">
@@ -755,7 +755,7 @@ export default function ModelBackgroundPage() {
         )}
 
         {resultUrls.length > 0 && (
-          <div className="studio-result-stage min-h-[360px] overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:h-full flex flex-col animate-fade-in">
+          <div className="studio-result-stage min-h-[260px] sm:min-h-[360px] overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:h-full flex flex-col animate-fade-in">
             <div className="flex min-h-0 flex-1 items-center justify-center">
               <ResultImageGrid urls={resultUrls} filenamePrefix="model-background" onOpen={setLightboxSrc} />
             </div>
@@ -766,7 +766,7 @@ export default function ModelBackgroundPage() {
         )}
 
         {error && (
-          <div className="studio-result-stage min-h-[360px] lg:h-full flex items-center justify-center px-4">
+          <div className="studio-result-stage min-h-[260px] sm:min-h-[360px] lg:h-full flex items-center justify-center px-4">
             <div className="text-center">
               <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-red-100 flex items-center justify-center">
                 <X className="w-8 h-8 text-red-400" />

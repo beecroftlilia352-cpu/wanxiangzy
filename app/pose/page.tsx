@@ -318,7 +318,7 @@ export default function PosePage() {
     <div className="studio-workbench min-h-[calc(100dvh-64px)] lg:h-[calc(100vh-64px)] flex flex-col lg:flex-row">
       <FeatureTabs active="pose" />
       <div className="studio-parameters w-full lg:w-[472px] border-b lg:border-b-0 lg:border-r flex flex-col overflow-visible lg:overflow-hidden">
-        <div className="studio-parameters-scroll flex-1 overflow-visible lg:overflow-y-auto p-4 sm:p-5 space-y-6">
+        <div className="studio-parameters-scroll flex-1 overflow-visible lg:overflow-y-auto p-3 sm:p-5 space-y-4 sm:space-y-6">
           <ModuleHeader
             title="姿势裂变"
             tooltip="基于图1人物、服装、场景和光线，生成同一套视觉里的四宫格姿势变化，适合主图延展、搭配展示和社媒排版。"
@@ -487,7 +487,7 @@ export default function PosePage() {
           </section>
         </div>
 
-        <div className="studio-runbar border-t p-3 sm:p-4 space-y-2">
+        <div className="studio-runbar border-t p-3 sm:p-4 space-y-2 sticky bottom-0 z-10 lg:static">
           <div className="flex items-center justify-between text-xs">
             <span className="text-gray-400">四宫格 · 单张结果</span>
             {isAuthenticated
@@ -503,9 +503,9 @@ export default function PosePage() {
         </div>
       </div>
 
-      <div className="studio-canvas min-h-[360px] lg:min-h-0 flex-1 relative overflow-hidden">
+      <div className="studio-canvas min-h-[260px] sm:min-h-[360px] lg:min-h-0 flex-1 relative overflow-hidden">
         {!isGenerating && resultUrls.length === 0 && !error && (
-          <div className="studio-empty-stage min-h-[360px] lg:h-full flex items-center justify-center px-4">
+          <div className="studio-empty-stage min-h-[260px] sm:min-h-[360px] lg:h-full flex items-center justify-center px-4">
             <PreviewGuide
               title="开始姿势裂变"
               subtitle="用一张主图生成同人物、同服装、同场景的多姿势四宫格。"
@@ -521,7 +521,7 @@ export default function PosePage() {
         )}
 
         {isGenerating && (
-          <div className="studio-loading-stage min-h-[360px] lg:h-full p-4 sm:p-8 flex items-center justify-center">
+          <div className="studio-loading-stage min-h-[260px] sm:min-h-[360px] lg:h-full p-4 sm:p-8 flex items-center justify-center">
             <div style={{
               position: "absolute", top: "10%", left: "20%", width: "300px", height: "300px",
               borderRadius: "50%", filter: "blur(80px)", opacity: 0.4,
@@ -607,7 +607,7 @@ export default function PosePage() {
         )}
 
         {resultUrls.length > 0 && (
-          <div className="studio-result-stage min-h-[360px] overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:h-full flex flex-col animate-fade-in">
+          <div className="studio-result-stage min-h-[260px] sm:min-h-[360px] overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:h-full flex flex-col animate-fade-in">
             <div className="flex min-h-0 flex-1 items-center justify-center">
               <ResultImageGrid urls={resultUrls} filenamePrefix="pose" extension="jpg" onOpen={setLightboxSrc} />
             </div>
@@ -623,7 +623,7 @@ export default function PosePage() {
         )}
 
         {error && (
-          <div className="studio-result-stage min-h-[360px] lg:h-full flex items-center justify-center px-4">
+          <div className="studio-result-stage min-h-[260px] sm:min-h-[360px] lg:h-full flex items-center justify-center px-4">
             <div className="text-center">
               <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-red-100 flex items-center justify-center"><X className="w-8 h-8 text-red-400" /></div>
               <p className="text-red-500 font-medium mb-1">生成失败</p>
