@@ -286,6 +286,14 @@ export const useAgentStore = create<Store>((set, get) => ({
                   ),
                 }));
               }
+              if (parsed.done) {
+                const finalReply = typeof parsed.reply === "string" ? parsed.reply : (get().messages.find((m) => m.id === aiMsgId)?.content || "");
+                set((s) => ({
+                  messages: s.messages.map((m) =>
+                    m.id === aiMsgId ? { ...m, content: finalReply, streamingDone: true } : m
+                  ),
+                }));
+              }
             } catch {}
           }
         }
@@ -294,7 +302,7 @@ export const useAgentStore = create<Store>((set, get) => ({
         const reply = data.reply || `已收到 ${readyImages.length} 张图片。`;
         set((s) => ({
           messages: s.messages.map((m) =>
-            m.id === aiMsgId ? { ...m, content: reply } : m
+            m.id === aiMsgId ? { ...m, content: reply, streamingDone: true } : m
           ),
         }));
       }
@@ -442,6 +450,13 @@ export const useAgentStore = create<Store>((set, get) => ({
                 }
                 if (parsed.done) {
                   chatData = parsed;
+                  // 流完成，用 LLM 解析后的干净 reply 替换内容，标记 streamingDone
+                  const finalReply = typeof parsed.reply === "string" ? parsed.reply : (get().messages.find((m) => m.id === aiMsg.id)?.content || "");
+                  set((s) => ({
+                    messages: s.messages.map((m) =>
+                      m.id === aiMsg.id ? { ...m, content: finalReply, streamingDone: true } : m
+                    ),
+                  }));
                 }
               } catch {}
             }
@@ -452,6 +467,15 @@ export const useAgentStore = create<Store>((set, get) => ({
       } else {
         // 非流式降级
         chatData = await chatRes.json();
+        // 非流式直接完成
+        const finalReply = typeof chatData.reply === "string" ? chatData.reply : "";
+        if (finalReply) {
+          set((s) => ({
+            messages: s.messages.map((m) =>
+              m.id === aiMsg.id ? { ...m, content: finalReply, streamingDone: true } : m
+            ),
+          }));
+        }
       }
 
       if (chatData.action === "generate" && imageUrls.length > 0) {
