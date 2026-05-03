@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import { Bot, User, Loader2, CheckCircle2, AlertCircle, Download, ZoomIn, RefreshCw, Copy, Sparkles } from "lucide-react";
-import { useState } from "react";
+import { useState, useDeferredValue, memo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { Message } from "@/lib/agent/types";
@@ -82,7 +82,7 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
               </div>
             ) : (
               <div className="prose-agent">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+                <StreamingMarkdown content={content} />
               </div>
             )}
 
@@ -247,3 +247,13 @@ function formatTime(ts: string): string {
 function formatTimeShort(ts: string): string {
   return new Date(ts).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", hour12: false });
 }
+
+/**
+ * 流式 Markdown 渲染器
+ * useDeferredValue 让 React 在流式接收 chunk 时批量更新 markdown 渲染，
+ * 避免未闭合语法（**、|、#）闪烁为原始格式。
+ */
+const StreamingMarkdown = memo(function StreamingMarkdown({ content }: { content: string }) {
+  const deferred = useDeferredValue(content);
+  return <ReactMarkdown remarkPlugins={[remarkGfm]}>{deferred}</ReactMarkdown>;
+});
