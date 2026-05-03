@@ -123,35 +123,6 @@ export function InputComposer({
           <MentionDropdown images={inputImages} query={mentionState.query} onSelect={handleMentionSelect} visible={mentionState.active} />
 
           <div className="rounded-2xl border border-slate-200/80 bg-white shadow-[0_2px_12px_rgba(0,0,0,0.04)] transition-all focus-within:border-violet-300/60 focus-within:shadow-[0_2px_20px_rgba(139,92,246,0.08)]">
-            {/* 图片行（有图片时才显示） */}
-            {inputImages.length > 0 && (
-              <div className="flex items-center gap-1.5 border-b border-slate-100 px-3 py-2">
-                {inputImages.map((img, i) => (
-                  <div key={i} className="group relative">
-                    <div className="relative h-8 w-8 overflow-hidden rounded-lg border border-slate-200">
-                      <img src={img.hostedUrl || img.url} alt={`图${img.index}`} className="h-full w-full object-cover" />
-                      {img.uploading && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-                          <Loader2 className="h-3 w-3 animate-spin text-white" />
-                        </div>
-                      )}
-                    </div>
-                    <span className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 rounded bg-violet-600 px-1 text-[8px] font-bold leading-tight text-white">
-                      {img.index}
-                    </span>
-                    <button onClick={() => onRemoveImage(i)}
-                      className="absolute -right-1 -top-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-slate-400 text-white opacity-0 transition-opacity group-hover:opacity-100">
-                      <X className="h-2 w-2" />
-                    </button>
-                  </div>
-                ))}
-                <button onClick={() => fileRef.current?.click()}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-dashed border-slate-300 text-slate-300 transition-colors hover:border-violet-300 hover:text-violet-400">
-                  <span className="text-sm leading-none">+</span>
-                </button>
-              </div>
-            )}
-
             {/* 输入行 */}
             <div className="flex items-end">
               <input ref={fileRef} type="file" accept="image/*" multiple className="hidden"
