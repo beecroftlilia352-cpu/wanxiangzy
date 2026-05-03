@@ -465,7 +465,6 @@ export const useAgentStore = create<Store>((set, get) => ({
         const reader = chatRes.body.getReader();
         const decoder = new TextDecoder();
         let buffer = "";
-        let rawAccum = "";
 
         try {
           while (true) {
@@ -482,15 +481,15 @@ export const useAgentStore = create<Store>((set, get) => ({
               try {
                 const parsed = JSON.parse(trimmedLine.slice(6));
                 if (parsed.chunk) {
-                  rawAccum += parsed.chunk;
                   // 流式中：显示纯文本（不解析 markdown）
                   set((s) => ({
                     messages: s.messages.map((m) =>
-                      m.id === aiMsg.id ? { ...m, content: stripJsonBlocks(rawAccum) } : m
+                      m.id === aiMsg.id ? { ...m, content: (m.content || "") + parsed.chunk } : m
                     ),
                   }));
                 }
                 if (parsed.done) {
+                  // done 事件包含完整的结构化数据（reply/action/module 等）
                   chatData = parsed;
                 }
               } catch {}
@@ -498,24 +497,14 @@ export const useAgentStore = create<Store>((set, get) => ({
           }
         } catch { /* stream error */ }
 
-        // 流结束：用 done 事件的 reply（干净版本），或从累积内容中提取
-        let finalContent = "";
-        if (typeof chatData.reply === "string" && chatData.reply) {
-          finalContent = chatData.reply;
-        } else {
-          // 没有 done 事件 → 从累积的原始内容中提取 reply
-          const extracted = extractReplyFromRaw(rawAccum);
-          if (extracted) {
-            finalContent = extracted.reply;
-            if (!chatData.action && extracted.action) chatData = extracted;
-          } else {
-            finalContent = stripJsonBlocks(rawAccum);
-          }
-        }
+        // 流结束：用 done 事件的 reply 替换内容（干净的，无 JSON）
+        const finalReply = typeof chatData.reply === "string" && chatData.reply
+          ? chatData.reply
+          : stripJsonBlocks(get().messages.find((m) => m.id === aiMsg.id)?.content || "");
 
         set((s) => ({
           messages: s.messages.map((m) =>
-            m.id === aiMsg.id ? { ...m, content: finalContent, streamingDone: true } : m
+            m.id === aiMsg.id ? { ...m, content: finalReply, streamingDone: true } : m
           ),
         }));
       } else {
