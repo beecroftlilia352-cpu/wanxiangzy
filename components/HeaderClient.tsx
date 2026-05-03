@@ -1,12 +1,29 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
-import { clearCachedProfileCredits, createClient, getCachedProfileCredits, setCachedProfileCredits, subscribeToProfileCredits } from "@/lib/supabase/client";
-import { Coins } from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  clearCachedProfileCredits,
+  createClient,
+  getCachedProfileCredits,
+  setCachedProfileCredits,
+  subscribeToProfileCredits,
+} from "@/lib/supabase/client";
+import { Coins, History, Home, LogOut, ServerCog, Shirt, UserRound } from "lucide-react";
+
+const navItems = [
+  { href: "/", label: "首页", icon: Home },
+  { href: "/create", label: "创作", icon: Shirt },
+  { href: "/history", label: "作品", icon: History },
+  { href: "/api-platform-test", label: "API", icon: ServerCog },
+];
 
 export function HeaderClient() {
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
+  const pathname = usePathname();
+  const isLoginPage = pathname === "/login";
   const [email, setEmail] = useState<string | null>(null);
   const [credits, setCredits] = useState<number | null>(null);
   const [authReady, setAuthReady] = useState(false);
@@ -69,24 +86,29 @@ export function HeaderClient() {
       }
     }
 
-    loadProfileFromApi().then((loaded) => {
-      if (loaded || cancelled) return;
-      return supabase.auth.getUser();
-    }).then((result) => {
-      if (!result || cancelled) return;
-      const { data } = result;
-      if (data.user) {
-        loadUserCredits(data.user);
-      } else {
+    loadProfileFromApi()
+      .then((loaded) => {
+        if (loaded || cancelled) return;
+        return supabase.auth.getUser();
+      })
+      .then((result) => {
+        if (!result || cancelled) return;
+        const { data } = result;
+        if (data.user) {
+          loadUserCredits(data.user);
+        } else {
+          setAuthReady(true);
+          setCreditsReady(true);
+        }
+      })
+      .catch(() => {
         setAuthReady(true);
         setCreditsReady(true);
-      }
-    }).catch(() => {
-      setAuthReady(true);
-      setCreditsReady(true);
-    });
+      });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_e, session) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (_e, session) => {
       if (session?.user) {
         await loadUserCredits(session.user);
       } else {
@@ -128,56 +150,124 @@ export function HeaderClient() {
   };
 
   return (
-    <header className="sticky top-0 z-50 border-b bg-white/90 backdrop-blur-md">
-      <div className="min-h-14 px-3 py-2 sm:h-14 sm:px-6 sm:py-0 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <a href="/" className="flex min-w-0 items-center gap-2 font-bold text-base leading-none">
-          <Image
-            src="/gemini-icon.png"
-            alt=""
-            width={28}
-            height={28}
-            className="h-7 w-7 flex-shrink-0 rounded-md object-contain"
-            priority
-            aria-hidden="true"
-          />
-          <span className="gradient-brand-text truncate">
-            <span className="sm:hidden">万象衣造 AI</span>
-            <span className="hidden sm:inline">万象衣造 AI｜VastWearGen</span>
-          </span>
-        </a>
+    <header className="studio-app-header sticky top-0 z-50">
+      <div className="relative mx-auto flex min-h-16 w-full max-w-7xl items-center justify-between gap-3 px-4 sm:px-6">
+        <div className="flex min-w-0 items-center gap-3">
+          <Link href="/" className="flex min-w-0 items-center gap-3">
+            <span className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+              <Image
+                src="/gemini-icon.png"
+                alt=""
+                width={28}
+                height={28}
+                className="h-7 w-7 object-contain"
+                priority
+                aria-hidden="true"
+              />
+            </span>
+            <span className="min-w-0">
+              <span className="block truncate text-sm font-black text-slate-950 sm:text-[15px]">
+                VastWear
+              </span>
+              <span className="hidden truncate text-[11px] font-medium text-slate-500 sm:block">
+                服装视觉生成平台
+              </span>
+            </span>
+          </Link>
 
-        <nav className="flex w-full items-center justify-between gap-3 text-sm leading-none sm:w-auto sm:justify-start sm:gap-5">
-          <a href="/create" className="hover:text-purple-600 transition-colors font-medium">开始创作</a>
-          <a href="/history" className="hover:text-purple-600 transition-colors font-medium">历史记录</a>
+        </div>
 
-          {!authReady ? (
-            <div className="h-7 w-[92px] rounded-full bg-gray-100 animate-pulse" />
+        <div className="fixed right-4 top-3.5 z-[60] flex shrink-0 md:hidden">
+          {isLoginPage ? (
+            <Link href="/" className="gradient-brand flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/50 text-white shadow-lg shadow-purple-200/70" aria-label="返回首页">
+              <Home className="h-4 w-4" />
+            </Link>
+          ) : !authReady ? (
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white/82 text-slate-400 shadow-sm" aria-label="正在读取登录状态">
+              <UserRound className="h-4 w-4" />
+            </span>
           ) : email ? (
-            <div className="flex items-center gap-2">
-              <a href="/create" className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200 hover:bg-amber-100 transition-colors min-w-[52px] justify-center">
-                <Coins className="w-3.5 h-3.5 text-amber-500" />
+            <Link
+              href="/create"
+              className="flex h-9 items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 text-xs font-bold text-amber-700 shadow-sm"
+            >
+              <Coins className="h-3.5 w-3.5 text-amber-500" />
+              {creditsReady ? <span>{credits ?? "--"}</span> : <span className="h-3 w-5 animate-pulse rounded bg-amber-100" />}
+            </Link>
+          ) : (
+            <Link href="/login" className="gradient-brand flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white shadow-lg shadow-purple-200/70" aria-label="登录">
+              <UserRound className="h-4 w-4" />
+            </Link>
+          )}
+        </div>
+
+        <nav className="hidden items-center gap-1 rounded-full border border-slate-200/80 bg-white/76 p-1 shadow-sm backdrop-blur md:flex">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const active = item.href === "/" ? pathname === "/" : pathname === item.href || pathname.startsWith(item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-bold transition-all ${
+                  active
+                    ? "gradient-brand text-white shadow-sm shadow-purple-200/60"
+                    : "text-slate-500 hover:bg-slate-100 hover:text-slate-950"
+                }`}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                {item.label}
+              </Link>
+            );
+          })}
+        </nav>
+
+        <div className="hidden min-w-0 items-center justify-end gap-2 sm:flex">
+          <Link
+            href="/create"
+            className="hidden h-9 items-center rounded-full border border-slate-200 bg-white/82 px-3 text-xs font-bold text-slate-700 shadow-sm transition-colors hover:bg-white sm:flex md:hidden"
+          >
+            创作
+          </Link>
+          {isLoginPage ? (
+            <Link href="/" className="flex h-9 shrink-0 items-center rounded-full border border-slate-200 bg-white/82 px-4 text-xs font-bold text-slate-700 shadow-sm transition-colors hover:bg-white md:hidden">
+              首页
+            </Link>
+          ) : !authReady ? (
+            <span className="flex h-9 shrink-0 items-center rounded-full border border-slate-200 bg-white/80 px-4 text-xs font-bold text-slate-400 shadow-sm">
+              登录
+            </span>
+          ) : email ? (
+            <>
+              <Link
+                href="/create"
+                className="flex h-9 items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 text-xs font-bold text-amber-700 shadow-sm transition-colors hover:bg-amber-100"
+              >
+                <Coins className="h-3.5 w-3.5 text-amber-500" />
                 {creditsReady ? (
-                  <span className="text-xs font-bold text-amber-700">{credits ?? "--"}</span>
+                  <span>{credits ?? "--"}</span>
                 ) : (
-                  <span className="h-3 w-5 rounded bg-amber-100 animate-pulse" />
+                  <span className="h-3 w-5 animate-pulse rounded bg-amber-100" />
                 )}
-              </a>
+              </Link>
               <button
                 type="button"
                 onClick={handleLogout}
                 disabled={isLoggingOut}
-                className="text-xs text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-50"
+                className="hidden h-9 items-center gap-1.5 rounded-full border border-slate-200 bg-white/80 px-3 text-xs font-semibold text-slate-500 shadow-sm transition-colors hover:text-slate-950 disabled:opacity-50 sm:flex"
                 title={`退出 ${email}`}
               >
-                {isLoggingOut ? "退出中..." : "退出"}
+                <LogOut className="h-3.5 w-3.5" />
+                {isLoggingOut ? "退出中" : "退出"}
               </button>
-            </div>
+            </>
           ) : (
-            <a href="/login" className="px-4 py-1.5 rounded-full gradient-brand text-white text-sm font-semibold hover:opacity-90">
+            <Link href="/login" className="gradient-brand flex h-9 shrink-0 items-center rounded-full px-4 text-xs font-bold text-white shadow-lg shadow-purple-200/70 transition-opacity hover:opacity-95">
               登录
-            </a>
+            </Link>
           )}
-        </nav>
+        </div>
+
       </div>
     </header>
   );

@@ -17,5 +17,9 @@ Thumbs.db
 .vercel/
 .tools/
 .verification/
+.ui-check/
+.api-platform-test-results*.json
+.qwen-edits-test-results.json
+old-references-contact.jpg
 tmp-module-code.txt
 wanxiangzy/

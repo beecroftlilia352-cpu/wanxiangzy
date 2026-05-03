@@ -7,10 +7,24 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/api/auth";
 import { getChatCompletionsUrl, getLlmConfig } from "@/lib/api/llm-provider";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
+import {
+  TRYON_CLOTHING_IMAGE_ROLE_RULE,
+  TRYON_FIT_RULE,
+  TRYON_GARMENT_RULE,
+  TRYON_PHOTOGRAPHY_RULE,
+  TRYON_QUALITY,
+  applyTryOnAudiencePrompt,
+  applyTryOnFramePrompt,
+  enforceTryOnPromptRequirements,
+  normalizeTryOnAgeGroup,
+  normalizeTryOnGarmentAudience,
+  type TryOnAgeGroup,
+  type TryOnGarmentAudience,
+} from "@/lib/tryon-prompt";
+import { TRYON_CLOTHING_ROLE_LABELS, normalizeTryOnClothingMode, normalizeTryOnClothingRole } from "@/lib/tryon-upload-rules";
 
 const ANALYZE_TIMEOUT_MS = Number(process.env.LINGYA_ANALYZE_TIMEOUT_MS || 30000);
-const QUALITY_DIMENSIONS =
-  "photorealistic, 8K ultra-detailed, high contrast, cinematic color grade, commercial fashion catalog quality, sharp details, raw photo quality";
+const QUALITY_DIMENSIONS = TRYON_QUALITY;
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,6 +36,10 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const { clothing_urls, model_face_url, reference_url } = body;
+    const clothingMode = normalizeTryOnClothingMode(body.clothing_mode || (clothing_urls?.length > 1 ? "multi" : "single"));
+    const garmentAudience = normalizeTryOnGarmentAudience(body.garment_audience);
+    const ageGroup = normalizeTryOnAgeGroup(body.age_group);
+    const aspectRatio = typeof body.aspect_ratio === "string" ? body.aspect_ratio : undefined;
     const basePrompt = typeof body.base_prompt === "string" ? body.base_prompt.trim() : "";
     const userStyle =
       typeof body.user_style === "string"
@@ -43,11 +61,15 @@ export async function POST(request: NextRequest) {
     if (model_face_url) imageContents.push({ type: "image_url", image_url: { url: model_face_url } });
 
     const clothingRefs = clothing_urls.map((_: string, index: number) => `图${index + 1}`);
+    const clothingRoles = clothing_urls.map((_: string, index: number) => normalizeTryOnClothingRole(
+      Array.isArray(body.clothing_roles) ? body.clothing_roles[index] : undefined,
+      clothingMode === "multi" ? index === 0 ? "upper" : index === 1 ? "lower" : "extra" : "single"
+    ));
     const referenceImageNumber = clothing_urls.length + 1;
     const faceImageNumber = clothing_urls.length + (reference_url ? 2 : 1);
 
     const roleLines = [
-      `${clothingRefs.join("、")}：用户上传的服装图，仔细分析服装的品类、版型、颜色、材质、图案、纹理、细节（纽扣/拉链/口袋/刺绣/印花等）。`,
+      `${clothingRefs.map((ref: string, index: number) => `${ref}：用户上传的${TRYON_CLOTHING_ROLE_LABELS[clothingRoles[index]]}图`).join("；")}。仔细分析每件服装的品类、版型、颜色、材质、图案、纹理、细节（纽扣/拉链/口袋/刺绣/印花等）。`,
       reference_url
         ? `图${referenceImageNumber}：参考图，分析并提取人物姿势、身体比例、构图角度、背景场景、光影方向、摄影风格。`
         : "",
@@ -80,6 +102,10 @@ ${roleStatement}
 - 最终输出必须包含所有图号：${allImageRefs.join("、")}。
 - 图片顺序、图号含义、服装图/参考图/模特脸图的角色不得改写。
 - 可以优化摄影语言和服装细节，但不能把图号换成“第一张图/参考图片/人物图”等模糊说法。
+- ${clothingRefs.join("、")} 是服装图，只能作为服装硬参考；如果服装图是真人上身图，图中人物、脸、姿势、背景、房间、户外环境、光线、构图和镜头距离都不能作为最终画面参考。
+
+【服装图隔离硬规则】
+${TRYON_CLOTHING_IMAGE_ROLE_RULE}
 
 【系统预设提示词】
 ${basePrompt || "无"}
@@ -88,7 +114,7 @@ ${basePrompt || "无"}
 ${userStyle || "无"}
 
 【输出维度】
-1. 任务：说明将${clothingRefs.join("、")}的服装穿到最终人物身上，图号必须保留。
+1. 任务：说明将${clothingRefs.join("、")}的服装穿到最终人物身上，图号和${clothingMode === "multi" ? "上装/下装搭配关系" : "单件服装关系"}必须保留。
 2. 服装还原：详细描述品类、版型、廓形、颜色、面料、纹理、图案、纽扣/拉链/口袋/刺绣/印花/缝线等细节，不要编造图中没有的配饰。
 3. 人物主体：${model_face_url ? `脸部严格使用图${faceImageNumber}的五官、肤色、发型和气质` : "自然真实的人物，符合商业服装摄影审美"}
 4. 姿态和场景：${poseRule}
@@ -112,6 +138,9 @@ ${userStyle || "无"}
       hasModelFace: !!model_face_url,
       roleStatement,
       style: userStyle,
+      garmentAudience,
+      ageGroup,
+      aspectRatio,
     });
 
     const llm = getLlmConfig("vision");
@@ -157,7 +186,14 @@ ${userStyle || "无"}
     const prompt = extractMessageText(data).trim();
 
     if (prompt) {
-      const checked = enforcePromptRequirements(prompt, allImageRefs, roleStatement);
+      const checked = enforcePromptRequirements(prompt, allImageRefs, roleStatement, {
+        garmentAudience,
+        ageGroup,
+        aspectRatio,
+        hasReference: !!reference_url,
+        hasModelFace: !!model_face_url,
+        referenceImageNumber,
+      });
       console.log("[analyze] 生成的提示词:", checked.prompt);
       return NextResponse.json({
         prompt: checked.prompt,
@@ -214,7 +250,19 @@ function buildRoleStatement(params: {
   return `图像角色：${roles.join("，")}。`;
 }
 
-function enforcePromptRequirements(prompt: string, allImageRefs: string[], roleStatement: string) {
+function enforcePromptRequirements(
+  prompt: string,
+  allImageRefs: string[],
+  roleStatement: string,
+  audience: {
+    garmentAudience?: TryOnGarmentAudience;
+    ageGroup?: TryOnAgeGroup;
+    aspectRatio?: string;
+    hasReference?: boolean;
+    hasModelFace?: boolean;
+    referenceImageNumber?: number;
+  } = {}
+) {
   let nextPrompt = prompt.trim().replace(/\s+/g, " ");
   let repaired = false;
 
@@ -224,11 +272,21 @@ function enforcePromptRequirements(prompt: string, allImageRefs: string[], roleS
     repaired = true;
   }
 
-  const missingQuality = QUALITY_DIMENSIONS
-    .split(", ")
-    .filter((dimension) => !nextPrompt.includes(dimension));
-  if (missingQuality.length) {
-    nextPrompt = `${nextPrompt} ${QUALITY_DIMENSIONS}`;
+  const enforcedPrompt = enforceTryOnPromptRequirements(
+    applyTryOnFramePrompt(applyTryOnAudiencePrompt(nextPrompt, audience), {
+      aspectRatio: audience.aspectRatio,
+      hasReference: audience.hasReference,
+      referenceImageNumber: audience.referenceImageNumber,
+    }),
+    allImageRefs,
+    {
+      garmentAudience: audience.garmentAudience,
+      ageGroup: audience.ageGroup,
+      hasModelFace: audience.hasModelFace,
+    }
+  );
+  if (enforcedPrompt !== nextPrompt) {
+    nextPrompt = enforcedPrompt;
     repaired = true;
   }
 
@@ -243,6 +301,9 @@ function buildFallbackPrompt(params: {
   hasModelFace: boolean;
   roleStatement: string;
   style?: string;
+  garmentAudience?: TryOnGarmentAudience;
+  ageGroup?: TryOnAgeGroup;
+  aspectRatio?: string;
 }) {
   const clothingRefs = Array.from({ length: params.clothingCount }, (_, index) => `图${index + 1}`);
   const clothingText = clothingRefs.join("、");
@@ -257,5 +318,23 @@ function buildFallbackPrompt(params: {
     ? `将${clothingText}的服装搭配成一套完整穿搭，保留每件服装的版型、颜色、材质、图案、纹理和细节（纽扣/拉链/口袋/刺绣/印花等），服装自然贴合人体，布料褶皱真实。`
     : `忠实还原${clothingText}的服装品类、版型、颜色、材质、图案和所有细节，服装自然贴合人体，布料褶皱和缝线纹理真实。`;
 
-  return `${params.roleStatement} Fashion photography, full body portrait of a young woman with natural real-person appearance, wearing clothing from ${clothingText}. ${clothingDetail} Elegant and confident posture, natural dynamic fashion pose, subtle eye contact with camera. Shot on medium format camera, 85mm f/1.4 prime lens, ultra-shallow depth of field, crisp focus on model. Professional studio lighting: key light from soft octabox, gentle fill light, delicate rim light. ${referenceText} ${faceText} ${QUALITY_DIMENSIONS}. No extra people, no body distortion, no plastic skin, no wax figure look, no cartoon style, no AI rendering artifacts. ${params.style?.trim() ? params.style.trim() : ""}`;
+  return enforceTryOnPromptRequirements(
+    applyTryOnFramePrompt(
+      applyTryOnAudiencePrompt(
+        `${params.roleStatement} Fashion photography, full body portrait of a real fashion model with natural real-person appearance, wearing clothing from ${clothingText}. ${TRYON_CLOTHING_IMAGE_ROLE_RULE} ${clothingDetail} ${TRYON_GARMENT_RULE}${TRYON_FIT_RULE}${TRYON_PHOTOGRAPHY_RULE} Elegant and confident posture, natural dynamic fashion pose, subtle eye contact with camera. Shot on medium format camera, 85mm f/1.4 prime lens, ultra-shallow depth of field, crisp focus on model. Professional studio lighting: key light from soft octabox, gentle fill light, delicate rim light. ${referenceText} ${faceText} ${QUALITY_DIMENSIONS}. No extra people, no body distortion, no plastic skin, no wax figure look, no cartoon style, no AI rendering artifacts. ${params.style?.trim() ? params.style.trim() : ""}`,
+        { garmentAudience: params.garmentAudience, ageGroup: params.ageGroup }
+      ),
+      {
+        aspectRatio: params.aspectRatio,
+        hasReference: params.hasReference,
+        referenceImageNumber: params.referenceImageNumber,
+      }
+    ),
+    clothingRefs,
+    {
+      garmentAudience: params.garmentAudience,
+      ageGroup: params.ageGroup,
+      hasModelFace: params.hasModelFace,
+    }
+  );
 }

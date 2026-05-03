@@ -29,9 +29,14 @@ jobs:
             --exclude='./.next' \
             --exclude='./.vercel' \
             --exclude='./.deploy' \
+            --exclude='./.ui-check' \
             --exclude='./node_modules' \
             --exclude='./.env.local' \
             --exclude='./.env.production' \
+            --exclude='./.api-platform-test-results*.json' \
+            --exclude='./.qwen-edits-test-results.json' \
+            --exclude='./old-references-contact.jpg' \
+            --exclude='./tmp-module-code.txt' \
             --exclude='./*.log' \
             -czf .deploy/app.tar.gz .
 

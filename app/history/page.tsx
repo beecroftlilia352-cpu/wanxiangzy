@@ -1,12 +1,42 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Download, Clock, XCircle, Loader2, Coins, X, RotateCcw, Copy, Maximize2, Eye, ImageIcon, ZoomIn, ZoomOut } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Download, Clock, XCircle, Loader2, Coins, X, RotateCcw, Copy, Maximize2, Eye, ImageIcon, ZoomIn, ZoomOut, Plus, Sparkles } from "lucide-react";
 import { downloadImage, generateDownloadFilename } from "@/lib/utils";
 import { getApplyPath, saveApplyPayload, type HistoryJobPayload } from "@/lib/history-apply";
 import { buildTryOnPrompt } from "@/lib/api/lingya";
+import { ClientPortal } from "@/components/ClientPortal";
+import { AUTO_DESIGN_PLATFORMS, SCENE_MODE_LABELS } from "@/lib/tryon-scene";
+import { TRYON_CLOTHING_ROLE_LABELS } from "@/lib/tryon-upload-rules";
+import {
+  getGarment3dDisplayStyleLabel,
+  getModelShootStyleLabel,
+  getPoseSeriesStyleLabel,
+} from "@/lib/module-style-presets";
+import { BACKGROUND_SOURCE_LABELS, MODEL_BACKGROUND_MODE_LABELS } from "@/lib/model-background";
 
 const HISTORY_PAGE_SIZE = 12;
+
+type HistoryModuleFilter = "all" | "tryon" | "grass" | "modelBackground" | "pose" | "model" | "garment3d";
+type HistoryStatusFilter = "all" | "completed" | "processing" | "pending" | "failed";
+
+const MODULE_FILTERS: { value: HistoryModuleFilter; label: string }[] = [
+  { value: "all", label: "全部模块" },
+  { value: "tryon", label: "服装上身" },
+  { value: "grass", label: "服装种草" },
+  { value: "modelBackground", label: "模特换背景" },
+  { value: "pose", label: "姿势裂变" },
+  { value: "model", label: "专属模特" },
+  { value: "garment3d", label: "服装 3D" },
+];
+
+const STATUS_FILTERS: { value: HistoryStatusFilter; label: string }[] = [
+  { value: "all", label: "全部状态" },
+  { value: "completed", label: "已完成" },
+  { value: "processing", label: "处理中" },
+  { value: "pending", label: "排队中" },
+  { value: "failed", label: "失败" },
+];
 
 type HistoryRow = {
   id: string;
@@ -44,6 +74,8 @@ export default function HistoryPage() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailResultIndex, setDetailResultIndex] = useState(0);
   const [detailZoom, setDetailZoom] = useState(100);
+  const [moduleFilter, setModuleFilter] = useState<HistoryModuleFilter>("all");
+  const [statusFilter, setStatusFilter] = useState<HistoryStatusFilter>("all");
 
   useEffect(() => {
     let cancelled = false;
@@ -110,6 +142,13 @@ export default function HistoryPage() {
   const detailResults = detailRow?.result_urls || [];
   const selectedResultIndex = detailResults.length ? Math.min(detailResultIndex, detailResults.length - 1) : 0;
   const selectedResultUrl = detailResults[selectedResultIndex];
+  const filteredRows = useMemo(() => rows.filter((row) => {
+    const payload = getRowPayload(row);
+    const moduleMatch = moduleFilter === "all" || payload?.kind === moduleFilter;
+    const normalizedStatus = row.status === "processing_tryon" ? "processing" : row.status;
+    const statusMatch = statusFilter === "all" || normalizedStatus === statusFilter;
+    return moduleMatch && statusMatch;
+  }), [rows, moduleFilter, statusFilter]);
 
   const fetchHistoryDetail = async (row: HistoryRow) => {
     if (getPayload(row)?.kind) return row;
@@ -166,42 +205,100 @@ export default function HistoryPage() {
   );
 
   if (state === "noauth") return (
-    <div className="max-w-4xl mx-auto px-4 py-20 text-center">
-      <p className="text-gray-500 mb-4">请先登录</p>
-      <a href="/login" className="px-5 py-2.5 rounded-full gradient-brand text-white text-sm font-medium">去登录</a>
+    <div className="studio-empty-stage flex min-h-[calc(100dvh-64px)] items-center justify-center px-4 py-16">
+      <div className="w-full max-w-md rounded-[30px] border border-white/80 bg-white/75 p-8 text-center shadow-[0_24px_80px_rgba(15,23,42,0.12)] backdrop-blur-2xl">
+        <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-lg shadow-violet-200/60">
+          <Sparkles className="h-7 w-7 text-violet-500" />
+        </div>
+        <h1 className="text-2xl font-black text-slate-950">登录后查看作品资产</h1>
+        <p className="mt-3 text-sm leading-6 text-slate-500">你的生成结果、输入图片、提示词参数和套用记录都会保存在这里。</p>
+        <a href="/login" className="gradient-brand mt-6 inline-flex h-11 items-center justify-center rounded-full px-6 text-sm font-black text-white shadow-xl shadow-purple-200/70">去登录</a>
+      </div>
     </div>
   );
 
   if (state === "error") return (
-    <div className="max-w-4xl mx-auto px-4 py-20 text-center">
-      <XCircle className="w-12 h-12 mx-auto mb-3 text-red-300" />
-      <p className="text-red-500 text-sm mb-4">{errMsg}</p>
-      <button onClick={() => location.reload()} className="px-5 py-2 rounded-full border text-sm hover:bg-gray-50">重试</button>
+    <div className="studio-empty-stage flex min-h-[calc(100dvh-64px)] items-center justify-center px-4 py-16">
+      <div className="w-full max-w-md rounded-[30px] border border-white/80 bg-white/75 p-8 text-center shadow-[0_24px_80px_rgba(15,23,42,0.12)] backdrop-blur-2xl">
+        <XCircle className="mx-auto mb-4 h-12 w-12 text-red-300" />
+        <h1 className="text-xl font-black text-slate-950">作品加载失败</h1>
+        <p className="mt-3 text-sm leading-6 text-red-500">{errMsg}</p>
+        <button onClick={() => location.reload()} className="mt-6 h-11 rounded-full border border-slate-200 bg-white px-6 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50">重试</button>
+      </div>
     </div>
   );
 
   if (state === "empty") return (
-    <div className="max-w-4xl mx-auto px-4 py-20 text-center">
-      <Clock className="w-12 h-12 mx-auto mb-4 text-gray-200" />
-      <p className="text-gray-400 mb-4">暂无记录</p>
-      <a href="/create" className="text-purple-600 font-medium hover:underline">去创作</a>
+    <div className="studio-empty-stage flex min-h-[calc(100dvh-64px)] items-center justify-center px-4 py-16">
+      <div className="w-full max-w-md rounded-[30px] border border-white/80 bg-white/75 p-8 text-center shadow-[0_24px_80px_rgba(15,23,42,0.12)] backdrop-blur-2xl">
+        <Clock className="mx-auto mb-4 h-12 w-12 text-slate-300" />
+        <h1 className="text-2xl font-black text-slate-950">还没有作品</h1>
+        <p className="mt-3 text-sm leading-6 text-slate-500">完成一次服装上身、姿势裂变、专属模特或服装 3D 后，作品会自动进入资产库。</p>
+        <a href="/create" className="gradient-brand mt-6 inline-flex h-11 items-center justify-center gap-2 rounded-full px-6 text-sm font-black text-white shadow-xl shadow-purple-200/70">
+          <Plus className="h-4 w-4" />
+          开始创作
+        </a>
+      </div>
     </div>
   );
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6 sm:py-8">
+    <div className="studio-workbench min-h-[calc(100dvh-64px)] px-4 py-6 sm:py-8">
       <HistorySkeletonStyles />
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div className="mx-auto mb-6 flex max-w-7xl flex-col gap-4 rounded-[28px] border border-white/80 bg-white/72 p-5 shadow-[0_18px_60px_rgba(15,23,42,0.08)] backdrop-blur-2xl sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-xs font-medium text-gray-400">作品库</p>
-          <h1 className="mt-1 text-2xl font-bold text-gray-950">历史作品</h1>
-          <p className="mt-1 text-sm text-gray-500">已加载 {rows.length} 条</p>
+          <p className="inline-flex items-center gap-1.5 rounded-full bg-violet-50 px-3 py-1 text-[11px] font-black text-violet-600">
+            <Sparkles className="h-3.5 w-3.5" />
+            Asset Library
+          </p>
+          <h1 className="mt-3 text-3xl font-black text-slate-950">作品资产</h1>
+          <p className="mt-2 text-sm leading-6 text-slate-500">已加载 {rows.length} 条作品，当前显示 {filteredRows.length} 条，可查看大图、下载结果、复制提示词并套用完整参数。</p>
         </div>
-        <a href="/create" className="inline-flex w-full justify-center rounded-full gradient-brand px-5 py-2.5 text-sm font-medium text-white shadow-sm sm:w-auto">新创作</a>
+        <a href="/create" className="gradient-brand inline-flex h-11 w-full items-center justify-center gap-2 rounded-full px-5 text-sm font-black text-white shadow-xl shadow-purple-200/70 sm:w-auto">
+          <Plus className="h-4 w-4" />
+          新创作
+        </a>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        {rows.map((g: HistoryRow) => {
+      <div className="mx-auto mb-4 max-w-7xl rounded-[24px] border border-white/80 bg-white/68 p-3 shadow-[0_14px_44px_rgba(15,23,42,0.06)] backdrop-blur-2xl">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {MODULE_FILTERS.map((item) => (
+              <button
+                key={item.value}
+                type="button"
+                onClick={() => setModuleFilter(item.value)}
+                className={`h-9 flex-shrink-0 rounded-full px-3 text-xs font-black transition ${
+                  moduleFilter === item.value
+                    ? "gradient-brand text-white shadow-lg shadow-purple-100"
+                    : "border border-slate-200 bg-white/76 text-slate-600 hover:bg-white"
+                }`}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {STATUS_FILTERS.map((item) => (
+              <button
+                key={item.value}
+                type="button"
+                onClick={() => setStatusFilter(item.value)}
+                className={`h-9 flex-shrink-0 rounded-full px-3 text-xs font-bold transition ${
+                  statusFilter === item.value
+                    ? "border border-violet-200 bg-violet-50 text-violet-600"
+                    : "border border-slate-200 bg-white/76 text-slate-500 hover:bg-white"
+                }`}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="mx-auto grid max-w-7xl grid-cols-1 gap-4 lg:grid-cols-2">
+        {filteredRows.map((g: HistoryRow) => {
           const payload = getPayload(g);
           const resultUrls = g.result_urls || [];
           const coverUrl = resultUrls[0];
@@ -210,12 +307,12 @@ export default function HistoryPage() {
           const credits = g.credits_cost || g.credits_used || "-";
 
           return (
-            <article key={g.id} className="group overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg">
+            <article key={g.id} className="group overflow-hidden rounded-[28px] border border-white/80 bg-white/78 shadow-[0_18px_54px_rgba(15,23,42,0.08)] backdrop-blur-xl transition hover:-translate-y-0.5 hover:shadow-[0_24px_76px_rgba(15,23,42,0.12)]">
               <div className="flex flex-col sm:flex-row">
                 <button
                   type="button"
                   onClick={() => openDetail(g)}
-                  className="relative aspect-[4/5] overflow-hidden bg-gray-100 sm:w-44 sm:flex-shrink-0 sm:aspect-[3/4] md:w-52"
+                    className="relative aspect-[4/5] overflow-hidden bg-slate-100 sm:w-44 sm:flex-shrink-0 sm:aspect-[3/4] md:w-52"
                 >
                   {coverUrl ? (
                     <img src={coverUrl} className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]" alt="历史作品封面" />
@@ -294,7 +391,7 @@ export default function HistoryPage() {
                     <button
                       onClick={() => openDetail(g)}
                       disabled={detailLoading}
-                      className="inline-flex items-center gap-1.5 rounded-full bg-gray-950 px-3 py-1.5 text-xs font-medium text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="gradient-brand inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold text-white shadow-lg shadow-purple-100 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       <Eye className="h-3.5 w-3.5" />
                       查看作品
@@ -302,7 +399,7 @@ export default function HistoryPage() {
                     <button
                       onClick={() => applyHistoryRow(g)}
                       disabled={detailLoading}
-                      className="inline-flex items-center gap-1.5 rounded-full bg-purple-50 px-3 py-1.5 text-xs font-medium text-purple-600 hover:bg-purple-100 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="inline-flex items-center gap-1.5 rounded-full bg-violet-50 px-3 py-1.5 text-xs font-bold text-violet-600 hover:bg-violet-100 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       <RotateCcw className="h-3.5 w-3.5" />
                       套用
@@ -310,7 +407,7 @@ export default function HistoryPage() {
                     <button
                       onClick={() => coverUrl && downloadHistoryResult(g, coverUrl, 0)}
                       disabled={!coverUrl}
-                      className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white/70 px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <Download className="h-3.5 w-3.5" />
                       下载
@@ -321,6 +418,13 @@ export default function HistoryPage() {
             </article>
           );
         })}
+        {filteredRows.length === 0 && !loadingMore && (
+          <div className="col-span-full rounded-[28px] border border-white/80 bg-white/70 p-8 text-center shadow-[0_18px_54px_rgba(15,23,42,0.07)] backdrop-blur-2xl">
+            <ImageIcon className="mx-auto mb-3 h-10 w-10 text-slate-300" />
+            <h2 className="text-base font-black text-slate-950">没有匹配的作品</h2>
+            <p className="mt-2 text-sm text-slate-500">换一个模块或状态筛选，或者继续加载更多历史记录。</p>
+          </div>
+        )}
         {loadingMore && Array.from({ length: 2 }).map((_, index) => (
           <HistoryCardSkeleton key={`loading-more-${index}`} />
         ))}
@@ -342,13 +446,16 @@ export default function HistoryPage() {
         )}
       </div>
       {detailLoading && (
-        <DetailLoadingSkeleton />
+        <ClientPortal>
+          <DetailLoadingSkeleton />
+        </ClientPortal>
       )}
       {detailRow && (
-        <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/30 p-3 backdrop-blur-xl sm:p-6"
-          onClick={() => setDetailRow(null)}
-        >
+        <ClientPortal>
+          <div
+            className="fixed inset-0 z-[140] flex items-center justify-center bg-slate-950/30 p-3 backdrop-blur-xl sm:p-6"
+            onClick={() => setDetailRow(null)}
+          >
           <div
             className="flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-[28px] border border-white/70 bg-white/85 shadow-[0_28px_90px_rgba(15,23,42,0.28)] backdrop-blur-2xl"
             onClick={(e) => e.stopPropagation()}
@@ -544,13 +651,15 @@ export default function HistoryPage() {
               </aside>
             </div>
           </div>
-        </div>
+          </div>
+        </ClientPortal>
       )}
       {lightboxSrc && (
-        <div
-          className="fixed inset-0 z-[100] flex cursor-zoom-out items-center justify-center bg-slate-950/35 p-5 backdrop-blur-xl"
-          onClick={() => setLightboxSrc(null)}
-        >
+        <ClientPortal>
+          <div
+            className="fixed inset-0 z-[180] flex cursor-zoom-out items-center justify-center bg-slate-950/35 p-5 backdrop-blur-xl"
+            onClick={() => setLightboxSrc(null)}
+          >
           <div className="flex max-h-full max-w-full items-center justify-center rounded-[28px] border border-white/70 bg-white/75 p-4 shadow-[0_28px_90px_rgba(15,23,42,0.32)] backdrop-blur-2xl">
             <img
               src={lightboxSrc}
@@ -561,11 +670,12 @@ export default function HistoryPage() {
           <button
             type="button"
             onClick={() => setLightboxSrc(null)}
-            className="absolute right-6 top-6 flex h-10 w-10 items-center justify-center rounded-full border border-white/70 bg-white/80 text-gray-700 shadow-sm backdrop-blur hover:bg-white"
+            className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full border border-white/85 bg-white/90 text-slate-700 shadow-[0_12px_34px_rgba(15,23,42,0.22)] backdrop-blur transition-colors hover:bg-white hover:text-slate-950 sm:right-6 sm:top-6"
           >
             <X className="w-5 h-5" />
           </button>
-        </div>
+          </div>
+        </ClientPortal>
       )}
     </div>
   );
@@ -573,9 +683,9 @@ export default function HistoryPage() {
 
 function HistoryLoadingSkeleton() {
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6 sm:py-8">
+    <div className="studio-workbench min-h-[calc(100dvh-64px)] px-4 py-6 sm:py-8">
       <HistorySkeletonStyles />
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div className="mx-auto mb-6 flex max-w-7xl flex-col gap-4 rounded-[28px] border border-white/80 bg-white/72 p-5 shadow-[0_18px_60px_rgba(15,23,42,0.08)] backdrop-blur-2xl sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-3">
           <SkeletonBlock className="h-3 w-16 rounded-full" />
           <SkeletonBlock className="h-8 w-36 rounded-xl" />
@@ -583,7 +693,7 @@ function HistoryLoadingSkeleton() {
         </div>
         <SkeletonBlock className="h-10 w-full rounded-full sm:w-28" />
       </div>
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div className="mx-auto grid max-w-7xl grid-cols-1 gap-4 lg:grid-cols-2">
         {Array.from({ length: 6 }).map((_, index) => (
           <HistoryCardSkeleton key={index} />
         ))}
@@ -736,6 +846,8 @@ function HistorySkeletonStyles() {
 
 function formatKind(kind?: HistoryJobPayload["kind"]) {
   if (kind === "tryon") return "服装上身";
+  if (kind === "grass") return "服装种草图";
+  if (kind === "modelBackground") return "模特换背景";
   if (kind === "garment3d") return "服装转3D";
   if (kind === "model") return "专属模特";
   if (kind === "pose") return "姿势裂变";
@@ -748,6 +860,13 @@ function formatStatus(status: string) {
   if (status === "processing") return "处理中";
   if (status === "pending") return "排队中";
   return status;
+}
+
+function formatGrassSceneMode(mode?: string) {
+  if (mode === "custom_prompt") return "用户自定义";
+  if (mode === "upload_reference") return "上传参考图";
+  if (mode === "system_reference") return "系统参考图";
+  return "-";
 }
 
 function getStatusClasses(status: string) {
@@ -799,7 +918,7 @@ function getRowPayload(row: HistoryRow) {
   if (!payload || typeof payload !== "object") return undefined;
 
   const kind = (payload as { kind?: unknown }).kind;
-  if (kind === "tryon" || kind === "garment3d" || kind === "model" || kind === "pose") {
+  if (kind === "tryon" || kind === "grass" || kind === "modelBackground" || kind === "garment3d" || kind === "model" || kind === "pose") {
     return payload as HistoryJobPayload;
   }
 
@@ -812,6 +931,11 @@ function getPromptText(payload: HistoryJobPayload) {
 
     return buildTryOnPrompt({
       clothingCount: payload.clothingUrls.length || 1,
+      clothingMode: payload.clothingMode,
+      clothingRoles: payload.clothingRoles,
+      garmentAudience: payload.garmentAudience,
+      ageGroup: payload.ageGroup,
+      aspectRatio: payload.aspectRatio,
       hasModelFace: !!payload.modelFaceUrl,
       hasReference: !!payload.referenceUrl,
       style: payload.style || undefined,
@@ -823,7 +947,10 @@ function getPromptText(payload: HistoryJobPayload) {
 function getInputImages(payload: HistoryJobPayload) {
   if (payload.kind === "tryon") {
     return [
-      ...payload.clothingUrls.map((url, index) => ({ label: `服装图${index + 1}`, url })),
+      ...payload.clothingUrls.map((url, index) => ({
+        label: payload.clothingRoles?.[index] ? TRYON_CLOTHING_ROLE_LABELS[payload.clothingRoles[index]] : `服装图${index + 1}`,
+        url,
+      })),
       ...(payload.referenceUrl ? [{ label: "参考图", url: payload.referenceUrl }] : []),
       ...(payload.modelFaceUrl ? [{ label: "模特脸", url: payload.modelFaceUrl }] : []),
     ];
@@ -834,6 +961,19 @@ function getInputImages(payload: HistoryJobPayload) {
       ...(payload.referenceUrl ? [{ label: "3D参考图", url: payload.referenceUrl }] : []),
     ];
   }
+  if (payload.kind === "grass") {
+    return [
+      { label: "服装图", url: payload.garmentUrl },
+      ...(payload.referenceUrl ? [{ label: "种草参考图", url: payload.referenceUrl }] : []),
+    ];
+  }
+  if (payload.kind === "modelBackground") {
+    return [
+      { label: "原图", url: payload.sourceUrl },
+      ...(payload.modelReferenceUrl ? [{ label: "模特参考", url: payload.modelReferenceUrl }] : []),
+      ...(payload.backgroundReferenceUrl ? [{ label: "背景参考", url: payload.backgroundReferenceUrl }] : []),
+    ];
+  }
   if (payload.kind === "model") {
     return [
       ...payload.referenceUrls.map((url, index) => ({ label: `人物图${index + 1}`, url })),
@@ -841,7 +981,10 @@ function getInputImages(payload: HistoryJobPayload) {
       ...(payload.hairColorReferenceUrl ? [{ label: "发色参考", url: payload.hairColorReferenceUrl }] : []),
     ];
   }
-  return [{ label: "主图", url: payload.mainImageUrl }];
+  if (payload.kind === "pose") {
+    return [{ label: "主图", url: payload.mainImageUrl }];
+  }
+  return [];
 }
 
 function getParameterItems(row: HistoryRow) {
@@ -860,9 +1003,13 @@ function getParameterItems(row: HistoryRow) {
       ...common,
       { label: "比例", value: payload.aspectRatio },
       { label: "生成张数", value: String(payload.genCount) },
+      { label: "上身模式", value: payload.clothingMode === "multi" ? "多件上身" : "单件上身" },
+      { label: "服装角色", value: payload.clothingRoles?.map((role) => TRYON_CLOTHING_ROLE_LABELS[role]).join("、") || "-" },
       { label: "服装数量", value: String(payload.clothingUrls.length) },
       { label: "模特脸", value: payload.modelFaceUrl ? "已使用" : "未使用" },
       { label: "参考图", value: payload.referenceUrl ? "已使用" : "未使用" },
+      { label: "场景模式", value: payload.sceneMode ? SCENE_MODE_LABELS[payload.sceneMode] : "-" },
+      { label: "自动设计", value: payload.autoDesign ? AUTO_DESIGN_PLATFORMS.find((item) => item.value === payload.autoDesign?.platform)?.label || "已使用" : "未使用" },
     ];
   }
   if (payload.kind === "garment3d") {
@@ -872,6 +1019,7 @@ function getParameterItems(row: HistoryRow) {
       { label: "生成张数", value: String(payload.genCount) },
       { label: "服装类型", value: payload.garmentType || "-" },
       { label: "输出模式", value: payload.outputMode === "reference" ? "参考图模式" : "提示词模式" },
+      { label: "展示质感", value: getGarment3dDisplayStyleLabel(payload.displayStyle) },
       { label: "3D参考图", value: payload.referenceUrl ? "已使用" : "未使用" },
     ];
   }
@@ -881,11 +1029,44 @@ function getParameterItems(row: HistoryRow) {
       { label: "比例", value: payload.aspectRatio },
       { label: "生成张数", value: String(payload.genCount) },
       { label: "性别", value: payload.gender === "male" ? "男" : "女" },
+      { label: "模特风格", value: getModelShootStyleLabel(payload.modelStyle) },
       { label: "人物参考", value: String(payload.referenceUrls.length) },
       { label: "发型", value: payload.hairStyle || "-" },
       { label: "发色", value: payload.hairColor || "-" },
       { label: "发型参考", value: payload.hairReferenceUrl ? "已使用" : "未使用" },
       { label: "发色参考", value: payload.hairColorReferenceUrl ? "已使用" : "未使用" },
+    ];
+  }
+  if (payload.kind === "grass") {
+    return [
+      ...common,
+      { label: "比例", value: payload.aspectRatio },
+      { label: "生成张数", value: String(payload.genCount) },
+      { label: "模板", value: payload.templateId },
+      { label: "场景模式", value: formatGrassSceneMode(payload.sceneMode) },
+      { label: "种草参考图", value: payload.referenceUrl ? "已使用" : "未使用" },
+      { label: "模特控制", value: payload.changeModel ? "改变模特" : "保持模特" },
+    ];
+  }
+  if (payload.kind === "modelBackground") {
+    return [
+      ...common,
+      { label: "比例", value: payload.aspectRatio },
+      { label: "生成张数", value: String(payload.genCount) },
+      { label: "操作模式", value: MODEL_BACKGROUND_MODE_LABELS[payload.mode] },
+      { label: "背景来源", value: BACKGROUND_SOURCE_LABELS[payload.backgroundSource] },
+      { label: "背景模板", value: payload.templateId },
+      { label: "模特参考", value: payload.modelReferenceUrl ? "已使用" : "未使用" },
+      { label: "背景参考", value: payload.backgroundReferenceUrl ? "已使用" : "未使用" },
+    ];
+  }
+  if (payload.kind === "pose") {
+    return [
+      ...common,
+      { label: "比例", value: "3:4" },
+      { label: "生成张数", value: "1" },
+      { label: "拍摄风格", value: getPoseSeriesStyleLabel(payload.poseStyle) },
+      { label: "表情控制", value: payload.varyExpression === false ? "尽量一致" : "自然变化" },
     ];
   }
   return common;

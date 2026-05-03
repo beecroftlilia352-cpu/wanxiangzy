@@ -2,10 +2,22 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/api/auth";
 import { getChatCompletionsUrl, getLlmConfig } from "@/lib/api/llm-provider";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
+import {
+  MODEL_AGE_TEXTURE_RULE,
+  MODEL_FACE_SHAPE_RULE,
+  MODEL_FACE_STYLE_RULE,
+  MODEL_FEATURE_IDENTITY_RULE,
+  MODEL_FUSION_RULE,
+  MODEL_MAKEUP_RULE,
+  MODEL_SKIN_TONE_RULE,
+  buildModelIdentityRoleStatement,
+  enforceModelPromptRequirements,
+  getModelQualityPrompt,
+} from "@/lib/model-prompt";
+import { applyModelShootStylePrompt, buildModelShootStylePrompt, getModelShootStyleLabel, normalizeModelShootStyle } from "@/lib/module-style-presets";
 
 const ANALYZE_TIMEOUT_MS = Number(process.env.LINGYA_ANALYZE_TIMEOUT_MS || 30000);
-const MODEL_QUALITY =
-  "photorealistic, 8K ultra-detailed, commercial portrait quality, cinematic color grade, sharp facial details, sharp hair details, raw photo quality";
+const MODEL_QUALITY = getModelQualityPrompt();
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,37 +28,41 @@ export async function POST(request: NextRequest) {
     if (!limit.ok) return rateLimitResponse(limit.retryAfterSeconds);
 
     const llm = getLlmConfig("vision");
-    if (!llm.apiKey) return NextResponse.json({ prompt: "" });
+    if (!llm.apiKey || !llm.baseUrl) return NextResponse.json({ prompt: "" });
 
-    const { reference_urls, hair_reference_url, hair_color_reference_url, gender, hair_style, hair_color, prompt } = await request.json();
+    const {
+      reference_urls,
+      hair_reference_url,
+      hair_color_reference_url,
+      gender,
+      model_style,
+      hair_style,
+      hair_color,
+      prompt,
+    } = await request.json();
     if (!reference_urls?.length) return NextResponse.json({ prompt: "" });
 
-    if (!llm.baseUrl) return NextResponse.json({ prompt: "" });
-
+    const referenceCount = reference_urls.length;
     const roleLines = reference_urls
-      .map((_: string, index: number) => `图${index + 1}：模特参考图，分析脸型、五官、肤色、气质。`)
+      .map((_: string, index: number) => `图${index + 1}：人脸与风格融合参考图，分析脸型、五官比例、眼鼻唇特征、肤色、年龄感、眼神气质、妆容风格、面部氛围和真实细节。`)
       .join("\n");
-    const hairReferenceIndex = reference_urls.length + 1;
-    const hairColorReferenceIndex = reference_urls.length + (hair_reference_url ? 2 : 1);
+    const hairReferenceIndex = referenceCount + 1;
+    const hairColorReferenceIndex = referenceCount + (hair_reference_url ? 2 : 1);
     const hairReferenceLine = hair_reference_url
-      ? `\n图${hairReferenceIndex}：发型参考图，只参考发型，不参考人脸。`
+      ? `\n图${hairReferenceIndex}：发型参考图，只参考发型轮廓、长度、刘海、分缝、蓬松度和发丝走向，不参考人脸身份。`
       : "";
     const hairColorReferenceLine = hair_color_reference_url
-      ? `\n图${hairColorReferenceIndex}：发色参考图，只参考发色，不参考人脸。`
+      ? `\n图${hairColorReferenceIndex}：发色参考图，只参考头发颜色、明暗层次和染发质感，不参考人脸身份。`
       : "";
-    const expectedRefs = [
-      ...reference_urls.map((_: string, index: number) => `图${index + 1}`),
-      ...(hair_reference_url ? [`图${hairReferenceIndex}`] : []),
-      ...(hair_color_reference_url ? [`图${hairColorReferenceIndex}`] : []),
-    ];
-    const roleStatement = buildRoleStatement({
-      referenceCount: reference_urls.length,
+    const roleStatement = buildModelIdentityRoleStatement({
+      referenceCount,
       hairReferenceIndex: hair_reference_url ? hairReferenceIndex : null,
       hairColorReferenceIndex: hair_color_reference_url ? hairColorReferenceIndex : null,
     });
+    const modelStyle = normalizeModelShootStyle(model_style);
+    const stylePrompt = buildModelShootStylePrompt(modelStyle);
 
     const textPrompt = `分析这些图片，生成专属模特提示词。
-
 ${roleLines}${hairReferenceLine}${hairColorReferenceLine}
 
 性别：${gender === "male" ? "男" : "女"}
@@ -54,12 +70,24 @@ ${roleLines}${hairReferenceLine}${hairColorReferenceLine}
 发色：${hair_color_reference_url ? `参考图${hairColorReferenceIndex}` : hair_color || "自然发色"}
 
 生成规则：
-1. 必须在提示词中写明图号（图1、图2等），例如"融合图1到图${reference_urls.length}的身份特征"
-2. 融合所有参考图为同一人物，不要平均成陌生脸
-3. 用中文描述，一段话，150-250字，不要分段，不要解释
-4. 包含：拍摄风格、人物身份、五官细节、发型、发色、服装、灯光、背景、皮肤质感、图像质量
-5. 结尾必须包含：${MODEL_QUALITY}
-6. 负面：不要多人、不要变形、不要AI味${prompt ? `\n\n用户当前提示词（仅供参考，不要照搬）：\n${prompt}` : ""}`;
+1. 必须写明图号，例如“融合图1到图${referenceCount}的人脸风格与模特气质”。
+2. 图1到图${referenceCount}可能是同一个人，也可能是不同人物；必须把它们作为人脸、气质、妆感和审美风格参考，生成一个新的稳定专属模特身份。
+3. ${MODEL_FUSION_RULE}
+4. ${MODEL_FACE_STYLE_RULE}
+5. ${MODEL_MAKEUP_RULE}
+6. ${MODEL_SKIN_TONE_RULE}
+7. ${MODEL_FACE_SHAPE_RULE}
+8. ${MODEL_FEATURE_IDENTITY_RULE}
+9. ${MODEL_AGE_TEXTURE_RULE}
+10. 发型参考图和发色参考图只参考对应维度，绝不能参与人脸身份融合。
+11. 用中文描述，一段话，260-420字，不要分段，不要解释。
+12. 包含：拍摄风格、人脸融合逻辑、长相风格、模特气质、妆感、肤色、脸型骨相、五官辨识度、年龄感、发型、发色、服装、灯光、背景、皮肤质感、图像质量。
+13. 结尾必须包含：${MODEL_QUALITY}
+14. 负面：不要多个人、不要随机陌生脸、不要只像单张参考图、不要无妆感、不要丢失参考图的面部氛围、不要默认美白、不要雪白皮或冷白皮、不要标准鹅蛋脸、小V脸、尖下巴、大眼高鼻网红审美、不要变形、不要AI味、不要过度磨皮、不要文字水印。
+
+当前专属模特拍摄风格档位：${getModelShootStyleLabel(modelStyle)}
+${stylePrompt}
+${prompt ? `\n用户当前提示词（仅供参考，不要照抄）：\n${prompt}` : ""}`;
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), ANALYZE_TIMEOUT_MS);
@@ -78,55 +106,25 @@ ${roleLines}${hairReferenceLine}${hairColorReferenceLine}
             ...(hair_color_reference_url ? [{ type: "image_url", image_url: { url: hair_color_reference_url } }] : []),
           ],
         }],
-        max_tokens: 500,
+        max_tokens: 850,
       }),
     }).finally(() => clearTimeout(timeout));
 
     if (!res.ok) return NextResponse.json({ prompt: "" });
     const data = await res.json();
+    const analyzedPrompt = data.choices?.[0]?.message?.content?.trim() || "";
+
     return NextResponse.json({
-      prompt: enforcePromptRequirements(
-        data.choices?.[0]?.message?.content?.trim() || "",
-        expectedRefs,
-        roleStatement
-      ),
+      prompt: enforceModelPromptRequirements({
+        prompt: applyModelShootStylePrompt(analyzedPrompt ? `${roleStatement}\n${analyzedPrompt}` : roleStatement, modelStyle),
+        referenceCount,
+        hairReferenceIndex: hair_reference_url ? hairReferenceIndex : null,
+        hairColorReferenceIndex: hair_color_reference_url ? hairColorReferenceIndex : null,
+      }),
     });
   } catch (err: unknown) {
     if (err instanceof Error && err.name === "AbortError") return NextResponse.json({ prompt: "", skipped: true });
     console.error("[model/analyze] error:", err);
     return NextResponse.json({ prompt: "" });
   }
-}
-
-function buildRoleStatement(params: {
-  referenceCount: number;
-  hairReferenceIndex: number | null;
-  hairColorReferenceIndex: number | null;
-}) {
-  const refs = Array.from({ length: params.referenceCount }, (_, index) => `图${index + 1}`).join("、");
-  const extraRoles = [
-    params.hairReferenceIndex ? `图${params.hairReferenceIndex}是发型参考图，只参考发型，不参考人脸身份` : "",
-    params.hairColorReferenceIndex ? `图${params.hairColorReferenceIndex}是发色参考图，只参考发色，不参考人脸身份` : "",
-  ].filter(Boolean);
-
-  return `图像角色：${refs}是同一个专属模特的人物参考图，用于融合人物身份、脸型、五官比例、肤色和气质${extraRoles.length ? `；${extraRoles.join("；")}` : ""}。`;
-}
-
-function enforcePromptRequirements(prompt: string, expectedRefs: string[], roleStatement: string) {
-  if (!prompt) return "";
-
-  let nextPrompt = prompt.replace(/\s+/g, " ").trim();
-  const missingRefs = expectedRefs.filter((ref) => !nextPrompt.includes(ref));
-  if (missingRefs.length) {
-    nextPrompt = `${roleStatement}${nextPrompt}`;
-  }
-
-  const missingQuality = MODEL_QUALITY
-    .split(", ")
-    .filter((dimension) => !nextPrompt.includes(dimension));
-  if (missingQuality.length) {
-    nextPrompt = `${nextPrompt} ${MODEL_QUALITY}`;
-  }
-
-  return nextPrompt;
 }

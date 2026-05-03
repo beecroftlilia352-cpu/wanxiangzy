@@ -3,7 +3,8 @@ import { requireApiUser } from "@/lib/api/auth";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 
 const IMGBB_API_URL = "https://api.imgbb.com/1/upload";
-const MAX_BASE64_LENGTH = 14 * 1024 * 1024; // ~10MB after base64 encoding
+const MAX_UPLOAD_MB = 15;
+const MAX_BASE64_LENGTH = 21 * 1024 * 1024; // ~15MB after base64 encoding
 
 export async function POST(request: Request) {
   try {
@@ -26,7 +27,7 @@ export async function POST(request: Request) {
     }
 
     if (image.length > MAX_BASE64_LENGTH) {
-      return NextResponse.json({ error: "图片不能超过 10MB" }, { status: 400 });
+      return NextResponse.json({ error: `图片不能超过 ${MAX_UPLOAD_MB}MB` }, { status: 400 });
     }
 
     // 去掉 data:image/xxx;base64, 前缀

@@ -1,0 +1,221 @@
+import type { LingyaModel } from "@/lib/api/lingya";
+
+export type ImagePromptKind = "tryon" | "grass" | "modelBackground" | "pose" | "model" | "garment3d";
+
+const KIND_HEADERS: Record<ImagePromptKind, string> = {
+  tryon:
+    "核心任务：按输入图片编号完成服装上身/换装，服装细节、人物身份、肤色、姿势、场景关系必须严格遵守。",
+  grass:
+    "核心任务：生成真实社媒服装种草图。图1是服装/穿搭来源；图2如存在，只提供场景、构图、光线、姿势和氛围。保持图1服装，可按图1风格添加少量自然配饰。",
+  modelBackground:
+    "核心任务：完成换背景/换模特。图1是原始人物/服装/穿搭来源；只换背景时只替换背景，图1人物、脸、发型、服装、姿势和构图保持不变；只换模特时只替换图1脸部，其它不变；背景参考图只提供场景、光线、色彩和空间氛围。人物必须自然融入新背景，匹配光线、色温、曝光、景深、透视、人物尺度、接触阴影和边缘过渡，避免贴纸感。",
+  pose:
+    "核心任务：生成单张 2x2 四宫格姿势裂变图，四格保持同一人、同一衣服、同一场景、同一镜头，只改变姿势和轻微自然表情。",
+  model:
+    "核心任务：融合参考人脸的脸型骨相、五官比例、肤色、妆感、年龄感和气质，生成一个稳定真实的专属模特身份。",
+  garment3d:
+    "核心任务：把图1服装转换为无真人、无头脸手的 3D 立体商品展示图，只增加体积和棚拍质感，不改变款式颜色细节。",
+};
+
+const QUALITY_LINE =
+  "图像质量：photorealistic, 8K ultra-detailed, sharp details, commercial photography quality, raw photo quality.";
+
+const IMPORTANT_PATTERNS = [
+  /图像角色|图\d|核心任务|任务|必须|严格|最重要|参考图|服装图|服装图角色隔离|只提供衣服|真人上身|模特脸|发型参考|发色参考/,
+  /姿势\s*[1-4]|四宫格|2x2|four-panel|contact sheet|镜头统一规则|framing|lens|eye level/,
+  /画幅|构图规则|裁切|裁掉|全身|大半身|半身|头像|商品特写|镜头距离|人物占画面|上下留白|脚部|鞋履|下半身|3:4|4:5|9:16|1:1/,
+  /服装|版型|颜色|图案|logo|材质|纹理|袖口|下摆|拉链|纽扣|口袋|腰线|廓形|面料/,
+  /体态|比例|头身比|头部大小|大头|短腿|儿童化|玩偶|成人|肩颈|腰胯|四肢|脚下接触|身体骨架/,
+  /服装适用人群|年龄段|女装|男装|童装|青少年|大童|中童|小童|幼童|幼龄化|成人化|性感化|浓妆/,
+  /脸型|骨相|五官|肤色|妆感|年龄感|眼神|发型|发色|身份|融合|自然肤色/,
+  /3D|立体|厚度|体积|棚拍|无真人|无头部|无脸|无手|背景/,
+  /负面|不要|禁止|不改变|不要换脸|不要换衣服|不要美白|不要雪白皮|不要多余人物/,
+  /失败修复指令|拍摄风格档位|展示风格档位|展示质感|自动设计|用户补充要求/,
+  /种草|种草硬规则|小红书|社媒|系统预设模板|系统预设风格|预设风格|用户自定义文字提示词|用户自定义|模板目标|卖点|受众|氛围|服装还原|真实分享|买家秀/,
+  /佳能|富士|胶片|人像|商业人像|街拍|咖啡店|对镜自拍|试衣间|居家|电梯|帽子遮脸|色彩|光线质感|镜头语言|摄影风格/,
+  /模特换背景|换背景|只换背景|只换模特|只换脸|换景|换景硬规则|背景参考|背景规则|背景来源|文生背景|原始人物|原始背景|空间关系|空间透视|光线方向|背景氛围|接触阴影|边缘|贴纸感|融合|色温|曝光/,
+];
+
+type RequiredSignal = {
+  name: string;
+  pattern: RegExp;
+  fallback: string;
+};
+
+const REQUIRED_SIGNALS: Record<ImagePromptKind, RequiredSignal[]> = {
+  tryon: [
+    { name: "图片关系", pattern: /图像角色|图1.*服装|图\d/, fallback: "图像角色：必须保留图1、图2、图3等输入图片编号关系。" },
+    { name: "任务", pattern: /任务：|核心任务/, fallback: "任务：按图片编号完成服装上身/换装，服装来源、参考图和模特脸图不得混淆。" },
+    { name: "服装图隔离", pattern: /服装图角色隔离规则|只提供衣服本身|不得作为人物身份|不得复制服装图/, fallback: "服装图角色隔离规则：服装图即使含真人、姿势、背景或构图，也只提供衣服本身；不得作为人物身份、姿势、背景、场景、镜头距离或构图参考。" },
+    { name: "画幅", pattern: /画幅构图规则/, fallback: "画幅构图规则：严格遵守用户选择的输出比例，不要裁掉头部、手部、腿部、脚部或鞋履。" },
+    { name: "服装还原", pattern: /服装还原规则/, fallback: "服装还原规则：严格保留图1服装品类、版型、颜色、图案、logo、面料、领口、袖口、下摆、纽扣、拉链、口袋和缝线。" },
+    { name: "人体比例", pattern: /服装适用人群规则|体态比例规则/, fallback: "体态比例规则：按用户选择的女装/男装和年龄段生成真实自然比例，避免大头小身、短腿、玩偶感和无依据幼龄化。" },
+    { name: "负面约束", pattern: /负面约束|不要生成多余人物/, fallback: "负面约束：不要生成多余人物，不要扭曲身体和服装，不要改变服装结构，不要自动美白，不要文字水印。" },
+  ],
+  grass: [
+    { name: "图片关系", pattern: /图像角色|图1.*服装|图2.*场景/, fallback: "图像角色：图1是服装/穿搭硬参考；图2如存在只作为场景、姿势、背景、构图、镜头距离和氛围参考。" },
+    { name: "硬规则", pattern: /种草硬规则|图1是唯一服装/, fallback: "种草硬规则：图1是唯一服装/穿搭来源，参考图或文字不得改变服装款式、颜色、图案、logo和穿搭层次。" },
+    { name: "风格来源", pattern: /系统预设风格|上传参考图风格|用户自定义执行|参考图风格/, fallback: "风格来源：系统预设、上传参考图或用户自定义只决定场景、构图、光线、姿势和社媒氛围。" },
+    { name: "负面约束", pattern: /负面|不要|避免/, fallback: "负面约束：不要换衣服，不要改颜色，不要改款式，不要新增文字、水印、多余人物或AI渲染感。" },
+  ],
+  modelBackground: [
+    { name: "图片关系", pattern: /图像角色|图1是原始人物/, fallback: "图像角色：图1是原始人物/服装/穿搭硬参考，背景或模特参考不得改变图1服装。" },
+    { name: "换景硬规则", pattern: /换景硬规则|只换背景|只换模特|换模特换背景/, fallback: "换景硬规则：按当前模式只替换允许变化的部分，其他人物、服装、姿势和构图关系保持不变。" },
+    { name: "自然融合", pattern: /自然融入|接触阴影|边缘|贴纸感|空间透视/, fallback: "自然融合：统一光线方向、色温、曝光、对比度、景深、空间透视、人物尺度、接触阴影和边缘过渡，避免贴纸感。" },
+    { name: "负面约束", pattern: /避免|不要|负面/, fallback: "负面约束：不要改变图1服装、不要复制背景参考图人物或衣服、不要白边硬边、漂浮、肢体畸形、水印或AI渲染感。" },
+  ],
+  pose: [
+    { name: "任务", pattern: /图像角色|核心任务|2x2|四宫格/, fallback: "核心任务：生成单张2x2四宫格姿势裂变图，四格保持同一人、同一衣服、同一场景、同一镜头。" },
+    { name: "服装", pattern: /服装展示规则|不要换衣服/, fallback: "服装展示规则：四个姿势都保持同一套服装的结构、颜色、图案、长度、纹理和搭配关系。" },
+    { name: "人体", pattern: /身体动作规则|身体比例|手指|肢体/, fallback: "身体动作规则：动作自然可信，避免断手、错位手指、肢体拉长、身体比例漂移和过度瘦身。" },
+    { name: "负面约束", pattern: /负面约束|不要换脸|不要换衣服/, fallback: "负面约束：不要换脸，不要换衣服，不要改变场景，不要生成多余人物，不要文字水印。" },
+  ],
+  model: [
+    { name: "图片关系", pattern: /图像角色|人脸.*参考图|发型参考图|发色参考图/, fallback: "图像角色：参考图用于融合专属模特身份，发型/发色参考不得被误当成人脸身份。" },
+    { name: "融合", pattern: /融合规则|人脸风格规则|五官辨识度规则/, fallback: "融合规则：综合参考图脸型骨相、五官比例、肤色、妆感、年龄感和气质，生成稳定真实的新专属模特身份。" },
+    { name: "审美负面", pattern: /负面审美约束|不要默认美白|不要标准鹅蛋脸/, fallback: "负面审美约束：不要默认美白，不要标准鹅蛋脸、小V脸、尖下巴、大眼高鼻网红审美或塑料皮肤。" },
+  ],
+  garment3d: [
+    { name: "任务", pattern: /图像角色|3D|立体|无真人/, fallback: "核心任务：把图1服装转换为无真人、无头脸手的3D立体商品展示图。" },
+    { name: "服装还原", pattern: /严格保留|服装.*版型|颜色|材质|纹理/, fallback: "服装还原：严格保留图1服装品类、版型、颜色、材质、纹理、图案、纽扣、拉链、口袋和主要细节。" },
+    { name: "负面约束", pattern: /负面约束|不要生成真人|不要改变/, fallback: "负面约束：不要生成真人身体、模特脸或多件衣服，不要改变服装类型、主色、文字、logo和结构。" },
+  ],
+};
+
+export function compileImagePromptForModel(params: {
+  kind?: ImagePromptKind;
+  model: LingyaModel;
+  prompt: string;
+}) {
+  const normalized = normalizePrompt(params.prompt);
+  if (!params.kind) return normalized;
+  if (params.kind === "tryon") return normalized;
+
+  if (params.model === "gpt-image-2") {
+    return limitPrompt(normalized, 6200);
+  }
+
+  if (params.model === "nano-banana-2" || params.model === "nano-banana-pro") {
+    return compileConcisePrompt(params.kind, normalized, 2300, "短版执行提示：优先服从图片编号、硬性保留项和负面约束。");
+  }
+
+  return compileConcisePrompt(params.kind, normalized, 1900, "Seedream 执行提示：主体和参考图关系优先，避免过长描述稀释重点。");
+}
+
+function compileConcisePrompt(kind: ImagePromptKind, prompt: string, maxChars: number, modelLine: string) {
+  const lines = splitPromptIntoSignalLines(prompt);
+  const requiredSignal = collectRequiredSignalLines(kind, lines);
+  const highSignal = lines.filter((line) => IMPORTANT_PATTERNS.some((pattern) => pattern.test(line)));
+  const selected = dedupeLines([
+    KIND_HEADERS[kind],
+    modelLine,
+    ...requiredSignal,
+    ...highSignal,
+    QUALITY_LINE,
+  ]);
+
+  return limitPrompt(selected.join("\n"), maxChars);
+}
+
+function collectRequiredSignalLines(kind: ImagePromptKind, lines: string[]) {
+  const used = new Set<string>();
+  return REQUIRED_SIGNALS[kind]
+    .map((signal) => {
+      const line = lines.find((item) => signal.pattern.test(item));
+      const selected = line || signal.fallback;
+      const key = `${signal.name}:${selected}`;
+      if (used.has(key)) return "";
+      used.add(key);
+      return selected;
+    })
+    .filter(Boolean);
+}
+
+function splitPromptIntoSignalLines(prompt: string) {
+  return prompt
+    .split("\n")
+    .flatMap((line) => splitLongLine(line.trim()))
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function splitLongLine(line: string) {
+  if (!line || line.length <= 420) return line ? [line] : [];
+
+  const sentenceMatches = line.match(/[^。！？；.!?;]+[。！？；.!?;]?/g) || [line];
+  const chunks: string[] = [];
+  let current = "";
+
+  sentenceMatches.forEach((sentence) => {
+    const next = sentence.trim();
+    if (!next) return;
+    if ((current + next).length <= 420) {
+      current = `${current}${next}`;
+      return;
+    }
+    if (current) chunks.push(current);
+    if (next.length <= 420) {
+      current = next;
+      return;
+    }
+    chunks.push(...splitOversizedSentence(next));
+    current = "";
+  });
+
+  if (current) chunks.push(current);
+  return chunks;
+}
+
+function splitOversizedSentence(sentence: string) {
+  const parts = sentence.match(/[^，,、]+[，,、]?/g) || [sentence];
+  const chunks: string[] = [];
+  let current = "";
+
+  parts.forEach((part) => {
+    const next = part.trim();
+    if (!next) return;
+    if ((current + next).length <= 420) {
+      current = `${current}${next}`;
+      return;
+    }
+    if (current) chunks.push(current);
+    current = next.length <= 420 ? next : next.slice(0, 420);
+  });
+
+  if (current) chunks.push(current);
+  return chunks;
+}
+
+function normalizePrompt(prompt: string) {
+  return prompt
+    .replace(/\r\n/g, "\n")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function dedupeLines(lines: string[]) {
+  const seen = new Set<string>();
+  return lines.filter((line) => {
+    const key = line.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function limitPrompt(prompt: string, maxChars: number) {
+  if (prompt.length <= maxChars) return prompt;
+
+  const lines = prompt.split("\n");
+  const kept: string[] = [];
+  let count = 0;
+  for (const line of lines) {
+    if (count + line.length + 1 > maxChars) continue;
+    kept.push(line);
+    count += line.length + 1;
+  }
+
+  const result = kept.join("\n").trim();
+  return result || prompt.slice(0, maxChars).trim();
+}

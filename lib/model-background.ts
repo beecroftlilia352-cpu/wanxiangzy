@@ -1,0 +1,308 @@
+import type { AspectRatio, ImageSize, LingyaModel } from "@/lib/api/lingya";
+
+const SUPABASE_STORAGE = "https://mtdfvnhphpulhjtnmubw.supabase.co/storage/v1/object/public";
+
+export type ModelBackgroundMode = "model_background" | "background_only" | "model_only";
+export type BackgroundSourceMode = "preset" | "upload" | "text" | "auto";
+export type BackgroundPresetId =
+  | "cafe-courtyard"
+  | "red-brick-white-wall"
+  | "sunny-lawn"
+  | "reef-seaside"
+  | "distant-mountain-lake"
+  | "summer-hydrangea"
+  | "romantic-street"
+  | "forest-studio"
+  | "brown-backdrop";
+
+export type PresetModel = {
+  id: string;
+  name: string;
+  imageUrl: string;
+};
+
+export type ModelBackgroundRuleDemo = {
+  title: string;
+  description: string;
+  imageUrl: string;
+};
+
+export type BackgroundPreset = {
+  id: BackgroundPresetId;
+  name: string;
+  imageUrl: string;
+  prompt: string;
+};
+
+export const MODEL_BACKGROUND_MODE_LABELS: Record<ModelBackgroundMode, string> = {
+  model_background: "换模特换背景",
+  background_only: "只换背景",
+  model_only: "只换模特",
+};
+
+export const BACKGROUND_SOURCE_LABELS: Record<BackgroundSourceMode, string> = {
+  preset: "预设背景",
+  upload: "上传背景",
+  text: "文生背景",
+  auto: "自动设计",
+};
+
+export const PRESET_BACKGROUND_MODELS: PresetModel[] = [
+  { id: "m0", name: "自然", imageUrl: `${SUPABASE_STORAGE}/models/model-natural-smile.jpg` },
+  { id: "m1", name: "甜妹", imageUrl: `${SUPABASE_STORAGE}/models/model-18542-0875a4d282bb.jpg` },
+  { id: "m2", name: "优雅", imageUrl: `${SUPABASE_STORAGE}/models/model-22921-89d4664cd1b0.jpg` },
+  { id: "m3", name: "红裙", imageUrl: `${SUPABASE_STORAGE}/models/model-26829-dca5c791efa8.jpg` },
+  { id: "m4", name: "酷飒", imageUrl: `${SUPABASE_STORAGE}/models/model-97612-bdc397740113.jpg` },
+  { id: "m5", name: "清纯", imageUrl: `${SUPABASE_STORAGE}/models/model-35127-693ee11382eb.png` },
+  { id: "m6", name: "清透", imageUrl: `${SUPABASE_STORAGE}/models/model-clear-black-long-20260502.png` },
+];
+
+export const MODEL_BACKGROUND_UPLOAD_RULE = {
+  title: "请上传需要处理的人物/穿搭原图",
+  uploadSpecText: "文件大小在20KB~15MB之间，分辨率大于400*400，格式支持jpg/jpeg/png/heic/webp",
+  demos: [
+    {
+      title: "模特图 1",
+      description: "人物主体完整，服装清晰，适合换模特或换背景",
+      imageUrl: "https://img.alicdn.com/imgextra/i1/2217286866533/O1CN01NjciCX1y8AVWg1OsJ_!!2217286866533-0-aigc_business_user.jpg",
+    },
+    {
+      title: "模特图 2",
+      description: "全身穿搭清楚，人物边界明确，适合生成种草氛围图",
+      imageUrl: "https://img.alicdn.com/imgextra/i4/2217286866533/O1CN01OfKjHP1y8AVWmwGAw_!!2217286866533-0-aigc_business_user.jpg",
+    },
+    {
+      title: "模特图 3",
+      description: "人物姿态自然，服装和配件关系清晰",
+      imageUrl: "https://img.alicdn.com/imgextra/i3/2217286866533/O1CN01bTPcJy1y8AVUZBjFY_!!2217286866533-0-aigc_business_user.jpg",
+    },
+    {
+      title: "模特图 4",
+      description: "主图完整可识别，适合换模特、换背景和只换背景",
+      imageUrl: "https://img.alicdn.com/imgextra/i4/2217271140711/O1CN01l5MnmG1H7gh8FeSTe_!!2217271140711-0-aigc_business_user.jpg",
+    },
+  ] satisfies ModelBackgroundRuleDemo[],
+  badExamples: [
+    { title: "平铺图", imageUrl: "https://img.alicdn.com/imgextra/i3/O1CN01ycqVB41frzQtEPfnR_!!6000000004061-2-tps-336-450.png" },
+    { title: "挂拍图", imageUrl: "https://img.alicdn.com/imgextra/i2/O1CN015r2KVa1QnD3r14faE_!!6000000002020-2-tps-336-450.png" },
+    { title: "无肢体人台图", imageUrl: "https://img.alicdn.com/imgextra/i3/O1CN01shkgPx1xEIBfHuF7p_!!6000000006411-2-tps-336-450.png" },
+    { title: "不完整的商品", imageUrl: "https://img.alicdn.com/imgextra/i3/O1CN0191Oneq1tjCRwTKIrv_!!6000000005937-2-tps-336-450.png" },
+  ],
+} as const;
+
+export const BACKGROUND_PRESETS: BackgroundPreset[] = [
+  {
+    id: "cafe-courtyard",
+    name: "网红店庭院",
+    imageUrl: "https://metac-prod.oss-cn-hangzhou.aliyuncs.com/marketing/haomai/2.6.1/background_image/%E5%AE%A4%E5%A4%96/34-%E7%BD%91%E7%BA%A2%E5%BA%97%E5%BA%AD%E9%99%A2.jpg?Expires=1777874826&OSSAccessKeyId=LTAI5tFKcuaHFxcefuBaoKiK&Signature=fQCrlGKKQQZY3O%2FHZwZqW1Umr%2FU%3D",
+    prompt: "网红店庭院背景，精致商业空间、自然日光、适合小红书种草和品牌 Lookbook。",
+  },
+  {
+    id: "red-brick-white-wall",
+    name: "红砖白墙",
+    imageUrl: "https://metac-prod.oss-cn-hangzhou.aliyuncs.com/marketing/haomai/2.6.1/background_image/%E5%AE%A4%E5%86%85/61-%E7%BA%A2%E7%A0%96%E7%99%BD%E5%A2%99.jpg?Expires=1777876445&OSSAccessKeyId=LTAI5tFKcuaHFxcefuBaoKiK&Signature=P8%2FRqycCbqaQS28sK6eQh9DHa4o%3D",
+    prompt: "红砖白墙背景，干净室内空间、柔和自然光、轻复古质感，适合突出服装轮廓和真实穿搭。",
+  },
+  {
+    id: "sunny-lawn",
+    name: "阳光草坪",
+    imageUrl: "https://metac-prod.oss-cn-hangzhou.aliyuncs.com/marketing/haomai/2.6.1/background_image/%E5%AE%A4%E5%A4%96/24-%E9%98%B3%E5%85%89%E8%8D%89%E5%9D%AA.jpg?Expires=1777876675&OSSAccessKeyId=LTAI5tFKcuaHFxcefuBaoKiK&Signature=%2Bqe5CSsn3%2FLgHylWos%2BDjAdQwfM%3D",
+    prompt: "阳光草坪背景，明亮户外自然光、清新生活方式氛围，人物阴影和草地接触关系自然。",
+  },
+  {
+    id: "reef-seaside",
+    name: "礁石海边",
+    imageUrl: "https://metac-prod.oss-cn-hangzhou.aliyuncs.com/marketing/haomai/2.6.1/background_image/%E5%AE%A4%E5%A4%96/1-%E7%A4%81%E7%9F%B3%E6%B5%B7%E8%BE%B9.jpg?Expires=1777874583&OSSAccessKeyId=LTAI5tFKcuaHFxcefuBaoKiK&Signature=FdVoom%2FdYBAKJFiITsTJl8zQ0i4%3D",
+    prompt: "礁石海边户外背景，海风感、自然天光、清爽度假氛围，空间开阔但不抢服装主体。",
+  },
+  {
+    id: "distant-mountain-lake",
+    name: "远山湖泊",
+    imageUrl: "https://metac-prod.oss-cn-hangzhou.aliyuncs.com/marketing/haomai/2.6.1/background_image/%E5%AE%A4%E5%A4%96/2-%E8%BF%9C%E5%B1%B1%E6%B9%96%E6%B3%8A.jpg?Expires=1777874583&OSSAccessKeyId=LTAI5tFKcuaHFxcefuBaoKiK&Signature=FtsVLNhFj%2BZLNNdqxQzy6063INg%3D",
+    prompt: "远山湖泊自然背景，柔和户外光、通透空气感、安静旅行氛围，人物和服装自然融入。",
+  },
+  {
+    id: "summer-hydrangea",
+    name: "夏日绣球",
+    imageUrl: "https://metac-prod.oss-cn-hangzhou.aliyuncs.com/marketing/haomai/2.6.1/background_image/%E5%AE%A4%E5%A4%96/4-%E5%A4%8F%E6%97%A5%E7%BB%A3%E7%90%83.jpg?Expires=1777874583&OSSAccessKeyId=LTAI5tFKcuaHFxcefuBaoKiK&Signature=juFr2uAdLr3v%2BF92%2FflBwVTTKpM%3D",
+    prompt: "夏日绣球花园背景，清新自然光、柔和花影、明亮生活方式氛围，适合轻盈女装。",
+  },
+  {
+    id: "romantic-street",
+    name: "浪漫街头",
+    imageUrl: "https://metac-prod.oss-cn-hangzhou.aliyuncs.com/marketing/haomai/2.6.1/background_image/%E5%AE%A4%E5%A4%96/14-%E6%B5%AA%E6%BC%AB%E8%A1%97%E5%A4%B4.jpg?Expires=1777876675&OSSAccessKeyId=LTAI5tFKcuaHFxcefuBaoKiK&Signature=e4bVeSB0v0zVLpz8TPtLZZcB3bI%3D",
+    prompt: "浪漫街头背景，城市街拍氛围、柔和自然光、轻松出门感，人物曝光、阴影、边缘和街道路面自然统一。",
+  },
+  {
+    id: "forest-studio",
+    name: "森系棚拍",
+    imageUrl: "https://metac-prod.oss-cn-hangzhou.aliyuncs.com/marketing/haomai/2.6.1/background_image/%E5%AE%A4%E5%86%85/67-%E6%A3%AE%E7%B3%BB%E6%A3%9A%E6%8B%8D.jpg?Expires=1777874874&OSSAccessKeyId=LTAI5tFKcuaHFxcefuBaoKiK&Signature=aQBZejVBj%2Fvk0OoxAUV%2B34Y92X0%3D",
+    prompt: "森系棚拍背景，干净室内布景、柔和棚拍光、自然绿植氛围，突出服装质感。",
+  },
+  {
+    id: "brown-backdrop",
+    name: "棕色背景",
+    imageUrl: "https://metac-prod.oss-cn-hangzhou.aliyuncs.com/marketing/haomai/2.6.1/background_image/%E7%BA%AF%E8%89%B2/98-%E6%A3%95%E8%89%B2%E8%83%8C%E6%99%AF.jpg?Expires=1777874896&OSSAccessKeyId=LTAI5tFKcuaHFxcefuBaoKiK&Signature=CM0GfCI%2BtT8Ms4UYL6Uzgg42VDo%3D",
+    prompt: "棕色纯色背景，干净棚拍质感、暖调商业光，适合突出人物轮廓和服装细节。",
+  },
+];
+
+export const DEFAULT_BACKGROUND_TEXT = "午后阳光斑驳的时尚街区或有格调的咖啡店门口，真实自然光，干净高级，适合服装种草内容。";
+
+export const MODEL_BACKGROUND_USER_PROMPT_PLACEHOLDER = "可选：例如保留原图人物肤色与衣服细节，画面真实自然，像可直接发布的品牌内容图。";
+
+export const BACKGROUND_TEXT_PRESETS = [
+  "午后阳光斑驳的街区，浅景深，真实街拍感",
+  "高级咖啡店门口，暖色自然光，生活方式种草",
+  "干净室内白墙与木地板，柔和窗光，Lookbook 质感",
+  "电梯镜面自拍场景，真实手机拍摄，全身穿搭清晰",
+  "试衣间全身镜，柔和顶光，真实试穿分享氛围",
+  "城市街角斑马线，轻微动态抓拍，时尚街拍气质",
+];
+
+export function normalizeModelBackgroundMode(value: unknown): ModelBackgroundMode {
+  return value === "background_only" || value === "model_only" || value === "model_background" ? value : "background_only";
+}
+
+export function normalizeBackgroundSourceMode(value: unknown): BackgroundSourceMode {
+  return value === "upload" || value === "text" || value === "auto" || value === "preset" ? value : "preset";
+}
+
+export function normalizeBackgroundPreset(value: unknown): BackgroundPresetId {
+  return BACKGROUND_PRESETS.some((item) => item.id === value) ? value as BackgroundPresetId : "cafe-courtyard";
+}
+
+export function getBackgroundPreset(presetId: BackgroundPresetId) {
+  return BACKGROUND_PRESETS.find((item) => item.id === presetId) || BACKGROUND_PRESETS[0];
+}
+
+const MODEL_BACKGROUND_HARD_RULE_MARK = "【换景硬规则】";
+
+function buildModelBackgroundHardRule(params: {
+  mode: ModelBackgroundMode;
+  hasModelReference: boolean;
+  hasBackgroundReference: boolean;
+}) {
+  const modelIndex = params.hasModelReference ? "图2" : "模特参考";
+  const backgroundIndex = params.hasModelReference ? "图3" : "图2";
+
+  if (params.mode === "background_only") {
+    return `${MODEL_BACKGROUND_HARD_RULE_MARK}
+只换背景。图1是唯一人物和唯一服装来源，保留同一张脸、发型、肤色、身材比例、衣服、穿搭和主体姿态。
+${params.hasBackgroundReference ? `${backgroundIndex} 只提供无人环境参考：场景、空间透视、光线、色彩、景深、墙面、地面、建筑、绿植等。忽略 ${backgroundIndex} 里的人物、脸、衣服、包、配饰和姿势。` : "没有背景参考图时，只根据文字描述更换背景。"}
+必须把图1人物真实放进新环境，不要像抠图贴上去：根据新背景重新匹配光线方向、色温、曝光、对比度、景深、镜头距离、地面透视和人物尺度；在脚下、腿部、衣摆、鞋子与地面接触处生成自然接触阴影和环境反射；人物边缘、发丝、袖口、裙摆和鞋底边界要自然融合，没有白边、硬切边、漂浮感或贴纸感。
+任何冲突都以图1人物和服装为准。`;
+  }
+
+  if (params.mode === "model_background") {
+    return `${MODEL_BACKGROUND_HARD_RULE_MARK}
+换模特换背景。图1是唯一服装/穿搭来源，不能被任何参考图替换。
+${modelIndex} 是必选模特参考图，只参考脸型气质、五官比例、肤色、发型和身材比例，不复制服装或背景。
+${params.hasBackgroundReference ? `${backgroundIndex} 只参考背景场景、光线、色彩和空间氛围；忽略其中人物、衣服、包、配饰和姿势。` : "没有背景参考图时，根据文字或预设设计背景。"}
+生成的人物必须自然融入新环境：统一光线方向、色温、曝光、对比度、景深、镜头距离和地面透视；脚下与地面有可信接触阴影，边缘没有抠图白边、硬切边或漂浮感。`;
+  }
+
+  return `${MODEL_BACKGROUND_HARD_RULE_MARK}
+只换模特脸部。图1是唯一身体、服装、发型、姿势、构图和背景来源；只把图1脸部身份/五官替换为${modelIndex}的脸部特征，其他全部不变。`;
+}
+
+export function enforceModelBackgroundPromptRequirements(prompt: string, params: {
+  mode: ModelBackgroundMode;
+  hasModelReference: boolean;
+  hasBackgroundReference: boolean;
+}) {
+  const normalized = prompt.trim();
+  if (!normalized) return buildModelBackgroundHardRule(params);
+  if (normalized.includes(MODEL_BACKGROUND_HARD_RULE_MARK)) return normalized;
+  return `${buildModelBackgroundHardRule(params)}
+
+${normalized}`;
+}
+
+export function buildModelBackgroundPrompt(params: {
+  mode: ModelBackgroundMode;
+  backgroundSource: BackgroundSourceMode;
+  templateId: BackgroundPresetId;
+  backgroundText: string;
+  userPrompt: string;
+  hasModelReference: boolean;
+  hasBackgroundReference: boolean;
+}) {
+  const preset = getBackgroundPreset(normalizeBackgroundPreset(params.templateId));
+  const modelIndex = params.hasModelReference ? "图2" : "模特参考";
+  const backgroundIndex = params.hasModelReference ? "图3" : "图2";
+  const hardRule = buildModelBackgroundHardRule({
+    mode: params.mode,
+    hasModelReference: params.hasModelReference,
+    hasBackgroundReference: params.hasBackgroundReference,
+  });
+
+  const modeRule = params.mode === "background_only"
+    ? "只替换背景和拍摄场景，图1人物与服装保持不变。"
+    : params.mode === "model_only"
+      ? "只替换图1的脸部身份/五官，保留图1身体、发型、服装、姿势、构图、光线和背景。"
+      : "同时替换模特和背景，模特参考图必选，但图1服装与穿搭必须保持一致。";
+
+  const modelRule = params.mode !== "background_only"
+    ? params.hasModelReference
+      ? params.mode === "model_only"
+        ? `${modelIndex} 只参考脸部五官、脸型、肤色、年龄感和气质；不要复制其发型、身体、服装、背景或姿势。`
+        : `${modelIndex} 是必选模特参考图，只参考人物脸型气质、五官比例、肤色、发型和身材比例，不复制其衣服或背景。`
+      : "缺少模特参考图：当前模式需要用户选择系统预设模特或上传模特图后才能生成。"
+    : "不要读取或生成新的模特身份，图1人物必须保持。";
+
+  const backgroundRule = params.mode !== "model_only"
+    ? params.backgroundSource === "preset"
+      ? `${backgroundIndex} 是预设背景参考图：${preset.name}。只参考场景、光线、色彩、空间感、镜头距离和景深；不要复制图里的真人、脸、发型、穿搭、包、配饰和姿势。${preset.prompt}`
+      : params.hasBackgroundReference
+        ? `${backgroundIndex} 只提供背景氛围，只取场景、光线、色彩、空间感、镜头距离和景深，让图1人物/穿搭自然融入。`
+      : params.backgroundSource === "auto"
+        ? "自动设计背景：根据图1服装风格选择真实街拍、咖啡店、居家、试衣间、电梯自拍或 Lookbook 场景。"
+        : `文生背景：${params.backgroundText.trim() || DEFAULT_BACKGROUND_TEXT}`
+    : "不要改变图1原始背景、空间关系、光线方向和构图。";
+
+  const integrationRule = params.mode !== "model_only"
+    ? "融合：人物不是贴纸合成，必须根据新背景重新渲染整体自然光影。匹配背景的主光方向、环境光、色温、曝光、对比度、景深、镜头高度、地面透视和人物尺度；补充脚下接触阴影、腿部/衣摆/鞋底遮挡关系和轻微环境反光；保留图1人物与服装细节，但允许全局光色、阴影和边缘过渡自然适配新场景。禁止白边、硬边、漂浮、比例不对、脚不落地、人物过亮或背景过暗。"
+    : "融合：只替换脸部身份，脸部光线、肤色、清晰度、噪点和镜头质感必须匹配图1原图，不要出现换脸贴片感。";
+
+  const userPromptText = params.userPrompt.trim();
+
+  const modelRoleText = params.mode === "model_only"
+    ? ` ${modelIndex} 是脸部参考图，只用于替换图1脸部。`
+    : params.mode === "model_background"
+      ? ` ${modelIndex} 是必选模特参考图。`
+      : "";
+
+  return `${hardRule}
+
+换背景生成任务。
+图像角色：图1是原始人物/服装/穿搭图。${modelRoleText}${params.mode !== "model_only" ? ` ${backgroundIndex} 如存在，只提供背景氛围。` : ""}
+
+目标：生成真实、自然、高级的服装视觉内容图，适合电商、社媒种草和品牌内容。
+模式：${modeRule}
+模特：${modelRule}
+背景：${backgroundRule}
+${integrationRule}
+服装：保持图1服装的品类、版型、颜色、图案/logo、面料纹理、穿着层次和搭配关系；允许自然贴合身体产生褶皱，不改款、不换色。
+摄影：自然光影，白平衡准确，肤色真实不过白，人物比例稳定，手指和肢体自然。
+用户补充：${userPromptText || "无，按以上模式和硬规则执行。"}
+
+输出质量：photorealistic, 8K ultra-detailed, sharp clothing details, natural skin texture, commercial fashion lifestyle photography, realistic color grade.
+避免：改变图1服装、丢失图案文字、多余人物、复制背景参考图里的人物/衣服/包/配饰/姿势、肢体畸形、手指错误、塑料皮肤、AI 渲染感、水印、文字。`;
+}
+
+export type ModelBackgroundPayloadBase = {
+  sourceUrl: string;
+  modelReferenceUrl?: string | null;
+  backgroundReferenceUrl?: string | null;
+  mode: ModelBackgroundMode;
+  backgroundSource: BackgroundSourceMode;
+  templateId: BackgroundPresetId;
+  backgroundText: string;
+  userPrompt: string;
+  aiModel: LingyaModel;
+  aspectRatio: AspectRatio;
+  imageSize: ImageSize;
+  prompt: string;
+  genCount: number;
+};

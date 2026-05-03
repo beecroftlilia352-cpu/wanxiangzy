@@ -12,6 +12,9 @@ import {
 } from "@/lib/api/credits";
 import { startGenerationJob, type GenerationJobPayload } from "@/lib/api/generation-jobs";
 import { handleGenerationStatusGet } from "@/lib/api/generation-status";
+import { normalizeAutoDesignSettings, normalizeSceneMode } from "@/lib/tryon-scene";
+import { normalizeTryOnClothingMode, normalizeTryOnClothingRole } from "@/lib/tryon-upload-rules";
+import { normalizeTryOnAgeGroup, normalizeTryOnGarmentAudience } from "@/lib/tryon-prompt";
 
 export async function POST(request: NextRequest) {
   try {
@@ -25,7 +28,8 @@ export async function POST(request: NextRequest) {
     catch { return NextResponse.json({ error: "请求格式无效" }, { status: 400 }); }
     const {
       clothing_urls, model_face_url, reference_url,
-      ai_model, aspect_ratio, image_size, style, gen_count, raw_prompt,
+      ai_model, aspect_ratio, image_size, style, gen_count, raw_prompt, scene_mode, auto_design,
+      clothing_mode, clothing_roles, garment_audience, age_group,
     } = body;
 
     const genCount = Math.min(Math.max(Number(gen_count) || 1, 1), 4);
@@ -48,24 +52,41 @@ export async function POST(request: NextRequest) {
     const size: ImageSize = normalizeImageSize(model, image_size || "1K", aspectRatio);
     const costPerImage = getCreditCost(model, size, aspectRatio);
     const totalCost = costPerImage * genCount;
+    const sceneMode = normalizeSceneMode(scene_mode);
+    const autoDesign = sceneMode === "auto_design" ? normalizeAutoDesignSettings(auto_design) : undefined;
+    const clothingMode = normalizeTryOnClothingMode(clothing_mode || (clothing_urls.length > 1 ? "multi" : "single"));
+    const clothingRoles = Array.isArray(clothing_roles)
+      ? clothing_urls.map((_: string, index: number) => normalizeTryOnClothingRole(
+        clothing_roles[index],
+        clothingMode === "multi" ? index === 0 ? "upper" : index === 1 ? "lower" : "extra" : "single"
+      ))
+      : clothing_urls.map((_: string, index: number) => clothingMode === "multi" ? index === 0 ? "upper" : index === 1 ? "lower" : "extra" : "single");
+    const garmentAudience = normalizeTryOnGarmentAudience(garment_audience);
+    const ageGroup = normalizeTryOnAgeGroup(age_group);
     const jobPayload: GenerationJobPayload = {
       kind: "tryon",
       clothingUrls: clothing_urls,
+      clothingMode,
+      clothingRoles,
+      garmentAudience,
+      ageGroup,
       modelFaceUrl: model_face_url || null,
-      referenceUrl: reference_url || null,
+      referenceUrl: sceneMode === "auto_design" ? null : reference_url || null,
       aiModel: model,
       aspectRatio,
       imageSize: size,
       style,
       genCount,
       rawPrompt: raw_prompt,
+      sceneMode,
+      autoDesign,
     };
 
     const debit = await createDebitedGeneration(supabase, {
       userId: user.id,
       clothingUrls: clothing_urls,
       modelFaceUrl: model_face_url || null,
-      referenceUrl: reference_url || null,
+      referenceUrl: jobPayload.referenceUrl,
       creditsCost: totalCost,
       aiModel: model,
       imageSize: size,

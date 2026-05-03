@@ -2,8 +2,8 @@ import fs from "fs/promises";
 import path from "path";
 
 const PUBLIC_DIR = path.resolve(process.cwd(), "public");
-const MAX_LOCAL_IMAGE_BYTES = 12 * 1024 * 1024;
-const MAX_DATA_URL_LENGTH = 18 * 1024 * 1024;
+const MAX_LOCAL_IMAGE_BYTES = 15 * 1024 * 1024;
+const MAX_DATA_URL_LENGTH = 21 * 1024 * 1024;
 
 export async function resolveImageInputs(input: {
   clothingUrls: string[];

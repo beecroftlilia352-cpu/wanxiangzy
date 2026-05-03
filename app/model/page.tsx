@@ -2,13 +2,39 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Camera, Download, Loader2, Sparkles, Upload, UserRound, Wand, X } from "lucide-react";
+import { Camera, CheckCircle2, ChevronRight, Eye, FolderOpen, Loader2, Sparkles, Upload, UserRound, Wand, X, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { FeatureTabs } from "@/components/FeatureTabs";
+import { RepairPromptPanel } from "@/components/RepairPromptPanel";
+import { ModelPromptPreview } from "@/components/ModelPromptPreview";
+import { ClientPortal } from "@/components/ClientPortal";
+import { StyleChoiceGrid } from "@/components/StyleChoiceGrid";
+import { ModuleHeader } from "@/components/ModuleHeader";
+import { PreviewGuide } from "@/components/PreviewGuide";
+import { ResultImageGrid } from "@/components/ResultImageGrid";
 import { createClient, getCachedProfileCredits, setCachedProfileCredits } from "@/lib/supabase/client";
-import { downloadImage, generateDownloadFilename, uploadImage } from "@/lib/utils";
+import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
 import { takeApplyPayload } from "@/lib/history-apply";
+import { applyRepairPrompt } from "@/lib/generation-repair";
+import {
+  MODEL_AGE_TEXTURE_RULE,
+  MODEL_FACE_SHAPE_RULE,
+  MODEL_FACE_STYLE_RULE,
+  MODEL_FEATURE_IDENTITY_RULE,
+  MODEL_FUSION_RULE,
+  MODEL_MAKEUP_RULE,
+  MODEL_SKIN_TONE_RULE,
+} from "@/lib/model-prompt";
+import {
+  DEFAULT_MODEL_SHOOT_STYLE,
+  MODEL_SHOOT_STYLES,
+  applyModelShootStylePrompt,
+  buildModelShootStylePrompt,
+  normalizeModelShootStyle,
+  type ModelShootStyle,
+} from "@/lib/module-style-presets";
+import { MODEL_UPLOAD_RULE, type ModelRuleDemo } from "@/lib/model-upload-rules";
 
 type Gender = "female" | "male";
 
@@ -56,12 +82,15 @@ export default function ModelPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const hairInputRef = useRef<HTMLInputElement>(null);
   const hairColorInputRef = useRef<HTMLInputElement>(null);
+  const rulesButtonRef = useRef<HTMLButtonElement>(null);
+  const rulesHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [credits, setCredits] = useState<number | null>(null);
   const [referenceUrls, setReferenceUrls] = useState<string[]>([]);
   const [gender, setGender] = useState<Gender>("female");
+  const [modelStyle, setModelStyle] = useState<ModelShootStyle>(DEFAULT_MODEL_SHOOT_STYLE);
   const [hairStyle, setHairStyle] = useState<string | null>(null);
   const [hairColor, setHairColor] = useState<string | null>(null);
   const [hairReferenceUrl, setHairReferenceUrl] = useState<string | null>(null);
@@ -77,15 +106,48 @@ export default function ModelPage() {
   const [progress, setProgress] = useState(0);
   const [resultUrls, setResultUrls] = useState<string[]>([]);
   const [error, setError] = useState("");
+  const [showPromptPreview, setShowPromptPreview] = useState(false);
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+  const [showModelRules, setShowModelRules] = useState(false);
+  const [rulesPopoverStyle, setRulesPopoverStyle] = useState<{ top: number; left: number; maxHeight: number } | null>(null);
 
   const imageSizes = getSupportedImageSizes(aiModel, aspectRatio);
   const cost = getCreditCost(aiModel, imageSize, aspectRatio);
   const totalCost = cost * genCount;
   const defaultPrompt = useMemo(
-    () => buildDefaultPrompt(referenceUrls.length || 1, gender, hairStyle, hairColor, !!hairReferenceUrl, !!hairColorReferenceUrl),
-    [referenceUrls.length, gender, hairStyle, hairColor, hairReferenceUrl, hairColorReferenceUrl]
+    () => buildDefaultPrompt(referenceUrls.length || 1, gender, hairStyle, hairColor, !!hairReferenceUrl, !!hairColorReferenceUrl, modelStyle),
+    [referenceUrls.length, gender, hairStyle, hairColor, hairReferenceUrl, hairColorReferenceUrl, modelStyle]
   );
+
+  const cancelRulesHide = () => {
+    if (rulesHideTimerRef.current) {
+      clearTimeout(rulesHideTimerRef.current);
+      rulesHideTimerRef.current = null;
+    }
+  };
+
+  const openRulesPopover = () => {
+    cancelRulesHide();
+    const rect = rulesButtonRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const width = Math.min(760, window.innerWidth - 32);
+    const top = Math.max(16, Math.min(rect.top - 10, window.innerHeight - 360));
+    const left = Math.max(16, Math.min(rect.right + 12, window.innerWidth - width - 16));
+    setRulesPopoverStyle({
+      top,
+      left,
+      maxHeight: Math.max(320, window.innerHeight - top - 16),
+    });
+    setShowModelRules(true);
+  };
+
+  const scheduleRulesHide = () => {
+    cancelRulesHide();
+    rulesHideTimerRef.current = setTimeout(() => {
+      setShowModelRules(false);
+      setRulesPopoverStyle(null);
+    }, 120);
+  };
 
   useEffect(() => {
     if (!promptTouched) {
@@ -116,6 +178,10 @@ export default function ModelPage() {
   }, [supabase]);
 
   useEffect(() => {
+    return () => cancelRulesHide();
+  }, []);
+
+  useEffect(() => {
     const nextSizes = getSupportedImageSizes(aiModel, aspectRatio);
     if (!nextSizes.includes(imageSize)) setImageSize(nextSizes[0]);
   }, [aiModel, aspectRatio, imageSize]);
@@ -128,6 +194,7 @@ export default function ModelPage() {
     setHairReferenceUrl(payload.hairReferenceUrl || null);
     setHairColorReferenceUrl(payload.hairColorReferenceUrl || null);
     setGender(payload.gender || "female");
+    setModelStyle(normalizeModelShootStyle(payload.modelStyle));
     setHairStyle(payload.hairStyle || null);
     setHairColor(payload.hairColor || null);
     setAiModel(payload.aiModel);
@@ -152,8 +219,8 @@ export default function ModelPage() {
     const next: string[] = [];
     for (const file of incoming) {
       if (!file.type.startsWith("image/")) continue;
-      if (file.size > 10 * 1024 * 1024) {
-        toast.error(`${file.name} 超过 10MB`);
+      if (file.size > MAX_FILE_SIZE) {
+        toast.error(`${file.name} 超过 ${MAX_FILE_SIZE_MB}MB`);
         continue;
       }
       try {
@@ -176,6 +243,13 @@ export default function ModelPage() {
     setHairStyle(null);
   }
 
+  function selectModelStyle(nextStyle: ModelShootStyle) {
+    setModelStyle(nextStyle);
+    if (promptTouched) {
+      setPrompt((prev) => applyModelShootStylePrompt(prev, nextStyle));
+    }
+  }
+
   async function uploadHairReference(files?: FileList | File[]) {
     const file = files?.[0];
     if (!file) return;
@@ -183,8 +257,8 @@ export default function ModelPage() {
       toast.error("请上传图片文件");
       return;
     }
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error(`${file.name} 超过 10MB`);
+    if (file.size > MAX_FILE_SIZE) {
+      toast.error(`${file.name} 超过 ${MAX_FILE_SIZE_MB}MB`);
       return;
     }
     setHairStyle(null);
@@ -209,8 +283,8 @@ export default function ModelPage() {
       toast.error("请上传图片文件");
       return;
     }
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error(`${file.name} 超过 10MB`);
+    if (file.size > MAX_FILE_SIZE) {
+      toast.error(`${file.name} 超过 ${MAX_FILE_SIZE_MB}MB`);
       return;
     }
     setHairColor(null);
@@ -238,13 +312,13 @@ export default function ModelPage() {
       const res = await fetch("/api/model/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reference_urls: referenceUrls, hair_reference_url: hairReferenceUrl, hair_color_reference_url: hairColorReferenceUrl, gender, hair_style: hairStyle, hair_color: hairColor, prompt }),
+        body: JSON.stringify({ reference_urls: referenceUrls, hair_reference_url: hairReferenceUrl, hair_color_reference_url: hairColorReferenceUrl, gender, hair_style: hairStyle, hair_color: hairColor, model_style: modelStyle, prompt }),
       });
       const data = await res.json();
       if (data.prompt) {
         setPromptTouched(true);
         setPrompt(data.prompt);
-        toast.success("视觉 AI 已优化提示词");
+        toast.success("视觉分析已优化提示词");
       } else {
         toast.error("视觉优化失败，已保留当前提示词");
       }
@@ -255,7 +329,7 @@ export default function ModelPage() {
     }
   }
 
-  async function generate() {
+  async function generate(promptForRun?: string) {
     if (!isAuthenticated) {
       toast.error("请先登录");
       router.push("/login");
@@ -288,9 +362,10 @@ export default function ModelPage() {
           hair_reference_url: hairReferenceUrl,
           hair_color_reference_url: hairColorReferenceUrl,
           gender,
+          model_style: modelStyle,
           hair_style: hairStyle,
           hair_color: hairColor,
-          prompt,
+          prompt: typeof promptForRun === "string" ? promptForRun : prompt,
         }),
       });
       const data = await res.json();
@@ -324,7 +399,7 @@ export default function ModelPage() {
           toast.success("专属模特生成完成");
           return;
         } else if (state.status === "failed") {
-          throw new Error(state.error || "AI 生成失败");
+          throw new Error(state.error || "生成失败");
         }
       }
       throw new Error("生成超时");
@@ -335,35 +410,142 @@ export default function ModelPage() {
     }
   }
 
+  function handleRepairGenerate(repairValue: string) {
+    const repairedPrompt = applyRepairPrompt(prompt, "model", repairValue);
+    setPromptTouched(true);
+    setPrompt(repairedPrompt);
+    toast.info("已加入修复指令，正在重新生成...");
+    generate(repairedPrompt);
+  }
+
+  function applyRuleDemo(demo: ModelRuleDemo) {
+    setReferenceUrls(demo.imageUrls.slice(0, 3));
+    setPromptTouched(false);
+    setResultUrls([]);
+    setError("");
+    setShowModelRules(false);
+    setRulesPopoverStyle(null);
+    toast.success(`已套用${demo.title}`);
+  }
+
   return (
-    <div className="min-h-[calc(100dvh-56px)] lg:h-[calc(100vh-56px)] flex flex-col lg:flex-row bg-gray-50 lg:bg-white">
+    <div className="studio-workbench min-h-[calc(100dvh-64px)] lg:h-[calc(100vh-64px)] flex flex-col lg:flex-row">
       <FeatureTabs active="model" />
-      <div className="w-full lg:w-[460px] border-b lg:border-b-0 lg:border-r bg-white flex flex-col overflow-visible lg:overflow-hidden">
-        <div className="flex-1 overflow-visible lg:overflow-y-auto p-4 sm:p-5 space-y-6">
+      <div className="studio-parameters w-full lg:w-[472px] border-b lg:border-b-0 lg:border-r flex flex-col overflow-visible lg:overflow-hidden">
+        <div className="studio-parameters-scroll flex-1 overflow-visible lg:overflow-y-auto p-4 sm:p-5 space-y-6">
+          <ModuleHeader
+            title="专属模特"
+            tooltip="上传 1-3 张人物参考图，融合脸型、五官比例、肤色、妆感和气质，生成稳定可复用的品牌模特形象。"
+          />
           <section>
-            <h3 className="font-bold text-sm mb-3 flex items-center gap-2">
-              <Upload className="w-4 h-4 text-purple-500" /> 上传参考图
-            </h3>
+            <div className="studio-upload-header">
+              <h3 className="studio-upload-title">
+                <Upload className="w-4 h-4 text-purple-500" /> 上传参考图
+              </h3>
+              <button
+                ref={rulesButtonRef}
+                type="button"
+                onMouseEnter={openRulesPopover}
+                onMouseLeave={scheduleRulesHide}
+                onFocus={openRulesPopover}
+                onBlur={scheduleRulesHide}
+                aria-expanded={showModelRules}
+                className="studio-upload-rule-button"
+              >
+                图片规则 <ChevronRight className="h-3 w-3" />
+              </button>
+            </div>
             <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => addFiles(e.target.files || undefined)} />
-            <button onClick={() => fileInputRef.current?.click()}
-              className="w-full border-2 border-dashed border-gray-200 hover:border-purple-300 rounded-xl p-5 text-center transition-all">
-              <Upload className="w-5 h-5 mx-auto mb-1 text-gray-300" />
-              <span className="text-xs text-gray-500">上传 1-3 张人物参考图</span>
-            </button>
-            {referenceUrls.length > 0 && (
-              <div className="mt-3 grid grid-cols-3 gap-2">
-                {referenceUrls.map((url, index) => (
-                  <div key={index} className="relative group">
-                    <img src={url} className="w-full aspect-[3/4] object-cover rounded-lg border bg-gray-50" />
-                    <span className="absolute left-1 top-1 px-1.5 py-0.5 rounded bg-black/60 text-white text-[10px]">图{index + 1}</span>
-                    <button onClick={() => setReferenceUrls((prev) => prev.filter((_, i) => i !== index))}
-                      className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100">
-                      <X className="w-3 h-3" />
+            <div className="flex min-h-44 flex-col rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 px-4 py-5 text-center">
+              {referenceUrls.length > 0 ? (
+                <>
+                  <div className="mb-3 flex items-center justify-between gap-3 text-left">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-800">已上传 {referenceUrls.length}/3 张参考图</p>
+                      <p className="mt-0.5 text-[11px] text-slate-400">图片已进入融合参考，可继续补充或移除单张</p>
+                    </div>
+                    {referenceUrls.length < 3 && (
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="shrink-0 rounded-lg border border-violet-200 bg-white px-3 py-1.5 text-xs font-semibold text-violet-600 shadow-sm hover:border-violet-300 hover:bg-violet-50"
+                      >
+                        继续上传
+                      </button>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {referenceUrls.map((url, index) => (
+                      <div key={index} className="group relative overflow-hidden rounded-xl border border-white bg-white shadow-sm ring-1 ring-slate-100">
+                        <img src={url} alt={`专属模特参考图${index + 1}`} className="h-[150px] w-full object-cover" />
+                        <span className="absolute left-2 top-2 rounded-full border border-white/70 bg-white/80 px-2 py-0.5 text-[10px] font-bold text-slate-700 shadow-sm backdrop-blur">图{index + 1}</span>
+                        <button
+                          type="button"
+                          onClick={() => setReferenceUrls((prev) => prev.filter((_, i) => i !== index))}
+                          className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-slate-950/70 text-white opacity-0 shadow-sm backdrop-blur transition-opacity group-hover:opacity-100"
+                          aria-label={`移除图${index + 1}`}
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-3 flex flex-wrap justify-center gap-2">
+                    <button type="button" onClick={() => fileInputRef.current?.click()} className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-violet-700">
+                      <Upload className="h-3.5 w-3.5" /> 从本地上传
+                    </button>
+                    <button type="button" onClick={() => toast.info("作品库选择即将接入")} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-slate-300">
+                      <FolderOpen className="h-3.5 w-3.5" /> 从作品选择
                     </button>
                   </div>
+                </>
+              ) : (
+                <div className="flex flex-1 flex-col items-center justify-center py-2">
+                  <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-sm">
+                    <UserRound className="h-7 w-7 text-violet-400" />
+                  </div>
+                  <p className="text-sm font-semibold text-slate-800">上传 1-3 张人物参考图</p>
+                  <p className="mt-1 text-[11px] text-slate-400">可来自同一人，也可来自不同人物，用于融合脸型、肤色、妆感和气质</p>
+                  <div className="mt-3 flex flex-wrap justify-center gap-2">
+                    <button type="button" onClick={() => fileInputRef.current?.click()} className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-violet-700">
+                      <Upload className="h-3.5 w-3.5" /> 从本地上传
+                    </button>
+                    <button type="button" onClick={() => toast.info("作品库选择即将接入")} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-slate-300">
+                      <FolderOpen className="h-3.5 w-3.5" /> 从作品选择
+                    </button>
+                  </div>
+                  <p className="mt-2 text-[11px] text-slate-400">{MODEL_UPLOAD_RULE.uploadSpecText}</p>
+                </div>
+              )}
+            </div>
+            <div className="mt-3 flex items-center gap-2">
+              <span className="shrink-0 text-[11px] font-medium text-slate-400">试一试</span>
+              <div className="studio-scrollbar-hide flex min-w-0 flex-1 gap-2 overflow-x-auto pb-1">
+                {MODEL_UPLOAD_RULE.demos.map((demo) => (
+                  <button
+                    key={demo.title}
+                    type="button"
+                    onClick={() => applyRuleDemo(demo)}
+                    className="group flex h-14 shrink-0 overflow-hidden rounded-lg border border-slate-100 bg-slate-50 shadow-sm transition-all hover:border-violet-200"
+                    title={demo.description}
+                  >
+                    {demo.imageUrls.map((url) => (
+                      <span key={url} className="flex h-14 w-14 items-center justify-center bg-slate-50">
+                        <img src={url} alt={demo.title} className="h-full w-full object-contain p-1" />
+                      </span>
+                    ))}
+                  </button>
                 ))}
               </div>
-            )}
+            </div>
+          </section>
+
+          <section>
+            <h3 className="font-bold text-sm mb-3">模特风格</h3>
+            <StyleChoiceGrid options={MODEL_SHOOT_STYLES} value={modelStyle} onChange={selectModelStyle} />
+            <p className="mt-2 text-[11px] leading-relaxed text-gray-400">
+              风格只决定妆造、光线和商业气质；多图融合、肤色、脸型骨相和五官辨识度优先级更高。
+            </p>
           </section>
 
           <section>
@@ -411,18 +593,31 @@ export default function ModelPage() {
               <button
                 onClick={() => hairInputRef.current?.click()}
                 className={`relative rounded-lg border-2 border-dashed p-2 text-center transition-all aspect-[3/4] flex flex-col items-center justify-center overflow-hidden ${
-                  hairReferenceUrl ? "border-purple-500 text-purple-600 ring-1 ring-purple-200" : "border-gray-200 text-gray-400 hover:border-purple-300 hover:text-purple-500"
+                  hairReferenceUrl
+                    ? "border-purple-500 bg-purple-50 text-purple-700 ring-2 ring-purple-200 shadow-[0_14px_34px_rgba(124,58,237,0.18)]"
+                    : "border-slate-200 bg-slate-50/70 text-slate-400 hover:border-purple-300 hover:bg-purple-50/60 hover:text-purple-500"
                 }`}
               >
                 {hairReferenceUrl ? (
                   <>
                     <img src={hairReferenceUrl} className="absolute inset-0 w-full h-full object-cover" alt="上传发型参考" />
-                    <span className="absolute bottom-0 left-0 right-0 py-1 bg-white/90 text-[10px] font-medium">上传发型</span>
+                    <span className="absolute inset-0 bg-gradient-to-t from-purple-950/38 via-transparent to-transparent" />
+                    <span className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-white text-emerald-500 shadow">
+                      <CheckCircle2 className="h-4 w-4" />
+                    </span>
+                    <span className="absolute bottom-0 left-0 right-0 bg-white/94 px-1.5 py-1 text-center backdrop-blur">
+                      <span className="block text-[10px] font-bold text-purple-700">已上传发型参考</span>
+                      <span className="block truncate text-[9px] text-slate-400">只参考发型轮廓</span>
+                    </span>
                   </>
                 ) : (
                   <>
-                    <Camera className="w-5 h-5 mb-1" />
-                    <span className="text-[10px] font-medium">点击上传</span>
+                    <Camera className="w-5 h-5 mb-1.5" />
+                    <span className="text-[10px] font-bold">上传发型参考</span>
+                    <span className="mt-1 max-w-[78px] text-[9px] leading-snug text-slate-400">
+                      只参考发型，不参考脸
+                    </span>
+                    <span className="mt-1 text-[8px] text-slate-300">≤15MB</span>
                   </>
                 )}
               </button>
@@ -468,18 +663,31 @@ export default function ModelPage() {
               <button
                 onClick={() => hairColorInputRef.current?.click()}
                 className={`relative rounded-lg border-2 border-dashed p-2 text-center transition-all aspect-[3/4] flex flex-col items-center justify-center overflow-hidden ${
-                  hairColorReferenceUrl ? "border-purple-500 text-purple-600 ring-1 ring-purple-200" : "border-gray-200 text-gray-400 hover:border-purple-300 hover:text-purple-500"
+                  hairColorReferenceUrl
+                    ? "border-purple-500 bg-purple-50 text-purple-700 ring-2 ring-purple-200 shadow-[0_14px_34px_rgba(124,58,237,0.18)]"
+                    : "border-slate-200 bg-slate-50/70 text-slate-400 hover:border-purple-300 hover:bg-purple-50/60 hover:text-purple-500"
                 }`}
               >
                 {hairColorReferenceUrl ? (
                   <>
                     <img src={hairColorReferenceUrl} className="absolute inset-0 w-full h-full object-cover" alt="上传发色参考" />
-                    <span className="absolute bottom-0 left-0 right-0 py-1 bg-white/90 text-[10px] font-medium">上传发色</span>
+                    <span className="absolute inset-0 bg-gradient-to-t from-purple-950/38 via-transparent to-transparent" />
+                    <span className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-white text-emerald-500 shadow">
+                      <CheckCircle2 className="h-4 w-4" />
+                    </span>
+                    <span className="absolute bottom-0 left-0 right-0 bg-white/94 px-1.5 py-1 text-center backdrop-blur">
+                      <span className="block text-[10px] font-bold text-purple-700">已上传发色参考</span>
+                      <span className="block truncate text-[9px] text-slate-400">只提取发色明暗</span>
+                    </span>
                   </>
                 ) : (
                   <>
-                    <Camera className="w-5 h-5 mb-1" />
-                    <span className="text-[10px] font-medium">点击上传</span>
+                    <Camera className="w-5 h-5 mb-1.5" />
+                    <span className="text-[10px] font-bold">上传发色参考</span>
+                    <span className="mt-1 max-w-[78px] text-[9px] leading-snug text-slate-400">
+                      只提取发色，不参考身份
+                    </span>
+                    <span className="mt-1 text-[8px] text-slate-300">≤15MB</span>
                   </>
                 )}
               </button>
@@ -496,7 +704,7 @@ export default function ModelPage() {
 
           <section>
             <h3 className="font-bold text-sm mb-3 flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-purple-500" /> AI 模型
+              <Sparkles className="w-4 h-4 text-purple-500" /> 生成模型
             </h3>
             <div className="grid grid-cols-2 gap-2">
               {MODELS.map((opt) => (
@@ -543,18 +751,19 @@ export default function ModelPage() {
 
           <section>
             <h3 className="font-bold text-sm mb-3">提示词</h3>
-            <div className="relative">
-              <textarea value={prompt} onChange={(e) => { setPromptTouched(true); setPrompt(e.target.value); }}
-                className="w-full h-44 px-3 py-2 pr-10 rounded-lg border text-xs focus:ring-2 focus:ring-purple-200 outline-none resize-none leading-relaxed" />
-              <button onClick={optimizePrompt} disabled={isOptimizing || !referenceUrls.length}
-                className="absolute right-2 top-2 p-1.5 rounded-md bg-purple-50 text-purple-500 hover:bg-purple-100 disabled:opacity-30"
-                title="视觉 AI 优化提示词">
-                {isOptimizing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand className="w-3.5 h-3.5" />}
-              </button>
-            </div>
-            <button onClick={() => { setPromptTouched(false); setPrompt(defaultPrompt); }}
-              className="mt-2 px-3 py-1.5 rounded-lg border text-xs text-gray-500 hover:text-purple-600 hover:border-purple-300">
-              恢复默认模板
+            <button
+              type="button"
+              data-prompt-trigger="model"
+              aria-label="查看完整提示词"
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                setShowPromptPreview(true);
+              }}
+              className="studio-prompt-trigger flex w-full items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-bold transition-all"
+            >
+              <Eye className="w-3.5 h-3.5" />
+              查看完整提示词
             </button>
           </section>
 
@@ -573,7 +782,7 @@ export default function ModelPage() {
           </section>
         </div>
 
-        <div className="border-t p-3 sm:p-4 space-y-2 bg-white">
+        <div className="studio-runbar border-t p-3 sm:p-4 space-y-2">
           <div className="flex items-center justify-between text-xs">
             <span className="text-gray-400">{referenceUrls.length} 张参考图 · {cost} × {genCount}</span>
             {isAuthenticated
@@ -581,7 +790,7 @@ export default function ModelPage() {
               : <span className="text-gray-400">登录后查看积分</span>
             }
           </div>
-          <button onClick={generate} disabled={isGenerating || !referenceUrls.length}
+          <button onClick={() => generate()} disabled={isGenerating || !referenceUrls.length}
             className="w-full py-3 rounded-xl gradient-brand text-white text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-40 hover:opacity-90 shadow-lg shadow-purple-200">
             <Sparkles className="w-4 h-4" />
             {!isAuthenticated ? "登录后生成" : isGenerating ? "生成中..." : `生成 ${genCount} 张`}
@@ -589,21 +798,25 @@ export default function ModelPage() {
         </div>
       </div>
 
-      <div className="min-h-[360px] lg:min-h-0 flex-1 relative overflow-hidden">
+      <div className="studio-canvas min-h-[360px] lg:min-h-0 flex-1 relative overflow-hidden">
         {!isGenerating && resultUrls.length === 0 && !error && (
-          <div className="min-h-[360px] lg:h-full flex items-center justify-center bg-gradient-to-br from-purple-50 via-white to-pink-50 px-4">
-            <div className="text-center">
-              <div className="w-28 h-28 mx-auto mb-6 rounded-3xl bg-gradient-to-br from-purple-100 to-pink-100 flex items-center justify-center shadow-lg shadow-purple-100">
-                <Sparkles className="w-12 h-12 text-purple-400" />
-              </div>
-              <p className="text-gray-500 text-base font-medium mb-1">创建专属模特</p>
-              <p className="text-gray-400 text-sm">上传 1-3 张参考图，选择发型和发色后生成统一人物形象</p>
-            </div>
+          <div className="studio-empty-stage min-h-[360px] lg:h-full flex items-center justify-center px-4">
+            <PreviewGuide
+              title="创建专属模特"
+              subtitle="从人像参考中提取稳定身份，再用风格和外观设置生成可复用的品牌模特。"
+              imageSrc="/home-showcase/exclusive-model-02.png"
+              imageAlt="专属模特指引"
+              steps={[
+                { title: "上传参考人像", desc: "上传 1-3 张清晰人像，用于锁定脸型、五官和人物气质。" },
+                { title: "选择外观设置", desc: "调整肤色、年龄、发型、发色、妆容和拍摄风格。" },
+                { title: "生成专属模特", desc: "得到统一人物形象，后续可继续用于服装上身和商品视觉。" },
+              ]}
+            />
           </div>
         )}
 
         {isGenerating && (
-          <div className="min-h-[360px] lg:h-full p-4 sm:p-8 flex items-center justify-center" style={{ background: "#f0f0f5" }}>
+          <div className="studio-loading-stage min-h-[360px] lg:h-full p-4 sm:p-8 flex items-center justify-center">
             <div style={{
               position: "absolute", top: "10%", left: "20%", width: "300px", height: "300px",
               borderRadius: "50%", filter: "blur(80px)", opacity: 0.4,
@@ -612,7 +825,7 @@ export default function ModelPage() {
             <div style={{
               position: "absolute", bottom: "15%", right: "15%", width: "250px", height: "250px",
               borderRadius: "50%", filter: "blur(80px)", opacity: 0.3,
-              background: "radial-gradient(circle, #f472b6, #c084fc, transparent)",
+              background: "radial-gradient(circle, #f472b6, #a78bfa, transparent)",
             }} />
 
             <div className={`${genCount === 1 ? "max-w-sm" : "grid grid-cols-2 gap-3 sm:gap-5 max-w-lg"} w-full relative z-10`}>
@@ -678,7 +891,7 @@ export default function ModelPage() {
                         </div>
                       </div>
                       <p className="text-xs font-medium" style={{ color: "rgba(168,85,247,0.7)" }}>
-                        {progress < 20 ? "准备中..." : progress < 90 ? "AI 生成中..." : "即将完成..."}
+                        {progress < 20 ? "准备中..." : progress < 90 ? "生成中..." : "即将完成..."}
                       </p>
                     </div>
                   </div>
@@ -689,47 +902,209 @@ export default function ModelPage() {
         )}
 
         {resultUrls.length > 0 && (
-          <div className="min-h-[360px] lg:h-full p-4 sm:p-6 flex items-center justify-center bg-gray-50 animate-fade-in">
-            {resultUrls.map((url, i) => (
-              <div key={url} className="relative group rounded-2xl overflow-hidden shadow-2xl bg-white cursor-zoom-in"
-                onClick={() => setLightboxSrc(url)}>
-                <img src={url} className="block max-h-[calc(100dvh-180px)] max-w-[calc(100vw-2rem)] lg:max-h-[calc(100vh-180px)] lg:max-w-[calc(100vw-560px)] w-auto h-auto object-contain" />
-                <button onClick={(e) => { e.stopPropagation(); downloadImage(url, generateDownloadFilename("model", i, "jpg")); }}
-                  className="absolute top-3 right-3 w-9 h-9 rounded-full bg-white/90 shadow-lg flex items-center justify-center hover:bg-white opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Download className="w-4 h-4" />
-                </button>
-              </div>
-            ))}
+          <div className="studio-result-stage min-h-[360px] overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:h-full flex flex-col animate-fade-in">
+            <div className="flex min-h-0 flex-1 items-center justify-center">
+              <ResultImageGrid urls={resultUrls} filenamePrefix="model" extension="jpg" onOpen={setLightboxSrc} />
+            </div>
+            <div className="mt-4 flex justify-center">
+              <RepairPromptPanel
+                kind="model"
+                onRepair={handleRepairGenerate}
+                disabled={isGenerating}
+                className="w-full max-w-3xl"
+              />
+            </div>
           </div>
         )}
 
         {error && (
-          <div className="min-h-[360px] lg:h-full flex items-center justify-center bg-gray-50 px-4">
+          <div className="studio-result-stage min-h-[360px] lg:h-full flex items-center justify-center px-4">
             <div className="text-center">
               <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-red-100 flex items-center justify-center"><X className="w-8 h-8 text-red-400" /></div>
               <p className="text-red-500 font-medium mb-1">生成失败</p>
               <p className="text-sm text-gray-400 mb-4 max-w-sm">{error}</p>
+              <RepairPromptPanel
+                kind="model"
+                onRepair={handleRepairGenerate}
+                disabled={isGenerating}
+                className="mb-3 max-w-md"
+              />
               <button onClick={() => setError("")} className="px-5 py-2 rounded-full border text-sm font-medium hover:bg-gray-50">重试</button>
             </div>
           </div>
         )}
       </div>
 
-      {lightboxSrc && (
-        <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-8 cursor-zoom-out"
-          onClick={() => setLightboxSrc(null)}>
-          <img src={lightboxSrc} className="max-w-full max-h-full object-contain rounded-xl shadow-2xl" />
-          <button onClick={() => setLightboxSrc(null)}
-            className="absolute top-6 right-6 w-10 h-10 rounded-full bg-white/20 text-white flex items-center justify-center hover:bg-white/30">
-            <X className="w-5 h-5" />
-          </button>
+      {showModelRules && rulesPopoverStyle && (
+        <ClientPortal>
+          <div
+            className="fixed z-[240] w-[min(760px,calc(100vw-32px))] overflow-hidden rounded-[24px] border border-white/80 bg-white/[0.96] shadow-[0_28px_90px_rgba(15,23,42,0.18)] backdrop-blur-2xl animate-fade-in"
+            style={{
+              top: rulesPopoverStyle.top,
+              left: rulesPopoverStyle.left,
+              maxHeight: rulesPopoverStyle.maxHeight,
+            }}
+            onMouseEnter={cancelRulesHide}
+            onMouseLeave={scheduleRulesHide}
+          >
+            <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-violet-500">{MODEL_UPLOAD_RULE.shortTitle}</p>
+                <h3 className="mt-1 text-base font-bold text-slate-950">{MODEL_UPLOAD_RULE.title}</h3>
+                <p className="mt-1 text-xs text-slate-500">{MODEL_UPLOAD_RULE.uploadSpecText}</p>
+              </div>
+              <span className="rounded-full bg-violet-50 px-2.5 py-1 text-[11px] font-medium text-violet-600">Hover 预览</span>
+            </div>
+
+            <div className="studio-scrollbar-hide overflow-y-auto px-5 py-4" style={{ maxHeight: rulesPopoverStyle.maxHeight - 88 }}>
+              <div className="grid gap-3 md:grid-cols-3">
+                {MODEL_UPLOAD_RULE.demos.map((demo) => (
+                  <div key={demo.title} className="flex min-h-[300px] flex-col rounded-2xl border border-slate-100 bg-slate-50/70 p-2">
+                    <div className={`grid h-36 gap-1 ${demo.imageUrls.length === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
+                      {demo.imageUrls.slice(0, 4).map((url) => (
+                        <div key={url} className="relative flex min-h-0 items-center justify-center overflow-hidden rounded-xl bg-white">
+                          <img src={url} alt={demo.title} className="h-full w-full object-cover object-top" />
+                          <CheckCircle2 className="absolute right-2 top-2 h-5 w-5 rounded-full bg-white text-emerald-500" />
+                        </div>
+                      ))}
+                    </div>
+                    <p className="mt-2 text-xs font-bold text-slate-800">{demo.title}</p>
+                    <p className="mt-1 line-clamp-2 min-h-[34px] text-[10px] leading-relaxed text-slate-400">{demo.description}</p>
+                    <button
+                      type="button"
+                      onClick={() => applyRuleDemo(demo)}
+                      className="mt-auto w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 hover:border-violet-200 hover:text-violet-600"
+                    >
+                      试一试
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-5 rounded-2xl bg-red-50/40 p-3">
+                <p className="mb-3 text-center text-xs font-medium text-slate-500">{MODEL_UPLOAD_RULE.deprecatedTitle}</p>
+                <div className="mx-auto grid max-w-lg grid-cols-3 gap-3">
+                  {MODEL_UPLOAD_RULE.deprecatedImages.map((image) => (
+                    <div key={image.title} className="rounded-2xl border border-red-100 bg-white/70 p-2 text-center">
+                      <div className="relative h-36 overflow-hidden rounded-xl bg-white">
+                        <img src={image.url} alt={image.title} className="h-full w-full object-cover object-top" />
+                        <XCircle className="absolute right-2 top-2 h-5 w-5 rounded-full bg-white text-red-500" />
+                      </div>
+                      <p className="mt-2 text-xs font-medium text-slate-600">{image.title}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </ClientPortal>
+      )}
+
+      {showPromptPreview && (
+        <ClientPortal>
+        <div
+          className="fixed inset-0 z-[220] flex min-h-dvh w-dvw items-center justify-center bg-slate-950/38 p-4 backdrop-blur-xl sm:p-6"
+          onClick={() => setShowPromptPreview(false)}
+        >
+          <div
+            className="max-h-[86dvh] w-full max-w-4xl overflow-hidden rounded-[28px] border border-white/80 bg-white/[0.94] shadow-[0_32px_100px_rgba(15,23,42,0.22)] backdrop-blur-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b px-5 py-3">
+              <h3 className="text-sm font-bold">完整提示词</h3>
+              <button onClick={() => setShowPromptPreview(false)} className="rounded p-1 hover:bg-gray-100">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="max-h-[64dvh] space-y-3 overflow-y-auto px-5 py-4">
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  ["模块", "专属模特"],
+                  ["模型", aiModel],
+                  ["比例", aspectRatio],
+                  ["分辨率", imageSize],
+                  ["生成张数", `${genCount}`],
+                  ["融合参考", `${referenceUrls.length} 张`],
+                  ["发型参考", hairReferenceUrl ? "已使用" : hairStyle || "未使用"],
+                  ["发色参考", hairColorReferenceUrl ? "已使用" : hairColor || "未使用"],
+                ].map(([label, value]) => (
+                  <div key={label} className="rounded-lg border bg-gray-50 px-3 py-2">
+                    <p className="text-[10px] text-gray-400">{label}</p>
+                    <p className="break-words text-xs font-medium text-gray-700">{value}</p>
+                  </div>
+                ))}
+              </div>
+              <textarea
+                value={prompt}
+                onChange={(e) => {
+                  setPromptTouched(true);
+                  setPrompt(e.target.value);
+                }}
+                className="min-h-[320px] w-full resize-y rounded-lg border px-3 py-2 text-xs leading-relaxed text-gray-700 outline-none focus:ring-2 focus:ring-purple-200"
+              />
+              <ModelPromptPreview kind="model" model={aiModel} prompt={prompt} />
+              <button
+                onClick={optimizePrompt}
+                disabled={isOptimizing || !referenceUrls.length}
+                className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-purple-200 py-2 text-xs font-medium text-purple-600 hover:bg-purple-50 disabled:opacity-40"
+              >
+                {isOptimizing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand className="w-3.5 h-3.5" />}
+                分析图片并优化提示词
+              </button>
+              <button
+                onClick={() => {
+                  setPromptTouched(false);
+                  setPrompt(defaultPrompt);
+                }}
+                className="w-full rounded-lg border py-2 text-xs font-medium text-gray-500 hover:border-purple-300 hover:text-purple-600"
+              >
+                恢复默认模板
+              </button>
+            </div>
+            <div className="flex justify-end gap-2 border-t px-5 py-3">
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(prompt);
+                  toast.success("已复制");
+                }}
+                className="rounded-full border px-4 py-1.5 text-xs font-medium hover:bg-gray-50"
+              >
+                复制
+              </button>
+              <button onClick={() => setShowPromptPreview(false)} className="gradient-brand rounded-full px-4 py-1.5 text-xs font-medium text-white">
+                关闭
+              </button>
+            </div>
+          </div>
         </div>
+        </ClientPortal>
+      )}
+
+      {lightboxSrc && (
+        <ClientPortal>
+          <div className="fixed inset-0 z-[180] flex cursor-zoom-out items-center justify-center bg-slate-950/66 p-4 backdrop-blur-xl sm:p-8"
+            onClick={() => setLightboxSrc(null)}>
+            <img src={lightboxSrc} className="max-h-full max-w-full rounded-2xl object-contain shadow-[0_32px_120px_rgba(0,0,0,0.45)]" />
+            <button onClick={() => setLightboxSrc(null)}
+              className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full border border-white/85 bg-white/90 text-slate-700 shadow-[0_12px_34px_rgba(15,23,42,0.22)] backdrop-blur transition-colors hover:bg-white hover:text-slate-950 sm:right-6 sm:top-6">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </ClientPortal>
       )}
     </div>
   );
 }
 
-function buildDefaultPrompt(refCount: number, gender: Gender, hairStyle: string | null, hairColor: string | null, hasHairReference: boolean, hasHairColorReference: boolean) {
+function buildDefaultPrompt(
+  refCount: number,
+  gender: Gender,
+  hairStyle: string | null,
+  hairColor: string | null,
+  hasHairReference: boolean,
+  hasHairColorReference: boolean,
+  modelStyle: ModelShootStyle
+) {
   const refs = Array.from({ length: refCount }, (_, i) => `图${i + 1}`).join("、");
   const genderText = gender === "male" ? "男性" : "女性";
   const hairImageIndex = refCount + 1;
@@ -749,8 +1124,19 @@ function buildDefaultPrompt(refCount: number, gender: Gender, hairStyle: string 
     hasHairColorReference ? `图${hairColorImageIndex} 是发色参考图，只参考发色，不参考身份` : "",
   ].filter(Boolean).join("；");
   const imageRoleText = extraRoles
-    ? `图像角色：${refs} 是同一个专属模特的人物参考图，用于提取共同的人物身份、脸型、五官比例、肤色、气质和真实面部特征；${extraRoles}。`
-    : `图像角色：${refs} 是同一个专属模特的参考图，用于提取共同的人物身份、脸型、五官比例、肤色、气质和真实面部特征。`;
+    ? `图像角色：${refs} 是专属模特的人脸与风格融合参考图，可能来自同一个人，也可能来自不同人物；用于融合脸型、五官比例、肤色、气质、妆感、面部氛围和真实面部特征，生成一个新的稳定专属模特身份；${extraRoles}。`
+    : `图像角色：${refs} 是专属模特的人脸与风格融合参考图，可能来自同一个人，也可能来自不同人物；用于融合脸型、五官比例、肤色、气质、妆感、面部氛围和真实面部特征，生成一个新的稳定专属模特身份。`;
 
-  return `${imageRoleText}任务：融合 ${refs} 的人物特征，生成一张真实摄影质感的${genderText}专属模特半身头像/模特卡照片。${hairStyleText}；${hairColorText}。保持人物身份一致，白色基础上衣，干净浅灰棚拍背景，柔和商业摄影布光，皮肤保留自然纹理和轻微瑕疵，发丝细节真实。图像质量：${MODEL_QUALITY}。负面约束：不要生成多个人，不要换成陌生脸，不要把发型/发色参考图当成人脸身份，不要过度磨皮，不要塑料皮肤，不要蜡像感，不要卡通感，不要畸形五官，不要文字水印。`;
+  return `${imageRoleText}
+任务：融合 ${refs} 的人物特征、长相风格、模特气质和妆容审美，生成一张真实摄影质感的${genderText}专属模特半身头像/模特卡照片。${hairStyleText}；${hairColorText}。最终模特必须是融合后的单一新身份，不要只复制其中某一张参考图。
+${buildModelShootStylePrompt(modelStyle)}
+${MODEL_FUSION_RULE}
+${MODEL_FACE_STYLE_RULE}
+${MODEL_MAKEUP_RULE}
+${MODEL_SKIN_TONE_RULE}
+${MODEL_FACE_SHAPE_RULE}
+${MODEL_FEATURE_IDENTITY_RULE}
+${MODEL_AGE_TEXTURE_RULE}
+白色基础上衣，干净浅灰棚拍背景，柔和商业摄影布光，皮肤保留自然纹理和轻微瑕疵，发丝细节真实。图像质量：${MODEL_QUALITY}。
+负面约束：不要生成多个人，不要换成随机陌生脸，不要只像单张参考图，不要无妆感，不要丢失参考图的面部氛围，不要默认美白，不要雪白皮或冷白皮，不要标准鹅蛋脸、小V脸、尖下巴、大眼高鼻网红审美，不要把发型/发色参考图当成人脸身份，不要过度磨皮，不要塑料皮肤，不要蜡像感，不要卡通感，不要畸形五官，不要文字水印。`;
 }

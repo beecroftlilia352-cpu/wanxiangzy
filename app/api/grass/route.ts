@@ -1,0 +1,98 @@
+import { NextRequest, NextResponse } from "next/server";
+import { createServerSupabase } from "@/lib/supabase/server";
+import { getCreditCost, normalizeAspectRatio, normalizeImageSize, normalizeLingyaModel, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
+import { createDebitedGeneration, errorToResponsePayload } from "@/lib/api/credits";
+import { startGenerationJob, type GenerationJobPayload } from "@/lib/api/generation-jobs";
+import { handleGenerationStatusGet } from "@/lib/api/generation-status";
+import { buildGrassPrompt, DEFAULT_GRASS_USER_PROMPT, enforceGrassPromptRequirements, normalizeGrassSceneMode, normalizeGrassTemplate } from "@/lib/grass-planting";
+
+export async function POST(request: NextRequest) {
+  try {
+    const supabase = await createServerSupabase();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: "请先登录" }, { status: 401 });
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let body: any;
+    try { body = await request.json(); }
+    catch { return NextResponse.json({ error: "请求格式无效" }, { status: 400 }); }
+
+    const garmentUrl = typeof body.garment_url === "string" ? body.garment_url : "";
+    if (!garmentUrl) return NextResponse.json({ error: "请先上传服装图" }, { status: 400 });
+
+    const model: LingyaModel = normalizeLingyaModel(body.ai_model);
+    const aspectRatio = normalizeAspectRatio(body.aspect_ratio || "3:4");
+    const size: ImageSize = normalizeImageSize(model, body.image_size || "1K", aspectRatio);
+    const genCount = Math.min(Math.max(Number(body.gen_count) || 1, 1), 4);
+    const templateId = normalizeGrassTemplate(body.template_id);
+    const userPrompt = typeof body.user_prompt === "string" && body.user_prompt.trim()
+      ? body.user_prompt
+      : DEFAULT_GRASS_USER_PROMPT;
+    const changeModel = body.change_model !== false;
+    const sceneMode = normalizeGrassSceneMode(body.scene_mode);
+    const requestedReferenceUrl = typeof body.reference_url === "string" ? body.reference_url.trim() : "";
+    const referenceUrl = sceneMode === "custom_prompt" ? null : requestedReferenceUrl || null;
+    if (sceneMode === "upload_reference" && !referenceUrl) {
+      return NextResponse.json({ error: "请先上传种草参考图" }, { status: 400 });
+    }
+    const rawPrompt = typeof body.prompt === "string" && body.prompt.trim()
+      ? body.prompt
+      : buildGrassPrompt({
+          templateId,
+          userPrompt,
+          changeModel,
+          sceneMode,
+          hasReference: !!referenceUrl,
+        });
+    const prompt = enforceGrassPromptRequirements(rawPrompt, {
+      sceneMode,
+      hasReference: !!referenceUrl,
+      changeModel,
+    });
+    const totalCost = getCreditCost(model, size, aspectRatio) * genCount;
+
+    const jobPayload: GenerationJobPayload = {
+      kind: "grass",
+      garmentUrl,
+      referenceUrl,
+      sceneMode,
+      templateId,
+      changeModel,
+      userPrompt,
+      aiModel: model,
+      aspectRatio,
+      imageSize: size,
+      prompt,
+      genCount,
+    };
+
+    const debit = await createDebitedGeneration(supabase, {
+      userId: user.id,
+      clothingUrls: [garmentUrl],
+      modelFaceUrl: null,
+      referenceUrl,
+      creditsCost: totalCost,
+      aiModel: model,
+      imageSize: size,
+      reason: `服装种草图 ${genCount} 张 (${model}, ${size})`,
+      jobPayload,
+    });
+
+    startGenerationJob(debit.generationId);
+
+    return NextResponse.json({
+      generation_id: debit.generationId,
+      credits_cost: totalCost,
+      credits_remaining: debit.creditsRemaining,
+      status: "processing_tryon",
+    });
+  } catch (err: any) {
+    console.error("[grass] POST error:", err);
+    const payload = errorToResponsePayload(err);
+    return NextResponse.json(payload.body, { status: payload.status });
+  }
+}
+
+export async function GET(request: NextRequest) {
+  return handleGenerationStatusGet(request.nextUrl.searchParams.get("generation_id"));
+}

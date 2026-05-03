@@ -90,7 +90,8 @@ export const ACCEPTED_IMAGE_TYPES = {
   "image/webp": [".webp"],
 };
 
-export const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+export const MAX_FILE_SIZE_MB = 15;
+export const MAX_FILE_SIZE = MAX_FILE_SIZE_MB * 1024 * 1024;
 export const MAX_CLOTHING_FILES = 5;
 
 export interface UploadResult {
@@ -104,7 +105,7 @@ export interface UploadResult {
 /**
  * 压缩图片（超过 maxSizeMB 时自动压缩）
  */
-async function compressImage(file: File, maxSizeMB: number = 10): Promise<File> {
+async function compressImage(file: File, maxSizeMB: number = MAX_FILE_SIZE_MB): Promise<File> {
   if (file.size <= maxSizeMB * 1024 * 1024) return file;
 
   return new Promise((resolve) => {
@@ -154,7 +155,7 @@ async function compressImage(file: File, maxSizeMB: number = 10): Promise<File> 
  * 上传图片到 imgbb（通过服务端 API 代理）
  */
 export async function uploadImage(file: File): Promise<UploadResult> {
-  const compressed = await compressImage(file, 10);
+  const compressed = await compressImage(file, MAX_FILE_SIZE_MB);
 
   const base64 = await new Promise<string>((resolve, reject) => {
     const reader = new FileReader();

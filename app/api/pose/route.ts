@@ -8,6 +8,7 @@ import {
 import { startGenerationJob, type GenerationJobPayload } from "@/lib/api/generation-jobs";
 import { handleGenerationStatusGet } from "@/lib/api/generation-status";
 import { enforcePosePromptRequirements } from "@/lib/pose-prompt";
+import { applyPoseSeriesStylePrompt, normalizePoseSeriesStyle } from "@/lib/module-style-presets";
 
 const POSE_ASPECT_RATIO = "3:4" as const;
 
@@ -21,20 +22,24 @@ export async function POST(request: NextRequest) {
     let body: any;
     try { body = await request.json(); }
     catch { return NextResponse.json({ error: "请求格式无效" }, { status: 400 }); }
-    const { main_image_url, ai_model, image_size, prompt } = body;
+    const { main_image_url, ai_model, image_size, prompt, pose_style } = body;
+    const varyExpression = body.vary_expression !== false;
     if (!main_image_url || typeof main_image_url !== "string") return NextResponse.json({ error: "缺少主图" }, { status: 400 });
     if (!prompt?.trim()) return NextResponse.json({ error: "缺少提示词" }, { status: 400 });
 
     const model: LingyaModel = normalizeLingyaModel(ai_model);
     const size: ImageSize = normalizeImageSize(model, image_size || "1K", POSE_ASPECT_RATIO);
     const totalCost = getCreditCost(model, size, POSE_ASPECT_RATIO);
-    const finalPrompt = enforcePosePromptRequirements(prompt);
+    const poseStyle = normalizePoseSeriesStyle(pose_style);
+    const finalPrompt = enforcePosePromptRequirements(applyPoseSeriesStylePrompt(prompt, poseStyle), { varyExpression, poseStyle });
     const jobPayload: GenerationJobPayload = {
       kind: "pose",
       mainImageUrl: main_image_url,
       aiModel: model,
       imageSize: size,
       prompt: finalPrompt,
+      varyExpression,
+      poseStyle,
     };
 
     const debit = await createDebitedGeneration(supabase, {

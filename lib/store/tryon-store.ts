@@ -69,7 +69,7 @@ export const useTryOnStore = create<TryOnStore>((set) => ({
   setReferenceImage: (ref) => set({ referenceImage: ref }),
 
   startGeneration: () =>
-    set({ isGenerating: true, generationProgress: 0, error: null }),
+    set({ isGenerating: true, generationProgress: 0, resultUrls: [], error: null }),
 
   updateProgress: (progress) => set({ generationProgress: progress }),
 

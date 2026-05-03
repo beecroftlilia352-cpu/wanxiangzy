@@ -1,4 +1,10 @@
 import type { AspectRatio, ImageSize, LingyaModel } from "@/lib/api/lingya";
+import type { Garment3dDisplayStyle, ModelShootStyle, PoseSeriesStyle } from "@/lib/module-style-presets";
+import type { AutoDesignSettings, TryOnSceneMode } from "@/lib/tryon-scene";
+import type { TryOnAgeGroup, TryOnGarmentAudience } from "@/lib/tryon-prompt";
+import type { TryOnClothingMode, TryOnClothingRole } from "@/lib/tryon-upload-rules";
+import type { GrassPayloadBase } from "@/lib/grass-planting";
+import type { ModelBackgroundPayloadBase } from "@/lib/model-background";
 
 export const HISTORY_APPLY_KEY = "vastweargen:apply-generation";
 
@@ -6,6 +12,10 @@ export type HistoryJobPayload =
   | {
       kind: "tryon";
       clothingUrls: string[];
+      clothingMode?: TryOnClothingMode;
+      clothingRoles?: TryOnClothingRole[];
+      garmentAudience?: TryOnGarmentAudience;
+      ageGroup?: TryOnAgeGroup;
       modelFaceUrl?: string | null;
       referenceUrl?: string | null;
       aiModel: LingyaModel;
@@ -13,6 +23,8 @@ export type HistoryJobPayload =
       imageSize: ImageSize;
       style?: string;
       rawPrompt?: string;
+      sceneMode?: TryOnSceneMode;
+      autoDesign?: AutoDesignSettings;
       genCount: number;
     }
   | {
@@ -21,6 +33,7 @@ export type HistoryJobPayload =
       hairReferenceUrl?: string | null;
       hairColorReferenceUrl?: string | null;
       gender?: "female" | "male";
+      modelStyle?: ModelShootStyle;
       hairStyle?: string | null;
       hairColor?: string | null;
       aiModel: LingyaModel;
@@ -29,12 +42,16 @@ export type HistoryJobPayload =
       prompt: string;
       genCount: number;
     }
+  | ({ kind: "grass" } & GrassPayloadBase)
+  | ({ kind: "modelBackground" } & ModelBackgroundPayloadBase)
   | {
       kind: "pose";
       mainImageUrl: string;
       aiModel: LingyaModel;
       imageSize: ImageSize;
       prompt: string;
+      varyExpression?: boolean;
+      poseStyle?: PoseSeriesStyle;
     }
   | {
       kind: "garment3d";
@@ -42,6 +59,7 @@ export type HistoryJobPayload =
       referenceUrl?: string | null;
       garmentType?: string;
       outputMode?: "reference" | "prompt";
+      displayStyle?: Garment3dDisplayStyle;
       userPrompt?: string;
       aiModel: LingyaModel;
       aspectRatio: AspectRatio;
@@ -52,6 +70,8 @@ export type HistoryJobPayload =
 
 export function getApplyPath(kind: HistoryJobPayload["kind"]) {
   if (kind === "tryon") return "/create";
+  if (kind === "grass") return "/grass";
+  if (kind === "modelBackground") return "/model-background";
   if (kind === "garment3d") return "/garment-3d";
   if (kind === "model") return "/model";
   return "/pose";

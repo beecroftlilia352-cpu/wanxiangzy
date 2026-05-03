@@ -14,6 +14,7 @@ import {
 } from "@/lib/api/credits";
 import { startGenerationJob, type GenerationJobPayload } from "@/lib/api/generation-jobs";
 import { handleGenerationStatusGet } from "@/lib/api/generation-status";
+import { applyGarment3dDisplayStylePrompt, normalizeGarment3dDisplayStyle } from "@/lib/module-style-presets";
 
 type GarmentType = "上装" | "下装" | "连体衣" | "其他";
 type OutputMode = "reference" | "prompt";
@@ -38,6 +39,7 @@ export async function POST(request: NextRequest) {
       garment_type,
       custom_garment_type,
       output_mode,
+      display_style,
       reference_url,
       ai_model,
       aspect_ratio,
@@ -62,18 +64,20 @@ export async function POST(request: NextRequest) {
       ? custom_garment_type?.trim() || "其他服装"
       : garment_type || "服装";
     const mode: OutputMode = output_mode === "reference" ? "reference" : "prompt";
-    const finalPrompt = final_prompt?.trim() || buildServerPrompt({
+    const displayStyle = normalizeGarment3dDisplayStyle(display_style);
+    const finalPrompt = applyGarment3dDisplayStylePrompt(final_prompt?.trim() || buildServerPrompt({
       garmentType: finalGarmentType,
       outputMode: mode,
       hasReference: !!reference_url && mode === "reference",
       userPrompt: prompt,
-    });
+    }), displayStyle);
     const jobPayload: GenerationJobPayload = {
       kind: "garment3d",
       garmentUrl: garment_url,
       referenceUrl: mode === "reference" ? reference_url || null : null,
       garmentType: finalGarmentType,
       outputMode: mode,
+      displayStyle,
       userPrompt: prompt,
       aiModel: model,
       aspectRatio,

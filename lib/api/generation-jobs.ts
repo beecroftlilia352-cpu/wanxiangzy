@@ -9,12 +9,33 @@ import {
 import { failGenerationWithRefund } from "@/lib/api/credits";
 import { resolveImageInputs } from "@/lib/api/image-inputs.server";
 import { persistGeneratedImageUrls } from "@/lib/api/result-image-storage";
+import { enforceModelPromptRequirements } from "@/lib/model-prompt";
 import { enforcePosePromptRequirements } from "@/lib/pose-prompt";
+import {
+  applyGarment3dDisplayStylePrompt,
+  applyModelShootStylePrompt,
+  applyPoseSeriesStylePrompt,
+  normalizeGarment3dDisplayStyle,
+  normalizeModelShootStyle,
+  normalizePoseSeriesStyle,
+  type Garment3dDisplayStyle,
+  type ModelShootStyle,
+  type PoseSeriesStyle,
+} from "@/lib/module-style-presets";
+import type { AutoDesignSettings, TryOnSceneMode } from "@/lib/tryon-scene";
+import type { TryOnAgeGroup, TryOnGarmentAudience } from "@/lib/tryon-prompt";
+import type { TryOnClothingMode, TryOnClothingRole } from "@/lib/tryon-upload-rules";
+import type { GrassPayloadBase } from "@/lib/grass-planting";
+import type { ModelBackgroundPayloadBase } from "@/lib/model-background";
 
 export type GenerationJobPayload =
   | {
       kind: "tryon";
       clothingUrls: string[];
+      clothingMode?: TryOnClothingMode;
+      clothingRoles?: TryOnClothingRole[];
+      garmentAudience?: TryOnGarmentAudience;
+      ageGroup?: TryOnAgeGroup;
       modelFaceUrl?: string | null;
       referenceUrl?: string | null;
       aiModel: LingyaModel;
@@ -23,6 +44,8 @@ export type GenerationJobPayload =
       style?: string;
       genCount: number;
       rawPrompt?: string;
+      sceneMode?: TryOnSceneMode;
+      autoDesign?: AutoDesignSettings;
     }
   | {
       kind: "model";
@@ -30,6 +53,7 @@ export type GenerationJobPayload =
       hairReferenceUrl?: string | null;
       hairColorReferenceUrl?: string | null;
       gender?: "female" | "male";
+      modelStyle?: ModelShootStyle;
       hairStyle?: string | null;
       hairColor?: string | null;
       aiModel: LingyaModel;
@@ -38,12 +62,16 @@ export type GenerationJobPayload =
       prompt: string;
       genCount: number;
     }
+  | ({ kind: "grass" } & GrassPayloadBase)
+  | ({ kind: "modelBackground" } & ModelBackgroundPayloadBase)
   | {
       kind: "pose";
       mainImageUrl: string;
       aiModel: LingyaModel;
       imageSize: ImageSize;
       prompt: string;
+      varyExpression?: boolean;
+      poseStyle?: PoseSeriesStyle;
     }
   | {
       kind: "garment3d";
@@ -51,6 +79,7 @@ export type GenerationJobPayload =
       referenceUrl?: string | null;
       garmentType?: string;
       outputMode?: "reference" | "prompt";
+      displayStyle?: Garment3dDisplayStyle;
       userPrompt?: string;
       aiModel: LingyaModel;
       aspectRatio: AspectRatio;
@@ -74,6 +103,21 @@ interface ExhaustedJob {
   processing_started_at: string | null;
   error_message: string | null;
 }
+
+type PromptTraceItem = {
+  index: number;
+  kind: GenerationJobPayload["kind"];
+  model: LingyaModel;
+  promptKind: string;
+  prompt: string;
+  compiledPrompt: string;
+  createdAt: string;
+};
+
+type GenerationExecutionResult = {
+  resultUrls: string[];
+  promptTrace: PromptTraceItem[];
+};
 
 export function startGenerationJob(generationId: string) {
   runGenerationJobById(generationId).catch((err) => {
@@ -134,14 +178,17 @@ async function runClaimedJob(
 ) {
   try {
     const payload = parseJobPayload(job.job_payload);
-    const resultUrls = await executePayload(payload);
-    const persistedResultUrls = await persistGeneratedImageUrls(resultUrls, job.id);
+    const execution = await executePayload(payload);
+    const persistedResultUrls = await persistGeneratedImageUrls(execution.resultUrls, job.id, {
+      forceServerDownload: isSeedreamPayload(payload),
+    });
 
     const { data, error } = await supabase
       .from("generations")
       .update({
         status: "completed",
         result_urls: persistedResultUrls,
+        job_payload: appendPromptTrace(payload, execution.promptTrace),
         processing_started_at: null,
         completed_at: new Date().toISOString(),
       })
@@ -168,7 +215,9 @@ async function runClaimedJob(
   }
 }
 
-async function executePayload(payload: GenerationJobPayload): Promise<string[]> {
+async function executePayload(payload: GenerationJobPayload): Promise<GenerationExecutionResult> {
+  const promptTrace: PromptTraceItem[] = [];
+
   if (payload.kind === "tryon") {
     const resultUrls: string[] = [];
 
@@ -181,6 +230,10 @@ async function executePayload(payload: GenerationJobPayload): Promise<string[]> 
       const result = await batchTryOn({
         model: payload.aiModel,
         clothingUrls: imageInputs.clothingUrls,
+        clothingMode: payload.clothingMode,
+        clothingRoles: payload.clothingRoles,
+        garmentAudience: payload.garmentAudience,
+        ageGroup: payload.ageGroup,
         modelFaceUrl: imageInputs.modelFaceUrl,
         referenceUrl: imageInputs.referenceUrl,
         aspect_ratio: payload.aspectRatio,
@@ -189,9 +242,17 @@ async function executePayload(payload: GenerationJobPayload): Promise<string[]> 
         raw_prompt: payload.rawPrompt,
       });
       resultUrls.push(...result.resultUrls);
+      promptTrace.push(createPromptTraceItem({
+        index: i + 1,
+        kind: payload.kind,
+        model: payload.aiModel,
+        promptKind: "tryon",
+        prompt: result.prompt,
+        compiledPrompt: result.compiledPrompt,
+      }));
     }
 
-    return resultUrls;
+    return { resultUrls, promptTrace };
   }
 
   if (payload.kind === "model") {
@@ -202,32 +263,128 @@ async function executePayload(payload: GenerationJobPayload): Promise<string[]> 
     ].filter(Boolean) as string[];
     const imageInputs = await resolveImageInputs({ clothingUrls: references });
     const resultUrls: string[] = [];
+    const modelStyle = normalizeModelShootStyle(payload.modelStyle);
 
     for (let i = 0; i < payload.genCount; i++) {
+      const prompt = enforceModelPromptRequirements({
+        prompt: applyModelShootStylePrompt(payload.prompt, modelStyle),
+        referenceCount: payload.referenceUrls.length,
+        hairReferenceIndex: payload.hairReferenceUrl ? payload.referenceUrls.length + 1 : null,
+        hairColorReferenceIndex: payload.hairColorReferenceUrl ? payload.referenceUrls.length + (payload.hairReferenceUrl ? 2 : 1) : null,
+      });
       const result = await generateImage({
         model: payload.aiModel,
-        prompt: payload.prompt,
+        prompt,
+        prompt_kind: "model",
         aspect_ratio: payload.aspectRatio,
         image: imageInputs.clothingUrls,
         image_size: payload.imageSize,
       });
       resultUrls.push(getResultUrl(result));
+      promptTrace.push(createPromptTraceItem({
+        index: i + 1,
+        kind: payload.kind,
+        model: payload.aiModel,
+        promptKind: "model",
+        prompt,
+        compiledPrompt: result.compiledPrompt || prompt,
+      }));
     }
 
-    return resultUrls;
+    return { resultUrls, promptTrace };
+  }
+
+  if (payload.kind === "grass") {
+    const imageInputs = await resolveImageInputs({
+      clothingUrls: [
+        payload.garmentUrl,
+        ...(payload.referenceUrl ? [payload.referenceUrl] : []),
+      ],
+    });
+    const resultUrls: string[] = [];
+
+    for (let i = 0; i < payload.genCount; i++) {
+      const result = await generateImage({
+        model: payload.aiModel,
+        prompt: payload.prompt,
+        prompt_kind: "grass",
+        aspect_ratio: payload.aspectRatio,
+        image: imageInputs.clothingUrls,
+        image_size: payload.imageSize,
+      });
+      resultUrls.push(getResultUrl(result));
+      promptTrace.push(createPromptTraceItem({
+        index: i + 1,
+        kind: payload.kind,
+        model: payload.aiModel,
+        promptKind: "grass",
+        prompt: payload.prompt,
+        compiledPrompt: result.compiledPrompt || payload.prompt,
+      }));
+    }
+
+    return { resultUrls, promptTrace };
+  }
+
+  if (payload.kind === "modelBackground") {
+    const sourceImages = [
+      payload.sourceUrl,
+      payload.modelReferenceUrl,
+      payload.backgroundReferenceUrl,
+    ].filter(Boolean) as string[];
+    const imageInputs = await resolveImageInputs({ clothingUrls: sourceImages });
+    const resultUrls: string[] = [];
+
+    for (let i = 0; i < payload.genCount; i++) {
+      const result = await generateImage({
+        model: payload.aiModel,
+        prompt: payload.prompt,
+        prompt_kind: "modelBackground",
+        aspect_ratio: payload.aspectRatio,
+        image: imageInputs.clothingUrls,
+        image_size: payload.imageSize,
+      });
+      resultUrls.push(getResultUrl(result));
+      promptTrace.push(createPromptTraceItem({
+        index: i + 1,
+        kind: payload.kind,
+        model: payload.aiModel,
+        promptKind: "modelBackground",
+        prompt: payload.prompt,
+        compiledPrompt: result.compiledPrompt || payload.prompt,
+      }));
+    }
+
+    return { resultUrls, promptTrace };
   }
 
   if (payload.kind === "pose") {
     const imageInputs = await resolveImageInputs({ clothingUrls: [payload.mainImageUrl] });
+    const poseStyle = normalizePoseSeriesStyle(payload.poseStyle);
+    const prompt = enforcePosePromptRequirements(applyPoseSeriesStylePrompt(payload.prompt, poseStyle), {
+      varyExpression: payload.varyExpression !== false,
+      poseStyle,
+    });
     const result = await generateImage({
       model: payload.aiModel,
-      prompt: enforcePosePromptRequirements(payload.prompt),
+      prompt,
+      prompt_kind: "pose",
       aspect_ratio: "3:4",
       image: imageInputs.clothingUrls,
       image_size: payload.imageSize,
     });
 
-    return [getResultUrl(result)];
+    return {
+      resultUrls: [getResultUrl(result)],
+      promptTrace: [createPromptTraceItem({
+        index: 1,
+        kind: payload.kind,
+        model: payload.aiModel,
+        promptKind: "pose",
+        prompt,
+        compiledPrompt: result.compiledPrompt || prompt,
+      })],
+    };
   }
 
   const imageInputs = await resolveImageInputs({
@@ -237,19 +394,54 @@ async function executePayload(payload: GenerationJobPayload): Promise<string[]> 
     ],
   });
   const resultUrls: string[] = [];
+  const displayStyle = normalizeGarment3dDisplayStyle(payload.displayStyle);
 
   for (let i = 0; i < payload.genCount; i++) {
+    const prompt = applyGarment3dDisplayStylePrompt(payload.prompt, displayStyle);
     const result = await generateImage({
       model: payload.aiModel,
-      prompt: payload.prompt,
+      prompt,
+      prompt_kind: "garment3d",
       aspect_ratio: payload.aspectRatio,
       image: imageInputs.clothingUrls,
       image_size: payload.imageSize,
     });
     resultUrls.push(getResultUrl(result));
+    promptTrace.push(createPromptTraceItem({
+      index: i + 1,
+      kind: payload.kind,
+      model: payload.aiModel,
+      promptKind: "garment3d",
+      prompt,
+      compiledPrompt: result.compiledPrompt || prompt,
+    }));
   }
 
-  return resultUrls;
+  return { resultUrls, promptTrace };
+}
+
+function createPromptTraceItem(params: Omit<PromptTraceItem, "createdAt">): PromptTraceItem {
+  return {
+    ...params,
+    prompt: limitStoredPrompt(params.prompt),
+    compiledPrompt: limitStoredPrompt(params.compiledPrompt),
+    createdAt: new Date().toISOString(),
+  };
+}
+
+function appendPromptTrace(payload: GenerationJobPayload, promptTrace: PromptTraceItem[]) {
+  if (!promptTrace.length) return payload;
+
+  return {
+    ...payload,
+    promptTraceVersion: 1,
+    promptTrace: promptTrace.slice(-8),
+  };
+}
+
+function limitStoredPrompt(prompt: string) {
+  const normalized = prompt.replace(/\r\n/g, "\n").trim();
+  return normalized.length > 12_000 ? `${normalized.slice(0, 12_000)}\n[truncated]` : normalized;
 }
 
 function getResultUrl(result: { url?: string; b64_json?: string }) {
@@ -286,6 +478,24 @@ function isJobPayload(value: unknown): value is GenerationJobPayload {
       typeof value.genCount === "number";
   }
 
+  if (value.kind === "grass") {
+    return typeof value.garmentUrl === "string" &&
+      typeof value.aiModel === "string" &&
+      typeof value.aspectRatio === "string" &&
+      typeof value.imageSize === "string" &&
+      typeof value.prompt === "string" &&
+      typeof value.genCount === "number";
+  }
+
+  if (value.kind === "modelBackground") {
+    return typeof value.sourceUrl === "string" &&
+      typeof value.aiModel === "string" &&
+      typeof value.aspectRatio === "string" &&
+      typeof value.imageSize === "string" &&
+      typeof value.prompt === "string" &&
+      typeof value.genCount === "number";
+  }
+
   if (value.kind === "pose") {
     return typeof value.mainImageUrl === "string" &&
       typeof value.aiModel === "string" &&
@@ -315,6 +525,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function getFirstRow(data: unknown): ClaimedJob | null {
   return Array.isArray(data) && data.length > 0 ? (data[0] as ClaimedJob) : null;
+}
+
+function isSeedreamPayload(payload: GenerationJobPayload) {
+  return payload.aiModel.startsWith("doubao-seedream-");
 }
 
 async function refundExhaustedJobs(supabase: ReturnType<typeof createAdminClient>) {

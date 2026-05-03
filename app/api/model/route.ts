@@ -7,6 +7,8 @@ import {
 } from "@/lib/api/credits";
 import { startGenerationJob, type GenerationJobPayload } from "@/lib/api/generation-jobs";
 import { handleGenerationStatusGet } from "@/lib/api/generation-status";
+import { enforceModelPromptRequirements } from "@/lib/model-prompt";
+import { applyModelShootStylePrompt, normalizeModelShootStyle } from "@/lib/module-style-presets";
 
 export async function POST(request: NextRequest) {
   try {
@@ -18,7 +20,7 @@ export async function POST(request: NextRequest) {
     let body: any;
     try { body = await request.json(); }
     catch { return NextResponse.json({ error: "请求格式无效" }, { status: 400 }); }
-    const { reference_urls, hair_reference_url, hair_color_reference_url, gender, hair_style, hair_color, ai_model, aspect_ratio, image_size, prompt, gen_count } = body;
+    const { reference_urls, hair_reference_url, hair_color_reference_url, gender, hair_style, hair_color, model_style, ai_model, aspect_ratio, image_size, prompt, gen_count } = body;
     if (!Array.isArray(reference_urls) || !reference_urls.length) return NextResponse.json({ error: "请上传 1-3 张参考图" }, { status: 400 });
     if (reference_urls.length > 3) return NextResponse.json({ error: "参考图最多 3 张" }, { status: 400 });
     if (reference_urls.some((url) => typeof url !== "string")) return NextResponse.json({ error: "参考图无效" }, { status: 400 });
@@ -36,18 +38,28 @@ export async function POST(request: NextRequest) {
     const genCount = Math.min(Math.max(Number(gen_count) || 1, 1), 4);
     const costPerImage = getCreditCost(model, size, aspectRatio);
     const totalCost = costPerImage * genCount;
+    const hairReferenceIndex = hair_reference_url ? reference_urls.length + 1 : null;
+    const hairColorReferenceIndex = hair_color_reference_url ? reference_urls.length + (hair_reference_url ? 2 : 1) : null;
+    const modelStyle = normalizeModelShootStyle(model_style);
+    const finalPrompt = enforceModelPromptRequirements({
+      prompt: applyModelShootStylePrompt(prompt, modelStyle),
+      referenceCount: reference_urls.length,
+      hairReferenceIndex,
+      hairColorReferenceIndex,
+    });
     const jobPayload: GenerationJobPayload = {
       kind: "model",
       referenceUrls: reference_urls,
       hairReferenceUrl: hair_reference_url || null,
       hairColorReferenceUrl: hair_color_reference_url || null,
       gender: gender === "male" ? "male" : "female",
+      modelStyle,
       hairStyle: typeof hair_style === "string" ? hair_style : null,
       hairColor: typeof hair_color === "string" ? hair_color : null,
       aiModel: model,
       aspectRatio,
       imageSize: size,
-      prompt,
+      prompt: finalPrompt,
       genCount,
     };
 

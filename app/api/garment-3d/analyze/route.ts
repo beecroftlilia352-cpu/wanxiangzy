@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/api/auth";
 import { getChatCompletionsUrl, getLlmConfig } from "@/lib/api/llm-provider";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
+import { buildGarment3dDisplayStylePrompt, getGarment3dDisplayStyleLabel, normalizeGarment3dDisplayStyle } from "@/lib/module-style-presets";
 
 const ANALYZE_TIMEOUT_MS = Number(process.env.LINGYA_ANALYZE_TIMEOUT_MS || 30000);
 const GARMENT_3D_QUALITY =
@@ -18,7 +19,7 @@ export async function POST(request: NextRequest) {
     const llm = getLlmConfig("vision");
     if (!llm.apiKey) return NextResponse.json({ prompt: "" });
 
-    const { garment_url, garment_type, custom_garment_type, prompt } = await request.json();
+    const { garment_url, garment_type, custom_garment_type, display_style, prompt } = await request.json();
     if (!garment_url) return NextResponse.json({ prompt: "" });
 
     if (!llm.baseUrl) return NextResponse.json({ prompt: "" });
@@ -26,6 +27,8 @@ export async function POST(request: NextRequest) {
     const finalType = garment_type === "其他"
       ? custom_garment_type?.trim() || "其他服装"
       : garment_type || "服装";
+    const displayStyle = normalizeGarment3dDisplayStyle(display_style);
+    const displayStylePrompt = buildGarment3dDisplayStylePrompt(displayStyle);
 
     const textPrompt = `你是顶级电商服装视觉设计师和 AI 图像生成提示词工程师。请仔细分析图1的服装，生成一段高质量的"服装转3D"提示词。
 
@@ -44,6 +47,9 @@ export async function POST(request: NextRequest) {
 8. 背景：干净白色或浅灰棚拍背景，主体居中，边缘干净
 9. 布料质感：真实布料体积感，自然褶皱、缝线纹理、面料光泽和厚度
 10. 图像质量：${GARMENT_3D_QUALITY}
+
+当前展示质感档位：${getGarment3dDisplayStyleLabel(displayStyle)}
+${displayStylePrompt}
 
 要求：
 - 【最重要】最终提示词中必须出现"图1"引用（如"忠实还原图1的服装"、"根据图1判断正面或背面"），这是图片生成模型识别图片的唯一方式

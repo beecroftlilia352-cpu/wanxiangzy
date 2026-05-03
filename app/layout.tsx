@@ -4,8 +4,8 @@ import "./globals.css";
 import { HeaderClient } from "@/components/HeaderClient";
 
 export const metadata: Metadata = {
-  title: "万象衣造 AI｜VastWearGen",
-  description: "万象衣造 AI｜VastWearGen，提供服装上身、姿势裂变和专属模特生成。",
+  title: "VastWear｜服装视觉生成平台",
+  description: "面向服装品牌、电商团队和内容创作者的服装视觉生成平台。",
   icons: {
     icon: [{ url: "/gemini-icon.png", type: "image/png" }],
     apple: [{ url: "/gemini-icon.png", type: "image/png" }],
@@ -19,13 +19,20 @@ export default function RootLayout({
 }) {
   return (
     <html lang="zh-CN">
-      <body className="min-h-screen flex flex-col">
+      <body className="min-h-screen bg-[#f4f5f7] text-slate-950">
         <HeaderClient />
-        <main className="flex-1">{children}</main>
-        <footer className="border-t py-3 text-center text-xs text-gray-400">
-          <p>万象衣造 AI｜VastWearGen · 2026</p>
-        </footer>
-        <Toaster richColors position="top-center" />
+        <main>{children}</main>
+        <Toaster
+          richColors
+          closeButton
+          expand={false}
+          visibleToasts={1}
+          gap={8}
+          duration={2400}
+          position="top-right"
+          offset={{ top: 76, right: 18 }}
+          mobileOffset={{ top: 70, right: 12, left: 12 }}
+        />
       </body>
     </html>
   );
