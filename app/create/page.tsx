@@ -1342,7 +1342,7 @@ export default function CreatePage() {
       </div>
 
       {/* ========== RIGHT PANEL ========== */}
-      <div className="studio-canvas min-h-[260px] sm:min-h-[360px] lg:min-h-0 flex-1 relative overflow-hidden mt-3 lg:mt-0">
+      <div className="studio-canvas min-h-[260px] sm:min-h-[360px] lg:min-h-0 flex-1 relative overflow-hidden mt-3 mb-6 lg:mt-0 lg:mb-0">
         {/* Idle */}
         {!store.isGenerating && store.resultUrls.length === 0 && !store.error && (
           <div className="min-h-[260px] sm:min-h-[360px] lg:h-full flex items-center justify-center relative overflow-hidden px-4">

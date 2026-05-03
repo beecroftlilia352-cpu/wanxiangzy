@@ -725,7 +725,7 @@ export default function ModelBackgroundPage() {
         </div>
       </div>
 
-      <div className="studio-canvas relative flex-1 min-h-[520px] lg:h-full overflow-hidden mt-3 lg:mt-0">
+      <div className="studio-canvas relative flex-1 min-h-[520px] lg:h-full overflow-hidden mt-3 mb-6 lg:mt-0 lg:mb-0">
         {!isGenerating && resultUrls.length === 0 && !error && (
           <div className="studio-empty-stage min-h-[260px] sm:min-h-[360px] lg:h-full flex items-center justify-center px-4">
             <PreviewGuide
