@@ -757,3 +757,9 @@
 .prose-agent h1 { font-size: 1.15em; }
 .prose-agent h2 { font-size: 1.05em; }
 .prose-agent h3 { font-size: 1em; }
+
+/* ---- Agent 思考动画 ---- */
+@keyframes thinking-dot {
+  0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
+  40% { opacity: 1; transform: scale(1.2); }
+}
