@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { AnimatePresence } from "framer-motion";
-import { Sparkles } from "lucide-react";
+import { Sparkles, Bot } from "lucide-react";
 import type { Message, ChatImage } from "@/lib/agent/types";
 import { MessageBubble } from "./MessageBubble";
 
@@ -64,6 +64,24 @@ export function ChatArea({ messages, sessionImages, isSending, onOpenImage, onRe
             />
           ))}
         </AnimatePresence>
+
+        {/* 思考中指示器 */}
+        {isSending && messages.length > 0 && messages[messages.length - 1].role === "user" && (
+          <div className="flex gap-3">
+            <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-pink-500 text-white">
+              <Bot className="h-4 w-4" />
+            </div>
+            <div className="flex items-center gap-2 rounded-2xl rounded-bl-md border border-slate-200/80 bg-white px-4 py-3 text-sm text-slate-500">
+              <div className="flex gap-1">
+                <span className="h-2 w-2 animate-bounce rounded-full bg-violet-400 [animation-delay:0ms]" />
+                <span className="h-2 w-2 animate-bounce rounded-full bg-violet-400 [animation-delay:150ms]" />
+                <span className="h-2 w-2 animate-bounce rounded-full bg-violet-400 [animation-delay:300ms]" />
+              </div>
+              <span className="text-xs font-medium">分析中...</span>
+            </div>
+          </div>
+        )}
+
         <div ref={bottomRef} />
       </div>
     </div>

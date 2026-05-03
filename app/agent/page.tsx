@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Menu } from "lucide-react";
+import { FeatureTabs } from "@/components/FeatureTabs";
 import { ConversationSidebar } from "@/components/agent/ConversationSidebar";
 import { ChatArea } from "@/components/agent/ChatArea";
 import { InputComposer } from "@/components/agent/InputComposer";
@@ -29,7 +30,10 @@ export default function AgentPage() {
   const title = conv?.title || "图像智能体";
 
   return (
-    <div className="flex h-[calc(100dvh-64px)] bg-[#f8f9fb]">
+    <div className="studio-workbench min-h-[calc(100dvh-64px)] lg:h-[calc(100vh-64px)] flex flex-col lg:flex-row">
+      <FeatureTabs active="agent" />
+
+      {/* 左侧对话列表（桌面端内嵌，移动端抽屉） */}
       <ConversationSidebar
         conversations={s.conversations}
         activeId={s.activeId}
@@ -40,6 +44,7 @@ export default function AgentPage() {
         onClose={() => s.setSidebarOpen(false)}
       />
 
+      {/* 主区域 */}
       <div className="flex min-w-0 flex-1 flex-col">
         {/* 顶部 */}
         <div className="flex items-center gap-3 border-b border-slate-200/80 bg-white/80 px-4 py-2.5 backdrop-blur-xl">
@@ -71,6 +76,7 @@ export default function AgentPage() {
           params={s.params}
           mode={s.mode}
           isSending={s.isSending}
+          isAIWriting={s.isAIWriting}
           estimatedCredits={s.params.count * (s.params.model === "gpt-image-2" ? 4 : 3)}
           onTextChange={s.setInputText}
           onAddImages={s.addImages}

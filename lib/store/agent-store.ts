@@ -20,6 +20,7 @@ type Store = {
   mode: AgentMode;
   params: GenerationParams;
   isSending: boolean;
+  isAIWriting: boolean;
   isLoadingConv: boolean;
   sidebarOpen: boolean;
 
@@ -100,6 +101,7 @@ export const useAgentStore = create<Store>((set, get) => ({
   mode: "agent",
   params: { ...DEFAULT_PARAMS },
   isSending: false,
+  isAIWriting: false,
   isLoadingConv: false,
   sidebarOpen: false,
 
@@ -430,6 +432,9 @@ export const useAgentStore = create<Store>((set, get) => ({
     const { inputImages } = get();
     if (inputImages.length === 0) return;
     const urls = inputImages.map((img) => img.hostedUrl || img.url).filter(Boolean);
+    if (urls.length === 0) return;
+
+    set({ isAIWriting: true });
     try {
       const res = await fetch("/api/agent/ai-write", {
         method: "POST",
@@ -437,8 +442,27 @@ export const useAgentStore = create<Store>((set, get) => ({
         body: JSON.stringify({ images: urls, currentPrompt: get().inputText }),
       });
       const data = await res.json();
-      if (data.optimizedPrompt) set({ inputText: data.optimizedPrompt });
-    } catch {}
+      if (data.optimizedPrompt) {
+        set({ inputText: data.optimizedPrompt, isAIWriting: false });
+      } else {
+        set({ isAIWriting: false });
+        // 添加系统消息提示
+        const sysMsg: Message = {
+          id: v4(), conversation_id: get().activeId || "", role: "system",
+          content: "AI 帮写未能生成内容，请检查图片是否已上传完成。", images: [],
+          generation: null, params: {}, mode: "chat", created_at: new Date().toISOString(),
+        };
+        set((s) => ({ messages: [...s.messages, sysMsg] }));
+      }
+    } catch (err) {
+      set({ isAIWriting: false });
+      const sysMsg: Message = {
+        id: v4(), conversation_id: get().activeId || "", role: "system",
+        content: `AI 帮写失败：${err instanceof Error ? err.message : "网络错误"}`, images: [],
+        generation: null, params: {}, mode: "chat", created_at: new Date().toISOString(),
+      };
+      set((s) => ({ messages: [...s.messages, sysMsg] }));
+    }
   },
 
   retryMessage: async (messageId: string) => {
