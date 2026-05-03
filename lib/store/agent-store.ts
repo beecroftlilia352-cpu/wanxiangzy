@@ -46,9 +46,19 @@ function startPolling(
       if (!res.ok) return;
       const data = await res.json();
 
-      const progress = typeof data.progress === "number" ? data.progress : 0;
       const status = data.status as string;
       const resultUrls: string[] = Array.isArray(data.result_urls) ? data.result_urls : [];
+
+      // API 返回 status 字符串，映射为进度百分比
+      const STATUS_PROGRESS: Record<string, number> = {
+        uploading: 10,
+        queued: 20,
+        processing_tryon: 50,
+        processing_face_swap: 70,
+      };
+      const progress = resultUrls.length > 0
+        ? 100
+        : STATUS_PROGRESS[status] ?? 30;
 
       set((s) => {
         const updated = new Map(s.activeTasks);
@@ -77,7 +87,7 @@ function startPolling(
 
         if (status === "failed") {
           existing.status = "failed";
-          existing.error = data.error_message || "生成失败";
+          existing.error = data.error || data.error_message || "生成失败";
           updated.set(task.id, { ...existing });
 
           const messages = s.messages.map((m) =>
