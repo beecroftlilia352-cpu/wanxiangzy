@@ -10,6 +10,8 @@ import { requireApiUser } from "@/lib/api/auth";
 import { getChatCompletionsUrl, getLlmConfig } from "@/lib/api/llm-provider";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 
+export const maxDuration = 60;
+
 export async function POST(request: NextRequest) {
   let style = "";
   try {
@@ -83,8 +85,8 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({ original: style, optimized, source: "ai" });
-  } catch (err: any) {
-    console.error("[optimize-prompt] error:", err);
+  } catch (err: unknown) {
+    console.error("[optimize-prompt] error:", err instanceof Error ? err.message : err);
     // 降级到本地模板
     const fallback = expandStyleFallback(style);
     return NextResponse.json({ original: style, optimized: fallback, source: "fallback" });

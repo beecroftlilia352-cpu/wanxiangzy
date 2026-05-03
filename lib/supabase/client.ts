@@ -3,8 +3,9 @@
 import { createBrowserClient } from "@supabase/ssr";
 
 let browserClient: ReturnType<typeof createBrowserClient> | null = null;
-const creditsRequests = new Map<string, Promise<number>>();
+const creditsRequests = new Map<string, { promise: Promise<number>; timestamp: number }>();
 const creditsChangedEvent = "profile-credits-changed";
+const CREDITS_CACHE_TTL_MS = 30_000; // 30 秒 TTL
 
 export function createClient() {
   if (!browserClient) {
@@ -19,7 +20,16 @@ export function createClient() {
 
 export function getCachedProfileCredits(userId: string): Promise<number> {
   const cached = creditsRequests.get(userId);
-  if (cached) return cached;
+  const now = Date.now();
+
+  // TTL 检查：缓存过期则清除并重新请求
+  if (cached && now - cached.timestamp < CREDITS_CACHE_TTL_MS) {
+    return cached.promise;
+  }
+
+  if (cached) {
+    creditsRequests.delete(userId);
+  }
 
   const request = Promise.resolve(
     createClient()
@@ -34,12 +44,12 @@ export function getCachedProfileCredits(userId: string): Promise<number> {
       return 0;
     });
 
-  creditsRequests.set(userId, request);
+  creditsRequests.set(userId, { promise: request, timestamp: now });
   return request;
 }
 
 export function setCachedProfileCredits(userId: string, credits: number) {
-  creditsRequests.set(userId, Promise.resolve(credits));
+  creditsRequests.set(userId, { promise: Promise.resolve(credits), timestamp: Date.now() });
   if (typeof window !== "undefined") {
     window.dispatchEvent(
       new CustomEvent(creditsChangedEvent, { detail: { userId, credits } })

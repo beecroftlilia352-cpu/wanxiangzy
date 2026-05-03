@@ -398,9 +398,9 @@ export default function Garment3dPage() {
         }
       }
       throw new Error("生成超时");
-    } catch (err: any) {
-      setError(err.message);
-      toast.error(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "操作失败");
+      toast.error(err instanceof Error ? err.message : "操作失败");
     } finally {
       setIsGenerating(false);
     }

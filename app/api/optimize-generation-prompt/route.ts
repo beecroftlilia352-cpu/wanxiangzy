@@ -3,6 +3,8 @@ import { requireApiUser } from "@/lib/api/auth";
 import { getChatCompletionsUrl, getLlmConfig } from "@/lib/api/llm-provider";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 
+export const maxDuration = 60;
+
 const OPTIMIZE_TIMEOUT_MS = Number(process.env.LINGYA_ANALYZE_TIMEOUT_MS || 30000);
 
 type PromptModuleKind = "grass" | "modelBackground";

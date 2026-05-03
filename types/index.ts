@@ -64,5 +64,6 @@ export interface TryOnWorkflowState {
   isGenerating: boolean;
   generationProgress: number;
   resultUrls: string[];
+  promptUsed: string;
   error: string | null;
 }

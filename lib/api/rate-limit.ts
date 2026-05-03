@@ -1,25 +1,24 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { getAdminClient } from "@/lib/supabase/admin";
 
 const BUCKET_TABLE = "rate_limit_buckets";
 
-function getAdminClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) {
-    console.warn("[rate-limit] SUPABASE_SERVICE_ROLE_KEY missing, rate limiting disabled");
-    return null;
-  }
-  return createClient(url, key);
-}
-
+/**
+ * 检查速率限制（fail-closed 设计）
+ * 当 Supabase 不可用时，拒绝请求而非放行，防止限流失效。
+ */
 export async function checkRateLimit(
   key: string,
   limit: number,
   windowMs: number
 ): Promise<{ ok: true } | { ok: false; retryAfterSeconds: number }> {
-  const supabase = getAdminClient();
-  if (!supabase) return { ok: true };
+  let supabase;
+  try {
+    supabase = getAdminClient();
+  } catch {
+    console.error("[rate-limit] Supabase admin client 初始化失败，拒绝请求");
+    return { ok: false, retryAfterSeconds: 60 };
+  }
 
   const now = Date.now();
   const windowStart = now - windowMs;
@@ -35,7 +34,8 @@ export async function checkRateLimit(
 
     if (error) {
       console.error("[rate-limit] rpc error:", error.message);
-      return { ok: true };
+      // fail-closed: RPC 失败时拒绝请求
+      return { ok: false, retryAfterSeconds: 30 };
     }
 
     const row = Array.isArray(data) ? data[0] : data;
@@ -47,7 +47,8 @@ export async function checkRateLimit(
     };
   } catch (err) {
     console.error("[rate-limit] error:", err);
-    return { ok: true };
+    // fail-closed: 异常时拒绝请求
+    return { ok: false, retryAfterSeconds: 30 };
   }
 }
 

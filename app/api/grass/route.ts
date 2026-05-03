@@ -5,6 +5,9 @@ import { createDebitedGeneration, errorToResponsePayload } from "@/lib/api/credi
 import { startGenerationJob, type GenerationJobPayload } from "@/lib/api/generation-jobs";
 import { handleGenerationStatusGet } from "@/lib/api/generation-status";
 import { buildGrassPrompt, DEFAULT_GRASS_USER_PROMPT, enforceGrassPromptRequirements, normalizeGrassSceneMode, normalizeGrassTemplate } from "@/lib/grass-planting";
+import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
+
+export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,7 +15,10 @@ export async function POST(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "请先登录" }, { status: 401 });
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const limit = await checkRateLimit(`grass:${user.id}`, 20, 60_000);
+    if (!limit.ok) return rateLimitResponse(limit.retryAfterSeconds);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- runtime-validated below
     let body: any;
     try { body = await request.json(); }
     catch { return NextResponse.json({ error: "请求格式无效" }, { status: 400 }); }
@@ -86,8 +92,8 @@ export async function POST(request: NextRequest) {
       credits_remaining: debit.creditsRemaining,
       status: "processing_tryon",
     });
-  } catch (err: any) {
-    console.error("[grass] POST error:", err);
+  } catch (err: unknown) {
+    console.error("[grass] POST error:", err instanceof Error ? err.message : err);
     const payload = errorToResponsePayload(err);
     return NextResponse.json(payload.body, { status: payload.status });
   }

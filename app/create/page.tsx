@@ -462,8 +462,8 @@ export default function CreatePage() {
       } else {
         toast.error(data.error || "暂时没有返回优化结果");
       }
-    } catch (err: any) {
-      toast.error(err?.name === "AbortError" ? "视觉分析超时" : "视觉分析失败");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error && err.name === "AbortError" ? "视觉分析超时" : "视觉分析失败");
     } finally {
       setOptimizing(false);
     }
@@ -713,9 +713,9 @@ export default function CreatePage() {
         }
       }
       throw new Error("生成超时");
-    } catch (err: any) {
-      store.setError(err.message);
-      toast.error(err.message);
+    } catch (err: unknown) {
+      store.setError(err instanceof Error ? err.message : "操作失败");
+      toast.error(err instanceof Error ? err.message : "操作失败");
     }
   };
 
@@ -1383,9 +1383,9 @@ export default function CreatePage() {
               background: "radial-gradient(circle, #f472b6, #a78bfa, transparent)",
             }} />
 
-            <div className="flex flex-wrap justify-center gap-3 sm:gap-5 w-full relative z-10">
+            <div className={`w-full relative z-10 ${genCount >= 3 ? "grid grid-cols-2 gap-3 sm:gap-5 max-w-[min(720px,100%)] mx-auto" : "flex flex-wrap justify-center gap-3 sm:gap-5"}`}>
               {Array.from({ length: genCount }).map((_, i) => (
-                <div key={i} className={`rounded-2xl overflow-hidden ${genCount <= 2 ? "max-w-[min(420px,calc(50%-12px))] w-full sm:max-w-[min(420px,calc(50%-20px))]" : "max-w-[min(340px,calc(50%-12px))] w-full sm:max-w-[min(340px,calc(50%-20px))]"}`}
+                <div key={i} className={`rounded-2xl overflow-hidden ${genCount >= 3 ? "w-full" : genCount <= 2 ? "max-w-[min(420px,calc(50%-12px))] w-full sm:max-w-[min(420px,calc(50%-20px))]" : "max-w-[min(340px,calc(50%-12px))] w-full sm:max-w-[min(340px,calc(50%-20px))]"}`}
                   style={{
                     background: "rgba(255, 255, 255, 0.25)",
                     backdropFilter: "blur(20px)",

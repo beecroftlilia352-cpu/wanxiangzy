@@ -27,8 +27,9 @@ export async function GET() {
       },
       credits: data?.credits ?? 0,
     });
-  } catch (err: any) {
-    console.error("[profile] error:", err);
-    return NextResponse.json({ error: err.message || "用户信息加载失败" }, { status: 500 });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "用户信息加载失败";
+    console.error("[profile] error:", message);
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/api/auth";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 
+export const maxDuration = 30;
+
 const MAX_DOWNLOAD_BYTES = 15 * 1024 * 1024;
 const DOWNLOAD_TIMEOUT_MS = 15000;
 const DEFAULT_ALLOWED_HOSTS = [

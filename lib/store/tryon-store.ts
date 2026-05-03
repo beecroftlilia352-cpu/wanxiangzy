@@ -44,13 +44,28 @@ const initialState = {
   error: null,
 };
 
-export const useTryOnStore = create<TryOnStore>((set) => ({
+/**
+ * 释放 blob URL 防止内存泄漏
+ */
+function revokeBlobUrls(urls: string[]) {
+  if (typeof window === "undefined") return;
+  for (const url of urls) {
+    if (url.startsWith("blob:")) {
+      URL.revokeObjectURL(url);
+    }
+  }
+}
+
+export const useTryOnStore = create<TryOnStore>((set, get) => ({
   ...initialState,
 
   setStep: (step) => set({ step }),
 
-  setClothing: (files, previews) =>
-    set({ clothingFiles: files, clothingPreviews: previews }),
+  setClothing: (files, previews) => {
+    // 释放旧的 blob URLs
+    revokeBlobUrls(get().clothingPreviews);
+    set({ clothingFiles: files, clothingPreviews: previews });
+  },
 
   addClothing: (file, preview) =>
     set((s) => ({
@@ -59,10 +74,17 @@ export const useTryOnStore = create<TryOnStore>((set) => ({
     })),
 
   removeClothing: (index) =>
-    set((s) => ({
-      clothingFiles: s.clothingFiles.filter((_, i) => i !== index),
-      clothingPreviews: s.clothingPreviews.filter((_, i) => i !== index),
-    })),
+    set((s) => {
+      const removedPreview = s.clothingPreviews[index];
+      // 释放被移除的 blob URL
+      if (removedPreview?.startsWith("blob:")) {
+        URL.revokeObjectURL(removedPreview);
+      }
+      return {
+        clothingFiles: s.clothingFiles.filter((_, i) => i !== index),
+        clothingPreviews: s.clothingPreviews.filter((_, i) => i !== index),
+      };
+    }),
 
   setSelectedModel: (model) => set({ selectedModel: model }),
 
@@ -85,5 +107,10 @@ export const useTryOnStore = create<TryOnStore>((set) => ({
   setError: (error) =>
     set({ error, isGenerating: false }),
 
-  reset: () => set(initialState),
+  reset: () => {
+    // 释放所有 blob URLs
+    const state = get();
+    revokeBlobUrls(state.clothingPreviews);
+    set(initialState);
+  },
 }));

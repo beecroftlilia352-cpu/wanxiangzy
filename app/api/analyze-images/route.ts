@@ -7,6 +7,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/api/auth";
 import { getChatCompletionsUrl, getLlmConfig } from "@/lib/api/llm-provider";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
+
+export const maxDuration = 60;
 import {
   TRYON_CLOTHING_IMAGE_ROLE_RULE,
   TRYON_FIT_RULE,
@@ -170,10 +172,9 @@ ${userStyle || "无"}
     }).finally(() => clearTimeout(timeout));
 
     const resText = await res.text();
-    console.log("[analyze] 响应 status:", res.status, "body:", resText.slice(0, 500));
 
     if (!res.ok) {
-      console.error("[analyze] API 错误:", res.status, resText);
+      console.error("[analyze] API 错误:", res.status);
       return NextResponse.json({
         prompt: fallbackPrompt,
         source: "fallback",
@@ -182,7 +183,6 @@ ${userStyle || "无"}
     }
 
     const data = JSON.parse(resText);
-    console.log("[analyze] LLM 完整响应:", JSON.stringify(data).slice(0, 1000));
     const prompt = extractMessageText(data).trim();
 
     if (prompt) {
@@ -194,7 +194,7 @@ ${userStyle || "无"}
         hasModelFace: !!model_face_url,
         referenceImageNumber,
       });
-      console.log("[analyze] 生成的提示词:", checked.prompt);
+      console.log("[analyze] 提示词生成完成, 长度:", checked.prompt.length);
       return NextResponse.json({
         prompt: checked.prompt,
         source: checked.repaired ? `${llm.provider}_repaired` : llm.provider,

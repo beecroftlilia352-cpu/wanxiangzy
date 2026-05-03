@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { useEffect, useRef } from "react";
-import { Box, Heart, Home, Images, PersonStanding, ServerCog, Shirt, UserRound } from "lucide-react";
+import { Bot, Box, Heart, Home, Images, PersonStanding, ServerCog, Shirt, UserRound } from "lucide-react";
 
-type FeatureKey = "home" | "tryon" | "grass" | "modelBackground" | "pose" | "model" | "garment3d" | "apiTest";
+type FeatureKey = "home" | "agent" | "tryon" | "grass" | "modelBackground" | "pose" | "model" | "garment3d" | "apiTest";
 
 const items: { key: FeatureKey; href: string; label: string; icon: typeof Shirt }[] = [
   { key: "home", href: "/", label: "首页", icon: Home },
+  { key: "agent", href: "/agent", label: "AI 助手", icon: Bot },
   { key: "tryon", href: "/create", label: "服装上身", icon: Shirt },
   { key: "grass", href: "/grass", label: "服装种草图", icon: Heart },
   { key: "modelBackground", href: "/model-background", label: "模特换背景", icon: Images },

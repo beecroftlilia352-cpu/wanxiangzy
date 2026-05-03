@@ -1,3 +1,5 @@
+import { normalizeOpenAiCompatibleBaseUrl } from "@/lib/api/url-utils";
+
 type LlmKind = "text" | "vision";
 type LlmProvider = "xiaomi" | "lingya";
 
@@ -28,12 +30,11 @@ export function getChatCompletionsUrl(config: LlmConfig): string {
 }
 
 function getXiaomiConfig(kind: LlmKind): LlmConfig {
+  const envBase = process.env.XIAOMI_MIMO_BASE_URL;
   return {
     provider: "xiaomi",
     apiKey: process.env.XIAOMI_MIMO_API_KEY || "",
-    baseUrl: normalizeOpenAiCompatibleBaseUrl(
-      process.env.XIAOMI_MIMO_BASE_URL || XIAOMI_DEFAULT_BASE_URL
-    ),
+    baseUrl: envBase ? normalizeOpenAiCompatibleBaseUrl(envBase) : XIAOMI_DEFAULT_BASE_URL,
     model:
       (kind === "vision"
         ? process.env.XIAOMI_MIMO_VISION_MODEL
@@ -44,19 +45,14 @@ function getXiaomiConfig(kind: LlmKind): LlmConfig {
 }
 
 function getLingyaConfig(kind: LlmKind): LlmConfig {
+  const envBase = process.env.LINGYA_BASE_URL;
   return {
     provider: "lingya",
     apiKey: process.env.LINGYA_API_KEY || "",
-    baseUrl: normalizeOpenAiCompatibleBaseUrl(process.env.LINGYA_BASE_URL || ""),
+    baseUrl: envBase ? normalizeOpenAiCompatibleBaseUrl(envBase) : "",
     model:
       (kind === "vision"
         ? process.env.LINGYA_VISION_MODEL
         : process.env.LINGYA_TEXT_MODEL) || LINGYA_DEFAULT_MODEL,
   };
-}
-
-function normalizeOpenAiCompatibleBaseUrl(value: string): string {
-  const baseUrl = value.replace(/\/+$/, "");
-  if (!baseUrl) return "";
-  return baseUrl.endsWith("/v1") ? baseUrl : `${baseUrl}/v1`;
 }

@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/api/auth";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 
+export const maxDuration = 30;
+
 const IMGBB_API_URL = "https://api.imgbb.com/1/upload";
 const MAX_UPLOAD_MB = 15;
 const MAX_BASE64_LENGTH = 21 * 1024 * 1024; // ~15MB after base64 encoding

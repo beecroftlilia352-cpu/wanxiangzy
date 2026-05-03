@@ -178,9 +178,10 @@ export default function ApiPlatformTestPage() {
       } else {
         toast.warning("请求成功，但没有解析到图片 URL");
       }
-    } catch (err: any) {
-      setResult({ error: err?.message || "测试失败" });
-      toast.error(err?.message || "测试失败");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "测试失败";
+      setResult({ error: msg });
+      toast.error(msg);
     } finally {
       setIsLoading(false);
     }

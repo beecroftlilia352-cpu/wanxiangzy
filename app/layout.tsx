@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Toaster } from "sonner";
 import "./globals.css";
 import { HeaderClient } from "@/components/HeaderClient";
+import "@/lib/env";
 
 export const metadata: Metadata = {
   title: "VastWear｜服装视觉生成平台",

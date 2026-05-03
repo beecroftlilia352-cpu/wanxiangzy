@@ -3,6 +3,8 @@
  * GET  /api/tryon?generation_id=xxx — 查询真实进度
  */
 
+export const maxDuration = 60;
+
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { getCreditCost, normalizeAspectRatio, normalizeImageSize, normalizeLingyaModel, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
@@ -15,6 +17,7 @@ import { handleGenerationStatusGet } from "@/lib/api/generation-status";
 import { normalizeAutoDesignSettings, normalizeSceneMode } from "@/lib/tryon-scene";
 import { normalizeTryOnClothingMode, normalizeTryOnClothingRole } from "@/lib/tryon-upload-rules";
 import { normalizeTryOnAgeGroup, normalizeTryOnGarmentAudience } from "@/lib/tryon-prompt";
+import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,7 +25,10 @@ export async function POST(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "请先登录" }, { status: 401 });
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const limit = await checkRateLimit(`tryon:${user.id}`, 30, 60_000);
+    if (!limit.ok) return rateLimitResponse(limit.retryAfterSeconds);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- runtime-validated below
     let body: any;
     try { body = await request.json(); }
     catch { return NextResponse.json({ error: "请求格式无效" }, { status: 400 }); }
@@ -104,8 +110,8 @@ export async function POST(request: NextRequest) {
       status: "processing_tryon",
     });
 
-  } catch (err: any) {
-    console.error("[tryon] POST error:", err);
+  } catch (err: unknown) {
+    console.error("[tryon] POST error:", err instanceof Error ? err.message : err);
     const payload = errorToResponsePayload(err);
     return NextResponse.json(payload.body, { status: payload.status });
   }

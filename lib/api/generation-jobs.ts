@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
+import { getAdminClient } from "@/lib/supabase/admin";
 import {
   batchTryOn,
   generateImage,
@@ -119,10 +119,30 @@ type GenerationExecutionResult = {
   promptTrace: PromptTraceItem[];
 };
 
+// 幂等保护：防止同一 generationId 被重复触发
+const runningJobs = new Set<string>();
+
 export function startGenerationJob(generationId: string) {
-  runGenerationJobById(generationId).catch((err) => {
-    console.error(`[jobs] background job ${generationId} failed:`, err);
-  });
+  if (runningJobs.has(generationId)) {
+    console.warn(`[jobs] generation ${generationId} 已在执行中，跳过重复触发`);
+    return;
+  }
+
+  runningJobs.add(generationId);
+
+  runGenerationJobById(generationId)
+    .catch((err) => {
+      const message = err instanceof Error ? err.message : String(err);
+      // P0-4: 关键失败告警 — 供运维/补偿脚本捕获
+      console.error(
+        `[jobs] CRITICAL: generation ${generationId} 最终失败，需人工介入。` +
+        `错误: ${message}。` +
+        `请检查该 generation 的积分是否已退还。`
+      );
+    })
+    .finally(() => {
+      runningJobs.delete(generationId);
+    });
 }
 
 export async function runGenerationJobById(generationId: string) {
@@ -572,12 +592,5 @@ function getStaleMinutes() {
 }
 
 function createAdminClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !serviceRoleKey) {
-    throw new Error("Supabase 服务端环境变量未配置");
-  }
-
-  return createClient(supabaseUrl, serviceRoleKey);
+  return getAdminClient();
 }

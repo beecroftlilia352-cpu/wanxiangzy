@@ -320,9 +320,9 @@ export default function ModelBackgroundPage() {
         setProgress(Math.min(25 + attempts * 1.5, 90));
       }
       throw new Error("生成超时");
-    } catch (err: any) {
-      setError(err.message || "生成失败");
-      toast.error(err.message || "生成失败");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "生成失败");
+      toast.error(err instanceof Error ? err.message : "生成失败");
       setIsGenerating(false);
     }
   }
@@ -369,8 +369,8 @@ export default function ModelBackgroundPage() {
       } else {
         toast.error(data.error || "暂时没有返回优化结果");
       }
-    } catch (err: any) {
-      toast.error(err?.name === "AbortError" ? "AI 优化超时" : "AI 优化失败");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error && err.name === "AbortError" ? "AI 优化超时" : "AI 优化失败");
     } finally {
       setIsOptimizingPrompt(false);
     }

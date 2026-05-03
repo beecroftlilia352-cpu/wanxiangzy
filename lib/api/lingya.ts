@@ -3,6 +3,7 @@
  * 支持 gpt-image-2、Seedream 和 nano-banana 系列
  */
 
+import { normalizeOpenAiCompatibleBaseUrl } from "@/lib/api/url-utils";
 import {
   TRYON_CLOTHING_IMAGE_ROLE_RULE,
   TRYON_FIT_RULE,
@@ -164,11 +165,15 @@ export async function generateImage(input: GenerateInput, retries = 2): Promise<
     body.search = input.search;
   }
 
-  // 日志（不含完整 base64）
-  const logBody = { ...body };
-  if (Array.isArray(logBody.image)) {
-    logBody.image = logBody.image.map((img: string, index: number) => describeImageInputForLog(img, index));
-  }
+  // 日志（不含完整 base64、不含完整 prompt 内容）
+  const logBody: Record<string, unknown> = {
+    model: body.model,
+    aspect_ratio: body.aspect_ratio,
+    image_size: body.image_size || body.size,
+    quality: body.quality,
+    image_count: Array.isArray(body.image) ? body.image.length : 0,
+    prompt_length: typeof body.prompt === "string" ? body.prompt.length : 0,
+  };
   console.log(`[api:${provider.name}] 请求:`, JSON.stringify(logBody));
 
   for (let attempt = 1; attempt <= retries; attempt++) {
@@ -191,7 +196,8 @@ export async function generateImage(input: GenerateInput, retries = 2): Promise<
       }
 
       const json = JSON.parse(resText);
-      console.log(`[api:${provider.name}] 响应:`, JSON.stringify(json).slice(0, 200));
+      const hasData = Array.isArray(json.data) && json.data.length > 0;
+      console.log(`[api:${provider.name}] 响应: ok=${res.ok}, hasData=${hasData}`);
 
       if (!json.data || json.data.length === 0) {
         if (attempt < retries) { await new Promise(r => setTimeout(r, attempt * 5000)); continue; }
@@ -205,8 +211,9 @@ export async function generateImage(input: GenerateInput, retries = 2): Promise<
         compiledPrompt,
       };
 
-    } catch (err: any) {
-      if (attempt < retries && (err.message?.includes("fetch") || err.message?.includes("Internal Error"))) {
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (attempt < retries && (msg.includes("fetch") || msg.includes("Internal Error"))) {
         await new Promise(r => setTimeout(r, attempt * 5000));
         continue;
       }
@@ -259,11 +266,13 @@ export async function batchTryOn(input: BatchTryOnInput): Promise<{ resultUrls: 
 }
 
 function getImageApiBaseUrl(): string {
-  return normalizeOpenAiCompatibleBaseUrl(process.env.LINGYA_BASE_URL || DEFAULT_API_BASE);
+  const envValue = process.env.LINGYA_BASE_URL;
+  return envValue ? normalizeOpenAiCompatibleBaseUrl(envValue) : DEFAULT_API_BASE;
 }
 
 function getPlatoApiBaseUrl(): string {
-  return normalizeOpenAiCompatibleBaseUrl(process.env.PLATO_BASE_URL || DEFAULT_PLATO_API_BASE);
+  const envValue = process.env.PLATO_BASE_URL;
+  return envValue ? normalizeOpenAiCompatibleBaseUrl(envValue) : DEFAULT_PLATO_API_BASE;
 }
 
 function getImageProvider(model: LingyaModel): { name: string; apiBase: string; apiKey?: string } {
@@ -280,12 +289,6 @@ function getImageProvider(model: LingyaModel): { name: string; apiBase: string; 
     apiBase: getImageApiBaseUrl(),
     apiKey: process.env.LINGYA_API_KEY,
   };
-}
-
-function normalizeOpenAiCompatibleBaseUrl(value: string): string {
-  const baseUrl = value.replace(/\/+$/, "");
-  if (!baseUrl) return DEFAULT_API_BASE;
-  return baseUrl.endsWith("/v1") ? baseUrl : `${baseUrl}/v1`;
 }
 
 function resolvePixelSize(imageSize: ImageSize, aspectRatio: AspectRatio): string {
@@ -343,51 +346,6 @@ function normalizeB64Image(value?: string): string | undefined {
   if (!value) return undefined;
   if (value.startsWith("data:")) return value;
   return `data:image/png;base64,${value}`;
-}
-
-function describeImageInputForLog(value: string, index: number): string {
-  const label = `image ${index + 1}`;
-
-  if (typeof value !== "string") return `[${label}: invalid]`;
-
-  if (value.startsWith("data:")) {
-    const commaIndex = value.indexOf(",");
-    const header = commaIndex >= 0 ? value.slice(0, commaIndex) : value;
-    const mime = header.match(/^data:([^;]+)/)?.[1] || "unknown";
-    const payload = commaIndex >= 0 ? value.slice(commaIndex + 1) : "";
-    return `[${label}: data-url ${mime} ${formatBytes(estimateBase64Bytes(payload))}]`;
-  }
-
-  if (/^https?:\/\//i.test(value)) {
-    try {
-      const url = new URL(value);
-      const visibleUrl = `${url.origin}${url.pathname}`;
-      return `[${label}: url ${truncateForLog(visibleUrl)}${url.search ? " +query" : ""}]`;
-    } catch {
-      return `[${label}: url ${truncateForLog(value)}]`;
-    }
-  }
-
-  if (value.startsWith("/")) return `[${label}: local-url ${truncateForLog(value)}]`;
-
-  return `[${label}: string ${value.length} chars]`;
-}
-
-function estimateBase64Bytes(value: string): number {
-  const clean = value.replace(/\s/g, "");
-  if (!clean) return 0;
-  const padding = clean.endsWith("==") ? 2 : clean.endsWith("=") ? 1 : 0;
-  return Math.max(0, Math.floor((clean.length * 3) / 4) - padding);
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes}B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(bytes < 10 * 1024 ? 1 : 0)}KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
-}
-
-function truncateForLog(value: string, maxLength = 140): string {
-  return value.length <= maxLength ? value : `${value.slice(0, maxLength - 1)}…`;
 }
 
 function isSeedreamModel(model: LingyaModel): boolean {

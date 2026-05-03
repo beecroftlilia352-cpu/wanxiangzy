@@ -9,6 +9,9 @@ import { startGenerationJob, type GenerationJobPayload } from "@/lib/api/generat
 import { handleGenerationStatusGet } from "@/lib/api/generation-status";
 import { enforcePosePromptRequirements } from "@/lib/pose-prompt";
 import { applyPoseSeriesStylePrompt, normalizePoseSeriesStyle } from "@/lib/module-style-presets";
+import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
+
+export const maxDuration = 60;
 
 const POSE_ASPECT_RATIO = "3:4" as const;
 
@@ -18,7 +21,10 @@ export async function POST(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "请先登录" }, { status: 401 });
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const limit = await checkRateLimit(`pose:${user.id}`, 20, 60_000);
+    if (!limit.ok) return rateLimitResponse(limit.retryAfterSeconds);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- runtime-validated below
     let body: any;
     try { body = await request.json(); }
     catch { return NextResponse.json({ error: "请求格式无效" }, { status: 400 }); }
@@ -62,8 +68,8 @@ export async function POST(request: NextRequest) {
       credits_remaining: debit.creditsRemaining,
       status: "processing_tryon",
     });
-  } catch (err: any) {
-    console.error("[pose] POST error:", err);
+  } catch (err: unknown) {
+    console.error("[pose] POST error:", err instanceof Error ? err.message : err);
     const payload = errorToResponsePayload(err);
     return NextResponse.json(payload.body, { status: payload.status });
   }

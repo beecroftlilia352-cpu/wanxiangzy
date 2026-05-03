@@ -215,50 +215,54 @@ function resolveConstrainedPixelSize(ratio: number, targetPixels: number): strin
   return `${roundedWidth}x${roundedHeight}`;
 }
 
-function extractImageUrls(json: any): string[] {
+function extractImageUrls(json: Record<string, unknown>): string[] {
   const urls = new Set<string>();
 
   if (Array.isArray(json.data)) {
-    json.data.forEach((item: any) => {
-      if (typeof item?.url === "string") urls.add(item.url);
-    });
+    for (const item of json.data) {
+      if (item && typeof item === "object" && typeof (item as Record<string, unknown>).url === "string") {
+        urls.add((item as Record<string, unknown>).url as string);
+      }
+    }
   }
 
-  const content = json.choices?.[0]?.message?.content;
-  if (typeof content === "string") {
-    const matches = content.matchAll(/https?:\/\/[^\s)'"<>]+/g);
+  const choices = json.choices as Array<Record<string, unknown>> | undefined;
+  const content = choices?.[0]?.message as Record<string, unknown> | undefined;
+  if (typeof content?.content === "string") {
+    const matches = content.content.matchAll(/https?:\/\/[^\s)'"<>]+/g);
     for (const match of matches) urls.add(match[0]);
   }
 
   return Array.from(urls);
 }
 
-function extractBase64Images(json: any): string[] {
+function extractBase64Images(json: Record<string, unknown>): string[] {
   const images: string[] = [];
   if (Array.isArray(json.data)) {
-    json.data.forEach((item: any) => {
-      if (typeof item?.b64_json === "string") {
-        images.push(item.b64_json.startsWith("data:")
-          ? item.b64_json
-          : `data:image/png;base64,${item.b64_json}`);
+    for (const item of json.data) {
+      if (item && typeof item === "object") {
+        const b64 = (item as Record<string, unknown>).b64_json;
+        if (typeof b64 === "string") {
+          images.push(b64.startsWith("data:") ? b64 : `data:image/png;base64,${b64}`);
+        }
       }
-    });
+    }
   }
   return images;
 }
 
-function redactLargeFields(value: any): any {
+function redactLargeFields(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(redactLargeFields);
   if (!value || typeof value !== "object") return value;
 
   const next: Record<string, unknown> = {};
-  Object.entries(value).forEach(([key, item]) => {
+  for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
     if (typeof item === "string" && item.length > 500) {
       next[key] = `[${Math.round(item.length / 1024)}KB string]`;
     } else {
       next[key] = redactLargeFields(item);
     }
-  });
+  }
   return next;
 }
 

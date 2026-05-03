@@ -300,9 +300,9 @@ export default function PosePage() {
         }
       }
       throw new Error("生成超时");
-    } catch (err: any) {
-      setError(err.message || "生成失败");
-      toast.error(err.message || "生成失败");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "生成失败");
+      toast.error(err instanceof Error ? err.message : "生成失败");
       setIsGenerating(false);
     }
   }

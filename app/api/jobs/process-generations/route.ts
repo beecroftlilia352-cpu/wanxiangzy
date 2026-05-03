@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runNextGenerationJobs } from "@/lib/api/generation-jobs";
-import { createClient } from "@supabase/supabase-js";
+import { getAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -34,11 +34,12 @@ async function handleProcessRequest(request: NextRequest) {
 }
 
 async function cleanupRateLimitBuckets() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) return;
-  const supabase = createClient(url, key);
-  await supabase.rpc("cleanup_rate_limit_buckets");
+  try {
+    const supabase = getAdminClient();
+    await supabase.rpc("cleanup_rate_limit_buckets");
+  } catch {
+    // admin client 未配置时静默跳过
+  }
 }
 
 function validateProcessorAuth(request: NextRequest) {
