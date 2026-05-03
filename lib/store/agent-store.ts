@@ -274,10 +274,10 @@ export const useAgentStore = create<Store>((set, get) => ({
       generation: null, params: {}, created_at: new Date().toISOString(),
     };
 
-    // 添加 AI 消息占位
+    // 添加 AI 消息占位（不预设 generation，等 Chat API 判断后再设置）
     const aiMsg: Message = {
       id: v4(), conversation_id: convId, role: "assistant", content: "",
-      images: [], generation: mode === "agent" ? { status: "pending", progress: 0, resultUrls: [] } : null,
+      images: [], generation: null,
       params: {}, mode, created_at: new Date().toISOString(),
     };
 
@@ -298,30 +298,17 @@ export const useAgentStore = create<Store>((set, get) => ({
         .slice(-10)
         .map((m) => ({ role: m.role, content: m.content || (m.generation?.resultUrls?.length ? `[生成了图片]` : "") }));
 
-      if (mode === "chat") {
-        // Chat 模式
-        const res = await fetch("/api/agent/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: trimmed, images: imageUrls, history }),
-        });
-        const data = await res.json();
-        const reply = data.reply || "我没有理解你的意思。";
+      // 统一调用 Chat API（LLM 判断是对话还是生图）
+      const chatRes = await fetch("/api/agent/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: trimmed, images: imageUrls, history, mode }),
+      });
+      const chatData = await chatRes.json();
 
-        set((s) => ({
-          isSending: false,
-          messages: s.messages.map((m) => m.id === aiMsg.id ? { ...m, content: reply } : m),
-        }));
-
-        // 保存 AI 回复到 DB
-        fetch(`/api/conversations/${convId}/messages`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ role: "assistant", content: reply, mode: "chat" }),
-        }).catch(() => {});
-      } else {
-        // Agent 模式
-        const res = await fetch("/api/agent/generate", {
+      if (chatData.action === "generate" && imageUrls.length > 0) {
+        // LLM 判断需要生图 → 调用 Generate API
+        const genRes = await fetch("/api/agent/generate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -330,42 +317,53 @@ export const useAgentStore = create<Store>((set, get) => ({
             history,
           }),
         });
-        const data = await res.json();
+        const genData = await genRes.json();
 
-        if (!res.ok || !data.generation_id) {
-          // 如果是没有图片的友好提示，显示为 AI 回复而不是错误
-          if (data.error === "no_images" && data.message) {
-            set((s) => ({
-              isSending: false,
-              messages: s.messages.map((m) =>
-                m.id === aiMsg.id ? { ...m, content: data.message, generation: null } : m
-              ),
-            }));
-            // 保存到 DB
-            fetch(`/api/conversations/${convId}/messages`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ role: "assistant", content: data.message, mode: "agent" }),
-            }).catch(() => {});
-            return;
-          }
-          throw new Error(data.error || "生成失败");
+        if (!genRes.ok || !genData.generation_id) {
+          throw new Error(genData.error || "生成失败");
         }
 
+        // 显示 AI 的对话回复 + 生成进度
+        const reply = chatData.reply || "正在为你生成...";
         set((s) => ({
           messages: s.messages.map((m) =>
-            m.id === aiMsg.id ? { ...m, generation: { status: "generating", progress: 10, resultUrls: [], generationId: data.generation_id, creditsUsed: data.credits_cost, module: data.module } } : m
+            m.id === aiMsg.id ? {
+              ...m,
+              content: reply,
+              generation: { status: "generating", progress: 10, resultUrls: [], generationId: genData.generation_id, creditsUsed: genData.credits_cost, module: genData.module },
+            } : m
           ),
         }));
 
-        startPolling(get, set, aiMsg.id, data.generation_id, data.module || "tryon");
+        // 保存 AI 回复到 DB
+        fetch(`/api/conversations/${convId}/messages`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ role: "assistant", content: reply, mode }),
+        }).catch(() => {});
+
+        startPolling(get, set, aiMsg.id, genData.generation_id, genData.module || "tryon");
+      } else {
+        // 普通对话回复
+        const reply = chatData.reply || "我没有理解你的意思。";
+        set((s) => ({
+          isSending: false,
+          messages: s.messages.map((m) => m.id === aiMsg.id ? { ...m, content: reply, generation: null } : m),
+        }));
+
+        // 保存 AI 回复到 DB
+        fetch(`/api/conversations/${convId}/messages`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ role: "assistant", content: reply, mode }),
+        }).catch(() => {});
       }
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : "处理失败";
       set((s) => ({
         isSending: false,
         messages: s.messages.map((m) =>
-          m.id === aiMsg.id ? { ...m, content: errMsg, generation: mode === "agent" ? { status: "failed", progress: 0, resultUrls: [], error: errMsg } : null } : m
+          m.id === aiMsg.id ? { ...m, content: errMsg, generation: null } : m
         ),
       }));
     }
