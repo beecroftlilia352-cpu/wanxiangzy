@@ -26,6 +26,11 @@ export default function AgentPage() {
 
   if (!isAuth) return null;
 
+  const handleQuickAction = (text: string) => {
+    s.setInputText(text);
+    setTimeout(() => useAgentStore.getState().sendMessage(), 50);
+  };
+
   const conv = s.conversations.find((c) => c.id === s.activeId);
   const title = conv?.title || "图像智能体";
 
@@ -67,6 +72,7 @@ export default function AgentPage() {
           isSending={s.isSending}
           onOpenImage={setLightbox}
           onRetry={s.retryMessage}
+          onQuickAction={handleQuickAction}
         />
 
         {/* 输入区 */}

@@ -32,7 +32,6 @@ type Store = {
   setInputText: (text: string) => void;
   addImages: (files: File[]) => Promise<void>;
   removeImage: (index: number) => void;
-  triggerAnalysis: () => Promise<void>;
   setMode: (mode: AgentMode) => void;
   setParams: (p: Partial<GenerationParams>) => void;
   setSidebarOpen: (open: boolean) => void;
@@ -205,79 +204,7 @@ export const useAgentStore = create<Store>((set, get) => ({
     // 持久化图片到对话
     get().updateConversationImages();
 
-    // 上传完成后自动触发 AI 分析引导
-    const allImages = get().inputImages.filter((img) => !img.uploading);
-    if (allImages.length > 0) {
-      get().triggerAnalysis();
-    }
-  },
-
-  triggerAnalysis: async () => {
-    const { inputImages, activeId, messages } = get();
-    const readyImages = inputImages.filter((img) => !img.uploading && img.hostedUrl);
-    if (readyImages.length === 0) return;
-
-    // 如果没有对话，创建一个
-    let convId = activeId;
-    if (!convId) {
-      await get().createConversation();
-      convId = get().activeId;
-      if (!convId) return;
-    }
-
-    // 如果已经有 AI 分析消息，不重复触发
-    const hasAnalysis = messages.some((m) => m.role === "assistant" && m.content.includes("我看到"));
-    if (hasAnalysis) return;
-
-    set({ isSending: true });
-
-    // 添加 AI 分析消息占位
-    const aiMsgId = v4();
-    const aiMsg: Message = {
-      id: aiMsgId, conversation_id: convId, role: "assistant", content: "",
-      images: [], generation: null, params: {}, mode: "chat", created_at: new Date().toISOString(),
-    };
-    set((s) => ({ messages: [...s.messages, aiMsg] }));
-
-    try {
-      const imageUrls = readyImages.map((img) => ({ index: img.index, url: img.hostedUrl! }));
-      const fileNameList = readyImages.map((img) => `图${img.index}: ${img.fileName}`).join("、");
-
-      const res = await fetch("/api/agent/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: `用户上传了 ${readyImages.length} 张图片（${fileNameList}）。请分析每张图片的内容，说明它们分别是什么，然后给出你可以帮助用户做的事情建议。用简洁友好的语气。`,
-          images: imageUrls,
-        }),
-      });
-
-      const data = await res.json();
-      const reply = data.reply || `已收到 ${readyImages.length} 张图片，你可以输入指令告诉我你想做什么。`;
-
-      set((s) => ({
-        isSending: false,
-        messages: s.messages.map((m) =>
-          m.id === aiMsgId ? { ...m, content: reply } : m
-        ),
-      }));
-
-      // 保存到 DB
-      fetch(`/api/conversations/${convId}/messages`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role: "assistant", content: reply, mode: "chat" }),
-      }).catch(() => {});
-    } catch {
-      const fallback = `已收到 ${readyImages.length} 张图片。输入指令告诉我你想做什么，例如：\n• 帮我把图1的衣服穿到图2身上\n• 做一张种草图\n• 换个背景`;
-
-      set((s) => ({
-        isSending: false,
-        messages: s.messages.map((m) =>
-          m.id === aiMsgId ? { ...m, content: fallback } : m
-        ),
-      }));
-    }
+    // 不再自动分析，等用户输入指令后统一处理
   },
 
   removeImage: (index: number) => {
@@ -406,6 +333,22 @@ export const useAgentStore = create<Store>((set, get) => ({
         const data = await res.json();
 
         if (!res.ok || !data.generation_id) {
+          // 如果是没有图片的友好提示，显示为 AI 回复而不是错误
+          if (data.error === "no_images" && data.message) {
+            set((s) => ({
+              isSending: false,
+              messages: s.messages.map((m) =>
+                m.id === aiMsg.id ? { ...m, content: data.message, generation: null } : m
+              ),
+            }));
+            // 保存到 DB
+            fetch(`/api/conversations/${convId}/messages`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ role: "assistant", content: data.message, mode: "agent" }),
+            }).catch(() => {});
+            return;
+          }
           throw new Error(data.error || "生成失败");
         }
 

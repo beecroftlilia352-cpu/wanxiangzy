@@ -136,7 +136,14 @@ export async function POST(request: NextRequest) {
     });
 
     if (!apiParams) {
-      return NextResponse.json({ error: "无法解析指令，请更明确地描述需求" }, { status: 400 });
+      // 如果没有图片，回退到 Chat 模式回答
+      if (!images || images.length === 0) {
+        return NextResponse.json({
+          error: "no_images",
+          message: "请先上传图片，再输入生成指令。你也可以切换到 Chat 模式进行对话。",
+        }, { status: 400 });
+      }
+      return NextResponse.json({ error: "无法解析指令，请更明确地描述需求，例如：帮我把图1的衣服穿到图2身上" }, { status: 400 });
     }
 
     // 计算积分
