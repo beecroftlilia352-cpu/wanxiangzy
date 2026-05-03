@@ -1,3 +1,64 @@
+import type { LingyaModel, AspectRatio, ImageSize } from "@/lib/api/lingya";
+
+// ---- 会话 ----
+export interface Conversation {
+  id: string;
+  title: string;
+  messages: ChatMessage[];
+  createdAt: number;
+  updatedAt: number;
+}
+
+// ---- 消息 ----
+export type MessageRole = "user" | "assistant" | "system";
+
+export interface ChatMessage {
+  id: string;
+  role: MessageRole;
+  content: string;
+  images?: ChatImage[];
+  generation?: GenerationResult;
+  timestamp: number;
+}
+
+// ---- 图片（带编号） ----
+export interface ChatImage {
+  index: number;        // 1-based: 图1, 图2...
+  url: string;          // blob preview 或 hosted URL
+  hostedUrl?: string;   // imgbb URL
+  fileName: string;
+  uploading?: boolean;
+}
+
+// ---- 生成结果 ----
+export type GenerationStatus = "pending" | "generating" | "completed" | "failed";
+
+export interface GenerationResult {
+  status: GenerationStatus;
+  progress: number;
+  resultUrls: string[];
+  error?: string;
+  generationId?: string;
+  creditsUsed?: number;
+  module?: string;
+}
+
+// ---- 生成参数 ----
+export interface GenerationParams {
+  model: LingyaModel;
+  aspectRatio: AspectRatio;
+  imageSize: ImageSize;
+  count: number;
+}
+
+export const DEFAULT_PARAMS: GenerationParams = {
+  model: "gpt-image-2",
+  aspectRatio: "3:4",
+  imageSize: "1K",
+  count: 1,
+};
+
+// ---- 模块类型（复用） ----
 export type ModuleKey =
   | "tryon"
   | "grass"
@@ -5,57 +66,3 @@ export type ModuleKey =
   | "pose"
   | "model_background"
   | "garment_3d";
-
-// ---- 服装分析 ----
-export interface GarmentAnalysis {
-  imageUrl: string;
-  fileName: string;
-  category: string;     // "连衣裙" | "上装" | "下装" | "外套" | "连体衣"
-  style: string;        // "甜美" | "简约" | "复古" | "运动" | "通勤"
-  colors: string[];     // ["白色", "碎花"]
-  season: string;       // "春夏" | "秋冬" | "四季"
-  suggestion: string;   // AI 建议文案
-  status: "pending" | "analyzing" | "done" | "error";
-}
-
-// ---- 推荐方案 ----
-export interface RecommendedPlan {
-  id: string;
-  icon: string;           // lucide icon name
-  title: string;          // "电商主图"
-  description: string;    // "服装上身 · 3:4 · 电商白底"
-  modules: ModuleKey[];   // 单模块或多步骤
-  params: Record<string, unknown>;
-  creditsPerItem: number;
-  isRecommended: boolean;
-  aiReason?: string;      // "碎花裙适合韩系街拍风格"
-}
-
-// ---- 生产任务 ----
-export type TaskStepStatus = "pending" | "running" | "completed" | "failed";
-
-export interface TaskStep {
-  module: ModuleKey;
-  label: string;
-  status: TaskStepStatus;
-  progress: number;
-  generationId?: string;
-  resultUrls: string[];
-  error?: string;
-}
-
-export type ProductionTaskStatus = "pending" | "running" | "completed" | "failed";
-
-export interface ProductionTask {
-  id: string;
-  garmentUrl: string;
-  garmentName: string;
-  garmentThumb: string;
-  plan: RecommendedPlan;
-  steps: TaskStep[];
-  currentStep: number;
-  status: ProductionTaskStatus;
-}
-
-// ---- Agent 视图状态 ----
-export type AgentView = "empty" | "analyzing" | "plans" | "configuring" | "producing" | "results";
