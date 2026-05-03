@@ -1,4 +1,4 @@
-export type RepairKind = "tryon" | "grass" | "pose" | "model" | "garment3d";
+export type RepairKind = "tryon" | "grass" | "pose" | "model" | "garment3d" | "modelBackground";
 
 export type RepairPreset = {
   value: string;
@@ -193,6 +193,29 @@ export const REPAIR_PRESETS: Record<RepairKind, RepairPreset[]> = {
       desc: "场景杂乱",
       prompt:
         "重点修复背景：使用干净白色或浅灰棚拍背景，主体居中，边缘干净，柔和自然阴影；不要生成房间、街景、模特、道具或杂乱场景。",
+    },
+  ],
+  modelBackground: [
+    {
+      value: "natural_blend",
+      label: "自然融合",
+      desc: "人和背景割裂",
+      prompt:
+        "重点修复自然融合：统一光线方向、色温、曝光、景深、透视、人物尺度、脚下接触阴影和边缘过渡；不要贴纸感、不要白边硬边、不要漂浮。",
+    },
+    {
+      value: "clothing_preserve",
+      label: "服装不变",
+      desc: "服装被改了",
+      prompt:
+        "重点修复服装还原：严格保持图1原始服装的品类、版型、颜色、图案、logo、面料纹理和所有细节不变；只允许背景或模特脸变化。",
+    },
+    {
+      value: "background_quality",
+      label: "背景质量",
+      desc: "背景模糊或假",
+      prompt:
+        "重点修复背景质量：背景参考图的场景、光线、色温、空间透视和构图氛围要真实还原，匹配商业摄影质感；不要模糊、不要拼接痕迹、不要AI渲染感。",
     },
   ],
 };
