@@ -541,6 +541,30 @@ export const useAgentStore = create<Store>((set, get) => ({
         }));
       }
 
+      // 兜底：如果 LLM 没返回 action:generate，但从用户消息能检测到生图意图
+      if (chatData.action !== "generate" && imageUrls.length > 0) {
+        const genKeywords = /换装|穿上|试穿|上身|种草|街拍|小红书|3D|立体|专属模特|建模特|换背景|换场景|四宫格|姿势裂变|生成|制作|出图/;
+        if (genKeywords.test(trimmed)) {
+          const moduleMap: Record<string, string> = {
+            "换装": "tryon", "穿上": "tryon", "试穿": "tryon", "上身": "tryon",
+            "种草": "grass", "街拍": "grass", "小红书": "grass",
+            "3D": "garment_3d", "立体": "garment_3d",
+            "专属模特": "model", "建模特": "model",
+            "换背景": "model_background", "换场景": "model_background",
+            "四宫格": "pose", "姿势裂变": "pose",
+          };
+          for (const [keyword, mod] of Object.entries(moduleMap)) {
+            if (trimmed.includes(keyword)) {
+              chatData = { ...chatData, action: "generate", module: mod };
+              break;
+            }
+          }
+          if (chatData.action !== "generate" && /生成|制作|出图/.test(trimmed)) {
+            chatData = { ...chatData, action: "generate", module: chatData.module || "tryon" };
+          }
+        }
+      }
+
       if (chatData.action === "generate" && imageUrls.length > 0) {
         // LLM 判断需要生图 → 调用 Generate API
         const genRes = await fetch("/api/agent/generate", {

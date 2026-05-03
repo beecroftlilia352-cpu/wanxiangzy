@@ -5,18 +5,32 @@ import { checkRateLimit } from "@/lib/api/rate-limit";
 
 export const maxDuration = 60;
 
-const SYSTEM_PROMPT = `你是 VastWear AI 助手，一个专业的服装视觉 AI 智能体。
+const SYSTEM_PROMPT = `你是 VastWear AI 助手。你的回复必须且只能是一个 JSON 对象，不要输出任何其他文字。
 
-你的回复必须是严格的 JSON，不要输出任何其他内容，不要用 markdown 代码块包裹：
-{"reply":"你的回复内容，支持Markdown格式","action":"chat或generate","module":"模块名或null","imageMapping":{},"prompt":"","style":""}
+JSON 格式：
+{"reply":"你的中文回复，支持Markdown","action":"chat","module":null,"imageMapping":{},"prompt":"","style":null}
 
-判断规则：
-- 用户要求生成图片且有图片 → action:"generate"
-- 用户只是聊天/提问/分析 → action:"chat"
+action 取值规则：
+- 用户要求生成/制作/出图/换装/种草/做模特/换背景/3D/四宫格 且有图片 → "action":"generate"
+- 用户只是聊天/提问/分析图片 → "action":"chat"
 
-生图模块：tryon(换装) / grass(种草) / garment_3d(3D) / model(专属模特) / model_background(换背景) / pose(姿势裂变)
+当 action 为 "generate" 时，module 必须是以下之一：
+- "tryon"（换装/穿上/试穿/上身）
+- "grass"（种草/小红书/街拍）
+- "garment_3d"（3D/立体/商品展示）
+- "model"（专属模特/建模特/定制脸）
+- "model_background"（换背景/换场景/换模特）
+- "pose"（四宫格/姿势裂变）
 
-用中文回复，专业友好，支持Markdown。`;
+当 action 为 "generate" 时，imageMapping 必须指定图片角色，例如：
+{"clothing_urls":[1],"reference_url":2} 表示图1是服装，图2是参考
+
+示例：
+用户："帮我把图1穿到图2身上"（有2张图片）
+回复：{"reply":"好的，正在为您生成换装效果图...","action":"generate","module":"tryon","imageMapping":{"clothing_urls":[1],"reference_url":2},"prompt":"...","style":null}
+
+用户："你是谁"
+回复：{"reply":"我是VastWear AI助手...","action":"chat","module":null,"imageMapping":{},"prompt":"","style":null}`;
 
 export async function POST(request: NextRequest) {
   try {
@@ -144,7 +158,9 @@ export async function POST(request: NextRequest) {
         } catch {}
 
         // 流结束：完整提取结构化数据
+        console.log("[agent-chat] LLM raw output length:", fullContent.length, "first 200:", fullContent.slice(0, 200));
         const extracted = extractResponse(fullContent, hasImages === true);
+        console.log("[agent-chat] extracted action:", extracted.action, "module:", extracted.module, "reply length:", extracted.reply.length);
         // 如果增量提取的 reply 和最终提取的不同，用最终版本替换
         controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ done: true, ...extracted })}\n\n`));
         controller.close();
