@@ -29,6 +29,9 @@ export function MessageBubble({ message, sessionImages, onOpenImage, onRetry }: 
 
   const isUser = role === "user";
 
+  // 空 AI 消息（思考占位）不渲染，由 ChatArea 的思考指示器接管
+  if (!isUser && !content && !generation) return null;
+
   return (
     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}
       className={`flex gap-3 ${isUser ? "flex-row-reverse" : ""}`}>

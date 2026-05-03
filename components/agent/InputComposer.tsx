@@ -135,14 +135,28 @@ export function InputComposer({
                 <Paperclip className="h-[18px] w-[18px]" />
               </button>
 
-              {/* textarea */}
-              <textarea ref={textareaRef} value={inputText}
-                onChange={(e) => { onTextChange(e.target.value); handleInput(); }}
-                onKeyDown={handleKeyDown} onPaste={handlePaste} onClick={handleInput}
-                placeholder={inputImages.length > 0 ? "输入指令... 用 @图N 引用图片" : "上传图片后输入指令..."}
-                rows={1}
-                className="min-h-[44px] max-h-[120px] flex-1 resize-none py-3 pr-2 text-[14px] leading-relaxed outline-none placeholder:text-slate-300"
-              />
+              {/* textarea + @ 高亮 overlay */}
+              <div className="relative min-h-[44px] max-h-[120px] flex-1">
+                {/* 高亮层（在 textarea 上方，pointer-events: none） */}
+                {inputText.includes("@") && inputImages.length > 0 && (
+                  <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words py-3 pr-2 text-[14px] leading-relaxed"
+                    style={{ font: "inherit", letterSpacing: "inherit" }}
+                  >
+                    {renderHighlightSegments(inputText)}
+                  </div>
+                )}
+                <textarea ref={textareaRef} value={inputText}
+                  onChange={(e) => { onTextChange(e.target.value); handleInput(); }}
+                  onKeyDown={handleKeyDown} onPaste={handlePaste} onClick={handleInput}
+                  placeholder={inputImages.length > 0 ? "输入指令... 用 @图N 引用图片" : "上传图片后输入指令..."}
+                  rows={1}
+                  className={`min-h-[44px] max-h-[120px] w-full resize-none py-3 pr-2 text-[14px] leading-relaxed outline-none placeholder:text-slate-300 ${
+                    inputText.includes("@") && inputImages.length > 0 ? "text-transparent caret-violet-600" : "text-slate-800"
+                  }`}
+                />
+              </div>
 
               {/* 右侧按钮组 */}
               <div className="flex shrink-0 items-center gap-0.5 pr-1.5 pb-1.5">
@@ -278,4 +292,21 @@ function SettingsPanel({
       )}
     </div>
   );
+}
+
+/**
+ * 将文本中的 @图N 渲染为高亮片段（用于 overlay）
+ */
+function renderHighlightSegments(text: string) {
+  const parts = text.split(/(@图\d+)/g);
+  return parts.map((part, i) => {
+    if (/^@图\d+$/.test(part)) {
+      return (
+        <span key={i} className="rounded bg-violet-100 px-0.5 font-bold text-violet-700">
+          {part}
+        </span>
+      );
+    }
+    return <span key={i}>{part}</span>;
+  });
 }
