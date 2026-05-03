@@ -23,6 +23,7 @@ export interface Message {
   params: Record<string, unknown>;
   mode: AgentMode;
   created_at: string;
+  streamingDone?: boolean;  // true when streaming is complete, ready for markdown render
 }
 
 // ---- 前端模型 ----

@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import { Bot, User, Loader2, CheckCircle2, AlertCircle, Download, ZoomIn, RefreshCw, Copy, Sparkles } from "lucide-react";
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { Message } from "@/lib/agent/types";
@@ -82,7 +82,7 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
               </div>
             ) : (
               <div className="prose-agent">
-                <StreamingMarkdown content={content} />
+                <StreamingMarkdown content={content} done={message.streamingDone} />
               </div>
             )}
 
@@ -249,49 +249,26 @@ function formatTimeShort(ts: string): string {
 }
 
 /**
- * 流式 Markdown 渲染器 — 两阶段策略
+ * 流式 Markdown 渲染器 — 基于 streamingDone 标志
  *
- * 流式中：纯文本渲染（干净，无 #、**、| 等原始语法）
- * 流完成：切换为 Markdown 渲染（表格、粗体一次成型）
+ * streamingDone=false：纯文本渲染（干净，无原始 markdown 语法）
+ * streamingDone=true：Markdown 渲染（表格、粗体、列表一次成型）
  *
- * 用法：content 每次 chunk 更新时传入，组件自动判断是否还在流式。
- * 当 content 停止变化超过 300ms，判定为流完成。
+ * 比 timer 方案可靠：由服务端 done 事件驱动，不依赖超时猜测。
  */
-function StreamingMarkdown({ content }: { content: string }) {
-  const [isStreaming, setIsStreaming] = useState(true);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const prevLenRef = useRef(0);
-
-  useEffect(() => {
-    // 内容在增长 → 还在流式
-    if (content.length !== prevLenRef.current) {
-      prevLenRef.current = content.length;
-      setIsStreaming(true);
-
-      if (timerRef.current) clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(() => {
-        setIsStreaming(false);
-      }, 300);
-    }
-
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
-  }, [content]);
-
-  // 首次无内容 → 不渲染
+function StreamingMarkdown({ content, done }: { content: string; done?: boolean }) {
   if (!content) return null;
 
-  // 流式中：纯文本，保留换行，不解析 markdown 语法
-  if (isStreaming) {
-    return (
-      <div className="whitespace-pre-wrap">
-        {content}
-        <span className="inline-block h-4 w-0.5 animate-pulse bg-violet-400 align-middle ml-0.5" />
-      </div>
-    );
+  // 流完成：Markdown 渲染
+  if (done) {
+    return <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>;
   }
 
-  // 流完成：Markdown 渲染
-  return <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>;
+  // 流式中：纯文本，保留换行
+  return (
+    <div className="whitespace-pre-wrap">
+      {content}
+      <span className="inline-block h-4 w-0.5 animate-pulse bg-violet-400 align-middle ml-0.5" />
+    </div>
+  );
 }
