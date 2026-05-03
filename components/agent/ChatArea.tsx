@@ -16,12 +16,12 @@ type Props = {
 };
 
 const PRESET_QUESTIONS = [
-  { icon: "👕", text: "帮我把衣服穿到模特身上", desc: "上传服装图，生成换装效果图" },
-  { icon: "📱", text: "帮我出一套小红书种草图", desc: "生成街拍、咖啡店等生活感穿搭图" },
-  { icon: "📦", text: "帮我做 3D 立体商品展示", desc: "平铺图转无真人的 3D 服装展示" },
-  { icon: "🖼️", text: "帮我换个背景", desc: "白底图换街拍、换场景、换模特" },
-  { icon: "🧍", text: "帮我做四宫格姿势裂变", desc: "一张图生成四种不同姿势" },
-  { icon: "👤", text: "帮我建一个专属模特", desc: "融合参考人脸，创建稳定 AI 模特" },
+  { icon: "📸", text: "生成小红书种草图" },
+  { icon: "👗", text: "服装换装试穿" },
+  { icon: "🌿", text: "种草场景图" },
+  { icon: "🎭", text: "模特姿势裂变" },
+  { icon: "🖼️", text: "更换背景" },
+  { icon: "💬", text: "你是谁？" },
 ];
 
 export function ChatArea({ messages, sessionImages, isSending, onOpenImage, onRetry, onQuickAction }: Props) {
@@ -34,48 +34,25 @@ export function ChatArea({ messages, sessionImages, isSending, onOpenImage, onRe
   if (messages.length === 0) {
     return (
       <div className="flex flex-1 items-center justify-center p-8">
-        <div className="max-w-xl text-center">
-          <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-violet-100 to-pink-100">
-            <Sparkles className="h-10 w-10 text-violet-400" />
+        <div className="max-w-lg text-center">
+          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-pink-500 shadow-lg shadow-violet-200">
+            <Sparkles className="h-8 w-8 text-white" />
           </div>
-          <h2 className="text-xl font-black text-slate-800">VastWear 图像智能体</h2>
-          <p className="mt-2 text-sm text-slate-400">
-            上传服装图片，输入指令，AI 帮你生成电商视觉内容
+          <h2 className="text-lg font-bold text-slate-700">有什么可以帮你的吗？</h2>
+          <p className="mt-1.5 text-sm text-slate-400">
+            随时上传图片告诉我你的需求吧！
           </p>
 
-          {/* 预设问题 */}
-          <div className="mt-8 space-y-2">
-            <p className="text-xs font-bold uppercase tracking-wider text-slate-300">试试问我</p>
-            <div className="grid gap-2 sm:grid-cols-2">
-              {PRESET_QUESTIONS.map((q) => (
-                <button
-                  key={q.text}
-                  onClick={() => onQuickAction(q.text)}
-                  className="group flex items-start gap-3 rounded-xl border border-slate-200/80 bg-white px-4 py-3 text-left transition-all hover:border-violet-300 hover:shadow-md"
-                >
-                  <span className="mt-0.5 text-lg">{q.icon}</span>
-                  <div>
-                    <p className="text-sm font-semibold text-slate-700 group-hover:text-violet-700">{q.text}</p>
-                    <p className="mt-0.5 text-xs text-slate-400">{q.desc}</p>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* 提示 */}
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-3 text-xs text-slate-400">
-            <span className="flex items-center gap-1.5 rounded-full bg-slate-50 px-3 py-1.5">
-              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-              📎 上传图片
-            </span>
-            <span className="flex items-center gap-1.5 rounded-full bg-slate-50 px-3 py-1.5">
-              <span className="font-bold text-violet-500">@</span>
-              绑定图片精确引用
-            </span>
-            <span className="flex items-center gap-1.5 rounded-full bg-slate-50 px-3 py-1.5">
-              💬 Chat 对话 / 🤖 Agent 生图
-            </span>
+          <div className="mt-6 flex flex-wrap justify-center gap-2">
+            {PRESET_QUESTIONS.map((q) => (
+              <button
+                key={q.text}
+                onClick={() => onQuickAction(q.text)}
+                className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600 transition-all hover:border-violet-300 hover:bg-violet-50 hover:text-violet-700 hover:shadow-sm"
+              >
+                {q.icon} {q.text}
+              </button>
+            ))}
           </div>
         </div>
       </div>
