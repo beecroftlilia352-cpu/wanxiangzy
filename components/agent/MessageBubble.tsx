@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import { Bot, User, Loader2, CheckCircle2, AlertCircle, Download, ZoomIn, RefreshCw, Copy } from "lucide-react";
 import { useState } from "react";
+import ReactMarkdown from "react-markdown";
 import type { Message } from "@/lib/agent/types";
 import { renderMentionSegments } from "@/lib/agent/mention-parser";
 import { downloadImage, generateDownloadFilename } from "@/lib/utils";
@@ -38,15 +39,15 @@ export function MessageBubble({ message, sessionImages, onOpenImage, onRetry }: 
       </div>
 
       <div className={`max-w-[80%] min-w-0 flex flex-col gap-2`}>
-        {/* 文本内容（带 @ 标签渲染） */}
+        {/* 文本内容 */}
         {content && (
-          <div className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
+          <div className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${
             isUser ? "rounded-br-md bg-violet-600 text-white" : "rounded-bl-md border border-slate-200/80 bg-white text-slate-800"
           }`}>
-            <div className="whitespace-pre-wrap">
-              {isUser ? (
-                // 用户消息：渲染 @ 标签
-                renderMentionSegments(content).map((seg, i) =>
+            {isUser ? (
+              // 用户消息：渲染 @ 标签
+              <div className="whitespace-pre-wrap">
+                {renderMentionSegments(content).map((seg, i) =>
                   seg.type === "mention" ? (
                     <span key={i} className="inline-flex items-center gap-0.5 rounded-md bg-white/20 px-1.5 py-0.5 font-bold text-white/90">
                       {seg.value}
@@ -54,14 +55,17 @@ export function MessageBubble({ message, sessionImages, onOpenImage, onRetry }: 
                   ) : (
                     <span key={i}>{seg.value}</span>
                   )
-                )
-              ) : (
-                content
-              )}
-            </div>
+                )}
+              </div>
+            ) : (
+              // AI 消息：Markdown 渲染
+              <div className="prose-agent">
+                <ReactMarkdown>{content}</ReactMarkdown>
+              </div>
+            )}
             {!isUser && content.length > 10 && (
               <button onClick={() => { navigator.clipboard.writeText(content); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
-                className="mt-1.5 flex items-center gap-1 text-[11px] text-slate-400 hover:text-slate-600">
+                className="mt-2 flex items-center gap-1 text-[11px] text-slate-400 hover:text-slate-600">
                 {copied ? <CheckCircle2 className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
                 {copied ? "已复制" : "复制"}
               </button>

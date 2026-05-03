@@ -65,16 +65,14 @@ export function InputComposer({
     if (!el) return;
     el.style.height = "auto";
     el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
-    const pos = el.selectionStart ?? 0;
-    setCursorPos(pos);
-    setMentionState(detectMentionTrigger(el.value, pos));
+    setCursorPos(el.selectionStart ?? 0);
+    setMentionState(detectMentionTrigger(el.value, el.selectionStart ?? 0));
   }, []);
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      if (mentionState.active) return;
-      onSend();
+      if (!mentionState.active) onSend();
     }
   };
 
@@ -90,8 +88,7 @@ export function InputComposer({
   const handlePaste = (e: ClipboardEvent<HTMLTextAreaElement>) => {
     const files = Array.from(e.clipboardData.items)
       .filter((item) => item.type.startsWith("image/"))
-      .map((item) => item.getAsFile())
-      .filter(Boolean) as File[];
+      .map((item) => item.getAsFile()).filter(Boolean) as File[];
     if (files.length > 0) { e.preventDefault(); onAddImages(files); }
   };
 
@@ -106,165 +103,208 @@ export function InputComposer({
 
   return (
     <div
-      className="border-t border-slate-200/60 bg-white/80 backdrop-blur-xl"
+      className="border-t border-slate-100 bg-gradient-to-b from-white to-slate-50/80"
       onDragEnter={(e) => { e.preventDefault(); setIsDragging(true); }}
       onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
       onDragOver={(e) => e.preventDefault()}
       onDrop={handleDrop}
     >
-      <div className="mx-auto max-w-3xl px-4 pb-4 pt-3 sm:px-6">
+      <div className="mx-auto max-w-3xl px-4 pb-3 pt-2 sm:px-6">
         {isDragging && (
-          <div className="mb-3 flex items-center justify-center rounded-2xl border-2 border-dashed border-violet-300 bg-violet-50/50 py-6 text-sm font-bold text-violet-500">
+          <div className="mb-2 flex items-center justify-center rounded-xl border-2 border-dashed border-violet-300 bg-violet-50/50 py-5 text-sm font-bold text-violet-500">
             拖放图片到这里
           </div>
         )}
 
         <ImageTray images={inputImages} onAdd={onAddImages} onRemove={onRemoveImage} />
 
-        {/* 主输入框 — ChatGPT/Gemini 风格胶囊形 */}
+        {/* ===== 统一输入容器 ===== */}
         <div className="relative">
           <MentionDropdown images={inputImages} query={mentionState.query} onSelect={handleMentionSelect} visible={mentionState.active} />
 
-          <div className="flex items-end rounded-2xl border border-slate-200 bg-white shadow-sm transition-all focus-within:border-violet-300 focus-within:shadow-[0_0_0_3px_rgba(139,92,246,0.08)]">
-            {/* 📎 上传按钮 */}
-            <input ref={fileRef} type="file" accept="image/*" multiple className="hidden"
-              onChange={(e) => { onAddImages(Array.from(e.target.files || [])); e.target.value = ""; }} />
-            <button onClick={() => fileRef.current?.click()}
-              className="flex h-11 w-11 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-violet-500"
-              title="上传图片">
-              <Paperclip className="h-[18px] w-[18px]" />
-            </button>
-
-            {/* 文本输入 */}
-            <textarea ref={textareaRef} value={inputText}
-              onChange={(e) => { onTextChange(e.target.value); handleInput(); }}
-              onKeyDown={handleKeyDown} onPaste={handlePaste} onClick={handleInput}
-              placeholder={inputImages.length > 0 ? "输入指令，用 @图N 引用图片..." : "上传图片后输入指令..."}
-              rows={1}
-              className="min-h-[44px] max-h-[120px] flex-1 resize-none py-3 text-sm leading-relaxed outline-none placeholder:text-slate-300"
-            />
-
-            {/* ✨ AI 帮写 */}
+          <div className="rounded-2xl border border-slate-200/80 bg-white shadow-[0_2px_12px_rgba(0,0,0,0.04)] transition-all focus-within:border-violet-300/60 focus-within:shadow-[0_2px_20px_rgba(139,92,246,0.08)]">
+            {/* 图片行（有图片时才显示） */}
             {inputImages.length > 0 && (
-              <button onClick={onAIWrite} disabled={isAIWriting}
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-amber-400 transition-colors hover:bg-amber-50 hover:text-amber-500 disabled:opacity-40"
-                title="AI 帮写：根据图片优化提示词">
-                {isAIWriting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-              </button>
+              <div className="flex items-center gap-1.5 border-b border-slate-100 px-3 py-2">
+                {inputImages.map((img, i) => (
+                  <div key={i} className="group relative">
+                    <div className="relative h-8 w-8 overflow-hidden rounded-lg border border-slate-200">
+                      <img src={img.hostedUrl || img.url} alt={`图${img.index}`} className="h-full w-full object-cover" />
+                      {img.uploading && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                          <Loader2 className="h-3 w-3 animate-spin text-white" />
+                        </div>
+                      )}
+                    </div>
+                    <span className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 rounded bg-violet-600 px-1 text-[8px] font-bold leading-tight text-white">
+                      {img.index}
+                    </span>
+                    <button onClick={() => onRemoveImage(i)}
+                      className="absolute -right-1 -top-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-slate-400 text-white opacity-0 transition-opacity group-hover:opacity-100">
+                      <X className="h-2 w-2" />
+                    </button>
+                  </div>
+                ))}
+                <button onClick={() => fileRef.current?.click()}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-dashed border-slate-300 text-slate-300 transition-colors hover:border-violet-300 hover:text-violet-400">
+                  <span className="text-sm leading-none">+</span>
+                </button>
+              </div>
             )}
 
-            {/* 发送按钮 */}
-            <button onClick={onSend} disabled={!canSend}
-              className={`mr-1.5 mb-1.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-all ${
-                canSend
-                  ? "bg-violet-600 text-white shadow-sm hover:bg-violet-700"
-                  : "bg-slate-100 text-slate-300"
-              }`}>
-              <ArrowUp className="h-4 w-4" strokeWidth={2.5} />
-            </button>
+            {/* 输入行 */}
+            <div className="flex items-end">
+              <input ref={fileRef} type="file" accept="image/*" multiple className="hidden"
+                onChange={(e) => { onAddImages(Array.from(e.target.files || [])); e.target.value = ""; }} />
+
+              {/* 📎 */}
+              <button onClick={() => fileRef.current?.click()}
+                className="flex h-11 w-11 shrink-0 items-center justify-center text-slate-300 transition-colors hover:text-violet-400"
+                title="上传图片">
+                <Paperclip className="h-[18px] w-[18px]" />
+              </button>
+
+              {/* textarea */}
+              <textarea ref={textareaRef} value={inputText}
+                onChange={(e) => { onTextChange(e.target.value); handleInput(); }}
+                onKeyDown={handleKeyDown} onPaste={handlePaste} onClick={handleInput}
+                placeholder={inputImages.length > 0 ? "输入指令... 用 @图N 引用图片" : "上传图片后输入指令..."}
+                rows={1}
+                className="min-h-[44px] max-h-[120px] flex-1 resize-none py-3 pr-2 text-[14px] leading-relaxed outline-none placeholder:text-slate-300"
+              />
+
+              {/* 右侧按钮组 */}
+              <div className="flex shrink-0 items-center gap-0.5 pr-1.5 pb-1.5">
+                {/* ✨ AI 帮写 */}
+                {inputImages.length > 0 && (
+                  <button onClick={onAIWrite} disabled={isAIWriting}
+                    className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-300 transition-all hover:bg-amber-50 hover:text-amber-500 disabled:opacity-40"
+                    title="AI 帮写">
+                    {isAIWriting ? <Loader2 className="h-4 w-4 animate-spin text-amber-400" /> : <Sparkles className="h-4 w-4" />}
+                  </button>
+                )}
+
+                {/* 发送 */}
+                <button onClick={onSend} disabled={!canSend}
+                  className={`flex h-8 w-8 items-center justify-center rounded-xl transition-all ${
+                    canSend ? "bg-slate-900 text-white hover:bg-slate-800" : "bg-slate-100 text-slate-300"
+                  }`}>
+                  <ArrowUp className="h-4 w-4" strokeWidth={2.5} />
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* 底部工具栏 — 紧凑一行 */}
-        <div className="mt-2 flex items-center gap-1.5 px-1">
+        {/* ===== 底部工具栏 ===== */}
+        <div className="mt-1.5 flex items-center gap-2 px-1">
           <ModeToggle mode={mode} onChange={onModeChange} />
 
-          <div className="mx-0.5 h-4 w-px bg-slate-200" />
+          <div className="h-3 w-px bg-slate-200" />
 
-          {/* 设置按钮 + 配置摘要 */}
+          {/* 设置 */}
           <div className="relative">
             <button onClick={(e) => { e.stopPropagation(); setSettingsOpen(!settingsOpen); }}
-              className={`flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-medium transition-all ${
-                settingsOpen ? "bg-violet-50 text-violet-600" : "text-slate-400 hover:bg-slate-50 hover:text-slate-600"
+              className={`flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] transition-all ${
+                settingsOpen ? "bg-violet-50 text-violet-600" : "text-slate-400 hover:text-slate-600"
               }`}>
               <Settings className="h-3 w-3" />
-              {modelLabel} · {params.aspectRatio} · {params.count}张
+              <span>{modelLabel} · {params.aspectRatio}</span>
             </button>
 
             {settingsOpen && (
-              <div onClick={(e) => e.stopPropagation()}
-                className="absolute bottom-full left-0 mb-2 w-72 rounded-2xl border border-slate-200 bg-white p-4 shadow-xl">
-                <div className="mb-3 flex items-center justify-between">
-                  <span className="text-sm font-bold text-slate-800">生成设置</span>
-                  <button onClick={() => setSettingsOpen(false)} className="rounded-md p-1 text-slate-400 hover:bg-slate-100">
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-
-                <div className="mb-3">
-                  <label className="mb-1.5 block text-xs font-bold text-slate-500">模型</label>
-                  <div className="grid grid-cols-3 gap-1.5">
-                    {MODEL_OPTS.map((o) => (
-                      <button key={o.value} onClick={() => onParamsChange({ model: o.value as LingyaModel })}
-                        className={`rounded-lg border px-2 py-2 text-center transition-all ${
-                          params.model === o.value ? "border-violet-300 bg-violet-50 text-violet-700 shadow-sm" : "border-slate-200 text-slate-600 hover:border-violet-200"
-                        }`}>
-                        <span className="block text-xs font-bold">{o.label}</span>
-                        <span className="block text-[10px] text-slate-400">{o.desc}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="mb-3">
-                  <label className="mb-1.5 block text-xs font-bold text-slate-500">比例</label>
-                  <div className="flex gap-1.5">
-                    {RATIO_OPTS.map((o) => (
-                      <button key={o.value} onClick={() => onParamsChange({ aspectRatio: o.value as AspectRatio })}
-                        className={`flex-1 rounded-lg border py-1.5 text-center text-xs font-bold transition-all ${
-                          params.aspectRatio === o.value ? "border-violet-300 bg-violet-50 text-violet-700" : "border-slate-200 text-slate-500 hover:border-violet-200"
-                        }`}>{o.label}</button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="mb-3">
-                  <label className="mb-1.5 block text-xs font-bold text-slate-500">尺寸</label>
-                  <div className="flex gap-1.5">
-                    {SIZE_OPTS.map((o) => (
-                      <button key={o.value} onClick={() => onParamsChange({ imageSize: o.value as ImageSize })}
-                        className={`flex-1 rounded-lg border py-1.5 text-center transition-all ${
-                          params.imageSize === o.value ? "border-violet-300 bg-violet-50 text-violet-700" : "border-slate-200 text-slate-500 hover:border-violet-200"
-                        }`}>
-                        <span className="block text-xs font-bold">{o.label}</span>
-                        <span className="block text-[10px] text-slate-400">{o.desc}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="mb-1.5 block text-xs font-bold text-slate-500">生成张数</label>
-                  <div className="flex gap-1.5">
-                    {[1, 2, 3, 4].map((n) => (
-                      <button key={n} onClick={() => onParamsChange({ count: n })}
-                        className={`flex-1 rounded-lg border py-2 text-center text-sm font-bold transition-all ${
-                          params.count === n ? "border-violet-300 bg-violet-50 text-violet-700" : "border-slate-200 text-slate-500 hover:border-violet-200"
-                        }`}>{n}</button>
-                    ))}
-                  </div>
-                </div>
-
-                {mode === "agent" && (
-                  <div className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-[11px] font-bold text-amber-600">
-                    预估消耗 {estimatedCredits} 积分
-                  </div>
-                )}
-              </div>
+              <SettingsPanel params={params} modelLabel={modelLabel} estimatedCredits={estimatedCredits} mode={mode}
+                onParamsChange={onParamsChange} onClose={() => setSettingsOpen(false)} />
             )}
           </div>
 
           <div className="flex-1" />
 
           {mode === "agent" && (
-            <span className="text-[11px] font-medium text-amber-500">{estimatedCredits}分</span>
+            <span className="text-[11px] tabular-nums text-slate-300">{estimatedCredits} 积分</span>
           )}
         </div>
-
-        <p className="mt-1 text-center text-[11px] text-slate-300">
-          Enter 发送 · Shift+Enter 换行 · @ 绑定图片
-        </p>
       </div>
+    </div>
+  );
+}
+
+function SettingsPanel({
+  params, modelLabel, estimatedCredits, mode, onParamsChange, onClose,
+}: {
+  params: GenerationParams; modelLabel: string; estimatedCredits: number; mode: AgentMode;
+  onParamsChange: (p: Partial<GenerationParams>) => void; onClose: () => void;
+}) {
+  return (
+    <div onClick={(e) => e.stopPropagation()}
+      className="absolute bottom-full left-0 mb-2 w-72 rounded-2xl border border-slate-200 bg-white p-4 shadow-xl">
+      <div className="mb-3 flex items-center justify-between">
+        <span className="text-sm font-bold text-slate-800">生成设置</span>
+        <button onClick={onClose} className="rounded-md p-1 text-slate-400 hover:bg-slate-100">
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </div>
+
+      <div className="mb-3">
+        <label className="mb-1.5 block text-xs font-bold text-slate-500">模型</label>
+        <div className="grid grid-cols-3 gap-1.5">
+          {MODEL_OPTS.map((o) => (
+            <button key={o.value} onClick={() => onParamsChange({ model: o.value as LingyaModel })}
+              className={`rounded-lg border px-2 py-2 text-center transition-all ${
+                params.model === o.value ? "border-violet-300 bg-violet-50 text-violet-700 shadow-sm" : "border-slate-200 text-slate-600 hover:border-violet-200"
+              }`}>
+              <span className="block text-xs font-bold">{o.label}</span>
+              <span className="block text-[10px] text-slate-400">{o.desc}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="mb-3">
+        <label className="mb-1.5 block text-xs font-bold text-slate-500">比例</label>
+        <div className="flex gap-1.5">
+          {RATIO_OPTS.map((o) => (
+            <button key={o.value} onClick={() => onParamsChange({ aspectRatio: o.value as AspectRatio })}
+              className={`flex-1 rounded-lg border py-1.5 text-center text-xs font-bold transition-all ${
+                params.aspectRatio === o.value ? "border-violet-300 bg-violet-50 text-violet-700" : "border-slate-200 text-slate-500 hover:border-violet-200"
+              }`}>{o.label}</button>
+          ))}
+        </div>
+      </div>
+
+      <div className="mb-3">
+        <label className="mb-1.5 block text-xs font-bold text-slate-500">尺寸</label>
+        <div className="flex gap-1.5">
+          {SIZE_OPTS.map((o) => (
+            <button key={o.value} onClick={() => onParamsChange({ imageSize: o.value as ImageSize })}
+              className={`flex-1 rounded-lg border py-1.5 text-center transition-all ${
+                params.imageSize === o.value ? "border-violet-300 bg-violet-50 text-violet-700" : "border-slate-200 text-slate-500 hover:border-violet-200"
+              }`}>
+              <span className="block text-xs font-bold">{o.label}</span>
+              <span className="block text-[10px] text-slate-400">{o.desc}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <label className="mb-1.5 block text-xs font-bold text-slate-500">张数</label>
+        <div className="flex gap-1.5">
+          {[1, 2, 3, 4].map((n) => (
+            <button key={n} onClick={() => onParamsChange({ count: n })}
+              className={`flex-1 rounded-lg border py-2 text-center text-sm font-bold transition-all ${
+                params.count === n ? "border-violet-300 bg-violet-50 text-violet-700" : "border-slate-200 text-slate-500 hover:border-violet-200"
+              }`}>{n}</button>
+          ))}
+        </div>
+      </div>
+
+      {mode === "agent" && (
+        <div className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-[11px] text-slate-400">
+          {modelLabel} · {params.aspectRatio} · {params.imageSize} · {params.count}张
+          <span className="ml-1 font-bold text-amber-500">· {estimatedCredits}积分</span>
+        </div>
+      )}
     </div>
   );
 }
