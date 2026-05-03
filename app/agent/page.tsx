@@ -121,18 +121,19 @@ export default function AgentPage() {
           onParamsChange={s.setParams}
           onSend={s.sendMessage}
           onAIWrite={s.aiWrite}
+          onPreview={setLightbox}
         />
       </div>
 
-      {/* Lightbox */}
+      {/* Lightbox — z-[999] 确保在所有元素之上 */}
       {lightbox && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+        <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/80 p-4 pt-16 backdrop-blur-sm"
           onClick={() => setLightbox(null)}>
           <button onClick={() => setLightbox(null)}
-            className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20">
+            className="absolute right-4 top-4 z-[1000] flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20">
             <X className="h-5 w-5" />
           </button>
-          <img src={lightbox} alt="预览" className="max-h-[90vh] max-w-[90vw] rounded-2xl object-contain shadow-2xl" />
+          <img src={lightbox} alt="预览" className="max-h-[85vh] max-w-[90vw] rounded-2xl object-contain shadow-2xl" />
         </div>
       )}
     </div>

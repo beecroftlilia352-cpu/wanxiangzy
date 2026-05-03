@@ -497,10 +497,10 @@ export const useAgentStore = create<Store>((set, get) => ({
           }
         } catch { /* stream error */ }
 
-        // 流结束：用 done 事件的 reply 替换内容（干净的，无 JSON）
+        // 流结束：用 done 事件的 reply 替换（服务器保证干净）
         const finalReply = typeof chatData.reply === "string" && chatData.reply
           ? chatData.reply
-          : stripJsonBlocks(get().messages.find((m) => m.id === aiMsg.id)?.content || "");
+          : (get().messages.find((m) => m.id === aiMsg.id)?.content || "");
 
         set((s) => ({
           messages: s.messages.map((m) =>

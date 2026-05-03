@@ -53,7 +53,7 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
         </div>
       )}
 
-      <div className={`flex min-w-0 max-w-[80%] flex-col ${isUser ? "items-end" : "items-start"}`}>
+      <div className={`flex min-w-0 max-w-[85%] sm:max-w-[75%] flex-col ${isUser ? "items-end" : "items-start"}`}>
         {/* 名称 + 时间（分组时只显示时间） */}
         {!isGrouped && (
           <div className={`mb-1 flex items-center gap-2 text-[11px] text-slate-400 ${isUser ? "flex-row-reverse" : ""}`}>
