@@ -249,26 +249,17 @@ function formatTimeShort(ts: string): string {
 }
 
 /**
- * 流式 Markdown 渲染器 — 基于 streamingDone 标志
- *
- * streamingDone=false：纯文本渲染（干净，无原始 markdown 语法）
- * streamingDone=true：Markdown 渲染（表格、粗体、列表一次成型）
- *
- * 比 timer 方案可靠：由服务端 done 事件驱动，不依赖超时猜测。
+ * 流式 Markdown 渲染器
+ * 服务器只发送干净的 reply 文本（无 JSON），所以可以安全地实时渲染。
+ * 流式中显示闪烁光标表示还在生成。
  */
 function StreamingMarkdown({ content, done }: { content: string; done?: boolean }) {
   if (!content) return null;
 
-  // 流完成：Markdown 渲染
-  if (done) {
-    return <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>;
-  }
-
-  // 流式中：纯文本，保留换行
   return (
-    <div className="whitespace-pre-wrap">
-      {content}
-      <span className="inline-block h-4 w-0.5 animate-pulse bg-violet-400 align-middle ml-0.5" />
-    </div>
+    <>
+      <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+      {!done && <span className="inline-block h-4 w-0.5 animate-pulse bg-violet-400 align-middle ml-0.5" />}
+    </>
   );
 }
