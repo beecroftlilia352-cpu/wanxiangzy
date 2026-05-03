@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
 
     const userContent: Array<Record<string, unknown>> = [];
     if (hasImages) {
-      const userText = message?.trim() || "请分析这些图片的内容，并告诉我可以用它们做什么。";
+      const userText = (message || "").trim() || "请分析这些图片的内容，并告诉我可以用它们做什么。";
       userContent.push({
         type: "text",
         text: `模式：${mode || "agent"}\n用户指令：${userText}\n图片编号：${images!.map((img) => `图${img.index}`).join("、")}`,
@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
     } else {
       userContent.push({
         type: "text",
-        text: `模式：${mode || "agent"}\n用户消息：${message.trim()}`,
+        text: `模式：${mode || "agent"}\n用户消息：${(message || "").trim()}`,
       });
     }
     messages.push({ role: "user", content: userContent });
