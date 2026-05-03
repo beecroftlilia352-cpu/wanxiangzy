@@ -3,14 +3,14 @@
 import { create } from "zustand";
 import { v4 } from "./uuid";
 import type {
-  AgentView,
-  GarmentAnalysis,
-  ProductionTask,
-  RecommendedPlan,
-  TaskStep,
+  Conversation,
+  ChatMessage,
+  ChatImage,
+  GenerationResult,
+  GenerationParams,
 } from "@/lib/agent/types";
-import { analyzeGarment } from "@/lib/agent/garment-analyzer";
-import { generateRecommendations } from "@/lib/agent/recommendation-engine";
+import { DEFAULT_PARAMS } from "@/lib/agent/types";
+import { loadConversations, saveConversations } from "@/lib/agent/conversation-storage";
 import { uploadImage } from "@/lib/utils";
 
 const MODULE_API: Record<string, string> = {
@@ -22,103 +22,58 @@ const MODULE_API: Record<string, string> = {
   garment_3d: "/api/garment-3d",
 };
 
-const MODULE_LABELS: Record<string, string> = {
-  tryon: "服装上身",
-  grass: "种草图",
-  model: "专属模特",
-  pose: "姿势裂变",
-  model_background: "换背景",
-  garment_3d: "3D 展示",
-};
-
 type AgentStore = {
-  // 视图状态
-  view: AgentView;
-  // 服装数据
-  garments: GarmentAnalysis[];
-  garmentUrls: Map<string, string>; // local preview → hosted URL
-  recommendations: RecommendedPlan[];
-  selectedPlan: RecommendedPlan | null;
-  // 生产数据
-  tasks: ProductionTask[];
+  conversations: Conversation[];
+  activeConversationId: string | null;
+  inputText: string;
+  inputImages: ChatImage[];
+  params: GenerationParams;
+  isGenerating: boolean;
   pollTimers: Map<string, ReturnType<typeof setInterval>>;
-  // 计算属性
-  completedCount: number;
-  totalImages: number;
-  overallProgress: number;
-  totalCredits: number;
 
-  // Actions
-  addGarments: (files: File[]) => Promise<void>;
-  removeGarment: (index: number) => void;
-  selectPlan: (plan: RecommendedPlan) => void;
-  startProduction: () => Promise<void>;
-  retryTask: (taskId: string) => void;
-  reset: () => void;
+  // 会话管理
+  createConversation: () => void;
+  switchConversation: (id: string) => void;
+  deleteConversation: (id: string) => void;
+  clearAllConversations: () => void;
+
+  // 输入
+  setInputText: (text: string) => void;
+  addInputImages: (files: File[]) => Promise<void>;
+  removeInputImage: (index: number) => void;
+  setParams: (params: Partial<GenerationParams>) => void;
+
+  // 核心操作
+  sendMessage: () => Promise<void>;
+  aiWrite: () => Promise<void>;
+  retryGeneration: (messageId: string) => Promise<void>;
+
+  // 计算
+  activeConversation: () => Conversation | null;
+  estimatedCredits: () => number;
 };
 
 function uid(): string {
   return v4();
 }
 
-function computeCompletedCount(tasks: ProductionTask[]): number {
-  return tasks.filter((t) => t.status === "completed").length;
+function getActiveConv(conversations: Conversation[], id: string | null): Conversation | null {
+  return conversations.find((c) => c.id === id) || null;
 }
 
-function computeTotalImages(tasks: ProductionTask[]): number {
-  return tasks.reduce((sum, t) => sum + t.steps.reduce((s, step) => s + step.resultUrls.length, 0), 0);
-}
-
-function computeOverallProgress(tasks: ProductionTask[]): number {
-  if (tasks.length === 0) return 0;
-  const total = tasks.reduce((sum, t) => {
-    if (t.status === "completed") return sum + 100;
-    if (t.status === "failed") return sum + 0;
-    const stepProgress = t.steps.reduce((s, step) => {
-      if (step.status === "completed") return s + 100;
-      if (step.status === "running") return s + step.progress;
-      return s;
-    }, 0);
-    return sum + (t.steps.length > 0 ? stepProgress / t.steps.length : 0);
-  }, 0);
-  return Math.round(total / tasks.length);
-}
-
-function buildSteps(plan: RecommendedPlan, garmentUrl: string): TaskStep[] {
-  return plan.modules.map((module) => ({
-    module,
-    label: MODULE_LABELS[module] || module,
-    status: "pending" as const,
-    progress: 0,
-    resultUrls: [],
-  }));
-}
-
-function buildParams(plan: RecommendedPlan, garmentUrl: string): Record<string, unknown> {
-  const firstModule = plan.modules[0];
-  const params: Record<string, unknown> = { ...plan.params };
-
-  // 根据模块设置图片参数
-  if (firstModule === "tryon") {
-    params.clothing_urls = [garmentUrl];
-  } else if (firstModule === "grass" || firstModule === "garment_3d") {
-    params.garment_url = garmentUrl;
-  } else if (firstModule === "pose") {
-    params.main_image_url = garmentUrl;
-  } else if (firstModule === "model_background") {
-    params.source_url = garmentUrl;
-  } else if (firstModule === "model") {
-    params.reference_urls = [garmentUrl];
-  }
-
-  return params;
+function updateConversation(
+  conversations: Conversation[],
+  id: string,
+  updater: (c: Conversation) => Conversation
+): Conversation[] {
+  return conversations.map((c) => (c.id === id ? updater(c) : c));
 }
 
 function startPolling(
   get: () => AgentStore,
   set: (fn: (s: AgentStore) => Partial<AgentStore>) => void,
-  taskId: string,
-  stepIndex: number,
+  conversationId: string,
+  messageId: string,
   generationId: string,
   module: string
 ) {
@@ -138,59 +93,53 @@ function startPolling(
       };
       const progress = resultUrls.length > 0 ? 100 : (STATUS_PROGRESS[status] ?? 30);
 
-      set((s) => {
-        const tasks = s.tasks.map((t) => {
-          if (t.id !== taskId) return t;
-          const steps = t.steps.map((step, i) => {
-            if (i !== stepIndex) return step;
-            if (status === "completed" || resultUrls.length > 0) {
-              return { ...step, status: "completed" as const, progress: 100, resultUrls };
-            }
-            if (status === "failed") {
-              return { ...step, status: "failed" as const, error: data.error || "生成失败" };
-            }
-            return { ...step, status: "running" as const, progress };
-          });
+      const isDone = status === "completed" || resultUrls.length > 0;
+      const isFailed = status === "failed";
 
-          const allDone = steps.every((s) => s.status === "completed");
-          const anyFailed = steps.some((s) => s.status === "failed");
-          const taskStatus = allDone ? "completed" as const : anyFailed ? "failed" as const : "running" as const;
+      if (isDone || isFailed) {
+        // 停止轮询
+        const timers = get().pollTimers;
+        const t = timers.get(messageId);
+        if (t) clearInterval(t);
+        const newTimers = new Map(timers);
+        newTimers.delete(messageId);
 
-          return { ...t, steps, status: taskStatus, currentStep: stepIndex };
-        });
+        set((s) => ({
+          pollTimers: newTimers,
+          isGenerating: false,
+          conversations: updateConversation(s.conversations, conversationId, (c) => ({
+            ...c,
+            updatedAt: Date.now(),
+            messages: c.messages.map((m) =>
+              m.id === messageId && m.generation
+                ? {
+                    ...m,
+                    generation: {
+                      ...m.generation,
+                      status: isDone ? "completed" : "failed",
+                      progress: 100,
+                      resultUrls,
+                      error: isFailed ? (data.error || "生成失败") : undefined,
+                    },
+                  }
+                : m
+            ),
+          })),
+        }));
+        return;
+      }
 
-        // 如果当前步骤完成且有下一步，执行下一步
-        const task = tasks.find((t) => t.id === taskId);
-        const currentStepDone = task?.steps[stepIndex]?.status === "completed";
-        const nextStepIndex = stepIndex + 1;
-        const hasNextStep = task && nextStepIndex < task.steps.length;
-
-        if (currentStepDone && hasNextStep && resultUrls.length > 0) {
-          // 停止当前轮询
-          const timers = new Map(s.pollTimers);
-          const t = timers.get(`${taskId}-${stepIndex}`);
-          if (t) clearInterval(t);
-          timers.delete(`${taskId}-${stepIndex}`);
-
-          // 启动下一步（延迟执行，不在 set 内触发）
-          setTimeout(() => {
-            executeStep(get, set, taskId, nextStepIndex);
-          }, 500);
-
-          return { tasks, pollTimers: timers, ...computeDerived(tasks) };
-        }
-
-        // 如果任务完成或失败，停止轮询
-        if (task?.status === "completed" || task?.status === "failed") {
-          const timers = new Map(s.pollTimers);
-          const t = timers.get(`${taskId}-${stepIndex}`);
-          if (t) clearInterval(t);
-          timers.delete(`${taskId}-${stepIndex}`);
-          return { tasks, pollTimers: timers, ...computeDerived(tasks) };
-        }
-
-        return { tasks, ...computeDerived(tasks) };
-      });
+      // 更新进度
+      set((s) => ({
+        conversations: updateConversation(s.conversations, conversationId, (c) => ({
+          ...c,
+          messages: c.messages.map((m) =>
+            m.id === messageId && m.generation
+              ? { ...m, generation: { ...m.generation, progress, status: "generating" } }
+              : m
+          ),
+        })),
+      }));
     } catch {
       // ignore
     }
@@ -198,278 +147,341 @@ function startPolling(
 
   set((s) => {
     const timers = new Map(s.pollTimers);
-    timers.set(`${taskId}-${stepIndex}`, timer);
+    timers.set(messageId, timer);
     return { pollTimers: timers };
   });
 }
 
-async function executeStep(
-  get: () => AgentStore,
-  set: (fn: (s: AgentStore) => Partial<AgentStore>) => void,
-  taskId: string,
-  stepIndex: number
-) {
-  const task = get().tasks.find((t) => t.id === taskId);
-  if (!task || stepIndex >= task.steps.length) return;
-
-  const step = task.steps[stepIndex];
-  const module = step.module;
-  const apiPath = MODULE_API[module] || `/api/${module}`;
-  const params = buildParams(task.plan, task.garmentUrl);
-
-  // 更新步骤状态为 running
-  set((s) => ({
-    tasks: s.tasks.map((t) =>
-      t.id === taskId
-        ? {
-            ...t,
-            status: "running" as const,
-            steps: t.steps.map((step, i) =>
-              i === stepIndex ? { ...step, status: "running" as const, progress: 5 } : step
-            ),
-          }
-        : t
-    ),
-  }));
-
-  try {
-    const res = await fetch(apiPath, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(params),
-    });
-
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-
-    const generationId = data.generation_id;
-
-    // 更新 generationId
-    set((s) => ({
-      tasks: s.tasks.map((t) =>
-        t.id === taskId
-          ? {
-              ...t,
-              steps: t.steps.map((step, i) =>
-                i === stepIndex ? { ...step, generationId } : step
-              ),
-            }
-          : t
-      ),
-    }));
-
-    // 开始轮询
-    startPolling(get, set, taskId, stepIndex, generationId, module);
-  } catch (err) {
-    set((s) => ({
-      tasks: s.tasks.map((t) =>
-        t.id === taskId
-          ? {
-              ...t,
-              status: "failed" as const,
-              steps: t.steps.map((step, i) =>
-                i === stepIndex
-                  ? { ...step, status: "failed" as const, error: err instanceof Error ? err.message : "请求失败" }
-                  : step
-              ),
-            }
-          : t
-      ),
-    }));
-  }
+// 持久化中间件
+function persist(get: () => AgentStore) {
+  const { conversations } = get();
+  saveConversations(conversations);
 }
 
-function computeDerived(tasks: ProductionTask[]) {
+export const useAgentStore = create<AgentStore>((set, get) => {
+  // 初始化时加载对话
+  const initialConversations = loadConversations();
+  const initialActiveId = initialConversations.length > 0
+    ? initialConversations[initialConversations.length - 1].id
+    : null;
+
   return {
-    completedCount: computeCompletedCount(tasks),
-    totalImages: computeTotalImages(tasks),
-    overallProgress: computeOverallProgress(tasks),
-  };
-}
+    conversations: initialConversations,
+    activeConversationId: initialActiveId,
+    inputText: "",
+    inputImages: [],
+    params: { ...DEFAULT_PARAMS },
+    isGenerating: false,
+    pollTimers: new Map(),
 
-export const useAgentStore = create<AgentStore>((set, get) => ({
-  view: "empty",
-  garments: [],
-  garmentUrls: new Map(),
-  recommendations: [],
-  selectedPlan: null,
-  tasks: [],
-  pollTimers: new Map(),
-  completedCount: 0,
-  totalImages: 0,
-  overallProgress: 0,
-  totalCredits: 0,
+    activeConversation: () => getActiveConv(get().conversations, get().activeConversationId),
 
-  addGarments: async (files: File[]) => {
-    // 1. 先显示占位（analyzing 状态）
-    const placeholders: GarmentAnalysis[] = files.map((file) => ({
-      imageUrl: URL.createObjectURL(file),
-      fileName: file.name,
-      category: "服装",
-      style: "",
-      colors: [],
-      season: "",
-      suggestion: "",
-      status: "analyzing" as const,
-    }));
+    estimatedCredits: () => {
+      const { params, inputImages } = get();
+      const model = params.model;
+      const baseCost = model === "gpt-image-2" ? 4 : model === "doubao-seedream-4-5-251128" ? 2 : 3;
+      return baseCost * params.count;
+    },
 
-    set((s) => ({
-      view: "analyzing",
-      garments: [...s.garments, ...placeholders],
-    }));
-
-    // 2. 逐个上传 + 分析
-    for (let i = 0; i < files.length; i++) {
-      const placeholder = placeholders[i];
-
-      try {
-        // 上传到 imgbb
-        const uploadResult = await uploadImage(files[i]);
-        const hostedUrl = uploadResult.url;
-
-        // 更新 URL 映射
-        set((s) => {
-          const urls = new Map(s.garmentUrls);
-          urls.set(placeholder.imageUrl, hostedUrl);
-          return { garmentUrls: urls };
-        });
-
-        // AI 分析
-        const analysis = await analyzeGarment(hostedUrl, files[i].name);
-
-        set((s) => ({
-          garments: s.garments.map((g) =>
-            g.imageUrl === placeholder.imageUrl
-              ? { ...analysis, imageUrl: placeholder.imageUrl, status: "done" as const }
-              : g
-          ),
-        }));
-      } catch {
-        set((s) => ({
-          garments: s.garments.map((g) =>
-            g.imageUrl === placeholder.imageUrl
-              ? { ...g, status: "error" as const }
-              : g
-          ),
-        }));
-      }
-    }
-
-    // 3. 生成推荐方案（基于第一张图的分析结果）
-    set((s) => {
-      const firstAnalysis = s.garments.find((g) => g.status === "done");
-      const recs = firstAnalysis ? generateRecommendations(firstAnalysis) : [];
-      const totalCredits = recs.length > 0 ? recs[0].creditsPerItem * s.garments.length : 0;
-      return {
-        view: s.garments.length > 0 ? "plans" : "empty",
-        recommendations: recs,
-        selectedPlan: recs.find((r) => r.isRecommended) || recs[0] || null,
-        totalCredits,
+    createConversation: () => {
+      const newConv: Conversation = {
+        id: uid(),
+        title: "新对话",
+        messages: [],
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
       };
-    });
-  },
-
-  removeGarment: (index: number) => {
-    set((s) => {
-      const removed = s.garments[index];
-      if (removed?.imageUrl?.startsWith("blob:")) URL.revokeObjectURL(removed.imageUrl);
-      const garments = s.garments.filter((_, i) => i !== index);
-      const totalCredits = s.selectedPlan ? s.selectedPlan.creditsPerItem * garments.length : 0;
-      return {
-        garments,
-        totalCredits,
-        view: garments.length === 0 ? "empty" : s.view,
-      };
-    });
-  },
-
-  selectPlan: (plan: RecommendedPlan) => {
-    set((s) => ({
-      selectedPlan: plan,
-      totalCredits: plan.creditsPerItem * s.garments.length,
-    }));
-  },
-
-  startProduction: async () => {
-    const { garments, selectedPlan, garmentUrls } = get();
-    if (!selectedPlan || garments.length === 0) return;
-
-    // 创建生产任务
-    const tasks: ProductionTask[] = garments
-      .filter((g) => g.status === "done")
-      .map((g) => {
-        const hostedUrl = garmentUrls.get(g.imageUrl) || g.imageUrl;
+      set((s) => {
+        const conversations = [...s.conversations, newConv];
+        saveConversations(conversations);
         return {
-          id: uid(),
-          garmentUrl: hostedUrl,
-          garmentName: g.fileName,
-          garmentThumb: g.imageUrl,
-          plan: selectedPlan,
-          steps: buildSteps(selectedPlan, hostedUrl),
-          currentStep: 0,
-          status: "pending" as const,
+          conversations,
+          activeConversationId: newConv.id,
+          inputText: "",
+          inputImages: [],
         };
       });
+    },
 
-    set({
-      tasks,
-      view: "producing",
-      ...computeDerived(tasks),
-    });
+    switchConversation: (id: string) => {
+      set({ activeConversationId: id, inputText: "", inputImages: [] });
+    },
 
-    // 逐个执行第一个步骤
-    for (const task of tasks) {
-      await executeStep(get, set, task.id, 0);
-    }
-  },
+    deleteConversation: (id: string) => {
+      set((s) => {
+        const conversations = s.conversations.filter((c) => c.id !== id);
+        const activeId =
+          s.activeConversationId === id
+            ? conversations.length > 0
+              ? conversations[conversations.length - 1].id
+              : null
+            : s.activeConversationId;
+        saveConversations(conversations);
+        return { conversations, activeConversationId: activeId };
+      });
+    },
 
-  retryTask: (taskId: string) => {
-    const task = get().tasks.find((t) => t.id === taskId);
-    if (!task) return;
+    clearAllConversations: () => {
+      set({ conversations: [], activeConversationId: null, inputText: "", inputImages: [] });
+      saveConversations([]);
+    },
 
-    // 重置任务状态
-    set((s) => ({
-      tasks: s.tasks.map((t) =>
-        t.id === taskId
-          ? {
-              ...t,
-              status: "pending" as const,
-              currentStep: 0,
-              steps: t.steps.map((s) => ({
-                ...s,
-                status: "pending" as const,
-                progress: 0,
-                resultUrls: [],
-                error: undefined,
-                generationId: undefined,
-              })),
-            }
-          : t
-      ),
-    }));
+    setInputText: (text: string) => set({ inputText: text }),
 
-    // 重新执行
-    executeStep(get, set, taskId, 0);
-  },
+    addInputImages: async (files: File[]) => {
+      const currentImages = get().inputImages;
+      const startIndex = currentImages.length;
 
-  reset: () => {
-    const timers = get().pollTimers;
-    timers.forEach((t) => clearInterval(t));
-    get().garments.forEach((g) => {
-      if (g.imageUrl?.startsWith("blob:")) URL.revokeObjectURL(g.imageUrl);
-    });
-    set({
-      view: "empty",
-      garments: [],
-      garmentUrls: new Map(),
-      recommendations: [],
-      selectedPlan: null,
-      tasks: [],
-      pollTimers: new Map(),
-      completedCount: 0,
-      totalImages: 0,
-      overallProgress: 0,
-      totalCredits: 0,
-    });
-  },
-}));
+      const newImages: ChatImage[] = files.map((file, i) => ({
+        index: startIndex + i + 1,
+        url: URL.createObjectURL(file),
+        fileName: file.name,
+        uploading: true,
+      }));
+
+      set((s) => ({ inputImages: [...s.inputImages, ...newImages] }));
+
+      // 逐个上传
+      for (let i = 0; i < files.length; i++) {
+        const img = newImages[i];
+        try {
+          const result = await uploadImage(files[i]);
+          set((s) => ({
+            inputImages: s.inputImages.map((im) =>
+              im.index === img.index ? { ...im, hostedUrl: result.url, uploading: false } : im
+            ),
+          }));
+        } catch {
+          set((s) => ({
+            inputImages: s.inputImages
+              .filter((im) => im.index !== img.index)
+              .map((im, idx) => ({ ...im, index: idx + 1 })),
+          }));
+        }
+      }
+    },
+
+    removeInputImage: (index: number) => {
+      set((s) => {
+        const removed = s.inputImages[index];
+        if (removed?.url?.startsWith("blob:")) URL.revokeObjectURL(removed.url);
+        const remaining = s.inputImages.filter((_, i) => i !== index);
+        // 重新编号
+        const reindexed = remaining.map((img, i) => ({ ...img, index: i + 1 }));
+        return { inputImages: reindexed };
+      });
+    },
+
+    setParams: (params: Partial<GenerationParams>) => {
+      set((s) => ({ params: { ...s.params, ...params } }));
+    },
+
+    sendMessage: async () => {
+      const { inputText, inputImages, params, activeConversationId, conversations } = get();
+      const trimmed = inputText.trim();
+      if (!trimmed && inputImages.length === 0) return;
+
+      let convId = activeConversationId;
+
+      // 如果没有活跃对话，创建一个
+      if (!convId) {
+        const newConv: Conversation = {
+          id: uid(),
+          title: trimmed.slice(0, 20) || `图片生成 ${new Date().toLocaleString("zh-CN")}`,
+          messages: [],
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        };
+        convId = newConv.id;
+        set((s) => ({
+          conversations: [...s.conversations, newConv],
+          activeConversationId: convId,
+        }));
+      }
+
+      // 构建用户消息
+      const userMsg: ChatMessage = {
+        id: uid(),
+        role: "user",
+        content: trimmed,
+        images: inputImages.length > 0 ? [...inputImages] : undefined,
+        timestamp: Date.now(),
+      };
+
+      // 更新对话标题
+      const titleUpdate = trimmed
+        ? trimmed.slice(0, 20)
+        : `图片生成 ${new Date().toLocaleString("zh-CN")}`;
+
+      // 添加用户消息 + 清空输入
+      set((s) => ({
+        inputText: "",
+        inputImages: [],
+        isGenerating: true,
+        conversations: updateConversation(s.conversations, convId!, (c) => ({
+          ...c,
+          title: c.messages.length === 0 ? titleUpdate : c.title,
+          updatedAt: Date.now(),
+          messages: [...c.messages, userMsg],
+        })),
+      }));
+
+      // 添加 AI 消息（pending 状态）
+      const aiMsgId = uid();
+      const aiMsg: ChatMessage = {
+        id: aiMsgId,
+        role: "assistant",
+        content: "",
+        generation: {
+          status: "pending",
+          progress: 0,
+          resultUrls: [],
+        },
+        timestamp: Date.now(),
+      };
+
+      set((s) => ({
+        conversations: updateConversation(s.conversations, convId!, (c) => ({
+          ...c,
+          messages: [...c.messages, aiMsg],
+        })),
+      }));
+
+      // 调用生成 API
+      try {
+        const imageUrls = inputImages
+          .map((img) => img.hostedUrl || img.url)
+          .filter(Boolean);
+
+        // 构建历史上下文
+        const conv = get().conversations.find((c) => c.id === convId);
+        const history = (conv?.messages || [])
+          .filter((m) => m.role === "user" || m.role === "assistant")
+          .slice(-6)
+          .map((m) => ({
+            role: m.role,
+            content: m.generation?.resultUrls?.length
+              ? `[生成了 ${m.generation.resultUrls.length} 张图片]`
+              : m.content,
+          }));
+
+        const res = await fetch("/api/agent/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message: trimmed || "根据上传的图片生成",
+            images: imageUrls.map((url, i) => ({ index: i + 1, url })),
+            params: {
+              model: params.model,
+              aspectRatio: params.aspectRatio,
+              imageSize: params.imageSize,
+              count: params.count,
+            },
+            history,
+          }),
+        });
+
+        const data = await res.json();
+
+        if (!res.ok || !data.generation_id) {
+          throw new Error(data.error || "生成失败");
+        }
+
+        // 更新 AI 消息为 generating 状态
+        set((s) => ({
+          conversations: updateConversation(s.conversations, convId!, (c) => ({
+            ...c,
+            messages: c.messages.map((m) =>
+              m.id === aiMsgId
+                ? {
+                    ...m,
+                    generation: {
+                      status: "generating" as const,
+                      progress: 10,
+                      resultUrls: [],
+                      generationId: data.generation_id,
+                      creditsUsed: data.credits_cost,
+                      module: data.module,
+                    },
+                  }
+                : m
+            ),
+          })),
+        }));
+
+        // 开始轮询
+        startPolling(get, set, convId!, aiMsgId, data.generation_id, data.module || "tryon");
+      } catch (err) {
+        set((s) => ({
+          isGenerating: false,
+          conversations: updateConversation(s.conversations, convId!, (c) => ({
+            ...c,
+            messages: c.messages.map((m) =>
+              m.id === aiMsgId
+                ? {
+                    ...m,
+                    content: err instanceof Error ? err.message : "生成失败",
+                    generation: {
+                      status: "failed" as const,
+                      progress: 0,
+                      resultUrls: [],
+                      error: err instanceof Error ? err.message : "生成失败",
+                    },
+                  }
+                : m
+            ),
+          })),
+        }));
+      }
+
+      // 持久化
+      persist(get);
+    },
+
+    aiWrite: async () => {
+      const { inputImages } = get();
+      if (inputImages.length === 0) return;
+
+      const imageUrls = inputImages.map((img) => img.hostedUrl || img.url).filter(Boolean);
+
+      try {
+        const res = await fetch("/api/agent/ai-write", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            images: imageUrls,
+            currentPrompt: get().inputText,
+          }),
+        });
+
+        const data = await res.json();
+        if (data.optimizedPrompt) {
+          set({ inputText: data.optimizedPrompt });
+        }
+      } catch {
+        // 静默失败
+      }
+    },
+
+    retryGeneration: async (messageId: string) => {
+      // 找到对应消息，重新发送
+      const conv = getActiveConv(get().conversations, get().activeConversationId);
+      if (!conv) return;
+
+      const msg = conv.messages.find((m) => m.id === messageId);
+      if (!msg) return;
+
+      // 找到前一条用户消息
+      const msgIndex = conv.messages.findIndex((m) => m.id === messageId);
+      const userMsg = conv.messages.slice(0, msgIndex).reverse().find((m) => m.role === "user");
+      if (!userMsg) return;
+
+      // 重新设置输入并发送
+      set({
+        inputText: userMsg.content,
+        inputImages: userMsg.images || [],
+      });
+      await get().sendMessage();
+    },
+  };
+});
