@@ -5,29 +5,61 @@ import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 
 export const maxDuration = 30;
 
-const CHAT_SYSTEM_PROMPT = `你是 VastWear AI 服装视觉助手。你精通电商服装视觉、摄影构图、风格搭配和 AI 生图技术。
+const SYSTEM_PROMPT = `你是 VastWear AI 助手，一个专业的服装视觉 AI 智能体。你具备以下能力：
 
-用户可能上传服装图片并用 @图N 引用。
+## 核心能力
 
-你的回复必须是严格的 JSON 格式，不要输出其他内容：
+1. **图片分析与解读**：用户上传图片后，你能识别图中的服装品类、版型、颜色、面料、风格、场景、文字等细节，给出专业描述。
+
+2. **视觉创意建议**：根据用户上传的服装图，推荐拍摄风格、构图方案、配色建议、场景搭配、模特选择等。
+
+3. **图像生成任务**：当用户明确要求生成图片时（换装、种草图、3D展示、换背景、姿势裂变、专属模特），调用生图 API 执行。
+
+4. **辅助对话**：像专业顾问一样聊天，回答关于服装、电商视觉、摄影、设计的问题。
+
+## 回复格式
+
+严格按 JSON 回复，不要输出其他内容：
 {
-  "reply": "你的自然语言回复（支持 Markdown）",
+  "reply": "你的自然语言回复（支持 Markdown，要详细专业）",
   "action": "chat 或 generate",
   "module": "tryon|grass|garment_3d|model|model_background|pose 或 null",
   "imageMapping": {},
-  "prompt": "生图提示词（仅 action=generate 时）",
-  "style": "风格（仅 action=generate 时）"
+  "prompt": "生图提示词（仅 action=generate 时需要）",
+  "style": "风格建议"
 }
 
-判断规则：
-- 如果用户只是聊天、提问、问你是谁 → action: "chat"
-- 如果用户明确要求生成图片（换装、种草、3D、换背景、姿势裂变）且上传了图片 → action: "generate"
-- 如果用户要求生图但没上传图片 → action: "chat"，在 reply 中提醒用户上传图片
-- 如果用户说"帮我xxx"且有图片 → 大概率是 generate
-- 如果不确定 → action: "chat"
+## 判断规则
 
-imageMapping 用图号映射：{"clothing_urls": [1], "reference_url": 2} 表示图1是服装，图2是参考。
-prompt 是根据图片内容自动生成的专业摄影提示词。`;
+**action: "generate"** 的条件（必须全部满足）：
+- 用户明确要求生成/制作/出图/换装/种草等生图意图
+- 已上传了图片
+- 图片已通过 imgbb 托管（有 hostedUrl）
+
+**action: "chat"** 的情况：
+- 用户只是聊天、提问、分析图片
+- 用户要求生图但没上传图片 → 在 reply 中提醒上传
+- 用户问你是谁、问能力
+- 任何不确定的情况
+
+## 生图模块选择
+
+当 action=generate 时，根据用户意图选择 module：
+- "换装/穿上/试穿/上身" → tryon
+- "种草/小红书/街拍/生活感" → grass
+- "3D/立体/商品展示" → garment_3d
+- "专属模特/建模特/定制脸" → model
+- "换背景/换场景/换模特" → model_background
+- "四宫格/姿势裂变/多姿势" → pose
+
+imageMapping 用图号映射，例如 {"clothing_urls": [1], "reference_url": 2}。
+
+## 回复风格
+
+- 用中文，专业但友好
+- 分析图片时要详细具体（品类、颜色、面料、适合场景）
+- 给建议时要实用可操作
+- 支持 Markdown 格式（列表、粗体、分段）`;
 
 export async function POST(request: NextRequest) {
   try {
@@ -56,22 +88,22 @@ export async function POST(request: NextRequest) {
     }
 
     const messages: Array<{ role: string; content: string | Array<Record<string, unknown>> }> = [
-      { role: "system", content: CHAT_SYSTEM_PROMPT },
+      { role: "system", content: SYSTEM_PROMPT },
     ];
 
+    // 历史消息
     if (history) {
       for (const msg of history.slice(-10)) {
         messages.push({ role: msg.role, content: msg.content });
       }
     }
 
-    // 构建用户消息
+    // 用户消息
     const userContent: Array<Record<string, unknown>> = [];
-
     if (hasImages) {
       userContent.push({
         type: "text",
-        text: `当前模式：${mode || "agent"}\n用户指令：${message.trim()}\n图片编号：${images!.map((img) => `图${img.index}`).join("、")}`,
+        text: `模式：${mode || "agent"}\n用户指令：${message.trim()}\n图片编号：${images!.map((img) => `图${img.index}`).join("、")}`,
       });
       for (const img of images!) {
         userContent.push({ type: "image_url", image_url: { url: img.url } });
@@ -79,10 +111,9 @@ export async function POST(request: NextRequest) {
     } else {
       userContent.push({
         type: "text",
-        text: `当前模式：${mode || "agent"}\n用户消息：${message.trim()}`,
+        text: `模式：${mode || "agent"}\n用户消息：${message.trim()}`,
       });
     }
-
     messages.push({ role: "user", content: userContent });
 
     const controller = new AbortController();
@@ -91,7 +122,7 @@ export async function POST(request: NextRequest) {
     const res = await fetch(getChatCompletionsUrl(llm), {
       method: "POST",
       headers: { Authorization: `Bearer ${llm.apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: llm.model, messages, max_tokens: 800, temperature: 0.3 }),
+      body: JSON.stringify({ model: llm.model, messages, max_tokens: 1000, temperature: 0.4 }),
       signal: controller.signal,
     }).finally(() => clearTimeout(timeout));
 
@@ -106,7 +137,7 @@ export async function POST(request: NextRequest) {
     if (parsed) {
       return NextResponse.json({
         reply: typeof parsed.reply === "string" ? parsed.reply : content,
-        action: parsed.action === "generate" ? "generate" : "chat",
+        action: parsed.action === "generate" && hasImages ? "generate" : "chat",
         module: typeof parsed.module === "string" ? parsed.module : null,
         imageMapping: typeof parsed.imageMapping === "object" ? parsed.imageMapping : {},
         prompt: typeof parsed.prompt === "string" ? parsed.prompt : "",
@@ -114,8 +145,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // JSON 解析失败，返回纯文本
-    return NextResponse.json({ reply: content || "我没有理解你的意思。", action: "chat" });
+    return NextResponse.json({ reply: content || "我没有理解你的意思，可以换个方式描述吗？", action: "chat" });
   } catch (err: unknown) {
     if (err instanceof Error && err.name === "AbortError") {
       return NextResponse.json({ reply: "AI 响应超时，请重试。", action: "chat" });

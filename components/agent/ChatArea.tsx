@@ -16,12 +16,12 @@ type Props = {
 };
 
 const PRESET_QUESTIONS = [
-  { icon: "📸", text: "生成小红书种草图" },
+  { icon: "🔍", text: "帮我分析这张图片" },
   { icon: "👗", text: "服装换装试穿" },
-  { icon: "🌿", text: "种草场景图" },
-  { icon: "🎭", text: "模特姿势裂变" },
-  { icon: "🖼️", text: "更换背景" },
-  { icon: "💬", text: "你是谁？" },
+  { icon: "📸", text: "生成小红书种草图" },
+  { icon: "💡", text: "给我拍摄创意建议" },
+  { icon: "🖼️", text: "换个背景" },
+  { icon: "💬", text: "你是谁？你有什么能力？" },
 ];
 
 export function ChatArea({ messages, sessionImages, isSending, onOpenImage, onRetry, onQuickAction }: Props) {
@@ -39,8 +39,9 @@ export function ChatArea({ messages, sessionImages, isSending, onOpenImage, onRe
             <Sparkles className="h-8 w-8 text-white" />
           </div>
           <h2 className="text-lg font-bold text-slate-700">有什么可以帮你的吗？</h2>
-          <p className="mt-1.5 text-sm text-slate-400">
-            随时上传图片告诉我你的需求吧！
+          <p className="mt-1.5 text-sm leading-relaxed text-slate-400">
+            上传图片我能帮你分析内容、生成创意、换装试穿<br/>
+            也可以直接聊天，问我任何关于服装视觉的问题
           </p>
 
           <div className="mt-6 flex flex-wrap justify-center gap-2">
