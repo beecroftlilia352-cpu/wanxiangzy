@@ -4,6 +4,7 @@ import { useRef, useState, useCallback, useEffect, type KeyboardEvent, type Clip
 import { Paperclip, Sparkles, ArrowUp, Settings, X, Loader2 } from "lucide-react";
 import type { ChatImage, GenerationParams, AgentMode } from "@/lib/agent/types";
 import type { LingyaModel, AspectRatio, ImageSize } from "@/lib/api/lingya";
+import { getCreditCost } from "@/lib/api/lingya";
 import { detectMentionTrigger, insertMention } from "@/lib/agent/mention-parser";
 import { ImageTray } from "./ImageTray";
 import { MentionDropdown } from "./MentionDropdown";
@@ -31,16 +32,20 @@ const MODEL_OPTS = [
   { value: "doubao-seedream-4-5-251128", label: "Seedream", desc: "字节" },
   { value: "nano-banana-2", label: "Nano Banana", desc: "轻量" },
 ];
-const RATIO_OPTS = [
+const RATIO_OPTS: Array<{ value: AspectRatio; label: string }> = [
   { value: "3:4", label: "3:4" }, { value: "1:1", label: "1:1" },
   { value: "9:16", label: "9:16" }, { value: "4:3", label: "4:3" },
   { value: "16:9", label: "16:9" },
 ];
-const SIZE_OPTS = [
+const SIZE_OPTS: Array<{ value: ImageSize; label: string; desc: string }> = [
   { value: "1K", label: "1K", desc: "标准" },
   { value: "2K", label: "2K", desc: "高清" },
-  { value: "4K", label: "4K", desc: "超高清" },
+  { value: "4K", label: "4K", desc: "超清" },
 ];
+
+function getCreditForCombo(model: LingyaModel, size: ImageSize, ratio: AspectRatio): number {
+  try { return getCreditCost(model, size, ratio); } catch { return 4; }
+}
 
 export function InputComposer({
   inputText, inputImages, params, mode, isSending, isAIWriting, estimatedCredits,
@@ -60,7 +65,6 @@ export function InputComposer({
     return () => document.removeEventListener("click", close);
   }, [settingsOpen]);
 
-  // 发送完成后自动聚焦输入框
   useEffect(() => {
     if (!isSending && !isAIWriting) {
       setTimeout(() => textareaRef.current?.focus(), 100);
@@ -107,6 +111,7 @@ export function InputComposer({
 
   const canSend = !isSending && !isAIWriting && (inputText.trim().length > 0 || inputImages.length > 0);
   const modelLabel = MODEL_OPTS.find((o) => o.value === params.model)?.label || "模型";
+  const currentCost = getCreditForCombo(params.model, params.imageSize, params.aspectRatio);
 
   return (
     <div
@@ -125,87 +130,73 @@ export function InputComposer({
 
         <ImageTray images={inputImages} onAdd={onAddImages} onRemove={onRemoveImage} />
 
-        {/* ===== 统一输入容器 ===== */}
+        {/* 输入容器 */}
         <div className="relative">
           <MentionDropdown images={inputImages} query={mentionState.query} onSelect={handleMentionSelect} visible={mentionState.active} />
 
-          <div className="rounded-2xl border border-slate-200/80 bg-white shadow-[0_2px_12px_rgba(0,0,0,0.04)] transition-all focus-within:border-violet-300/60 focus-within:shadow-[0_2px_20px_rgba(139,92,246,0.08)]">
-            {/* 输入行 */}
-            <div className="flex items-end">
-              <input ref={fileRef} type="file" accept="image/*" multiple className="hidden"
-                onChange={(e) => { onAddImages(Array.from(e.target.files || [])); e.target.value = ""; }} />
+          <div className="flex items-center rounded-2xl border border-slate-200/80 bg-white shadow-[0_2px_12px_rgba(0,0,0,0.04)] transition-all focus-within:border-violet-300/60 focus-within:shadow-[0_2px_20px_rgba(139,92,246,0.08)]">
+            <input ref={fileRef} type="file" accept="image/*" multiple className="hidden"
+              onChange={(e) => { onAddImages(Array.from(e.target.files || [])); e.target.value = ""; }} />
 
-              {/* 📎 */}
-              <button onClick={() => fileRef.current?.click()}
-                className="flex h-11 w-11 shrink-0 items-center justify-center text-slate-300 transition-colors hover:text-violet-400"
-                title="上传图片">
-                <Paperclip className="h-[18px] w-[18px]" />
-              </button>
+            <button onClick={() => fileRef.current?.click()}
+              className="flex h-11 w-11 shrink-0 items-center justify-center text-slate-300 transition-colors hover:text-violet-400"
+              title="上传图片">
+              <Paperclip className="h-[18px] w-[18px]" />
+            </button>
 
-              {/* textarea + @ 高亮 overlay */}
-              <div className="relative min-h-[44px] max-h-[120px] flex-1">
-                {/* 高亮层（在 textarea 上方，pointer-events: none） */}
-                {inputText.includes("@") && inputImages.length > 0 && (
-                  <div
-                    aria-hidden="true"
-                    className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words py-3 pr-2 text-[14px] leading-relaxed"
-                    style={{ font: "inherit", letterSpacing: "inherit" }}
-                  >
-                    {renderHighlightSegments(inputText)}
-                  </div>
-                )}
-                <textarea ref={textareaRef} value={inputText}
-                  onChange={(e) => { onTextChange(e.target.value); handleInput(); }}
-                  onKeyDown={handleKeyDown} onPaste={handlePaste} onClick={handleInput}
-                  placeholder={inputImages.length > 0 ? "输入指令... 用 @图N 引用图片" : "上传图片后输入指令..."}
-                  rows={1}
-                  className={`min-h-[44px] max-h-[120px] w-full resize-none py-3 pr-2 text-[14px] leading-relaxed outline-none placeholder:text-slate-300 ${
-                    inputText.includes("@") && inputImages.length > 0 ? "text-transparent caret-violet-600" : "text-slate-800"
-                  }`}
-                />
-              </div>
+            <div className="relative min-h-[44px] flex-1">
+              {inputText.includes("@") && inputImages.length > 0 && (
+                <div aria-hidden="true"
+                  className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words py-3 pr-1 text-[14px] leading-[1.5]"
+                  style={{ font: "inherit" }}>
+                  {renderHighlightSegments(inputText)}
+                </div>
+              )}
+              <textarea ref={textareaRef} value={inputText}
+                onChange={(e) => { onTextChange(e.target.value); handleInput(); }}
+                onKeyDown={handleKeyDown} onPaste={handlePaste} onClick={handleInput}
+                placeholder="描述你想做什么..."
+                rows={1}
+                className={`block min-h-[44px] max-h-[120px] w-full resize-none py-3 pr-1 text-[14px] leading-[1.5] outline-none placeholder:text-slate-300 ${
+                  inputText.includes("@") && inputImages.length > 0 ? "text-transparent caret-violet-600" : "text-slate-800"
+                }`}
+              />
+            </div>
 
-              {/* 右侧按钮组 */}
-              <div className="flex shrink-0 items-center gap-0.5 pr-1.5 pb-1.5">
-                {/* ✨ AI 帮写 */}
-                {inputImages.length > 0 && (
-                  <button onClick={onAIWrite} disabled={isAIWriting}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-300 transition-all hover:bg-amber-50 hover:text-amber-500 disabled:opacity-40"
-                    title="AI 帮写">
-                    {isAIWriting ? <Loader2 className="h-4 w-4 animate-spin text-amber-400" /> : <Sparkles className="h-4 w-4" />}
-                  </button>
-                )}
-
-                {/* 发送 */}
-                <button onClick={onSend} disabled={!canSend}
-                  className={`flex h-8 w-8 items-center justify-center rounded-xl transition-all ${
-                    canSend ? "bg-slate-900 text-white hover:bg-slate-800" : "bg-slate-100 text-slate-300"
-                  }`}>
-                  <ArrowUp className="h-4 w-4" strokeWidth={2.5} />
+            <div className="flex shrink-0 items-center gap-0.5 pr-1.5">
+              {inputImages.length > 0 && (
+                <button onClick={onAIWrite} disabled={isAIWriting}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-300 transition-all hover:bg-amber-50 hover:text-amber-500 disabled:opacity-40"
+                  title="AI 帮写：根据图片优化提示词">
+                  {isAIWriting ? <Loader2 className="h-4 w-4 animate-spin text-amber-400" /> : <Sparkles className="h-4 w-4" />}
                 </button>
-              </div>
+              )}
+              <button onClick={onSend} disabled={!canSend}
+                className={`flex h-8 w-8 items-center justify-center rounded-xl transition-all ${
+                  canSend ? "bg-slate-900 text-white hover:bg-slate-800" : "bg-slate-100 text-slate-300"
+                }`}>
+                <ArrowUp className="h-4 w-4" strokeWidth={2.5} />
+              </button>
             </div>
           </div>
         </div>
 
-        {/* ===== 底部工具栏 ===== */}
+        {/* 底部工具栏 */}
         <div className="mt-1.5 flex items-center gap-2 px-1">
           <ModeToggle mode={mode} onChange={onModeChange} />
-
           <div className="h-3 w-px bg-slate-200" />
 
-          {/* 设置 */}
           <div className="relative">
             <button onClick={(e) => { e.stopPropagation(); setSettingsOpen(!settingsOpen); }}
               className={`flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] transition-all ${
                 settingsOpen ? "bg-violet-50 text-violet-600" : "text-slate-400 hover:text-slate-600"
               }`}>
               <Settings className="h-3 w-3" />
-              <span>{modelLabel} · {params.aspectRatio}</span>
+              <span>{modelLabel} · {params.aspectRatio} · {params.imageSize}</span>
             </button>
 
             {settingsOpen && (
-              <SettingsPanel params={params} modelLabel={modelLabel} estimatedCredits={estimatedCredits} mode={mode}
+              <SettingsPanel params={params} modelLabel={modelLabel} mode={mode}
                 onParamsChange={onParamsChange} onClose={() => setSettingsOpen(false)} />
             )}
           </div>
@@ -213,7 +204,9 @@ export function InputComposer({
           <div className="flex-1" />
 
           {mode === "agent" && (
-            <span className="text-[11px] tabular-nums text-slate-300">{estimatedCredits} 积分</span>
+            <span className="text-[11px] font-medium tabular-nums text-amber-500">
+              {currentCost}×{params.count}={currentCost * params.count}积分
+            </span>
           )}
         </div>
       </div>
@@ -222,14 +215,14 @@ export function InputComposer({
 }
 
 function SettingsPanel({
-  params, modelLabel, estimatedCredits, mode, onParamsChange, onClose,
+  params, modelLabel, mode, onParamsChange, onClose,
 }: {
-  params: GenerationParams; modelLabel: string; estimatedCredits: number; mode: AgentMode;
+  params: GenerationParams; modelLabel: string; mode: AgentMode;
   onParamsChange: (p: Partial<GenerationParams>) => void; onClose: () => void;
 }) {
   return (
     <div onClick={(e) => e.stopPropagation()}
-      className="absolute bottom-full left-0 mb-2 w-72 rounded-2xl border border-slate-200 bg-white p-4 shadow-xl">
+      className="absolute bottom-full left-0 mb-2 w-80 rounded-2xl border border-slate-200 bg-white p-4 shadow-xl">
       <div className="mb-3 flex items-center justify-between">
         <span className="text-sm font-bold text-slate-800">生成设置</span>
         <button onClick={onClose} className="rounded-md p-1 text-slate-400 hover:bg-slate-100">
@@ -237,6 +230,7 @@ function SettingsPanel({
         </button>
       </div>
 
+      {/* 模型 */}
       <div className="mb-3">
         <label className="mb-1.5 block text-xs font-bold text-slate-500">模型</label>
         <div className="grid grid-cols-3 gap-1.5">
@@ -252,11 +246,12 @@ function SettingsPanel({
         </div>
       </div>
 
+      {/* 比例 */}
       <div className="mb-3">
         <label className="mb-1.5 block text-xs font-bold text-slate-500">比例</label>
         <div className="flex gap-1.5">
           {RATIO_OPTS.map((o) => (
-            <button key={o.value} onClick={() => onParamsChange({ aspectRatio: o.value as AspectRatio })}
+            <button key={o.value} onClick={() => onParamsChange({ aspectRatio: o.value })}
               className={`flex-1 rounded-lg border py-1.5 text-center text-xs font-bold transition-all ${
                 params.aspectRatio === o.value ? "border-violet-300 bg-violet-50 text-violet-700" : "border-slate-200 text-slate-500 hover:border-violet-200"
               }`}>{o.label}</button>
@@ -264,21 +259,27 @@ function SettingsPanel({
         </div>
       </div>
 
+      {/* 尺寸 + 积分 */}
       <div className="mb-3">
-        <label className="mb-1.5 block text-xs font-bold text-slate-500">尺寸</label>
+        <label className="mb-1.5 block text-xs font-bold text-slate-500">分辨率</label>
         <div className="flex gap-1.5">
-          {SIZE_OPTS.map((o) => (
-            <button key={o.value} onClick={() => onParamsChange({ imageSize: o.value as ImageSize })}
-              className={`flex-1 rounded-lg border py-1.5 text-center transition-all ${
-                params.imageSize === o.value ? "border-violet-300 bg-violet-50 text-violet-700" : "border-slate-200 text-slate-500 hover:border-violet-200"
-              }`}>
-              <span className="block text-xs font-bold">{o.label}</span>
-              <span className="block text-[10px] text-slate-400">{o.desc}</span>
-            </button>
-          ))}
+          {SIZE_OPTS.map((o) => {
+            const cost = getCreditForCombo(params.model, o.value, params.aspectRatio);
+            return (
+              <button key={o.value} onClick={() => onParamsChange({ imageSize: o.value })}
+                className={`flex-1 rounded-lg border py-2 text-center transition-all ${
+                  params.imageSize === o.value ? "border-violet-300 bg-violet-50 text-violet-700" : "border-slate-200 text-slate-500 hover:border-violet-200"
+                }`}>
+                <span className="block text-xs font-bold">{o.label}</span>
+                <span className="block text-[10px] text-slate-400">{o.desc}</span>
+                <span className="block text-[10px] font-bold text-amber-500">{cost}分</span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
+      {/* 张数 */}
       <div>
         <label className="mb-1.5 block text-xs font-bold text-slate-500">张数</label>
         <div className="flex gap-1.5">
@@ -291,28 +292,22 @@ function SettingsPanel({
         </div>
       </div>
 
+      {/* 总积分 */}
       {mode === "agent" && (
-        <div className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-[11px] text-slate-400">
-          {modelLabel} · {params.aspectRatio} · {params.imageSize} · {params.count}张
-          <span className="ml-1 font-bold text-amber-500">· {estimatedCredits}积分</span>
+        <div className="mt-3 flex items-center justify-between rounded-lg bg-amber-50 px-3 py-2 text-xs">
+          <span className="text-amber-600">预估消耗</span>
+          <span className="font-bold text-amber-700">{getCreditForCombo(params.model, params.imageSize, params.aspectRatio) * params.count} 积分</span>
         </div>
       )}
     </div>
   );
 }
 
-/**
- * 将文本中的 @图N 渲染为高亮片段（用于 overlay）
- */
 function renderHighlightSegments(text: string) {
   const parts = text.split(/(@图\d+)/g);
   return parts.map((part, i) => {
     if (/^@图\d+$/.test(part)) {
-      return (
-        <span key={i} className="rounded bg-violet-100 px-0.5 font-bold text-violet-700">
-          {part}
-        </span>
-      );
+      return <span key={i} className="rounded bg-violet-100 px-0.5 font-bold text-violet-700">{part}</span>;
     }
     return <span key={i}>{part}</span>;
   });

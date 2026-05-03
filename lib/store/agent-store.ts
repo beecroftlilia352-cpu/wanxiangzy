@@ -239,11 +239,7 @@ export const useAgentStore = create<Store>((set, get) => ({
     // 持久化图片到对话
     get().updateConversationImages();
 
-    // 上传完成后自动分析图片
-    const readyImages = get().inputImages.filter((img) => !img.uploading);
-    if (readyImages.length > 0) {
-      get().triggerAnalysis();
-    }
+    // 上传完成，不自动触发对话，等用户手动发送
   },
 
   removeImage: (index: number) => {
@@ -410,7 +406,18 @@ export const useAgentStore = create<Store>((set, get) => ({
       }));
     }
 
-    set({ inputText: "", isSending: true });
+    // 保存图片到对话上下文，然后清空输入区
+    const currentImages = [...inputImages];
+    set({ inputText: "", inputImages: [], isSending: true });
+
+    // 持久化图片到对话
+    if (currentImages.length > 0) {
+      fetch(`/api/conversations/${convId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ images: currentImages }),
+      }).catch(() => {});
+    }
 
     // 添加用户消息到 UI
     const userMsg: Message = {
@@ -604,13 +611,6 @@ export const useAgentStore = create<Store>((set, get) => ({
         set({ inputText: data.optimizedPrompt, isAIWriting: false });
       } else {
         set({ isAIWriting: false });
-        // 添加系统消息提示
-        const sysMsg: Message = {
-          id: v4(), conversation_id: get().activeId || "", role: "system",
-          content: "AI 帮写未能生成内容，请检查图片是否已上传完成。", images: [],
-          generation: null, params: {}, mode: "chat", created_at: new Date().toISOString(),
-        };
-        set((s) => ({ messages: [...s.messages, sysMsg] }));
       }
     } catch (err) {
       set({ isAIWriting: false });

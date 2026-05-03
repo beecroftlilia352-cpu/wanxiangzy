@@ -63,6 +63,19 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
           </div>
         )}
 
+        {/* 用户消息：图片在文字前 */}
+        {isUser && images && images.length > 0 && (
+          <div className="mb-1 flex flex-wrap gap-1">
+            {images.map((img, i) => (
+              <button key={i} onClick={() => onOpenImage(img.url)}
+                className="group relative h-12 w-12 overflow-hidden rounded-lg border border-violet-200 shadow-sm transition-transform hover:scale-105">
+                <img src={img.url} alt={`图${img.index}`} className="h-full w-full object-cover" />
+                <span className="absolute bottom-0 left-0 right-0 bg-violet-600/80 text-center text-[8px] font-bold leading-tight text-white">图{img.index}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* 文本内容 */}
         {content && (
           <div className={`group/msg relative rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
@@ -98,19 +111,6 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
                 </button>
               </div>
             )}
-          </div>
-        )}
-
-        {/* 用户消息中的图片 */}
-        {isUser && images && images.length > 0 && (
-          <div className="mt-1 flex flex-wrap gap-1">
-            {images.map((img, i) => (
-              <button key={i} onClick={() => onOpenImage(img.url)}
-                className="group relative h-12 w-12 overflow-hidden rounded-lg border border-violet-200 shadow-sm transition-transform hover:scale-105">
-                <img src={img.url} alt={`图${img.index}`} className="h-full w-full object-cover" />
-                <span className="absolute bottom-0 left-0 right-0 bg-violet-600/80 text-center text-[8px] font-bold leading-tight text-white">图{img.index}</span>
-              </button>
-            ))}
           </div>
         )}
 
