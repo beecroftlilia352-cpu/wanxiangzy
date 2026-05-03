@@ -1,36 +1,39 @@
 import type { LingyaModel, AspectRatio, ImageSize } from "@/lib/api/lingya";
 
-// ---- 会话 ----
+export type AgentMode = "chat" | "agent";
+
+// ---- 数据库模型 ----
 export interface Conversation {
   id: string;
+  user_id: string;
   title: string;
-  messages: ChatMessage[];
-  createdAt: number;
-  updatedAt: number;
+  mode: AgentMode;
+  images: ChatImage[];
+  created_at: string;
+  updated_at: string;
 }
 
-// ---- 消息 ----
-export type MessageRole = "user" | "assistant" | "system";
-
-export interface ChatMessage {
+export interface Message {
   id: string;
-  role: MessageRole;
+  conversation_id: string;
+  role: "user" | "assistant" | "system";
   content: string;
-  images?: ChatImage[];
-  generation?: GenerationResult;
-  timestamp: number;
+  images: ChatImage[];
+  generation: GenerationResult | null;
+  params: Record<string, unknown>;
+  mode: AgentMode;
+  created_at: string;
 }
 
-// ---- 图片（带编号） ----
+// ---- 前端模型 ----
 export interface ChatImage {
-  index: number;        // 1-based: 图1, 图2...
-  url: string;          // blob preview 或 hosted URL
-  hostedUrl?: string;   // imgbb URL
+  index: number;
+  url: string;
+  hostedUrl?: string;
   fileName: string;
   uploading?: boolean;
 }
 
-// ---- 生成结果 ----
 export type GenerationStatus = "pending" | "generating" | "completed" | "failed";
 
 export interface GenerationResult {
@@ -43,7 +46,6 @@ export interface GenerationResult {
   module?: string;
 }
 
-// ---- 生成参数 ----
 export interface GenerationParams {
   model: LingyaModel;
   aspectRatio: AspectRatio;
@@ -58,11 +60,9 @@ export const DEFAULT_PARAMS: GenerationParams = {
   count: 1,
 };
 
-// ---- 模块类型（复用） ----
-export type ModuleKey =
-  | "tryon"
-  | "grass"
-  | "model"
-  | "pose"
-  | "model_background"
-  | "garment_3d";
+// ---- @ 引用 ----
+export interface MentionRef {
+  imageIndex: number;
+  startPos: number;
+  endPos: number;
+}
