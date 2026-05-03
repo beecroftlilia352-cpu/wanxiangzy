@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { Bot, User, Loader2, CheckCircle2, AlertCircle, Download, ZoomIn, RefreshCw, Copy } from "lucide-react";
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import type { Message } from "@/lib/agent/types";
 import { renderMentionSegments } from "@/lib/agent/mention-parser";
 import { downloadImage, generateDownloadFilename } from "@/lib/utils";
@@ -81,7 +82,7 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
               </div>
             ) : (
               <div className="prose-agent">
-                <ReactMarkdown>{content}</ReactMarkdown>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
               </div>
             )}
 

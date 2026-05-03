@@ -298,13 +298,59 @@ export const useAgentStore = create<Store>((set, get) => ({
         .slice(-10)
         .map((m) => ({ role: m.role, content: m.content || (m.generation?.resultUrls?.length ? `[生成了图片]` : "") }));
 
-      // 统一调用 Chat API（LLM 判断是对话还是生图）
+      // 统一调用 Chat API（流式返回）
       const chatRes = await fetch("/api/agent/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: trimmed, images: imageUrls, history, mode }),
       });
-      const chatData = await chatRes.json();
+
+      let chatData: { reply?: string; action?: string; module?: string; generation_id?: string; credits_cost?: number } = {};
+
+      // 检查是否是流式响应
+      const contentType = chatRes.headers.get("content-type") || "";
+
+      if (contentType.includes("text/event-stream") && chatRes.body) {
+        // 流式读取
+        const reader = chatRes.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split("\n");
+            buffer = lines.pop() || "";
+
+            for (const line of lines) {
+              const trimmed = line.trim();
+              if (!trimmed || !trimmed.startsWith("data: ")) continue;
+              try {
+                const parsed = JSON.parse(trimmed.slice(6));
+                if (parsed.chunk) {
+                  // 增量更新 AI 消息内容
+                  set((s) => ({
+                    messages: s.messages.map((m) =>
+                      m.id === aiMsg.id ? { ...m, content: (m.content || "") + parsed.chunk } : m
+                    ),
+                  }));
+                }
+                if (parsed.done) {
+                  chatData = parsed;
+                }
+              } catch {}
+            }
+          }
+        } catch {
+          // stream error, use whatever we have
+        }
+      } else {
+        // 非流式降级
+        chatData = await chatRes.json();
+      }
 
       if (chatData.action === "generate" && imageUrls.length > 0) {
         // LLM 判断需要生图 → 调用 Generate API
