@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
         ];
 
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 20000);
+        const timeout = setTimeout(() => controller.abort(), 40000);
 
         const res = await fetch(getChatCompletionsUrl(llm), {
           method: "POST",

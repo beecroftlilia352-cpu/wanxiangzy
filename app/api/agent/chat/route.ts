@@ -116,18 +116,48 @@ export async function POST(request: NextRequest) {
     }
     messages.push({ role: "user", content: userContent });
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 25000);
+    // 主备双 LLM 降级：先试配置的 provider，超时则切换
+    const providers = [llm];
+    if (llm.provider === "xiaomi") {
+      const lingya = getLlmConfig(hasImages ? "vision" : "text");
+      if (lingya.provider !== "xiaomi" && lingya.apiKey && lingya.baseUrl) {
+        providers.push(lingya);
+      }
+    } else {
+      const xiaomi = getLlmConfig(hasImages ? "vision" : "text");
+      if (xiaomi.provider !== "lingya" && xiaomi.apiKey && xiaomi.baseUrl) {
+        providers.push(xiaomi);
+      }
+    }
 
-    const res = await fetch(getChatCompletionsUrl(llm), {
-      method: "POST",
-      headers: { Authorization: `Bearer ${llm.apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: llm.model, messages, max_tokens: 1000, temperature: 0.4 }),
-      signal: controller.signal,
-    }).finally(() => clearTimeout(timeout));
+    let res: Response | null = null;
+    let lastError = "";
 
-    if (!res.ok) {
-      return NextResponse.json({ reply: "AI 暂时无法回复。", action: "chat" });
+    for (const provider of providers) {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 45000);
+      try {
+        res = await fetch(getChatCompletionsUrl(provider), {
+          method: "POST",
+          headers: { Authorization: `Bearer ${provider.apiKey}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ model: provider.model, messages, max_tokens: 1000, temperature: 0.4 }),
+          signal: controller.signal,
+        }).finally(() => clearTimeout(timeout));
+        if (res.ok) break;
+        lastError = `HTTP ${res.status}`;
+        res = null;
+      } catch (err) {
+        clearTimeout(timeout);
+        lastError = err instanceof Error ? err.name === "AbortError" ? "timeout" : err.message : "unknown";
+        res = null;
+      }
+    }
+
+    if (!res) {
+      const msg = lastError === "timeout"
+        ? "AI 响应超时，服务繁忙，请稍后重试。"
+        : `AI 服务暂时不可用（${lastError}）。`;
+      return NextResponse.json({ reply: msg, action: "chat" });
     }
 
     const data = await res.json();
