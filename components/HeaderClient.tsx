@@ -196,6 +196,13 @@ export function HeaderClient() {
                 <Coins className="h-3.5 w-3.5 text-amber-500" />
                 {creditsReady ? <span>{credits ?? "--"}</span> : <span className="h-3 w-5 animate-pulse rounded bg-amber-100" />}
               </Link>
+              <Link
+                href="/history"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white/90 text-slate-600 shadow-sm transition-colors hover:bg-white hover:text-slate-950"
+                aria-label="历史记录"
+              >
+                <History className="h-4 w-4" />
+              </Link>
               <DropdownMenu.Root>
                 <DropdownMenu.Trigger asChild>
                   <button
