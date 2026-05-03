@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Bot, User, Loader2, CheckCircle2, AlertCircle, Download, ZoomIn, RefreshCw, Copy } from "lucide-react";
+import { Bot, User, Loader2, CheckCircle2, AlertCircle, Download, ZoomIn, RefreshCw, Copy, Sparkles } from "lucide-react";
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -86,12 +86,12 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
               </div>
             )}
 
-            {/* 消息操作栏（AI 消息 hover 显示） */}
+            {/* 消息操作栏 */}
             {!isUser && (
-              <div className="mt-1.5 flex items-center gap-1 opacity-0 transition-opacity group-hover/msg:opacity-100">
+              <div className="mt-1.5 flex items-center gap-1">
                 <button
                   onClick={() => { navigator.clipboard.writeText(content); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
-                  className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                  className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
                 >
                   {copied ? <CheckCircle2 className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
                   {copied ? "已复制" : "复制"}
@@ -116,34 +116,44 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
 
         {/* ===== 任务状态卡片 ===== */}
 
-        {/* 生成中 */}
+        {/* 生成中 — 酷炫特效 */}
         {generation && (generation.status === "pending" || generation.status === "generating") && (
-          <div className="mt-1.5 w-full max-w-sm overflow-hidden rounded-xl border border-violet-100 bg-gradient-to-br from-white to-violet-50/50 shadow-sm">
-            <div className="px-4 pt-3 pb-2.5">
+          <div className="gen-card mt-1.5 w-full max-w-sm rounded-xl border border-violet-100 bg-gradient-to-br from-white via-violet-50/30 to-pink-50/30 shadow-md shadow-violet-100/50">
+            <div className="relative z-10 px-4 pt-3 pb-2.5">
               <div className="mb-2.5 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="relative flex h-7 w-7 items-center justify-center rounded-lg bg-violet-100">
-                    <Loader2 className="h-3.5 w-3.5 animate-spin text-violet-600" />
-                    <div className="absolute inset-0 animate-ping rounded-lg bg-violet-200 opacity-30" />
+                <div className="flex items-center gap-2.5">
+                  {/* 酷炫图标 */}
+                  <div className="relative flex h-8 w-8 items-center justify-center">
+                    <div className="gen-ring absolute inset-0 rounded-lg bg-violet-300" />
+                    <div className="gen-ring absolute inset-0 rounded-lg bg-pink-300" style={{ animationDelay: "0.5s" }} />
+                    <div className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-pink-500 shadow-sm">
+                      <Sparkles className="gen-icon h-4 w-4 text-white" />
+                    </div>
                   </div>
                   <div>
-                    <p className="text-xs font-bold text-slate-700">正在生成</p>
-                    <p className="text-[10px] text-slate-400">{generation.module || "图像生成"}</p>
+                    <p className="text-xs font-bold text-slate-800">AI 正在创作</p>
+                    <p className="text-[10px] text-violet-500">{generation.module || "图像生成"}</p>
                   </div>
                 </div>
-                <span className="text-sm font-black tabular-nums text-violet-600">{generation.progress}%</span>
+                <span className="text-lg font-black tabular-nums text-transparent bg-clip-text bg-gradient-to-r from-violet-600 to-pink-600">
+                  {generation.progress}%
+                </span>
               </div>
-              <div className="h-2 overflow-hidden rounded-full bg-violet-100">
-                <div
-                  className="h-full rounded-full bg-gradient-to-r from-violet-500 via-purple-500 to-pink-500 transition-all duration-700 ease-out"
-                  style={{ width: `${Math.max(generation.progress, 3)}%` }}
-                />
+              {/* 渐变进度条 */}
+              <div className="h-2.5 overflow-hidden rounded-full bg-violet-100/80">
+                <div className="relative h-full rounded-full overflow-hidden">
+                  <div className="h-full rounded-full bg-gradient-to-r from-violet-500 via-purple-500 to-pink-500 transition-all duration-700 ease-out"
+                    style={{ width: `${Math.max(generation.progress, 5)}%` }} />
+                  {/* 光泽扫过效果 */}
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent"
+                    style={{ animation: "gen-shimmer 1.5s ease-in-out infinite", backgroundSize: "200% 100%" }} />
+                </div>
               </div>
-              <p className="mt-2 text-[10px] text-slate-400">
-                {generation.progress < 15 ? "正在准备素材..." :
-                 generation.progress < 40 ? "AI 正在绘制..." :
-                 generation.progress < 70 ? "生成中，请稍候..." :
-                 generation.progress < 95 ? "即将完成..." : "处理结果中..."}
+              <p className="mt-2 text-[11px] font-medium text-slate-500">
+                {generation.progress < 15 ? "✨ 正在准备素材..." :
+                 generation.progress < 40 ? "🎨 AI 正在绘制..." :
+                 generation.progress < 70 ? "🖌️ 生成中，请稍候..." :
+                 generation.progress < 95 ? "⏳ 即将完成..." : "🔧 处理结果中..."}
               </p>
             </div>
           </div>
