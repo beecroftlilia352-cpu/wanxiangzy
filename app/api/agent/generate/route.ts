@@ -165,6 +165,11 @@ export async function POST(request: NextRequest) {
       return [];
     };
 
+    // 构建 jobPayload（必须用 camelCase，generation-jobs 校验要求）
+    const jobPayload = buildJobPayload(module, apiParams, {
+      model, aspectRatio, imageSize, count, prompt, style,
+    });
+
     const debit = await createDebitedGeneration(supabase, {
       userId: user.id,
       clothingUrls: getUrls(),
@@ -174,7 +179,7 @@ export async function POST(request: NextRequest) {
       aiModel: model,
       imageSize,
       reason: `Agent ${module} ${count} 张 (${model}, ${imageSize})`,
-      jobPayload: { kind: module, ...apiParams, aiModel: model, aspectRatio, imageSize, prompt, genCount: count } as Record<string, unknown>,
+      jobPayload,
     });
 
     // 启动后台任务
@@ -308,5 +313,85 @@ function buildModuleParams(
     }
     default:
       return null;
+  }
+}
+
+/**
+ * 将 snake_case API 参数转换为 camelCase jobPayload（generation-jobs 校验要求）
+ */
+function buildJobPayload(
+  module: string,
+  apiParams: Record<string, unknown>,
+  opts: { model: LingyaModel; aspectRatio: AspectRatio; imageSize: ImageSize; count: number; prompt: string; style: string | null }
+): Record<string, unknown> {
+  const base: Record<string, unknown> = {
+    kind: module,
+    aiModel: opts.model,
+    aspectRatio: opts.aspectRatio,
+    imageSize: opts.imageSize,
+    prompt: opts.prompt,
+    genCount: opts.count,
+  };
+
+  if (opts.style) base.style = opts.style;
+
+  switch (module) {
+    case "tryon":
+      return {
+        ...base,
+        clothingUrls: Array.isArray(apiParams.clothing_urls) ? apiParams.clothing_urls : [],
+        modelFaceUrl: typeof apiParams.model_face_url === "string" ? apiParams.model_face_url : null,
+        referenceUrl: typeof apiParams.reference_url === "string" ? apiParams.reference_url : null,
+        clothingMode: "single",
+        garmentAudience: "women",
+        ageGroup: "adult",
+      };
+    case "grass":
+      return {
+        ...base,
+        garmentUrl: typeof apiParams.garment_url === "string" ? apiParams.garment_url : "",
+        referenceUrl: typeof apiParams.reference_url === "string" ? apiParams.reference_url : null,
+        sceneMode: "auto",
+        templateId: "street",
+        changeModel: true,
+        userPrompt: opts.prompt,
+      };
+    case "model":
+      return {
+        ...base,
+        referenceUrls: Array.isArray(apiParams.reference_urls) ? apiParams.reference_urls : [],
+        hairReferenceUrl: typeof apiParams.hair_reference_url === "string" ? apiParams.hair_reference_url : null,
+        gender: "female",
+        modelStyle: "fusion_natural",
+      };
+    case "model_background":
+      return {
+        ...base,
+        sourceUrl: typeof apiParams.source_url === "string" ? apiParams.source_url : "",
+        modelReferenceUrl: typeof apiParams.model_reference_url === "string" ? apiParams.model_reference_url : null,
+        backgroundReferenceUrl: typeof apiParams.background_reference_url === "string" ? apiParams.background_reference_url : null,
+        mode: "background_only",
+        backgroundSource: "auto_prompt",
+        templateId: "default",
+        backgroundText: "",
+        userPrompt: opts.prompt,
+      };
+    case "pose":
+      return {
+        ...base,
+        mainImageUrl: typeof apiParams.main_image_url === "string" ? apiParams.main_image_url : "",
+      };
+    case "garment_3d":
+      return {
+        ...base,
+        garmentUrl: typeof apiParams.garment_url === "string" ? apiParams.garment_url : "",
+        referenceUrl: typeof apiParams.reference_url === "string" ? apiParams.reference_url : null,
+        garmentType: "服装",
+        outputMode: "prompt",
+        displayStyle: "default",
+        userPrompt: opts.prompt,
+      };
+    default:
+      return base;
   }
 }
