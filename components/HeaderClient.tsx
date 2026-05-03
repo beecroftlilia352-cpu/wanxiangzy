@@ -11,7 +11,8 @@ import {
   setCachedProfileCredits,
   subscribeToProfileCredits,
 } from "@/lib/supabase/client";
-import { Coins, History, Home, LogOut, ServerCog, Shirt, UserRound } from "lucide-react";
+import { Coins, History, Home, LogOut, Menu, ServerCog, Shirt, UserRound } from "lucide-react";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 
 const navItems = [
   { href: "/", label: "首页", icon: Home },
@@ -177,7 +178,7 @@ export function HeaderClient() {
 
         </div>
 
-        <div className="fixed right-4 top-3.5 z-[60] flex shrink-0 md:hidden">
+        <div className="flex items-center gap-2 shrink-0 sm:hidden">
           {isLoginPage ? (
             <Link href="/" className="gradient-brand flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/50 text-white shadow-lg shadow-purple-200/70" aria-label="返回首页">
               <Home className="h-4 w-4" />
@@ -187,13 +188,68 @@ export function HeaderClient() {
               <UserRound className="h-4 w-4" />
             </span>
           ) : email ? (
-            <Link
-              href="/create"
-              className="flex h-9 items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 text-xs font-bold text-amber-700 shadow-sm"
-            >
-              <Coins className="h-3.5 w-3.5 text-amber-500" />
-              {creditsReady ? <span>{credits ?? "--"}</span> : <span className="h-3 w-5 animate-pulse rounded bg-amber-100" />}
-            </Link>
+            <>
+              <Link
+                href="/create"
+                className="flex h-9 items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 text-xs font-bold text-amber-700 shadow-sm"
+              >
+                <Coins className="h-3.5 w-3.5 text-amber-500" />
+                {creditsReady ? <span>{credits ?? "--"}</span> : <span className="h-3 w-5 animate-pulse rounded bg-amber-100" />}
+              </Link>
+              <DropdownMenu.Root>
+                <DropdownMenu.Trigger asChild>
+                  <button
+                    type="button"
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white/90 text-slate-600 shadow-sm transition-colors hover:bg-white hover:text-slate-950"
+                    aria-label="菜单"
+                  >
+                    <Menu className="h-4 w-4" />
+                  </button>
+                </DropdownMenu.Trigger>
+                <DropdownMenu.Portal>
+                  <DropdownMenu.Content
+                    align="end"
+                    sideOffset={8}
+                    className="z-[70] min-w-[160px] overflow-hidden rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl shadow-slate-200/50"
+                  >
+                    {navItems.map((item) => {
+                      const Icon = item.icon;
+                      const active = item.href === "/" ? pathname === "/" : pathname === item.href || pathname.startsWith(item.href);
+                      return (
+                        <DropdownMenu.Item
+                          key={item.href}
+                          asChild
+                        >
+                          <Link
+                            href={item.href}
+                            className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-bold outline-none transition-colors ${
+                              active
+                                ? "bg-violet-50 text-violet-700"
+                                : "text-slate-600 hover:bg-slate-50 hover:text-slate-950"
+                            }`}
+                          >
+                            <Icon className="h-4 w-4" />
+                            {item.label}
+                          </Link>
+                        </DropdownMenu.Item>
+                      );
+                    })}
+                    <DropdownMenu.Separator className="my-1.5 h-px bg-slate-100" />
+                    <DropdownMenu.Item asChild>
+                      <button
+                        type="button"
+                        onClick={handleLogout}
+                        disabled={isLoggingOut}
+                        className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-bold text-red-500 outline-none transition-colors hover:bg-red-50 disabled:opacity-50"
+                      >
+                        <LogOut className="h-4 w-4" />
+                        {isLoggingOut ? "退出中..." : "退出登录"}
+                      </button>
+                    </DropdownMenu.Item>
+                  </DropdownMenu.Content>
+                </DropdownMenu.Portal>
+              </DropdownMenu.Root>
+            </>
           ) : (
             <Link href="/login" className="gradient-brand flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white shadow-lg shadow-purple-200/70" aria-label="登录">
               <UserRound className="h-4 w-4" />

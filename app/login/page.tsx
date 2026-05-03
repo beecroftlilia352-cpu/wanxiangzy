@@ -3,7 +3,6 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { AlertCircle, ArrowLeft, CheckCircle, Eye, EyeOff, Lock, Mail, Sparkles } from "lucide-react";
 
@@ -40,7 +39,6 @@ const showcaseImages = [
 ];
 
 export default function LoginPage() {
-  const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
 
   const [view, setView] = useState<AuthView>("login");
@@ -54,14 +52,14 @@ export default function LoginPage() {
     let mounted = true;
 
     supabase.auth.getUser().then(({ data }) => {
-      if (mounted && data.user) router.replace("/create");
+      if (mounted && data.user) window.location.replace("/create");
     });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "SIGNED_IN" && session) {
-        router.replace("/create");
+      if (event === "SIGNED_IN" && session && window.location.pathname === "/login") {
+        window.location.replace("/create");
       }
     });
 
@@ -69,7 +67,7 @@ export default function LoginPage() {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, [router, supabase]);
+  }, [supabase]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -91,7 +89,7 @@ export default function LoginPage() {
       return;
     }
 
-    router.push("/create");
+    window.location.href = "/create";
   };
 
   const handleSignUp = async (e: React.FormEvent) => {
@@ -125,7 +123,7 @@ export default function LoginPage() {
     }
 
     if (data.session) {
-      router.push("/create");
+      window.location.href = "/create";
       return;
     }
 

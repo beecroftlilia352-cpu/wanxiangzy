@@ -1383,9 +1383,9 @@ export default function CreatePage() {
               background: "radial-gradient(circle, #f472b6, #a78bfa, transparent)",
             }} />
 
-            <div className="grid grid-cols-2 gap-3 sm:gap-5 max-w-lg w-full relative z-10">
+            <div className="flex flex-wrap justify-center gap-3 sm:gap-5 w-full relative z-10">
               {Array.from({ length: genCount }).map((_, i) => (
-                <div key={i} className="rounded-2xl overflow-hidden"
+                <div key={i} className={`rounded-2xl overflow-hidden ${genCount <= 2 ? "max-w-[min(420px,calc(50%-12px))] w-full sm:max-w-[min(420px,calc(50%-20px))]" : "max-w-[min(340px,calc(50%-12px))] w-full sm:max-w-[min(340px,calc(50%-20px))]"}`}
                   style={{
                     background: "rgba(255, 255, 255, 0.25)",
                     backdropFilter: "blur(20px)",
