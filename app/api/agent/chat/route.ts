@@ -1,9 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { requireApiUser } from "@/lib/api/auth";
 import { getChatCompletionsUrl, getLlmConfig } from "@/lib/api/llm-provider";
-import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
+import { checkRateLimit } from "@/lib/api/rate-limit";
 
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 const SYSTEM_PROMPT = `你是 VastWear AI 助手，一个专业的服装视觉 AI 智能体。你具备以下能力：
 
@@ -59,7 +59,7 @@ imageMapping 用图号映射，例如 {"clothing_urls": [1], "reference_url": 2}
 - 用中文，专业但友好
 - 分析图片时要详细具体（品类、颜色、面料、适合场景）
 - 给建议时要实用可操作
-- 支持 Markdown 格式（列表、粗体、分段）`;
+- 支持 Markdown 格式（表格、列表、粗体、引用、分段）`;
 
 export async function POST(request: NextRequest) {
   try {
@@ -67,7 +67,12 @@ export async function POST(request: NextRequest) {
     if (auth.response) return auth.response;
 
     const limit = await checkRateLimit(`agent-chat:${auth.user.id}`, 30, 60_000);
-    if (!limit.ok) return rateLimitResponse(limit.retryAfterSeconds);
+    if (!limit.ok) {
+      return new Response(JSON.stringify({ error: "请求过于频繁" }), {
+        status: 429,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
 
     const body = await request.json().catch(() => ({}));
     const { message, images, history, mode } = body as {
@@ -78,27 +83,29 @@ export async function POST(request: NextRequest) {
     };
 
     if (!message?.trim()) {
-      return NextResponse.json({ reply: "请输入消息。", action: "chat" });
+      return new Response(JSON.stringify({ reply: "请输入消息。", action: "chat" }), {
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
     const hasImages = images && images.length > 0;
     const llm = getLlmConfig(hasImages ? "vision" : "text");
     if (!llm.apiKey || !llm.baseUrl) {
-      return NextResponse.json({ reply: "AI 服务暂时不可用。", action: "chat" });
+      return new Response(JSON.stringify({ reply: "AI 服务暂时不可用。", action: "chat" }), {
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
     const messages: Array<{ role: string; content: string | Array<Record<string, unknown>> }> = [
       { role: "system", content: SYSTEM_PROMPT },
     ];
 
-    // 历史消息
     if (history) {
       for (const msg of history.slice(-10)) {
         messages.push({ role: msg.role, content: msg.content });
       }
     }
 
-    // 用户消息
     const userContent: Array<Record<string, unknown>> = [];
     if (hasImages) {
       userContent.push({
@@ -116,80 +123,157 @@ export async function POST(request: NextRequest) {
     }
     messages.push({ role: "user", content: userContent });
 
-    // 主备双 LLM 降级：先试配置的 provider，超时则切换
+    // 流式调用 LLM
     const providers = [llm];
     if (llm.provider === "xiaomi") {
       const lingya = getLlmConfig(hasImages ? "vision" : "text");
-      if (lingya.provider !== "xiaomi" && lingya.apiKey && lingya.baseUrl) {
-        providers.push(lingya);
-      }
+      if (lingya.provider !== "xiaomi" && lingya.apiKey && lingya.baseUrl) providers.push(lingya);
     } else {
       const xiaomi = getLlmConfig(hasImages ? "vision" : "text");
-      if (xiaomi.provider !== "lingya" && xiaomi.apiKey && xiaomi.baseUrl) {
-        providers.push(xiaomi);
-      }
+      if (xiaomi.provider !== "lingya" && xiaomi.apiKey && xiaomi.baseUrl) providers.push(xiaomi);
     }
 
-    let res: Response | null = null;
-    let lastError = "";
+    let llmResponse: Response | null = null;
 
     for (const provider of providers) {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 45000);
       try {
-        res = await fetch(getChatCompletionsUrl(provider), {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 55000);
+
+        llmResponse = await fetch(getChatCompletionsUrl(provider), {
           method: "POST",
-          headers: { Authorization: `Bearer ${provider.apiKey}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ model: provider.model, messages, max_tokens: 1000, temperature: 0.4 }),
+          headers: {
+            Authorization: `Bearer ${provider.apiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: provider.model,
+            messages,
+            max_tokens: 1000,
+            temperature: 0.4,
+            stream: true,
+          }),
           signal: controller.signal,
         }).finally(() => clearTimeout(timeout));
-        if (res.ok) break;
-        lastError = `HTTP ${res.status}`;
-        res = null;
-      } catch (err) {
-        clearTimeout(timeout);
-        lastError = err instanceof Error ? err.name === "AbortError" ? "timeout" : err.message : "unknown";
-        res = null;
+
+        if (llmResponse.ok) break;
+        llmResponse = null;
+      } catch {
+        llmResponse = null;
       }
     }
 
-    if (!res) {
-      const msg = lastError === "timeout"
-        ? "AI 响应超时，服务繁忙，请稍后重试。"
-        : `AI 服务暂时不可用（${lastError}）。`;
-      return NextResponse.json({ reply: msg, action: "chat" });
+    if (!llmResponse || !llmResponse.body) {
+      // 非流式降级
+      return tryNonStream(providers, messages);
     }
 
-    const data = await res.json();
-    const content = extractText(data);
-    const parsed = parseJson(content);
+    // 流式转发给客户端
+    const reader = llmResponse.body.getReader();
+    const decoder = new TextDecoder();
 
-    if (parsed) {
-      return NextResponse.json({
-        reply: typeof parsed.reply === "string" ? parsed.reply : content,
-        action: parsed.action === "generate" && hasImages ? "generate" : "chat",
-        module: typeof parsed.module === "string" ? parsed.module : null,
-        imageMapping: typeof parsed.imageMapping === "object" ? parsed.imageMapping : {},
-        prompt: typeof parsed.prompt === "string" ? parsed.prompt : "",
-        style: typeof parsed.style === "string" ? parsed.style : null,
-      });
-    }
+    const stream = new ReadableStream({
+      async start(controller) {
+        let buffer = "";
+        let fullContent = "";
 
-    return NextResponse.json({ reply: content || "我没有理解你的意思，可以换个方式描述吗？", action: "chat" });
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split("\n");
+            buffer = lines.pop() || "";
+
+            for (const line of lines) {
+              const trimmed = line.trim();
+              if (!trimmed || !trimmed.startsWith("data: ")) continue;
+              const data = trimmed.slice(6);
+              if (data === "[DONE]") continue;
+
+              try {
+                const parsed = JSON.parse(data);
+                const delta = parsed.choices?.[0]?.delta?.content;
+                if (delta) {
+                  fullContent += delta;
+                  controller.enqueue(
+                    new TextEncoder().encode(`data: ${JSON.stringify({ chunk: delta })}\n\n`)
+                  );
+                }
+              } catch {
+                // skip malformed chunks
+              }
+            }
+          }
+        } catch {
+          // stream error
+        }
+
+        // 流结束，发送完整响应（含 action 判断）
+        const parsed = parseJson(fullContent);
+        const result = parsed
+          ? {
+              reply: typeof parsed.reply === "string" ? parsed.reply : fullContent,
+              action: parsed.action === "generate" && hasImages ? "generate" : "chat",
+              module: typeof parsed.module === "string" ? parsed.module : null,
+              imageMapping: typeof parsed.imageMapping === "object" ? parsed.imageMapping : {},
+              prompt: typeof parsed.prompt === "string" ? parsed.prompt : "",
+              style: typeof parsed.style === "string" ? parsed.style : null,
+            }
+          : { reply: fullContent || "我没有理解你的意思。", action: "chat" };
+
+        controller.enqueue(
+          new TextEncoder().encode(`data: ${JSON.stringify({ done: true, ...result })}\n\n`)
+        );
+        controller.close();
+      },
+    });
+
+    return new Response(stream, {
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+      },
+    });
   } catch (err: unknown) {
-    if (err instanceof Error && err.name === "AbortError") {
-      return NextResponse.json({ reply: "AI 响应超时，请重试。", action: "chat" });
-    }
-    return NextResponse.json({ reply: "处理出错，请重试。", action: "chat" });
+    const msg = err instanceof Error && err.name === "AbortError"
+      ? "AI 响应超时，请重试。"
+      : "处理出错，请重试。";
+    return new Response(JSON.stringify({ reply: msg, action: "chat" }), {
+      headers: { "Content-Type": "application/json" },
+    });
   }
 }
 
-function extractText(data: Record<string, unknown>): string {
-  const choices = data.choices as Array<Record<string, unknown>> | undefined;
-  const msg = choices?.[0]?.message as Record<string, unknown> | undefined;
-  const content = msg?.content;
-  if (typeof content === "string") return content;
-  return "";
+/** 流式失败时的非流式降级 */
+async function tryNonStream(providers: Array<{ apiKey: string; baseUrl: string; model: string }>, messages: Array<unknown>) {
+  for (const provider of providers) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 45000);
+      const res = await fetch(`${provider.baseUrl}/chat/completions`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${provider.apiKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ model: provider.model, messages, max_tokens: 1000, temperature: 0.4 }),
+        signal: controller.signal,
+      }).finally(() => clearTimeout(timeout));
+
+      if (res.ok) {
+        const data = await res.json();
+        const content = (data.choices?.[0]?.message?.content as string) || "";
+        const parsed = parseJson(content);
+        const result = parsed
+          ? { reply: parsed.reply || content, action: parsed.action === "generate" ? "generate" : "chat", module: parsed.module, imageMapping: parsed.imageMapping, prompt: parsed.prompt, style: parsed.style }
+          : { reply: content, action: "chat" };
+        return new Response(JSON.stringify(result), { headers: { "Content-Type": "application/json" } });
+      }
+    } catch { /* try next */ }
+  }
+  return new Response(JSON.stringify({ reply: "AI 服务暂时不可用。", action: "chat" }), {
+    headers: { "Content-Type": "application/json" },
+  });
 }
 
 function parseJson(text: string): Record<string, unknown> | null {
