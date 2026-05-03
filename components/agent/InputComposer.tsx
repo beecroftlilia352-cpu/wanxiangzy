@@ -60,6 +60,13 @@ export function InputComposer({
     return () => document.removeEventListener("click", close);
   }, [settingsOpen]);
 
+  // 发送完成后自动聚焦输入框
+  useEffect(() => {
+    if (!isSending && !isAIWriting) {
+      setTimeout(() => textareaRef.current?.focus(), 100);
+    }
+  }, [isSending, isAIWriting]);
+
   const handleInput = useCallback(() => {
     const el = textareaRef.current;
     if (!el) return;

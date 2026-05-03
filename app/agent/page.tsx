@@ -2,26 +2,39 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Menu } from "lucide-react";
+import { Menu, Coins, X } from "lucide-react";
 import { FeatureTabs } from "@/components/FeatureTabs";
 import { ConversationSidebar } from "@/components/agent/ConversationSidebar";
 import { ChatArea } from "@/components/agent/ChatArea";
 import { InputComposer } from "@/components/agent/InputComposer";
 import { useAgentStore } from "@/lib/store/agent-store";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, getCachedProfileCredits, subscribeToProfileCredits } from "@/lib/supabase/client";
 
 export default function AgentPage() {
   const router = useRouter();
   const [isAuth, setIsAuth] = useState(false);
   const [lightbox, setLightbox] = useState<string | null>(null);
+  const [credits, setCredits] = useState<number | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
 
   const s = useAgentStore();
 
   useEffect(() => {
-    createClient().auth.getUser().then(({ data }) => {
-      if (!data.user) router.replace("/login");
-      else { setIsAuth(true); s.loadConversations(); }
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data }) => {
+      if (!data.user) {
+        router.replace("/login");
+      } else {
+        setIsAuth(true);
+        setUserId(data.user.id);
+        s.loadConversations();
+        getCachedProfileCredits(data.user.id).then(setCredits);
+      }
     });
+
+    // 实时监听积分变化
+    const unsub = subscribeToProfileCredits(({ credits: c }) => setCredits(c));
+    return unsub;
   }, []);
 
   if (!isAuth) return null;
@@ -38,7 +51,6 @@ export default function AgentPage() {
     <div className="studio-workbench min-h-[calc(100dvh-64px)] lg:h-[calc(100vh-64px)] flex flex-col lg:flex-row">
       <FeatureTabs active="agent" />
 
-      {/* 左侧对话列表（桌面端内嵌，移动端抽屉） */}
       <ConversationSidebar
         conversations={s.conversations}
         activeId={s.activeId}
@@ -49,19 +61,37 @@ export default function AgentPage() {
         onClose={() => s.setSidebarOpen(false)}
       />
 
-      {/* 主区域 */}
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* 顶部 */}
-        <div className="flex items-center gap-3 border-b border-slate-200/80 bg-white/80 px-4 py-2.5 backdrop-blur-xl">
+        {/* 顶部栏 */}
+        <div className="flex shrink-0 items-center gap-2 border-b border-slate-200/60 bg-white/80 px-3 py-2 backdrop-blur-xl sm:px-4 sm:gap-3">
           <button onClick={() => s.setSidebarOpen(true)}
             className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 lg:hidden">
             <Menu className="h-4 w-4" />
           </button>
+
           <h1 className="truncate text-sm font-bold text-slate-800">{title}</h1>
+
+          {conv?.mode && (
+            <span className={`hidden shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold sm:inline-block ${
+              conv.mode === "agent" ? "bg-violet-100 text-violet-600" : "bg-slate-100 text-slate-500"
+            }`}>
+              {conv.mode === "agent" ? "Agent" : "Chat"}
+            </span>
+          )}
+
           <div className="flex-1" />
+
+          {/* 积分余额 */}
+          {credits !== null && (
+            <div className="flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-600">
+              <Coins className="h-3 w-3" />
+              {credits}
+            </div>
+          )}
+
           <button onClick={s.createConversation}
             className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-500 transition-colors hover:border-violet-300 hover:text-violet-600">
-            新建对话
+            新建
           </button>
         </div>
 
@@ -94,8 +124,14 @@ export default function AgentPage() {
         />
       </div>
 
+      {/* Lightbox */}
       {lightbox && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4" onClick={() => setLightbox(null)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+          onClick={() => setLightbox(null)}>
+          <button onClick={() => setLightbox(null)}
+            className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20">
+            <X className="h-5 w-5" />
+          </button>
           <img src={lightbox} alt="预览" className="max-h-[90vh] max-w-[90vw] rounded-2xl object-contain shadow-2xl" />
         </div>
       )}
