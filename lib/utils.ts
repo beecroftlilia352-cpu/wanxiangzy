@@ -152,6 +152,48 @@ async function compressImage(file: File, maxSizeMB: number = MAX_FILE_SIZE_MB): 
 }
 
 /**
+ * Agent 专用图片压缩（更激进：最大 2MB，最大边 1600px）
+ */
+export async function compressImageForAgent(file: File): Promise<File> {
+  const MAX_AGENT_SIZE = 2 * 1024 * 1024; // 2MB
+  if (file.size <= MAX_AGENT_SIZE) return file;
+
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      let { width, height } = img;
+      const MAX_EDGE = 1600;
+
+      if (width > MAX_EDGE || height > MAX_EDGE) {
+        const scale = MAX_EDGE / Math.max(width, height);
+        width = Math.round(width * scale);
+        height = Math.round(height * scale);
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d")!;
+      ctx.drawImage(img, 0, 0, width, height);
+
+      canvas.toBlob(
+        (blob) => {
+          if (blob) {
+            resolve(new File([blob], file.name, { type: "image/jpeg" }));
+          } else {
+            resolve(file);
+          }
+        },
+        "image/jpeg",
+        0.82
+      );
+    };
+    img.onerror = () => resolve(file);
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+/**
  * 上传图片到 imgbb（通过服务端 API 代理）
  */
 export async function uploadImage(file: File): Promise<UploadResult> {
