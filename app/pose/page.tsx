@@ -611,7 +611,7 @@ export default function PosePage() {
         )}
 
         {isGenerating && (
-          <LoadingStage genCount={4} progress={progress} />
+          <LoadingStage genCount={4} progress={progress} moduleName="姿势裂变" />
         )}
 
         {resultUrls.length > 0 && (

@@ -5,7 +5,8 @@ import { Bot, User, Loader2, CheckCircle2, AlertCircle, Download, ZoomIn, Refres
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import type { Message } from "@/lib/agent/types";
+import type { AspectRatio, ImageSize, LingyaModel } from "@/lib/api/lingya";
+import type { GenerationParams, Message } from "@/lib/agent/types";
 import { renderMentionSegments } from "@/lib/agent/mention-parser";
 import { downloadImage, generateDownloadFilename } from "@/lib/utils";
 
@@ -16,10 +17,32 @@ type Props = {
   onOpenImage: (url: string) => void;
   onRetry: (messageId: string) => void;
   onConfirm?: (messageId: string) => void;
+  onUpdateConfirmParams?: (messageId: string, params: Partial<GenerationParams>) => void;
   onUseAsReference?: (url: string) => void;
 };
 
-export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage, onRetry, onConfirm, onUseAsReference }: Props) {
+const CONFIRM_MODEL_OPTIONS: Array<{ value: LingyaModel; label: string }> = [
+  { value: "gpt-image-2", label: "GPT Image" },
+  { value: "nano-banana-2", label: "Nano Banana" },
+  { value: "nano-banana-pro", label: "Nano Pro" },
+  { value: "doubao-seedream-4-5-251128", label: "Seedream" },
+];
+
+const CONFIRM_RATIO_OPTIONS: Array<{ value: AspectRatio; label: string }> = [
+  { value: "3:4", label: "3:4" },
+  { value: "1:1", label: "1:1" },
+  { value: "9:16", label: "9:16" },
+  { value: "4:3", label: "4:3" },
+  { value: "16:9", label: "16:9" },
+];
+
+const CONFIRM_SIZE_OPTIONS: Array<{ value: ImageSize; label: string }> = [
+  { value: "1K", label: "1K" },
+  { value: "2K", label: "2K" },
+  { value: "4K", label: "4K" },
+];
+
+export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage, onRetry, onConfirm, onUpdateConfirmParams, onUseAsReference }: Props) {
   const { role, content, images, generation, created_at } = message;
   const [copied, setCopied] = useState(false);
 
@@ -55,7 +78,7 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
         </div>
       )}
 
-      <div className={`flex min-w-0 max-w-[85%] sm:max-w-[75%] flex-col ${isUser ? "items-end" : "items-start"}`}>
+      <div className={`flex min-w-0 max-w-[88%] flex-col ${isUser ? "items-end sm:max-w-[75%]" : "items-start sm:max-w-[78%]"}`}>
         {/* 名称 + 时间（分组时只显示时间） */}
         {!isGrouped && (
           <div className={`mb-1 flex items-center gap-2 text-[11px] text-slate-400 ${isUser ? "flex-row-reverse" : ""}`}>
@@ -80,10 +103,10 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
 
         {/* 文本内容 */}
         {content && (
-          <div className={`group/msg relative rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
+          <div className={`group/msg relative rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm ${
             isUser
               ? "rounded-br-md bg-violet-600 text-white"
-              : "rounded-bl-md border border-slate-200/80 bg-white text-slate-800"
+              : "rounded-bl-md border border-slate-200/80 bg-white/95 text-slate-800 backdrop-blur"
           }`}>
             {isUser ? (
               <div className="whitespace-pre-wrap">
@@ -103,7 +126,7 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
 
             {/* 消息操作栏 */}
             {!isUser && (
-              <div className="mt-1.5 flex items-center gap-1">
+              <div className="mt-2 flex items-center gap-1 border-t border-slate-100 pt-1.5">
                 <button
                   onClick={() => { navigator.clipboard.writeText(content); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
                   className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
@@ -129,6 +152,16 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
                 <p className="text-[10px] text-amber-600">积分</p>
               </div>
             </div>
+            <ConfirmParamsEditor
+              messageId={message.id}
+              params={readConfirmParams(generation._confirmData.params)}
+              onChange={onUpdateConfirmParams}
+            />
+            <ConfirmTaskPlan
+              moduleName={generation.module || "图像生成"}
+              params={readConfirmParams(generation._confirmData.params)}
+              credits={generation.creditsUsed || generation._confirmData.creditsCost}
+            />
             <button
               onClick={() => onConfirm?.(message.id)}
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-pink-600 py-2.5 text-sm font-bold text-white shadow-lg shadow-violet-200 transition-opacity hover:opacity-90"
@@ -257,6 +290,136 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
       </div>
     </motion.div>
   );
+}
+
+function ConfirmTaskPlan({
+  moduleName,
+  params,
+  credits,
+}: {
+  moduleName: string;
+  params: GenerationParams;
+  credits: number;
+}) {
+  const steps = [
+    "确认参数",
+    "扣除积分",
+    "生成图片",
+    "校验结果",
+  ];
+
+  return (
+    <div className="mb-3 rounded-xl border border-violet-100 bg-white/75 p-3">
+      <div className="mb-2 flex flex-wrap items-center gap-1.5">
+        <ConfirmChip label={moduleName} />
+        <ConfirmChip label={params.model} />
+        <ConfirmChip label={`${params.aspectRatio} · ${params.imageSize}`} />
+        <ConfirmChip label={`${params.count} 张`} />
+        <ConfirmChip label={`${credits} 积分`} tone="amber" />
+      </div>
+      <div className="grid grid-cols-4 gap-1.5">
+        {steps.map((step, index) => (
+          <div key={step} className="relative rounded-lg bg-slate-50 px-2 py-2 text-center">
+            {index < steps.length - 1 && (
+              <div className="absolute left-[calc(50%+12px)] top-4 hidden h-px w-[calc(100%-20px)] bg-violet-100 sm:block" />
+            )}
+            <div className="relative z-10 mx-auto mb-1 flex h-5 w-5 items-center justify-center rounded-full bg-violet-100 text-[10px] font-black text-violet-600">
+              {index + 1}
+            </div>
+            <p className="relative z-10 text-[10px] font-semibold text-slate-500">{step}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ConfirmChip({ label, tone = "violet" }: { label: string; tone?: "violet" | "amber" }) {
+  const cls = tone === "amber"
+    ? "bg-amber-50 text-amber-700 ring-amber-100"
+    : "bg-violet-50 text-violet-700 ring-violet-100";
+  return (
+    <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ring-1 ${cls}`}>
+      {label}
+    </span>
+  );
+}
+
+function ConfirmParamsEditor({
+  messageId,
+  params,
+  onChange,
+}: {
+  messageId: string;
+  params: GenerationParams;
+  onChange?: (messageId: string, params: Partial<GenerationParams>) => void;
+}) {
+  if (!onChange) return null;
+
+  return (
+    <div className="mb-3 grid grid-cols-2 gap-2 rounded-xl border border-amber-100 bg-white/70 p-2">
+      <ConfirmSelect
+        label="模型"
+        value={params.model}
+        options={CONFIRM_MODEL_OPTIONS}
+        onChange={(value) => onChange(messageId, { model: value as LingyaModel })}
+      />
+      <ConfirmSelect
+        label="比例"
+        value={params.aspectRatio}
+        options={CONFIRM_RATIO_OPTIONS}
+        onChange={(value) => onChange(messageId, { aspectRatio: value as AspectRatio })}
+      />
+      <ConfirmSelect
+        label="分辨率"
+        value={params.imageSize}
+        options={CONFIRM_SIZE_OPTIONS}
+        onChange={(value) => onChange(messageId, { imageSize: value as ImageSize })}
+      />
+      <ConfirmSelect
+        label="数量"
+        value={String(params.count)}
+        options={[1, 2, 3, 4].map((value) => ({ value: String(value), label: `${value} 张` }))}
+        onChange={(value) => onChange(messageId, { count: Number(value) })}
+      />
+    </div>
+  );
+}
+
+function ConfirmSelect<T extends string>({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: T;
+  options: Array<{ value: T; label: string }>;
+  onChange: (value: T) => void;
+}) {
+  return (
+    <label className="min-w-0">
+      <span className="mb-1 block text-[10px] font-bold text-slate-400">{label}</span>
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value as T)}
+        className="h-8 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-700 outline-none transition-colors focus:border-violet-300"
+      >
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>{option.label}</option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function readConfirmParams(params: Record<string, unknown>): GenerationParams {
+  return {
+    model: String(params.model || params.ai_model || "gpt-image-2") as LingyaModel,
+    aspectRatio: String(params.aspectRatio || params.aspect_ratio || "3:4") as AspectRatio,
+    imageSize: String(params.imageSize || params.image_size || "1K") as ImageSize,
+    count: Math.min(Math.max(Number(params.count || params.gen_count || 1), 1), 4),
+  };
 }
 
 function formatTime(ts: string): string {

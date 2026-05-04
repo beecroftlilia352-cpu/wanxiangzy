@@ -841,7 +841,7 @@ export default function ModelPage() {
         )}
 
         {isGenerating && (
-          <LoadingStage genCount={genCount} progress={progress} />
+          <LoadingStage genCount={genCount} progress={progress} moduleName="专属模特" />
         )}
 
         {resultUrls.length > 0 && (

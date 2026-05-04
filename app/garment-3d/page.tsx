@@ -787,7 +787,7 @@ export default function Garment3dPage() {
         )}
 
         {isGenerating && (
-          <LoadingStage genCount={genCount} progress={progress} />
+          <LoadingStage genCount={genCount} progress={progress} moduleName="服装 3D" />
         )}
 
         {resultUrls.length > 0 && (

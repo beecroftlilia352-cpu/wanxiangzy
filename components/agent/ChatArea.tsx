@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import { Sparkles, Bot, ArrowDown } from "lucide-react";
-import type { Message, ChatImage } from "@/lib/agent/types";
+import type { Message, ChatImage, GenerationParams } from "@/lib/agent/types";
 import { MessageBubble } from "./MessageBubble";
 
 type Props = {
@@ -13,6 +13,7 @@ type Props = {
   onOpenImage: (url: string) => void;
   onRetry: (messageId: string) => void;
   onConfirm?: (messageId: string) => void;
+  onUpdateConfirmParams?: (messageId: string, params: Partial<GenerationParams>) => void;
   onUseAsReference?: (url: string) => void;
   onQuickAction: (text: string) => void;
 };
@@ -37,7 +38,7 @@ const IMAGE_SUGGESTIONS = [
   { icon: "💡", text: "给我拍摄创意建议" },
 ];
 
-export function ChatArea({ messages, sessionImages, isSending, onOpenImage, onRetry, onConfirm, onUseAsReference, onQuickAction }: Props) {
+export function ChatArea({ messages, sessionImages, isSending, onOpenImage, onRetry, onConfirm, onUpdateConfirmParams, onUseAsReference, onQuickAction }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const [isAtBottom, setIsAtBottom] = useState(true);
@@ -133,6 +134,7 @@ export function ChatArea({ messages, sessionImages, isSending, onOpenImage, onRe
                 onOpenImage={onOpenImage}
                 onRetry={onRetry}
                 onConfirm={onConfirm}
+                onUpdateConfirmParams={onUpdateConfirmParams}
                 onUseAsReference={onUseAsReference}
               />
             ))}

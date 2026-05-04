@@ -1372,7 +1372,7 @@ export default function CreatePage() {
 
         {/* ==== 生成中：毛玻璃流光卡片 ==== */}
         {store.isGenerating && (
-          <LoadingStage genCount={genCount} progress={store.generationProgress} />
+          <LoadingStage genCount={genCount} progress={store.generationProgress} moduleName="服装上身" />
         )}
 
         {/* Result */}

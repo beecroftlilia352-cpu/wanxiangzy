@@ -655,7 +655,7 @@ export default function GrassPage() {
           </div>
         )}
         {isGenerating && (
-          <LoadingStage genCount={1} progress={progress} />
+          <LoadingStage genCount={genCount} progress={progress} moduleName="服装种草图" />
         )}
         {resultUrls.length > 0 && (
           <div className="studio-result-stage min-h-[260px] sm:min-h-[360px] overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:h-full flex flex-col animate-fade-in">

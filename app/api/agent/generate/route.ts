@@ -5,11 +5,13 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { createServerSupabase } from "@/lib/supabase/server";
+import { createServerSupabase, createServerSupabaseAdmin } from "@/lib/supabase/server";
 import { requireApiUser } from "@/lib/api/auth";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
-import { createDebitedGeneration, errorToResponsePayload } from "@/lib/api/credits";
+import { createDebitedGeneration, errorToResponsePayload, failGenerationWithRefund } from "@/lib/api/credits";
+import { normalizeGeneratedImageUrl } from "@/lib/api/image-result";
 import { generateImage, getCreditCost, normalizeAspectRatio, normalizeImageSize, normalizeLingyaModel, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
+import { persistGeneratedImageUrls } from "@/lib/api/result-image-storage";
 
 export const maxDuration = 120;
 
@@ -29,12 +31,14 @@ export async function POST(request: NextRequest) {
       model: rawModel,
       aspectRatio: rawRatio,
       imageSize: rawSize,
+      count: rawCount,
     } = body as {
       prompt?: string;
       images?: string[];
       model?: string;
       aspectRatio?: string;
       imageSize?: string;
+      count?: number;
     };
 
     if (!prompt?.trim()) {
@@ -44,46 +48,64 @@ export async function POST(request: NextRequest) {
     const model: LingyaModel = normalizeLingyaModel(rawModel);
     const aspectRatio: AspectRatio = normalizeAspectRatio(rawRatio || "3:4");
     const imageSize: ImageSize = normalizeImageSize(model, (rawSize as ImageSize) || "1K", aspectRatio);
+    const count = Math.min(Math.max(Number(rawCount) || 1, 1), 4);
     const costPerImage = getCreditCost(model, imageSize, aspectRatio);
+    const totalCost = costPerImage * count;
 
     // 扣减积分
     const debit = await createDebitedGeneration(supabase, {
       userId: user.id,
       clothingUrls: Array.isArray(images) ? images : [],
-      creditsCost: costPerImage,
+      creditsCost: totalCost,
       aiModel: model,
       imageSize,
       reason: `通用生图 (${model}, ${imageSize})`,
-      jobPayload: { kind: "general", prompt: prompt.trim(), images: images || [], aiModel: model, aspectRatio, imageSize },
+      jobPayload: { kind: "general", prompt: prompt.trim(), images: images || [], aiModel: model, aspectRatio, imageSize, genCount: count },
     });
 
-    // 调用生图 API
-    const result = await generateImage({
-      model,
-      prompt: prompt.trim(),
-      aspect_ratio: aspectRatio,
-      image_size: imageSize,
-      image: Array.isArray(images) ? images : undefined,
-    });
-
-    if (!result.url && !result.b64_json) {
-      return NextResponse.json({ error: "生图失败，未返回结果" }, { status: 502 });
+    let resultUrls: string[];
+    let resultPrompt = prompt.trim();
+    try {
+      // 调用生图 API。若上游失败或返回不可渲染图片，必须退还本次积分。
+      const rawResultUrls: string[] = [];
+      for (let i = 0; i < count; i++) {
+        const result = await generateImage({
+          model,
+          prompt: prompt.trim(),
+          aspect_ratio: aspectRatio,
+          image_size: imageSize,
+          image: Array.isArray(images) ? images : undefined,
+        });
+        rawResultUrls.push(normalizeGeneratedImageUrl(result));
+        resultPrompt = result.prompt || resultPrompt;
+      }
+      resultUrls = await persistGeneratedImageUrls(rawResultUrls, debit.generationId, {
+        forceServerDownload: rawResultUrls.some((url) => url.startsWith("http")),
+      });
+    } catch (generationErr) {
+      const message = generationErr instanceof Error ? generationErr.message : "通用生图失败";
+      await failGenerationWithRefund(createServerSupabaseAdmin(), {
+        userId: user.id,
+        generationId: debit.generationId,
+        amount: totalCost,
+        reason: "通用生图失败退还",
+        errorMessage: message,
+      });
+      throw generationErr;
     }
-
-    const resultUrl = result.url || `data:image/png;base64,${result.b64_json}`;
 
     // 更新 generation 状态为完成
     await supabase
       .from("generations")
-      .update({ status: "completed", result_urls: [resultUrl], completed_at: new Date().toISOString() })
+      .update({ status: "completed", result_urls: resultUrls, completed_at: new Date().toISOString() })
       .eq("id", debit.generationId);
 
     return NextResponse.json({
       generation_id: debit.generationId,
-      result_urls: [resultUrl],
-      credits_cost: costPerImage,
+      result_urls: resultUrls,
+      credits_cost: totalCost,
       credits_remaining: debit.creditsRemaining,
-      prompt: result.prompt || prompt.trim(),
+      prompt: resultPrompt,
     });
   } catch (err: unknown) {
     console.error("[agent-generate] error:", err instanceof Error ? err.message : err);

@@ -2,8 +2,9 @@
 
 import { create } from "zustand";
 import { v4 } from "./uuid";
-import type { Conversation, Message, ChatImage, GenerationParams, AgentMode } from "@/lib/agent/types";
+import type { Conversation, Message, ChatImage, GenerationParams, AgentMode, ChatImageRole } from "@/lib/agent/types";
 import { DEFAULT_PARAMS } from "@/lib/agent/types";
+import { getCreditCost, normalizeImageSize, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
 import { uploadImage, compressImageForAgent } from "@/lib/utils";
 
 // ---- DB 持久化（Supabase） ----
@@ -29,12 +30,14 @@ type Store = {
   addImages: (files: File[]) => Promise<void>;
   removeImage: (i: number) => void;
   addReferenceUrl: (url: string) => void;
+  setImageRole: (index: number, role: ChatImageRole) => void;
   setParams: (p: Partial<GenerationParams>) => void;
   setSidebarOpen: (v: boolean) => void;
   sendMessage: () => Promise<void>;
   aiWrite: () => Promise<void>;
   retryMessage: (id: string) => void;
   confirmGeneration: (messageId: string) => Promise<void>;
+  updateConfirmParams: (messageId: string, params: Partial<GenerationParams>) => void;
   reset: () => void;
 };
 
@@ -67,12 +70,13 @@ function sanitizeGenerationForDB(gen: unknown): Record<string, unknown> | null {
 }
 
 /** 保存消息到 DB */
-function saveMessage(convId: string, msg: { role: string; content: string; images?: ChatImage[]; generation?: unknown; mode?: string }) {
+function saveMessage(convId: string, msg: { id?: string; role: string; content: string; images?: ChatImage[]; generation?: unknown; mode?: string }) {
   console.log("[agent-store] saveMessage:", { convId, role: msg.role, contentLen: msg.content.length, hasGeneration: !!msg.generation });
   fetch(`/api/conversations/${convId}/messages`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
+      id: msg.id,
       role: msg.role,
       content: msg.content,
       images: msg.images || [],
@@ -91,6 +95,13 @@ function updateMessageGeneration(convId: string, messageId: string, generation: 
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ messageId, generation: clean }),
   }).catch(() => {});
+}
+
+function inferDefaultImageRole(index: number): ChatImageRole {
+  if (index === 1) return "clothing";
+  if (index === 2) return "reference";
+  if (index === 3) return "face";
+  return "auto";
 }
 
 // ---- Store ----
@@ -169,7 +180,11 @@ export const useAgentStore = create<Store>((set, get) => ({
     const current = get().inputImages;
     const start = current.length;
     const placeholders: ChatImage[] = files.map((f, i) => ({
-      index: start + i + 1, url: URL.createObjectURL(f), fileName: f.name, uploading: true,
+      index: start + i + 1,
+      url: URL.createObjectURL(f),
+      fileName: f.name,
+      role: inferDefaultImageRole(start + i + 1),
+      uploading: true,
     }));
     set((s) => ({ inputImages: [...s.inputImages, ...placeholders] }));
 
@@ -205,11 +220,36 @@ export const useAgentStore = create<Store>((set, get) => ({
   },
 
   removeImage: (index: number) => {
+    let nextImages: ChatImage[] = [];
     set((s) => {
       const removed = s.inputImages[index];
       if (removed?.url?.startsWith("blob:")) URL.revokeObjectURL(removed.url);
-      return { inputImages: s.inputImages.filter((_, i) => i !== index).map((img, i) => ({ ...img, index: i + 1 })) };
+      nextImages = s.inputImages.filter((_, i) => i !== index).map((img, i) => ({ ...img, index: i + 1 }));
+      return { inputImages: nextImages };
     });
+    const { activeId } = get();
+    if (activeId) {
+      fetch(`/api/conversations/${activeId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ images: nextImages }),
+      }).catch(() => {});
+    }
+  },
+
+  setImageRole: (index: number, role: ChatImageRole) => {
+    set((s) => ({
+      inputImages: s.inputImages.map((img) => img.index === index ? { ...img, role } : img),
+    }));
+    const { activeId, inputImages } = get();
+    if (activeId) {
+      const persisted = inputImages.map((img) => img.index === index ? { ...img, role } : img);
+      fetch(`/api/conversations/${activeId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ images: persisted }),
+      }).catch(() => {});
+    }
   },
 
   /** 将远程 URL 直接加入图片托盘（用于"用作参考图"） */
@@ -223,6 +263,7 @@ export const useAgentStore = create<Store>((set, get) => ({
           url,
           hostedUrl: url,
           fileName: "参考图",
+          role: "reference",
           uploading: false,
         },
       ],
@@ -295,26 +336,16 @@ export const useAgentStore = create<Store>((set, get) => ({
     set((s) => ({ messages: [...s.messages, userMsg, aiMsg] }));
 
     // 保存用户消息
-    saveMessage(convId, { role: "user", content: trimmed, images: persistedImages, mode: "agent" });
+    saveMessage(convId, { id: userMsg.id, role: "user", content: trimmed, images: persistedImages, mode: "agent" });
 
     try {
       // 当前上传的图片
-      let imageUrls = currentImages.map((img) => ({ index: img.index, url: img.hostedUrl || img.url })).filter((img) => img.url);
-
-      // 如果当前没有图片，从历史消息中提取最近的图片
-      if (imageUrls.length === 0) {
-        const recentUserMsgs = get().messages
-          .filter((m) => m.role === "user" && m.images && m.images.length > 0)
-          .slice(-3);
-        for (const msg of recentUserMsgs) {
-          for (const img of msg.images || []) {
-            const url = img.hostedUrl || img.url;
-            if (url && !imageUrls.some((existing) => existing.url === url)) {
-              imageUrls.push({ index: imageUrls.length + 1, url });
-            }
-          }
-        }
-      }
+      let imageUrls = currentImages.map((img) => ({
+        index: img.index,
+        url: img.hostedUrl || img.url,
+        role: img.role || "auto",
+        fileName: img.fileName,
+      })).filter((img) => img.url);
 
       const history = get().messages
         .filter((m) => m.id !== userMsg.id && m.id !== aiMsg.id)
@@ -379,7 +410,7 @@ export const useAgentStore = create<Store>((set, get) => ({
 
         // 保存 AI 消息（含 generation 数据）
         const confirmGen = get().messages.find((m) => m.id === aiMsg.id)?.generation;
-        saveMessage(convId, { role: "assistant", content: reply, generation: confirmGen || null, mode: "agent" });
+        saveMessage(convId, { id: aiMsg.id, role: "assistant", content: reply, generation: confirmGen || null, mode: "agent" });
       } else {
         // 对话回复
         set((s) => ({
@@ -388,7 +419,7 @@ export const useAgentStore = create<Store>((set, get) => ({
             m.id === aiMsg.id ? { ...m, content: reply, streamingDone: true } : m
           ),
         }));
-        saveMessage(convId, { role: "assistant", content: reply, mode: "agent" });
+        saveMessage(convId, { id: aiMsg.id, role: "assistant", content: reply, mode: "agent" });
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "处理失败";
@@ -433,6 +464,48 @@ export const useAgentStore = create<Store>((set, get) => ({
   },
 
   // ======== 确认生图（用户确认后才扣积分执行） ========
+  updateConfirmParams: (messageId: string, patch: Partial<GenerationParams>) => {
+    let updatedGeneration: unknown = null;
+    let convId = "";
+    set((s) => ({
+      messages: s.messages.map((m) => {
+        if (m.id !== messageId || !m.generation?._confirmData) return m;
+        convId = m.conversation_id;
+        const current = readConfirmParams(m.generation._confirmData.params);
+        const nextModel = patch.model || current.model;
+        const nextRatio = patch.aspectRatio || current.aspectRatio;
+        const nextSize = normalizeImageSize(nextModel, patch.imageSize || current.imageSize, nextRatio);
+        const nextCount = Math.min(Math.max(Number(patch.count ?? current.count) || 1, 1), 4);
+        const nextCost = getCreditCost(nextModel, nextSize, nextRatio) * nextCount;
+        const nextParams = writeConfirmParams(m.generation._confirmData.params, {
+          model: nextModel,
+          aspectRatio: nextRatio,
+          imageSize: nextSize,
+          count: nextCount,
+        });
+        const nextJobPayload = writeConfirmPayloadParams(m.generation._confirmData.jobPayload, {
+          model: nextModel,
+          aspectRatio: nextRatio,
+          imageSize: nextSize,
+          count: nextCount,
+        });
+        const generation = {
+          ...m.generation,
+          creditsUsed: nextCost,
+          _confirmData: {
+            ...m.generation._confirmData,
+            params: nextParams,
+            jobPayload: nextJobPayload,
+            creditsCost: nextCost,
+          },
+        };
+        updatedGeneration = generation;
+        return { ...m, generation };
+      }),
+    }));
+    if (convId && updatedGeneration) updateMessageGeneration(convId, messageId, updatedGeneration);
+  },
+
   confirmGeneration: async (messageId: string) => {
     const { messages } = get();
     const msg = messages.find((m) => m.id === messageId);
@@ -449,6 +522,7 @@ export const useAgentStore = create<Store>((set, get) => ({
       jobPayload: Record<string, unknown>;
       creditsCost: number;
     };
+    let requestProgressTimer: ReturnType<typeof setInterval> | null = null;
 
     // 更新为 generating 状态
     set((s) => ({
@@ -459,6 +533,11 @@ export const useAgentStore = create<Store>((set, get) => ({
           : m
       ),
     }));
+    const generatingGen = get().messages.find((m) => m.id === messageId)?.generation;
+    if (generatingGen) {
+      updateMessageGeneration(convId, messageId, generatingGen);
+    }
+    requestProgressTimer = startRequestProgress(set, messageId);
 
     try {
       // 调用 API 执行生成
@@ -473,8 +552,14 @@ export const useAgentStore = create<Store>((set, get) => ({
         throw new Error(data.error || "生成失败");
       }
 
+      if (requestProgressTimer) {
+        clearInterval(requestProgressTimer);
+        requestProgressTimer = null;
+      }
+
       // 通用生图：直接返回结果（无 generation_id）
       if (data.result_urls && data.result_urls.length > 0) {
+        const verifiedResultUrls = await verifyGeneratedResultUrls(data.result_urls);
         set((s) => ({
           isSending: false,
           messages: s.messages.map((m) =>
@@ -485,7 +570,7 @@ export const useAgentStore = create<Store>((set, get) => ({
                     ...m.generation,
                     status: "completed" as const,
                     progress: 100,
-                    resultUrls: data.result_urls,
+                    resultUrls: verifiedResultUrls,
                     creditsUsed: data.credits_cost || confirmData.creditsCost,
                     _confirmData: undefined,
                   },
@@ -511,7 +596,7 @@ export const useAgentStore = create<Store>((set, get) => ({
                 generation: {
                   ...m.generation,
                   status: "generating" as const,
-                  progress: 10,
+                  progress: 25,
                   generationId: data.generation_id,
                   creditsUsed: data.credits_cost || confirmData.creditsCost,
                   _confirmData: undefined,
@@ -528,6 +613,10 @@ export const useAgentStore = create<Store>((set, get) => ({
 
       pollGeneration(get, set, messageId, convId, data.generation_id, confirmData.module);
     } catch (err) {
+      if (requestProgressTimer) {
+        clearInterval(requestProgressTimer);
+        requestProgressTimer = null;
+      }
       const errMsg = err instanceof Error ? err.message : "生成失败";
       set((s) => ({
         isSending: false,
@@ -537,6 +626,8 @@ export const useAgentStore = create<Store>((set, get) => ({
             : m
         ),
       }));
+      const failedGen = get().messages.find((m) => m.id === messageId)?.generation;
+      if (failedGen) updateMessageGeneration(convId, messageId, failedGen);
     }
   },
 
@@ -565,28 +656,41 @@ function pollGeneration(
 ) {
   const apiPath = module === "model_background" ? "model-background" : module;
   const url = `/api/${apiPath}?generation_id=${generationId}`;
-  const PROGRESS: Record<string, number> = { uploading: 10, queued: 20, processing_tryon: 50, processing_face_swap: 70 };
+  let attempts = 0;
 
   const timer = setInterval(async () => {
     try {
+      attempts++;
       const res = await fetch(url);
       if (!res.ok) return;
       const data = await res.json();
       const status = data.status as string;
       const resultUrls: string[] = Array.isArray(data.result_urls) ? data.result_urls : [];
-      const progress = resultUrls.length > 0 ? 100 : (PROGRESS[status] ?? 30);
+      const progress = resultUrls.length > 0 ? 100 : getPollingProgress(status, attempts);
       const done = status === "completed" || resultUrls.length > 0;
       const failed = status === "failed";
 
       if (done || failed) {
         clearInterval(timer);
         console.log("[agent-store] pollGeneration completed:", { aiMsgId, done, failed, resultCount: resultUrls.length });
+        let verifiedResultUrls: string[] = [];
+        let finalFailed = failed;
+        let finalError = failed ? (data.error || "生成失败") : undefined;
+
+        if (!failed) {
+          try {
+            verifiedResultUrls = await verifyGeneratedResultUrls(resultUrls);
+          } catch (err) {
+            finalFailed = true;
+            finalError = err instanceof Error ? err.message : "结果图片不可用";
+          }
+        }
 
         const finalGeneration = {
-          status: done ? ("completed" as const) : ("failed" as const),
+          status: finalFailed ? ("failed" as const) : ("completed" as const),
           progress: 100,
-          resultUrls,
-          error: failed ? (data.error || "生成失败") : undefined,
+          resultUrls: verifiedResultUrls,
+          error: finalError,
         };
 
         set((s) => ({
@@ -621,6 +725,113 @@ function pollGeneration(
     const timers = new Map(s.pollTimers);
     timers.set(aiMsgId, timer);
     return { pollTimers: timers };
+  });
+}
+
+function startRequestProgress(
+  set: (fn: (s: Store) => Partial<Store>) => void,
+  aiMsgId: string
+) {
+  return setInterval(() => {
+    set((s) => ({
+      messages: s.messages.map((m) => {
+        if (m.id !== aiMsgId || !m.generation || m.generation.status !== "generating") return m;
+        const current = typeof m.generation.progress === "number" ? m.generation.progress : 5;
+        const eased = Math.ceil(current + Math.max(1, (90 - current) * 0.08));
+        return {
+          ...m,
+          generation: {
+            ...m.generation,
+            progress: Math.min(eased, 90),
+          },
+        };
+      }),
+    }));
+  }, 1500);
+}
+
+function getPollingProgress(status: string, attempts: number) {
+  if (status === "processing_face_swap") return Math.min(70 + attempts, 92);
+  if (status === "processing_tryon") return Math.min(25 + attempts * 1.5, 90);
+  if (status === "queued") return Math.min(20 + attempts, 35);
+  if (status === "uploading") return Math.min(10 + attempts, 25);
+  return Math.min(25 + attempts * 1.5, 90);
+}
+
+function readConfirmParams(params: Record<string, unknown>): GenerationParams {
+  const model = String(params.model || params.ai_model || DEFAULT_PARAMS.model) as LingyaModel;
+  const aspectRatio = String(params.aspectRatio || params.aspect_ratio || DEFAULT_PARAMS.aspectRatio) as AspectRatio;
+  const imageSize = String(params.imageSize || params.image_size || DEFAULT_PARAMS.imageSize) as ImageSize;
+  const count = Number(params.count || params.gen_count || DEFAULT_PARAMS.count);
+  return {
+    model,
+    aspectRatio,
+    imageSize,
+    count: Math.min(Math.max(count || 1, 1), 4),
+  };
+}
+
+function writeConfirmParams(params: Record<string, unknown>, next: GenerationParams): Record<string, unknown> {
+  const output = { ...params };
+  if ("model" in output || !("ai_model" in output)) output.model = next.model;
+  if ("aspectRatio" in output || !("aspect_ratio" in output)) output.aspectRatio = next.aspectRatio;
+  if ("imageSize" in output || !("image_size" in output)) output.imageSize = next.imageSize;
+  if ("count" in output || !("gen_count" in output)) output.count = next.count;
+  if ("ai_model" in output) output.ai_model = next.model;
+  if ("aspect_ratio" in output) output.aspect_ratio = next.aspectRatio;
+  if ("image_size" in output) output.image_size = next.imageSize;
+  if ("gen_count" in output) output.gen_count = next.count;
+  return output;
+}
+
+function writeConfirmPayloadParams(payload: Record<string, unknown>, next: GenerationParams): Record<string, unknown> {
+  return {
+    ...payload,
+    aiModel: next.model,
+    aspectRatio: next.aspectRatio,
+    imageSize: next.imageSize,
+    genCount: next.count,
+  };
+}
+
+async function verifyGeneratedResultUrls(urls: unknown): Promise<string[]> {
+  const list = Array.isArray(urls)
+    ? urls.filter((url): url is string => typeof url === "string" && url.trim().length > 0)
+    : [];
+
+  if (list.length === 0) {
+    throw new Error("生成完成但没有返回结果图片");
+  }
+
+  if (typeof window === "undefined") return list;
+
+  await Promise.all(list.map((url) => preloadImage(url)));
+  return list;
+}
+
+function preloadImage(url: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (url.startsWith("data:image/")) {
+      resolve();
+      return;
+    }
+
+    const img = new Image();
+    const timer = window.setTimeout(() => {
+      img.onload = null;
+      img.onerror = null;
+      reject(new Error("结果图片加载超时，请重试生成"));
+    }, 10_000);
+
+    img.onload = () => {
+      window.clearTimeout(timer);
+      resolve();
+    };
+    img.onerror = () => {
+      window.clearTimeout(timer);
+      reject(new Error("结果图片不可用，可能被拦截或转存失败"));
+    };
+    img.src = url;
   });
 }
 

@@ -5,6 +5,7 @@ import { ImagePlus, KeyRound, Loader2, Send, Server, X } from "lucide-react";
 import { toast } from "sonner";
 import { FeatureTabs } from "@/components/FeatureTabs";
 import { ModuleHeader } from "@/components/ModuleHeader";
+import { LoadingStage } from "@/components/studio/LoadingStage";
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 
 const DEFAULT_API_URL = "https://hk-api.gptbest.vip";
@@ -434,82 +435,5 @@ function readImageFile(file: File): Promise<InputImage> {
 }
 
 function GenerationLoading({ progress, model }: { progress: number; model: string }) {
-  return (
-    <div className="relative flex min-h-[460px] items-center justify-center overflow-hidden rounded-xl bg-[#f0f0f5] p-6">
-      <div
-        className="absolute left-[18%] top-[10%] h-[300px] w-[300px] rounded-full opacity-40 blur-3xl"
-        style={{ background: "radial-gradient(circle, #e879f9, #a78bfa, transparent)" }}
-      />
-      <div
-        className="absolute bottom-[12%] right-[12%] h-[260px] w-[260px] rounded-full opacity-30 blur-3xl"
-        style={{ background: "radial-gradient(circle, #f472b6, #a78bfa, transparent)" }}
-      />
-
-      <div className="relative z-10 w-full max-w-sm overflow-hidden rounded-2xl border border-white/70 bg-white/35 p-5 shadow-2xl shadow-purple-200/50 backdrop-blur-2xl">
-        <div className="relative aspect-[3/4] overflow-hidden rounded-xl border border-white/60 bg-gradient-to-br from-fuchsia-100/70 via-purple-100/70 to-pink-100/70">
-          <div
-            className="absolute inset-0"
-            style={{
-              background: "linear-gradient(120deg, transparent 0%, transparent 30%, rgba(232,121,249,0.1) 40%, rgba(255,255,255,0.32) 49%, rgba(255,255,255,0.42) 50%, rgba(255,255,255,0.32) 51%, rgba(167,139,250,0.1) 60%, transparent 70%, transparent 100%)",
-              backgroundSize: "300% 100%",
-              animation: "shimmer 4s ease-in-out infinite",
-            }}
-          />
-          <div
-            className="absolute inset-0"
-            style={{
-              background: "linear-gradient(160deg, transparent 0%, transparent 35%, rgba(244,114,182,0.1) 45%, rgba(255,255,255,0.22) 50%, rgba(192,132,252,0.1) 55%, transparent 65%, transparent 100%)",
-              backgroundSize: "250% 100%",
-              animation: "shimmer 5.5s ease-in-out infinite reverse",
-            }}
-          />
-          <div
-            className="absolute inset-0 opacity-[0.03]"
-            style={{
-              backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")",
-            }}
-          />
-
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <div className="relative h-28 w-28">
-              <svg viewBox="0 0 100 100" className="h-full w-full" style={{ animation: "spin 5s linear infinite", filter: "drop-shadow(0 0 8px rgba(232,121,249,0.4))" }}>
-                <defs>
-                  <linearGradient id="api-test-loading-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#e879f9">
-                      <animate attributeName="stop-color" values="#e879f9;#a78bfa;#f472b6;#e879f9" dur="4s" repeatCount="indefinite" />
-                    </stop>
-                    <stop offset="100%" stopColor="#a78bfa">
-                      <animate attributeName="stop-color" values="#a78bfa;#f472b6;#e879f9;#a78bfa" dur="4s" repeatCount="indefinite" />
-                    </stop>
-                  </linearGradient>
-                </defs>
-                <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="4" />
-                <circle cx="50" cy="50" r="42" fill="none" stroke="url(#api-test-loading-gradient)" strokeWidth="4" strokeLinecap="round" strokeDasharray="180 264" />
-              </svg>
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span
-                  className="text-2xl font-black"
-                  style={{
-                    background: "linear-gradient(135deg, #e879f9, #a78bfa, #f472b6)",
-                    WebkitBackgroundClip: "text",
-                    WebkitTextFillColor: "transparent",
-                  }}
-                >
-                  {Math.round(progress)}
-                </span>
-                <span className="ml-0.5 text-xs font-bold text-purple-400">%</span>
-              </div>
-            </div>
-            <p className="mt-3 text-xs font-medium text-purple-500">
-              {progress < 25 ? "准备请求..." : progress < 90 ? "生成中..." : "即将完成..."}
-            </p>
-          </div>
-        </div>
-        <div className="mt-4 text-center">
-          <p className="text-sm font-bold text-gray-900">{model}</p>
-          <p className="mt-1 text-xs text-gray-500">Generations 正在生成测试图</p>
-        </div>
-      </div>
-    </div>
-  );
+  return <LoadingStage genCount={1} progress={progress} moduleName={model} />;
 }

@@ -2,16 +2,26 @@
 
 import { useRef, useState } from "react";
 import { Plus, X, Loader2, ZoomIn } from "lucide-react";
-import type { ChatImage } from "@/lib/agent/types";
+import type { ChatImage, ChatImageRole } from "@/lib/agent/types";
 
 type Props = {
   images: ChatImage[];
   onAdd: (files: File[]) => void;
   onRemove: (index: number) => void;
+  onRoleChange?: (index: number, role: ChatImageRole) => void;
   onPreview?: (url: string) => void;
 };
 
-export function ImageTray({ images, onAdd, onRemove, onPreview }: Props) {
+const ROLE_OPTIONS: Array<{ value: ChatImageRole; label: string }> = [
+  { value: "auto", label: "自动" },
+  { value: "clothing", label: "服装" },
+  { value: "reference", label: "参考" },
+  { value: "face", label: "脸图" },
+  { value: "background", label: "背景" },
+  { value: "source", label: "原图" },
+];
+
+export function ImageTray({ images, onAdd, onRemove, onRoleChange, onPreview }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   if (images.length === 0) return null;
@@ -43,6 +53,17 @@ export function ImageTray({ images, onAdd, onRemove, onPreview }: Props) {
             <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 rounded bg-violet-600 px-1.5 text-[9px] font-bold leading-tight text-white shadow-sm">
               图{img.index}
             </span>
+            <select
+              value={img.role || "auto"}
+              onClick={(e) => e.stopPropagation()}
+              onChange={(e) => onRoleChange?.(img.index, e.target.value as ChatImageRole)}
+              className="absolute left-0 top-0 z-10 max-w-[54px] rounded-br-md bg-black/55 px-1 py-0.5 text-[9px] font-bold leading-none text-white outline-none backdrop-blur transition-colors hover:bg-violet-600/80"
+              title="设置图片角色"
+            >
+              {ROLE_OPTIONS.map((role) => (
+                <option key={role.value} value={role.value}>{role.label}</option>
+              ))}
+            </select>
             {/* 删除按钮 — 圆形，不被遮挡 */}
             <button
               onClick={(e) => { e.stopPropagation(); onRemove(i); }}

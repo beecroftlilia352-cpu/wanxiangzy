@@ -745,7 +745,7 @@ export default function ModelBackgroundPage() {
         )}
 
         {isGenerating && (
-          <LoadingStage genCount={1} progress={progress} />
+          <LoadingStage genCount={genCount} progress={progress} moduleName="模特换背景" />
         )}
 
         {resultUrls.length > 0 && (

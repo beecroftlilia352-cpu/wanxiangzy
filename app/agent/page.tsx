@@ -131,6 +131,7 @@ export default function AgentPage() {
           onOpenImage={setLightbox}
           onRetry={s.retryMessage}
           onConfirm={s.confirmGeneration}
+          onUpdateConfirmParams={s.updateConfirmParams}
           onUseAsReference={(url) => {
             s.addReferenceUrl(url);
             toast.success("已加入附件区，可作为参考图使用");
@@ -149,6 +150,7 @@ export default function AgentPage() {
           onTextChange={s.setInputText}
           onAddImages={s.addImages}
           onRemoveImage={s.removeImage}
+          onImageRoleChange={s.setImageRole}
           onParamsChange={s.setParams}
           onSend={s.sendMessage}
           onAIWrite={s.aiWrite}

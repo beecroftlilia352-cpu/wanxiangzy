@@ -29,6 +29,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const { data, error } = await supabase
     .from("agent_messages")
     .insert({
+      ...(typeof body.id === "string" ? { id: body.id } : {}),
       conversation_id: id,
       role: body.role || "user",
       content: body.content || "",

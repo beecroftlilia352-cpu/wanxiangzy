@@ -22,6 +22,18 @@ import {
   type ImageSize,
   type LingyaModel,
 } from "@/lib/api/lingya";
+import {
+  applyImageRoleParams,
+  buildPlanLines,
+  getImageRoleLabel,
+  normalizeAgentModule,
+  resolveImageUrl,
+  resolveImageUrls,
+  validateAgentDecision,
+  validateImageRoleConflicts,
+  type AgentImageInput,
+} from "@/lib/agent/decision-utils";
+import { buildSafeReplyExcerpt } from "@/lib/agent/formatting";
 
 export const maxDuration = 60;
 
@@ -52,14 +64,18 @@ const SYSTEM_PROMPT = `你是 VastWear AI 助手，一个专业的服装电商�
   "action": "chat 或 generate",
   "module": "模块名或null",
   "params": {},
-  "style": null
+  "style": null,
+  "confidence": 0.0,
+  "missing_fields": []
 }
 \`\`\`
 
 ### reply 字段要求
 - 必须详细、专业、有深度（至少3句话，最好5-10句话）
 - 分析图片时要具体：品类、颜色、面料、风格、适合场景、拍摄建议
-- 用 Markdown 格式：**粗体**、• 列表、分段
+- 用 Markdown 格式：**粗体**、二级标题、短段落、\`-\` 列表
+- 列表必须每项独占一行，列表前后必须空一行；禁止把多个 \`•\` 或多个列表项挤在同一行
+- 回复结构优先使用：一句结论 → \`**我能帮你做什么**\` → 列表 → \`**建议下一步**\`
 - 像一个资深的电商视觉顾问在给客户做方案
 
 ### action 字段规则
@@ -67,7 +83,8 @@ const SYSTEM_PROMPT = `你是 VastWear AI 助手，一个专业的服装电商�
 - 用户要求修改/调整/重做/换掉某部分，且有图片 → "generate"（修改后重新生成）
 - 用户描述服装组合（上装+下装+模特），且有图片 → "generate"
 - 用户只是聊天/提问/分析/咨询 → "chat"
-- 有图片 + 不确定 → "generate"（宁可多生成，不要漏掉）
+- 有图片但意图不确定、图片角色不清、缺少关键图片 → "chat"，先追问或给建议，不要误触发扣积分生成
+- 只有当用户明确要生成/换装/种草/换背景/3D/姿势裂变，或图片角色足够明确时，才返回 "generate"
 
 ### module 字段（仅 action="generate" 时）
 - "tryon"：换装/穿上/试穿/上身
@@ -124,6 +141,17 @@ const MODULE_LABELS: Record<string, string> = {
   garment_3d: "3D展示",
 };
 
+type AgentDecision = {
+  reply: string;
+  action: "chat" | "generate";
+  module: string | null;
+  params: Record<string, unknown>;
+  style: string | null;
+  confidence: number;
+  missingFields: string[];
+  source: "llm" | "heuristic" | "fallback";
+};
+
 export async function POST(request: NextRequest) {
   try {
     const auth = await requireApiUser();
@@ -135,7 +163,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => ({}));
     const { message, images, history, params: userParams } = body as {
       message?: string;
-      images?: Array<{ index: number; url: string }>;
+      images?: AgentImageInput[];
       history?: Array<{ role: string; content: string }>;
       params?: { model?: string; aspectRatio?: string; imageSize?: string; count?: number };
     };
@@ -165,7 +193,7 @@ export async function POST(request: NextRequest) {
     const userContent: Array<Record<string, unknown>> = [];
     const userText = (message || "").trim();
     const imageDesc = hasImages
-      ? `\n\n图片编号：${images!.map((img) => `图${img.index}（${guessImageRole(img.index, images!.length, userText)}）`).join("、")}`
+      ? `\n\n图片编号：${images!.map((img) => `图${img.index}（${getImageRoleLabel(img.role) || guessImageRole(img.index, images!.length, userText)}）`).join("、")}\n图片角色以括号标注为准，优先使用用户设置的图片角色，不要自行交换图号。`
       : "";
     userContent.push({ type: "text", text: `${userText || "请分析这些图片并推荐操作"}${imageDesc}` });
 
@@ -204,13 +232,10 @@ export async function POST(request: NextRequest) {
 
     // 解析 LLM 响应
     const parsed = extractJson(llmContent);
-    const reply = typeof parsed?.reply === "string" && parsed.reply.length > 10
-      ? parsed.reply
-      : llmContent || "我理解了你的需求，正在处理中...";
-    let action = parsed?.action === "generate" && hasImages ? "generate" : "chat";
-    let module = typeof parsed?.module === "string" ? parsed.module : null;
-    const llmParams = typeof parsed?.params === "object" && parsed.params !== null ? parsed.params as Record<string, unknown> : {};
-    const style = typeof parsed?.style === "string" ? parsed.style : null;
+    const decision = normalizeAgentDecision(parsed, llmContent, userText, Boolean(hasImages), images?.length || 0);
+    let { action, module } = decision;
+    let llmParams = decision.params;
+    const style = decision.style;
 
     // 兜底：检测生图意图
     if (!module) {
@@ -218,41 +243,63 @@ export async function POST(request: NextRequest) {
       if (detected) {
         action = "generate";
         module = detected;
+        decision.confidence = Math.max(decision.confidence, 0.72);
+        decision.source = "heuristic";
       }
-      // 最终兜底：有图片 + 非纯聊天 → 默认换装
-      if (!module && hasImages && !isChatOnlyIntent(userText)) {
+      // 最终兜底：多图 + 非纯聊天时才默认换装；单图更适合先分析/询问，避免误扣积分
+      if (!module && hasImages && (images?.length || 0) >= 2 && !isChatOnlyIntent(userText)) {
         action = "generate";
         module = "tryon";
+        decision.confidence = 0.55;
+        decision.source = "fallback";
       }
     }
 
+    if (module && hasImages) {
+      llmParams = applyImageRoleParams(module, llmParams, images || []);
+      decision.params = llmParams;
+    }
+
     // 最终决策日志
-    console.log("[agent-chat] decision:", { action, module, hasImages, userText: userText.slice(0, 50) });
+    console.log("[agent-chat] decision:", {
+      action,
+      module,
+      confidence: decision.confidence,
+      source: decision.source,
+      hasImages,
+      userText: userText.slice(0, 50),
+    });
 
     // 对话模式：直接返回
     if (action !== "generate" || !module) {
-      return NextResponse.json({ reply, action: "chat" });
+      return NextResponse.json({ reply: decision.reply, action: "chat" });
     }
 
     // 通用生图（文生图 / 图生图 / 无特定模块）
     if (!MODULE_API[module]) {
       const imageUrls = (images || []).map((img) => img.url).filter(Boolean);
-      const cost = getCreditCost(
-        normalizeLingyaModel(userParams?.model),
-        normalizeImageSize(normalizeLingyaModel(userParams?.model), (userParams?.imageSize as ImageSize) || "1K", normalizeAspectRatio(userParams?.aspectRatio || "3:4")),
-        normalizeAspectRatio(userParams?.aspectRatio || "3:4")
-      );
+      const model = normalizeLingyaModel(userParams?.model);
+      const aspectRatio = normalizeAspectRatio(userParams?.aspectRatio || "3:4");
+      const imageSize = normalizeImageSize(model, (userParams?.imageSize as ImageSize) || "1K", aspectRatio);
+      const count = Math.min(Math.max(Number(userParams?.count) || 1, 1), 4);
+      const cost = getCreditCost(model, imageSize, aspectRatio) * count;
       return NextResponse.json({
-        reply,
+        reply: buildConfirmReply("通用生图", decision.reply, {
+          imageCount: imageUrls.length,
+          confidence: decision.confidence,
+          missingFields: [],
+          planLines: buildPlanLines("general", decision.params, images || []),
+        }),
         action: "confirm_generate",
         module: "通用生图",
         module_label: "通用生图",
         generation_params: {
-          prompt: userText || reply,
+          prompt: userText || decision.reply,
           images: imageUrls,
-          model: userParams?.model || "gpt-image-2",
-          aspectRatio: userParams?.aspectRatio || "3:4",
-          imageSize: userParams?.imageSize || "1K",
+          model,
+          aspectRatio,
+          imageSize,
+          count,
         },
         api_path: "/api/agent/generate",
         credits_cost: cost,
@@ -274,6 +321,24 @@ export async function POST(request: NextRequest) {
     // 构建图片映射：图号 → URL
     const imageMap = new Map<number, string>();
     for (const img of images!) imageMap.set(img.index, img.url);
+    const validation = validateAgentDecision(module, llmParams, imageMap);
+    if (!validation.ok) {
+      return NextResponse.json({
+        reply: buildClarifyReply(module, validation.missingFields, imageMap.size),
+        action: "chat",
+        missing_fields: validation.missingFields,
+        confidence: decision.confidence,
+      });
+    }
+    const roleValidation = validateImageRoleConflicts(module, llmParams, images || []);
+    if (!roleValidation.ok) {
+      return NextResponse.json({
+        reply: buildRoleConflictReply(module, roleValidation.issues, images || []),
+        action: "chat",
+        missing_fields: roleValidation.issues,
+        confidence: decision.confidence,
+      });
+    }
 
     // 构建模块参数
     const moduleParams = buildModuleParams(module, llmParams, imageMap, {
@@ -284,14 +349,19 @@ export async function POST(request: NextRequest) {
     if (!moduleParams) {
       console.error("[agent-chat] buildModuleParams failed", { module, llmParams, imageMapKeys: Array.from(imageMap.keys()) });
       return NextResponse.json({
-        reply: `${reply}\n\n⚠️ 参数构建失败，请尝试更明确地描述，例如："把图1的衣服穿到图2身上"`,
+        reply: `${decision.reply}\n\n参数构建失败，请尝试更明确地描述，例如：“把图1的衣服穿到图2身上”。`,
         action: "chat",
       });
     }
 
     // 不直接执行，返回确认信息让用户确认后才扣积分
     return NextResponse.json({
-      reply,
+      reply: buildConfirmReply(MODULE_LABELS[module] || module, decision.reply, {
+        imageCount: imageMap.size,
+        confidence: decision.confidence,
+        missingFields: [],
+        planLines: buildPlanLines(module, llmParams, images || []),
+      }),
       action: "confirm_generate",
       module,
       module_label: MODULE_LABELS[module] || module,
@@ -323,18 +393,154 @@ function guessImageRole(index: number, total: number, message: string): string {
   return `图${index}`;
 }
 
+function normalizeAgentDecision(
+  parsed: Record<string, unknown> | null,
+  rawText: string,
+  userText: string,
+  hasImages: boolean,
+  imageCount: number
+): AgentDecision {
+  const parsedReply = typeof parsed?.reply === "string" && parsed.reply.trim().length > 10 ? parsed.reply : "";
+  const reply = normalizeAgentReply(parsedReply || rawText || getDefaultAgentReply(userText, hasImages));
+  const rawAction = typeof parsed?.action === "string" ? parsed.action : "";
+  const rawModule = typeof parsed?.module === "string" ? parsed.module : null;
+  let action: AgentDecision["action"] = rawAction === "generate" ? "generate" : "chat";
+  let module = normalizeAgentModule(rawModule);
+
+  const params = parsed?.params && typeof parsed.params === "object"
+    ? parsed.params as Record<string, unknown>
+    : {};
+  const style = typeof parsed?.style === "string" && parsed.style.trim() && parsed.style !== "null"
+    ? parsed.style.trim()
+    : null;
+  const parsedConfidence = typeof parsed?.confidence === "number" ? parsed.confidence : null;
+  const missingFields = Array.isArray(parsed?.missing_fields)
+    ? parsed.missing_fields.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+    : [];
+
+  const detected = detectGenerationIntent(userText);
+  if (action === "chat" && detected && !isChatOnlyIntent(userText)) {
+    action = "generate";
+    module = detected;
+  }
+  if (!module && detected) module = detected;
+
+  if (action === "generate" && !hasImages && module !== "general") {
+    module = "general";
+  }
+
+  const hasExplicitGenerate = /生成|制作|出图|做一张|来一张|画一张|换装|上身|种草|换背景|3[dD]|四宫格|姿势/.test(userText);
+  let confidence = parsedConfidence !== null ? parsedConfidence : parsed ? 0.82 : 0.58;
+  if (confidence > 1) confidence = confidence / 100;
+  if (!parsed) confidence -= 0.12;
+  if (hasExplicitGenerate) confidence += 0.08;
+  if (action === "generate" && hasImages) confidence += Math.min(imageCount, 3) * 0.03;
+  if (module === "general" && hasImages) confidence -= 0.1;
+  confidence = Math.max(0.25, Math.min(0.95, confidence));
+
+  return {
+    reply,
+    action,
+    module,
+    params,
+    style,
+    confidence,
+    missingFields,
+    source: parsed ? "llm" : "fallback",
+  };
+}
+
+function getDefaultAgentReply(userText: string, hasImages: boolean): string {
+  if (hasImages) {
+    return "我已收到图片，会先确认图片关系和你的目标，再决定是否进入生成流程。";
+  }
+  if (/生成|制作|出图|画/.test(userText)) {
+    return "可以，我会按你的描述整理成适合生成的画面方案，并在确认后开始生成。";
+  }
+  return "我在，可以帮你分析服装图片、整理生成方案，或把需求转成可执行的视觉任务。";
+}
+
+function buildClarifyReply(module: string, missingFields: string[], imageCount: number): string {
+  const label = MODULE_LABELS[module] || module;
+  const missing = missingFields.join("、") || "必要图片";
+  const uploaded = imageCount > 0 ? `当前已识别到 ${imageCount} 张图片，但还需要你明确图片关系。` : "当前还没有可用图片。";
+  return normalizeAgentReply(
+    `我可以继续做 **${label}**，但还缺少 **${missing}**。\n\n${uploaded}\n\n**请补充一句更明确的指令**\n\n- 服装上身：把图1的衣服穿到图2的人身上\n- 种草图：用图1服装生成小红书街拍种草图\n- 换背景：把图1背景换成图2的场景\n\n确认图片关系后，我再给你生成确认卡片，避免误扣积分。`
+  );
+}
+
+function buildRoleConflictReply(module: string, issues: string[], images: AgentImageInput[]): string {
+  const label = MODULE_LABELS[module] || module;
+  const roleLines = images
+    .filter((img) => img.role && img.role !== "auto")
+    .map((img) => `- 图${img.index}：${getImageRoleLabel(img.role) || "自动"}`);
+  const roleSummary = roleLines.length
+    ? `\n\n**当前图片角色**\n\n${roleLines.join("\n")}`
+    : "";
+
+  return normalizeAgentReply(
+    `我先暂停 **${label}**，因为图片角色和本次任务有冲突，直接生成容易用错图。\n\n**需要确认的问题**\n\n${issues.map((issue) => `- ${issue}`).join("\n")}${roleSummary}\n\n**建议下一步**\n\n请在图片缩略图上调整角色，或直接说明：“图1是服装，图2是参考图，图3是模特脸”。确认后我再生成确认卡，避免误扣积分。`
+  );
+}
+
+function buildConfirmReply(
+  moduleLabel: string,
+  originalReply: string,
+  meta: { imageCount: number; confidence: number; missingFields: string[]; planLines?: string[] }
+): string {
+  const confidenceLabel = meta.confidence >= 0.8 ? "高" : meta.confidence >= 0.62 ? "中" : "偏低";
+  const intro = buildSafeReplyExcerpt(originalReply, 220);
+
+  const plan = meta.planLines?.length
+    ? `\n\n**图片关系**\n\n${meta.planLines.map((line) => `- ${line}`).join("\n")}`
+    : "";
+
+  return normalizeAgentReply(
+    `${intro}\n\n**即将执行**\n\n- **功能**：${moduleLabel}\n- **图片数量**：${meta.imageCount || "无图片，按文字生成"}\n- **理解置信度**：${confidenceLabel}${plan}\n\n**下一步**\n\n确认无误后点击“确认生成”，系统才会扣除积分并开始任务。`
+  );
+}
+
 function extractText(data: Record<string, unknown>): string {
   const choices = data.choices as Array<Record<string, unknown>> | undefined;
   const msg = choices?.[0]?.message as Record<string, unknown> | undefined;
   return typeof msg?.content === "string" ? msg.content : "";
 }
 
+function normalizeAgentReply(text: string): string {
+  const jsonLike = extractJson(text);
+  let output = typeof jsonLike?.reply === "string" ? jsonLike.reply.trim() : text.trim();
+
+  output = output
+    .replace(/\r\n/g, "\n")
+    .replace(/([^\n])\s+•\s+/g, "$1\n- ")
+    .replace(/^\s*•\s+/gm, "- ")
+    .replace(/([。！？])\s+(?=\*\*[^*\n]+?\*\*)/g, "$1\n\n")
+    .replace(/\n{3,}/g, "\n\n");
+
+  output = output
+    .split("\n")
+    .map((line) => {
+      const trimmed = line.trim();
+      if (/^[*-]\s+/.test(trimmed)) return trimmed.replace(/^\*\s+/, "- ");
+      return line;
+    })
+    .join("\n")
+    .replace(/([^\n])\n(-\s+)/g, "$1\n\n$2")
+    .replace(/(-\s+[^\n]+)\n([^-\n\s][^\n]*)/g, "$1\n\n$2")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+  return output;
+}
+
 function extractJson(text: string): Record<string, unknown> | null {
+  const clean = text.trim();
+  const fenced = clean.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+  const balanced = findBalancedJsonObject(fenced?.[1] || clean);
   const strategies = [
-    () => JSON.parse(text.trim()),
-    () => { const m = text.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/); return m ? JSON.parse(m[1]) : null; },
-    () => { const m = text.match(/\{[\s\S]*?"reply"[\s\S]*?\}/); return m ? JSON.parse(m[0]) : null; },
-    () => { const i = text.lastIndexOf("{"), j = text.lastIndexOf("}"); return i >= 0 && j > i ? JSON.parse(text.slice(i, j + 1)) : null; },
+    () => JSON.parse(clean),
+    () => fenced ? JSON.parse(fenced[1]) : null,
+    () => balanced ? JSON.parse(balanced) : null,
   ];
   for (const fn of strategies) {
     try {
@@ -342,23 +548,95 @@ function extractJson(text: string): Record<string, unknown> | null {
       if (r && typeof r === "object" && "reply" in r) return r;
     } catch {}
   }
-  return null;
+  return extractLooseAgentJson(balanced || clean);
 }
 
-function resolveImageUrl(ref: unknown, imageMap: Map<number, string>): string | null {
-  if (typeof ref === "string") {
-    const m = ref.match(/图(\d+)/);
-    if (m) return imageMap.get(parseInt(m[1])) || null;
-    if (ref.startsWith("http")) return ref;
+function findBalancedJsonObject(text: string): string | null {
+  const start = text.indexOf("{");
+  if (start < 0) return null;
+
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let i = start; i < text.length; i += 1) {
+    const ch = text[i];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (ch === "\\") {
+      escaped = true;
+      continue;
+    }
+    if (ch === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (inString) continue;
+    if (ch === "{") depth += 1;
+    if (ch === "}") {
+      depth -= 1;
+      if (depth === 0) return text.slice(start, i + 1);
+    }
   }
-  if (typeof ref === "number") return imageMap.get(ref) || null;
   return null;
 }
 
-function resolveImageUrls(ref: unknown, imageMap: Map<number, string>): string[] {
-  if (Array.isArray(ref)) return ref.map((r) => resolveImageUrl(r, imageMap)).filter(Boolean) as string[];
-  const s = resolveImageUrl(ref, imageMap);
-  return s ? [s] : [];
+function extractLooseAgentJson(text: string): Record<string, unknown> | null {
+  const reply = matchLooseStringField(text, "reply");
+  if (!reply) return null;
+
+  const action = matchLooseStringField(text, "action") || "chat";
+  const moduleValue = matchLooseStringField(text, "module");
+  const style = matchLooseStringField(text, "style");
+  const confidence = matchLooseNumberField(text, "confidence");
+  const params = parseLooseParams(text);
+
+  return {
+    reply,
+    action,
+    module: moduleValue && moduleValue !== "null" ? moduleValue : null,
+    params,
+    style: style && style !== "null" ? style : null,
+    confidence: confidence ?? undefined,
+  };
+}
+
+function matchLooseStringField(text: string, field: string): string | null {
+  const nextField = field === "reply" ? "action" : field === "action" ? "module" : field === "module" ? "params" : null;
+  const pattern = nextField
+    ? new RegExp(`"${field}"\\s*:\\s*"([\\s\\S]*?)"\\s*,\\s*"${nextField}"`)
+    : new RegExp(`"${field}"\\s*:\\s*(?:"([\\s\\S]*?)"|null)(?:\\s*,|\\s*})`);
+  const match = text.match(pattern);
+  if (!match) return null;
+  return unescapeLooseJsonString(match[1] || "null").trim();
+}
+
+function parseLooseParams(text: string): Record<string, unknown> {
+  const match = text.match(/"params"\s*:\s*(\{[\s\S]*?\})\s*,\s*"style"/);
+  if (!match) return {};
+  try {
+    const parsed = JSON.parse(match[1]);
+    return parsed && typeof parsed === "object" ? parsed as Record<string, unknown> : {};
+  } catch {
+    return {};
+  }
+}
+
+function matchLooseNumberField(text: string, field: string): number | null {
+  const match = text.match(new RegExp(`"${field}"\\s*:\\s*([0-9.]+)`));
+  if (!match) return null;
+  const value = Number(match[1]);
+  return Number.isFinite(value) ? value : null;
+}
+
+function unescapeLooseJsonString(value: string): string {
+  return value
+    .replace(/\\"/g, '"')
+    .replace(/\\n/g, "\n")
+    .replace(/\\r/g, "\n")
+    .replace(/\\t/g, "  ")
+    .replace(/\\\\/g, "\\");
 }
 
 function buildModuleParams(
@@ -407,7 +685,6 @@ function buildModuleParams(
       } else {
         base.clothing_urls = clothing;
       }
-      base.clothing_urls = clothing;
       const ref = resolveImageUrl(llmParams.reference_url, imageMap);
       if (ref) base.reference_url = ref;
       const face = resolveImageUrl(llmParams.model_face_url, imageMap);
@@ -425,9 +702,14 @@ function buildModuleParams(
       return base;
     }
     case "model": {
-      const refs = resolveImageUrls(llmParams.reference_urls ?? [1], imageMap); if (refs.length === 0) { base.reference_urls = [allUrls[0]]; } else { base.reference_urls = refs; }
-      if (refs.length === 0) return null;
-      base.reference_urls = refs;
+      const refs = resolveImageUrls(llmParams.reference_urls ?? [1], imageMap);
+      if (refs.length > 0) {
+        base.reference_urls = refs;
+      } else if (allUrls[0]) {
+        base.reference_urls = [allUrls[0]];
+      } else {
+        return null;
+      }
       base.gender = "female";
       if (opts.style) base.model_style = opts.style;
       return base;

@@ -1,6 +1,7 @@
 import type { LingyaModel, AspectRatio, ImageSize } from "@/lib/api/lingya";
 
 export type AgentMode = "chat" | "agent";
+export type ChatImageRole = "auto" | "clothing" | "reference" | "face" | "background" | "source";
 
 // ---- 数据库模型 ----
 export interface Conversation {
@@ -33,6 +34,7 @@ export interface ChatImage {
   url: string;
   hostedUrl?: string;
   fileName: string;
+  role?: ChatImageRole;
   uploading?: boolean;
 }
 

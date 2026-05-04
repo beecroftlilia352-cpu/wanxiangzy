@@ -2,7 +2,7 @@
 
 import { useRef, useState, useCallback, useEffect, type KeyboardEvent, type ClipboardEvent } from "react";
 import { Paperclip, Sparkles, ArrowUp, Settings, X, Loader2 } from "lucide-react";
-import type { ChatImage, GenerationParams, AgentMode } from "@/lib/agent/types";
+import type { ChatImage, GenerationParams, AgentMode, ChatImageRole } from "@/lib/agent/types";
 import type { LingyaModel, AspectRatio, ImageSize } from "@/lib/api/lingya";
 import { getCreditCost } from "@/lib/api/lingya";
 import { detectMentionTrigger, insertMention } from "@/lib/agent/mention-parser";
@@ -23,6 +23,7 @@ type Props = {
   onTextChange: (text: string) => void;
   onAddImages: (files: File[]) => void;
   onRemoveImage: (index: number) => void;
+  onImageRoleChange?: (index: number, role: ChatImageRole) => void;
   onModeChange?: (mode: AgentMode) => void;
   onParamsChange: (params: Partial<GenerationParams>) => void;
   onSend: () => void;
@@ -50,9 +51,18 @@ function getCreditForCombo(model: LingyaModel, size: ImageSize, ratio: AspectRat
   try { return getCreditCost(model, size, ratio); } catch { return 4; }
 }
 
+const ROLE_HINTS: Record<string, string> = {
+  auto: "自动",
+  clothing: "服装",
+  reference: "参考",
+  face: "脸图",
+  background: "背景",
+  source: "原图",
+};
+
 export function InputComposer({
   inputText, inputImages, params, mode, isSending, isAIWriting, estimatedCredits,
-  onTextChange, onAddImages, onRemoveImage, onModeChange, onParamsChange, onSend, onAIWrite, onPreview,
+  onTextChange, onAddImages, onRemoveImage, onImageRoleChange, onModeChange, onParamsChange, onSend, onAIWrite, onPreview,
 }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -163,7 +173,7 @@ export function InputComposer({
           </div>
         )}
 
-        <ImageTray images={inputImages} onAdd={onAddImages} onRemove={onRemoveImage} onPreview={onPreview} />
+        <ImageTray images={inputImages} onAdd={onAddImages} onRemove={onRemoveImage} onRoleChange={onImageRoleChange} onPreview={onPreview} />
 
         {/* @ 引用标签（输入框上方） */}
         {inputImages.length > 0 && (
@@ -371,6 +381,9 @@ function MentionChips({ text, images }: { text: string; images: ChatImage[] }) {
             <img src={chip.image.hostedUrl || chip.image.url} alt={chip.label} className="h-full w-full object-cover" />
           </div>
           <span className="text-[11px] font-bold text-violet-700">{chip.label}</span>
+          <span className="rounded bg-white/70 px-1 text-[10px] font-semibold text-violet-400">
+            {ROLE_HINTS[chip.image.role || "auto"] || "自动"}
+          </span>
         </div>
       ))}
       <span className="flex items-center text-[10px] text-slate-300">← 引用图片</span>

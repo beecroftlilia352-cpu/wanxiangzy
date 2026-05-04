@@ -10,6 +10,15 @@ type Props = {
   visible: boolean;
 };
 
+const ROLE_LABELS: Record<string, string> = {
+  auto: "自动",
+  clothing: "服装",
+  reference: "参考",
+  face: "脸图",
+  background: "背景",
+  source: "原图",
+};
+
 export function MentionDropdown({ images, query, onSelect, visible }: Props) {
   const [selectedIdx, setSelectedIdx] = useState(0);
   const listRef = useRef<HTMLDivElement>(null);
@@ -81,7 +90,8 @@ export function MentionDropdown({ images, query, onSelect, visible }: Props) {
           </div>
           <div className="min-w-0 flex-1">
             <span className="text-sm font-bold text-violet-600">图{img.index}</span>
-            <span className="ml-1.5 text-xs text-slate-400">{img.fileName}</span>
+            <span className="ml-1.5 text-xs text-slate-400">{ROLE_LABELS[img.role || "auto"] || "自动"}</span>
+            <span className="ml-1.5 text-xs text-slate-300">{img.fileName}</span>
           </div>
         </button>
       ))}

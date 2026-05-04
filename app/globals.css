@@ -686,6 +686,7 @@
   line-height: 1.7;
   font-size: 14px;
   word-break: break-word;
+  color: #1e293b;
 }
 
 /* 段落 */
@@ -709,7 +710,7 @@
 .prose-agent h1 { font-size: 1.25em; }
 .prose-agent h2 {
   font-size: 1.1em;
-  padding-bottom: 0.3em;
+  padding: 0.15em 0 0.25em;
   border-bottom: 1px solid #f1f5f9;
 }
 .prose-agent h3 { font-size: 1em; }
@@ -728,18 +729,23 @@
 /* 列表 */
 .prose-agent ul,
 .prose-agent ol {
-  margin: 0.4em 0 0.65em;
-  padding-left: 1.6em;
+  margin: 0.55em 0 0.8em;
+  padding-left: 1.25em;
 }
 .prose-agent li {
-  margin: 0.2em 0;
+  margin: 0.32em 0;
   line-height: 1.65;
+  padding-left: 0.1em;
 }
 .prose-agent li::marker {
-  color: #a78bfa;
+  color: #8b5cf6;
 }
 .prose-agent li > p {
   margin: 0;
+}
+
+.prose-agent ul li {
+  padding-left: 0.05em;
 }
 
 /* 代码 */
