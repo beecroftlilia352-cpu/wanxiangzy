@@ -191,7 +191,8 @@ export function InputComposer({
               placeholder="描述你想做什么... 输入 / 查看快捷指令"
               aria-label="输入消息"
               rows={1}
-              className="min-h-[44px] max-h-[120px] flex-1 resize-none py-3 pr-2 text-[14px] leading-[1.5] text-slate-800 outline-none placeholder:text-slate-300"
+              className="custom-scroll min-h-[44px] max-h-[120px] flex-1 resize-none py-3 pr-2 text-[14px] leading-[1.5] text-slate-800 outline-none placeholder:text-slate-300"
+              style={{ height: "44px" }}
             />
 
             <div className="flex shrink-0 items-center gap-0.5 pr-1.5">
