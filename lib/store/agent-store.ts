@@ -189,13 +189,17 @@ export const useAgentStore = create<Store>((set, get) => ({
         }));
       }
     }
-    // 持久化
+    // 持久化图片到对话（用 hostedUrl 替代 blob URL）
     const { activeId, inputImages } = get();
     if (activeId) {
+      const persisted = inputImages.map((img) => ({
+        ...img,
+        url: img.hostedUrl || img.url,
+      }));
       fetch(`/api/conversations/${activeId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ images: inputImages }),
+        body: JSON.stringify({ images: persisted }),
       }).catch(() => {});
     }
   },
@@ -269,10 +273,15 @@ export const useAgentStore = create<Store>((set, get) => ({
       }));
     }
 
-    // 用户消息
+    // 用户消息（图片 URL 永久化：优先用 hostedUrl）
+    const persistedImages: ChatImage[] = currentImages.map((img) => ({
+      ...img,
+      url: img.hostedUrl || img.url, // 优先 imgbb URL，blob URL 仅作最后 fallback
+    }));
+
     const userMsg: Message = {
       id: uid(), conversation_id: convId, role: "user", content: trimmed,
-      images: currentImages, generation: null, params: {}, mode: "agent",
+      images: persistedImages, generation: null, params: {}, mode: "agent",
       created_at: new Date().toISOString(),
     };
 
@@ -286,7 +295,7 @@ export const useAgentStore = create<Store>((set, get) => ({
     set((s) => ({ messages: [...s.messages, userMsg, aiMsg] }));
 
     // 保存用户消息
-    saveMessage(convId, { role: "user", content: trimmed, images: currentImages, mode: "agent" });
+    saveMessage(convId, { role: "user", content: trimmed, images: persistedImages, mode: "agent" });
 
     try {
       // 当前上传的图片
