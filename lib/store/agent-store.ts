@@ -4,6 +4,7 @@ import { create } from "zustand";
 import { v4 } from "./uuid";
 import type { Conversation, Message, ChatImage, GenerationParams, AgentMode, ChatImageRole } from "@/lib/agent/types";
 import { DEFAULT_PARAMS } from "@/lib/agent/types";
+import { applyConfirmImageRoles } from "@/lib/agent/confirm-role-params";
 import { getCreditCost, normalizeImageSize, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
 import { uploadImage, compressImageForAgent } from "@/lib/utils";
 
@@ -38,6 +39,7 @@ type Store = {
   retryMessage: (id: string) => void;
   confirmGeneration: (messageId: string) => Promise<void>;
   updateConfirmParams: (messageId: string, params: Partial<GenerationParams>) => void;
+  updateConfirmImageRole: (messageId: string, imageIndex: number, role: ChatImageRole) => void;
   reset: () => void;
 };
 
@@ -94,6 +96,14 @@ function updateMessageGeneration(convId: string, messageId: string, generation: 
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ messageId, generation: clean }),
+  }).catch(() => {});
+}
+
+function updateMessageImages(convId: string, messageId: string, images: ChatImage[]) {
+  fetch(`/api/conversations/${convId}/messages`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ messageId, images }),
   }).catch(() => {});
 }
 
@@ -506,6 +516,71 @@ export const useAgentStore = create<Store>((set, get) => ({
     if (convId && updatedGeneration) updateMessageGeneration(convId, messageId, updatedGeneration);
   },
 
+  updateConfirmImageRole: (messageId: string, imageIndex: number, role: ChatImageRole) => {
+    let convId = "";
+    let updatedGeneration: unknown = null;
+    let updatedUserMessageId = "";
+    let updatedUserImages: ChatImage[] = [];
+    let nextTrayImages: ChatImage[] = [];
+
+    set((s) => {
+      const assistantIndex = s.messages.findIndex((m) => m.id === messageId);
+      const assistant = assistantIndex >= 0 ? s.messages[assistantIndex] : null;
+      if (!assistant?.generation?._confirmData) return {};
+
+      convId = assistant.conversation_id;
+      const previousUserIndex = findPreviousUserImageMessageIndex(s.messages, assistantIndex);
+      const sourceImages = previousUserIndex >= 0
+        ? s.messages[previousUserIndex].images || []
+        : s.inputImages;
+      const roleImages = sourceImages.map((img) =>
+        img.index === imageIndex ? { ...img, role } : img
+      );
+      const { params, jobPayload } = applyConfirmImageRoles(
+        assistant.generation._confirmData.module,
+        assistant.generation._confirmData.params,
+        assistant.generation._confirmData.jobPayload,
+        roleImages
+      );
+      const generation = {
+        ...assistant.generation,
+        _confirmData: {
+          ...assistant.generation._confirmData,
+          params,
+          jobPayload,
+        },
+      };
+
+      updatedGeneration = generation;
+      nextTrayImages = s.inputImages.map((img) => img.index === imageIndex ? { ...img, role } : img);
+
+      const messages = s.messages.map((m, idx) => {
+        if (idx === assistantIndex) return { ...m, generation };
+        if (idx === previousUserIndex) {
+          updatedUserMessageId = m.id;
+          updatedUserImages = roleImages;
+          return { ...m, images: roleImages };
+        }
+        return m;
+      });
+
+      return {
+        messages,
+        inputImages: nextTrayImages,
+      };
+    });
+
+    if (convId && updatedGeneration) updateMessageGeneration(convId, messageId, updatedGeneration);
+    if (convId && updatedUserMessageId) updateMessageImages(convId, updatedUserMessageId, updatedUserImages);
+    if (convId && nextTrayImages.length) {
+      fetch(`/api/conversations/${convId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ images: nextTrayImages }),
+      }).catch(() => {});
+    }
+  },
+
   confirmGeneration: async (messageId: string) => {
     const { messages } = get();
     const msg = messages.find((m) => m.id === messageId);
@@ -792,6 +867,16 @@ function writeConfirmPayloadParams(payload: Record<string, unknown>, next: Gener
     imageSize: next.imageSize,
     genCount: next.count,
   };
+}
+
+function findPreviousUserImageMessageIndex(messages: Message[], beforeIndex: number): number {
+  for (let i = beforeIndex - 1; i >= 0; i--) {
+    const message = messages[i];
+    if (message.role === "user" && Array.isArray(message.images) && message.images.length > 0) {
+      return i;
+    }
+  }
+  return -1;
 }
 
 async function verifyGeneratedResultUrls(urls: unknown): Promise<string[]> {

@@ -6,18 +6,20 @@ import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { AspectRatio, ImageSize, LingyaModel } from "@/lib/api/lingya";
-import type { GenerationParams, Message } from "@/lib/agent/types";
+import type { ChatImage, ChatImageRole, GenerationParams, Message } from "@/lib/agent/types";
+import { validateConfirmImageRoles } from "@/lib/agent/confirm-role-params";
 import { renderMentionSegments } from "@/lib/agent/mention-parser";
 import { downloadImage, generateDownloadFilename } from "@/lib/utils";
 
 type Props = {
   message: Message;
   prevMessage?: Message;
-  sessionImages: Array<{ index: number; url: string }>;
+  sessionImages: ChatImage[];
   onOpenImage: (url: string) => void;
   onRetry: (messageId: string) => void;
   onConfirm?: (messageId: string) => void;
   onUpdateConfirmParams?: (messageId: string, params: Partial<GenerationParams>) => void;
+  onUpdateConfirmImageRole?: (messageId: string, imageIndex: number, role: ChatImageRole) => void;
   onUseAsReference?: (url: string) => void;
 };
 
@@ -42,7 +44,16 @@ const CONFIRM_SIZE_OPTIONS: Array<{ value: ImageSize; label: string }> = [
   { value: "4K", label: "4K" },
 ];
 
-export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage, onRetry, onConfirm, onUpdateConfirmParams, onUseAsReference }: Props) {
+const CONFIRM_ROLE_OPTIONS: Array<{ value: ChatImageRole; label: string }> = [
+  { value: "auto", label: "自动" },
+  { value: "clothing", label: "服装" },
+  { value: "reference", label: "参考" },
+  { value: "face", label: "脸图" },
+  { value: "background", label: "背景" },
+  { value: "source", label: "原图" },
+];
+
+export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage, onRetry, onConfirm, onUpdateConfirmParams, onUpdateConfirmImageRole, onUseAsReference }: Props) {
   const { role, content, images, generation, created_at } = message;
   const [copied, setCopied] = useState(false);
 
@@ -59,6 +70,9 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
 
   // 消息分组：同角色连续消息隐藏头像
   const isGrouped = prevMessage && prevMessage.role === role;
+  const confirmImages = prevMessage?.role === "user" && prevMessage.images?.length
+    ? prevMessage.images
+    : sessionImages;
 
   return (
     <motion.div
@@ -157,14 +171,28 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
               params={readConfirmParams(generation._confirmData.params)}
               onChange={onUpdateConfirmParams}
             />
+            <ConfirmImageRoleEditor
+              messageId={message.id}
+              images={confirmImages}
+              onPreview={onOpenImage}
+              onChange={onUpdateConfirmImageRole}
+            />
+            <ConfirmRoleIssues
+              issues={validateConfirmImageRoles(generation._confirmData.module, generation._confirmData.params, confirmImages)}
+            />
             <ConfirmTaskPlan
               moduleName={generation.module || "图像生成"}
               params={readConfirmParams(generation._confirmData.params)}
               credits={generation.creditsUsed || generation._confirmData.creditsCost}
             />
             <button
-              onClick={() => onConfirm?.(message.id)}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-pink-600 py-2.5 text-sm font-bold text-white shadow-lg shadow-violet-200 transition-opacity hover:opacity-90"
+              onClick={() => !hasConfirmRoleErrors(generation._confirmData!.module, generation._confirmData!.params, confirmImages) && onConfirm?.(message.id)}
+              disabled={hasConfirmRoleErrors(generation._confirmData!.module, generation._confirmData!.params, confirmImages)}
+              className={`flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-bold text-white shadow-lg transition-opacity ${
+                hasConfirmRoleErrors(generation._confirmData!.module, generation._confirmData!.params, confirmImages)
+                  ? "cursor-not-allowed bg-slate-300 shadow-none"
+                  : "bg-gradient-to-r from-violet-600 to-pink-600 shadow-violet-200 hover:opacity-90"
+              }`}
             >
               <Sparkles className="h-4 w-4" />
               确认生成
@@ -290,6 +318,82 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
       </div>
     </motion.div>
   );
+}
+
+function ConfirmImageRoleEditor({
+  messageId,
+  images,
+  onPreview,
+  onChange,
+}: {
+  messageId: string;
+  images: ChatImage[];
+  onPreview: (url: string) => void;
+  onChange?: (messageId: string, imageIndex: number, role: ChatImageRole) => void;
+}) {
+  if (!onChange || images.length === 0) return null;
+
+  return (
+    <div className="mb-3 rounded-xl border border-violet-100 bg-white/75 p-2">
+      <div className="mb-2 flex items-center justify-between">
+        <span className="text-[11px] font-bold text-slate-600">图片角色</span>
+        <span className="text-[10px] text-slate-400">确认前可修正图1/图2关系</span>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        {images.map((img) => {
+          const url = img.hostedUrl || img.url;
+          return (
+            <div key={`${img.index}-${url}`} className="flex min-w-0 items-center gap-2 rounded-lg border border-slate-100 bg-slate-50/70 p-1.5">
+              <button
+                type="button"
+                onClick={() => onPreview(url)}
+                className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md bg-white"
+              >
+                <img src={url} alt={`图${img.index}`} className="h-full w-full object-cover" />
+                <span className="absolute bottom-0 left-0 right-0 bg-violet-600/85 text-center text-[8px] font-bold leading-tight text-white">
+                  图{img.index}
+                </span>
+              </button>
+              <select
+                value={img.role || "auto"}
+                onChange={(event) => onChange(messageId, img.index, event.target.value as ChatImageRole)}
+                className="h-8 min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-700 outline-none transition-colors focus:border-violet-300"
+                title={`设置图${img.index}的图片角色`}
+              >
+                {CONFIRM_ROLE_OPTIONS.map((role) => (
+                  <option key={role.value} value={role.value}>{role.label}</option>
+                ))}
+              </select>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function ConfirmRoleIssues({ issues }: { issues: ReturnType<typeof validateConfirmImageRoles> }) {
+  if (issues.length === 0) return null;
+  return (
+    <div className="mb-3 space-y-1.5">
+      {issues.map((issue, index) => (
+        <div
+          key={`${issue.severity}-${index}`}
+          className={`rounded-lg border px-2.5 py-2 text-[11px] leading-relaxed ${
+            issue.severity === "error"
+              ? "border-red-200 bg-red-50 text-red-600"
+              : "border-amber-200 bg-amber-50 text-amber-700"
+          }`}
+        >
+          {issue.message}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function hasConfirmRoleErrors(module: string, params: Record<string, unknown>, images: ChatImage[]) {
+  return validateConfirmImageRoles(module, params, images).some((issue) => issue.severity === "error");
 }
 
 function ConfirmTaskPlan({

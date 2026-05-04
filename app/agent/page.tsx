@@ -132,6 +132,7 @@ export default function AgentPage() {
           onRetry={s.retryMessage}
           onConfirm={s.confirmGeneration}
           onUpdateConfirmParams={s.updateConfirmParams}
+          onUpdateConfirmImageRole={s.updateConfirmImageRole}
           onUseAsReference={(url) => {
             s.addReferenceUrl(url);
             toast.success("已加入附件区，可作为参考图使用");
