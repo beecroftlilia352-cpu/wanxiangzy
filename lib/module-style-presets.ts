@@ -26,7 +26,8 @@ export type PoseSeriesStyle =
   | "fashion_editorial"
   | "korean_clean"
   | "xiaohongshu_lifestyle"
-  | "euro_campaign";
+  | "euro_campaign"
+  | "user_custom";
 
 export type ModelShootStyle =
   | "fusion_natural"
@@ -173,7 +174,34 @@ export const POSE_SERIES_STYLES: StylePreset<PoseSeriesStyle>[] = [
       "姿势4：轻微迈步或转身回眸，动作干净有广告大片气场，衣服产生真实动态褶皱且结构不变。镜头：consistent campaign medium full-body framing, 85mm commercial fashion lens, eye level angle",
     ],
   },
+  {
+    value: "user_custom",
+    label: "用户自定义",
+    desc: "完全自定义四个姿势描述和镜头规则",
+    swatches: ["#fef3c7", "#fbbf24", "#f59e0b"],
+    prompt:
+      "保持图1原始场景、镜头距离、背景色调、光线方向和商业摄影质感，四宫格只做姿势与轻微自然表情变化，像同一套照片的连续 pose sheet。",
+    camera:
+      "镜头统一规则：consistent medium full-body framing, 50mm natural fashion lens, eye level angle，保持图1原始镜头距离、视平线和画面留白。",
+    poseLines: [
+      "姿势1：正面自然站立，双手自然下垂或轻触口袋，表情平静自然，完整展示服装正面版型。镜头：consistent medium full-body framing, 50mm natural fashion lens, eye level angle",
+      "姿势2：身体轻微侧转30度，肩线放松，一手轻抚头发或整理衣领，柔和浅笑，展示服装侧面轮廓和肩颈线条。镜头：consistent medium full-body framing, 50mm natural fashion lens, eye level angle",
+      "姿势3：重心轻微偏移，一手叉腰或扶腰，另一只手自然下垂，自信微笑，展示服装腰线、廓形和面料垂坠。镜头：consistent medium full-body framing, 50mm natural fashion lens, eye level angle",
+      "姿势4：轻微迈步或自然转身，专注或轻微回眸，衣服产生真实褶皱、张力和垂坠，不改变服装结构。镜头：consistent medium full-body framing, 50mm natural fashion lens, eye level angle",
+    ],
+  },
 ];
+
+export const USER_CUSTOM_POSE_DEFAULT = {
+  prompt: "保持图1原始场景、镜头距离、背景色调、光线方向和商业摄影质感，四宫格只做姿势与轻微自然表情变化，像同一套照片的连续 pose sheet。",
+  camera: "镜头统一规则：consistent medium full-body framing, 50mm natural fashion lens, eye level angle，保持图1原始镜头距离、视平线和画面留白。",
+  poses: [
+    "姿势1：正面自然站立，双手自然下垂或轻触口袋，表情平静自然，完整展示服装正面版型。镜头：consistent medium full-body framing, 50mm natural fashion lens, eye level angle",
+    "姿势2：身体轻微侧转30度，肩线放松，一手轻抚头发或整理衣领，柔和浅笑，展示服装侧面轮廓和肩颈线条。镜头：consistent medium full-body framing, 50mm natural fashion lens, eye level angle",
+    "姿势3：重心轻微偏移，一手叉腰或扶腰，另一只手自然下垂，自信微笑，展示服装腰线、廓形和面料垂坠。镜头：consistent medium full-body framing, 50mm natural fashion lens, eye level angle",
+    "姿势4：轻微迈步或自然转身，专注或轻微回眸，衣服产生真实褶皱、张力和垂坠，不改变服装结构。镜头：consistent medium full-body framing, 50mm natural fashion lens, eye level angle",
+  ],
+};
 
 export const MODEL_SHOOT_STYLES: StylePreset<ModelShootStyle>[] = [
   {

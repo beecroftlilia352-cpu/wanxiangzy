@@ -101,6 +101,7 @@ export default function ModelPage() {
   const [genCount, setGenCount] = useState(1);
   const [prompt, setPrompt] = useState("");
   const [promptTouched, setPromptTouched] = useState(false);
+  const [userExtraPrompt, setUserExtraPrompt] = useState("");
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -365,7 +366,11 @@ export default function ModelPage() {
           model_style: modelStyle,
           hair_style: hairStyle,
           hair_color: hairColor,
-          prompt: typeof promptForRun === "string" ? promptForRun : prompt,
+          prompt: typeof promptForRun === "string"
+            ? promptForRun
+            : userExtraPrompt.trim()
+              ? `${prompt}\n\n用户补充要求：${userExtraPrompt.trim()}`
+              : prompt,
         }),
       });
       const data = await res.json();
@@ -751,6 +756,24 @@ export default function ModelPage() {
 
           <section>
             <h3 className="font-bold text-sm mb-3">提示词</h3>
+
+            {/* 用户额外提示 */}
+            <div className="mb-3">
+              <label className="mb-1.5 flex items-center gap-1.5 text-xs font-bold text-slate-600">
+                <span className="text-violet-500">+</span> 用户额外要求（可选）
+              </label>
+              <textarea
+                value={userExtraPrompt}
+                onChange={(e) => setUserExtraPrompt(e.target.value)}
+                placeholder="例如：希望模特表情更自然、背景偏暖色调、妆容淡雅..."
+                rows={2}
+                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs leading-relaxed outline-none transition-all placeholder:text-slate-300 focus:border-violet-300 focus:ring-1 focus:ring-violet-200"
+              />
+              <p className="mt-1 text-[10px] text-slate-400">
+                补充说明会附加到系统提示词中，影响最终生成效果
+              </p>
+            </div>
+
             <button
               type="button"
               data-prompt-trigger="model"
