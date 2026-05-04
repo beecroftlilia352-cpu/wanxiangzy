@@ -64,7 +64,12 @@ export default function AgentPage() {
 
   const handleQuickAction = (text: string) => {
     s.setInputText(text);
-    setTimeout(() => useAgentStore.getState().sendMessage(), 50);
+    // 不自动发送，用户确认后手动点发送
+    // 自动聚焦输入框
+    setTimeout(() => {
+      const textarea = document.querySelector("textarea");
+      if (textarea) { textarea.focus(); textarea.setSelectionRange(text.length, text.length); }
+    }, 50);
   };
 
   const conv = s.conversations.find((c) => c.id === s.activeId);
