@@ -202,14 +202,17 @@ export async function POST(request: NextRequest) {
     const llmParams = typeof parsed?.params === "object" && parsed.params !== null ? parsed.params as Record<string, unknown> : {};
     const style = typeof parsed?.style === "string" ? parsed.style : null;
 
-    // 兜底：如果 LLM 返回 chat 但用户消息明确包含生图意图 + 有图片 → 强制 generate
-    if (action === "chat" && hasImages) {
+    // 兜底：无论 LLM 返回什么，只要有图片 + 生图关键词 → 强制 generate
+    if (hasImages && !module) {
       const detected = detectGenerationIntent(userText);
       if (detected) {
         action = "generate";
         module = detected;
       }
     }
+
+    // 最终决策日志
+    console.log("[agent-chat] decision:", { action, module, hasImages, userText: userText.slice(0, 50) });
 
     // 对话模式：直接返回
     if (action !== "generate" || !module || !MODULE_API[module]) {

@@ -4,42 +4,9 @@ import { create } from "zustand";
 import { v4 } from "./uuid";
 import type { Conversation, Message, ChatImage, GenerationParams, AgentMode } from "@/lib/agent/types";
 import { DEFAULT_PARAMS } from "@/lib/agent/types";
-import { uploadImage } from "@/lib/utils";
+import { uploadImage, compressImageForAgent } from "@/lib/utils";
 
-// ---- localStorage 持久化 ----
-const STORAGE_KEY = "vastwear-agent-state";
-const MAX_STORED_MESSAGES = 100;
-
-function loadPersistedState(): Partial<{ conversations: Conversation[]; activeId: string }> {
-  if (typeof window === "undefined") return {};
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw);
-    return {
-      conversations: Array.isArray(parsed.conversations) ? parsed.conversations : [],
-      activeId: typeof parsed.activeId === "string" ? parsed.activeId : null,
-    };
-  } catch { return {}; }
-}
-
-function persistState(conversations: Conversation[], activeId: string | null, messages: Message[]) {
-  if (typeof window === "undefined") return;
-  try {
-    // 只持久化当前活跃对话的消息
-    const activeConv = conversations.find((c) => c.id === activeId);
-    const trimmedConv = activeConv
-      ? { ...activeConv, messages: messages.slice(-MAX_STORED_MESSAGES) }
-      : null;
-    const allConvs = conversations.map((c) =>
-      c.id === activeId && trimmedConv ? trimmedConv : { ...c, messages: (c as unknown as Record<string, unknown>).messages || [] }
-    );
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({
-      conversations: allConvs,
-      activeId,
-    }));
-  } catch {}
-}
+// ---- DB 持久化（Supabase） ----
 
 // ---- 类型 ----
 type Store = {
@@ -77,11 +44,9 @@ function revoke(urls: string[]) {
 }
 
 // ---- Store ----
-const persisted = loadPersistedState();
-
 export const useAgentStore = create<Store>((set, get) => ({
-  conversations: persisted.conversations || [],
-  activeId: persisted.activeId || null,
+  conversations: [],
+  activeId: null,
   messages: [],
   inputText: "",
   inputImages: [],
@@ -121,22 +86,17 @@ export const useAgentStore = create<Store>((set, get) => ({
   },
 
   switchConversation: async (id: string) => {
+    set({ activeId: id, messages: [], inputText: "", inputImages: [], isSending: false });
     const conv = get().conversations.find((c) => c.id === id);
-    // 优先从本地持久化加载消息（快速）
-    const localMessages = (conv as unknown as Record<string, unknown>)?.messages as Message[] | undefined;
-    set({
-      activeId: id,
-      messages: Array.isArray(localMessages) ? localMessages : [],
-      inputText: "",
-      inputImages: conv && Array.isArray(conv.images) ? conv.images : [],
-      isSending: false,
-    });
-    // 然后从 DB 加载最新消息（如果有的话）
+    if (conv && Array.isArray(conv.images)) {
+      set({ inputImages: conv.images });
+    }
+    // 从 DB 加载消息
     try {
       const res = await fetch(`/api/conversations/${id}/messages`);
       if (res.ok) {
         const dbMessages = await res.json();
-        if (Array.isArray(dbMessages) && dbMessages.length > 0) {
+        if (Array.isArray(dbMessages)) {
           set({ messages: dbMessages });
         }
       }
@@ -165,7 +125,8 @@ export const useAgentStore = create<Store>((set, get) => ({
 
     for (let i = 0; i < files.length; i++) {
       try {
-        const result = await uploadImage(files[i]);
+        const compressed = await compressImageForAgent(files[i]);
+        const result = await uploadImage(compressed);
         set((s) => ({
           inputImages: s.inputImages.map((img) =>
             img.index === placeholders[i].index ? { ...img, hostedUrl: result.url, uploading: false } : img
@@ -525,10 +486,3 @@ function pollGeneration(
 function uid() {
   return v4();
 }
-
-// 自动持久化：消息或对话变化时保存到 localStorage
-useAgentStore.subscribe((state, prevState) => {
-  if (state.messages !== prevState.messages || state.conversations !== prevState.conversations) {
-    persistState(state.conversations, state.activeId, state.messages);
-  }
-});

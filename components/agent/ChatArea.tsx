@@ -26,6 +26,16 @@ const PRESET_QUESTIONS = [
   { icon: "💬", text: "你是谁？你有什么能力？" },
 ];
 
+const IMAGE_SUGGESTIONS = [
+  { icon: "👕", text: "帮我把这件衣服穿到模特身上" },
+  { icon: "📱", text: "帮我出一套小红书种草图" },
+  { icon: "📦", text: "帮我做 3D 立体展示" },
+  { icon: "🖼️", text: "帮我换个背景" },
+  { icon: "🧍", text: "帮我做四宫格姿势裂变" },
+  { icon: "🔍", text: "分析这件衣服的风格和适合场景" },
+  { icon: "💡", text: "给我拍摄创意建议" },
+];
+
 export function ChatArea({ messages, sessionImages, isSending, onOpenImage, onRetry, onConfirm, onUseAsReference, onQuickAction }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -56,28 +66,53 @@ export function ChatArea({ messages, sessionImages, isSending, onOpenImage, onRe
   const showThinking = isSending && lastMsg && lastMsg.role === "assistant" && !lastMsg.content && !lastMsg.generation;
 
   if (messages.length === 0) {
+    const hasImages = sessionImages.length > 0;
+
     return (
       <div className="flex flex-1 items-center justify-center p-6 sm:p-8">
         <div className="max-w-lg text-center">
           <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-pink-500 shadow-lg shadow-violet-200">
             <Sparkles className="h-8 w-8 text-white" />
           </div>
-          <h2 className="text-lg font-bold text-slate-700">有什么可以帮你的吗？</h2>
-          <p className="mt-1.5 text-sm leading-relaxed text-slate-400">
-            上传图片我能帮你分析内容、生成创意、换装试穿<br className="hidden sm:inline" />
-            也可以直接聊天，问我任何关于服装视觉的问题
-          </p>
-          <div className="mt-6 flex flex-wrap justify-center gap-2">
-            {PRESET_QUESTIONS.map((q) => (
-              <button
-                key={q.text}
-                onClick={() => onQuickAction(q.text)}
-                className="rounded-full border border-slate-200 bg-white px-3.5 py-2 text-sm text-slate-600 transition-all hover:border-violet-300 hover:bg-violet-50 hover:text-violet-700 hover:shadow-sm"
-              >
-                {q.icon} {q.text}
-              </button>
-            ))}
-          </div>
+
+          {hasImages ? (
+            <>
+              <h2 className="text-lg font-bold text-slate-700">图片已就绪，告诉我你想做什么</h2>
+              <p className="mt-1.5 text-sm text-slate-400">
+                已上传 {sessionImages.length} 张图片，选择下方操作或输入自定义指令
+              </p>
+              <div className="mt-6 flex flex-wrap justify-center gap-2">
+                {IMAGE_SUGGESTIONS.map((q) => (
+                  <button
+                    key={q.text}
+                    onClick={() => onQuickAction(q.text)}
+                    className="rounded-full border border-violet-200 bg-violet-50 px-3.5 py-2 text-sm font-medium text-violet-700 transition-all hover:bg-violet-100 hover:shadow-sm"
+                  >
+                    {q.icon} {q.text}
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : (
+            <>
+              <h2 className="text-lg font-bold text-slate-700">有什么可以帮你的吗？</h2>
+              <p className="mt-1.5 text-sm leading-relaxed text-slate-400">
+                上传图片我能帮你分析内容、生成创意、换装试穿<br className="hidden sm:inline" />
+                也可以直接聊天，问我任何关于服装视觉的问题
+              </p>
+              <div className="mt-6 flex flex-wrap justify-center gap-2">
+                {PRESET_QUESTIONS.map((q) => (
+                  <button
+                    key={q.text}
+                    onClick={() => onQuickAction(q.text)}
+                    className="rounded-full border border-slate-200 bg-white px-3.5 py-2 text-sm text-slate-600 transition-all hover:border-violet-300 hover:bg-violet-50 hover:text-violet-700 hover:shadow-sm"
+                  >
+                    {q.icon} {q.text}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       </div>
     );
