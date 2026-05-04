@@ -132,9 +132,8 @@ export default function AgentPage() {
           onRetry={s.retryMessage}
           onConfirm={s.confirmGeneration}
           onUseAsReference={(url) => {
-            // 将结果图作为参考图加入下一次生成
-            s.setInputText(s.inputText ? s.inputText + " " : "");
-            toast.success("已添加为参考图，输入指令后发送");
+            s.addReferenceUrl(url);
+            toast.success("已加入附件区，可作为参考图使用");
           }}
           onQuickAction={handleQuickAction}
         />

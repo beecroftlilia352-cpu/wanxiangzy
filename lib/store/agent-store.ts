@@ -28,6 +28,7 @@ type Store = {
   setInputText: (t: string) => void;
   addImages: (files: File[]) => Promise<void>;
   removeImage: (i: number) => void;
+  addReferenceUrl: (url: string) => void;
   setParams: (p: Partial<GenerationParams>) => void;
   setSidebarOpen: (v: boolean) => void;
   sendMessage: () => Promise<void>;
@@ -181,6 +182,23 @@ export const useAgentStore = create<Store>((set, get) => ({
       if (removed?.url?.startsWith("blob:")) URL.revokeObjectURL(removed.url);
       return { inputImages: s.inputImages.filter((_, i) => i !== index).map((img, i) => ({ ...img, index: i + 1 })) };
     });
+  },
+
+  /** 将远程 URL 直接加入图片托盘（用于"用作参考图"） */
+  addReferenceUrl: (url: string) => {
+    if (!url) return;
+    set((s) => ({
+      inputImages: [
+        ...s.inputImages,
+        {
+          index: s.inputImages.length + 1,
+          url,
+          hostedUrl: url,
+          fileName: "参考图",
+          uploading: false,
+        },
+      ],
+    }));
   },
 
   setParams: (p) => set((s) => ({ params: { ...s.params, ...p } })),
