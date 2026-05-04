@@ -197,10 +197,19 @@ export async function POST(request: NextRequest) {
     const reply = typeof parsed?.reply === "string" && parsed.reply.length > 10
       ? parsed.reply
       : llmContent || "我理解了你的需求，正在处理中...";
-    const action = parsed?.action === "generate" && hasImages ? "generate" : "chat";
-    const module = typeof parsed?.module === "string" ? parsed.module : null;
+    let action = parsed?.action === "generate" && hasImages ? "generate" : "chat";
+    let module = typeof parsed?.module === "string" ? parsed.module : null;
     const llmParams = typeof parsed?.params === "object" && parsed.params !== null ? parsed.params as Record<string, unknown> : {};
     const style = typeof parsed?.style === "string" ? parsed.style : null;
+
+    // 兜底：如果 LLM 返回 chat 但用户消息明确包含生图意图 + 有图片 → 强制 generate
+    if (action === "chat" && hasImages) {
+      const detected = detectGenerationIntent(userText);
+      if (detected) {
+        action = "generate";
+        module = detected;
+      }
+    }
 
     // 对话模式：直接返回
     if (action !== "generate" || !module || !MODULE_API[module]) {
@@ -335,6 +344,12 @@ function buildModuleParams(
   imageMap: Map<number, string>,
   opts: { model: LingyaModel; aspectRatio: AspectRatio; imageSize: ImageSize; count: number; style: string | null }
 ): Record<string, unknown> | null {
+  // 获取所有可用图片 URL（按图号排序）
+  const allUrls = Array.from(imageMap.entries())
+    .sort(([a], [b]) => a - b)
+    .map(([, url]) => url);
+  if (allUrls.length === 0) return null;
+
   const base: Record<string, unknown> = {
     ai_model: opts.model,
     aspect_ratio: opts.aspectRatio,
@@ -345,7 +360,12 @@ function buildModuleParams(
   switch (module) {
     case "tryon": {
       const clothing = resolveImageUrls(llmParams.clothing_urls ?? [1], imageMap);
-      if (clothing.length === 0) return null;
+      // 如果解析失败，用第一张图
+      if (clothing.length === 0) {
+        base.clothing_urls = [allUrls[0]];
+      } else {
+        base.clothing_urls = clothing;
+      }
       base.clothing_urls = clothing;
       const ref = resolveImageUrl(llmParams.reference_url, imageMap);
       if (ref) base.reference_url = ref;
@@ -355,7 +375,7 @@ function buildModuleParams(
       return base;
     }
     case "grass": {
-      const garment = resolveImageUrl(llmParams.garment_url ?? 1, imageMap);
+      const garment = resolveImageUrl(llmParams.garment_url ?? 1, imageMap) || allUrls[0];
       if (!garment) return null;
       base.garment_url = garment;
       base.scene_mode = "auto";
@@ -364,7 +384,7 @@ function buildModuleParams(
       return base;
     }
     case "model": {
-      const refs = resolveImageUrls(llmParams.reference_urls ?? [1], imageMap);
+      const refs = resolveImageUrls(llmParams.reference_urls ?? [1], imageMap); if (refs.length === 0) { base.reference_urls = [allUrls[0]]; } else { base.reference_urls = refs; }
       if (refs.length === 0) return null;
       base.reference_urls = refs;
       base.gender = "female";
@@ -372,7 +392,7 @@ function buildModuleParams(
       return base;
     }
     case "model_background": {
-      const source = resolveImageUrl(llmParams.source_url ?? 1, imageMap);
+      const source = resolveImageUrl(llmParams.source_url ?? 1, imageMap) || allUrls[0];
       if (!source) return null;
       base.source_url = source;
       base.mode = typeof llmParams.mode === "string" ? llmParams.mode : "background_only";
@@ -382,13 +402,13 @@ function buildModuleParams(
       return base;
     }
     case "pose": {
-      const main = resolveImageUrl(llmParams.main_image_url ?? 1, imageMap);
+      const main = resolveImageUrl(llmParams.main_image_url ?? 1, imageMap) || allUrls[0];
       if (!main) return null;
       base.main_image_url = main;
       return base;
     }
     case "garment_3d": {
-      const garment = resolveImageUrl(llmParams.garment_url ?? 1, imageMap);
+      const garment = resolveImageUrl(llmParams.garment_url ?? 1, imageMap) || allUrls[0];
       if (!garment) return null;
       base.garment_url = garment;
       return base;
@@ -396,6 +416,25 @@ function buildModuleParams(
     default:
       return null;
   }
+}
+
+/**
+ * 兜底意图检测：当 LLM 返回 chat 但用户消息包含明确的生图意图时
+ */
+function detectGenerationIntent(text: string): string | null {
+  const rules: Array<[RegExp, string]> = [
+    [/换[装到上]|穿[到在]|试穿|上身/, "tryon"],
+    [/种草|小红书|街拍.*图/, "grass"],
+    [/3[dD]|立体/, "garment_3d"],
+    [/专属模特|建模特|定制脸/, "model"],
+    [/换背景|换场景|换模特/, "model_background"],
+    [/四宫格|姿势裂变/, "pose"],
+    [/生成|制作|出图|做一张|来一张/, "tryon"], // 通用生图意图默认 tryon
+  ];
+  for (const [pattern, mod] of rules) {
+    if (pattern.test(text)) return mod;
+  }
+  return null;
 }
 
 function extractClothingUrls(params: Record<string, unknown>): string[] {
