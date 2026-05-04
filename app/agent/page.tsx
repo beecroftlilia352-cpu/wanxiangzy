@@ -38,6 +38,28 @@ export default function AgentPage() {
     return unsub;
   }, []);
 
+  // 积分刷新：当有生成完成时刷新余额
+  useEffect(() => {
+    const hasCompleted = s.messages.some(
+      (m) => m.generation?.status === "completed" && m.generation?.creditsUsed
+    );
+    if (hasCompleted && userId) {
+      getCachedProfileCredits(userId).then(setCredits);
+    }
+  }, [s.messages, userId]);
+
+  // Escape 键：关闭侧边栏/灯箱
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (lightbox) setLightbox(null);
+        else if (s.sidebarOpen) s.setSidebarOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [lightbox, s.sidebarOpen]);
+
   if (!isAuth) return null;
 
   const handleQuickAction = (text: string) => {

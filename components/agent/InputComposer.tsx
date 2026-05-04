@@ -8,7 +8,7 @@ import { getCreditCost } from "@/lib/api/lingya";
 import { detectMentionTrigger, insertMention } from "@/lib/agent/mention-parser";
 import { ImageTray } from "./ImageTray";
 import { MentionDropdown } from "./MentionDropdown";
-import { ModeToggle } from "./ModeToggle";
+
 
 type Props = {
   inputText: string;
@@ -184,13 +184,6 @@ export function InputComposer({
 
         {/* 底部工具栏 */}
         <div className="mt-1.5 flex items-center gap-2 px-1">
-          {mode && onModeChange && (
-            <>
-              <ModeToggle mode={mode} onChange={onModeChange} />
-              <div className="h-3 w-px bg-slate-200" />
-            </>
-          )}
-
           <div className="relative">
             <button onClick={(e) => { e.stopPropagation(); setSettingsOpen(!settingsOpen); }}
               className={`flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] transition-all ${

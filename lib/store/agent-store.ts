@@ -6,6 +6,41 @@ import type { Conversation, Message, ChatImage, GenerationParams, AgentMode } fr
 import { DEFAULT_PARAMS } from "@/lib/agent/types";
 import { uploadImage } from "@/lib/utils";
 
+// ---- localStorage 持久化 ----
+const STORAGE_KEY = "vastwear-agent-state";
+const MAX_STORED_MESSAGES = 100;
+
+function loadPersistedState(): Partial<{ conversations: Conversation[]; activeId: string }> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return {
+      conversations: Array.isArray(parsed.conversations) ? parsed.conversations : [],
+      activeId: typeof parsed.activeId === "string" ? parsed.activeId : null,
+    };
+  } catch { return {}; }
+}
+
+function persistState(conversations: Conversation[], activeId: string | null, messages: Message[]) {
+  if (typeof window === "undefined") return;
+  try {
+    // 只持久化当前活跃对话的消息
+    const activeConv = conversations.find((c) => c.id === activeId);
+    const trimmedConv = activeConv
+      ? { ...activeConv, messages: messages.slice(-MAX_STORED_MESSAGES) }
+      : null;
+    const allConvs = conversations.map((c) =>
+      c.id === activeId && trimmedConv ? trimmedConv : { ...c, messages: (c as unknown as Record<string, unknown>).messages || [] }
+    );
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      conversations: allConvs,
+      activeId,
+    }));
+  } catch {}
+}
+
 // ---- 类型 ----
 type Store = {
   conversations: Conversation[];
@@ -42,9 +77,11 @@ function revoke(urls: string[]) {
 }
 
 // ---- Store ----
+const persisted = loadPersistedState();
+
 export const useAgentStore = create<Store>((set, get) => ({
-  conversations: [],
-  activeId: null,
+  conversations: persisted.conversations || [],
+  activeId: persisted.activeId || null,
   messages: [],
   inputText: "",
   inputImages: [],
@@ -84,12 +121,25 @@ export const useAgentStore = create<Store>((set, get) => ({
   },
 
   switchConversation: async (id: string) => {
-    set({ activeId: id, messages: [], inputText: "", inputImages: [], isSending: false });
     const conv = get().conversations.find((c) => c.id === id);
-    if (conv) set({ inputImages: Array.isArray(conv.images) ? conv.images : [] });
+    // 优先从本地持久化加载消息（快速）
+    const localMessages = (conv as unknown as Record<string, unknown>)?.messages as Message[] | undefined;
+    set({
+      activeId: id,
+      messages: Array.isArray(localMessages) ? localMessages : [],
+      inputText: "",
+      inputImages: conv && Array.isArray(conv.images) ? conv.images : [],
+      isSending: false,
+    });
+    // 然后从 DB 加载最新消息（如果有的话）
     try {
       const res = await fetch(`/api/conversations/${id}/messages`);
-      if (res.ok) set({ messages: await res.json() });
+      if (res.ok) {
+        const dbMessages = await res.json();
+        if (Array.isArray(dbMessages) && dbMessages.length > 0) {
+          set({ messages: dbMessages });
+        }
+      }
     } catch {}
   },
 
@@ -236,8 +286,6 @@ export const useAgentStore = create<Store>((set, get) => ({
       const data = await res.json();
       const reply = typeof data.reply === "string" ? data.reply : "处理完成。";
 
-      // [DEBUG] 打印 API 响应
-      console.log("[agent-store] API response:", { action: data.action, module: data.module, credits_cost: data.credits_cost, api_path: data.api_path, replyLength: reply.length });
 
       if (data.action === "confirm_generate" && data.api_path) {
         // 生图任务：显示确认卡片（需要用户确认后才扣积分执行）
@@ -343,14 +391,6 @@ export const useAgentStore = create<Store>((set, get) => ({
       jobPayload: Record<string, unknown>;
       creditsCost: number;
     };
-
-    // [DEBUG] 打印确认生成参数
-    console.log("[agent-store] confirmGeneration:", {
-      apiPath: confirmData.apiPath,
-      module: confirmData.module,
-      creditsCost: confirmData.creditsCost,
-      params: confirmData.params,
-    });
 
     // 更新为 generating 状态
     set((s) => ({
@@ -485,3 +525,10 @@ function pollGeneration(
 function uid() {
   return v4();
 }
+
+// 自动持久化：消息或对话变化时保存到 localStorage
+useAgentStore.subscribe((state, prevState) => {
+  if (state.messages !== prevState.messages || state.conversations !== prevState.conversations) {
+    persistState(state.conversations, state.activeId, state.messages);
+  }
+});
