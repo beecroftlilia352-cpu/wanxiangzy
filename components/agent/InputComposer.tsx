@@ -215,6 +215,12 @@ export function InputComposer({
             </span>
           )}
         </div>
+
+        <p className="mt-1 text-center text-[11px] text-slate-300">
+          输入 <span className="font-semibold text-violet-400">@</span> 绑定图片，
+          <span className="font-semibold">Enter</span> 发送，
+          <span className="font-semibold">Shift + Enter</span> 换行
+        </p>
       </div>
     </div>
   );
