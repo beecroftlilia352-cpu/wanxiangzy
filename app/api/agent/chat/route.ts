@@ -202,8 +202,8 @@ export async function POST(request: NextRequest) {
     const llmParams = typeof parsed?.params === "object" && parsed.params !== null ? parsed.params as Record<string, unknown> : {};
     const style = typeof parsed?.style === "string" ? parsed.style : null;
 
-    // 兜底：无论 LLM 返回什么，只要有图片 + 生图关键词 → 强制 generate
-    if (hasImages && !module) {
+    // 兜底：检测生图意图（有图片或明确的生图指令）
+    if (!module) {
       const detected = detectGenerationIntent(userText);
       if (detected) {
         action = "generate";
@@ -331,7 +331,6 @@ function buildModuleParams(
   const allUrls = Array.from(imageMap.entries())
     .sort(([a], [b]) => a - b)
     .map(([, url]) => url);
-  if (allUrls.length === 0) return null;
 
   // 每个模块的默认提示词（当 LLM 未返回 prompt 时使用）
   const DEFAULT_PROMPTS: Record<string, string> = {
@@ -359,7 +358,12 @@ function buildModuleParams(
     case "tryon": {
       const clothing = resolveImageUrls(llmParams.clothing_urls ?? [1], imageMap);
       if (clothing.length === 0) {
-        base.clothing_urls = [allUrls[0]];
+        if (allUrls.length > 0) {
+          base.clothing_urls = [allUrls[0]];
+        } else {
+          // 文生图：没有图片但有 prompt，用 prompt 直接生成
+          return base;
+        }
       } else {
         base.clothing_urls = clothing;
       }
@@ -422,11 +426,12 @@ function detectGenerationIntent(text: string): string | null {
   const rules: Array<[RegExp, string]> = [
     [/换[装到上]|穿[到在]|试穿|上身/, "tryon"],
     [/种草|小红书|街拍.*图/, "grass"],
-    [/3[dD]|立体/, "garment_3d"],
+    [/3[dD]|立体|商品展示/, "garment_3d"],
     [/专属模特|建模特|定制脸/, "model"],
     [/换背景|换场景|换模特/, "model_background"],
-    [/四宫格|姿势裂变/, "pose"],
-    [/生成|制作|出图|做一张|来一张/, "tryon"], // 通用生图意图默认 tryon
+    [/四宫格|姿势裂变|pose/i, "pose"],
+    // 通用生图意图 — 默认用 tryon
+    [/生成|制作|出图|做一张|来一张|画一张|给我.*图|帮我.*图/, "tryon"],
   ];
   for (const [pattern, mod] of rules) {
     if (pattern.test(text)) return mod;

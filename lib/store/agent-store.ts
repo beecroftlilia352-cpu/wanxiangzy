@@ -200,9 +200,9 @@ export const useAgentStore = create<Store>((set, get) => ({
       if (!convId) return;
     }
 
-    // 快照图片并清空输入
+    // 快照图片（保留在托盘中），只清空文字
     const currentImages = [...inputImages];
-    set({ inputText: "", inputImages: [], isSending: true });
+    set({ inputText: "", isSending: true });
 
     // 持久化图片
     if (currentImages.length > 0) {
@@ -247,11 +247,31 @@ export const useAgentStore = create<Store>((set, get) => ({
     saveMessage(convId, { role: "user", content: trimmed, images: currentImages, mode: "agent" });
 
     try {
-      const imageUrls = currentImages.map((img) => ({ index: img.index, url: img.hostedUrl || img.url })).filter((img) => img.url);
+      // 当前上传的图片
+      let imageUrls = currentImages.map((img) => ({ index: img.index, url: img.hostedUrl || img.url })).filter((img) => img.url);
+
+      // 如果当前没有图片，从历史消息中提取最近的图片
+      if (imageUrls.length === 0) {
+        const recentUserMsgs = get().messages
+          .filter((m) => m.role === "user" && m.images && m.images.length > 0)
+          .slice(-3);
+        for (const msg of recentUserMsgs) {
+          for (const img of msg.images || []) {
+            const url = img.hostedUrl || img.url;
+            if (url && !imageUrls.some((existing) => existing.url === url)) {
+              imageUrls.push({ index: imageUrls.length + 1, url });
+            }
+          }
+        }
+      }
+
       const history = get().messages
         .filter((m) => m.id !== userMsg.id && m.id !== aiMsg.id)
         .slice(-10)
-        .map((m) => ({ role: m.role, content: m.content || "" }));
+        .map((m) => ({
+          role: m.role,
+          content: m.content || (m.generation?.resultUrls?.length ? `[生成了 ${m.generation.resultUrls.length} 张图片]` : ""),
+        }));
 
       // 调用统一 Agent API
       const res = await fetch("/api/agent/chat", {
