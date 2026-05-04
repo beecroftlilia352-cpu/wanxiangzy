@@ -16,9 +16,10 @@ type Props = {
   onOpenImage: (url: string) => void;
   onRetry: (messageId: string) => void;
   onConfirm?: (messageId: string) => void;
+  onUseAsReference?: (url: string) => void;
 };
 
-export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage, onRetry, onConfirm }: Props) {
+export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage, onRetry, onConfirm, onUseAsReference }: Props) {
   const { role, content, images, generation, created_at } = message;
   const [copied, setCopied] = useState(false);
 
@@ -215,11 +216,13 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
                 variant="primary"
                 onClick={() => onRetry(message.id)}
               />
-              <QuickAction
-                icon={<ZoomIn className="h-3 w-3" />}
-                label="用作参考图"
-                onClick={() => {}}
-              />
+              {generation.resultUrls[0] && onUseAsReference && (
+                <QuickAction
+                  icon={<ZoomIn className="h-3 w-3" />}
+                  label="用作参考图"
+                  onClick={() => onUseAsReference(generation.resultUrls[0])}
+                />
+              )}
             </div>
           </div>
         )}

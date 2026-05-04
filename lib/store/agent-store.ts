@@ -236,6 +236,9 @@ export const useAgentStore = create<Store>((set, get) => ({
       const data = await res.json();
       const reply = typeof data.reply === "string" ? data.reply : "处理完成。";
 
+      // [DEBUG] 打印 API 响应
+      console.log("[agent-store] API response:", { action: data.action, module: data.module, credits_cost: data.credits_cost, api_path: data.api_path, replyLength: reply.length });
+
       if (data.action === "confirm_generate" && data.api_path) {
         // 生图任务：显示确认卡片（需要用户确认后才扣积分执行）
         set((s) => ({
@@ -340,6 +343,14 @@ export const useAgentStore = create<Store>((set, get) => ({
       jobPayload: Record<string, unknown>;
       creditsCost: number;
     };
+
+    // [DEBUG] 打印确认生成参数
+    console.log("[agent-store] confirmGeneration:", {
+      apiPath: confirmData.apiPath,
+      module: confirmData.module,
+      creditsCost: confirmData.creditsCost,
+      params: confirmData.params,
+    });
 
     // 更新为 generating 状态
     set((s) => ({

@@ -13,6 +13,7 @@ type Props = {
   onOpenImage: (url: string) => void;
   onRetry: (messageId: string) => void;
   onConfirm?: (messageId: string) => void;
+  onUseAsReference?: (url: string) => void;
   onQuickAction: (text: string) => void;
 };
 
@@ -25,7 +26,7 @@ const PRESET_QUESTIONS = [
   { icon: "💬", text: "你是谁？你有什么能力？" },
 ];
 
-export function ChatArea({ messages, sessionImages, isSending, onOpenImage, onRetry, onConfirm, onQuickAction }: Props) {
+export function ChatArea({ messages, sessionImages, isSending, onOpenImage, onRetry, onConfirm, onUseAsReference, onQuickAction }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const [isAtBottom, setIsAtBottom] = useState(true);
@@ -96,6 +97,7 @@ export function ChatArea({ messages, sessionImages, isSending, onOpenImage, onRe
                 onOpenImage={onOpenImage}
                 onRetry={onRetry}
                 onConfirm={onConfirm}
+                onUseAsReference={onUseAsReference}
               />
             ))}
           </AnimatePresence>
