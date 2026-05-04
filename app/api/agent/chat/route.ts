@@ -63,9 +63,11 @@ const SYSTEM_PROMPT = `你是 VastWear AI 助手，一个专业的服装电商�
 - 像一个资深的电商视觉顾问在给客户做方案
 
 ### action 字段规则
-- 用户明确要求生成/制作/出图，且有图片 → "generate"
+- 用户要求生成/制作/出图，且有图片 → "generate"
+- 用户要求修改/调整/重做/换掉某部分，且有图片 → "generate"（修改后重新生成）
+- 用户描述服装组合（上装+下装+模特），且有图片 → "generate"
 - 用户只是聊天/提问/分析/咨询 → "chat"
-- 不确定 → "chat"
+- 有图片 + 不确定 → "generate"（宁可多生成，不要漏掉）
 
 ### module 字段（仅 action="generate" 时）
 - "tryon"：换装/穿上/试穿/上身
@@ -210,12 +212,17 @@ export async function POST(request: NextRequest) {
     const llmParams = typeof parsed?.params === "object" && parsed.params !== null ? parsed.params as Record<string, unknown> : {};
     const style = typeof parsed?.style === "string" ? parsed.style : null;
 
-    // 兜底：检测生图意图（有图片或明确的生图指令）
+    // 兜底：检测生图意图
     if (!module) {
       const detected = detectGenerationIntent(userText);
       if (detected) {
         action = "generate";
         module = detected;
+      }
+      // 最终兜底：有图片 + 非纯聊天 → 默认换装
+      if (!module && hasImages && !isChatOnlyIntent(userText)) {
+        action = "generate";
+        module = "tryon";
       }
     }
 
@@ -455,15 +462,27 @@ function buildModuleParams(
 /**
  * 兜底意图检测：当 LLM 返回 chat 但用户消息包含明确的生图意图时
  */
+/**
+ * 判断是否为纯聊天意图（不应该触发生图）
+ */
+function isChatOnlyIntent(text: string): boolean {
+  return /^(你是谁|你好|谢谢|为什么|怎么|如何|什么是|请问|分析|分析一|看看|这个是什么|解释|推荐|建议|适合什么)/.test(text);
+}
+
 function detectGenerationIntent(text: string): string | null {
   const rules: Array<[RegExp, string]> = [
-    [/换[装到上]|穿[到在]|试穿|上身/, "tryon"],
+    // 明确的模块意图
+    [/换[装到上]|穿[到在]|试穿|上身|换装/, "tryon"],
     [/种草|小红书|街拍.*图/, "grass"],
     [/3[dD]|立体|商品展示/, "garment_3d"],
     [/专属模特|建模特|定制脸/, "model"],
     [/换背景|换场景|换模特/, "model_background"],
     [/四宫格|姿势裂变|pose/i, "pose"],
-    // 通用生图意图 — 默认用 tryon
+    // 修改/调整意图（已有图片上下文，用户要求修改）
+    [/不对|不对啊|错了|重新|重做|换个|换一|改一下|调整|修改|换掉/, "tryon"],
+    // 服装描述 + 参考/替换（隐含换装意图）
+    [/上装|下装|上衣|裤子|裙子|外套|内搭|搭配/, "tryon"],
+    // 通用生图意图
     [/生成|制作|出图|做一张|来一张|画一张|给我.*图|帮我.*图/, "tryon"],
   ];
   for (const [pattern, mod] of rules) {
