@@ -857,38 +857,7 @@
   40% { opacity: 1; transform: scale(1.2); }
 }
 
-/* ---- Agent Markdown 表格样式 ---- */
-.prose-agent table {
-  width: 100%;
-  border-collapse: collapse;
-  margin: 0.6em 0;
-  font-size: 0.85em;
-}
-.prose-agent thead th {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  padding: 0.5em 0.75em;
-  text-align: left;
-  font-weight: 700;
-  color: #334155;
-  white-space: nowrap;
-}
-.prose-agent tbody td {
-  border: 1px solid #e2e8f0;
-  padding: 0.45em 0.75em;
-  color: #475569;
-}
-.prose-agent tbody tr:hover {
-  background: #f8fafc;
-}
-.prose-agent del {
-  color: #94a3b8;
-  text-decoration: line-through;
-}
-.prose-agent input[type="checkbox"] {
-  margin-right: 0.4em;
-  accent-color: #7c3aed;
-}
+/* (duplicate table/del/checkbox styles removed - already defined above) */
 
 /* ---- Agent 生图特效 ---- */
 @keyframes gen-shimmer {
