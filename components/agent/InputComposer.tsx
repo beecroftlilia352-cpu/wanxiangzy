@@ -89,6 +89,11 @@ export function InputComposer({
   };
 
   const handleMentionSelect = (imageIndex: number) => {
+    if (imageIndex === -1) {
+      setMentionState({ active: false, query: "" });
+      textareaRef.current?.focus();
+      return;
+    }
     const el = textareaRef.current;
     if (!el) return;
     const result = insertMention(el.value, cursorPos, imageIndex);
@@ -141,7 +146,7 @@ export function InputComposer({
 
             <button onClick={() => fileRef.current?.click()}
               className="flex h-11 w-11 shrink-0 items-center justify-center text-slate-300 transition-colors hover:text-violet-400"
-              title="上传图片">
+              aria-label="上传图片" title="上传图片">
               <Paperclip className="h-[18px] w-[18px]" />
             </button>
 
@@ -156,7 +161,7 @@ export function InputComposer({
               <textarea ref={textareaRef} value={inputText}
                 onChange={(e) => { onTextChange(e.target.value); handleInput(); }}
                 onKeyDown={handleKeyDown} onPaste={handlePaste} onClick={handleInput}
-                placeholder="描述你想做什么..."
+                placeholder="描述你想做什么..." aria-label="输入消息"
                 rows={1}
                 className={`block min-h-[44px] max-h-[120px] w-full resize-none py-3 pr-1 text-[14px] leading-[1.5] outline-none placeholder:text-slate-300 ${
                   inputText.includes("@") && inputImages.length > 0 ? "text-transparent caret-violet-600" : "text-slate-800"
@@ -168,7 +173,7 @@ export function InputComposer({
               {inputImages.length > 0 && (
                 <button onClick={onAIWrite} disabled={isAIWriting}
                   className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-300 transition-all hover:bg-amber-50 hover:text-amber-500 disabled:opacity-40"
-                  title="AI 帮写：根据图片优化提示词">
+                  aria-label="AI 帮写" title="AI 帮写：根据图片优化提示词">
                   {isAIWriting ? <Loader2 className="h-4 w-4 animate-spin text-amber-400" /> : <Sparkles className="h-4 w-4" />}
                 </button>
               )}
