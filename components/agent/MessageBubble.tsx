@@ -117,44 +117,40 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
         {/* ===== 任务状态卡片 ===== */}
 
         {/* 生成中 — 酷炫特效 */}
+        {/* 生成中 — GPT 风格方框卡片 */}
         {generation && (generation.status === "pending" || generation.status === "generating") && (
-          <div className="gen-card mt-1.5 w-full max-w-sm rounded-xl border border-violet-100 bg-gradient-to-br from-white via-violet-50/30 to-pink-50/30 shadow-md shadow-violet-100/50">
-            <div className="relative z-10 px-4 pt-3 pb-2.5">
-              <div className="mb-2.5 flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  {/* 酷炫图标 */}
-                  <div className="relative flex h-8 w-8 items-center justify-center">
-                    <div className="gen-ring absolute inset-0 rounded-lg bg-violet-300" />
-                    <div className="gen-ring absolute inset-0 rounded-lg bg-pink-300" style={{ animationDelay: "0.5s" }} />
-                    <div className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-pink-500 shadow-sm">
-                      <Sparkles className="gen-icon h-4 w-4 text-white" />
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold text-slate-800">AI 正在创作</p>
-                    <p className="text-[10px] text-violet-500">{generation.module || "图像生成"}</p>
+          <div className="mt-1.5 inline-flex flex-col gap-2">
+            {/* 图片占位方框（GPT 风格） */}
+            <div className="gen-card relative overflow-hidden rounded-2xl border border-slate-200/60 bg-gradient-to-br from-slate-100 via-violet-50 to-pink-50 shadow-sm"
+              style={{ width: "min(280px, 70vw)", aspectRatio: "3/4" }}>
+              {/* 扫光动画 */}
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent"
+                style={{ animation: "gen-shimmer 2s ease-in-out infinite", backgroundSize: "200% 100%" }} />
+              {/* 中心内容 */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
+                <div className="relative flex h-12 w-12 items-center justify-center">
+                  <div className="gen-ring absolute inset-0 rounded-full bg-violet-300/40" />
+                  <div className="relative flex h-12 w-12 items-center justify-center rounded-full bg-white/80 shadow-lg backdrop-blur-sm">
+                    <Sparkles className="gen-icon h-6 w-6 text-violet-500" />
                   </div>
                 </div>
                 <span className="text-lg font-black tabular-nums text-transparent bg-clip-text bg-gradient-to-r from-violet-600 to-pink-600">
                   {generation.progress}%
                 </span>
+                <p className="text-xs font-medium text-slate-500">
+                  {generation.progress < 15 ? "准备中..." :
+                   generation.progress < 50 ? "AI 绘制中..." :
+                   generation.progress < 90 ? "即将完成..." : "处理中..."}
+                </p>
               </div>
-              {/* 渐变进度条 */}
-              <div className="h-2.5 overflow-hidden rounded-full bg-violet-100/80">
-                <div className="relative h-full rounded-full overflow-hidden">
-                  <div className="h-full rounded-full bg-gradient-to-r from-violet-500 via-purple-500 to-pink-500 transition-all duration-700 ease-out"
-                    style={{ width: `${Math.max(generation.progress, 5)}%` }} />
-                  {/* 光泽扫过效果 */}
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent"
-                    style={{ animation: "gen-shimmer 1.5s ease-in-out infinite", backgroundSize: "200% 100%" }} />
-                </div>
+            </div>
+            {/* 模块标签 + 进度条 */}
+            <div className="flex items-center gap-2 px-1">
+              <span className="text-[11px] font-medium text-violet-500">{generation.module || "图像生成"}</span>
+              <div className="h-1 flex-1 overflow-hidden rounded-full bg-slate-200">
+                <div className="h-full rounded-full bg-gradient-to-r from-violet-500 to-pink-500 transition-all duration-700"
+                  style={{ width: `${Math.max(generation.progress, 5)}%` }} />
               </div>
-              <p className="mt-2 text-[11px] font-medium text-slate-500">
-                {generation.progress < 15 ? "✨ 正在准备素材..." :
-                 generation.progress < 40 ? "🎨 AI 正在绘制..." :
-                 generation.progress < 70 ? "🖌️ 生成中，请稍候..." :
-                 generation.progress < 95 ? "⏳ 即将完成..." : "🔧 处理结果中..."}
-              </p>
             </div>
           </div>
         )}
