@@ -20,10 +20,11 @@ export interface Message {
   content: string;
   images: ChatImage[];
   generation: GenerationResult | null;
+  taskPlan?: TaskPlan;
   params: Record<string, unknown>;
   mode: AgentMode;
   created_at: string;
-  streamingDone?: boolean;  // true when streaming is complete, ready for markdown render
+  streamingDone?: boolean;
 }
 
 // ---- 前端模型 ----
@@ -60,6 +61,26 @@ export const DEFAULT_PARAMS: GenerationParams = {
   imageSize: "1K",
   count: 1,
 };
+
+// ---- 任务计划 ----
+export type PlanStepStatus = "pending" | "running" | "completed" | "failed";
+
+export interface PlanStep {
+  id: string;
+  tool: string;
+  label: string;
+  description: string;
+  params: Record<string, unknown>;
+  depends_on: string[];
+  status: PlanStepStatus;
+  result?: { text?: string; images?: string[] };
+}
+
+export interface TaskPlan {
+  title: string;
+  steps: PlanStep[];
+  status: "planning" | "executing" | "completed" | "failed";
+}
 
 // ---- @ 引用 ----
 export interface MentionRef {

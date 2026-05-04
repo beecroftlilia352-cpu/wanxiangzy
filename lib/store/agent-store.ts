@@ -449,7 +449,57 @@ export const useAgentStore = create<Store>((set, get) => ({
         .slice(-10)
         .map((m) => ({ role: m.role, content: m.content || (m.generation?.resultUrls?.length ? `[生成了图片]` : "") }));
 
-      // 统一调用 Chat API（流式返回）
+      // Agent 模式：先规划再执行
+      if (mode === "agent") {
+        const planRes = await fetch("/api/agent/plan", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message: trimmed, images: imageUrls, history, mode,
+            params: { model: params.model, aspectRatio: params.aspectRatio, imageSize: params.imageSize, count: params.count },
+          }),
+        });
+        const planData = await planRes.json();
+
+        if (planData.plan && planData.plan.steps && planData.plan.steps.length > 0) {
+          // 显示计划
+          const taskPlan: import("@/lib/agent/types").TaskPlan = {
+            title: planData.plan.title || "执行计划",
+            steps: planData.plan.steps.map((s: Record<string, unknown>) => ({
+              id: typeof s.id === "string" ? s.id : v4(),
+              tool: typeof s.tool === "string" ? s.tool : "analyze_image",
+              label: typeof s.label === "string" ? s.label : "处理中",
+              description: typeof s.description === "string" ? s.description : "",
+              params: typeof s.params === "object" && s.params !== null ? s.params as Record<string, unknown> : {},
+              depends_on: Array.isArray(s.depends_on) ? s.depends_on : [],
+              status: "pending" as const,
+            })),
+            status: "planning",
+          };
+
+          set((s) => ({
+            messages: s.messages.map((m) =>
+              m.id === aiMsg.id ? { ...m, content: planData.reply || "", taskPlan, streamingDone: true } : m
+            ),
+          }));
+
+          // 自动执行计划
+          executePlan(get, set, convId!, aiMsg.id, taskPlan, imageUrls, params);
+          return;
+        }
+
+        // 没有计划 → 显示回复
+        const reply = planData.reply || "请上传图片并告诉我你想做什么。";
+        set((s) => ({
+          messages: s.messages.map((m) =>
+            m.id === aiMsg.id ? { ...m, content: reply, streamingDone: true } : m
+          ),
+          isSending: false,
+        }));
+        return;
+      }
+
+      // Chat 模式：流式对话
       const chatRes = await fetch("/api/agent/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -668,3 +718,222 @@ export const useAgentStore = create<Store>((set, get) => ({
     await get().sendMessage();
   },
 }));
+
+// ======== 计划执行引擎 ========
+
+import type { TaskPlan, PlanStep } from "@/lib/agent/types";
+import { GENERATION_TOOLS, TOOL_TO_MODULE } from "@/lib/agent/tools";
+
+async function executePlan(
+  get: () => Store,
+  set: (fn: (s: Store) => Partial<Store>) => void,
+  convId: string,
+  aiMsgId: string,
+  plan: TaskPlan,
+  imageUrls: Array<{ index: number; url: string }>,
+  genParams: { model: string; aspectRatio: string; imageSize: string; count: number }
+) {
+  // 更新计划状态为执行中
+  updatePlan(set, aiMsgId, plan, "executing");
+
+  for (let i = 0; i < plan.steps.length; i++) {
+    const step = plan.steps[i];
+
+    // 更新步骤状态为 running
+    updateStep(set, aiMsgId, plan, i, "running");
+
+    try {
+      if (GENERATION_TOOLS.has(step.tool)) {
+        // 生图工具 → 调用 generate API
+        const result = await executeGenerationStep(get, set, aiMsgId, plan, i, step, genParams);
+        if (result) {
+          updateStep(set, aiMsgId, plan, i, "completed", result);
+        }
+      } else if (step.tool === "analyze_image" || step.tool === "style_advice" || step.tool === "optimize_prompt") {
+        // 分析/建议工具 → 调用 chat API
+        const result = await executeAnalysisStep(step, imageUrls);
+        updateStep(set, aiMsgId, plan, i, "completed", result);
+      } else {
+        updateStep(set, aiMsgId, plan, i, "completed", { text: "完成" });
+      }
+    } catch (err) {
+      updateStep(set, aiMsgId, plan, i, "failed", {
+        text: err instanceof Error ? err.message : "步骤执行失败",
+      });
+      // 继续执行下一步（不中断整个计划）
+    }
+  }
+
+  // 更新计划状态
+  const finalPlan = get().messages.find((m) => m.id === aiMsgId)?.taskPlan;
+  const anyFailed = finalPlan?.steps.some((s) => s.status === "failed");
+  updatePlan(set, aiMsgId, plan, anyFailed ? "failed" : "completed");
+  set(() => ({ isSending: false }));
+}
+
+async function executeGenerationStep(
+  get: () => Store,
+  set: (fn: (s: Store) => Partial<Store>) => void,
+  aiMsgId: string,
+  plan: TaskPlan,
+  stepIndex: number,
+  step: PlanStep,
+  genParams: { model: string; aspectRatio: string; imageSize: string; count: number }
+): Promise<{ text?: string; images?: string[] } | undefined> {
+  const module = TOOL_TO_MODULE[step.tool];
+  if (!module) return { text: "未知工具" };
+
+  // 合并步骤参数和全局参数
+  const body = {
+    ...step.params,
+    ai_model: step.params.ai_model || genParams.model,
+    aspect_ratio: step.params.aspect_ratio || genParams.aspectRatio,
+    image_size: step.params.image_size || genParams.imageSize,
+    gen_count: step.params.gen_count || genParams.count,
+  };
+
+  // 调用生成 API
+  const res = await fetch(`/api/${module === "model_background" ? "model-background" : module}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json();
+
+  if (!res.ok || !data.generation_id) {
+    throw new Error(data.error || "生成失败");
+  }
+
+  // 轮询等待结果
+  const resultUrls = await pollGeneration(module, data.generation_id, (progress) => {
+    // 可选：更新步骤进度
+  });
+
+  return { images: resultUrls };
+}
+
+async function executeAnalysisStep(
+  step: PlanStep,
+  imageUrls: Array<{ index: number; url: string }>
+): Promise<{ text?: string }> {
+  const res = await fetch("/api/agent/chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      message: `执行工具 ${step.tool}：${step.description}\n参数：${JSON.stringify(step.params)}`,
+      images: imageUrls,
+      mode: "chat",
+    }),
+  });
+
+  // 处理流式或非流式响应
+  const contentType = res.headers.get("content-type") || "";
+  if (contentType.includes("application/json")) {
+    const data = await res.json();
+    return { text: typeof data.reply === "string" ? data.reply : "分析完成" };
+  }
+
+  // 流式：累积文本
+  if (res.body) {
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let text = "";
+    let buffer = "";
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (value) buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed || !trimmed.startsWith("data: ")) continue;
+          try {
+            const parsed = JSON.parse(trimmed.slice(6));
+            if (parsed.chunk) text += parsed.chunk;
+            if (parsed.done && typeof parsed.reply === "string") text = parsed.reply;
+          } catch {}
+        }
+      }
+    } catch {}
+    return { text: text || "分析完成" };
+  }
+
+  return { text: "分析完成" };
+}
+
+function pollGeneration(
+  module: string,
+  generationId: string,
+  onProgress?: (progress: number) => void
+): Promise<string[]> {
+  return new Promise((resolve, reject) => {
+    const apiPath = module === "model_background" ? "model-background" : module;
+    const url = `/api/${apiPath}?generation_id=${generationId}`;
+    const PROGRESS_MAP: Record<string, number> = {
+      uploading: 10, queued: 20, processing_tryon: 50, processing_face_swap: 70,
+    };
+    let attempts = 0;
+    const maxAttempts = 120; // 4 minutes max
+
+    const timer = setInterval(async () => {
+      attempts++;
+      if (attempts > maxAttempts) {
+        clearInterval(timer);
+        reject(new Error("生成超时"));
+        return;
+      }
+
+      try {
+        const res = await fetch(url);
+        if (!res.ok) return;
+        const data = await res.json();
+        const status = data.status as string;
+        const resultUrls: string[] = Array.isArray(data.result_urls) ? data.result_urls : [];
+
+        const progress = resultUrls.length > 0 ? 100 : (PROGRESS_MAP[status] ?? 30);
+        onProgress?.(progress);
+
+        if (status === "completed" || resultUrls.length > 0) {
+          clearInterval(timer);
+          resolve(resultUrls);
+        } else if (status === "failed") {
+          clearInterval(timer);
+          reject(new Error(data.error || "生成失败"));
+        }
+      } catch {}
+    }, 2000);
+  });
+}
+
+function updatePlan(
+  set: (fn: (s: Store) => Partial<Store>) => void,
+  aiMsgId: string,
+  plan: TaskPlan,
+  status: TaskPlan["status"]
+) {
+  plan.status = status;
+  set((s) => ({
+    messages: s.messages.map((m) =>
+      m.id === aiMsgId ? { ...m, taskPlan: { ...plan } } : m
+    ),
+  }));
+}
+
+function updateStep(
+  set: (fn: (s: Store) => Partial<Store>) => void,
+  aiMsgId: string,
+  plan: TaskPlan,
+  stepIndex: number,
+  status: PlanStep["status"],
+  result?: { text?: string; images?: string[] }
+) {
+  plan.steps[stepIndex].status = status;
+  if (result) plan.steps[stepIndex].result = result;
+  set((s) => ({
+    messages: s.messages.map((m) =>
+      m.id === aiMsgId ? { ...m, taskPlan: { ...plan, steps: [...plan.steps] } } : m
+    ),
+  }));
+}
