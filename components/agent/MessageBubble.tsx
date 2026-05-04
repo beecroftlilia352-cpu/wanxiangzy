@@ -6,6 +6,7 @@ import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { Message } from "@/lib/agent/types";
+import { TaskPlan } from "./TaskPlan";
 import { renderMentionSegments } from "@/lib/agent/mention-parser";
 import { downloadImage, generateDownloadFilename } from "@/lib/utils";
 
@@ -114,11 +115,18 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
           </div>
         )}
 
-        {/* ===== 任务状态卡片 ===== */}
+        {/* ===== 任务计划（多步骤） ===== */}
+        {message.taskPlan && (
+          <TaskPlan
+            title={message.taskPlan.title}
+            steps={message.taskPlan.steps}
+            overallStatus={message.taskPlan.status}
+            onOpenImage={onOpenImage}
+          />
+        )}
 
-        {/* 生成中 — 酷炫特效 */}
-        {/* 生成中 — GPT 风格方框卡片 */}
-        {generation && (generation.status === "pending" || generation.status === "generating") && (
+        {/* ===== 单步生成卡片 ===== */}
+        {!message.taskPlan && generation && (generation.status === "pending" || generation.status === "generating") && (
           <div className="mt-1.5 inline-flex flex-col gap-2">
             {/* 图片占位方框（GPT 风格） */}
             <div className="gen-card relative overflow-hidden rounded-2xl border border-slate-200/60 bg-gradient-to-br from-slate-100 via-violet-50 to-pink-50 shadow-sm"
