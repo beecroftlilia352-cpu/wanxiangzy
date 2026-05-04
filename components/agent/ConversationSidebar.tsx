@@ -25,9 +25,12 @@ export function ConversationSidebar({ conversations, activeId, onCreate, onSwitc
   return (
     <>
       {isOpen && <div className="fixed inset-0 z-40 bg-black/20 lg:hidden" onClick={onClose} />}
-      <aside className={`fixed inset-y-0 left-0 z-50 flex w-[260px] flex-col border-r border-slate-200/80 bg-white/95 backdrop-blur-xl transition-transform duration-200 lg:static lg:translate-x-0 ${
-        isOpen ? "translate-x-0" : "-translate-x-full"
-      }`}>
+      <aside
+        role="navigation"
+        aria-label="对话历史"
+        className={`fixed inset-y-0 left-0 z-50 flex w-[260px] flex-col border-r border-slate-200/80 bg-white/95 backdrop-blur-xl transition-transform duration-200 lg:static lg:translate-x-0 ${
+          isOpen ? "translate-x-0" : "-translate-x-full"
+        }`}>
         {/* Header */}
         <div className="shrink-0 border-b border-slate-100 px-3 py-3">
           <div className="mb-2 flex items-center justify-between">

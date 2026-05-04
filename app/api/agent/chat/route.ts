@@ -158,9 +158,7 @@ export async function POST(request: NextRequest) {
         } catch {}
 
         // 流结束：完整提取结构化数据
-        console.log("[agent-chat] LLM raw output length:", fullContent.length, "first 200:", fullContent.slice(0, 200));
         const extracted = extractResponse(fullContent, hasImages === true);
-        console.log("[agent-chat] extracted action:", extracted.action, "module:", extracted.module, "reply length:", extracted.reply.length);
         // 如果增量提取的 reply 和最终提取的不同，用最终版本替换
         controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ done: true, ...extracted })}\n\n`));
         controller.close();
