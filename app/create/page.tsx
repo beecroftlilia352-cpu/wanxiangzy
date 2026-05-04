@@ -61,7 +61,7 @@ import {
 } from "@/lib/tryon-prompt";
 
 // ---- 预设数据 ----
-const SUPABASE_STORAGE = "https://mtdfvnhphpulhjtnmubw.supabase.co/storage/v1/object/public";
+const SUPABASE_STORAGE = "";
 
 const PRESET_MODELS = [
   { id: "m0", name: "自然", image_url: `${SUPABASE_STORAGE}/models/model-natural-smile.jpg`, gender: "female" as const },
