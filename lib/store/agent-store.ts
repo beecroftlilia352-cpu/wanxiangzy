@@ -451,7 +451,7 @@ export const useAgentStore = create<Store>((set, get) => ({
     }));
 
     try {
-      // 调用模块 API 执行生成
+      // 调用 API 执行生成
       const res = await fetch(confirmData.apiPath, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -459,11 +459,40 @@ export const useAgentStore = create<Store>((set, get) => ({
       });
       const data = await res.json();
 
-      if (!res.ok || !data.generation_id) {
+      if (!res.ok) {
         throw new Error(data.error || "生成失败");
       }
 
-      // 更新为轮询状态
+      // 通用生图：直接返回结果（无 generation_id）
+      if (data.result_urls && data.result_urls.length > 0) {
+        set((s) => ({
+          isSending: false,
+          messages: s.messages.map((m) =>
+            m.id === messageId && m.generation
+              ? {
+                  ...m,
+                  generation: {
+                    ...m.generation,
+                    status: "completed" as const,
+                    progress: 100,
+                    resultUrls: data.result_urls,
+                    creditsUsed: data.credits_cost || confirmData.creditsCost,
+                    _confirmData: undefined,
+                  },
+                }
+              : m
+          ),
+        }));
+        const finalGen = get().messages.find((m) => m.id === messageId)?.generation;
+        if (finalGen) updateMessageGeneration(activeId || "", messageId, finalGen);
+        return;
+      }
+
+      // 模块生图：需要轮询
+      if (!data.generation_id) {
+        throw new Error(data.error || "生成失败");
+      }
+
       set((s) => ({
         messages: s.messages.map((m) =>
           m.id === messageId && m.generation
@@ -482,18 +511,11 @@ export const useAgentStore = create<Store>((set, get) => ({
         ),
       }));
 
-      // 持久化更新后的 generation 到 DB
       const updatedGen = get().messages.find((m) => m.id === messageId)?.generation;
       if (updatedGen) {
         updateMessageGeneration(activeId || "", messageId, updatedGen);
       }
 
-      // 开始轮询
-      console.log("[agent-store] confirmGeneration success, starting poll:", {
-        generationId: data.generation_id,
-        module: confirmData.module,
-        creditsCost: data.credits_cost,
-      });
       pollGeneration(get, set, messageId, activeId!, data.generation_id, confirmData.module);
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : "生成失败";

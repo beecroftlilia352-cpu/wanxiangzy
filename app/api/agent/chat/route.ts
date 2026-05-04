@@ -215,8 +215,33 @@ export async function POST(request: NextRequest) {
     console.log("[agent-chat] decision:", { action, module, hasImages, userText: userText.slice(0, 50) });
 
     // 对话模式：直接返回
-    if (action !== "generate" || !module || !MODULE_API[module]) {
+    if (action !== "generate" || !module) {
       return NextResponse.json({ reply, action: "chat" });
+    }
+
+    // 通用生图（文生图 / 图生图 / 无特定模块）
+    if (!MODULE_API[module]) {
+      const imageUrls = (images || []).map((img) => img.url).filter(Boolean);
+      const cost = getCreditCost(
+        normalizeLingyaModel(userParams?.model),
+        normalizeImageSize(normalizeLingyaModel(userParams?.model), (userParams?.imageSize as ImageSize) || "1K", normalizeAspectRatio(userParams?.aspectRatio || "3:4")),
+        normalizeAspectRatio(userParams?.aspectRatio || "3:4")
+      );
+      return NextResponse.json({
+        reply,
+        action: "confirm_generate",
+        module: "通用生图",
+        module_label: "通用生图",
+        generation_params: {
+          prompt: userText || reply,
+          images: imageUrls,
+          model: userParams?.model || "gpt-image-2",
+          aspectRatio: userParams?.aspectRatio || "3:4",
+          imageSize: userParams?.imageSize || "1K",
+        },
+        api_path: "/api/agent/generate",
+        credits_cost: cost,
+      });
     }
 
     // ===== 生图模式 =====
