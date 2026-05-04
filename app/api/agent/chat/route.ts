@@ -202,17 +202,6 @@ export async function POST(request: NextRequest) {
     const llmParams = typeof parsed?.params === "object" && parsed.params !== null ? parsed.params as Record<string, unknown> : {};
     const style = typeof parsed?.style === "string" ? parsed.style : null;
 
-    // [DEBUG] 打印 LLM 解析结果
-    console.log("[agent-chat] LLM parsed:", {
-      action: parsed?.action,
-      module,
-      hasImages,
-      llmParams,
-      style,
-      replyLength: reply.length,
-      llmRawLength: llmContent.length,
-    });
-
     // 兜底：如果 LLM 返回 chat 但用户消息明确包含生图意图 + 有图片 → 强制 generate
     if (action === "chat" && hasImages) {
       const detected = detectGenerationIntent(userText);
@@ -248,9 +237,6 @@ export async function POST(request: NextRequest) {
       model, aspectRatio, imageSize, count, style,
     });
 
-    // [DEBUG] 打印构建结果
-    console.log("[agent-chat] moduleParams:", JSON.stringify(moduleParams, null, 2));
-    console.log("[agent-chat] jobPayload preview:", JSON.stringify(buildJobPayload(module, moduleParams || {}, { model, aspectRatio, imageSize, count }), null, 2));
 
     if (!moduleParams) {
       console.error("[agent-chat] buildModuleParams failed", { module, llmParams, imageMapKeys: Array.from(imageMap.keys()) });
