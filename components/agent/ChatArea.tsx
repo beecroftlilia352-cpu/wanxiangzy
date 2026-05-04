@@ -18,11 +18,11 @@ type Props = {
 };
 
 const PRESET_QUESTIONS = [
-  { icon: "🔍", text: "帮我分析这张图片" },
+  { icon: "🎨", text: "帮我生成一张时尚街拍" },
   { icon: "👗", text: "服装换装试穿" },
   { icon: "📸", text: "生成小红书种草图" },
+  { icon: "🔍", text: "帮我分析这张图片" },
   { icon: "💡", text: "给我拍摄创意建议" },
-  { icon: "🖼️", text: "换个背景" },
   { icon: "💬", text: "你是谁？你有什么能力？" },
 ];
 
@@ -32,6 +32,7 @@ const IMAGE_SUGGESTIONS = [
   { icon: "📦", text: "帮我做 3D 立体展示" },
   { icon: "🖼️", text: "帮我换个背景" },
   { icon: "🧍", text: "帮我做四宫格姿势裂变" },
+  { icon: "🔄", text: "根据这张图重新生成一张" },
   { icon: "🔍", text: "分析这件衣服的风格和适合场景" },
   { icon: "💡", text: "给我拍摄创意建议" },
 ];

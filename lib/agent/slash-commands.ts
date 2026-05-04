@@ -81,6 +81,27 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     requiresImages: true,
   },
 
+  // ===== 通用生图 =====
+  {
+    id: "text2img",
+    name: "text2img",
+    label: "文生图",
+    description: "根据文字描述生成图片",
+    icon: "🎨",
+    category: "generation",
+    template: "帮我生成一张",
+  },
+  {
+    id: "img2img",
+    name: "img2img",
+    label: "图生图",
+    description: "根据参考图风格重新生成",
+    icon: "🔄",
+    category: "generation",
+    template: "根据这张图重新生成",
+    requiresImages: true,
+  },
+
   // ===== 分析类 =====
   {
     id: "analyze",
