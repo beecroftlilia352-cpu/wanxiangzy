@@ -40,19 +40,19 @@ const MODELS: { value: LingyaModel; label: string; desc: string; badge?: string;
   { value: "doubao-seedream-4-5-251128", label: "Seedream 4.5", desc: "4K · 2积分", badge: "新", icon: "/model-icons/doubao.png" },
 ];
 
-const SUPABASE_STORAGE = "";
+const SUPABASE_STORAGE = "https://mtdfvnhphpulhjtnmubw.supabase.co/storage/v1/object/public";
 
 const REFERENCE_PRESETS = [
-  { id: "r1", label: "灰色连帽", url: `/garment-3d-refs/ref-01.webp` },
-  { id: "r2", label: "立体牛仔", url: `/garment-3d-refs/ref-02.png` },
-  { id: "r3", label: "棒球外套", url: `/garment-3d-refs/ref-03.png` },
-  { id: "r4", label: "直筒裤装", url: `/garment-3d-refs/ref-04.png` },
-  { id: "r5", label: "纹理卫衣", url: `/garment-3d-refs/ref-05.png` },
-  { id: "r6", label: "敞开夹克", url: `/garment-3d-refs/ref-06.png` },
-  { id: "r7", label: "侧身外套", url: `/garment-3d-refs/ref-07.png` },
-  { id: "r8", label: "羽绒厚度", url: `/garment-3d-refs/ref-08.png` },
-  { id: "r9", label: "背面廓形", url: `/garment-3d-refs/ref-09.jpg` },
-  { id: "r10", label: "短外套", url: `/garment-3d-refs/ref-10.png` },
+  { id: "r1", label: "灰色连帽", url: `${SUPABASE_STORAGE}/references/garment-3d/ref-01.webp` },
+  { id: "r2", label: "立体牛仔", url: `${SUPABASE_STORAGE}/references/garment-3d/ref-02.png` },
+  { id: "r3", label: "棒球外套", url: `${SUPABASE_STORAGE}/references/garment-3d/ref-03.png` },
+  { id: "r4", label: "直筒裤装", url: `${SUPABASE_STORAGE}/references/garment-3d/ref-04.png` },
+  { id: "r5", label: "纹理卫衣", url: `${SUPABASE_STORAGE}/references/garment-3d/ref-05.png` },
+  { id: "r6", label: "敞开夹克", url: `${SUPABASE_STORAGE}/references/garment-3d/ref-06.png` },
+  { id: "r7", label: "侧身外套", url: `${SUPABASE_STORAGE}/references/garment-3d/ref-07.png` },
+  { id: "r8", label: "羽绒厚度", url: `${SUPABASE_STORAGE}/references/garment-3d/ref-08.png` },
+  { id: "r9", label: "背面廓形", url: `${SUPABASE_STORAGE}/references/garment-3d/ref-09.jpg` },
+  { id: "r10", label: "短外套", url: `${SUPABASE_STORAGE}/references/garment-3d/ref-10.png` },
 ];
 
 export default function Garment3dPage() {
