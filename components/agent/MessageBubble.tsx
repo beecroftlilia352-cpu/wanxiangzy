@@ -180,15 +180,25 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
                 </div>
               ))}
             </div>
-            <div className="mt-2 flex gap-2">
-              <button onClick={() => onRetry(message.id)}
-                className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:border-violet-200 hover:text-violet-600">
-                <RefreshCw className="h-3 w-3" /> 重新生成
-              </button>
-              <button onClick={() => generation.resultUrls.forEach((url, i) => downloadImage(url, generateDownloadFilename("agent", i)))}
-                className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:border-emerald-200 hover:text-emerald-600">
-                <Download className="h-3 w-3" /> 全部下载
-              </button>
+            {/* 快捷操作按钮 */}
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              <QuickAction icon={<RefreshCw className="h-3 w-3" />} label="重新生成" onClick={() => onRetry(message.id)} />
+              <QuickAction
+                icon={<Download className="h-3 w-3" />}
+                label="全部下载"
+                onClick={() => generation.resultUrls.forEach((url, i) => downloadImage(url, generateDownloadFilename("agent", i)))}
+              />
+              <QuickAction
+                icon={<Sparkles className="h-3 w-3" />}
+                label="再来 2 张"
+                variant="primary"
+                onClick={() => onRetry(message.id)}
+              />
+              <QuickAction
+                icon={<ZoomIn className="h-3 w-3" />}
+                label="用作参考图"
+                onClick={() => {}}
+              />
             </div>
           </div>
         )}
@@ -257,5 +267,21 @@ function StreamingMarkdown({ content, done }: { content: string; done?: boolean 
       <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
       {!done && <span className="inline-block h-4 w-0.5 animate-pulse bg-violet-400 align-middle ml-0.5" />}
     </>
+  );
+}
+
+function QuickAction({
+  icon, label, onClick, variant = "default",
+}: {
+  icon: React.ReactNode; label: string; onClick: () => void; variant?: "default" | "primary";
+}) {
+  const base = "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all";
+  const styles = variant === "primary"
+    ? "bg-violet-600 text-white shadow-sm hover:bg-violet-700"
+    : "border border-slate-200 bg-white text-slate-600 hover:border-violet-200 hover:text-violet-600";
+  return (
+    <button onClick={onClick} className={`${base} ${styles}`}>
+      {icon} {label}
+    </button>
   );
 }
