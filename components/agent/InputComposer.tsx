@@ -6,8 +6,10 @@ import type { ChatImage, GenerationParams, AgentMode } from "@/lib/agent/types";
 import type { LingyaModel, AspectRatio, ImageSize } from "@/lib/api/lingya";
 import { getCreditCost } from "@/lib/api/lingya";
 import { detectMentionTrigger, insertMention } from "@/lib/agent/mention-parser";
+import { detectSlashTrigger, applyCommand, type SlashCommand } from "@/lib/agent/slash-commands";
 import { ImageTray } from "./ImageTray";
 import { MentionDropdown } from "./MentionDropdown";
+import { SlashCommandDropdown } from "./SlashCommandDropdown";
 
 
 type Props = {
@@ -56,6 +58,7 @@ export function InputComposer({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [mentionState, setMentionState] = useState({ active: false, query: "" });
+  const [slashState, setSlashState] = useState({ active: false, query: "" });
   const [cursorPos, setCursorPos] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
@@ -77,8 +80,10 @@ export function InputComposer({
     if (!el) return;
     el.style.height = "auto";
     el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
-    setCursorPos(el.selectionStart ?? 0);
-    setMentionState(detectMentionTrigger(el.value, el.selectionStart ?? 0));
+    const pos = el.selectionStart ?? 0;
+    setCursorPos(pos);
+    setMentionState(detectMentionTrigger(el.value, pos));
+    setSlashState(detectSlashTrigger(el.value, pos));
   }, []);
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -99,6 +104,30 @@ export function InputComposer({
     const result = insertMention(el.value, cursorPos, imageIndex);
     onTextChange(result.text);
     setMentionState({ active: false, query: "" });
+    setTimeout(() => { el.focus(); el.setSelectionRange(result.cursorPos, result.cursorPos); }, 10);
+  };
+
+  const handleSlashSelect = (command: SlashCommand | null) => {
+    setSlashState({ active: false, query: "" });
+    if (!command) { textareaRef.current?.focus(); return; }
+
+    // 特殊动作
+    if (command.action === "clear") {
+      onTextChange("");
+      textareaRef.current?.focus();
+      return;
+    }
+    if (command.action === "aiwrite") {
+      onAIWrite();
+      textareaRef.current?.focus();
+      return;
+    }
+
+    // 模板命令：替换 /xxx 为模板文本
+    const el = textareaRef.current;
+    if (!el) return;
+    const result = applyCommand(el.value, cursorPos, command);
+    onTextChange(result.text);
     setTimeout(() => { el.focus(); el.setSelectionRange(result.cursorPos, result.cursorPos); }, 10);
   };
 
@@ -143,6 +172,7 @@ export function InputComposer({
 
         {/* 输入容器 */}
         <div className="relative">
+          <SlashCommandDropdown query={slashState.query} visible={slashState.active} onSelect={handleSlashSelect} />
           <MentionDropdown images={inputImages} query={mentionState.query} onSelect={handleMentionSelect} visible={mentionState.active} />
 
           <div className="flex items-center rounded-2xl border border-slate-200/80 bg-white shadow-[0_2px_12px_rgba(0,0,0,0.04)] transition-all focus-within:border-violet-300/60 focus-within:shadow-[0_2px_20px_rgba(139,92,246,0.08)]">
@@ -158,7 +188,7 @@ export function InputComposer({
             <textarea ref={textareaRef} value={inputText}
               onChange={(e) => { onTextChange(e.target.value); handleInput(); }}
               onKeyDown={handleKeyDown} onPaste={handlePaste} onClick={handleInput}
-              placeholder="描述你想做什么... 输入 @ 绑定图片"
+              placeholder="描述你想做什么... 输入 / 查看快捷指令"
               aria-label="输入消息"
               rows={1}
               className="min-h-[44px] max-h-[120px] flex-1 resize-none py-3 pr-2 text-[14px] leading-[1.5] text-slate-800 outline-none placeholder:text-slate-300"
@@ -209,9 +239,10 @@ export function InputComposer({
         </div>
 
         <p className="mt-1 text-center text-[11px] text-slate-300">
-          输入 <span className="font-semibold text-violet-400">@</span> 绑定图片，
-          <span className="font-semibold">Enter</span> 发送，
-          <span className="font-semibold">Shift + Enter</span> 换行
+          <span className="font-semibold text-violet-400">/</span> 快捷指令 ·
+          <span className="font-semibold text-violet-400"> @</span> 绑定图片 ·
+          <span className="font-semibold"> Enter</span> 发送 ·
+          <span className="font-semibold"> Shift+Enter</span> 换行
         </p>
       </div>
     </div>
