@@ -434,12 +434,13 @@ export const useAgentStore = create<Store>((set, get) => ({
 
   // ======== 确认生图（用户确认后才扣积分执行） ========
   confirmGeneration: async (messageId: string) => {
-    const { messages, activeId } = get();
+    const { messages } = get();
     const msg = messages.find((m) => m.id === messageId);
     if (!msg?.generation?._confirmData) {
       console.warn("[agent-store] confirmGeneration: no _confirmData found for", messageId);
       return;
     }
+    const convId = msg.conversation_id;
 
     const confirmData = msg.generation._confirmData as {
       apiPath: string;
@@ -493,7 +494,7 @@ export const useAgentStore = create<Store>((set, get) => ({
           ),
         }));
         const finalGen = get().messages.find((m) => m.id === messageId)?.generation;
-        if (finalGen) updateMessageGeneration(activeId || "", messageId, finalGen);
+        if (finalGen) updateMessageGeneration(convId, messageId, finalGen);
         return;
       }
 
@@ -522,10 +523,10 @@ export const useAgentStore = create<Store>((set, get) => ({
 
       const updatedGen = get().messages.find((m) => m.id === messageId)?.generation;
       if (updatedGen) {
-        updateMessageGeneration(activeId || "", messageId, updatedGen);
+        updateMessageGeneration(convId, messageId, updatedGen);
       }
 
-      pollGeneration(get, set, messageId, activeId!, data.generation_id, confirmData.module);
+      pollGeneration(get, set, messageId, convId, data.generation_id, confirmData.module);
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : "生成失败";
       set((s) => ({
@@ -598,8 +599,9 @@ function pollGeneration(
           ),
         }));
 
-        // 持久化 generation 状态到 DB
-        updateMessageGeneration(get().activeId || "", aiMsgId, {
+        // 持久化 generation 状态到 DB（用消息自带的 convId，不依赖 activeId）
+        const msgConvId = get().messages.find((m) => m.id === aiMsgId)?.conversation_id || get().activeId || "";
+        updateMessageGeneration(msgConvId, aiMsgId, {
           ...get().messages.find((m) => m.id === aiMsgId)?.generation,
           ...finalGeneration,
         });
