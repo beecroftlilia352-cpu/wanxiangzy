@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Menu, Coins, X } from "lucide-react";
+import { toast } from "sonner";
 import { FeatureTabs } from "@/components/FeatureTabs";
 import { ConversationSidebar } from "@/components/agent/ConversationSidebar";
 import { ChatArea } from "@/components/agent/ChatArea";
@@ -103,6 +104,11 @@ export default function AgentPage() {
           onOpenImage={setLightbox}
           onRetry={s.retryMessage}
           onConfirm={s.confirmGeneration}
+          onUseAsReference={(url) => {
+            // 将结果图作为参考图加入下一次生成
+            s.setInputText(s.inputText ? s.inputText + " " : "");
+            toast.success("已添加为参考图，输入指令后发送");
+          }}
           onQuickAction={handleQuickAction}
         />
 
