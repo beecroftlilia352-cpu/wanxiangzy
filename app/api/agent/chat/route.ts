@@ -329,17 +329,31 @@ function buildModuleParams(
     .map(([, url]) => url);
   if (allUrls.length === 0) return null;
 
+  // 每个模块的默认提示词（当 LLM 未返回 prompt 时使用）
+  const DEFAULT_PROMPTS: Record<string, string> = {
+    tryon: "photorealistic fashion photo, model wearing the clothing, natural lighting, 8K ultra-detailed, sharp details, commercial photography quality",
+    grass: "social media lifestyle photo, natural lighting, candid fashion photography, warm atmosphere, real person sharing",
+    model: "exclusive AI model portrait, natural skin texture, professional fashion photography, clean background",
+    model_background: "professional fashion photography with natural background integration, consistent lighting and shadows",
+    pose: "2x2 four-panel pose grid, same person same clothing same scene, different natural poses, consistent camera angle",
+    garment_3d: "3D garment display, clean white studio background, volumetric lighting, commercial product photography",
+  };
+
+  const userPrompt = typeof llmParams.prompt === "string" && llmParams.prompt.trim()
+    ? llmParams.prompt.trim()
+    : DEFAULT_PROMPTS[module] || "professional fashion photography, high quality, detailed";
+
   const base: Record<string, unknown> = {
     ai_model: opts.model,
     aspect_ratio: opts.aspectRatio,
     image_size: opts.imageSize,
     gen_count: opts.count,
+    prompt: userPrompt,
   };
 
   switch (module) {
     case "tryon": {
       const clothing = resolveImageUrls(llmParams.clothing_urls ?? [1], imageMap);
-      // 如果解析失败，用第一张图
       if (clothing.length === 0) {
         base.clothing_urls = [allUrls[0]];
       } else {
