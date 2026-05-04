@@ -136,6 +136,11 @@ export function InputComposer({
 
         <ImageTray images={inputImages} onAdd={onAddImages} onRemove={onRemoveImage} onPreview={onPreview} />
 
+        {/* @ 引用标签（输入框上方） */}
+        {inputImages.length > 0 && (
+          <MentionChips text={inputText} images={inputImages} />
+        )}
+
         {/* 输入容器 */}
         <div className="relative">
           <MentionDropdown images={inputImages} query={mentionState.query} onSelect={handleMentionSelect} visible={mentionState.active} />
@@ -150,24 +155,14 @@ export function InputComposer({
               <Paperclip className="h-[18px] w-[18px]" />
             </button>
 
-            <div className="relative min-h-[44px] flex-1">
-              {inputText.includes("@") && inputImages.length > 0 && (
-                <div aria-hidden="true"
-                  className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words py-3 pr-1 text-[14px] leading-[1.5]"
-                  style={{ font: "inherit" }}>
-                  {renderHighlightSegments(inputText)}
-                </div>
-              )}
-              <textarea ref={textareaRef} value={inputText}
-                onChange={(e) => { onTextChange(e.target.value); handleInput(); }}
-                onKeyDown={handleKeyDown} onPaste={handlePaste} onClick={handleInput}
-                placeholder="描述你想做什么..." aria-label="输入消息"
-                rows={1}
-                className={`block min-h-[44px] max-h-[120px] w-full resize-none py-3 pr-1 text-[14px] leading-[1.5] outline-none placeholder:text-slate-300 ${
-                  inputText.includes("@") && inputImages.length > 0 ? "text-transparent caret-violet-600" : "text-slate-800"
-                }`}
-              />
-            </div>
+            <textarea ref={textareaRef} value={inputText}
+              onChange={(e) => { onTextChange(e.target.value); handleInput(); }}
+              onKeyDown={handleKeyDown} onPaste={handlePaste} onClick={handleInput}
+              placeholder="描述你想做什么... 输入 @ 绑定图片"
+              aria-label="输入消息"
+              rows={1}
+              className="min-h-[44px] max-h-[120px] flex-1 resize-none py-3 pr-2 text-[14px] leading-[1.5] text-slate-800 outline-none placeholder:text-slate-300"
+            />
 
             <div className="flex shrink-0 items-center gap-0.5 pr-1.5">
               {inputImages.length > 0 && (
@@ -319,12 +314,40 @@ function SettingsPanel({
   );
 }
 
-function renderHighlightSegments(text: string) {
-  const parts = text.split(/(@图\d+)/g);
-  return parts.map((part, i) => {
-    if (/^@图\d+$/.test(part)) {
-      return <span key={i} className="rounded bg-violet-100 px-0.5 font-bold text-violet-700">{part}</span>;
-    }
-    return <span key={i}>{part}</span>;
-  });
+/**
+ * 解析输入文本中的 @图N 引用，显示为图片芯片
+ * 像 Slack/Teams 的 @ mention 一样，显示在输入框上方
+ */
+function MentionChips({ text, images }: { text: string; images: ChatImage[] }) {
+  const mentions = text.match(/@图\d+/g);
+  if (!mentions) return null;
+
+  const unique = [...new Set(mentions)];
+  const chips = unique
+    .map((m) => {
+      const idx = parseInt(m.replace("@图", ""));
+      const img = images.find((i) => i.index === idx);
+      if (!img) return null;
+      return { label: m, image: img };
+    })
+    .filter(Boolean) as Array<{ label: string; image: ChatImage }>;
+
+  if (chips.length === 0) return null;
+
+  return (
+    <div className="mb-1.5 flex flex-wrap gap-1.5">
+      {chips.map((chip) => (
+        <div
+          key={chip.label}
+          className="flex items-center gap-1.5 rounded-lg border border-violet-200 bg-violet-50 px-2 py-1"
+        >
+          <div className="h-5 w-5 overflow-hidden rounded border border-violet-200">
+            <img src={chip.image.hostedUrl || chip.image.url} alt={chip.label} className="h-full w-full object-cover" />
+          </div>
+          <span className="text-[11px] font-bold text-violet-700">{chip.label}</span>
+        </div>
+      ))}
+      <span className="flex items-center text-[10px] text-slate-300">← 引用图片</span>
+    </div>
+  );
 }
