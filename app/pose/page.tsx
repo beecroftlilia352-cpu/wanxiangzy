@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, ChevronRight, Eye, FolderOpen, Loader2, PersonStanding, Sparkles, Upload, Wand, X, XCircle } from "lucide-react";
+import { CheckCircle2, ChevronRight, Eye, FolderOpen, Loader2, PenLine, PersonStanding, Sparkles, Upload, Wand, X, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { createClient, getCachedProfileCredits, setCachedProfileCredits } from "@/lib/supabase/client";
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
@@ -22,6 +22,7 @@ import { applyRepairPrompt } from "@/lib/generation-repair";
 import {
   DEFAULT_POSE_SERIES_STYLE,
   POSE_SERIES_STYLES,
+  USER_CUSTOM_POSE_DEFAULT,
   applyPoseSeriesStylePrompt,
   getPoseSeriesStyleLabel,
   normalizePoseSeriesStyle,
@@ -75,6 +76,9 @@ export default function PosePage() {
   const [prompt, setPrompt] = useState(DEFAULT_POSE_PROMPT);
   const [varyExpression, setVaryExpression] = useState(true);
   const [poseStyle, setPoseStyle] = useState<PoseSeriesStyle>(DEFAULT_POSE_SERIES_STYLE);
+  const [customPosePrompt, setCustomPosePrompt] = useState(USER_CUSTOM_POSE_DEFAULT.prompt);
+  const [customCamera, setCustomCamera] = useState(USER_CUSTOM_POSE_DEFAULT.camera);
+  const [customPoses, setCustomPoses] = useState([...USER_CUSTOM_POSE_DEFAULT.poses]);
   const [isDragging, setIsDragging] = useState(false);
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -221,7 +225,22 @@ export default function PosePage() {
 
   function selectPoseStyle(nextStyle: PoseSeriesStyle) {
     setPoseStyle(nextStyle);
-    setPrompt((prev) => applyPoseSeriesStylePrompt(prev, nextStyle));
+    if (nextStyle === "user_custom") {
+      // 自定义风格：用用户编辑的值构建提示词
+      setPrompt(buildCustomPosePrompt());
+    } else {
+      setPrompt((prev) => applyPoseSeriesStylePrompt(prev, nextStyle));
+    }
+  }
+
+  function buildCustomPosePrompt(): string {
+    return [
+      customPosePrompt,
+      "",
+      customCamera,
+      "",
+      ...customPoses,
+    ].join("\n");
   }
 
   function applyRuleDemo(demo: PoseRuleDemo) {
@@ -262,7 +281,13 @@ export default function PosePage() {
           main_image_url: mainImage,
           ai_model: aiModel,
           image_size: imageSize,
-          prompt: stripLegacyRuleDemoText(typeof promptForRun === "string" ? promptForRun : prompt),
+          prompt: stripLegacyRuleDemoText(
+            typeof promptForRun === "string"
+              ? promptForRun
+              : poseStyle === "user_custom"
+                ? buildCustomPosePrompt()
+                : prompt
+          ),
           vary_expression: varyExpression,
           pose_style: poseStyle,
         }),
@@ -468,6 +493,69 @@ export default function PosePage() {
             <p className="mt-2 text-[11px] leading-relaxed text-gray-400">
               风格只控制四宫格整体拍摄方向，人物身份、服装结构、镜头距离和系列一致性仍然优先。
             </p>
+
+            {/* 用户自定义姿势编辑器 */}
+            {poseStyle === "user_custom" && (
+              <div className="mt-4 space-y-3 rounded-xl border border-amber-200 bg-amber-50/50 p-4">
+                <div className="flex items-center gap-2 text-sm font-bold text-amber-700">
+                  <PenLine className="h-4 w-4" />
+                  自定义姿势描述
+                </div>
+                <p className="text-[11px] text-amber-600">
+                  编辑下方内容自定义四个姿势的描述和镜头规则。每行一个姿势。
+                </p>
+
+                <div>
+                  <label className="mb-1 block text-xs font-bold text-slate-600">整体描述</label>
+                  <textarea
+                    value={customPosePrompt}
+                    onChange={(e) => setCustomPosePrompt(e.target.value)}
+                    rows={2}
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs leading-relaxed outline-none focus:border-violet-300 focus:ring-1 focus:ring-violet-200"
+                    placeholder="描述四宫格的整体拍摄方向..."
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-xs font-bold text-slate-600">镜头统一规则</label>
+                  <textarea
+                    value={customCamera}
+                    onChange={(e) => setCustomCamera(e.target.value)}
+                    rows={2}
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs leading-relaxed outline-none focus:border-violet-300 focus:ring-1 focus:ring-violet-200"
+                    placeholder="镜头参数..."
+                  />
+                </div>
+
+                {customPoses.map((pose, i) => (
+                  <div key={i}>
+                    <label className="mb-1 block text-xs font-bold text-slate-600">姿势 {i + 1}</label>
+                    <textarea
+                      value={pose}
+                      onChange={(e) => {
+                        const next = [...customPoses];
+                        next[i] = e.target.value;
+                        setCustomPoses(next);
+                      }}
+                      rows={2}
+                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs leading-relaxed outline-none focus:border-violet-300 focus:ring-1 focus:ring-violet-200"
+                    />
+                  </div>
+                ))}
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCustomPosePrompt(USER_CUSTOM_POSE_DEFAULT.prompt);
+                    setCustomCamera(USER_CUSTOM_POSE_DEFAULT.camera);
+                    setCustomPoses([...USER_CUSTOM_POSE_DEFAULT.poses]);
+                  }}
+                  className="text-[11px] font-medium text-amber-600 hover:text-amber-800"
+                >
+                  恢复默认值
+                </button>
+              </div>
+            )}
           </section>
 
           <section>
