@@ -45,13 +45,13 @@ function revoke(urls: string[]) {
 }
 
 /**
- * 清理 generation 对象，移除仅内存使用的字段后持久化到 DB
+ * 清理 generation 对象后持久化到 DB
+ * 保留 _confirmData（用户未确认时需要它来重新显示确认按钮）
  */
 function sanitizeGenerationForDB(gen: unknown): Record<string, unknown> | null {
   if (!gen || typeof gen !== "object") return null;
   const g = gen as Record<string, unknown>;
   const clean: Record<string, unknown> = {};
-  // 只保留需要持久化的字段
   if (g.status) clean.status = g.status;
   if (typeof g.progress === "number") clean.progress = g.progress;
   if (Array.isArray(g.resultUrls)) clean.resultUrls = g.resultUrls;
@@ -59,7 +59,10 @@ function sanitizeGenerationForDB(gen: unknown): Record<string, unknown> | null {
   if (g.generationId) clean.generationId = g.generationId;
   if (g.creditsUsed) clean.creditsUsed = g.creditsUsed;
   if (g.module) clean.module = g.module;
-  // _confirmData 永不持久化（仅内存中的待确认状态）
+  // 保留确认数据（pending 状态需要，completed/failed 时清理）
+  if (g._confirmData && g.status === "pending") {
+    clean._confirmData = g._confirmData;
+  }
   return Object.keys(clean).length > 0 ? clean : null;
 }
 
