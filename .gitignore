@@ -18,6 +18,7 @@ Thumbs.db
 .tools/
 .verification/
 .ui-check/
+.claude/
 .api-platform-test-results*.json
 .qwen-edits-test-results.json
 old-references-contact.jpg
