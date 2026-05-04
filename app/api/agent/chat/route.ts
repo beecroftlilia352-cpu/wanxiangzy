@@ -257,7 +257,7 @@ export async function POST(request: NextRequest) {
         aiModel: model,
         imageSize,
         reason: `Agent ${MODULE_LABELS[module] || module} ${count}张 (${model})`,
-        jobPayload: { kind: module, ...moduleParams, aiModel: model, aspectRatio, imageSize, prompt: String(moduleParams.prompt || ""), genCount: count },
+        jobPayload: buildJobPayload(module, moduleParams, { model, aspectRatio, imageSize, count }),
       });
 
       startGenerationJob(debit.generationId);
@@ -435,6 +435,73 @@ function detectGenerationIntent(text: string): string | null {
     if (pattern.test(text)) return mod;
   }
   return null;
+}
+
+/**
+ * 将 snake_case 模块参数转换为 camelCase jobPayload（generation-jobs 校验要求）
+ */
+function buildJobPayload(
+  module: string,
+  params: Record<string, unknown>,
+  opts: { model: LingyaModel; aspectRatio: AspectRatio; imageSize: ImageSize; count: number }
+): Record<string, unknown> {
+  const base: Record<string, unknown> = {
+    kind: module,
+    aiModel: opts.model,
+    aspectRatio: opts.aspectRatio,
+    imageSize: opts.imageSize,
+    prompt: String(params.prompt || ""),
+    genCount: opts.count,
+  };
+
+  switch (module) {
+    case "tryon":
+      return {
+        ...base,
+        clothingUrls: Array.isArray(params.clothing_urls) ? params.clothing_urls : [params.clothing_urls].filter(Boolean),
+        clothingMode: "single",
+        garmentAudience: "women",
+        ageGroup: "adult",
+      };
+    case "grass":
+      return {
+        ...base,
+        garmentUrl: String(params.garment_url || ""),
+        sceneMode: "auto",
+        templateId: "street",
+        changeModel: true,
+        userPrompt: String(params.prompt || ""),
+      };
+    case "model":
+      return {
+        ...base,
+        referenceUrls: Array.isArray(params.reference_urls) ? params.reference_urls : [params.reference_urls].filter(Boolean),
+        gender: typeof params.gender === "string" ? params.gender : "female",
+      };
+    case "model_background":
+      return {
+        ...base,
+        sourceUrl: String(params.source_url || ""),
+        mode: typeof params.mode === "string" ? params.mode : "background_only",
+        backgroundSource: "auto_prompt",
+        templateId: "default",
+        backgroundText: "",
+        userPrompt: String(params.prompt || ""),
+      };
+    case "pose":
+      return { ...base, mainImageUrl: String(params.main_image_url || "") };
+    case "garment_3d":
+      return {
+        ...base,
+        garmentUrl: String(params.garment_url || ""),
+        garmentType: "服装",
+        outputMode: "prompt",
+        displayStyle: "default",
+        userPrompt: String(params.prompt || ""),
+      };
+    default:
+      return base;
+  }
 }
 
 function extractClothingUrls(params: Record<string, unknown>): string[] {
