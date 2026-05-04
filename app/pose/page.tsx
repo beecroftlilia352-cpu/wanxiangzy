@@ -508,8 +508,8 @@ export default function PosePage() {
                   <textarea
                     value={customPosePrompt}
                     onChange={(e) => setCustomPosePrompt(e.target.value)}
-                    rows={2}
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs leading-relaxed outline-none focus:border-violet-300 focus:ring-1 focus:ring-violet-200"
+                    rows={4}
+                    className="custom-scroll w-full resize-none rounded-lg border border-slate-200 px-3 py-2 text-xs leading-relaxed outline-none focus:border-violet-300 focus:ring-1 focus:ring-violet-200"
                     placeholder="描述四宫格的整体拍摄方向..."
                   />
                 </div>
@@ -519,8 +519,8 @@ export default function PosePage() {
                   <textarea
                     value={customCamera}
                     onChange={(e) => setCustomCamera(e.target.value)}
-                    rows={2}
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs leading-relaxed outline-none focus:border-violet-300 focus:ring-1 focus:ring-violet-200"
+                    rows={3}
+                    className="custom-scroll w-full resize-none rounded-lg border border-slate-200 px-3 py-2 text-xs leading-relaxed outline-none focus:border-violet-300 focus:ring-1 focus:ring-violet-200"
                     placeholder="镜头参数..."
                   />
                 </div>
@@ -535,8 +535,8 @@ export default function PosePage() {
                         next[i] = e.target.value;
                         setCustomPoses(next);
                       }}
-                      rows={2}
-                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs leading-relaxed outline-none focus:border-violet-300 focus:ring-1 focus:ring-violet-200"
+                      rows={3}
+                      className="custom-scroll w-full resize-none rounded-lg border border-slate-200 px-3 py-2 text-xs leading-relaxed outline-none focus:border-violet-300 focus:ring-1 focus:ring-violet-200"
                     />
                   </div>
                 ))}
