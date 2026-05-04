@@ -14,14 +14,14 @@ type Props = {
   inputText: string;
   inputImages: ChatImage[];
   params: GenerationParams;
-  mode: AgentMode;
+  mode?: AgentMode;
   isSending: boolean;
   isAIWriting: boolean;
   estimatedCredits: number;
   onTextChange: (text: string) => void;
   onAddImages: (files: File[]) => void;
   onRemoveImage: (index: number) => void;
-  onModeChange: (mode: AgentMode) => void;
+  onModeChange?: (mode: AgentMode) => void;
   onParamsChange: (params: Partial<GenerationParams>) => void;
   onSend: () => void;
   onAIWrite: () => void;
@@ -189,8 +189,12 @@ export function InputComposer({
 
         {/* 底部工具栏 */}
         <div className="mt-1.5 flex items-center gap-2 px-1">
-          <ModeToggle mode={mode} onChange={onModeChange} />
-          <div className="h-3 w-px bg-slate-200" />
+          {mode && onModeChange && (
+            <>
+              <ModeToggle mode={mode} onChange={onModeChange} />
+              <div className="h-3 w-px bg-slate-200" />
+            </>
+          )}
 
           <div className="relative">
             <button onClick={(e) => { e.stopPropagation(); setSettingsOpen(!settingsOpen); }}
@@ -229,7 +233,7 @@ export function InputComposer({
 function SettingsPanel({
   params, modelLabel, mode, onParamsChange, onClose,
 }: {
-  params: GenerationParams; modelLabel: string; mode: AgentMode;
+  params: GenerationParams; modelLabel: string; mode?: AgentMode;
   onParamsChange: (p: Partial<GenerationParams>) => void; onClose: () => void;
 }) {
   return (

@@ -110,14 +110,12 @@ export default function AgentPage() {
           inputText={s.inputText}
           inputImages={s.inputImages}
           params={s.params}
-          mode={s.mode}
           isSending={s.isSending}
           isAIWriting={s.isAIWriting}
           estimatedCredits={s.params.count * (s.params.model === "gpt-image-2" ? 4 : 3)}
           onTextChange={s.setInputText}
           onAddImages={s.addImages}
           onRemoveImage={s.removeImage}
-          onModeChange={s.setMode}
           onParamsChange={s.setParams}
           onSend={s.sendMessage}
           onAIWrite={s.aiWrite}
