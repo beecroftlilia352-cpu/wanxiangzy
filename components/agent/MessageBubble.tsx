@@ -211,7 +211,7 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
               />
               <QuickAction
                 icon={<Sparkles className="h-3 w-3" />}
-                label="再来 2 张"
+                label="再来一张"
                 variant="primary"
                 onClick={() => onRetry(message.id)}
               />
