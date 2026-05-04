@@ -13,7 +13,7 @@ export type ModelUploadRule = {
   deprecatedImages: { url: string; title: string }[];
 };
 
-const MODEL_STORAGE = "/models";
+const MODEL_STORAGE = "https://mtdfvnhphpulhjtnmubw.supabase.co/storage/v1/object/public/models";
 
 export const MODEL_UPLOAD_RULE: ModelUploadRule = {
   title: "请按规则上传人物参考图，以获得更稳定的融合模特",

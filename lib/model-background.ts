@@ -1,7 +1,6 @@
 import type { AspectRatio, ImageSize, LingyaModel } from "@/lib/api/lingya";
 
-// 使用本地 public 目录，避免外部存储 URL 过期
-const SUPABASE_STORAGE = "";
+const SUPABASE_STORAGE = "https://mtdfvnhphpulhjtnmubw.supabase.co/storage/v1/object/public";
 
 export type ModelBackgroundMode = "model_background" | "background_only" | "model_only";
 export type BackgroundSourceMode = "preset" | "upload" | "text" | "auto";
