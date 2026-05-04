@@ -45,6 +45,7 @@ function revoke(urls: string[]) {
 
 /** 保存消息到 DB（包含 generation 数据） */
 function saveMessage(convId: string, msg: { role: string; content: string; images?: ChatImage[]; generation?: unknown; mode?: string }) {
+  console.log("[agent-store] saveMessage:", { convId, role: msg.role, contentLen: msg.content.length, hasGeneration: !!msg.generation });
   fetch(`/api/conversations/${convId}/messages`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -267,6 +268,15 @@ export const useAgentStore = create<Store>((set, get) => ({
       const data = await res.json();
       const reply = typeof data.reply === "string" ? data.reply : "处理完成。";
 
+      console.log("[agent-store] sendMessage response:", {
+        action: data.action,
+        module: data.module,
+        module_label: data.module_label,
+        api_path: data.api_path,
+        credits_cost: data.credits_cost,
+        replyLen: reply.length,
+        hasImages: imageUrls.length > 0,
+      });
 
       if (data.action === "confirm_generate" && data.api_path) {
         // 生图任务：显示确认卡片（需要用户确认后才扣积分执行）
@@ -355,7 +365,10 @@ export const useAgentStore = create<Store>((set, get) => ({
   confirmGeneration: async (messageId: string) => {
     const { messages, activeId } = get();
     const msg = messages.find((m) => m.id === messageId);
-    if (!msg?.generation?._confirmData) return;
+    if (!msg?.generation?._confirmData) {
+      console.warn("[agent-store] confirmGeneration: no _confirmData found for", messageId);
+      return;
+    }
 
     const confirmData = msg.generation._confirmData as {
       apiPath: string;
@@ -414,6 +427,11 @@ export const useAgentStore = create<Store>((set, get) => ({
       }
 
       // 开始轮询
+      console.log("[agent-store] confirmGeneration success, starting poll:", {
+        generationId: data.generation_id,
+        module: confirmData.module,
+        creditsCost: data.credits_cost,
+      });
       pollGeneration(get, set, messageId, activeId!, data.generation_id, confirmData.module);
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : "生成失败";
@@ -468,6 +486,7 @@ function pollGeneration(
 
       if (done || failed) {
         clearInterval(timer);
+        console.log("[agent-store] pollGeneration completed:", { aiMsgId, done, failed, resultCount: resultUrls.length });
 
         const finalGeneration = {
           status: done ? ("completed" as const) : ("failed" as const),
