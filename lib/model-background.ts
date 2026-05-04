@@ -64,29 +64,29 @@ export const MODEL_BACKGROUND_UPLOAD_RULE = {
     {
       title: "模特图 1",
       description: "人物主体完整，服装清晰，适合换模特或换背景",
-      imageUrl: "https://img.alicdn.com/imgextra/i1/2217286866533/O1CN01NjciCX1y8AVWg1OsJ_!!2217286866533-0-aigc_business_user.jpg",
+      imageUrl: "https://i.ibb.co/Nnb8n8xg/model-bg-demo-model-1.webp",
     },
     {
       title: "模特图 2",
       description: "全身穿搭清楚，人物边界明确，适合生成种草氛围图",
-      imageUrl: "https://img.alicdn.com/imgextra/i4/2217286866533/O1CN01OfKjHP1y8AVWmwGAw_!!2217286866533-0-aigc_business_user.jpg",
+      imageUrl: "https://i.ibb.co/v4fFMsQL/model-bg-demo-model-2.webp",
     },
     {
       title: "模特图 3",
       description: "人物姿态自然，服装和配件关系清晰",
-      imageUrl: "https://img.alicdn.com/imgextra/i3/2217286866533/O1CN01bTPcJy1y8AVUZBjFY_!!2217286866533-0-aigc_business_user.jpg",
+      imageUrl: "https://i.ibb.co/vCybGS35/model-bg-demo-model-3.webp",
     },
     {
       title: "模特图 4",
       description: "主图完整可识别，适合换模特、换背景和只换背景",
-      imageUrl: "https://img.alicdn.com/imgextra/i4/2217271140711/O1CN01l5MnmG1H7gh8FeSTe_!!2217271140711-0-aigc_business_user.jpg",
+      imageUrl: "https://i.ibb.co/GSD7gQP/model-bg-demo-model-4.webp",
     },
   ] satisfies ModelBackgroundRuleDemo[],
   badExamples: [
-    { title: "平铺图", imageUrl: "https://img.alicdn.com/imgextra/i3/O1CN01ycqVB41frzQtEPfnR_!!6000000004061-2-tps-336-450.png" },
-    { title: "挂拍图", imageUrl: "https://img.alicdn.com/imgextra/i2/O1CN015r2KVa1QnD3r14faE_!!6000000002020-2-tps-336-450.png" },
-    { title: "无肢体人台图", imageUrl: "https://img.alicdn.com/imgextra/i3/O1CN01shkgPx1xEIBfHuF7p_!!6000000006411-2-tps-336-450.png" },
-    { title: "不完整的商品", imageUrl: "https://img.alicdn.com/imgextra/i3/O1CN0191Oneq1tjCRwTKIrv_!!6000000005937-2-tps-336-450.png" },
+    { title: "平铺图", imageUrl: "https://i.ibb.co/Rkkg54Ym/model-bg-bad-flat-lay.png" },
+    { title: "挂拍图", imageUrl: "https://i.ibb.co/CKsLjqL0/model-bg-bad-hanging.png" },
+    { title: "无肢体人台图", imageUrl: "https://i.ibb.co/hJgBmLV6/model-bg-bad-mannequin.png" },
+    { title: "不完整的商品", imageUrl: "https://i.ibb.co/271M6jtD/model-bg-bad-incomplete.png" },
   ],
 } as const;
 
