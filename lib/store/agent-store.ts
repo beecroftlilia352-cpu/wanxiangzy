@@ -2,157 +2,65 @@
 
 import { create } from "zustand";
 import { v4 } from "./uuid";
-import type { Conversation, Message, ChatImage, GenerationResult, GenerationParams, AgentMode } from "@/lib/agent/types";
+import type { Conversation, Message, ChatImage, GenerationParams, AgentMode } from "@/lib/agent/types";
 import { DEFAULT_PARAMS } from "@/lib/agent/types";
 import { uploadImage } from "@/lib/utils";
 
-const MODULE_API: Record<string, string> = {
-  tryon: "/api/tryon", grass: "/api/grass", model: "/api/model",
-  pose: "/api/pose", model_background: "/api/model-background", garment_3d: "/api/garment-3d",
-};
-
-/**
- * 移除文本中的 JSON 块（```json...``` 或裸 JSON 对象）
- * 防止 LLM 返回的 JSON 结构泄露到用户可见的消息中
- */
-function stripJsonBlocks(text: string): string {
-  return text
-    .replace(/```json\s*[\s\S]*?```/g, "")
-    .replace(/```\s*[\s\S]*?```/g, "")
-    .replace(/\{[\s]*"(reply|action|module|imageMapping|prompt|style)"[\s\S]*?\}/g, "")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-}
-
-/**
- * 从 LLM 累积的原始内容中提取 reply 和 action
- * 处理 LLM 在 JSON 前后附带解释文字的情况
- */
-function extractReplyFromRaw(raw: string): { reply: string; action?: string; module?: string } | null {
-  // 尝试提取 JSON 块
-  const jsonMatch = raw.match(/\{[\s\S]*"reply"[\s\S]*\}/);
-  if (!jsonMatch) return null;
-  try {
-    const parsed = JSON.parse(jsonMatch[0]);
-    if (typeof parsed.reply === "string") {
-      return {
-        reply: parsed.reply,
-        action: typeof parsed.action === "string" ? parsed.action : undefined,
-        module: typeof parsed.module === "string" ? parsed.module : undefined,
-      };
-    }
-  } catch {}
-  return null;
-}
-
+// ---- 类型 ----
 type Store = {
   conversations: Conversation[];
   activeId: string | null;
   messages: Message[];
   inputText: string;
   inputImages: ChatImage[];
-  mode: AgentMode;
   params: GenerationParams;
   isSending: boolean;
   isAIWriting: boolean;
-  isLoadingConv: boolean;
   sidebarOpen: boolean;
+  pollTimers: Map<string, ReturnType<typeof setInterval>>;
 
   loadConversations: () => Promise<void>;
   createConversation: () => Promise<void>;
   switchConversation: (id: string) => Promise<void>;
-  deleteConversation: (id: string) => Promise<void>;
-  updateConversationImages: () => Promise<void>;
-  setInputText: (text: string) => void;
+  deleteConversation: (id: string) => void;
+  setInputText: (t: string) => void;
   addImages: (files: File[]) => Promise<void>;
-  removeImage: (index: number) => void;
-  triggerAnalysis: () => Promise<void>;
-  setMode: (mode: AgentMode) => void;
+  removeImage: (i: number) => void;
   setParams: (p: Partial<GenerationParams>) => void;
-  setSidebarOpen: (open: boolean) => void;
+  setSidebarOpen: (v: boolean) => void;
   sendMessage: () => Promise<void>;
   aiWrite: () => Promise<void>;
-  retryMessage: (messageId: string) => Promise<void>;
+  retryMessage: (id: string) => void;
+  reset: () => void;
 };
 
-function activeConv(conversations: Conversation[], id: string | null): Conversation | null {
-  return conversations.find((c) => c.id === id) || null;
+// ---- 工具 ----
+function revoke(urls: string[]) {
+  if (typeof window === "undefined") return;
+  for (const u of urls) if (u.startsWith("blob:")) URL.revokeObjectURL(u);
 }
 
-function startPolling(get: () => Store, set: (fn: (s: Store) => Partial<Store>) => void, msgId: string, genId: string, module: string) {
-  const url = `${MODULE_API[module] || `/api/${module}`}?generation_id=${genId}`;
-  const timer = setInterval(async () => {
-    try {
-      const res = await fetch(url);
-      if (!res.ok) return;
-      const data = await res.json();
-      const status = data.status as string;
-      const resultUrls: string[] = Array.isArray(data.result_urls) ? data.result_urls : [];
-      const PROGRESS: Record<string, number> = { uploading: 10, queued: 20, processing_tryon: 50, processing_face_swap: 70 };
-      const progress = resultUrls.length > 0 ? 100 : (PROGRESS[status] ?? 30);
-      const done = status === "completed" || resultUrls.length > 0;
-      const failed = status === "failed";
-
-      if (done || failed) {
-        clearInterval(timer);
-        // 更新 DB
-        const gen: GenerationResult = {
-          status: done ? "completed" : "failed", progress: 100, resultUrls,
-          error: failed ? (data.error || "生成失败") : undefined,
-        };
-        fetch(`/api/conversations/${get().activeId}/messages`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ role: "assistant", content: done ? "" : "生成失败", generation: gen, mode: "agent" }),
-        }).catch(() => {});
-
-        set((s) => ({
-          isSending: false,
-          messages: s.messages.map((m) =>
-            m.id === msgId && m.generation
-              ? { ...m, generation: { ...m.generation, status: done ? "completed" : "failed", progress: 100, resultUrls, error: failed ? (data.error || "生成失败") : undefined } }
-              : m
-          ),
-        }));
-        return;
-      }
-
-      set((s) => ({
-        messages: s.messages.map((m) =>
-          m.id === msgId && m.generation ? { ...m, generation: { ...m.generation, progress, status: "generating" } } : m
-        ),
-      }));
-    } catch {}
-  }, 2000);
-}
-
+// ---- Store ----
 export const useAgentStore = create<Store>((set, get) => ({
   conversations: [],
   activeId: null,
   messages: [],
   inputText: "",
   inputImages: [],
-  mode: "agent",
   params: { ...DEFAULT_PARAMS },
   isSending: false,
   isAIWriting: false,
-  isLoadingConv: false,
   sidebarOpen: false,
 
+  // ======== 对话管理 ========
   loadConversations: async () => {
-    set({ isLoadingConv: true });
     try {
       const res = await fetch("/api/conversations");
       if (!res.ok) return;
       const data = await res.json();
-      set({ conversations: data, isLoadingConv: false });
-      // 如果有对话但没有活跃的，选第一个
-      if (data.length > 0 && !get().activeId) {
-        get().switchConversation(data[0].id);
-      }
-    } catch {
-      set({ isLoadingConv: false });
-    }
+      set({ conversations: data });
+      if (data.length > 0 && !get().activeId) get().switchConversation(data[0].id);
+    } catch {}
   },
 
   createConversation: async () => {
@@ -160,7 +68,7 @@ export const useAgentStore = create<Store>((set, get) => ({
       const res = await fetch("/api/conversations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: "新对话", mode: get().mode }),
+        body: JSON.stringify({ title: "新对话", mode: "agent" }),
       });
       if (!res.ok) return;
       const conv = await res.json();
@@ -176,48 +84,31 @@ export const useAgentStore = create<Store>((set, get) => ({
 
   switchConversation: async (id: string) => {
     set({ activeId: id, messages: [], inputText: "", inputImages: [], isSending: false });
-    // 加载对话的图片和消息
     const conv = get().conversations.find((c) => c.id === id);
-    if (conv) {
-      set({ inputImages: Array.isArray(conv.images) ? conv.images : [], mode: conv.mode || "agent" });
-    }
+    if (conv) set({ inputImages: Array.isArray(conv.images) ? conv.images : [] });
     try {
       const res = await fetch(`/api/conversations/${id}/messages`);
       if (res.ok) set({ messages: await res.json() });
     } catch {}
   },
 
-  deleteConversation: async (id: string) => {
-    try {
-      await fetch(`/api/conversations/${id}`, { method: "DELETE" });
-      set((s) => {
-        const convs = s.conversations.filter((c) => c.id !== id);
-        const newActive = s.activeId === id ? (convs.length > 0 ? convs[0].id : null) : s.activeId;
-        return { conversations: convs, activeId: newActive, messages: newActive ? s.messages : [] };
-      });
-      if (get().activeId) get().switchConversation(get().activeId!);
-    } catch {}
+  deleteConversation: (id: string) => {
+    fetch(`/api/conversations/${id}`, { method: "DELETE" }).catch(() => {});
+    set((s) => {
+      const convs = s.conversations.filter((c) => c.id !== id);
+      const newActive = s.activeId === id ? (convs[0]?.id || null) : s.activeId;
+      return { conversations: convs, activeId: newActive, messages: newActive === s.activeId ? s.messages : [] };
+    });
   },
 
-  updateConversationImages: async () => {
-    const { activeId, inputImages } = get();
-    if (!activeId) return;
-    try {
-      await fetch(`/api/conversations/${activeId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ images: inputImages }),
-      });
-    } catch {}
-  },
-
-  setInputText: (text: string) => set({ inputText: text }),
+  // ======== 输入 ========
+  setInputText: (t) => set({ inputText: t }),
 
   addImages: async (files: File[]) => {
     const current = get().inputImages;
-    const startIdx = current.length;
+    const start = current.length;
     const placeholders: ChatImage[] = files.map((f, i) => ({
-      index: startIdx + i + 1, url: URL.createObjectURL(f), fileName: f.name, uploading: true,
+      index: start + i + 1, url: URL.createObjectURL(f), fileName: f.name, uploading: true,
     }));
     set((s) => ({ inputImages: [...s.inputImages, ...placeholders] }));
 
@@ -236,31 +127,33 @@ export const useAgentStore = create<Store>((set, get) => ({
         }));
       }
     }
-    // 持久化图片到对话
-    get().updateConversationImages();
-
-    // 上传完成，不自动触发对话，等用户手动发送
+    // 持久化
+    const { activeId, inputImages } = get();
+    if (activeId) {
+      fetch(`/api/conversations/${activeId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ images: inputImages }),
+      }).catch(() => {});
+    }
   },
 
   removeImage: (index: number) => {
     set((s) => {
       const removed = s.inputImages[index];
       if (removed?.url?.startsWith("blob:")) URL.revokeObjectURL(removed.url);
-      const remaining = s.inputImages.filter((_, i) => i !== index).map((img, i) => ({ ...img, index: i + 1 }));
-      return { inputImages: remaining };
+      return { inputImages: s.inputImages.filter((_, i) => i !== index).map((img, i) => ({ ...img, index: i + 1 })) };
     });
-    get().updateConversationImages();
   },
 
-  triggerAnalysis: async () => {
-    const { inputImages, activeId, messages, isSending } = get();
-    if (isSending) return;
-    const readyImages = inputImages.filter((img) => !img.uploading && img.hostedUrl);
-    if (readyImages.length === 0) return;
+  setParams: (p) => set((s) => ({ params: { ...s.params, ...p } })),
+  setSidebarOpen: (v) => set({ sidebarOpen: v }),
 
-    // 不重复分析：如果已有 AI 分析消息则跳过
-    const hasAnalysis = messages.some((m) => m.role === "assistant" && m.content.length > 0);
-    if (hasAnalysis) return;
+  // ======== 核心：发送消息 ========
+  sendMessage: async () => {
+    const { inputText, inputImages, params, activeId, conversations } = get();
+    const trimmed = inputText.trim();
+    if (!trimmed && inputImages.length === 0) return;
 
     // 确保有对话
     let convId = activeId;
@@ -270,147 +163,11 @@ export const useAgentStore = create<Store>((set, get) => ({
       if (!convId) return;
     }
 
-    set({ isSending: true });
-
-    const aiMsgId = v4();
-    const aiMsg: Message = {
-      id: aiMsgId, conversation_id: convId, role: "assistant", content: "",
-      images: [], generation: null, params: {}, mode: "chat", created_at: new Date().toISOString(),
-    };
-    set((s) => ({ messages: [...s.messages, aiMsg] }));
-
-    try {
-      const imageUrls = readyImages.map((img) => ({ index: img.index, url: img.hostedUrl! }));
-      const fileNames = readyImages.map((img) => `图${img.index}: ${img.fileName}`).join("、");
-
-      const res = await fetch("/api/agent/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: `用户刚上传了 ${readyImages.length} 张图片（${fileNames}）。请简要分析每张图片的内容（品类、颜色、风格），然后告诉用户可以用这些图片做什么。回复简洁，用 Markdown 列表格式。`,
-          images: imageUrls,
-          mode: "chat",
-        }),
-      });
-
-      if (res.headers.get("content-type")?.includes("text/event-stream") && res.body) {
-        // 流式读取
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = "";
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() || "";
-          for (const line of lines) {
-            const trimmed = line.trim();
-            if (!trimmed || !trimmed.startsWith("data: ")) continue;
-            try {
-              const parsed = JSON.parse(trimmed.slice(6));
-              if (parsed.chunk) {
-                set((s) => ({
-                  messages: s.messages.map((m) =>
-                    m.id === aiMsgId ? { ...m, content: (m.content || "") + parsed.chunk } : m
-                  ),
-                }));
-              }
-              if (parsed.done) {
-                const finalReply = typeof parsed.reply === "string" ? parsed.reply : (get().messages.find((m) => m.id === aiMsgId)?.content || "");
-                set((s) => ({
-                  messages: s.messages.map((m) =>
-                    m.id === aiMsgId ? { ...m, content: finalReply, streamingDone: true } : m
-                  ),
-                }));
-              }
-            } catch {}
-          }
-        }
-      } else {
-        const data = await res.json();
-        const reply = data.reply || `已收到 ${readyImages.length} 张图片。`;
-        set((s) => ({
-          messages: s.messages.map((m) =>
-            m.id === aiMsgId ? { ...m, content: reply, streamingDone: true } : m
-          ),
-        }));
-      }
-
-      // 保存到 DB
-      const finalMsg = get().messages.find((m) => m.id === aiMsgId);
-      if (finalMsg?.content) {
-        fetch(`/api/conversations/${convId}/messages`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ role: "assistant", content: finalMsg.content, mode: "chat" }),
-        }).catch(() => {});
-      }
-    } catch {
-      set((s) => ({
-        messages: s.messages.map((m) =>
-          m.id === aiMsgId ? { ...m, content: `已收到 ${readyImages.length} 张图片，输入指令告诉我你想做什么。` } : m
-        ),
-      }));
-    }
-
-    set({ isSending: false });
-  },
-
-  setMode: (mode: AgentMode) => {
-    set({ mode });
-    const { activeId } = get();
-    if (activeId) {
-      fetch(`/api/conversations/${activeId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode }),
-      }).catch(() => {});
-    }
-  },
-
-  setParams: (p: Partial<GenerationParams>) => set((s) => ({ params: { ...s.params, ...p } })),
-  setSidebarOpen: (open: boolean) => set({ sidebarOpen: open }),
-
-  sendMessage: async () => {
-    const { inputText, inputImages, mode, activeId, params, conversations } = get();
-    const trimmed = inputText.trim();
-    if (!trimmed && inputImages.length === 0) return;
-
-    let convId = activeId;
-    if (!convId) {
-      await get().createConversation();
-      convId = get().activeId;
-      if (!convId) return;
-    }
-
-    // 保存用户消息到 DB
-    const userMsgData = {
-      role: "user" as const, content: trimmed,
-      images: inputImages.map((img) => ({ index: img.index, url: img.hostedUrl || img.url, fileName: img.fileName })),
-      mode,
-    };
-
-    // 更新对话标题
-    const conv = get().conversations.find((c) => c.id === convId);
-    if (conv && conv.title === "新对话") {
-      fetch(`/api/conversations/${convId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: trimmed.slice(0, 25) || "图片生成" }),
-      }).catch(() => {});
-      set((s) => ({
-        conversations: s.conversations.map((c) =>
-          c.id === convId ? { ...c, title: trimmed.slice(0, 25) || "图片生成" } : c
-        ),
-      }));
-    }
-
-    // 保存图片到对话上下文，然后清空输入区
+    // 快照图片并清空输入
     const currentImages = [...inputImages];
     set({ inputText: "", inputImages: [], isSending: true });
 
-    // 持久化图片到对话
+    // 持久化图片
     if (currentImages.length > 0) {
       fetch(`/api/conversations/${convId}`, {
         method: "PATCH",
@@ -419,265 +176,121 @@ export const useAgentStore = create<Store>((set, get) => ({
       }).catch(() => {});
     }
 
-    // 添加用户消息到 UI
+    // 更新对话标题
+    const conv = conversations.find((c) => c.id === convId);
+    if (conv && conv.title === "新对话") {
+      const title = trimmed.slice(0, 25) || "图片生成";
+      fetch(`/api/conversations/${convId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title }),
+      }).catch(() => {});
+      set((s) => ({
+        conversations: s.conversations.map((c) => c.id === convId ? { ...c, title } : c),
+      }));
+    }
+
+    // 用户消息
     const userMsg: Message = {
-      id: v4(), conversation_id: convId, ...userMsgData,
-      generation: null, params: {}, created_at: new Date().toISOString(),
+      id: uid(), conversation_id: convId, role: "user", content: trimmed,
+      images: currentImages, generation: null, params: {}, mode: "agent",
+      created_at: new Date().toISOString(),
     };
 
-    // 添加 AI 消息占位（不预设 generation，等 Chat API 判断后再设置）
+    // AI 消息占位
     const aiMsg: Message = {
-      id: v4(), conversation_id: convId, role: "assistant", content: "",
-      images: [], generation: null,
-      params: {}, mode, created_at: new Date().toISOString(),
+      id: uid(), conversation_id: convId, role: "assistant", content: "",
+      images: [], generation: null, params: {}, mode: "agent",
+      created_at: new Date().toISOString(),
     };
 
     set((s) => ({ messages: [...s.messages, userMsg, aiMsg] }));
 
-    // 保存用户消息到 DB
+    // 保存用户消息
     fetch(`/api/conversations/${convId}/messages`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(userMsgData),
+      body: JSON.stringify({ role: "user", content: trimmed, images: currentImages, mode: "agent" }),
     }).catch(() => {});
 
     try {
-      const imageUrls = inputImages.map((img) => ({ index: img.index, url: img.hostedUrl || img.url })).filter((img) => img.url);
-
+      const imageUrls = currentImages.map((img) => ({ index: img.index, url: img.hostedUrl || img.url })).filter((img) => img.url);
       const history = get().messages
         .filter((m) => m.id !== userMsg.id && m.id !== aiMsg.id)
         .slice(-10)
-        .map((m) => ({ role: m.role, content: m.content || (m.generation?.resultUrls?.length ? `[生成了图片]` : "") }));
+        .map((m) => ({ role: m.role, content: m.content || "" }));
 
-      // Agent 模式：先规划再执行
-      if (mode === "agent") {
-        const planRes = await fetch("/api/agent/plan", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            message: trimmed, images: imageUrls, history, mode,
-            params: { model: params.model, aspectRatio: params.aspectRatio, imageSize: params.imageSize, count: params.count },
-          }),
-        });
-        const planData = await planRes.json();
-
-        if (planData.plan && planData.plan.steps && planData.plan.steps.length > 0) {
-          // 显示计划
-          const taskPlan: import("@/lib/agent/types").TaskPlan = {
-            title: planData.plan.title || "执行计划",
-            steps: planData.plan.steps.map((s: Record<string, unknown>) => ({
-              id: typeof s.id === "string" ? s.id : v4(),
-              tool: typeof s.tool === "string" ? s.tool : "analyze_image",
-              label: typeof s.label === "string" ? s.label : "处理中",
-              description: typeof s.description === "string" ? s.description : "",
-              params: typeof s.params === "object" && s.params !== null ? s.params as Record<string, unknown> : {},
-              depends_on: Array.isArray(s.depends_on) ? s.depends_on : [],
-              status: "pending" as const,
-            })),
-            status: "planning",
-          };
-
-          set((s) => ({
-            messages: s.messages.map((m) =>
-              m.id === aiMsg.id ? { ...m, content: planData.reply || "", taskPlan, streamingDone: true } : m
-            ),
-          }));
-
-          // 自动执行计划
-          executePlan(get, set, convId!, aiMsg.id, taskPlan, imageUrls, params);
-          return;
-        }
-
-        // 没有计划 → 显示回复
-        const reply = planData.reply || "请上传图片并告诉我你想做什么。";
-        set((s) => ({
-          messages: s.messages.map((m) =>
-            m.id === aiMsg.id ? { ...m, content: reply, streamingDone: true } : m
-          ),
-          isSending: false,
-        }));
-        return;
-      }
-
-      // Chat 模式：流式对话
-      const chatRes = await fetch("/api/agent/chat", {
+      // 调用统一 Agent API
+      const res = await fetch("/api/agent/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: trimmed, images: imageUrls, history, mode }),
+        body: JSON.stringify({
+          message: trimmed,
+          images: imageUrls,
+          history,
+          params: { model: params.model, aspectRatio: params.aspectRatio, imageSize: params.imageSize, count: params.count },
+        }),
       });
 
-      let chatData: { reply?: string; action?: string; module?: string; imageMapping?: Record<string, unknown>; prompt?: string; style?: string } = {};
+      const data = await res.json();
+      const reply = typeof data.reply === "string" ? data.reply : "处理完成。";
 
-      const contentType = chatRes.headers.get("content-type") || "";
-
-      if (contentType.includes("text/event-stream") && chatRes.body) {
-        // 流式读取
-        const reader = chatRes.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = "";
-
-        // 处理 SSE 行的函数
-        const processLine = (line: string) => {
-          const trimmedLine = line.trim();
-          if (!trimmedLine || !trimmedLine.startsWith("data: ")) return;
-          try {
-            const parsed = JSON.parse(trimmedLine.slice(6));
-            if (parsed.chunk) {
-              set((s) => ({
-                messages: s.messages.map((m) =>
-                  m.id === aiMsg.id ? { ...m, content: (m.content || "") + parsed.chunk } : m
-                ),
-              }));
-            }
-            if (parsed.done) {
-              chatData = parsed;
-            }
-          } catch {}
-        };
-
-        try {
-          while (true) {
-            const { done: streamDone, value } = await reader.read();
-
-            if (value) {
-              buffer += decoder.decode(value, { stream: true });
-            }
-
-            const lines = buffer.split("\n");
-            // 最后一个可能是不完整的行，保留到下次
-            buffer = streamDone ? "" : (lines.pop() || "");
-
-            for (const line of lines) {
-              processLine(line);
-            }
-
-            if (streamDone) break;
-          }
-        } catch { /* stream error */ }
-
-        // 处理 buffer 中残留的最后一行（done 事件经常在这里）
-        if (buffer.trim()) {
-          processLine(buffer);
-        }
-
-        // 安全网：如果 done 事件仍然缺失，从消息内容中提取
-        if (!chatData.action) {
-          const currentContent = get().messages.find((m) => m.id === aiMsg.id)?.content || "";
-          const extracted = extractReplyFromRaw(currentContent);
-          if (extracted) {
-            chatData = { ...chatData, ...extracted };
-          }
-        }
-
-        // 流结束：用 done 事件的 reply 替换（服务器保证干净）
-        const finalReply = typeof chatData.reply === "string" && chatData.reply
-          ? chatData.reply
-          : (get().messages.find((m) => m.id === aiMsg.id)?.content || "");
-
-        set((s) => ({
-          messages: s.messages.map((m) =>
-            m.id === aiMsg.id ? { ...m, content: finalReply, streamingDone: true } : m
-          ),
-        }));
-      } else {
-        // 非流式降级
-        const json = await chatRes.json();
-        chatData = json;
-        const finalReply = typeof json.reply === "string" ? json.reply : "";
-        set((s) => ({
-          messages: s.messages.map((m) =>
-            m.id === aiMsg.id ? { ...m, content: finalReply || "处理完成。", streamingDone: true } : m
-          ),
-        }));
-      }
-
-      // 兜底：如果 LLM 没返回 action:generate，但从用户消息能检测到生图意图
-      if (chatData.action !== "generate" && imageUrls.length > 0) {
-        const genKeywords = /换装|穿上|试穿|上身|种草|街拍|小红书|3D|立体|专属模特|建模特|换背景|换场景|四宫格|姿势裂变|生成|制作|出图/;
-        if (genKeywords.test(trimmed)) {
-          const moduleMap: Record<string, string> = {
-            "换装": "tryon", "穿上": "tryon", "试穿": "tryon", "上身": "tryon",
-            "种草": "grass", "街拍": "grass", "小红书": "grass",
-            "3D": "garment_3d", "立体": "garment_3d",
-            "专属模特": "model", "建模特": "model",
-            "换背景": "model_background", "换场景": "model_background",
-            "四宫格": "pose", "姿势裂变": "pose",
-          };
-          for (const [keyword, mod] of Object.entries(moduleMap)) {
-            if (trimmed.includes(keyword)) {
-              chatData = { ...chatData, action: "generate", module: mod };
-              break;
-            }
-          }
-          if (chatData.action !== "generate" && /生成|制作|出图/.test(trimmed)) {
-            chatData = { ...chatData, action: "generate", module: chatData.module || "tryon" };
-          }
-        }
-      }
-
-      if (chatData.action === "generate" && imageUrls.length > 0) {
-        // LLM 判断需要生图 → 调用 Generate API
-        const genRes = await fetch("/api/agent/generate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            message: trimmed, images: imageUrls,
-            params: { model: params.model, aspectRatio: params.aspectRatio, imageSize: params.imageSize, count: params.count },
-            history,
-          }),
-        });
-        const genData = await genRes.json();
-
-        if (!genRes.ok || !genData.generation_id) {
-          throw new Error(genData.error || "生成失败");
-        }
-
-        // 显示 AI 的对话回复 + 生成进度
-        const reply = chatData.reply || "正在为你生成...";
+      if (data.action === "generate" && data.generation_id) {
+        // 生图任务：显示回复 + 进度
         set((s) => ({
           messages: s.messages.map((m) =>
             m.id === aiMsg.id ? {
               ...m,
               content: reply,
-              generation: { status: "generating", progress: 10, resultUrls: [], generationId: genData.generation_id, creditsUsed: genData.credits_cost, module: genData.module },
+              streamingDone: true,
+              generation: {
+                status: "generating" as const,
+                progress: 10,
+                resultUrls: [],
+                generationId: data.generation_id,
+                creditsUsed: data.credits_cost,
+                module: data.module,
+              },
             } : m
           ),
         }));
 
-        // 保存 AI 回复到 DB
+        // 保存 AI 消息
         fetch(`/api/conversations/${convId}/messages`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ role: "assistant", content: reply, mode }),
+          body: JSON.stringify({ role: "assistant", content: reply, mode: "agent" }),
         }).catch(() => {});
 
-        startPolling(get, set, aiMsg.id, genData.generation_id, genData.module || "tryon");
+        // 轮询
+        pollGeneration(get, set, aiMsg.id, convId!, data.generation_id, data.module || "tryon");
       } else {
-        // 普通对话回复
-        const reply = chatData.reply || "我没有理解你的意思。";
+        // 对话回复
         set((s) => ({
           isSending: false,
-          messages: s.messages.map((m) => m.id === aiMsg.id ? { ...m, content: reply, generation: null } : m),
+          messages: s.messages.map((m) =>
+            m.id === aiMsg.id ? { ...m, content: reply, streamingDone: true } : m
+          ),
         }));
 
-        // 保存 AI 回复到 DB
         fetch(`/api/conversations/${convId}/messages`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ role: "assistant", content: reply, mode }),
+          body: JSON.stringify({ role: "assistant", content: reply, mode: "agent" }),
         }).catch(() => {});
       }
     } catch (err) {
-      const errMsg = err instanceof Error ? err.message : "处理失败";
+      const msg = err instanceof Error ? err.message : "处理失败";
       set((s) => ({
         isSending: false,
         messages: s.messages.map((m) =>
-          m.id === aiMsg.id ? { ...m, content: errMsg, generation: null } : m
+          m.id === aiMsg.id ? { ...m, content: msg, streamingDone: true, generation: null } : m
         ),
       }));
     }
   },
 
+  // ======== AI 帮写 ========
   aiWrite: async () => {
     const { inputImages } = get();
     if (inputImages.length === 0) return;
@@ -692,248 +305,95 @@ export const useAgentStore = create<Store>((set, get) => ({
         body: JSON.stringify({ images: urls, currentPrompt: get().inputText }),
       });
       const data = await res.json();
-      if (data.optimizedPrompt) {
-        set({ inputText: data.optimizedPrompt, isAIWriting: false });
-      } else {
-        set({ isAIWriting: false });
-      }
-    } catch (err) {
-      set({ isAIWriting: false });
-      const sysMsg: Message = {
-        id: v4(), conversation_id: get().activeId || "", role: "system",
-        content: `AI 帮写失败：${err instanceof Error ? err.message : "网络错误"}`, images: [],
-        generation: null, params: {}, mode: "chat", created_at: new Date().toISOString(),
-      };
-      set((s) => ({ messages: [...s.messages, sysMsg] }));
-    }
+      if (data.optimizedPrompt) set({ inputText: data.optimizedPrompt });
+    } catch {}
+    set({ isAIWriting: false });
   },
 
-  retryMessage: async (messageId: string) => {
+  // ======== 重试 ========
+  retryMessage: (id: string) => {
     const { messages } = get();
-    const idx = messages.findIndex((m) => m.id === messageId);
+    const idx = messages.findIndex((m) => m.id === id);
     if (idx < 1) return;
     const userMsg = messages[idx - 1];
     if (userMsg.role !== "user") return;
     set({ inputText: userMsg.content, inputImages: userMsg.images || [] });
-    await get().sendMessage();
+    get().sendMessage();
   },
+
+  // ======== 重置 ========
+  reset: () => {
+    get().pollTimers?.forEach((t) => clearInterval(t));
+    revoke(get().inputImages.map((img) => img.url));
+    set({
+      messages: [], inputText: "", inputImages: [], isSending: false,
+      activeId: null, conversations: [],
+    });
+    get().loadConversations();
+  },
+
+  pollTimers: new Map(),
 }));
 
-// ======== 计划执行引擎 ========
-
-import type { TaskPlan, PlanStep } from "@/lib/agent/types";
-import { GENERATION_TOOLS, TOOL_TO_MODULE } from "@/lib/agent/tools";
-
-async function executePlan(
-  get: () => Store,
-  set: (fn: (s: Store) => Partial<Store>) => void,
-  convId: string,
-  aiMsgId: string,
-  plan: TaskPlan,
-  imageUrls: Array<{ index: number; url: string }>,
-  genParams: { model: string; aspectRatio: string; imageSize: string; count: number }
-) {
-  // 更新计划状态为执行中
-  updatePlan(set, aiMsgId, plan, "executing");
-
-  for (let i = 0; i < plan.steps.length; i++) {
-    const step = plan.steps[i];
-
-    // 更新步骤状态为 running
-    updateStep(set, aiMsgId, plan, i, "running");
-
-    try {
-      if (GENERATION_TOOLS.has(step.tool)) {
-        // 生图工具 → 调用 generate API
-        const result = await executeGenerationStep(get, set, aiMsgId, plan, i, step, genParams);
-        if (result) {
-          updateStep(set, aiMsgId, plan, i, "completed", result);
-        }
-      } else if (step.tool === "analyze_image" || step.tool === "style_advice" || step.tool === "optimize_prompt") {
-        // 分析/建议工具 → 调用 chat API
-        const result = await executeAnalysisStep(step, imageUrls);
-        updateStep(set, aiMsgId, plan, i, "completed", result);
-      } else {
-        updateStep(set, aiMsgId, plan, i, "completed", { text: "完成" });
-      }
-    } catch (err) {
-      updateStep(set, aiMsgId, plan, i, "failed", {
-        text: err instanceof Error ? err.message : "步骤执行失败",
-      });
-      // 继续执行下一步（不中断整个计划）
-    }
-  }
-
-  // 更新计划状态
-  const finalPlan = get().messages.find((m) => m.id === aiMsgId)?.taskPlan;
-  const anyFailed = finalPlan?.steps.some((s) => s.status === "failed");
-  updatePlan(set, aiMsgId, plan, anyFailed ? "failed" : "completed");
-  set(() => ({ isSending: false }));
-}
-
-async function executeGenerationStep(
-  get: () => Store,
-  set: (fn: (s: Store) => Partial<Store>) => void,
-  aiMsgId: string,
-  plan: TaskPlan,
-  stepIndex: number,
-  step: PlanStep,
-  genParams: { model: string; aspectRatio: string; imageSize: string; count: number }
-): Promise<{ text?: string; images?: string[] } | undefined> {
-  const module = TOOL_TO_MODULE[step.tool];
-  if (!module) return { text: "未知工具" };
-
-  // 合并步骤参数和全局参数
-  const body = {
-    ...step.params,
-    ai_model: step.params.ai_model || genParams.model,
-    aspect_ratio: step.params.aspect_ratio || genParams.aspectRatio,
-    image_size: step.params.image_size || genParams.imageSize,
-    gen_count: step.params.gen_count || genParams.count,
-  };
-
-  // 调用生成 API
-  const res = await fetch(`/api/${module === "model_background" ? "model-background" : module}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  const data = await res.json();
-
-  if (!res.ok || !data.generation_id) {
-    throw new Error(data.error || "生成失败");
-  }
-
-  // 轮询等待结果
-  const resultUrls = await pollGeneration(module, data.generation_id, (progress) => {
-    // 可选：更新步骤进度
-  });
-
-  return { images: resultUrls };
-}
-
-async function executeAnalysisStep(
-  step: PlanStep,
-  imageUrls: Array<{ index: number; url: string }>
-): Promise<{ text?: string }> {
-  const res = await fetch("/api/agent/chat", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      message: `执行工具 ${step.tool}：${step.description}\n参数：${JSON.stringify(step.params)}`,
-      images: imageUrls,
-      mode: "chat",
-    }),
-  });
-
-  // 处理流式或非流式响应
-  const contentType = res.headers.get("content-type") || "";
-  if (contentType.includes("application/json")) {
-    const data = await res.json();
-    return { text: typeof data.reply === "string" ? data.reply : "分析完成" };
-  }
-
-  // 流式：累积文本
-  if (res.body) {
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let text = "";
-    let buffer = "";
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        if (value) buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed || !trimmed.startsWith("data: ")) continue;
-          try {
-            const parsed = JSON.parse(trimmed.slice(6));
-            if (parsed.chunk) text += parsed.chunk;
-            if (parsed.done && typeof parsed.reply === "string") text = parsed.reply;
-          } catch {}
-        }
-      }
-    } catch {}
-    return { text: text || "分析完成" };
-  }
-
-  return { text: "分析完成" };
-}
-
+// ======== 轮询 ========
 function pollGeneration(
-  module: string,
+  get: () => Store,
+  set: (fn: (s: Store) => Partial<Store>) => void,
+  aiMsgId: string,
+  convId: string,
   generationId: string,
-  onProgress?: (progress: number) => void
-): Promise<string[]> {
-  return new Promise((resolve, reject) => {
-    const apiPath = module === "model_background" ? "model-background" : module;
-    const url = `/api/${apiPath}?generation_id=${generationId}`;
-    const PROGRESS_MAP: Record<string, number> = {
-      uploading: 10, queued: 20, processing_tryon: 50, processing_face_swap: 70,
-    };
-    let attempts = 0;
-    const maxAttempts = 120; // 4 minutes max
+  module: string
+) {
+  const apiPath = module === "model_background" ? "model-background" : module;
+  const url = `/api/${apiPath}?generation_id=${generationId}`;
+  const PROGRESS: Record<string, number> = { uploading: 10, queued: 20, processing_tryon: 50, processing_face_swap: 70 };
 
-    const timer = setInterval(async () => {
-      attempts++;
-      if (attempts > maxAttempts) {
+  const timer = setInterval(async () => {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) return;
+      const data = await res.json();
+      const status = data.status as string;
+      const resultUrls: string[] = Array.isArray(data.result_urls) ? data.result_urls : [];
+      const progress = resultUrls.length > 0 ? 100 : (PROGRESS[status] ?? 30);
+      const done = status === "completed" || resultUrls.length > 0;
+      const failed = status === "failed";
+
+      if (done || failed) {
         clearInterval(timer);
-        reject(new Error("生成超时"));
+        set((s) => ({
+          isSending: false,
+          messages: s.messages.map((m) =>
+            m.id === aiMsgId && m.generation ? {
+              ...m,
+              generation: {
+                ...m.generation,
+                status: done ? "completed" : "failed",
+                progress: 100,
+                resultUrls,
+                error: failed ? (data.error || "生成失败") : undefined,
+              },
+            } : m
+          ),
+        }));
         return;
       }
 
-      try {
-        const res = await fetch(url);
-        if (!res.ok) return;
-        const data = await res.json();
-        const status = data.status as string;
-        const resultUrls: string[] = Array.isArray(data.result_urls) ? data.result_urls : [];
+      set((s) => ({
+        messages: s.messages.map((m) =>
+          m.id === aiMsgId && m.generation ? { ...m, generation: { ...m.generation, progress, status: "generating" } } : m
+        ),
+      }));
+    } catch {}
+  }, 2000);
 
-        const progress = resultUrls.length > 0 ? 100 : (PROGRESS_MAP[status] ?? 30);
-        onProgress?.(progress);
-
-        if (status === "completed" || resultUrls.length > 0) {
-          clearInterval(timer);
-          resolve(resultUrls);
-        } else if (status === "failed") {
-          clearInterval(timer);
-          reject(new Error(data.error || "生成失败"));
-        }
-      } catch {}
-    }, 2000);
+  set((s) => {
+    const timers = new Map(s.pollTimers);
+    timers.set(aiMsgId, timer);
+    return { pollTimers: timers };
   });
 }
 
-function updatePlan(
-  set: (fn: (s: Store) => Partial<Store>) => void,
-  aiMsgId: string,
-  plan: TaskPlan,
-  status: TaskPlan["status"]
-) {
-  plan.status = status;
-  set((s) => ({
-    messages: s.messages.map((m) =>
-      m.id === aiMsgId ? { ...m, taskPlan: { ...plan } } : m
-    ),
-  }));
-}
-
-function updateStep(
-  set: (fn: (s: Store) => Partial<Store>) => void,
-  aiMsgId: string,
-  plan: TaskPlan,
-  stepIndex: number,
-  status: PlanStep["status"],
-  result?: { text?: string; images?: string[] }
-) {
-  plan.steps[stepIndex].status = status;
-  if (result) plan.steps[stepIndex].result = result;
-  set((s) => ({
-    messages: s.messages.map((m) =>
-      m.id === aiMsgId ? { ...m, taskPlan: { ...plan, steps: [...plan.steps] } } : m
-    ),
-  }));
+function uid() {
+  return v4();
 }
