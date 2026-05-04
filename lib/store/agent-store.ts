@@ -43,6 +43,30 @@ function revoke(urls: string[]) {
   for (const u of urls) if (u.startsWith("blob:")) URL.revokeObjectURL(u);
 }
 
+/** 保存消息到 DB（包含 generation 数据） */
+function saveMessage(convId: string, msg: { role: string; content: string; images?: ChatImage[]; generation?: unknown; mode?: string }) {
+  fetch(`/api/conversations/${convId}/messages`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      role: msg.role,
+      content: msg.content,
+      images: msg.images || [],
+      generation: msg.generation || null,
+      mode: msg.mode || "agent",
+    }),
+  }).catch(() => {});
+}
+
+/** 更新消息的 generation 状态（用于轮询完成/失败时） */
+function updateMessageGeneration(convId: string, messageId: string, generation: unknown) {
+  fetch(`/api/conversations/${convId}/messages`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ messageId, generation }),
+  }).catch(() => {});
+}
+
 // ---- Store ----
 export const useAgentStore = create<Store>((set, get) => ({
   conversations: [],
@@ -219,11 +243,7 @@ export const useAgentStore = create<Store>((set, get) => ({
     set((s) => ({ messages: [...s.messages, userMsg, aiMsg] }));
 
     // 保存用户消息
-    fetch(`/api/conversations/${convId}/messages`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ role: "user", content: trimmed, images: currentImages, mode: "agent" }),
-    }).catch(() => {});
+    saveMessage(convId, { role: "user", content: trimmed, images: currentImages, mode: "agent" });
 
     try {
       const imageUrls = currentImages.map((img) => ({ index: img.index, url: img.hostedUrl || img.url })).filter((img) => img.url);
@@ -276,12 +296,9 @@ export const useAgentStore = create<Store>((set, get) => ({
           ),
         }));
 
-        // 保存 AI 消息
-        fetch(`/api/conversations/${convId}/messages`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ role: "assistant", content: reply, mode: "agent" }),
-        }).catch(() => {});
+        // 保存 AI 消息（含 generation 数据）
+        const confirmGen = get().messages.find((m) => m.id === aiMsg.id)?.generation;
+        saveMessage(convId, { role: "assistant", content: reply, generation: confirmGen || null, mode: "agent" });
       } else {
         // 对话回复
         set((s) => ({
@@ -290,12 +307,7 @@ export const useAgentStore = create<Store>((set, get) => ({
             m.id === aiMsg.id ? { ...m, content: reply, streamingDone: true } : m
           ),
         }));
-
-        fetch(`/api/conversations/${convId}/messages`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ role: "assistant", content: reply, mode: "agent" }),
-        }).catch(() => {});
+        saveMessage(convId, { role: "assistant", content: reply, mode: "agent" });
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "处理失败";
@@ -395,6 +407,12 @@ export const useAgentStore = create<Store>((set, get) => ({
         ),
       }));
 
+      // 持久化更新后的 generation 到 DB
+      const updatedGen = get().messages.find((m) => m.id === messageId)?.generation;
+      if (updatedGen) {
+        updateMessageGeneration(activeId || "", messageId, updatedGen);
+      }
+
       // 开始轮询
       pollGeneration(get, set, messageId, activeId!, data.generation_id, confirmData.module);
     } catch (err) {
@@ -450,21 +468,30 @@ function pollGeneration(
 
       if (done || failed) {
         clearInterval(timer);
+
+        const finalGeneration = {
+          status: done ? ("completed" as const) : ("failed" as const),
+          progress: 100,
+          resultUrls,
+          error: failed ? (data.error || "生成失败") : undefined,
+        };
+
         set((s) => ({
           isSending: false,
           messages: s.messages.map((m) =>
             m.id === aiMsgId && m.generation ? {
               ...m,
-              generation: {
-                ...m.generation,
-                status: done ? "completed" : "failed",
-                progress: 100,
-                resultUrls,
-                error: failed ? (data.error || "生成失败") : undefined,
-              },
+              generation: { ...m.generation, ...finalGeneration },
             } : m
           ),
         }));
+
+        // 持久化 generation 状态到 DB
+        updateMessageGeneration(get().activeId || "", aiMsgId, {
+          ...get().messages.find((m) => m.id === aiMsgId)?.generation,
+          ...finalGeneration,
+        });
+
         return;
       }
 
