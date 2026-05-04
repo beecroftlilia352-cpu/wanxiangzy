@@ -15,9 +15,10 @@ type Props = {
   sessionImages: Array<{ index: number; url: string }>;
   onOpenImage: (url: string) => void;
   onRetry: (messageId: string) => void;
+  onConfirm?: (messageId: string) => void;
 };
 
-export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage, onRetry }: Props) {
+export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage, onRetry, onConfirm }: Props) {
   const { role, content, images, generation, created_at } = message;
   const [copied, setCopied] = useState(false);
 
@@ -114,8 +115,31 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
           </div>
         )}
 
+        {/* ===== 确认生成卡片（等待用户确认） ===== */}
+        {generation && generation.status === "pending" && generation._confirmData && (
+          <div className="mt-2 w-full max-w-sm rounded-xl border border-amber-200 bg-amber-50/50 p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-bold text-slate-800">{generation.module || "图像生成"}</p>
+                <p className="text-[11px] text-slate-500">确认后将扣除积分并开始生成</p>
+              </div>
+              <div className="rounded-lg bg-amber-100 px-3 py-1.5 text-center">
+                <p className="text-lg font-black text-amber-700">{generation.creditsUsed || 0}</p>
+                <p className="text-[10px] text-amber-600">积分</p>
+              </div>
+            </div>
+            <button
+              onClick={() => onConfirm?.(message.id)}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-pink-600 py-2.5 text-sm font-bold text-white shadow-lg shadow-violet-200 transition-opacity hover:opacity-90"
+            >
+              <Sparkles className="h-4 w-4" />
+              确认生成
+            </button>
+          </div>
+        )}
+
         {/* ===== 生成中卡片 ===== */}
-        {generation && (generation.status === "pending" || generation.status === "generating") && (
+        {generation && generation.status === "generating" && (
           <div className="mt-1.5 inline-flex flex-col gap-2">
             {/* 图片占位方框（GPT 风格） */}
             <div className="gen-card relative overflow-hidden rounded-2xl border border-slate-200/60 bg-gradient-to-br from-slate-100 via-violet-50 to-pink-50 shadow-sm"

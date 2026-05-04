@@ -102,6 +102,7 @@ export default function AgentPage() {
           isSending={s.isSending}
           onOpenImage={setLightbox}
           onRetry={s.retryMessage}
+          onConfirm={s.confirmGeneration}
           onQuickAction={handleQuickAction}
         />
 

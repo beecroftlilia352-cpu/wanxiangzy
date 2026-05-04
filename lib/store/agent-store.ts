@@ -31,6 +31,7 @@ type Store = {
   sendMessage: () => Promise<void>;
   aiWrite: () => Promise<void>;
   retryMessage: (id: string) => void;
+  confirmGeneration: (messageId: string) => Promise<void>;
   reset: () => void;
 };
 
@@ -235,21 +236,29 @@ export const useAgentStore = create<Store>((set, get) => ({
       const data = await res.json();
       const reply = typeof data.reply === "string" ? data.reply : "处理完成。";
 
-      if (data.action === "generate" && data.generation_id) {
-        // 生图任务：显示回复 + 进度
+      if (data.action === "confirm_generate" && data.api_path) {
+        // 生图任务：显示确认卡片（需要用户确认后才扣积分执行）
         set((s) => ({
+          isSending: false,
           messages: s.messages.map((m) =>
             m.id === aiMsg.id ? {
               ...m,
               content: reply,
               streamingDone: true,
               generation: {
-                status: "generating" as const,
-                progress: 10,
+                status: "pending" as const,
+                progress: 0,
                 resultUrls: [],
-                generationId: data.generation_id,
+                module: data.module_label || data.module,
                 creditsUsed: data.credits_cost,
-                module: data.module,
+                // 存储待确认的参数
+                _confirmData: {
+                  apiPath: data.api_path,
+                  module: data.module,
+                  params: data.generation_params,
+                  jobPayload: data.job_payload,
+                  creditsCost: data.credits_cost,
+                },
               },
             } : m
           ),
@@ -261,9 +270,6 @@ export const useAgentStore = create<Store>((set, get) => ({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ role: "assistant", content: reply, mode: "agent" }),
         }).catch(() => {});
-
-        // 轮询
-        pollGeneration(get, set, aiMsg.id, convId!, data.generation_id, data.module || "tryon");
       } else {
         // 对话回复
         set((s) => ({
@@ -319,6 +325,77 @@ export const useAgentStore = create<Store>((set, get) => ({
     if (userMsg.role !== "user") return;
     set({ inputText: userMsg.content, inputImages: userMsg.images || [] });
     get().sendMessage();
+  },
+
+  // ======== 确认生图（用户确认后才扣积分执行） ========
+  confirmGeneration: async (messageId: string) => {
+    const { messages, activeId } = get();
+    const msg = messages.find((m) => m.id === messageId);
+    if (!msg?.generation?._confirmData) return;
+
+    const confirmData = msg.generation._confirmData as {
+      apiPath: string;
+      module: string;
+      params: Record<string, unknown>;
+      jobPayload: Record<string, unknown>;
+      creditsCost: number;
+    };
+
+    // 更新为 generating 状态
+    set((s) => ({
+      isSending: true,
+      messages: s.messages.map((m) =>
+        m.id === messageId && m.generation
+          ? { ...m, generation: { ...m.generation, status: "generating" as const, progress: 5 } }
+          : m
+      ),
+    }));
+
+    try {
+      // 调用模块 API 执行生成
+      const res = await fetch(confirmData.apiPath, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(confirmData.params),
+      });
+      const data = await res.json();
+
+      if (!res.ok || !data.generation_id) {
+        throw new Error(data.error || "生成失败");
+      }
+
+      // 更新为轮询状态
+      set((s) => ({
+        messages: s.messages.map((m) =>
+          m.id === messageId && m.generation
+            ? {
+                ...m,
+                generation: {
+                  ...m.generation,
+                  status: "generating" as const,
+                  progress: 10,
+                  generationId: data.generation_id,
+                  creditsUsed: data.credits_cost || confirmData.creditsCost,
+                  _confirmData: undefined,
+                },
+              }
+            : m
+        ),
+      }));
+
+      // 开始轮询
+      pollGeneration(get, set, messageId, activeId!, data.generation_id, confirmData.module);
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : "生成失败";
+      set((s) => ({
+        isSending: false,
+        messages: s.messages.map((m) =>
+          m.id === messageId && m.generation
+            ? { ...m, generation: { ...m.generation, status: "failed" as const, error: errMsg, _confirmData: undefined } }
+            : m
+        ),
+      }));
+    }
   },
 
   // ======== 重置 ========

@@ -290,7 +290,7 @@ function SettingsPanel({
         </div>
       </div>
 
-      {/* 张数 */}
+      {/* 张数 — 暂时隐藏，后续支持批量时再开放
       <div>
         <label className="mb-1.5 block text-xs font-bold text-slate-500">张数</label>
         <div className="flex gap-1.5">
@@ -302,6 +302,7 @@ function SettingsPanel({
           ))}
         </div>
       </div>
+      */}
 
       {/* 总积分 */}
       {mode === "agent" && (
