@@ -44,7 +44,26 @@ function revoke(urls: string[]) {
   for (const u of urls) if (u.startsWith("blob:")) URL.revokeObjectURL(u);
 }
 
-/** 保存消息到 DB（包含 generation 数据） */
+/**
+ * 清理 generation 对象，移除仅内存使用的字段后持久化到 DB
+ */
+function sanitizeGenerationForDB(gen: unknown): Record<string, unknown> | null {
+  if (!gen || typeof gen !== "object") return null;
+  const g = gen as Record<string, unknown>;
+  const clean: Record<string, unknown> = {};
+  // 只保留需要持久化的字段
+  if (g.status) clean.status = g.status;
+  if (typeof g.progress === "number") clean.progress = g.progress;
+  if (Array.isArray(g.resultUrls)) clean.resultUrls = g.resultUrls;
+  if (g.error) clean.error = g.error;
+  if (g.generationId) clean.generationId = g.generationId;
+  if (g.creditsUsed) clean.creditsUsed = g.creditsUsed;
+  if (g.module) clean.module = g.module;
+  // _confirmData 永不持久化（仅内存中的待确认状态）
+  return Object.keys(clean).length > 0 ? clean : null;
+}
+
+/** 保存消息到 DB */
 function saveMessage(convId: string, msg: { role: string; content: string; images?: ChatImage[]; generation?: unknown; mode?: string }) {
   console.log("[agent-store] saveMessage:", { convId, role: msg.role, contentLen: msg.content.length, hasGeneration: !!msg.generation });
   fetch(`/api/conversations/${convId}/messages`, {
@@ -54,18 +73,20 @@ function saveMessage(convId: string, msg: { role: string; content: string; image
       role: msg.role,
       content: msg.content,
       images: msg.images || [],
-      generation: msg.generation || null,
+      generation: sanitizeGenerationForDB(msg.generation),
       mode: msg.mode || "agent",
     }),
   }).catch(() => {});
 }
 
-/** 更新消息的 generation 状态（用于轮询完成/失败时） */
+/** 更新消息的 generation 状态 */
 function updateMessageGeneration(convId: string, messageId: string, generation: unknown) {
+  const clean = sanitizeGenerationForDB(generation);
+  console.log("[agent-store] updateMessageGeneration:", { messageId, status: (clean as Record<string, unknown>)?.status });
   fetch(`/api/conversations/${convId}/messages`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ messageId, generation }),
+    body: JSON.stringify({ messageId, generation: clean }),
   }).catch(() => {});
 }
 
