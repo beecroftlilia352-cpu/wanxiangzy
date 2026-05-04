@@ -245,38 +245,17 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // 扣减积分 + 创建 generation
-    const clothingUrls = extractClothingUrls(moduleParams);
-    try {
-      const debit = await createDebitedGeneration(supabase, {
-        userId: user.id,
-        clothingUrls,
-        modelFaceUrl: typeof moduleParams.model_face_url === "string" ? moduleParams.model_face_url : null,
-        referenceUrl: typeof moduleParams.reference_url === "string" ? moduleParams.reference_url : null,
-        creditsCost: totalCost,
-        aiModel: model,
-        imageSize,
-        reason: `Agent ${MODULE_LABELS[module] || module} ${count}张 (${model})`,
-        jobPayload: buildJobPayload(module, moduleParams, { model, aspectRatio, imageSize, count }),
-      });
-
-      startGenerationJob(debit.generationId);
-
-      return NextResponse.json({
-        reply,
-        action: "generate",
-        module,
-        generation_id: debit.generationId,
-        credits_cost: totalCost,
-        credits_remaining: debit.creditsRemaining,
-      });
-    } catch (err) {
-      const payload = errorToResponsePayload(err);
-      return NextResponse.json({
-        reply: `${reply}\n\n⚠️ ${payload.body.error || "积分扣减失败"}`,
-        action: "chat",
-      });
-    }
+    // 不直接执行，返回确认信息让用户确认后才扣积分
+    return NextResponse.json({
+      reply,
+      action: "confirm_generate",
+      module,
+      module_label: MODULE_LABELS[module] || module,
+      generation_params: moduleParams,
+      job_payload: buildJobPayload(module, moduleParams, { model, aspectRatio, imageSize, count }),
+      credits_cost: totalCost,
+      api_path: MODULE_API[module],
+    });
   } catch (err: unknown) {
     const msg = err instanceof Error && err.name === "AbortError" ? "AI 响应超时，请重试。" : "处理出错。";
     return NextResponse.json({ reply: msg, action: "chat" });

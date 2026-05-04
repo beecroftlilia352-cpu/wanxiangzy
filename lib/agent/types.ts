@@ -46,6 +46,14 @@ export interface GenerationResult {
   generationId?: string;
   creditsUsed?: number;
   module?: string;
+  // 待确认的生图参数（用户确认后才执行）
+  _confirmData?: {
+    apiPath: string;
+    module: string;
+    params: Record<string, unknown>;
+    jobPayload: Record<string, unknown>;
+    creditsCost: number;
+  };
 }
 
 export interface GenerationParams {
