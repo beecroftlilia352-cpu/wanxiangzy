@@ -1,8 +1,6 @@
 /**
  * POST /api/agent/chat
  * 统一 Agent API：LLM 理解意图 → 自动路由到生图模块 → 返回结果
- *
- * 不再需要单独调用 /api/agent/generate 或 /api/agent/plan
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -27,31 +25,76 @@ import {
 
 export const maxDuration = 60;
 
-const SYSTEM_PROMPT = `你是 VastWear AI 助手。根据用户消息和图片，判断应该做什么。
+const SYSTEM_PROMPT = `你是 VastWear AI 助手，一个专业的服装电商视觉 AI 智能体。你精通服装摄影、电商视觉、AI 图像生成。
 
-严格返回 JSON，不要其他内容：
-{"reply":"你的回复","action":"chat或generate","module":"模块名或null","params":{},"style":null}
+## 你的能力
 
-action 规则：
-- 用户要生成图片且有图片 → "generate"
-- 其他 → "chat"
+1. **图片分析**：识别服装品类、颜色、面料、风格、适用场景
+2. **视觉建议**：推荐拍摄风格、构图、配色、场景搭配
+3. **图像生成**：调用生图模块生成换装/种草/3D/换背景/姿势裂变/专属模特
+4. **专业对话**：回答服装、电商、摄影相关问题
 
-module（仅 generate 时）：
+## 回复规则
+
+你的回复必须是严格的 JSON 格式，不要输出任何其他内容：
+
+\`\`\`json
+{
+  "reply": "你的详细回复（中文，支持Markdown格式，要专业、详细、有深度，至少3-5句话）",
+  "action": "chat 或 generate",
+  "module": "模块名或null",
+  "params": {},
+  "style": null
+}
+\`\`\`
+
+### reply 字段要求
+- 必须详细、专业、有深度（至少3句话，最好5-10句话）
+- 分析图片时要具体：品类、颜色、面料、风格、适合场景、拍摄建议
+- 用 Markdown 格式：**粗体**、• 列表、分段
+- 像一个资深的电商视觉顾问在给客户做方案
+
+### action 字段规则
+- 用户明确要求生成/制作/出图，且有图片 → "generate"
+- 用户只是聊天/提问/分析/咨询 → "chat"
+- 不确定 → "chat"
+
+### module 字段（仅 action="generate" 时）
 - "tryon"：换装/穿上/试穿/上身
-- "grass"：种草/小红书/街拍
-- "garment_3d"：3D/立体
-- "model"：专属模特/建模特
-- "model_background"：换背景/换场景
+- "grass"：种草/小红书/街拍/生活感
+- "garment_3d"：3D/立体/商品展示
+- "model"：专属模特/建模特/定制脸
+- "model_background"：换背景/换场景/换模特
 - "pose"：四宫格/姿势裂变
 
-params 中的图片引用用图号：{"clothing_urls":["图1"],"reference_url":"图2"}
+### params 字段
+用图号引用图片（图1、图2...），例如：
+- 换装：{"clothing_urls": ["图1"], "reference_url": "图2"}
+- 种草：{"garment_url": "图1"}
+- 3D：{"garment_url": "图1"}
+- 专属模特：{"reference_urls": ["图1", "图2"]}
+- 换背景：{"source_url": "图1", "background_reference_url": "图2"}
+- 姿势裂变：{"main_image_url": "图1"}
 
-示例：
-用户："把图1穿到图2身上" + 2张图
-→ {"reply":"好的，正在生成换装图...","action":"generate","module":"tryon","params":{"clothing_urls":["图1"],"reference_url":"图2"},"style":null}
+### 示例
 
-用户："你是谁"
-→ {"reply":"我是VastWear AI助手...","action":"chat","module":null,"params":{},"style":null}`;
+用户上传了2张图说："帮我把图1穿到图2身上，韩系风格"
+{
+  "reply": "好的！我来帮你生成韩系风格的换装效果图。\n\n• **服装**：图1的碎花连衣裙\n• **参考**：图2的模特姿势\n• **风格**：韩系清透\n\n正在调用换装模块，请稍候...",
+  "action": "generate",
+  "module": "tryon",
+  "params": {"clothing_urls": ["图1"], "reference_url": "图2"},
+  "style": "韩系清透"
+}
+
+用户说："这件衣服适合什么场景？"（有图片）
+{
+  "reply": "这件碎花连衣裙非常适合以下场景：\n\n• **春夏日常**：轻盈面料和碎花图案自带清新感\n• **咖啡店/花店**：和花朵元素搭配，氛围感很强\n• **小红书种草**：碎花裙是小红书高热度品类\n\n建议拍摄风格：韩系清透或日系小清新，自然光线为佳。",
+  "action": "chat",
+  "module": null,
+  "params": {},
+  "style": null
+}`;
 
 const MODULE_API: Record<string, string> = {
   tryon: "/api/tryon",
@@ -110,9 +153,11 @@ export async function POST(request: NextRequest) {
     }
 
     const userContent: Array<Record<string, unknown>> = [];
-    const userText = (message || "").trim() || "请分析这些图片并推荐操作";
-    const imageDesc = hasImages ? `\n图片：${images!.map((img) => `图${img.index}`).join("、")}` : "";
-    userContent.push({ type: "text", text: `${userText}${imageDesc}` });
+    const userText = (message || "").trim();
+    const imageDesc = hasImages
+      ? `\n\n图片编号：${images!.map((img) => `图${img.index}（${guessImageRole(img.index, images!.length, userText)}）`).join("、")}`
+      : "";
+    userContent.push({ type: "text", text: `${userText || "请分析这些图片并推荐操作"}${imageDesc}` });
 
     if (hasImages) {
       for (const img of images!) {
@@ -121,37 +166,48 @@ export async function POST(request: NextRequest) {
     }
     messages.push({ role: "user", content: userContent });
 
-    // 调用 LLM
+    // 调用 LLM（带降级）
     let llmContent = "";
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 40000);
-      const res = await fetch(getChatCompletionsUrl(llm), {
-        method: "POST",
-        headers: { Authorization: `Bearer ${llm.apiKey}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ model: llm.model, messages, max_tokens: 800, temperature: 0.3 }),
-        signal: controller.signal,
-      }).finally(() => clearTimeout(timeout));
-      if (res.ok) {
-        const data = await res.json();
-        llmContent = extractText(data);
-      }
-    } catch {}
+    const providers = [llm];
+    if (llm.provider === "xiaomi") {
+      const lingya = getLlmConfig(hasImages ? "vision" : "text");
+      if (lingya.provider !== "xiaomi" && lingya.apiKey && lingya.baseUrl) providers.push(lingya);
+    }
+
+    for (const provider of providers) {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 40000);
+        const res = await fetch(getChatCompletionsUrl(provider), {
+          method: "POST",
+          headers: { Authorization: `Bearer ${provider.apiKey}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ model: provider.model, messages, max_tokens: 1200, temperature: 0.4 }),
+          signal: controller.signal,
+        }).finally(() => clearTimeout(timeout));
+        if (res.ok) {
+          const data = await res.json();
+          llmContent = extractText(data);
+          break;
+        }
+      } catch {}
+    }
 
     // 解析 LLM 响应
     const parsed = extractJson(llmContent);
-    const reply = typeof parsed?.reply === "string" ? parsed.reply : (llmContent || "处理完成。");
+    const reply = typeof parsed?.reply === "string" && parsed.reply.length > 10
+      ? parsed.reply
+      : llmContent || "我理解了你的需求，正在处理中...";
     const action = parsed?.action === "generate" && hasImages ? "generate" : "chat";
     const module = typeof parsed?.module === "string" ? parsed.module : null;
     const llmParams = typeof parsed?.params === "object" && parsed.params !== null ? parsed.params as Record<string, unknown> : {};
     const style = typeof parsed?.style === "string" ? parsed.style : null;
 
-    // 如果是对话模式，直接返回
+    // 对话模式：直接返回
     if (action !== "generate" || !module || !MODULE_API[module]) {
       return NextResponse.json({ reply, action: "chat" });
     }
 
-    // 生图模式：构建参数并调用生成 API
+    // ===== 生图模式 =====
     const supabase = await createServerSupabase();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ reply: "请先登录。", action: "chat" });
@@ -163,22 +219,24 @@ export async function POST(request: NextRequest) {
     const costPerImage = getCreditCost(model, imageSize, aspectRatio);
     const totalCost = costPerImage * count;
 
-    // 构建模块参数
+    // 构建图片映射：图号 → URL
     const imageMap = new Map<number, string>();
     for (const img of images!) imageMap.set(img.index, img.url);
 
+    // 构建模块参数
     const moduleParams = buildModuleParams(module, llmParams, imageMap, {
       model, aspectRatio, imageSize, count, style,
     });
 
     if (!moduleParams) {
+      console.error("[agent-chat] buildModuleParams failed", { module, llmParams, imageSize: Array.from(imageMap.keys()) });
       return NextResponse.json({
-        reply: `${reply}\n\n⚠️ 无法自动构建参数，请在专业模式中手动操作。`,
+        reply: `${reply}\n\n⚠️ 参数构建失败，请尝试更明确地描述，例如："把图1的衣服穿到图2身上"`,
         action: "chat",
       });
     }
 
-    // 扣减积分
+    // 扣减积分 + 创建 generation
     const clothingUrls = extractClothingUrls(moduleParams);
     try {
       const debit = await createDebitedGeneration(supabase, {
@@ -190,7 +248,7 @@ export async function POST(request: NextRequest) {
         aiModel: model,
         imageSize,
         reason: `Agent ${MODULE_LABELS[module] || module} ${count}张 (${model})`,
-        jobPayload: { kind: module, ...moduleParams, aiModel: model, aspectRatio, imageSize, prompt: moduleParams.prompt || "", genCount: count },
+        jobPayload: { kind: module, ...moduleParams, aiModel: model, aspectRatio, imageSize, prompt: String(moduleParams.prompt || ""), genCount: count },
       });
 
       startGenerationJob(debit.generationId);
@@ -206,7 +264,7 @@ export async function POST(request: NextRequest) {
     } catch (err) {
       const payload = errorToResponsePayload(err);
       return NextResponse.json({
-        reply: `${reply}\n\n⚠️ ${payload.body.error || "生成失败"}`,
+        reply: `${reply}\n\n⚠️ ${payload.body.error || "积分扣减失败"}`,
         action: "chat",
       });
     }
@@ -218,6 +276,21 @@ export async function POST(request: NextRequest) {
 
 // ---- 工具函数 ----
 
+function guessImageRole(index: number, total: number, message: string): string {
+  if (total === 1) return "服装图";
+  if (/模特|人脸|脸/.test(message)) {
+    if (index === 1) return "服装图";
+    return "模特参考图";
+  }
+  if (/背景|场景/.test(message)) {
+    if (index === 1) return "原图";
+    return "背景参考图";
+  }
+  if (index === 1) return "服装图";
+  if (index === 2) return "参考图";
+  return `图${index}`;
+}
+
 function extractText(data: Record<string, unknown>): string {
   const choices = data.choices as Array<Record<string, unknown>> | undefined;
   const msg = choices?.[0]?.message as Record<string, unknown> | undefined;
@@ -225,18 +298,16 @@ function extractText(data: Record<string, unknown>): string {
 }
 
 function extractJson(text: string): Record<string, unknown> | null {
-  // 尝试多种提取策略
   const strategies = [
     () => JSON.parse(text.trim()),
-    () => { const m = text.match(/\{[\s\S]*?"reply"[\s\S]*?\}/); return m ? JSON.parse(m[0]) : null; },
     () => { const m = text.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/); return m ? JSON.parse(m[1]) : null; },
+    () => { const m = text.match(/\{[\s\S]*?"reply"[\s\S]*?\}/); return m ? JSON.parse(m[0]) : null; },
     () => { const i = text.lastIndexOf("{"), j = text.lastIndexOf("}"); return i >= 0 && j > i ? JSON.parse(text.slice(i, j + 1)) : null; },
   ];
-
-  for (const tryParse of strategies) {
+  for (const fn of strategies) {
     try {
-      const result = tryParse();
-      if (result && typeof result === "object" && "reply" in result) return result;
+      const r = fn();
+      if (r && typeof r === "object" && "reply" in r) return r;
     } catch {}
   }
   return null;
@@ -244,8 +315,8 @@ function extractJson(text: string): Record<string, unknown> | null {
 
 function resolveImageUrl(ref: unknown, imageMap: Map<number, string>): string | null {
   if (typeof ref === "string") {
-    const match = ref.match(/图(\d+)/);
-    if (match) return imageMap.get(parseInt(match[1])) || null;
+    const m = ref.match(/图(\d+)/);
+    if (m) return imageMap.get(parseInt(m[1])) || null;
     if (ref.startsWith("http")) return ref;
   }
   if (typeof ref === "number") return imageMap.get(ref) || null;
@@ -253,11 +324,9 @@ function resolveImageUrl(ref: unknown, imageMap: Map<number, string>): string | 
 }
 
 function resolveImageUrls(ref: unknown, imageMap: Map<number, string>): string[] {
-  if (Array.isArray(ref)) {
-    return ref.map((r) => resolveImageUrl(r, imageMap)).filter(Boolean) as string[];
-  }
-  const single = resolveImageUrl(ref, imageMap);
-  return single ? [single] : [];
+  if (Array.isArray(ref)) return ref.map((r) => resolveImageUrl(r, imageMap)).filter(Boolean) as string[];
+  const s = resolveImageUrl(ref, imageMap);
+  return s ? [s] : [];
 }
 
 function buildModuleParams(
@@ -271,12 +340,11 @@ function buildModuleParams(
     aspect_ratio: opts.aspectRatio,
     image_size: opts.imageSize,
     gen_count: opts.count,
-    prompt: typeof llmParams.prompt === "string" ? llmParams.prompt : "",
   };
 
   switch (module) {
     case "tryon": {
-      const clothing = resolveImageUrls(llmParams.clothing_urls ?? 1, imageMap);
+      const clothing = resolveImageUrls(llmParams.clothing_urls ?? [1], imageMap);
       if (clothing.length === 0) return null;
       base.clothing_urls = clothing;
       const ref = resolveImageUrl(llmParams.reference_url, imageMap);
@@ -296,10 +364,10 @@ function buildModuleParams(
       return base;
     }
     case "model": {
-      const refs = resolveImageUrls(llmParams.reference_urls ?? 1, imageMap);
+      const refs = resolveImageUrls(llmParams.reference_urls ?? [1], imageMap);
       if (refs.length === 0) return null;
       base.reference_urls = refs;
-      base.gender = typeof llmParams.gender === "string" ? llmParams.gender : "female";
+      base.gender = "female";
       if (opts.style) base.model_style = opts.style;
       return base;
     }
@@ -333,7 +401,7 @@ function buildModuleParams(
 function extractClothingUrls(params: Record<string, unknown>): string[] {
   for (const key of ["clothing_urls", "reference_urls"]) {
     const val = params[key];
-    if (Array.isArray(val)) return val as string[];
+    if (Array.isArray(val) && val.length > 0) return val as string[];
   }
   for (const key of ["garment_url", "source_url", "main_image_url"]) {
     const val = params[key];
