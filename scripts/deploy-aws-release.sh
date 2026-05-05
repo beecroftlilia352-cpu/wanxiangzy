@@ -94,6 +94,15 @@ rollback_previous_release() {
   fi
 }
 
+cleanup_legacy_root_lockfiles() {
+  for lockfile in package-lock.json npm-shrinkwrap.json yarn.lock pnpm-lock.yaml; do
+    if [ -f "$BASE_DIR/$lockfile" ]; then
+      echo "Removing legacy root lockfile: $BASE_DIR/$lockfile"
+      rm -f -- "$BASE_DIR/$lockfile"
+    fi
+  done
+}
+
 if ! command -v node >/dev/null 2>&1; then
   echo "Node.js is not installed on the server." >&2
   exit 1
@@ -123,6 +132,7 @@ fi
 
 tar -xzf "$ARCHIVE" -C "$RELEASE_DIR"
 ln -sfn "$SHARED_DIR/.env.production" "$RELEASE_DIR/.env.production"
+cleanup_legacy_root_lockfiles
 
 cd "$RELEASE_DIR"
 npm ci

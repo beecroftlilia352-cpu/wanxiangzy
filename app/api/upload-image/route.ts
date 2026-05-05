@@ -2,9 +2,10 @@ import { NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/api/auth";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 const IMGBB_API_URL = "https://api.imgbb.com/1/upload";
+const IMGBB_UPLOAD_TIMEOUT_MS = 60_000;
 const MAX_UPLOAD_MB = 15;
 const MAX_BASE64_LENGTH = 21 * 1024 * 1024; // ~15MB after base64 encoding
 
@@ -43,7 +44,7 @@ export async function POST(request: Request) {
     const res = await fetch(IMGBB_API_URL, {
       method: "POST",
       body: imgbbForm,
-      signal: AbortSignal.timeout(30000),
+      signal: AbortSignal.timeout(IMGBB_UPLOAD_TIMEOUT_MS),
     });
 
     if (!res.ok) {
@@ -69,6 +70,9 @@ export async function POST(request: Request) {
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("[upload-image] error:", message);
+    if (err instanceof Error && (err.name === "TimeoutError" || message.includes("timeout"))) {
+      return NextResponse.json({ error: "Image upload timed out, please try again." }, { status: 504 });
+    }
     return NextResponse.json({ error: "图片上传失败" }, { status: 500 });
   }
 }
