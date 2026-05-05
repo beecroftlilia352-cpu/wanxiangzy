@@ -156,6 +156,8 @@ type AgentDecision = {
 type VisualTaskPlan = {
   module: string;
   label: string;
+  taskType: "commerce_detail" | "commerce_creative" | "reference_redesign";
+  preferredAspectRatio?: AspectRatio;
   prompt: string;
   useImages: boolean;
   confidence: number;
@@ -277,7 +279,12 @@ export async function POST(request: NextRequest) {
     } else if (taskPlan || standaloneTextGeneration) {
       action = "generate";
       module = taskPlan?.module || "general";
-      llmParams = { ...llmParams, prompt: taskPlan?.prompt || buildGeneralGenerationPrompt(userText, null) };
+      llmParams = {
+        ...llmParams,
+        prompt: taskPlan
+          ? composeVisualTaskPrompt(taskPlan, llmParams.prompt, userText)
+          : buildGeneralGenerationPrompt(userText, null),
+      };
       decision.params = llmParams;
       decision.confidence = Math.max(decision.confidence, taskPlan?.confidence || 0.82);
       decision.source = "heuristic";
@@ -328,10 +335,12 @@ export async function POST(request: NextRequest) {
       const imageUrls = standaloneTextGeneration && !taskPlan?.useImages ? [] : (images || []).map((img) => img.url).filter(Boolean);
       const generalPrompt = typeof decision.params.prompt === "string" && decision.params.prompt.trim()
         ? decision.params.prompt.trim()
-        : taskPlan?.prompt || buildGeneralGenerationPrompt(userText, null);
+        : taskPlan
+          ? composeVisualTaskPrompt(taskPlan, decision.params.prompt, userText)
+          : buildGeneralGenerationPrompt(userText, null);
       const generalLabel = taskPlan?.label || "\u901a\u7528\u751f\u56fe";
       const model = normalizeLingyaModel(userParams?.model);
-      const aspectRatio = normalizeAspectRatio(userParams?.aspectRatio || "3:4");
+      const aspectRatio = normalizeAspectRatio(userParams?.aspectRatio || taskPlan?.preferredAspectRatio || "3:4");
       const imageSize = normalizeImageSize(model, (userParams?.imageSize as ImageSize) || "1K", aspectRatio);
       const count = Math.min(Math.max(Number(userParams?.count) || 1, 1), 4);
       const cost = getCreditCost(model, imageSize, aspectRatio) * count;
@@ -475,7 +484,7 @@ function normalizeAgentDecision(
   if (plannedTask) {
     action = "generate";
     module = plannedTask.module;
-    params.prompt = plannedTask.prompt;
+    params.prompt = composeVisualTaskPrompt(plannedTask, params.prompt, userText);
   } else if (action === "chat" && detected && !isChatOnlyIntent(userText)) {
     action = "generate";
     module = detected;
@@ -834,6 +843,8 @@ function planVisualTask(text: string, hasImages: boolean): VisualTaskPlan | null
     return {
       module: "general",
       label: "\u7535\u5546\u8be6\u60c5\u9875",
+      taskType: "commerce_detail",
+      preferredAspectRatio: "9:16",
       prompt: buildGeneralGenerationPrompt(userText, "commerce_detail"),
       useImages: hasImages,
       confidence: 0.9,
@@ -844,6 +855,8 @@ function planVisualTask(text: string, hasImages: boolean): VisualTaskPlan | null
     return {
       module: "general",
       label: "\u7535\u5546\u89c6\u89c9\u8bbe\u8ba1",
+      taskType: "commerce_creative",
+      preferredAspectRatio: getCommerceCreativeAspectRatio(userText),
       prompt: buildGeneralGenerationPrompt(userText, "commerce_creative"),
       useImages: hasImages,
       confidence: 0.88,
@@ -854,6 +867,7 @@ function planVisualTask(text: string, hasImages: boolean): VisualTaskPlan | null
     return {
       module: "general",
       label: "\u56fe\u751f\u56fe\u521b\u4f5c",
+      taskType: "reference_redesign",
       prompt: buildGeneralGenerationPrompt(userText, "reference_redesign"),
       useImages: true,
       confidence: 0.84,
@@ -875,12 +889,56 @@ function isCommerceCreativeIntent(text: string): boolean {
   return /\u4e3b\u56fe|\u7535\u5546\u4e3b\u56fe|banner|Banner|\u6d77\u62a5|\u6d3b\u52a8\u56fe|\u63a8\u5e7f\u56fe|\u9996\u56fe|\u5c01\u9762\u56fe|\u5e7f\u544a\u56fe|\u4ea7\u54c1\u9875/.test(text);
 }
 
+function getCommerceCreativeAspectRatio(text: string): AspectRatio {
+  if (/banner|Banner|\u6a2a\u7248|\u6a2a\u56fe|\u6a2a\u5e45/.test(text)) return "16:9";
+  if (/\u4e3b\u56fe|\u7535\u5546\u4e3b\u56fe|\u9996\u56fe|\u5c01\u9762\u56fe/.test(text)) return "1:1";
+  return "3:4";
+}
+
 function isReferenceRedesignIntent(text: string): boolean {
   return /\u6839\u636e|\u6309\u7167|\u53c2\u8003|\u7528\u8fd9\u5f20|\u7528\u56fe|\u8fd9\u5f20\u56fe|\u91cd\u65b0\u751f\u6210|\u91cd\u505a|\u518d\u6765\u4e00\u5f20|\u7c7b\u4f3c|\u5ef6\u5c55|\u6539\u6210|\u8bbe\u8ba1/.test(text) && /\u751f\u6210|\u5236\u4f5c|\u51fa\u56fe|\u505a|\u753b|\u8bbe\u8ba1|\u6539|\u91cd\u505a|\u91cd\u65b0/.test(text);
 }
 
 function isSpecializedModuleIntent(text: string): boolean {
   return /\u6362[\u88c5\u5230\u4e0a]|\u7a7f[\u5230\u5728]|\u8bd5\u7a7f|\u4e0a\u8eab|\u6362\u88c5|\u79cd\u8349|\u5c0f\u7ea2\u4e66|\u8857\u62cd|3[dD]|\u7acb\u4f53|\u4e13\u5c5e\u6a21\u7279|\u5efa\u6a21\u7279|\u5b9a\u5236\u8138|\u6362\u80cc\u666f|\u6362\u573a\u666f|\u6362\u6a21\u7279|\u56db\u5bab\u683c|\u59ff\u52bf\u88c2\u53d8|pose/i.test(text);
+}
+
+function composeVisualTaskPrompt(plan: VisualTaskPlan, rawModelPrompt: unknown, userText: string): string {
+  const supplement = sanitizeVisualPromptSupplement(rawModelPrompt, plan.taskType, userText);
+  if (!supplement) return plan.prompt;
+
+  return [
+    plan.prompt,
+    "\u56fe\u7247\u7406\u89e3\u4e0e\u521b\u610f\u8865\u5145\uff1a" + supplement,
+    "\u6700\u7ec8\u4ee5\u7528\u6237\u76ee\u6807\u548c\u7535\u5546\u7528\u9014\u4e3a\u51c6\uff1b\u5982\u679c\u4e0a\u9762\u8865\u5145\u4e0e\u7528\u6237\u76ee\u6807\u51b2\u7a81\uff0c\u5ffd\u7565\u51b2\u7a81\u90e8\u5206\u3002",
+  ].join("\n");
+}
+
+function sanitizeVisualPromptSupplement(
+  rawModelPrompt: unknown,
+  taskType: VisualTaskPlan["taskType"],
+  userText: string
+): string | null {
+  if (typeof rawModelPrompt !== "string") return null;
+  const cleaned = rawModelPrompt
+    .replace(/```json|```/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (cleaned.length < 20) return null;
+
+  const userAskedGrass = /\u79cd\u8349|\u5c0f\u7ea2\u4e66|\u8857\u62cd|ootd|lifestyle/i.test(userText);
+  const userAskedTryon = /\u6362[\u88c5\u5230\u4e0a]|\u7a7f[\u5230\u5728]|\u8bd5\u7a7f|\u4e0a\u8eab|\u6362\u88c5/i.test(userText);
+  const modelSaysGrass = /\u79cd\u8349|\u5c0f\u7ea2\u4e66|\u8857\u62cd|ootd|lifestyle|\u535a\u4e3b|\u63a2\u5e97/i.test(cleaned);
+  const modelSaysTryon = /\u6362[\u88c5\u5230\u4e0a]|\u7a7f[\u5230\u5728]|\u8bd5\u7a7f|\u4e0a\u8eab|\u6362\u88c5/i.test(cleaned);
+
+  if ((taskType === "commerce_detail" || taskType === "commerce_creative") && modelSaysGrass && !userAskedGrass) {
+    return null;
+  }
+  if (taskType !== "reference_redesign" && modelSaysTryon && !userAskedTryon) {
+    return null;
+  }
+
+  return cleaned.length > 700 ? `${cleaned.slice(0, 700)}...` : cleaned;
 }
 
 function buildGeneralGenerationPrompt(text: string, taskType: "commerce_detail" | "commerce_creative" | "reference_redesign" | null): string {
