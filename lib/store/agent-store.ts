@@ -455,18 +455,19 @@ export const useAgentStore = create<Store>((set, get) => ({
       images: persistedImages, generation: null, params: {}, mode: "agent",
       created_at: new Date().toISOString(),
     };
+    const showPlanningTimeline = shouldShowPlanningTimeline(trimmed, currentImages.length, intentMode);
 
     // AI 消息占位
     const aiMsg: Message = {
       id: uid(), conversation_id: convId, role: "assistant", content: "",
-      images: [], generation: null, params: {
+      images: [], generation: null, params: showPlanningTimeline ? {
         agentTimeline: [
           { label: "接收请求", status: "done", detail: "已拿到文字、图片和当前上下文" },
           { label: "理解意图", status: "running", detail: "正在判断是聊天、生成、工作流还是需要追问" },
           { label: "选择工具", status: "pending", detail: "根据目标和图片关系选择可执行能力" },
           { label: "复核计划", status: "pending", detail: "检查是否误判、是否需要确认或扣分" },
         ],
-      }, mode: "agent",
+      } : {}, mode: "agent",
       created_at: new Date().toISOString(),
     };
 
@@ -526,13 +527,15 @@ export const useAgentStore = create<Store>((set, get) => ({
         return;
       }
 
-      set((s) => ({
-        messages: s.messages.map((m) =>
-          m.id === aiMsg.id
-            ? { ...m, params: { ...(m.params || {}), agentTimeline: runningAgentTimeline("选择工具", "已进入 Agent Brain 多工具循环") } }
-            : m
-        ),
-      }));
+      if (showPlanningTimeline) {
+        set((s) => ({
+          messages: s.messages.map((m) =>
+            m.id === aiMsg.id
+              ? { ...m, params: { ...(m.params || {}), agentTimeline: runningAgentTimeline("选择工具", "已进入 Agent Brain 多工具循环") } }
+              : m
+          ),
+        }));
+      }
 
       // 调用统一 Agent API
       const res = await fetch("/api/agent/chat", {
@@ -551,10 +554,12 @@ export const useAgentStore = create<Store>((set, get) => ({
 
       const data = await res.json();
       const reply = typeof data.reply === "string" ? data.reply : "处理完成。";
-      const traceParams = {
+      const traceParams: Record<string, unknown> = {
         ...(typeof data.trace_id === "string" ? { traceId: data.trace_id } : {}),
-        agentTimeline: completeAgentTimeline(data.action === "confirm_generate" ? "已生成确认卡，等待你确认后执行。" : "已完成理解和回复。"),
       };
+      if (showPlanningTimeline || data.action === "confirm_generate") {
+        traceParams.agentTimeline = completeAgentTimeline(data.action === "confirm_generate" ? "已生成确认卡，等待你确认后执行。" : "已完成理解和回复。");
+      }
 
       console.log("[agent-store] sendMessage response:", {
         action: data.action,
@@ -611,10 +616,10 @@ export const useAgentStore = create<Store>((set, get) => ({
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "处理失败";
-      const errorParams = {
-        agentTimeline: completeAgentTimeline(`处理未完成：${msg}`),
-        agentError: msg,
-      };
+      const errorParams: Record<string, unknown> = { agentError: msg };
+      if (showPlanningTimeline) {
+        errorParams.agentTimeline = completeAgentTimeline(`处理未完成：${msg}`);
+      }
       set((s) => ({
         isSending: false,
         messages: s.messages.map((m) =>
@@ -1190,6 +1195,11 @@ function shouldTryWorkflowRequest(text: string, imageCount: number, mode: AgentI
   if (!normalized) return imageCount > 0;
   if (/(\u7136\u540e|\u518d|\u63a5\u7740|\u6700\u540e|\u5148.*\u518d|\u4ece.*\u9009|\u5de5\u4f5c\u6d41|\u5206\u6b65)/.test(normalized)) return true;
   return /(\u751f\u6210|\u8bbe\u8ba1|\u753b|\u91cd\u7ed8|\u6539|\u6362|\u7a7f|\u8bd5\u7a7f|\u4e0a\u8eab|\u59ff\u52bf|\u80cc\u666f|\u6d77\u62a5|\u8be6\u60c5\u9875|\u79cd\u8349|\u4ea7\u54c1|3D|3d|\u6a21\u578b|\u56fe\u751f\u56fe|\u6587\u751f\u56fe)/.test(normalized);
+}
+
+function shouldShowPlanningTimeline(text: string, imageCount: number, mode: AgentIntentMode) {
+  if (mode === "chat") return false;
+  return shouldTryWorkflowRequest(text, imageCount, mode);
 }
 
 function isStrongWorkflowClientRequest(text: string, imageCount: number) {

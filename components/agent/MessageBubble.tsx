@@ -176,10 +176,6 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
               </div>
             )}
 
-            {!isUser && hasTimeline && (
-              <AgentRuntimeTimeline timeline={agentTimeline} compact />
-            )}
-
             {/* 消息操作栏 */}
             {!isUser && (
               <div className="mt-2 flex items-center gap-1 border-t border-slate-100 pt-1.5">
@@ -1160,11 +1156,7 @@ type RuntimeTimelineItem = {
 function AgentRuntimeTimeline({ timeline, compact = false }: { timeline: RuntimeTimelineItem[]; compact?: boolean }) {
   const activeItem = timeline.find((item) => item.status === "running");
   const done = timeline.length > 0 && timeline.every((item) => item.status === "done");
-  const hasRunning = Boolean(activeItem);
-  const [open, setOpen] = useState(() => !compact && hasRunning);
-  useEffect(() => {
-    if (hasRunning) setOpen(true);
-  }, [hasRunning]);
+  const [open, setOpen] = useState(false);
   if (!timeline.length) return null;
   const title = activeItem ? "正在规划任务" : done ? "已完成规划" : "规划任务";
   const summary = activeItem?.detail || timeline[timeline.length - 1]?.detail || "Agent 正在处理。";
