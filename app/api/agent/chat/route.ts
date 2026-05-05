@@ -374,6 +374,18 @@ export async function POST(request: NextRequest) {
       const imageSize = normalizeImageSize(model, (userParams?.imageSize as ImageSize) || (followupTask?.params.imageSize as ImageSize) || (followupTask?.params.image_size as ImageSize) || "1K", aspectRatio);
       const count = Math.min(Math.max(Number(userParams?.count || followupTask?.params.count || followupTask?.params.gen_count) || 1, 1), 4);
       const cost = getCreditCost(model, imageSize, aspectRatio) * count;
+      const taskBrief = buildTaskBrief({
+        module: "general",
+        label: generalLabel,
+        prompt: generalPrompt,
+        userText,
+        images: images || [],
+        usedImageRefs: imageUrls.length ? (images || []).map((img) => img.index) : [],
+        count,
+        aspectRatio,
+        taskPlan: taskPlan || followupTask?.taskPlan || null,
+      });
+      const guardedGeneralPrompt = applyTaskRiskGuardrails(generalPrompt, taskBrief, "general");
       return NextResponse.json({
         reply: buildConfirmReply(generalLabel, decision.reply, {
           imageCount: imageUrls.length,
@@ -384,19 +396,9 @@ export async function POST(request: NextRequest) {
         action: "confirm_generate",
         module: "general",
         module_label: generalLabel,
-        task_brief: buildTaskBrief({
-          module: "general",
-          label: generalLabel,
-          prompt: generalPrompt,
-          userText,
-          images: images || [],
-          usedImageRefs: imageUrls.length ? (images || []).map((img) => img.index) : [],
-          count,
-          aspectRatio,
-          taskPlan: taskPlan || followupTask?.taskPlan || null,
-        }),
+        task_brief: taskBrief,
         generation_params: {
-          prompt: generalPrompt,
+          prompt: guardedGeneralPrompt,
           images: imageUrls,
           model,
           aspectRatio,
@@ -457,6 +459,22 @@ export async function POST(request: NextRequest) {
     }
 
     // 不直接执行，返回确认信息让用户确认后才扣积分
+    const taskBrief = buildTaskBrief({
+      module,
+      label: MODULE_LABELS[module] || module,
+      prompt: String(moduleParams.prompt || llmParams.prompt || ""),
+      userText,
+      images: images || [],
+      usedImageRefs: getUsedImageIndexes(moduleParams, images || []),
+      count,
+      aspectRatio,
+      taskPlan: taskPlan || followupTask?.taskPlan || null,
+    });
+    const guardedModuleParams = applyPromptToParams(
+      moduleParams,
+      applyTaskRiskGuardrails(String(moduleParams.prompt || llmParams.prompt || ""), taskBrief, module)
+    );
+
     return NextResponse.json({
       reply: buildConfirmReply(MODULE_LABELS[module] || module, decision.reply, {
         imageCount: imageMap.size,
@@ -467,19 +485,9 @@ export async function POST(request: NextRequest) {
       action: "confirm_generate",
       module,
       module_label: MODULE_LABELS[module] || module,
-      task_brief: buildTaskBrief({
-        module,
-        label: MODULE_LABELS[module] || module,
-        prompt: String(moduleParams.prompt || llmParams.prompt || ""),
-        userText,
-        images: images || [],
-        usedImageRefs: getUsedImageIndexes(moduleParams, images || []),
-        count,
-        aspectRatio,
-        taskPlan: taskPlan || followupTask?.taskPlan || null,
-      }),
-      generation_params: moduleParams,
-      job_payload: buildJobPayload(module, moduleParams, { model, aspectRatio, imageSize, count }),
+      task_brief: taskBrief,
+      generation_params: guardedModuleParams,
+      job_payload: buildJobPayload(module, guardedModuleParams, { model, aspectRatio, imageSize, count }),
       credits_cost: totalCost,
       api_path: MODULE_API[module],
     });
@@ -1197,6 +1205,40 @@ function getTaskRisks(
     risks.push("\u591a\u5f20\u56fe\u7684\u4e3b\u4f53\u3001\u98ce\u683c\u548c\u6587\u5b57\u4e00\u81f4\u6027\u53ef\u80fd\u4f1a\u6709\u6ce2\u52a8\u3002");
   }
   return Array.from(new Set(risks)).slice(0, 4);
+}
+
+function applyTaskRiskGuardrails(prompt: string, taskBrief: { risks?: string[] }, module: string): string {
+  const base = prompt.trim();
+  if (!base || base.includes("\u98ce\u9669\u5bf9\u51b2\u8981\u6c42")) return base;
+  const guardrails = buildRiskGuardrails(taskBrief.risks || [], module);
+  if (!guardrails.length) return base;
+  return `${base}\n\u98ce\u9669\u5bf9\u51b2\u8981\u6c42\uff1a${guardrails.join("\uff1b")}`;
+}
+
+function buildRiskGuardrails(risks: string[], module: string): string[] {
+  const text = risks.join("\n");
+  const guardrails: string[] = [];
+  if (text.includes("\u8be6\u60c5\u9875") || text.includes("\u5355\u5f20\u6c1b\u56f4\u56fe")) {
+    guardrails.push("\u5fc5\u987b\u505a\u6210\u7535\u5546\u8be6\u60c5\u9875\u7248\u5f0f\uff0c\u5305\u542b\u660e\u786e\u5206\u533a\u3001\u6807\u9898\u3001\u5356\u70b9\u3001\u7ec6\u8282\u548c\u53c2\u6570\u533a\uff0c\u4e0d\u8981\u53ea\u751f\u6210\u5355\u5f20\u6c1b\u56f4\u7167");
+  }
+  if (text.includes("\u4e2d\u6587\u5c0f\u5b57") || text.includes("\u56fe\u6807")) {
+    guardrails.push("\u6587\u5b57\u5c11\u800c\u6e05\u6670\uff0c\u6807\u9898\u548c\u5356\u70b9\u7528\u77ed\u53e5\uff0c\u907f\u514d\u5bc6\u96c6\u5c0f\u5b57\u3001\u4e71\u7801\u548c\u4f2a\u6587\u5b57");
+  }
+  if (module === "pose" || text.includes("\u624b\u6307") || text.includes("\u5173\u8282")) {
+    guardrails.push("\u4fdd\u6301\u771f\u5b9e\u4eba\u4f53\u6bd4\u4f8b\u3001\u81ea\u7136\u5173\u8282\u548c\u6b63\u786e\u624b\u6307\uff0c\u4e0d\u8981\u62c9\u957f\u8eab\u4f53\u6216\u6362\u8138");
+  }
+  if (module === "tryon" || text.includes("\u670d\u88c5\u7ed3\u6784")) {
+    guardrails.push("\u4e25\u683c\u4fdd\u7559\u670d\u88c5\u7248\u578b\u3001\u989c\u8272\u3001logo\u3001\u9762\u6599\u7eb9\u7406\u548c\u5173\u952e\u7ec6\u8282");
+  }
+  if (text.includes("\u591a\u5f20\u56fe")) {
+    guardrails.push("\u591a\u5f20\u8f93\u51fa\u8981\u4fdd\u6301\u4e3b\u4f53\u8eab\u4efd\u3001\u5546\u54c1\u7ed3\u6784\u3001\u98ce\u683c\u548c\u8272\u5f69\u7ba1\u7406\u4e00\u81f4");
+  }
+  return Array.from(new Set(guardrails)).slice(0, 4);
+}
+
+function applyPromptToParams(params: Record<string, unknown>, prompt: string): Record<string, unknown> {
+  if (!prompt.trim()) return params;
+  return { ...params, prompt };
 }
 
 function getUsedImageIndexes(params: Record<string, unknown>, images: AgentImageInput[]): number[] {
