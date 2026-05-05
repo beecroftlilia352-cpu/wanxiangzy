@@ -1,12 +1,20 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Bot, User, Loader2, CheckCircle2, AlertCircle, Download, ZoomIn, RefreshCw, Copy, Sparkles, ChevronDown } from "lucide-react";
+import { Bot, User, Loader2, CheckCircle2, AlertCircle, Download, ZoomIn, RefreshCw, Copy, Sparkles, ChevronDown, Pencil, Check, X } from "lucide-react";
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { AspectRatio, ImageSize, LingyaModel } from "@/lib/api/lingya";
 import type { AgentTaskBrief, ChatImage, ChatImageRole, GenerationParams, Message } from "@/lib/agent/types";
+import type {
+  WorkflowAssetRecord,
+  WorkflowCostEstimate,
+  WorkflowEventRecord,
+  WorkflowRecord,
+  WorkflowStatus,
+  WorkflowStepRecord,
+} from "@/lib/agent/workflow/types";
 import { validateConfirmImageRoles } from "@/lib/agent/confirm-role-params";
 import { renderMentionSegments } from "@/lib/agent/mention-parser";
 import { RepairPromptPanel } from "@/components/RepairPromptPanel";
@@ -20,11 +28,25 @@ type Props = {
   onOpenImage: (url: string) => void;
   onRetry: (messageId: string) => void;
   onConfirm?: (messageId: string) => void;
+  onConfirmWorkflow?: (messageId: string) => void;
+  onCancelWorkflow?: (messageId: string) => void;
+  onRetryWorkflowStep?: (messageId: string, stepId: string) => void;
+  onSkipWorkflowStep?: (messageId: string, stepId: string) => void;
+  onSelectWorkflowStepImage?: (messageId: string, stepId: string, selectedImageUrl: string) => void;
+  onEditWorkflowStep?: (messageId: string, stepId: string, patch: { title?: string; params?: Record<string, unknown>; input?: Record<string, unknown> }) => void;
   onRepair?: (messageId: string, repairValue: string) => void;
   onUpdateConfirmParams?: (messageId: string, params: Partial<GenerationParams>) => void;
   onUpdateConfirmImageRole?: (messageId: string, imageIndex: number, role: ChatImageRole) => void;
   onUseAsReference?: (url: string) => void;
   onQuickAction?: (text: string) => void;
+};
+
+type WorkflowClientPayload = {
+  workflow: WorkflowRecord;
+  steps: WorkflowStepRecord[];
+  events?: WorkflowEventRecord[];
+  assets?: WorkflowAssetRecord[];
+  costEstimate?: WorkflowCostEstimate;
 };
 
 const CONFIRM_MODEL_OPTIONS: Array<{ value: LingyaModel; label: string }> = [
@@ -57,7 +79,7 @@ const CONFIRM_ROLE_OPTIONS: Array<{ value: ChatImageRole; label: string }> = [
   { value: "source", label: "原图" },
 ];
 
-export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage, onRetry, onConfirm, onRepair, onUpdateConfirmParams, onUpdateConfirmImageRole, onUseAsReference, onQuickAction }: Props) {
+export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage, onRetry, onConfirm, onConfirmWorkflow, onCancelWorkflow, onRetryWorkflowStep, onSkipWorkflowStep, onSelectWorkflowStepImage, onEditWorkflowStep, onRepair, onUpdateConfirmParams, onUpdateConfirmImageRole, onUseAsReference, onQuickAction }: Props) {
   const { role, content, images, generation, created_at } = message;
   const [copied, setCopied] = useState(false);
 
@@ -77,6 +99,7 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
   const confirmImages = prevMessage?.role === "user" && prevMessage.images?.length
     ? prevMessage.images
     : sessionImages;
+  const workflowPayload = !isUser ? getWorkflowPayload(message.params) : null;
 
   return (
     <motion.div
@@ -160,6 +183,19 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
         {/* ===== 确认生成卡片（等待用户确认） ===== */}
         {!isUser && content && onQuickAction && isAmbiguousClarifyMessage(content) && (
           <ClarifyQuickReplies onSelect={onQuickAction} />
+        )}
+
+        {workflowPayload && (
+          <WorkflowExecutionCard
+            payload={workflowPayload}
+            onConfirm={() => onConfirmWorkflow?.(message.id)}
+            onCancel={() => onCancelWorkflow?.(message.id)}
+            onRetryStep={(stepId) => onRetryWorkflowStep?.(message.id, stepId)}
+            onSkipStep={(stepId) => onSkipWorkflowStep?.(message.id, stepId)}
+            onSelectImage={(stepId, url) => onSelectWorkflowStepImage?.(message.id, stepId, url)}
+            onEditStep={(stepId, patch) => onEditWorkflowStep?.(message.id, stepId, patch)}
+            onOpenImage={onOpenImage}
+          />
         )}
 
         {generation && generation.status === "pending" && generation._confirmData && (
@@ -358,6 +394,526 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
       </div>
     </motion.div>
   );
+}
+
+function WorkflowExecutionCard({
+  payload,
+  onConfirm,
+  onCancel,
+  onRetryStep,
+  onSkipStep,
+  onSelectImage,
+  onEditStep,
+  onOpenImage,
+}: {
+  payload: WorkflowClientPayload;
+  onConfirm?: () => void;
+  onCancel?: () => void;
+  onRetryStep?: (stepId: string) => void;
+  onSkipStep?: (stepId: string) => void;
+  onSelectImage?: (stepId: string, selectedImageUrl: string) => void;
+  onEditStep?: (stepId: string, patch: { title?: string; params?: Record<string, unknown>; input?: Record<string, unknown> }) => void;
+  onOpenImage: (url: string) => void;
+}) {
+  const [editingStepId, setEditingStepId] = useState<string | null>(null);
+  const { workflow, steps } = payload;
+  const status = workflow.status;
+  const finalUrls = getWorkflowImageUrls(payload);
+  const totalCredits = payload.costEstimate?.total || workflow.cost_estimate?.total || 0;
+  const canConfirm = status === "needs_confirmation" || status === "planned";
+  const isActive = ["confirmed", "queued", "running"].includes(status);
+  const isTerminal = ["completed", "partially_completed", "failed", "cancelled"].includes(status);
+  const canCancel = !isTerminal;
+
+  return (
+    <div className="mt-2 w-full max-w-xl overflow-hidden rounded-2xl border border-violet-100 bg-white/95 shadow-sm">
+      <div className="border-b border-violet-50 bg-gradient-to-r from-violet-50 to-white px-4 py-3">
+        <div className="flex items-start gap-3">
+          <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-violet-600 text-white shadow-sm shadow-violet-100">
+            {isActive ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-sm font-bold text-slate-800">智能视觉工作流</p>
+              <WorkflowStatusBadge status={status} />
+            </div>
+            <p className="mt-1 text-xs leading-relaxed text-slate-500">
+              {workflow.summary || workflow.intent || "按你的指令自动规划、执行和检查结果。"}
+            </p>
+          </div>
+          {totalCredits > 0 && (
+            <div className="rounded-lg bg-white px-3 py-1.5 text-center ring-1 ring-violet-100">
+              <p className="text-base font-black text-violet-700">{totalCredits}</p>
+              <p className="text-[10px] font-semibold text-violet-400">积分</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="space-y-3 p-4">
+        {steps.length > 0 && (
+          <div className="space-y-2">
+            {steps.map((step, index) => (
+              <div key={step.id} className="rounded-xl border border-slate-100 bg-slate-50/70 px-3 py-2">
+                <div className="flex gap-2">
+                  <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white text-[11px] font-black text-slate-500 ring-1 ring-slate-200">
+                    {index + 1}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                      <p className="truncate text-xs font-bold text-slate-700">{step.title}</p>
+                      <StepStatusPill status={step.status} />
+                    </div>
+                    <p className="mt-0.5 text-[11px] leading-relaxed text-slate-400">
+                      {getWorkflowToolLabel(step.type)}
+                      {step.error_message ? `：${step.error_message}` : ""}
+                    </p>
+                    <StepImageSelector
+                      step={step}
+                      images={getSelectableImagesForStep(payload, index)}
+                      onOpenImage={onOpenImage}
+                      onSelectImage={canSelectWorkflowStepImage(step) ? onSelectImage : undefined}
+                    />
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {!isActive && canEditWorkflowStep(step.status) && onEditStep && (
+                        <button
+                          type="button"
+                          onClick={() => setEditingStepId((current) => current === step.id ? null : step.id)}
+                          className="inline-flex items-center gap-1 rounded-md border border-violet-100 bg-white px-2 py-1 text-[10px] font-bold text-violet-700 transition-colors hover:bg-violet-50"
+                        >
+                          <Pencil className="h-3 w-3" />
+                          编辑
+                        </button>
+                      )}
+                      {!isActive && step.status === "failed" && onRetryStep && (
+                        <button
+                          type="button"
+                          onClick={() => onRetryStep(step.id)}
+                          className="inline-flex items-center gap-1 rounded-md border border-violet-100 bg-white px-2 py-1 text-[10px] font-bold text-violet-700 transition-colors hover:bg-violet-50"
+                        >
+                          <RefreshCw className="h-3 w-3" />
+                          重试
+                        </button>
+                      )}
+                      {!isActive && !["completed", "running", "cancelled", "skipped"].includes(step.status) && onSkipStep && (
+                        <button
+                          type="button"
+                          onClick={() => onSkipStep(step.id)}
+                          className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] font-bold text-slate-500 transition-colors hover:bg-slate-50"
+                        >
+                          跳过
+                        </button>
+                      )}
+                    </div>
+                    {editingStepId === step.id && onEditStep && (
+                      <WorkflowStepEditor
+                        step={step}
+                        onCancel={() => setEditingStepId(null)}
+                        onSave={(patch) => {
+                          setEditingStepId(null);
+                          onEditStep(step.id, patch);
+                        }}
+                      />
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {finalUrls.length > 0 && (
+          <div className={`grid gap-2 ${finalUrls.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}>
+            {finalUrls.map((url, index) => (
+              <button
+                key={`${url}-${index}`}
+                type="button"
+                onClick={() => onOpenImage(url)}
+                className="group relative overflow-hidden rounded-xl border border-slate-200 bg-slate-50 shadow-sm transition-shadow hover:shadow-md"
+              >
+                <img
+                  src={url}
+                  alt={`workflow 结果 ${index + 1}`}
+                  className={finalUrls.length === 1 ? "max-h-[520px] w-full object-contain" : "aspect-[3/4] w-full object-cover"}
+                />
+                <div className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-all group-hover:bg-black/10 group-hover:opacity-100">
+                  <ZoomIn className="h-5 w-5 text-white drop-shadow" />
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div className="flex flex-wrap items-center gap-2">
+          {canConfirm && (
+            <button
+              type="button"
+              onClick={onConfirm}
+              disabled={!onConfirm}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-violet-600 px-4 py-2 text-xs font-bold text-white shadow-sm shadow-violet-100 transition-colors hover:bg-violet-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              确认并开始
+            </button>
+          )}
+          {canCancel && onCancel && (
+            <button
+              type="button"
+              onClick={onCancel}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-500 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+            >
+              取消
+            </button>
+          )}
+          {isActive && (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-violet-50 px-3 py-1.5 text-xs font-bold text-violet-700">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              正在执行
+            </span>
+          )}
+          {isTerminal && workflow.error_message && (
+            <span className="rounded-lg bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600">
+              {workflow.error_message}
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StepImageSelector({
+  step,
+  images,
+  onOpenImage,
+  onSelectImage,
+}: {
+  step: WorkflowStepRecord;
+  images: string[];
+  onOpenImage: (url: string) => void;
+  onSelectImage?: (stepId: string, selectedImageUrl: string) => void;
+}) {
+  const uniqueImages = Array.from(new Set(images)).filter(Boolean);
+  const selected = step.output?.selectedImageUrl;
+  if (uniqueImages.length <= 1 && !selected) return null;
+
+  return (
+    <div className="mt-2 rounded-lg border border-slate-100 bg-white/80 p-2">
+      <div className="mb-1.5 flex items-center justify-between gap-2">
+        <span className="text-[10px] font-bold text-slate-500">候选结果</span>
+        {selected && <span className="text-[10px] font-bold text-emerald-600">已选择 1 张继续</span>}
+      </div>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {uniqueImages.map((url, index) => {
+          const isSelected = selected === url;
+          return (
+            <div key={`${step.id}-${url}`} className={`overflow-hidden rounded-lg border bg-slate-50 ${isSelected ? "border-emerald-300 ring-2 ring-emerald-100" : "border-slate-200"}`}>
+              <button
+                type="button"
+                onClick={() => onOpenImage(url)}
+                className="group relative block aspect-[3/4] w-full overflow-hidden bg-white"
+              >
+                <img src={url} alt={`候选结果 ${index + 1}`} className="h-full w-full object-cover" />
+                <span className="absolute left-1 top-1 rounded bg-black/45 px-1.5 py-0.5 text-[9px] font-bold text-white">
+                  {index + 1}
+                </span>
+                <span className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-all group-hover:bg-black/10 group-hover:opacity-100">
+                  <ZoomIn className="h-4 w-4 text-white drop-shadow" />
+                </span>
+              </button>
+              {onSelectImage && (
+                <button
+                  type="button"
+                  onClick={() => onSelectImage(step.id, url)}
+                  disabled={isSelected || step.status === "running"}
+                  className={`flex w-full items-center justify-center gap-1 px-1.5 py-1.5 text-[10px] font-bold transition-colors ${
+                    isSelected
+                      ? "cursor-default bg-emerald-50 text-emerald-600"
+                      : "bg-white text-violet-700 hover:bg-violet-50 disabled:cursor-not-allowed disabled:text-slate-300"
+                  }`}
+                >
+                  {isSelected ? <CheckCircle2 className="h-3 w-3" /> : <Check className="h-3 w-3" />}
+                  {isSelected ? "已选" : "选这张继续"}
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function WorkflowStepEditor({
+  step,
+  onCancel,
+  onSave,
+}: {
+  step: WorkflowStepRecord;
+  onCancel: () => void;
+  onSave: (patch: { title?: string; params?: Record<string, unknown>; input?: Record<string, unknown> }) => void;
+}) {
+  const editable = readWorkflowStepParams(step.params);
+  const [title, setTitle] = useState(step.title || "");
+  const [prompt, setPrompt] = useState(editable.prompt || "");
+  const [model, setModel] = useState<LearnedWorkflowModel>(editable.model);
+  const [aspectRatio, setAspectRatio] = useState<AspectRatio>(editable.aspectRatio);
+  const [imageSize, setImageSize] = useState<ImageSize>(editable.imageSize);
+  const [count, setCount] = useState(String(editable.count));
+
+  const handleSave = () => {
+    const nextCount = Math.min(Math.max(Number(count) || 1, 1), 4);
+    onSave({
+      title: title.trim() || step.title,
+      params: {
+        prompt,
+        model,
+        aiModel: model,
+        aspectRatio,
+        aspect_ratio: aspectRatio,
+        imageSize,
+        image_size: imageSize,
+        count: nextCount,
+        gen_count: nextCount,
+      },
+    });
+  };
+
+  return (
+    <div className="mt-2 rounded-xl border border-violet-100 bg-white p-3 shadow-sm">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <p className="text-xs font-bold text-slate-700">编辑步骤</p>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="flex h-7 w-7 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+          title="关闭编辑"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </div>
+
+      <label className="mb-2 block">
+        <span className="mb-1 block text-[10px] font-bold text-slate-400">步骤标题</span>
+        <input
+          value={title}
+          onChange={(event) => setTitle(event.target.value)}
+          className="h-8 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-700 outline-none transition-colors focus:border-violet-300"
+        />
+      </label>
+
+      <div className="mb-2 grid grid-cols-2 gap-2">
+        <ConfirmSelect
+          label="模型"
+          value={model}
+          options={CONFIRM_MODEL_OPTIONS}
+          onChange={(value) => setModel(value as LearnedWorkflowModel)}
+        />
+        <ConfirmSelect
+          label="比例"
+          value={aspectRatio}
+          options={CONFIRM_RATIO_OPTIONS}
+          onChange={(value) => setAspectRatio(value as AspectRatio)}
+        />
+        <ConfirmSelect
+          label="分辨率"
+          value={imageSize}
+          options={CONFIRM_SIZE_OPTIONS}
+          onChange={(value) => setImageSize(value as ImageSize)}
+        />
+        <label className="min-w-0">
+          <span className="mb-1 block text-[10px] font-bold text-slate-400">数量</span>
+          <input
+            type="number"
+            min={1}
+            max={4}
+            value={count}
+            onChange={(event) => setCount(event.target.value)}
+            className="h-8 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-700 outline-none transition-colors focus:border-violet-300"
+          />
+        </label>
+      </div>
+
+      <label className="block">
+        <span className="mb-1 block text-[10px] font-bold text-slate-400">最终提示词</span>
+        <textarea
+          value={prompt}
+          onChange={(event) => setPrompt(event.target.value)}
+          className="min-h-24 w-full resize-y rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs leading-relaxed text-slate-700 outline-none transition-colors focus:border-violet-300"
+          placeholder="修改这一步真正要发给模型的提示词"
+        />
+      </label>
+
+      <div className="mt-2 flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={handleSave}
+          className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-violet-700"
+        >
+          <Check className="h-3.5 w-3.5" />
+          保存并重新排队
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-500 transition-colors hover:bg-slate-50"
+        >
+          取消
+        </button>
+      </div>
+    </div>
+  );
+}
+
+type LearnedWorkflowModel = LingyaModel;
+
+function getSelectableImagesForStep(payload: WorkflowClientPayload, stepIndex: number) {
+  const step = payload.steps[stepIndex];
+  const direct = Array.isArray(step.output?.imageUrls) ? step.output.imageUrls : [];
+  if (direct.length > 0) return direct;
+
+  if (step.type === "select_image" || step.status === "waiting_user") {
+    for (let i = stepIndex - 1; i >= 0; i--) {
+      const urls = payload.steps[i].output?.imageUrls || [];
+      if (urls.length > 0) return urls;
+    }
+  }
+
+  return [];
+}
+
+function canEditWorkflowStep(status: string) {
+  return ["pending", "ready", "failed", "completed", "skipped", "waiting_user"].includes(status);
+}
+
+function canSelectWorkflowStepImage(step: WorkflowStepRecord) {
+  return step.type === "select_image" || step.status === "waiting_user" || Boolean(step.output?.selectedImageUrl);
+}
+
+function readWorkflowStepParams(params: Record<string, unknown>) {
+  const model = String(params.model || params.aiModel || params.ai_model || "gpt-image-2") as LingyaModel;
+  const aspectRatio = String(params.aspectRatio || params.aspect_ratio || "3:4") as AspectRatio;
+  const imageSize = String(params.imageSize || params.image_size || "1K") as ImageSize;
+  const count = Math.min(Math.max(Number(params.count || params.genCount || params.gen_count || 1), 1), 4);
+  const prompt = typeof params.prompt === "string" ? params.prompt : "";
+  return { model, aspectRatio, imageSize, count, prompt };
+}
+
+function WorkflowStatusBadge({ status }: { status: WorkflowStatus | string }) {
+  const tone = getWorkflowStatusTone(status);
+  return (
+    <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ring-1 ${tone}`}>
+      {getWorkflowStatusLabel(status)}
+    </span>
+  );
+}
+
+function StepStatusPill({ status }: { status: string }) {
+  const done = status === "completed";
+  const failed = status === "failed";
+  const running = status === "running" || status === "queued";
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+      done
+        ? "bg-emerald-50 text-emerald-600"
+        : failed
+          ? "bg-red-50 text-red-600"
+          : running
+            ? "bg-violet-50 text-violet-600"
+            : "bg-slate-100 text-slate-500"
+    }`}>
+      {done ? <CheckCircle2 className="h-3 w-3" /> : failed ? <AlertCircle className="h-3 w-3" /> : running ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+      {getStepStatusLabel(status)}
+    </span>
+  );
+}
+
+function getWorkflowPayload(params: Record<string, unknown>): WorkflowClientPayload | null {
+  const raw = params?.workflow;
+  if (!isPlainObject(raw) || !isPlainObject(raw.workflow)) return null;
+  return {
+    workflow: raw.workflow as WorkflowRecord,
+    steps: Array.isArray(raw.steps) ? raw.steps as WorkflowStepRecord[] : [],
+    events: Array.isArray(raw.events) ? raw.events as WorkflowEventRecord[] : [],
+    assets: Array.isArray(raw.assets) ? raw.assets as WorkflowAssetRecord[] : [],
+    costEstimate: isPlainObject(raw.costEstimate) ? raw.costEstimate as WorkflowCostEstimate : undefined,
+  };
+}
+
+function getWorkflowImageUrls(payload: WorkflowClientPayload) {
+  const fromWorkflow = Array.isArray(payload.workflow.final_outputs?.imageUrls)
+    ? payload.workflow.final_outputs.imageUrls
+    : [];
+  const fromAssets = (payload.assets || [])
+    .filter((asset) => asset.kind === "image" && asset.role === "final")
+    .map((asset) => asset.url);
+  const fromSteps = payload.steps.flatMap((step) =>
+    Array.isArray(step.output?.imageUrls) ? step.output.imageUrls : []
+  );
+  return Array.from(new Set([...fromWorkflow, ...fromAssets, ...fromSteps])).filter(Boolean);
+}
+
+function getWorkflowStatusTone(status: WorkflowStatus | string) {
+  if (status === "completed") return "bg-emerald-50 text-emerald-700 ring-emerald-100";
+  if (status === "partially_completed") return "bg-amber-50 text-amber-700 ring-amber-100";
+  if (status === "failed" || status === "cancelled") return "bg-red-50 text-red-700 ring-red-100";
+  if (status === "running" || status === "queued" || status === "confirmed") return "bg-violet-50 text-violet-700 ring-violet-100";
+  return "bg-slate-50 text-slate-600 ring-slate-100";
+}
+
+function getWorkflowStatusLabel(status: WorkflowStatus | string) {
+  const labels: Record<string, string> = {
+    draft: "草稿",
+    planned: "待确认",
+    needs_confirmation: "待确认",
+    confirmed: "已确认",
+    queued: "排队中",
+    running: "执行中",
+    waiting_user: "等待选择",
+    completed: "已完成",
+    partially_completed: "部分完成",
+    failed: "失败",
+    cancelled: "已取消",
+  };
+  return labels[status] || status;
+}
+
+function getStepStatusLabel(status: string) {
+  const labels: Record<string, string> = {
+    pending: "等待",
+    ready: "就绪",
+    queued: "排队",
+    running: "执行",
+    completed: "完成",
+    failed: "失败",
+    skipped: "跳过",
+    waiting_user: "待选择",
+    cancelled: "取消",
+  };
+  return labels[status] || status;
+}
+
+function getWorkflowToolLabel(type: string) {
+  const labels: Record<string, string> = {
+    text_to_image: "文生图",
+    image_to_image: "图生图",
+    tryon: "换装试穿",
+    pose_variation: "姿势裂变",
+    garment_3d: "3D 立体展示",
+    commerce_detail: "电商详情页",
+    commerce_creative: "商业创意图",
+    background_replace: "背景替换",
+    select_image: "结果选择",
+    image_quality_check: "质量检查",
+    prompt_repair: "提示词修复",
+    image_to_video: "图生视频",
+    image_to_3d_asset: "3D 资产",
+  };
+  return labels[type] || type;
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
 
 function ConfirmImageRoleEditor({

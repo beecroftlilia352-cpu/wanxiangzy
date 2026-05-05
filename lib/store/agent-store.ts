@@ -8,6 +8,16 @@ import { applyConfirmImageRoles, validateConfirmImageRoles } from "@/lib/agent/c
 import { getCreditCost, normalizeImageSize, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
 import { applyRepairPrompt, type RepairKind } from "@/lib/generation-repair";
 import { uploadImage, compressImageForAgent } from "@/lib/utils";
+import type {
+  PlanValidationResult,
+  WorkflowAssetRecord,
+  WorkflowCostEstimate,
+  WorkflowEventRecord,
+  WorkflowPlan,
+  WorkflowRecord,
+  WorkflowStatus,
+  WorkflowStepRecord,
+} from "@/lib/agent/workflow/types";
 
 // ---- DB 持久化（Supabase） ----
 
@@ -43,10 +53,34 @@ type Store = {
   aiWrite: () => Promise<void>;
   retryMessage: (id: string) => void;
   confirmGeneration: (messageId: string) => Promise<void>;
+  confirmWorkflow: (messageId: string) => Promise<void>;
+  cancelWorkflow: (messageId: string) => Promise<void>;
+  retryWorkflowStep: (messageId: string, stepId: string) => Promise<void>;
+  skipWorkflowStep: (messageId: string, stepId: string) => Promise<void>;
+  selectWorkflowStepImage: (messageId: string, stepId: string, selectedImageUrl: string) => Promise<void>;
+  editWorkflowStep: (messageId: string, stepId: string, patch: { title?: string; params?: Record<string, unknown>; input?: Record<string, unknown> }) => Promise<void>;
   updateConfirmParams: (messageId: string, params: Partial<GenerationParams>) => void;
   updateConfirmImageRole: (messageId: string, imageIndex: number, role: ChatImageRole) => void;
   repairGeneration: (messageId: string, repairValue: string) => void;
   reset: () => void;
+};
+
+type WorkflowClientPayload = {
+  workflow: WorkflowRecord;
+  steps: WorkflowStepRecord[];
+  events: WorkflowEventRecord[];
+  assets: WorkflowAssetRecord[];
+  validation?: PlanValidationResult;
+  costEstimate?: WorkflowCostEstimate;
+  plan?: WorkflowPlan;
+};
+
+type WorkflowPlanApiResponse = {
+  ok?: boolean;
+  plan?: WorkflowPlan;
+  validation?: PlanValidationResult;
+  costEstimate?: WorkflowCostEstimate;
+  error?: string;
 };
 
 // ---- 工具 ----
@@ -81,7 +115,7 @@ function sanitizeGenerationForDB(gen: unknown): Record<string, unknown> | null {
 }
 
 /** 保存消息到 DB */
-function saveMessage(convId: string, msg: { id?: string; role: string; content: string; images?: ChatImage[]; generation?: unknown; mode?: string }) {
+function saveMessage(convId: string, msg: { id?: string; role: string; content: string; images?: ChatImage[]; generation?: unknown; params?: Record<string, unknown>; mode?: string }) {
   console.log("[agent-store] saveMessage:", { convId, role: msg.role, contentLen: msg.content.length, hasGeneration: !!msg.generation });
   fetch(`/api/conversations/${convId}/messages`, {
     method: "POST",
@@ -92,6 +126,7 @@ function saveMessage(convId: string, msg: { id?: string; role: string; content: 
       content: msg.content,
       images: msg.images || [],
       generation: sanitizeGenerationForDB(msg.generation),
+      params: msg.params || {},
       mode: msg.mode || "agent",
     }),
   }).catch(() => {});
@@ -105,6 +140,14 @@ function updateMessageGeneration(convId: string, messageId: string, generation: 
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ messageId, generation: clean }),
+  }).catch(() => {});
+}
+
+function updateMessageParams(convId: string, messageId: string, params: Record<string, unknown>) {
+  fetch(`/api/conversations/${convId}/messages`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ messageId, params }),
   }).catch(() => {});
 }
 
@@ -419,6 +462,37 @@ export const useAgentStore = create<Store>((set, get) => ({
           role: m.role,
           content: m.content || (m.generation?.resultUrls?.length ? `[生成了 ${m.generation.resultUrls.length} 张图片]` : ""),
         }));
+
+      const workflowPayload = await maybeCreateWorkflowMessage({
+        convId,
+        userMessageId: userMsg.id,
+        message: trimmed,
+        images: imageUrls,
+        history,
+        intentMode,
+        params,
+      });
+
+      if (workflowPayload) {
+        const reply = buildWorkflowReply(workflowPayload);
+        const workflowParams = { workflow: workflowPayload };
+        set((s) => ({
+          isSending: false,
+          messages: s.messages.map((m) =>
+            m.id === aiMsg.id
+              ? { ...m, content: reply, streamingDone: true, params: workflowParams }
+              : m
+          ),
+        }));
+        saveMessage(convId, {
+          id: aiMsg.id,
+          role: "assistant",
+          content: reply,
+          params: workflowParams,
+          mode: "agent",
+        });
+        return;
+      }
 
       // 调用统一 Agent API
       const res = await fetch("/api/agent/chat", {
@@ -824,6 +898,89 @@ export const useAgentStore = create<Store>((set, get) => ({
     }
   },
 
+  confirmWorkflow: async (messageId: string) => {
+    const { messages } = get();
+    const msg = messages.find((m) => m.id === messageId);
+    const payload = getWorkflowPayload(msg?.params);
+    const workflowId = payload?.workflow.id;
+    if (!msg || !payload || !workflowId) return;
+
+    set((s) => ({
+      isSending: true,
+      messages: s.messages.map((m) =>
+        m.id === messageId
+          ? { ...m, params: { ...(m.params || {}), workflow: markWorkflowStatus(payload, "queued") } }
+          : m
+      ),
+    }));
+
+    try {
+      const res = await fetch(`/api/agent/workflows/${workflowId}/confirm`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ autoRun: true }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "确认 workflow 失败");
+
+      const nextPayload = normalizeWorkflowPayload(data) || markWorkflowStatus(payload, "queued");
+      set((s) => ({
+        messages: s.messages.map((m) =>
+          m.id === messageId
+            ? { ...m, params: { ...(m.params || {}), workflow: nextPayload } }
+            : m
+        ),
+      }));
+      updateMessageParams(msg.conversation_id, messageId, { ...(msg.params || {}), workflow: nextPayload });
+      pollWorkflow(get, set, messageId, msg.conversation_id, workflowId);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "确认 workflow 失败";
+      const failedPayload = {
+        ...payload,
+        workflow: {
+          ...payload.workflow,
+          status: "failed" as WorkflowStatus,
+          error_message: errorMessage,
+        },
+      };
+      set((s) => ({
+        isSending: false,
+        messages: s.messages.map((m) =>
+          m.id === messageId
+            ? { ...m, params: { ...(m.params || {}), workflow: failedPayload } }
+            : m
+        ),
+      }));
+      updateMessageParams(msg.conversation_id, messageId, { ...(msg.params || {}), workflow: failedPayload });
+    }
+  },
+
+  cancelWorkflow: async (messageId: string) => {
+    await mutateWorkflowFromMessage(get, set, messageId, "cancel", { poll: false });
+  },
+
+  retryWorkflowStep: async (messageId: string, stepId: string) => {
+    await mutateWorkflowFromMessage(get, set, messageId, `steps/${stepId}/retry`, { poll: true });
+  },
+
+  skipWorkflowStep: async (messageId: string, stepId: string) => {
+    await mutateWorkflowFromMessage(get, set, messageId, `steps/${stepId}/skip`, { poll: true });
+  },
+
+  selectWorkflowStepImage: async (messageId: string, stepId: string, selectedImageUrl: string) => {
+    await mutateWorkflowFromMessage(get, set, messageId, `steps/${stepId}/select`, {
+      poll: true,
+      body: { selectedImageUrl },
+    });
+  },
+
+  editWorkflowStep: async (messageId: string, stepId: string, patch: { title?: string; params?: Record<string, unknown>; input?: Record<string, unknown> }) => {
+    await mutateWorkflowFromMessage(get, set, messageId, `steps/${stepId}/edit`, {
+      poll: true,
+      body: patch,
+    });
+  },
+
   // ======== 重置 ========
   reset: () => {
     get().pollTimers?.forEach((t) => clearInterval(t));
@@ -837,6 +994,275 @@ export const useAgentStore = create<Store>((set, get) => ({
 
   pollTimers: new Map(),
 }));
+
+async function maybeCreateWorkflowMessage(args: {
+  convId: string;
+  userMessageId: string;
+  message: string;
+  images: Array<{ index: number; url: string; role: string; fileName?: string }>;
+  history: Array<{ role: string; content: string }>;
+  intentMode: AgentIntentMode;
+  params: GenerationParams;
+}): Promise<WorkflowClientPayload | null> {
+  if (!shouldTryWorkflowRequest(args.message, args.images.length, args.intentMode)) return null;
+
+  const planRes = await fetch("/api/agent/workflows/plan", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      message: args.message,
+      images: args.images,
+      mode: args.intentMode === "create" ? "agent" : "auto",
+      params: {
+        model: args.params.model,
+        aspectRatio: args.params.aspectRatio,
+        imageSize: args.params.imageSize,
+        count: args.params.count,
+      },
+      conversationSummary: args.history
+        .map((item) => `${item.role}: ${item.content}`)
+        .join("\n")
+        .slice(-1800),
+    }),
+  });
+
+  const planData = await planRes.json().catch(() => ({})) as WorkflowPlanApiResponse;
+  if (!planRes.ok) {
+    if (args.intentMode === "create") throw new Error(planData.error || "规划 workflow 失败");
+    return null;
+  }
+  if (!shouldUseWorkflowPlan(planData, args.message, args.intentMode, args.images.length)) return null;
+
+  const createRes = await fetch("/api/agent/workflows", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Idempotency-Key": `${args.convId}:${args.userMessageId}:workflow`,
+    },
+    body: JSON.stringify({
+      plan: planData.plan,
+      images: args.images,
+      mode: "agent",
+      params: {
+        model: args.params.model,
+        aspectRatio: args.params.aspectRatio,
+        imageSize: args.params.imageSize,
+        count: args.params.count,
+      },
+      conversationId: args.convId,
+      idempotencyKey: `${args.convId}:${args.userMessageId}:workflow`,
+    }),
+  });
+  const createData = await createRes.json().catch(() => ({}));
+  if (!createRes.ok) throw new Error(createData.error || "创建 workflow 失败");
+  return normalizeWorkflowPayload({
+    ...createData,
+    plan: planData.plan,
+    validation: createData.validation || planData.validation,
+    costEstimate: createData.costEstimate || planData.costEstimate,
+  });
+}
+
+function shouldTryWorkflowRequest(text: string, imageCount: number, mode: AgentIntentMode) {
+  if (mode === "chat") return false;
+  if (mode === "create") return true;
+  const normalized = text.trim();
+  if (!normalized) return imageCount > 0;
+  if (/(\u7136\u540e|\u518d|\u63a5\u7740|\u6700\u540e|\u5148.*\u518d|\u4ece.*\u9009|\u5de5\u4f5c\u6d41|\u5206\u6b65)/.test(normalized)) return true;
+  return /(\u751f\u6210|\u8bbe\u8ba1|\u753b|\u91cd\u7ed8|\u6539|\u6362|\u7a7f|\u8bd5\u7a7f|\u4e0a\u8eab|\u59ff\u52bf|\u80cc\u666f|\u6d77\u62a5|\u8be6\u60c5\u9875|\u79cd\u8349|\u4ea7\u54c1|3D|3d|\u6a21\u578b|\u56fe\u751f\u56fe|\u6587\u751f\u56fe)/.test(normalized);
+}
+
+function shouldUseWorkflowPlan(
+  data: WorkflowPlanApiResponse,
+  text: string,
+  mode: AgentIntentMode,
+  imageCount: number
+) {
+  const plan = data.plan;
+  if (!plan || !Array.isArray(plan.steps) || plan.steps.length === 0) return false;
+  if (plan.needsClarification) return false;
+  const blockingErrors = data.validation?.errors?.filter((issue) => issue.severity === "error") || [];
+  if (data.ok === false && blockingErrors.length > 0) return false;
+  if (mode === "create") return true;
+
+  const stepTypes = plan.steps.map((step) => step.type);
+  const advanced = stepTypes.some((type) =>
+    [
+      "tryon",
+      "pose_variation",
+      "garment_3d",
+      "commerce_detail",
+      "commerce_creative",
+      "background_replace",
+      "select_image",
+      "image_quality_check",
+      "prompt_repair",
+    ].includes(type)
+  );
+  const multiStepText = /(\u7136\u540e|\u518d|\u63a5\u7740|\u6700\u540e|\u5148.*\u518d|\u4ece.*\u9009|\u5de5\u4f5c\u6d41|\u5206\u6b65)/.test(text);
+  const visualText = /(\u751f\u6210|\u8bbe\u8ba1|\u753b|\u91cd\u7ed8|\u6539|\u6362|\u7a7f|\u59ff\u52bf|\u80cc\u666f|\u6d77\u62a5|\u8be6\u60c5\u9875|\u79cd\u8349|\u4ea7\u54c1|3D|3d|\u56fe\u751f\u56fe|\u6587\u751f\u56fe)/.test(text);
+
+  return advanced || plan.steps.length > 1 || multiStepText || (visualText && imageCount > 0);
+}
+
+function buildWorkflowReply(payload: WorkflowClientPayload) {
+  const count = payload.steps.length || payload.plan?.steps.length || 0;
+  const credits = payload.costEstimate?.total || payload.workflow.cost_estimate?.total || 0;
+  const summary = payload.workflow.summary || payload.plan?.summary || "视觉任务";
+  return [
+    `我已经把这个需求拆成 ${count || 1} 个可执行步骤，确认后会按顺序处理。`,
+    "",
+    `目标：${summary}`,
+    credits ? `预计消耗：${credits} 积分，确认前不会扣费。` : "确认前不会扣费。",
+  ].join("\n");
+}
+
+function getWorkflowPayload(params: Record<string, unknown> | undefined): WorkflowClientPayload | null {
+  if (!params || typeof params !== "object") return null;
+  return normalizeWorkflowPayload(params.workflow);
+}
+
+function normalizeWorkflowPayload(value: unknown): WorkflowClientPayload | null {
+  if (!isPlainObject(value) || !isPlainObject(value.workflow)) return null;
+  return {
+    workflow: value.workflow as WorkflowRecord,
+    steps: Array.isArray(value.steps) ? value.steps as WorkflowStepRecord[] : [],
+    events: Array.isArray(value.events) ? value.events as WorkflowEventRecord[] : [],
+    assets: Array.isArray(value.assets) ? value.assets as WorkflowAssetRecord[] : [],
+    validation: isPlainObject(value.validation) ? value.validation as PlanValidationResult : undefined,
+    costEstimate: isPlainObject(value.costEstimate) ? value.costEstimate as WorkflowCostEstimate : undefined,
+    plan: isPlainObject(value.plan) ? value.plan as WorkflowPlan : undefined,
+  };
+}
+
+function markWorkflowStatus(payload: WorkflowClientPayload, status: WorkflowStatus): WorkflowClientPayload {
+  return {
+    ...payload,
+    workflow: {
+      ...payload.workflow,
+      status,
+      updated_at: new Date().toISOString(),
+    },
+  };
+}
+
+function pollWorkflow(
+  get: () => Store,
+  set: (fn: (s: Store) => Partial<Store>) => void,
+  messageId: string,
+  convId: string,
+  workflowId: string
+) {
+  const timerKey = `workflow:${workflowId}`;
+  const previous = get().pollTimers.get(timerKey);
+  if (previous) clearInterval(previous);
+
+  const tick = async () => {
+    try {
+      const res = await fetch(`/api/agent/workflows/${workflowId}`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "读取 workflow 状态失败");
+      const payload = normalizeWorkflowPayload(data);
+      if (!payload) return;
+      const terminal = isTerminalWorkflowStatus(payload.workflow.status);
+
+      set((s) => ({
+        isSending: terminal ? false : s.isSending,
+        messages: s.messages.map((m) =>
+          m.id === messageId
+            ? { ...m, params: { ...(m.params || {}), workflow: payload } }
+            : m
+        ),
+      }));
+
+      const currentParams = get().messages.find((m) => m.id === messageId)?.params || {};
+      updateMessageParams(convId, messageId, { ...currentParams, workflow: payload });
+
+      if (terminal) {
+        const currentTimer = get().pollTimers.get(timerKey);
+        if (currentTimer) clearInterval(currentTimer);
+        set((s) => {
+          const timers = new Map(s.pollTimers);
+          timers.delete(timerKey);
+          return { pollTimers: timers };
+        });
+      }
+    } catch {
+      set((s) => ({ isSending: false }));
+    }
+  };
+
+  const timer = setInterval(tick, 2500);
+  set((s) => {
+    const timers = new Map(s.pollTimers);
+    timers.set(timerKey, timer);
+    return { pollTimers: timers };
+  });
+  void tick();
+}
+
+async function mutateWorkflowFromMessage(
+  get: () => Store,
+  set: (fn: (s: Store) => Partial<Store>) => void,
+  messageId: string,
+  actionPath: string,
+  options: { poll: boolean; body?: Record<string, unknown> }
+) {
+  const msg = get().messages.find((m) => m.id === messageId);
+  const payload = getWorkflowPayload(msg?.params);
+  const workflowId = payload?.workflow.id;
+  if (!msg || !payload || !workflowId) return;
+
+  set((s) => ({ isSending: options.poll ? true : s.isSending }));
+  try {
+    const res = await fetch(`/api/agent/workflows/${workflowId}/${actionPath}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(options.body || {}),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || "workflow 操作失败");
+    const nextPayload = normalizeWorkflowPayload(data);
+    if (!nextPayload) return;
+    set((s) => ({
+      isSending: isTerminalWorkflowStatus(nextPayload.workflow.status) ? false : s.isSending,
+      messages: s.messages.map((m) =>
+        m.id === messageId
+          ? { ...m, params: { ...(m.params || {}), workflow: nextPayload } }
+          : m
+      ),
+    }));
+    updateMessageParams(msg.conversation_id, messageId, { ...(msg.params || {}), workflow: nextPayload });
+    if (options.poll && !isTerminalWorkflowStatus(nextPayload.workflow.status)) {
+      pollWorkflow(get, set, messageId, msg.conversation_id, workflowId);
+    }
+  } catch (err) {
+    const failedPayload = {
+      ...payload,
+      workflow: {
+        ...payload.workflow,
+        error_message: err instanceof Error ? err.message : "workflow 操作失败",
+      },
+    };
+    set((s) => ({
+      isSending: false,
+      messages: s.messages.map((m) =>
+        m.id === messageId
+          ? { ...m, params: { ...(m.params || {}), workflow: failedPayload } }
+          : m
+      ),
+    }));
+    updateMessageParams(msg.conversation_id, messageId, { ...(msg.params || {}), workflow: failedPayload });
+  }
+}
+
+function isTerminalWorkflowStatus(status: WorkflowStatus | string) {
+  return ["completed", "partially_completed", "failed", "cancelled"].includes(status);
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
 
 // ======== 轮询 ========
 function pollGeneration(

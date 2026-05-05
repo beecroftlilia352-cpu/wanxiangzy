@@ -1,0 +1,185 @@
+import type { ToolDefinition, WorkflowToolType } from "@/lib/agent/workflow/types";
+
+const DEFAULT_RETRY = { maxAttempts: 3, retryable: true };
+
+export const WORKFLOW_TOOLS: Record<WorkflowToolType, ToolDefinition> = {
+  text_to_image: {
+    type: "text_to_image",
+    enabled: true,
+    title: "通用文生图",
+    description: "根据文字提示生成图片，适合海报、主图、场景图、创意图等无参考图任务。",
+    inputSchema: { prompt: "string", count: "number", aspectRatio: "string", imageSize: "string" },
+    outputSchema: { imageUrls: "string[]" },
+    requiredCapabilities: ["text_to_image"],
+    costPolicy: { baseCredits: 1, perImage: true },
+    retryPolicy: DEFAULT_RETRY,
+    riskLevel: "low",
+  },
+  image_to_image: {
+    type: "image_to_image",
+    enabled: true,
+    title: "通用图生图",
+    description: "根据一张或多张参考图重新生成、改图、延展、风格迁移或自由创作。",
+    inputSchema: { sourceImages: "image[]", prompt: "string", count: "number" },
+    outputSchema: { imageUrls: "string[]" },
+    requiredCapabilities: ["image_to_image"],
+    costPolicy: { baseCredits: 1, perImage: true },
+    retryPolicy: DEFAULT_RETRY,
+    riskLevel: "medium",
+  },
+  tryon: {
+    type: "tryon",
+    enabled: true,
+    title: "人物换装",
+    description: "把服装穿到人物或参考姿势上，保持人物身份、服装结构和真实穿着效果。",
+    inputSchema: { personImage: "image?", clothingImage: "image", referenceImage: "image?" },
+    outputSchema: { imageUrls: "string[]" },
+    requiredCapabilities: ["image_to_image", "multi_image"],
+    costPolicy: { baseCredits: 2, perImage: true },
+    retryPolicy: DEFAULT_RETRY,
+    riskLevel: "high",
+  },
+  pose_variation: {
+    type: "pose_variation",
+    enabled: true,
+    title: "姿势裂变",
+    description: "基于人物图生成多个自然姿势，可输出四宫格或多张独立图。",
+    inputSchema: { sourceImage: "image", prompt: "string", outputMode: "grid|separate" },
+    outputSchema: { imageUrls: "string[]" },
+    requiredCapabilities: ["image_to_image"],
+    costPolicy: { baseCredits: 2, perImage: false },
+    retryPolicy: DEFAULT_RETRY,
+    riskLevel: "high",
+  },
+  garment_3d: {
+    type: "garment_3d",
+    enabled: true,
+    title: "服装 3D 展示",
+    description: "根据服装或商品图生成 3D 展示感商品图、悬浮展示、立体陈列图、详情页素材。",
+    inputSchema: { garmentImage: "image", prompt: "string", displayStyle: "string" },
+    outputSchema: { imageUrls: "string[]" },
+    requiredCapabilities: ["image_to_image"],
+    costPolicy: { baseCredits: 1, perImage: true },
+    retryPolicy: DEFAULT_RETRY,
+    riskLevel: "medium",
+  },
+  commerce_detail: {
+    type: "commerce_detail",
+    enabled: true,
+    title: "电商详情页",
+    description: "生成淘宝、天猫、京东等平台可用的商品详情页、长图、卖点图、参数图。",
+    inputSchema: { referenceImages: "image[]?", prompt: "string" },
+    outputSchema: { imageUrls: "string[]" },
+    requiredCapabilities: ["text_to_image"],
+    costPolicy: { baseCredits: 2, perImage: true },
+    retryPolicy: DEFAULT_RETRY,
+    riskLevel: "medium",
+  },
+  commerce_creative: {
+    type: "commerce_creative",
+    enabled: true,
+    title: "电商主图 / Banner",
+    description: "生成主图、banner、活动海报、推广图等商业视觉。",
+    inputSchema: { referenceImages: "image[]?", prompt: "string" },
+    outputSchema: { imageUrls: "string[]" },
+    requiredCapabilities: ["text_to_image"],
+    costPolicy: { baseCredits: 1, perImage: true },
+    retryPolicy: DEFAULT_RETRY,
+    riskLevel: "medium",
+  },
+  background_replace: {
+    type: "background_replace",
+    enabled: true,
+    title: "换背景 / 换场景",
+    description: "保留主体并替换背景、场景、空间氛围或拍摄环境。",
+    inputSchema: { sourceImage: "image", backgroundReference: "image?", prompt: "string" },
+    outputSchema: { imageUrls: "string[]" },
+    requiredCapabilities: ["image_to_image", "multi_image"],
+    costPolicy: { baseCredits: 1, perImage: true },
+    retryPolicy: DEFAULT_RETRY,
+    riskLevel: "medium",
+  },
+  select_image: {
+    type: "select_image",
+    enabled: true,
+    title: "选择最佳图片",
+    description: "从多张候选图中选择最适合继续下一步的一张，可自动选择或等待用户选择。",
+    inputSchema: { imageUrls: "string[]", criteria: "string" },
+    outputSchema: { selectedImageUrl: "string" },
+    requiredCapabilities: [],
+    costPolicy: { baseCredits: 0, free: true },
+    retryPolicy: { maxAttempts: 1, retryable: false },
+    riskLevel: "low",
+  },
+  image_quality_check: {
+    type: "image_quality_check",
+    enabled: true,
+    title: "图片质量检查",
+    description: "检查图片是否可访问、数量是否正确、是否明显空白、比例和格式是否合理。",
+    inputSchema: { imageUrls: "string[]" },
+    outputSchema: { text: "string" },
+    requiredCapabilities: [],
+    costPolicy: { baseCredits: 0, free: true },
+    retryPolicy: { maxAttempts: 1, retryable: false },
+    riskLevel: "low",
+  },
+  prompt_repair: {
+    type: "prompt_repair",
+    enabled: true,
+    title: "提示词修复",
+    description: "根据失败原因、用户反馈和风险自检修复提示词。",
+    inputSchema: { prompt: "string", issue: "string" },
+    outputSchema: { text: "string" },
+    requiredCapabilities: [],
+    costPolicy: { baseCredits: 0, free: true },
+    retryPolicy: { maxAttempts: 1, retryable: false },
+    riskLevel: "low",
+  },
+  image_to_video: {
+    type: "image_to_video",
+    enabled: false,
+    title: "图生视频",
+    description: "根据图片生成短视频。当前预留，暂未开启。",
+    inputSchema: { sourceImage: "asset_ref", motionPrompt: "string", duration: "number" },
+    outputSchema: { videoUrls: "string[]" },
+    requiredCapabilities: ["video"],
+    costPolicy: { baseCredits: 8, perImage: false },
+    retryPolicy: DEFAULT_RETRY,
+    riskLevel: "high",
+  },
+  image_to_3d_asset: {
+    type: "image_to_3d_asset",
+    enabled: false,
+    title: "真 3D 资产",
+    description: "根据商品图生成真实 3D 模型或可旋转资产。当前预留，暂未开启。",
+    inputSchema: { sourceImage: "asset_ref" },
+    outputSchema: { modelUrl: "string", previewImageUrls: "string[]" },
+    requiredCapabilities: ["3d_asset"],
+    costPolicy: { baseCredits: 10, perImage: false },
+    retryPolicy: DEFAULT_RETRY,
+    riskLevel: "high",
+  },
+};
+
+export function getWorkflowTool(type: string): ToolDefinition | null {
+  return isWorkflowToolType(type) ? WORKFLOW_TOOLS[type] : null;
+}
+
+export function getEnabledWorkflowTools() {
+  return Object.values(WORKFLOW_TOOLS).filter((tool) => tool.enabled);
+}
+
+export function getPlannerToolCatalog() {
+  return Object.values(WORKFLOW_TOOLS).map((tool) => ({
+    type: tool.type,
+    enabled: tool.enabled,
+    title: tool.title,
+    description: tool.description,
+    inputSchema: tool.inputSchema,
+    outputSchema: tool.outputSchema,
+  }));
+}
+
+export function isWorkflowToolType(value: string): value is WorkflowToolType {
+  return Object.prototype.hasOwnProperty.call(WORKFLOW_TOOLS, value);
+}

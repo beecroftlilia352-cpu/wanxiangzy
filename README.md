@@ -94,6 +94,7 @@ REPLICATE_API_TOKEN=r8_xxxxx
 - `supabase/schema.sql`
 - `supabase/credits-update.sql`
 - `supabase/atomic-credit-rpc.sql`
+- `supabase/agent-workflows.sql`
 
 然后在 Supabase Dashboard → Storage 中手动创建 4 个 Bucket（均设为 public）：
 - `clothing`
@@ -119,6 +120,15 @@ curl -H "Authorization: Bearer $JOB_PROCESSOR_SECRET" \
 ```
 
 生产环境建议配置定时任务每 1 分钟请求一次 `/api/jobs/process-generations`，使用 `JOB_PROCESSOR_SECRET` 或 `CRON_SECRET` 作为 Bearer Token。
+
+智能 Agent 的多步骤视觉工作流使用独立处理器：
+
+```bash
+curl -H "Authorization: Bearer $JOB_PROCESSOR_SECRET" \
+  http://localhost:3000/api/jobs/process-agent-workflows
+```
+
+生产环境建议同样每 1 分钟请求一次 `/api/jobs/process-agent-workflows`。这个处理器负责执行文生图、图生图、换装、姿势裂变、3D 展示、电商详情页等 workflow step，并处理积分预占后的结算或释放。
 
 ### 6. AWS Tag 自动部署
 

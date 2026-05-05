@@ -67,6 +67,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   if (body.content !== undefined) updates.content = body.content;
   if (body.generation !== undefined) updates.generation = body.generation;
   if (body.images !== undefined) updates.images = body.images;
+  if (body.params !== undefined) updates.params = body.params;
 
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ error: "No fields to update" }, { status: 400 });

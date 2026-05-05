@@ -1,0 +1,67 @@
+import { describe, expect, it } from "vitest";
+import { estimateWorkflowCost } from "@/lib/agent/workflow/cost";
+import { planWorkflow } from "@/lib/agent/workflow/planner";
+import { WORKFLOW_TOOLS } from "@/lib/agent/workflow/tools";
+import { validateWorkflowPlan } from "@/lib/agent/workflow/validator";
+import type { GenerationDefaults, WorkflowInputImage } from "@/lib/agent/workflow/types";
+
+const defaults: GenerationDefaults = {
+  model: "gpt-image-2",
+  aspectRatio: "3:4",
+  imageSize: "1K",
+  count: 1,
+};
+
+const images: WorkflowInputImage[] = [
+  { index: 1, url: "https://example.com/person.png", role: "source" },
+  { index: 2, url: "https://example.com/clothing.png", role: "clothing" },
+];
+
+describe("workflow production core", () => {
+  it("registers core visual tools and keeps future video disabled", () => {
+    expect(WORKFLOW_TOOLS.text_to_image.enabled).toBe(true);
+    expect(WORKFLOW_TOOLS.image_to_image.enabled).toBe(true);
+    expect(WORKFLOW_TOOLS.tryon.enabled).toBe(true);
+    expect(WORKFLOW_TOOLS.pose_variation.enabled).toBe(true);
+    expect(WORKFLOW_TOOLS.garment_3d.enabled).toBe(true);
+    expect(WORKFLOW_TOOLS.image_to_video.enabled).toBe(false);
+  });
+
+  it("fallback planner builds a multi-step tryon and pose workflow", async () => {
+    const plan = await planWorkflow({
+      userText: "让图1人物穿图2衣服，再生成4个不同站姿",
+      images,
+      mode: "agent",
+      defaults,
+    });
+
+    expect(plan.steps.map((step) => step.type)).toEqual(["tryon", "pose_variation"]);
+    expect(plan.steps[1].dependsOn).toEqual(["step_1"]);
+  });
+
+  it("validator blocks disabled video steps while keeping image workflow valid", async () => {
+    const plan = await planWorkflow({
+      userText: "图1人物穿图2衣服，再做走秀视频",
+      images,
+      mode: "agent",
+      defaults,
+    });
+    const result = validateWorkflowPlan({ plan, images, defaults });
+
+    expect(result.ok).toBe(false);
+    expect(result.errors.some((error) => error.code === "TOOL_DISABLED")).toBe(true);
+  });
+
+  it("estimates cost per executable workflow step", async () => {
+    const plan = await planWorkflow({
+      userText: "把这件衣服做成立体3D商品展示图",
+      images: [images[1]],
+      mode: "agent",
+      defaults,
+    });
+    const estimate = estimateWorkflowCost(plan, defaults);
+
+    expect(estimate.total).toBeGreaterThan(0);
+    expect(estimate.steps[0].toolType).toBe("garment_3d");
+  });
+});

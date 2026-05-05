@@ -162,6 +162,12 @@ export default function AgentPage() {
           onOpenImage={setLightbox}
           onRetry={s.retryMessage}
           onConfirm={s.confirmGeneration}
+          onConfirmWorkflow={s.confirmWorkflow}
+          onCancelWorkflow={s.cancelWorkflow}
+          onRetryWorkflowStep={s.retryWorkflowStep}
+          onSkipWorkflowStep={s.skipWorkflowStep}
+          onSelectWorkflowStepImage={s.selectWorkflowStepImage}
+          onEditWorkflowStep={s.editWorkflowStep}
           onRepair={s.repairGeneration}
           onUpdateConfirmParams={s.updateConfirmParams}
           onUpdateConfirmImageRole={s.updateConfirmImageRole}

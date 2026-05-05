@@ -20,6 +20,12 @@ type Props = {
   onOpenImage: (url: string) => void;
   onRetry: (messageId: string) => void;
   onConfirm?: (messageId: string) => void;
+  onConfirmWorkflow?: (messageId: string) => void;
+  onCancelWorkflow?: (messageId: string) => void;
+  onRetryWorkflowStep?: (messageId: string, stepId: string) => void;
+  onSkipWorkflowStep?: (messageId: string, stepId: string) => void;
+  onSelectWorkflowStepImage?: (messageId: string, stepId: string, selectedImageUrl: string) => void;
+  onEditWorkflowStep?: (messageId: string, stepId: string, patch: { title?: string; params?: Record<string, unknown>; input?: Record<string, unknown> }) => void;
   onRepair?: (messageId: string, repairValue: string) => void;
   onUpdateConfirmParams?: (messageId: string, params: Partial<GenerationParams>) => void;
   onUpdateConfirmImageRole?: (messageId: string, imageIndex: number, role: ChatImageRole) => void;
@@ -58,6 +64,12 @@ export function ChatArea({
   onOpenImage,
   onRetry,
   onConfirm,
+  onConfirmWorkflow,
+  onCancelWorkflow,
+  onRetryWorkflowStep,
+  onSkipWorkflowStep,
+  onSelectWorkflowStepImage,
+  onEditWorkflowStep,
   onRepair,
   onUpdateConfirmParams,
   onUpdateConfirmImageRole,
@@ -186,6 +198,12 @@ export function ChatArea({
                 onOpenImage={onOpenImage}
                 onRetry={onRetry}
                 onConfirm={onConfirm}
+                onConfirmWorkflow={onConfirmWorkflow}
+                onCancelWorkflow={onCancelWorkflow}
+                onRetryWorkflowStep={onRetryWorkflowStep}
+                onSkipWorkflowStep={onSkipWorkflowStep}
+                onSelectWorkflowStepImage={onSelectWorkflowStepImage}
+                onEditWorkflowStep={onEditWorkflowStep}
                 onRepair={onRepair}
                 onUpdateConfirmParams={onUpdateConfirmParams}
                 onUpdateConfirmImageRole={onUpdateConfirmImageRole}
