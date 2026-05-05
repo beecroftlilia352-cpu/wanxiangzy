@@ -36,6 +36,63 @@ TAG="${TAG_NAME:-manual-$(date +%Y%m%d%H%M%S)}"
 SAFE_TAG="$(printf '%s' "$TAG" | tr -c 'A-Za-z0-9._-' '-')"
 RELEASE_DIR="$BASE_DIR/releases/$SAFE_TAG"
 SHARED_DIR="$BASE_DIR/shared"
+PREVIOUS_TARGET="$(readlink -f "$BASE_DIR/current" 2>/dev/null || true)"
+
+start_app() {
+  local app_dir="$1"
+
+  if pm2 describe "$APP_NAME" >/dev/null 2>&1; then
+    pm2 delete "$APP_NAME"
+  fi
+
+  cd "$app_dir"
+  pm2 start npm --name "$APP_NAME" -- start
+}
+
+healthcheck_app() {
+  local port="${PORT:-}"
+  if [ -z "$port" ] && [ -f "$BASE_DIR/current/.env.production" ]; then
+    port="$(
+      awk -F= '
+        /^PORT=/ {
+          value=$0
+          sub(/^PORT=/, "", value)
+          gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
+          gsub(/^["'\'']|["'\'']$/, "", value)
+          print value
+        }
+      ' "$BASE_DIR/current/.env.production" | tail -n 1
+    )"
+  fi
+  port="${port:-3000}"
+  local url="http://127.0.0.1:${port}/"
+
+  for _ in $(seq 1 30); do
+    if command -v curl >/dev/null 2>&1; then
+      if curl -fsS -o /dev/null "$url"; then
+        return 0
+      fi
+    else
+      if node -e "fetch(process.argv[1]).then((r)=>process.exit(r.ok||r.status<500?0:1)).catch(()=>process.exit(1))" "$url"; then
+        return 0
+      fi
+    fi
+    sleep 2
+  done
+
+  return 1
+}
+
+rollback_previous_release() {
+  if [ -n "$PREVIOUS_TARGET" ] && [ -d "$PREVIOUS_TARGET" ]; then
+    echo "Rolling back to previous release: $PREVIOUS_TARGET" >&2
+    ln -sfn "$PREVIOUS_TARGET" "$BASE_DIR/current"
+    start_app "$BASE_DIR/current"
+    pm2 save
+  else
+    echo "No previous release found for rollback." >&2
+  fi
+}
 
 if ! command -v node >/dev/null 2>&1; then
   echo "Node.js is not installed on the server." >&2
@@ -72,13 +129,15 @@ npm ci
 npm run build
 
 ln -sfn "$RELEASE_DIR" "$BASE_DIR/current"
+start_app "$BASE_DIR/current"
 
-if pm2 describe "$APP_NAME" >/dev/null 2>&1; then
-  pm2 delete "$APP_NAME"
+if ! healthcheck_app; then
+  echo "Healthcheck failed for $APP_NAME from tag $TAG" >&2
+  pm2 logs "$APP_NAME" --lines 80 --nostream >&2 || true
+  rollback_previous_release
+  exit 1
 fi
 
-cd "$BASE_DIR/current"
-pm2 start npm --name "$APP_NAME" -- start
 pm2 save
 
 CURRENT_TARGET="$(readlink -f "$BASE_DIR/current" 2>/dev/null || true)"
