@@ -178,7 +178,7 @@ function buildFallbackPlan(request: PlannerRequest): WorkflowPlan {
   const steps: WorkflowStepPlan[] = [];
   const wantsVideo = /视频|短片|动起来|走秀|运镜|镜头运动/.test(text);
   const wants3d = /3d|3D|立体|悬浮|三维|商品展示/.test(text);
-  const wantsTryon = /穿上|穿到|换装|上身|试穿|把.*衣服.*穿|穿.*衣服|衣服.*穿|模特.*衣服/.test(text);
+  const wantsTryon = /穿上|穿到|传到|转移到|套到|换到|换装|上身|试穿|把.*衣服.*(?:穿|传|转移|套|换)|(?:穿|传|转移|套|换).*衣服|衣服.*(?:穿|传|转移|套|换)|模特.*衣服/.test(text);
   const wantsPose = /姿势|站姿|动作|四宫格|多几个.*姿|不同.*姿|pose/i.test(text);
   const wantsDetail = /详情页|长图|卖点图|参数图|功能图|淘宝|天猫|京东/.test(text) && !/主图|banner|海报/.test(text);
   const wantsCreative = /主图|banner|海报|活动图|推广图|封面/.test(text);
@@ -297,7 +297,7 @@ function shouldPreferFallbackPlan(normalized: WorkflowPlan, fallback: WorkflowPl
 
 function isStrongWorkflowRequest(text: string, imageCount: number) {
   if (imageCount > 0 && /然后|再|接着|最后|先.*再|从.*选|工作流|分步/.test(text)) return true;
-  if (/图\d+.*穿.*图\d+|图\d+.*人物.*图\d+.*衣服|图\d+.*衣服.*图\d+.*人物/.test(text)) return true;
+  if (/图\d+.*(?:穿|传|转移|套|换).*图\d+|图\d+.*人物.*图\d+.*衣服|图\d+.*衣服.*图\d+.*(?:人物|模特|人)/.test(text)) return true;
   if (/每张.*单独|独立出图|不同姿势|四个.*姿势|4个.*姿势/.test(text)) return true;
   return false;
 }
@@ -306,7 +306,7 @@ function inferExplicitTryonRefs(text: string, images: WorkflowInputImage[]) {
   const hasImage = (index: number) => images.some((image) => image.index === index);
   const patterns = [
     /图\s*(\d+)\s*(?:的)?(?:人物|模特|人)\s*(?:穿|换上|穿上|上身)\s*图\s*(\d+)\s*(?:的)?(?:衣服|服装|裙子|上衣|裤子|外套)?/,
-    /图\s*(\d+)\s*(?:的)?(?:衣服|服装|裙子|上衣|裤子|外套)\s*(?:穿到|穿在|给)\s*图\s*(\d+)\s*(?:的)?(?:人物|模特|人)/,
+    /图\s*(\d+)\s*(?:的)?(?:衣服|服装|裙子|上衣|裤子|外套)\s*(?:穿到|穿在|给|传到|转移到|套到|换到)\s*图\s*(\d+)\s*(?:的)?(?:人物|模特|人)/,
   ];
   for (const pattern of patterns) {
     const match = text.match(pattern);

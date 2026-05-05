@@ -490,74 +490,18 @@ function WorkflowExecutionCard({
 
       <div className="space-y-3 p-4">
         {steps.length > 0 && (
-          <div className="space-y-2">
-            {steps.map((step, index) => (
-              <div key={step.id} className="rounded-xl border border-slate-100 bg-slate-50/70 px-3 py-2">
-                <div className="flex gap-2">
-                  <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white text-[11px] font-black text-slate-500 ring-1 ring-slate-200">
-                    {index + 1}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-                      <p className="truncate text-xs font-bold text-slate-700">{step.title}</p>
-                      <StepStatusPill status={step.status} />
-                    </div>
-                    <p className="mt-0.5 text-[11px] leading-relaxed text-slate-400">
-                      {getWorkflowToolLabel(step.type)}
-                      {step.error_message ? `：${step.error_message}` : ""}
-                    </p>
-                    <StepImageSelector
-                      step={step}
-                      images={getSelectableImagesForStep(payload, index)}
-                      onOpenImage={onOpenImage}
-                      onSelectImage={canSelectWorkflowStepImage(step) ? onSelectImage : undefined}
-                    />
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      {!isActive && canEditWorkflowStep(step.status) && onEditStep && (
-                        <button
-                          type="button"
-                          onClick={() => setEditingStepId((current) => current === step.id ? null : step.id)}
-                          className="inline-flex items-center gap-1 rounded-md border border-violet-100 bg-white px-2 py-1 text-[10px] font-bold text-violet-700 transition-colors hover:bg-violet-50"
-                        >
-                          <Pencil className="h-3 w-3" />
-                          编辑
-                        </button>
-                      )}
-                      {!isActive && step.status === "failed" && onRetryStep && (
-                        <button
-                          type="button"
-                          onClick={() => onRetryStep(step.id)}
-                          className="inline-flex items-center gap-1 rounded-md border border-violet-100 bg-white px-2 py-1 text-[10px] font-bold text-violet-700 transition-colors hover:bg-violet-50"
-                        >
-                          <RefreshCw className="h-3 w-3" />
-                          重试
-                        </button>
-                      )}
-                      {!isActive && !["completed", "running", "cancelled", "skipped"].includes(step.status) && onSkipStep && (
-                        <button
-                          type="button"
-                          onClick={() => onSkipStep(step.id)}
-                          className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] font-bold text-slate-500 transition-colors hover:bg-slate-50"
-                        >
-                          跳过
-                        </button>
-                      )}
-                    </div>
-                    {editingStepId === step.id && onEditStep && (
-                      <WorkflowStepEditor
-                        step={step}
-                        onCancel={() => setEditingStepId(null)}
-                        onSave={(patch) => {
-                          setEditingStepId(null);
-                          onEditStep(step.id, patch);
-                        }}
-                      />
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+          <WorkflowPlanPanel
+            payload={payload}
+            isActive={isActive}
+            editingStepId={editingStepId}
+            onToggleEdit={(stepId) => setEditingStepId((current) => current === stepId ? null : stepId)}
+            onCancelEdit={() => setEditingStepId(null)}
+            onRetryStep={onRetryStep}
+            onSkipStep={onSkipStep}
+            onSelectImage={onSelectImage}
+            onEditStep={onEditStep}
+            onOpenImage={onOpenImage}
+          />
         )}
 
         {finalUrls.length > 0 && (
@@ -616,6 +560,226 @@ function WorkflowExecutionCard({
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function WorkflowPlanPanel({
+  payload,
+  isActive,
+  editingStepId,
+  onToggleEdit,
+  onCancelEdit,
+  onRetryStep,
+  onSkipStep,
+  onSelectImage,
+  onEditStep,
+  onOpenImage,
+}: {
+  payload: WorkflowClientPayload;
+  isActive: boolean;
+  editingStepId: string | null;
+  onToggleEdit: (stepId: string) => void;
+  onCancelEdit: () => void;
+  onRetryStep?: (stepId: string) => void;
+  onSkipStep?: (stepId: string) => void;
+  onSelectImage?: (stepId: string, selectedImageUrl: string) => void;
+  onEditStep?: (stepId: string, patch: { title?: string; params?: Record<string, unknown>; input?: Record<string, unknown> }) => void;
+  onOpenImage: (url: string) => void;
+}) {
+  const { steps, workflow } = payload;
+  const [open, setOpen] = useState(true);
+  const [expandedStepIds, setExpandedStepIds] = useState<string[]>(() =>
+    steps
+      .filter((step) => ["running", "failed", "waiting_user"].includes(step.status))
+      .map((step) => step.id)
+  );
+  const running = steps.some((step) => ["running", "queued"].includes(step.status)) || ["confirmed", "queued", "running"].includes(workflow.status);
+  const completedCount = steps.filter((step) => ["completed", "skipped"].includes(step.status)).length;
+  const failedCount = steps.filter((step) => step.status === "failed").length;
+  const importantStepIds = steps
+    .filter((step) => ["running", "failed", "waiting_user"].includes(step.status))
+    .map((step) => step.id)
+    .join("|");
+
+  useEffect(() => {
+    if (!importantStepIds) return;
+    const ids = importantStepIds.split("|").filter(Boolean);
+    setExpandedStepIds((current) => Array.from(new Set([...current, ...ids])));
+  }, [importantStepIds]);
+
+  const toggleStep = (stepId: string) => {
+    setExpandedStepIds((current) =>
+      current.includes(stepId) ? current.filter((id) => id !== stepId) : [...current, stepId]
+    );
+  };
+
+  return (
+    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        className="flex w-full items-center gap-3 px-3.5 py-3 text-left transition-colors hover:bg-slate-50"
+      >
+        <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
+          running ? "bg-slate-900 text-white" : failedCount > 0 ? "bg-red-50 text-red-600" : "bg-emerald-50 text-emerald-600"
+        }`}>
+          {running ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : failedCount > 0 ? <AlertCircle className="h-3.5 w-3.5" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-sm font-semibold text-slate-800">任务规划</p>
+            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500">
+              {steps.length} 步
+            </span>
+          </div>
+          <p className="mt-0.5 truncate text-[11px] text-slate-500">
+            {getWorkflowPlanPanelSummary(workflow.status, completedCount, steps.length, failedCount)}
+          </p>
+        </div>
+        <ChevronDown className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+
+      {open && (
+        <div className="border-t border-slate-100 px-3.5 py-3">
+          <div className="space-y-1">
+            {steps.map((step, index) => {
+              const expanded = expandedStepIds.includes(step.id) || editingStepId === step.id;
+              return (
+                <WorkflowPlanStep
+                  key={step.id}
+                  payload={payload}
+                  step={step}
+                  index={index}
+                  expanded={expanded}
+                  isActive={isActive}
+                  editing={editingStepId === step.id}
+                  onToggle={() => toggleStep(step.id)}
+                  onToggleEdit={() => onToggleEdit(step.id)}
+                  onCancelEdit={onCancelEdit}
+                  onRetryStep={onRetryStep}
+                  onSkipStep={onSkipStep}
+                  onSelectImage={onSelectImage}
+                  onEditStep={onEditStep}
+                  onOpenImage={onOpenImage}
+                />
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function WorkflowPlanStep({
+  payload,
+  step,
+  index,
+  expanded,
+  isActive,
+  editing,
+  onToggle,
+  onToggleEdit,
+  onCancelEdit,
+  onRetryStep,
+  onSkipStep,
+  onSelectImage,
+  onEditStep,
+  onOpenImage,
+}: {
+  payload: WorkflowClientPayload;
+  step: WorkflowStepRecord;
+  index: number;
+  expanded: boolean;
+  isActive: boolean;
+  editing: boolean;
+  onToggle: () => void;
+  onToggleEdit: () => void;
+  onCancelEdit: () => void;
+  onRetryStep?: (stepId: string) => void;
+  onSkipStep?: (stepId: string) => void;
+  onSelectImage?: (stepId: string, selectedImageUrl: string) => void;
+  onEditStep?: (stepId: string, patch: { title?: string; params?: Record<string, unknown>; input?: Record<string, unknown> }) => void;
+  onOpenImage: (url: string) => void;
+}) {
+  return (
+    <div className="relative pl-7">
+      {index < payload.steps.length - 1 && (
+        <div className="absolute left-[11px] top-7 h-[calc(100%-14px)] w-px bg-slate-200" />
+      )}
+      <button
+        type="button"
+        onClick={onToggle}
+        className="group flex w-full items-start gap-2 rounded-xl px-1.5 py-2 text-left transition-colors hover:bg-slate-50"
+      >
+        <div className={`absolute left-0 top-2.5 flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ring-4 ring-white ${getWorkflowStepNodeTone(step.status)}`}>
+          {getWorkflowStepNodeIcon(step.status, index)}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 items-center gap-2">
+            <p className="min-w-0 flex-1 truncate text-xs font-semibold text-slate-800">{step.title}</p>
+            <StepStatusPill status={step.status} />
+          </div>
+          <p className="mt-0.5 truncate text-[11px] text-slate-500">
+            {getWorkflowToolLabel(step.type)}
+            {step.error_message ? `：${step.error_message}` : ""}
+          </p>
+        </div>
+        <ChevronDown className={`mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-300 transition-transform group-hover:text-slate-500 ${expanded ? "rotate-180" : ""}`} />
+      </button>
+
+      {expanded && (
+        <div className="ml-1.5 rounded-xl border border-slate-100 bg-slate-50/70 p-2.5">
+          <StepImageSelector
+            step={step}
+            images={getSelectableImagesForStep(payload, index)}
+            onOpenImage={onOpenImage}
+            onSelectImage={canSelectWorkflowStepImage(step) ? onSelectImage : undefined}
+          />
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {!isActive && canEditWorkflowStep(step.status) && onEditStep && (
+              <button
+                type="button"
+                onClick={onToggleEdit}
+                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-[10px] font-bold text-slate-600 transition-colors hover:border-violet-200 hover:bg-violet-50 hover:text-violet-700"
+              >
+                <Pencil className="h-3 w-3" />
+                编辑
+              </button>
+            )}
+            {!isActive && step.status === "failed" && onRetryStep && (
+              <button
+                type="button"
+                onClick={() => onRetryStep(step.id)}
+                className="inline-flex items-center gap-1 rounded-lg border border-violet-100 bg-white px-2 py-1 text-[10px] font-bold text-violet-700 transition-colors hover:bg-violet-50"
+              >
+                <RefreshCw className="h-3 w-3" />
+                重试
+              </button>
+            )}
+            {!isActive && !["completed", "running", "cancelled", "skipped"].includes(step.status) && onSkipStep && (
+              <button
+                type="button"
+                onClick={() => onSkipStep(step.id)}
+                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-[10px] font-bold text-slate-500 transition-colors hover:bg-slate-50"
+              >
+                跳过
+              </button>
+            )}
+          </div>
+          {editing && onEditStep && (
+            <WorkflowStepEditor
+              step={step}
+              onCancel={onCancelEdit}
+              onSave={(patch) => {
+                onCancelEdit();
+                onEditStep(step.id, patch);
+              }}
+            />
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -846,6 +1010,33 @@ function WorkflowStatusBadge({ status }: { status: WorkflowStatus | string }) {
   );
 }
 
+function getWorkflowPlanPanelSummary(status: WorkflowStatus | string, completedCount: number, totalCount: number, failedCount: number) {
+  if (failedCount > 0) return `${completedCount}/${totalCount} 已完成，${failedCount} 个步骤需要处理`;
+  if (status === "needs_confirmation" || status === "planned" || status === "draft") return "已拆解执行步骤，确认前不会扣费";
+  if (status === "confirmed" || status === "queued") return "计划已确认，正在等待执行";
+  if (status === "running") return `${completedCount}/${totalCount} 已完成，剩余步骤处理中`;
+  if (status === "completed") return "所有步骤已完成";
+  if (status === "partially_completed") return `${completedCount}/${totalCount} 已完成，可查看结果`;
+  if (status === "cancelled") return "计划已取消";
+  return `${completedCount}/${totalCount} 已完成`;
+}
+
+function getWorkflowStepNodeTone(status: string) {
+  if (status === "completed") return "bg-emerald-500 text-white";
+  if (status === "failed") return "bg-red-500 text-white";
+  if (status === "running" || status === "queued") return "bg-slate-900 text-white";
+  if (status === "waiting_user") return "bg-amber-500 text-white";
+  if (status === "skipped" || status === "cancelled") return "bg-slate-300 text-white";
+  return "bg-white text-slate-500 ring-slate-100";
+}
+
+function getWorkflowStepNodeIcon(status: string, index: number) {
+  if (status === "completed") return <Check className="h-3 w-3" />;
+  if (status === "failed") return <X className="h-3 w-3" />;
+  if (status === "running" || status === "queued") return <Loader2 className="h-3 w-3 animate-spin" />;
+  return index + 1;
+}
+
 function StepStatusPill({ status }: { status: string }) {
   const done = status === "completed";
   const failed = status === "failed";
@@ -967,25 +1158,55 @@ type RuntimeTimelineItem = {
 };
 
 function AgentRuntimeTimeline({ timeline, compact = false }: { timeline: RuntimeTimelineItem[]; compact?: boolean }) {
+  const activeItem = timeline.find((item) => item.status === "running");
+  const done = timeline.length > 0 && timeline.every((item) => item.status === "done");
+  const hasRunning = Boolean(activeItem);
+  const [open, setOpen] = useState(() => !compact && hasRunning);
+  useEffect(() => {
+    if (hasRunning) setOpen(true);
+  }, [hasRunning]);
   if (!timeline.length) return null;
+  const title = activeItem ? "正在规划任务" : done ? "已完成规划" : "规划任务";
+  const summary = activeItem?.detail || timeline[timeline.length - 1]?.detail || "Agent 正在处理。";
+
   return (
-    <div className={`${compact ? "mb-2 border-b border-slate-100 pb-2" : "rounded-2xl rounded-bl-md border border-violet-100 bg-white/95 p-3 shadow-sm"} w-full max-w-md`}>
-      <div className="flex flex-wrap gap-1.5">
-        {timeline.map((item) => (
-          <div
-            key={item.label}
-            className={`inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-medium ${getRuntimeTimelineTone(item.status)}`}
-            title={item.detail}
-          >
-            {item.status === "running" ? <Loader2 className="h-3 w-3 animate-spin" /> : item.status === "done" ? <CheckCircle2 className="h-3 w-3" /> : <span className="h-1.5 w-1.5 rounded-full bg-current opacity-50" />}
-            {item.label}
+    <div className={`${compact ? "mb-2 rounded-xl border border-slate-100 bg-slate-50/80" : "w-full max-w-md rounded-2xl rounded-bl-md border border-slate-200 bg-white/95 shadow-sm"} overflow-hidden`}>
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left transition-colors hover:bg-slate-50"
+      >
+        <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${
+          activeItem ? "bg-slate-900 text-white" : done ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-500"
+        }`}>
+          {activeItem ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : done ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Activity className="h-3.5 w-3.5" />}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-semibold text-slate-800">{title}</p>
+          <p className="mt-0.5 truncate text-[11px] text-slate-500">{summary}</p>
+        </div>
+        <ChevronDown className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+
+      {open && (
+        <div className="border-t border-slate-100 px-3 pb-3 pt-2">
+          <div className="space-y-2">
+            {timeline.map((item, index) => (
+              <div key={`${item.label}-${index}`} className="flex gap-2">
+                <div className="flex w-5 shrink-0 flex-col items-center">
+                  <div className={`flex h-5 w-5 items-center justify-center rounded-full ${getRuntimeTimelineNodeTone(item.status)}`}>
+                    {item.status === "running" ? <Loader2 className="h-3 w-3 animate-spin" /> : item.status === "done" ? <Check className="h-3 w-3" /> : <span className="h-1.5 w-1.5 rounded-full bg-current" />}
+                  </div>
+                  {index < timeline.length - 1 && <div className="mt-1 h-5 w-px bg-slate-200" />}
+                </div>
+                <div className="min-w-0 flex-1 pb-1">
+                  <p className="text-[11px] font-semibold text-slate-700">{item.label}</p>
+                  {item.detail && <p className="mt-0.5 text-[11px] leading-4 text-slate-500">{item.detail}</p>}
+                </div>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
-      {!compact && (
-        <p className="mt-2 text-[11px] leading-4 text-slate-500">
-          {timeline.find((item) => item.status === "running")?.detail || timeline[timeline.length - 1]?.detail || "Agent 正在处理。"}
-        </p>
+        </div>
       )}
     </div>
   );
@@ -1069,9 +1290,9 @@ function getTraceId(params: Record<string, unknown> | undefined) {
   return typeof params?.traceId === "string" ? params.traceId : null;
 }
 
-function getRuntimeTimelineTone(status: string) {
-  if (status === "done") return "bg-emerald-50 text-emerald-600";
-  if (status === "running") return "bg-violet-50 text-violet-600";
+function getRuntimeTimelineNodeTone(status: string) {
+  if (status === "done") return "bg-emerald-500 text-white";
+  if (status === "running") return "bg-slate-900 text-white";
   return "bg-slate-100 text-slate-400";
 }
 

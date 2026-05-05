@@ -611,12 +611,17 @@ export const useAgentStore = create<Store>((set, get) => ({
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "处理失败";
+      const errorParams = {
+        agentTimeline: completeAgentTimeline(`处理未完成：${msg}`),
+        agentError: msg,
+      };
       set((s) => ({
         isSending: false,
         messages: s.messages.map((m) =>
-          m.id === aiMsg.id ? { ...m, content: msg, streamingDone: true, generation: null } : m
+          m.id === aiMsg.id ? { ...m, content: msg, streamingDone: true, generation: null, params: { ...(m.params || {}), ...errorParams } } : m
         ),
       }));
+      saveMessage(convId, { id: aiMsg.id, role: "assistant", content: msg, params: errorParams, mode: "agent" });
     }
   },
 
@@ -1189,7 +1194,7 @@ function shouldTryWorkflowRequest(text: string, imageCount: number, mode: AgentI
 
 function isStrongWorkflowClientRequest(text: string, imageCount: number) {
   if (imageCount > 0 && /(\u7136\u540e|\u518d|\u63a5\u7740|\u6700\u540e|\u5148.*\u518d|\u4ece.*\u9009|\u5de5\u4f5c\u6d41|\u5206\u6b65)/.test(text)) return true;
-  if (/图\s*\d+.*(?:穿|换上|穿上|上身).*图\s*\d+|图\s*\d+.*(?:人物|模特|人).*图\s*\d+.*(?:衣服|服装|裙子|上衣|裤子|外套)/.test(text)) return true;
+  if (/图\s*\d+.*(?:穿|传|转移|套|换|换上|穿上|上身).*图\s*\d+|图\s*\d+.*(?:人物|模特|人).*图\s*\d+.*(?:衣服|服装|裙子|上衣|裤子|外套)|图\s*\d+.*(?:衣服|服装|裙子|上衣|裤子|外套).*图\s*\d+.*(?:人物|模特|人)/.test(text)) return true;
   if (/(\u6bcf\u5f20.*\u5355\u72ec|\u72ec\u7acb\u51fa\u56fe|\u4e0d\u540c\u59ff\u52bf|\u56db\u4e2a.*\u59ff\u52bf|4\u4e2a.*\u59ff\u52bf)/.test(text)) return true;
   return false;
 }

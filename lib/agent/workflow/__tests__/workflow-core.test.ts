@@ -56,6 +56,22 @@ describe("workflow production core", () => {
     expect(plan.steps[1].params.outputMode).toBe("separate");
   });
 
+  it("understands garment transfer wording as tryon before pose variation", async () => {
+    const plan = await planWorkflow({
+      userText: "帮我把图1的衣服传到图2的模特上，然后再生成4张姿势裂变图",
+      images: [
+        { index: 1, url: "https://example.com/clothing.png", role: "clothing" },
+        { index: 2, url: "https://example.com/model.png", role: "reference" },
+      ],
+      mode: "agent",
+      defaults,
+    });
+
+    expect(plan.steps.map((step) => step.type)).toEqual(["tryon", "pose_variation"]);
+    expect(plan.steps[0].input.personImage).toBe("图2");
+    expect(plan.steps[0].input.clothingImage).toBe("图1");
+  });
+
   it("validator blocks disabled video steps while keeping image workflow valid", async () => {
     const plan = await planWorkflow({
       userText: "图1人物穿图2衣服，再做走秀视频",
