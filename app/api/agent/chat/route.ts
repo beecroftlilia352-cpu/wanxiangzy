@@ -316,6 +316,14 @@ export async function POST(request: NextRequest) {
     }
 
     // 最终决策日志
+    if (action === "generate" && module && shouldClarifyBeforeGenerate(userText, module, decision.confidence, Boolean(hasImages), images?.length || 0, taskPlan)) {
+      return NextResponse.json({
+        reply: buildAmbiguousVisualTaskReply(userText, module, images || []),
+        action: "chat",
+        confidence: decision.confidence,
+      });
+    }
+
     console.log("[agent-chat] decision:", {
       action,
       module,
@@ -546,6 +554,44 @@ function getDefaultAgentReply(userText: string, hasImages: boolean): string {
     return "可以，我会按你的描述整理成适合生成的画面方案，并在确认后开始生成。";
   }
   return "我在，可以帮你分析服装图片、整理生成方案，或把需求转成可执行的视觉任务。";
+}
+
+function shouldClarifyBeforeGenerate(
+  userText: string,
+  module: string,
+  confidence: number,
+  hasImages: boolean,
+  imageCount: number,
+  taskPlan: VisualTaskPlan | null
+): boolean {
+  if (!hasImages || imageCount === 0) return false;
+  if (taskPlan) return false;
+  if (isCommerceDesignIntent(userText) || isSpecializedModuleIntent(userText)) return false;
+  if (hasConcreteVisualTarget(userText)) return false;
+  if (module !== "general" && confidence >= 0.7) return false;
+  return isAmbiguousVisualEditIntent(userText) || confidence < 0.62;
+}
+
+function hasConcreteVisualTarget(text: string): boolean {
+  return /\u8be6\u60c5\u9875|\u4e3b\u56fe|banner|Banner|\u6d77\u62a5|\u5e7f\u544a|\u957f\u56fe|\u53c2\u6570\u56fe|\u529f\u80fd\u56fe|\u767d\u5e95|\u80cc\u666f|\u573a\u666f|\u59ff\u52bf|\u56db\u5bab\u683c|\u6362\u88c5|\u7a7f\u4e0a|\u4e0a\u8eab|\u79cd\u8349|\u5c0f\u7ea2\u4e66|3[dD]|\u7acb\u4f53|\u6a21\u7279|\u4eba\u8138|\u4fee\u624b|\u4fee\u8138|\u6539\u6587\u5b57|\u6539\u989c\u8272/.test(text);
+}
+
+function isAmbiguousVisualEditIntent(text: string): boolean {
+  const compact = text.replace(/\s+/g, "");
+  if (compact.length <= 8 && /\u751f\u6210|\u91cd\u505a|\u4f18\u5316|\u4fee\u4e00\u4e0b|\u6539\u4e00\u4e0b|\u5f04\u4e00\u4e0b|\u518d\u6765|\u6362\u4e00\u4e0b|\u505a\u4e00\u4e0b/.test(compact)) return true;
+  return /\u91cd\u65b0\u751f\u6210\u4e00\u5f20|\u91cd\u65b0\u751f\u6210|\u91cd\u505a|\u518d\u6765\u4e00\u5f20|\u4f18\u5316\u4e00\u4e0b|\u4fee\u4e00\u4e0b|\u6539\u4e00\u4e0b|\u5f04\u4e00\u4e0b|\u505a\u4e00\u4e0b|\u770b\u7740\u5f04|\u6309\u8fd9\u4e2a\u505a/.test(text);
+}
+
+function buildAmbiguousVisualTaskReply(userText: string, module: string, images: AgentImageInput[]): string {
+  const imageSummary = images.length
+    ? images.map((img) => `- \u56fe${img.index}\uff1a${getImageRoleLabel(img.role) || "\u81ea\u52a8\u5224\u65ad"}`).join("\n")
+    : "- \u5c1a\u672a\u68c0\u6d4b\u5230\u53ef\u7528\u56fe\u7247";
+  const suggestedModule = MODULE_LABELS[module] || module || "\u901a\u7528\u751f\u56fe";
+  const original = userText.trim() ? `\n\n\u4f60\u521a\u624d\u8bf4\uff1a\u201c${userText.trim().slice(0, 40)}\u201d` : "";
+
+  return normalizeAgentReply(
+    `\u6211\u5148\u4e0d\u76f4\u63a5\u751f\u6210\uff0c\u56e0\u4e3a\u8fd9\u4e2a\u6307\u4ee4\u8fd8\u6709\u70b9\u6a21\u7cca\uff0c\u76f4\u63a5\u6263\u5206\u5bb9\u6613\u505a\u9519\u65b9\u5411\u3002${original}\n\n**\u6211\u5f53\u524d\u7684\u503e\u5411**\n\n- \u53ef\u80fd\u4efb\u52a1\uff1a${suggestedModule}\n- \u4f46\u8fd8\u4e0d\u786e\u5b9a\u4f60\u8981\u7684\u662f\u201c\u4fee\u56fe\u201d\u3001\u201c\u91cd\u65b0\u8bbe\u8ba1\u201d\u8fd8\u662f\u201c\u505a\u7535\u5546\u7248\u5f0f\u201d\n\n**\u5f53\u524d\u56fe\u7247**\n\n${imageSummary}\n\n**\u8bf7\u76f4\u63a5\u56de\u590d\u4e00\u4e2a\u66f4\u660e\u786e\u7684\u65b9\u5411**\n\n- \u6309\u8fd9\u5f20\u56fe\u91cd\u65b0\u8bbe\u8ba1\u4e00\u5f20\u5546\u4e1a\u56fe\n- \u751f\u6210\u6dd8\u5b9d\u8be6\u60c5\u9875\n- \u4fdd\u7559\u4e3b\u4f53\uff0c\u53ea\u4fee\u590d\u6bd4\u4f8b/\u624b\u6307/\u6587\u5b57\n\n\u4f60\u8865\u4e00\u53e5\u540e\uff0c\u6211\u518d\u7ed9\u4f60\u751f\u6210\u786e\u8ba4\u5361\uff0c\u8fd9\u6837\u4e0d\u4f1a\u8bef\u6263\u79ef\u5206\u3002`
+  );
 }
 
 function buildClarifyReply(module: string, missingFields: string[], imageCount: number): string {
