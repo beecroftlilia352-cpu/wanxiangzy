@@ -30,7 +30,7 @@ export function StyleChoiceGrid<T extends string>({ options, value, onChange }: 
             type="button"
             onClick={() => onChange(style.value)}
             aria-pressed={selected}
-            className={`group relative min-h-[86px] overflow-hidden rounded-[18px] border p-2.5 text-left transition-all ${
+            className={`group relative min-h-[92px] overflow-hidden rounded-[18px] border p-2.5 text-left transition-all ${
               selected
                 ? "border-violet-200 bg-white shadow-[0_18px_42px_rgba(124,58,237,0.14)] ring-1 ring-violet-100"
                 : "border-slate-200/80 bg-white/78 hover:border-violet-100 hover:bg-white hover:shadow-[0_14px_32px_rgba(15,23,42,0.06)]"
@@ -39,9 +39,9 @@ export function StyleChoiceGrid<T extends string>({ options, value, onChange }: 
             {selected && (
               <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_20%,rgba(168,85,247,0.16),transparent_38%),linear-gradient(135deg,rgba(255,255,255,0.74),rgba(250,245,255,0.66))]" />
             )}
-            <div className="relative flex h-full items-stretch gap-2.5">
+            <div className="relative flex h-full items-stretch gap-2">
               {style.imageUrl ? (
-                <span className="relative flex h-[66px] w-[58px] shrink-0 overflow-hidden rounded-2xl border border-white bg-slate-100 shadow-sm">
+                <span className="relative flex h-[64px] w-[52px] shrink-0 overflow-hidden rounded-2xl border border-white bg-slate-100 shadow-sm">
                   <img src={style.imageUrl} alt={style.label} className="h-full w-full object-cover" loading="lazy" />
                   <span className="absolute inset-0 bg-gradient-to-t from-slate-950/24 via-transparent to-white/8" />
                   <span className="absolute bottom-1.5 left-1.5 right-1.5 flex gap-0.5">
@@ -56,7 +56,7 @@ export function StyleChoiceGrid<T extends string>({ options, value, onChange }: 
                 </span>
               ) : (
                 <span
-                  className={`relative flex h-[66px] w-[58px] shrink-0 overflow-hidden rounded-2xl border shadow-inner ${
+                  className={`relative flex h-[64px] w-[52px] shrink-0 overflow-hidden rounded-2xl border shadow-inner ${
                     selected ? "border-white/90" : "border-white/70"
                   }`}
                   style={{ background: moodBackground }}
@@ -74,8 +74,8 @@ export function StyleChoiceGrid<T extends string>({ options, value, onChange }: 
                 </span>
               )}
               <span className="flex min-w-0 flex-1 flex-col justify-center pr-5">
-                <span className="block truncate text-[13px] font-black text-slate-950">{style.label}</span>
-                <span className="mt-1 line-clamp-2 text-[10.5px] leading-relaxed text-slate-500">{style.desc}</span>
+                <span className="block break-words text-[12.5px] font-black leading-tight text-slate-950">{style.label}</span>
+                <span className="mt-1 line-clamp-3 text-[10px] leading-snug text-slate-500">{style.desc}</span>
               </span>
               {selected && (
                 <span className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-violet-600 text-white shadow-[0_8px_18px_rgba(124,58,237,0.28)]">

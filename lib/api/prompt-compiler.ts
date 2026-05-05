@@ -10,7 +10,7 @@ const KIND_HEADERS: Record<ImagePromptKind, string> = {
   modelBackground:
     "核心任务：完成换背景/换模特。图1是原始人物/服装/穿搭来源；只换背景时只替换背景，图1人物、脸、发型、服装、姿势和构图保持不变；只换模特时只替换图1脸部，其它不变；背景参考图只提供场景、光线、色彩和空间氛围。人物必须自然融入新背景，匹配光线、色温、曝光、景深、透视、人物尺度、接触阴影和边缘过渡，避免贴纸感。",
   pose:
-    "核心任务：生成单张 2x2 四宫格姿势裂变图，四格保持同一人、同一衣服、同一场景、同一镜头，只改变姿势和轻微自然表情。",
+    "核心任务：生成单张 2x2 四宫格姿势裂变图，四格保持同一人、同一衣服和同一人物比例；镜头、画幅和构图可按用户每格描述变化。",
   model:
     "核心任务：融合参考人脸的脸型骨相、五官比例、肤色、妆感、年龄感和气质，生成一个稳定真实的专属模特身份。",
   garment3d:
@@ -65,7 +65,7 @@ const REQUIRED_SIGNALS: Record<ImagePromptKind, RequiredSignal[]> = {
     { name: "负面约束", pattern: /避免|不要|负面/, fallback: "负面约束：不要改变图1服装、不要复制背景参考图人物或衣服、不要白边硬边、漂浮、肢体畸形、水印或AI渲染感。" },
   ],
   pose: [
-    { name: "任务", pattern: /图像角色|核心任务|2x2|四宫格/, fallback: "核心任务：生成单张2x2四宫格姿势裂变图，四格保持同一人、同一衣服、同一场景、同一镜头。" },
+    { name: "任务", pattern: /图像角色|核心任务|2x2|四宫格/, fallback: "核心任务：生成单张2x2四宫格姿势裂变图，四格保持同一人、同一衣服和同一人物比例；镜头、画幅和构图可按用户每格描述变化。" },
     { name: "服装", pattern: /服装展示规则|不要换衣服/, fallback: "服装展示规则：四个姿势都保持同一套服装的结构、颜色、图案、长度、纹理和搭配关系。" },
     { name: "人体", pattern: /身体动作规则|身体比例|手指|肢体/, fallback: "身体动作规则：动作自然可信，避免断手、错位手指、肢体拉长、身体比例漂移和过度瘦身。" },
     { name: "负面约束", pattern: /负面约束|不要换脸|不要换衣服/, fallback: "负面约束：不要换脸，不要换衣服，不要改变场景，不要生成多余人物，不要文字水印。" },
@@ -107,7 +107,7 @@ function compileConcisePrompt(kind: ImagePromptKind, prompt: string, maxChars: n
   const requiredSignal = collectRequiredSignalLines(kind, lines);
   const highSignal = lines.filter((line) => IMPORTANT_PATTERNS.some((pattern) => pattern.test(line)));
   const selected = dedupeLines([
-    KIND_HEADERS[kind],
+    getKindHeader(kind, prompt),
     modelLine,
     ...requiredSignal,
     ...highSignal,
@@ -115,6 +115,14 @@ function compileConcisePrompt(kind: ImagePromptKind, prompt: string, maxChars: n
   ]);
 
   return limitPrompt(selected.join("\n"), maxChars);
+}
+
+function getKindHeader(kind: ImagePromptKind, prompt: string) {
+  if (kind === "pose" && /每个姿势单独生成一张完整图片|本次单图任务|只生成姿势\d/.test(prompt)) {
+    return "核心任务：生成一张独立的单姿势完整图片，保持图1同一人、同一衣服和同一人物比例；不要生成 2x2、四宫格、拼图、分屏或 contact sheet。";
+  }
+
+  return KIND_HEADERS[kind];
 }
 
 function collectRequiredSignalLines(kind: ImagePromptKind, lines: string[]) {

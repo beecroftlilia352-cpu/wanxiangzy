@@ -7,7 +7,7 @@ import {
 } from "@/lib/api/credits";
 import { startGenerationJob, type GenerationJobPayload } from "@/lib/api/generation-jobs";
 import { handleGenerationStatusGet } from "@/lib/api/generation-status";
-import { enforcePosePromptRequirements } from "@/lib/pose-prompt";
+import { enforcePosePromptRequirements, type PoseOutputMode } from "@/lib/pose-prompt";
 import { applyPoseSeriesStylePrompt, normalizePoseSeriesStyle } from "@/lib/module-style-presets";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 
@@ -30,14 +30,16 @@ export async function POST(request: NextRequest) {
     catch { return NextResponse.json({ error: "请求格式无效" }, { status: 400 }); }
     const { main_image_url, ai_model, image_size, prompt, pose_style } = body;
     const varyExpression = body.vary_expression !== false;
+    const outputMode: PoseOutputMode = body.output_mode === "separate" ? "separate" : "grid";
     if (!main_image_url || typeof main_image_url !== "string") return NextResponse.json({ error: "缺少主图" }, { status: 400 });
     if (!prompt?.trim()) return NextResponse.json({ error: "缺少提示词" }, { status: 400 });
 
     const model: LingyaModel = normalizeLingyaModel(ai_model);
     const size: ImageSize = normalizeImageSize(model, image_size || "1K", POSE_ASPECT_RATIO);
-    const totalCost = getCreditCost(model, size, POSE_ASPECT_RATIO);
+    const unitCost = getCreditCost(model, size, POSE_ASPECT_RATIO);
+    const totalCost = unitCost * (outputMode === "separate" ? 4 : 1);
     const poseStyle = normalizePoseSeriesStyle(pose_style);
-    const finalPrompt = enforcePosePromptRequirements(applyPoseSeriesStylePrompt(prompt, poseStyle), { varyExpression, poseStyle });
+    const finalPrompt = enforcePosePromptRequirements(applyPoseSeriesStylePrompt(prompt, poseStyle), { varyExpression, poseStyle, outputMode });
     const jobPayload: GenerationJobPayload = {
       kind: "pose",
       mainImageUrl: main_image_url,
@@ -46,6 +48,7 @@ export async function POST(request: NextRequest) {
       prompt: finalPrompt,
       varyExpression,
       poseStyle,
+      outputMode,
     };
 
     const debit = await createDebitedGeneration(supabase, {
@@ -56,7 +59,7 @@ export async function POST(request: NextRequest) {
       creditsCost: totalCost,
       aiModel: model,
       imageSize: size,
-      reason: `姿势裂变 (${model}, ${size})`,
+      reason: `姿势裂变${outputMode === "separate" ? " · 每姿势一张" : ""} (${model}, ${size})`,
       jobPayload,
     });
 

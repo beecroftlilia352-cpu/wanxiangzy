@@ -6,13 +6,13 @@ const MAX_RESULT_IMAGE_BYTES = 25 * 1024 * 1024;
 export async function persistGeneratedImageUrls(
   urls: string[],
   generationId: string,
-  options: { forceServerDownload?: boolean } = {}
+  options: { forceServerDownload?: boolean; startIndex?: number } = {}
 ) {
   const persistedUrls: string[] = [];
 
   for (let index = 0; index < urls.length; index++) {
     const url = urls[index];
-    persistedUrls.push(await persistGeneratedImageUrl(url, `${generationId}-${index + 1}`, options));
+    persistedUrls.push(await persistGeneratedImageUrl(url, `${generationId}-${(options.startIndex || 0) + index + 1}`, options));
   }
 
   return persistedUrls;

@@ -10,7 +10,7 @@ import { failGenerationWithRefund } from "@/lib/api/credits";
 import { resolveImageInputs } from "@/lib/api/image-inputs.server";
 import { persistGeneratedImageUrls } from "@/lib/api/result-image-storage";
 import { enforceModelPromptRequirements } from "@/lib/model-prompt";
-import { enforcePosePromptRequirements } from "@/lib/pose-prompt";
+import { enforcePosePromptRequirements, type PoseOutputMode } from "@/lib/pose-prompt";
 import {
   applyGarment3dDisplayStylePrompt,
   applyModelShootStylePrompt,
@@ -72,6 +72,7 @@ export type GenerationJobPayload =
       prompt: string;
       varyExpression?: boolean;
       poseStyle?: PoseSeriesStyle;
+      outputMode?: PoseOutputMode;
     }
   | {
       kind: "garment3d";
@@ -118,6 +119,9 @@ type GenerationExecutionResult = {
   resultUrls: string[];
   promptTrace: PromptTraceItem[];
 };
+
+type GenerationProgressUpdate = GenerationExecutionResult;
+type GenerationProgressCallback = (update: GenerationProgressUpdate) => Promise<void>;
 
 export function startGenerationJob(generationId: string) {
   runGenerationJobById(generationId).catch((err) => {
@@ -178,10 +182,31 @@ async function runClaimedJob(
 ) {
   try {
     const payload = parseJobPayload(job.job_payload);
-    const execution = await executePayload(payload);
-    const persistedResultUrls = await persistGeneratedImageUrls(execution.resultUrls, job.id, {
-      forceServerDownload: isSeedreamPayload(payload),
+    const partialResultUrls: string[] = [];
+    const partialPromptTrace: PromptTraceItem[] = [];
+    const execution = await executePayload(payload, async (update) => {
+      const newUrls = update.resultUrls.slice(partialResultUrls.length);
+      if (!newUrls.length && update.promptTrace.length === partialPromptTrace.length) return;
+
+      const persistedNewUrls = newUrls.length
+        ? await persistGeneratedImageUrls(newUrls, job.id, {
+          forceServerDownload: isSeedreamPayload(payload),
+          startIndex: partialResultUrls.length,
+        })
+        : [];
+      partialResultUrls.push(...persistedNewUrls);
+      partialPromptTrace.splice(0, partialPromptTrace.length, ...update.promptTrace);
+
+      await writeGenerationProgress(supabase, job, payload, {
+        resultUrls: partialResultUrls,
+        promptTrace: partialPromptTrace,
+      });
     });
+    const persistedResultUrls = partialResultUrls.length === execution.resultUrls.length
+      ? partialResultUrls
+      : await persistGeneratedImageUrls(execution.resultUrls, job.id, {
+        forceServerDownload: isSeedreamPayload(payload),
+      });
 
     const { data, error } = await supabase
       .from("generations")
@@ -215,7 +240,10 @@ async function runClaimedJob(
   }
 }
 
-async function executePayload(payload: GenerationJobPayload): Promise<GenerationExecutionResult> {
+async function executePayload(
+  payload: GenerationJobPayload,
+  onProgress?: GenerationProgressCallback
+): Promise<GenerationExecutionResult> {
   const promptTrace: PromptTraceItem[] = [];
 
   if (payload.kind === "tryon") {
@@ -361,10 +389,41 @@ async function executePayload(payload: GenerationJobPayload): Promise<Generation
   if (payload.kind === "pose") {
     const imageInputs = await resolveImageInputs({ clothingUrls: [payload.mainImageUrl] });
     const poseStyle = normalizePoseSeriesStyle(payload.poseStyle);
+    const outputMode = normalizePoseOutputMode(payload.outputMode);
     const prompt = enforcePosePromptRequirements(applyPoseSeriesStylePrompt(payload.prompt, poseStyle), {
       varyExpression: payload.varyExpression !== false,
       poseStyle,
+      outputMode,
     });
+
+    if (outputMode === "separate") {
+      const results = [];
+      const promptTrace = [];
+      for (let index = 1; index <= 4; index++) {
+        const posePrompt = buildSeparatePosePrompt(prompt, index);
+        const result = await generateImage({
+          model: payload.aiModel,
+          prompt: posePrompt,
+          prompt_kind: "pose",
+          aspect_ratio: "3:4",
+          image: imageInputs.clothingUrls,
+          image_size: payload.imageSize,
+        });
+        results.push(getResultUrl(result));
+        promptTrace.push(createPromptTraceItem({
+          index,
+          kind: payload.kind,
+          model: payload.aiModel,
+          promptKind: "pose",
+          prompt: posePrompt,
+          compiledPrompt: result.compiledPrompt || posePrompt,
+        }));
+        await onProgress?.({ resultUrls: results, promptTrace });
+      }
+
+      return { resultUrls: results, promptTrace };
+    }
+
     const result = await generateImage({
       model: payload.aiModel,
       prompt,
@@ -513,6 +572,47 @@ function isJobPayload(value: unknown): value is GenerationJobPayload {
   }
 
   return false;
+}
+
+async function writeGenerationProgress(
+  supabase: ReturnType<typeof createAdminClient>,
+  job: ClaimedJob,
+  payload: GenerationJobPayload,
+  update: GenerationProgressUpdate
+) {
+  const { error } = await supabase
+    .from("generations")
+    .update({
+      result_urls: update.resultUrls,
+      job_payload: appendPromptTrace(payload, update.promptTrace),
+    })
+    .eq("id", job.id)
+    .eq("user_id", job.user_id)
+    .eq("status", "processing_tryon");
+
+  if (error) throw new Error(`更新任务进度失败: ${error.message}`);
+}
+
+function normalizePoseOutputMode(value: unknown): PoseOutputMode {
+  return value === "separate" ? "separate" : "grid";
+}
+
+function buildSeparatePosePrompt(prompt: string, poseIndex: number) {
+  const scopedPrompt = prompt
+    .split("\n")
+    .filter((line) => {
+      const match = line.trim().match(/^姿势\s*([1-4])[：:]/);
+      return !match || Number(match[1]) === poseIndex;
+    })
+    .join("\n")
+    .trim();
+
+  return [
+    scopedPrompt,
+    `本次单图任务：只生成姿势${poseIndex}这一张完整图片。`,
+    `如果用户提示词里有“姿势${poseIndex}：”，严格执行该条姿势；如果没有逐条指定，则根据所选风格自主设计第${poseIndex}个自然姿势，并确保它与同组其它姿势有明显变化。`,
+    "不要生成四宫格、拼图、分屏、边框、编号文字或 contact sheet。",
+  ].join("\n");
 }
 
 function hasStringArray(value: unknown): value is string[] {

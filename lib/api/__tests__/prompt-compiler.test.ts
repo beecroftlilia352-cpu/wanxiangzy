@@ -58,6 +58,18 @@ describe("compileImagePromptForModel", () => {
     expect(result.length).toBeLessThanOrEqual(1900);
   });
 
+  it("uses a single-image pose header for separate pose prompts", () => {
+    const result = compileImagePromptForModel({
+      kind: "pose",
+      model: "nano-banana-2",
+      prompt: "输出方式：每个姿势单独生成一张完整图片。不要生成四宫格。本次单图任务：只生成姿势2这一张完整图片。",
+    });
+
+    expect(result).toContain("生成一张独立的单姿势完整图片");
+    expect(result).toContain("不要生成 2x2、四宫格、拼图、分屏或 contact sheet");
+    expect(result).not.toContain("生成单张 2x2 四宫格姿势裂变图");
+  });
+
   it("normalizes line breaks and excess whitespace", () => {
     const messyPrompt = "  Hello   world  \r\n\r\n\r\n  Test  ";
     const result = compileImagePromptForModel({

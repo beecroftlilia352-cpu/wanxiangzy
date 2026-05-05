@@ -58,19 +58,11 @@ export const POSE_SERIES_STYLES: StylePreset<PoseSeriesStyle>[] = [
   {
     value: "source_continuity",
     label: "原图延展",
-    desc: "最稳，同场景同镜头扩展四个姿势",
+    desc: "最稳，沿用原图氛围扩展姿势",
     swatches: ["#f8fafc", "#dbeafe", "#a78bfa"],
     imageUrl: STYLE_REFERENCE_IMAGES.sourceContinuity,
     prompt:
-      "保持图1原始场景、镜头距离、背景色调、光线方向和商业摄影质感，四宫格只做姿势与轻微自然表情变化，像同一套照片的连续 pose sheet。",
-    camera:
-      "镜头统一规则：consistent medium full-body framing, 50mm natural fashion lens, eye level angle，保持图1原始镜头距离、视平线和画面留白。",
-    poseLines: [
-      "姿势1：正面自然站立，双手自然下垂或轻触口袋，表情平静自然，完整展示服装正面版型。镜头：consistent medium full-body framing, 50mm natural fashion lens, eye level angle",
-      "姿势2：身体轻微侧转30度，肩线放松，一手轻抚头发或整理衣领，柔和浅笑，展示服装侧面轮廓和肩颈线条。镜头：consistent medium full-body framing, 50mm natural fashion lens, eye level angle",
-      "姿势3：重心轻微偏移，一手叉腰或扶腰，另一只手自然下垂，自信微笑，展示服装腰线、廓形和面料垂坠。镜头：consistent medium full-body framing, 50mm natural fashion lens, eye level angle",
-      "姿势4：轻微迈步或自然转身，专注或轻微回眸，衣服产生真实褶皱、张力和垂坠，不改变服装结构。镜头：consistent medium full-body framing, 50mm natural fashion lens, eye level angle",
-    ],
+      "沿用图1原始场景氛围、背景色调、光线方向和商业摄影质感，主要做姿势与轻微自然表情变化，镜头和构图由 AI 按原图气质自然发挥。",
   },
   {
     value: "ecommerce_clean",
@@ -79,15 +71,7 @@ export const POSE_SERIES_STYLES: StylePreset<PoseSeriesStyle>[] = [
     swatches: ["#ffffff", "#f1f5f9", "#c7d2fe"],
     imageUrl: STYLE_REFERENCE_IMAGES.ecommerceClean,
     prompt:
-      "四宫格使用干净电商棚拍质感，背景统一、简洁、明亮，服装边缘清晰，人物姿势服务于商品展示；如果图1不是白底，不要粗暴换景，优先保持原图空间关系并净化干扰元素。",
-    camera:
-      "镜头统一规则：consistent catalog medium full-body framing, 70mm product photography lens, eye level angle，人物居中、边缘干净、服装展示面积一致。",
-    poseLines: [
-      "姿势1：正面标准站立，双臂自然放松，表情平静亲和，服装正面版型、肩线、领口和下摆必须完整清楚。镜头：consistent catalog medium full-body framing, 70mm product photography lens, eye level angle",
-      "姿势2：身体轻微侧转20-30度，一手自然整理衣摆或衣领，表情柔和，展示侧面厚度、袖身和面料垂坠。镜头：consistent catalog medium full-body framing, 70mm product photography lens, eye level angle",
-      "姿势3：一手轻扶腰线或口袋，另一手自然下垂，微笑克制，突出腰线、裤装/裙装廓形和搭配比例。镜头：consistent catalog medium full-body framing, 70mm product photography lens, eye level angle",
-      "姿势4：轻微迈步但身体稳定，眼神自然看向镜头，展示走动时的真实褶皱和下摆动态，不遮挡服装重点。镜头：consistent catalog medium full-body framing, 70mm product photography lens, eye level angle",
-    ],
+      "使用干净电商棚拍质感，背景统一、简洁、明亮，服装边缘清晰，人物姿势服务于商品展示；如果图1不是白底，不要粗暴换景，优先保持原图空间关系并净化干扰元素。",
   },
   {
     value: "luxury_lookbook",
@@ -96,15 +80,7 @@ export const POSE_SERIES_STYLES: StylePreset<PoseSeriesStyle>[] = [
     swatches: ["#f8fafc", "#e5e7eb", "#c4b5fd"],
     imageUrl: STYLE_REFERENCE_IMAGES.luxuryLookbook,
     prompt:
-      "四宫格呈现轻奢 lookbook 拍摄质感，光线柔和、有层次，姿势克制优雅，画面留白高级，服装廓形和面料垂坠是视觉重点。",
-    camera:
-      "镜头统一规则：consistent medium full-body framing with refined negative space, 70mm lookbook lens, eye level angle，留白高级但人物比例不漂移。",
-    poseLines: [
-      "姿势1：自然直立，肩颈放松，一只手轻触衣袖或口袋，表情安静自信，突出整体廓形和高级留白。镜头：consistent medium full-body framing with refined negative space, 70mm lookbook lens, eye level angle",
-      "姿势2：身体优雅侧转30度，头部轻微回正，手部轻整理衣领或发丝，柔和浅笑，展示肩颈线和面料层次。镜头：consistent medium full-body framing with refined negative space, 70mm lookbook lens, eye level angle",
-      "姿势3：重心偏移，手臂形成干净线条，一手轻扶腰侧，表情从容，突出腰线、下摆和垂坠感。镜头：consistent medium full-body framing with refined negative space, 70mm lookbook lens, eye level angle",
-      "姿势4：轻微转身或迈步，衣摆自然摆动，眼神轻微离开镜头，呈现同一组 lookbook 的连续感。镜头：consistent medium full-body framing with refined negative space, 70mm lookbook lens, eye level angle",
-    ],
+      "呈现轻奢 lookbook 拍摄质感，光线柔和、有层次，姿势克制优雅，画面留白高级，服装廓形和面料垂坠是视觉重点。",
   },
   {
     value: "fashion_editorial",
@@ -113,15 +89,7 @@ export const POSE_SERIES_STYLES: StylePreset<PoseSeriesStyle>[] = [
     swatches: ["#111827", "#f9fafb", "#ef4444"],
     imageUrl: STYLE_REFERENCE_IMAGES.fashionEditorial,
     prompt:
-      "四宫格呈现高端时尚杂志 editorial pose sheet，动作更有镜头表现力但仍自然可信，保持同一焦段、同一构图和同一服装展示范围。",
-    camera:
-      "镜头统一规则：consistent editorial medium full-body framing, 70mm fashion editorial lens, eye level angle，允许更强身体线条但禁止特写、广角和俯仰拍。",
-    poseLines: [
-      "姿势1：正面站立但肩线有轻微角度，手臂自然形成时装大片线条，眼神直接、自信，完整展示正面服装结构。镜头：consistent editorial medium full-body framing, 70mm fashion editorial lens, eye level angle",
-      "姿势2：身体侧转30度，一手轻触头发或后颈，另一手自然下垂，表情冷静有镜头感，展示肩颈和袖身轮廓。镜头：consistent editorial medium full-body framing, 70mm fashion editorial lens, eye level angle",
-      "姿势3：重心明显但自然偏移，一手扶腰，身体形成克制的 S 线，表情自信，突出腰线、廓形和面料张力。镜头：consistent editorial medium full-body framing, 70mm fashion editorial lens, eye level angle",
-      "姿势4：轻微迈步或转身回眸，衣服形成真实动态褶皱，眼神专注，像杂志 pose sheet 的最后一格。镜头：consistent editorial medium full-body framing, 70mm fashion editorial lens, eye level angle",
-    ],
+      "呈现高端时尚杂志 editorial 质感，动作更有镜头表现力但仍自然可信，镜头和构图可以更有变化，同时保持人物身份、服装结构和身体比例稳定。",
   },
   {
     value: "korean_clean",
@@ -130,15 +98,7 @@ export const POSE_SERIES_STYLES: StylePreset<PoseSeriesStyle>[] = [
     swatches: ["#fef3c7", "#dbeafe", "#fce7f3"],
     imageUrl: STYLE_REFERENCE_IMAGES.koreanClean,
     prompt:
-      "四宫格使用韩系清透商业摄影风格，柔和自然光、干净色彩、轻盈空气感；保留图1真实肤色和脸型，不要磨成冷白皮或过曝粉白滤镜。",
-    camera:
-      "镜头统一规则：consistent clean medium full-body framing, 50mm soft natural lens, eye level angle，画面通透但曝光不过白。",
-    poseLines: [
-      "姿势1：正面轻松站立，双手自然垂落或轻搭衣摆，表情平静柔和，服装正面清楚、肤色自然。镜头：consistent clean medium full-body framing, 50mm soft natural lens, eye level angle",
-      "姿势2：身体轻微侧转，手指自然整理发丝或衣领，浅浅微笑，呈现清透自然的肩颈线和面料纹理。镜头：consistent clean medium full-body framing, 50mm soft natural lens, eye level angle",
-      "姿势3：重心轻偏，一手轻扶腰线，另一手放松，笑容柔和，展示服装比例和轻盈垂坠。镜头：consistent clean medium full-body framing, 50mm soft natural lens, eye level angle",
-      "姿势4：轻微向前迈步或自然回眸，表情专注温柔，衣摆有轻微空气感动态但服装结构不变。镜头：consistent clean medium full-body framing, 50mm soft natural lens, eye level angle",
-    ],
+      "使用韩系清透商业摄影风格，柔和自然光、干净色彩、轻盈空气感；保留图1真实肤色和脸型，不要磨成冷白皮或过曝粉白滤镜。",
   },
   {
     value: "xiaohongshu_lifestyle",
@@ -147,15 +107,7 @@ export const POSE_SERIES_STYLES: StylePreset<PoseSeriesStyle>[] = [
     swatches: ["#fef9c3", "#fed7aa", "#bae6fd"],
     imageUrl: STYLE_REFERENCE_IMAGES.xiaohongshuLifestyle,
     prompt:
-      "四宫格呈现自然生活方式种草感，动作轻松、有呼吸感，表情自然不过度摆拍，画面保持真实摄影质感和服装可购买的展示清晰度。",
-    camera:
-      "镜头统一规则：consistent lifestyle medium full-body framing, 50mm everyday photography lens, eye level angle，像真实种草连拍但构图和服装展示范围统一。",
-    poseLines: [
-      "姿势1：自然站立，身体放松，双手轻搭包带、口袋或衣摆，表情平静真实，像生活方式照片的第一张。镜头：consistent lifestyle medium full-body framing, 50mm everyday photography lens, eye level angle",
-      "姿势2：身体轻侧，手部自然整理头发或衣领，浅笑自然不摆拍，展示服装侧面和日常穿着松弛感。镜头：consistent lifestyle medium full-body framing, 50mm everyday photography lens, eye level angle",
-      "姿势3：重心偏移，一手扶腰或轻触衣摆，眼神自然看向镜头，突出穿搭比例、腰线和面料垂坠。镜头：consistent lifestyle medium full-body framing, 50mm everyday photography lens, eye level angle",
-      "姿势4：轻微迈步、转身或回头，像被抓拍的自然动态，衣服产生真实褶皱，不改变版型和搭配。镜头：consistent lifestyle medium full-body framing, 50mm everyday photography lens, eye level angle",
-    ],
+      "呈现自然生活方式种草感，动作轻松、有呼吸感，表情自然不过度摆拍，画面保持真实摄影质感和服装可购买的展示清晰度。",
   },
   {
     value: "euro_campaign",
@@ -164,15 +116,7 @@ export const POSE_SERIES_STYLES: StylePreset<PoseSeriesStyle>[] = [
     swatches: ["#111827", "#d1d5db", "#f97316"],
     imageUrl: STYLE_REFERENCE_IMAGES.euroCampaign,
     prompt:
-      "四宫格呈现欧美 fashion campaign 的自信气场，姿势更挺拔有力量，光影对比更明确，但人物身份、服装、构图和色彩管理必须统一。",
-    camera:
-      "镜头统一规则：consistent campaign medium full-body framing, 85mm commercial fashion lens, eye level angle，压缩感更高级但人物必须完整、比例稳定。",
-    poseLines: [
-      "姿势1：正面挺拔站立，肩线打开，双手自然但有力量感，眼神坚定，完整展示服装正面和品牌气场。镜头：consistent campaign medium full-body framing, 85mm commercial fashion lens, eye level angle",
-      "姿势2：身体侧转30度，一手轻触腰侧或衣领，另一手自然下垂，表情冷静自信，展示服装侧面结构和轮廓。镜头：consistent campaign medium full-body framing, 85mm commercial fashion lens, eye level angle",
-      "姿势3：重心偏移更有张力，一手叉腰或扶腰，身体线条挺拔，突出腰线、肩线和面料力量感。镜头：consistent campaign medium full-body framing, 85mm commercial fashion lens, eye level angle",
-      "姿势4：轻微迈步或转身回眸，动作干净有广告大片气场，衣服产生真实动态褶皱且结构不变。镜头：consistent campaign medium full-body framing, 85mm commercial fashion lens, eye level angle",
-    ],
+      "呈现欧美 fashion campaign 的自信气场，姿势更挺拔有力量，光影对比更明确，但人物身份、服装、构图和色彩管理必须统一。",
   },
   {
     value: "user_custom",
@@ -180,26 +124,18 @@ export const POSE_SERIES_STYLES: StylePreset<PoseSeriesStyle>[] = [
     desc: "完全自定义四个姿势描述和镜头规则",
     swatches: ["#fef3c7", "#fbbf24", "#f59e0b"],
     prompt:
-      "保持图1原始场景、镜头距离、背景色调、光线方向和商业摄影质感，四宫格只做姿势与轻微自然表情变化，像同一套照片的连续 pose sheet。",
-    camera:
-      "镜头统一规则：consistent medium full-body framing, 50mm natural fashion lens, eye level angle，保持图1原始镜头距离、视平线和画面留白。",
-    poseLines: [
-      "姿势1：正面自然站立，双手自然下垂或轻触口袋，表情平静自然，完整展示服装正面版型。镜头：consistent medium full-body framing, 50mm natural fashion lens, eye level angle",
-      "姿势2：身体轻微侧转30度，肩线放松，一手轻抚头发或整理衣领，柔和浅笑，展示服装侧面轮廓和肩颈线条。镜头：consistent medium full-body framing, 50mm natural fashion lens, eye level angle",
-      "姿势3：重心轻微偏移，一手叉腰或扶腰，另一只手自然下垂，自信微笑，展示服装腰线、廓形和面料垂坠。镜头：consistent medium full-body framing, 50mm natural fashion lens, eye level angle",
-      "姿势4：轻微迈步或自然转身，专注或轻微回眸，衣服产生真实褶皱、张力和垂坠，不改变服装结构。镜头：consistent medium full-body framing, 50mm natural fashion lens, eye level angle",
-    ],
+      "按用户填写的四个姿势和可选镜头/画幅补充执行；未填写的镜头、景别和构图由 AI 自然决定。",
   },
 ];
 
 export const USER_CUSTOM_POSE_DEFAULT = {
-  prompt: "保持图1原始场景、镜头距离、背景色调、光线方向和商业摄影质感，四宫格只做姿势与轻微自然表情变化，像同一套照片的连续 pose sheet。",
-  camera: "镜头统一规则：consistent medium full-body framing, 50mm natural fashion lens, eye level angle，保持图1原始镜头距离、视平线和画面留白。",
+  prompt: "保持图1人物身份、脸、发型、身体比例、服装结构、背景色调、光线方向和商业摄影质感；按下方姿势描述生成同一套视觉里的姿势变化。",
+  camera: "可选镜头/画幅补充：如果需要，可以写统一镜头，也可以给某个姿势单独指定镜头距离、焦段、景别、画幅或构图；不填写则由 AI 根据姿势和风格自然决定。",
   poses: [
-    "姿势1：正面自然站立，双手自然下垂或轻触口袋，表情平静自然，完整展示服装正面版型。镜头：consistent medium full-body framing, 50mm natural fashion lens, eye level angle",
-    "姿势2：身体轻微侧转30度，肩线放松，一手轻抚头发或整理衣领，柔和浅笑，展示服装侧面轮廓和肩颈线条。镜头：consistent medium full-body framing, 50mm natural fashion lens, eye level angle",
-    "姿势3：重心轻微偏移，一手叉腰或扶腰，另一只手自然下垂，自信微笑，展示服装腰线、廓形和面料垂坠。镜头：consistent medium full-body framing, 50mm natural fashion lens, eye level angle",
-    "姿势4：轻微迈步或自然转身，专注或轻微回眸，衣服产生真实褶皱、张力和垂坠，不改变服装结构。镜头：consistent medium full-body framing, 50mm natural fashion lens, eye level angle",
+    "姿势1：正面自然站立，双手自然下垂或轻触口袋，表情平静自然，完整展示服装正面版型。",
+    "姿势2：身体轻微侧转30度，肩线放松，一手轻抚头发或整理衣领，柔和浅笑，展示服装侧面轮廓和肩颈线条。",
+    "姿势3：重心轻微偏移，一手叉腰或扶腰，另一只手自然下垂，自信微笑，展示服装腰线、廓形和面料垂坠。",
+    "姿势4：轻微迈步或自然转身，专注或轻微回眸，衣服产生真实褶皱、张力和垂坠，不改变服装结构。",
   ],
 };
 
@@ -352,16 +288,16 @@ export function getGarment3dDisplayStyleLabel(value: unknown) {
 
 export function buildPoseSeriesStylePrompt(value: unknown) {
   const style = POSE_SERIES_STYLES.find((item) => item.value === normalizePoseSeriesStyle(value)) || POSE_SERIES_STYLES[0];
-  return [
-    `${POSE_STYLE_MARKER}：${style.label}。${style.prompt}`,
-    style.camera,
-    ...(style.poseLines || []),
-  ].filter(Boolean).join("\n");
+  if (style.value === "user_custom") {
+    return `${POSE_STYLE_MARKER}：${style.label}。按用户填写的姿势1-4执行，不用默认姿势覆盖。`;
+  }
+  return `${POSE_STYLE_MARKER}：${style.label}。${style.prompt}`;
 }
 
 export function getPoseSeriesStylePoseLines(value: unknown) {
-  const style = POSE_SERIES_STYLES.find((item) => item.value === normalizePoseSeriesStyle(value)) || POSE_SERIES_STYLES[0];
-  return style.poseLines || [];
+  return normalizePoseSeriesStyle(value) === "user_custom"
+    ? []
+    : [];
 }
 
 export function buildModelShootStylePrompt(value: unknown) {
@@ -375,7 +311,8 @@ export function buildGarment3dDisplayStylePrompt(value: unknown) {
 }
 
 export function applyPoseSeriesStylePrompt(prompt: string, value: unknown) {
-  return appendPromptSection(prompt, POSE_STYLE_MARKER, buildPoseSeriesStylePrompt(value));
+  const preservePoseLines = normalizePoseSeriesStyle(value) === "user_custom";
+  return appendPromptSection(prompt, POSE_STYLE_MARKER, buildPoseSeriesStylePrompt(value), { preservePoseLines });
 }
 
 export function applyModelShootStylePrompt(prompt: string, value: unknown) {
@@ -386,14 +323,19 @@ export function applyGarment3dDisplayStylePrompt(prompt: string, value: unknown)
   return appendPromptSection(prompt, GARMENT_3D_STYLE_MARKER, buildGarment3dDisplayStylePrompt(value));
 }
 
-function appendPromptSection(prompt: string, marker: string, section: string) {
+function appendPromptSection(
+  prompt: string,
+  marker: string,
+  section: string,
+  options: { preservePoseLines?: boolean } = {}
+) {
   const trimmed = prompt.trim();
   if (!trimmed) return section;
   const withoutPrevious = trimmed
     .split("\n")
     .filter((line) => {
       if (line.includes(marker)) return false;
-      if (marker === POSE_STYLE_MARKER) {
+      if (marker === POSE_STYLE_MARKER && !options.preservePoseLines) {
         const cleanLine = line.trim();
         if (/^姿势\s*[1-4][：:]/.test(cleanLine)) return false;
         if (cleanLine.startsWith("镜头统一规则：")) return false;

@@ -2,15 +2,15 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, ChevronRight, Eye, FolderOpen, Loader2, PenLine, PersonStanding, Sparkles, Upload, Wand, X, XCircle } from "lucide-react";
+import { CheckCircle2, ChevronRight, Eye, FolderOpen, PenLine, PersonStanding, Sparkles, Upload, X, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { createClient, getCachedProfileCredits, setCachedProfileCredits } from "@/lib/supabase/client";
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
 import { FeatureTabs } from "@/components/FeatureTabs";
 import { RepairPromptPanel } from "@/components/RepairPromptPanel";
-import { ModelPromptPreview } from "@/components/ModelPromptPreview";
 import { ClientPortal } from "@/components/ClientPortal";
+import { enforcePosePromptRequirements, type PoseOutputMode } from "@/lib/pose-prompt";
 import { StyleChoiceGrid } from "@/components/StyleChoiceGrid";
 import { ModuleHeader } from "@/components/ModuleHeader";
 import { PreviewGuide } from "@/components/PreviewGuide";
@@ -37,21 +37,7 @@ const MODELS: { value: LingyaModel; label: string; desc: string; badge?: string;
   { value: "doubao-seedream-4-5-251128", label: "Seedream 4.5", desc: "4K · 2分/次", badge: "新", icon: "/model-icons/doubao.png" },
 ];
 
-const DEFAULT_POSE_PROMPT = `High-end fashion magazine editorial photography, same person from 图1, same face identity, hairstyle, body proportion, clothing, fabric texture, color, pattern, scene, lighting and photography quality. Four-panel pose variation from the same fashion photo series, consistent framing, same camera distance, same lens style, same background and color grade. Professional studio lighting with soft key light and natural fill. Hyper-realistic skin texture with natural pores. photorealistic, 8K ultra-detailed, cinematic color grade, sharp details.
-
-时装大片连贯性规则：四个分格必须像同一套商业时装大片的连续 pose sheet，而不是四张不同照片拼贴；保持统一构图、统一背景、统一光线、统一肤色质感、统一色彩管理和统一服装展示尺度。
-服装展示规则：四个姿势都要清楚展示同一套服装的版型、腰线、肩线、袖长、下摆、面料垂坠、纹理和图案；允许动作造成自然褶皱、遮挡和张力变化，但绝不能改变服装结构、颜色、图案、长度、开口位置或搭配关系。
-身体动作规则：动作变化要自然、可信、符合真人关节运动，避免夸张扭腰、断手、错位手指、肢体拉长、身体比例漂移；每个姿势都要稳定站立并服务于服装展示。
-肤色和色彩规则：四个分格必须保留图1人物的自然肤色、肤色明暗、冷暖调、局部红润、阴影层次和真实皮肤质感；保持准确白平衡和真实曝光，不要自动美白、不要雪白皮、不要冷白皮、不要过度提亮肤色。
-脸型五官规则：四个分格必须保持图1人物的脸型骨相、脸长宽比例、颧骨、下颌线、下巴形状、眼型、眼距、鼻翼宽度、唇形和真实五官辨识度；不要自动变成标准鹅蛋脸、小V脸、尖下巴、大眼高鼻的网红脸。
-
-姿势1：正面自然站立，双手自然下垂或轻触口袋，表情平静自然，眼神直视镜头，完整展示服装正面版型。镜头：consistent medium full-body framing, 50mm lens, eye level angle
-姿势2：身体轻微侧转30度，肩线放松，一手轻抚头发或整理衣领，柔和浅笑，展示服装侧面轮廓和肩颈线条。镜头：consistent medium full-body framing, 50mm lens, eye level angle
-姿势3：重心轻微偏移，一手叉腰或扶腰，另一只手自然下垂，自信微笑，展示服装腰线、廓形和面料垂坠。镜头：consistent medium full-body framing, 50mm lens, eye level angle
-姿势4：轻微迈步或转身的自然动态，专注或轻微回眸的自然表情，衣服产生真实褶皱、张力和垂坠，不改变服装结构。镜头：consistent medium full-body framing, 50mm lens, eye level angle
-
-表情控制：保持同一个人、同一张脸、不要换脸，但四个分格需要轻微自然的表情差异，避免复制粘贴脸；建议分别呈现平静自然、自信微笑、柔和浅笑、专注或轻微回眸的眼神表情。
-负面约束：不要换脸，不要换衣服，不要改变场景，不要生成多余人物，不要扭曲手指和肢体，不要塑料皮肤，不要AI渲染感。`;
+const DEFAULT_POSE_PROMPT = "基于图1生成同一人物、同一服装、同一摄影质感的姿势变化；姿势由 AI 按所选风格自由设计，保持人物比例、脸、肤色、发型和服装结构稳定。";
 
 function stripLegacyRuleDemoText(value: string) {
   return value
@@ -75,6 +61,7 @@ export default function PosePage() {
   const [mainImage, setMainImage] = useState<string>("");
   const [prompt, setPrompt] = useState(DEFAULT_POSE_PROMPT);
   const [varyExpression, setVaryExpression] = useState(true);
+  const [outputMode, setOutputMode] = useState<PoseOutputMode>("grid");
   const [poseStyle, setPoseStyle] = useState<PoseSeriesStyle>(DEFAULT_POSE_SERIES_STYLE);
   const [customPosePrompt, setCustomPosePrompt] = useState(USER_CUSTOM_POSE_DEFAULT.prompt);
   const [customCamera, setCustomCamera] = useState(USER_CUSTOM_POSE_DEFAULT.camera);
@@ -91,7 +78,13 @@ export default function PosePage() {
   const [rulesPopoverStyle, setRulesPopoverStyle] = useState<{ top: number; left: number; maxHeight: number } | null>(null);
 
   const imageSizes = getSupportedImageSizes(aiModel, "3:4");
-  const cost = getCreditCost(aiModel, imageSize, "3:4");
+  const unitCost = getCreditCost(aiModel, imageSize, "3:4");
+  const cost = unitCost * (outputMode === "separate" ? 4 : 1);
+  const effectivePosePrompt = stripLegacyRuleDemoText(poseStyle === "user_custom" ? buildCustomPosePrompt() : prompt);
+  const finalPosePrompt = enforcePosePromptRequirements(
+    applyPoseSeriesStylePrompt(effectivePosePrompt, poseStyle),
+    { varyExpression, poseStyle, outputMode }
+  );
 
   const cancelRulesHide = () => {
     if (rulesHideTimerRef.current) {
@@ -290,6 +283,7 @@ export default function PosePage() {
           ),
           vary_expression: varyExpression,
           pose_style: poseStyle,
+          output_mode: outputMode,
         }),
       });
       const data = await res.json();
@@ -315,6 +309,9 @@ export default function PosePage() {
         if (!poll.ok) continue;
         const state = await poll.json();
         if (state.status === "processing_tryon") {
+          if (Array.isArray(state.result_urls) && state.result_urls.length) {
+            setResultUrls(state.result_urls);
+          }
           setProgress(Math.min(25 + attempts * 1.5, 90));
         } else if (state.status === "completed") {
           setProgress(100);
@@ -440,15 +437,40 @@ export default function PosePage() {
                     <span className="text-[11px] font-bold truncate min-w-0">{opt.label}</span>
                     {opt.badge && <span className="text-[9px] px-1 rounded bg-purple-100 text-purple-600 flex-shrink-0">{opt.badge}</span>}
                   </div>
-                  <p className="text-[10px] text-gray-400 pl-5 leading-tight truncate">{opt.desc} · 当前{getCreditCost(opt.value, imageSize, "3:4")}分</p>
+                  <p className="text-[10px] text-gray-400 pl-5 leading-tight truncate">{opt.desc} · 单张{getCreditCost(opt.value, imageSize, "3:4")}分</p>
                 </button>
               ))}
             </div>
           </section>
 
           <section>
-            <h3 className="font-bold text-sm mb-3">比例</h3>
+            <h3 className="font-bold text-sm mb-3">输出方式</h3>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { value: "grid" as const, label: "四宫格拼图", desc: "1 张 2x2 pose sheet" },
+                { value: "separate" as const, label: "每姿势一张", desc: "4 张独立图片" },
+              ].map((mode) => (
+                <button
+                  key={mode.value}
+                  type="button"
+                  onClick={() => setOutputMode(mode.value)}
+                  className={`rounded-lg border px-3 py-2 text-left transition-all ${
+                    outputMode === mode.value ? "border-purple-500 bg-purple-50 text-purple-700" : "border-gray-200 hover:border-gray-300"
+                  }`}
+                >
+                  <p className="text-xs font-bold">{mode.label}</p>
+                  <p className="mt-0.5 text-[10px] leading-relaxed text-gray-400">{mode.desc}</p>
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <section>
+            <h3 className="font-bold text-sm mb-3">画布比例</h3>
             <div className="px-3 py-2 rounded-lg border border-purple-200 bg-purple-50 text-xs font-medium text-purple-600">固定 3:4 竖版</div>
+            <div className="mt-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-[11px] leading-relaxed text-slate-500">
+              人物比例按图1保护：头身比、肩宽、腰胯、腿长、脚部大小和服装穿着尺度不变；镜头、画幅、构图未指定时由 AI 按风格自然决定。
+            </div>
           </section>
 
           {imageSizes.length > 1 && (
@@ -459,7 +481,7 @@ export default function PosePage() {
                   <button key={s} onClick={() => setImageSize(s)}
                     className={`flex-1 py-2 rounded-lg border text-xs font-medium transition-all ${
                       imageSize === s ? "border-purple-500 bg-purple-50 text-purple-600" : "border-gray-200 hover:border-gray-300"
-                    }`}>{s} · {getCreditCost(aiModel, s, "3:4")}积分</button>
+                    }`}>{s} · 单张{getCreditCost(aiModel, s, "3:4")}积分</button>
                 ))}
               </div>
             </section>
@@ -470,7 +492,7 @@ export default function PosePage() {
             <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={() => setVaryExpression(true)}
-                className={`px-3 py-2 rounded-lg border text-xs font-medium transition-all ${
+                className={`px-3 py-2 rounded-lg border text-left text-xs font-medium transition-all ${
                   varyExpression ? "border-purple-500 bg-purple-50 text-purple-600" : "border-gray-200 hover:border-gray-300"
                 }`}
               >
@@ -478,11 +500,11 @@ export default function PosePage() {
               </button>
               <button
                 onClick={() => setVaryExpression(false)}
-                className={`px-3 py-2 rounded-lg border text-xs font-medium transition-all ${
+                className={`px-3 py-2 rounded-lg border text-left text-xs font-medium transition-all ${
                   !varyExpression ? "border-purple-500 bg-purple-50 text-purple-600" : "border-gray-200 hover:border-gray-300"
                 }`}
               >
-                尽量一致
+                严格一致
               </button>
             </div>
           </section>
@@ -491,7 +513,7 @@ export default function PosePage() {
             <h3 className="font-bold text-sm mb-3">拍摄风格</h3>
             <StyleChoiceGrid options={POSE_SERIES_STYLES} value={poseStyle} onChange={selectPoseStyle} />
             <p className="mt-2 text-[11px] leading-relaxed text-gray-400">
-              风格只控制四宫格整体拍摄方向，人物身份、服装结构、镜头距离和系列一致性仍然优先。
+              预设只给风格方向，AI 会自由设计四个姿势；人物身份、服装结构和身体比例仍然优先。
             </p>
 
             {/* 用户自定义姿势编辑器 */}
@@ -502,7 +524,7 @@ export default function PosePage() {
                   自定义姿势描述
                 </div>
                 <p className="text-[11px] text-amber-600">
-                  编辑下方内容自定义四个姿势的描述和镜头规则。每行一个姿势。
+                  编辑下方内容自定义四个姿势；镜头、画幅和构图是可选项，不填则由 AI 自然决定。
                 </p>
 
                 <div>
@@ -517,13 +539,13 @@ export default function PosePage() {
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-xs font-bold text-slate-600">镜头统一规则</label>
+                  <label className="mb-1 block text-xs font-bold text-slate-600">镜头/画幅补充（可选）</label>
                   <textarea
                     value={customCamera}
                     onChange={(e) => setCustomCamera(e.target.value)}
                     rows={3}
                     className="custom-scroll w-full resize-none rounded-lg border border-slate-200 px-3 py-2 text-xs leading-relaxed outline-none focus:border-violet-300 focus:ring-1 focus:ring-violet-200"
-                    placeholder="镜头参数..."
+                    placeholder="可为空；需要时可写统一镜头，或指定某个姿势的镜头距离、焦段、景别、画幅和构图。"
                   />
                 </div>
 
@@ -579,7 +601,7 @@ export default function PosePage() {
 
         <div className="studio-runbar border-t p-3 sm:p-4 space-y-2 sticky bottom-0 z-10 lg:static">
           <div className="flex items-center justify-between text-xs">
-            <span className="text-gray-400">四宫格 · 单张结果</span>
+            <span className="text-gray-400">{outputMode === "separate" ? "每姿势一张 · 4 张结果" : "四宫格 · 单张结果"}</span>
             {isAuthenticated
               ? <span className="font-bold text-amber-600">消耗 {cost} · 余额 {credits ?? "-"}</span>
               : <span className="text-gray-400">登录后查看积分</span>
@@ -588,7 +610,7 @@ export default function PosePage() {
           <button onClick={() => generate()} disabled={isGenerating || !mainImage}
             className="w-full py-3 rounded-xl gradient-brand text-white text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-40 hover:opacity-90 shadow-lg shadow-purple-200">
             <Sparkles className="w-4 h-4" />
-            {!isAuthenticated ? "登录后生成" : isGenerating ? "生成中..." : "生成四宫格"}
+            {!isAuthenticated ? "登录后生成" : isGenerating ? "生成中..." : outputMode === "separate" ? "生成 4 张独立图" : "生成四宫格"}
           </button>
         </div>
       </div>
@@ -598,26 +620,38 @@ export default function PosePage() {
           <div className="studio-empty-stage min-h-[260px] sm:min-h-[360px] lg:h-full flex items-center justify-center px-4">
             <PreviewGuide
               title="开始姿势裂变"
-              subtitle="用一张主图生成同人物、同服装、同场景的多姿势四宫格。"
+              subtitle="用一张主图生成同人物、同服装、同风格的多姿势图片，可输出四宫格或四张独立图。"
               imageSrc="/home-showcase/pose-grid-black-outfit.png"
               imageAlt="姿势裂变指引"
               steps={[
                 { title: "上传主图", desc: "人物身份、服装、背景和镜头关系都会作为硬参考保留。" },
                 { title: "选择姿势风格", desc: "可切换自然站姿、走动感、商拍动作等裂变方向。" },
-                { title: "生成四宫格", desc: "输出同一套画面逻辑下的 4 个动作变化，适合商品详情和内容矩阵。" },
+                { title: "选择输出方式", desc: "可输出 2x2 四宫格，也可每个姿势单独生成一张图。" },
               ]}
             />
           </div>
         )}
 
-        {isGenerating && (
+        {isGenerating && resultUrls.length === 0 && (
           <LoadingStage genCount={4} progress={progress} moduleName="姿势裂变" />
         )}
 
         {resultUrls.length > 0 && (
           <div className="studio-result-stage min-h-[260px] sm:min-h-[360px] overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:h-full flex flex-col animate-fade-in">
+            {isGenerating && (
+              <div className="mb-4 rounded-xl border border-purple-100 bg-white/80 px-3 py-2 text-xs font-medium text-purple-600 shadow-sm">
+                已生成 {resultUrls.length}{outputMode === "separate" ? " / 4" : ""}，剩余图片生成中...
+              </div>
+            )}
             <div className="flex min-h-0 flex-1 items-center justify-center">
-              <ResultImageGrid urls={resultUrls} filenamePrefix="pose" extension="jpg" onOpen={setLightboxSrc} />
+              <ResultImageGrid
+                urls={resultUrls}
+                filenamePrefix="pose"
+                extension="jpg"
+                onOpen={setLightboxSrc}
+                expectedCount={isGenerating && outputMode === "separate" ? 4 : undefined}
+                isGenerating={isGenerating}
+              />
             </div>
             <div className="mt-4 flex justify-center">
               <RepairPromptPanel
@@ -724,7 +758,8 @@ export default function PosePage() {
                   ["模型", aiModel],
                   ["分辨率", imageSize],
                   ["风格", getPoseSeriesStyleLabel(poseStyle)],
-                  ["表情控制", varyExpression ? "自然变化" : "尽量一致"],
+                  ["输出", outputMode === "separate" ? "每姿势一张" : "四宫格拼图"],
+                  ["表情控制", varyExpression ? "自然变化" : "严格一致"],
                   ["主图", mainImage ? "已上传" : "未上传"],
                 ].map(([label, value]) => (
                   <div key={label} className="rounded-lg border bg-gray-50 px-3 py-2">
@@ -733,31 +768,31 @@ export default function PosePage() {
                   </div>
                 ))}
               </div>
-              <textarea
-                value={stripLegacyRuleDemoText(prompt)}
-                onChange={(e) => setPrompt(e.target.value)}
-                className="min-h-[320px] w-full resize-y rounded-lg border px-3 py-2 text-xs leading-relaxed text-gray-700 outline-none focus:ring-2 focus:ring-purple-200"
-              />
-              <ModelPromptPreview kind="pose" model={aiModel} prompt={stripLegacyRuleDemoText(prompt)} />
-              <button
-                onClick={optimizePrompt}
-                disabled={isOptimizing || !mainImage}
-                className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-purple-200 py-2 text-xs font-medium text-purple-600 hover:bg-purple-50 disabled:opacity-40"
-              >
-                {isOptimizing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand className="w-3.5 h-3.5" />}
-                分析图片并优化提示词
-              </button>
-              <button
-                onClick={() => setPrompt(applyPoseSeriesStylePrompt(DEFAULT_POSE_PROMPT, poseStyle))}
-                className="w-full rounded-lg border py-2 text-xs font-medium text-gray-500 hover:border-purple-300 hover:text-purple-600"
-              >
-                恢复默认模板
-              </button>
+              <div className="rounded-xl border border-emerald-100 bg-emerald-50/60 p-3">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <p className="text-xs font-bold text-emerald-700">最终执行提示词</p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(finalPosePrompt);
+                      toast.success("已复制最终执行提示词");
+                    }}
+                    className="rounded-full border border-emerald-100 bg-white px-3 py-1 text-[10px] font-medium text-emerald-700 hover:border-emerald-300"
+                  >
+                    复制
+                  </button>
+                </div>
+                <textarea
+                  readOnly
+                  value={finalPosePrompt}
+                  className="min-h-[360px] w-full resize-y rounded-lg border border-emerald-100 bg-white/85 px-3 py-2 text-[11px] leading-relaxed text-gray-700 outline-none"
+                />
+              </div>
             </div>
             <div className="flex justify-end gap-2 border-t px-5 py-3">
               <button
                 onClick={() => {
-                  navigator.clipboard.writeText(prompt);
+                  navigator.clipboard.writeText(finalPosePrompt);
                   toast.success("已复制");
                 }}
                 className="rounded-full border px-4 py-1.5 text-xs font-medium hover:bg-gray-50"
