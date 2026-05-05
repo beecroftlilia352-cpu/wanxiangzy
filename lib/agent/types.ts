@@ -57,6 +57,13 @@ export interface GenerationResult {
     jobPayload: Record<string, unknown>;
     creditsCost: number;
   };
+  _lastRunData?: {
+    apiPath: string;
+    module: string;
+    params: Record<string, unknown>;
+    jobPayload: Record<string, unknown>;
+    creditsCost: number;
+  };
 }
 
 export interface GenerationParams {

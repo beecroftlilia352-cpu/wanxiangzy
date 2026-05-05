@@ -9,6 +9,8 @@ import type { AspectRatio, ImageSize, LingyaModel } from "@/lib/api/lingya";
 import type { ChatImage, ChatImageRole, GenerationParams, Message } from "@/lib/agent/types";
 import { validateConfirmImageRoles } from "@/lib/agent/confirm-role-params";
 import { renderMentionSegments } from "@/lib/agent/mention-parser";
+import { RepairPromptPanel } from "@/components/RepairPromptPanel";
+import type { RepairKind } from "@/lib/generation-repair";
 import { downloadImage, generateDownloadFilename } from "@/lib/utils";
 
 type Props = {
@@ -18,6 +20,7 @@ type Props = {
   onOpenImage: (url: string) => void;
   onRetry: (messageId: string) => void;
   onConfirm?: (messageId: string) => void;
+  onRepair?: (messageId: string, repairValue: string) => void;
   onUpdateConfirmParams?: (messageId: string, params: Partial<GenerationParams>) => void;
   onUpdateConfirmImageRole?: (messageId: string, imageIndex: number, role: ChatImageRole) => void;
   onUseAsReference?: (url: string) => void;
@@ -53,7 +56,7 @@ const CONFIRM_ROLE_OPTIONS: Array<{ value: ChatImageRole; label: string }> = [
   { value: "source", label: "原图" },
 ];
 
-export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage, onRetry, onConfirm, onUpdateConfirmParams, onUpdateConfirmImageRole, onUseAsReference }: Props) {
+export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage, onRetry, onConfirm, onRepair, onUpdateConfirmParams, onUpdateConfirmImageRole, onUseAsReference }: Props) {
   const { role, content, images, generation, created_at } = message;
   const [copied, setCopied] = useState(false);
 
@@ -276,6 +279,13 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
               ))}
             </div>
             {/* 快捷操作按钮 */}
+            {onRepair && generation._lastRunData && (
+              <RepairPromptPanel
+                kind={getGenerationRepairKind(generation._lastRunData.module)}
+                onRepair={(repairValue) => onRepair(message.id, repairValue)}
+                className="mt-2 shadow-sm"
+              />
+            )}
             <div className="mt-2 flex flex-wrap gap-1.5">
               <QuickAction icon={<RefreshCw className="h-3 w-3" />} label="重新生成" onClick={() => onRetry(message.id)} />
               <QuickAction
@@ -624,6 +634,16 @@ function FailureCreditNotice({ generation }: { generation: NonNullable<Message["
       )}
     </div>
   );
+}
+
+function getGenerationRepairKind(module: string): RepairKind {
+  if (module === "grass") return "grass";
+  if (module === "pose") return "pose";
+  if (module === "model") return "model";
+  if (module === "garment_3d") return "garment3d";
+  if (module === "model_background") return "modelBackground";
+  if (module === "tryon") return "tryon";
+  return "general";
 }
 
 function getRoleLabel(role: ChatImageRole): string {

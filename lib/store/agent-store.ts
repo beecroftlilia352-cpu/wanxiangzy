@@ -6,6 +6,7 @@ import type { Conversation, Message, ChatImage, GenerationParams, AgentMode, Age
 import { DEFAULT_PARAMS } from "@/lib/agent/types";
 import { applyConfirmImageRoles, validateConfirmImageRoles } from "@/lib/agent/confirm-role-params";
 import { getCreditCost, normalizeImageSize, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
+import { applyRepairPrompt, type RepairKind } from "@/lib/generation-repair";
 import { uploadImage, compressImageForAgent } from "@/lib/utils";
 
 // ---- DB 持久化（Supabase） ----
@@ -44,6 +45,7 @@ type Store = {
   confirmGeneration: (messageId: string) => Promise<void>;
   updateConfirmParams: (messageId: string, params: Partial<GenerationParams>) => void;
   updateConfirmImageRole: (messageId: string, imageIndex: number, role: ChatImageRole) => void;
+  repairGeneration: (messageId: string, repairValue: string) => void;
   reset: () => void;
 };
 
@@ -71,6 +73,9 @@ function sanitizeGenerationForDB(gen: unknown): Record<string, unknown> | null {
   // 保留确认数据（pending 状态需要，completed/failed 时清理）
   if (g._confirmData && g.status === "pending") {
     clean._confirmData = g._confirmData;
+  }
+  if (g._lastRunData) {
+    clean._lastRunData = g._lastRunData;
   }
   return Object.keys(clean).length > 0 ? clean : null;
 }
@@ -635,6 +640,42 @@ export const useAgentStore = create<Store>((set, get) => ({
     }
   },
 
+  repairGeneration: (messageId: string, repairValue: string) => {
+    let convId = "";
+    let updatedGeneration: unknown = null;
+
+    set((s) => ({
+      messages: s.messages.map((m) => {
+        if (m.id !== messageId || !m.generation?._lastRunData) return m;
+        convId = m.conversation_id;
+        const lastRun = m.generation._lastRunData;
+        const repairKind = getRepairKind(lastRun.module);
+        const current = readConfirmParams(lastRun.params);
+        const repairedPrompt = applyRepairPrompt(current.prompt || String(lastRun.params.prompt || ""), repairKind, repairValue);
+        const nextParams = writeConfirmParams(lastRun.params, { ...current, prompt: repairedPrompt });
+        const nextJobPayload = writeConfirmPayloadParams(lastRun.jobPayload, { ...current, prompt: repairedPrompt });
+        const generation = {
+          ...m.generation,
+          status: "pending" as const,
+          progress: 0,
+          resultUrls: [],
+          error: undefined,
+          generationId: undefined,
+          creditsUsed: lastRun.creditsCost,
+          _confirmData: {
+            ...lastRun,
+            params: nextParams,
+            jobPayload: nextJobPayload,
+          },
+        };
+        updatedGeneration = generation;
+        return { ...m, generation };
+      }),
+    }));
+
+    if (convId && updatedGeneration) updateMessageGeneration(convId, messageId, updatedGeneration);
+  },
+
   confirmGeneration: async (messageId: string) => {
     const { messages } = get();
     const msg = messages.find((m) => m.id === messageId);
@@ -720,6 +761,7 @@ export const useAgentStore = create<Store>((set, get) => ({
                     progress: 100,
                     resultUrls: verifiedResultUrls,
                     creditsUsed: data.credits_cost || confirmData.creditsCost,
+                    _lastRunData: confirmData,
                     _confirmData: undefined,
                   },
                 }
@@ -747,6 +789,7 @@ export const useAgentStore = create<Store>((set, get) => ({
                   progress: 25,
                   generationId: data.generation_id,
                   creditsUsed: data.credits_cost || confirmData.creditsCost,
+                  _lastRunData: confirmData,
                   _confirmData: undefined,
                 },
               }
@@ -770,7 +813,7 @@ export const useAgentStore = create<Store>((set, get) => ({
         isSending: false,
         messages: s.messages.map((m) =>
           m.id === messageId && m.generation
-            ? { ...m, generation: { ...m.generation, status: "failed" as const, error: errMsg, _confirmData: undefined } }
+            ? { ...m, generation: { ...m.generation, status: "failed" as const, error: errMsg, _lastRunData: confirmData, _confirmData: undefined } }
             : m
         ),
       }));
@@ -945,6 +988,16 @@ function writeConfirmPayloadParams(payload: Record<string, unknown>, next: Gener
   };
   if (typeof next.prompt === "string") output.prompt = next.prompt;
   return output;
+}
+
+function getRepairKind(module: string): RepairKind {
+  if (module === "grass") return "grass";
+  if (module === "pose") return "pose";
+  if (module === "model") return "model";
+  if (module === "garment_3d") return "garment3d";
+  if (module === "model_background") return "modelBackground";
+  if (module === "tryon") return "tryon";
+  return "general";
 }
 
 function findPreviousUserImageMessageIndex(messages: Message[], beforeIndex: number): number {

@@ -162,6 +162,7 @@ export default function AgentPage() {
           onOpenImage={setLightbox}
           onRetry={s.retryMessage}
           onConfirm={s.confirmGeneration}
+          onRepair={s.repairGeneration}
           onUpdateConfirmParams={s.updateConfirmParams}
           onUpdateConfirmImageRole={s.updateConfirmImageRole}
           onUseAsReference={(url) => {

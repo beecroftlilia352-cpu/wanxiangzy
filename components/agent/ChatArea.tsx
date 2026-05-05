@@ -20,6 +20,7 @@ type Props = {
   onOpenImage: (url: string) => void;
   onRetry: (messageId: string) => void;
   onConfirm?: (messageId: string) => void;
+  onRepair?: (messageId: string, repairValue: string) => void;
   onUpdateConfirmParams?: (messageId: string, params: Partial<GenerationParams>) => void;
   onUpdateConfirmImageRole?: (messageId: string, imageIndex: number, role: ChatImageRole) => void;
   onUseAsReference?: (url: string) => void;
@@ -57,6 +58,7 @@ export function ChatArea({
   onOpenImage,
   onRetry,
   onConfirm,
+  onRepair,
   onUpdateConfirmParams,
   onUpdateConfirmImageRole,
   onUseAsReference,
@@ -184,6 +186,7 @@ export function ChatArea({
                 onOpenImage={onOpenImage}
                 onRetry={onRetry}
                 onConfirm={onConfirm}
+                onRepair={onRepair}
                 onUpdateConfirmParams={onUpdateConfirmParams}
                 onUpdateConfirmImageRole={onUpdateConfirmImageRole}
                 onUseAsReference={onUseAsReference}
