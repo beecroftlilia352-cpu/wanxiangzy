@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  getForbiddenAgentModules,
   getCommerceCreativeAspectRatio,
   getCommerceIntentKind,
+  getUserBoundaryLines,
 } from "@/lib/agent/visual-task-planner";
 
 describe("visual task planner", () => {
@@ -16,5 +18,12 @@ describe("visual task planner", () => {
     expect(getCommerceIntentKind("做一张横版 banner")).toBe("creative");
     expect(getCommerceCreativeAspectRatio("做一张横版 banner")).toBe("16:9");
     expect(getCommerceCreativeAspectRatio("生成淘宝主图")).toBe("1:1");
+  });
+
+  it("understands negative module constraints", () => {
+    expect(getForbiddenAgentModules("生成淘宝详情页，不要做成小红书种草图")).toContain("grass");
+    expect(getForbiddenAgentModules("参考这张图重新设计，不是换装，不要上身")).toContain("tryon");
+    expect(getForbiddenAgentModules("只要单张海报，不要四宫格姿势裂变")).toContain("pose");
+    expect(getUserBoundaryLines("不要种草，只做详情页").join("\n")).toContain("不要把任务改成小红书种草");
   });
 });

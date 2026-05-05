@@ -36,8 +36,10 @@ import {
 import { buildSafeReplyExcerpt } from "@/lib/agent/formatting";
 import {
   explainCommerceIntent,
+  getForbiddenAgentModules,
   getCommerceCreativeAspectRatio as getPlannedCommerceAspectRatio,
   getCommerceIntentKind,
+  getUserBoundaryLines,
 } from "@/lib/agent/visual-task-planner";
 import type { AgentIntentMode } from "@/lib/agent/types";
 
@@ -547,7 +549,11 @@ function normalizeAgentDecision(
     : [];
 
   const plannedTask = planVisualTask(userText, hasImages);
-  const detected = plannedTask?.module || detectGenerationIntent(userText);
+  const forbiddenModules = getForbiddenAgentModules(userText);
+  const rawDetected = plannedTask?.module || detectGenerationIntent(userText);
+  const detected = rawDetected && forbiddenModules.some((blocked) => blocked === rawDetected)
+    ? (hasGenericGenerationIntent(userText) ? "general" : null)
+    : rawDetected;
   if (plannedTask) {
     action = "generate";
     module = plannedTask.module;
@@ -557,6 +563,10 @@ function normalizeAgentDecision(
     module = detected;
   }
   if (!module && detected) module = detected;
+  if (module && forbiddenModules.some((blocked) => blocked === module)) {
+    module = hasGenericGenerationIntent(userText) ? "general" : null;
+    if (module === "general") params.prompt = buildGeneralGenerationPrompt(userText, null);
+  }
 
   if (action === "generate" && !hasImages && module !== "general") {
     module = "general";
@@ -925,6 +935,10 @@ function isChatOnlyIntent(text: string): boolean {
   return /^(你是谁|你好|谢谢|为什么|怎么|如何|什么是|请问|分析|分析一|看看|这个是什么|解释|推荐|建议|适合什么)/.test(text);
 }
 
+function hasGenericGenerationIntent(text: string): boolean {
+  return /\u751f\u6210|\u5236\u4f5c|\u51fa\u56fe|\u505a\u4e00\u5f20|\u6765\u4e00\u5f20|\u753b\u4e00\u5f20|\u7ed9\u6211.*\u56fe|\u5e2e\u6211.*\u56fe|\u91cd\u65b0|\u91cd\u505a|\u8c03\u6574|\u4fee\u6539|\u6539\u6210|\u8bbe\u8ba1/.test(text);
+}
+
 function normalizeIntentMode(value?: string): AgentIntentMode {
   if (value === "chat" || value === "create" || value === "smart") return value;
   return "smart";
@@ -1104,6 +1118,10 @@ function buildGeneralGenerationPrompt(text: string, taskType: "commerce_detail" 
     );
   }
 
+  const boundaryLines = getUserBoundaryLines(userText);
+  if (boundaryLines.length) {
+    base.push(`\u7528\u6237\u660e\u786e\u8fb9\u754c\uff1a${boundaryLines.join("\uff1b")}`);
+  }
   if (userText) base.push("\u7528\u6237\u539f\u59cb\u9700\u6c42\uff1a" + userText);
   return base.join("\n");
 }
@@ -1222,7 +1240,9 @@ function getTaskRationale(
 ): string[] {
   const lines: string[] = [];
   const commerceReason = explainCommerceIntent(combined);
+  const boundaryLines = getUserBoundaryLines(combined);
   if (params.inheritedTask) lines.push("\u8bc6\u522b\u4e3a\u5bf9\u4e0a\u4e00\u6b21\u4efb\u52a1\u7684\u8ffd\u52a0\u4fee\u6539\uff0c\u56e0\u6b64\u6cbf\u7528\u4e0a\u8f6e\u6a21\u5757\u548c\u56fe\u7247\u5173\u7cfb\u3002");
+  if (boundaryLines.length) lines.push(`\u8bc6\u522b\u5230\u7528\u6237\u7684\u6392\u9664\u8fb9\u754c\uff1a${boundaryLines.join("\uff1b")}`);
   if (commerceReason) lines.push(`${commerceReason}\u6240\u4ee5\u6309\u901a\u7528\u5546\u4e1a\u56fe\u751f\u6210\uff0c\u4e0d\u81ea\u52a8\u6539\u6210\u79cd\u8349\u6216\u6362\u88c5\u6a21\u5757\u3002`);
   if (combined.includes("banner")) lines.push("\u547d\u4e2d banner/\u6a2a\u7248\u89c6\u89c9\u610f\u56fe\uff0c\u4f18\u5148\u4fdd\u7559\u6807\u9898\u533a\u548c\u5356\u70b9\u5c42\u7ea7\u3002");
   if (params.module === "pose") lines.push("\u547d\u4e2d\u59ff\u52bf/\u56db\u5bab\u683c\u610f\u56fe\uff0c\u56e0\u6b64\u91cd\u70b9\u7ea6\u675f\u4eba\u7269\u3001\u670d\u88c5\u548c\u8eab\u4f53\u6bd4\u4f8b\u4e00\u81f4\u3002");
