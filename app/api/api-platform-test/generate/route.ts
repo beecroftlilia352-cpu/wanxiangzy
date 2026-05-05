@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase/server";
 
-const REQUEST_TIMEOUT_MS = 180000;
+const REQUEST_TIMEOUT_MS = 300000;
 const MAX_IMAGE_DATA_URL_LENGTH = 21 * 1024 * 1024;
-const DEFAULT_ALLOWED_API_HOSTS = ["hk-api.gptbest.vip", "api.bltcy.ai", "api.whatai.cc"];
+const DEFAULT_ALLOWED_API_HOSTS = ["value.apiqik.online", "hk-api.gptbest.vip", "api.bltcy.ai", "api.whatai.cc"];
 
 type ImageSize = "1K" | "2K" | "4K";
 type ImageQuality = "auto" | "low" | "medium" | "high";
@@ -32,9 +32,8 @@ export async function POST(request: Request) {
     const prompt = body.prompt?.trim();
     const images = (body.images || []).map((image) => image.trim()).filter(Boolean);
     const aspectRatio = normalizeAspectRatio(body.aspectRatio);
-    const imageSize = normalizeImageSize(body.imageSize);
+    const requestedImageSize = normalizeImageSize(body.imageSize);
     const quality = normalizeQuality(body.quality);
-    const size = resolvePixelSize(imageSize, aspectRatio);
 
     if (!apiUrl) return NextResponse.json({ error: "请输入 API URL" }, { status: 400 });
     if (!apiKey) return NextResponse.json({ error: "请输入 API Key" }, { status: 400 });
@@ -45,6 +44,8 @@ export async function POST(request: Request) {
     }
 
     const startedAt = Date.now();
+    const imageSize = resolveModelImageSize(model, requestedImageSize);
+    const size = resolvePixelSize(imageSize, aspectRatio);
     const upstreamBody = buildGenerationsBody({
       model,
       prompt,
@@ -108,18 +109,35 @@ function buildGenerationsBody(params: {
   const body: Record<string, unknown> = {
     model: params.model,
     prompt: params.prompt,
+    n: 1,
     size: params.size,
     aspect_ratio: params.aspectRatio,
     response_format: "url",
   };
 
   if (params.images.length > 0) body.image = params.images;
-  if (params.model === "gpt-image-2") body.quality = params.quality;
-  if (params.model === "nano-banana-2" || params.model === "nano-banana-pro") {
+  if (supportsQualityParam(params.model)) body.quality = params.quality;
+  if (supportsImageSizeParam(params.model)) {
     body.image_size = params.imageSize;
   }
 
   return body;
+}
+
+function supportsQualityParam(model: string) {
+  return model.toLowerCase().startsWith("gpt-image-2");
+}
+
+function supportsImageSizeParam(model: string) {
+  const normalized = model.toLowerCase();
+  return normalized.startsWith("nano-banana") || normalized.startsWith("gemini-");
+}
+
+function resolveModelImageSize(model: string, fallback: ImageSize): ImageSize {
+  const normalized = model.toLowerCase();
+  if (normalized.endsWith("-4k")) return "4K";
+  if (normalized.endsWith("-2k")) return "2K";
+  return fallback;
 }
 
 function normalizeApiUrl(value: string | undefined) {
