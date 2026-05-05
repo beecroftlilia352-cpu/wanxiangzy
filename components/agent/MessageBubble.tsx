@@ -294,6 +294,7 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
             {onRepair && generation._lastRunData && (
               <RepairPromptPanel
                 kind={getGenerationRepairKind(generation._lastRunData.module)}
+                priorityValues={getPriorityRepairValues(generation._lastRunData.module, generation._lastRunData.taskBrief?.risks || [])}
                 onRepair={(repairValue) => onRepair(message.id, repairValue)}
                 className="mt-2 shadow-sm"
               />
@@ -811,6 +812,18 @@ function getGenerationRepairKind(module: string): RepairKind {
   if (module === "model_background") return "modelBackground";
   if (module === "tryon") return "tryon";
   return "general";
+}
+
+function getPriorityRepairValues(module: string, risks: string[]): string[] {
+  const text = risks.join("\n");
+  const values: string[] = [];
+  if (text.includes("\u8be6\u60c5\u9875") || text.includes("\u5355\u5f20\u6c1b\u56f4\u56fe") || text.includes("\u7248\u5f0f")) values.push("layout_hierarchy");
+  if (text.includes("\u4e2d\u6587") || text.includes("\u5c0f\u5b57") || text.includes("\u56fe\u6807") || text.includes("\u6587\u5b57")) values.push("text_clean", "logo_text");
+  if (text.includes("\u670d\u88c5") || text.includes("logo") || text.includes("\u4e3b\u4f53")) values.push(module === "general" ? "product_restore" : "garment_restore");
+  if (text.includes("\u624b\u6307") || text.includes("\u5173\u8282") || text.includes("\u8eab\u4f53\u6bd4\u4f8b")) values.push("body_hands");
+  if (text.includes("\u8138\u90e8") || text.includes("\u6362\u8138")) values.push("face_identity", "face_consistency");
+  if (text.includes("\u591a\u5f20") || text.includes("\u4e00\u81f4")) values.push("intent_restore", "clothing_consistency", "face_consistency");
+  return Array.from(new Set(values)).slice(0, 3);
 }
 
 function getRoleLabel(role: ChatImageRole): string {
