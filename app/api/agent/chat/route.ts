@@ -260,15 +260,16 @@ export async function POST(request: NextRequest) {
     let llmParams = decision.params;
     const style = decision.style;
     const standaloneTextGeneration = isStandaloneTextGenerationIntent(userText);
+    const commerceDesign = isCommerceDesignIntent(userText);
 
     if (intentMode === "chat" || isChatOnlyIntent(userText)) {
       action = "chat";
       module = null;
       decision.source = decision.source === "llm" ? "llm" : "heuristic";
-    } else if (standaloneTextGeneration) {
+    } else if (commerceDesign || standaloneTextGeneration) {
       action = "generate";
       module = "general";
-      llmParams = { prompt: userText };
+      llmParams = { ...llmParams, prompt: buildGeneralGenerationPrompt(userText, commerceDesign) };
       decision.params = llmParams;
       decision.confidence = Math.max(decision.confidence, 0.82);
       decision.source = "heuristic";
@@ -315,23 +316,28 @@ export async function POST(request: NextRequest) {
     // 通用生图（文生图 / 图生图 / 无特定模块）
     if (!MODULE_API[module]) {
       const imageUrls = standaloneTextGeneration ? [] : (images || []).map((img) => img.url).filter(Boolean);
+      const generalPrompt = buildGeneralGenerationPrompt(
+        typeof decision.params.prompt === "string" ? decision.params.prompt : userText,
+        commerceDesign
+      );
+      const generalLabel = commerceDesign ? "电商详情页" : "通用生图";
       const model = normalizeLingyaModel(userParams?.model);
       const aspectRatio = normalizeAspectRatio(userParams?.aspectRatio || "3:4");
       const imageSize = normalizeImageSize(model, (userParams?.imageSize as ImageSize) || "1K", aspectRatio);
       const count = Math.min(Math.max(Number(userParams?.count) || 1, 1), 4);
       const cost = getCreditCost(model, imageSize, aspectRatio) * count;
       return NextResponse.json({
-        reply: buildConfirmReply("通用生图", decision.reply, {
+        reply: buildConfirmReply(generalLabel, decision.reply, {
           imageCount: imageUrls.length,
           confidence: decision.confidence,
           missingFields: [],
           planLines: buildPlanLines("general", decision.params, images || []),
         }),
         action: "confirm_generate",
-        module: "通用生图",
-        module_label: "通用生图",
+        module: "general",
+        module_label: generalLabel,
         generation_params: {
-          prompt: userText || decision.reply,
+          prompt: generalPrompt,
           images: imageUrls,
           model,
           aspectRatio,
@@ -456,7 +462,11 @@ function normalizeAgentDecision(
     : [];
 
   const detected = detectGenerationIntent(userText);
-  if (action === "chat" && detected && !isChatOnlyIntent(userText)) {
+  if (isCommerceDesignIntent(userText)) {
+    action = "generate";
+    module = "general";
+    params.prompt = buildGeneralGenerationPrompt(userText, true);
+  } else if (action === "chat" && detected && !isChatOnlyIntent(userText)) {
     action = "generate";
     module = detected;
   }
@@ -806,6 +816,21 @@ function getIntentModeInstruction(mode: AgentIntentMode): string {
   return "当前模式：智能。聊天优先；只有用户明确要求生成、改图、换装、换背景、种草、3D、姿势裂变时才返回 generate。";
 }
 
+function isCommerceDesignIntent(text: string): boolean {
+  return /淘宝|天猫|京东|详情页|商品详情|电商详情|主图|banner|Banner|海报|落地页|长图|卖点图|参数图/.test(text);
+}
+
+function buildGeneralGenerationPrompt(text: string, commerceDesign: boolean): string {
+  const userText = text.trim();
+  if (!commerceDesign) return userText;
+  return [
+    "根据提供的参考图片生成电商视觉设计，不要当成小红书种草图或街拍图。",
+    "目标是淘宝/天猫商品详情页或电商长图版式：包含首屏主视觉、核心卖点区、细节展示区、参数/功能区，画面要像可直接用于商品详情页的商业设计稿。",
+    "保留参考图中的商品/服装主体特征、材质、颜色和风格气质，可以根据电商页面需要重新组织构图、背景、文案层级、图标和版面。",
+    userText ? `用户原始需求：${userText}` : "",
+  ].filter(Boolean).join("\n");
+}
+
 function isStandaloneTextGenerationIntent(text: string): boolean {
   if (!/生成|制作|出图|做一张|来一张|画一张|给我.*图|帮我.*图/.test(text)) return false;
   return !/图\s*\d|图片\s*\d|@图\d|这张|这件|这条|这个|上身|换装|试穿|穿到|穿在|种草|小红书|换背景|换场景|3[dD]|立体|姿势|四宫格/.test(text);
@@ -814,6 +839,7 @@ function isStandaloneTextGenerationIntent(text: string): boolean {
 function detectGenerationIntent(text: string): string | null {
   const rules: Array<[RegExp, string]> = [
     // 明确的模块意图
+    [/淘宝|天猫|京东|详情页|商品详情|电商详情|主图|banner|Banner|海报|落地页|长图|卖点图|参数图/, "general"],
     [/换[装到上]|穿[到在]|试穿|上身|换装/, "tryon"],
     [/种草|小红书|街拍.*图/, "grass"],
     [/3[dD]|立体|商品展示/, "garment_3d"],
