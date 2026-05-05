@@ -6,7 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { requireApiUser } from "@/lib/api/auth";
-import { getChatCompletionsUrl, getLlmConfig } from "@/lib/api/llm-provider";
+import { getChatCompletionsUrl, getLlmFallbackConfigs } from "@/lib/api/llm-provider";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 import {
   createDebitedGeneration,
@@ -34,6 +34,7 @@ import {
   type AgentImageInput,
 } from "@/lib/agent/decision-utils";
 import { buildSafeReplyExcerpt } from "@/lib/agent/formatting";
+import type { AgentIntentMode } from "@/lib/agent/types";
 
 export const maxDuration = 60;
 
@@ -161,21 +162,23 @@ export async function POST(request: NextRequest) {
     if (!limit.ok) return rateLimitResponse(limit.retryAfterSeconds);
 
     const body = await request.json().catch(() => ({}));
-    const { message, images, history, params: userParams } = body as {
+    const { message, images, history, intentMode: rawIntentMode, params: userParams } = body as {
       message?: string;
       images?: AgentImageInput[];
       history?: Array<{ role: string; content: string }>;
+      intentMode?: AgentIntentMode;
       params?: { model?: string; aspectRatio?: string; imageSize?: string; count?: number };
     };
+    const intentMode = normalizeIntentMode(rawIntentMode);
 
     if (!message?.trim() && (!images || images.length === 0)) {
       return NextResponse.json({ reply: "请输入消息或上传图片。", action: "chat" });
     }
 
     const hasImages = images && images.length > 0;
-    const llm = getLlmConfig(hasImages ? "vision" : "text");
+    const providers = getLlmFallbackConfigs(hasImages ? "vision" : "text");
 
-    if (!llm.apiKey || !llm.baseUrl) {
+    if (providers.length === 0) {
       return NextResponse.json({ reply: "AI 服务暂时不可用。", action: "chat" });
     }
 
@@ -192,10 +195,11 @@ export async function POST(request: NextRequest) {
 
     const userContent: Array<Record<string, unknown>> = [];
     const userText = (message || "").trim();
+    const modeInstruction = getIntentModeInstruction(intentMode);
     const imageDesc = hasImages
       ? `\n\n图片编号：${images!.map((img) => `图${img.index}（${getImageRoleLabel(img.role) || guessImageRole(img.index, images!.length, userText)}）`).join("、")}\n图片角色以括号标注为准，优先使用用户设置的图片角色，不要自行交换图号。`
       : "";
-    userContent.push({ type: "text", text: `${userText || "请分析这些图片并推荐操作"}${imageDesc}` });
+    userContent.push({ type: "text", text: `${modeInstruction}\n\n${userText || "请分析这些图片并推荐操作"}${imageDesc}` });
 
     if (hasImages) {
       for (const img of images!) {
@@ -206,12 +210,6 @@ export async function POST(request: NextRequest) {
 
     // 调用 LLM（带降级）
     let llmContent = "";
-    const providers = [llm];
-    if (llm.provider === "xiaomi") {
-      const lingya = getLlmConfig(hasImages ? "vision" : "text");
-      if (lingya.provider !== "xiaomi" && lingya.apiKey && lingya.baseUrl) providers.push(lingya);
-    }
-
     for (const provider of providers) {
       try {
         const controller = new AbortController();
@@ -224,10 +222,35 @@ export async function POST(request: NextRequest) {
         }).finally(() => clearTimeout(timeout));
         if (res.ok) {
           const data = await res.json();
-          llmContent = extractText(data);
-          break;
+          llmContent = extractText(data).trim();
+          if (llmContent) break;
+          console.warn("[agent-chat] provider returned empty content", {
+            provider: provider.provider,
+            model: provider.model,
+          });
+        } else {
+          const errorText = await res.text().catch(() => "");
+          console.warn("[agent-chat] provider failed", {
+            provider: provider.provider,
+            model: provider.model,
+            status: res.status,
+            body: errorText.slice(0, 300),
+          });
         }
-      } catch {}
+      } catch (err) {
+        console.warn("[agent-chat] provider request error", {
+          provider: provider.provider,
+          model: provider.model,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+
+    if (!llmContent) {
+      return NextResponse.json({
+        reply: "AI 对话服务没有返回有效内容，请稍后重试，或先检查当前 LLM Provider 的 API Key。",
+        action: "chat",
+      });
     }
 
     // 解析 LLM 响应
@@ -236,9 +259,23 @@ export async function POST(request: NextRequest) {
     let { action, module } = decision;
     let llmParams = decision.params;
     const style = decision.style;
+    const standaloneTextGeneration = isStandaloneTextGenerationIntent(userText);
+
+    if (intentMode === "chat" || isChatOnlyIntent(userText)) {
+      action = "chat";
+      module = null;
+      decision.source = decision.source === "llm" ? "llm" : "heuristic";
+    } else if (standaloneTextGeneration) {
+      action = "generate";
+      module = "general";
+      llmParams = { prompt: userText };
+      decision.params = llmParams;
+      decision.confidence = Math.max(decision.confidence, 0.82);
+      decision.source = "heuristic";
+    }
 
     // 兜底：检测生图意图
-    if (!module) {
+    if (intentMode !== "chat" && !module) {
       const detected = detectGenerationIntent(userText);
       if (detected) {
         action = "generate";
@@ -247,7 +284,7 @@ export async function POST(request: NextRequest) {
         decision.source = "heuristic";
       }
       // 最终兜底：多图 + 非纯聊天时才默认换装；单图更适合先分析/询问，避免误扣积分
-      if (!module && hasImages && (images?.length || 0) >= 2 && !isChatOnlyIntent(userText)) {
+      if (!module && intentMode === "create" && hasImages && (images?.length || 0) >= 2 && !isChatOnlyIntent(userText)) {
         action = "generate";
         module = "tryon";
         decision.confidence = 0.55;
@@ -277,7 +314,7 @@ export async function POST(request: NextRequest) {
 
     // 通用生图（文生图 / 图生图 / 无特定模块）
     if (!MODULE_API[module]) {
-      const imageUrls = (images || []).map((img) => img.url).filter(Boolean);
+      const imageUrls = standaloneTextGeneration ? [] : (images || []).map((img) => img.url).filter(Boolean);
       const model = normalizeLingyaModel(userParams?.model);
       const aspectRatio = normalizeAspectRatio(userParams?.aspectRatio || "3:4");
       const imageSize = normalizeImageSize(model, (userParams?.imageSize as ImageSize) || "1K", aspectRatio);
@@ -490,13 +527,16 @@ function buildConfirmReply(
 ): string {
   const confidenceLabel = meta.confidence >= 0.8 ? "高" : meta.confidence >= 0.62 ? "中" : "偏低";
   const intro = buildSafeReplyExcerpt(originalReply, 220);
+  const contextLine = meta.imageCount > 0
+    ? `我会只使用本次附件区里的 ${meta.imageCount} 张图，不会自动带入历史会话图片。`
+    : "我会按纯文字生成，不使用任何历史图片或旧附件。";
 
   const plan = meta.planLines?.length
     ? `\n\n**图片关系**\n\n${meta.planLines.map((line) => `- ${line}`).join("\n")}`
     : "";
 
   return normalizeAgentReply(
-    `${intro}\n\n**即将执行**\n\n- **功能**：${moduleLabel}\n- **图片数量**：${meta.imageCount || "无图片，按文字生成"}\n- **理解置信度**：${confidenceLabel}${plan}\n\n**下一步**\n\n确认无误后点击“确认生成”，系统才会扣除积分并开始任务。`
+    `${intro}\n\n**我的理解**\n\n- **任务类型**：${moduleLabel}\n- **上下文边界**：${contextLine}\n- **理解置信度**：${confidenceLabel}${plan}\n\n**扣费说明**\n\n确认卡只是预检，不会扣积分。确认无误后点击“确认生成”，系统才会扣除积分并开始任务。`
   );
 }
 
@@ -749,6 +789,26 @@ function buildModuleParams(
  */
 function isChatOnlyIntent(text: string): boolean {
   return /^(你是谁|你好|谢谢|为什么|怎么|如何|什么是|请问|分析|分析一|看看|这个是什么|解释|推荐|建议|适合什么)/.test(text);
+}
+
+function normalizeIntentMode(value?: string): AgentIntentMode {
+  if (value === "chat" || value === "create" || value === "smart") return value;
+  return "smart";
+}
+
+function getIntentModeInstruction(mode: AgentIntentMode): string {
+  if (mode === "chat") {
+    return "当前模式：聊天。只能回答、分析、追问和给建议；不要返回 generate，不要触发生成确认卡。";
+  }
+  if (mode === "create") {
+    return "当前模式：创作。用户表达创作或改图意图时，可以更积极整理为生成任务；但图片关系不明确时仍需先追问。";
+  }
+  return "当前模式：智能。聊天优先；只有用户明确要求生成、改图、换装、换背景、种草、3D、姿势裂变时才返回 generate。";
+}
+
+function isStandaloneTextGenerationIntent(text: string): boolean {
+  if (!/生成|制作|出图|做一张|来一张|画一张|给我.*图|帮我.*图/.test(text)) return false;
+  return !/图\s*\d|图片\s*\d|@图\d|这张|这件|这条|这个|上身|换装|试穿|穿到|穿在|种草|小红书|换背景|换场景|3[dD]|立体|姿势|四宫格/.test(text);
 }
 
 function detectGenerationIntent(text: string): string | null {

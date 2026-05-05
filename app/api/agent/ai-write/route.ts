@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/api/auth";
-import { getChatCompletionsUrl, getLlmConfig } from "@/lib/api/llm-provider";
+import { getChatCompletionsUrl, getLlmFallbackConfigs } from "@/lib/api/llm-provider";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 
 export const maxDuration = 30;
@@ -37,8 +37,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "请先上传图片" }, { status: 400 });
     }
 
-    const llm = getLlmConfig("vision");
-    if (!llm.apiKey || !llm.baseUrl) {
+    const providers = getLlmFallbackConfigs("vision");
+    if (providers.length === 0) {
       return NextResponse.json({ optimizedPrompt: currentPrompt || "", source: "fallback" });
     }
 
@@ -51,30 +51,48 @@ export async function POST(request: NextRequest) {
       ...images.map((url: string) => ({ type: "image_url", image_url: { url } })),
     ];
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 40000);
+    let content = "";
+    for (const llm of providers) {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 40000);
 
-    const res = await fetch(getChatCompletionsUrl(llm), {
-      method: "POST",
-      headers: { Authorization: `Bearer ${llm.apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: llm.model,
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: userContent },
-        ],
-        max_tokens: 800,
-        temperature: 0.4,
-      }),
-      signal: controller.signal,
-    }).finally(() => clearTimeout(timeout));
+        const res = await fetch(getChatCompletionsUrl(llm), {
+          method: "POST",
+          headers: { Authorization: `Bearer ${llm.apiKey}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: llm.model,
+            messages: [
+              { role: "system", content: SYSTEM_PROMPT },
+              { role: "user", content: userContent },
+            ],
+            max_tokens: 800,
+            temperature: 0.4,
+          }),
+          signal: controller.signal,
+        }).finally(() => clearTimeout(timeout));
 
-    if (!res.ok) {
-      return NextResponse.json({ optimizedPrompt: currentPrompt || "", source: "fallback" });
+        if (res.ok) {
+          const data = await res.json();
+          content = extractText(data).trim();
+          if (content) break;
+        } else {
+          const errorText = await res.text().catch(() => "");
+          console.warn("[ai-write] provider failed", {
+            provider: llm.provider,
+            model: llm.model,
+            status: res.status,
+            body: errorText.slice(0, 300),
+          });
+        }
+      } catch (err) {
+        console.warn("[ai-write] provider request error", {
+          provider: llm.provider,
+          model: llm.model,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
     }
-
-    const data = await res.json();
-    const content = extractText(data).trim();
 
     return NextResponse.json({
       optimizedPrompt: content || currentPrompt || "",

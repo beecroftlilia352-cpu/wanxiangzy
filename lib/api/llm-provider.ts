@@ -19,6 +19,20 @@ export function getLlmConfig(kind: LlmKind): LlmConfig {
   return provider === "lingya" ? getLingyaConfig(kind) : getXiaomiConfig(kind);
 }
 
+export function getLlmFallbackConfigs(kind: LlmKind): LlmConfig[] {
+  const primary = getLlmConfig(kind);
+  const fallback = primary.provider === "xiaomi" ? getLingyaConfig(kind) : getXiaomiConfig(kind);
+  const configs = [primary, fallback].filter((config) => config.apiKey && config.baseUrl && config.model);
+  const seen = new Set<string>();
+
+  return configs.filter((config) => {
+    const key = `${config.provider}:${config.baseUrl}:${config.model}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 export function getLlmProvider(): LlmProvider {
   return process.env.ANALYZE_LLM_PROVIDER?.toLowerCase() === "lingya"
     ? "lingya"
