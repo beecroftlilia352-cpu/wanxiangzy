@@ -171,6 +171,11 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
               params={readConfirmParams(generation._confirmData.params)}
               onChange={onUpdateConfirmParams}
             />
+            <ConfirmPromptEditor
+              messageId={message.id}
+              prompt={readConfirmParams(generation._confirmData.params).prompt || ""}
+              onChange={onUpdateConfirmParams}
+            />
             <ConfirmImageRoleEditor
               messageId={message.id}
               images={confirmImages}
@@ -678,6 +683,48 @@ function ConfirmParamsEditor({
   );
 }
 
+function ConfirmPromptEditor({
+  messageId,
+  prompt,
+  onChange,
+}: {
+  messageId: string;
+  prompt: string;
+  onChange?: (messageId: string, params: Partial<GenerationParams>) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  if (!onChange || !prompt) return null;
+
+  return (
+    <div className="mb-3 overflow-hidden rounded-xl border border-violet-100 bg-white/75">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        className="flex w-full items-center gap-2 px-3 py-2.5 text-left transition-colors hover:bg-violet-50/50"
+      >
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-bold text-slate-800">{"\u6700\u7ec8\u6267\u884c\u63d0\u793a\u8bcd"}</p>
+          <p className="truncate text-[11px] text-slate-400">{prompt}</p>
+        </div>
+        <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && (
+        <div className="border-t border-violet-50 p-3">
+          <textarea
+            value={prompt}
+            onChange={(event) => onChange(messageId, { prompt: event.target.value })}
+            className="min-h-28 w-full resize-y rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs leading-relaxed text-slate-700 outline-none transition-colors focus:border-violet-300"
+            placeholder={"\u786e\u8ba4\u524d\u53ef\u4ee5\u76f4\u63a5\u6539\u6700\u7ec8\u6267\u884c\u63d0\u793a\u8bcd"}
+          />
+          <p className="mt-1.5 text-[10px] leading-relaxed text-slate-400">
+            {"\u8fd9\u91cc\u7684\u5185\u5bb9\u4f1a\u76f4\u63a5\u53d1\u7ed9\u751f\u56fe\u6a21\u578b\uff0c\u9002\u5408\u8865\u5145\u7248\u5f0f\u3001\u98ce\u683c\u3001\u6587\u6848\u548c\u7981\u6b62\u65b9\u5411\u3002"}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ConfirmSelect<T extends string>({
   label,
   value,
@@ -711,6 +758,7 @@ function readConfirmParams(params: Record<string, unknown>): GenerationParams {
     aspectRatio: String(params.aspectRatio || params.aspect_ratio || "3:4") as AspectRatio,
     imageSize: String(params.imageSize || params.image_size || "1K") as ImageSize,
     count: Math.min(Math.max(Number(params.count || params.gen_count || 1), 1), 4),
+    prompt: typeof params.prompt === "string" ? params.prompt : "",
   };
 }
 

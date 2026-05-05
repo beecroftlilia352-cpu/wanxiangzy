@@ -537,18 +537,21 @@ export const useAgentStore = create<Store>((set, get) => ({
         const nextRatio = patch.aspectRatio || current.aspectRatio;
         const nextSize = normalizeImageSize(nextModel, patch.imageSize || current.imageSize, nextRatio);
         const nextCount = Math.min(Math.max(Number(patch.count ?? current.count) || 1, 1), 4);
+        const nextPrompt = patch.prompt ?? current.prompt;
         const nextCost = getCreditCost(nextModel, nextSize, nextRatio) * nextCount;
         const nextParams = writeConfirmParams(m.generation._confirmData.params, {
           model: nextModel,
           aspectRatio: nextRatio,
           imageSize: nextSize,
           count: nextCount,
+          prompt: nextPrompt,
         });
         const nextJobPayload = writeConfirmPayloadParams(m.generation._confirmData.jobPayload, {
           model: nextModel,
           aspectRatio: nextRatio,
           imageSize: nextSize,
           count: nextCount,
+          prompt: nextPrompt,
         });
         const generation = {
           ...m.generation,
@@ -908,11 +911,13 @@ function readConfirmParams(params: Record<string, unknown>): GenerationParams {
   const aspectRatio = String(params.aspectRatio || params.aspect_ratio || DEFAULT_PARAMS.aspectRatio) as AspectRatio;
   const imageSize = String(params.imageSize || params.image_size || DEFAULT_PARAMS.imageSize) as ImageSize;
   const count = Number(params.count || params.gen_count || DEFAULT_PARAMS.count);
+  const prompt = typeof params.prompt === "string" ? params.prompt : "";
   return {
     model,
     aspectRatio,
     imageSize,
     count: Math.min(Math.max(count || 1, 1), 4),
+    prompt,
   };
 }
 
@@ -926,17 +931,20 @@ function writeConfirmParams(params: Record<string, unknown>, next: GenerationPar
   if ("aspect_ratio" in output) output.aspect_ratio = next.aspectRatio;
   if ("image_size" in output) output.image_size = next.imageSize;
   if ("gen_count" in output) output.gen_count = next.count;
+  if (typeof next.prompt === "string") output.prompt = next.prompt;
   return output;
 }
 
 function writeConfirmPayloadParams(payload: Record<string, unknown>, next: GenerationParams): Record<string, unknown> {
-  return {
+  const output: Record<string, unknown> = {
     ...payload,
     aiModel: next.model,
     aspectRatio: next.aspectRatio,
     imageSize: next.imageSize,
     genCount: next.count,
   };
+  if (typeof next.prompt === "string") output.prompt = next.prompt;
+  return output;
 }
 
 function findPreviousUserImageMessageIndex(messages: Message[], beforeIndex: number): number {

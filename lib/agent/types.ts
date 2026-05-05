@@ -64,6 +64,7 @@ export interface GenerationParams {
   aspectRatio: AspectRatio;
   imageSize: ImageSize;
   count: number;
+  prompt?: string;
 }
 
 export const DEFAULT_PARAMS: GenerationParams = {
