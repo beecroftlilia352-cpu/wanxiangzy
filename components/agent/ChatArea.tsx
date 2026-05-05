@@ -190,6 +190,7 @@ export function ChatArea({
                 onUpdateConfirmParams={onUpdateConfirmParams}
                 onUpdateConfirmImageRole={onUpdateConfirmImageRole}
                 onUseAsReference={onUseAsReference}
+                onQuickAction={onQuickAction}
               />
             ))}
           </AnimatePresence>

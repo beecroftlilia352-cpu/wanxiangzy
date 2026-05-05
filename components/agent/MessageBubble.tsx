@@ -24,6 +24,7 @@ type Props = {
   onUpdateConfirmParams?: (messageId: string, params: Partial<GenerationParams>) => void;
   onUpdateConfirmImageRole?: (messageId: string, imageIndex: number, role: ChatImageRole) => void;
   onUseAsReference?: (url: string) => void;
+  onQuickAction?: (text: string) => void;
 };
 
 const CONFIRM_MODEL_OPTIONS: Array<{ value: LingyaModel; label: string }> = [
@@ -56,7 +57,7 @@ const CONFIRM_ROLE_OPTIONS: Array<{ value: ChatImageRole; label: string }> = [
   { value: "source", label: "原图" },
 ];
 
-export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage, onRetry, onConfirm, onRepair, onUpdateConfirmParams, onUpdateConfirmImageRole, onUseAsReference }: Props) {
+export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage, onRetry, onConfirm, onRepair, onUpdateConfirmParams, onUpdateConfirmImageRole, onUseAsReference, onQuickAction }: Props) {
   const { role, content, images, generation, created_at } = message;
   const [copied, setCopied] = useState(false);
 
@@ -157,6 +158,10 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
         )}
 
         {/* ===== 确认生成卡片（等待用户确认） ===== */}
+        {!isUser && content && onQuickAction && isAmbiguousClarifyMessage(content) && (
+          <ClarifyQuickReplies onSelect={onQuickAction} />
+        )}
+
         {generation && generation.status === "pending" && generation._confirmData && (
           <div className="mt-2 w-full max-w-sm rounded-xl border border-amber-200 bg-amber-50/50 p-4">
             <div className="mb-3 flex items-center justify-between">
@@ -732,6 +737,34 @@ function FailureCreditNotice({ generation }: { generation: NonNullable<Message["
           本任务在正式创建生成记录前失败，通常不会产生扣费；重新生成会重新进入确认流程。
         </p>
       )}
+    </div>
+  );
+}
+
+function isAmbiguousClarifyMessage(content: string): boolean {
+  return content.includes("\u6307\u4ee4\u8fd8\u6709\u70b9\u6a21\u7cca")
+    || content.includes("\u8bf7\u76f4\u63a5\u56de\u590d\u4e00\u4e2a\u66f4\u660e\u786e\u7684\u65b9\u5411");
+}
+
+function ClarifyQuickReplies({ onSelect }: { onSelect: (text: string) => void }) {
+  const replies = [
+    "\u6309\u8fd9\u5f20\u56fe\u91cd\u65b0\u8bbe\u8ba1\u4e00\u5f20\u5546\u4e1a\u56fe",
+    "\u751f\u6210\u6dd8\u5b9d\u8be6\u60c5\u9875",
+    "\u4fdd\u7559\u4e3b\u4f53\uff0c\u53ea\u4fee\u590d\u6bd4\u4f8b/\u624b\u6307/\u6587\u5b57",
+  ];
+
+  return (
+    <div className="mt-2 flex max-w-md flex-wrap gap-1.5">
+      {replies.map((reply) => (
+        <button
+          key={reply}
+          type="button"
+          onClick={() => onSelect(reply)}
+          className="rounded-full border border-violet-100 bg-white/90 px-3 py-1.5 text-[11px] font-semibold text-violet-700 shadow-sm transition-colors hover:border-violet-300 hover:bg-violet-50"
+        >
+          {reply}
+        </button>
+      ))}
     </div>
   );
 }
