@@ -34,6 +34,11 @@ import {
   type AgentImageInput,
 } from "@/lib/agent/decision-utils";
 import { buildSafeReplyExcerpt } from "@/lib/agent/formatting";
+import {
+  explainCommerceIntent,
+  getCommerceCreativeAspectRatio as getPlannedCommerceAspectRatio,
+  getCommerceIntentKind,
+} from "@/lib/agent/visual-task-planner";
 import type { AgentIntentMode } from "@/lib/agent/types";
 
 export const maxDuration = 60;
@@ -982,17 +987,15 @@ function isCommerceDesignIntent(text: string): boolean {
 }
 
 function isCommerceDetailIntent(text: string): boolean {
-  return /\u6dd8\u5b9d|\u5929\u732b|\u4eac\u4e1c|\u8be6\u60c5\u9875|\u5546\u54c1\u8be6\u60c5|\u7535\u5546\u8be6\u60c5|\u843d\u5730\u9875|\u957f\u56fe|\u5356\u70b9\u56fe|\u53c2\u6570\u56fe|\u529f\u80fd\u56fe|\u7ec6\u8282\u56fe/.test(text);
+  return getCommerceIntentKind(text) === "detail";
 }
 
 function isCommerceCreativeIntent(text: string): boolean {
-  return /\u4e3b\u56fe|\u7535\u5546\u4e3b\u56fe|banner|Banner|\u6d77\u62a5|\u6d3b\u52a8\u56fe|\u63a8\u5e7f\u56fe|\u9996\u56fe|\u5c01\u9762\u56fe|\u5e7f\u544a\u56fe|\u4ea7\u54c1\u9875/.test(text);
+  return getCommerceIntentKind(text) === "creative";
 }
 
 function getCommerceCreativeAspectRatio(text: string): AspectRatio {
-  if (/banner|Banner|\u6a2a\u7248|\u6a2a\u56fe|\u6a2a\u5e45/.test(text)) return "16:9";
-  if (/\u4e3b\u56fe|\u7535\u5546\u4e3b\u56fe|\u9996\u56fe|\u5c01\u9762\u56fe/.test(text)) return "1:1";
-  return "3:4";
+  return getPlannedCommerceAspectRatio(text);
 }
 
 function isReferenceRedesignIntent(text: string): boolean {
@@ -1218,8 +1221,9 @@ function getTaskRationale(
   unusedImages: AgentImageInput[]
 ): string[] {
   const lines: string[] = [];
+  const commerceReason = explainCommerceIntent(combined);
   if (params.inheritedTask) lines.push("\u8bc6\u522b\u4e3a\u5bf9\u4e0a\u4e00\u6b21\u4efb\u52a1\u7684\u8ffd\u52a0\u4fee\u6539\uff0c\u56e0\u6b64\u6cbf\u7528\u4e0a\u8f6e\u6a21\u5757\u548c\u56fe\u7247\u5173\u7cfb\u3002");
-  if (params.taskPlan?.taskType === "commerce_detail" || combined.includes("\u8be6\u60c5\u9875")) lines.push("\u547d\u4e2d\u7535\u5546\u8be6\u60c5\u9875/\u957f\u56fe\u7c7b\u610f\u56fe\uff0c\u6240\u4ee5\u6309\u901a\u7528\u5546\u4e1a\u56fe\u751f\u6210\u800c\u4e0d\u8fdb\u5165\u79cd\u8349\u6216\u6362\u88c5\u6a21\u5757\u3002");
+  if (commerceReason) lines.push(`${commerceReason}\u6240\u4ee5\u6309\u901a\u7528\u5546\u4e1a\u56fe\u751f\u6210\uff0c\u4e0d\u81ea\u52a8\u6539\u6210\u79cd\u8349\u6216\u6362\u88c5\u6a21\u5757\u3002`);
   if (combined.includes("banner")) lines.push("\u547d\u4e2d banner/\u6a2a\u7248\u89c6\u89c9\u610f\u56fe\uff0c\u4f18\u5148\u4fdd\u7559\u6807\u9898\u533a\u548c\u5356\u70b9\u5c42\u7ea7\u3002");
   if (params.module === "pose") lines.push("\u547d\u4e2d\u59ff\u52bf/\u56db\u5bab\u683c\u610f\u56fe\uff0c\u56e0\u6b64\u91cd\u70b9\u7ea6\u675f\u4eba\u7269\u3001\u670d\u88c5\u548c\u8eab\u4f53\u6bd4\u4f8b\u4e00\u81f4\u3002");
   if (params.module === "tryon") lines.push("\u547d\u4e2d\u6362\u88c5/\u4e0a\u8eab\u610f\u56fe\uff0c\u56e0\u6b64\u4f18\u5148\u8fd8\u539f\u670d\u88c5\u5e76\u8d34\u5408\u53c2\u8003\u4eba\u7269\u6216\u59ff\u52bf\u3002");
