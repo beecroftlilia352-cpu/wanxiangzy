@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Bot, User, Loader2, CheckCircle2, AlertCircle, Download, ZoomIn, RefreshCw, Copy, Sparkles } from "lucide-react";
+import { Bot, User, Loader2, CheckCircle2, AlertCircle, Download, ZoomIn, RefreshCw, Copy, Sparkles, ChevronDown } from "lucide-react";
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -180,7 +180,14 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
             <ConfirmRoleIssues
               issues={validateConfirmImageRoles(generation._confirmData.module, generation._confirmData.params, confirmImages)}
             />
-            <ConfirmTaskPlan
+            <ConfirmExecutionSummaryV2
+              moduleName={generation.module || "图像生成"}
+              images={confirmImages}
+              params={generation._confirmData.params}
+              jobPayload={generation._confirmData.jobPayload}
+              credits={generation.creditsUsed || generation._confirmData.creditsCost}
+            />
+            <ConfirmTaskPlanV2
               moduleName={generation.module || "图像生成"}
               params={readConfirmParams(generation._confirmData.params)}
               credits={generation.creditsUsed || generation._confirmData.creditsCost}
@@ -301,6 +308,11 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
                   <p className="truncate text-[10px] text-red-500">{generation.error || "未知错误"}</p>
                 </div>
               </div>
+              <div className="mt-2 rounded-lg border border-red-100 bg-white/80 px-2.5 py-2 text-[11px] leading-relaxed text-slate-600">
+                <p>不会自动再次扣费；点击重新生成会重新进入确认流程。</p>
+                <p className="text-slate-400">如果已进入第三方生成队列，积分以服务端记录为准。</p>
+              </div>
+              <FailureCreditNotice generation={generation} />
               <button onClick={() => onRetry(message.id)}
                 className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-lg bg-red-50 py-2 text-xs font-bold text-red-600 transition-colors hover:bg-red-100">
                 <RefreshCw className="h-3 w-3" /> 重新生成
@@ -396,6 +408,96 @@ function hasConfirmRoleErrors(module: string, params: Record<string, unknown>, i
   return validateConfirmImageRoles(module, params, images).some((issue) => issue.severity === "error");
 }
 
+function ConfirmExecutionSummary({
+  moduleName,
+  images,
+  params,
+  jobPayload,
+  credits,
+}: {
+  moduleName: string;
+  images: ChatImage[];
+  params?: Record<string, unknown>;
+  jobPayload?: Record<string, unknown>;
+  credits: number;
+}) {
+  const usedImages = images.length > 0
+    ? images.map((img) => `图${img.index}=${getRoleLabel(img.role || "auto")}`).join("，")
+    : "不使用附件图，仅按文字生成";
+
+  return (
+    <div className="mb-3 rounded-xl border border-slate-200 bg-white/80 p-3 text-[11px] leading-relaxed text-slate-600">
+      <p className="mb-1 font-bold text-slate-800">执行前确认</p>
+      <p>我识别到本次任务是：<span className="font-bold text-violet-700">{moduleName}</span>。</p>
+      <p>将使用：{usedImages}。</p>
+      <p className="mt-1 rounded-lg bg-amber-50 px-2 py-1 text-amber-700">
+        点击“确认生成”后才会扣除 {credits || 0} 积分；如果只是调整参数或图片角色，不会扣费。
+      </p>
+    </div>
+  );
+}
+
+function ConfirmExecutionSummaryV2({
+  moduleName,
+  images,
+  params,
+  jobPayload,
+  credits,
+}: {
+  moduleName: string;
+  images: ChatImage[];
+  params: Record<string, unknown>;
+  jobPayload?: Record<string, unknown>;
+  credits: number;
+}) {
+  const { used, unused } = splitUsedImages(images, params, jobPayload);
+  const usedText = used.length > 0
+    ? used.map((img) => `图${img.index}=${getRoleLabel(img.role || "auto")}`).join("，")
+    : "不使用附件图，仅按文字生成";
+  const unusedText = unused.length > 0
+    ? unused.map((img) => `图${img.index}`).join("、")
+    : "无";
+
+  return (
+    <div className="mb-3 rounded-xl border border-slate-200 bg-white/80 p-3 text-[11px] leading-relaxed text-slate-600">
+      <p className="mb-1 font-bold text-slate-800">执行前确认</p>
+      <p>我识别到本次任务是：<span className="font-bold text-violet-700">{moduleName}</span>。</p>
+      <p>将使用：{usedText}。</p>
+      <p>不会使用：{unusedText}。</p>
+      <p className="mt-1 rounded-lg bg-amber-50 px-2 py-1 text-amber-700">
+        点击“确认生成”后才会扣除 {credits || 0} 积分；如果只是调整参数或图片角色，不会扣费。
+      </p>
+    </div>
+  );
+}
+
+function splitUsedImages(
+  images: ChatImage[],
+  params: Record<string, unknown>,
+  jobPayload?: Record<string, unknown>
+): { used: ChatImage[]; unused: ChatImage[] } {
+  if (images.length === 0) return { used: [], unused: [] };
+  const haystack = flattenStrings([params, jobPayload || {}]).join("\n");
+  const used = images.filter((img) => {
+    const urls = [img.url, img.hostedUrl].filter(Boolean) as string[];
+    return urls.some((url) => haystack.includes(url));
+  });
+  if (used.length === 0) return { used: images, unused: [] };
+  return {
+    used,
+    unused: images.filter((img) => !used.some((usedImg) => usedImg.index === img.index)),
+  };
+}
+
+function flattenStrings(value: unknown): string[] {
+  if (typeof value === "string") return [value];
+  if (Array.isArray(value)) return value.flatMap(flattenStrings);
+  if (value && typeof value === "object") {
+    return Object.values(value as Record<string, unknown>).flatMap(flattenStrings);
+  }
+  return [];
+}
+
 function ConfirmTaskPlan({
   moduleName,
   params,
@@ -436,6 +538,92 @@ function ConfirmTaskPlan({
       </div>
     </div>
   );
+}
+
+function ConfirmTaskPlanV2({
+  moduleName,
+  params,
+  credits,
+}: {
+  moduleName: string;
+  params: GenerationParams;
+  credits: number;
+}) {
+  const [open, setOpen] = useState(false);
+  const steps = ["确认参数", "扣除积分", "生成图片", "校验结果"];
+
+  return (
+    <div className="mb-3 overflow-hidden rounded-xl border border-violet-100 bg-white/75">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        className="flex w-full items-center gap-2 px-3 py-2.5 text-left transition-colors hover:bg-violet-50/50"
+      >
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-bold text-slate-800">执行计划</p>
+          <p className="truncate text-[11px] text-slate-400">
+            {moduleName} · {params.model} · {params.aspectRatio} · {params.imageSize} · {params.count} 张 · {credits} 积分
+          </p>
+        </div>
+        <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+
+      {open && (
+        <div className="border-t border-violet-50 p-3">
+          <div className="mb-2 flex flex-wrap items-center gap-1.5">
+            <ConfirmChip label={moduleName} />
+            <ConfirmChip label={params.model} />
+            <ConfirmChip label={`${params.aspectRatio} · ${params.imageSize}`} />
+            <ConfirmChip label={`${params.count} 张`} />
+            <ConfirmChip label={`${credits} 积分`} tone="amber" />
+          </div>
+          <div className="grid grid-cols-4 gap-1.5">
+            {steps.map((step, index) => (
+              <div key={step} className="relative rounded-lg bg-slate-50 px-2 py-2 text-center">
+                {index < steps.length - 1 && (
+                  <div className="absolute left-[calc(50%+12px)] top-4 hidden h-px w-[calc(100%-20px)] bg-violet-100 sm:block" />
+                )}
+                <div className="relative z-10 mx-auto mb-1 flex h-5 w-5 items-center justify-center rounded-full bg-violet-100 text-[10px] font-black text-violet-600">
+                  {index + 1}
+                </div>
+                <p className="relative z-10 text-[10px] font-semibold text-slate-500">{step}</p>
+              </div>
+            ))}
+          </div>
+          <p className="mt-2 rounded-lg bg-slate-50 px-2 py-1.5 text-[11px] leading-relaxed text-slate-500">
+            失败后系统不会自动再次发起扣费；如果服务端判定任务已失败且符合退款条件，会通过积分事务退回。
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FailureCreditNotice({ generation }: { generation: NonNullable<Message["generation"]> }) {
+  const hasServerJob = Boolean(generation.generationId);
+  const credits = generation.creditsUsed || 0;
+
+  return (
+    <div className="mt-2 rounded-lg border border-red-100 bg-white/85 px-2.5 py-2 text-[11px] leading-relaxed text-slate-600">
+      <p className="font-bold text-slate-700">积分状态</p>
+      {hasServerJob ? (
+        <p>
+          本任务已创建服务端记录。失败后服务端会调用退款事务，符合条件时退回
+          <span className="font-bold text-red-600"> {credits} </span>
+          积分；最终以余额和积分日志为准。
+        </p>
+      ) : (
+        <p>
+          本任务在正式创建生成记录前失败，通常不会产生扣费；重新生成会重新进入确认流程。
+        </p>
+      )}
+    </div>
+  );
+}
+
+function getRoleLabel(role: ChatImageRole): string {
+  const item = CONFIRM_ROLE_OPTIONS.find((option) => option.value === role);
+  return item?.label || "自动";
 }
 
 function ConfirmChip({ label, tone = "violet" }: { label: string; tone?: "violet" | "amber" }) {

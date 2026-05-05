@@ -1,8 +1,8 @@
 "use client";
 
-import { useRef, useState, useCallback, useEffect, type KeyboardEvent, type ClipboardEvent } from "react";
-import { Paperclip, Sparkles, ArrowUp, Settings, X, Loader2 } from "lucide-react";
-import type { ChatImage, GenerationParams, AgentMode, ChatImageRole } from "@/lib/agent/types";
+import { useRef, useState, useCallback, useEffect, type KeyboardEvent, type ClipboardEvent, type ReactNode } from "react";
+import { Paperclip, Sparkles, ArrowUp, Settings, X, Loader2, MessageCircle, Wand2, Zap } from "lucide-react";
+import type { ChatImage, GenerationParams, AgentMode, AgentIntentMode, ChatImageRole } from "@/lib/agent/types";
 import type { LingyaModel, AspectRatio, ImageSize } from "@/lib/api/lingya";
 import { getCreditCost } from "@/lib/api/lingya";
 import { detectMentionTrigger, insertMention } from "@/lib/agent/mention-parser";
@@ -17,14 +17,17 @@ type Props = {
   inputImages: ChatImage[];
   params: GenerationParams;
   mode?: AgentMode;
+  intentMode: AgentIntentMode;
   isSending: boolean;
   isAIWriting: boolean;
   estimatedCredits: number;
   onTextChange: (text: string) => void;
   onAddImages: (files: File[]) => void;
   onRemoveImage: (index: number) => void;
+  onClearImages?: () => void;
   onImageRoleChange?: (index: number, role: ChatImageRole) => void;
   onModeChange?: (mode: AgentMode) => void;
+  onIntentModeChange: (mode: AgentIntentMode) => void;
   onParamsChange: (params: Partial<GenerationParams>) => void;
   onSend: () => void;
   onAIWrite: () => void;
@@ -61,8 +64,8 @@ const ROLE_HINTS: Record<string, string> = {
 };
 
 export function InputComposer({
-  inputText, inputImages, params, mode, isSending, isAIWriting, estimatedCredits,
-  onTextChange, onAddImages, onRemoveImage, onImageRoleChange, onModeChange, onParamsChange, onSend, onAIWrite, onPreview,
+  inputText, inputImages, params, mode, intentMode, isSending, isAIWriting, estimatedCredits,
+  onTextChange, onAddImages, onRemoveImage, onClearImages, onImageRoleChange, onModeChange, onIntentModeChange, onParamsChange, onSend, onAIWrite, onPreview,
 }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -173,7 +176,16 @@ export function InputComposer({
           </div>
         )}
 
-        <ImageTray images={inputImages} onAdd={onAddImages} onRemove={onRemoveImage} onRoleChange={onImageRoleChange} onPreview={onPreview} />
+        <ContextStatus imageCount={inputImages.length} intentMode={intentMode} />
+
+        <ImageTray
+          images={inputImages}
+          onAdd={onAddImages}
+          onRemove={onRemoveImage}
+          onClear={onClearImages}
+          onRoleChange={onImageRoleChange}
+          onPreview={onPreview}
+        />
 
         {/* @ 引用标签（输入框上方） */}
         {inputImages.length > 0 && (
@@ -225,6 +237,8 @@ export function InputComposer({
 
         {/* 底部工具栏 */}
         <div className="mt-1.5 flex items-center gap-2 px-1">
+          <IntentModeSwitch value={intentMode} onChange={onIntentModeChange} />
+
           <div className="relative">
             <button onClick={(e) => { e.stopPropagation(); setSettingsOpen(!settingsOpen); }}
               className={`flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] transition-all ${
@@ -256,6 +270,73 @@ export function InputComposer({
           <span className="font-semibold"> Shift+Enter</span> 换行
         </p>
       </div>
+    </div>
+  );
+}
+
+const INTENT_MODE_OPTIONS: Array<{
+  value: AgentIntentMode;
+  label: string;
+  desc: string;
+  icon: ReactNode;
+}> = [
+  { value: "chat", label: "聊天", desc: "只回答分析", icon: <MessageCircle className="h-3.5 w-3.5" /> },
+  { value: "smart", label: "智能", desc: "明确才生成", icon: <Wand2 className="h-3.5 w-3.5" /> },
+  { value: "create", label: "创作", desc: "积极出方案", icon: <Zap className="h-3.5 w-3.5" /> },
+];
+
+function ContextStatus({
+  imageCount,
+  intentMode,
+}: {
+  imageCount: number;
+  intentMode: AgentIntentMode;
+}) {
+  const mode = INTENT_MODE_OPTIONS.find((item) => item.value === intentMode);
+  const contextLabel = imageCount > 0 ? `当前上下文：${imageCount} 张附件图` : "当前上下文：无附件图";
+  const contextDesc = imageCount > 0
+    ? "下一次发送会使用附件区图片；清空后将按纯文字理解。"
+    : "下一次发送只按文字和当前对话理解，不会自动带入历史图片。";
+
+  return (
+    <div className="mb-2 flex flex-wrap items-center gap-2 rounded-xl border border-slate-200/70 bg-white/70 px-3 py-2 text-[11px] shadow-sm backdrop-blur">
+      <span className="font-bold text-slate-700">{contextLabel}</span>
+      <span className="rounded-full bg-violet-50 px-2 py-0.5 font-semibold text-violet-600">
+        {mode?.label || "智能"}模式
+      </span>
+      <span className="min-w-0 flex-1 truncate text-slate-400">{contextDesc}</span>
+    </div>
+  );
+}
+
+function IntentModeSwitch({
+  value,
+  onChange,
+}: {
+  value: AgentIntentMode;
+  onChange: (mode: AgentIntentMode) => void;
+}) {
+  return (
+    <div className="inline-flex shrink-0 items-center gap-0.5 rounded-full border border-slate-200/70 bg-white/80 p-0.5 shadow-[0_1px_8px_rgba(15,23,42,0.04)] backdrop-blur">
+      {INTENT_MODE_OPTIONS.map((item) => {
+        const active = value === item.value;
+        return (
+          <button
+            key={item.value}
+            type="button"
+            onClick={() => onChange(item.value)}
+            className={`flex h-6 items-center justify-center gap-1 rounded-full px-2 text-[11px] font-semibold leading-none transition-all ${
+              active
+                ? "bg-slate-900 text-white shadow-sm"
+                : "text-slate-400 hover:bg-slate-50 hover:text-slate-700"
+            }`}
+            title={`${item.label}：${item.desc}`}
+          >
+            <span className="[&>svg]:h-3 [&>svg]:w-3">{item.icon}</span>
+            <span>{item.label}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }

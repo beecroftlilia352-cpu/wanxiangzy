@@ -2,9 +2,9 @@
 
 import { create } from "zustand";
 import { v4 } from "./uuid";
-import type { Conversation, Message, ChatImage, GenerationParams, AgentMode, ChatImageRole } from "@/lib/agent/types";
+import type { Conversation, Message, ChatImage, GenerationParams, AgentMode, AgentIntentMode, ChatImageRole } from "@/lib/agent/types";
 import { DEFAULT_PARAMS } from "@/lib/agent/types";
-import { applyConfirmImageRoles } from "@/lib/agent/confirm-role-params";
+import { applyConfirmImageRoles, validateConfirmImageRoles } from "@/lib/agent/confirm-role-params";
 import { getCreditCost, normalizeImageSize, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
 import { uploadImage, compressImageForAgent } from "@/lib/utils";
 
@@ -18,21 +18,25 @@ type Store = {
   inputText: string;
   inputImages: ChatImage[];
   params: GenerationParams;
+  intentMode: AgentIntentMode;
   isSending: boolean;
   isAIWriting: boolean;
   sidebarOpen: boolean;
   pollTimers: Map<string, ReturnType<typeof setInterval>>;
 
   loadConversations: () => Promise<void>;
+  openLanding: () => void;
   createConversation: () => Promise<void>;
   switchConversation: (id: string) => Promise<void>;
   deleteConversation: (id: string) => void;
   setInputText: (t: string) => void;
   addImages: (files: File[]) => Promise<void>;
   removeImage: (i: number) => void;
+  clearImages: () => void;
   addReferenceUrl: (url: string) => void;
   setImageRole: (index: number, role: ChatImageRole) => void;
   setParams: (p: Partial<GenerationParams>) => void;
+  setIntentMode: (mode: AgentIntentMode) => void;
   setSidebarOpen: (v: boolean) => void;
   sendMessage: () => Promise<void>;
   aiWrite: () => Promise<void>;
@@ -114,6 +118,12 @@ function inferDefaultImageRole(index: number): ChatImageRole {
   return "auto";
 }
 
+function readSavedIntentMode(): AgentIntentMode {
+  if (typeof window === "undefined") return "smart";
+  const value = window.localStorage.getItem("vastwear-agent-intent-mode");
+  return value === "chat" || value === "smart" || value === "create" ? value : "smart";
+}
+
 // ---- Store ----
 export const useAgentStore = create<Store>((set, get) => ({
   conversations: [],
@@ -122,6 +132,7 @@ export const useAgentStore = create<Store>((set, get) => ({
   inputText: "",
   inputImages: [],
   params: { ...DEFAULT_PARAMS },
+  intentMode: readSavedIntentMode(),
   isSending: false,
   isAIWriting: false,
   sidebarOpen: false,
@@ -133,8 +144,19 @@ export const useAgentStore = create<Store>((set, get) => ({
       if (!res.ok) return;
       const data = await res.json();
       set({ conversations: data });
-      if (data.length > 0 && !get().activeId) get().switchConversation(data[0].id);
     } catch {}
+  },
+
+  openLanding: () => {
+    revoke(get().inputImages.map((img) => img.url));
+    set({
+      activeId: null,
+      messages: [],
+      inputText: "",
+      inputImages: [],
+      isSending: false,
+      isAIWriting: false,
+    });
   },
 
   createConversation: async () => {
@@ -178,8 +200,17 @@ export const useAgentStore = create<Store>((set, get) => ({
     fetch(`/api/conversations/${id}`, { method: "DELETE" }).catch(() => {});
     set((s) => {
       const convs = s.conversations.filter((c) => c.id !== id);
-      const newActive = s.activeId === id ? (convs[0]?.id || null) : s.activeId;
-      return { conversations: convs, activeId: newActive, messages: newActive === s.activeId ? s.messages : [] };
+      if (s.activeId !== id) return { conversations: convs };
+      revoke(s.inputImages.map((img) => img.url));
+      return {
+        conversations: convs,
+        activeId: null,
+        messages: [],
+        inputText: "",
+        inputImages: [],
+        isSending: false,
+        isAIWriting: false,
+      };
     });
   },
 
@@ -247,6 +278,19 @@ export const useAgentStore = create<Store>((set, get) => ({
     }
   },
 
+  clearImages: () => {
+    const { activeId, inputImages } = get();
+    revoke(inputImages.map((img) => img.url));
+    set({ inputImages: [] });
+    if (activeId) {
+      fetch(`/api/conversations/${activeId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ images: [] }),
+      }).catch(() => {});
+    }
+  },
+
   setImageRole: (index: number, role: ChatImageRole) => {
     set((s) => ({
       inputImages: s.inputImages.map((img) => img.index === index ? { ...img, role } : img),
@@ -281,11 +325,17 @@ export const useAgentStore = create<Store>((set, get) => ({
   },
 
   setParams: (p) => set((s) => ({ params: { ...s.params, ...p } })),
+  setIntentMode: (mode) => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("vastwear-agent-intent-mode", mode);
+    }
+    set({ intentMode: mode });
+  },
   setSidebarOpen: (v) => set({ sidebarOpen: v }),
 
   // ======== 核心：发送消息 ========
   sendMessage: async () => {
-    const { inputText, inputImages, params, activeId, conversations } = get();
+    const { inputText, inputImages, params, intentMode, activeId, conversations } = get();
     const trimmed = inputText.trim();
     if (!trimmed && inputImages.length === 0) return;
 
@@ -373,6 +423,7 @@ export const useAgentStore = create<Store>((set, get) => ({
           message: trimmed,
           images: imageUrls,
           history,
+          intentMode,
           params: { model: params.model, aspectRatio: params.aspectRatio, imageSize: params.imageSize, count: params.count },
         }),
       });
@@ -597,6 +648,25 @@ export const useAgentStore = create<Store>((set, get) => ({
       jobPayload: Record<string, unknown>;
       creditsCost: number;
     };
+    const messageIndex = messages.findIndex((m) => m.id === messageId);
+    const previousUserIndex = messageIndex >= 0 ? findPreviousUserImageMessageIndex(messages, messageIndex) : -1;
+    const confirmImages = previousUserIndex >= 0 ? messages[previousUserIndex].images || [] : get().inputImages;
+    const roleErrors = validateConfirmImageRoles(confirmData.module, confirmData.params, confirmImages)
+      .filter((issue) => issue.severity === "error");
+    if (roleErrors.length > 0) {
+      const errorMessage = roleErrors.map((issue) => issue.message).join("；");
+      set((s) => ({
+        isSending: false,
+        messages: s.messages.map((m) =>
+          m.id === messageId && m.generation
+            ? { ...m, generation: { ...m.generation, status: "pending" as const, error: errorMessage } }
+            : m
+        ),
+      }));
+      const blockedGen = get().messages.find((m) => m.id === messageId)?.generation;
+      if (blockedGen) updateMessageGeneration(convId, messageId, blockedGen);
+      return;
+    }
     let requestProgressTimer: ReturnType<typeof setInterval> | null = null;
 
     // 更新为 generating 状态

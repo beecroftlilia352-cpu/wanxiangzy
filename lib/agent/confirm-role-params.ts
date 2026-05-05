@@ -119,14 +119,17 @@ export function validateConfirmImageRoles(
   if (module === "general") return [];
 
   const issues: ConfirmRoleIssue[] = [];
-  const urlRole = new Map<string, ChatImageRole>();
+  const refRole = new Map<string, ChatImageRole>();
   for (const image of images) {
     const role = image.role || "auto";
     const url = image.hostedUrl || image.url;
-    if (url && role !== "auto") urlRole.set(url, role);
+    if (role === "auto") continue;
+    refRole.set(`图${image.index}`, role);
+    refRole.set(`Image ${image.index}`, role);
+    if (url) refRole.set(url, role);
   }
 
-  const hasExplicitRoles = urlRole.size > 0;
+  const hasExplicitRoles = refRole.size > 0;
   const requireAny = (label: string, value: unknown) => {
     if (toUrlList(value).length === 0) {
       issues.push({ severity: "error", message: `缺少${label}，请在图片角色里补选。` });
@@ -134,8 +137,8 @@ export function validateConfirmImageRoles(
   };
   const check = (label: string, value: unknown, allowed: ChatImageRole[]) => {
     if (!hasExplicitRoles) return;
-    for (const url of toUrlList(value)) {
-      const role = urlRole.get(url);
+    for (const ref of toRefList(value)) {
+      const role = refRole.get(ref);
       if (role && !allowed.includes(role)) {
         issues.push({
           severity: "error",
@@ -218,6 +221,17 @@ function toUrlList(value: unknown): string[] {
   if (Array.isArray(value)) return value.filter((item): item is string => typeof item === "string" && item.length > 0);
   if (typeof value === "string" && value.length > 0) return [value];
   return [];
+}
+
+function toRefList(value: unknown): string[] {
+  return toUrlList(value).flatMap((item) => {
+    const refs = [item];
+    const chineseMatch = item.match(/图\s*(\d+)/);
+    if (chineseMatch) refs.push(`图${chineseMatch[1]}`);
+    const englishMatch = item.match(/Image\s*(\d+)/i);
+    if (englishMatch) refs.push(`Image ${englishMatch[1]}`);
+    return refs;
+  });
 }
 
 function roleLabel(role: ChatImageRole): string {

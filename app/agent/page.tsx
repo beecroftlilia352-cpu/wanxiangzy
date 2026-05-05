@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Menu, Coins, X } from "lucide-react";
+import { Menu, Coins, X, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { FeatureTabs } from "@/components/FeatureTabs";
 import { ConversationSidebar } from "@/components/agent/ConversationSidebar";
 import { ChatArea } from "@/components/agent/ChatArea";
 import { InputComposer } from "@/components/agent/InputComposer";
+import { CreditLogModal } from "@/components/agent/CreditLogModal";
 import { useAgentStore } from "@/lib/store/agent-store";
 import { createClient, getCachedProfileCredits, subscribeToProfileCredits } from "@/lib/supabase/client";
 
@@ -17,6 +18,7 @@ export default function AgentPage() {
   const [lightbox, setLightbox] = useState<string | null>(null);
   const [credits, setCredits] = useState<number | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const [creditLogsOpen, setCreditLogsOpen] = useState(false);
 
   const s = useAgentStore();
 
@@ -28,6 +30,7 @@ export default function AgentPage() {
       } else {
         setIsAuth(true);
         setUserId(data.user.id);
+        s.openLanding();
         s.loadConversations();
         getCachedProfileCredits(data.user.id).then(setCredits);
       }
@@ -72,8 +75,30 @@ export default function AgentPage() {
     }, 50);
   };
 
+  const focusInput = () => {
+    setTimeout(() => {
+      const textarea = document.querySelector("textarea");
+      if (textarea) textarea.focus();
+    }, 50);
+  };
+
+  const handleNewConversation = async () => {
+    await s.createConversation();
+    focusInput();
+  };
+
+  const refreshCredits = () => {
+    if (userId) {
+      getCachedProfileCredits(userId).then(setCredits);
+    }
+  };
+
+  const recentConversation = [...s.conversations].sort(
+    (a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+  )[0];
+
   const conv = s.conversations.find((c) => c.id === s.activeId);
-  const title = conv?.title || "图像智能体";
+  const title = conv?.title || "AI 助手";
 
   return (
     <div className="studio-workbench min-h-[calc(100dvh-64px)] lg:h-[calc(100vh-64px)] flex flex-col lg:flex-row">
@@ -82,7 +107,7 @@ export default function AgentPage() {
       <ConversationSidebar
         conversations={s.conversations}
         activeId={s.activeId}
-        onCreate={s.createConversation}
+        onCreate={handleNewConversation}
         onSwitch={s.switchConversation}
         onDelete={s.deleteConversation}
         isOpen={s.sidebarOpen}
@@ -111,14 +136,20 @@ export default function AgentPage() {
 
           {/* 积分余额 */}
           {credits !== null && (
-            <div className="flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-600">
+            <button
+              type="button"
+              onClick={() => setCreditLogsOpen(true)}
+              className="flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-600 transition-colors hover:bg-amber-100"
+              title="查看积分流水"
+            >
               <Coins className="h-3 w-3" />
               {credits}
-            </div>
+            </button>
           )}
 
-          <button onClick={s.createConversation}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-500 transition-colors hover:border-violet-300 hover:text-violet-600">
+          <button onClick={handleNewConversation}
+            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-500 transition-colors hover:border-violet-300 hover:text-violet-600">
+            <Plus className="h-3.5 w-3.5" />
             新建
           </button>
         </div>
@@ -137,6 +168,10 @@ export default function AgentPage() {
             s.addReferenceUrl(url);
             toast.success("已加入附件区，可作为参考图使用");
           }}
+          recentConversation={recentConversation}
+          onContinueRecent={(id) => s.switchConversation(id)}
+          onNewConversation={handleNewConversation}
+          onOpenHistory={() => s.setSidebarOpen(true)}
           onQuickAction={handleQuickAction}
         />
 
@@ -145,13 +180,16 @@ export default function AgentPage() {
           inputText={s.inputText}
           inputImages={s.inputImages}
           params={s.params}
+          intentMode={s.intentMode}
           isSending={s.isSending}
           isAIWriting={s.isAIWriting}
           estimatedCredits={s.params.count * (s.params.model === "gpt-image-2" ? 4 : 3)}
           onTextChange={s.setInputText}
           onAddImages={s.addImages}
           onRemoveImage={s.removeImage}
+          onClearImages={s.clearImages}
           onImageRoleChange={s.setImageRole}
+          onIntentModeChange={s.setIntentMode}
           onParamsChange={s.setParams}
           onSend={s.sendMessage}
           onAIWrite={s.aiWrite}
@@ -160,6 +198,12 @@ export default function AgentPage() {
       </div>
 
       {/* Lightbox — z-[999] 确保在所有元素之上 */}
+      <CreditLogModal
+        open={creditLogsOpen}
+        onClose={() => setCreditLogsOpen(false)}
+        onCreditsRefresh={refreshCredits}
+      />
+
       {lightbox && (
         <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/80 p-4 pt-16 backdrop-blur-sm"
           onClick={() => setLightbox(null)}>

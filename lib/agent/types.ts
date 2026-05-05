@@ -1,6 +1,7 @@
 import type { LingyaModel, AspectRatio, ImageSize } from "@/lib/api/lingya";
 
 export type AgentMode = "chat" | "agent";
+export type AgentIntentMode = "chat" | "smart" | "create";
 export type ChatImageRole = "auto" | "clothing" | "reference" | "face" | "background" | "source";
 
 // ---- 数据库模型 ----

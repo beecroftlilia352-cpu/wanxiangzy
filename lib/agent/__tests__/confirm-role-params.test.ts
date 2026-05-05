@@ -52,6 +52,16 @@ describe("applyConfirmImageRoles", () => {
     expect(issues.some((issue) => issue.severity === "error")).toBe(true);
   });
 
+  it("reports conflicts when params still use numbered image refs", () => {
+    const issues = validateConfirmImageRoles(
+      "tryon",
+      { clothing_urls: ["图1"], reference_url: "Image 2" },
+      images
+    );
+
+    expect(issues.some((issue) => issue.severity === "error")).toBe(true);
+  });
+
   it("warns when multi-image tasks have no explicit roles", () => {
     const issues = validateConfirmImageRoles(
       "tryon",
