@@ -1158,7 +1158,51 @@ function buildTaskBrief(params: {
     check: getTaskCheck(params, combined),
     risks: getTaskRisks(params, combined, usedImages, unusedImages),
     rationale: getTaskRationale(params, combined, usedImages, unusedImages),
+    preflight: getTaskPreflight(params, combined, usedImages, unusedImages),
   };
+}
+
+function getTaskPreflight(
+  params: { module: string; count: number; aspectRatio: AspectRatio; taskPlan: VisualTaskPlan | null },
+  combined: string,
+  usedImages: AgentImageInput[],
+  unusedImages: AgentImageInput[]
+) {
+  const checks: Array<{ label: string; status: "pass" | "warn"; detail: string }> = [
+    {
+      label: "\u76ee\u6807",
+      status: params.taskPlan || params.module !== "general" || /\u751f\u6210|\u8bbe\u8ba1|\u51fa\u56fe|\u8be6\u60c5\u9875|banner|\u4e3b\u56fe/.test(combined) ? "pass" : "warn",
+      detail: params.taskPlan ? "\u5df2\u8bc6\u522b\u4e3a\u660e\u786e\u7684\u89c6\u89c9\u4efb\u52a1\u3002" : "\u6309\u901a\u7528\u751f\u56fe\u5904\u7406\uff0c\u8bf7\u786e\u8ba4\u76ee\u6807\u6ca1\u6709\u88ab\u6a21\u7cca\u5316\u3002",
+    },
+    {
+      label: "\u56fe\u7247",
+      status: usedImages.length > 0 || params.module === "general" ? "pass" : "warn",
+      detail: usedImages.length > 0 ? `\u5df2\u5e26\u5165 ${usedImages.length} \u5f20\u56fe\u3002` : "\u672c\u6b21\u6ca1\u6709\u5e26\u5165\u53c2\u8003\u56fe\uff0c\u4f1a\u4ee5\u6587\u5b57\u4e3a\u4e3b\u751f\u6210\u3002",
+    },
+    {
+      label: "\u8f93\u51fa",
+      status: params.count > 0 && Boolean(params.aspectRatio) ? "pass" : "warn",
+      detail: `${params.aspectRatio}\u3001${params.count} \u5f20\u3002`,
+    },
+  ];
+
+  if (params.taskPlan?.taskType === "commerce_detail" || combined.includes("\u8be6\u60c5\u9875")) {
+    checks.push({
+      label: "\u7248\u5f0f",
+      status: combined.includes("\u79cd\u8349") && !combined.includes("\u4e0d\u8981\u628a\u4efb\u52a1\u6539\u6210\u79cd\u8349") ? "warn" : "pass",
+      detail: "\u5e94\u8f93\u51fa\u7535\u5546\u5206\u533a\u7248\u5f0f\uff0c\u4e0d\u662f\u5355\u5f20\u6c1b\u56f4\u7167\u3002",
+    });
+  }
+
+  if (unusedImages.length > 0) {
+    checks.push({
+      label: "\u672a\u7528\u56fe",
+      status: "warn",
+      detail: `${unusedImages.length} \u5f20\u9644\u4ef6\u4e0d\u4f1a\u8fdb\u5165\u672c\u6b21\u751f\u6210\u3002`,
+    });
+  }
+
+  return checks.slice(0, 5);
 }
 
 function getTaskOutputType(params: {

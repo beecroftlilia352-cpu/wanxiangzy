@@ -49,6 +49,13 @@ export interface AgentTaskBrief {
   check: string;
   risks?: string[];
   rationale?: string[];
+  preflight?: AgentPreflightCheck[];
+}
+
+export interface AgentPreflightCheck {
+  label: string;
+  status: "pass" | "warn";
+  detail: string;
 }
 
 export interface GenerationResult {

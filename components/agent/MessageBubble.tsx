@@ -565,12 +565,39 @@ function ConfirmIntentBrief({
             </ul>
           </div>
         )}
+        {brief.preflight && brief.preflight.length > 0 && (
+          <PreflightChecks checks={brief.preflight} />
+        )}
         <p className="rounded-lg bg-white/80 px-2 py-1 text-amber-700 ring-1 ring-amber-100">
           <span className="font-bold">{"\u786e\u8ba4\u524d\u68c0\u67e5\uff1a"}</span>{brief.check}
         </p>
         {brief.rationale && brief.rationale.length > 0 && (
           <DecisionRationale lines={brief.rationale} />
         )}
+      </div>
+    </div>
+  );
+}
+
+function PreflightChecks({ checks }: { checks: NonNullable<AgentTaskBrief["preflight"]> }) {
+  return (
+    <div className="rounded-lg bg-white/85 px-2 py-1.5 ring-1 ring-slate-100">
+      <p className="mb-1 font-bold text-slate-700">{"\u751f\u6210\u524d\u81ea\u68c0"}</p>
+      <div className="grid gap-1 sm:grid-cols-2">
+        {checks.slice(0, 5).map((check) => (
+          <div key={`${check.label}-${check.detail}`} className="flex min-w-0 items-start gap-1.5 rounded-md bg-slate-50 px-2 py-1">
+            {check.status === "pass" ? (
+              <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" />
+            ) : (
+              <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" />
+            )}
+            <p className="min-w-0 text-[10px] leading-4 text-slate-500">
+              <span className="font-bold text-slate-700">{check.label}</span>
+              {"\uff1a"}
+              {check.detail}
+            </p>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -623,6 +650,7 @@ function buildIntentBrief(
     check: getBriefCheck(moduleName, lower),
     risks: getBriefRisks(moduleName, lower, used, params),
     rationale: [],
+    preflight: [],
   };
 }
 
