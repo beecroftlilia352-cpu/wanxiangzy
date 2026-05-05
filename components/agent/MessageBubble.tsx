@@ -195,6 +195,12 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
               jobPayload={generation._confirmData.jobPayload}
               credits={generation.creditsUsed || generation._confirmData.creditsCost}
             />
+            <ConfirmIntentBrief
+              moduleName={generation.module || "\u56fe\u50cf\u751f\u6210"}
+              images={confirmImages}
+              params={generation._confirmData.params}
+              jobPayload={generation._confirmData.jobPayload}
+            />
             <ConfirmTaskPlanV2
               moduleName={generation.module || "图像生成"}
               params={readConfirmParams(generation._confirmData.params)}
@@ -511,6 +517,97 @@ function flattenStrings(value: unknown): string[] {
     return Object.values(value as Record<string, unknown>).flatMap(flattenStrings);
   }
   return [];
+}
+
+function ConfirmIntentBrief({
+  moduleName,
+  images,
+  params,
+  jobPayload,
+}: {
+  moduleName: string;
+  images: ChatImage[];
+  params: Record<string, unknown>;
+  jobPayload?: Record<string, unknown>;
+}) {
+  const { used, unused } = splitUsedImages(images, params, jobPayload);
+  const prompt = typeof params.prompt === "string" ? params.prompt : typeof jobPayload?.prompt === "string" ? jobPayload.prompt : "";
+  const brief = buildIntentBrief(moduleName, prompt, used, unused, params);
+
+  return (
+    <div className="mb-3 rounded-xl border border-violet-100 bg-gradient-to-br from-white to-violet-50/50 p-3">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <p className="text-xs font-bold text-slate-800">{"\u4efb\u52a1\u65b9\u6848"}</p>
+        <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-violet-600 ring-1 ring-violet-100">
+          {brief.outputType}
+        </span>
+      </div>
+      <div className="space-y-1.5 text-[11px] leading-relaxed text-slate-600">
+        <p><span className="font-bold text-slate-700">{"\u76ee\u6807\uff1a"}</span>{brief.goal}</p>
+        <p><span className="font-bold text-slate-700">{"\u56fe\u7247\uff1a"}</span>{brief.imageUsage}</p>
+        <p><span className="font-bold text-slate-700">{"\u91cd\u70b9\uff1a"}</span>{brief.focus}</p>
+        <p className="rounded-lg bg-white/80 px-2 py-1 text-amber-700 ring-1 ring-amber-100">
+          <span className="font-bold">{"\u786e\u8ba4\u524d\u68c0\u67e5\uff1a"}</span>{brief.check}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function buildIntentBrief(
+  moduleName: string,
+  prompt: string,
+  used: ChatImage[],
+  unused: ChatImage[],
+  params: Record<string, unknown>
+) {
+  const lower = `${moduleName}\n${prompt}`.toLowerCase();
+  const count = Number(params.count || params.gen_count || 1);
+  const outputType = getBriefOutputType(moduleName, lower, count);
+  const goal = getBriefGoal(moduleName, lower);
+  const imageUsage = used.length > 0
+    ? used.map((img) => `\u56fe${img.index}\u4f5c\u4e3a${getRoleLabel(img.role || "auto")}`).join("\uff1b")
+    : "\u4e0d\u4f7f\u7528\u53c2\u8003\u56fe\uff0c\u6309\u6587\u5b57\u76f4\u63a5\u751f\u6210";
+  const unusedText = unused.length > 0 ? `\uff1b\u4e0d\u7528${unused.map((img) => `\u56fe${img.index}`).join("\u3001")}` : "";
+
+  return {
+    outputType,
+    goal,
+    imageUsage: `${imageUsage}${unusedText}`,
+    focus: getBriefFocus(moduleName, lower),
+    check: getBriefCheck(moduleName, lower),
+  };
+}
+
+function getBriefOutputType(moduleName: string, lower: string, count: number) {
+  if (lower.includes("\u8be6\u60c5\u9875")) return "\u7535\u5546\u8be6\u60c5";
+  if (lower.includes("banner")) return "Banner";
+  if (lower.includes("\u4e3b\u56fe")) return "\u7535\u5546\u4e3b\u56fe";
+  if (lower.includes("\u56db\u5bab\u683c")) return "\u56db\u5bab\u683c";
+  if (count > 1) return `${count} \u5f20\u56fe`;
+  return moduleName;
+}
+
+function getBriefGoal(moduleName: string, lower: string) {
+  if (lower.includes("\u8be6\u60c5\u9875")) return "\u751f\u6210\u53ef\u7528\u4e8e\u6dd8\u5b9d/\u5929\u732b/\u4eac\u4e1c\u7684\u5546\u54c1\u8be6\u60c5\u9875\uff0c\u4e0d\u662f\u79cd\u8349\u6216\u8857\u62cd\u56fe\u3002";
+  if (lower.includes("banner")) return "\u751f\u6210\u6a2a\u7248\u5546\u4e1a banner\uff0c\u517c\u987e\u4e3b\u4f53\u3001\u6807\u9898\u548c\u5356\u70b9\u5c42\u7ea7\u3002";
+  if (lower.includes("\u4e3b\u56fe")) return "\u751f\u6210\u7535\u5546\u4e3b\u56fe\uff0c\u4e3b\u4f53\u6e05\u695a\uff0c\u5356\u70b9\u76f4\u89c2\u3002";
+  if (moduleName.includes("姿") || lower.includes("pose")) return "\u57fa\u4e8e\u4e3b\u56fe\u505a\u59ff\u52bf\u53d8\u5316\uff0c\u4fdd\u6301\u4eba\u7269\u548c\u670d\u88c5\u7a33\u5b9a\u3002";
+  if (moduleName.toLowerCase().includes("grass")) return "\u751f\u6210\u670d\u88c5\u79cd\u8349\u89c6\u89c9\uff0c\u4fdd\u6301\u670d\u88c5\u8fd8\u539f\u548c\u751f\u6d3b\u6c1b\u56f4\u3002";
+  return "\u6309\u7528\u6237\u539f\u59cb\u8981\u6c42\u751f\u6210\u56fe\u50cf\uff0c\u53c2\u8003\u56fe\u53ea\u670d\u52a1\u4e8e\u8fd9\u4e2a\u76ee\u6807\u3002";
+}
+
+function getBriefFocus(moduleName: string, lower: string) {
+  if (lower.includes("\u8be6\u60c5\u9875")) return "\u7248\u5f0f\u5206\u533a\u3001\u5546\u54c1\u4e3b\u4f53\u3001\u5356\u70b9\u6587\u6848\u3001\u7ec6\u8282/\u53c2\u6570\u5c42\u7ea7\u3002";
+  if (moduleName.includes("姿") || lower.includes("pose")) return "\u4eba\u7269\u6bd4\u4f8b\u3001\u8138\u90e8\u4e00\u81f4\u3001\u670d\u88c5\u4e00\u81f4\u3001\u771f\u5b9e\u5173\u8282\u52a8\u4f5c\u3002";
+  if (moduleName.toLowerCase().includes("tryon")) return "\u670d\u88c5\u8fd8\u539f\u3001\u7a7f\u7740\u5408\u8eab\u3001\u4eba\u8138\u8eab\u4efd\u3001\u81ea\u7136\u4f53\u6001\u3002";
+  return "\u4e3b\u4f53\u4e0d\u8dd1\u504f\u3001\u98ce\u683c\u4e0d\u786c\u5957\u3001\u753b\u9762\u670d\u52a1\u4e8e\u6700\u7ec8\u7528\u9014\u3002";
+}
+
+function getBriefCheck(moduleName: string, lower: string) {
+  if (lower.includes("\u8be6\u60c5\u9875")) return "\u5982\u679c\u8fd9\u91cc\u88ab\u8bc6\u522b\u6210\u79cd\u8349/\u8857\u62cd\uff0c\u5148\u6539\u6700\u7ec8\u63d0\u793a\u8bcd\u518d\u751f\u6210\u3002";
+  if (moduleName.includes("姿") || lower.includes("pose")) return "\u5982\u679c\u9700\u8981\u6bcf\u4e2a\u59ff\u52bf\u5355\u72ec\u4e00\u5f20\uff0c\u5148\u5728\u6700\u7ec8\u63d0\u793a\u8bcd\u91cc\u5199\u660e\u3002";
+  return "\u786e\u8ba4\u76ee\u6807\u3001\u56fe\u7247\u89d2\u8272\u548c\u6bd4\u4f8b\u6ca1\u95ee\u9898\u540e\u518d\u6263\u5206\u751f\u6210\u3002";
 }
 
 function ConfirmTaskPlan({
