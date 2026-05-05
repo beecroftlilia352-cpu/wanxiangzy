@@ -153,6 +153,14 @@ type AgentDecision = {
   source: "llm" | "heuristic" | "fallback";
 };
 
+type VisualTaskPlan = {
+  module: string;
+  label: string;
+  prompt: string;
+  useImages: boolean;
+  confidence: number;
+};
+
 export async function POST(request: NextRequest) {
   try {
     const auth = await requireApiUser();
@@ -260,18 +268,18 @@ export async function POST(request: NextRequest) {
     let llmParams = decision.params;
     const style = decision.style;
     const standaloneTextGeneration = isStandaloneTextGenerationIntent(userText);
-    const commerceDesign = isCommerceDesignIntent(userText);
+    const taskPlan = planVisualTask(userText, Boolean(hasImages));
 
     if (intentMode === "chat" || isChatOnlyIntent(userText)) {
       action = "chat";
       module = null;
       decision.source = decision.source === "llm" ? "llm" : "heuristic";
-    } else if (commerceDesign || standaloneTextGeneration) {
+    } else if (taskPlan || standaloneTextGeneration) {
       action = "generate";
-      module = "general";
-      llmParams = { ...llmParams, prompt: buildGeneralGenerationPrompt(userText, commerceDesign) };
+      module = taskPlan?.module || "general";
+      llmParams = { ...llmParams, prompt: taskPlan?.prompt || buildGeneralGenerationPrompt(userText, null) };
       decision.params = llmParams;
-      decision.confidence = Math.max(decision.confidence, 0.82);
+      decision.confidence = Math.max(decision.confidence, taskPlan?.confidence || 0.82);
       decision.source = "heuristic";
     }
 
@@ -287,7 +295,9 @@ export async function POST(request: NextRequest) {
       // 最终兜底：多图 + 非纯聊天时才默认换装；单图更适合先分析/询问，避免误扣积分
       if (!module && intentMode === "create" && hasImages && (images?.length || 0) >= 2 && !isChatOnlyIntent(userText)) {
         action = "generate";
-        module = "tryon";
+        module = "general";
+        llmParams = { ...llmParams, prompt: buildGeneralGenerationPrompt(userText, "reference_redesign") };
+        decision.params = llmParams;
         decision.confidence = 0.55;
         decision.source = "fallback";
       }
@@ -315,12 +325,11 @@ export async function POST(request: NextRequest) {
 
     // 通用生图（文生图 / 图生图 / 无特定模块）
     if (!MODULE_API[module]) {
-      const imageUrls = standaloneTextGeneration ? [] : (images || []).map((img) => img.url).filter(Boolean);
-      const generalPrompt = buildGeneralGenerationPrompt(
-        typeof decision.params.prompt === "string" ? decision.params.prompt : userText,
-        commerceDesign
-      );
-      const generalLabel = commerceDesign ? "电商详情页" : "通用生图";
+      const imageUrls = standaloneTextGeneration && !taskPlan?.useImages ? [] : (images || []).map((img) => img.url).filter(Boolean);
+      const generalPrompt = typeof decision.params.prompt === "string" && decision.params.prompt.trim()
+        ? decision.params.prompt.trim()
+        : taskPlan?.prompt || buildGeneralGenerationPrompt(userText, null);
+      const generalLabel = taskPlan?.label || "\u901a\u7528\u751f\u56fe";
       const model = normalizeLingyaModel(userParams?.model);
       const aspectRatio = normalizeAspectRatio(userParams?.aspectRatio || "3:4");
       const imageSize = normalizeImageSize(model, (userParams?.imageSize as ImageSize) || "1K", aspectRatio);
@@ -461,11 +470,12 @@ function normalizeAgentDecision(
     ? parsed.missing_fields.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
     : [];
 
-  const detected = detectGenerationIntent(userText);
-  if (isCommerceDesignIntent(userText)) {
+  const plannedTask = planVisualTask(userText, hasImages);
+  const detected = plannedTask?.module || detectGenerationIntent(userText);
+  if (plannedTask) {
     action = "generate";
-    module = "general";
-    params.prompt = buildGeneralGenerationPrompt(userText, true);
+    module = plannedTask.module;
+    params.prompt = plannedTask.prompt;
   } else if (action === "chat" && detected && !isChatOnlyIntent(userText)) {
     action = "generate";
     module = detected;
@@ -816,19 +826,94 @@ function getIntentModeInstruction(mode: AgentIntentMode): string {
   return "当前模式：智能。聊天优先；只有用户明确要求生成、改图、换装、换背景、种草、3D、姿势裂变时才返回 generate。";
 }
 
-function isCommerceDesignIntent(text: string): boolean {
-  return /淘宝|天猫|京东|详情页|商品详情|电商详情|主图|banner|Banner|海报|落地页|长图|卖点图|参数图/.test(text);
+function planVisualTask(text: string, hasImages: boolean): VisualTaskPlan | null {
+  const userText = text.trim();
+  if (!userText) return null;
+
+  if (isCommerceDetailIntent(userText)) {
+    return {
+      module: "general",
+      label: "\u7535\u5546\u8be6\u60c5\u9875",
+      prompt: buildGeneralGenerationPrompt(userText, "commerce_detail"),
+      useImages: hasImages,
+      confidence: 0.9,
+    };
+  }
+
+  if (isCommerceCreativeIntent(userText)) {
+    return {
+      module: "general",
+      label: "\u7535\u5546\u89c6\u89c9\u8bbe\u8ba1",
+      prompt: buildGeneralGenerationPrompt(userText, "commerce_creative"),
+      useImages: hasImages,
+      confidence: 0.88,
+    };
+  }
+
+  if (hasImages && isReferenceRedesignIntent(userText) && !isSpecializedModuleIntent(userText)) {
+    return {
+      module: "general",
+      label: "\u56fe\u751f\u56fe\u521b\u4f5c",
+      prompt: buildGeneralGenerationPrompt(userText, "reference_redesign"),
+      useImages: true,
+      confidence: 0.84,
+    };
+  }
+
+  return null;
 }
 
-function buildGeneralGenerationPrompt(text: string, commerceDesign: boolean): string {
+function isCommerceDesignIntent(text: string): boolean {
+  return isCommerceDetailIntent(text) || isCommerceCreativeIntent(text);
+}
+
+function isCommerceDetailIntent(text: string): boolean {
+  return /\u6dd8\u5b9d|\u5929\u732b|\u4eac\u4e1c|\u8be6\u60c5\u9875|\u5546\u54c1\u8be6\u60c5|\u7535\u5546\u8be6\u60c5|\u843d\u5730\u9875|\u957f\u56fe|\u5356\u70b9\u56fe|\u53c2\u6570\u56fe|\u529f\u80fd\u56fe|\u7ec6\u8282\u56fe/.test(text);
+}
+
+function isCommerceCreativeIntent(text: string): boolean {
+  return /\u4e3b\u56fe|\u7535\u5546\u4e3b\u56fe|banner|Banner|\u6d77\u62a5|\u6d3b\u52a8\u56fe|\u63a8\u5e7f\u56fe|\u9996\u56fe|\u5c01\u9762\u56fe|\u5e7f\u544a\u56fe|\u4ea7\u54c1\u9875/.test(text);
+}
+
+function isReferenceRedesignIntent(text: string): boolean {
+  return /\u6839\u636e|\u6309\u7167|\u53c2\u8003|\u7528\u8fd9\u5f20|\u7528\u56fe|\u8fd9\u5f20\u56fe|\u91cd\u65b0\u751f\u6210|\u91cd\u505a|\u518d\u6765\u4e00\u5f20|\u7c7b\u4f3c|\u5ef6\u5c55|\u6539\u6210|\u8bbe\u8ba1/.test(text) && /\u751f\u6210|\u5236\u4f5c|\u51fa\u56fe|\u505a|\u753b|\u8bbe\u8ba1|\u6539|\u91cd\u505a|\u91cd\u65b0/.test(text);
+}
+
+function isSpecializedModuleIntent(text: string): boolean {
+  return /\u6362[\u88c5\u5230\u4e0a]|\u7a7f[\u5230\u5728]|\u8bd5\u7a7f|\u4e0a\u8eab|\u6362\u88c5|\u79cd\u8349|\u5c0f\u7ea2\u4e66|\u8857\u62cd|3[dD]|\u7acb\u4f53|\u4e13\u5c5e\u6a21\u7279|\u5efa\u6a21\u7279|\u5b9a\u5236\u8138|\u6362\u80cc\u666f|\u6362\u573a\u666f|\u6362\u6a21\u7279|\u56db\u5bab\u683c|\u59ff\u52bf\u88c2\u53d8|pose/i.test(text);
+}
+
+function buildGeneralGenerationPrompt(text: string, taskType: "commerce_detail" | "commerce_creative" | "reference_redesign" | null): string {
   const userText = text.trim();
-  if (!commerceDesign) return userText;
-  return [
-    "根据提供的参考图片生成电商视觉设计，不要当成小红书种草图或街拍图。",
-    "目标是淘宝/天猫商品详情页或电商长图版式：包含首屏主视觉、核心卖点区、细节展示区、参数/功能区，画面要像可直接用于商品详情页的商业设计稿。",
-    "保留参考图中的商品/服装主体特征、材质、颜色和风格气质，可以根据电商页面需要重新组织构图、背景、文案层级、图标和版面。",
-    userText ? `用户原始需求：${userText}` : "",
-  ].filter(Boolean).join("\n");
+  if (!taskType) return userText;
+
+  const base = [
+    "\u4e25\u683c\u7406\u89e3\u7528\u6237\u76ee\u6807\uff0c\u4e0d\u8981\u628a\u4efb\u52a1\u786c\u5957\u6210\u5c0f\u7ea2\u4e66\u79cd\u8349\u56fe\u3001\u8857\u62cd\u56fe\u3001\u6362\u88c5\u56fe\u6216\u59ff\u52bf\u88c2\u53d8\u56fe\u3002",
+    "\u53c2\u8003\u56fe\u7247\u53ea\u4f5c\u4e3a\u4e3b\u4f53\u3001\u98ce\u683c\u3001\u6750\u8d28\u3001\u989c\u8272\u3001\u7248\u5f0f\u6216\u89c6\u89c9\u65b9\u5411\u53c2\u8003\uff1b\u6839\u636e\u7528\u6237\u76ee\u6807\u81ea\u7531\u91cd\u7ec4\u753b\u9762\u3002",
+    "\u4f18\u5148\u6ee1\u8db3\u7528\u6237\u539f\u59cb\u9700\u6c42\uff0c\u7f3a\u5c11\u4fe1\u606f\u65f6\u505a\u5408\u7406\u5546\u4e1a\u8bbe\u8ba1\u8865\u5168\uff0c\u4e0d\u8981\u64c5\u81ea\u6539\u53d8\u6838\u5fc3\u5546\u54c1/\u670d\u88c5\u8eab\u4efd\u3002",
+  ];
+
+  if (taskType === "commerce_detail") {
+    base.push(
+      "\u751f\u6210\u6dd8\u5b9d/\u5929\u732b/\u4eac\u4e1c\u53ef\u7528\u7684\u5546\u54c1\u8be6\u60c5\u9875\u6216\u7535\u5546\u957f\u56fe\u7248\u5f0f\u3002",
+      "\u753b\u9762\u5305\u542b\u9996\u5c4f\u4e3b\u89c6\u89c9\u3001\u6838\u5fc3\u5356\u70b9\u533a\u3001\u7ec6\u8282\u5c55\u793a\u533a\u3001\u53c2\u6570/\u529f\u80fd\u533a\uff0c\u5177\u5907\u6e05\u6670\u6807\u9898\u3001\u5356\u70b9\u6587\u6848\u3001\u56fe\u6807\u548c\u5206\u533a\u5c42\u7ea7\u3002",
+      "\u6574\u4f53\u50cf\u4e00\u5f20\u5b8c\u6574\u5546\u4e1a\u8be6\u60c5\u9875\u8bbe\u8ba1\u7a3f\uff0c\u800c\u4e0d\u662f\u5355\u5f20\u751f\u6d3b\u65b9\u5f0f\u7167\u7247\u3002"
+    );
+  } else if (taskType === "commerce_creative") {
+    base.push(
+      "\u751f\u6210\u7535\u5546\u4e3b\u56fe\u3001\u6d3b\u52a8\u6d77\u62a5\u3001banner \u6216\u5e7f\u544a\u89c6\u89c9\u8bbe\u8ba1\u3002",
+      "\u753b\u9762\u9700\u8981\u6709\u660e\u786e\u5546\u54c1\u4e3b\u4f53\u3001\u5546\u4e1a\u6807\u9898\u533a\u3001\u5356\u70b9\u6587\u6848\u533a\u3001\u4fc3\u9500/\u54c1\u724c\u6c1b\u56f4\u548c\u53ef\u6295\u653e\u7684\u7248\u5f0f\u5c42\u7ea7\u3002",
+      "\u4e0d\u8981\u53ea\u751f\u6210\u4e00\u5f20\u65e0\u6587\u5b57\u65e0\u7248\u5f0f\u7684\u666e\u901a\u6444\u5f71\u56fe\u3002"
+    );
+  } else if (taskType === "reference_redesign") {
+    base.push(
+      "\u6839\u636e\u53c2\u8003\u56fe\u8fdb\u884c\u81ea\u7531\u56fe\u751f\u56fe\u521b\u4f5c\uff0c\u4fdd\u7559\u7528\u6237\u5173\u5fc3\u7684\u4e3b\u4f53\u548c\u98ce\u683c\u65b9\u5411\u3002",
+      "\u5982\u679c\u7528\u6237\u8981\u6c42\u91cd\u65b0\u751f\u6210\u3001\u5ef6\u5c55\u3001\u7c7b\u4f3c\u3001\u6539\u6210\u67d0\u79cd\u7528\u9014\uff0c\u5c31\u6309\u8be5\u7528\u9014\u91cd\u65b0\u8bbe\u8ba1\u6784\u56fe\u3001\u80cc\u666f\u3001\u753b\u5e45\u548c\u89c6\u89c9\u5c42\u7ea7\u3002"
+    );
+  }
+
+  if (userText) base.push("\u7528\u6237\u539f\u59cb\u9700\u6c42\uff1a" + userText);
+  return base.join("\n");
 }
 
 function isStandaloneTextGenerationIntent(text: string): boolean {
@@ -838,20 +923,15 @@ function isStandaloneTextGenerationIntent(text: string): boolean {
 
 function detectGenerationIntent(text: string): string | null {
   const rules: Array<[RegExp, string]> = [
-    // 明确的模块意图
-    [/淘宝|天猫|京东|详情页|商品详情|电商详情|主图|banner|Banner|海报|落地页|长图|卖点图|参数图/, "general"],
-    [/换[装到上]|穿[到在]|试穿|上身|换装/, "tryon"],
-    [/种草|小红书|街拍.*图/, "grass"],
-    [/3[dD]|立体|商品展示/, "garment_3d"],
-    [/专属模特|建模特|定制脸/, "model"],
-    [/换背景|换场景|换模特/, "model_background"],
-    [/四宫格|姿势裂变|pose/i, "pose"],
-    // 修改/调整意图（已有图片上下文，用户要求修改）
-    [/不对|不对啊|错了|重新|重做|换个|换一|改一下|调整|修改|换掉/, "tryon"],
-    // 服装描述 + 参考/替换（隐含换装意图）
-    [/上装|下装|上衣|裤子|裙子|外套|内搭|搭配/, "tryon"],
-    // 通用生图意图
-    [/生成|制作|出图|做一张|来一张|画一张|给我.*图|帮我.*图/, "tryon"],
+    // Specialized modules should only win when the user explicitly asks for that workflow.
+    [/\u6362[\u88c5\u5230\u4e0a]|\u7a7f[\u5230\u5728]|\u8bd5\u7a7f|\u4e0a\u8eab|\u6362\u88c5/, "tryon"],
+    [/\u79cd\u8349|\u5c0f\u7ea2\u4e66|\u8857\u62cd.*\u56fe/, "grass"],
+    [/3[dD]|\u7acb\u4f53|\u5546\u54c1\u5c55\u793a/, "garment_3d"],
+    [/\u4e13\u5c5e\u6a21\u7279|\u5efa\u6a21\u7279|\u5b9a\u5236\u8138/, "model"],
+    [/\u6362\u80cc\u666f|\u6362\u573a\u666f|\u6362\u6a21\u7279/, "model_background"],
+    [/\u56db\u5bab\u683c|\u59ff\u52bf\u88c2\u53d8|pose/i, "pose"],
+    // Generic creation or redesign should stay free-form instead of falling into tryon.
+    [/\u751f\u6210|\u5236\u4f5c|\u51fa\u56fe|\u505a\u4e00\u5f20|\u6765\u4e00\u5f20|\u753b\u4e00\u5f20|\u7ed9\u6211.*\u56fe|\u5e2e\u6211.*\u56fe|\u91cd\u65b0|\u91cd\u505a|\u8c03\u6574|\u4fee\u6539|\u6539\u6210|\u8bbe\u8ba1/, "general"],
   ];
   for (const [pattern, mod] of rules) {
     if (pattern.test(text)) return mod;
