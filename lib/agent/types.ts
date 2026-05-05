@@ -48,6 +48,7 @@ export interface AgentTaskBrief {
   focus: string;
   check: string;
   risks?: string[];
+  rationale?: string[];
 }
 
 export interface GenerationResult {

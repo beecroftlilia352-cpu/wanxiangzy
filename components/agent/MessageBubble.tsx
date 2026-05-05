@@ -568,7 +568,33 @@ function ConfirmIntentBrief({
         <p className="rounded-lg bg-white/80 px-2 py-1 text-amber-700 ring-1 ring-amber-100">
           <span className="font-bold">{"\u786e\u8ba4\u524d\u68c0\u67e5\uff1a"}</span>{brief.check}
         </p>
+        {brief.rationale && brief.rationale.length > 0 && (
+          <DecisionRationale lines={brief.rationale} />
+        )}
       </div>
+    </div>
+  );
+}
+
+function DecisionRationale({ lines }: { lines: string[] }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="overflow-hidden rounded-lg border border-slate-100 bg-white/80">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        className="flex w-full items-center justify-between gap-2 px-2 py-1.5 text-left text-[11px] font-bold text-slate-500 transition-colors hover:bg-slate-50"
+      >
+        <span>{"\u51b3\u7b56\u4f9d\u636e"}</span>
+        <ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && (
+        <ul className="space-y-1 border-t border-slate-100 px-3 py-2 text-[11px] leading-relaxed text-slate-500">
+          {lines.slice(0, 5).map((line) => (
+            <li key={line} className="list-disc">{line}</li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
@@ -596,6 +622,7 @@ function buildIntentBrief(
     focus: getBriefFocus(moduleName, lower),
     check: getBriefCheck(moduleName, lower),
     risks: getBriefRisks(moduleName, lower, used, params),
+    rationale: [],
   };
 }
 

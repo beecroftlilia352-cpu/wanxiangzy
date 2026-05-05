@@ -384,6 +384,7 @@ export async function POST(request: NextRequest) {
         count,
         aspectRatio,
         taskPlan: taskPlan || followupTask?.taskPlan || null,
+        inheritedTask: Boolean(followupTask),
       });
       const guardedGeneralPrompt = applyTaskRiskGuardrails(generalPrompt, taskBrief, "general");
       return NextResponse.json({
@@ -469,6 +470,7 @@ export async function POST(request: NextRequest) {
       count,
       aspectRatio,
       taskPlan: taskPlan || followupTask?.taskPlan || null,
+      inheritedTask: Boolean(followupTask),
     });
     const guardedModuleParams = applyPromptToParams(
       moduleParams,
@@ -1113,6 +1115,7 @@ function buildTaskBrief(params: {
   count: number;
   aspectRatio: AspectRatio;
   taskPlan: VisualTaskPlan | null;
+  inheritedTask?: boolean;
 }) {
   const combined = `${params.label}\n${params.prompt}\n${params.userText}`.toLowerCase();
   const outputType = getTaskOutputType(params, combined);
@@ -1133,6 +1136,7 @@ function buildTaskBrief(params: {
     focus: getTaskFocus(params, combined),
     check: getTaskCheck(params, combined),
     risks: getTaskRisks(params, combined, usedImages, unusedImages),
+    rationale: getTaskRationale(params, combined, usedImages, unusedImages),
   };
 }
 
@@ -1205,6 +1209,24 @@ function getTaskRisks(
     risks.push("\u591a\u5f20\u56fe\u7684\u4e3b\u4f53\u3001\u98ce\u683c\u548c\u6587\u5b57\u4e00\u81f4\u6027\u53ef\u80fd\u4f1a\u6709\u6ce2\u52a8\u3002");
   }
   return Array.from(new Set(risks)).slice(0, 4);
+}
+
+function getTaskRationale(
+  params: { module: string; label: string; taskPlan: VisualTaskPlan | null; inheritedTask?: boolean; count: number; aspectRatio: AspectRatio },
+  combined: string,
+  usedImages: AgentImageInput[],
+  unusedImages: AgentImageInput[]
+): string[] {
+  const lines: string[] = [];
+  if (params.inheritedTask) lines.push("\u8bc6\u522b\u4e3a\u5bf9\u4e0a\u4e00\u6b21\u4efb\u52a1\u7684\u8ffd\u52a0\u4fee\u6539\uff0c\u56e0\u6b64\u6cbf\u7528\u4e0a\u8f6e\u6a21\u5757\u548c\u56fe\u7247\u5173\u7cfb\u3002");
+  if (params.taskPlan?.taskType === "commerce_detail" || combined.includes("\u8be6\u60c5\u9875")) lines.push("\u547d\u4e2d\u7535\u5546\u8be6\u60c5\u9875/\u957f\u56fe\u7c7b\u610f\u56fe\uff0c\u6240\u4ee5\u6309\u901a\u7528\u5546\u4e1a\u56fe\u751f\u6210\u800c\u4e0d\u8fdb\u5165\u79cd\u8349\u6216\u6362\u88c5\u6a21\u5757\u3002");
+  if (combined.includes("banner")) lines.push("\u547d\u4e2d banner/\u6a2a\u7248\u89c6\u89c9\u610f\u56fe\uff0c\u4f18\u5148\u4fdd\u7559\u6807\u9898\u533a\u548c\u5356\u70b9\u5c42\u7ea7\u3002");
+  if (params.module === "pose") lines.push("\u547d\u4e2d\u59ff\u52bf/\u56db\u5bab\u683c\u610f\u56fe\uff0c\u56e0\u6b64\u91cd\u70b9\u7ea6\u675f\u4eba\u7269\u3001\u670d\u88c5\u548c\u8eab\u4f53\u6bd4\u4f8b\u4e00\u81f4\u3002");
+  if (params.module === "tryon") lines.push("\u547d\u4e2d\u6362\u88c5/\u4e0a\u8eab\u610f\u56fe\uff0c\u56e0\u6b64\u4f18\u5148\u8fd8\u539f\u670d\u88c5\u5e76\u8d34\u5408\u53c2\u8003\u4eba\u7269\u6216\u59ff\u52bf\u3002");
+  if (usedImages.length) lines.push(`\u68c0\u6d4b\u5230 ${usedImages.length} \u5f20\u56fe\u4f1a\u53c2\u4e0e\u751f\u6210\uff0c\u5df2\u6309\u56fe\u7247\u89d2\u8272\u5199\u5165\u4efb\u52a1\u65b9\u6848\u3002`);
+  if (unusedImages.length) lines.push(`\u6709 ${unusedImages.length} \u5f20\u9644\u4ef6\u672a\u88ab\u672c\u6b21\u4efb\u52a1\u4f7f\u7528\uff0c\u6240\u4ee5\u5728\u786e\u8ba4\u5361\u4e2d\u660e\u793a\u3002`);
+  lines.push(`\u8f93\u51fa\u53c2\u6570\u4e3a ${params.aspectRatio}\u3001${params.count} \u5f20\uff0c\u786e\u8ba4\u540e\u624d\u4f1a\u6263\u5206\u6267\u884c\u3002`);
+  return Array.from(new Set(lines)).slice(0, 5);
 }
 
 function applyTaskRiskGuardrails(prompt: string, taskBrief: { risks?: string[] }, module: string): string {
