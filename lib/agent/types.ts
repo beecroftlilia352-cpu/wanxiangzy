@@ -41,6 +41,14 @@ export interface ChatImage {
 
 export type GenerationStatus = "pending" | "generating" | "completed" | "failed";
 
+export interface AgentTaskBrief {
+  outputType: string;
+  goal: string;
+  imageUsage: string;
+  focus: string;
+  check: string;
+}
+
 export interface GenerationResult {
   status: GenerationStatus;
   progress: number;
@@ -56,6 +64,7 @@ export interface GenerationResult {
     params: Record<string, unknown>;
     jobPayload: Record<string, unknown>;
     creditsCost: number;
+    taskBrief?: AgentTaskBrief;
   };
   _lastRunData?: {
     apiPath: string;
@@ -63,6 +72,7 @@ export interface GenerationResult {
     params: Record<string, unknown>;
     jobPayload: Record<string, unknown>;
     creditsCost: number;
+    taskBrief?: AgentTaskBrief;
   };
 }
 

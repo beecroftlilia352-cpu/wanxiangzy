@@ -6,7 +6,7 @@ import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { AspectRatio, ImageSize, LingyaModel } from "@/lib/api/lingya";
-import type { ChatImage, ChatImageRole, GenerationParams, Message } from "@/lib/agent/types";
+import type { AgentTaskBrief, ChatImage, ChatImageRole, GenerationParams, Message } from "@/lib/agent/types";
 import { validateConfirmImageRoles } from "@/lib/agent/confirm-role-params";
 import { renderMentionSegments } from "@/lib/agent/mention-parser";
 import { RepairPromptPanel } from "@/components/RepairPromptPanel";
@@ -200,6 +200,7 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
               images={confirmImages}
               params={generation._confirmData.params}
               jobPayload={generation._confirmData.jobPayload}
+              taskBrief={generation._confirmData.taskBrief}
             />
             <ConfirmTaskPlanV2
               moduleName={generation.module || "图像生成"}
@@ -524,15 +525,17 @@ function ConfirmIntentBrief({
   images,
   params,
   jobPayload,
+  taskBrief,
 }: {
   moduleName: string;
   images: ChatImage[];
   params: Record<string, unknown>;
   jobPayload?: Record<string, unknown>;
+  taskBrief?: AgentTaskBrief;
 }) {
   const { used, unused } = splitUsedImages(images, params, jobPayload);
   const prompt = typeof params.prompt === "string" ? params.prompt : typeof jobPayload?.prompt === "string" ? jobPayload.prompt : "";
-  const brief = buildIntentBrief(moduleName, prompt, used, unused, params);
+  const brief = taskBrief || buildIntentBrief(moduleName, prompt, used, unused, params);
 
   return (
     <div className="mb-3 rounded-xl border border-violet-100 bg-gradient-to-br from-white to-violet-50/50 p-3">

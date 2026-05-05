@@ -468,6 +468,7 @@ export const useAgentStore = create<Store>((set, get) => ({
                   params: data.generation_params,
                   jobPayload: data.job_payload,
                   creditsCost: data.credits_cost,
+                  taskBrief: data.task_brief,
                 },
               },
             } : m
