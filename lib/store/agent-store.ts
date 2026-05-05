@@ -16,6 +16,7 @@ import type {
   WorkflowPlan,
   WorkflowRecord,
   WorkflowStatus,
+  WorkflowStepPlan,
   WorkflowStepRecord,
 } from "@/lib/agent/workflow/types";
 
@@ -617,9 +618,6 @@ export const useAgentStore = create<Store>((set, get) => ({
     } catch (err) {
       const msg = err instanceof Error ? err.message : "处理失败";
       const errorParams: Record<string, unknown> = { agentError: msg };
-      if (showPlanningTimeline) {
-        errorParams.agentTimeline = completeAgentTimeline(`处理未完成：${msg}`);
-      }
       set((s) => ({
         isSending: false,
         messages: s.messages.map((m) =>
@@ -1142,22 +1140,44 @@ async function maybeCreateWorkflowMessage(args: {
         .join("\n")
         .slice(-1800),
     }),
-  });
+  }).catch(() => null);
 
-  const planData = await planRes.json().catch(() => ({})) as WorkflowPlanApiResponse;
-  if (!planRes.ok) {
-    if (args.intentMode === "create" || isStrongWorkflowClientRequest(args.message, args.images.length)) {
-      throw new Error(planData.error || "规划 workflow 失败");
-    }
-    return null;
-  }
-  if (!shouldUseWorkflowPlan(planData, args.message, args.intentMode, args.images.length)) {
-    if (isStrongWorkflowClientRequest(args.message, args.images.length)) {
-      throw new Error(planData.plan?.clarificationQuestion || "这个任务应该进入工作流，但规划器没有返回可执行步骤");
-    }
-    return null;
+  const planData = planRes
+    ? await planRes.json().catch(() => ({})) as WorkflowPlanApiResponse
+    : {} as WorkflowPlanApiResponse;
+  if (planRes?.ok && shouldUseWorkflowPlan(planData, args.message, args.intentMode, args.images.length) && planData.plan) {
+    return createWorkflowFromPlan(args, planData.plan, planData);
   }
 
+  const fallbackPlan = buildClientFallbackWorkflowPlan(args);
+  if (fallbackPlan) {
+    return createWorkflowFromPlan(args, fallbackPlan, {
+      ...planData,
+      plan: fallbackPlan,
+    });
+  }
+
+  if (!planRes?.ok && args.intentMode === "create") {
+    throw new Error(planData.error || "我暂时没能完成任务规划，请稍后再试。");
+  }
+  if (!planRes?.ok || isStrongWorkflowClientRequest(args.message, args.images.length)) {
+    return null;
+  }
+
+  return null;
+}
+
+async function createWorkflowFromPlan(
+  args: {
+    convId: string;
+    userMessageId: string;
+    message: string;
+    images: Array<{ index: number; url: string; role: string; fileName?: string }>;
+    params: GenerationParams;
+  },
+  plan: WorkflowPlan,
+  planData: WorkflowPlanApiResponse
+): Promise<WorkflowClientPayload | null> {
   const createRes = await fetch("/api/agent/workflows", {
     method: "POST",
     headers: {
@@ -1165,7 +1185,7 @@ async function maybeCreateWorkflowMessage(args: {
       "Idempotency-Key": `${args.convId}:${args.userMessageId}:workflow`,
     },
     body: JSON.stringify({
-      plan: planData.plan,
+      plan,
       images: args.images,
       mode: "agent",
       params: {
@@ -1179,13 +1199,140 @@ async function maybeCreateWorkflowMessage(args: {
     }),
   });
   const createData = await createRes.json().catch(() => ({}));
-  if (!createRes.ok) throw new Error(createData.error || "创建 workflow 失败");
+  if (!createRes.ok) throw new Error(createData.error || "创建任务失败，请检查图片角色后再试。");
   return normalizeWorkflowPayload({
     ...createData,
-    plan: planData.plan,
+    plan,
     validation: createData.validation || planData.validation,
     costEstimate: createData.costEstimate || planData.costEstimate,
   });
+}
+
+function buildClientFallbackWorkflowPlan(args: {
+  message: string;
+  images: Array<{ index: number; url: string; role: string; fileName?: string }>;
+  params: GenerationParams;
+}): WorkflowPlan | null {
+  const text = args.message.trim();
+  const imageCount = args.images.length;
+  const wantsTryon = /穿上|穿到|传到|转移到|套到|换到|换装|上身|试穿|把.*衣服.*(?:穿|传|转移|套|换)|(?:穿|传|转移|套|换).*衣服|衣服.*(?:穿|传|转移|套|换)|模特.*衣服/.test(text);
+  const wantsPose = /姿势|裂变|站姿|动作|pose/i.test(text);
+  const wantsDetail = /详情页|长图|卖点图|参数图|功能图|淘宝|天猫|京东/.test(text) && !/主图|banner|海报/.test(text);
+  const wantsCreative = /主图|banner|海报|活动图|推广图|封面/.test(text);
+  const wantsGeneralImage = /生成|制作|出图|设计|画|做一张|来一张|改图|重做|重新/.test(text);
+  const steps: WorkflowStepPlan[] = [];
+  const refs = inferClientTryonRefs(text, args.images);
+
+  if (wantsTryon && imageCount > 0) {
+    steps.push({
+      id: "step_1",
+      type: "tryon",
+      title: "服装穿到模特身上",
+      dependsOn: [],
+      input: {
+        personImage: refs.personImage || findClientImageRef(args.images, ["person", "reference", "source", "auto"], refs.clothingImage) || (imageCount > 1 ? `图${args.images[1].index}` : `图${args.images[0].index}`),
+        clothingImage: refs.clothingImage || findClientImageRef(args.images, ["clothing", "product"], refs.personImage) || `图${args.images[0].index}`,
+      },
+      params: { prompt: text, count: 1 },
+      expectedOutput: { imageUrls: true },
+      riskNotes: ["需要检查服装结构、人物身份和身体比例。"],
+    });
+  }
+
+  if (wantsPose && imageCount > 0) {
+    const previous = steps[steps.length - 1];
+    const separate = !/四宫格|宫格|2x2/i.test(text) || /每张|单独|独立|4\s*张|四\s*张/.test(text);
+    steps.push({
+      id: `step_${steps.length + 1}`,
+      type: "pose_variation",
+      title: separate ? "生成 4 张姿势图" : "生成四宫格姿势图",
+      dependsOn: previous ? [previous.id] : [],
+      input: { sourceImage: previous ? `$${previous.id}.output.imageUrls[0]` : `图${args.images[0].index}` },
+      params: { prompt: text, outputMode: separate ? "separate" : "grid", count: separate ? 4 : 1 },
+      expectedOutput: { imageUrls: true },
+      riskNotes: ["需要检查手指、关节、脸和身体比例。"],
+    });
+  }
+
+  if (!steps.length && (wantsDetail || wantsCreative || wantsGeneralImage)) {
+    steps.push({
+      id: "step_1",
+      type: wantsDetail ? "commerce_detail" : wantsCreative ? "commerce_creative" : imageCount > 0 ? "image_to_image" : "text_to_image",
+      title: wantsDetail ? "电商详情页" : wantsCreative ? "商业视觉图" : imageCount > 0 ? "通用图生图" : "通用文生图",
+      dependsOn: [],
+      input: imageCount > 0 ? { referenceImages: args.images.map((img) => `图${img.index}`), sourceImages: args.images.map((img) => `图${img.index}`) } : {},
+      params: { prompt: text, count: args.params.count },
+      expectedOutput: { imageUrls: true },
+      riskNotes: [],
+    });
+  }
+
+  if (!steps.length) return null;
+
+  return {
+    intent: steps.length > 1 ? "multi_step_visual_workflow" : steps[0].type,
+    summary: steps.map((step, index) => `${index + 1}. ${step.title}`).join(" -> "),
+    confidence: 0.72,
+    needsClarification: false,
+    imageRoles: args.images.map((image, index) => ({
+      ref: `图${image.index}`,
+      imageIndex: image.index,
+      role: normalizeClientImageRole(image.role, index),
+      confidence: image.role && image.role !== "auto" ? 0.86 : 0.58,
+      reason: image.role && image.role !== "auto" ? "用户已设置图片角色" : "按图片顺序和指令自动推断",
+    })),
+    userConstraints: [],
+    assumptions: ["已根据文字和图片角色自动规划；确认前可修改图片角色或步骤。"],
+    steps,
+  };
+}
+
+function inferClientTryonRefs(
+  text: string,
+  images: Array<{ index: number; role: string }>
+) {
+  const hasImage = (index: number) => images.some((image) => image.index === index);
+  const clothingToPerson = text.match(/图\s*(\d+)\s*(?:的)?(?:衣服|服装|裙子|上衣|裤子|外套).*?(?:穿到|穿在|给|传到|转移到|套到|换到).*?(?:图\s*(\d+))?/);
+  if (clothingToPerson) {
+    const clothingIndex = Number(clothingToPerson[1]);
+    const personIndex = clothingToPerson[2] ? Number(clothingToPerson[2]) : NaN;
+    if (hasImage(clothingIndex)) {
+      return {
+        clothingImage: `图${clothingIndex}`,
+        personImage: Number.isFinite(personIndex) && hasImage(personIndex)
+          ? `图${personIndex}`
+          : findClientImageRef(images, ["person", "reference", "source", "auto"], `图${clothingIndex}`),
+      };
+    }
+  }
+
+  const personToClothing = text.match(/图\s*(\d+)\s*(?:的)?(?:人物|模特|人).*?(?:穿|换上|穿上|上身).*?图\s*(\d+)/);
+  if (personToClothing) {
+    const personIndex = Number(personToClothing[1]);
+    const clothingIndex = Number(personToClothing[2]);
+    if (hasImage(personIndex) && hasImage(clothingIndex)) {
+      return { personImage: `图${personIndex}`, clothingImage: `图${clothingIndex}` };
+    }
+  }
+
+  return {
+    clothingImage: findClientImageRef(images, ["clothing", "product"]),
+    personImage: findClientImageRef(images, ["person", "reference", "source", "auto"], findClientImageRef(images, ["clothing", "product"])),
+  };
+}
+
+function findClientImageRef(
+  images: Array<{ index: number; role: string }>,
+  roles: string[],
+  excludeRef?: string | null
+) {
+  const found = images.find((image) => roles.includes(image.role || "auto") && `图${image.index}` !== excludeRef);
+  return found ? `图${found.index}` : null;
+}
+
+function normalizeClientImageRole(role: string, index: number) {
+  if (["person", "clothing", "product", "background", "style", "source", "reference", "face"].includes(role)) return role as "person" | "clothing" | "product" | "background" | "style" | "source" | "reference" | "face";
+  return index === 0 ? "source" : "reference";
 }
 
 function shouldTryWorkflowRequest(text: string, imageCount: number, mode: AgentIntentMode) {

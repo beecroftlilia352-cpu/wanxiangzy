@@ -1158,30 +1158,24 @@ function AgentRuntimeTimeline({ timeline, compact = false }: { timeline: Runtime
   const done = timeline.length > 0 && timeline.every((item) => item.status === "done");
   const [open, setOpen] = useState(false);
   if (!timeline.length) return null;
-  const title = activeItem ? "正在规划任务" : done ? "已完成规划" : "规划任务";
+  const title = activeItem ? "思考中..." : done ? "已完成" : "思考中...";
   const summary = activeItem?.detail || timeline[timeline.length - 1]?.detail || "Agent 正在处理。";
 
   return (
-    <div className={`${compact ? "mb-2 rounded-xl border border-slate-100 bg-slate-50/80" : "w-full max-w-md rounded-2xl rounded-bl-md border border-slate-200 bg-white/95 shadow-sm"} overflow-hidden`}>
+    <div className={`${compact ? "mb-2" : "w-full max-w-md"} overflow-hidden`}>
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left transition-colors hover:bg-slate-50"
+        className="inline-flex max-w-full items-center gap-2 rounded-2xl rounded-bl-md border border-violet-100 bg-violet-50/80 px-3 py-2 text-left text-violet-700 shadow-sm transition-colors hover:bg-violet-50"
       >
-        <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${
-          activeItem ? "bg-slate-900 text-white" : done ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-500"
-        }`}>
-          {activeItem ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : done ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Activity className="h-3.5 w-3.5" />}
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-xs font-semibold text-slate-800">{title}</p>
-          <p className="mt-0.5 truncate text-[11px] text-slate-500">{summary}</p>
-        </div>
-        <ChevronDown className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
+        {activeItem ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : done ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Activity className="h-3.5 w-3.5" />}
+        <span className="text-xs font-semibold">{title}</span>
+        <ChevronDown className={`h-3.5 w-3.5 shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
 
       {open && (
-        <div className="border-t border-slate-100 px-3 pb-3 pt-2">
+        <div className="mt-1.5 rounded-2xl rounded-bl-md border border-slate-200 bg-white/95 px-3 pb-3 pt-2 shadow-sm">
+          <p className="mb-2 truncate text-[11px] text-slate-500">{summary}</p>
           <div className="space-y-2">
             {timeline.map((item, index) => (
               <div key={`${item.label}-${index}`} className="flex gap-2">

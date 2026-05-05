@@ -72,6 +72,22 @@ describe("workflow production core", () => {
     expect(plan.steps[0].input.clothingImage).toBe("图1");
   });
 
+  it("uses the non-clothing image as model when the user says model without image number", async () => {
+    const plan = await planWorkflow({
+      userText: "帮我把图1的衣服穿到模特身上，然后裂变4个姿势图",
+      images: [
+        { index: 1, url: "https://example.com/clothing.png", role: "clothing" },
+        { index: 2, url: "https://example.com/model.png", role: "reference" },
+      ],
+      mode: "agent",
+      defaults,
+    });
+
+    expect(plan.steps.map((step) => step.type)).toEqual(["tryon", "pose_variation"]);
+    expect(plan.steps[0].input.personImage).toBe("图2");
+    expect(plan.steps[0].input.clothingImage).toBe("图1");
+  });
+
   it("validator blocks disabled video steps while keeping image workflow valid", async () => {
     const plan = await planWorkflow({
       userText: "图1人物穿图2衣服，再做走秀视频",
