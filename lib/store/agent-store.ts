@@ -1672,8 +1672,9 @@ function mergeTimelineWithBackendEvent(
     return completeAgentTimeline("后端已完成 Brain trace，可打开“过程”查看详情。");
   }
   if (kind === "workflow_event") {
+    const nextStatus = getWorkflowEventTimelineStatus(eventName, event);
     return timeline.map((item) =>
-      item.label === "复核计划" ? { ...item, status: "running", detail: `后端工作流事件：${eventName} ${detail}`.trim() } : item
+      item.label === "复核计划" ? { ...item, status: nextStatus, detail: `后端工作流事件：${eventName} ${detail}`.trim() } : item
     );
   }
   if (kind === "agent_metric") {
@@ -1682,6 +1683,31 @@ function mergeTimelineWithBackendEvent(
     );
   }
   return timeline;
+}
+
+function getWorkflowEventTimelineStatus(eventName: string, event: Record<string, unknown>) {
+  const normalized = eventName.toLowerCase();
+  const rawStatus =
+    typeof event.status === "string"
+      ? event.status
+      : isPlainObject(event.workflow) && typeof event.workflow.status === "string"
+        ? event.workflow.status
+        : "";
+  const status = rawStatus.toLowerCase();
+
+  if (["draft", "planned", "needs_confirmation", "confirmed", "waiting_user", "queued", "completed", "partially_completed", "failed", "cancelled"].includes(status)) {
+    return "done";
+  }
+  if (["running", "processing", "generating"].includes(status)) {
+    return "running";
+  }
+  if (/(created|planned|validated|confirmed|queued|completed|failed|cancelled|skipped|selected|updated|persisted)/.test(normalized)) {
+    return "done";
+  }
+  if (/(started|processing|running|generating|quality|retry|repair)/.test(normalized)) {
+    return "running";
+  }
+  return "done";
 }
 
 function getBackendEventDetail(event: Record<string, unknown>) {

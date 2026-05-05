@@ -93,15 +93,18 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
   }
 
   const isUser = role === "user";
-  const hasTimeline = !isUser && hasAgentTimeline(message.params);
-  if (!isUser && !content && !generation && !hasTimeline) return null;
+  const workflowPayload = !isUser ? getWorkflowPayload(message.params) : null;
+  const agentTimeline = !isUser
+    ? normalizeAgentTimelineForMessage(readAgentTimeline(message.params), workflowPayload, generation)
+    : [];
+  const hasTimeline = agentTimeline.length > 0;
+  if (!isUser && !content && !generation && !hasTimeline && !workflowPayload) return null;
 
   // 消息分组：同角色连续消息隐藏头像
   const isGrouped = prevMessage && prevMessage.role === role;
   const confirmImages = prevMessage?.role === "user" && prevMessage.images?.length
     ? prevMessage.images
     : sessionImages;
-  const workflowPayload = !isUser ? getWorkflowPayload(message.params) : null;
   const traceId = !isUser ? getTraceId(message.params) : null;
   const feedback = !isUser ? getMessageFeedback(message.params) : null;
 
@@ -148,7 +151,7 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
 
         {/* 文本内容 */}
         {!isUser && hasTimeline && !content && (
-          <AgentRuntimeTimeline timeline={readAgentTimeline(message.params)} />
+          <AgentRuntimeTimeline timeline={agentTimeline} />
         )}
 
         {content && (
@@ -174,7 +177,7 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
             )}
 
             {!isUser && hasTimeline && (
-              <AgentRuntimeTimeline timeline={readAgentTimeline(message.params)} compact />
+              <AgentRuntimeTimeline timeline={agentTimeline} compact />
             )}
 
             {/* 消息操作栏 */}
@@ -1000,10 +1003,6 @@ function getWorkflowPayload(params: Record<string, unknown>): WorkflowClientPayl
   };
 }
 
-function hasAgentTimeline(params: Record<string, unknown> | undefined) {
-  return Array.isArray(params?.agentTimeline) && params.agentTimeline.length > 0;
-}
-
 function readAgentTimeline(params: Record<string, unknown> | undefined): RuntimeTimelineItem[] {
   if (!Array.isArray(params?.agentTimeline)) return [];
   return params.agentTimeline
@@ -1014,6 +1013,56 @@ function readAgentTimeline(params: Record<string, unknown> | undefined): Runtime
       detail: typeof item.detail === "string" ? item.detail : undefined,
     }))
     .filter((item) => item.label);
+}
+
+function normalizeAgentTimelineForMessage(
+  timeline: RuntimeTimelineItem[],
+  workflowPayload: WorkflowClientPayload | null,
+  generation: Message["generation"] | null | undefined
+): RuntimeTimelineItem[] {
+  if (timeline.length === 0) return timeline;
+
+  const workflowStatus = workflowPayload?.workflow?.status;
+  if (workflowStatus && shouldCompleteTimelineForWorkflowStatus(workflowStatus)) {
+    return completeRuntimeTimeline(timeline, getWorkflowTimelineDoneDetail(workflowStatus));
+  }
+
+  if (generation?.status === "pending") {
+    return completeRuntimeTimeline(timeline, "已生成确认卡，等待确认后执行。");
+  }
+  if (generation?.status === "completed") {
+    return completeRuntimeTimeline(timeline, "生成已完成。");
+  }
+  if (generation?.status === "failed") {
+    return completeRuntimeTimeline(timeline, "生成已结束，可根据错误信息重试或修复。");
+  }
+
+  return timeline;
+}
+
+function shouldCompleteTimelineForWorkflowStatus(status: string) {
+  return ["draft", "planned", "needs_confirmation", "confirmed", "waiting_user", "queued", "completed", "partially_completed", "failed", "cancelled"].includes(status);
+}
+
+function getWorkflowTimelineDoneDetail(status: string) {
+  if (status === "needs_confirmation" || status === "waiting_user" || status === "planned" || status === "draft") {
+    return "计划已复核，正在等待你确认。";
+  }
+  if (status === "confirmed") return "计划已确认，等待进入执行队列。";
+  if (status === "queued") return "计划已确认并入队，执行进度看下方步骤卡片。";
+  if (status === "completed") return "工作流已完成。";
+  if (status === "partially_completed") return "工作流已部分完成，可查看步骤结果。";
+  if (status === "failed") return "工作流已结束，可查看失败步骤并重试。";
+  if (status === "cancelled") return "工作流已取消。";
+  return "计划已复核。";
+}
+
+function completeRuntimeTimeline(timeline: RuntimeTimelineItem[], finalDetail: string): RuntimeTimelineItem[] {
+  return timeline.map((item, index) => ({
+    ...item,
+    status: "done",
+    detail: index === timeline.length - 1 ? finalDetail : item.detail,
+  }));
 }
 
 function getTraceId(params: Record<string, unknown> | undefined) {
