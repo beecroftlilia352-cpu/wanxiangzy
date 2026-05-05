@@ -63,6 +63,20 @@ export default function AgentPage() {
     return () => window.removeEventListener("keydown", handler);
   }, [lightbox, s.sidebarOpen]);
 
+  useEffect(() => {
+    if (!s.activeId || typeof EventSource === "undefined") return;
+    const source = new EventSource(`/api/agent/events?conversationId=${encodeURIComponent(s.activeId)}`);
+    const handle = (event: MessageEvent) => {
+      try {
+        s.receiveAgentEvent(JSON.parse(event.data));
+      } catch {}
+    };
+    source.addEventListener("agent_metric", handle);
+    source.addEventListener("brain_trace", handle);
+    source.addEventListener("workflow_event", handle);
+    return () => source.close();
+  }, [s.activeId]);
+
   if (!isAuth) return null;
 
   const handleQuickAction = (text: string) => {
@@ -171,6 +185,7 @@ export default function AgentPage() {
           onRepair={s.repairGeneration}
           onUpdateConfirmParams={s.updateConfirmParams}
           onUpdateConfirmImageRole={s.updateConfirmImageRole}
+          onFeedback={s.sendFeedback}
           onUseAsReference={(url) => {
             s.addReferenceUrl(url);
             toast.success("已加入附件区，可作为参考图使用");

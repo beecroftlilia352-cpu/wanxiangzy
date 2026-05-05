@@ -1,7 +1,7 @@
 "use client";
 
-import { useRef, useState, useCallback, useEffect, type KeyboardEvent, type ClipboardEvent, type ReactNode } from "react";
-import { Paperclip, Sparkles, ArrowUp, Settings, X, Loader2, MessageCircle, Wand2, Zap } from "lucide-react";
+import { useRef, useState, useCallback, useEffect, type KeyboardEvent, type ClipboardEvent } from "react";
+import { Paperclip, Sparkles, ArrowUp, Settings, X, Loader2, MessageCircle, Wand2 } from "lucide-react";
 import type { ChatImage, GenerationParams, AgentMode, AgentIntentMode, ChatImageRole } from "@/lib/agent/types";
 import type { LingyaModel, AspectRatio, ImageSize } from "@/lib/api/lingya";
 import { getCreditCost } from "@/lib/api/lingya";
@@ -237,7 +237,7 @@ export function InputComposer({
 
         {/* 底部工具栏 */}
         <div className="mt-1.5 flex items-center gap-2 px-1">
-          <IntentModeSwitch value={intentMode} onChange={onIntentModeChange} />
+          <AgentChatModeSwitch value={intentMode} onChange={onIntentModeChange} />
 
           <div className="relative">
             <button onClick={(e) => { e.stopPropagation(); setSettingsOpen(!settingsOpen); }}
@@ -274,17 +274,6 @@ export function InputComposer({
   );
 }
 
-const INTENT_MODE_OPTIONS: Array<{
-  value: AgentIntentMode;
-  label: string;
-  desc: string;
-  icon: ReactNode;
-}> = [
-  { value: "chat", label: "聊天", desc: "只回答分析", icon: <MessageCircle className="h-3.5 w-3.5" /> },
-  { value: "smart", label: "智能", desc: "明确才生成", icon: <Wand2 className="h-3.5 w-3.5" /> },
-  { value: "create", label: "创作", desc: "积极出方案", icon: <Zap className="h-3.5 w-3.5" /> },
-];
-
 function ContextStatus({
   imageCount,
   intentMode,
@@ -292,51 +281,62 @@ function ContextStatus({
   imageCount: number;
   intentMode: AgentIntentMode;
 }) {
-  const mode = INTENT_MODE_OPTIONS.find((item) => item.value === intentMode);
+  const chatOnly = intentMode === "chat";
   const contextLabel = imageCount > 0 ? `当前上下文：${imageCount} 张附件图` : "当前上下文：无附件图";
-  const contextDesc = imageCount > 0
-    ? "下一次发送会使用附件区图片；清空后将按纯文字理解。"
-    : "下一次发送只按文字和当前对话理解，不会自动带入历史图片。";
+  const contextDesc = chatOnly
+    ? "只对话和分析，不创建生成任务、不扣分。"
+    : imageCount > 0
+      ? "默认模式，会理解图片和文字，必要时拆成工作流；生成前确认。"
+      : "默认模式，会理解需求，必要时规划或生成；生成前确认。";
 
   return (
     <div className="mb-2 flex flex-wrap items-center gap-2 rounded-xl border border-slate-200/70 bg-white/70 px-3 py-2 text-[11px] shadow-sm backdrop-blur">
       <span className="font-bold text-slate-700">{contextLabel}</span>
-      <span className="rounded-full bg-violet-50 px-2 py-0.5 font-semibold text-violet-600">
-        {mode?.label || "智能"}模式
+      <span className={`rounded-full px-2 py-0.5 font-semibold ${
+        chatOnly ? "bg-slate-100 text-slate-600" : "bg-violet-50 text-violet-600"
+      }`}>
+        {chatOnly ? "Chat" : "Agent"}
       </span>
       <span className="min-w-0 flex-1 truncate text-slate-400">{contextDesc}</span>
     </div>
   );
 }
 
-function IntentModeSwitch({
+function AgentChatModeSwitch({
   value,
   onChange,
 }: {
   value: AgentIntentMode;
   onChange: (mode: AgentIntentMode) => void;
 }) {
+  const chatOnly = value === "chat";
   return (
-    <div className="inline-flex shrink-0 items-center gap-0.5 rounded-full border border-slate-200/70 bg-white/80 p-0.5 shadow-[0_1px_8px_rgba(15,23,42,0.04)] backdrop-blur">
-      {INTENT_MODE_OPTIONS.map((item) => {
-        const active = value === item.value;
-        return (
-          <button
-            key={item.value}
-            type="button"
-            onClick={() => onChange(item.value)}
-            className={`flex h-6 items-center justify-center gap-1 rounded-full px-2 text-[11px] font-semibold leading-none transition-all ${
-              active
-                ? "bg-slate-900 text-white shadow-sm"
-                : "text-slate-400 hover:bg-slate-50 hover:text-slate-700"
-            }`}
-            title={`${item.label}：${item.desc}`}
-          >
-            <span className="[&>svg]:h-3 [&>svg]:w-3">{item.icon}</span>
-            <span>{item.label}</span>
-          </button>
-        );
-      })}
+    <div
+      className="inline-flex h-7 shrink-0 items-center rounded-full border border-slate-200 bg-white p-0.5 text-[11px] font-semibold shadow-[0_1px_8px_rgba(15,23,42,0.04)]"
+      aria-label="选择对话模式"
+    >
+      <button
+        type="button"
+        onClick={() => onChange("smart")}
+        className={`inline-flex h-6 items-center gap-1.5 rounded-full px-2.5 transition-colors ${
+          chatOnly ? "text-slate-500 hover:bg-slate-50 hover:text-slate-700" : "bg-slate-900 text-white"
+        }`}
+        title="Agent：默认模式，会理解需求、分析图片、规划工作流或生成"
+      >
+        <Wand2 className="h-3.5 w-3.5" />
+        <span>Agent</span>
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange("chat")}
+        className={`inline-flex h-6 items-center gap-1.5 rounded-full px-2.5 transition-colors ${
+          chatOnly ? "bg-slate-900 text-white" : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+        }`}
+        title="Chat：只对话和分析，不创建生成任务"
+      >
+        <MessageCircle className="h-3.5 w-3.5" />
+        <span>Chat</span>
+      </button>
     </div>
   );
 }

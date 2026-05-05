@@ -9,9 +9,11 @@ import {
   setStepStatus,
   setWorkflowStatus,
   settleWorkflowCredits,
+  updateStepDefinition,
 } from "@/lib/agent/workflow/repository";
 import type { WorkflowBundle } from "@/lib/agent/workflow/repository";
 import type { WorkflowCostEstimate, WorkflowStepRecord, WorkflowStepResultOutput } from "@/lib/agent/workflow/types";
+import { getWorkflowTool } from "@/lib/agent/workflow/tools";
 
 export async function runNextAgentWorkflows(limit = 2) {
   const ids = await claimNextAgentWorkflows(limit);
@@ -118,20 +120,93 @@ async function executeStep(bundle: WorkflowBundle, step: WorkflowStepRecord) {
 }
 
 async function failStep(bundle: WorkflowBundle, step: WorkflowStepRecord, message: string) {
-  await setStepStatus(step.id, "failed", {
-    errorMessage: message,
-    retryCount: step.retry_count + 1,
-  });
+  const nextRetry = step.retry_count + 1;
+  const tool = getWorkflowTool(step.type);
+  const maxAttempts = tool?.retryPolicy.maxAttempts ?? 3;
+  const retryable = tool?.retryPolicy.retryable !== false && process.env.AGENT_WORKFLOW_SELF_REPAIR_ENABLED !== "false";
+
   await appendWorkflowEvent({
     workflowId: bundle.workflow.id,
     stepId: step.id,
     type: "step_failed",
     message,
-    payload: { type: step.type, retryCount: step.retry_count + 1 },
+    payload: { type: step.type, retryCount: nextRetry, maxAttempts },
   });
-  if (step.retry_count + 1 >= 3) {
+
+  if (retryable && nextRetry < maxAttempts) {
+    const repaired = buildSelfRepairPatch(step, message, nextRetry);
+    await updateStepDefinition(step.id, {
+      params: repaired.params,
+      input: repaired.input,
+      title: repaired.title,
+    });
+    await setStepStatus(step.id, "ready", {
+      errorMessage: message,
+      retryCount: nextRetry,
+    });
+    await appendWorkflowEvent({
+      workflowId: bundle.workflow.id,
+      stepId: step.id,
+      type: "step_retried",
+      message: `${step.title} will retry with a repaired prompt`,
+      payload: {
+        retryCount: nextRetry,
+        repairSummary: repaired.summary,
+      },
+    });
+    return;
+  }
+
+  await setStepStatus(step.id, "failed", {
+    errorMessage: message,
+    retryCount: nextRetry,
+  });
+  if (nextRetry >= maxAttempts) {
     await finalizeFailedWorkflow(bundle.workflow.id, bundle.workflow.user_id, bundle.workflow.cost_estimate, bundle.workflow.cost_reserved, bundle.steps);
   }
+}
+
+function buildSelfRepairPatch(step: WorkflowStepRecord, message: string, retryCount: number) {
+  const params = { ...step.params };
+  const input = { ...step.input };
+  const existingPrompt = typeof params.prompt === "string" ? params.prompt.trim() : "";
+  const repairLines = [
+    `失败复盘：第 ${retryCount} 次执行失败，原因是「${message.slice(0, 220)}」。`,
+    "修复计划：重新检查输入图引用、输出数量、比例、提示词边界和用户原始目标；优先修复失败点，不要擅自切换任务类型。",
+    getToolSpecificRepairLine(step.type),
+  ].filter(Boolean);
+
+  params.prompt = existingPrompt
+    ? `${existingPrompt}\n\n${repairLines.join("\n")}`
+    : repairLines.join("\n");
+  params._selfRepair = {
+    retryCount,
+    lastError: message,
+    repairedAt: new Date().toISOString(),
+  };
+
+  return {
+    title: step.title,
+    params,
+    input,
+    summary: repairLines.join(" "),
+  };
+}
+
+function getToolSpecificRepairLine(type: string) {
+  if (type === "commerce_detail") {
+    return "详情页修复重点：必须保持电商详情页/长图版式，包含首屏、卖点、细节和参数区，不要变成单张种草图或街拍图。";
+  }
+  if (type === "pose_variation") {
+    return "姿势裂变修复重点：保持人物身份、服装结构、身体比例和真实关节逻辑；若用户要求每张单独出图，则不要输出四宫格。";
+  }
+  if (type === "tryon") {
+    return "换装修复重点：确认服装图和人物/参考图关系，严格保留服装版型、颜色、logo 和人物身份。";
+  }
+  if (type === "garment_3d") {
+    return "3D 展示修复重点：当前输出是 3D 展示感图片，不是真实 3D 模型文件；保持商品结构和可检视细节。";
+  }
+  return "通用修复重点：保持用户原始目标、参考图角色和商业可用性，不要把任务改写成其他模块。";
 }
 
 async function markNewReadySteps(bundle: WorkflowBundle) {

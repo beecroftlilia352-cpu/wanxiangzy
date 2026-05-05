@@ -6,7 +6,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { requireApiUser } from "@/lib/api/auth";
-import { getChatCompletionsUrl, getLlmFallbackConfigs } from "@/lib/api/llm-provider";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 import {
   createDebitedGeneration,
@@ -42,94 +41,15 @@ import {
   getUserBoundaryLines,
 } from "@/lib/agent/visual-task-planner";
 import type { AgentIntentMode } from "@/lib/agent/types";
+import { runAgentBrainV2 } from "@/lib/agent/brain";
+import { saveAgentBrainTrace } from "@/lib/agent/brain/trace";
+import type { BrainVisualTaskPlan } from "@/lib/agent/brain/types";
+import { getAgentUserPreferences } from "@/lib/agent/brain/preferences";
+import { getAgentFeatureFlags } from "@/lib/agent/brain/feature-flags";
+import { recordAgentMetric } from "@/lib/agent/brain/metrics";
+import { getAgentKnowledgeContext } from "@/lib/agent/brain/knowledge";
 
 export const maxDuration = 60;
-
-const SYSTEM_PROMPT = `你是 VastWear AI 助手，一个专业的服装电商视觉 AI 智能体。你精通服装摄影、电商视觉、AI 图像生成。
-
-## 你的能力
-
-1. **文生图**：用户描述想要的画面，你直接生成（不需要上传图片）
-2. **图生图**：根据用户上传的图片，重新生成类似风格的图片
-3. **图片分析**：识别服装品类、颜色、面料、风格、适用场景
-4. **视觉建议**：推荐拍摄风格、构图、配色、场景搭配
-5. **专项生图**：换装/种草/3D/换背景/姿势裂变/专属模特
-6. **专业对话**：回答服装、电商、摄影相关问题
-
-## 重要：主动推荐能力
-
-- 用户上传图片后，主动分析并推荐可执行的操作（图生图/分析/换装等）
-- 用户描述画面时，主动提示可以用文生图生成
-- 不要等用户明确说"生成"，主动建议："需要我帮你生成吗？"
-
-## 回复规则
-
-你的回复必须是严格的 JSON 格式，不要输出任何其他内容：
-
-\`\`\`json
-{
-  "reply": "你的详细回复（中文，支持Markdown格式，要专业、详细、有深度，至少3-5句话）",
-  "action": "chat 或 generate",
-  "module": "模块名或null",
-  "params": {},
-  "style": null,
-  "confidence": 0.0,
-  "missing_fields": []
-}
-\`\`\`
-
-### reply 字段要求
-- 必须详细、专业、有深度（至少3句话，最好5-10句话）
-- 分析图片时要具体：品类、颜色、面料、风格、适合场景、拍摄建议
-- 用 Markdown 格式：**粗体**、二级标题、短段落、\`-\` 列表
-- 列表必须每项独占一行，列表前后必须空一行；禁止把多个 \`•\` 或多个列表项挤在同一行
-- 回复结构优先使用：一句结论 → \`**我能帮你做什么**\` → 列表 → \`**建议下一步**\`
-- 像一个资深的电商视觉顾问在给客户做方案
-
-### action 字段规则
-- 用户要求生成/制作/出图，且有图片 → "generate"
-- 用户要求修改/调整/重做/换掉某部分，且有图片 → "generate"（修改后重新生成）
-- 用户描述服装组合（上装+下装+模特），且有图片 → "generate"
-- 用户只是聊天/提问/分析/咨询 → "chat"
-- 有图片但意图不确定、图片角色不清、缺少关键图片 → "chat"，先追问或给建议，不要误触发扣积分生成
-- 只有当用户明确要生成/换装/种草/换背景/3D/姿势裂变，或图片角色足够明确时，才返回 "generate"
-
-### module 字段（仅 action="generate" 时）
-- "tryon"：换装/穿上/试穿/上身
-- "grass"：种草/小红书/街拍/生活感
-- "garment_3d"：3D/立体/商品展示
-- "model"：专属模特/建模特/定制脸
-- "model_background"：换背景/换场景/换模特
-- "pose"：四宫格/姿势裂变
-
-### params 字段
-用图号引用图片（图1、图2...），例如：
-- 换装：{"clothing_urls": ["图1"], "reference_url": "图2"}
-- 种草：{"garment_url": "图1"}
-- 3D：{"garment_url": "图1"}
-- 专属模特：{"reference_urls": ["图1", "图2"]}
-- 换背景：{"source_url": "图1", "background_reference_url": "图2"}
-- 姿势裂变：{"main_image_url": "图1"}
-
-### 示例
-
-用户上传了2张图说："帮我把图1穿到图2身上，韩系风格"
-{
-  "reply": "好的！我来帮你生成韩系风格的换装效果图。\n\n• **服装**：图1的碎花连衣裙\n• **参考**：图2的模特姿势\n• **风格**：韩系清透\n\n正在调用换装模块，请稍候...",
-  "action": "generate",
-  "module": "tryon",
-  "params": {"clothing_urls": ["图1"], "reference_url": "图2"},
-  "style": "韩系清透"
-}
-
-用户说："这件衣服适合什么场景？"（有图片）
-{
-  "reply": "这件碎花连衣裙非常适合以下场景：\n\n• **春夏日常**：轻盈面料和碎花图案自带清新感\n• **咖啡店/花店**：和花朵元素搭配，氛围感很强\n• **小红书种草**：碎花裙是小红书高热度品类\n\n建议拍摄风格：韩系清透或日系小清新，自然光线为佳。",
-  "action": "chat",
-  "module": null,
-  "params": {},
-  "style": null
-}`;
 
 const MODULE_API: Record<string, string> = {
   tryon: "/api/tryon",
@@ -157,7 +77,7 @@ type AgentDecision = {
   style: string | null;
   confidence: number;
   missingFields: string[];
-  source: "llm" | "heuristic" | "fallback";
+  source: "brain" | "llm" | "heuristic" | "fallback" | "deterministic";
 };
 
 type VisualTaskPlan = {
@@ -179,6 +99,7 @@ type AgentTaskContext = {
 };
 
 export async function POST(request: NextRequest) {
+  const started = Date.now();
   try {
     const auth = await requireApiUser();
     if (auth.response) return auth.response;
@@ -187,7 +108,8 @@ export async function POST(request: NextRequest) {
     if (!limit.ok) return rateLimitResponse(limit.retryAfterSeconds);
 
     const body = await request.json().catch(() => ({}));
-    const { message, images, history, intentMode: rawIntentMode, params: userParams, lastTask } = body as {
+    const { conversationId, message, images, history, intentMode: rawIntentMode, params: userParams, lastTask } = body as {
+      conversationId?: string;
       message?: string;
       images?: AgentImageInput[];
       history?: Array<{ role: string; content: string }>;
@@ -201,137 +123,84 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ reply: "请输入消息或上传图片。", action: "chat" });
     }
 
-    const hasImages = images && images.length > 0;
-    const providers = getLlmFallbackConfigs(hasImages ? "vision" : "text");
-
-    if (providers.length === 0) {
-      return NextResponse.json({ reply: "AI 服务暂时不可用。", action: "chat" });
-    }
-
-    // 构建 LLM 消息
-    const messages: Array<{ role: string; content: string | Array<Record<string, unknown>> }> = [
-      { role: "system", content: SYSTEM_PROMPT },
-    ];
-
-    if (history) {
-      for (const msg of history.slice(-8)) {
-        messages.push({ role: msg.role, content: msg.content });
-      }
-    }
-
-    const userContent: Array<Record<string, unknown>> = [];
     const userText = (message || "").trim();
-    const modeInstruction = getIntentModeInstruction(intentMode);
-    const imageDesc = hasImages
-      ? `\n\n图片编号：${images!.map((img) => `图${img.index}（${getImageRoleLabel(img.role) || guessImageRole(img.index, images!.length, userText)}）`).join("、")}\n图片角色以括号标注为准，优先使用用户设置的图片角色，不要自行交换图号。`
-      : "";
-    userContent.push({ type: "text", text: `${modeInstruction}\n\n${userText || "请分析这些图片并推荐操作"}${imageDesc}` });
+    const hasImages = Boolean(images?.length);
+    const featureFlags = getAgentFeatureFlags(auth.user.id);
+    const userPreferences = featureFlags.memory ? await getAgentUserPreferences(auth.user.id) : null;
+    const projectKnowledge = featureFlags.memory
+      ? await getAgentKnowledgeContext({
+        userId: auth.user.id,
+        conversationId: typeof conversationId === "string" ? conversationId : null,
+        query: userText,
+      })
+      : [];
+    const brain = await runAgentBrainV2({
+      userId: auth.user.id,
+      conversationId: typeof conversationId === "string" ? conversationId : null,
+      userText,
+      images: images || [],
+      history,
+      intentMode,
+      params: userParams,
+      userPreferences,
+      projectKnowledge,
+      featureFlags,
+      lastTask,
+    });
+    void saveAgentBrainTrace({
+      supabase: auth.supabase,
+      userId: auth.user.id,
+      conversationId: typeof conversationId === "string" ? conversationId : null,
+      message: userText,
+      decision: brain,
+    });
 
-    if (hasImages) {
-      for (const img of images!) {
-        userContent.push({ type: "image_url", image_url: { url: img.url } });
-      }
-    }
-    messages.push({ role: "user", content: userContent });
-
-    // 调用 LLM（带降级）
-    let llmContent = "";
-    for (const provider of providers) {
-      try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 40000);
-        const res = await fetch(getChatCompletionsUrl(provider), {
-          method: "POST",
-          headers: { Authorization: `Bearer ${provider.apiKey}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ model: provider.model, messages, max_tokens: 1200, temperature: 0.4 }),
-          signal: controller.signal,
-        }).finally(() => clearTimeout(timeout));
-        if (res.ok) {
-          const data = await res.json();
-          llmContent = extractText(data).trim();
-          if (llmContent) break;
-          console.warn("[agent-chat] provider returned empty content", {
-            provider: provider.provider,
-            model: provider.model,
-          });
-        } else {
-          const errorText = await res.text().catch(() => "");
-          console.warn("[agent-chat] provider failed", {
-            provider: provider.provider,
-            model: provider.model,
-            status: res.status,
-            body: errorText.slice(0, 300),
-          });
-        }
-      } catch (err) {
-        console.warn("[agent-chat] provider request error", {
-          provider: provider.provider,
-          model: provider.model,
-          error: err instanceof Error ? err.message : String(err),
-        });
-      }
-    }
-
-    if (!llmContent) {
-      return NextResponse.json({
-        reply: "AI 对话服务没有返回有效内容，请稍后重试，或先检查当前 LLM Provider 的 API Key。",
-        action: "chat",
-      });
-    }
-
-    // 解析 LLM 响应
-    const parsed = extractJson(llmContent);
-    const decision = normalizeAgentDecision(parsed, llmContent, userText, Boolean(hasImages), images?.length || 0);
+    const decision: AgentDecision = {
+      reply: brain.reply,
+      action: brain.action === "generate" ? "generate" : "chat",
+      module: brain.module,
+      params: brain.params,
+      style: brain.style,
+      confidence: brain.confidence,
+      missingFields: brain.missingFields,
+      source: brain.source === "llm" ? "brain" : brain.source,
+    };
+    void recordAgentMetric({
+      userId: auth.user.id,
+      conversationId: typeof conversationId === "string" ? conversationId : null,
+      traceId: brain.trace.id,
+      event: "agent_chat_decision",
+      route: "/api/agent/chat",
+      ok: brain.safety.allowed,
+      latencyMs: Date.now() - started,
+      confidence: brain.confidence,
+      module: brain.module,
+      action: brain.action,
+      metadata: { source: brain.source, flags: featureFlags, imageCount: images?.length || 0 },
+    });
     let { action, module } = decision;
     let llmParams = decision.params;
     const style = decision.style;
     const standaloneTextGeneration = isStandaloneTextGenerationIntent(userText);
-    const taskPlan = planVisualTask(userText, Boolean(hasImages));
+    const taskPlan = toVisualTaskPlan(brain.visualTaskPlan);
     const followupTask = buildFollowupTask(userText, lastTask);
 
-    if (intentMode === "chat" || isChatOnlyIntent(userText)) {
-      action = "chat";
-      module = null;
-      decision.source = decision.source === "llm" ? "llm" : "heuristic";
-    } else if (followupTask) {
+    if (brain.action === "clarify") {
+      return NextResponse.json({
+        reply: brain.reply,
+        action: "chat",
+        confidence: brain.confidence,
+        trace_id: brain.trace.id,
+      });
+    }
+
+    if (followupTask && intentMode !== "chat") {
       action = "generate";
       module = followupTask.module;
       llmParams = followupTask.params;
       decision.params = llmParams;
       decision.confidence = Math.max(decision.confidence, 0.86);
       decision.source = "heuristic";
-    } else if (taskPlan || standaloneTextGeneration) {
-      action = "generate";
-      module = taskPlan?.module || "general";
-      llmParams = {
-        ...llmParams,
-        prompt: taskPlan
-          ? composeVisualTaskPrompt(taskPlan, llmParams.prompt, userText)
-          : buildGeneralGenerationPrompt(userText, null),
-      };
-      decision.params = llmParams;
-      decision.confidence = Math.max(decision.confidence, taskPlan?.confidence || 0.82);
-      decision.source = "heuristic";
-    }
-
-    // 兜底：检测生图意图
-    if (intentMode !== "chat" && !module) {
-      const detected = detectGenerationIntent(userText);
-      if (detected) {
-        action = "generate";
-        module = detected;
-        decision.confidence = Math.max(decision.confidence, 0.72);
-        decision.source = "heuristic";
-      }
-      // 最终兜底：多图 + 非纯聊天时才默认换装；单图更适合先分析/询问，避免误扣积分
-      if (!module && intentMode === "create" && hasImages && (images?.length || 0) >= 2 && !isChatOnlyIntent(userText)) {
-        action = "generate";
-        module = "general";
-        llmParams = { ...llmParams, prompt: buildGeneralGenerationPrompt(userText, "reference_redesign") };
-        decision.params = llmParams;
-        decision.confidence = 0.55;
-        decision.source = "fallback";
-      }
     }
 
     if (module && hasImages) {
@@ -354,12 +223,13 @@ export async function POST(request: NextRequest) {
       confidence: decision.confidence,
       source: decision.source,
       hasImages,
+      traceId: brain.trace.id,
       userText: userText.slice(0, 50),
     });
 
     // 对话模式：直接返回
     if (action !== "generate" || !module) {
-      return NextResponse.json({ reply: decision.reply, action: "chat" });
+      return NextResponse.json({ reply: decision.reply, action: "chat", trace_id: brain.trace.id });
     }
 
     // 通用生图（文生图 / 图生图 / 无特定模块）
@@ -415,6 +285,7 @@ export async function POST(request: NextRequest) {
         },
         api_path: "/api/agent/generate",
         credits_cost: cost,
+        trace_id: brain.trace.id,
       });
     }
 
@@ -428,7 +299,6 @@ export async function POST(request: NextRequest) {
     const imageSize: ImageSize = normalizeImageSize(model, (userParams?.imageSize as ImageSize) || "1K", aspectRatio);
     const count = Math.min(Math.max(Number(userParams?.count) || 1, 1), 4);
     const costPerImage = getCreditCost(model, imageSize, aspectRatio);
-    const totalCost = costPerImage * count;
 
     // 构建图片映射：图号 → URL
     const imageMap = new Map<number, string>();
@@ -466,6 +336,9 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    const effectiveCount = module === "pose" && moduleParams.output_mode === "separate" ? 4 : count;
+    const totalCost = costPerImage * effectiveCount;
+
     // 不直接执行，返回确认信息让用户确认后才扣积分
     const taskBrief = buildTaskBrief({
       module,
@@ -474,7 +347,7 @@ export async function POST(request: NextRequest) {
       userText,
       images: images || [],
       usedImageRefs: getUsedImageIndexes(moduleParams, images || []),
-      count,
+      count: effectiveCount,
       aspectRatio,
       taskPlan: taskPlan || followupTask?.taskPlan || null,
       inheritedTask: Boolean(followupTask),
@@ -496,17 +369,38 @@ export async function POST(request: NextRequest) {
       module_label: MODULE_LABELS[module] || module,
       task_brief: taskBrief,
       generation_params: guardedModuleParams,
-      job_payload: buildJobPayload(module, guardedModuleParams, { model, aspectRatio, imageSize, count }),
+      job_payload: buildJobPayload(module, guardedModuleParams, { model, aspectRatio, imageSize, count: effectiveCount }),
       credits_cost: totalCost,
       api_path: MODULE_API[module],
+      trace_id: brain.trace.id,
     });
   } catch (err: unknown) {
     const msg = err instanceof Error && err.name === "AbortError" ? "AI 响应超时，请重试。" : "处理出错。";
-    return NextResponse.json({ reply: msg, action: "chat" });
+      console.error(JSON.stringify({
+        level: "error",
+        msg: "agent_chat_failed",
+        route: "/api/agent/chat",
+        latency_ms: Date.now() - started,
+        error: err instanceof Error ? err.message : String(err),
+      }));
+      return NextResponse.json({ reply: msg, action: "chat" });
   }
 }
 
 // ---- 工具函数 ----
+
+function toVisualTaskPlan(plan: BrainVisualTaskPlan | null): VisualTaskPlan | null {
+  if (!plan) return null;
+  return {
+    module: plan.module,
+    label: plan.label,
+    taskType: plan.taskType,
+    preferredAspectRatio: plan.preferredAspectRatio,
+    prompt: plan.prompt,
+    useImages: plan.useImages,
+    confidence: plan.confidence,
+  };
+}
 
 function guessImageRole(index: number, total: number, message: string): string {
   if (total === 1) return "服装图";
@@ -912,6 +806,13 @@ function buildModuleParams(
       const main = resolveImageUrl(llmParams.main_image_url ?? 1, imageMap) || allUrls[0];
       if (!main) return null;
       base.main_image_url = main;
+      if (llmParams.output_mode === "separate" || llmParams.outputMode === "separate") {
+        base.output_mode = "separate";
+        base.gen_count = 4;
+      } else if (llmParams.output_mode === "grid" || llmParams.outputMode === "grid") {
+        base.output_mode = "grid";
+        base.gen_count = 1;
+      }
       return base;
     }
     case "garment_3d": {
@@ -1420,7 +1321,11 @@ function buildJobPayload(
         userPrompt: String(params.prompt || ""),
       };
     case "pose":
-      return { ...base, mainImageUrl: String(params.main_image_url || "") };
+      return {
+        ...base,
+        mainImageUrl: String(params.main_image_url || ""),
+        outputMode: params.output_mode === "separate" ? "separate" : "grid",
+      };
     case "garment_3d":
       return {
         ...base,

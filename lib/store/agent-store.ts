@@ -49,6 +49,7 @@ type Store = {
   setParams: (p: Partial<GenerationParams>) => void;
   setIntentMode: (mode: AgentIntentMode) => void;
   setSidebarOpen: (v: boolean) => void;
+  receiveAgentEvent: (event: Record<string, unknown>) => void;
   sendMessage: () => Promise<void>;
   aiWrite: () => Promise<void>;
   retryMessage: (id: string) => void;
@@ -61,6 +62,7 @@ type Store = {
   editWorkflowStep: (messageId: string, stepId: string, patch: { title?: string; params?: Record<string, unknown>; input?: Record<string, unknown> }) => Promise<void>;
   updateConfirmParams: (messageId: string, params: Partial<GenerationParams>) => void;
   updateConfirmImageRole: (messageId: string, imageIndex: number, role: ChatImageRole) => void;
+  sendFeedback: (messageId: string, rating: "good" | "bad", reason?: string, tags?: string[]) => Promise<void>;
   repairGeneration: (messageId: string, repairValue: string) => void;
   reset: () => void;
 };
@@ -167,9 +169,7 @@ function inferDefaultImageRole(index: number): ChatImageRole {
 }
 
 function readSavedIntentMode(): AgentIntentMode {
-  if (typeof window === "undefined") return "smart";
-  const value = window.localStorage.getItem("vastwear-agent-intent-mode");
-  return value === "chat" || value === "smart" || value === "create" ? value : "smart";
+  return "smart";
 }
 
 // ---- Store ----
@@ -202,6 +202,7 @@ export const useAgentStore = create<Store>((set, get) => ({
       messages: [],
       inputText: "",
       inputImages: [],
+      intentMode: "smart",
       isSending: false,
       isAIWriting: false,
     });
@@ -222,6 +223,7 @@ export const useAgentStore = create<Store>((set, get) => ({
         messages: [],
         inputText: "",
         inputImages: [],
+        intentMode: "smart",
       }));
     } catch {}
   },
@@ -374,12 +376,32 @@ export const useAgentStore = create<Store>((set, get) => ({
 
   setParams: (p) => set((s) => ({ params: { ...s.params, ...p } })),
   setIntentMode: (mode) => {
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem("vastwear-agent-intent-mode", mode);
-    }
     set({ intentMode: mode });
   },
   setSidebarOpen: (v) => set({ sidebarOpen: v }),
+  receiveAgentEvent: (event: Record<string, unknown>) => {
+    const kind = typeof event.kind === "string" ? event.kind : "";
+    if (!kind) return;
+    set((s) => {
+      const targetIndex = findLatestAssistantMessageIndex(s.messages);
+      if (targetIndex < 0) return {};
+      const messages = s.messages.map((message, index) => {
+        if (index !== targetIndex) return message;
+        const liveEvents = Array.isArray(message.params?.agentLiveEvents)
+          ? message.params.agentLiveEvents as Record<string, unknown>[]
+          : [];
+        return {
+          ...message,
+          params: {
+            ...(message.params || {}),
+            agentLiveEvents: [...liveEvents, event].slice(-30),
+            agentTimeline: mergeTimelineWithBackendEvent(readTimelineFromParams(message.params), event),
+          },
+        };
+      });
+      return { messages };
+    });
+  },
 
   // ======== 核心：发送消息 ========
   sendMessage: async () => {
@@ -437,7 +459,14 @@ export const useAgentStore = create<Store>((set, get) => ({
     // AI 消息占位
     const aiMsg: Message = {
       id: uid(), conversation_id: convId, role: "assistant", content: "",
-      images: [], generation: null, params: {}, mode: "agent",
+      images: [], generation: null, params: {
+        agentTimeline: [
+          { label: "接收请求", status: "done", detail: "已拿到文字、图片和当前上下文" },
+          { label: "理解意图", status: "running", detail: "正在判断是聊天、生成、工作流还是需要追问" },
+          { label: "选择工具", status: "pending", detail: "根据目标和图片关系选择可执行能力" },
+          { label: "复核计划", status: "pending", detail: "检查是否误判、是否需要确认或扣分" },
+        ],
+      }, mode: "agent",
       created_at: new Date().toISOString(),
     };
 
@@ -475,7 +504,10 @@ export const useAgentStore = create<Store>((set, get) => ({
 
       if (workflowPayload) {
         const reply = buildWorkflowReply(workflowPayload);
-        const workflowParams = { workflow: workflowPayload };
+        const workflowParams = {
+          workflow: workflowPayload,
+          agentTimeline: completeAgentTimeline("已拆解成可执行 workflow，等待确认。"),
+        };
         set((s) => ({
           isSending: false,
           messages: s.messages.map((m) =>
@@ -494,11 +526,20 @@ export const useAgentStore = create<Store>((set, get) => ({
         return;
       }
 
+      set((s) => ({
+        messages: s.messages.map((m) =>
+          m.id === aiMsg.id
+            ? { ...m, params: { ...(m.params || {}), agentTimeline: runningAgentTimeline("选择工具", "已进入 Agent Brain 多工具循环") } }
+            : m
+        ),
+      }));
+
       // 调用统一 Agent API
       const res = await fetch("/api/agent/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          conversationId: convId,
           message: trimmed,
           images: imageUrls,
           history,
@@ -510,6 +551,10 @@ export const useAgentStore = create<Store>((set, get) => ({
 
       const data = await res.json();
       const reply = typeof data.reply === "string" ? data.reply : "处理完成。";
+      const traceParams = {
+        ...(typeof data.trace_id === "string" ? { traceId: data.trace_id } : {}),
+        agentTimeline: completeAgentTimeline(data.action === "confirm_generate" ? "已生成确认卡，等待你确认后执行。" : "已完成理解和回复。"),
+      };
 
       console.log("[agent-store] sendMessage response:", {
         action: data.action,
@@ -530,6 +575,7 @@ export const useAgentStore = create<Store>((set, get) => ({
               ...m,
               content: reply,
               streamingDone: true,
+              params: traceParams,
               generation: {
                 status: "pending" as const,
                 progress: 0,
@@ -552,16 +598,16 @@ export const useAgentStore = create<Store>((set, get) => ({
 
         // 保存 AI 消息（含 generation 数据）
         const confirmGen = get().messages.find((m) => m.id === aiMsg.id)?.generation;
-        saveMessage(convId, { id: aiMsg.id, role: "assistant", content: reply, generation: confirmGen || null, mode: "agent" });
+        saveMessage(convId, { id: aiMsg.id, role: "assistant", content: reply, generation: confirmGen || null, params: traceParams, mode: "agent" });
       } else {
         // 对话回复
         set((s) => ({
           isSending: false,
           messages: s.messages.map((m) =>
-            m.id === aiMsg.id ? { ...m, content: reply, streamingDone: true } : m
+            m.id === aiMsg.id ? { ...m, content: reply, streamingDone: true, params: traceParams } : m
           ),
         }));
-        saveMessage(convId, { id: aiMsg.id, role: "assistant", content: reply, mode: "agent" });
+        saveMessage(convId, { id: aiMsg.id, role: "assistant", content: reply, params: traceParams, mode: "agent" });
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "处理失败";
@@ -713,6 +759,68 @@ export const useAgentStore = create<Store>((set, get) => ({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ images: nextTrayImages }),
       }).catch(() => {});
+    }
+  },
+
+  sendFeedback: async (messageId: string, rating: "good" | "bad", reason?: string, tags?: string[]) => {
+    const msg = get().messages.find((m) => m.id === messageId);
+    if (!msg || msg.role !== "assistant") return;
+    const traceId = typeof msg.params?.traceId === "string" ? msg.params.traceId : undefined;
+    const nextParams = {
+      ...(msg.params || {}),
+      feedback: {
+        rating,
+        status: "sending",
+        reason: reason || "",
+        tags: tags || [],
+        updatedAt: new Date().toISOString(),
+      },
+    };
+    set((s) => ({
+      messages: s.messages.map((m) => m.id === messageId ? { ...m, params: nextParams } : m),
+    }));
+    updateMessageParams(msg.conversation_id, messageId, nextParams);
+
+    try {
+      const res = await fetch("/api/agent/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          conversationId: msg.conversation_id,
+          messageId,
+          traceId,
+          rating,
+          reason,
+          tags,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "反馈提交失败");
+      const doneParams = {
+        ...nextParams,
+        feedback: {
+          ...(nextParams.feedback as Record<string, unknown>),
+          status: "saved",
+          learned: Boolean(data.learned),
+        },
+      };
+      set((s) => ({
+        messages: s.messages.map((m) => m.id === messageId ? { ...m, params: doneParams } : m),
+      }));
+      updateMessageParams(msg.conversation_id, messageId, doneParams);
+    } catch (err) {
+      const failedParams = {
+        ...nextParams,
+        feedback: {
+          ...(nextParams.feedback as Record<string, unknown>),
+          status: "failed",
+          error: err instanceof Error ? err.message : "反馈提交失败",
+        },
+      };
+      set((s) => ({
+        messages: s.messages.map((m) => m.id === messageId ? { ...m, params: failedParams } : m),
+      }));
+      updateMessageParams(msg.conversation_id, messageId, failedParams);
     }
   },
 
@@ -986,7 +1094,7 @@ export const useAgentStore = create<Store>((set, get) => ({
     get().pollTimers?.forEach((t) => clearInterval(t));
     revoke(get().inputImages.map((img) => img.url));
     set({
-      messages: [], inputText: "", inputImages: [], isSending: false,
+      messages: [], inputText: "", inputImages: [], intentMode: "smart", isSending: false,
       activeId: null, conversations: [],
     });
     get().loadConversations();
@@ -1028,10 +1136,17 @@ async function maybeCreateWorkflowMessage(args: {
 
   const planData = await planRes.json().catch(() => ({})) as WorkflowPlanApiResponse;
   if (!planRes.ok) {
-    if (args.intentMode === "create") throw new Error(planData.error || "规划 workflow 失败");
+    if (args.intentMode === "create" || isStrongWorkflowClientRequest(args.message, args.images.length)) {
+      throw new Error(planData.error || "规划 workflow 失败");
+    }
     return null;
   }
-  if (!shouldUseWorkflowPlan(planData, args.message, args.intentMode, args.images.length)) return null;
+  if (!shouldUseWorkflowPlan(planData, args.message, args.intentMode, args.images.length)) {
+    if (isStrongWorkflowClientRequest(args.message, args.images.length)) {
+      throw new Error(planData.plan?.clarificationQuestion || "这个任务应该进入工作流，但规划器没有返回可执行步骤");
+    }
+    return null;
+  }
 
   const createRes = await fetch("/api/agent/workflows", {
     method: "POST",
@@ -1070,6 +1185,13 @@ function shouldTryWorkflowRequest(text: string, imageCount: number, mode: AgentI
   if (!normalized) return imageCount > 0;
   if (/(\u7136\u540e|\u518d|\u63a5\u7740|\u6700\u540e|\u5148.*\u518d|\u4ece.*\u9009|\u5de5\u4f5c\u6d41|\u5206\u6b65)/.test(normalized)) return true;
   return /(\u751f\u6210|\u8bbe\u8ba1|\u753b|\u91cd\u7ed8|\u6539|\u6362|\u7a7f|\u8bd5\u7a7f|\u4e0a\u8eab|\u59ff\u52bf|\u80cc\u666f|\u6d77\u62a5|\u8be6\u60c5\u9875|\u79cd\u8349|\u4ea7\u54c1|3D|3d|\u6a21\u578b|\u56fe\u751f\u56fe|\u6587\u751f\u56fe)/.test(normalized);
+}
+
+function isStrongWorkflowClientRequest(text: string, imageCount: number) {
+  if (imageCount > 0 && /(\u7136\u540e|\u518d|\u63a5\u7740|\u6700\u540e|\u5148.*\u518d|\u4ece.*\u9009|\u5de5\u4f5c\u6d41|\u5206\u6b65)/.test(text)) return true;
+  if (/图\s*\d+.*(?:穿|换上|穿上|上身).*图\s*\d+|图\s*\d+.*(?:人物|模特|人).*图\s*\d+.*(?:衣服|服装|裙子|上衣|裤子|外套)/.test(text)) return true;
+  if (/(\u6bcf\u5f20.*\u5355\u72ec|\u72ec\u7acb\u51fa\u56fe|\u4e0d\u540c\u59ff\u52bf|\u56db\u4e2a.*\u59ff\u52bf|4\u4e2a.*\u59ff\u52bf)/.test(text)) return true;
+  return false;
 }
 
 function shouldUseWorkflowPlan(
@@ -1497,4 +1619,74 @@ function preloadImage(url: string): Promise<void> {
 
 function uid() {
   return v4();
+}
+
+function runningAgentTimeline(activeLabel: string, detail: string) {
+  const labels = ["接收请求", "理解意图", "选择工具", "复核计划"];
+  return labels.map((label) => ({
+    label,
+    status: label === activeLabel ? "running" : labels.indexOf(label) < labels.indexOf(activeLabel) ? "done" : "pending",
+    detail: label === activeLabel ? detail : getTimelineDetail(label),
+  }));
+}
+
+function completeAgentTimeline(detail: string) {
+  return [
+    { label: "接收请求", status: "done", detail: "已拿到文字、图片和当前上下文" },
+    { label: "理解意图", status: "done", detail: "已完成语义路由和图片关系判断" },
+    { label: "选择工具", status: "done", detail: "已选择合适的生成或对话路径" },
+    { label: "复核计划", status: "done", detail },
+  ];
+}
+
+function getTimelineDetail(label: string) {
+  const details: Record<string, string> = {
+    接收请求: "已拿到文字、图片和当前上下文",
+    理解意图: "正在判断是聊天、生成、工作流还是需要追问",
+    选择工具: "根据目标和图片关系选择可执行能力",
+    复核计划: "检查是否误判、是否需要确认或扣分",
+  };
+  return details[label] || "";
+}
+
+function findLatestAssistantMessageIndex(messages: Message[]) {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].role === "assistant") return i;
+  }
+  return -1;
+}
+
+function readTimelineFromParams(params: Record<string, unknown> | undefined) {
+  if (Array.isArray(params?.agentTimeline)) return params.agentTimeline as Array<{ label: string; status: string; detail?: string }>;
+  return completeAgentTimeline("等待后端事件。");
+}
+
+function mergeTimelineWithBackendEvent(
+  timeline: Array<{ label: string; status: string; detail?: string }>,
+  event: Record<string, unknown>
+) {
+  const kind = typeof event.kind === "string" ? event.kind : "";
+  const eventName = typeof event.event === "string" ? event.event : typeof event.type === "string" ? event.type : kind;
+  const detail = getBackendEventDetail(event);
+  if (kind === "brain_trace") {
+    return completeAgentTimeline("后端已完成 Brain trace，可打开“过程”查看详情。");
+  }
+  if (kind === "workflow_event") {
+    return timeline.map((item) =>
+      item.label === "复核计划" ? { ...item, status: "running", detail: `后端工作流事件：${eventName} ${detail}`.trim() } : item
+    );
+  }
+  if (kind === "agent_metric") {
+    return timeline.map((item) =>
+      item.label === "复核计划" ? { ...item, detail: `后端指标：${eventName} ${detail}`.trim() } : item
+    );
+  }
+  return timeline;
+}
+
+function getBackendEventDetail(event: Record<string, unknown>) {
+  if (typeof event.message === "string") return event.message;
+  if (typeof event.module === "string") return event.module;
+  if (typeof event.action === "string") return event.action;
+  return "";
 }

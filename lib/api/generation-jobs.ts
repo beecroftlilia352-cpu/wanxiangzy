@@ -9,6 +9,11 @@ import {
 import { failGenerationWithRefund } from "@/lib/api/credits";
 import { resolveImageInputs } from "@/lib/api/image-inputs.server";
 import { persistGeneratedImageUrls } from "@/lib/api/result-image-storage";
+import {
+  applyQualityRepairToPrompt,
+  evaluateGeneratedImages,
+  type VisualQualityEvaluation,
+} from "@/lib/agent/brain/visual-quality";
 import { enforceModelPromptRequirements } from "@/lib/model-prompt";
 import { enforcePosePromptRequirements, type PoseOutputMode } from "@/lib/pose-prompt";
 import {
@@ -207,13 +212,26 @@ async function runClaimedJob(
       : await persistGeneratedImageUrls(execution.resultUrls, job.id, {
         forceServerDownload: isSeedreamPayload(payload),
       });
+    const quality = await evaluateGeneratedImages({
+      userPrompt: getPayloadPrompt(payload),
+      module: payload.kind,
+      resultUrls: persistedResultUrls,
+      expectedCount: getExpectedResultCount(payload),
+      referenceImageUrls: getPayloadReferenceImages(payload),
+    });
+    const repaired = quality.shouldRegenerate && shouldAutoRegenerate(payload, job)
+      ? await regenerateForQuality(supabase, job, payload, quality, partialPromptTrace)
+      : null;
+    const finalUrls = repaired?.resultUrls || persistedResultUrls;
+    const finalPromptTrace = repaired?.promptTrace || execution.promptTrace;
+    const finalQuality = repaired?.quality || quality;
 
     const { data, error } = await supabase
       .from("generations")
       .update({
         status: "completed",
-        result_urls: persistedResultUrls,
-        job_payload: appendPromptTrace(payload, execution.promptTrace),
+        result_urls: finalUrls,
+        job_payload: appendPromptTrace(appendQualityMetadata(repaired?.payload || payload, finalQuality, Boolean(repaired)), finalPromptTrace),
         processing_started_at: null,
         completed_at: new Date().toISOString(),
       })
@@ -238,6 +256,47 @@ async function runClaimedJob(
     });
     throw err;
   }
+}
+
+async function regenerateForQuality(
+  supabase: ReturnType<typeof createAdminClient>,
+  job: ClaimedJob,
+  payload: GenerationJobPayload,
+  quality: VisualQualityEvaluation,
+  previousPromptTrace: PromptTraceItem[]
+) {
+  const repairedPayload = repairPayloadPrompt(payload, quality);
+  logger.warn(`[jobs] quality auto-regeneration ${job.id}: score=${quality.score} issues=${quality.issues.join(";")}`);
+  const execution = await executePayload(repairedPayload, async (update) => {
+    const persisted = update.resultUrls.length
+      ? await persistGeneratedImageUrls(update.resultUrls, `${job.id}-quality-repair`, {
+        forceServerDownload: isSeedreamPayload(repairedPayload),
+      })
+      : [];
+    await writeGenerationProgress(supabase, job, repairedPayload, {
+      resultUrls: persisted,
+      promptTrace: [...previousPromptTrace, ...update.promptTrace],
+    });
+  });
+  const persisted = await persistGeneratedImageUrls(execution.resultUrls, `${job.id}-quality-repair`, {
+    forceServerDownload: isSeedreamPayload(repairedPayload),
+  });
+  const repairedQuality = await evaluateGeneratedImages({
+    userPrompt: getPayloadPrompt(repairedPayload),
+    module: repairedPayload.kind,
+    resultUrls: persisted,
+    expectedCount: getExpectedResultCount(repairedPayload),
+    referenceImageUrls: getPayloadReferenceImages(repairedPayload),
+  });
+  if (repairedQuality.score + 0.02 < quality.score) {
+    return null;
+  }
+  return {
+    payload: repairedPayload,
+    resultUrls: persisted,
+    promptTrace: [...previousPromptTrace, ...execution.promptTrace],
+    quality: repairedQuality,
+  };
 }
 
 async function executePayload(
@@ -496,6 +555,73 @@ function appendPromptTrace(payload: GenerationJobPayload, promptTrace: PromptTra
     promptTraceVersion: 1,
     promptTrace: promptTrace.slice(-8),
   };
+}
+
+function appendQualityMetadata(
+  payload: GenerationJobPayload,
+  quality: VisualQualityEvaluation,
+  autoRegenerated: boolean
+) {
+  return {
+    ...payload,
+    qualityEvaluation: {
+      ok: quality.ok,
+      score: quality.score,
+      shouldRegenerate: quality.shouldRegenerate,
+      summary: quality.summary,
+      issues: quality.issues,
+      source: quality.source,
+      traceId: quality.trace?.id,
+      evaluatedAt: new Date().toISOString(),
+    },
+    autoRegeneration: {
+      enabled: true,
+      performed: autoRegenerated,
+      maxAttempts: 1,
+    },
+  };
+}
+
+function shouldAutoRegenerate(payload: GenerationJobPayload, job: ClaimedJob) {
+  if (process.env.AGENT_VISUAL_AUTO_REGENERATE_ENABLED === "false") return false;
+  if (job.job_attempts > 1) return false;
+  const meta = payload as GenerationJobPayload & { autoRegeneration?: { performed?: boolean } };
+  return meta.autoRegeneration?.performed !== true;
+}
+
+function repairPayloadPrompt(payload: GenerationJobPayload, quality: VisualQualityEvaluation): GenerationJobPayload {
+  const prompt = applyQualityRepairToPrompt(getPayloadPrompt(payload), quality);
+  if (payload.kind === "tryon") return { ...payload, rawPrompt: prompt };
+  if (payload.kind === "garment3d") return { ...payload, prompt, userPrompt: prompt };
+  return { ...payload, prompt } as GenerationJobPayload;
+}
+
+function getPayloadPrompt(payload: GenerationJobPayload) {
+  if (payload.kind === "tryon") return payload.rawPrompt || payload.style || "人物换装生成";
+  if (payload.kind === "garment3d") return payload.userPrompt || payload.prompt;
+  return payload.prompt;
+}
+
+function getExpectedResultCount(payload: GenerationJobPayload) {
+  if (payload.kind === "pose") return normalizePoseOutputMode(payload.outputMode) === "separate" ? 4 : 1;
+  return Math.max(1, Number((payload as { genCount?: number }).genCount || 1));
+}
+
+function getPayloadReferenceImages(payload: GenerationJobPayload) {
+  if (payload.kind === "tryon") return [
+    ...payload.clothingUrls,
+    payload.modelFaceUrl,
+    payload.referenceUrl,
+  ].filter((url): url is string => typeof url === "string" && url.length > 0);
+  if (payload.kind === "model") return [
+    ...payload.referenceUrls,
+    payload.hairReferenceUrl,
+    payload.hairColorReferenceUrl,
+  ].filter((url): url is string => typeof url === "string" && url.length > 0);
+  if (payload.kind === "grass") return [payload.garmentUrl, payload.referenceUrl].filter((url): url is string => typeof url === "string" && url.length > 0);
+  if (payload.kind === "modelBackground") return [payload.sourceUrl, payload.modelReferenceUrl, payload.backgroundReferenceUrl].filter((url): url is string => typeof url === "string" && url.length > 0);
+  if (payload.kind === "pose") return [payload.mainImageUrl];
+  return [payload.garmentUrl, payload.referenceUrl].filter((url): url is string => typeof url === "string" && url.length > 0);
 }
 
 function limitStoredPrompt(prompt: string) {

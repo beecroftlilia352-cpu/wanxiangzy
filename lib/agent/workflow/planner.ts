@@ -32,9 +32,13 @@ export async function planWorkflow(request: PlannerRequest): Promise<WorkflowPla
 
   const llmPlan = await callPlannerModel(request).catch(() => null);
   const normalized = llmPlan ? normalizePlannerOutput(llmPlan, request) : null;
-  if (normalized) return normalized;
+  const fallback = buildFallbackPlan(request);
+  if (normalized) {
+    if (shouldPreferFallbackPlan(normalized, fallback, request)) return fallback;
+    return normalized;
+  }
 
-  return buildFallbackPlan(request);
+  return fallback;
 }
 
 async function callPlannerModel(request: PlannerRequest): Promise<RawPlannerResponse | null> {
@@ -179,6 +183,7 @@ function buildFallbackPlan(request: PlannerRequest): WorkflowPlan {
   const wantsDetail = /详情页|长图|卖点图|参数图|功能图|淘宝|天猫|京东/.test(text) && !/主图|banner|海报/.test(text);
   const wantsCreative = /主图|banner|海报|活动图|推广图|封面/.test(text);
   const hasImages = request.images.length > 0;
+  const tryonRefs = inferExplicitTryonRefs(text, request.images);
 
   if (wantsTryon) {
     steps.push({
@@ -187,8 +192,8 @@ function buildFallbackPlan(request: PlannerRequest): WorkflowPlan {
       title: "人物换装",
       dependsOn: [],
       input: {
-        personImage: findImageRef(roles, ["person", "source", "reference"]) || "图1",
-        clothingImage: findImageRef(roles, ["clothing", "product"]) || (request.images.length > 1 ? "图2" : "图1"),
+        personImage: tryonRefs.personImage || findImageRef(roles, ["person", "source", "reference"]) || "图1",
+        clothingImage: tryonRefs.clothingImage || findImageRef(roles, ["clothing", "product"]) || (request.images.length > 1 ? "图2" : "图1"),
       },
       params: { prompt: text, count: 1 },
       expectedOutput: { imageUrls: true },
@@ -276,6 +281,45 @@ function buildFallbackPlan(request: PlannerRequest): WorkflowPlan {
     assumptions: ["这是本地兜底规划，确认前请检查图片角色和步骤。"],
     steps,
   };
+}
+
+function shouldPreferFallbackPlan(normalized: WorkflowPlan, fallback: WorkflowPlan, request: PlannerRequest) {
+  if (!fallback.steps.length) return false;
+  const strongWorkflow = isStrongWorkflowRequest(request.userText, request.images.length);
+  if (strongWorkflow && normalized.needsClarification && normalized.steps.length === 0) return true;
+  const fallbackTypes = new Set(fallback.steps.map((step) => step.type));
+  const normalizedTypes = new Set(normalized.steps.map((step) => step.type));
+  if (strongWorkflow && fallback.steps.length > normalized.steps.length) return true;
+  if (fallbackTypes.has("tryon") && !normalizedTypes.has("tryon")) return true;
+  if (fallbackTypes.has("pose_variation") && /每张|单独|独立|不同姿势|姿势/.test(request.userText) && !normalizedTypes.has("pose_variation")) return true;
+  return false;
+}
+
+function isStrongWorkflowRequest(text: string, imageCount: number) {
+  if (imageCount > 0 && /然后|再|接着|最后|先.*再|从.*选|工作流|分步/.test(text)) return true;
+  if (/图\d+.*穿.*图\d+|图\d+.*人物.*图\d+.*衣服|图\d+.*衣服.*图\d+.*人物/.test(text)) return true;
+  if (/每张.*单独|独立出图|不同姿势|四个.*姿势|4个.*姿势/.test(text)) return true;
+  return false;
+}
+
+function inferExplicitTryonRefs(text: string, images: WorkflowInputImage[]) {
+  const hasImage = (index: number) => images.some((image) => image.index === index);
+  const patterns = [
+    /图\s*(\d+)\s*(?:的)?(?:人物|模特|人)\s*(?:穿|换上|穿上|上身)\s*图\s*(\d+)\s*(?:的)?(?:衣服|服装|裙子|上衣|裤子|外套)?/,
+    /图\s*(\d+)\s*(?:的)?(?:衣服|服装|裙子|上衣|裤子|外套)\s*(?:穿到|穿在|给)\s*图\s*(\d+)\s*(?:的)?(?:人物|模特|人)/,
+  ];
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (!match) continue;
+    const first = Number(match[1]);
+    const second = Number(match[2]);
+    if (!hasImage(first) || !hasImage(second)) continue;
+    if (pattern === patterns[1]) {
+      return { personImage: `图${second}`, clothingImage: `图${first}` };
+    }
+    return { personImage: `图${first}`, clothingImage: `图${second}` };
+  }
+  return { personImage: null, clothingImage: null };
 }
 
 function inferImageRoles(images: WorkflowInputImage[]): ImageRoleResolution[] {

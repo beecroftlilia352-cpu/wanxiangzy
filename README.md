@@ -95,6 +95,7 @@ REPLICATE_API_TOKEN=r8_xxxxx
 - `supabase/credits-update.sql`
 - `supabase/atomic-credit-rpc.sql`
 - `supabase/agent-workflows.sql`
+- `supabase/agent-brain-traces.sql`
 
 然后在 Supabase Dashboard → Storage 中手动创建 4 个 Bucket（均设为 public）：
 - `clothing`
@@ -129,6 +130,17 @@ curl -H "Authorization: Bearer $JOB_PROCESSOR_SECRET" \
 ```
 
 生产环境建议同样每 1 分钟请求一次 `/api/jobs/process-agent-workflows`。这个处理器负责执行文生图、图生图、换装、姿势裂变、3D 展示、电商详情页等 workflow step，并处理积分预占后的结算或释放。
+
+Agent 质量闭环还提供两个生产处理器：
+
+```bash
+curl -H "Authorization: Bearer $JOB_PROCESSOR_SECRET" \
+  http://localhost:3000/api/jobs/run-agent-evals
+```
+
+建议每天或每小时请求一次 `/api/jobs/run-agent-evals`。它会对近期使用过 Agent 的用户运行内置 eval + 用户差评沉淀 case，写入 `agent_eval_runs` 和 `agent_eval_results`，用于上线后回归评分。
+
+生成 worker 内置视觉质量评估与一次自动修复重生策略：结果完成后会用视觉评估器检查数量、可访问性、任务一致性、人物/服装/版式风险；低于阈值时会自动追加修复提示词重生一次。可用 `AGENT_VISUAL_AUTO_REGENERATE_ENABLED=false` 关闭。
 
 ### 6. AWS Tag 自动部署
 

@@ -39,6 +39,23 @@ describe("workflow production core", () => {
     expect(plan.steps[1].dependsOn).toEqual(["step_1"]);
   });
 
+  it("respects explicit person and clothing image references", async () => {
+    const plan = await planWorkflow({
+      userText: "图2人物穿图1衣服，然后生成4个不同姿势，每张单独出图",
+      images: [
+        { index: 1, url: "https://example.com/clothing.png", role: "auto" },
+        { index: 2, url: "https://example.com/person.png", role: "auto" },
+      ],
+      mode: "agent",
+      defaults,
+    });
+
+    expect(plan.steps.map((step) => step.type)).toEqual(["tryon", "pose_variation"]);
+    expect(plan.steps[0].input.personImage).toBe("图2");
+    expect(plan.steps[0].input.clothingImage).toBe("图1");
+    expect(plan.steps[1].params.outputMode).toBe("separate");
+  });
+
   it("validator blocks disabled video steps while keeping image workflow valid", async () => {
     const plan = await planWorkflow({
       userText: "图1人物穿图2衣服，再做走秀视频",

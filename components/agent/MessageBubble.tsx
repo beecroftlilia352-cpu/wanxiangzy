@@ -1,8 +1,8 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Bot, User, Loader2, CheckCircle2, AlertCircle, Download, ZoomIn, RefreshCw, Copy, Sparkles, ChevronDown, Pencil, Check, X } from "lucide-react";
-import { useState } from "react";
+import { Bot, User, Loader2, CheckCircle2, AlertCircle, Download, ZoomIn, RefreshCw, Copy, Sparkles, ChevronDown, Pencil, Check, X, ThumbsUp, ThumbsDown, Activity } from "lucide-react";
+import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { AspectRatio, ImageSize, LingyaModel } from "@/lib/api/lingya";
@@ -38,6 +38,7 @@ type Props = {
   onUpdateConfirmParams?: (messageId: string, params: Partial<GenerationParams>) => void;
   onUpdateConfirmImageRole?: (messageId: string, imageIndex: number, role: ChatImageRole) => void;
   onUseAsReference?: (url: string) => void;
+  onFeedback?: (messageId: string, rating: "good" | "bad", reason?: string, tags?: string[]) => void;
   onQuickAction?: (text: string) => void;
 };
 
@@ -79,7 +80,7 @@ const CONFIRM_ROLE_OPTIONS: Array<{ value: ChatImageRole; label: string }> = [
   { value: "source", label: "原图" },
 ];
 
-export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage, onRetry, onConfirm, onConfirmWorkflow, onCancelWorkflow, onRetryWorkflowStep, onSkipWorkflowStep, onSelectWorkflowStepImage, onEditWorkflowStep, onRepair, onUpdateConfirmParams, onUpdateConfirmImageRole, onUseAsReference, onQuickAction }: Props) {
+export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage, onRetry, onConfirm, onConfirmWorkflow, onCancelWorkflow, onRetryWorkflowStep, onSkipWorkflowStep, onSelectWorkflowStepImage, onEditWorkflowStep, onRepair, onUpdateConfirmParams, onUpdateConfirmImageRole, onUseAsReference, onFeedback, onQuickAction }: Props) {
   const { role, content, images, generation, created_at } = message;
   const [copied, setCopied] = useState(false);
 
@@ -92,7 +93,8 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
   }
 
   const isUser = role === "user";
-  if (!isUser && !content && !generation) return null;
+  const hasTimeline = !isUser && hasAgentTimeline(message.params);
+  if (!isUser && !content && !generation && !hasTimeline) return null;
 
   // 消息分组：同角色连续消息隐藏头像
   const isGrouped = prevMessage && prevMessage.role === role;
@@ -100,6 +102,8 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
     ? prevMessage.images
     : sessionImages;
   const workflowPayload = !isUser ? getWorkflowPayload(message.params) : null;
+  const traceId = !isUser ? getTraceId(message.params) : null;
+  const feedback = !isUser ? getMessageFeedback(message.params) : null;
 
   return (
     <motion.div
@@ -143,6 +147,10 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
         )}
 
         {/* 文本内容 */}
+        {!isUser && hasTimeline && !content && (
+          <AgentRuntimeTimeline timeline={readAgentTimeline(message.params)} />
+        )}
+
         {content && (
           <div className={`group/msg relative rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm ${
             isUser
@@ -165,6 +173,10 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
               </div>
             )}
 
+            {!isUser && hasTimeline && (
+              <AgentRuntimeTimeline timeline={readAgentTimeline(message.params)} compact />
+            )}
+
             {/* 消息操作栏 */}
             {!isUser && (
               <div className="mt-2 flex items-center gap-1 border-t border-slate-100 pt-1.5">
@@ -175,6 +187,29 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
                   {copied ? <CheckCircle2 className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
                   {copied ? "已复制" : "复制"}
                 </button>
+                {traceId && <AgentTracePanel traceId={traceId} />}
+                {onFeedback && (
+                  <div className="ml-auto flex items-center gap-0.5">
+                    <button
+                      onClick={() => onFeedback(message.id, "good", "结果符合预期", ["quick_positive"])}
+                      className={`flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] transition-colors ${
+                        feedback?.rating === "good" ? "bg-emerald-50 text-emerald-600" : "text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                      }`}
+                      title="这次判断正确"
+                    >
+                      <ThumbsUp className="h-3 w-3" />
+                    </button>
+                    <button
+                      onClick={() => onFeedback(message.id, "bad", "用户标记这次判断或结果不符合预期", ["quick_negative"])}
+                      className={`flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] transition-colors ${
+                        feedback?.rating === "bad" ? "bg-rose-50 text-rose-600" : "text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                      }`}
+                      title="这次判断不对"
+                    >
+                      <ThumbsDown className="h-3 w-3" />
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -828,6 +863,131 @@ function StepStatusPill({ status }: { status: string }) {
   );
 }
 
+type AgentTraceApiRecord = {
+  id: string;
+  action?: string;
+  module?: string | null;
+  confidence?: number;
+  source?: string;
+  trace?: {
+    latencyMs?: number;
+    events?: Array<{
+      stage: string;
+      status: string;
+      summary: string;
+      latencyMs?: number;
+    }>;
+    final?: {
+      action: string;
+      module: string | null;
+      confidence: number;
+      source: string;
+    };
+  };
+};
+
+function AgentTracePanel({ traceId }: { traceId: string }) {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [record, setRecord] = useState<AgentTraceApiRecord | null>(null);
+
+  useEffect(() => {
+    if (!open || record || loading) return;
+    let cancelled = false;
+    setLoading(true);
+    fetch(`/api/agent/brain-traces/${traceId}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (!cancelled) setRecord(data.trace || null);
+      })
+      .catch(() => {
+        if (!cancelled) setRecord(null);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [open, record, loading, traceId]);
+
+  const events = record?.trace?.events || [];
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+        title="查看 Agent 理解和执行过程"
+      >
+        <Activity className="h-3 w-3" />
+        过程
+      </button>
+      {open && (
+        <div className="absolute left-0 top-7 z-20 w-72 rounded-lg border border-slate-200 bg-white p-3 text-left shadow-xl">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <span className="text-xs font-bold text-slate-800">Agent 过程</span>
+            <span className="text-[10px] text-slate-400">{record?.trace?.latencyMs ? `${record.trace.latencyMs}ms` : ""}</span>
+          </div>
+          {loading ? (
+            <div className="flex items-center gap-2 text-xs text-slate-500">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              读取中...
+            </div>
+          ) : events.length ? (
+            <div className="space-y-2">
+              {events.slice(0, 8).map((event, index) => (
+                <div key={`${event.stage}-${index}`} className="rounded-md bg-slate-50 p-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="truncate text-[11px] font-bold text-slate-700">{formatTraceStage(event.stage)}</span>
+                    <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-bold ${getTraceStatusTone(event.status)}`}>{event.status}</span>
+                  </div>
+                  <p className="mt-1 text-[11px] leading-4 text-slate-500">{event.summary}</p>
+                </div>
+              ))}
+              {record?.trace?.final && (
+                <div className="rounded-md bg-violet-50 p-2 text-[11px] text-violet-700">
+                  最终：{record.trace.final.action} / {record.trace.final.module || "none"} / {Math.round(record.trace.final.confidence * 100)}%
+                </div>
+              )}
+            </div>
+          ) : (
+            <p className="text-xs text-slate-500">暂无 trace 数据。</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+type RuntimeTimelineItem = {
+  label: string;
+  status: "pending" | "running" | "done" | string;
+  detail?: string;
+};
+
+function AgentRuntimeTimeline({ timeline, compact = false }: { timeline: RuntimeTimelineItem[]; compact?: boolean }) {
+  if (!timeline.length) return null;
+  return (
+    <div className={`${compact ? "mb-2 border-b border-slate-100 pb-2" : "rounded-2xl rounded-bl-md border border-violet-100 bg-white/95 p-3 shadow-sm"} w-full max-w-md`}>
+      <div className="flex flex-wrap gap-1.5">
+        {timeline.map((item) => (
+          <div
+            key={item.label}
+            className={`inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-medium ${getRuntimeTimelineTone(item.status)}`}
+            title={item.detail}
+          >
+            {item.status === "running" ? <Loader2 className="h-3 w-3 animate-spin" /> : item.status === "done" ? <CheckCircle2 className="h-3 w-3" /> : <span className="h-1.5 w-1.5 rounded-full bg-current opacity-50" />}
+            {item.label}
+          </div>
+        ))}
+      </div>
+      {!compact && (
+        <p className="mt-2 text-[11px] leading-4 text-slate-500">
+          {timeline.find((item) => item.status === "running")?.detail || timeline[timeline.length - 1]?.detail || "Agent 正在处理。"}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function getWorkflowPayload(params: Record<string, unknown>): WorkflowClientPayload | null {
   const raw = params?.workflow;
   if (!isPlainObject(raw) || !isPlainObject(raw.workflow)) return null;
@@ -838,6 +998,59 @@ function getWorkflowPayload(params: Record<string, unknown>): WorkflowClientPayl
     assets: Array.isArray(raw.assets) ? raw.assets as WorkflowAssetRecord[] : [],
     costEstimate: isPlainObject(raw.costEstimate) ? raw.costEstimate as WorkflowCostEstimate : undefined,
   };
+}
+
+function hasAgentTimeline(params: Record<string, unknown> | undefined) {
+  return Array.isArray(params?.agentTimeline) && params.agentTimeline.length > 0;
+}
+
+function readAgentTimeline(params: Record<string, unknown> | undefined): RuntimeTimelineItem[] {
+  if (!Array.isArray(params?.agentTimeline)) return [];
+  return params.agentTimeline
+    .filter(isPlainObject)
+    .map((item) => ({
+      label: typeof item.label === "string" ? item.label : "",
+      status: typeof item.status === "string" ? item.status : "pending",
+      detail: typeof item.detail === "string" ? item.detail : undefined,
+    }))
+    .filter((item) => item.label);
+}
+
+function getTraceId(params: Record<string, unknown> | undefined) {
+  return typeof params?.traceId === "string" ? params.traceId : null;
+}
+
+function getRuntimeTimelineTone(status: string) {
+  if (status === "done") return "bg-emerald-50 text-emerald-600";
+  if (status === "running") return "bg-violet-50 text-violet-600";
+  return "bg-slate-100 text-slate-400";
+}
+
+function getMessageFeedback(params: Record<string, unknown> | undefined) {
+  const raw = params?.feedback;
+  if (!isPlainObject(raw)) return null;
+  return {
+    rating: raw.rating === "good" || raw.rating === "bad" ? raw.rating : null,
+    status: typeof raw.status === "string" ? raw.status : "",
+  };
+}
+
+function formatTraceStage(stage: string) {
+  const labels: Record<string, string> = {
+    image_understanding: "图片理解",
+    dynamic_tool_selector: "工具选择",
+    semantic_router: "语义路由",
+    deterministic_safety_guard: "安全校验",
+    workflow_critic: "计划复核",
+  };
+  return labels[stage] || stage;
+}
+
+function getTraceStatusTone(status: string) {
+  if (status === "ok") return "bg-emerald-50 text-emerald-600";
+  if (status === "warn" || status === "fallback") return "bg-amber-50 text-amber-600";
+  if (status === "blocked" || status === "error") return "bg-rose-50 text-rose-600";
+  return "bg-slate-100 text-slate-500";
 }
 
 function getWorkflowImageUrls(payload: WorkflowClientPayload) {
