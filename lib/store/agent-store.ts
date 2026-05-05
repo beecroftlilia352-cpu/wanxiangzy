@@ -396,7 +396,9 @@ export const useAgentStore = create<Store>((set, get) => ({
           params: {
             ...(message.params || {}),
             agentLiveEvents: [...liveEvents, event].slice(-30),
-            agentTimeline: mergeTimelineWithBackendEvent(readTimelineFromParams(message.params), event),
+            ...(message.params?.showAgentTimeline === true
+              ? { agentTimeline: mergeTimelineWithBackendEvent(readTimelineFromParams(message.params), event) }
+              : {}),
           },
         };
       });
@@ -462,6 +464,7 @@ export const useAgentStore = create<Store>((set, get) => ({
     const aiMsg: Message = {
       id: uid(), conversation_id: convId, role: "assistant", content: "",
       images: [], generation: null, params: showPlanningTimeline ? {
+        showAgentTimeline: true,
         agentTimeline: [
           { label: "接收请求", status: "done", detail: "已拿到文字、图片和当前上下文" },
           { label: "理解意图", status: "running", detail: "正在判断是聊天、生成、工作流还是需要追问" },
@@ -506,10 +509,11 @@ export const useAgentStore = create<Store>((set, get) => ({
 
       if (workflowPayload) {
         const reply = buildWorkflowReply(workflowPayload);
-        const workflowParams = {
-          workflow: workflowPayload,
-          agentTimeline: completeAgentTimeline("已拆解成可执行 workflow，等待确认。"),
-        };
+      const workflowParams = {
+        workflow: workflowPayload,
+        showAgentTimeline: false,
+        agentTimeline: completeAgentTimeline("已拆解成可执行 workflow，等待确认。"),
+      };
         set((s) => ({
           isSending: false,
           messages: s.messages.map((m) =>
@@ -557,6 +561,7 @@ export const useAgentStore = create<Store>((set, get) => ({
       const reply = typeof data.reply === "string" ? data.reply : "处理完成。";
       const traceParams: Record<string, unknown> = {
         ...(typeof data.trace_id === "string" ? { traceId: data.trace_id } : {}),
+        showAgentTimeline: false,
       };
       if (showPlanningTimeline || data.action === "confirm_generate") {
         traceParams.agentTimeline = completeAgentTimeline(data.action === "confirm_generate" ? "已生成确认卡，等待你确认后执行。" : "已完成理解和回复。");
@@ -1337,7 +1342,6 @@ function normalizeClientImageRole(role: string, index: number) {
 
 function shouldTryWorkflowRequest(text: string, imageCount: number, mode: AgentIntentMode) {
   if (mode === "chat") return false;
-  if (mode === "create") return true;
   const normalized = text.trim();
   if (!normalized) return imageCount > 0;
   if (/(\u7136\u540e|\u518d|\u63a5\u7740|\u6700\u540e|\u5148.*\u518d|\u4ece.*\u9009|\u5de5\u4f5c\u6d41|\u5206\u6b65)/.test(normalized)) return true;

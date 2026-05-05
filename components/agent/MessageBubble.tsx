@@ -94,11 +94,7 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
 
   const isUser = role === "user";
   const workflowPayload = !isUser ? getWorkflowPayload(message.params) : null;
-  const agentTimeline = !isUser
-    ? normalizeAgentTimelineForMessage(readAgentTimeline(message.params), workflowPayload, generation)
-    : [];
-  const hasTimeline = agentTimeline.length > 0;
-  if (!isUser && !content && !generation && !hasTimeline && !workflowPayload) return null;
+  if (!isUser && !content && !generation && !workflowPayload) return null;
 
   // 消息分组：同角色连续消息隐藏头像
   const isGrouped = prevMessage && prevMessage.role === role;
@@ -150,10 +146,6 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
         )}
 
         {/* 文本内容 */}
-        {!isUser && hasTimeline && !content && (
-          <AgentRuntimeTimeline timeline={agentTimeline} />
-        )}
-
         {content && (
           <div className={`group/msg relative rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm ${
             isUser
