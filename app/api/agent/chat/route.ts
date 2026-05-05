@@ -163,6 +163,14 @@ type VisualTaskPlan = {
   confidence: number;
 };
 
+type AgentTaskContext = {
+  module?: string;
+  label?: string;
+  params?: Record<string, unknown>;
+  prompt?: string;
+  taskBrief?: Record<string, unknown>;
+};
+
 export async function POST(request: NextRequest) {
   try {
     const auth = await requireApiUser();
@@ -172,12 +180,13 @@ export async function POST(request: NextRequest) {
     if (!limit.ok) return rateLimitResponse(limit.retryAfterSeconds);
 
     const body = await request.json().catch(() => ({}));
-    const { message, images, history, intentMode: rawIntentMode, params: userParams } = body as {
+    const { message, images, history, intentMode: rawIntentMode, params: userParams, lastTask } = body as {
       message?: string;
       images?: AgentImageInput[];
       history?: Array<{ role: string; content: string }>;
       intentMode?: AgentIntentMode;
       params?: { model?: string; aspectRatio?: string; imageSize?: string; count?: number };
+      lastTask?: AgentTaskContext;
     };
     const intentMode = normalizeIntentMode(rawIntentMode);
 
@@ -271,11 +280,19 @@ export async function POST(request: NextRequest) {
     const style = decision.style;
     const standaloneTextGeneration = isStandaloneTextGenerationIntent(userText);
     const taskPlan = planVisualTask(userText, Boolean(hasImages));
+    const followupTask = buildFollowupTask(userText, lastTask);
 
     if (intentMode === "chat" || isChatOnlyIntent(userText)) {
       action = "chat";
       module = null;
       decision.source = decision.source === "llm" ? "llm" : "heuristic";
+    } else if (followupTask) {
+      action = "generate";
+      module = followupTask.module;
+      llmParams = followupTask.params;
+      decision.params = llmParams;
+      decision.confidence = Math.max(decision.confidence, 0.86);
+      decision.source = "heuristic";
     } else if (taskPlan || standaloneTextGeneration) {
       action = "generate";
       module = taskPlan?.module || "general";
@@ -316,7 +333,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 最终决策日志
-    if (action === "generate" && module && shouldClarifyBeforeGenerate(userText, module, decision.confidence, Boolean(hasImages), images?.length || 0, taskPlan)) {
+    if (action === "generate" && module && !followupTask && shouldClarifyBeforeGenerate(userText, module, decision.confidence, Boolean(hasImages), images?.length || 0, taskPlan)) {
       return NextResponse.json({
         reply: buildAmbiguousVisualTaskReply(userText, module, images || []),
         action: "chat",
@@ -340,17 +357,22 @@ export async function POST(request: NextRequest) {
 
     // 通用生图（文生图 / 图生图 / 无特定模块）
     if (!MODULE_API[module]) {
-      const imageUrls = standaloneTextGeneration && !taskPlan?.useImages ? [] : (images || []).map((img) => img.url).filter(Boolean);
+      const previousImageUrls = followupTask && Array.isArray(followupTask.params.images)
+        ? followupTask.params.images.filter((url): url is string => typeof url === "string" && url.trim().length > 0)
+        : [];
+      const imageUrls = previousImageUrls.length
+        ? previousImageUrls
+        : standaloneTextGeneration && !taskPlan?.useImages ? [] : (images || []).map((img) => img.url).filter(Boolean);
       const generalPrompt = typeof decision.params.prompt === "string" && decision.params.prompt.trim()
         ? decision.params.prompt.trim()
         : taskPlan
           ? composeVisualTaskPrompt(taskPlan, decision.params.prompt, userText)
           : buildGeneralGenerationPrompt(userText, null);
       const generalLabel = taskPlan?.label || "\u901a\u7528\u751f\u56fe";
-      const model = normalizeLingyaModel(userParams?.model);
-      const aspectRatio = normalizeAspectRatio(userParams?.aspectRatio || taskPlan?.preferredAspectRatio || "3:4");
-      const imageSize = normalizeImageSize(model, (userParams?.imageSize as ImageSize) || "1K", aspectRatio);
-      const count = Math.min(Math.max(Number(userParams?.count) || 1, 1), 4);
+      const model = normalizeLingyaModel(userParams?.model || followupTask?.params.model || followupTask?.params.ai_model);
+      const aspectRatio = normalizeAspectRatio(userParams?.aspectRatio || followupTask?.params.aspectRatio || followupTask?.params.aspect_ratio || taskPlan?.preferredAspectRatio || "3:4");
+      const imageSize = normalizeImageSize(model, (userParams?.imageSize as ImageSize) || (followupTask?.params.imageSize as ImageSize) || (followupTask?.params.image_size as ImageSize) || "1K", aspectRatio);
+      const count = Math.min(Math.max(Number(userParams?.count || followupTask?.params.count || followupTask?.params.gen_count) || 1, 1), 4);
       const cost = getCreditCost(model, imageSize, aspectRatio) * count;
       return NextResponse.json({
         reply: buildConfirmReply(generalLabel, decision.reply, {
@@ -371,7 +393,7 @@ export async function POST(request: NextRequest) {
           usedImageRefs: imageUrls.length ? (images || []).map((img) => img.index) : [],
           count,
           aspectRatio,
-          taskPlan,
+          taskPlan: taskPlan || followupTask?.taskPlan || null,
         }),
         generation_params: {
           prompt: generalPrompt,
@@ -454,7 +476,7 @@ export async function POST(request: NextRequest) {
         usedImageRefs: getUsedImageIndexes(moduleParams, images || []),
         count,
         aspectRatio,
-        taskPlan,
+        taskPlan: taskPlan || followupTask?.taskPlan || null,
       }),
       generation_params: moduleParams,
       job_payload: buildJobPayload(module, moduleParams, { model, aspectRatio, imageSize, count }),
@@ -1007,6 +1029,37 @@ function sanitizeVisualPromptSupplement(
   }
 
   return cleaned.length > 700 ? `${cleaned.slice(0, 700)}...` : cleaned;
+}
+
+function buildFollowupTask(userText: string, lastTask?: AgentTaskContext | null): { module: string; params: Record<string, unknown>; taskPlan: VisualTaskPlan | null } | null {
+  if (!lastTask?.module || !lastTask.params || !isFollowupModificationIntent(userText)) return null;
+  if (isCommerceDesignIntent(userText) || isSpecializedModuleIntent(userText)) return null;
+
+  const module = normalizeAgentModule(lastTask.module) || lastTask.module;
+  const previousPrompt = typeof lastTask.prompt === "string" && lastTask.prompt.trim()
+    ? lastTask.prompt.trim()
+    : typeof lastTask.params.prompt === "string"
+      ? lastTask.params.prompt.trim()
+      : "";
+  const prompt = [
+    previousPrompt || "\u5ef6\u7eed\u4e0a\u4e00\u6b21\u56fe\u50cf\u751f\u6210\u4efb\u52a1\u3002",
+    "\u672c\u8f6e\u8ffd\u52a0\u4fee\u6539\u8981\u6c42\uff1a" + userText.trim(),
+    "\u4f18\u5148\u4fdd\u7559\u4e0a\u4e00\u6b21\u5df2\u786e\u8ba4\u7684\u4efb\u52a1\u76ee\u6807\u3001\u56fe\u7247\u5173\u7cfb\u3001\u4e3b\u4f53\u8eab\u4efd\u548c\u8f93\u51fa\u7528\u9014\uff1b\u53ea\u6539\u7528\u6237\u672c\u8f6e\u660e\u786e\u8981\u6539\u7684\u90e8\u5206\u3002",
+  ].filter(Boolean).join("\n");
+
+  return {
+    module,
+    params: {
+      ...lastTask.params,
+      prompt,
+    },
+    taskPlan: null,
+  };
+}
+
+function isFollowupModificationIntent(text: string): boolean {
+  if (!text.trim()) return false;
+  return /\u6539\u6210|\u6362\u6210|\u8c03\u6210|\u6539\u4e3a|\u6362\u4e3a|\u52a0\u4e0a|\u53bb\u6389|\u5220\u6389|\u4fdd\u7559|\u4e0d\u8981|\u66f4\u50cf|\u518d\u9ad8\u7ea7|\u66f4\u7b80\u6d01|\u6781\u7b80|\u98ce\u683c|\u6587\u5b57|\u6807\u9898|\u6bd4\u4f8b|\u753b\u5e45|\u8272\u8c03|\u80cc\u666f|\u5149\u5f71|\u91cd\u65b0\u8c03\u6574|\u5c31\u8fd9\u4e2a/.test(text);
 }
 
 function buildGeneralGenerationPrompt(text: string, taskType: "commerce_detail" | "commerce_creative" | "reference_redesign" | null): string {

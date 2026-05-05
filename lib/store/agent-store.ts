@@ -430,6 +430,7 @@ export const useAgentStore = create<Store>((set, get) => ({
           history,
           intentMode,
           params: { model: params.model, aspectRatio: params.aspectRatio, imageSize: params.imageSize, count: params.count },
+          lastTask: getLastAgentTaskContext(get().messages),
         }),
       });
 
@@ -999,6 +1000,22 @@ function getRepairKind(module: string): RepairKind {
   if (module === "model_background") return "modelBackground";
   if (module === "tryon") return "tryon";
   return "general";
+}
+
+function getLastAgentTaskContext(messages: Message[]) {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const generation = messages[i].generation;
+    const data = generation?._confirmData || generation?._lastRunData;
+    if (!data?.module || !data.params) continue;
+    return {
+      module: data.module,
+      label: generation?.module,
+      params: data.params,
+      prompt: typeof data.params.prompt === "string" ? data.params.prompt : "",
+      taskBrief: data.taskBrief,
+    };
+  }
+  return null;
 }
 
 function findPreviousUserImageMessageIndex(messages: Message[], beforeIndex: number): number {
