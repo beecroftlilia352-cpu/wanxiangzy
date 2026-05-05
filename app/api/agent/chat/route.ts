@@ -1124,6 +1124,7 @@ function buildTaskBrief(params: {
     imageUsage: `${imageUsage}${unusedText}`,
     focus: getTaskFocus(params, combined),
     check: getTaskCheck(params, combined),
+    risks: getTaskRisks(params, combined, usedImages, unusedImages),
   };
 }
 
@@ -1166,6 +1167,36 @@ function getTaskCheck(params: { module: string; taskPlan: VisualTaskPlan | null 
   if (params.taskPlan?.taskType === "commerce_detail" || combined.includes("\u8be6\u60c5\u9875")) return "\u5982\u679c\u65b9\u6848\u91cc\u51fa\u73b0\u79cd\u8349/\u8857\u62cd\u503e\u5411\uff0c\u5148\u6539\u6700\u7ec8\u63d0\u793a\u8bcd\u518d\u751f\u6210\u3002";
   if (params.module === "pose") return "\u786e\u8ba4\u8f93\u51fa\u662f\u56db\u5bab\u683c\u8fd8\u662f\u6bcf\u4e2a\u59ff\u52bf\u72ec\u7acb\u4e00\u5f20\uff0c\u518d\u6263\u5206\u751f\u6210\u3002";
   return "\u786e\u8ba4\u76ee\u6807\u3001\u56fe\u7247\u89d2\u8272\u3001\u6bd4\u4f8b\u548c\u5f20\u6570\u90fd\u6b63\u786e\u540e\u518d\u751f\u6210\u3002";
+}
+
+function getTaskRisks(
+  params: { module: string; count: number; taskPlan: VisualTaskPlan | null },
+  combined: string,
+  usedImages: AgentImageInput[],
+  unusedImages: AgentImageInput[]
+): string[] {
+  const risks: string[] = [];
+  if (params.taskPlan?.taskType === "commerce_detail" || combined.includes("\u8be6\u60c5\u9875")) {
+    risks.push("\u751f\u56fe\u6a21\u578b\u53ef\u80fd\u628a\u8be6\u60c5\u9875\u505a\u6210\u5355\u5f20\u6c1b\u56f4\u56fe\uff0c\u9700\u68c0\u67e5\u662f\u5426\u6709\u9996\u5c4f\u3001\u5356\u70b9\u3001\u7ec6\u8282\u548c\u53c2\u6570\u5206\u533a\u3002");
+    risks.push("\u4e2d\u6587\u5c0f\u5b57\u548c\u56fe\u6807\u53ef\u80fd\u4e0d\u7a33\u5b9a\uff0c\u91cd\u8981\u6587\u6848\u5efa\u8bae\u77ed\u800c\u6e05\u695a\u3002");
+  }
+  if (params.module === "pose") {
+    risks.push("\u59ff\u52bf\u53d8\u5316\u5bb9\u6613\u5e26\u6765\u624b\u6307\u3001\u5173\u8282\u3001\u8138\u90e8\u4e00\u81f4\u6027\u548c\u8eab\u4f53\u6bd4\u4f8b\u98ce\u9669\u3002");
+    risks.push("\u5982\u679c\u8981\u201c\u6bcf\u4e2a\u59ff\u52bf\u4e00\u5f20\u201d\uff0c\u9700\u5728\u6700\u7ec8\u63d0\u793a\u8bcd\u4e2d\u786e\u8ba4\uff0c\u5426\u5219\u53ef\u80fd\u8f93\u51fa\u56db\u5bab\u683c\u3002");
+  }
+  if (params.module === "tryon") {
+    risks.push("\u6362\u88c5\u53ef\u80fd\u6539\u53d8\u670d\u88c5\u7ed3\u6784\u3001\u989c\u8272\u3001logo\u6216\u9762\u6599\u7ec6\u8282\uff0c\u9700\u91cd\u70b9\u68c0\u67e5\u670d\u88c5\u8fd8\u539f\u3002");
+  }
+  if (usedImages.length === 0 && combined.includes("\u53c2\u8003")) {
+    risks.push("\u63d0\u793a\u8bcd\u4e2d\u63d0\u5230\u53c2\u8003\u56fe\uff0c\u4f46\u5f53\u524d\u4efb\u52a1\u53ef\u80fd\u6ca1\u6709\u4f20\u5165\u5b9e\u9645\u56fe\u7247\u3002");
+  }
+  if (unusedImages.length > 0) {
+    risks.push("\u90e8\u5206\u9644\u4ef6\u4e0d\u4f1a\u53c2\u4e0e\u672c\u6b21\u751f\u6210\uff0c\u5982\u9700\u4f7f\u7528\u8bf7\u5148\u8c03\u6574\u56fe\u7247\u89d2\u8272\u6216\u63d0\u793a\u8bcd\u3002");
+  }
+  if (params.count > 1) {
+    risks.push("\u591a\u5f20\u56fe\u7684\u4e3b\u4f53\u3001\u98ce\u683c\u548c\u6587\u5b57\u4e00\u81f4\u6027\u53ef\u80fd\u4f1a\u6709\u6ce2\u52a8\u3002");
+  }
+  return Array.from(new Set(risks)).slice(0, 4);
 }
 
 function getUsedImageIndexes(params: Record<string, unknown>, images: AgentImageInput[]): number[] {

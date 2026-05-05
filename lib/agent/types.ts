@@ -47,6 +47,7 @@ export interface AgentTaskBrief {
   imageUsage: string;
   focus: string;
   check: string;
+  risks?: string[];
 }
 
 export interface GenerationResult {

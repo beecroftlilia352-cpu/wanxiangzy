@@ -554,6 +554,16 @@ function ConfirmIntentBrief({
         <p><span className="font-bold text-slate-700">{"\u76ee\u6807\uff1a"}</span>{brief.goal}</p>
         <p><span className="font-bold text-slate-700">{"\u56fe\u7247\uff1a"}</span>{brief.imageUsage}</p>
         <p><span className="font-bold text-slate-700">{"\u91cd\u70b9\uff1a"}</span>{brief.focus}</p>
+        {brief.risks && brief.risks.length > 0 && (
+          <div className="rounded-lg bg-rose-50 px-2 py-1 text-rose-700 ring-1 ring-rose-100">
+            <p className="font-bold">{"\u98ce\u9669\u9884\u5224\uff1a"}</p>
+            <ul className="mt-0.5 list-disc space-y-0.5 pl-4">
+              {brief.risks.slice(0, 3).map((risk) => (
+                <li key={risk}>{risk}</li>
+              ))}
+            </ul>
+          </div>
+        )}
         <p className="rounded-lg bg-white/80 px-2 py-1 text-amber-700 ring-1 ring-amber-100">
           <span className="font-bold">{"\u786e\u8ba4\u524d\u68c0\u67e5\uff1a"}</span>{brief.check}
         </p>
@@ -584,6 +594,7 @@ function buildIntentBrief(
     imageUsage: `${imageUsage}${unusedText}`,
     focus: getBriefFocus(moduleName, lower),
     check: getBriefCheck(moduleName, lower),
+    risks: getBriefRisks(moduleName, lower, used, params),
   };
 }
 
@@ -616,6 +627,29 @@ function getBriefCheck(moduleName: string, lower: string) {
   if (lower.includes("\u8be6\u60c5\u9875")) return "\u5982\u679c\u8fd9\u91cc\u88ab\u8bc6\u522b\u6210\u79cd\u8349/\u8857\u62cd\uff0c\u5148\u6539\u6700\u7ec8\u63d0\u793a\u8bcd\u518d\u751f\u6210\u3002";
   if (moduleName.includes("姿") || lower.includes("pose")) return "\u5982\u679c\u9700\u8981\u6bcf\u4e2a\u59ff\u52bf\u5355\u72ec\u4e00\u5f20\uff0c\u5148\u5728\u6700\u7ec8\u63d0\u793a\u8bcd\u91cc\u5199\u660e\u3002";
   return "\u786e\u8ba4\u76ee\u6807\u3001\u56fe\u7247\u89d2\u8272\u548c\u6bd4\u4f8b\u6ca1\u95ee\u9898\u540e\u518d\u6263\u5206\u751f\u6210\u3002";
+}
+
+function getBriefRisks(moduleName: string, lower: string, used: ChatImage[], params: Record<string, unknown>): string[] {
+  const risks: string[] = [];
+  const count = Number(params.count || params.gen_count || 1);
+  if (lower.includes("\u8be6\u60c5\u9875")) {
+    risks.push("\u751f\u56fe\u6a21\u578b\u53ef\u80fd\u628a\u8be6\u60c5\u9875\u505a\u6210\u5355\u5f20\u6c1b\u56f4\u56fe\uff0c\u9700\u68c0\u67e5\u7248\u5f0f\u5206\u533a\u548c\u5356\u70b9\u5c42\u7ea7\u3002");
+    risks.push("\u4e2d\u6587\u5c0f\u5b57\u53ef\u80fd\u4e0d\u7a33\u5b9a\uff0c\u91cd\u8981\u6587\u6848\u5efa\u8bae\u4fdd\u6301\u77ed\u53e5\u3002");
+  }
+  if (moduleName.includes("姿") || lower.includes("pose")) {
+    risks.push("\u59ff\u52bf\u53d8\u5316\u5bb9\u6613\u5e26\u6765\u624b\u6307\u3001\u5173\u8282\u548c\u8eab\u4f53\u6bd4\u4f8b\u6f02\u79fb\u3002");
+    risks.push("\u56db\u5bab\u683c\u548c\u591a\u5f20\u72ec\u7acb\u56fe\u9700\u660e\u786e\u533a\u5206\uff0c\u5426\u5219\u6a21\u578b\u53ef\u80fd\u8f93\u51fa\u9519\u5f62\u5f0f\u3002");
+  }
+  if (moduleName.toLowerCase().includes("tryon")) {
+    risks.push("\u6362\u88c5\u4efb\u52a1\u5bb9\u6613\u6539\u53d8\u670d\u88c5\u7ed3\u6784\u3001logo\u6216\u9762\u6599\u7ec6\u8282\u3002");
+  }
+  if (used.length === 0 && lower.includes("\u53c2\u8003")) {
+    risks.push("\u65b9\u6848\u63d0\u5230\u53c2\u8003\u56fe\uff0c\u4f46\u5f53\u524d\u672a\u68c0\u6d4b\u5230\u4f1a\u88ab\u4f7f\u7528\u7684\u56fe\u7247\u3002");
+  }
+  if (count > 1) {
+    risks.push("\u591a\u5f20\u56fe\u7684\u89d2\u8272\u3001\u98ce\u683c\u548c\u4e3b\u4f53\u4e00\u81f4\u6027\u53ef\u80fd\u4f1a\u6709\u6ce2\u52a8\u3002");
+  }
+  return Array.from(new Set(risks)).slice(0, 4);
 }
 
 function ConfirmTaskPlan({
