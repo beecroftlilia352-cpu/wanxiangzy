@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef } from "react";
-import { Images, Loader2, Plus, ShieldCheck, X, ZoomIn } from "lucide-react";
+import { AlertCircle, Images, Loader2, Plus, ShieldCheck, X, ZoomIn } from "lucide-react";
 import type { ChatImage, ChatImageRole } from "@/lib/agent/types";
 
 type Props = {
@@ -37,6 +37,10 @@ export function ImageTray({ images, onAdd, onRemove, onClear, onRoleChange, onPr
   if (images.length === 0) return null;
 
   const hasUploading = images.some((img) => img.uploading);
+  const failedCount = images.filter((img) => img.uploadError).length;
+  const uploadingCount = images.filter((img) => img.uploading).length;
+  const readyCount = images.length - failedCount - uploadingCount;
+  const hasStableIndexGap = images.some((img, index) => img.index !== index + 1);
 
   return (
     <div className="mb-2 rounded-2xl border border-violet-100/80 bg-violet-50/35 p-2 shadow-sm shadow-violet-100/30">
@@ -46,13 +50,24 @@ export function ImageTray({ images, onAdd, onRemove, onClear, onRoleChange, onPr
         </span>
         <div className="min-w-0 flex-1 text-left">
           <div className="flex items-center gap-1.5">
-            <span className="text-xs font-bold text-slate-700">本次会使用 {images.length} 张附件图</span>
+            <span className="text-xs font-bold text-slate-700">
+              本次可用 {readyCount} 张附件图
+            </span>
             <span className="rounded-full bg-white px-1.5 py-0.5 text-[10px] font-semibold text-violet-500">
               独立上下文
             </span>
+            {(uploadingCount > 0 || failedCount > 0) && (
+              <span className="rounded-full bg-white px-1.5 py-0.5 text-[10px] font-semibold text-slate-400">
+                共 {images.length} 张
+              </span>
+            )}
           </div>
-          <p className="truncate text-[11px] text-slate-400">
-            只有这里的图片会参与下一次判断；新任务可一键清空。
+          <p className={`truncate text-[11px] ${failedCount > 0 ? "font-semibold text-red-500" : "text-slate-400"}`}>
+            {failedCount > 0
+              ? `${failedCount} 张图片上传失败，请移除后重新上传。`
+              : hasStableIndexGap
+                ? "图片编号会保持稳定，避免 @图N 指错图；新任务可一键清空。"
+                : "只有这里的图片会参与下一次判断；新任务可一键清空。"}
           </p>
         </div>
         {hasUploading && (
@@ -86,12 +101,16 @@ export function ImageTray({ images, onAdd, onRemove, onClear, onRoleChange, onPr
 
         {images.map((img, i) => {
           const role = img.role || "auto";
+          const failed = Boolean(img.uploadError);
           return (
             <div key={`${img.index}-${img.url}`} className="group relative shrink-0">
               <button
                 type="button"
-                className="relative h-16 w-16 cursor-pointer overflow-hidden rounded-xl border border-white bg-slate-50 shadow-sm transition-all hover:border-violet-300 hover:shadow-md"
-                onClick={() => onPreview?.(img.hostedUrl || img.url)}
+                className={`relative h-16 w-16 overflow-hidden rounded-xl border bg-slate-50 shadow-sm transition-all ${
+                  failed ? "border-red-200 hover:border-red-300" : "border-white hover:border-violet-300 hover:shadow-md"
+                } ${failed ? "cursor-default" : "cursor-pointer"}`}
+                onClick={() => !failed && onPreview?.(img.hostedUrl || img.url)}
+                title={failed ? img.uploadError : `预览图${img.index}`}
               >
                 <img src={img.hostedUrl || img.url} alt={`图${img.index}`} className="h-full w-full object-cover" />
                 {img.uploading && (
@@ -99,9 +118,16 @@ export function ImageTray({ images, onAdd, onRemove, onClear, onRoleChange, onPr
                     <Loader2 className="h-4 w-4 animate-spin text-white" />
                   </div>
                 )}
-                <div className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-all group-hover:bg-black/20 group-hover:opacity-100">
-                  <ZoomIn className="h-4 w-4 text-white drop-shadow" />
-                </div>
+                {failed ? (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-red-950/70 px-1 text-center text-[9px] font-bold leading-tight text-white">
+                    <AlertCircle className="mb-1 h-4 w-4" />
+                    上传失败
+                  </div>
+                ) : (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-all group-hover:bg-black/20 group-hover:opacity-100">
+                    <ZoomIn className="h-4 w-4 text-white drop-shadow" />
+                  </div>
+                )}
               </button>
 
               <span className="absolute -bottom-1 left-1/2 flex -translate-x-1/2 items-center gap-0.5 rounded-full bg-violet-600 px-1.5 py-0.5 text-[9px] font-bold leading-none text-white shadow-sm">
@@ -111,9 +137,10 @@ export function ImageTray({ images, onAdd, onRemove, onClear, onRoleChange, onPr
 
               <select
                 value={role}
+                disabled={failed}
                 onClick={(e) => e.stopPropagation()}
                 onChange={(e) => onRoleChange?.(img.index, e.target.value as ChatImageRole)}
-                className="absolute left-1 top-1 z-10 max-w-[58px] rounded-md bg-black/60 px-1 py-0.5 text-[9px] font-bold leading-none text-white outline-none backdrop-blur transition-colors hover:bg-violet-600/90"
+                className="absolute left-1 top-1 z-10 max-w-[58px] rounded-md bg-black/60 px-1 py-0.5 text-[9px] font-bold leading-none text-white outline-none backdrop-blur transition-colors hover:bg-violet-600/90 disabled:opacity-50"
                 title={`图片角色：${ROLE_TEXT[role]}`}
               >
                 {ROLE_OPTIONS.map((option) => (
@@ -128,8 +155,11 @@ export function ImageTray({ images, onAdd, onRemove, onClear, onRoleChange, onPr
                   e.stopPropagation();
                   onRemove(i);
                 }}
-                className="absolute -right-1.5 -top-1.5 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-white text-slate-400 opacity-0 shadow-md ring-1 ring-slate-200 transition-all hover:bg-red-500 hover:text-white group-hover:opacity-100"
-                aria-label={`移除图${img.index}`}
+                className={`absolute -right-1.5 -top-1.5 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-md ring-1 ring-slate-200 transition-all hover:bg-red-500 hover:text-white ${
+                  failed ? "text-red-500 opacity-100" : "text-slate-400 opacity-0 group-hover:opacity-100"
+                }`}
+                aria-label={failed ? `移除上传失败的图${img.index}` : `移除图${img.index}`}
+                title={failed ? "移除失败图后重新上传" : `移除图${img.index}`}
               >
                 <X className="h-3 w-3" />
               </button>

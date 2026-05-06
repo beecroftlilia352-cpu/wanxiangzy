@@ -336,7 +336,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const effectiveCount = module === "pose" && moduleParams.output_mode === "separate" ? 4 : count;
+    const effectiveCount = getEffectiveModuleCount(module, moduleParams, count);
     const totalCost = costPerImage * effectiveCount;
 
     // 不直接执行，返回确认信息让用户确认后才扣积分
@@ -808,7 +808,7 @@ function buildModuleParams(
       base.main_image_url = main;
       if (llmParams.output_mode === "separate" || llmParams.outputMode === "separate") {
         base.output_mode = "separate";
-        base.gen_count = 4;
+        base.gen_count = opts.count;
       } else if (llmParams.output_mode === "grid" || llmParams.outputMode === "grid") {
         base.output_mode = "grid";
         base.gen_count = 1;
@@ -843,6 +843,21 @@ function hasGenericGenerationIntent(text: string): boolean {
 function normalizeIntentMode(value?: string): AgentIntentMode {
   if (value === "chat" || value === "create" || value === "smart") return value;
   return "smart";
+}
+
+function getEffectiveModuleCount(module: string, params: Record<string, unknown>, fallback: number) {
+  if (module === "pose") {
+    const outputMode = String(params.output_mode || params.outputMode || "").toLowerCase();
+    if (outputMode === "grid") return 1;
+    return clampGenerationCount(params.gen_count ?? params.genCount ?? params.count ?? fallback ?? 4);
+  }
+  return clampGenerationCount(params.gen_count ?? params.genCount ?? params.count ?? fallback ?? 1);
+}
+
+function clampGenerationCount(value: unknown) {
+  const num = Number(value || 1);
+  if (!Number.isFinite(num)) return 1;
+  return Math.min(Math.max(Math.floor(num), 1), 4);
 }
 
 function getIntentModeInstruction(mode: AgentIntentMode): string {

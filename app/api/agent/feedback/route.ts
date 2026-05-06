@@ -38,6 +38,7 @@ export async function POST(request: NextRequest) {
   const trace = traceId ? await loadTrace(auth.supabase, auth.user.id, traceId) : null;
   const evalCase = rating === "bad" ? buildEvalCase({ trace, rating, reason, tags }) : null;
   const preferencePatch = extractPreferencePatchFromFeedback({ rating, reason, tags });
+  const learned = hasPreferencePatch(preferencePatch);
 
   const { error } = await auth.supabase
     .from("agent_feedback")
@@ -63,8 +64,8 @@ export async function POST(request: NextRequest) {
     }, { status: 503 });
   }
 
-  if (rating === "bad" && hasPreferencePatch(preferencePatch)) {
-    void upsertAgentUserPreferences(auth.user.id, preferencePatch, "feedback");
+  if (learned) {
+    void upsertAgentUserPreferences(auth.user.id, preferencePatch, rating === "bad" ? "feedback" : "manual");
   }
 
   void recordAgentMetric({
@@ -76,10 +77,10 @@ export async function POST(request: NextRequest) {
     ok: true,
     latencyMs: Date.now() - started,
     action: rating,
-    metadata: { tags, learned: hasPreferencePatch(preferencePatch) },
+    metadata: { tags, learned },
   });
 
-  return NextResponse.json({ ok: true, learned: hasPreferencePatch(preferencePatch), preferencePatch });
+  return NextResponse.json({ ok: true, learned, preferencePatch });
 }
 
 async function loadTrace(

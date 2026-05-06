@@ -1,7 +1,7 @@
 import { getForbiddenAgentModules } from "@/lib/agent/visual-task-planner";
 import type { AgentBrainDecision, AgentBrainRequest } from "@/lib/agent/brain/types";
 import { addTraceEvent, finalizeBrainTrace } from "@/lib/agent/brain/trace";
-import { parseTryonRefs } from "@/lib/agent/brain/semantic-router";
+import { parseFaceSwapRefs, parseTryonRefs } from "@/lib/agent/brain/semantic-router";
 
 const MIN_GENERATION_CONFIDENCE = 0.64;
 
@@ -38,8 +38,18 @@ export function applyDeterministicSafetyGuard(
     next.reply = "视频能力已经在架构里预留，但当前生产环境还没有开启。我可以先帮你生成关键帧图片，后续再接入图生视频。";
   }
 
+  const faceSwapRefs = parseFaceSwapRefs(text);
+  if (faceSwapRefs && request.intentMode !== "chat") {
+    next.action = "generate";
+    next.module = "face_swap";
+    next.params.source_image = faceSwapRefs.sourceRef;
+    next.params.face_image = faceSwapRefs.faceRef;
+    next.confidence = Math.max(next.confidence, 0.88);
+    next.safety.reasons.push("识别到明确换脸图号关系，只替换五官并锁定原图肤色、发型、身体、服装和背景。");
+  }
+
   const tryonRefs = parseTryonRefs(text);
-  if (tryonRefs && request.intentMode !== "chat") {
+  if (!faceSwapRefs && tryonRefs && request.intentMode !== "chat") {
     next.action = "generate";
     next.module = "tryon";
     next.params.clothing_urls = [tryonRefs.clothingRef];
@@ -142,7 +152,7 @@ function isCommerceDetailText(text: string) {
 }
 
 function moduleNeedsImage(module: AgentBrainDecision["module"]) {
-  return module === "tryon" || module === "grass" || module === "garment_3d" || module === "model" || module === "model_background" || module === "pose";
+  return module === "tryon" || module === "grass" || module === "garment_3d" || module === "model" || module === "model_background" || module === "pose" || module === "face_swap";
 }
 
 function buildLowConfidenceQuestion(text: string, hasImages: boolean) {

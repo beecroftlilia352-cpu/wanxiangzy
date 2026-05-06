@@ -105,6 +105,7 @@ interface GenerateInput {
   image?: string[];
   image_size?: ImageSize;
   search?: boolean;
+  onProgress?: (update: ImageTaskProgress) => Promise<void> | void;
 }
 
 interface GenerateResult {
@@ -112,7 +113,17 @@ interface GenerateResult {
   b64_json?: string;
   prompt?: string;
   compiledPrompt?: string;
+  taskId?: string;
 }
+
+export type ImageTaskProgress = {
+  taskId?: string;
+  status: "queued" | "running" | "completed" | "failed";
+  providerStatus?: string;
+  progress: number;
+  urls?: string[];
+  error?: string;
+};
 
 interface BatchTryOnInput {
   model: LingyaModel;
@@ -127,6 +138,7 @@ interface BatchTryOnInput {
   image_size?: ImageSize;
   style?: string;
   raw_prompt?: string;
+  onProgress?: (update: ImageTaskProgress) => Promise<void> | void;
 }
 
 export async function generateImage(input: GenerateInput, retries = 2): Promise<GenerateResult> {
@@ -140,31 +152,7 @@ export async function generateImage(input: GenerateInput, retries = 2): Promise<
     prompt: input.prompt,
   });
 
-  const body: Record<string, any> = {
-    model: input.model,
-    prompt: compiledPrompt,
-    response_format: "url",
-  };
-
-  if (!isSeedreamModel(input.model) && input.model !== "gpt-image-2") {
-    body.aspect_ratio = input.aspect_ratio || "3:4";
-  }
-  if (input.image && input.image.length > 0) body.image = input.image;
-  if (input.model === "gpt-image-2") {
-    // gpt-image-2 只接受标准尺寸，不接受自定义像素值或 aspect_ratio
-    body.size = input.image_size ? resolveGptImage2Size(input.aspect_ratio || "3:4") : "auto";
-    body.quality = "auto";
-  }
-  if (input.image_size && isSeedreamModel(input.model)) {
-    body.size = normalizeImageSize(input.model, input.image_size, input.aspect_ratio);
-    body.watermark = false;
-  }
-  if (input.image_size && (input.model === "nano-banana-pro" || input.model === "nano-banana-2")) {
-    body.image_size = input.image_size;
-  }
-  if (input.search && (input.model === "nano-banana-pro" || input.model === "nano-banana-2")) {
-    body.search = input.search;
-  }
+  const body = buildGenerateRequestBody(input, compiledPrompt);
 
   // 日志（不含完整 base64、不含完整 prompt 内容）
   const logBody: Record<string, unknown> = {
@@ -179,7 +167,8 @@ export async function generateImage(input: GenerateInput, retries = 2): Promise<
 
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
-      const res = await fetch(`${apiBase}/images/generations`, {
+      await input.onProgress?.({ status: "queued", progress: 0 });
+      const res = await fetch(`${apiBase}/images/generations?async=true`, {
         method: "POST",
         headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -197,19 +186,29 @@ export async function generateImage(input: GenerateInput, retries = 2): Promise<
       }
 
       const json = JSON.parse(resText);
-      const hasData = Array.isArray(json.data) && json.data.length > 0;
-      console.log(`[api:${provider.name}] 响应: ok=${res.ok}, hasData=${hasData}`);
+      const taskId = extractTaskId(json);
+      console.log(`[api:${provider.name}] 异步响应: ok=${res.ok}, hasTask=${Boolean(taskId)}`);
 
-      if (!json.data || json.data.length === 0) {
+      if (!taskId) {
         if (attempt < retries) { await new Promise(r => setTimeout(r, attempt * 5000)); continue; }
-        throw new Error("多次尝试后仍未返回图片");
+        throw new Error("图片生成接口未返回异步任务 ID");
       }
 
+      await input.onProgress?.({ taskId, status: "queued", providerStatus: "SUBMITTED", progress: 1 });
+      const completed = await pollImageTask({
+        provider,
+        apiBase,
+        apiKey,
+        taskId,
+        onProgress: input.onProgress,
+      });
+
       return {
-        url: json.data[0].url,
-        b64_json: normalizeB64Image(json.data[0].b64_json),
+        url: completed.urls[0],
+        b64_json: normalizeB64Image(completed.b64Json),
         prompt: input.prompt,
         compiledPrompt,
+        taskId,
       };
 
     } catch (err: unknown) {
@@ -225,7 +224,7 @@ export async function generateImage(input: GenerateInput, retries = 2): Promise<
   throw new Error("API 多次重试后失败");
 }
 
-export async function batchTryOn(input: BatchTryOnInput): Promise<{ resultUrls: string[]; prompt: string; compiledPrompt: string }> {
+export async function batchTryOn(input: BatchTryOnInput): Promise<{ resultUrls: string[]; prompt: string; compiledPrompt: string; taskId?: string }> {
   if (!input.clothingUrls.length) {
     throw new Error("缺少服装图片");
   }
@@ -256,6 +255,7 @@ export async function batchTryOn(input: BatchTryOnInput): Promise<{ resultUrls: 
     aspect_ratio: input.aspect_ratio || "3:4",
     image: imageInputs,
     image_size: input.image_size,
+    onProgress: input.onProgress,
   });
 
   const resultUrl = result.url || result.b64_json;
@@ -263,7 +263,160 @@ export async function batchTryOn(input: BatchTryOnInput): Promise<{ resultUrls: 
     throw new Error("图片生成接口未返回结果 URL");
   }
 
-  return { resultUrls: [resultUrl], prompt: finalPrompt, compiledPrompt: result.compiledPrompt || finalPrompt };
+  return { resultUrls: [resultUrl], prompt: finalPrompt, compiledPrompt: result.compiledPrompt || finalPrompt, taskId: result.taskId };
+}
+
+function buildGenerateRequestBody(input: GenerateInput, compiledPrompt: string): Record<string, any> {
+  const body: Record<string, any> = {
+    model: input.model,
+    prompt: compiledPrompt,
+    response_format: "url",
+  };
+
+  if (!isSeedreamModel(input.model) && input.model !== "gpt-image-2") {
+    body.aspect_ratio = input.aspect_ratio || "3:4";
+  }
+  if (input.image && input.image.length > 0) body.image = input.image;
+  if (input.model === "gpt-image-2") {
+    // gpt-image-2 只接受标准尺寸，不接受自定义像素值或 aspect_ratio
+    body.size = input.image_size ? resolveGptImage2Size(input.aspect_ratio || "3:4") : "auto";
+    body.quality = "auto";
+  }
+  if (input.image_size && isSeedreamModel(input.model)) {
+    body.size = normalizeImageSize(input.model, input.image_size, input.aspect_ratio);
+    body.watermark = false;
+  }
+  if (input.image_size && (input.model === "nano-banana-pro" || input.model === "nano-banana-2")) {
+    body.image_size = input.image_size;
+  }
+  if (input.search && (input.model === "nano-banana-pro" || input.model === "nano-banana-2")) {
+    body.search = input.search;
+  }
+
+  return body;
+}
+
+async function pollImageTask(params: {
+  provider: { name: string };
+  apiBase: string;
+  apiKey: string;
+  taskId: string;
+  onProgress?: GenerateInput["onProgress"];
+}): Promise<{ urls: string[]; b64Json?: string }> {
+  const startedAt = Date.now();
+  const timeoutMs = getImageTaskTimeoutMs();
+  let lastProgress = 1;
+
+  while (Date.now() - startedAt < timeoutMs) {
+    await new Promise((resolve) => setTimeout(resolve, getImageTaskPollIntervalMs()));
+    const res = await fetch(`${params.apiBase}/images/tasks/${encodeURIComponent(params.taskId)}`, {
+      headers: { Authorization: `Bearer ${params.apiKey}` },
+    });
+    const resText = await res.text();
+    if (!res.ok) {
+      throw new Error(`任务查询失败 ${res.status}: ${resText.slice(0, 300)}`);
+    }
+    const json = JSON.parse(resText);
+    const task = normalizeImageTaskResponse(json, params.taskId);
+    const progress = Math.max(lastProgress, task.progress);
+    lastProgress = progress;
+
+    await params.onProgress?.({
+      taskId: params.taskId,
+      status: task.status,
+      providerStatus: task.providerStatus,
+      progress,
+      urls: task.urls,
+      error: task.error,
+    });
+
+    if (task.status === "completed") {
+      if (!task.urls.length && !task.b64Json) throw new Error("异步任务完成但没有返回图片 URL");
+      return { urls: task.urls, b64Json: task.b64Json };
+    }
+    if (task.status === "failed") {
+      throw new Error(task.error || "异步图片任务失败");
+    }
+  }
+
+  throw new Error("异步图片任务超时");
+}
+
+function normalizeImageTaskResponse(json: any, fallbackTaskId: string): {
+  taskId: string;
+  status: ImageTaskProgress["status"];
+  providerStatus?: string;
+  progress: number;
+  urls: string[];
+  b64Json?: string;
+  error?: string;
+} {
+  const root = json?.data && !Array.isArray(json.data) ? json.data : json;
+  const providerStatus = String(root?.status || json?.status || "").toUpperCase();
+  const progress = parseProgress(root?.progress ?? json?.progress);
+  const imageItems = extractImageItems(root);
+  const urls = imageItems
+    .map((item) => typeof item?.url === "string" ? item.url : "")
+    .filter(Boolean);
+  const b64Json = imageItems
+    .map((item) => normalizeB64Image(typeof item?.b64_json === "string" ? item.b64_json : undefined))
+    .find(Boolean);
+  const failReason = root?.fail_reason || root?.error || root?.message || json?.message;
+
+  if (providerStatus === "SUCCESS" || urls.length > 0 || b64Json) {
+    return { taskId: root?.task_id || fallbackTaskId, status: "completed", providerStatus, progress: 100, urls, b64Json };
+  }
+  if (providerStatus === "FAILURE" || providerStatus === "FAILED" || providerStatus === "ERROR") {
+    return { taskId: root?.task_id || fallbackTaskId, status: "failed", providerStatus, progress, urls, b64Json, error: String(failReason || "生成失败") };
+  }
+  return {
+    taskId: root?.task_id || fallbackTaskId,
+    status: providerStatus === "NOT_START" || providerStatus === "QUEUED" ? "queued" : "running",
+    providerStatus,
+    progress,
+    urls,
+    b64Json,
+  };
+}
+
+function extractTaskId(json: any): string {
+  return String(json?.task_id || json?.id || json?.taskId || json?.data?.task_id || json?.data?.id || "");
+}
+
+function extractImageItems(root: any): any[] {
+  const candidates = [
+    root?.data?.data,
+    root?.data,
+    root?.output,
+    root?.result_urls,
+  ];
+  for (const candidate of candidates) {
+    if (Array.isArray(candidate)) {
+      if (candidate.every((item) => typeof item === "string")) return candidate.map((url) => ({ url }));
+      return candidate;
+    }
+    if (candidate && typeof candidate === "object" && Array.isArray(candidate.data)) return candidate.data;
+  }
+  return [];
+}
+
+function parseProgress(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) return Math.min(Math.max(Math.round(value), 0), 100);
+  if (typeof value === "string") {
+    const match = value.match(/\d+(?:\.\d+)?/);
+    if (match) return Math.min(Math.max(Math.round(Number(match[0])), 0), 100);
+  }
+  return 1;
+}
+
+function getImageTaskPollIntervalMs() {
+  const value = Number(process.env.IMAGE_TASK_POLL_INTERVAL_MS || 2500);
+  return Number.isFinite(value) ? Math.min(Math.max(value, 1000), 10000) : 2500;
+}
+
+function getImageTaskTimeoutMs() {
+  const value = Number(process.env.IMAGE_TASK_TIMEOUT_MS || 10 * 60 * 1000);
+  return Number.isFinite(value) ? Math.min(Math.max(value, 30_000), 30 * 60 * 1000) : 10 * 60 * 1000;
 }
 
 function getImageApiBaseUrl(): string {

@@ -11,7 +11,8 @@ export type AgentBrainModule =
   | "garment_3d"
   | "model"
   | "model_background"
-  | "pose";
+  | "pose"
+  | "face_swap";
 
 export type AgentBrainSource = "llm" | "deterministic" | "fallback";
 

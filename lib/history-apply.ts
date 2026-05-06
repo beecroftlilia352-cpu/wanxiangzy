@@ -66,6 +66,16 @@ export type HistoryJobPayload =
       imageSize: ImageSize;
       prompt: string;
       genCount: number;
+    }
+  | {
+      kind: "faceSwap";
+      sourceUrl: string;
+      faceUrl: string;
+      aiModel: LingyaModel;
+      aspectRatio: AspectRatio;
+      imageSize: ImageSize;
+      prompt: string;
+      genCount: number;
     };
 
 export function getApplyPath(kind: HistoryJobPayload["kind"]) {
@@ -73,6 +83,7 @@ export function getApplyPath(kind: HistoryJobPayload["kind"]) {
   if (kind === "grass") return "/grass";
   if (kind === "modelBackground") return "/model-background";
   if (kind === "garment3d") return "/garment-3d";
+  if (kind === "faceSwap") return "/face-swap";
   if (kind === "model") return "/model";
   return "/pose";
 }

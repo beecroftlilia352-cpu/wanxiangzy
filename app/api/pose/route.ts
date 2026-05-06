@@ -31,13 +31,14 @@ export async function POST(request: NextRequest) {
     const { main_image_url, ai_model, image_size, prompt, pose_style } = body;
     const varyExpression = body.vary_expression !== false;
     const outputMode: PoseOutputMode = body.output_mode === "separate" ? "separate" : "grid";
+    const genCount = outputMode === "separate" ? normalizePoseCount(body.gen_count ?? body.count ?? 4) : 1;
     if (!main_image_url || typeof main_image_url !== "string") return NextResponse.json({ error: "缺少主图" }, { status: 400 });
     if (!prompt?.trim()) return NextResponse.json({ error: "缺少提示词" }, { status: 400 });
 
     const model: LingyaModel = normalizeLingyaModel(ai_model);
     const size: ImageSize = normalizeImageSize(model, image_size || "1K", POSE_ASPECT_RATIO);
     const unitCost = getCreditCost(model, size, POSE_ASPECT_RATIO);
-    const totalCost = unitCost * (outputMode === "separate" ? 4 : 1);
+    const totalCost = unitCost * genCount;
     const poseStyle = normalizePoseSeriesStyle(pose_style);
     const finalPrompt = enforcePosePromptRequirements(applyPoseSeriesStylePrompt(prompt, poseStyle), { varyExpression, poseStyle, outputMode });
     const jobPayload: GenerationJobPayload = {
@@ -49,6 +50,7 @@ export async function POST(request: NextRequest) {
       varyExpression,
       poseStyle,
       outputMode,
+      genCount,
     };
 
     const debit = await createDebitedGeneration(supabase, {
@@ -76,6 +78,12 @@ export async function POST(request: NextRequest) {
     const payload = errorToResponsePayload(err);
     return NextResponse.json(payload.body, { status: payload.status });
   }
+}
+
+function normalizePoseCount(value: unknown) {
+  const num = Number(value || 4);
+  if (!Number.isFinite(num)) return 4;
+  return Math.min(Math.max(Math.floor(num), 1), 4);
 }
 
 export async function GET(request: NextRequest) {

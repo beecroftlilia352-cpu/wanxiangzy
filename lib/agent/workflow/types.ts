@@ -31,9 +31,12 @@ export type WorkflowToolType =
   | "text_to_image"
   | "image_to_image"
   | "tryon"
+  | "face_swap"
   | "pose_variation"
   | "garment_3d"
   | "commerce_detail"
+  | "commerce_detail_section"
+  | "commerce_detail_stitch"
   | "commerce_creative"
   | "background_replace"
   | "select_image"
@@ -211,6 +214,7 @@ export type WorkflowEventType =
   | "workflow_queued"
   | "step_queued"
   | "step_started"
+  | "step_progress"
   | "provider_called"
   | "asset_uploaded"
   | "quality_checked"
@@ -293,6 +297,14 @@ export type StepExecutionInput = {
   model: LingyaModel;
   aspectRatio: AspectRatio;
   imageSize: ImageSize;
+  onProgress?: (update: StepExecutionProgress) => Promise<void> | void;
+};
+
+export type StepExecutionProgress = {
+  progress: number;
+  taskId?: string;
+  providerStatus?: string;
+  message?: string;
 };
 
 export type StepExecutionResult = {

@@ -14,6 +14,7 @@ import {
 import type { WorkflowBundle } from "@/lib/agent/workflow/repository";
 import type { WorkflowCostEstimate, WorkflowStepRecord, WorkflowStepResultOutput } from "@/lib/agent/workflow/types";
 import { getWorkflowTool } from "@/lib/agent/workflow/tools";
+import { recordAgentMetric } from "@/lib/agent/brain/metrics";
 
 export async function runNextAgentWorkflows(limit = 2) {
   const ids = await claimNextAgentWorkflows(limit);
@@ -88,6 +89,20 @@ async function executeStep(bundle: WorkflowBundle, step: WorkflowStepRecord) {
       model,
       aspectRatio,
       imageSize,
+      onProgress: async (update) => {
+        const progress = Math.min(Math.max(Math.round(update.progress), 0), 99);
+        await appendWorkflowEvent({
+          workflowId: bundle.workflow.id,
+          stepId: step.id,
+          type: "step_progress",
+          message: update.message || `${step.title} ${progress}%`,
+          payload: {
+            progress,
+            taskId: update.taskId,
+            providerStatus: update.providerStatus,
+          },
+        });
+      },
     });
     const assets = result.output.imageUrls?.length
       ? await createWorkflowAssets({
@@ -250,6 +265,19 @@ async function finalizeWorkflow(bundle: WorkflowBundle) {
       message: "Workflow completed",
       payload: { finalOutputs },
     });
+    void recordAgentMetric({
+      userId: bundle.workflow.user_id,
+      conversationId: bundle.workflow.conversation_id || null,
+      event: "workflow_completed",
+      route: "agent_workflow_worker",
+      ok: true,
+      metadata: {
+        workflowId: bundle.workflow.id,
+        stepCount: bundle.steps.length,
+        imageCount: finalOutputs.imageUrls?.length || 0,
+        quality: summarizeWorkflowQuality(bundle.steps),
+      },
+    });
   }
 }
 
@@ -274,6 +302,47 @@ async function finalizeFailedWorkflow(
     message: "Workflow stopped because a step failed",
     payload: { releaseAmount, settleAmount },
   });
+  void recordAgentMetric({
+    userId,
+    event: settleAmount > 0 ? "workflow_partially_completed" : "workflow_failed",
+    route: "agent_workflow_worker",
+    ok: settleAmount > 0,
+    metadata: {
+      workflowId,
+      releaseAmount,
+      settleAmount,
+      failedSteps: steps.filter((step) => step.status === "failed").map((step) => ({
+        id: step.id,
+        type: step.type,
+        title: step.title,
+        error: step.error_message || null,
+      })),
+      quality: summarizeWorkflowQuality(steps),
+    },
+  });
+}
+
+function summarizeWorkflowQuality(steps: WorkflowStepRecord[]) {
+  const qualitySteps = steps.filter((step) => step.quality);
+  if (!qualitySteps.length) return null;
+  const scores = qualitySteps.map((step) => normalizeQualityScore(step.quality?.score || 0));
+  const average = scores.reduce((sum, score) => sum + score, 0) / Math.max(1, scores.length);
+  const issueCount = qualitySteps.reduce((sum, step) =>
+    sum + (step.quality?.checks || []).filter((check) => check.status !== "pass").length,
+    0
+  );
+  return {
+    averageScore: Math.round(average * 100),
+    checkedSteps: qualitySteps.length,
+    issueCount,
+    ok: qualitySteps.every((step) => step.quality?.ok),
+  };
+}
+
+function normalizeQualityScore(score: number) {
+  if (!Number.isFinite(score)) return 0;
+  const normalized = score > 1 ? score / 100 : score;
+  return Math.max(0, Math.min(1, normalized));
 }
 
 function getReadySteps(steps: WorkflowStepRecord[]) {

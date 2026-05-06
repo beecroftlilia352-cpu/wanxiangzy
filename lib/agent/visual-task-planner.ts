@@ -1,7 +1,7 @@
 import type { AspectRatio } from "@/lib/api/lingya";
 
 export type CommerceIntentKind = "detail" | "creative" | null;
-export type AgentModuleConstraint = "tryon" | "grass" | "pose" | "model_background" | "model" | "garment_3d";
+export type AgentModuleConstraint = "tryon" | "grass" | "pose" | "model_background" | "model" | "garment_3d" | "face_swap";
 
 const DETAIL_PAGE_RE =
   /详情页|商品详情|电商详情|产品详情|详情长图|落地页|长图|卖点图|参数图|功能图|细节图|规格图|对比图|安装图|使用步骤图|详情设计/;
@@ -42,6 +42,7 @@ export function getForbiddenAgentModules(text: string): AgentModuleConstraint[] 
     ["model_background", /(?:不要|别|不做|不是|无需|别做|不要做|不要生成|不要变成|不能是|避免).{0,12}(换背景|换场景|换模特)|(?:换背景|换场景|换模特).{0,8}(不要|别|不做|不是|无需|避免)/],
     ["model", /(?:不要|别|不做|不是|无需|别做|不要做|不要生成|不要变成|不能是|避免).{0,12}(专属模特|建模特|定制脸)|(?:专属模特|建模特|定制脸).{0,8}(不要|别|不做|不是|无需|避免)/],
     ["garment_3d", /(?:不要|别|不做|不是|无需|别做|不要做|不要生成|不要变成|不能是|避免).{0,12}(3d|3D|立体)|(?:3d|3D|立体).{0,8}(不要|别|不做|不是|无需|避免)/],
+    ["face_swap", /(?:不要|别|不做|不是|无需|别做|不要做|不要生成|不要变成|不能是|避免).{0,12}(换脸|替换脸|换五官|人脸替换|face\s*swap)|(?:换脸|替换脸|换五官|人脸替换|face\s*swap).{0,8}(不要|别|不做|不是|无需|避免)/i],
   ];
 
   return rules.filter(([, pattern]) => pattern.test(value)).map(([module]) => module);
@@ -56,6 +57,7 @@ export function getUserBoundaryLines(text: string): string[] {
     model_background: "不要把任务改成换背景、换场景或换模特。",
     model: "不要把任务改成专属模特或定制脸。",
     garment_3d: "不要把任务改成 3D 立体展示。",
+    face_swap: "不要把任务改成 AI 换脸或人脸替换流程。",
   };
   return forbidden.map((module) => labels[module]);
 }

@@ -11,6 +11,7 @@ import type {
   WorkflowAssetRecord,
   WorkflowCostEstimate,
   WorkflowEventRecord,
+  WorkflowInputImage,
   WorkflowRecord,
   WorkflowStatus,
   WorkflowStepRecord,
@@ -20,6 +21,7 @@ import { renderMentionSegments } from "@/lib/agent/mention-parser";
 import { RepairPromptPanel } from "@/components/RepairPromptPanel";
 import type { RepairKind } from "@/lib/generation-repair";
 import { downloadImage, generateDownloadFilename } from "@/lib/utils";
+import { orderWorkflowSteps } from "@/lib/agent/workflow/order";
 
 type Props = {
   message: Message;
@@ -94,7 +96,15 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
 
   const isUser = role === "user";
   const workflowPayload = !isUser ? getWorkflowPayload(message.params) : null;
-  if (!isUser && !content && !generation && !workflowPayload) return null;
+  const rawAgentTimeline = !isUser ? readAgentTimeline(message.params) : [];
+  const agentTimeline = !isUser ? normalizeAgentTimelineForMessage(rawAgentTimeline, workflowPayload, generation) : [];
+  const hasActiveAgentTimeline = agentTimeline.some((item) => item.status === "running" || item.status === "error");
+  const showAgentTimeline =
+    agentTimeline.length > 0 &&
+    hasActiveAgentTimeline &&
+    !workflowPayload &&
+    !generation;
+  if (!isUser && !content && !generation && !workflowPayload && !showAgentTimeline) return null;
 
   // 消息分组：同角色连续消息隐藏头像
   const isGrouped = prevMessage && prevMessage.role === role;
@@ -146,6 +156,10 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
         )}
 
         {/* 文本内容 */}
+        {!isUser && showAgentTimeline && (
+          <AgentRuntimeTimeline timeline={agentTimeline} compact={Boolean(content || workflowPayload || generation)} />
+        )}
+
         {content && (
           <div className={`group/msg relative rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm ${
             isUser
@@ -179,6 +193,7 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
                   {copied ? "已复制" : "复制"}
                 </button>
                 {traceId && <AgentTracePanel traceId={traceId} />}
+                {feedback && <FeedbackStatusPill feedback={feedback} />}
                 {onFeedback && (
                   <div className="ml-auto flex items-center gap-0.5">
                     <button
@@ -221,21 +236,30 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
             onSelectImage={(stepId, url) => onSelectWorkflowStepImage?.(message.id, stepId, url)}
             onEditStep={(stepId, patch) => onEditWorkflowStep?.(message.id, stepId, patch)}
             onOpenImage={onOpenImage}
+            onUseAsReference={onUseAsReference}
+            onQuickAction={onQuickAction}
           />
         )}
 
         {generation && generation.status === "pending" && generation._confirmData && (
-          <div className="mt-2 w-full max-w-sm rounded-xl border border-amber-200 bg-amber-50/50 p-4">
+          <div className="mt-2 w-full max-w-xl rounded-2xl border border-amber-200 bg-gradient-to-br from-white via-amber-50/30 to-violet-50/30 p-4 shadow-sm">
             <div className="mb-3 flex items-center justify-between">
               <div>
-                <p className="text-sm font-bold text-slate-800">{generation.module || "图像生成"}</p>
-                <p className="text-[11px] text-slate-500">确认后将扣除积分并开始生成</p>
+                <p className="text-sm font-bold text-slate-900">方案确认</p>
+                <p className="text-[11px] text-slate-500">确认前可修改参数、图片角色和最终提示词</p>
               </div>
               <div className="rounded-lg bg-amber-100 px-3 py-1.5 text-center">
                 <p className="text-lg font-black text-amber-700">{generation.creditsUsed || 0}</p>
                 <p className="text-[10px] text-amber-600">积分</p>
               </div>
             </div>
+            <ConfirmTaskTicket
+              moduleName={generation.module || "图像生成"}
+              images={confirmImages}
+              params={generation._confirmData.params}
+              jobPayload={generation._confirmData.jobPayload}
+              credits={generation.creditsUsed || generation._confirmData.creditsCost}
+            />
             <ConfirmParamsEditor
               messageId={message.id}
               params={readConfirmParams(generation._confirmData.params)}
@@ -255,13 +279,6 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
             <ConfirmRoleIssues
               issues={validateConfirmImageRoles(generation._confirmData.module, generation._confirmData.params, confirmImages)}
             />
-            <ConfirmExecutionSummaryV2
-              moduleName={generation.module || "图像生成"}
-              images={confirmImages}
-              params={generation._confirmData.params}
-              jobPayload={generation._confirmData.jobPayload}
-              credits={generation.creditsUsed || generation._confirmData.creditsCost}
-            />
             <ConfirmIntentBrief
               moduleName={generation.module || "\u56fe\u50cf\u751f\u6210"}
               images={confirmImages}
@@ -277,7 +294,7 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
             <button
               onClick={() => !hasConfirmRoleErrors(generation._confirmData!.module, generation._confirmData!.params, confirmImages) && onConfirm?.(message.id)}
               disabled={hasConfirmRoleErrors(generation._confirmData!.module, generation._confirmData!.params, confirmImages)}
-              className={`flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-bold text-white shadow-lg transition-opacity ${
+              className={`sticky bottom-2 z-10 flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-bold text-white shadow-lg transition-opacity ${
                 hasConfirmRoleErrors(generation._confirmData!.module, generation._confirmData!.params, confirmImages)
                   ? "cursor-not-allowed bg-slate-300 shadow-none"
                   : "bg-gradient-to-r from-violet-600 to-pink-600 shadow-violet-200 hover:opacity-90"
@@ -291,67 +308,41 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
 
         {/* ===== 生成中卡片 ===== */}
         {generation && generation.status === "generating" && (
-          <div className="mt-1.5 inline-flex flex-col gap-2">
-            {/* 图片占位方框（GPT 风格） */}
-            <div className="gen-card relative overflow-hidden rounded-2xl border border-slate-200/60 bg-gradient-to-br from-slate-100 via-violet-50 to-pink-50 shadow-sm"
-              style={{ width: "min(280px, 70vw)", aspectRatio: "3/4" }}>
-              {/* 扫光动画 */}
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent"
-                style={{ animation: "gen-shimmer 2s ease-in-out infinite", backgroundSize: "200% 100%" }} />
-              {/* 中心内容 */}
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
-                <div className="relative flex h-12 w-12 items-center justify-center">
-                  <div className="gen-ring absolute inset-0 rounded-full bg-violet-300/40" />
-                  <div className="relative flex h-12 w-12 items-center justify-center rounded-full bg-white/80 shadow-lg backdrop-blur-sm">
-                    <Sparkles className="gen-icon h-6 w-6 text-violet-500" />
-                  </div>
-                </div>
-                <span className="text-lg font-black tabular-nums text-transparent bg-clip-text bg-gradient-to-r from-violet-600 to-pink-600">
-                  {generation.progress}%
-                </span>
-                <p className="text-xs font-medium text-slate-500">
-                  {generation.progress < 15 ? "准备中..." :
-                   generation.progress < 50 ? "AI 绘制中..." :
-                   generation.progress < 90 ? "即将完成..." : "处理中..."}
-                </p>
-              </div>
-            </div>
-            {/* 模块标签 + 进度条 */}
-            <div className="flex items-center gap-2 px-1">
-              <span className="text-[11px] font-medium text-violet-500">{generation.module || "图像生成"}</span>
-              <div className="h-1 flex-1 overflow-hidden rounded-full bg-slate-200">
-                <div className="h-full rounded-full bg-gradient-to-r from-violet-500 to-pink-500 transition-all duration-700"
-                  style={{ width: `${Math.max(generation.progress, 5)}%` }} />
-              </div>
-            </div>
-          </div>
+          <GenerationLoadingGrid
+            count={getExpectedGenerationCount(generation)}
+            progress={generation.progress}
+            label={generation.module || "图像生成"}
+          />
         )}
 
         {/* 生成完成 */}
         {generation && generation.status === "completed" && generation.resultUrls.length > 0 && (
-          <div className="mt-1.5 w-full max-w-md">
-            <div className="mb-2 flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
-              <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-              <span className="text-xs font-bold text-emerald-700">生成完成</span>
-              <div className="flex-1" />
-              {generation.creditsUsed ? <span className="text-[11px] text-emerald-600">消耗 {generation.creditsUsed} 积分</span> : null}
-              {generation.module && <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600">{generation.module}</span>}
-            </div>
-            <div className={`grid gap-2 ${generation.resultUrls.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}>
-              {generation.resultUrls.map((url, i) => (
-                <div key={i} className="group relative cursor-zoom-in overflow-hidden rounded-xl border border-slate-200 bg-slate-50 shadow-sm transition-shadow hover:shadow-md"
-                  onClick={() => onOpenImage(url)}>
-                  <img src={url} alt={`结果 ${i + 1}`} className="aspect-[3/4] w-full object-cover" />
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-all group-hover:bg-black/10 group-hover:opacity-100">
-                    <ZoomIn className="h-5 w-5 text-white drop-shadow" />
-                  </div>
-                  <button onClick={(e) => { e.stopPropagation(); downloadImage(url, generateDownloadFilename("agent", i)); }}
-                    className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-slate-700 opacity-0 shadow transition-opacity hover:bg-white group-hover:opacity-100">
-                    <Download className="h-3 w-3" />
-                  </button>
+          <div className="mt-1.5 w-full max-w-2xl overflow-hidden rounded-2xl border border-emerald-100 bg-gradient-to-br from-white via-emerald-50/35 to-violet-50/30 p-3 shadow-sm">
+            <div className="mb-2.5 flex flex-wrap items-start justify-between gap-2">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                  <span className="text-sm font-black text-slate-900">生成完成</span>
+                  <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+                    {generation.resultUrls.length} 张
+                  </span>
                 </div>
-              ))}
+                <p className="mt-1 text-xs leading-relaxed text-slate-500">可以下载、设为参考图，或基于当前结果继续创作。</p>
+              </div>
+              <div className="flex flex-wrap justify-end gap-1">
+                {generation.creditsUsed ? <span className="rounded-full bg-white/80 px-2 py-1 text-[10px] font-bold text-emerald-700 ring-1 ring-emerald-100">消耗 {generation.creditsUsed} 积分</span> : null}
+                {generation.module && <span className="rounded-full bg-white/80 px-2 py-1 text-[10px] font-bold text-slate-500 ring-1 ring-slate-100">{generation.module}</span>}
+              </div>
             </div>
+            <ResultImageGrid
+              urls={generation.resultUrls}
+              onOpenImage={onOpenImage}
+              onUseAsReference={onUseAsReference}
+              onEditImage={(url) => {
+                onUseAsReference?.(url);
+                onQuickAction?.("基于这张图继续编辑，保持主体一致，按我的下一句要求调整。");
+              }}
+            />
             {/* 快捷操作按钮 */}
             {onRepair && generation._lastRunData && (
               <RepairPromptPanel
@@ -361,7 +352,7 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
                 className="mt-2 shadow-sm"
               />
             )}
-            <div className="mt-2 flex flex-wrap gap-1.5">
+            <div className="mt-2 flex flex-wrap gap-1.5 rounded-xl border border-white/80 bg-white/70 p-2">
               <QuickAction icon={<RefreshCw className="h-3 w-3" />} label="重新生成" onClick={() => onRetry(message.id)} />
               <QuickAction
                 icon={<Download className="h-3 w-3" />}
@@ -370,7 +361,7 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
               />
               <QuickAction
                 icon={<Sparkles className="h-3 w-3" />}
-                label="再来一张"
+                label={generation.resultUrls.length > 1 ? "再生成一组" : "再生成一张"}
                 variant="primary"
                 onClick={() => onRetry(message.id)}
               />
@@ -382,6 +373,11 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
                 />
               )}
             </div>
+            <GenerationFollowupActions
+              generation={generation}
+              onUseAsReference={onUseAsReference}
+              onQuickAction={onQuickAction}
+            />
           </div>
         )}
 
@@ -403,10 +399,21 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
                 <p className="text-slate-400">如果已进入第三方生成队列，积分以服务端记录为准。</p>
               </div>
               <FailureCreditNotice generation={generation} />
-              <button onClick={() => onRetry(message.id)}
-                className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-lg bg-red-50 py-2 text-xs font-bold text-red-600 transition-colors hover:bg-red-100">
-                <RefreshCw className="h-3 w-3" /> 重新生成
-              </button>
+              <div className="mt-2.5 grid gap-1.5 sm:grid-cols-2">
+                <button onClick={() => onRetry(message.id)}
+                  className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-red-50 py-2 text-xs font-bold text-red-600 transition-colors hover:bg-red-100">
+                  <RefreshCw className="h-3 w-3" /> 重新生成
+                </button>
+                {onQuickAction && (
+                  <button
+                    type="button"
+                    onClick={() => onQuickAction(`这次生成失败了，请根据错误信息帮我修复方案并重新进入确认：${generation.error || "未知错误"}`)}
+                    className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-white py-2 text-xs font-bold text-violet-600 ring-1 ring-violet-100 transition-colors hover:bg-violet-50"
+                  >
+                    <Sparkles className="h-3 w-3" /> 修复方案
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -422,6 +429,906 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
   );
 }
 
+function GenerationLoadingGrid({
+  count,
+  progress,
+  label,
+  compact = false,
+}: {
+  count: number;
+  progress?: number;
+  label: string;
+  compact?: boolean;
+}) {
+  const itemCount = Math.min(Math.max(Math.round(count) || 1, 1), 8);
+  const safeProgress = Math.min(Math.max(Math.round(progress ?? 18), 5), 98);
+  const stage = getGenerationStageText(safeProgress, itemCount, label);
+  return (
+    <div className={`${compact ? "mt-1.5" : "mt-1.5"} w-full ${compact ? "max-w-md" : "max-w-2xl"}`} aria-live="polite">
+      <div className="mb-2 flex items-center gap-2 px-0.5">
+        <ThinkingSignal />
+        <span className="min-w-0 flex-1 truncate text-[11px] font-bold text-violet-600">{stage}</span>
+        <span className="text-[11px] font-semibold tabular-nums text-slate-400">{safeProgress}%</span>
+      </div>
+      <div className={getResultGridClass(itemCount)}>
+        {Array.from({ length: itemCount }).map((_, index) => (
+          <div
+            key={index}
+            className={`gen-card relative overflow-hidden rounded-2xl border border-slate-200/70 bg-gradient-to-br from-slate-100 via-violet-50 to-pink-50 shadow-sm ${
+              itemCount === 1 ? "min-h-[320px]" : compact ? "min-h-[150px]" : "min-h-[210px]"
+            }`}
+            style={{ aspectRatio: "3 / 4" }}
+          >
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/45 to-transparent"
+              style={{ animation: "gen-shimmer 2s ease-in-out infinite", backgroundSize: "200% 100%" }} />
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
+              <div className="relative flex h-11 w-11 items-center justify-center">
+                <div className="gen-ring absolute inset-0 rounded-full bg-violet-300/40" />
+                <div className="relative flex h-11 w-11 items-center justify-center rounded-full bg-white/85 shadow-lg backdrop-blur-sm">
+                  <Sparkles className="gen-icon h-5 w-5 text-violet-500" />
+                </div>
+              </div>
+              <span className="text-[11px] font-bold text-slate-500">{getLoadingTileLabel(index, itemCount, safeProgress)}</span>
+            </div>
+            <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/60">
+              <div
+                className="h-full rounded-r-full bg-gradient-to-r from-violet-500 to-pink-500 transition-all duration-700"
+                style={{ width: `${safeProgress}%` }}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+      <GenerationAnimationStyles />
+    </div>
+  );
+}
+
+function WorkflowStepInlineLoading({ step, events }: { step: WorkflowStepRecord; events?: WorkflowEventRecord[] }) {
+  const progress = getWorkflowStepProgress(step, events);
+  const latestProgress = getLatestWorkflowStepProgressEvent(step.id, events);
+  return (
+    <div className="mt-2 rounded-lg border border-violet-100 bg-white/85 px-2.5 py-2">
+      <div className="flex items-center gap-2">
+        <ThinkingSignal />
+        <span className="min-w-0 flex-1 truncate text-[11px] font-bold text-violet-600">
+          {latestProgress?.message || getWorkflowStepLoadingLabel(step)}
+        </span>
+        <span className="text-[10px] font-semibold tabular-nums text-violet-400">{progress}%</span>
+      </div>
+      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-violet-50">
+        <div
+          className="h-full rounded-full bg-gradient-to-r from-violet-500 to-pink-500 transition-all duration-700"
+          style={{ width: `${progress}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function getWorkflowStepProgress(step: WorkflowStepRecord, events?: WorkflowEventRecord[]) {
+  const latestProgress = getLatestWorkflowStepProgressEvent(step.id, events);
+  const value = latestProgress ? Number(latestProgress.payload?.progress) : NaN;
+  if (Number.isFinite(value)) return Math.min(Math.max(Math.round(value), 0), 99);
+  return step.status === "queued" ? 1 : 8;
+}
+
+function getLatestWorkflowStepProgressEvent(stepId: string, events?: WorkflowEventRecord[]) {
+  const list = events || [];
+  for (let index = list.length - 1; index >= 0; index--) {
+    const event = list[index];
+    if (event.step_id === stepId && event.type === "step_progress") return event;
+  }
+  return null;
+}
+
+function getGenerationStageText(progress: number, count: number, label: string) {
+  if (progress < 14) return "整理素材和生成参数...";
+  if (progress < 32) return count > 1 ? `准备生成 ${count} 张图片...` : "准备生成图片...";
+  if (progress < 72) return count > 1 ? `正在生成 ${count} 张图片...` : `${label}生成中...`;
+  if (progress < 92) return "校验画面质量和结果地址...";
+  return "整理结果...";
+}
+
+function getLoadingTileLabel(index: number, count: number, progress: number) {
+  if (progress < 28) return count > 1 ? `等待第 ${index + 1} 张` : "等待生成";
+  if (progress < 88) return count > 1 ? `第 ${index + 1} 张生成中` : "生成中";
+  return count > 1 ? `第 ${index + 1} 张校验中` : "校验中";
+}
+
+function GenerationAnimationStyles() {
+  return (
+    <style jsx>{`
+      @keyframes gen-shimmer {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(100%); }
+      }
+      @keyframes gen-ring-pulse {
+        0%, 100% { transform: scale(0.82); opacity: 0.35; }
+        50% { transform: scale(1.18); opacity: 0.7; }
+      }
+      @keyframes gen-icon-float {
+        0%, 100% { transform: translateY(0) rotate(0deg); }
+        50% { transform: translateY(-2px) rotate(8deg); }
+      }
+      .gen-ring {
+        animation: gen-ring-pulse 1.8s ease-in-out infinite;
+      }
+      .gen-icon {
+        animation: gen-icon-float 1.9s ease-in-out infinite;
+      }
+    `}</style>
+  );
+}
+
+function ResultImageGrid({
+  urls,
+  onOpenImage,
+  onUseAsReference,
+  onEditImage,
+  fit = "cover",
+}: {
+  urls: string[];
+  onOpenImage: (url: string) => void;
+  onUseAsReference?: (url: string) => void;
+  onEditImage?: (url: string) => void;
+  fit?: "cover" | "contain";
+}) {
+  const safeUrls = urls.filter(Boolean);
+  if (safeUrls.length === 0) return null;
+  return (
+    <div className={getResultGridClass(safeUrls.length)}>
+      {safeUrls.map((url, index) => (
+        <div
+          key={`${url}-${index}`}
+          onClick={() => onOpenImage(url)}
+          className="group relative cursor-zoom-in overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
+        >
+          <span className="absolute left-2 top-2 z-10 rounded-full bg-black/55 px-2 py-0.5 text-[10px] font-bold text-white backdrop-blur">
+            图 {index + 1}
+          </span>
+          <img
+            src={url}
+            alt={`结果 ${index + 1}`}
+            className={getResultImageClass(safeUrls.length, fit)}
+          />
+          <div className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-all group-hover:bg-black/10 group-hover:opacity-100">
+            <ZoomIn className="h-5 w-5 text-white drop-shadow" />
+          </div>
+          <ImageResultActions
+            url={url}
+            index={index}
+            onUseAsReference={onUseAsReference}
+            onEditImage={onEditImage}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function WorkflowResultActions({
+  urls,
+  onUseAsReference,
+  onQuickAction,
+}: {
+  urls: string[];
+  onUseAsReference?: (url: string) => void;
+  onQuickAction?: (text: string) => void;
+}) {
+  const safeUrls = urls.filter(Boolean);
+  const firstUrl = safeUrls[0];
+  if (safeUrls.length === 0) return null;
+
+  return (
+    <div className="flex flex-wrap gap-1.5 rounded-xl border border-slate-100 bg-slate-50/70 p-2">
+      <QuickAction
+        icon={<Download className="h-3 w-3" />}
+        label={safeUrls.length > 1 ? "全部下载" : "下载图片"}
+        onClick={() => safeUrls.forEach((url, index) => downloadImage(url, generateDownloadFilename("workflow", index)))}
+      />
+      {firstUrl && onUseAsReference && (
+        <QuickAction
+          icon={<Sparkles className="h-3 w-3" />}
+          label="设为参考图"
+          onClick={() => onUseAsReference(firstUrl)}
+        />
+      )}
+      {firstUrl && onQuickAction && (
+        <QuickAction
+          icon={<Pencil className="h-3 w-3" />}
+          label="继续编辑"
+          variant="primary"
+          onClick={() => {
+            onUseAsReference?.(firstUrl);
+            onQuickAction("基于刚生成的结果继续优化，保持主体和风格一致，我会补充新的修改要求。");
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function WorkflowResultSection({
+  payload,
+  urls,
+  onOpenImage,
+  onUseAsReference,
+  onQuickAction,
+}: {
+  payload: WorkflowClientPayload;
+  urls: string[];
+  onOpenImage: (url: string) => void;
+  onUseAsReference?: (url: string) => void;
+  onQuickAction?: (text: string) => void;
+}) {
+  const safeUrls = urls.filter(Boolean);
+  const meta = getWorkflowResultMeta(payload, safeUrls.length);
+  if (safeUrls.length === 0) return null;
+
+  return (
+    <div className="overflow-hidden rounded-2xl border border-emerald-100 bg-gradient-to-br from-white via-emerald-50/35 to-violet-50/30 p-3 shadow-sm">
+      <div className="mb-2.5 flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+            <p className="text-sm font-black text-slate-900">{meta.title}</p>
+            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+              {safeUrls.length} 张
+            </span>
+          </div>
+          <p className="mt-1 text-xs leading-relaxed text-slate-500">{meta.detail}</p>
+        </div>
+        <div className="flex flex-wrap justify-end gap-1">
+          {meta.chips.map((chip) => (
+            <span key={chip} className="rounded-full bg-white/80 px-2 py-1 text-[10px] font-bold text-slate-500 ring-1 ring-slate-100">
+              {chip}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <WorkflowResultHealth payload={payload} />
+      <WorkflowQualitySummary payload={payload} />
+
+      <ResultImageGrid
+        urls={safeUrls}
+        onOpenImage={onOpenImage}
+        onUseAsReference={onUseAsReference}
+        fit={shouldContainWorkflowResults(payload) ? "contain" : "cover"}
+        onEditImage={(imageUrl) => {
+          onUseAsReference?.(imageUrl);
+          onQuickAction?.("基于这张图继续编辑，保持主体一致，按我的下一句要求调整。");
+        }}
+      />
+      <div className="mt-2">
+        <WorkflowResultActions
+          urls={safeUrls}
+          onUseAsReference={onUseAsReference}
+          onQuickAction={onQuickAction}
+        />
+      </div>
+      <WorkflowFollowupActions
+        payload={payload}
+        urls={safeUrls}
+        onUseAsReference={onUseAsReference}
+        onQuickAction={onQuickAction}
+      />
+    </div>
+  );
+}
+
+function WorkflowResultHealth({ payload }: { payload: WorkflowClientPayload }) {
+  const { workflow, steps } = payload;
+  const failedSteps = steps.filter((step) => step.status === "failed");
+  const waitingSteps = steps.filter((step) => step.status === "waiting_user");
+  const completed = steps.filter((step) => ["completed", "skipped"].includes(step.status)).length;
+  if (workflow.status === "completed" && failedSteps.length === 0 && waitingSteps.length === 0) return null;
+
+  const tone = failedSteps.length > 0
+    ? "border-rose-100 bg-rose-50 text-rose-700"
+    : waitingSteps.length > 0
+      ? "border-amber-100 bg-amber-50 text-amber-700"
+      : "border-slate-100 bg-slate-50 text-slate-600";
+  const title = failedSteps.length > 0
+    ? `${failedSteps.length} 个步骤需要修复`
+    : waitingSteps.length > 0
+      ? `${waitingSteps.length} 个步骤等待选择`
+      : `已完成 ${completed}/${steps.length} 步`;
+  const detail = failedSteps.length > 0
+    ? failedSteps.map((step) => step.title || getWorkflowToolLabel(step.type)).slice(0, 3).join("、")
+    : waitingSteps.length > 0
+      ? waitingSteps.map((step) => step.title || getWorkflowToolLabel(step.type)).slice(0, 3).join("、")
+      : "可先使用当前结果，也可以继续等待或重试剩余步骤。";
+
+  return (
+    <div className={`mb-2 flex items-start gap-2 rounded-xl border px-2.5 py-2 text-[11px] ${tone}`}>
+      {failedSteps.length > 0 ? <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" /> : <Activity className="mt-0.5 h-3.5 w-3.5 shrink-0" />}
+      <div className="min-w-0">
+        <p className="font-bold">{title}</p>
+        <p className="mt-0.5 truncate opacity-80">{detail}</p>
+      </div>
+    </div>
+  );
+}
+
+function WorkflowQualitySummary({ payload }: { payload: WorkflowClientPayload }) {
+  const qualityItems = payload.steps
+    .map((step) => ({ step, quality: step.quality }))
+    .filter((item): item is { step: WorkflowStepRecord; quality: NonNullable<WorkflowStepRecord["quality"]> } => Boolean(item.quality));
+
+  if (qualityItems.length === 0) return null;
+
+  const normalizedScores = qualityItems.map((item) => normalizeQualityScore(item.quality.score));
+  const averageScore = Math.round(
+    (normalizedScores.reduce((sum, score) => sum + score, 0) / Math.max(1, normalizedScores.length)) * 100
+  );
+  const failedChecks = qualityItems.flatMap(({ step, quality }) =>
+    (Array.isArray(quality.checks) ? quality.checks : [])
+      .filter((check) => check.status !== "pass")
+      .map((check) => ({ step, check }))
+  );
+  const failedCount = qualityItems.filter((item) => !item.quality.ok).length;
+  const tone = failedCount > 0 || averageScore < 72
+    ? "border-amber-100 bg-amber-50/80 text-amber-800"
+    : "border-emerald-100 bg-emerald-50/75 text-emerald-800";
+  const title = failedCount > 0
+    ? `质量自检发现 ${failedCount} 个步骤需要注意`
+    : `质量自检通过，综合 ${averageScore} 分`;
+
+  return (
+    <div className={`mb-2 rounded-xl border px-2.5 py-2 text-[11px] ${tone}`}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2">
+          {failedCount > 0 ? <AlertCircle className="h-3.5 w-3.5 shrink-0" /> : <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />}
+          <span className="truncate font-bold">{title}</span>
+        </div>
+        <span className="rounded-full bg-white/70 px-2 py-0.5 text-[10px] font-black">
+          {qualityItems.length} 项检查
+        </span>
+      </div>
+      {failedChecks.length > 0 && (
+        <div className="mt-1.5 space-y-1">
+          {failedChecks.slice(0, 4).map(({ step, check }, index) => (
+            <div key={`${step.id}-${check.label}-${index}`} className="flex gap-1.5 leading-4">
+              <span className={`mt-1 h-1.5 w-1.5 shrink-0 rounded-full ${check.status === "fail" ? "bg-rose-500" : "bg-amber-500"}`} />
+              <span className="min-w-0">
+                <span className="font-semibold">{step.title || getWorkflowToolLabel(step.type)}：</span>
+                <span className="opacity-80">{check.label}，{check.detail}</span>
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function normalizeQualityScore(score: number) {
+  if (!Number.isFinite(score)) return 0;
+  const normalized = score > 1 ? score / 100 : score;
+  return Math.max(0, Math.min(1, normalized));
+}
+
+function WorkflowFollowupActions({
+  payload,
+  urls,
+  onUseAsReference,
+  onQuickAction,
+}: {
+  payload: WorkflowClientPayload;
+  urls: string[];
+  onUseAsReference?: (url: string) => void;
+  onQuickAction?: (text: string) => void;
+}) {
+  if (!onQuickAction) return null;
+  const firstUrl = urls[0];
+  const actions = getWorkflowFollowupActions(payload, urls.length);
+  if (actions.length === 0) return null;
+
+  const runAction = (prompt: string) => {
+    if (firstUrl) onUseAsReference?.(firstUrl);
+    onQuickAction(prompt);
+  };
+
+  return (
+    <div className="mt-2 rounded-xl border border-white/80 bg-white/70 p-2">
+      <p className="mb-1.5 text-[10px] font-bold text-slate-400">接下来可以</p>
+      <div className="flex flex-wrap gap-1.5">
+        {actions.map((action, index) => (
+          <QuickAction
+            key={action.label}
+            icon={action.icon}
+            label={action.label}
+            variant={index === 0 ? "primary" : "default"}
+            onClick={() => runAction(action.prompt)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function GenerationFollowupActions({
+  generation,
+  onUseAsReference,
+  onQuickAction,
+}: {
+  generation: NonNullable<Message["generation"]>;
+  onUseAsReference?: (url: string) => void;
+  onQuickAction?: (text: string) => void;
+}) {
+  if (!onQuickAction || generation.resultUrls.length === 0) return null;
+  const firstUrl = generation.resultUrls[0];
+  const actions = getGenerationFollowupActions(generation);
+  if (actions.length === 0) return null;
+
+  const runAction = (prompt: string) => {
+    onUseAsReference?.(firstUrl);
+    onQuickAction(prompt);
+  };
+
+  return (
+    <div className="mt-2 rounded-xl border border-white/80 bg-white/70 p-2">
+      <p className="mb-1.5 text-[10px] font-bold text-slate-400">下一步</p>
+      <div className="flex flex-wrap gap-1.5">
+        {actions.map((action, index) => (
+          <QuickAction
+            key={action.label}
+            icon={action.icon}
+            label={action.label}
+            variant={index === 0 ? "primary" : "default"}
+            onClick={() => runAction(action.prompt)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ImageResultActions({
+  url,
+  index,
+  onUseAsReference,
+  onEditImage,
+}: {
+  url: string;
+  index: number;
+  onUseAsReference?: (url: string) => void;
+  onEditImage?: (url: string) => void;
+}) {
+  return (
+    <div className="absolute right-2 top-2 z-10 flex gap-1 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          downloadImage(url, generateDownloadFilename("agent", index));
+        }}
+        className="flex h-7 w-7 items-center justify-center rounded-full bg-white/92 text-slate-700 shadow transition-colors hover:bg-white hover:text-violet-600"
+        title="下载"
+      >
+        <Download className="h-3.5 w-3.5" />
+      </button>
+      {onEditImage && (
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onEditImage(url);
+          }}
+          className="flex h-7 w-7 items-center justify-center rounded-full bg-white/92 text-slate-700 shadow transition-colors hover:bg-white hover:text-violet-600"
+          title="继续编辑"
+        >
+          <Pencil className="h-3.5 w-3.5" />
+        </button>
+      )}
+      {onUseAsReference && (
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onUseAsReference(url);
+          }}
+          className="flex h-7 w-7 items-center justify-center rounded-full bg-white/92 text-slate-700 shadow transition-colors hover:bg-white hover:text-violet-600"
+          title="设为参考图"
+        >
+          <Sparkles className="h-3.5 w-3.5" />
+        </button>
+      )}
+    </div>
+  );
+}
+
+function getResultGridClass(count: number) {
+  if (count <= 1) return "grid w-full max-w-xl grid-cols-1 gap-2";
+  if (count === 2) return "grid w-full max-w-2xl grid-cols-2 gap-2";
+  return "grid w-full max-w-2xl grid-cols-2 gap-2";
+}
+
+function getResultImageClass(count: number, fit: "cover" | "contain") {
+  if (count <= 1) return "max-h-[620px] w-full object-contain";
+  if (fit === "contain") return "aspect-[3/4] w-full bg-white object-contain p-1";
+  return "aspect-[3/4] w-full object-cover";
+}
+
+function getExpectedGenerationCount(generation: NonNullable<Message["generation"]>) {
+  const params = generation._lastRunData?.params || generation._confirmData?.params || {};
+  return Math.min(Math.max(Number(params.count || params.genCount || params.gen_count || 1) || 1, 1), 4);
+}
+
+function getWorkflowExpectedImageCount(steps: WorkflowStepRecord[]) {
+  const detailSectionCount = steps.filter((step) => step.type === "commerce_detail_section").length;
+  if (detailSectionCount > 1) return Math.min(detailSectionCount, 8);
+  const activeStep = steps.find((step) => ["running", "queued"].includes(step.status));
+  const source = activeStep || steps.find((step) => ["pending", "ready"].includes(step.status)) || steps[0];
+  if (!source) return 1;
+  return readWorkflowStepParams(source.params).count;
+}
+
+function getWorkflowProgress(steps: WorkflowStepRecord[], events?: WorkflowEventRecord[]) {
+  if (steps.length === 0) return 12;
+  const done = steps.filter((step) => ["completed", "skipped"].includes(step.status)).length;
+  const active = steps.find((step) => ["running", "queued"].includes(step.status));
+  const running = active ? getWorkflowStepProgress(active, events) / 100 : 0;
+  return Math.min(96, Math.max(1, Math.round(((done + running) / steps.length) * 100)));
+}
+
+function getActiveWorkflowLoadingLabel(steps: WorkflowStepRecord[], fallback: string) {
+  const active = steps.find((step) => step.status === "running") || steps.find((step) => step.status === "queued");
+  return active ? getWorkflowStepLoadingLabel(active) : fallback;
+}
+
+function getWorkflowStepLoadingLabel(step: WorkflowStepRecord) {
+  const title = step.title || getWorkflowToolLabel(step.type);
+  if (step.status === "queued") return `${title}等待执行...`;
+  if (step.type === "commerce_detail_section") return `${title}生成详情页板块...`;
+  if (step.type === "commerce_detail_stitch") return "拼接手机详情长图...";
+  if (step.type === "pose_variation") return `${title}生成多姿势图...`;
+  if (step.type === "tryon") return `${title}融合人物和服装...`;
+  if (step.type === "face_swap") return `${title}替换面部五官...`;
+  if (step.type === "garment_3d") return `${title}构建立体展示...`;
+  if (step.type === "image_quality_check") return "检查结果质量...";
+  return `${title}处理中...`;
+}
+
+function WorkflowLiveStatus({ payload }: { payload: WorkflowClientPayload }) {
+  const { workflow, steps } = payload;
+  const active = steps.find((step) => step.status === "running") || steps.find((step) => step.status === "queued") || steps.find((step) => step.status === "waiting_user");
+  const completed = steps.filter((step) => ["completed", "skipped"].includes(step.status)).length;
+  const latestEvent = getLatestWorkflowEvent(payload);
+  const finalUrls = getWorkflowImageUrls(payload);
+  const message = getWorkflowLiveStatusMessage(workflow.status, active, latestEvent, finalUrls.length);
+  const tone = getWorkflowLiveStatusTone(workflow.status, active);
+
+  return (
+    <div className={`flex items-start gap-2 rounded-xl border px-3 py-2.5 text-xs ${tone}`}>
+      <div className="mt-0.5">
+        {["running", "queued", "confirmed"].includes(workflow.status) || active ? (
+          <ThinkingSignal />
+        ) : workflow.status === "completed" || workflow.status === "partially_completed" ? (
+          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+        ) : workflow.status === "failed" || workflow.status === "cancelled" ? (
+          <AlertCircle className="h-3.5 w-3.5 text-rose-600" />
+        ) : (
+          <Sparkles className="h-3.5 w-3.5 text-violet-600" />
+        )}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="font-bold">{message.title}</p>
+        <p className="mt-0.5 leading-relaxed opacity-80">{message.detail}</p>
+      </div>
+      {steps.length > 0 && (
+        <span className="shrink-0 rounded-full bg-white/70 px-2 py-0.5 text-[10px] font-bold ring-1 ring-black/5">
+          {completed}/{steps.length}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function WorkflowConfirmBrief({
+  payload,
+  totalCredits,
+  onOpenImage,
+  onQuickAction,
+}: {
+  payload: WorkflowClientPayload;
+  totalCredits: number;
+  onOpenImage: (url: string) => void;
+  onQuickAction?: (text: string) => void;
+}) {
+  const { workflow, steps } = payload;
+  const images = workflow.input_images || [];
+  const expectedCount = getWorkflowExpectedImageCount(steps);
+  const meta = getWorkflowResultMeta(payload, expectedCount);
+  const primaryTools = Array.from(new Set(steps.map((step) => getWorkflowToolLabel(step.type)))).slice(0, 3);
+  const adjustmentHints = getWorkflowAdjustmentHints(payload);
+  const commerceBrief = getWorkflowCommerceBrief(payload);
+
+  return (
+    <div className="rounded-2xl border border-amber-100 bg-amber-50/45 p-3">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <p className="text-xs font-black text-slate-800">确认前复核</p>
+          <p className="mt-0.5 text-[11px] text-slate-500">确认后才会扣费；如需调整，展开下方步骤点“编辑”。</p>
+        </div>
+        <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-bold text-amber-700 ring-1 ring-amber-100">
+          预计 {totalCredits || 0} 积分
+        </span>
+      </div>
+
+      <div className="grid gap-2 text-[11px] sm:grid-cols-3">
+        <ConfirmBriefCell label="输出" value={meta.title} detail={`${expectedCount} 张/项 · ${meta.chips[0] || "自动规划"}`} />
+        <ConfirmBriefCell label="步骤" value={`${steps.length} 个执行步骤`} detail={primaryTools.join(" / ") || "自动选择工具"} />
+        <ConfirmBriefCell label="图片" value={images.length > 0 ? `使用 ${images.length} 张附件` : "不使用附件"} detail={images.length > 0 ? "点击缩略图可预览" : "仅按文字生成"} />
+      </div>
+
+      <WorkflowExecutionOrder steps={steps} />
+
+      {commerceBrief && <WorkflowCommerceBrief brief={commerceBrief} />}
+
+      {images.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {images.slice(0, 8).map((image) => (
+            <button
+              key={`${image.index}-${image.url}`}
+              type="button"
+              onClick={() => onOpenImage(image.url)}
+              className="group relative h-12 w-12 overflow-hidden rounded-xl border border-white bg-white shadow-sm transition-transform hover:scale-105"
+              title={`图${image.index} ${getWorkflowInputRoleLabel(image.role)}`}
+            >
+              <img src={image.url} alt={`图${image.index}`} className="h-full w-full object-cover" />
+              <span className="absolute bottom-0 left-0 right-0 bg-black/55 text-center text-[8px] font-bold leading-4 text-white">
+                图{image.index}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {onQuickAction && adjustmentHints.length > 0 && (
+        <div className="mt-2 border-t border-amber-100 pt-2">
+          <p className="mb-1.5 text-[10px] font-bold text-amber-700">确认前可快速补充</p>
+          <div className="flex flex-wrap gap-1.5">
+            {adjustmentHints.map((hint) => (
+              <button
+                key={hint}
+                type="button"
+                onClick={() => onQuickAction(hint)}
+                className="rounded-full bg-white px-2.5 py-1 text-[10px] font-bold text-slate-600 ring-1 ring-amber-100 transition-colors hover:bg-amber-100/70 hover:text-amber-800"
+              >
+                {hint}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ConfirmBriefCell({ label, value, detail }: { label: string; value: string; detail: string }) {
+  return (
+    <div className="rounded-xl bg-white/80 px-2.5 py-2 ring-1 ring-amber-100/80">
+      <p className="text-[10px] font-bold text-amber-600">{label}</p>
+      <p className="mt-0.5 truncate font-bold text-slate-800">{value}</p>
+      <p className="mt-0.5 truncate text-slate-400">{detail}</p>
+    </div>
+  );
+}
+
+type WorkflowCommerceBriefData = {
+  platform: string;
+  sectionCount: number;
+  outputMode: string;
+  mobileWidth: string;
+  hasStitch: boolean;
+};
+
+function WorkflowCommerceBrief({ brief }: { brief: WorkflowCommerceBriefData }) {
+  return (
+    <div className="mt-2 rounded-xl border border-amber-100 bg-white/75 px-2.5 py-2">
+      <div className="mb-1.5 flex items-center justify-between gap-2">
+        <span className="text-[10px] font-black text-amber-700">详情页交付策略</span>
+        <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700 ring-1 ring-amber-100">
+          {brief.platform}
+        </span>
+      </div>
+      <div className="grid gap-1.5 text-[10px] sm:grid-cols-4">
+        <CommerceBriefPill label="板块" value={brief.sectionCount > 0 ? `${brief.sectionCount} 个` : "自动规划"} />
+        <CommerceBriefPill label="输出" value={brief.outputMode} />
+        <CommerceBriefPill label="画布" value={brief.mobileWidth} />
+        <CommerceBriefPill label="长图" value={brief.hasStitch ? "会拼接" : "先出板块"} />
+      </div>
+      <p className="mt-1.5 text-[10px] leading-4 text-slate-500">
+        会优先按手机端阅读节奏拆板块，再根据平台气质调整卖点、留白和文案层级；如果你要 PDD、抖音、小红书或独立站风格，可以在确认前直接补充。
+      </p>
+    </div>
+  );
+}
+
+function CommerceBriefPill({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg bg-slate-50 px-2 py-1 ring-1 ring-slate-100">
+      <p className="font-bold text-slate-400">{label}</p>
+      <p className="mt-0.5 truncate font-black text-slate-700">{value}</p>
+    </div>
+  );
+}
+
+function WorkflowExecutionOrder({ steps }: { steps: WorkflowStepRecord[] }) {
+  if (steps.length < 2) return null;
+  return (
+    <div className="mt-2 rounded-xl border border-amber-100 bg-white/70 px-2.5 py-2">
+      <div className="mb-1.5 flex items-center justify-between gap-2">
+        <span className="text-[10px] font-black text-amber-700">执行顺序</span>
+        <span className="text-[10px] text-slate-400">严格按依赖执行，不会跳步</span>
+      </div>
+      <div className="flex flex-wrap items-center gap-1.5">
+        {steps.map((step, index) => (
+          <div key={step.id} className="flex min-w-0 items-center gap-1.5">
+            <span className="inline-flex max-w-[150px] items-center gap-1 rounded-full bg-amber-50 px-2 py-1 text-[10px] font-bold text-slate-700 ring-1 ring-amber-100">
+              <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-white text-[9px] text-amber-700 ring-1 ring-amber-100">
+                {index + 1}
+              </span>
+              <span className="truncate">{step.title || getWorkflowToolLabel(step.type)}</span>
+            </span>
+            {index < steps.length - 1 && <span className="text-amber-300">→</span>}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function getWorkflowAdjustmentHints(payload: WorkflowClientPayload) {
+  const { workflow, steps } = payload;
+  const text = `${workflow.intent || ""} ${workflow.summary || ""} ${steps.map((step) => `${step.title} ${step.type}`).join(" ")}`;
+  const hints: string[] = [];
+  const add = (value: string) => {
+    if (!hints.includes(value)) hints.push(value);
+  };
+
+  if (/pose|姿势|裂变/.test(text)) {
+    add("改成每张单独出图，不要四宫格");
+    add("保持人物身份、服装结构和身体比例稳定");
+  }
+  if (/tryon|换装|试穿|穿到/.test(text)) {
+    add("请再次确认图1/图2的服装和人物关系");
+  }
+  if (/commerce|详情|电商|PDD|拼多多|淘宝|天猫|抖音|小红书|长图/.test(text)) {
+    add("输出手机端长图，并按板块拆分生成");
+    add("按目标平台调整风格和卖点排版");
+  }
+  if (workflow.input_images?.length) {
+    add("先分析图片角色和关系，再执行生成");
+  }
+
+  return hints.slice(0, 4);
+}
+
+function getWorkflowCommerceBrief(payload: WorkflowClientPayload): WorkflowCommerceBriefData | null {
+  const { workflow, steps } = payload;
+  const commerceSteps = steps.filter(isCommerceDetailStep);
+  const text = `${workflow.intent || ""}\n${workflow.summary || ""}\n${flattenStrings(steps).join("\n")}`;
+  const hasCommerce = commerceSteps.length > 0 || /详情|长图|卖点|电商|淘宝|天猫|PDD|拼多多|抖音|小红书|独立站/i.test(text);
+  if (!hasCommerce) return null;
+
+  const firstParams = commerceSteps[0]?.params || {};
+  const stitched = steps.some((step) => step.type === "commerce_detail_stitch");
+  const explicitCount =
+    getNumberParam(firstParams, ["sectionTotal", "sectionCount", "sections", "count"]) ||
+    commerceSteps.filter((step) => step.type === "commerce_detail_section").length;
+  const outputMode = getStringParam(firstParams, ["outputMode", "output_mode", "layout", "resultMode"]);
+  const mobileWidth = getNumberParam(firstParams, ["mobileWidth", "mobile_width", "width"]);
+
+  return {
+    platform: getWorkflowPlatformLabel(payload),
+    sectionCount: explicitCount || Math.max(commerceSteps.length, 0),
+    outputMode: stitched || /拼接|长图/.test(text) ? "手机长图" : outputMode === "grid" ? "板块图集" : "分板块",
+    mobileWidth: mobileWidth ? `${mobileWidth}px` : "移动端适配",
+    hasStitch: stitched || /拼接|长图/.test(text),
+  };
+}
+
+function WorkflowClarificationPanel({
+  workflow,
+  onQuickAction,
+}: {
+  workflow: WorkflowRecord;
+  onQuickAction?: (text: string) => void;
+}) {
+  const question = workflow.error_message || workflow.summary || "我还缺少必要信息，暂时不能安全创建生成任务。";
+  return (
+    <div className="rounded-2xl border border-amber-200 bg-amber-50/55 p-3 text-xs text-amber-800">
+      <div className="flex items-start gap-2">
+        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+        <div className="min-w-0 flex-1">
+          <p className="font-black">需要补充信息</p>
+          <p className="mt-1 leading-relaxed">{question}</p>
+          <p className="mt-1 text-[11px] text-amber-700/75">我不会在缺少关键素材或目标不明确时直接生成，避免误扣积分和生成偏题。</p>
+        </div>
+      </div>
+      {onQuickAction && (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          <button
+            type="button"
+            onClick={() => onQuickAction("我想先补充任务信息，请你问我最关键的 1-3 个问题，不要直接生成。")}
+            className="rounded-lg bg-white px-2.5 py-1.5 text-[11px] font-bold text-amber-700 ring-1 ring-amber-100 transition-colors hover:bg-amber-100/70"
+          >
+            让 Agent 追问
+          </button>
+          <button
+            type="button"
+            onClick={() => onQuickAction("先按聊天模式帮我分析这个需求还缺什么素材和说明，不创建生成任务。")}
+            className="rounded-lg bg-white px-2.5 py-1.5 text-[11px] font-bold text-slate-600 ring-1 ring-slate-200 transition-colors hover:bg-slate-50"
+          >
+            只分析不生成
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function getWorkflowLiveStatusMessage(
+  status: WorkflowStatus | string,
+  active: WorkflowStepRecord | undefined,
+  latestEvent: WorkflowEventRecord | null,
+  finalCount: number
+) {
+  if (status === "draft" || status === "planned" || status === "needs_confirmation") {
+    return {
+      title: "等待确认方案",
+      detail: "确认后才会扣费并开始执行，当前可以继续调整参数、图片角色和提示词。",
+    };
+  }
+  if (active) {
+    return {
+      title: getWorkflowStepLoadingLabel(active).replace(/\.\.\.$/, ""),
+      detail: latestEvent?.step_id === active.id && latestEvent.message
+        ? latestEvent.message
+        : getWorkflowRuntimeStepDetail(active, latestEvent),
+    };
+  }
+  if (status === "completed") {
+    return {
+      title: finalCount > 0 ? `已完成，整理出 ${finalCount} 张结果` : "工作流已完成",
+      detail: "可以下载、设为参考图，或基于结果继续编辑。",
+    };
+  }
+  if (status === "partially_completed") {
+    return {
+      title: finalCount > 0 ? `部分完成，已有 ${finalCount} 张可用结果` : "部分步骤已完成",
+      detail: "可以先使用可用结果，也可以修复失败步骤后继续。",
+    };
+  }
+  if (status === "failed") {
+    return {
+      title: "工作流需要修复",
+      detail: latestEvent?.message || "可查看失败步骤，或点击“帮我修复”生成更稳的方案。",
+    };
+  }
+  if (status === "cancelled") {
+    return {
+      title: "工作流已取消",
+      detail: "可以保留当前方案，稍后重新确认执行。",
+    };
+  }
+  return {
+    title: "等待执行器处理",
+    detail: latestEvent?.message || "任务已进入队列，正在等待后台执行。",
+  };
+}
+
+function getWorkflowLiveStatusTone(status: WorkflowStatus | string, active: WorkflowStepRecord | undefined) {
+  if (status === "failed" || status === "cancelled" || active?.status === "failed") return "border-rose-200 bg-rose-50 text-rose-700";
+  if (status === "completed" || status === "partially_completed") return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  if (status === "planned" || status === "needs_confirmation" || status === "draft") return "border-amber-200 bg-amber-50 text-amber-700";
+  return "border-violet-100 bg-violet-50 text-violet-700";
+}
+
 function WorkflowExecutionCard({
   payload,
   onConfirm,
@@ -431,6 +1338,8 @@ function WorkflowExecutionCard({
   onSelectImage,
   onEditStep,
   onOpenImage,
+  onUseAsReference,
+  onQuickAction,
 }: {
   payload: WorkflowClientPayload;
   onConfirm?: () => void;
@@ -440,16 +1349,20 @@ function WorkflowExecutionCard({
   onSelectImage?: (stepId: string, selectedImageUrl: string) => void;
   onEditStep?: (stepId: string, patch: { title?: string; params?: Record<string, unknown>; input?: Record<string, unknown> }) => void;
   onOpenImage: (url: string) => void;
+  onUseAsReference?: (url: string) => void;
+  onQuickAction?: (text: string) => void;
 }) {
   const [editingStepId, setEditingStepId] = useState<string | null>(null);
   const { workflow, steps } = payload;
   const status = workflow.status;
   const finalUrls = getWorkflowImageUrls(payload);
   const totalCredits = payload.costEstimate?.total || workflow.cost_estimate?.total || 0;
-  const canConfirm = status === "needs_confirmation" || status === "planned";
+  const hasRunnableSteps = steps.length > 0;
+  const canConfirm = (status === "needs_confirmation" || status === "planned") && hasRunnableSteps && !workflow.error_message;
   const isActive = ["confirmed", "queued", "running"].includes(status);
   const isTerminal = ["completed", "partially_completed", "failed", "cancelled"].includes(status);
   const canCancel = !isTerminal;
+  const failedCount = steps.filter((step) => step.status === "failed").length;
 
   return (
     <div className="mt-2 w-full max-w-xl overflow-hidden rounded-2xl border border-violet-100 bg-white/95 shadow-sm">
@@ -477,6 +1390,21 @@ function WorkflowExecutionCard({
       </div>
 
       <div className="space-y-3 p-4">
+        <WorkflowLiveStatus payload={payload} />
+
+        {!hasRunnableSteps && (
+          <WorkflowClarificationPanel workflow={workflow} onQuickAction={onQuickAction} />
+        )}
+
+        {canConfirm && (
+          <WorkflowConfirmBrief
+            payload={payload}
+            totalCredits={totalCredits}
+            onOpenImage={onOpenImage}
+            onQuickAction={onQuickAction}
+          />
+        )}
+
         {steps.length > 0 && (
           <WorkflowPlanPanel
             payload={payload}
@@ -489,29 +1417,31 @@ function WorkflowExecutionCard({
             onSelectImage={onSelectImage}
             onEditStep={onEditStep}
             onOpenImage={onOpenImage}
+            onUseAsReference={onUseAsReference}
+            onQuickAction={onQuickAction}
           />
         )}
 
         {finalUrls.length > 0 && (
-          <div className={`grid gap-2 ${finalUrls.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}>
-            {finalUrls.map((url, index) => (
-              <button
-                key={`${url}-${index}`}
-                type="button"
-                onClick={() => onOpenImage(url)}
-                className="group relative overflow-hidden rounded-xl border border-slate-200 bg-slate-50 shadow-sm transition-shadow hover:shadow-md"
-              >
-                <img
-                  src={url}
-                  alt={`workflow 结果 ${index + 1}`}
-                  className={finalUrls.length === 1 ? "max-h-[520px] w-full object-contain" : "aspect-[3/4] w-full object-cover"}
-                />
-                <div className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-all group-hover:bg-black/10 group-hover:opacity-100">
-                  <ZoomIn className="h-5 w-5 text-white drop-shadow" />
-                </div>
-              </button>
-            ))}
-          </div>
+          <WorkflowResultSection
+            payload={payload}
+            urls={finalUrls}
+            onOpenImage={onOpenImage}
+            onUseAsReference={onUseAsReference}
+            onQuickAction={onQuickAction}
+          />
+        )}
+
+        {finalUrls.length === 0 && isActive && (
+          <GenerationLoadingGrid
+            count={getWorkflowExpectedImageCount(steps)}
+            label={getActiveWorkflowLoadingLabel(steps, workflow.summary || "工作流生成中")}
+            progress={getWorkflowProgress(steps, payload.events)}
+          />
+        )}
+
+        {failedCount > 0 && onQuickAction && (
+          <WorkflowFailureRecovery payload={payload} onQuickAction={onQuickAction} />
         )}
 
         <div className="flex flex-wrap items-center gap-2">
@@ -546,7 +1476,55 @@ function WorkflowExecutionCard({
               {workflow.error_message}
             </span>
           )}
+          {failedCount > 0 && onQuickAction && (
+            <QuickAction
+              icon={<Sparkles className="h-3 w-3" />}
+              label="帮我修复"
+              onClick={() => onQuickAction("帮我分析这次工作流失败原因，给我一个更稳的修复方案，并保留当前图片关系。")}
+            />
+          )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function WorkflowFailureRecovery({
+  payload,
+  onQuickAction,
+}: {
+  payload: WorkflowClientPayload;
+  onQuickAction: (text: string) => void;
+}) {
+  const failedSteps = payload.steps.filter((step) => step.status === "failed");
+  const finalUrls = getWorkflowImageUrls(payload);
+  const primaryFailure = failedSteps[0];
+  const actions = getWorkflowRecoveryActions(payload, finalUrls.length);
+  if (failedSteps.length === 0 || actions.length === 0) return null;
+
+  return (
+    <div className="rounded-2xl border border-rose-100 bg-rose-50/45 p-3">
+      <div className="flex items-start gap-2">
+        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-500" />
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-black text-slate-800">可修复执行方案</p>
+          <p className="mt-0.5 text-[11px] leading-4 text-slate-500">
+            {primaryFailure?.title || "某个步骤"} 没跑通。可以保留已成功结果，只重规划失败部分，避免整条链路从头返工。
+          </p>
+        </div>
+      </div>
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {actions.map((action) => (
+          <button
+            key={action.label}
+            type="button"
+            onClick={() => onQuickAction(action.prompt)}
+            className="inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1.5 text-[10px] font-bold text-slate-600 ring-1 ring-rose-100 transition-colors hover:bg-rose-100/70 hover:text-rose-700"
+          >
+            {action.icon}
+            {action.label}
+          </button>
+        ))}
       </div>
     </div>
   );
@@ -563,6 +1541,8 @@ function WorkflowPlanPanel({
   onSelectImage,
   onEditStep,
   onOpenImage,
+  onUseAsReference,
+  onQuickAction,
 }: {
   payload: WorkflowClientPayload;
   isActive: boolean;
@@ -574,6 +1554,8 @@ function WorkflowPlanPanel({
   onSelectImage?: (stepId: string, selectedImageUrl: string) => void;
   onEditStep?: (stepId: string, patch: { title?: string; params?: Record<string, unknown>; input?: Record<string, unknown> }) => void;
   onOpenImage: (url: string) => void;
+  onUseAsReference?: (url: string) => void;
+  onQuickAction?: (text: string) => void;
 }) {
   const { steps, workflow } = payload;
   const [open, setOpen] = useState(true);
@@ -621,9 +1603,9 @@ function WorkflowPlanPanel({
               {steps.length} 步
             </span>
           </div>
-          <p className="mt-0.5 truncate text-[11px] text-slate-500">
-            {getWorkflowPlanPanelSummary(workflow.status, completedCount, steps.length, failedCount)}
-          </p>
+            <p className="mt-0.5 truncate text-[11px] text-slate-500">
+              {getWorkflowPlanPanelSummary(workflow.status, completedCount, steps.length, failedCount, steps)}
+            </p>
         </div>
         <ChevronDown className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
@@ -650,6 +1632,8 @@ function WorkflowPlanPanel({
                   onSelectImage={onSelectImage}
                   onEditStep={onEditStep}
                   onOpenImage={onOpenImage}
+                  onUseAsReference={onUseAsReference}
+                  onQuickAction={onQuickAction}
                 />
               );
             })}
@@ -675,6 +1659,8 @@ function WorkflowPlanStep({
   onSelectImage,
   onEditStep,
   onOpenImage,
+  onUseAsReference,
+  onQuickAction,
 }: {
   payload: WorkflowClientPayload;
   step: WorkflowStepRecord;
@@ -690,7 +1676,15 @@ function WorkflowPlanStep({
   onSelectImage?: (stepId: string, selectedImageUrl: string) => void;
   onEditStep?: (stepId: string, patch: { title?: string; params?: Record<string, unknown>; input?: Record<string, unknown> }) => void;
   onOpenImage: (url: string) => void;
+  onUseAsReference?: (url: string) => void;
+  onQuickAction?: (text: string) => void;
 }) {
+  const stepOutputUrls = getWorkflowStepOutputUrls(step);
+  const selectableImages = getSelectableImagesForStep(payload, index);
+  const canSelectImage = canSelectWorkflowStepImage(step) && selectableImages.length > 0;
+  const dependencyText = getWorkflowStepDependencyText(payload.steps, step);
+  const reasoningNotes = getWorkflowStepReasoning(payload, step, index);
+
   return (
     <div className="relative pl-7">
       {index < payload.steps.length - 1 && (
@@ -713,18 +1707,37 @@ function WorkflowPlanStep({
             {getWorkflowToolLabel(step.type)}
             {step.error_message ? `：${step.error_message}` : ""}
           </p>
+          {dependencyText && (
+            <p className="mt-0.5 truncate text-[10px] font-medium text-amber-600">{dependencyText}</p>
+          )}
         </div>
         <ChevronDown className={`mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-300 transition-transform group-hover:text-slate-500 ${expanded ? "rotate-180" : ""}`} />
       </button>
 
       {expanded && (
         <div className="ml-1.5 rounded-xl border border-slate-100 bg-slate-50/70 p-2.5">
-          <StepImageSelector
-            step={step}
-            images={getSelectableImagesForStep(payload, index)}
-            onOpenImage={onOpenImage}
-            onSelectImage={canSelectWorkflowStepImage(step) ? onSelectImage : undefined}
-          />
+          {["queued", "running"].includes(step.status) && (
+            <WorkflowStepInlineLoading step={step} events={payload.events} />
+          )}
+          <WorkflowStepInputSummary steps={payload.steps} step={step} />
+          <WorkflowStepReasoningNote notes={reasoningNotes} />
+          {stepOutputUrls.length > 0 && !canSelectImage && (
+            <StepResultPreview
+              step={step}
+              urls={stepOutputUrls}
+              onOpenImage={onOpenImage}
+              onUseAsReference={onUseAsReference}
+              onQuickAction={onQuickAction}
+            />
+          )}
+          {canSelectImage && (
+            <StepImageSelector
+              step={step}
+              images={selectableImages}
+              onOpenImage={onOpenImage}
+              onSelectImage={onSelectImage}
+            />
+          )}
           <div className="mt-2 flex flex-wrap gap-1.5">
             {!isActive && canEditWorkflowStep(step.status) && onEditStep && (
               <button
@@ -744,6 +1757,16 @@ function WorkflowPlanStep({
               >
                 <RefreshCw className="h-3 w-3" />
                 重试
+              </button>
+            )}
+            {!isActive && step.status === "completed" && onRetryStep && (
+              <button
+                type="button"
+                onClick={() => onRetryStep(step.id)}
+                className="inline-flex items-center gap-1 rounded-lg border border-violet-100 bg-white px-2 py-1 text-[10px] font-bold text-violet-700 transition-colors hover:bg-violet-50"
+              >
+                <RefreshCw className="h-3 w-3" />
+                重做这一步
               </button>
             )}
             {!isActive && !["completed", "running", "cancelled", "skipped"].includes(step.status) && onSkipStep && (
@@ -768,6 +1791,55 @@ function WorkflowPlanStep({
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+function WorkflowStepInputSummary({ steps, step }: { steps: WorkflowStepRecord[]; step: WorkflowStepRecord }) {
+  const inputRefs = getWorkflowStepInputRefs(steps, step);
+  const outputSummary = getWorkflowStepOutputSummary(step);
+  if (inputRefs.length === 0 && !outputSummary) return null;
+
+  return (
+    <div className="mt-1 grid gap-1.5 sm:grid-cols-2">
+      {inputRefs.length > 0 && (
+        <div className="rounded-xl border border-slate-100 bg-white/80 px-2.5 py-2">
+          <p className="text-[10px] font-black text-slate-500">输入来源</p>
+          <div className="mt-1.5 flex flex-wrap gap-1">
+            {inputRefs.map((ref) => (
+              <span
+                key={ref}
+                className="inline-flex max-w-full items-center rounded-full bg-slate-50 px-2 py-0.5 text-[10px] font-bold text-slate-600 ring-1 ring-slate-100"
+              >
+                <span className="truncate">{ref}</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+      {outputSummary && (
+        <div className="rounded-xl border border-slate-100 bg-white/80 px-2.5 py-2">
+          <p className="text-[10px] font-black text-slate-500">输出形式</p>
+          <p className="mt-1 text-[11px] font-bold leading-relaxed text-slate-700">{outputSummary}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function WorkflowStepReasoningNote({ notes }: { notes: string[] }) {
+  if (notes.length === 0) return null;
+  return (
+    <div className="mt-1.5 rounded-xl border border-violet-100 bg-white/85 px-2.5 py-2">
+      <p className="text-[10px] font-black text-violet-600">为什么这样安排</p>
+      <ul className="mt-1 space-y-1 text-[10px] leading-4 text-slate-500">
+        {notes.map((note) => (
+          <li key={note} className="flex gap-1.5">
+            <span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-violet-400" />
+            <span>{note}</span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
@@ -834,6 +1906,82 @@ function StepImageSelector({
   );
 }
 
+function StepResultPreview({
+  step,
+  urls,
+  onOpenImage,
+  onUseAsReference,
+  onQuickAction,
+}: {
+  step: WorkflowStepRecord;
+  urls: string[];
+  onOpenImage: (url: string) => void;
+  onUseAsReference?: (url: string) => void;
+  onQuickAction?: (text: string) => void;
+}) {
+  const safeUrls = Array.from(new Set(urls)).filter(Boolean);
+  const firstUrl = safeUrls[0];
+  if (safeUrls.length === 0) return null;
+
+  return (
+    <div className="mt-2 overflow-hidden rounded-xl border border-slate-100 bg-white shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-2.5 py-2">
+        <div>
+          <p className="text-[11px] font-bold text-slate-700">{getWorkflowStepResultTitle(step)}</p>
+          <p className="text-[10px] text-slate-400">{safeUrls.length} 张结果，可继续作为下一轮参考</p>
+        </div>
+        <div className="flex flex-wrap gap-1">
+          <QuickAction
+            icon={<Download className="h-3 w-3" />}
+            label={safeUrls.length > 1 ? "下载本步骤" : "下载"}
+            onClick={() => safeUrls.forEach((url, index) => downloadImage(url, generateDownloadFilename(step.type || "step", index)))}
+          />
+          {firstUrl && onUseAsReference && (
+            <QuickAction
+              icon={<Sparkles className="h-3 w-3" />}
+              label="设为参考"
+              onClick={() => onUseAsReference(firstUrl)}
+            />
+          )}
+          {firstUrl && onQuickAction && (
+            <QuickAction
+              icon={<Pencil className="h-3 w-3" />}
+              label="继续改"
+              variant="primary"
+              onClick={() => {
+                onUseAsReference?.(firstUrl);
+                onQuickAction(`基于「${step.title || getWorkflowToolLabel(step.type)}」这一步的结果继续优化，我会补充新的修改要求。`);
+              }}
+            />
+          )}
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-2 p-2 sm:grid-cols-4">
+        {safeUrls.slice(0, 8).map((url, index) => (
+          <button
+            key={`${step.id}-result-${url}-${index}`}
+            type="button"
+            onClick={() => onOpenImage(url)}
+            className="group relative aspect-[3/4] overflow-hidden rounded-lg border border-slate-200 bg-slate-50 text-left transition-all hover:-translate-y-0.5 hover:shadow-sm"
+          >
+            <img
+              src={url}
+              alt={`${getWorkflowStepResultTitle(step)} ${index + 1}`}
+              className={`h-full w-full ${isCommerceDetailStep(step) ? "bg-white object-contain p-1" : "object-cover"}`}
+            />
+            <span className="absolute left-1.5 top-1.5 rounded-full bg-black/55 px-1.5 py-0.5 text-[9px] font-bold text-white">
+              {index + 1}
+            </span>
+            <span className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-all group-hover:bg-black/10 group-hover:opacity-100">
+              <ZoomIn className="h-4 w-4 text-white drop-shadow" />
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function WorkflowStepEditor({
   step,
   onCancel,
@@ -852,7 +2000,7 @@ function WorkflowStepEditor({
   const [count, setCount] = useState(String(editable.count));
 
   const handleSave = () => {
-    const nextCount = Math.min(Math.max(Number(count) || 1, 1), 4);
+    const nextCount = Math.min(Math.max(Number(count) || 1, 1), 8);
     onSave({
       title: title.trim() || step.title,
       params: {
@@ -916,7 +2064,7 @@ function WorkflowStepEditor({
           <input
             type="number"
             min={1}
-            max={4}
+            max={8}
             value={count}
             onChange={(event) => setCount(event.target.value)}
             className="h-8 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-700 outline-none transition-colors focus:border-violet-300"
@@ -972,6 +2120,358 @@ function getSelectableImagesForStep(payload: WorkflowClientPayload, stepIndex: n
   return [];
 }
 
+function getWorkflowStepOutputUrls(step: WorkflowStepRecord) {
+  const imageUrls = Array.isArray(step.output?.imageUrls) ? step.output.imageUrls : [];
+  const selectedUrl = typeof step.output?.selectedImageUrl === "string" ? step.output.selectedImageUrl : "";
+  const outputRecord = isPlainObject(step.output) ? step.output as Record<string, unknown> : {};
+  const url = typeof outputRecord.url === "string" ? outputRecord.url : "";
+  return Array.from(new Set([...imageUrls, selectedUrl, url])).filter(Boolean);
+}
+
+function getWorkflowStepResultTitle(step: WorkflowStepRecord) {
+  if (step.type === "commerce_detail_section") return step.title || "详情页板块结果";
+  if (step.type === "commerce_detail_stitch") return "详情长图结果";
+  if (step.type === "pose_variation") return "姿势裂变结果";
+  if (step.type === "tryon") return "换装融合结果";
+  if (step.type === "face_swap") return "AI 换脸结果";
+  if (step.type === "image_quality_check") return "质量检查结果";
+  return `${step.title || getWorkflowToolLabel(step.type)}结果`;
+}
+
+function getWorkflowResultMeta(payload: WorkflowClientPayload, count: number) {
+  const { workflow, steps } = payload;
+  const hasStitch = steps.some((step) => step.type === "commerce_detail_stitch");
+  const sectionCount = steps.filter((step) => step.type === "commerce_detail_section").length;
+  const hasCommerce = hasStitch || sectionCount > 0 || workflow.intent?.includes("详情") || workflow.summary?.includes("详情");
+  const hasPose = steps.some((step) => step.type === "pose_variation");
+  const hasTryon = steps.some((step) => step.type === "tryon");
+  const hasFaceSwap = steps.some((step) => step.type === "face_swap");
+  const has3d = steps.some((step) => step.type === "garment_3d" || step.type === "image_to_3d_asset");
+  const statusLabel = getWorkflowStatusLabel(workflow.status);
+  const platform = getWorkflowPlatformLabel(payload);
+
+  if (hasCommerce) {
+    return {
+      title: hasStitch ? "详情页最终成品" : "详情页板块素材",
+      detail: hasStitch
+        ? "已按移动端浏览场景整理成可交付结果，可下载、继续编辑或设为下一轮参考。"
+        : "已拆成多个详情页板块，可逐块查看、重做或继续拼成长图。",
+      chips: [platform || "电商详情", hasStitch ? "长图/成品" : `${sectionCount || count} 个板块`, statusLabel].filter(Boolean),
+    };
+  }
+
+  if (hasPose) {
+    return {
+      title: "姿势裂变结果",
+      detail: count > 1 ? "已生成多张独立姿势图，适合挑选单张继续优化或作为详情页素材。" : "已生成姿势变化图，可继续扩展更多动作。",
+      chips: ["多姿势", count > 1 ? "单张独立图" : "单图", statusLabel],
+    };
+  }
+
+  if (hasTryon) {
+    return {
+      title: "换装融合结果",
+      detail: "已完成服装与人物融合，可继续做姿势裂变、详情页或局部修复。",
+      chips: ["换装", count > 1 ? `${count} 张候选` : "1 张结果", statusLabel],
+    };
+  }
+
+  if (hasFaceSwap) {
+    return {
+      title: "AI 换脸结果",
+      detail: "已完成面部五官替换；结果会尽量保留原图肤色、发型、身体、服装、背景和光线。",
+      chips: ["换脸", count > 1 ? `${count} 张候选` : "1 张结果", statusLabel],
+    };
+  }
+
+  if (has3d) {
+    return {
+      title: "3D 展示结果",
+      detail: "已生成适合商品展示的立体视觉结果，可继续做角度变化或详情页板块。",
+      chips: ["3D 展示", `${count} 张`, statusLabel],
+    };
+  }
+
+  return {
+    title: "最终结果",
+    detail: "结果已整理完成，可以下载、设为参考图，或基于当前结果继续修改。",
+    chips: [`${count} 张结果`, statusLabel],
+  };
+}
+
+function getWorkflowFollowupActions(payload: WorkflowClientPayload, count: number): Array<{ label: string; prompt: string; icon: React.ReactNode }> {
+  const { workflow, steps } = payload;
+  const hasStitch = steps.some((step) => step.type === "commerce_detail_stitch");
+  const hasCommerceSection = steps.some((step) => step.type === "commerce_detail_section");
+  const hasCommerce = hasStitch || hasCommerceSection || workflow.intent?.includes("详情") || workflow.summary?.includes("详情");
+  const hasPose = steps.some((step) => step.type === "pose_variation");
+  const hasTryon = steps.some((step) => step.type === "tryon");
+  const has3d = steps.some((step) => step.type === "garment_3d" || step.type === "image_to_3d_asset");
+  const failedCount = steps.filter((step) => step.status === "failed").length;
+
+  if (failedCount > 0) {
+    return [
+      {
+        label: "修复失败步骤",
+        icon: <RefreshCw className="h-3 w-3" />,
+        prompt: "帮我复盘这次工作流失败的步骤，保留已成功结果，重新规划一个更稳的修复方案。",
+      },
+      {
+        label: "只用可用结果继续",
+        icon: <Sparkles className="h-3 w-3" />,
+        prompt: "只基于当前已经成功的结果继续，不再等待失败步骤，帮我整理下一步可执行方案。",
+      },
+    ];
+  }
+
+  if (hasCommerce) {
+    return [
+      hasStitch
+        ? {
+            label: "优化详情页",
+            icon: <Pencil className="h-3 w-3" />,
+            prompt: "基于这套详情页结果继续优化，重点提升移动端阅读节奏、卖点层级、字体留白和商业质感。",
+          }
+        : {
+            label: "拼成长图",
+            icon: <Sparkles className="h-3 w-3" />,
+            prompt: "把当前详情页板块拼接成适合手机端浏览的长图，保持板块顺序、留白节奏和电商平台质感。",
+          },
+      {
+        label: "调整卖点文案",
+        icon: <Pencil className="h-3 w-3" />,
+        prompt: "基于当前详情页结果，重新优化卖点文案和模块标题，让表达更适合电商转化，但不要改变商品主体。",
+      },
+      {
+        label: "补充一个板块",
+        icon: <Sparkles className="h-3 w-3" />,
+        prompt: "在当前详情页基础上补充一个新的详情页板块，风格保持一致，请先问我想补充哪个卖点。",
+      },
+    ];
+  }
+
+  if (hasPose) {
+    return [
+      {
+        label: "选图做详情页",
+        icon: <Sparkles className="h-3 w-3" />,
+        prompt: "从当前姿势裂变结果中挑选适合电商展示的图，继续规划一套详情页素材。",
+      },
+      {
+        label: "继续裂变",
+        icon: <RefreshCw className="h-3 w-3" />,
+        prompt: `基于当前${count > 1 ? "这一组" : "这张"}姿势结果继续生成更多自然可信的姿势变化，每张独立出图，不要拼四宫格。`,
+      },
+      {
+        label: "修手脸比例",
+        icon: <Pencil className="h-3 w-3" />,
+        prompt: "检查当前结果的人脸、手指、身体比例和服装结构，优先修复最影响商业质感的问题。",
+      },
+    ];
+  }
+
+  if (hasTryon) {
+    return [
+      {
+        label: "继续姿势裂变",
+        icon: <Sparkles className="h-3 w-3" />,
+        prompt: "基于当前换装结果继续生成4张不同姿势的独立图片，保持人物身份、服装结构和材质准确。",
+      },
+      {
+        label: "生成详情页",
+        icon: <Pencil className="h-3 w-3" />,
+        prompt: "基于当前换装结果生成一套适合电商平台的商品详情页素材，先自动规划所需板块。",
+      },
+      {
+        label: "修复融合感",
+        icon: <RefreshCw className="h-3 w-3" />,
+        prompt: "检查当前换装结果的领口、肩线、腰线、袖口、面料和人物比例，帮我修复不自然的融合问题。",
+      },
+    ];
+  }
+
+  if (has3d) {
+    return [
+      {
+        label: "换角度展示",
+        icon: <RefreshCw className="h-3 w-3" />,
+        prompt: "基于当前3D展示结果继续生成更多展示角度，保持商品结构和材质一致。",
+      },
+      {
+        label: "做详情页板块",
+        icon: <Pencil className="h-3 w-3" />,
+        prompt: "把当前3D展示结果扩展成电商详情页里的一个高质感展示板块。",
+      },
+    ];
+  }
+
+  return [
+    {
+      label: "继续优化",
+      icon: <Pencil className="h-3 w-3" />,
+      prompt: "基于当前结果继续优化，保持主体一致，请先帮我指出最值得改的3个地方。",
+    },
+    {
+      label: "生成更多版本",
+      icon: <RefreshCw className="h-3 w-3" />,
+      prompt: "基于当前结果继续生成更多版本，保持主体一致，风格可以有自然变化。",
+    },
+    {
+      label: "做电商详情页",
+      icon: <Sparkles className="h-3 w-3" />,
+      prompt: "基于当前结果生成一套适合电商平台的详情页素材，先自动规划板块。",
+    },
+  ];
+}
+
+function getGenerationFollowupActions(generation: NonNullable<Message["generation"]>): Array<{ label: string; prompt: string; icon: React.ReactNode }> {
+  const moduleText = `${generation.module || ""}\n${generation._lastRunData?.module || ""}`.toLowerCase();
+  const count = generation.resultUrls.length;
+
+  if (moduleText.includes("姿势") || moduleText.includes("pose")) {
+    return [
+      {
+        label: "选图做详情页",
+        icon: <Sparkles className="h-3 w-3" />,
+        prompt: "基于当前姿势结果挑选适合电商展示的图，继续规划一套详情页素材。",
+      },
+      {
+        label: "继续裂变",
+        icon: <RefreshCw className="h-3 w-3" />,
+        prompt: `基于当前${count > 1 ? "这一组" : "这张"}姿势结果继续生成更多自然可信的姿势变化，每张独立出图。`,
+      },
+    ];
+  }
+
+  if (moduleText.includes("换装") || moduleText.includes("tryon")) {
+    return [
+      {
+        label: "继续姿势裂变",
+        icon: <Sparkles className="h-3 w-3" />,
+        prompt: "基于当前换装结果继续生成4张不同姿势的独立图片，保持人物身份、服装结构和材质准确。",
+      },
+      {
+        label: "生成详情页",
+        icon: <Pencil className="h-3 w-3" />,
+        prompt: "基于当前换装结果生成一套适合电商平台的商品详情页素材，先自动规划所需板块。",
+      },
+    ];
+  }
+
+  if (moduleText.includes("详情") || moduleText.includes("detail")) {
+    return [
+      {
+        label: "继续优化详情",
+        icon: <Pencil className="h-3 w-3" />,
+        prompt: "基于当前详情页结果继续优化，重点提升移动端阅读节奏、卖点层级、字体留白和商业质感。",
+      },
+      {
+        label: "补充板块",
+        icon: <Sparkles className="h-3 w-3" />,
+        prompt: "在当前详情页基础上补充一个新的详情页板块，风格保持一致，请先问我想补充哪个卖点。",
+      },
+    ];
+  }
+
+  return [
+    {
+      label: "继续优化",
+      icon: <Pencil className="h-3 w-3" />,
+      prompt: "基于当前结果继续优化，保持主体一致，请先帮我指出最值得改的3个地方。",
+    },
+    {
+      label: "做电商详情页",
+      icon: <Sparkles className="h-3 w-3" />,
+      prompt: "基于当前结果生成一套适合电商平台的详情页素材，先自动规划板块。",
+    },
+  ];
+}
+
+function shouldContainWorkflowResults(payload: WorkflowClientPayload) {
+  return payload.steps.some(isCommerceDetailStep);
+}
+
+function isCommerceDetailStep(step: WorkflowStepRecord) {
+  return step.type === "commerce_detail" || step.type === "commerce_detail_section" || step.type === "commerce_detail_stitch";
+}
+
+function getWorkflowPlatformLabel(payload: WorkflowClientPayload) {
+  const text = flattenStrings([payload.workflow.intent || "", payload.workflow.summary || "", payload.steps]).join("\n").toLowerCase();
+  if (text.includes("pdd") || text.includes("拼多多")) return "PDD";
+  if (text.includes("抖音") || text.includes("douyin")) return "抖音";
+  if (text.includes("小红书") || text.includes("xiaohongshu") || text.includes("rednote")) return "小红书";
+  if (text.includes("淘宝") || text.includes("taobao") || text.includes("天猫") || text.includes("tmall")) return "淘宝/天猫";
+  return "电商详情";
+}
+
+function getWorkflowRecoveryActions(payload: WorkflowClientPayload, finalCount: number): Array<{ label: string; prompt: string; icon: React.ReactNode }> {
+  const failedSteps = payload.steps.filter((step) => step.status === "failed");
+  const failedTitles = failedSteps.map((step) => step.title || getWorkflowToolLabel(step.type)).join("、") || "失败步骤";
+  const hasCommerce = payload.steps.some(isCommerceDetailStep);
+  const hasPose = payload.steps.some((step) => step.type === "pose_variation");
+  const hasTryon = payload.steps.some((step) => step.type === "tryon");
+  const hasFaceSwap = payload.steps.some((step) => step.type === "face_swap");
+
+  const actions: Array<{ label: string; prompt: string; icon: React.ReactNode }> = [
+    {
+      label: "只修失败步骤",
+      icon: <RefreshCw className="h-3 w-3" />,
+      prompt: `请复盘这次工作流里「${failedTitles}」失败的原因，保留已成功结果和图片关系，只重新规划失败步骤的更稳方案。`,
+    },
+    {
+      label: "降低难度重试",
+      icon: <Sparkles className="h-3 w-3" />,
+      prompt: `请把失败步骤「${failedTitles}」改成更稳的版本：减少一次性输出数量、降低构图复杂度、保留主体一致性，然后重新进入确认。`,
+    },
+  ];
+
+  if (finalCount > 0) {
+    actions.push({
+      label: "用可用结果继续",
+      icon: <CheckCircle2 className="h-3 w-3" />,
+      prompt: "不用等失败步骤了，请基于当前已经成功的结果继续整理下一步方案，并告诉我哪些结果可以直接使用。",
+    });
+  }
+  if (hasPose) {
+    actions.push({
+      label: "改成单图先跑",
+      icon: <Pencil className="h-3 w-3" />,
+      prompt: "请把姿势裂变改成先生成 1 张高质量独立图验证人物、服装和比例，确认后再扩展到多张。",
+    });
+  }
+  if (hasTryon) {
+    actions.push({
+      label: "先稳换装底图",
+      icon: <Pencil className="h-3 w-3" />,
+      prompt: "请先只修换装底图，确保人物身份、服装结构、比例和材质稳定，后续再做姿势或详情页。",
+    });
+  }
+  if (hasFaceSwap) {
+    actions.push({
+      label: "重新匹配脸图",
+      icon: <Pencil className="h-3 w-3" />,
+      prompt: "请重新检查 AI 换脸的原始模特图和目标脸图，只替换五官，不改变肤色、发型、身体、服装、背景和光线。",
+    });
+  }
+  if (hasCommerce) {
+    actions.push({
+      label: "拆板块重做",
+      icon: <Sparkles className="h-3 w-3" />,
+      prompt: "请把详情页改成分板块生成，先确认平台、板块数量和长图拼接方式，避免一次性生成整张导致信息混乱。",
+    });
+  }
+
+  return actions.slice(0, 4);
+}
+
+function getWorkflowInputRoleLabel(role: WorkflowInputImage["role"]) {
+  if (role === "person") return "人物";
+  if (role === "product") return "商品";
+  if (role === "style") return "风格";
+  if (role === "unknown") return "待判断";
+  return getRoleLabel((role || "auto") as ChatImageRole);
+}
+
 function canEditWorkflowStep(status: string) {
   return ["pending", "ready", "failed", "completed", "skipped", "waiting_user"].includes(status);
 }
@@ -984,7 +2484,7 @@ function readWorkflowStepParams(params: Record<string, unknown>) {
   const model = String(params.model || params.aiModel || params.ai_model || "gpt-image-2") as LingyaModel;
   const aspectRatio = String(params.aspectRatio || params.aspect_ratio || "3:4") as AspectRatio;
   const imageSize = String(params.imageSize || params.image_size || "1K") as ImageSize;
-  const count = Math.min(Math.max(Number(params.count || params.genCount || params.gen_count || 1), 1), 4);
+  const count = Math.min(Math.max(Number(params.count || params.genCount || params.gen_count || 1), 1), 8);
   const prompt = typeof params.prompt === "string" ? params.prompt : "";
   return { model, aspectRatio, imageSize, count, prompt };
 }
@@ -998,15 +2498,153 @@ function WorkflowStatusBadge({ status }: { status: WorkflowStatus | string }) {
   );
 }
 
-function getWorkflowPlanPanelSummary(status: WorkflowStatus | string, completedCount: number, totalCount: number, failedCount: number) {
+function getWorkflowPlanPanelSummary(status: WorkflowStatus | string, completedCount: number, totalCount: number, failedCount: number, steps: WorkflowStepRecord[] = []) {
   if (failedCount > 0) return `${completedCount}/${totalCount} 已完成，${failedCount} 个步骤需要处理`;
   if (status === "needs_confirmation" || status === "planned" || status === "draft") return "已拆解执行步骤，确认前不会扣费";
   if (status === "confirmed" || status === "queued") return "计划已确认，正在等待执行";
-  if (status === "running") return `${completedCount}/${totalCount} 已完成，剩余步骤处理中`;
+  if (status === "running") {
+    const active = steps.find((step) => step.status === "running") || steps.find((step) => step.status === "queued");
+    return active ? `正在执行：${active.title || getWorkflowToolLabel(active.type)}` : `${completedCount}/${totalCount} 已完成，剩余步骤处理中`;
+  }
   if (status === "completed") return "所有步骤已完成";
   if (status === "partially_completed") return `${completedCount}/${totalCount} 已完成，可查看结果`;
   if (status === "cancelled") return "计划已取消";
   return `${completedCount}/${totalCount} 已完成`;
+}
+
+function getWorkflowStepDependencyText(steps: WorkflowStepRecord[], step: WorkflowStepRecord) {
+  if (!step.depends_on?.length) return "";
+  const labels = step.depends_on
+    .map((dep) => {
+      const index = steps.findIndex((item) => item.step_key === dep || item.id === dep);
+      const depStep = steps[index];
+      return depStep ? `第${index + 1}步「${depStep.title || getWorkflowToolLabel(depStep.type)}」` : dep;
+    })
+    .filter(Boolean);
+  if (!labels.length) return "";
+  return `依赖 ${labels.join("、")} 完成后执行`;
+}
+
+function getWorkflowStepInputRefs(steps: WorkflowStepRecord[], step: WorkflowStepRecord) {
+  const refs: string[] = [];
+  const raw = safeStringifyWorkflowValue(step.input);
+  const addRef = (value: string) => {
+    const normalized = value.trim();
+    if (normalized && !refs.includes(normalized)) refs.push(normalized);
+  };
+
+  for (const match of raw.matchAll(/@?图\s*(\d+)/g)) {
+    addRef(`图${match[1]}`);
+  }
+
+  for (const match of raw.matchAll(/\$([A-Za-z0-9_-]+)\.output\.(imageUrls|selectedImageUrl)(?:\[(\d+)])?/g)) {
+    const key = match[1];
+    const sourceIndex = steps.findIndex((item) => item.step_key === key || item.id === key);
+    const sourceStep = steps[sourceIndex];
+    if (sourceStep) {
+      addRef(`第${sourceIndex + 1}步结果`);
+    }
+  }
+
+  if (step.depends_on?.length) {
+    for (const dep of step.depends_on) {
+      const sourceIndex = steps.findIndex((item) => item.step_key === dep || item.id === dep);
+      if (sourceIndex >= 0) addRef(`第${sourceIndex + 1}步结果`);
+    }
+  }
+
+  return refs.slice(0, 5);
+}
+
+function getWorkflowStepOutputSummary(step: WorkflowStepRecord) {
+  const params = step.params || {};
+  const expectedOutput = (step as { expectedOutput?: { imageUrls?: boolean; selectedImageUrl?: boolean } }).expectedOutput;
+  const count = getNumberParam(params, ["count", "gen_count", "imageCount", "image_count", "sectionTotal"]);
+  const outputMode = getStringParam(params, ["outputMode", "output_mode", "layout", "resultMode"]);
+
+  if (step.type === "tryon") return "换装底图，后续步骤会优先沿用这张结果";
+  if (step.type === "face_swap") return "只替换面部五官，保留原图肤色、发型、身体和服装";
+  if (step.type === "pose_variation") {
+    const n = count || 4;
+    if (["grid", "collage", "four_grid"].includes(outputMode)) return `${n} 个姿势拼成一张图`;
+    if (["both", "separate_and_grid"].includes(outputMode)) return `${n} 张独立图 + 拼图预览`;
+    return `${n} 张独立姿势图，不拼四宫格`;
+  }
+  if (step.type === "commerce_detail_section") return "详情页单个板块，适合手机端浏览";
+  if (step.type === "commerce_detail_stitch") return "拼接为手机端长图，可用于电商详情页";
+  if (step.type === "commerce_detail") return count ? `${count} 个详情页板块，可再拼成长图` : "详情页素材与版块方案";
+  if (step.type === "garment_3d" || step.type === "image_to_3d_asset") return "3D 展示素材或 3D 资产";
+  if (step.type === "image_to_video") return "视频素材，后续可接入视频生成";
+  if (count && count > 1) return `${count} 张图片`;
+  if (expectedOutput?.imageUrls || step.output?.imageUrls) return "图片结果";
+  if (expectedOutput?.selectedImageUrl || step.output?.selectedImageUrl) return "选中的参考图";
+  return "";
+}
+
+function getWorkflowStepReasoning(payload: WorkflowClientPayload, step: WorkflowStepRecord, index: number) {
+  const notes: string[] = [];
+  const add = (value: string) => {
+    if (value && !notes.includes(value)) notes.push(value);
+  };
+  const text = `${payload.workflow.intent || ""}\n${payload.workflow.summary || ""}\n${step.title || ""}\n${step.type}`;
+  const inputRefs = getWorkflowStepInputRefs(payload.steps, step);
+
+  if (step.type === "tryon") {
+    add("先做换装可以得到稳定底图，后续姿势、详情页或修复都会沿用它，避免先裂变再换装导致服装结构漂移。");
+  } else if (step.type === "face_swap") {
+    add("换脸步骤只使用目标脸图的五官身份，不会把肤色、发型、身体或服装一起替换。");
+  } else if (step.type === "pose_variation") {
+    if (step.depends_on?.length || inputRefs.some((ref) => ref.includes("步结果"))) {
+      add("这一步会基于前序结果做姿势变化，顺序上不会跳过换装底图。");
+    }
+    add("默认按独立图片生成，便于挑选、下载、继续编辑或作为详情页素材。");
+  } else if (step.type === "commerce_detail_section") {
+    add("详情页拆成单板块生成，可以降低信息挤压，后面也更容易替换某个卖点模块。");
+  } else if (step.type === "commerce_detail_stitch") {
+    add("拼接步骤只整理已生成板块，不重新改变主体画面，适合输出手机端长图。");
+  } else if (step.type === "commerce_detail") {
+    add("先规划详情页结构和板块，再执行生成，能减少把所有内容塞进一张图的概率。");
+  } else if (step.type === "select_image") {
+    add("需要从上一批结果里确定主图或参考图，避免后续步骤拿错素材。");
+  } else if (step.type === "image_quality_check") {
+    add("质量检查会优先看主体一致性、手脸比例、服装结构和可交付性。");
+  } else if (step.type === "garment_3d" || step.type === "image_to_3d_asset") {
+    add("3D 类步骤会保留商品结构和材质信息，后续可接视频或详情页展示。");
+  }
+
+  if (index > 0 && inputRefs.length > 0) {
+    add(`输入来源已绑定到 ${inputRefs.slice(0, 2).join("、")}，减少误用历史图片或拿错图的风险。`);
+  }
+  if (/PDD|拼多多|淘宝|天猫|抖音|小红书|独立站|详情|电商/i.test(text)) {
+    add("会按目标平台调节画面节奏、卖点层级和移动端可读性。");
+  }
+
+  return notes.slice(0, 3);
+}
+
+function safeStringifyWorkflowValue(value: unknown) {
+  try {
+    return JSON.stringify(value || {});
+  } catch {
+    return "";
+  }
+}
+
+function getNumberParam(params: Record<string, unknown>, keys: string[]) {
+  for (const key of keys) {
+    const value = params[key];
+    const numeric = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
+    if (Number.isFinite(numeric) && numeric > 0) return numeric;
+  }
+  return 0;
+}
+
+function getStringParam(params: Record<string, unknown>, keys: string[]) {
+  for (const key of keys) {
+    const value = params[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return "";
 }
 
 function getWorkflowStepNodeTone(status: string) {
@@ -1092,6 +2730,8 @@ function AgentTracePanel({ traceId }: { traceId: string }) {
   }, [open, record, loading, traceId]);
 
   const events = record?.trace?.events || [];
+  const finalTrace = record?.trace?.final;
+  const latencyMs = record?.trace?.latencyMs;
   return (
     <div className="relative">
       <button
@@ -1106,7 +2746,7 @@ function AgentTracePanel({ traceId }: { traceId: string }) {
         <div className="absolute left-0 top-7 z-20 w-72 rounded-lg border border-slate-200 bg-white p-3 text-left shadow-xl">
           <div className="mb-2 flex items-center justify-between gap-2">
             <span className="text-xs font-bold text-slate-800">Agent 过程</span>
-            <span className="text-[10px] text-slate-400">{record?.trace?.latencyMs ? `${record.trace.latencyMs}ms` : ""}</span>
+            <span className="text-[10px] text-slate-400">{latencyMs ? `${latencyMs}ms` : ""}</span>
           </div>
           {loading ? (
             <div className="flex items-center gap-2 text-xs text-slate-500">
@@ -1115,6 +2755,21 @@ function AgentTracePanel({ traceId }: { traceId: string }) {
             </div>
           ) : events.length ? (
             <div className="space-y-2">
+              <div className="flex flex-wrap gap-1">
+                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">
+                  {events.length} 个阶段
+                </span>
+                {finalTrace && (
+                  <>
+                    <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-bold text-violet-700">
+                      {Math.round(finalTrace.confidence * 100)}%
+                    </span>
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">
+                      {finalTrace.source}
+                    </span>
+                  </>
+                )}
+              </div>
               {events.slice(0, 8).map((event, index) => (
                 <div key={`${event.stage}-${index}`} className="rounded-md bg-slate-50 p-2">
                   <div className="flex items-center justify-between gap-2">
@@ -1147,21 +2802,38 @@ type RuntimeTimelineItem = {
 
 function AgentRuntimeTimeline({ timeline, compact = false }: { timeline: RuntimeTimelineItem[]; compact?: boolean }) {
   const activeItem = timeline.find((item) => item.status === "running");
+  const errorItem = timeline.find((item) => item.status === "error");
   const done = timeline.length > 0 && timeline.every((item) => item.status === "done");
   const [open, setOpen] = useState(false);
+  const [pulseIndex, setPulseIndex] = useState(0);
+  useEffect(() => {
+    if (!activeItem) return;
+    const timer = window.setInterval(() => setPulseIndex((value) => (value + 1) % 3), 520);
+    return () => window.clearInterval(timer);
+  }, [activeItem?.label]);
   if (!timeline.length) return null;
-  const title = activeItem ? "思考中..." : done ? "已完成" : "思考中...";
-  const summary = activeItem?.detail || timeline[timeline.length - 1]?.detail || "Agent 正在处理。";
+  const title = errorItem ? "需要处理" : activeItem ? `${activeItem.label}${".".repeat(pulseIndex + 1)}` : done ? (compact ? "查看处理过程" : "已完成") : "思考中";
+  const summary = errorItem?.detail || activeItem?.detail || timeline[timeline.length - 1]?.detail || "Agent 正在处理。";
+  const doneCount = timeline.filter((item) => item.status === "done").length;
+  const buttonTone = activeItem
+    ? "border-slate-200 bg-white/95 text-slate-700 hover:border-violet-200 hover:bg-violet-50/60"
+    : errorItem
+      ? "border-rose-200 bg-rose-50/90 text-rose-700 hover:bg-rose-50"
+    : done
+      ? "border-slate-100 bg-white/70 text-slate-500 hover:border-slate-200 hover:bg-slate-50"
+      : "border-slate-200 bg-white/95 text-slate-700 hover:border-violet-200 hover:bg-violet-50/60";
 
   return (
     <div className={`${compact ? "mb-2" : "w-full max-w-md"} overflow-hidden`}>
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className="inline-flex max-w-full items-center gap-2 rounded-2xl rounded-bl-md border border-violet-100 bg-violet-50/80 px-3 py-2 text-left text-violet-700 shadow-sm transition-colors hover:bg-violet-50"
+        className={`inline-flex max-w-full items-center gap-2 rounded-2xl rounded-bl-md border px-3 py-2 text-left shadow-sm transition-colors ${buttonTone}`}
       >
-        {activeItem ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : done ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Activity className="h-3.5 w-3.5" />}
+        {activeItem ? <ThinkingSignal /> : errorItem ? <AlertCircle className="h-3.5 w-3.5" /> : done ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> : <Activity className="h-3.5 w-3.5" />}
         <span className="text-xs font-semibold">{title}</span>
+        {(activeItem?.detail || errorItem?.detail) && <span className="hidden max-w-[220px] truncate text-[11px] text-slate-400 sm:inline">{activeItem?.detail || errorItem?.detail}</span>}
+        {done && <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-400">{doneCount}</span>}
         <ChevronDown className={`h-3.5 w-3.5 shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
 
@@ -1169,12 +2841,12 @@ function AgentRuntimeTimeline({ timeline, compact = false }: { timeline: Runtime
         <div className="mt-1.5 rounded-2xl rounded-bl-md border border-slate-200 bg-white/95 px-3 pb-3 pt-2 shadow-sm">
           <p className="mb-2 truncate text-[11px] text-slate-500">{summary}</p>
           <div className="space-y-2">
-            {timeline.map((item, index) => (
-              <div key={`${item.label}-${index}`} className="flex gap-2">
-                <div className="flex w-5 shrink-0 flex-col items-center">
-                  <div className={`flex h-5 w-5 items-center justify-center rounded-full ${getRuntimeTimelineNodeTone(item.status)}`}>
-                    {item.status === "running" ? <Loader2 className="h-3 w-3 animate-spin" /> : item.status === "done" ? <Check className="h-3 w-3" /> : <span className="h-1.5 w-1.5 rounded-full bg-current" />}
-                  </div>
+              {timeline.map((item, index) => (
+                <div key={`${item.label}-${index}`} className={`flex gap-2 rounded-xl px-1.5 py-1 ${item.status === "running" ? "bg-violet-50/80" : item.status === "error" ? "bg-rose-50/80" : ""}`}>
+                  <div className="flex w-5 shrink-0 flex-col items-center">
+                    <div className={`flex h-5 w-5 items-center justify-center rounded-full ${getRuntimeTimelineNodeTone(item.status)}`}>
+                      {item.status === "running" ? <ThinkingSignal /> : item.status === "done" ? <Check className="h-3 w-3" /> : item.status === "error" ? <X className="h-3 w-3" /> : <span className="h-1.5 w-1.5 rounded-full bg-current" />}
+                    </div>
                   {index < timeline.length - 1 && <div className="mt-1 h-5 w-px bg-slate-200" />}
                 </div>
                 <div className="min-w-0 flex-1 pb-1">
@@ -1190,12 +2862,21 @@ function AgentRuntimeTimeline({ timeline, compact = false }: { timeline: Runtime
   );
 }
 
+function ThinkingSignal() {
+  return (
+    <span className="relative flex h-3.5 w-3.5 shrink-0 items-center justify-center">
+      <span className="absolute h-3 w-3 rounded-full bg-violet-400/30 animate-ping" />
+      <span className="h-2 w-2 rounded-full bg-violet-600 shadow-[0_0_10px_rgba(124,58,237,0.55)]" />
+    </span>
+  );
+}
+
 function getWorkflowPayload(params: Record<string, unknown>): WorkflowClientPayload | null {
   const raw = params?.workflow;
   if (!isPlainObject(raw) || !isPlainObject(raw.workflow)) return null;
   return {
     workflow: raw.workflow as WorkflowRecord,
-    steps: Array.isArray(raw.steps) ? raw.steps as WorkflowStepRecord[] : [],
+    steps: Array.isArray(raw.steps) ? orderWorkflowSteps(raw.steps as WorkflowStepRecord[]) : [],
     events: Array.isArray(raw.events) ? raw.events as WorkflowEventRecord[] : [],
     assets: Array.isArray(raw.assets) ? raw.assets as WorkflowAssetRecord[] : [],
     costEstimate: isPlainObject(raw.costEstimate) ? raw.costEstimate as WorkflowCostEstimate : undefined,
@@ -1219,12 +2900,11 @@ function normalizeAgentTimelineForMessage(
   workflowPayload: WorkflowClientPayload | null,
   generation: Message["generation"] | null | undefined
 ): RuntimeTimelineItem[] {
-  if (timeline.length === 0) return timeline;
-
-  const workflowStatus = workflowPayload?.workflow?.status;
-  if (workflowStatus && shouldCompleteTimelineForWorkflowStatus(workflowStatus)) {
-    return completeRuntimeTimeline(timeline, getWorkflowTimelineDoneDetail(workflowStatus));
+  if (workflowPayload) {
+    return buildWorkflowRuntimeTimeline(workflowPayload, timeline);
   }
+
+  if (timeline.length === 0) return timeline;
 
   if (generation?.status === "pending") {
     return completeRuntimeTimeline(timeline, "已生成确认卡，等待确认后执行。");
@@ -1237,6 +2917,108 @@ function normalizeAgentTimelineForMessage(
   }
 
   return timeline;
+}
+
+function buildWorkflowRuntimeTimeline(
+  payload: WorkflowClientPayload,
+  seedTimeline: RuntimeTimelineItem[]
+): RuntimeTimelineItem[] {
+  const { workflow, steps } = payload;
+  const status = workflow.status;
+  const latestEvent = getLatestWorkflowEvent(payload);
+  const planned = status === "draft" || status === "planned" || status === "needs_confirmation";
+  const terminal = ["completed", "partially_completed", "failed", "cancelled"].includes(status);
+  const base: RuntimeTimelineItem[] = [
+    {
+      label: "理解需求",
+      status: "done",
+      detail: seedTimeline.find((item) => item.label === "理解意图")?.detail || "已识别用户目标和可用上下文",
+    },
+    {
+      label: "规划任务",
+      status: planned ? "running" : "done",
+      detail: steps.length > 0 ? `已拆解为 ${steps.length} 个执行步骤` : "正在生成可执行方案",
+    },
+    {
+      label: "确认方案",
+      status: planned ? "running" : "done",
+      detail: planned ? "等待你确认后才会扣费并执行" : "方案已确认，进入执行队列",
+    },
+  ];
+
+  if (planned) return base;
+
+  const stepItems = steps.map((step) => ({
+    label: getWorkflowRuntimeStepLabel(step),
+    status: mapWorkflowStepToRuntimeStatus(step.status),
+    detail: getWorkflowRuntimeStepDetail(step, latestEvent),
+  }));
+
+  const resultStatus = getWorkflowResultRuntimeStatus(status, steps);
+  return [
+    ...base,
+    ...stepItems,
+    {
+      label: "整理结果",
+      status: resultStatus,
+      detail: getWorkflowRuntimeResultDetail(status, payload),
+    },
+  ];
+}
+
+function getLatestWorkflowEvent(payload: WorkflowClientPayload): WorkflowEventRecord | null {
+  const events = payload.events || [];
+  return events.length > 0 ? events[events.length - 1] : null;
+}
+
+function getWorkflowRuntimeStepLabel(step: WorkflowStepRecord) {
+  if (step.type === "commerce_detail_section") return step.title || "生成详情页板块";
+  if (step.type === "commerce_detail_stitch") return "拼接详情长图";
+  if (step.type === "pose_variation") return step.title || "生成姿势变化";
+  if (step.type === "tryon") return step.title || "换装融合";
+  if (step.type === "face_swap") return step.title || "AI 换脸";
+  if (step.type === "image_quality_check") return "质量检查";
+  return step.title || getWorkflowToolLabel(step.type);
+}
+
+function mapWorkflowStepToRuntimeStatus(status: string): RuntimeTimelineItem["status"] {
+  if (status === "completed" || status === "skipped") return "done";
+  if (status === "running" || status === "queued" || status === "waiting_user") return "running";
+  if (status === "failed" || status === "cancelled") return "error";
+  return "pending";
+}
+
+function getWorkflowRuntimeStepDetail(step: WorkflowStepRecord, latestEvent: WorkflowEventRecord | null) {
+  if (step.status === "queued") return "已入队，等待执行器处理";
+  if (step.status === "running") {
+    if (latestEvent?.step_id === step.id && latestEvent.message) return latestEvent.message;
+    return getWorkflowStepLoadingLabel(step);
+  }
+  if (step.status === "waiting_user") return "需要你选择结果或补充信息后继续";
+  if (step.status === "completed") {
+    const urls = Array.isArray(step.output?.imageUrls) ? step.output?.imageUrls.length || 0 : 0;
+    return urls > 0 ? `已产出 ${urls} 张结果图` : "步骤已完成";
+  }
+  if (step.status === "failed") return step.error_message || "步骤执行失败，可重试或修复";
+  if (step.status === "skipped") return "此步骤已跳过";
+  return "等待前置步骤完成";
+}
+
+function getWorkflowResultRuntimeStatus(status: WorkflowStatus | string, steps: WorkflowStepRecord[]): RuntimeTimelineItem["status"] {
+  if (status === "completed" || status === "partially_completed") return "done";
+  if (status === "failed" || status === "cancelled") return "error";
+  if (steps.length > 0 && steps.every((step) => ["completed", "skipped"].includes(step.status))) return "running";
+  return "pending";
+}
+
+function getWorkflowRuntimeResultDetail(status: WorkflowStatus | string, payload: WorkflowClientPayload) {
+  const urls = getWorkflowImageUrls(payload);
+  if (status === "completed") return urls.length > 0 ? `已整理 ${urls.length} 张最终结果` : "工作流已完成";
+  if (status === "partially_completed") return urls.length > 0 ? `已整理 ${urls.length} 张可用结果，部分步骤未完成` : "部分步骤已完成";
+  if (status === "failed") return payload.workflow.error_message || "工作流失败，可查看失败步骤并修复";
+  if (status === "cancelled") return "工作流已取消";
+  if (urls.length > 0) return `已收到 ${urls.length} 张结果，正在整理展示`;
+  return "等待所有步骤完成后汇总结果";
 }
 
 function shouldCompleteTimelineForWorkflowStatus(status: string) {
@@ -1271,6 +3053,7 @@ function getTraceId(params: Record<string, unknown> | undefined) {
 function getRuntimeTimelineNodeTone(status: string) {
   if (status === "done") return "bg-emerald-500 text-white";
   if (status === "running") return "bg-slate-900 text-white";
+  if (status === "error") return "bg-rose-500 text-white";
   return "bg-slate-100 text-slate-400";
 }
 
@@ -1280,7 +3063,35 @@ function getMessageFeedback(params: Record<string, unknown> | undefined) {
   return {
     rating: raw.rating === "good" || raw.rating === "bad" ? raw.rating : null,
     status: typeof raw.status === "string" ? raw.status : "",
+    learned: Boolean(raw.learned),
+    error: typeof raw.error === "string" ? raw.error : "",
   };
+}
+
+function FeedbackStatusPill({ feedback }: { feedback: NonNullable<ReturnType<typeof getMessageFeedback>> }) {
+  if (!feedback.status || feedback.status === "idle") return null;
+  const text = feedback.status === "sending"
+    ? "保存反馈中"
+    : feedback.status === "failed"
+      ? "反馈未保存"
+      : feedback.learned
+        ? "已学习"
+        : "已记录";
+  const tone = feedback.status === "failed"
+    ? "bg-rose-50 text-rose-600"
+    : feedback.status === "sending"
+      ? "bg-slate-50 text-slate-500"
+      : feedback.learned
+        ? "bg-violet-50 text-violet-600"
+        : "bg-emerald-50 text-emerald-600";
+  return (
+    <span
+      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold ${tone}`}
+      title={feedback.error || text}
+    >
+      {text}
+    </span>
+  );
 }
 
 function formatTraceStage(stage: string) {
@@ -1308,10 +3119,13 @@ function getWorkflowImageUrls(payload: WorkflowClientPayload) {
   const fromAssets = (payload.assets || [])
     .filter((asset) => asset.kind === "image" && asset.role === "final")
     .map((asset) => asset.url);
+  const finalUrls = Array.from(new Set([...fromWorkflow, ...fromAssets])).filter(Boolean);
+  if (finalUrls.length > 0) return finalUrls;
+
   const fromSteps = payload.steps.flatMap((step) =>
-    Array.isArray(step.output?.imageUrls) ? step.output.imageUrls : []
+    getWorkflowStepOutputUrls(step)
   );
-  return Array.from(new Set([...fromWorkflow, ...fromAssets, ...fromSteps])).filter(Boolean);
+  return Array.from(new Set(fromSteps)).filter(Boolean);
 }
 
 function getWorkflowStatusTone(status: WorkflowStatus | string) {
@@ -1359,6 +3173,7 @@ function getWorkflowToolLabel(type: string) {
     text_to_image: "文生图",
     image_to_image: "图生图",
     tryon: "换装试穿",
+    face_swap: "AI 换脸",
     pose_variation: "姿势裂变",
     garment_3d: "3D 立体展示",
     commerce_detail: "电商详情页",
@@ -1447,6 +3262,85 @@ function ConfirmRoleIssues({ issues }: { issues: ReturnType<typeof validateConfi
       ))}
     </div>
   );
+}
+
+function ConfirmTaskTicket({
+  moduleName,
+  images,
+  params,
+  jobPayload,
+  credits,
+}: {
+  moduleName: string;
+  images: ChatImage[];
+  params: Record<string, unknown>;
+  jobPayload?: Record<string, unknown>;
+  credits: number;
+}) {
+  const normalized = readConfirmParams(params);
+  const { used, unused } = splitUsedImages(images, params, jobPayload);
+  const outputForm = getConfirmOutputForm(moduleName, params, jobPayload);
+  const usedText = used.length > 0
+    ? used.map((img) => `图${img.index} ${getRoleLabel(img.role || "auto")}`).join(" / ")
+    : "不使用附件图";
+  const unusedText = unused.length > 0 ? `不使用 ${unused.map((img) => `图${img.index}`).join("、")}` : "附件都会参与判断";
+
+  return (
+    <div className="mb-3 overflow-hidden rounded-2xl border border-slate-200 bg-white/90 shadow-sm">
+      <div className="border-b border-slate-100 bg-slate-50/70 px-3 py-2.5">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <ConfirmChip label={moduleName} />
+          <ConfirmChip label={outputForm} />
+          <ConfirmChip label={`${normalized.count} 张`} />
+          <ConfirmChip label={`${credits || 0} 积分`} tone="amber" />
+        </div>
+      </div>
+      <div className="grid gap-2 p-3 text-[11px] leading-relaxed text-slate-600 sm:grid-cols-2">
+        <ConfirmTicketRow label="图片关系" value={usedText} />
+        <ConfirmTicketRow label="未使用" value={unusedText} muted={unused.length === 0} />
+        <ConfirmTicketRow label="规格" value={`${normalized.model} · ${normalized.aspectRatio} · ${normalized.imageSize}`} />
+        <ConfirmTicketRow label="扣费" value="点击确认后才扣费；修改参数不扣费" tone="amber" />
+      </div>
+    </div>
+  );
+}
+
+function ConfirmTicketRow({
+  label,
+  value,
+  tone = "slate",
+  muted = false,
+}: {
+  label: string;
+  value: string;
+  tone?: "slate" | "amber";
+  muted?: boolean;
+}) {
+  return (
+    <div className={`rounded-xl px-2.5 py-2 ring-1 ${
+      tone === "amber"
+        ? "bg-amber-50 text-amber-700 ring-amber-100"
+        : "bg-white text-slate-600 ring-slate-100"
+    }`}>
+      <p className="text-[10px] font-bold text-slate-400">{label}</p>
+      <p className={`mt-0.5 font-semibold ${muted ? "text-slate-400" : ""}`}>{value}</p>
+    </div>
+  );
+}
+
+function getConfirmOutputForm(
+  moduleName: string,
+  params: Record<string, unknown>,
+  jobPayload?: Record<string, unknown>
+) {
+  const text = flattenStrings([moduleName, params, jobPayload || {}]).join("\n").toLowerCase();
+  if (text.includes("详情页") || text.includes("detail")) return "详情页素材";
+  if (text.includes("长图") || text.includes("拼接")) return "手机长图";
+  if (text.includes("四宫格")) return "四宫格";
+  if (text.includes("单独") || text.includes("独立")) return "多张单图";
+  if (text.includes("3d")) return "3D 展示";
+  if (text.includes("试穿") || text.includes("换装") || text.includes("tryon")) return "换装图";
+  return "图片生成";
 }
 
 function hasConfirmRoleErrors(module: string, params: Record<string, unknown>, images: ChatImage[]) {

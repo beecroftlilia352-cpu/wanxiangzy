@@ -102,7 +102,7 @@ export function InputComposer({
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      if (!mentionState.active) onSend();
+      if (!mentionState.active && !slashState.active && canSend) onSend();
     }
   };
 
@@ -157,9 +157,35 @@ export function InputComposer({
     if (files.length > 0) onAddImages(files);
   };
 
-  const canSend = !isSending && !isAIWriting && (inputText.trim().length > 0 || inputImages.length > 0);
+  const isUploadingImages = inputImages.some((image) => image.uploading);
+  const hasUploadError = inputImages.some((image) => image.uploadError);
+  const readyImages = inputImages.filter((image) => !image.uploading && !image.uploadError);
+  const invalidImageRefs = getInvalidImageRefs(inputText, readyImages);
+  const visibleInvalidImageRefs = !isUploadingImages && !hasUploadError ? invalidImageRefs : [];
+  const canSend = !isSending && !isAIWriting && !isUploadingImages && !hasUploadError && invalidImageRefs.length === 0 && (inputText.trim().length > 0 || inputImages.length > 0);
   const modelLabel = MODEL_OPTS.find((o) => o.value === params.model)?.label || "模型";
   const currentCost = getCreditForCombo(params.model, params.imageSize, params.aspectRatio);
+  const placeholder = inputImages.length > 0
+    ? isUploadingImages
+      ? "图片上传中，完成后就可以发送..."
+      : hasUploadError && readyImages.length === 0
+        ? "请先移除上传失败的图片，或重新上传..."
+        : "说清楚目标，比如：把图1衣服穿到图2人物上，生成4张单图..."
+    : "描述你想做什么... 输入 / 查看快捷指令";
+  const sendTitle = isUploadingImages
+    ? "图片上传完成后再发送"
+    : hasUploadError
+      ? "请先移除上传失败的图片"
+    : invalidImageRefs.length > 0
+      ? `请先处理无效引用：${invalidImageRefs.join("、")}`
+    : canSend
+      ? "发送"
+      : inputImages.length > 0
+        ? "补一句目标后发送"
+        : "输入文字或上传图片后发送";
+  const missingImageHint = !isUploadingImages && !hasUploadError
+    ? getMissingComposerImageHint(inputText, readyImages.length)
+    : "";
 
   return (
     <div
@@ -175,8 +201,42 @@ export function InputComposer({
             拖放图片到这里
           </div>
         )}
+        {missingImageHint && (
+          <MissingImageNotice
+            hint={missingImageHint}
+            onUpload={() => fileRef.current?.click()}
+            onTextOnly={() => {
+              const next = inputText.trim()
+                ? `${inputText.trim()}\n不使用参考图，直接按文字生成。`
+                : "不使用参考图，直接按文字生成。";
+              onTextChange(next);
+              setTimeout(() => {
+                textareaRef.current?.focus();
+                handleInput();
+              }, 10);
+            }}
+          />
+        )}
+        {visibleInvalidImageRefs.length > 0 && (
+          <InvalidMentionNotice
+            refs={visibleInvalidImageRefs}
+            onClean={() => {
+              const next = removeInvalidImageRefs(inputText, visibleInvalidImageRefs);
+              onTextChange(next);
+              setTimeout(() => {
+                textareaRef.current?.focus();
+                handleInput();
+              }, 10);
+            }}
+          />
+        )}
 
-        <ContextStatus imageCount={inputImages.length} intentMode={intentMode} />
+        <ContextStatus
+          imageCount={readyImages.length}
+          uploadingCount={inputImages.filter((image) => image.uploading).length}
+          failedCount={inputImages.filter((image) => image.uploadError).length}
+          intentMode={intentMode}
+        />
 
         <ImageTray
           images={inputImages}
@@ -188,14 +248,27 @@ export function InputComposer({
         />
 
         {/* @ 引用标签（输入框上方） */}
-        {inputImages.length > 0 && (
-          <MentionChips text={inputText} images={inputImages} />
+        {readyImages.length > 0 && (
+          <>
+            <MentionChips text={inputText} images={readyImages} />
+            <ComposerSmartHints
+              text={inputText}
+              images={readyImages}
+              onApply={(nextText) => {
+                onTextChange(nextText);
+                setTimeout(() => {
+                  textareaRef.current?.focus();
+                  handleInput();
+                }, 10);
+              }}
+            />
+          </>
         )}
 
         {/* 输入容器 */}
         <div className="relative">
           <SlashCommandDropdown query={slashState.query} visible={slashState.active} onSelect={handleSlashSelect} />
-          <MentionDropdown images={inputImages} query={mentionState.query} onSelect={handleMentionSelect} visible={mentionState.active} />
+          <MentionDropdown images={readyImages} query={mentionState.query} onSelect={handleMentionSelect} visible={mentionState.active} />
 
           <div className="flex items-center rounded-2xl border border-slate-200/80 bg-white shadow-[0_2px_12px_rgba(0,0,0,0.04)] transition-all focus-within:border-violet-300/60 focus-within:shadow-[0_2px_20px_rgba(139,92,246,0.08)]">
             <input ref={fileRef} type="file" accept="image/*" multiple className="hidden"
@@ -210,7 +283,7 @@ export function InputComposer({
             <textarea ref={textareaRef} value={inputText}
               onChange={(e) => { onTextChange(e.target.value); handleInput(); }}
               onKeyDown={handleKeyDown} onPaste={handlePaste} onClick={handleInput}
-              placeholder="描述你想做什么... 输入 / 查看快捷指令"
+              placeholder={placeholder}
               aria-label="输入消息"
               rows={1}
               className="custom-scroll min-h-[44px] max-h-[120px] flex-1 resize-none py-3 pr-2 text-[14px] leading-[1.5] text-slate-800 outline-none placeholder:text-slate-300"
@@ -226,6 +299,8 @@ export function InputComposer({
                 </button>
               )}
               <button onClick={onSend} disabled={!canSend}
+                title={sendTitle}
+                aria-label={sendTitle}
                 className={`flex h-8 w-8 items-center justify-center rounded-xl transition-all ${
                   canSend ? "bg-slate-900 text-white hover:bg-slate-800" : "bg-slate-100 text-slate-300"
                 }`}>
@@ -276,14 +351,28 @@ export function InputComposer({
 
 function ContextStatus({
   imageCount,
+  uploadingCount,
+  failedCount,
   intentMode,
 }: {
   imageCount: number;
+  uploadingCount: number;
+  failedCount: number;
   intentMode: AgentIntentMode;
 }) {
   const chatOnly = intentMode === "chat";
-  const contextLabel = imageCount > 0 ? `当前上下文：${imageCount} 张附件图` : "当前上下文：无附件图";
-  const contextDesc = chatOnly
+  const contextLabel = imageCount > 0
+    ? `当前上下文：${imageCount} 张可用附件图`
+    : uploadingCount > 0
+      ? "当前上下文：图片上传中"
+      : failedCount > 0
+        ? "当前上下文：有失败图片"
+        : "当前上下文：无附件图";
+  const contextDesc = failedCount > 0
+    ? `${failedCount} 张图片上传失败，请移除后重新上传；失败图不会参与下一次判断。`
+    : uploadingCount > 0
+    ? `${uploadingCount} 张图片上传中，完成后再发送，避免后端看不到图。`
+    : chatOnly
     ? "只对话和分析，不创建生成任务、不扣分。"
     : imageCount > 0
       ? "默认模式，会理解图片和文字，必要时拆成工作流；生成前确认。"
@@ -336,6 +425,61 @@ function AgentChatModeSwitch({
       >
         <MessageCircle className="h-3.5 w-3.5" />
         <span>Chat</span>
+      </button>
+    </div>
+  );
+}
+
+function MissingImageNotice({
+  hint,
+  onUpload,
+  onTextOnly,
+}: {
+  hint: string;
+  onUpload: () => void;
+  onTextOnly: () => void;
+}) {
+  return (
+    <div className="mb-2 flex flex-wrap items-center gap-2 rounded-xl border border-amber-200 bg-amber-50/80 px-3 py-2 text-[11px] text-amber-800">
+      <span className="font-bold">可能缺少参考图</span>
+      <span className="min-w-0 flex-1 leading-relaxed">{hint}</span>
+      <button
+        type="button"
+        onClick={onUpload}
+        className="rounded-lg bg-white px-2.5 py-1 font-bold text-amber-700 ring-1 ring-amber-100 transition-colors hover:bg-amber-100/70"
+      >
+        上传图片
+      </button>
+      <button
+        type="button"
+        onClick={onTextOnly}
+        className="rounded-lg px-2.5 py-1 font-bold text-amber-700 transition-colors hover:bg-amber-100/70"
+      >
+        改为纯文字生成
+      </button>
+    </div>
+  );
+}
+
+function InvalidMentionNotice({
+  refs,
+  onClean,
+}: {
+  refs: string[];
+  onClean: () => void;
+}) {
+  return (
+    <div className="mb-2 flex flex-wrap items-center gap-2 rounded-xl border border-rose-200 bg-rose-50/80 px-3 py-2 text-[11px] text-rose-700">
+      <span className="font-bold">图片引用失效</span>
+      <span className="min-w-0 flex-1 leading-relaxed">
+        {refs.join("、")} 当前不可用，可能已移除或尚未上传。请清理后再发送，避免 Agent 按错图理解。
+      </span>
+      <button
+        type="button"
+        onClick={onClean}
+        className="rounded-lg bg-white px-2.5 py-1 font-bold text-rose-600 ring-1 ring-rose-100 transition-colors hover:bg-rose-100/70"
+      >
+        清理引用
       </button>
     </div>
   );
@@ -470,4 +614,146 @@ function MentionChips({ text, images }: { text: string; images: ChatImage[] }) {
       <span className="flex items-center text-[10px] text-slate-300">← 引用图片</span>
     </div>
   );
+}
+
+function ComposerSmartHints({
+  text,
+  images,
+  onApply,
+}: {
+  text: string;
+  images: ChatImage[];
+  onApply: (text: string) => void;
+}) {
+  if (images.length === 0) return null;
+  const normalizedText = text.trim();
+  const mentions = normalizedText.match(/@图\d+/g) || [];
+  const hasClearImageRelation = mentions.length > 0 || /图\s*\d/.test(normalizedText);
+  const suggestions = getComposerSmartSuggestions(images, normalizedText);
+
+  return (
+    <div className="mb-1.5 rounded-xl border border-slate-200/70 bg-white/75 px-2.5 py-2 shadow-sm">
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="text-[10px] font-bold text-slate-400">
+          {hasClearImageRelation ? "已识别图片引用" : "建议先说明图片关系"}
+        </span>
+        {!hasClearImageRelation && images.length > 1 && (
+          <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-600">
+            可用 @图1、@图2 避免误判
+          </span>
+        )}
+        <span className="min-w-0 flex-1 truncate text-[10px] text-slate-400">
+          {getComposerImageRoleSummary(images)}
+        </span>
+      </div>
+      <div className="mt-1.5 flex flex-wrap gap-1.5">
+        {suggestions.map((item) => (
+          <button
+            key={item.label}
+            type="button"
+            onClick={() => onApply(mergeComposerSuggestion(normalizedText, item.text))}
+            className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600 transition-colors hover:border-violet-200 hover:bg-violet-50 hover:text-violet-700"
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function getComposerSmartSuggestions(images: ChatImage[], text: string) {
+  const first = images[0]?.index || 1;
+  const relation = inferComposerImageRelation(images);
+  const hasTwoImages = images.length >= 2;
+  const base = [
+    {
+      label: hasTwoImages ? "换装 / 合成" : "图生图优化",
+      text: hasTwoImages
+        ? `帮我把 @图${relation.clothingIndex} 的衣服穿到 @图${relation.personIndex} 的人物身上，保持人物身份、服装结构、比例和材质准确。`
+        : `基于 @图${first} 重新生成一张商业质感更好的图片，保持主体身份和关键结构不变。`,
+    },
+    {
+      label: "姿势裂变",
+      text: `基于 @图${first} 做姿势裂变，生成4张不同姿势的独立图片，不要四宫格，保持人物身份、服装结构和身体比例稳定。`,
+    },
+    {
+      label: "电商详情页",
+      text: `根据这些图片生成适合淘宝、PDD、抖音、小红书等平台的详情页素材，自动分析所需板块，确认前让我编辑平台、数量、画幅和输出要求。`,
+    },
+  ];
+
+  if (/详情|淘宝|天猫|pdd|拼多多|抖音|小红书/i.test(text)) {
+    return [
+      {
+        label: "补充平台要求",
+        text: "输出适合移动端浏览的详情页素材，可按平台风格调整为淘宝/天猫/PDD/抖音/小红书；先拆分板块并让我确认。",
+      },
+      ...base.slice(0, 2),
+    ];
+  }
+
+  return base;
+}
+
+function inferComposerImageRelation(images: ChatImage[]) {
+  const clothing =
+    images.find((image) => image.role === "clothing") ||
+    images.find((image) => image.role === "source") ||
+    images[0];
+  const person =
+    images.find((image) => image.role === "face" || image.role === "reference") ||
+    images.find((image) => image.index !== clothing?.index) ||
+    images[1] ||
+    images[0];
+
+  return {
+    clothingIndex: clothing?.index || images[0]?.index || 1,
+    personIndex: person?.index || images[1]?.index || images[0]?.index || 1,
+  };
+}
+
+function getMissingComposerImageHint(text: string, imageCount: number) {
+  if (imageCount > 0) return "";
+  const normalized = text.trim();
+  if (!normalized) return "";
+  if (/不使用参考图|纯文字|文生图|直接按文字|无需图片|不需要图片/.test(normalized)) return "";
+  const asksForExistingImage =
+    /@?图\s*\d/.test(normalized) ||
+    /这[张些]?图|这些图片|上传的图|附件图|原图|参考图|服装图|模特图|商品图|图片关系/.test(normalized) ||
+    /(根据|基于|参考|分析|识别|换装|穿到|套到|还原|保持).{0,12}(图片|图|照片|素材)/.test(normalized);
+  if (!asksForExistingImage) return "";
+  return "你的描述像是在引用已有图片，但当前输入区没有附件。现在发送会先追问，不会直接生成或扣积分。";
+}
+
+function getInvalidImageRefs(text: string, images: ChatImage[]) {
+  const available = new Set(images.map((image) => image.index));
+  const refs = new Set<string>();
+  for (const match of text.matchAll(/@?图(\d+)/g)) {
+    const index = Number(match[1]);
+    if (!available.has(index)) refs.add(`图${index}`);
+  }
+  return Array.from(refs);
+}
+
+function removeInvalidImageRefs(text: string, refs: string[]) {
+  let next = text;
+  for (const ref of refs) {
+    const escaped = ref.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    next = next.replace(new RegExp(`@?${escaped}\\s*`, "g"), "");
+  }
+  return next.replace(/[ \t]{2,}/g, " ").replace(/\n{3,}/g, "\n\n").trimStart();
+}
+
+function mergeComposerSuggestion(current: string, suggestion: string) {
+  if (!current) return suggestion;
+  if (current.includes(suggestion)) return current;
+  return `${current}\n${suggestion}`;
+}
+
+function getComposerImageRoleSummary(images: ChatImage[]) {
+  return images
+    .slice(0, 6)
+    .map((img) => `图${img.index}:${ROLE_HINTS[img.role || "auto"] || "自动"}`)
+    .join(" · ");
 }

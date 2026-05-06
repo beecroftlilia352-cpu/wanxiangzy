@@ -11,6 +11,7 @@ import { InputComposer } from "@/components/agent/InputComposer";
 import { CreditLogModal } from "@/components/agent/CreditLogModal";
 import { useAgentStore } from "@/lib/store/agent-store";
 import { createClient, getCachedProfileCredits, subscribeToProfileCredits } from "@/lib/supabase/client";
+import { getCreditCost, normalizeImageSize } from "@/lib/api/lingya";
 
 export default function AgentPage() {
   const router = useRouter();
@@ -21,6 +22,11 @@ export default function AgentPage() {
   const [creditLogsOpen, setCreditLogsOpen] = useState(false);
 
   const s = useAgentStore();
+  const estimatedCredits = getCreditCost(
+    s.params.model,
+    normalizeImageSize(s.params.model, s.params.imageSize, s.params.aspectRatio),
+    s.params.aspectRatio
+  ) * Math.min(Math.max(Number(s.params.count) || 1, 1), 4);
 
   useEffect(() => {
     const supabase = createClient();
@@ -80,12 +86,14 @@ export default function AgentPage() {
   if (!isAuth) return null;
 
   const handleQuickAction = (text: string) => {
-    s.setInputText(text);
+    const current = s.inputText.trim();
+    const nextText = current && !current.includes(text) ? `${current}\n${text}` : text;
+    s.setInputText(nextText);
     // 不自动发送，用户确认后手动点发送
     // 自动聚焦输入框
     setTimeout(() => {
       const textarea = document.querySelector("textarea");
-      if (textarea) { textarea.focus(); textarea.setSelectionRange(text.length, text.length); }
+      if (textarea) { textarea.focus(); textarea.setSelectionRange(nextText.length, nextText.length); }
     }, 50);
   };
 
@@ -205,7 +213,7 @@ export default function AgentPage() {
           intentMode={s.intentMode}
           isSending={s.isSending}
           isAIWriting={s.isAIWriting}
-          estimatedCredits={s.params.count * (s.params.model === "gpt-image-2" ? 4 : 3)}
+          estimatedCredits={estimatedCredits}
           onTextChange={s.setInputText}
           onAddImages={s.addImages}
           onRemoveImage={s.removeImage}

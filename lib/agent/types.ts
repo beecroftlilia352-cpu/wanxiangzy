@@ -37,6 +37,7 @@ export interface ChatImage {
   fileName: string;
   role?: ChatImageRole;
   uploading?: boolean;
+  uploadError?: string;
 }
 
 export type GenerationStatus = "pending" | "generating" | "completed" | "failed";

@@ -104,6 +104,19 @@ export function applyConfirmImageRoles(
       }
       break;
     }
+    case "face_swap": {
+      const sourceUrl = first("source", "reference", "clothing");
+      if (sourceUrl) {
+        nextParams.source_image = sourceUrl;
+        nextPayload.sourceUrl = sourceUrl;
+      }
+      const faceUrl = first("face", "reference");
+      if (faceUrl && faceUrl !== sourceUrl) {
+        nextParams.face_image = faceUrl;
+        nextPayload.faceUrl = faceUrl;
+      }
+      break;
+    }
     default:
       break;
   }
@@ -183,6 +196,18 @@ export function validateConfirmImageRoles(
       requireAny("主图", params.main_image_url);
       check("主图", params.main_image_url, ["source", "reference", "clothing"]);
       break;
+    case "face_swap": {
+      requireAny("原始模特图", params.source_image);
+      requireAny("目标脸图", params.face_image);
+      check("原始模特图", params.source_image, ["source", "reference", "clothing"]);
+      check("目标脸图", params.face_image, ["face", "reference"]);
+      const sourceUrl = toUrlList(params.source_image)[0];
+      const faceUrl = toUrlList(params.face_image)[0];
+      if (sourceUrl && faceUrl && sourceUrl === faceUrl) {
+        issues.push({ severity: "error", message: "AI 换脸需要原始模特图和目标脸图，不能使用同一张图。" });
+      }
+      break;
+    }
     default:
       break;
   }

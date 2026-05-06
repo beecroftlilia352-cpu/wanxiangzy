@@ -17,6 +17,7 @@ import type {
   WorkflowStepResultOutput,
   WorkflowStepStatus,
 } from "@/lib/agent/workflow/types";
+import { orderWorkflowSteps } from "@/lib/agent/workflow/order";
 
 type SupabaseAdmin = ReturnType<typeof getAdminClient>;
 
@@ -116,7 +117,7 @@ export async function getWorkflowBundle(workflowId: string, userId: string): Pro
 
   return {
     workflow: workflow as WorkflowRecord,
-    steps: (steps.data || []) as WorkflowStepRecord[],
+    steps: orderWorkflowSteps((steps.data || []) as WorkflowStepRecord[]),
     events: (events.data || []) as WorkflowEventRecord[],
     assets: (assets.data || []) as WorkflowAssetRecord[],
   };
@@ -318,7 +319,7 @@ async function insertPlanVersion(
 }
 
 async function insertWorkflowSteps(supabase: SupabaseAdmin, workflowId: string, plan: WorkflowPlan) {
-  const rows = plan.steps.map((step) => ({
+  const rows = orderWorkflowSteps(plan.steps).map((step) => ({
     workflow_id: workflowId,
     step_key: step.id,
     type: step.type,

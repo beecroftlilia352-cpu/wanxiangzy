@@ -3,6 +3,7 @@ import {
   batchTryOn,
   generateImage,
   type AspectRatio,
+  type ImageTaskProgress,
   type ImageSize,
   type LingyaModel,
 } from "@/lib/api/lingya";
@@ -32,6 +33,7 @@ import type { TryOnAgeGroup, TryOnGarmentAudience } from "@/lib/tryon-prompt";
 import type { TryOnClothingMode, TryOnClothingRole } from "@/lib/tryon-upload-rules";
 import type { GrassPayloadBase } from "@/lib/grass-planting";
 import type { ModelBackgroundPayloadBase } from "@/lib/model-background";
+import { enforceFaceSwapPromptRequirements } from "@/lib/face-swap";
 
 export type GenerationJobPayload =
   | {
@@ -78,6 +80,7 @@ export type GenerationJobPayload =
       varyExpression?: boolean;
       poseStyle?: PoseSeriesStyle;
       outputMode?: PoseOutputMode;
+      genCount?: number;
     }
   | {
       kind: "garment3d";
@@ -87,6 +90,16 @@ export type GenerationJobPayload =
       outputMode?: "reference" | "prompt";
       displayStyle?: Garment3dDisplayStyle;
       userPrompt?: string;
+      aiModel: LingyaModel;
+      aspectRatio: AspectRatio;
+      imageSize: ImageSize;
+      prompt: string;
+      genCount: number;
+    }
+  | {
+      kind: "faceSwap";
+      sourceUrl: string;
+      faceUrl: string;
       aiModel: LingyaModel;
       aspectRatio: AspectRatio;
       imageSize: ImageSize;
@@ -123,6 +136,9 @@ type PromptTraceItem = {
 type GenerationExecutionResult = {
   resultUrls: string[];
   promptTrace: PromptTraceItem[];
+  progress?: number;
+  externalTaskId?: string;
+  externalStatus?: string;
 };
 
 type GenerationProgressUpdate = GenerationExecutionResult;
@@ -189,9 +205,11 @@ async function runClaimedJob(
     const payload = parseJobPayload(job.job_payload);
     const partialResultUrls: string[] = [];
     const partialPromptTrace: PromptTraceItem[] = [];
+    let lastProgress = 0;
     const execution = await executePayload(payload, async (update) => {
       const newUrls = update.resultUrls.slice(partialResultUrls.length);
-      if (!newUrls.length && update.promptTrace.length === partialPromptTrace.length) return;
+      const nextProgress = typeof update.progress === "number" ? update.progress : lastProgress;
+      if (!newUrls.length && update.promptTrace.length === partialPromptTrace.length && nextProgress === lastProgress) return;
 
       const persistedNewUrls = newUrls.length
         ? await persistGeneratedImageUrls(newUrls, job.id, {
@@ -201,10 +219,14 @@ async function runClaimedJob(
         : [];
       partialResultUrls.push(...persistedNewUrls);
       partialPromptTrace.splice(0, partialPromptTrace.length, ...update.promptTrace);
+      lastProgress = Math.max(lastProgress, nextProgress);
 
       await writeGenerationProgress(supabase, job, payload, {
         resultUrls: partialResultUrls,
         promptTrace: partialPromptTrace,
+        progress: lastProgress,
+        externalTaskId: update.externalTaskId,
+        externalStatus: update.externalStatus,
       });
     });
     const persistedResultUrls = partialResultUrls.length === execution.resultUrls.length
@@ -327,6 +349,7 @@ async function executePayload(
         image_size: payload.imageSize,
         style: payload.style,
         raw_prompt: payload.rawPrompt,
+        onProgress: (progress) => onProgress?.(mapImageTaskProgress(progress, resultUrls, promptTrace, i, payload.genCount)),
       });
       resultUrls.push(...result.resultUrls);
       promptTrace.push(createPromptTraceItem({
@@ -337,6 +360,7 @@ async function executePayload(
         prompt: result.prompt,
         compiledPrompt: result.compiledPrompt,
       }));
+      await onProgress?.(createCompletedImageProgress(resultUrls, promptTrace, result.taskId, i + 1, payload.genCount));
     }
 
     return { resultUrls, promptTrace };
@@ -366,6 +390,7 @@ async function executePayload(
         aspect_ratio: payload.aspectRatio,
         image: imageInputs.clothingUrls,
         image_size: payload.imageSize,
+        onProgress: (progress) => onProgress?.(mapImageTaskProgress(progress, resultUrls, promptTrace, i, payload.genCount)),
       });
       resultUrls.push(getResultUrl(result));
       promptTrace.push(createPromptTraceItem({
@@ -376,6 +401,7 @@ async function executePayload(
         prompt,
         compiledPrompt: result.compiledPrompt || prompt,
       }));
+      await onProgress?.(createCompletedImageProgress(resultUrls, promptTrace, result.taskId, i + 1, payload.genCount));
     }
 
     return { resultUrls, promptTrace };
@@ -398,6 +424,7 @@ async function executePayload(
         aspect_ratio: payload.aspectRatio,
         image: imageInputs.clothingUrls,
         image_size: payload.imageSize,
+        onProgress: (progress) => onProgress?.(mapImageTaskProgress(progress, resultUrls, promptTrace, i, payload.genCount)),
       });
       resultUrls.push(getResultUrl(result));
       promptTrace.push(createPromptTraceItem({
@@ -408,6 +435,7 @@ async function executePayload(
         prompt: payload.prompt,
         compiledPrompt: result.compiledPrompt || payload.prompt,
       }));
+      await onProgress?.(createCompletedImageProgress(resultUrls, promptTrace, result.taskId, i + 1, payload.genCount));
     }
 
     return { resultUrls, promptTrace };
@@ -430,6 +458,7 @@ async function executePayload(
         aspect_ratio: payload.aspectRatio,
         image: imageInputs.clothingUrls,
         image_size: payload.imageSize,
+        onProgress: (progress) => onProgress?.(mapImageTaskProgress(progress, resultUrls, promptTrace, i, payload.genCount)),
       });
       resultUrls.push(getResultUrl(result));
       promptTrace.push(createPromptTraceItem({
@@ -440,6 +469,7 @@ async function executePayload(
         prompt: payload.prompt,
         compiledPrompt: result.compiledPrompt || payload.prompt,
       }));
+      await onProgress?.(createCompletedImageProgress(resultUrls, promptTrace, result.taskId, i + 1, payload.genCount));
     }
 
     return { resultUrls, promptTrace };
@@ -456,9 +486,10 @@ async function executePayload(
     });
 
     if (outputMode === "separate") {
-      const results = [];
-      const promptTrace = [];
-      for (let index = 1; index <= 4; index++) {
+      const results: string[] = [];
+      const promptTrace: PromptTraceItem[] = [];
+      const generationCount = getPoseGenerationCount(payload);
+      for (let index = 1; index <= generationCount; index++) {
         const posePrompt = buildSeparatePosePrompt(prompt, index);
         const result = await generateImage({
           model: payload.aiModel,
@@ -467,6 +498,7 @@ async function executePayload(
           aspect_ratio: "3:4",
           image: imageInputs.clothingUrls,
           image_size: payload.imageSize,
+          onProgress: (progress) => onProgress?.(mapImageTaskProgress(progress, results, promptTrace, index - 1, generationCount)),
         });
         results.push(getResultUrl(result));
         promptTrace.push(createPromptTraceItem({
@@ -477,7 +509,7 @@ async function executePayload(
           prompt: posePrompt,
           compiledPrompt: result.compiledPrompt || posePrompt,
         }));
-        await onProgress?.({ resultUrls: results, promptTrace });
+        await onProgress?.(createCompletedImageProgress(results, promptTrace, result.taskId, index, generationCount));
       }
 
       return { resultUrls: results, promptTrace };
@@ -490,6 +522,7 @@ async function executePayload(
       aspect_ratio: "3:4",
       image: imageInputs.clothingUrls,
       image_size: payload.imageSize,
+      onProgress: (progress) => onProgress?.(mapImageTaskProgress(progress, [], [], 0, 1)),
     });
 
     return {
@@ -503,6 +536,38 @@ async function executePayload(
         compiledPrompt: result.compiledPrompt || prompt,
       })],
     };
+  }
+
+  if (payload.kind === "faceSwap") {
+    const imageInputs = await resolveImageInputs({
+      clothingUrls: [payload.sourceUrl, payload.faceUrl],
+    });
+    const resultUrls: string[] = [];
+    const prompt = enforceFaceSwapPromptRequirements(payload.prompt);
+
+    for (let i = 0; i < payload.genCount; i++) {
+      const result = await generateImage({
+        model: payload.aiModel,
+        prompt,
+        prompt_kind: "faceSwap",
+        aspect_ratio: payload.aspectRatio,
+        image: imageInputs.clothingUrls,
+        image_size: payload.imageSize,
+        onProgress: (progress) => onProgress?.(mapImageTaskProgress(progress, resultUrls, promptTrace, i, payload.genCount)),
+      });
+      resultUrls.push(getResultUrl(result));
+      promptTrace.push(createPromptTraceItem({
+        index: i + 1,
+        kind: payload.kind,
+        model: payload.aiModel,
+        promptKind: "faceSwap",
+        prompt,
+        compiledPrompt: result.compiledPrompt || prompt,
+      }));
+      await onProgress?.(createCompletedImageProgress(resultUrls, promptTrace, result.taskId, i + 1, payload.genCount));
+    }
+
+    return { resultUrls, promptTrace };
   }
 
   const imageInputs = await resolveImageInputs({
@@ -523,6 +588,7 @@ async function executePayload(
       aspect_ratio: payload.aspectRatio,
       image: imageInputs.clothingUrls,
       image_size: payload.imageSize,
+      onProgress: (progress) => onProgress?.(mapImageTaskProgress(progress, resultUrls, promptTrace, i, payload.genCount)),
     });
     resultUrls.push(getResultUrl(result));
     promptTrace.push(createPromptTraceItem({
@@ -533,9 +599,52 @@ async function executePayload(
       prompt,
       compiledPrompt: result.compiledPrompt || prompt,
     }));
+    await onProgress?.(createCompletedImageProgress(resultUrls, promptTrace, result.taskId, i + 1, payload.genCount));
   }
 
   return { resultUrls, promptTrace };
+}
+
+function mapImageTaskProgress(
+  progress: ImageTaskProgress,
+  currentResultUrls: string[],
+  currentPromptTrace: PromptTraceItem[],
+  completedCount: number,
+  expectedCount: number
+): GenerationProgressUpdate {
+  const safeExpected = Math.max(1, expectedCount);
+  const taskProgress = clampProgress(progress.progress);
+  const overall = Math.min(99, Math.round(((completedCount + taskProgress / 100) / safeExpected) * 100));
+  return {
+    resultUrls: currentResultUrls,
+    promptTrace: currentPromptTrace,
+    progress: overall,
+    externalTaskId: progress.taskId,
+    externalStatus: progress.providerStatus || progress.status,
+  };
+}
+
+function createCompletedImageProgress(
+  resultUrls: string[],
+  promptTrace: PromptTraceItem[],
+  taskId: string | undefined,
+  completedCount: number,
+  expectedCount: number
+): GenerationProgressUpdate {
+  const safeExpected = Math.max(1, expectedCount);
+  return {
+    resultUrls,
+    promptTrace,
+    progress: Math.min(100, Math.round((completedCount / safeExpected) * 100)),
+    externalTaskId: taskId,
+    externalStatus: "SUCCESS",
+  };
+}
+
+function clampProgress(value: unknown) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return 1;
+  return Math.min(Math.max(Math.round(num), 0), 100);
 }
 
 function createPromptTraceItem(params: Omit<PromptTraceItem, "createdAt">): PromptTraceItem {
@@ -555,6 +664,26 @@ function appendPromptTrace(payload: GenerationJobPayload, promptTrace: PromptTra
     promptTraceVersion: 1,
     promptTrace: promptTrace.slice(-8),
   };
+}
+
+function appendAsyncProgress(payload: GenerationJobPayload, update: GenerationProgressUpdate): GenerationJobPayload {
+  if (
+    typeof update.progress !== "number" &&
+    !update.externalTaskId &&
+    !update.externalStatus
+  ) {
+    return payload;
+  }
+
+  return {
+    ...payload,
+    asyncTask: {
+      taskId: update.externalTaskId,
+      status: update.externalStatus,
+      progress: typeof update.progress === "number" ? Math.min(Math.max(Math.round(update.progress), 0), 100) : undefined,
+      updatedAt: new Date().toISOString(),
+    },
+  } as unknown as GenerationJobPayload;
 }
 
 function appendQualityMetadata(
@@ -603,7 +732,7 @@ function getPayloadPrompt(payload: GenerationJobPayload) {
 }
 
 function getExpectedResultCount(payload: GenerationJobPayload) {
-  if (payload.kind === "pose") return normalizePoseOutputMode(payload.outputMode) === "separate" ? 4 : 1;
+  if (payload.kind === "pose") return getPoseGenerationCount(payload);
   return Math.max(1, Number((payload as { genCount?: number }).genCount || 1));
 }
 
@@ -621,6 +750,7 @@ function getPayloadReferenceImages(payload: GenerationJobPayload) {
   if (payload.kind === "grass") return [payload.garmentUrl, payload.referenceUrl].filter((url): url is string => typeof url === "string" && url.length > 0);
   if (payload.kind === "modelBackground") return [payload.sourceUrl, payload.modelReferenceUrl, payload.backgroundReferenceUrl].filter((url): url is string => typeof url === "string" && url.length > 0);
   if (payload.kind === "pose") return [payload.mainImageUrl];
+  if (payload.kind === "faceSwap") return [payload.sourceUrl, payload.faceUrl];
   return [payload.garmentUrl, payload.referenceUrl].filter((url): url is string => typeof url === "string" && url.length > 0);
 }
 
@@ -697,6 +827,16 @@ function isJobPayload(value: unknown): value is GenerationJobPayload {
       typeof value.genCount === "number";
   }
 
+  if (value.kind === "faceSwap") {
+    return typeof value.sourceUrl === "string" &&
+      typeof value.faceUrl === "string" &&
+      typeof value.aiModel === "string" &&
+      typeof value.aspectRatio === "string" &&
+      typeof value.imageSize === "string" &&
+      typeof value.prompt === "string" &&
+      typeof value.genCount === "number";
+  }
+
   return false;
 }
 
@@ -710,7 +850,7 @@ async function writeGenerationProgress(
     .from("generations")
     .update({
       result_urls: update.resultUrls,
-      job_payload: appendPromptTrace(payload, update.promptTrace),
+      job_payload: appendAsyncProgress(appendPromptTrace(payload, update.promptTrace), update),
     })
     .eq("id", job.id)
     .eq("user_id", job.user_id)
@@ -721,6 +861,13 @@ async function writeGenerationProgress(
 
 function normalizePoseOutputMode(value: unknown): PoseOutputMode {
   return value === "separate" ? "separate" : "grid";
+}
+
+function getPoseGenerationCount(payload: Extract<GenerationJobPayload, { kind: "pose" }>) {
+  if (normalizePoseOutputMode(payload.outputMode) !== "separate") return 1;
+  const num = Number(payload.genCount || 4);
+  if (!Number.isFinite(num)) return 4;
+  return Math.min(Math.max(Math.floor(num), 1), 4);
 }
 
 function buildSeparatePosePrompt(prompt: string, poseIndex: number) {

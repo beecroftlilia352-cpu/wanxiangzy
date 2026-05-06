@@ -40,7 +40,7 @@ type Props = {
 
 const PRESET_QUESTIONS = [
   { icon: <Camera className="h-4 w-4" />, title: "时尚街拍", text: "帮我生成一张时尚街拍" },
-  { icon: <LayoutTemplate className="h-4 w-4" />, title: "淘宝详情页", text: "生成一套淘宝详情页" },
+  { icon: <LayoutTemplate className="h-4 w-4" />, title: "电商详情页", text: "生成一套适合电商平台的详情页" },
   { icon: <Boxes className="h-4 w-4" />, title: "3D 展示", text: "生成一张3D立体商品展示图" },
   { icon: <Wand2 className="h-4 w-4" />, title: "拍摄方案", text: "给我一套商业拍摄创意" },
 ];
@@ -48,7 +48,7 @@ const PRESET_QUESTIONS = [
 const IMAGE_SUGGESTIONS = [
   { icon: <Shirt className="h-4 w-4" />, title: "换装", text: "图2人物穿图1衣服" },
   { icon: <Sparkles className="h-4 w-4" />, title: "姿势裂变", text: "生成4个不同姿势，每张单独出图" },
-  { icon: <LayoutTemplate className="h-4 w-4" />, title: "淘宝详情页", text: "根据这些图生成淘宝详情页" },
+  { icon: <LayoutTemplate className="h-4 w-4" />, title: "电商详情页", text: "根据这些图生成适合电商平台的详情页" },
   { icon: <Boxes className="h-4 w-4" />, title: "3D 展示", text: "做一张3D立体商品展示图" },
 ];
 
@@ -95,7 +95,14 @@ export function ChatArea({
   };
 
   const lastMsg = messages[messages.length - 1];
-  const showThinking = isSending && lastMsg && lastMsg.role === "assistant" && !lastMsg.content && !lastMsg.generation;
+  const lastMsgHasAgentTimeline = hasVisibleAgentTimeline(lastMsg);
+  const showThinking =
+    isSending &&
+    lastMsg &&
+    lastMsg.role === "assistant" &&
+    !lastMsg.content &&
+    !lastMsg.generation &&
+    !lastMsgHasAgentTimeline;
 
   if (messages.length === 0) {
     const hasImages = sessionImages.length > 0;
@@ -115,7 +122,11 @@ export function ChatArea({
             </p>
           </div>
 
-          <QuickActions items={suggestions} onQuickAction={onQuickAction} />
+          <QuickActions
+            items={suggestions}
+            onQuickAction={onQuickAction}
+            hasImages={hasImages}
+          />
 
         </div>
       </div>
@@ -188,30 +199,52 @@ export function ChatArea({
   );
 }
 
+function hasVisibleAgentTimeline(message: Message | undefined) {
+  if (!message || message.role !== "assistant") return false;
+  if (!message.params || typeof message.params !== "object") return false;
+  return message.params.showAgentTimeline === true && Array.isArray(message.params.agentTimeline);
+}
+
 function QuickActions({
   items,
   onQuickAction,
+  hasImages,
 }: {
   items: Array<{ icon: ReactNode; title: string; text: string }>;
   onQuickAction: (text: string) => void;
+  hasImages?: boolean;
 }) {
   return (
-    <div className="grid gap-2 sm:grid-cols-2">
-      {items.map((q) => (
-        <button
-          key={q.text}
-          onClick={() => onQuickAction(q.text)}
-          className="group flex min-h-20 items-start gap-3 rounded-lg border border-slate-200 bg-white/85 p-4 text-left shadow-sm transition-colors hover:border-violet-200 hover:bg-violet-50/60"
-        >
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-slate-100 text-slate-500 transition-colors group-hover:bg-white group-hover:text-violet-600">
-            {q.icon}
-          </span>
-          <span className="min-w-0">
-            <span className="block text-sm font-semibold text-slate-800">{q.title}</span>
-            <span className="mt-1 block text-xs leading-5 text-slate-500">{q.text}</span>
-          </span>
-        </button>
-      ))}
+    <div className="mx-auto max-w-2xl">
+      <p className="mb-3 text-center text-xs text-slate-400">
+        {hasImages ? "也可以直接输入自己的目标，Agent 会自动判断图片关系。" : "这些只是起点，也可以像聊天一样自由描述。"}
+      </p>
+      <div className="flex flex-wrap justify-center gap-2">
+        {items.map((q) => (
+          <button
+            key={q.text}
+            onClick={() => onQuickAction(q.text)}
+            className="group inline-flex max-w-full items-center gap-2 rounded-full border border-slate-200 bg-white/90 px-3.5 py-2 text-left text-sm shadow-sm transition-all hover:-translate-y-0.5 hover:border-violet-200 hover:bg-violet-50/70 hover:shadow-md"
+          >
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition-colors group-hover:bg-white group-hover:text-violet-600">
+              {q.icon}
+            </span>
+            <span className="min-w-0 truncate font-semibold text-slate-700">{q.title}</span>
+          </button>
+        ))}
+      </div>
+      <div className="mt-3 flex flex-wrap justify-center gap-1.5">
+        {items.slice(0, 3).map((q) => (
+          <button
+            key={`${q.text}-example`}
+            onClick={() => onQuickAction(q.text)}
+            className="max-w-full truncate rounded-full bg-slate-100/70 px-3 py-1.5 text-[11px] font-medium text-slate-500 transition-colors hover:bg-violet-50 hover:text-violet-600"
+            title={q.text}
+          >
+            {q.text}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

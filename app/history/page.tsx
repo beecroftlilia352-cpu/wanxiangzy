@@ -17,7 +17,7 @@ import { BACKGROUND_SOURCE_LABELS, MODEL_BACKGROUND_MODE_LABELS } from "@/lib/mo
 
 const HISTORY_PAGE_SIZE = 12;
 
-type HistoryModuleFilter = "all" | "tryon" | "grass" | "modelBackground" | "pose" | "model" | "garment3d";
+type HistoryModuleFilter = "all" | "tryon" | "grass" | "modelBackground" | "pose" | "model" | "garment3d" | "faceSwap";
 type HistoryStatusFilter = "all" | "completed" | "processing" | "pending" | "failed";
 
 const MODULE_FILTERS: { value: HistoryModuleFilter; label: string }[] = [
@@ -28,6 +28,7 @@ const MODULE_FILTERS: { value: HistoryModuleFilter; label: string }[] = [
   { value: "pose", label: "姿势裂变" },
   { value: "model", label: "专属模特" },
   { value: "garment3d", label: "服装 3D" },
+  { value: "faceSwap", label: "AI 换脸" },
 ];
 
 const STATUS_FILTERS: { value: HistoryStatusFilter; label: string }[] = [
@@ -849,6 +850,7 @@ function formatKind(kind?: HistoryJobPayload["kind"]) {
   if (kind === "grass") return "服装种草图";
   if (kind === "modelBackground") return "模特换背景";
   if (kind === "garment3d") return "服装转3D";
+  if (kind === "faceSwap") return "AI 换脸";
   if (kind === "model") return "专属模特";
   if (kind === "pose") return "姿势裂变";
   return "未知模块";
@@ -918,7 +920,7 @@ function getRowPayload(row: HistoryRow) {
   if (!payload || typeof payload !== "object") return undefined;
 
   const kind = (payload as { kind?: unknown }).kind;
-  if (kind === "tryon" || kind === "grass" || kind === "modelBackground" || kind === "garment3d" || kind === "model" || kind === "pose") {
+  if (kind === "tryon" || kind === "grass" || kind === "modelBackground" || kind === "garment3d" || kind === "model" || kind === "pose" || kind === "faceSwap") {
     return payload as HistoryJobPayload;
   }
 
@@ -983,6 +985,12 @@ function getInputImages(payload: HistoryJobPayload) {
   }
   if (payload.kind === "pose") {
     return [{ label: "主图", url: payload.mainImageUrl }];
+  }
+  if (payload.kind === "faceSwap") {
+    return [
+      { label: "原始模特图", url: payload.sourceUrl },
+      { label: "目标脸图", url: payload.faceUrl },
+    ];
   }
   return [];
 }
@@ -1067,6 +1075,16 @@ function getParameterItems(row: HistoryRow) {
       { label: "生成张数", value: "1" },
       { label: "拍摄风格", value: getPoseSeriesStyleLabel(payload.poseStyle) },
       { label: "表情控制", value: payload.varyExpression === false ? "尽量一致" : "自然变化" },
+    ];
+  }
+  if (payload.kind === "faceSwap") {
+    return [
+      ...common,
+      { label: "比例", value: payload.aspectRatio },
+      { label: "生成张数", value: String(payload.genCount) },
+      { label: "原始模特图", value: payload.sourceUrl ? "已使用" : "未使用" },
+      { label: "目标脸图", value: payload.faceUrl ? "已使用" : "未使用" },
+      { label: "规则", value: "只替换面部五官，不改变肤色、发型、身体、服装和场景" },
     ];
   }
   return common;

@@ -33,8 +33,13 @@ export function normalizeAgentModule(value: string | null): string | null {
     model_background: "model_background",
     background: "model_background",
     pose: "pose",
+    face_swap: "face_swap",
+    faceswap: "face_swap",
     general: "general",
     通用生图: "general",
+    AI换脸: "face_swap",
+    ai换脸: "face_swap",
+    换脸: "face_swap",
     服装上身: "tryon",
     换装: "tryon",
     种草图: "grass",
@@ -95,6 +100,12 @@ export function applyImageRoleParams(
         next.main_image_url = refs.source[0] || refs.reference[0] || refs.clothing[0];
       }
       break;
+    case "face_swap":
+      if (!hasParamRef(next.source_image) && (refs.source[0] || refs.reference[0] || refs.clothing[0])) {
+        next.source_image = refs.source[0] || refs.reference[0] || refs.clothing[0];
+      }
+      if (!hasParamRef(next.face_image) && refs.face[0]) next.face_image = refs.face[0];
+      break;
   }
 
   return next;
@@ -131,6 +142,10 @@ export function validateAgentDecision(
     case "pose":
       if (!hasAnyImage && !hasImageRef(params.main_image_url)) missing.push("主图");
       break;
+    case "face_swap":
+      if (!hasAnyImage && !hasImageRef(params.source_image)) missing.push("原始模特图");
+      if (!hasAnyImage && !hasImageRef(params.face_image)) missing.push("目标脸图");
+      break;
     default:
       return { ok: false, missingFields: ["有效功能模块"] };
   }
@@ -156,6 +171,8 @@ export function validateImageRoleConflicts(
     source: normalizeRefList(params.source_url),
     background: normalizeRefList(params.background_reference_url),
     main: normalizeRefList(params.main_image_url),
+    faceSwapSource: normalizeRefList(params.source_image),
+    faceSwapFace: normalizeRefList(params.face_image),
     modelRefs: normalizeRefList(params.reference_urls),
   };
 
@@ -193,6 +210,13 @@ export function validateImageRoleConflicts(
     case "pose":
       checkAllowed("姿势裂变主图", refs.main, ["source", "reference", "clothing"]);
       break;
+    case "face_swap":
+      checkAllowed("换脸原图", refs.faceSwapSource, ["source", "reference", "clothing"]);
+      checkAllowed("目标脸图", refs.faceSwapFace, ["face", "reference"]);
+      if (refs.faceSwapSource[0] && refs.faceSwapFace[0] && refs.faceSwapSource[0] === refs.faceSwapFace[0]) {
+        issues.push("AI 换脸需要原始模特图和目标脸图，不能使用同一张图。");
+      }
+      break;
     case "model":
       checkAllowed("专属模特参考图", refs.modelRefs, ["face", "reference"]);
       break;
@@ -225,6 +249,10 @@ export function buildPlanLines(module: string, params: Record<string, unknown>, 
       break;
     case "pose":
       describe("主图", params.main_image_url);
+      break;
+    case "face_swap":
+      describe("原始模特图", params.source_image);
+      describe("目标脸图", params.face_image);
       break;
     case "model":
       describe("模特参考", params.reference_urls);

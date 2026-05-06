@@ -1,6 +1,6 @@
 import type { LingyaModel } from "@/lib/api/lingya";
 
-export type ImagePromptKind = "tryon" | "grass" | "modelBackground" | "pose" | "model" | "garment3d";
+export type ImagePromptKind = "tryon" | "grass" | "modelBackground" | "pose" | "model" | "garment3d" | "faceSwap";
 
 const KIND_HEADERS: Record<ImagePromptKind, string> = {
   tryon:
@@ -15,6 +15,8 @@ const KIND_HEADERS: Record<ImagePromptKind, string> = {
     "核心任务：融合参考人脸的脸型骨相、五官比例、肤色、妆感、年龄感和气质，生成一个稳定真实的专属模特身份。",
   garment3d:
     "核心任务：把图1服装转换为无真人、无头脸手的 3D 立体商品展示图，只增加体积和棚拍质感，不改变款式颜色细节。",
+  faceSwap:
+    "核心任务：AI 换脸。图1是原始模特/主体画面，图2只提供面部五官身份；只替换五官，不改变图1肤色、发型、身体、服装、背景、光线和构图。",
 };
 
 const QUALITY_LINE =
@@ -79,6 +81,12 @@ const REQUIRED_SIGNALS: Record<ImagePromptKind, RequiredSignal[]> = {
     { name: "任务", pattern: /图像角色|3D|立体|无真人/, fallback: "核心任务：把图1服装转换为无真人、无头脸手的3D立体商品展示图。" },
     { name: "服装还原", pattern: /严格保留|服装.*版型|颜色|材质|纹理/, fallback: "服装还原：严格保留图1服装品类、版型、颜色、材质、纹理、图案、纽扣、拉链、口袋和主要细节。" },
     { name: "负面约束", pattern: /负面约束|不要生成真人|不要改变/, fallback: "负面约束：不要生成真人身体、模特脸或多件衣服，不要改变服装类型、主色、文字、logo和结构。" },
+  ],
+  faceSwap: [
+    { name: "图像角色", pattern: /图1.*原始|图2.*脸|目标脸/, fallback: "图像角色：图1是原始模特/主体画面；图2只提供目标脸的五官身份。" },
+    { name: "只换五官", pattern: /只替换|五官|does not change/, fallback: "换脸规则：Swap Face only changes facial features. It does not change the model's skin tone or hairstyle." },
+    { name: "保留项", pattern: /肤色|发型|身体|服装|背景|光线|构图/, fallback: "保留项：严格保持图1肤色、发型、发色、身体比例、服装、背景、光线、镜头和构图不变。" },
+    { name: "负面约束", pattern: /不要|禁止|负面/, fallback: "负面约束：不要换肤色，不要换发型，不要换衣服，不要改变姿势、场景、画幅，不要生成多余人物或文字水印。" },
   ],
 };
 

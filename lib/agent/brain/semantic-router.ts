@@ -64,8 +64,8 @@ function buildRouterPrompt(
     "Output schema:",
     JSON.stringify({
       action: "chat|generate|clarify",
-      module: "general|tryon|grass|garment_3d|model|model_background|pose|null",
-      taskType: "text_to_image|image_to_image|commerce_detail|commerce_creative|reference_redesign|tryon|pose_variation|garment_3d|background_replace|null",
+      module: "general|tryon|grass|garment_3d|model|model_background|pose|face_swap|null",
+      taskType: "text_to_image|image_to_image|commerce_detail|commerce_creative|reference_redesign|tryon|pose_variation|garment_3d|background_replace|face_swap|null",
       reply: "Chinese answer or confirmation preface",
       clarificationQuestion: "one concise Chinese question if action=clarify",
       confidence: 0.0,
@@ -85,6 +85,7 @@ function buildRouterPrompt(
     "- model: create exclusive model/reference face",
     "- model_background: replace background/scene",
     "- pose: pose variation/four-grid/separate pose images",
+    "- face_swap: swap only facial features from a target face onto an original model image; keep skin tone, hairstyle, body, clothes, background, lighting, camera, and framing unchanged",
     "",
     "Dynamic candidate tools:",
     candidateTools.length ? JSON.stringify(candidateTools) : "[]",
@@ -155,6 +156,24 @@ function deterministicRouterFallback(
   let confidence = hasImages ? 0.52 : 0.48;
   const params: Record<string, unknown> = {};
 
+  const faceSwapRefs = parseFaceSwapRefs(text);
+  const wantsFaceSwap = isFaceSwapText(text);
+  if (faceSwapRefs || (wantsFaceSwap && hasImages)) {
+    action = "generate";
+    module = "face_swap";
+    if (faceSwapRefs) {
+      params.source_image = faceSwapRefs.sourceRef;
+      params.face_image = faceSwapRefs.faceRef;
+    } else {
+      params.source_image = "图1";
+      params.face_image = request.images.length > 1 ? "图2" : "图1";
+    }
+    confidence = faceSwapRefs ? 0.88 : 0.78;
+  } else if (wantsFaceSwap) {
+    action = "clarify";
+    module = null;
+    confidence = 0.62;
+  } else {
   const tryonRefs = parseTryonRefs(text);
   if (tryonRefs) {
     action = "generate";
@@ -202,6 +221,7 @@ function deterministicRouterFallback(
     };
     params.prompt = visualTaskPlan.prompt;
     confidence = 0.7;
+  }
   }
 
   return {
@@ -292,14 +312,14 @@ function normalizeAction(value: unknown): AgentBrainDecision["action"] {
 
 function normalizeModule(value: unknown): AgentBrainModule | null {
   if (typeof value !== "string") return null;
-  if (["general", "tryon", "grass", "garment_3d", "model", "model_background", "pose"].includes(value)) return value as AgentBrainModule;
+  if (["general", "tryon", "grass", "garment_3d", "model", "model_background", "pose", "face_swap"].includes(value)) return value as AgentBrainModule;
   return null;
 }
 
 function normalizeTaskType(value: unknown): BrainVisualTaskType | null {
   if (typeof value !== "string") return null;
   if (["commerce_detail", "commerce_creative", "reference_redesign", "text_to_image", "image_to_image"].includes(value)) return value as BrainVisualTaskType;
-  if (value === "tryon" || value === "pose_variation" || value === "garment_3d" || value === "background_replace") return null;
+  if (value === "tryon" || value === "pose_variation" || value === "garment_3d" || value === "background_replace" || value === "face_swap") return null;
   return null;
 }
 
@@ -356,6 +376,31 @@ export function parseTryonRefs(text: string): { personRef: string; clothingRef: 
       : { personRef: second, clothingRef: first };
   }
   return null;
+}
+
+export function parseFaceSwapRefs(text: string): { sourceRef: string; faceRef: string } | null {
+  const patterns = [
+    /图\s*(\d+).{0,10}(?:作为|当作|是|做|用作).{0,10}(?:原图|原始图|模特图|主图|目标图|底图).{0,24}图\s*(\d+).{0,10}(?:作为|当作|是|做|用作).{0,10}(?:脸图|目标脸|参考脸|人脸|五官)/,
+    /(?:用|把|将)\s*图\s*(\d+).{0,12}(?:的脸|脸|五官|面部).{0,18}(?:给|为|替换到|换到|放到|应用到|套到).{0,8}图\s*(\d+)/,
+    /图\s*(\d+).{0,18}(?:换脸|替换脸|换五官|替换五官|脸).{0,18}(?:图|到|成|为)\s*(\d+)/,
+    /(?:把|将)?\s*图\s*(\d+).{0,18}(?:的脸|五官|面部).{0,18}(?:换到|替换到|放到|应用到|套到)\s*图\s*(\d+)/,
+    /(?:把|将)?\s*图\s*(\d+).{0,18}(?:换成|换为|替换为|使用)\s*图\s*(\d+).{0,12}(?:的脸|五官|脸)/,
+  ];
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (!match) continue;
+    const first = `图${Number(match[1])}`;
+    const second = `图${Number(match[2])}`;
+    if (/给|为|替换到|换到|放到|应用到|套到/.test(match[0]) && !/(作为|当作|用作).{0,10}(?:原图|原始图|模特图|主图|目标图|底图)/.test(match[0])) {
+      return { sourceRef: second, faceRef: first };
+    }
+    return { sourceRef: first, faceRef: second };
+  }
+  return null;
+}
+
+function isFaceSwapText(text: string) {
+  return /换脸|替换脸|人脸替换|换五官|替换五官|face\s*swap/i.test(text);
 }
 
 function requestTracePlaceholder(): AgentBrainDecision["trace"] {

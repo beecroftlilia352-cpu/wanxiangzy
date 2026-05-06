@@ -1,6 +1,7 @@
 import { persistGeneratedImageUrls } from "@/lib/api/result-image-storage";
 import { gatewayGenerateImages, gatewayTryOn } from "@/lib/agent/workflow/model-gateway";
 import { checkImageOutputs } from "@/lib/agent/workflow/quality";
+import { buildFaceSwapPrompt, enforceFaceSwapPromptRequirements } from "@/lib/face-swap";
 import type {
   StepExecutionInput,
   StepExecutionResult,
@@ -18,7 +19,10 @@ export const STEP_EXECUTORS: Partial<Record<WorkflowToolType, StepExecutor>> = {
   background_replace: executeBackgroundReplace,
   garment_3d: executeGarment3d,
   tryon: executeTryon,
+  face_swap: executeFaceSwap,
   pose_variation: executePoseVariation,
+  commerce_detail_section: executeCommerceDetailSection,
+  commerce_detail_stitch: executeCommerceDetailStitch,
   select_image: executeSelectImage,
   image_quality_check: executeQualityCheck,
   prompt_repair: executePromptRepair,
@@ -56,6 +60,63 @@ async function executeCommerceDetail(input: StepExecutionInput) {
     promptKind: undefined,
     fallbackPrompt: prompt,
   });
+}
+
+async function executeCommerceDetailSection(input: StepExecutionInput) {
+  const params = input.step.params;
+  const sectionIndex = Number(params.sectionIndex || 1);
+  const sectionTotal = Number(params.sectionTotal || 1);
+  const sectionTitle = String(params.sectionTitle || input.step.title || `Detail section ${sectionIndex}`);
+  const sectionPurpose = String(params.sectionPurpose || "");
+  const platform = String(params.platform || "general").trim() || "general";
+  const layout = String(params.layout || "mobile").toLowerCase() === "desktop" ? "desktop" : "mobile";
+  const mobileWidth = Number(params.mobileWidth || 750);
+  const prompt = [
+    layout === "desktop"
+      ? `Create one desktop commerce detail page section for ${platform}.`
+      : `Create one mobile-first commerce detail page section for ${platform}.`,
+    `Section ${sectionIndex} of ${sectionTotal}: ${sectionTitle}.`,
+    sectionPurpose ? `This section's unique purpose: ${sectionPurpose}.` : "",
+    `This image is only module ${sectionIndex}/${sectionTotal}. It must be visually and structurally different from the other modules, focused on "${sectionTitle}" only.`,
+    layout === "desktop"
+      ? "Use a spacious desktop/web composition with clear hero, content blocks, and readable copy. Do not make a mobile long strip."
+      : `Target mobile width: ${mobileWidth}px. Use a one-screen vertical mobile commerce layout, large readable title, 2-4 short selling points, strong hierarchy, and generous breathing room.`,
+    "Generate exactly one standalone section image focused only on this section. Do not create a full long page, full product detail page, collage, four-grid, multi-panel contact sheet, parameter sheet, or multiple sections in one image.",
+    "Do not repeat the same hero + icons + table composition across modules. Change composition by module: hero module can be visual-led, selling-points module can use benefit cards, material module can use close-up details, scene module can use lifestyle composition, parameter module can use simplified specs.",
+    "Do not compress too much information into tiny PC-style tables. Unless this section is specifically about parameters/specs, avoid tables. If parameters are needed, show only the most important few items in large readable mobile cards.",
+    "Keep the referenced product/person/garment identity, material, color, silhouette and commercial photography quality stable.",
+    getCommercePlatformGuidance(platform),
+    String(params.prompt || input.workflow.summary || ""),
+  ].filter(Boolean).join("\n");
+  const result = await gatewayGenerateImages({
+    model: input.model,
+    prompt,
+    promptKind: undefined,
+    aspectRatio: input.aspectRatio,
+    imageSize: input.imageSize,
+    images: resolveImageList(input, input.step.input.referenceImages),
+    count: 1,
+    onProgress: input.onProgress,
+  });
+  return persistAndCheck(input, result.urls, result.promptTrace, result.providerTrace, 1);
+}
+
+async function executeCommerceDetailStitch(input: StepExecutionInput): Promise<StepExecutionResult> {
+  const urls = resolveImageList(input, input.step.input.imageUrls || input.step.input.images);
+  if (!urls.length) throw new Error("详情页拼接步骤缺少可拼接图片");
+  const width = clampNumber(input.step.params.width || input.step.params.mobileWidth || 750, 320, 1440);
+  const sectionHeight = clampNumber(input.step.params.sectionHeight || 1000, 480, 1800);
+  const gap = clampNumber(input.step.params.gap ?? 0, 0, 80);
+  const background = typeof input.step.params.background === "string" ? input.step.params.background : "#ffffff";
+  const stitched = buildCommerceDetailSvgDataUrl(urls, { width, sectionHeight, gap, background });
+  const quality = await checkImageOutputs([stitched], 1);
+  return {
+    output: {
+      imageUrls: [stitched],
+      text: `已拼接 ${urls.length} 个详情页板块，手机宽度 ${width}px。`,
+    },
+    quality,
+  };
 }
 
 async function executeCommerceCreative(input: StepExecutionInput) {
@@ -107,6 +168,32 @@ async function executeTryon(input: StepExecutionInput): Promise<StepExecutionRes
     imageSize: input.imageSize,
     count,
     style: typeof input.step.params.style === "string" ? input.step.params.style : undefined,
+    onProgress: input.onProgress,
+  });
+  return persistAndCheck(input, result.urls, result.promptTrace, result.providerTrace, count);
+}
+
+async function executeFaceSwap(input: StepExecutionInput): Promise<StepExecutionResult> {
+  const source = resolveImageList(input, input.step.input.sourceImage || input.step.input.originalImage || input.step.input.modelImage)[0];
+  const face = resolveImageList(input, input.step.input.faceImage || input.step.input.targetFaceImage || input.step.input.referenceImage)[0];
+  if (!source || !face) {
+    throw new Error("AI 换脸需要两张图：原始模特图和目标脸图");
+  }
+
+  const count = normalizeCount(input.step.params.count || input.step.params.genCount || 1);
+  const prompt = enforceFaceSwapPromptRequirements(
+    buildFaceSwapPrompt(String(input.step.params.prompt || input.workflow.summary || ""))
+  );
+  const result = await gatewayGenerateImages({
+    model: input.model,
+    prompt,
+    promptKind: "faceSwap",
+    toolType: "face_swap",
+    aspectRatio: input.aspectRatio,
+    imageSize: input.imageSize,
+    images: [source, face],
+    count,
+    onProgress: input.onProgress,
   });
   return persistAndCheck(input, result.urls, result.promptTrace, result.providerTrace, count);
 }
@@ -114,13 +201,18 @@ async function executeTryon(input: StepExecutionInput): Promise<StepExecutionRes
 async function executePoseVariation(input: StepExecutionInput) {
   const source = resolveImageList(input, input.step.input.sourceImage)[0];
   if (!source) throw new Error("姿势裂变步骤缺少主图");
-  const outputMode = input.step.params.outputMode === "separate" ? "separate" : "grid";
+  const requestedCount = normalizeCount(input.step.params.count || input.step.params.genCount || 4);
+  const outputMode = resolvePoseOutputMode(input.step, requestedCount);
+  const generationCount = outputMode === "separate" ? requestedCount : 1;
   const prompt = [
     outputMode === "separate"
       ? "基于主图生成一组不同姿势的独立图片，保持人物身份、服装结构、身体比例和光线质感稳定。"
       : "基于主图生成 2x2 四宫格姿势变化图，保持人物身份、服装结构、身体比例和光线质感稳定。",
     "姿势自然可信，避免手指、关节、肢体拉长和换脸。",
     String(input.step.params.prompt || input.workflow.summary || ""),
+    outputMode === "separate"
+      ? `Output contract: this workflow will make ${generationCount} separate calls. Each call must return exactly one standalone full-subject photo. Do not create a collage, four-grid, 2x2 layout, split panel, contact sheet, or pose sheet.`
+      : "Output contract: create one 2x2 four-panel grid image.",
   ].join("\n");
   const result = await gatewayGenerateImages({
     model: input.model,
@@ -129,9 +221,47 @@ async function executePoseVariation(input: StepExecutionInput) {
     aspectRatio: input.aspectRatio,
     imageSize: input.imageSize,
     images: [source],
-    count: outputMode === "separate" ? 4 : 1,
+    count: generationCount,
+    onProgress: input.onProgress,
+    promptForIndex: outputMode === "separate"
+      ? (index, total) => [
+        prompt,
+        `This is variation ${index} of ${total}. Generate only one standalone image for this call.`,
+        getPoseVariationBrief(index),
+      ].join("\n")
+      : undefined,
   });
-  return persistAndCheck(input, result.urls, result.promptTrace, result.providerTrace, outputMode === "separate" ? 4 : 1);
+  return persistAndCheck(input, result.urls, result.promptTrace, result.providerTrace, generationCount);
+}
+
+function resolvePoseOutputMode(step: WorkflowStepRecord, requestedCount: number): "separate" | "grid" {
+  const rawMode = String(step.params.outputMode || step.params.output_mode || step.params.outputType || "").toLowerCase();
+  const intentText = [
+    step.title,
+    step.params.userText,
+    step.params.originalPrompt,
+  ]
+    .map((value) => (typeof value === "string" ? value : ""))
+    .join(" ");
+
+  if (rawMode === "separate" || rawMode === "single" || rawMode === "individual") return "separate";
+  if (hasExplicitGridIntent(intentText)) return "grid";
+  if (requestedCount > 1) return "separate";
+  return rawMode === "grid" ? "grid" : "separate";
+}
+
+function hasExplicitGridIntent(text: string) {
+  return /\u56db\u5bab\u683c|\u5bab\u683c|\u62fc\u56fe|\u5206\u683c|2\s*[x\u00d7]\s*2|grid|collage|contact\s*sheet|pose\s*sheet/i.test(text);
+}
+
+function getPoseVariationBrief(index: number) {
+  const briefs = [
+    "Pose direction: calm front-facing fashion stance with natural arms.",
+    "Pose direction: slight body angle with one hand near waist or pocket, relaxed expression.",
+    "Pose direction: gentle contrapposto stance, one arm changing naturally, commercial lookbook feel.",
+    "Pose direction: subtle side or three-quarter turn, stable posture, clothing still clearly visible.",
+  ];
+  return briefs[(index - 1) % briefs.length];
 }
 
 async function executeSelectImage(input: StepExecutionInput): Promise<StepExecutionResult> {
@@ -187,6 +317,7 @@ async function runImageGeneration(
     imageSize: input.imageSize,
     images: options.images,
     count,
+    onProgress: input.onProgress,
   });
   return persistAndCheck(input, result.urls, result.promptTrace, result.providerTrace, count);
 }
@@ -220,6 +351,12 @@ function resolveImageRef(input: StepExecutionInput, value: unknown): string | nu
   if (typeof value !== "string") return null;
   if (value.startsWith("http") || value.startsWith("data:image/")) return value;
 
+  const readableImageMatch = value.match(/(?:\u56fe|image:)\s*(\d+)/i);
+  if (readableImageMatch) {
+    const index = Number(readableImageMatch[1]);
+    return input.inputImages.find((img) => img.index === index)?.url || null;
+  }
+
   const imageMatch = value.match(/(?:图|image:)\s*(\d+)/i);
   if (imageMatch) {
     const index = Number(imageMatch[1]);
@@ -243,4 +380,56 @@ function normalizeCount(value: unknown) {
   const num = Number(value || 1);
   if (!Number.isFinite(num)) return 1;
   return Math.min(Math.max(Math.floor(num), 1), 4);
+}
+
+function clampNumber(value: unknown, min: number, max: number) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return min;
+  return Math.min(Math.max(Math.floor(num), min), max);
+}
+
+function getCommercePlatformGuidance(platform: string) {
+  const normalized = platform.toLowerCase();
+  if (/xiaohongshu|red|小红书|\u5c0f\u7ea2\u4e66/.test(normalized)) {
+    return "Platform tone: Xiaohongshu-style useful content, clean lifestyle mood, authentic selling points, not overstuffed with text.";
+  }
+  if (/douyin|tiktok|抖音|\u6296\u97f3/.test(normalized)) {
+    return "Platform tone: Douyin commerce visual, strong hook, bold benefit hierarchy, fast-scanning mobile layout.";
+  }
+  if (/pdd|pinduoduo|拼多多|\u62fc\u591a\u591a/.test(normalized)) {
+    return "Platform tone: PDD commerce visual, clear value proposition, direct benefits, strong readability and conversion focus.";
+  }
+  if (/taobao|tmall|淘宝|天猫|\u6dd8\u5b9d|\u5929\u732b/.test(normalized)) {
+    return "Platform tone: Taobao/Tmall detail page, structured product story, premium but readable mobile e-commerce design.";
+  }
+  if (/jd|jingdong|京东|\u4eac\u4e1c/.test(normalized)) {
+    return "Platform tone: JD detail page, trustworthy product specification, clean sections, precise benefit and parameter presentation.";
+  }
+  return "Platform tone: universal mobile commerce detail page, adaptable to marketplace, content commerce, or independent store use.";
+}
+
+function buildCommerceDetailSvgDataUrl(
+  urls: string[],
+  options: { width: number; sectionHeight: number; gap: number; background: string }
+) {
+  const totalHeight = urls.length * options.sectionHeight + Math.max(0, urls.length - 1) * options.gap;
+  const images = urls.map((url, index) => {
+    const y = index * (options.sectionHeight + options.gap);
+    return `<image href="${escapeXml(url)}" x="0" y="${y}" width="${options.width}" height="${options.sectionHeight}" preserveAspectRatio="xMidYMid slice"/>`;
+  }).join("");
+  const svg = [
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${options.width}" height="${totalHeight}" viewBox="0 0 ${options.width} ${totalHeight}">`,
+    `<rect width="100%" height="100%" fill="${escapeXml(options.background)}"/>`,
+    images,
+    "</svg>",
+  ].join("");
+  return `data:image/svg+xml;base64,${Buffer.from(svg, "utf8").toString("base64")}`;
+}
+
+function escapeXml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }

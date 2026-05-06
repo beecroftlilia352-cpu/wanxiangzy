@@ -8,6 +8,7 @@ import { applyConfirmImageRoles, validateConfirmImageRoles } from "@/lib/agent/c
 import { getCreditCost, normalizeImageSize, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
 import { applyRepairPrompt, type RepairKind } from "@/lib/generation-repair";
 import { uploadImage, compressImageForAgent } from "@/lib/utils";
+import { orderWorkflowSteps } from "@/lib/agent/workflow/order";
 import type {
   PlanValidationResult,
   WorkflowAssetRecord,
@@ -169,6 +170,10 @@ function inferDefaultImageRole(index: number): ChatImageRole {
   return "auto";
 }
 
+function getNextImageIndex(images: ChatImage[]) {
+  return Math.max(0, ...images.map((image) => Number(image.index) || 0)) + 1;
+}
+
 function readSavedIntentMode(): AgentIntentMode {
   return "smart";
 }
@@ -191,7 +196,7 @@ export const useAgentStore = create<Store>((set, get) => ({
     try {
       const res = await fetch("/api/conversations");
       if (!res.ok) return;
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       set({ conversations: data });
     } catch {}
   },
@@ -242,6 +247,7 @@ export const useAgentStore = create<Store>((set, get) => ({
         const dbMessages = await res.json();
         if (Array.isArray(dbMessages)) {
           set({ messages: dbMessages });
+          resumeGenerationPolling(get, set, id, dbMessages);
         }
       }
     } catch {}
@@ -270,7 +276,7 @@ export const useAgentStore = create<Store>((set, get) => ({
 
   addImages: async (files: File[]) => {
     const current = get().inputImages;
-    const start = current.length;
+    const start = getNextImageIndex(current) - 1;
     const placeholders: ChatImage[] = files.map((f, i) => ({
       index: start + i + 1,
       url: URL.createObjectURL(f),
@@ -291,18 +297,23 @@ export const useAgentStore = create<Store>((set, get) => ({
         }));
       } catch {
         set((s) => ({
-          inputImages: s.inputImages.filter((img) => img.index !== placeholders[i].index)
-            .map((img, idx) => ({ ...img, index: idx + 1 })),
+          inputImages: s.inputImages.map((img) =>
+            img.index === placeholders[i].index
+              ? { ...img, uploading: false, uploadError: "上传失败，请移除后重新上传" }
+              : img
+          ),
         }));
       }
     }
     // 持久化图片到对话（用 hostedUrl 替代 blob URL）
     const { activeId, inputImages } = get();
     if (activeId) {
-      const persisted = inputImages.map((img) => ({
-        ...img,
-        url: img.hostedUrl || img.url,
-      }));
+      const persisted = inputImages
+        .filter((img) => !img.uploadError)
+        .map((img) => ({
+          ...img,
+          url: img.hostedUrl || img.url,
+        }));
       fetch(`/api/conversations/${activeId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -316,7 +327,7 @@ export const useAgentStore = create<Store>((set, get) => ({
     set((s) => {
       const removed = s.inputImages[index];
       if (removed?.url?.startsWith("blob:")) URL.revokeObjectURL(removed.url);
-      nextImages = s.inputImages.filter((_, i) => i !== index).map((img, i) => ({ ...img, index: i + 1 }));
+      nextImages = s.inputImages.filter((_, i) => i !== index);
       return { inputImages: nextImages };
     });
     const { activeId } = get();
@@ -364,7 +375,7 @@ export const useAgentStore = create<Store>((set, get) => ({
       inputImages: [
         ...s.inputImages,
         {
-          index: s.inputImages.length + 1,
+          index: getNextImageIndex(s.inputImages),
           url,
           hostedUrl: url,
           fileName: "参考图",
@@ -411,6 +422,7 @@ export const useAgentStore = create<Store>((set, get) => ({
     const { inputText, inputImages, params, intentMode, activeId, conversations } = get();
     const trimmed = inputText.trim();
     if (!trimmed && inputImages.length === 0) return;
+    if (inputImages.some((image) => image.uploading || image.uploadError)) return;
 
     // 确保有对话
     let convId = activeId;
@@ -459,23 +471,32 @@ export const useAgentStore = create<Store>((set, get) => ({
       created_at: new Date().toISOString(),
     };
     const showPlanningTimeline = shouldShowPlanningTimeline(trimmed, currentImages.length, intentMode);
+    const timelineProfile = createAgentTimelineProfile(trimmed, currentImages.length);
 
     // AI 消息占位
     const aiMsg: Message = {
       id: uid(), conversation_id: convId, role: "assistant", content: "",
       images: [], generation: null, params: showPlanningTimeline ? {
         showAgentTimeline: true,
-        agentTimeline: [
-          { label: "接收请求", status: "done", detail: "已拿到文字、图片和当前上下文" },
-          { label: "理解意图", status: "running", detail: "正在判断是聊天、生成、工作流还是需要追问" },
-          { label: "选择工具", status: "pending", detail: "根据目标和图片关系选择可执行能力" },
-          { label: "复核计划", status: "pending", detail: "检查是否误判、是否需要确认或扣分" },
-        ],
+        agentTimeline: timelineProfile.initial,
       } : {}, mode: "agent",
       created_at: new Date().toISOString(),
     };
 
     set((s) => ({ messages: [...s.messages, userMsg, aiMsg] }));
+    if (showPlanningTimeline) {
+      timelineProfile.advances.forEach((advance) => {
+        window.setTimeout(() => {
+          set((s) => ({
+            messages: s.messages.map((m) =>
+              m.id === aiMsg.id && m.params?.showAgentTimeline === true
+                ? { ...m, params: { ...(m.params || {}), agentTimeline: runningAgentTimeline(readTimelineFromParams(m.params), advance.label, advance.detail) } }
+                : m
+            ),
+          }));
+        }, advance.delayMs);
+      });
+    }
 
     // 保存用户消息
     saveMessage(convId, { id: userMsg.id, role: "user", content: trimmed, images: persistedImages, mode: "agent" });
@@ -536,7 +557,7 @@ export const useAgentStore = create<Store>((set, get) => ({
         set((s) => ({
           messages: s.messages.map((m) =>
             m.id === aiMsg.id
-              ? { ...m, params: { ...(m.params || {}), agentTimeline: runningAgentTimeline("选择工具", "已进入 Agent Brain 多工具循环") } }
+              ? { ...m, params: { ...(m.params || {}), agentTimeline: runningAgentTimeline(readTimelineFromParams(m.params), "选择工具", "已进入 Agent Brain 多工具循环，正在匹配最稳的执行路径") } }
               : m
           ),
         }));
@@ -657,6 +678,40 @@ export const useAgentStore = create<Store>((set, get) => ({
   retryMessage: (id: string) => {
     const { messages } = get();
     const idx = messages.findIndex((m) => m.id === id);
+    if (idx < 0) return;
+    const target = messages[idx];
+    const lastRun = target?.generation?._lastRunData;
+    if (target?.role === "assistant" && lastRun) {
+      const normalizedParams = normalizeConfirmRunParams(lastRun.params);
+      const creditsCost = calculateConfirmCredits(normalizedParams);
+      const nextConfirmData = {
+        ...lastRun,
+        params: writeConfirmParams(lastRun.params, normalizedParams),
+        jobPayload: writeConfirmPayloadParams(lastRun.jobPayload, normalizedParams),
+        creditsCost,
+      };
+      let updatedGeneration: unknown = null;
+      set((s) => ({
+        messages: s.messages.map((m) => {
+          if (m.id !== id || !m.generation) return m;
+          const generation = {
+            ...m.generation,
+            status: "pending" as const,
+            progress: 0,
+            resultUrls: [],
+            error: undefined,
+            generationId: undefined,
+            creditsUsed: creditsCost,
+            _confirmData: nextConfirmData,
+            _lastRunData: lastRun,
+          };
+          updatedGeneration = generation;
+          return { ...m, generation };
+        }),
+      }));
+      if (updatedGeneration) updateMessageGeneration(target.conversation_id, id, updatedGeneration);
+      return;
+    }
     if (idx < 1) return;
     const userMsg = messages[idx - 1];
     if (userMsg.role !== "user") return;
@@ -678,7 +733,13 @@ export const useAgentStore = create<Store>((set, get) => ({
         const nextSize = normalizeImageSize(nextModel, patch.imageSize || current.imageSize, nextRatio);
         const nextCount = Math.min(Math.max(Number(patch.count ?? current.count) || 1, 1), 4);
         const nextPrompt = patch.prompt ?? current.prompt;
-        const nextCost = getCreditCost(nextModel, nextSize, nextRatio) * nextCount;
+        const nextCost = calculateConfirmCredits({
+          model: nextModel,
+          aspectRatio: nextRatio,
+          imageSize: nextSize,
+          count: nextCount,
+          prompt: nextPrompt,
+        });
         const nextParams = writeConfirmParams(m.generation._confirmData.params, {
           model: nextModel,
           aspectRatio: nextRatio,
@@ -908,22 +969,19 @@ export const useAgentStore = create<Store>((set, get) => ({
       if (blockedGen) updateMessageGeneration(convId, messageId, blockedGen);
       return;
     }
-    let requestProgressTimer: ReturnType<typeof setInterval> | null = null;
-
     // 更新为 generating 状态
     set((s) => ({
       isSending: true,
       messages: s.messages.map((m) =>
         m.id === messageId && m.generation
-          ? { ...m, generation: { ...m.generation, status: "generating" as const, progress: 5 } }
+          ? { ...m, generation: { ...m.generation, status: "generating" as const, progress: 0, _lastRunData: confirmData } }
           : m
       ),
     }));
     const generatingGen = get().messages.find((m) => m.id === messageId)?.generation;
     if (generatingGen) {
-      updateMessageGeneration(convId, messageId, generatingGen);
+        updateMessageGeneration(convId, messageId, generatingGen);
     }
-    requestProgressTimer = startRequestProgress(set, messageId);
 
     try {
       // 调用 API 执行生成
@@ -936,11 +994,6 @@ export const useAgentStore = create<Store>((set, get) => ({
 
       if (!res.ok) {
         throw new Error(data.error || "生成失败");
-      }
-
-      if (requestProgressTimer) {
-        clearInterval(requestProgressTimer);
-        requestProgressTimer = null;
       }
 
       // 通用生图：直接返回结果（无 generation_id）
@@ -983,7 +1036,7 @@ export const useAgentStore = create<Store>((set, get) => ({
                 generation: {
                   ...m.generation,
                   status: "generating" as const,
-                  progress: 25,
+                  progress: normalizeServerProgress(data.progress, "processing_tryon"),
                   generationId: data.generation_id,
                   creditsUsed: data.credits_cost || confirmData.creditsCost,
                   _lastRunData: confirmData,
@@ -999,12 +1052,8 @@ export const useAgentStore = create<Store>((set, get) => ({
         updateMessageGeneration(convId, messageId, updatedGen);
       }
 
-      pollGeneration(get, set, messageId, convId, data.generation_id, confirmData.module);
+      pollGeneration(get, set, messageId, convId, data.generation_id);
     } catch (err) {
-      if (requestProgressTimer) {
-        clearInterval(requestProgressTimer);
-        requestProgressTimer = null;
-      }
       const errMsg = err instanceof Error ? err.message : "生成失败";
       set((s) => ({
         isSending: false,
@@ -1077,7 +1126,61 @@ export const useAgentStore = create<Store>((set, get) => ({
   },
 
   cancelWorkflow: async (messageId: string) => {
-    await mutateWorkflowFromMessage(get, set, messageId, "cancel", { poll: false });
+    const msg = get().messages.find((m) => m.id === messageId);
+    const payload = getWorkflowPayload(msg?.params);
+    const workflowId = payload?.workflow.id;
+    if (!msg || !payload || !workflowId) return;
+
+    const optimisticPayload = markWorkflowStatus(payload, "cancelled");
+    clearPollTimer(get, set, `workflow:${workflowId}`);
+    set((s) => ({
+      isSending: false,
+      messages: s.messages.map((m) =>
+        m.id === messageId
+          ? { ...m, params: { ...(m.params || {}), workflow: optimisticPayload } }
+          : m
+      ),
+    }));
+    updateMessageParams(msg.conversation_id, messageId, { ...(msg.params || {}), workflow: optimisticPayload });
+
+    try {
+      const res = await fetch(`/api/agent/workflows/${workflowId}/cancel`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "取消 workflow 失败");
+      const nextPayload = normalizeWorkflowPayload(data) || optimisticPayload;
+      set((s) => ({
+        isSending: false,
+        messages: s.messages.map((m) =>
+          m.id === messageId
+            ? { ...m, params: { ...(m.params || {}), workflow: nextPayload } }
+            : m
+        ),
+      }));
+      const currentParams = get().messages.find((m) => m.id === messageId)?.params || {};
+      updateMessageParams(msg.conversation_id, messageId, { ...currentParams, workflow: nextPayload });
+    } catch (err) {
+      const syncedPayload = {
+        ...optimisticPayload,
+        workflow: {
+          ...optimisticPayload.workflow,
+          error_message: `已在本地取消，服务端同步失败：${err instanceof Error ? err.message : "未知错误"}`,
+        },
+      };
+      set((s) => ({
+        isSending: false,
+        messages: s.messages.map((m) =>
+          m.id === messageId
+            ? { ...m, params: { ...(m.params || {}), workflow: syncedPayload } }
+            : m
+        ),
+      }));
+      const currentParams = get().messages.find((m) => m.id === messageId)?.params || {};
+      updateMessageParams(msg.conversation_id, messageId, { ...currentParams, workflow: syncedPayload });
+    }
   },
 
   retryWorkflowStep: async (messageId: string, stepId: string) => {
@@ -1108,7 +1211,7 @@ export const useAgentStore = create<Store>((set, get) => ({
     revoke(get().inputImages.map((img) => img.url));
     set({
       messages: [], inputText: "", inputImages: [], intentMode: "smart", isSending: false,
-      activeId: null, conversations: [],
+      activeId: null, conversations: [], pollTimers: new Map(),
     });
     get().loadConversations();
   },
@@ -1222,7 +1325,7 @@ function buildClientFallbackWorkflowPlan(args: {
   const imageCount = args.images.length;
   const wantsTryon = /穿上|穿到|传到|转移到|套到|换到|换装|上身|试穿|把.*衣服.*(?:穿|传|转移|套|换)|(?:穿|传|转移|套|换).*衣服|衣服.*(?:穿|传|转移|套|换)|模特.*衣服/.test(text);
   const wantsPose = /姿势|裂变|站姿|动作|pose/i.test(text);
-  const wantsDetail = /详情页|长图|卖点图|参数图|功能图|淘宝|天猫|京东/.test(text) && !/主图|banner|海报/.test(text);
+  const wantsDetail = /详情页|商品详情|长图|卖点图|参数图|功能图|尺码图|规格图|材质图|淘宝|天猫|京东|拼多多|PDD|pdd|抖音|小红书|独立站|shopify|官网/i.test(text) && !/主图|banner|海报/.test(text);
   const wantsCreative = /主图|banner|海报|活动图|推广图|封面/.test(text);
   const wantsGeneralImage = /生成|制作|出图|设计|画|做一张|来一张|改图|重做|重新/.test(text);
   const steps: WorkflowStepPlan[] = [];
@@ -1259,11 +1362,27 @@ function buildClientFallbackWorkflowPlan(args: {
     });
   }
 
-  if (!steps.length && (wantsDetail || wantsCreative || wantsGeneralImage)) {
+  if (wantsDetail && imageCount > 0) {
+    const detailSteps = buildClientCommerceDetailSteps(args, steps.length);
+    const upstream = steps[steps.length - 1];
+    if (upstream) {
+      detailSteps.forEach((step) => {
+        if (step.type !== "commerce_detail_section") return;
+        step.dependsOn = Array.from(new Set([...(step.dependsOn || []), upstream.id]));
+        step.input = {
+          ...step.input,
+          referenceImages: [`$${upstream.id}.output.imageUrls[0]`],
+        };
+      });
+    }
+    steps.push(...detailSteps);
+  }
+
+  if (!steps.length && (wantsCreative || wantsGeneralImage)) {
     steps.push({
       id: "step_1",
-      type: wantsDetail ? "commerce_detail" : wantsCreative ? "commerce_creative" : imageCount > 0 ? "image_to_image" : "text_to_image",
-      title: wantsDetail ? "电商详情页" : wantsCreative ? "商业视觉图" : imageCount > 0 ? "通用图生图" : "通用文生图",
+      type: wantsCreative ? "commerce_creative" : imageCount > 0 ? "image_to_image" : "text_to_image",
+      title: wantsCreative ? "商业视觉图" : imageCount > 0 ? "通用图生图" : "通用文生图",
       dependsOn: [],
       input: imageCount > 0 ? { referenceImages: args.images.map((img) => `图${img.index}`), sourceImages: args.images.map((img) => `图${img.index}`) } : {},
       params: { prompt: text, count: args.params.count },
@@ -1324,6 +1443,129 @@ function inferClientTryonRefs(
     clothingImage: findClientImageRef(images, ["clothing", "product"]),
     personImage: findClientImageRef(images, ["person", "reference", "source", "auto"], findClientImageRef(images, ["clothing", "product"])),
   };
+}
+
+function buildClientCommerceDetailSteps(
+  args: {
+    message: string;
+    images: Array<{ index: number; url: string; role: string; fileName?: string }>;
+    params: GenerationParams;
+  },
+  startIndex: number
+): WorkflowStepPlan[] {
+  const text = args.message.trim();
+  const sectionCount = inferClientCommerceSectionCount(text, args.params.count);
+  const platform = inferClientCommercePlatform(text);
+  const layout = inferClientCommerceLayout(text, platform);
+  const mobileWidth = inferClientCommerceWidth(text, platform);
+  const aspectRatio = layout === "desktop" ? "16:9" : "9:16";
+  const sectionBlueprints = getClientCommerceSectionBlueprints(sectionCount, platform);
+  const references = args.images.map((img) => `图${img.index}`);
+  const steps: WorkflowStepPlan[] = sectionBlueprints.map((section, index) => {
+    const id = `step_${startIndex + index + 1}`;
+    return {
+      id,
+      type: "commerce_detail_section",
+      title: section.title,
+      dependsOn: [],
+      input: { referenceImages: references },
+      params: {
+        prompt: text,
+        platform,
+        layout,
+        mobileWidth,
+        aspectRatio,
+        imageSize: args.params.imageSize,
+        sectionIndex: index + 1,
+        sectionTotal: sectionCount,
+        sectionTitle: section.title,
+        sectionPurpose: section.purpose,
+        moduleMode: "single_distinct_section",
+        count: 1,
+      },
+      expectedOutput: { imageUrls: true },
+      riskNotes: ["多张详情页图表示多个不同模块；每一步只生成当前模块，避免把全部内容挤进同一张整页。"],
+    };
+  });
+
+  if (inferClientCommerceOutputMode(text) !== "sections" && steps.length > 1) {
+    steps.push({
+      id: `step_${startIndex + steps.length + 1}`,
+      type: "commerce_detail_stitch",
+      title: layout === "desktop" ? "整理详情页模块预览" : "拼接手机详情长图",
+      dependsOn: steps.map((step) => step.id),
+      input: { imageUrls: steps.map((step) => `$${step.id}.output.imageUrls[0]`) },
+      params: {
+        platform,
+        layout,
+        mobileWidth,
+        width: mobileWidth,
+        gap: 0,
+        sectionHeight: layout === "desktop" ? 900 : platform === "xiaohongshu" ? 1200 : 1320,
+      },
+      expectedOutput: { imageUrls: true },
+      riskNotes: [],
+    });
+  }
+
+  return steps;
+}
+
+function inferClientCommerceSectionCount(text: string, defaultCount: number) {
+  const explicit = text.match(/(\d+)\s*(?:张|个|屏|段|页|版块|板块|模块|section|sections)/i);
+  const count = explicit ? Number(explicit[1]) : Number(defaultCount || 4);
+  if (!Number.isFinite(count)) return 4;
+  return Math.min(Math.max(Math.floor(count), 1), 8);
+}
+
+function inferClientCommercePlatform(text: string) {
+  if (/拼多多|PDD|pinduoduo/i.test(text)) return "pdd";
+  if (/抖音|douyin|tiktok/i.test(text)) return "douyin";
+  if (/小红书|xiaohongshu|rednote|red book/i.test(text)) return "xiaohongshu";
+  if (/京东|JD|jingdong/i.test(text)) return "jd";
+  if (/天猫|tmall/i.test(text)) return "tmall";
+  if (/淘宝|taobao/i.test(text)) return "taobao";
+  if (/独立站|shopify|官网|independent/i.test(text)) return "independent";
+  return "general";
+}
+
+function inferClientCommerceLayout(text: string, platform: string): "mobile" | "desktop" {
+  if (/PC|pc|电脑|桌面端|横版|宽屏|官网首屏|web/i.test(text) && !/手机|移动端|竖版|长图/.test(text)) return "desktop";
+  if (platform === "independent" && /官网|web|PC|pc|电脑|桌面端/i.test(text)) return "desktop";
+  return "mobile";
+}
+
+function inferClientCommerceWidth(text: string, platform: string) {
+  const explicit = text.match(/(?:宽度|width)\s*[:：]?\s*(\d{3,4})/i);
+  if (explicit) return Math.min(Math.max(Number(explicit[1]), 320), 1440);
+  if (platform === "xiaohongshu" || platform === "douyin") return 1080;
+  return 750;
+}
+
+function inferClientCommerceOutputMode(text: string): "sections" | "both" {
+  if (/只要.*(?:独立|分开)|不要.*(?:长图|拼接)|独立图|分开给/i.test(text)) return "sections";
+  return "both";
+}
+
+function getClientCommerceSectionBlueprints(count: number, platform: string) {
+  const sections = [
+    { title: "首屏主视觉", purpose: "商品完整展示、核心标题和第一购买理由" },
+    { title: "核心卖点", purpose: "把最重要的购买理由做成清晰可扫读的视觉层级" },
+    { title: "材质细节", purpose: "展示面料、纹理、工艺、版型和触感信息" },
+    { title: "场景搭配", purpose: "展示穿搭、使用场景、风格氛围或人群定位" },
+    { title: "功能参数", purpose: "尺码、规格、功能、护理或商品参数" },
+    { title: "对比证明", purpose: "优势对比、痛点解决和真实细节证明" },
+    { title: "信任背书", purpose: "品质、服务、保障、物流或品牌可信度" },
+    { title: "收尾转化", purpose: "购买理由总结、搭配建议和行动引导" },
+  ];
+  if (platform === "pdd") {
+    sections[1] = { title: "价格与利益点", purpose: "直接突出利益点、价格感和购买理由" };
+  }
+  if (platform === "xiaohongshu" || platform === "douyin") {
+    sections[1] = { title: "种草亮点", purpose: "用内容平台语气表达真实使用价值和记忆点" };
+    sections[3] = { title: "生活方式场景", purpose: "用更自然的场景和氛围展示商品适用性" };
+  }
+  return sections.slice(0, count);
 }
 
 function findClientImageRef(
@@ -1414,7 +1656,7 @@ function normalizeWorkflowPayload(value: unknown): WorkflowClientPayload | null 
   if (!isPlainObject(value) || !isPlainObject(value.workflow)) return null;
   return {
     workflow: value.workflow as WorkflowRecord,
-    steps: Array.isArray(value.steps) ? value.steps as WorkflowStepRecord[] : [],
+    steps: Array.isArray(value.steps) ? orderWorkflowSteps(value.steps as WorkflowStepRecord[]) : [],
     events: Array.isArray(value.events) ? value.events as WorkflowEventRecord[] : [],
     assets: Array.isArray(value.assets) ? value.assets as WorkflowAssetRecord[] : [],
     validation: isPlainObject(value.validation) ? value.validation as PlanValidationResult : undefined,
@@ -1442,16 +1684,27 @@ function pollWorkflow(
   workflowId: string
 ) {
   const timerKey = `workflow:${workflowId}`;
-  const previous = get().pollTimers.get(timerKey);
-  if (previous) clearInterval(previous);
+  clearPollTimer(get, set, timerKey);
+  let attempts = 0;
+  let consecutiveErrors = 0;
 
   const tick = async () => {
     try {
+      attempts += 1;
+      const stillExists = get().messages.some((message) => message.id === messageId);
+      if (!stillExists) {
+        clearPollTimer(get, set, timerKey);
+        return;
+      }
+      if (attempts > 180) {
+        throw new Error("workflow 执行超时，请稍后刷新状态或重试。");
+      }
       const res = await fetch(`/api/agent/workflows/${workflowId}`);
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "读取 workflow 状态失败");
       const payload = normalizeWorkflowPayload(data);
-      if (!payload) return;
+      if (!payload) throw new Error("workflow 状态格式异常");
+      consecutiveErrors = 0;
       const terminal = isTerminalWorkflowStatus(payload.workflow.status);
 
       set((s) => ({
@@ -1467,16 +1720,32 @@ function pollWorkflow(
       updateMessageParams(convId, messageId, { ...currentParams, workflow: payload });
 
       if (terminal) {
-        const currentTimer = get().pollTimers.get(timerKey);
-        if (currentTimer) clearInterval(currentTimer);
-        set((s) => {
-          const timers = new Map(s.pollTimers);
-          timers.delete(timerKey);
-          return { pollTimers: timers };
-        });
+        clearPollTimer(get, set, timerKey);
       }
-    } catch {
-      set((s) => ({ isSending: false }));
+    } catch (err) {
+      consecutiveErrors += 1;
+      if (consecutiveErrors < 5) return;
+      clearPollTimer(get, set, timerKey);
+      const errorMessage = err instanceof Error ? err.message : "workflow 状态读取失败";
+      set((s) => ({
+        isSending: false,
+        messages: s.messages.map((message) => {
+          if (message.id !== messageId) return message;
+          const payload = getWorkflowPayload(message.params);
+          if (!payload) return message;
+          const failedPayload = {
+            ...payload,
+            workflow: {
+              ...payload.workflow,
+              status: "failed" as WorkflowStatus,
+              error_message: errorMessage,
+            },
+          };
+          return { ...message, params: { ...(message.params || {}), workflow: failedPayload } };
+        }),
+      }));
+      const currentParams = get().messages.find((message) => message.id === messageId)?.params || {};
+      updateMessageParams(convId, messageId, currentParams);
     }
   };
 
@@ -1552,33 +1821,57 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
 
+function clearPollTimer(
+  get: () => Store,
+  set: (fn: (s: Store) => Partial<Store>) => void,
+  timerKey: string
+) {
+  const current = get().pollTimers.get(timerKey);
+  if (current) clearInterval(current);
+  set((s) => {
+    if (!s.pollTimers.has(timerKey)) return {};
+    const timers = new Map(s.pollTimers);
+    timers.delete(timerKey);
+    return { pollTimers: timers };
+  });
+}
+
 // ======== 轮询 ========
 function pollGeneration(
   get: () => Store,
   set: (fn: (s: Store) => Partial<Store>) => void,
   aiMsgId: string,
   convId: string,
-  generationId: string,
-  module: string
+  generationId: string
 ) {
-  const apiPath = module === "model_background" ? "model-background" : module;
-  const url = `/api/${apiPath}?generation_id=${generationId}`;
+  const url = `/api/generation-status?generation_id=${generationId}`;
+  clearPollTimer(get, set, aiMsgId);
   let attempts = 0;
+  let consecutiveErrors = 0;
 
-  const timer = setInterval(async () => {
+  const tick = async () => {
     try {
       attempts++;
+      const stillExists = get().messages.some((message) => message.id === aiMsgId);
+      if (!stillExists) {
+        clearPollTimer(get, set, aiMsgId);
+        return;
+      }
+      if (attempts > 180) {
+        throw new Error("生成轮询超时，请稍后重试或刷新查看结果。");
+      }
       const res = await fetch(url);
-      if (!res.ok) return;
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "读取生成状态失败");
+      consecutiveErrors = 0;
       const status = data.status as string;
       const resultUrls: string[] = Array.isArray(data.result_urls) ? data.result_urls : [];
-      const progress = resultUrls.length > 0 ? 100 : getPollingProgress(status, attempts);
+      const progress = resultUrls.length > 0 ? 100 : normalizeServerProgress(data.progress, status);
       const done = status === "completed" || resultUrls.length > 0;
       const failed = status === "failed";
 
       if (done || failed) {
-        clearInterval(timer);
+        clearPollTimer(get, set, aiMsgId);
         console.log("[agent-store] pollGeneration completed:", { aiMsgId, done, failed, resultCount: resultUrls.length });
         let verifiedResultUrls: string[] = [];
         let finalFailed = failed;
@@ -1625,8 +1918,33 @@ function pollGeneration(
           m.id === aiMsgId && m.generation ? { ...m, generation: { ...m.generation, progress, status: "generating" } } : m
         ),
       }));
-    } catch {}
-  }, 2000);
+    } catch (err) {
+      consecutiveErrors += 1;
+      if (consecutiveErrors < 5) return;
+      clearPollTimer(get, set, aiMsgId);
+      const errorMessage = err instanceof Error ? err.message : "生成状态读取失败";
+      set((s) => ({
+        isSending: false,
+        messages: s.messages.map((m) =>
+          m.id === aiMsgId && m.generation
+            ? {
+                ...m,
+                generation: {
+                  ...m.generation,
+                  status: "failed" as const,
+                  error: errorMessage,
+                },
+              }
+            : m
+        ),
+      }));
+      const failedGen = get().messages.find((m) => m.id === aiMsgId)?.generation;
+      if (failedGen) updateMessageGeneration(convId, aiMsgId, failedGen);
+    }
+  };
+
+  void tick();
+  const timer = setInterval(() => { void tick(); }, 2000);
 
   set((s) => {
     const timers = new Map(s.pollTimers);
@@ -1635,34 +1953,29 @@ function pollGeneration(
   });
 }
 
-function startRequestProgress(
+function resumeGenerationPolling(
+  get: () => Store,
   set: (fn: (s: Store) => Partial<Store>) => void,
-  aiMsgId: string
+  convId: string,
+  messages: Message[]
 ) {
-  return setInterval(() => {
-    set((s) => ({
-      messages: s.messages.map((m) => {
-        if (m.id !== aiMsgId || !m.generation || m.generation.status !== "generating") return m;
-        const current = typeof m.generation.progress === "number" ? m.generation.progress : 5;
-        const eased = Math.ceil(current + Math.max(1, (90 - current) * 0.08));
-        return {
-          ...m,
-          generation: {
-            ...m.generation,
-            progress: Math.min(eased, 90),
-          },
-        };
-      }),
-    }));
-  }, 1500);
+  for (const message of messages) {
+    const generationId = message.generation?.generationId;
+    if (message.generation?.status === "generating" && generationId) {
+      pollGeneration(get, set, message.id, convId, generationId);
+    }
+  }
 }
 
-function getPollingProgress(status: string, attempts: number) {
-  if (status === "processing_face_swap") return Math.min(70 + attempts, 92);
-  if (status === "processing_tryon") return Math.min(25 + attempts * 1.5, 90);
-  if (status === "queued") return Math.min(20 + attempts, 35);
-  if (status === "uploading") return Math.min(10 + attempts, 25);
-  return Math.min(25 + attempts * 1.5, 90);
+function normalizeServerProgress(value: unknown, status: string) {
+  const num = Number(value);
+  if (Number.isFinite(num)) {
+    const max = status === "completed" ? 100 : 99;
+    return Math.min(Math.max(Math.round(num), 0), max);
+  }
+  if (status === "queued") return 0;
+  if (status === "processing_tryon" || status === "processing_face_swap" || status === "uploading") return 1;
+  return 0;
 }
 
 function readConfirmParams(params: Record<string, unknown>): GenerationParams {
@@ -1678,6 +1991,28 @@ function readConfirmParams(params: Record<string, unknown>): GenerationParams {
     count: Math.min(Math.max(count || 1, 1), 4),
     prompt,
   };
+}
+
+function normalizeConfirmRunParams(params: Record<string, unknown>): GenerationParams {
+  const current = readConfirmParams(params);
+  return {
+    ...current,
+    imageSize: normalizeImageSize(current.model, current.imageSize, current.aspectRatio),
+  };
+}
+
+function calculateConfirmCredits(params: Record<string, unknown> | GenerationParams) {
+  const current = isGenerationParams(params) ? params : normalizeConfirmRunParams(params);
+  const count = Math.min(Math.max(Number(current.count) || 1, 1), 4);
+  const imageSize = normalizeImageSize(current.model, current.imageSize, current.aspectRatio);
+  return getCreditCost(current.model, imageSize, current.aspectRatio) * count;
+}
+
+function isGenerationParams(params: Record<string, unknown> | GenerationParams): params is GenerationParams {
+  return typeof (params as GenerationParams).model === "string" &&
+    typeof (params as GenerationParams).aspectRatio === "string" &&
+    typeof (params as GenerationParams).imageSize === "string" &&
+    typeof (params as GenerationParams).count === "number";
 }
 
 function writeConfirmParams(params: Record<string, unknown>, next: GenerationParams): Record<string, unknown> {
@@ -1787,12 +2122,79 @@ function uid() {
   return v4();
 }
 
-function runningAgentTimeline(activeLabel: string, detail: string) {
-  const labels = ["接收请求", "理解意图", "选择工具", "复核计划"];
+type AgentTimelineItem = { label: string; status: string; detail?: string };
+
+function createAgentTimelineProfile(text: string, imageCount: number): {
+  initial: AgentTimelineItem[];
+  advances: Array<{ label: string; detail: string; delayMs: number }>;
+} {
+  const hasImages = imageCount > 0;
+  const labelsV2 = buildAgentTimelineLabels(text, imageCount);
+  const initialV2 = labelsV2.map((label, index) => ({
+    label,
+    status: index === 0 ? "done" : index === 1 ? "running" : "pending",
+    detail: getTimelineDetail(label, imageCount),
+  }));
+  const advancesV2 = labelsV2.slice(2).map((label, index) => ({
+    label,
+    detail: getTimelineDetail(label, imageCount),
+    delayMs: hasImages ? 650 + index * 760 : 560 + index * 720,
+  }));
+  return { initial: initialV2, advances: advancesV2 };
+
+  const wantsDetail = /详情页|长图|卖点图|参数图|拼接|PDD|拼多多|淘宝|天猫|京东|抖音|小红书|独立站/i.test(text);
+  const wantsMultiStep = /然后|再|接着|最后|先.*再|工作流|分步|裂变|姿势|换装|试穿|穿到|传到/.test(text);
+  const labels = hasImages
+    ? ["接收请求", "分析图片", "识别图片关系", wantsMultiStep || wantsDetail ? "拆解任务" : "理解意图", "选择工具", "复核方案"]
+    : ["接收请求", "理解意图", ...(wantsMultiStep || wantsDetail ? ["拆解任务"] : []), "选择工具", "复核方案"];
+
+  const initial = labels.map((label, index) => ({
+    label,
+    status: index === 0 ? "done" : index === 1 ? "running" : "pending",
+    detail: index === 0 ? getTimelineDetail(label, imageCount) : getTimelineDetail(label, imageCount),
+  }));
+
+  const advances = labels.slice(2).map((label, index) => ({
+    label,
+    detail: getTimelineDetail(label, imageCount),
+    delayMs: hasImages ? 700 + index * 850 : 650 + index * 850,
+  }));
+
+  return { initial, advances };
+}
+
+function buildAgentTimelineLabels(text: string, imageCount: number) {
+  const hasImages = imageCount > 0;
+  const wantsDetail = /详情页|长图|卖点图|参数图|拼接|PDD|拼多多|淘宝|天猫|京东|抖音|小红书|独立站/i.test(text);
+  const wantsTryon = /换装|试穿|穿到|穿上|衣服.*模特|模特.*衣服/i.test(text);
+  const wantsPose = /裂变|姿势|动作|pose|多张|4张|四张/i.test(text);
+  const wants3d = /3d|三维|建模|立体|旋转展示/i.test(text);
+  const wantsMultiStep = /然后|再|接着|最后|先.*再|工作流|分步/.test(text) || [wantsDetail, wantsTryon, wantsPose, wants3d].filter(Boolean).length > 1;
+
+  const labels = ["接收请求"];
+  if (hasImages) {
+    labels.push("分析图片", "识别图片关系");
+  } else {
+    labels.push("理解意图");
+  }
+  if (wantsTryon) labels.push("确认换装顺序");
+  if (wantsPose) labels.push("规划姿势变化");
+  if (wantsDetail) labels.push("规划详情页板块");
+  if (wants3d) labels.push("评估3D素材");
+  if (wantsMultiStep) labels.push("拆解任务");
+  labels.push("选择工具", "复核方案");
+
+  return Array.from(new Set(labels));
+}
+
+function runningAgentTimeline(timeline: AgentTimelineItem[], activeLabel: string, detail: string) {
+  const labels = timeline.length ? timeline.map((item) => item.label) : ["接收请求", "理解意图", "选择工具", "复核方案"];
+  const activeIndex = labels.includes(activeLabel) ? labels.indexOf(activeLabel) : Math.max(labels.length - 1, 0);
+  const resolvedActiveLabel = labels[activeIndex];
   return labels.map((label) => ({
     label,
-    status: label === activeLabel ? "running" : labels.indexOf(label) < labels.indexOf(activeLabel) ? "done" : "pending",
-    detail: label === activeLabel ? detail : getTimelineDetail(label),
+    status: label === resolvedActiveLabel ? "running" : labels.indexOf(label) < activeIndex ? "done" : "pending",
+    detail: label === resolvedActiveLabel ? detail : getTimelineDetail(label),
   }));
 }
 
@@ -1805,11 +2207,19 @@ function completeAgentTimeline(detail: string) {
   ];
 }
 
-function getTimelineDetail(label: string) {
+function getTimelineDetail(label: string, imageCount = 0) {
   const details: Record<string, string> = {
-    接收请求: "已拿到文字、图片和当前上下文",
+    接收请求: imageCount > 0 ? `已收到 ${imageCount} 张图片和你的任务描述` : "已拿到文字和当前上下文",
+    分析图片: "正在读取画面主体、服装结构、人物姿态和可用素材",
+    识别图片关系: "正在判断主图、服装图、模特图、参考图之间的关系",
+    确认换装顺序: "正在确认先换装再裂变/详情页，避免步骤顺序反了",
+    规划姿势变化: "正在规划每张独立姿势图的数量、输出方式和一致性约束",
+    规划详情页板块: "正在按目标平台拆分卖点、主图、细节、参数和长图拼接策略",
+    评估3D素材: "正在判断当前素材是否适合做3D展示，并预留后续视频接入路径",
     理解意图: "正在判断是聊天、生成、工作流还是需要追问",
+    拆解任务: "正在把复合需求拆成可执行步骤，并安排先后顺序",
     选择工具: "根据目标和图片关系选择可执行能力",
+    复核方案: "检查是否误判、是否需要确认、是否会扣分",
     复核计划: "检查是否误判、是否需要确认或扣分",
   };
   return details[label] || "";
@@ -1823,12 +2233,12 @@ function findLatestAssistantMessageIndex(messages: Message[]) {
 }
 
 function readTimelineFromParams(params: Record<string, unknown> | undefined) {
-  if (Array.isArray(params?.agentTimeline)) return params.agentTimeline as Array<{ label: string; status: string; detail?: string }>;
+  if (Array.isArray(params?.agentTimeline)) return params.agentTimeline as AgentTimelineItem[];
   return completeAgentTimeline("等待后端事件。");
 }
 
 function mergeTimelineWithBackendEvent(
-  timeline: Array<{ label: string; status: string; detail?: string }>,
+  timeline: AgentTimelineItem[],
   event: Record<string, unknown>
 ) {
   const kind = typeof event.kind === "string" ? event.kind : "";
@@ -1839,13 +2249,15 @@ function mergeTimelineWithBackendEvent(
   }
   if (kind === "workflow_event") {
     const nextStatus = getWorkflowEventTimelineStatus(eventName, event);
+    const reviewLabel = timeline.some((item) => item.label === "复核方案") ? "复核方案" : "复核计划";
     return timeline.map((item) =>
-      item.label === "复核计划" ? { ...item, status: nextStatus, detail: `后端工作流事件：${eventName} ${detail}`.trim() } : item
+      item.label === reviewLabel ? { ...item, status: nextStatus, detail: `后端工作流事件：${eventName} ${detail}`.trim() } : item
     );
   }
   if (kind === "agent_metric") {
+    const reviewLabel = timeline.some((item) => item.label === "复核方案") ? "复核方案" : "复核计划";
     return timeline.map((item) =>
-      item.label === "复核计划" ? { ...item, detail: `后端指标：${eventName} ${detail}`.trim() } : item
+      item.label === reviewLabel ? { ...item, detail: `后端指标：${eventName} ${detail}`.trim() } : item
     );
   }
   return timeline;
