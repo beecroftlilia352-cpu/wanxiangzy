@@ -117,12 +117,23 @@ jobs:
       - name: Upload deployment archive
         run: |
           set -euo pipefail
-          scp -P "$AWS_PORT_NORM" -i ~/.ssh/aws_deploy_key \
-            -o StrictHostKeyChecking=accept-new \
-            -o UserKnownHostsFile=~/.ssh/known_hosts \
-            -o ConnectTimeout=30 \
-            .deploy/app.tar.gz \
-            "$AWS_USER_NORM@$AWS_HOST_NORM:/tmp/wanxiangzy-${GITHUB_RUN_ID}.tar.gz"
+          for attempt in 1 2 3 4 5; do
+            echo "Uploading deployment archive, attempt ${attempt}/5..."
+            if scp -P "$AWS_PORT_NORM" -i ~/.ssh/aws_deploy_key \
+              -o StrictHostKeyChecking=accept-new \
+              -o UserKnownHostsFile=~/.ssh/known_hosts \
+              -o ConnectTimeout=60 \
+              -o ConnectionAttempts=3 \
+              -o ServerAliveInterval=30 \
+              .deploy/app.tar.gz \
+              "$AWS_USER_NORM@$AWS_HOST_NORM:/tmp/wanxiangzy-${GITHUB_RUN_ID}.tar.gz"; then
+              exit 0
+            fi
+            sleep $((attempt * 15))
+          done
+
+          echo "::error::Could not upload deployment archive over SSH"
+          exit 1
 
       - name: Deploy on EC2
         env:
@@ -134,11 +145,21 @@ jobs:
           set -euo pipefail
           quote() { printf '%q' "$1"; }
           REMOTE_ENV="AWS_APP_DIR=$(quote "${AWS_APP_DIR:-}") AWS_APP_NAME=$(quote "${AWS_APP_NAME:-}") TAG_NAME=$(quote "$TAG_NAME") DEPLOY_ARCHIVE=$(quote "$DEPLOY_ARCHIVE")"
-          ssh -p "$AWS_PORT_NORM" -i ~/.ssh/aws_deploy_key \
-            -o StrictHostKeyChecking=accept-new \
-            -o UserKnownHostsFile=~/.ssh/known_hosts \
-            -o ConnectTimeout=30 \
-            -o ServerAliveInterval=30 \
-            "$AWS_USER_NORM@$AWS_HOST_NORM" \
-            "$REMOTE_ENV bash -s" \
-            < scripts/deploy-aws-release.sh
+          for attempt in 1 2 3 4 5; do
+            echo "Starting remote deploy, attempt ${attempt}/5..."
+            if ssh -p "$AWS_PORT_NORM" -i ~/.ssh/aws_deploy_key \
+              -o StrictHostKeyChecking=accept-new \
+              -o UserKnownHostsFile=~/.ssh/known_hosts \
+              -o ConnectTimeout=60 \
+              -o ConnectionAttempts=3 \
+              -o ServerAliveInterval=30 \
+              "$AWS_USER_NORM@$AWS_HOST_NORM" \
+              "$REMOTE_ENV bash -s" \
+              < scripts/deploy-aws-release.sh; then
+              exit 0
+            fi
+            sleep $((attempt * 15))
+          done
+
+          echo "::error::Could not start remote deploy over SSH"
+          exit 1
