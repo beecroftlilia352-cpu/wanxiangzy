@@ -151,7 +151,7 @@ export function HeaderClient() {
   };
 
   return (
-    <header className="studio-app-header sticky top-0 z-50 border-b border-slate-200/80 bg-white/92 backdrop-blur-xl">
+    <header className="studio-app-header sticky top-0 z-50 border-b border-slate-200/80 bg-white/94 backdrop-blur-xl">
       <div className="flex min-h-16 w-full items-center justify-between gap-4 px-4 sm:px-6">
         <div className="flex min-w-0 items-center gap-5">
           <Link href="/" className="flex min-w-0 items-center gap-3">
@@ -176,19 +176,22 @@ export function HeaderClient() {
             </span>
           </Link>
 
-          <nav className="hidden items-center gap-7 lg:flex">
+          <nav className="hidden items-center gap-1.5 rounded-2xl border border-slate-200/80 bg-slate-50/80 p-1 shadow-sm lg:flex">
             {TOP_MODULES.map((item) => {
               const active = activeModule === item.key;
+              const Icon = item.icon;
               return (
                 <Link
                   key={item.key}
                   href={item.href}
-                  className={`relative flex h-16 items-center text-sm font-semibold transition ${
-                    active ? "text-slate-950" : "text-slate-500 hover:text-slate-950"
+                  className={`relative inline-flex h-9 items-center gap-1.5 rounded-xl px-3 text-sm font-black transition ${
+                    active
+                      ? "bg-white text-violet-700 shadow-sm ring-1 ring-violet-100"
+                      : "text-slate-500 hover:bg-white/70 hover:text-slate-950"
                   }`}
                 >
+                  <Icon className="h-3.5 w-3.5" />
                   {item.label}
-                  {active && <span className="absolute bottom-0 left-1/2 h-[3px] w-8 -translate-x-1/2 rounded-full bg-slate-950" />}
                 </Link>
               );
             })}
@@ -207,7 +210,7 @@ export function HeaderClient() {
               href="/history"
               className="hidden h-9 items-center rounded-xl border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 shadow-sm transition hover:border-violet-200 hover:text-violet-700 sm:inline-flex"
             >
-              My Creations
+              我的作品
             </Link>
           )}
 

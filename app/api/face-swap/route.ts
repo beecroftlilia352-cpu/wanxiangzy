@@ -47,8 +47,10 @@ export async function POST(request: NextRequest) {
     const aspectRatio: AspectRatio = normalizeAspectRatio(body.aspect_ratio, "auto");
     const imageSize: ImageSize = normalizeImageSize(model, body.image_size as ImageSize | undefined, aspectRatio);
     const genCount = normalizeFaceSwapCount(body.gen_count);
+    const textureEnhance = body.texture_enhance === true;
     const prompt = enforceFaceSwapPromptRequirements(buildFaceSwapPrompt(
-      typeof body.prompt === "string" ? body.prompt : ""
+      typeof body.prompt === "string" ? body.prompt : "",
+      textureEnhance,
     ));
     const costPerImage = getCreditCost(model, imageSize, aspectRatio);
     const totalCost = costPerImage * genCount;
@@ -62,6 +64,7 @@ export async function POST(request: NextRequest) {
       imageSize,
       prompt,
       genCount,
+      textureEnhance,
     };
 
     const debit = await createDebitedGeneration(supabase, {

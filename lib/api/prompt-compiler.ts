@@ -1,6 +1,6 @@
 import type { LingyaModel } from "@/lib/api/lingya";
 
-export type ImagePromptKind = "tryon" | "grass" | "modelBackground" | "pose" | "model" | "garment3d" | "faceSwap";
+export type ImagePromptKind = "tryon" | "grass" | "modelBackground" | "pose" | "model" | "garment3d" | "faceSwap" | "commerceDetail";
 
 const KIND_HEADERS: Record<ImagePromptKind, string> = {
   tryon:
@@ -17,6 +17,8 @@ const KIND_HEADERS: Record<ImagePromptKind, string> = {
     "核心任务：把图1服装转换为无真人、无头脸手的 3D 立体商品展示图，只增加体积和棚拍质感，不改变款式颜色细节。",
   faceSwap:
     "核心任务：AI 换脸。图1是原始模特/主体画面，图2只提供面部五官身份；只替换五官，不改变图1肤色、发型、身体、服装、背景、光线和构图。",
+  commerceDetail:
+    "Core task: generate one independent e-commerce detail-page section/module, not a complete detail page. The section must be mobile-first, readable, spacious, and structurally different from other sections.",
 };
 
 const QUALITY_LINE =
@@ -87,6 +89,12 @@ const REQUIRED_SIGNALS: Record<ImagePromptKind, RequiredSignal[]> = {
     { name: "只换五官", pattern: /只替换|五官|does not change/, fallback: "换脸规则：Swap Face only changes facial features. It does not change the model's skin tone or hairstyle." },
     { name: "保留项", pattern: /肤色|发型|身体|服装|背景|光线|构图/, fallback: "保留项：严格保持图1肤色、发型、发色、身体比例、服装、背景、光线、镜头和构图不变。" },
     { name: "负面约束", pattern: /不要|禁止|负面/, fallback: "负面约束：不要换肤色，不要换发型，不要换衣服，不要改变姿势、场景、画幅，不要生成多余人物或文字水印。" },
+  ],
+  commerceDetail: [
+    { name: "section contract", pattern: /section|module|板块|详情页|detail-page/i, fallback: "Section contract: generate exactly ONE independent detail-page section/module, not a complete detail page." },
+    { name: "mobile layout", pattern: /mobile|手机|750|9:16|vertical/i, fallback: "Mobile layout: mobile-first vertical e-commerce section, readable large Chinese typography, spacious hierarchy." },
+    { name: "no full page", pattern: /not a complete|Do NOT include all modules|不要.*完整|不是.*完整/i, fallback: "Hard negative: do not create a full detail page, long page, collage, four-grid, or repeated complete page variant." },
+    { name: "distinct module", pattern: /structurally different|different from other modules|不同|独立/i, fallback: "Distinct module: this section must have its own content purpose and layout, different from the other requested sections." },
   ],
 };
 

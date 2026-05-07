@@ -48,6 +48,7 @@ import { getAgentUserPreferences } from "@/lib/agent/brain/preferences";
 import { getAgentFeatureFlags } from "@/lib/agent/brain/feature-flags";
 import { recordAgentMetric } from "@/lib/agent/brain/metrics";
 import { getAgentKnowledgeContext } from "@/lib/agent/brain/knowledge";
+import { buildCommerceDetailSections, normalizeCommerceDetailLayout } from "@/lib/commerce-detail-sections";
 
 export const maxDuration = 60;
 
@@ -736,6 +737,7 @@ function buildModuleParams(
     model_background: "professional fashion photography with natural background integration, consistent lighting and shadows",
     pose: "2x2 four-panel pose grid, same person same clothing same scene, different natural poses, consistent camera angle",
     garment_3d: "3D garment display, clean white studio background, volumetric lighting, commercial product photography",
+    commerce_detail: "mobile e-commerce detail page modules, one independent section per image, readable Chinese layout, commercial product design",
   };
 
   const userPrompt = typeof llmParams.prompt === "string" && llmParams.prompt.trim()
@@ -821,6 +823,28 @@ function buildModuleParams(
       base.garment_url = garment;
       return base;
     }
+    case "general": {
+      if (!isCommerceDetailIntent(userPrompt)) return null;
+      base.task_type = "commerce_detail";
+      base.source_urls = allUrls;
+      base.platform = typeof llmParams.platform === "string" ? llmParams.platform : inferCommercePlatform(userPrompt);
+      base.layout = normalizeCommerceDetailLayout(llmParams.layout);
+      base.mobile_width = Number(llmParams.mobile_width || llmParams.mobileWidth || 750);
+      base.sections = buildCommerceDetailSections(opts.count);
+      base.gen_count = opts.count;
+      return base;
+    }
+    case "commerce_detail":
+    case "commerce_detail_section": {
+      base.task_type = "commerce_detail";
+      base.source_urls = allUrls;
+      base.platform = typeof llmParams.platform === "string" ? llmParams.platform : inferCommercePlatform(userPrompt);
+      base.layout = normalizeCommerceDetailLayout(llmParams.layout);
+      base.mobile_width = Number(llmParams.mobile_width || llmParams.mobileWidth || 750);
+      base.sections = buildCommerceDetailSections(opts.count);
+      base.gen_count = opts.count;
+      return base;
+    }
     default:
       return null;
   }
@@ -838,6 +862,16 @@ function isChatOnlyIntent(text: string): boolean {
 
 function hasGenericGenerationIntent(text: string): boolean {
   return /\u751f\u6210|\u5236\u4f5c|\u51fa\u56fe|\u505a\u4e00\u5f20|\u6765\u4e00\u5f20|\u753b\u4e00\u5f20|\u7ed9\u6211.*\u56fe|\u5e2e\u6211.*\u56fe|\u91cd\u65b0|\u91cd\u505a|\u8c03\u6574|\u4fee\u6539|\u6539\u6210|\u8bbe\u8ba1/.test(text);
+}
+
+function inferCommercePlatform(text: string) {
+  if (/小红书|xiaohongshu|red/i.test(text)) return "小红书";
+  if (/抖音|douyin|tiktok/i.test(text)) return "抖音";
+  if (/拼多多|pdd|pinduoduo/i.test(text)) return "拼多多";
+  if (/京东|jd|jingdong/i.test(text)) return "京东";
+  if (/天猫|tmall/i.test(text)) return "天猫";
+  if (/淘宝|taobao/i.test(text)) return "淘宝";
+  return "通用电商平台";
 }
 
 function normalizeIntentMode(value?: string): AgentIntentMode {
@@ -1017,9 +1051,9 @@ function buildGeneralGenerationPrompt(text: string, taskType: "commerce_detail" 
 
   if (taskType === "commerce_detail") {
     base.push(
-      "\u751f\u6210\u6dd8\u5b9d/\u5929\u732b/\u4eac\u4e1c\u53ef\u7528\u7684\u5546\u54c1\u8be6\u60c5\u9875\u6216\u7535\u5546\u957f\u56fe\u7248\u5f0f\u3002",
-      "\u753b\u9762\u5305\u542b\u9996\u5c4f\u4e3b\u89c6\u89c9\u3001\u6838\u5fc3\u5356\u70b9\u533a\u3001\u7ec6\u8282\u5c55\u793a\u533a\u3001\u53c2\u6570/\u529f\u80fd\u533a\uff0c\u5177\u5907\u6e05\u6670\u6807\u9898\u3001\u5356\u70b9\u6587\u6848\u3001\u56fe\u6807\u548c\u5206\u533a\u5c42\u7ea7\u3002",
-      "\u6574\u4f53\u50cf\u4e00\u5f20\u5b8c\u6574\u5546\u4e1a\u8be6\u60c5\u9875\u8bbe\u8ba1\u7a3f\uff0c\u800c\u4e0d\u662f\u5355\u5f20\u751f\u6d3b\u65b9\u5f0f\u7167\u7247\u3002"
+      "\u751f\u6210\u7535\u5546\u8be6\u60c5\u9875\u677f\u5757\u7d20\u6750\uff0c\u652f\u6301\u6dd8\u5b9d/\u5929\u732b/\u4eac\u4e1c/\u62fc\u591a\u591a/\u6296\u97f3/\u5c0f\u7ea2\u4e66\u7b49\u5e73\u53f0\u8bed\u6c14\u3002",
+      "\u5982\u679c\u7528\u6237\u9009\u62e9\u591a\u5f20\uff0c\u5fc5\u987b\u6309\u201c\u72ec\u7acb\u677f\u5757\u201d\u751f\u6210\uff1a\u7b2c1\u5f20\u9996\u5c4f\u4e3b\u89c6\u89c9\uff0c\u7b2c2\u5f20\u6838\u5fc3\u5356\u70b9\uff0c\u7b2c3\u5f20\u6750\u8d28\u7ec6\u8282\uff0c\u7b2c4\u5f20\u4e0a\u8eab/\u573a\u666f/\u53c2\u6570\u7b49\u3002",
+      "\u4e0d\u8981\u628a\u6bcf\u5f20\u90fd\u505a\u6210\u4e00\u5f20\u5b8c\u6574\u8be6\u60c5\u9875\uff0c\u4e0d\u8981\u751f\u6210\u56db\u4e2a\u76f8\u4f3c\u6574\u9875\u53d8\u4f53\uff0c\u4e0d\u8981\u505aPC\u7aef\u5bc6\u96c6\u5c0f\u5b57\u8868\u683c\u3002"
     );
   } else if (taskType === "commerce_creative") {
     base.push(
@@ -1302,6 +1336,26 @@ function buildJobPayload(
   };
 
   switch (module) {
+    case "general":
+    case "commerce_detail":
+    case "commerce_detail_section":
+      if (params.task_type === "commerce_detail" || module !== "general") {
+        const sourceUrls = Array.isArray(params.source_urls)
+          ? params.source_urls.filter((url): url is string => typeof url === "string" && url.length > 0)
+          : extractClothingUrls(params);
+        const genCount = module === "commerce_detail_section" ? 1 : opts.count;
+        return {
+          ...base,
+          kind: "commerceDetail",
+          sourceUrls,
+          platform: typeof params.platform === "string" ? params.platform : "通用电商平台",
+          layout: normalizeCommerceDetailLayout(params.layout),
+          mobileWidth: Number(params.mobile_width || params.mobileWidth || 750),
+          genCount,
+          sections: Array.isArray(params.sections) ? params.sections : buildCommerceDetailSections(genCount),
+        };
+      }
+      return base;
     case "tryon":
       return {
         ...base,

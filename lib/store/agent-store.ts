@@ -4,6 +4,7 @@ import { create } from "zustand";
 import { v4 } from "./uuid";
 import type { Conversation, Message, ChatImage, GenerationParams, AgentMode, AgentIntentMode, ChatImageRole } from "@/lib/agent/types";
 import { DEFAULT_PARAMS } from "@/lib/agent/types";
+import { DEFAULT_CONVERSATION_TITLE, deriveConversationTitle, isDefaultConversationTitle } from "@/lib/agent/conversation-title";
 import { applyConfirmImageRoles, validateConfirmImageRoles } from "@/lib/agent/confirm-role-params";
 import { getCreditCost, normalizeImageSize, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
 import { applyRepairPrompt, type RepairKind } from "@/lib/generation-repair";
@@ -163,6 +164,19 @@ function updateMessageImages(convId: string, messageId: string, images: ChatImag
   }).catch(() => {});
 }
 
+function patchConversationList(
+  conversations: Conversation[],
+  convId: string,
+  patch: Partial<Pick<Conversation, "title" | "updated_at" | "images">>,
+) {
+  const updatedAt = patch.updated_at || new Date().toISOString();
+  return conversations
+    .map((conversation) =>
+      conversation.id === convId ? { ...conversation, ...patch, updated_at: updatedAt } : conversation
+    )
+    .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
+}
+
 function inferDefaultImageRole(index: number): ChatImageRole {
   if (index === 1) return "clothing";
   if (index === 2) return "reference";
@@ -219,7 +233,7 @@ export const useAgentStore = create<Store>((set, get) => ({
       const res = await fetch("/api/conversations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: "新对话", mode: "agent" }),
+        body: JSON.stringify({ title: DEFAULT_CONVERSATION_TITLE, mode: "agent" }),
       });
       if (!res.ok) return;
       const conv = await res.json();
@@ -419,7 +433,7 @@ export const useAgentStore = create<Store>((set, get) => ({
 
   // ======== 核心：发送消息 ========
   sendMessage: async () => {
-    const { inputText, inputImages, params, intentMode, activeId, conversations } = get();
+    const { inputText, inputImages, params, intentMode, activeId } = get();
     const trimmed = inputText.trim();
     if (!trimmed && inputImages.length === 0) return;
     if (inputImages.some((image) => image.uploading || image.uploadError)) return;
@@ -435,9 +449,13 @@ export const useAgentStore = create<Store>((set, get) => ({
     // 快照图片（保留在托盘中），只清空文字
     const currentImages = [...inputImages];
     set({ inputText: "", isSending: true });
+    const conversationPatch: Partial<Pick<Conversation, "title" | "updated_at" | "images">> = {
+      updated_at: new Date().toISOString(),
+    };
 
     // 持久化图片
     if (currentImages.length > 0) {
+      conversationPatch.images = currentImages;
       fetch(`/api/conversations/${convId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -445,19 +463,20 @@ export const useAgentStore = create<Store>((set, get) => ({
       }).catch(() => {});
     }
 
-    // 更新对话标题
-    const conv = conversations.find((c) => c.id === convId);
-    if (conv && conv.title === "新对话") {
-      const title = trimmed.slice(0, 25) || "图片生成";
+    // 更新对话标题：新建后发送时必须用最新 store 快照，避免侧边栏一直显示“新对话”
+    const conv = get().conversations.find((c) => c.id === convId);
+    if (!conv || isDefaultConversationTitle(conv.title)) {
+      const title = deriveConversationTitle(trimmed, currentImages);
+      conversationPatch.title = title;
       fetch(`/api/conversations/${convId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title }),
       }).catch(() => {});
-      set((s) => ({
-        conversations: s.conversations.map((c) => c.id === convId ? { ...c, title } : c),
-      }));
     }
+    set((s) => ({
+      conversations: patchConversationList(s.conversations, convId, conversationPatch),
+    }));
 
     // 用户消息（图片 URL 永久化：优先用 hostedUrl）
     const persistedImages: ChatImage[] = currentImages.map((img) => ({

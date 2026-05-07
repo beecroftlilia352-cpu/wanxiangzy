@@ -13,6 +13,7 @@ type QueueItem = {
   time: string;
   createdAt: string;
   error?: string;
+  progress?: number;
   thumbnails: string[];
 };
 
@@ -27,11 +28,14 @@ export function TaskQueueButton() {
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"running" | "finished">("running");
   const [loading, setLoading] = useState(false);
+  const [optimisticRunning, setOptimisticRunning] = useState(false);
+  const [optimisticStartedAt, setOptimisticStartedAt] = useState(0);
 
   const running = rows.filter((row) => row.statusGroup === "running");
   const finished = rows.filter((row) => row.statusGroup === "finished");
   const activeRows = activeTab === "running" ? running : finished;
   const groupedRows = groupQueueRows(activeRows.slice(0, 12));
+  const isRunning = running.length > 0 || optimisticRunning;
   const totalCount = running.length || finished.length;
 
   const loadQueue = useCallback(async () => {
@@ -40,30 +44,53 @@ export function TaskQueueButton() {
       const res = await fetch("/api/task-queue", { cache: "no-store" });
       const payload = await res.json().catch(() => ({})) as QueuePayload;
       if (!res.ok) return;
-      setRows(Array.isArray(payload.rows) ? payload.rows : []);
+      const nextRows = Array.isArray(payload.rows) ? payload.rows : [];
+      setRows(nextRows);
+      if (nextRows.some((row) => row.statusGroup === "running")) {
+        setOptimisticRunning(false);
+      } else if (optimisticRunning && Date.now() - optimisticStartedAt > 6000) {
+        setOptimisticRunning(false);
+      }
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [optimisticRunning, optimisticStartedAt]);
 
   useEffect(() => {
     loadQueue();
   }, [loadQueue]);
 
   useEffect(() => {
-    const hasRunning = rows.some((row) => row.statusGroup === "running");
-    if (!open && !hasRunning) return;
-    const timer = window.setInterval(loadQueue, hasRunning ? 3500 : 9000);
+    const hasRunning = rows.some((row) => row.statusGroup === "running") || optimisticRunning;
+    const timer = window.setInterval(loadQueue, hasRunning || open ? 3000 : 8000);
     return () => window.clearInterval(timer);
-  }, [loadQueue, open, rows]);
+  }, [loadQueue, open, rows, optimisticRunning]);
 
   useEffect(() => {
-    if (running.length > 0) setActiveTab("running");
-  }, [running.length]);
+    const refresh = () => {
+      setOptimisticStartedAt(Date.now());
+      setOptimisticRunning(true);
+      setActiveTab("running");
+      window.setTimeout(loadQueue, 300);
+      window.setTimeout(loadQueue, 1500);
+    };
+    window.addEventListener("wanxiang:task-queue-refresh", refresh);
+    window.addEventListener("focus", loadQueue);
+    document.addEventListener("visibilitychange", loadQueue);
+    return () => {
+      window.removeEventListener("wanxiang:task-queue-refresh", refresh);
+      window.removeEventListener("focus", loadQueue);
+      document.removeEventListener("visibilitychange", loadQueue);
+    };
+  }, [loadQueue]);
+
+  useEffect(() => {
+    if (running.length > 0 || optimisticRunning) setActiveTab("running");
+  }, [running.length, optimisticRunning]);
 
   const buttonLabel = useMemo(() => (
-    running.length ? `Task ${running.length}` : `Task ${totalCount || 0}`
-  ), [running.length, totalCount]);
+    isRunning ? `Task ${Math.max(running.length, 1)}` : `Task ${totalCount || 0}`
+  ), [isRunning, running.length, totalCount]);
 
   return (
     <DropdownMenu.Root open={open} onOpenChange={setOpen}>
@@ -72,7 +99,7 @@ export function TaskQueueButton() {
           type="button"
           className="inline-flex h-9 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 shadow-sm transition hover:border-violet-200 hover:text-violet-700"
         >
-          {running.length ? <Loader2 className="h-3.5 w-3.5 animate-spin text-violet-600" /> : <RefreshCw className="h-3.5 w-3.5" />}
+          {isRunning ? <Loader2 className="h-3.5 w-3.5 animate-spin text-violet-600" /> : <RefreshCw className="h-3.5 w-3.5" />}
           {buttonLabel}
         </button>
       </DropdownMenu.Trigger>
@@ -119,7 +146,7 @@ export function TaskQueueButton() {
                           <StatusDot item={item} />
                           <div className="min-w-0 flex-1">
                             <p className="truncate text-sm font-semibold text-slate-800">{item.title}</p>
-                            <p className="mt-0.5 text-xs text-slate-400">{item.error || item.time || item.status}</p>
+                            <p className="mt-0.5 text-xs text-slate-400">{item.error || getQueueMeta(item)}</p>
                           </div>
                           <ThumbnailStack urls={item.thumbnails} />
                         </Link>
@@ -130,8 +157,17 @@ export function TaskQueueButton() {
               ))
             ) : (
               <div className="flex h-28 flex-col items-center justify-center text-center text-xs text-slate-400">
-                <Clock3 className="mb-2 h-5 w-5" />
-                暂无{activeTab === "running" ? "进行中" : "已完成"}任务
+                {activeTab === "running" && optimisticRunning ? (
+                  <>
+                    <Loader2 className="mb-2 h-5 w-5 animate-spin text-violet-500" />
+                    正在同步新任务...
+                  </>
+                ) : (
+                  <>
+                    <Clock3 className="mb-2 h-5 w-5" />
+                    暂无{activeTab === "running" ? "进行中" : "已完成"}任务
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -182,12 +218,36 @@ function ThumbnailStack({ urls }: { urls: string[] }) {
 
 function StatusDot({ item }: { item: QueueItem }) {
   if (item.statusGroup === "running") {
-    return <span className="flex h-5 w-5 items-center justify-center rounded-full bg-violet-50 text-violet-600"><Loader2 className="h-3.5 w-3.5 animate-spin" /></span>;
+    const progress = clampProgress(item.progress);
+    return (
+      <span className="relative flex h-5 w-5 items-center justify-center rounded-full bg-violet-50 text-violet-600">
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        {progress > 0 && (
+          <span className="absolute -right-1 -top-1 rounded-full bg-white px-1 text-[9px] font-black leading-3 text-violet-600 shadow-sm">
+            {progress}
+          </span>
+        )}
+      </span>
+    );
   }
   if (item.status === "failed") {
     return <XCircle className="h-5 w-5 text-red-400" />;
   }
   return <CheckCircle2 className="h-5 w-5 text-emerald-500" />;
+}
+
+function getQueueMeta(item: QueueItem) {
+  if (item.statusGroup === "running") {
+    const progress = clampProgress(item.progress);
+    return progress > 0 ? `${progress}% · ${item.time || item.status}` : item.time || item.status;
+  }
+  return item.time || item.status;
+}
+
+function clampProgress(value: unknown) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return 0;
+  return Math.min(Math.max(Math.round(num), 0), 100);
 }
 
 function groupQueueRows(items: QueueItem[]) {

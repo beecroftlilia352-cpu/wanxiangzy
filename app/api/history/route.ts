@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase/server";
+import { normalizeGenerationState } from "@/lib/api/generation-state";
 
 const HISTORY_LIST_COLUMNS = [
   "id",
@@ -12,6 +13,7 @@ const HISTORY_LIST_COLUMNS = [
   "result_urls",
   "created_at",
   "completed_at",
+  "job_payload",
 ].join(",");
 
 const HISTORY_DETAIL_COLUMNS = [
@@ -19,13 +21,17 @@ const HISTORY_DETAIL_COLUMNS = [
   "clothing_urls",
   "model_face_url",
   "reference_url",
-  "job_payload",
 ].join(",");
 
 const DEFAULT_PAGE_SIZE = 12;
 const MAX_PAGE_SIZE = 24;
 
 type HistoryListRow = {
+  id?: string | null;
+  status?: string | null;
+  result_urls?: string[] | null;
+  completed_at?: string | null;
+  job_payload?: Record<string, unknown> | null;
   created_at?: string | null;
 };
 
@@ -65,7 +71,7 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: "历史记录不存在" }, { status: 404 });
       }
 
-      return NextResponse.json({ row: data });
+      return NextResponse.json({ row: normalizeHistoryRow(data as HistoryListRow) });
     }
 
     const cursor = searchParams.get("cursor");
@@ -96,7 +102,7 @@ export async function GET(request: Request) {
     }
 
     const fetchedRows = Array.isArray(data) ? data as HistoryListRow[] : [];
-    const rows = fetchedRows.slice(0, pageSize);
+    const rows = fetchedRows.slice(0, pageSize).map(normalizeHistoryRow);
     const hasMore = fetchedRows.length > pageSize;
     const nextCursor = hasMore ? rows[rows.length - 1]?.created_at || null : null;
 
@@ -106,6 +112,22 @@ export async function GET(request: Request) {
     if (process.env.NODE_ENV === "development") console.error("[history] error:", err);
     return NextResponse.json({ error: "历史记录加载失败" }, { status: 500 });
   }
+}
+
+function normalizeHistoryRow<T extends HistoryListRow>(row: T): T {
+  const state = normalizeGenerationState({
+    status: row.status,
+    resultUrls: row.result_urls,
+    payload: row.job_payload,
+    completedAt: row.completed_at,
+  });
+
+  return {
+    ...row,
+    status: state.status,
+    completed_at: row.completed_at || state.completedAt || null,
+    progress: state.progress,
+  } as T;
 }
 
 function withTimeout<T>(promise: PromiseLike<T>, ms: number, message: string): Promise<T> {

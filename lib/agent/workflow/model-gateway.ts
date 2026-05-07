@@ -6,7 +6,7 @@ export type GatewayImageRequest = {
   model: LingyaModel;
   prompt: string;
   promptForIndex?: (index: number, total: number) => string;
-  promptKind?: "model" | "grass" | "modelBackground" | "pose" | "garment3d" | "tryon" | "faceSwap";
+  promptKind?: "model" | "grass" | "modelBackground" | "pose" | "garment3d" | "tryon" | "faceSwap" | "commerceDetail";
   toolType?: WorkflowToolType;
   aspectRatio: AspectRatio;
   imageSize: ImageSize;

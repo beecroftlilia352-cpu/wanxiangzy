@@ -1,6 +1,12 @@
 import { persistGeneratedImageUrls } from "@/lib/api/result-image-storage";
 import { gatewayGenerateImages, gatewayTryOn } from "@/lib/agent/workflow/model-gateway";
 import { checkImageOutputs } from "@/lib/agent/workflow/quality";
+import {
+  buildCommerceDetailSectionPrompt,
+  buildCommerceDetailSections,
+  normalizeCommerceDetailLayout,
+  resolveCommerceDetailAspectRatio,
+} from "@/lib/commerce-detail-sections";
 import { buildFaceSwapPrompt, enforceFaceSwapPromptRequirements } from "@/lib/face-swap";
 import type {
   StepExecutionInput,
@@ -66,35 +72,33 @@ async function executeCommerceDetailSection(input: StepExecutionInput) {
   const params = input.step.params;
   const sectionIndex = Number(params.sectionIndex || 1);
   const sectionTotal = Number(params.sectionTotal || 1);
-  const sectionTitle = String(params.sectionTitle || input.step.title || `Detail section ${sectionIndex}`);
-  const sectionPurpose = String(params.sectionPurpose || "");
-  const platform = String(params.platform || "general").trim() || "general";
-  const layout = String(params.layout || "mobile").toLowerCase() === "desktop" ? "desktop" : "mobile";
-  const mobileWidth = Number(params.mobileWidth || 750);
-  const prompt = [
-    layout === "desktop"
-      ? `Create one desktop commerce detail page section for ${platform}.`
-      : `Create one mobile-first commerce detail page section for ${platform}.`,
-    `Section ${sectionIndex} of ${sectionTotal}: ${sectionTitle}.`,
-    sectionPurpose ? `This section's unique purpose: ${sectionPurpose}.` : "",
-    `This image is only module ${sectionIndex}/${sectionTotal}. It must be visually and structurally different from the other modules, focused on "${sectionTitle}" only.`,
-    layout === "desktop"
-      ? "Use a spacious desktop/web composition with clear hero, content blocks, and readable copy. Do not make a mobile long strip."
-      : `Target mobile width: ${mobileWidth}px. Use a one-screen vertical mobile commerce layout, large readable title, 2-4 short selling points, strong hierarchy, and generous breathing room.`,
-    "Generate exactly one standalone section image focused only on this section. Do not create a full long page, full product detail page, collage, four-grid, multi-panel contact sheet, parameter sheet, or multiple sections in one image.",
-    "Do not repeat the same hero + icons + table composition across modules. Change composition by module: hero module can be visual-led, selling-points module can use benefit cards, material module can use close-up details, scene module can use lifestyle composition, parameter module can use simplified specs.",
-    "Do not compress too much information into tiny PC-style tables. Unless this section is specifically about parameters/specs, avoid tables. If parameters are needed, show only the most important few items in large readable mobile cards.",
-    "Keep the referenced product/person/garment identity, material, color, silhouette and commercial photography quality stable.",
-    getCommercePlatformGuidance(platform),
-    String(params.prompt || input.workflow.summary || ""),
-  ].filter(Boolean).join("\n");
+  const layout = normalizeCommerceDetailLayout(params.layout);
+  const defaultSection = buildCommerceDetailSections(sectionTotal)[sectionIndex - 1] || buildCommerceDetailSections(1)[0];
+  const section = {
+    ...defaultSection,
+    title: String(params.sectionTitle || defaultSection.title || input.step.title || `Detail section ${sectionIndex}`),
+    purpose: String(params.sectionPurpose || defaultSection.purpose || ""),
+    template: String(params.sectionTemplate || defaultSection.template || ""),
+  };
+  const references = resolveImageList(input, input.step.input.referenceImages);
+  const prompt = buildCommerceDetailSectionPrompt({
+    userPrompt: String(params.prompt || input.workflow.summary || ""),
+    platform: String(params.platform || "general"),
+    layout,
+    mobileWidth: Number(params.mobileWidth || 750),
+    section,
+    sectionIndex,
+    sectionTotal,
+    referenceCount: references.length,
+  });
   const result = await gatewayGenerateImages({
     model: input.model,
     prompt,
-    promptKind: undefined,
-    aspectRatio: input.aspectRatio,
+    promptKind: "commerceDetail",
+    toolType: "commerce_detail_section",
+    aspectRatio: resolveCommerceDetailAspectRatio(layout, input.aspectRatio),
     imageSize: input.imageSize,
-    images: resolveImageList(input, input.step.input.referenceImages),
+    images: references,
     count: 1,
     onProgress: input.onProgress,
   });

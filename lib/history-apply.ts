@@ -76,6 +76,7 @@ export type HistoryJobPayload =
       imageSize: ImageSize;
       prompt: string;
       genCount: number;
+      textureEnhance?: boolean;
     };
 
 export function getApplyPath(kind: HistoryJobPayload["kind"]) {

@@ -187,11 +187,26 @@ export async function generateImage(input: GenerateInput, retries = 2): Promise<
 
       const json = JSON.parse(resText);
       const taskId = extractTaskId(json);
-      console.log(`[api:${provider.name}] 异步响应: ok=${res.ok}, hasTask=${Boolean(taskId)}`);
+      const immediateResult = extractGeneratedImages(json);
+      console.log(`[api:${provider.name}] 异步响应: ok=${res.ok}, hasTask=${Boolean(taskId)}, imageCount=${immediateResult.urls.length + (immediateResult.b64Json ? 1 : 0)}`);
 
       if (!taskId) {
+        if (immediateResult.urls.length || immediateResult.b64Json) {
+          await input.onProgress?.({
+            status: "completed",
+            providerStatus: "SYNC_COMPLETED",
+            progress: 100,
+            urls: immediateResult.urls,
+          });
+          return {
+            url: immediateResult.urls[0],
+            b64_json: normalizeB64Image(immediateResult.b64Json),
+            prompt: input.prompt,
+            compiledPrompt,
+          };
+        }
         if (attempt < retries) { await new Promise(r => setTimeout(r, attempt * 5000)); continue; }
-        throw new Error("图片生成接口未返回异步任务 ID");
+        throw new Error(`图片生成接口未返回任务 ID 或图片结果，响应字段: ${describeResponseKeys(json)}`);
       }
 
       await input.onProgress?.({ taskId, status: "queued", providerStatus: "SUBMITTED", progress: 1 });
@@ -354,24 +369,20 @@ function normalizeImageTaskResponse(json: any, fallbackTaskId: string): {
   const root = json?.data && !Array.isArray(json.data) ? json.data : json;
   const providerStatus = String(root?.status || json?.status || "").toUpperCase();
   const progress = parseProgress(root?.progress ?? json?.progress);
-  const imageItems = extractImageItems(root);
-  const urls = imageItems
-    .map((item) => typeof item?.url === "string" ? item.url : "")
-    .filter(Boolean);
-  const b64Json = imageItems
-    .map((item) => normalizeB64Image(typeof item?.b64_json === "string" ? item.b64_json : undefined))
-    .find(Boolean);
+  const generatedImages = extractGeneratedImages(root);
+  const urls = generatedImages.urls;
+  const b64Json = normalizeB64Image(generatedImages.b64Json);
   const failReason = root?.fail_reason || root?.error || root?.message || json?.message;
 
-  if (providerStatus === "SUCCESS" || urls.length > 0 || b64Json) {
-    return { taskId: root?.task_id || fallbackTaskId, status: "completed", providerStatus, progress: 100, urls, b64Json };
+  if (["SUCCESS", "SUCCEEDED", "COMPLETED", "DONE"].includes(providerStatus) || urls.length > 0 || b64Json) {
+    return { taskId: root?.task_id || root?.taskId || root?.id || fallbackTaskId, status: "completed", providerStatus, progress: 100, urls, b64Json };
   }
-  if (providerStatus === "FAILURE" || providerStatus === "FAILED" || providerStatus === "ERROR") {
-    return { taskId: root?.task_id || fallbackTaskId, status: "failed", providerStatus, progress, urls, b64Json, error: String(failReason || "生成失败") };
+  if (["FAILURE", "FAILED", "ERROR", "CANCELLED", "CANCELED"].includes(providerStatus)) {
+    return { taskId: root?.task_id || root?.taskId || root?.id || fallbackTaskId, status: "failed", providerStatus, progress, urls, b64Json, error: String(failReason || "生成失败") };
   }
   return {
-    taskId: root?.task_id || fallbackTaskId,
-    status: providerStatus === "NOT_START" || providerStatus === "QUEUED" ? "queued" : "running",
+    taskId: root?.task_id || root?.taskId || root?.id || fallbackTaskId,
+    status: ["NOT_START", "PENDING", "QUEUED", "SUBMITTED"].includes(providerStatus) ? "queued" : "running",
     providerStatus,
     progress,
     urls,
@@ -380,24 +391,96 @@ function normalizeImageTaskResponse(json: any, fallbackTaskId: string): {
 }
 
 function extractTaskId(json: any): string {
-  return String(json?.task_id || json?.id || json?.taskId || json?.data?.task_id || json?.data?.id || "");
+  const candidates = [
+    json?.task_id,
+    json?.taskId,
+    json?.task?.task_id,
+    json?.task?.id,
+    json?.data?.task_id,
+    json?.data?.taskId,
+    json?.data?.task?.task_id,
+    json?.data?.task?.id,
+    json?.result?.task_id,
+    json?.result?.taskId,
+    json?.output?.task_id,
+    json?.output?.taskId,
+    json?.request_id,
+    json?.data?.request_id,
+    Array.isArray(json?.data) ? json.data[0]?.task_id : undefined,
+    Array.isArray(json?.data) ? json.data[0]?.taskId : undefined,
+    Array.isArray(json?.data) ? json.data[0]?.id : undefined,
+  ];
+  const explicit = candidates.find((value) => (typeof value === "string" && value.trim()) || (typeof value === "number" && Number.isFinite(value)));
+  if (typeof explicit === "number") return String(explicit);
+  if (typeof explicit === "string") return explicit.trim();
+
+  const statusLike = json?.status || json?.data?.status || json?.progress || json?.data?.progress;
+  const ambiguousId = json?.id || json?.data?.id;
+  if (!statusLike) return "";
+  if (typeof ambiguousId === "number" && Number.isFinite(ambiguousId)) return String(ambiguousId);
+  return typeof ambiguousId === "string" ? ambiguousId.trim() : "";
+}
+
+function extractGeneratedImages(root: any): { urls: string[]; b64Json?: string } {
+  const imageItems = extractImageItems(root);
+  const urls = imageItems
+    .map((item) => {
+      if (typeof item === "string") return item;
+      return item?.url || item?.image_url || item?.result_url || item?.asset_url || item?.src || "";
+    })
+    .filter((url): url is string => typeof url === "string" && (/^https?:\/\//i.test(url) || /^data:image\//i.test(url)));
+  const b64Json = imageItems
+    .map((item) => typeof item?.b64_json === "string" ? item.b64_json : typeof item?.base64 === "string" ? item.base64 : undefined)
+    .find(Boolean);
+  return { urls: Array.from(new Set(urls)), b64Json };
 }
 
 function extractImageItems(root: any): any[] {
+  if (!root) return [];
+  if (typeof root === "string") return /^https?:\/\//i.test(root) || /^data:image\//i.test(root) ? [{ url: root }] : [];
+  if (Array.isArray(root)) {
+    if (root.every((item) => typeof item === "string")) return root.map((url) => ({ url }));
+    return root;
+  }
+  if (typeof root === "object" && (root.url || root.image_url || root.result_url || root.asset_url || root.b64_json || root.base64)) {
+    return [root];
+  }
+
   const candidates = [
     root?.data?.data,
     root?.data,
+    root?.output?.images,
+    root?.output?.data,
     root?.output,
+    root?.result?.images,
+    root?.result?.data,
+    root?.result,
+    root?.images,
+    root?.image,
     root?.result_urls,
+    root?.urls,
   ];
   for (const candidate of candidates) {
-    if (Array.isArray(candidate)) {
-      if (candidate.every((item) => typeof item === "string")) return candidate.map((url) => ({ url }));
-      return candidate;
-    }
-    if (candidate && typeof candidate === "object" && Array.isArray(candidate.data)) return candidate.data;
+    const items = extractImageItems(candidate);
+    if (items.length) return items;
   }
   return [];
+}
+
+function describeResponseKeys(value: any): string {
+  if (!value || typeof value !== "object") return typeof value;
+  const topKeys = Object.keys(value).slice(0, 12);
+  const dataKeys = value.data && typeof value.data === "object" && !Array.isArray(value.data)
+    ? Object.keys(value.data).slice(0, 12)
+    : [];
+  const firstDataKeys = Array.isArray(value.data) && value.data[0] && typeof value.data[0] === "object"
+    ? Object.keys(value.data[0]).slice(0, 12)
+    : [];
+  return [
+    `top=${topKeys.join(",") || "none"}`,
+    dataKeys.length ? `data=${dataKeys.join(",")}` : "",
+    firstDataKeys.length ? `data[0]=${firstDataKeys.join(",")}` : "",
+  ].filter(Boolean).join("; ");
 }
 
 function parseProgress(value: unknown) {

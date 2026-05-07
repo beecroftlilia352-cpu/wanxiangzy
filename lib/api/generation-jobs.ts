@@ -15,6 +15,14 @@ import {
   evaluateGeneratedImages,
   type VisualQualityEvaluation,
 } from "@/lib/agent/brain/visual-quality";
+import {
+  buildCommerceDetailSectionPrompt,
+  buildCommerceDetailSections,
+  normalizeCommerceDetailLayout,
+  resolveCommerceDetailAspectRatio,
+  type CommerceDetailLayout,
+  type CommerceDetailSectionSpec,
+} from "@/lib/commerce-detail-sections";
 import { enforceModelPromptRequirements } from "@/lib/model-prompt";
 import { enforcePosePromptRequirements, type PoseOutputMode } from "@/lib/pose-prompt";
 import {
@@ -105,6 +113,20 @@ export type GenerationJobPayload =
       imageSize: ImageSize;
       prompt: string;
       genCount: number;
+      textureEnhance?: boolean;
+    }
+  | {
+      kind: "commerceDetail";
+      sourceUrls: string[];
+      aiModel: LingyaModel;
+      aspectRatio: AspectRatio;
+      imageSize: ImageSize;
+      prompt: string;
+      genCount: number;
+      platform?: string;
+      layout?: CommerceDetailLayout;
+      mobileWidth?: number;
+      sections?: CommerceDetailSectionSpec[];
     };
 
 interface ClaimedJob {
@@ -570,6 +592,49 @@ async function executePayload(
     return { resultUrls, promptTrace };
   }
 
+  if (payload.kind === "commerceDetail") {
+    const imageInputs = await resolveImageInputs({ clothingUrls: payload.sourceUrls });
+    const resultUrls: string[] = [];
+    const layout = normalizeCommerceDetailLayout(payload.layout);
+    const sections = normalizeCommerceDetailSections(payload.sections, payload.genCount);
+    const generationCount = sections.length;
+
+    for (let i = 0; i < generationCount; i++) {
+      const section = sections[i];
+      const prompt = buildCommerceDetailSectionPrompt({
+        userPrompt: payload.prompt,
+        platform: payload.platform || "general",
+        layout,
+        mobileWidth: payload.mobileWidth || 750,
+        section,
+        sectionIndex: i + 1,
+        sectionTotal: generationCount,
+        referenceCount: imageInputs.clothingUrls.length,
+      });
+      const result = await generateImage({
+        model: payload.aiModel,
+        prompt,
+        prompt_kind: "commerceDetail",
+        aspect_ratio: resolveCommerceDetailAspectRatio(layout, payload.aspectRatio),
+        image: imageInputs.clothingUrls,
+        image_size: payload.imageSize,
+        onProgress: (progress) => onProgress?.(mapImageTaskProgress(progress, resultUrls, promptTrace, i, generationCount)),
+      });
+      resultUrls.push(getResultUrl(result));
+      promptTrace.push(createPromptTraceItem({
+        index: i + 1,
+        kind: payload.kind,
+        model: payload.aiModel,
+        promptKind: `commerceDetail:${section.id}`,
+        prompt,
+        compiledPrompt: result.compiledPrompt || prompt,
+      }));
+      await onProgress?.(createCompletedImageProgress(resultUrls, promptTrace, result.taskId, i + 1, generationCount));
+    }
+
+    return { resultUrls, promptTrace };
+  }
+
   const imageInputs = await resolveImageInputs({
     clothingUrls: [
       payload.garmentUrl,
@@ -675,15 +740,27 @@ function appendAsyncProgress(payload: GenerationJobPayload, update: GenerationPr
     return payload;
   }
 
+  const existingAsyncTask = readExistingAsyncTask(payload);
   return {
     ...payload,
     asyncTask: {
-      taskId: update.externalTaskId,
-      status: update.externalStatus,
+      taskId: update.externalTaskId || existingAsyncTask.taskId,
+      status: update.externalStatus || existingAsyncTask.status,
       progress: typeof update.progress === "number" ? Math.min(Math.max(Math.round(update.progress), 0), 100) : undefined,
       updatedAt: new Date().toISOString(),
     },
   } as unknown as GenerationJobPayload;
+}
+
+function readExistingAsyncTask(payload: GenerationJobPayload): { taskId?: string; status?: string } {
+  const maybePayload = payload as unknown as { asyncTask?: unknown };
+  const asyncTask = maybePayload.asyncTask;
+  if (!asyncTask || typeof asyncTask !== "object") return {};
+  const task = asyncTask as { taskId?: unknown; status?: unknown };
+  return {
+    taskId: typeof task.taskId === "string" ? task.taskId : undefined,
+    status: typeof task.status === "string" ? task.status : undefined,
+  };
 }
 
 function appendQualityMetadata(
@@ -751,6 +828,7 @@ function getPayloadReferenceImages(payload: GenerationJobPayload) {
   if (payload.kind === "modelBackground") return [payload.sourceUrl, payload.modelReferenceUrl, payload.backgroundReferenceUrl].filter((url): url is string => typeof url === "string" && url.length > 0);
   if (payload.kind === "pose") return [payload.mainImageUrl];
   if (payload.kind === "faceSwap") return [payload.sourceUrl, payload.faceUrl];
+  if (payload.kind === "commerceDetail") return payload.sourceUrls;
   return [payload.garmentUrl, payload.referenceUrl].filter((url): url is string => typeof url === "string" && url.length > 0);
 }
 
@@ -837,6 +915,15 @@ function isJobPayload(value: unknown): value is GenerationJobPayload {
       typeof value.genCount === "number";
   }
 
+  if (value.kind === "commerceDetail") {
+    return hasStringArray(value.sourceUrls) &&
+      typeof value.aiModel === "string" &&
+      typeof value.aspectRatio === "string" &&
+      typeof value.imageSize === "string" &&
+      typeof value.prompt === "string" &&
+      typeof value.genCount === "number";
+  }
+
   return false;
 }
 
@@ -868,6 +955,25 @@ function getPoseGenerationCount(payload: Extract<GenerationJobPayload, { kind: "
   const num = Number(payload.genCount || 4);
   if (!Number.isFinite(num)) return 4;
   return Math.min(Math.max(Math.floor(num), 1), 4);
+}
+
+function normalizeCommerceDetailSections(
+  sections: CommerceDetailSectionSpec[] | undefined,
+  count: number
+): CommerceDetailSectionSpec[] {
+  const safeCount = Math.min(Math.max(Math.floor(Number(count) || 1), 1), 8);
+  const defaults = buildCommerceDetailSections(safeCount);
+  return Array.from({ length: safeCount }, (_, index) => {
+    const section = sections?.[index];
+    return {
+      ...defaults[index],
+      ...(section || {}),
+      title: section?.title || defaults[index].title,
+      purpose: section?.purpose || defaults[index].purpose,
+      template: section?.template || defaults[index].template,
+      avoid: Array.isArray(section?.avoid) && section.avoid.length ? section.avoid : defaults[index].avoid,
+    };
+  });
 }
 
 function buildSeparatePosePrompt(prompt: string, poseIndex: number) {

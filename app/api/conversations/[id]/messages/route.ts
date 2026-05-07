@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase/server";
+import { deriveConversationTitle, isDefaultConversationTitle } from "@/lib/agent/conversation-title";
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -25,13 +26,25 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!user) return NextResponse.json({ error: "请先登录" }, { status: 401 });
 
   const body = await request.json().catch(() => ({}));
+  const role = body.role || "user";
+
+  const { data: conversation, error: conversationError } = await supabase
+    .from("agent_conversations")
+    .select("id,title")
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .single();
+
+  if (conversationError || !conversation) {
+    return NextResponse.json({ error: "Conversation not found" }, { status: 404 });
+  }
 
   const { data, error } = await supabase
     .from("agent_messages")
     .insert({
       ...(typeof body.id === "string" ? { id: body.id } : {}),
       conversation_id: id,
-      role: body.role || "user",
+      role,
       content: body.content || "",
       images: body.images || [],
       generation: body.generation || null,
@@ -43,11 +56,19 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // 更新对话的 updated_at
+  const conversationUpdates: Record<string, unknown> = {
+    updated_at: new Date().toISOString(),
+  };
+  if (role === "user" && isDefaultConversationTitle(conversation.title)) {
+    conversationUpdates.title = deriveConversationTitle(body.content, body.images);
+  }
+
+  // 更新对话的 updated_at，并在第一条用户消息后生成历史标题
   await supabase
     .from("agent_conversations")
-    .update({ updated_at: new Date().toISOString() })
-    .eq("id", id);
+    .update(conversationUpdates)
+    .eq("id", id)
+    .eq("user_id", user.id);
 
   return NextResponse.json(data);
 }

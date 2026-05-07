@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase/server";
+import { normalizeGenerationState } from "@/lib/api/generation-state";
 
 const QUEUE_COLUMNS = [
   "id",
@@ -94,15 +95,22 @@ async function loadWorkflowRows(supabase: Awaited<ReturnType<typeof createServer
 function normalizeQueueRow(row: QueueRow) {
   const payload = row.job_payload && typeof row.job_payload === "object" ? row.job_payload : {};
   const kind = typeof payload.kind === "string" ? payload.kind : "";
-  const statusGroup = isRunningStatus(row.status) ? "running" as const : "finished" as const;
+  const state = normalizeGenerationState({
+    status: row.status,
+    resultUrls: row.result_urls,
+    payload,
+    completedAt: row.completed_at,
+  });
+  const completedAt = state.completedAt || row.completed_at;
   return {
     id: row.id,
     title: moduleLabel(kind),
-    status: row.status,
-    statusGroup,
-    time: formatDuration(row.created_at, row.completed_at),
+    status: state.status,
+    statusGroup: state.statusGroup,
+    progress: state.progress,
+    time: formatDuration(row.created_at, state.statusGroup === "finished" ? completedAt || row.created_at : null),
     createdAt: row.created_at,
-    completedAt: row.completed_at,
+    completedAt,
     error: row.error_message || "",
     thumbnails: getThumbnails(row, payload),
   };
@@ -121,10 +129,6 @@ function normalizeWorkflowRow(row: WorkflowRow) {
     error: row.error_message || "",
     thumbnails: getWorkflowThumbnails(row),
   };
-}
-
-function isRunningStatus(status: string) {
-  return status === "pending" || status === "processing" || status === "processing_tryon" || status.startsWith("processing_");
 }
 
 function isRunningWorkflowStatus(status: string) {
