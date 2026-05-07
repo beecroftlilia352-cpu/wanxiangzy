@@ -103,6 +103,123 @@ cleanup_legacy_root_lockfiles() {
   done
 }
 
+configure_build_environment() {
+  export npm_config_audit=false
+  export npm_config_fund=false
+  export npm_config_update_notifier=false
+  export npm_config_progress=false
+  export NEXT_TELEMETRY_DISABLED=1
+
+  if [[ "${NODE_OPTIONS:-}" != *"--max-old-space-size"* ]]; then
+    if [ -n "${NODE_OPTIONS:-}" ]; then
+      export NODE_OPTIONS="$NODE_OPTIONS --max-old-space-size=${NODE_MAX_OLD_SPACE_SIZE:-1536}"
+    else
+      export NODE_OPTIONS="--max-old-space-size=${NODE_MAX_OLD_SPACE_SIZE:-1536}"
+    fi
+  fi
+}
+
+ensure_build_swap() {
+  local mem_total_mb="0"
+  local swap_total_mb="0"
+  mem_total_mb="$(awk '/MemTotal/ { print int($2 / 1024) }' /proc/meminfo 2>/dev/null || printf '0')"
+  swap_total_mb="$(awk '/SwapTotal/ { print int($2 / 1024) }' /proc/meminfo 2>/dev/null || printf '0')"
+
+  if [ "${mem_total_mb:-0}" -ge 1800 ] || [ "${swap_total_mb:-0}" -ge 1024 ]; then
+    return 0
+  fi
+
+  if ! command -v sudo >/dev/null 2>&1 || ! sudo -n true 2>/dev/null; then
+    echo "Low memory detected, but passwordless sudo is unavailable; continuing without build swap." >&2
+    return 0
+  fi
+
+  local swapfile="$SHARED_DIR/build.swap"
+  if ! swapon --show=NAME 2>/dev/null | grep -qx "$swapfile"; then
+    if [ ! -f "$swapfile" ]; then
+      echo "Creating temporary build swap at $swapfile"
+      sudo fallocate -l 2G "$swapfile" 2>/dev/null || sudo dd if=/dev/zero of="$swapfile" bs=1M count=2048 status=none
+      sudo chmod 600 "$swapfile"
+      sudo mkswap "$swapfile" >/dev/null
+    fi
+
+    echo "Enabling temporary build swap"
+    if ! sudo swapon "$swapfile" 2>/dev/null; then
+      echo "Existing build swap could not be enabled; recreating it." >&2
+      sudo rm -f "$swapfile"
+      sudo fallocate -l 2G "$swapfile" 2>/dev/null || sudo dd if=/dev/zero of="$swapfile" bs=1M count=2048 status=none
+      sudo chmod 600 "$swapfile"
+      sudo mkswap "$swapfile" >/dev/null
+      sudo swapon "$swapfile" 2>/dev/null || echo "Unable to enable build swap; continuing without it." >&2
+    fi
+  fi
+}
+
+dependency_cache_key() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    { sha256sum package.json; sha256sum package-lock.json; } | sha256sum | awk '{ print $1 }'
+  elif command -v shasum >/dev/null 2>&1; then
+    { shasum -a 256 package.json; shasum -a 256 package-lock.json; } | shasum -a 256 | awk '{ print $1 }'
+  else
+    node - <<'NODE'
+const crypto = require("crypto");
+const fs = require("fs");
+const hash = crypto.createHash("sha256");
+for (const file of ["package.json", "package-lock.json"]) {
+  hash.update(fs.readFileSync(file));
+}
+process.stdout.write(hash.digest("hex"));
+NODE
+  fi
+}
+
+install_dependencies() {
+  if [ ! -f package-lock.json ]; then
+    echo "package-lock.json is missing; falling back to npm install." >&2
+    npm install --prefer-offline --no-audit --no-fund
+    return 0
+  fi
+
+  local cache_root="$SHARED_DIR/node_modules-cache"
+  local cache_key
+  local cache_dir
+  cache_key="$(dependency_cache_key)"
+  cache_dir="$cache_root/$cache_key"
+  mkdir -p "$cache_root"
+
+  if [ -d "$cache_dir/node_modules" ]; then
+    echo "Reusing dependency cache: $cache_key"
+    rm -rf -- node_modules
+    ln -sfn "$cache_dir/node_modules" node_modules
+    touch "$cache_dir"
+    return 0
+  fi
+
+  echo "Installing dependencies for cache: $cache_key"
+  rm -rf -- node_modules
+  npm ci --prefer-offline --no-audit --no-fund
+  mkdir -p "$cache_dir"
+  mv node_modules "$cache_dir/node_modules"
+  ln -sfn "$cache_dir/node_modules" node_modules
+}
+
+cleanup_dependency_cache() {
+  local cache_root="$SHARED_DIR/node_modules-cache"
+  if [ ! -d "$cache_root" ]; then
+    return 0
+  fi
+
+  mapfile -t OLD_CACHES < <(
+    find "$cache_root" -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\n' |
+      sort -rn |
+      awk 'NR > 4 { sub(/^[^ ]+ /, ""); print }'
+  )
+
+  for OLD_CACHE in "${OLD_CACHES[@]}"; do
+    rm -rf -- "$OLD_CACHE"
+  done
+}
+
 if ! command -v node >/dev/null 2>&1; then
   echo "Node.js is not installed on the server." >&2
   exit 1
@@ -135,7 +252,9 @@ ln -sfn "$SHARED_DIR/.env.production" "$RELEASE_DIR/.env.production"
 cleanup_legacy_root_lockfiles
 
 cd "$RELEASE_DIR"
-npm ci
+configure_build_environment
+ensure_build_swap
+install_dependencies
 npm run build
 
 ln -sfn "$RELEASE_DIR" "$BASE_DIR/current"
@@ -149,6 +268,7 @@ if ! healthcheck_app; then
 fi
 
 pm2 save
+cleanup_dependency_cache
 
 CURRENT_TARGET="$(readlink -f "$BASE_DIR/current" 2>/dev/null || true)"
 mapfile -t OLD_RELEASES < <(
