@@ -173,6 +173,19 @@ NODE
   fi
 }
 
+dependency_cache_key_for_dir() {
+  local target_dir="$1"
+
+  if [ ! -f "$target_dir/package.json" ] || [ ! -f "$target_dir/package-lock.json" ]; then
+    return 1
+  fi
+
+  (
+    cd "$target_dir"
+    dependency_cache_key
+  )
+}
+
 install_dependencies() {
   if [ ! -f package-lock.json ]; then
     echo "package-lock.json is missing; falling back to npm install." >&2
@@ -186,6 +199,22 @@ install_dependencies() {
   cache_key="$(dependency_cache_key)"
   cache_dir="$cache_root/$cache_key"
   mkdir -p "$cache_root"
+
+  if [ -n "$PREVIOUS_TARGET" ] &&
+    [ -d "$PREVIOUS_TARGET/node_modules" ] &&
+    previous_cache_key="$(dependency_cache_key_for_dir "$PREVIOUS_TARGET" 2>/dev/null)" &&
+    [ "$previous_cache_key" = "$cache_key" ]; then
+    echo "Seeding dependency cache from current release: $cache_key"
+    mkdir -p "$cache_dir"
+    if [ ! -d "$cache_dir/node_modules" ]; then
+      cp -al "$PREVIOUS_TARGET/node_modules" "$cache_dir/node_modules" 2>/dev/null ||
+        cp -a "$PREVIOUS_TARGET/node_modules" "$cache_dir/node_modules"
+    fi
+    rm -rf -- node_modules
+    ln -sfn "$cache_dir/node_modules" node_modules
+    touch "$cache_dir"
+    return 0
+  fi
 
   if [ -d "$cache_dir/node_modules" ]; then
     echo "Reusing dependency cache: $cache_key"
