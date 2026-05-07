@@ -2,6 +2,7 @@ const IMGBB_API_URL = "https://api.imgbb.com/1/upload";
 const IMAGE_UPLOAD_TIMEOUT_MS = 45000;
 const IMAGE_DOWNLOAD_TIMEOUT_MS = 30000;
 const MAX_RESULT_IMAGE_BYTES = 25 * 1024 * 1024;
+const IMAGE_LIKE_CONTENT_TYPES = ["image/", "application/octet-stream", "binary/octet-stream"];
 
 export async function persistGeneratedImageUrls(
   urls: string[],
@@ -25,9 +26,10 @@ async function persistGeneratedImageUrl(
 ) {
   if (isStableImageHost(urlOrDataUrl)) return urlOrDataUrl;
 
+  const shouldServerDownload = options.forceServerDownload ?? isRemoteUrl(urlOrDataUrl);
   const imagePayload = urlOrDataUrl.startsWith("data:")
     ? getBase64Payload(urlOrDataUrl)
-    : options.forceServerDownload
+    : shouldServerDownload
       ? await downloadRemoteImageAsBase64(urlOrDataUrl)
       : urlOrDataUrl;
 
@@ -57,6 +59,12 @@ async function downloadRemoteImageAsBase64(url: string) {
   if (!response.ok) {
     console.error("[result-image-storage] remote image download error:", response.status, parsedUrl.hostname);
     throw new Error(`生成结果图片下载失败: ${response.status}`);
+  }
+
+  const contentType = response.headers.get("content-type")?.toLowerCase() || "";
+  if (contentType && !IMAGE_LIKE_CONTENT_TYPES.some((prefix) => contentType.startsWith(prefix))) {
+    console.error("[result-image-storage] remote resource is not image:", contentType, parsedUrl.hostname);
+    throw new Error("生成结果地址不是图片，无法转存图床");
   }
 
   const contentLength = Number(response.headers.get("content-length") || 0);
@@ -113,6 +121,15 @@ function isStableImageHost(url: string) {
   try {
     const host = new URL(url).hostname.toLowerCase();
     return host === "i.ibb.co" || host.endsWith(".ibb.co");
+  } catch {
+    return false;
+  }
+}
+
+function isRemoteUrl(value: string) {
+  try {
+    const protocol = new URL(value).protocol;
+    return protocol === "http:" || protocol === "https:";
   } catch {
     return false;
   }
