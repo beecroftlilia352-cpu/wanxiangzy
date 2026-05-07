@@ -92,16 +92,36 @@ jobs:
           AWS_SSH_PRIVATE_KEY: ${{ secrets.AWS_SSH_PRIVATE_KEY }}
         run: |
           set -euo pipefail
-          test -n "$AWS_SSH_PRIVATE_KEY"
+          if [[ -z "${AWS_SSH_PRIVATE_KEY:-}" ]]; then
+            echo "::error::AWS_SSH_PRIVATE_KEY is empty"
+            exit 1
+          fi
+
           mkdir -p ~/.ssh
-          printf '%s\n' "$AWS_SSH_PRIVATE_KEY" > ~/.ssh/aws_deploy_key
+          chmod 700 ~/.ssh
+          printf '%s\n' "$AWS_SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/aws_deploy_key
           chmod 600 ~/.ssh/aws_deploy_key
-          ssh-keyscan -p "$AWS_PORT_NORM" -H "$AWS_HOST_NORM" >> ~/.ssh/known_hosts
+          touch ~/.ssh/known_hosts
+
+          for attempt in 1 2 3 4 5; do
+            echo "Scanning SSH host key, attempt ${attempt}/5..."
+            if ssh-keyscan -T 10 -p "$AWS_PORT_NORM" -H "$AWS_HOST_NORM" >> ~/.ssh/known_hosts 2>/tmp/ssh-keyscan.err; then
+              exit 0
+            fi
+            cat /tmp/ssh-keyscan.err >&2 || true
+            sleep 3
+          done
+
+          echo "::warning::ssh-keyscan failed; continuing with StrictHostKeyChecking=accept-new"
 
       - name: Upload deployment archive
         run: |
           set -euo pipefail
-          scp -P "$AWS_PORT_NORM" -i ~/.ssh/aws_deploy_key .deploy/app.tar.gz \
+          scp -P "$AWS_PORT_NORM" -i ~/.ssh/aws_deploy_key \
+            -o StrictHostKeyChecking=accept-new \
+            -o UserKnownHostsFile=~/.ssh/known_hosts \
+            -o ConnectTimeout=30 \
+            .deploy/app.tar.gz \
             "$AWS_USER_NORM@$AWS_HOST_NORM:/tmp/wanxiangzy-${GITHUB_RUN_ID}.tar.gz"
 
       - name: Deploy on EC2
@@ -114,6 +134,11 @@ jobs:
           set -euo pipefail
           quote() { printf '%q' "$1"; }
           REMOTE_ENV="AWS_APP_DIR=$(quote "${AWS_APP_DIR:-}") AWS_APP_NAME=$(quote "${AWS_APP_NAME:-}") TAG_NAME=$(quote "$TAG_NAME") DEPLOY_ARCHIVE=$(quote "$DEPLOY_ARCHIVE")"
-          ssh -p "$AWS_PORT_NORM" -i ~/.ssh/aws_deploy_key "$AWS_USER_NORM@$AWS_HOST_NORM" \
+          ssh -p "$AWS_PORT_NORM" -i ~/.ssh/aws_deploy_key \
+            -o StrictHostKeyChecking=accept-new \
+            -o UserKnownHostsFile=~/.ssh/known_hosts \
+            -o ConnectTimeout=30 \
+            -o ServerAliveInterval=30 \
+            "$AWS_USER_NORM@$AWS_HOST_NORM" \
             "$REMOTE_ENV bash -s" \
             < scripts/deploy-aws-release.sh
