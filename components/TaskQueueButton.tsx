@@ -19,24 +19,73 @@ type QueueItem = {
 
 type QueuePayload = {
   rows?: QueueItem[];
+  data?: Partial<QueueSummary>;
+  totalTaskNum?: number;
+  finishedTaskNum?: number;
+  finishedNeedReadTaskNum?: number;
+  runningTaskNum?: number;
+  failedTaskNum?: number;
+  totalCount?: number;
   runningCount?: number;
   finishedCount?: number;
+  failedCount?: number;
+};
+
+type QueueSummary = {
+  totalTaskNum: number;
+  finishedTaskNum: number;
+  finishedNeedReadTaskNum: number;
+  runningTaskNum: number;
+  failedTaskNum: number;
+};
+
+const EMPTY_QUEUE_SUMMARY: QueueSummary = {
+  totalTaskNum: 0,
+  finishedTaskNum: 0,
+  finishedNeedReadTaskNum: 0,
+  runningTaskNum: 0,
+  failedTaskNum: 0,
 };
 
 export function TaskQueueButton() {
   const [rows, setRows] = useState<QueueItem[]>([]);
+  const [summary, setSummary] = useState<QueueSummary>(EMPTY_QUEUE_SUMMARY);
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"running" | "finished">("running");
   const [loading, setLoading] = useState(false);
+  const [detailsLoaded, setDetailsLoaded] = useState(false);
   const [optimisticRunning, setOptimisticRunning] = useState(false);
   const [optimisticStartedAt, setOptimisticStartedAt] = useState(0);
 
   const running = rows.filter((row) => row.statusGroup === "running");
   const finished = rows.filter((row) => row.statusGroup === "finished");
+  const runningCount = Math.max(summary.runningTaskNum, running.length);
+  const finishedCount = Math.max(summary.finishedTaskNum + summary.failedTaskNum, finished.length);
   const activeRows = activeTab === "running" ? running : finished;
   const groupedRows = groupQueueRows(activeRows.slice(0, 12));
-  const isRunning = running.length > 0 || optimisticRunning;
-  const totalCount = running.length || finished.length;
+  const isRunning = runningCount > 0 || optimisticRunning;
+  const totalCount = Math.max(summary.totalTaskNum, runningCount + finishedCount);
+
+  const applySummary = useCallback((payload: QueuePayload) => {
+    const nextSummary = normalizeSummaryPayload(payload);
+    setSummary(nextSummary);
+    if (nextSummary.runningTaskNum > 0) {
+      setOptimisticRunning(false);
+    } else if (optimisticRunning && Date.now() - optimisticStartedAt > 6000) {
+      setOptimisticRunning(false);
+    }
+  }, [optimisticRunning, optimisticStartedAt]);
+
+  const loadSummary = useCallback(async () => {
+    try {
+      const res = await fetch("/api/task-queue?summary=1", { cache: "no-store" });
+      const payload = await res.json().catch(() => ({})) as QueuePayload;
+      if (!res.ok) return;
+      applySummary(payload);
+    } catch {
+      // Keep the last good count; this poll is intentionally lightweight.
+    }
+  }, [applySummary]);
 
   const loadQueue = useCallback(async () => {
     setLoading(true);
@@ -46,51 +95,64 @@ export function TaskQueueButton() {
       if (!res.ok) return;
       const nextRows = Array.isArray(payload.rows) ? payload.rows : [];
       setRows(nextRows);
-      if (nextRows.some((row) => row.statusGroup === "running")) {
-        setOptimisticRunning(false);
-      } else if (optimisticRunning && Date.now() - optimisticStartedAt > 6000) {
-        setOptimisticRunning(false);
-      }
+      setDetailsLoaded(true);
+      applySummary(payload);
+    } catch {
+      // Detail loading is best-effort; summary polling keeps the badge fresh.
     } finally {
       setLoading(false);
     }
-  }, [optimisticRunning, optimisticStartedAt]);
+  }, [applySummary]);
 
   useEffect(() => {
-    loadQueue();
-  }, [loadQueue]);
+    loadSummary();
+  }, [loadSummary]);
 
   useEffect(() => {
-    const hasRunning = rows.some((row) => row.statusGroup === "running") || optimisticRunning;
-    const timer = window.setInterval(loadQueue, hasRunning || open ? 3000 : 8000);
+    if (open) return;
+    const timer = window.setInterval(loadSummary, isRunning ? 3000 : 8000);
     return () => window.clearInterval(timer);
-  }, [loadQueue, open, rows, optimisticRunning]);
+  }, [isRunning, loadSummary, open]);
+
+  useEffect(() => {
+    if (!open) return;
+    loadQueue();
+    const timer = window.setInterval(loadQueue, isRunning ? 3000 : 8000);
+    return () => window.clearInterval(timer);
+  }, [isRunning, loadQueue, open]);
 
   useEffect(() => {
     const refresh = () => {
       setOptimisticStartedAt(Date.now());
       setOptimisticRunning(true);
       setActiveTab("running");
-      window.setTimeout(loadQueue, 300);
-      window.setTimeout(loadQueue, 1500);
+      window.setTimeout(loadSummary, 300);
+      window.setTimeout(loadSummary, 1500);
+      if (open) window.setTimeout(loadQueue, 1500);
+    };
+    const refreshVisible = () => {
+      if (document.visibilityState === "hidden") return;
+      loadSummary();
+      if (open) loadQueue();
     };
     window.addEventListener("wanxiang:task-queue-refresh", refresh);
-    window.addEventListener("focus", loadQueue);
-    document.addEventListener("visibilitychange", loadQueue);
+    window.addEventListener("focus", refreshVisible);
+    document.addEventListener("visibilitychange", refreshVisible);
     return () => {
       window.removeEventListener("wanxiang:task-queue-refresh", refresh);
-      window.removeEventListener("focus", loadQueue);
-      document.removeEventListener("visibilitychange", loadQueue);
+      window.removeEventListener("focus", refreshVisible);
+      document.removeEventListener("visibilitychange", refreshVisible);
     };
-  }, [loadQueue]);
+  }, [loadQueue, loadSummary, open]);
 
   useEffect(() => {
-    if (running.length > 0 || optimisticRunning) setActiveTab("running");
-  }, [running.length, optimisticRunning]);
+    if (runningCount > 0 || optimisticRunning) setActiveTab("running");
+    else if (finishedCount > 0) setActiveTab("finished");
+  }, [finishedCount, runningCount, optimisticRunning]);
 
   const buttonLabel = useMemo(() => (
-    isRunning ? `Task ${Math.max(running.length, 1)}` : `Task ${totalCount || 0}`
-  ), [isRunning, running.length, totalCount]);
+    isRunning ? `Task ${Math.max(runningCount, 1)}` : `Task ${summary.finishedNeedReadTaskNum || totalCount || 0}`
+  ), [isRunning, runningCount, summary.finishedNeedReadTaskNum, totalCount]);
 
   return (
     <DropdownMenu.Root open={open} onOpenChange={setOpen}>
@@ -115,19 +177,19 @@ export function TaskQueueButton() {
               onClick={() => setActiveTab("finished")}
               className={`h-8 rounded-lg text-xs font-bold transition ${activeTab === "finished" ? "bg-white text-slate-950 shadow-sm" : "text-slate-500"}`}
             >
-              Finished({finished.length})
+              Finished({finishedCount})
             </button>
             <button
               type="button"
               onClick={() => setActiveTab("running")}
               className={`h-8 rounded-lg text-xs font-bold transition ${activeTab === "running" ? "bg-white text-slate-950 shadow-sm" : "text-slate-500"}`}
             >
-              Running({running.length})
+              Running({runningCount})
             </button>
           </div>
 
           <div className="mt-3 max-h-[360px] space-y-1 overflow-y-auto">
-            {loading && !rows.length ? (
+            {loading && !detailsLoaded ? (
               <div className="flex h-28 items-center justify-center text-xs font-semibold text-slate-400">
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 加载任务中...
@@ -230,7 +292,7 @@ function StatusDot({ item }: { item: QueueItem }) {
       </span>
     );
   }
-  if (item.status === "failed") {
+  if (isFailedQueueStatus(item.status)) {
     return <XCircle className="h-5 w-5 text-red-400" />;
   }
   return <CheckCircle2 className="h-5 w-5 text-emerald-500" />;
@@ -248,6 +310,49 @@ function clampProgress(value: unknown) {
   const num = Number(value);
   if (!Number.isFinite(num)) return 0;
   return Math.min(Math.max(Math.round(num), 0), 100);
+}
+
+function normalizeSummaryPayload(payload: QueuePayload): QueueSummary {
+  const data = payload.data && typeof payload.data === "object" ? payload.data : {};
+  const rows = Array.isArray(payload.rows) ? payload.rows : [];
+  const rowRunningCount = rows.filter((row) => row.statusGroup === "running").length;
+  const rowFailedCount = rows.filter((row) => row.statusGroup === "finished" && isFailedQueueStatus(row.status)).length;
+  const rowFinishedCount = rows.filter((row) => row.statusGroup === "finished" && !isFailedQueueStatus(row.status)).length;
+  const failedTaskNum = firstFiniteNumber(data.failedTaskNum, payload.failedTaskNum, payload.failedCount, rowFailedCount);
+  const finishedTaskNum = firstFiniteNumber(
+    data.finishedTaskNum,
+    payload.finishedTaskNum,
+    typeof payload.finishedCount === "number" ? Math.max(payload.finishedCount - failedTaskNum, 0) : undefined,
+    rowFinishedCount
+  );
+  const runningTaskNum = firstFiniteNumber(data.runningTaskNum, payload.runningTaskNum, payload.runningCount, rowRunningCount);
+  const totalTaskNum = firstFiniteNumber(
+    data.totalTaskNum,
+    payload.totalTaskNum,
+    payload.totalCount,
+    runningTaskNum + finishedTaskNum + failedTaskNum
+  );
+
+  return {
+    totalTaskNum,
+    finishedTaskNum,
+    finishedNeedReadTaskNum: firstFiniteNumber(data.finishedNeedReadTaskNum, payload.finishedNeedReadTaskNum, 0),
+    runningTaskNum,
+    failedTaskNum,
+  };
+}
+
+function firstFiniteNumber(...values: unknown[]) {
+  for (const value of values) {
+    const num = Number(value);
+    if (Number.isFinite(num) && num >= 0) return Math.round(num);
+  }
+  return 0;
+}
+
+function isFailedQueueStatus(status: string) {
+  const normalized = status.toLowerCase();
+  return normalized === "failed" || normalized === "error" || normalized === "cancelled" || normalized === "canceled";
 }
 
 function groupQueueRows(items: QueueItem[]) {
