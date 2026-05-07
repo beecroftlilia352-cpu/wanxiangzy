@@ -186,6 +186,37 @@ dependency_cache_key_for_dir() {
   )
 }
 
+install_dependencies_into_cache() {
+  local cache_dir="$1"
+
+  echo "Installing dependencies for cache: $(basename "$cache_dir")"
+  rm -rf -- node_modules "$cache_dir/node_modules"
+  npm ci --prefer-offline --no-audit --no-fund
+  mkdir -p "$cache_dir"
+  mv node_modules "$cache_dir/node_modules"
+  ln -sfn "$cache_dir/node_modules" node_modules
+}
+
+use_dependency_cache_if_valid() {
+  local cache_dir="$1"
+
+  if [ ! -d "$cache_dir/node_modules" ]; then
+    return 1
+  fi
+
+  rm -rf -- node_modules
+  ln -sfn "$cache_dir/node_modules" node_modules
+
+  if npm ls --omit=dev --depth=0 >/dev/null 2>&1; then
+    touch "$cache_dir"
+    return 0
+  fi
+
+  echo "Dependency cache is incomplete; rebuilding: $(basename "$cache_dir")" >&2
+  rm -rf -- node_modules "$cache_dir/node_modules"
+  return 1
+}
+
 install_dependencies() {
   if [ ! -f package-lock.json ]; then
     echo "package-lock.json is missing; falling back to npm install." >&2
@@ -210,26 +241,21 @@ install_dependencies() {
       cp -al "$PREVIOUS_TARGET/node_modules" "$cache_dir/node_modules" 2>/dev/null ||
         cp -a "$PREVIOUS_TARGET/node_modules" "$cache_dir/node_modules"
     fi
-    rm -rf -- node_modules
-    ln -sfn "$cache_dir/node_modules" node_modules
-    touch "$cache_dir"
+    if ! use_dependency_cache_if_valid "$cache_dir"; then
+      install_dependencies_into_cache "$cache_dir"
+    fi
     return 0
   fi
 
   if [ -d "$cache_dir/node_modules" ]; then
     echo "Reusing dependency cache: $cache_key"
-    rm -rf -- node_modules
-    ln -sfn "$cache_dir/node_modules" node_modules
-    touch "$cache_dir"
+    if ! use_dependency_cache_if_valid "$cache_dir"; then
+      install_dependencies_into_cache "$cache_dir"
+    fi
     return 0
   fi
 
-  echo "Installing dependencies for cache: $cache_key"
-  rm -rf -- node_modules
-  npm ci --prefer-offline --no-audit --no-fund
-  mkdir -p "$cache_dir"
-  mv node_modules "$cache_dir/node_modules"
-  ln -sfn "$cache_dir/node_modules" node_modules
+  install_dependencies_into_cache "$cache_dir"
 }
 
 cleanup_dependency_cache() {
