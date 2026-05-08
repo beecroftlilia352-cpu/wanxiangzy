@@ -88,6 +88,11 @@ function getInitialHistoryFilters() {
   };
 }
 
+function getInitialHistoryDetailId() {
+  if (typeof window === "undefined") return "";
+  return new URLSearchParams(window.location.search).get("detail") || "";
+}
+
 function replaceHistoryFilterUrl(moduleFilter: HistoryModuleFilter, statusFilter: HistoryStatusFilter) {
   if (typeof window === "undefined") return;
 
@@ -108,6 +113,34 @@ function replaceHistoryFilterUrl(moduleFilter: HistoryModuleFilter, statusFilter
   window.history.replaceState(window.history.state, "", `${url.pathname}${query ? `?${query}` : ""}${url.hash}`);
 }
 
+function replaceHistoryDetailUrl(detailId: string | null) {
+  if (typeof window === "undefined") return;
+
+  const url = new URL(window.location.href);
+  if (detailId) {
+    url.searchParams.set("detail", detailId);
+  } else {
+    url.searchParams.delete("detail");
+  }
+
+  const query = url.searchParams.toString();
+  window.history.replaceState(window.history.state, "", `${url.pathname}${query ? `?${query}` : ""}${url.hash}`);
+}
+
+async function requestHistoryDetail(id: string) {
+  const res = await fetch(`/api/history?id=${encodeURIComponent(id)}`, {
+    method: "GET",
+    cache: "no-store",
+  });
+  const payload = await res.json().catch(() => ({})) as { row?: HistoryRow; error?: string };
+
+  if (!res.ok || !payload.row) {
+    throw new Error(payload.error || `参数加载失败 (${res.status})`);
+  }
+
+  return payload.row;
+}
+
 export default function HistoryPage() {
   const [state, setState] = useState<"loading" | "noauth" | "error" | "empty" | "ready">("loading");
   const [rows, setRows] = useState<HistoryRow[]>([]);
@@ -121,6 +154,8 @@ export default function HistoryPage() {
   const [detailResultIndex, setDetailResultIndex] = useState(0);
   const [detailZoom, setDetailZoom] = useState(100);
   const [initialFilters] = useState(getInitialHistoryFilters);
+  const [initialDetailId] = useState(getInitialHistoryDetailId);
+  const [pendingDetailId, setPendingDetailId] = useState(initialDetailId);
   const [moduleFilter, setModuleFilter] = useState<HistoryModuleFilter>(initialFilters.moduleFilter);
   const [statusFilter, setStatusFilter] = useState<HistoryStatusFilter>(initialFilters.statusFilter);
 
@@ -225,33 +260,65 @@ export default function HistoryPage() {
   const fetchHistoryDetail = async (row: HistoryRow) => {
     if (getPayload(row)?.kind) return row;
 
-    const res = await fetch(`/api/history?id=${encodeURIComponent(row.id)}`, {
-      method: "GET",
-      cache: "no-store",
-    });
-    const payload = await res.json().catch(() => ({})) as { row?: HistoryRow; error?: string };
-
-    if (!res.ok || !payload.row) {
-      throw new Error(payload.error || `参数加载失败 (${res.status})`);
-    }
-
+    const payload = await requestHistoryDetail(row.id);
     setRows((current) => current.map((item) => (
-      item.id === payload.row?.id ? { ...item, ...payload.row } : item
+      item.id === payload.id ? { ...item, ...payload } : item
     )));
-    return payload.row;
+    return payload;
   };
 
+  useEffect(() => {
+    if (!pendingDetailId || state === "loading" || state === "noauth") return;
+
+    let cancelled = false;
+    setDetailLoading(true);
+    setDetailResultIndex(0);
+    setDetailZoom(100);
+
+    requestHistoryDetail(pendingDetailId)
+      .then((row) => {
+        if (cancelled) return;
+        setDetailRow(row);
+        setRows((current) => current.map((item) => (
+          item.id === row.id ? { ...item, ...row } : item
+        )));
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          replaceHistoryDetailUrl(null);
+          alert(error instanceof Error ? error.message : "参数加载失败");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setPendingDetailId("");
+          setDetailLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [pendingDetailId, state]);
+
   const openDetail = async (row: HistoryRow, initialResultIndex = 0) => {
+    replaceHistoryDetailUrl(row.id);
     setDetailLoading(true);
     try {
       setDetailResultIndex(initialResultIndex);
       setDetailZoom(100);
       setDetailRow(await fetchHistoryDetail(row));
     } catch (error) {
+      replaceHistoryDetailUrl(null);
       alert(error instanceof Error ? error.message : "参数加载失败");
     } finally {
       setDetailLoading(false);
     }
+  };
+
+  const closeDetail = () => {
+    setDetailRow(null);
+    replaceHistoryDetailUrl(null);
   };
 
   useEffect(() => {
@@ -570,7 +637,7 @@ export default function HistoryPage() {
         <ClientPortal>
           <div
             className="fixed inset-0 z-[140] flex items-center justify-center bg-slate-950/30 p-3 backdrop-blur-xl sm:p-6"
-            onClick={() => setDetailRow(null)}
+            onClick={closeDetail}
           >
           <div
             className="flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-[28px] border border-white/70 bg-white/85 shadow-[0_28px_90px_rgba(15,23,42,0.28)] backdrop-blur-2xl"
@@ -605,7 +672,7 @@ export default function HistoryPage() {
                     套用
                   </button>
                 )}
-                <button onClick={() => setDetailRow(null)} className="rounded-full p-1.5 hover:bg-white/80" aria-label="关闭">
+                <button onClick={closeDetail} className="rounded-full p-1.5 hover:bg-white/80" aria-label="关闭">
                   <X className="w-4 h-4" />
                 </button>
               </div>
