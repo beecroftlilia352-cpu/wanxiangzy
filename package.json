@@ -8,6 +8,7 @@
     "postbuild": "node scripts/clean-next-output.js",
     "start": "next start",
     "lint": "next lint",
+    "check:ssr-size": "node scripts/check-next-ssr-size.js",
     "check:prompts": "node scripts/prompt-regression-check.js",
     "test": "vitest run",
     "test:watch": "vitest"

@@ -40,12 +40,47 @@ function menswearProfile(): ProductSetProductProfile {
   });
 }
 
+function womenswearProfile(): ProductSetProductProfile {
+  return normalizeProductSetProductProfile({
+    kind: "apparel",
+    apparelType: "womenswear",
+    displayName: "womenswear dress",
+    confidence: 0.94,
+    isApparel: true,
+    needsModel: true,
+    modelStrategy: "recommended",
+    modelBrief: "Use an adult female model; keep the styling matched to the uploaded dress.",
+    recommendedMainPlanId: "ai-main",
+    recommendedDetailsPlanId: "ai-details",
+    planningNotes: ["AI vision identified womenswear; keep the dress profile authoritative."],
+    visualKeywords: ["womenswear", "dress", "soft drape"],
+  });
+}
+
+function nonApparelProfile(): ProductSetProductProfile {
+  return normalizeProductSetProductProfile({
+    kind: "electronics",
+    apparelType: "general",
+    displayName: "desk fan",
+    confidence: 0.9,
+    isApparel: false,
+    needsModel: false,
+    modelStrategy: "none",
+    modelBrief: "No model needed.",
+    recommendedMainPlanId: "ai-main",
+    recommendedDetailsPlanId: "ai-details",
+    planningNotes: ["AI vision identified a non-apparel product."],
+    visualKeywords: ["electronics", "fan", "desktop"],
+  });
+}
+
 describe("product set smart planning", () => {
   it("uses AI visual director modules for smart menswear details instead of local presets", () => {
     const profile = menswearProfile();
     const templates = resolveProductSetTemplates({
       mode: "smart",
       imageType: "details",
+      selectedTemplateIds: [101, 105, 106, 107],
       genCount: 5,
       productProfile: profile,
       settings: {
@@ -96,6 +131,64 @@ describe("product set smart planning", () => {
     expect(templates[1].avoidRules).toContain("female model");
   });
 
+  it("keeps womenswear smart planning on the AI profile even when preset ids are present", () => {
+    const profile = womenswearProfile();
+    const templates = resolveProductSetTemplates({
+      mode: "smart",
+      imageType: "main",
+      selectedTemplateIds: [1, 2, 5, 12],
+      genCount: 3,
+      productProfile: profile,
+    });
+
+    expect(templates).toHaveLength(3);
+    expect(templates.every((template) => template.source === "ai")).toBe(true);
+    expect(templates.map((template) => template.id)).toEqual([
+      "ai-main-1-cover_main",
+      "ai-main-2-catalog_model",
+      "ai-main-3-detail_closeup",
+    ]);
+    expect(templates.some((template) => template.source === "preset")).toBe(false);
+    expect(templates[1].typeDescription).toContain("apparelType=womenswear");
+    expect(shouldUseModelForTemplate(templates[1], profile)).toBe(true);
+  });
+
+  it("does not let womenswear preset ids turn non-apparel smart planning into model templates", () => {
+    const profile = nonApparelProfile();
+    const templates = resolveProductSetTemplates({
+      mode: "smart",
+      imageType: "details",
+      selectedTemplateIds: [101, 105, 106, 107],
+      genCount: 4,
+      productProfile: profile,
+    });
+
+    expect(templates).toHaveLength(4);
+    expect(templates.every((template) => template.source === "ai")).toBe(true);
+    expect(templates.map((template) => template.id)).toEqual([
+      "ai-details-1-hero",
+      "ai-details-2-material_fit_detail",
+      "ai-details-3-selling_points",
+      "ai-details-4-lifestyle_story",
+    ]);
+    expect(templates.some((template) => shouldUseModelForTemplate(template, profile))).toBe(false);
+    expect(templates[0].typeDescription).toContain("kind=electronics");
+  });
+
+  it("uses preset template logic only when a system preset is explicitly selected in custom mode", () => {
+    const templates = resolveProductSetTemplates({
+      mode: "custom",
+      imageType: "details",
+      selectedTemplateIds: [105],
+      genCount: 3,
+      productProfile: menswearProfile(),
+    });
+
+    expect(templates).toHaveLength(1);
+    expect(templates[0].source).toBe("preset");
+    expect(templates[0].id).toBe(105);
+  });
+
   it("falls back to generated AI modules, not preset ids, when no visual director plan exists", () => {
     const profile = menswearProfile();
     const templates = resolveProductSetTemplates({
@@ -115,16 +208,7 @@ describe("product set smart planning", () => {
   });
 
   it("keeps generic product details focused on non-model AI ecommerce modules", () => {
-    const profile = normalizeProductSetProductProfile({
-      kind: "electronics",
-      apparelType: "general",
-      displayName: "desk fan",
-      confidence: 0.9,
-      isApparel: false,
-      needsModel: false,
-      modelStrategy: "none",
-      modelBrief: "No model needed.",
-    });
+    const profile = nonApparelProfile();
     const templates = resolveProductSetTemplates({
       mode: "smart",
       imageType: "details",

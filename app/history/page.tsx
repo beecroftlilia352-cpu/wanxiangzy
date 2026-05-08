@@ -6,6 +6,11 @@ import { downloadImage, generateDownloadFilename } from "@/lib/utils";
 import { getApplyPath, type HistoryJobPayload } from "@/lib/history-apply";
 import { buildTryOnPrompt } from "@/lib/api/lingya";
 import { ClientPortal } from "@/components/ClientPortal";
+import {
+  getHistoryFilterStateCopy,
+  type HistoryModuleFilter,
+  type HistoryStatusFilter,
+} from "@/lib/history-page-state";
 import { AUTO_DESIGN_PLATFORMS, SCENE_MODE_LABELS } from "@/lib/tryon-scene";
 import { TRYON_CLOTHING_ROLE_LABELS } from "@/lib/tryon-upload-rules";
 import {
@@ -16,9 +21,6 @@ import {
 import { BACKGROUND_SOURCE_LABELS, MODEL_BACKGROUND_MODE_LABELS } from "@/lib/model-background";
 
 const HISTORY_PAGE_SIZE = 12;
-
-type HistoryModuleFilter = "all" | "tryon" | "grass" | "productSet" | "modelBackground" | "generalImage" | "pose" | "model" | "garment3d" | "faceSwap";
-type HistoryStatusFilter = "all" | "completed" | "processing" | "pending" | "failed";
 
 const MODULE_FILTERS: { value: HistoryModuleFilter; label: string }[] = [
   { value: "all", label: "全部模块" },
@@ -158,6 +160,10 @@ export default function HistoryPage() {
   const [pendingDetailId, setPendingDetailId] = useState(initialDetailId);
   const [moduleFilter, setModuleFilter] = useState<HistoryModuleFilter>(initialFilters.moduleFilter);
   const [statusFilter, setStatusFilter] = useState<HistoryStatusFilter>(initialFilters.statusFilter);
+  const filterState = useMemo(
+    () => getHistoryFilterStateCopy(moduleFilter, statusFilter),
+    [moduleFilter, statusFilter]
+  );
 
   useEffect(() => {
     replaceHistoryFilterUrl(moduleFilter, statusFilter);
@@ -255,6 +261,11 @@ export default function HistoryPage() {
 
   const handleStatusFilterChange = (value: HistoryStatusFilter) => {
     setStatusFilter(value);
+  };
+
+  const clearFilters = () => {
+    setModuleFilter("all");
+    setStatusFilter("all");
   };
 
   const fetchHistoryDetail = async (row: HistoryRow) => {
@@ -401,25 +412,54 @@ export default function HistoryPage() {
 
   if (state === "error") return (
     <div className="studio-empty-stage flex min-h-[calc(100dvh-64px)] items-center justify-center px-4 py-16">
-      <div className="w-full max-w-md rounded-[30px] border border-white/80 bg-white/75 p-8 text-center shadow-[0_24px_80px_rgba(15,23,42,0.12)] backdrop-blur-2xl">
+      <div className="w-full max-w-lg rounded-[30px] border border-white/80 bg-white/75 p-8 text-center shadow-[0_24px_80px_rgba(15,23,42,0.12)] backdrop-blur-2xl">
         <XCircle className="mx-auto mb-4 h-12 w-12 text-red-300" />
         <h1 className="text-xl font-black text-slate-950">作品加载失败</h1>
+        <p className="mx-auto mt-3 max-w-sm rounded-2xl bg-red-50 px-4 py-3 text-sm font-bold leading-6 text-red-600">
+          {filterState.summary}
+        </p>
         <p className="mt-3 text-sm leading-6 text-red-500">{errMsg}</p>
-        <button onClick={() => location.reload()} className="mt-6 h-11 rounded-full border border-slate-200 bg-white px-6 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50">重试</button>
+        <p className="mt-2 text-xs leading-5 text-slate-500">
+          重试会按当前 URL 中的 module/status 筛选重新加载。
+        </p>
+        <div className="mt-6 flex flex-col justify-center gap-2 sm:flex-row">
+          <button onClick={() => location.reload()} className="h-11 rounded-full border border-slate-200 bg-white px-6 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50">重试</button>
+          {filterState.isFiltered && (
+            <button onClick={clearFilters} className="h-11 rounded-full border border-violet-100 bg-violet-50 px-6 text-sm font-bold text-violet-600 hover:bg-violet-100">
+              清除筛选
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
 
   if (state === "empty") return (
     <div className="studio-empty-stage flex min-h-[calc(100dvh-64px)] items-center justify-center px-4 py-16">
-      <div className="w-full max-w-md rounded-[30px] border border-white/80 bg-white/75 p-8 text-center shadow-[0_24px_80px_rgba(15,23,42,0.12)] backdrop-blur-2xl">
+      <div className="w-full max-w-lg rounded-[30px] border border-white/80 bg-white/75 p-8 text-center shadow-[0_24px_80px_rgba(15,23,42,0.12)] backdrop-blur-2xl">
         <Clock className="mx-auto mb-4 h-12 w-12 text-slate-300" />
-        <h1 className="text-2xl font-black text-slate-950">还没有作品</h1>
-        <p className="mt-3 text-sm leading-6 text-slate-500">完成一次服装上身、姿势裂变、专属模特或服装 3D 后，作品会自动进入资产库。</p>
-        <a href="/create" className="gradient-brand mt-6 inline-flex h-11 items-center justify-center gap-2 rounded-full px-6 text-sm font-black text-white shadow-xl shadow-purple-200/70">
-          <Plus className="h-4 w-4" />
-          开始创作
-        </a>
+        <h1 className="text-2xl font-black text-slate-950">{filterState.emptyTitle}</h1>
+        <p className="mx-auto mt-3 max-w-sm rounded-2xl bg-white/80 px-4 py-3 text-sm font-bold leading-6 text-slate-700">
+          {filterState.summary}
+        </p>
+        <p className="mt-3 text-sm leading-6 text-slate-500">{filterState.emptyMessage}</p>
+        {filterState.isFiltered ? (
+          <div className="mt-6 flex flex-col justify-center gap-2 sm:flex-row">
+            <button onClick={clearFilters} className="gradient-brand inline-flex h-11 items-center justify-center gap-2 rounded-full px-6 text-sm font-black text-white shadow-xl shadow-purple-200/70">
+              <X className="h-4 w-4" />
+              {filterState.emptyActionLabel}
+            </button>
+            <a href="/create" className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-6 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50">
+              <Plus className="h-4 w-4" />
+              开始创作
+            </a>
+          </div>
+        ) : (
+          <a href="/create" className="gradient-brand mt-6 inline-flex h-11 items-center justify-center gap-2 rounded-full px-6 text-sm font-black text-white shadow-xl shadow-purple-200/70">
+            <Plus className="h-4 w-4" />
+            开始创作
+          </a>
+        )}
       </div>
     </div>
   );
@@ -434,7 +474,7 @@ export default function HistoryPage() {
             Asset Library
           </p>
           <h1 className="mt-3 text-3xl font-black text-slate-950">作品资产</h1>
-          <p className="mt-2 text-sm leading-6 text-slate-500">已加载 {rows.length} 条作品，当前显示 {filteredRows.length} 条，可查看大图、下载结果、复制提示词并套用完整参数。</p>
+          <p className="mt-2 text-sm leading-6 text-slate-500">已加载 {rows.length} 条作品，当前显示 {filteredRows.length} 条。{filterState.activeDescription} 可查看大图、下载结果、复制提示词并套用完整参数。</p>
         </div>
         <a href="/create" className="gradient-brand inline-flex h-11 w-full items-center justify-center gap-2 rounded-full px-5 text-sm font-black text-white shadow-xl shadow-purple-200/70 sm:w-auto">
           <Plus className="h-4 w-4" />
@@ -476,6 +516,10 @@ export default function HistoryPage() {
               </button>
             ))}
           </div>
+        </div>
+        <div className="mt-3 flex flex-col gap-2 border-t border-white/70 pt-3 text-xs leading-5 text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+          <span className="font-bold text-slate-700">{filterState.summary}</span>
+          <span>打开详情会保留当前筛选；点击套用会带 apply 参数回到对应创作模块。</span>
         </div>
       </div>
 
@@ -604,7 +648,16 @@ export default function HistoryPage() {
           <div className="col-span-full rounded-[28px] border border-white/80 bg-white/70 p-8 text-center shadow-[0_18px_54px_rgba(15,23,42,0.07)] backdrop-blur-2xl">
             <ImageIcon className="mx-auto mb-3 h-10 w-10 text-slate-300" />
             <h2 className="text-base font-black text-slate-950">没有匹配的作品</h2>
-            <p className="mt-2 text-sm text-slate-500">换一个模块或状态筛选，或者继续加载更多历史记录。</p>
+            <p className="mx-auto mt-3 max-w-md rounded-2xl bg-white/75 px-4 py-3 text-sm font-bold leading-6 text-slate-700">
+              {filterState.summary}
+            </p>
+            <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-slate-500">{filterState.noMatchMessage}</p>
+            {filterState.isFiltered && (
+              <button onClick={clearFilters} className="mt-5 inline-flex h-10 items-center justify-center gap-2 rounded-full border border-violet-100 bg-violet-50 px-5 text-sm font-bold text-violet-600 hover:bg-violet-100">
+                <X className="h-4 w-4" />
+                清除筛选
+              </button>
+            )}
           </div>
         )}
         {loadingMore && Array.from({ length: 2 }).map((_, index) => (

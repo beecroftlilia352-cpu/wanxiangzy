@@ -1536,7 +1536,8 @@ export function resolveProductSetTemplates(input: {
   moduleOverrides?: ProductSetModuleOverride[];
 }): ProductSetResolvedTemplate[] {
   const imageType = normalizeProductSetImageType(input.imageType);
-  if (input.mode === "custom") {
+  const usePresetTemplateLogic = input.mode === "custom";
+  if (usePresetTemplateLogic) {
     const selectedPresets = (input.selectedTemplateIds || [])
       .map((id) => getProductSetTemplate(Number(id)))
       .filter((item): item is ProductSetTemplate => Boolean(item && item.imageType === imageType))
@@ -1568,6 +1569,8 @@ export function resolveProductSetTemplates(input: {
     return applyProductSetModuleOverrides([...selectedPresets, ...customTemplates].slice(0, 10), input.moduleOverrides);
   }
 
+  // Smart mode is owned by the AI visual analysis plan/profile. Stale preset ids
+  // may still arrive from saved UI state, but must not seed local template logic.
   const count = Math.min(Math.max(Number(input.genCount) || (imageType === "details" ? 5 : 3), 1), imageType === "details" ? 8 : 6);
   const resolved = buildAiProductSetTemplates({
     imageType,

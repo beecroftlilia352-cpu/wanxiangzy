@@ -171,7 +171,27 @@ git tag v1.0.0
 git push origin v1.0.0
 ```
 
-### 7. 添加预设模特和参考图
+### 7. EdgeOne SSR 包体积检查
+
+Tencent EdgeOne Cloud SSR Node functions 有 128 MiB 运行包限制。每次 `npm run build` 后可本地检查 `.next/server/server-reference-manifest`、`.next/standalone` 和 server chunks 的体积风险：
+
+```bash
+npm run check:ssr-size
+```
+
+默认阈值为 128 MiB，超过 90% 会标记风险；单文件超过 8 MiB 会单独列出。可用环境变量调整：
+
+```bash
+SSR_SIZE_WARN_MIB=100 SSR_SIZE_LARGE_FILE_MIB=6 npm run check:ssr-size
+```
+
+如需在 CI 中让风险直接失败：
+
+```bash
+SSR_SIZE_FAIL_ON_RISK=1 npm run check:ssr-size
+```
+
+### 8. 添加预设模特和参考图
 
 将模特头像放入 `public/models/`，参考图放入 `public/references/`：
 - `public/models/female-1.jpg` ~ `female-3.jpg`
