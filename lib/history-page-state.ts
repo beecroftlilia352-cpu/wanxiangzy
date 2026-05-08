@@ -1,3 +1,5 @@
+import { normalizeGenerationStatus } from "@/lib/generation-status";
+
 export type HistoryModuleFilter =
   | "all"
   | "tryon"
@@ -26,7 +28,9 @@ export type HistoryFilterStateCopy = {
 
 export type HistoryFailureRecoveryCopy = {
   title: string;
+  reasonLabel: string;
   reason: string;
+  recoveryLabel: string;
   recoveryHint: string;
   applyLabel: string;
 };
@@ -67,6 +71,10 @@ export function parseHistoryStatusFilter(value: string | null | undefined): Hist
   return value && STATUS_FILTER_VALUES.has(value as HistoryStatusFilter) ? (value as HistoryStatusFilter) : "all";
 }
 
+export function normalizeHistoryStatusFilter(status?: string | null): Exclude<HistoryStatusFilter, "all"> | string {
+  return normalizeGenerationStatus(status);
+}
+
 export function getHistoryFiltersFromSearch(search: string | URLSearchParams) {
   const params = typeof search === "string" ? new URLSearchParams(search) : search;
 
@@ -93,6 +101,19 @@ export function buildHistoryFilterUrl(
     url.searchParams.delete("status");
   } else {
     url.searchParams.set("status", statusFilter);
+  }
+
+  const query = url.searchParams.toString();
+  return `${url.pathname}${query ? `?${query}` : ""}${url.hash}`;
+}
+
+export function buildHistoryDetailUrl(currentHref: string, detailId: string | null) {
+  const url = new URL(currentHref, "http://history.local");
+
+  if (detailId) {
+    url.searchParams.set("detail", detailId);
+  } else {
+    url.searchParams.delete("detail");
   }
 
   const query = url.searchParams.toString();
@@ -144,16 +165,19 @@ export function getHistoryFailureRecoveryCopy({
   hasApplyParams: boolean;
 }): HistoryFailureRecoveryCopy | null {
   const normalizedStatus = status.trim().toLowerCase();
-  if (!["failed", "error", "cancelled", "canceled"].includes(normalizedStatus)) return null;
+  if (normalizeHistoryStatusFilter(normalizedStatus) !== "failed") return null;
 
   const trimmedError = errorMessage?.trim();
+  const applyLabel = hasApplyParams ? "套用参数重试" : "重新创作";
 
   return {
-    title: "生成失败，未扣除可下载结果",
-    reason: trimmedError || "这次任务没有返回明确原因，通常可以先检查输入图片、提示词或尺寸后再试。",
+    title: "生成失败",
+    reasonLabel: "失败原因",
+    reason: trimmedError || "没有返回明确原因。建议先检查输入图片、提示词或尺寸后再试。",
+    recoveryLabel: "下一步",
     recoveryHint: hasApplyParams
-      ? "可点击「套用」带回原参数，调整图片或提示词后重新生成。"
+      ? `点击“${applyLabel}”会带回原参数，调整图片或提示词后重新生成。`
       : "这条记录缺少可套用参数，建议回到创作页重新选择图片和参数。",
-    applyLabel: hasApplyParams ? "套用参数重试" : "重新创作",
+    applyLabel,
   };
 }

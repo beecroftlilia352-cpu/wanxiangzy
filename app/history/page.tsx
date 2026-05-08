@@ -8,12 +8,16 @@ import { buildTryOnPrompt } from "@/lib/api/lingya";
 import { ClientPortal } from "@/components/ClientPortal";
 import {
   buildHistoryFilterUrl,
+  buildHistoryDetailUrl,
   getHistoryFailureRecoveryCopy,
   getHistoryFiltersFromSearch,
   getHistoryFilterStateCopy,
+  normalizeHistoryStatusFilter,
+  type HistoryFailureRecoveryCopy,
   type HistoryModuleFilter,
   type HistoryStatusFilter,
 } from "@/lib/history-page-state";
+import { isRunningStatus } from "@/lib/generation-status";
 import { AUTO_DESIGN_PLATFORMS, SCENE_MODE_LABELS } from "@/lib/tryon-scene";
 import { TRYON_CLOTHING_ROLE_LABELS } from "@/lib/tryon-upload-rules";
 import {
@@ -92,15 +96,7 @@ function replaceHistoryFilterUrl(moduleFilter: HistoryModuleFilter, statusFilter
 function replaceHistoryDetailUrl(detailId: string | null) {
   if (typeof window === "undefined") return;
 
-  const url = new URL(window.location.href);
-  if (detailId) {
-    url.searchParams.set("detail", detailId);
-  } else {
-    url.searchParams.delete("detail");
-  }
-
-  const query = url.searchParams.toString();
-  window.history.replaceState(window.history.state, "", `${url.pathname}${query ? `?${query}` : ""}${url.hash}`);
+  window.history.replaceState(window.history.state, "", buildHistoryDetailUrl(window.location.href, detailId));
 }
 
 async function requestHistoryDetail(id: string) {
@@ -229,7 +225,7 @@ export default function HistoryPage() {
   const filteredRows = useMemo(() => rows.filter((row) => {
     const payload = getRowPayload(row);
     const moduleMatch = moduleFilter === "all" || payload?.kind === moduleFilter;
-    const normalizedStatus = row.status === "processing_tryon" ? "processing" : row.status;
+    const normalizedStatus = normalizeHistoryStatusFilter(row.status);
     const statusMatch = statusFilter === "all" || normalizedStatus === statusFilter;
     return moduleMatch && statusMatch;
   }), [rows, moduleFilter, statusFilter]);
@@ -313,11 +309,7 @@ export default function HistoryPage() {
 
   useEffect(() => {
     if (!detailRow) return;
-    const running = detailRow.status === "processing_tryon" ||
-      detailRow.status === "processing" ||
-      detailRow.status === "running" ||
-      detailRow.status === "pending" ||
-      detailRow.status === "queued";
+    const running = isRunningStatus(detailRow.status);
     if (!running) return;
 
     let cancelled = false;
@@ -594,11 +586,7 @@ export default function HistoryPage() {
                   )}
 
                   {failureCopy ? (
-                    <div className="mt-3 rounded-xl border border-red-100 bg-red-50/80 px-3 py-2 text-xs leading-5 text-red-700">
-                      <p className="font-bold">{failureCopy.title}</p>
-                      <p className="mt-1">{failureCopy.reason}</p>
-                      <p className="mt-1 text-red-500">{failureCopy.recoveryHint}</p>
-                    </div>
+                    <HistoryFailureNotice copy={failureCopy} />
                   ) : g.error_message && (
                     <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">{g.error_message}</p>
                   )}
@@ -746,7 +734,7 @@ export default function HistoryPage() {
                           <p className="font-bold text-red-600">{detailFailureCopy.title}</p>
                           <p className="mt-2 text-xs leading-5 text-gray-500">{detailFailureCopy.recoveryHint}</p>
                         </>
-                      ) : detailRow.status === "completed" ? "暂无结果图片" : formatStatus(detailRow.status)}
+                      ) : normalizeHistoryStatusFilter(detailRow.status) === "completed" ? "暂无结果图片" : formatStatus(detailRow.status)}
                     </div>
                   )}
                   {detailResults.length > 0 && (
@@ -816,10 +804,8 @@ export default function HistoryPage() {
                 </section>
 
                 {detailFailureCopy && (
-                  <section className="rounded-xl border border-red-100 bg-red-50/80 p-3 text-xs leading-5 text-red-700">
-                    <h4 className="font-bold">{detailFailureCopy.title}</h4>
-                    <p className="mt-1">{detailFailureCopy.reason}</p>
-                    <p className="mt-1 text-red-500">{detailFailureCopy.recoveryHint}</p>
+                  <section>
+                    <HistoryFailureNotice copy={detailFailureCopy} />
                   </section>
                 )}
 
@@ -1022,6 +1008,29 @@ function SkeletonBlock({ className }: { className: string }) {
   return <div className={`history-skeleton ${className}`} />;
 }
 
+function HistoryFailureNotice({ copy }: { copy: HistoryFailureRecoveryCopy }) {
+  return (
+    <div className="mt-3 rounded-xl border border-red-100 bg-red-50/80 px-3 py-2 text-xs leading-5 text-red-700">
+      <div className="flex flex-wrap items-center gap-2">
+        <p className="font-bold">{copy.title}</p>
+        <span className="rounded-full bg-white/80 px-2 py-0.5 text-[10px] font-bold text-red-500">
+          {copy.applyLabel}
+        </span>
+      </div>
+      <dl className="mt-2 space-y-1.5">
+        <div>
+          <dt className="text-[10px] font-black uppercase text-red-400">{copy.reasonLabel}</dt>
+          <dd className="mt-0.5 font-medium text-red-700">{copy.reason}</dd>
+        </div>
+        <div>
+          <dt className="text-[10px] font-black uppercase text-red-400">{copy.recoveryLabel}</dt>
+          <dd className="mt-0.5 text-red-600">{copy.recoveryHint}</dd>
+        </div>
+      </dl>
+    </div>
+  );
+}
+
 function HistorySkeletonStyles() {
   return (
     <style>{`
@@ -1094,10 +1103,11 @@ function formatKind(kind?: HistoryJobPayload["kind"]) {
 }
 
 function formatStatus(status: string) {
-  if (status === "completed") return "已完成";
-  if (status === "failed") return "失败";
-  if (status === "processing") return "处理中";
-  if (status === "pending") return "排队中";
+  const normalizedStatus = normalizeHistoryStatusFilter(status);
+  if (normalizedStatus === "completed") return "已完成";
+  if (normalizedStatus === "failed") return "失败";
+  if (normalizedStatus === "processing") return "处理中";
+  if (normalizedStatus === "pending") return "排队中";
   return status;
 }
 
@@ -1109,9 +1119,11 @@ function formatGrassSceneMode(mode?: string) {
 }
 
 function getStatusClasses(status: string) {
-  if (status === "completed") return "bg-emerald-50 text-emerald-700";
-  if (status === "failed") return "bg-red-50 text-red-600";
-  if (status === "processing") return "bg-amber-50 text-amber-700";
+  const normalizedStatus = normalizeHistoryStatusFilter(status);
+  if (normalizedStatus === "completed") return "bg-emerald-50 text-emerald-700";
+  if (normalizedStatus === "failed") return "bg-red-50 text-red-600";
+  if (normalizedStatus === "processing") return "bg-amber-50 text-amber-700";
+  if (normalizedStatus === "pending") return "bg-sky-50 text-sky-700";
   return "bg-gray-100 text-gray-600";
 }
 
@@ -1257,7 +1269,7 @@ function getParameterItems(row: HistoryRow) {
   const payload = getRowPayload(row);
   const common = [
     { label: "模块", value: formatKind(payload?.kind) },
-    { label: "状态", value: row.status },
+    { label: "状态", value: formatStatus(row.status) },
     { label: "模型", value: String(payload?.aiModel || row.ai_model || "-") },
     { label: "尺寸", value: String(payload?.imageSize || row.image_size || "-") },
     { label: "积分", value: String(row.credits_cost || row.credits_used || "-") },

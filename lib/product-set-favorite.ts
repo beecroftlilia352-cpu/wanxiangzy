@@ -21,6 +21,7 @@ import {
 } from "@/lib/product-set";
 
 export const FAVORITE_PLAN_LIMIT = 24;
+export const FAVORITE_PLAN_TABLE = "product_set_favorite_plans";
 export const FAVORITE_PLAN_COLUMNS = [
   "id",
   "name",
@@ -39,6 +40,12 @@ export const FAVORITE_PLAN_COLUMNS = [
   "created_at",
   "updated_at",
 ].join(",");
+export const FAVORITE_PLAN_ERRORS = {
+  unauthorized: "请先登录",
+  invalidPayload: "收藏方案格式无效",
+  invalidId: "收藏方案 ID 无效",
+  notFound: "收藏方案不存在或无权限删除",
+} as const;
 
 const MAX_NAME_LENGTH = 40;
 const MAX_TEMPLATE_COUNT = 10;
@@ -160,6 +167,11 @@ export function favoritePlanRowToClient(value: unknown): FavoritePlanClient {
     qualityMode: row.quality_mode === "advanced" ? "advanced" : "standard",
     planPreview: normalizePlanPreview(row.plan_preview),
   };
+}
+
+export function isFavoritePlanId(value: unknown): value is string {
+  return typeof value === "string"
+    && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 }
 
 function normalizeCustomTemplates(value: unknown): ProductSetCustomTemplate[] {

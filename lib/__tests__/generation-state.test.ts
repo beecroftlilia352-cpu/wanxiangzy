@@ -12,14 +12,19 @@ describe("generation-state", () => {
     expect(normalizeGenerationStatus("processing_tryon")).toBe("processing");
     expect(normalizeGenerationStatus("PROCESSING_FACE_SWAP")).toBe("processing");
     expect(normalizeGenerationStatus("succeeded")).toBe("completed");
+    expect(normalizeGenerationStatus("success")).toBe("completed");
+    expect(normalizeGenerationStatus("error")).toBe("failed");
     expect(normalizeGenerationStatus("cancelled")).toBe("failed");
+    expect(normalizeGenerationStatus("canceled")).toBe("failed");
   });
 
   it("keeps running aliases grouped as running statuses", () => {
     expect(isRunningStatus("pending")).toBe(true);
     expect(isRunningStatus("processing_tryon")).toBe(true);
     expect(isRunningStatus("generating")).toBe(true);
+    expect(isRunningStatus("processing_model_background")).toBe(true);
     expect(isRunningStatus("completed")).toBe(false);
+    expect(isRunningStatus("succeeded")).toBe(false);
     expect(isRunningStatus("failed")).toBe(false);
   });
 

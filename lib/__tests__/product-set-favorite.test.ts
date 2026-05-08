@@ -1,10 +1,25 @@
 import { describe, expect, it } from "vitest";
 import {
+  FAVORITE_PLAN_ERRORS,
+  FAVORITE_PLAN_TABLE,
   favoritePlanRowToClient,
+  isFavoritePlanId,
   normalizeFavoritePlanPayload,
 } from "../product-set-favorite";
 
 describe("product set favorite plan payload boundary", () => {
+  it("shares API constants and validates Supabase UUID ids", () => {
+    expect(FAVORITE_PLAN_TABLE).toBe("product_set_favorite_plans");
+    expect(FAVORITE_PLAN_ERRORS).toMatchObject({
+      unauthorized: "请先登录",
+      invalidPayload: "收藏方案格式无效",
+      invalidId: "收藏方案 ID 无效",
+      notFound: "收藏方案不存在或无权限删除",
+    });
+    expect(isFavoritePlanId("not-a-uuid")).toBe(false);
+    expect(isFavoritePlanId("550e8400-e29b-41d4-a716-446655440000")).toBe(true);
+  });
+
   it("rejects non-object and unnamed favorite plans", () => {
     expect(normalizeFavoritePlanPayload(null)).toBeNull();
     expect(normalizeFavoritePlanPayload([])).toBeNull();

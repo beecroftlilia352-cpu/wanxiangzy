@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildHistoryDetailUrl,
   buildHistoryFilterUrl,
   getHistoryFailureRecoveryCopy,
   getHistoryFiltersFromSearch,
   getHistoryFilterStateCopy,
+  normalizeHistoryStatusFilter,
   parseHistoryModuleFilter,
   parseHistoryStatusFilter,
 } from "@/lib/history-page-state";
@@ -50,6 +52,25 @@ describe("getHistoryFilterStateCopy", () => {
       "/history?detail=job_1"
     );
   });
+
+  it("opens and closes details without overwriting filters or apply context", () => {
+    expect(buildHistoryDetailUrl("/history?status=failed&module=tryon&apply=job_0#preview", "job_1")).toBe(
+      "/history?status=failed&module=tryon&apply=job_0&detail=job_1#preview"
+    );
+    expect(buildHistoryDetailUrl("/history?status=failed&module=tryon&detail=job_1&apply=job_0", null)).toBe(
+      "/history?status=failed&module=tryon&apply=job_0"
+    );
+    expect(buildHistoryFilterUrl("/history?status=failed&module=tryon&detail=job_1&apply=job_0", "pose", "completed")).toBe(
+      "/history?status=completed&module=pose&detail=job_1&apply=job_0"
+    );
+  });
+
+  it("normalizes legacy provider statuses into history filter buckets", () => {
+    expect(normalizeHistoryStatusFilter("error")).toBe("failed");
+    expect(normalizeHistoryStatusFilter("cancelled")).toBe("failed");
+    expect(normalizeHistoryStatusFilter("processing_tryon")).toBe("processing");
+    expect(normalizeHistoryStatusFilter("succeeded")).toBe("completed");
+  });
 });
 
 describe("getHistoryFailureRecoveryCopy", () => {
@@ -61,9 +82,11 @@ describe("getHistoryFailureRecoveryCopy", () => {
     });
 
     expect(copy).toEqual({
-      title: "生成失败，未扣除可下载结果",
+      title: "生成失败",
+      reasonLabel: "失败原因",
       reason: "图片无法识别",
-      recoveryHint: "可点击「套用」带回原参数，调整图片或提示词后重新生成。",
+      recoveryLabel: "下一步",
+      recoveryHint: "点击“套用参数重试”会带回原参数，调整图片或提示词后重新生成。",
       applyLabel: "套用参数重试",
     });
   });
@@ -82,6 +105,7 @@ describe("getHistoryFailureRecoveryCopy", () => {
 
   it("does not return failure copy for non-failed statuses", () => {
     expect(getHistoryFailureRecoveryCopy({ status: "completed", hasApplyParams: true })).toBeNull();
+    expect(getHistoryFailureRecoveryCopy({ status: "succeeded", hasApplyParams: true })).toBeNull();
   });
 
   it("also treats legacy provider error statuses as recoverable failures", () => {

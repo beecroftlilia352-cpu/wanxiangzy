@@ -1,4 +1,22 @@
 import { normalizeProductSetModuleResults } from "@/lib/product-set";
+import {
+  GENERATION_COMPLETED_STATUS_FILTERS,
+  GENERATION_FAILED_STATUS_FILTERS,
+  GENERATION_PENDING_STATUS_FILTERS,
+  GENERATION_PROCESSING_STATUS_FILTERS,
+  isRunningStatus,
+  normalizeGenerationStatus,
+} from "@/lib/generation-status";
+
+export {
+  GENERATION_COMPLETED_STATUS_FILTERS,
+  GENERATION_FAILED_STATUS_FILTERS,
+  GENERATION_PENDING_STATUS_FILTERS,
+  GENERATION_PROCESSING_STATUS_FILTERS,
+  GENERATION_RUNNING_STATUS_FILTERS,
+  isRunningStatus,
+  normalizeGenerationStatus,
+} from "@/lib/generation-status";
 
 export type NormalizedGenerationState = {
   status: string;
@@ -18,15 +36,6 @@ type NormalizeGenerationStateInput = {
   payload?: unknown;
   completedAt?: string | null;
 };
-
-export const GENERATION_PENDING_STATUS_FILTERS = ["pending", "queued"] as const;
-export const GENERATION_PROCESSING_STATUS_FILTERS = ["processing", "processing_tryon", "processing_face_swap", "running", "generating"] as const;
-export const GENERATION_RUNNING_STATUS_FILTERS = [
-  ...GENERATION_PENDING_STATUS_FILTERS,
-  ...GENERATION_PROCESSING_STATUS_FILTERS,
-] as const;
-export const GENERATION_COMPLETED_STATUS_FILTERS = ["completed", "succeeded", "success"] as const;
-export const GENERATION_FAILED_STATUS_FILTERS = ["failed", "error", "cancelled", "canceled"] as const;
 
 export function normalizeGenerationState(input: NormalizeGenerationStateInput): NormalizedGenerationState {
   const status = normalizeStatusText(input.status);
@@ -63,21 +72,6 @@ export function normalizeGenerationState(input: NormalizeGenerationStateInput): 
     providerStatus,
     taskId: asyncTask?.taskId || null,
   };
-}
-
-export function normalizeGenerationStatus(status?: string | null) {
-  const normalized = normalizeStatusText(status);
-  if (isCompletedStatus(normalized)) return "completed";
-  if (isFailedStatus(normalized)) return "failed";
-  if (GENERATION_PENDING_STATUS_FILTERS.includes(normalized as typeof GENERATION_PENDING_STATUS_FILTERS[number])) return "pending";
-  if (isProcessingStatus(normalized)) return "processing";
-  return normalized;
-}
-
-export function isRunningStatus(status: string) {
-  const normalized = normalizeStatusText(status);
-  return isProcessingStatus(normalized) ||
-    GENERATION_PENDING_STATUS_FILTERS.includes(normalized as typeof GENERATION_PENDING_STATUS_FILTERS[number]);
 }
 
 function isProcessingStatus(status: string) {

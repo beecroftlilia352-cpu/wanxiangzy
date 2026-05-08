@@ -51,7 +51,6 @@ import {
   getProductSetTemplates,
   getProductSetVisualDirectorPlanCount,
   normalizeProductSetProductProfile,
-  normalizeProductSetVisualDirectorPlan,
   resolveProductSetTemplates,
   shouldUseModelForTemplate,
   type ProductSetCopyDensity,
@@ -71,6 +70,14 @@ import {
   type ProductSetTemplate,
   type ProductSetThemeMode,
 } from "@/lib/product-set";
+import {
+  buildDefaultFavoritePlanName,
+  buildFavoritePlanApplyState,
+  buildSavedProductSetPlan,
+  getSelectedPlanIdForProductSetState,
+  normalizeFavoriteProductSetPlan,
+  type SavedProductSetPlan,
+} from "@/lib/product-set-ui-state";
 
 const MODELS: { value: LingyaModel; label: string; desc: string; badge?: string; icon: string }[] = [
   { value: "gpt-image-2", label: "GPT-Image-2", desc: "4K · 4分/次", badge: "最新", icon: "/model-icons/openai.svg" },
@@ -108,31 +115,6 @@ type CustomDraft = {
 
 type TemplateFilter = "all" | "selected" | "womenswear";
 type ProductAnalysisSource = "idle" | "running" | "ai" | "fallback" | "manual" | "history" | "failed";
-type SavedProductSetPlanModule = {
-  name: string;
-  moduleRole: string;
-  aspectRatio: AspectRatio;
-  source: ProductSetResolvedTemplate["source"];
-  usesModel: boolean;
-};
-type SavedProductSetPlan = {
-  id: string;
-  name: string;
-  createdAt: string;
-  updatedAt: string;
-  mode: ProductSetCreationMode;
-  imageType: ProductSetImageType;
-  genCount: number;
-  settings: ProductSetSettings;
-  selectedTemplateIds: number[];
-  customTemplates: ProductSetCustomTemplate[];
-  moduleOverrides: ProductSetModuleOverride[];
-  aiModel: LingyaModel;
-  aspectRatio: AspectRatio;
-  imageSize: ImageSize;
-  qualityMode: "standard" | "advanced";
-  planPreview: SavedProductSetPlanModule[];
-};
 type ProductSetAnalysisDetail = {
   image_role?: string;
   category?: { primary?: string; secondary?: string; category_confidence?: number };
@@ -328,11 +310,11 @@ export default function ProductSetPage() {
     : "先确认详情页屏幕结构，再逐屏生成，默认推荐 5 屏。";
   const detailsResolutionWarning = imageType === "details" && imageSize === "1K";
   const visiblePresetPlans = useMemo(
-    () => PRODUCT_SET_PRESET_PLANS.filter((plan) => plan.id === "smart"),
+    () => PRODUCT_SET_PRESET_PLANS.filter((plan) => plan.id === "smart" || plan.imageType === imageType),
     [imageType]
   );
   const favoritePlanDefaultName = useMemo(
-    () => buildDefaultFavoritePlanName(displayProductInfoFields.name, imageType),
+    () => buildDefaultFavoritePlanName(displayProductInfoFields.name, imageType, isPlaceholderProductName),
     [displayProductInfoFields.name, imageType]
   );
 
@@ -378,7 +360,7 @@ export default function ProductSetPage() {
           ? (data as { plans: unknown[] }).plans
           : [];
         const plans = rawPlans.length
-          ? rawPlans.map(normalizeFavoriteProductSetPlan).filter((plan): plan is SavedProductSetPlan => Boolean(plan))
+          ? rawPlans.map((item) => normalizeFavoriteProductSetPlan(item, DEFAULT_SETTINGS)).filter((plan): plan is SavedProductSetPlan => Boolean(plan))
           : [];
         if (!cancelled) setFavoritePlans(plans);
       })
@@ -640,7 +622,13 @@ export default function ProductSetPage() {
   function toggleTemplate(id: number) {
     setMode("custom");
     setSelectedPlanId("custom");
-    setSelectedTemplateIds((prev) => prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id].slice(0, 10));
+    setSelectedTemplateIds((prev) => replaceSelectedTemplateIdsForImageType(
+      prev,
+      imageType,
+      activeSelectedTemplateIds.includes(id)
+        ? activeSelectedTemplateIds.filter((item) => item !== id)
+        : [...activeSelectedTemplateIds, id].slice(0, 10)
+    ));
     setModuleOverrides([]);
     resetOutput();
   }
@@ -668,24 +656,24 @@ export default function ProductSetPage() {
     const now = new Date().toISOString();
     const name = (favoritePlanName.trim() || favoritePlanDefaultName).slice(0, 40);
     const existing = favoritePlans.find((plan) => plan.name === name);
-    const nextPlan: SavedProductSetPlan = {
-      id: existing?.id || `favorite-${Date.now()}`,
+    const nextPlan = buildSavedProductSetPlan({
+      existingPlan: existing,
       name,
-      createdAt: existing?.createdAt || now,
-      updatedAt: now,
+      now,
       mode,
       imageType,
-      genCount: mode === "smart" ? genCount : planTemplates.length,
-      settings: cloneSerializable(settings),
-      selectedTemplateIds: [...activeSelectedTemplateIds],
-      customTemplates: cloneSerializable(activeCustomTemplates),
-      moduleOverrides: cloneSerializable(moduleOverrides),
+      genCount,
+      settings,
+      selectedTemplateIds: activeSelectedTemplateIds,
+      customTemplates: activeCustomTemplates,
+      moduleOverrides,
       aiModel,
       aspectRatio,
       imageSize,
       qualityMode,
-      planPreview: buildFavoritePlanPreview(planTemplates, effectiveProductProfile),
-    };
+      planTemplates,
+      productProfile: effectiveProductProfile,
+    });
     setIsSavingFavoritePlan(true);
     try {
       const res = await fetch("/api/product-set/favorite-plans", {
@@ -695,7 +683,7 @@ export default function ProductSetPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "收藏方案保存失败");
-      const savedPlan = normalizeFavoriteProductSetPlan(data.plan);
+      const savedPlan = normalizeFavoriteProductSetPlan(data.plan, DEFAULT_SETTINGS);
       if (!savedPlan) throw new Error("收藏方案保存结果无效");
       setFavoritePlans((prev) => [savedPlan, ...prev.filter((plan) => plan.id !== savedPlan.id && plan.name !== savedPlan.name)]
         .slice(0, FAVORITE_PRODUCT_SET_PLAN_LIMIT));
@@ -710,20 +698,22 @@ export default function ProductSetPage() {
   }
 
   function applyFavoritePlan(plan: SavedProductSetPlan) {
-    const nextAspect = plan.aspectRatio || (plan.imageType === "details" ? "3:4" : "1:1");
-    const nextSizes = getSupportedImageSizes(plan.aiModel, nextAspect);
-    setMode(plan.mode);
-    setImageType(plan.imageType);
-    setSelectedPlanId(plan.mode === "custom" ? "custom" : "smart");
-    setSelectedTemplateIds([...plan.selectedTemplateIds]);
-    setCustomTemplates(cloneSerializable(plan.customTemplates));
-    setModuleOverrides(cloneSerializable(plan.moduleOverrides));
-    setSettings(cloneSerializable({ ...DEFAULT_SETTINGS, ...plan.settings }));
-    setAiModel(plan.aiModel);
-    setAspectRatio(nextAspect);
-    setImageSize(nextSizes.includes(plan.imageSize) ? plan.imageSize : nextSizes[0] || "1K");
-    setQualityMode(plan.qualityMode);
-    setGenCount(Math.min(Math.max(plan.genCount || getDefaultGenerationCount(plan.imageType, effectiveProductProfile), 1), plan.imageType === "details" ? 8 : 6));
+    const nextState = buildFavoritePlanApplyState(plan, {
+      defaultSettings: DEFAULT_SETTINGS,
+      defaultGenCount: getDefaultGenerationCount(plan.imageType, effectiveProductProfile),
+    });
+    setMode(nextState.mode);
+    setImageType(nextState.imageType);
+    setSelectedPlanId(nextState.selectedPlanId);
+    setSelectedTemplateIds(nextState.selectedTemplateIds);
+    setCustomTemplates(nextState.customTemplates);
+    setModuleOverrides(nextState.moduleOverrides);
+    setSettings(nextState.settings);
+    setAiModel(nextState.aiModel);
+    setAspectRatio(nextState.aspectRatio);
+    setImageSize(nextState.imageSize);
+    setQualityMode(nextState.qualityMode);
+    setGenCount(nextState.genCount);
     resetOutput();
     toast.success(`已套用收藏方案「${plan.name}」`);
   }
@@ -802,7 +792,7 @@ export default function ProductSetPage() {
 
     setMode("custom");
     setImageType(plan.imageType);
-    setSelectedTemplateIds(plan.templateIds);
+    setSelectedTemplateIds((prev) => replaceSelectedTemplateIdsForImageType(prev, plan.imageType, plan.templateIds));
     setGenCount(Math.min(Math.max(plan.templateIds.length, 1), plan.imageType === "details" ? 8 : 6));
     setAspectRatio(plan.imageType === "details" ? "3:4" : "1:1");
     if (plan.id === "amazon-listing") {
@@ -816,6 +806,7 @@ export default function ProductSetPage() {
   function changeImageType(value: ProductSetImageType) {
     const nextAspect = value === "details" ? "3:4" : "1:1";
     const nextSizes = getSupportedImageSizes(aiModel, nextAspect);
+    const nextSelectedTemplateIds = getSelectedTemplateIdsForImageType(selectedTemplateIds, value);
     setImageType(value);
     setAspectRatio(nextAspect);
     if (value === "details" && nextSizes.includes("2K")) {
@@ -823,17 +814,31 @@ export default function ProductSetPage() {
     } else if (!nextSizes.includes(imageSize)) {
       setImageSize(nextSizes[0] || "1K");
     }
-    setGenCount(getDefaultGenerationCount(value, effectiveProductProfile));
-    setMode("smart");
-    setSelectedPlanId("smart");
-    setSelectedTemplateIds([]);
-    setModuleOverrides([]);
+    if (mode === "smart") setGenCount(getDefaultGenerationCount(value, effectiveProductProfile));
+    setSelectedPlanId(getSelectedPlanIdForProductSetState({
+      mode,
+      imageType: value,
+      selectedTemplateIds: nextSelectedTemplateIds,
+    }));
     resetOutput();
   }
 
   function updateSetting<K extends keyof ProductSetSettings>(key: K, value: ProductSetSettings[K]) {
     setSettings((prev) => ({ ...prev, [key]: value }));
     resetOutput();
+  }
+
+  function getSelectedTemplateIdsForImageType(sourceIds: number[], nextImageType: ProductSetImageType) {
+    const templateIds = new Set(getProductSetTemplates(nextImageType).map((template) => template.id));
+    return sourceIds.filter((id) => templateIds.has(id));
+  }
+
+  function replaceSelectedTemplateIdsForImageType(sourceIds: number[], nextImageType: ProductSetImageType, nextIds: number[]) {
+    const templateIds = new Set(getProductSetTemplates(nextImageType).map((template) => template.id));
+    return [
+      ...sourceIds.filter((id) => !templateIds.has(id)),
+      ...nextIds,
+    ];
   }
 
   async function generate() {
@@ -2686,147 +2691,6 @@ function OptionGrid({ title, options, value, onChange }: { title: string; option
       </div>
     </div>
   );
-}
-
-function cloneSerializable<T>(value: T): T {
-  return JSON.parse(JSON.stringify(value)) as T;
-}
-
-function buildDefaultFavoritePlanName(productName: string, imageType: ProductSetImageType) {
-  const cleanedName = productName.trim();
-  const base = cleanedName && !isPlaceholderProductName(cleanedName)
-    ? cleanedName
-    : imageType === "details" ? "AI详情页方案" : "AI主图方案";
-  return `${base} · ${imageType === "details" ? "详情页" : "主图"}`.slice(0, 40);
-}
-
-function buildFavoritePlanPreview(templates: ProductSetResolvedTemplate[], productProfile: ProductSetProductProfile): SavedProductSetPlanModule[] {
-  return templates.slice(0, 12).map((template) => ({
-    name: template.name,
-    moduleRole: template.moduleRole,
-    aspectRatio: template.aspectRatio,
-    source: template.source,
-    usesModel: shouldUseModelForTemplate(template, productProfile),
-  }));
-}
-
-function normalizeFavoriteProductSetPlan(value: unknown): SavedProductSetPlan | null {
-  if (!isPlainObject(value)) return null;
-  const item = value as Partial<SavedProductSetPlan>;
-  const imageType: ProductSetImageType = item.imageType === "details" ? "details" : "main";
-  const mode: ProductSetCreationMode = item.mode === "custom" ? "custom" : "smart";
-  const aiModel = isLingyaModel(item.aiModel) ? item.aiModel : "gpt-image-2";
-  const aspectRatio = isAspectRatio(item.aspectRatio) ? item.aspectRatio : imageType === "details" ? "3:4" : "1:1";
-  const imageSize = isImageSize(item.imageSize) ? item.imageSize : "1K";
-  const qualityMode = item.qualityMode === "advanced" ? "advanced" : "standard";
-  const updatedAt = typeof item.updatedAt === "string" ? item.updatedAt : new Date().toISOString();
-  const settings = normalizeSavedProductSetSettings(item.settings);
-
-  return {
-    id: typeof item.id === "string" && item.id ? item.id : `favorite-${Date.now()}`,
-    name: typeof item.name === "string" && item.name.trim() ? item.name.trim().slice(0, 40) : buildDefaultFavoritePlanName("", imageType),
-    createdAt: typeof item.createdAt === "string" ? item.createdAt : updatedAt,
-    updatedAt,
-    mode,
-    imageType,
-    genCount: clampPlanCount(item.genCount, imageType),
-    settings,
-    selectedTemplateIds: normalizeNumberArray(item.selectedTemplateIds).slice(0, 10),
-    customTemplates: normalizeSavedCustomTemplates(item.customTemplates),
-    moduleOverrides: normalizeSavedModuleOverrides(item.moduleOverrides),
-    aiModel,
-    aspectRatio,
-    imageSize,
-    qualityMode,
-    planPreview: normalizeSavedPlanPreview(item.planPreview),
-  };
-}
-
-function normalizeSavedProductSetSettings(value: unknown): ProductSetSettings {
-  const input = isPlainObject(value) ? value as Partial<ProductSetSettings> : {};
-  return {
-    ...DEFAULT_SETTINGS,
-    ...input,
-    country: typeof input.country === "string" ? input.country : DEFAULT_SETTINGS.country,
-    language: typeof input.language === "string" ? input.language : DEFAULT_SETTINGS.language,
-    platform: typeof input.platform === "string" ? input.platform : DEFAULT_SETTINGS.platform,
-    themeMode: input.themeMode === "custom" ? "custom" : "auto",
-    themeColor: typeof input.themeColor === "string" ? input.themeColor : DEFAULT_SETTINGS.themeColor,
-    fontStyle: isProductSetFontStyle(input.fontStyle) ? input.fontStyle : "auto",
-    stylePackId: typeof input.stylePackId === "string" ? input.stylePackId as ProductSetSettings["stylePackId"] : "auto",
-    extraDescription: typeof input.extraDescription === "string" ? input.extraDescription : "",
-    visualDirectorScript: typeof input.visualDirectorScript === "string" ? input.visualDirectorScript : "",
-    visualDirectorPlan: normalizeProductSetVisualDirectorPlan(input.visualDirectorPlan),
-  };
-}
-
-function normalizeSavedCustomTemplates(value: unknown) {
-  if (!Array.isArray(value)) return [];
-  return value
-    .filter((item): item is ProductSetCustomTemplate => (
-      isPlainObject(item) &&
-      typeof item.id === "string" &&
-      typeof item.name === "string" &&
-      typeof item.typeDescription === "string" &&
-      (item.imageType === "main" || item.imageType === "details")
-    ))
-    .slice(0, 10);
-}
-
-function normalizeSavedModuleOverrides(value: unknown) {
-  if (!Array.isArray(value)) return [];
-  return value
-    .filter((item): item is ProductSetModuleOverride => isPlainObject(item) && typeof item.key === "string")
-    .slice(0, 12);
-}
-
-function normalizeSavedPlanPreview(value: unknown): SavedProductSetPlanModule[] {
-  if (!Array.isArray(value)) return [];
-  return value
-    .filter((item): item is SavedProductSetPlanModule => (
-      isPlainObject(item) &&
-      typeof item.name === "string" &&
-      isAspectRatio(item.aspectRatio) &&
-      (item.source === "preset" || item.source === "ai" || item.source === "custom")
-    ))
-    .map((item) => ({
-      name: item.name.slice(0, 40),
-      moduleRole: typeof item.moduleRole === "string" ? item.moduleRole.slice(0, 120) : "",
-      aspectRatio: item.aspectRatio,
-      source: item.source,
-      usesModel: Boolean(item.usesModel),
-    }))
-    .slice(0, 12);
-}
-
-function normalizeNumberArray(value: unknown) {
-  if (!Array.isArray(value)) return [];
-  return value.filter((item): item is number => Number.isFinite(item));
-}
-
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return Boolean(value && typeof value === "object" && !Array.isArray(value));
-}
-
-function isLingyaModel(value: unknown): value is LingyaModel {
-  return typeof value === "string" && MODELS.some((model) => model.value === value);
-}
-
-function isAspectRatio(value: unknown): value is AspectRatio {
-  return typeof value === "string" && CUSTOM_ASPECTS.includes(value as AspectRatio);
-}
-
-function isImageSize(value: unknown): value is ImageSize {
-  return value === "1K" || value === "2K" || value === "4K";
-}
-
-function isProductSetFontStyle(value: unknown): value is ProductSetFontStyle {
-  return typeof value === "string" && value in PRODUCT_SET_FONT_STYLE_LABELS;
-}
-
-function clampPlanCount(value: unknown, imageType: ProductSetImageType) {
-  const raw = typeof value === "number" && Number.isFinite(value) ? value : getDefaultGenerationCount(imageType);
-  return Math.min(Math.max(Math.round(raw), 1), imageType === "details" ? 8 : 6);
 }
 
 function formatSavedPlanMeta(plan: SavedProductSetPlan) {

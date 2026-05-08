@@ -1,27 +1,45 @@
 const { spawn } = require("node:child_process");
 
 const isWindows = process.platform === "win32";
-
-function npmCheck(name, script, reason) {
+function npmCheck(name, script, reason, fixHint) {
   return isWindows
     ? {
         name,
+        script,
         command: "cmd.exe",
         args: ["/d", "/s", "/c", `npm run ${script}`],
         reason,
+        fixHint,
       }
     : {
         name,
+        script,
         command: "npm",
         args: ["run", script],
         reason,
+        fixHint,
       };
 }
 
 const checks = [
-  npmCheck("test", "test", "Unit/regression tests failed. Fix the failing tests before release."),
-  npmCheck("build", "build", "Production build failed. Fix the build error before release."),
-  npmCheck("check:ssr-size", "check:ssr-size", "SSR package size check failed. Review .next output before deploying to EdgeOne."),
+  npmCheck(
+    "test",
+    "test",
+    "Unit/regression tests failed.",
+    "Run `npm run test` locally, fix the first failing spec, then rerun `npm run check:release`."
+  ),
+  npmCheck(
+    "build",
+    "build",
+    "Production build failed.",
+    "Run `npm run build` to inspect the Next.js error, then rerun `npm run check:release`."
+  ),
+  npmCheck(
+    "check:ssr-size",
+    "check:ssr-size",
+    "SSR package size check failed.",
+    "Run `npm run check:ssr-size` after a successful build and review the listed .next/server files or modules before deploying to EdgeOne."
+  ),
 ];
 
 function printHelp() {
@@ -33,12 +51,34 @@ Runs release gates in order:
   3. npm run check:ssr-size
 
 The first failing step stops the release check and returns its exit code.
+
+Environment forwarded to child checks:
+  SSR_SIZE_LIMIT_MIB, SSR_SIZE_WARN_MIB, SSR_SIZE_LARGE_FILE_MIB, SSR_SIZE_TOP_COUNT, SSR_SIZE_FAIL_ON_RISK
 `);
 }
 
-function runCheck(check) {
+function formatDuration(startedAt) {
+  return `${((Date.now() - startedAt) / 1000).toFixed(1)}s`;
+}
+
+function printableCommand(check) {
+  return `npm run ${check.script}`;
+}
+
+function printFailure(check, result, index) {
+  const step = `${index + 1}/${checks.length}`;
+  console.error(`\n[release-check] FAILED step ${step}: ${check.name}`);
+  console.error(`  command: ${printableCommand(check)}`);
+  console.error(`  status: ${result.message}`);
+  console.error(`  why it matters: ${check.reason}`);
+  console.error(`  next step: ${check.fixHint}`);
+}
+
+function runCheck(check, index) {
   return new Promise((resolve) => {
-    console.log(`\n[release-check] Starting ${check.name}: ${check.command} ${check.args.join(" ")}`);
+    const step = `${index + 1}/${checks.length}`;
+    const startedAt = Date.now();
+    console.log(`\n[release-check] Step ${step}: ${printableCommand(check)}`);
 
     const child = spawn(check.command, check.args, {
       stdio: "inherit",
@@ -50,13 +90,13 @@ function runCheck(check) {
       resolve({
         ok: false,
         code: 1,
-        message: `Could not start ${check.name}: ${error.message}`,
+        message: `could not start ${check.command}: ${error.message}`,
       });
     });
 
     child.on("close", (code, signal) => {
       if (code === 0) {
-        console.log(`[release-check] Passed ${check.name}`);
+        console.log(`[release-check] Passed ${check.name} in ${formatDuration(startedAt)}`);
         resolve({ ok: true, code: 0 });
         return;
       }
@@ -66,7 +106,7 @@ function runCheck(check) {
       resolve({
         ok: false,
         code: exitCode,
-        message: `${check.name} failed with exit code ${exitCode}${signalText}. ${check.reason}`,
+        message: `exit code ${exitCode}${signalText} after ${formatDuration(startedAt)}`,
       });
     });
   });
@@ -89,10 +129,10 @@ async function main() {
 
   console.log("[release-check] Running pre-release checks.");
 
-  for (const check of checks) {
-    const result = await runCheck(check);
+  for (const [index, check] of checks.entries()) {
+    const result = await runCheck(check, index);
     if (!result.ok) {
-      console.error(`\n[release-check] FAILED: ${result.message}`);
+      printFailure(check, result, index);
       process.exit(result.code);
     }
   }

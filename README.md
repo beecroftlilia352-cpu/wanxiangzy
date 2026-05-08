@@ -175,7 +175,7 @@ git push origin v1.0.0
 
 Tencent EdgeOne Cloud SSR Node functions 有 128 MiB 运行包限制。每次 `npm run build` 后可本地检查 `.next/server/server-reference-manifest`、`.next/standalone` 和 server chunks 的体积风险：
 
-发布前建议先运行完整检查，按顺序执行测试、生产构建和 SSR 包体积检查：
+发布前运行完整检查；它会按顺序执行测试、生产构建和 SSR 包体积检查，失败时会停在首个失败步骤并给出下一步定位命令：
 
 ```bash
 npm run check:release
@@ -185,7 +185,7 @@ npm run check:release
 npm run check:ssr-size
 ```
 
-默认阈值为 128 MiB，超过 90% 会标记风险；单文件超过 8 MiB 会单独列出。可用环境变量调整：
+默认阈值为 128 MiB，超过 90% 会标记风险；风险输出会列出最大的 `.next/server` 文件、目录和可识别的 vendor chunk / route / trace 信息。单文件超过 8 MiB 会单独列出。可用环境变量调整：
 
 ```bash
 SSR_SIZE_WARN_MIB=100 SSR_SIZE_LARGE_FILE_MIB=6 npm run check:ssr-size
