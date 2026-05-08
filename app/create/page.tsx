@@ -180,6 +180,7 @@ export default function CreatePage() {
   const [clothingRoles, setClothingRoles] = useState<TryOnClothingRole[]>([]);
   const [garmentAudience, setGarmentAudience] = useState<TryOnGarmentAudience>("women");
   const [ageGroup, setAgeGroup] = useState<TryOnAgeGroup>("adult");
+  const [isIntimateGarment, setIsIntimateGarment] = useState(false);
   const [pendingClothingRole, setPendingClothingRole] = useState<TryOnClothingRole>("single");
   const [showClothingRules, setShowClothingRules] = useState(false);
   const [rulesPopoverStyle, setRulesPopoverStyle] = useState<{ top: number; left: number; maxHeight: number } | null>(null);
@@ -271,7 +272,21 @@ export default function CreatePage() {
   };
 
   const updateAgeGroup = (value: TryOnAgeGroup) => {
+    if (value !== "adult" && isIntimateGarment) {
+      setIsIntimateGarment(false);
+      toast.info("内衣/泳衣类服装仅支持成人模特，已关闭该选项");
+    }
     setAgeGroup(value);
+    setPromptOverride(null);
+    store.setPromptUsed("");
+  };
+
+  const updateIntimateGarment = (checked: boolean) => {
+    if (checked && ageGroup !== "adult") {
+      toast.error("内衣/泳衣类服装仅支持成人模特，请先将年龄段改为成人");
+      return;
+    }
+    setIsIntimateGarment(checked);
     setPromptOverride(null);
     store.setPromptUsed("");
   };
@@ -448,6 +463,7 @@ export default function CreatePage() {
           clothing_roles: clothingRoles,
           garment_audience: garmentAudience,
           age_group: ageGroup,
+          garment_category: isIntimateGarment ? "intimate" : "regular",
           aspect_ratio: aspectRatio,
           model_face_url: store.selectedModel?.image_url,
           reference_url: effectiveReferenceUrl,
@@ -628,6 +644,10 @@ export default function CreatePage() {
         return;
       }
     }
+    if (isIntimateGarment && ageGroup !== "adult") {
+      toast.error("内衣/泳衣类服装仅支持成人模特生成");
+      return;
+    }
     if (credits !== null && credits < totalCost) { toast.error(`积分不足 ${totalCost}，余额 ${credits}`); return; }
 
     store.startGeneration();
@@ -659,6 +679,8 @@ export default function CreatePage() {
           clothing_roles: clothingRoles,
           garment_audience: garmentAudience,
           age_group: ageGroup,
+          garment_category: isIntimateGarment ? "intimate" : "regular",
+          is_intimate_garment: isIntimateGarment,
           model_face_url: store.selectedModel?.image_url,
           reference_url: effectiveReferenceUrl,
           ai_model: aiModel,
@@ -906,6 +928,21 @@ export default function CreatePage() {
                 ))}
               </div>
             </div>
+
+            <label className="mt-3 flex cursor-pointer items-start gap-2 rounded-xl border border-slate-100 bg-white/70 px-3 py-2 text-xs text-slate-700 transition-colors hover:border-violet-200">
+              <input
+                type="checkbox"
+                checked={isIntimateGarment}
+                onChange={(event) => updateIntimateGarment(event.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-slate-300 text-violet-600 focus:ring-violet-500"
+              />
+              <span>
+                <span className="font-semibold">上传服装为内衣、泳衣、情趣内衣类服装</span>
+                <span className="mt-0.5 block text-[11px] leading-4 text-slate-400">
+                  勾选后按成人商品图安全处理，生成会避免裸露、挑逗姿势和未成年人场景。
+                </span>
+              </span>
+            </label>
           </section>
 
           {/* ---- 服装人群 ---- */}
@@ -1558,6 +1595,7 @@ export default function CreatePage() {
                   ["服装角色", clothingRoles.map((role) => TRYON_CLOTHING_ROLE_LABELS[role]).join("、") || "未上传"],
                   ["服装人群", TRYON_GARMENT_AUDIENCE_LABELS[garmentAudience]],
                   ["年龄段", TRYON_AGE_GROUP_LABELS[ageGroup]],
+                  ["服装类别", isIntimateGarment ? "内衣/泳衣类" : "常规服装"],
                   ["服装数量", `${uploadedClothingUrls.length}`],
                   ["模特脸", store.selectedModel ? "已使用" : "未使用"],
                   ["场景模式", SCENE_MODE_LABELS[sceneMode]],

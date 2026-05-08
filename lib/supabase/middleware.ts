@@ -15,6 +15,7 @@ export async function updateSession(request: NextRequest) {
     "/model",
     "/model-background",
     "/grass",
+    "/product-set",
     "/garment-3d",
   ];
 

@@ -1,8 +1,5 @@
 const IMGBB_API_URL = "https://api.imgbb.com/1/upload";
 const IMAGE_UPLOAD_TIMEOUT_MS = 45000;
-const IMAGE_DOWNLOAD_TIMEOUT_MS = 30000;
-const MAX_RESULT_IMAGE_BYTES = 25 * 1024 * 1024;
-const IMAGE_LIKE_CONTENT_TYPES = ["image/", "application/octet-stream", "binary/octet-stream"];
 
 export async function persistGeneratedImageUrls(
   urls: string[],
@@ -22,65 +19,30 @@ export async function persistGeneratedImageUrls(
 async function persistGeneratedImageUrl(
   urlOrDataUrl: string,
   name: string,
-  options: { forceServerDownload?: boolean }
+  _options: { forceServerDownload?: boolean }
 ) {
   if (isStableImageHost(urlOrDataUrl)) return urlOrDataUrl;
 
-  const shouldServerDownload = options.forceServerDownload ?? isRemoteUrl(urlOrDataUrl);
-  const imagePayload = urlOrDataUrl.startsWith("data:")
-    ? getBase64Payload(urlOrDataUrl)
-    : shouldServerDownload
-      ? await downloadRemoteImageAsBase64(urlOrDataUrl)
-      : urlOrDataUrl;
+  if (urlOrDataUrl.startsWith("data:")) {
+    return uploadImageToImgbb(getBase64Payload(urlOrDataUrl), name);
+  }
 
-  return uploadImageToImgbb(imagePayload, name);
+  if (isRemoteUrl(urlOrDataUrl)) {
+    try {
+      return await uploadImageToImgbb(urlOrDataUrl, name, { suppressErrorLog: true });
+    } catch (err) {
+      console.warn(
+        "[result-image-storage] imgbb upload failed; falling back to provider URL:",
+        err instanceof Error ? err.message : String(err)
+      );
+      return urlOrDataUrl;
+    }
+  }
+
+  return uploadImageToImgbb(urlOrDataUrl, name);
 }
 
-async function downloadRemoteImageAsBase64(url: string) {
-  let parsedUrl: URL;
-  try {
-    parsedUrl = new URL(url);
-  } catch {
-    throw new Error("生成结果图片 URL 无效，无法转存图床");
-  }
-
-  if (!["http:", "https:"].includes(parsedUrl.protocol)) {
-    throw new Error("生成结果图片 URL 协议无效，无法转存图床");
-  }
-
-  const response = await fetch(parsedUrl.toString(), {
-    headers: {
-      Accept: "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
-      "User-Agent": "Mozilla/5.0 VastWear Image Persist/1.0",
-    },
-    signal: AbortSignal.timeout(IMAGE_DOWNLOAD_TIMEOUT_MS),
-  });
-
-  if (!response.ok) {
-    console.error("[result-image-storage] remote image download error:", response.status, parsedUrl.hostname);
-    throw new Error(`生成结果图片下载失败: ${response.status}`);
-  }
-
-  const contentType = response.headers.get("content-type")?.toLowerCase() || "";
-  if (contentType && !IMAGE_LIKE_CONTENT_TYPES.some((prefix) => contentType.startsWith(prefix))) {
-    console.error("[result-image-storage] remote resource is not image:", contentType, parsedUrl.hostname);
-    throw new Error("生成结果地址不是图片，无法转存图床");
-  }
-
-  const contentLength = Number(response.headers.get("content-length") || 0);
-  if (contentLength > MAX_RESULT_IMAGE_BYTES) {
-    throw new Error("生成结果图片过大，无法转存图床");
-  }
-
-  const arrayBuffer = await response.arrayBuffer();
-  if (arrayBuffer.byteLength > MAX_RESULT_IMAGE_BYTES) {
-    throw new Error("生成结果图片过大，无法转存图床");
-  }
-
-  return Buffer.from(arrayBuffer).toString("base64");
-}
-
-async function uploadImageToImgbb(image: string, name: string) {
+async function uploadImageToImgbb(image: string, name: string, options: { suppressErrorLog?: boolean } = {}) {
   const apiKey = process.env.IMGBB_API_KEY;
   if (!apiKey) {
     throw new Error("图床上传服务未配置 IMGBB_API_KEY");
@@ -99,13 +61,17 @@ async function uploadImageToImgbb(image: string, name: string) {
 
   const responseText = await response.text();
   if (!response.ok) {
-    console.error("[result-image-storage] imgbb upload error:", response.status, responseText.slice(0, 500));
+    if (!options.suppressErrorLog) {
+      console.error("[result-image-storage] imgbb upload error:", response.status, responseText.slice(0, 500));
+    }
     throw new Error(`生成结果图片转存图床失败: ${response.status}`);
   }
 
   const data = JSON.parse(responseText);
   if (!data.success || !data.data?.url) {
-    console.error("[result-image-storage] imgbb upload failed:", responseText.slice(0, 500));
+    if (!options.suppressErrorLog) {
+      console.error("[result-image-storage] imgbb upload failed:", responseText.slice(0, 500));
+    }
     throw new Error("生成结果图片转存图床失败");
   }
 

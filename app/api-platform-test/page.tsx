@@ -97,7 +97,7 @@ type TestResult = {
 export default function ApiPlatformTestPage() {
   const [apiUrl, setApiUrl] = useState(DEFAULT_API_URL);
   const [apiKey, setApiKey] = useState(DEFAULT_API_KEY);
-  const [model, setModel] = useState("nano-banana-2");
+  const [model, setModel] = useState("gpt-image-2");
   const [customModel, setCustomModel] = useState("");
   const [aspectRatio, setAspectRatio] = useState("3:4");
   const [imageSize, setImageSize] = useState<ImageSize>("1K");

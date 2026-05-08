@@ -1,0 +1,99 @@
+import { describe, expect, it } from "vitest";
+import { normalizeGenerationState } from "../generation-state";
+
+describe("normalizeGenerationState", () => {
+  it("keeps multi-image jobs running when only one child task has succeeded", () => {
+    const state = normalizeGenerationState({
+      status: "processing_tryon",
+      resultUrls: ["https://example.com/one.png"],
+      payload: {
+        genCount: 3,
+        asyncTask: {
+          status: "SUCCESS",
+          progress: 33,
+        },
+      },
+    });
+
+    expect(state.status).toBe("processing_tryon");
+    expect(state.statusGroup).toBe("running");
+    expect(state.progress).toBeLessThan(100);
+    expect(state.resultCount).toBe(1);
+    expect(state.expectedCount).toBe(3);
+  });
+
+  it("marks a multi-image job completed once all expected results are present", () => {
+    const state = normalizeGenerationState({
+      status: "processing_tryon",
+      resultUrls: [
+        "https://example.com/one.png",
+        "https://example.com/two.png",
+        "https://example.com/three.png",
+      ],
+      payload: {
+        genCount: 3,
+        asyncTask: {
+          status: "SUCCESS",
+          progress: 100,
+        },
+      },
+    });
+
+    expect(state.status).toBe("completed");
+    expect(state.statusGroup).toBe("finished");
+    expect(state.progress).toBe(100);
+  });
+
+  it("trusts an explicit completed database status", () => {
+    const state = normalizeGenerationState({
+      status: "completed",
+      resultUrls: ["https://example.com/one.png"],
+      payload: { genCount: 3 },
+    });
+
+    expect(state.status).toBe("completed");
+    expect(state.statusGroup).toBe("finished");
+    expect(state.progress).toBe(100);
+  });
+
+  it("uses product-set module results for progress and expected count", () => {
+    const state = normalizeGenerationState({
+      status: "processing_tryon",
+      resultUrls: ["https://example.com/hero.png"],
+      payload: {
+        genCount: 6,
+        moduleResults: [
+          {
+            moduleKey: "preset:108",
+            index: 1,
+            templateId: "108",
+            templateSource: "preset",
+            name: "Hero",
+            imageType: "details",
+            aspectRatio: "9:16",
+            status: "completed",
+            progress: 100,
+            resultUrl: "https://example.com/hero.png",
+          },
+          {
+            moduleKey: "preset:7",
+            index: 2,
+            templateId: "7",
+            templateSource: "preset",
+            name: "Model",
+            imageType: "details",
+            aspectRatio: "3:4",
+            status: "running",
+            progress: 50,
+          },
+        ],
+      },
+    });
+
+    expect(state.status).toBe("processing_tryon");
+    expect(state.expectedCount).toBe(2);
+    expect(state.resultCount).toBe(1);
+    expect(state.progress).toBe(75);
+    expect(state.moduleResults?.[0].moduleKey).toBe("preset:108");
+  });
+});

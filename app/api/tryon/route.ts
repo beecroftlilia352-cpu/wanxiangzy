@@ -15,7 +15,12 @@ import { startGenerationJob, type GenerationJobPayload } from "@/lib/api/generat
 import { handleGenerationStatusGet } from "@/lib/api/generation-status";
 import { normalizeAutoDesignSettings, normalizeSceneMode } from "@/lib/tryon-scene";
 import { normalizeTryOnClothingMode, normalizeTryOnClothingRole } from "@/lib/tryon-upload-rules";
-import { normalizeTryOnAgeGroup, normalizeTryOnGarmentAudience } from "@/lib/tryon-prompt";
+import {
+  TRYON_GARMENT_CATEGORY_LABELS,
+  normalizeTryOnAgeGroup,
+  normalizeTryOnGarmentCategory,
+  normalizeTryOnGarmentAudience,
+} from "@/lib/tryon-prompt";
 
 export async function POST(request: NextRequest) {
   try {
@@ -30,7 +35,7 @@ export async function POST(request: NextRequest) {
     const {
       clothing_urls, model_face_url, reference_url,
       ai_model, aspect_ratio, image_size, style, gen_count, raw_prompt, scene_mode, auto_design,
-      clothing_mode, clothing_roles, garment_audience, age_group,
+      clothing_mode, clothing_roles, garment_audience, age_group, garment_category, is_intimate_garment,
     } = body;
 
     const genCount = Math.min(Math.max(Number(gen_count) || 1, 1), 4);
@@ -64,6 +69,10 @@ export async function POST(request: NextRequest) {
       : clothing_urls.map((_: string, index: number) => clothingMode === "multi" ? index === 0 ? "upper" : index === 1 ? "lower" : "extra" : "single");
     const garmentAudience = normalizeTryOnGarmentAudience(garment_audience);
     const ageGroup = normalizeTryOnAgeGroup(age_group);
+    const garmentCategory = normalizeTryOnGarmentCategory(is_intimate_garment ? "intimate" : garment_category);
+    if (garmentCategory === "intimate" && ageGroup !== "adult") {
+      return NextResponse.json({ error: "内衣/泳衣类服装仅支持成人模特生成，请将年龄段改为成人后再提交" }, { status: 400 });
+    }
     const jobPayload: GenerationJobPayload = {
       kind: "tryon",
       clothingUrls: clothing_urls,
@@ -71,6 +80,7 @@ export async function POST(request: NextRequest) {
       clothingRoles,
       garmentAudience,
       ageGroup,
+      garmentCategory,
       modelFaceUrl: model_face_url || null,
       referenceUrl: sceneMode === "auto_design" ? null : reference_url || null,
       aiModel: model,
@@ -91,7 +101,7 @@ export async function POST(request: NextRequest) {
       creditsCost: totalCost,
       aiModel: model,
       imageSize: size,
-      reason: `生成 ${genCount} 张，输入 ${clothing_urls.length} 件服装 (${model}, ${size})`,
+      reason: `生成 ${genCount} 张，输入 ${clothing_urls.length} 件服装 (${model}, ${size}, ${TRYON_GARMENT_CATEGORY_LABELS[garmentCategory]})`,
       jobPayload,
     });
 

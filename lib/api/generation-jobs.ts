@@ -37,11 +37,34 @@ import {
   type PoseSeriesStyle,
 } from "@/lib/module-style-presets";
 import type { AutoDesignSettings, TryOnSceneMode } from "@/lib/tryon-scene";
-import type { TryOnAgeGroup, TryOnGarmentAudience } from "@/lib/tryon-prompt";
+import type { TryOnAgeGroup, TryOnGarmentCategory, TryOnGarmentAudience } from "@/lib/tryon-prompt";
 import type { TryOnClothingMode, TryOnClothingRole } from "@/lib/tryon-upload-rules";
 import type { GrassPayloadBase } from "@/lib/grass-planting";
 import type { ModelBackgroundPayloadBase } from "@/lib/model-background";
 import { enforceFaceSwapPromptRequirements } from "@/lib/face-swap";
+import {
+  buildProductSetPrompt,
+  createProductSetModuleResult,
+  getProductSetModuleKey,
+  getProductSetReferenceUrls,
+  getProductSetResultUrlsFromModules,
+  PRODUCT_SET_PROMPT_VERSION,
+  normalizeProductSetCreationMode,
+  normalizeProductSetImageType,
+  normalizeProductSetModuleOverrides,
+  normalizeProductSetModuleResults,
+  normalizeProductSetProductProfile,
+  normalizeProductSetSettings,
+  resolveProductSetTemplates,
+  type ProductSetCreationMode,
+  type ProductSetCustomTemplate,
+  type ProductSetImageType,
+  type ProductSetModuleOverride,
+  type ProductSetModuleResult,
+  type ProductSetProductProfile,
+  type ProductSetResolvedTemplate,
+  type ProductSetSettings,
+} from "@/lib/product-set";
 
 export type GenerationJobPayload =
   | {
@@ -51,6 +74,7 @@ export type GenerationJobPayload =
       clothingRoles?: TryOnClothingRole[];
       garmentAudience?: TryOnGarmentAudience;
       ageGroup?: TryOnAgeGroup;
+      garmentCategory?: TryOnGarmentCategory;
       modelFaceUrl?: string | null;
       referenceUrl?: string | null;
       aiModel: LingyaModel;
@@ -79,6 +103,16 @@ export type GenerationJobPayload =
     }
   | ({ kind: "grass" } & GrassPayloadBase)
   | ({ kind: "modelBackground" } & ModelBackgroundPayloadBase)
+  | {
+      kind: "generalImage";
+      mode: "text-to-image" | "image-to-image";
+      referenceUrls: string[];
+      aiModel: LingyaModel;
+      aspectRatio: AspectRatio;
+      imageSize: ImageSize;
+      prompt: string;
+      genCount: number;
+    }
   | {
       kind: "pose";
       mainImageUrl: string;
@@ -127,6 +161,25 @@ export type GenerationJobPayload =
       layout?: CommerceDetailLayout;
       mobileWidth?: number;
       sections?: CommerceDetailSectionSpec[];
+    }
+  | {
+      kind: "productSet";
+      productImageUrls: string[];
+      productInfo?: string;
+      productProfile?: ProductSetProductProfile;
+      mode: ProductSetCreationMode;
+      imageType: ProductSetImageType;
+      settings?: ProductSetSettings;
+      selectedTemplateIds?: number[];
+      customTemplates?: ProductSetCustomTemplate[];
+      moduleOverrides?: ProductSetModuleOverride[];
+      moduleResults?: ProductSetModuleResult[];
+      regenerateIndex?: number;
+      aiModel: LingyaModel;
+      aspectRatio: AspectRatio;
+      imageSize: ImageSize;
+      prompt: string;
+      genCount: number;
     };
 
 interface ClaimedJob {
@@ -158,6 +211,7 @@ type PromptTraceItem = {
 type GenerationExecutionResult = {
   resultUrls: string[];
   promptTrace: PromptTraceItem[];
+  moduleResults?: ProductSetModuleResult[];
   progress?: number;
   externalTaskId?: string;
   externalStatus?: string;
@@ -227,8 +281,55 @@ async function runClaimedJob(
     const payload = parseJobPayload(job.job_payload);
     const partialResultUrls: string[] = [];
     const partialPromptTrace: PromptTraceItem[] = [];
+    let partialModuleResults: ProductSetModuleResult[] = [];
+    const rawModuleUrlByKey = new Map<string, string>();
+    const persistedModuleUrlByKey = new Map<string, string>();
     let lastProgress = 0;
+    const persistModuleResults = async (moduleResults: ProductSetModuleResult[]) => {
+      const normalized = normalizeProductSetModuleResults(moduleResults);
+      const persistedModules: ProductSetModuleResult[] = [];
+
+      for (const moduleResult of normalized) {
+        let resultUrl = moduleResult.resultUrl;
+        if (resultUrl) {
+          const previousRawUrl = rawModuleUrlByKey.get(moduleResult.moduleKey);
+          if (previousRawUrl !== resultUrl) {
+            const [persisted] = await persistGeneratedImageUrls([resultUrl], `${job.id}-${moduleResult.moduleKey}`, {
+              forceServerDownload: isSeedreamPayload(payload),
+              startIndex: moduleResult.index - 1,
+            });
+            rawModuleUrlByKey.set(moduleResult.moduleKey, resultUrl);
+            persistedModuleUrlByKey.set(moduleResult.moduleKey, persisted || resultUrl);
+            resultUrl = persisted || resultUrl;
+          } else {
+            resultUrl = persistedModuleUrlByKey.get(moduleResult.moduleKey) || resultUrl;
+          }
+        }
+        persistedModules.push({ ...moduleResult, resultUrl });
+      }
+
+      partialModuleResults = persistedModules;
+      partialResultUrls.splice(0, partialResultUrls.length, ...getProductSetResultUrlsFromModules(persistedModules));
+      return persistedModules;
+    };
+
     const execution = await executePayload(payload, async (update) => {
+      if (update.moduleResults?.length) {
+        const persistedModules = await persistModuleResults(update.moduleResults);
+        const nextProgress = typeof update.progress === "number" ? update.progress : lastProgress;
+        partialPromptTrace.splice(0, partialPromptTrace.length, ...update.promptTrace);
+        lastProgress = Math.max(lastProgress, nextProgress);
+        await writeGenerationProgress(supabase, job, payload, {
+          resultUrls: partialResultUrls,
+          promptTrace: partialPromptTrace,
+          moduleResults: persistedModules,
+          progress: lastProgress,
+          externalTaskId: update.externalTaskId,
+          externalStatus: update.externalStatus,
+        });
+        return;
+      }
+
       const newUrls = update.resultUrls.slice(partialResultUrls.length);
       const nextProgress = typeof update.progress === "number" ? update.progress : lastProgress;
       if (!newUrls.length && update.promptTrace.length === partialPromptTrace.length && nextProgress === lastProgress) return;
@@ -246,12 +347,18 @@ async function runClaimedJob(
       await writeGenerationProgress(supabase, job, payload, {
         resultUrls: partialResultUrls,
         promptTrace: partialPromptTrace,
+        moduleResults: partialModuleResults,
         progress: lastProgress,
         externalTaskId: update.externalTaskId,
         externalStatus: update.externalStatus,
       });
     });
-    const persistedResultUrls = partialResultUrls.length === execution.resultUrls.length
+    const finalModuleResults = execution.moduleResults?.length
+      ? await persistModuleResults(execution.moduleResults)
+      : undefined;
+    const persistedResultUrls = finalModuleResults
+      ? getProductSetResultUrlsFromModules(finalModuleResults)
+      : partialResultUrls.length === execution.resultUrls.length
       ? partialResultUrls
       : await persistGeneratedImageUrls(execution.resultUrls, job.id, {
         forceServerDownload: isSeedreamPayload(payload),
@@ -269,13 +376,25 @@ async function runClaimedJob(
     const finalUrls = repaired?.resultUrls || persistedResultUrls;
     const finalPromptTrace = repaired?.promptTrace || execution.promptTrace;
     const finalQuality = repaired?.quality || quality;
+    const finalModulePayload = finalModuleResults
+      ? await evaluateProductSetModuleResults({
+        payload,
+        moduleResults: finalModuleResults,
+        promptTrace: finalPromptTrace,
+        fallbackQuality: finalQuality,
+      })
+      : undefined;
+    const finalPayload = appendProductSetModuleResults(
+      appendPromptTrace(appendQualityMetadata(repaired?.payload || payload, finalQuality, Boolean(repaired)), finalPromptTrace),
+      finalModulePayload
+    );
 
     const { data, error } = await supabase
       .from("generations")
       .update({
         status: "completed",
         result_urls: finalUrls,
-        job_payload: appendPromptTrace(appendQualityMetadata(repaired?.payload || payload, finalQuality, Boolean(repaired)), finalPromptTrace),
+        job_payload: finalPayload,
         processing_started_at: null,
         completed_at: new Date().toISOString(),
       })
@@ -343,6 +462,56 @@ async function regenerateForQuality(
   };
 }
 
+async function evaluateProductSetModuleResults(params: {
+  payload: GenerationJobPayload;
+  moduleResults: ProductSetModuleResult[];
+  promptTrace: PromptTraceItem[];
+  fallbackQuality: VisualQualityEvaluation;
+}) {
+  if (params.payload.kind !== "productSet") return params.moduleResults;
+  const normalized = normalizeProductSetModuleResults(params.moduleResults);
+  const referenceImageUrls = getPayloadReferenceImages(params.payload);
+  const traceByKey = new Map(params.promptTrace.map((item) => [item.promptKind.split(":").pop() || "", item]));
+  const evaluated = [...normalized];
+
+  await runWithConcurrency(evaluated, Math.min(2, Math.max(1, evaluated.length)), async (moduleResult, index) => {
+    if (moduleResult.status === "failed" || !moduleResult.resultUrl) {
+      evaluated[index] = {
+        ...moduleResult,
+        qualityScore: 0,
+        qualitySummary: moduleResult.error || "模块生成失败",
+        qualityIssues: [moduleResult.error || "模块没有返回可用图片"],
+        qualitySource: "module_status",
+      };
+      return;
+    }
+
+    const trace = traceByKey.get(moduleResult.moduleKey);
+    const userPrompt = trace?.prompt || [
+      getPayloadPrompt(params.payload),
+      moduleResult.moduleRole || moduleResult.name,
+      moduleResult.contentScope || "",
+    ].filter(Boolean).join("\n");
+    const quality = await evaluateGeneratedImages({
+      userPrompt,
+      module: `productSet:${moduleResult.moduleKey}`,
+      resultUrls: [moduleResult.resultUrl],
+      expectedCount: 1,
+      referenceImageUrls,
+    }).catch(() => params.fallbackQuality);
+
+    evaluated[index] = {
+      ...moduleResult,
+      qualityScore: quality.score,
+      qualitySummary: quality.summary,
+      qualityIssues: quality.issues.slice(0, 8),
+      qualitySource: quality.source,
+    };
+  });
+
+  return normalizeProductSetModuleResults(evaluated);
+}
+
 async function executePayload(
   payload: GenerationJobPayload,
   onProgress?: GenerationProgressCallback
@@ -365,6 +534,7 @@ async function executePayload(
         clothingRoles: payload.clothingRoles,
         garmentAudience: payload.garmentAudience,
         ageGroup: payload.ageGroup,
+        garmentCategory: payload.garmentCategory,
         modelFaceUrl: imageInputs.modelFaceUrl,
         referenceUrl: imageInputs.referenceUrl,
         aspect_ratio: payload.aspectRatio,
@@ -488,6 +658,36 @@ async function executePayload(
         kind: payload.kind,
         model: payload.aiModel,
         promptKind: "modelBackground",
+        prompt: payload.prompt,
+        compiledPrompt: result.compiledPrompt || payload.prompt,
+      }));
+      await onProgress?.(createCompletedImageProgress(resultUrls, promptTrace, result.taskId, i + 1, payload.genCount));
+    }
+
+    return { resultUrls, promptTrace };
+  }
+
+  if (payload.kind === "generalImage") {
+    const imageInputs = payload.mode === "image-to-image"
+      ? await resolveImageInputs({ clothingUrls: payload.referenceUrls })
+      : { clothingUrls: [] };
+    const resultUrls: string[] = [];
+
+    for (let i = 0; i < payload.genCount; i++) {
+      const result = await generateImage({
+        model: payload.aiModel,
+        prompt: payload.prompt,
+        aspect_ratio: payload.aspectRatio,
+        image: imageInputs.clothingUrls,
+        image_size: payload.imageSize,
+        onProgress: (progress) => onProgress?.(mapImageTaskProgress(progress, resultUrls, promptTrace, i, payload.genCount)),
+      });
+      resultUrls.push(getResultUrl(result));
+      promptTrace.push(createPromptTraceItem({
+        index: i + 1,
+        kind: payload.kind,
+        model: payload.aiModel,
+        promptKind: payload.mode,
         prompt: payload.prompt,
         compiledPrompt: result.compiledPrompt || payload.prompt,
       }));
@@ -635,6 +835,170 @@ async function executePayload(
     return { resultUrls, promptTrace };
   }
 
+  if (payload.kind === "productSet") {
+    const imageType = normalizeProductSetImageType(payload.imageType);
+    const mode = normalizeProductSetCreationMode(payload.mode);
+    const settings = normalizeProductSetSettings(payload.settings);
+    const productProfile = normalizeProductSetProductProfile(payload.productProfile, payload.productInfo || payload.prompt);
+    const moduleOverrides = normalizeProductSetModuleOverrides(payload.moduleOverrides);
+    const templates = resolveProductSetTemplates({
+      mode,
+      imageType,
+      selectedTemplateIds: payload.selectedTemplateIds,
+      customTemplates: payload.customTemplates,
+      genCount: payload.genCount,
+      productProfile,
+      settings,
+      moduleOverrides,
+    });
+    const fallbackTemplates = templates.length ? templates : resolveProductSetTemplates({ mode: "smart", imageType, genCount: 1, productProfile, settings, moduleOverrides });
+    const rawRegenerateIndex = Number(payload.regenerateIndex);
+    const regenerateIndex = Number.isFinite(rawRegenerateIndex) ? Math.floor(rawRegenerateIndex) : null;
+    const targetEntries = fallbackTemplates
+      .map((template, index) => ({ template, index }))
+      .filter((entry) => regenerateIndex === null || entry.index === regenerateIndex);
+    const moduleResults = targetEntries.map(({ template, index }) => createProductSetModuleResult(template, index, {
+      promptVariant: settings.stylePackId || "auto",
+      updatedAt: new Date().toISOString(),
+    }));
+    const moduleStartedAt = new Map<string, number>();
+    const updateModule = (moduleKey: string, patch: Partial<ProductSetModuleResult>) => {
+      const index = moduleResults.findIndex((item) => item.moduleKey === moduleKey);
+      if (index < 0) return;
+      moduleResults[index] = {
+        ...moduleResults[index],
+        ...patch,
+        updatedAt: patch.updatedAt || new Date().toISOString(),
+        progress: typeof patch.progress === "number" ? Math.min(Math.max(Math.round(patch.progress), 0), 100) : moduleResults[index].progress,
+      };
+    };
+    const moduleProgress = () => {
+      const count = Math.max(1, moduleResults.length);
+      const total = moduleResults.reduce((sum, item) => sum + (item.status === "completed" || item.status === "failed" ? 100 : Math.min(item.progress, 99)), 0);
+      return Math.min(99, Math.round(total / count));
+    };
+    const emitModuleProgress = async (externalTaskId?: string, externalStatus?: string) => {
+      await onProgress?.({
+        resultUrls: getProductSetResultUrlsFromModules(moduleResults),
+        promptTrace,
+        moduleResults: normalizeProductSetModuleResults(moduleResults),
+        progress: moduleProgress(),
+        externalTaskId,
+        externalStatus,
+      });
+    };
+
+    await emitModuleProgress();
+
+    await runWithConcurrency(targetEntries, Math.min(3, Math.max(1, targetEntries.length)), async ({ template, index }) => {
+      const moduleKey = getProductSetModuleKey(template, index);
+      const outputAspectRatio = template.aspectRatio || payload.aspectRatio;
+      const styleReferenceUrls = getProductSetReferenceUrls(template).slice(0, 3);
+      const prompt = buildProductSetPrompt({
+        productInfo: payload.productInfo || payload.prompt,
+        productProfile,
+        productImageCount: payload.productImageUrls.length,
+        template,
+        allTemplates: fallbackTemplates,
+        settings,
+        mode,
+        aspectRatio: outputAspectRatio,
+        imageSize: payload.imageSize,
+        sequenceIndex: index,
+        totalCount: fallbackTemplates.length,
+      });
+
+      moduleStartedAt.set(moduleKey, Date.now());
+      updateModule(moduleKey, { status: "running", progress: 3, startedAt: new Date().toISOString(), attempt: 1 });
+      await emitModuleProgress();
+
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          updateModule(moduleKey, { status: "running", attempt, error: undefined });
+          const imageInputs = await resolveImageInputs({
+            clothingUrls: [
+              ...payload.productImageUrls,
+              ...styleReferenceUrls,
+            ],
+          });
+          const result = await generateImage({
+            model: payload.aiModel,
+            prompt,
+            prompt_kind: "productSet",
+            aspect_ratio: outputAspectRatio,
+            image: imageInputs.clothingUrls,
+            image_size: payload.imageSize,
+            onProgress: async (progress) => {
+              updateModule(moduleKey, {
+                status: "running",
+                progress: Math.min(clampProgress(progress.progress), 99),
+                taskId: progress.taskId,
+                providerStatus: progress.providerStatus || progress.status,
+              });
+              await emitModuleProgress(progress.taskId, progress.providerStatus || progress.status);
+            },
+          });
+          const resultUrl = getResultUrl(result);
+          promptTrace.push(createPromptTraceItem({
+            index: index + 1,
+            kind: payload.kind,
+            model: payload.aiModel,
+            promptKind: `productSet:${PRODUCT_SET_PROMPT_VERSION}:${settings.stylePackId || "auto"}:${moduleKey}`,
+            prompt,
+            compiledPrompt: result.compiledPrompt || prompt,
+          }));
+          updateModule(moduleKey, {
+            status: "completed",
+            progress: 100,
+            resultUrl,
+            taskId: result.taskId,
+            providerStatus: "SUCCESS",
+            promptVersion: PRODUCT_SET_PROMPT_VERSION,
+            promptVariant: settings.stylePackId || "auto",
+            promptHash: hashPrompt(result.compiledPrompt || prompt),
+            completedAt: new Date().toISOString(),
+            durationMs: Math.max(0, Date.now() - (moduleStartedAt.get(moduleKey) || Date.now())),
+            error: undefined,
+          });
+          await emitModuleProgress(result.taskId, "SUCCESS");
+          return;
+        } catch (err: unknown) {
+          const message = err instanceof Error ? err.message : "模块生成失败";
+          if (attempt < 2) {
+            updateModule(moduleKey, {
+              status: "running",
+              progress: 5,
+              error: `${message}，正在自动重试`,
+            });
+            await emitModuleProgress();
+            continue;
+          }
+          updateModule(moduleKey, {
+            status: "failed",
+            progress: 100,
+            error: message,
+            providerStatus: "FAILED",
+            attempt,
+            completedAt: new Date().toISOString(),
+            durationMs: Math.max(0, Date.now() - (moduleStartedAt.get(moduleKey) || Date.now())),
+          });
+          await emitModuleProgress(undefined, "FAILED");
+        }
+      }
+    });
+
+    const resultUrls = getProductSetResultUrlsFromModules(moduleResults);
+    if (!resultUrls.length) {
+      const firstError = moduleResults.find((item) => item.error)?.error || "商品套图全部模块生成失败";
+      throw new Error(firstError);
+    }
+    return {
+      resultUrls,
+      promptTrace: promptTrace.sort((a, b) => a.index - b.index),
+      moduleResults: normalizeProductSetModuleResults(moduleResults),
+    };
+  }
+
   const imageInputs = await resolveImageInputs({
     clothingUrls: [
       payload.garmentUrl,
@@ -712,6 +1076,31 @@ function clampProgress(value: unknown) {
   return Math.min(Math.max(Math.round(num), 0), 100);
 }
 
+function hashPrompt(prompt: string) {
+  let hash = 2166136261;
+  for (let i = 0; i < prompt.length; i++) {
+    hash ^= prompt.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `fnv1a-${(hash >>> 0).toString(16).padStart(8, "0")}`;
+}
+
+async function runWithConcurrency<T>(
+  items: T[],
+  limit: number,
+  worker: (item: T, index: number) => Promise<void>
+) {
+  let nextIndex = 0;
+  const workerCount = Math.min(Math.max(1, limit), items.length || 1);
+  await Promise.all(Array.from({ length: workerCount }, async () => {
+    while (nextIndex < items.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      await worker(items[index], index);
+    }
+  }));
+}
+
 function createPromptTraceItem(params: Omit<PromptTraceItem, "createdAt">): PromptTraceItem {
   return {
     ...params,
@@ -731,6 +1120,14 @@ function appendPromptTrace(payload: GenerationJobPayload, promptTrace: PromptTra
   };
 }
 
+function appendProductSetModuleResults(payload: GenerationJobPayload, moduleResults?: ProductSetModuleResult[]) {
+  if (payload.kind !== "productSet" || !moduleResults?.length) return payload;
+  return {
+    ...payload,
+    moduleResults: normalizeProductSetModuleResults(moduleResults),
+  } as GenerationJobPayload;
+}
+
 function appendAsyncProgress(payload: GenerationJobPayload, update: GenerationProgressUpdate): GenerationJobPayload {
   if (
     typeof update.progress !== "number" &&
@@ -741,7 +1138,7 @@ function appendAsyncProgress(payload: GenerationJobPayload, update: GenerationPr
   }
 
   const existingAsyncTask = readExistingAsyncTask(payload);
-  return {
+  const nextPayload = {
     ...payload,
     asyncTask: {
       taskId: update.externalTaskId || existingAsyncTask.taskId,
@@ -750,6 +1147,7 @@ function appendAsyncProgress(payload: GenerationJobPayload, update: GenerationPr
       updatedAt: new Date().toISOString(),
     },
   } as unknown as GenerationJobPayload;
+  return appendProductSetModuleResults(nextPayload, update.moduleResults);
 }
 
 function readExistingAsyncTask(payload: GenerationJobPayload): { taskId?: string; status?: string } {
@@ -790,6 +1188,7 @@ function appendQualityMetadata(
 
 function shouldAutoRegenerate(payload: GenerationJobPayload, job: ClaimedJob) {
   if (process.env.AGENT_VISUAL_AUTO_REGENERATE_ENABLED === "false") return false;
+  if (payload.kind === "productSet") return false;
   if (job.job_attempts > 1) return false;
   const meta = payload as GenerationJobPayload & { autoRegeneration?: { performed?: boolean } };
   return meta.autoRegeneration?.performed !== true;
@@ -810,6 +1209,7 @@ function getPayloadPrompt(payload: GenerationJobPayload) {
 
 function getExpectedResultCount(payload: GenerationJobPayload) {
   if (payload.kind === "pose") return getPoseGenerationCount(payload);
+  if (payload.kind === "productSet" && payload.moduleResults?.length) return payload.moduleResults.length;
   return Math.max(1, Number((payload as { genCount?: number }).genCount || 1));
 }
 
@@ -826,9 +1226,11 @@ function getPayloadReferenceImages(payload: GenerationJobPayload) {
   ].filter((url): url is string => typeof url === "string" && url.length > 0);
   if (payload.kind === "grass") return [payload.garmentUrl, payload.referenceUrl].filter((url): url is string => typeof url === "string" && url.length > 0);
   if (payload.kind === "modelBackground") return [payload.sourceUrl, payload.modelReferenceUrl, payload.backgroundReferenceUrl].filter((url): url is string => typeof url === "string" && url.length > 0);
+  if (payload.kind === "generalImage") return payload.referenceUrls;
   if (payload.kind === "pose") return [payload.mainImageUrl];
   if (payload.kind === "faceSwap") return [payload.sourceUrl, payload.faceUrl];
   if (payload.kind === "commerceDetail") return payload.sourceUrls;
+  if (payload.kind === "productSet") return payload.productImageUrls;
   return [payload.garmentUrl, payload.referenceUrl].filter((url): url is string => typeof url === "string" && url.length > 0);
 }
 
@@ -889,6 +1291,16 @@ function isJobPayload(value: unknown): value is GenerationJobPayload {
       typeof value.genCount === "number";
   }
 
+  if (value.kind === "generalImage") {
+    return (value.mode === "text-to-image" || value.mode === "image-to-image") &&
+      hasStringArray(value.referenceUrls) &&
+      typeof value.aiModel === "string" &&
+      typeof value.aspectRatio === "string" &&
+      typeof value.imageSize === "string" &&
+      typeof value.prompt === "string" &&
+      typeof value.genCount === "number";
+  }
+
   if (value.kind === "pose") {
     return typeof value.mainImageUrl === "string" &&
       typeof value.aiModel === "string" &&
@@ -917,6 +1329,15 @@ function isJobPayload(value: unknown): value is GenerationJobPayload {
 
   if (value.kind === "commerceDetail") {
     return hasStringArray(value.sourceUrls) &&
+      typeof value.aiModel === "string" &&
+      typeof value.aspectRatio === "string" &&
+      typeof value.imageSize === "string" &&
+      typeof value.prompt === "string" &&
+      typeof value.genCount === "number";
+  }
+
+  if (value.kind === "productSet") {
+    return hasStringArray(value.productImageUrls) &&
       typeof value.aiModel === "string" &&
       typeof value.aspectRatio === "string" &&
       typeof value.imageSize === "string" &&

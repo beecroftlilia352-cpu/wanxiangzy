@@ -9,10 +9,26 @@ const QUEUE_COLUMNS = [
   "result_urls",
   "created_at",
   "completed_at",
+  "processing_started_at",
   "job_payload",
   "clothing_urls",
   "model_face_url",
   "reference_url",
+].join(",");
+
+const SUMMARY_GENERATION_COLUMNS = [
+  "status",
+  "result_urls",
+  "created_at",
+  "completed_at",
+  "processing_started_at",
+  "job_payload",
+].join(",");
+
+const SUMMARY_WORKFLOW_COLUMNS = [
+  "status",
+  "created_at",
+  "updated_at",
 ].join(",");
 
 type QueueRow = {
@@ -22,6 +38,7 @@ type QueueRow = {
   result_urls?: string[] | null;
   created_at: string;
   completed_at?: string | null;
+  processing_started_at?: string | null;
   job_payload?: Record<string, unknown> | null;
   clothing_urls?: string[] | null;
   model_face_url?: string | null;
@@ -71,10 +88,11 @@ const EMPTY_SUMMARY: QueueSummaryData = {
   failedTaskNum: 0,
 };
 
-const RUNNING_GENERATION_STATUSES = ["pending", "queued", "running", "processing", "processing_tryon", "generating"];
+const RUNNING_GENERATION_STATUSES = ["pending", "queued", "running", "processing", "processing_tryon", "processing_face_swap", "generating"];
 const FAILED_GENERATION_STATUSES = ["failed", "error", "cancelled", "canceled"];
 const RUNNING_WORKFLOW_STATUSES = ["queued", "running"];
 const FAILED_WORKFLOW_STATUSES = ["failed", "cancelled", "canceled"];
+const RUNNING_TASK_STALE_MS = getRunningTaskStaleMs();
 
 export async function GET(request: Request) {
   try {
@@ -113,10 +131,8 @@ export async function GET(request: Request) {
 async function loadQueueSummary(supabase: Awaited<ReturnType<typeof createServerSupabase>>, userId: string): Promise<QueueSummaryData> {
   const [
     generationTotal,
-    generationRunning,
     generationFailed,
     workflowTotal,
-    workflowRunning,
     workflowFailed,
   ] = await Promise.all([
     countRows(
@@ -125,14 +141,6 @@ async function loadQueueSummary(supabase: Awaited<ReturnType<typeof createServer
         .select("id", { count: "exact", head: true })
         .eq("user_id", userId),
       "generations total"
-    ),
-    countRows(
-      supabase
-        .from("generations")
-        .select("id", { count: "exact", head: true })
-        .eq("user_id", userId)
-        .in("status", RUNNING_GENERATION_STATUSES),
-      "generations running"
     ),
     countRows(
       supabase
@@ -155,19 +163,14 @@ async function loadQueueSummary(supabase: Awaited<ReturnType<typeof createServer
         .from("agent_workflows")
         .select("id", { count: "exact", head: true })
         .eq("user_id", userId)
-        .in("status", RUNNING_WORKFLOW_STATUSES),
-      "workflows running",
-      true
-    ),
-    countRows(
-      supabase
-        .from("agent_workflows")
-        .select("id", { count: "exact", head: true })
-        .eq("user_id", userId)
         .in("status", FAILED_WORKFLOW_STATUSES),
       "workflows failed",
       true
     ),
+  ]);
+  const [generationRunning, workflowRunning] = await Promise.all([
+    loadRunningGenerationCount(supabase, userId),
+    loadRunningWorkflowCount(supabase, userId),
   ]);
 
   const totalTaskNum = generationTotal + workflowTotal;
@@ -182,6 +185,43 @@ async function loadQueueSummary(supabase: Awaited<ReturnType<typeof createServer
     runningTaskNum,
     failedTaskNum,
   };
+}
+
+async function loadRunningGenerationCount(supabase: Awaited<ReturnType<typeof createServerSupabase>>, userId: string) {
+  const { data, error } = await supabase
+    .from("generations")
+    .select(SUMMARY_GENERATION_COLUMNS)
+    .eq("user_id", userId)
+    .in("status", RUNNING_GENERATION_STATUSES);
+
+  if (error) throw new Error(`generations running: ${error.message || "query failed"}`);
+
+  const rows = (Array.isArray(data) ? data : []) as unknown as QueueRow[];
+  return rows.filter((row) => {
+    const state = normalizeGenerationState({
+      status: row.status,
+      resultUrls: row.result_urls,
+      payload: row.job_payload,
+      completedAt: row.completed_at,
+    });
+    return state.statusGroup === "running" && !isStaleRunningGeneration(row);
+  }).length;
+}
+
+async function loadRunningWorkflowCount(supabase: Awaited<ReturnType<typeof createServerSupabase>>, userId: string) {
+  const { data, error } = await supabase
+    .from("agent_workflows")
+    .select(SUMMARY_WORKFLOW_COLUMNS)
+    .eq("user_id", userId)
+    .in("status", RUNNING_WORKFLOW_STATUSES);
+
+  if (error) {
+    if (process.env.NODE_ENV === "development") console.warn("[task-queue] workflows running unavailable:", error.message);
+    return 0;
+  }
+
+  const rows = (Array.isArray(data) ? data : []) as unknown as Pick<WorkflowRow, "status" | "created_at" | "updated_at">[];
+  return rows.filter((row) => isRunningWorkflowStatus(row.status) && !isStaleRunningDate(row.updated_at || row.created_at)).length;
 }
 
 async function countRows(
@@ -252,13 +292,16 @@ function normalizeQueueRow(row: QueueRow): QueueItem {
     completedAt: row.completed_at,
   });
   const completedAt = state.completedAt || row.completed_at;
+  const statusGroup = state.statusGroup === "running" && isStaleRunningGeneration(row)
+    ? "finished"
+    : state.statusGroup;
   return {
     id: row.id,
     title: moduleLabel(kind),
     status: state.status,
-    statusGroup: state.statusGroup,
+    statusGroup,
     progress: state.progress,
-    time: formatDuration(row.created_at, state.statusGroup === "finished" ? completedAt || row.created_at : null),
+    time: formatDuration(row.created_at, statusGroup === "finished" ? completedAt || row.created_at : null),
     createdAt: row.created_at,
     completedAt,
     error: row.error_message || "",
@@ -267,7 +310,9 @@ function normalizeQueueRow(row: QueueRow): QueueItem {
 }
 
 function normalizeWorkflowRow(row: WorkflowRow): QueueItem {
-  const statusGroup = isRunningWorkflowStatus(row.status) ? "running" as const : "finished" as const;
+  const statusGroup = isRunningWorkflowStatus(row.status) && !isStaleRunningDate(row.updated_at || row.created_at)
+    ? "running" as const
+    : "finished" as const;
   return {
     id: row.id,
     title: row.summary || workflowLabel(row.intent || ""),
@@ -283,6 +328,29 @@ function normalizeWorkflowRow(row: WorkflowRow): QueueItem {
 
 function isRunningWorkflowStatus(status: string) {
   return status === "queued" || status === "running";
+}
+
+function isStaleRunningGeneration(row: Pick<QueueRow, "created_at" | "processing_started_at" | "job_payload">) {
+  return isStaleRunningDate(row.processing_started_at || readAsyncTaskUpdatedAt(row.job_payload) || row.created_at);
+}
+
+function isStaleRunningDate(value?: string | null) {
+  const time = value ? Date.parse(value) : NaN;
+  if (!Number.isFinite(time)) return true;
+  return Date.now() - time > RUNNING_TASK_STALE_MS;
+}
+
+function readAsyncTaskUpdatedAt(payload: QueueRow["job_payload"]) {
+  const asyncTask = payload && typeof payload === "object" && "asyncTask" in payload
+    ? payload.asyncTask
+    : null;
+  if (!asyncTask || typeof asyncTask !== "object" || !("updatedAt" in asyncTask)) return null;
+  return typeof asyncTask.updatedAt === "string" ? asyncTask.updatedAt : null;
+}
+
+function getRunningTaskStaleMs() {
+  const value = Number(process.env.TASK_QUEUE_RUNNING_STALE_MS || process.env.IMAGE_TASK_TIMEOUT_MS || 10 * 60 * 1000);
+  return Number.isFinite(value) ? Math.min(Math.max(value, 5 * 60 * 1000), 2 * 60 * 60 * 1000) : 10 * 60 * 1000;
 }
 
 function moduleLabel(kind: string) {

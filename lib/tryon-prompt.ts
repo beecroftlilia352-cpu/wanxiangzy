@@ -3,6 +3,7 @@ export const TRYON_QUALITY =
 
 export type TryOnGarmentAudience = "women" | "men";
 export type TryOnAgeGroup = "adult" | "teen" | "big_child" | "middle_child" | "small_child" | "toddler";
+export type TryOnGarmentCategory = "regular" | "intimate";
 
 export const TRYON_GARMENT_AUDIENCE_LABELS: Record<TryOnGarmentAudience, string> = {
   women: "女装",
@@ -18,8 +19,14 @@ export const TRYON_AGE_GROUP_LABELS: Record<TryOnAgeGroup, string> = {
   toddler: "幼童",
 };
 
+export const TRYON_GARMENT_CATEGORY_LABELS: Record<TryOnGarmentCategory, string> = {
+  regular: "常规服装",
+  intimate: "内衣/泳衣类",
+};
+
 const TRYON_GARMENT_AUDIENCES: TryOnGarmentAudience[] = ["women", "men"];
 const TRYON_AGE_GROUPS: TryOnAgeGroup[] = ["adult", "teen", "big_child", "middle_child", "small_child", "toddler"];
+const TRYON_GARMENT_CATEGORIES: TryOnGarmentCategory[] = ["regular", "intimate"];
 const CHILD_AGE_GROUPS: TryOnAgeGroup[] = ["big_child", "middle_child", "small_child", "toddler"];
 
 export const TRYON_CLOTHING_IMAGE_ROLE_RULE =
@@ -60,6 +67,7 @@ export const TRYON_FACE_RULE =
 type TryOnPromptContext = {
   garmentAudience?: TryOnGarmentAudience;
   ageGroup?: TryOnAgeGroup;
+  garmentCategory?: TryOnGarmentCategory;
   hasModelFace?: boolean;
   modelFaceImageNumber?: number;
 };
@@ -74,6 +82,12 @@ export function normalizeTryOnAgeGroup(value: unknown): TryOnAgeGroup {
   return typeof value === "string" && TRYON_AGE_GROUPS.includes(value as TryOnAgeGroup)
     ? value as TryOnAgeGroup
     : "adult";
+}
+
+export function normalizeTryOnGarmentCategory(value: unknown): TryOnGarmentCategory {
+  return typeof value === "string" && TRYON_GARMENT_CATEGORIES.includes(value as TryOnGarmentCategory)
+    ? value as TryOnGarmentCategory
+    : "regular";
 }
 
 export function buildTryOnAudiencePrompt(params: {
@@ -97,6 +111,16 @@ export function buildTryOnAudiencePrompt(params: {
   }
 
   return `服装适用人群规则：用户选择${audienceLabel}，年龄段为成人，当前按真实成人${genderLabel}商业模特服装上身处理；性别线、年龄感和身体比例以该选择为准，不再自动切换为儿童或青少年。`;
+}
+
+export function buildTryOnGarmentCategoryPrompt(params: {
+  garmentCategory?: TryOnGarmentCategory;
+  ageGroup?: TryOnAgeGroup;
+}) {
+  const category = normalizeTryOnGarmentCategory(params.garmentCategory);
+  if (category !== "intimate") return "";
+
+  return "敏感服装安全规则：用户声明服装为贴身/泳装类商品，按成人商业服装目录照或泳装 lookbook 处理；只展示服装版型、面料、剪裁、颜色和真实穿着贴合，不生成裸露生殖器、乳头、透明走光、性行为、挑逗姿势、床上/情色场景、未成年人或未成年人外观；画面保持中性、专业、非色情。";
 }
 
 export function buildTryOnBodyProportionPrompt(params: TryOnPromptContext = {}) {
@@ -138,17 +162,21 @@ export function buildTryOnNegativePrompt(params: TryOnPromptContext = {}) {
   const audience = normalizeTryOnGarmentAudience(params.garmentAudience);
   const ageGroup = normalizeTryOnAgeGroup(params.ageGroup);
   const audienceLabel = TRYON_GARMENT_AUDIENCE_LABELS[audience];
+  const garmentCategory = normalizeTryOnGarmentCategory(params.garmentCategory);
+  const intimateNegative = garmentCategory === "intimate"
+    ? "；不要裸露生殖器、乳头、透明走光、性行为、挑逗姿势、床上/情色场景、未成年人或未成年人外观"
+    : "";
   const base = "负面约束：不要生成多余人物，不要扭曲身体和服装，不要改变服装结构，不要自动美白，不要雪白皮或冷白皮，不要塑料皮肤，不要蜡像感，不要卡通感，不要AI渲染感，不要文字水印";
 
   if (CHILD_AGE_GROUPS.includes(ageGroup)) {
-    return `${base}；不要成人化、性感化、浓妆化、成熟挑逗姿势、网红成人脸、Q版比例、玩偶比例、大头小身或短腿。`;
+    return `${base}；不要成人化、性感化、浓妆化、成熟挑逗姿势、网红成人脸、Q版比例、玩偶比例、大头小身或短腿${intimateNegative}。`;
   }
 
   if (ageGroup === "teen") {
-    return `${base}；不要成人化、性感化、浓妆化、成熟挑逗姿势、玩偶比例、Q版比例、大头小身或过度拉腿。`;
+    return `${base}；不要成人化、性感化、浓妆化、成熟挑逗姿势、玩偶比例、Q版比例、大头小身或过度拉腿${intimateNegative}。`;
   }
 
-  return `${base}；不要把成人${audienceLabel}无依据幼龄化，不要大头小身、短腿、玩偶比例、过度拉长腿或过度瘦身。`;
+  return `${base}；不要把成人${audienceLabel}无依据幼龄化，不要大头小身、短腿、玩偶比例、过度拉长腿或过度瘦身${intimateNegative}。`;
 }
 
 export function applyTryOnAudiencePrompt(
@@ -159,6 +187,21 @@ export function applyTryOnAudiencePrompt(
     prompt,
     "服装适用人群规则",
     buildTryOnAudiencePrompt(params)
+  );
+}
+
+export function applyTryOnGarmentCategoryPrompt(
+  prompt: string,
+  params: { garmentCategory?: TryOnGarmentCategory; ageGroup?: TryOnAgeGroup }
+) {
+  const rule = buildTryOnGarmentCategoryPrompt(params);
+  if (!rule) return prompt;
+
+  return replaceOrInsertRuleLine(
+    prompt,
+    "敏感服装安全规则",
+    rule,
+    2
   );
 }
 
@@ -225,6 +268,7 @@ export function enforceTryOnPromptRequirements(
     .trim();
 
   nextPrompt = applyTryOnAudiencePrompt(nextPrompt, context);
+  nextPrompt = applyTryOnGarmentCategoryPrompt(nextPrompt, context);
   nextPrompt = replaceOrInsertRuleLine(nextPrompt, "体态比例规则", buildTryOnBodyProportionPrompt(context));
 
   const missingRefs = expectedRefs.filter((ref) => !nextPrompt.includes(ref));
@@ -234,6 +278,7 @@ export function enforceTryOnPromptRequirements(
 
   const requiredRules = [
     ["服装图角色隔离规则", TRYON_CLOTHING_IMAGE_ROLE_RULE],
+    ["敏感服装安全规则", buildTryOnGarmentCategoryPrompt(context)],
     ["服装还原规则", TRYON_GARMENT_RULE],
     ["人体贴合规则", TRYON_FIT_RULE],
     ["材质重量规则", TRYON_MATERIAL_RULE],
@@ -242,7 +287,7 @@ export function enforceTryOnPromptRequirements(
     ["商业摄影规则", TRYON_PHOTOGRAPHY_RULE],
   ] as const;
   requiredRules.forEach(([marker, rule]) => {
-    if (!nextPrompt.includes(marker)) nextPrompt = `${nextPrompt}\n${rule}`;
+    if (rule && !nextPrompt.includes(marker)) nextPrompt = `${nextPrompt}\n${rule}`;
   });
 
   if (context.hasModelFace ?? nextPrompt.includes("模特脸")) {

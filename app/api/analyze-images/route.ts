@@ -16,10 +16,13 @@ import {
   TRYON_QUALITY,
   applyTryOnAudiencePrompt,
   applyTryOnFramePrompt,
+  applyTryOnGarmentCategoryPrompt,
   enforceTryOnPromptRequirements,
   normalizeTryOnAgeGroup,
+  normalizeTryOnGarmentCategory,
   normalizeTryOnGarmentAudience,
   type TryOnAgeGroup,
+  type TryOnGarmentCategory,
   type TryOnGarmentAudience,
 } from "@/lib/tryon-prompt";
 import { TRYON_CLOTHING_ROLE_LABELS, normalizeTryOnClothingMode, normalizeTryOnClothingRole } from "@/lib/tryon-upload-rules";
@@ -40,6 +43,7 @@ export async function POST(request: NextRequest) {
     const clothingMode = normalizeTryOnClothingMode(body.clothing_mode || (clothing_urls?.length > 1 ? "multi" : "single"));
     const garmentAudience = normalizeTryOnGarmentAudience(body.garment_audience);
     const ageGroup = normalizeTryOnAgeGroup(body.age_group);
+    const garmentCategory = normalizeTryOnGarmentCategory(body.is_intimate_garment ? "intimate" : body.garment_category);
     const aspectRatio = typeof body.aspect_ratio === "string" ? body.aspect_ratio : undefined;
     const basePrompt = typeof body.base_prompt === "string" ? body.base_prompt.trim() : "";
     const userStyle =
@@ -123,6 +127,7 @@ ${userStyle || "无"}
 6. 光线和质感：主光、辅光、轮廓光、景深、焦点、真实皮肤、毛孔、自然瑕疵、不过度磨皮、真实布料褶皱。
 7. 图像质量：最终提示词必须原样包含英文质量维度：${QUALITY_DIMENSIONS}
 8. 用户风格：如有用户风格补充，将其融入画面色调、氛围和摄影风格，不要覆盖图号硬约束。
+9. 敏感服装：${garmentCategory === "intimate" ? "按成人贴身/泳装类商品图处理，必须保持中性、专业、非色情，不要裸露、挑逗姿势、床上/情色场景、未成年人或未成年人外观。" : "无。"}
 
 【格式要求】
 - 用中文描述服装和风格，用英文写摄影技术参数
@@ -141,6 +146,7 @@ ${userStyle || "无"}
       style: userStyle,
       garmentAudience,
       ageGroup,
+      garmentCategory,
       aspectRatio,
     });
 
@@ -190,6 +196,7 @@ ${userStyle || "无"}
       const checked = enforcePromptRequirements(prompt, allImageRefs, roleStatement, {
         garmentAudience,
         ageGroup,
+        garmentCategory,
         aspectRatio,
         hasReference: !!reference_url,
         hasModelFace: !!model_face_url,
@@ -258,6 +265,7 @@ function enforcePromptRequirements(
   audience: {
     garmentAudience?: TryOnGarmentAudience;
     ageGroup?: TryOnAgeGroup;
+    garmentCategory?: TryOnGarmentCategory;
     aspectRatio?: string;
     hasReference?: boolean;
     hasModelFace?: boolean;
@@ -274,15 +282,19 @@ function enforcePromptRequirements(
   }
 
   const enforcedPrompt = enforceTryOnPromptRequirements(
-    applyTryOnFramePrompt(applyTryOnAudiencePrompt(nextPrompt, audience), {
-      aspectRatio: audience.aspectRatio,
-      hasReference: audience.hasReference,
-      referenceImageNumber: audience.referenceImageNumber,
-    }),
+    applyTryOnFramePrompt(
+      applyTryOnGarmentCategoryPrompt(applyTryOnAudiencePrompt(nextPrompt, audience), audience),
+      {
+        aspectRatio: audience.aspectRatio,
+        hasReference: audience.hasReference,
+        referenceImageNumber: audience.referenceImageNumber,
+      }
+    ),
     allImageRefs,
     {
       garmentAudience: audience.garmentAudience,
       ageGroup: audience.ageGroup,
+      garmentCategory: audience.garmentCategory,
       hasModelFace: audience.hasModelFace,
     }
   );
@@ -304,6 +316,7 @@ function buildFallbackPrompt(params: {
   style?: string;
   garmentAudience?: TryOnGarmentAudience;
   ageGroup?: TryOnAgeGroup;
+  garmentCategory?: TryOnGarmentCategory;
   aspectRatio?: string;
 }) {
   const clothingRefs = Array.from({ length: params.clothingCount }, (_, index) => `图${index + 1}`);
@@ -321,9 +334,12 @@ function buildFallbackPrompt(params: {
 
   return enforceTryOnPromptRequirements(
     applyTryOnFramePrompt(
-      applyTryOnAudiencePrompt(
-        `${params.roleStatement} Fashion photography, full body portrait of a real fashion model with natural real-person appearance, wearing clothing from ${clothingText}. ${TRYON_CLOTHING_IMAGE_ROLE_RULE} ${clothingDetail} ${TRYON_GARMENT_RULE}${TRYON_FIT_RULE}${TRYON_PHOTOGRAPHY_RULE} Elegant and confident posture, natural dynamic fashion pose, subtle eye contact with camera. Shot on medium format camera, 85mm f/1.4 prime lens, ultra-shallow depth of field, crisp focus on model. Professional studio lighting: key light from soft octabox, gentle fill light, delicate rim light. ${referenceText} ${faceText} ${QUALITY_DIMENSIONS}. No extra people, no body distortion, no plastic skin, no wax figure look, no cartoon style, no AI rendering artifacts. ${params.style?.trim() ? params.style.trim() : ""}`,
-        { garmentAudience: params.garmentAudience, ageGroup: params.ageGroup }
+      applyTryOnGarmentCategoryPrompt(
+        applyTryOnAudiencePrompt(
+          `${params.roleStatement} Fashion photography, full body portrait of a real fashion model with natural real-person appearance, wearing clothing from ${clothingText}. ${TRYON_CLOTHING_IMAGE_ROLE_RULE} ${clothingDetail} ${TRYON_GARMENT_RULE}${TRYON_FIT_RULE}${TRYON_PHOTOGRAPHY_RULE} Elegant and confident posture, natural dynamic fashion pose, subtle eye contact with camera. Shot on medium format camera, 85mm f/1.4 prime lens, ultra-shallow depth of field, crisp focus on model. Professional studio lighting: key light from soft octabox, gentle fill light, delicate rim light. ${referenceText} ${faceText} ${QUALITY_DIMENSIONS}. No extra people, no body distortion, no plastic skin, no wax figure look, no cartoon style, no AI rendering artifacts. ${params.style?.trim() ? params.style.trim() : ""}`,
+          { garmentAudience: params.garmentAudience, ageGroup: params.ageGroup }
+        ),
+        { garmentCategory: params.garmentCategory, ageGroup: params.ageGroup }
       ),
       {
         aspectRatio: params.aspectRatio,
@@ -335,6 +351,7 @@ function buildFallbackPrompt(params: {
     {
       garmentAudience: params.garmentAudience,
       ageGroup: params.ageGroup,
+      garmentCategory: params.garmentCategory,
       hasModelFace: params.hasModelFace,
     }
   );

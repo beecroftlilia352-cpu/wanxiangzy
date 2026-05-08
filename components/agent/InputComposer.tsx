@@ -36,8 +36,8 @@ type Props = {
 
 const MODEL_OPTS = [
   { value: "gpt-image-2", label: "GPT Image", desc: "OpenAI" },
-  { value: "doubao-seedream-4-5-251128", label: "Seedream", desc: "字节" },
   { value: "nano-banana-2", label: "Nano Banana", desc: "轻量" },
+  { value: "doubao-seedream-4-5-251128", label: "Seedream", desc: "字节" },
 ];
 const RATIO_OPTS: Array<{ value: AspectRatio; label: string }> = [
   { value: "3:4", label: "3:4" }, { value: "1:1", label: "1:1" },

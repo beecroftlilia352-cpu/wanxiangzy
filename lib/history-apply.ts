@@ -5,6 +5,14 @@ import type { TryOnAgeGroup, TryOnGarmentAudience } from "@/lib/tryon-prompt";
 import type { TryOnClothingMode, TryOnClothingRole } from "@/lib/tryon-upload-rules";
 import type { GrassPayloadBase } from "@/lib/grass-planting";
 import type { ModelBackgroundPayloadBase } from "@/lib/model-background";
+import type {
+  ProductSetCreationMode,
+  ProductSetCustomTemplate,
+  ProductSetImageType,
+  ProductSetModuleOverride,
+  ProductSetProductProfile,
+  ProductSetSettings,
+} from "@/lib/product-set";
 
 export const HISTORY_APPLY_KEY = "vastweargen:apply-generation";
 
@@ -45,6 +53,16 @@ export type HistoryJobPayload =
   | ({ kind: "grass" } & GrassPayloadBase)
   | ({ kind: "modelBackground" } & ModelBackgroundPayloadBase)
   | {
+      kind: "generalImage";
+      mode: "text-to-image" | "image-to-image";
+      referenceUrls: string[];
+      aiModel: LingyaModel;
+      aspectRatio: AspectRatio;
+      imageSize: ImageSize;
+      prompt: string;
+      genCount: number;
+    }
+  | {
       kind: "pose";
       mainImageUrl: string;
       aiModel: LingyaModel;
@@ -68,6 +86,24 @@ export type HistoryJobPayload =
       genCount: number;
     }
   | {
+      kind: "productSet";
+      productImageUrls: string[];
+      productInfo?: string;
+      productProfile?: ProductSetProductProfile;
+      mode: ProductSetCreationMode;
+      imageType: ProductSetImageType;
+      settings?: ProductSetSettings;
+      selectedTemplateIds?: number[];
+      customTemplates?: ProductSetCustomTemplate[];
+      moduleOverrides?: ProductSetModuleOverride[];
+      regenerateIndex?: number;
+      aiModel: LingyaModel;
+      aspectRatio: AspectRatio;
+      imageSize: ImageSize;
+      prompt: string;
+      genCount: number;
+    }
+  | {
       kind: "faceSwap";
       sourceUrl: string;
       faceUrl: string;
@@ -83,6 +119,8 @@ export function getApplyPath(kind: HistoryJobPayload["kind"]) {
   if (kind === "tryon") return "/create";
   if (kind === "grass") return "/grass";
   if (kind === "modelBackground") return "/model-background";
+  if (kind === "generalImage") return "/general-image";
+  if (kind === "productSet") return "/product-set";
   if (kind === "garment3d") return "/garment-3d";
   if (kind === "faceSwap") return "/face-swap";
   if (kind === "model") return "/model";

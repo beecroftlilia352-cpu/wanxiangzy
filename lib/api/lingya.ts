@@ -19,10 +19,12 @@ import {
   buildTryOnBodyProportionPrompt,
   buildTryOnFacePrompt,
   buildTryOnFramePrompt,
+  buildTryOnGarmentCategoryPrompt,
   buildTryOnNegativePrompt,
   buildTryOnReferencePrompt,
   enforceTryOnPromptRequirements,
   type TryOnAgeGroup,
+  type TryOnGarmentCategory,
   type TryOnGarmentAudience,
 } from "@/lib/tryon-prompt";
 import { compileImagePromptForModel, type ImagePromptKind } from "@/lib/api/prompt-compiler";
@@ -44,9 +46,9 @@ export type ImageSize = "1K" | "2K" | "4K";
 
 const LINGYA_MODELS: LingyaModel[] = [
   "gpt-image-2",
+  "nano-banana-2",
   "doubao-seedream-4-5-251128",
   "nano-banana-pro",
-  "nano-banana-2",
 ];
 
 const ASPECT_RATIOS: AspectRatio[] = [
@@ -132,6 +134,7 @@ interface BatchTryOnInput {
   clothingRoles?: TryOnClothingRole[];
   garmentAudience?: TryOnGarmentAudience;
   ageGroup?: TryOnAgeGroup;
+  garmentCategory?: TryOnGarmentCategory;
   modelFaceUrl?: string;
   referenceUrl?: string;
   aspect_ratio?: AspectRatio;
@@ -250,6 +253,7 @@ export async function batchTryOn(input: BatchTryOnInput): Promise<{ resultUrls: 
     clothingRoles: input.clothingRoles,
     garmentAudience: input.garmentAudience,
     ageGroup: input.ageGroup,
+    garmentCategory: input.garmentCategory,
     aspectRatio: input.aspect_ratio,
     hasModelFace: !!input.modelFaceUrl,
     hasReference: !!input.referenceUrl,
@@ -320,7 +324,11 @@ async function pollImageTask(params: {
 }): Promise<{ urls: string[]; b64Json?: string }> {
   const startedAt = Date.now();
   const timeoutMs = getImageTaskTimeoutMs();
+  const resultGraceMs = getImageTaskResultGraceMs();
   let lastProgress = 1;
+  let completedWithoutResultAt: number | null = null;
+  let lastResultlessSummary = "";
+  let lastResultlessProviderStatus = "";
 
   while (Date.now() - startedAt < timeoutMs) {
     await new Promise((resolve) => setTimeout(resolve, getImageTaskPollIntervalMs()));
@@ -335,6 +343,14 @@ async function pollImageTask(params: {
     const task = normalizeImageTaskResponse(json, params.taskId);
     const progress = Math.max(lastProgress, task.progress);
     lastProgress = progress;
+    const providerDoneWithoutResult = isImageTaskDoneStatus(task.providerStatus) && !task.urls.length && !task.b64Json;
+    if (providerDoneWithoutResult) {
+      completedWithoutResultAt ??= Date.now();
+      lastResultlessSummary = describeResponseKeys(json);
+      lastResultlessProviderStatus = task.providerStatus || "";
+    } else {
+      completedWithoutResultAt = null;
+    }
 
     await params.onProgress?.({
       taskId: params.taskId,
@@ -346,11 +362,15 @@ async function pollImageTask(params: {
     });
 
     if (task.status === "completed") {
-      if (!task.urls.length && !task.b64Json) throw new Error("异步任务完成但没有返回图片 URL");
       return { urls: task.urls, b64Json: task.b64Json };
     }
     if (task.status === "failed") {
       throw new Error(task.error || "异步图片任务失败");
+    }
+    if (completedWithoutResultAt && Date.now() - completedWithoutResultAt >= resultGraceMs) {
+      throw new Error(
+        `异步图片任务已完成但结果 URL 未就绪，任务 ${params.taskId}，状态 ${lastResultlessProviderStatus || "-"}，响应字段: ${lastResultlessSummary || "unknown"}`
+      );
     }
   }
 
@@ -374,15 +394,18 @@ function normalizeImageTaskResponse(json: any, fallbackTaskId: string): {
   const b64Json = normalizeB64Image(generatedImages.b64Json);
   const failReason = root?.fail_reason || root?.error || root?.message || json?.message;
 
-  if (["SUCCESS", "SUCCEEDED", "COMPLETED", "DONE"].includes(providerStatus) || urls.length > 0 || b64Json) {
+  if (isImageTaskFailedStatus(providerStatus)) {
+    return { taskId: root?.task_id || root?.taskId || root?.id || fallbackTaskId, status: "failed", providerStatus, progress, urls, b64Json, error: String(failReason || "生成失败") };
+  }
+  if (urls.length > 0 || b64Json) {
     return { taskId: root?.task_id || root?.taskId || root?.id || fallbackTaskId, status: "completed", providerStatus, progress: 100, urls, b64Json };
   }
-  if (["FAILURE", "FAILED", "ERROR", "CANCELLED", "CANCELED"].includes(providerStatus)) {
-    return { taskId: root?.task_id || root?.taskId || root?.id || fallbackTaskId, status: "failed", providerStatus, progress, urls, b64Json, error: String(failReason || "生成失败") };
+  if (isImageTaskDoneStatus(providerStatus)) {
+    return { taskId: root?.task_id || root?.taskId || root?.id || fallbackTaskId, status: "running", providerStatus, progress: 99, urls, b64Json };
   }
   return {
     taskId: root?.task_id || root?.taskId || root?.id || fallbackTaskId,
-    status: ["NOT_START", "PENDING", "QUEUED", "SUBMITTED"].includes(providerStatus) ? "queued" : "running",
+    status: isImageTaskQueuedStatus(providerStatus) ? "queued" : "running",
     providerStatus,
     progress,
     urls,
@@ -421,50 +444,219 @@ function extractTaskId(json: any): string {
   return typeof ambiguousId === "string" ? ambiguousId.trim() : "";
 }
 
+const IMAGE_URL_FIELDS = [
+  "url",
+  "image_url",
+  "imageUrl",
+  "imageURL",
+  "result_url",
+  "resultUrl",
+  "asset_url",
+  "assetUrl",
+  "src",
+  "file_url",
+  "fileUrl",
+  "download_url",
+  "downloadUrl",
+  "public_url",
+  "publicUrl",
+  "media_url",
+  "mediaUrl",
+  "output_url",
+  "outputUrl",
+  "signed_url",
+  "signedUrl",
+  "uri",
+  "href",
+  "link",
+  "location",
+  "image",
+  "result",
+  "output",
+  "asset",
+  "file",
+  "media",
+] as const;
+
+const IMAGE_BASE64_FIELDS = [
+  "b64_json",
+  "b64Json",
+  "base64",
+  "base64_image",
+  "base64Image",
+  "image_base64",
+  "imageBase64",
+] as const;
+
 function extractGeneratedImages(root: any): { urls: string[]; b64Json?: string } {
   const imageItems = extractImageItems(root);
   const urls = imageItems
-    .map((item) => {
-      if (typeof item === "string") return item;
-      return item?.url || item?.image_url || item?.result_url || item?.asset_url || item?.src || "";
-    })
-    .filter((url): url is string => typeof url === "string" && (/^https?:\/\//i.test(url) || /^data:image\//i.test(url)));
+    .flatMap(extractImageUrls)
+    .filter(isImageUrl);
   const b64Json = imageItems
-    .map((item) => typeof item?.b64_json === "string" ? item.b64_json : typeof item?.base64 === "string" ? item.base64 : undefined)
+    .map(extractImageBase64)
     .find(Boolean);
   return { urls: Array.from(new Set(urls)), b64Json };
 }
 
 function extractImageItems(root: any): any[] {
   if (!root) return [];
-  if (typeof root === "string") return /^https?:\/\//i.test(root) || /^data:image\//i.test(root) ? [{ url: root }] : [];
+  if (typeof root === "string") return isImageUrl(root) ? [{ url: root }] : [];
   if (Array.isArray(root)) {
     if (root.every((item) => typeof item === "string")) return root.map((url) => ({ url }));
     return root;
   }
-  if (typeof root === "object" && (root.url || root.image_url || root.result_url || root.asset_url || root.b64_json || root.base64)) {
+  if (hasKnownImageResultField(root)) {
     return [root];
   }
 
   const candidates = [
     root?.data?.data,
     root?.data,
+    root?.data?.images,
+    root?.data?.image,
+    root?.data?.urls,
+    root?.data?.url,
+    root?.data?.result_urls,
+    root?.data?.result,
+    root?.data?.output,
+    root?.data?.outputs,
+    root?.data?.artifacts,
+    root?.data?.files,
     root?.output?.images,
+    root?.output?.image,
     root?.output?.data,
+    root?.output?.urls,
+    root?.output?.url,
+    root?.output?.results,
+    root?.output?.artifacts,
+    root?.output?.files,
     root?.output,
+    root?.outputs,
+    root?.output_images,
     root?.result?.images,
+    root?.result?.image,
     root?.result?.data,
+    root?.result?.urls,
+    root?.result?.url,
+    root?.result?.outputs,
+    root?.result?.artifacts,
+    root?.result?.files,
     root?.result,
+    root?.results,
     root?.images,
     root?.image,
+    root?.artifacts,
+    root?.files,
+    root?.items,
+    root?.assets,
+    root?.resources,
     root?.result_urls,
     root?.urls,
+    root?.image_url,
+    root?.result_url,
+    root?.file_url,
+    root?.download_url,
   ];
   for (const candidate of candidates) {
     const items = extractImageItems(candidate);
     if (items.length) return items;
   }
-  return [];
+  return collectImageItemsFromOutputContainers(root);
+}
+
+function extractImageUrls(item: any): string[] {
+  if (typeof item === "string") return [item];
+  if (!item || typeof item !== "object") return [];
+  const urls: string[] = [];
+  for (const field of IMAGE_URL_FIELDS) {
+    const value = item[field];
+    if (typeof value === "string" && value.trim()) {
+      urls.push(value.trim());
+      continue;
+    }
+    urls.push(...extractGeneratedImages(value).urls);
+  }
+  return urls;
+}
+
+function extractImageBase64(item: any): string | undefined {
+  if (!item || typeof item !== "object") return undefined;
+  for (const field of IMAGE_BASE64_FIELDS) {
+    const value = item[field];
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return undefined;
+}
+
+function isImageUrl(value: unknown): value is string {
+  return typeof value === "string" && (/^https?:\/\//i.test(value) || /^data:image\//i.test(value));
+}
+
+function hasKnownImageResultField(value: any): boolean {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  return IMAGE_URL_FIELDS.some((field) => value[field]) || IMAGE_BASE64_FIELDS.some((field) => value[field]);
+}
+
+function collectImageItemsFromOutputContainers(value: any, depth = 0, seen = new WeakSet<object>()): any[] {
+  if (!value || depth > 6) return [];
+  if (typeof value === "string") return isImageUrl(value) ? [{ url: value }] : [];
+  if (Array.isArray(value)) {
+    return value.flatMap((item) => collectImageItemsFromOutputContainers(item, depth + 1, seen));
+  }
+  if (typeof value !== "object") return [];
+  if (seen.has(value)) return [];
+  seen.add(value);
+  if (hasKnownImageResultField(value)) return [value];
+
+  const items: any[] = [];
+  for (const [key, child] of Object.entries(value)) {
+    if (shouldSkipImageScanKey(key)) continue;
+    if (isLikelyImageResultContainerKey(key)) {
+      items.push(...collectImageItemsFromOutputContainers(child, depth + 1, seen));
+    }
+  }
+  return items;
+}
+
+function shouldSkipImageScanKey(key: string): boolean {
+  const normalized = key.toLowerCase();
+  return /input|source|reference|prompt|request|origin|mask|init/.test(normalized);
+}
+
+function isLikelyImageResultContainerKey(key: string): boolean {
+  const normalized = key.replace(/[_-]/g, "").toLowerCase();
+  return [
+    "data",
+    "output",
+    "outputs",
+    "result",
+    "results",
+    "response",
+    "images",
+    "image",
+    "generatedimages",
+    "resultimages",
+    "artifacts",
+    "artifact",
+    "files",
+    "file",
+    "items",
+    "item",
+    "resources",
+    "assets",
+    "media",
+    "urls",
+    "url",
+    "links",
+  ].includes(normalized)
+    || normalized.includes("image")
+    || normalized.includes("result")
+    || normalized.includes("output")
+    || normalized.includes("artifact")
+    || normalized.includes("file")
+    || normalized.includes("url")
+    || normalized.includes("media");
 }
 
 function describeResponseKeys(value: any): string {
@@ -492,6 +684,18 @@ function parseProgress(value: unknown) {
   return 1;
 }
 
+function isImageTaskDoneStatus(status?: string): boolean {
+  return ["SUCCESS", "SUCCEEDED", "COMPLETED", "DONE"].includes(String(status || "").toUpperCase());
+}
+
+function isImageTaskFailedStatus(status?: string): boolean {
+  return ["FAILURE", "FAILED", "ERROR", "CANCELLED", "CANCELED"].includes(String(status || "").toUpperCase());
+}
+
+function isImageTaskQueuedStatus(status?: string): boolean {
+  return ["NOT_START", "PENDING", "QUEUED", "SUBMITTED"].includes(String(status || "").toUpperCase());
+}
+
 function getImageTaskPollIntervalMs() {
   const value = Number(process.env.IMAGE_TASK_POLL_INTERVAL_MS || 2500);
   return Number.isFinite(value) ? Math.min(Math.max(value, 1000), 10000) : 2500;
@@ -500,6 +704,11 @@ function getImageTaskPollIntervalMs() {
 function getImageTaskTimeoutMs() {
   const value = Number(process.env.IMAGE_TASK_TIMEOUT_MS || 10 * 60 * 1000);
   return Number.isFinite(value) ? Math.min(Math.max(value, 30_000), 30 * 60 * 1000) : 10 * 60 * 1000;
+}
+
+function getImageTaskResultGraceMs() {
+  const value = Number(process.env.IMAGE_TASK_RESULT_GRACE_MS || 90_000);
+  return Number.isFinite(value) ? Math.min(Math.max(value, 10_000), 5 * 60 * 1000) : 90_000;
 }
 
 function getImageApiBaseUrl(): string {
@@ -631,6 +840,7 @@ export function buildTryOnPrompt(params: {
   clothingRoles?: TryOnClothingRole[];
   garmentAudience?: TryOnGarmentAudience;
   ageGroup?: TryOnAgeGroup;
+  garmentCategory?: TryOnGarmentCategory;
   aspectRatio?: AspectRatio;
   hasModelFace: boolean;
   hasReference: boolean;
@@ -676,6 +886,7 @@ export function buildTryOnPrompt(params: {
         clothingRoles: normalizedRoles,
         garmentAudience: params.garmentAudience,
         ageGroup: params.ageGroup,
+        garmentCategory: params.garmentCategory,
         aspectRatio: params.aspectRatio,
         hasReference: params.hasReference,
         hasModelFace: params.hasModelFace,
@@ -694,6 +905,10 @@ export function buildTryOnPrompt(params: {
     TRYON_CLOTHING_IMAGE_ROLE_RULE,
     buildTryOnAudiencePrompt({
       garmentAudience: params.garmentAudience,
+      ageGroup: params.ageGroup,
+    }),
+    buildTryOnGarmentCategoryPrompt({
+      garmentCategory: params.garmentCategory,
       ageGroup: params.ageGroup,
     }),
     buildTryOnFramePrompt({
@@ -715,12 +930,14 @@ export function buildTryOnPrompt(params: {
   const faceRule = buildTryOnFacePrompt({
     garmentAudience: params.garmentAudience,
     ageGroup: params.ageGroup,
+    garmentCategory: params.garmentCategory,
     hasModelFace: params.hasModelFace,
     modelFaceImageNumber: faceImageNumber,
   });
   const negativeRule = buildTryOnNegativePrompt({
     garmentAudience: params.garmentAudience,
     ageGroup: params.ageGroup,
+    garmentCategory: params.garmentCategory,
   });
 
   if (params.hasReference && params.hasModelFace) {
@@ -783,6 +1000,7 @@ function buildConciseTryOnPrompt(params: {
   clothingRoles: TryOnClothingRole[];
   garmentAudience?: TryOnGarmentAudience;
   ageGroup?: TryOnAgeGroup;
+  garmentCategory?: TryOnGarmentCategory;
   aspectRatio?: AspectRatio;
   hasReference: boolean;
   hasModelFace: boolean;
@@ -838,6 +1056,9 @@ function buildConciseTryOnPrompt(params: {
   }));
   lines.push("Preserve source clothing type, silhouette, color, pattern/logo/text, fabric texture, length, neckline, sleeves, hem, pockets, buttons, zippers, seams, layers, and visible details.");
   lines.push(buildConciseAudienceRule(params.garmentAudience, params.ageGroup));
+  if (params.garmentCategory === "intimate") {
+    lines.push("Sensitive apparel rule: treat the source as adult intimate apparel or swimwear for a neutral commercial catalog/lookbook photo; keep the image non-erotic, non-suggestive, and do not show nudity, nipples, genitals, transparent exposure, sexual acts, bedroom/erotic scenes, minors, or minor-looking people.");
+  }
   if (params.aspectRatio && params.aspectRatio !== "auto") {
     lines.push(`Output aspect ratio: ${params.aspectRatio}.`);
   }
@@ -973,3 +1194,8 @@ function toEnglishImageRef(value: string) {
   const match = value.match(/\d+/);
   return `image ${match?.[0] || "1"}`;
 }
+
+export const __lingyaTaskResponseTestUtils = {
+  extractGeneratedImages,
+  normalizeImageTaskResponse,
+};

@@ -1,6 +1,6 @@
 import type { LingyaModel } from "@/lib/api/lingya";
 
-export type ImagePromptKind = "tryon" | "grass" | "modelBackground" | "pose" | "model" | "garment3d" | "faceSwap" | "commerceDetail";
+export type ImagePromptKind = "tryon" | "grass" | "modelBackground" | "pose" | "model" | "garment3d" | "faceSwap" | "commerceDetail" | "productSet";
 
 const KIND_HEADERS: Record<ImagePromptKind, string> = {
   tryon:
@@ -19,6 +19,8 @@ const KIND_HEADERS: Record<ImagePromptKind, string> = {
     "核心任务：AI 换脸。图1是原始模特/主体画面，图2只提供面部五官身份；只替换五官，不改变图1肤色、发型、身体、服装、背景、光线和构图。",
   commerceDetail:
     "Core task: generate one independent e-commerce detail-page section/module, not a complete detail page. The section must be mobile-first, readable, spacious, and structurally different from other sections.",
+  productSet:
+    "核心任务：生成一张独立商品套图素材。商品图是唯一商品硬参考；样式参考只提供版式和氛围；不要生成整套拼图、网页截图或编辑器界面。",
 };
 
 const QUALITY_LINE =
@@ -95,6 +97,13 @@ const REQUIRED_SIGNALS: Record<ImagePromptKind, RequiredSignal[]> = {
     { name: "mobile layout", pattern: /mobile|手机|750|9:16|vertical/i, fallback: "Mobile layout: mobile-first vertical e-commerce section, readable large Chinese typography, spacious hierarchy." },
     { name: "no full page", pattern: /not a complete|Do NOT include all modules|不要.*完整|不是.*完整/i, fallback: "Hard negative: do not create a full detail page, long page, collage, four-grid, or repeated complete page variant." },
     { name: "distinct module", pattern: /structurally different|different from other modules|不同|独立/i, fallback: "Distinct module: this section must have its own content purpose and layout, different from the other requested sections." },
+  ],
+  productSet: [
+    { name: "image roles", pattern: /图片角色|商品硬参考|样式参考/i, fallback: "图片角色：商品图是唯一商品硬参考；样式参考只提供版式结构、视觉层级和氛围，不得复制其商品、人物、文字或品牌。" },
+    { name: "single output", pattern: /只生成一张|独立商品套图|不要把整套/i, fallback: "输出契约：只生成一张独立商品套图图片，不要把整套结果塞进一张图，不要生成网页截图或编辑器界面。" },
+    { name: "product preservation", pattern: /严格保留.*商品|商品硬规则|不能创造不存在/i, fallback: "商品硬规则：严格保留商品品类、颜色、材质、结构、廓形、比例、纹理、图案、logo/文字位置和可见细节，不创造不存在的新款式。" },
+    { name: "commerce copy", pattern: /文案|文字排版|目标平台|目标国家|语言/i, fallback: "电商文案：文案必须短、清晰、可读，适配目标语言和平台，不虚构认证、价格、销量、医学功效或具体尺寸。" },
+    { name: "negative", pattern: /负面约束|不要改变商品|不要生成无关商品/i, fallback: "负面约束：不要改变商品颜色和结构，不要生成无关商品，不要文字乱码、水印、平台截图、界面按钮或编辑器边框。" },
   ],
 };
 

@@ -35,6 +35,7 @@ export async function handleGenerationStatusGet(generationId: string | null) {
     return NextResponse.json({
       status: state.status,
       result_urls: resultUrls,
+      module_results: state.moduleResults || [],
       error: gen.error_message,
       progress: state.progress,
       provider_status: state.providerStatus,

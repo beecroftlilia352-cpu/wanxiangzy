@@ -1,9 +1,12 @@
+import { normalizeProductSetModuleResults } from "@/lib/product-set";
+
 export type NormalizedGenerationState = {
   status: string;
   statusGroup: "running" | "finished";
   progress: number;
   resultCount: number;
   expectedCount: number;
+  moduleResults?: ReturnType<typeof normalizeProductSetModuleResults>;
   completedAt?: string | null;
   providerStatus?: string | null;
   taskId?: string | null;
@@ -20,16 +23,20 @@ export function normalizeGenerationState(input: NormalizeGenerationStateInput): 
   const status = typeof input.status === "string" && input.status.length > 0 ? input.status.toLowerCase() : "pending";
   const payload = isRecord(input.payload) ? input.payload : {};
   const asyncTask = readAsyncTask(payload);
-  const resultCount = stringArray(input.resultUrls).length;
-  const expectedCount = readExpectedCount(payload, resultCount);
+  const moduleResults = normalizeProductSetModuleResults(payload.moduleResults);
+  const moduleExpectedCount = moduleResults.length;
+  const moduleResultCount = moduleResults.filter((item) => item.status === "completed" && Boolean(item.resultUrl)).length;
+  const resultCount = moduleExpectedCount ? moduleResultCount : stringArray(input.resultUrls).length;
+  const expectedCount = moduleExpectedCount || readExpectedCount(payload, resultCount);
   const providerStatus = asyncTask?.status || null;
   const providerDone = isProviderDone(providerStatus);
   const hasEnoughResults = resultCount > 0 && resultCount >= expectedCount;
   const explicitCompleted = status === "completed" || status === "succeeded" || status === "success";
   const explicitFailed = status === "failed" || status === "error" || status === "cancelled" || status === "canceled";
-  const completed = !explicitFailed && (explicitCompleted || hasEnoughResults || (providerDone && resultCount > 0));
+  const providerCompleted = providerDone && hasEnoughResults;
+  const completed = !explicitFailed && (explicitCompleted || hasEnoughResults || providerCompleted);
   const normalizedStatus = completed ? "completed" : status;
-  const progress = completed ? 100 : readRunningProgress({
+  const progress = completed ? 100 : moduleExpectedCount ? readModuleProgress(moduleResults) : readRunningProgress({
     asyncProgress: asyncTask?.progress,
     resultCount,
     expectedCount,
@@ -41,6 +48,7 @@ export function normalizeGenerationState(input: NormalizeGenerationStateInput): 
     progress,
     resultCount,
     expectedCount,
+    moduleResults: moduleExpectedCount ? moduleResults : undefined,
     completedAt: input.completedAt || (completed ? asyncTask?.updatedAt || null : null),
     providerStatus,
     taskId: asyncTask?.taskId || null,
@@ -69,6 +77,15 @@ function readRunningProgress(params: { asyncProgress?: unknown; resultCount: num
     ? Math.floor((Math.min(params.resultCount, params.expectedCount) / Math.max(1, params.expectedCount)) * 100)
     : 0;
   return Math.min(99, Math.max(providerProgress, partialProgress));
+}
+
+function readModuleProgress(modules: ReturnType<typeof normalizeProductSetModuleResults>) {
+  if (!modules.length) return 0;
+  const total = modules.reduce((sum, item) => {
+    if (item.status === "completed" || item.status === "failed") return sum + 100;
+    return sum + Math.min(Math.max(Math.round(item.progress || 0), 0), 99);
+  }, 0);
+  return Math.min(99, Math.max(0, Math.round(total / modules.length)));
 }
 
 function readAsyncTask(payload: Record<string, unknown>) {

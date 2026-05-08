@@ -17,14 +17,16 @@ import { BACKGROUND_SOURCE_LABELS, MODEL_BACKGROUND_MODE_LABELS } from "@/lib/mo
 
 const HISTORY_PAGE_SIZE = 12;
 
-type HistoryModuleFilter = "all" | "tryon" | "grass" | "modelBackground" | "pose" | "model" | "garment3d" | "faceSwap";
+type HistoryModuleFilter = "all" | "tryon" | "grass" | "productSet" | "modelBackground" | "generalImage" | "pose" | "model" | "garment3d" | "faceSwap";
 type HistoryStatusFilter = "all" | "completed" | "processing" | "pending" | "failed";
 
 const MODULE_FILTERS: { value: HistoryModuleFilter; label: string }[] = [
   { value: "all", label: "全部模块" },
   { value: "tryon", label: "服装上身" },
   { value: "grass", label: "服装种草" },
+  { value: "productSet", label: "商品套图" },
   { value: "modelBackground", label: "模特换背景" },
+  { value: "generalImage", label: "通用生图" },
   { value: "pose", label: "姿势裂变" },
   { value: "model", label: "专属模特" },
   { value: "garment3d", label: "服装 3D" },
@@ -182,6 +184,50 @@ export default function HistoryPage() {
       setDetailLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!detailRow) return;
+    const running = detailRow.status === "processing_tryon" ||
+      detailRow.status === "processing" ||
+      detailRow.status === "running" ||
+      detailRow.status === "pending" ||
+      detailRow.status === "queued";
+    if (!running) return;
+
+    let cancelled = false;
+    const pollDetail = async () => {
+      try {
+        const res = await fetch(`/api/history?id=${encodeURIComponent(detailRow.id)}`, {
+          method: "GET",
+          cache: "no-store",
+        });
+        const payload = await res.json().catch(() => ({})) as { row?: HistoryRow };
+        if (!res.ok || !payload.row || cancelled) return;
+        const nextRow: HistoryRow = payload.row;
+
+        const previousCount = detailRow.result_urls?.length || 0;
+        const nextCount = nextRow.result_urls?.length || 0;
+        if (nextCount > previousCount && selectedResultIndex >= Math.max(previousCount - 1, 0)) {
+          setDetailResultIndex(nextCount - 1);
+          setDetailZoom(100);
+        }
+
+        setDetailRow((current) => current?.id === nextRow.id ? { ...current, ...nextRow } : current);
+        setRows((current) => current.map((item) => (
+          item.id === nextRow.id ? { ...item, ...nextRow } : item
+        )));
+      } catch {
+        // Keep the current preview usable if a transient poll fails.
+      }
+    };
+
+    const timer = window.setInterval(pollDetail, 3000);
+    pollDetail();
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [detailRow?.id, detailRow?.status, detailRow?.result_urls?.length, selectedResultIndex]);
 
   const applyHistoryRow = async (row: HistoryRow) => {
     setDetailLoading(true);
@@ -848,7 +894,9 @@ function HistorySkeletonStyles() {
 function formatKind(kind?: HistoryJobPayload["kind"]) {
   if (kind === "tryon") return "服装上身";
   if (kind === "grass") return "服装种草图";
+  if (kind === "productSet") return "商品套图";
   if (kind === "modelBackground") return "模特换背景";
+  if (kind === "generalImage") return "通用生图";
   if (kind === "garment3d") return "服装转3D";
   if (kind === "faceSwap") return "AI 换脸";
   if (kind === "model") return "专属模特";
@@ -920,7 +968,7 @@ function getRowPayload(row: HistoryRow) {
   if (!payload || typeof payload !== "object") return undefined;
 
   const kind = (payload as { kind?: unknown }).kind;
-  if (kind === "tryon" || kind === "grass" || kind === "modelBackground" || kind === "garment3d" || kind === "model" || kind === "pose" || kind === "faceSwap") {
+  if (kind === "tryon" || kind === "grass" || kind === "productSet" || kind === "modelBackground" || kind === "generalImage" || kind === "garment3d" || kind === "model" || kind === "pose" || kind === "faceSwap") {
     return payload as HistoryJobPayload;
   }
 
@@ -942,6 +990,9 @@ function getPromptText(payload: HistoryJobPayload) {
       hasReference: !!payload.referenceUrl,
       style: payload.style || undefined,
     }).prompt;
+  }
+  if (payload.kind === "productSet") {
+    return payload.productInfo?.trim() || payload.prompt || "";
   }
   return payload.prompt || "";
 }
@@ -969,12 +1020,18 @@ function getInputImages(payload: HistoryJobPayload) {
       ...(payload.referenceUrl ? [{ label: "种草参考图", url: payload.referenceUrl }] : []),
     ];
   }
+  if (payload.kind === "productSet") {
+    return payload.productImageUrls.map((url, index) => ({ label: `商品图${index + 1}`, url }));
+  }
   if (payload.kind === "modelBackground") {
     return [
       { label: "原图", url: payload.sourceUrl },
       ...(payload.modelReferenceUrl ? [{ label: "模特参考", url: payload.modelReferenceUrl }] : []),
       ...(payload.backgroundReferenceUrl ? [{ label: "背景参考", url: payload.backgroundReferenceUrl }] : []),
     ];
+  }
+  if (payload.kind === "generalImage") {
+    return payload.referenceUrls.map((url, index) => ({ label: `参考图${index + 1}`, url }));
   }
   if (payload.kind === "model") {
     return [
@@ -1056,6 +1113,20 @@ function getParameterItems(row: HistoryRow) {
       { label: "模特控制", value: payload.changeModel ? "改变模特" : "保持模特" },
     ];
   }
+  if (payload.kind === "productSet") {
+    return [
+      ...common,
+      { label: "比例", value: payload.aspectRatio },
+      { label: "生成张数", value: String(payload.genCount) },
+      { label: "创作模式", value: payload.mode === "custom" ? "自定义套图" : "智能套图" },
+      { label: "生图类型", value: payload.imageType === "details" ? "详情页图" : "主图/辅图" },
+      { label: "商品图", value: `${payload.productImageUrls.length} 张` },
+      { label: "目标平台", value: payload.settings?.platform || "-" },
+      { label: "目标地区", value: payload.settings?.country || "-" },
+      { label: "文案语言", value: payload.settings?.language || "-" },
+      { label: "模板数量", value: String(payload.selectedTemplateIds?.length || payload.customTemplates?.length || payload.genCount) },
+    ];
+  }
   if (payload.kind === "modelBackground") {
     return [
       ...common,
@@ -1066,6 +1137,15 @@ function getParameterItems(row: HistoryRow) {
       { label: "背景模板", value: payload.templateId },
       { label: "模特参考", value: payload.modelReferenceUrl ? "已使用" : "未使用" },
       { label: "背景参考", value: payload.backgroundReferenceUrl ? "已使用" : "未使用" },
+    ];
+  }
+  if (payload.kind === "generalImage") {
+    return [
+      ...common,
+      { label: "模式", value: payload.mode === "text-to-image" ? "文生图" : "图生图" },
+      { label: "比例", value: payload.aspectRatio },
+      { label: "生成张数", value: String(payload.genCount) },
+      { label: "参考图", value: `${payload.referenceUrls.length} 张` },
     ];
   }
   if (payload.kind === "pose") {

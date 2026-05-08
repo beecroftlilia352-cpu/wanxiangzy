@@ -8,6 +8,7 @@ import {
   History,
   Home,
   Images,
+  ImagePlus,
   PersonStanding,
   ScanFace,
   ServerCog,
@@ -25,10 +26,14 @@ export type FeatureKey =
   | "tryon"
   | "faceSwap"
   | "grass"
+  | "productSet"
   | "modelBackground"
   | "pose"
   | "model"
   | "garment3d"
+  | "generalImage"
+  | "textToImage"
+  | "imageToImage"
   | "apiTest"
   | "history";
 
@@ -54,7 +59,7 @@ export type FeatureNavItem = {
 export const TOP_MODULES: TopModuleNavItem[] = [
   { key: "aiShoots", href: "/create", label: "AI 拍摄", icon: Camera },
   { key: "assistant", href: "/agent", label: "AI 助手", icon: Bot },
-  { key: "tools", href: "/api-platform-test", label: "工具", icon: Sparkles },
+  { key: "tools", href: "/general-image", label: "素材生成", icon: Sparkles },
   { key: "aiVideo", href: "/agent?intent=video", label: "AI 视频", icon: Clapperboard, comingSoon: true },
   { key: "works", href: "/history", label: "作品库", icon: GalleryHorizontalEnd },
 ];
@@ -105,6 +110,15 @@ export const FEATURE_ITEMS: FeatureNavItem[] = [
     icon: Heart,
   },
   {
+    key: "productSet",
+    module: "aiShoots",
+    href: "/product-set",
+    label: "商品套图",
+    shortLabel: "商品套图",
+    description: "一键生成主图、辅图和详情页商品视觉",
+    icon: GalleryHorizontalEnd,
+  },
+  {
     key: "modelBackground",
     module: "aiShoots",
     href: "/model-background",
@@ -139,6 +153,24 @@ export const FEATURE_ITEMS: FeatureNavItem[] = [
     shortLabel: "AI 助手",
     description: "聊天、分析与工作流执行",
     icon: Bot,
+  },
+  {
+    key: "textToImage",
+    module: "tools",
+    href: "/general-image",
+    label: "文生图",
+    shortLabel: "文生图",
+    description: "用文字描述直接生成图片",
+    icon: ImagePlus,
+  },
+  {
+    key: "imageToImage",
+    module: "tools",
+    href: "/general-image/image-to-image",
+    label: "图生图",
+    shortLabel: "图生图",
+    description: "多张参考图结合提示词生成图片",
+    icon: Images,
   },
   {
     key: "apiTest",
