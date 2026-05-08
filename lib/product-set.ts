@@ -13,6 +13,49 @@ export type ProductSetModelStrategy = "none" | "optional" | "recommended" | "req
 export type ProductSetCopyDensity = "none" | "light" | "standard" | "rich";
 export type ProductSetStylePackId = "auto" | "french_commute" | "korean_sweet" | "outdoor_utility" | "xiaohongshu_girl" | "minimal_indie" | "shein_fastfashion";
 
+export type ProductSetVisualDirectorModule = {
+  moduleKey: string;
+  purpose: string;
+  layout: string;
+  copyRule: string;
+};
+
+export type ProductSetGlobalVisualStrategy = {
+  corePalette: string;
+  primaryColor: string;
+  secondaryColors: string[];
+  accentColor: string;
+  colorTemperature: string;
+  lighting: string;
+  typography: string;
+  textureMood: string;
+};
+
+export type ProductSetVisualDirectorScreenScript = {
+  screenNo?: number;
+  moduleKey: string;
+  title: string;
+  globalTone: string;
+  sceneDesign: string;
+  visualComposition: string;
+  copyContent: string;
+  layoutRules: string;
+  constraints: string;
+};
+
+export type ProductSetVisualDirectorPlan = {
+  strategyName: string;
+  styleStrategy: string;
+  globalStrategy: ProductSetGlobalVisualStrategy;
+  mainPlan: ProductSetVisualDirectorModule[];
+  detailsPlan: ProductSetVisualDirectorModule[];
+  mainScripts: ProductSetVisualDirectorScreenScript[];
+  detailsScripts: ProductSetVisualDirectorScreenScript[];
+  layoutPrinciples: string[];
+  copyStrategy: string;
+  negativeLayouts: string[];
+};
+
 export type ProductSetStylePack = {
   id: ProductSetStylePackId;
   name: string;
@@ -132,6 +175,27 @@ export type ProductSetCustomTemplate = {
 
 export type ProductSetResolvedTemplate =
   | ({ source: "preset" } & ProductSetTemplate)
+  | ({ source: "ai" } & {
+      id: string;
+      name: string;
+      imageType: ProductSetImageType;
+      aspectRatio: AspectRatio;
+      moduleRole: string;
+      contentScope: string;
+      layoutRules: string;
+      textRules: string;
+      avoidRules: string;
+      typeDescription: string;
+      typeDescriptionV2: string;
+      batchSize: number;
+      subjectConsistency: boolean;
+      modelConsistency?: boolean;
+      intelligentCopy: boolean;
+      copyDensity?: ProductSetCopyDensity;
+      innerExtraDescription: string;
+      coverImage?: string;
+      scenario?: ProductSetScenario;
+    })
   | ({ source: "custom" } & ProductSetCustomTemplate & {
       typeDescriptionV2: string;
       batchSize: number;
@@ -159,6 +223,7 @@ export type ProductSetSettings = {
   stylePackId?: ProductSetStylePackId;
   extraDescription?: string;
   visualDirectorScript?: string;
+  visualDirectorPlan?: ProductSetVisualDirectorPlan;
 };
 
 export type ProductSetPresetPlan = {
@@ -840,7 +905,45 @@ export function normalizeProductSetSettings(value: unknown): ProductSetSettings 
     stylePackId: normalizeProductSetStylePackId(input.stylePackId),
     extraDescription: safeText(input.extraDescription, "", 600),
     visualDirectorScript: safeText(input.visualDirectorScript, "", 3200),
+    visualDirectorPlan: normalizeProductSetVisualDirectorPlan(input.visualDirectorPlan),
   };
+}
+
+export function normalizeProductSetVisualDirectorPlan(value: unknown): ProductSetVisualDirectorPlan | undefined {
+  const input = value && typeof value === "object" ? value as Record<string, unknown> : null;
+  if (!input) return undefined;
+
+  const plan: ProductSetVisualDirectorPlan = {
+    strategyName: readDirectorText(input, "strategyName", "strategy_name", 100),
+    styleStrategy: readDirectorText(input, "styleStrategy", "style_strategy", 500),
+    globalStrategy: normalizeProductSetGlobalVisualStrategy(input.globalStrategy || input.global_strategy),
+    mainPlan: normalizeProductSetDirectorModules(input.mainPlan || input.main_plan, 4),
+    detailsPlan: normalizeProductSetDirectorModules(input.detailsPlan || input.details_plan, 8),
+    mainScripts: normalizeProductSetDirectorScripts(input.mainScripts || input.main_scripts, 4),
+    detailsScripts: normalizeProductSetDirectorScripts(input.detailsScripts || input.details_scripts, 8),
+    layoutPrinciples: normalizeStringArray(input.layoutPrinciples || input.layout_principles, [], 8, 140),
+    copyStrategy: readDirectorText(input, "copyStrategy", "copy_strategy", 500),
+    negativeLayouts: normalizeStringArray(input.negativeLayouts || input.negative_layouts, [], 8, 140),
+  };
+
+  const hasPlan =
+    plan.strategyName ||
+    plan.styleStrategy ||
+    plan.mainPlan.length ||
+    plan.detailsPlan.length ||
+    plan.mainScripts.length ||
+    plan.detailsScripts.length;
+  return hasPlan ? plan : undefined;
+}
+
+export function getProductSetVisualDirectorPlanCount(
+  plan: ProductSetVisualDirectorPlan | undefined,
+  imageType: ProductSetImageType
+) {
+  if (!plan) return 0;
+  const scripts = imageType === "main" ? plan.mainScripts : plan.detailsScripts;
+  const modules = imageType === "main" ? plan.mainPlan : plan.detailsPlan;
+  return scripts.length || modules.length || 0;
 }
 
 export function normalizeProductSetProductProfile(value: unknown, productInfo = ""): ProductSetProductProfile {
@@ -1140,6 +1243,288 @@ export function getProductSetModuleReason(template: ProductSetResolvedTemplate, 
   return "用于补齐套图中的一个独立内容模块，和其它图片保持差异化。";
 }
 
+function buildAiProductSetTemplates(input: {
+  imageType: ProductSetImageType;
+  count: number;
+  productProfile?: ProductSetProductProfile;
+  settings?: ProductSetSettings;
+}): ProductSetResolvedTemplate[] {
+  const profile = normalizeProductSetProductProfile(input.productProfile);
+  const plan = normalizeProductSetSettings(input.settings).visualDirectorPlan;
+  const scripts = input.imageType === "main" ? plan?.mainScripts || [] : plan?.detailsScripts || [];
+  const modules = input.imageType === "main" ? plan?.mainPlan || [] : plan?.detailsPlan || [];
+  const scriptModules = buildDirectorScriptModules(scripts, modules);
+  const usedKeys = new Set(scriptModules.map((item, index) => normalizeAiModuleKey(item.module.moduleKey, index)));
+  const fallbackModules = buildFallbackAiDirectorModules(input.imageType, profile, input.count)
+    .filter((item, index) => !usedKeys.has(normalizeAiModuleKey(item.module.moduleKey, index)));
+  const modulesToUse = [...scriptModules, ...fallbackModules].slice(0, input.count);
+
+  return modulesToUse.map((item, index) => buildAiProductSetTemplate({
+    imageType: input.imageType,
+    profile,
+    plan,
+    module: item.module,
+    script: item.script,
+    index,
+  }));
+}
+
+function buildDirectorScriptModules(
+  scripts: ProductSetVisualDirectorScreenScript[],
+  modules: ProductSetVisualDirectorModule[]
+) {
+  const moduleByKey = new Map(modules.map((module) => [module.moduleKey, module]));
+  const used = new Set<string>();
+  const fromScripts = scripts.map((script, index) => {
+    const module = moduleByKey.get(script.moduleKey) || modules[index] || {
+      moduleKey: script.moduleKey || `screen_${index + 1}`,
+      purpose: script.title,
+      layout: script.visualComposition || script.layoutRules,
+      copyRule: script.copyContent,
+    };
+    used.add(module.moduleKey);
+    return { module, script };
+  });
+  const remaining = modules
+    .filter((module) => !used.has(module.moduleKey))
+    .map((module) => ({ module, script: undefined }));
+  return [...fromScripts, ...remaining];
+}
+
+function buildFallbackAiDirectorModules(
+  imageType: ProductSetImageType,
+  profile: ProductSetProductProfile,
+  count: number
+): Array<{ module: ProductSetVisualDirectorModule; script?: ProductSetVisualDirectorScreenScript }> {
+  const mainKeys = profile.isApparel
+    ? ["cover_main", "catalog_model", "detail_closeup", "lifestyle_scene", "white_background", "selling_point"]
+    : ["cover_main", "white_background", "detail_closeup", "lifestyle_scene", "selling_point", "multi_angle"];
+  const detailKeys = profile.isApparel
+    ? ["hero", "wearing_proof", "material_fit_detail", "size_fit_guide", "lifestyle_story", "outfit_pairing", "selling_points", "trust"]
+    : ["hero", "material_fit_detail", "selling_points", "lifestyle_story", "trust", "tutorial", "size_fit_guide", "buyer_show"];
+  const keys = (imageType === "main" ? mainKeys : detailKeys).slice(0, count);
+  return keys.map((key) => ({ module: fallbackDirectorModule(key, imageType, profile) }));
+}
+
+function fallbackDirectorModule(
+  moduleKey: string,
+  imageType: ProductSetImageType,
+  profile: ProductSetProductProfile
+): ProductSetVisualDirectorModule {
+  const label = getAiModuleLabel(moduleKey, imageType);
+  const apparelContext = profile.isApparel
+    ? `Use ${profile.modelBrief}`
+    : "Focus on product evidence, use state, structure, material, and purchase confidence.";
+  return {
+    moduleKey,
+    purpose: label.role,
+    layout: `${label.layout} ${apparelContext}`,
+    copyRule: label.copyRule,
+  };
+}
+
+function buildAiProductSetTemplate(input: {
+  imageType: ProductSetImageType;
+  profile: ProductSetProductProfile;
+  plan?: ProductSetVisualDirectorPlan;
+  module: ProductSetVisualDirectorModule;
+  script?: ProductSetVisualDirectorScreenScript;
+  index: number;
+}): ProductSetResolvedTemplate {
+  const key = normalizeAiModuleKey(input.module.moduleKey, input.index);
+  const label = getAiModuleLabel(key, input.imageType);
+  const title = input.script?.title || input.module.purpose || label.name;
+  const moduleRole = input.module.purpose || input.script?.title || label.role;
+  const contentScope = [
+    input.script?.sceneDesign,
+    input.script?.visualComposition,
+    input.module.layout,
+  ].filter(Boolean).join(" ");
+  const layoutRules = [
+    input.script?.globalTone ? `Global tone: ${input.script.globalTone}.` : "",
+    input.script?.visualComposition ? `Composition: ${input.script.visualComposition}.` : "",
+    input.script?.layoutRules ? `Layout: ${input.script.layoutRules}.` : "",
+    input.module.layout ? `Module layout: ${input.module.layout}.` : "",
+    buildGlobalVisualStrategyLine(input.plan?.globalStrategy),
+    input.plan?.layoutPrinciples.length ? `Shared layout principles: ${input.plan.layoutPrinciples.join("; ")}.` : "",
+  ].filter(Boolean).join(" ");
+  const textRules = [
+    input.script?.copyContent ? `Screen copy: ${input.script.copyContent}.` : "",
+    input.module.copyRule ? `Module copy rule: ${input.module.copyRule}.` : "",
+    input.plan?.copyStrategy ? `Global copy strategy: ${input.plan.copyStrategy}.` : "",
+    label.copyRule,
+  ].filter(Boolean).join(" ");
+  const avoidRules = [
+    input.script?.constraints,
+    input.plan?.negativeLayouts.join("; "),
+    label.avoidRule,
+    "Do not borrow gender, model styling, garment type, product shape, or brand cues from any local preset library.",
+  ].filter(Boolean).join(" ");
+  const brief = [
+    `AI visual analysis module: ${title}.`,
+    input.plan?.strategyName ? `Strategy: ${input.plan.strategyName}.` : "",
+    input.plan?.styleStrategy ? `Style strategy: ${input.plan.styleStrategy}.` : "",
+    input.script?.sceneDesign ? `Scene design: ${input.script.sceneDesign}.` : "",
+    input.script?.visualComposition ? `Visual composition: ${input.script.visualComposition}.` : "",
+    input.module.layout ? `Director layout: ${input.module.layout}.` : "",
+    `Product profile: ${input.profile.displayName}, kind=${input.profile.kind}, apparelType=${input.profile.apparelType}.`,
+  ].filter(Boolean).join(" ");
+
+  return {
+    source: "ai",
+    id: `ai-${input.imageType}-${input.index + 1}-${key}`,
+    name: title || label.name,
+    imageType: input.imageType,
+    aspectRatio: resolveAiTemplateAspectRatio(key, input.imageType),
+    moduleRole,
+    contentScope: contentScope || label.role,
+    layoutRules: layoutRules || label.layout,
+    textRules: textRules || label.copyRule,
+    avoidRules,
+    typeDescription: brief,
+    typeDescriptionV2: brief,
+    batchSize: 1,
+    subjectConsistency: true,
+    modelConsistency: /model|wearing|fit|outfit|lifestyle|catalog|proof/i.test(key),
+    intelligentCopy: true,
+    copyDensity: resolveAiCopyDensity(key),
+    innerExtraDescription: [
+      "This module was created from AI visual analysis, not from a local preset template.",
+      input.script ? formatAiDirectorScript(input.script) : "",
+      input.module.layout ? `Module layout from analysis: ${input.module.layout}` : "",
+    ].filter(Boolean).join("\n"),
+    scenario: "general",
+  };
+}
+
+function normalizeAiModuleKey(value: string, index: number) {
+  const normalized = value.trim().toLowerCase().replace(/[^a-z0-9_/-]+/g, "_").replace(/^_+|_+$/g, "");
+  return normalized || `screen_${index + 1}`;
+}
+
+function getAiModuleLabel(moduleKey: string, imageType: ProductSetImageType) {
+  const key = moduleKey.toLowerCase();
+  if (/white|clean|cutout/.test(key)) {
+    return {
+      name: "AI clean product proof",
+      role: "Clean product proof with accurate shape, color, material, and shadow.",
+      layout: "Use a clean platform-ready product composition with restrained copy and no model unless the product image already contains one.",
+      copyRule: "No dense text; optional one short factual label only.",
+      avoidRule: "Avoid lifestyle props, invented badges, and unrelated model scenes.",
+    };
+  }
+  if (/catalog|model|wearing|proof|fit|try/.test(key)) {
+    return {
+      name: "AI wearing proof",
+      role: "Wearing or usage proof matched to the product's real target audience.",
+      layout: "Use the model gender, age range, pose, and styling inferred from visual analysis and product profile.",
+      copyRule: "Minimal headline or no text; let fit and wearing state carry the module.",
+      avoidRule: "Avoid changing apparel gender, turning menswear into womenswear, or using unrelated preset model styling.",
+    };
+  }
+  if (/material|detail|close|fabric|texture|fit_detail/.test(key)) {
+    return {
+      name: "AI material detail",
+      role: "Material, structure, craftsmanship, and visible product details.",
+      layout: "Use close-up evidence, macro crops, callout lines, and a small full-product context area.",
+      copyRule: "Use up to four large factual labels derived from visible details.",
+      avoidRule: "Avoid fake material claims, tiny tables, and repeated hero-poster wording.",
+    };
+  }
+  if (/size|guide|measure/.test(key)) {
+    return {
+      name: "AI size and fit guide",
+      role: "Fit, measurement positions, or scale guidance without inventing exact numbers.",
+      layout: "Use measurement-position diagrams and broad fit guidance only when exact size data is absent.",
+      copyRule: "Readable labels only; no fake numeric size chart.",
+      avoidRule: "Avoid fabricated measurements, dense spreadsheet-like layouts, and tiny text.",
+    };
+  }
+  if (/lifestyle|scene|story|outfit|pairing|lookbook/.test(key)) {
+    return {
+      name: "AI lifestyle scene",
+      role: "Lifestyle context, styling, pairing, or use scenario matched to the analyzed product.",
+      layout: "Create a scene that fits the product category, target audience, season, and visual strategy.",
+      copyRule: "One short headline and optional subtitle; no bullet wall.",
+      avoidRule: "Avoid copying local preset demographics or scenes that conflict with the product analysis.",
+    };
+  }
+  if (/selling|point|benefit/.test(key)) {
+    return {
+      name: "AI selling point",
+      role: "Core purchase reasons grounded in visible structure, material, or use case.",
+      layout: "Use one dominant product view with 3-4 concise callouts.",
+      copyRule: "Short callouts only; no unsupported claims.",
+      avoidRule: "Avoid repeating all selling points from every other module.",
+    };
+  }
+  if (/trust|buyer|review|show/.test(key)) {
+    return {
+      name: "AI trust proof",
+      role: "Trust, buyer-use atmosphere, care, quality, or confidence support.",
+      layout: "Use authentic ecommerce proof style while keeping product identity central.",
+      copyRule: "Use generic trust language only; do not invent reviews, ratings, certifications, or sales data.",
+      avoidRule: "Avoid fabricated user comments, fake awards, fake guarantees, or platform UI.",
+    };
+  }
+  if (/tutorial|step|how/.test(key)) {
+    return {
+      name: "AI usage tutorial",
+      role: "Use steps, care steps, installation, styling, or operation guidance.",
+      layout: "Use simple step composition with clear product states.",
+      copyRule: "Up to four short step labels; no tiny paragraphs.",
+      avoidRule: "Avoid fake technical claims or unsupported safety instructions.",
+    };
+  }
+  return {
+    name: imageType === "details" ? "AI detail screen" : "AI product image",
+    role: imageType === "details" ? "A distinct detail-page screen from AI visual analysis." : "A distinct main/supporting product image from AI visual analysis.",
+    layout: "Use product-led composition, clear hierarchy, and a layout chosen from the visual analysis rather than local presets.",
+    copyRule: "Sparse readable ecommerce copy only.",
+    avoidRule: "Avoid preset-template demographics, repeated layouts, and unsupported claims.",
+  };
+}
+
+function resolveAiTemplateAspectRatio(moduleKey: string, imageType: ProductSetImageType): AspectRatio {
+  if (imageType === "details") return "3:4";
+  if (/catalog|model|wearing|lifestyle|scene|lookbook/.test(moduleKey)) return "3:4";
+  return "1:1";
+}
+
+function resolveAiCopyDensity(moduleKey: string): ProductSetCopyDensity {
+  if (/white|clean|catalog|model|wearing|proof/.test(moduleKey)) return "light";
+  if (/size|guide|selling|tutorial|trust/.test(moduleKey)) return "standard";
+  return "light";
+}
+
+function buildGlobalVisualStrategyLine(global?: ProductSetGlobalVisualStrategy) {
+  if (!global) return "";
+  return [
+    global.corePalette ? `Core palette: ${global.corePalette}` : "",
+    global.primaryColor ? `Primary color: ${global.primaryColor}` : "",
+    global.secondaryColors.length ? `Secondary colors: ${global.secondaryColors.join(", ")}` : "",
+    global.accentColor ? `Accent: ${global.accentColor}` : "",
+    global.colorTemperature ? `Color temperature: ${global.colorTemperature}` : "",
+    global.lighting ? `Lighting: ${global.lighting}` : "",
+    global.typography ? `Typography: ${global.typography}` : "",
+    global.textureMood ? `Texture mood: ${global.textureMood}` : "",
+  ].filter(Boolean).join("; ");
+}
+
+function formatAiDirectorScript(script: ProductSetVisualDirectorScreenScript) {
+  return [
+    script.screenNo ? `Screen ${script.screenNo}` : "",
+    script.moduleKey ? `module=${script.moduleKey}` : "",
+    script.title,
+    script.globalTone ? `tone=${script.globalTone}` : "",
+    script.sceneDesign ? `scene=${script.sceneDesign}` : "",
+    script.visualComposition ? `composition=${script.visualComposition}` : "",
+    script.copyContent ? `copy=${script.copyContent}` : "",
+    script.layoutRules ? `layout=${script.layoutRules}` : "",
+    script.constraints ? `constraints=${script.constraints}` : "",
+  ].filter(Boolean).join(" | ");
+}
+
 export function resolveProductSetTemplates(input: {
   mode: ProductSetCreationMode;
   imageType: ProductSetImageType;
@@ -1183,14 +1568,13 @@ export function resolveProductSetTemplates(input: {
     return applyProductSetModuleOverrides([...selectedPresets, ...customTemplates].slice(0, 10), input.moduleOverrides);
   }
 
-  const count = Math.min(Math.max(Number(input.genCount) || 4, 1), imageType === "details" ? 8 : 6);
-  const templates = getProductSetTemplates(imageType);
-  const byId = new Map(templates.map((item) => [item.id, item]));
-  const resolved = getSmartProductSetTemplateIds({ imageType, productProfile: input.productProfile, settings: input.settings })
-    .map((id) => byId.get(id))
-    .filter((item): item is ProductSetTemplate => Boolean(item))
-    .slice(0, count)
-    .map((item) => ({ ...item, source: "preset" as const }));
+  const count = Math.min(Math.max(Number(input.genCount) || (imageType === "details" ? 5 : 3), 1), imageType === "details" ? 8 : 6);
+  const resolved = buildAiProductSetTemplates({
+    imageType,
+    count,
+    productProfile: input.productProfile,
+    settings: input.settings,
+  });
   return applyProductSetModuleOverrides(resolved, input.moduleOverrides);
 }
 
@@ -1431,6 +1815,7 @@ export function shouldUseModelForTemplate(template: ProductSetResolvedTemplate, 
   if (profile.modelStrategy === "none") return false;
   const text = `${template.name} ${template.moduleRole} ${template.typeDescriptionV2} ${template.contentScope}`.toLowerCase();
   if (/模特|上身|穿着|穿搭|街拍|lookbook|买家秀|种草|试穿|通勤|场景/.test(text)) return true;
+  if (/lookbook|model|wearing|proof|fit|outfit|catalog|lifestyle|pairing/.test(text)) return true;
   if (template.modelConsistency) return true;
   return profile.modelStrategy === "required" && !/白底|尺寸|尺码|结构|材质|细节|包装|安装|教程/.test(text);
 }
@@ -1486,6 +1871,68 @@ function normalizeProductSetAspectRatio(value: unknown): AspectRatio | undefined
 
 function normalizeOptionalProductSetCopyDensity(value: unknown): ProductSetCopyDensity | undefined {
   return value === "none" || value === "light" || value === "standard" || value === "rich" ? value : undefined;
+}
+
+function normalizeProductSetGlobalVisualStrategy(value: unknown): ProductSetGlobalVisualStrategy {
+  const input = value && typeof value === "object" ? value as Record<string, unknown> : {};
+  return {
+    corePalette: readDirectorText(input, "corePalette", "core_palette", 100),
+    primaryColor: readDirectorText(input, "primaryColor", "primary_color", 100),
+    secondaryColors: normalizeStringArray(input.secondaryColors || input.secondary_colors, [], 6, 80),
+    accentColor: readDirectorText(input, "accentColor", "accent_color", 100),
+    colorTemperature: readDirectorText(input, "colorTemperature", "color_temperature", 100),
+    lighting: readDirectorText(input, "lighting", "lighting", 180),
+    typography: readDirectorText(input, "typography", "typography", 140),
+    textureMood: readDirectorText(input, "textureMood", "texture_mood", 180),
+  };
+}
+
+function normalizeProductSetDirectorModules(value: unknown, maxItems: number): ProductSetVisualDirectorModule[] {
+  const source = Array.isArray(value) ? value : [];
+  return source
+    .map((item): ProductSetVisualDirectorModule | null => {
+      if (!item || typeof item !== "object") return null;
+      const input = item as Record<string, unknown>;
+      const moduleKey = readDirectorText(input, "moduleKey", "module_key", 80);
+      if (!moduleKey) return null;
+      return {
+        moduleKey,
+        purpose: readDirectorText(input, "purpose", "purpose", 180),
+        layout: readDirectorText(input, "layout", "layout", 260),
+        copyRule: readDirectorText(input, "copyRule", "copy_rule", 180),
+      };
+    })
+    .filter((item): item is ProductSetVisualDirectorModule => Boolean(item))
+    .slice(0, maxItems);
+}
+
+function normalizeProductSetDirectorScripts(value: unknown, maxItems: number): ProductSetVisualDirectorScreenScript[] {
+  const source = Array.isArray(value) ? value : [];
+  return source
+    .map((item): ProductSetVisualDirectorScreenScript | null => {
+      if (!item || typeof item !== "object") return null;
+      const input = item as Record<string, unknown>;
+      const moduleKey = readDirectorText(input, "moduleKey", "module_key", 80);
+      const title = readDirectorText(input, "title", "title", 100);
+      if (!moduleKey && !title) return null;
+      return {
+        screenNo: normalizeOptionalPositiveInteger(input.screenNo || input.screen_no, 20),
+        moduleKey,
+        title,
+        globalTone: readDirectorText(input, "globalTone", "global_tone", 220),
+        sceneDesign: readDirectorText(input, "sceneDesign", "scene_design", 420),
+        visualComposition: readDirectorText(input, "visualComposition", "visual_composition", 340),
+        copyContent: readDirectorText(input, "copyContent", "copy_content", 260),
+        layoutRules: readDirectorText(input, "layoutRules", "layout_rules", 280),
+        constraints: readDirectorText(input, "constraints", "constraints", 280),
+      };
+    })
+    .filter((item): item is ProductSetVisualDirectorScreenScript => Boolean(item))
+    .slice(0, maxItems);
+}
+
+function readDirectorText(input: Record<string, unknown>, camelKey: string, snakeKey: string, maxLength: number) {
+  return safeText(input[camelKey] ?? input[snakeKey], "", maxLength);
 }
 
 function normalizeProductSetModuleStatus(value: unknown): ProductSetModuleStatus {

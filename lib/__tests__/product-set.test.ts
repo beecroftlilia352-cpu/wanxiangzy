@@ -4,14 +4,127 @@ import {
   buildProductSetPrompt,
   getProductSetModuleKey,
   getProductSetModuleReason,
-  inferProductSetProductProfile,
+  normalizeProductSetProductProfile,
   resolveProductSetTemplates,
   shouldUseModelForTemplate,
+  type ProductSetProductProfile,
+  type ProductSetSettings,
 } from "../product-set";
 
+const BASE_SETTINGS: ProductSetSettings = {
+  country: "China",
+  language: "Chinese",
+  platform: "Taobao",
+  themeMode: "auto",
+  themeColor: "auto",
+  fontStyle: "auto",
+  stylePackId: "auto",
+  extraDescription: "",
+  visualDirectorScript: "",
+};
+
+function menswearProfile(): ProductSetProductProfile {
+  return normalizeProductSetProductProfile({
+    kind: "apparel",
+    apparelType: "menswear",
+    displayName: "menswear jacket",
+    confidence: 0.92,
+    isApparel: true,
+    needsModel: true,
+    modelStrategy: "recommended",
+    modelBrief: "Use an adult male model; keep the styling masculine, practical, and matched to the uploaded jacket.",
+    recommendedMainPlanId: "ai-main",
+    recommendedDetailsPlanId: "ai-details",
+    planningNotes: ["AI vision identified a menswear product; do not use womenswear presets."],
+    visualKeywords: ["menswear", "jacket", "structured fabric"],
+  });
+}
+
 describe("product set smart planning", () => {
-  it("uses apparel-aware modules with model scenes for womenswear details", () => {
-    const profile = inferProductSetProductProfile("商品名称: 淡紫色撞色连帽抓绒外套\n商品描述: 女装外套，连帽、袖口罗纹、柔软抓绒面料。");
+  it("uses AI visual director modules for smart menswear details instead of local presets", () => {
+    const profile = menswearProfile();
+    const templates = resolveProductSetTemplates({
+      mode: "smart",
+      imageType: "details",
+      genCount: 5,
+      productProfile: profile,
+      settings: {
+        ...BASE_SETTINGS,
+        visualDirectorPlan: {
+          strategyName: "Menswear utility detail page",
+          styleStrategy: "Structured, practical, male model usage proof.",
+          globalStrategy: {
+            corePalette: "charcoal, steel grey, white",
+            primaryColor: "charcoal",
+            secondaryColors: ["steel grey", "white"],
+            accentColor: "signal blue",
+            colorTemperature: "cool neutral",
+            lighting: "clean studio daylight",
+            typography: "bold sans serif",
+            textureMood: "structured fabric closeups",
+          },
+          mainPlan: [],
+          detailsPlan: [
+            { moduleKey: "hero", purpose: "menswear first screen", layout: "large jacket hero", copyRule: "short title" },
+            { moduleKey: "wearing_proof", purpose: "adult male wearing proof", layout: "male model three-quarter body", copyRule: "minimal fit note" },
+            { moduleKey: "material_fit_detail", purpose: "fabric and construction detail", layout: "macro panels", copyRule: "large factual labels" },
+          ],
+          mainScripts: [],
+          detailsScripts: [
+            { screenNo: 1, moduleKey: "hero", title: "Urban jacket hero", globalTone: "masculine", sceneDesign: "studio product hero", visualComposition: "large jacket with strong whitespace", copyContent: "short headline", layoutRules: "no model yet", constraints: "no womenswear styling" },
+            { screenNo: 2, moduleKey: "wearing_proof", title: "Male model fit", globalTone: "practical", sceneDesign: "adult male model wearing the jacket", visualComposition: "three-quarter body fit proof", copyContent: "minimal fit copy", layoutRules: "catalog proof", constraints: "do not use female model" },
+            { screenNo: 3, moduleKey: "material_fit_detail", title: "Fabric proof", globalTone: "technical", sceneDesign: "macro fabric detail", visualComposition: "close-up panels", copyContent: "four factual labels", layoutRules: "detail evidence", constraints: "no fake specs" },
+          ],
+          layoutPrinciples: ["product-led", "clear hierarchy"],
+          copyStrategy: "short readable ecommerce copy",
+          negativeLayouts: ["womenswear preset poses", "dense tiny tables"],
+        },
+      },
+    });
+
+    expect(templates).toHaveLength(5);
+    expect(templates.every((template) => template.source === "ai")).toBe(true);
+    expect(templates.map((template) => template.id)).toEqual([
+      "ai-details-1-hero",
+      "ai-details-2-wearing_proof",
+      "ai-details-3-material_fit_detail",
+      "ai-details-4-size_fit_guide",
+      "ai-details-5-lifestyle_story",
+    ]);
+    expect(templates.some((template) => String(template.id).includes("women"))).toBe(false);
+    expect(shouldUseModelForTemplate(templates[1], profile)).toBe(true);
+    expect(templates[1].avoidRules).toContain("female model");
+  });
+
+  it("falls back to generated AI modules, not preset ids, when no visual director plan exists", () => {
+    const profile = menswearProfile();
+    const templates = resolveProductSetTemplates({
+      mode: "smart",
+      imageType: "details",
+      genCount: 4,
+      productProfile: profile,
+    });
+
+    expect(templates.map((item) => item.source)).toEqual(["ai", "ai", "ai", "ai"]);
+    expect(templates.map((item) => item.id)).toEqual([
+      "ai-details-1-hero",
+      "ai-details-2-wearing_proof",
+      "ai-details-3-material_fit_detail",
+      "ai-details-4-size_fit_guide",
+    ]);
+  });
+
+  it("keeps generic product details focused on non-model AI ecommerce modules", () => {
+    const profile = normalizeProductSetProductProfile({
+      kind: "electronics",
+      apparelType: "general",
+      displayName: "desk fan",
+      confidence: 0.9,
+      isApparel: false,
+      needsModel: false,
+      modelStrategy: "none",
+      modelBrief: "No model needed.",
+    });
     const templates = resolveProductSetTemplates({
       mode: "smart",
       imageType: "details",
@@ -19,63 +132,13 @@ describe("product set smart planning", () => {
       productProfile: profile,
     });
 
-    expect(profile.isApparel).toBe(true);
-    expect(profile.needsModel).toBe(true);
-    expect(templates.map((item) => item.id)).toEqual([117, 105, 106, 107, 113, 7]);
-    expect(templates.some((template) => shouldUseModelForTemplate(template, profile))).toBe(true);
-  });
-
-  it("routes womenswear hero modules by selected style pack instead of always using French commute", () => {
-    const profile = inferProductSetProductProfile("商品名称: 女装连帽外套\n商品描述: 柔软面料，日常穿搭，适合详情页套图。");
-    const baseSettings = {
-      country: "中国",
-      language: "中文",
-      platform: "淘宝",
-      themeMode: "auto" as const,
-      themeColor: "智能主题色",
-      fontStyle: "auto" as const,
-      extraDescription: "",
-    };
-
-    const cases = [
-      ["auto", 117],
-      ["french_commute", 108],
-      ["korean_sweet", 114],
-      ["outdoor_utility", 115],
-      ["xiaohongshu_girl", 118],
-      ["shein_fastfashion", 116],
-    ] as const;
-
-    for (const [stylePackId, firstTemplateId] of cases) {
-      const templates = resolveProductSetTemplates({
-        mode: "smart",
-        imageType: "details",
-        genCount: 3,
-        productProfile: profile,
-        settings: { ...baseSettings, stylePackId },
-      });
-
-      expect(templates[0].id).toBe(firstTemplateId);
-    }
-  });
-
-  it("keeps generic product details focused on non-model ecommerce modules", () => {
-    const profile = inferProductSetProductProfile("商品名称: 桌面循环风扇\n商品描述: 小型家用电器，强调安全防护、静音、风力。");
-    const templates = resolveProductSetTemplates({
-      mode: "smart",
-      imageType: "details",
-      genCount: 6,
-      productProfile: profile,
-    });
-
-    expect(profile.isApparel).toBe(false);
-    expect(profile.needsModel).toBe(false);
-    expect(templates.map((item) => item.id)).toEqual([14, 13, 24, 17, 11, 27]);
+    expect(templates.every((template) => template.source === "ai")).toBe(true);
     expect(templates.some((template) => shouldUseModelForTemplate(template, profile))).toBe(false);
+    expect(templates[0].coverImage).toBeUndefined();
   });
 
   it("applies module overrides and keeps prompt version/style pack traceable", () => {
-    const profile = inferProductSetProductProfile("商品名称: 女装连帽外套\n商品描述: 女装外套，柔软面料，通勤穿搭。");
+    const profile = menswearProfile();
     const base = resolveProductSetTemplates({
       mode: "smart",
       imageType: "details",
@@ -91,28 +154,25 @@ describe("product set smart planning", () => {
       productProfile: profile,
       moduleOverrides: [
         { key: firstKey, disabled: true },
-        { key: secondKey, name: "Edited model scene", copyDensity: "light" },
+        { key: secondKey, name: "Edited male model scene", copyDensity: "light" },
       ],
     });
 
     expect(templates.map((item) => item.id)).not.toContain(base[0].id);
-    expect(templates[0].name).toBe("Edited model scene");
-    expect(getProductSetModuleReason(templates[0], profile)).toContain("上身");
+    expect(templates[0].name).toBe("Edited male model scene");
+    expect(getProductSetModuleReason(templates[0], profile)).toBeTruthy();
 
     const prompt = buildProductSetPrompt({
-      productInfo: "商品名称: 女装连帽外套",
+      productInfo: "Product name: menswear jacket",
       productProfile: profile,
       productImageCount: 3,
       template: templates[0],
       allTemplates: templates,
       settings: {
-        country: "中国",
-        language: "中文",
-        platform: "小红书",
-        themeMode: "auto",
-        themeColor: "智能主题色",
-        fontStyle: "auto",
+        ...BASE_SETTINGS,
+        platform: "Xiaohongshu",
         stylePackId: "minimal_indie",
+        visualDirectorScript: "Use adult male styling only; avoid womenswear preset poses.",
       },
       mode: "smart",
       aspectRatio: templates[0].aspectRatio,
@@ -123,6 +183,8 @@ describe("product set smart planning", () => {
 
     expect(prompt).toContain(PRODUCT_SET_PROMPT_VERSION);
     expect(prompt).toContain("minimal independent");
+    expect(prompt).toContain("AI visual analysis module");
+    expect(prompt).toContain("adult male styling");
     expect(prompt).toContain("Copy density for this module: light");
   });
 });

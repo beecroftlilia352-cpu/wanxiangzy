@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import {
+  Bookmark,
   Check,
   ChevronRight,
   Download,
@@ -14,6 +15,7 @@ import {
   Palette,
   Plus,
   RefreshCw,
+  Save,
   Search,
   Settings2,
   Sparkles,
@@ -46,7 +48,9 @@ import {
   getProductSetModuleKey,
   getProductSetModuleReason,
   getProductSetTemplates,
+  getProductSetVisualDirectorPlanCount,
   normalizeProductSetProductProfile,
+  normalizeProductSetVisualDirectorPlan,
   resolveProductSetTemplates,
   shouldUseModelForTemplate,
   type ProductSetCopyDensity,
@@ -75,6 +79,8 @@ const MODELS: { value: LingyaModel; label: string; desc: string; badge?: string;
 ];
 
 const CUSTOM_ASPECTS: AspectRatio[] = ["4:3", "3:4", "9:16", "16:9", "1:1", "3:2", "2:3", "21:9"];
+const FAVORITE_PRODUCT_SET_PLAN_STORAGE_KEY = "ai-tryon.product-set.favorite-plans.v1";
+const FAVORITE_PRODUCT_SET_PLAN_LIMIT = 24;
 
 type ProductImage = {
   url: string;
@@ -102,6 +108,31 @@ type CustomDraft = {
 
 type TemplateFilter = "all" | "selected" | "womenswear";
 type ProductAnalysisSource = "idle" | "running" | "ai" | "fallback" | "manual" | "history" | "failed";
+type SavedProductSetPlanModule = {
+  name: string;
+  moduleRole: string;
+  aspectRatio: AspectRatio;
+  source: ProductSetResolvedTemplate["source"];
+  usesModel: boolean;
+};
+type SavedProductSetPlan = {
+  id: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+  mode: ProductSetCreationMode;
+  imageType: ProductSetImageType;
+  genCount: number;
+  settings: ProductSetSettings;
+  selectedTemplateIds: number[];
+  customTemplates: ProductSetCustomTemplate[];
+  moduleOverrides: ProductSetModuleOverride[];
+  aiModel: LingyaModel;
+  aspectRatio: AspectRatio;
+  imageSize: ImageSize;
+  qualityMode: "standard" | "advanced";
+  planPreview: SavedProductSetPlanModule[];
+};
 type ProductSetAnalysisDetail = {
   image_role?: string;
   category?: { primary?: string; secondary?: string; category_confidence?: number };
@@ -224,6 +255,9 @@ export default function ProductSetPage() {
   const [showCustomBuilder, setShowCustomBuilder] = useState(false);
   const [templateFilter, setTemplateFilter] = useState<TemplateFilter>("all");
   const [templateQuery, setTemplateQuery] = useState("");
+  const [favoritePlans, setFavoritePlans] = useState<SavedProductSetPlan[]>([]);
+  const [favoritePlanName, setFavoritePlanName] = useState("");
+  const [showFavoritePlans, setShowFavoritePlans] = useState(false);
 
   const templates = useMemo(() => getProductSetTemplates(imageType), [imageType]);
   const activeSelectedTemplateIds = useMemo(
@@ -292,8 +326,12 @@ export default function ProductSetPage() {
     : "先确认详情页屏幕结构，再逐屏生成，默认推荐 5 屏。";
   const detailsResolutionWarning = imageType === "details" && imageSize === "1K";
   const visiblePresetPlans = useMemo(
-    () => PRODUCT_SET_PRESET_PLANS.filter((plan) => plan.id === "smart" || plan.imageType === imageType),
+    () => PRODUCT_SET_PRESET_PLANS.filter((plan) => plan.id === "smart"),
     [imageType]
+  );
+  const favoritePlanDefaultName = useMemo(
+    () => buildDefaultFavoritePlanName(displayProductInfoFields.name, imageType),
+    [displayProductInfoFields.name, imageType]
   );
 
   useEffect(() => {
@@ -319,6 +357,10 @@ export default function ProductSetPage() {
     });
     return () => subscription.unsubscribe();
   }, [supabase]);
+
+  useEffect(() => {
+    setFavoritePlans(readFavoriteProductSetPlans());
+  }, []);
 
   useEffect(() => {
     const applyPayload = takeApplyPayload("productSet");
@@ -384,6 +426,7 @@ export default function ProductSetPage() {
     setAnalysisDetail(null);
     setAnalysisSource("idle");
     setAnalysisMessage("");
+    setSettings((prev) => ({ ...prev, visualDirectorScript: "", visualDirectorPlan: undefined }));
     setModuleOverrides([]);
     lastAnalyzedSignatureRef.current = "";
     resetOutput();
@@ -415,6 +458,7 @@ export default function ProductSetPage() {
     setAnalysisDetail(null);
     setAnalysisSource("idle");
     setAnalysisMessage("");
+    setSettings((prev) => ({ ...prev, visualDirectorScript: "", visualDirectorPlan: undefined }));
     setModuleOverrides([]);
     lastAnalyzedSignatureRef.current = "";
     resetOutput();
@@ -428,6 +472,7 @@ export default function ProductSetPage() {
     setAnalysisDetail(null);
     setAnalysisSource("idle");
     setAnalysisMessage("");
+    setSettings((prev) => ({ ...prev, visualDirectorScript: "", visualDirectorPlan: undefined }));
     setModuleOverrides([]);
     lastAnalyzedSignatureRef.current = "";
     resetOutput();
@@ -460,19 +505,22 @@ export default function ProductSetPage() {
         const nextProfile = normalizeProductSetProductProfile(data.product_profile, nextProductInfo);
         setProductProfile(nextProfile);
         setAnalysisDetail(nextAnalysisSource === "ai" && data.analysis && typeof data.analysis === "object" ? data.analysis as ProductSetAnalysisDetail : null);
+        let analyzedPlanCount = 0;
         if (nextAnalysisSource === "ai" && data.settings_patch && typeof data.settings_patch === "object") {
           const patch = data.settings_patch as Partial<ProductSetSettings>;
+          analyzedPlanCount = getProductSetVisualDirectorPlanCount(patch.visualDirectorPlan, imageType);
           setSettings((prev) => ({
             ...prev,
             ...patch,
             extraDescription: patch.extraDescription
               ? [prev.extraDescription, patch.extraDescription].filter(Boolean).join("\n").slice(0, 600)
               : prev.extraDescription,
-            visualDirectorScript: patch.visualDirectorScript || prev.visualDirectorScript,
+            visualDirectorScript: patch.visualDirectorScript || "",
+            visualDirectorPlan: patch.visualDirectorPlan,
           }));
         }
         if (mode === "smart" && selectedPlanId === "smart") {
-          setGenCount((prev) => Math.max(prev, getDefaultGenerationCount(imageType, nextProfile)));
+          setGenCount(analyzedPlanCount || getDefaultGenerationCount(imageType, nextProfile));
         }
         setShowProductInfoEditor(false);
         if (!options.silent) {
@@ -574,6 +622,66 @@ export default function ProductSetPage() {
   function removePlanModule(index: number) {
     upsertModuleOverride(index, { disabled: true });
     toast.success("已从本次生成计划移除该模块");
+  }
+
+  function persistFavoritePlans(nextPlans: SavedProductSetPlan[]) {
+    setFavoritePlans(nextPlans);
+    writeFavoriteProductSetPlans(nextPlans);
+  }
+
+  function saveCurrentPlanAsFavorite() {
+    if (!planTemplates.length) return toast.error("当前还没有可收藏的生成方案");
+    const now = new Date().toISOString();
+    const name = (favoritePlanName.trim() || favoritePlanDefaultName).slice(0, 40);
+    const existing = favoritePlans.find((plan) => plan.name === name);
+    const nextPlan: SavedProductSetPlan = {
+      id: existing?.id || `favorite-${Date.now()}`,
+      name,
+      createdAt: existing?.createdAt || now,
+      updatedAt: now,
+      mode,
+      imageType,
+      genCount: mode === "smart" ? genCount : planTemplates.length,
+      settings: cloneSerializable(settings),
+      selectedTemplateIds: [...activeSelectedTemplateIds],
+      customTemplates: cloneSerializable(activeCustomTemplates),
+      moduleOverrides: cloneSerializable(moduleOverrides),
+      aiModel,
+      aspectRatio,
+      imageSize,
+      qualityMode,
+      planPreview: buildFavoritePlanPreview(planTemplates, effectiveProductProfile),
+    };
+    const nextPlans = [nextPlan, ...favoritePlans.filter((plan) => plan.id !== nextPlan.id && plan.name !== name)]
+      .slice(0, FAVORITE_PRODUCT_SET_PLAN_LIMIT);
+    persistFavoritePlans(nextPlans);
+    setFavoritePlanName("");
+    setShowFavoritePlans(true);
+    toast.success(existing ? "已更新收藏方案" : "已收藏当前方案，下次可直接套用");
+  }
+
+  function applyFavoritePlan(plan: SavedProductSetPlan) {
+    const nextAspect = plan.aspectRatio || (plan.imageType === "details" ? "3:4" : "1:1");
+    const nextSizes = getSupportedImageSizes(plan.aiModel, nextAspect);
+    setMode(plan.mode);
+    setImageType(plan.imageType);
+    setSelectedPlanId(plan.mode === "custom" ? "custom" : "smart");
+    setSelectedTemplateIds([...plan.selectedTemplateIds]);
+    setCustomTemplates(cloneSerializable(plan.customTemplates));
+    setModuleOverrides(cloneSerializable(plan.moduleOverrides));
+    setSettings(cloneSerializable({ ...DEFAULT_SETTINGS, ...plan.settings }));
+    setAiModel(plan.aiModel);
+    setAspectRatio(nextAspect);
+    setImageSize(nextSizes.includes(plan.imageSize) ? plan.imageSize : nextSizes[0] || "1K");
+    setQualityMode(plan.qualityMode);
+    setGenCount(Math.min(Math.max(plan.genCount || getDefaultGenerationCount(plan.imageType, effectiveProductProfile), 1), plan.imageType === "details" ? 8 : 6));
+    resetOutput();
+    toast.success(`已套用收藏方案「${plan.name}」`);
+  }
+
+  function removeFavoritePlan(id: string) {
+    persistFavoritePlans(favoritePlans.filter((plan) => plan.id !== id));
+    toast.success("已删除收藏方案");
   }
 
   function saveProductProfile(profile: ProductSetProductProfile) {
@@ -1013,6 +1121,7 @@ export default function ProductSetPage() {
                     setAnalysisDetail(null);
                     setAnalysisSource("manual");
                     setAnalysisMessage("");
+                    setSettings((prev) => ({ ...prev, visualDirectorScript: "", visualDirectorPlan: undefined }));
                   }}
                   placeholder="请输入商品信息，包括商品名称、商品描述、商品尺寸、目标受众、商品卖点。上传多视角商品图后也会自动 AI 分析。"
                   className="min-h-40 w-full resize-none rounded-2xl border border-slate-100 bg-slate-50 px-3 py-3 text-sm leading-6 text-slate-800 outline-none transition focus:border-violet-200 focus:bg-white"
@@ -1106,6 +1215,19 @@ export default function ProductSetPage() {
               onRemove={removePlanModule}
             />
 
+            <FavoritePlanPanel
+              plans={favoritePlans}
+              draftName={favoritePlanName}
+              defaultName={favoritePlanDefaultName}
+              currentPlanCount={outputCount}
+              showList={showFavoritePlans}
+              onDraftNameChange={setFavoritePlanName}
+              onSave={saveCurrentPlanAsFavorite}
+              onApply={applyFavoritePlan}
+              onDelete={removeFavoritePlan}
+              onToggleList={() => setShowFavoritePlans((value) => !value)}
+            />
+
             <button type="button" onClick={() => setShowSettingsModal(true)} className="mt-3 flex w-full items-center justify-between rounded-2xl border border-slate-100 bg-slate-50 px-3 py-3 text-left text-xs font-bold text-slate-600 hover:border-violet-200 hover:bg-violet-50/50">
               <span className="flex min-w-0 items-center gap-2">
                 <Settings2 className="h-4 w-4 shrink-0 text-violet-500" />
@@ -1195,15 +1317,12 @@ export default function ProductSetPage() {
 
               <aside className="space-y-4">
                 <section className="rounded-[28px] border border-white/80 bg-white/78 p-4 shadow-[0_18px_70px_rgba(15,23,42,0.08)] backdrop-blur">
-                  <h2 className="text-sm font-black text-slate-950">女装场景模板</h2>
-                  <p className="mt-1 text-xs leading-5 text-slate-500">已加入女装通勤、街拍 Lookbook、搭配建议、面料版型、尺码试穿和种草详情图。</p>
-                  <div className="mt-3 grid grid-cols-2 items-stretch gap-2">
-                    {templates.filter((item) => item.scenario === "womenswear").slice(0, 4).map((template) => (
-                      <button key={template.id} type="button" onClick={() => { setTemplateFilter("womenswear"); setShowTemplateModal(true); }} className="flex min-h-[152px] flex-col overflow-hidden rounded-2xl border border-slate-100 bg-slate-50 text-left">
-                        <img src={template.coverImage} alt={template.name} className="h-24 w-full object-cover" />
-                        <span className="flex flex-1 items-center px-2 py-2 text-[11px] font-black leading-4 text-slate-700"><span className="line-clamp-2">{template.name}</span></span>
-                      </button>
-                    ))}
+                  <h2 className="text-sm font-black text-slate-950">AI视觉方案</h2>
+                  <p className="mt-1 text-xs leading-5 text-slate-500">默认直接使用上传图片的 AI 视觉分析结果生成主图/详情页计划，不再套用本地女装模板。</p>
+                  <div className="mt-3 space-y-2 text-xs leading-5 text-slate-500">
+                    <p>1. 商品性别、品类、场景和模块顺序由 AI 视觉总监方案决定。</p>
+                    <p>2. 本地模板库只在你进入自定义方案时作为参考使用。</p>
+                    <p>3. 当前计划会优先保留商品真实版型、材质、颜色和目标人群。</p>
                   </div>
                 </section>
                 <section className="rounded-[28px] border border-white/80 bg-white/78 p-4 shadow-[0_18px_70px_rgba(15,23,42,0.08)] backdrop-blur">
@@ -1908,6 +2027,120 @@ function PlanRecommendationCard({ recommendation, imageType }: { recommendation:
   );
 }
 
+function FavoritePlanPanel({
+  plans,
+  draftName,
+  defaultName,
+  currentPlanCount,
+  showList,
+  onDraftNameChange,
+  onSave,
+  onApply,
+  onDelete,
+  onToggleList,
+}: {
+  plans: SavedProductSetPlan[];
+  draftName: string;
+  defaultName: string;
+  currentPlanCount: number;
+  showList: boolean;
+  onDraftNameChange: (value: string) => void;
+  onSave: () => void;
+  onApply: (plan: SavedProductSetPlan) => void;
+  onDelete: (id: string) => void;
+  onToggleList: () => void;
+}) {
+  return (
+    <div className="mt-3 rounded-2xl border border-slate-100 bg-slate-50 p-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="inline-flex items-center gap-1.5 text-xs font-black text-slate-800">
+            <Bookmark className="h-3.5 w-3.5 text-violet-500" /> 方案收藏
+          </p>
+          <p className="mt-1 line-clamp-2 text-[11px] leading-4 text-slate-400">
+            收藏当前 AI 视觉方案或自定义模板，下次换商品后直接套用。
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onToggleList}
+          className="inline-flex h-8 shrink-0 items-center gap-1 rounded-full bg-white px-2.5 text-[11px] font-black text-violet-600 hover:bg-violet-50"
+        >
+          {plans.length} 套
+          <ChevronRight className={`h-3.5 w-3.5 transition ${showList ? "rotate-90" : ""}`} />
+        </button>
+      </div>
+
+      <div className="mt-3 flex gap-2">
+        <input
+          value={draftName}
+          onChange={(event) => onDraftNameChange(event.target.value.slice(0, 40))}
+          placeholder={defaultName}
+          className="h-10 min-w-0 flex-1 rounded-xl border border-slate-100 bg-white px-3 text-xs font-bold text-slate-700 outline-none transition focus:border-violet-200"
+        />
+        <button
+          type="button"
+          onClick={onSave}
+          disabled={currentPlanCount <= 0}
+          className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-xl bg-slate-950 px-3 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <Save className="h-3.5 w-3.5" /> 收藏
+        </button>
+      </div>
+
+      {showList && (
+        <div className="mt-3 space-y-2">
+          {plans.length ? plans.map((plan) => (
+            <div key={plan.id} className="rounded-2xl border border-white bg-white px-3 py-3 shadow-sm">
+              <div className="flex items-start gap-2">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-xs font-black text-slate-800">{plan.name}</p>
+                  <p className="mt-0.5 truncate text-[11px] font-bold text-slate-400">
+                    {formatSavedPlanMeta(plan)} · {formatSavedPlanTime(plan.updatedAt)}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onApply(plan)}
+                  className="h-8 shrink-0 rounded-full bg-violet-50 px-3 text-[11px] font-black text-violet-700 hover:bg-violet-100"
+                >
+                  套用
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onDelete(plan.id)}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 hover:bg-red-50 hover:text-red-500"
+                  title="删除收藏方案"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+              {plan.planPreview.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {plan.planPreview.slice(0, 4).map((module, index) => (
+                    <span key={`${plan.id}-${module.name}-${index}`} className="rounded-full bg-slate-50 px-2 py-0.5 text-[10px] font-bold text-slate-500">
+                      {module.usesModel ? "模特 · " : ""}{module.name}
+                    </span>
+                  ))}
+                  {plan.planPreview.length > 4 && (
+                    <span className="rounded-full bg-slate-50 px-2 py-0.5 text-[10px] font-bold text-slate-400">
+                      +{plan.planPreview.length - 4}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+          )) : (
+            <p className="rounded-2xl bg-white px-3 py-4 text-center text-xs text-slate-400">
+              暂无收藏方案。先调整好当前生成计划，再点收藏。
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PlanList({
   templates,
   productProfile,
@@ -2430,6 +2663,186 @@ function OptionGrid({ title, options, value, onChange }: { title: string; option
       </div>
     </div>
   );
+}
+
+function cloneSerializable<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function buildDefaultFavoritePlanName(productName: string, imageType: ProductSetImageType) {
+  const cleanedName = productName.trim();
+  const base = cleanedName && !isPlaceholderProductName(cleanedName)
+    ? cleanedName
+    : imageType === "details" ? "AI详情页方案" : "AI主图方案";
+  return `${base} · ${imageType === "details" ? "详情页" : "主图"}`.slice(0, 40);
+}
+
+function buildFavoritePlanPreview(templates: ProductSetResolvedTemplate[], productProfile: ProductSetProductProfile): SavedProductSetPlanModule[] {
+  return templates.slice(0, 12).map((template) => ({
+    name: template.name,
+    moduleRole: template.moduleRole,
+    aspectRatio: template.aspectRatio,
+    source: template.source,
+    usesModel: shouldUseModelForTemplate(template, productProfile),
+  }));
+}
+
+function readFavoriteProductSetPlans() {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(FAVORITE_PRODUCT_SET_PLAN_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .map(normalizeFavoriteProductSetPlan)
+      .filter((plan): plan is SavedProductSetPlan => Boolean(plan))
+      .slice(0, FAVORITE_PRODUCT_SET_PLAN_LIMIT);
+  } catch {
+    return [];
+  }
+}
+
+function writeFavoriteProductSetPlans(plans: SavedProductSetPlan[]) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(FAVORITE_PRODUCT_SET_PLAN_STORAGE_KEY, JSON.stringify(plans.slice(0, FAVORITE_PRODUCT_SET_PLAN_LIMIT)));
+  } catch {
+    toast.warning("浏览器本地存储已满，收藏方案没有写入成功");
+  }
+}
+
+function normalizeFavoriteProductSetPlan(value: unknown): SavedProductSetPlan | null {
+  if (!isPlainObject(value)) return null;
+  const item = value as Partial<SavedProductSetPlan>;
+  const imageType: ProductSetImageType = item.imageType === "details" ? "details" : "main";
+  const mode: ProductSetCreationMode = item.mode === "custom" ? "custom" : "smart";
+  const aiModel = isLingyaModel(item.aiModel) ? item.aiModel : "gpt-image-2";
+  const aspectRatio = isAspectRatio(item.aspectRatio) ? item.aspectRatio : imageType === "details" ? "3:4" : "1:1";
+  const imageSize = isImageSize(item.imageSize) ? item.imageSize : "1K";
+  const qualityMode = item.qualityMode === "advanced" ? "advanced" : "standard";
+  const updatedAt = typeof item.updatedAt === "string" ? item.updatedAt : new Date().toISOString();
+  const settings = normalizeSavedProductSetSettings(item.settings);
+
+  return {
+    id: typeof item.id === "string" && item.id ? item.id : `favorite-${Date.now()}`,
+    name: typeof item.name === "string" && item.name.trim() ? item.name.trim().slice(0, 40) : buildDefaultFavoritePlanName("", imageType),
+    createdAt: typeof item.createdAt === "string" ? item.createdAt : updatedAt,
+    updatedAt,
+    mode,
+    imageType,
+    genCount: clampPlanCount(item.genCount, imageType),
+    settings,
+    selectedTemplateIds: normalizeNumberArray(item.selectedTemplateIds).slice(0, 10),
+    customTemplates: normalizeSavedCustomTemplates(item.customTemplates),
+    moduleOverrides: normalizeSavedModuleOverrides(item.moduleOverrides),
+    aiModel,
+    aspectRatio,
+    imageSize,
+    qualityMode,
+    planPreview: normalizeSavedPlanPreview(item.planPreview),
+  };
+}
+
+function normalizeSavedProductSetSettings(value: unknown): ProductSetSettings {
+  const input = isPlainObject(value) ? value as Partial<ProductSetSettings> : {};
+  return {
+    ...DEFAULT_SETTINGS,
+    ...input,
+    country: typeof input.country === "string" ? input.country : DEFAULT_SETTINGS.country,
+    language: typeof input.language === "string" ? input.language : DEFAULT_SETTINGS.language,
+    platform: typeof input.platform === "string" ? input.platform : DEFAULT_SETTINGS.platform,
+    themeMode: input.themeMode === "custom" ? "custom" : "auto",
+    themeColor: typeof input.themeColor === "string" ? input.themeColor : DEFAULT_SETTINGS.themeColor,
+    fontStyle: isProductSetFontStyle(input.fontStyle) ? input.fontStyle : "auto",
+    stylePackId: typeof input.stylePackId === "string" ? input.stylePackId as ProductSetSettings["stylePackId"] : "auto",
+    extraDescription: typeof input.extraDescription === "string" ? input.extraDescription : "",
+    visualDirectorScript: typeof input.visualDirectorScript === "string" ? input.visualDirectorScript : "",
+    visualDirectorPlan: normalizeProductSetVisualDirectorPlan(input.visualDirectorPlan),
+  };
+}
+
+function normalizeSavedCustomTemplates(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item): item is ProductSetCustomTemplate => (
+      isPlainObject(item) &&
+      typeof item.id === "string" &&
+      typeof item.name === "string" &&
+      typeof item.typeDescription === "string" &&
+      (item.imageType === "main" || item.imageType === "details")
+    ))
+    .slice(0, 10);
+}
+
+function normalizeSavedModuleOverrides(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item): item is ProductSetModuleOverride => isPlainObject(item) && typeof item.key === "string")
+    .slice(0, 12);
+}
+
+function normalizeSavedPlanPreview(value: unknown): SavedProductSetPlanModule[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item): item is SavedProductSetPlanModule => (
+      isPlainObject(item) &&
+      typeof item.name === "string" &&
+      isAspectRatio(item.aspectRatio) &&
+      (item.source === "preset" || item.source === "ai" || item.source === "custom")
+    ))
+    .map((item) => ({
+      name: item.name.slice(0, 40),
+      moduleRole: typeof item.moduleRole === "string" ? item.moduleRole.slice(0, 120) : "",
+      aspectRatio: item.aspectRatio,
+      source: item.source,
+      usesModel: Boolean(item.usesModel),
+    }))
+    .slice(0, 12);
+}
+
+function normalizeNumberArray(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is number => Number.isFinite(item));
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+function isLingyaModel(value: unknown): value is LingyaModel {
+  return typeof value === "string" && MODELS.some((model) => model.value === value);
+}
+
+function isAspectRatio(value: unknown): value is AspectRatio {
+  return typeof value === "string" && CUSTOM_ASPECTS.includes(value as AspectRatio);
+}
+
+function isImageSize(value: unknown): value is ImageSize {
+  return value === "1K" || value === "2K" || value === "4K";
+}
+
+function isProductSetFontStyle(value: unknown): value is ProductSetFontStyle {
+  return typeof value === "string" && value in PRODUCT_SET_FONT_STYLE_LABELS;
+}
+
+function clampPlanCount(value: unknown, imageType: ProductSetImageType) {
+  const raw = typeof value === "number" && Number.isFinite(value) ? value : getDefaultGenerationCount(imageType);
+  return Math.min(Math.max(Math.round(raw), 1), imageType === "details" ? 8 : 6);
+}
+
+function formatSavedPlanMeta(plan: SavedProductSetPlan) {
+  const modeLabel = plan.mode === "custom" ? "自定义方案" : "AI视觉方案";
+  const imageTypeLabel = plan.imageType === "details" ? "详情页" : "主图";
+  const unit = plan.imageType === "details" ? "屏" : "张";
+  const count = plan.planPreview.length || plan.genCount;
+  return `${modeLabel} · ${imageTypeLabel} · ${count}${unit}`;
+}
+
+function formatSavedPlanTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "刚刚";
+  return `${date.getMonth() + 1}/${date.getDate()} ${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
 }
 
 function parseProductInfo(text: string) {

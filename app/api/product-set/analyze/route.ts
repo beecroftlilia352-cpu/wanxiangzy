@@ -6,6 +6,7 @@ import { logger } from "@/lib/logger";
 import {
   inferProductSetProductProfile,
   normalizeProductSetProductProfile,
+  normalizeProductSetVisualDirectorPlan,
   type ProductSetProductKind,
   type ProductSetApparelType,
   type ProductSetModelStrategy,
@@ -802,8 +803,8 @@ function buildProductProfileFromAnalysis(analysis: ProductSetVisionAnalysis, pro
     needsModel,
     modelStrategy,
     modelBrief: buildModelBriefFromAnalysis(analysis, apparelType, isApparel),
-    recommendedMainPlanId: isApparel ? "women-main" : inferred.recommendedMainPlanId,
-    recommendedDetailsPlanId: isApparel ? "women-detail" : inferred.recommendedDetailsPlanId,
+    recommendedMainPlanId: isApparel ? "ai-main" : inferred.recommendedMainPlanId,
+    recommendedDetailsPlanId: isApparel ? "ai-details" : inferred.recommendedDetailsPlanId,
     planningNotes: [
       analysis.visual_director?.strategy_name ? `AI视觉总监：${analysis.visual_director.strategy_name}` : "",
       analysis.visual_director?.style_strategy,
@@ -824,9 +825,11 @@ function buildSettingsPatchFromAnalysis(analysis: ProductSetVisionAnalysis): Par
   const style = String(analysis.generation_fit?.recommended_style || "");
   const stylePackId = mapRecommendedStyle(style);
   const directorBrief = buildVisualDirectorSettingsBrief(analysis);
+  const visualDirectorPlan = normalizeProductSetVisualDirectorPlan(analysis.visual_director);
   return {
     ...(stylePackId === "auto" ? {} : { stylePackId }),
-    ...(directorBrief ? { extraDescription: directorBrief } : {}),
+    ...(directorBrief ? { visualDirectorScript: directorBrief } : {}),
+    ...(visualDirectorPlan ? { visualDirectorPlan } : {}),
   };
 }
 
