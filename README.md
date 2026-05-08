@@ -175,6 +175,12 @@ git push origin v1.0.0
 
 Tencent EdgeOne Cloud SSR Node functions 有 128 MiB 运行包限制。每次 `npm run build` 后可本地检查 `.next/server/server-reference-manifest`、`.next/standalone` 和 server chunks 的体积风险：
 
+发布前建议先运行完整检查，按顺序执行测试、生产构建和 SSR 包体积检查：
+
+```bash
+npm run check:release
+```
+
 ```bash
 npm run check:ssr-size
 ```

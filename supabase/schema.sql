@@ -134,31 +134,87 @@ CREATE POLICY "Users can insert own generations"
 -- ============================================================
 -- 商品套图收藏方案表
 -- ============================================================
-CREATE TABLE public.product_set_favorite_plans (
+CREATE TABLE IF NOT EXISTS public.product_set_favorite_plans (
   id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id               UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   name                  TEXT NOT NULL CHECK (char_length(trim(name)) > 0 AND char_length(name) <= 40),
   mode                  TEXT NOT NULL DEFAULT 'smart' CHECK (mode IN ('smart', 'custom')),
   image_type            TEXT NOT NULL DEFAULT 'main' CHECK (image_type IN ('main', 'details')),
   gen_count             INTEGER NOT NULL DEFAULT 3 CHECK (gen_count >= 1 AND gen_count <= 8),
-  settings              JSONB NOT NULL DEFAULT '{}'::jsonb,
-  selected_template_ids INTEGER[] NOT NULL DEFAULT '{}',
-  custom_templates      JSONB NOT NULL DEFAULT '[]'::jsonb,
-  module_overrides      JSONB NOT NULL DEFAULT '[]'::jsonb,
+  settings              JSONB NOT NULL DEFAULT '{}'::jsonb CONSTRAINT product_set_favorite_plans_settings_object_chk CHECK (jsonb_typeof(settings) = 'object'),
+  selected_template_ids INTEGER[] NOT NULL DEFAULT '{}' CONSTRAINT product_set_favorite_plans_selected_template_ids_limit_chk CHECK (cardinality(selected_template_ids) <= 10),
+  custom_templates      JSONB NOT NULL DEFAULT '[]'::jsonb CONSTRAINT product_set_favorite_plans_custom_templates_array_chk CHECK (CASE WHEN jsonb_typeof(custom_templates) = 'array' THEN jsonb_array_length(custom_templates) <= 10 ELSE false END),
+  module_overrides      JSONB NOT NULL DEFAULT '[]'::jsonb CONSTRAINT product_set_favorite_plans_module_overrides_array_chk CHECK (CASE WHEN jsonb_typeof(module_overrides) = 'array' THEN jsonb_array_length(module_overrides) <= 10 ELSE false END),
   ai_model              TEXT NOT NULL DEFAULT 'gpt-image-2',
   aspect_ratio          TEXT NOT NULL DEFAULT '3:4',
   image_size            TEXT NOT NULL DEFAULT '1K',
   quality_mode          TEXT NOT NULL DEFAULT 'standard' CHECK (quality_mode IN ('standard', 'advanced')),
-  plan_preview          JSONB NOT NULL DEFAULT '[]'::jsonb,
+  plan_preview          JSONB NOT NULL DEFAULT '[]'::jsonb CONSTRAINT product_set_favorite_plans_plan_preview_array_chk CHECK (CASE WHEN jsonb_typeof(plan_preview) = 'array' THEN jsonb_array_length(plan_preview) <= 12 ELSE false END),
   created_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (user_id, name)
 );
 
-CREATE INDEX product_set_favorite_plans_user_updated_idx
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'product_set_favorite_plans_settings_object_chk'
+      AND conrelid = 'public.product_set_favorite_plans'::regclass
+  ) THEN
+    ALTER TABLE public.product_set_favorite_plans
+      ADD CONSTRAINT product_set_favorite_plans_settings_object_chk
+      CHECK (jsonb_typeof(settings) = 'object') NOT VALID;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'product_set_favorite_plans_selected_template_ids_limit_chk'
+      AND conrelid = 'public.product_set_favorite_plans'::regclass
+  ) THEN
+    ALTER TABLE public.product_set_favorite_plans
+      ADD CONSTRAINT product_set_favorite_plans_selected_template_ids_limit_chk
+      CHECK (cardinality(selected_template_ids) <= 10) NOT VALID;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'product_set_favorite_plans_custom_templates_array_chk'
+      AND conrelid = 'public.product_set_favorite_plans'::regclass
+  ) THEN
+    ALTER TABLE public.product_set_favorite_plans
+      ADD CONSTRAINT product_set_favorite_plans_custom_templates_array_chk
+      CHECK (CASE WHEN jsonb_typeof(custom_templates) = 'array' THEN jsonb_array_length(custom_templates) <= 10 ELSE false END) NOT VALID;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'product_set_favorite_plans_module_overrides_array_chk'
+      AND conrelid = 'public.product_set_favorite_plans'::regclass
+  ) THEN
+    ALTER TABLE public.product_set_favorite_plans
+      ADD CONSTRAINT product_set_favorite_plans_module_overrides_array_chk
+      CHECK (CASE WHEN jsonb_typeof(module_overrides) = 'array' THEN jsonb_array_length(module_overrides) <= 10 ELSE false END) NOT VALID;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'product_set_favorite_plans_plan_preview_array_chk'
+      AND conrelid = 'public.product_set_favorite_plans'::regclass
+  ) THEN
+    ALTER TABLE public.product_set_favorite_plans
+      ADD CONSTRAINT product_set_favorite_plans_plan_preview_array_chk
+      CHECK (CASE WHEN jsonb_typeof(plan_preview) = 'array' THEN jsonb_array_length(plan_preview) <= 12 ELSE false END) NOT VALID;
+  END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS product_set_favorite_plans_user_updated_idx
   ON public.product_set_favorite_plans(user_id, updated_at DESC);
 
 ALTER TABLE public.product_set_favorite_plans ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can manage own product set favorite plans"
+  ON public.product_set_favorite_plans;
 
 CREATE POLICY "Users can manage own product set favorite plans"
   ON public.product_set_favorite_plans FOR ALL

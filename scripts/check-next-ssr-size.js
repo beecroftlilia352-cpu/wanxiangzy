@@ -9,6 +9,21 @@ const warnAtBytes = readBytesEnv("SSR_SIZE_WARN_MIB", Math.floor(edgeOneLimitByt
 const largeFileBytes = readBytesEnv("SSR_SIZE_LARGE_FILE_MIB", 8 * mib);
 const failOnRisk = process.env.SSR_SIZE_FAIL_ON_RISK === "1";
 
+if (process.argv.includes("--help") || process.argv.includes("-h")) {
+  console.log(`Usage: node scripts/check-next-ssr-size.js [--help]
+
+Checks the Next.js .next output for EdgeOne SSR Node function package size risk.
+Run npm run build before this check.
+
+Environment:
+  SSR_SIZE_LIMIT_MIB       Hard runtime package limit. Default: 128
+  SSR_SIZE_WARN_MIB        Warn threshold. Default: 90% of limit
+  SSR_SIZE_LARGE_FILE_MIB  Large file report threshold. Default: 8
+  SSR_SIZE_FAIL_ON_RISK=1  Exit non-zero when risk is detected
+`);
+  process.exit(0);
+}
+
 const sections = [
   {
     name: "server reference manifest",

@@ -7,6 +7,9 @@ import { getApplyPath, type HistoryJobPayload } from "@/lib/history-apply";
 import { buildTryOnPrompt } from "@/lib/api/lingya";
 import { ClientPortal } from "@/components/ClientPortal";
 import {
+  buildHistoryFilterUrl,
+  getHistoryFailureRecoveryCopy,
+  getHistoryFiltersFromSearch,
   getHistoryFilterStateCopy,
   type HistoryModuleFilter,
   type HistoryStatusFilter,
@@ -43,9 +46,6 @@ const STATUS_FILTERS: { value: HistoryStatusFilter; label: string }[] = [
   { value: "failed", label: "失败" },
 ];
 
-const MODULE_FILTER_VALUES = new Set<HistoryModuleFilter>(MODULE_FILTERS.map((item) => item.value));
-const STATUS_FILTER_VALUES = new Set<HistoryStatusFilter>(STATUS_FILTERS.map((item) => item.value));
-
 type HistoryRow = {
   id: string;
   status: string;
@@ -70,24 +70,12 @@ type HistoryListPayload = {
   error?: string;
 };
 
-function parseModuleFilter(value: string | null): HistoryModuleFilter {
-  return value && MODULE_FILTER_VALUES.has(value as HistoryModuleFilter) ? (value as HistoryModuleFilter) : "all";
-}
-
-function parseStatusFilter(value: string | null): HistoryStatusFilter {
-  return value && STATUS_FILTER_VALUES.has(value as HistoryStatusFilter) ? (value as HistoryStatusFilter) : "all";
-}
-
 function getInitialHistoryFilters() {
   if (typeof window === "undefined") {
     return { moduleFilter: "all" as HistoryModuleFilter, statusFilter: "all" as HistoryStatusFilter };
   }
 
-  const params = new URLSearchParams(window.location.search);
-  return {
-    moduleFilter: parseModuleFilter(params.get("module")),
-    statusFilter: parseStatusFilter(params.get("status")),
-  };
+  return getHistoryFiltersFromSearch(window.location.search);
 }
 
 function getInitialHistoryDetailId() {
@@ -98,21 +86,7 @@ function getInitialHistoryDetailId() {
 function replaceHistoryFilterUrl(moduleFilter: HistoryModuleFilter, statusFilter: HistoryStatusFilter) {
   if (typeof window === "undefined") return;
 
-  const url = new URL(window.location.href);
-  if (moduleFilter === "all") {
-    url.searchParams.delete("module");
-  } else {
-    url.searchParams.set("module", moduleFilter);
-  }
-
-  if (statusFilter === "all") {
-    url.searchParams.delete("status");
-  } else {
-    url.searchParams.set("status", statusFilter);
-  }
-
-  const query = url.searchParams.toString();
-  window.history.replaceState(window.history.state, "", `${url.pathname}${query ? `?${query}` : ""}${url.hash}`);
+  window.history.replaceState(window.history.state, "", buildHistoryFilterUrl(window.location.href, moduleFilter, statusFilter));
 }
 
 function replaceHistoryDetailUrl(detailId: string | null) {
@@ -247,6 +221,11 @@ export default function HistoryPage() {
   const detailResults = detailRow?.result_urls || [];
   const selectedResultIndex = detailResults.length ? Math.min(detailResultIndex, detailResults.length - 1) : 0;
   const selectedResultUrl = detailResults[selectedResultIndex];
+  const detailFailureCopy = detailRow ? getHistoryFailureRecoveryCopy({
+    status: detailRow.status,
+    errorMessage: detailRow.error_message,
+    hasApplyParams: Boolean(detailPayload?.kind),
+  }) : null;
   const filteredRows = useMemo(() => rows.filter((row) => {
     const payload = getRowPayload(row);
     const moduleMatch = moduleFilter === "all" || payload?.kind === moduleFilter;
@@ -531,6 +510,11 @@ export default function HistoryPage() {
           const moduleLabel = payload?.kind ? formatKind(payload.kind) : "生成作品";
           const status = formatStatus(g.status);
           const credits = g.credits_cost || g.credits_used || "-";
+          const failureCopy = getHistoryFailureRecoveryCopy({
+            status: g.status,
+            errorMessage: g.error_message,
+            hasApplyParams: Boolean(payload?.kind),
+          });
 
           return (
             <article key={g.id} className="group overflow-hidden rounded-[28px] border border-white/80 bg-white/78 shadow-[0_18px_54px_rgba(15,23,42,0.08)] backdrop-blur-xl transition hover:-translate-y-0.5 hover:shadow-[0_24px_76px_rgba(15,23,42,0.12)]">
@@ -609,7 +593,13 @@ export default function HistoryPage() {
                     </div>
                   )}
 
-                  {g.error_message && (
+                  {failureCopy ? (
+                    <div className="mt-3 rounded-xl border border-red-100 bg-red-50/80 px-3 py-2 text-xs leading-5 text-red-700">
+                      <p className="font-bold">{failureCopy.title}</p>
+                      <p className="mt-1">{failureCopy.reason}</p>
+                      <p className="mt-1 text-red-500">{failureCopy.recoveryHint}</p>
+                    </div>
+                  ) : g.error_message && (
                     <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">{g.error_message}</p>
                   )}
 
@@ -628,7 +618,7 @@ export default function HistoryPage() {
                       className="inline-flex items-center gap-1.5 rounded-full bg-violet-50 px-3 py-1.5 text-xs font-bold text-violet-600 hover:bg-violet-100 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       <RotateCcw className="h-3.5 w-3.5" />
-                      套用
+                      {failureCopy?.applyLabel || "套用"}
                     </button>
                     <button
                       onClick={() => coverUrl && downloadHistoryResult(g, coverUrl, 0)}
@@ -720,7 +710,7 @@ export default function HistoryPage() {
                     className="inline-flex items-center gap-1.5 rounded-full gradient-brand px-3 py-1.5 text-xs font-medium text-white"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
-                    套用
+                    {detailFailureCopy?.applyLabel || "套用"}
                   </button>
                 )}
                 <button onClick={closeDetail} className="rounded-full p-1.5 hover:bg-white/80" aria-label="关闭">
@@ -750,8 +740,13 @@ export default function HistoryPage() {
                       </span>
                     </button>
                   ) : (
-                    <div className="text-center text-sm text-gray-400">
-                      {detailRow.status === "completed" ? "暂无结果图片" : formatStatus(detailRow.status)}
+                    <div className="max-w-sm px-5 text-center text-sm text-gray-500">
+                      {detailFailureCopy ? (
+                        <>
+                          <p className="font-bold text-red-600">{detailFailureCopy.title}</p>
+                          <p className="mt-2 text-xs leading-5 text-gray-500">{detailFailureCopy.recoveryHint}</p>
+                        </>
+                      ) : detailRow.status === "completed" ? "暂无结果图片" : formatStatus(detailRow.status)}
                     </div>
                   )}
                   {detailResults.length > 0 && (
@@ -820,6 +815,14 @@ export default function HistoryPage() {
                   </div>
                 </section>
 
+                {detailFailureCopy && (
+                  <section className="rounded-xl border border-red-100 bg-red-50/80 p-3 text-xs leading-5 text-red-700">
+                    <h4 className="font-bold">{detailFailureCopy.title}</h4>
+                    <p className="mt-1">{detailFailureCopy.reason}</p>
+                    <p className="mt-1 text-red-500">{detailFailureCopy.recoveryHint}</p>
+                  </section>
+                )}
+
                 {detailImages.length > 0 && (
                   <section>
                     <h4 className="mb-2 text-xs font-bold text-gray-900">输入图片</h4>
@@ -877,7 +880,7 @@ export default function HistoryPage() {
                       className="inline-flex w-full items-center justify-center gap-1.5 rounded-full gradient-brand px-4 py-2 text-xs font-medium text-white"
                     >
                       <RotateCcw className="w-3.5 h-3.5" />
-                      套用参数
+                      {detailFailureCopy?.applyLabel || "套用参数"}
                     </button>
                   </div>
                 )}
