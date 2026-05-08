@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase/server";
-import { normalizeGenerationState } from "@/lib/api/generation-state";
+import {
+  GENERATION_FAILED_STATUS_FILTERS,
+  GENERATION_RUNNING_STATUS_FILTERS,
+  normalizeGenerationState,
+} from "@/lib/api/generation-state";
 
 const QUEUE_COLUMNS = [
   "id",
@@ -88,8 +92,6 @@ const EMPTY_SUMMARY: QueueSummaryData = {
   failedTaskNum: 0,
 };
 
-const RUNNING_GENERATION_STATUSES = ["pending", "queued", "running", "processing", "processing_tryon", "processing_face_swap", "generating"];
-const FAILED_GENERATION_STATUSES = ["failed", "error", "cancelled", "canceled"];
 const RUNNING_WORKFLOW_STATUSES = ["queued", "running"];
 const FAILED_WORKFLOW_STATUSES = ["failed", "cancelled", "canceled"];
 const RUNNING_TASK_STALE_MS = getRunningTaskStaleMs();
@@ -147,7 +149,7 @@ async function loadQueueSummary(supabase: Awaited<ReturnType<typeof createServer
         .from("generations")
         .select("id", { count: "exact", head: true })
         .eq("user_id", userId)
-        .in("status", FAILED_GENERATION_STATUSES),
+        .in("status", [...GENERATION_FAILED_STATUS_FILTERS]),
       "generations failed"
     ),
     countRows(
@@ -192,7 +194,7 @@ async function loadRunningGenerationCount(supabase: Awaited<ReturnType<typeof cr
     .from("generations")
     .select(SUMMARY_GENERATION_COLUMNS)
     .eq("user_id", userId)
-    .in("status", RUNNING_GENERATION_STATUSES);
+    .in("status", [...GENERATION_RUNNING_STATUS_FILTERS]);
 
   if (error) throw new Error(`generations running: ${error.message || "query failed"}`);
 

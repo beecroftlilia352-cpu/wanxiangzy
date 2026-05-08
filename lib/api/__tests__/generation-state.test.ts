@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { normalizeGenerationState } from "../generation-state";
+import {
+  GENERATION_PROCESSING_STATUS_FILTERS,
+  GENERATION_RUNNING_STATUS_FILTERS,
+  normalizeGenerationState,
+  normalizeGenerationStatus,
+} from "../generation-state";
 
 describe("normalizeGenerationState", () => {
   it("keeps multi-image jobs running when only one child task has succeeded", () => {
@@ -15,7 +20,7 @@ describe("normalizeGenerationState", () => {
       },
     });
 
-    expect(state.status).toBe("processing_tryon");
+    expect(state.status).toBe("processing");
     expect(state.statusGroup).toBe("running");
     expect(state.progress).toBeLessThan(100);
     expect(state.resultCount).toBe(1);
@@ -90,10 +95,27 @@ describe("normalizeGenerationState", () => {
       },
     });
 
-    expect(state.status).toBe("processing_tryon");
+    expect(state.status).toBe("processing");
     expect(state.expectedCount).toBe(2);
     expect(state.resultCount).toBe(1);
     expect(state.progress).toBe(75);
     expect(state.moduleResults?.[0].moduleKey).toBe("preset:108");
+  });
+
+  it("normalizes database running aliases to stable API statuses", () => {
+    expect(normalizeGenerationStatus("queued")).toBe("pending");
+    expect(normalizeGenerationStatus("pending")).toBe("pending");
+    expect(normalizeGenerationStatus("processing_tryon")).toBe("processing");
+    expect(normalizeGenerationStatus("processing_face_swap")).toBe("processing");
+    expect(normalizeGenerationStatus("running")).toBe("processing");
+    expect(normalizeGenerationStatus("completed")).toBe("completed");
+    expect(normalizeGenerationStatus("failed")).toBe("failed");
+  });
+
+  it("keeps legacy processing_tryon in running filters for workers and queue queries", () => {
+    expect(GENERATION_PROCESSING_STATUS_FILTERS).toContain("processing_tryon");
+    expect(GENERATION_PROCESSING_STATUS_FILTERS).toContain("processing_face_swap");
+    expect(GENERATION_RUNNING_STATUS_FILTERS).toContain("queued");
+    expect(GENERATION_RUNNING_STATUS_FILTERS).toContain("processing_tryon");
   });
 });

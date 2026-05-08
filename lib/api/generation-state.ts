@@ -19,8 +19,18 @@ type NormalizeGenerationStateInput = {
   completedAt?: string | null;
 };
 
+export const GENERATION_PENDING_STATUS_FILTERS = ["pending", "queued"] as const;
+export const GENERATION_PROCESSING_STATUS_FILTERS = ["processing", "processing_tryon", "processing_face_swap", "running", "generating"] as const;
+export const GENERATION_RUNNING_STATUS_FILTERS = [
+  ...GENERATION_PENDING_STATUS_FILTERS,
+  ...GENERATION_PROCESSING_STATUS_FILTERS,
+] as const;
+export const GENERATION_COMPLETED_STATUS_FILTERS = ["completed", "succeeded", "success"] as const;
+export const GENERATION_FAILED_STATUS_FILTERS = ["failed", "error", "cancelled", "canceled"] as const;
+
 export function normalizeGenerationState(input: NormalizeGenerationStateInput): NormalizedGenerationState {
-  const status = typeof input.status === "string" && input.status.length > 0 ? input.status.toLowerCase() : "pending";
+  const status = normalizeStatusText(input.status);
+  const canonicalStatus = normalizeGenerationStatus(status);
   const payload = isRecord(input.payload) ? input.payload : {};
   const asyncTask = readAsyncTask(payload);
   const moduleResults = normalizeProductSetModuleResults(payload.moduleResults);
@@ -31,11 +41,11 @@ export function normalizeGenerationState(input: NormalizeGenerationStateInput): 
   const providerStatus = asyncTask?.status || null;
   const providerDone = isProviderDone(providerStatus);
   const hasEnoughResults = resultCount > 0 && resultCount >= expectedCount;
-  const explicitCompleted = status === "completed" || status === "succeeded" || status === "success";
-  const explicitFailed = status === "failed" || status === "error" || status === "cancelled" || status === "canceled";
+  const explicitCompleted = isCompletedStatus(status);
+  const explicitFailed = isFailedStatus(status);
   const providerCompleted = providerDone && hasEnoughResults;
   const completed = !explicitFailed && (explicitCompleted || hasEnoughResults || providerCompleted);
-  const normalizedStatus = completed ? "completed" : status;
+  const normalizedStatus = completed ? "completed" : canonicalStatus;
   const progress = completed ? 100 : moduleExpectedCount ? readModuleProgress(moduleResults) : readRunningProgress({
     asyncProgress: asyncTask?.progress,
     resultCount,
@@ -55,9 +65,32 @@ export function normalizeGenerationState(input: NormalizeGenerationStateInput): 
   };
 }
 
+export function normalizeGenerationStatus(status?: string | null) {
+  const normalized = normalizeStatusText(status);
+  if (isCompletedStatus(normalized)) return "completed";
+  if (isFailedStatus(normalized)) return "failed";
+  if (GENERATION_PENDING_STATUS_FILTERS.includes(normalized as typeof GENERATION_PENDING_STATUS_FILTERS[number])) return "pending";
+  if (isProcessingStatus(normalized)) return "processing";
+  return normalized;
+}
+
 export function isRunningStatus(status: string) {
-  const normalized = status.toLowerCase();
-  return normalized === "pending" || normalized === "queued" || normalized === "running" || normalized === "processing" || normalized === "processing_tryon" || normalized.startsWith("processing_");
+  const normalized = normalizeStatusText(status);
+  return isProcessingStatus(normalized) ||
+    GENERATION_PENDING_STATUS_FILTERS.includes(normalized as typeof GENERATION_PENDING_STATUS_FILTERS[number]);
+}
+
+function isProcessingStatus(status: string) {
+  return GENERATION_PROCESSING_STATUS_FILTERS.includes(status as typeof GENERATION_PROCESSING_STATUS_FILTERS[number]) ||
+    status.startsWith("processing_");
+}
+
+function isCompletedStatus(status: string) {
+  return GENERATION_COMPLETED_STATUS_FILTERS.includes(status as typeof GENERATION_COMPLETED_STATUS_FILTERS[number]);
+}
+
+function isFailedStatus(status: string) {
+  return GENERATION_FAILED_STATUS_FILTERS.includes(status as typeof GENERATION_FAILED_STATUS_FILTERS[number]);
 }
 
 function readExpectedCount(payload: Record<string, unknown>, resultCount: number) {
@@ -104,8 +137,12 @@ function readAsyncTask(payload: Record<string, unknown>) {
 
 function isProviderDone(status?: string | null) {
   if (!status) return false;
-  const normalized = status.toLowerCase();
+  const normalized = normalizeStatusText(status);
   return normalized === "success" || normalized === "succeeded" || normalized === "completed" || normalized === "done" || normalized === "sync_completed";
+}
+
+function normalizeStatusText(status?: string | null) {
+  return typeof status === "string" && status.trim().length > 0 ? status.trim().toLowerCase() : "pending";
 }
 
 function firstFiniteNumber(values: unknown[]) {

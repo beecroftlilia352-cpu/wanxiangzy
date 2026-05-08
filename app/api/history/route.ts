@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase/server";
-import { normalizeGenerationState } from "@/lib/api/generation-state";
+import {
+  GENERATION_COMPLETED_STATUS_FILTERS,
+  GENERATION_FAILED_STATUS_FILTERS,
+  GENERATION_PENDING_STATUS_FILTERS,
+  GENERATION_PROCESSING_STATUS_FILTERS,
+  normalizeGenerationState,
+} from "@/lib/api/generation-state";
 
 const HISTORY_LIST_COLUMNS = [
   "id",
@@ -37,10 +43,10 @@ const HISTORY_MODULE_FILTERS = new Set([
   "faceSwap",
 ]);
 const HISTORY_STATUS_FILTERS: Record<string, string[]> = {
-  completed: ["completed", "succeeded", "success"],
-  processing: ["processing", "processing_tryon", "processing_face_swap", "running", "generating"],
-  pending: ["pending", "queued"],
-  failed: ["failed", "error", "cancelled", "canceled"],
+  completed: [...GENERATION_COMPLETED_STATUS_FILTERS],
+  processing: [...GENERATION_PROCESSING_STATUS_FILTERS],
+  pending: [...GENERATION_PENDING_STATUS_FILTERS],
+  failed: [...GENERATION_FAILED_STATUS_FILTERS],
 };
 
 type HistoryListRow = {
