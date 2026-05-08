@@ -1331,7 +1331,7 @@ export default function ProductSetPage() {
       <main className="relative flex-1 overflow-hidden">
         <div className="absolute inset-0 overflow-y-auto p-4 pb-24 sm:p-6 lg:p-8">
           {!isGenerating && !error && resultUrls.length === 0 && (
-            <div className="mx-auto grid max-w-7xl gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+            <div className="mx-auto max-w-5xl">
               <section className="rounded-[32px] border border-white/80 bg-white/78 p-5 shadow-[0_18px_70px_rgba(15,23,42,0.08)] backdrop-blur">
                 <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="min-w-0 flex-1">
@@ -1357,31 +1357,23 @@ export default function ProductSetPage() {
 
                 <div className="mt-5">
                   <div className="mb-3 flex items-center justify-between gap-3">
-                    <h2 className="min-w-0 truncate text-sm font-black text-slate-950">本次会生成</h2>
+                    <h2 className="min-w-0 truncate text-sm font-black text-slate-950">操作引导</h2>
                     <button type="button" onClick={() => setShowTemplateModal(true)} className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600 hover:bg-slate-50">
                       <Eye className="h-3.5 w-3.5" /> 查看模板
                     </button>
                   </div>
-                  <div className="grid auto-rows-fr gap-3 md:grid-cols-2 xl:grid-cols-3">
-                    {planTemplates.map((template, index) => (
-                      <PlanPreviewCard key={`${template.source}-${template.id}-${index}`} template={template} index={index} productProfile={effectiveProductProfile} onEdit={() => setEditingModuleIndex(index)} />
-                    ))}
-                  </div>
+                  <PreviewGuide
+                    title="开始制作商品套图"
+                    subtitle="上传商品图后，AI 会先分析品类、卖点和视觉方向，再生成主图/详情页计划。"
+                    icon={<ImagePlus className="h-10 w-10" />}
+                    steps={[
+                      { title: "上传商品图", desc: "最多 3 张，建议包含正面、背面、细节或包装，方便 AI 判断结构与卖点。" },
+                      { title: "确认商品信息", desc: "识别结果可手动修正，商品名、品类、材质和目标人群会影响生成计划。" },
+                      { title: "生成商品套图", desc: "主图适合上架与投放，详情页适合逐屏讲解卖点；需要固定风格时再使用自定义方案。" },
+                    ]}
+                  />
                 </div>
               </section>
-
-              <aside className="flex items-start">
-                <PreviewGuide
-                  title="开始制作商品套图"
-                  subtitle="上传商品图后，AI 会先分析品类、卖点和视觉方向，再生成主图/详情页计划。"
-                  icon={<ImagePlus className="h-10 w-10" />}
-                  steps={[
-                    { title: "上传商品图", desc: "最多 3 张，建议包含正面、背面、细节或包装，方便 AI 判断结构与卖点。" },
-                    { title: "确认商品信息", desc: "识别结果可手动修正，商品名、品类、材质和目标人群会影响生成计划。" },
-                    { title: "生成商品套图", desc: "主图适合上架与投放，详情页适合逐屏讲解卖点；需要固定风格时再使用自定义方案。" },
-                  ]}
-                />
-              </aside>
             </div>
           )}
 
