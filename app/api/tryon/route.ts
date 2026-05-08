@@ -59,7 +59,9 @@ export async function POST(request: NextRequest) {
     const size: ImageSize = normalizeImageSize(model, image_size || "1K", aspectRatio);
     const costPerImage = getCreditCost(model, size, aspectRatio);
     const totalCost = costPerImage * genCount;
-    const sceneMode = normalizeSceneMode(scene_mode);
+    const sceneMode = scene_mode === undefined && reference_url
+      ? "upload_reference"
+      : normalizeSceneMode(scene_mode);
     const autoDesign = sceneMode === "auto_design" ? normalizeAutoDesignSettings(auto_design) : undefined;
     const clothingMode = normalizeTryOnClothingMode(clothing_mode || (clothing_urls.length > 1 ? "multi" : "single"));
     const clothingRoles = Array.isArray(clothing_roles)

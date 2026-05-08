@@ -124,7 +124,12 @@ const STYLE_PRESETS = [
 const GARMENT_AUDIENCE_OPTIONS: TryOnGarmentAudience[] = ["women", "men"];
 const AGE_GROUP_OPTIONS: TryOnAgeGroup[] = ["adult", "teen", "big_child", "middle_child", "small_child", "toddler"];
 
-const FAVORITE_REFERENCES_KEY = "vastweargen:tryon-reference-favorites";
+const SCENE_MODE_TABS: Array<{ value: TryOnSceneMode; label: string }> = [
+  { value: "auto_design", label: "智能模式" },
+  { value: "system_reference", label: "系统预设" },
+  { value: "upload_reference", label: "上传" },
+  { value: "favorites", label: "收藏" },
+];
 
 type FavoriteReference = {
   id: string;
@@ -163,6 +168,7 @@ export default function CreatePage() {
   const [genCount, setGenCount] = useState(1);
 
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [credits, setCredits] = useState<number | null>(null);
@@ -173,9 +179,11 @@ export default function CreatePage() {
   const [optimizing, setOptimizing] = useState(false);
   const [showPromptPreview, setShowPromptPreview] = useState(false);
   const [promptOverride, setPromptOverride] = useState<string | null>(null);
-  const [sceneMode, setSceneMode] = useState<TryOnSceneMode>("system_reference");
+  const [sceneMode, setSceneMode] = useState<TryOnSceneMode>("auto_design");
   const [autoDesign, setAutoDesign] = useState<AutoDesignSettings>(DEFAULT_AUTO_DESIGN);
   const [favoriteReferences, setFavoriteReferences] = useState<FavoriteReference[]>([]);
+  const [isLoadingFavoriteReferences, setIsLoadingFavoriteReferences] = useState(false);
+  const [isSavingFavoriteReference, setIsSavingFavoriteReference] = useState(false);
   const [clothingMode, setClothingMode] = useState<TryOnClothingMode>("single");
   const [clothingRoles, setClothingRoles] = useState<TryOnClothingRole[]>([]);
   const [garmentAudience, setGarmentAudience] = useState<TryOnGarmentAudience>("women");
@@ -200,6 +208,9 @@ export default function CreatePage() {
   const aspects = aiModel === "gpt-image-2" ? GPT_ASPECTS : BANANA_ASPECTS;
   const imageSizes = getSupportedImageSizes(aiModel, aspectRatio);
   const effectiveReferenceUrl = sceneMode === "auto_design" ? null : store.referenceImage?.url || null;
+  const isCurrentReferenceFavorited = Boolean(
+    store.referenceImage?.url && favoriteReferences.some((item) => item.url === store.referenceImage?.url)
+  );
   const autoDesignPrompt = sceneMode === "auto_design" ? buildAutoDesignPrompt(autoDesign) : "";
   const stylePrompt = [autoDesignPrompt, customStyle.trim()].filter(Boolean).join("\n");
   const clothingItems = store.clothingPreviews.map((preview, index) => ({
@@ -242,24 +253,54 @@ export default function CreatePage() {
     }, 120);
   };
 
-  const persistFavoriteReferences = (items: FavoriteReference[]) => {
-    setFavoriteReferences(items);
-    window.localStorage.setItem(FAVORITE_REFERENCES_KEY, JSON.stringify(items));
+  const resetScenePrompt = () => {
+    setPromptOverride(null);
+    store.setPromptUsed("");
+  };
+
+  const applyPresetReference = (ref: typeof PRESET_REFERENCES[number]) => {
+    store.setReferenceImage({ ...ref, is_preset: true, user_id: null } as any);
+    setCustomRefPreview(null);
+    resetScenePrompt();
+  };
+
+  const applyFavoriteReference = (ref: FavoriteReference) => {
+    store.setReferenceImage(ref as any);
+    setCustomRefPreview(null);
+    resetScenePrompt();
   };
 
   const switchSceneMode = (mode: TryOnSceneMode) => {
     setSceneMode(mode);
-    setPromptOverride(null);
+    resetScenePrompt();
+
     if (mode === "auto_design") {
       store.setReferenceImage(null);
       setCustomRefPreview(null);
-    } else if (mode === "system_reference" && store.referenceImage && !store.referenceImage.is_preset) {
-      store.setReferenceImage(null);
-      setCustomRefPreview(null);
-    } else if (mode === "upload_reference" && store.referenceImage?.is_preset) {
-      store.setReferenceImage(null);
-      setCustomRefPreview(null);
-    } else if (mode === "favorites" && store.referenceImage && !favoriteReferences.some((item) => item.url === store.referenceImage?.url)) {
+      return;
+    }
+
+    if (mode === "system_reference") {
+      if (!store.referenceImage?.is_preset) {
+        const firstPreset = PRESET_REFERENCES[0];
+        if (firstPreset) applyPresetReference(firstPreset);
+      }
+      return;
+    }
+
+    if (mode === "upload_reference") {
+      if (store.referenceImage?.is_preset || favoriteReferences.some((item) => item.url === store.referenceImage?.url)) {
+        store.setReferenceImage(null);
+        setCustomRefPreview(null);
+      }
+      return;
+    }
+
+    const currentFavorite = favoriteReferences.find((item) => item.url === store.referenceImage?.url);
+    const nextFavorite = currentFavorite || favoriteReferences[0];
+    if (nextFavorite) {
+      applyFavoriteReference(nextFavorite);
+    } else {
       store.setReferenceImage(null);
       setCustomRefPreview(null);
     }
@@ -291,27 +332,81 @@ export default function CreatePage() {
     store.setPromptUsed("");
   };
 
-  const addCurrentReferenceToFavorites = () => {
+  const addCurrentReferenceToFavorites = async () => {
+    if (!isAuthenticated) {
+      toast.error("请先登录后收藏");
+      router.push("/login");
+      return;
+    }
     if (!store.referenceImage?.url) {
       toast.error("请先选择参考图");
       return;
     }
-    const nextItem: FavoriteReference = {
-      id: `fav-${Date.now()}`,
-      url: store.referenceImage.url,
-      label: store.referenceImage.label || "收藏参考图",
-      category: store.referenceImage.category || "scene",
+
+    setIsSavingFavoriteReference(true);
+    try {
+      const res = await fetch("/api/tryon/reference-favorites", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          url: store.referenceImage.url,
+          label: store.referenceImage.label || "收藏参考图",
+          category: normalizeReferenceCategory(store.referenceImage.category),
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "收藏失败");
+
+      const favorite = normalizeFavoriteReference(data.favorite);
+      if (!favorite) throw new Error("收藏数据异常");
+      setFavoriteReferences((prev) => [
+        favorite,
+        ...prev.filter((item) => item.id !== favorite.id && item.url !== favorite.url),
+      ].slice(0, 24));
+      toast.success(isCurrentReferenceFavorited ? "已更新收藏" : "已收藏参考图");
+    } catch (err: any) {
+      toast.error(err?.message || "收藏失败");
+    } finally {
+      setIsSavingFavoriteReference(false);
+    }
+  };
+
+  const removeFavoriteReference = async (id: string) => {
+    const removed = favoriteReferences.find((item) => item.id === id);
+    if (!removed) return;
+    setFavoriteReferences((prev) => prev.filter((item) => item.id !== id));
+    if (store.referenceImage?.url === removed.url) {
+      store.setReferenceImage(null);
+      setCustomRefPreview(null);
+    }
+    try {
+      const res = await fetch(`/api/tryon/reference-favorites/${encodeURIComponent(id)}`, { method: "DELETE" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "删除失败");
+      toast.success("已移除收藏");
+    } catch (err: any) {
+      setFavoriteReferences((prev) => [removed, ...prev].slice(0, 24));
+      toast.error(err?.message || "删除失败");
+    }
+  };
+
+  function normalizeFavoriteReference(value: unknown): FavoriteReference | null {
+    if (!value || typeof value !== "object") return null;
+    const record = value as Record<string, unknown>;
+    if (typeof record.id !== "string" || typeof record.url !== "string") return null;
+    return {
+      id: record.id,
+      url: record.url,
+      label: typeof record.label === "string" && record.label.trim() ? record.label : "收藏参考图",
+      category: normalizeReferenceCategory(record.category),
       is_preset: false,
       user_id: null,
     };
-    const next = [nextItem, ...favoriteReferences.filter((item) => item.url !== nextItem.url)].slice(0, 24);
-    persistFavoriteReferences(next);
-    toast.success("已收藏参考图");
-  };
+  }
 
-  const removeFavoriteReference = (id: string) => {
-    persistFavoriteReferences(favoriteReferences.filter((item) => item.id !== id));
-  };
+  function normalizeReferenceCategory(value: unknown): FavoriteReference["category"] {
+    return value === "style" || value === "pose" || value === "scene" ? value : "scene";
+  }
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -319,14 +414,25 @@ export default function CreatePage() {
         setIsAuthenticated(true);
         setUserId(data.user.id);
         getCachedProfileCredits(data.user.id).then(setCredits);
+      } else {
+        setIsAuthenticated(false);
+        setUserId(null);
+        setCredits(null);
       }
+    }).finally(() => {
+      setAuthChecked(true);
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
       if (session?.user) {
         setIsAuthenticated(true);
         setUserId(session.user.id);
         getCachedProfileCredits(session.user.id).then(setCredits);
-      } else { setIsAuthenticated(false); setUserId(null); setCredits(null); }
+      } else {
+        setIsAuthenticated(false);
+        setUserId(null);
+        setCredits(null);
+      }
+      setAuthChecked(true);
     });
     return () => subscription.unsubscribe();
   }, []);
@@ -336,17 +442,41 @@ export default function CreatePage() {
   }, []);
 
   useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(FAVORITE_REFERENCES_KEY);
-      if (!raw) return;
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) {
-        setFavoriteReferences(parsed.filter((item) => item?.url && item?.label).slice(0, 24));
-      }
-    } catch {
-      window.localStorage.removeItem(FAVORITE_REFERENCES_KEY);
+    let cancelled = false;
+    if (!authChecked) return;
+    if (!isAuthenticated) {
+      setFavoriteReferences([]);
+      setIsLoadingFavoriteReferences(false);
+      return;
     }
-  }, []);
+
+    setIsLoadingFavoriteReferences(true);
+    fetch("/api/tryon/reference-favorites")
+      .then(async (res) => {
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || "收藏加载失败");
+        return Array.isArray(data.favorites)
+          ? data.favorites.map(normalizeFavoriteReference).filter(Boolean) as FavoriteReference[]
+          : [];
+      })
+      .then((items) => {
+        if (!cancelled) setFavoriteReferences(items.slice(0, 24));
+      })
+      .catch((err: any) => {
+        if (!cancelled) toast.error(err?.message || "收藏加载失败");
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingFavoriteReferences(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [authChecked, isAuthenticated]);
+
+  useEffect(() => {
+    if (sceneMode !== "favorites" || isLoadingFavoriteReferences || favoriteReferences.length === 0) return;
+    if (favoriteReferences.some((item) => item.url === store.referenceImage?.url)) return;
+    applyFavoriteReference(favoriteReferences[0]);
+  }, [sceneMode, isLoadingFavoriteReferences, favoriteReferences, store.referenceImage?.url]);
 
   useEffect(() => {
     if (!aspects.find(a => a.value === aspectRatio)) setAspectRatio("3:4");
@@ -383,7 +513,8 @@ export default function CreatePage() {
     } else {
       store.setSelectedModel(null);
     }
-    if (payload.referenceUrl) {
+    const appliedSceneMode = payload.sceneMode || (payload.referenceUrl ? "upload_reference" : "auto_design");
+    if (appliedSceneMode !== "auto_design" && payload.referenceUrl) {
       store.setReferenceImage({
         id: "history-reference",
         url: payload.referenceUrl,
@@ -395,7 +526,7 @@ export default function CreatePage() {
     } else {
       store.setReferenceImage(null);
     }
-    setSceneMode(payload.sceneMode || (payload.referenceUrl ? "upload_reference" : "system_reference"));
+    setSceneMode(appliedSceneMode);
     setAutoDesign(payload.autoDesign || DEFAULT_AUTO_DESIGN);
     setAiModel(payload.aiModel);
     setAspectRatio(payload.aspectRatio);
@@ -625,6 +756,7 @@ export default function CreatePage() {
       store.setReferenceImage({ id: "custom", url: result.url, label: "自定义参考", category: "style", is_preset: false, user_id: null });
       setSceneMode("upload_reference");
       setPromptOverride(null);
+      store.setPromptUsed("");
       toast.success("参考图已选择");
     } catch {
       setCustomRefPreview(null);
@@ -1025,28 +1157,29 @@ export default function CreatePage() {
                 <h3 className="font-bold text-sm flex items-center gap-2">
                   <Image className="w-4 h-4 text-purple-500" /> 参考图 / 场景
                 </h3>
-                <p className="mt-1 text-[11px] text-gray-400">参考图和自动设计互斥；自动设计不会使用参考图</p>
+                <p className="mt-1 text-[11px] text-gray-400">智能模式不使用参考图；预设、上传、收藏会作为参考来源</p>
               </div>
               {store.referenceImage && sceneMode !== "auto_design" && (
                 <button
                   onClick={addCurrentReferenceToFavorites}
-                  className="px-2 py-1 rounded-full border text-[10px] text-gray-500 hover:text-purple-600 hover:border-purple-300"
+                  disabled={isSavingFavoriteReference}
+                  className="px-2 py-1 rounded-full border text-[10px] text-gray-500 hover:text-purple-600 hover:border-purple-300 disabled:opacity-50"
                 >
-                  收藏
+                  {isSavingFavoriteReference ? "保存中" : isCurrentReferenceFavorited ? "已收藏" : "收藏"}
                 </button>
               )}
             </div>
 
             <div className="mb-3 grid grid-cols-4 gap-1 rounded-xl bg-gray-100 p-1">
-              {(Object.keys(SCENE_MODE_LABELS) as TryOnSceneMode[]).map((mode) => (
+              {SCENE_MODE_TABS.map((tab) => (
                 <button
-                  key={mode}
-                  onClick={() => switchSceneMode(mode)}
+                  key={tab.value}
+                  onClick={() => switchSceneMode(tab.value)}
                   className={`py-1.5 rounded-lg text-[11px] font-medium transition-all ${
-                    sceneMode === mode ? "bg-white text-purple-600 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                    sceneMode === tab.value ? "bg-white text-purple-600 shadow-sm" : "text-gray-500 hover:text-gray-700"
                   }`}
                 >
-                  {SCENE_MODE_LABELS[mode]}
+                  {tab.label}
                 </button>
               ))}
             </div>
@@ -1059,9 +1192,7 @@ export default function CreatePage() {
                     <div key={ref.id} role="button" tabIndex={0}
                       onClick={() => {
                         switchSceneMode("system_reference");
-                        store.setReferenceImage({ ...ref, is_preset: true, user_id: null } as any);
-                        setCustomRefPreview(null);
-                        setPromptOverride(null);
+                        applyPresetReference(ref);
                       }}
                       className={`group relative rounded-lg overflow-hidden border-2 bg-white transition-all cursor-pointer ${
                         store.referenceImage?.id === ref.id ? "border-purple-500 ring-1 ring-purple-200" : "border-transparent hover:border-gray-300"
@@ -1155,7 +1286,14 @@ export default function CreatePage() {
 
             {sceneMode === "favorites" && (
               <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50/70 p-3">
-                {favoriteReferences.length === 0 ? (
+                {!isAuthenticated ? (
+                  <div className="py-8 text-center text-xs text-gray-400">登录后查看收藏参考图</div>
+                ) : isLoadingFavoriteReferences ? (
+                  <div className="py-8 text-center text-xs text-gray-400 flex items-center justify-center gap-2">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    加载收藏中
+                  </div>
+                ) : favoriteReferences.length === 0 ? (
                   <div className="py-8 text-center text-xs text-gray-400">还没有收藏参考图</div>
                 ) : (
                   <div className="grid grid-cols-3 gap-2">
@@ -1163,9 +1301,7 @@ export default function CreatePage() {
                       <div key={ref.id} role="button" tabIndex={0}
                         onClick={() => {
                           switchSceneMode("favorites");
-                          store.setReferenceImage(ref as any);
-                          setCustomRefPreview(null);
-                          setPromptOverride(null);
+                          applyFavoriteReference(ref);
                         }}
                         className={`group relative rounded-lg overflow-hidden border-2 bg-white transition-all cursor-pointer ${
                           store.referenceImage?.url === ref.url ? "border-purple-500 ring-1 ring-purple-200" : "border-transparent hover:border-gray-300"
@@ -1578,7 +1714,7 @@ export default function CreatePage() {
                 )}
                 {sceneMode === "auto_design" && (
                   <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-medium">
-                    + 自动设计
+                    + 智能模式
                   </span>
                 )}
               </div>
@@ -1600,7 +1736,7 @@ export default function CreatePage() {
                   ["模特脸", store.selectedModel ? "已使用" : "未使用"],
                   ["场景模式", SCENE_MODE_LABELS[sceneMode]],
                   ["参考图", effectiveReferenceUrl ? "已使用" : "未使用"],
-                  ["自动设计", sceneMode === "auto_design" ? AUTO_DESIGN_PLATFORMS.find((item) => item.value === autoDesign.platform)?.label || "-" : "未使用"],
+                  ["智能方案", sceneMode === "auto_design" ? AUTO_DESIGN_PLATFORMS.find((item) => item.value === autoDesign.platform)?.label || "-" : "未使用"],
                   ["用户输入", customStyle || "无"],
                 ].map(([label, value]) => (
                   <div key={label} className="rounded-lg border bg-gray-50 px-3 py-2">

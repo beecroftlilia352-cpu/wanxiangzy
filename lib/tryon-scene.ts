@@ -23,10 +23,10 @@ export const DEFAULT_AUTO_DESIGN: AutoDesignSettings = {
 };
 
 export const SCENE_MODE_LABELS: Record<TryOnSceneMode, string> = {
-  system_reference: "系统参考图",
-  upload_reference: "上传参考图",
-  auto_design: "自动设计",
-  favorites: "我的收藏",
+  system_reference: "系统预设",
+  upload_reference: "上传",
+  auto_design: "智能模式",
+  favorites: "收藏",
 };
 
 export const AUTO_DESIGN_PLATFORMS: Array<{ value: AutoDesignPlatform; label: string; desc: string; prompt: string }> = [
@@ -119,7 +119,7 @@ export function normalizeSceneMode(value: unknown): TryOnSceneMode {
   ) {
     return value;
   }
-  return "system_reference";
+  return "auto_design";
 }
 
 export function normalizeAutoDesignSettings(value: unknown): AutoDesignSettings {
@@ -142,5 +142,5 @@ export function buildAutoDesignPrompt(settings: AutoDesignSettings) {
   const framing = AUTO_DESIGN_FRAMINGS.find((item) => item.value === settings.framing) || AUTO_DESIGN_FRAMINGS[0];
   const background = AUTO_DESIGN_BACKGROUNDS.find((item) => item.value === settings.background) || AUTO_DESIGN_BACKGROUNDS[0];
 
-  return `自动设计拍摄方案：${platform.label}，构图为${framing.label}，背景为${background.label}。当前不使用参考图，由 AI 根据服装类型、版型和商业展示需求，自动设计最适合的模特姿势、构图、背景场景、镜头距离和灯光方案。${platform.prompt}${framing.prompt}${background.prompt}自动设计只能决定拍摄方案，不得改变服装图的版型、颜色、材质、图案和细节，不得默认美白，不得过度瘦身或改变真实体态。`;
+  return `智能模式拍摄方案：${platform.label}，构图为${framing.label}，背景为${background.label}。当前不使用参考图，由 AI 根据服装类型、版型和商业展示需求，自动设计最适合的模特姿势、构图、背景场景、镜头距离和灯光方案。${platform.prompt}${framing.prompt}${background.prompt}智能模式只能决定拍摄方案，不得改变服装图的版型、颜色、材质、图案和细节，不得默认美白，不得过度瘦身或改变真实体态。`;
 }
