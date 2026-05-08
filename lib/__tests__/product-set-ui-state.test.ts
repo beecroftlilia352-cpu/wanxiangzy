@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { ProductSetSettings } from "../product-set";
 import {
   buildFavoritePlanApplyState,
+  getPlanSourceTabForProductSetState,
+  getProductSetModeForPlanSource,
   getSelectedPlanIdForProductSetState,
   normalizeFavoriteProductSetPlan,
   type SavedProductSetPlan,
@@ -94,6 +96,7 @@ describe("product set UI state helpers", () => {
     expect(state.imageSize).toBe("4K");
     expect(state.qualityMode).toBe("advanced");
     expect(state.genCount).toBe(5);
+    expect(state.planSourceTab).toBe("preset");
   });
 
   it("keeps smart favorites in smart mode even when old preset ids are present", () => {
@@ -109,6 +112,7 @@ describe("product set UI state helpers", () => {
     expect(state.selectedPlanId).toBe("smart");
     expect(state.selectedTemplateIds).toEqual([1, 8, 2, 5, 12]);
     expect(state.genCount).toBe(3);
+    expect(state.planSourceTab).toBe("smart");
   });
 
   it("distinguishes custom uploads from exact system preset selections", () => {
@@ -122,5 +126,36 @@ describe("product set UI state helpers", () => {
       imageType: "main",
       selectedTemplateIds: [1, 2],
     })).toBe("custom");
+  });
+
+  it("derives the opened plan source tab without mixing smart and presets", () => {
+    expect(getPlanSourceTabForProductSetState({
+      mode: "smart",
+      selectedPlanId: "taobao-main",
+    })).toBe("smart");
+
+    expect(getPlanSourceTabForProductSetState({
+      mode: "custom",
+      selectedPlanId: "taobao-main",
+    })).toBe("preset");
+
+    expect(getPlanSourceTabForProductSetState({
+      mode: "custom",
+      selectedPlanId: "custom",
+      customTemplates: [{ id: "custom-1", name: "Model", imageType: "main", aspectRatio: "1:1", typeDescription: "Uploaded model reference" }],
+    })).toBe("upload");
+
+    expect(getPlanSourceTabForProductSetState({
+      mode: "custom",
+      selectedPlanId: "custom",
+      fallback: "favorites",
+    })).toBe("favorites");
+  });
+
+  it("maps plan source tabs to generation modes", () => {
+    expect(getProductSetModeForPlanSource("smart")).toBe("smart");
+    expect(getProductSetModeForPlanSource("preset")).toBe("custom");
+    expect(getProductSetModeForPlanSource("upload")).toBe("custom");
+    expect(getProductSetModeForPlanSource("favorites")).toBe("custom");
   });
 });

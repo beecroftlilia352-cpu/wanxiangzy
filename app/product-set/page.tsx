@@ -74,8 +74,10 @@ import {
   buildDefaultFavoritePlanName,
   buildFavoritePlanApplyState,
   buildSavedProductSetPlan,
+  getPlanSourceTabForProductSetState,
   getSelectedPlanIdForProductSetState,
   normalizeFavoriteProductSetPlan,
+  type ProductSetPlanSourceTab,
   type SavedProductSetPlan,
 } from "@/lib/product-set-ui-state";
 
@@ -87,6 +89,13 @@ const MODELS: { value: LingyaModel; label: string; desc: string; badge?: string;
 ];
 
 const CUSTOM_ASPECTS: AspectRatio[] = ["4:3", "3:4", "9:16", "16:9", "1:1", "3:2", "2:3", "21:9"];
+
+const PLAN_SOURCE_TABS: { value: ProductSetPlanSourceTab; label: string; description: string }[] = [
+  { value: "smart", label: "智能模式", description: "AI 视觉分析" },
+  { value: "preset", label: "系统预设", description: "项目模板" },
+  { value: "upload", label: "上传模板", description: "自定义参考" },
+  { value: "favorites", label: "我的收藏", description: "账号复用" },
+];
 const FAVORITE_PRODUCT_SET_PLAN_LIMIT = 24;
 
 type ProductImage = {
@@ -208,6 +217,7 @@ export default function ProductSetPage() {
   const [showProfileEditor, setShowProfileEditor] = useState(false);
   const [settings, setSettings] = useState<ProductSetSettings>(DEFAULT_SETTINGS);
   const [mode, setMode] = useState<ProductSetCreationMode>("smart");
+  const [planSourceTab, setPlanSourceTab] = useState<ProductSetPlanSourceTab>("smart");
   const [imageType, setImageType] = useState<ProductSetImageType>("main");
   const [selectedTemplateIds, setSelectedTemplateIds] = useState<number[]>([]);
   const [selectedPlanId, setSelectedPlanId] = useState("smart");
@@ -390,10 +400,16 @@ export default function ProductSetPage() {
     setAnalysisSource(applyPayload.productInfo ? "history" : "idle");
     setAnalysisMessage("");
     setSettings({ ...DEFAULT_SETTINGS, ...(applyPayload.settings || {}) });
-    setMode(applyPayload.mode === "custom" ? "custom" : "smart");
+    const appliedMode = applyPayload.mode === "custom" ? "custom" : "smart";
+    setMode(appliedMode);
+    setPlanSourceTab(getPlanSourceTabForProductSetState({
+      mode: appliedMode,
+      selectedPlanId: appliedMode === "custom" ? "custom" : "smart",
+      customTemplates: applyPayload.customTemplates || [],
+    }));
     setImageType(appliedImageType);
     setSelectedTemplateIds(applyPayload.selectedTemplateIds || []);
-    setSelectedPlanId(applyPayload.mode === "custom" ? "custom" : "smart");
+    setSelectedPlanId(appliedMode === "custom" ? "custom" : "smart");
     setCustomTemplates(applyPayload.customTemplates || []);
     setModuleOverrides(applyPayload.moduleOverrides || []);
     setAiModel(applyPayload.aiModel);
@@ -610,6 +626,7 @@ export default function ProductSetPage() {
       avoidRules: customDraft.avoidRules.trim().slice(0, 320),
     };
     setMode("custom");
+    setPlanSourceTab("upload");
     setSelectedPlanId("custom");
     setCustomTemplates((prev) => [...prev, item].slice(-10));
     setModuleOverrides([]);
@@ -621,6 +638,7 @@ export default function ProductSetPage() {
 
   function toggleTemplate(id: number) {
     setMode("custom");
+    setPlanSourceTab("preset");
     setSelectedPlanId("custom");
     setSelectedTemplateIds((prev) => replaceSelectedTemplateIdsForImageType(
       prev,
@@ -703,6 +721,7 @@ export default function ProductSetPage() {
       defaultGenCount: getDefaultGenerationCount(plan.imageType, effectiveProductProfile),
     });
     setMode(nextState.mode);
+    setPlanSourceTab(nextState.planSourceTab);
     setImageType(nextState.imageType);
     setSelectedPlanId(nextState.selectedPlanId);
     setSelectedTemplateIds(nextState.selectedTemplateIds);
@@ -786,11 +805,13 @@ export default function ProductSetPage() {
     setModuleOverrides([]);
     if (plan.id === "smart") {
       setMode("smart");
+      setPlanSourceTab("smart");
       resetOutput();
       return;
     }
 
     setMode("custom");
+    setPlanSourceTab("preset");
     setImageType(plan.imageType);
     setSelectedTemplateIds((prev) => replaceSelectedTemplateIdsForImageType(prev, plan.imageType, plan.templateIds));
     setGenCount(Math.min(Math.max(plan.templateIds.length, 1), plan.imageType === "details" ? 8 : 6));
@@ -821,6 +842,15 @@ export default function ProductSetPage() {
       selectedTemplateIds: nextSelectedTemplateIds,
     }));
     resetOutput();
+  }
+
+  function changePlanSourceTab(value: ProductSetPlanSourceTab) {
+    setPlanSourceTab(value);
+    if (value === "smart") {
+      setMode("smart");
+      setSelectedPlanId("smart");
+      resetOutput();
+    }
   }
 
   function updateSetting<K extends keyof ProductSetSettings>(key: K, value: ProductSetSettings[K]) {
@@ -1210,34 +1240,117 @@ export default function ProductSetPage() {
           <section className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm">
             <div className="mb-3 flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
-                <h3 className="text-sm font-black text-slate-950">推荐方案</h3>
-                <p className="mt-1 text-xs text-slate-400">{modeTitle} · {modeDescription}</p>
+                <h3 className="text-sm font-black text-slate-950">方案来源</h3>
+                <p className="mt-1 text-xs leading-5 text-slate-400">选择方案来源，不同来源互不丢草稿；智能模式默认依据 AI 视觉分析。</p>
               </div>
               <button type="button" onClick={() => setShowTemplateModal(true)} className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-slate-950 px-3 text-xs font-black text-white">
                 <Layers3 className="h-3.5 w-3.5" /> 模板库
               </button>
             </div>
-            <div className="grid grid-cols-2 items-stretch gap-2">
-              {visiblePresetPlans.map((plan) => (
-                <button
-                  key={plan.id}
-                  type="button"
-                  onClick={() => applyPresetPlan(plan.id)}
-                  className={`flex min-h-[92px] flex-col rounded-2xl border p-3 text-left transition ${
-                    selectedPlanId === plan.id
-                      ? "border-violet-400 bg-violet-50 text-violet-800"
-                      : "border-slate-100 bg-slate-50 text-slate-600 hover:border-violet-200"
-                  }`}
-                >
-                  <span className="flex min-h-5 items-center justify-between gap-2">
-                    <span className="min-w-0 truncate text-xs font-black">{plan.name}</span>
-                    {plan.id === "smart" && effectiveProductProfile.isApparel && <span className="rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-black text-violet-600">已识别服装</span>}
-                    {plan.scenario === "womenswear" && <span className="rounded-full bg-pink-100 px-1.5 py-0.5 text-[10px] font-black text-pink-600">女装</span>}
-                  </span>
-                  <span className="mt-1 block line-clamp-2 text-[11px] leading-4 opacity-75">{plan.id === "smart" ? getSmartPlanDescription(effectiveProductProfile, imageType) : plan.description}</span>
-                </button>
-              ))}
+
+            <div className="mb-3 grid grid-cols-4 gap-1 rounded-2xl bg-slate-100 p-1">
+              {PLAN_SOURCE_TABS.map((tab) => {
+                const active = planSourceTab === tab.value;
+                return (
+                  <button
+                    key={tab.value}
+                    type="button"
+                    onClick={() => changePlanSourceTab(tab.value)}
+                    className={`min-h-12 rounded-xl px-2 py-1.5 text-center transition ${
+                      active ? "bg-white text-violet-700 shadow-sm" : "text-slate-500 hover:bg-white/60"
+                    }`}
+                  >
+                    <span className="block truncate text-xs font-black">{tab.label}</span>
+                    <span className="mt-0.5 block truncate text-[10px] font-bold opacity-70">{tab.description}</span>
+                  </button>
+                );
+              })}
             </div>
+
+            {planSourceTab === "smart" && (
+              <div>
+                <PlanRecommendationCard recommendation={planRecommendation} imageType={imageType} />
+                <div className="rounded-2xl border border-slate-100 bg-slate-50 p-3">
+                  <div className="mb-2 flex items-center justify-between text-xs">
+                    <span className="font-bold text-slate-700">{imageType === "main" ? "生成数量" : "详情页屏数"}</span>
+                    <span className="font-black text-violet-600">{genCount} {imageType === "main" ? "张" : "屏"}</span>
+                  </div>
+                  <div className="grid grid-cols-4 items-stretch gap-1.5">
+                    {countOptions.map((value) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => { setGenCount(value); resetOutput(); }}
+                        className={`h-9 rounded-xl border text-xs font-black transition ${genCount === value ? "border-violet-400 bg-violet-50 text-violet-700" : "border-slate-200 bg-white text-slate-500"}`}
+                      >
+                        {value}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="mt-2 text-[11px] leading-5 text-slate-400">{modeTitle} · {modeDescription}</p>
+                </div>
+              </div>
+            )}
+
+            {planSourceTab === "preset" && (
+              <div className="grid grid-cols-2 items-stretch gap-2">
+                {visiblePresetPlans.filter((plan) => plan.id !== "smart").map((plan) => (
+                  <button
+                    key={plan.id}
+                    type="button"
+                    onClick={() => applyPresetPlan(plan.id)}
+                    className={`flex min-h-[92px] flex-col rounded-2xl border p-3 text-left transition ${
+                      selectedPlanId === plan.id
+                        ? "border-violet-400 bg-violet-50 text-violet-800"
+                        : "border-slate-100 bg-slate-50 text-slate-600 hover:border-violet-200"
+                    }`}
+                  >
+                    <span className="flex min-h-5 items-center justify-between gap-2">
+                      <span className="min-w-0 truncate text-xs font-black">{plan.name}</span>
+                      {plan.scenario === "womenswear" && <span className="rounded-full bg-pink-100 px-1.5 py-0.5 text-[10px] font-black text-pink-600">女装</span>}
+                    </span>
+                    <span className="mt-1 block line-clamp-2 text-[11px] leading-4 opacity-75">{plan.description}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {planSourceTab === "upload" && (
+              <CustomTemplateSourcePanel
+                customDraft={customDraft}
+                activeCustomTemplates={activeCustomTemplates}
+                isUploadingCustomRef={isUploadingCustomRef}
+                customRefInputRef={customRefInputRef}
+                customModelRefInputRef={customModelRefInputRef}
+                customOtherRefInputRef={customOtherRefInputRef}
+                onCustomDraftChange={setCustomDraft}
+                onUploadCustomReference={uploadCustomReference}
+                onAddCustomTemplate={addCustomTemplate}
+                onRemoveCustomTemplate={(id) => {
+                  setCustomTemplates((prev) => prev.filter((item) => item.id !== id));
+                  resetOutput();
+                }}
+                onOpenLibrary={() => setShowTemplateModal(true)}
+              />
+            )}
+
+            {planSourceTab === "favorites" && (
+              <FavoritePlanPanel
+                embedded
+                plans={favoritePlans}
+                draftName={favoritePlanName}
+                defaultName={favoritePlanDefaultName}
+                currentPlanCount={outputCount}
+                showList
+                isLoading={isLoadingFavoritePlans}
+                isSaving={isSavingFavoritePlan}
+                onDraftNameChange={setFavoritePlanName}
+                onSave={saveCurrentPlanAsFavorite}
+                onApply={applyFavoritePlan}
+                onDelete={removeFavoritePlan}
+                onToggleList={() => setShowFavoritePlans((value) => !value)}
+              />
+            )}
           </section>
 
           <section className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm">
@@ -1249,49 +1362,11 @@ export default function ProductSetPage() {
               <span className="inline-flex h-7 shrink-0 items-center rounded-full bg-violet-50 px-2.5 text-xs font-black text-violet-700">{outputCount || 0} {imageType === "main" ? "张" : "屏"}</span>
             </div>
 
-            <PlanRecommendationCard recommendation={planRecommendation} imageType={imageType} />
-
-            {mode === "smart" && (
-              <div className="mb-3">
-                <div className="mb-2 flex items-center justify-between text-xs">
-                  <span className="font-bold text-slate-700">{imageType === "main" ? "生成数量" : "详情页屏数"}</span>
-                  <span className="font-black text-violet-600">{genCount} {imageType === "main" ? "张" : "屏"}</span>
-                </div>
-                <div className="grid grid-cols-4 items-stretch gap-1.5">
-                  {countOptions.map((value) => (
-                    <button
-                      key={value}
-                      type="button"
-                      onClick={() => { setGenCount(value); resetOutput(); }}
-                      className={`h-9 rounded-xl border text-xs font-black transition ${genCount === value ? "border-violet-400 bg-violet-50 text-violet-700" : "border-slate-200 bg-slate-50 text-slate-500"}`}
-                    >
-                      {value}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
             <PlanList
               templates={planTemplates}
               productProfile={effectiveProductProfile}
               onEdit={setEditingModuleIndex}
               onRemove={removePlanModule}
-            />
-
-            <FavoritePlanPanel
-              plans={favoritePlans}
-              draftName={favoritePlanName}
-              defaultName={favoritePlanDefaultName}
-              currentPlanCount={outputCount}
-              showList={showFavoritePlans}
-              isLoading={isLoadingFavoritePlans}
-              isSaving={isSavingFavoritePlan}
-              onDraftNameChange={setFavoritePlanName}
-              onSave={saveCurrentPlanAsFavorite}
-              onApply={applyFavoritePlan}
-              onDelete={removeFavoritePlan}
-              onToggleList={() => setShowFavoritePlans((value) => !value)}
             />
 
             <button type="button" onClick={() => setShowSettingsModal(true)} className="mt-3 flex w-full items-center justify-between rounded-2xl border border-slate-100 bg-slate-50 px-3 py-3 text-left text-xs font-bold text-slate-600 hover:border-violet-200 hover:bg-violet-50/50">
@@ -2078,7 +2153,137 @@ function PlanRecommendationCard({ recommendation, imageType }: { recommendation:
   );
 }
 
+function CustomTemplateSourcePanel({
+  customDraft,
+  activeCustomTemplates,
+  isUploadingCustomRef,
+  customRefInputRef,
+  customModelRefInputRef,
+  customOtherRefInputRef,
+  onCustomDraftChange,
+  onUploadCustomReference,
+  onAddCustomTemplate,
+  onRemoveCustomTemplate,
+  onOpenLibrary,
+}: {
+  customDraft: CustomDraft;
+  activeCustomTemplates: ProductSetCustomTemplate[];
+  isUploadingCustomRef: boolean;
+  customRefInputRef: React.RefObject<HTMLInputElement | null>;
+  customModelRefInputRef: React.RefObject<HTMLInputElement | null>;
+  customOtherRefInputRef: React.RefObject<HTMLInputElement | null>;
+  onCustomDraftChange: (updater: (value: CustomDraft) => CustomDraft) => void;
+  onUploadCustomReference: (kind: "style" | "model" | "other", file?: File) => void;
+  onAddCustomTemplate: () => void;
+  onRemoveCustomTemplate: (id: string) => void;
+  onOpenLibrary: () => void;
+}) {
+  return (
+    <div className="space-y-3 rounded-2xl border border-slate-100 bg-slate-50 p-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="inline-flex items-center gap-1.5 text-xs font-black text-slate-800">
+            <Upload className="h-3.5 w-3.5 text-violet-500" /> 上传模板
+          </p>
+          <p className="mt-1 line-clamp-2 text-[11px] leading-4 text-slate-400">
+            上传样式、模特或其它参考图，再用文字规则定义这张图在套图里的作用。
+          </p>
+        </div>
+        <button type="button" onClick={onOpenLibrary} className="inline-flex h-8 shrink-0 items-center gap-1 rounded-full bg-white px-2.5 text-[11px] font-black text-violet-600 hover:bg-violet-50">
+          高级浏览
+          <ChevronRight className="h-3.5 w-3.5" />
+        </button>
+      </div>
+
+      <div className="grid gap-2 sm:grid-cols-2">
+        <FieldInput label="样式名称" value={customDraft.name} maxLength={20} onChange={(value) => onCustomDraftChange((prev) => ({ ...prev, name: value }))} />
+        <FieldInput label="模块用途" value={customDraft.moduleRole} maxLength={120} onChange={(value) => onCustomDraftChange((prev) => ({ ...prev, moduleRole: value }))} />
+      </div>
+      <FieldTextarea
+        label="类型描述"
+        value={customDraft.typeDescription}
+        maxLength={600}
+        onChange={(value) => onCustomDraftChange((prev) => ({ ...prev, typeDescription: value }))}
+        placeholder="说明这张图应该解决什么问题，例如男装夹克上身展示、面料细节、通勤场景、尺码建议。"
+      />
+      <div className="grid gap-2 sm:grid-cols-3">
+        <FieldTextarea
+          label="版式规则"
+          value={customDraft.layoutRules}
+          maxLength={320}
+          onChange={(value) => onCustomDraftChange((prev) => ({ ...prev, layoutRules: value }))}
+          placeholder="例如全身上身图、局部细节、左文右图。"
+        />
+        <FieldTextarea
+          label="文字规则"
+          value={customDraft.textRules}
+          maxLength={260}
+          onChange={(value) => onCustomDraftChange((prev) => ({ ...prev, textRules: value }))}
+          placeholder="例如短标题、少文案、不重复卖点。"
+        />
+        <FieldTextarea
+          label="禁忌规则"
+          value={customDraft.avoidRules}
+          maxLength={320}
+          onChange={(value) => onCustomDraftChange((prev) => ({ ...prev, avoidRules: value }))}
+          placeholder="例如不要促销贴纸、不要错误性别模特。"
+        />
+      </div>
+
+      <input ref={customRefInputRef} type="file" accept="image/*" className="hidden" onChange={(event) => onUploadCustomReference("style", event.target.files?.[0])} />
+      <input ref={customModelRefInputRef} type="file" accept="image/*" className="hidden" onChange={(event) => onUploadCustomReference("model", event.target.files?.[0])} />
+      <input ref={customOtherRefInputRef} type="file" accept="image/*" className="hidden" onChange={(event) => onUploadCustomReference("other", event.target.files?.[0])} />
+      <div className="grid gap-2 sm:grid-cols-3">
+        <ReferenceUploadButton label="样式参考图" url={customDraft.referenceImageUrls[0]} loading={isUploadingCustomRef} onClick={() => customRefInputRef.current?.click()} />
+        <ReferenceUploadButton label="模特参考图" url={customDraft.modelReferenceImageUrls[0]} loading={isUploadingCustomRef} onClick={() => customModelRefInputRef.current?.click()} />
+        <ReferenceUploadButton label={`其它参考图 ${customDraft.otherReferenceImageUrls.length}/3`} url={customDraft.otherReferenceImageUrls[0]} loading={isUploadingCustomRef} onClick={() => customOtherRefInputRef.current?.click()} />
+      </div>
+
+      <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-7">
+        {CUSTOM_ASPECTS.map((value) => (
+          <button key={value} type="button" onClick={() => onCustomDraftChange((prev) => ({ ...prev, aspectRatio: value }))} className={`h-8 rounded-lg border px-2 text-[11px] ${customDraft.aspectRatio === value ? "border-violet-400 bg-violet-50 text-violet-700" : "border-slate-200 bg-white text-slate-500"}`}>{value}</button>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-2 items-stretch gap-2">
+        <ToggleButton active={customDraft.subjectConsistency} label="商品一致性" onClick={() => onCustomDraftChange((prev) => ({ ...prev, subjectConsistency: !prev.subjectConsistency }))} />
+        <ToggleButton active={customDraft.modelConsistency} label="模特一致性" onClick={() => onCustomDraftChange((prev) => ({ ...prev, modelConsistency: !prev.modelConsistency }))} />
+        <ToggleButton active={customDraft.intelligentCopy} label="智能文案" onClick={() => onCustomDraftChange((prev) => ({ ...prev, intelligentCopy: !prev.intelligentCopy }))} />
+        <select value={customDraft.copyDensity} onChange={(event) => onCustomDraftChange((prev) => ({ ...prev, copyDensity: event.target.value as ProductSetCopyDensity }))} className="h-10 rounded-xl border border-slate-100 bg-white px-2 text-xs font-bold text-slate-600 outline-none">
+          <option value="none">无文案</option>
+          <option value="light">轻文案</option>
+          <option value="standard">标准文案</option>
+          <option value="rich">信息丰富</option>
+        </select>
+      </div>
+
+      <textarea value={customDraft.extraDescription} onChange={(event) => onCustomDraftChange((prev) => ({ ...prev, extraDescription: event.target.value.slice(0, 600) }))} className="min-h-20 w-full resize-none rounded-xl border border-slate-100 bg-white px-3 py-2 text-xs leading-5 outline-none focus:border-violet-200" placeholder="额外描述（可选）" />
+      <button type="button" onClick={onAddCustomTemplate} className="h-10 w-full rounded-xl bg-slate-950 text-xs font-black text-white">添加到当前方案</button>
+
+      <div>
+        <h4 className="text-xs font-black text-slate-700">当前上传模板</h4>
+        {activeCustomTemplates.length ? (
+          <div className="mt-2 grid gap-2 sm:grid-cols-2">
+            {activeCustomTemplates.map((template) => (
+              <div key={template.id} className="flex min-h-12 items-center justify-between gap-2 rounded-2xl bg-white px-3 py-2 text-xs">
+                <div className="min-w-0">
+                  <p className="truncate font-black text-slate-700">{template.name}</p>
+                  <p className="mt-0.5 truncate text-[10px] font-bold text-slate-400">{template.moduleRole || template.typeDescription}</p>
+                </div>
+                <button type="button" onClick={() => onRemoveCustomTemplate(template.id)} className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-slate-400 hover:bg-red-50 hover:text-red-500"><X className="h-3.5 w-3.5" /></button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-2 rounded-2xl bg-white px-3 py-4 text-xs leading-5 text-slate-400">还没有上传模板。添加后会自动进入自定义生成，并保留智能模式和系统预设的草稿。</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function FavoritePlanPanel({
+  embedded = false,
   plans,
   draftName,
   defaultName,
@@ -2092,6 +2297,7 @@ function FavoritePlanPanel({
   onDelete,
   onToggleList,
 }: {
+  embedded?: boolean;
   plans: SavedProductSetPlan[];
   draftName: string;
   defaultName: string;
@@ -2105,25 +2311,28 @@ function FavoritePlanPanel({
   onDelete: (id: string) => void;
   onToggleList: () => void;
 }) {
+  const shouldShowList = embedded || showList;
   return (
-    <div className="mt-3 rounded-2xl border border-slate-100 bg-slate-50 p-3">
+    <div className={`${embedded ? "" : "mt-3"} rounded-2xl border border-slate-100 bg-slate-50 p-3`}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <p className="inline-flex items-center gap-1.5 text-xs font-black text-slate-800">
-            <Bookmark className="h-3.5 w-3.5 text-violet-500" /> 方案收藏
+            <Bookmark className="h-3.5 w-3.5 text-violet-500" /> 我的收藏模板
           </p>
           <p className="mt-1 line-clamp-2 text-[11px] leading-4 text-slate-400">
             收藏当前 AI 视觉方案或自定义模板，下次换商品后直接套用。
           </p>
         </div>
-        <button
-          type="button"
-          onClick={onToggleList}
-          className="inline-flex h-8 shrink-0 items-center gap-1 rounded-full bg-white px-2.5 text-[11px] font-black text-violet-600 hover:bg-violet-50"
-        >
-          {plans.length} 套
-          <ChevronRight className={`h-3.5 w-3.5 transition ${showList ? "rotate-90" : ""}`} />
-        </button>
+        {!embedded && (
+          <button
+            type="button"
+            onClick={onToggleList}
+            className="inline-flex h-8 shrink-0 items-center gap-1 rounded-full bg-white px-2.5 text-[11px] font-black text-violet-600 hover:bg-violet-50"
+          >
+            {plans.length} 套
+            <ChevronRight className={`h-3.5 w-3.5 transition ${showList ? "rotate-90" : ""}`} />
+          </button>
+        )}
       </div>
 
       <div className="mt-3 flex gap-2">
@@ -2144,7 +2353,7 @@ function FavoritePlanPanel({
         </button>
       </div>
 
-      {showList && (
+      {shouldShowList && (
         <div className="mt-3 space-y-2">
           {isLoading ? (
             <p className="rounded-2xl bg-white px-3 py-4 text-center text-xs text-slate-400">

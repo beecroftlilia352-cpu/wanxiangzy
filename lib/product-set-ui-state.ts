@@ -51,6 +51,7 @@ export type SavedProductSetPlan = {
 
 export type FavoritePlanApplyState = {
   mode: ProductSetCreationMode;
+  planSourceTab: ProductSetPlanSourceTab;
   selectedPlanId: string;
   imageType: ProductSetImageType;
   selectedTemplateIds: number[];
@@ -63,6 +64,8 @@ export type FavoritePlanApplyState = {
   qualityMode: "standard" | "advanced";
   genCount: number;
 };
+
+export type ProductSetPlanSourceTab = "smart" | "preset" | "upload" | "favorites";
 
 export function cloneProductSetUiState<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
@@ -180,6 +183,22 @@ export function getSelectedPlanIdForProductSetState(input: {
   return matchingPreset?.id || "custom";
 }
 
+export function getPlanSourceTabForProductSetState(input: {
+  mode: ProductSetCreationMode;
+  selectedPlanId: string;
+  customTemplates?: ProductSetCustomTemplate[];
+  fallback?: ProductSetPlanSourceTab;
+}): ProductSetPlanSourceTab {
+  if (input.mode === "smart" || input.selectedPlanId === "smart") return "smart";
+  if (input.selectedPlanId && input.selectedPlanId !== "custom") return "preset";
+  if (input.customTemplates?.length) return "upload";
+  return input.fallback || "upload";
+}
+
+export function getProductSetModeForPlanSource(tab: ProductSetPlanSourceTab): ProductSetCreationMode {
+  return tab === "smart" ? "smart" : "custom";
+}
+
 export function buildFavoritePlanApplyState(
   plan: SavedProductSetPlan,
   input: {
@@ -192,6 +211,16 @@ export function buildFavoritePlanApplyState(
   const selectedTemplateIds = [...plan.selectedTemplateIds];
   return {
     mode: plan.mode,
+    planSourceTab: getPlanSourceTabForProductSetState({
+      mode: plan.mode,
+      selectedPlanId: getSelectedPlanIdForProductSetState({
+        mode: plan.mode,
+        imageType: plan.imageType,
+        selectedTemplateIds,
+      }),
+      customTemplates: plan.customTemplates,
+      fallback: "favorites",
+    }),
     selectedPlanId: getSelectedPlanIdForProductSetState({
       mode: plan.mode,
       imageType: plan.imageType,
