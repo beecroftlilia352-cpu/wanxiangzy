@@ -2234,38 +2234,6 @@ function PlanList({
   );
 }
 
-function PlanPreviewCard({ template, index, productProfile, onEdit }: { template: ProductSetResolvedTemplate; index: number; productProfile: ProductSetProductProfile; onEdit: () => void }) {
-  const usesModel = shouldUseModelForTemplate(template, productProfile);
-  return (
-    <article className="flex h-full flex-col overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-sm">
-      <div className="relative aspect-[4/3] bg-slate-100">
-        {template.coverImage ? (
-          <img src={template.coverImage} alt={template.name} className="h-full w-full object-cover" />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-slate-300">
-            <Layers3 className="h-8 w-8" />
-          </div>
-        )}
-        <span className="absolute left-3 top-3 rounded-full bg-white/90 px-2 py-1 text-[10px] font-black text-slate-600">#{index + 1}</span>
-        {usesModel && <span className="absolute left-12 top-3 rounded-full bg-pink-100 px-2 py-1 text-[10px] font-black text-pink-600">模特</span>}
-        {template.scenario === "womenswear" && <span className="absolute right-3 top-3 rounded-full bg-pink-100 px-2 py-1 text-[10px] font-black text-pink-600">女装</span>}
-      </div>
-      <div className="flex min-h-[132px] flex-1 p-3">
-        <div className="flex w-full items-start gap-2">
-          <div className="min-w-0 flex-1">
-            <h3 className="line-clamp-1 text-sm font-black text-slate-900">{template.name}</h3>
-            <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-500">{template.typeDescriptionV2}</p>
-            <p className="mt-2 line-clamp-2 text-[11px] leading-4 text-violet-500">{getProductSetModuleReason(template, productProfile)}</p>
-          </div>
-          <button type="button" onClick={onEdit} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-slate-200 text-slate-500 hover:bg-violet-50 hover:text-violet-600" title="编辑模块">
-            <Edit3 className="h-3.5 w-3.5" />
-          </button>
-        </div>
-      </div>
-    </article>
-  );
-}
-
 function ModelConfigPanel({
   aiModel,
   imageType,

@@ -25,6 +25,23 @@ const HISTORY_DETAIL_COLUMNS = [
 
 const DEFAULT_PAGE_SIZE = 12;
 const MAX_PAGE_SIZE = 24;
+const HISTORY_MODULE_FILTERS = new Set([
+  "tryon",
+  "grass",
+  "productSet",
+  "modelBackground",
+  "generalImage",
+  "pose",
+  "model",
+  "garment3d",
+  "faceSwap",
+]);
+const HISTORY_STATUS_FILTERS: Record<string, string[]> = {
+  completed: ["completed", "succeeded", "success"],
+  processing: ["processing", "processing_tryon", "processing_face_swap", "running", "generating"],
+  pending: ["pending", "queued"],
+  failed: ["failed", "error", "cancelled", "canceled"],
+};
 
 type HistoryListRow = {
   id?: string | null;
@@ -75,6 +92,8 @@ export async function GET(request: Request) {
     }
 
     const cursor = searchParams.get("cursor");
+    const moduleFilter = normalizeModuleFilter(searchParams.get("module"));
+    const statusFilter = normalizeStatusFilter(searchParams.get("status"));
     const requestedLimit = Number(searchParams.get("limit"));
     const pageSize = Number.isFinite(requestedLimit)
       ? Math.min(Math.max(Math.trunc(requestedLimit), 1), MAX_PAGE_SIZE)
@@ -86,6 +105,14 @@ export async function GET(request: Request) {
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .limit(pageSize + 1);
+
+    if (moduleFilter) {
+      query = query.eq("job_payload->>kind", moduleFilter);
+    }
+
+    if (statusFilter) {
+      query = query.in("status", HISTORY_STATUS_FILTERS[statusFilter]);
+    }
 
     if (cursor) {
       query = query.lt("created_at", cursor);
@@ -112,6 +139,14 @@ export async function GET(request: Request) {
     if (process.env.NODE_ENV === "development") console.error("[history] error:", err);
     return NextResponse.json({ error: "历史记录加载失败" }, { status: 500 });
   }
+}
+
+function normalizeModuleFilter(value: string | null) {
+  return value && HISTORY_MODULE_FILTERS.has(value) ? value : null;
+}
+
+function normalizeStatusFilter(value: string | null) {
+  return value && Object.prototype.hasOwnProperty.call(HISTORY_STATUS_FILTERS, value) ? value : null;
 }
 
 function normalizeHistoryRow<T extends HistoryListRow>(row: T): T {

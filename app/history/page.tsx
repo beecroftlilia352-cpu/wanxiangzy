@@ -82,12 +82,21 @@ export default function HistoryPage() {
 
   useEffect(() => {
     let cancelled = false;
+    setState("loading");
+    setErrMsg("");
+    setRows([]);
+    setHasMore(false);
+    setNextCursor(null);
 
     (async () => {
       try {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 25000);
-        const payload = await requestHistoryPage(null, controller.signal).finally(() => clearTimeout(timeout));
+        const payload = await requestHistoryPage({
+          moduleFilter,
+          statusFilter,
+          signal: controller.signal,
+        }).finally(() => clearTimeout(timeout));
 
         if (cancelled) return;
         const data = payload.rows || [];
@@ -108,14 +117,18 @@ export default function HistoryPage() {
     })();
 
     return () => { cancelled = true; };
-  }, []);
+  }, [moduleFilter, statusFilter]);
 
   const loadMore = async () => {
     if (!hasMore || !nextCursor || loadingMore) return;
 
     setLoadingMore(true);
     try {
-      const payload = await requestHistoryPage(nextCursor);
+      const payload = await requestHistoryPage({
+        cursor: nextCursor,
+        moduleFilter,
+        statusFilter,
+      });
       const incomingRows = payload.rows || [];
       setRows((current) => {
         const seen = new Set(current.map((row) => row.id));
@@ -928,9 +941,21 @@ function getStatusClasses(status: string) {
 
 class HistoryAuthError extends Error {}
 
-async function requestHistoryPage(cursor?: string | null, signal?: AbortSignal) {
+async function requestHistoryPage({
+  cursor,
+  moduleFilter,
+  statusFilter,
+  signal,
+}: {
+  cursor?: string | null;
+  moduleFilter?: HistoryModuleFilter;
+  statusFilter?: HistoryStatusFilter;
+  signal?: AbortSignal;
+}) {
   const params = new URLSearchParams({ limit: String(HISTORY_PAGE_SIZE) });
   if (cursor) params.set("cursor", cursor);
+  if (moduleFilter && moduleFilter !== "all") params.set("module", moduleFilter);
+  if (statusFilter && statusFilter !== "all") params.set("status", statusFilter);
 
   const res = await fetch(`/api/history?${params.toString()}`, {
     method: "GET",
