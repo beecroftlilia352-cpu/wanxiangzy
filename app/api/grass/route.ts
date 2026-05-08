@@ -4,6 +4,7 @@ import { getCreditCost, normalizeAspectRatio, normalizeImageSize, normalizeLingy
 import { createDebitedGeneration, errorToResponsePayload } from "@/lib/api/credits";
 import { startGenerationJob, type GenerationJobPayload } from "@/lib/api/generation-jobs";
 import { handleGenerationStatusGet } from "@/lib/api/generation-status";
+import { getPublicBaseUrlFromRequest } from "@/lib/api/image-inputs.server";
 import { buildGrassPrompt, DEFAULT_GRASS_USER_PROMPT, enforceGrassPromptRequirements, normalizeGrassSceneMode, normalizeGrassTemplate } from "@/lib/grass-planting";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 
@@ -59,6 +60,7 @@ export async function POST(request: NextRequest) {
 
     const jobPayload: GenerationJobPayload = {
       kind: "grass",
+      publicBaseUrl: getPublicBaseUrlFromRequest(request),
       garmentUrl,
       referenceUrl,
       sceneMode,

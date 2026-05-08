@@ -7,6 +7,7 @@ import {
 } from "@/lib/api/credits";
 import { startGenerationJob, type GenerationJobPayload } from "@/lib/api/generation-jobs";
 import { handleGenerationStatusGet } from "@/lib/api/generation-status";
+import { getPublicBaseUrlFromRequest } from "@/lib/api/image-inputs.server";
 import { enforcePosePromptRequirements, type PoseOutputMode } from "@/lib/pose-prompt";
 import { applyPoseSeriesStylePrompt, normalizePoseSeriesStyle } from "@/lib/module-style-presets";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
@@ -43,6 +44,7 @@ export async function POST(request: NextRequest) {
     const finalPrompt = enforcePosePromptRequirements(applyPoseSeriesStylePrompt(prompt, poseStyle), { varyExpression, poseStyle, outputMode });
     const jobPayload: GenerationJobPayload = {
       kind: "pose",
+      publicBaseUrl: getPublicBaseUrlFromRequest(request),
       mainImageUrl: main_image_url,
       aiModel: model,
       imageSize: size,

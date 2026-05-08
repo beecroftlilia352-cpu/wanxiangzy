@@ -4,6 +4,7 @@ import { getCreditCost, normalizeAspectRatio, normalizeImageSize, normalizeLingy
 import { createDebitedGeneration, errorToResponsePayload } from "@/lib/api/credits";
 import { startGenerationJob, type GenerationJobPayload } from "@/lib/api/generation-jobs";
 import { handleGenerationStatusGet } from "@/lib/api/generation-status";
+import { getPublicBaseUrlFromRequest } from "@/lib/api/image-inputs.server";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 import {
   createProductSetModuleResult,
@@ -90,6 +91,7 @@ export async function POST(request: NextRequest) {
 
     const jobPayload: GenerationJobPayload = {
       kind: "productSet",
+      publicBaseUrl: getPublicBaseUrlFromRequest(request),
       productImageUrls,
       productInfo,
       productProfile,

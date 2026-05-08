@@ -14,6 +14,7 @@ import {
 } from "@/lib/api/credits";
 import { startGenerationJob, type GenerationJobPayload } from "@/lib/api/generation-jobs";
 import { handleGenerationStatusGet } from "@/lib/api/generation-status";
+import { getPublicBaseUrlFromRequest } from "@/lib/api/image-inputs.server";
 import { applyGarment3dDisplayStylePrompt, normalizeGarment3dDisplayStyle } from "@/lib/module-style-presets";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 
@@ -77,6 +78,7 @@ export async function POST(request: NextRequest) {
     }), displayStyle);
     const jobPayload: GenerationJobPayload = {
       kind: "garment3d",
+      publicBaseUrl: getPublicBaseUrlFromRequest(request),
       garmentUrl: garment_url,
       referenceUrl: mode === "reference" ? reference_url || null : null,
       garmentType: finalGarmentType,

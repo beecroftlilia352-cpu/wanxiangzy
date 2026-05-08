@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "postbuild": "node scripts/clean-next-output.js",
     "start": "next start",
     "lint": "next lint",
     "check:prompts": "node scripts/prompt-regression-check.js",

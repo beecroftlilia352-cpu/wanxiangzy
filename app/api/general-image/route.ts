@@ -11,6 +11,7 @@ import {
 import { createDebitedGeneration, errorToResponsePayload } from "@/lib/api/credits";
 import { startGenerationJob, type GenerationJobPayload } from "@/lib/api/generation-jobs";
 import { handleGenerationStatusGet } from "@/lib/api/generation-status";
+import { getPublicBaseUrlFromRequest } from "@/lib/api/image-inputs.server";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 
 export const maxDuration = 60;
@@ -50,6 +51,7 @@ export async function POST(request: NextRequest) {
 
     const jobPayload: GenerationJobPayload = {
       kind: "generalImage",
+      publicBaseUrl: getPublicBaseUrlFromRequest(request),
       mode,
       referenceUrls: mode === "image-to-image" ? referenceUrls : [],
       aiModel: model,

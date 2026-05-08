@@ -13,6 +13,7 @@ import {
 } from "@/lib/api/credits";
 import { startGenerationJob, type GenerationJobPayload } from "@/lib/api/generation-jobs";
 import { handleGenerationStatusGet } from "@/lib/api/generation-status";
+import { getPublicBaseUrlFromRequest } from "@/lib/api/image-inputs.server";
 import { normalizeAutoDesignSettings, normalizeSceneMode } from "@/lib/tryon-scene";
 import { normalizeTryOnClothingMode, normalizeTryOnClothingRole } from "@/lib/tryon-upload-rules";
 import {
@@ -75,6 +76,7 @@ export async function POST(request: NextRequest) {
     }
     const jobPayload: GenerationJobPayload = {
       kind: "tryon",
+      publicBaseUrl: getPublicBaseUrlFromRequest(request),
       clothingUrls: clothing_urls,
       clothingMode,
       clothingRoles,

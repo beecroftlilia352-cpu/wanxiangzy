@@ -7,6 +7,7 @@ import {
 } from "@/lib/api/credits";
 import { startGenerationJob, type GenerationJobPayload } from "@/lib/api/generation-jobs";
 import { handleGenerationStatusGet } from "@/lib/api/generation-status";
+import { getPublicBaseUrlFromRequest } from "@/lib/api/image-inputs.server";
 import { enforceModelPromptRequirements } from "@/lib/model-prompt";
 import { applyModelShootStylePrompt, normalizeModelShootStyle } from "@/lib/module-style-presets";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
@@ -55,6 +56,7 @@ export async function POST(request: NextRequest) {
     });
     const jobPayload: GenerationJobPayload = {
       kind: "model",
+      publicBaseUrl: getPublicBaseUrlFromRequest(request),
       referenceUrls: reference_urls,
       hairReferenceUrl: hair_reference_url || null,
       hairColorReferenceUrl: hair_color_reference_url || null,

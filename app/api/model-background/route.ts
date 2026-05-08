@@ -4,6 +4,7 @@ import { getCreditCost, normalizeAspectRatio, normalizeImageSize, normalizeLingy
 import { createDebitedGeneration, errorToResponsePayload } from "@/lib/api/credits";
 import { startGenerationJob, type GenerationJobPayload } from "@/lib/api/generation-jobs";
 import { handleGenerationStatusGet } from "@/lib/api/generation-status";
+import { getPublicBaseUrlFromRequest } from "@/lib/api/image-inputs.server";
 import {
   buildModelBackgroundPrompt,
   DEFAULT_BACKGROUND_TEXT,
@@ -77,6 +78,7 @@ export async function POST(request: NextRequest) {
 
     const jobPayload: GenerationJobPayload = {
       kind: "modelBackground",
+      publicBaseUrl: getPublicBaseUrlFromRequest(request),
       sourceUrl,
       modelReferenceUrl,
       backgroundReferenceUrl,

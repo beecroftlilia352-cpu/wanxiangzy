@@ -66,7 +66,11 @@ import {
   type ProductSetSettings,
 } from "@/lib/product-set";
 
-export type GenerationJobPayload =
+type GenerationJobPayloadBase = {
+  publicBaseUrl?: string | null;
+};
+
+export type GenerationJobPayload = GenerationJobPayloadBase & (
   | {
       kind: "tryon";
       clothingUrls: string[];
@@ -180,7 +184,8 @@ export type GenerationJobPayload =
       imageSize: ImageSize;
       prompt: string;
       genCount: number;
-    };
+    }
+);
 
 interface ClaimedJob {
   id: string;
@@ -517,12 +522,14 @@ async function executePayload(
   onProgress?: GenerationProgressCallback
 ): Promise<GenerationExecutionResult> {
   const promptTrace: PromptTraceItem[] = [];
+  const resolvePayloadImageInputs = (input: Parameters<typeof resolveImageInputs>[0]) =>
+    resolveImageInputs(input, { publicBaseUrl: payload.publicBaseUrl });
 
   if (payload.kind === "tryon") {
     const resultUrls: string[] = [];
 
     for (let i = 0; i < payload.genCount; i++) {
-      const imageInputs = await resolveImageInputs({
+      const imageInputs = await resolvePayloadImageInputs({
         clothingUrls: payload.clothingUrls,
         modelFaceUrl: payload.modelFaceUrl || undefined,
         referenceUrl: payload.referenceUrl || undefined,
@@ -564,7 +571,7 @@ async function executePayload(
       payload.hairReferenceUrl,
       payload.hairColorReferenceUrl,
     ].filter(Boolean) as string[];
-    const imageInputs = await resolveImageInputs({ clothingUrls: references });
+    const imageInputs = await resolvePayloadImageInputs({ clothingUrls: references });
     const resultUrls: string[] = [];
     const modelStyle = normalizeModelShootStyle(payload.modelStyle);
 
@@ -600,7 +607,7 @@ async function executePayload(
   }
 
   if (payload.kind === "grass") {
-    const imageInputs = await resolveImageInputs({
+    const imageInputs = await resolvePayloadImageInputs({
       clothingUrls: [
         payload.garmentUrl,
         ...(payload.referenceUrl ? [payload.referenceUrl] : []),
@@ -639,7 +646,7 @@ async function executePayload(
       payload.modelReferenceUrl,
       payload.backgroundReferenceUrl,
     ].filter(Boolean) as string[];
-    const imageInputs = await resolveImageInputs({ clothingUrls: sourceImages });
+    const imageInputs = await resolvePayloadImageInputs({ clothingUrls: sourceImages });
     const resultUrls: string[] = [];
 
     for (let i = 0; i < payload.genCount; i++) {
@@ -669,7 +676,7 @@ async function executePayload(
 
   if (payload.kind === "generalImage") {
     const imageInputs = payload.mode === "image-to-image"
-      ? await resolveImageInputs({ clothingUrls: payload.referenceUrls })
+      ? await resolvePayloadImageInputs({ clothingUrls: payload.referenceUrls })
       : { clothingUrls: [] };
     const resultUrls: string[] = [];
 
@@ -698,7 +705,7 @@ async function executePayload(
   }
 
   if (payload.kind === "pose") {
-    const imageInputs = await resolveImageInputs({ clothingUrls: [payload.mainImageUrl] });
+    const imageInputs = await resolvePayloadImageInputs({ clothingUrls: [payload.mainImageUrl] });
     const poseStyle = normalizePoseSeriesStyle(payload.poseStyle);
     const outputMode = normalizePoseOutputMode(payload.outputMode);
     const prompt = enforcePosePromptRequirements(applyPoseSeriesStylePrompt(payload.prompt, poseStyle), {
@@ -761,7 +768,7 @@ async function executePayload(
   }
 
   if (payload.kind === "faceSwap") {
-    const imageInputs = await resolveImageInputs({
+    const imageInputs = await resolvePayloadImageInputs({
       clothingUrls: [payload.sourceUrl, payload.faceUrl],
     });
     const resultUrls: string[] = [];
@@ -793,7 +800,7 @@ async function executePayload(
   }
 
   if (payload.kind === "commerceDetail") {
-    const imageInputs = await resolveImageInputs({ clothingUrls: payload.sourceUrls });
+    const imageInputs = await resolvePayloadImageInputs({ clothingUrls: payload.sourceUrls });
     const resultUrls: string[] = [];
     const layout = normalizeCommerceDetailLayout(payload.layout);
     const sections = normalizeCommerceDetailSections(payload.sections, payload.genCount);
@@ -915,7 +922,7 @@ async function executePayload(
       for (let attempt = 1; attempt <= 2; attempt++) {
         try {
           updateModule(moduleKey, { status: "running", attempt, error: undefined });
-          const imageInputs = await resolveImageInputs({
+          const imageInputs = await resolvePayloadImageInputs({
             clothingUrls: [
               ...payload.productImageUrls,
               ...styleReferenceUrls,
@@ -999,7 +1006,7 @@ async function executePayload(
     };
   }
 
-  const imageInputs = await resolveImageInputs({
+  const imageInputs = await resolvePayloadImageInputs({
     clothingUrls: [
       payload.garmentUrl,
       ...(payload.referenceUrl ? [payload.referenceUrl] : []),
