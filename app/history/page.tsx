@@ -41,6 +41,9 @@ const STATUS_FILTERS: { value: HistoryStatusFilter; label: string }[] = [
   { value: "failed", label: "失败" },
 ];
 
+const MODULE_FILTER_VALUES = new Set<HistoryModuleFilter>(MODULE_FILTERS.map((item) => item.value));
+const STATUS_FILTER_VALUES = new Set<HistoryStatusFilter>(STATUS_FILTERS.map((item) => item.value));
+
 type HistoryRow = {
   id: string;
   status: string;
@@ -65,6 +68,46 @@ type HistoryListPayload = {
   error?: string;
 };
 
+function parseModuleFilter(value: string | null): HistoryModuleFilter {
+  return value && MODULE_FILTER_VALUES.has(value as HistoryModuleFilter) ? (value as HistoryModuleFilter) : "all";
+}
+
+function parseStatusFilter(value: string | null): HistoryStatusFilter {
+  return value && STATUS_FILTER_VALUES.has(value as HistoryStatusFilter) ? (value as HistoryStatusFilter) : "all";
+}
+
+function getInitialHistoryFilters() {
+  if (typeof window === "undefined") {
+    return { moduleFilter: "all" as HistoryModuleFilter, statusFilter: "all" as HistoryStatusFilter };
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  return {
+    moduleFilter: parseModuleFilter(params.get("module")),
+    statusFilter: parseStatusFilter(params.get("status")),
+  };
+}
+
+function replaceHistoryFilterUrl(moduleFilter: HistoryModuleFilter, statusFilter: HistoryStatusFilter) {
+  if (typeof window === "undefined") return;
+
+  const url = new URL(window.location.href);
+  if (moduleFilter === "all") {
+    url.searchParams.delete("module");
+  } else {
+    url.searchParams.set("module", moduleFilter);
+  }
+
+  if (statusFilter === "all") {
+    url.searchParams.delete("status");
+  } else {
+    url.searchParams.set("status", statusFilter);
+  }
+
+  const query = url.searchParams.toString();
+  window.history.replaceState(window.history.state, "", `${url.pathname}${query ? `?${query}` : ""}${url.hash}`);
+}
+
 export default function HistoryPage() {
   const [state, setState] = useState<"loading" | "noauth" | "error" | "empty" | "ready">("loading");
   const [rows, setRows] = useState<HistoryRow[]>([]);
@@ -77,8 +120,13 @@ export default function HistoryPage() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailResultIndex, setDetailResultIndex] = useState(0);
   const [detailZoom, setDetailZoom] = useState(100);
-  const [moduleFilter, setModuleFilter] = useState<HistoryModuleFilter>("all");
-  const [statusFilter, setStatusFilter] = useState<HistoryStatusFilter>("all");
+  const [initialFilters] = useState(getInitialHistoryFilters);
+  const [moduleFilter, setModuleFilter] = useState<HistoryModuleFilter>(initialFilters.moduleFilter);
+  const [statusFilter, setStatusFilter] = useState<HistoryStatusFilter>(initialFilters.statusFilter);
+
+  useEffect(() => {
+    replaceHistoryFilterUrl(moduleFilter, statusFilter);
+  }, [moduleFilter, statusFilter]);
 
   useEffect(() => {
     let cancelled = false;
@@ -165,6 +213,14 @@ export default function HistoryPage() {
     const statusMatch = statusFilter === "all" || normalizedStatus === statusFilter;
     return moduleMatch && statusMatch;
   }), [rows, moduleFilter, statusFilter]);
+
+  const handleModuleFilterChange = (value: HistoryModuleFilter) => {
+    setModuleFilter(value);
+  };
+
+  const handleStatusFilterChange = (value: HistoryStatusFilter) => {
+    setStatusFilter(value);
+  };
 
   const fetchHistoryDetail = async (row: HistoryRow) => {
     if (getPayload(row)?.kind) return row;
@@ -327,7 +383,7 @@ export default function HistoryPage() {
               <button
                 key={item.value}
                 type="button"
-                onClick={() => setModuleFilter(item.value)}
+                onClick={() => handleModuleFilterChange(item.value)}
                 className={`h-9 flex-shrink-0 rounded-full px-3 text-xs font-black transition ${
                   moduleFilter === item.value
                     ? "gradient-brand text-white shadow-lg shadow-purple-100"
@@ -343,7 +399,7 @@ export default function HistoryPage() {
               <button
                 key={item.value}
                 type="button"
-                onClick={() => setStatusFilter(item.value)}
+                onClick={() => handleStatusFilterChange(item.value)}
                 className={`h-9 flex-shrink-0 rounded-full px-3 text-xs font-bold transition ${
                   statusFilter === item.value
                     ? "border border-violet-200 bg-violet-50 text-violet-600"
