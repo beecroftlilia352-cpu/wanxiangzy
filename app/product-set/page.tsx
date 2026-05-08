@@ -79,7 +79,6 @@ const MODELS: { value: LingyaModel; label: string; desc: string; badge?: string;
 ];
 
 const CUSTOM_ASPECTS: AspectRatio[] = ["4:3", "3:4", "9:16", "16:9", "1:1", "3:2", "2:3", "21:9"];
-const FAVORITE_PRODUCT_SET_PLAN_STORAGE_KEY = "ai-tryon.product-set.favorite-plans.v1";
 const FAVORITE_PRODUCT_SET_PLAN_LIMIT = 24;
 
 type ProductImage = {
@@ -258,6 +257,8 @@ export default function ProductSetPage() {
   const [favoritePlans, setFavoritePlans] = useState<SavedProductSetPlan[]>([]);
   const [favoritePlanName, setFavoritePlanName] = useState("");
   const [showFavoritePlans, setShowFavoritePlans] = useState(false);
+  const [isLoadingFavoritePlans, setIsLoadingFavoritePlans] = useState(false);
+  const [isSavingFavoritePlan, setIsSavingFavoritePlan] = useState(false);
 
   const templates = useMemo(() => getProductSetTemplates(imageType), [imageType]);
   const activeSelectedTemplateIds = useMemo(
@@ -359,8 +360,38 @@ export default function ProductSetPage() {
   }, [supabase]);
 
   useEffect(() => {
-    setFavoritePlans(readFavoriteProductSetPlans());
-  }, []);
+    let cancelled = false;
+    if (!authChecked) return;
+    if (!isAuthenticated) {
+      setFavoritePlans([]);
+      setIsLoadingFavoritePlans(false);
+      return;
+    }
+
+    setIsLoadingFavoritePlans(true);
+    fetch("/api/product-set/favorite-plans")
+      .then(async (res) => {
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || "收藏方案加载失败");
+        const rawPlans = data && typeof data === "object" && Array.isArray((data as { plans?: unknown }).plans)
+          ? (data as { plans: unknown[] }).plans
+          : [];
+        const plans = rawPlans.length
+          ? rawPlans.map(normalizeFavoriteProductSetPlan).filter((plan): plan is SavedProductSetPlan => Boolean(plan))
+          : [];
+        if (!cancelled) setFavoritePlans(plans);
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) toast.error(err instanceof Error ? err.message : "收藏方案加载失败");
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingFavoritePlans(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authChecked, isAuthenticated]);
 
   useEffect(() => {
     const applyPayload = takeApplyPayload("productSet");
@@ -624,12 +655,8 @@ export default function ProductSetPage() {
     toast.success("已从本次生成计划移除该模块");
   }
 
-  function persistFavoritePlans(nextPlans: SavedProductSetPlan[]) {
-    setFavoritePlans(nextPlans);
-    writeFavoriteProductSetPlans(nextPlans);
-  }
-
-  function saveCurrentPlanAsFavorite() {
+  async function saveCurrentPlanAsFavorite() {
+    if (!isAuthenticated) return toast.error("请先登录后再收藏方案");
     if (!planTemplates.length) return toast.error("当前还没有可收藏的生成方案");
     const now = new Date().toISOString();
     const name = (favoritePlanName.trim() || favoritePlanDefaultName).slice(0, 40);
@@ -652,12 +679,27 @@ export default function ProductSetPage() {
       qualityMode,
       planPreview: buildFavoritePlanPreview(planTemplates, effectiveProductProfile),
     };
-    const nextPlans = [nextPlan, ...favoritePlans.filter((plan) => plan.id !== nextPlan.id && plan.name !== name)]
-      .slice(0, FAVORITE_PRODUCT_SET_PLAN_LIMIT);
-    persistFavoritePlans(nextPlans);
-    setFavoritePlanName("");
-    setShowFavoritePlans(true);
-    toast.success(existing ? "已更新收藏方案" : "已收藏当前方案，下次可直接套用");
+    setIsSavingFavoritePlan(true);
+    try {
+      const res = await fetch("/api/product-set/favorite-plans", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(nextPlan),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "收藏方案保存失败");
+      const savedPlan = normalizeFavoriteProductSetPlan(data.plan);
+      if (!savedPlan) throw new Error("收藏方案保存结果无效");
+      setFavoritePlans((prev) => [savedPlan, ...prev.filter((plan) => plan.id !== savedPlan.id && plan.name !== savedPlan.name)]
+        .slice(0, FAVORITE_PRODUCT_SET_PLAN_LIMIT));
+      setFavoritePlanName("");
+      setShowFavoritePlans(true);
+      toast.success(existing ? "已更新收藏方案" : "已收藏当前方案，下次可直接套用");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "收藏方案保存失败");
+    } finally {
+      setIsSavingFavoritePlan(false);
+    }
   }
 
   function applyFavoritePlan(plan: SavedProductSetPlan) {
@@ -679,9 +721,19 @@ export default function ProductSetPage() {
     toast.success(`已套用收藏方案「${plan.name}」`);
   }
 
-  function removeFavoritePlan(id: string) {
-    persistFavoritePlans(favoritePlans.filter((plan) => plan.id !== id));
-    toast.success("已删除收藏方案");
+  async function removeFavoritePlan(id: string) {
+    if (!isAuthenticated) return toast.error("请先登录");
+    const previousPlans = favoritePlans;
+    setFavoritePlans((prev) => prev.filter((plan) => plan.id !== id));
+    try {
+      const res = await fetch(`/api/product-set/favorite-plans/${encodeURIComponent(id)}`, { method: "DELETE" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "删除收藏方案失败");
+      toast.success("已删除收藏方案");
+    } catch (err: unknown) {
+      setFavoritePlans(previousPlans);
+      toast.error(err instanceof Error ? err.message : "删除收藏方案失败");
+    }
   }
 
   function saveProductProfile(profile: ProductSetProductProfile) {
@@ -1221,6 +1273,8 @@ export default function ProductSetPage() {
               defaultName={favoritePlanDefaultName}
               currentPlanCount={outputCount}
               showList={showFavoritePlans}
+              isLoading={isLoadingFavoritePlans}
+              isSaving={isSavingFavoritePlan}
               onDraftNameChange={setFavoritePlanName}
               onSave={saveCurrentPlanAsFavorite}
               onApply={applyFavoritePlan}
@@ -2033,6 +2087,8 @@ function FavoritePlanPanel({
   defaultName,
   currentPlanCount,
   showList,
+  isLoading,
+  isSaving,
   onDraftNameChange,
   onSave,
   onApply,
@@ -2044,6 +2100,8 @@ function FavoritePlanPanel({
   defaultName: string;
   currentPlanCount: number;
   showList: boolean;
+  isLoading: boolean;
+  isSaving: boolean;
   onDraftNameChange: (value: string) => void;
   onSave: () => void;
   onApply: (plan: SavedProductSetPlan) => void;
@@ -2081,16 +2139,21 @@ function FavoritePlanPanel({
         <button
           type="button"
           onClick={onSave}
-          disabled={currentPlanCount <= 0}
+          disabled={currentPlanCount <= 0 || isSaving}
           className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-xl bg-slate-950 px-3 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-40"
         >
-          <Save className="h-3.5 w-3.5" /> 收藏
+          {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+          收藏
         </button>
       </div>
 
       {showList && (
         <div className="mt-3 space-y-2">
-          {plans.length ? plans.map((plan) => (
+          {isLoading ? (
+            <p className="rounded-2xl bg-white px-3 py-4 text-center text-xs text-slate-400">
+              正在加载账号收藏方案...
+            </p>
+          ) : plans.length ? plans.map((plan) => (
             <div key={plan.id} className="rounded-2xl border border-white bg-white px-3 py-3 shadow-sm">
               <div className="flex items-start gap-2">
                 <div className="min-w-0 flex-1">
@@ -2132,7 +2195,7 @@ function FavoritePlanPanel({
             </div>
           )) : (
             <p className="rounded-2xl bg-white px-3 py-4 text-center text-xs text-slate-400">
-              暂无收藏方案。先调整好当前生成计划，再点收藏。
+              暂无账号收藏方案。先调整好当前生成计划，再点收藏。
             </p>
           )}
         </div>
@@ -2685,31 +2748,6 @@ function buildFavoritePlanPreview(templates: ProductSetResolvedTemplate[], produ
     source: template.source,
     usesModel: shouldUseModelForTemplate(template, productProfile),
   }));
-}
-
-function readFavoriteProductSetPlans() {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = window.localStorage.getItem(FAVORITE_PRODUCT_SET_PLAN_STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed
-      .map(normalizeFavoriteProductSetPlan)
-      .filter((plan): plan is SavedProductSetPlan => Boolean(plan))
-      .slice(0, FAVORITE_PRODUCT_SET_PLAN_LIMIT);
-  } catch {
-    return [];
-  }
-}
-
-function writeFavoriteProductSetPlans(plans: SavedProductSetPlan[]) {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(FAVORITE_PRODUCT_SET_PLAN_STORAGE_KEY, JSON.stringify(plans.slice(0, FAVORITE_PRODUCT_SET_PLAN_LIMIT)));
-  } catch {
-    toast.warning("浏览器本地存储已满，收藏方案没有写入成功");
-  }
 }
 
 function normalizeFavoriteProductSetPlan(value: unknown): SavedProductSetPlan | null {
