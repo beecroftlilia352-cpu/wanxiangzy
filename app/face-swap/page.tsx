@@ -150,8 +150,10 @@ export default function FaceSwapPage() {
   }, [supportedSizes, imageSize]);
 
   useEffect(() => {
-    const payload = takeApplyPayload("faceSwap");
-    if (!payload) return;
+    let cancelled = false;
+    (async () => {
+    const payload = await takeApplyPayload("faceSwap");
+    if (cancelled || !payload) return;
     historyApplyConsumedRef.current = true;
     setSourceUrl(payload.sourceUrl);
     setFaceUrl(payload.faceUrl);
@@ -164,6 +166,10 @@ export default function FaceSwapPage() {
     setResultUrls([]);
     setError("");
     toast.success("已套用历史换脸参数");
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const clearPolling = useCallback(() => {
@@ -225,6 +231,7 @@ export default function FaceSwapPage() {
     if (!isAuthenticated || status !== "idle" || generationId || sourceUrl || faceUrl) return;
     if (skipActiveRestoreRef.current) return;
     if (historyApplyConsumedRef.current) return;
+    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).has("apply")) return;
 
     let cancelled = false;
     (async () => {

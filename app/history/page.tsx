@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Download, Clock, XCircle, Loader2, Coins, X, RotateCcw, Copy, Maximize2, Eye, ImageIcon, ZoomIn, ZoomOut, Plus, Sparkles } from "lucide-react";
 import { downloadImage, generateDownloadFilename } from "@/lib/utils";
-import { getApplyPath, saveApplyPayload, type HistoryJobPayload } from "@/lib/history-apply";
+import { getApplyPath, type HistoryJobPayload } from "@/lib/history-apply";
 import { buildTryOnPrompt } from "@/lib/api/lingya";
 import { ClientPortal } from "@/components/ClientPortal";
 import { AUTO_DESIGN_PLATFORMS, SCENE_MODE_LABELS } from "@/lib/tryon-scene";
@@ -374,8 +374,7 @@ export default function HistoryPage() {
         alert("这条历史记录没有可套用参数");
         return;
       }
-      saveApplyPayload(payload);
-      window.location.href = getApplyPath(payload.kind);
+      window.location.href = getApplyPath(payload.kind, fullRow.id);
     } catch (error) {
       alert(error instanceof Error ? error.message : "参数加载失败");
     } finally {
@@ -663,8 +662,7 @@ export default function HistoryPage() {
                 {detailPayload && (
                   <button
                     onClick={() => {
-                      saveApplyPayload(detailPayload);
-                      window.location.href = getApplyPath(detailPayload.kind);
+                      window.location.href = getApplyPath(detailPayload.kind, detailRow.id);
                     }}
                     className="inline-flex items-center gap-1.5 rounded-full gradient-brand px-3 py-1.5 text-xs font-medium text-white"
                   >
@@ -821,8 +819,7 @@ export default function HistoryPage() {
                   <div className="sticky bottom-0 -mx-4 -mb-4 border-t bg-white/95 p-4 backdrop-blur sm:-mx-5 sm:-mb-5 sm:p-5 lg:hidden">
                     <button
                       onClick={() => {
-                        saveApplyPayload(detailPayload);
-                        window.location.href = getApplyPath(detailPayload.kind);
+                        window.location.href = getApplyPath(detailPayload.kind, detailRow.id);
                       }}
                       className="inline-flex w-full items-center justify-center gap-1.5 rounded-full gradient-brand px-4 py-2 text-xs font-medium text-white"
                     >

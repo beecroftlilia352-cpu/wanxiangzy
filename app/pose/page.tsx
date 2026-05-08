@@ -152,8 +152,10 @@ export default function PosePage() {
   }, []);
 
   useEffect(() => {
-    const payload = takeApplyPayload("pose");
-    if (!payload) return;
+    let cancelled = false;
+    (async () => {
+    const payload = await takeApplyPayload("pose");
+    if (cancelled || !payload) return;
 
     setMainImage(payload.mainImageUrl);
     setAiModel(payload.aiModel);
@@ -164,6 +166,10 @@ export default function PosePage() {
     setResultUrls([]);
     setError("");
     toast.success("已套用历史参数");
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   async function handleFile(file?: File) {

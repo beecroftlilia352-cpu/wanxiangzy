@@ -153,8 +153,10 @@ export default function GrassPage() {
   }, [aiModel, aspectRatio, imageSize]);
 
   useEffect(() => {
-    const payload = takeApplyPayload("grass");
-    if (!payload) return;
+    let cancelled = false;
+    (async () => {
+    const payload = await takeApplyPayload("grass");
+    if (cancelled || !payload) return;
     setGarmentUrl(payload.garmentUrl);
     setTemplateId(normalizeGrassTemplate(payload.templateId));
     const nextSceneMode = normalizeGrassSceneMode(payload.sceneMode || (payload.referenceUrl ? "upload_reference" : "system_reference"));
@@ -174,6 +176,10 @@ export default function GrassPage() {
     setGenCount(payload.genCount);
     setPromptOverride(payload.prompt);
     toast.success("已套用历史参数");
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => () => {

@@ -178,8 +178,10 @@ export default function Garment3dPage() {
   }, [aiModel, aspectRatio, imageSize]);
 
   useEffect(() => {
-    const payload = takeApplyPayload("garment3d");
-    if (!payload) return;
+    let cancelled = false;
+    (async () => {
+    const payload = await takeApplyPayload("garment3d");
+    if (cancelled || !payload) return;
 
     setGarmentUrl(payload.garmentUrl);
     setGarmentName("历史服装图");
@@ -205,6 +207,10 @@ export default function Garment3dPage() {
     setResultUrls([]);
     setError(null);
     toast.success("已套用历史参数");
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   async function handleGarmentFiles(files: FileList | File[]) {

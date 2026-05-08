@@ -147,8 +147,10 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
   }, [initialMode]);
 
   useEffect(() => {
-    const payload = takeApplyPayload("generalImage");
-    if (!payload) return;
+    let cancelled = false;
+    (async () => {
+    const payload = await takeApplyPayload("generalImage");
+    if (cancelled || !payload) return;
     setMode(payload.mode);
     setPrompt(payload.prompt);
     setAiModel(payload.aiModel);
@@ -165,6 +167,10 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     setError("");
     setProgress(0);
     toast.success("已套用历史参数");
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   function resetOutput() {

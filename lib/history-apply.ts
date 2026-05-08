@@ -14,8 +14,6 @@ import type {
   ProductSetSettings,
 } from "@/lib/product-set";
 
-export const HISTORY_APPLY_KEY = "vastweargen:apply-generation";
-
 export type HistoryJobPayload =
   | {
       kind: "tryon";
@@ -115,7 +113,47 @@ export type HistoryJobPayload =
       textureEnhance?: boolean;
     };
 
-export function getApplyPath(kind: HistoryJobPayload["kind"]) {
+export function getApplyPath(kind: HistoryJobPayload["kind"], generationId?: string) {
+  const path = getModulePath(kind);
+  if (!generationId) return path;
+  return `${path}?apply=${encodeURIComponent(generationId)}`;
+}
+
+export async function takeApplyPayload<K extends HistoryJobPayload["kind"]>(
+  kind: K
+): Promise<Extract<HistoryJobPayload, { kind: K }> | null> {
+  if (typeof window === "undefined") return null;
+
+  const url = new URL(window.location.href);
+  const generationId = url.searchParams.get("apply");
+  if (!generationId) return null;
+
+  try {
+    const res = await fetch(`/api/history?id=${encodeURIComponent(generationId)}`, {
+      method: "GET",
+      cache: "no-store",
+    });
+    const data = await res.json().catch(() => ({})) as {
+      row?: { job_payload?: HistoryJobPayload | Record<string, unknown> | null };
+      error?: string;
+    };
+
+    if (!res.ok || !data.row?.job_payload) {
+      throw new Error(data.error || "历史参数加载失败");
+    }
+
+    const payload = data.row.job_payload as HistoryJobPayload;
+    if (payload.kind !== kind) return null;
+    url.searchParams.delete("apply");
+    window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+    return payload as Extract<HistoryJobPayload, { kind: K }>;
+  } catch (error) {
+    console.error("[history-apply] failed:", error);
+    return null;
+  }
+}
+
+function getModulePath(kind: HistoryJobPayload["kind"]) {
   if (kind === "tryon") return "/create";
   if (kind === "grass") return "/grass";
   if (kind === "modelBackground") return "/model-background";
@@ -125,25 +163,4 @@ export function getApplyPath(kind: HistoryJobPayload["kind"]) {
   if (kind === "faceSwap") return "/face-swap";
   if (kind === "model") return "/model";
   return "/pose";
-}
-
-export function saveApplyPayload(payload: HistoryJobPayload) {
-  window.localStorage.setItem(HISTORY_APPLY_KEY, JSON.stringify(payload));
-}
-
-export function takeApplyPayload<K extends HistoryJobPayload["kind"]>(
-  kind: K
-): Extract<HistoryJobPayload, { kind: K }> | null {
-  const raw = window.localStorage.getItem(HISTORY_APPLY_KEY);
-  if (!raw) return null;
-
-  try {
-    const payload = JSON.parse(raw) as HistoryJobPayload;
-    if (payload.kind !== kind) return null;
-    window.localStorage.removeItem(HISTORY_APPLY_KEY);
-    return payload as Extract<HistoryJobPayload, { kind: K }>;
-  } catch {
-    window.localStorage.removeItem(HISTORY_APPLY_KEY);
-    return null;
-  }
 }

@@ -395,8 +395,10 @@ export default function ProductSetPage() {
   }, [authChecked, isAuthenticated]);
 
   useEffect(() => {
-    const applyPayload = takeApplyPayload("productSet");
-    if (!applyPayload) return;
+    let cancelled = false;
+    (async () => {
+    const applyPayload = await takeApplyPayload("productSet");
+    if (cancelled || !applyPayload) return;
 
     const appliedImageType = applyPayload.imageType === "details" ? "details" : "main";
     setProductImages(applyPayload.productImageUrls.slice(0, 3).map((url, index) => ({ url, name: `历史商品图${index + 1}` })));
@@ -418,6 +420,10 @@ export default function ProductSetPage() {
     setGenCount(Math.min(Math.max(applyPayload.genCount || getDefaultGenerationCount(appliedImageType), 1), appliedImageType === "details" ? 8 : 6));
     resetOutput();
     toast.success("已套用历史商品套图参数");
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {

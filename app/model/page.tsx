@@ -190,8 +190,10 @@ export default function ModelPage() {
   }, [aiModel, aspectRatio, imageSize]);
 
   useEffect(() => {
-    const payload = takeApplyPayload("model");
-    if (!payload) return;
+    let cancelled = false;
+    (async () => {
+    const payload = await takeApplyPayload("model");
+    if (cancelled || !payload) return;
 
     setReferenceUrls(payload.referenceUrls);
     setHairReferenceUrl(payload.hairReferenceUrl || null);
@@ -209,6 +211,10 @@ export default function ModelPage() {
     setResultUrls([]);
     setError("");
     toast.success("已套用历史参数");
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   async function addFiles(files?: FileList | File[]) {

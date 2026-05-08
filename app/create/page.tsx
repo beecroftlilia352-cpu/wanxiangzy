@@ -485,8 +485,10 @@ export default function CreatePage() {
   }, [aiModel, aspectRatio, imageSize]);
 
   useEffect(() => {
-    const payload = takeApplyPayload("tryon");
-    if (!payload) return;
+    let cancelled = false;
+    (async () => {
+    const payload = await takeApplyPayload("tryon");
+    if (cancelled || !payload) return;
 
     const files = payload.clothingUrls.map((_, index) =>
       new File([], `history-clothing-${index + 1}.jpg`, { type: "image/jpeg" })
@@ -536,6 +538,10 @@ export default function CreatePage() {
     setPromptOverride(payload.rawPrompt || null);
     store.setPromptUsed(payload.rawPrompt || "");
     toast.success("已套用历史参数");
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const costPerImage = getCreditCost(aiModel, imageSize, aspectRatio);

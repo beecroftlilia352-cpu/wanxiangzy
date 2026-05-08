@@ -171,8 +171,10 @@ export default function ModelBackgroundPage() {
   }, [aiModel, aspectRatio, imageSize]);
 
   useEffect(() => {
-    const payload = takeApplyPayload("modelBackground");
-    if (!payload) return;
+    let cancelled = false;
+    (async () => {
+    const payload = await takeApplyPayload("modelBackground");
+    if (cancelled || !payload) return;
     const nextSource = normalizeBackgroundSourceMode(payload.backgroundSource);
     const nextPreset = normalizeBackgroundPreset(payload.templateId);
     setSourceUrl(payload.sourceUrl);
@@ -190,6 +192,10 @@ export default function ModelBackgroundPage() {
     setGenCount(payload.genCount);
     setPromptOverride(payload.prompt);
     toast.success("已套用历史参数");
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => () => {
