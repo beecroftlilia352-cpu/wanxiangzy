@@ -28,6 +28,7 @@ import {
 import { toast } from "sonner";
 import { FeatureTabs } from "@/components/FeatureTabs";
 import { ModuleHeader } from "@/components/ModuleHeader";
+import { PreviewGuide } from "@/components/PreviewGuide";
 import { LoadingStage } from "@/components/studio/LoadingStage";
 import { ClientPortal } from "@/components/ClientPortal";
 import { createClient, getCachedProfileCredits, setCachedProfileCredits } from "@/lib/supabase/client";
@@ -1369,24 +1370,17 @@ export default function ProductSetPage() {
                 </div>
               </section>
 
-              <aside className="space-y-4">
-                <section className="rounded-[28px] border border-white/80 bg-white/78 p-4 shadow-[0_18px_70px_rgba(15,23,42,0.08)] backdrop-blur">
-                  <h2 className="text-sm font-black text-slate-950">AI视觉方案</h2>
-                  <p className="mt-1 text-xs leading-5 text-slate-500">默认直接使用上传图片的 AI 视觉分析结果生成主图/详情页计划，不再套用本地女装模板。</p>
-                  <div className="mt-3 space-y-2 text-xs leading-5 text-slate-500">
-                    <p>1. 商品性别、品类、场景和模块顺序由 AI 视觉总监方案决定。</p>
-                    <p>2. 本地模板库只在你进入自定义方案时作为参考使用。</p>
-                    <p>3. 当前计划会优先保留商品真实版型、材质、颜色和目标人群。</p>
-                  </div>
-                </section>
-                <section className="rounded-[28px] border border-white/80 bg-white/78 p-4 shadow-[0_18px_70px_rgba(15,23,42,0.08)] backdrop-blur">
-                  <h2 className="text-sm font-black text-slate-950">体验建议</h2>
-                  <div className="mt-3 space-y-2 text-xs leading-5 text-slate-500">
-                    <p>1. 主图/辅图适合商品 item 首屏，详情页适合做长图模块。</p>
-                    <p>2. 女装建议至少上传正面和背面，版型、腰线、裙摆会更稳定。</p>
-                    <p>3. 模板参考只控制版式和氛围，不会直接复制参考图里的商品。</p>
-                  </div>
-                </section>
+              <aside className="flex items-start">
+                <PreviewGuide
+                  title="开始制作商品套图"
+                  subtitle="上传商品图后，AI 会先分析品类、卖点和视觉方向，再生成主图/详情页计划。"
+                  icon={<ImagePlus className="h-10 w-10" />}
+                  steps={[
+                    { title: "上传商品图", desc: "最多 3 张，建议包含正面、背面、细节或包装，方便 AI 判断结构与卖点。" },
+                    { title: "确认商品信息", desc: "识别结果可手动修正，商品名、品类、材质和目标人群会影响生成计划。" },
+                    { title: "生成商品套图", desc: "主图适合上架与投放，详情页适合逐屏讲解卖点；需要固定风格时再使用自定义方案。" },
+                  ]}
+                />
               </aside>
             </div>
           )}
