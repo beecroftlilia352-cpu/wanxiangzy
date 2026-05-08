@@ -63,7 +63,7 @@ const ASPECT_RATIOS: Array<{ value: AspectRatio; label: string }> = [
 
 type GenerationStatus = "idle" | "running" | "completed" | "failed";
 type GenderFilter = "female" | "male";
-type PersistedFaceSwapJob = {
+type ActiveFaceSwapJob = {
   generationId: string;
   sourceUrl: string;
   faceUrl: string;
@@ -73,14 +73,14 @@ type PersistedFaceSwapJob = {
   textureEnhance?: boolean;
 };
 
-const STORAGE_KEY = "vastwear.faceSwap.activeJob.v1";
-
 export default function FaceSwapPage() {
   const router = useRouter();
   const supabase = createClient();
   const originalInputRef = useRef<HTMLInputElement>(null);
   const faceInputRef = useRef<HTMLInputElement>(null);
   const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const skipActiveRestoreRef = useRef(false);
+  const historyApplyConsumedRef = useRef(false);
 
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
@@ -150,36 +150,9 @@ export default function FaceSwapPage() {
   }, [supportedSizes, imageSize]);
 
   useEffect(() => {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return;
-    try {
-      const job = JSON.parse(raw) as PersistedFaceSwapJob;
-      if (!job.generationId || job.status !== "running") return;
-      if (
-        isLegacyRemoteAssetUrl(job.sourceUrl) ||
-        isLegacyRemoteAssetUrl(job.faceUrl) ||
-        (job.resultUrls || []).some(isLegacyRemoteAssetUrl)
-      ) {
-        window.localStorage.removeItem(STORAGE_KEY);
-        return;
-      }
-      setGenerationId(job.generationId);
-      setSourceUrl(job.sourceUrl);
-      setFaceUrl(job.faceUrl);
-      setResultUrls(job.resultUrls || []);
-      setProgress(job.progress || 0);
-      setTextureEnhance(Boolean(job.textureEnhance));
-      setStatus("running");
-      pollGeneration(job.generationId, true);
-    } catch {
-      window.localStorage.removeItem(STORAGE_KEY);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
     const payload = takeApplyPayload("faceSwap");
     if (!payload) return;
+    historyApplyConsumedRef.current = true;
     setSourceUrl(payload.sourceUrl);
     setFaceUrl(payload.faceUrl);
     setAiModel(payload.aiModel);
@@ -193,21 +166,6 @@ export default function FaceSwapPage() {
     toast.success("已套用历史换脸参数");
   }, []);
 
-  const persistJob = useCallback((patch: Partial<PersistedFaceSwapJob>) => {
-    if (!generationId && !patch.generationId) return;
-    const current: PersistedFaceSwapJob = {
-      generationId,
-      sourceUrl,
-      faceUrl,
-      resultUrls,
-      progress,
-      status,
-      textureEnhance,
-      ...patch,
-    };
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(current));
-  }, [faceUrl, generationId, progress, resultUrls, sourceUrl, status, textureEnhance]);
-
   const clearPolling = useCallback(() => {
     if (pollTimerRef.current) {
       clearTimeout(pollTimerRef.current);
@@ -216,13 +174,13 @@ export default function FaceSwapPage() {
   }, []);
 
   const resetGenerationForInputChange = useCallback(() => {
+    skipActiveRestoreRef.current = true;
     clearPolling();
     setResultUrls([]);
     setProgress(0);
     setStatus("idle");
     setGenerationId("");
     setError("");
-    window.localStorage.removeItem(STORAGE_KEY);
   }, [clearPolling]);
 
   const pollGeneration = useCallback(async (id: string, immediate = false) => {
@@ -242,7 +200,6 @@ export default function FaceSwapPage() {
           setStatus("completed");
           setProgress(100);
           setResultUrls(nextUrls);
-          window.localStorage.removeItem(STORAGE_KEY);
           toast.success("AI 换脸完成");
           return;
         }
@@ -250,20 +207,10 @@ export default function FaceSwapPage() {
         if (data.status === "failed") {
           setStatus("failed");
           setError(data.error || "换脸生成失败");
-          window.localStorage.removeItem(STORAGE_KEY);
           return;
         }
 
         setStatus("running");
-        window.localStorage.setItem(STORAGE_KEY, JSON.stringify({
-          generationId: id,
-          sourceUrl,
-          faceUrl,
-          resultUrls: nextUrls,
-          progress: nextProgress,
-          status: "running",
-          textureEnhance,
-        }));
         pollTimerRef.current = setTimeout(() => pollGeneration(id), 2200);
       } catch (err) {
         setStatus("failed");
@@ -273,6 +220,45 @@ export default function FaceSwapPage() {
     if (immediate) void run();
     else pollTimerRef.current = setTimeout(run, 2200);
   }, [clearPolling, faceUrl, progress, sourceUrl, textureEnhance]);
+
+  useEffect(() => {
+    if (!isAuthenticated || status !== "idle" || generationId || sourceUrl || faceUrl) return;
+    if (skipActiveRestoreRef.current) return;
+    if (historyApplyConsumedRef.current) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/face-swap?active=1", { cache: "no-store" });
+        const data = await res.json().catch(() => ({})) as { job?: ActiveFaceSwapJob | null; error?: string };
+        if (!res.ok || cancelled || !data.job?.generationId) return;
+
+        const job = data.job;
+        if (
+          isLegacyRemoteAssetUrl(job.sourceUrl) ||
+          isLegacyRemoteAssetUrl(job.faceUrl) ||
+          (job.resultUrls || []).some(isLegacyRemoteAssetUrl)
+        ) {
+          return;
+        }
+
+        setGenerationId(job.generationId);
+        setSourceUrl(job.sourceUrl);
+        setFaceUrl(job.faceUrl);
+        setResultUrls(job.resultUrls || []);
+        setProgress(job.progress || 0);
+        setTextureEnhance(Boolean(job.textureEnhance));
+        setStatus("running");
+        pollGeneration(job.generationId, true);
+      } catch {
+        // 恢复进行中任务失败不阻断正常使用。
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [faceUrl, generationId, isAuthenticated, pollGeneration, sourceUrl, status]);
 
   useEffect(() => () => clearPolling(), [clearPolling]);
 
@@ -326,6 +312,7 @@ export default function FaceSwapPage() {
     }
 
     clearPolling();
+    skipActiveRestoreRef.current = false;
     setStatus("running");
     setProgress(1);
     setResultUrls([]);
@@ -362,15 +349,6 @@ export default function FaceSwapPage() {
         setCredits(data.credits_remaining);
         if (userId) setCachedProfileCredits(userId, data.credits_remaining);
       }
-      persistJob({
-        generationId: data.generation_id,
-        sourceUrl,
-        faceUrl,
-        resultUrls: [],
-        progress: 1,
-        status: "running",
-        textureEnhance,
-      });
       pollGeneration(data.generation_id, true);
     } catch (err) {
       setStatus("failed");
@@ -380,6 +358,7 @@ export default function FaceSwapPage() {
   }
 
   function clearAll() {
+    skipActiveRestoreRef.current = true;
     clearPolling();
     setSourceUrl("");
     setFaceUrl("");
@@ -390,7 +369,6 @@ export default function FaceSwapPage() {
     setStatus("idle");
     setGenerationId("");
     setError("");
-    window.localStorage.removeItem(STORAGE_KEY);
   }
 
   return (

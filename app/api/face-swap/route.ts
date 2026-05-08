@@ -12,6 +12,7 @@ import {
 import { createDebitedGeneration, errorToResponsePayload } from "@/lib/api/credits";
 import { startGenerationJob, type GenerationJobPayload } from "@/lib/api/generation-jobs";
 import { handleGenerationStatusGet } from "@/lib/api/generation-status";
+import { normalizeGenerationState } from "@/lib/api/generation-state";
 import { getPublicBaseUrlFromRequest } from "@/lib/api/image-inputs.server";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 import {
@@ -97,5 +98,60 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
+  if (request.nextUrl.searchParams.get("active") === "1") {
+    return handleActiveFaceSwapGet();
+  }
+
   return handleGenerationStatusGet(request.nextUrl.searchParams.get("generation_id"));
+}
+
+async function handleActiveFaceSwapGet() {
+  try {
+    const supabase = await createServerSupabase();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: "请先登录" }, { status: 401 });
+
+    const { data, error } = await supabase
+      .from("generations")
+      .select("id,status,result_urls,error_message,job_payload,completed_at,created_at")
+      .eq("user_id", user.id)
+      .eq("job_payload->>kind", "faceSwap")
+      .in("status", ["queued", "processing_tryon", "processing_face_swap", "processing", "running"])
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    if (!data) {
+      return NextResponse.json({ job: null });
+    }
+
+    const payload = data.job_payload as Record<string, unknown> | null;
+    const resultUrls = Array.isArray(data.result_urls) ? data.result_urls : [];
+    const state = normalizeGenerationState({
+      status: data.status,
+      resultUrls,
+      payload: data.job_payload,
+      completedAt: data.completed_at,
+    });
+
+    return NextResponse.json({
+      job: {
+        generationId: data.id,
+        status: state.status === "completed" ? "completed" : state.status === "failed" ? "failed" : "running",
+        resultUrls,
+        progress: state.progress,
+        error: data.error_message,
+        sourceUrl: typeof payload?.sourceUrl === "string" ? payload.sourceUrl : "",
+        faceUrl: typeof payload?.faceUrl === "string" ? payload.faceUrl : "",
+        textureEnhance: payload?.textureEnhance === true,
+      },
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "查询进行中任务失败";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }
