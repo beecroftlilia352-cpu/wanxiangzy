@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { Download, Clock, XCircle, Loader2, Coins, X, RotateCcw, Copy, Maximize2, Eye, ImageIcon, ZoomIn, ZoomOut, Plus, Sparkles } from "lucide-react";
 import { downloadImage, generateDownloadFilename } from "@/lib/utils";
 import { getApplyPath, type HistoryJobPayload } from "@/lib/history-apply";
@@ -114,6 +116,7 @@ async function requestHistoryDetail(id: string) {
 }
 
 export default function HistoryPage() {
+  const router = useRouter();
   const [state, setState] = useState<"loading" | "noauth" | "error" | "empty" | "ready">("loading");
   const [rows, setRows] = useState<HistoryRow[]>([]);
   const [errMsg, setErrMsg] = useState("");
@@ -130,6 +133,7 @@ export default function HistoryPage() {
   const [pendingDetailId, setPendingDetailId] = useState(initialDetailId);
   const [moduleFilter, setModuleFilter] = useState<HistoryModuleFilter>(initialFilters.moduleFilter);
   const [statusFilter, setStatusFilter] = useState<HistoryStatusFilter>(initialFilters.statusFilter);
+  const [reloadToken, setReloadToken] = useState(0);
   const filterState = useMemo(
     () => getHistoryFilterStateCopy(moduleFilter, statusFilter),
     [moduleFilter, statusFilter]
@@ -137,7 +141,7 @@ export default function HistoryPage() {
 
   useEffect(() => {
     replaceHistoryFilterUrl(moduleFilter, statusFilter);
-  }, [moduleFilter, statusFilter]);
+  }, [moduleFilter, statusFilter, reloadToken]);
 
   useEffect(() => {
     let cancelled = false;
@@ -199,7 +203,7 @@ export default function HistoryPage() {
       setHasMore(Boolean(payload.hasMore));
       setNextCursor(payload.nextCursor || null);
     } catch (error) {
-      alert(error instanceof Error ? error.message : "历史记录加载失败");
+      toast.error(error instanceof Error ? error.message : "历史记录加载失败");
     } finally {
       setLoadingMore(false);
     }
@@ -272,7 +276,7 @@ export default function HistoryPage() {
       .catch((error) => {
         if (!cancelled) {
           replaceHistoryDetailUrl(null);
-          alert(error instanceof Error ? error.message : "参数加载失败");
+          toast.error(error instanceof Error ? error.message : "参数加载失败");
         }
       })
       .finally(() => {
@@ -296,7 +300,7 @@ export default function HistoryPage() {
       setDetailRow(await fetchHistoryDetail(row));
     } catch (error) {
       replaceHistoryDetailUrl(null);
-      alert(error instanceof Error ? error.message : "参数加载失败");
+      toast.error(error instanceof Error ? error.message : "参数加载失败");
     } finally {
       setDetailLoading(false);
     }
@@ -353,15 +357,27 @@ export default function HistoryPage() {
       const fullRow = await fetchHistoryDetail(row);
       const payload = getPayload(fullRow);
       if (!payload?.kind) {
-        alert("这条历史记录没有可套用参数");
+        toast.error("这条作品暂无可套用参数");
         return;
       }
-      window.location.href = getApplyPath(payload.kind, fullRow.id);
+      router.push(getApplyPath(payload.kind, fullRow.id));
     } catch (error) {
-      alert(error instanceof Error ? error.message : "参数加载失败");
+      toast.error(error instanceof Error ? error.message : "参数加载失败");
     } finally {
       setDetailLoading(false);
     }
+  };
+
+  const retryHistoryLoad = () => {
+    setReloadToken((current) => current + 1);
+  };
+
+  const openCreate = () => {
+    router.push("/create");
+  };
+
+  const openLogin = () => {
+    router.push("/login");
   };
 
   if (state === "loading") return (
@@ -376,7 +392,7 @@ export default function HistoryPage() {
         </div>
         <h1 className="text-2xl font-black text-slate-950">登录后查看作品资产</h1>
         <p className="mt-3 text-sm leading-6 text-slate-500">你的生成结果、输入图片、提示词参数和套用记录都会保存在这里。</p>
-        <a href="/login" className="gradient-brand mt-6 inline-flex h-11 items-center justify-center rounded-full px-6 text-sm font-black text-white shadow-xl shadow-purple-200/70">去登录</a>
+        <button type="button" onClick={openLogin} className="gradient-brand mt-6 inline-flex h-11 items-center justify-center rounded-full px-6 text-sm font-black text-white shadow-xl shadow-purple-200/70">去登录</button>
       </div>
     </div>
   );
@@ -394,7 +410,7 @@ export default function HistoryPage() {
           重试会按当前 URL 中的 module/status 筛选重新加载。
         </p>
         <div className="mt-6 flex flex-col justify-center gap-2 sm:flex-row">
-          <button onClick={() => location.reload()} className="h-11 rounded-full border border-slate-200 bg-white px-6 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50">重试</button>
+          <button type="button" onClick={retryHistoryLoad} className="h-11 rounded-full border border-slate-200 bg-white px-6 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50">重试</button>
           {filterState.isFiltered && (
             <button onClick={clearFilters} className="h-11 rounded-full border border-violet-100 bg-violet-50 px-6 text-sm font-bold text-violet-600 hover:bg-violet-100">
               清除筛选
@@ -420,16 +436,16 @@ export default function HistoryPage() {
               <X className="h-4 w-4" />
               {filterState.emptyActionLabel}
             </button>
-            <a href="/create" className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-6 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50">
+            <button type="button" onClick={openCreate} className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-6 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50">
               <Plus className="h-4 w-4" />
               开始创作
-            </a>
+            </button>
           </div>
         ) : (
-          <a href="/create" className="gradient-brand mt-6 inline-flex h-11 items-center justify-center gap-2 rounded-full px-6 text-sm font-black text-white shadow-xl shadow-purple-200/70">
+          <button type="button" onClick={openCreate} className="gradient-brand mt-6 inline-flex h-11 items-center justify-center gap-2 rounded-full px-6 text-sm font-black text-white shadow-xl shadow-purple-200/70">
             <Plus className="h-4 w-4" />
             开始创作
-          </a>
+          </button>
         )}
       </div>
     </div>
@@ -447,13 +463,13 @@ export default function HistoryPage() {
           <h1 className="mt-3 text-3xl font-black text-slate-950">作品资产</h1>
           <p className="mt-2 text-sm leading-6 text-slate-500">已加载 {rows.length} 条作品，当前显示 {filteredRows.length} 条。{filterState.activeDescription} 可查看大图、下载结果、复制提示词并套用完整参数。</p>
         </div>
-        <a href="/create" className="gradient-brand inline-flex h-11 w-full items-center justify-center gap-2 rounded-full px-5 text-sm font-black text-white shadow-xl shadow-purple-200/70 sm:w-auto">
+        <button type="button" onClick={openCreate} className="gradient-brand inline-flex h-11 w-full items-center justify-center gap-2 rounded-full px-5 text-sm font-black text-white shadow-xl shadow-purple-200/70 sm:w-auto">
           <Plus className="h-4 w-4" />
           新创作
-        </a>
+        </button>
       </div>
 
-      <div className="mx-auto mb-4 max-w-7xl rounded-[24px] border border-white/80 bg-white/68 p-3 shadow-[0_14px_44px_rgba(15,23,42,0.06)] backdrop-blur-2xl">
+      <div className="mx-auto mb-4 max-w-7xl rounded-[16px] border border-white/80 bg-white/68 p-2 shadow-[0_14px_44px_rgba(15,23,42,0.06)] backdrop-blur-2xl sm:p-3">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex gap-2 overflow-x-auto pb-1">
             {MODULE_FILTERS.map((item) => (
@@ -461,7 +477,7 @@ export default function HistoryPage() {
                 key={item.value}
                 type="button"
                 onClick={() => handleModuleFilterChange(item.value)}
-                className={`h-9 flex-shrink-0 rounded-full px-3 text-xs font-black transition ${
+                className={`h-8 flex-shrink-0 rounded-full px-3 text-xs font-black transition ${
                   moduleFilter === item.value
                     ? "gradient-brand text-white shadow-lg shadow-purple-100"
                     : "border border-slate-200 bg-white/76 text-slate-600 hover:bg-white"
@@ -477,7 +493,7 @@ export default function HistoryPage() {
                 key={item.value}
                 type="button"
                 onClick={() => handleStatusFilterChange(item.value)}
-                className={`h-9 flex-shrink-0 rounded-full px-3 text-xs font-bold transition ${
+                className={`h-8 flex-shrink-0 rounded-full px-3 text-xs font-bold transition ${
                   statusFilter === item.value
                     ? "border border-violet-200 bg-violet-50 text-violet-600"
                     : "border border-slate-200 bg-white/76 text-slate-500 hover:bg-white"
@@ -507,14 +523,18 @@ export default function HistoryPage() {
             errorMessage: g.error_message,
             hasApplyParams: Boolean(payload?.kind),
           });
+          const inputSummary = getHistoryInputSummary(payload);
+          const outputSummary = getHistoryOutputSummary(g, payload);
+          const reuseLabel = failureCopy?.applyLabel || getHistoryReuseLabel(payload);
 
           return (
-            <article key={g.id} className="group overflow-hidden rounded-[28px] border border-white/80 bg-white/78 shadow-[0_18px_54px_rgba(15,23,42,0.08)] backdrop-blur-xl transition hover:-translate-y-0.5 hover:shadow-[0_24px_76px_rgba(15,23,42,0.12)]">
+            <article key={g.id} className="group overflow-hidden rounded-[16px] border border-white/80 bg-white/78 shadow-[0_18px_54px_rgba(15,23,42,0.08)] backdrop-blur-xl transition hover:-translate-y-0.5 hover:shadow-[0_24px_76px_rgba(15,23,42,0.12)]">
               <div className="flex flex-col sm:flex-row">
                 <button
                   type="button"
                   onClick={() => openDetail(g)}
-                    className="relative aspect-[4/5] overflow-hidden bg-slate-100 sm:w-44 sm:flex-shrink-0 sm:aspect-[3/4] md:w-52"
+                  aria-label={`查看${moduleLabel}详情`}
+                  className="relative aspect-[4/5] overflow-hidden bg-slate-100 sm:w-44 sm:flex-shrink-0 sm:aspect-[3/4] md:w-52"
                 >
                   {coverUrl ? (
                     <img src={coverUrl} className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]" alt="历史作品封面" />
@@ -561,6 +581,17 @@ export default function HistoryPage() {
                     </div>
                   </div>
 
+                  <div className="mt-3 grid gap-2 text-xs">
+                    <div className="rounded-lg border border-slate-100 bg-slate-50/70 px-3 py-2">
+                      <p className="text-[10px] font-bold text-slate-400">输入摘要</p>
+                      <p className="mt-0.5 line-clamp-2 font-medium leading-5 text-slate-700">{inputSummary}</p>
+                    </div>
+                    <div className="rounded-lg border border-slate-100 bg-white/78 px-3 py-2">
+                      <p className="text-[10px] font-bold text-slate-400">输出摘要</p>
+                      <p className="mt-0.5 line-clamp-2 font-medium leading-5 text-slate-700">{outputSummary}</p>
+                    </div>
+                  </div>
+
                   {resultUrls.length > 1 && (
                     <div className="mt-4 flex gap-1.5 overflow-x-auto pb-1">
                       {resultUrls.slice(0, 5).map((url, index) => (
@@ -568,6 +599,7 @@ export default function HistoryPage() {
                           type="button"
                           key={`${url}-${index}`}
                           onClick={() => openDetail(g, index)}
+                          aria-label={`查看第 ${index + 1} 张结果`}
                           className="h-12 w-10 flex-shrink-0 overflow-hidden rounded-md border bg-gray-50"
                         >
                           <img src={url} className="h-full w-full object-cover" alt={`结果 ${index + 1}`} />
@@ -577,6 +609,7 @@ export default function HistoryPage() {
                         <button
                           type="button"
                           onClick={() => openDetail(g, 5)}
+                          aria-label={`查看剩余 ${resultUrls.length - 5} 张结果`}
                           className="h-12 w-10 flex-shrink-0 rounded-md border bg-gray-50 text-[10px] font-medium text-gray-500"
                         >
                           +{resultUrls.length - 5}
@@ -606,7 +639,7 @@ export default function HistoryPage() {
                       className="inline-flex items-center gap-1.5 rounded-full bg-violet-50 px-3 py-1.5 text-xs font-bold text-violet-600 hover:bg-violet-100 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       <RotateCcw className="h-3.5 w-3.5" />
-                      {failureCopy?.applyLabel || "套用"}
+                      {reuseLabel}
                     </button>
                     <button
                       onClick={() => coverUrl && downloadHistoryResult(g, coverUrl, 0)}
@@ -683,6 +716,19 @@ export default function HistoryPage() {
               </div>
               <div className="flex items-center gap-2">
                 <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(detailPrompt);
+                    toast.success("提示词已复制");
+                  }}
+                  disabled={!detailPrompt}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white/75 px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm backdrop-blur hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                  复制提示词
+                </button>
+                <button
+                  type="button"
                   onClick={() => selectedResultUrl && downloadHistoryResult(detailRow, selectedResultUrl, selectedResultIndex)}
                   disabled={!selectedResultUrl}
                   className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white/75 px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm backdrop-blur hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
@@ -692,16 +738,17 @@ export default function HistoryPage() {
                 </button>
                 {detailPayload && (
                   <button
+                    type="button"
                     onClick={() => {
-                      window.location.href = getApplyPath(detailPayload.kind, detailRow.id);
+                      router.push(getApplyPath(detailPayload.kind, detailRow.id));
                     }}
                     className="inline-flex items-center gap-1.5 rounded-full gradient-brand px-3 py-1.5 text-xs font-medium text-white"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
-                    {detailFailureCopy?.applyLabel || "套用"}
+                    {detailFailureCopy?.applyLabel || getHistoryReuseLabel(detailPayload)}
                   </button>
                 )}
-                <button onClick={closeDetail} className="rounded-full p-1.5 hover:bg-white/80" aria-label="关闭">
+                <button type="button" onClick={closeDetail} className="rounded-full p-1.5 hover:bg-white/80" aria-label="关闭">
                   <X className="w-4 h-4" />
                 </button>
               </div>
@@ -791,6 +838,42 @@ export default function HistoryPage() {
               </section>
 
               <aside className="space-y-5 overflow-y-auto border-l border-white/70 bg-white/75 p-4 backdrop-blur-xl sm:p-5 lg:max-h-[calc(92vh-57px)]">
+                <section className="rounded-2xl border border-violet-100 bg-violet-50/45 p-3">
+                  <p className="text-[10px] font-black uppercase tracking-[0.14em] text-violet-500">Reuse Center</p>
+                  <h4 className="mt-1 text-sm font-black text-slate-950">复用这个作品</h4>
+                  <p className="mt-1 text-xs leading-5 text-slate-500">复制提示词、套用完整参数或下载当前预览结果。</p>
+                  <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3 lg:grid-cols-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(detailPrompt);
+                        toast.success("提示词已复制");
+                      }}
+                      disabled={!detailPrompt}
+                      className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-white/80 bg-white/85 px-3 text-xs font-bold text-slate-700 shadow-sm hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <Copy className="h-3.5 w-3.5" /> 复制提示词
+                    </button>
+                    {detailPayload && (
+                      <button
+                        type="button"
+                        onClick={() => router.push(getApplyPath(detailPayload.kind, detailRow.id))}
+                        className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-violet-600 px-3 text-xs font-bold text-white shadow-sm hover:bg-violet-700"
+                      >
+                        <RotateCcw className="h-3.5 w-3.5" /> {detailFailureCopy?.applyLabel || getHistoryReuseLabel(detailPayload)}
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => selectedResultUrl && downloadHistoryResult(detailRow, selectedResultUrl, selectedResultIndex)}
+                      disabled={!selectedResultUrl}
+                      className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-white/80 bg-white/85 px-3 text-xs font-bold text-slate-700 shadow-sm hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <Download className="h-3.5 w-3.5" /> 下载结果
+                    </button>
+                  </div>
+                </section>
+
                 <section>
                   <h4 className="mb-2 text-xs font-bold text-gray-900">生成信息</h4>
                   <div className="grid grid-cols-2 gap-x-4 gap-y-3">
@@ -844,8 +927,10 @@ export default function HistoryPage() {
                     <div className="mb-2 flex items-center justify-between gap-2">
                       <h4 className="text-xs font-bold text-gray-900">提示词 / 用户输入</h4>
                       <button
+                        type="button"
                         onClick={() => {
                           navigator.clipboard.writeText(detailPrompt);
+                          toast.success("提示词已复制");
                         }}
                         className="inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] text-gray-500 hover:text-purple-600"
                       >
@@ -861,7 +946,7 @@ export default function HistoryPage() {
                   <div className="sticky bottom-0 -mx-4 -mb-4 border-t bg-white/95 p-4 backdrop-blur sm:-mx-5 sm:-mb-5 sm:p-5 lg:hidden">
                     <button
                       onClick={() => {
-                        window.location.href = getApplyPath(detailPayload.kind, detailRow.id);
+                        router.push(getApplyPath(detailPayload.kind, detailRow.id));
                       }}
                       className="inline-flex w-full items-center justify-center gap-1.5 rounded-full gradient-brand px-4 py-2 text-xs font-medium text-white"
                     >
@@ -893,6 +978,7 @@ export default function HistoryPage() {
             type="button"
             onClick={() => setLightboxSrc(null)}
             className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full border border-white/85 bg-white/90 text-slate-700 shadow-[0_12px_34px_rgba(15,23,42,0.22)] backdrop-blur transition-colors hover:bg-white hover:text-slate-950 sm:right-6 sm:top-6"
+            aria-label="关闭历史记录大图预览"
           >
             <X className="w-5 h-5" />
           </button>
@@ -1208,6 +1294,55 @@ function getPromptText(payload: HistoryJobPayload) {
     return payload.productInfo?.trim() || payload.prompt || "";
   }
   return payload.prompt || "";
+}
+
+function getHistoryInputSummary(payload?: HistoryJobPayload) {
+  if (!payload) return "打开详情后可加载完整输入参数";
+
+  if (payload.kind === "tryon") {
+    const mode = payload.clothingMode === "multi" ? "多件上身" : "单件上身";
+    const modelFace = payload.modelFaceUrl ? "模特脸" : "无模特脸";
+    const reference = payload.referenceUrl ? "参考图" : "无参考图";
+    return `${mode} · ${payload.clothingUrls.length} 张服装 · ${modelFace} · ${reference}`;
+  }
+  if (payload.kind === "grass") {
+    return `服装图 · ${formatGrassSceneMode(payload.sceneMode)} · ${payload.changeModel ? "改变模特" : "保持模特"}`;
+  }
+  if (payload.kind === "productSet") {
+    return `${payload.productImageUrls.length} 张商品图 · ${payload.mode === "custom" ? "自定义套图" : "智能套图"}`;
+  }
+  if (payload.kind === "modelBackground") {
+    return `原图 · ${MODEL_BACKGROUND_MODE_LABELS[payload.mode]} · ${BACKGROUND_SOURCE_LABELS[payload.backgroundSource]}`;
+  }
+  if (payload.kind === "generalImage") {
+    return `${payload.mode === "text-to-image" ? "文生图" : "图生图"} · ${payload.referenceUrls.length} 张参考图`;
+  }
+  if (payload.kind === "model") {
+    return `${payload.gender === "male" ? "男模" : "女模"} · ${payload.referenceUrls.length} 张人物参考 · ${getModelShootStyleLabel(payload.modelStyle)}`;
+  }
+  if (payload.kind === "pose") {
+    return `主图 · ${getPoseSeriesStyleLabel(payload.poseStyle)} · ${payload.varyExpression === false ? "表情尽量一致" : "自然变化"}`;
+  }
+  if (payload.kind === "garment3d") {
+    return `服装图 · ${payload.outputMode === "reference" ? "参考图模式" : "提示词模式"} · ${getGarment3dDisplayStyleLabel(payload.displayStyle)}`;
+  }
+  if (payload.kind === "faceSwap") {
+    return "原始模特图 · 目标脸图 · 仅替换面部";
+  }
+  return "已保存输入参数";
+}
+
+function getHistoryOutputSummary(row: HistoryRow, payload?: HistoryJobPayload) {
+  const resultCount = row.result_urls?.length || 0;
+  const model = payload?.aiModel || row.ai_model || "模型未记录";
+  const size = payload?.imageSize || row.image_size || "尺寸未记录";
+  const status = formatStatus(row.status);
+  return `${status} · ${resultCount} 张结果 · ${model} · ${size}`;
+}
+
+function getHistoryReuseLabel(payload?: HistoryJobPayload) {
+  if (!payload?.kind) return "套用参数";
+  return `复用到${formatKind(payload.kind)}`;
 }
 
 function getInputImages(payload: HistoryJobPayload) {

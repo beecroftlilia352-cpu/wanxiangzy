@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runNextGenerationJobs } from "@/lib/api/generation-jobs";
+import { getConfiguredProcessorSecrets } from "@/lib/env";
 import { getAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
@@ -43,17 +44,24 @@ async function cleanupRateLimitBuckets() {
 }
 
 function validateProcessorAuth(request: NextRequest) {
-  const expectedSecret = process.env.JOB_PROCESSOR_SECRET || process.env.CRON_SECRET;
+  const secretConfig = getConfiguredProcessorSecrets(
+    [
+      { name: "JOB_PROCESSOR_SECRET", value: process.env.JOB_PROCESSOR_SECRET },
+      { name: "CRON_SECRET", value: process.env.CRON_SECRET },
+    ],
+    "Generation job processor"
+  );
 
-  if (!expectedSecret) {
+  if (!secretConfig.ok) {
     return NextResponse.json(
-      { error: "JOB_PROCESSOR_SECRET 或 CRON_SECRET 未配置" },
+      { error: secretConfig.message },
       { status: 500 }
     );
   }
 
   const authorization = request.headers.get("authorization") || "";
-  const isAuthorized = authorization === `Bearer ${expectedSecret}`;
+  const token = authorization.startsWith("Bearer ") ? authorization.slice("Bearer ".length) : "";
+  const isAuthorized = secretConfig.secrets.includes(token);
 
   if (!isAuthorized) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

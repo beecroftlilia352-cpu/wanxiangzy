@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { API_RATE_LIMITS, enforceApiRateLimit } from "@/lib/api/rate-limit";
 import {
   FAVORITE_PLAN_ERRORS,
   FAVORITE_PLAN_TABLE,
@@ -11,6 +12,8 @@ export async function DELETE(_request: NextRequest, { params }: { params: Promis
   const supabase = await createServerSupabase();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return favoritePlanError(FAVORITE_PLAN_ERRORS.unauthorized, 401);
+  const rateLimit = await enforceApiRateLimit(user.id, API_RATE_LIMITS.favoriteMutation);
+  if (rateLimit) return rateLimit;
   if (!isFavoritePlanId(id)) return favoritePlanError(FAVORITE_PLAN_ERRORS.invalidId, 400);
 
   const { data, error } = await supabase

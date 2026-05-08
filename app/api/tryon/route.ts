@@ -14,6 +14,7 @@ import {
 import { startGenerationJob, type GenerationJobPayload } from "@/lib/api/generation-jobs";
 import { handleGenerationStatusGet } from "@/lib/api/generation-status";
 import { getPublicBaseUrlFromRequest } from "@/lib/api/image-inputs.server";
+import { API_RATE_LIMITS, enforceApiRateLimit } from "@/lib/api/rate-limit";
 import { normalizeAutoDesignSettings, normalizeSceneMode } from "@/lib/tryon-scene";
 import { normalizeTryOnClothingMode, normalizeTryOnClothingRole } from "@/lib/tryon-upload-rules";
 import {
@@ -28,6 +29,9 @@ export async function POST(request: NextRequest) {
     const supabase = await createServerSupabase();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "请先登录" }, { status: 401 });
+
+    const rateLimit = await enforceApiRateLimit(user.id, API_RATE_LIMITS.tryonGenerate);
+    if (rateLimit) return rateLimit;
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- runtime-validated below
     let body: any;

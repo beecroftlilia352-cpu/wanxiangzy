@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/api/auth";
+import { API_RATE_LIMITS, enforceApiRateLimit } from "@/lib/api/rate-limit";
 import { appendWorkflowEvent, getWorkflowBundle, setStepStatus, setWorkflowStatus } from "@/lib/agent/workflow/repository";
 import { queueSatisfiedPendingSteps, resetDependentSteps } from "@/lib/agent/workflow/step-mutations";
 
@@ -12,6 +13,8 @@ export async function POST(
 ) {
   const auth = await requireApiUser();
   if (auth.response) return auth.response;
+  const rateLimit = await enforceApiRateLimit(auth.user.id, API_RATE_LIMITS.agentWorkflowMutation);
+  if (rateLimit) return rateLimit;
   try {
     const { id, stepId } = await context.params;
     const body = await request.json().catch(() => ({}));

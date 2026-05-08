@@ -59,8 +59,30 @@ describe("result image storage", () => {
     await expect(persistGeneratedImageUrls([providerUrl], "gen-3")).resolves.toEqual([providerUrl]);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(warnSpy).toHaveBeenCalledWith(
-      "[result-image-storage] imgbb upload failed; falling back to provider URL:",
+      "[result-image-storage] generated image storage failed; falling back to provider URL:",
       "生成结果图片转存图床失败: 400"
     );
+  });
+
+  it("preserves generated result naming with start indexes", async () => {
+    const uploadedNames: unknown[] = [];
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+      const body = init?.body as FormData;
+      uploadedNames.push(body.get("name"));
+
+      return Response.json({
+        success: true,
+        data: { url: `https://i.ibb.co/persisted/${uploadedNames.length}.png` },
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      persistGeneratedImageUrls(["data:image/png;base64,aaa", "data:image/png;base64,bbb"], "gen-4", {
+        startIndex: 2,
+      })
+    ).resolves.toEqual(["https://i.ibb.co/persisted/1.png", "https://i.ibb.co/persisted/2.png"]);
+
+    expect(uploadedNames).toEqual(["generated-gen-4-3", "generated-gen-4-4"]);
   });
 });

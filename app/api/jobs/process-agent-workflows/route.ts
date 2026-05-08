@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runNextAgentWorkflows } from "@/lib/agent/workflow/runtime";
+import { getConfiguredProcessorSecrets } from "@/lib/env";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,12 +31,20 @@ async function handleProcessRequest(request: NextRequest) {
 }
 
 function validateProcessorAuth(request: NextRequest) {
-  const expectedSecret = process.env.AGENT_WORKFLOW_PROCESSOR_SECRET || process.env.JOB_PROCESSOR_SECRET || process.env.CRON_SECRET;
-  if (!expectedSecret) {
-    return NextResponse.json({ error: "AGENT_WORKFLOW_PROCESSOR_SECRET/JOB_PROCESSOR_SECRET/CRON_SECRET 未配置" }, { status: 500 });
+  const secretConfig = getConfiguredProcessorSecrets(
+    [
+      { name: "AGENT_WORKFLOW_PROCESSOR_SECRET", value: process.env.AGENT_WORKFLOW_PROCESSOR_SECRET },
+      { name: "JOB_PROCESSOR_SECRET", value: process.env.JOB_PROCESSOR_SECRET },
+      { name: "CRON_SECRET", value: process.env.CRON_SECRET },
+    ],
+    "Agent workflow processor"
+  );
+  if (!secretConfig.ok) {
+    return NextResponse.json({ error: secretConfig.message }, { status: 500 });
   }
   const authorization = request.headers.get("authorization") || "";
-  if (authorization !== `Bearer ${expectedSecret}`) {
+  const token = authorization.startsWith("Bearer ") ? authorization.slice("Bearer ".length) : "";
+  if (!secretConfig.secrets.includes(token)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   return null;

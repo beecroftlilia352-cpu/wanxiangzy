@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { API_RATE_LIMITS, enforceApiRateLimit } from "@/lib/api/rate-limit";
 import {
   FAVORITE_PLAN_COLUMNS,
   FAVORITE_PLAN_ERRORS,
@@ -30,6 +31,9 @@ export async function POST(request: NextRequest) {
   const supabase = await createServerSupabase();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return favoritePlanError(FAVORITE_PLAN_ERRORS.unauthorized, 401);
+
+  const rateLimit = await enforceApiRateLimit(user.id, API_RATE_LIMITS.favoriteMutation);
+  if (rateLimit) return rateLimit;
 
   const body = await request.json().catch(() => null);
   const payload = normalizeFavoritePlanPayload(body);

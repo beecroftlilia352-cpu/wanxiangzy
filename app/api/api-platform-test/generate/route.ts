@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { API_RATE_LIMITS, enforceApiRateLimit } from "@/lib/api/rate-limit";
 import { createServerSupabase } from "@/lib/supabase/server";
 
 const REQUEST_TIMEOUT_MS = 300000;
@@ -24,6 +25,9 @@ export async function POST(request: Request) {
     const supabase = await createServerSupabase();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "请先登录" }, { status: 401 });
+
+    const rateLimit = await enforceApiRateLimit(user.id, API_RATE_LIMITS.apiPlatformTestProxy);
+    if (rateLimit) return rateLimit;
 
     const body = await request.json() as RequestBody;
     const apiUrl = normalizeApiUrl(body.apiUrl);

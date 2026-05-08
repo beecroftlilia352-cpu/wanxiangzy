@@ -11,7 +11,7 @@
 | 状态管理 | Zustand | 轻量，支持 localStorage 缓存 |
 | 认证 | Supabase Auth | 邮箱密码注册/登录，自动创建 profile |
 | 数据库 | Supabase PostgreSQL | generations / models / profiles |
-| 存储 | Supabase Storage | 服装/模特/参考图/结果图 |
+| 存储 | ImgBB 图床 + 存储适配器 | 用户上传图和生成结果图；Supabase Storage 保留为可替换方向 |
 | **换装 AI** | **FASHN tryon-max** | 业内画质最强的虚拟换装 API |
 | **人脸替换** | **Replicate InsightFaceSwap** | 人脸精确替换，自然融合 |
 | 提示组件 | sonner | Toast 通知 |
@@ -57,16 +57,19 @@ cp .env.local.example .env.local
 填写以下内容：
 
 ```env
-# Supabase — https://supabase.com 免费创建项目
+# Production required
+NEXT_PUBLIC_APP_URL=http://localhost:3000
 NEXT_PUBLIC_SUPABASE_URL=https://xxxxx.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 
-# Lingya 图像生成 API
+# Feature required: image generation
 LINGYA_BASE_URL=https://api.lingyaai.cn
 LINGYA_API_KEY=your-lingya-api-key
+PLATO_BASE_URL=https://api.bltcy.ai
+PLATO_API_KEY=your-plato-api-key
 
-# 图片分析 / 提示词优化 LLM，一键切换 xiaomi 或 lingya
+# Feature required: prompt analysis / prompt optimization
 ANALYZE_LLM_PROVIDER=xiaomi
 XIAOMI_MIMO_API_KEY=your-xiaomi-mimo-api-key
 XIAOMI_MIMO_BASE_URL=https://api.xiaomimimo.com
@@ -76,17 +79,24 @@ XIAOMI_MIMO_MODEL=mimo-v2.5-pro
 XIAOMI_MIMO_TEXT_MODEL=mimo-v2.5-pro
 XIAOMI_MIMO_VISION_MODEL=mimo-v2.5
 
-# 后台生成任务处理器
-JOB_PROCESSOR_SECRET=change-me
+# Feature required: uploads and background processors
+IMGBB_API_KEY=your-imgbb-api-key
+JOB_PROCESSOR_SECRET=replace-with-at-least-32-random-characters
 GENERATION_JOB_BATCH_SIZE=2
 GENERATION_JOB_STALE_MINUTES=8
 
-# FASHN AI — https://fashn.ai 注册获取 API Key
-FASHN_API_KEY=fashn_xxxxx
-
-# Replicate — https://replicate.com 注册获取 Token
-REPLICATE_API_TOKEN=r8_xxxxx
+# Optional legacy providers
+FASHN_API_KEY=
+REPLICATE_API_TOKEN=
 ```
+
+环境变量按三类处理：
+
+- Production required: `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`。生产环境必须设置 `NEXT_PUBLIC_APP_URL`，服务端生成公开图片 URL 时不会信任 forwarded host/proto 作为替代。
+- Feature required: 对应功能实际被调用时必须设置，例如 `LINGYA_API_KEY` / `PLATO_API_KEY` 用于图像生成，`XIAOMI_MIMO_API_KEY` 用于小米提示词分析，`IMGBB_API_KEY` 用于上传，`JOB_PROCESSOR_SECRET` 或 `CRON_SECRET` 用于后台任务处理器。
+- Optional: base URL、模型名、批处理大小、allowlist、legacy provider token 等可按部署需要覆盖。模块导入只会提示缺失项；具体运行路径需要某个值时才会报错。
+
+生产环境的任务处理器密钥必须使用至少 32 个随机字符，不能使用 `change-me`、`secret`、`password` 等默认或弱值。`AGENT_WORKFLOW_PROCESSOR_SECRET` 和 `AGENT_EVAL_PROCESSOR_SECRET` 可作为 route-specific 覆盖；未设置时会回退到 `JOB_PROCESSOR_SECRET` 或 `CRON_SECRET`。
 
 ### 3. 初始化 Supabase
 
@@ -97,11 +107,7 @@ REPLICATE_API_TOKEN=r8_xxxxx
 - `supabase/agent-workflows.sql`
 - `supabase/agent-brain-traces.sql`
 
-然后在 Supabase Dashboard → Storage 中手动创建 4 个 Bucket（均设为 public）：
-- `clothing`
-- `models`
-- `references`
-- `results`
+当前上传和生成结果默认通过 ImgBB 图床保存，服务端统一走 `lib/api/image-storage.ts` 的存储适配器。Supabase Storage bucket 暂不作为默认运行依赖；如后续切换到 Supabase Storage，应在适配器中新增实现后再创建并配置对应 bucket/RLS。
 
 ### 4. 启动
 
@@ -120,7 +126,7 @@ curl -H "Authorization: Bearer $JOB_PROCESSOR_SECRET" \
   http://localhost:3000/api/jobs/process-generations
 ```
 
-生产环境建议配置定时任务每 1 分钟请求一次 `/api/jobs/process-generations`，使用 `JOB_PROCESSOR_SECRET` 或 `CRON_SECRET` 作为 Bearer Token。
+生产环境建议配置定时任务每 1 分钟请求一次 `/api/jobs/process-generations`，使用强随机的 `JOB_PROCESSOR_SECRET` 或 `CRON_SECRET` 作为 Bearer Token。
 
 智能 Agent 的多步骤视觉工作流使用独立处理器：
 
@@ -129,7 +135,7 @@ curl -H "Authorization: Bearer $JOB_PROCESSOR_SECRET" \
   http://localhost:3000/api/jobs/process-agent-workflows
 ```
 
-生产环境建议同样每 1 分钟请求一次 `/api/jobs/process-agent-workflows`。这个处理器负责执行文生图、图生图、换装、姿势裂变、3D 展示、电商详情页等 workflow step，并处理积分预占后的结算或释放。
+生产环境建议同样每 1 分钟请求一次 `/api/jobs/process-agent-workflows`。如需隔离权限，可为该 route 单独设置 `AGENT_WORKFLOW_PROCESSOR_SECRET`。这个处理器负责执行文生图、图生图、换装、姿势裂变、3D 展示、电商详情页等 workflow step，并处理积分预占后的结算或释放。
 
 Agent 质量闭环还提供两个生产处理器：
 
@@ -138,13 +144,13 @@ curl -H "Authorization: Bearer $JOB_PROCESSOR_SECRET" \
   http://localhost:3000/api/jobs/run-agent-evals
 ```
 
-建议每天或每小时请求一次 `/api/jobs/run-agent-evals`。它会对近期使用过 Agent 的用户运行内置 eval + 用户差评沉淀 case，写入 `agent_eval_runs` 和 `agent_eval_results`，用于上线后回归评分。
+建议每天或每小时请求一次 `/api/jobs/run-agent-evals`。如需隔离权限，可为该 route 单独设置 `AGENT_EVAL_PROCESSOR_SECRET`。它会对近期使用过 Agent 的用户运行内置 eval + 用户差评沉淀 case，写入 `agent_eval_runs` 和 `agent_eval_results`，用于上线后回归评分。
 
 生成 worker 内置视觉质量评估与一次自动修复重生策略：结果完成后会用视觉评估器检查数量、可访问性、任务一致性、人物/服装/版式风险；低于阈值时会自动追加修复提示词重生一次。可用 `AGENT_VISUAL_AUTO_REGENERATE_ENABLED=false` 关闭。
 
 ### 6. AWS Tag 自动部署
 
-仓库内置 GitHub Actions：推送任意 Git tag 后自动部署到 EC2。
+仓库内置 GitHub Actions：PR 和分支 push 会先运行 release gates；推送任意 Git tag 时，部署 workflow 会在上传发布包前运行同一组 gates，然后自动部署到 EC2。
 
 先在 GitHub 仓库 `Settings -> Secrets and variables -> Actions` 添加：
 
@@ -164,6 +170,8 @@ mkdir -p ~/apps/wanxiangzy/shared
 nano ~/apps/wanxiangzy/shared/.env.production
 ```
 
+`.env.production` 至少需要包含 Production required 变量和部署启用功能对应的 Feature required 变量。特别注意：`NEXT_PUBLIC_APP_URL` 必须是线上公开域名，例如 `https://example.com`；后台处理器密钥必须是强随机值，不能沿用 `.env.local.example` 的占位值。
+
 之后本地打 tag 并推送即可部署：
 
 ```bash
@@ -175,7 +183,7 @@ git push origin v1.0.0
 
 Tencent EdgeOne Cloud SSR Node functions 有 128 MiB 运行包限制。每次 `npm run build` 后可本地检查 `.next/server/server-reference-manifest`、`.next/standalone` 和 server chunks 的体积风险：
 
-发布前运行完整检查；它会按顺序执行测试、生产构建和 SSR 包体积检查，失败时会停在首个失败步骤并给出下一步定位命令：
+发布前运行完整检查；它会按顺序执行测试、提示词回归、干净生产构建和严格 SSR 包体积检查，失败时会停在首个失败步骤并给出下一步定位命令：
 
 ```bash
 npm run check:release

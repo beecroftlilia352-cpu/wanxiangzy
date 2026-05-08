@@ -180,6 +180,28 @@ export function HeaderClient() {
             {TOP_MODULES.map((item) => {
               const active = activeModule === item.key;
               const Icon = item.icon;
+              if (item.comingSoon) {
+                return (
+                  <button
+                    key={item.key}
+                    type="button"
+                    disabled
+                    title="AI 视频即将上线"
+                    className={`relative inline-flex h-9 cursor-not-allowed items-center gap-1.5 rounded-xl px-3 text-sm font-black transition ${
+                      active
+                        ? "bg-white text-violet-700 shadow-sm ring-1 ring-violet-100"
+                        : "text-slate-400"
+                    }`}
+                  >
+                    <Icon className="h-3.5 w-3.5" />
+                    {item.label}
+                    <span className="ml-0.5 rounded-full bg-slate-200/80 px-1.5 py-0.5 text-[10px] font-bold text-slate-500">
+                      即将上线
+                    </span>
+                  </button>
+                );
+              }
+
               return (
                 <Link
                   key={item.key}
@@ -283,6 +305,24 @@ function MobileModuleMenu({ activeModule }: { activeModule: string }) {
           {TOP_MODULES.map((item) => {
             const Icon = item.icon;
             const isActive = item.key === activeModule;
+            if (item.comingSoon) {
+              return (
+                <DropdownMenu.Item
+                  key={item.key}
+                  disabled
+                  className="flex cursor-not-allowed items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-400 outline-none"
+                >
+                  <Icon className="h-4 w-4" />
+                  <span className="flex flex-1 items-center justify-between gap-3">
+                    {item.label}
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500">
+                      即将上线
+                    </span>
+                  </span>
+                </DropdownMenu.Item>
+              );
+            }
+
             return (
               <DropdownMenu.Item key={item.key} asChild>
                 <Link

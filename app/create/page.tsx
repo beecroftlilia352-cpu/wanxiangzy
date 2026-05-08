@@ -1,5 +1,6 @@
 "use client";
 
+import type { KeyboardEvent } from "react";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { 
@@ -7,31 +8,27 @@ import {
   RefreshCw, X, Camera, ChevronRight, Wand, Loader2, ZoomIn, Eye,
   FolderOpen, CheckCircle2, XCircle, Shirt,
 } from "lucide-react";
-
-// 简单图片组件（带加载占位）
-function ImgSkeleton({ src, alt, className }: {
-  src: string; alt?: string; className?: string;
-}) {
-  return (
-    <div className={`${className} bg-gray-100`}>
-      <img src={src} alt={alt} className="w-full h-full object-cover" />
-    </div>
-  );
-}
 import { useTryOnStore } from "@/lib/store/tryon-store";
 import { fileToBase64, MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { createClient, getCachedProfileCredits, setCachedProfileCredits } from "@/lib/supabase/client";
 import { getCreditCost, getSupportedImageSizes, buildTryOnPrompt, type LingyaModel, type ImageSize, type AspectRatio } from "@/lib/api/lingya";
 import { toast } from "sonner";
-import { FeatureTabs } from "@/components/FeatureTabs";
 import { RepairPromptPanel } from "@/components/RepairPromptPanel";
 import { ModelPromptPreview } from "@/components/ModelPromptPreview";
 import { ClientPortal } from "@/components/ClientPortal";
 import { ModuleHeader } from "@/components/ModuleHeader";
-import { PreviewGuide } from "@/components/PreviewGuide";
 import { LoadingStage } from "@/components/studio/LoadingStage";
 import { ErrorStage } from "@/components/studio/ErrorStage";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
+import { ImgSkeleton } from "@/components/studio/ImgSkeleton";
+import { StudioControlPanel } from "@/components/studio/StudioControlPanel";
+import { StudioEmptyState } from "@/components/studio/StudioEmptyState";
+import { StudioPageShell } from "@/components/studio/StudioPageShell";
+import { StudioResultViewport, type StudioResultStatus } from "@/components/studio/StudioResultViewport";
+import { StudioRunBar } from "@/components/studio/StudioRunBar";
+import { StudioSection } from "@/components/studio/StudioSection";
+import { StudioSegmentedControl } from "@/components/studio/StudioSegmentedControl";
+import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
 import { takeApplyPayload } from "@/lib/history-apply";
 import { applyRepairPrompt } from "@/lib/generation-repair";
 import {
@@ -61,75 +58,20 @@ import {
   type TryOnAgeGroup,
   type TryOnGarmentAudience,
 } from "@/lib/tryon-prompt";
-
-// ---- 预设数据 ----
-const SUPABASE_STORAGE = "https://mtdfvnhphpulhjtnmubw.supabase.co/storage/v1/object/public";
-
-const PRESET_MODELS = [
-  { id: "m0", name: "自然", image_url: `${SUPABASE_STORAGE}/models/model-natural-smile.jpg`, gender: "female" as const },
-  { id: "m1", name: "甜妹", image_url: `${SUPABASE_STORAGE}/models/model-18542-0875a4d282bb.jpg`, gender: "female" as const },
-  { id: "m2", name: "优雅", image_url: `${SUPABASE_STORAGE}/models/model-22921-89d4664cd1b0.jpg`, gender: "female" as const },
-  { id: "m3", name: "红裙", image_url: `${SUPABASE_STORAGE}/models/model-26829-dca5c791efa8.jpg`, gender: "female" as const },
-  { id: "m4", name: "酷飒", image_url: `${SUPABASE_STORAGE}/models/model-97612-bdc397740113.jpg`, gender: "female" as const },
-  { id: "m5", name: "清纯", image_url: `${SUPABASE_STORAGE}/models/model-35127-693ee11382eb.png`, gender: "female" as const },
-  { id: "m6", name: "清透", image_url: `${SUPABASE_STORAGE}/models/model-clear-black-long-20260502.png`, gender: "female" as const },
-];
-
-const PRESET_REFERENCES = [
-  { id: "r1", url: `${SUPABASE_STORAGE}/references/reference-108513-b6db713a5d2f.jpg`, label: "白T街头", category: "scene" as const },
-  { id: "r2", url: `${SUPABASE_STORAGE}/references/reference-56020-dc1aa74e5515.jpg`, label: "黑蕾丝夜景", category: "style" as const },
-  { id: "r3", url: `${SUPABASE_STORAGE}/references/reference-23353-c281a160d01d.jpg`, label: "白衫桥边", category: "style" as const },
-  { id: "r4", url: `${SUPABASE_STORAGE}/references/reference-soft-blue-cardigan.jpg`, label: "蓝衫光影", category: "pose" as const },
-  { id: "r5", url: `${SUPABASE_STORAGE}/references/reference-white-top-denim-shorts.jpg`, label: "白顶牛仔", category: "pose" as const },
-  { id: "r6", url: `${SUPABASE_STORAGE}/references/reference-mens-black-knitwear.jpg`, label: "男款木墙", category: "pose" as const },
-  { id: "r7", url: `${SUPABASE_STORAGE}/references/reference-grey-tank-denim-culottes.jpg`, label: "灰背心牛仔", category: "style" as const },
-  { id: "r8", url: `${SUPABASE_STORAGE}/references/reference-striped-top-white-skirt.png`, label: "条纹白裙", category: "scene" as const },
-  { id: "r9", url: `${SUPABASE_STORAGE}/references/reference-cafe-wide-leg-pants.jpg`, label: "咖啡阔腿", category: "scene" as const },
-];
-
-const MODELS: { value: LingyaModel; label: string; desc: string; badge?: string; icon: string }[] = [
-  { value: "gpt-image-2", label: "GPT-Image-2", desc: "4K · 4分/次", badge: "最新", icon: "/model-icons/openai.svg" },
-  { value: "nano-banana-2", label: "Nano-Banana-2", desc: "4K · 3分/次", badge: "推荐", icon: "/model-icons/gemini.png" },
-  { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "4K · 4分/次", badge: "推荐", icon: "/model-icons/gemini.png" },
-  { value: "doubao-seedream-4-5-251128", label: "Seedream 4.5", desc: "4K · 2分/次", badge: "新", icon: "/model-icons/doubao.png" },
-];
-
-const GPT_ASPECTS: { value: AspectRatio; label: string }[] = [
-  { value: "3:4", label: "3:4 竖版" }, { value: "4:3", label: "4:3 横版" },
-  { value: "1:1", label: "1:1 方形" }, { value: "16:9", label: "16:9 宽屏" },
-  { value: "9:16", label: "9:16 手机" }, { value: "2:3", label: "2:3" },
-  { value: "3:2", label: "3:2" }, { value: "4:5", label: "4:5" },
-  { value: "5:4", label: "5:4" }, { value: "21:9", label: "21:9" },
-  { value: "auto", label: "自动" },
-];
-
-const BANANA_ASPECTS: { value: AspectRatio; label: string }[] = [
-  { value: "3:4", label: "3:4" }, { value: "4:3", label: "4:3" },
-  { value: "1:1", label: "1:1" }, { value: "16:9", label: "16:9" },
-  { value: "9:16", label: "9:16" }, { value: "2:3", label: "2:3" },
-  { value: "3:2", label: "3:2" }, { value: "4:5", label: "4:5" },
-  { value: "5:4", label: "5:4" }, { value: "21:9", label: "21:9" },
-  { value: "auto", label: "自动" },
-];
-
-const STYLE_PRESETS = [
-  "服装纹理更清晰，保留面料厚度和真实褶皱",
-  "人物肤色自然真实，不要过白、不要磨皮",
-  "边缘干净清楚，避免衣服轮廓发糊",
-  "保持原图光线方向，阴影自然不过曝",
-  "人物比例稳定，肩颈、手臂和腿部不变形",
-  "商品细节完整可见，logo、纽扣、拉链不丢失",
-];
-
-const GARMENT_AUDIENCE_OPTIONS: TryOnGarmentAudience[] = ["women", "men"];
-const AGE_GROUP_OPTIONS: TryOnAgeGroup[] = ["adult", "teen", "big_child", "middle_child", "small_child", "toddler"];
-
-const SCENE_MODE_TABS: Array<{ value: TryOnSceneMode; label: string }> = [
-  { value: "auto_design", label: "智能模式" },
-  { value: "system_reference", label: "系统预设" },
-  { value: "upload_reference", label: "上传" },
-  { value: "favorites", label: "收藏" },
-];
+import {
+  AGE_GROUP_OPTIONS,
+  BANANA_ASPECTS,
+  GARMENT_AUDIENCE_OPTIONS,
+  GPT_ASPECTS,
+  MODELS,
+  PRESET_MODELS,
+  PRESET_REFERENCES,
+  SCENE_MODE_TABS,
+  STYLE_PRESETS,
+} from "@/lib/tryon-studio-options";
+import { TryOnSourceLibraryDialog } from "@/components/tryon/TryOnSourceLibraryDialog";
+import { useTryOnSourceLibrary } from "@/components/tryon/useTryOnSourceLibrary";
+import type { TryOnSourceLibraryItem } from "@/lib/tryon-source-library";
 
 type FavoriteReference = {
   id: string;
@@ -198,12 +140,19 @@ export default function CreatePage() {
   const [isDraggingClothing, setIsDraggingClothing] = useState(false);
   const [isDraggingModel, setIsDraggingModel] = useState(false);
   const [isDraggingRef, setIsDraggingRef] = useState(false);
+  const sourceLibrary = useTryOnSourceLibrary({
+    isAuthenticated,
+    onUnauthenticated: () => {
+      toast.error("请先登录后使用作品库");
+      router.push("/login");
+    },
+  });
 
   // 已上传的服装 URL 列表（选择后立即上传）
   const [uploadedClothingUrls, setUploadedClothingUrls] = useState<string[]>([]);
 
   // 大图预览
-  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+  const [lightboxImage, setLightboxImage] = useState<{ src: string; alt: string } | null>(null);
 
   const aspects = aiModel === "gpt-image-2" ? GPT_ASPECTS : BANANA_ASPECTS;
   const imageSizes = getSupportedImageSizes(aiModel, aspectRatio);
@@ -222,6 +171,16 @@ export default function CreatePage() {
   const upperClothing = clothingItems.find((item) => item.role === "upper");
   const lowerClothing = clothingItems.find((item) => item.role === "lower");
   const singleClothing = clothingItems[0] || null;
+
+  const openLightbox = (src: string, alt: string) => {
+    setLightboxImage({ src, alt });
+  };
+
+  const handlePreviewKeyDown = (event: KeyboardEvent, action: () => void) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    action();
+  };
 
   const cancelRulesHide = () => {
     if (rulesHideTimerRef.current) {
@@ -654,6 +613,26 @@ export default function CreatePage() {
     fileInputRef.current?.click();
   };
 
+  const applySourceLibraryItem = (item: TryOnSourceLibraryItem) => {
+    if (!sourceLibrary.role) return;
+
+    const nextRole = clothingMode === "single" ? "single" : sourceLibrary.role;
+    const retainedItems = clothingMode === "single"
+      ? []
+      : getCurrentClothingItemStates().filter((current) => current.role !== nextRole);
+    applyClothingItems([
+      ...retainedItems,
+      {
+        file: createPlaceholderFile(`library-${item.generationId}-${Date.now()}.jpg`),
+        preview: item.url,
+        url: item.url,
+        role: nextRole,
+      },
+    ]);
+    sourceLibrary.close();
+    toast.success(`已从作品库加入${TRYON_CLOTHING_ROLE_LABELS[nextRole] || "服装"}`);
+  };
+
   const applyRuleDemo = (demo: TryOnRuleDemo) => {
     const nextMode: TryOnClothingMode = demo.images.length > 1 ? "multi" : "single";
     setClothingMode(nextMode);
@@ -889,19 +868,51 @@ export default function CreatePage() {
     handleGenerate(repairedPrompt);
   };
 
+  const resultStatus: StudioResultStatus = store.isGenerating
+    ? "loading"
+    : store.error
+      ? "error"
+      : store.resultUrls.length > 0
+        ? "results"
+        : "empty";
+  const runDisabled = store.isGenerating || !uploadedClothingUrls.length;
+  const runDisabledReason = store.isGenerating
+    ? "生成任务进行中，请等待当前任务完成。"
+    : !uploadedClothingUrls.length
+      ? "请先上传服装图，或从作品库选择一张历史结果。"
+      : undefined;
+
   return (
-    <div className="studio-workbench min-h-[calc(100dvh-64px)] lg:h-[calc(100vh-64px)] flex flex-col lg:flex-row">
-      <FeatureTabs active="tryon" />
-      {/* ========== LEFT PANEL ========== */}
-      <div className="studio-parameters w-full lg:w-[472px] border-b lg:border-b-0 lg:border-r flex flex-col overflow-visible lg:overflow-hidden">
-        <div className="studio-parameters-scroll flex-1 overflow-visible lg:overflow-y-auto p-3 sm:p-5 space-y-4 sm:space-y-6">
+    <>
+      <StudioPageShell
+        activeFeature="tryon"
+        header={(
           <ModuleHeader
             title="服装上身"
             tooltip="上传单件或多件服装，选择模特与参考场景，生成可直接用于商品展示、主图延展和内容投放的成片。"
           />
-
+        )}
+        controlPanel={(
+          <StudioControlPanel>
           {/* ---- 服装（整个区域可拖拽） ---- */}
-          <section
+          <StudioSection
+            title="上传服装"
+            description={currentUploadRule.uploadSpecText}
+            badge={isUploading ? <Loader2 className="h-3.5 w-3.5 animate-spin text-violet-500" /> : null}
+            actions={(
+              <button
+                ref={rulesButtonRef}
+                type="button"
+                onMouseEnter={openRulesPopover}
+                onMouseLeave={scheduleRulesHide}
+                onFocus={openRulesPopover}
+                onBlur={scheduleRulesHide}
+                aria-expanded={showClothingRules}
+                className="studio-upload-rule-button"
+              >
+                图片规则 <ChevronRight className="h-3 w-3" />
+              </button>
+            )}
             onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setIsDraggingClothing(true); }}
             onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setIsDraggingClothing(false); }}
             onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
@@ -917,25 +928,6 @@ export default function CreatePage() {
                 </div>
               </div>
             )}
-            <div className="studio-upload-header">
-              <h3 className="studio-upload-title">
-                <Upload className="w-4 h-4 text-purple-500" /> 上传服装
-                {isUploading && <Loader2 className="w-3 h-3 animate-spin text-purple-400" />}
-              </h3>
-              <button
-                ref={rulesButtonRef}
-                type="button"
-                onMouseEnter={openRulesPopover}
-                onMouseLeave={scheduleRulesHide}
-                onFocus={openRulesPopover}
-                onBlur={scheduleRulesHide}
-                aria-expanded={showClothingRules}
-                className="studio-upload-rule-button"
-              >
-                图片规则 <ChevronRight className="h-3 w-3" />
-              </button>
-            </div>
-
             <input
               ref={fileInputRef}
               type="file"
@@ -948,57 +940,36 @@ export default function CreatePage() {
               }}
             />
 
-            <div className="mb-3 grid grid-cols-2 rounded-2xl bg-slate-100 p-1">
-              {([
-                ["single", "单件上身", "1 张服装图"],
-                ["multi", "多件上身", "上装 + 下装"],
-              ] as const).map(([mode, label, desc]) => (
-                <button
-                  key={mode}
-                  type="button"
-                  onClick={() => switchClothingMode(mode)}
-                  className={`rounded-xl px-3 py-2 text-left transition-all ${
-                    clothingMode === mode ? "bg-white text-violet-700 shadow-sm" : "text-slate-500 hover:text-slate-800"
-                  }`}
-                >
-                  <span className="block text-xs font-bold">{label}</span>
-                  <span className="mt-0.5 block text-[10px] opacity-70">{desc}</span>
-                </button>
-              ))}
-            </div>
+            <StudioSegmentedControl<TryOnClothingMode>
+              value={clothingMode}
+              ariaLabel="选择服装上身模式"
+              onChange={switchClothingMode}
+              options={[
+                { value: "single", label: "单件上身", description: "1 张服装图" },
+                { value: "multi", label: "多件上身", description: "上装 + 下装" },
+              ]}
+            />
 
             {clothingMode === "single" ? (
-              <div className="relative overflow-hidden rounded-2xl border border-dashed border-slate-200 bg-slate-50/70">
-                {singleClothing ? (
-                  <div className="studio-checkerboard relative aspect-[4/3]">
-                    <img src={singleClothing.preview} className="h-full w-full object-contain p-3" />
-                    <span className="absolute right-3 top-3 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-medium text-slate-600 shadow-sm">
-                      {TRYON_CLOTHING_ROLE_LABELS.single}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => removeClothing(0)}
-                      className="absolute left-3 top-3 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-slate-500 shadow-sm hover:text-red-500"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex min-h-44 flex-col items-center justify-center px-4 py-8 text-center">
-                    <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-sm">
-                      <Shirt className="h-7 w-7 text-violet-400" />
-                    </div>
-                    <p className="text-sm font-semibold text-slate-800">上传单件衣服</p>
-                    <div className="mt-3 flex flex-wrap justify-center gap-2">
-                      <button type="button" onClick={() => openClothingPicker("single")} className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-violet-700">
-                        <Upload className="h-3.5 w-3.5" /> 从本地上传
-                      </button>
-                      <button type="button" onClick={() => toast.info("作品库选择即将接入")} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-slate-300">
-                        <FolderOpen className="h-3.5 w-3.5" /> 从作品选择
-                      </button>
-                    </div>
-                    <p className="mt-2 text-[11px] text-slate-400">{currentUploadRule.uploadSpecText}</p>
-                  </div>
+              <div className="space-y-2">
+                <StudioUploadTile
+                  title="单件服装"
+                  description={currentUploadRule.uploadSpecText}
+                  imageUrl={singleClothing?.preview}
+                  imageAlt="已上传的单件服装"
+                  isDragging={isDraggingClothing}
+                  onUploadClick={() => openClothingPicker("single")}
+                  onPreview={singleClothing ? () => openLightbox(singleClothing.preview, "已上传的单件服装") : undefined}
+                  onRemove={singleClothing ? () => removeClothing(0) : undefined}
+                />
+                {!singleClothing && (
+                  <button
+                    type="button"
+                    onClick={() => sourceLibrary.open("single")}
+                    className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition-colors hover:border-violet-200 hover:text-violet-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+                  >
+                    <FolderOpen className="h-3.5 w-3.5" /> 从作品库选择
+                  </button>
                 )}
               </div>
             ) : (
@@ -1012,14 +983,16 @@ export default function CreatePage() {
                     <div key={role} className="relative overflow-hidden rounded-2xl border border-dashed border-slate-200 bg-slate-50/70">
                       {item ? (
                         <div className="studio-checkerboard relative aspect-square">
-                          <img src={item.preview} className="h-full w-full object-contain p-3" />
+                          <img src={item.preview} alt={`已上传的${TRYON_CLOTHING_ROLE_LABELS[role]}`} className="h-full w-full object-contain p-3" />
                           <span className="absolute right-2 top-2 rounded-full bg-white/90 px-2 py-0.5 text-[10px] font-medium text-slate-600 shadow-sm">
                             {TRYON_CLOTHING_ROLE_LABELS[role]}
                           </span>
                           <button
                             type="button"
                             onClick={() => itemIndex >= 0 && removeClothing(itemIndex)}
-                            className="absolute left-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-slate-500 shadow-sm hover:text-red-500"
+                            className="absolute left-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-slate-500 shadow-sm hover:text-red-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+                            aria-label={`移除${TRYON_CLOTHING_ROLE_LABELS[role]}`}
+                            title={`移除${TRYON_CLOTHING_ROLE_LABELS[role]}`}
                           >
                             <X className="h-3.5 w-3.5" />
                           </button>
@@ -1034,7 +1007,7 @@ export default function CreatePage() {
                             <button type="button" onClick={() => openClothingPicker(role)} className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-violet-700">
                               <Upload className="h-3.5 w-3.5" /> 从本地上传
                             </button>
-                            <button type="button" onClick={() => toast.info("作品库选择即将接入")} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-slate-300">
+                            <button type="button" onClick={() => sourceLibrary.open(role)} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-slate-300">
                               <FolderOpen className="h-3.5 w-3.5" /> 从作品选择
                             </button>
                           </div>
@@ -1081,7 +1054,7 @@ export default function CreatePage() {
                 </span>
               </span>
             </label>
-          </section>
+          </StudioSection>
 
           {/* ---- 服装人群 ---- */}
           <section className="rounded-2xl border border-violet-100 bg-white/78 p-3 shadow-sm">
@@ -1196,16 +1169,27 @@ export default function CreatePage() {
                 <div className="grid grid-cols-3 gap-2">
                   {PRESET_REFERENCES.map((ref) => (
                     <div key={ref.id} role="button" tabIndex={0}
+                      aria-label={`选择系统参考图：${ref.label}`}
                       onClick={() => {
                         switchSceneMode("system_reference");
                         applyPresetReference(ref);
                       }}
-                      className={`group relative rounded-lg overflow-hidden border-2 bg-white transition-all cursor-pointer ${
+                      onKeyDown={(event) => handlePreviewKeyDown(event, () => {
+                        switchSceneMode("system_reference");
+                        applyPresetReference(ref);
+                      })}
+                      className={`group relative rounded-lg overflow-hidden border-2 bg-white transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 ${
                         store.referenceImage?.id === ref.id ? "border-purple-500 ring-1 ring-purple-200" : "border-transparent hover:border-gray-300"
                       }`}>
-                      <ImgSkeleton src={ref.url} className="w-full aspect-[3/4] object-cover" />
-                      <button onClick={(e) => { e.stopPropagation(); setLightboxSrc(ref.url); }}
-                        className="absolute right-1 top-1 w-7 h-7 rounded-full bg-white/85 shadow-sm flex items-center justify-center opacity-0 group-hover:opacity-100">
+                      <ImgSkeleton src={ref.url} alt={`系统参考图：${ref.label}`} className="w-full aspect-[3/4] object-cover" />
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); openLightbox(ref.url, `系统参考图：${ref.label}`); }}
+                        onKeyDown={(e) => { e.stopPropagation(); }}
+                        className="absolute right-1 top-1 w-7 h-7 rounded-full bg-white/85 shadow-sm flex items-center justify-center opacity-100 transition-opacity hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
+                        aria-label={`预览系统参考图：${ref.label}`}
+                        title={`预览系统参考图：${ref.label}`}
+                      >
                         <ZoomIn className="w-3.5 h-3.5 text-gray-600" />
                       </button>
                       <div className="p-1 text-center"><span className="text-[10px] font-medium">{ref.label}</span></div>
@@ -1218,10 +1202,14 @@ export default function CreatePage() {
             {sceneMode === "upload_reference" && (
               <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50/70 p-3">
                 <input data-ref-input type="file" accept="image/*" className="hidden" onChange={handleCustomRef} />
-                <button onClick={() => document.querySelector<HTMLInputElement>('[data-ref-input]')?.click()}
-                  className="w-full min-h-32 rounded-xl border-2 border-dashed border-gray-200 bg-white hover:border-purple-300 flex flex-col items-center justify-center overflow-hidden transition-all">
+                <button
+                  type="button"
+                  onClick={() => document.querySelector<HTMLInputElement>('[data-ref-input]')?.click()}
+                  className="w-full min-h-32 rounded-xl border-2 border-dashed border-gray-200 bg-white hover:border-purple-300 flex flex-col items-center justify-center overflow-hidden transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+                  aria-label={(customRefPreview || store.referenceImage?.url) ? "更换上传参考图" : "上传参考图"}
+                >
                   {(customRefPreview || store.referenceImage?.url)
-                    ? <img src={customRefPreview || store.referenceImage?.url} className="w-full max-h-52 object-cover" />
+                    ? <img src={customRefPreview || store.referenceImage?.url} alt="已上传的参考图" className="w-full max-h-52 object-cover" />
                     : <><Camera className="w-6 h-6 text-gray-300 mb-2" /><span className="text-xs text-gray-500">上传参考图</span><span className="text-[11px] text-gray-400 mt-1">用于锁定姿势、背景、构图和镜头</span></>
                   }
                 </button>
@@ -1305,16 +1293,27 @@ export default function CreatePage() {
                   <div className="grid grid-cols-3 gap-2">
                     {favoriteReferences.map((ref) => (
                       <div key={ref.id} role="button" tabIndex={0}
+                        aria-label={`选择收藏参考图：${ref.label}`}
                         onClick={() => {
                           switchSceneMode("favorites");
                           applyFavoriteReference(ref);
                         }}
-                        className={`group relative rounded-lg overflow-hidden border-2 bg-white transition-all cursor-pointer ${
+                        onKeyDown={(event) => handlePreviewKeyDown(event, () => {
+                          switchSceneMode("favorites");
+                          applyFavoriteReference(ref);
+                        })}
+                        className={`group relative rounded-lg overflow-hidden border-2 bg-white transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 ${
                           store.referenceImage?.url === ref.url ? "border-purple-500 ring-1 ring-purple-200" : "border-transparent hover:border-gray-300"
                         }`}>
-                        <ImgSkeleton src={ref.url} className="w-full aspect-[3/4] object-cover" />
-                        <button onClick={(e) => { e.stopPropagation(); removeFavoriteReference(ref.id); }}
-                          className="absolute right-1 top-1 w-6 h-6 rounded-full bg-white/85 shadow-sm flex items-center justify-center opacity-0 group-hover:opacity-100">
+                        <ImgSkeleton src={ref.url} alt={`收藏参考图：${ref.label}`} className="w-full aspect-[3/4] object-cover" />
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); removeFavoriteReference(ref.id); }}
+                          onKeyDown={(e) => { e.stopPropagation(); }}
+                          className="absolute right-1 top-1 w-6 h-6 rounded-full bg-white/85 shadow-sm flex items-center justify-center opacity-100 transition-opacity hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
+                          aria-label={`移除收藏参考图：${ref.label}`}
+                          title={`移除收藏参考图：${ref.label}`}
+                        >
                           <X className="w-3 h-3 text-gray-500" />
                         </button>
                         <div className="p-1 text-center"><span className="text-[10px] font-medium">{ref.label}</span></div>
@@ -1374,28 +1373,44 @@ export default function CreatePage() {
               </button>
               {PRESET_MODELS.map((m) => (
                 <div key={m.id} role="button" tabIndex={0}
+                  aria-label={`选择模特：${m.name}`}
                   onClick={() => {
                     setCustomModelPreview(null);
                     store.setSelectedModel({ ...m, is_preset: true, user_id: null });
                     setPromptOverride(null);
                   }}
-                  className={`group relative rounded-lg overflow-hidden border-2 transition-all cursor-pointer ${
+                  onKeyDown={(event) => handlePreviewKeyDown(event, () => {
+                    setCustomModelPreview(null);
+                    store.setSelectedModel({ ...m, is_preset: true, user_id: null });
+                    setPromptOverride(null);
+                  })}
+                  className={`group relative rounded-lg overflow-hidden border-2 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 ${
                     store.selectedModel?.id === m.id ? "border-purple-500 ring-1 ring-purple-200" : "border-transparent hover:border-gray-300"
                   }`}>
-                  <ImgSkeleton src={m.image_url} className="w-full aspect-square object-cover" />
-                  <div className="absolute inset-0 pointer-events-none flex items-end justify-end bg-violet-950/0 p-1 opacity-0 transition-all group-hover:bg-violet-950/10 group-hover:opacity-100">
-                    <button onClick={(e) => { e.stopPropagation(); setLightboxSrc(m.image_url); }}
-                      className="pointer-events-auto w-7 h-7 rounded-full bg-white/80 flex items-center justify-center hover:bg-white shadow-sm">
+                  <ImgSkeleton src={m.image_url} alt={`模特：${m.name}`} className="w-full aspect-square object-cover" />
+                  <div className="absolute inset-0 pointer-events-none flex items-end justify-end bg-violet-950/0 p-1 opacity-100 transition-all sm:opacity-0 sm:group-hover:bg-violet-950/10 sm:group-hover:opacity-100 sm:group-focus-within:bg-violet-950/10 sm:group-focus-within:opacity-100">
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); openLightbox(m.image_url, `模特：${m.name}`); }}
+                      onKeyDown={(e) => { e.stopPropagation(); }}
+                      className="pointer-events-auto w-7 h-7 rounded-full bg-white/80 flex items-center justify-center hover:bg-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+                      aria-label={`预览模特：${m.name}`}
+                      title={`预览模特：${m.name}`}
+                    >
                       <ZoomIn className="w-3.5 h-3.5 text-gray-600" />
                     </button>
                   </div>
                   <div className="p-1 text-center"><span className="text-[10px] font-medium">{m.name}</span></div>
                 </div>
               ))}
-              <button onClick={() => document.querySelector<HTMLInputElement>('[data-model-input]')?.click()}
-                className="rounded-lg border-2 border-dashed border-gray-200 hover:border-purple-300 flex flex-col items-center justify-center aspect-square transition-all">
+              <button
+                type="button"
+                onClick={() => document.querySelector<HTMLInputElement>('[data-model-input]')?.click()}
+                className="rounded-lg border-2 border-dashed border-gray-200 hover:border-purple-300 flex flex-col items-center justify-center aspect-square transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+                aria-label={customModelPreview ? "更换上传模特图" : "上传模特图"}
+              >
                 {customModelPreview
-                  ? <img src={customModelPreview} className="w-full h-full object-cover rounded-lg" />
+                  ? <img src={customModelPreview} alt="已上传的模特图" className="w-full h-full object-cover rounded-lg" />
                   : <><Camera className="w-5 h-5 text-gray-300" /><span className="text-[10px] text-gray-400">点击上传</span></>
                 }
               </button>
@@ -1490,126 +1505,145 @@ export default function CreatePage() {
           </section>
 
           {/* ---- 生成数量 ---- */}
-          <section>
-            <h3 className="font-bold text-sm mb-3">生成数量</h3>
-            <div className="flex gap-2">
-              {[1, 2, 3, 4].map((n) => (
-                <button key={n} onClick={() => setGenCount(n)}
-                  className={`flex-1 py-2 rounded-lg border text-sm font-medium transition-all ${
-                    genCount === n ? "border-purple-500 bg-purple-50 text-purple-600" : "border-gray-200 hover:border-gray-300"
-                  }`}>
-                  {n} 张
-                </button>
-              ))}
-            </div>
-          </section>
-        </div>
-
-        {/* ---- 底部 ---- */}
-        <div className="studio-runbar border-t p-3 sm:p-4 space-y-2 sticky bottom-0 z-10 lg:static">
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-gray-400">{clothingMode === "multi" ? "多件搭配" : "单件上身"} · {store.clothingFiles.length} 张输入 · {costPerImage} × {genCount} 张</span>
-            {isAuthenticated
-              ? <span className="font-bold text-amber-600">消耗 {totalCost} · 余额 {credits ?? "—"}</span>
-              : <span className="text-gray-400">登录后查看积分</span>
-            }
-          </div>
-          <button onClick={() => handleGenerate()} disabled={store.isGenerating || !uploadedClothingUrls.length}
-            className="w-full py-3 rounded-xl gradient-brand text-white text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-40 hover:opacity-90 shadow-lg shadow-purple-200">
-            <Sparkles className="w-4 h-4" />
-            {!isAuthenticated ? "登录后生成" : store.isGenerating ? "生成中..." : `生成 ${genCount} 张`}
-          </button>
-        </div>
-      </div>
-
-      {/* ========== RIGHT PANEL ========== */}
-      <div className="studio-canvas min-h-[260px] sm:min-h-[360px] lg:min-h-0 flex-1 relative overflow-hidden mt-3 mb-6 lg:mt-0 lg:mb-0">
-        {/* Idle */}
-        {!store.isGenerating && store.resultUrls.length === 0 && !store.error && (
-          <div className="min-h-[260px] sm:min-h-[360px] lg:h-full flex items-center justify-center relative overflow-hidden px-4">
-            {/* 渐变背景 */}
-            <div className="studio-empty-stage absolute inset-0" />
-            {/* 装饰圆 */}
-            <div className="absolute top-20 right-20 w-64 h-64 rounded-full bg-purple-100/30 blur-3xl" />
-            <div className="absolute bottom-20 left-20 w-48 h-48 rounded-full bg-pink-100/30 blur-3xl" />
-
-            <div className="relative w-full px-4 animate-fade-in">
-              <PreviewGuide
-                title="开始制作服装上身图"
-                subtitle="先确定服装硬参考，再选择模特和场景，生成可直接用于商品展示的成片。"
-                imageSrc="/home-showcase/model-striped-top-white-skirt.png"
-                imageAlt="服装上身指引"
-                steps={[
-                  { title: "上传服装", desc: "单件模式上传 1 张服装图，多件模式分别上传上装和下装。" },
-                  { title: "选择模特 / 场景", desc: "可用系统模特、上传模特图；场景参考只控制姿势、背景、构图和镜头。" },
-                  { title: "生成上身图", desc: "保持服装款式、颜色、图案和穿搭关系不变，输出真实成片。" },
-                ]}
-              />
-            </div>
-          </div>
+          <StudioSection title="生成数量" description="结果张数越多，消耗积分越高。">
+            <StudioSegmentedControl<"1" | "2" | "3" | "4">
+              value={`${genCount}` as "1" | "2" | "3" | "4"}
+              ariaLabel="选择生成数量"
+              columns={4}
+              onChange={(value) => setGenCount(Number(value))}
+              options={[
+                { value: "1", label: "1 张" },
+                { value: "2", label: "2 张" },
+                { value: "3", label: "3 张" },
+                { value: "4", label: "4 张" },
+              ]}
+            />
+          </StudioSection>
+          </StudioControlPanel>
         )}
-
-        {/* ==== 生成中：毛玻璃流光卡片 ==== */}
-        {store.isGenerating && (
-          <LoadingStage genCount={genCount} progress={store.generationProgress} moduleName="服装上身" />
-        )}
-
-        {/* Result */}
-        {store.resultUrls.length > 0 && (
-          <div className="studio-result-stage min-h-[260px] sm:min-h-[360px] overflow-y-auto overflow-x-hidden p-4 pb-24 sm:p-6 sm:pb-28 lg:h-full animate-fade-in">
-            <div className="flex min-h-full items-center justify-center">
-              <ResultImageGrid urls={store.resultUrls} filenamePrefix="tryon" onOpen={setLightboxSrc} />
-            </div>
-          </div>
-        )}
-
-        {/* Error */}
-        {store.error && (
-          <ErrorStage
-            error={store.error}
-            onRetry={() => { store.setError(null); handleGenerate(); }}
-            onRepair={handleRepairGenerate}
-            isGenerating={store.isGenerating}
-            repairKind="tryon"
+        runBar={(
+          <StudioRunBar
+            summary={`${clothingMode === "multi" ? "多件搭配" : "单件上身"} · ${store.clothingFiles.length} 张输入 · ${costPerImage} × ${genCount} 张`}
+            costLabel={isAuthenticated ? `消耗 ${totalCost} · 余额 ${credits ?? "—"}` : "登录后查看积分"}
+            disabled={runDisabled}
+            disabledReason={runDisabledReason}
+            primaryLabel={!isAuthenticated ? "登录后生成" : store.isGenerating ? "生成中..." : `生成 ${genCount} 张`}
+            isLoading={store.isGenerating}
+            onPrimaryAction={() => handleGenerate()}
           />
         )}
 
-        {/* Bottom bar */}
-        {store.resultUrls.length > 0 && (
-          <div className="absolute bottom-0 left-0 right-0 border-t border-white/70 bg-white/78 backdrop-blur-2xl px-4 sm:px-6 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-[0_-18px_45px_rgba(15,23,42,0.08)]">
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-gray-400">服装上身结果</span>
-              {store.promptUsed && (
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    setShowPromptPreview(true);
-                  }}
-                  className="text-xs text-purple-500 hover:text-purple-700 underline">
-                  查看提示词
-                </button>
-              )}
-            </div>
-            <div className="flex gap-2">
-              <RepairPromptPanel
-                kind="tryon"
+        canvas={(
+          <StudioResultViewport
+            status={resultStatus}
+            emptyState={(
+              <div className="flex min-h-[320px] items-center justify-center p-4 sm:min-h-[420px] lg:h-full">
+                <StudioEmptyState
+                  title="开始制作服装上身图"
+                  description="先确定服装硬参考，再选择模特和场景，生成可直接用于商品展示的成片。"
+                  imageSrc="/home-showcase/model-striped-top-white-skirt.png"
+                  imageAlt="服装上身指引"
+                  steps={[
+                    { title: "上传服装", description: "单件模式上传 1 张服装图，多件模式分别上传上装和下装。" },
+                    { title: "选择模特 / 场景", description: "可用系统模特、上传模特图；场景参考只控制姿势、背景、构图和镜头。" },
+                    { title: "生成上身图", description: "保持服装款式、颜色、图案和穿搭关系不变，输出真实成片。" },
+                  ]}
+                  actions={(
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => openClothingPicker(clothingMode === "multi" ? "upper" : "single")}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-2 text-xs font-bold text-white shadow-sm transition-colors hover:bg-violet-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+                      >
+                        <Upload className="h-3.5 w-3.5" /> 上传服装
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => sourceLibrary.open(clothingMode === "multi" ? "upper" : "single")}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition-colors hover:border-violet-200 hover:text-violet-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+                      >
+                        <FolderOpen className="h-3.5 w-3.5" /> 从作品库选择
+                      </button>
+                    </>
+                  )}
+                />
+              </div>
+            )}
+            loadingState={<LoadingStage genCount={genCount} progress={store.generationProgress} moduleName="服装上身" />}
+            errorState={store.error ? (
+              <ErrorStage
+                error={store.error}
+                onRetry={() => { store.setError(null); handleGenerate(); }}
                 onRepair={handleRepairGenerate}
-                disabled={store.isGenerating}
-                className="max-w-xl flex-1"
+                isGenerating={store.isGenerating}
+                repairKind="tryon"
               />
-              <button onClick={() => store.reset()}
-                className="px-4 py-1.5 rounded-full border text-xs font-medium flex items-center gap-1.5 hover:bg-gray-50">
-                <RefreshCw className="w-3 h-3" /> 重新创作
-              </button>
-              <a href="/history" className="px-4 py-1.5 rounded-full gradient-brand text-white text-xs font-medium flex items-center gap-1.5">
-                历史记录 <ChevronRight className="w-3 h-3" />
-              </a>
-            </div>
-          </div>
+            ) : null}
+            results={(
+              <div className="relative min-h-[320px] sm:min-h-[420px] lg:h-full">
+                <div className="studio-result-stage min-h-[320px] overflow-y-auto overflow-x-hidden p-4 pb-32 sm:min-h-[420px] sm:p-6 sm:pb-32 lg:h-full">
+                  <div className="flex min-h-full items-center justify-center">
+                    <ResultImageGrid
+                      urls={store.resultUrls}
+                      filenamePrefix="tryon"
+                      onOpen={(url, index) => openLightbox(url, `服装上身结果 ${index + 1}`)}
+                      imageAltPrefix="服装上身结果"
+                    />
+                  </div>
+                </div>
+
+                <div className="absolute bottom-0 left-0 right-0 flex flex-col gap-2 border-t border-white/70 bg-white/86 px-4 py-3 shadow-[0_-18px_45px_rgba(15,23,42,0.08)] backdrop-blur-2xl sm:flex-row sm:items-center sm:justify-between sm:px-6">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-slate-500">服装上身结果</span>
+                    {store.promptUsed && (
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          setShowPromptPreview(true);
+                        }}
+                        className="text-xs font-semibold text-violet-600 underline-offset-2 hover:text-violet-800 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+                      >
+                        查看提示词
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <RepairPromptPanel
+                      kind="tryon"
+                      onRepair={handleRepairGenerate}
+                      disabled={store.isGenerating}
+                      className="max-w-xl flex-1"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => store.reset()}
+                      className="inline-flex items-center gap-1.5 rounded-full border px-4 py-1.5 text-xs font-medium transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+                    >
+                      <RefreshCw className="h-3 w-3" /> 重新创作
+                    </button>
+                    <a href="/history" className="inline-flex items-center gap-1.5 rounded-full bg-violet-600 px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-violet-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2">
+                      历史记录 <ChevronRight className="h-3 w-3" />
+                    </a>
+                  </div>
+                </div>
+              </div>
+            )}
+          />
         )}
-      </div>
+      />
+
+      <TryOnSourceLibraryDialog
+        open={sourceLibrary.role !== null}
+        targetLabel={sourceLibrary.targetLabel}
+        items={sourceLibrary.items}
+        isLoading={sourceLibrary.isLoading}
+        error={sourceLibrary.error}
+        onClose={sourceLibrary.close}
+        onRefresh={sourceLibrary.load}
+        onSelect={applySourceLibraryItem}
+      />
 
       {showClothingRules && rulesPopoverStyle && (
         <ClientPortal>
@@ -1678,14 +1712,26 @@ export default function CreatePage() {
       )}
 
       {/* ========== 大图 Lightbox ========== */}
-      {lightboxSrc && (
+      {lightboxImage && (
         <ClientPortal>
-          <div className="fixed inset-0 z-[180] flex cursor-zoom-out items-center justify-center bg-slate-950/66 p-4 backdrop-blur-xl sm:p-8"
-            onClick={() => setLightboxSrc(null)}>
-            <img src={lightboxSrc}
+          <div
+            className="fixed inset-0 z-[180] flex cursor-zoom-out items-center justify-center bg-slate-950/66 p-4 backdrop-blur-xl sm:p-8"
+            role="dialog"
+            aria-modal="true"
+            aria-label={lightboxImage.alt}
+            onClick={() => setLightboxImage(null)}
+          >
+            <img
+              src={lightboxImage.src}
+              alt={lightboxImage.alt}
               className="max-h-full max-w-full rounded-2xl object-contain shadow-[0_32px_120px_rgba(0,0,0,0.45)]" />
-            <button onClick={() => setLightboxSrc(null)}
-              className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full border border-white/85 bg-white/90 text-slate-700 shadow-[0_12px_34px_rgba(15,23,42,0.22)] backdrop-blur transition-colors hover:bg-white hover:text-slate-950 sm:right-6 sm:top-6">
+            <button
+              type="button"
+              onClick={() => setLightboxImage(null)}
+              className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full border border-white/85 bg-white/90 text-slate-700 shadow-[0_12px_34px_rgba(15,23,42,0.22)] backdrop-blur transition-colors hover:bg-white hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 sm:right-6 sm:top-6"
+              aria-label="关闭图片预览"
+              title="关闭图片预览"
+            >
               <X className="w-5 h-5" />
             </button>
           </div>
@@ -1788,6 +1834,6 @@ export default function CreatePage() {
         </div>
         </ClientPortal>
       )}
-    </div>
+    </>
   );
 }

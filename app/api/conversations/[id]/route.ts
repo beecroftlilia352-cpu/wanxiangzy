@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { API_RATE_LIMITS, enforceApiRateLimit } from "@/lib/api/rate-limit";
 import { createServerSupabase } from "@/lib/supabase/server";
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -6,6 +7,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   const supabase = await createServerSupabase();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "请先登录" }, { status: 401 });
+
+  const rateLimit = await enforceApiRateLimit(user.id, API_RATE_LIMITS.conversationMutation);
+  if (rateLimit) return rateLimit;
 
   const body = await request.json().catch(() => ({}));
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
@@ -30,6 +34,9 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
   const supabase = await createServerSupabase();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "请先登录" }, { status: 401 });
+
+  const rateLimit = await enforceApiRateLimit(user.id, API_RATE_LIMITS.conversationMutation);
+  if (rateLimit) return rateLimit;
 
   const { error } = await supabase
     .from("agent_conversations")

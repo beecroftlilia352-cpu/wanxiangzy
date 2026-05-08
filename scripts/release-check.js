@@ -1,7 +1,7 @@
 const { spawn } = require("node:child_process");
 
 const isWindows = process.platform === "win32";
-function npmCheck(name, script, reason, fixHint) {
+function npmCheck(name, script, reason, fixHint, env = {}) {
   return isWindows
     ? {
         name,
@@ -10,6 +10,7 @@ function npmCheck(name, script, reason, fixHint) {
         args: ["/d", "/s", "/c", `npm run ${script}`],
         reason,
         fixHint,
+        env,
       }
     : {
         name,
@@ -18,6 +19,7 @@ function npmCheck(name, script, reason, fixHint) {
         args: ["run", script],
         reason,
         fixHint,
+        env,
       };
 }
 
@@ -29,6 +31,12 @@ const checks = [
     "Run `npm run test` locally, fix the first failing spec, then rerun `npm run check:release`."
   ),
   npmCheck(
+    "check:prompts",
+    "check:prompts",
+    "Prompt regression check failed.",
+    "Run `npm run check:prompts` locally, update the affected prompt behavior or fixture expectations, then rerun `npm run check:release`."
+  ),
+  npmCheck(
     "build",
     "build",
     "Production build failed.",
@@ -38,7 +46,8 @@ const checks = [
     "check:ssr-size",
     "check:ssr-size",
     "SSR package size check failed.",
-    "Run `npm run check:ssr-size` after a successful build and review the listed .next/server files or modules before deploying to EdgeOne."
+    "Run `SSR_SIZE_FAIL_ON_RISK=1 npm run check:ssr-size` after a successful build and review the listed .next/server files or modules before deploying to EdgeOne.",
+    { SSR_SIZE_FAIL_ON_RISK: "1" }
   ),
 ];
 
@@ -47,8 +56,9 @@ function printHelp() {
 
 Runs release gates in order:
   1. npm run test
-  2. npm run build
-  3. npm run check:ssr-size
+  2. npm run check:prompts
+  3. npm run build
+  4. SSR_SIZE_FAIL_ON_RISK=1 npm run check:ssr-size
 
 The first failing step stops the release check and returns its exit code.
 
@@ -62,7 +72,10 @@ function formatDuration(startedAt) {
 }
 
 function printableCommand(check) {
-  return `npm run ${check.script}`;
+  const envPrefix = Object.entries(check.env || {})
+    .map(([key, value]) => `${key}=${value}`)
+    .join(" ");
+  return `${envPrefix ? `${envPrefix} ` : ""}npm run ${check.script}`;
 }
 
 function printFailure(check, result, index) {
@@ -84,6 +97,7 @@ function runCheck(check, index) {
       stdio: "inherit",
       shell: false,
       windowsHide: isWindows,
+      env: { ...process.env, ...(check.env || {}) },
     });
 
     child.on("error", (error) => {

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/api/auth";
-import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
+import { API_RATE_LIMITS, enforceApiRateLimit } from "@/lib/api/rate-limit";
 import { estimateWorkflowCost } from "@/lib/agent/workflow/cost";
 import { planWorkflow } from "@/lib/agent/workflow/planner";
 import { applyDefaultsToPlan, normalizeGenerationDefaults, normalizeWorkflowImages, normalizeWorkflowMode } from "@/lib/agent/workflow/request";
@@ -21,8 +21,8 @@ export async function POST(request: NextRequest) {
   const auth = await requireApiUser();
   if (auth.response) return auth.response;
 
-  const limit = await checkRateLimit(`agent-workflow-plan:${auth.user.id}`, 20, 60_000);
-  if (!limit.ok) return rateLimitResponse(limit.retryAfterSeconds);
+  const rateLimit = await enforceApiRateLimit(auth.user.id, API_RATE_LIMITS.agentWorkflowPlan);
+  if (rateLimit) return rateLimit;
 
   try {
     const body = await request.json().catch(() => ({}));

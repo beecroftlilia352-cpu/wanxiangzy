@@ -1,3 +1,9 @@
+import {
+  getConfiguredPublicBaseUrl,
+  normalizePublicBaseUrl,
+  requirePublicBaseUrlForRuntime,
+} from "@/lib/env";
+
 const MAX_DATA_URL_LENGTH = 21 * 1024 * 1024;
 
 export async function resolveImageInputs(input: {
@@ -25,7 +31,7 @@ export async function resolveImageInputs(input: {
 }
 
 export function getPublicBaseUrlFromRequest(request: Request): string {
-  const configured = normalizePublicBaseUrl(getConfiguredPublicBaseUrl());
+  const configured = requirePublicBaseUrlForRuntime("Resolving public image URLs");
   if (configured) return configured;
 
   const forwardedHost = request.headers.get("x-forwarded-host");
@@ -68,37 +74,6 @@ function resolvePublicImageUrl(src: string, publicBaseUrl?: string): string {
   }
 
   return new URL(src, publicBaseUrl).toString();
-}
-
-function getConfiguredPublicBaseUrl() {
-  return (
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    process.env.NEXT_PUBLIC_APP_URL ||
-    process.env.PUBLIC_SITE_URL ||
-    process.env.SITE_URL ||
-    process.env.APP_URL ||
-    process.env.URL ||
-    process.env.VERCEL_URL
-  );
-}
-
-function normalizePublicBaseUrl(value?: string | null): string | undefined {
-  if (!value) return undefined;
-
-  const raw = value.startsWith("http://") || value.startsWith("https://")
-    ? value
-    : `https://${value}`;
-
-  try {
-    const url = new URL(raw);
-    if (url.protocol !== "http:" && url.protocol !== "https:") return undefined;
-    url.pathname = "";
-    url.search = "";
-    url.hash = "";
-    return url.toString().replace(/\/$/, "");
-  } catch {
-    return undefined;
-  }
 }
 
 function getSafePublicPath(src: string): string {

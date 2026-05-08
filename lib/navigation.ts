@@ -56,11 +56,14 @@ export type FeatureNavItem = {
   comingSoon?: boolean;
 };
 
+const SHOW_INTERNAL_NAV =
+  process.env.NEXT_PUBLIC_SHOW_INTERNAL_NAV === "true" || process.env.NODE_ENV !== "production";
+
 export const TOP_MODULES: TopModuleNavItem[] = [
   { key: "aiShoots", href: "/create", label: "AI 拍摄", icon: Camera },
   { key: "assistant", href: "/agent", label: "AI 助手", icon: Bot },
   { key: "tools", href: "/general-image", label: "素材生成", icon: Sparkles },
-  { key: "aiVideo", href: "/agent?intent=video", label: "AI 视频", icon: Clapperboard, comingSoon: true },
+  { key: "aiVideo", href: "#", label: "AI 视频", icon: Clapperboard, comingSoon: true },
   { key: "works", href: "/history", label: "作品库", icon: GalleryHorizontalEnd },
 ];
 
@@ -192,6 +195,10 @@ export const FEATURE_ITEMS: FeatureNavItem[] = [
   },
 ];
 
+function isInternalFeatureItem(item: FeatureNavItem) {
+  return item.key === "apiTest";
+}
+
 export function getFeatureItem(key: FeatureKey) {
   return FEATURE_ITEMS.find((item) => item.key === key);
 }
@@ -208,6 +215,9 @@ export function getActiveTopModule(pathname: string | null | undefined): AppModu
 }
 
 export function getFeatureItemsForModule(module: AppModuleKey) {
-  if (module === "home") return FEATURE_ITEMS.filter((item) => item.module === "aiShoots");
-  return FEATURE_ITEMS.filter((item) => item.module === module);
+  const items = module === "home"
+    ? FEATURE_ITEMS.filter((item) => item.module === "aiShoots")
+    : FEATURE_ITEMS.filter((item) => item.module === module);
+
+  return SHOW_INTERNAL_NAV ? items : items.filter((item) => !isInternalFeatureItem(item));
 }

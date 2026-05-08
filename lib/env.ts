@@ -1,48 +1,288 @@
-/**
- * 启动时环境变量校验
- * 在 dev/production 启动阶段尽早发现缺失的关键配置。
- */
+type EnvCategory = "production-required" | "feature-required" | "optional";
+type EnvSeverity = "error" | "warning";
 
-const REQUIRED_SERVER_VARS = [
-  "NEXT_PUBLIC_SUPABASE_URL",
-  "NEXT_PUBLIC_SUPABASE_ANON_KEY",
-  "SUPABASE_SERVICE_ROLE_KEY",
-] as const;
+export type EnvContractEntry = {
+  name: string;
+  category: EnvCategory;
+  description: string;
+};
 
-const REQUIRED_API_VARS = [
-  "LINGYA_API_KEY",
-] as const;
+export type EnvValidationIssue = {
+  name: string;
+  category: EnvCategory;
+  severity: EnvSeverity;
+  message: string;
+};
+
+export type ProcessorSecretCandidate = {
+  name: string;
+  value?: string;
+};
+
+export type ProcessorSecretValidation =
+  | { ok: true; secrets: string[] }
+  | { ok: false; message: string };
+
+const PRODUCTION_REQUIRED_ENV: EnvContractEntry[] = [
+  {
+    name: "NEXT_PUBLIC_APP_URL",
+    category: "production-required",
+    description: "Canonical public app origin. Required in production for generated public asset URLs.",
+  },
+  {
+    name: "NEXT_PUBLIC_SUPABASE_URL",
+    category: "production-required",
+    description: "Supabase project URL used by browser and server clients.",
+  },
+  {
+    name: "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+    category: "production-required",
+    description: "Supabase anon key used by browser and server clients.",
+  },
+  {
+    name: "SUPABASE_SERVICE_ROLE_KEY",
+    category: "production-required",
+    description: "Supabase service role key for privileged server-side operations.",
+  },
+];
+
+const FEATURE_REQUIRED_ENV: EnvContractEntry[] = [
+  {
+    name: "LINGYA_API_KEY",
+    category: "feature-required",
+    description: "Required for Lingya image generation and Lingya-backed prompt analysis.",
+  },
+  {
+    name: "PLATO_API_KEY",
+    category: "feature-required",
+    description: "Required for GPT-Image-2 through Plato; falls back to LINGYA_API_KEY when empty.",
+  },
+  {
+    name: "XIAOMI_MIMO_API_KEY",
+    category: "feature-required",
+    description: "Required when ANALYZE_LLM_PROVIDER=xiaomi.",
+  },
+  {
+    name: "IMGBB_API_KEY",
+    category: "feature-required",
+    description: "Required for user uploads and durable external result-image storage.",
+  },
+  {
+    name: "JOB_PROCESSOR_SECRET or CRON_SECRET",
+    category: "feature-required",
+    description: "Required by /api/jobs/process-generations.",
+  },
+  {
+    name: "AGENT_WORKFLOW_PROCESSOR_SECRET or JOB_PROCESSOR_SECRET or CRON_SECRET",
+    category: "feature-required",
+    description: "Required by /api/jobs/process-agent-workflows.",
+  },
+  {
+    name: "AGENT_EVAL_PROCESSOR_SECRET or JOB_PROCESSOR_SECRET or CRON_SECRET",
+    category: "feature-required",
+    description: "Required by /api/jobs/run-agent-evals.",
+  },
+];
+
+const OPTIONAL_ENV: EnvContractEntry[] = [
+  { name: "LINGYA_BASE_URL", category: "optional", description: "Lingya API base URL override." },
+  { name: "PLATO_BASE_URL", category: "optional", description: "Plato API base URL override." },
+  { name: "ANALYZE_LLM_PROVIDER", category: "optional", description: "Prompt analysis provider: xiaomi or lingya." },
+  { name: "LINGYA_TEXT_MODEL", category: "optional", description: "Lingya text model override." },
+  { name: "LINGYA_VISION_MODEL", category: "optional", description: "Lingya vision model override." },
+  { name: "XIAOMI_MIMO_BASE_URL", category: "optional", description: "Xiaomi OpenAI-compatible base URL override." },
+  { name: "XIAOMI_MIMO_MODEL", category: "optional", description: "Default Xiaomi model override." },
+  { name: "XIAOMI_MIMO_TEXT_MODEL", category: "optional", description: "Xiaomi text model override." },
+  { name: "XIAOMI_MIMO_VISION_MODEL", category: "optional", description: "Xiaomi vision model override." },
+  { name: "DOWNLOAD_IMAGE_ALLOWED_HOSTS", category: "optional", description: "Extra hosts allowed by /api/download-image." },
+  { name: "API_PLATFORM_TEST_ALLOWED_HOSTS", category: "optional", description: "Allowlist for the API platform test proxy." },
+  { name: "GENERATION_JOB_BATCH_SIZE", category: "optional", description: "Generation processor batch size." },
+  { name: "GENERATION_JOB_STALE_MINUTES", category: "optional", description: "Generation job stale timeout." },
+  { name: "AGENT_WORKFLOW_BATCH_SIZE", category: "optional", description: "Agent workflow processor batch size." },
+  { name: "AGENT_EVAL_MAX_USERS", category: "optional", description: "Maximum users evaluated per scheduled eval run." },
+  { name: "AGENT_VISUAL_AUTO_REGENERATE_ENABLED", category: "optional", description: "Toggle automatic visual repair regeneration." },
+  { name: "AGENT_WORKFLOW_SELF_REPAIR_ENABLED", category: "optional", description: "Toggle agent workflow self-repair." },
+  { name: "AGENT_BRAIN_V2_ROLLOUT", category: "optional", description: "Agent brain v2 rollout toggle." },
+  { name: "AGENT_BRAIN_V2_ROLLOUT_PERCENT", category: "optional", description: "Agent brain v2 percentage rollout." },
+  { name: "FASHN_API_KEY", category: "optional", description: "Legacy FASHN provider token." },
+  { name: "REPLICATE_API_TOKEN", category: "optional", description: "Legacy Replicate provider token." },
+];
+
+const WEAK_PROCESSOR_SECRETS = new Set([
+  "change-me",
+  "changeme",
+  "secret",
+  "password",
+  "your-secret",
+  "your-job-processor-secret",
+  "your-cron-secret",
+]);
+
+const MIN_PRODUCTION_PROCESSOR_SECRET_LENGTH = 32;
 
 let validated = false;
 
-export function validateEnv(): void {
-  if (validated) return;
+export function getEnvContract(): EnvContractEntry[] {
+  return [...PRODUCTION_REQUIRED_ENV, ...FEATURE_REQUIRED_ENV, ...OPTIONAL_ENV];
+}
+
+export function validateEnv(options: { log?: boolean; nodeEnv?: string } = {}): EnvValidationIssue[] {
+  const nodeEnv = options.nodeEnv || process.env.NODE_ENV;
+  const isProduction = nodeEnv === "production";
+  const issues: EnvValidationIssue[] = [];
+
+  for (const entry of PRODUCTION_REQUIRED_ENV) {
+    if (!process.env[entry.name]) {
+      issues.push({
+        name: entry.name,
+        category: entry.category,
+        severity: isProduction ? "error" : "warning",
+        message: isProduction
+          ? `${entry.name} is required in production.`
+          : `${entry.name} is not set; this is required before production deploys.`,
+      });
+    }
+  }
+
+  for (const entry of FEATURE_REQUIRED_ENV) {
+    if (entry.name.includes(" or ")) continue;
+    if (!process.env[entry.name]) {
+      issues.push({
+        name: entry.name,
+        category: entry.category,
+        severity: "warning",
+        message: `${entry.name} is not set; related features will fail when used.`,
+      });
+    }
+  }
+
+  if (options.log) logEnvIssues(issues);
+  return issues;
+}
+
+export function validateEnvOnce(): EnvValidationIssue[] {
+  if (validated) return [];
   validated = true;
+  return validateEnv({ log: true });
+}
 
-  const missing: string[] = [];
+export function getConfiguredPublicBaseUrl(options: {
+  allowNonProductionFallbacks?: boolean;
+  nodeEnv?: string;
+} = {}): string | undefined {
+  const nodeEnv = options.nodeEnv || process.env.NODE_ENV;
+  const appUrl = normalizePublicBaseUrl(process.env.NEXT_PUBLIC_APP_URL);
+  if (appUrl) return appUrl;
 
-  for (const key of REQUIRED_SERVER_VARS) {
-    if (!process.env[key]) missing.push(key);
+  if (nodeEnv === "production" || options.allowNonProductionFallbacks === false) {
+    return undefined;
   }
 
-  if (missing.length > 0) {
-    console.error(
-      `[env] 缺少必要的环境变量: ${missing.join(", ")}\n` +
-      `请在 .env.local 中配置这些变量。`
-    );
+  return normalizePublicBaseUrl(
+    process.env.NEXT_PUBLIC_SITE_URL ||
+      process.env.PUBLIC_SITE_URL ||
+      process.env.SITE_URL ||
+      process.env.APP_URL ||
+      process.env.URL ||
+      process.env.VERCEL_URL
+  );
+}
+
+export function requirePublicBaseUrlForRuntime(context: string): string | undefined {
+  const publicBaseUrl = getConfiguredPublicBaseUrl();
+  if (publicBaseUrl) return publicBaseUrl;
+
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(`${context} requires NEXT_PUBLIC_APP_URL in production.`);
   }
 
-  const optionalMissing: string[] = [];
-  for (const key of REQUIRED_API_VARS) {
-    if (!process.env[key]) optionalMissing.push(key);
-  }
+  return undefined;
+}
 
-  if (optionalMissing.length > 0) {
-    console.warn(
-      `[env] 以下 API Key 未配置，相关功能将不可用: ${optionalMissing.join(", ")}`
-    );
+export function normalizePublicBaseUrl(value?: string | null): string | undefined {
+  if (!value) return undefined;
+
+  const raw = value.startsWith("http://") || value.startsWith("https://")
+    ? value
+    : `https://${value}`;
+
+  try {
+    const url = new URL(raw);
+    if (url.protocol !== "http:" && url.protocol !== "https:") return undefined;
+    url.pathname = "";
+    url.search = "";
+    url.hash = "";
+    return url.toString().replace(/\/$/, "");
+  } catch {
+    return undefined;
   }
 }
 
-// 自动执行（模块加载时）
-validateEnv();
+export function getConfiguredProcessorSecrets(
+  candidates: ProcessorSecretCandidate[],
+  label: string,
+  options: { nodeEnv?: string } = {}
+): ProcessorSecretValidation {
+  const nodeEnv = options.nodeEnv || process.env.NODE_ENV;
+  const configured = candidates
+    .map((candidate) => ({
+      name: candidate.name,
+      value: candidate.value?.trim() || "",
+    }))
+    .filter((candidate) => candidate.value.length > 0);
+
+  if (configured.length === 0) {
+    return {
+      ok: false,
+      message: `${label} requires one of: ${candidates.map((candidate) => candidate.name).join(", ")}`,
+    };
+  }
+
+  const weakReasons = configured
+    .map((candidate) => getWeakProductionProcessorSecretReason(candidate.name, candidate.value, nodeEnv))
+    .filter((reason): reason is string => Boolean(reason));
+
+  const validSecrets = configured
+    .filter((candidate) => !getWeakProductionProcessorSecretReason(candidate.name, candidate.value, nodeEnv))
+    .map((candidate) => candidate.value);
+
+  if (validSecrets.length > 0) {
+    return { ok: true, secrets: Array.from(new Set(validSecrets)) };
+  }
+
+  return {
+    ok: false,
+    message: weakReasons.length > 0
+      ? `${label} has an unsafe production secret: ${weakReasons.join("; ")}`
+      : `${label} is not configured.`,
+  };
+}
+
+function getWeakProductionProcessorSecretReason(
+  name: string,
+  value: string,
+  nodeEnv: string | undefined
+): string | undefined {
+  if (nodeEnv !== "production") return undefined;
+
+  const normalized = value.trim().toLowerCase();
+  if (WEAK_PROCESSOR_SECRETS.has(normalized)) {
+    return `${name} uses placeholder value "${value}"`;
+  }
+
+  if (value.length < MIN_PRODUCTION_PROCESSOR_SECRET_LENGTH) {
+    return `${name} must be at least ${MIN_PRODUCTION_PROCESSOR_SECRET_LENGTH} characters`;
+  }
+
+  return undefined;
+}
+
+function logEnvIssues(issues: EnvValidationIssue[]): void {
+  if (issues.length === 0) return;
+
+  console.warn(`[env] ${issues.map((issue) => issue.message).join(" ")}`);
+}
+
+if (process.env.NODE_ENV !== "test") {
+  validateEnvOnce();
+}

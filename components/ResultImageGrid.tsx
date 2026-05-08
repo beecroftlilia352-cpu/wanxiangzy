@@ -10,10 +10,11 @@ const FALLBACK_IMAGE =
 type ResultImageGridProps = {
   urls: string[];
   filenamePrefix: string;
-  onOpen: (url: string) => void;
+  onOpen: (url: string, index: number) => void;
   extension?: string;
   expectedCount?: number;
   isGenerating?: boolean;
+  imageAltPrefix?: string;
 };
 
 function getGridClass(count: number) {
@@ -37,6 +38,7 @@ export function ResultImageGrid({
   extension = "png",
   expectedCount,
   isGenerating,
+  imageAltPrefix = "Generated result image",
 }: ResultImageGridProps) {
   const count = Math.max(urls.length, expectedCount || 0, 1);
   const isSingle = count <= 1;
@@ -47,11 +49,22 @@ export function ResultImageGrid({
       {slots.map((url, index) => (
         <div
           key={`${url || "pending"}-${index}`}
-          className={`group relative min-w-0 cursor-zoom-in overflow-hidden rounded-2xl bg-white shadow-[0_22px_70px_rgba(15,23,42,0.16)] ring-1 ring-white/80 transition-transform duration-200 hover:-translate-y-0.5 ${
+          role={url ? "button" : undefined}
+          tabIndex={url ? 0 : undefined}
+          aria-label={url ? `Preview ${imageAltPrefix.toLowerCase()} ${index + 1}` : undefined}
+          title={url ? `Preview ${imageAltPrefix.toLowerCase()} ${index + 1}` : undefined}
+          className={`group relative min-w-0 overflow-hidden rounded-2xl bg-white shadow-[0_22px_70px_rgba(15,23,42,0.16)] ring-1 ring-white/80 transition-transform duration-200 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 ${
+            url ? "cursor-zoom-in" : ""
+          } ${
             isSingle ? "mx-auto max-w-full" : ""
           }`}
           onClick={() => {
-            if (url) onOpen(url);
+            if (url) onOpen(url, index);
+          }}
+          onKeyDown={(event) => {
+            if (!url || (event.key !== "Enter" && event.key !== " ")) return;
+            event.preventDefault();
+            onOpen(url, index);
           }}
         >
           <div
@@ -61,7 +74,7 @@ export function ResultImageGrid({
             {url ? (
               <img
                 src={url}
-                alt={`结果 ${index + 1}`}
+                alt={`${imageAltPrefix} ${index + 1}`}
                 className="h-full w-full object-contain"
                 onError={(event) => {
                   (event.currentTarget as HTMLImageElement).src = FALLBACK_IMAGE;
@@ -86,8 +99,12 @@ export function ResultImageGrid({
                 event.stopPropagation();
                 downloadImage(url, generateDownloadFilename(filenamePrefix, index, extension));
               }}
-              className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-white/92 text-slate-700 opacity-0 shadow-lg ring-1 ring-slate-200/70 backdrop-blur transition-all hover:bg-white hover:text-slate-950 group-hover:opacity-100"
-              aria-label={`下载结果 ${index + 1}`}
+              onKeyDown={(event) => {
+                event.stopPropagation();
+              }}
+              className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-white/92 text-slate-700 opacity-100 shadow-lg ring-1 ring-slate-200/70 backdrop-blur transition-all hover:bg-white hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
+              aria-label={`Download ${imageAltPrefix.toLowerCase()} ${index + 1}`}
+              title={`Download ${imageAltPrefix.toLowerCase()} ${index + 1}`}
             >
               <Download className="h-4 w-4" />
             </button>

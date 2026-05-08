@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { API_RATE_LIMITS, enforceApiRateLimit } from "@/lib/api/rate-limit";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { DEFAULT_CONVERSATION_TITLE, deriveConversationTitle, isDefaultConversationTitle } from "@/lib/agent/conversation-title";
 
@@ -6,6 +7,9 @@ export async function GET() {
   const supabase = await createServerSupabase();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "请先登录" }, { status: 401 });
+
+  const rateLimit = await enforceApiRateLimit(user.id, API_RATE_LIMITS.conversationReadMutation);
+  if (rateLimit) return rateLimit;
 
   const { data, error } = await supabase
     .from("agent_conversations")
@@ -59,6 +63,9 @@ export async function POST(request: NextRequest) {
   const supabase = await createServerSupabase();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "请先登录" }, { status: 401 });
+
+  const rateLimit = await enforceApiRateLimit(user.id, API_RATE_LIMITS.conversationMutation);
+  if (rateLimit) return rateLimit;
 
   const body = await request.json().catch(() => ({}));
   const title = typeof body.title === "string" && body.title.trim()

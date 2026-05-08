@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { API_RATE_LIMITS, enforceApiRateLimit } from "@/lib/api/rate-limit";
 import { createServerSupabase } from "@/lib/supabase/server";
 import {
   GENERATION_COMPLETED_STATUS_FILTERS,
@@ -73,6 +74,8 @@ export async function GET(request: Request) {
     if (!user) {
       return NextResponse.json({ error: "请先登录" }, { status: 401 });
     }
+    const rateLimit = await enforceApiRateLimit(user.id, API_RATE_LIMITS.historyRead);
+    if (rateLimit) return rateLimit;
 
     if (id) {
       const { data, error } = await withTimeout(

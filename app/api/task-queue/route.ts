@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { API_RATE_LIMITS, enforceApiRateLimit } from "@/lib/api/rate-limit";
 import { createServerSupabase } from "@/lib/supabase/server";
 import {
   GENERATION_FAILED_STATUS_FILTERS,
@@ -103,6 +104,8 @@ export async function GET(request: Request) {
     const supabase = await createServerSupabase();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return queueJson(summaryOnly ? summaryPayload(EMPTY_SUMMARY) : detailPayload([], EMPTY_SUMMARY));
+    const rateLimit = await enforceApiRateLimit(user.id, API_RATE_LIMITS.taskQueueRead);
+    if (rateLimit) return rateLimit;
 
     const summary = await loadQueueSummary(supabase, user.id);
     if (summaryOnly) return queueJson(summaryPayload(summary));

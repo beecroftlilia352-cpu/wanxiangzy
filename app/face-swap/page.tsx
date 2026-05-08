@@ -14,7 +14,6 @@ import {
   ScanFace,
   Settings2,
   Sparkles,
-  Upload,
   UserRoundCheck,
   Wand2,
   X,
@@ -22,6 +21,9 @@ import {
 import { toast } from "sonner";
 import { FeatureTabs } from "@/components/FeatureTabs";
 import { ClientPortal } from "@/components/ClientPortal";
+import { ModuleHeader } from "@/components/ModuleHeader";
+import { PreviewGuide } from "@/components/PreviewGuide";
+import { LoadingStage } from "@/components/studio/LoadingStage";
 import {
   FACE_SWAP_LIBRARY,
   FACE_SWAP_NOTE,
@@ -379,25 +381,39 @@ export default function FaceSwapPage() {
   }
 
   return (
-    <div className="studio-workbench flex min-h-[calc(100dvh-64px)] flex-col lg:h-[calc(100vh-64px)] lg:flex-row">
+    <div className="studio-workbench face-swap-workbench flex min-h-[calc(100dvh-64px)] flex-col lg:h-[calc(100vh-64px)] lg:flex-row">
       <FeatureTabs active="faceSwap" />
 
       <aside className="studio-parameters flex w-full flex-col overflow-visible border-b lg:w-[472px] lg:overflow-hidden lg:border-b-0 lg:border-r">
         <div className="studio-parameters-scroll flex-1 space-y-4 overflow-visible p-3 sm:space-y-6 sm:p-5 lg:overflow-y-auto">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-violet-500">AI Face Swap</p>
-            <h1 className="mt-1 text-2xl font-black text-slate-950">AI 换脸</h1>
-            <p className="mt-2 text-xs leading-relaxed text-slate-500">
-              替换模特面部特征，保留原图肤色、发型、身体、服装和场景。
-            </p>
-          </div>
+          <ModuleHeader
+            title="AI 换脸"
+            tooltip="上传原始模特图与目标脸图，只迁移五官身份，保留原图肤色、发型、服装、姿势和场景。"
+          />
+
+          <section className="face-swap-identity-card">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[11px] font-black uppercase tracking-normal text-cyan-600">Identity Transfer</p>
+                <p className="mt-1 text-sm font-black text-slate-950">双图身份迁移</p>
+                <p className="mt-1 text-xs leading-relaxed text-slate-500">左侧锁定画面，右侧只提供五官身份。</p>
+              </div>
+              <div className="flex shrink-0 items-center gap-1.5">
+                <MiniPreviewImage src={previewSource} alt="source preview" />
+                <span className="face-swap-flow-arrow">
+                  <ScanFace className="h-4 w-4" />
+                </span>
+                <MiniPreviewImage src={previewFace} alt="face preview" square />
+              </div>
+            </div>
+          </section>
 
           <section>
-            <PanelTitle title="Original Model" />
+            <PanelTitle title="原始模特图" />
             <UploadBox
               url={sourceUrl}
-              title="Click or drag to upload"
-              desc="PNG, JPG or WebP · Up to 1 file"
+              title="点击或拖拽上传"
+              desc="PNG、JPG 或 WebP · 单张图片"
               icon={<ImagePlus className="h-7 w-7 text-violet-500" />}
               loading={isUploadingOriginal}
               onPick={() => originalInputRef.current?.click()}
@@ -409,7 +425,7 @@ export default function FaceSwapPage() {
             />
             <input ref={originalInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleUpload(e.target.files?.[0], "source")} />
             <div className="mt-3 flex items-center gap-2">
-              <span className="w-12 shrink-0 text-[11px] font-semibold leading-tight text-slate-500">Sample Images</span>
+              <span className="w-12 shrink-0 text-[11px] font-semibold leading-tight text-slate-500">示例图</span>
               <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto pb-1">
                 {FACE_SWAP_SAMPLE_IMAGES.map((sample) => (
                   <button
@@ -430,13 +446,13 @@ export default function FaceSwapPage() {
 
           <section>
             <div className="mb-2 flex items-center justify-between">
-              <PanelTitle title="Target Model" />
+              <PanelTitle title="目标脸图" />
               <button type="button" onClick={() => setDrawerOpen(true)} className="inline-flex items-center gap-1 text-xs font-semibold text-violet-600 hover:text-violet-700">
                 模特脸库 <ChevronRight className="h-3.5 w-3.5" />
               </button>
             </div>
             <div
-              className={`grid grid-cols-[112px_1fr_42px] items-center gap-3 rounded-2xl border p-3 transition-all ${faceUrl ? "border-violet-100 bg-violet-50/45" : "border-slate-100 bg-slate-50"}`}
+              className={`face-swap-target-card grid grid-cols-[112px_1fr_42px] items-center gap-3 rounded-2xl border p-3 transition-all ${faceUrl ? "border-cyan-200 bg-cyan-50/45" : "border-slate-100 bg-slate-50"}`}
               onDragEnter={(event) => event.preventDefault()}
               onDragOver={(event) => event.preventDefault()}
               onDrop={(event) => {
@@ -484,11 +500,11 @@ export default function FaceSwapPage() {
                 ) : isUploadingFace ? (
                   <Loader2 className="h-5 w-5 animate-spin" />
                 ) : (
-                  <span>Click or drag<br />to upload</span>
+                  <span>点击或拖拽<br />上传脸图</span>
                 )}
               </div>
               <div>
-                <p className="text-sm font-bold text-slate-700">{faceUrl ? "Change Model" : "Choose a model reference image"}</p>
+                <p className="text-sm font-bold text-slate-700">{faceUrl ? "更换目标脸图" : "选择一张目标脸参考"}</p>
                 <p className="mt-1 text-xs leading-relaxed text-slate-500">
                   {faceUrl ? "已选择目标脸图，可更换或删除。" : FACE_SWAP_NOTE}
                 </p>
@@ -536,7 +552,7 @@ export default function FaceSwapPage() {
             </div>
           </ControlSection>
 
-          <ControlSection title="Aspect Ratio">
+          <ControlSection title="画面比例">
             <SegmentedControl
               options={ASPECT_RATIOS}
               value={aspectRatio}
@@ -544,7 +560,7 @@ export default function FaceSwapPage() {
             />
           </ControlSection>
 
-          <ControlSection title="Resolution">
+          <ControlSection title="分辨率">
             <SegmentedControl
               options={supportedSizes.map((size) => ({ value: size, label: size }))}
               value={imageSizeValue}
@@ -552,7 +568,7 @@ export default function FaceSwapPage() {
             />
           </ControlSection>
 
-          <ControlSection title="Output Count">
+          <ControlSection title="生成数量">
             <SegmentedControl
               options={[1, 2, 3, 4].map((count) => ({ value: String(count), label: String(count) }))}
               value={String(genCount)}
@@ -596,7 +612,7 @@ export default function FaceSwapPage() {
           </details>
         </div>
 
-        <div className="sticky bottom-0 z-10 space-y-2 border-t bg-white/85 p-4 backdrop-blur-xl lg:static">
+        <div className="studio-runbar sticky bottom-0 z-10 space-y-2 border-t p-3 sm:p-4 lg:static">
           <div className="flex items-center justify-between text-xs">
             <span className="text-slate-400">{genCount} 张 · {imageSizeValue} · {aspectRatio}</span>
             {isAuthenticated
@@ -608,13 +624,13 @@ export default function FaceSwapPage() {
               type="button"
               onClick={generate}
               disabled={!canGenerate}
-              className="flex h-11 items-center justify-center gap-2 rounded-2xl bg-violet-600 text-sm font-black text-white shadow-lg shadow-violet-200 transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-45"
+              className="gradient-brand flex h-11 items-center justify-center gap-2 rounded-2xl text-sm font-black text-white shadow-lg shadow-violet-200 transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-45"
             >
               {status === "running" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-              {status === "running" ? "生成中" : !isAuthenticated ? "登录后生成" : "Generate"}
+              {status === "running" ? "生成中" : !isAuthenticated ? "登录后生成" : "开始换脸"}
             </button>
             <button type="button" onClick={clearAll} className="h-11 rounded-2xl border border-slate-200 bg-white text-sm font-bold text-violet-600 hover:border-violet-200">
-              Clear
+              清空
             </button>
           </div>
           {validationHint && (
@@ -625,11 +641,9 @@ export default function FaceSwapPage() {
         </div>
       </aside>
 
-      <main className="studio-canvas min-h-[520px] flex-1 overflow-hidden">
+      <main className="studio-canvas relative mt-3 mb-6 min-h-[260px] flex-1 overflow-hidden sm:min-h-[360px] lg:mt-0 lg:mb-0 lg:min-h-0">
         {status === "running" && resultUrls.length === 0 ? (
-          <div className="flex h-full min-h-[520px] items-center justify-center px-5">
-            <FaceSwapLoadingStage genCount={genCount} progress={progress} />
-          </div>
+          <LoadingStage genCount={genCount} progress={progress} moduleName="AI 换脸" />
         ) : resultUrls.length > 0 ? (
           <ResultsPanel
             urls={resultUrls}
@@ -653,14 +667,14 @@ export default function FaceSwapPage() {
             onRegenerate={generate}
           />
         ) : error ? (
-          <div className="flex h-full min-h-[520px] items-center justify-center px-5">
-            <div className="max-w-md rounded-3xl border border-red-100 bg-white p-6 text-center shadow-xl">
+          <div className="studio-result-stage flex min-h-[260px] items-center justify-center px-4 sm:min-h-[360px] lg:h-full">
+            <div className="max-w-md rounded-2xl border border-white/80 bg-white/[0.84] p-6 text-center shadow-[0_24px_76px_rgba(15,23,42,0.12)] backdrop-blur-2xl">
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-red-50 text-red-500">
                 <X className="h-6 w-6" />
               </div>
               <h2 className="mt-4 text-lg font-black text-slate-950">生成失败</h2>
               <p className="mt-2 text-sm leading-relaxed text-slate-500">{error}</p>
-              <button type="button" onClick={generate} className="mt-5 inline-flex items-center gap-2 rounded-full bg-violet-600 px-4 py-2 text-sm font-bold text-white hover:bg-violet-700">
+              <button type="button" onClick={generate} className="gradient-brand mt-5 inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold text-white hover:opacity-95">
                 <RotateCcw className="h-4 w-4" /> 重新生成
               </button>
             </div>
@@ -814,32 +828,59 @@ function UploadBox({
           </div>
           <p className="mt-4 text-sm font-semibold text-slate-700">{title}</p>
           <p className="mt-1 text-xs text-slate-400">{desc}</p>
-          <span className="mt-4 rounded-lg bg-violet-50 px-3 py-1.5 text-xs font-bold text-violet-600">Choose from Library</span>
+          <span className="mt-4 rounded-lg bg-violet-50 px-3 py-1.5 text-xs font-bold text-violet-600">选择图片</span>
         </button>
       )}
     </div>
   );
 }
 
+function MiniPreviewImage({ src, alt, square }: { src: string; alt: string; square?: boolean }) {
+  return (
+    <span className={`${square ? "aspect-square" : "aspect-[3/4]"} relative block w-11 overflow-hidden rounded-xl border border-white/80 bg-cyan-50 shadow-sm`}>
+      <span aria-hidden="true" className="absolute inset-0 flex items-center justify-center text-cyan-500">
+        <ScanFace className="h-4 w-4" />
+      </span>
+      <img
+        src={src}
+        alt={alt}
+        className="relative h-full w-full object-cover"
+        onError={(event) => {
+          event.currentTarget.style.display = "none";
+        }}
+      />
+    </span>
+  );
+}
+
 function IntroPanel({ sourceUrl, faceUrl }: { sourceUrl: string; faceUrl: string }) {
   return (
-    <div className="flex h-full min-h-[540px] items-center justify-center px-5">
-      <div className="w-full max-w-4xl text-center">
-        <p className="text-xs font-black uppercase tracking-[0.2em] text-violet-500">Face Identity Transfer</p>
-        <h2 className="mt-2 text-4xl font-black tracking-tight text-slate-950">AI 换脸工作台</h2>
-        <p className="mt-3 text-base text-slate-600">上传原始模特图，再选择或上传目标脸图；系统只替换五官身份，不改变肤色、发型和服装。</p>
-        <div className="mx-auto mt-7 flex max-w-3xl flex-wrap items-center justify-center gap-4 rounded-3xl border border-slate-100 bg-white p-6 text-left shadow-[0_24px_90px_rgba(15,23,42,0.08)]">
-          <DemoImage src={sourceUrl} label="Original model" />
-          <Sparkles className="h-8 w-8 shrink-0 text-violet-500" />
-          <DemoImage src={faceUrl} label="Target face" square />
-          <ChevronRight className="h-8 w-8 shrink-0 text-violet-500" />
-          <div className="flex aspect-[3/4] w-32 items-center justify-center rounded-3xl border border-violet-100 bg-gradient-to-br from-white via-violet-50 to-pink-50 text-violet-500 shadow-lg">
-            <ScanFace className="h-9 w-9" />
+    <div className="studio-empty-stage flex min-h-[260px] items-center justify-center px-4 py-6 sm:min-h-[360px] lg:h-full">
+      <div className="grid w-full max-w-5xl items-center gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <PreviewGuide
+          title="开始制作 AI 换脸图"
+          subtitle="先锁定原始模特画面，再选择目标脸图；输出会保留原图肤色、发型、服装和镜头。"
+          icon={<ScanFace className="h-10 w-10 text-cyan-500" />}
+          steps={[
+            { title: "上传原始模特图", desc: "这张图决定身体、服装、背景、光线和最终构图。" },
+            { title: "选择目标脸图", desc: "目标图只作为五官身份参考，不带走发型、肤色或配饰。" },
+            { title: "生成换脸结果", desc: "适合快速替换模特身份，同时保持商品图和场景稳定。" },
+          ]}
+        />
+
+        <div className="face-swap-flow-card">
+          <p className="text-[11px] font-black uppercase tracking-normal text-cyan-600">Face Swap Signature</p>
+          <div className="mt-4 grid grid-cols-[1fr_44px_1fr] items-center gap-3">
+            <DemoImage src={sourceUrl} label="Original model" />
+            <span className="face-swap-flow-arrow h-11 w-11">
+              <ScanFace className="h-5 w-5" />
+            </span>
+            <DemoImage src={faceUrl} label="Target face" square />
+          </div>
+          <div className="mt-4 rounded-2xl border border-cyan-100 bg-cyan-50/70 px-3 py-2 text-xs font-semibold leading-relaxed text-cyan-800">
+            {FACE_SWAP_NOTE}
           </div>
         </div>
-        <p className="mx-auto mt-6 max-w-2xl rounded-2xl bg-violet-50 px-4 py-3 text-sm leading-relaxed text-violet-700">
-          注意：{FACE_SWAP_NOTE}
-        </p>
       </div>
     </div>
   );
@@ -847,65 +888,18 @@ function IntroPanel({ sourceUrl, faceUrl }: { sourceUrl: string; faceUrl: string
 
 function DemoImage({ src, label, square }: { src: string; label: string; square?: boolean }) {
   return (
-    <div className={`${square ? "aspect-square w-32" : "aspect-[3/4] w-32"} shrink-0 overflow-hidden rounded-3xl bg-slate-50 ring-1 ring-slate-100`}>
-      <img src={src} alt={label} className="h-full w-full object-contain p-1" />
-    </div>
-  );
-}
-
-function FaceSwapLoadingStage({ genCount, progress }: { genCount: number; progress: number }) {
-  const safeCount = Math.max(1, Math.min(Math.floor(genCount || 1), 4));
-  const displayProgress = Math.round(Math.max(1, Math.min(progress, 99)));
-  const gridClass = safeCount <= 1
-    ? "grid-cols-1 max-w-[420px]"
-    : safeCount === 2
-      ? "grid-cols-2 max-w-[760px]"
-      : "grid-cols-2 max-w-[820px]";
-
-  return (
-    <div className="w-full px-4">
-      <div className="mx-auto mb-5 flex max-w-[820px] items-center justify-between rounded-2xl border border-violet-100 bg-white/82 px-4 py-3 shadow-sm backdrop-blur">
-        <div className="flex items-center gap-3">
-          <span className="relative flex h-9 w-9 items-center justify-center rounded-2xl bg-violet-100 text-violet-600">
-            <span className="absolute inset-0 rounded-2xl bg-violet-400/25 animate-ping" />
-            <ScanFace className="relative h-4 w-4" />
-          </span>
-          <div>
-            <p className="text-sm font-black text-slate-900">AI 换脸处理中</p>
-            <p className="text-xs text-slate-500">正在匹配五官身份、融合光影和保留原图质感</p>
-          </div>
-        </div>
-        <span className="rounded-full bg-violet-50 px-3 py-1 text-xs font-black text-violet-600">{displayProgress}%</span>
-      </div>
-
-      <div className={`mx-auto grid ${gridClass} gap-4`}>
-        {Array.from({ length: safeCount }).map((_, index) => (
-          <div
-            key={index}
-            className="relative min-h-[300px] overflow-hidden rounded-3xl border border-white/80 bg-gradient-to-br from-slate-100 via-violet-50 to-pink-50 shadow-[0_24px_70px_rgba(88,28,135,0.13)]"
-            style={{ aspectRatio: safeCount === 1 ? "4 / 3" : "3 / 4" }}
-          >
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_34%_24%,rgba(168,85,247,0.18),transparent_34%),radial-gradient(circle_at_78%_78%,rgba(236,72,153,0.14),transparent_36%)]" />
-            <div className="absolute inset-0 animate-[gen-shimmer_2.4s_ease-in-out_infinite] bg-gradient-to-r from-transparent via-white/55 to-transparent bg-[length:220%_100%]" />
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-              <div className="relative flex h-14 w-14 items-center justify-center">
-                <div className="gen-ring absolute inset-0 rounded-full bg-violet-300/45" />
-                <div className="relative flex h-14 w-14 items-center justify-center rounded-full bg-white/90 shadow-lg">
-                  <Sparkles className="gen-icon h-6 w-6 text-violet-500" />
-                </div>
-              </div>
-              <p className="text-sm font-black text-slate-700">生成第 {index + 1} 张</p>
-              <p className="text-xs text-slate-500">请稍等，完成后会自动替换到这里</p>
-            </div>
-            <div className="absolute inset-x-0 bottom-0 h-1.5 bg-slate-200/70">
-              <div
-                className="h-full rounded-r-full bg-gradient-to-r from-violet-500 to-pink-500 transition-all duration-700"
-                style={{ width: `${Math.max(displayProgress, 8)}%` }}
-              />
-            </div>
-          </div>
-        ))}
-      </div>
+    <div className={`${square ? "aspect-square" : "aspect-[3/4]"} relative overflow-hidden rounded-2xl border border-white/80 bg-cyan-50 shadow-sm`}>
+      <span aria-hidden="true" className="absolute inset-0 flex items-center justify-center text-cyan-500">
+        <ScanFace className="h-8 w-8" />
+      </span>
+      <img
+        src={src}
+        alt={label}
+        className="relative h-full w-full object-cover"
+        onError={(event) => {
+          event.currentTarget.style.display = "none";
+        }}
+      />
     </div>
   );
 }
@@ -931,14 +925,14 @@ function ResultsPanel({
 }) {
   const count = Math.max(urls.length, expectedCount || 0, 1);
   const slots = Array.from({ length: count }, (_, index) => urls[index] || "");
-  const gridClass = count <= 1 ? "grid-cols-1 max-w-2xl" : count === 2 ? "grid-cols-1 md:grid-cols-2 max-w-5xl" : "grid-cols-2 max-w-5xl";
+  const gridClass = count <= 1 ? "grid-cols-1 max-w-[min(760px,100%)]" : count === 2 ? "grid-cols-1 md:grid-cols-2 max-w-[min(1120px,100%)]" : "grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 max-w-[min(1180px,100%)]";
 
   return (
-    <div className="h-full overflow-y-auto p-5 sm:p-7">
-      <div className="mx-auto mb-5 flex max-w-5xl items-center justify-between gap-3 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3">
+    <div className="studio-result-stage h-full overflow-y-auto p-4 pb-24 sm:p-6 sm:pb-28">
+      <div className="face-swap-result-banner mx-auto mb-5 flex max-w-5xl items-center justify-between gap-3 rounded-2xl border px-4 py-3">
         <div>
-          <p className="text-sm font-black text-emerald-700">{isGenerating ? "换脸生成中" : "换脸完成"}</p>
-          <p className="mt-1 text-xs text-emerald-600">{urls.length}/{count} 张结果，鼠标悬停可下载、继续编辑或设为参考图。</p>
+          <p className="text-sm font-black text-cyan-800">{isGenerating ? "换脸生成中" : "换脸完成"}</p>
+          <p className="mt-1 text-xs text-cyan-700">{urls.length}/{count} 张结果，鼠标悬停可下载、继续编辑或设为参考图。</p>
         </div>
         <button type="button" onClick={onRegenerate} disabled={isGenerating} className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-2 text-xs font-bold text-violet-600 shadow-sm disabled:opacity-50">
           <RotateCcw className="h-3.5 w-3.5" /> 再来一组
@@ -946,7 +940,7 @@ function ResultsPanel({
       </div>
       <div className={`mx-auto grid w-full gap-4 ${gridClass}`}>
         {slots.map((url, index) => (
-          <div key={`${url || "pending"}-${index}`} className="group relative overflow-hidden rounded-3xl bg-white shadow-[0_24px_80px_rgba(15,23,42,0.14)] ring-1 ring-slate-100">
+          <div key={`${url || "pending"}-${index}`} className="group relative min-w-0 overflow-hidden rounded-2xl bg-white shadow-[0_22px_70px_rgba(15,23,42,0.16)] ring-1 ring-white/80 transition-transform duration-200 hover:-translate-y-0.5">
             <div className="flex h-[min(58dvh,720px)] min-h-[300px] items-center justify-center bg-slate-50">
               {url ? (
                 <img src={url} alt={`face swap result ${index + 1}`} className="h-full w-full cursor-zoom-in object-contain" onClick={() => onOpen(url)} />
