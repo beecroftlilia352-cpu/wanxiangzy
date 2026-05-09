@@ -218,7 +218,7 @@ export default function ProductSetPage() {
   const [settings, setSettings] = useState<ProductSetSettings>(DEFAULT_SETTINGS);
   const [mode, setMode] = useState<ProductSetCreationMode>("smart");
   const [planSourceTab, setPlanSourceTab] = useState<ProductSetPlanSourceTab>("smart");
-  const [imageType, setImageType] = useState<ProductSetImageType>("main");
+  const [imageType, setImageType] = useState<ProductSetImageType>("details");
   const [selectedTemplateIds, setSelectedTemplateIds] = useState<number[]>([]);
   const [selectedPlanId, setSelectedPlanId] = useState("smart");
   const [customTemplates, setCustomTemplates] = useState<ProductSetCustomTemplate[]>([]);
@@ -227,8 +227,8 @@ export default function ProductSetPage() {
   const [customDraft, setCustomDraft] = useState<CustomDraft>(DEFAULT_DRAFT);
   const [aiModel, setAiModel] = useState<LingyaModel>("gpt-image-2");
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("3:4");
-  const [imageSize, setImageSize] = useState<ImageSize>("1K");
-  const [genCount, setGenCount] = useState(3);
+  const [imageSize, setImageSize] = useState<ImageSize>("2K");
+  const [genCount, setGenCount] = useState(5);
   const [qualityMode, setQualityMode] = useState<"standard" | "advanced">("standard");
   const [isUploading, setIsUploading] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);

@@ -9,6 +9,7 @@ import {
   Home,
   Images,
   ImagePlus,
+  PackageSearch,
   PersonStanding,
   ScanFace,
   ServerCog,
@@ -27,6 +28,7 @@ export type FeatureKey =
   | "faceSwap"
   | "grass"
   | "productSet"
+  | "allCategoryProductImage"
   | "modelBackground"
   | "pose"
   | "model"
@@ -120,6 +122,15 @@ export const FEATURE_ITEMS: FeatureNavItem[] = [
     shortLabel: "商品套图",
     description: "一键生成主图、辅图和详情页商品视觉",
     icon: GalleryHorizontalEnd,
+  },
+  {
+    key: "allCategoryProductImage",
+    module: "aiShoots",
+    href: "/all-category-product-image",
+    label: "全品类商品图",
+    shortLabel: "全品类商品图",
+    description: "上传 SKU 图，生成主图与详情图规划和成图",
+    icon: PackageSearch,
   },
   {
     key: "modelBackground",
