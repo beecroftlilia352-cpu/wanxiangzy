@@ -8,7 +8,6 @@ import {
   ChevronRight,
   Copy,
   Download,
-  ImagePlus,
   Loader2,
   RotateCcw,
   ScanFace,
@@ -22,8 +21,8 @@ import { toast } from "sonner";
 import { FeatureTabs } from "@/components/FeatureTabs";
 import { ClientPortal } from "@/components/ClientPortal";
 import { ModuleHeader } from "@/components/ModuleHeader";
-import { PreviewGuide } from "@/components/PreviewGuide";
 import { LoadingStage } from "@/components/studio/LoadingStage";
+import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
 import {
   FACE_SWAP_LIBRARY,
   FACE_SWAP_NOTE,
@@ -49,18 +48,25 @@ import {
 import { createClient, getCachedProfileCredits, setCachedProfileCredits } from "@/lib/supabase/client";
 import { takeApplyPayload } from "@/lib/history-apply";
 
-const MODELS: Array<{ value: LingyaModel; label: string; desc: string }> = [
-  { value: "gpt-image-2", label: "GPT Image", desc: "稳定换脸与高清质感" },
-  { value: "nano-banana-2", label: "Nano Banana 2", desc: "速度较快，适合多图" },
-  { value: "nano-banana-pro", label: "Nano Banana Pro", desc: "细节更强，适合精修" },
-  { value: "doubao-seedream-4-5-251128", label: "Seedream 4.5", desc: "自然商业摄影" },
+const MODELS: Array<{ value: LingyaModel; label: string; desc: string; icon: string; badge?: string }> = [
+  { value: "gpt-image-2", label: "GPT-Image-2", desc: "4K · 4分/次", icon: "/model-icons/openai.svg", badge: "最新" },
+  { value: "nano-banana-2", label: "Nano-Banana-2", desc: "4K · 3分/次", icon: "/model-icons/gemini.png", badge: "推荐" },
+  { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "4K · 4分/次", icon: "/model-icons/gemini.png", badge: "推荐" },
+  { value: "doubao-seedream-4-5-251128", label: "Seedream 4.5", desc: "4K · 2分/次", icon: "/model-icons/doubao.png", badge: "新" },
 ];
 
 const ASPECT_RATIOS: Array<{ value: AspectRatio; label: string }> = [
-  { value: "auto", label: "Auto" },
-  { value: "1:1", label: "1:1" },
-  { value: "3:4", label: "3:4" },
-  { value: "9:16", label: "9:16" },
+  { value: "3:4", label: "3:4 竖版" },
+  { value: "4:3", label: "4:3 横版" },
+  { value: "1:1", label: "1:1 方形" },
+  { value: "16:9", label: "16:9 宽屏" },
+  { value: "9:16", label: "9:16 手机" },
+  { value: "2:3", label: "2:3" },
+  { value: "3:2", label: "3:2" },
+  { value: "4:5", label: "4:5" },
+  { value: "5:4", label: "5:4" },
+  { value: "21:9", label: "21:9" },
+  { value: "auto", label: "自动" },
 ];
 
 type GenerationStatus = "idle" | "running" | "completed" | "failed";
@@ -90,7 +96,7 @@ export default function FaceSwapPage() {
   const [sourceUrl, setSourceUrl] = useState("");
   const [faceUrl, setFaceUrl] = useState("");
   const [aiModel, setAiModel] = useState<LingyaModel>("gpt-image-2");
-  const [aspectRatio, setAspectRatio] = useState<AspectRatio>("auto");
+  const [aspectRatio, setAspectRatio] = useState<AspectRatio>("3:4");
   const [imageSize, setImageSize] = useState<ImageSize>("1K");
   const [genCount, setGenCount] = useState(1);
   const [prompt, setPrompt] = useState("");
@@ -410,18 +416,21 @@ export default function FaceSwapPage() {
 
           <section>
             <PanelTitle title="原始模特图" />
-            <UploadBox
-              url={sourceUrl}
-              title="点击或拖拽上传"
-              desc="PNG、JPG 或 WebP · 单张图片"
-              icon={<ImagePlus className="h-7 w-7 text-violet-500" />}
+            <StudioUploadTile
+              title="上传需要处理的原图"
+              description="图1作为身体、服装和构图基础，建议主体完整、画面清晰。"
+              imageUrl={sourceUrl || null}
+              imageAlt="已上传的原始模特图"
               loading={isUploadingOriginal}
-              onPick={() => originalInputRef.current?.click()}
-              onClear={() => {
+              onUploadClick={() => originalInputRef.current?.click()}
+              onPreview={sourceUrl ? () => setLightboxSrc(sourceUrl) : undefined}
+              onRemove={sourceUrl ? () => {
                 setSourceUrl("");
                 resetGenerationForInputChange();
-              }}
+              } : undefined}
               onDropFile={(file) => handleUpload(file, "source")}
+              uploadLabel="从本地上传"
+              footnote="文件大小 20KB-15MB，分辨率大于 400×400，支持 jpg/jpeg/png/webp"
             />
             <input ref={originalInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleUpload(e.target.files?.[0], "source")} />
             <div className="mt-3 flex items-center gap-2">
@@ -451,109 +460,57 @@ export default function FaceSwapPage() {
                 模特脸库 <ChevronRight className="h-3.5 w-3.5" />
               </button>
             </div>
-            <div
-              className={`face-swap-target-card grid grid-cols-[112px_1fr_42px] items-center gap-3 rounded-2xl border p-3 transition-all ${faceUrl ? "border-cyan-200 bg-cyan-50/45" : "border-slate-100 bg-slate-50"}`}
-              onDragEnter={(event) => event.preventDefault()}
-              onDragOver={(event) => event.preventDefault()}
-              onDrop={(event) => {
-                event.preventDefault();
-                handleUpload(event.dataTransfer.files?.[0], "face");
-              }}
-            >
-              <div
-                role="button"
-                tabIndex={0}
-                onClick={() => faceInputRef.current?.click()}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault();
-                    faceInputRef.current?.click();
-                  }
-                }}
-                className={`relative flex aspect-square items-center justify-center overflow-hidden rounded-2xl text-center text-xs font-semibold shadow-inner ${faceUrl ? "border border-white bg-white" : "border border-dashed border-slate-300 bg-slate-200 text-white"}`}
-              >
-                {faceUrl ? (
-                  <>
-                    <img src={faceUrl} alt="target face" className="h-full w-full object-cover" />
-                    <span
-                      role="button"
-                      tabIndex={0}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        setFaceUrl("");
-                        resetGenerationForInputChange();
-                      }}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter" || event.key === " ") {
-                          event.preventDefault();
-                          event.stopPropagation();
-                          setFaceUrl("");
-                          resetGenerationForInputChange();
-                        }
-                      }}
-                      className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-red-500 text-white shadow-md hover:bg-red-600"
-                      aria-label="删除目标脸图"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </span>
-                  </>
-                ) : isUploadingFace ? (
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                ) : (
-                  <span>点击或拖拽<br />上传脸图</span>
-                )}
-              </div>
-              <div>
-                <p className="text-sm font-bold text-slate-700">{faceUrl ? "更换目标脸图" : "选择一张目标脸参考"}</p>
-                <p className="mt-1 text-xs leading-relaxed text-slate-500">
-                  {faceUrl ? "已选择目标脸图，可更换或删除。" : FACE_SWAP_NOTE}
-                </p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <button type="button" onClick={() => faceInputRef.current?.click()} className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:border-violet-200 hover:text-violet-600">
-                    上传脸图
-                  </button>
-                  <button type="button" onClick={() => setDrawerOpen(true)} className="rounded-full bg-violet-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-violet-700">
-                    选择官方脸
-                  </button>
-                  {faceUrl && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setFaceUrl("");
-                        resetGenerationForInputChange();
-                      }}
-                      className="rounded-full border border-red-100 bg-white px-3 py-1.5 text-xs font-semibold text-red-500 hover:bg-red-50"
-                    >
-                      删除
-                    </button>
-                  )}
-                </div>
-              </div>
-              <button type="button" onClick={() => setDrawerOpen(true)} className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-slate-500 shadow-sm hover:text-violet-600">
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
+            <StudioUploadTile
+              title="上传目标脸图"
+              description={faceUrl ? "已选择目标脸图，可更换、预览或删除。" : FACE_SWAP_NOTE}
+              imageUrl={faceUrl || null}
+              imageAlt="已上传的目标脸图"
+              loading={isUploadingFace}
+              onUploadClick={() => faceInputRef.current?.click()}
+              onLibraryClick={() => setDrawerOpen(true)}
+              onPreview={faceUrl ? () => setLightboxSrc(faceUrl) : undefined}
+              onRemove={faceUrl ? () => {
+                setFaceUrl("");
+                resetGenerationForInputChange();
+              } : undefined}
+              onDropFile={(file) => handleUpload(file, "face")}
+              uploadLabel="上传脸图"
+              libraryLabel="选择官方脸"
+              footnote="只提取五官身份，不改变原图肤色、发型、身体、服装和背景。"
+            />
             <input ref={faceInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleUpload(e.target.files?.[0], "face")} />
           </section>
 
-          <ControlSection title="生成模型">
-            <div className="grid grid-cols-2 gap-2">
+          <ControlSection title="生成模型" icon={<Sparkles className="h-4 w-4" />}>
+            <div className="studio-model-grid">
               {MODELS.map((model) => (
                 <button
                   key={model.value}
                   type="button"
                   onClick={() => setAiModel(model.value)}
-                  className={`rounded-xl border px-3 py-2 text-left transition-all ${aiModel === model.value ? "border-violet-500 bg-violet-50 text-violet-700" : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"}`}
+                  className={`studio-model-card ${aiModel === model.value ? "studio-model-card-active" : ""}`}
                 >
-                  <p className="truncate text-xs font-black">{model.label}</p>
-                  <p className="mt-0.5 truncate text-[10px] text-slate-400">{model.desc}</p>
+                  <span className="studio-model-card-main">
+                    <span className="studio-model-icon">
+                      <img src={model.icon} alt="" />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="studio-model-title-row">
+                        <span className="truncate">{model.label}</span>
+                        {model.badge && <span className="studio-model-badge">{model.badge}</span>}
+                      </span>
+                      <span className="studio-model-desc">
+                        {model.desc} · 当前{getCreditCost(model.value, normalizeImageSize(model.value, imageSizeValue, aspectRatio), aspectRatio)}分
+                      </span>
+                    </span>
+                  </span>
                 </button>
               ))}
             </div>
           </ControlSection>
 
           <ControlSection title="画面比例">
-            <SegmentedControl
+            <OptionPillGrid
               options={ASPECT_RATIOS}
               value={aspectRatio}
               onChange={(value) => setAspectRatio(value as AspectRatio)}
@@ -561,15 +518,18 @@ export default function FaceSwapPage() {
           </ControlSection>
 
           <ControlSection title="分辨率">
-            <SegmentedControl
-              options={supportedSizes.map((size) => ({ value: size, label: size }))}
+            <OptionPillGrid
+              options={supportedSizes.map((size) => ({
+                value: size,
+                label: `${size} · ${getCreditCost(aiModel, size, aspectRatio)}积分`,
+              }))}
               value={imageSizeValue}
               onChange={(value) => setImageSize(value as ImageSize)}
             />
           </ControlSection>
 
           <ControlSection title="生成数量">
-            <SegmentedControl
+            <OptionPillGrid
               options={[1, 2, 3, 4].map((count) => ({ value: String(count), label: String(count) }))}
               value={String(genCount)}
               onChange={(value) => setGenCount(Number(value))}
@@ -748,19 +708,22 @@ export default function FaceSwapPage() {
 }
 
 function PanelTitle({ title }: { title: string }) {
-  return <h2 className="mb-3 text-base font-black text-slate-950">{title}</h2>;
+  return <h2 className="mb-3 text-sm font-black text-slate-950">{title}</h2>;
 }
 
-function ControlSection({ title, children }: { title: string; children: ReactNode }) {
+function ControlSection({ title, icon, children }: { title: string; icon?: ReactNode; children: ReactNode }) {
   return (
     <section>
-      <h3 className="mb-3 text-sm font-black text-slate-900">{title}</h3>
+      <h3 className="face-swap-control-title">
+        {icon}
+        <span>{title}</span>
+      </h3>
       {children}
     </section>
   );
 }
 
-function SegmentedControl({
+function OptionPillGrid({
   options,
   value,
   onChange,
@@ -770,67 +733,17 @@ function SegmentedControl({
   onChange: (value: string) => void;
 }) {
   return (
-    <div className="grid grid-cols-4 gap-2">
+    <div className="studio-option-pill-grid">
       {options.map((option) => (
         <button
           key={option.value}
           type="button"
           onClick={() => onChange(option.value)}
-          className={`h-10 rounded-xl border text-sm font-bold transition-all ${value === option.value ? "border-violet-500 bg-violet-50 text-violet-700" : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"}`}
+          className={`studio-option-pill ${value === option.value ? "studio-option-pill-active" : ""}`}
         >
           {option.label}
         </button>
       ))}
-    </div>
-  );
-}
-
-function UploadBox({
-  url,
-  title,
-  desc,
-  icon,
-  loading,
-  onPick,
-  onClear,
-  onDropFile,
-}: {
-  url: string;
-  title: string;
-  desc: string;
-  icon: ReactNode;
-  loading: boolean;
-  onPick: () => void;
-  onClear: () => void;
-  onDropFile: (file?: File) => void;
-}) {
-  return (
-    <div
-      onDragEnter={(event) => event.preventDefault()}
-      onDragOver={(event) => event.preventDefault()}
-      onDrop={(event) => {
-        event.preventDefault();
-        onDropFile(event.dataTransfer.files?.[0]);
-      }}
-      className="relative overflow-hidden rounded-2xl border border-dashed border-violet-200 bg-white"
-    >
-      {url ? (
-        <div className="group relative h-[278px] bg-slate-50">
-          <img src={url} alt="original model" className="h-full w-full object-contain p-3" />
-          <button type="button" onClick={onClear} className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-slate-700 opacity-0 shadow transition group-hover:opacity-100">
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-      ) : (
-        <button type="button" onClick={onPick} className="flex min-h-[278px] w-full flex-col items-center justify-center px-5 text-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-violet-100">
-            {loading ? <Loader2 className="h-6 w-6 animate-spin text-violet-500" /> : icon}
-          </div>
-          <p className="mt-4 text-sm font-semibold text-slate-700">{title}</p>
-          <p className="mt-1 text-xs text-slate-400">{desc}</p>
-          <span className="mt-4 rounded-lg bg-violet-50 px-3 py-1.5 text-xs font-bold text-violet-600">选择图片</span>
-        </button>
-      )}
     </div>
   );
 }
@@ -855,31 +768,47 @@ function MiniPreviewImage({ src, alt, square }: { src: string; alt: string; squa
 
 function IntroPanel({ sourceUrl, faceUrl }: { sourceUrl: string; faceUrl: string }) {
   return (
-    <div className="studio-empty-stage flex min-h-[260px] items-center justify-center px-4 py-6 sm:min-h-[360px] lg:h-full">
-      <div className="grid w-full max-w-5xl items-center gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
-        <PreviewGuide
-          title="开始制作 AI 换脸图"
-          subtitle="先锁定原始模特画面，再选择目标脸图；输出会保留原图肤色、发型、服装和镜头。"
-          icon={<ScanFace className="h-10 w-10 text-cyan-500" />}
-          steps={[
-            { title: "上传原始模特图", desc: "这张图决定身体、服装、背景、光线和最终构图。" },
-            { title: "选择目标脸图", desc: "目标图只作为五官身份参考，不带走发型、肤色或配饰。" },
-            { title: "生成换脸结果", desc: "适合快速替换模特身份，同时保持商品图和场景稳定。" },
-          ]}
-        />
+    <div className="studio-empty-stage face-swap-empty-stage flex min-h-[260px] items-center justify-center px-4 py-6 sm:min-h-[360px] lg:h-full">
+      <div className="face-swap-flow-card face-swap-intro-card">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <p className="text-[11px] font-black uppercase tracking-normal text-cyan-600">AI 换脸流程</p>
+            <h2 className="mt-2 text-lg font-black text-slate-950">开始制作 AI 换脸图</h2>
+            <p className="mt-2 max-w-md text-xs leading-relaxed text-slate-500">
+              先锁定原始模特画面，再选择目标脸图；输出会保留原图的肤色、发型、服装、姿势和场景。
+            </p>
+          </div>
+          <span className="face-swap-flow-arrow h-12 w-12">
+            <ScanFace className="h-5 w-5" />
+          </span>
+        </div>
 
-        <div className="face-swap-flow-card">
-          <p className="text-[11px] font-black uppercase tracking-normal text-cyan-600">Face Swap Signature</p>
-          <div className="mt-4 grid grid-cols-[1fr_44px_1fr] items-center gap-3">
-            <DemoImage src={sourceUrl} label="Original model" />
-            <span className="face-swap-flow-arrow h-11 w-11">
-              <ScanFace className="h-5 w-5" />
-            </span>
-            <DemoImage src={faceUrl} label="Target face" square />
-          </div>
-          <div className="mt-4 rounded-2xl border border-cyan-100 bg-cyan-50/70 px-3 py-2 text-xs font-semibold leading-relaxed text-cyan-800">
-            {FACE_SWAP_NOTE}
-          </div>
+        <div className="mt-5 grid grid-cols-[1fr_42px_1fr] items-center gap-3">
+          <DemoImage src={sourceUrl} label="Original model" />
+          <span className="face-swap-flow-arrow h-10 w-10">
+            <ScanFace className="h-4 w-4" />
+          </span>
+          <DemoImage src={faceUrl} label="Target face" square />
+        </div>
+
+        <div className="face-swap-intro-steps mt-5">
+          {[
+            ["1", "上传原始模特图", "决定身体、服装、背景、光线和最终构图。"],
+            ["2", "选择目标脸图", "只提供五官身份，不带走发型、肤色或配饰。"],
+            ["3", "开始换脸", "保持商品与场景稳定，快速得到新模特成片。"],
+          ].map(([step, title, desc]) => (
+            <div key={step} className="face-swap-intro-step">
+              <span>{step}</span>
+              <p>
+                <strong>{title}</strong>
+                <small>{desc}</small>
+              </p>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-4 rounded-2xl border border-cyan-100 bg-cyan-50/70 px-3 py-2 text-xs font-semibold leading-relaxed text-cyan-800">
+          {FACE_SWAP_NOTE}
         </div>
       </div>
     </div>

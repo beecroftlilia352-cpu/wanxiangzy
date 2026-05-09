@@ -41,6 +41,7 @@ import {
   type AllCategoryProductImagePlatform,
 } from "@/lib/all-category-product-image";
 import { getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
+import { getImageVariantUrl } from "@/lib/image-variants";
 import type {
   ProductSetCustomTemplate,
   ProductSetImageType,
@@ -649,7 +650,7 @@ export default function AllCategoryProductImagePage() {
                   <div className="mt-5 grid grid-cols-3 gap-2">
                     {productImages.map((item, index) => (
                       <div key={`${item.url}-${index}`} className="group relative aspect-square overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
-                        <img src={item.url} alt={item.name} className="h-full w-full object-contain p-1" />
+                        <img src={getImageVariantUrl(item.url, "thumb")} alt={item.name} className="h-full w-full object-contain p-1" />
                         <span className="absolute bottom-1 left-1 rounded bg-slate-950/65 px-1.5 py-0.5 text-[10px] font-semibold text-white">{index + 1}</span>
                         <button
                           type="button"
@@ -1098,7 +1099,7 @@ function ResultGrid({
           <article key={`${slot.module.id}-${index}`} className="overflow-hidden rounded-lg border border-slate-200 bg-white">
             <div className="relative aspect-[3/4] bg-slate-50">
               {slot.url ? (
-                <img src={slot.url} alt={slot.module.title} className="h-full w-full object-contain" />
+                <img src={getImageVariantUrl(slot.url, "card")} alt={slot.module.title} className="h-full w-full object-contain" />
               ) : slot.status === "failed" ? (
                 <div className="flex h-full flex-col items-center justify-center px-6 text-center text-red-500">
                   <X className="h-7 w-7" />

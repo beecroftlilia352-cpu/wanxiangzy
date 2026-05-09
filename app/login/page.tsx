@@ -32,10 +32,10 @@ const viewCopy: Record<AuthView, { title: string; desc: string }> = {
 };
 
 const showcaseImages = [
-  "/references/reference-striped-top-white-skirt.png",
-  "/references/reference-grey-tank-denim-culottes.jpg",
-  "/models/model-natural-smile.jpg",
-  "/references/reference-soft-blue-cardigan.jpg",
+  "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/references/reference-striped-top-white-skirt.png",
+  "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/references/reference-grey-tank-denim-culottes.jpg",
+  "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/models/model-natural-smile.jpg",
+  "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/references/reference-soft-blue-cardigan.jpg",
 ];
 
 export default function LoginPage() {

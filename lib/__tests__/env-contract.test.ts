@@ -54,7 +54,7 @@ describe("environment contract", () => {
   });
 
   it("requires NEXT_PUBLIC_APP_URL instead of trusting forwarded headers in production", () => {
-    process.env.NODE_ENV = "production";
+    process.env = { ...process.env, NODE_ENV: "production" };
     const request = new Request("https://internal.example.com/api", {
       headers: {
         "x-forwarded-host": "attacker.example.com",

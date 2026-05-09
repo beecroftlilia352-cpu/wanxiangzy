@@ -4,6 +4,7 @@ import {
   buildProductSetPrompt,
   getProductSetModuleKey,
   getProductSetModuleReason,
+  getProductSetReferenceUrls,
   normalizeProductSetProductProfile,
   resolveProductSetTemplates,
   shouldUseModelForTemplate,
@@ -175,18 +176,48 @@ describe("product set smart planning", () => {
     expect(templates[0].typeDescription).toContain("kind=electronics");
   });
 
-  it("uses preset template logic only when a system preset is explicitly selected in custom mode", () => {
+  it("expands one selected preset reference to the requested production count in custom mode", () => {
     const templates = resolveProductSetTemplates({
       mode: "custom",
       imageType: "details",
       selectedTemplateIds: [105],
-      genCount: 3,
+      genCount: 5,
       productProfile: menswearProfile(),
     });
 
-    expect(templates).toHaveLength(1);
-    expect(templates[0].source).toBe("preset");
-    expect(templates[0].id).toBe(105);
+    expect(templates).toHaveLength(5);
+    expect(templates.every((template) => template.source === "custom")).toBe(true);
+    expect(templates.map((template) => template.id)).toEqual([
+      "preset-ref-105-1",
+      "preset-ref-105-2",
+      "preset-ref-105-3",
+      "preset-ref-105-4",
+      "preset-ref-105-5",
+    ]);
+    expect(new Set(templates.map((template) => template.moduleRole)).size).toBeGreaterThan(1);
+    expect(getProductSetReferenceUrls(templates[0])).toEqual([templates[0].coverImage]);
+    expect(templates[0].avoidRules).toContain("Do not copy the preset reference product");
+  });
+
+  it("cycles multiple preset references but still honors the selected output count", () => {
+    const templates = resolveProductSetTemplates({
+      mode: "custom",
+      imageType: "details",
+      selectedTemplateIds: [105, 106],
+      genCount: 6,
+      productProfile: menswearProfile(),
+    });
+
+    expect(templates).toHaveLength(6);
+    expect(templates.map((template) => template.id)).toEqual([
+      "preset-ref-105-1",
+      "preset-ref-106-2",
+      "preset-ref-105-3",
+      "preset-ref-106-4",
+      "preset-ref-105-5",
+      "preset-ref-106-6",
+    ]);
+    expect(new Set(templates.flatMap((template) => getProductSetReferenceUrls(template))).size).toBe(2);
   });
 
   it("falls back to generated AI modules, not preset ids, when no visual director plan exists", () => {
@@ -270,5 +301,52 @@ describe("product set smart planning", () => {
     expect(prompt).toContain("AI visual analysis module");
     expect(prompt).toContain("adult male styling");
     expect(prompt).toContain("Copy density for this module: light");
+  });
+
+  it("keeps custom reference images effective through an explicit numbered prompt contract", () => {
+    const templates = resolveProductSetTemplates({
+      mode: "custom",
+      imageType: "details",
+      genCount: 2,
+      productProfile: menswearProfile(),
+      customTemplates: [{
+        id: "uploaded-style",
+        name: "上传参考图",
+        imageType: "details",
+        typeDescription: "参考这张图的版式、光影和页面节奏，但商品必须来自上传商品图。",
+        aspectRatio: "3:4",
+        referenceImageUrls: ["https://example.com/style.jpg"],
+        modelReferenceImageUrls: ["https://example.com/model.jpg"],
+        otherReferenceImageUrls: ["https://example.com/mood.jpg"],
+      }],
+    });
+
+    expect(templates).toHaveLength(2);
+    expect(getProductSetReferenceUrls(templates[0])).toEqual([
+      "https://example.com/style.jpg",
+      "https://example.com/model.jpg",
+      "https://example.com/mood.jpg",
+    ]);
+
+    const prompt = buildProductSetPrompt({
+      productInfo: "Product name: reflective jacket",
+      productProfile: menswearProfile(),
+      productImageCount: 2,
+      template: templates[0],
+      allTemplates: templates,
+      settings: BASE_SETTINGS,
+      mode: "custom",
+      aspectRatio: templates[0].aspectRatio,
+      imageSize: "1K",
+      sequenceIndex: 0,
+      totalCount: templates.length,
+    });
+
+    expect(prompt).toContain("Input image contract v6: images 1-2 are the authoritative product source images");
+    expect(prompt).toContain("image 3 = custom style/layout reference 1");
+    expect(prompt).toContain("image 4 = custom model/person reference 1");
+    expect(prompt).toContain("image 5 = custom supplemental reference 1");
+    expect(prompt).toContain("product source always wins");
+    expect(prompt).toContain("Never copy reference-image product identity");
   });
 });

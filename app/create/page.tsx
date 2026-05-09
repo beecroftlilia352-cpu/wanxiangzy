@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { 
   Upload, UserRound, Image, Sparkles,
   RefreshCw, X, Camera, ChevronRight, Wand, Loader2, ZoomIn, Eye,
-  FolderOpen, CheckCircle2, XCircle, Shirt,
+  FolderOpen, CheckCircle2, XCircle,
 } from "lucide-react";
 import { useTryOnStore } from "@/lib/store/tryon-store";
 import { fileToBase64, MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
@@ -953,24 +953,21 @@ export default function CreatePage() {
             {clothingMode === "single" ? (
               <div className="space-y-2">
                 <StudioUploadTile
-                  title="单件服装"
-                  description={currentUploadRule.uploadSpecText}
+                  title="上传需要处理的原图"
+                  description="图1作为服装、人像关系和构图基础，建议主体完整、服装清晰。"
                   imageUrl={singleClothing?.preview}
                   imageAlt="已上传的单件服装"
                   isDragging={isDraggingClothing}
                   onUploadClick={() => openClothingPicker("single")}
+                  onLibraryClick={() => sourceLibrary.open("single")}
                   onPreview={singleClothing ? () => openLightbox(singleClothing.preview, "已上传的单件服装") : undefined}
                   onRemove={singleClothing ? () => removeClothing(0) : undefined}
+                  onDropFile={(file) => {
+                    if (file) processFiles([file], "single");
+                  }}
+                  libraryLabel="从作品选择"
+                  footnote={currentUploadRule.uploadSpecText}
                 />
-                {!singleClothing && (
-                  <button
-                    type="button"
-                    onClick={() => sourceLibrary.open("single")}
-                    className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition-colors hover:border-violet-200 hover:text-violet-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
-                  >
-                    <FolderOpen className="h-3.5 w-3.5" /> 从作品库选择
-                  </button>
-                )}
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-2">
@@ -980,40 +977,23 @@ export default function CreatePage() {
                 ] as const).map(([role, title, item]) => {
                   const itemIndex = clothingItems.findIndex((clothing) => clothing.role === role);
                   return (
-                    <div key={role} className="relative overflow-hidden rounded-2xl border border-dashed border-slate-200 bg-slate-50/70">
-                      {item ? (
-                        <div className="studio-checkerboard relative aspect-square">
-                          <img src={item.preview} alt={`已上传的${TRYON_CLOTHING_ROLE_LABELS[role]}`} className="h-full w-full object-contain p-3" />
-                          <span className="absolute right-2 top-2 rounded-full bg-white/90 px-2 py-0.5 text-[10px] font-medium text-slate-600 shadow-sm">
-                            {TRYON_CLOTHING_ROLE_LABELS[role]}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => itemIndex >= 0 && removeClothing(itemIndex)}
-                            className="absolute left-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-slate-500 shadow-sm hover:text-red-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
-                            aria-label={`移除${TRYON_CLOTHING_ROLE_LABELS[role]}`}
-                            title={`移除${TRYON_CLOTHING_ROLE_LABELS[role]}`}
-                          >
-                            <X className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="flex min-h-44 flex-col items-center justify-center px-3 py-6 text-center">
-                          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-white shadow-sm">
-                            <Shirt className="h-6 w-6 text-violet-400" />
-                          </div>
-                          <p className="text-sm font-semibold text-slate-800">{title}</p>
-                          <div className="mt-3 space-y-2">
-                            <button type="button" onClick={() => openClothingPicker(role)} className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-violet-700">
-                              <Upload className="h-3.5 w-3.5" /> 从本地上传
-                            </button>
-                            <button type="button" onClick={() => sourceLibrary.open(role)} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-slate-300">
-                              <FolderOpen className="h-3.5 w-3.5" /> 从作品选择
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
+                    <StudioUploadTile
+                      key={role}
+                      title={title}
+                      description={`${TRYON_CLOTHING_ROLE_LABELS[role]}作为硬参考，建议轮廓完整、面料清晰。`}
+                      imageUrl={item?.preview}
+                      imageAlt={`已上传的${TRYON_CLOTHING_ROLE_LABELS[role]}`}
+                      isDragging={isDraggingClothing}
+                      onUploadClick={() => openClothingPicker(role)}
+                      onLibraryClick={() => sourceLibrary.open(role)}
+                      onPreview={item ? () => openLightbox(item.preview, `已上传的${TRYON_CLOTHING_ROLE_LABELS[role]}`) : undefined}
+                      onRemove={item && itemIndex >= 0 ? () => removeClothing(itemIndex) : undefined}
+                      onDropFile={(file) => {
+                        if (file) processFiles([file], role);
+                      }}
+                      libraryLabel="从作品选择"
+                      footnote={currentUploadRule.uploadSpecText}
+                    />
                   );
                 })}
               </div>
@@ -1541,7 +1521,7 @@ export default function CreatePage() {
                 <StudioEmptyState
                   title="开始制作服装上身图"
                   description="先确定服装硬参考，再选择模特和场景，生成可直接用于商品展示的成片。"
-                  imageSrc="/home-showcase/model-striped-top-white-skirt.png"
+                  imageSrc="https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/model-striped-top-white-skirt.png"
                   imageAlt="服装上身指引"
                   steps={[
                     { title: "上传服装", description: "单件模式上传 1 张服装图，多件模式分别上传上装和下装。" },

@@ -110,9 +110,11 @@ function getAllowedHosts(): string[] {
     .filter(Boolean);
 
   const supabaseHost = getHostname(process.env.NEXT_PUBLIC_SUPABASE_URL);
+  const aliyunOssPublicHost = getHostname(process.env.ALIYUN_OSS_PUBLIC_BASE_URL);
   return [
     ...DEFAULT_ALLOWED_HOSTS,
     ...(supabaseHost ? [supabaseHost] : []),
+    ...(aliyunOssPublicHost ? [aliyunOssPublicHost] : []),
     ...configuredHosts,
   ];
 }

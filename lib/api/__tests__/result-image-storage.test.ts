@@ -3,8 +3,21 @@ import { persistGeneratedImageUrls } from "../result-image-storage";
 
 describe("result image storage", () => {
   const originalKey = process.env.IMGBB_API_KEY;
+  const originalStorageProvider = process.env.IMAGE_STORAGE_PROVIDER;
+  const originalOssAccessKeyId = process.env.ALIYUN_OSS_ACCESS_KEY_ID;
+  const originalOssAccessKeySecret = process.env.ALIYUN_OSS_ACCESS_KEY_SECRET;
+  const originalOssBucket = process.env.ALIYUN_OSS_BUCKET;
+  const originalOssRegion = process.env.ALIYUN_OSS_REGION;
+  const originalOssPublicBaseUrl = process.env.ALIYUN_OSS_PUBLIC_BASE_URL;
+  const originalOssPrefix = process.env.ALIYUN_OSS_PREFIX;
+  const originalOssUploadPrefix = process.env.ALIYUN_OSS_UPLOAD_PREFIX;
+  const originalOssGeneratedPrefix = process.env.ALIYUN_OSS_GENERATED_PREFIX;
+  const originalOssFavoritePrefix = process.env.ALIYUN_OSS_FAVORITE_PREFIX;
+  const originalOssSiteAssetPrefix = process.env.ALIYUN_OSS_SITE_ASSET_PREFIX;
+  const originalOssTempPrefix = process.env.ALIYUN_OSS_TEMP_PREFIX;
 
   beforeEach(() => {
+    delete process.env.IMAGE_STORAGE_PROVIDER;
     process.env.IMGBB_API_KEY = "test-key";
   });
 
@@ -15,6 +28,18 @@ describe("result image storage", () => {
     } else {
       process.env.IMGBB_API_KEY = originalKey;
     }
+    restoreEnv("IMAGE_STORAGE_PROVIDER", originalStorageProvider);
+    restoreEnv("ALIYUN_OSS_ACCESS_KEY_ID", originalOssAccessKeyId);
+    restoreEnv("ALIYUN_OSS_ACCESS_KEY_SECRET", originalOssAccessKeySecret);
+    restoreEnv("ALIYUN_OSS_BUCKET", originalOssBucket);
+    restoreEnv("ALIYUN_OSS_REGION", originalOssRegion);
+    restoreEnv("ALIYUN_OSS_PUBLIC_BASE_URL", originalOssPublicBaseUrl);
+    restoreEnv("ALIYUN_OSS_PREFIX", originalOssPrefix);
+    restoreEnv("ALIYUN_OSS_UPLOAD_PREFIX", originalOssUploadPrefix);
+    restoreEnv("ALIYUN_OSS_GENERATED_PREFIX", originalOssGeneratedPrefix);
+    restoreEnv("ALIYUN_OSS_FAVORITE_PREFIX", originalOssFavoritePrefix);
+    restoreEnv("ALIYUN_OSS_SITE_ASSET_PREFIX", originalOssSiteAssetPrefix);
+    restoreEnv("ALIYUN_OSS_TEMP_PREFIX", originalOssTempPrefix);
   });
 
   it("returns already-persisted ImgBB URLs without reuploading", async () => {
@@ -60,7 +85,7 @@ describe("result image storage", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(warnSpy).toHaveBeenCalledWith(
       "[result-image-storage] generated image storage failed; falling back to provider URL:",
-      "生成结果图片转存图床失败: 400"
+      "图片上传失败: ImgBB HTTP 400"
     );
   });
 
@@ -85,4 +110,36 @@ describe("result image storage", () => {
 
     expect(uploadedNames).toEqual(["generated-gen-4-3", "generated-gen-4-4"]);
   });
+
+  it("uploads generated data URLs to Aliyun OSS when configured", async () => {
+    process.env.IMAGE_STORAGE_PROVIDER = "aliyun-oss";
+    process.env.ALIYUN_OSS_ACCESS_KEY_ID = "test-access-key-id";
+    process.env.ALIYUN_OSS_ACCESS_KEY_SECRET = "test-access-key-secret";
+    process.env.ALIYUN_OSS_BUCKET = "vastweargen-images";
+    process.env.ALIYUN_OSS_REGION = "oss-cn-hongkong";
+    process.env.ALIYUN_OSS_PUBLIC_BASE_URL = "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com";
+    process.env.ALIYUN_OSS_PREFIX = "ai-tryon";
+    process.env.ALIYUN_OSS_GENERATED_PREFIX = "generated-results/original";
+
+    const pngBase64 = "iVBORw0KGgo=";
+    const putCalls: Array<{ url: string; init?: RequestInit }> = [];
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      putCalls.push({ url, init });
+      return new Response("", { status: 200 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const [url] = await persistGeneratedImageUrls([`data:image/png;base64,${pngBase64}`], "gen-oss");
+
+    expect(url).toMatch(/^https:\/\/vastweargen-images\.oss-cn-hongkong\.aliyuncs\.com\/generated-results\/original\/\d{4}\/\d{2}\/\d{2}\//);
+    expect(putCalls).toHaveLength(1);
+    expect(putCalls[0].url).toContain("https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/generated-results/original/");
+    expect((putCalls[0].init?.headers as Record<string, string>).Authorization).toMatch(/^OSS test-access-key-id:/);
+    expect((putCalls[0].init?.headers as Record<string, string>)["Content-Type"]).toBe("image/png");
+  });
 });
+
+function restoreEnv(name: string, value: string | undefined) {
+  if (value === undefined) delete process.env[name];
+  else process.env[name] = value;
+}

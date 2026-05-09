@@ -10,13 +10,13 @@ export type StylePreset<T extends string> = {
 };
 
 const STYLE_REFERENCE_IMAGES = {
-  sourceContinuity: "https://i.ibb.co/GbL0WCK/style-source-continuity.jpg",
-  ecommerceClean: "https://i.ibb.co/C3ZPd46t/style-ecommerce-clean.jpg",
-  luxuryLookbook: "https://i.ibb.co/XZZ0SQYC/style-luxury-lookbook.jpg",
-  fashionEditorial: "https://i.ibb.co/ZzKwr4pX/style-fashion-editorial.jpg",
-  koreanClean: "https://i.ibb.co/PzrfrZQb/style-korean-clean.jpg",
-  xiaohongshuLifestyle: "https://i.ibb.co/JjS8X6kT/style-xiaohongshu-lifestyle.jpg",
-  euroCampaign: "https://i.ibb.co/VcZjM01K/style-euro-campaign.webp",
+  sourceContinuity: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/i.ibb.co/GbL0WCK/style-source-continuity-05c3091b90.jpg",
+  ecommerceClean: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/i.ibb.co/C3ZPd46t/style-ecommerce-clean-4fd109c9ee.jpg",
+  luxuryLookbook: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/i.ibb.co/XZZ0SQYC/style-luxury-lookbook-40ee5c4f21.jpg",
+  fashionEditorial: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/i.ibb.co/ZzKwr4pX/style-fashion-editorial-668c7be256.jpg",
+  koreanClean: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/i.ibb.co/PzrfrZQb/style-korean-clean-dd34b73f7c.jpg",
+  xiaohongshuLifestyle: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/i.ibb.co/JjS8X6kT/style-xiaohongshu-lifestyle-9840885ee1.jpg",
+  euroCampaign: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/i.ibb.co/VcZjM01K/style-euro-campaign-0a8c39d780.webp",
 } as const;
 
 export type PoseSeriesStyle =

@@ -20,6 +20,7 @@ Thumbs.db
 .ui-check/
 .claude/
 .api-platform-test-results*.json
+.oss-site-assets-manifest*.json
 .qwen-edits-test-results.json
 old-references-contact.jpg
 tmp-module-code.txt

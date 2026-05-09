@@ -1237,7 +1237,26 @@ function getPayloadReferenceImages(payload: GenerationJobPayload) {
   if (payload.kind === "pose") return [payload.mainImageUrl];
   if (payload.kind === "faceSwap") return [payload.sourceUrl, payload.faceUrl];
   if (payload.kind === "commerceDetail") return payload.sourceUrls;
-  if (payload.kind === "productSet") return payload.productImageUrls;
+  if (payload.kind === "productSet") {
+    const imageType = normalizeProductSetImageType(payload.imageType);
+    const mode = normalizeProductSetCreationMode(payload.mode);
+    const settings = normalizeProductSetSettings(payload.settings);
+    const productProfile = normalizeProductSetProductProfile(payload.productProfile, payload.productInfo || payload.prompt);
+    const templates = resolveProductSetTemplates({
+      mode,
+      imageType,
+      selectedTemplateIds: payload.selectedTemplateIds,
+      customTemplates: payload.customTemplates,
+      genCount: payload.genCount,
+      productProfile,
+      settings,
+      moduleOverrides: normalizeProductSetModuleOverrides(payload.moduleOverrides),
+    });
+    return [
+      ...payload.productImageUrls,
+      ...Array.from(new Set(templates.flatMap((template) => getProductSetReferenceUrls(template)))).slice(0, 8),
+    ];
+  }
   return [payload.garmentUrl, payload.referenceUrl].filter((url): url is string => typeof url === "string" && url.length > 0);
 }
 

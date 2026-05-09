@@ -63,16 +63,16 @@ export const GRASS_UPLOAD_RULE = {
   title: "请按规则上传图片，以达到最佳效果",
   uploadSpecText: "图片大小20KB~15MB之间，分辨率大于400*400，格式支持jpg/jpeg/png/webp",
   demos: [
-    { title: "平铺图", description: "主体完整、服装清晰的平铺图", imageUrl: "https://i.ibb.co/j9rQ7qVD/grass-demo-flat-1.png" },
-    { title: "人台图", description: "人台展示图，适合迁移版型", imageUrl: "https://i.ibb.co/5hRgQJzd/grass-demo-mannequin.jpg" },
-    { title: "上身图", description: "真人上身图，适合保持穿搭关系", imageUrl: "https://i.ibb.co/Qj6qJK7t/grass-demo-worn-1.jpg" },
-    { title: "平铺图", description: "单品主体完整、边缘清楚", imageUrl: "https://i.ibb.co/d46hhSpV/grass-demo-flat-2.jpg" },
-    { title: "上身图", description: "自然上身图，适合种草场景", imageUrl: "https://i.ibb.co/hJL4mRMd/grass-demo-worn-2.jpg" },
+    { title: "平铺图", description: "主体完整、服装清晰的平铺图", imageUrl: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/i.ibb.co/j9rQ7qVD/grass-demo-flat-1-ebc4675d04.png" },
+    { title: "人台图", description: "人台展示图，适合迁移版型", imageUrl: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/i.ibb.co/5hRgQJzd/grass-demo-mannequin-701a21db50.jpg" },
+    { title: "上身图", description: "真人上身图，适合保持穿搭关系", imageUrl: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/i.ibb.co/Qj6qJK7t/grass-demo-worn-1-7db098ec05.jpg" },
+    { title: "平铺图", description: "单品主体完整、边缘清楚", imageUrl: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/i.ibb.co/d46hhSpV/grass-demo-flat-2-f4ced1bee6.jpg" },
+    { title: "上身图", description: "自然上身图，适合种草场景", imageUrl: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/i.ibb.co/hJL4mRMd/grass-demo-worn-2-0ee3dc97a2.jpg" },
   ] satisfies GrassRuleDemo[],
   badExamples: [
-    { title: "商品被遮挡", imageUrl: "https://i.ibb.co/fdMjhgpX/pose-rule-bad-occluded.png" },
-    { title: "图片不清晰", imageUrl: "https://i.ibb.co/FbQqxjBv/garment-3d-rule-bad-blurry.png" },
-    { title: "拍摄灯光暗", imageUrl: "https://i.ibb.co/WWKpW4Hf/grass-bad-dark.png" },
+    { title: "商品被遮挡", imageUrl: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/i.ibb.co/fdMjhgpX/pose-rule-bad-occluded-ae34483e1d.png" },
+    { title: "图片不清晰", imageUrl: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/i.ibb.co/FbQqxjBv/garment-3d-rule-bad-blurry-58a6cb9ef9.png" },
+    { title: "拍摄灯光暗", imageUrl: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/i.ibb.co/WWKpW4Hf/grass-bad-dark-6497e069c3.png" },
   ],
 } as const;
 
@@ -81,7 +81,7 @@ export const GRASS_TEMPLATES: GrassTemplate[] = [
     id: "atmosphere",
     name: "氛围美图",
     desc: "生活方式封面感，适合做首图",
-    imageUrl: "https://i.ibb.co/DgDJjMjm/grass-template-atmosphere.png",
+    imageUrl: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/i.ibb.co/DgDJjMjm/grass-template-atmosphere-939274b5bb.png",
     prompt:
       "高质感服装种草氛围图，干净生活方式场景，柔和自然光，画面有真实社媒分享美感；主体服装清楚，背景只做氛围衬托。",
   },
@@ -89,7 +89,7 @@ export const GRASS_TEMPLATES: GrassTemplate[] = [
     id: "street",
     name: "街道拍摄",
     desc: "城市街拍，自然出门感",
-    imageUrl: "https://i.ibb.co/hRfvVCJT/grass-template-street.png",
+    imageUrl: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/i.ibb.co/hRfvVCJT/grass-template-street-0923eafda0.png",
     prompt:
       "时尚街区街拍，午后自然光，轻微城市背景虚化，模特自然行走或站立，像真实出门穿搭分享；构图要突出穿搭比例。",
   },
@@ -97,7 +97,7 @@ export const GRASS_TEMPLATES: GrassTemplate[] = [
     id: "mirror",
     name: "对镜自拍",
     desc: "真实用户分享，保留穿搭完整",
-    imageUrl: "https://i.ibb.co/psR27Tz/grass-template-mirror.png",
+    imageUrl: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/i.ibb.co/psR27Tz/grass-template-mirror-f65a95c3ac.png",
     prompt:
       "室内对镜自拍风格，手机镜面构图，自然室内光，穿搭完整可见，像真实用户分享照；不要挡住服装关键细节。",
   },
@@ -105,7 +105,7 @@ export const GRASS_TEMPLATES: GrassTemplate[] = [
     id: "home",
     name: "居家拍摄",
     desc: "松弛柔和，适合舒适单品",
-    imageUrl: "https://i.ibb.co/N6q4TN3f/grass-template-home.png",
+    imageUrl: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/i.ibb.co/N6q4TN3f/grass-template-home-7a7bb48ff1.png",
     prompt:
       "居家生活方式场景，温暖自然光，干净室内背景，松弛站姿或坐姿，突出日常穿搭的舒适感和亲和力。",
   },
@@ -113,7 +113,7 @@ export const GRASS_TEMPLATES: GrassTemplate[] = [
     id: "elevator",
     name: "电梯自拍",
     desc: "竖版全身，强种草内容感",
-    imageUrl: "https://i.ibb.co/LXX2bTJL/grass-template-elevator.png",
+    imageUrl: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/i.ibb.co/LXX2bTJL/grass-template-elevator-e67dea3659.png",
     prompt:
       "电梯镜面自拍风格，竖版构图，真实手机拍摄感，穿搭完整展示，画面干净高级；不要让手机或手臂遮挡主体服装。",
   },
@@ -121,7 +121,7 @@ export const GRASS_TEMPLATES: GrassTemplate[] = [
     id: "fitting",
     name: "试衣间自拍",
     desc: "真实试穿，细节清楚",
-    imageUrl: "https://i.ibb.co/BVx1nX9J/grass-template-fitting.png",
+    imageUrl: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/i.ibb.co/BVx1nX9J/grass-template-fitting-9b2035e45e.png",
     prompt:
       "试衣间自拍场景，柔和室内灯光，全身镜构图，服装细节清楚，像真实试穿分享；强调尺码、版型和上身效果。",
   },
@@ -129,7 +129,7 @@ export const GRASS_TEMPLATES: GrassTemplate[] = [
     id: "cafe",
     name: "咖啡店",
     desc: "温暖松弛，小红书常用场景",
-    imageUrl: "https://i.ibb.co/MkdRfRyM/grass-template-cafe.png",
+    imageUrl: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/i.ibb.co/MkdRfRyM/grass-template-cafe-57b0186cf7.png",
     prompt:
       "咖啡店门口或窗边种草照，午后光影，温暖色调，自然姿态，适合小红书穿搭分享；背景有生活气但不抢主体。",
   },
@@ -137,7 +137,7 @@ export const GRASS_TEMPLATES: GrassTemplate[] = [
     id: "fuji",
     name: "富士滤镜",
     desc: "胶片感，柔和清透",
-    imageUrl: "https://i.ibb.co/svQGKQsk/grass-template-fuji.png",
+    imageUrl: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/i.ibb.co/svQGKQsk/grass-template-fuji-1e8f9b45b2.png",
     prompt:
       "富士胶片色彩质感，轻微颗粒，清透自然肤色，柔和高光；保持真实服装颜色与材质，不要过度滤镜化。",
   },
@@ -145,7 +145,7 @@ export const GRASS_TEMPLATES: GrassTemplate[] = [
     id: "canon",
     name: "佳能人像",
     desc: "商业人像，画质清晰",
-    imageUrl: "https://i.ibb.co/sdMVRCsK/grass-template-canon.png",
+    imageUrl: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/i.ibb.co/sdMVRCsK/grass-template-canon-2feaa41a21.png",
     prompt:
       "佳能商业人像摄影风格：清透明亮的 Canon 色彩，肤色自然红润不过白，白平衡准确，服装边缘和面料纹理锐利清晰；使用 50mm/85mm 人像镜头感，浅景深但服装主体完整清楚，画面有干净高级的商业种草质感。",
   },
@@ -153,7 +153,7 @@ export const GRASS_TEMPLATES: GrassTemplate[] = [
     id: "hat",
     name: "帽子遮脸",
     desc: "氛围穿搭，弱化脸部",
-    imageUrl: "https://i.ibb.co/67ZffwGp/grass-template-hat.png",
+    imageUrl: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/i.ibb.co/67ZffwGp/grass-template-hat-e6cd2c3908.png",
     prompt:
       "帽子或手部轻微遮脸的氛围穿搭照，保持神秘感和高级感；服装主体必须完整清楚，脸部弱化但人体结构自然。",
   },

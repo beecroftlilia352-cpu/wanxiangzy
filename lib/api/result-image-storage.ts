@@ -46,7 +46,7 @@ async function storeGeneratedImage(
   name: string,
   options: { suppressErrorLog?: boolean } = {}
 ) {
-  const stored = await storeImage({ image, name, namePrefix: "generated-" }, options);
+  const stored = await storeImage({ image, name, namePrefix: "generated-", storageClass: "generated" }, options);
   return stored.url;
 }
 

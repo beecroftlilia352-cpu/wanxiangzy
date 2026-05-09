@@ -13,6 +13,7 @@
     "check:release": "node scripts/release-check.js",
     "check:ssr-size": "node scripts/check-next-ssr-size.js",
     "check:prompts": "node scripts/prompt-regression-check.js",
+    "oss:upload-site-assets": "node scripts/upload-site-assets-to-oss.mjs",
     "test": "vitest run",
     "test:watch": "vitest"
   },

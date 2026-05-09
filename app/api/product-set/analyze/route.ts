@@ -131,12 +131,46 @@ export async function POST(request: NextRequest) {
       : [];
     if (!productImageUrls.length) return NextResponse.json({ product_info: "" });
     if (productImageUrls.length > 3) return NextResponse.json({ error: "商品图最多上传 3 张" }, { status: 400 });
+    const requestedImageType = body.image_type === "main" ? "main" : "details";
+    const requestedCountRaw = Number(body.gen_count);
+    if (!Number.isFinite(requestedCountRaw) || requestedCountRaw <= 0) {
+      return NextResponse.json({ error: "请先选择生成张数或详情页屏数" }, { status: 400 });
+    }
+    const requestedCount = Math.min(Math.max(Math.round(requestedCountRaw), 1), 8);
+    const userProductInfo = typeof body.product_info === "string" ? body.product_info.trim().slice(0, 2000) : "";
+    const referenceStyleInfo = typeof body.reference_style_info === "string" ? body.reference_style_info.trim().slice(0, 2000) : "";
+    const targetPlatform = typeof body.target_platform === "string" && body.target_platform.trim()
+      ? body.target_platform.trim().slice(0, 40)
+      : "未明确";
 
     const imageContents = productImageUrls.map((url: string) => ({ type: "image_url", image_url: { url } }));
+    const userInfoInstruction = userProductInfo
+      ? `用户已填写的商品信息如下，请优先尊重并用它修正视觉识别，不要只依赖图片猜测：\n${userProductInfo}`
+      : "用户没有填写商品信息。请根据上传图片帮用户写一份完整、中文、可用于生成商品套图的商品信息初稿；无法确定的字段写“未明确”，不要编造品牌、价格、认证、尺寸或功效。";
+    const referenceStyleInstruction = referenceStyleInfo
+      ? `用户选择了一个参考风格说明。它只是风格/版式/场景/配色/文案方向，不代表已经分析好的模板，也不代表本次商品的真实信息。请在分析时吸收其目标平台、视觉风格、统一场景、痛点、人群、配色和设计风格；如果其中的产品名称、卖点、参数与上传商品图冲突，以本次商品图和用户手填商品信息为准。\n${referenceStyleInfo}`
+      : "用户没有选择额外参考风格。";
     const textPrompt = `你是专业电商商品图片分析 AI，服务于 AI 商品套图生成工具。
 
 你的任务：
 分析用户上传的 ${productImageUrls.length} 张图片。所有图片默认属于同一商品的多视角/局部素材，除非图片内容明显不是同一商品。请判断图片中的商品类型、商品特征、视觉质量、适合生成的电商图片类型，并返回结构化 JSON。
+
+${userInfoInstruction}
+
+${referenceStyleInstruction}
+
+用户本次选择：
+- 输出类型：${requestedImageType === "main" ? "商品主图/辅图" : "详情页"}
+- 输出数量：${requestedCount} ${requestedImageType === "main" ? "张" : "屏"}
+- 目标平台：${targetPlatform}
+
+本次最重要的输出目标：
+- 视觉总监方案必须严格按用户选择的 ${requestedCount} ${requestedImageType === "main" ? "张主图/辅图" : "屏详情页"} 来规划。
+- ${requestedImageType === "main" ? "main_plan 和 main_scripts" : "details_plan 和 details_scripts"} 必须各输出 ${requestedCount} 个模块，顺序就是最终生成顺序。
+- 非当前输出类型的 plan/scripts 可以为空数组，不要为了凑默认数量输出无关模块。
+- 商品信息总结必须服务后续规划，覆盖目标平台、风格名称、视觉风格、整组统一场景、产品名称、核心卖点、用户痛点、适用人群、产品参数、设计风格、主题配色和用户需求原文。
+- 所有面向用户展示的字段必须使用中文：商品名称、商品描述、目标受众、商品卖点、strategy_name、style_strategy、purpose、layout、copy_rule、title、scene_design、visual_composition、copy_content、layout_rules、constraints、style_tags、visible_details、possible_selling_points、target_audience_guess、usage_scenarios。
+- 不要输出裸英文品名或英文方案标题。例如识别到 jacket，应写“夹克 / 户外夹克 / 反光连帽夹克”，不要只写 jacket；识别到 outdoor enthusiasts，应写“户外运动人群”。技术枚举字段 module_key 可以使用英文。
 
 非常重要：
 - 你只允许返回 JSON。
@@ -256,8 +290,9 @@ export async function POST(request: NextRequest) {
 - tutorial：使用步骤
 
 视觉总监规则：
-- 主图默认建议 3 张，最多 4 张。
-- 详情页默认建议 5 屏，复杂商品可 7 屏。
+- 不要使用默认张数；必须以用户选择的 ${requestedCount} ${requestedImageType === "main" ? "张" : "屏"} 为准。
+- 如果用户选择主图：主图/辅图最多 ${requestedCount} 张，每张职责不同。
+- 如果用户选择详情页：详情页正好 ${requestedCount} 屏，每屏职责不同。
 - 每个模块必须有独立职责，不要连续两张都是相同模特海报。
 - 如果是服装，详情页应优先包含：首屏、面料/版型、尺码/试穿、生活方式/搭配、上身证明。
 - 如果没有具体尺码数据，尺码模块只能做测量位置和版型建议，不能编造数字尺码表。
@@ -437,8 +472,9 @@ export async function POST(request: NextRequest) {
 10. 所有 confidence 范围必须是 0 到 1。
 11. quality_score 范围必须是 0 到 10。`;
 
-    const fallback = buildFallbackProductInfo(productImageUrls.length);
-    const fallbackProfile = buildFallbackProductProfile();
+    const templateContext = { targetPlatform, originalText: [userProductInfo, referenceStyleInfo].filter(Boolean).join("\n\n"), imageCount: productImageUrls.length };
+    const fallback = ensureProductInfoTemplate(localizeUserFacingText(userProductInfo), templateContext);
+    const fallbackProfile = normalizeProductSetProductProfile(undefined, fallback);
     const configs = getLlmFallbackConfigs("vision");
     if (!configs.length) {
       const primary = getLlmConfig("vision");
@@ -461,7 +497,7 @@ export async function POST(request: NextRequest) {
           body: JSON.stringify({
             model: llm.model,
             messages: [{ role: "user", content: [{ type: "text", text: textPrompt }, ...imageContents] }],
-            max_tokens: 2200,
+            max_tokens: 3200,
           }),
           signal: controller.signal,
         }).finally(() => clearTimeout(timeout));
@@ -489,17 +525,18 @@ export async function POST(request: NextRequest) {
         }
 
         const parsed = parseAnalyzePayload(content);
-        const analysis = normalizeVisionAnalysis(parsed.analysis);
+        const normalizedAnalysis = normalizeVisionAnalysis(parsed.analysis);
+        const analysis = normalizedAnalysis ? localizeVisionAnalysis(normalizedAnalysis) : undefined;
         const productInfo = parsed.productInfo
-          ? ensureProductInfoTemplate(parsed.productInfo)
+          ? ensureProductInfoTemplate(localizeUserFacingText(parsed.productInfo), templateContext)
           : analysis
-            ? buildProductInfoFromAnalysis(analysis, productImageUrls.length)
-            : ensureProductInfoTemplate(content || fallback);
-        const productProfile = parsed.productProfile
+            ? buildProductInfoFromAnalysis(analysis, productImageUrls.length, templateContext)
+            : ensureProductInfoTemplate(localizeUserFacingText(content || fallback), templateContext);
+        const productProfile = localizeProductProfile(parsed.productProfile
           ? normalizeProductSetProductProfile(parsed.productProfile, productInfo)
           : analysis
             ? buildProductProfileFromAnalysis(analysis, productInfo)
-            : normalizeProductSetProductProfile(undefined, productInfo);
+            : normalizeProductSetProductProfile(undefined, productInfo));
         const validation = validateAnalyzeResult(productInfo, productProfile);
         if (!validation.ok) {
           failures.push(`${llm.provider}_${validation.reason}`);
@@ -581,17 +618,23 @@ function extractJsonObjectText(text: string) {
 }
 
 function validateAnalyzeResult(productInfo: string, productProfile: ReturnType<typeof normalizeProductSetProductProfile>) {
-  const name = extractAnalyzeField(productInfo, "商品名称");
-  const description = extractAnalyzeField(productInfo, "商品描述");
+  const name = extractAnalyzeField(productInfo, ["产品名称", "商品名称"]);
+  const description = extractAnalyzeField(productInfo, ["视觉风格", "整组图统一场景", "核心卖点", "商品描述"]);
   if (!name || /待分析|待确认|待识别|未识别/.test(name)) return { ok: false as const, reason: "placeholder_name" };
   if (!description || /用户上传了\s*\d+\s*张同一商品/.test(description)) return { ok: false as const, reason: "placeholder_description" };
   if (productProfile.confidence < 0.45) return { ok: false as const, reason: "low_confidence" };
   return { ok: true as const };
 }
 
-function extractAnalyzeField(text: string, label: string) {
-  const match = text.match(new RegExp(`${label}\\s*[:：]\\s*([^\\n]+)`));
-  return match?.[1]?.trim() || "";
+function extractAnalyzeField(text: string, labels: string[] | string) {
+  const candidates = Array.isArray(labels) ? labels : [labels];
+  for (const label of candidates) {
+    const inlineMatch = text.match(new RegExp(`(?:\\*\\*)?${label}\\s*[:：](?:\\*\\*)?\\s*([^\\n]+)`));
+    if (inlineMatch?.[1]?.trim()) return inlineMatch[1].trim();
+    const blockMatch = text.match(new RegExp(`(?:^|\\n)#{1,3}\\s*${label}\\s*\\n([\\s\\S]*?)(?=\\n#{1,3}\\s|\\n(?:\\*\\*)?[^\\n:：]{2,20}(?:\\*\\*)?\\s*[:：]|$)`));
+    if (blockMatch?.[1]?.trim()) return blockMatch[1].trim();
+  }
+  return "";
 }
 
 function normalizeVisionAnalysis(value: unknown): ProductSetVisionAnalysis | undefined {
@@ -669,10 +712,10 @@ function normalizeVisualDirector(value: ProductSetVisionAnalysis["visual_directo
     strategy_name: safeString(input.strategy_name, 80),
     style_strategy: safeString(input.style_strategy, 260),
     global_strategy: normalizeGlobalVisualStrategy(input.global_strategy),
-    main_plan: normalizeDirectorModules(input.main_plan, 4),
-    details_plan: normalizeDirectorModules(input.details_plan, 7),
-    main_scripts: normalizeDirectorScreenScripts(input.main_scripts, 4),
-    details_scripts: normalizeDirectorScreenScripts(input.details_scripts, 7),
+    main_plan: normalizeDirectorModules(input.main_plan, 8),
+    details_plan: normalizeDirectorModules(input.details_plan, 8),
+    main_scripts: normalizeDirectorScreenScripts(input.main_scripts, 8),
+    details_scripts: normalizeDirectorScreenScripts(input.details_scripts, 8),
     layout_principles: safeStringArray(input.layout_principles, 8),
     copy_strategy: safeString(input.copy_strategy, 260),
     negative_layouts: safeStringArray(input.negative_layouts, 8),
@@ -737,24 +780,155 @@ function normalizeDirectorScreenScripts(value: unknown, maxItems: number): Produ
     .slice(0, maxItems);
 }
 
-function buildProductInfoFromAnalysis(analysis: ProductSetVisionAnalysis, imageCount: number) {
+const USER_FACING_TEXT_REPLACEMENTS: Array<[RegExp, string]> = [
+  [/\bThe Ultimate Visibility Jacket\b/gi, "高可视机能夹克"],
+  [/\bCreate visually appealing first impression\b/gi, "建立第一眼主视觉"],
+  [/\bDetail the material and fit\b/gi, "展示材质与版型"],
+  [/\bProvide sizing suggestions\b/gi, "提供尺码和穿着建议"],
+  [/\bShow how the jacket fits into outdoor activities\b/gi, "展示户外穿着场景"],
+  [/\bDemonstrate the jacket being worn\b/gi, "展示上身穿着效果"],
+  [/\boutdoor enthusiasts\b/gi, "户外运动人群"],
+  [/\bworkers in low-visibility conditions\b/gi, "低能见度工作人群"],
+  [/\bhigh visibility\b/gi, "高可视性"],
+  [/\bweather-resistant\b/gi, "防风防泼水"],
+  [/\bfunctional pockets\b/gi, "多功能口袋"],
+  [/\breflective stripes\b/gi, "反光条"],
+  [/\bzippered pockets\b/gi, "拉链口袋"],
+  [/\bmaterial and fit\b/gi, "材质与版型"],
+  [/\bsizing suggestions\b/gi, "尺码建议"],
+  [/\bfunctional and sporty\b/gi, "功能运动风"],
+  [/\bsportswear\b/gi, "运动服饰"],
+  [/\bapparel\b/gi, "服装"],
+  [/\bouterwear\b/gi, "外套"],
+  [/\boutdoor\b/gi, "户外"],
+  [/\bsport\b/gi, "运动"],
+  [/\byellow\b/gi, "黄色"],
+  [/\bblack\b/gi, "黑色"],
+  [/\bhood\b/gi, "连帽"],
+  [/\bjacket\b/gi, "夹克"],
+];
+
+function localizeUserFacingText(value: string) {
+  let text = value;
+  for (const [pattern, replacement] of USER_FACING_TEXT_REPLACEMENTS) {
+    text = text.replace(pattern, replacement);
+  }
+  return text
+    .replace(/\s+([，。；、])/g, "$1")
+    .replace(/([，。；、])\s+/g, "$1")
+    .trim();
+}
+
+function localizeStringArray(value?: string[]) {
+  return (value || []).map(localizeUserFacingText).filter(Boolean);
+}
+
+function localizeVisionAnalysis(analysis: ProductSetVisionAnalysis): ProductSetVisionAnalysis {
+  return {
+    ...analysis,
+    category: analysis.category ? {
+      ...analysis.category,
+      secondary: localizeUserFacingText(analysis.category.secondary || ""),
+    } : analysis.category,
+    product: analysis.product ? {
+      ...analysis.product,
+      name_guess: localizeUserFacingText(analysis.product.name_guess || ""),
+      main_object: localizeUserFacingText(analysis.product.main_object || ""),
+      colors: localizeStringArray(analysis.product.colors),
+      material_guess: localizeStringArray(analysis.product.material_guess),
+      style_tags: localizeStringArray(analysis.product.style_tags),
+      visible_details: localizeStringArray(analysis.product.visible_details),
+      possible_selling_points: localizeStringArray(analysis.product.possible_selling_points),
+      target_audience_guess: localizeStringArray(analysis.product.target_audience_guess),
+      usage_scenarios: localizeStringArray(analysis.product.usage_scenarios),
+    } : analysis.product,
+    generation_fit: analysis.generation_fit ? {
+      ...analysis.generation_fit,
+      recommended_style_reason: localizeUserFacingText(analysis.generation_fit.recommended_style_reason || ""),
+      recommended_output_set: localizeStringArray(analysis.generation_fit.recommended_output_set),
+      not_suitable_reason: localizeUserFacingText(analysis.generation_fit.not_suitable_reason || ""),
+    } : analysis.generation_fit,
+    visual_director: analysis.visual_director ? {
+      ...analysis.visual_director,
+      strategy_name: localizeUserFacingText(analysis.visual_director.strategy_name || ""),
+      style_strategy: localizeUserFacingText(analysis.visual_director.style_strategy || ""),
+      global_strategy: analysis.visual_director.global_strategy ? {
+        ...analysis.visual_director.global_strategy,
+        core_palette: localizeUserFacingText(analysis.visual_director.global_strategy.core_palette || ""),
+        primary_color: localizeUserFacingText(analysis.visual_director.global_strategy.primary_color || ""),
+        secondary_colors: localizeStringArray(analysis.visual_director.global_strategy.secondary_colors),
+        accent_color: localizeUserFacingText(analysis.visual_director.global_strategy.accent_color || ""),
+        color_temperature: localizeUserFacingText(analysis.visual_director.global_strategy.color_temperature || ""),
+        lighting: localizeUserFacingText(analysis.visual_director.global_strategy.lighting || ""),
+        typography: localizeUserFacingText(analysis.visual_director.global_strategy.typography || ""),
+        texture_mood: localizeUserFacingText(analysis.visual_director.global_strategy.texture_mood || ""),
+      } : analysis.visual_director.global_strategy,
+      main_plan: localizeDirectorModules(analysis.visual_director.main_plan),
+      details_plan: localizeDirectorModules(analysis.visual_director.details_plan),
+      main_scripts: localizeDirectorScripts(analysis.visual_director.main_scripts),
+      details_scripts: localizeDirectorScripts(analysis.visual_director.details_scripts),
+      layout_principles: localizeStringArray(analysis.visual_director.layout_principles),
+      copy_strategy: localizeUserFacingText(analysis.visual_director.copy_strategy || ""),
+      negative_layouts: localizeStringArray(analysis.visual_director.negative_layouts),
+    } : analysis.visual_director,
+    next_step: analysis.next_step ? {
+      ...analysis.next_step,
+      message_to_user: localizeUserFacingText(analysis.next_step.message_to_user || ""),
+    } : analysis.next_step,
+    prompt_summary: localizeUserFacingText(analysis.prompt_summary || ""),
+    risk_notes: localizeStringArray(analysis.risk_notes),
+  };
+}
+
+function localizeDirectorModules(value?: ProductSetDirectorModule[]) {
+  return (value || []).map((item) => ({
+    ...item,
+    purpose: localizeUserFacingText(item.purpose || ""),
+    layout: localizeUserFacingText(item.layout || ""),
+    copy_rule: localizeUserFacingText(item.copy_rule || ""),
+  }));
+}
+
+function localizeDirectorScripts(value?: ProductSetDirectorScreenScript[]) {
+  return (value || []).map((item) => ({
+    ...item,
+    title: localizeUserFacingText(item.title || ""),
+    global_tone: localizeUserFacingText(item.global_tone || ""),
+    scene_design: localizeUserFacingText(item.scene_design || ""),
+    visual_composition: localizeUserFacingText(item.visual_composition || ""),
+    copy_content: localizeUserFacingText(item.copy_content || ""),
+    layout_rules: localizeUserFacingText(item.layout_rules || ""),
+    constraints: localizeUserFacingText(item.constraints || ""),
+  }));
+}
+
+function localizeProductProfile(profile: ProductSetProductProfile): ProductSetProductProfile {
+  return {
+    ...profile,
+    displayName: localizeUserFacingText(profile.displayName),
+    modelBrief: localizeUserFacingText(profile.modelBrief),
+    planningNotes: localizeStringArray(profile.planningNotes),
+    visualKeywords: localizeStringArray(profile.visualKeywords),
+  };
+}
+
+type ProductInfoTemplateContext = {
+  targetPlatform?: string;
+  originalText?: string;
+  imageCount?: number;
+};
+
+function buildProductInfoFromAnalysis(analysis: ProductSetVisionAnalysis, imageCount: number, context: ProductInfoTemplateContext = {}) {
   const product = analysis.product || {};
   const category = analysis.category || {};
+  const director = analysis.visual_director || {};
+  const globalStrategy = director.global_strategy || {};
   const name = firstUseful(product.name_guess, product.main_object, category.secondary, "待确认商品");
   const colors = listText(product.colors);
   const materials = listText(product.material_guess);
   const details = listText(product.visible_details);
   const styles = listText(product.style_tags);
   const scenarios = listText(product.usage_scenarios);
-  const descriptionParts = [
-    `${name}，由 ${imageCount} 张商品图综合识别。`,
-    colors ? `主色调包括${colors}。` : "",
-    materials ? `材质/质感推测为${materials}。` : "",
-    details ? `可见细节包括${details}。` : "",
-    styles ? `整体风格偏${styles}。` : "",
-    scenarios ? `适合${scenarios}等场景。` : "",
-    analysis.prompt_summary || "",
-  ].filter(Boolean);
   const audience = product.target_audience_guess?.length
     ? product.target_audience_guess.join("、")
     : inferAudienceFromAnalysis(analysis);
@@ -763,12 +937,42 @@ function buildProductInfoFromAnalysis(analysis: ProductSetVisionAnalysis, imageC
     product.material_guess?.[0],
     product.style_tags?.[0],
     analysis.generation_fit?.recommended_style_reason,
-  ]).filter(Boolean).slice(0, 5);
+  ]).filter((item): item is string => Boolean(item)).slice(0, 5);
+  const visualStyle = firstUseful(
+    director.style_strategy,
+    analysis.generation_fit?.recommended_style_reason,
+    styles ? `围绕${styles}建立统一视觉调性，突出商品质感、结构和可购买理由。` : undefined,
+    "采用清晰高级的电商视觉，突出商品主体、材质质感和核心卖点。"
+  );
+  const unifiedScene = [
+    globalStrategy.lighting,
+    globalStrategy.texture_mood,
+    globalStrategy.color_temperature,
+    scenarios ? `适配${scenarios}等使用场景` : "",
+  ].filter(Boolean).join("，") || `基于 ${imageCount} 张商品图建立统一场景，保持商品颜色、结构、材质和品牌识别一致。`;
+  const productParams = [
+    `材质：${materials || "未明确"}`,
+    "尺寸：未明确",
+    `颜色：${colors || "未明确"}`,
+    `功能：${scenarios || sellingPoints[0] || details || "展示商品外观、细节与使用价值"}`,
+  ].join("；");
 
-  return `商品名称: ${name}
-商品描述: ${descriptionParts.join("") || "根据上传商品图识别商品外观、材质、结构和使用方式。"}
-目标受众: ${audience || "面向该商品品类的电商目标用户。"}
-商品卖点: [${sellingPoints.map((item, index) => `${index + 1}. ${item}`).join("; ")}]`.slice(0, 2000);
+  return formatProductInfoTemplate({
+    targetPlatform: context.targetPlatform,
+    styleName: firstUseful(director.strategy_name, analysis.generation_fit?.recommended_style, styles ? `${styles}风` : undefined, "智能电商风"),
+    visualStyle,
+    unifiedScene,
+    productName: name,
+    coreSellingPoint: sellingPoints.length ? sellingPoints.join("；") : details || "突出商品外观、材质、结构和使用价值。",
+    painPoints: buildPainPointsFromAnalysis(analysis, sellingPoints),
+    audience: audience || "面向该商品品类的电商目标用户。",
+    productParams,
+    designStyle: styles || firstUseful(analysis.generation_fit?.recommended_style, director.strategy_name, "高级/清晰/电商转化"),
+    primaryColor: firstUseful(globalStrategy.primary_color, colors?.split("、")[0], "未明确"),
+    secondaryColor: firstUseful(globalStrategy.secondary_colors?.[0], colors?.split("、")[1], "未明确"),
+    accentColor: firstUseful(globalStrategy.accent_color, "未明确"),
+    originalText: context.originalText,
+  });
 }
 
 function buildProductProfileFromAnalysis(analysis: ProductSetVisionAnalysis, productInfo: string): ProductSetProductProfile {
@@ -990,18 +1194,140 @@ function firstUseful(...values: Array<string | undefined>) {
   return values.find((value) => value && value !== "unknown") || "";
 }
 
-function ensureProductInfoTemplate(value: string) {
+function ensureProductInfoTemplate(value: string, context: ProductInfoTemplateContext = {}) {
   const text = value.trim();
-  const hasName = /商品名称\s*[:：]/.test(text);
-  const hasDesc = /商品描述\s*[:：]/.test(text);
-  const hasAudience = /目标受众\s*[:：]/.test(text);
-  const hasSellingPoints = /商品卖点\s*[:：]/.test(text);
-  if (hasName && hasDesc && hasAudience && hasSellingPoints) return text.slice(0, 2000);
+  const description = extractFlexibleInfoField(text, ["视觉风格", "商品描述", "描述", "商品信息", "产品描述"]) || text || "根据上传商品图识别商品外观、材质、结构和使用方式。";
+  const sellingPoints = extractFlexibleInfoField(text, ["核心卖点", "商品卖点", "卖点", "优势"]) || "多视角商品图可提升外观可信度；清晰展示材质与结构细节；适合生成主图、辅图与详情页视觉。";
 
-  return `商品名称: 待确认商品
-商品描述: ${text || "根据上传商品图识别商品外观、材质、结构和使用方式。"}
-目标受众: 面向需要该类商品功能与审美价值的电商用户，具体人群需结合商品品类进一步确认。
-商品卖点: [1. 多视角商品图可提升外观可信度；2. 清晰展示材质与结构细节；3. 适合生成主图、辅图与详情页视觉；4. 可结合目标平台调整文案和排版；5. 保持商品主体一致，增强整套素材统一感。]`.slice(0, 2000);
+  return formatProductInfoTemplate({
+    targetPlatform: extractFlexibleInfoField(text, ["目标平台", "平台"]) || context.targetPlatform,
+    styleName: extractFlexibleInfoField(text, ["风格名称", "风格名"]) || "智能电商风",
+    visualStyle: description,
+    unifiedScene: extractFlexibleInfoField(text, ["整组图统一场景", "统一场景", "场景"]) || "统一使用干净、专业、适合电商转化的场景，保持商品主体颜色、结构和材质一致。",
+    productName: extractFlexibleInfoField(text, ["产品名称", "商品名称", "品名", "商品名", "名称"]) || inferFreeTextProductName(text) || "待确认商品",
+    coreSellingPoint: sellingPoints,
+    painPoints: normalizePainPoints(extractFlexibleInfoField(text, ["用户痛点", "痛点"])),
+    audience: extractFlexibleInfoField(text, ["适用人群", "目标受众", "目标人群", "受众", "人群"]) || "面向需要该类商品功能与审美价值的电商用户，具体人群需结合商品品类进一步确认。",
+    productParams: extractFlexibleInfoField(text, ["产品参数", "商品参数", "参数"]) || "材质：未明确；尺寸：未明确；颜色：未明确；功能：结合商品图和用户信息判断。",
+    designStyle: extractFlexibleInfoField(text, ["设计风格", "风格"]) || "高级/清晰/电商转化",
+    primaryColor: extractFlexibleInfoField(text, ["主色调"]) || "未明确",
+    secondaryColor: extractFlexibleInfoField(text, ["辅助色"]) || "未明确",
+    accentColor: extractFlexibleInfoField(text, ["点缀色"]) || "未明确",
+    originalText: extractFlexibleInfoField(text, ["用户需求原文"]) || context.originalText || text || "无",
+  });
+}
+
+function formatProductInfoTemplate({
+  targetPlatform,
+  styleName,
+  visualStyle,
+  unifiedScene,
+  productName,
+  coreSellingPoint,
+  painPoints,
+  audience,
+  productParams,
+  designStyle,
+  primaryColor,
+  secondaryColor,
+  accentColor,
+  originalText,
+}: {
+  targetPlatform?: string;
+  styleName?: string;
+  visualStyle?: string;
+  unifiedScene?: string;
+  productName?: string;
+  coreSellingPoint?: string;
+  painPoints?: string[];
+  audience?: string;
+  productParams?: string;
+  designStyle?: string;
+  primaryColor?: string;
+  secondaryColor?: string;
+  accentColor?: string;
+  originalText?: string;
+}) {
+  const normalizedPainPoints = (painPoints?.length ? painPoints : [
+    "用户难以快速判断商品质感、版型或核心价值",
+    "普通商品图缺少统一视觉场景，转化说服力不足",
+    "卖点展示不够清晰，详情页容易变成信息堆叠",
+  ]).slice(0, 3);
+
+  return `**目标平台：** ${targetPlatform || "未明确"}
+
+**风格名称：** ${styleName || "智能电商风"}
+
+## 视觉风格
+${visualStyle || "采用清晰高级的电商视觉，突出商品主体、材质质感和核心卖点。"}
+
+## 整组图统一场景
+${unifiedScene || "统一使用干净、专业、适合电商转化的场景，保持商品主体颜色、结构和材质一致。"}
+
+## 产品信息
+**产品名称：** ${productName || "待确认商品"}
+
+**核心卖点：** ${coreSellingPoint || "突出商品外观、材质、结构和使用价值。"}
+
+## 用户痛点
+${normalizedPainPoints.map((item, index) => `- [痛点${index + 1}：${item.replace(/^[痛点\d：:\-\s]+/, "")}]`).join("\n")}
+
+**适用人群：** ${audience || "面向该商品品类的电商目标用户。"}
+
+## 产品参数
+${productParams || "材质：未明确；尺寸：未明确；颜色：未明确；功能：结合商品图和用户信息判断。"}
+
+## 设计风格
+${designStyle || "高级/清晰/电商转化"}
+
+## 主题配色
+- **主色调：** ${primaryColor || "未明确"}
+- **辅助色：** ${secondaryColor || "未明确"}
+- **点缀色：** ${accentColor || "未明确"}
+
+## 用户需求原文
+${originalText || "无"}`.slice(0, 2000);
+}
+
+function buildPainPointsFromAnalysis(analysis: ProductSetVisionAnalysis, sellingPoints: string[]) {
+  const details = analysis.product?.visible_details || [];
+  const scenarios = analysis.product?.usage_scenarios || [];
+  const points = [
+    sellingPoints[0] ? `用户需要快速理解${sellingPoints[0]}，否则容易忽略商品价值` : "",
+    details[0] ? `关键细节如${details[0]}如果展示不足，会影响购买信任` : "",
+    scenarios[0] ? `${scenarios[0]}场景下需要更清楚的使用效果和搭配说明` : "",
+  ].filter(Boolean);
+  return points.length ? points : undefined;
+}
+
+function normalizePainPoints(value: string) {
+  return value
+    .replace(/^\[|\]$/g, "")
+    .split(/\n|；|;|、/)
+    .map((item) => item.replace(/^[-*\s]+/, "").replace(/^\[?痛点\d+[：:]/, "").replace(/\]?$/, "").trim())
+    .filter(Boolean)
+    .slice(0, 3);
+}
+
+function extractFlexibleInfoField(text: string, labels: string[]) {
+  for (const label of labels) {
+    const inlineMatch = text.match(new RegExp(`(?:\\*\\*)?${label}\\s*[:：](?:\\*\\*)?\\s*([^\\n]+)`));
+    const inlineValue = inlineMatch?.[1]?.trim();
+    if (inlineValue) return inlineValue;
+    const blockMatch = text.match(new RegExp(`(?:^|\\n)#{1,3}\\s*${label}\\s*\\n([\\s\\S]*?)(?=\\n#{1,3}\\s|\\n(?:\\*\\*)?[^\\n:：]{2,20}\\s*[:：]|$)`));
+    const blockValue = blockMatch?.[1]?.trim();
+    if (blockValue) return blockValue;
+  }
+  return "";
+}
+
+function inferFreeTextProductName(text: string) {
+  const firstLine = text.split(/\n+/).map((item) => item.trim()).find(Boolean) || "";
+  const cleaned = firstLine
+    .replace(/^(商品|产品|品名|名称)\s*[:：]\s*/i, "")
+    .split(/[，。；;,.]/)[0]
+    .trim();
+  return cleaned.length > 28 ? `${cleaned.slice(0, 28)}...` : cleaned;
 }
 
 function buildFallbackProductInfo(count: number) {

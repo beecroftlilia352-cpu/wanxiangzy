@@ -1,7 +1,11 @@
+import { createHmac, randomUUID } from "node:crypto";
+
 const IMGBB_API_URL = "https://api.imgbb.com/1/upload";
 const DEFAULT_IMAGE_UPLOAD_TIMEOUT_MS = 45_000;
+const MAX_IMAGE_STORAGE_BYTES = 32 * 1024 * 1024;
 
-export type ImageStorageProvider = "imgbb";
+export type ImageStorageProvider = "imgbb" | "aliyun-oss";
+export type ImageStorageClass = "upload" | "generated" | "favorite" | "site-asset" | "temp";
 
 export interface StoredImage {
   url: string;
@@ -15,6 +19,7 @@ export interface StoreImageInput {
   image: string;
   name: string;
   namePrefix?: string;
+  storageClass?: ImageStorageClass;
 }
 
 export interface StoreImageOptions {
@@ -29,6 +34,8 @@ export interface ImageStorageAdapter {
 }
 
 export function getImageStorageAdapter(): ImageStorageAdapter {
+  const provider = (process.env.IMAGE_STORAGE_PROVIDER || "imgbb").trim().toLowerCase();
+  if (provider === "aliyun-oss") return aliyunOssStorageAdapter;
   return imgbbStorageAdapter;
 }
 
@@ -63,7 +70,7 @@ const imgbbStorageAdapter: ImageStorageAdapter = {
   async storeImage(input: StoreImageInput, options: StoreImageOptions = {}) {
     const apiKey = process.env.IMGBB_API_KEY;
     if (!apiKey) {
-      throw new Error("图床上传服务未配置 IMGBB_API_KEY");
+      throw new Error("图片上传服务未配置 IMGBB_API_KEY");
     }
 
     const form = new FormData();
@@ -82,7 +89,7 @@ const imgbbStorageAdapter: ImageStorageAdapter = {
       if (!options.suppressErrorLog) {
         console.error("[image-storage] imgbb upload error:", response.status, responseText.slice(0, 500));
       }
-      throw new Error(`生成结果图片转存图床失败: ${response.status}`);
+      throw new Error(`图片上传失败: ImgBB HTTP ${response.status}`);
     }
 
     const data = JSON.parse(responseText);
@@ -90,7 +97,7 @@ const imgbbStorageAdapter: ImageStorageAdapter = {
       if (!options.suppressErrorLog) {
         console.error("[image-storage] imgbb upload failed:", responseText.slice(0, 500));
       }
-      throw new Error("生成结果图片转存图床失败");
+      throw new Error("图片上传失败: ImgBB did not return a URL");
     }
 
     return {
@@ -102,3 +109,222 @@ const imgbbStorageAdapter: ImageStorageAdapter = {
     };
   },
 };
+
+const aliyunOssStorageAdapter: ImageStorageAdapter = {
+  provider: "aliyun-oss",
+
+  isStableUrl(url: string) {
+    try {
+      const host = new URL(url).hostname.toLowerCase();
+      const publicBaseHost = process.env.ALIYUN_OSS_PUBLIC_BASE_URL
+        ? new URL(normalizeBaseUrl(process.env.ALIYUN_OSS_PUBLIC_BASE_URL)).hostname.toLowerCase()
+        : "";
+      const bucket = process.env.ALIYUN_OSS_BUCKET?.trim();
+      const region = process.env.ALIYUN_OSS_REGION?.trim();
+      const defaultHost = bucket && region ? `${bucket}.${region}.aliyuncs.com`.toLowerCase() : "";
+      return Boolean(host && (host === publicBaseHost || host === defaultHost));
+    } catch {
+      return false;
+    }
+  },
+
+  async storeImage(input: StoreImageInput, options: StoreImageOptions = {}) {
+    const config = getAliyunOssConfig();
+    const upload = await resolveUploadPayload(input.image, input.name, options);
+    const objectKey = buildAliyunObjectKey(input, upload.extension);
+    const endpoint = config.endpoint || `${config.bucket}.${config.region}.aliyuncs.com`;
+    const uploadUrl = `https://${endpoint}/${encodeObjectKey(objectKey)}`;
+    const date = new Date().toUTCString();
+    const canonicalizedResource = `/${config.bucket}/${objectKey}`;
+    const canonicalizedOssHeaders = config.securityToken ? `x-oss-security-token:${config.securityToken}\n` : "";
+    const stringToSign = [
+      "PUT",
+      "",
+      upload.contentType,
+      date,
+      `${canonicalizedOssHeaders}${canonicalizedResource}`,
+    ].join("\n");
+    const signature = createHmac("sha1", config.accessKeySecret).update(stringToSign).digest("base64");
+    const headers: Record<string, string> = {
+      Authorization: `OSS ${config.accessKeyId}:${signature}`,
+      Date: date,
+      "Content-Type": upload.contentType,
+    };
+    if (config.securityToken) headers["x-oss-security-token"] = config.securityToken;
+
+    const response = await fetch(uploadUrl, {
+      method: "PUT",
+      body: upload.bytes,
+      headers,
+      signal: AbortSignal.timeout(options.timeoutMs || DEFAULT_IMAGE_UPLOAD_TIMEOUT_MS),
+    });
+
+    const responseText = await response.text();
+    if (!response.ok) {
+      if (!options.suppressErrorLog) {
+        console.error("[image-storage] aliyun oss upload error:", response.status, responseText.slice(0, 500));
+      }
+      throw new Error(`图片上传失败: Aliyun OSS HTTP ${response.status}`);
+    }
+
+    const url = `${config.publicBaseUrl}/${encodeObjectKey(objectKey)}`;
+    return {
+      url,
+      display_url: url,
+      delete_url: "",
+      width: 0,
+      height: 0,
+    };
+  },
+};
+
+function getAliyunOssConfig() {
+  const accessKeyId = process.env.ALIYUN_OSS_ACCESS_KEY_ID?.trim();
+  const accessKeySecret = process.env.ALIYUN_OSS_ACCESS_KEY_SECRET?.trim();
+  const bucket = process.env.ALIYUN_OSS_BUCKET?.trim();
+  const region = process.env.ALIYUN_OSS_REGION?.trim();
+  const publicBaseUrl = normalizeBaseUrl(process.env.ALIYUN_OSS_PUBLIC_BASE_URL);
+  const endpoint = process.env.ALIYUN_OSS_ENDPOINT?.trim().replace(/^https?:\/\//i, "").replace(/\/+$/, "");
+  const securityToken = process.env.ALIYUN_OSS_SECURITY_TOKEN?.trim();
+
+  if (!accessKeyId || !accessKeySecret || !bucket || !region || !publicBaseUrl) {
+    throw new Error(
+      "图片上传服务未配置 ALIYUN_OSS_ACCESS_KEY_ID / ALIYUN_OSS_ACCESS_KEY_SECRET / ALIYUN_OSS_BUCKET / ALIYUN_OSS_REGION / ALIYUN_OSS_PUBLIC_BASE_URL"
+    );
+  }
+
+  return { accessKeyId, accessKeySecret, bucket, region, publicBaseUrl, endpoint, securityToken };
+}
+
+async function resolveUploadPayload(image: string, name: string, options: StoreImageOptions) {
+  if (isRemoteUrl(image)) {
+    const response = await fetch(image, {
+      signal: AbortSignal.timeout(options.timeoutMs || DEFAULT_IMAGE_UPLOAD_TIMEOUT_MS),
+    });
+    if (!response.ok) throw new Error(`图片上传失败: remote image HTTP ${response.status}`);
+    const bytes = Buffer.from(await response.arrayBuffer());
+    assertUploadSize(bytes);
+    const contentType = normalizeImageContentType(response.headers.get("content-type")) || inferContentType(bytes, name);
+    return { bytes, contentType, extension: extensionFromContentType(contentType) };
+  }
+
+  const contentTypeFromDataUrl = image.match(/^data:([^;,]+)[;,]/i)?.[1];
+  const bytes = Buffer.from(getBase64Payload(image), "base64");
+  assertUploadSize(bytes);
+  const contentType = normalizeImageContentType(contentTypeFromDataUrl) || inferContentType(bytes, name);
+  return { bytes, contentType, extension: extensionFromContentType(contentType) };
+}
+
+function assertUploadSize(bytes: Buffer) {
+  if (!bytes.length) throw new Error("图片内容为空");
+  if (bytes.length > MAX_IMAGE_STORAGE_BYTES) throw new Error("图片过大，无法上传");
+}
+
+function isRemoteUrl(value: string) {
+  try {
+    const protocol = new URL(value).protocol;
+    return protocol === "http:" || protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function buildAliyunObjectKey(input: StoreImageInput, extension: string) {
+  const prefix = resolveAliyunObjectPrefix(input);
+  const now = new Date();
+  const datePath = [
+    now.getUTCFullYear(),
+    String(now.getUTCMonth() + 1).padStart(2, "0"),
+    String(now.getUTCDate()).padStart(2, "0"),
+  ].join("/");
+  const baseName = sanitizeObjectName(`${input.namePrefix || ""}${input.name}`) || "image";
+  return [prefix, datePath, `${Date.now()}-${randomUUID().slice(0, 8)}-${baseName}.${extension}`]
+    .filter(Boolean)
+    .join("/");
+}
+
+function resolveAliyunObjectPrefix(input: StoreImageInput) {
+  const storageClass = input.storageClass || inferStorageClass(input.namePrefix);
+  const configuredPrefix = getStorageClassPrefixEnv(storageClass);
+  if (configuredPrefix) return cleanObjectPath(configuredPrefix);
+
+  const basePrefix = cleanObjectPath(process.env.ALIYUN_OSS_PREFIX || "ai-tryon");
+  const folder = storageClass === "generated"
+    ? "generated-results/original"
+    : storageClass === "favorite"
+      ? "user-favorites/original"
+      : storageClass === "site-asset"
+        ? "site-assets/original"
+        : storageClass === "temp"
+          ? "temp/original"
+          : "user-uploads/original";
+
+  return [basePrefix, folder].filter(Boolean).join("/");
+}
+
+function inferStorageClass(namePrefix?: string): ImageStorageClass {
+  if (namePrefix?.startsWith("generated-")) return "generated";
+  if (namePrefix?.startsWith("favorite-")) return "favorite";
+  if (namePrefix?.startsWith("site-asset-")) return "site-asset";
+  if (namePrefix?.startsWith("temp-")) return "temp";
+  return "upload";
+}
+
+function getStorageClassPrefixEnv(storageClass: ImageStorageClass) {
+  if (storageClass === "generated") return process.env.ALIYUN_OSS_GENERATED_PREFIX;
+  if (storageClass === "favorite") return process.env.ALIYUN_OSS_FAVORITE_PREFIX;
+  if (storageClass === "site-asset") return process.env.ALIYUN_OSS_SITE_ASSET_PREFIX;
+  if (storageClass === "temp") return process.env.ALIYUN_OSS_TEMP_PREFIX;
+  return process.env.ALIYUN_OSS_UPLOAD_PREFIX;
+}
+
+function cleanObjectPath(value: string) {
+  return value
+    .split("/")
+    .map((part) => sanitizeObjectName(part))
+    .filter(Boolean)
+    .join("/");
+}
+
+function sanitizeObjectName(value: string) {
+  return value
+    .trim()
+    .replace(/\.[a-z0-9]{2,5}$/i, "")
+    .replace(/[^A-Za-z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+}
+
+function encodeObjectKey(value: string) {
+  return value.split("/").map(encodeURIComponent).join("/");
+}
+
+function normalizeBaseUrl(value?: string | null) {
+  return (value || "").trim().replace(/\/+$/, "");
+}
+
+function normalizeImageContentType(value?: string | null) {
+  const contentType = (value || "").split(";")[0].trim().toLowerCase();
+  return contentType.startsWith("image/") ? contentType : "";
+}
+
+function inferContentType(bytes: Buffer, name: string) {
+  if (bytes.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return "image/png";
+  if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return "image/jpeg";
+  if (bytes.subarray(0, 4).toString("ascii") === "RIFF" && bytes.subarray(8, 12).toString("ascii") === "WEBP") return "image/webp";
+  if (bytes.subarray(0, 6).toString("ascii").startsWith("GIF8")) return "image/gif";
+  const extension = name.match(/\.([a-z0-9]{2,5})$/i)?.[1]?.toLowerCase();
+  if (extension === "jpg" || extension === "jpeg") return "image/jpeg";
+  if (extension === "png") return "image/png";
+  if (extension === "webp") return "image/webp";
+  if (extension === "gif") return "image/gif";
+  return "application/octet-stream";
+}
+
+function extensionFromContentType(contentType: string) {
+  if (contentType === "image/jpeg") return "jpg";
+  if (contentType === "image/png") return "png";
+  if (contentType === "image/webp") return "webp";
+  if (contentType === "image/gif") return "gif";
+  return "bin";
+}

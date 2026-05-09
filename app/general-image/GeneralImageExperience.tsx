@@ -42,10 +42,10 @@ type ImagePromptImage = {
 };
 
 const MODELS: { value: LingyaModel; label: string; desc: string; badge?: string; icon: string }[] = [
-  { value: "gpt-image-2", label: "GPT-Image-2", desc: "4K · 4分/次", badge: "最新", icon: "/model-icons/openai.svg" },
-  { value: "nano-banana-2", label: "Nano-Banana-2", desc: "4K · 3分/次", badge: "推荐", icon: "/model-icons/gemini.png" },
-  { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "4K · 4分/次", badge: "推荐", icon: "/model-icons/gemini.png" },
-  { value: "doubao-seedream-4-5-251128", label: "Seedream 4.5", desc: "4K · 2分/次", badge: "新", icon: "/model-icons/doubao.png" },
+  { value: "gpt-image-2", label: "GPT-Image-2", desc: "4K · 4分/次", badge: "最新", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/openai.svg" },
+  { value: "nano-banana-2", label: "Nano-Banana-2", desc: "4K · 3分/次", badge: "推荐", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
+  { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "4K · 4分/次", badge: "推荐", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
+  { value: "doubao-seedream-4-5-251128", label: "Seedream 4.5", desc: "4K · 2分/次", badge: "新", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/doubao.png" },
 ];
 
 const ASPECTS: { value: AspectRatio; label: string }[] = [
@@ -103,14 +103,14 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
         tooltip: "上传多张参考图并用文字说明每张图的角色，适合换装、风格参考、背景参考和多图合成生成。",
         emptyTitle: "创建多图参考生成",
         emptySubtitle: "按图1、图2、图3明确分配服装、人物、风格或背景角色，让模型按关系生成新图。",
-        emptyImage: "/home-showcase/model-grey-tank-denim.jpg",
+        emptyImage: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/model-grey-tank-denim.jpg",
       }
     : {
         title: "文生图",
         tooltip: "仅通过文字描述生成图片，支持图片转提示词、AI 帮写、模型、比例、清晰度和张数配置。",
         emptyTitle: "创建文本生成图片",
         emptySubtitle: "写下主体、场景、光线和风格，也可以先用图片转提示词获得更稳定的描述。",
-        emptyImage: "/home-showcase/exclusive-model-01.png",
+        emptyImage: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/exclusive-model-01.png",
       };
   const canGenerate = !isGenerating && !isUploading && prompt.trim().length > 0 && (!isImageMode || referenceImages.length > 0);
 

@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
       ? body.custom_templates.filter(isCustomTemplate).slice(0, 10)
       : [];
     const moduleOverrides = normalizeProductSetModuleOverrides(body.module_overrides);
-    const requestedGenCount = Math.min(Math.max(Number(body.gen_count) || 1, 1), imageType === "details" ? 8 : 6);
+    const requestedGenCount = Math.min(Math.max(Number(body.gen_count) || 1, 1), 8);
     const allTemplates = resolveProductSetTemplates({
       mode,
       imageType,

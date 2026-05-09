@@ -65,7 +65,7 @@ const FEATURE_REQUIRED_ENV: EnvContractEntry[] = [
   {
     name: "IMGBB_API_KEY",
     category: "feature-required",
-    description: "Required for user uploads and durable external result-image storage.",
+    description: "Required when IMAGE_STORAGE_PROVIDER=imgbb for user uploads and durable external result-image storage.",
   },
   {
     name: "JOB_PROCESSOR_SECRET or CRON_SECRET",
@@ -84,6 +84,34 @@ const FEATURE_REQUIRED_ENV: EnvContractEntry[] = [
   },
 ];
 
+const ALIYUN_OSS_REQUIRED_ENV: EnvContractEntry[] = [
+  {
+    name: "ALIYUN_OSS_ACCESS_KEY_ID",
+    category: "feature-required",
+    description: "Required when IMAGE_STORAGE_PROVIDER=aliyun-oss.",
+  },
+  {
+    name: "ALIYUN_OSS_ACCESS_KEY_SECRET",
+    category: "feature-required",
+    description: "Required when IMAGE_STORAGE_PROVIDER=aliyun-oss.",
+  },
+  {
+    name: "ALIYUN_OSS_BUCKET",
+    category: "feature-required",
+    description: "Required when IMAGE_STORAGE_PROVIDER=aliyun-oss.",
+  },
+  {
+    name: "ALIYUN_OSS_REGION",
+    category: "feature-required",
+    description: "Required when IMAGE_STORAGE_PROVIDER=aliyun-oss.",
+  },
+  {
+    name: "ALIYUN_OSS_PUBLIC_BASE_URL",
+    category: "feature-required",
+    description: "Required when IMAGE_STORAGE_PROVIDER=aliyun-oss.",
+  },
+];
+
 const OPTIONAL_ENV: EnvContractEntry[] = [
   { name: "LINGYA_BASE_URL", category: "optional", description: "Lingya API base URL override." },
   { name: "PLATO_BASE_URL", category: "optional", description: "Plato API base URL override." },
@@ -94,6 +122,16 @@ const OPTIONAL_ENV: EnvContractEntry[] = [
   { name: "XIAOMI_MIMO_MODEL", category: "optional", description: "Default Xiaomi model override." },
   { name: "XIAOMI_MIMO_TEXT_MODEL", category: "optional", description: "Xiaomi text model override." },
   { name: "XIAOMI_MIMO_VISION_MODEL", category: "optional", description: "Xiaomi vision model override." },
+  { name: "IMAGE_STORAGE_PROVIDER", category: "optional", description: "Image storage adapter: imgbb or aliyun-oss." },
+  { name: "NEXT_PUBLIC_ALIYUN_OSS_IMAGE_HOSTS", category: "optional", description: "Comma-separated public OSS image hosts that can use x-oss-process thumbnails." },
+  { name: "ALIYUN_OSS_PREFIX", category: "optional", description: "Fallback object key prefix when IMAGE_STORAGE_PROVIDER=aliyun-oss." },
+  { name: "ALIYUN_OSS_SITE_ASSET_PREFIX", category: "optional", description: "OSS prefix for permanent site assets." },
+  { name: "ALIYUN_OSS_UPLOAD_PREFIX", category: "optional", description: "OSS prefix for short-lived user uploads." },
+  { name: "ALIYUN_OSS_GENERATED_PREFIX", category: "optional", description: "OSS prefix for medium-lived generated results." },
+  { name: "ALIYUN_OSS_FAVORITE_PREFIX", category: "optional", description: "OSS prefix for permanent user favorites." },
+  { name: "ALIYUN_OSS_TEMP_PREFIX", category: "optional", description: "OSS prefix for temporary scratch images." },
+  { name: "ALIYUN_OSS_ENDPOINT", category: "optional", description: "OSS upload endpoint override, without protocol." },
+  { name: "ALIYUN_OSS_SECURITY_TOKEN", category: "optional", description: "Optional STS security token for temporary OSS credentials." },
   { name: "DOWNLOAD_IMAGE_ALLOWED_HOSTS", category: "optional", description: "Extra hosts allowed by /api/download-image." },
   { name: "API_PLATFORM_TEST_ALLOWED_HOSTS", category: "optional", description: "Allowlist for the API platform test proxy." },
   { name: "GENERATION_JOB_BATCH_SIZE", category: "optional", description: "Generation processor batch size." },
@@ -123,12 +161,13 @@ const MIN_PRODUCTION_PROCESSOR_SECRET_LENGTH = 32;
 let validated = false;
 
 export function getEnvContract(): EnvContractEntry[] {
-  return [...PRODUCTION_REQUIRED_ENV, ...FEATURE_REQUIRED_ENV, ...OPTIONAL_ENV];
+  return [...PRODUCTION_REQUIRED_ENV, ...FEATURE_REQUIRED_ENV, ...ALIYUN_OSS_REQUIRED_ENV, ...OPTIONAL_ENV];
 }
 
 export function validateEnv(options: { log?: boolean; nodeEnv?: string } = {}): EnvValidationIssue[] {
   const nodeEnv = options.nodeEnv || process.env.NODE_ENV;
   const isProduction = nodeEnv === "production";
+  const imageStorageProvider = (process.env.IMAGE_STORAGE_PROVIDER || "imgbb").trim().toLowerCase();
   const issues: EnvValidationIssue[] = [];
 
   for (const entry of PRODUCTION_REQUIRED_ENV) {
@@ -146,6 +185,7 @@ export function validateEnv(options: { log?: boolean; nodeEnv?: string } = {}): 
 
   for (const entry of FEATURE_REQUIRED_ENV) {
     if (entry.name.includes(" or ")) continue;
+    if (entry.name === "IMGBB_API_KEY" && imageStorageProvider === "aliyun-oss") continue;
     if (!process.env[entry.name]) {
       issues.push({
         name: entry.name,
@@ -153,6 +193,19 @@ export function validateEnv(options: { log?: boolean; nodeEnv?: string } = {}): 
         severity: "warning",
         message: `${entry.name} is not set; related features will fail when used.`,
       });
+    }
+  }
+
+  if (imageStorageProvider === "aliyun-oss") {
+    for (const entry of ALIYUN_OSS_REQUIRED_ENV) {
+      if (!process.env[entry.name]) {
+        issues.push({
+          name: entry.name,
+          category: entry.category,
+          severity: "warning",
+          message: `${entry.name} is required when IMAGE_STORAGE_PROVIDER=aliyun-oss.`,
+        });
+      }
     }
   }
 

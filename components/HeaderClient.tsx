@@ -157,7 +157,7 @@ export function HeaderClient() {
           <Link href="/" className="flex min-w-0 items-center gap-3">
             <span className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
               <Image
-                src="/gemini-icon.png"
+                src="https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/gemini-icon.png"
                 alt=""
                 width={28}
                 height={28}

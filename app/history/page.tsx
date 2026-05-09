@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Download, Clock, XCircle, Loader2, Coins, X, RotateCcw, Copy, Maximize2, Eye, ImageIcon, ZoomIn, ZoomOut, Plus, Sparkles } from "lucide-react";
 import { downloadImage, generateDownloadFilename } from "@/lib/utils";
+import { getImageVariantUrl } from "@/lib/image-variants";
 import { getApplyPath, type HistoryJobPayload } from "@/lib/history-apply";
 import { buildTryOnPrompt } from "@/lib/api/lingya";
 import { ClientPortal } from "@/components/ClientPortal";
@@ -537,7 +538,7 @@ export default function HistoryPage() {
                   className="relative aspect-[4/5] overflow-hidden bg-slate-100 sm:w-44 sm:flex-shrink-0 sm:aspect-[3/4] md:w-52"
                 >
                   {coverUrl ? (
-                    <img src={coverUrl} className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]" alt="历史作品封面" />
+                    <img src={getImageVariantUrl(coverUrl, "card")} className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]" alt="历史作品封面" />
                   ) : (
                     <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-gray-300">
                       <ImageIcon className="h-9 w-9" />
@@ -602,7 +603,7 @@ export default function HistoryPage() {
                           aria-label={`查看第 ${index + 1} 张结果`}
                           className="h-12 w-10 flex-shrink-0 overflow-hidden rounded-md border bg-gray-50"
                         >
-                          <img src={url} className="h-full w-full object-cover" alt={`结果 ${index + 1}`} />
+                          <img src={getImageVariantUrl(url, "thumb")} className="h-full w-full object-cover" alt={`结果 ${index + 1}`} />
                         </button>
                       ))}
                       {resultUrls.length > 5 && (
@@ -764,7 +765,7 @@ export default function HistoryPage() {
                       className="group flex h-full w-full items-center justify-center p-2 sm:p-4"
                     >
                       <img
-                        src={selectedResultUrl}
+                        src={getImageVariantUrl(selectedResultUrl, "preview")}
                         className="max-h-[62vh] w-full object-contain transition-transform duration-200"
                         style={{ transform: `scale(${detailZoom / 100})` }}
                         alt={`生成结果 ${selectedResultIndex + 1}`}
@@ -830,7 +831,7 @@ export default function HistoryPage() {
                           selectedResultIndex === index ? "border-purple-500 ring-2 ring-purple-100" : "border-white/80 opacity-75 hover:opacity-100"
                         }`}
                       >
-                        <img src={url} className="h-full w-full object-cover" alt={`结果缩略图 ${index + 1}`} />
+                        <img src={getImageVariantUrl(url, "thumb")} className="h-full w-full object-cover" alt={`结果缩略图 ${index + 1}`} />
                       </button>
                     ))}
                   </div>
@@ -905,7 +906,7 @@ export default function HistoryPage() {
                         >
                           <div className="relative h-24 overflow-hidden rounded-xl border border-gray-200 bg-gray-50 shadow-sm transition duration-200 group-hover:-translate-y-0.5 group-hover:shadow-md">
                             <img
-                              src={image.url}
+                              src={getImageVariantUrl(image.url, "thumb")}
                               className="h-full w-full object-cover transition duration-300 group-hover:scale-110 group-focus-visible:scale-110"
                               alt={image.label}
                             />

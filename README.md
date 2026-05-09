@@ -80,6 +80,7 @@ XIAOMI_MIMO_TEXT_MODEL=mimo-v2.5-pro
 XIAOMI_MIMO_VISION_MODEL=mimo-v2.5
 
 # Feature required: uploads and background processors
+IMAGE_STORAGE_PROVIDER=imgbb
 IMGBB_API_KEY=your-imgbb-api-key
 JOB_PROCESSOR_SECRET=replace-with-at-least-32-random-characters
 GENERATION_JOB_BATCH_SIZE=2
@@ -93,7 +94,7 @@ REPLICATE_API_TOKEN=
 环境变量按三类处理：
 
 - Production required: `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`。生产环境必须设置 `NEXT_PUBLIC_APP_URL`，服务端生成公开图片 URL 时不会信任 forwarded host/proto 作为替代。
-- Feature required: 对应功能实际被调用时必须设置，例如 `LINGYA_API_KEY` / `PLATO_API_KEY` 用于图像生成，`XIAOMI_MIMO_API_KEY` 用于小米提示词分析，`IMGBB_API_KEY` 用于上传，`JOB_PROCESSOR_SECRET` 或 `CRON_SECRET` 用于后台任务处理器。
+- Feature required: 对应功能实际被调用时必须设置，例如 `LINGYA_API_KEY` / `PLATO_API_KEY` 用于图像生成，`XIAOMI_MIMO_API_KEY` 用于小米提示词分析，`IMGBB_API_KEY` 或阿里云 OSS 环境变量用于上传，`JOB_PROCESSOR_SECRET` 或 `CRON_SECRET` 用于后台任务处理器。
 - Optional: base URL、模型名、批处理大小、allowlist、legacy provider token 等可按部署需要覆盖。模块导入只会提示缺失项；具体运行路径需要某个值时才会报错。
 
 生产环境的任务处理器密钥必须使用至少 32 个随机字符，不能使用 `change-me`、`secret`、`password` 等默认或弱值。`AGENT_WORKFLOW_PROCESSOR_SECRET` 和 `AGENT_EVAL_PROCESSOR_SECRET` 可作为 route-specific 覆盖；未设置时会回退到 `JOB_PROCESSOR_SECRET` 或 `CRON_SECRET`。
@@ -107,7 +108,33 @@ REPLICATE_API_TOKEN=
 - `supabase/agent-workflows.sql`
 - `supabase/agent-brain-traces.sql`
 
-当前上传和生成结果默认通过 ImgBB 图床保存，服务端统一走 `lib/api/image-storage.ts` 的存储适配器。Supabase Storage bucket 暂不作为默认运行依赖；如后续切换到 Supabase Storage，应在适配器中新增实现后再创建并配置对应 bucket/RLS。
+当前上传和生成结果默认通过 `lib/api/image-storage.ts` 的存储适配器保存。默认值为 ImgBB；生产环境可切换到阿里云 OSS：
+
+```env
+IMAGE_STORAGE_PROVIDER=aliyun-oss
+ALIYUN_OSS_REGION=oss-cn-hongkong
+ALIYUN_OSS_BUCKET=vastweargen-images
+ALIYUN_OSS_PUBLIC_BASE_URL=https://vastweargen-images.oss-cn-hongkong.aliyuncs.com
+NEXT_PUBLIC_ALIYUN_OSS_IMAGE_HOSTS=vastweargen-images.oss-cn-hongkong.aliyuncs.com
+ALIYUN_OSS_ACCESS_KEY_ID=your-ram-access-key-id
+ALIYUN_OSS_ACCESS_KEY_SECRET=your-ram-access-key-secret
+ALIYUN_OSS_SITE_ASSET_PREFIX=site-assets/original
+ALIYUN_OSS_UPLOAD_PREFIX=user-uploads/original
+ALIYUN_OSS_GENERATED_PREFIX=generated-results/original
+ALIYUN_OSS_FAVORITE_PREFIX=user-favorites/original
+ALIYUN_OSS_TEMP_PREFIX=temp/original
+```
+
+OSS Bucket 建议使用“公共读，私有写”，RAM 用户只授予当前 bucket/prefix 的 `oss:PutObject`、`oss:GetObject`，可选 `oss:DeleteObject`。对象按用途分前缀保存：`site-assets/original` 永久保留网站资源，`user-uploads/original` 适合短期清理，`generated-results/original` 适合中期保留，`user-favorites/original` 永久保留收藏图，`temp/original` 可设置短生命周期。列表和小卡片通过 OSS `x-oss-process` 动态生成缩略图，不额外保存小图文件。Supabase Storage bucket 暂不作为默认运行依赖；如后续切换到 Supabase Storage，应在适配器中新增实现后再创建并配置对应 bucket/RLS。
+
+上传项目网站静态资源到 OSS：
+
+```bash
+npm run oss:upload-site-assets -- --dry-run
+npm run oss:upload-site-assets -- --access-file "F:/Users/Jimmy/Documents/Downloads/1778318171758.txt"
+```
+
+脚本会把 `public/` 下的本地图片和代码里硬编码的远程图片 URL 上传到 `site-assets/original`，并生成 `.oss-site-assets-manifest.json`。默认不会改源码；确认 manifest 后可加 `--rewrite` 将已匹配的引用替换为 OSS URL。
 
 ### 4. 启动
 

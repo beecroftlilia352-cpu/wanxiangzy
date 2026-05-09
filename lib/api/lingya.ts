@@ -90,7 +90,6 @@ export function getCreditCost(model: LingyaModel, size: ImageSize = "1K", aspect
 
 export function getSupportedImageSizes(model: LingyaModel, aspectRatio?: AspectRatio): ImageSize[] {
   if (isSeedreamModel(model)) return ["2K", "4K"];
-  if (model === "gpt-image-2" && (!aspectRatio || aspectRatio === "auto" || aspectRatio === "1:1")) return ["1K"];
   return ["1K", "2K", "4K"];
 }
 
@@ -329,6 +328,9 @@ async function pollImageTask(params: {
   let completedWithoutResultAt: number | null = null;
   let lastResultlessSummary = "";
   let lastResultlessProviderStatus = "";
+  let transientQueryErrors = 0;
+  let lastTransientQueryError = "";
+  const transientQueryErrorLimit = getImageTaskPollErrorRetryLimit();
 
   while (Date.now() - startedAt < timeoutMs) {
     await new Promise((resolve) => setTimeout(resolve, getImageTaskPollIntervalMs()));
@@ -337,8 +339,24 @@ async function pollImageTask(params: {
     });
     const resText = await res.text();
     if (!res.ok) {
-      throw new Error(`任务查询失败 ${res.status}: ${resText.slice(0, 300)}`);
+      const message = `任务查询失败 ${res.status}: ${resText.slice(0, 300)}`;
+      if (isRetryableStatus(res.status) && transientQueryErrors < transientQueryErrorLimit) {
+        transientQueryErrors += 1;
+        lastTransientQueryError = message;
+        await params.onProgress?.({
+          taskId: params.taskId,
+          status: "running",
+          providerStatus: `QUERY_${res.status}`,
+          progress: lastProgress,
+          urls: [],
+          error: message,
+        });
+        continue;
+      }
+      throw new Error(message);
     }
+    transientQueryErrors = 0;
+    lastTransientQueryError = "";
     const json = JSON.parse(resText);
     const task = normalizeImageTaskResponse(json, params.taskId);
     const progress = Math.max(lastProgress, task.progress);
@@ -374,7 +392,7 @@ async function pollImageTask(params: {
     }
   }
 
-  throw new Error("异步图片任务超时");
+  throw new Error(lastTransientQueryError ? `异步图片任务超时，最后一次查询错误：${lastTransientQueryError}` : "异步图片任务超时");
 }
 
 function normalizeImageTaskResponse(json: any, fallbackTaskId: string): {
@@ -709,6 +727,11 @@ function getImageTaskTimeoutMs() {
 function getImageTaskResultGraceMs() {
   const value = Number(process.env.IMAGE_TASK_RESULT_GRACE_MS || 90_000);
   return Number.isFinite(value) ? Math.min(Math.max(value, 10_000), 5 * 60 * 1000) : 90_000;
+}
+
+function getImageTaskPollErrorRetryLimit() {
+  const value = Number(process.env.IMAGE_TASK_POLL_ERROR_RETRY_LIMIT || 12);
+  return Number.isFinite(value) ? Math.min(Math.max(Math.floor(value), 0), 60) : 12;
 }
 
 function getImageApiBaseUrl(): string {

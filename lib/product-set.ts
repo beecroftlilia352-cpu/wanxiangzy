@@ -213,6 +213,13 @@ export type ProductSetResolvedTemplate =
       scenario?: ProductSetScenario;
     });
 
+type ProductSetReferenceDescriptor = {
+  url: string;
+  role: "style" | "model" | "supplemental" | "preset";
+  label: string;
+  instruction: string;
+};
+
 export type ProductSetSettings = {
   country: string;
   language: string;
@@ -258,18 +265,18 @@ export const PRODUCT_SET_EXAMPLE_GROUPS = [
     id: "jacket",
     name: "冲锋夹克三视角",
     images: [
-      "https://metac-open.oss-cn-hangzhou.aliyuncs.com/marketing/prod/2.9.6/image/dictionary/product_set_examples/2/1.jpg",
-      "https://metac-open.oss-cn-hangzhou.aliyuncs.com/marketing/prod/2.9.6/image/dictionary/product_set_examples/2/2.jpg",
-      "https://metac-open.oss-cn-hangzhou.aliyuncs.com/marketing/prod/2.9.6/image/dictionary/product_set_examples/2/3.jpg",
+      "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/metac-open.oss-cn-hangzhou.aliyuncs.com/marketing/prod/2.9.6/image/dictionary/product_set_examples/2/1-67e18c0652.jpg",
+      "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/metac-open.oss-cn-hangzhou.aliyuncs.com/marketing/prod/2.9.6/image/dictionary/product_set_examples/2/2-f4ac6c264a.jpg",
+      "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/metac-open.oss-cn-hangzhou.aliyuncs.com/marketing/prod/2.9.6/image/dictionary/product_set_examples/2/3-2a845917da.jpg",
     ],
   },
   {
     id: "toy",
     name: "玩具多视角",
     images: [
-      "https://metac-open.oss-cn-hangzhou.aliyuncs.com/marketing/prod/2.9.6/image/dictionary/product_set_examples/1/1.png",
-      "https://metac-open.oss-cn-hangzhou.aliyuncs.com/marketing/prod/2.9.6/image/dictionary/product_set_examples/1/2.jpg",
-      "https://metac-open.oss-cn-hangzhou.aliyuncs.com/marketing/prod/2.9.6/image/dictionary/product_set_examples/1/3.jpg",
+      "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/metac-open.oss-cn-hangzhou.aliyuncs.com/marketing/prod/2.9.6/image/dictionary/product_set_examples/1/1-38b1911b3f.png",
+      "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/metac-open.oss-cn-hangzhou.aliyuncs.com/marketing/prod/2.9.6/image/dictionary/product_set_examples/1/2-7e069ac990.jpg",
+      "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/metac-open.oss-cn-hangzhou.aliyuncs.com/marketing/prod/2.9.6/image/dictionary/product_set_examples/1/3-c467350f85.jpg",
     ],
   },
 ] as const;
@@ -1243,6 +1250,69 @@ export function getProductSetModuleReason(template: ProductSetResolvedTemplate, 
   return "用于补齐套图中的一个独立内容模块，和其它图片保持差异化。";
 }
 
+function getReferenceModeModuleRole(imageType: ProductSetImageType, index: number) {
+  const mainRoles = [
+    ["参考风格主视觉", "以商品完整外观为核心，参考上传图的构图、光影和整体调性。"],
+    ["参考风格细节图", "展示材质、工艺、结构或局部特写，延续参考图的版式语言。"],
+    ["参考风格卖点图", "突出 1-2 个核心购买理由，参考图只用于信息层级和视觉氛围。"],
+    ["参考风格场景图", "把商品放进合适使用场景，延续参考图的色彩、光影和商业质感。"],
+    ["参考风格多角度图", "展示正侧背或组合角度，参考图只用于布局节奏。"],
+    ["参考风格上身图", "如商品适合模特，展示真实穿着效果，保持商品来源不变。"],
+    ["参考风格对比图", "用于对比结构、功能、细节或使用前后，不复制参考图商品。"],
+    ["参考风格收尾图", "做整组收束或购买理由强化，保持和前面模块不同。"],
+  ];
+  const detailRoles = [
+    ["参考风格首屏", "建立详情页第一屏主视觉，参考上传图的构图、光影和版式节奏。"],
+    ["参考风格核心卖点", "突出最重要的购买理由，参考图只用于视觉层级和氛围。"],
+    ["参考风格材质细节", "展示材质、纹理、结构或工艺特写，延续参考图的精修质感。"],
+    ["参考风格版型/结构", "说明轮廓、结构、比例或关键部件，避免和卖点屏重复。"],
+    ["参考风格尺码/使用建议", "呈现尺码、使用、搭配或选择建议，不编造具体数据。"],
+    ["参考风格场景证明", "展示真实使用场景或上身/摆放效果，参考图只作为氛围方向。"],
+    ["参考风格对比/痛点", "回应用户痛点或普通商品图不足，形成清晰转化理由。"],
+    ["参考风格收尾转化", "总结商品价值和使用场景，保持整组风格统一。"],
+  ];
+  const [role, scope] = (imageType === "main" ? mainRoles : detailRoles)[index] || (imageType === "main" ? mainRoles[0] : detailRoles[0]);
+  return { role, scope };
+}
+
+function buildPresetReferenceExpansion(
+  preset: ProductSetTemplate,
+  targetCount: number
+): ProductSetResolvedTemplate[] {
+  const count = Math.min(Math.max(targetCount, 1), 8);
+  return Array.from({ length: count }, (_, index) => {
+    const referenceRole = getReferenceModeModuleRole(preset.imageType, index);
+    const guidance = inferTemplateGuidance(index + 1, `${preset.name} ${referenceRole.role}`, preset.imageType, preset.scenario || "general");
+    return {
+      id: `preset-ref-${preset.id}-${index + 1}`,
+      name: `${preset.name} ${index + 1}`.slice(0, 24),
+      imageType: preset.imageType,
+      typeDescription: `${preset.typeDescriptionV2 || preset.typeDescription} Reference preset mode: use the preset image only as layout/style direction for this module.`,
+      aspectRatio: preset.aspectRatio,
+      referenceImageUrls: [preset.coverImage],
+      extraDescription: "",
+      subjectConsistency: preset.subjectConsistency ?? true,
+      modelConsistency: false,
+      intelligentCopy: preset.intelligentCopy ?? true,
+      copyDensity: preset.copyDensity || "standard",
+      moduleRole: referenceRole.role,
+      contentScope: referenceRole.scope,
+      layoutRules: guidance.layoutRules || preset.layoutRules,
+      textRules: guidance.textRules || preset.textRules,
+      avoidRules: [
+        guidance.avoidRules || preset.avoidRules,
+        "Do not copy the preset reference product, logo, text, brand, model identity, or exact scene.",
+      ].filter(Boolean).join(" "),
+      source: "custom" as const,
+      typeDescriptionV2: `${referenceRole.scope} Use the selected preset reference only for composition, hierarchy, lighting and commercial polish.`,
+      batchSize: 1,
+      innerExtraDescription: `Preset reference mode: use "${preset.name}" as the style/layout seed, then create module ${index + 1}/${count} with a distinct ecommerce purpose. Product identity must come from the uploaded product images.`,
+      coverImage: preset.coverImage,
+      scenario: preset.scenario || "general",
+    };
+  });
+}
+
 function buildAiProductSetTemplates(input: {
   imageType: ProductSetImageType;
   count: number;
@@ -1333,33 +1403,33 @@ function buildAiProductSetTemplate(input: {
 }): ProductSetResolvedTemplate {
   const key = normalizeAiModuleKey(input.module.moduleKey, input.index);
   const label = getAiModuleLabel(key, input.imageType);
-  const title = input.script?.title || input.module.purpose || label.name;
-  const moduleRole = input.module.purpose || input.script?.title || label.role;
-  const contentScope = [
+  const title = localizeProductSetDisplayText(input.script?.title || input.module.purpose || label.name);
+  const moduleRole = localizeProductSetDisplayText(input.module.purpose || input.script?.title || label.role);
+  const contentScope = localizeProductSetDisplayText([
     input.script?.sceneDesign,
     input.script?.visualComposition,
     input.module.layout,
-  ].filter(Boolean).join(" ");
-  const layoutRules = [
+  ].filter(Boolean).join(" "));
+  const layoutRules = localizeProductSetDisplayText([
     input.script?.globalTone ? `Global tone: ${input.script.globalTone}.` : "",
     input.script?.visualComposition ? `Composition: ${input.script.visualComposition}.` : "",
     input.script?.layoutRules ? `Layout: ${input.script.layoutRules}.` : "",
     input.module.layout ? `Module layout: ${input.module.layout}.` : "",
     buildGlobalVisualStrategyLine(input.plan?.globalStrategy),
     input.plan?.layoutPrinciples.length ? `Shared layout principles: ${input.plan.layoutPrinciples.join("; ")}.` : "",
-  ].filter(Boolean).join(" ");
-  const textRules = [
+  ].filter(Boolean).join(" "));
+  const textRules = localizeProductSetDisplayText([
     input.script?.copyContent ? `Screen copy: ${input.script.copyContent}.` : "",
     input.module.copyRule ? `Module copy rule: ${input.module.copyRule}.` : "",
     input.plan?.copyStrategy ? `Global copy strategy: ${input.plan.copyStrategy}.` : "",
     label.copyRule,
-  ].filter(Boolean).join(" ");
-  const avoidRules = [
+  ].filter(Boolean).join(" "));
+  const avoidRules = localizeProductSetDisplayText([
     input.script?.constraints,
     input.plan?.negativeLayouts.join("; "),
     label.avoidRule,
     "Do not borrow gender, model styling, garment type, product shape, or brand cues from any local preset library.",
-  ].filter(Boolean).join(" ");
+  ].filter(Boolean).join(" "));
   const brief = [
     `AI visual analysis module: ${title}.`,
     input.plan?.strategyName ? `Strategy: ${input.plan.strategyName}.` : "",
@@ -1397,6 +1467,40 @@ function buildAiProductSetTemplate(input: {
   };
 }
 
+const PRODUCT_SET_DISPLAY_TEXT_REPLACEMENTS: Array<[RegExp, string]> = [
+  [/\bThe Ultimate Visibility Jacket\b/gi, "高可视机能夹克"],
+  [/\bCreate visually appealing first impression\b/gi, "建立第一眼主视觉"],
+  [/\bDetail the material and fit\b/gi, "展示材质与版型"],
+  [/\bProvide sizing suggestions\b/gi, "提供尺码和穿着建议"],
+  [/\bShow how the jacket fits into outdoor activities\b/gi, "展示户外穿着场景"],
+  [/\bDemonstrate the jacket being worn\b/gi, "展示上身穿着效果"],
+  [/\boutdoor enthusiasts\b/gi, "户外运动人群"],
+  [/\bworkers in low-visibility conditions\b/gi, "低能见度工作人群"],
+  [/\bhigh visibility\b/gi, "高可视性"],
+  [/\bweather-resistant\b/gi, "防风防泼水"],
+  [/\bfunctional pockets\b/gi, "多功能口袋"],
+  [/\bmaterial and fit\b/gi, "材质与版型"],
+  [/\bsizing suggestions\b/gi, "尺码建议"],
+  [/\bfunctional and sporty\b/gi, "功能运动风"],
+  [/\bsportswear\b/gi, "运动服饰"],
+  [/\bapparel\b/gi, "服装"],
+  [/\bouterwear\b/gi, "外套"],
+  [/\boutdoor\b/gi, "户外"],
+  [/\bsport\b/gi, "运动"],
+  [/\byellow\b/gi, "黄色"],
+  [/\bblack\b/gi, "黑色"],
+  [/\bhood\b/gi, "连帽"],
+  [/\bjacket\b/gi, "夹克"],
+];
+
+function localizeProductSetDisplayText(value: string) {
+  let text = value || "";
+  for (const [pattern, replacement] of PRODUCT_SET_DISPLAY_TEXT_REPLACEMENTS) {
+    text = text.replace(pattern, replacement);
+  }
+  return text.trim();
+}
+
 function normalizeAiModuleKey(value: string, index: number) {
   const normalized = value.trim().toLowerCase().replace(/[^a-z0-9_/-]+/g, "_").replace(/^_+|_+$/g, "");
   return normalized || `screen_${index + 1}`;
@@ -1406,8 +1510,8 @@ function getAiModuleLabel(moduleKey: string, imageType: ProductSetImageType) {
   const key = moduleKey.toLowerCase();
   if (/white|clean|cutout/.test(key)) {
     return {
-      name: "AI clean product proof",
-      role: "Clean product proof with accurate shape, color, material, and shadow.",
+      name: "商品白底证明图",
+      role: "干净展示商品外观、颜色、材质和真实阴影。",
       layout: "Use a clean platform-ready product composition with restrained copy and no model unless the product image already contains one.",
       copyRule: "No dense text; optional one short factual label only.",
       avoidRule: "Avoid lifestyle props, invented badges, and unrelated model scenes.",
@@ -1415,8 +1519,8 @@ function getAiModuleLabel(moduleKey: string, imageType: ProductSetImageType) {
   }
   if (/catalog|model|wearing|proof|fit|try/.test(key)) {
     return {
-      name: "AI wearing proof",
-      role: "Wearing or usage proof matched to the product's real target audience.",
+      name: "上身/使用证明图",
+      role: "匹配真实目标人群的上身或使用效果证明。",
       layout: "Use the model gender, age range, pose, and styling inferred from visual analysis and product profile.",
       copyRule: "Minimal headline or no text; let fit and wearing state carry the module.",
       avoidRule: "Avoid changing apparel gender, turning menswear into womenswear, or using unrelated preset model styling.",
@@ -1424,8 +1528,8 @@ function getAiModuleLabel(moduleKey: string, imageType: ProductSetImageType) {
   }
   if (/material|detail|close|fabric|texture|fit_detail/.test(key)) {
     return {
-      name: "AI material detail",
-      role: "Material, structure, craftsmanship, and visible product details.",
+      name: "材质细节图",
+      role: "展示材质、结构、工艺和可见商品细节。",
       layout: "Use close-up evidence, macro crops, callout lines, and a small full-product context area.",
       copyRule: "Use up to four large factual labels derived from visible details.",
       avoidRule: "Avoid fake material claims, tiny tables, and repeated hero-poster wording.",
@@ -1433,8 +1537,8 @@ function getAiModuleLabel(moduleKey: string, imageType: ProductSetImageType) {
   }
   if (/size|guide|measure/.test(key)) {
     return {
-      name: "AI size and fit guide",
-      role: "Fit, measurement positions, or scale guidance without inventing exact numbers.",
+      name: "尺码/尺寸建议图",
+      role: "展示版型、测量位置或比例参考，不编造具体数字。",
       layout: "Use measurement-position diagrams and broad fit guidance only when exact size data is absent.",
       copyRule: "Readable labels only; no fake numeric size chart.",
       avoidRule: "Avoid fabricated measurements, dense spreadsheet-like layouts, and tiny text.",
@@ -1442,8 +1546,8 @@ function getAiModuleLabel(moduleKey: string, imageType: ProductSetImageType) {
   }
   if (/lifestyle|scene|story|outfit|pairing|lookbook/.test(key)) {
     return {
-      name: "AI lifestyle scene",
-      role: "Lifestyle context, styling, pairing, or use scenario matched to the analyzed product.",
+      name: "场景/搭配图",
+      role: "展示与商品匹配的生活方式、搭配或使用场景。",
       layout: "Create a scene that fits the product category, target audience, season, and visual strategy.",
       copyRule: "One short headline and optional subtitle; no bullet wall.",
       avoidRule: "Avoid copying local preset demographics or scenes that conflict with the product analysis.",
@@ -1451,8 +1555,8 @@ function getAiModuleLabel(moduleKey: string, imageType: ProductSetImageType) {
   }
   if (/selling|point|benefit/.test(key)) {
     return {
-      name: "AI selling point",
-      role: "Core purchase reasons grounded in visible structure, material, or use case.",
+      name: "核心卖点图",
+      role: "基于可见结构、材质或使用方式提炼购买理由。",
       layout: "Use one dominant product view with 3-4 concise callouts.",
       copyRule: "Short callouts only; no unsupported claims.",
       avoidRule: "Avoid repeating all selling points from every other module.",
@@ -1460,8 +1564,8 @@ function getAiModuleLabel(moduleKey: string, imageType: ProductSetImageType) {
   }
   if (/trust|buyer|review|show/.test(key)) {
     return {
-      name: "AI trust proof",
-      role: "Trust, buyer-use atmosphere, care, quality, or confidence support.",
+      name: "信任证明图",
+      role: "建立品质、护理、真实使用或购买信心。",
       layout: "Use authentic ecommerce proof style while keeping product identity central.",
       copyRule: "Use generic trust language only; do not invent reviews, ratings, certifications, or sales data.",
       avoidRule: "Avoid fabricated user comments, fake awards, fake guarantees, or platform UI.",
@@ -1469,16 +1573,16 @@ function getAiModuleLabel(moduleKey: string, imageType: ProductSetImageType) {
   }
   if (/tutorial|step|how/.test(key)) {
     return {
-      name: "AI usage tutorial",
-      role: "Use steps, care steps, installation, styling, or operation guidance.",
+      name: "使用步骤图",
+      role: "展示使用、护理、安装、搭配或操作步骤。",
       layout: "Use simple step composition with clear product states.",
       copyRule: "Up to four short step labels; no tiny paragraphs.",
       avoidRule: "Avoid fake technical claims or unsupported safety instructions.",
     };
   }
   return {
-    name: imageType === "details" ? "AI detail screen" : "AI product image",
-    role: imageType === "details" ? "A distinct detail-page screen from AI visual analysis." : "A distinct main/supporting product image from AI visual analysis.",
+    name: imageType === "details" ? "详情页模块图" : "商品图模块",
+    role: imageType === "details" ? "来自 AI 视觉分析的独立详情页屏幕。" : "来自 AI 视觉分析的独立主图/辅图。",
     layout: "Use product-led composition, clear hierarchy, and a layout chosen from the visual analysis rather than local presets.",
     copyRule: "Sparse readable ecommerce copy only.",
     avoidRule: "Avoid preset-template demographics, repeated layouts, and unsupported claims.",
@@ -1538,20 +1642,36 @@ export function resolveProductSetTemplates(input: {
   const imageType = normalizeProductSetImageType(input.imageType);
   const usePresetTemplateLogic = input.mode === "custom";
   if (usePresetTemplateLogic) {
+    const targetCount = Math.min(Math.max(Number(input.genCount) || 1, 1), 8);
     const selectedPresets = (input.selectedTemplateIds || [])
       .map((id) => getProductSetTemplate(Number(id)))
       .filter((item): item is ProductSetTemplate => Boolean(item && item.imageType === imageType))
       .map((item) => ({ ...item, source: "preset" as const }));
-    const customTemplates = (input.customTemplates || [])
+    const rawCustomTemplates = (input.customTemplates || [])
       .filter((item) => item.imageType === imageType && item.name.trim() && item.typeDescription.trim())
-      .slice(0, 10)
-      .map((item) => {
-        const guidance = inferTemplateGuidance(0, item.name, item.imageType, "general");
+      .slice(0, 10);
+    const expandedPresetReferences = selectedPresets.length > 0 && rawCustomTemplates.length === 0
+      ? Array.from({ length: targetCount }, (_, index) => {
+        const preset = selectedPresets[index % selectedPresets.length];
+        return buildPresetReferenceExpansion(preset, targetCount)[index];
+      })
+      : selectedPresets;
+    const shouldExpandCustomReferences = rawCustomTemplates.length > 0 && selectedPresets.length === 0;
+    const sourceCustomTemplates = shouldExpandCustomReferences
+      ? Array.from({ length: targetCount }, (_, index) => rawCustomTemplates[index % rawCustomTemplates.length])
+      : rawCustomTemplates;
+    const customTemplates = sourceCustomTemplates
+      .map((item, index) => {
+        const guidance = inferTemplateGuidance(index + 1, item.name, item.imageType, "general");
+        const referenceRole = getReferenceModeModuleRole(item.imageType, index);
+        const shouldMintTemplateId = shouldExpandCustomReferences && sourceCustomTemplates.length !== rawCustomTemplates.length;
         return {
           ...item,
+          id: shouldMintTemplateId ? `${item.id}-${index + 1}` : item.id,
+          name: shouldMintTemplateId ? `${item.name} ${index + 1}`.slice(0, 24) : item.name,
           source: "custom" as const,
-          moduleRole: item.moduleRole || guidance.moduleRole,
-          contentScope: item.contentScope || guidance.contentScope,
+          moduleRole: item.moduleRole || referenceRole.role || guidance.moduleRole,
+          contentScope: item.contentScope || referenceRole.scope || guidance.contentScope,
           layoutRules: item.layoutRules || guidance.layoutRules,
           textRules: item.textRules || guidance.textRules,
           avoidRules: item.avoidRules || guidance.avoidRules,
@@ -1566,12 +1686,12 @@ export function resolveProductSetTemplates(input: {
           scenario: "general" as const,
         };
       });
-    return applyProductSetModuleOverrides([...selectedPresets, ...customTemplates].slice(0, 10), input.moduleOverrides);
+    return applyProductSetModuleOverrides([...expandedPresetReferences, ...customTemplates].slice(0, targetCount), input.moduleOverrides);
   }
 
   // Smart mode is owned by the AI visual analysis plan/profile. Stale preset ids
   // may still arrive from saved UI state, but must not seed local template logic.
-  const count = Math.min(Math.max(Number(input.genCount) || (imageType === "details" ? 5 : 3), 1), imageType === "details" ? 8 : 6);
+  const count = Math.min(Math.max(Number(input.genCount) || (imageType === "details" ? 5 : 3), 1), 8);
   const resolved = buildAiProductSetTemplates({
     imageType,
     count,
@@ -1622,14 +1742,68 @@ export function buildProductSetPlanRecommendation(input: {
 }
 
 export function getProductSetReferenceUrls(template: ProductSetResolvedTemplate) {
+  return getProductSetReferenceDescriptors(template).map((item) => item.url);
+}
+
+function getProductSetReferenceDescriptors(template: ProductSetResolvedTemplate): ProductSetReferenceDescriptor[] {
   if (template.source === "custom") {
     return [
-      ...(template.referenceImageUrls || []),
-      ...(template.modelReferenceImageUrls || []),
-      ...(template.otherReferenceImageUrls || []),
+      ...(template.referenceImageUrls || []).map((url, index) => ({
+        url,
+        role: "style" as const,
+        label: `custom style/layout reference ${index + 1}`,
+        instruction: "Use for composition, visual hierarchy, lighting, color mood, camera distance and ecommerce polish only.",
+      })),
+      ...(template.modelReferenceImageUrls || []).map((url, index) => ({
+        url,
+        role: "model" as const,
+        label: `custom model/person reference ${index + 1}`,
+        instruction: "Use only when this module needs a model/person; borrow identity, pose, body framing or styling consistency only. Never borrow clothing, logos or unrelated products.",
+      })),
+      ...(template.otherReferenceImageUrls || []).map((url, index) => ({
+        url,
+        role: "supplemental" as const,
+        label: `custom supplemental reference ${index + 1}`,
+        instruction: "Use only for secondary mood, props, color palette, scene language or layout rhythm. Do not copy its product, brand or text.",
+      })),
     ];
   }
-  return template.coverImage ? [template.coverImage] : [];
+  return template.coverImage
+    ? [{
+      url: template.coverImage,
+      role: "preset" as const,
+      label: "preset template style reference",
+      instruction: "Use for ecommerce layout, spacing, lighting, hierarchy and overall style only. Do not copy its product, logo, text, brand, model identity or exact scene.",
+    }]
+    : [];
+}
+
+function buildProductSetReferenceContract(template: ProductSetResolvedTemplate, productImageCount: number) {
+  const references = getProductSetReferenceDescriptors(template).slice(0, 3);
+  if (!references.length) {
+    return "No external style image is provided; infer a professional ecommerce layout from the template brief.";
+  }
+
+  const productRange = productImageCount <= 1
+    ? "image 1"
+    : `images 1-${productImageCount}`;
+  const referenceRoles = references
+    .map((reference, index) => {
+      const imageNumber = productImageCount + index + 1;
+      return `image ${imageNumber} = ${reference.label}. ${reference.instruction}`;
+    })
+    .join(" ");
+  const modelReferenceNote = references.some((item) => item.role === "model")
+    ? "Model reference images can define person identity/pose only for model modules; they are never clothing/product sources."
+    : "If a style reference contains a person, treat that person as composition/style context only, not identity to copy.";
+
+  return [
+    `Input image contract v6: ${productRange} are the authoritative product source images. They define the final product shape, silhouette, color, material, texture, print/logo placement, structure, details and proportions.`,
+    `Reference images start after the product source images: ${referenceRoles}`,
+    `Reference influence contract v6: use reference images only after product identity is locked from ${productRange}. If product source and reference conflict, product source always wins.`,
+    modelReferenceNote,
+    "Never copy reference-image product identity, product category, logo, brand, rendered text, price tags, labels, watermark, exact background, or unrelated accessories into the final image.",
+  ].join(" ");
 }
 
 export function buildProductSetPrompt(input: {
@@ -1647,7 +1821,6 @@ export function buildProductSetPrompt(input: {
 }) {
   const { productInfo, productImageCount, template, settings, mode, aspectRatio, imageSize, sequenceIndex, totalCount } = input;
   const productProfile = normalizeProductSetProductProfile(input.productProfile, productInfo);
-  const referenceCount = getProductSetReferenceUrls(template).length;
   const useModel = shouldUseModelForTemplate(template, productProfile);
   const stylePack = getProductSetStylePack(settings.stylePackId);
   const moduleDirectorBrief = buildProductSetModuleDirectorBrief(template, productProfile, sequenceIndex, totalCount);
@@ -1656,11 +1829,7 @@ export function buildProductSetPrompt(input: {
   const campaignMap = (input.allTemplates || [])
     .map((item, index) => `${index + 1}. ${item.name}: ${item.moduleRole}`)
     .join("\n");
-  const referenceLine = referenceCount
-    ? template.source === "custom"
-      ? `Custom reference images: after the ${productImageCount} product images, extra references may include style layout, model/person reference, and other visual references. Use them only for their declared role; product identity always comes from the first ${productImageCount} product images.`
-      : `Style reference image: the final ${referenceCount} reference image is only for layout/style inspiration. Do not copy its product, logo, text, brand, model, or exact scene.`
-    : "No external style image is provided; infer a professional ecommerce layout from the template brief.";
+  const referenceLine = buildProductSetReferenceContract(template, productImageCount);
   const fontStyle = PRODUCT_SET_FONT_STYLE_LABELS[settings.fontStyle] || PRODUCT_SET_FONT_STYLE_LABELS.auto;
   const themeLine = settings.themeMode === "custom"
     ? `Theme colors: use the user specified theme palette "${settings.themeColor}" with accessible text contrast.`

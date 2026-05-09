@@ -56,6 +56,7 @@ export type FeatureNavItem = {
   description: string;
   icon: LucideIcon;
   comingSoon?: boolean;
+  hiddenFromNav?: boolean;
 };
 
 const SHOW_INTERNAL_NAV =
@@ -131,6 +132,7 @@ export const FEATURE_ITEMS: FeatureNavItem[] = [
     shortLabel: "全品类商品图",
     description: "上传 SKU 图，生成主图与详情图规划和成图",
     icon: PackageSearch,
+    hiddenFromNav: true,
   },
   {
     key: "modelBackground",
@@ -210,6 +212,10 @@ function isInternalFeatureItem(item: FeatureNavItem) {
   return item.key === "apiTest";
 }
 
+function isHiddenFeatureItem(item: FeatureNavItem) {
+  return item.hiddenFromNav === true;
+}
+
 export function getFeatureItem(key: FeatureKey) {
   return FEATURE_ITEMS.find((item) => item.key === key);
 }
@@ -230,5 +236,7 @@ export function getFeatureItemsForModule(module: AppModuleKey) {
     ? FEATURE_ITEMS.filter((item) => item.module === "aiShoots")
     : FEATURE_ITEMS.filter((item) => item.module === module);
 
-  return SHOW_INTERNAL_NAV ? items : items.filter((item) => !isInternalFeatureItem(item));
+  const visibleItems = items.filter((item) => !isHiddenFeatureItem(item));
+
+  return SHOW_INTERNAL_NAV ? visibleItems : visibleItems.filter((item) => !isInternalFeatureItem(item));
 }

@@ -52,10 +52,10 @@ import {
 } from "@/lib/model-background";
 
 const MODELS: { value: LingyaModel; label: string; desc: string; badge?: string; icon: string }[] = [
-  { value: "gpt-image-2", label: "GPT-Image-2", desc: "4K · 高质感", badge: "推荐", icon: "/model-icons/openai.svg" },
-  { value: "nano-banana-2", label: "Nano-Banana-2", desc: "快速稳定", badge: "稳定", icon: "/model-icons/gemini.png" },
-  { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "细节更强", icon: "/model-icons/gemini.png" },
-  { value: "doubao-seedream-4-5-251128", label: "Seedream 4.5", desc: "风格自然", icon: "/model-icons/doubao.png" },
+  { value: "gpt-image-2", label: "GPT-Image-2", desc: "4K · 高质感", badge: "推荐", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/openai.svg" },
+  { value: "nano-banana-2", label: "Nano-Banana-2", desc: "快速稳定", badge: "稳定", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
+  { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "细节更强", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
+  { value: "doubao-seedream-4-5-251128", label: "Seedream 4.5", desc: "风格自然", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/doubao.png" },
 ];
 
 const ASPECTS: { value: AspectRatio; label: string }[] = [
@@ -739,7 +739,7 @@ export default function ModelBackgroundPage() {
             <PreviewGuide
               title="创建模特换背景作品"
               subtitle="默认只换背景；切到换模特相关模式时，必须先选择或上传模特参考图。"
-              imageSrc="/home-showcase/background-male-jacket.webp"
+              imageSrc="https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/background-male-jacket.webp"
               imageAlt="模特换背景指引"
               steps={[
                 { title: "上传原图", desc: "原图中的人物、服装和穿搭是保留对象，先作为主参考输入。" },

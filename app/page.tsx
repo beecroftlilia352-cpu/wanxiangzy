@@ -22,7 +22,7 @@ const primaryModules = [
     href: "/create",
     title: "服装上身",
     desc: "上传单件或多件服装，选择模特、场景和姿势，一次生成真实上身成片。",
-    image: "/home-showcase/model-striped-top-white-skirt.png",
+    image: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/model-striped-top-white-skirt.png",
     imageClass: "object-contain object-bottom p-4",
     icon: Shirt,
     tag: "图1 服装硬参考",
@@ -32,7 +32,7 @@ const primaryModules = [
     href: "/grass",
     title: "服装种草图",
     desc: "用系统模板、上传参考图或自定义提示词，生成小红书、电商封面和穿搭分享。",
-    image: "/home-showcase/model-grey-tank-denim.jpg",
+    image: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/model-grey-tank-denim.jpg",
     imageClass: "object-cover object-top",
     icon: Sparkles,
     tag: "场景与氛围参考",
@@ -42,7 +42,7 @@ const primaryModules = [
     href: "/model-background",
     title: "模特换背景",
     desc: "默认只换背景，也可换背景换模特或只换脸，服装和穿搭单品保持不变。",
-    image: "/home-showcase/background-male-jacket.webp",
+    image: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/background-male-jacket.webp",
     imageClass: "object-cover object-center",
     icon: Images,
     tag: "背景 / 模特控制",
@@ -52,7 +52,7 @@ const primaryModules = [
     href: "/pose",
     title: "姿势裂变",
     desc: "同人物、同穿搭、同场景，扩展 2x2 多姿势图，适合详情页和内容矩阵。",
-    image: "/home-showcase/pose-grid-black-outfit.png",
+    image: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/pose-grid-black-outfit.png",
     imageClass: "object-cover object-top",
     icon: PersonStanding,
     tag: "四宫格动作",
@@ -65,21 +65,21 @@ const secondaryModules = [
     href: "/model",
     title: "专属模特",
     desc: "用 1-3 张人像沉淀脸型、肤色、发型、妆感和品牌人物气质。",
-    image: "/home-showcase/exclusive-model-02.png",
+    image: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/exclusive-model-02.png",
     icon: UserRound,
   },
   {
     href: "/garment-3d",
     title: "服装 3D",
     desc: "把平铺、挂拍或人台图转成更有厚度和材质感的商品展示图。",
-    image: "/home-showcase/garment-blue-hoodie-3d.png",
+    image: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/garment-blue-hoodie-3d.png",
     icon: Box,
   },
   {
     href: "/history",
     title: "作品与复用",
     desc: "回看输入图、模型、参数和提示词版本，快速复用稳定的生产路径。",
-    image: "/home-showcase/model-black-crop-widepants.png",
+    image: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/model-black-crop-widepants.png",
     icon: Layers3,
   },
 ];
@@ -136,7 +136,7 @@ export default function HomePage() {
     <div className="min-h-screen bg-[#f7f2fb] text-slate-950">
       <section className="relative isolate overflow-hidden bg-slate-950 text-white">
         <Image
-          src="/home-showcase/model-black-crop-widepants.png"
+          src="https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/model-black-crop-widepants.png"
           alt="VastWear 服装视觉生成"
           fill
           priority
@@ -295,10 +295,10 @@ export default function HomePage() {
           <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_420px] lg:items-stretch">
             <div className="grid gap-4 sm:grid-cols-2">
               {[
-                { src: "/home-showcase/exclusive-model-01.png", title: "专属模特资产", desc: "沉淀品牌人物气质" },
-                { src: "/home-showcase/model-male-black-knitwear.jpg", title: "男装商拍风格", desc: "背景和光影可替换" },
-                { src: "/home-showcase/model-white-top-denim-shorts.jpg", title: "通用模特素材", desc: "适配上身和种草" },
-                { src: "/home-showcase/garment-blue-hoodie-3d.png", title: "服装 3D 表达", desc: "保留廓形与面料厚度" },
+                { src: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/exclusive-model-01.png", title: "专属模特资产", desc: "沉淀品牌人物气质" },
+                { src: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/model-male-black-knitwear.jpg", title: "男装商拍风格", desc: "背景和光影可替换" },
+                { src: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/model-white-top-denim-shorts.jpg", title: "通用模特素材", desc: "适配上身和种草" },
+                { src: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/garment-blue-hoodie-3d.png", title: "服装 3D 表达", desc: "保留廓形与面料厚度" },
               ].map((item) => (
                 <div key={item.title} className="relative min-h-64 overflow-hidden rounded-[28px] bg-violet-50 shadow-sm">
                   <Image src={item.src} alt={item.title} fill sizes="320px" className="object-cover object-top" />

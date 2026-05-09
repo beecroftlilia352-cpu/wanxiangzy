@@ -8,8 +8,8 @@ export const metadata: Metadata = {
   title: "VastWear｜服装视觉生成平台",
   description: "面向服装品牌、电商团队和内容创作者的服装视觉生成平台。",
   icons: {
-    icon: [{ url: "/gemini-icon.png", type: "image/png" }],
-    apple: [{ url: "/gemini-icon.png", type: "image/png" }],
+    icon: [{ url: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/gemini-icon.png", type: "image/png" }],
+    apple: [{ url: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/gemini-icon.png", type: "image/png" }],
   },
 };
 

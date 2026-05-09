@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/api/auth";
-import { getBase64Payload, storeImage } from "@/lib/api/image-storage";
+import { storeImage } from "@/lib/api/image-storage";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 
 export const maxDuration = 60;
 
-const IMGBB_UPLOAD_TIMEOUT_MS = 60_000;
+const IMAGE_UPLOAD_TIMEOUT_MS = 60_000;
 const MAX_UPLOAD_MB = 15;
 const MAX_BASE64_LENGTH = 21 * 1024 * 1024; // ~15MB after base64 encoding
 
@@ -30,10 +30,11 @@ export async function POST(request: Request) {
 
     const stored = await storeImage(
       {
-        image: getBase64Payload(image),
+        image,
         name: typeof name === "string" && name.trim() ? name.trim() : "upload",
+        storageClass: "upload",
       },
-      { timeoutMs: IMGBB_UPLOAD_TIMEOUT_MS }
+      { timeoutMs: IMAGE_UPLOAD_TIMEOUT_MS }
     );
 
     return NextResponse.json({
@@ -46,14 +47,14 @@ export async function POST(request: Request) {
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("[upload-image] error:", message);
-    if (message.includes("IMGBB_API_KEY")) {
+    if (message.includes("图片上传服务未配置") || message.includes("图床上传服务未配置") || message.includes("IMGBB_API_KEY") || message.includes("ALIYUN_OSS")) {
       return NextResponse.json({ error: "图片上传服务未配置" }, { status: 500 });
     }
-    if (message.includes("转存图床失败")) {
-      return NextResponse.json({ error: "图片上传失败" }, { status: 502 });
+    if (message.includes("图片上传失败") || message.includes("转存图床失败")) {
+      return NextResponse.json({ error: message }, { status: 502 });
     }
     if (err instanceof Error && (err.name === "TimeoutError" || message.includes("timeout"))) {
-      return NextResponse.json({ error: "Image upload timed out, please try again." }, { status: 504 });
+      return NextResponse.json({ error: "图片上传超时，请稍后重试" }, { status: 504 });
     }
     return NextResponse.json({ error: "图片上传失败" }, { status: 500 });
   }

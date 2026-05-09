@@ -2,35 +2,35 @@ import type { AspectRatio, LingyaModel } from "@/lib/api/lingya";
 import type { TryOnSceneMode } from "@/lib/tryon-scene";
 import type { TryOnAgeGroup, TryOnGarmentAudience } from "@/lib/tryon-prompt";
 
-const SUPABASE_STORAGE = "https://mtdfvnhphpulhjtnmubw.supabase.co/storage/v1/object/public";
+const SITE_ASSET_BASE = "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original";
 
 export const PRESET_MODELS = [
-  { id: "m0", name: "自然", image_url: `${SUPABASE_STORAGE}/models/model-natural-smile.jpg`, gender: "female" as const },
-  { id: "m1", name: "甜妹", image_url: `${SUPABASE_STORAGE}/models/model-18542-0875a4d282bb.jpg`, gender: "female" as const },
-  { id: "m2", name: "优雅", image_url: `${SUPABASE_STORAGE}/models/model-22921-89d4664cd1b0.jpg`, gender: "female" as const },
-  { id: "m3", name: "红裙", image_url: `${SUPABASE_STORAGE}/models/model-26829-dca5c791efa8.jpg`, gender: "female" as const },
-  { id: "m4", name: "酷飒", image_url: `${SUPABASE_STORAGE}/models/model-97612-bdc397740113.jpg`, gender: "female" as const },
-  { id: "m5", name: "清纯", image_url: `${SUPABASE_STORAGE}/models/model-35127-693ee11382eb.png`, gender: "female" as const },
-  { id: "m6", name: "清透", image_url: `${SUPABASE_STORAGE}/models/model-clear-black-long-20260502.png`, gender: "female" as const },
+  { id: "m0", name: "自然", image_url: `${SITE_ASSET_BASE}/models/model-natural-smile.jpg`, gender: "female" as const },
+  { id: "m1", name: "甜妹", image_url: `${SITE_ASSET_BASE}/models/model-18542-0875a4d282bb.jpg`, gender: "female" as const },
+  { id: "m2", name: "优雅", image_url: `${SITE_ASSET_BASE}/models/model-22921-89d4664cd1b0.jpg`, gender: "female" as const },
+  { id: "m3", name: "红裙", image_url: `${SITE_ASSET_BASE}/models/model-26829-dca5c791efa8.jpg`, gender: "female" as const },
+  { id: "m4", name: "酷飒", image_url: `${SITE_ASSET_BASE}/models/model-97612-bdc397740113.jpg`, gender: "female" as const },
+  { id: "m5", name: "清纯", image_url: `${SITE_ASSET_BASE}/models/model-35127-693ee11382eb.png`, gender: "female" as const },
+  { id: "m6", name: "清透", image_url: `${SITE_ASSET_BASE}/models/model-clear-black-long-20260502.png`, gender: "female" as const },
 ];
 
 export const PRESET_REFERENCES = [
-  { id: "r1", url: `${SUPABASE_STORAGE}/references/reference-108513-b6db713a5d2f.jpg`, label: "白T街头", category: "scene" as const },
-  { id: "r2", url: `${SUPABASE_STORAGE}/references/reference-56020-dc1aa74e5515.jpg`, label: "黑蕾丝夜景", category: "style" as const },
-  { id: "r3", url: `${SUPABASE_STORAGE}/references/reference-23353-c281a160d01d.jpg`, label: "白衫桥边", category: "style" as const },
-  { id: "r4", url: `${SUPABASE_STORAGE}/references/reference-soft-blue-cardigan.jpg`, label: "蓝衫光影", category: "pose" as const },
-  { id: "r5", url: `${SUPABASE_STORAGE}/references/reference-white-top-denim-shorts.jpg`, label: "白顶牛仔", category: "pose" as const },
-  { id: "r6", url: `${SUPABASE_STORAGE}/references/reference-mens-black-knitwear.jpg`, label: "男款木墙", category: "pose" as const },
-  { id: "r7", url: `${SUPABASE_STORAGE}/references/reference-grey-tank-denim-culottes.jpg`, label: "灰背心牛仔", category: "style" as const },
-  { id: "r8", url: `${SUPABASE_STORAGE}/references/reference-striped-top-white-skirt.png`, label: "条纹白裙", category: "scene" as const },
-  { id: "r9", url: `${SUPABASE_STORAGE}/references/reference-cafe-wide-leg-pants.jpg`, label: "咖啡阔腿", category: "scene" as const },
+  { id: "r1", url: `${SITE_ASSET_BASE}/references/reference-108513-b6db713a5d2f.jpg`, label: "白T街头", category: "scene" as const },
+  { id: "r2", url: `${SITE_ASSET_BASE}/references/reference-56020-dc1aa74e5515.jpg`, label: "黑蕾丝夜景", category: "style" as const },
+  { id: "r3", url: `${SITE_ASSET_BASE}/references/reference-23353-c281a160d01d.jpg`, label: "白衫桥边", category: "style" as const },
+  { id: "r4", url: `${SITE_ASSET_BASE}/references/reference-soft-blue-cardigan.jpg`, label: "蓝衫光影", category: "pose" as const },
+  { id: "r5", url: `${SITE_ASSET_BASE}/references/reference-white-top-denim-shorts.jpg`, label: "白顶牛仔", category: "pose" as const },
+  { id: "r6", url: `${SITE_ASSET_BASE}/references/reference-mens-black-knitwear.jpg`, label: "男款木墙", category: "pose" as const },
+  { id: "r7", url: `${SITE_ASSET_BASE}/references/reference-grey-tank-denim-culottes.jpg`, label: "灰背心牛仔", category: "style" as const },
+  { id: "r8", url: `${SITE_ASSET_BASE}/references/reference-striped-top-white-skirt.png`, label: "条纹白裙", category: "scene" as const },
+  { id: "r9", url: `${SITE_ASSET_BASE}/references/reference-cafe-wide-leg-pants.jpg`, label: "咖啡阔腿", category: "scene" as const },
 ];
 
 export const MODELS: { value: LingyaModel; label: string; desc: string; badge?: string; icon: string }[] = [
-  { value: "gpt-image-2", label: "GPT-Image-2", desc: "4K · 4分/次", badge: "最新", icon: "/model-icons/openai.svg" },
-  { value: "nano-banana-2", label: "Nano-Banana-2", desc: "4K · 3分/次", badge: "推荐", icon: "/model-icons/gemini.png" },
-  { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "4K · 4分/次", badge: "推荐", icon: "/model-icons/gemini.png" },
-  { value: "doubao-seedream-4-5-251128", label: "Seedream 4.5", desc: "4K · 2分/次", badge: "新", icon: "/model-icons/doubao.png" },
+  { value: "gpt-image-2", label: "GPT-Image-2", desc: "4K · 4分/次", badge: "最新", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/openai.svg" },
+  { value: "nano-banana-2", label: "Nano-Banana-2", desc: "4K · 3分/次", badge: "推荐", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
+  { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "4K · 4分/次", badge: "推荐", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
+  { value: "doubao-seedream-4-5-251128", label: "Seedream 4.5", desc: "4K · 2分/次", badge: "新", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/doubao.png" },
 ];
 
 export const GPT_ASPECTS: { value: AspectRatio; label: string }[] = [

@@ -48,12 +48,12 @@ export const BACKGROUND_SOURCE_LABELS: Record<BackgroundSourceMode, string> = {
 };
 
 export const PRESET_BACKGROUND_MODELS: PresetModel[] = [
-  { id: "m0", name: "自然", imageUrl: `${SUPABASE_STORAGE}/models/model-natural-smile.jpg` },
-  { id: "m1", name: "甜妹", imageUrl: `${SUPABASE_STORAGE}/models/model-18542-0875a4d282bb.jpg` },
-  { id: "m2", name: "优雅", imageUrl: `${SUPABASE_STORAGE}/models/model-22921-89d4664cd1b0.jpg` },
-  { id: "m3", name: "红裙", imageUrl: `${SUPABASE_STORAGE}/models/model-26829-dca5c791efa8.jpg` },
-  { id: "m4", name: "酷飒", imageUrl: `${SUPABASE_STORAGE}/models/model-97612-bdc397740113.jpg` },
-  { id: "m5", name: "清纯", imageUrl: `${SUPABASE_STORAGE}/models/model-35127-693ee11382eb.png` },
+  { id: "m0", name: "自然", imageUrl: `${SUPABASE_STORAGE}https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/models/model-natural-smile.jpg` },
+  { id: "m1", name: "甜妹", imageUrl: `${SUPABASE_STORAGE}https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/models/model-18542-0875a4d282bb.jpg` },
+  { id: "m2", name: "优雅", imageUrl: `${SUPABASE_STORAGE}https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/models/model-22921-89d4664cd1b0.jpg` },
+  { id: "m3", name: "红裙", imageUrl: `${SUPABASE_STORAGE}https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/models/model-26829-dca5c791efa8.jpg` },
+  { id: "m4", name: "酷飒", imageUrl: `${SUPABASE_STORAGE}https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/models/model-97612-bdc397740113.jpg` },
+  { id: "m5", name: "清纯", imageUrl: `${SUPABASE_STORAGE}https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/models/model-35127-693ee11382eb.png` },
   { id: "m6", name: "清透", imageUrl: `${SUPABASE_STORAGE}/models/model-clear-black-long-20260502.png` },
 ];
 
@@ -64,29 +64,29 @@ export const MODEL_BACKGROUND_UPLOAD_RULE = {
     {
       title: "模特图 1",
       description: "人物主体完整，服装清晰，适合换模特或换背景",
-      imageUrl: "https://i.ibb.co/Nnb8n8xg/model-bg-demo-model-1.webp",
+      imageUrl: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/i.ibb.co/Nnb8n8xg/model-bg-demo-model-1-3e7d00ee48.webp",
     },
     {
       title: "模特图 2",
       description: "全身穿搭清楚，人物边界明确，适合生成种草氛围图",
-      imageUrl: "https://i.ibb.co/v4fFMsQL/model-bg-demo-model-2.webp",
+      imageUrl: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/i.ibb.co/v4fFMsQL/model-bg-demo-model-2-fabb161f17.webp",
     },
     {
       title: "模特图 3",
       description: "人物姿态自然，服装和配件关系清晰",
-      imageUrl: "https://i.ibb.co/vCybGS35/model-bg-demo-model-3.webp",
+      imageUrl: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/i.ibb.co/vCybGS35/model-bg-demo-model-3-6447e8d07b.webp",
     },
     {
       title: "模特图 4",
       description: "主图完整可识别，适合换模特、换背景和只换背景",
-      imageUrl: "https://i.ibb.co/GSD7gQP/model-bg-demo-model-4.webp",
+      imageUrl: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/i.ibb.co/GSD7gQP/model-bg-demo-model-4-509697bd7d.webp",
     },
   ] satisfies ModelBackgroundRuleDemo[],
   badExamples: [
-    { title: "平铺图", imageUrl: "https://i.ibb.co/Rkkg54Ym/model-bg-bad-flat-lay.png" },
-    { title: "挂拍图", imageUrl: "https://i.ibb.co/CKsLjqL0/model-bg-bad-hanging.png" },
-    { title: "无肢体人台图", imageUrl: "https://i.ibb.co/hJgBmLV6/model-bg-bad-mannequin.png" },
-    { title: "不完整的商品", imageUrl: "https://i.ibb.co/271M6jtD/model-bg-bad-incomplete.png" },
+    { title: "平铺图", imageUrl: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/i.ibb.co/Rkkg54Ym/model-bg-bad-flat-lay-14a795a3e1.png" },
+    { title: "挂拍图", imageUrl: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/i.ibb.co/CKsLjqL0/model-bg-bad-hanging-7e7af9617c.png" },
+    { title: "无肢体人台图", imageUrl: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/i.ibb.co/hJgBmLV6/model-bg-bad-mannequin-516d36ef05.png" },
+    { title: "不完整的商品", imageUrl: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/i.ibb.co/271M6jtD/model-bg-bad-incomplete-a097e08ab0.png" },
   ],
 } as const;
 
@@ -94,55 +94,55 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
   {
     id: "cafe-courtyard",
     name: "网红店庭院",
-    imageUrl: "https://i.ibb.co/Jw2f4PcC/bg-cafe-courtyard.jpg",
+    imageUrl: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/i.ibb.co/Jw2f4PcC/bg-cafe-courtyard-26119de07a.jpg",
     prompt: "网红店庭院背景，精致商业空间、自然日光、适合小红书种草和品牌 Lookbook。",
   },
   {
     id: "red-brick-white-wall",
     name: "红砖白墙",
-    imageUrl: "https://i.ibb.co/WNBwzNNj/bg-red-brick.jpg",
+    imageUrl: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/i.ibb.co/WNBwzNNj/bg-red-brick-602adeccd3.jpg",
     prompt: "红砖白墙背景，干净室内空间、柔和自然光、轻复古质感，适合突出服装轮廓和真实穿搭。",
   },
   {
     id: "sunny-lawn",
     name: "阳光草坪",
-    imageUrl: "https://i.ibb.co/GrtfjhK/bg-sunny-lawn.jpg",
+    imageUrl: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/i.ibb.co/GrtfjhK/bg-sunny-lawn-53bac7a546.jpg",
     prompt: "阳光草坪背景，明亮户外自然光、清新生活方式氛围，人物阴影和草地接触关系自然。",
   },
   {
     id: "reef-seaside",
     name: "礁石海边",
-    imageUrl: "https://i.ibb.co/7JzNFYD3/bg-reef-seaside.jpg",
+    imageUrl: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/i.ibb.co/7JzNFYD3/bg-reef-seaside-d91ba8f17d.jpg",
     prompt: "礁石海边户外背景，海风感、自然天光、清爽度假氛围，空间开阔但不抢服装主体。",
   },
   {
     id: "distant-mountain-lake",
     name: "远山湖泊",
-    imageUrl: "https://i.ibb.co/M5fjTvkG/bg-mountain-lake.jpg",
+    imageUrl: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/i.ibb.co/M5fjTvkG/bg-mountain-lake-aac995240f.jpg",
     prompt: "远山湖泊自然背景，柔和户外光、通透空气感、安静旅行氛围，人物和服装自然融入。",
   },
   {
     id: "summer-hydrangea",
     name: "夏日绣球",
-    imageUrl: "https://i.ibb.co/spTk4hV0/bg-hydrangea.jpg",
+    imageUrl: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/i.ibb.co/spTk4hV0/bg-hydrangea-2f8323696f.jpg",
     prompt: "夏日绣球花园背景，清新自然光、柔和花影、明亮生活方式氛围，适合轻盈女装。",
   },
   {
     id: "romantic-street",
     name: "浪漫街头",
-    imageUrl: "https://i.ibb.co/V004GhLP/bg-romantic-street.jpg",
+    imageUrl: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/i.ibb.co/V004GhLP/bg-romantic-street-85e09fa3af.jpg",
     prompt: "浪漫街头背景，城市街拍氛围、柔和自然光、轻松出门感，人物曝光、阴影、边缘和街道路面自然统一。",
   },
   {
     id: "forest-studio",
     name: "森系棚拍",
-    imageUrl: "https://i.ibb.co/dSJrqSc/bg-forest-studio.jpg",
+    imageUrl: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/i.ibb.co/dSJrqSc/bg-forest-studio-3c9f108d93.jpg",
     prompt: "森系棚拍背景，干净室内布景、柔和棚拍光、自然绿植氛围，突出服装质感。",
   },
   {
     id: "brown-backdrop",
     name: "棕色背景",
-    imageUrl: "https://i.ibb.co/TBkCW0SF/bg-brown-backdrop.jpg",
+    imageUrl: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/i.ibb.co/TBkCW0SF/bg-brown-backdrop-1262c2052a.jpg",
     prompt: "棕色纯色背景，干净棚拍质感、暖调商业光，适合突出人物轮廓和服装细节。",
   },
 ];

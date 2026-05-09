@@ -2,6 +2,7 @@
 
 import { FolderOpen, Loader2, RefreshCw, X } from "lucide-react";
 import { ClientPortal } from "@/components/ClientPortal";
+import { getImageVariantUrl } from "@/lib/image-variants";
 import type { TryOnSourceLibraryItem } from "@/lib/tryon-source-library";
 
 type TryOnSourceLibraryDialogProps = {
@@ -105,7 +106,7 @@ export function TryOnSourceLibraryDialog({
                     aria-label={`选择作品库图片：${item.label}`}
                   >
                     <div className="studio-checkerboard aspect-[4/5] overflow-hidden">
-                      <img src={item.url} alt={`作品库图片：${item.label}`} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]" />
+                      <img src={getImageVariantUrl(item.url, "card")} alt={`作品库图片：${item.label}`} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]" />
                     </div>
                     <div className="px-3 py-2">
                       <p className="truncate text-xs font-bold text-slate-800">{item.label}</p>

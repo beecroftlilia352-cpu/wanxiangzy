@@ -2,6 +2,7 @@
 
 import type { CSSProperties } from "react";
 import { Download, Sparkles } from "lucide-react";
+import { getImageVariantUrl } from "@/lib/image-variants";
 import { downloadImage, generateDownloadFilename } from "@/lib/utils";
 
 const FALLBACK_IMAGE =
@@ -73,7 +74,7 @@ export function ResultImageGrid({
           >
             {url ? (
               <img
-                src={url}
+                src={getImageVariantUrl(url, isSingle ? "preview" : "card")}
                 alt={`${imageAltPrefix} ${index + 1}`}
                 className="h-full w-full object-contain"
                 onError={(event) => {
