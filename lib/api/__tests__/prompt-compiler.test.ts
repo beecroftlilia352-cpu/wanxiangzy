@@ -121,4 +121,24 @@ describe("compileImagePromptForModel", () => {
     });
     expect(result).toContain("参考图");
   });
+
+  it("keeps gpt-image-2 model prompts concise with hair constraints", () => {
+    const longPrompt = [
+      "【专属模特生成协议 v2】",
+      "图像角色：图1、图2、图3 是同等权重的人脸、气质、妆感和审美融合参考；每张都必须留下可感知贡献，禁止把图3或任意单张直接当最终脸复制。",
+      "融合方法：先分别提取图1、图2、图3的脸型骨相、五官比例、眼神气质、肤色冷暖、妆感、年龄感和真实皮肤质感，再重组为一个新长相；图1、图2、图3权重均衡，图3即使更清晰也不能成为主脸，只能贡献部分特征。",
+      "发型发色硬约束：发型必须采用「齐肩短波波头」；发色必须采用「深棕色」。",
+      "用户补充/视觉分析：".padEnd(5000, "视觉分析"),
+    ].join("\n");
+
+    const result = compileImagePromptForModel({
+      kind: "model",
+      model: "gpt-image-2",
+      prompt: longPrompt,
+    });
+
+    expect(result.length).toBeLessThanOrEqual(3400);
+    expect(result).toContain("图3即使更清晰也不能成为主脸");
+    expect(result).toContain("发型发色硬约束");
+  });
 });

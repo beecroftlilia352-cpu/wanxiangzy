@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { type DragEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Camera, CheckCircle2, ChevronRight, Eye, FolderOpen, Loader2, Sparkles, Upload, UserRound, Wand, X, XCircle } from "lucide-react";
 import { toast } from "sonner";
@@ -19,15 +19,7 @@ import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
 import { takeApplyPayload } from "@/lib/history-apply";
 import { applyRepairPrompt } from "@/lib/generation-repair";
-import {
-  MODEL_AGE_TEXTURE_RULE,
-  MODEL_FACE_SHAPE_RULE,
-  MODEL_FACE_STYLE_RULE,
-  MODEL_FEATURE_IDENTITY_RULE,
-  MODEL_FUSION_RULE,
-  MODEL_MAKEUP_RULE,
-  MODEL_SKIN_TONE_RULE,
-} from "@/lib/model-prompt";
+import { enforceModelPromptRequirements } from "@/lib/model-prompt";
 import {
   DEFAULT_MODEL_SHOOT_STYLE,
   MODEL_SHOOT_STYLES,
@@ -75,9 +67,6 @@ const HAIR_COLORS = [
   { value: "铂金白色", label: "白金", image: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/female-platinum-long.png" },
   { value: "柔粉色", label: "粉色", image: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/female-pink-long.png" },
 ];
-const MODEL_QUALITY =
-  "photorealistic, 8K ultra-detailed, commercial portrait quality, cinematic color grade, sharp facial details, sharp hair details, raw photo quality";
-
 export default function ModelPage() {
   const router = useRouter();
   const supabase = createClient();
@@ -91,6 +80,7 @@ export default function ModelPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [credits, setCredits] = useState<number | null>(null);
   const [referenceUrls, setReferenceUrls] = useState<string[]>([]);
+  const [isReferenceDragging, setIsReferenceDragging] = useState(false);
   const [gender, setGender] = useState<Gender>("female");
   const [modelStyle, setModelStyle] = useState<ModelShootStyle>(DEFAULT_MODEL_SHOOT_STYLE);
   const [hairStyle, setHairStyle] = useState<string | null>(null);
@@ -245,6 +235,29 @@ export default function ModelPage() {
       setError("");
       toast.success(`已添加 ${next.length} 张参考图`);
     }
+  }
+
+  function handleReferenceDragEnter(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    setIsReferenceDragging(true);
+  }
+
+  function handleReferenceDragLeave(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+      setIsReferenceDragging(false);
+    }
+  }
+
+  function handleReferenceDragOver(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = referenceUrls.length >= 3 ? "none" : "copy";
+  }
+
+  function handleReferenceDrop(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    setIsReferenceDragging(false);
+    addFiles(event.dataTransfer.files);
   }
 
   function selectGender(nextGender: Gender) {
@@ -469,13 +482,28 @@ export default function ModelPage() {
               </button>
             </div>
             <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => addFiles(e.target.files || undefined)} />
-            <div className="flex min-h-44 flex-col rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 px-4 py-5 text-center">
+            <div
+              onDragEnter={handleReferenceDragEnter}
+              onDragLeave={handleReferenceDragLeave}
+              onDragOver={handleReferenceDragOver}
+              onDrop={handleReferenceDrop}
+              className={`relative flex min-h-44 flex-col rounded-2xl border border-dashed px-4 py-5 text-center transition-all ${
+                isReferenceDragging
+                  ? "border-violet-400 bg-violet-50/80 shadow-[0_18px_42px_rgba(124,58,237,0.14)] ring-2 ring-violet-200"
+                  : "border-slate-200 bg-slate-50/70"
+              }`}
+            >
+              {isReferenceDragging && (
+                <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-2xl border border-violet-300 bg-violet-50/85 text-sm font-semibold text-violet-700 shadow-inner backdrop-blur-sm">
+                  {referenceUrls.length >= 3 ? "最多 3 张参考图" : "松开即可上传图片"}
+                </div>
+              )}
               {referenceUrls.length > 0 ? (
                 <>
                   <div className="mb-3 flex items-center justify-between gap-3 text-left">
                     <div>
                       <p className="text-sm font-semibold text-slate-800">已上传 {referenceUrls.length}/3 张参考图</p>
-                      <p className="mt-0.5 text-[11px] text-slate-400">图片已进入融合参考，可继续补充或移除单张</p>
+                      <p className="mt-0.5 text-[11px] text-slate-400">{referenceUrls.length < 3 ? "图片已进入融合参考，可拖入继续补充或移除单张" : "图片已进入融合参考，最多 3 张，可移除后重新拖入"}</p>
                     </div>
                     {referenceUrls.length < 3 && (
                       <button
@@ -517,8 +545,8 @@ export default function ModelPage() {
                   <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-sm">
                     <UserRound className="h-7 w-7 text-violet-400" />
                   </div>
-                  <p className="text-sm font-semibold text-slate-800">上传 1-3 张人物参考图</p>
-                  <p className="mt-1 text-[11px] text-slate-400">可来自同一人，也可来自不同人物，用于融合脸型、肤色、妆感和气质</p>
+                  <p className="text-sm font-semibold text-slate-800">上传 / 拖入 1-3 张人物参考图</p>
+                  <p className="mt-1 text-[11px] text-slate-400">拖拽图片到这里，或从本地选择；用于融合脸型、肤色、妆感和气质</p>
                   <div className="mt-3 flex flex-wrap justify-center gap-2">
                     <button type="button" onClick={() => fileInputRef.current?.click()} className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-violet-700">
                       <Upload className="h-3.5 w-3.5" /> 从本地上传
@@ -1047,38 +1075,15 @@ function buildDefaultPrompt(
   hasHairColorReference: boolean,
   modelStyle: ModelShootStyle
 ) {
-  const refs = Array.from({ length: refCount }, (_, i) => `图${i + 1}`).join("、");
-  const genderText = gender === "male" ? "男性" : "女性";
   const hairImageIndex = refCount + 1;
   const hairColorImageIndex = refCount + (hasHairReference ? 2 : 1);
-  const hairStyleText = hasHairReference
-    ? `发型参考图${hairImageIndex}，还原图${hairImageIndex}的发型轮廓、长度、刘海/分缝、蓬松度和发丝走向`
-    : hairStyle
-      ? `发型使用：${hairStyle}`
-      : "发型不指定，由模型根据人物脸型自然适配";
-  const hairColorText = hasHairColorReference
-    ? `发色参考图${hairColorImageIndex}，只提取头发颜色、明暗层次和染发质感`
-    : hairColor
-      ? `发色使用：${hairColor}`
-      : "发色不指定，保持自然真实";
-  const extraRoles = [
-    hasHairReference ? `图${hairImageIndex} 是发型参考图，只参考发型，不参考身份` : "",
-    hasHairColorReference ? `图${hairColorImageIndex} 是发色参考图，只参考发色，不参考身份` : "",
-  ].filter(Boolean).join("；");
-  const imageRoleText = extraRoles
-    ? `图像角色：${refs} 是专属模特的人脸与风格融合参考图，可能来自同一个人，也可能来自不同人物；用于融合脸型、五官比例、肤色、气质、妆感、面部氛围和真实面部特征，生成一个新的稳定专属模特身份；${extraRoles}。`
-    : `图像角色：${refs} 是专属模特的人脸与风格融合参考图，可能来自同一个人，也可能来自不同人物；用于融合脸型、五官比例、肤色、气质、妆感、面部氛围和真实面部特征，生成一个新的稳定专属模特身份。`;
-
-  return `${imageRoleText}
-任务：融合 ${refs} 的人物特征、长相风格、模特气质和妆容审美，生成一张真实摄影质感的${genderText}专属模特半身头像/模特卡照片。${hairStyleText}；${hairColorText}。最终模特必须是融合后的单一新身份，不要只复制其中某一张参考图。
-${buildModelShootStylePrompt(modelStyle)}
-${MODEL_FUSION_RULE}
-${MODEL_FACE_STYLE_RULE}
-${MODEL_MAKEUP_RULE}
-${MODEL_SKIN_TONE_RULE}
-${MODEL_FACE_SHAPE_RULE}
-${MODEL_FEATURE_IDENTITY_RULE}
-${MODEL_AGE_TEXTURE_RULE}
-白色基础上衣，干净浅灰棚拍背景，柔和商业摄影布光，皮肤保留自然纹理和轻微瑕疵，发丝细节真实。图像质量：${MODEL_QUALITY}。
-负面约束：不要生成多个人，不要换成随机陌生脸，不要只像单张参考图，不要无妆感，不要丢失参考图的面部氛围，不要默认美白，不要雪白皮或冷白皮，不要标准鹅蛋脸、小V脸、尖下巴、大眼高鼻网红审美，不要把发型/发色参考图当成人脸身份，不要过度磨皮，不要塑料皮肤，不要蜡像感，不要卡通感，不要畸形五官，不要文字水印。`;
+  return enforceModelPromptRequirements({
+    prompt: buildModelShootStylePrompt(modelStyle),
+    referenceCount: refCount,
+    gender,
+    hairStyle,
+    hairColor,
+    hairReferenceIndex: hasHairReference ? hairImageIndex : null,
+    hairColorReferenceIndex: hasHairColorReference ? hairColorImageIndex : null,
+  });
 }

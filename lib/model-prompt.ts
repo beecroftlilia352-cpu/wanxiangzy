@@ -1,5 +1,6 @@
 const MODEL_QUALITY =
   "photorealistic, 8K ultra-detailed, commercial portrait quality, cinematic color grade, sharp facial details, sharp hair details, raw photo quality";
+const MODEL_PROMPT_MARKER = "专属模特生成协议 v2";
 
 export const MODEL_FACE_STYLE_RULE =
   "人脸风格规则：参考图不仅用于五官融合，也用于定义最终模特的长相风格、审美方向和气质标签。必须提取参考图中最明显的脸部审美特征、年龄感、眼神气质、面部氛围、镜头表现力和整体模特感，让生成结果看起来像同一类风格的专属模特，而不是普通随机人脸。";
@@ -31,74 +32,193 @@ export function buildModelIdentityRoleStatement(params: {
   hairReferenceIndex?: number | null;
   hairColorReferenceIndex?: number | null;
 }) {
-  const refs = Array.from({ length: Math.max(params.referenceCount, 1) }, (_, index) => `图${index + 1}`).join("、");
+  const referenceCount = normalizeReferenceCount(params.referenceCount);
+  const refs = buildReferenceList(referenceCount);
   const extraRoles = [
-    params.hairReferenceIndex ? `图${params.hairReferenceIndex} 是发型参考图，只参考发型轮廓、长度、刘海、分缝、蓬松度和发丝走向，不参考人脸身份` : "",
-    params.hairColorReferenceIndex ? `图${params.hairColorReferenceIndex} 是发色参考图，只参考头发颜色、明暗层次和染发质感，不参考人脸身份` : "",
+    params.hairReferenceIndex ? `图${params.hairReferenceIndex} 是发型硬参考，只参考发型轮廓、长度、刘海、分缝、蓬松度和发丝走向，不参与人脸身份` : "",
+    params.hairColorReferenceIndex ? `图${params.hairColorReferenceIndex} 是发色硬参考，只参考头发颜色、明暗层次和染发质感，不参与人脸身份` : "",
   ].filter(Boolean);
 
-  return `图像角色：${refs} 是专属模特的人脸与风格融合参考图，可能来自同一个人，也可能来自不同人物；必须融合这些参考图的脸型骨相、五官比例、眼鼻唇特征、肤色、气质、妆感、年龄感、面部氛围和真实细节，生成一个新的稳定专属模特身份；不要只复制其中某一张图，也不要简单平均成陌生脸${extraRoles.length ? `；${extraRoles.join("；")}` : ""}。`;
+  const faceRole = referenceCount > 1
+    ? `${refs} 是同等权重的人脸、气质、妆感和审美融合参考；每张都必须留下可感知贡献，禁止把图${referenceCount}或任意单张直接当最终脸复制`
+    : "图1 是唯一人脸身份参考，必须保留其脸型骨相、五官比例、肤色、年龄感和真实质感";
+
+  return `图像角色：${faceRole}${extraRoles.length ? `；${extraRoles.join("；")}` : ""}。`;
 }
 
 export function enforceModelPromptRequirements(params: {
   prompt: string;
   referenceCount: number;
+  gender?: "female" | "male" | string | null;
+  hairStyle?: string | null;
+  hairColor?: string | null;
   hairReferenceIndex?: number | null;
   hairColorReferenceIndex?: number | null;
 }) {
   if (!params.prompt.trim()) return "";
 
-  let nextPrompt = params.prompt
+  const referenceCount = normalizeReferenceCount(params.referenceCount);
+  const normalizedPrompt = normalizeModelPrompt(params.prompt);
+  const fragments = extractModelPromptFragments(normalizedPrompt);
+
+  const roleStatement = buildModelIdentityRoleStatement({
+    referenceCount,
+    hairReferenceIndex: params.hairReferenceIndex,
+    hairColorReferenceIndex: params.hairColorReferenceIndex,
+  });
+
+  return [
+    `【${MODEL_PROMPT_MARKER}】`,
+    roleStatement,
+    buildModelCoreTask(params.gender),
+    buildModelFusionMethod(referenceCount),
+    buildModelHairRule({
+      hairStyle: params.hairStyle,
+      hairColor: params.hairColor,
+      hairReferenceIndex: params.hairReferenceIndex,
+      hairColorReferenceIndex: params.hairColorReferenceIndex,
+    }),
+    "商业输出：单人半身头像/模特卡照片，白色基础上衣，干净浅灰或白色棚拍背景，柔和商业摄影布光；皮肤保留自然纹理、毛孔和轻微瑕疵，发丝边缘清晰真实。",
+    fragments.styleLine,
+    fragments.userIntent ? `用户补充/视觉分析：${fragments.userIntent}` : "",
+    `图像质量：${MODEL_QUALITY}`,
+    "负面审美约束：不要多个人，不要随机陌生脸，不要只像单张参考图，不要让最后一张参考图主导，不要默认美白、雪白皮或冷白皮，不要标准鹅蛋脸、小V脸、尖下巴、大眼高鼻网红审美，不要忽略发型/发色硬约束，不要过度磨皮、塑料皮肤、蜡像感、畸形五官、文字水印。",
+  ].filter(Boolean).join("\n");
+}
+
+function normalizeReferenceCount(referenceCount: number) {
+  const count = Math.floor(Number(referenceCount) || 1);
+  return Math.max(count, 1);
+}
+
+function buildReferenceList(referenceCount: number) {
+  return Array.from({ length: referenceCount }, (_, index) => `图${index + 1}`).join("、");
+}
+
+function buildModelCoreTask(gender?: string | null) {
+  const genderText = gender === "male" ? "男性" : gender === "female" ? "女性" : "人物";
+  return `核心任务：生成一位真实商业可用的${genderText}专属模特；最终长相必须是融合后的单一新身份，不是拼贴、换脸、平均脸或照搬任意参考图。`;
+}
+
+function buildModelFusionMethod(referenceCount: number) {
+  if (referenceCount <= 1) {
+    return "融合方法：以图1为身份基准，保留脸长宽比例、颧骨/下颌/下巴、眼型眼距、鼻翼鼻头、唇形厚薄、肤色冷暖、妆感和年龄质感；允许自然商业化美化，但不得换成模板脸。";
+  }
+
+  const refs = buildReferenceList(referenceCount);
+  return `融合方法：先分别提取${refs}的脸型骨相、五官比例、眼神气质、肤色冷暖、妆感、年龄感和真实皮肤质感，再重组为一个新长相；${refs}权重均衡，图${referenceCount}即使更清晰也不能成为主脸，只能贡献部分特征。`;
+}
+
+function buildModelHairRule(params: {
+  hairStyle?: string | null;
+  hairColor?: string | null;
+  hairReferenceIndex?: number | null;
+  hairColorReferenceIndex?: number | null;
+}) {
+  const hairStyle = cleanInlineText(params.hairStyle);
+  const hairColor = cleanInlineText(params.hairColor);
+  const hairRule = params.hairReferenceIndex
+    ? `发型必须优先跟随图${params.hairReferenceIndex}的轮廓、长度、刘海/分缝、蓬松度和发丝走向；该优先级高于人脸参考图里的原始发型`
+    : hairStyle
+      ? `发型必须采用「${hairStyle}」；该优先级高于人脸参考图里的原始发型`
+      : "发型按融合后的脸型自然适配，避免随机改成夸张或不协调发型";
+  const colorRule = params.hairColorReferenceIndex
+    ? `发色必须优先跟随图${params.hairColorReferenceIndex}的颜色、明暗层次和染发质感；不改变人脸身份`
+    : hairColor
+      ? `发色必须采用「${hairColor}」；不要被人脸参考图原始发色覆盖`
+      : "发色保持自然真实并服务整体商业质感";
+
+  return `发型发色硬约束：${hairRule}；${colorRule}。`;
+}
+
+function normalizeModelPrompt(prompt: string) {
+  return prompt
     .replace(/\r\n/g, "\n")
     .replace(/[ \t]+/g, " ")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+}
 
-  const roleStatement = buildModelIdentityRoleStatement({
-    referenceCount: params.referenceCount,
-    hairReferenceIndex: params.hairReferenceIndex,
-    hairColorReferenceIndex: params.hairColorReferenceIndex,
-  });
-  const expectedRefs = Array.from({ length: params.referenceCount }, (_, index) => `图${index + 1}`);
-  const missingRole =
-    expectedRefs.some((ref) => !nextPrompt.includes(ref)) ||
-    !/(融合|风格|妆感|肤色|脸型|骨相|气质|reference images|face style|makeup)/i.test(nextPrompt);
+function extractModelPromptFragments(prompt: string) {
+  const styleLines: string[] = [];
+  const userLines: string[] = [];
 
-  if (missingRole) {
-    nextPrompt = `${roleStatement}\n${nextPrompt}`;
-  }
-
-  const requiredRules = [
-    ["融合规则", MODEL_FUSION_RULE],
-    ["人脸风格规则", MODEL_FACE_STYLE_RULE],
-    ["妆感规则", MODEL_MAKEUP_RULE],
-    ["肤色规则", MODEL_SKIN_TONE_RULE],
-    ["脸型骨相规则", MODEL_FACE_SHAPE_RULE],
-    ["五官辨识度规则", MODEL_FEATURE_IDENTITY_RULE],
-    ["年龄感和肤质规则", MODEL_AGE_TEXTURE_RULE],
-  ] as const;
-  requiredRules.forEach(([marker, rule]) => {
-    if (!nextPrompt.includes(marker)) nextPrompt = `${nextPrompt}\n${rule}`;
+  prompt.split("\n").forEach((rawLine) => {
+    const line = unwrapModelUserLine(rawLine.trim());
+    if (!line) return;
+    if (line.includes("专属模特拍摄风格档位")) {
+      styleLines.push(line);
+      return;
+    }
+    if (MODEL_SYSTEM_LINE_PATTERNS.some((pattern) => pattern.test(line))) return;
+    userLines.push(line);
   });
 
-  if (params.hairReferenceIndex && !nextPrompt.includes(`图${params.hairReferenceIndex}`)) {
-    nextPrompt = `${nextPrompt}\n图${params.hairReferenceIndex} 只作为发型参考，不作为人脸身份参考。`;
+  return {
+    styleLine: dedupeTextParts(styleLines).join("\n"),
+    userIntent: limitModelIntent(dedupeTextParts(userLines).join("；")),
+  };
+}
+
+function unwrapModelUserLine(line: string) {
+  return line
+    .replace(/^用户补充\/视觉分析[:：]\s*/, "")
+    .replace(/^用户补充要求[:：]\s*/, "用户要求：")
+    .trim();
+}
+
+const MODEL_SYSTEM_LINE_PATTERNS = [
+  new RegExp(MODEL_PROMPT_MARKER),
+  /^【?专属模特生成协议/,
+  /^图像角色[:：]/,
+  /^核心任务[:：]/,
+  /^任务[:：]融合/,
+  /^融合方法[:：]/,
+  /^发型发色硬约束[:：]/,
+  /^商业输出[:：]/,
+  /^图像质量[:：]/,
+  /^负面/,
+  /^生成规则[:：]/,
+  /^融合规则[:：]/,
+  /^人脸风格规则[:：]/,
+  /^妆感规则[:：]/,
+  /^肤色规则[:：]/,
+  /^脸型骨相规则[:：]/,
+  /^五官辨识度规则[:：]/,
+  /^年龄感和肤质规则[:：]/,
+  /^白色基础上衣/,
+  /^图\d+\s*(是|只作为).*?(发型|发色).*?参考/,
+];
+
+function cleanInlineText(value?: string | null) {
+  return (value || "")
+    .replace(/\s+/g, " ")
+    .replace(/[。；;]+$/g, "")
+    .trim();
+}
+
+function dedupeTextParts(parts: string[]) {
+  const seen = new Set<string>();
+  return parts.filter((part) => {
+    const key = part.toLowerCase();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function limitModelIntent(text: string, maxChars = 520) {
+  const clean = text.replace(/\s+/g, " ").replace(/；{2,}/g, "；").trim();
+  if (clean.length <= maxChars) return clean;
+
+  const sentences = clean.match(/[^。！？；.!?;]+[。！？；.!?;]?/g) || [clean];
+  let result = "";
+  for (const sentence of sentences) {
+    const next = sentence.trim();
+    if (!next) continue;
+    if (result.length + next.length > maxChars) break;
+    result += next;
   }
 
-  if (params.hairColorReferenceIndex && !nextPrompt.includes(`图${params.hairColorReferenceIndex}`)) {
-    nextPrompt = `${nextPrompt}\n图${params.hairColorReferenceIndex} 只作为发色参考，不作为人脸身份参考。`;
-  }
-
-  const missingQuality = MODEL_QUALITY
-    .split(", ")
-    .filter((dimension) => !nextPrompt.includes(dimension));
-  if (missingQuality.length) {
-    nextPrompt = `${nextPrompt}\n图像质量：${MODEL_QUALITY}`;
-  }
-
-  if (!/标准鹅蛋脸|小V脸|雪白皮|冷白皮/.test(nextPrompt)) {
-    nextPrompt = `${nextPrompt}\n负面审美约束：不要默认美白，不要雪白皮或冷白皮，不要标准鹅蛋脸、小V脸、尖下巴、大眼高鼻网红审美，不要丢失参考图的脸型辨识度、肤色层次、年龄感和真实骨相。`;
-  }
-
-  return nextPrompt;
+  return (result || clean.slice(0, maxChars)).trim();
 }

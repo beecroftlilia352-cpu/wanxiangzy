@@ -80,8 +80,8 @@ ${roleLines}${hairReferenceLine}${hairColorReferenceLine}
 8. ${MODEL_FEATURE_IDENTITY_RULE}
 9. ${MODEL_AGE_TEXTURE_RULE}
 10. 发型参考图和发色参考图只参考对应维度，绝不能参与人脸身份融合。
-11. 用中文描述，一段话，260-420字，不要分段，不要解释。
-12. 包含：拍摄风格、人脸融合逻辑、长相风格、模特气质、妆感、肤色、脸型骨相、五官辨识度、年龄感、发型、发色、服装、灯光、背景、皮肤质感、图像质量。
+11. 用中文描述，一段话，140-240字，不要分段，不要解释，不要堆砌系统规则。
+12. 只输出高价值视觉分析：人脸融合逻辑、长相风格、模特气质、妆感、肤色、脸型骨相、五官辨识度、年龄感、发型、发色、服装、灯光、背景、皮肤质感。
 13. 结尾必须包含：${MODEL_QUALITY}
 14. 负面：不要多个人、不要随机陌生脸、不要只像单张参考图、不要无妆感、不要丢失参考图的面部氛围、不要默认美白、不要雪白皮或冷白皮、不要标准鹅蛋脸、小V脸、尖下巴、大眼高鼻网红审美、不要变形、不要AI味、不要过度磨皮、不要文字水印。
 
@@ -118,6 +118,9 @@ ${prompt ? `\n用户当前提示词（仅供参考，不要照抄）：\n${promp
       prompt: enforceModelPromptRequirements({
         prompt: applyModelShootStylePrompt(analyzedPrompt ? `${roleStatement}\n${analyzedPrompt}` : roleStatement, modelStyle),
         referenceCount,
+        gender,
+        hairStyle: typeof hair_style === "string" ? hair_style : null,
+        hairColor: typeof hair_color === "string" ? hair_color : null,
         hairReferenceIndex: hair_reference_url ? hairReferenceIndex : null,
         hairColorReferenceIndex: hair_color_reference_url ? hairColorReferenceIndex : null,
       }),

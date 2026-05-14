@@ -51,6 +51,9 @@ export async function POST(request: NextRequest) {
     const finalPrompt = enforceModelPromptRequirements({
       prompt: applyModelShootStylePrompt(prompt, modelStyle),
       referenceCount: reference_urls.length,
+      gender: gender === "male" ? "male" : "female",
+      hairStyle: typeof hair_style === "string" ? hair_style : null,
+      hairColor: typeof hair_color === "string" ? hair_color : null,
       hairReferenceIndex,
       hairColorReferenceIndex,
     });

@@ -579,6 +579,9 @@ async function executePayload(
       const prompt = enforceModelPromptRequirements({
         prompt: applyModelShootStylePrompt(payload.prompt, modelStyle),
         referenceCount: payload.referenceUrls.length,
+        gender: payload.gender,
+        hairStyle: payload.hairStyle,
+        hairColor: payload.hairColor,
         hairReferenceIndex: payload.hairReferenceUrl ? payload.referenceUrls.length + 1 : null,
         hairColorReferenceIndex: payload.hairColorReferenceUrl ? payload.referenceUrls.length + (payload.hairReferenceUrl ? 2 : 1) : null,
       });

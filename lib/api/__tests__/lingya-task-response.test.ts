@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { __lingyaTaskResponseTestUtils } from "../lingya";
 
-const { extractGeneratedImages, normalizeImageTaskResponse } = __lingyaTaskResponseTestUtils;
+const {
+  extractGeneratedImages,
+  getImageGenerationUrl,
+  normalizeImageTaskResponse,
+  resolveProviderImageModel,
+  shouldRequestAsyncImageTask,
+} = __lingyaTaskResponseTestUtils;
 
 describe("lingya async task response parsing", () => {
   it("extracts generated image URLs from nested provider result fields", () => {
@@ -54,5 +60,29 @@ describe("lingya async task response parsing", () => {
     });
 
     expect(images.urls).toEqual([]);
+  });
+
+  it("uses synchronous image generation for Plato and async tasks for Lingya", () => {
+    expect(shouldRequestAsyncImageTask({ name: "plato" })).toBe(false);
+    expect(shouldRequestAsyncImageTask({ name: "lingya" })).toBe(true);
+    expect(getImageGenerationUrl("https://api.bltcy.ai/v1", { name: "plato" }))
+      .toBe("https://api.bltcy.ai/v1/images/generations");
+    expect(getImageGenerationUrl("https://api.lingyaai.cn/v1", { name: "lingya" }))
+      .toBe("https://api.lingyaai.cn/v1/images/generations?async=true");
+  });
+
+  it("can override Plato gpt-image-2 with a provider-specific model id", () => {
+    const previous = process.env.PLATO_GPT_IMAGE_MODEL;
+    process.env.PLATO_GPT_IMAGE_MODEL = "gpt-image-2-vip";
+
+    expect(resolveProviderImageModel("gpt-image-2", { name: "plato" })).toBe("gpt-image-2-vip");
+    expect(resolveProviderImageModel("gpt-image-2", { name: "lingya" })).toBe("gpt-image-2");
+    expect(resolveProviderImageModel("nano-banana-2", { name: "plato" })).toBe("nano-banana-2");
+
+    if (previous === undefined) {
+      delete process.env.PLATO_GPT_IMAGE_MODEL;
+    } else {
+      process.env.PLATO_GPT_IMAGE_MODEL = previous;
+    }
   });
 });

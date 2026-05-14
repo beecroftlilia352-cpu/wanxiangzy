@@ -155,6 +155,7 @@ export async function generateImage(input: GenerateInput, retries = 2): Promise<
   });
 
   const body = buildGenerateRequestBody(input, compiledPrompt);
+  body.model = resolveProviderImageModel(input.model, provider);
 
   // 日志（不含完整 base64、不含完整 prompt 内容）
   const logBody: Record<string, unknown> = {
@@ -170,7 +171,7 @@ export async function generateImage(input: GenerateInput, retries = 2): Promise<
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
       await input.onProgress?.({ status: "queued", progress: 0 });
-      const res = await fetch(`${apiBase}/images/generations?async=true`, {
+      const res = await fetch(getImageGenerationUrl(apiBase, provider), {
         method: "POST",
         headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -190,7 +191,7 @@ export async function generateImage(input: GenerateInput, retries = 2): Promise<
       const json = JSON.parse(resText);
       const taskId = extractTaskId(json);
       const immediateResult = extractGeneratedImages(json);
-      console.log(`[api:${provider.name}] 异步响应: ok=${res.ok}, hasTask=${Boolean(taskId)}, imageCount=${immediateResult.urls.length + (immediateResult.b64Json ? 1 : 0)}`);
+      console.log(`[api:${provider.name}] 生成响应: ok=${res.ok}, async=${shouldRequestAsyncImageTask(provider)}, hasTask=${Boolean(taskId)}, imageCount=${immediateResult.urls.length + (immediateResult.b64Json ? 1 : 0)}`);
 
       if (!taskId) {
         if (immediateResult.urls.length || immediateResult.b64Json) {
@@ -760,6 +761,22 @@ function getImageProvider(model: LingyaModel): { name: string; apiBase: string; 
   };
 }
 
+function getImageGenerationUrl(apiBase: string, provider: { name: string }): string {
+  const endpoint = `${apiBase}/images/generations`;
+  return shouldRequestAsyncImageTask(provider) ? `${endpoint}?async=true` : endpoint;
+}
+
+function shouldRequestAsyncImageTask(provider: { name: string }): boolean {
+  return provider.name !== "plato";
+}
+
+function resolveProviderImageModel(model: LingyaModel, provider: { name: string }): string {
+  if (provider.name === "plato" && model === "gpt-image-2") {
+    return process.env.PLATO_GPT_IMAGE_MODEL?.trim() || model;
+  }
+  return model;
+}
+
 /**
  * gpt-image-2 只接受标准尺寸，映射宽高比到 API 支持的值
  */
@@ -1220,5 +1237,8 @@ function toEnglishImageRef(value: string) {
 
 export const __lingyaTaskResponseTestUtils = {
   extractGeneratedImages,
+  getImageGenerationUrl,
   normalizeImageTaskResponse,
+  resolveProviderImageModel,
+  shouldRequestAsyncImageTask,
 };
