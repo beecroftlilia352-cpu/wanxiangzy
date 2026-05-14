@@ -40,6 +40,11 @@ const DEFAULT_API_BASE = "https://api.lingyaai.cn/v1";
 const DEFAULT_PLATO_API_BASE = "https://api.laozhang.ai/v1";
 const DEFAULT_GPT_IMAGE_2_PROVIDER_MODEL = "gpt-image-2-vip";
 const CONCISE_TRYON_PROMPT_MODE = true;
+const IMAGE_REQUEST_PROGRESS_INITIAL = 2;
+const IMAGE_REQUEST_PROGRESS_INTERVAL_MS = 8000;
+const IMAGE_REQUEST_PROGRESS_CURVE_MS = 90_000;
+const SYNC_IMAGE_REQUEST_PROGRESS_MAX = 92;
+const ASYNC_IMAGE_SUBMIT_PROGRESS_MAX = 8;
 
 export type LingyaModel = "gpt-image-2" | "doubao-seedream-4-5-251128" | "nano-banana-pro" | "nano-banana-2";
 export type AspectRatio = "auto" | "1:1" | "9:16" | "16:9" | "4:3" | "3:4" | "2:3" | "3:2" | "4:5" | "5:4" | "21:9";
@@ -171,14 +176,25 @@ export async function generateImage(input: GenerateInput, retries = 2): Promise<
 
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
-      await input.onProgress?.({ status: "queued", progress: 0 });
-      const res = await fetch(getImageGenerationUrl(apiBase, provider), {
-        method: "POST",
-        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+      const isAsyncSubmit = shouldRequestAsyncImageTask(provider);
+      await input.onProgress?.({ status: "queued", providerStatus: "REQUEST_QUEUED", progress: 1 });
+      let res: Response;
+      let resText: string;
+      const stopRequestHeartbeat = startImageRequestProgressHeartbeat(input.onProgress, {
+        maxProgress: isAsyncSubmit ? ASYNC_IMAGE_SUBMIT_PROGRESS_MAX : SYNC_IMAGE_REQUEST_PROGRESS_MAX,
+        providerStatus: isAsyncSubmit ? "SUBMITTING" : "GENERATING",
       });
+      try {
+        res = await fetch(getImageGenerationUrl(apiBase, provider), {
+          method: "POST",
+          headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
 
-      const resText = await res.text();
+        resText = await res.text();
+      } finally {
+        stopRequestHeartbeat();
+      }
 
       if (!res.ok) {
         console.error(`[api:${provider.name}] 第${attempt}次失败: ${res.status}`, resText.slice(0, 300));
@@ -241,6 +257,55 @@ export async function generateImage(input: GenerateInput, retries = 2): Promise<
   }
 
   throw new Error("API 多次重试后失败");
+}
+
+function startImageRequestProgressHeartbeat(
+  onProgress: GenerateInput["onProgress"],
+  options: { maxProgress: number; providerStatus: string }
+) {
+  if (!onProgress) return () => {};
+
+  const startedAt = Date.now();
+  let stopped = false;
+  let lastProgress = 1;
+  let pending: Promise<void> = Promise.resolve();
+
+  const emit = (progress: number) => {
+    if (stopped) return;
+    const nextProgress = Math.max(lastProgress, progress);
+    if (nextProgress === lastProgress) return;
+    lastProgress = nextProgress;
+    pending = pending
+      .then(async () => {
+        if (stopped) return;
+        await onProgress({
+          status: "running",
+          providerStatus: options.providerStatus,
+          progress: nextProgress,
+        });
+      })
+      .catch(() => {});
+  };
+
+  emit(IMAGE_REQUEST_PROGRESS_INITIAL);
+  const timer = setInterval(() => {
+    emit(calculateImageRequestHeartbeatProgress(Date.now() - startedAt, lastProgress, options.maxProgress));
+  }, IMAGE_REQUEST_PROGRESS_INTERVAL_MS);
+
+  return () => {
+    stopped = true;
+    clearInterval(timer);
+  };
+}
+
+function calculateImageRequestHeartbeatProgress(elapsedMs: number, previousProgress: number, maxProgress: number) {
+  const safeMax = Math.min(99, Math.max(IMAGE_REQUEST_PROGRESS_INITIAL, Math.round(maxProgress)));
+  const safePrevious = Math.min(safeMax, Math.max(0, Math.round(previousProgress)));
+  const elapsed = Math.max(0, elapsedMs);
+  const eased = 1 - Math.exp(-elapsed / IMAGE_REQUEST_PROGRESS_CURVE_MS);
+  const target = Math.round(IMAGE_REQUEST_PROGRESS_INITIAL + (safeMax - IMAGE_REQUEST_PROGRESS_INITIAL) * eased);
+  const stepped = safePrevious < safeMax ? safePrevious + 1 : safePrevious;
+  return Math.min(safeMax, Math.max(safePrevious, stepped, target));
 }
 
 export async function batchTryOn(input: BatchTryOnInput): Promise<{ resultUrls: string[]; prompt: string; compiledPrompt: string; taskId?: string }> {
@@ -1247,6 +1312,7 @@ function toEnglishImageRef(value: string) {
 }
 
 export const __lingyaTaskResponseTestUtils = {
+  calculateImageRequestHeartbeatProgress,
   extractGeneratedImages,
   getImageGenerationUrl,
   getPlatoApiBaseUrl,

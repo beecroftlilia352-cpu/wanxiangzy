@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { __lingyaTaskResponseTestUtils } from "../lingya";
 
 const {
+  calculateImageRequestHeartbeatProgress,
   extractGeneratedImages,
   getImageGenerationUrl,
   getPlatoApiBaseUrl,
@@ -105,5 +106,12 @@ describe("lingya async task response parsing", () => {
     } else {
       process.env.PLATO_BASE_URL = previous;
     }
+  });
+
+  it("eases synchronous request progress while leaving room for completion", () => {
+    expect(calculateImageRequestHeartbeatProgress(0, 1, 92)).toBe(2);
+    expect(calculateImageRequestHeartbeatProgress(60_000, 2, 92)).toBeGreaterThanOrEqual(40);
+    expect(calculateImageRequestHeartbeatProgress(5 * 60_000, 91, 92)).toBe(92);
+    expect(calculateImageRequestHeartbeatProgress(5 * 60_000, 92, 92)).toBe(92);
   });
 });
