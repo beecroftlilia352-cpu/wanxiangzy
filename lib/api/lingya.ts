@@ -37,7 +37,8 @@ import {
 } from "@/lib/tryon-upload-rules";
 
 const DEFAULT_API_BASE = "https://api.lingyaai.cn/v1";
-const DEFAULT_PLATO_API_BASE = "https://api.bltcy.ai/v1";
+const DEFAULT_PLATO_API_BASE = "https://api.laozhang.ai/v1";
+const DEFAULT_GPT_IMAGE_2_PROVIDER_MODEL = "gpt-image-2-vip";
 const CONCISE_TRYON_PROMPT_MODE = true;
 
 export type LingyaModel = "gpt-image-2" | "doubao-seedream-4-5-251128" | "nano-banana-pro" | "nano-banana-2";
@@ -742,7 +743,9 @@ function getImageApiBaseUrl(): string {
 
 function getPlatoApiBaseUrl(): string {
   const envValue = process.env.PLATO_BASE_URL;
-  return envValue ? normalizeOpenAiCompatibleBaseUrl(envValue) : DEFAULT_PLATO_API_BASE;
+  const normalized = envValue ? normalizeOpenAiCompatibleBaseUrl(envValue) : "";
+  if (!normalized || isDeprecatedGptImage2ProviderBase(normalized)) return DEFAULT_PLATO_API_BASE;
+  return normalized;
 }
 
 function getImageProvider(model: LingyaModel): { name: string; apiBase: string; apiKey?: string } {
@@ -772,9 +775,17 @@ function shouldRequestAsyncImageTask(provider: { name: string }): boolean {
 
 function resolveProviderImageModel(model: LingyaModel, provider: { name: string }): string {
   if (provider.name === "plato" && model === "gpt-image-2") {
-    return process.env.PLATO_GPT_IMAGE_MODEL?.trim() || model;
+    return process.env.PLATO_GPT_IMAGE_MODEL?.trim() || DEFAULT_GPT_IMAGE_2_PROVIDER_MODEL;
   }
   return model;
+}
+
+function isDeprecatedGptImage2ProviderBase(apiBase: string) {
+  try {
+    return new URL(apiBase).hostname === "api.bltcy.ai";
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -1238,6 +1249,7 @@ function toEnglishImageRef(value: string) {
 export const __lingyaTaskResponseTestUtils = {
   extractGeneratedImages,
   getImageGenerationUrl,
+  getPlatoApiBaseUrl,
   normalizeImageTaskResponse,
   resolveProviderImageModel,
   shouldRequestAsyncImageTask,

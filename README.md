@@ -66,8 +66,10 @@ SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 # Feature required: image generation
 LINGYA_BASE_URL=https://api.lingyaai.cn
 LINGYA_API_KEY=your-lingya-api-key
-PLATO_BASE_URL=https://api.bltcy.ai
+PLATO_BASE_URL=https://api.laozhang.ai
 PLATO_API_KEY=your-plato-api-key
+# The app's gpt-image-2 option defaults to provider model gpt-image-2-vip.
+PLATO_GPT_IMAGE_MODEL=gpt-image-2-vip
 
 # Feature required: prompt analysis / prompt optimization
 ANALYZE_LLM_PROVIDER=xiaomi
