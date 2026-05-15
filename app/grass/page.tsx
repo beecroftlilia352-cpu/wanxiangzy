@@ -10,7 +10,6 @@ import { ModelPromptPreview } from "@/components/ModelPromptPreview";
 import { RepairPromptPanel } from "@/components/RepairPromptPanel";
 import { ClientPortal } from "@/components/ClientPortal";
 import { PreviewGuide } from "@/components/PreviewGuide";
-import { LoadingStage } from "@/components/studio/LoadingStage";
 import { ErrorStage } from "@/components/studio/ErrorStage";
 import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
@@ -447,7 +446,18 @@ export default function GrassPage() {
                 图片规则 <ChevronRight className="h-3 w-3" />
               </button>
             </div>
-            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleFile(e.target.files?.[0])} />
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(event) => {
+                const input = event.currentTarget;
+                void handleFile(input.files?.[0]).finally(() => {
+                  input.value = "";
+                });
+              }}
+            />
             {garmentUrl ? (
               <div className="group studio-checkerboard studio-fixed-upload-preview relative overflow-hidden rounded-2xl border border-dashed border-slate-200" style={{ "--studio-fixed-preview-height": "320px" } as CSSProperties}>
                 <img src={garmentUrl} alt="服装图" className="h-full w-full object-contain p-3" />
@@ -546,7 +556,18 @@ export default function GrassPage() {
                 onDrop={(e) => { e.preventDefault(); setIsDraggingReference(false); handleReferenceFile(e.dataTransfer.files?.[0]); }}
                 className={`mt-3 rounded-2xl border border-dashed bg-white/70 p-3 transition ${isDraggingReference ? "border-purple-400 ring-2 ring-purple-100" : "border-slate-200"}`}
               >
-                <input ref={referenceInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleReferenceFile(e.target.files?.[0])} />
+                <input
+                  ref={referenceInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(event) => {
+                    const input = event.currentTarget;
+                    void handleReferenceFile(input.files?.[0]).finally(() => {
+                      input.value = "";
+                    });
+                  }}
+                />
                 {uploadedReferenceUrl ? (
                   <div className="group studio-fixed-upload-preview relative overflow-hidden rounded-xl bg-slate-100" style={{ "--studio-fixed-preview-height": "208px" } as CSSProperties}>
                     <img src={uploadedReferenceUrl} alt="种草参考图" className="h-full w-full object-contain p-2" />
@@ -717,10 +738,7 @@ export default function GrassPage() {
             />
           </div>
         )}
-        {isGenerating && resultUrls.length === 0 && (
-          <LoadingStage genCount={genCount} progress={progress} moduleName="服装种草图" />
-        )}
-        {resultUrls.length > 0 && (
+        {(isGenerating || resultUrls.length > 0) && (
           <div className="studio-result-stage min-h-[260px] sm:min-h-[360px] overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:h-full flex flex-col animate-fade-in">
             <div className="flex min-h-0 flex-1 items-start justify-start">
               <ResultImageGrid
@@ -729,6 +747,9 @@ export default function GrassPage() {
                 extension="jpg"
                 expectedCount={isGenerating ? genCount : undefined}
                 isGenerating={isGenerating}
+                inputThumbnails={promptImages.map((item) => item.url)}
+                statusGroup={isGenerating ? "running" : undefined}
+                variant={isGenerating ? "task" : "cards"}
                 onOpen={setLightboxSrc}
               />
             </div>

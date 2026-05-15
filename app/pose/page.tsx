@@ -14,7 +14,6 @@ import { enforcePosePromptRequirements, type PoseOutputMode } from "@/lib/pose-p
 import { StyleChoiceGrid } from "@/components/StyleChoiceGrid";
 import { ModuleHeader } from "@/components/ModuleHeader";
 import { PreviewGuide } from "@/components/PreviewGuide";
-import { LoadingStage } from "@/components/studio/LoadingStage";
 import { ErrorStage } from "@/components/studio/ErrorStage";
 import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
@@ -421,7 +420,18 @@ export default function PosePage() {
                 图片规则 <ChevronRight className="h-3 w-3" />
               </button>
             </div>
-            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleFile(e.target.files?.[0])} />
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(event) => {
+                const input = event.currentTarget;
+                void handleFile(input.files?.[0]).finally(() => {
+                  input.value = "";
+                });
+              }}
+            />
             {mainImage ? (
               <div className="group studio-checkerboard studio-fixed-upload-preview relative overflow-hidden rounded-2xl border border-dashed border-slate-200" style={{ "--studio-fixed-preview-height": "320px" } as CSSProperties}>
                 <img src={mainImage} alt="姿势裂变主图" className="h-full w-full object-contain p-3" />
@@ -678,11 +688,7 @@ export default function PosePage() {
           </div>
         )}
 
-        {isGenerating && resultUrls.length === 0 && (
-          <LoadingStage genCount={4} progress={progress} moduleName="姿势裂变" />
-        )}
-
-        {resultUrls.length > 0 && (
+        {(isGenerating || resultUrls.length > 0) && (
           <div className="studio-result-stage min-h-[260px] sm:min-h-[360px] overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:h-full flex flex-col animate-fade-in">
             {isGenerating && (
               <div className="mb-4 rounded-xl border border-purple-100 bg-white/80 px-3 py-2 text-xs font-medium text-purple-600 shadow-sm">
@@ -695,8 +701,11 @@ export default function PosePage() {
                 filenamePrefix="pose"
                 extension="jpg"
                 onOpen={setLightboxSrc}
-                expectedCount={isGenerating && outputMode === "separate" ? 4 : undefined}
+                expectedCount={isGenerating ? outputMode === "separate" ? 4 : 1 : undefined}
                 isGenerating={isGenerating}
+                inputThumbnails={mainImage ? [mainImage] : []}
+                statusGroup={isGenerating ? "running" : undefined}
+                variant={isGenerating ? "task" : "cards"}
               />
             </div>
             <div className="mt-4 flex justify-center">

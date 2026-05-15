@@ -24,7 +24,6 @@ import { ModuleHeader } from "@/components/ModuleHeader";
 import { ModelPromptPreview } from "@/components/ModelPromptPreview";
 import { PreviewGuide } from "@/components/PreviewGuide";
 import { RepairPromptPanel } from "@/components/RepairPromptPanel";
-import { LoadingStage } from "@/components/studio/LoadingStage";
 import { ErrorStage } from "@/components/studio/ErrorStage";
 import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
@@ -471,7 +470,18 @@ export default function ModelBackgroundPage() {
                 图片规则 <ChevronRight className="h-3 w-3" />
               </button>
             </div>
-            <input ref={sourceInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleUpload(e.target.files?.[0], "source")} />
+            <input
+              ref={sourceInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(event) => {
+                const input = event.currentTarget;
+                void handleUpload(input.files?.[0], "source").finally(() => {
+                  input.value = "";
+                });
+              }}
+            />
             <div className="relative overflow-hidden rounded-2xl border border-dashed border-slate-200 bg-slate-50/70">
               {sourceUrl ? (
                 <div className="group studio-checkerboard studio-fixed-upload-preview relative flex items-center justify-center overflow-hidden rounded-2xl" style={{ "--studio-fixed-preview-height": "320px" } as CSSProperties}>
@@ -558,7 +568,18 @@ export default function ModelBackgroundPage() {
               <p className="text-[11px] text-gray-400 mb-3">
                 {mode === "model_only" ? "只换主图脸部，身体、服装、发型、姿势、背景都保持原图不变。" : "请选择系统模特或上传模特图，再替换模特与背景；图1服装和穿搭仍保持不变。"}
               </p>
-              <input ref={modelInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleUpload(e.target.files?.[0], "model")} />
+              <input
+                ref={modelInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(event) => {
+                  const input = event.currentTarget;
+                  void handleUpload(input.files?.[0], "model").finally(() => {
+                    input.value = "";
+                  });
+                }}
+              />
               <div className="grid grid-cols-3 gap-2">
                 {PRESET_BACKGROUND_MODELS.map((model) => (
                   <div
@@ -632,7 +653,18 @@ export default function ModelBackgroundPage() {
                   </button>
                 ))}
               </div>
-              <input ref={backgroundInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleUpload(e.target.files?.[0], "background")} />
+              <input
+                ref={backgroundInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(event) => {
+                  const input = event.currentTarget;
+                  void handleUpload(input.files?.[0], "background").finally(() => {
+                    input.value = "";
+                  });
+                }}
+              />
               {backgroundSource === "preset" ? (
                 <div className="rounded-2xl border border-dashed border-slate-200 bg-white/55 p-3">
                   <p className="mb-3 text-[11px] text-slate-500">选择系统参考图，只参考场景、光线、色彩和空间氛围。</p>
@@ -808,11 +840,7 @@ export default function ModelBackgroundPage() {
           </div>
         )}
 
-        {isGenerating && resultUrls.length === 0 && (
-          <LoadingStage genCount={genCount} progress={progress} moduleName="模特换背景" />
-        )}
-
-        {resultUrls.length > 0 && (
+        {(isGenerating || resultUrls.length > 0) && (
           <div className="studio-result-stage min-h-[260px] sm:min-h-[360px] overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:h-full flex flex-col animate-fade-in">
             <div className="flex min-h-0 flex-1 items-start justify-start">
               <ResultImageGrid
@@ -820,6 +848,9 @@ export default function ModelBackgroundPage() {
                 filenamePrefix="model-background"
                 expectedCount={isGenerating ? genCount : undefined}
                 isGenerating={isGenerating}
+                inputThumbnails={promptImages.map((item) => item.url)}
+                statusGroup={isGenerating ? "running" : undefined}
+                variant={isGenerating ? "task" : "cards"}
                 onOpen={setLightboxSrc}
               />
             </div>

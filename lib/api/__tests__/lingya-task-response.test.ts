@@ -77,7 +77,7 @@ describe("lingya async task response parsing", () => {
     const previous = process.env.PLATO_GPT_IMAGE_MODEL;
     delete process.env.PLATO_GPT_IMAGE_MODEL;
 
-    expect(resolveProviderImageModel("gpt-image-2", { name: "plato" })).toBe("gpt-image-2-vip");
+    expect(resolveProviderImageModel("gpt-image-2", { name: "plato" })).toBe("gpt-image-2");
 
     process.env.PLATO_GPT_IMAGE_MODEL = "gpt-image-2-custom";
 
@@ -92,11 +92,11 @@ describe("lingya async task response parsing", () => {
     }
   });
 
-  it("routes deprecated Plato base URL to the LaoZhang provider by default", () => {
+  it("routes deprecated Plato base URL to the default GPT image provider", () => {
     const previous = process.env.PLATO_BASE_URL;
     process.env.PLATO_BASE_URL = "https://api.bltcy.ai";
 
-    expect(getPlatoApiBaseUrl()).toBe("https://api.laozhang.ai/v1");
+    expect(getPlatoApiBaseUrl()).toBe("https://yunwu.ai/v1");
 
     process.env.PLATO_BASE_URL = "https://api.example.com/proxy";
     expect(getPlatoApiBaseUrl()).toBe("https://api.example.com/proxy/v1");

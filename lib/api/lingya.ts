@@ -37,8 +37,8 @@ import {
 } from "@/lib/tryon-upload-rules";
 
 const DEFAULT_API_BASE = "https://api.lingyaai.cn/v1";
-const DEFAULT_PLATO_API_BASE = "https://api.laozhang.ai/v1";
-const DEFAULT_GPT_IMAGE_2_PROVIDER_MODEL = "gpt-image-2-vip";
+const DEFAULT_PLATO_API_BASE = "https://yunwu.ai/v1";
+const DEFAULT_GPT_IMAGE_2_PROVIDER_MODEL = "gpt-image-2";
 const CONCISE_TRYON_PROMPT_MODE = true;
 const IMAGE_REQUEST_PROGRESS_INITIAL = 2;
 const IMAGE_REQUEST_PROGRESS_INTERVAL_MS = 8000;

@@ -21,7 +21,6 @@ import { toast } from "sonner";
 import { FeatureTabs } from "@/components/FeatureTabs";
 import { ClientPortal } from "@/components/ClientPortal";
 import { ModuleHeader } from "@/components/ModuleHeader";
-import { LoadingStage } from "@/components/studio/LoadingStage";
 import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
 import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
 import {
@@ -488,7 +487,18 @@ export default function FaceSwapPage() {
               uploadLabel="从本地上传"
               footnote="文件大小 20KB-15MB，分辨率大于 400×400，支持 jpg/jpeg/png/webp"
             />
-            <input ref={originalInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleUpload(e.target.files?.[0], "source")} />
+            <input
+              ref={originalInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(event) => {
+                const input = event.currentTarget;
+                void handleUpload(input.files?.[0], "source").finally(() => {
+                  input.value = "";
+                });
+              }}
+            />
             <div className="mt-3 flex items-center gap-2">
               <span className="w-12 shrink-0 text-[11px] font-semibold leading-tight text-slate-500">示例图</span>
               <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto pb-1">
@@ -534,7 +544,18 @@ export default function FaceSwapPage() {
               libraryLabel="选择官方脸"
               footnote="只提取五官身份，不改变原图肤色、发型、身体、服装和背景。"
             />
-            <input ref={faceInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleUpload(e.target.files?.[0], "face")} />
+            <input
+              ref={faceInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(event) => {
+                const input = event.currentTarget;
+                void handleUpload(input.files?.[0], "face").finally(() => {
+                  input.value = "";
+                });
+              }}
+            />
           </section>
 
           <ControlSection title="生成模型" icon={<Sparkles className="h-4 w-4" />}>
@@ -658,9 +679,7 @@ export default function FaceSwapPage() {
       </aside>
 
       <main className="studio-canvas relative mt-3 mb-6 min-h-[260px] flex-1 overflow-hidden sm:min-h-[360px] lg:mt-0 lg:mb-0 lg:min-h-0">
-        {status === "running" && resultUrls.length === 0 ? (
-          <LoadingStage genCount={genCount} progress={progress} moduleName="AI 换脸" />
-        ) : resultUrls.length > 0 ? (
+        {status === "running" || resultUrls.length > 0 ? (
           <ResultsPanel
             urls={resultUrls}
             isGenerating={status === "running"}

@@ -17,7 +17,6 @@ import {
 import { toast } from "sonner";
 import { FeatureTabs } from "@/components/FeatureTabs";
 import { ModuleHeader } from "@/components/ModuleHeader";
-import { LoadingStage } from "@/components/studio/LoadingStage";
 import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
 import { ClientPortal } from "@/components/ClientPortal";
@@ -677,14 +676,19 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
           </div>
         )}
 
-        {isGenerating && resultUrls.length === 0 && (
-          <LoadingStage genCount={genCount} progress={progress} moduleName={modeMeta.title} />
-        )}
-
-        {resultUrls.length > 0 && (
+        {(isGenerating || resultUrls.length > 0) && (
           <div className="studio-result-stage min-h-[260px] sm:min-h-[360px] overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:h-full flex flex-col animate-fade-in">
             <div className="flex min-h-0 flex-1 items-start justify-start">
-              <ResultImageGrid urls={resultUrls} filenamePrefix={isImageMode ? "image-to-image" : "text-to-image"} expectedCount={genCount} isGenerating={isGenerating} onOpen={setLightboxSrc} />
+              <ResultImageGrid
+                urls={resultUrls}
+                filenamePrefix={isImageMode ? "image-to-image" : "text-to-image"}
+                expectedCount={isGenerating ? genCount : undefined}
+                isGenerating={isGenerating}
+                inputThumbnails={referenceImages.map((item) => item.preview || item.url)}
+                statusGroup={isGenerating ? "running" : undefined}
+                variant={isGenerating ? "task" : "cards"}
+                onOpen={setLightboxSrc}
+              />
             </div>
             <div className="mt-4 flex justify-center gap-2">
               <button

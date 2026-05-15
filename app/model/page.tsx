@@ -11,7 +11,6 @@ import { ClientPortal } from "@/components/ClientPortal";
 import { StyleChoiceGrid } from "@/components/StyleChoiceGrid";
 import { ModuleHeader } from "@/components/ModuleHeader";
 import { PreviewGuide } from "@/components/PreviewGuide";
-import { LoadingStage } from "@/components/studio/LoadingStage";
 import { ErrorStage } from "@/components/studio/ErrorStage";
 import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
@@ -114,6 +113,10 @@ export default function ModelPage() {
   const defaultPrompt = useMemo(
     () => buildDefaultPrompt(referenceUrls.length || 1, gender, hairStyle, hairColor, !!hairReferenceUrl, !!hairColorReferenceUrl, modelStyle),
     [referenceUrls.length, gender, hairStyle, hairColor, hairReferenceUrl, hairColorReferenceUrl, modelStyle]
+  );
+  const taskInputThumbnails = useMemo(
+    () => [referenceUrls[0], hairReferenceUrl, hairColorReferenceUrl].filter(Boolean) as string[],
+    [referenceUrls, hairReferenceUrl, hairColorReferenceUrl]
   );
 
   const cancelRulesHide = () => {
@@ -534,7 +537,20 @@ export default function ModelPage() {
                 图片规则 <ChevronRight className="h-3 w-3" />
               </button>
             </div>
-            <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => addFiles(e.target.files || undefined)} />
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={(event) => {
+                const input = event.currentTarget;
+                const files = Array.from(input.files || []);
+                void addFiles(files).finally(() => {
+                  input.value = "";
+                });
+              }}
+            />
             <div
               onDragEnter={handleReferenceDragEnter}
               onDragLeave={handleReferenceDragLeave}
@@ -664,7 +680,13 @@ export default function ModelPage() {
               type="file"
               accept="image/*"
               className="hidden"
-              onChange={(e) => uploadHairReference(e.target.files || undefined)}
+              onChange={(event) => {
+                const input = event.currentTarget;
+                const files = Array.from(input.files || []);
+                void uploadHairReference(files).finally(() => {
+                  input.value = "";
+                });
+              }}
             />
             <div className="grid grid-cols-4 gap-2">
               <button
@@ -734,7 +756,13 @@ export default function ModelPage() {
               type="file"
               accept="image/*"
               className="hidden"
-              onChange={(e) => uploadHairColorReference(e.target.files || undefined)}
+              onChange={(event) => {
+                const input = event.currentTarget;
+                const files = Array.from(input.files || []);
+                void uploadHairColorReference(files).finally(() => {
+                  input.value = "";
+                });
+              }}
             />
             <div className="grid grid-cols-4 gap-2">
               <button
@@ -928,11 +956,7 @@ export default function ModelPage() {
           </div>
         )}
 
-        {isGenerating && resultUrls.length === 0 && (
-          <LoadingStage genCount={genCount} progress={progress} moduleName="专属模特" />
-        )}
-
-        {resultUrls.length > 0 && (
+        {(isGenerating || resultUrls.length > 0) && (
           <div className="studio-result-stage min-h-[260px] sm:min-h-[360px] overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:h-full flex flex-col animate-fade-in">
             <div className="flex min-h-0 flex-1 items-start justify-start">
               <ResultImageGrid
@@ -941,6 +965,9 @@ export default function ModelPage() {
                 extension="jpg"
                 expectedCount={isGenerating ? genCount : undefined}
                 isGenerating={isGenerating}
+                inputThumbnails={taskInputThumbnails}
+                statusGroup={isGenerating ? "running" : undefined}
+                variant={isGenerating ? "task" : "cards"}
                 onOpen={setLightboxSrc}
               />
             </div>

@@ -11,7 +11,6 @@ import { ClientPortal } from "@/components/ClientPortal";
 import { StyleChoiceGrid } from "@/components/StyleChoiceGrid";
 import { ModuleHeader } from "@/components/ModuleHeader";
 import { PreviewGuide } from "@/components/PreviewGuide";
-import { LoadingStage } from "@/components/studio/LoadingStage";
 import { ErrorStage } from "@/components/studio/ErrorStage";
 import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
@@ -103,6 +102,10 @@ export default function Garment3dPage() {
   const costPerImage = getCreditCost(aiModel, imageSize, aspectRatio);
   const totalCost = costPerImage * genCount;
   const activeReferenceUrl = customReferenceUrl || selectedReference.url;
+  const taskInputThumbnails = useMemo(
+    () => [garmentUrl, outputMode === "reference" ? activeReferenceUrl : ""].filter(Boolean) as string[],
+    [garmentUrl, outputMode, activeReferenceUrl]
+  );
 
   const builtPrompt = useMemo(() => {
     return buildGarment3dPrompt({
@@ -516,7 +519,13 @@ export default function Garment3dPage() {
               type="file"
               accept="image/*"
               className="hidden"
-              onChange={(e) => e.target.files && handleGarmentFiles(e.target.files)}
+              onChange={(event) => {
+                const input = event.currentTarget;
+                const files = Array.from(input.files || []);
+                void handleGarmentFiles(files).finally(() => {
+                  input.value = "";
+                });
+              }}
             />
             {garmentUrl ? (
               <div className="relative group">
@@ -662,7 +671,12 @@ export default function Garment3dPage() {
                   type="file"
                   accept="image/*"
                   className="hidden"
-                  onChange={(e) => handleCustomReference(e.target.files?.[0])}
+                  onChange={(event) => {
+                    const input = event.currentTarget;
+                    void handleCustomReference(input.files?.[0]).finally(() => {
+                      input.value = "";
+                    });
+                  }}
                 />
                 <p className="text-[11px] text-gray-400">参考图用于锁定立体风格和角度，不会替换用户服装的款式和颜色。</p>
               </div>
@@ -833,11 +847,7 @@ export default function Garment3dPage() {
           </div>
         )}
 
-        {isGenerating && resultUrls.length === 0 && (
-          <LoadingStage genCount={genCount} progress={progress} moduleName="服装 3D" />
-        )}
-
-        {resultUrls.length > 0 && (
+        {(isGenerating || resultUrls.length > 0) && (
           <div className="studio-result-stage min-h-[260px] sm:min-h-[360px] overflow-y-auto overflow-x-hidden p-4 pb-28 sm:p-6 sm:pb-28 lg:h-full animate-fade-in">
             <div className="flex min-h-full items-start justify-start">
               <ResultImageGrid
@@ -845,6 +855,9 @@ export default function Garment3dPage() {
                 filenamePrefix="garment-3d"
                 expectedCount={isGenerating ? genCount : undefined}
                 isGenerating={isGenerating}
+                inputThumbnails={taskInputThumbnails}
+                statusGroup={isGenerating ? "running" : undefined}
+                variant={isGenerating ? "task" : "cards"}
                 onOpen={setLightboxSrc}
               />
             </div>

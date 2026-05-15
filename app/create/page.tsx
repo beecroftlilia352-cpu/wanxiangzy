@@ -1,6 +1,6 @@
 "use client";
 
-import type { CSSProperties, KeyboardEvent } from "react";
+import type { ChangeEvent, CSSProperties, KeyboardEvent } from "react";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { 
@@ -172,6 +172,8 @@ export default function CreatePage() {
   const [isDraggingRef, setIsDraggingRef] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeQueueTask, setActiveQueueTask] = useState<TaskQueueItem | null>(null);
+  const customRefInputRef = useRef<HTMLInputElement>(null);
+  const customModelInputRef = useRef<HTMLInputElement>(null);
   const sourceLibrary = useTryOnSourceLibrary({
     isAuthenticated,
     onUnauthenticated: () => {
@@ -763,12 +765,15 @@ export default function CreatePage() {
     store.setPromptUsed("");
   };
 
-  const handleCustomModel = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]; if (!file) return;
-    const base64 = await fileToBase64(file);
-    setCustomModelPreview(base64);
+  const handleCustomModelFile = async (file?: File) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) return toast.error("请上传图片文件");
+    if (file.size > MAX_FILE_SIZE) return toast.error(`${file.name} 超过 ${MAX_FILE_SIZE_MB}MB`);
+
     toast.info("正在上传模特图...");
     try {
+      const base64 = await fileToBase64(file);
+      setCustomModelPreview(base64);
       const result = await uploadImage(file);
       store.setSelectedModel({ id: "custom", name: "自定义", image_url: result.url, gender: "female", is_preset: false, user_id: null });
       setPromptOverride(null);
@@ -779,12 +784,23 @@ export default function CreatePage() {
     }
   };
 
-  const handleCustomRef = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]; if (!file) return;
-    const base64 = await fileToBase64(file);
-    setCustomRefPreview(base64);
+  const handleCustomModel = (event: ChangeEvent<HTMLInputElement>) => {
+    const input = event.currentTarget;
+    const file = input.files?.[0];
+    void handleCustomModelFile(file).finally(() => {
+      input.value = "";
+    });
+  };
+
+  const handleCustomRefFile = async (file?: File) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) return toast.error("请上传图片文件");
+    if (file.size > MAX_FILE_SIZE) return toast.error(`${file.name} 超过 ${MAX_FILE_SIZE_MB}MB`);
+
     toast.info("正在上传参考图...");
     try {
+      const base64 = await fileToBase64(file);
+      setCustomRefPreview(base64);
       const result = await uploadImage(file);
       store.setReferenceImage({ id: "custom", url: result.url, label: "自定义参考", category: "style", is_preset: false, user_id: null });
       setSceneMode("upload_reference");
@@ -795,6 +811,14 @@ export default function CreatePage() {
       setCustomRefPreview(null);
       toast.error("参考图上传失败，请重试");
     }
+  };
+
+  const handleCustomRef = (event: ChangeEvent<HTMLInputElement>) => {
+    const input = event.currentTarget;
+    const file = input.files?.[0];
+    void handleCustomRefFile(file).finally(() => {
+      input.value = "";
+    });
   };
 
   // ---- 生成（识图 → 生成提示词 → 生成图片） ----
@@ -1402,7 +1426,7 @@ export default function CreatePage() {
               e.preventDefault(); e.stopPropagation(); setIsDraggingRef(false);
               const file = e.dataTransfer.files?.[0];
               if (file && file.type.startsWith("image/")) {
-                handleCustomRef({ target: { files: [file] } } as any);
+                void handleCustomRefFile(file);
               }
             }}
             className={`relative rounded-xl transition-all ${isDraggingRef ? "ring-2 ring-purple-400 ring-offset-2" : ""}`}
@@ -1485,10 +1509,10 @@ export default function CreatePage() {
 
             {sceneMode === "upload_reference" && (
               <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50/70 p-3">
-                <input data-ref-input type="file" accept="image/*" className="hidden" onChange={handleCustomRef} />
+                <input ref={customRefInputRef} type="file" accept="image/*" className="hidden" onChange={handleCustomRef} />
                 <button
                   type="button"
-                  onClick={() => document.querySelector<HTMLInputElement>('[data-ref-input]')?.click()}
+                  onClick={() => customRefInputRef.current?.click()}
                   className="studio-fixed-upload-slot w-full rounded-xl border-2 border-dashed border-gray-200 bg-white hover:border-purple-300 flex flex-col items-center justify-center overflow-hidden transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
                   style={{ "--studio-fixed-upload-height": "132px" } as CSSProperties}
                   aria-label={(customRefPreview || store.referenceImage?.url) ? "更换上传参考图" : "上传参考图"}
@@ -1619,7 +1643,7 @@ export default function CreatePage() {
               e.preventDefault(); e.stopPropagation(); setIsDraggingModel(false);
               const file = e.dataTransfer.files?.[0];
               if (file && file.type.startsWith("image/")) {
-                handleCustomModel({ target: { files: [file] } } as any);
+                void handleCustomModelFile(file);
               }
             }}
             className={`relative rounded-xl transition-all ${isDraggingModel ? "ring-2 ring-purple-400 ring-offset-2" : ""}`}
@@ -1638,7 +1662,6 @@ export default function CreatePage() {
               <span className="px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-400 text-[9px]">可选</span>
             </h3>
             <p className="text-[11px] text-gray-400 mb-3">不选则使用参考图中的人物面部 · 可拖拽图片到此处</p>
-            <input type="file" accept="image/*" className="hidden" onChange={handleCustomModel} />
             <div className="grid grid-cols-3 gap-2">
               <button
                 type="button"
@@ -1690,7 +1713,7 @@ export default function CreatePage() {
               ))}
               <button
                 type="button"
-                onClick={() => document.querySelector<HTMLInputElement>('[data-model-input]')?.click()}
+                onClick={() => customModelInputRef.current?.click()}
                 className="rounded-lg border-2 border-dashed border-gray-200 hover:border-purple-300 flex flex-col items-center justify-center aspect-square transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
                 aria-label={customModelPreview ? "更换上传模特图" : "上传模特图"}
               >
@@ -1699,7 +1722,7 @@ export default function CreatePage() {
                   : <><Camera className="w-5 h-5 text-gray-300" /><span className="text-[10px] text-gray-400">点击上传</span></>
                 }
               </button>
-              <input data-model-input type="file" accept="image/*" className="hidden" onChange={handleCustomModel} />
+              <input ref={customModelInputRef} type="file" accept="image/*" className="hidden" onChange={handleCustomModel} />
             </div>
           </section>
 

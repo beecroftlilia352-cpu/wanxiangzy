@@ -28,8 +28,8 @@ import { toast } from "sonner";
 import { FeatureTabs } from "@/components/FeatureTabs";
 import { ModuleHeader } from "@/components/ModuleHeader";
 import { PreviewGuide } from "@/components/PreviewGuide";
-import { LoadingStage } from "@/components/studio/LoadingStage";
 import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
+import { ResultImageGrid } from "@/components/ResultImageGrid";
 import { ClientPortal } from "@/components/ClientPortal";
 import { createClient, getCachedProfileCredits, setCachedProfileCredits } from "@/lib/supabase/client";
 import { fetchHistoryApplyDetail, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
@@ -1761,7 +1761,16 @@ export default function ProductSetPage() {
 
           {isGenerating && !hasVisibleResults && (
             <div className="mx-auto max-w-3xl space-y-4">
-              <LoadingStage genCount={Math.max(outputCount, 1)} progress={progress} moduleName="商品套图" />
+              <ResultImageGrid
+                urls={[]}
+                filenamePrefix="product-set"
+                expectedCount={Math.max(outputCount, 1)}
+                isGenerating
+                inputThumbnails={productImages.map((item) => item.url)}
+                statusGroup="running"
+                variant="task"
+                onOpen={setLightboxSrc}
+              />
               <ModuleProgressList templates={displayedResultPlan} moduleResults={moduleResults} resultUrls={resultUrls} isGenerating={isGenerating} />
             </div>
           )}
