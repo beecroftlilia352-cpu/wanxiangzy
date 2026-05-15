@@ -20,9 +20,9 @@ export function RepairPromptPanel({ kind, onRepair, priorityValues = [], disable
   const orderedPresets = [...priority, ...rest];
 
   return (
-    <div className={`rounded-2xl border border-white/70 bg-white/85 p-2 shadow-lg shadow-slate-300/40 backdrop-blur-md ${className}`}>
+    <div className={`studio-repair-panel rounded-2xl border border-white/70 bg-white/85 p-2 shadow-lg shadow-slate-300/40 backdrop-blur-md ${className}`}>
       <div className="mb-1.5 flex items-center gap-1.5 px-1 text-[11px] font-bold text-gray-700">
-        <Brush className="h-3.5 w-3.5 text-[var(--codex-accent)]0" />
+        <Brush className="h-3.5 w-3.5 text-[var(--codex-accent)]" />
         不满意？选择问题修复
       </div>
       <div className="studio-scrollbar-hide flex gap-1.5 overflow-x-auto pb-0.5 sm:flex-wrap sm:overflow-visible sm:pb-0">

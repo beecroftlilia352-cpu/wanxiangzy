@@ -267,8 +267,8 @@ export function StudioTaskRail({
             expanded ? "gap-2 px-3" : "gap-0.5 px-1.5"
           )}
         >
-          <div className="min-w-0 flex-1">
-            <div className={cn("flex items-center font-black text-slate-900", expanded ? "gap-1.5 text-sm" : "text-[12px] leading-4")}>
+          <div className={cn("min-w-0 flex-1", !expanded && "flex justify-center")}>
+            <div className={cn("flex items-center font-black text-slate-900", expanded ? "gap-1.5 text-sm" : "justify-center text-center text-[12px] leading-4")}>
               {expanded && <History className="h-4 w-4 text-blue-500" />}
               <span className="whitespace-nowrap">{expanded ? "全部任务" : "最近任务"}</span>
             </div>
@@ -557,7 +557,7 @@ function TaskThumb({
       className
     )}>
       {url ? (
-        <img src={url} alt="" className="relative z-[1] h-full w-full object-contain" />
+        <img src={url} alt="" className="relative z-[1] h-full w-full object-cover" />
       ) : (
         <span className="relative z-[1] flex h-full w-full items-center justify-center text-slate-300">
           <ImageIcon className="h-4 w-4" />
@@ -602,7 +602,7 @@ function TaskPreviewStrip({ item, displayMode }: { item: TaskQueueItem; displayM
               slot.kind === "input" ? "border-slate-200" : "border-blue-100"
             )}
           >
-            {slot.url ? <img src={slot.url} alt="" className="h-full w-full object-contain" /> : <span className="gen-card block h-full w-full bg-gradient-to-br from-slate-50 to-blue-50" />}
+            {slot.url ? <img src={slot.url} alt="" className="h-full w-full object-cover" /> : <span className="gen-card block h-full w-full bg-gradient-to-br from-slate-50 to-blue-50" />}
           </span>
         ))}
       </div>
@@ -614,7 +614,7 @@ function TaskPreviewStrip({ item, displayMode }: { item: TaskQueueItem; displayM
     <div className="mt-2 grid grid-cols-4 gap-1">
       {slots.slice(0, 4).map((url, index) => (
         <span key={`${url || "pending"}-${index}`} className="aspect-square w-full overflow-hidden rounded-md border border-slate-100 bg-slate-50">
-          {url ? <img src={url} alt="" className="h-full w-full object-contain" /> : <span className="gen-card block h-full w-full bg-gradient-to-br from-slate-50 to-blue-50" />}
+          {url ? <img src={url} alt="" className="h-full w-full object-cover" /> : <span className="gen-card block h-full w-full bg-gradient-to-br from-slate-50 to-blue-50" />}
         </span>
       ))}
     </div>
