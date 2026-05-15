@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import {
   Copy,
@@ -18,13 +18,15 @@ import { toast } from "sonner";
 import { FeatureTabs } from "@/components/FeatureTabs";
 import { ModuleHeader } from "@/components/ModuleHeader";
 import { LoadingStage } from "@/components/studio/LoadingStage";
+import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
 import { ClientPortal } from "@/components/ClientPortal";
 import { PreviewGuide } from "@/components/PreviewGuide";
 import { createClient, getCachedProfileCredits, setCachedProfileCredits } from "@/lib/supabase/client";
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
-import { takeApplyPayload } from "@/lib/history-apply";
+import { fetchHistoryApplyDetail, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
+import type { TaskQueueItem } from "@/lib/task-queue";
 
 type GeneralImageMode = "text-to-image" | "image-to-image";
 
@@ -40,6 +42,8 @@ type ImagePromptImage = {
   url: string;
   preview: string;
 };
+
+type GeneralImageHistoryPayload = Extract<HistoryJobPayload, { kind: "generalImage" }>;
 
 const MODELS: { value: LingyaModel; label: string; desc: string; badge?: string; icon: string }[] = [
   { value: "gpt-image-2", label: "GPT-Image-2", desc: "4K · 4分/次", badge: "最新", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/openai.svg" },
@@ -146,10 +150,31 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     resetOutput();
   }, [initialMode]);
 
+  function applyGeneralImageHistoryPayload(payload: GeneralImageHistoryPayload, historyResultUrls: string[] = []) {
+    setMode(payload.mode);
+    setPrompt(payload.prompt);
+    setAiModel(payload.aiModel);
+    setAspectRatio(payload.aspectRatio);
+    setImageSize(payload.imageSize);
+    setGenCount(payload.genCount);
+    setReferenceImages(payload.referenceUrls.map((url, index) => ({
+      id: `history-general-${index}-${url}`,
+      name: `历史参考图${index + 1}`,
+      url,
+      preview: url,
+    })));
+    setResultUrls(historyResultUrls);
+    setIsGenerating(false);
+    setError("");
+    setProgress(historyResultUrls.length ? 100 : 0);
+    toast.success("已套用历史参数");
+  }
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
-    const payload = await takeApplyPayload("generalImage");
+    const detail = await takeApplyDetail("generalImage");
+    const payload = detail?.payload;
     if (cancelled || !payload) return;
     setMode(payload.mode);
     setPrompt(payload.prompt);
@@ -163,9 +188,10 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
       url,
       preview: url,
     })));
-    setResultUrls([]);
+    setResultUrls(detail?.resultUrls || []);
+    setIsGenerating(false);
     setError("");
-    setProgress(0);
+    setProgress(detail?.resultUrls.length ? 100 : 0);
     toast.success("已套用历史参数");
     })();
     return () => {
@@ -393,9 +419,28 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     }
   }
 
+  function handleRunningTask(item: TaskQueueItem) {
+    setIsGenerating(true);
+    setProgress(Math.min(Math.max(Math.round(Number(item.progress) || 12), 1), 99));
+    setError("");
+    setResultUrls(item.resultThumbnails || []);
+  }
+
+  async function handleCompletedTask(item: TaskQueueItem) {
+    try {
+      const detail = await fetchHistoryApplyDetail(item.id, "generalImage");
+      applyGeneralImageHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : item.resultThumbnails);
+      return true;
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "历史参数加载失败");
+      return true;
+    }
+  }
+
   return (
     <div className="studio-workbench min-h-[calc(100dvh-64px)] lg:h-[calc(100vh-64px)] flex flex-col lg:flex-row">
       <FeatureTabs active={activeFeature} />
+      <ModuleTaskRail module="generalImage" moduleLabel="创意生图" onRunningTask={handleRunningTask} onCompletedTask={handleCompletedTask} />
       <div className="studio-parameters w-full lg:w-[472px] border-b lg:border-b-0 lg:border-r flex flex-col overflow-visible lg:overflow-hidden">
         <div className="studio-parameters-scroll flex-1 overflow-visible lg:overflow-y-auto p-3 sm:p-5 space-y-4 sm:space-y-6">
           <ModuleHeader
@@ -429,7 +474,8 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="flex min-h-28 w-full flex-col items-center justify-center rounded-xl border border-white/70 bg-white/82 px-4 py-5 text-center transition hover:bg-white"
+                  className="studio-fixed-upload-slot flex w-full flex-col items-center justify-center rounded-xl border border-white/70 bg-white/82 px-4 py-5 text-center transition hover:bg-white"
+                  style={{ "--studio-fixed-upload-height": "112px" } as CSSProperties}
                 >
                   {isUploading ? <Loader2 className="mb-2 h-6 w-6 animate-spin text-violet-500" /> : <ImagePlus className="mb-2 h-6 w-6 text-violet-500" />}
                   <span className="text-sm font-black text-slate-900">{referenceImages.length ? "继续上传参考图" : "上传 / 拖拽参考图"}</span>
@@ -446,8 +492,8 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
                     </div>
                     <div className="grid grid-cols-4 gap-2 sm:grid-cols-5">
                       {referenceImages.map((item, index) => (
-                        <div key={item.id} className="group relative aspect-square overflow-hidden rounded-xl border border-white bg-white shadow-sm">
-                          <img src={item.preview} alt={item.name} className="h-full w-full object-cover" />
+                        <div key={item.id} className="studio-checkerboard group relative aspect-square overflow-hidden rounded-xl border border-white shadow-sm">
+                          <img src={item.preview} alt={item.name} className="h-full w-full object-contain p-1" />
                           <span className="absolute left-1 top-1 rounded bg-white/92 px-1.5 py-0.5 text-[10px] font-black text-slate-500">图{index + 1}</span>
                           <button
                             type="button"
@@ -631,13 +677,13 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
           </div>
         )}
 
-        {isGenerating && (
+        {isGenerating && resultUrls.length === 0 && (
           <LoadingStage genCount={genCount} progress={progress} moduleName={modeMeta.title} />
         )}
 
         {resultUrls.length > 0 && (
           <div className="studio-result-stage min-h-[260px] sm:min-h-[360px] overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:h-full flex flex-col animate-fade-in">
-            <div className="flex min-h-0 flex-1 items-center justify-center">
+            <div className="flex min-h-0 flex-1 items-start justify-start">
               <ResultImageGrid urls={resultUrls} filenamePrefix={isImageMode ? "image-to-image" : "text-to-image"} expectedCount={genCount} isGenerating={isGenerating} onOpen={setLightboxSrc} />
             </div>
             <div className="mt-4 flex justify-center gap-2">
@@ -713,10 +759,12 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
                   <button
                     type="button"
                     onClick={() => imagePromptInputRef.current?.click()}
-                    className="group relative flex aspect-[3/4] w-full min-w-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50 text-slate-400 transition hover:border-violet-200 hover:bg-violet-50"
+                    className={`group relative flex aspect-[3/4] w-full min-w-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 text-slate-400 transition hover:border-violet-200 ${
+                      imagePromptImage ? "studio-checkerboard" : "bg-slate-50 hover:bg-violet-50"
+                    }`}
                   >
                     {imagePromptImage ? (
-                      <img src={imagePromptImage.preview} alt={imagePromptImage.name} className="h-full w-full object-cover" />
+                      <img src={imagePromptImage.preview} alt={imagePromptImage.name} className="h-full w-full object-contain p-1" />
                     ) : (
                       <span className="flex flex-col items-center gap-2 text-xs font-bold">
                         {isImagePromptUploading ? <Loader2 className="h-6 w-6 animate-spin text-violet-500" /> : <ImagePlus className="h-6 w-6 text-violet-500" />}

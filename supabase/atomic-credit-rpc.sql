@@ -125,8 +125,36 @@ AS $$
 DECLARE
   v_balance INTEGER;
   v_generation_id UUID;
+  v_refund_amount INTEGER;
 BEGIN
+  SELECT credits INTO v_balance
+  FROM public.profiles
+  WHERE id = p_user_id;
+
   IF p_amount <= 0 THEN
+    RETURN COALESCE(v_balance, 0);
+  END IF;
+
+  UPDATE public.generations
+    SET
+      status = 'completed',
+      processing_started_at = NULL,
+      completed_at = COALESCE(completed_at, now())
+    WHERE id = p_generation_id
+      AND user_id = p_user_id
+      AND status NOT IN ('completed', 'success', 'succeeded')
+      AND COALESCE(array_length(result_urls, 1), 0) > 0;
+
+  SELECT LEAST(GREATEST(p_amount, 0), GREATEST(COALESCE(credits_used, credits_cost, 0), 0))
+    INTO v_refund_amount
+  FROM public.generations
+  WHERE id = p_generation_id
+    AND user_id = p_user_id
+    AND status NOT IN ('failed', 'completed', 'success', 'succeeded')
+    AND COALESCE(credits_used, credits_cost, 0) > 0
+  FOR UPDATE;
+
+  IF v_refund_amount IS NULL OR v_refund_amount <= 0 THEN
     SELECT credits INTO v_balance
     FROM public.profiles
     WHERE id = p_user_id;
@@ -139,10 +167,11 @@ BEGIN
       status = 'failed',
       error_message = p_error_message,
       processing_started_at = NULL,
-      completed_at = COALESCE(completed_at, now())
+      completed_at = COALESCE(completed_at, now()),
+      credits_used = 0
     WHERE id = p_generation_id
       AND user_id = p_user_id
-      AND status <> 'failed'
+      AND status NOT IN ('failed', 'completed', 'success', 'succeeded')
     RETURNING id INTO v_generation_id;
 
   IF v_generation_id IS NULL THEN
@@ -154,7 +183,8 @@ BEGIN
   END IF;
 
   UPDATE public.profiles
-    SET credits = credits + p_amount,
+    SET credits = credits + v_refund_amount,
+        total_credits_used = GREATEST(COALESCE(total_credits_used, 0) - v_refund_amount, 0),
         updated_at = now()
     WHERE id = p_user_id
     RETURNING credits INTO v_balance;
@@ -168,7 +198,7 @@ BEGIN
   )
   VALUES (
     p_user_id,
-    p_amount,
+    v_refund_amount,
     v_balance,
     p_reason,
     p_generation_id
@@ -183,6 +213,98 @@ REVOKE ALL ON FUNCTION public.fail_generation_with_credit_refund(
 ) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.fail_generation_with_credit_refund(
   UUID, UUID, INTEGER, TEXT, TEXT
+) TO service_role;
+
+CREATE OR REPLACE FUNCTION public.complete_generation_with_credit_adjustment(
+  p_user_id UUID,
+  p_generation_id UUID,
+  p_result_urls TEXT[],
+  p_job_payload JSONB DEFAULT '{}'::jsonb,
+  p_credits_used INTEGER DEFAULT 0,
+  p_refund_amount INTEGER DEFAULT 0,
+  p_refund_reason TEXT DEFAULT '部分生成失败退款',
+  p_error_message TEXT DEFAULT NULL
+)
+RETURNS INTEGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_balance INTEGER;
+  v_existing_used INTEGER;
+  v_safe_used INTEGER;
+  v_safe_refund INTEGER;
+BEGIN
+  SELECT COALESCE(credits_used, credits_cost, 0)
+    INTO v_existing_used
+  FROM public.generations
+  WHERE id = p_generation_id
+    AND user_id = p_user_id
+  FOR UPDATE;
+
+  SELECT credits INTO v_balance
+  FROM public.profiles
+  WHERE id = p_user_id;
+
+  IF v_existing_used IS NULL THEN
+    RETURN COALESCE(v_balance, 0);
+  END IF;
+
+  v_safe_used := LEAST(GREATEST(COALESCE(p_credits_used, 0), 0), GREATEST(v_existing_used, 0));
+  v_safe_refund := LEAST(
+    GREATEST(COALESCE(p_refund_amount, 0), 0),
+    GREATEST(v_existing_used - v_safe_used, 0)
+  );
+
+  UPDATE public.generations
+    SET
+      status = 'completed',
+      result_urls = COALESCE(p_result_urls, '{}'),
+      job_payload = COALESCE(p_job_payload, '{}'::jsonb),
+      error_message = CASE
+        WHEN p_error_message IS NULL OR length(trim(p_error_message)) = 0 THEN error_message
+        ELSE p_error_message
+      END,
+      credits_used = v_safe_used,
+      processing_started_at = NULL,
+      completed_at = COALESCE(completed_at, now())
+    WHERE id = p_generation_id
+      AND user_id = p_user_id;
+
+  IF v_safe_refund > 0 THEN
+    UPDATE public.profiles
+      SET credits = credits + v_safe_refund,
+          total_credits_used = GREATEST(COALESCE(total_credits_used, 0) - v_safe_refund, 0),
+          updated_at = now()
+      WHERE id = p_user_id
+      RETURNING credits INTO v_balance;
+
+    INSERT INTO public.credit_logs (
+      user_id,
+      amount,
+      balance,
+      reason,
+      generation_id
+    )
+    VALUES (
+      p_user_id,
+      v_safe_refund,
+      v_balance,
+      p_refund_reason,
+      p_generation_id
+    );
+  END IF;
+
+  RETURN COALESCE(v_balance, 0);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.complete_generation_with_credit_adjustment(
+  UUID, UUID, TEXT[], JSONB, INTEGER, INTEGER, TEXT, TEXT
+) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.complete_generation_with_credit_adjustment(
+  UUID, UUID, TEXT[], JSONB, INTEGER, INTEGER, TEXT, TEXT
 ) TO service_role;
 
 CREATE OR REPLACE FUNCTION public.claim_generation_job(

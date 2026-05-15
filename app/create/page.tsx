@@ -1,7 +1,7 @@
 "use client";
 
-import type { KeyboardEvent } from "react";
-import { useState, useEffect, useRef } from "react";
+import type { CSSProperties, KeyboardEvent } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { 
   Upload, UserRound, Image, Sparkles,
@@ -28,9 +28,12 @@ import { StudioResultViewport, type StudioResultStatus } from "@/components/stud
 import { StudioRunBar } from "@/components/studio/StudioRunBar";
 import { StudioSection } from "@/components/studio/StudioSection";
 import { StudioSegmentedControl } from "@/components/studio/StudioSegmentedControl";
+import { StudioTaskRail } from "@/components/studio/StudioTaskRail";
 import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
-import { takeApplyPayload } from "@/lib/history-apply";
+import { takeApplyPayload, type HistoryJobPayload } from "@/lib/history-apply";
 import { applyRepairPrompt } from "@/lib/generation-repair";
+import type { TaskQueueItem } from "@/lib/task-queue";
+import { isTaskRunning } from "@/lib/task-queue";
 import {
   AUTO_DESIGN_BACKGROUNDS,
   AUTO_DESIGN_FRAMINGS,
@@ -82,6 +85,8 @@ type FavoriteReference = {
   user_id: null;
 };
 
+type TryOnHistoryPayload = Extract<HistoryJobPayload, { kind: "tryon" }>;
+
 type ClothingItemState = {
   file: File;
   preview: string;
@@ -100,6 +105,30 @@ function createPlaceholderFile(name: string) {
   return new File([], name, { type: "image/jpeg" });
 }
 
+function normalizeAssetUrl(value?: string | null) {
+  if (!value) return "";
+  try {
+    const url = new URL(value);
+    return `${url.origin}${url.pathname}`.toLowerCase();
+  } catch {
+    return value.split("?")[0].trim().toLowerCase();
+  }
+}
+
+function sameAssetUrl(left?: string | null, right?: string | null) {
+  const normalizedLeft = normalizeAssetUrl(left);
+  const normalizedRight = normalizeAssetUrl(right);
+  return Boolean(normalizedLeft && normalizedRight && normalizedLeft === normalizedRight);
+}
+
+function findPresetModelByUrl(url?: string | null) {
+  return PRESET_MODELS.find((model) => sameAssetUrl(model.image_url, url));
+}
+
+function findPresetReferenceByUrl(url?: string | null) {
+  return PRESET_REFERENCES.find((reference) => sameAssetUrl(reference.url, url));
+}
+
 export default function CreatePage() {
   const router = useRouter();
   const supabase = createClient();
@@ -107,6 +136,7 @@ export default function CreatePage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const rulesButtonRef = useRef<HTMLButtonElement>(null);
   const rulesHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const activeGenerationRef = useRef<string | null>(null);
   const [genCount, setGenCount] = useState(1);
 
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -140,6 +170,8 @@ export default function CreatePage() {
   const [isDraggingClothing, setIsDraggingClothing] = useState(false);
   const [isDraggingModel, setIsDraggingModel] = useState(false);
   const [isDraggingRef, setIsDraggingRef] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [activeQueueTask, setActiveQueueTask] = useState<TaskQueueItem | null>(null);
   const sourceLibrary = useTryOnSourceLibrary({
     isAuthenticated,
     onUnauthenticated: () => {
@@ -463,28 +495,44 @@ export default function CreatePage() {
     setGarmentAudience(normalizeTryOnGarmentAudience(payload.garmentAudience));
     setAgeGroup(normalizeTryOnAgeGroup(payload.ageGroup));
     if (payload.modelFaceUrl) {
-      store.setSelectedModel({
-        id: "history-model",
-        name: "历史模特",
-        image_url: payload.modelFaceUrl,
-        gender: "female",
-        is_preset: false,
-        user_id: null,
-      });
+      const presetModel = findPresetModelByUrl(payload.modelFaceUrl);
+      if (presetModel) {
+        setCustomModelPreview(null);
+        store.setSelectedModel({ ...presetModel, is_preset: true, user_id: null });
+      } else {
+        setCustomModelPreview(payload.modelFaceUrl);
+        store.setSelectedModel({
+          id: "history-model",
+          name: "历史模特",
+          image_url: payload.modelFaceUrl,
+          gender: "female",
+          is_preset: false,
+          user_id: null,
+        });
+      }
     } else {
+      setCustomModelPreview(null);
       store.setSelectedModel(null);
     }
-    const appliedSceneMode = payload.sceneMode || (payload.referenceUrl ? "upload_reference" : "auto_design");
+    const presetReference = findPresetReferenceByUrl(payload.referenceUrl);
+    const appliedSceneMode = payload.sceneMode || (presetReference ? "system_reference" : payload.referenceUrl ? "upload_reference" : "auto_design");
     if (appliedSceneMode !== "auto_design" && payload.referenceUrl) {
-      store.setReferenceImage({
-        id: "history-reference",
-        url: payload.referenceUrl,
-        label: "历史参考",
-        category: "style",
-        is_preset: false,
-        user_id: null,
-      });
+      if (presetReference) {
+        setCustomRefPreview(null);
+        store.setReferenceImage({ ...presetReference, is_preset: true, user_id: null } as any);
+      } else {
+        setCustomRefPreview(payload.referenceUrl);
+        store.setReferenceImage({
+          id: "history-reference",
+          url: payload.referenceUrl,
+          label: "历史参考",
+          category: "style",
+          is_preset: false,
+          user_id: null,
+        });
+      }
     } else {
+      setCustomRefPreview(null);
       store.setReferenceImage(null);
     }
     setSceneMode(appliedSceneMode);
@@ -750,7 +798,246 @@ export default function CreatePage() {
   };
 
   // ---- 生成（识图 → 生成提示词 → 生成图片） ----
+  const refreshTaskQueue = useCallback(() => {
+    window.dispatchEvent(new CustomEvent("wanxiang:task-queue-refresh"));
+  }, []);
+
+  const watchGeneration = useCallback(async (generationId: string, expectedCount: number) => {
+    let attempts = 0;
+    const updateActiveTask = (patch: Partial<TaskQueueItem>) => {
+      setActiveQueueTask((prev) => prev?.id === generationId ? { ...prev, ...patch } : prev);
+    };
+
+    while (attempts < 120) {
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      attempts++;
+
+      const isActive = activeGenerationRef.current === generationId;
+      try {
+        const pollRes = await fetch(`/api/tryon?generation_id=${encodeURIComponent(generationId)}`, { cache: "no-store" });
+        if (!pollRes.ok) continue;
+
+        const pollData = await pollRes.json();
+        if (pollData.status === "processing_tryon" || pollData.status === "processing" || pollData.status === "pending") {
+          const partialResultUrls = Array.isArray(pollData.result_urls) ? pollData.result_urls.filter(Boolean) : [];
+          const progress = Math.min(
+            Math.max(Number(pollData.progress) || 0, 25 + attempts * 1.5),
+            99
+          );
+          if (isActive) {
+            store.updateProgress(progress);
+            if (partialResultUrls.length) store.setPartialResult(partialResultUrls);
+          }
+          updateActiveTask({
+            status: "processing_tryon",
+            statusGroup: "running",
+            progress,
+            resultCount: partialResultUrls.length,
+            ...(partialResultUrls.length ? {
+              resultThumbnails: partialResultUrls,
+              thumbnails: partialResultUrls.slice(0, 2),
+            } : {}),
+          });
+          if (attempts % 3 === 0) refreshTaskQueue();
+          continue;
+        }
+
+        if (pollData.status === "completed") {
+          const resultUrls = Array.isArray(pollData.result_urls) ? pollData.result_urls.filter(Boolean) : [];
+          if (isActive) {
+            store.updateProgress(100);
+            store.setResult(resultUrls);
+            toast.success("生成完成");
+          }
+          updateActiveTask({
+            status: "completed",
+            statusGroup: "completed",
+            progress: 100,
+            resultCount: resultUrls.length,
+            expectedCount: Math.max(expectedCount, resultUrls.length || 1),
+            resultThumbnails: resultUrls,
+            thumbnails: resultUrls.slice(0, 2),
+            completedAt: new Date().toISOString(),
+          });
+          refreshTaskQueue();
+          return;
+        }
+
+        if (pollData.status === "failed") {
+          const message = pollData.error || "生成失败";
+          if (isActive) {
+            store.setError(message);
+            toast.error(message);
+          }
+          updateActiveTask({
+            status: "failed",
+            statusGroup: "failed",
+            error: message,
+            progress: 100,
+          });
+          refreshTaskQueue();
+          return;
+        }
+      } catch {
+        // Network blips are tolerated during polling.
+      }
+    }
+
+    if (activeGenerationRef.current === generationId) {
+      const message = "生成超时";
+      store.setError(message);
+      setActiveQueueTask((prev) => prev?.id === generationId ? { ...prev, status: "timeout", statusGroup: "failed", error: message } : prev);
+      toast.error(message);
+    }
+    refreshTaskQueue();
+  }, [refreshTaskQueue, store]);
+
+  const handleContinueCreate = useCallback(() => {
+    activeGenerationRef.current = null;
+    setActiveQueueTask(null);
+    setUploadedClothingUrls([]);
+    setClothingRoles([]);
+    setCustomModelPreview(null);
+    setCustomRefPreview(null);
+    setPromptOverride(null);
+    setSceneMode("auto_design");
+    setAutoDesign(DEFAULT_AUTO_DESIGN);
+    store.reset();
+  }, [store]);
+
+  const applyTryOnHistoryPayload = useCallback((
+    payload: TryOnHistoryPayload,
+    options?: { resultUrls?: string[]; selectedTask?: TaskQueueItem | null }
+  ) => {
+    const files = payload.clothingUrls.map((_, index) =>
+      new File([], `history-clothing-${index + 1}.jpg`, { type: "image/jpeg" })
+    );
+    store.setClothing(files, payload.clothingUrls);
+    setUploadedClothingUrls(payload.clothingUrls);
+
+    const nextClothingMode = normalizeTryOnClothingMode(
+      payload.clothingMode || (payload.clothingUrls.length > 1 ? "multi" : "single")
+    );
+    setClothingMode(nextClothingMode);
+    setClothingRoles(payload.clothingUrls.map((_, index) => normalizeTryOnClothingRole(
+      payload.clothingRoles?.[index],
+      nextClothingMode === "multi" ? index === 0 ? "upper" : index === 1 ? "lower" : "extra" : "single"
+    )));
+    setGarmentAudience(normalizeTryOnGarmentAudience(payload.garmentAudience));
+    setAgeGroup(normalizeTryOnAgeGroup(payload.ageGroup));
+
+    if (payload.modelFaceUrl) {
+      const presetModel = findPresetModelByUrl(payload.modelFaceUrl);
+      if (presetModel) {
+        setCustomModelPreview(null);
+        store.setSelectedModel({ ...presetModel, is_preset: true, user_id: null });
+      } else {
+        setCustomModelPreview(payload.modelFaceUrl);
+        store.setSelectedModel({
+          id: "history-model",
+          name: "历史模特",
+          image_url: payload.modelFaceUrl,
+          gender: "female",
+          is_preset: false,
+          user_id: null,
+        });
+      }
+    } else {
+      setCustomModelPreview(null);
+      store.setSelectedModel(null);
+    }
+
+    const presetReference = findPresetReferenceByUrl(payload.referenceUrl);
+    const appliedSceneMode = payload.sceneMode || (presetReference ? "system_reference" : payload.referenceUrl ? "upload_reference" : "auto_design");
+    if (appliedSceneMode !== "auto_design" && payload.referenceUrl) {
+      if (presetReference) {
+        setCustomRefPreview(null);
+        store.setReferenceImage({ ...presetReference, is_preset: true, user_id: null } as any);
+      } else {
+        setCustomRefPreview(payload.referenceUrl);
+        store.setReferenceImage({
+          id: "history-reference",
+          url: payload.referenceUrl,
+          label: "历史参考",
+          category: "style",
+          is_preset: false,
+          user_id: null,
+        });
+      }
+    } else {
+      setCustomRefPreview(null);
+      store.setReferenceImage(null);
+    }
+
+    setSceneMode(appliedSceneMode);
+    setAutoDesign(payload.autoDesign || DEFAULT_AUTO_DESIGN);
+    setAiModel(payload.aiModel);
+    setAspectRatio(payload.aspectRatio);
+    setImageSize(payload.imageSize);
+    setGenCount(payload.genCount);
+    setCustomStyle(payload.style || "");
+    setPromptOverride(payload.rawPrompt || null);
+    store.setPromptUsed(payload.rawPrompt || "");
+    store.setResult(options?.resultUrls || []);
+    store.setError(null);
+    activeGenerationRef.current = null;
+    setActiveQueueTask(options?.selectedTask ?? null);
+    toast.success("已套用历史参数");
+  }, [store]);
+
+  const handleTaskSelect = useCallback(async (item: TaskQueueItem) => {
+    if (isTaskRunning(item)) {
+      activeGenerationRef.current = item.id;
+      setActiveQueueTask(item);
+      store.startGeneration();
+      store.updateProgress(item.progress || 10);
+      void watchGeneration(item.id, item.expectedCount || 1);
+      return;
+    }
+
+    if (item.statusGroup === "completed") {
+      if (item.module === "tryon") {
+        const resultUrls = item.resultThumbnails.length ? item.resultThumbnails : item.thumbnails;
+        activeGenerationRef.current = null;
+        setActiveQueueTask(item);
+        store.setError(null);
+        store.setResult(resultUrls);
+        try {
+          const res = await fetch(`/api/history?id=${encodeURIComponent(item.id)}`, { cache: "no-store" });
+          const data = await res.json().catch(() => ({})) as {
+            row?: { job_payload?: HistoryJobPayload | Record<string, unknown> | null };
+            error?: string;
+          };
+          if (!res.ok || !data.row?.job_payload) {
+            throw new Error(data.error || "历史参数加载失败");
+          }
+
+          const payload = data.row.job_payload as HistoryJobPayload;
+          if (payload.kind !== "tryon") {
+            if (item.applyUrl) router.push(item.applyUrl);
+            return;
+          }
+
+          applyTryOnHistoryPayload(payload, { resultUrls, selectedTask: item });
+        } catch (err: any) {
+          toast.error(err?.message || "历史参数加载失败");
+        }
+        return;
+      }
+
+      if (item.applyUrl) router.push(item.applyUrl);
+      return;
+    }
+
+    if (item.statusGroup === "failed") {
+      activeGenerationRef.current = item.id;
+      setActiveQueueTask(item);
+      store.setError(item.error || "任务失败，可重新生成");
+    }
+  }, [applyTryOnHistoryPayload, router, store, watchGeneration]);
+
   const handleGenerate = async (promptForRun?: string) => {
+    if (isSubmitting) return;
     if (!isAuthenticated) { toast.error("请先登录"); router.push("/login"); return; }
     if (!uploadedClothingUrls.length) { toast.error("请上传衣服"); return; }
     if (clothingMode === "multi") {
@@ -767,6 +1054,7 @@ export default function CreatePage() {
     }
     if (credits !== null && credits < totalCost) { toast.error(`积分不足 ${totalCost}，余额 ${credits}`); return; }
 
+    setIsSubmitting(true);
     store.startGeneration();
 
     try {
@@ -812,14 +1100,11 @@ export default function CreatePage() {
       });
 
       if (!res.ok) {
-        const e = await res.json();
+        const e = await res.json().catch(() => ({}));
         if (res.status === 402) {
           const nextCredits = e.balance ?? 0;
-          toast.error(e.error);
           setCredits(nextCredits);
           if (userId) setCachedProfileCredits(userId, nextCredits);
-          store.setError(e.error);
-          return;
         }
         throw new Error(e.error || "生成失败");
       }
@@ -831,32 +1116,44 @@ export default function CreatePage() {
       }
       store.updateProgress(25);
 
-      // ---- Step 3: 轮询进度 ----
-      let attempts = 0;
-      while (attempts < 120) {
-        await new Promise(r => setTimeout(r, 2000));
-        attempts++;
+      if (!generation_id) throw new Error("任务提交失败");
+      const now = new Date().toISOString();
+      const inputThumbnails = [
+        ...uploadedClothingUrls,
+        store.selectedModel?.image_url || "",
+        effectiveReferenceUrl || "",
+      ].filter(Boolean) as string[];
+      const optimisticTask: TaskQueueItem = {
+        id: generation_id,
+        module: "tryon",
+        title: "服装上身",
+        status: "processing_tryon",
+        statusGroup: "running",
+        time: "0:00",
+        createdAt: now,
+        updatedAt: now,
+        completedAt: null,
+        error: "",
+        progress: 25,
+        expectedCount: genCount,
+        resultCount: 0,
+        inputThumbnails,
+        resultThumbnails: [],
+        thumbnails: inputThumbnails.slice(0, 2),
+        applyUrl: `/create?apply=${encodeURIComponent(generation_id)}`,
+      };
 
-        const pollRes = await fetch(`/api/tryon?generation_id=${generation_id}`);
-        if (!pollRes.ok) continue;
-
-        const pollData = await pollRes.json();
-
-        if (pollData.status === "processing_tryon") {
-          store.updateProgress(Math.min(25 + attempts * 1.5, 90));
-        } else if (pollData.status === "completed") {
-          store.updateProgress(100);
-          store.setResult(pollData.result_urls);
-          toast.success("生成完成！");
-          return;
-        } else if (pollData.status === "failed") {
-          throw new Error(pollData.error || "生成失败");
-        }
-      }
-      throw new Error("生成超时");
+      activeGenerationRef.current = generation_id;
+      setActiveQueueTask(optimisticTask);
+      refreshTaskQueue();
+      toast.success("任务已提交，可继续创建");
+      setIsSubmitting(false);
+      void watchGeneration(generation_id, genCount);
+      return;
     } catch (err: any) {
       store.setError(err.message);
       toast.error(err.message);
+      setIsSubmitting(false);
     }
   };
 
@@ -868,16 +1165,14 @@ export default function CreatePage() {
     handleGenerate(repairedPrompt);
   };
 
-  const resultStatus: StudioResultStatus = store.isGenerating
-    ? "loading"
-    : store.error
+  const resultStatus: StudioResultStatus = store.error
       ? "error"
-      : store.resultUrls.length > 0
+      : store.isGenerating || store.resultUrls.length > 0
         ? "results"
         : "empty";
-  const runDisabled = store.isGenerating || !uploadedClothingUrls.length;
-  const runDisabledReason = store.isGenerating
-    ? "生成任务进行中，请等待当前任务完成。"
+  const runDisabled = isSubmitting || !uploadedClothingUrls.length;
+  const runDisabledReason = isSubmitting
+    ? "正在提交任务，请稍候。"
     : !uploadedClothingUrls.length
       ? "请先上传服装图，或从作品库选择一张历史结果。"
       : undefined;
@@ -886,6 +1181,15 @@ export default function CreatePage() {
     <>
       <StudioPageShell
         activeFeature="tryon"
+        taskRail={(
+          <StudioTaskRail
+            module="tryon"
+            moduleLabel="服装上身"
+            onContinue={handleContinueCreate}
+            onSelectTask={handleTaskSelect}
+            optimisticTask={activeQueueTask}
+          />
+        )}
         header={(
           <ModuleHeader
             title="服装上身"
@@ -1185,11 +1489,12 @@ export default function CreatePage() {
                 <button
                   type="button"
                   onClick={() => document.querySelector<HTMLInputElement>('[data-ref-input]')?.click()}
-                  className="w-full min-h-32 rounded-xl border-2 border-dashed border-gray-200 bg-white hover:border-purple-300 flex flex-col items-center justify-center overflow-hidden transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+                  className="studio-fixed-upload-slot w-full rounded-xl border-2 border-dashed border-gray-200 bg-white hover:border-purple-300 flex flex-col items-center justify-center overflow-hidden transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+                  style={{ "--studio-fixed-upload-height": "132px" } as CSSProperties}
                   aria-label={(customRefPreview || store.referenceImage?.url) ? "更换上传参考图" : "上传参考图"}
                 >
                   {(customRefPreview || store.referenceImage?.url)
-                    ? <img src={customRefPreview || store.referenceImage?.url} alt="已上传的参考图" className="w-full max-h-52 object-cover" />
+                    ? <img src={customRefPreview || store.referenceImage?.url} alt="已上传的参考图" className="h-full w-full object-contain p-2" />
                     : <><Camera className="w-6 h-6 text-gray-300 mb-2" /><span className="text-xs text-gray-500">上传参考图</span><span className="text-[11px] text-gray-400 mt-1">用于锁定姿势、背景、构图和镜头</span></>
                   }
                 </button>
@@ -1390,7 +1695,7 @@ export default function CreatePage() {
                 aria-label={customModelPreview ? "更换上传模特图" : "上传模特图"}
               >
                 {customModelPreview
-                  ? <img src={customModelPreview} alt="已上传的模特图" className="w-full h-full object-cover rounded-lg" />
+                  ? <img src={customModelPreview} alt="已上传的模特图" className="h-full w-full rounded-lg object-contain p-1" />
                   : <><Camera className="w-5 h-5 text-gray-300" /><span className="text-[10px] text-gray-400">点击上传</span></>
                 }
               </button>
@@ -1507,8 +1812,8 @@ export default function CreatePage() {
             costLabel={isAuthenticated ? `消耗 ${totalCost} · 余额 ${credits ?? "—"}` : "登录后查看积分"}
             disabled={runDisabled}
             disabledReason={runDisabledReason}
-            primaryLabel={!isAuthenticated ? "登录后生成" : store.isGenerating ? "生成中..." : `生成 ${genCount} 张`}
-            isLoading={store.isGenerating}
+            primaryLabel={!isAuthenticated ? "登录后生成" : isSubmitting ? "提交中..." : `生成 ${genCount} 张`}
+            isLoading={isSubmitting}
             onPrimaryAction={() => handleGenerate()}
           />
         )}
@@ -1562,12 +1867,18 @@ export default function CreatePage() {
             results={(
               <div className="relative min-h-[320px] sm:min-h-[420px] lg:h-full">
                 <div className="studio-result-stage min-h-[320px] overflow-y-auto overflow-x-hidden p-4 pb-32 sm:min-h-[420px] sm:p-6 sm:pb-32 lg:h-full">
-                  <div className="flex min-h-full items-center justify-center">
+                  <div className="flex min-h-full items-start justify-start">
                     <ResultImageGrid
                       urls={store.resultUrls}
                       filenamePrefix="tryon"
                       onOpen={(url, index) => openLightbox(url, `服装上身结果 ${index + 1}`)}
                       imageAltPrefix="服装上身结果"
+                      expectedCount={activeQueueTask?.expectedCount || genCount}
+                      isGenerating={store.isGenerating}
+                      inputThumbnails={activeQueueTask?.inputThumbnails}
+                      createdAt={activeQueueTask?.createdAt}
+                      statusGroup={activeQueueTask?.statusGroup}
+                      variant={activeQueueTask || store.isGenerating ? "task" : "cards"}
                     />
                   </div>
                 </div>
@@ -1598,7 +1909,7 @@ export default function CreatePage() {
                     />
                     <button
                       type="button"
-                      onClick={() => store.reset()}
+                      onClick={handleContinueCreate}
                       className="inline-flex items-center gap-1.5 rounded-full border px-4 py-1.5 text-xs font-medium transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
                     >
                       <RefreshCw className="h-3 w-3" /> 重新创作

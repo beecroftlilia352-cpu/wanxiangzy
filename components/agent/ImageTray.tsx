@@ -106,13 +106,13 @@ export function ImageTray({ images, onAdd, onRemove, onClear, onRoleChange, onPr
             <div key={`${img.index}-${img.url}`} className="group relative shrink-0">
               <button
                 type="button"
-                className={`relative h-16 w-16 overflow-hidden rounded-xl border bg-slate-50 shadow-sm transition-all ${
+                className={`studio-checkerboard relative h-16 w-16 overflow-hidden rounded-xl border shadow-sm transition-all ${
                   failed ? "border-red-200 hover:border-red-300" : "border-white hover:border-violet-300 hover:shadow-md"
                 } ${failed ? "cursor-default" : "cursor-pointer"}`}
                 onClick={() => !failed && onPreview?.(img.hostedUrl || img.url)}
                 title={failed ? img.uploadError : `预览图${img.index}`}
               >
-                <img src={img.hostedUrl || img.url} alt={`图${img.index}`} className="h-full w-full object-cover" />
+                <img src={img.hostedUrl || img.url} alt={`图${img.index}`} className="h-full w-full object-contain p-0.5" />
                 {img.uploading && (
                   <div className="absolute inset-0 flex items-center justify-center bg-black/45">
                     <Loader2 className="h-4 w-4 animate-spin text-white" />

@@ -602,8 +602,8 @@ function MentionChips({ text, images }: { text: string; images: ChatImage[] }) {
           key={chip.label}
           className="flex items-center gap-1.5 rounded-lg border border-violet-200 bg-violet-50 px-2 py-1"
         >
-          <div className="h-5 w-5 overflow-hidden rounded border border-violet-200">
-            <img src={chip.image.hostedUrl || chip.image.url} alt={chip.label} className="h-full w-full object-cover" />
+          <div className="studio-checkerboard h-5 w-5 overflow-hidden rounded border border-violet-200">
+            <img src={chip.image.hostedUrl || chip.image.url} alt={chip.label} className="h-full w-full object-contain" />
           </div>
           <span className="text-[11px] font-bold text-violet-700">{chip.label}</span>
           <span className="rounded bg-white/70 px-1 text-[10px] font-semibold text-violet-400">

@@ -22,6 +22,7 @@ import { FeatureTabs } from "@/components/FeatureTabs";
 import { ClientPortal } from "@/components/ClientPortal";
 import { ModuleHeader } from "@/components/ModuleHeader";
 import { LoadingStage } from "@/components/studio/LoadingStage";
+import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
 import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
 import {
   FACE_SWAP_LIBRARY,
@@ -46,7 +47,8 @@ import {
   uploadImage,
 } from "@/lib/utils";
 import { createClient, getCachedProfileCredits, setCachedProfileCredits } from "@/lib/supabase/client";
-import { takeApplyPayload } from "@/lib/history-apply";
+import { fetchHistoryApplyDetail, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
+import type { TaskQueueItem } from "@/lib/task-queue";
 
 const MODELS: Array<{ value: LingyaModel; label: string; desc: string; icon: string; badge?: string }> = [
   { value: "gpt-image-2", label: "GPT-Image-2", desc: "4K · 4分/次", icon: "/model-icons/openai.svg", badge: "最新" },
@@ -71,6 +73,7 @@ const ASPECT_RATIOS: Array<{ value: AspectRatio; label: string }> = [
 
 type GenerationStatus = "idle" | "running" | "completed" | "failed";
 type GenderFilter = "female" | "male";
+type FaceSwapHistoryPayload = Extract<HistoryJobPayload, { kind: "faceSwap" }>;
 type ActiveFaceSwapJob = {
   generationId: string;
   sourceUrl: string;
@@ -160,20 +163,24 @@ export default function FaceSwapPage() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-    const payload = await takeApplyPayload("faceSwap");
-    if (cancelled || !payload) return;
-    historyApplyConsumedRef.current = true;
-    setSourceUrl(payload.sourceUrl);
-    setFaceUrl(payload.faceUrl);
-    setAiModel(payload.aiModel);
-    setAspectRatio(payload.aspectRatio);
-    setImageSize(payload.imageSize);
-    setPrompt(payload.prompt);
-    setGenCount(normalizeFaceSwapCount(payload.genCount));
-    setTextureEnhance(Boolean(payload.textureEnhance));
-    setResultUrls([]);
-    setError("");
-    toast.success("已套用历史换脸参数");
+      const detail = await takeApplyDetail("faceSwap");
+      if (cancelled || !detail) return;
+      const payload = detail.payload;
+      historyApplyConsumedRef.current = true;
+      setSourceUrl(payload.sourceUrl);
+      setFaceUrl(payload.faceUrl);
+      setAiModel(payload.aiModel);
+      setAspectRatio(payload.aspectRatio);
+      setImageSize(payload.imageSize);
+      setPrompt(payload.prompt);
+      setGenCount(normalizeFaceSwapCount(payload.genCount));
+      setTextureEnhance(Boolean(payload.textureEnhance));
+      setResultUrls(detail.resultUrls);
+      setProgress(detail.resultUrls.length ? 100 : 0);
+      setStatus(detail.resultUrls.length ? "completed" : "idle");
+      setGenerationId("");
+      setError("");
+      toast.success("已套用历史换脸参数");
     })();
     return () => {
       cancelled = true;
@@ -195,6 +202,26 @@ export default function FaceSwapPage() {
     setStatus("idle");
     setGenerationId("");
     setError("");
+  }, [clearPolling]);
+
+  const applyFaceSwapHistoryPayload = useCallback((payload: FaceSwapHistoryPayload, historyResultUrls: string[] = []) => {
+    clearPolling();
+    historyApplyConsumedRef.current = true;
+    skipActiveRestoreRef.current = true;
+    setSourceUrl(payload.sourceUrl);
+    setFaceUrl(payload.faceUrl);
+    setAiModel(payload.aiModel);
+    setAspectRatio(payload.aspectRatio);
+    setImageSize(payload.imageSize);
+    setPrompt(payload.prompt);
+    setGenCount(normalizeFaceSwapCount(payload.genCount));
+    setTextureEnhance(Boolean(payload.textureEnhance));
+    setResultUrls(historyResultUrls);
+    setProgress(historyResultUrls.length ? 100 : 0);
+    setStatus(historyResultUrls.length ? "completed" : "idle");
+    setGenerationId("");
+    setError("");
+    toast.success("已套用历史换脸参数");
   }, [clearPolling]);
 
   const pollGeneration = useCallback(async (id: string, immediate = false) => {
@@ -386,9 +413,38 @@ export default function FaceSwapPage() {
     setError("");
   }
 
+  function handleRunningTask(item: TaskQueueItem) {
+    const urls = item.resultThumbnails || [];
+    const nextProgress = Number.isFinite(Number(item.progress)) ? Number(item.progress) : 8;
+    clearPolling();
+    setGenerationId(item.id);
+    setStatus("running");
+    setProgress(Math.min(Math.max(Math.round(nextProgress), 1), 99));
+    setResultUrls(urls);
+    setError("");
+    pollGeneration(item.id, true);
+  }
+
+  async function handleCompletedTask(item: TaskQueueItem) {
+    try {
+      const detail = await fetchHistoryApplyDetail(item.id, "faceSwap");
+      applyFaceSwapHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : item.resultThumbnails);
+      return true;
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "历史任务加载失败");
+      return true;
+    }
+  }
+
   return (
     <div className="studio-workbench face-swap-workbench flex min-h-[calc(100dvh-64px)] flex-col lg:h-[calc(100vh-64px)] lg:flex-row">
       <FeatureTabs active="faceSwap" />
+      <ModuleTaskRail
+        module="faceSwap"
+        moduleLabel="AI 换脸"
+        onRunningTask={handleRunningTask}
+        onCompletedTask={handleCompletedTask}
+      />
 
       <aside className="studio-parameters flex w-full flex-col overflow-visible border-b lg:w-[472px] lg:overflow-hidden lg:border-b-0 lg:border-r">
         <div className="studio-parameters-scroll flex-1 space-y-4 overflow-visible p-3 sm:space-y-6 sm:p-5 lg:overflow-y-auto">
@@ -854,7 +910,13 @@ function ResultsPanel({
 }) {
   const count = Math.max(urls.length, expectedCount || 0, 1);
   const slots = Array.from({ length: count }, (_, index) => urls[index] || "");
-  const gridClass = count <= 1 ? "grid-cols-1 max-w-[min(760px,100%)]" : count === 2 ? "grid-cols-1 md:grid-cols-2 max-w-[min(1120px,100%)]" : "grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 max-w-[min(1180px,100%)]";
+  const gridClass = count <= 1
+    ? "grid-cols-1 max-w-[min(280px,100%)]"
+    : count === 2
+      ? "grid-cols-1 sm:grid-cols-2 max-w-[min(572px,100%)]"
+      : count === 3
+        ? "grid-cols-1 sm:grid-cols-3 max-w-[min(864px,100%)]"
+        : "grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 max-w-[min(1156px,100%)]";
 
   return (
     <div className="studio-result-stage h-full overflow-y-auto p-4 pb-24 sm:p-6 sm:pb-28">
@@ -870,13 +932,13 @@ function ResultsPanel({
       <div className={`mx-auto grid w-full gap-4 ${gridClass}`}>
         {slots.map((url, index) => (
           <div key={`${url || "pending"}-${index}`} className="group relative min-w-0 overflow-hidden rounded-2xl bg-white shadow-[0_22px_70px_rgba(15,23,42,0.16)] ring-1 ring-white/80 transition-transform duration-200 hover:-translate-y-0.5">
-            <div className="flex h-[min(58dvh,720px)] min-h-[300px] items-center justify-center bg-slate-50">
+            <div className="flex aspect-[3/4] items-center justify-center bg-white">
               {url ? (
                 <img src={url} alt={`face swap result ${index + 1}`} className="h-full w-full cursor-zoom-in object-contain" onClick={() => onOpen(url)} />
               ) : (
-                <div className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-slate-100 via-violet-50 to-pink-50 text-violet-500">
-                  <Sparkles className="h-7 w-7 animate-pulse" />
-                  <p className="mt-3 text-xs font-semibold text-slate-500">等待第 {index + 1} 张</p>
+                <div className="gen-card flex h-full w-full flex-col items-center justify-center gap-2 bg-gradient-to-br from-rose-50 via-violet-50 to-blue-50 text-rose-500">
+                  <Sparkles className="relative z-[1] h-7 w-7 animate-pulse" />
+                  <p className="relative z-[1] text-xs font-semibold text-slate-500">预计1-2分钟</p>
                 </div>
               )}
             </div>

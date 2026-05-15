@@ -1,6 +1,6 @@
 "use client";
 
-import { type DragEvent, useEffect, useMemo, useRef, useState } from "react";
+import { type CSSProperties, type DragEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Camera, CheckCircle2, ChevronRight, Eye, FolderOpen, Loader2, Sparkles, Upload, UserRound, Wand, X, XCircle } from "lucide-react";
 import { toast } from "sonner";
@@ -13,11 +13,13 @@ import { ModuleHeader } from "@/components/ModuleHeader";
 import { PreviewGuide } from "@/components/PreviewGuide";
 import { LoadingStage } from "@/components/studio/LoadingStage";
 import { ErrorStage } from "@/components/studio/ErrorStage";
+import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
 import { createClient, getCachedProfileCredits, setCachedProfileCredits } from "@/lib/supabase/client";
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
-import { takeApplyPayload } from "@/lib/history-apply";
+import { fetchHistoryApplyDetail, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
+import type { TaskQueueItem } from "@/lib/task-queue";
 import { applyRepairPrompt } from "@/lib/generation-repair";
 import { enforceModelPromptRequirements } from "@/lib/model-prompt";
 import {
@@ -38,6 +40,8 @@ const MODELS: { value: LingyaModel; label: string; desc: string; badge?: string;
   { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "4K · 4分/次", badge: "推荐", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
   { value: "doubao-seedream-4-5-251128", label: "Seedream 4.5", desc: "4K · 2分/次", badge: "新", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/doubao.png" },
 ];
+
+type ModelHistoryPayload = Extract<HistoryJobPayload, { kind: "model" }>;
 
 const ASPECTS: { value: AspectRatio; label: string }[] = [
   { value: "3:4", label: "3:4 竖版" },
@@ -179,10 +183,32 @@ export default function ModelPage() {
     if (!nextSizes.includes(imageSize)) setImageSize(nextSizes[0]);
   }, [aiModel, aspectRatio, imageSize]);
 
+  function applyModelHistoryPayload(payload: ModelHistoryPayload, historyResultUrls: string[] = []) {
+    setReferenceUrls(payload.referenceUrls);
+    setHairReferenceUrl(payload.hairReferenceUrl || null);
+    setHairColorReferenceUrl(payload.hairColorReferenceUrl || null);
+    setGender(payload.gender || "female");
+    setModelStyle(normalizeModelShootStyle(payload.modelStyle));
+    setHairStyle(payload.hairStyle || null);
+    setHairColor(payload.hairColor || null);
+    setAiModel(payload.aiModel);
+    setAspectRatio(payload.aspectRatio);
+    setImageSize(payload.imageSize);
+    setGenCount(payload.genCount);
+    setPromptTouched(true);
+    setPrompt(payload.prompt);
+    setResultUrls(historyResultUrls);
+    setIsGenerating(false);
+    setProgress(historyResultUrls.length ? 100 : 0);
+    setError("");
+    toast.success("已套用历史参数");
+  }
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
-    const payload = await takeApplyPayload("model");
+    const detail = await takeApplyDetail("model");
+    const payload = detail?.payload;
     if (cancelled || !payload) return;
 
     setReferenceUrls(payload.referenceUrls);
@@ -198,7 +224,9 @@ export default function ModelPage() {
     setGenCount(payload.genCount);
     setPromptTouched(true);
     setPrompt(payload.prompt);
-    setResultUrls([]);
+    setResultUrls(detail?.resultUrls || []);
+    setIsGenerating(false);
+    setProgress(detail?.resultUrls.length ? 100 : 0);
     setError("");
     toast.success("已套用历史参数");
     })();
@@ -416,8 +444,14 @@ export default function ModelPage() {
         const poll = await fetch(`/api/model?generation_id=${data.generation_id}`);
         if (!poll.ok) continue;
         const state = await poll.json();
-        if (state.status === "processing_tryon") {
-          setProgress(Math.min(25 + attempts * 1.5, 90));
+        if (state.status === "processing_tryon" || state.status === "processing" || state.status === "pending") {
+          if (Array.isArray(state.result_urls) && state.result_urls.length) {
+            setResultUrls(state.result_urls);
+          }
+          const nextProgress = Number(state.progress);
+          setProgress(Number.isFinite(nextProgress)
+            ? Math.min(Math.max(Math.round(nextProgress), 0), 99)
+            : Math.min(25 + attempts * 1.5, 90));
         } else if (state.status === "completed") {
           setProgress(100);
           setResultUrls(state.result_urls || []);
@@ -454,9 +488,28 @@ export default function ModelPage() {
     toast.success(`已套用${demo.title}`);
   }
 
+  function handleRunningTask(item: TaskQueueItem) {
+    setIsGenerating(true);
+    setProgress(Math.min(Math.max(Math.round(Number(item.progress) || 12), 1), 99));
+    setError("");
+    setResultUrls(item.resultThumbnails || []);
+  }
+
+  async function handleCompletedTask(item: TaskQueueItem) {
+    try {
+      const detail = await fetchHistoryApplyDetail(item.id, "model");
+      applyModelHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : item.resultThumbnails);
+      return true;
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "历史参数加载失败");
+      return true;
+    }
+  }
+
   return (
     <div className="studio-workbench min-h-[calc(100dvh-64px)] lg:h-[calc(100vh-64px)] flex flex-col lg:flex-row">
       <FeatureTabs active="model" />
+      <ModuleTaskRail module="model" moduleLabel="模特生成" onRunningTask={handleRunningTask} onCompletedTask={handleCompletedTask} />
       <div className="studio-parameters w-full lg:w-[472px] border-b lg:border-b-0 lg:border-r flex flex-col overflow-visible lg:overflow-hidden">
         <div className="studio-parameters-scroll flex-1 overflow-visible lg:overflow-y-auto p-3 sm:p-5 space-y-4 sm:space-y-6">
           <ModuleHeader
@@ -487,11 +540,12 @@ export default function ModelPage() {
               onDragLeave={handleReferenceDragLeave}
               onDragOver={handleReferenceDragOver}
               onDrop={handleReferenceDrop}
-              className={`relative flex min-h-44 flex-col rounded-2xl border border-dashed px-4 py-5 text-center transition-all ${
+              className={`studio-fixed-upload-slot studio-fixed-upload-scroll relative flex flex-col rounded-2xl border border-dashed px-4 py-5 text-center transition-all ${
                 isReferenceDragging
                   ? "border-violet-400 bg-violet-50/80 shadow-[0_18px_42px_rgba(124,58,237,0.14)] ring-2 ring-violet-200"
                   : "border-slate-200 bg-slate-50/70"
               }`}
+              style={{ "--studio-fixed-upload-height": "260px" } as CSSProperties}
             >
               {isReferenceDragging && (
                 <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-2xl border border-violet-300 bg-violet-50/85 text-sm font-semibold text-violet-700 shadow-inner backdrop-blur-sm">
@@ -517,8 +571,8 @@ export default function ModelPage() {
                   </div>
                   <div className="grid grid-cols-3 gap-2">
                     {referenceUrls.map((url, index) => (
-                      <div key={index} className="group relative overflow-hidden rounded-xl border border-white bg-white shadow-sm ring-1 ring-slate-100">
-                        <img src={url} alt={`专属模特参考图${index + 1}`} className="h-[150px] w-full object-cover" />
+                      <div key={index} className="studio-checkerboard group relative overflow-hidden rounded-xl border border-white shadow-sm ring-1 ring-slate-100">
+                        <img src={url} alt={`专属模特参考图${index + 1}`} className="h-[150px] w-full object-contain p-1.5" />
                         <span className="absolute left-2 top-2 rounded-full border border-white/70 bg-white/80 px-2 py-0.5 text-[10px] font-bold text-slate-700 shadow-sm backdrop-blur">图{index + 1}</span>
                         <button
                           type="button"
@@ -635,13 +689,13 @@ export default function ModelPage() {
                 onClick={() => hairInputRef.current?.click()}
                 className={`relative rounded-lg border-2 border-dashed p-2 text-center transition-all aspect-[3/4] flex flex-col items-center justify-center overflow-hidden ${
                   hairReferenceUrl
-                    ? "border-purple-500 bg-purple-50 text-purple-700 ring-2 ring-purple-200 shadow-[0_14px_34px_rgba(124,58,237,0.18)]"
+                    ? "studio-checkerboard border-purple-500 text-purple-700 ring-2 ring-purple-200 shadow-[0_14px_34px_rgba(124,58,237,0.18)]"
                     : "border-slate-200 bg-slate-50/70 text-slate-400 hover:border-purple-300 hover:bg-purple-50/60 hover:text-purple-500"
                 }`}
               >
                 {hairReferenceUrl ? (
                   <>
-                    <img src={hairReferenceUrl} className="absolute inset-0 w-full h-full object-cover" alt="上传发型参考" />
+                    <img src={hairReferenceUrl} className="absolute inset-0 h-full w-full object-contain p-1" alt="上传发型参考" />
                     <span className="absolute inset-0 bg-gradient-to-t from-purple-950/38 via-transparent to-transparent" />
                     <span className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-white text-emerald-500 shadow">
                       <CheckCircle2 className="h-4 w-4" />
@@ -705,13 +759,13 @@ export default function ModelPage() {
                 onClick={() => hairColorInputRef.current?.click()}
                 className={`relative rounded-lg border-2 border-dashed p-2 text-center transition-all aspect-[3/4] flex flex-col items-center justify-center overflow-hidden ${
                   hairColorReferenceUrl
-                    ? "border-purple-500 bg-purple-50 text-purple-700 ring-2 ring-purple-200 shadow-[0_14px_34px_rgba(124,58,237,0.18)]"
+                    ? "studio-checkerboard border-purple-500 text-purple-700 ring-2 ring-purple-200 shadow-[0_14px_34px_rgba(124,58,237,0.18)]"
                     : "border-slate-200 bg-slate-50/70 text-slate-400 hover:border-purple-300 hover:bg-purple-50/60 hover:text-purple-500"
                 }`}
               >
                 {hairColorReferenceUrl ? (
                   <>
-                    <img src={hairColorReferenceUrl} className="absolute inset-0 w-full h-full object-cover" alt="上传发色参考" />
+                    <img src={hairColorReferenceUrl} className="absolute inset-0 h-full w-full object-contain p-1" alt="上传发色参考" />
                     <span className="absolute inset-0 bg-gradient-to-t from-purple-950/38 via-transparent to-transparent" />
                     <span className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-white text-emerald-500 shadow">
                       <CheckCircle2 className="h-4 w-4" />
@@ -874,14 +928,21 @@ export default function ModelPage() {
           </div>
         )}
 
-        {isGenerating && (
+        {isGenerating && resultUrls.length === 0 && (
           <LoadingStage genCount={genCount} progress={progress} moduleName="专属模特" />
         )}
 
         {resultUrls.length > 0 && (
           <div className="studio-result-stage min-h-[260px] sm:min-h-[360px] overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:h-full flex flex-col animate-fade-in">
-            <div className="flex min-h-0 flex-1 items-center justify-center">
-              <ResultImageGrid urls={resultUrls} filenamePrefix="model" extension="jpg" onOpen={setLightboxSrc} />
+            <div className="flex min-h-0 flex-1 items-start justify-start">
+              <ResultImageGrid
+                urls={resultUrls}
+                filenamePrefix="model"
+                extension="jpg"
+                expectedCount={isGenerating ? genCount : undefined}
+                isGenerating={isGenerating}
+                onOpen={setLightboxSrc}
+              />
             </div>
             <div className="mt-4 flex justify-center">
               <RepairPromptPanel

@@ -4,32 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { CheckCircle2, Clock3, Loader2, RefreshCw, XCircle } from "lucide-react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-
-type QueueItem = {
-  id: string;
-  title: string;
-  status: string;
-  statusGroup: "running" | "finished";
-  time: string;
-  createdAt: string;
-  error?: string;
-  progress?: number;
-  thumbnails: string[];
-};
-
-type QueuePayload = {
-  rows?: QueueItem[];
-  data?: Partial<QueueSummary>;
-  totalTaskNum?: number;
-  finishedTaskNum?: number;
-  finishedNeedReadTaskNum?: number;
-  runningTaskNum?: number;
-  failedTaskNum?: number;
-  totalCount?: number;
-  runningCount?: number;
-  finishedCount?: number;
-  failedCount?: number;
-};
+import type { TaskQueueItem, TaskQueuePayload } from "@/lib/task-queue";
+import { isTaskFinished, isTaskRunning } from "@/lib/task-queue";
 
 type QueueSummary = {
   totalTaskNum: number;
@@ -48,7 +24,7 @@ const EMPTY_QUEUE_SUMMARY: QueueSummary = {
 };
 
 export function TaskQueueButton() {
-  const [rows, setRows] = useState<QueueItem[]>([]);
+  const [rows, setRows] = useState<TaskQueueItem[]>([]);
   const [summary, setSummary] = useState<QueueSummary>(EMPTY_QUEUE_SUMMARY);
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"running" | "finished">("running");
@@ -57,8 +33,8 @@ export function TaskQueueButton() {
   const [optimisticRunning, setOptimisticRunning] = useState(false);
   const [optimisticStartedAt, setOptimisticStartedAt] = useState(0);
 
-  const running = rows.filter((row) => row.statusGroup === "running");
-  const finished = rows.filter((row) => row.statusGroup === "finished");
+  const running = rows.filter(isTaskRunning);
+  const finished = rows.filter(isTaskFinished);
   const runningCount = Math.max(summary.runningTaskNum, running.length);
   const finishedCount = Math.max(summary.finishedTaskNum + summary.failedTaskNum, finished.length);
   const activeRows = activeTab === "running" ? running : finished;
@@ -66,12 +42,12 @@ export function TaskQueueButton() {
   const isRunning = runningCount > 0 || optimisticRunning;
   const totalCount = Math.max(summary.totalTaskNum, runningCount + finishedCount);
 
-  const applySummary = useCallback((payload: QueuePayload) => {
+  const applySummary = useCallback((payload: TaskQueuePayload) => {
     const nextSummary = normalizeSummaryPayload(payload);
     setSummary(nextSummary);
     if (nextSummary.runningTaskNum > 0) {
       setOptimisticRunning(false);
-    } else if (optimisticRunning && Date.now() - optimisticStartedAt > 6000) {
+    } else if (optimisticRunning && Date.now() - optimisticStartedAt > 1500) {
       setOptimisticRunning(false);
     }
   }, [optimisticRunning, optimisticStartedAt]);
@@ -79,7 +55,7 @@ export function TaskQueueButton() {
   const loadSummary = useCallback(async () => {
     try {
       const res = await fetch("/api/task-queue?summary=1", { cache: "no-store" });
-      const payload = await res.json().catch(() => ({})) as QueuePayload;
+      const payload = await res.json().catch(() => ({})) as TaskQueuePayload;
       if (!res.ok) return;
       applySummary(payload);
     } catch {
@@ -91,7 +67,7 @@ export function TaskQueueButton() {
     setLoading(true);
     try {
       const res = await fetch("/api/task-queue", { cache: "no-store" });
-      const payload = await res.json().catch(() => ({})) as QueuePayload;
+      const payload = await res.json().catch(() => ({})) as TaskQueuePayload;
       if (!res.ok) return;
       const nextRows = Array.isArray(payload.rows) ? payload.rows : [];
       setRows(nextRows);
@@ -122,13 +98,16 @@ export function TaskQueueButton() {
   }, [isRunning, loadQueue, open]);
 
   useEffect(() => {
-    const refresh = () => {
-      setOptimisticStartedAt(Date.now());
-      setOptimisticRunning(true);
-      setActiveTab("running");
-      window.setTimeout(loadSummary, 300);
-      window.setTimeout(loadSummary, 1500);
-      if (open) window.setTimeout(loadQueue, 1500);
+    const refresh = (event: Event) => {
+      const detail = event instanceof CustomEvent ? event.detail as { optimisticRunning?: boolean } | undefined : undefined;
+      if (detail?.optimisticRunning) {
+        setOptimisticStartedAt(Date.now());
+        setOptimisticRunning(true);
+        setActiveTab("running");
+      }
+      void loadSummary();
+      window.setTimeout(loadSummary, 800);
+      if (open) window.setTimeout(loadQueue, 800);
     };
     const refreshVisible = () => {
       if (document.visibilityState === "hidden") return;
@@ -202,7 +181,7 @@ export function TaskQueueButton() {
                     {group.rows.map((item) => (
                       <DropdownMenu.Item key={item.id} asChild>
                         <Link
-                          href="/history"
+                          href={item.applyUrl || "/history"}
                           className="flex items-center gap-3 rounded-xl px-2 py-2 outline-none transition hover:bg-slate-50"
                         >
                           <StatusDot item={item} />
@@ -278,8 +257,8 @@ function ThumbnailStack({ urls }: { urls: string[] }) {
   );
 }
 
-function StatusDot({ item }: { item: QueueItem }) {
-  if (item.statusGroup === "running") {
+function StatusDot({ item }: { item: TaskQueueItem }) {
+  if (isTaskRunning(item)) {
     const progress = clampProgress(item.progress);
     return (
       <span className="relative flex h-5 w-5 items-center justify-center rounded-full bg-violet-50 text-violet-600">
@@ -292,14 +271,14 @@ function StatusDot({ item }: { item: QueueItem }) {
       </span>
     );
   }
-  if (isFailedQueueStatus(item.status)) {
+  if (item.statusGroup === "failed" || isFailedQueueStatus(item.status)) {
     return <XCircle className="h-5 w-5 text-red-400" />;
   }
   return <CheckCircle2 className="h-5 w-5 text-emerald-500" />;
 }
 
-function getQueueMeta(item: QueueItem) {
-  if (item.statusGroup === "running") {
+function getQueueMeta(item: TaskQueueItem) {
+  if (isTaskRunning(item)) {
     const progress = clampProgress(item.progress);
     return progress > 0 ? `${progress}% · ${item.time || item.status}` : item.time || item.status;
   }
@@ -312,12 +291,12 @@ function clampProgress(value: unknown) {
   return Math.min(Math.max(Math.round(num), 0), 100);
 }
 
-function normalizeSummaryPayload(payload: QueuePayload): QueueSummary {
+function normalizeSummaryPayload(payload: TaskQueuePayload): QueueSummary {
   const data = payload.data && typeof payload.data === "object" ? payload.data : {};
   const rows = Array.isArray(payload.rows) ? payload.rows : [];
-  const rowRunningCount = rows.filter((row) => row.statusGroup === "running").length;
-  const rowFailedCount = rows.filter((row) => row.statusGroup === "finished" && isFailedQueueStatus(row.status)).length;
-  const rowFinishedCount = rows.filter((row) => row.statusGroup === "finished" && !isFailedQueueStatus(row.status)).length;
+  const rowRunningCount = rows.filter(isTaskRunning).length;
+  const rowFailedCount = rows.filter((row) => row.statusGroup === "failed").length;
+  const rowFinishedCount = rows.filter((row) => row.statusGroup === "completed").length;
   const failedTaskNum = firstFiniteNumber(data.failedTaskNum, payload.failedTaskNum, payload.failedCount, rowFailedCount);
   const finishedTaskNum = firstFiniteNumber(
     data.finishedTaskNum,
@@ -355,8 +334,8 @@ function isFailedQueueStatus(status: string) {
   return normalized === "failed" || normalized === "error" || normalized === "cancelled" || normalized === "canceled";
 }
 
-function groupQueueRows(items: QueueItem[]) {
-  const groups: { label: string; rows: QueueItem[] }[] = [];
+function groupQueueRows(items: TaskQueueItem[]) {
+  const groups: { label: string; rows: TaskQueueItem[] }[] = [];
   for (const item of items) {
     const label = getQueueDateLabel(item.createdAt);
     const group = groups.find((entry) => entry.label === label);

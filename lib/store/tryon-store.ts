@@ -25,6 +25,7 @@ interface TryOnStore {
   setReferenceImage: (ref: ReferenceImage | null) => void;
   startGeneration: () => void;
   updateProgress: (progress: number) => void;
+  setPartialResult: (urls: string[]) => void;
   setResult: (urls: string[]) => void;
   setPromptUsed: (prompt: string) => void;
   setError: (error: string | null) => void;
@@ -94,6 +95,12 @@ export const useTryOnStore = create<TryOnStore>((set, get) => ({
     set({ isGenerating: true, generationProgress: 0, resultUrls: [], error: null }),
 
   updateProgress: (progress) => set({ generationProgress: progress }),
+
+  setPartialResult: (urls) =>
+    set({
+      resultUrls: urls,
+      error: null,
+    }),
 
   setResult: (urls) =>
     set({

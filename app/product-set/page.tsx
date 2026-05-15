@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import {
   Bookmark,
@@ -29,10 +29,12 @@ import { FeatureTabs } from "@/components/FeatureTabs";
 import { ModuleHeader } from "@/components/ModuleHeader";
 import { PreviewGuide } from "@/components/PreviewGuide";
 import { LoadingStage } from "@/components/studio/LoadingStage";
+import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
 import { ClientPortal } from "@/components/ClientPortal";
 import { createClient, getCachedProfileCredits, setCachedProfileCredits } from "@/lib/supabase/client";
-import { takeApplyPayload } from "@/lib/history-apply";
+import { fetchHistoryApplyDetail, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
 import { getImageVariantUrl } from "@/lib/image-variants";
+import type { TaskQueueItem } from "@/lib/task-queue";
 import { downloadImage, generateDownloadFilename, MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
 import {
@@ -138,6 +140,7 @@ type ProductImage = {
   url: string;
   name: string;
 };
+type ProductSetHistoryPayload = Extract<HistoryJobPayload, { kind: "productSet" }>;
 
 type CustomDraft = {
   name: string;
@@ -437,7 +440,8 @@ export default function ProductSetPage() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-    const applyPayload = await takeApplyPayload("productSet");
+    const detail = await takeApplyDetail("productSet");
+    const applyPayload = detail?.payload;
     if (cancelled || !applyPayload) return;
 
     const appliedImageType = applyPayload.imageType === "details" ? "details" : "main";
@@ -464,7 +468,12 @@ export default function ProductSetPage() {
     setAspectRatio(applyPayload.aspectRatio);
     setImageSize(applyPayload.imageSize);
     setGenCount(Math.min(Math.max(applyPayload.genCount || getDefaultGenerationCount(appliedImageType), 1), appliedImageType === "details" ? 8 : 6));
-    resetOutput();
+    setResultUrls(detail.resultUrls);
+    setModuleResults([]);
+    setResultPlan([]);
+    setError("");
+    setProgress(detail.resultUrls.length ? 100 : 0);
+    setIsGenerating(false);
     toast.success("已套用历史商品套图参数");
     })();
     return () => {
@@ -483,6 +492,54 @@ export default function ProductSetPage() {
     setResultPlan([]);
     setError("");
     setProgress(0);
+  }
+
+  function applyProductSetHistoryPayload(applyPayload: ProductSetHistoryPayload, historyResultUrls: string[] = []) {
+    const appliedImageType = applyPayload.imageType === "details" ? "details" : "main";
+    const nextSettings = { ...DEFAULT_SETTINGS, ...(applyPayload.settings || {}) };
+    const nextMode = applyPayload.mode === "custom" ? "custom" : "smart";
+    const nextSelectedTemplateIds = applyPayload.selectedTemplateIds || [];
+    const nextCustomTemplates = applyPayload.customTemplates || [];
+    const nextSelectedPlanId = getSelectedPlanIdForProductSetState({
+      mode: nextMode,
+      imageType: appliedImageType,
+      selectedTemplateIds: nextSelectedTemplateIds,
+    });
+    const nextGenCount = Math.min(
+      Math.max(applyPayload.genCount || getDefaultGenerationCount(appliedImageType), 1),
+      appliedImageType === "details" ? 8 : 6
+    );
+
+    setProductImages(applyPayload.productImageUrls.slice(0, 3).map((url, index) => ({ url, name: `历史商品图${index + 1}` })));
+    setProductInfo(applyPayload.productInfo || "");
+    setProductProfile(normalizeProductSetProductProfile(applyPayload.productProfile, applyPayload.productInfo || ""));
+    setAnalysisDetail(null);
+    setAnalysisSource(applyPayload.productInfo ? "history" : "idle");
+    setAnalysisMessage("");
+    setSettings(nextSettings);
+    setMode(nextMode);
+    setPlanSourceTab(getPlanSourceTabForProductSetState({
+      mode: nextMode,
+      selectedPlanId: nextSelectedPlanId,
+      customTemplates: nextCustomTemplates,
+    }));
+    setImageType(appliedImageType);
+    setSelectedTemplateIds(nextSelectedTemplateIds);
+    setSelectedPlanId(nextSelectedPlanId);
+    setCustomTemplates(nextCustomTemplates);
+    setModuleOverrides(applyPayload.moduleOverrides || []);
+    setAiModel(applyPayload.aiModel);
+    setAspectRatio(applyPayload.aspectRatio);
+    setImageSize(applyPayload.imageSize);
+    setGenCount(nextGenCount);
+    setResultUrls(historyResultUrls);
+    setModuleResults([]);
+    setResultPlan([]);
+    setError("");
+    setProgress(historyResultUrls.length ? 100 : 0);
+    setIsGenerating(false);
+    setRegeneratingIndex(null);
+    toast.success("已套用历史商品套图参数");
   }
 
   function resetAnalysisPlan(source: ProductAnalysisSource = productInfo.trim() ? "manual" : "idle", message = "") {
@@ -1219,6 +1276,29 @@ export default function ProductSetPage() {
     downloadImage(url, generateDownloadFilename("product-set", index, ext));
   }
 
+  function handleRunningTask(item: TaskQueueItem) {
+    const urls = item.resultThumbnails || [];
+    const nextProgress = Number.isFinite(Number(item.progress)) ? Number(item.progress) : 8;
+    setIsGenerating(true);
+    setRegeneratingIndex(null);
+    setProgress(Math.min(Math.max(Math.round(nextProgress), 1), 99));
+    setResultUrls(urls);
+    setModuleResults([]);
+    setResultPlan([]);
+    setError("");
+  }
+
+  async function handleCompletedTask(item: TaskQueueItem) {
+    try {
+      const detail = await fetchHistoryApplyDetail(item.id, "productSet");
+      applyProductSetHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : item.resultThumbnails);
+      return true;
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "历史任务加载失败");
+      return true;
+    }
+  }
+
   const displayedResultPlan = resultPlan.length ? resultPlan : planTemplates;
   const moduleResultUrls = urlsFromModules(moduleResults, displayedResultPlan);
   const hasVisibleResults = resultUrls.length > 0 || moduleResultUrls.length > 0;
@@ -1238,6 +1318,12 @@ export default function ProductSetPage() {
   return (
     <div className="studio-workbench min-h-[calc(100dvh-64px)] lg:h-[calc(100vh-64px)] flex flex-col lg:flex-row">
       <FeatureTabs active="productSet" />
+      <ModuleTaskRail
+        module="productSet"
+        moduleLabel="商品套图"
+        onRunningTask={handleRunningTask}
+        onCompletedTask={handleCompletedTask}
+      />
       <aside className="studio-parameters w-full lg:w-[480px] border-b lg:border-b-0 lg:border-r flex flex-col overflow-visible lg:overflow-hidden">
         <div className="studio-parameters-scroll flex-1 overflow-visible lg:overflow-y-auto p-3 sm:p-5 space-y-4">
           <ModuleHeader title="AI 商品视觉生成器" tooltip="上传 1-3 张商品多视角图，补充商品信息和数量后再分析生成主图或详情页方案。" />
@@ -1269,7 +1355,8 @@ export default function ProductSetPage() {
             <button
               type="button"
               onClick={() => productInputRef.current?.click()}
-              className="flex min-h-28 w-full flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-center transition hover:border-violet-200 hover:bg-violet-50/40"
+              className="studio-fixed-upload-slot flex w-full flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-center transition hover:border-violet-200 hover:bg-violet-50/40"
+              style={{ "--studio-fixed-upload-height": "112px" } as CSSProperties}
             >
               {isUploading ? <Loader2 className="mb-2 h-6 w-6 animate-spin text-violet-500" /> : <ImagePlus className="mb-2 h-6 w-6 text-violet-500" />}
               <span className="text-sm font-black text-slate-900">{productImages.length ? "继续上传多视角商品图" : "上传 / 拖拽多视角商品图"}</span>
@@ -3454,8 +3541,8 @@ function ToggleButton({ active, label, onClick }: { active: boolean; label: stri
 function ReferenceUploadButton({ label, hint, url, loading, onClick }: { label: string; hint?: string; url?: string; loading: boolean; onClick: () => void }) {
   return (
     <button type="button" onClick={onClick} className="flex min-h-[60px] w-full items-center gap-2 rounded-xl border border-slate-100 bg-slate-50 px-2 py-2 text-left text-xs font-bold text-slate-600 hover:border-violet-200 hover:bg-violet-50/50">
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white">
-        {url ? <img src={getImageVariantUrl(url, "thumb")} alt={label} className="h-full w-full object-cover" /> : loading ? <Loader2 className="h-4 w-4 animate-spin text-violet-500" /> : <Upload className="h-4 w-4 text-slate-400" />}
+      <span className={`flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg ${url ? "studio-checkerboard" : "bg-white"}`}>
+        {url ? <img src={getImageVariantUrl(url, "thumb")} alt={label} className="h-full w-full object-contain p-0.5" /> : loading ? <Loader2 className="h-4 w-4 animate-spin text-violet-500" /> : <Upload className="h-4 w-4 text-slate-400" />}
       </span>
       <span className="min-w-0 flex-1">
         <span className="block truncate">{label}</span>

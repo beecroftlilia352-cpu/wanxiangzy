@@ -649,7 +649,7 @@ export default function AllCategoryProductImagePage() {
                 {productImages.length ? (
                   <div className="mt-5 grid grid-cols-3 gap-2">
                     {productImages.map((item, index) => (
-                      <div key={`${item.url}-${index}`} className="group relative aspect-square overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
+                      <div key={`${item.url}-${index}`} className="studio-checkerboard group relative aspect-square overflow-hidden rounded-lg border border-slate-200">
                         <img src={getImageVariantUrl(item.url, "thumb")} alt={item.name} className="h-full w-full object-contain p-1" />
                         <span className="absolute bottom-1 left-1 rounded bg-slate-950/65 px-1.5 py-0.5 text-[10px] font-semibold text-white">{index + 1}</span>
                         <button

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, ChevronRight, Eye, FolderOpen, PenLine, PersonStanding, Sparkles, Upload, X, XCircle } from "lucide-react";
 import { toast } from "sonner";
@@ -16,8 +16,10 @@ import { ModuleHeader } from "@/components/ModuleHeader";
 import { PreviewGuide } from "@/components/PreviewGuide";
 import { LoadingStage } from "@/components/studio/LoadingStage";
 import { ErrorStage } from "@/components/studio/ErrorStage";
+import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
-import { takeApplyPayload } from "@/lib/history-apply";
+import { fetchHistoryApplyDetail, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
+import type { TaskQueueItem } from "@/lib/task-queue";
 import { applyRepairPrompt } from "@/lib/generation-repair";
 import {
   DEFAULT_POSE_SERIES_STYLE,
@@ -36,6 +38,8 @@ const MODELS: { value: LingyaModel; label: string; desc: string; badge?: string;
   { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "4K · 4分/次", badge: "推荐", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
   { value: "doubao-seedream-4-5-251128", label: "Seedream 4.5", desc: "4K · 2分/次", badge: "新", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/doubao.png" },
 ];
+
+type PoseHistoryPayload = Extract<HistoryJobPayload, { kind: "pose" }>;
 
 const DEFAULT_POSE_PROMPT = "基于图1生成同一人物、同一服装、同一摄影质感的姿势变化；姿势由 AI 按所选风格自由设计，保持人物比例、脸、肤色、发型和服装结构稳定。";
 
@@ -151,10 +155,25 @@ export default function PosePage() {
     setPrompt((prev) => stripLegacyRuleDemoText(prev));
   }, []);
 
+  function applyPoseHistoryPayload(payload: PoseHistoryPayload, historyResultUrls: string[] = []) {
+    setMainImage(payload.mainImageUrl);
+    setAiModel(payload.aiModel);
+    setImageSize(payload.imageSize);
+    setPrompt(payload.prompt);
+    setVaryExpression(payload.varyExpression !== false);
+    setPoseStyle(normalizePoseSeriesStyle(payload.poseStyle));
+    setResultUrls(historyResultUrls);
+    setIsGenerating(false);
+    setProgress(historyResultUrls.length ? 100 : 0);
+    setError("");
+    toast.success("已套用历史参数");
+  }
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
-    const payload = await takeApplyPayload("pose");
+    const detail = await takeApplyDetail("pose");
+    const payload = detail?.payload;
     if (cancelled || !payload) return;
 
     setMainImage(payload.mainImageUrl);
@@ -163,7 +182,9 @@ export default function PosePage() {
     setPrompt(payload.prompt);
     setVaryExpression(payload.varyExpression !== false);
     setPoseStyle(normalizePoseSeriesStyle(payload.poseStyle));
-    setResultUrls([]);
+    setResultUrls(detail?.resultUrls || []);
+    setIsGenerating(false);
+    setProgress(detail?.resultUrls.length ? 100 : 0);
     setError("");
     toast.success("已套用历史参数");
     })();
@@ -314,7 +335,7 @@ export default function PosePage() {
         const poll = await fetch(`/api/pose?generation_id=${data.generation_id}`);
         if (!poll.ok) continue;
         const state = await poll.json();
-        if (state.status === "processing_tryon") {
+        if (state.status === "processing_tryon" || state.status === "processing" || state.status === "pending") {
           if (Array.isArray(state.result_urls) && state.result_urls.length) {
             setResultUrls(state.result_urls);
           }
@@ -344,9 +365,28 @@ export default function PosePage() {
     generate(repairedPrompt);
   }
 
+  function handleRunningTask(item: TaskQueueItem) {
+    setIsGenerating(true);
+    setProgress(Math.min(Math.max(Math.round(Number(item.progress) || 12), 1), 99));
+    setError("");
+    setResultUrls(item.resultThumbnails || []);
+  }
+
+  async function handleCompletedTask(item: TaskQueueItem) {
+    try {
+      const detail = await fetchHistoryApplyDetail(item.id, "pose");
+      applyPoseHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : item.resultThumbnails);
+      return true;
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "历史参数加载失败");
+      return true;
+    }
+  }
+
   return (
     <div className="studio-workbench min-h-[calc(100dvh-64px)] lg:h-[calc(100vh-64px)] flex flex-col lg:flex-row">
       <FeatureTabs active="pose" />
+      <ModuleTaskRail module="pose" moduleLabel="姿势裂变" onRunningTask={handleRunningTask} onCompletedTask={handleCompletedTask} />
       <div className="studio-parameters w-full lg:w-[472px] border-b lg:border-b-0 lg:border-r flex flex-col overflow-visible lg:overflow-hidden">
         <div className="studio-parameters-scroll flex-1 overflow-visible lg:overflow-y-auto p-3 sm:p-5 space-y-4 sm:space-y-6">
           <ModuleHeader
@@ -383,7 +423,7 @@ export default function PosePage() {
             </div>
             <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleFile(e.target.files?.[0])} />
             {mainImage ? (
-              <div className="group studio-checkerboard relative h-[320px] overflow-hidden rounded-2xl border border-dashed border-slate-200">
+              <div className="group studio-checkerboard studio-fixed-upload-preview relative overflow-hidden rounded-2xl border border-dashed border-slate-200" style={{ "--studio-fixed-preview-height": "320px" } as CSSProperties}>
                 <img src={mainImage} alt="姿势裂变主图" className="h-full w-full object-contain p-3" />
                 <span className="absolute left-3 top-3 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-medium text-slate-600 shadow-sm">
                   模特主图
@@ -394,7 +434,7 @@ export default function PosePage() {
                 </button>
               </div>
             ) : (
-              <div className="flex min-h-52 flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 px-4 py-8 text-center">
+              <div className="studio-fixed-upload-slot flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 px-4 py-8 text-center">
                 <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-sm">
                   <PersonStanding className="h-7 w-7 text-violet-400" />
                 </div>
@@ -649,7 +689,7 @@ export default function PosePage() {
                 已生成 {resultUrls.length}{outputMode === "separate" ? " / 4" : ""}，剩余图片生成中...
               </div>
             )}
-            <div className="flex min-h-0 flex-1 items-center justify-center">
+            <div className="flex min-h-0 flex-1 items-start justify-start">
               <ResultImageGrid
                 urls={resultUrls}
                 filenamePrefix="pose"

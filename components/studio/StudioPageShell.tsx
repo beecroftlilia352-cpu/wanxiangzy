@@ -8,6 +8,7 @@ export type StudioPageShellProps = {
   controlPanel: ReactNode;
   canvas: ReactNode;
   runBar: ReactNode;
+  taskRail?: ReactNode;
 };
 
 export function StudioPageShell({
@@ -16,10 +17,16 @@ export function StudioPageShell({
   controlPanel,
   canvas,
   runBar,
+  taskRail,
 }: StudioPageShellProps) {
   return (
     <div className="studio-workbench studio-page-shell min-h-[calc(100dvh-64px)] lg:h-[calc(100vh-64px)]">
       <FeatureTabs active={activeFeature} />
+      {taskRail && (
+        <section className="studio-shell-task-rail" aria-label="Workspace tasks">
+          {taskRail}
+        </section>
+      )}
       <section className="studio-shell-sidebar" aria-label="Studio controls">
         <div className="studio-shell-header">{header}</div>
         {controlPanel}

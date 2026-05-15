@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, ChevronRight, Eye, FolderOpen, Heart, Loader2, Sparkles, Upload, Wand, X, XCircle, ZoomIn } from "lucide-react";
 import { toast } from "sonner";
@@ -12,6 +12,7 @@ import { ClientPortal } from "@/components/ClientPortal";
 import { PreviewGuide } from "@/components/PreviewGuide";
 import { LoadingStage } from "@/components/studio/LoadingStage";
 import { ErrorStage } from "@/components/studio/ErrorStage";
+import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
 import { createClient, getCachedProfileCredits, setCachedProfileCredits } from "@/lib/supabase/client";
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
@@ -29,7 +30,8 @@ import {
   type GrassSceneMode,
   type GrassTemplateId,
 } from "@/lib/grass-planting";
-import { takeApplyPayload } from "@/lib/history-apply";
+import { fetchHistoryApplyDetail, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
+import type { TaskQueueItem } from "@/lib/task-queue";
 
 const MODELS: { value: LingyaModel; label: string; desc: string; badge?: string; icon: string }[] = [
   { value: "gpt-image-2", label: "GPT-Image-2", desc: "4K · 4分/次", badge: "最新", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/openai.svg" },
@@ -37,6 +39,8 @@ const MODELS: { value: LingyaModel; label: string; desc: string; badge?: string;
   { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "4K · 4分/次", badge: "推荐", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
   { value: "doubao-seedream-4-5-251128", label: "Seedream 4.5", desc: "4K · 2分/次", badge: "新", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/doubao.png" },
 ];
+
+type GrassHistoryPayload = Extract<HistoryJobPayload, { kind: "grass" }>;
 
 const ASPECTS: { value: AspectRatio; label: string }[] = [
   { value: "3:4", label: "3:4 竖版" },
@@ -152,10 +156,37 @@ export default function GrassPage() {
     if (!nextSizes.includes(imageSize)) setImageSize(nextSizes[0]);
   }, [aiModel, aspectRatio, imageSize]);
 
+  function applyGrassHistoryPayload(payload: GrassHistoryPayload, historyResultUrls: string[] = []) {
+    setGarmentUrl(payload.garmentUrl);
+    setTemplateId(normalizeGrassTemplate(payload.templateId));
+    const nextSceneMode = normalizeGrassSceneMode(payload.sceneMode || (payload.referenceUrl ? "upload_reference" : "system_reference"));
+    setSceneMode(nextSceneMode);
+    setUploadedReferenceUrl(payload.referenceUrl || "");
+    setUploadedReferenceName(payload.referenceUrl ? "历史参考图" : "");
+    setChangeModel(payload.changeModel);
+    if (nextSceneMode === "custom_prompt") {
+      setUserPrompt(payload.userPrompt || DEFAULT_GRASS_USER_PROMPT);
+      setSupplementPrompt("");
+    } else {
+      setSupplementPrompt(payload.userPrompt || "");
+    }
+    setAiModel(payload.aiModel);
+    setAspectRatio(payload.aspectRatio);
+    setImageSize(payload.imageSize);
+    setGenCount(payload.genCount);
+    setPromptOverride(payload.prompt);
+    setResultUrls(historyResultUrls);
+    setIsGenerating(false);
+    setProgress(historyResultUrls.length ? 100 : 0);
+    setError("");
+    toast.success("已套用历史参数");
+  }
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
-    const payload = await takeApplyPayload("grass");
+    const detail = await takeApplyDetail("grass");
+    const payload = detail?.payload;
     if (cancelled || !payload) return;
     setGarmentUrl(payload.garmentUrl);
     setTemplateId(normalizeGrassTemplate(payload.templateId));
@@ -312,6 +343,9 @@ export default function GrassPage() {
         const poll = await fetch(`/api/grass?generation_id=${data.generation_id}`);
         if (!poll.ok) continue;
         const state = await poll.json();
+        if (Array.isArray(state.result_urls) && state.result_urls.length) {
+          setResultUrls(state.result_urls);
+        }
         if (state.status === "completed") {
           setProgress(100);
           setResultUrls(state.result_urls || []);
@@ -320,7 +354,10 @@ export default function GrassPage() {
           return;
         }
         if (state.status === "failed") throw new Error(state.error || "生成失败");
-        setProgress(Math.min(25 + attempts * 1.5, 90));
+        const nextProgress = Number(state.progress);
+        setProgress(Number.isFinite(nextProgress)
+          ? Math.min(Math.max(Math.round(nextProgress), 0), 99)
+          : Math.min(25 + attempts * 1.5, 90));
       }
       throw new Error("生成超时");
     } catch (err: unknown) {
@@ -335,6 +372,24 @@ export default function GrassPage() {
     setPromptOverride(repairedPrompt);
     toast.info("已加入修复指令，正在重新生成...");
     generate(repairedPrompt);
+  }
+
+  function handleRunningTask(item: TaskQueueItem) {
+    setIsGenerating(true);
+    setProgress(Math.min(Math.max(Math.round(Number(item.progress) || 12), 1), 99));
+    setError("");
+    setResultUrls(item.resultThumbnails || []);
+  }
+
+  async function handleCompletedTask(item: TaskQueueItem) {
+    try {
+      const detail = await fetchHistoryApplyDetail(item.id, "grass");
+      applyGrassHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : item.resultThumbnails);
+      return true;
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "历史参数加载失败");
+      return true;
+    }
   }
 
   async function handleOptimizeGenerationPrompt() {
@@ -374,6 +429,7 @@ export default function GrassPage() {
   return (
     <div className="studio-workbench min-h-[calc(100dvh-64px)] lg:h-[calc(100vh-64px)] flex flex-col lg:flex-row">
       <FeatureTabs active="grass" />
+      <ModuleTaskRail module="grass" moduleLabel="种草图" onRunningTask={handleRunningTask} onCompletedTask={handleCompletedTask} />
       <div className="studio-parameters w-full lg:w-[472px] border-b lg:border-b-0 lg:border-r flex flex-col overflow-visible lg:overflow-hidden">
         <div className="studio-parameters-scroll flex-1 overflow-visible lg:overflow-y-auto p-3 sm:p-5 space-y-4 sm:space-y-6">
           <ModuleHeader title="服装种草图" tooltip="上传服装或穿搭图，保持同款穿搭不变，生成街拍、咖啡店、自拍、居家等真实种草内容图。" />
@@ -393,13 +449,13 @@ export default function GrassPage() {
             </div>
             <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleFile(e.target.files?.[0])} />
             {garmentUrl ? (
-              <div className="group studio-checkerboard relative h-[320px] overflow-hidden rounded-2xl border border-dashed border-slate-200">
+              <div className="group studio-checkerboard studio-fixed-upload-preview relative overflow-hidden rounded-2xl border border-dashed border-slate-200" style={{ "--studio-fixed-preview-height": "320px" } as CSSProperties}>
                 <img src={garmentUrl} alt="服装图" className="h-full w-full object-contain p-3" />
                 <span className="absolute left-3 top-3 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-medium text-slate-600 shadow-sm">{garmentName || "已上传"}</span>
                 <button onClick={() => setGarmentUrl("")} className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 opacity-0 shadow group-hover:opacity-100"><X className="h-4 w-4" /></button>
               </div>
             ) : (
-              <div className="flex min-h-52 flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 px-4 py-8 text-center">
+              <div className="studio-fixed-upload-slot flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 px-4 py-8 text-center">
                 <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-sm"><Heart className="h-7 w-7 text-violet-400" /></div>
                 <p className="text-sm font-semibold text-slate-800">上传服装或穿搭图</p>
                 <p className="mt-1 text-[11px] text-slate-400">平铺图、人台图、上身图都可以，主体越完整越稳定</p>
@@ -492,8 +548,8 @@ export default function GrassPage() {
               >
                 <input ref={referenceInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleReferenceFile(e.target.files?.[0])} />
                 {uploadedReferenceUrl ? (
-                  <div className="group relative overflow-hidden rounded-xl bg-slate-100">
-                    <img src={uploadedReferenceUrl} alt="种草参考图" className="h-52 w-full object-cover" />
+                  <div className="group studio-fixed-upload-preview relative overflow-hidden rounded-xl bg-slate-100" style={{ "--studio-fixed-preview-height": "208px" } as CSSProperties}>
+                    <img src={uploadedReferenceUrl} alt="种草参考图" className="h-full w-full object-contain p-2" />
                     <div className="absolute inset-x-2 top-2 flex items-center justify-between gap-2">
                       <span className="truncate rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-medium text-slate-600 shadow-sm">{uploadedReferenceName || "已上传参考图"}</span>
                       <span className="flex gap-1">
@@ -519,7 +575,8 @@ export default function GrassPage() {
                   <button
                     type="button"
                     onClick={() => referenceInputRef.current?.click()}
-                    className="flex min-h-40 w-full flex-col items-center justify-center rounded-xl bg-slate-50 px-4 py-6 text-center hover:bg-slate-100"
+                    className="studio-fixed-upload-slot flex w-full flex-col items-center justify-center rounded-xl bg-slate-50 px-4 py-6 text-center hover:bg-slate-100"
+                    style={{ "--studio-fixed-upload-height": "160px" } as CSSProperties}
                   >
                     <Upload className="mb-3 h-7 w-7 text-violet-400" />
                     <span className="text-sm font-semibold text-slate-800">上传种草参考图</span>
@@ -660,13 +717,20 @@ export default function GrassPage() {
             />
           </div>
         )}
-        {isGenerating && (
+        {isGenerating && resultUrls.length === 0 && (
           <LoadingStage genCount={genCount} progress={progress} moduleName="服装种草图" />
         )}
         {resultUrls.length > 0 && (
           <div className="studio-result-stage min-h-[260px] sm:min-h-[360px] overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:h-full flex flex-col animate-fade-in">
-            <div className="flex min-h-0 flex-1 items-center justify-center">
-              <ResultImageGrid urls={resultUrls} filenamePrefix="grass" extension="jpg" onOpen={setLightboxSrc} />
+            <div className="flex min-h-0 flex-1 items-start justify-start">
+              <ResultImageGrid
+                urls={resultUrls}
+                filenamePrefix="grass"
+                extension="jpg"
+                expectedCount={isGenerating ? genCount : undefined}
+                isGenerating={isGenerating}
+                onOpen={setLightboxSrc}
+              />
             </div>
             <div className="mt-4 flex justify-center"><RepairPromptPanel kind="grass" onRepair={handleRepairGenerate} disabled={isGenerating} className="w-full max-w-3xl" /></div>
           </div>

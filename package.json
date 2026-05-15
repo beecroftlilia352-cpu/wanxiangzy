@@ -6,7 +6,7 @@
     "dev": "next dev",
     "clean:next-build": "node scripts/clean-next-build.js",
     "prebuild": "node scripts/clean-next-build.js",
-    "build": "next build",
+    "build": "node scripts/next-build.js",
     "postbuild": "node scripts/clean-next-output.js",
     "start": "next start",
     "lint": "next lint",

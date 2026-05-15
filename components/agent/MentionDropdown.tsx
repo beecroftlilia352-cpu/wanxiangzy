@@ -85,8 +85,8 @@ export function MentionDropdown({ images, query, onSelect, visible }: Props) {
             idx === selectedIdx ? "bg-violet-50" : "hover:bg-violet-50"
           }`}
         >
-          <div className="h-8 w-8 shrink-0 overflow-hidden rounded-lg border border-slate-100">
-            <img src={img.hostedUrl || img.url} alt={`图${img.index}`} className="h-full w-full object-cover" />
+          <div className="studio-checkerboard h-8 w-8 shrink-0 overflow-hidden rounded-lg border border-slate-100">
+            <img src={img.hostedUrl || img.url} alt={`图${img.index}`} className="h-full w-full object-contain p-0.5" />
           </div>
           <div className="min-w-0 flex-1">
             <span className="text-sm font-bold text-violet-600">图{img.index}</span>

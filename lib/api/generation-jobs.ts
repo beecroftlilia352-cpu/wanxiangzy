@@ -7,7 +7,7 @@ import {
   type ImageSize,
   type LingyaModel,
 } from "@/lib/api/lingya";
-import { failGenerationWithRefund } from "@/lib/api/credits";
+import { completeGenerationWithCreditAdjustment, failGenerationWithRefund } from "@/lib/api/credits";
 import { resolveImageInputs } from "@/lib/api/image-inputs.server";
 import { persistGeneratedImageUrls } from "@/lib/api/result-image-storage";
 import {
@@ -220,6 +220,8 @@ type GenerationExecutionResult = {
   progress?: number;
   externalTaskId?: string;
   externalStatus?: string;
+  failedCount?: number;
+  partialError?: string;
 };
 
 type GenerationProgressUpdate = GenerationExecutionResult;
@@ -389,33 +391,31 @@ async function runClaimedJob(
         fallbackQuality: finalQuality,
       })
       : undefined;
-    const finalPayload = appendProductSetModuleResults(
+    const expectedCount = getExpectedResultCount(payload);
+    const moduleFailureSummary = finalModulePayload
+      ?.filter((item) => item.status === "failed")
+      .map((item) => `${item.name || item.moduleKey}: ${item.error || "failed"}`)
+      .join("; ");
+    const partialRefundAmount = calculatePartialRefund(Number(job.credits_cost || 0), finalUrls.length, expectedCount);
+    const finalPayload = appendGenerationSettlementMetadata(appendProductSetModuleResults(
       appendPromptTrace(appendQualityMetadata(repaired?.payload || payload, finalQuality, Boolean(repaired)), finalPromptTrace),
       finalModulePayload
-    );
+    ), {
+      expectedCount,
+      resultCount: finalUrls.length,
+      failedCount: Math.max(Number(execution.failedCount || 0), Math.max(0, expectedCount - finalUrls.length)),
+      refundAmount: partialRefundAmount,
+      errorMessage: execution.partialError || moduleFailureSummary,
+    });
 
-    const { data, error } = await supabase
-      .from("generations")
-      .update({
-        status: "completed",
-        result_urls: finalUrls,
-        job_payload: finalPayload,
-        processing_started_at: null,
-        completed_at: new Date().toISOString(),
-      })
-      .eq("id", job.id)
-      .eq("user_id", job.user_id)
-      .eq("status", "processing_tryon")
-      .select("id")
-      .maybeSingle();
-
-    if (error) throw new Error(`更新任务结果失败: ${error.message}`);
-    if (!data) {
-      logger.warn(`[jobs] generation ${job.id} was no longer processing; skipped completion write`);
-    }
+    await completeGenerationRecord(supabase, job, finalUrls, finalPayload, {
+      refundAmount: partialRefundAmount,
+      errorMessage: execution.partialError || moduleFailureSummary,
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : "生成失败";
-    await failGenerationWithRefund(supabase, {
+    const settled = await settleFailedGenerationFromProgress(supabase, job, message);
+    if (!settled) await failGenerationWithRefund(supabase, {
       userId: job.user_id,
       generationId: job.id,
       amount: Number(job.credits_cost || 0),
@@ -424,6 +424,146 @@ async function runClaimedJob(
     });
     throw err;
   }
+}
+
+async function completeGenerationRecord(
+  supabase: ReturnType<typeof createAdminClient>,
+  job: ClaimedJob,
+  resultUrls: string[],
+  jobPayload: Record<string, unknown>,
+  options: { refundAmount?: number; errorMessage?: string } = {}
+) {
+  const totalCost = Math.max(0, Math.floor(Number(job.credits_cost || 0)));
+  const refundAmount = Math.min(totalCost, Math.max(0, Math.floor(Number(options.refundAmount || 0))));
+  const creditsUsed = Math.max(0, totalCost - refundAmount);
+  const adjusted = await completeGenerationWithCreditAdjustment(supabase, {
+    userId: job.user_id,
+    generationId: job.id,
+    resultUrls,
+    jobPayload,
+    creditsUsed,
+    refundAmount,
+    refundReason: refundAmount > 0 ? "部分生成失败退还" : "生成完成",
+    errorMessage: options.errorMessage || null,
+  });
+
+  if (adjusted) return;
+  if (refundAmount > 0) {
+    logger.error(`[jobs] generation ${job.id} completed partially but credit adjustment rpc is unavailable; run supabase/atomic-credit-rpc.sql`);
+  }
+
+  const { data, error } = await supabase
+    .from("generations")
+    .update({
+      status: "completed",
+      result_urls: resultUrls,
+      job_payload: jobPayload,
+      processing_started_at: null,
+      completed_at: new Date().toISOString(),
+      credits_used: refundAmount > 0 ? totalCost : creditsUsed,
+    })
+    .eq("id", job.id)
+    .eq("user_id", job.user_id)
+    .neq("status", "failed")
+    .select("id")
+    .maybeSingle();
+
+  if (error) throw new Error(`更新任务结果失败: ${error.message}`);
+  if (!data) {
+    logger.warn(`[jobs] generation ${job.id} was no longer completable; skipped completion write`);
+  }
+}
+
+async function settleFailedGenerationFromProgress(
+  supabase: ReturnType<typeof createAdminClient>,
+  job: ClaimedJob,
+  errorMessage: string
+) {
+  const { data, error } = await supabase
+    .from("generations")
+    .select("status,result_urls,job_payload,credits_cost")
+    .eq("id", job.id)
+    .eq("user_id", job.user_id)
+    .maybeSingle();
+
+  if (error) {
+    logger.error(`[jobs] failed to inspect partial progress for ${job.id}: ${error.message}`);
+    return false;
+  }
+
+  const row = data as { status?: string | null; result_urls?: string[] | null; job_payload?: unknown; credits_cost?: number | null } | null;
+  if (!row) return false;
+  const status = String(row.status || "").toLowerCase();
+  if (status === "completed" || status === "success" || status === "succeeded") return true;
+
+  const resultUrls = Array.isArray(row.result_urls) ? row.result_urls.filter(Boolean) : [];
+  if (!resultUrls.length) return false;
+
+  const payloadRecord = isRecord(row.job_payload) ? row.job_payload : {};
+  const expectedCount = readExpectedCountFromRecord(payloadRecord, resultUrls.length);
+  const refundAmount = calculatePartialRefund(Number(row.credits_cost ?? job.credits_cost ?? 0), resultUrls.length, expectedCount);
+  const settledPayload = appendGenerationSettlementMetadata(payloadRecord, {
+    expectedCount,
+    resultCount: resultUrls.length,
+    failedCount: Math.max(0, expectedCount - resultUrls.length),
+    refundAmount,
+    errorMessage,
+  });
+
+  await completeGenerationRecord(supabase, job, resultUrls, settledPayload, {
+    refundAmount,
+    errorMessage,
+  });
+  return true;
+}
+
+function appendGenerationSettlementMetadata<T extends Record<string, unknown>>(
+  payload: T,
+  params: {
+    expectedCount: number;
+    resultCount: number;
+    failedCount: number;
+    refundAmount: number;
+    errorMessage?: string;
+  }
+): T {
+  if (!params.errorMessage && params.refundAmount <= 0 && params.failedCount <= 0) return payload;
+  const asyncTask = isRecord(payload.asyncTask) ? payload.asyncTask : {};
+  return {
+    ...payload,
+    asyncTask: {
+      ...asyncTask,
+      status: params.resultCount > 0 ? "PARTIAL_SUCCESS" : asyncTask.status,
+      progress: 100,
+      updatedAt: new Date().toISOString(),
+    },
+    partialFailure: {
+      message: params.errorMessage || "",
+      expectedCount: params.expectedCount,
+      resultCount: params.resultCount,
+      failedCount: params.failedCount,
+      refundAmount: params.refundAmount,
+      settledAt: new Date().toISOString(),
+    },
+  } as T;
+}
+
+function calculatePartialRefund(totalCost: number, resultCount: number, expectedCount: number) {
+  const cost = Math.max(0, Math.floor(Number(totalCost) || 0));
+  const expected = Math.max(1, Math.floor(Number(expectedCount) || 1));
+  const completed = Math.min(expected, Math.max(0, Math.floor(Number(resultCount) || 0)));
+  if (cost <= 0 || completed >= expected) return 0;
+  if (completed <= 0) return cost;
+  const charged = Math.min(cost, Math.max(1, Math.floor((cost * completed) / expected)));
+  return Math.max(0, cost - charged);
+}
+
+function readExpectedCountFromRecord(payload: Record<string, unknown>, fallback: number) {
+  const moduleResults = normalizeProductSetModuleResults(payload.moduleResults);
+  if (moduleResults.length) return moduleResults.length;
+  const count = Number(payload.genCount);
+  if (Number.isFinite(count) && count > 0) return Math.floor(count);
+  return Math.max(1, fallback);
 }
 
 async function regenerateForQuality(
@@ -524,45 +664,127 @@ async function executePayload(
   const promptTrace: PromptTraceItem[] = [];
   const resolvePayloadImageInputs = (input: Parameters<typeof resolveImageInputs>[0]) =>
     resolveImageInputs(input, { publicBaseUrl: payload.publicBaseUrl });
-
-  if (payload.kind === "tryon") {
+  type ParallelImageRunResult = {
+    resultUrl?: string;
+    resultUrls?: string[];
+    prompt: string;
+    compiledPrompt: string;
+    taskId?: string;
+  };
+  const executeParallelImageBatch = async (params: {
+    count: number;
+    promptKind: string | ((index: number) => string);
+    run: (index: number, onTaskProgress: (progress: ImageTaskProgress) => Promise<void>) => Promise<ParallelImageRunResult>;
+  }): Promise<GenerationExecutionResult> => {
+    const expectedCount = Math.max(1, Math.floor(params.count || 1));
     const resultUrls: string[] = [];
+    const traces: PromptTraceItem[] = [];
+    const failures: Array<{ index: number; message: string }> = [];
+    const taskProgress = Array.from({ length: expectedCount }, () => 0);
+    let completedCount = 0;
+    let progressQueue = Promise.resolve();
+    const emitProgress = (update: GenerationProgressUpdate) => {
+      if (!onProgress) return Promise.resolve();
+      progressQueue = progressQueue.then(() => onProgress(update));
+      return progressQueue;
+    };
 
-    for (let i = 0; i < payload.genCount; i++) {
-      const imageInputs = await resolvePayloadImageInputs({
-        clothingUrls: payload.clothingUrls,
-        modelFaceUrl: payload.modelFaceUrl || undefined,
-        referenceUrl: payload.referenceUrl || undefined,
-      });
-      const result = await batchTryOn({
-        model: payload.aiModel,
-        clothingUrls: imageInputs.clothingUrls,
-        clothingMode: payload.clothingMode,
-        clothingRoles: payload.clothingRoles,
-        garmentAudience: payload.garmentAudience,
-        ageGroup: payload.ageGroup,
-        garmentCategory: payload.garmentCategory,
-        modelFaceUrl: imageInputs.modelFaceUrl,
-        referenceUrl: imageInputs.referenceUrl,
-        aspect_ratio: payload.aspectRatio,
-        image_size: payload.imageSize,
-        style: payload.style,
-        raw_prompt: payload.rawPrompt,
-        onProgress: (progress) => onProgress?.(mapImageTaskProgress(progress, resultUrls, promptTrace, i, payload.genCount)),
-      });
-      resultUrls.push(...result.resultUrls);
-      promptTrace.push(createPromptTraceItem({
-        index: i + 1,
-        kind: payload.kind,
-        model: payload.aiModel,
-        promptKind: "tryon",
-        prompt: result.prompt,
-        compiledPrompt: result.compiledPrompt,
-      }));
-      await onProgress?.(createCompletedImageProgress(resultUrls, promptTrace, result.taskId, i + 1, payload.genCount));
+    await Promise.all(Array.from({ length: expectedCount }, async (_, index) => {
+      try {
+        const result = await params.run(index, (progress) => {
+          taskProgress[index] = Math.max(taskProgress[index] || 0, clampProgress(progress.progress));
+          const aggregateProgress = Math.min(
+            99,
+            Math.max(1, Math.round(taskProgress.reduce((sum, value) => sum + value, 0) / expectedCount))
+          );
+          return emitProgress({
+            resultUrls: [...resultUrls],
+            promptTrace: [...traces],
+            progress: aggregateProgress,
+            externalTaskId: progress.taskId,
+            externalStatus: progress.providerStatus || progress.status,
+          });
+        });
+        const nextUrls = (result.resultUrls?.length ? result.resultUrls : result.resultUrl ? [result.resultUrl] : [])
+          .filter((url): url is string => Boolean(url));
+        resultUrls.push(...nextUrls);
+        traces.push(createPromptTraceItem({
+          index: index + 1,
+          kind: payload.kind,
+          model: payload.aiModel,
+          promptKind: typeof params.promptKind === "function" ? params.promptKind(index) : params.promptKind,
+          prompt: result.prompt,
+          compiledPrompt: result.compiledPrompt,
+        }));
+        taskProgress[index] = 100;
+        completedCount += 1;
+        await emitProgress(createCompletedImageProgress(
+          [...resultUrls],
+          [...traces],
+          result.taskId,
+          completedCount,
+          expectedCount
+        ));
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "image task failed";
+        failures.push({ index, message });
+        taskProgress[index] = 100;
+        await emitProgress({
+          resultUrls: [...resultUrls],
+          promptTrace: [...traces],
+          progress: Math.min(99, Math.round(taskProgress.reduce((sum, value) => sum + value, 0) / expectedCount)),
+          externalStatus: "FAILED",
+        });
+      }
+    }));
+
+    await progressQueue;
+    if (!resultUrls.length && failures.length) {
+      throw new Error(failures[0]?.message || "image task failed");
     }
 
-    return { resultUrls, promptTrace };
+    return {
+      resultUrls,
+      promptTrace: traces,
+      failedCount: failures.length,
+      partialError: failures.length ? failures.map((item) => `#${item.index + 1}: ${item.message}`).join("; ") : undefined,
+    };
+  };
+
+  if (payload.kind === "tryon") {
+    const imageInputs = await resolvePayloadImageInputs({
+      clothingUrls: payload.clothingUrls,
+      modelFaceUrl: payload.modelFaceUrl || undefined,
+      referenceUrl: payload.referenceUrl || undefined,
+    });
+    return executeParallelImageBatch({
+      count: payload.genCount,
+      promptKind: "tryon",
+      run: async (_index, onTaskProgress) => {
+        const result = await batchTryOn({
+          model: payload.aiModel,
+          clothingUrls: imageInputs.clothingUrls,
+          clothingMode: payload.clothingMode,
+          clothingRoles: payload.clothingRoles,
+          garmentAudience: payload.garmentAudience,
+          ageGroup: payload.ageGroup,
+          garmentCategory: payload.garmentCategory,
+          modelFaceUrl: imageInputs.modelFaceUrl,
+          referenceUrl: imageInputs.referenceUrl,
+          aspect_ratio: payload.aspectRatio,
+          image_size: payload.imageSize,
+          style: payload.style,
+          raw_prompt: payload.rawPrompt,
+          onProgress: onTaskProgress,
+        });
+        return {
+          resultUrls: result.resultUrls,
+          prompt: result.prompt,
+          compiledPrompt: result.compiledPrompt,
+          taskId: result.taskId,
+        };
+      },
+    });
   }
 
   if (payload.kind === "model") {
@@ -572,41 +794,38 @@ async function executePayload(
       payload.hairColorReferenceUrl,
     ].filter(Boolean) as string[];
     const imageInputs = await resolvePayloadImageInputs({ clothingUrls: references });
-    const resultUrls: string[] = [];
     const modelStyle = normalizeModelShootStyle(payload.modelStyle);
 
-    for (let i = 0; i < payload.genCount; i++) {
-      const prompt = enforceModelPromptRequirements({
-        prompt: applyModelShootStylePrompt(payload.prompt, modelStyle),
-        referenceCount: payload.referenceUrls.length,
-        gender: payload.gender,
-        hairStyle: payload.hairStyle,
-        hairColor: payload.hairColor,
-        hairReferenceIndex: payload.hairReferenceUrl ? payload.referenceUrls.length + 1 : null,
-        hairColorReferenceIndex: payload.hairColorReferenceUrl ? payload.referenceUrls.length + (payload.hairReferenceUrl ? 2 : 1) : null,
-      });
-      const result = await generateImage({
-        model: payload.aiModel,
-        prompt,
-        prompt_kind: "model",
-        aspect_ratio: payload.aspectRatio,
-        image: imageInputs.clothingUrls,
-        image_size: payload.imageSize,
-        onProgress: (progress) => onProgress?.(mapImageTaskProgress(progress, resultUrls, promptTrace, i, payload.genCount)),
-      });
-      resultUrls.push(getResultUrl(result));
-      promptTrace.push(createPromptTraceItem({
-        index: i + 1,
-        kind: payload.kind,
-        model: payload.aiModel,
-        promptKind: "model",
-        prompt,
-        compiledPrompt: result.compiledPrompt || prompt,
-      }));
-      await onProgress?.(createCompletedImageProgress(resultUrls, promptTrace, result.taskId, i + 1, payload.genCount));
-    }
-
-    return { resultUrls, promptTrace };
+    return executeParallelImageBatch({
+      count: payload.genCount,
+      promptKind: "model",
+      run: async (_index, onTaskProgress) => {
+        const prompt = enforceModelPromptRequirements({
+          prompt: applyModelShootStylePrompt(payload.prompt, modelStyle),
+          referenceCount: payload.referenceUrls.length,
+          gender: payload.gender,
+          hairStyle: payload.hairStyle,
+          hairColor: payload.hairColor,
+          hairReferenceIndex: payload.hairReferenceUrl ? payload.referenceUrls.length + 1 : null,
+          hairColorReferenceIndex: payload.hairColorReferenceUrl ? payload.referenceUrls.length + (payload.hairReferenceUrl ? 2 : 1) : null,
+        });
+        const result = await generateImage({
+          model: payload.aiModel,
+          prompt,
+          prompt_kind: "model",
+          aspect_ratio: payload.aspectRatio,
+          image: imageInputs.clothingUrls,
+          image_size: payload.imageSize,
+          onProgress: onTaskProgress,
+        });
+        return {
+          resultUrl: getResultUrl(result),
+          prompt,
+          compiledPrompt: result.compiledPrompt || prompt,
+          taskId: result.taskId,
+        };
+      },
+    });
   }
 
   if (payload.kind === "grass") {
@@ -616,31 +835,28 @@ async function executePayload(
         ...(payload.referenceUrl ? [payload.referenceUrl] : []),
       ],
     });
-    const resultUrls: string[] = [];
 
-    for (let i = 0; i < payload.genCount; i++) {
-      const result = await generateImage({
-        model: payload.aiModel,
-        prompt: payload.prompt,
-        prompt_kind: "grass",
-        aspect_ratio: payload.aspectRatio,
-        image: imageInputs.clothingUrls,
-        image_size: payload.imageSize,
-        onProgress: (progress) => onProgress?.(mapImageTaskProgress(progress, resultUrls, promptTrace, i, payload.genCount)),
-      });
-      resultUrls.push(getResultUrl(result));
-      promptTrace.push(createPromptTraceItem({
-        index: i + 1,
-        kind: payload.kind,
-        model: payload.aiModel,
-        promptKind: "grass",
-        prompt: payload.prompt,
-        compiledPrompt: result.compiledPrompt || payload.prompt,
-      }));
-      await onProgress?.(createCompletedImageProgress(resultUrls, promptTrace, result.taskId, i + 1, payload.genCount));
-    }
-
-    return { resultUrls, promptTrace };
+    return executeParallelImageBatch({
+      count: payload.genCount,
+      promptKind: "grass",
+      run: async (_index, onTaskProgress) => {
+        const result = await generateImage({
+          model: payload.aiModel,
+          prompt: payload.prompt,
+          prompt_kind: "grass",
+          aspect_ratio: payload.aspectRatio,
+          image: imageInputs.clothingUrls,
+          image_size: payload.imageSize,
+          onProgress: onTaskProgress,
+        });
+        return {
+          resultUrl: getResultUrl(result),
+          prompt: payload.prompt,
+          compiledPrompt: result.compiledPrompt || payload.prompt,
+          taskId: result.taskId,
+        };
+      },
+    });
   }
 
   if (payload.kind === "modelBackground") {
@@ -650,61 +866,55 @@ async function executePayload(
       payload.backgroundReferenceUrl,
     ].filter(Boolean) as string[];
     const imageInputs = await resolvePayloadImageInputs({ clothingUrls: sourceImages });
-    const resultUrls: string[] = [];
 
-    for (let i = 0; i < payload.genCount; i++) {
-      const result = await generateImage({
-        model: payload.aiModel,
-        prompt: payload.prompt,
-        prompt_kind: "modelBackground",
-        aspect_ratio: payload.aspectRatio,
-        image: imageInputs.clothingUrls,
-        image_size: payload.imageSize,
-        onProgress: (progress) => onProgress?.(mapImageTaskProgress(progress, resultUrls, promptTrace, i, payload.genCount)),
-      });
-      resultUrls.push(getResultUrl(result));
-      promptTrace.push(createPromptTraceItem({
-        index: i + 1,
-        kind: payload.kind,
-        model: payload.aiModel,
-        promptKind: "modelBackground",
-        prompt: payload.prompt,
-        compiledPrompt: result.compiledPrompt || payload.prompt,
-      }));
-      await onProgress?.(createCompletedImageProgress(resultUrls, promptTrace, result.taskId, i + 1, payload.genCount));
-    }
-
-    return { resultUrls, promptTrace };
+    return executeParallelImageBatch({
+      count: payload.genCount,
+      promptKind: "modelBackground",
+      run: async (_index, onTaskProgress) => {
+        const result = await generateImage({
+          model: payload.aiModel,
+          prompt: payload.prompt,
+          prompt_kind: "modelBackground",
+          aspect_ratio: payload.aspectRatio,
+          image: imageInputs.clothingUrls,
+          image_size: payload.imageSize,
+          onProgress: onTaskProgress,
+        });
+        return {
+          resultUrl: getResultUrl(result),
+          prompt: payload.prompt,
+          compiledPrompt: result.compiledPrompt || payload.prompt,
+          taskId: result.taskId,
+        };
+      },
+    });
   }
 
   if (payload.kind === "generalImage") {
     const imageInputs = payload.mode === "image-to-image"
       ? await resolvePayloadImageInputs({ clothingUrls: payload.referenceUrls })
       : { clothingUrls: [] };
-    const resultUrls: string[] = [];
 
-    for (let i = 0; i < payload.genCount; i++) {
-      const result = await generateImage({
-        model: payload.aiModel,
-        prompt: payload.prompt,
-        aspect_ratio: payload.aspectRatio,
-        image: imageInputs.clothingUrls,
-        image_size: payload.imageSize,
-        onProgress: (progress) => onProgress?.(mapImageTaskProgress(progress, resultUrls, promptTrace, i, payload.genCount)),
-      });
-      resultUrls.push(getResultUrl(result));
-      promptTrace.push(createPromptTraceItem({
-        index: i + 1,
-        kind: payload.kind,
-        model: payload.aiModel,
-        promptKind: payload.mode,
-        prompt: payload.prompt,
-        compiledPrompt: result.compiledPrompt || payload.prompt,
-      }));
-      await onProgress?.(createCompletedImageProgress(resultUrls, promptTrace, result.taskId, i + 1, payload.genCount));
-    }
-
-    return { resultUrls, promptTrace };
+    return executeParallelImageBatch({
+      count: payload.genCount,
+      promptKind: payload.mode,
+      run: async (_index, onTaskProgress) => {
+        const result = await generateImage({
+          model: payload.aiModel,
+          prompt: payload.prompt,
+          aspect_ratio: payload.aspectRatio,
+          image: imageInputs.clothingUrls,
+          image_size: payload.imageSize,
+          onProgress: onTaskProgress,
+        });
+        return {
+          resultUrl: getResultUrl(result),
+          prompt: payload.prompt,
+          compiledPrompt: result.compiledPrompt || payload.prompt,
+          taskId: result.taskId,
+        };
+      },
+    });
   }
 
   if (payload.kind === "pose") {
@@ -718,33 +928,29 @@ async function executePayload(
     });
 
     if (outputMode === "separate") {
-      const results: string[] = [];
-      const promptTrace: PromptTraceItem[] = [];
       const generationCount = getPoseGenerationCount(payload);
-      for (let index = 1; index <= generationCount; index++) {
-        const posePrompt = buildSeparatePosePrompt(prompt, index);
-        const result = await generateImage({
-          model: payload.aiModel,
-          prompt: posePrompt,
-          prompt_kind: "pose",
-          aspect_ratio: "3:4",
-          image: imageInputs.clothingUrls,
-          image_size: payload.imageSize,
-          onProgress: (progress) => onProgress?.(mapImageTaskProgress(progress, results, promptTrace, index - 1, generationCount)),
-        });
-        results.push(getResultUrl(result));
-        promptTrace.push(createPromptTraceItem({
-          index,
-          kind: payload.kind,
-          model: payload.aiModel,
-          promptKind: "pose",
-          prompt: posePrompt,
-          compiledPrompt: result.compiledPrompt || posePrompt,
-        }));
-        await onProgress?.(createCompletedImageProgress(results, promptTrace, result.taskId, index, generationCount));
-      }
-
-      return { resultUrls: results, promptTrace };
+      return executeParallelImageBatch({
+        count: generationCount,
+        promptKind: "pose",
+        run: async (index, onTaskProgress) => {
+          const posePrompt = buildSeparatePosePrompt(prompt, index + 1);
+          const result = await generateImage({
+            model: payload.aiModel,
+            prompt: posePrompt,
+            prompt_kind: "pose",
+            aspect_ratio: "3:4",
+            image: imageInputs.clothingUrls,
+            image_size: payload.imageSize,
+            onProgress: onTaskProgress,
+          });
+          return {
+            resultUrl: getResultUrl(result),
+            prompt: posePrompt,
+            compiledPrompt: result.compiledPrompt || posePrompt,
+            taskId: result.taskId,
+          };
+        },
+      });
     }
 
     const result = await generateImage({
@@ -774,75 +980,69 @@ async function executePayload(
     const imageInputs = await resolvePayloadImageInputs({
       clothingUrls: [payload.sourceUrl, payload.faceUrl],
     });
-    const resultUrls: string[] = [];
     const prompt = enforceFaceSwapPromptRequirements(payload.prompt);
 
-    for (let i = 0; i < payload.genCount; i++) {
-      const result = await generateImage({
-        model: payload.aiModel,
-        prompt,
-        prompt_kind: "faceSwap",
-        aspect_ratio: payload.aspectRatio,
-        image: imageInputs.clothingUrls,
-        image_size: payload.imageSize,
-        onProgress: (progress) => onProgress?.(mapImageTaskProgress(progress, resultUrls, promptTrace, i, payload.genCount)),
-      });
-      resultUrls.push(getResultUrl(result));
-      promptTrace.push(createPromptTraceItem({
-        index: i + 1,
-        kind: payload.kind,
-        model: payload.aiModel,
-        promptKind: "faceSwap",
-        prompt,
-        compiledPrompt: result.compiledPrompt || prompt,
-      }));
-      await onProgress?.(createCompletedImageProgress(resultUrls, promptTrace, result.taskId, i + 1, payload.genCount));
-    }
-
-    return { resultUrls, promptTrace };
+    return executeParallelImageBatch({
+      count: payload.genCount,
+      promptKind: "faceSwap",
+      run: async (_index, onTaskProgress) => {
+        const result = await generateImage({
+          model: payload.aiModel,
+          prompt,
+          prompt_kind: "faceSwap",
+          aspect_ratio: payload.aspectRatio,
+          image: imageInputs.clothingUrls,
+          image_size: payload.imageSize,
+          onProgress: onTaskProgress,
+        });
+        return {
+          resultUrl: getResultUrl(result),
+          prompt,
+          compiledPrompt: result.compiledPrompt || prompt,
+          taskId: result.taskId,
+        };
+      },
+    });
   }
 
   if (payload.kind === "commerceDetail") {
     const imageInputs = await resolvePayloadImageInputs({ clothingUrls: payload.sourceUrls });
-    const resultUrls: string[] = [];
     const layout = normalizeCommerceDetailLayout(payload.layout);
     const sections = normalizeCommerceDetailSections(payload.sections, payload.genCount);
     const generationCount = sections.length;
 
-    for (let i = 0; i < generationCount; i++) {
-      const section = sections[i];
-      const prompt = buildCommerceDetailSectionPrompt({
-        userPrompt: payload.prompt,
-        platform: payload.platform || "general",
-        layout,
-        mobileWidth: payload.mobileWidth || 750,
-        section,
-        sectionIndex: i + 1,
-        sectionTotal: generationCount,
-        referenceCount: imageInputs.clothingUrls.length,
-      });
-      const result = await generateImage({
-        model: payload.aiModel,
-        prompt,
-        prompt_kind: "commerceDetail",
-        aspect_ratio: resolveCommerceDetailAspectRatio(layout, payload.aspectRatio),
-        image: imageInputs.clothingUrls,
-        image_size: payload.imageSize,
-        onProgress: (progress) => onProgress?.(mapImageTaskProgress(progress, resultUrls, promptTrace, i, generationCount)),
-      });
-      resultUrls.push(getResultUrl(result));
-      promptTrace.push(createPromptTraceItem({
-        index: i + 1,
-        kind: payload.kind,
-        model: payload.aiModel,
-        promptKind: `commerceDetail:${section.id}`,
-        prompt,
-        compiledPrompt: result.compiledPrompt || prompt,
-      }));
-      await onProgress?.(createCompletedImageProgress(resultUrls, promptTrace, result.taskId, i + 1, generationCount));
-    }
-
-    return { resultUrls, promptTrace };
+    return executeParallelImageBatch({
+      count: generationCount,
+      promptKind: (index) => `commerceDetail:${sections[index]?.id || index + 1}`,
+      run: async (index, onTaskProgress) => {
+        const section = sections[index];
+        const prompt = buildCommerceDetailSectionPrompt({
+          userPrompt: payload.prompt,
+          platform: payload.platform || "general",
+          layout,
+          mobileWidth: payload.mobileWidth || 750,
+          section,
+          sectionIndex: index + 1,
+          sectionTotal: generationCount,
+          referenceCount: imageInputs.clothingUrls.length,
+        });
+        const result = await generateImage({
+          model: payload.aiModel,
+          prompt,
+          prompt_kind: "commerceDetail",
+          aspect_ratio: resolveCommerceDetailAspectRatio(layout, payload.aspectRatio),
+          image: imageInputs.clothingUrls,
+          image_size: payload.imageSize,
+          onProgress: onTaskProgress,
+        });
+        return {
+          resultUrl: getResultUrl(result),
+          prompt,
+          compiledPrompt: result.compiledPrompt || prompt,
+          taskId: result.taskId,
+        };
+      },
+    });
   }
 
   if (payload.kind === "productSet") {
@@ -1015,33 +1215,30 @@ async function executePayload(
       ...(payload.referenceUrl ? [payload.referenceUrl] : []),
     ],
   });
-  const resultUrls: string[] = [];
   const displayStyle = normalizeGarment3dDisplayStyle(payload.displayStyle);
 
-  for (let i = 0; i < payload.genCount; i++) {
-    const prompt = applyGarment3dDisplayStylePrompt(payload.prompt, displayStyle);
-    const result = await generateImage({
-      model: payload.aiModel,
-      prompt,
-      prompt_kind: "garment3d",
-      aspect_ratio: payload.aspectRatio,
-      image: imageInputs.clothingUrls,
-      image_size: payload.imageSize,
-      onProgress: (progress) => onProgress?.(mapImageTaskProgress(progress, resultUrls, promptTrace, i, payload.genCount)),
-    });
-    resultUrls.push(getResultUrl(result));
-    promptTrace.push(createPromptTraceItem({
-      index: i + 1,
-      kind: payload.kind,
-      model: payload.aiModel,
-      promptKind: "garment3d",
-      prompt,
-      compiledPrompt: result.compiledPrompt || prompt,
-    }));
-    await onProgress?.(createCompletedImageProgress(resultUrls, promptTrace, result.taskId, i + 1, payload.genCount));
-  }
-
-  return { resultUrls, promptTrace };
+  return executeParallelImageBatch({
+    count: payload.genCount,
+    promptKind: "garment3d",
+    run: async (_index, onTaskProgress) => {
+      const prompt = applyGarment3dDisplayStylePrompt(payload.prompt, displayStyle);
+      const result = await generateImage({
+        model: payload.aiModel,
+        prompt,
+        prompt_kind: "garment3d",
+        aspect_ratio: payload.aspectRatio,
+        image: imageInputs.clothingUrls,
+        image_size: payload.imageSize,
+        onProgress: onTaskProgress,
+      });
+      return {
+        resultUrl: getResultUrl(result),
+        prompt,
+        compiledPrompt: result.compiledPrompt || prompt,
+        taskId: result.taskId,
+      };
+    },
+  });
 }
 
 function mapImageTaskProgress(

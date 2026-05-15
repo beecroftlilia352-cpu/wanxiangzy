@@ -3,9 +3,11 @@ import { API_RATE_LIMITS, enforceApiRateLimit } from "@/lib/api/rate-limit";
 import { createServerSupabase } from "@/lib/supabase/server";
 import {
   GENERATION_FAILED_STATUS_FILTERS,
+  GENERATION_PENDING_STATUS_FILTERS,
   GENERATION_RUNNING_STATUS_FILTERS,
   normalizeGenerationState,
 } from "@/lib/api/generation-state";
+import type { TaskQueueItem, TaskStatusGroup } from "@/lib/task-queue";
 
 const QUEUE_COLUMNS = [
   "id",
@@ -64,19 +66,6 @@ type WorkflowRow = {
   updated_at?: string | null;
 };
 
-type QueueItem = {
-  id: string;
-  title: string;
-  status: string;
-  statusGroup: "running" | "finished";
-  time: string;
-  createdAt: string;
-  completedAt?: string | null;
-  error: string;
-  progress?: number;
-  thumbnails: string[];
-};
-
 type QueueSummaryData = {
   totalTaskNum: number;
   finishedTaskNum: number;
@@ -101,6 +90,10 @@ export async function GET(request: Request) {
   try {
     const searchParams = new URL(request.url).searchParams;
     const summaryOnly = searchParams.get("summary") === "1" || searchParams.get("mode") === "summary";
+    const moduleFilter = normalizeModuleFilter(searchParams.get("module"));
+    const searchQuery = (searchParams.get("q") || searchParams.get("query") || "").trim().toLowerCase();
+    const limit = clampNumber(searchParams.get("limit"), 8, 80, 32);
+    const cursor = searchParams.get("cursor");
     const supabase = await createServerSupabase();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return queueJson(summaryOnly ? summaryPayload(EMPTY_SUMMARY) : detailPayload([], EMPTY_SUMMARY));
@@ -110,23 +103,32 @@ export async function GET(request: Request) {
     const summary = await loadQueueSummary(supabase, user.id);
     if (summaryOnly) return queueJson(summaryPayload(summary));
 
-    const { data, error } = await supabase
+    let generationsQuery = supabase
       .from("generations")
       .select(QUEUE_COLUMNS)
       .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(24);
+      .order("created_at", { ascending: false });
+
+    if (cursor) generationsQuery = generationsQuery.lt("created_at", cursor);
+
+    const queryLimit = moduleFilter ? Math.min(Math.max((limit + 1) * 5, 40), 200) : limit + 1;
+    const { data, error } = await generationsQuery.limit(queryLimit);
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
     const rawRows = (Array.isArray(data) ? data : []) as unknown as QueueRow[];
-    const generationRows = rawRows.map(normalizeQueueRow);
-    const workflowRows = await loadWorkflowRows(supabase, user.id);
-    const rows = [...generationRows, ...workflowRows]
+    const generationRows = rawRows
+      .map(normalizeQueueRow)
+      .filter((row) => !moduleFilter || row.module === moduleFilter);
+    const workflowRows = moduleFilter ? [] : await loadWorkflowRows(supabase, user.id, cursor, Math.min(limit + 1, 24));
+    const filteredRows = [...generationRows, ...workflowRows]
       .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
-      .slice(0, 32);
+      .filter((row) => matchesSearch(row, searchQuery));
+    const rows = filteredRows.slice(0, limit);
+    const hasMore = filteredRows.length > limit || rawRows.length >= queryLimit;
+    const nextCursor = rows.length ? rows[rows.length - 1]?.createdAt || null : null;
 
-    return queueJson(detailPayload(rows, summary));
+    return queueJson(detailPayload(rows, summary, hasMore, hasMore ? nextCursor : null));
   } catch (error) {
     if (process.env.NODE_ENV === "development") console.error("[task-queue] error:", error);
     return NextResponse.json({ error: "任务队列加载失败" }, { status: 500 });
@@ -255,10 +257,12 @@ function summaryPayload(summary: QueueSummaryData) {
   };
 }
 
-function detailPayload(rows: QueueItem[], summary: QueueSummaryData) {
+function detailPayload(rows: TaskQueueItem[], summary: QueueSummaryData, hasMore = false, nextCursor: string | null = null) {
   return {
     ...summaryPayload(summary),
     rows,
+    hasMore,
+    nextCursor,
   };
 }
 
@@ -270,13 +274,21 @@ function queueJson(body: unknown) {
   });
 }
 
-async function loadWorkflowRows(supabase: Awaited<ReturnType<typeof createServerSupabase>>, userId: string) {
-  const { data, error } = await supabase
+async function loadWorkflowRows(
+  supabase: Awaited<ReturnType<typeof createServerSupabase>>,
+  userId: string,
+  cursor: string | null,
+  limit: number
+) {
+  let query = supabase
     .from("agent_workflows")
     .select("id,status,intent,summary,input_images,final_outputs,cost_reserved,cost_settled,error_message,created_at,updated_at")
     .eq("user_id", userId)
-    .order("created_at", { ascending: false })
-    .limit(16);
+    .order("created_at", { ascending: false });
+
+  if (cursor) query = query.lt("created_at", cursor);
+
+  const { data, error } = await query.limit(limit);
 
   if (error) {
     if (process.env.NODE_ENV === "development") console.warn("[task-queue] agent workflows unavailable:", error.message);
@@ -287,9 +299,9 @@ async function loadWorkflowRows(supabase: Awaited<ReturnType<typeof createServer
   return workflows.map(normalizeWorkflowRow);
 }
 
-function normalizeQueueRow(row: QueueRow): QueueItem {
+function normalizeQueueRow(row: QueueRow): TaskQueueItem {
   const payload = row.job_payload && typeof row.job_payload === "object" ? row.job_payload : {};
-  const kind = typeof payload.kind === "string" ? payload.kind : "";
+  const kind = typeof payload.kind === "string" ? payload.kind : inferGenerationModule(row, payload);
   const state = normalizeGenerationState({
     status: row.status,
     resultUrls: row.result_urls,
@@ -297,42 +309,100 @@ function normalizeQueueRow(row: QueueRow): QueueItem {
     completedAt: row.completed_at,
   });
   const completedAt = state.completedAt || row.completed_at;
-  const statusGroup = state.statusGroup === "running" && isStaleRunningGeneration(row)
-    ? "finished"
-    : state.statusGroup;
+  const staleRunning = state.statusGroup === "running" && isStaleRunningGeneration(row);
+  const statusGroup = getGenerationStatusGroup(state.status, staleRunning, state.resultCount);
+  const inputThumbnails = getInputThumbnails(row, payload);
+  const resultThumbnails = Array.from(new Set(Array.isArray(row.result_urls) ? row.result_urls : []));
+  const updatedAt = completedAt || row.processing_started_at || readAsyncTaskUpdatedAt(row.job_payload) || row.created_at;
   return {
     id: row.id,
+    module: kind || "unknown",
     title: moduleLabel(kind),
-    status: state.status,
+    status: staleRunning && statusGroup === "failed" ? "stale" : state.status,
     statusGroup,
     progress: state.progress,
-    time: formatDuration(row.created_at, statusGroup === "finished" ? completedAt || row.created_at : null),
+    expectedCount: state.expectedCount,
+    resultCount: state.resultCount,
+    time: formatDuration(row.created_at, isTaskCompleteLike(statusGroup) ? completedAt || updatedAt : null),
     createdAt: row.created_at,
+    updatedAt,
     completedAt,
-    error: row.error_message || "",
-    thumbnails: getThumbnails(row, payload),
+    error: row.error_message || (staleRunning && statusGroup === "failed" ? "任务超时，请重新生成" : ""),
+    inputThumbnails,
+    resultThumbnails,
+    thumbnails: getDisplayThumbnails(resultThumbnails, inputThumbnails),
+    applyUrl: getApplyUrl(kind, row.id),
   };
 }
 
-function normalizeWorkflowRow(row: WorkflowRow): QueueItem {
-  const statusGroup = isRunningWorkflowStatus(row.status) && !isStaleRunningDate(row.updated_at || row.created_at)
-    ? "running" as const
-    : "finished" as const;
+function normalizeWorkflowRow(row: WorkflowRow): TaskQueueItem {
+  const statusGroup = getWorkflowStatusGroup(row);
+  const inputThumbnails = getWorkflowInputThumbnails(row);
+  const resultThumbnails = getWorkflowResultThumbnails(row);
   return {
     id: row.id,
+    module: "workflow",
     title: row.summary || workflowLabel(row.intent || ""),
     status: row.status,
     statusGroup,
-    time: formatDuration(row.created_at, statusGroup === "finished" ? row.updated_at : null),
+    time: formatDuration(row.created_at, isTaskCompleteLike(statusGroup) ? row.updated_at : null),
     createdAt: row.created_at,
+    updatedAt: row.updated_at || row.created_at,
     completedAt: row.updated_at,
     error: row.error_message || "",
-    thumbnails: getWorkflowThumbnails(row),
+    progress: statusGroup === "completed" ? 100 : statusGroup === "failed" ? 100 : 15,
+    expectedCount: Math.max(1, resultThumbnails.length || inputThumbnails.length || 1),
+    resultCount: resultThumbnails.length,
+    inputThumbnails,
+    resultThumbnails,
+    thumbnails: getDisplayThumbnails(resultThumbnails, inputThumbnails),
+    applyUrl: `/history?detail=${encodeURIComponent(row.id)}`,
   };
+}
+
+function inferGenerationModule(row: QueueRow, payload: Record<string, unknown>) {
+  const clothingUrls = [
+    ...stringArray(payload.clothingUrls),
+    ...(Array.isArray(row.clothing_urls) ? row.clothing_urls : []),
+  ].filter(Boolean);
+  if (clothingUrls.length) return "tryon";
+  if (stringArray(payload.productImageUrls).length) return "productSet";
+  if (stringValue(payload.sourceUrl) && stringValue(payload.faceUrl)) return "faceSwap";
+  if (stringValue(payload.sourceUrl) && ("backgroundSource" in payload || "backgroundText" in payload)) return "modelBackground";
+  if (stringValue(payload.mainImageUrl)) return "pose";
+  if (stringValue(payload.garmentUrl) && ("templateId" in payload || "changeModel" in payload)) return "grass";
+  if (stringValue(payload.garmentUrl)) return "garment3d";
+  if (stringArray(payload.referenceUrls).length && "gender" in payload) return "model";
+  if ("mode" in payload && "prompt" in payload) return "generalImage";
+  return "";
 }
 
 function isRunningWorkflowStatus(status: string) {
   return status === "queued" || status === "running";
+}
+
+function getGenerationStatusGroup(status: string, staleRunning: boolean, resultCount: number): TaskStatusGroup {
+  const normalized = status.toLowerCase();
+  if (GENERATION_FAILED_STATUS_FILTERS.includes(normalized as typeof GENERATION_FAILED_STATUS_FILTERS[number])) return "failed";
+  if (staleRunning && resultCount <= 0) return "failed";
+  if (GENERATION_PENDING_STATUS_FILTERS.includes(normalized as typeof GENERATION_PENDING_STATUS_FILTERS[number])) return "queued";
+  if (GENERATION_RUNNING_STATUS_FILTERS.includes(normalized as typeof GENERATION_RUNNING_STATUS_FILTERS[number]) || normalized.startsWith("processing_")) {
+    return "running";
+  }
+  return "completed";
+}
+
+function getWorkflowStatusGroup(row: WorkflowRow): TaskStatusGroup {
+  const normalized = row.status.toLowerCase();
+  if (FAILED_WORKFLOW_STATUSES.includes(normalized)) return "failed";
+  if (isRunningWorkflowStatus(normalized) && !isStaleRunningDate(row.updated_at || row.created_at)) {
+    return normalized === "queued" ? "queued" : "running";
+  }
+  return "completed";
+}
+
+function isTaskCompleteLike(statusGroup: TaskStatusGroup) {
+  return statusGroup === "completed" || statusGroup === "failed";
 }
 
 function isStaleRunningGeneration(row: Pick<QueueRow, "created_at" | "processing_started_at" | "job_payload">) {
@@ -359,14 +429,16 @@ function getRunningTaskStaleMs() {
 }
 
 function moduleLabel(kind: string) {
-  if (kind === "tryon") return "Virtual Try-on";
-  if (kind === "faceSwap") return "Swap Face";
-  if (kind === "model") return "AI Model";
-  if (kind === "pose") return "Pose Variation";
-  if (kind === "grass") return "AI Lookbook";
-  if (kind === "modelBackground") return "Change Background";
-  if (kind === "garment3d") return "Flat Lay Generator";
-  return "AI Task";
+  if (kind === "tryon") return "服装上身";
+  if (kind === "faceSwap") return "AI修图";
+  if (kind === "model") return "模特生成";
+  if (kind === "pose") return "姿势裂变";
+  if (kind === "grass") return "种草图";
+  if (kind === "modelBackground") return "换模特背景";
+  if (kind === "garment3d") return "平铺转3D";
+  if (kind === "productSet") return "商品套图";
+  if (kind === "generalImage") return "创意生图";
+  return "AI任务";
 }
 
 function workflowLabel(intent: string) {
@@ -377,34 +449,82 @@ function workflowLabel(intent: string) {
   return "Agent Workflow";
 }
 
-function getThumbnails(row: QueueRow, payload: Record<string, unknown>) {
-  const urls = [
-    ...(Array.isArray(row.result_urls) ? row.result_urls : []),
+function getInputThumbnails(row: QueueRow, payload: Record<string, unknown>) {
+  return Array.from(new Set([
     ...stringArray(payload.clothingUrls),
+    ...stringArray(payload.referenceUrls),
+    ...stringArray(payload.productImageUrls),
     stringValue(payload.sourceUrl),
     stringValue(payload.faceUrl),
     stringValue(payload.mainImageUrl),
     stringValue(payload.garmentUrl),
     stringValue(payload.referenceUrl),
+    stringValue(payload.modelFaceUrl),
     stringValue(row.model_face_url),
     stringValue(row.reference_url),
     ...(Array.isArray(row.clothing_urls) ? row.clothing_urls : []),
-  ].filter(Boolean) as string[];
-  return Array.from(new Set(urls)).slice(0, 2);
+  ].filter(Boolean) as string[])).slice(0, 8);
 }
 
-function getWorkflowThumbnails(row: WorkflowRow) {
-  const inputUrls = Array.isArray(row.input_images)
+function getWorkflowInputThumbnails(row: WorkflowRow) {
+  return Array.isArray(row.input_images)
     ? row.input_images
         .map((image) => image && typeof image === "object" && "url" in image ? (image as { url?: unknown }).url : "")
         .filter((url): url is string => typeof url === "string" && url.length > 0)
     : [];
+}
+
+function getWorkflowResultThumbnails(row: WorkflowRow) {
   const final = row.final_outputs && typeof row.final_outputs === "object" ? row.final_outputs : {};
-  const outputUrls = [
+  return Array.from(new Set([
     ...stringArray(final.imageUrls),
+    ...stringArray(final.resultUrls),
+    ...stringArray(final.urls),
     stringValue(final.selectedImageUrl),
-  ];
-  return Array.from(new Set([...outputUrls, ...inputUrls])).slice(0, 2);
+    stringValue(final.imageUrl),
+  ].filter(Boolean) as string[])).slice(0, 8);
+}
+
+function getDisplayThumbnails(resultUrls: string[], inputUrls: string[]) {
+  return Array.from(new Set([...resultUrls, ...inputUrls])).slice(0, 2);
+}
+
+function getApplyUrl(kind: string, generationId: string) {
+  const path = getModulePath(kind);
+  if (!path) return `/history?detail=${encodeURIComponent(generationId)}`;
+  return `${path}?apply=${encodeURIComponent(generationId)}`;
+}
+
+function getModulePath(kind: string) {
+  if (kind === "tryon") return "/create";
+  if (kind === "grass") return "/grass";
+  if (kind === "modelBackground") return "/model-background";
+  if (kind === "generalImage") return "/general-image";
+  if (kind === "productSet") return "/product-set";
+  if (kind === "garment3d") return "/garment-3d";
+  if (kind === "faceSwap") return "/face-swap";
+  if (kind === "model") return "/model";
+  if (kind === "pose") return "/pose";
+  return "";
+}
+
+function normalizeModuleFilter(value: string | null) {
+  const normalized = (value || "").trim();
+  if (!normalized || normalized === "all") return "";
+  return normalized;
+}
+
+function matchesSearch(row: TaskQueueItem, query: string) {
+  if (!query) return true;
+  return row.id.toLowerCase().includes(query) ||
+    row.title.toLowerCase().includes(query) ||
+    row.status.toLowerCase().includes(query);
+}
+
+function clampNumber(value: string | null, min: number, max: number, fallback: number) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return fallback;
+  return Math.min(max, Math.max(min, Math.round(num)));
 }
 
 function stringArray(value: unknown) {

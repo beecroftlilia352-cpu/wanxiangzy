@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import {
   Camera,
@@ -26,12 +26,14 @@ import { PreviewGuide } from "@/components/PreviewGuide";
 import { RepairPromptPanel } from "@/components/RepairPromptPanel";
 import { LoadingStage } from "@/components/studio/LoadingStage";
 import { ErrorStage } from "@/components/studio/ErrorStage";
+import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
 import { createClient, getCachedProfileCredits, setCachedProfileCredits } from "@/lib/supabase/client";
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
 import { applyRepairPrompt } from "@/lib/generation-repair";
-import { takeApplyPayload } from "@/lib/history-apply";
+import { fetchHistoryApplyDetail, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
+import type { TaskQueueItem } from "@/lib/task-queue";
 import {
   BACKGROUND_PRESETS,
   BACKGROUND_SOURCE_LABELS,
@@ -57,6 +59,8 @@ const MODELS: { value: LingyaModel; label: string; desc: string; badge?: string;
   { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "细节更强", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
   { value: "doubao-seedream-4-5-251128", label: "Seedream 4.5", desc: "风格自然", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/doubao.png" },
 ];
+
+type ModelBackgroundHistoryPayload = Extract<HistoryJobPayload, { kind: "modelBackground" }>;
 
 const ASPECTS: { value: AspectRatio; label: string }[] = [
   { value: "3:4", label: "3:4 竖版" },
@@ -170,10 +174,35 @@ export default function ModelBackgroundPage() {
     if (!nextSizes.includes(imageSize)) setImageSize(nextSizes[0]);
   }, [aiModel, aspectRatio, imageSize]);
 
+  function applyModelBackgroundHistoryPayload(payload: ModelBackgroundHistoryPayload, historyResultUrls: string[] = []) {
+    const nextSource = normalizeBackgroundSourceMode(payload.backgroundSource);
+    const nextPreset = normalizeBackgroundPreset(payload.templateId);
+    setSourceUrl(payload.sourceUrl);
+    setModelReferenceUrl(payload.modelReferenceUrl || "");
+    setModelReferenceName(payload.modelReferenceUrl ? "历史模特" : "");
+    setBackgroundReferenceUrl(payload.backgroundReferenceUrl || getBackgroundPreset(nextPreset).imageUrl);
+    setMode(normalizeModelBackgroundMode(payload.mode));
+    setBackgroundSource(nextSource === "auto" ? "preset" : nextSource);
+    setBackgroundPresetId(nextPreset);
+    setBackgroundText(payload.backgroundText || DEFAULT_BACKGROUND_TEXT);
+    setUserPrompt(payload.userPrompt || "");
+    setAiModel(payload.aiModel);
+    setAspectRatio(payload.aspectRatio);
+    setImageSize(payload.imageSize);
+    setGenCount(payload.genCount);
+    setPromptOverride(payload.prompt);
+    setResultUrls(historyResultUrls);
+    setIsGenerating(false);
+    setProgress(historyResultUrls.length ? 100 : 0);
+    setError("");
+    toast.success("已套用历史参数");
+  }
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
-    const payload = await takeApplyPayload("modelBackground");
+    const detail = await takeApplyDetail("modelBackground");
+    const payload = detail?.payload;
     if (cancelled || !payload) return;
     const nextSource = normalizeBackgroundSourceMode(payload.backgroundSource);
     const nextPreset = normalizeBackgroundPreset(payload.templateId);
@@ -191,6 +220,10 @@ export default function ModelBackgroundPage() {
     setImageSize(payload.imageSize);
     setGenCount(payload.genCount);
     setPromptOverride(payload.prompt);
+    setResultUrls(detail?.resultUrls || []);
+    setIsGenerating(false);
+    setProgress(detail?.resultUrls.length ? 100 : 0);
+    setError("");
     toast.success("已套用历史参数");
     })();
     return () => {
@@ -317,6 +350,9 @@ export default function ModelBackgroundPage() {
         const poll = await fetch(`/api/model-background?generation_id=${data.generation_id}`);
         if (!poll.ok) continue;
         const state = await poll.json();
+        if (Array.isArray(state.result_urls) && state.result_urls.length) {
+          setResultUrls(state.result_urls);
+        }
         if (state.status === "completed") {
           setProgress(100);
           setResultUrls(state.result_urls || []);
@@ -325,7 +361,10 @@ export default function ModelBackgroundPage() {
           return;
         }
         if (state.status === "failed") throw new Error(state.error || "生成失败");
-        setProgress(Math.min(25 + attempts * 1.5, 90));
+        const nextProgress = Number(state.progress);
+        setProgress(Number.isFinite(nextProgress)
+          ? Math.min(Math.max(Math.round(nextProgress), 0), 99)
+          : Math.min(25 + attempts * 1.5, 90));
       }
       throw new Error("生成超时");
     } catch (err: unknown) {
@@ -340,6 +379,24 @@ export default function ModelBackgroundPage() {
     setPromptOverride(repairedPrompt);
     toast.info("已加入修复指令，正在重新生成...");
     generate(repairedPrompt);
+  }
+
+  function handleRunningTask(item: TaskQueueItem) {
+    setIsGenerating(true);
+    setProgress(Math.min(Math.max(Math.round(Number(item.progress) || 12), 1), 99));
+    setError("");
+    setResultUrls(item.resultThumbnails || []);
+  }
+
+  async function handleCompletedTask(item: TaskQueueItem) {
+    try {
+      const detail = await fetchHistoryApplyDetail(item.id, "modelBackground");
+      applyModelBackgroundHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : item.resultThumbnails);
+      return true;
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "历史参数加载失败");
+      return true;
+    }
   }
 
   async function handleOptimizeGenerationPrompt() {
@@ -387,6 +444,7 @@ export default function ModelBackgroundPage() {
   return (
     <div className="studio-workbench min-h-[calc(100dvh-64px)] lg:h-[calc(100vh-64px)] flex flex-col lg:flex-row">
       <FeatureTabs active="modelBackground" />
+      <ModuleTaskRail module="modelBackground" moduleLabel="换背景" onRunningTask={handleRunningTask} onCompletedTask={handleCompletedTask} />
       <div className="studio-parameters w-full lg:w-[472px] border-b lg:border-b-0 lg:border-r flex flex-col overflow-visible lg:overflow-hidden">
         <div className="studio-parameters-scroll flex-1 overflow-visible lg:overflow-y-auto p-3 sm:p-5 space-y-4 sm:space-y-5">
           <ModuleHeader title="换背景" tooltip="默认只替换原图背景，人物、服装和穿搭保持不变；切换到换模特时需要先选择或上传模特参考图。" />
@@ -416,7 +474,7 @@ export default function ModelBackgroundPage() {
             <input ref={sourceInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleUpload(e.target.files?.[0], "source")} />
             <div className="relative overflow-hidden rounded-2xl border border-dashed border-slate-200 bg-slate-50/70">
               {sourceUrl ? (
-                <div className="group studio-checkerboard relative flex h-[320px] items-center justify-center overflow-hidden rounded-2xl">
+                <div className="group studio-checkerboard studio-fixed-upload-preview relative flex items-center justify-center overflow-hidden rounded-2xl" style={{ "--studio-fixed-preview-height": "320px" } as CSSProperties}>
                   <img src={sourceUrl} alt="原图" className="h-full w-full object-contain p-3" />
                   <span className="absolute left-3 top-3 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-medium text-slate-600 shadow-sm">图1 原图</span>
                   <div className="absolute right-2 top-2 flex gap-1.5">
@@ -443,7 +501,7 @@ export default function ModelBackgroundPage() {
                   </div>
                 </div>
               ) : (
-                <div className="studio-upload-dropzone flex min-h-52 flex-col items-center justify-center px-4 py-8 text-center">
+                <div className="studio-upload-dropzone studio-fixed-upload-slot flex flex-col items-center justify-center px-4 py-8 text-center">
                   <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-sm">
                     <Images className="h-7 w-7 text-violet-500" />
                   </div>
@@ -533,7 +591,7 @@ export default function ModelBackgroundPage() {
                 <div className={`group relative overflow-hidden rounded-lg border-2 border-dashed transition-all ${modelReferenceUrl && !PRESET_BACKGROUND_MODELS.some((item) => item.imageUrl === modelReferenceUrl) ? "border-purple-400 bg-purple-50" : "border-gray-200 hover:border-purple-300"}`}>
                   <button type="button" onClick={() => modelInputRef.current?.click()} className="flex aspect-square w-full flex-col items-center justify-center">
                     {modelReferenceUrl && !PRESET_BACKGROUND_MODELS.some((item) => item.imageUrl === modelReferenceUrl)
-                      ? <img src={modelReferenceUrl} alt={modelReferenceName || "自定义模特"} className="h-full w-full rounded-lg object-cover" />
+                      ? <img src={modelReferenceUrl} alt={modelReferenceName || "自定义模特"} className="h-full w-full rounded-lg object-contain p-1" />
                       : <><Camera className="w-5 h-5 text-gray-300" /><span className="mt-1 text-[10px] text-gray-400">点击上传</span></>
                     }
                   </button>
@@ -611,8 +669,8 @@ export default function ModelBackgroundPage() {
               ) : backgroundSource === "upload" ? (
                 <button type="button" onClick={() => backgroundInputRef.current?.click()} className="group studio-upload-dropzone w-full overflow-hidden rounded-2xl border border-dashed border-slate-200 p-3 text-center transition hover:border-purple-300">
                   {backgroundReferenceUrl ? (
-                    <div className="relative mb-2 overflow-hidden rounded-xl">
-                      <img src={backgroundReferenceUrl} alt="背景参考" className="aspect-[3/4] w-full object-cover" />
+                    <div className="studio-fixed-upload-preview relative mb-2 overflow-hidden rounded-xl bg-slate-100" style={{ "--studio-fixed-preview-height": "220px" } as CSSProperties}>
+                      <img src={backgroundReferenceUrl} alt="背景参考" className="h-full w-full object-contain p-2" />
                       <span
                         role="button"
                         tabIndex={0}
@@ -750,14 +808,20 @@ export default function ModelBackgroundPage() {
           </div>
         )}
 
-        {isGenerating && (
+        {isGenerating && resultUrls.length === 0 && (
           <LoadingStage genCount={genCount} progress={progress} moduleName="模特换背景" />
         )}
 
         {resultUrls.length > 0 && (
           <div className="studio-result-stage min-h-[260px] sm:min-h-[360px] overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:h-full flex flex-col animate-fade-in">
-            <div className="flex min-h-0 flex-1 items-center justify-center">
-              <ResultImageGrid urls={resultUrls} filenamePrefix="model-background" onOpen={setLightboxSrc} />
+            <div className="flex min-h-0 flex-1 items-start justify-start">
+              <ResultImageGrid
+                urls={resultUrls}
+                filenamePrefix="model-background"
+                expectedCount={isGenerating ? genCount : undefined}
+                isGenerating={isGenerating}
+                onOpen={setLightboxSrc}
+              />
             </div>
             <div className="mt-4 flex justify-center">
               <RepairPromptPanel kind="tryon" onRepair={handleRepairGenerate} disabled={isGenerating} className="w-full max-w-3xl" />

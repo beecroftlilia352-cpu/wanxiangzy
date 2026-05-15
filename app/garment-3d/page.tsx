@@ -13,12 +13,14 @@ import { ModuleHeader } from "@/components/ModuleHeader";
 import { PreviewGuide } from "@/components/PreviewGuide";
 import { LoadingStage } from "@/components/studio/LoadingStage";
 import { ErrorStage } from "@/components/studio/ErrorStage";
+import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
 import { createClient, getCachedProfileCredits, setCachedProfileCredits } from "@/lib/supabase/client";
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
-import { takeApplyPayload } from "@/lib/history-apply";
+import { fetchHistoryApplyDetail, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
 import { applyRepairPrompt } from "@/lib/generation-repair";
+import type { TaskQueueItem } from "@/lib/task-queue";
 import {
   DEFAULT_GARMENT_3D_DISPLAY_STYLE,
   GARMENT_3D_DISPLAY_STYLES,
@@ -30,6 +32,7 @@ import { GARMENT_3D_UPLOAD_RULE, type Garment3dRuleDemo } from "@/lib/garment-3d
 
 type GarmentType = "上装" | "下装" | "连体衣" | "其他";
 type OutputMode = "reference" | "prompt";
+type Garment3dHistoryPayload = Extract<HistoryJobPayload, { kind: "garment3d" }>;
 
 const DEFAULT_PROMPT = "衣服变为类似穿在人身上的立体效果，微微向左旋转，保留原始版型、面料厚度、纹理和所有细节，使用干净白色或浅灰棚拍背景。";
 const GARMENT_3D_QUALITY =
@@ -177,12 +180,7 @@ export default function Garment3dPage() {
     if (!nextSizes.includes(imageSize)) setImageSize(nextSizes[0]);
   }, [aiModel, aspectRatio, imageSize]);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-    const payload = await takeApplyPayload("garment3d");
-    if (cancelled || !payload) return;
-
+  function applyGarment3dHistoryPayload(payload: Garment3dHistoryPayload, historyResultUrls: string[] = []) {
     setGarmentUrl(payload.garmentUrl);
     setGarmentName("历史服装图");
     setGarmentType(
@@ -204,9 +202,19 @@ export default function Garment3dPage() {
     setGenCount(payload.genCount);
     setPrompt(payload.userPrompt || payload.prompt);
     setPromptOverride(payload.prompt);
-    setResultUrls([]);
+    setResultUrls(historyResultUrls);
+    setIsGenerating(false);
+    setProgress(historyResultUrls.length ? 100 : 0);
     setError(null);
     toast.success("已套用历史参数");
+  }
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const detail = await takeApplyDetail("garment3d");
+      if (cancelled || !detail) return;
+      applyGarment3dHistoryPayload(detail.payload, detail.resultUrls);
     })();
     return () => {
       cancelled = true;
@@ -394,6 +402,13 @@ export default function Garment3dPage() {
         const poll = await fetch(`/api/garment-3d?generation_id=${data.generation_id}`);
         if (!poll.ok) continue;
         const pollData = await poll.json();
+        if (Array.isArray(pollData.result_urls) && pollData.result_urls.length) {
+          setResultUrls(pollData.result_urls);
+        }
+        const nextProgress = Number(pollData.progress);
+        if (Number.isFinite(nextProgress)) {
+          setProgress(Math.min(Math.max(Math.round(nextProgress), 0), 99));
+        }
 
         if (pollData.status === "completed") {
           setProgress(100);
@@ -433,9 +448,35 @@ export default function Garment3dPage() {
     toast.success(`已套用${demo.title}`);
   }
 
+  function handleRunningTask(item: TaskQueueItem) {
+    const urls = item.resultThumbnails || [];
+    const nextProgress = Number.isFinite(Number(item.progress)) ? Number(item.progress) : 8;
+    setIsGenerating(true);
+    setProgress(Math.min(Math.max(Math.round(nextProgress), 1), 99));
+    setResultUrls(urls);
+    setError(null);
+  }
+
+  async function handleCompletedTask(item: TaskQueueItem) {
+    try {
+      const detail = await fetchHistoryApplyDetail(item.id, "garment3d");
+      applyGarment3dHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : item.resultThumbnails);
+      return true;
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "历史任务加载失败");
+      return true;
+    }
+  }
+
   return (
     <div className="studio-workbench min-h-[calc(100dvh-64px)] lg:h-[calc(100vh-64px)] flex flex-col lg:flex-row">
       <FeatureTabs active="garment3d" />
+      <ModuleTaskRail
+        module="garment3d"
+        moduleLabel="服装 3D"
+        onRunningTask={handleRunningTask}
+        onCompletedTask={handleCompletedTask}
+      />
       <div className="studio-parameters w-full lg:w-[472px] border-b lg:border-b-0 lg:border-r flex flex-col overflow-visible lg:overflow-hidden">
         <div className="studio-parameters-scroll flex-1 overflow-visible lg:overflow-y-auto p-3 sm:p-5 space-y-4 sm:space-y-6">
           <ModuleHeader
@@ -479,8 +520,8 @@ export default function Garment3dPage() {
             />
             {garmentUrl ? (
               <div className="relative group">
-                <div className="studio-checkerboard overflow-hidden rounded-2xl border border-dashed border-slate-200">
-                  <img src={garmentUrl} className="w-full max-h-[260px] object-contain p-3" />
+                <div className="studio-checkerboard studio-fixed-upload-preview overflow-hidden rounded-2xl border border-dashed border-slate-200">
+                  <img src={garmentUrl} className="h-full w-full object-contain p-3" />
                 </div>
                 <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
                   <span className="truncate">{garmentName || "已上传图片"}</span>
@@ -490,7 +531,7 @@ export default function Garment3dPage() {
                 </div>
               </div>
             ) : (
-              <div className="flex min-h-44 flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 px-4 py-8 text-center">
+              <div className="studio-fixed-upload-slot flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 px-4 py-8 text-center">
                 <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-sm">
                   <Box className="h-7 w-7 text-violet-400" />
                 </div>
@@ -792,14 +833,20 @@ export default function Garment3dPage() {
           </div>
         )}
 
-        {isGenerating && (
+        {isGenerating && resultUrls.length === 0 && (
           <LoadingStage genCount={genCount} progress={progress} moduleName="服装 3D" />
         )}
 
         {resultUrls.length > 0 && (
           <div className="studio-result-stage min-h-[260px] sm:min-h-[360px] overflow-y-auto overflow-x-hidden p-4 pb-28 sm:p-6 sm:pb-28 lg:h-full animate-fade-in">
-            <div className="flex min-h-full items-center justify-center">
-              <ResultImageGrid urls={resultUrls} filenamePrefix="garment-3d" onOpen={setLightboxSrc} />
+            <div className="flex min-h-full items-start justify-start">
+              <ResultImageGrid
+                urls={resultUrls}
+                filenamePrefix="garment-3d"
+                expectedCount={isGenerating ? genCount : undefined}
+                isGenerating={isGenerating}
+                onOpen={setLightboxSrc}
+              />
             </div>
             <div className="absolute bottom-0 left-0 right-0 border-t border-white/70 bg-white/78 backdrop-blur-2xl px-4 sm:px-6 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-[0_-18px_45px_rgba(15,23,42,0.08)]">
               <span className="text-xs text-gray-400">服装转3D结果</span>

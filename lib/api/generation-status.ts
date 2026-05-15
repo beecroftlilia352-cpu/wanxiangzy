@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { normalizeGenerationState } from "@/lib/api/generation-state";
+import { getAdminClient } from "@/lib/supabase/admin";
 
 /**
  * 公共 GET 轮询：查询 generation 状态
@@ -18,7 +19,7 @@ export async function handleGenerationStatusGet(generationId: string | null) {
 
     const { data: gen } = await supabase
       .from("generations")
-      .select("status,result_urls,error_message,job_payload")
+      .select("status,result_urls,error_message,job_payload,completed_at")
       .eq("id", generationId)
       .eq("user_id", user.id)
       .single();
@@ -30,10 +31,15 @@ export async function handleGenerationStatusGet(generationId: string | null) {
       status: gen.status,
       resultUrls,
       payload: gen.job_payload,
+      completedAt: gen.completed_at,
     });
+    if (state.status === "completed" && String(gen.status || "").toLowerCase() !== "completed") {
+      await reconcileCompletedGeneration(generationId, user.id);
+    }
 
     return NextResponse.json({
       status: state.status,
+      status_group: state.statusGroup,
       result_urls: resultUrls,
       module_results: state.moduleResults || [],
       error: gen.error_message,
@@ -44,5 +50,26 @@ export async function handleGenerationStatusGet(generationId: string | null) {
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "查询失败";
     return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
+async function reconcileCompletedGeneration(generationId: string, userId: string) {
+  try {
+    await getAdminClient()
+      .from("generations")
+      .update({
+        status: "completed",
+        processing_started_at: null,
+        completed_at: new Date().toISOString(),
+      })
+      .eq("id", generationId)
+      .eq("user_id", userId)
+      .neq("status", "failed");
+  } catch (err) {
+    console.warn(
+      "[generation-status] failed to reconcile completed generation",
+      generationId,
+      err instanceof Error ? err.message : err
+    );
   }
 }

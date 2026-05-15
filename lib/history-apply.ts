@@ -113,10 +113,54 @@ export type HistoryJobPayload =
       textureEnhance?: boolean;
     };
 
+export type HistoryApplyRow = {
+  id?: string | null;
+  status?: string | null;
+  result_urls?: string[] | null;
+  job_payload?: HistoryJobPayload | Record<string, unknown> | null;
+};
+
+export type HistoryApplyDetail<K extends HistoryJobPayload["kind"] = HistoryJobPayload["kind"]> = {
+  row: HistoryApplyRow;
+  payload: Extract<HistoryJobPayload, { kind: K }>;
+  resultUrls: string[];
+};
+
 export function getApplyPath(kind: HistoryJobPayload["kind"], generationId?: string) {
   const path = getModulePath(kind);
   if (!generationId) return path;
   return `${path}?apply=${encodeURIComponent(generationId)}`;
+}
+
+export async function fetchHistoryApplyDetail<K extends HistoryJobPayload["kind"]>(
+  generationId: string,
+  kind?: K
+): Promise<HistoryApplyDetail<K>> {
+  const res = await fetch(`/api/history?id=${encodeURIComponent(generationId)}`, {
+    method: "GET",
+    cache: "no-store",
+  });
+  const data = await res.json().catch(() => ({})) as {
+    row?: HistoryApplyRow | null;
+    error?: string;
+  };
+
+  if (!res.ok || !data.row?.job_payload) {
+    throw new Error(data.error || "历史参数加载失败");
+  }
+
+  const payload = data.row.job_payload as HistoryJobPayload;
+  if (kind && payload.kind !== kind) {
+    throw new Error("历史任务类型不匹配");
+  }
+
+  return {
+    row: data.row,
+    payload: payload as Extract<HistoryJobPayload, { kind: K }>,
+    resultUrls: Array.isArray(data.row.result_urls)
+      ? data.row.result_urls.filter((url): url is string => typeof url === "string" && url.length > 0)
+      : [],
+  };
 }
 
 export async function takeApplyPayload<K extends HistoryJobPayload["kind"]>(
@@ -147,6 +191,26 @@ export async function takeApplyPayload<K extends HistoryJobPayload["kind"]>(
     url.searchParams.delete("apply");
     window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
     return payload as Extract<HistoryJobPayload, { kind: K }>;
+  } catch (error) {
+    console.error("[history-apply] failed:", error);
+    return null;
+  }
+}
+
+export async function takeApplyDetail<K extends HistoryJobPayload["kind"]>(
+  kind: K
+): Promise<HistoryApplyDetail<K> | null> {
+  if (typeof window === "undefined") return null;
+
+  const url = new URL(window.location.href);
+  const generationId = url.searchParams.get("apply");
+  if (!generationId) return null;
+
+  try {
+    const detail = await fetchHistoryApplyDetail(generationId, kind);
+    url.searchParams.delete("apply");
+    window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+    return detail;
   } catch (error) {
     console.error("[history-apply] failed:", error);
     return null;

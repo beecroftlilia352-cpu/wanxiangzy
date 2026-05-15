@@ -96,6 +96,54 @@ export async function failGenerationWithRefund(
   );
 }
 
+export async function completeGenerationWithCreditAdjustment(
+  supabase: SupabaseLike,
+  params: {
+    userId: string;
+    generationId: string;
+    resultUrls: string[];
+    jobPayload: Record<string, unknown>;
+    creditsUsed: number;
+    refundAmount: number;
+    refundReason: string;
+    errorMessage?: string | null;
+  }
+): Promise<boolean> {
+  const maxRetries = params.refundAmount > 0 ? 3 : 1;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    const { error } = await supabase.rpc("complete_generation_with_credit_adjustment", {
+      p_user_id: params.userId,
+      p_generation_id: params.generationId,
+      p_result_urls: params.resultUrls,
+      p_job_payload: params.jobPayload,
+      p_credits_used: params.creditsUsed,
+      p_refund_amount: params.refundAmount,
+      p_refund_reason: params.refundReason,
+      p_error_message: params.errorMessage ?? null,
+    });
+
+    if (!error) return true;
+
+    const message = error.message || "";
+    if (message.includes("complete_generation_with_credit_adjustment") || message.includes("Could not find the function")) {
+      return false;
+    }
+
+    if (process.env.NODE_ENV === "development") {
+      console.error(`[credits] completion adjustment rpc failed (attempt ${attempt}/${maxRetries}):`, message);
+    }
+
+    if (attempt < maxRetries) {
+      await new Promise((r) => setTimeout(r, 1000 * attempt));
+    }
+  }
+
+  console.error(
+    `[credits] CRITICAL: completion credit adjustment failed for generation ${params.generationId}, user ${params.userId}, refund ${params.refundAmount}`
+  );
+  return false;
+}
+
 export function errorToResponsePayload(err: unknown) {
   if (err instanceof CreditError) {
     return {
