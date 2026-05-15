@@ -1,0 +1,136 @@
+name: Diagnose EC2
+
+on:
+  workflow_dispatch:
+
+jobs:
+  diagnose:
+    name: Diagnose production EC2
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Normalize SSH target
+        env:
+          AWS_HOST: ${{ secrets.AWS_HOST }}
+          AWS_PORT: ${{ secrets.AWS_PORT }}
+          AWS_USER: ${{ secrets.AWS_USER }}
+        run: |
+          set -euo pipefail
+          clean() { printf '%s' "$1" | tr -d '\r\n[:space:]'; }
+
+          HOST="$(clean "${AWS_HOST:-}")"
+          USER="$(clean "${AWS_USER:-ec2-user}")"
+          PORT="$(clean "${AWS_PORT:-22}")"
+
+          HOST="${HOST#http://}"
+          HOST="${HOST#https://}"
+          HOST="${HOST%%/*}"
+
+          if [[ "$HOST" == *@* ]]; then
+            USER="${HOST%@*}"
+            HOST="${HOST#*@}"
+          fi
+
+          if [[ -z "$HOST" ]]; then
+            echo "::error::AWS_HOST is empty"
+            exit 1
+          fi
+
+          {
+            echo "AWS_HOST_NORM=$HOST"
+            echo "AWS_USER_NORM=$USER"
+            echo "AWS_PORT_NORM=$PORT"
+          } >> "$GITHUB_ENV"
+
+      - name: Configure SSH
+        env:
+          AWS_SSH_PRIVATE_KEY: ${{ secrets.AWS_SSH_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$AWS_SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/aws_deploy_key
+          chmod 600 ~/.ssh/aws_deploy_key
+          touch ~/.ssh/known_hosts
+          ssh-keyscan -T 10 -p "$AWS_PORT_NORM" -H "$AWS_HOST_NORM" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Run remote diagnostics
+        env:
+          AWS_APP_DIR: ${{ secrets.AWS_APP_DIR }}
+          AWS_APP_NAME: ${{ secrets.AWS_APP_NAME }}
+        run: |
+          set -euo pipefail
+          quote() { printf '%q' "$1"; }
+          REMOTE_ENV="AWS_APP_DIR=$(quote "${AWS_APP_DIR:-}") AWS_APP_NAME=$(quote "${AWS_APP_NAME:-}")"
+
+          ssh -p "$AWS_PORT_NORM" -i ~/.ssh/aws_deploy_key \
+            -o StrictHostKeyChecking=accept-new \
+            -o UserKnownHostsFile=~/.ssh/known_hosts \
+            -o ConnectTimeout=60 \
+            -o ConnectionAttempts=3 \
+            -o ServerAliveInterval=30 \
+            "$AWS_USER_NORM@$AWS_HOST_NORM" \
+            "$REMOTE_ENV bash -s" <<'REMOTE'
+          set -euo pipefail
+          mask() {
+            sed -E \
+              -e 's/(Bearer )[A-Za-z0-9._-]+/\1***/g' \
+              -e 's/sk-[A-Za-z0-9_-]+/sk-***/g' \
+              -e 's/(SUPABASE_SERVICE_ROLE_KEY=).*/\1<set>/g' \
+              -e 's/(NEXT_PUBLIC_SUPABASE_ANON_KEY=).*/\1<set>/g' \
+              -e 's/(PLATO_API_KEY=).*/\1<set>/g' \
+              -e 's/(LINGYA_API_KEY=).*/\1<set>/g' \
+              -e 's/(IMGBB_API_KEY=).*/\1<set>/g'
+          }
+
+          BASE_DIR="${AWS_APP_DIR:-$HOME/apps/wanxiangzy}"
+          APP_NAME="${AWS_APP_NAME:-wanxiangzy}"
+          ENV_FILE="$BASE_DIR/current/.env.production"
+          PORT_VALUE="${PORT:-}"
+          if [ -z "$PORT_VALUE" ] && [ -f "$ENV_FILE" ]; then
+            PORT_VALUE="$(awk -F= '/^PORT=/ { value=$0; sub(/^PORT=/, "", value); print value }' "$ENV_FILE" | tail -n 1)"
+          fi
+          PORT_VALUE="${PORT_VALUE:-3000}"
+          PUBLIC_URL=""
+          if [ -f "$ENV_FILE" ]; then
+            PUBLIC_URL="$(awk -F= '/^NEXT_PUBLIC_APP_URL=/ { value=$0; sub(/^NEXT_PUBLIC_APP_URL=/, "", value); gsub(/^["'\'']|["'\'']$/, "", value); print value }' "$ENV_FILE" | tail -n 1)"
+          fi
+
+          echo "## release"
+          echo "current=$(readlink -f "$BASE_DIR/current" 2>/dev/null || true)"
+          echo "releases=$(find "$BASE_DIR/releases" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' 2>/dev/null | sort | tail -n 8 | tr '\n' ' ')"
+          echo
+
+          echo "## pm2"
+          pm2 describe "$APP_NAME" || true
+          echo
+
+          echo "## env"
+          if [ -f "$ENV_FILE" ]; then
+            grep -E '^(NEXT_PUBLIC_APP_URL|NEXT_PUBLIC_SUPABASE_URL|NEXT_PUBLIC_SUPABASE_ANON_KEY|SUPABASE_SERVICE_ROLE_KEY|PLATO_BASE_URL|PLATO_API_KEY|PLATO_GPT_IMAGE_MODEL|LINGYA_BASE_URL|LINGYA_API_KEY|IMAGE_STORAGE_PROVIDER|PORT)=' "$ENV_FILE" | mask || true
+          else
+            echo "missing env file: $ENV_FILE"
+          fi
+          echo
+
+          check_url() {
+            local label="$1"
+            local url="$2"
+            echo "## curl $label"
+            curl -i -sS --max-time 20 "$url" | mask | sed -n '1,80p' || true
+            echo
+          }
+
+          check_url "local root" "http://127.0.0.1:${PORT_VALUE}/"
+          check_url "local task queue summary" "http://127.0.0.1:${PORT_VALUE}/api/task-queue?summary=1"
+          check_url "local task queue list" "http://127.0.0.1:${PORT_VALUE}/api/task-queue?limit=2"
+          check_url "local history" "http://127.0.0.1:${PORT_VALUE}/api/history"
+          if [ -n "$PUBLIC_URL" ]; then
+            check_url "public root" "${PUBLIC_URL%/}/"
+            check_url "public task queue summary" "${PUBLIC_URL%/}/api/task-queue?summary=1"
+            check_url "public history" "${PUBLIC_URL%/}/api/history"
+          fi
+
+          echo "## pm2 logs"
+          pm2 logs "$APP_NAME" --lines 160 --nostream 2>&1 | mask || true
+          REMOTE
