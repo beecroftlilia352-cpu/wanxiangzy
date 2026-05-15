@@ -32,6 +32,7 @@ const HISTORY_DETAIL_COLUMNS = [
 
 const DEFAULT_PAGE_SIZE = 12;
 const MAX_PAGE_SIZE = 24;
+const READ_RATE_LIMIT_TIMEOUT_MS = 1_500;
 const HISTORY_MODULE_FILTERS = new Set([
   "tryon",
   "grass",
@@ -63,7 +64,7 @@ export async function GET(request: Request) {
   try {
     const searchParams = new URL(request.url).searchParams;
     const id = searchParams.get("id");
-    const supabase = await createServerSupabase();
+    const supabase = await createServerSupabase({ readonlyCookies: true });
     const userResult = await withTimeout(
       supabase.auth.getUser(),
       10000,
@@ -74,7 +75,7 @@ export async function GET(request: Request) {
     if (!user) {
       return NextResponse.json({ error: "请先登录" }, { status: 401 });
     }
-    const rateLimit = await enforceApiRateLimit(user.id, API_RATE_LIMITS.historyRead);
+    const rateLimit = await safeEnforceReadRateLimit(user.id);
     if (rateLimit) return rateLimit;
 
     if (id) {
@@ -90,6 +91,7 @@ export async function GET(request: Request) {
       );
 
       if (error) {
+        console.warn("[history] detail query unavailable:", error.message);
         return NextResponse.json({ error: error.message }, { status: 500 });
       }
 
@@ -134,6 +136,7 @@ export async function GET(request: Request) {
     );
 
     if (error) {
+      console.warn("[history] list query unavailable:", error.message);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
@@ -144,9 +147,21 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ rows, hasMore, nextCursor });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "历史记录加载失败";
-    if (process.env.NODE_ENV === "development") console.error("[history] error:", err);
+    console.error("[history] error:", toLogMessage(err));
     return NextResponse.json({ error: "历史记录加载失败" }, { status: 500 });
+  }
+}
+
+async function safeEnforceReadRateLimit(userId: string) {
+  try {
+    return await withTimeout(
+      enforceApiRateLimit(userId, API_RATE_LIMITS.historyRead),
+      READ_RATE_LIMIT_TIMEOUT_MS,
+      "rate limit timeout"
+    );
+  } catch (error) {
+    console.warn("[history] rate limit unavailable:", toLogMessage(error));
+    return null;
   }
 }
 
@@ -176,7 +191,13 @@ function normalizeHistoryRow<T extends HistoryListRow>(row: T): T {
 
 function withTimeout<T>(promise: PromiseLike<T>, ms: number, message: string): Promise<T> {
   return Promise.race([
-    promise,
+    Promise.resolve(promise),
     new Promise<never>((_, reject) => setTimeout(() => reject(new Error(message)), ms)),
   ]);
+}
+
+function toLogMessage(error: unknown) {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "string") return error;
+  return "unknown error";
 }

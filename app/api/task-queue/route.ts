@@ -85,6 +85,10 @@ const EMPTY_SUMMARY: QueueSummaryData = {
 const RUNNING_WORKFLOW_STATUSES = ["queued", "running"];
 const FAILED_WORKFLOW_STATUSES = ["failed", "cancelled", "canceled"];
 const RUNNING_TASK_STALE_MS = getRunningTaskStaleMs();
+const AUTH_TIMEOUT_MS = 10_000;
+const READ_RATE_LIMIT_TIMEOUT_MS = 1_500;
+const SUMMARY_QUERY_TIMEOUT_MS = 8_000;
+const QUEUE_QUERY_TIMEOUT_MS = 15_000;
 
 export async function GET(request: Request) {
   try {
@@ -94,10 +98,11 @@ export async function GET(request: Request) {
     const searchQuery = (searchParams.get("q") || searchParams.get("query") || "").trim().toLowerCase();
     const limit = clampNumber(searchParams.get("limit"), 8, 80, 32);
     const cursor = searchParams.get("cursor");
-    const supabase = await createServerSupabase();
-    const { data: { user } } = await supabase.auth.getUser();
+    const supabase = await createServerSupabase({ readonlyCookies: true });
+    const userResult = await withTimeout(supabase.auth.getUser(), AUTH_TIMEOUT_MS, "auth getUser timeout");
+    const user = userResult.data.user;
     if (!user) return queueJson(summaryOnly ? summaryPayload(EMPTY_SUMMARY) : detailPayload([], EMPTY_SUMMARY));
-    const rateLimit = await enforceApiRateLimit(user.id, API_RATE_LIMITS.taskQueueRead);
+    const rateLimit = await safeEnforceReadRateLimit(user.id);
     if (rateLimit) return rateLimit;
 
     const summary = await loadQueueSummary(supabase, user.id);
@@ -112,9 +117,16 @@ export async function GET(request: Request) {
     if (cursor) generationsQuery = generationsQuery.lt("created_at", cursor);
 
     const queryLimit = moduleFilter ? Math.min(Math.max((limit + 1) * 5, 40), 200) : limit + 1;
-    const { data, error } = await generationsQuery.limit(queryLimit);
+    const { data, error } = await withTimeout(
+      generationsQuery.limit(queryLimit),
+      QUEUE_QUERY_TIMEOUT_MS,
+      "generations list timeout"
+    );
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) {
+      logTaskQueueWarning("generations list unavailable", error.message);
+      return queueJson(detailPayload([], summary));
+    }
 
     const rawRows = (Array.isArray(data) ? data : []) as unknown as QueueRow[];
     const generationRows = rawRows
@@ -130,8 +142,21 @@ export async function GET(request: Request) {
 
     return queueJson(detailPayload(rows, summary, hasMore, hasMore ? nextCursor : null));
   } catch (error) {
-    if (process.env.NODE_ENV === "development") console.error("[task-queue] error:", error);
+    console.error("[task-queue] error:", toLogMessage(error));
     return NextResponse.json({ error: "任务队列加载失败" }, { status: 500 });
+  }
+}
+
+async function safeEnforceReadRateLimit(userId: string) {
+  try {
+    return await withTimeout(
+      enforceApiRateLimit(userId, API_RATE_LIMITS.taskQueueRead),
+      READ_RATE_LIMIT_TIMEOUT_MS,
+      "rate limit timeout"
+    );
+  } catch (error) {
+    logTaskQueueWarning("rate limit unavailable", toLogMessage(error));
+    return null;
   }
 }
 
@@ -195,40 +220,61 @@ async function loadQueueSummary(supabase: Awaited<ReturnType<typeof createServer
 }
 
 async function loadRunningGenerationCount(supabase: Awaited<ReturnType<typeof createServerSupabase>>, userId: string) {
-  const { data, error } = await supabase
-    .from("generations")
-    .select(SUMMARY_GENERATION_COLUMNS)
-    .eq("user_id", userId)
-    .in("status", [...GENERATION_RUNNING_STATUS_FILTERS]);
+  try {
+    const { data, error } = await withTimeout(
+      supabase
+        .from("generations")
+        .select(SUMMARY_GENERATION_COLUMNS)
+        .eq("user_id", userId)
+        .in("status", [...GENERATION_RUNNING_STATUS_FILTERS]),
+      SUMMARY_QUERY_TIMEOUT_MS,
+      "generations running timeout"
+    );
 
-  if (error) throw new Error(`generations running: ${error.message || "query failed"}`);
+    if (error) {
+      logTaskQueueWarning("generations running unavailable", error.message);
+      return 0;
+    }
 
-  const rows = (Array.isArray(data) ? data : []) as unknown as QueueRow[];
-  return rows.filter((row) => {
-    const state = normalizeGenerationState({
-      status: row.status,
-      resultUrls: row.result_urls,
-      payload: row.job_payload,
-      completedAt: row.completed_at,
-    });
-    return state.statusGroup === "running" && !isStaleRunningGeneration(row);
-  }).length;
+    const rows = (Array.isArray(data) ? data : []) as unknown as QueueRow[];
+    return rows.filter((row) => {
+      const state = normalizeGenerationState({
+        status: row.status,
+        resultUrls: row.result_urls,
+        payload: row.job_payload,
+        completedAt: row.completed_at,
+      });
+      return state.statusGroup === "running" && !isStaleRunningGeneration(row);
+    }).length;
+  } catch (error) {
+    logTaskQueueWarning("generations running unavailable", toLogMessage(error));
+    return 0;
+  }
 }
 
 async function loadRunningWorkflowCount(supabase: Awaited<ReturnType<typeof createServerSupabase>>, userId: string) {
-  const { data, error } = await supabase
-    .from("agent_workflows")
-    .select(SUMMARY_WORKFLOW_COLUMNS)
-    .eq("user_id", userId)
-    .in("status", RUNNING_WORKFLOW_STATUSES);
+  try {
+    const { data, error } = await withTimeout(
+      supabase
+        .from("agent_workflows")
+        .select(SUMMARY_WORKFLOW_COLUMNS)
+        .eq("user_id", userId)
+        .in("status", RUNNING_WORKFLOW_STATUSES),
+      SUMMARY_QUERY_TIMEOUT_MS,
+      "workflows running timeout"
+    );
 
-  if (error) {
-    if (process.env.NODE_ENV === "development") console.warn("[task-queue] workflows running unavailable:", error.message);
+    if (error) {
+      logTaskQueueWarning("workflows running unavailable", error.message);
+      return 0;
+    }
+
+    const rows = (Array.isArray(data) ? data : []) as unknown as Pick<WorkflowRow, "status" | "created_at" | "updated_at">[];
+    return rows.filter((row) => isRunningWorkflowStatus(row.status) && !isStaleRunningDate(row.updated_at || row.created_at)).length;
+  } catch (error) {
+    logTaskQueueWarning("workflows running unavailable", toLogMessage(error));
     return 0;
   }
-
-  const rows = (Array.isArray(data) ? data : []) as unknown as Pick<WorkflowRow, "status" | "created_at" | "updated_at">[];
-  return rows.filter((row) => isRunningWorkflowStatus(row.status) && !isStaleRunningDate(row.updated_at || row.created_at)).length;
 }
 
 async function countRows(
@@ -236,15 +282,17 @@ async function countRows(
   label: string,
   optional = false
 ) {
-  const { count, error } = await query;
-  if (error) {
-    if (optional) {
-      if (process.env.NODE_ENV === "development") console.warn(`[task-queue] ${label} unavailable:`, error.message);
+  try {
+    const { count, error } = await withTimeout(query, SUMMARY_QUERY_TIMEOUT_MS, `${label} timeout`);
+    if (error) {
+      logTaskQueueWarning(`${label} unavailable`, error.message);
       return 0;
     }
-    throw new Error(`${label}: ${error.message || "count failed"}`);
+    return count || 0;
+  } catch (error) {
+    logTaskQueueWarning(`${label} unavailable`, toLogMessage(error));
+    return 0;
   }
-  return count || 0;
 }
 
 function summaryPayload(summary: QueueSummaryData) {
@@ -288,15 +336,24 @@ async function loadWorkflowRows(
 
   if (cursor) query = query.lt("created_at", cursor);
 
-  const { data, error } = await query.limit(limit);
+  try {
+    const { data, error } = await withTimeout(
+      query.limit(limit),
+      QUEUE_QUERY_TIMEOUT_MS,
+      "workflow list timeout"
+    );
 
-  if (error) {
-    if (process.env.NODE_ENV === "development") console.warn("[task-queue] agent workflows unavailable:", error.message);
+    if (error) {
+      logTaskQueueWarning("agent workflows unavailable", error.message);
+      return [];
+    }
+
+    const workflows = (Array.isArray(data) ? data : []) as unknown as WorkflowRow[];
+    return workflows.map(normalizeWorkflowRow);
+  } catch (error) {
+    logTaskQueueWarning("agent workflows unavailable", toLogMessage(error));
     return [];
   }
-
-  const workflows = (Array.isArray(data) ? data : []) as unknown as WorkflowRow[];
-  return workflows.map(normalizeWorkflowRow);
 }
 
 function normalizeQueueRow(row: QueueRow): TaskQueueItem {
@@ -519,6 +576,23 @@ function matchesSearch(row: TaskQueueItem, query: string) {
   return row.id.toLowerCase().includes(query) ||
     row.title.toLowerCase().includes(query) ||
     row.status.toLowerCase().includes(query);
+}
+
+function withTimeout<T>(promise: PromiseLike<T>, ms: number, message: string): Promise<T> {
+  return Promise.race([
+    Promise.resolve(promise),
+    new Promise<never>((_, reject) => setTimeout(() => reject(new Error(message)), ms)),
+  ]);
+}
+
+function logTaskQueueWarning(label: string, detail: unknown) {
+  console.warn(`[task-queue] ${label}:`, toLogMessage(detail));
+}
+
+function toLogMessage(error: unknown) {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "string") return error;
+  return "unknown error";
 }
 
 function clampNumber(value: string | null, min: number, max: number, fallback: number) {
