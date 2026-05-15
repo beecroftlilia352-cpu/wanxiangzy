@@ -1,6 +1,6 @@
 "use client";
 
-import { Wand2 } from "lucide-react";
+import { Brush } from "lucide-react";
 import { REPAIR_PRESETS, type RepairKind } from "@/lib/generation-repair";
 
 type RepairPromptPanelProps = {
@@ -20,9 +20,9 @@ export function RepairPromptPanel({ kind, onRepair, priorityValues = [], disable
   const orderedPresets = [...priority, ...rest];
 
   return (
-    <div className={`rounded-2xl border border-white/70 bg-white/85 p-2 shadow-lg shadow-purple-100/60 backdrop-blur-md ${className}`}>
+    <div className={`rounded-2xl border border-white/70 bg-white/85 p-2 shadow-lg shadow-slate-300/40 backdrop-blur-md ${className}`}>
       <div className="mb-1.5 flex items-center gap-1.5 px-1 text-[11px] font-bold text-gray-700">
-        <Wand2 className="h-3.5 w-3.5 text-purple-500" />
+        <Brush className="h-3.5 w-3.5 text-[var(--codex-accent)]0" />
         不满意？选择问题修复
       </div>
       <div className="studio-scrollbar-hide flex gap-1.5 overflow-x-auto pb-0.5 sm:flex-wrap sm:overflow-visible sm:pb-0">
@@ -36,7 +36,7 @@ export function RepairPromptPanel({ kind, onRepair, priorityValues = [], disable
             className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition-all disabled:cursor-not-allowed disabled:opacity-50 ${
               priority.some((item) => item.value === preset.value)
                 ? "border-rose-100 bg-rose-50 text-rose-700 hover:border-rose-300 hover:bg-rose-100"
-                : "border-purple-100 bg-purple-50/80 text-purple-700 hover:border-purple-300 hover:bg-purple-100"
+                : "border-[rgba(91,124,255,0.22)] bg-[rgba(91,124,255,0.1)] text-[var(--codex-accent)] hover:border-[rgba(91,124,255,0.3)] hover:bg-[rgba(91,124,255,0.12)]"
             }`}
           >
             {preset.label}

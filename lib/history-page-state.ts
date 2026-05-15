@@ -45,7 +45,7 @@ const MODULE_FILTER_LABELS: Record<HistoryModuleFilter, string> = {
   pose: "姿势裂变",
   model: "专属模特",
   garment3d: "服装 3D",
-  faceSwap: "AI 换脸",
+  faceSwap: "换脸",
 };
 
 const STATUS_FILTER_LABELS: Record<HistoryStatusFilter, string> = {

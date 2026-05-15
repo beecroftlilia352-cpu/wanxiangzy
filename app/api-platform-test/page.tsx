@@ -42,7 +42,6 @@ const MODEL_OPTIONS = [
   { value: "qwen-image-plus", label: "Qwen Image Plus" },
   { value: "qwen-image-max", label: "Qwen Image Max" },
   { value: "doubao-seedream-5-0-260128", label: "Seedream 5.0" },
-  { value: "doubao-seedream-4-5-251128", label: "Seedream 4.5" },
   { value: "doubao-seedream-4-0-250828", label: "Seedream 4.0" },
   { value: "z-image-turbo", label: "Z-Image Turbo" },
 ];
@@ -231,30 +230,30 @@ export default function ApiPlatformTestPage() {
             <div className="space-y-4">
               <label className="block">
                 <span className="mb-1.5 flex items-center gap-1.5 text-xs font-bold text-gray-700">
-                  <Server className="h-3.5 w-3.5 text-purple-500" /> API URL
+                  <Server className="h-3.5 w-3.5 text-[var(--codex-accent)]0" /> API URL
                 </span>
                 <input
                   value={apiUrl}
                   onChange={(e) => setApiUrl(e.target.value)}
-                  className="w-full rounded-lg border px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-purple-200"
+                  className="w-full rounded-lg border px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-[rgba(91,124,255,0.14)]"
                   placeholder="https://value.apiqik.online"
                 />
               </label>
 
               <label className="block">
                 <span className="mb-1.5 flex items-center gap-1.5 text-xs font-bold text-gray-700">
-                  <KeyRound className="h-3.5 w-3.5 text-purple-500" /> API Key
+                  <KeyRound className="h-3.5 w-3.5 text-[var(--codex-accent)]0" /> API Key
                 </span>
                 <input
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
                   type="password"
-                  className="w-full rounded-lg border px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-purple-200"
+                  className="w-full rounded-lg border px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-[rgba(91,124,255,0.14)]"
                   placeholder="sk-..."
                 />
               </label>
 
-              <div className="rounded-lg border border-purple-100 bg-purple-50/60 px-3 py-2 text-xs text-purple-700">
+              <div className="rounded-lg border border-[rgba(91,124,255,0.22)] bg-[rgba(91,124,255,0.1)] px-3 py-2 text-xs text-[var(--codex-accent)]">
                 调用模式：Generations /v1/images/generations
               </div>
 
@@ -263,7 +262,7 @@ export default function ApiPlatformTestPage() {
                 <select
                   value={model}
                   onChange={(e) => setModel(e.target.value)}
-                  className="w-full rounded-lg border px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-purple-200"
+                  className="w-full rounded-lg border px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-[rgba(91,124,255,0.14)]"
                 >
                   {MODEL_OPTIONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
                 </select>
@@ -274,7 +273,7 @@ export default function ApiPlatformTestPage() {
                 <input
                   value={customModel}
                   onChange={(e) => setCustomModel(e.target.value)}
-                  className="w-full rounded-lg border px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-purple-200"
+                  className="w-full rounded-lg border px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-[rgba(91,124,255,0.14)]"
                   placeholder="留空则使用上方选择"
                 />
               </label>
@@ -285,7 +284,7 @@ export default function ApiPlatformTestPage() {
                   <select
                     value={aspectRatio}
                     onChange={(e) => setAspectRatio(e.target.value)}
-                    className="w-full rounded-lg border px-2 py-2 text-xs outline-none focus:ring-2 focus:ring-purple-200"
+                    className="w-full rounded-lg border px-2 py-2 text-xs outline-none focus:ring-2 focus:ring-[rgba(91,124,255,0.14)]"
                   >
                     {ASPECT_OPTIONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
                   </select>
@@ -295,7 +294,7 @@ export default function ApiPlatformTestPage() {
                   <select
                     value={imageSize}
                     onChange={(e) => setImageSize(e.target.value as ImageSize)}
-                    className="w-full rounded-lg border px-2 py-2 text-xs outline-none focus:ring-2 focus:ring-purple-200"
+                    className="w-full rounded-lg border px-2 py-2 text-xs outline-none focus:ring-2 focus:ring-[rgba(91,124,255,0.14)]"
                   >
                     {IMAGE_SIZE_OPTIONS.map((item) => <option key={item}>{item}</option>)}
                   </select>
@@ -305,7 +304,7 @@ export default function ApiPlatformTestPage() {
                   <select
                     value={quality}
                     onChange={(e) => setQuality(e.target.value as ImageQuality)}
-                    className="w-full rounded-lg border px-2 py-2 text-xs outline-none focus:ring-2 focus:ring-purple-200"
+                    className="w-full rounded-lg border px-2 py-2 text-xs outline-none focus:ring-2 focus:ring-[rgba(91,124,255,0.14)]"
                   >
                     {QUALITY_OPTIONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
                   </select>
@@ -317,13 +316,13 @@ export default function ApiPlatformTestPage() {
                 <textarea
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
-                  className="h-28 w-full resize-y rounded-lg border px-3 py-2 text-xs leading-relaxed outline-none focus:ring-2 focus:ring-purple-200"
+                  className="h-28 w-full resize-y rounded-lg border px-3 py-2 text-xs leading-relaxed outline-none focus:ring-2 focus:ring-[rgba(91,124,255,0.14)]"
                 />
               </label>
 
               <div>
                 <span className="mb-1.5 block text-xs font-bold text-gray-700">参考图（可多选，最多 6 张）</span>
-                <label className="flex h-28 cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 text-xs text-gray-500 hover:border-purple-300">
+                <label className="flex h-28 cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 text-xs text-gray-500 hover:border-[rgba(91,124,255,0.3)]">
                   <ImagePlus className="mb-2 h-6 w-6 text-gray-300" />
                   点击选择参考图
                   <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => handleImages(e.target.files)} />
@@ -339,7 +338,7 @@ export default function ApiPlatformTestPage() {
                             ? "bg-emerald-50 text-emerald-600"
                             : image.status === "failed"
                               ? "bg-red-50 text-red-600"
-                              : "bg-white/90 text-purple-600"
+                              : "bg-white/90 text-[var(--codex-accent)]"
                         }`}>
                           {image.status === "uploaded" ? "URL" : image.status === "failed" ? "失败" : "上传中"}
                         </div>
@@ -363,7 +362,7 @@ export default function ApiPlatformTestPage() {
               <button
                 onClick={runTest}
                 disabled={isLoading || isUploading}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-pink-500 py-3 text-sm font-bold text-white shadow-lg shadow-purple-200 disabled:opacity-50"
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-slate-700 to-slate-950 py-3 text-sm font-bold text-white shadow-lg shadow-slate-300/40 disabled:opacity-50"
               >
                 {isLoading || isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 {isUploading ? "上传参考图..." : isLoading ? "测试中..." : "开始测试"}
@@ -389,7 +388,7 @@ export default function ApiPlatformTestPage() {
               <div className="studio-empty-stage flex min-h-[460px] items-center justify-center rounded-[28px] border border-white/70 p-6 text-center shadow-inner">
                 <div className="max-w-sm">
                   <div className="studio-glass-card mx-auto mb-5 flex h-24 w-24 items-center justify-center rounded-[28px]">
-                    <ImagePlus className="h-10 w-10 text-purple-400" />
+                    <ImagePlus className="h-10 w-10 text-[var(--codex-accent)]" />
                   </div>
                   <p className="text-sm font-bold text-gray-900">等待生成结果</p>
                   <p className="mt-2 text-xs leading-6 text-gray-500">
@@ -409,7 +408,7 @@ export default function ApiPlatformTestPage() {
                 {outputImages.map((url, index) => (
                   <a key={index} href={url} target="_blank" rel="noreferrer" className="group block overflow-hidden rounded-[22px] border border-white/70 bg-white/75 shadow-xl shadow-slate-200/60 transition hover:-translate-y-0.5 hover:shadow-2xl">
                     <img src={url} className="h-[420px] w-full object-contain" alt={`生成结果 ${index + 1}`} />
-                    <div className="border-t bg-white/85 px-3 py-2 text-xs font-medium text-gray-500 group-hover:text-purple-600">打开原图</div>
+                    <div className="border-t bg-white/85 px-3 py-2 text-xs font-medium text-gray-500 group-hover:text-[var(--codex-accent)]">打开原图</div>
                   </a>
                 ))}
               </div>

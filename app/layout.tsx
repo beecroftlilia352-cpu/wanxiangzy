@@ -5,8 +5,8 @@ import { HeaderClient } from "@/components/HeaderClient";
 import "@/lib/env";
 
 export const metadata: Metadata = {
-  title: "VastWear｜服装视觉生成平台",
-  description: "面向服装品牌、电商团队和内容创作者的服装视觉生成平台。",
+  title: "VastWearGen｜服装视觉生产工作台",
+  description: "面向服装品牌、电商团队和内容创作者的 AI 服装视觉生产工作台。",
   icons: {
     icon: [{ url: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/gemini-icon.png", type: "image/png" }],
     apple: [{ url: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/gemini-icon.png", type: "image/png" }],
@@ -20,7 +20,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="zh-CN">
-      <body className="min-h-screen bg-[#f4f5f7] text-slate-950">
+      <body className="min-h-screen text-codex-ink">
         <HeaderClient />
         <main>{children}</main>
         <Toaster

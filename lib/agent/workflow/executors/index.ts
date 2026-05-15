@@ -181,7 +181,7 @@ async function executeFaceSwap(input: StepExecutionInput): Promise<StepExecution
   const source = resolveImageList(input, input.step.input.sourceImage || input.step.input.originalImage || input.step.input.modelImage)[0];
   const face = resolveImageList(input, input.step.input.faceImage || input.step.input.targetFaceImage || input.step.input.referenceImage)[0];
   if (!source || !face) {
-    throw new Error("AI 换脸需要两张图：原始模特图和目标脸图");
+    throw new Error("换脸需要两张图：原始模特图和目标脸图");
   }
 
   const count = normalizeCount(input.step.params.count || input.step.params.genCount || 1);

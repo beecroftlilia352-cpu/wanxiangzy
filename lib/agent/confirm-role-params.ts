@@ -204,7 +204,7 @@ export function validateConfirmImageRoles(
       const sourceUrl = toUrlList(params.source_image)[0];
       const faceUrl = toUrlList(params.face_image)[0];
       if (sourceUrl && faceUrl && sourceUrl === faceUrl) {
-        issues.push({ severity: "error", message: "AI 换脸需要原始模特图和目标脸图，不能使用同一张图。" });
+    issues.push({ severity: "error", message: "换脸需要原始模特图和目标脸图，不能使用同一张图。" });
       }
       break;
     }

@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "请先上传参考图" }, { status: 400 });
     }
 
-    const model: LingyaModel = normalizeLingyaModel(body.ai_model || "gpt-image-2");
+    const model: LingyaModel = normalizeLingyaModel(body.ai_model || "nano-banana-2");
     const aspectRatio = normalizeAspectRatio(body.aspect_ratio || "3:4");
     const size: ImageSize = normalizeImageSize(model, (typeof body.image_size === "string" ? body.image_size : "1K") as ImageSize, aspectRatio);
     const genCount = Math.min(Math.max(Math.floor(Number(body.gen_count) || 1), 1), 4);

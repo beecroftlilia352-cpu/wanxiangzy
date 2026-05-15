@@ -95,7 +95,7 @@ export interface GenerationParams {
 }
 
 export const DEFAULT_PARAMS: GenerationParams = {
-  model: "gpt-image-2",
+  model: "nano-banana-2",
   aspectRatio: "3:4",
   imageSize: "1K",
   count: 1,

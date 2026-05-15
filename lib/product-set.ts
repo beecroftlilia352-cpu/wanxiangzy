@@ -1582,7 +1582,7 @@ function getAiModuleLabel(moduleKey: string, imageType: ProductSetImageType) {
   }
   return {
     name: imageType === "details" ? "详情页模块图" : "商品图模块",
-    role: imageType === "details" ? "来自 AI 视觉分析的独立详情页屏幕。" : "来自 AI 视觉分析的独立主图/辅图。",
+        role: imageType === "details" ? "来自视觉分析的独立详情页屏幕。" : "来自视觉分析的独立主图/辅图。",
     layout: "Use product-led composition, clear hierarchy, and a layout chosen from the visual analysis rather than local presets.",
     copyRule: "Sparse readable ecommerce copy only.",
     avoidRule: "Avoid preset-template demographics, repeated layouts, and unsupported claims.",

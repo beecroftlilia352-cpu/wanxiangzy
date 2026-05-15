@@ -18,7 +18,7 @@ export function StudioSection({
   ...sectionProps
 }: StudioSectionProps) {
   return (
-    <section className={`studio-section ${className}`} {...sectionProps}>
+    <section className={`studio-section mac-panel ${className}`} {...sectionProps}>
       <div className="studio-section-header">
         <div className="min-w-0">
           <div className="flex min-w-0 flex-wrap items-center gap-2">

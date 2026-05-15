@@ -1,4 +1,4 @@
-import { Sparkles } from "lucide-react";
+import { Play } from "lucide-react";
 import type { ReactNode } from "react";
 
 export type StudioRunBarProps = {
@@ -39,7 +39,7 @@ export function StudioRunBar({
         disabled={disabled || isLoading}
         className="studio-primary-action"
       >
-        <Sparkles className="h-4 w-4" />
+        <Play className="h-4 w-4" />
         {primaryLabel}
       </button>
       {secondaryActions && <div className="studio-runbar-actions">{secondaryActions}</div>}

@@ -1,6 +1,6 @@
 /**
  * AI 图像生成 API
- * 支持 gpt-image-2、Seedream 和 nano-banana 系列
+ * 支持 gpt-image-2 和 nano-banana 系列
  */
 
 import { normalizeOpenAiCompatibleBaseUrl } from "@/lib/api/url-utils";
@@ -38,7 +38,10 @@ import {
 
 const DEFAULT_API_BASE = "https://api.lingyaai.cn/v1";
 const DEFAULT_PLATO_API_BASE = "https://yunwu.ai/v1";
+const DEFAULT_LAOZHANG_API_BASE = "https://api.laozhang.ai";
 const DEFAULT_GPT_IMAGE_2_PROVIDER_MODEL = "gpt-image-2";
+const DEFAULT_NANO_BANANA_PROVIDER_MODEL = "gemini-3.1-flash-image-preview";
+const DEFAULT_NANO_BANANA_PRO_PROVIDER_MODEL = "gemini-3-pro-image-preview";
 const CONCISE_TRYON_PROMPT_MODE = true;
 const IMAGE_REQUEST_PROGRESS_INITIAL = 2;
 const IMAGE_REQUEST_PROGRESS_INTERVAL_MS = 8000;
@@ -46,14 +49,14 @@ const IMAGE_REQUEST_PROGRESS_CURVE_MS = 90_000;
 const SYNC_IMAGE_REQUEST_PROGRESS_MAX = 92;
 const ASYNC_IMAGE_SUBMIT_PROGRESS_MAX = 8;
 
-export type LingyaModel = "gpt-image-2" | "doubao-seedream-4-5-251128" | "nano-banana-pro" | "nano-banana-2";
+export type LingyaModel = "gpt-image-2" | "nano-banana-pro" | "nano-banana-2";
 export type AspectRatio = "auto" | "1:1" | "9:16" | "16:9" | "4:3" | "3:4" | "2:3" | "3:2" | "4:5" | "5:4" | "21:9";
 export type ImageSize = "1K" | "2K" | "4K";
+export const DEFAULT_LINGYA_MODEL: LingyaModel = "nano-banana-2";
 
 const LINGYA_MODELS: LingyaModel[] = [
-  "gpt-image-2",
   "nano-banana-2",
-  "doubao-seedream-4-5-251128",
+  "gpt-image-2",
   "nano-banana-pro",
 ];
 
@@ -73,7 +76,6 @@ const ASPECT_RATIOS: AspectRatio[] = [
 
 export const CREDIT_COSTS: Record<LingyaModel, Record<ImageSize, number>> = {
   "gpt-image-2":      { "1K": 2, "2K": 3, "4K": 4 },
-  "doubao-seedream-4-5-251128": { "1K": 1, "2K": 1, "4K": 2 },
   "nano-banana-pro":   { "1K": 2, "2K": 3, "4K": 4 },
   "nano-banana-2":     { "1K": 1, "2K": 2, "4K": 3 },
 };
@@ -81,7 +83,7 @@ export const CREDIT_COSTS: Record<LingyaModel, Record<ImageSize, number>> = {
 export function normalizeLingyaModel(value: unknown): LingyaModel {
   return typeof value === "string" && LINGYA_MODELS.includes(value as LingyaModel)
     ? (value as LingyaModel)
-    : "gpt-image-2";
+    : DEFAULT_LINGYA_MODEL;
 }
 
 export function normalizeAspectRatio(value: unknown, fallback: AspectRatio = "3:4"): AspectRatio {
@@ -160,23 +162,26 @@ export async function generateImage(input: GenerateInput, retries = 2): Promise<
     prompt: input.prompt,
   });
 
+  const useLaozhangNativeEndpoint = shouldUseLaozhangNativeEndpoint(input, provider);
+  const useImageEditEndpoint = !useLaozhangNativeEndpoint && shouldUseImageEditEndpoint(input, provider);
   const body = buildGenerateRequestBody(input, compiledPrompt);
   body.model = resolveProviderImageModel(input.model, provider);
 
   // 日志（不含完整 base64、不含完整 prompt 内容）
   const logBody: Record<string, unknown> = {
     model: body.model,
+    endpoint: useLaozhangNativeEndpoint ? "generateContent" : useImageEditEndpoint ? "images/edits" : "images/generations",
     aspect_ratio: body.aspect_ratio,
     image_size: body.image_size || body.size,
     quality: body.quality,
-    image_count: Array.isArray(body.image) ? body.image.length : 0,
+    image_count: Array.isArray(input.image) ? input.image.length : 0,
     prompt_length: typeof body.prompt === "string" ? body.prompt.length : 0,
   };
   console.log(`[api:${provider.name}] 请求:`, JSON.stringify(logBody));
 
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
-      const isAsyncSubmit = shouldRequestAsyncImageTask(provider);
+      const isAsyncSubmit = !useLaozhangNativeEndpoint && !useImageEditEndpoint && shouldRequestAsyncImageTask(provider);
       await input.onProgress?.({ status: "queued", providerStatus: "REQUEST_QUEUED", progress: 1 });
       let res: Response;
       let resText: string;
@@ -185,11 +190,20 @@ export async function generateImage(input: GenerateInput, retries = 2): Promise<
         providerStatus: isAsyncSubmit ? "SUBMITTING" : "GENERATING",
       });
       try {
-        res = await fetch(getImageGenerationUrl(apiBase, provider), {
-          method: "POST",
-          headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
+        const request = useLaozhangNativeEndpoint
+          ? await buildLaozhangNativeImageRequest({
+              apiBase,
+              apiKey,
+              model: String(body.model),
+              prompt: compiledPrompt,
+              imageUrls: input.image || [],
+              aspectRatio: input.aspect_ratio,
+              imageSize: input.image_size,
+            })
+          : useImageEditEndpoint
+            ? await buildImageEditRequest({ apiBase, apiKey, body, imageUrls: input.image || [] })
+            : buildImageGenerationRequest({ apiBase, apiKey, provider, body });
+        res = await fetch(request.url, request.init);
 
         resText = await res.text();
       } finally {
@@ -355,13 +369,15 @@ function buildGenerateRequestBody(input: GenerateInput, compiledPrompt: string):
   const body: Record<string, any> = {
     model: input.model,
     prompt: compiledPrompt,
-    response_format: "url",
   };
 
+  if (input.model !== "gpt-image-2") {
+    body.response_format = "url";
+  }
   if (!isSeedreamModel(input.model) && input.model !== "gpt-image-2") {
     body.aspect_ratio = input.aspect_ratio || "3:4";
   }
-  if (input.image && input.image.length > 0) body.image = input.image;
+  if (input.image && input.image.length > 0 && input.model !== "gpt-image-2") body.image = input.image;
   if (input.model === "gpt-image-2") {
     // gpt-image-2 只接受标准尺寸，不接受自定义像素值或 aspect_ratio
     body.size = input.image_size ? resolveGptImage2Size(input.aspect_ratio || "3:4") : "auto";
@@ -379,6 +395,147 @@ function buildGenerateRequestBody(input: GenerateInput, compiledPrompt: string):
   }
 
   return body;
+}
+
+function shouldUseImageEditEndpoint(input: Pick<GenerateInput, "model" | "image">, provider: { name: string }): boolean {
+  return provider.name === "plato" && input.model === "gpt-image-2" && Boolean(input.image?.length);
+}
+
+function shouldUseLaozhangNativeEndpoint(input: Pick<GenerateInput, "model">, provider: { name: string }): boolean {
+  return provider.name === "laozhang" && isNanoBananaModel(input.model);
+}
+
+function buildImageGenerationRequest(params: {
+  apiBase: string;
+  apiKey: string;
+  provider: { name: string };
+  body: Record<string, any>;
+}): { url: string; init: RequestInit } {
+  return {
+    url: getImageGenerationUrl(params.apiBase, params.provider),
+    init: {
+      method: "POST",
+      headers: { Authorization: `Bearer ${params.apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify(params.body),
+    },
+  };
+}
+
+async function buildLaozhangNativeImageRequest(params: {
+  apiBase: string;
+  apiKey: string;
+  model: string;
+  prompt: string;
+  imageUrls: string[];
+  aspectRatio?: AspectRatio;
+  imageSize?: ImageSize;
+}): Promise<{ url: string; init: RequestInit }> {
+  const imageParts = await Promise.all(params.imageUrls.map(fetchImageInlineDataPart));
+  const parts = [
+    { text: params.prompt },
+    ...imageParts,
+  ];
+
+  return {
+    url: getLaozhangGenerateContentUrl(params.apiBase, params.model),
+    init: {
+      method: "POST",
+      headers: { "x-goog-api-key": params.apiKey, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ role: "user", parts }],
+        generationConfig: {
+          responseModalities: ["IMAGE"],
+          imageConfig: {
+            aspectRatio: normalizeLaozhangAspectRatio(params.aspectRatio),
+            imageSize: params.imageSize || "1K",
+          },
+        },
+      }),
+    },
+  };
+}
+
+async function fetchImageInlineDataPart(src: string, index: number): Promise<{ inline_data: { mime_type: string; data: string } }> {
+  const image = await fetchImageFormPart(src, index);
+  const bytes = await image.blob.arrayBuffer();
+  return {
+    inline_data: {
+      mime_type: image.blob.type || "image/png",
+      data: Buffer.from(bytes).toString("base64"),
+    },
+  };
+}
+
+async function buildImageEditRequest(params: {
+  apiBase: string;
+  apiKey: string;
+  body: Record<string, any>;
+  imageUrls: string[];
+}): Promise<{ url: string; init: RequestInit }> {
+  if (!params.imageUrls.length) {
+    throw new Error("gpt-image-2 image edit requires at least one reference image");
+  }
+
+  const form = new FormData();
+  for (const [key, value] of Object.entries(params.body)) {
+    if (key === "image" || key === "response_format" || value === undefined || value === null) continue;
+    form.append(key, String(value));
+  }
+  if (!Object.prototype.hasOwnProperty.call(params.body, "n")) {
+    form.append("n", "1");
+  }
+
+  const images = await Promise.all(params.imageUrls.map(fetchImageFormPart));
+  for (const image of images) {
+    form.append("image", image.blob, image.filename);
+  }
+
+  return {
+    url: getImageEditUrl(params.apiBase),
+    init: {
+      method: "POST",
+      headers: { Authorization: `Bearer ${params.apiKey}`, Accept: "application/json" },
+      body: form,
+    },
+  };
+}
+
+async function fetchImageFormPart(src: string, index: number): Promise<{ blob: Blob; filename: string }> {
+  const imageUrl = typeof src === "string" ? src.trim() : "";
+  if (!imageUrl) throw new Error("Missing reference image");
+  if (!/^https?:\/\//i.test(imageUrl) && !/^data:image\//i.test(imageUrl)) {
+    throw new Error("gpt-image-2 image edit requires public image URLs or data image URLs");
+  }
+
+  let res: Response;
+  try {
+    res = await fetch(imageUrl);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    throw new Error(`Failed to download reference image: ${message}`);
+  }
+
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(`Failed to download reference image ${res.status}: ${detail.slice(0, 200)}`);
+  }
+
+  const responseMimeType = normalizeImageMimeType(res.headers.get("content-type"));
+  const inferredMimeType = inferImageMimeType(imageUrl);
+  const mimeType = isSupportedEditImageMime(responseMimeType) ? responseMimeType : inferredMimeType;
+  if (!mimeType) {
+    throw new Error(`Unsupported reference image type: ${responseMimeType || "unknown"}`);
+  }
+
+  const bytes = await res.arrayBuffer();
+  if (bytes.byteLength === 0) {
+    throw new Error("Reference image is empty");
+  }
+
+  return {
+    blob: new Blob([bytes], { type: mimeType }),
+    filename: buildImageFilename(imageUrl, index, mimeType),
+  };
 }
 
 async function pollImageTask(params: {
@@ -608,6 +765,8 @@ function extractImageItems(root: any): any[] {
     root?.data?.outputs,
     root?.data?.artifacts,
     root?.data?.files,
+    Array.isArray(root?.candidates) ? root.candidates.flatMap((candidate: any) => candidate?.content?.parts || []) : undefined,
+    root?.content?.parts,
     root?.output?.images,
     root?.output?.image,
     root?.output?.data,
@@ -667,6 +826,11 @@ function extractImageUrls(item: any): string[] {
 
 function extractImageBase64(item: any): string | undefined {
   if (!item || typeof item !== "object") return undefined;
+  const inlineData = item.inlineData || item.inline_data;
+  if (inlineData && typeof inlineData === "object" && typeof inlineData.data === "string" && inlineData.data.trim()) {
+    const mimeType = normalizeImageMimeType(inlineData.mimeType || inlineData.mime_type) || "image/png";
+    return `data:${mimeType};base64,${inlineData.data.trim()}`;
+  }
   for (const field of IMAGE_BASE64_FIELDS) {
     const value = item[field];
     if (typeof value === "string" && value.trim()) return value.trim();
@@ -680,7 +844,9 @@ function isImageUrl(value: unknown): value is string {
 
 function hasKnownImageResultField(value: any): boolean {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
-  return IMAGE_URL_FIELDS.some((field) => value[field]) || IMAGE_BASE64_FIELDS.some((field) => value[field]);
+  return IMAGE_URL_FIELDS.some((field) => value[field])
+    || IMAGE_BASE64_FIELDS.some((field) => value[field])
+    || Boolean(value.inlineData?.data || value.inline_data?.data);
 }
 
 function collectImageItemsFromOutputContainers(value: any, depth = 0, seen = new WeakSet<object>()): any[] {
@@ -813,12 +979,24 @@ function getPlatoApiBaseUrl(): string {
   return normalized;
 }
 
+function getLaozhangApiBaseUrl(): string {
+  const raw = (process.env.LAOZHANG_BASE_URL || DEFAULT_LAOZHANG_API_BASE).trim().replace(/\/+$/, "");
+  return raw.replace(/\/v1beta$/i, "").replace(/\/v1$/i, "");
+}
+
 function getImageProvider(model: LingyaModel): { name: string; apiBase: string; apiKey?: string } {
   if (model === "gpt-image-2") {
     return {
       name: "plato",
       apiBase: getPlatoApiBaseUrl(),
       apiKey: process.env.PLATO_API_KEY || process.env.LINGYA_API_KEY,
+    };
+  }
+  if (isNanoBananaModel(model)) {
+    return {
+      name: "laozhang",
+      apiBase: getLaozhangApiBaseUrl(),
+      apiKey: process.env.LAOZHANG_API_KEY?.trim(),
     };
   }
 
@@ -834,13 +1012,27 @@ function getImageGenerationUrl(apiBase: string, provider: { name: string }): str
   return shouldRequestAsyncImageTask(provider) ? `${endpoint}?async=true` : endpoint;
 }
 
+function getImageEditUrl(apiBase: string): string {
+  return `${apiBase}/images/edits`;
+}
+
+function getLaozhangGenerateContentUrl(apiBase: string, model: string): string {
+  return `${apiBase}/v1beta/models/${encodeURIComponent(model)}:generateContent`;
+}
+
 function shouldRequestAsyncImageTask(provider: { name: string }): boolean {
-  return provider.name !== "plato";
+  return provider.name !== "plato" && provider.name !== "laozhang";
 }
 
 function resolveProviderImageModel(model: LingyaModel, provider: { name: string }): string {
   if (provider.name === "plato" && model === "gpt-image-2") {
     return process.env.PLATO_GPT_IMAGE_MODEL?.trim() || DEFAULT_GPT_IMAGE_2_PROVIDER_MODEL;
+  }
+  if (provider.name === "laozhang" && model === "nano-banana-2") {
+    return process.env.LAOZHANG_NANO_BANANA_MODEL?.trim() || DEFAULT_NANO_BANANA_PROVIDER_MODEL;
+  }
+  if (provider.name === "laozhang" && model === "nano-banana-pro") {
+    return process.env.LAOZHANG_NANO_BANANA_PRO_MODEL?.trim() || DEFAULT_NANO_BANANA_PRO_PROVIDER_MODEL;
   }
   return model;
 }
@@ -861,13 +1053,13 @@ function resolveGptImage2Size(aspectRatio: AspectRatio): string {
     "1:1": "1024x1024",
     "3:4": "1024x1536",
     "4:3": "1536x1024",
-    "9:16": "1024x1792",
-    "16:9": "1792x1024",
+    "9:16": "1024x1536",
+    "16:9": "1536x1024",
     "2:3": "1024x1536",
     "3:2": "1536x1024",
-    "4:5": "1024x1280",
-    "5:4": "1280x1024",
-    "21:9": "1792x768",
+    "4:5": "1024x1536",
+    "5:4": "1536x1024",
+    "21:9": "1536x1024",
   };
   return map[aspectRatio] || "auto";
 }
@@ -927,6 +1119,61 @@ function normalizeB64Image(value?: string): string | undefined {
   if (!value) return undefined;
   if (value.startsWith("data:")) return value;
   return `data:image/png;base64,${value}`;
+}
+
+function normalizeImageMimeType(value: string | null): string {
+  return value?.split(";")[0]?.trim().toLowerCase() || "";
+}
+
+function inferImageMimeType(src: string): string | undefined {
+  const dataMatch = src.match(/^data:([^;,]+)/i);
+  if (dataMatch && isSupportedEditImageMime(dataMatch[1].toLowerCase())) {
+    return dataMatch[1].toLowerCase();
+  }
+
+  let pathname = src;
+  try {
+    pathname = new URL(src).pathname;
+  } catch {
+    // Keep the raw value for extension inference.
+  }
+
+  const lower = pathname.toLowerCase();
+  if (lower.endsWith(".png")) return "image/png";
+  if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
+  if (lower.endsWith(".webp")) return "image/webp";
+  return undefined;
+}
+
+function isSupportedEditImageMime(value?: string): value is string {
+  return value === "image/png" || value === "image/jpeg" || value === "image/webp";
+}
+
+function buildImageFilename(src: string, index: number, mimeType: string): string {
+  const extension = mimeType === "image/jpeg" ? "jpg" : mimeType.replace("image/", "") || "png";
+  let basename = "";
+
+  if (!src.startsWith("data:")) {
+    try {
+      basename = decodeURIComponent(new URL(src).pathname.split("/").pop() || "");
+    } catch {
+      basename = "";
+    }
+  }
+
+  const safeName = basename.replace(/[^A-Za-z0-9._-]/g, "_").slice(0, 80);
+  if (!safeName || !/\.(png|jpe?g|webp)$/i.test(safeName)) {
+    return `reference-${index + 1}.${extension}`;
+  }
+  return safeName;
+}
+
+function normalizeLaozhangAspectRatio(value?: AspectRatio): string {
+  return value && value !== "auto" ? value : "1:1";
+}
+
+function isNanoBananaModel(model: LingyaModel): boolean {
+  return model === "nano-banana-2" || model === "nano-banana-pro";
 }
 
 function isSeedreamModel(model: LingyaModel): boolean {
@@ -1312,11 +1559,17 @@ function toEnglishImageRef(value: string) {
 }
 
 export const __lingyaTaskResponseTestUtils = {
+  buildLaozhangNativeImageRequest,
+  buildGenerateRequestBody,
   calculateImageRequestHeartbeatProgress,
   extractGeneratedImages,
+  getImageEditUrl,
   getImageGenerationUrl,
+  getLaozhangGenerateContentUrl,
   getPlatoApiBaseUrl,
   normalizeImageTaskResponse,
   resolveProviderImageModel,
+  shouldUseLaozhangNativeEndpoint,
+  shouldUseImageEditEndpoint,
   shouldRequestAsyncImageTask,
 };

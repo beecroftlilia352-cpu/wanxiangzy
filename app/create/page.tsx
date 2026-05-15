@@ -1877,7 +1877,19 @@ export default function CreatePage() {
                 />
               </div>
             )}
-            loadingState={<LoadingStage genCount={genCount} progress={store.generationProgress} moduleName="服装上身" />}
+            loadingState={(
+              <LoadingStage
+                genCount={genCount}
+                progress={store.generationProgress}
+                moduleName="服装上身"
+                referenceImages={[
+                  { label: clothingMode === "multi" ? "服装搭配参考" : "服装硬参考", url: store.clothingPreviews[0] },
+                  { label: "模特参考", url: store.selectedModel?.image_url },
+                  { label: "姿势/场景参考", url: store.referenceImage?.url },
+                ]}
+                metaItems={[aspectRatio, imageSize]}
+              />
+            )}
             errorState={store.error ? (
               <ErrorStage
                 error={store.error}

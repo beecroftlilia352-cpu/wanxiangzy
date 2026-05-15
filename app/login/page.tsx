@@ -4,13 +4,13 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { AlertCircle, ArrowLeft, CheckCircle, Eye, EyeOff, Lock, Mail, Sparkles } from "lucide-react";
+import { AlertCircle, ArrowLeft, CheckCircle, Eye, EyeOff, Lock, Mail } from "lucide-react";
 
 type AuthView = "login" | "signup" | "check-email" | "forgot-password" | "reset-sent";
 
 const viewCopy: Record<AuthView, { title: string; desc: string }> = {
   login: {
-    title: "登录 VastWear",
+    title: "登录 VastWearGen",
     desc: "继续管理你的服装视觉资产和生成记录。",
   },
   signup: {
@@ -151,28 +151,28 @@ export default function LoginPage() {
   const copy = viewCopy[view];
 
   return (
-    <div className="min-h-[calc(100dvh-64px)] bg-[linear-gradient(135deg,#f7f2fb_0%,#fff_46%,#fdf2f8_100%)] px-4 py-8 text-slate-950 sm:px-6 lg:px-8">
+    <div className="min-h-[calc(100dvh-64px)] bg-[var(--codex-gradient-page)] px-4 py-8 text-codex-ink sm:px-6 lg:px-8">
       <div className="mx-auto grid min-h-[calc(100dvh-128px)] max-w-6xl items-start gap-8 pt-10 sm:pt-16 lg:grid-cols-[minmax(0,1fr)_440px] lg:items-center lg:pt-0">
         <section className="hidden lg:block">
-          <div className="relative overflow-hidden rounded-[44px] border border-violet-100/80 bg-white/70 p-8 shadow-[0_30px_100px_rgba(88,28,135,0.16)] backdrop-blur-2xl">
-            <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(124,58,237,0.16),transparent_34%,rgba(236,72,153,0.12)_78%,rgba(255,255,255,0.5))]" />
+          <div className="studio-surface studio-surface-elevated relative overflow-hidden rounded-[34px] p-8">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_12%,rgba(91,124,255,0.18),transparent_34%),radial-gradient(circle_at_86%_8%,rgba(174,184,255,0.28),transparent_38%)]" />
             <div className="relative z-10">
-              <Link href="/" className="inline-flex items-center gap-2 rounded-full border border-violet-100 bg-white/80 px-3 py-2 text-xs font-black text-violet-700 shadow-sm backdrop-blur">
-                <Sparkles className="h-4 w-4 text-violet-500" />
-                VastWear
+              <Link href="/" className="studio-button studio-button-compact">
+                <CheckCircle className="h-4 w-4 text-[var(--codex-accent)]" />
+                VastWearGen
               </Link>
-              <h1 className="mt-10 max-w-xl text-5xl font-black leading-[0.95] text-slate-950">
+              <h1 className="mt-10 max-w-xl text-5xl font-black leading-[0.95] tracking-[-0.04em] text-codex-ink">
                 把每一次上新，做成统一的品牌视觉。
               </h1>
-              <p className="mt-5 max-w-lg text-base leading-8 text-slate-600">
-                从服装上身到姿势裂变，从专属模特到商品质感图，VastWear 帮你把分散的素材变成可持续复用的视觉资产。
+              <p className="mt-5 max-w-lg text-base leading-8 text-codex-muted">
+                从服装上身到姿势裂变，从专属模特到商品质感图，VastWearGen 帮你把分散的素材变成可持续复用的视觉资产。
               </p>
 
               <div className="mt-10 grid grid-cols-4 gap-3">
                 {showcaseImages.map((src, index) => (
                   <div
                     key={src}
-                    className={`relative aspect-[3/4] overflow-hidden rounded-[32px] bg-violet-50 shadow-[0_18px_48px_rgba(88,28,135,0.14)] ${index % 2 === 1 ? "translate-y-8" : ""}`}
+                    className={`relative aspect-[3/4] overflow-hidden rounded-[24px] bg-[var(--codex-ice)] shadow-[0_18px_48px_rgba(14,18,38,0.14)] ${index % 2 === 1 ? "translate-y-8" : ""}`}
                   >
                     <Image src={src} alt="" fill sizes="180px" className="object-cover" />
                   </div>
@@ -182,13 +182,13 @@ export default function LoginPage() {
           </div>
         </section>
 
-        <section className="mx-0 w-full max-w-[350px] rounded-[40px] border border-violet-100/80 bg-white/90 p-6 shadow-[0_24px_80px_rgba(88,28,135,0.14)] backdrop-blur-2xl sm:mx-auto sm:max-w-[440px] sm:p-8">
+        <section className="studio-surface studio-surface-elevated mx-0 w-full max-w-[350px] rounded-[28px] p-6 sm:mx-auto sm:max-w-[440px] sm:p-8">
           <div className="mb-8">
-            <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-3xl bg-[linear-gradient(135deg,#7c3aed,#db2777)] shadow-lg shadow-violet-200/70">
-              <Sparkles className="h-6 w-6 text-white" />
+            <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-codex-dark shadow-lg shadow-slate-300/70">
+              <CheckCircle className="h-6 w-6 text-white" />
             </div>
-            <h2 className="text-2xl font-black text-slate-950">{copy.title}</h2>
-            <p className="mt-2 text-sm leading-6 text-slate-500">
+            <h2 className="text-2xl font-black tracking-[-0.02em] text-codex-ink">{copy.title}</h2>
+            <p className="mt-2 text-sm leading-6 text-codex-muted">
               {view === "check-email" && email ? `确认邮件已发送至 ${email}` : copy.desc}
             </p>
           </div>
@@ -204,7 +204,7 @@ export default function LoginPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
-                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 pl-10 text-sm outline-none transition-all focus:border-violet-400 focus:ring-4 focus:ring-violet-100"
+                    className="w-full rounded-2xl border border-[var(--codex-border)] bg-white px-4 py-3 pl-10 text-sm outline-none transition-all focus:border-[rgba(91,124,255,0.5)] focus:ring-4 focus:ring-[rgba(91,124,255,0.14)]"
                     placeholder="you@example.com"
                   />
                 </div>
@@ -219,7 +219,7 @@ export default function LoginPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 pl-10 pr-10 text-sm outline-none transition-all focus:border-violet-400 focus:ring-4 focus:ring-violet-100"
+                    className="w-full rounded-2xl border border-[var(--codex-border)] bg-white px-4 py-3 pl-10 pr-10 text-sm outline-none transition-all focus:border-[rgba(91,124,255,0.5)] focus:ring-4 focus:ring-[rgba(91,124,255,0.14)]"
                     placeholder="输入密码"
                   />
                   <button
@@ -243,7 +243,7 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="gradient-brand flex h-12 w-full items-center justify-center rounded-2xl text-sm font-black text-white shadow-xl shadow-purple-200/70 transition-opacity hover:opacity-95 disabled:opacity-50"
+                className="gradient-brand flex h-12 w-full items-center justify-center rounded-2xl text-sm font-black text-white shadow-xl shadow-slate-300/40 transition-opacity hover:opacity-95 disabled:opacity-50"
               >
                 {loading ? (
                   <span className="flex items-center justify-center gap-2">
@@ -262,7 +262,7 @@ export default function LoginPage() {
                     setView("forgot-password");
                     setError("");
                   }}
-                  className="font-bold text-violet-600 hover:underline"
+                  className="font-bold text-[var(--codex-accent)] hover:underline"
                 >
                   忘记密码？
                 </button>
@@ -272,7 +272,7 @@ export default function LoginPage() {
                     setView("signup");
                     setError("");
                   }}
-                  className="font-bold text-violet-600 hover:underline"
+                  className="font-bold text-[var(--codex-accent)] hover:underline"
                 >
                   创建账号
                 </button>
@@ -291,7 +291,7 @@ export default function LoginPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
-                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 pl-10 text-sm outline-none transition-all focus:border-violet-400 focus:ring-4 focus:ring-violet-100"
+                    className="w-full rounded-2xl border border-[var(--codex-border)] bg-white px-4 py-3 pl-10 text-sm outline-none transition-all focus:border-[rgba(91,124,255,0.5)] focus:ring-4 focus:ring-[rgba(91,124,255,0.14)]"
                     placeholder="you@example.com"
                   />
                 </div>
@@ -307,7 +307,7 @@ export default function LoginPage() {
                     onChange={(e) => setPassword(e.target.value)}
                     required
                     minLength={6}
-                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 pl-10 pr-10 text-sm outline-none transition-all focus:border-violet-400 focus:ring-4 focus:ring-violet-100"
+                    className="w-full rounded-2xl border border-[var(--codex-border)] bg-white px-4 py-3 pl-10 pr-10 text-sm outline-none transition-all focus:border-[rgba(91,124,255,0.5)] focus:ring-4 focus:ring-[rgba(91,124,255,0.14)]"
                     placeholder="至少 6 位"
                   />
                   <button
@@ -332,7 +332,7 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="gradient-brand flex h-12 w-full items-center justify-center rounded-2xl text-sm font-black text-white shadow-xl shadow-purple-200/70 transition-opacity hover:opacity-95 disabled:opacity-50"
+                className="gradient-brand flex h-12 w-full items-center justify-center rounded-2xl text-sm font-black text-white shadow-xl shadow-slate-300/40 transition-opacity hover:opacity-95 disabled:opacity-50"
               >
                 {loading ? "创建中..." : "创建账号"}
               </button>
@@ -345,7 +345,7 @@ export default function LoginPage() {
                     setView("login");
                     setError("");
                   }}
-                  className="ml-1 font-bold text-violet-600 hover:underline"
+                  className="ml-1 font-bold text-[var(--codex-accent)] hover:underline"
                 >
                   去登录
                 </button>
@@ -355,8 +355,8 @@ export default function LoginPage() {
 
           {view === "check-email" && (
             <div className="space-y-6 text-center">
-              <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-violet-50">
-                <Mail className="h-10 w-10 text-violet-500" />
+              <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-[rgba(91,124,255,0.1)]">
+                <Mail className="h-10 w-10 text-[var(--codex-accent)]" />
               </div>
 
               <div className="space-y-2">
@@ -407,7 +407,7 @@ export default function LoginPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
-                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 pl-10 text-sm outline-none transition-all focus:border-violet-400 focus:ring-4 focus:ring-violet-100"
+                    className="w-full rounded-2xl border border-[var(--codex-border)] bg-white px-4 py-3 pl-10 text-sm outline-none transition-all focus:border-[rgba(91,124,255,0.5)] focus:ring-4 focus:ring-[rgba(91,124,255,0.14)]"
                     placeholder="you@example.com"
                   />
                 </div>
@@ -423,7 +423,7 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="gradient-brand flex h-12 w-full items-center justify-center rounded-2xl text-sm font-black text-white shadow-xl shadow-purple-200/70 transition-opacity hover:opacity-95 disabled:opacity-50"
+                className="gradient-brand flex h-12 w-full items-center justify-center rounded-2xl text-sm font-black text-white shadow-xl shadow-slate-300/40 transition-opacity hover:opacity-95 disabled:opacity-50"
               >
                 {loading ? "发送中..." : "发送重置链接"}
               </button>

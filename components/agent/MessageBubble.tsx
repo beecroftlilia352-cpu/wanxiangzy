@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Bot, User, Loader2, CheckCircle2, AlertCircle, Download, ZoomIn, RefreshCw, Copy, Sparkles, ChevronDown, Pencil, Check, X, ThumbsUp, ThumbsDown, Activity } from "lucide-react";
+import { Bot, User, Loader2, CheckCircle2, AlertCircle, Download, ZoomIn, RefreshCw, Copy, ChevronDown, Pencil, Check, X, ThumbsUp, ThumbsDown, Activity } from "lucide-react";
 import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -53,10 +53,9 @@ type WorkflowClientPayload = {
 };
 
 const CONFIRM_MODEL_OPTIONS: Array<{ value: LingyaModel; label: string }> = [
-  { value: "gpt-image-2", label: "GPT Image" },
   { value: "nano-banana-2", label: "Nano Banana" },
+  { value: "gpt-image-2", label: "GPT Image" },
   { value: "nano-banana-pro", label: "Nano Pro" },
-  { value: "doubao-seedream-4-5-251128", label: "Seedream" },
 ];
 
 const CONFIRM_RATIO_OPTIONS: Array<{ value: AspectRatio; label: string }> = [
@@ -126,7 +125,7 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
         <div className="w-7 shrink-0" />
       ) : (
         <div className={`mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
-          isUser ? "bg-violet-600 text-white" : "bg-gradient-to-br from-violet-500 to-pink-500 text-white shadow-sm shadow-violet-200"
+          isUser ? "bg-slate-950 text-white" : "bg-gradient-to-br from-slate-700 to-slate-950 text-white shadow-sm shadow-slate-300/40"
         }`}>
           {isUser ? <User className="h-3.5 w-3.5" /> : <Bot className="h-3.5 w-3.5" />}
         </div>
@@ -136,7 +135,7 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
         {/* 名称 + 时间（分组时只显示时间） */}
         {!isGrouped && (
           <div className={`mb-1 flex items-center gap-2 text-[11px] text-slate-400 ${isUser ? "flex-row-reverse" : ""}`}>
-            <span className="font-medium">{isUser ? "你" : "AI 助手"}</span>
+              <span className="font-medium">{isUser ? "你" : "工作流助手"}</span>
             <span className="text-slate-300">·</span>
             <span>{formatTime(created_at)}</span>
           </div>
@@ -147,9 +146,9 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
           <div className="mb-1 flex flex-wrap gap-1">
             {images.map((img, i) => (
               <button key={i} onClick={() => onOpenImage(img.url)}
-                className="group relative h-12 w-12 overflow-hidden rounded-lg border border-violet-200 shadow-sm transition-transform hover:scale-105">
+                className="group relative h-12 w-12 overflow-hidden rounded-lg border border-[rgba(91,124,255,0.22)] shadow-sm transition-transform hover:scale-105">
                 <img src={img.url} alt={`图${img.index}`} className="h-full w-full object-cover" />
-                <span className="absolute bottom-0 left-0 right-0 bg-violet-600/80 text-center text-[8px] font-bold leading-tight text-white">图{img.index}</span>
+                <span className="absolute bottom-0 left-0 right-0 bg-[rgba(91,124,255,0.1)] text-center text-[8px] font-bold leading-tight text-white">图{img.index}</span>
               </button>
             ))}
           </div>
@@ -163,7 +162,7 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
         {content && (
           <div className={`group/msg relative rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm ${
             isUser
-              ? "rounded-br-md bg-violet-600 text-white"
+              ? "rounded-br-md bg-[rgba(91,124,255,0.1)] text-white"
               : "rounded-bl-md border border-slate-200/80 bg-white/95 text-slate-800 backdrop-blur"
           }`}>
             {isUser ? (
@@ -242,7 +241,7 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
         )}
 
         {generation && generation.status === "pending" && generation._confirmData && (
-          <div className="mt-2 w-full max-w-xl rounded-2xl border border-amber-200 bg-gradient-to-br from-white via-amber-50/30 to-violet-50/30 p-4 shadow-sm">
+          <div className="mt-2 w-full max-w-xl rounded-2xl border border-amber-200 bg-gradient-to-br from-white via-amber-50/30 to-[var(--codex-accent-soft)]/30 p-4 shadow-sm">
             <div className="mb-3 flex items-center justify-between">
               <div>
                 <p className="text-sm font-bold text-slate-900">方案确认</p>
@@ -297,10 +296,10 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
               className={`sticky bottom-2 z-10 flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-bold text-white shadow-lg transition-opacity ${
                 hasConfirmRoleErrors(generation._confirmData!.module, generation._confirmData!.params, confirmImages)
                   ? "cursor-not-allowed bg-slate-300 shadow-none"
-                  : "bg-gradient-to-r from-violet-600 to-pink-600 shadow-violet-200 hover:opacity-90"
+                  : "bg-gradient-to-r from-slate-700 to-slate-950 shadow-slate-300/40 hover:opacity-90"
               }`}
             >
-              <Sparkles className="h-4 w-4" />
+              <Activity className="h-4 w-4" />
               确认生成
             </button>
           </div>
@@ -317,7 +316,7 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
 
         {/* 生成完成 */}
         {generation && generation.status === "completed" && generation.resultUrls.length > 0 && (
-          <div className="mt-1.5 w-full max-w-2xl overflow-hidden rounded-2xl border border-emerald-100 bg-gradient-to-br from-white via-emerald-50/35 to-violet-50/30 p-3 shadow-sm">
+          <div className="mt-1.5 w-full max-w-2xl overflow-hidden rounded-2xl border border-emerald-100 bg-gradient-to-br from-white via-emerald-50/35 to-[var(--codex-accent-soft)]/30 p-3 shadow-sm">
             <div className="mb-2.5 flex flex-wrap items-start justify-between gap-2">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-1.5">
@@ -360,7 +359,7 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
                 onClick={() => generation.resultUrls.forEach((url, i) => downloadImage(url, generateDownloadFilename("agent", i)))}
               />
               <QuickAction
-                icon={<Sparkles className="h-3 w-3" />}
+                icon={<Activity className="h-3 w-3" />}
                 label={generation.resultUrls.length > 1 ? "再生成一组" : "再生成一张"}
                 variant="primary"
                 onClick={() => onRetry(message.id)}
@@ -408,9 +407,9 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
                   <button
                     type="button"
                     onClick={() => onQuickAction(`这次生成失败了，请根据错误信息帮我修复方案并重新进入确认：${generation.error || "未知错误"}`)}
-                    className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-white py-2 text-xs font-bold text-violet-600 ring-1 ring-violet-100 transition-colors hover:bg-violet-50"
+                    className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-white py-2 text-xs font-bold text-[var(--codex-accent)] ring-1 ring-[rgba(91,124,255,0.18)] transition-colors hover:bg-[rgba(91,124,255,0.12)]"
                   >
-                    <Sparkles className="h-3 w-3" /> 修复方案
+                    <Activity className="h-3 w-3" /> 修复方案
                   </button>
                 )}
               </div>
@@ -447,14 +446,14 @@ function GenerationLoadingGrid({
     <div className={`${compact ? "mt-1.5" : "mt-1.5"} w-full ${compact ? "max-w-md" : "max-w-2xl"}`} aria-live="polite">
       <div className="mb-2 flex items-center gap-2 px-0.5">
         <ThinkingSignal />
-        <span className="min-w-0 flex-1 truncate text-[11px] font-bold text-violet-600">{stage}</span>
+        <span className="min-w-0 flex-1 truncate text-[11px] font-bold text-[var(--codex-accent)]">{stage}</span>
         <span className="text-[11px] font-semibold tabular-nums text-slate-400">{safeProgress}%</span>
       </div>
       <div className={getResultGridClass(itemCount)}>
         {Array.from({ length: itemCount }).map((_, index) => (
           <div
             key={index}
-            className={`gen-card relative overflow-hidden rounded-2xl border border-slate-200/70 bg-gradient-to-br from-slate-100 via-violet-50 to-pink-50 shadow-sm ${
+            className={`gen-card relative overflow-hidden rounded-2xl border border-slate-200/70 bg-gradient-to-br from-slate-100 via-[var(--codex-accent-soft)] to-[var(--codex-accent-soft)] shadow-sm ${
               itemCount === 1 ? "min-h-[320px]" : compact ? "min-h-[150px]" : "min-h-[210px]"
             }`}
             style={{ aspectRatio: "3 / 4" }}
@@ -463,16 +462,16 @@ function GenerationLoadingGrid({
               style={{ animation: "gen-shimmer 2s ease-in-out infinite", backgroundSize: "200% 100%" }} />
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
               <div className="relative flex h-11 w-11 items-center justify-center">
-                <div className="gen-ring absolute inset-0 rounded-full bg-violet-300/40" />
+                <div className="gen-ring absolute inset-0 rounded-full bg-[rgba(91,124,255,0.1)]" />
                 <div className="relative flex h-11 w-11 items-center justify-center rounded-full bg-white/85 shadow-lg backdrop-blur-sm">
-                  <Sparkles className="gen-icon h-5 w-5 text-violet-500" />
+                  <Activity className="gen-icon h-5 w-5 text-[var(--codex-accent)]0" />
                 </div>
               </div>
               <span className="text-[11px] font-bold text-slate-500">{getLoadingTileLabel(index, itemCount, safeProgress)}</span>
             </div>
             <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/60">
               <div
-                className="h-full rounded-r-full bg-gradient-to-r from-violet-500 to-pink-500 transition-all duration-700"
+                className="h-full rounded-r-full bg-gradient-to-r from-slate-700 to-slate-950 transition-all duration-700"
                 style={{ width: `${safeProgress}%` }}
               />
             </div>
@@ -488,17 +487,17 @@ function WorkflowStepInlineLoading({ step, events }: { step: WorkflowStepRecord;
   const progress = getWorkflowStepProgress(step, events);
   const latestProgress = getLatestWorkflowStepProgressEvent(step.id, events);
   return (
-    <div className="mt-2 rounded-lg border border-violet-100 bg-white/85 px-2.5 py-2">
+    <div className="mt-2 rounded-lg border border-slate-200 bg-white/85 px-2.5 py-2">
       <div className="flex items-center gap-2">
         <ThinkingSignal />
-        <span className="min-w-0 flex-1 truncate text-[11px] font-bold text-violet-600">
+        <span className="min-w-0 flex-1 truncate text-[11px] font-bold text-slate-600">
           {latestProgress?.message || getWorkflowStepLoadingLabel(step)}
         </span>
-        <span className="text-[10px] font-semibold tabular-nums text-violet-400">{progress}%</span>
+        <span className="text-[10px] font-semibold tabular-nums text-slate-400">{progress}%</span>
       </div>
-      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-violet-50">
+      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100">
         <div
-          className="h-full rounded-full bg-gradient-to-r from-violet-500 to-pink-500 transition-all duration-700"
+          className="h-full rounded-full bg-gradient-to-r from-slate-700 to-slate-950 transition-all duration-700"
           style={{ width: `${progress}%` }}
         />
       </div>
@@ -629,7 +628,7 @@ function WorkflowResultActions({
       />
       {firstUrl && onUseAsReference && (
         <QuickAction
-          icon={<Sparkles className="h-3 w-3" />}
+          icon={<Activity className="h-3 w-3" />}
           label="设为参考图"
           onClick={() => onUseAsReference(firstUrl)}
         />
@@ -667,7 +666,7 @@ function WorkflowResultSection({
   if (safeUrls.length === 0) return null;
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-emerald-100 bg-gradient-to-br from-white via-emerald-50/35 to-violet-50/30 p-3 shadow-sm">
+    <div className="overflow-hidden rounded-2xl border border-emerald-100 bg-gradient-to-br from-white via-emerald-50/35 to-[var(--codex-accent-soft)]/30 p-3 shadow-sm">
       <div className="mb-2.5 flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-1.5">
@@ -905,7 +904,7 @@ function ImageResultActions({
           event.stopPropagation();
           downloadImage(url, generateDownloadFilename("agent", index));
         }}
-        className="flex h-7 w-7 items-center justify-center rounded-full bg-white/92 text-slate-700 shadow transition-colors hover:bg-white hover:text-violet-600"
+        className="flex h-7 w-7 items-center justify-center rounded-full bg-white/92 text-slate-700 shadow transition-colors hover:bg-white hover:text-[var(--codex-accent)]"
         title="下载"
       >
         <Download className="h-3.5 w-3.5" />
@@ -917,7 +916,7 @@ function ImageResultActions({
             event.stopPropagation();
             onEditImage(url);
           }}
-          className="flex h-7 w-7 items-center justify-center rounded-full bg-white/92 text-slate-700 shadow transition-colors hover:bg-white hover:text-violet-600"
+          className="flex h-7 w-7 items-center justify-center rounded-full bg-white/92 text-slate-700 shadow transition-colors hover:bg-white hover:text-[var(--codex-accent)]"
           title="继续编辑"
         >
           <Pencil className="h-3.5 w-3.5" />
@@ -930,10 +929,10 @@ function ImageResultActions({
             event.stopPropagation();
             onUseAsReference(url);
           }}
-          className="flex h-7 w-7 items-center justify-center rounded-full bg-white/92 text-slate-700 shadow transition-colors hover:bg-white hover:text-violet-600"
+          className="flex h-7 w-7 items-center justify-center rounded-full bg-white/92 text-slate-700 shadow transition-colors hover:bg-white hover:text-[var(--codex-accent)]"
           title="设为参考图"
         >
-          <Sparkles className="h-3.5 w-3.5" />
+          <Activity className="h-3.5 w-3.5" />
         </button>
       )}
     </div>
@@ -1011,7 +1010,7 @@ function WorkflowLiveStatus({ payload }: { payload: WorkflowClientPayload }) {
         ) : workflow.status === "failed" || workflow.status === "cancelled" ? (
           <AlertCircle className="h-3.5 w-3.5 text-rose-600" />
         ) : (
-          <Sparkles className="h-3.5 w-3.5 text-violet-600" />
+          <Activity className="h-3.5 w-3.5 text-[var(--codex-accent)]" />
         )}
       </div>
       <div className="min-w-0 flex-1">
@@ -1326,7 +1325,7 @@ function getWorkflowLiveStatusTone(status: WorkflowStatus | string, active: Work
   if (status === "failed" || status === "cancelled" || active?.status === "failed") return "border-rose-200 bg-rose-50 text-rose-700";
   if (status === "completed" || status === "partially_completed") return "border-emerald-200 bg-emerald-50 text-emerald-700";
   if (status === "planned" || status === "needs_confirmation" || status === "draft") return "border-amber-200 bg-amber-50 text-amber-700";
-  return "border-violet-100 bg-violet-50 text-violet-700";
+  return "border-[rgba(91,124,255,0.22)] bg-[rgba(91,124,255,0.1)] text-[var(--codex-accent)]";
 }
 
 function WorkflowExecutionCard({
@@ -1365,11 +1364,11 @@ function WorkflowExecutionCard({
   const failedCount = steps.filter((step) => step.status === "failed").length;
 
   return (
-    <div className="mt-2 w-full max-w-xl overflow-hidden rounded-2xl border border-violet-100 bg-white/95 shadow-sm">
-      <div className="border-b border-violet-50 bg-gradient-to-r from-violet-50 to-white px-4 py-3">
+    <div className="mt-2 w-full max-w-xl overflow-hidden rounded-2xl border border-[rgba(91,124,255,0.22)] bg-white/95 shadow-sm">
+      <div className="border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white px-4 py-3">
         <div className="flex items-start gap-3">
-          <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-violet-600 text-white shadow-sm shadow-violet-100">
-            {isActive ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+          <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-slate-950 text-white shadow-sm shadow-slate-300/40">
+            {isActive ? <Loader2 className="h-4 w-4 animate-spin" /> : <Activity className="h-4 w-4" />}
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
@@ -1381,9 +1380,9 @@ function WorkflowExecutionCard({
             </p>
           </div>
           {totalCredits > 0 && (
-            <div className="rounded-lg bg-white px-3 py-1.5 text-center ring-1 ring-violet-100">
-              <p className="text-base font-black text-violet-700">{totalCredits}</p>
-              <p className="text-[10px] font-semibold text-violet-400">积分</p>
+            <div className="rounded-lg bg-white px-3 py-1.5 text-center ring-1 ring-[rgba(91,124,255,0.18)]">
+              <p className="text-base font-black text-[var(--codex-accent)]">{totalCredits}</p>
+              <p className="text-[10px] font-semibold text-[var(--codex-accent)]">积分</p>
             </div>
           )}
         </div>
@@ -1450,9 +1449,9 @@ function WorkflowExecutionCard({
               type="button"
               onClick={onConfirm}
               disabled={!onConfirm}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-violet-600 px-4 py-2 text-xs font-bold text-white shadow-sm shadow-violet-100 transition-colors hover:bg-violet-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-[rgba(91,124,255,0.1)] px-4 py-2 text-xs font-bold text-white shadow-sm shadow-slate-300/40 transition-colors hover:bg-[rgba(91,124,255,0.12)] disabled:cursor-not-allowed disabled:bg-slate-300"
             >
-              <Sparkles className="h-3.5 w-3.5" />
+              <Activity className="h-3.5 w-3.5" />
               确认并开始
             </button>
           )}
@@ -1466,7 +1465,7 @@ function WorkflowExecutionCard({
             </button>
           )}
           {isActive && (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-violet-50 px-3 py-1.5 text-xs font-bold text-violet-700">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-[rgba(91,124,255,0.1)] px-3 py-1.5 text-xs font-bold text-[var(--codex-accent)]">
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
               正在执行
             </span>
@@ -1478,7 +1477,7 @@ function WorkflowExecutionCard({
           )}
           {failedCount > 0 && onQuickAction && (
             <QuickAction
-              icon={<Sparkles className="h-3 w-3" />}
+              icon={<Activity className="h-3 w-3" />}
               label="帮我修复"
               onClick={() => onQuickAction("帮我分析这次工作流失败原因，给我一个更稳的修复方案，并保留当前图片关系。")}
             />
@@ -1743,7 +1742,7 @@ function WorkflowPlanStep({
               <button
                 type="button"
                 onClick={onToggleEdit}
-                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-[10px] font-bold text-slate-600 transition-colors hover:border-violet-200 hover:bg-violet-50 hover:text-violet-700"
+                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-[10px] font-bold text-slate-600 transition-colors hover:border-[rgba(91,124,255,0.3)] hover:bg-[rgba(91,124,255,0.12)] hover:text-[var(--codex-accent)]"
               >
                 <Pencil className="h-3 w-3" />
                 编辑
@@ -1753,7 +1752,7 @@ function WorkflowPlanStep({
               <button
                 type="button"
                 onClick={() => onRetryStep(step.id)}
-                className="inline-flex items-center gap-1 rounded-lg border border-violet-100 bg-white px-2 py-1 text-[10px] font-bold text-violet-700 transition-colors hover:bg-violet-50"
+                className="inline-flex items-center gap-1 rounded-lg border border-[rgba(91,124,255,0.22)] bg-white px-2 py-1 text-[10px] font-bold text-[var(--codex-accent)] transition-colors hover:bg-[rgba(91,124,255,0.12)]"
               >
                 <RefreshCw className="h-3 w-3" />
                 重试
@@ -1763,7 +1762,7 @@ function WorkflowPlanStep({
               <button
                 type="button"
                 onClick={() => onRetryStep(step.id)}
-                className="inline-flex items-center gap-1 rounded-lg border border-violet-100 bg-white px-2 py-1 text-[10px] font-bold text-violet-700 transition-colors hover:bg-violet-50"
+                className="inline-flex items-center gap-1 rounded-lg border border-[rgba(91,124,255,0.22)] bg-white px-2 py-1 text-[10px] font-bold text-[var(--codex-accent)] transition-colors hover:bg-[rgba(91,124,255,0.12)]"
               >
                 <RefreshCw className="h-3 w-3" />
                 重做这一步
@@ -1830,12 +1829,12 @@ function WorkflowStepInputSummary({ steps, step }: { steps: WorkflowStepRecord[]
 function WorkflowStepReasoningNote({ notes }: { notes: string[] }) {
   if (notes.length === 0) return null;
   return (
-    <div className="mt-1.5 rounded-xl border border-violet-100 bg-white/85 px-2.5 py-2">
-      <p className="text-[10px] font-black text-violet-600">为什么这样安排</p>
+    <div className="mt-1.5 rounded-xl border border-[rgba(91,124,255,0.22)] bg-white/85 px-2.5 py-2">
+      <p className="text-[10px] font-black text-[var(--codex-accent)]">为什么这样安排</p>
       <ul className="mt-1 space-y-1 text-[10px] leading-4 text-slate-500">
         {notes.map((note) => (
           <li key={note} className="flex gap-1.5">
-            <span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-violet-400" />
+            <span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-[rgba(91,124,255,0.1)]" />
             <span>{note}</span>
           </li>
         ))}
@@ -1891,7 +1890,7 @@ function StepImageSelector({
                   className={`flex w-full items-center justify-center gap-1 px-1.5 py-1.5 text-[10px] font-bold transition-colors ${
                     isSelected
                       ? "cursor-default bg-emerald-50 text-emerald-600"
-                      : "bg-white text-violet-700 hover:bg-violet-50 disabled:cursor-not-allowed disabled:text-slate-300"
+                      : "bg-white text-[var(--codex-accent)] hover:bg-[rgba(91,124,255,0.12)] disabled:cursor-not-allowed disabled:text-slate-300"
                   }`}
                 >
                   {isSelected ? <CheckCircle2 className="h-3 w-3" /> : <Check className="h-3 w-3" />}
@@ -1938,7 +1937,7 @@ function StepResultPreview({
           />
           {firstUrl && onUseAsReference && (
             <QuickAction
-              icon={<Sparkles className="h-3 w-3" />}
+              icon={<Activity className="h-3 w-3" />}
               label="设为参考"
               onClick={() => onUseAsReference(firstUrl)}
             />
@@ -2018,7 +2017,7 @@ function WorkflowStepEditor({
   };
 
   return (
-    <div className="mt-2 rounded-xl border border-violet-100 bg-white p-3 shadow-sm">
+    <div className="mt-2 rounded-xl border border-[rgba(91,124,255,0.22)] bg-white p-3 shadow-sm">
       <div className="mb-2 flex items-center justify-between gap-2">
         <p className="text-xs font-bold text-slate-700">编辑步骤</p>
         <button
@@ -2036,7 +2035,7 @@ function WorkflowStepEditor({
         <input
           value={title}
           onChange={(event) => setTitle(event.target.value)}
-          className="h-8 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-700 outline-none transition-colors focus:border-violet-300"
+          className="h-8 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-700 outline-none transition-colors focus:border-[rgba(91,124,255,0.5)]"
         />
       </label>
 
@@ -2067,7 +2066,7 @@ function WorkflowStepEditor({
             max={8}
             value={count}
             onChange={(event) => setCount(event.target.value)}
-            className="h-8 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-700 outline-none transition-colors focus:border-violet-300"
+            className="h-8 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-700 outline-none transition-colors focus:border-[rgba(91,124,255,0.5)]"
           />
         </label>
       </div>
@@ -2077,7 +2076,7 @@ function WorkflowStepEditor({
         <textarea
           value={prompt}
           onChange={(event) => setPrompt(event.target.value)}
-          className="min-h-24 w-full resize-y rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs leading-relaxed text-slate-700 outline-none transition-colors focus:border-violet-300"
+          className="min-h-24 w-full resize-y rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs leading-relaxed text-slate-700 outline-none transition-colors focus:border-[rgba(91,124,255,0.5)]"
           placeholder="修改这一步真正要发给模型的提示词"
         />
       </label>
@@ -2086,7 +2085,7 @@ function WorkflowStepEditor({
         <button
           type="button"
           onClick={handleSave}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-violet-700"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-[rgba(91,124,255,0.1)] px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-[rgba(91,124,255,0.12)]"
         >
           <Check className="h-3.5 w-3.5" />
           保存并重新排队
@@ -2133,7 +2132,7 @@ function getWorkflowStepResultTitle(step: WorkflowStepRecord) {
   if (step.type === "commerce_detail_stitch") return "详情长图结果";
   if (step.type === "pose_variation") return "姿势裂变结果";
   if (step.type === "tryon") return "换装融合结果";
-  if (step.type === "face_swap") return "AI 换脸结果";
+  if (step.type === "face_swap") return "换脸结果";
   if (step.type === "image_quality_check") return "质量检查结果";
   return `${step.title || getWorkflowToolLabel(step.type)}结果`;
 }
@@ -2178,7 +2177,7 @@ function getWorkflowResultMeta(payload: WorkflowClientPayload, count: number) {
 
   if (hasFaceSwap) {
     return {
-      title: "AI 换脸结果",
+    title: "换脸结果",
       detail: "已完成面部五官替换；结果会尽量保留原图肤色、发型、身体、服装、背景和光线。",
       chips: ["换脸", count > 1 ? `${count} 张候选` : "1 张结果", statusLabel],
     };
@@ -2218,7 +2217,7 @@ function getWorkflowFollowupActions(payload: WorkflowClientPayload, count: numbe
       },
       {
         label: "只用可用结果继续",
-        icon: <Sparkles className="h-3 w-3" />,
+        icon: <Activity className="h-3 w-3" />,
         prompt: "只基于当前已经成功的结果继续，不再等待失败步骤，帮我整理下一步可执行方案。",
       },
     ];
@@ -2234,7 +2233,7 @@ function getWorkflowFollowupActions(payload: WorkflowClientPayload, count: numbe
           }
         : {
             label: "拼成长图",
-            icon: <Sparkles className="h-3 w-3" />,
+            icon: <Activity className="h-3 w-3" />,
             prompt: "把当前详情页板块拼接成适合手机端浏览的长图，保持板块顺序、留白节奏和电商平台质感。",
           },
       {
@@ -2244,7 +2243,7 @@ function getWorkflowFollowupActions(payload: WorkflowClientPayload, count: numbe
       },
       {
         label: "补充一个板块",
-        icon: <Sparkles className="h-3 w-3" />,
+        icon: <Activity className="h-3 w-3" />,
         prompt: "在当前详情页基础上补充一个新的详情页板块，风格保持一致，请先问我想补充哪个卖点。",
       },
     ];
@@ -2254,7 +2253,7 @@ function getWorkflowFollowupActions(payload: WorkflowClientPayload, count: numbe
     return [
       {
         label: "选图做详情页",
-        icon: <Sparkles className="h-3 w-3" />,
+        icon: <Activity className="h-3 w-3" />,
         prompt: "从当前姿势裂变结果中挑选适合电商展示的图，继续规划一套详情页素材。",
       },
       {
@@ -2274,7 +2273,7 @@ function getWorkflowFollowupActions(payload: WorkflowClientPayload, count: numbe
     return [
       {
         label: "继续姿势裂变",
-        icon: <Sparkles className="h-3 w-3" />,
+        icon: <Activity className="h-3 w-3" />,
         prompt: "基于当前换装结果继续生成4张不同姿势的独立图片，保持人物身份、服装结构和材质准确。",
       },
       {
@@ -2318,7 +2317,7 @@ function getWorkflowFollowupActions(payload: WorkflowClientPayload, count: numbe
     },
     {
       label: "做电商详情页",
-      icon: <Sparkles className="h-3 w-3" />,
+      icon: <Activity className="h-3 w-3" />,
       prompt: "基于当前结果生成一套适合电商平台的详情页素材，先自动规划板块。",
     },
   ];
@@ -2332,7 +2331,7 @@ function getGenerationFollowupActions(generation: NonNullable<Message["generatio
     return [
       {
         label: "选图做详情页",
-        icon: <Sparkles className="h-3 w-3" />,
+        icon: <Activity className="h-3 w-3" />,
         prompt: "基于当前姿势结果挑选适合电商展示的图，继续规划一套详情页素材。",
       },
       {
@@ -2347,7 +2346,7 @@ function getGenerationFollowupActions(generation: NonNullable<Message["generatio
     return [
       {
         label: "继续姿势裂变",
-        icon: <Sparkles className="h-3 w-3" />,
+        icon: <Activity className="h-3 w-3" />,
         prompt: "基于当前换装结果继续生成4张不同姿势的独立图片，保持人物身份、服装结构和材质准确。",
       },
       {
@@ -2367,7 +2366,7 @@ function getGenerationFollowupActions(generation: NonNullable<Message["generatio
       },
       {
         label: "补充板块",
-        icon: <Sparkles className="h-3 w-3" />,
+        icon: <Activity className="h-3 w-3" />,
         prompt: "在当前详情页基础上补充一个新的详情页板块，风格保持一致，请先问我想补充哪个卖点。",
       },
     ];
@@ -2381,7 +2380,7 @@ function getGenerationFollowupActions(generation: NonNullable<Message["generatio
     },
     {
       label: "做电商详情页",
-      icon: <Sparkles className="h-3 w-3" />,
+      icon: <Activity className="h-3 w-3" />,
       prompt: "基于当前结果生成一套适合电商平台的详情页素材，先自动规划板块。",
     },
   ];
@@ -2420,7 +2419,7 @@ function getWorkflowRecoveryActions(payload: WorkflowClientPayload, finalCount: 
     },
     {
       label: "降低难度重试",
-      icon: <Sparkles className="h-3 w-3" />,
+      icon: <Activity className="h-3 w-3" />,
       prompt: `请把失败步骤「${failedTitles}」改成更稳的版本：减少一次性输出数量、降低构图复杂度、保留主体一致性，然后重新进入确认。`,
     },
   ];
@@ -2450,13 +2449,13 @@ function getWorkflowRecoveryActions(payload: WorkflowClientPayload, finalCount: 
     actions.push({
       label: "重新匹配脸图",
       icon: <Pencil className="h-3 w-3" />,
-      prompt: "请重新检查 AI 换脸的原始模特图和目标脸图，只替换五官，不改变肤色、发型、身体、服装、背景和光线。",
+      prompt: "请重新检查换脸的原始模特图和目标脸图，只替换五官，不改变肤色、发型、身体、服装、背景和光线。",
     });
   }
   if (hasCommerce) {
     actions.push({
       label: "拆板块重做",
-      icon: <Sparkles className="h-3 w-3" />,
+      icon: <Activity className="h-3 w-3" />,
       prompt: "请把详情页改成分板块生成，先确认平台、板块数量和长图拼接方式，避免一次性生成整张导致信息混乱。",
     });
   }
@@ -2481,7 +2480,7 @@ function canSelectWorkflowStepImage(step: WorkflowStepRecord) {
 }
 
 function readWorkflowStepParams(params: Record<string, unknown>) {
-  const model = String(params.model || params.aiModel || params.ai_model || "gpt-image-2") as LingyaModel;
+        const model = String(params.model || params.aiModel || params.ai_model || "nano-banana-2") as LingyaModel;
   const aspectRatio = String(params.aspectRatio || params.aspect_ratio || "3:4") as AspectRatio;
   const imageSize = String(params.imageSize || params.image_size || "1K") as ImageSize;
   const count = Math.min(Math.max(Number(params.count || params.genCount || params.gen_count || 1), 1), 8);
@@ -2674,7 +2673,7 @@ function StepStatusPill({ status }: { status: string }) {
         : failed
           ? "bg-red-50 text-red-600"
           : running
-            ? "bg-violet-50 text-violet-600"
+            ? "bg-[rgba(91,124,255,0.1)] text-[var(--codex-accent)]"
             : "bg-slate-100 text-slate-500"
     }`}>
       {done ? <CheckCircle2 className="h-3 w-3" /> : failed ? <AlertCircle className="h-3 w-3" /> : running ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
@@ -2761,7 +2760,7 @@ function AgentTracePanel({ traceId }: { traceId: string }) {
                 </span>
                 {finalTrace && (
                   <>
-                    <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-bold text-violet-700">
+                    <span className="rounded-full bg-[rgba(91,124,255,0.1)] px-2 py-0.5 text-[10px] font-bold text-[var(--codex-accent)]">
                       {Math.round(finalTrace.confidence * 100)}%
                     </span>
                     <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">
@@ -2780,7 +2779,7 @@ function AgentTracePanel({ traceId }: { traceId: string }) {
                 </div>
               ))}
               {record?.trace?.final && (
-                <div className="rounded-md bg-violet-50 p-2 text-[11px] text-violet-700">
+                <div className="rounded-md bg-[rgba(91,124,255,0.1)] p-2 text-[11px] text-[var(--codex-accent)]">
                   最终：{record.trace.final.action} / {record.trace.final.module || "none"} / {Math.round(record.trace.final.confidence * 100)}%
                 </div>
               )}
@@ -2816,12 +2815,12 @@ function AgentRuntimeTimeline({ timeline, compact = false }: { timeline: Runtime
   const summary = errorItem?.detail || activeItem?.detail || timeline[timeline.length - 1]?.detail || "Agent 正在处理。";
   const doneCount = timeline.filter((item) => item.status === "done").length;
   const buttonTone = activeItem
-    ? "border-slate-200 bg-white/95 text-slate-700 hover:border-violet-200 hover:bg-violet-50/60"
+    ? "border-slate-200 bg-white/95 text-slate-700 hover:border-[rgba(91,124,255,0.3)] hover:bg-[rgba(91,124,255,0.12)]"
     : errorItem
       ? "border-rose-200 bg-rose-50/90 text-rose-700 hover:bg-rose-50"
     : done
       ? "border-slate-100 bg-white/70 text-slate-500 hover:border-slate-200 hover:bg-slate-50"
-      : "border-slate-200 bg-white/95 text-slate-700 hover:border-violet-200 hover:bg-violet-50/60";
+      : "border-slate-200 bg-white/95 text-slate-700 hover:border-[rgba(91,124,255,0.3)] hover:bg-[rgba(91,124,255,0.12)]";
 
   return (
     <div className={`${compact ? "mb-2" : "w-full max-w-md"} overflow-hidden`}>
@@ -2842,7 +2841,7 @@ function AgentRuntimeTimeline({ timeline, compact = false }: { timeline: Runtime
           <p className="mb-2 truncate text-[11px] text-slate-500">{summary}</p>
           <div className="space-y-2">
               {timeline.map((item, index) => (
-                <div key={`${item.label}-${index}`} className={`flex gap-2 rounded-xl px-1.5 py-1 ${item.status === "running" ? "bg-violet-50/80" : item.status === "error" ? "bg-rose-50/80" : ""}`}>
+                <div key={`${item.label}-${index}`} className={`flex gap-2 rounded-xl px-1.5 py-1 ${item.status === "running" ? "bg-[rgba(91,124,255,0.1)]" : item.status === "error" ? "bg-rose-50/80" : ""}`}>
                   <div className="flex w-5 shrink-0 flex-col items-center">
                     <div className={`flex h-5 w-5 items-center justify-center rounded-full ${getRuntimeTimelineNodeTone(item.status)}`}>
                       {item.status === "running" ? <ThinkingSignal /> : item.status === "done" ? <Check className="h-3 w-3" /> : item.status === "error" ? <X className="h-3 w-3" /> : <span className="h-1.5 w-1.5 rounded-full bg-current" />}
@@ -2865,8 +2864,8 @@ function AgentRuntimeTimeline({ timeline, compact = false }: { timeline: Runtime
 function ThinkingSignal() {
   return (
     <span className="relative flex h-3.5 w-3.5 shrink-0 items-center justify-center">
-      <span className="absolute h-3 w-3 rounded-full bg-violet-400/30 animate-ping" />
-      <span className="h-2 w-2 rounded-full bg-violet-600 shadow-[0_0_10px_rgba(124,58,237,0.55)]" />
+      <span className="absolute h-3 w-3 rounded-full bg-[rgba(91,124,255,0.1)] animate-ping" />
+      <span className="h-2 w-2 rounded-full bg-[rgba(91,124,255,0.1)] shadow-[0_0_10px_rgba(124,58,237,0.55)]" />
     </span>
   );
 }
@@ -2976,7 +2975,7 @@ function getWorkflowRuntimeStepLabel(step: WorkflowStepRecord) {
   if (step.type === "commerce_detail_stitch") return "拼接详情长图";
   if (step.type === "pose_variation") return step.title || "生成姿势变化";
   if (step.type === "tryon") return step.title || "换装融合";
-  if (step.type === "face_swap") return step.title || "AI 换脸";
+  if (step.type === "face_swap") return step.title || "换脸";
   if (step.type === "image_quality_check") return "质量检查";
   return step.title || getWorkflowToolLabel(step.type);
 }
@@ -3082,7 +3081,7 @@ function FeedbackStatusPill({ feedback }: { feedback: NonNullable<ReturnType<typ
     : feedback.status === "sending"
       ? "bg-slate-50 text-slate-500"
       : feedback.learned
-        ? "bg-violet-50 text-violet-600"
+        ? "bg-[rgba(91,124,255,0.1)] text-[var(--codex-accent)]"
         : "bg-emerald-50 text-emerald-600";
   return (
     <span
@@ -3132,7 +3131,7 @@ function getWorkflowStatusTone(status: WorkflowStatus | string) {
   if (status === "completed") return "bg-emerald-50 text-emerald-700 ring-emerald-100";
   if (status === "partially_completed") return "bg-amber-50 text-amber-700 ring-amber-100";
   if (status === "failed" || status === "cancelled") return "bg-red-50 text-red-700 ring-red-100";
-  if (status === "running" || status === "queued" || status === "confirmed") return "bg-violet-50 text-violet-700 ring-violet-100";
+  if (status === "running" || status === "queued" || status === "confirmed") return "bg-[rgba(91,124,255,0.1)] text-[var(--codex-accent)] ring-[rgba(91,124,255,0.18)]";
   return "bg-slate-50 text-slate-600 ring-slate-100";
 }
 
@@ -3173,7 +3172,7 @@ function getWorkflowToolLabel(type: string) {
     text_to_image: "文生图",
     image_to_image: "图生图",
     tryon: "换装试穿",
-    face_swap: "AI 换脸",
+  face_swap: "换脸",
     pose_variation: "姿势裂变",
     garment_3d: "3D 立体展示",
     commerce_detail: "电商详情页",
@@ -3206,7 +3205,7 @@ function ConfirmImageRoleEditor({
   if (!onChange || images.length === 0) return null;
 
   return (
-    <div className="mb-3 rounded-xl border border-violet-100 bg-white/75 p-2">
+    <div className="mb-3 rounded-xl border border-[rgba(91,124,255,0.22)] bg-white/75 p-2">
       <div className="mb-2 flex items-center justify-between">
         <span className="text-[11px] font-bold text-slate-600">图片角色</span>
         <span className="text-[10px] text-slate-400">确认前可修正图1/图2关系</span>
@@ -3222,14 +3221,14 @@ function ConfirmImageRoleEditor({
                 className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md bg-white"
               >
                 <img src={url} alt={`图${img.index}`} className="h-full w-full object-cover" />
-                <span className="absolute bottom-0 left-0 right-0 bg-violet-600/85 text-center text-[8px] font-bold leading-tight text-white">
+                <span className="absolute bottom-0 left-0 right-0 bg-[rgba(91,124,255,0.1)] text-center text-[8px] font-bold leading-tight text-white">
                   图{img.index}
                 </span>
               </button>
               <select
                 value={img.role || "auto"}
                 onChange={(event) => onChange(messageId, img.index, event.target.value as ChatImageRole)}
-                className="h-8 min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-700 outline-none transition-colors focus:border-violet-300"
+                className="h-8 min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-700 outline-none transition-colors focus:border-[rgba(91,124,255,0.5)]"
                 title={`设置图${img.index}的图片角色`}
               >
                 {CONFIRM_ROLE_OPTIONS.map((role) => (
@@ -3367,7 +3366,7 @@ function ConfirmExecutionSummary({
   return (
     <div className="mb-3 rounded-xl border border-slate-200 bg-white/80 p-3 text-[11px] leading-relaxed text-slate-600">
       <p className="mb-1 font-bold text-slate-800">执行前确认</p>
-      <p>我识别到本次任务是：<span className="font-bold text-violet-700">{moduleName}</span>。</p>
+      <p>我识别到本次任务是：<span className="font-bold text-[var(--codex-accent)]">{moduleName}</span>。</p>
       <p>将使用：{usedImages}。</p>
       <p className="mt-1 rounded-lg bg-amber-50 px-2 py-1 text-amber-700">
         点击“确认生成”后才会扣除 {credits || 0} 积分；如果只是调整参数或图片角色，不会扣费。
@@ -3400,7 +3399,7 @@ function ConfirmExecutionSummaryV2({
   return (
     <div className="mb-3 rounded-xl border border-slate-200 bg-white/80 p-3 text-[11px] leading-relaxed text-slate-600">
       <p className="mb-1 font-bold text-slate-800">执行前确认</p>
-      <p>我识别到本次任务是：<span className="font-bold text-violet-700">{moduleName}</span>。</p>
+      <p>我识别到本次任务是：<span className="font-bold text-[var(--codex-accent)]">{moduleName}</span>。</p>
       <p>将使用：{usedText}。</p>
       <p>不会使用：{unusedText}。</p>
       <p className="mt-1 rounded-lg bg-amber-50 px-2 py-1 text-amber-700">
@@ -3455,10 +3454,10 @@ function ConfirmIntentBrief({
   const brief = taskBrief || buildIntentBrief(moduleName, prompt, used, unused, params);
 
   return (
-    <div className="mb-3 rounded-xl border border-violet-100 bg-gradient-to-br from-white to-violet-50/50 p-3">
+    <div className="mb-3 rounded-xl border border-[rgba(91,124,255,0.22)] bg-gradient-to-br from-white to-[var(--codex-accent-soft)]/50 p-3">
       <div className="mb-2 flex items-center justify-between gap-2">
         <p className="text-xs font-bold text-slate-800">{"\u4efb\u52a1\u65b9\u6848"}</p>
-        <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-violet-600 ring-1 ring-violet-100">
+        <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-[var(--codex-accent)] ring-1 ring-[rgba(91,124,255,0.18)]">
           {brief.outputType}
         </span>
       </div>
@@ -3636,7 +3635,7 @@ function ConfirmTaskPlan({
   ];
 
   return (
-    <div className="mb-3 rounded-xl border border-violet-100 bg-white/75 p-3">
+    <div className="mb-3 rounded-xl border border-[rgba(91,124,255,0.22)] bg-white/75 p-3">
       <div className="mb-2 flex flex-wrap items-center gap-1.5">
         <ConfirmChip label={moduleName} />
         <ConfirmChip label={params.model} />
@@ -3648,9 +3647,9 @@ function ConfirmTaskPlan({
         {steps.map((step, index) => (
           <div key={step} className="relative rounded-lg bg-slate-50 px-2 py-2 text-center">
             {index < steps.length - 1 && (
-              <div className="absolute left-[calc(50%+12px)] top-4 hidden h-px w-[calc(100%-20px)] bg-violet-100 sm:block" />
+              <div className="absolute left-[calc(50%+12px)] top-4 hidden h-px w-[calc(100%-20px)] bg-[rgba(91,124,255,0.1)] sm:block" />
             )}
-            <div className="relative z-10 mx-auto mb-1 flex h-5 w-5 items-center justify-center rounded-full bg-violet-100 text-[10px] font-black text-violet-600">
+            <div className="relative z-10 mx-auto mb-1 flex h-5 w-5 items-center justify-center rounded-full bg-[rgba(91,124,255,0.1)] text-[10px] font-black text-[var(--codex-accent)]">
               {index + 1}
             </div>
             <p className="relative z-10 text-[10px] font-semibold text-slate-500">{step}</p>
@@ -3674,11 +3673,11 @@ function ConfirmTaskPlanV2({
   const steps = ["确认参数", "扣除积分", "生成图片", "校验结果"];
 
   return (
-    <div className="mb-3 overflow-hidden rounded-xl border border-violet-100 bg-white/75">
+    <div className="mb-3 overflow-hidden rounded-xl border border-[rgba(91,124,255,0.22)] bg-white/75">
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className="flex w-full items-center gap-2 px-3 py-2.5 text-left transition-colors hover:bg-violet-50/50"
+        className="flex w-full items-center gap-2 px-3 py-2.5 text-left transition-colors hover:bg-[rgba(91,124,255,0.12)]"
       >
         <div className="min-w-0 flex-1">
           <p className="text-xs font-bold text-slate-800">执行计划</p>
@@ -3690,7 +3689,7 @@ function ConfirmTaskPlanV2({
       </button>
 
       {open && (
-        <div className="border-t border-violet-50 p-3">
+        <div className="border-t border-[rgba(91,124,255,0.22)] p-3">
           <div className="mb-2 flex flex-wrap items-center gap-1.5">
             <ConfirmChip label={moduleName} />
             <ConfirmChip label={params.model} />
@@ -3702,9 +3701,9 @@ function ConfirmTaskPlanV2({
             {steps.map((step, index) => (
               <div key={step} className="relative rounded-lg bg-slate-50 px-2 py-2 text-center">
                 {index < steps.length - 1 && (
-                  <div className="absolute left-[calc(50%+12px)] top-4 hidden h-px w-[calc(100%-20px)] bg-violet-100 sm:block" />
+                  <div className="absolute left-[calc(50%+12px)] top-4 hidden h-px w-[calc(100%-20px)] bg-[rgba(91,124,255,0.1)] sm:block" />
                 )}
-                <div className="relative z-10 mx-auto mb-1 flex h-5 w-5 items-center justify-center rounded-full bg-violet-100 text-[10px] font-black text-violet-600">
+                <div className="relative z-10 mx-auto mb-1 flex h-5 w-5 items-center justify-center rounded-full bg-[rgba(91,124,255,0.1)] text-[10px] font-black text-[var(--codex-accent)]">
                   {index + 1}
                 </div>
                 <p className="relative z-10 text-[10px] font-semibold text-slate-500">{step}</p>
@@ -3761,7 +3760,7 @@ function ClarifyQuickReplies({ onSelect }: { onSelect: (text: string) => void })
           key={reply}
           type="button"
           onClick={() => onSelect(reply)}
-          className="rounded-full border border-violet-100 bg-white/90 px-3 py-1.5 text-[11px] font-semibold text-violet-700 shadow-sm transition-colors hover:border-violet-300 hover:bg-violet-50"
+          className="rounded-full border border-[rgba(91,124,255,0.22)] bg-white/90 px-3 py-1.5 text-[11px] font-semibold text-[var(--codex-accent)] shadow-sm transition-colors hover:border-[rgba(91,124,255,0.3)] hover:bg-[rgba(91,124,255,0.12)]"
         >
           {reply}
         </button>
@@ -3797,10 +3796,10 @@ function getRoleLabel(role: ChatImageRole): string {
   return item?.label || "自动";
 }
 
-function ConfirmChip({ label, tone = "violet" }: { label: string; tone?: "violet" | "amber" }) {
+function ConfirmChip({ label, tone = "accent" }: { label: string; tone?: "accent" | "amber" }) {
   const cls = tone === "amber"
     ? "bg-amber-50 text-amber-700 ring-amber-100"
-    : "bg-violet-50 text-violet-700 ring-violet-100";
+    : "bg-[rgba(91,124,255,0.1)] text-[var(--codex-accent)] ring-[rgba(91,124,255,0.18)]";
   return (
     <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ring-1 ${cls}`}>
       {label}
@@ -3862,11 +3861,11 @@ function ConfirmPromptEditor({
   if (!onChange || !prompt) return null;
 
   return (
-    <div className="mb-3 overflow-hidden rounded-xl border border-violet-100 bg-white/75">
+    <div className="mb-3 overflow-hidden rounded-xl border border-[rgba(91,124,255,0.22)] bg-white/75">
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className="flex w-full items-center gap-2 px-3 py-2.5 text-left transition-colors hover:bg-violet-50/50"
+        className="flex w-full items-center gap-2 px-3 py-2.5 text-left transition-colors hover:bg-[rgba(91,124,255,0.12)]"
       >
         <div className="min-w-0 flex-1">
           <p className="text-xs font-bold text-slate-800">{"\u6700\u7ec8\u6267\u884c\u63d0\u793a\u8bcd"}</p>
@@ -3875,11 +3874,11 @@ function ConfirmPromptEditor({
         <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
       {open && (
-        <div className="border-t border-violet-50 p-3">
+        <div className="border-t border-[rgba(91,124,255,0.22)] p-3">
           <textarea
             value={prompt}
             onChange={(event) => onChange(messageId, { prompt: event.target.value })}
-            className="min-h-28 w-full resize-y rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs leading-relaxed text-slate-700 outline-none transition-colors focus:border-violet-300"
+            className="min-h-28 w-full resize-y rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs leading-relaxed text-slate-700 outline-none transition-colors focus:border-[rgba(91,124,255,0.5)]"
             placeholder={"\u786e\u8ba4\u524d\u53ef\u4ee5\u76f4\u63a5\u6539\u6700\u7ec8\u6267\u884c\u63d0\u793a\u8bcd"}
           />
           <p className="mt-1.5 text-[10px] leading-relaxed text-slate-400">
@@ -3908,7 +3907,7 @@ function ConfirmSelect<T extends string>({
       <select
         value={value}
         onChange={(event) => onChange(event.target.value as T)}
-        className="h-8 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-700 outline-none transition-colors focus:border-violet-300"
+        className="h-8 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-700 outline-none transition-colors focus:border-[rgba(91,124,255,0.5)]"
       >
         {options.map((option) => (
           <option key={option.value} value={option.value}>{option.label}</option>
@@ -3920,7 +3919,7 @@ function ConfirmSelect<T extends string>({
 
 function readConfirmParams(params: Record<string, unknown>): GenerationParams {
   return {
-    model: String(params.model || params.ai_model || "gpt-image-2") as LingyaModel,
+      model: String(params.model || params.ai_model || "nano-banana-2") as LingyaModel,
     aspectRatio: String(params.aspectRatio || params.aspect_ratio || "3:4") as AspectRatio,
     imageSize: String(params.imageSize || params.image_size || "1K") as ImageSize,
     count: Math.min(Math.max(Number(params.count || params.gen_count || 1), 1), 4),
@@ -3958,7 +3957,7 @@ function StreamingMarkdown({ content, done }: { content: string; done?: boolean 
   return (
     <>
       <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
-      {!done && <span className="inline-block h-4 w-0.5 animate-pulse bg-violet-400 align-middle ml-0.5" />}
+      {!done && <span className="inline-block h-4 w-0.5 animate-pulse bg-[rgba(91,124,255,0.1)] align-middle ml-0.5" />}
     </>
   );
 }
@@ -3970,8 +3969,8 @@ function QuickAction({
 }) {
   const base = "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all";
   const styles = variant === "primary"
-    ? "bg-violet-600 text-white shadow-sm hover:bg-violet-700"
-    : "border border-slate-200 bg-white text-slate-600 hover:border-violet-200 hover:text-violet-600";
+    ? "bg-[rgba(91,124,255,0.1)] text-white shadow-sm hover:bg-[rgba(91,124,255,0.12)]"
+    : "border border-slate-200 bg-white text-slate-600 hover:border-[rgba(91,124,255,0.3)] hover:text-[var(--codex-accent)]";
   return (
     <button onClick={onClick} className={`${base} ${styles}`}>
       {icon} {label}

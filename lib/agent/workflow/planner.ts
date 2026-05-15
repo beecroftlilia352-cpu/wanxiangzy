@@ -54,7 +54,7 @@ function getMissingVisualInputQuestion(request: PlannerRequest) {
     return "要生成电商详情页，请先上传商品图、服装图或模特/场景素材图；如果你只是想先写详情页文案或板块结构，可以直接说明“只做文案规划”。";
   }
   if (/换脸|替换脸|换五官|替换五官|人脸替换|face\s*swap/i.test(text)) {
-    return "AI 换脸需要两张图：原始模特图和目标脸图。我现在还没有可用图片，请先上传素材或去 AI 换脸页面选择官方脸库。";
+  return "换脸需要两张图：原始模特图和目标脸图。我现在还没有可用图片，请先上传素材或去换脸页面选择官方脸库。";
   }
   if (/穿上|穿到|传到|转移到|套到|换到|换装|上身|试穿|把.*衣服.*(?:穿|传|转移|套|换)|(?:穿|传|转移|套|换).*衣服|衣服.*(?:穿|传|转移|套|换)|模特.*衣服/.test(text)) {
     return "换装任务需要至少上传人物图和服装图，我现在还没有可用图片。请先上传素材，或告诉我要改成纯文字方案。";
@@ -301,7 +301,7 @@ function buildFallbackPlan(request: PlannerRequest): WorkflowPlan {
     steps.push({
       id: "step_1",
       type: "face_swap",
-      title: "AI 换脸",
+      title: "换脸",
       dependsOn: [],
       input: {
         sourceImage: faceRefs.sourceImage || findImageRef(roles, ["person", "source", "reference"]) || "图1",

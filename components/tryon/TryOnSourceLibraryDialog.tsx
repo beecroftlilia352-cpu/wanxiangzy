@@ -43,7 +43,7 @@ export function TryOnSourceLibraryDialog({
         >
           <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4">
             <div className="min-w-0">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-violet-500">作品库</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--codex-accent)]0">作品库</p>
               <h3 id="tryon-source-library-title" className="mt-1 text-base font-bold text-slate-950">
                 选择{targetLabel}
               </h3>
@@ -54,7 +54,7 @@ export function TryOnSourceLibraryDialog({
                 type="button"
                 onClick={onRefresh}
                 disabled={isLoading}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition-colors hover:border-violet-200 hover:text-violet-600 disabled:opacity-50"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition-colors hover:border-[rgba(91,124,255,0.3)] hover:text-[var(--codex-accent)] disabled:opacity-50"
                 aria-label="刷新作品库"
                 title="刷新作品库"
               >
@@ -63,7 +63,7 @@ export function TryOnSourceLibraryDialog({
               <button
                 type="button"
                 onClick={onClose}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition-colors hover:border-violet-200 hover:text-violet-600"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition-colors hover:border-[rgba(91,124,255,0.3)] hover:text-[var(--codex-accent)]"
                 aria-label="关闭作品库"
                 title="关闭作品库"
               >
@@ -102,7 +102,7 @@ export function TryOnSourceLibraryDialog({
                     key={item.id}
                     type="button"
                     onClick={() => onSelect(item)}
-                    className="group overflow-hidden rounded-2xl border border-slate-100 bg-white text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-violet-200 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+                    className="group overflow-hidden rounded-2xl border border-slate-100 bg-white text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-[rgba(91,124,255,0.3)] hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.22)]0 focus-visible:ring-offset-2"
                     aria-label={`选择作品库图片：${item.label}`}
                   >
                     <div className="studio-checkerboard aspect-[4/5] overflow-hidden">

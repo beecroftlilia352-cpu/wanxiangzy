@@ -1,7 +1,7 @@
 "use client";
 
 import type { CSSProperties } from "react";
-import { Download, Sparkles } from "lucide-react";
+import { Download, Loader2, XCircle } from "lucide-react";
 import { getImageVariantUrl } from "@/lib/image-variants";
 import { downloadImage, generateDownloadFilename } from "@/lib/utils";
 import type { TaskStatusGroup } from "@/lib/task-queue";
@@ -53,6 +53,7 @@ export function ResultImageGrid({
 
   if (variant === "task") {
     const running = isGenerating || statusGroup === "running" || statusGroup === "queued";
+    const failed = statusGroup === "failed";
     const referenceUrl = inputThumbnails[1] || inputThumbnails[0] || "";
     return (
       <div className="w-full max-w-[min(1480px,100%)]">
@@ -98,10 +99,18 @@ export function ResultImageGrid({
                       }}
                     />
                   ) : (
-                    <div className="gen-card flex h-full w-full flex-col items-center justify-center gap-2 bg-gradient-to-br from-rose-50 via-violet-50 to-blue-50 text-rose-400">
-                      <Sparkles className="relative z-[1] h-8 w-8 animate-pulse opacity-60" />
-                      <p className="relative z-[1] text-xs font-semibold text-slate-500">
-                        {running ? "预计1-2分钟" : "等待生成"}
+                    <div className={`gen-card flex h-full w-full flex-col items-center justify-center gap-2 ${
+                      failed
+                        ? "bg-gradient-to-br from-red-50 via-white to-slate-50 text-red-400"
+                        : "bg-gradient-to-br from-slate-50 via-white to-slate-200 text-slate-500"
+                    }`}>
+                      {failed ? (
+                        <XCircle className="relative z-[1] h-8 w-8 opacity-70" />
+                      ) : (
+                        <Loader2 className="relative z-[1] h-8 w-8 animate-spin opacity-60" />
+                      )}
+                      <p className={`relative z-[1] text-xs font-semibold ${failed ? "text-red-500" : "text-slate-500"}`}>
+                        {failed ? "生成失败，可套用参数重试" : running ? "预计1-2分钟" : "等待生成"}
                       </p>
                     </div>
                   )}
@@ -109,9 +118,16 @@ export function ResultImageGrid({
                 {url && (
                   <>
                     <div className="absolute inset-x-0 bottom-0 z-[2] flex translate-y-full items-center justify-center gap-2 bg-gradient-to-t from-black/68 to-black/0 px-2 pb-3 pt-12 text-[11px] font-semibold text-white transition-transform group-hover:translate-y-0 group-focus-within:translate-y-0">
-                      <button type="button" className="rounded bg-white/18 px-2 py-1 backdrop-blur">查看</button>
-                      <button type="button" className="rounded bg-white/18 px-2 py-1 backdrop-blur">AI修图</button>
-                      <button type="button" className="rounded bg-white/18 px-2 py-1 backdrop-blur">AI视频</button>
+                      <button
+                        type="button"
+                        className="rounded bg-white/18 px-2 py-1 backdrop-blur"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onOpen(url, index);
+                        }}
+                      >
+                        查看
+                      </button>
                     </div>
                     <button
                       type="button"
@@ -147,7 +163,7 @@ export function ResultImageGrid({
           tabIndex={url ? 0 : undefined}
           aria-label={url ? `Preview ${imageAltPrefix.toLowerCase()} ${index + 1}` : undefined}
           title={url ? `Preview ${imageAltPrefix.toLowerCase()} ${index + 1}` : undefined}
-          className={`group relative min-w-0 overflow-hidden rounded-2xl bg-white shadow-[0_22px_70px_rgba(15,23,42,0.16)] ring-1 ring-white/80 transition-transform duration-200 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 ${
+          className={`group relative min-w-0 overflow-hidden rounded-2xl bg-white shadow-[0_18px_48px_rgba(15,23,42,0.12)] ring-1 ring-white/80 transition-transform duration-200 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 ${
             url ? "cursor-zoom-in" : ""
           } ${
             isSingle ? "mx-auto max-w-full" : ""
@@ -175,9 +191,9 @@ export function ResultImageGrid({
                 }}
               />
             ) : (
-              <div className="gen-card flex h-full w-full flex-col items-center justify-center gap-2 bg-gradient-to-br from-rose-50 via-violet-50 to-blue-50 text-rose-500">
+              <div className="gen-card flex h-full w-full flex-col items-center justify-center gap-2 bg-gradient-to-br from-slate-50 via-white to-slate-200 text-slate-500">
                 <div className="relative z-[1] flex h-12 w-12 items-center justify-center rounded-full bg-white/85 shadow-lg">
-                  <Sparkles className="h-5 w-5 animate-pulse" />
+                  <Loader2 className="h-5 w-5 animate-spin" />
                 </div>
                 <p className="relative z-[1] text-xs font-semibold text-slate-500">
                   {isGenerating ? `生成第 ${index + 1} 张...` : "等待生成"}
@@ -196,7 +212,7 @@ export function ResultImageGrid({
               onKeyDown={(event) => {
                 event.stopPropagation();
               }}
-              className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-white/92 text-slate-700 opacity-100 shadow-lg ring-1 ring-slate-200/70 backdrop-blur transition-all hover:bg-white hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
+              className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-white/92 text-slate-700 opacity-100 shadow-lg ring-1 ring-slate-200/70 backdrop-blur transition-all hover:bg-white hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
               aria-label={`Download ${imageAltPrefix.toLowerCase()} ${index + 1}`}
               title={`Download ${imageAltPrefix.toLowerCase()} ${index + 1}`}
             >

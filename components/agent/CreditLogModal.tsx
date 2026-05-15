@@ -60,7 +60,7 @@ export function CreditLogModal({ open, onClose, onCreditsRefresh }: CreditLogMod
 
   return (
     <div className="fixed inset-0 z-[990] flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-lg overflow-hidden rounded-3xl border border-white/70 bg-white/95 shadow-2xl shadow-violet-950/15">
+      <div className="w-full max-w-lg overflow-hidden rounded-3xl border border-white/70 bg-white/95 shadow-2xl shadow-slate-950/15">
         <div className="flex items-start gap-3 border-b border-slate-100 px-5 py-4">
           <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-50 text-amber-600">
             <Coins className="h-5 w-5" />
@@ -132,7 +132,7 @@ function CreditLogRow({ log }: { log: CreditLog }) {
     <div className="flex gap-3 rounded-2xl border border-slate-100 bg-white px-3 py-2.5 shadow-sm shadow-slate-200/40">
       <div
         className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
-          isPositive ? "bg-emerald-50 text-emerald-600" : "bg-violet-50 text-violet-600"
+          isPositive ? "bg-emerald-50 text-emerald-600" : "bg-[rgba(91,124,255,0.1)] text-[var(--codex-accent)]"
         }`}
       >
         {isPositive ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownLeft className="h-4 w-4" />}
@@ -146,7 +146,7 @@ function CreditLogRow({ log }: { log: CreditLog }) {
             </p>
           </div>
           <div className="shrink-0 text-right">
-            <p className={`text-sm font-black ${isPositive ? "text-emerald-600" : "text-violet-700"}`}>
+            <p className={`text-sm font-black ${isPositive ? "text-emerald-600" : "text-[var(--codex-accent)]"}`}>
               {amountText}
             </p>
             <p className="text-[11px] text-slate-400">余额 {log.balance}</p>

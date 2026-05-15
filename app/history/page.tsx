@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Download, Clock, XCircle, Loader2, Coins, X, RotateCcw, Copy, Maximize2, Eye, ImageIcon, ZoomIn, ZoomOut, Plus, Sparkles } from "lucide-react";
+import { Download, Clock, XCircle, Loader2, Coins, X, RotateCcw, Copy, Maximize2, Eye, ImageIcon, ZoomIn, ZoomOut, Plus } from "lucide-react";
 import { downloadImage, generateDownloadFilename } from "@/lib/utils";
 import { getImageVariantUrl } from "@/lib/image-variants";
 import { getApplyPath, type HistoryJobPayload } from "@/lib/history-apply";
@@ -42,7 +42,7 @@ const MODULE_FILTERS: { value: HistoryModuleFilter; label: string }[] = [
   { value: "pose", label: "姿势裂变" },
   { value: "model", label: "专属模特" },
   { value: "garment3d", label: "服装 3D" },
-  { value: "faceSwap", label: "AI 换脸" },
+  { value: "faceSwap", label: "换脸" },
 ];
 
 const STATUS_FILTERS: { value: HistoryStatusFilter; label: string }[] = [
@@ -388,12 +388,12 @@ export default function HistoryPage() {
   if (state === "noauth") return (
     <div className="studio-empty-stage flex min-h-[calc(100dvh-64px)] items-center justify-center px-4 py-16">
       <div className="w-full max-w-md rounded-[30px] border border-white/80 bg-white/75 p-8 text-center shadow-[0_24px_80px_rgba(15,23,42,0.12)] backdrop-blur-2xl">
-        <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-lg shadow-violet-200/60">
-          <Sparkles className="h-7 w-7 text-violet-500" />
+        <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-lg shadow-slate-300/40">
+          <ImageIcon className="h-7 w-7 text-slate-500" />
         </div>
         <h1 className="text-2xl font-black text-slate-950">登录后查看作品资产</h1>
         <p className="mt-3 text-sm leading-6 text-slate-500">你的生成结果、输入图片、提示词参数和套用记录都会保存在这里。</p>
-        <button type="button" onClick={openLogin} className="gradient-brand mt-6 inline-flex h-11 items-center justify-center rounded-full px-6 text-sm font-black text-white shadow-xl shadow-purple-200/70">去登录</button>
+        <button type="button" onClick={openLogin} className="gradient-brand mt-6 inline-flex h-11 items-center justify-center rounded-full px-6 text-sm font-black text-white shadow-xl shadow-slate-300/40">去登录</button>
       </div>
     </div>
   );
@@ -413,7 +413,7 @@ export default function HistoryPage() {
         <div className="mt-6 flex flex-col justify-center gap-2 sm:flex-row">
           <button type="button" onClick={retryHistoryLoad} className="h-11 rounded-full border border-slate-200 bg-white px-6 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50">重试</button>
           {filterState.isFiltered && (
-            <button onClick={clearFilters} className="h-11 rounded-full border border-violet-100 bg-violet-50 px-6 text-sm font-bold text-violet-600 hover:bg-violet-100">
+            <button onClick={clearFilters} className="h-11 rounded-full border border-slate-200 bg-slate-50 px-6 text-sm font-bold text-slate-600 hover:bg-white">
               清除筛选
             </button>
           )}
@@ -433,7 +433,7 @@ export default function HistoryPage() {
         <p className="mt-3 text-sm leading-6 text-slate-500">{filterState.emptyMessage}</p>
         {filterState.isFiltered ? (
           <div className="mt-6 flex flex-col justify-center gap-2 sm:flex-row">
-            <button onClick={clearFilters} className="gradient-brand inline-flex h-11 items-center justify-center gap-2 rounded-full px-6 text-sm font-black text-white shadow-xl shadow-purple-200/70">
+            <button onClick={clearFilters} className="gradient-brand inline-flex h-11 items-center justify-center gap-2 rounded-full px-6 text-sm font-black text-white shadow-xl shadow-slate-300/40">
               <X className="h-4 w-4" />
               {filterState.emptyActionLabel}
             </button>
@@ -443,7 +443,7 @@ export default function HistoryPage() {
             </button>
           </div>
         ) : (
-          <button type="button" onClick={openCreate} className="gradient-brand mt-6 inline-flex h-11 items-center justify-center gap-2 rounded-full px-6 text-sm font-black text-white shadow-xl shadow-purple-200/70">
+          <button type="button" onClick={openCreate} className="gradient-brand mt-6 inline-flex h-11 items-center justify-center gap-2 rounded-full px-6 text-sm font-black text-white shadow-xl shadow-slate-300/40">
             <Plus className="h-4 w-4" />
             开始创作
           </button>
@@ -457,14 +457,14 @@ export default function HistoryPage() {
       <HistorySkeletonStyles />
       <div className="mx-auto mb-6 flex max-w-7xl flex-col gap-4 rounded-[28px] border border-white/80 bg-white/72 p-5 shadow-[0_18px_60px_rgba(15,23,42,0.08)] backdrop-blur-2xl sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="inline-flex items-center gap-1.5 rounded-full bg-violet-50 px-3 py-1 text-[11px] font-black text-violet-600">
-            <Sparkles className="h-3.5 w-3.5" />
+          <p className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-[11px] font-black text-slate-600">
+            <ImageIcon className="h-3.5 w-3.5" />
             Asset Library
           </p>
           <h1 className="mt-3 text-3xl font-black text-slate-950">作品资产</h1>
           <p className="mt-2 text-sm leading-6 text-slate-500">已加载 {rows.length} 条作品，当前显示 {filteredRows.length} 条。{filterState.activeDescription} 可查看大图、下载结果、复制提示词并套用完整参数。</p>
         </div>
-        <button type="button" onClick={openCreate} className="gradient-brand inline-flex h-11 w-full items-center justify-center gap-2 rounded-full px-5 text-sm font-black text-white shadow-xl shadow-purple-200/70 sm:w-auto">
+        <button type="button" onClick={openCreate} className="gradient-brand inline-flex h-11 w-full items-center justify-center gap-2 rounded-full px-5 text-sm font-black text-white shadow-xl shadow-slate-300/40 sm:w-auto">
           <Plus className="h-4 w-4" />
           新创作
         </button>
@@ -480,7 +480,7 @@ export default function HistoryPage() {
                 onClick={() => handleModuleFilterChange(item.value)}
                 className={`h-8 flex-shrink-0 rounded-full px-3 text-xs font-black transition ${
                   moduleFilter === item.value
-                    ? "gradient-brand text-white shadow-lg shadow-purple-100"
+                    ? "gradient-brand text-white shadow-lg shadow-slate-200"
                     : "border border-slate-200 bg-white/76 text-slate-600 hover:bg-white"
                 }`}
               >
@@ -496,7 +496,7 @@ export default function HistoryPage() {
                 onClick={() => handleStatusFilterChange(item.value)}
                 className={`h-8 flex-shrink-0 rounded-full px-3 text-xs font-bold transition ${
                   statusFilter === item.value
-                    ? "border border-violet-200 bg-violet-50 text-violet-600"
+                    ? "border border-slate-300 bg-slate-100 text-slate-700"
                     : "border border-slate-200 bg-white/76 text-slate-500 hover:bg-white"
                 }`}
               >
@@ -629,7 +629,7 @@ export default function HistoryPage() {
                     <button
                       onClick={() => openDetail(g)}
                       disabled={detailLoading}
-                      className="gradient-brand inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold text-white shadow-lg shadow-purple-100 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="gradient-brand inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold text-white shadow-lg shadow-slate-200 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       <Eye className="h-3.5 w-3.5" />
                       查看作品
@@ -637,7 +637,7 @@ export default function HistoryPage() {
                     <button
                       onClick={() => applyHistoryRow(g)}
                       disabled={detailLoading}
-                      className="inline-flex items-center gap-1.5 rounded-full bg-violet-50 px-3 py-1.5 text-xs font-bold text-violet-600 hover:bg-violet-100 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       <RotateCcw className="h-3.5 w-3.5" />
                       {reuseLabel}
@@ -665,7 +665,7 @@ export default function HistoryPage() {
             </p>
             <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-slate-500">{filterState.noMatchMessage}</p>
             {filterState.isFiltered && (
-              <button onClick={clearFilters} className="mt-5 inline-flex h-10 items-center justify-center gap-2 rounded-full border border-violet-100 bg-violet-50 px-5 text-sm font-bold text-violet-600 hover:bg-violet-100">
+              <button onClick={clearFilters} className="mt-5 inline-flex h-10 items-center justify-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-5 text-sm font-bold text-slate-600 hover:bg-white">
                 <X className="h-4 w-4" />
                 清除筛选
               </button>
@@ -802,7 +802,7 @@ export default function HistoryPage() {
                       step="5"
                       value={detailZoom}
                       onChange={(event) => setDetailZoom(Number(event.target.value))}
-                      className="h-2 w-full min-w-48 cursor-pointer accent-purple-500 sm:w-64"
+                      className="h-2 w-full min-w-48 cursor-pointer accent-slate-700 sm:w-64"
                       aria-label="缩放生成结果"
                     />
                     <ZoomIn className="h-4 w-4" />
@@ -828,7 +828,7 @@ export default function HistoryPage() {
                           setDetailZoom(100);
                         }}
                         className={`h-20 w-16 flex-shrink-0 overflow-hidden rounded-xl border-2 bg-white shadow-sm transition ${
-                          selectedResultIndex === index ? "border-purple-500 ring-2 ring-purple-100" : "border-white/80 opacity-75 hover:opacity-100"
+                          selectedResultIndex === index ? "border-slate-900 ring-2 ring-slate-200" : "border-white/80 opacity-75 hover:opacity-100"
                         }`}
                       >
                         <img src={getImageVariantUrl(url, "thumb")} className="h-full w-full object-cover" alt={`结果缩略图 ${index + 1}`} />
@@ -839,8 +839,8 @@ export default function HistoryPage() {
               </section>
 
               <aside className="space-y-5 overflow-y-auto border-l border-white/70 bg-white/75 p-4 backdrop-blur-xl sm:p-5 lg:max-h-[calc(92vh-57px)]">
-                <section className="rounded-2xl border border-violet-100 bg-violet-50/45 p-3">
-                  <p className="text-[10px] font-black uppercase tracking-[0.14em] text-violet-500">Reuse Center</p>
+                <section className="rounded-2xl border border-slate-200 bg-slate-50/80 p-3">
+                  <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">Reuse Center</p>
                   <h4 className="mt-1 text-sm font-black text-slate-950">复用这个作品</h4>
                   <p className="mt-1 text-xs leading-5 text-slate-500">复制提示词、套用完整参数或下载当前预览结果。</p>
                   <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3 lg:grid-cols-1">
@@ -859,7 +859,7 @@ export default function HistoryPage() {
                       <button
                         type="button"
                         onClick={() => router.push(getApplyPath(detailPayload.kind, detailRow.id))}
-                        className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-violet-600 px-3 text-xs font-bold text-white shadow-sm hover:bg-violet-700"
+                        className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-slate-950 px-3 text-xs font-bold text-white shadow-sm hover:bg-slate-800"
                       >
                         <RotateCcw className="h-3.5 w-3.5" /> {detailFailureCopy?.applyLabel || getHistoryReuseLabel(detailPayload)}
                       </button>
@@ -902,7 +902,7 @@ export default function HistoryPage() {
                           type="button"
                           key={`${image.label}-${index}`}
                           onClick={() => setLightboxSrc(image.url)}
-                          className="group min-w-0 rounded-xl text-left outline-none focus-visible:ring-2 focus-visible:ring-purple-400 focus-visible:ring-offset-2"
+                          className="group min-w-0 rounded-xl text-left outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
                         >
                           <div className="relative h-24 overflow-hidden rounded-xl border border-gray-200 bg-gray-50 shadow-sm transition duration-200 group-hover:-translate-y-0.5 group-hover:shadow-md">
                             <img
@@ -933,7 +933,7 @@ export default function HistoryPage() {
                           navigator.clipboard.writeText(detailPrompt);
                           toast.success("提示词已复制");
                         }}
-                        className="inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] text-gray-500 hover:text-purple-600"
+                        className="inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] text-gray-500 hover:text-[var(--codex-accent)]"
                       >
                         <Copy className="w-3 h-3" />
                         复制
@@ -1183,7 +1183,7 @@ function formatKind(kind?: HistoryJobPayload["kind"]) {
   if (kind === "modelBackground") return "模特换背景";
   if (kind === "generalImage") return "通用生图";
   if (kind === "garment3d") return "服装转3D";
-  if (kind === "faceSwap") return "AI 换脸";
+  if (kind === "faceSwap") return "换脸";
   if (kind === "model") return "专属模特";
   if (kind === "pose") return "姿势裂变";
   return "未知模块";

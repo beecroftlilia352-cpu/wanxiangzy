@@ -57,7 +57,7 @@ export function getUserBoundaryLines(text: string): string[] {
     model_background: "不要把任务改成换背景、换场景或换模特。",
     model: "不要把任务改成专属模特或定制脸。",
     garment_3d: "不要把任务改成 3D 立体展示。",
-    face_swap: "不要把任务改成 AI 换脸或人脸替换流程。",
+  face_swap: "不要把任务改成换脸或人脸替换流程。",
   };
   return forbidden.map((module) => labels[module]);
 }

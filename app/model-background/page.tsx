@@ -56,7 +56,6 @@ const MODELS: { value: LingyaModel; label: string; desc: string; badge?: string;
   { value: "gpt-image-2", label: "GPT-Image-2", desc: "4K · 高质感", badge: "推荐", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/openai.svg" },
   { value: "nano-banana-2", label: "Nano-Banana-2", desc: "快速稳定", badge: "稳定", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
   { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "细节更强", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
-  { value: "doubao-seedream-4-5-251128", label: "Seedream 4.5", desc: "风格自然", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/doubao.png" },
 ];
 
 type ModelBackgroundHistoryPayload = Extract<HistoryJobPayload, { kind: "modelBackground" }>;

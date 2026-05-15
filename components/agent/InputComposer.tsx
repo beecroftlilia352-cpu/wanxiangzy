@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, useCallback, useEffect, type KeyboardEvent, type ClipboardEvent } from "react";
-import { Paperclip, Sparkles, ArrowUp, Settings, X, Loader2, MessageCircle, Wand2 } from "lucide-react";
+import { Paperclip, Activity, ArrowUp, Settings, X, Loader2, MessageCircle, Brush } from "lucide-react";
 import type { ChatImage, GenerationParams, AgentMode, AgentIntentMode, ChatImageRole } from "@/lib/agent/types";
 import type { LingyaModel, AspectRatio, ImageSize } from "@/lib/api/lingya";
 import { getCreditCost } from "@/lib/api/lingya";
@@ -35,9 +35,8 @@ type Props = {
 };
 
 const MODEL_OPTS = [
+  { value: "nano-banana-2", label: "Nano Banana", desc: "默认" },
   { value: "gpt-image-2", label: "GPT Image", desc: "OpenAI" },
-  { value: "nano-banana-2", label: "Nano Banana", desc: "轻量" },
-  { value: "doubao-seedream-4-5-251128", label: "Seedream", desc: "字节" },
 ];
 const RATIO_OPTS: Array<{ value: AspectRatio; label: string }> = [
   { value: "3:4", label: "3:4" }, { value: "1:1", label: "1:1" },
@@ -197,7 +196,7 @@ export function InputComposer({
     >
       <div className="mx-auto max-w-4xl px-4 pb-3 pt-2 sm:px-6">
         {isDragging && (
-          <div className="mb-2 flex items-center justify-center rounded-xl border-2 border-dashed border-violet-300 bg-violet-50/50 py-5 text-sm font-bold text-violet-500">
+          <div className="mb-2 flex items-center justify-center rounded-xl border-2 border-dashed border-[rgba(91,124,255,0.22)] bg-[rgba(91,124,255,0.1)] py-5 text-sm font-bold text-[var(--codex-accent)]0">
             拖放图片到这里
           </div>
         )}
@@ -270,12 +269,12 @@ export function InputComposer({
           <SlashCommandDropdown query={slashState.query} visible={slashState.active} onSelect={handleSlashSelect} />
           <MentionDropdown images={readyImages} query={mentionState.query} onSelect={handleMentionSelect} visible={mentionState.active} />
 
-          <div className="flex items-center rounded-2xl border border-slate-200/80 bg-white shadow-[0_2px_12px_rgba(0,0,0,0.04)] transition-all focus-within:border-violet-300/60 focus-within:shadow-[0_2px_20px_rgba(139,92,246,0.08)]">
+          <div className="flex items-center rounded-2xl border border-slate-200/80 bg-white shadow-[0_2px_12px_rgba(0,0,0,0.04)] transition-all focus-within:border-[rgba(91,124,255,0.22)] focus-within:shadow-[0_2px_20px_rgba(139,92,246,0.08)]">
             <input ref={fileRef} type="file" accept="image/*" multiple className="hidden"
               onChange={(e) => { onAddImages(Array.from(e.target.files || [])); e.target.value = ""; }} />
 
             <button onClick={() => fileRef.current?.click()}
-              className="flex h-11 w-11 shrink-0 items-center justify-center text-slate-300 transition-colors hover:text-violet-400"
+              className="flex h-11 w-11 shrink-0 items-center justify-center text-slate-300 transition-colors hover:text-[var(--codex-accent)]"
               aria-label="上传图片" title="上传图片">
               <Paperclip className="h-[18px] w-[18px]" />
             </button>
@@ -294,8 +293,8 @@ export function InputComposer({
               {inputImages.length > 0 && (
                 <button onClick={onAIWrite} disabled={isAIWriting}
                   className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-300 transition-all hover:bg-amber-50 hover:text-amber-500 disabled:opacity-40"
-                  aria-label="AI 帮写" title="AI 帮写：根据图片优化提示词">
-                  {isAIWriting ? <Loader2 className="h-4 w-4 animate-spin text-amber-400" /> : <Sparkles className="h-4 w-4" />}
+                  aria-label="帮写" title="帮写：根据图片优化提示词">
+                  {isAIWriting ? <Loader2 className="h-4 w-4 animate-spin text-amber-400" /> : <Activity className="h-4 w-4" />}
                 </button>
               )}
               <button onClick={onSend} disabled={!canSend}
@@ -317,7 +316,7 @@ export function InputComposer({
           <div className="relative">
             <button onClick={(e) => { e.stopPropagation(); setSettingsOpen(!settingsOpen); }}
               className={`flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] transition-all ${
-                settingsOpen ? "bg-violet-50 text-violet-600" : "text-slate-400 hover:text-slate-600"
+                settingsOpen ? "bg-[rgba(91,124,255,0.1)] text-[var(--codex-accent)]" : "text-slate-400 hover:text-slate-600"
               }`}>
               <Settings className="h-3 w-3" />
               <span>{modelLabel} · {params.aspectRatio} · {params.imageSize}</span>
@@ -339,8 +338,8 @@ export function InputComposer({
         </div>
 
         <p className="mt-1 text-center text-[11px] text-slate-300">
-          <span className="font-semibold text-violet-400">/</span> 快捷指令 ·
-          <span className="font-semibold text-violet-400"> @</span> 绑定图片 ·
+          <span className="font-semibold text-[var(--codex-accent)]">/</span> 快捷指令 ·
+          <span className="font-semibold text-[var(--codex-accent)]"> @</span> 绑定图片 ·
           <span className="font-semibold"> Enter</span> 发送 ·
           <span className="font-semibold"> Shift+Enter</span> 换行
         </p>
@@ -382,7 +381,7 @@ function ContextStatus({
     <div className="mb-2 flex flex-wrap items-center gap-2 rounded-xl border border-slate-200/70 bg-white/70 px-3 py-2 text-[11px] shadow-sm backdrop-blur">
       <span className="font-bold text-slate-700">{contextLabel}</span>
       <span className={`rounded-full px-2 py-0.5 font-semibold ${
-        chatOnly ? "bg-slate-100 text-slate-600" : "bg-violet-50 text-violet-600"
+        chatOnly ? "bg-slate-100 text-slate-600" : "bg-[rgba(91,124,255,0.1)] text-[var(--codex-accent)]"
       }`}>
         {chatOnly ? "Chat" : "Agent"}
       </span>
@@ -412,7 +411,7 @@ function AgentChatModeSwitch({
         }`}
         title="Agent：默认模式，会理解需求、分析图片、规划工作流或生成"
       >
-        <Wand2 className="h-3.5 w-3.5" />
+        <Brush className="h-3.5 w-3.5" />
         <span>Agent</span>
       </button>
       <button
@@ -508,7 +507,7 @@ function SettingsPanel({
           {MODEL_OPTS.map((o) => (
             <button key={o.value} onClick={() => onParamsChange({ model: o.value as LingyaModel })}
               className={`rounded-lg border px-2 py-2 text-center transition-all ${
-                params.model === o.value ? "border-violet-300 bg-violet-50 text-violet-700 shadow-sm" : "border-slate-200 text-slate-600 hover:border-violet-200"
+                params.model === o.value ? "border-[rgba(91,124,255,0.22)] bg-[rgba(91,124,255,0.1)] text-[var(--codex-accent)] shadow-sm" : "border-slate-200 text-slate-600 hover:border-[rgba(91,124,255,0.3)]"
               }`}>
               <span className="block text-xs font-bold">{o.label}</span>
               <span className="block text-[10px] text-slate-400">{o.desc}</span>
@@ -524,7 +523,7 @@ function SettingsPanel({
           {RATIO_OPTS.map((o) => (
             <button key={o.value} onClick={() => onParamsChange({ aspectRatio: o.value })}
               className={`flex-1 rounded-lg border py-1.5 text-center text-xs font-bold transition-all ${
-                params.aspectRatio === o.value ? "border-violet-300 bg-violet-50 text-violet-700" : "border-slate-200 text-slate-500 hover:border-violet-200"
+                params.aspectRatio === o.value ? "border-[rgba(91,124,255,0.22)] bg-[rgba(91,124,255,0.1)] text-[var(--codex-accent)]" : "border-slate-200 text-slate-500 hover:border-[rgba(91,124,255,0.3)]"
               }`}>{o.label}</button>
           ))}
         </div>
@@ -539,7 +538,7 @@ function SettingsPanel({
             return (
               <button key={o.value} onClick={() => onParamsChange({ imageSize: o.value })}
                 className={`flex-1 rounded-lg border py-2 text-center transition-all ${
-                  params.imageSize === o.value ? "border-violet-300 bg-violet-50 text-violet-700" : "border-slate-200 text-slate-500 hover:border-violet-200"
+                  params.imageSize === o.value ? "border-[rgba(91,124,255,0.22)] bg-[rgba(91,124,255,0.1)] text-[var(--codex-accent)]" : "border-slate-200 text-slate-500 hover:border-[rgba(91,124,255,0.3)]"
                 }`}>
                 <span className="block text-xs font-bold">{o.label}</span>
                 <span className="block text-[10px] text-slate-400">{o.desc}</span>
@@ -557,7 +556,7 @@ function SettingsPanel({
           {[1, 2, 3, 4].map((n) => (
             <button key={n} onClick={() => onParamsChange({ count: n })}
               className={`flex-1 rounded-lg border py-2 text-center text-sm font-bold transition-all ${
-                params.count === n ? "border-violet-300 bg-violet-50 text-violet-700" : "border-slate-200 text-slate-500 hover:border-violet-200"
+                params.count === n ? "border-[rgba(91,124,255,0.22)] bg-[rgba(91,124,255,0.1)] text-[var(--codex-accent)]" : "border-slate-200 text-slate-500 hover:border-[rgba(91,124,255,0.3)]"
               }`}>{n}</button>
           ))}
         </div>
@@ -600,13 +599,13 @@ function MentionChips({ text, images }: { text: string; images: ChatImage[] }) {
       {chips.map((chip) => (
         <div
           key={chip.label}
-          className="flex items-center gap-1.5 rounded-lg border border-violet-200 bg-violet-50 px-2 py-1"
+          className="flex items-center gap-1.5 rounded-lg border border-[rgba(91,124,255,0.22)] bg-[rgba(91,124,255,0.1)] px-2 py-1"
         >
-          <div className="studio-checkerboard h-5 w-5 overflow-hidden rounded border border-violet-200">
+          <div className="studio-checkerboard h-5 w-5 overflow-hidden rounded border border-[rgba(91,124,255,0.22)]">
             <img src={chip.image.hostedUrl || chip.image.url} alt={chip.label} className="h-full w-full object-contain" />
           </div>
-          <span className="text-[11px] font-bold text-violet-700">{chip.label}</span>
-          <span className="rounded bg-white/70 px-1 text-[10px] font-semibold text-violet-400">
+          <span className="text-[11px] font-bold text-[var(--codex-accent)]">{chip.label}</span>
+          <span className="rounded bg-white/70 px-1 text-[10px] font-semibold text-[var(--codex-accent)]">
             {ROLE_HINTS[chip.image.role || "auto"] || "自动"}
           </span>
         </div>
@@ -652,7 +651,7 @@ function ComposerSmartHints({
             key={item.label}
             type="button"
             onClick={() => onApply(mergeComposerSuggestion(normalizedText, item.text))}
-            className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600 transition-colors hover:border-violet-200 hover:bg-violet-50 hover:text-violet-700"
+            className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600 transition-colors hover:border-[rgba(91,124,255,0.3)] hover:bg-[rgba(91,124,255,0.12)] hover:text-[var(--codex-accent)]"
           >
             {item.label}
           </button>

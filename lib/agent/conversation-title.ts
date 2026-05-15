@@ -90,12 +90,12 @@ function deriveSemanticTitle(value: string) {
   if (wantsDetail) return deriveDetailPlatformTitle(compact);
   if (wantsTryOn) return "\u4eba\u7269\u6362\u88c5\u751f\u6210";
   if (wantsPose) return "\u59ff\u52bf\u88c2\u53d8\u751f\u6210";
-  if (wantsFace) return "AI \u6362\u8138";
+  if (wantsFace) return "\u6362\u8138";
   if (wantsBackground) return "\u6a21\u7279\u6362\u80cc\u666f";
   if (wantsThreeD) return "\u670d\u88c5 3D \u5c55\u793a";
-  if (wantsVideo) return "AI \u89c6\u9891\u4efb\u52a1";
+  if (wantsVideo) return "\u89c6\u9891\u4efb\u52a1";
   if (wantsAnalyze) return "\u56fe\u7247\u5206\u6790";
-  if (hasAny(compact, ["\u4f60\u80fd\u505a\u4ec0\u4e48", "\u4f60\u662f\u8c01", "\u80fd\u529b"])) return "AI \u80fd\u529b\u4ecb\u7ecd";
+  if (hasAny(compact, ["\u4f60\u80fd\u505a\u4ec0\u4e48", "\u4f60\u662f\u8c01", "\u80fd\u529b"])) return "\u80fd\u529b\u4ecb\u7ecd";
   return "";
 }
 

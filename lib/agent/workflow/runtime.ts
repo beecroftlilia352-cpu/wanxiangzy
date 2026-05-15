@@ -78,7 +78,7 @@ async function executeStep(bundle: WorkflowBundle, step: WorkflowStepRecord) {
   });
 
   try {
-    const model = normalizeLingyaModel(step.params.model || step.params.aiModel || "gpt-image-2");
+      const model = normalizeLingyaModel(step.params.model || step.params.aiModel || "nano-banana-2");
     const aspectRatio = normalizeAspectRatio(step.params.aspectRatio || step.params.aspect_ratio || "3:4");
     const imageSize = normalizeImageSize(model, String(step.params.imageSize || step.params.image_size || "1K") as ImageSize, aspectRatio);
     const result = await executor({

@@ -35,7 +35,7 @@ export function StudioUploadTile({
   onRemove,
   onDropFile,
   uploadLabel = "从本地上传",
-  libraryLabel = "从作品选择",
+  libraryLabel = "从作品库选择",
   footnote,
   actions,
 }: StudioUploadTileProps) {
@@ -64,10 +64,14 @@ export function StudioUploadTile({
       ) : (
         <div className="studio-upload-tile-empty" aria-label={`上传${title}`}>
           <span className="studio-upload-tile-icon">
-            {loading ? <Loader2 className="h-6 w-6 animate-spin text-violet-500" /> : <ImageIcon className="h-6 w-6 text-violet-500" />}
+            {loading ? <Loader2 className="h-6 w-6 animate-spin text-[var(--codex-accent)]" /> : <ImageIcon className="h-6 w-6 text-[var(--codex-accent)]" />}
           </span>
-          <span className="text-sm font-black text-slate-800">{title}</span>
-          {description && <span className="mt-1 max-w-[280px] text-center text-[12px] leading-5 text-slate-500">{description}</span>}
+          <span className="studio-upload-tile-title text-sm font-black leading-snug text-codex-ink" title={title}>{title}</span>
+          {description && (
+            <span className="studio-upload-tile-description mt-1.5 text-center text-[12px] leading-5 text-codex-muted" title={description}>
+              {description}
+            </span>
+          )}
           <span className="studio-upload-tile-action-row">
             <button
               type="button"
@@ -90,7 +94,7 @@ export function StudioUploadTile({
               </button>
             )}
           </span>
-          {footnote && <span className="mt-2 max-w-[300px] text-center text-[11px] leading-4 text-slate-400">{footnote}</span>}
+          {footnote && <span className="studio-upload-tile-footnote mt-2.5 text-center text-[11px] leading-5 text-codex-faint" title={footnote}>{footnote}</span>}
         </div>
       )}
 

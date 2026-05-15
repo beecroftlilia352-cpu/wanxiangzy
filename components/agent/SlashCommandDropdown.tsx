@@ -92,7 +92,7 @@ export function SlashCommandDropdown({ query, visible, onSelect }: Props) {
                   onClick={() => onSelect(cmd)}
                   onMouseEnter={() => setSelectedIdx(idx)}
                   className={`flex w-full items-center gap-3 px-3 py-2 text-left transition-colors ${
-                    idx === selectedIdx ? "bg-violet-50" : "hover:bg-violet-50"
+                    idx === selectedIdx ? "bg-[rgba(91,124,255,0.1)]" : "hover:bg-[rgba(91,124,255,0.12)]"
                   }`}
                 >
                   <span className="text-lg">{cmd.icon}</span>

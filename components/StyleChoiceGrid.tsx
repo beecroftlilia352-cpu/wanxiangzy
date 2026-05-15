@@ -32,8 +32,8 @@ export function StyleChoiceGrid<T extends string>({ options, value, onChange }: 
             aria-pressed={selected}
             className={`group relative min-h-[92px] overflow-hidden rounded-[18px] border p-2.5 text-left transition-all ${
               selected
-                ? "border-violet-200 bg-white shadow-[0_18px_42px_rgba(124,58,237,0.14)] ring-1 ring-violet-100"
-                : "border-slate-200/80 bg-white/78 hover:border-violet-100 hover:bg-white hover:shadow-[0_14px_32px_rgba(15,23,42,0.06)]"
+                ? "border-[rgba(91,124,255,0.22)] bg-white shadow-[0_18px_42px_rgba(124,58,237,0.14)] ring-1 ring-[rgba(91,124,255,0.18)]"
+                : "border-slate-200/80 bg-white/78 hover:border-[rgba(91,124,255,0.3)] hover:bg-white hover:shadow-[0_14px_32px_rgba(15,23,42,0.06)]"
             }`}
           >
             {selected && (
@@ -78,7 +78,7 @@ export function StyleChoiceGrid<T extends string>({ options, value, onChange }: 
                 <span className="mt-1 line-clamp-3 text-[10px] leading-snug text-slate-500">{style.desc}</span>
               </span>
               {selected && (
-                <span className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-violet-600 text-white shadow-[0_8px_18px_rgba(124,58,237,0.28)]">
+                <span className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-[rgba(91,124,255,0.1)] text-white shadow-[0_8px_18px_rgba(124,58,237,0.28)]">
                   <Check className="h-3 w-3" />
                 </span>
               )}

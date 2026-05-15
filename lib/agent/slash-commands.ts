@@ -73,11 +73,11 @@ export const SLASH_COMMANDS: SlashCommand[] = [
   {
     id: "face-swap",
     name: "faceswap",
-    label: "AI 换脸",
+    label: "换脸",
     description: "只替换五官，保留肤色、发型、服装和背景",
     icon: "🪄",
     category: "generation",
-    template: "帮我做 AI 换脸：图1作为原始模特图，图2作为目标脸图，只替换五官，不改变肤色、发型、服装和背景。",
+    template: "帮我做换脸：图1作为原始模特图，图2作为目标脸图，只替换五官，不改变肤色、发型、服装和背景。",
     requiresImages: true,
   },
   {
@@ -146,7 +146,7 @@ export const SLASH_COMMANDS: SlashCommand[] = [
   {
     id: "prompt",
     name: "prompt",
-    label: "AI 帮写",
+    label: "帮写",
     description: "根据图片生成专业提示词",
     icon: "✨",
     category: "analysis",

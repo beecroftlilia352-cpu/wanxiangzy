@@ -8,16 +8,17 @@ import {
   ImagePlus,
   Loader2,
   RefreshCw,
-  Sparkles,
+  Activity,
   Trash2,
   Upload,
-  Wand2,
+  Brush,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { FeatureTabs } from "@/components/FeatureTabs";
 import { ModuleHeader } from "@/components/ModuleHeader";
 import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
+import { LoadingStage } from "@/components/studio/LoadingStage";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
 import { ClientPortal } from "@/components/ClientPortal";
 import { PreviewGuide } from "@/components/PreviewGuide";
@@ -45,10 +46,9 @@ type ImagePromptImage = {
 type GeneralImageHistoryPayload = Extract<HistoryJobPayload, { kind: "generalImage" }>;
 
 const MODELS: { value: LingyaModel; label: string; desc: string; badge?: string; icon: string }[] = [
-  { value: "gpt-image-2", label: "GPT-Image-2", desc: "4K · 4分/次", badge: "最新", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/openai.svg" },
-  { value: "nano-banana-2", label: "Nano-Banana-2", desc: "4K · 3分/次", badge: "推荐", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
+  { value: "nano-banana-2", label: "Nano-Banana-2", desc: "4K · 3分/次", badge: "默认", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
+  { value: "gpt-image-2", label: "GPT-Image-2", desc: "4K · 4分/次", badge: "高质感", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/openai.svg" },
   { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "4K · 4分/次", badge: "推荐", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
-  { value: "doubao-seedream-4-5-251128", label: "Seedream 4.5", desc: "4K · 2分/次", badge: "新", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/doubao.png" },
 ];
 
 const ASPECTS: { value: AspectRatio; label: string }[] = [
@@ -76,7 +76,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [credits, setCredits] = useState<number | null>(null);
-  const [aiModel, setAiModel] = useState<LingyaModel>("gpt-image-2");
+  const [aiModel, setAiModel] = useState<LingyaModel>("nano-banana-2");
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("3:4");
   const [imageSize, setImageSize] = useState<ImageSize>("1K");
   const [genCount, setGenCount] = useState(1);
@@ -94,6 +94,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
   const [imagePromptText, setImagePromptText] = useState("");
   const [isImagePromptUploading, setIsImagePromptUploading] = useState(false);
   const [isImagePromptGenerating, setIsImagePromptGenerating] = useState(false);
+  const [activeQueueTask, setActiveQueueTask] = useState<TaskQueueItem | null>(null);
 
   const supportedSizes = getSupportedImageSizes(aiModel, aspectRatio);
   const costPerImage = getCreditCost(aiModel, imageSize, aspectRatio);
@@ -110,7 +111,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
       }
     : {
         title: "文生图",
-        tooltip: "仅通过文字描述生成图片，支持图片转提示词、AI 帮写、模型、比例、清晰度和张数配置。",
+        tooltip: "仅通过文字描述生成图片，支持图片转提示词、帮写、模型、比例、清晰度和张数配置。",
         emptyTitle: "创建文本生成图片",
         emptySubtitle: "写下主体、场景、光线和风格，也可以先用图片转提示词获得更稳定的描述。",
         emptyImage: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/exclusive-model-01.png",
@@ -199,6 +200,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
   }, []);
 
   function resetOutput() {
+    setActiveQueueTask(null);
     setResultUrls([]);
     setError("");
     setProgress(0);
@@ -273,7 +275,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
       if (!res.ok) throw new Error(data.error || "提示词优化失败");
       if (data.prompt) {
         setPrompt(String(data.prompt).slice(0, 4000));
-        toast.success(data.source === "fallback" ? "已用本地模板优化提示词" : "AI 已优化提示词");
+        toast.success(data.source === "fallback" ? "已用本地模板优化提示词" : "提示词已优化");
       }
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "提示词优化失败");
@@ -360,6 +362,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     if (isImageMode && !referenceImages.length) return toast.error("请先上传参考图");
     if (credits !== null && credits < totalCost) return toast.error(`积分不足，需要 ${totalCost}，余额 ${credits}`);
 
+    setActiveQueueTask(null);
     setIsGenerating(true);
     setProgress(8);
     setError("");
@@ -419,6 +422,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
   }
 
   function handleRunningTask(item: TaskQueueItem) {
+    setActiveQueueTask(item);
     setIsGenerating(true);
     setProgress(Math.min(Math.max(Math.round(Number(item.progress) || 12), 1), 99));
     setError("");
@@ -426,6 +430,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
   }
 
   async function handleCompletedTask(item: TaskQueueItem) {
+    setActiveQueueTask(item);
     try {
       const detail = await fetchHistoryApplyDetail(item.id, "generalImage");
       applyGeneralImageHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : item.resultThumbnails);
@@ -453,13 +458,13 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
               onDragLeave={(event) => { event.preventDefault(); setIsDragging(false); }}
               onDragOver={(event) => event.preventDefault()}
               onDrop={(event) => { event.preventDefault(); setIsDragging(false); handleFiles(event.dataTransfer.files); }}
-              className={`relative transition-all ${isDragging ? "ring-2 ring-purple-400 ring-offset-2" : ""}`}
+              className={`relative transition-all ${isDragging ? "ring-2 ring-[rgba(91,124,255,0.18)] ring-offset-2" : ""}`}
             >
               <div className="studio-upload-header">
                 <h3 className="studio-upload-title">
-                  <Upload className="w-4 h-4 text-purple-500" /> 参考图
+                  <Upload className="w-4 h-4 text-[var(--codex-accent)]0" /> 参考图
                 </h3>
-                <span className="rounded-full bg-violet-50 px-2 py-1 text-[10px] font-bold text-violet-500">{referenceImages.length}/8</span>
+                <span className="rounded-full bg-[rgba(91,124,255,0.1)] px-2 py-1 text-[10px] font-bold text-[var(--codex-accent)]0">{referenceImages.length}/8</span>
               </div>
               <input
                 ref={fileInputRef}
@@ -476,7 +481,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
                   className="studio-fixed-upload-slot flex w-full flex-col items-center justify-center rounded-xl border border-white/70 bg-white/82 px-4 py-5 text-center transition hover:bg-white"
                   style={{ "--studio-fixed-upload-height": "112px" } as CSSProperties}
                 >
-                  {isUploading ? <Loader2 className="mb-2 h-6 w-6 animate-spin text-violet-500" /> : <ImagePlus className="mb-2 h-6 w-6 text-violet-500" />}
+                  {isUploading ? <Loader2 className="mb-2 h-6 w-6 animate-spin text-[var(--codex-accent)]0" /> : <ImagePlus className="mb-2 h-6 w-6 text-[var(--codex-accent)]0" />}
                   <span className="text-sm font-black text-slate-900">{referenceImages.length ? "继续上传参考图" : "上传 / 拖拽参考图"}</span>
                   <span className="mt-1 text-[11px] text-slate-400">jpg、png、webp，单张不超过 {MAX_FILE_SIZE_MB}MB</span>
                 </button>
@@ -518,7 +523,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
                 value={prompt}
                 onChange={(event) => { setPrompt(event.target.value.slice(0, 4000)); resetOutput(); }}
                 placeholder={isImageMode ? IMAGE_PROMPT_PLACEHOLDER : "输入文本描述内容，如：1个中国女性模特身着丝绸质感粉色连衣裙，妆容柔和高级，背景为玫瑰金纯色，整体氛围浪漫而精致"}
-                className="min-h-40 w-full resize-y rounded-xl border border-slate-100 bg-slate-50/65 px-3 py-3 text-sm leading-7 text-slate-800 outline-none transition placeholder:text-slate-300 focus:border-purple-200 focus:bg-white focus:ring-2 focus:ring-purple-100"
+                className="min-h-40 w-full resize-y rounded-xl border border-slate-100 bg-slate-50/65 px-3 py-3 text-sm leading-7 text-slate-800 outline-none transition placeholder:text-slate-300 focus:border-[rgba(91,124,255,0.5)] focus:bg-white focus:ring-2 focus:ring-[rgba(91,124,255,0.14)]"
               />
               <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
                 <div className="flex flex-wrap gap-2">
@@ -526,7 +531,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
                     <button
                       type="button"
                       onClick={() => setShowImagePromptModal(true)}
-                      className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-violet-100 bg-violet-50 px-3 text-xs font-bold text-violet-700 transition hover:bg-violet-100"
+                      className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[rgba(91,124,255,0.22)] bg-[rgba(91,124,255,0.1)] px-3 text-xs font-bold text-[var(--codex-accent)] transition hover:bg-[rgba(91,124,255,0.12)]"
                     >
                       <ImagePlus className="h-3.5 w-3.5" />
                       图片转提示词
@@ -536,15 +541,15 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
                     type="button"
                     onClick={optimizePrompt}
                     disabled={isOptimizing}
-                    className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600 transition hover:border-violet-200 hover:text-violet-600 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600 transition hover:border-[rgba(91,124,255,0.3)] hover:text-[var(--codex-accent)] disabled:cursor-not-allowed disabled:opacity-40"
                   >
-                    {isOptimizing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
+                    {isOptimizing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Brush className="h-3.5 w-3.5" />}
                     AI帮写
                   </button>
                   <button
                     type="button"
                     onClick={() => setShowPromptPreview(true)}
-                    className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-500 transition hover:border-violet-200 hover:text-violet-600"
+                    className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-500 transition hover:border-[rgba(91,124,255,0.3)] hover:text-[var(--codex-accent)]"
                   >
                     <Eye className="h-3.5 w-3.5" />
                     预览
@@ -557,7 +562,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
 
           <section>
             <h3 className="mb-3 flex items-center gap-2 font-bold text-sm">
-              <Sparkles className="h-4 w-4 text-purple-500" /> 生成模型
+              <Activity className="h-4 w-4 text-[var(--codex-accent)]0" /> 生成模型
             </h3>
             <div className="grid grid-cols-2 gap-2">
               {MODELS.map((model) => (
@@ -566,13 +571,13 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
                   type="button"
                   onClick={() => setAiModel(model.value)}
                   className={`rounded-xl border p-2 text-left transition-all ${
-                    aiModel === model.value ? "border-purple-500 bg-purple-50 text-purple-600 ring-1 ring-purple-200" : "border-gray-200 bg-white hover:border-gray-300"
+                    aiModel === model.value ? "border-[rgba(91,124,255,0.22)]0 bg-[rgba(91,124,255,0.1)] text-[var(--codex-accent)] ring-1 ring-[rgba(91,124,255,0.18)]" : "border-gray-200 bg-white hover:border-gray-300"
                   }`}
                 >
                   <div className="flex min-w-0 items-center gap-1.5">
                     <img src={model.icon} alt="" className="h-4 w-4 flex-shrink-0 object-contain" />
                     <span className="truncate text-[11px] font-bold text-slate-900">{model.label}</span>
-                    {model.badge && <span className="rounded-full bg-violet-100 px-1.5 py-0.5 text-[9px] font-bold text-violet-600">{model.badge}</span>}
+                    {model.badge && <span className="rounded-full bg-[rgba(91,124,255,0.1)] px-1.5 py-0.5 text-[9px] font-bold text-[var(--codex-accent)]">{model.badge}</span>}
                   </div>
                   <p className="mt-1 text-[11px] font-medium text-slate-400">{model.desc}</p>
                 </button>
@@ -589,7 +594,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
                   type="button"
                   onClick={() => setAspectRatio(item.value)}
                   className={`rounded-lg border py-2 text-xs font-medium transition-all ${
-                    aspectRatio === item.value ? "border-purple-500 bg-purple-50 text-purple-600" : "border-gray-200 bg-white hover:border-gray-300"
+                    aspectRatio === item.value ? "border-[rgba(91,124,255,0.22)]0 bg-[rgba(91,124,255,0.1)] text-[var(--codex-accent)]" : "border-gray-200 bg-white hover:border-gray-300"
                   }`}
                 >
                   {item.label}
@@ -607,7 +612,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
                   type="button"
                   onClick={() => setImageSize(size)}
                   className={`rounded-lg border py-2 text-xs font-medium transition-all ${
-                    imageSize === size ? "border-purple-500 bg-purple-50 text-purple-600" : "border-gray-200 bg-white hover:border-gray-300"
+                    imageSize === size ? "border-[rgba(91,124,255,0.22)]0 bg-[rgba(91,124,255,0.1)] text-[var(--codex-accent)]" : "border-gray-200 bg-white hover:border-gray-300"
                   }`}
                 >
                   {size} · {getCreditCost(aiModel, size, aspectRatio)}积分
@@ -625,7 +630,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
                   type="button"
                   onClick={() => setGenCount(value)}
                   className={`rounded-lg border py-2 text-sm font-medium transition-all ${
-                    genCount === value ? "border-purple-500 bg-purple-50 text-purple-600" : "border-gray-200 bg-white hover:border-gray-300"
+                    genCount === value ? "border-[rgba(91,124,255,0.22)]0 bg-[rgba(91,124,255,0.1)] text-[var(--codex-accent)]" : "border-gray-200 bg-white hover:border-gray-300"
                   }`}
                 >
                   {value} 张
@@ -647,9 +652,9 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
             type="button"
             onClick={generate}
             disabled={!canGenerate}
-            className="gradient-brand flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold text-white shadow-lg shadow-purple-200 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+            className="gradient-brand flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold text-white shadow-lg shadow-slate-300/40 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+            {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Activity className="h-4 w-4" />}
             {!isAuthenticated ? "登录后生成" : isGenerating ? "生成中..." : `立即生成 ${genCount} 张`}
           </button>
         </div>
@@ -664,7 +669,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
               imageSrc={modeMeta.emptyImage}
               imageAlt={`${modeMeta.title}指引`}
               steps={!isImageMode ? [
-                { title: "输入想法", desc: "可先写一句简短描述，再让 AI 帮写成完整提示词。" },
+                { title: "输入想法", desc: "可先写一句简短描述，再让 帮写成完整提示词。" },
                 { title: "选择参数", desc: "确认模型、画幅、清晰度和张数。" },
                 { title: "生成结果", desc: "结果会进入作品资产，可下载或继续放大查看。" },
               ] : [
@@ -676,25 +681,35 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
           </div>
         )}
 
-        {(isGenerating || resultUrls.length > 0) && (
+        {isGenerating && resultUrls.length === 0 && !activeQueueTask && (
+          <LoadingStage
+            genCount={genCount}
+            progress={progress}
+            moduleName={modeMeta.title}
+            referenceImages={referenceImages.map((item, index) => ({ label: item.name || `参考图 ${index + 1}`, url: item.preview || item.url }))}
+            metaItems={[aspectRatio, imageSize, isImageMode ? `${referenceImages.length} 张参考` : "文生图"]}
+          />
+        )}
+        {((isGenerating && resultUrls.length > 0) || resultUrls.length > 0 || Boolean(activeQueueTask)) && (
           <div className="studio-result-stage min-h-[260px] sm:min-h-[360px] overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:h-full flex flex-col animate-fade-in">
             <div className="flex min-h-0 flex-1 items-start justify-start">
               <ResultImageGrid
                 urls={resultUrls}
                 filenamePrefix={isImageMode ? "image-to-image" : "text-to-image"}
-                expectedCount={isGenerating ? genCount : undefined}
+                expectedCount={activeQueueTask?.expectedCount || (isGenerating ? genCount : undefined)}
                 isGenerating={isGenerating}
-                inputThumbnails={referenceImages.map((item) => item.preview || item.url)}
-                statusGroup={isGenerating ? "running" : undefined}
-                variant={isGenerating ? "task" : "cards"}
+                inputThumbnails={activeQueueTask?.inputThumbnails?.length ? activeQueueTask.inputThumbnails : referenceImages.map((item) => item.preview || item.url)}
+                createdAt={activeQueueTask?.createdAt}
+                statusGroup={activeQueueTask?.statusGroup || (isGenerating ? "running" : undefined)}
+                variant={activeQueueTask || isGenerating ? "task" : "cards"}
                 onOpen={setLightboxSrc}
               />
             </div>
             <div className="mt-4 flex justify-center gap-2">
               <button
                 type="button"
-                onClick={() => { setResultUrls([]); setError(""); setProgress(0); }}
-                className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-600 hover:border-violet-200 hover:text-violet-600"
+                onClick={resetOutput}
+                className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-600 hover:border-[rgba(91,124,255,0.3)] hover:text-[var(--codex-accent)]"
               >
                 <RefreshCw className="h-3.5 w-3.5" />
                 重新创作
@@ -731,14 +746,14 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
             onClick={() => setShowImagePromptModal(false)}
           >
             <div
-              className="w-full max-w-2xl overflow-hidden rounded-[22px] border border-violet-200 bg-white shadow-[0_28px_90px_rgba(15,23,42,0.28)] ring-1 ring-violet-100"
+              className="w-full max-w-2xl overflow-hidden rounded-[22px] border border-[rgba(91,124,255,0.22)] bg-white shadow-[0_28px_90px_rgba(15,23,42,0.28)] ring-1 ring-[rgba(91,124,255,0.18)]"
               onClick={(event) => event.stopPropagation()}
             >
               <div className="flex items-start justify-between gap-4 px-5 py-4">
                 <div>
                   <h3 className="text-base font-black text-slate-950">图片转提示词</h3>
                   <p className="mt-2 text-sm leading-5 text-slate-500">
-                    上传图片，使用 AI 反推图片内容描述，用于生成相似内容图片
+                    上传图片，使用 自动反推图片内容描述，用于生成相似内容图片
                   </p>
                 </div>
                 <button
@@ -763,20 +778,20 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
                   <button
                     type="button"
                     onClick={() => imagePromptInputRef.current?.click()}
-                    className={`group relative flex aspect-[3/4] w-full min-w-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 text-slate-400 transition hover:border-violet-200 ${
-                      imagePromptImage ? "studio-checkerboard" : "bg-slate-50 hover:bg-violet-50"
+                    className={`group relative flex aspect-[3/4] w-full min-w-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 text-slate-400 transition hover:border-[rgba(91,124,255,0.3)] ${
+                      imagePromptImage ? "studio-checkerboard" : "bg-slate-50 hover:bg-[rgba(91,124,255,0.12)]"
                     }`}
                   >
                     {imagePromptImage ? (
                       <img src={imagePromptImage.preview} alt={imagePromptImage.name} className="h-full w-full object-contain p-1" />
                     ) : (
                       <span className="flex flex-col items-center gap-2 text-xs font-bold">
-                        {isImagePromptUploading ? <Loader2 className="h-6 w-6 animate-spin text-violet-500" /> : <ImagePlus className="h-6 w-6 text-violet-500" />}
+                        {isImagePromptUploading ? <Loader2 className="h-6 w-6 animate-spin text-[var(--codex-accent)]0" /> : <ImagePlus className="h-6 w-6 text-[var(--codex-accent)]0" />}
                         上传图片
                       </span>
                     )}
                     {imagePromptImage && (
-                      <span className="absolute bottom-2 right-2 flex h-7 w-7 items-center justify-center rounded-lg border border-white/80 bg-white/90 text-slate-600 shadow-sm group-hover:text-violet-600">
+                      <span className="absolute bottom-2 right-2 flex h-7 w-7 items-center justify-center rounded-lg border border-white/80 bg-white/90 text-slate-600 shadow-sm group-hover:text-[var(--codex-accent)]">
                         <ImagePlus className="h-3.5 w-3.5" />
                       </span>
                     )}
@@ -785,7 +800,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
                     type="button"
                     onClick={() => generateImagePrompt()}
                     disabled={!imagePromptImage || isImagePromptUploading || isImagePromptGenerating}
-                    className="flex h-9 w-full items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-600 transition hover:border-violet-200 hover:text-violet-600 disabled:cursor-not-allowed disabled:opacity-45"
+                    className="flex h-9 w-full items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-600 transition hover:border-[rgba(91,124,255,0.3)] hover:text-[var(--codex-accent)] disabled:cursor-not-allowed disabled:opacity-45"
                   >
                     {isImagePromptGenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
                     重新生成
@@ -795,8 +810,8 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
                 <textarea
                   value={imagePromptText}
                   onChange={(event) => setImagePromptText(event.target.value.slice(0, 4000))}
-                  placeholder="上传图片后，AI 会在这里生成可用于文生图的内容描述。"
-                  className="min-h-[260px] w-full resize-y rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm leading-6 text-slate-800 outline-none transition placeholder:text-slate-300 focus:border-violet-300 focus:ring-2 focus:ring-violet-100 sm:min-h-0"
+                  placeholder="上传图片后，系统会在这里生成可用于文生图的内容描述。"
+                  className="min-h-[260px] w-full resize-y rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm leading-6 text-slate-800 outline-none transition placeholder:text-slate-300 focus:border-[rgba(91,124,255,0.5)] focus:ring-2 focus:ring-[rgba(91,124,255,0.14)] sm:min-h-0"
                 />
               </div>
 
@@ -808,7 +823,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
                     navigator.clipboard.writeText(imagePromptText);
                     toast.success("已复制");
                   }}
-                  className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-5 text-sm font-bold text-slate-600 transition hover:text-violet-600"
+                  className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-5 text-sm font-bold text-slate-600 transition hover:text-[var(--codex-accent)]"
                 >
                   <Copy className="h-3.5 w-3.5" />
                   复制
@@ -817,7 +832,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
                   type="button"
                   onClick={applyImagePromptToDescription}
                   disabled={!imagePromptText.trim()}
-                  className="gradient-brand inline-flex h-9 items-center justify-center rounded-lg px-5 text-sm font-black text-white shadow-lg shadow-purple-200 disabled:cursor-not-allowed disabled:opacity-45"
+                  className="gradient-brand inline-flex h-9 items-center justify-center rounded-lg px-5 text-sm font-black text-white shadow-lg shadow-slate-300/40 disabled:cursor-not-allowed disabled:opacity-45"
                 >
                   应用到描述
                 </button>
@@ -862,7 +877,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
                 <textarea
                   value={prompt}
                   onChange={(event) => setPrompt(event.target.value.slice(0, 4000))}
-                  className="min-h-[320px] w-full resize-y rounded-lg border px-3 py-2 text-xs leading-relaxed text-gray-700 outline-none focus:ring-2 focus:ring-purple-200"
+                  className="min-h-[320px] w-full resize-y rounded-lg border px-3 py-2 text-xs leading-relaxed text-gray-700 outline-none focus:ring-2 focus:ring-[rgba(91,124,255,0.14)]"
                 />
               </div>
               <div className="flex justify-end gap-2 border-t px-5 py-3">

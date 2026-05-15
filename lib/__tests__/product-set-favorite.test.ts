@@ -85,7 +85,7 @@ describe("product set favorite plan payload boundary", () => {
     expect(payload?.module_overrides).toHaveLength(1);
     expect(payload?.module_overrides[0].name).toBe("Hero override");
     expect(payload?.module_overrides[0].extraDescription).toHaveLength(700);
-    expect(payload?.ai_model).toBe("gpt-image-2");
+    expect(payload?.ai_model).toBe("nano-banana-2");
     expect(payload?.aspect_ratio).toBe("16:9");
     expect(payload?.image_size).toBe("1K");
     expect(payload?.quality_mode).toBe("advanced");
@@ -108,7 +108,7 @@ describe("product set favorite plan payload boundary", () => {
       selected_template_ids: [],
       custom_templates: [],
       module_overrides: [],
-      ai_model: "gpt-image-2",
+      ai_model: "nano-banana-2",
       aspect_ratio: "1:1",
       image_size: "1K",
       quality_mode: "standard",
@@ -146,7 +146,7 @@ describe("product set favorite plan payload boundary", () => {
       genCount: 8,
       selectedTemplateIds: [5, 6],
       customTemplates: [],
-      aiModel: "gpt-image-2",
+      aiModel: "nano-banana-2",
       aspectRatio: "3:4",
       imageSize: "4K",
       qualityMode: "standard",

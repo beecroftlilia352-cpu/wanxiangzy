@@ -25,7 +25,7 @@ export function StudioSegmentedControl<T extends string>({
 }: StudioSegmentedControlProps<T>) {
   return (
     <div
-      className={`studio-segmented-control studio-segmented-control-${columns}`}
+      className={`studio-segmented-control mac-segmented-control studio-segmented-control-${columns}`}
       role="radiogroup"
       aria-label={ariaLabel}
     >
@@ -40,12 +40,12 @@ export function StudioSegmentedControl<T extends string>({
             aria-checked={selected}
             disabled={option.disabled}
             onClick={() => onChange(option.value)}
-            className={`studio-segmented-option ${selected ? "studio-segmented-option-active" : ""}`}
+            className={`studio-segmented-option mac-segmented-option ${selected ? "studio-segmented-option-active mac-segmented-option-active" : ""}`}
           >
             {Icon && <Icon className="h-4 w-4 shrink-0" />}
             <span className="min-w-0">
-              <span className="block truncate">{option.label}</span>
-              {option.description && <span className="mt-0.5 block truncate text-[10px] opacity-70">{option.description}</span>}
+              <span className="block leading-tight [overflow-wrap:anywhere]">{option.label}</span>
+              {option.description && <span className="mt-0.5 block text-[10px] leading-snug opacity-70 [overflow-wrap:anywhere]">{option.description}</span>}
             </span>
           </button>
         );

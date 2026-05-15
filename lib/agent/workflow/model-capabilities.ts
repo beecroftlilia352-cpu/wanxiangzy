@@ -39,7 +39,7 @@ export function getWorkflowModelCapability(rawModel: unknown, aspectRatio?: unkn
     supportedRatios: RATIOS,
     supportedSizes: getSupportedImageSizes(model, ratio),
     maxImages: model === "gpt-image-2" ? 8 : 10,
-    maxPromptLength: model === "doubao-seedream-4-5-251128" ? 8000 : 12000,
+    maxPromptLength: 12000,
   };
 }
 

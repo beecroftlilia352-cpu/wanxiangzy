@@ -29,7 +29,7 @@ export function FeatureTabs({ active }: { active: FeatureKey }) {
   }, [active, visibleItems.length]);
 
   return (
-    <aside className="studio-nav-rail w-full max-w-[100vw] shrink-0 overflow-hidden border-b bg-white/88 px-2 py-2 backdrop-blur lg:h-full lg:w-[112px] lg:max-w-none lg:border-b-0 lg:border-r lg:px-2 lg:py-4">
+    <aside className="studio-nav-rail w-full max-w-[100vw] shrink-0 overflow-hidden border-b px-2 py-2 lg:h-full lg:w-[112px] lg:max-w-none lg:border-b-0 lg:border-r lg:px-2 lg:py-4">
       <div ref={scrollerRef} className="flex w-full items-center gap-1 overflow-x-auto overscroll-x-contain scroll-smooth pb-1 lg:h-full lg:flex-col lg:items-stretch lg:overflow-y-auto lg:overflow-x-hidden lg:pb-0">
         {visibleItems.map((item) => {
           const Icon = item.icon;
@@ -40,17 +40,17 @@ export function FeatureTabs({ active }: { active: FeatureKey }) {
               ref={isActive ? activeRef : undefined}
               href={item.href}
               aria-current={isActive ? "page" : undefined}
-              className={`group flex h-14 min-w-[92px] flex-col items-center justify-center gap-1 rounded-2xl px-2 text-[10px] font-black transition-all lg:h-[72px] lg:min-w-0 ${
+              className={`studio-nav-item group flex h-14 min-w-[92px] flex-col items-center justify-center gap-1 rounded-2xl px-2 text-[10px] font-black transition-all lg:h-[72px] lg:min-w-0 ${
                 isActive
-                  ? "bg-violet-50 text-violet-700 shadow-sm ring-1 ring-violet-100"
-                  : "text-slate-600 hover:bg-slate-50 hover:text-slate-950"
+                  ? "studio-nav-item-active bg-white/80 text-[var(--codex-accent)] shadow-sm ring-1 ring-[rgba(91,124,255,0.22)]"
+                  : "text-codex-muted hover:bg-white/70 hover:text-codex-ink"
               }`}
               title={item.description}
             >
-              <span className={`relative flex h-6 w-6 items-center justify-center ${isActive ? "text-violet-700" : "text-slate-500 group-hover:text-slate-900"}`}>
+              <span className={`relative flex h-6 w-6 items-center justify-center ${isActive ? "text-[var(--codex-accent)]" : "text-codex-faint group-hover:text-codex-ink"}`}>
                 <Icon className="h-5 w-5" />
               </span>
-              <span className="max-w-full truncate text-center leading-tight">{item.shortLabel || item.label}</span>
+              <span className="max-w-full text-center leading-tight [overflow-wrap:anywhere]">{item.shortLabel || item.label}</span>
             </Link>
           );
         })}

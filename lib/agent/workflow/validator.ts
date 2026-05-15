@@ -115,8 +115,8 @@ function validateStepInputs(
   if (step.type === "face_swap") {
     const hasSource = /sourceImage|source_image|originalImage|modelImage|原始|原图|图\s*\d|image:\d/.test(text);
     const hasFace = /faceImage|face_image|targetFaceImage|目标脸|脸图|图\s*\d|image:\d/.test(text);
-    if (!hasSource) errors.push(issue("MISSING_FACE_SWAP_SOURCE", "AI 换脸缺少原始模特图。", step));
-    if (!hasFace) errors.push(issue("MISSING_FACE_SWAP_FACE", "AI 换脸缺少目标脸图。", step));
+  if (!hasSource) errors.push(issue("MISSING_FACE_SWAP_SOURCE", "换脸缺少原始模特图。", step));
+  if (!hasFace) errors.push(issue("MISSING_FACE_SWAP_FACE", "换脸缺少目标脸图。", step));
   }
   if (step.type === "garment_3d" && /person|人物|模特|上身|穿着/.test(text)) {
     warnings.push(issue("GARMENT_3D_INPUT_RISK", "3D 展示更适合单品服装图，模特上身图存在结构还原风险。", step, "warning"));

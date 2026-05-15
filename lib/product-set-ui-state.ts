@@ -17,7 +17,6 @@ const SUPPORTED_MODELS: LingyaModel[] = [
   "gpt-image-2",
   "nano-banana-2",
   "nano-banana-pro",
-  "doubao-seedream-4-5-251128",
 ];
 
 const SUPPORTED_ASPECTS: AspectRatio[] = ["4:3", "3:4", "9:16", "16:9", "1:1", "3:2", "2:3", "21:9"];
@@ -142,7 +141,7 @@ export function normalizeFavoriteProductSetPlan(
   const item = value as Partial<SavedProductSetPlan>;
   const imageType: ProductSetImageType = item.imageType === "details" ? "details" : "main";
   const mode: ProductSetCreationMode = item.mode === "custom" ? "custom" : "smart";
-  const aiModel = isLingyaModel(item.aiModel) ? item.aiModel : "gpt-image-2";
+  const aiModel = isLingyaModel(item.aiModel) ? item.aiModel : "nano-banana-2";
   const aspectRatio = isAspectRatio(item.aspectRatio) ? item.aspectRatio : imageType === "details" ? "3:4" : "1:1";
   const imageSize = isImageSize(item.imageSize) ? item.imageSize : "1K";
   const qualityMode = item.qualityMode === "advanced" ? "advanced" : "standard";

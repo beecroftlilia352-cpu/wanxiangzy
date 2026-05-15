@@ -12,9 +12,9 @@ import {
   RotateCcw,
   ScanFace,
   Settings2,
-  Sparkles,
+  Activity,
   UserRoundCheck,
-  Wand2,
+  Brush,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -22,6 +22,7 @@ import { FeatureTabs } from "@/components/FeatureTabs";
 import { ClientPortal } from "@/components/ClientPortal";
 import { ModuleHeader } from "@/components/ModuleHeader";
 import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
+import { LoadingStage } from "@/components/studio/LoadingStage";
 import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
 import {
   FACE_SWAP_LIBRARY,
@@ -50,10 +51,9 @@ import { fetchHistoryApplyDetail, takeApplyDetail, type HistoryJobPayload } from
 import type { TaskQueueItem } from "@/lib/task-queue";
 
 const MODELS: Array<{ value: LingyaModel; label: string; desc: string; icon: string; badge?: string }> = [
-  { value: "gpt-image-2", label: "GPT-Image-2", desc: "4K · 4分/次", icon: "/model-icons/openai.svg", badge: "最新" },
-  { value: "nano-banana-2", label: "Nano-Banana-2", desc: "4K · 3分/次", icon: "/model-icons/gemini.png", badge: "推荐" },
+  { value: "nano-banana-2", label: "Nano-Banana-2", desc: "4K · 3分/次", icon: "/model-icons/gemini.png", badge: "默认" },
+  { value: "gpt-image-2", label: "GPT-Image-2", desc: "4K · 4分/次", icon: "/model-icons/openai.svg", badge: "高质感" },
   { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "4K · 4分/次", icon: "/model-icons/gemini.png", badge: "推荐" },
-  { value: "doubao-seedream-4-5-251128", label: "Seedream 4.5", desc: "4K · 2分/次", icon: "/model-icons/doubao.png", badge: "新" },
 ];
 
 const ASPECT_RATIOS: Array<{ value: AspectRatio; label: string }> = [
@@ -97,7 +97,7 @@ export default function FaceSwapPage() {
   const [credits, setCredits] = useState<number | null>(null);
   const [sourceUrl, setSourceUrl] = useState("");
   const [faceUrl, setFaceUrl] = useState("");
-  const [aiModel, setAiModel] = useState<LingyaModel>("gpt-image-2");
+  const [aiModel, setAiModel] = useState<LingyaModel>("nano-banana-2");
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("3:4");
   const [imageSize, setImageSize] = useState<ImageSize>("1K");
   const [genCount, setGenCount] = useState(1);
@@ -113,6 +113,7 @@ export default function FaceSwapPage() {
   const [resultUrls, setResultUrls] = useState<string[]>([]);
   const [error, setError] = useState("");
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+  const [activeQueueTask, setActiveQueueTask] = useState<TaskQueueItem | null>(null);
 
   const supportedSizes = useMemo(() => getSupportedImageSizes(aiModel, aspectRatio), [aiModel, aspectRatio]);
   const imageSizeValue = normalizeImageSize(aiModel, imageSize, aspectRatio);
@@ -196,6 +197,7 @@ export default function FaceSwapPage() {
   const resetGenerationForInputChange = useCallback(() => {
     skipActiveRestoreRef.current = true;
     clearPolling();
+    setActiveQueueTask(null);
     setResultUrls([]);
     setProgress(0);
     setStatus("idle");
@@ -240,7 +242,7 @@ export default function FaceSwapPage() {
           setStatus("completed");
           setProgress(100);
           setResultUrls(nextUrls);
-          toast.success("AI 换脸完成");
+      toast.success("换脸完成");
           return;
         }
 
@@ -354,6 +356,7 @@ export default function FaceSwapPage() {
 
     clearPolling();
     skipActiveRestoreRef.current = false;
+    setActiveQueueTask(null);
     setStatus("running");
     setProgress(1);
     setResultUrls([]);
@@ -410,9 +413,11 @@ export default function FaceSwapPage() {
     setStatus("idle");
     setGenerationId("");
     setError("");
+    setActiveQueueTask(null);
   }
 
   function handleRunningTask(item: TaskQueueItem) {
+    setActiveQueueTask(item);
     const urls = item.resultThumbnails || [];
     const nextProgress = Number.isFinite(Number(item.progress)) ? Number(item.progress) : 8;
     clearPolling();
@@ -425,6 +430,7 @@ export default function FaceSwapPage() {
   }
 
   async function handleCompletedTask(item: TaskQueueItem) {
+    setActiveQueueTask(item);
     try {
       const detail = await fetchHistoryApplyDetail(item.id, "faceSwap");
       applyFaceSwapHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : item.resultThumbnails);
@@ -440,7 +446,7 @@ export default function FaceSwapPage() {
       <FeatureTabs active="faceSwap" />
       <ModuleTaskRail
         module="faceSwap"
-        moduleLabel="AI 换脸"
+        moduleLabel="换脸"
         onRunningTask={handleRunningTask}
         onCompletedTask={handleCompletedTask}
       />
@@ -448,14 +454,14 @@ export default function FaceSwapPage() {
       <aside className="studio-parameters flex w-full flex-col overflow-visible border-b lg:w-[472px] lg:overflow-hidden lg:border-b-0 lg:border-r">
         <div className="studio-parameters-scroll flex-1 space-y-4 overflow-visible p-3 sm:space-y-6 sm:p-5 lg:overflow-y-auto">
           <ModuleHeader
-            title="AI 换脸"
+            title="换脸"
             tooltip="上传原始模特图与目标脸图，只迁移五官身份，保留原图肤色、发型、服装、姿势和场景。"
           />
 
           <section className="face-swap-identity-card">
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
-                <p className="text-[11px] font-black uppercase tracking-normal text-cyan-600">Identity Transfer</p>
+                <p className="text-[11px] font-black uppercase tracking-normal text-slate-600">Identity Transfer</p>
                 <p className="mt-1 text-sm font-black text-slate-950">双图身份迁移</p>
                 <p className="mt-1 text-xs leading-relaxed text-slate-500">左侧锁定画面，右侧只提供五官身份。</p>
               </div>
@@ -510,7 +516,7 @@ export default function FaceSwapPage() {
                       setSourceUrl(sample.url);
                       resetGenerationForInputChange();
                     }}
-                    className={`h-16 w-14 shrink-0 overflow-hidden rounded-xl border bg-white p-1 shadow-sm transition-all hover:border-violet-300 ${sourceUrl === sample.url ? "border-violet-500 ring-2 ring-violet-100" : "border-slate-200"}`}
+                    className={`h-16 w-14 shrink-0 overflow-hidden rounded-xl border bg-white p-1 shadow-sm transition-all hover:border-neutral-300 ${sourceUrl === sample.url ? "border-emerald-500 ring-2 ring-emerald-100" : "border-neutral-200"}`}
                   >
                     <img src={sample.url} alt={`sample ${sample.id}`} className="h-full w-full rounded-lg object-cover" />
                   </button>
@@ -522,7 +528,7 @@ export default function FaceSwapPage() {
           <section>
             <div className="mb-2 flex items-center justify-between">
               <PanelTitle title="目标脸图" />
-              <button type="button" onClick={() => setDrawerOpen(true)} className="inline-flex items-center gap-1 text-xs font-semibold text-violet-600 hover:text-violet-700">
+              <button type="button" onClick={() => setDrawerOpen(true)} className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 hover:text-emerald-700">
                 模特脸库 <ChevronRight className="h-3.5 w-3.5" />
               </button>
             </div>
@@ -558,7 +564,7 @@ export default function FaceSwapPage() {
             />
           </section>
 
-          <ControlSection title="生成模型" icon={<Sparkles className="h-4 w-4" />}>
+          <ControlSection title="生成模型" icon={<Activity className="h-4 w-4" />}>
             <div className="studio-model-grid">
               {MODELS.map((model) => (
                 <button
@@ -617,7 +623,7 @@ export default function FaceSwapPage() {
             <button
               type="button"
               onClick={() => setTextureEnhance((value) => !value)}
-              className={`flex w-full items-center justify-between rounded-2xl border p-3 text-left transition-all ${textureEnhance ? "border-violet-300 bg-violet-50 text-violet-800" : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"}`}
+              className={`flex w-full items-center justify-between rounded-2xl border p-3 text-left transition-all ${textureEnhance ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-neutral-200 bg-white text-neutral-700 hover:border-neutral-300"}`}
             >
               <span>
                 <span className="block text-sm font-black">服装质感增强</span>
@@ -625,7 +631,7 @@ export default function FaceSwapPage() {
                   默认保持原图质感；开启后只强化布料纹理、印花清晰度和光影层次，不磨皮、不改表情、不移除眼镜配饰。
                 </span>
               </span>
-              <span className={`ml-3 flex h-7 w-12 shrink-0 items-center rounded-full p-1 transition ${textureEnhance ? "bg-violet-600" : "bg-slate-200"}`}>
+              <span className={`ml-3 flex h-7 w-12 shrink-0 items-center rounded-full p-1 transition ${textureEnhance ? "bg-emerald-600" : "bg-neutral-200"}`}>
                 <span className={`h-5 w-5 rounded-full bg-white shadow transition ${textureEnhance ? "translate-x-5" : "translate-x-0"}`} />
               </span>
             </button>
@@ -633,14 +639,14 @@ export default function FaceSwapPage() {
 
           <details className="rounded-2xl border border-slate-100 bg-white p-3">
             <summary className="flex cursor-pointer list-none items-center gap-2 text-sm font-black text-slate-800">
-              <Settings2 className="h-4 w-4 text-violet-500" />
+              <Settings2 className="h-4 w-4 text-emerald-600" />
               高级提示词
             </summary>
             <textarea
               value={prompt}
               onChange={(event) => setPrompt(event.target.value)}
               rows={5}
-              className="mt-3 w-full resize-none rounded-xl border border-slate-200 px-3 py-2 text-xs leading-relaxed outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100"
+              className="mt-3 w-full resize-none rounded-xl border border-neutral-200 px-3 py-2 text-xs leading-relaxed outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
               placeholder="可选：补充保留眼镜、雀斑、配饰、冷感表情等细节。默认模板已锁定只换五官身份，不换肤色/发型/表情/配饰。"
             />
             <div className="mt-2 rounded-xl bg-slate-50 p-3 text-[11px] leading-relaxed text-slate-500">
@@ -661,12 +667,12 @@ export default function FaceSwapPage() {
               type="button"
               onClick={generate}
               disabled={!canGenerate}
-              className="gradient-brand flex h-11 items-center justify-center gap-2 rounded-2xl text-sm font-black text-white shadow-lg shadow-violet-200 transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-45"
+              className="gradient-brand flex h-11 items-center justify-center gap-2 rounded-2xl text-sm font-black text-white shadow-lg transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-45"
             >
-              {status === "running" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              {status === "running" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Activity className="h-4 w-4" />}
               {status === "running" ? "生成中" : !isAuthenticated ? "登录后生成" : "开始换脸"}
             </button>
-            <button type="button" onClick={clearAll} className="h-11 rounded-2xl border border-slate-200 bg-white text-sm font-bold text-violet-600 hover:border-violet-200">
+            <button type="button" onClick={clearAll} className="h-11 rounded-2xl border border-neutral-200 bg-white text-sm font-bold text-emerald-600 hover:border-emerald-200">
               清空
             </button>
           </div>
@@ -679,11 +685,23 @@ export default function FaceSwapPage() {
       </aside>
 
       <main className="studio-canvas relative mt-3 mb-6 min-h-[260px] flex-1 overflow-hidden sm:min-h-[360px] lg:mt-0 lg:mb-0 lg:min-h-0">
-        {status === "running" || resultUrls.length > 0 ? (
+        {status === "running" && resultUrls.length === 0 && !activeQueueTask ? (
+          <LoadingStage
+            genCount={normalizeFaceSwapCount(genCount)}
+            progress={progress}
+            moduleName="AI 换脸"
+            referenceImages={[
+              { label: "原始模特图", url: sourceUrl },
+              { label: "目标脸参考", url: faceUrl },
+            ]}
+            metaItems={[aspectRatio, imageSizeValue, textureEnhance ? "纹理增强" : "标准质感"]}
+          />
+        ) : status === "running" || resultUrls.length > 0 || activeQueueTask ? (
           <ResultsPanel
             urls={resultUrls}
             isGenerating={status === "running"}
-            expectedCount={status === "running" ? genCount : undefined}
+            expectedCount={activeQueueTask?.expectedCount || (status === "running" ? genCount : undefined)}
+            task={activeQueueTask}
             onOpen={setLightboxSrc}
             onUseAsSource={(url) => {
               setSourceUrl(url);
@@ -721,7 +739,7 @@ export default function FaceSwapPage() {
 
       {drawerOpen && (
         <ClientPortal>
-          <aside className="fixed bottom-0 left-0 right-0 top-[64px] z-[230] flex flex-col border-l border-slate-200 bg-white shadow-[0_28px_90px_rgba(15,23,42,0.16)] lg:left-[584px]">
+        <aside className="fixed bottom-0 left-0 right-0 top-[64px] z-[230] flex flex-col border-l border-slate-200 bg-white shadow-[0_28px_90px_rgba(15,23,42,0.16)] lg:left-auto lg:w-[min(720px,calc(100vw-672px))]">
             <div className="flex items-start justify-between border-b p-5">
               <div>
                 <h2 className="text-lg font-black text-slate-950">模特脸库</h2>
@@ -737,7 +755,7 @@ export default function FaceSwapPage() {
                   key={gender}
                   type="button"
                   onClick={() => setGenderFilter(gender)}
-                  className={`rounded-xl border py-2 text-sm font-black ${genderFilter === gender ? "border-violet-500 bg-violet-50 text-violet-700" : "border-slate-200 text-slate-500"}`}
+                  className={`rounded-xl border py-2 text-sm font-black ${genderFilter === gender ? "border-emerald-500 bg-emerald-50 text-emerald-700" : "border-neutral-200 text-neutral-500"}`}
                 >
                   {gender === "female" ? "女模特" : "男模特"}
                 </button>
@@ -753,11 +771,11 @@ export default function FaceSwapPage() {
                     setDrawerOpen(false);
                     resetGenerationForInputChange();
                   }}
-                  className={`group relative aspect-[3/4] overflow-hidden rounded-2xl border bg-slate-50 p-1 shadow-sm transition-all hover:-translate-y-0.5 hover:border-violet-300 ${faceUrl === item.url ? "border-violet-500 ring-2 ring-violet-100" : "border-slate-200"}`}
+                  className={`group relative aspect-[3/4] overflow-hidden rounded-2xl border bg-neutral-50 p-1 shadow-sm transition-all hover:-translate-y-0.5 hover:border-neutral-300 ${faceUrl === item.url ? "border-emerald-500 ring-2 ring-emerald-100" : "border-neutral-200"}`}
                 >
                   <img src={item.url} alt={`face ${item.id}`} className="h-full w-full rounded-xl object-cover" />
                   {faceUrl === item.url && (
-                    <span className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-violet-600 text-white shadow">
+                    <span className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-600 text-white shadow">
                       <Check className="h-3.5 w-3.5" />
                     </span>
                   )}
@@ -825,8 +843,8 @@ function OptionPillGrid({
 
 function MiniPreviewImage({ src, alt, square }: { src: string; alt: string; square?: boolean }) {
   return (
-    <span className={`${square ? "aspect-square" : "aspect-[3/4]"} relative block w-11 overflow-hidden rounded-xl border border-white/80 bg-cyan-50 shadow-sm`}>
-      <span aria-hidden="true" className="absolute inset-0 flex items-center justify-center text-cyan-500">
+    <span className={`${square ? "aspect-square" : "aspect-[3/4]"} relative block w-11 overflow-hidden rounded-xl border border-white/80 bg-slate-100 shadow-sm`}>
+      <span aria-hidden="true" className="absolute inset-0 flex items-center justify-center text-slate-500">
         <ScanFace className="h-4 w-4" />
       </span>
       <img
@@ -847,8 +865,8 @@ function IntroPanel({ sourceUrl, faceUrl }: { sourceUrl: string; faceUrl: string
       <div className="face-swap-flow-card face-swap-intro-card">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
-            <p className="text-[11px] font-black uppercase tracking-normal text-cyan-600">AI 换脸流程</p>
-            <h2 className="mt-2 text-lg font-black text-slate-950">开始制作 AI 换脸图</h2>
+              <p className="text-[11px] font-black uppercase tracking-normal text-slate-600">Identity Transfer</p>
+              <h2 className="mt-2 text-lg font-black text-slate-950">开始制作换脸图</h2>
             <p className="mt-2 max-w-md text-xs leading-relaxed text-slate-500">
               先锁定原始模特画面，再选择目标脸图；输出会保留原图的肤色、发型、服装、姿势和场景。
             </p>
@@ -882,7 +900,7 @@ function IntroPanel({ sourceUrl, faceUrl }: { sourceUrl: string; faceUrl: string
           ))}
         </div>
 
-        <div className="mt-4 rounded-2xl border border-cyan-100 bg-cyan-50/70 px-3 py-2 text-xs font-semibold leading-relaxed text-cyan-800">
+        <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/80 px-3 py-2 text-xs font-semibold leading-relaxed text-slate-600">
           {FACE_SWAP_NOTE}
         </div>
       </div>
@@ -892,8 +910,8 @@ function IntroPanel({ sourceUrl, faceUrl }: { sourceUrl: string; faceUrl: string
 
 function DemoImage({ src, label, square }: { src: string; label: string; square?: boolean }) {
   return (
-    <div className={`${square ? "aspect-square" : "aspect-[3/4]"} relative overflow-hidden rounded-2xl border border-white/80 bg-cyan-50 shadow-sm`}>
-      <span aria-hidden="true" className="absolute inset-0 flex items-center justify-center text-cyan-500">
+    <div className={`${square ? "aspect-square" : "aspect-[3/4]"} relative overflow-hidden rounded-2xl border border-white/80 bg-slate-100 shadow-sm`}>
+      <span aria-hidden="true" className="absolute inset-0 flex items-center justify-center text-slate-500">
         <ScanFace className="h-8 w-8" />
       </span>
       <img
@@ -917,10 +935,12 @@ function ResultsPanel({
   onUseAsFace,
   onCopyUrl,
   onRegenerate,
+  task,
 }: {
   urls: string[];
   expectedCount?: number;
   isGenerating: boolean;
+  task?: TaskQueueItem | null;
   onOpen: (url: string) => void;
   onUseAsSource: (url: string) => void;
   onUseAsFace: (url: string) => void;
@@ -929,6 +949,7 @@ function ResultsPanel({
 }) {
   const count = Math.max(urls.length, expectedCount || 0, 1);
   const slots = Array.from({ length: count }, (_, index) => urls[index] || "");
+  const failed = task?.statusGroup === "failed";
   const gridClass = count <= 1
     ? "grid-cols-1 max-w-[min(280px,100%)]"
     : count === 2
@@ -941,10 +962,17 @@ function ResultsPanel({
     <div className="studio-result-stage h-full overflow-y-auto p-4 pb-24 sm:p-6 sm:pb-28">
       <div className="face-swap-result-banner mx-auto mb-5 flex max-w-5xl items-center justify-between gap-3 rounded-2xl border px-4 py-3">
         <div>
-          <p className="text-sm font-black text-cyan-800">{isGenerating ? "换脸生成中" : "换脸完成"}</p>
-          <p className="mt-1 text-xs text-cyan-700">{urls.length}/{count} 张结果，鼠标悬停可下载、继续编辑或设为参考图。</p>
+          <p className={failed ? "text-sm font-black text-red-600" : "text-sm font-black text-slate-800"}>
+            {failed ? "换脸生成失败" : isGenerating ? "换脸生成中" : "换脸完成"}
+          </p>
+          {task?.time && (
+            <p className={failed ? "mt-1 text-xs font-semibold text-red-500" : "mt-1 text-xs font-semibold text-slate-600"}>{task.time}</p>
+          )}
+          <p className={failed ? "mt-1 text-xs text-red-500" : "mt-1 text-xs text-slate-600"}>
+            {failed ? "可套用历史参数后重新生成。" : `${urls.length}/${count} 张结果，鼠标悬停可下载、继续编辑或设为参考图。`}
+          </p>
         </div>
-        <button type="button" onClick={onRegenerate} disabled={isGenerating} className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-2 text-xs font-bold text-violet-600 shadow-sm disabled:opacity-50">
+        <button type="button" onClick={onRegenerate} disabled={isGenerating} className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-2 text-xs font-bold text-emerald-600 shadow-sm disabled:opacity-50">
           <RotateCcw className="h-3.5 w-3.5" /> 再来一组
         </button>
       </div>
@@ -955,9 +983,15 @@ function ResultsPanel({
               {url ? (
                 <img src={url} alt={`face swap result ${index + 1}`} className="h-full w-full cursor-zoom-in object-contain" onClick={() => onOpen(url)} />
               ) : (
-                <div className="gen-card flex h-full w-full flex-col items-center justify-center gap-2 bg-gradient-to-br from-rose-50 via-violet-50 to-blue-50 text-rose-500">
-                  <Sparkles className="relative z-[1] h-7 w-7 animate-pulse" />
-                  <p className="relative z-[1] text-xs font-semibold text-slate-500">预计1-2分钟</p>
+                <div className={`gen-card flex h-full w-full flex-col items-center justify-center gap-2 ${
+                  failed
+                    ? "bg-gradient-to-br from-red-50 via-rose-50 to-slate-50 text-red-400"
+                    : "bg-gradient-to-br from-emerald-50 via-neutral-50 to-neutral-100 text-emerald-500"
+                }`}>
+                  {failed ? <X className="relative z-[1] h-7 w-7" /> : <Activity className="relative z-[1] h-7 w-7 animate-pulse" />}
+                  <p className={`relative z-[1] text-xs font-semibold ${failed ? "text-red-500" : "text-slate-500"}`}>
+                    {failed ? "生成失败，可套用参数重试" : "预计1-2分钟"}
+                  </p>
                 </div>
               )}
             </div>
@@ -965,7 +999,7 @@ function ResultsPanel({
               <div className="absolute inset-x-3 bottom-3 flex translate-y-2 flex-wrap justify-center gap-2 opacity-0 transition-all group-hover:translate-y-0 group-hover:opacity-100">
                 <ActionButton icon={<Download className="h-3.5 w-3.5" />} label="下载" onClick={() => downloadImage(url, generateDownloadFilename("face-swap", index, "png"))} />
                 <ActionButton icon={<Copy className="h-3.5 w-3.5" />} label="复制链接" onClick={() => onCopyUrl(url)} />
-                <ActionButton icon={<Wand2 className="h-3.5 w-3.5" />} label="设为原图" onClick={() => onUseAsSource(url)} />
+                <ActionButton icon={<Brush className="h-3.5 w-3.5" />} label="设为原图" onClick={() => onUseAsSource(url)} />
                 <ActionButton icon={<UserRoundCheck className="h-3.5 w-3.5" />} label="设为脸图" onClick={() => onUseAsFace(url)} />
               </div>
             )}
@@ -985,7 +1019,7 @@ function isLegacyRemoteAssetUrl(url?: string) {
 
 function ActionButton({ icon, label, onClick }: { icon: ReactNode; label: string; onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} className="inline-flex items-center gap-1.5 rounded-full bg-white/92 px-3 py-2 text-xs font-bold text-slate-700 shadow-lg ring-1 ring-slate-200/80 backdrop-blur transition hover:text-violet-600">
+    <button type="button" onClick={onClick} className="inline-flex items-center gap-1.5 rounded-full bg-white/92 px-3 py-2 text-xs font-bold text-neutral-700 shadow-lg ring-1 ring-neutral-200/80 backdrop-blur transition hover:text-emerald-600">
       {icon}
       {label}
     </button>

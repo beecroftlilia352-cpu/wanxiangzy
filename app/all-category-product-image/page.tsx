@@ -17,10 +17,9 @@ import {
   MonitorSmartphone,
   PackageCheck,
   RefreshCw,
-  Sparkles,
   Trash2,
   Upload,
-  Wand2,
+  Brush,
   X,
   ZoomIn,
 } from "lucide-react";
@@ -126,10 +125,9 @@ const MAX_PRODUCT_UPLOADS = 6;
 const API_PRODUCT_IMAGE_LIMIT = 3;
 
 const MODELS: Array<{ value: LingyaModel; label: string; badge?: string }> = [
-  { value: "gpt-image-2", label: "GPT Image 2", badge: "默认" },
-  { value: "nano-banana-2", label: "Nano Banana 2", badge: "快" },
+  { value: "nano-banana-2", label: "Nano Banana 2", badge: "默认" },
+  { value: "gpt-image-2", label: "GPT Image 2", badge: "高质感" },
   { value: "nano-banana-pro", label: "Nano Banana Pro", badge: "质感" },
-  { value: "doubao-seedream-4-5-251128", label: "Seedream 4.5", badge: "省" },
 ];
 
 const MAIN_ASPECTS: AspectRatio[] = ["1:1", "3:4", "4:3"];
@@ -257,7 +255,7 @@ export default function AllCategoryProductImagePage() {
   const [imageType, setImageType] = useState<ProductSetImageType>("details");
   const [platform, setPlatform] = useState(DEFAULT_ALL_CATEGORY_PRODUCT_IMAGE_PLATFORM);
   const [language, setLanguage] = useState(DEFAULT_ALL_CATEGORY_PRODUCT_IMAGE_LANGUAGE);
-  const [aiModel, setAiModel] = useState<LingyaModel>("gpt-image-2");
+  const [aiModel, setAiModel] = useState<LingyaModel>("nano-banana-2");
   const [imageSize, setImageSize] = useState<ImageSize>("1K");
   const [imageCount, setImageCount] = useState(getDefaultCount("details"));
   const [productImages, setProductImages] = useState<ProductImage[]>([]);
@@ -606,12 +604,12 @@ export default function AllCategoryProductImagePage() {
         <div className="mx-auto max-w-[1160px]">
           <header className="text-center">
             <div className="inline-flex h-9 items-center gap-2 rounded-full border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-800 shadow-sm">
-              <Sparkles className="h-4 w-4" />
-              AI 全品类商品图
+              <PackageCheck className="h-4 w-4" />
+              全品类商品图
             </div>
             <h1 className="mt-6 text-[30px] font-black tracking-normal text-slate-950 sm:text-[34px]">一键生成主图 & 详情图组</h1>
             <p className="mx-auto mt-3 max-w-3xl text-base leading-7 text-slate-500">
-              上传产品图，AI 智能分析产品特征，自动生成电商主图及多角度、多场景的详情图组
+              上传产品图，自动分析产品特征，自动生成电商主图及多角度、多场景的详情图组
             </p>
           </header>
 
@@ -743,7 +741,7 @@ export default function AllCategoryProductImagePage() {
                         disabled={!productImages.length || isAnalyzing || isGenerating}
                         className="absolute bottom-3 right-3 inline-flex h-8 items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 text-xs font-black text-slate-800 shadow-sm hover:bg-slate-50 disabled:opacity-50"
                       >
-                        <Wand2 className="h-3.5 w-3.5" />
+                        <Brush className="h-3.5 w-3.5" />
                         AI帮写
                       </button>
                     </div>
@@ -766,7 +764,7 @@ export default function AllCategoryProductImagePage() {
                 disabled={!canAnalyze && !canGenerate}
                 className="flex h-14 w-full items-center justify-center gap-2 rounded-[16px] bg-slate-950 text-base font-black text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-[#929292] disabled:text-white disabled:opacity-100"
               >
-                {isAnalyzing || isGenerating ? <Loader2 className="h-5 w-5 animate-spin" /> : activeStepIndex >= stepIndex("planning") ? <PackageCheck className="h-5 w-5" /> : <Wand2 className="h-5 w-5" />}
+                {isAnalyzing || isGenerating ? <Loader2 className="h-5 w-5 animate-spin" /> : activeStepIndex >= stepIndex("planning") ? <PackageCheck className="h-5 w-5" /> : <Brush className="h-5 w-5" />}
                 {isAnalyzing ? "分析中..." : isGenerating ? "生成中..." : activeStepIndex >= stepIndex("planning") ? `确认生成 ${modules.length} 张图片` : "分析产品"}
               </button>
             </aside>
@@ -775,7 +773,7 @@ export default function AllCategoryProductImagePage() {
               <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 <div className="flex min-w-0 items-start gap-3">
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500">
-                    <Sparkles className="h-4 w-4" />
+                      <PackageCheck className="h-4 w-4" />
                   </span>
                   <div className="min-w-0">
                     <h2 className="text-sm font-black text-slate-950">{activeStep === "done" ? "生成完成" : activeStep === "generating" ? "生成中..." : activeStep === "analyzing" ? "分析中..." : activeStep === "planning" ? "设计规划预览" : "生成结果"}</h2>
@@ -945,7 +943,7 @@ function EmptyState({ title, description }: { title: string; description: string
     <div className="flex min-h-[680px] items-center justify-center px-6 text-center">
       <div>
         <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 text-slate-500">
-          <Sparkles className="h-8 w-8" />
+          <PackageCheck className="h-8 w-8" />
         </div>
         <h3 className="mt-5 text-sm font-semibold leading-6 text-slate-600">{title}</h3>
         <p className="mx-auto mt-1 max-w-sm text-sm leading-6 text-slate-500">{description}</p>
@@ -1064,7 +1062,7 @@ function GenerationSkeleton({ title, progress }: { title: string; progress: numb
   return (
     <div className="flex aspect-[3/4] flex-col items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-center">
       <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-slate-500 shadow-sm">
-        <Sparkles className="h-6 w-6" />
+        <PackageCheck className="h-6 w-6" />
       </div>
       <p className="mt-4 text-sm font-black text-slate-700">{title}</p>
       <p className="mt-1 px-4 text-xs text-slate-500">{getProgressMessage("generating", progress)}</p>
@@ -1173,7 +1171,7 @@ function AiWritingModal({
         <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4">
           <div className="flex min-w-0 items-center gap-3">
             <span className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100">
-              <Wand2 className="h-5 w-5 text-slate-700" />
+              <Brush className="h-5 w-5 text-slate-700" />
             </span>
             <div>
               <h2 className="text-base font-black text-slate-950">AI帮写方案选择</h2>

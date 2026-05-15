@@ -82,14 +82,14 @@ export function MentionDropdown({ images, query, onSelect, visible }: Props) {
           onClick={() => onSelect(img.index)}
           onMouseEnter={() => setSelectedIdx(idx)}
           className={`flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors ${
-            idx === selectedIdx ? "bg-violet-50" : "hover:bg-violet-50"
+            idx === selectedIdx ? "bg-[rgba(91,124,255,0.1)]" : "hover:bg-[rgba(91,124,255,0.12)]"
           }`}
         >
           <div className="studio-checkerboard h-8 w-8 shrink-0 overflow-hidden rounded-lg border border-slate-100">
             <img src={img.hostedUrl || img.url} alt={`图${img.index}`} className="h-full w-full object-contain p-0.5" />
           </div>
           <div className="min-w-0 flex-1">
-            <span className="text-sm font-bold text-violet-600">图{img.index}</span>
+            <span className="text-sm font-bold text-[var(--codex-accent)]">图{img.index}</span>
             <span className="ml-1.5 text-xs text-slate-400">{ROLE_LABELS[img.role || "auto"] || "自动"}</span>
             <span className="ml-1.5 text-xs text-slate-300">{img.fileName}</span>
           </div>

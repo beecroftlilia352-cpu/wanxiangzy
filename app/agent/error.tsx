@@ -26,7 +26,7 @@ export default function AgentError({
         </p>
         <button
           onClick={reset}
-          className="mt-4 inline-flex items-center gap-2 rounded-xl bg-violet-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-violet-200 hover:bg-violet-700"
+          className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[rgba(91,124,255,0.1)] px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-slate-300/40 hover:bg-[rgba(91,124,255,0.12)]"
         >
           <RefreshCw className="h-4 w-4" />
           重试

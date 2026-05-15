@@ -37,14 +37,14 @@ export function PreviewGuide({
               className="object-cover"
             />
           ) : (
-            <div className="flex h-full w-full items-center justify-center bg-white/70 text-purple-400">
+            <div className="flex h-full w-full items-center justify-center bg-white/70 text-[var(--codex-accent)]">
               {icon}
             </div>
           )}
         </div>
 
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-black uppercase tracking-normal text-purple-500 sm:text-[11px]">Preview Guide</p>
+          <p className="text-[10px] font-black uppercase tracking-normal text-[var(--codex-accent)]0 sm:text-[11px]">Preview Guide</p>
           <h3 className="mt-1 text-base font-black text-slate-950 sm:text-lg">{title}</h3>
           <p className="mt-0.5 text-[11px] leading-4 text-slate-500 sm:mt-1 sm:text-xs sm:leading-5">{subtitle}</p>
 

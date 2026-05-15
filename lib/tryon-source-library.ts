@@ -25,7 +25,7 @@ const MODULE_LABELS: Record<string, string> = {
   pose: "姿势裂变",
   model: "专属模特",
   garment3d: "服装 3D",
-  faceSwap: "AI 换脸",
+  faceSwap: "换脸",
 };
 
 export function getTryOnSourceLibraryItems(rows: TryOnSourceLibraryRow[], maxItems = 48): TryOnSourceLibraryItem[] {

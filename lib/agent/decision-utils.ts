@@ -214,7 +214,7 @@ export function validateImageRoleConflicts(
       checkAllowed("换脸原图", refs.faceSwapSource, ["source", "reference", "clothing"]);
       checkAllowed("目标脸图", refs.faceSwapFace, ["face", "reference"]);
       if (refs.faceSwapSource[0] && refs.faceSwapFace[0] && refs.faceSwapSource[0] === refs.faceSwapFace[0]) {
-        issues.push("AI 换脸需要原始模特图和目标脸图，不能使用同一张图。");
+    issues.push("换脸需要原始模特图和目标脸图，不能使用同一张图。");
       }
       break;
     case "model":

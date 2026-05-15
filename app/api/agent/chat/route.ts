@@ -1284,7 +1284,7 @@ function applyPromptToParams(params: Record<string, unknown>, prompt: string): R
 function getUsedImageIndexes(params: Record<string, unknown>, images: AgentImageInput[]): number[] {
   const haystack = flattenStrings([params]).join("\n");
   return images
-    .filter((img) => haystack.includes(img.url) || haystack.includes(`\u56fe${img.index}`) || haystack.includes(`鍥?${img.index}`))
+    .filter((img) => haystack.includes(img.url) || haystack.includes(`图${img.index}`))
     .map((img) => img.index);
 }
 

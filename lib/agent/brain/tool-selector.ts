@@ -28,7 +28,7 @@ export function selectCandidateTools(params: {
     if (/(详情页|商品详情|详情长图|长图|卖点图|参数图|功能图|尺码图|淘宝|天猫|京东|拼多多|PDD|抖音|小红书|独立站|shopify|官网)/i.test(text) && tool.type === "commerce_detail") add(0.52, "语义目标是电商详情页");
     if (/(banner|主图|海报|活动图|推广图)/i.test(text) && tool.type === "commerce_creative") add(0.45, "语义目标是商业创意图");
     if (/(穿上|换装|试穿|上身|穿到|穿在)/.test(text) && tool.type === "tryon") add(0.55, "语义目标是人物换装");
-    if (/(换脸|替换脸|换五官|替换五官|人脸替换|face\s*swap)/i.test(text) && tool.type === "face_swap") add(0.6, "语义目标是 AI 换脸");
+  if (/(换脸|替换脸|换五官|替换五官|人脸替换|face\s*swap)/i.test(text) && tool.type === "face_swap") add(0.6, "语义目标是换脸");
     if (/(姿势|pose|四宫格|每张.*单独|独立出图)/i.test(text) && tool.type === "pose_variation") add(0.5, "语义目标是姿势裂变");
     if (/(3d|3D|立体|悬浮|陈列|商品展示)/.test(text) && tool.type === "garment_3d") add(0.48, "语义目标是 3D 展示感图片");
     if (/(背景|场景|空间|换环境)/.test(text) && tool.type === "background_replace") add(0.42, "语义目标是换背景");

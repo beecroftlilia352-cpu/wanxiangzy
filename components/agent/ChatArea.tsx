@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence } from "framer-motion";
-import { ArrowDown, Bot, Boxes, Camera, LayoutTemplate, Shirt, Sparkles, Wand2 } from "lucide-react";
+import { ArrowDown, Bot, Boxes, Camera, LayoutTemplate, Shirt, Activity, Brush } from "lucide-react";
 import type { ReactNode } from "react";
 import type {
   ChatImage,
@@ -42,12 +42,12 @@ const PRESET_QUESTIONS = [
   { icon: <Camera className="h-4 w-4" />, title: "时尚街拍", text: "帮我生成一张时尚街拍" },
   { icon: <LayoutTemplate className="h-4 w-4" />, title: "电商详情页", text: "生成一套适合电商平台的详情页" },
   { icon: <Boxes className="h-4 w-4" />, title: "3D 展示", text: "生成一张3D立体商品展示图" },
-  { icon: <Wand2 className="h-4 w-4" />, title: "拍摄方案", text: "给我一套商业拍摄创意" },
+  { icon: <Brush className="h-4 w-4" />, title: "拍摄方案", text: "给我一套商业拍摄创意" },
 ];
 
 const IMAGE_SUGGESTIONS = [
   { icon: <Shirt className="h-4 w-4" />, title: "换装", text: "图2人物穿图1衣服" },
-  { icon: <Sparkles className="h-4 w-4" />, title: "姿势裂变", text: "生成4个不同姿势，每张单独出图" },
+  { icon: <Activity className="h-4 w-4" />, title: "姿势裂变", text: "生成4个不同姿势，每张单独出图" },
   { icon: <LayoutTemplate className="h-4 w-4" />, title: "电商详情页", text: "根据这些图生成适合电商平台的详情页" },
   { icon: <Boxes className="h-4 w-4" />, title: "3D 展示", text: "做一张3D立体商品展示图" },
 ];
@@ -172,12 +172,12 @@ export function ChatArea({
 
           {showThinking && (
             <div className="flex gap-2.5 py-1">
-              <div className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-pink-500 text-white shadow-sm shadow-violet-200">
+              <div className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-slate-700 to-slate-950 text-white shadow-sm shadow-slate-300/40">
                 <Bot className="h-3.5 w-3.5 animate-pulse" />
               </div>
-              <div className="flex items-center gap-3 rounded-2xl rounded-bl-md border border-violet-100 bg-gradient-to-r from-violet-50 to-pink-50 px-4 py-3">
+              <div className="flex items-center gap-3 rounded-2xl rounded-bl-md border border-slate-200 bg-gradient-to-r from-slate-50 to-white px-4 py-3">
                 <ThinkingDots />
-                <span className="text-xs font-semibold text-violet-600">思考中...</span>
+                <span className="text-xs font-semibold text-slate-600">思考中...</span>
               </div>
             </div>
           )}
@@ -224,9 +224,9 @@ function QuickActions({
           <button
             key={q.text}
             onClick={() => onQuickAction(q.text)}
-            className="group inline-flex max-w-full items-center gap-2 rounded-full border border-slate-200 bg-white/90 px-3.5 py-2 text-left text-sm shadow-sm transition-all hover:-translate-y-0.5 hover:border-violet-200 hover:bg-violet-50/70 hover:shadow-md"
+            className="group inline-flex max-w-full items-center gap-2 rounded-full border border-slate-200 bg-white/90 px-3.5 py-2 text-left text-sm shadow-sm transition-all hover:-translate-y-0.5 hover:border-[rgba(91,124,255,0.3)] hover:bg-[rgba(91,124,255,0.12)] hover:shadow-md"
           >
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition-colors group-hover:bg-white group-hover:text-violet-600">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition-colors group-hover:bg-white group-hover:text-[var(--codex-accent)]">
               {q.icon}
             </span>
             <span className="min-w-0 truncate font-semibold text-slate-700">{q.title}</span>
@@ -238,7 +238,7 @@ function QuickActions({
           <button
             key={`${q.text}-example`}
             onClick={() => onQuickAction(q.text)}
-            className="max-w-full truncate rounded-full bg-slate-100/70 px-3 py-1.5 text-[11px] font-medium text-slate-500 transition-colors hover:bg-violet-50 hover:text-violet-600"
+            className="max-w-full truncate rounded-full bg-slate-100/70 px-3 py-1.5 text-[11px] font-medium text-slate-500 transition-colors hover:bg-[rgba(91,124,255,0.12)] hover:text-[var(--codex-accent)]"
             title={q.text}
           >
             {q.text}
@@ -255,7 +255,7 @@ function ThinkingDots() {
       {[0, 1, 2].map((i) => (
         <span
           key={i}
-          className="inline-block h-2 w-2 rounded-full bg-violet-400"
+          className="inline-block h-2 w-2 rounded-full bg-[rgba(91,124,255,0.1)]"
           style={{ animation: "thinking-dot 1.4s ease-in-out infinite", animationDelay: `${i * 0.2}s` }}
         />
       ))}

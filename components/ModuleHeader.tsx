@@ -34,14 +34,14 @@ export function ModuleHeader({ title, tooltip }: ModuleHeaderProps) {
           onMouseLeave={() => setTooltipStyle(null)}
           onFocus={showTooltip}
           onBlur={() => setTooltipStyle(null)}
-          className="flex h-5 w-5 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-400 shadow-sm transition-colors hover:border-violet-200 hover:text-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-200"
+          className="flex h-5 w-5 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-400 shadow-sm transition-colors hover:border-emerald-200 hover:text-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-200"
         >
           <CircleHelp className="h-3.5 w-3.5" />
         </button>
         {tooltipStyle && (
           <ClientPortal>
             <div
-              className="pointer-events-none fixed z-[320] w-72 rounded-xl bg-slate-950 px-3 py-2.5 text-left text-xs font-medium leading-relaxed text-white shadow-[0_18px_42px_rgba(15,23,42,0.26)] animate-fade-in"
+              className="mac-surface pointer-events-none fixed z-[320] w-72 rounded-xl px-3 py-2.5 text-left text-xs font-medium leading-relaxed text-slate-700 shadow-[0_18px_42px_rgba(15,23,42,0.26)] animate-fade-in"
               style={{ top: tooltipStyle.top, left: tooltipStyle.left }}
             >
             {tooltip}

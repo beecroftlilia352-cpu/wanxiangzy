@@ -2,12 +2,18 @@ import { describe, expect, it } from "vitest";
 import { __lingyaTaskResponseTestUtils } from "../lingya";
 
 const {
+  buildLaozhangNativeImageRequest,
+  buildGenerateRequestBody,
   calculateImageRequestHeartbeatProgress,
   extractGeneratedImages,
+  getImageEditUrl,
   getImageGenerationUrl,
+  getLaozhangGenerateContentUrl,
   getPlatoApiBaseUrl,
   normalizeImageTaskResponse,
   resolveProviderImageModel,
+  shouldUseLaozhangNativeEndpoint,
+  shouldUseImageEditEndpoint,
   shouldRequestAsyncImageTask,
 } = __lingyaTaskResponseTestUtils;
 
@@ -64,13 +70,102 @@ describe("lingya async task response parsing", () => {
     expect(images.urls).toEqual([]);
   });
 
+  it("extracts inline images from LaoZhang native Gemini responses", () => {
+    const images = extractGeneratedImages({
+      candidates: [{
+        content: {
+          parts: [{
+            inlineData: {
+              mimeType: "image/jpeg",
+              data: "aGVsbG8=",
+            },
+          }],
+        },
+      }],
+    });
+
+    expect(images.urls).toEqual([]);
+    expect(images.b64Json).toBe("data:image/jpeg;base64,aGVsbG8=");
+  });
+
   it("uses synchronous image generation for Plato and async tasks for Lingya", () => {
     expect(shouldRequestAsyncImageTask({ name: "plato" })).toBe(false);
+    expect(shouldRequestAsyncImageTask({ name: "laozhang" })).toBe(false);
     expect(shouldRequestAsyncImageTask({ name: "lingya" })).toBe(true);
     expect(getImageGenerationUrl("https://api.bltcy.ai/v1", { name: "plato" }))
       .toBe("https://api.bltcy.ai/v1/images/generations");
     expect(getImageGenerationUrl("https://api.lingyaai.cn/v1", { name: "lingya" }))
       .toBe("https://api.lingyaai.cn/v1/images/generations?async=true");
+  });
+
+  it("routes nano banana models through LaoZhang native generateContent", async () => {
+    const request = await buildLaozhangNativeImageRequest({
+      apiBase: "https://api.laozhang.ai",
+      apiKey: "test-key",
+      model: "gemini-3.1-flash-image-preview",
+      prompt: "generate a red cup",
+      imageUrls: [],
+      aspectRatio: "3:4",
+      imageSize: "2K",
+    });
+
+    expect(shouldUseLaozhangNativeEndpoint({ model: "nano-banana-2" }, { name: "laozhang" }))
+      .toBe(true);
+    expect(getLaozhangGenerateContentUrl("https://api.laozhang.ai", "gemini-3.1-flash-image-preview"))
+      .toBe("https://api.laozhang.ai/v1beta/models/gemini-3.1-flash-image-preview:generateContent");
+    expect(request.url).toBe("https://api.laozhang.ai/v1beta/models/gemini-3.1-flash-image-preview:generateContent");
+    expect(request.init.headers).toMatchObject({ "x-goog-api-key": "test-key", "Content-Type": "application/json" });
+    expect(JSON.parse(String(request.init.body))).toMatchObject({
+      contents: [{ role: "user", parts: [{ text: "generate a red cup" }] }],
+      generationConfig: {
+        responseModalities: ["IMAGE"],
+        imageConfig: { aspectRatio: "3:4", imageSize: "2K" },
+      },
+    });
+  });
+
+  it("routes gpt-image-2 reference image requests through image edits", () => {
+    const body = buildGenerateRequestBody({
+      model: "gpt-image-2",
+      prompt: "swap the face",
+      aspect_ratio: "9:16",
+      image: ["https://example.com/source.png", "https://example.com/face.jpg"],
+      image_size: "1K",
+    }, "compiled prompt");
+
+    expect(shouldUseImageEditEndpoint({ model: "gpt-image-2", image: ["https://example.com/source.png"] }, { name: "plato" }))
+      .toBe(true);
+    expect(getImageEditUrl("https://yunwu.ai/v1")).toBe("https://yunwu.ai/v1/images/edits");
+    expect(body).toMatchObject({
+      model: "gpt-image-2",
+      prompt: "compiled prompt",
+      size: "1024x1536",
+      quality: "auto",
+    });
+    expect(body).not.toHaveProperty("image");
+    expect(body).not.toHaveProperty("response_format");
+    expect(body).not.toHaveProperty("aspect_ratio");
+  });
+
+  it("keeps nano banana reference image requests on the existing JSON shape", () => {
+    const body = buildGenerateRequestBody({
+      model: "nano-banana-2",
+      prompt: "swap the face",
+      aspect_ratio: "3:4",
+      image: ["https://example.com/source.png"],
+      image_size: "1K",
+    }, "compiled prompt");
+
+    expect(shouldUseImageEditEndpoint({ model: "nano-banana-2", image: ["https://example.com/source.png"] }, { name: "lingya" }))
+      .toBe(false);
+    expect(body).toMatchObject({
+      model: "nano-banana-2",
+      prompt: "compiled prompt",
+      response_format: "url",
+      aspect_ratio: "3:4",
+      image: ["https://example.com/source.png"],
+      image_size: "1K",
+    });
   });
 
   it("can override Plato gpt-image-2 with a provider-specific model id", () => {
@@ -83,7 +178,8 @@ describe("lingya async task response parsing", () => {
 
     expect(resolveProviderImageModel("gpt-image-2", { name: "plato" })).toBe("gpt-image-2-custom");
     expect(resolveProviderImageModel("gpt-image-2", { name: "lingya" })).toBe("gpt-image-2");
-    expect(resolveProviderImageModel("nano-banana-2", { name: "plato" })).toBe("nano-banana-2");
+    expect(resolveProviderImageModel("nano-banana-2", { name: "laozhang" })).toBe("gemini-3.1-flash-image-preview");
+    expect(resolveProviderImageModel("nano-banana-pro", { name: "laozhang" })).toBe("gemini-3-pro-image-preview");
 
     if (previous === undefined) {
       delete process.env.PLATO_GPT_IMAGE_MODEL;

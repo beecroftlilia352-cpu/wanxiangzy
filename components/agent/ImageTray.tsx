@@ -43,9 +43,9 @@ export function ImageTray({ images, onAdd, onRemove, onClear, onRoleChange, onPr
   const hasStableIndexGap = images.some((img, index) => img.index !== index + 1);
 
   return (
-    <div className="mb-2 rounded-2xl border border-violet-100/80 bg-violet-50/35 p-2 shadow-sm shadow-violet-100/30">
+    <div className="mb-2 rounded-2xl border border-[rgba(91,124,255,0.22)] bg-[rgba(91,124,255,0.1)] p-2 shadow-sm shadow-slate-300/40">
       <div className="mb-2 flex items-center gap-2 px-1">
-        <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-white text-violet-500 shadow-sm">
+        <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-white text-[var(--codex-accent)]0 shadow-sm">
           <Images className="h-3.5 w-3.5" />
         </span>
         <div className="min-w-0 flex-1 text-left">
@@ -53,7 +53,7 @@ export function ImageTray({ images, onAdd, onRemove, onClear, onRoleChange, onPr
             <span className="text-xs font-bold text-slate-700">
               本次可用 {readyCount} 张附件图
             </span>
-            <span className="rounded-full bg-white px-1.5 py-0.5 text-[10px] font-semibold text-violet-500">
+            <span className="rounded-full bg-white px-1.5 py-0.5 text-[10px] font-semibold text-[var(--codex-accent)]0">
               独立上下文
             </span>
             {(uploadingCount > 0 || failedCount > 0) && (
@@ -107,7 +107,7 @@ export function ImageTray({ images, onAdd, onRemove, onClear, onRoleChange, onPr
               <button
                 type="button"
                 className={`studio-checkerboard relative h-16 w-16 overflow-hidden rounded-xl border shadow-sm transition-all ${
-                  failed ? "border-red-200 hover:border-red-300" : "border-white hover:border-violet-300 hover:shadow-md"
+                  failed ? "border-red-200 hover:border-red-300" : "border-white hover:border-[rgba(91,124,255,0.3)] hover:shadow-md"
                 } ${failed ? "cursor-default" : "cursor-pointer"}`}
                 onClick={() => !failed && onPreview?.(img.hostedUrl || img.url)}
                 title={failed ? img.uploadError : `预览图${img.index}`}
@@ -130,7 +130,7 @@ export function ImageTray({ images, onAdd, onRemove, onClear, onRoleChange, onPr
                 )}
               </button>
 
-              <span className="absolute -bottom-1 left-1/2 flex -translate-x-1/2 items-center gap-0.5 rounded-full bg-violet-600 px-1.5 py-0.5 text-[9px] font-bold leading-none text-white shadow-sm">
+              <span className="absolute -bottom-1 left-1/2 flex -translate-x-1/2 items-center gap-0.5 rounded-full bg-[rgba(91,124,255,0.1)] px-1.5 py-0.5 text-[9px] font-bold leading-none text-white shadow-sm">
                 <ShieldCheck className="h-2.5 w-2.5" />
                 图{img.index}
               </span>
@@ -140,7 +140,7 @@ export function ImageTray({ images, onAdd, onRemove, onClear, onRoleChange, onPr
                 disabled={failed}
                 onClick={(e) => e.stopPropagation()}
                 onChange={(e) => onRoleChange?.(img.index, e.target.value as ChatImageRole)}
-                className="absolute left-1 top-1 z-10 max-w-[58px] rounded-md bg-black/60 px-1 py-0.5 text-[9px] font-bold leading-none text-white outline-none backdrop-blur transition-colors hover:bg-violet-600/90 disabled:opacity-50"
+                className="absolute left-1 top-1 z-10 max-w-[58px] rounded-md bg-black/60 px-1 py-0.5 text-[9px] font-bold leading-none text-white outline-none backdrop-blur transition-colors hover:bg-[rgba(91,124,255,0.12)] disabled:opacity-50"
                 title={`图片角色：${ROLE_TEXT[role]}`}
               >
                 {ROLE_OPTIONS.map((option) => (
@@ -170,7 +170,7 @@ export function ImageTray({ images, onAdd, onRemove, onClear, onRoleChange, onPr
         {images.length < 10 && (
           <button
             onClick={() => inputRef.current?.click()}
-            className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl border-2 border-dashed border-violet-200 bg-white/70 text-violet-300 transition-all hover:border-violet-300 hover:bg-white hover:text-violet-500"
+            className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl border-2 border-dashed border-[rgba(91,124,255,0.22)] bg-white/70 text-[var(--codex-accent)] transition-all hover:border-[rgba(91,124,255,0.3)] hover:bg-white hover:text-[var(--codex-accent)]0"
             title="添加图片"
           >
             <Plus className="h-4 w-4" />

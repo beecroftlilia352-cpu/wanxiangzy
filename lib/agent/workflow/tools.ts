@@ -42,7 +42,7 @@ export const WORKFLOW_TOOLS: Record<WorkflowToolType, ToolDefinition> = {
   face_swap: {
     type: "face_swap",
     enabled: true,
-    title: "AI 换脸",
+    title: "换脸",
     description: "只替换人物面部五官身份，保留原图肤色、发型、身体、服装、背景、光线和构图。",
     inputSchema: { sourceImage: "image", faceImage: "image", prompt: "string", count: "number" },
     outputSchema: { imageUrls: "string[]" },

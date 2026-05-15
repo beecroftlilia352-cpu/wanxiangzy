@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { CheckCircle2, Clock3, Loader2, RefreshCw, XCircle } from "lucide-react";
+import { CheckCircle2, Clock3, ImageIcon, Loader2, RefreshCw, XCircle } from "lucide-react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import type { TaskQueueItem, TaskQueuePayload } from "@/lib/task-queue";
 import { isTaskFinished, isTaskRunning } from "@/lib/task-queue";
@@ -32,6 +32,11 @@ export function TaskQueueButton() {
   const [detailsLoaded, setDetailsLoaded] = useState(false);
   const [optimisticRunning, setOptimisticRunning] = useState(false);
   const [optimisticStartedAt, setOptimisticStartedAt] = useState(0);
+  const detailsLoadedRef = useRef(false);
+  const summaryInFlightRef = useRef(false);
+  const queueInFlightRef = useRef(false);
+  const rowsSignatureRef = useRef("");
+  const summarySignatureRef = useRef("");
 
   const running = rows.filter(isTaskRunning);
   const finished = rows.filter(isTaskFinished);
@@ -44,7 +49,11 @@ export function TaskQueueButton() {
 
   const applySummary = useCallback((payload: TaskQueuePayload) => {
     const nextSummary = normalizeSummaryPayload(payload);
-    setSummary(nextSummary);
+    const summarySignature = JSON.stringify(nextSummary);
+    if (summarySignature !== summarySignatureRef.current) {
+      summarySignatureRef.current = summarySignature;
+      setSummary(nextSummary);
+    }
     if (nextSummary.runningTaskNum > 0) {
       setOptimisticRunning(false);
     } else if (optimisticRunning && Date.now() - optimisticStartedAt > 1500) {
@@ -53,6 +62,8 @@ export function TaskQueueButton() {
   }, [optimisticRunning, optimisticStartedAt]);
 
   const loadSummary = useCallback(async () => {
+    if (summaryInFlightRef.current) return;
+    summaryInFlightRef.current = true;
     try {
       const res = await fetch("/api/task-queue?summary=1", { cache: "no-store" });
       const payload = await res.json().catch(() => ({})) as TaskQueuePayload;
@@ -60,22 +71,42 @@ export function TaskQueueButton() {
       applySummary(payload);
     } catch {
       // Keep the last good count; this poll is intentionally lightweight.
+    } finally {
+      summaryInFlightRef.current = false;
     }
   }, [applySummary]);
 
-  const loadQueue = useCallback(async () => {
-    setLoading(true);
+  const loadQueue = useCallback(async (showSpinner = false) => {
+    if (queueInFlightRef.current) return;
+    queueInFlightRef.current = true;
+    if (showSpinner || !detailsLoadedRef.current) setLoading(true);
     try {
       const res = await fetch("/api/task-queue", { cache: "no-store" });
       const payload = await res.json().catch(() => ({})) as TaskQueuePayload;
       if (!res.ok) return;
       const nextRows = Array.isArray(payload.rows) ? payload.rows : [];
-      setRows(nextRows);
+      const rowsSignature = JSON.stringify(nextRows.map((item) => [
+        item.id,
+        item.status,
+        item.statusGroup,
+        item.progress,
+        item.updatedAt,
+        item.resultCount,
+        item.expectedCount,
+        item.error,
+        item.thumbnails.join("|"),
+      ]));
+      if (rowsSignature !== rowsSignatureRef.current) {
+        rowsSignatureRef.current = rowsSignature;
+        setRows(nextRows);
+      }
+      detailsLoadedRef.current = true;
       setDetailsLoaded(true);
       applySummary(payload);
     } catch {
       // Detail loading is best-effort; summary polling keeps the badge fresh.
     } finally {
+      queueInFlightRef.current = false;
       setLoading(false);
     }
   }, [applySummary]);
@@ -107,7 +138,7 @@ export function TaskQueueButton() {
       }
       void loadSummary();
       window.setTimeout(loadSummary, 800);
-      if (open) window.setTimeout(loadQueue, 800);
+      if (open) window.setTimeout(() => void loadQueue(), 800);
     };
     const refreshVisible = () => {
       if (document.visibilityState === "hidden") return;
@@ -130,7 +161,7 @@ export function TaskQueueButton() {
   }, [finishedCount, runningCount, optimisticRunning]);
 
   const buttonLabel = useMemo(() => (
-    isRunning ? `Task ${Math.max(runningCount, 1)}` : `Task ${summary.finishedNeedReadTaskNum || totalCount || 0}`
+    isRunning ? `任务 ${Math.max(runningCount, 1)}` : `任务 ${summary.finishedNeedReadTaskNum || totalCount || 0}`
   ), [isRunning, runningCount, summary.finishedNeedReadTaskNum, totalCount]);
 
   return (
@@ -138,9 +169,9 @@ export function TaskQueueButton() {
       <DropdownMenu.Trigger asChild>
         <button
           type="button"
-          className="inline-flex h-9 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 shadow-sm transition hover:border-violet-200 hover:text-violet-700"
+          className="mac-button inline-flex h-9 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 shadow-sm transition hover:border-slate-300 hover:text-[var(--mac-accent)]"
         >
-          {isRunning ? <Loader2 className="h-3.5 w-3.5 animate-spin text-violet-600" /> : <RefreshCw className="h-3.5 w-3.5" />}
+          {isRunning ? <Loader2 className="h-3.5 w-3.5 animate-spin text-[var(--mac-accent)]" /> : <RefreshCw className="h-3.5 w-3.5" />}
           {buttonLabel}
         </button>
       </DropdownMenu.Trigger>
@@ -148,7 +179,7 @@ export function TaskQueueButton() {
         <DropdownMenu.Content
           align="end"
           sideOffset={10}
-          className="z-[90] w-[320px] overflow-hidden rounded-2xl border border-slate-200 bg-white p-3 shadow-[0_24px_90px_rgba(15,23,42,0.18)]"
+          className="mac-surface z-[90] w-[min(320px,calc(100vw-24px))] max-w-[calc(100vw-24px)] overflow-hidden rounded-2xl border border-slate-200 bg-white p-3 shadow-[0_24px_90px_rgba(15,23,42,0.18)]"
         >
           <div className="grid grid-cols-2 rounded-xl bg-slate-100 p-1">
             <button
@@ -156,14 +187,14 @@ export function TaskQueueButton() {
               onClick={() => setActiveTab("finished")}
               className={`h-8 rounded-lg text-xs font-bold transition ${activeTab === "finished" ? "bg-white text-slate-950 shadow-sm" : "text-slate-500"}`}
             >
-              Finished({finishedCount})
+              已完成({finishedCount})
             </button>
             <button
               type="button"
               onClick={() => setActiveTab("running")}
               className={`h-8 rounded-lg text-xs font-bold transition ${activeTab === "running" ? "bg-white text-slate-950 shadow-sm" : "text-slate-500"}`}
             >
-              Running({runningCount})
+              进行中({runningCount})
             </button>
           </div>
 
@@ -181,13 +212,13 @@ export function TaskQueueButton() {
                     {group.rows.map((item) => (
                       <DropdownMenu.Item key={item.id} asChild>
                         <Link
-                          href={item.applyUrl || "/history"}
+                          href={getTaskQueueHref(item)}
                           className="flex items-center gap-3 rounded-xl px-2 py-2 outline-none transition hover:bg-slate-50"
                         >
                           <StatusDot item={item} />
                           <div className="min-w-0 flex-1">
                             <p className="truncate text-sm font-semibold text-slate-800">{item.title}</p>
-                            <p className="mt-0.5 text-xs text-slate-400">{item.error || getQueueMeta(item)}</p>
+                            <p className="mt-0.5 line-clamp-1 break-words text-xs text-slate-400">{item.error || getQueueMeta(item)}</p>
                           </div>
                           <ThumbnailStack urls={item.thumbnails} />
                         </Link>
@@ -200,7 +231,7 @@ export function TaskQueueButton() {
               <div className="flex h-28 flex-col items-center justify-center text-center text-xs text-slate-400">
                 {activeTab === "running" && optimisticRunning ? (
                   <>
-                    <Loader2 className="mb-2 h-5 w-5 animate-spin text-violet-500" />
+                    <Loader2 className="mb-2 h-5 w-5 animate-spin text-blue-500" />
                     正在同步新任务...
                   </>
                 ) : (
@@ -216,7 +247,7 @@ export function TaskQueueButton() {
           <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3">
             <button
               type="button"
-              onClick={loadQueue}
+              onClick={() => void loadQueue(true)}
               className="inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-xs font-bold text-slate-500 hover:bg-slate-50 hover:text-slate-900"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
@@ -239,7 +270,7 @@ function ThumbnailStack({ urls }: { urls: string[] }) {
   if (!safeUrls.length) {
     return (
       <span className="flex h-10 w-8 items-center justify-center rounded-lg border border-slate-100 bg-slate-50 text-[10px] font-black text-slate-300">
-        AI
+        <ImageIcon className="h-3.5 w-3.5" />
       </span>
     );
   }
@@ -257,14 +288,19 @@ function ThumbnailStack({ urls }: { urls: string[] }) {
   );
 }
 
+function getTaskQueueHref(item: TaskQueueItem) {
+  if (isTaskRunning(item)) return `/history?detail=${encodeURIComponent(item.id)}`;
+  return item.applyUrl || `/history?detail=${encodeURIComponent(item.id)}`;
+}
+
 function StatusDot({ item }: { item: TaskQueueItem }) {
   if (isTaskRunning(item)) {
     const progress = clampProgress(item.progress);
     return (
-      <span className="relative flex h-5 w-5 items-center justify-center rounded-full bg-violet-50 text-violet-600">
+      <span className="relative flex h-5 w-5 items-center justify-center rounded-full bg-[var(--mac-accent-soft)] text-[var(--mac-accent)]">
         <Loader2 className="h-3.5 w-3.5 animate-spin" />
         {progress > 0 && (
-          <span className="absolute -right-1 -top-1 rounded-full bg-white px-1 text-[9px] font-black leading-3 text-violet-600 shadow-sm">
+          <span className="absolute -right-1 -top-1 rounded-full bg-white px-1 text-[9px] font-black leading-3 text-[var(--mac-accent)] shadow-sm">
             {progress}
           </span>
         )}

@@ -47,10 +47,10 @@ describe("compileImagePromptForModel", () => {
     expect(result.length).toBeLessThanOrEqual(2300);
   });
 
-  it("produces concise prompt for Seedream with required signals", () => {
+  it("produces concise prompt for nano-banana-pro with required signals", () => {
     const result = compileImagePromptForModel({
       kind: "pose",
-      model: "doubao-seedream-4-5-251128",
+      model: "nano-banana-pro",
       prompt: shortPrompt,
     });
     expect(result).toContain("四宫格");

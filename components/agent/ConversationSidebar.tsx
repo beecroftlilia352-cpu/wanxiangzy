@@ -57,7 +57,7 @@ export function ConversationSidebar({
         <div className="shrink-0 border-b border-slate-100 px-3 py-3">
           <div className="mb-3 flex items-center justify-between">
             <div>
-              <p className="text-sm font-bold text-slate-800">AI 助手</p>
+          <p className="text-sm font-bold text-slate-800">工作流助手</p>
               <p className="text-[11px] text-slate-400">历史保留，新任务不继承旧附件</p>
             </div>
             <button
@@ -78,7 +78,7 @@ export function ConversationSidebar({
           </button>
 
           {hasConversations && (
-            <div className="flex h-9 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/80 px-2.5 transition-all focus-within:border-violet-200 focus-within:bg-white">
+            <div className="flex h-9 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/80 px-2.5 transition-all focus-within:border-[rgba(91,124,255,0.22)] focus-within:bg-white">
               <Search className="h-3.5 w-3.5 text-slate-300" />
               <input
                 value={search}
@@ -147,14 +147,14 @@ function ConversationRow({
   return (
     <div
       className={`group relative flex cursor-pointer items-center gap-2 rounded-xl px-2.5 py-2 transition-all ${
-        active ? "bg-violet-50 text-violet-800" : "text-slate-650 hover:bg-slate-50"
+        active ? "bg-[rgba(91,124,255,0.1)] text-[var(--codex-accent)]" : "text-slate-650 hover:bg-slate-50"
       }`}
       onClick={onSwitch}
       title={title}
     >
       <span
         className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${
-          active ? "bg-violet-100 text-violet-600" : "bg-slate-100 text-slate-400 group-hover:text-slate-500"
+          active ? "bg-[rgba(91,124,255,0.1)] text-[var(--codex-accent)]" : "bg-slate-100 text-slate-400 group-hover:text-slate-500"
         }`}
       >
         <MessageSquare className="h-3.5 w-3.5" />

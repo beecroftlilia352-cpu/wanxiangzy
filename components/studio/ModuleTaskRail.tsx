@@ -24,30 +24,34 @@ export function ModuleTaskRail({
   const router = useRouter();
   const handleContinue = onContinue ?? (() => window.location.assign(window.location.pathname));
 
+  const applyTask = async (item: TaskQueueItem) => {
+    if (onCompletedTask) {
+      const handled = await onCompletedTask(item);
+      if (handled === true) return true;
+    }
+    if (!item.applyUrl) return false;
+    const target = new URL(item.applyUrl, window.location.origin);
+    if (target.pathname === window.location.pathname) {
+      window.history.replaceState(window.history.state, "", `${target.pathname}${target.search}${target.hash}`);
+      window.dispatchEvent(new CustomEvent("wanxiang:history-apply", { detail: { id: item.id, module: item.module } }));
+    } else {
+      router.push(`${target.pathname}${target.search}${target.hash}`);
+    }
+    return true;
+  };
+
   const handleSelectTask = async (item: TaskQueueItem) => {
     if (isTaskRunning(item)) {
       await onRunningTask?.(item);
       return;
     }
 
-    if (item.statusGroup === "completed") {
-      if (onCompletedTask) {
-        const handled = await onCompletedTask(item);
-        if (handled !== false) return;
-      }
-      if (!item.applyUrl) return;
-      const target = new URL(item.applyUrl, window.location.origin);
-      if (target.pathname === window.location.pathname) {
-        window.history.replaceState(window.history.state, "", `${target.pathname}${target.search}${target.hash}`);
-        window.dispatchEvent(new CustomEvent("wanxiang:history-apply", { detail: { id: item.id, module: item.module } }));
-      } else {
-        router.push(`${target.pathname}${target.search}${target.hash}`);
+    if (item.statusGroup === "completed" || item.statusGroup === "failed") {
+      const applied = await applyTask(item);
+      if (!applied && item.statusGroup === "failed") {
+        toast.error(item.error || "任务失败，可套用参数重试");
       }
       return;
-    }
-
-    if (item.statusGroup === "failed") {
-      toast.error(item.error || "任务失败，可重新生成");
     }
   };
 

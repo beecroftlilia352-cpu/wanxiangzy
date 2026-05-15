@@ -120,7 +120,7 @@ export default function AgentPage() {
   )[0];
 
   const conv = s.conversations.find((c) => c.id === s.activeId);
-  const title = conv?.title || "AI 助手";
+  const title = conv?.title || "工作流助手";
 
   return (
     <div className="studio-workbench min-h-[calc(100dvh-64px)] lg:h-[calc(100vh-64px)] flex flex-col lg:flex-row">
@@ -148,7 +148,7 @@ export default function AgentPage() {
 
           {conv?.mode && (
             <span className={`hidden shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold sm:inline-block ${
-              conv.mode === "agent" ? "bg-violet-100 text-violet-600" : "bg-slate-100 text-slate-500"
+              conv.mode === "agent" ? "bg-[rgba(91,124,255,0.1)] text-[var(--codex-accent)]" : "bg-slate-100 text-slate-500"
             }`}>
               {conv.mode === "agent" ? "Agent" : "Chat"}
             </span>
@@ -170,7 +170,7 @@ export default function AgentPage() {
           )}
 
           <button onClick={handleNewConversation}
-            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-500 transition-colors hover:border-violet-300 hover:text-violet-600">
+            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-500 transition-colors hover:border-[rgba(91,124,255,0.3)] hover:text-[var(--codex-accent)]">
             <Plus className="h-3.5 w-3.5" />
             新建
           </button>
