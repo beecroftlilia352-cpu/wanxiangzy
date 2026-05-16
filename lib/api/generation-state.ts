@@ -57,7 +57,12 @@ export function normalizeGenerationState(input: NormalizeGenerationStateInput): 
   const failed = explicitFailed || providerFailed;
   const completed = !failed && (explicitCompleted || hasEnoughResults || providerCompleted);
   const normalizedStatus = failed ? "failed" : completed ? "completed" : canonicalStatus;
-  const progress = failed || completed ? 100 : moduleExpectedCount ? readModuleProgress(moduleResults) : readRunningProgress({
+  const progress = completed ? 100 : failed ? readFailedProgress({
+    asyncProgress: asyncTask?.progress,
+    resultCount,
+    expectedCount,
+    moduleProgress: moduleExpectedCount ? readModuleProgress(moduleResults) : 0,
+  }) : moduleExpectedCount ? readModuleProgress(moduleResults) : readRunningProgress({
     asyncProgress: asyncTask?.progress,
     resultCount,
     expectedCount,
@@ -106,6 +111,14 @@ function readRunningProgress(params: { asyncProgress?: unknown; resultCount: num
     ? Math.floor((Math.min(params.resultCount, params.expectedCount) / Math.max(1, params.expectedCount)) * 100)
     : 0;
   return Math.min(99, Math.max(providerProgress, partialProgress));
+}
+
+function readFailedProgress(params: { asyncProgress?: unknown; resultCount: number; expectedCount: number; moduleProgress: number }) {
+  const providerProgress = clampProgress(params.asyncProgress, 100);
+  const partialProgress = params.resultCount > 0
+    ? Math.floor((Math.min(params.resultCount, params.expectedCount) / Math.max(1, params.expectedCount)) * 100)
+    : 0;
+  return Math.max(providerProgress, partialProgress, params.moduleProgress);
 }
 
 function readModuleProgress(modules: ReturnType<typeof normalizeProductSetModuleResults>) {
@@ -160,12 +173,12 @@ function firstFiniteNumber(values: unknown[]) {
   return 0;
 }
 
-function clampProgress(value: unknown) {
+function clampProgress(value: unknown, max = 99) {
   const num = typeof value === "string"
     ? Number(value.match(/\d+(?:\.\d+)?/)?.[0])
     : Number(value);
   if (!Number.isFinite(num)) return 0;
-  return Math.min(Math.max(Math.round(num), 0), 99);
+  return Math.min(Math.max(Math.round(num), 0), max);
 }
 
 function stringArray(value: unknown) {
