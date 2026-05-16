@@ -92,7 +92,7 @@ export default function ModelPage() {
   const [hairColor, setHairColor] = useState<string | null>(null);
   const [hairReferenceUrl, setHairReferenceUrl] = useState<string | null>(null);
   const [hairColorReferenceUrl, setHairColorReferenceUrl] = useState<string | null>(null);
-  const [aiModel, setAiModel] = useState<LingyaModel>("gpt-image-2");
+  const [aiModel, setAiModel] = useState<LingyaModel>("nano-banana-2");
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("3:4");
   const [imageSize, setImageSize] = useState<ImageSize>("1K");
   const [genCount, setGenCount] = useState(1);

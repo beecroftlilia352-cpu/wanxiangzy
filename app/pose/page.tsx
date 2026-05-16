@@ -59,7 +59,7 @@ export default function PosePage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [credits, setCredits] = useState<number | null>(null);
-  const [aiModel, setAiModel] = useState<LingyaModel>("gpt-image-2");
+  const [aiModel, setAiModel] = useState<LingyaModel>("nano-banana-2");
   const [imageSize, setImageSize] = useState<ImageSize>("1K");
   const [mainImage, setMainImage] = useState<string>("");
   const [prompt, setPrompt] = useState(DEFAULT_POSE_PROMPT);

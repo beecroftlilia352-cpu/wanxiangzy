@@ -102,7 +102,7 @@ export default function ModelBackgroundPage() {
   const [backgroundReferenceUrl, setBackgroundReferenceUrl] = useState(BACKGROUND_PRESETS[0].imageUrl);
   const [backgroundText, setBackgroundText] = useState(DEFAULT_BACKGROUND_TEXT);
   const [userPrompt, setUserPrompt] = useState("");
-  const [aiModel, setAiModel] = useState<LingyaModel>("gpt-image-2");
+  const [aiModel, setAiModel] = useState<LingyaModel>("nano-banana-2");
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("3:4");
   const [imageSize, setImageSize] = useState<ImageSize>("1K");
   const [genCount, setGenCount] = useState(1);

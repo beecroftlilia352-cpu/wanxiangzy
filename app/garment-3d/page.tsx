@@ -85,7 +85,7 @@ export default function Garment3dPage() {
   const [prompt, setPrompt] = useState("");
   const [promptOverride, setPromptOverride] = useState<string | null>(null);
 
-  const [aiModel, setAiModel] = useState<LingyaModel>("gpt-image-2");
+  const [aiModel, setAiModel] = useState<LingyaModel>("nano-banana-2");
   const [aspectRatio, setAspectRatio] = useState<Extract<AspectRatio, "1:1" | "3:4">>("1:1");
   const [imageSize, setImageSize] = useState<ImageSize>("1K");
   const [genCount, setGenCount] = useState(1);
