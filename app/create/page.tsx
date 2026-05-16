@@ -138,6 +138,8 @@ export default function CreatePage() {
   const rulesButtonRef = useRef<HTMLButtonElement>(null);
   const rulesHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeGenerationRef = useRef<string | null>(null);
+  const taskSelectionSeqRef = useRef(0);
+  const watchedGenerationIdsRef = useRef<Set<string>>(new Set());
   const [genCount, setGenCount] = useState(1);
 
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -849,96 +851,103 @@ export default function CreatePage() {
   }, []);
 
   const watchGeneration = useCallback(async (generationId: string, expectedCount: number) => {
+    if (watchedGenerationIdsRef.current.has(generationId)) return;
+    watchedGenerationIdsRef.current.add(generationId);
     let attempts = 0;
     const updateActiveTask = (patch: Partial<TaskQueueItem>) => {
       setActiveQueueTask((prev) => prev?.id === generationId ? { ...prev, ...patch } : prev);
     };
 
-    while (attempts < 120) {
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      attempts++;
+    try {
+      while (attempts < 120) {
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+        attempts++;
 
-      const isActive = activeGenerationRef.current === generationId;
-      try {
-        const pollRes = await fetch(`/api/tryon?generation_id=${encodeURIComponent(generationId)}`, { cache: "no-store" });
-        if (!pollRes.ok) continue;
+        const isActive = activeGenerationRef.current === generationId;
+        try {
+          const pollRes = await fetch(`/api/tryon?generation_id=${encodeURIComponent(generationId)}`, { cache: "no-store" });
+          if (!pollRes.ok) continue;
 
-        const pollData = await pollRes.json();
-        if (pollData.status === "processing_tryon" || pollData.status === "processing" || pollData.status === "pending") {
-          const partialResultUrls = Array.isArray(pollData.result_urls) ? pollData.result_urls.filter(Boolean) : [];
-          const progress = Math.min(
-            Math.max(Number(pollData.progress) || 0, 25 + attempts * 1.5),
-            99
-          );
-          if (isActive) {
-            store.updateProgress(progress);
-            if (partialResultUrls.length) store.setPartialResult(partialResultUrls);
+          const pollData = await pollRes.json();
+          if (pollData.status === "processing_tryon" || pollData.status === "processing" || pollData.status === "pending") {
+            const partialResultUrls = Array.isArray(pollData.result_urls) ? pollData.result_urls.filter(Boolean) : [];
+            const progress = Math.min(
+              Math.max(Number(pollData.progress) || 0, 25 + attempts * 1.5),
+              99
+            );
+            if (isActive) {
+              store.updateProgress(progress);
+              if (partialResultUrls.length) store.setPartialResult(partialResultUrls);
+            }
+            updateActiveTask({
+              status: "processing_tryon",
+              statusGroup: "running",
+              progress,
+              resultCount: partialResultUrls.length,
+              ...(partialResultUrls.length ? {
+                resultThumbnails: partialResultUrls,
+                thumbnails: partialResultUrls.slice(0, 2),
+              } : {}),
+            });
+            if (attempts % 3 === 0) refreshTaskQueue();
+            continue;
           }
-          updateActiveTask({
-            status: "processing_tryon",
-            statusGroup: "running",
-            progress,
-            resultCount: partialResultUrls.length,
-            ...(partialResultUrls.length ? {
-              resultThumbnails: partialResultUrls,
-              thumbnails: partialResultUrls.slice(0, 2),
-            } : {}),
-          });
-          if (attempts % 3 === 0) refreshTaskQueue();
-          continue;
-        }
 
-        if (pollData.status === "completed") {
-          const resultUrls = Array.isArray(pollData.result_urls) ? pollData.result_urls.filter(Boolean) : [];
-          if (isActive) {
-            store.updateProgress(100);
-            store.setResult(resultUrls);
-            toast.success("生成完成");
+          if (pollData.status === "completed") {
+            const resultUrls = Array.isArray(pollData.result_urls) ? pollData.result_urls.filter(Boolean) : [];
+            if (isActive) {
+              store.updateProgress(100);
+              store.setResult(resultUrls);
+              toast.success("生成完成");
+            }
+            updateActiveTask({
+              status: "completed",
+              statusGroup: "completed",
+              progress: 100,
+              resultCount: resultUrls.length,
+              expectedCount: Math.max(expectedCount, resultUrls.length || 1),
+              resultThumbnails: resultUrls,
+              thumbnails: resultUrls.slice(0, 2),
+              completedAt: new Date().toISOString(),
+            });
+            refreshTaskQueue();
+            return;
           }
-          updateActiveTask({
-            status: "completed",
-            statusGroup: "completed",
-            progress: 100,
-            resultCount: resultUrls.length,
-            expectedCount: Math.max(expectedCount, resultUrls.length || 1),
-            resultThumbnails: resultUrls,
-            thumbnails: resultUrls.slice(0, 2),
-            completedAt: new Date().toISOString(),
-          });
-          refreshTaskQueue();
-          return;
-        }
 
-        if (pollData.status === "failed") {
-          const message = pollData.error || "生成失败";
-          if (isActive) {
-            store.setError(message);
-            toast.error(message);
+          if (pollData.status === "failed") {
+            const message = pollData.error || "生成失败";
+            if (isActive) {
+              store.setError(message);
+              toast.error(message);
+            }
+            updateActiveTask({
+              status: "failed",
+              statusGroup: "failed",
+              error: message,
+              progress: 100,
+            });
+            refreshTaskQueue();
+            return;
           }
-          updateActiveTask({
-            status: "failed",
-            statusGroup: "failed",
-            error: message,
-            progress: 100,
-          });
-          refreshTaskQueue();
-          return;
+        } catch {
+          // Network blips are tolerated during polling.
         }
-      } catch {
-        // Network blips are tolerated during polling.
       }
-    }
 
-    if (activeGenerationRef.current === generationId) {
-      const message = "生成超时";
-      store.setError(message);
-      setActiveQueueTask((prev) => prev?.id === generationId ? { ...prev, status: "timeout", statusGroup: "failed", error: message } : prev);
-      toast.error(message);
+      if (activeGenerationRef.current === generationId) {
+        const message = "生成超时";
+        store.setError(message);
+        setActiveQueueTask((prev) => prev?.id === generationId ? { ...prev, status: "timeout", statusGroup: "failed", error: message } : prev);
+        toast.error(message);
+      }
+      refreshTaskQueue();
+    } finally {
+      watchedGenerationIdsRef.current.delete(generationId);
     }
-    refreshTaskQueue();
   }, [refreshTaskQueue, store]);
 
   const handleContinueCreate = useCallback(() => {
+    taskSelectionSeqRef.current += 1;
     activeGenerationRef.current = null;
     setActiveQueueTask(null);
     setUploadedClothingUrls([]);
@@ -1032,12 +1041,18 @@ export default function CreatePage() {
   }, [store]);
 
   const handleTaskSelect = useCallback(async (item: TaskQueueItem) => {
+    const selectionSeq = taskSelectionSeqRef.current + 1;
+    taskSelectionSeqRef.current = selectionSeq;
+    const isCurrentSelection = () => taskSelectionSeqRef.current === selectionSeq;
+
     if (isTaskRunning(item)) {
       const expectedCount = clampTaskExpectedCount(item, 1, 4);
+      const partialResultUrls = item.resultThumbnails.length ? item.resultThumbnails : [];
       activeGenerationRef.current = item.id;
       setActiveQueueTask(item);
       setGenCount(expectedCount);
       store.startGeneration();
+      if (partialResultUrls.length) store.setPartialResult(partialResultUrls);
       store.updateProgress(item.progress || 10);
       void watchGeneration(item.id, expectedCount);
       return;
@@ -1056,6 +1071,7 @@ export default function CreatePage() {
             row?: { job_payload?: HistoryJobPayload | Record<string, unknown> | null };
             error?: string;
           };
+          if (!isCurrentSelection()) return;
           if (!res.ok || !data.row?.job_payload) {
             throw new Error(data.error || "历史参数加载失败");
           }
@@ -1068,6 +1084,7 @@ export default function CreatePage() {
 
           applyTryOnHistoryPayload(payload, { resultUrls, selectedTask: item });
         } catch (err: any) {
+          if (!isCurrentSelection()) return;
           toast.error(err?.message || "历史参数加载失败");
         }
         return;
@@ -1078,7 +1095,7 @@ export default function CreatePage() {
     }
 
     if (item.statusGroup === "failed") {
-      activeGenerationRef.current = item.id;
+      activeGenerationRef.current = null;
       setActiveQueueTask(item);
       store.setError(item.error || "任务失败，可重新生成");
     }
@@ -1103,6 +1120,7 @@ export default function CreatePage() {
     if (credits !== null && credits < totalCost) { toast.error(`积分不足 ${totalCost}，余额 ${credits}`); return; }
 
     setIsSubmitting(true);
+    taskSelectionSeqRef.current += 1;
     store.startGeneration();
 
     try {
@@ -1901,6 +1919,7 @@ export default function CreatePage() {
                       createdAt={activeQueueTask?.createdAt}
                       statusGroup={activeQueueTask?.statusGroup}
                       variant="task"
+                      renderKey={activeQueueTask?.id || "tryon-create"}
                     />
                   </div>
                 </div>

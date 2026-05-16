@@ -21,6 +21,7 @@ type ResultImageGridProps = {
   createdAt?: string | null;
   statusGroup?: TaskStatusGroup;
   variant?: "cards" | "task";
+  renderKey?: string;
 };
 
 function getGridClass(count: number) {
@@ -46,6 +47,7 @@ export function ResultImageGrid({
   createdAt,
   statusGroup,
   variant = "cards",
+  renderKey = "result",
 }: ResultImageGridProps) {
   const fallbackCreatedAt = useMemo(() => new Date().toISOString(), []);
   const count = Math.max(urls.length, expectedCount || 0, 1);
@@ -80,7 +82,7 @@ export function ResultImageGrid({
           <div className={`grid min-w-0 flex-1 gap-3 ${getGridClass(count)}`}>
             {slots.map((url, index) => (
               <ResultCard
-                key={`${url || "pending"}-${index}`}
+                key={`${renderKey}-${url || "pending"}-${index}`}
                 url={url}
                 index={index}
                 count={count}
@@ -102,7 +104,7 @@ export function ResultImageGrid({
     <div className={`studio-result-card-grid mx-auto grid w-full gap-3 sm:gap-4 ${getGridClass(count)}`}>
       {slots.map((url, index) => (
         <ResultCard
-          key={`${url || "pending"}-${index}`}
+          key={`${renderKey}-${url || "pending"}-${index}`}
           url={url}
           index={index}
           count={count}
