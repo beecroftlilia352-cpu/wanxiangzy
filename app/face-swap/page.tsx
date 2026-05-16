@@ -22,7 +22,7 @@ import { ResultImageGrid } from "@/components/ResultImageGrid";
 import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
 import { LoadingStage } from "@/components/studio/LoadingStage";
 import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
-import { StudioModelSelector, StudioOptionGrid } from "@/components/studio/StudioFormControls";
+import { StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/components/studio/StudioFormControls";
 import { StudioRunBar } from "@/components/studio/StudioRunBar";
 import { StudioUploadSection } from "@/components/studio/StudioUploadSection";
 import {
@@ -598,7 +598,17 @@ export default function FaceSwapPage() {
             </button>
           </section>
 
-          <details className="rounded-2xl border border-slate-100 bg-white p-3">
+          <StudioPromptTextarea
+            title="补充要求"
+            badge="可选"
+            value={prompt}
+            onChange={(event) => setPrompt(event.target.value)}
+            rows={4}
+            placeholder="可选：补充保留眼镜、雀斑、配饰、冷感表情等细节。默认模板已锁定只换五官身份，不换肤色、发型、表情和配饰。"
+            description="补充说明会附加到系统提示词中，影响最终生成效果。"
+          />
+
+          <details className="hidden rounded-2xl border border-slate-100 bg-white p-3">
             <summary className="flex cursor-pointer list-none items-center gap-2 text-sm font-black text-slate-800">
               <Settings2 className="h-4 w-4 text-emerald-600" />
               高级提示词

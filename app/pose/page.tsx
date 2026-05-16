@@ -17,6 +17,7 @@ import { PreviewGuide } from "@/components/PreviewGuide";
 import { ErrorStage } from "@/components/studio/ErrorStage";
 import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
+import { StudioPromptTextarea } from "@/components/studio/StudioFormControls";
 import { fetchHistoryApplyDetail, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
 import type { TaskQueueItem } from "@/lib/task-queue";
 import { applyRepairPrompt } from "@/lib/generation-repair";
@@ -62,6 +63,7 @@ export default function PosePage() {
   const [imageSize, setImageSize] = useState<ImageSize>("1K");
   const [mainImage, setMainImage] = useState<string>("");
   const [prompt, setPrompt] = useState(DEFAULT_POSE_PROMPT);
+  const [supplementPrompt, setSupplementPrompt] = useState("");
   const [varyExpression, setVaryExpression] = useState(true);
   const [outputMode, setOutputMode] = useState<PoseOutputMode>("grid");
   const [poseStyle, setPoseStyle] = useState<PoseSeriesStyle>(DEFAULT_POSE_SERIES_STYLE);
@@ -82,7 +84,10 @@ export default function PosePage() {
   const imageSizes = getSupportedImageSizes(aiModel, "3:4");
   const unitCost = getCreditCost(aiModel, imageSize, "3:4");
   const cost = unitCost * (outputMode === "separate" ? 4 : 1);
-  const effectivePosePrompt = stripLegacyRuleDemoText(poseStyle === "user_custom" ? buildCustomPosePrompt() : prompt);
+  const effectivePosePrompt = stripLegacyRuleDemoText([
+    poseStyle === "user_custom" ? buildCustomPosePrompt() : prompt,
+    supplementPrompt.trim() ? `补充要求：${supplementPrompt.trim()}` : "",
+  ].filter(Boolean).join("\n\n"));
   const finalPosePrompt = enforcePosePromptRequirements(
     applyPoseSeriesStylePrompt(effectivePosePrompt, poseStyle),
     { varyExpression, poseStyle, outputMode }
@@ -158,6 +163,7 @@ export default function PosePage() {
     setAiModel(payload.aiModel);
     setImageSize(payload.imageSize);
     setPrompt(payload.prompt);
+    setSupplementPrompt("");
     setVaryExpression(payload.varyExpression !== false);
     setPoseStyle(normalizePoseSeriesStyle(payload.poseStyle));
     setResultUrls(historyResultUrls);
@@ -178,6 +184,7 @@ export default function PosePage() {
     setAiModel(payload.aiModel);
     setImageSize(payload.imageSize);
     setPrompt(payload.prompt);
+    setSupplementPrompt("");
     setVaryExpression(payload.varyExpression !== false);
     setPoseStyle(normalizePoseSeriesStyle(payload.poseStyle));
     setResultUrls(detail?.resultUrls || []);
@@ -634,6 +641,16 @@ export default function PosePage() {
               </div>
             )}
           </section>
+
+          <StudioPromptTextarea
+            title="补充要求"
+            badge="可选"
+            value={supplementPrompt}
+            onChange={(event) => setSupplementPrompt(event.target.value)}
+            rows={4}
+            placeholder="可选：例如希望动作更自然、镜头更干净、服装褶皱保持一致、四张图构图更统一..."
+            description="补充说明会附加到系统提示词中，影响最终生成效果。"
+          />
 
           <section>
             <h3 className="font-bold text-sm mb-3">提示词</h3>
