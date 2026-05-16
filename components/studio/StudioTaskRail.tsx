@@ -343,7 +343,10 @@ export function StudioTaskRail({
 
         <div className={cn("min-h-0 flex-1 overflow-y-auto custom-scroll", expanded ? "space-y-2 px-3 py-3" : "space-y-2 px-2 py-2")}>
           {initialLoading ? (
-            <TaskRailSkeleton compact={!expanded} />
+            <>
+              {!expanded && <ContinueCard selected={selectedId === CONTINUE_CARD_ID} disabled={interactionLocked} onClick={handleContinue} />}
+              <TaskRailSkeleton compact={!expanded} />
+            </>
           ) : visibleRows.length ? (
             <>
               {!expanded && <ContinueCard selected={selectedId === CONTINUE_CARD_ID} disabled={interactionLocked} onClick={handleContinue} />}
@@ -772,7 +775,7 @@ function getTaskSelectionSignature(item: TaskQueueItem) {
 function readTaskRailCache(module: string): TaskRailCache | null {
   if (typeof window === "undefined") return null;
   try {
-    const raw = window.sessionStorage.getItem(getTaskRailCacheKey(module));
+    const raw = window.localStorage.getItem(getTaskRailCacheKey(module));
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<TaskRailCache>;
     const cachedAt = Number(parsed.cachedAt);
@@ -794,7 +797,7 @@ function readTaskRailCache(module: string): TaskRailCache | null {
 function writeTaskRailCache(module: string, cache: TaskRailCache) {
   if (typeof window === "undefined") return;
   try {
-    window.sessionStorage.setItem(getTaskRailCacheKey(module), JSON.stringify(cache));
+    window.localStorage.setItem(getTaskRailCacheKey(module), JSON.stringify(cache));
   } catch {
     // Ignore storage quota/private mode failures; the live queue still refreshes.
   }

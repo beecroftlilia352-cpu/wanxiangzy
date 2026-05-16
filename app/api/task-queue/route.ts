@@ -89,7 +89,11 @@ const AUTH_TIMEOUT_MS = 10_000;
 const READ_RATE_LIMIT_TIMEOUT_MS = 1_500;
 const SUMMARY_QUERY_TIMEOUT_MS = 8_000;
 const QUEUE_QUERY_TIMEOUT_MS = 15_000;
+const LIGHTWEIGHT_QUEUE_QUERY_TIMEOUT_MS = 6_000;
+const LIGHTWEIGHT_QUEUE_RATE_LIMIT = 240;
+const LIGHTWEIGHT_QUEUE_RATE_WINDOW_MS = 60_000;
 const RUNNING_QUEUE_PIN_LIMIT = 80;
+const lightweightQueueBuckets = new Map<string, { count: number; resetAt: number }>();
 
 export async function GET(request: Request) {
   try {
@@ -100,12 +104,20 @@ export async function GET(request: Request) {
     const searchQuery = (searchParams.get("q") || searchParams.get("query") || "").trim().toLowerCase();
     const limit = clampNumber(searchParams.get("limit"), 8, 80, 32);
     const cursor = searchParams.get("cursor");
+    const lightweightModuleQueue = !includeSummary && Boolean(moduleFilter) && !cursor && !searchQuery;
     const supabase = await createServerSupabase({ readonlyCookies: true });
     const userResult = await withTimeout(supabase.auth.getUser(), AUTH_TIMEOUT_MS, "auth getUser timeout");
     const user = userResult.data.user;
     if (!user) return queueJson(summaryOnly ? summaryPayload(EMPTY_SUMMARY) : detailPayload([], EMPTY_SUMMARY));
-    const rateLimit = await safeEnforceReadRateLimit(user.id);
+    const rateLimit = lightweightModuleQueue
+      ? checkLightweightQueueRateLimit(user.id)
+      : await safeEnforceReadRateLimit(user.id);
     if (rateLimit) return rateLimit;
+
+    if (lightweightModuleQueue) {
+      const result = await loadLightweightModuleQueue(supabase, user.id, moduleFilter, limit);
+      return queueJson(detailPayload(result.rows, EMPTY_SUMMARY, result.hasMore, result.nextCursor));
+    }
 
     const summary = includeSummary ? await loadQueueSummary(supabase, user.id) : EMPTY_SUMMARY;
     if (summaryOnly) return queueJson(summaryPayload(summary));
@@ -116,9 +128,10 @@ export async function GET(request: Request) {
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
 
+    if (moduleFilter) generationsQuery = generationsQuery.eq("job_payload->>kind", moduleFilter);
     if (cursor) generationsQuery = generationsQuery.lt("created_at", cursor);
 
-    const queryLimit = moduleFilter ? Math.min(Math.max((limit + 1) * 5, 40), 200) : limit + 1;
+    const queryLimit = limit + 1;
     const { data, error } = await withTimeout(
       generationsQuery.limit(queryLimit),
       QUEUE_QUERY_TIMEOUT_MS,
@@ -166,6 +179,35 @@ async function safeEnforceReadRateLimit(userId: string) {
   } catch (error) {
     logTaskQueueWarning("rate limit unavailable", toLogMessage(error));
     return null;
+  }
+}
+
+function checkLightweightQueueRateLimit(userId: string) {
+  const now = Date.now();
+  const existing = lightweightQueueBuckets.get(userId);
+
+  if (!existing || existing.resetAt <= now) {
+    cleanupLightweightQueueBuckets(now);
+    lightweightQueueBuckets.set(userId, { count: 1, resetAt: now + LIGHTWEIGHT_QUEUE_RATE_WINDOW_MS });
+    return null;
+  }
+
+  if (existing.count >= LIGHTWEIGHT_QUEUE_RATE_LIMIT) {
+    const retryAfterSeconds = Math.max(1, Math.ceil((existing.resetAt - now) / 1000));
+    return NextResponse.json(
+      { error: "请求过于频繁，请稍后再试" },
+      { status: 429, headers: { "Retry-After": String(retryAfterSeconds) } }
+    );
+  }
+
+  existing.count += 1;
+  return null;
+}
+
+function cleanupLightweightQueueBuckets(now: number) {
+  if (lightweightQueueBuckets.size < 1000) return;
+  for (const [key, bucket] of lightweightQueueBuckets) {
+    if (bucket.resetAt <= now) lightweightQueueBuckets.delete(key);
   }
 }
 
@@ -342,6 +384,54 @@ function queueJson(body: unknown) {
   });
 }
 
+async function loadLightweightModuleQueue(
+  supabase: Awaited<ReturnType<typeof createServerSupabase>>,
+  userId: string,
+  moduleFilter: string,
+  limit: number
+): Promise<{ rows: TaskQueueItem[]; hasMore: boolean; nextCursor: string | null }> {
+  const recentQuery = supabase
+    .from("generations")
+    .select(QUEUE_COLUMNS)
+    .eq("user_id", userId)
+    .eq("job_payload->>kind", moduleFilter)
+    .order("created_at", { ascending: false })
+    .limit(limit + 1);
+  const runningQuery = supabase
+    .from("generations")
+    .select(QUEUE_COLUMNS)
+    .eq("user_id", userId)
+    .eq("job_payload->>kind", moduleFilter)
+    .in("status", [...GENERATION_RUNNING_STATUS_FILTERS])
+    .order("created_at", { ascending: false })
+    .limit(Math.min(RUNNING_QUEUE_PIN_LIMIT, Math.max(8, limit)));
+
+  const [recentResult, runningResult] = await Promise.all([
+    withTimeout(recentQuery, LIGHTWEIGHT_QUEUE_QUERY_TIMEOUT_MS, "module queue recent timeout")
+      .catch((error) => ({ data: [], error: { message: toLogMessage(error) } })),
+    withTimeout(runningQuery, LIGHTWEIGHT_QUEUE_QUERY_TIMEOUT_MS, "module queue running timeout")
+      .catch((error) => ({ data: [], error: { message: toLogMessage(error) } })),
+  ]);
+
+  if (recentResult.error) logTaskQueueWarning("module queue recent unavailable", recentResult.error.message);
+  if (runningResult.error) logTaskQueueWarning("module queue running unavailable", runningResult.error.message);
+
+  const recentRows = (Array.isArray(recentResult.data) ? recentResult.data : []) as unknown as QueueRow[];
+  const runningRows = (Array.isArray(runningResult.data) ? runningResult.data : []) as unknown as QueueRow[];
+  const rows = mergeQueueRows([
+    ...runningRows.map(normalizeQueueRow).filter(isQueueItemRunning),
+    ...recentRows.map(normalizeQueueRow),
+  ])
+    .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+    .slice(0, limit);
+  const hasMore = recentRows.length > limit;
+  return {
+    rows,
+    hasMore,
+    nextCursor: hasMore ? rows[rows.length - 1]?.createdAt || null : null,
+  };
+}
+
 async function loadWorkflowRows(
   supabase: Awaited<ReturnType<typeof createServerSupabase>>,
   userId: string,
@@ -382,14 +472,17 @@ async function loadRunningGenerationRows(
   moduleFilter: string
 ) {
   try {
+    let query = supabase
+      .from("generations")
+      .select(QUEUE_COLUMNS)
+      .eq("user_id", userId)
+      .in("status", [...GENERATION_RUNNING_STATUS_FILTERS])
+      .order("created_at", { ascending: false })
+      .limit(RUNNING_QUEUE_PIN_LIMIT);
+    if (moduleFilter) query = query.eq("job_payload->>kind", moduleFilter);
+
     const { data, error } = await withTimeout(
-      supabase
-        .from("generations")
-        .select(QUEUE_COLUMNS)
-        .eq("user_id", userId)
-        .in("status", [...GENERATION_RUNNING_STATUS_FILTERS])
-        .order("created_at", { ascending: false })
-        .limit(RUNNING_QUEUE_PIN_LIMIT),
+      query,
       QUEUE_QUERY_TIMEOUT_MS,
       "running generations list timeout"
     );
