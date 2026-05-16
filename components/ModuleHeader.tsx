@@ -1,15 +1,16 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { CircleHelp } from "lucide-react";
 import { ClientPortal } from "@/components/ClientPortal";
 
 type ModuleHeaderProps = {
   title: string;
   tooltip: string;
+  actions?: ReactNode;
 };
 
-export function ModuleHeader({ title, tooltip }: ModuleHeaderProps) {
+export function ModuleHeader({ title, tooltip, actions }: ModuleHeaderProps) {
   const buttonRef = useRef<HTMLButtonElement>(null);
   const [tooltipStyle, setTooltipStyle] = useState<{ top: number; left: number } | null>(null);
 
@@ -24,7 +25,7 @@ export function ModuleHeader({ title, tooltip }: ModuleHeaderProps) {
 
   return (
     <div className="studio-module-heading">
-      <div className="inline-flex items-center gap-1.5">
+      <div className="studio-module-heading-main">
         <h1 className="studio-module-heading-title">{title}</h1>
         <button
           ref={buttonRef}
@@ -49,6 +50,7 @@ export function ModuleHeader({ title, tooltip }: ModuleHeaderProps) {
           </ClientPortal>
         )}
       </div>
+      {actions ? <div className="studio-module-heading-actions">{actions}</div> : null}
     </div>
   );
 }

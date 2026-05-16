@@ -103,6 +103,7 @@ export default function ModelPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
   const [resultUrls, setResultUrls] = useState<string[]>([]);
+  const [activeResultMeta, setActiveResultMeta] = useState<{ createdAt: string; inputThumbnails: string[] } | null>(null);
   const [error, setError] = useState("");
   const [showPromptPreview, setShowPromptPreview] = useState(false);
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
@@ -403,6 +404,10 @@ export default function ModelPage() {
     setProgress(10);
     setError("");
     setResultUrls([]);
+    setActiveResultMeta({
+      createdAt: new Date().toISOString(),
+      inputThumbnails: taskInputThumbnails,
+    });
 
     try {
       const res = await fetch("/api/model", {
@@ -498,6 +503,10 @@ export default function ModelPage() {
     setProgress(Math.min(Math.max(Math.round(Number(item.progress) || 12), 1), 99));
     setError("");
     setResultUrls(item.resultThumbnails || []);
+    setActiveResultMeta({
+      createdAt: item.createdAt || item.updatedAt || new Date().toISOString(),
+      inputThumbnails: item.inputThumbnails || [],
+    });
   }
 
   async function handleCompletedTask(item: TaskQueueItem) {
@@ -934,7 +943,8 @@ export default function ModelPage() {
                 extension="jpg"
                 expectedCount={isGenerating ? genCount : undefined}
                 isGenerating={isGenerating}
-                inputThumbnails={taskInputThumbnails}
+                inputThumbnails={activeResultMeta?.inputThumbnails.length ? activeResultMeta.inputThumbnails : taskInputThumbnails}
+                createdAt={activeResultMeta?.createdAt}
                 statusGroup={isGenerating ? "running" : undefined}
                 variant="task"
                 onOpen={setLightboxSrc}
