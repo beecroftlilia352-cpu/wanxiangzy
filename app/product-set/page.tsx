@@ -1382,20 +1382,20 @@ export default function ProductSetPage() {
               </div>
             )}
 
-            <div className="mt-3 flex items-center gap-2">
-              <span className="shrink-0 text-[11px] font-bold text-slate-400">试一试</span>
-              <div className="studio-scrollbar-hide flex min-w-0 flex-1 gap-2 overflow-x-auto pb-1">
+            <div className="studio-upload-demo-row">
+              <span className="studio-upload-demo-label">试一试</span>
+              <div className="studio-upload-demo-list studio-scrollbar-hide">
                 {PRODUCT_SET_EXAMPLE_GROUPS.map((group) => (
                   <button
                     key={group.id}
                     type="button"
                     onClick={() => applyExampleGroup(group)}
-                    className="flex h-14 shrink-0 overflow-hidden rounded-xl border border-slate-100 bg-white shadow-sm transition hover:border-[rgba(91,124,255,0.3)]"
+                    className="studio-upload-demo-thumb studio-upload-demo-thumb-multi"
                     title={group.name}
                   >
                     {group.images.map((url, index) => (
-                      <span key={`${group.id}-${index}`} className="flex h-14 w-12 items-center justify-center border-r border-slate-100 last:border-r-0">
-                        <img src={getImageVariantUrl(url, "thumb")} alt={`${group.name}${index + 1}`} className="h-full w-full object-contain p-1" />
+                      <span key={`${group.id}-${index}`} className="studio-upload-demo-cell">
+                        <img src={getImageVariantUrl(url, "thumb")} alt={`${group.name}${index + 1}`} />
                       </span>
                     ))}
                   </button>

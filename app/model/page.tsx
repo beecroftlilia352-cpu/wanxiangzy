@@ -628,20 +628,20 @@ export default function ModelPage() {
                 </div>
               )}
             </div>
-            <div className="mt-3 flex items-center gap-2">
-              <span className="shrink-0 text-[11px] font-medium text-slate-400">试一试</span>
-              <div className="studio-scrollbar-hide flex min-w-0 flex-1 gap-2 overflow-x-auto pb-1">
+            <div className="studio-upload-demo-row">
+              <span className="studio-upload-demo-label">试一试</span>
+              <div className="studio-upload-demo-list studio-scrollbar-hide">
                 {MODEL_UPLOAD_RULE.demos.map((demo) => (
                   <button
                     key={demo.title}
                     type="button"
                     onClick={() => applyRuleDemo(demo)}
-                    className="group flex h-14 shrink-0 overflow-hidden rounded-lg border border-slate-100 bg-slate-50 shadow-sm transition-all hover:border-violet-200"
+                    className="studio-upload-demo-thumb studio-upload-demo-thumb-multi"
                     title={demo.description}
                   >
                     {demo.imageUrls.map((url) => (
-                      <span key={url} className="flex h-14 w-14 items-center justify-center bg-slate-50">
-                        <img src={url} alt={demo.title} className="h-full w-full object-contain p-1" />
+                      <span key={url} className="studio-upload-demo-cell">
+                        <img src={url} alt={demo.title} />
                       </span>
                     ))}
                   </button>

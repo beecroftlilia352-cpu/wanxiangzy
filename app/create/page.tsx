@@ -1328,20 +1328,20 @@ export default function CreatePage() {
               </div>
             )}
 
-            <div className="mt-3 flex items-center gap-2">
-              <span className="shrink-0 text-[11px] font-medium text-slate-400">试一试</span>
-              <div className="studio-scrollbar-hide flex min-w-0 flex-1 gap-2 overflow-x-auto pb-1">
+            <div className="studio-upload-demo-row">
+              <span className="studio-upload-demo-label">试一试</span>
+              <div className="studio-upload-demo-list studio-scrollbar-hide">
                 {currentUploadRule.demos.map((demo, demoIndex) => (
                   <button
                     key={`${clothingMode}-${demo.title}-${demoIndex}`}
                     type="button"
                     onClick={() => applyRuleDemo(demo)}
-                    className="group flex h-14 shrink-0 overflow-hidden rounded-lg border border-slate-100 bg-slate-50 shadow-sm transition-all hover:border-violet-200"
+                    className="studio-upload-demo-thumb studio-upload-demo-thumb-multi"
                     title={demo.title}
                   >
                     {demo.images.map((image) => (
-                      <span key={`${demo.title}-${image.role}`} className="flex h-14 w-14 items-center justify-center bg-slate-50">
-                        <img src={image.url} alt={image.title} className="h-full w-full object-contain p-1" />
+                      <span key={`${demo.title}-${image.role}`} className="studio-upload-demo-cell">
+                        <img src={image.url} alt={image.title} />
                       </span>
                     ))}
                   </button>

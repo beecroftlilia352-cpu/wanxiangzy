@@ -529,12 +529,12 @@ export default function ModelBackgroundPage() {
               )}
             </div>
             {sourceName ? <p className="mt-2 truncate text-[11px] text-slate-400">{sourceName}</p> : null}
-            <div className="mt-3 flex items-center gap-2">
-              <span className="shrink-0 text-[11px] font-medium text-slate-400">试一试</span>
-              <div className="studio-scrollbar-hide flex min-w-0 flex-1 gap-2 overflow-x-auto pb-1">
+            <div className="studio-upload-demo-row">
+              <span className="studio-upload-demo-label">试一试</span>
+              <div className="studio-upload-demo-list studio-scrollbar-hide">
                 {MODEL_BACKGROUND_UPLOAD_RULE.demos.map((demo) => (
-                  <button key={demo.imageUrl} type="button" onClick={() => applyDemo(demo)} className="group flex h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-slate-100 bg-slate-50 shadow-sm transition-all hover:border-violet-200" title={demo.title}>
-                    <img src={demo.imageUrl} alt={demo.title} className="h-full w-full object-cover" />
+                  <button key={demo.imageUrl} type="button" onClick={() => applyDemo(demo)} className="studio-upload-demo-thumb" title={demo.title}>
+                    <img src={demo.imageUrl} alt={demo.title} />
                   </button>
                 ))}
               </div>
