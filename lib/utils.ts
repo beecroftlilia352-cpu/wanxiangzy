@@ -50,23 +50,21 @@ function inferExt(url: string): string {
 }
 
 export async function downloadImage(url: string, filename: string) {
+  const downloadUrl = url.startsWith("http")
+    ? `/api/download-image?url=${encodeURIComponent(url)}&filename=${encodeURIComponent(filename)}`
+    : url;
+
   try {
-    const downloadUrl = url.startsWith("http")
-      ? `/api/download-image?url=${encodeURIComponent(url)}&filename=${encodeURIComponent(filename)}`
-      : url;
-    const res = await fetch(downloadUrl);
-    if (!res.ok) throw new Error("download failed");
-    const blob = await res.blob();
-    const blobUrl = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = blobUrl;
+    a.href = downloadUrl;
     a.download = filename;
+    a.rel = "noopener";
+    a.style.display = "none";
     document.body.appendChild(a);
     a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(blobUrl);
+    window.setTimeout(() => a.remove(), 0);
   } catch {
-    window.open(url, "_blank");
+    window.open(downloadUrl, "_blank", "noopener,noreferrer");
   }
 }
 

@@ -17,6 +17,14 @@ const DEFAULT_ALLOWED_HOSTS = [
   "sssai.vip",
   "i.ibb.co",
   "*.ibb.co",
+  "*.oss-cn-hongkong.aliyuncs.com",
+  "*.oss-cn-hangzhou.aliyuncs.com",
+  "*.oss-cn-shanghai.aliyuncs.com",
+  "vastweargen-images.cn-hongkong.thepacificxxs.com",
+  "images.vastweargen.com",
+  "webstatic.aiproxy.vip",
+  "oss.filenest.top",
+  "yunwu.ai",
 ];
 
 export async function GET(request: NextRequest) {
@@ -80,22 +88,47 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Image is too large" }, { status: 413 });
   }
 
-  const bytes = await response.arrayBuffer();
-  if (bytes.byteLength > MAX_DOWNLOAD_BYTES) {
-    return NextResponse.json({ error: "Image is too large" }, { status: 413 });
+  if (!response.body) {
+    return NextResponse.json({ error: "Image response body is empty" }, { status: 502 });
   }
 
-  return new NextResponse(bytes, {
-    headers: {
-      "Content-Type": contentType,
-      "Content-Disposition": `attachment; filename="${sanitizeFilename(filename)}"`,
-      "Cache-Control": "no-store",
-    },
+  const headers = new Headers({
+    "Content-Type": contentType,
+    "Content-Disposition": getContentDisposition(filename),
+    "Cache-Control": "no-store",
   });
+  if (contentLength > 0) headers.set("Content-Length", String(contentLength));
+
+  return new NextResponse(limitDownloadStream(response.body, MAX_DOWNLOAD_BYTES), { headers });
 }
 
 function sanitizeFilename(value: string): string {
   return value.replace(/[\\/:*?"<>|]+/g, "-").slice(0, 120) || "tryon-result.jpg";
+}
+
+function getContentDisposition(filename: string) {
+  const safeFilename = sanitizeFilename(filename);
+  return `attachment; filename="${safeFilename}"; filename*=UTF-8''${encodeRFC5987ValueChars(safeFilename)}`;
+}
+
+function encodeRFC5987ValueChars(value: string) {
+  return encodeURIComponent(value)
+    .replace(/['()]/g, (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`)
+    .replace(/\*/g, "%2A");
+}
+
+function limitDownloadStream(body: ReadableStream<Uint8Array>, maxBytes: number) {
+  let totalBytes = 0;
+  return body.pipeThrough(new TransformStream<Uint8Array, Uint8Array>({
+    transform(chunk, controller) {
+      totalBytes += chunk.byteLength;
+      if (totalBytes > maxBytes) {
+        controller.error(new Error("Image is too large"));
+        return;
+      }
+      controller.enqueue(chunk);
+    },
+  }));
 }
 
 function isAllowedHost(hostname: string): boolean {
