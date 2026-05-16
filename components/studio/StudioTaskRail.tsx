@@ -67,7 +67,6 @@ export function StudioTaskRail({
   const summarySignatureRef = useRef("");
   const selectSequenceRef = useRef(0);
   const autoSelectSignatureRef = useRef("");
-  const autoResumeOnceRef = useRef(false);
   const runningSelectionRef = useRef<string | null>(null);
 
   const mergedRows = useMemo(() => {
@@ -204,14 +203,6 @@ export function StudioTaskRail({
       toast.error(error instanceof Error ? error.message : "任务套用失败，请手动重试");
     });
   }, [interactionLocked, mergedRows, onSelectTask, selectedId]);
-
-  useEffect(() => {
-    if (!onSelectTask || autoResumeOnceRef.current || interactionLocked || selectedId !== CONTINUE_CARD_ID) return;
-    const runningTask = mergedRows.find((item) => item.module === module && isTaskRunning(item));
-    if (!runningTask) return;
-    autoResumeOnceRef.current = true;
-    setSelectedId(runningTask.id);
-  }, [interactionLocked, mergedRows, module, onSelectTask, selectedId]);
 
   const handleSelect = async (item: TaskQueueItem) => {
     if (interactionLocked) return;

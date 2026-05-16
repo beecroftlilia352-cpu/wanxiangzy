@@ -1,13 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import {
   Check,
   ChevronRight,
   Copy,
-  Download,
   RotateCcw,
   Settings2,
   Activity,
@@ -20,6 +18,7 @@ import { FeatureTabs } from "@/components/FeatureTabs";
 import { ClientPortal } from "@/components/ClientPortal";
 import { ModuleHeader } from "@/components/ModuleHeader";
 import { PreviewGuide } from "@/components/PreviewGuide";
+import { ResultImageGrid } from "@/components/ResultImageGrid";
 import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
 import { LoadingStage } from "@/components/studio/LoadingStage";
 import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
@@ -44,8 +43,6 @@ import {
 import {
   MAX_FILE_SIZE,
   MAX_FILE_SIZE_MB,
-  downloadImage,
-  generateDownloadFilename,
   uploadImage,
 } from "@/lib/utils";
 import { createClient, getCachedProfileCredits, setCachedProfileCredits } from "@/lib/supabase/client";
@@ -790,63 +787,44 @@ function ResultsPanel({
   onRegenerate: () => void;
 }) {
   const count = Math.max(urls.length, expectedCount || 0, 1);
-  const slots = Array.from({ length: count }, (_, index) => urls[index] || "");
   const failed = task?.statusGroup === "failed";
-  const gridClass = count <= 1
-    ? "grid-cols-1 max-w-[min(280px,100%)]"
-    : count === 2
-      ? "grid-cols-1 sm:grid-cols-2 max-w-[min(572px,100%)]"
-      : count === 3
-        ? "grid-cols-1 sm:grid-cols-3 max-w-[min(864px,100%)]"
-        : "grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 max-w-[min(1156px,100%)]";
 
   return (
-    <div className="studio-result-stage h-full overflow-y-auto p-4 pb-24 sm:p-6 sm:pb-28">
-      <div className="face-swap-result-banner mx-auto mb-5 flex max-w-5xl items-center justify-between gap-3 rounded-2xl border px-4 py-3">
-        <div>
-          <p className={failed ? "text-sm font-black text-red-600" : "text-sm font-black text-slate-800"}>
-            {failed ? "换脸生成失败" : isGenerating ? "换脸生成中" : "换脸完成"}
-          </p>
-          {task?.time && (
-            <p className={failed ? "mt-1 text-xs font-semibold text-red-500" : "mt-1 text-xs font-semibold text-slate-600"}>{task.time}</p>
-          )}
-          <p className={failed ? "mt-1 text-xs text-red-500" : "mt-1 text-xs text-slate-600"}>
-            {failed ? "可套用历史参数后重新生成。" : `${urls.length}/${count} 张结果，鼠标悬停可下载、继续编辑或设为参考图。`}
-          </p>
-        </div>
-        <button type="button" onClick={onRegenerate} disabled={isGenerating} className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-2 text-xs font-bold text-emerald-600 shadow-sm disabled:opacity-50">
-          <RotateCcw className="h-3.5 w-3.5" /> 再来一组
-        </button>
-      </div>
-      <div className={`mx-auto grid w-full gap-4 ${gridClass}`}>
-        {slots.map((url, index) => (
-          <div key={`${url || "pending"}-${index}`} className="group relative min-w-0 overflow-hidden rounded-2xl bg-white shadow-[0_22px_70px_rgba(15,23,42,0.16)] ring-1 ring-white/80 transition-transform duration-200 hover:-translate-y-0.5">
-            <div className="flex aspect-[3/4] items-center justify-center bg-white">
-              {url ? (
-                <img src={url} alt={`face swap result ${index + 1}`} className="h-full w-full cursor-zoom-in object-contain" onClick={() => onOpen(url)} />
-              ) : (
-                <div className={`gen-card flex h-full w-full flex-col items-center justify-center gap-2 ${
-                  failed
-                    ? "bg-gradient-to-br from-red-50 via-rose-50 to-slate-50 text-red-400"
-                    : "bg-gradient-to-br from-emerald-50 via-neutral-50 to-neutral-100 text-emerald-500"
-                }`}>
-                  {failed ? <X className="relative z-[1] h-7 w-7" /> : <Activity className="relative z-[1] h-7 w-7 animate-pulse" />}
-                  <p className={`relative z-[1] text-xs font-semibold ${failed ? "text-red-500" : "text-slate-500"}`}>
-                    {failed ? "生成失败，可套用参数重试" : "预计1-2分钟"}
-                  </p>
-                </div>
-              )}
-            </div>
-            {url && (
-              <div className="absolute inset-x-3 bottom-3 flex translate-y-2 flex-wrap justify-center gap-2 opacity-0 transition-all group-hover:translate-y-0 group-hover:opacity-100">
-                <ActionButton icon={<Download className="h-3.5 w-3.5" />} label="下载" onClick={() => downloadImage(url, generateDownloadFilename("face-swap", index, "png"))} />
-                <ActionButton icon={<Copy className="h-3.5 w-3.5" />} label="复制链接" onClick={() => onCopyUrl(url)} />
-                <ActionButton icon={<Brush className="h-3.5 w-3.5" />} label="设为原图" onClick={() => onUseAsSource(url)} />
-                <ActionButton icon={<UserRoundCheck className="h-3.5 w-3.5" />} label="设为脸图" onClick={() => onUseAsFace(url)} />
-              </div>
-            )}
+    <div className="studio-result-stage h-full overflow-y-auto p-4 pb-28 sm:p-6 sm:pb-32">
+      <div className="flex min-h-full flex-col gap-4">
+        <ResultImageGrid
+          urls={urls}
+          filenamePrefix="face-swap"
+          expectedCount={count}
+          isGenerating={isGenerating}
+          inputThumbnails={[task?.inputThumbnails?.[0] || "", task?.inputThumbnails?.[1] || ""].filter(Boolean)}
+          createdAt={task?.createdAt}
+          statusGroup={failed ? "failed" : isGenerating ? "running" : task?.statusGroup}
+          imageAltPrefix="换脸结果"
+          variant="task"
+          onOpen={(url) => onOpen(url)}
+        />
+
+        {urls.length > 0 && (
+          <div className="studio-result-actions mx-auto flex w-full max-w-[760px] flex-wrap justify-center gap-2">
+            <button type="button" onClick={onRegenerate} disabled={isGenerating} className="studio-button studio-button-compact">
+              <RotateCcw className="h-3.5 w-3.5" /> 再来一组
+            </button>
+            {urls.slice(0, 1).map((url) => (
+              <span key={url} className="flex flex-wrap justify-center gap-2">
+                <button type="button" onClick={() => onCopyUrl(url)} className="studio-button studio-button-compact">
+                  <Copy className="h-3.5 w-3.5" /> 复制链接
+                </button>
+                <button type="button" onClick={() => onUseAsSource(url)} className="studio-button studio-button-compact">
+                  <Brush className="h-3.5 w-3.5" /> 设为原图
+                </button>
+                <button type="button" onClick={() => onUseAsFace(url)} className="studio-button studio-button-compact">
+                  <UserRoundCheck className="h-3.5 w-3.5" /> 设为脸图
+                </button>
+              </span>
+            ))}
           </div>
-        ))}
+        )}
       </div>
     </div>
   );
@@ -856,14 +834,5 @@ function isLegacyRemoteAssetUrl(url?: string) {
   return typeof url === "string" && (
     url.includes("zhiyi-image.oss-cn-hangzhou.aliyuncs.com") ||
     url.includes("aliyuncs.com/devops/comfyui")
-  );
-}
-
-function ActionButton({ icon, label, onClick }: { icon: ReactNode; label: string; onClick: () => void }) {
-  return (
-    <button type="button" onClick={onClick} className="inline-flex items-center gap-1.5 rounded-full bg-white/92 px-3 py-2 text-xs font-bold text-neutral-700 shadow-lg ring-1 ring-neutral-200/80 backdrop-blur transition hover:text-emerald-600">
-      {icon}
-      {label}
-    </button>
   );
 }

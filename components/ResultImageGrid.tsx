@@ -24,13 +24,13 @@ type ResultImageGridProps = {
 };
 
 function getGridClass(count: number) {
-  if (count <= 1) return "max-w-[min(280px,100%)] grid-cols-1";
-  if (count === 2) return "max-w-[min(572px,100%)] grid-cols-1 sm:grid-cols-2";
-  if (count === 3) return "max-w-[min(864px,100%)] grid-cols-1 sm:grid-cols-3";
-  return "max-w-[min(1156px,100%)] grid-cols-1 sm:grid-cols-2 lg:grid-cols-4";
+  if (count <= 1) return "max-w-[min(340px,100%)] grid-cols-1";
+  if (count === 2) return "max-w-[min(700px,100%)] grid-cols-1 sm:grid-cols-2";
+  if (count === 3) return "max-w-[min(1048px,100%)] grid-cols-1 sm:grid-cols-3";
+  return "max-w-[min(1396px,100%)] grid-cols-1 sm:grid-cols-2 lg:grid-cols-4";
 }
 
-function getTileStyle(): CSSProperties | undefined {
+function getTileStyle(): CSSProperties {
   return { aspectRatio: "3 / 4" };
 }
 
@@ -41,7 +41,7 @@ export function ResultImageGrid({
   extension = "png",
   expectedCount,
   isGenerating,
-  imageAltPrefix = "Generated result image",
+  imageAltPrefix = "生成结果",
   inputThumbnails = [],
   createdAt,
   statusGroup,
@@ -54,99 +54,41 @@ export function ResultImageGrid({
   if (variant === "task") {
     const running = isGenerating || statusGroup === "running" || statusGroup === "queued";
     const failed = statusGroup === "failed";
-    const referenceUrl = inputThumbnails[1] || inputThumbnails[0] || "";
+    const referenceUrls = inputThumbnails.filter(Boolean).slice(0, 3);
+
     return (
-      <div className="w-full max-w-[min(1480px,100%)]">
-        <p className="mb-2 text-xs font-medium text-slate-400">
+      <div className="studio-result-set w-full max-w-[min(1480px,100%)]">
+        <p className="studio-result-disclaimer">
           因产品处于持续学习调优阶段，可能有不恰当的信息，请您谨慎甄别。
         </p>
-        <p className="mb-3 text-xs font-medium text-slate-400">{formatTaskTimestamp(createdAt)}</p>
-        <div className="flex w-full items-start gap-2">
-          {referenceUrl && (
-            <div className="relative h-20 w-16 shrink-0 overflow-hidden rounded bg-white shadow-sm ring-1 ring-slate-100">
-              <img src={referenceUrl} alt="参考图 1" className="h-full w-full object-cover" />
-              <span className="absolute left-0 top-0 rounded-br bg-slate-900/55 px-1 py-0.5 text-[10px] font-semibold text-white">参考图1</span>
+        <p className="studio-result-time">{formatTaskTimestamp(createdAt)}</p>
+
+        <div className="flex w-full items-start gap-3">
+          {referenceUrls.length > 0 && (
+            <div className="studio-result-reference-list">
+              {referenceUrls.map((referenceUrl, index) => (
+                <div key={`${referenceUrl}-${index}`} className="studio-result-reference-thumb">
+                  <img src={getImageVariantUrl(referenceUrl, "thumb")} alt={`参考图 ${index + 1}`} />
+                  <span>参考图{index + 1}</span>
+                </div>
+              ))}
             </div>
           )}
-          <div className={`grid min-w-0 flex-1 gap-2 ${getGridClass(count).replace("mx-auto", "")}`}>
+
+          <div className={`grid min-w-0 flex-1 gap-3 ${getGridClass(count)}`}>
             {slots.map((url, index) => (
-              <div
+              <ResultCard
                 key={`${url || "pending"}-${index}`}
-                role={url ? "button" : undefined}
-                tabIndex={url ? 0 : undefined}
-                aria-label={url ? `Preview ${imageAltPrefix.toLowerCase()} ${index + 1}` : undefined}
-                title={url ? `Preview ${imageAltPrefix.toLowerCase()} ${index + 1}` : undefined}
-                className={`group relative overflow-hidden bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
-                  url ? "cursor-zoom-in" : ""
-                }`}
-                onClick={() => {
-                  if (url) onOpen(url, index);
-                }}
-                onKeyDown={(event) => {
-                  if (!url || (event.key !== "Enter" && event.key !== " ")) return;
-                  event.preventDefault();
-                  onOpen(url, index);
-                }}
-              >
-                <div className="aspect-[3/4] w-full">
-                  {url ? (
-                    <img
-                      src={getImageVariantUrl(url, count <= 1 ? "preview" : "card")}
-                      alt={`${imageAltPrefix} ${index + 1}`}
-                      className="h-full w-full object-cover"
-                      onError={(event) => {
-                        (event.currentTarget as HTMLImageElement).src = FALLBACK_IMAGE;
-                      }}
-                    />
-                  ) : (
-                    <div className={`gen-card flex h-full w-full flex-col items-center justify-center gap-2 ${
-                      failed
-                        ? "bg-gradient-to-br from-red-50 via-white to-slate-50 text-red-400"
-                        : "bg-gradient-to-br from-slate-50 via-white to-slate-200 text-slate-500"
-                    }`}>
-                      {failed ? (
-                        <XCircle className="relative z-[1] h-8 w-8 opacity-70" />
-                      ) : (
-                        <Loader2 className="relative z-[1] h-8 w-8 animate-spin opacity-60" />
-                      )}
-                      <p className={`relative z-[1] text-xs font-semibold ${failed ? "text-red-500" : "text-slate-500"}`}>
-                        {failed ? "生成失败，可套用参数重试" : running ? "预计1-2分钟" : "等待生成"}
-                      </p>
-                    </div>
-                  )}
-                </div>
-                {url && (
-                  <>
-                    <div className="absolute inset-x-0 bottom-0 z-[2] flex translate-y-full items-center justify-center gap-2 bg-gradient-to-t from-black/68 to-black/0 px-2 pb-3 pt-12 text-[11px] font-semibold text-white transition-transform group-hover:translate-y-0 group-focus-within:translate-y-0">
-                      <button
-                        type="button"
-                        className="rounded bg-white/18 px-2 py-1 backdrop-blur"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          onOpen(url, index);
-                        }}
-                      >
-                        查看
-                      </button>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        downloadImage(url, generateDownloadFilename(filenamePrefix, index, extension));
-                      }}
-                      onKeyDown={(event) => {
-                        event.stopPropagation();
-                      }}
-                      className="absolute right-2 top-2 z-[3] flex h-8 w-8 items-center justify-center rounded-full bg-white/92 text-slate-700 opacity-0 shadow-lg ring-1 ring-slate-200/70 backdrop-blur transition-all hover:bg-white hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 group-hover:opacity-100 group-focus-within:opacity-100"
-                      aria-label={`Download ${imageAltPrefix.toLowerCase()} ${index + 1}`}
-                      title={`Download ${imageAltPrefix.toLowerCase()} ${index + 1}`}
-                    >
-                      <Download className="h-4 w-4" />
-                    </button>
-                  </>
-                )}
-              </div>
+                url={url}
+                index={index}
+                count={count}
+                failed={failed}
+                running={running}
+                filenamePrefix={filenamePrefix}
+                extension={extension}
+                imageAltPrefix={imageAltPrefix}
+                onOpen={onOpen}
+              />
             ))}
           </div>
         </div>
@@ -155,72 +97,118 @@ export function ResultImageGrid({
   }
 
   return (
-    <div className={`mx-auto grid w-full gap-3 sm:gap-4 ${getGridClass(count)}`}>
+    <div className={`studio-result-card-grid mx-auto grid w-full gap-3 sm:gap-4 ${getGridClass(count)}`}>
       {slots.map((url, index) => (
-        <div
+        <ResultCard
           key={`${url || "pending"}-${index}`}
-          role={url ? "button" : undefined}
-          tabIndex={url ? 0 : undefined}
-          aria-label={url ? `Preview ${imageAltPrefix.toLowerCase()} ${index + 1}` : undefined}
-          title={url ? `Preview ${imageAltPrefix.toLowerCase()} ${index + 1}` : undefined}
-          className={`group relative min-w-0 overflow-hidden rounded-2xl bg-white shadow-[0_18px_48px_rgba(15,23,42,0.12)] ring-1 ring-white/80 transition-transform duration-200 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 ${
-            url ? "cursor-zoom-in" : ""
-          } ${
-            isSingle ? "mx-auto max-w-full" : ""
-          }`}
-          onClick={() => {
-            if (url) onOpen(url, index);
+          url={url}
+          index={index}
+          count={count}
+          failed={false}
+          running={Boolean(isGenerating)}
+          filenamePrefix={filenamePrefix}
+          extension={extension}
+          imageAltPrefix={imageAltPrefix}
+          onOpen={onOpen}
+          isSingle={isSingle}
+        />
+      ))}
+    </div>
+  );
+}
+
+function ResultCard({
+  url,
+  index,
+  count,
+  failed,
+  running,
+  filenamePrefix,
+  extension,
+  imageAltPrefix,
+  onOpen,
+  isSingle,
+}: {
+  url: string | null;
+  index: number;
+  count: number;
+  failed: boolean;
+  running: boolean;
+  filenamePrefix: string;
+  extension: string;
+  imageAltPrefix: string;
+  onOpen: (url: string, index: number) => void;
+  isSingle?: boolean;
+}) {
+  return (
+    <div
+      role={url ? "button" : undefined}
+      tabIndex={url ? 0 : undefined}
+      aria-label={url ? `预览${imageAltPrefix} ${index + 1}` : undefined}
+      title={url ? `预览${imageAltPrefix} ${index + 1}` : undefined}
+      className={`studio-result-card group relative min-w-0 overflow-hidden bg-white transition-transform duration-200 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 ${
+        url ? "cursor-zoom-in" : ""
+      } ${isSingle ? "mx-auto max-w-full" : ""}`}
+      onClick={() => {
+        if (url) onOpen(url, index);
+      }}
+      onKeyDown={(event) => {
+        if (!url || (event.key !== "Enter" && event.key !== " ")) return;
+        event.preventDefault();
+        onOpen(url, index);
+      }}
+    >
+      <div className="flex items-center justify-center" style={getTileStyle()}>
+        {url ? (
+          <img
+            src={getImageVariantUrl(url, count <= 1 ? "preview" : "card")}
+            alt={`${imageAltPrefix} ${index + 1}`}
+            className="h-full w-full object-cover"
+            onError={(event) => {
+              (event.currentTarget as HTMLImageElement).src = FALLBACK_IMAGE;
+            }}
+          />
+        ) : (
+          <PendingResultSlot failed={failed} running={running} index={index} />
+        )}
+      </div>
+
+      {url && (
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            downloadImage(url, generateDownloadFilename(filenamePrefix, index, extension));
           }}
           onKeyDown={(event) => {
-            if (!url || (event.key !== "Enter" && event.key !== " ")) return;
-            event.preventDefault();
-            onOpen(url, index);
+            event.stopPropagation();
           }}
+          className="absolute right-3 top-3 z-[3] flex h-9 w-9 items-center justify-center rounded-full bg-white/92 text-slate-700 opacity-100 shadow-lg ring-1 ring-slate-200/70 backdrop-blur transition-all hover:bg-white hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
+          aria-label={`下载${imageAltPrefix} ${index + 1}`}
+          title={`下载${imageAltPrefix} ${index + 1}`}
         >
-          <div
-            className="flex items-center justify-center"
-            style={getTileStyle()}
-          >
-            {url ? (
-              <img
-                src={getImageVariantUrl(url, isSingle ? "preview" : "card")}
-                alt={`${imageAltPrefix} ${index + 1}`}
-                className="h-full w-full object-contain"
-                onError={(event) => {
-                  (event.currentTarget as HTMLImageElement).src = FALLBACK_IMAGE;
-                }}
-              />
-            ) : (
-              <div className="gen-card flex h-full w-full flex-col items-center justify-center gap-2 bg-gradient-to-br from-slate-50 via-white to-slate-200 text-slate-500">
-                <div className="relative z-[1] flex h-12 w-12 items-center justify-center rounded-full bg-white/85 shadow-lg">
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                </div>
-                <p className="relative z-[1] text-xs font-semibold text-slate-500">
-                  {isGenerating ? `生成第 ${index + 1} 张...` : "等待生成"}
-                </p>
-              </div>
-            )}
-          </div>
+          <Download className="h-4 w-4" />
+        </button>
+      )}
+    </div>
+  );
+}
 
-          {url && (
-            <button
-              type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                downloadImage(url, generateDownloadFilename(filenamePrefix, index, extension));
-              }}
-              onKeyDown={(event) => {
-                event.stopPropagation();
-              }}
-              className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-white/92 text-slate-700 opacity-100 shadow-lg ring-1 ring-slate-200/70 backdrop-blur transition-all hover:bg-white hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
-              aria-label={`Download ${imageAltPrefix.toLowerCase()} ${index + 1}`}
-              title={`Download ${imageAltPrefix.toLowerCase()} ${index + 1}`}
-            >
-              <Download className="h-4 w-4" />
-            </button>
-          )}
+function PendingResultSlot({ failed = false, running = false, index }: { failed?: boolean; running?: boolean; index: number }) {
+  return (
+    <div className={`gen-card studio-result-pending-card flex h-full w-full flex-col items-center justify-center gap-2 ${failed ? "studio-result-pending-card-failed" : ""}`}>
+      <div className="relative z-[1] flex h-14 w-14 items-center justify-center">
+        <div className="gen-ring absolute inset-0 rounded-full bg-[#aeb8ff]/45" />
+        <div className="relative flex h-14 w-14 items-center justify-center rounded-full border border-white/16 bg-white/10 shadow-lg backdrop-blur-md">
+          {failed ? <XCircle className="h-6 w-6 text-red-200" /> : <Loader2 className="h-6 w-6 animate-spin text-white" />}
         </div>
-      ))}
+      </div>
+      <p className="relative z-[1] text-xs font-semibold text-white/72">
+        {failed ? "生成失败，可套用参数重试" : running ? "预计1-2分钟" : "等待生成"}
+      </p>
+      {!failed && running && (
+        <p className="relative z-[1] text-[11px] font-medium text-white/42">第 {index + 1} 张生成中</p>
+      )}
     </div>
   );
 }

@@ -1623,6 +1623,95 @@
     linear-gradient(180deg, rgba(238, 244, 255, 0.94), rgba(248, 251, 255, 0.92)) !important;
 }
 
+.studio-result-set {
+  animation: studio-rail-content-in 220ms ease-out both;
+}
+
+.studio-result-disclaimer,
+.studio-result-time {
+  color: rgba(75, 82, 99, 0.42);
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.5;
+}
+
+.studio-result-time {
+  margin-bottom: 12px;
+}
+
+.studio-result-reference-list {
+  display: flex;
+  width: 70px;
+  flex: 0 0 70px;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.studio-result-reference-thumb {
+  position: relative;
+  height: 86px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 10px 24px rgba(91, 124, 255, 0.12);
+}
+
+.studio-result-reference-thumb img {
+  height: 100%;
+  width: 100%;
+  border-radius: inherit;
+  object-fit: cover;
+}
+
+.studio-result-reference-thumb span {
+  position: absolute;
+  left: 0;
+  top: 0;
+  border-radius: 0 0 6px 0;
+  background: rgba(5, 5, 5, 0.58);
+  padding: 2px 5px;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.studio-result-card {
+  border: 1px solid rgba(255, 255, 255, 0.82);
+  border-radius: 14px;
+  box-shadow: 0 18px 48px rgba(91, 124, 255, 0.12);
+}
+
+.studio-result-card img {
+  border-radius: inherit;
+}
+
+.studio-result-pending-card {
+  border-radius: inherit;
+  background:
+    radial-gradient(circle at 10% 4%, rgba(91, 124, 255, 0.42), transparent 32%),
+    radial-gradient(circle at 84% 12%, rgba(174, 184, 255, 0.32), transparent 38%),
+    linear-gradient(180deg, #252936 0%, #111318 48%, #07080d 100%) !important;
+}
+
+.studio-result-pending-card::after,
+.studio-loading-stage .gen-card::after {
+  content: "";
+  position: absolute;
+  inset: -30%;
+  z-index: 0;
+  pointer-events: none;
+  background: conic-gradient(from 0deg, transparent, rgba(219, 232, 255, 0.18), transparent 34%);
+  animation: studio-loader-orbit 5.5s linear infinite;
+}
+
+.studio-result-pending-card-failed {
+  background:
+    radial-gradient(circle at 18% 12%, rgba(209, 59, 53, 0.32), transparent 34%),
+    linear-gradient(180deg, #2a1519 0%, #12090b 100%) !important;
+}
+
 .gen-card {
   position: relative;
   overflow: hidden;
@@ -1664,16 +1753,6 @@ header .animate-spin {
   transform: translateZ(0);
 }
 
-.studio-loading-stage .gen-card::after {
-  content: "";
-  position: absolute;
-  inset: -30%;
-  z-index: 0;
-  pointer-events: none;
-  background: conic-gradient(from 0deg, transparent, rgba(219, 232, 255, 0.18), transparent 34%);
-  animation: studio-loader-orbit 5.5s linear infinite;
-}
-
 .studio-loading-stage .gen-card > * {
   z-index: 1;
 }
@@ -1692,14 +1771,50 @@ header .animate-spin {
 }
 
 .studio-repair-panel {
-  width: min(100%, 720px);
+  width: min(100%, 760px);
   border-color: rgba(255, 255, 255, 0.78) !important;
-  background: rgba(255, 255, 255, 0.82) !important;
-  box-shadow: 0 18px 60px rgba(91, 124, 255, 0.14) !important;
+  border-radius: 18px !important;
+  background: rgba(255, 255, 255, 0.88) !important;
+  box-shadow: 0 18px 64px rgba(91, 124, 255, 0.16) !important;
+  backdrop-filter: blur(20px) saturate(1.08);
+  -webkit-backdrop-filter: blur(20px) saturate(1.08);
 }
 
 .studio-result-stage .studio-repair-panel {
   margin-inline: auto;
+}
+
+.studio-result-stage > .absolute:has(.studio-repair-panel),
+.studio-result-feedback-bar {
+  border-top: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.studio-result-stage > .absolute:has(.studio-repair-panel) > div,
+.studio-result-actions {
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow: 0 18px 64px rgba(91, 124, 255, 0.16);
+  backdrop-filter: blur(20px) saturate(1.08);
+  -webkit-backdrop-filter: blur(20px) saturate(1.08);
+}
+
+.studio-result-stage > .absolute:has(.studio-repair-panel) .studio-repair-panel {
+  box-shadow: none !important;
+}
+
+@media (max-width: 767px) {
+  .studio-result-reference-list {
+    width: 54px;
+    flex-basis: 54px;
+  }
+
+  .studio-result-reference-thumb {
+    height: 70px;
+  }
 }
 
 .bg-gradient-card-placeholder {
