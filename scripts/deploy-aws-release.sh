@@ -125,7 +125,9 @@ ensure_build_swap() {
   mem_total_mb="$(awk '/MemTotal/ { print int($2 / 1024) }' /proc/meminfo 2>/dev/null || printf '0')"
   swap_total_mb="$(awk '/SwapTotal/ { print int($2 / 1024) }' /proc/meminfo 2>/dev/null || printf '0')"
 
-  if [ "${mem_total_mb:-0}" -ge 1800 ] || [ "${swap_total_mb:-0}" -ge 1024 ]; then
+  echo "Build memory: ${mem_total_mb:-0} MB RAM, ${swap_total_mb:-0} MB swap"
+
+  if [ "${mem_total_mb:-0}" -ge 3500 ] || [ "${swap_total_mb:-0}" -ge 1024 ]; then
     return 0
   fi
 
