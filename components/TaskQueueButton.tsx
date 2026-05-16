@@ -40,7 +40,7 @@ export function TaskQueueButton() {
 
   const running = rows.filter(isTaskRunning);
   const finished = rows.filter(isTaskFinished);
-  const runningCount = Math.max(summary.runningTaskNum, running.length);
+  const runningCount = detailsLoaded ? running.length : optimisticRunning ? 1 : 0;
   const finishedCount = Math.max(summary.finishedTaskNum + summary.failedTaskNum, finished.length);
   const activeRows = activeTab === "running" ? running : finished;
   const groupedRows = groupQueueRows(activeRows.slice(0, 12));
@@ -114,6 +114,13 @@ export function TaskQueueButton() {
   useEffect(() => {
     loadSummary();
   }, [loadSummary]);
+
+  useEffect(() => {
+    const serverRunningCount = Math.max(0, summary.runningTaskNum);
+    const needsVerification = serverRunningCount > 0 && (!detailsLoadedRef.current || serverRunningCount !== running.length);
+    const needsClear = serverRunningCount === 0 && detailsLoadedRef.current && running.length > 0;
+    if (needsVerification || needsClear) void loadQueue();
+  }, [loadQueue, running.length, summary.runningTaskNum]);
 
   useEffect(() => {
     if (open) return;
@@ -333,6 +340,7 @@ function normalizeSummaryPayload(payload: TaskQueuePayload): QueueSummary {
   const rowRunningCount = rows.filter(isTaskRunning).length;
   const rowFailedCount = rows.filter((row) => row.statusGroup === "failed").length;
   const rowFinishedCount = rows.filter((row) => row.statusGroup === "completed").length;
+  const hasDetailRows = Array.isArray(payload.rows);
   const failedTaskNum = firstFiniteNumber(data.failedTaskNum, payload.failedTaskNum, payload.failedCount, rowFailedCount);
   const finishedTaskNum = firstFiniteNumber(
     data.finishedTaskNum,
@@ -340,7 +348,9 @@ function normalizeSummaryPayload(payload: TaskQueuePayload): QueueSummary {
     typeof payload.finishedCount === "number" ? Math.max(payload.finishedCount - failedTaskNum, 0) : undefined,
     rowFinishedCount
   );
-  const runningTaskNum = firstFiniteNumber(data.runningTaskNum, payload.runningTaskNum, payload.runningCount, rowRunningCount);
+  const runningTaskNum = hasDetailRows
+    ? rowRunningCount
+    : firstFiniteNumber(data.runningTaskNum, payload.runningTaskNum, payload.runningCount, rowRunningCount);
   const totalTaskNum = firstFiniteNumber(
     data.totalTaskNum,
     payload.totalTaskNum,

@@ -89,6 +89,7 @@ const AUTH_TIMEOUT_MS = 10_000;
 const READ_RATE_LIMIT_TIMEOUT_MS = 1_500;
 const SUMMARY_QUERY_TIMEOUT_MS = 8_000;
 const QUEUE_QUERY_TIMEOUT_MS = 15_000;
+const RUNNING_QUEUE_PIN_LIMIT = 80;
 
 export async function GET(request: Request) {
   try {
@@ -132,8 +133,15 @@ export async function GET(request: Request) {
     const generationRows = rawRows
       .map(normalizeQueueRow)
       .filter((row) => !moduleFilter || row.module === moduleFilter);
+    const pinnedGenerationRows = cursor ? [] : await loadRunningGenerationRows(supabase, user.id, moduleFilter);
     const workflowRows = moduleFilter ? [] : await loadWorkflowRows(supabase, user.id, cursor, limit + 1);
-    const filteredRows = [...generationRows, ...workflowRows]
+    const pinnedWorkflowRows = cursor || moduleFilter ? [] : await loadRunningWorkflowRows(supabase, user.id);
+    const filteredRows = mergeQueueRows([
+      ...pinnedGenerationRows,
+      ...generationRows,
+      ...pinnedWorkflowRows,
+      ...workflowRows,
+    ])
       .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
       .filter((row) => matchesSearch(row, searchQuery));
     const rows = filteredRows.slice(0, limit);
@@ -418,6 +426,70 @@ async function loadWorkflowRows(
   }
 }
 
+async function loadRunningGenerationRows(
+  supabase: Awaited<ReturnType<typeof createServerSupabase>>,
+  userId: string,
+  moduleFilter: string
+) {
+  try {
+    const { data, error } = await withTimeout(
+      supabase
+        .from("generations")
+        .select(QUEUE_COLUMNS)
+        .eq("user_id", userId)
+        .in("status", [...GENERATION_RUNNING_STATUS_FILTERS])
+        .order("created_at", { ascending: false })
+        .limit(RUNNING_QUEUE_PIN_LIMIT),
+      QUEUE_QUERY_TIMEOUT_MS,
+      "running generations list timeout"
+    );
+
+    if (error) {
+      logTaskQueueWarning("running generations unavailable", error.message);
+      return [];
+    }
+
+    return ((Array.isArray(data) ? data : []) as unknown as QueueRow[])
+      .map(normalizeQueueRow)
+      .filter(isQueueItemRunning)
+      .filter((row) => !moduleFilter || row.module === moduleFilter);
+  } catch (error) {
+    logTaskQueueWarning("running generations unavailable", toLogMessage(error));
+    return [];
+  }
+}
+
+async function loadRunningWorkflowRows(
+  supabase: Awaited<ReturnType<typeof createServerSupabase>>,
+  userId: string
+) {
+  try {
+    const { data, error } = await withTimeout(
+      supabase
+        .from("agent_workflows")
+        .select("id,status,intent,summary,input_images,final_outputs,cost_reserved,cost_settled,error_message,created_at,updated_at")
+        .eq("user_id", userId)
+        .in("status", RUNNING_WORKFLOW_STATUSES)
+        .order("created_at", { ascending: false })
+        .limit(RUNNING_QUEUE_PIN_LIMIT),
+      QUEUE_QUERY_TIMEOUT_MS,
+      "running workflows list timeout"
+    );
+
+    if (error) {
+      logTaskQueueWarning("running workflows unavailable", error.message);
+      return [];
+    }
+
+    return ((Array.isArray(data) ? data : []) as unknown as WorkflowRow[])
+      .map(normalizeWorkflowRow)
+      .filter(isQueueItemRunning);
+  } catch (error) {
+    logTaskQueueWarning("running workflows unavailable", toLogMessage(error));
+    return [];
+  }
+}
+
 function normalizeQueueRow(row: QueueRow): TaskQueueItem {
   const payload = row.job_payload && typeof row.job_payload === "object" ? row.job_payload : {};
   const kind = typeof payload.kind === "string" ? payload.kind : inferGenerationModule(row, payload);
@@ -641,6 +713,18 @@ function matchesSearch(row: TaskQueueItem, query: string) {
   return row.id.toLowerCase().includes(query) ||
     row.title.toLowerCase().includes(query) ||
     row.status.toLowerCase().includes(query);
+}
+
+function mergeQueueRows(rows: TaskQueueItem[]) {
+  const rowsById = new Map<string, TaskQueueItem>();
+  for (const row of rows) {
+    if (!rowsById.has(row.id)) rowsById.set(row.id, row);
+  }
+  return Array.from(rowsById.values());
+}
+
+function isQueueItemRunning(row: TaskQueueItem) {
+  return row.statusGroup === "running" || row.statusGroup === "queued";
 }
 
 function withTimeout<T>(promise: PromiseLike<T>, ms: number, message: string): Promise<T> {
