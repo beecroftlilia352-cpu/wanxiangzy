@@ -701,7 +701,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
                 inputThumbnails={activeQueueTask?.inputThumbnails?.length ? activeQueueTask.inputThumbnails : referenceImages.map((item) => item.preview || item.url)}
                 createdAt={activeQueueTask?.createdAt}
                 statusGroup={activeQueueTask?.statusGroup || (isGenerating ? "running" : undefined)}
-                variant={activeQueueTask || isGenerating ? "task" : "cards"}
+                variant="task"
                 onOpen={setLightboxSrc}
               />
             </div>

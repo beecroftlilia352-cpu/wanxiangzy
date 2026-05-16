@@ -1690,9 +1690,31 @@
 .studio-result-pending-card {
   border-radius: inherit;
   background:
-    radial-gradient(circle at 10% 4%, rgba(91, 124, 255, 0.42), transparent 32%),
-    radial-gradient(circle at 84% 12%, rgba(174, 184, 255, 0.32), transparent 38%),
+    radial-gradient(circle at 10% 4%, rgba(91, 124, 255, 0.56), transparent 34%),
+    radial-gradient(circle at 84% 12%, rgba(174, 184, 255, 0.46), transparent 40%),
+    radial-gradient(circle at 46% 86%, rgba(219, 232, 255, 0.22), transparent 36%),
     linear-gradient(180deg, #252936 0%, #111318 48%, #07080d 100%) !important;
+  background-size: 180% 180%, 170% 170%, 160% 160%, 100% 100%;
+  animation: studio-result-gradient-drift 6s ease-in-out infinite;
+  transform: translateZ(0);
+}
+
+.gen-card.studio-result-pending-card::before {
+  content: "";
+  position: absolute;
+  inset: -18%;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 22% 26%, rgba(91, 124, 255, 0.36), transparent 30%),
+    radial-gradient(circle at 74% 18%, rgba(174, 184, 255, 0.30), transparent 32%),
+    linear-gradient(115deg, transparent 28%, rgba(255, 255, 255, 0.18) 48%, transparent 66%);
+  background-size: 190% 190%, 170% 170%, 240% 100%;
+  opacity: 0.72;
+  filter: blur(1px);
+  animation:
+    studio-result-aurora 4.8s ease-in-out infinite,
+    gen-shimmer 2.2s ease-in-out infinite;
 }
 
 .studio-result-pending-card::after,
@@ -1702,8 +1724,8 @@
   inset: -30%;
   z-index: 0;
   pointer-events: none;
-  background: conic-gradient(from 0deg, transparent, rgba(219, 232, 255, 0.18), transparent 34%);
-  animation: studio-loader-orbit 5.5s linear infinite;
+  background: conic-gradient(from 0deg, transparent, rgba(219, 232, 255, 0.28), rgba(91, 124, 255, 0.16), transparent 38%);
+  animation: studio-loader-orbit 3.8s linear infinite;
 }
 
 .studio-result-pending-card-failed {
@@ -1843,6 +1865,33 @@ header .animate-spin {
 
 @keyframes studio-loader-orbit {
   to { transform: rotate(360deg); }
+}
+
+@keyframes studio-result-gradient-drift {
+  0% {
+    background-position: 0% 0%, 100% 8%, 46% 100%, 0 0;
+  }
+  50% {
+    background-position: 100% 30%, 0% 72%, 18% 18%, 0 0;
+  }
+  100% {
+    background-position: 0% 0%, 100% 8%, 46% 100%, 0 0;
+  }
+}
+
+@keyframes studio-result-aurora {
+  0% {
+    transform: translate3d(-5%, -4%, 0) scale(1);
+    opacity: 0.48;
+  }
+  50% {
+    transform: translate3d(5%, 4%, 0) scale(1.08);
+    opacity: 0.86;
+  }
+  100% {
+    transform: translate3d(-5%, -4%, 0) scale(1);
+    opacity: 0.48;
+  }
 }
 
 @keyframes studio-progress-glint {

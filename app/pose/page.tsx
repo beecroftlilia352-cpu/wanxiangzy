@@ -704,7 +704,7 @@ export default function PosePage() {
                 isGenerating={isGenerating}
                 inputThumbnails={mainImage ? [mainImage] : []}
                 statusGroup={isGenerating ? "running" : undefined}
-                variant={isGenerating ? "task" : "cards"}
+                variant="task"
               />
             </div>
             <div className="mt-4 flex justify-center">

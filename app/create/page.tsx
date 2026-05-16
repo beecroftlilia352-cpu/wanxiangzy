@@ -1901,7 +1901,7 @@ export default function CreatePage() {
                       inputThumbnails={activeQueueTask?.inputThumbnails}
                       createdAt={activeQueueTask?.createdAt}
                       statusGroup={activeQueueTask?.statusGroup}
-                      variant={activeQueueTask || store.isGenerating ? "task" : "cards"}
+                      variant="task"
                     />
                   </div>
                 </div>

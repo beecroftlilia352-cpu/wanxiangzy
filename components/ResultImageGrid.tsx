@@ -1,6 +1,6 @@
 "use client";
 
-import type { CSSProperties } from "react";
+import { useMemo, type CSSProperties } from "react";
 import { Download, Loader2, XCircle } from "lucide-react";
 import { getImageVariantUrl } from "@/lib/image-variants";
 import { downloadImage, generateDownloadFilename } from "@/lib/utils";
@@ -47,6 +47,7 @@ export function ResultImageGrid({
   statusGroup,
   variant = "cards",
 }: ResultImageGridProps) {
+  const fallbackCreatedAt = useMemo(() => new Date().toISOString(), []);
   const count = Math.max(urls.length, expectedCount || 0, 1);
   const isSingle = count <= 1;
   const slots = Array.from({ length: count }, (_, index) => urls[index] || null);
@@ -55,13 +56,14 @@ export function ResultImageGrid({
     const running = isGenerating || statusGroup === "running" || statusGroup === "queued";
     const failed = statusGroup === "failed";
     const referenceUrls = inputThumbnails.filter(Boolean).slice(0, 3);
+    const timestamp = formatTaskTimestamp(createdAt) || formatTaskTimestamp(fallbackCreatedAt);
 
     return (
       <div className="studio-result-set w-full max-w-[min(1480px,100%)]">
         <p className="studio-result-disclaimer">
           因产品处于持续学习调优阶段，可能有不恰当的信息，请您谨慎甄别。
         </p>
-        <p className="studio-result-time">{formatTaskTimestamp(createdAt)}</p>
+        <p className="studio-result-time">{timestamp}</p>
 
         <div className="flex w-full items-start gap-3">
           {referenceUrls.length > 0 && (

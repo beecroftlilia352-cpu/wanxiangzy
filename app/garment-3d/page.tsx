@@ -808,7 +808,7 @@ export default function Garment3dPage() {
                 isGenerating={isGenerating}
                 inputThumbnails={taskInputThumbnails}
                 statusGroup={isGenerating ? "running" : undefined}
-                variant={isGenerating ? "task" : "cards"}
+                variant="task"
                 onOpen={setLightboxSrc}
               />
             </div>

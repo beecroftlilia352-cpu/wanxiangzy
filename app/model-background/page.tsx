@@ -849,7 +849,7 @@ export default function ModelBackgroundPage() {
                 isGenerating={isGenerating}
                 inputThumbnails={promptImages.map((item) => item.url)}
                 statusGroup={isGenerating ? "running" : undefined}
-                variant={isGenerating ? "task" : "cards"}
+                variant="task"
                 onOpen={setLightboxSrc}
               />
             </div>
