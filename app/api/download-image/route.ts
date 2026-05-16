@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireApiUser } from "@/lib/api/auth";
-import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 
 export const maxDuration = 30;
 
 const MAX_DOWNLOAD_BYTES = 15 * 1024 * 1024;
 const DOWNLOAD_TIMEOUT_MS = 15000;
+const DOWNLOAD_RATE_LIMIT = 120;
+const DOWNLOAD_RATE_WINDOW_MS = 60_000;
 const DEFAULT_ALLOWED_HOSTS = [
   "*.supabase.co",
   "replicate.delivery",
@@ -26,13 +26,11 @@ const DEFAULT_ALLOWED_HOSTS = [
   "oss.filenest.top",
   "yunwu.ai",
 ];
+const downloadRateBuckets = new Map<string, { count: number; resetAt: number }>();
 
 export async function GET(request: NextRequest) {
-  const auth = await requireApiUser();
-  if (auth.response) return auth.response;
-
-  const limit = await checkRateLimit(`download:${auth.user.id}`, 30, 60_000);
-  if (!limit.ok) return rateLimitResponse(limit.retryAfterSeconds);
+  const rateLimit = checkDownloadRateLimit(request);
+  if (!rateLimit.ok) return downloadRateLimitResponse(rateLimit.retryAfterSeconds);
 
   const imageUrl = request.nextUrl.searchParams.get("url");
   const filename = request.nextUrl.searchParams.get("filename") || "tryon-result.jpg";
@@ -96,6 +94,7 @@ export async function GET(request: NextRequest) {
     "Content-Type": contentType,
     "Content-Disposition": getContentDisposition(filename),
     "Cache-Control": "no-store",
+    "X-Accel-Buffering": "no",
   });
   if (contentLength > 0) headers.set("Content-Length", String(contentLength));
 
@@ -129,6 +128,54 @@ function limitDownloadStream(body: ReadableStream<Uint8Array>, maxBytes: number)
       controller.enqueue(chunk);
     },
   }));
+}
+
+function checkDownloadRateLimit(request: NextRequest) {
+  const key = getClientIp(request);
+  const now = Date.now();
+  const existing = downloadRateBuckets.get(key);
+
+  if (!existing || existing.resetAt <= now) {
+    cleanupDownloadRateBuckets(now);
+    downloadRateBuckets.set(key, { count: 1, resetAt: now + DOWNLOAD_RATE_WINDOW_MS });
+    return { ok: true as const };
+  }
+
+  if (existing.count >= DOWNLOAD_RATE_LIMIT) {
+    return {
+      ok: false as const,
+      retryAfterSeconds: Math.max(1, Math.ceil((existing.resetAt - now) / 1000)),
+    };
+  }
+
+  existing.count += 1;
+  return { ok: true as const };
+}
+
+function downloadRateLimitResponse(retryAfterSeconds: number) {
+  return NextResponse.json(
+    { error: "请求过于频繁，请稍后再试" },
+    {
+      status: 429,
+      headers: { "Retry-After": String(retryAfterSeconds) },
+    }
+  );
+}
+
+function cleanupDownloadRateBuckets(now: number) {
+  if (downloadRateBuckets.size < 1000) return;
+  for (const [key, bucket] of downloadRateBuckets) {
+    if (bucket.resetAt <= now) downloadRateBuckets.delete(key);
+  }
+}
+
+function getClientIp(request: NextRequest) {
+  const forwardedFor = request.headers.get("x-forwarded-for") || "";
+  const firstForwarded = forwardedFor.split(",")[0]?.trim();
+  return firstForwarded ||
+    request.headers.get("x-real-ip") ||
+    request.headers.get("cf-connecting-ip") ||
+    "anonymous";
 }
 
 function isAllowedHost(hostname: string): boolean {
