@@ -462,9 +462,9 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
             >
               <div className="studio-upload-header">
                 <h3 className="studio-upload-title">
-                  <Upload className="w-4 h-4 text-[var(--codex-accent)]0" /> 参考图
+                  <Upload className="w-4 h-4 text-[var(--codex-accent)]" /> 参考图
                 </h3>
-                <span className="rounded-full bg-[rgba(91,124,255,0.1)] px-2 py-1 text-[10px] font-bold text-[var(--codex-accent)]0">{referenceImages.length}/8</span>
+                <span className="rounded-full bg-[rgba(91,124,255,0.1)] px-2 py-1 text-[10px] font-bold text-[var(--codex-accent)]">{referenceImages.length}/8</span>
               </div>
               <input
                 ref={fileInputRef}
@@ -481,7 +481,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
                   className="studio-fixed-upload-slot flex w-full flex-col items-center justify-center rounded-xl border border-white/70 bg-white/82 px-4 py-5 text-center transition hover:bg-white"
                   style={{ "--studio-fixed-upload-height": "112px" } as CSSProperties}
                 >
-                  {isUploading ? <Loader2 className="mb-2 h-6 w-6 animate-spin text-[var(--codex-accent)]0" /> : <ImagePlus className="mb-2 h-6 w-6 text-[var(--codex-accent)]0" />}
+                  {isUploading ? <Loader2 className="mb-2 h-6 w-6 animate-spin text-[var(--codex-accent)]" /> : <ImagePlus className="mb-2 h-6 w-6 text-[var(--codex-accent)]" />}
                   <span className="text-sm font-black text-slate-900">{referenceImages.length ? "继续上传参考图" : "上传 / 拖拽参考图"}</span>
                   <span className="mt-1 text-[11px] text-slate-400">jpg、png、webp，单张不超过 {MAX_FILE_SIZE_MB}MB</span>
                 </button>
@@ -562,7 +562,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
 
           <section>
             <h3 className="mb-3 flex items-center gap-2 font-bold text-sm">
-              <Activity className="h-4 w-4 text-[var(--codex-accent)]0" /> 生成模型
+              <Activity className="h-4 w-4 text-[var(--codex-accent)]" /> 生成模型
             </h3>
             <div className="grid grid-cols-2 gap-2">
               {MODELS.map((model) => (
@@ -786,7 +786,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
                       <img src={imagePromptImage.preview} alt={imagePromptImage.name} className="h-full w-full object-contain p-1" />
                     ) : (
                       <span className="flex flex-col items-center gap-2 text-xs font-bold">
-                        {isImagePromptUploading ? <Loader2 className="h-6 w-6 animate-spin text-[var(--codex-accent)]0" /> : <ImagePlus className="h-6 w-6 text-[var(--codex-accent)]0" />}
+                        {isImagePromptUploading ? <Loader2 className="h-6 w-6 animate-spin text-[var(--codex-accent)]" /> : <ImagePlus className="h-6 w-6 text-[var(--codex-accent)]" />}
                         上传图片
                       </span>
                     )}

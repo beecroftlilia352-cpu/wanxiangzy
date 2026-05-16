@@ -196,7 +196,7 @@ export function InputComposer({
     >
       <div className="mx-auto max-w-4xl px-4 pb-3 pt-2 sm:px-6">
         {isDragging && (
-          <div className="mb-2 flex items-center justify-center rounded-xl border-2 border-dashed border-[rgba(91,124,255,0.22)] bg-[rgba(91,124,255,0.1)] py-5 text-sm font-bold text-[var(--codex-accent)]0">
+          <div className="mb-2 flex items-center justify-center rounded-xl border-2 border-dashed border-[rgba(91,124,255,0.22)] bg-[rgba(91,124,255,0.1)] py-5 text-sm font-bold text-[var(--codex-accent)]">
             拖放图片到这里
           </div>
         )}

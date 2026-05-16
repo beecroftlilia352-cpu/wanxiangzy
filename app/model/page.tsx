@@ -13,6 +13,9 @@ import { ModuleHeader } from "@/components/ModuleHeader";
 import { PreviewGuide } from "@/components/PreviewGuide";
 import { ErrorStage } from "@/components/studio/ErrorStage";
 import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
+import { StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/components/studio/StudioFormControls";
+import { StudioRunBar } from "@/components/studio/StudioRunBar";
+import { StudioUploadSection } from "@/components/studio/StudioUploadSection";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
 import { createClient, getCachedProfileCredits, setCachedProfileCredits } from "@/lib/supabase/client";
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
@@ -518,11 +521,14 @@ export default function ModelPage() {
             title="专属模特"
             tooltip="上传 1-3 张人物参考图，融合脸型、五官比例、肤色、妆感和气质，生成稳定可复用的品牌模特形象。"
           />
-          <section>
-            <div className="studio-upload-header">
-              <h3 className="studio-upload-title">
-                <Upload className="w-4 h-4 text-purple-500" /> 上传参考图
-              </h3>
+          <StudioUploadSection
+            title="上传参考图"
+            inputRef={fileInputRef}
+            multiple
+            isDragging={isReferenceDragging}
+            setDragging={setIsReferenceDragging}
+            onFiles={addFiles}
+            actions={(
               <button
                 ref={rulesButtonRef}
                 type="button"
@@ -535,26 +541,11 @@ export default function ModelPage() {
               >
                 图片规则 <ChevronRight className="h-3 w-3" />
               </button>
-            </div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              multiple
-              className="hidden"
-              onChange={(event) => {
-                const input = event.currentTarget;
-                const files = Array.from(input.files || []);
-                void addFiles(files).finally(() => {
-                  input.value = "";
-                });
-              }}
-            />
+            )}
+          >
+            {(openFileDialog) => (
+              <>
             <div
-              onDragEnter={handleReferenceDragEnter}
-              onDragLeave={handleReferenceDragLeave}
-              onDragOver={handleReferenceDragOver}
-              onDrop={handleReferenceDrop}
               className={`studio-fixed-upload-slot studio-fixed-upload-scroll relative flex flex-col rounded-2xl border border-dashed px-4 py-5 text-center transition-all ${
                 isReferenceDragging
                   ? "border-violet-400 bg-violet-50/80 shadow-[0_18px_42px_rgba(124,58,237,0.14)] ring-2 ring-violet-200"
@@ -577,7 +568,7 @@ export default function ModelPage() {
                     {referenceUrls.length < 3 && (
                       <button
                         type="button"
-                        onClick={() => fileInputRef.current?.click()}
+                        onClick={openFileDialog}
                         className="shrink-0 rounded-lg border border-violet-200 bg-white px-3 py-1.5 text-xs font-semibold text-violet-600 shadow-sm hover:border-violet-300 hover:bg-violet-50"
                       >
                         继续上传
@@ -601,10 +592,10 @@ export default function ModelPage() {
                     ))}
                   </div>
                   <div className="mt-3 flex flex-wrap justify-center gap-2">
-                    <button type="button" onClick={() => fileInputRef.current?.click()} className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-violet-700">
+                    <button type="button" onClick={openFileDialog} className="studio-upload-tile-primary">
                       <Upload className="h-3.5 w-3.5" /> 从本地上传
                     </button>
-                    <button type="button" onClick={() => toast.info("作品库选择即将接入")} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-slate-300">
+                    <button type="button" onClick={() => toast.info("作品库选择即将接入")} className="studio-upload-tile-secondary">
                       <FolderOpen className="h-3.5 w-3.5" /> 从作品选择
                     </button>
                   </div>
@@ -617,10 +608,10 @@ export default function ModelPage() {
                   <p className="text-sm font-semibold text-slate-800">上传 / 拖入 1-3 张人物参考图</p>
                   <p className="mt-1 text-[11px] text-slate-400">拖拽图片到这里，或从本地选择；用于融合脸型、肤色、妆感和气质</p>
                   <div className="mt-3 flex flex-wrap justify-center gap-2">
-                    <button type="button" onClick={() => fileInputRef.current?.click()} className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-violet-700">
+                    <button type="button" onClick={openFileDialog} className="studio-upload-tile-primary">
                       <Upload className="h-3.5 w-3.5" /> 从本地上传
                     </button>
-                    <button type="button" onClick={() => toast.info("作品库选择即将接入")} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-slate-300">
+                    <button type="button" onClick={() => toast.info("作品库选择即将接入")} className="studio-upload-tile-secondary">
                       <FolderOpen className="h-3.5 w-3.5" /> 从作品选择
                     </button>
                   </div>
@@ -648,7 +639,9 @@ export default function ModelPage() {
                 ))}
               </div>
             </div>
-          </section>
+              </>
+            )}
+          </StudioUploadSection>
 
           <section>
             <h3 className="font-bold text-sm mb-3">模特风格</h3>
@@ -828,68 +821,51 @@ export default function ModelPage() {
             <h3 className="font-bold text-sm mb-3 flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-purple-500" /> 生成模型
             </h3>
-            <div className="grid grid-cols-2 gap-2">
-              {MODELS.map((opt) => (
-                <button key={opt.value} onClick={() => setAiModel(opt.value)}
-                  className={`text-left px-3 py-2 rounded-lg border transition-all ${
-                    aiModel === opt.value ? "border-purple-500 bg-purple-50" : "border-gray-100 hover:border-gray-300"
-                  }`}>
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <img src={opt.icon} alt="" className="w-3.5 h-3.5 object-contain flex-shrink-0" />
-                    <span className="text-[11px] font-bold truncate min-w-0">{opt.label}</span>
-                    {opt.badge && <span className="text-[9px] px-1 rounded bg-purple-100 text-purple-600 flex-shrink-0">{opt.badge}</span>}
-                  </div>
-                  <p className="text-[10px] text-gray-400 pl-5 leading-tight truncate">{opt.desc} · 当前{getCreditCost(opt.value, imageSize, aspectRatio)}分</p>
-                </button>
-              ))}
-            </div>
+            <StudioModelSelector
+              models={MODELS}
+              value={aiModel}
+              onChange={setAiModel}
+              ariaLabel="生成模型"
+              getMeta={(model) => `${model.desc} · 当前${getCreditCost(model.value, imageSize, aspectRatio)}分`}
+            />
           </section>
 
           <section>
             <h3 className="font-bold text-sm mb-3">比例</h3>
-            <div className="flex gap-2">
-              {ASPECTS.map((a) => (
-                <button key={a.value} onClick={() => setAspectRatio(a.value)}
-                  className={`flex-1 px-2 py-2 rounded-lg border text-[11px] font-medium transition-all ${
-                    aspectRatio === a.value ? "border-purple-500 bg-purple-50 text-purple-600" : "border-gray-200 hover:border-gray-300"
-                  }`}>{a.label}</button>
-              ))}
-            </div>
+            <StudioOptionGrid
+              options={ASPECTS}
+              value={aspectRatio}
+              onChange={setAspectRatio}
+              columns={3}
+              ariaLabel="比例"
+            />
           </section>
 
           {imageSizes.length > 1 && (
             <section>
               <h3 className="font-bold text-sm mb-3">分辨率</h3>
-              <div className="flex gap-2">
-                {imageSizes.map((s) => (
-                  <button key={s} onClick={() => setImageSize(s)}
-                    className={`flex-1 py-2 rounded-lg border text-xs font-medium transition-all ${
-                      imageSize === s ? "border-purple-500 bg-purple-50 text-purple-600" : "border-gray-200 hover:border-gray-300"
-                    }`}>{s} · {getCreditCost(aiModel, s, aspectRatio)}积分</button>
-                ))}
-              </div>
+              <StudioOptionGrid
+                options={imageSizes.map((size) => ({
+                  value: size,
+                  label: `${size} · ${getCreditCost(aiModel, size, aspectRatio)}积分`,
+                }))}
+                value={imageSize}
+                onChange={setImageSize}
+                ariaLabel="分辨率"
+              />
             </section>
           )}
 
           <section>
-            <h3 className="font-bold text-sm mb-3">提示词</h3>
-
-            {/* 用户额外提示 */}
-            <div className="mb-3">
-              <label className="mb-1.5 flex items-center gap-1.5 text-xs font-bold text-slate-600">
-                <span className="text-violet-500">+</span> 用户额外要求（可选）
-              </label>
-              <textarea
-                value={userExtraPrompt}
-                onChange={(e) => setUserExtraPrompt(e.target.value)}
-                placeholder="例如：希望模特表情更自然、背景偏暖色调、妆容淡雅..."
-                rows={2}
-                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs leading-relaxed outline-none transition-all placeholder:text-slate-300 focus:border-violet-300 focus:ring-1 focus:ring-violet-200"
-              />
-              <p className="mt-1 text-[10px] text-slate-400">
-                补充说明会附加到系统提示词中，影响最终生成效果
-              </p>
-            </div>
+            <StudioPromptTextarea
+              title="补充要求"
+              badge="可选"
+              value={userExtraPrompt}
+              onChange={(event) => setUserExtraPrompt(event.target.value)}
+              placeholder="可选：例如希望模特表情更自然、背景偏暖色调、妆容淡雅..."
+              rows={4}
+              description="补充说明会附加到系统提示词中，影响最终生成效果。"
+            />
 
             <button
               type="button"
@@ -909,33 +885,27 @@ export default function ModelPage() {
 
           <section>
             <h3 className="font-bold text-sm mb-3">生成数量</h3>
-            <div className="flex gap-2">
-              {[1, 2, 3, 4].map((n) => (
-                <button key={n} onClick={() => setGenCount(n)}
-                  className={`flex-1 py-2 rounded-lg border text-sm font-medium transition-all ${
-                    genCount === n ? "border-purple-500 bg-purple-50 text-purple-600" : "border-gray-200 hover:border-gray-300"
-                  }`}>
-                  {n} 张
-                </button>
-              ))}
-            </div>
+            <StudioOptionGrid
+              options={[1, 2, 3, 4].map((count) => ({
+                value: String(count),
+                label: `${count} 张`,
+              }))}
+              value={String(genCount)}
+              onChange={(value) => setGenCount(Number(value))}
+              columns={4}
+              ariaLabel="生成数量"
+            />
           </section>
         </div>
 
-        <div className="studio-runbar border-t p-3 sm:p-4 space-y-2 sticky bottom-0 z-10 lg:static">
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-gray-400">{referenceUrls.length} 张参考图 · {cost} × {genCount}</span>
-            {isAuthenticated
-              ? <span className="font-bold text-amber-600">消耗 {totalCost} · 余额 {credits ?? "-"}</span>
-              : <span className="text-gray-400">登录后查看积分</span>
-            }
-          </div>
-          <button onClick={() => generate()} disabled={isGenerating || !referenceUrls.length}
-            className="w-full py-3 rounded-xl gradient-brand text-white text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-40 hover:opacity-90 shadow-lg shadow-purple-200">
-            <Sparkles className="w-4 h-4" />
-            {!isAuthenticated ? "登录后生成" : isGenerating ? "生成中..." : `生成 ${genCount} 张`}
-          </button>
-        </div>
+        <StudioRunBar
+          summary={`${referenceUrls.length} 张参考图 · ${cost} × ${genCount}`}
+          costLabel={isAuthenticated ? `消耗 ${totalCost} · 余额 ${credits ?? "-"}` : "登录后查看积分"}
+          disabled={isGenerating || !referenceUrls.length}
+          primaryLabel={!isAuthenticated ? "登录后生成" : isGenerating ? "生成中..." : `生成 ${genCount} 张`}
+          isLoading={isGenerating}
+          onPrimaryAction={() => generate()}
+        />
       </div>
 
       <div className="studio-canvas min-h-[260px] sm:min-h-[360px] lg:min-h-0 flex-1 relative overflow-hidden mt-3 mb-6 lg:mt-0 lg:mb-0">

@@ -30,6 +30,7 @@ import { StudioSection } from "@/components/studio/StudioSection";
 import { StudioSegmentedControl } from "@/components/studio/StudioSegmentedControl";
 import { StudioTaskRail } from "@/components/studio/StudioTaskRail";
 import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
+import { StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/components/studio/StudioFormControls";
 import { takeApplyPayload, type HistoryJobPayload } from "@/lib/history-apply";
 import { applyRepairPrompt } from "@/lib/generation-repair";
 import type { TaskQueueItem } from "@/lib/task-queue";
@@ -1731,60 +1732,47 @@ export default function CreatePage() {
             <h3 className="font-bold text-sm mb-3 flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-purple-500" /> 生成模型
             </h3>
-            <div className="grid grid-cols-2 gap-2">
-              {MODELS.map((opt) => (
-                <button key={opt.value} onClick={() => setAiModel(opt.value)}
-                  className={`text-left px-3 py-2 rounded-lg border transition-all ${
-                    aiModel === opt.value ? "border-purple-500 bg-purple-50" : "border-gray-100 hover:border-gray-300"
-                  }`}>
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <img src={opt.icon} alt="" className="w-3.5 h-3.5 object-contain flex-shrink-0" />
-                    <span className="text-[11px] font-semibold truncate min-w-0">{opt.label}</span>
-                    {opt.badge && <span className="text-[9px] px-1 py-0.5 rounded-full bg-purple-100 text-purple-600 flex-shrink-0">{opt.badge}</span>}
-                  </div>
-                  <p className="text-[10px] text-gray-400 pl-5 leading-tight truncate">{opt.desc} · 当前{getCreditCost(opt.value, imageSize, aspectRatio)}分</p>
-                </button>
-              ))}
-            </div>
+            <StudioModelSelector
+              models={MODELS}
+              value={aiModel}
+              onChange={setAiModel}
+              ariaLabel="生成模型"
+              getMeta={(model) => `${model.desc} · 当前${getCreditCost(model.value, imageSize, aspectRatio)}分`}
+            />
           </section>
 
           {/* ---- 比例 ---- */}
           <section>
             <h3 className="font-bold text-sm mb-3">图片比例</h3>
-            <div className="flex flex-wrap gap-1.5">
-              {aspects.map((a) => (
-                <button key={a.value} onClick={() => setAspectRatio(a.value)}
-                  className={`px-3 py-1.5 rounded-lg border text-[11px] font-medium transition-all ${
-                    aspectRatio === a.value ? "border-purple-500 bg-purple-50 text-purple-600" : "border-gray-200 hover:border-gray-300"
-                  }`}>{a.label}</button>
-              ))}
-            </div>
+            <StudioOptionGrid options={aspects} value={aspectRatio} onChange={setAspectRatio} ariaLabel="图片比例" />
           </section>
 
           {/* ---- 分辨率 ---- */}
           {imageSizes.length > 1 && (
             <section>
               <h3 className="font-bold text-sm mb-3">分辨率</h3>
-              <div className="flex gap-2">
-                {imageSizes.map((s) => (
-                  <button key={s} onClick={() => setImageSize(s)}
-                    className={`flex-1 py-2 rounded-lg border text-xs font-medium transition-all ${
-                      imageSize === s ? "border-purple-500 bg-purple-50 text-purple-600" : "border-gray-200 hover:border-gray-300"
-                    }`}>{s} · {getCreditCost(aiModel, s, aspectRatio)}积分</button>
-                ))}
-              </div>
+              <StudioOptionGrid
+                options={imageSizes.map((size) => ({ value: size, label: `${size} · ${getCreditCost(aiModel, size, aspectRatio)}积分` }))}
+                value={imageSize}
+                onChange={setImageSize}
+                ariaLabel="分辨率"
+              />
             </section>
           )}
 
           {/* ---- 细节补充 + 智能整理 ---- */}
           <section>
-            <h3 className="font-bold text-sm mb-3">细节补充（可选）</h3>
             <div className="relative">
-              <textarea value={customStyle} onChange={(e) => { setCustomStyle(e.target.value); setPromptOverride(null); }}
+              <StudioPromptTextarea
+                title="补充要求"
+                badge="可选"
+                value={customStyle}
+                onChange={(e) => { setCustomStyle(e.target.value); setPromptOverride(null); }}
                 placeholder="可选：补充不改变主风格的细节要求，如面料、肤色、光线、商品细节..."
-                className="w-full px-3 py-2 pr-10 rounded-lg border text-xs focus:ring-2 focus:ring-purple-200 outline-none resize-none h-14" />
+                rows={4}
+              />
               <button onClick={handleOptimizePrompt} disabled={optimizing || !customStyle.trim()}
-                className="absolute right-2 top-2 p-1.5 rounded-md bg-purple-50 text-purple-500 hover:bg-purple-100 disabled:opacity-30"
+                className="absolute right-2 top-11 p-1.5 rounded-md bg-purple-50 text-purple-500 hover:bg-purple-100 disabled:opacity-30"
                 title="智能整理提示词">
                 {optimizing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand className="w-3.5 h-3.5" />}
               </button>

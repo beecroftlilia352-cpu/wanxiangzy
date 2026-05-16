@@ -230,7 +230,7 @@ export default function ApiPlatformTestPage() {
             <div className="space-y-4">
               <label className="block">
                 <span className="mb-1.5 flex items-center gap-1.5 text-xs font-bold text-gray-700">
-                  <Server className="h-3.5 w-3.5 text-[var(--codex-accent)]0" /> API URL
+                  <Server className="h-3.5 w-3.5 text-[var(--codex-accent)]" /> API URL
                 </span>
                 <input
                   value={apiUrl}
@@ -242,7 +242,7 @@ export default function ApiPlatformTestPage() {
 
               <label className="block">
                 <span className="mb-1.5 flex items-center gap-1.5 text-xs font-bold text-gray-700">
-                  <KeyRound className="h-3.5 w-3.5 text-[var(--codex-accent)]0" /> API Key
+                  <KeyRound className="h-3.5 w-3.5 text-[var(--codex-accent)]" /> API Key
                 </span>
                 <input
                   value={apiKey}

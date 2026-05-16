@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, ChevronRight, Eye, FolderOpen, Heart, Loader2, Sparkles, Upload, Wand, X, XCircle, ZoomIn } from "lucide-react";
+import { CheckCircle2, ChevronRight, Eye, Loader2, Sparkles, Upload, Wand, X, XCircle, ZoomIn } from "lucide-react";
 import { toast } from "sonner";
 import { FeatureTabs } from "@/components/FeatureTabs";
 import { ModuleHeader } from "@/components/ModuleHeader";
@@ -12,6 +12,10 @@ import { ClientPortal } from "@/components/ClientPortal";
 import { PreviewGuide } from "@/components/PreviewGuide";
 import { ErrorStage } from "@/components/studio/ErrorStage";
 import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
+import { StudioModelSelector, StudioOptionGrid } from "@/components/studio/StudioFormControls";
+import { StudioRunBar } from "@/components/studio/StudioRunBar";
+import { StudioUploadSection } from "@/components/studio/StudioUploadSection";
+import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
 import { createClient, getCachedProfileCredits, setCachedProfileCredits } from "@/lib/supabase/client";
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
@@ -432,49 +436,37 @@ export default function GrassPage() {
         <div className="studio-parameters-scroll flex-1 overflow-visible lg:overflow-y-auto p-3 sm:p-5 space-y-4 sm:space-y-6">
           <ModuleHeader title="服装种草图" tooltip="上传服装或穿搭图，保持同款穿搭不变，生成街拍、咖啡店、自拍、居家等真实种草内容图。" />
 
-          <section
-            onDragEnter={(e) => { e.preventDefault(); setIsDragging(true); }}
-            onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => { e.preventDefault(); setIsDragging(false); handleFile(e.dataTransfer.files?.[0]); }}
-            className={`relative rounded-xl transition-all ${isDragging ? "ring-2 ring-purple-400 ring-offset-2" : ""}`}
-          >
-            <div className="studio-upload-header">
-              <h3 className="studio-upload-title"><Upload className="w-4 h-4 text-purple-500" /> 上传服装</h3>
+          <StudioUploadSection
+            title="上传服装"
+            inputRef={fileInputRef}
+            isDragging={isDragging}
+            setDragging={setIsDragging}
+            onFiles={async (files) => {
+              await handleFile(files[0]);
+            }}
+            actions={(
               <button ref={rulesButtonRef} type="button" onMouseEnter={openRulesPopover} onMouseLeave={scheduleRulesHide} onFocus={openRulesPopover} onBlur={scheduleRulesHide} className="studio-upload-rule-button">
                 图片规则 <ChevronRight className="h-3 w-3" />
               </button>
-            </div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(event) => {
-                const input = event.currentTarget;
-                void handleFile(input.files?.[0]).finally(() => {
-                  input.value = "";
-                });
-              }}
-            />
-            {garmentUrl ? (
-              <div className="group studio-checkerboard studio-fixed-upload-preview relative overflow-hidden rounded-2xl border border-dashed border-slate-200" style={{ "--studio-fixed-preview-height": "320px" } as CSSProperties}>
-                <img src={garmentUrl} alt="服装图" className="h-full w-full object-contain p-3" />
-                <span className="absolute left-3 top-3 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-medium text-slate-600 shadow-sm">{garmentName || "已上传"}</span>
-                <button onClick={() => setGarmentUrl("")} className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 opacity-0 shadow group-hover:opacity-100"><X className="h-4 w-4" /></button>
-              </div>
-            ) : (
-              <div className="studio-fixed-upload-slot flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 px-4 py-8 text-center">
-                <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-sm"><Heart className="h-7 w-7 text-violet-400" /></div>
-                <p className="text-sm font-semibold text-slate-800">上传服装或穿搭图</p>
-                <p className="mt-1 text-[11px] text-slate-400">平铺图、人台图、上身图都可以，主体越完整越稳定</p>
-                <div className="mt-3 flex gap-2">
-                  <button type="button" onClick={() => fileInputRef.current?.click()} className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-violet-700"><Upload className="h-3.5 w-3.5" /> 从本地上传</button>
-                  <button type="button" onClick={() => toast.info("作品库选择即将接入")} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-slate-300"><FolderOpen className="h-3.5 w-3.5" /> 从作品选择</button>
-                </div>
-                <p className="mt-2 text-[11px] text-slate-400">{GRASS_UPLOAD_RULE.uploadSpecText}</p>
-              </div>
             )}
+          >
+            {(openFileDialog) => (
+              <>
+                <StudioUploadTile
+                  title="上传服装或穿搭图"
+                  description="平铺图、人台图、上身图都可以，主体越完整越稳定。"
+                  imageUrl={garmentUrl || null}
+                  imageAlt="服装图"
+                  isDragging={isDragging}
+                  onUploadClick={openFileDialog}
+                  onLibraryClick={() => toast.info("作品库选择即将接入")}
+                  onPreview={garmentUrl ? () => setLightboxSrc(garmentUrl) : undefined}
+                  onRemove={garmentUrl ? () => setGarmentUrl("") : undefined}
+                  onDropFile={(file) => handleFile(file)}
+                  uploadLabel="从本地上传"
+                  libraryLabel="从作品选择"
+                  footnote={garmentUrl ? garmentName || "已上传" : GRASS_UPLOAD_RULE.uploadSpecText}
+                />
             <div className="mt-3 flex items-center gap-2">
               <span className="shrink-0 text-[11px] font-medium text-slate-400">试一试</span>
               <div className="studio-scrollbar-hide flex min-w-0 flex-1 gap-2 overflow-x-auto pb-1">
@@ -485,7 +477,9 @@ export default function GrassPage() {
                 ))}
               </div>
             </div>
-          </section>
+              </>
+            )}
+          </StudioUploadSection>
 
           <section>
             <div className="mb-3 flex items-center justify-between gap-2">
@@ -679,28 +673,22 @@ export default function GrassPage() {
 
           <section>
             <h3 className="font-bold text-sm mb-3 flex items-center gap-2"><Sparkles className="w-4 h-4 text-purple-500" /> 生成模型</h3>
-            <div className="grid grid-cols-2 gap-2">
-              {MODELS.map((opt) => (
-                <button key={opt.value} onClick={() => setAiModel(opt.value)} className={`rounded-xl border p-2 text-left transition-all ${aiModel === opt.value ? "border-purple-500 bg-purple-50 ring-1 ring-purple-200" : "border-gray-200 hover:border-gray-300"}`}>
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <img src={opt.icon} alt="" className="w-3.5 h-3.5 object-contain flex-shrink-0" />
-                    <span className="truncate text-[11px] font-bold">{opt.label}</span>
-                    {opt.badge && <span className="text-[9px] px-1 rounded bg-purple-100 text-purple-600 flex-shrink-0">{opt.badge}</span>}
-                  </div>
-                  <p className="mt-0.5 text-[10px] text-gray-400 truncate">{opt.desc}</p>
-                </button>
-              ))}
-            </div>
+            <StudioModelSelector models={MODELS} value={aiModel} onChange={setAiModel} ariaLabel="生成模型" />
           </section>
 
           <section>
             <h3 className="font-bold text-sm mb-3">图片比例</h3>
-            <div className="grid grid-cols-3 gap-2">{ASPECTS.map((a) => <button key={a.value} onClick={() => setAspectRatio(a.value)} className={`rounded-lg border py-2 text-xs font-medium ${aspectRatio === a.value ? "border-purple-500 bg-purple-50 text-purple-600" : "border-gray-200 hover:border-gray-300"}`}>{a.label}</button>)}</div>
+            <StudioOptionGrid options={ASPECTS} value={aspectRatio} onChange={setAspectRatio} ariaLabel="图片比例" />
           </section>
 
           <section>
             <h3 className="font-bold text-sm mb-3">分辨率</h3>
-            <div className="grid grid-cols-3 gap-2">{imageSizes.map((s) => <button key={s} onClick={() => setImageSize(s)} className={`rounded-lg border py-2 text-xs font-medium ${imageSize === s ? "border-purple-500 bg-purple-50 text-purple-600" : "border-gray-200 hover:border-gray-300"}`}>{s} · {getCreditCost(aiModel, s, aspectRatio)}积分</button>)}</div>
+            <StudioOptionGrid
+              options={imageSizes.map((s) => ({ value: s, label: `${s} · ${getCreditCost(aiModel, s, aspectRatio)}积分` }))}
+              value={imageSize}
+              onChange={setImageSize}
+              ariaLabel="分辨率"
+            />
           </section>
 
           <section>
@@ -709,16 +697,24 @@ export default function GrassPage() {
 
           <section>
             <h3 className="font-bold text-sm mb-3">生成数量</h3>
-            <div className="grid grid-cols-4 gap-2">{[1, 2, 3, 4].map((n) => <button key={n} onClick={() => setGenCount(n)} className={`rounded-lg border py-2 text-sm font-medium ${genCount === n ? "border-purple-500 bg-purple-50 text-purple-600" : "border-gray-200 hover:border-gray-300"}`}>{n} 张</button>)}</div>
+            <StudioOptionGrid
+              options={[1, 2, 3, 4].map((n) => ({ value: String(n), label: `${n} 张` }))}
+              value={String(genCount)}
+              onChange={(value) => setGenCount(Number(value))}
+              columns={4}
+              ariaLabel="生成数量"
+            />
           </section>
         </div>
 
-        <div className="studio-runbar border-t p-3 sm:p-4 space-y-2 sticky bottom-0 z-10 lg:static">
-          <div className="flex items-center justify-between text-xs"><span className="text-gray-400">{garmentUrl ? `${effectiveReferenceUrl ? 2 : 1} 张输入图` : "未上传"} · {genCount} 张</span>{isAuthenticated ? <span className="font-bold text-orange-500">消耗 {cost} · 余额 {credits ?? "-"}</span> : <span className="text-orange-500">登录后生成</span>}</div>
-          <button onClick={() => generate()} disabled={isGenerating || !garmentUrl} className="w-full py-3 rounded-xl gradient-brand text-white text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-40 hover:opacity-90 shadow-lg shadow-purple-200">
-            <Sparkles className="w-4 h-4" /> {!isAuthenticated ? "登录后生成" : isGenerating ? "生成中..." : `生成 ${genCount} 张`}
-          </button>
-        </div>
+        <StudioRunBar
+          summary={`${garmentUrl ? `${effectiveReferenceUrl ? 2 : 1} 张输入图` : "未上传"} · ${genCount} 张`}
+          costLabel={isAuthenticated ? `消耗 ${cost} · 余额 ${credits ?? "-"}` : "登录后生成"}
+          disabled={isGenerating || !garmentUrl}
+          primaryLabel={!isAuthenticated ? "登录后生成" : isGenerating ? "生成中..." : `生成 ${genCount} 张`}
+          isLoading={isGenerating}
+          onPrimaryAction={() => generate()}
+        />
       </div>
 
       <div className="studio-canvas relative flex-1 min-h-[520px] lg:h-full overflow-hidden mt-3 mb-6 lg:mt-0 lg:mb-0">

@@ -17,7 +17,6 @@ describe("environment contract", () => {
     delete process.env.SITE_URL;
     delete process.env.APP_URL;
     delete process.env.URL;
-    delete process.env.VERCEL_URL;
   });
 
   afterEach(() => {

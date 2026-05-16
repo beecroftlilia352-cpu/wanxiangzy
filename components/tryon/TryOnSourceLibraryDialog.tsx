@@ -43,7 +43,7 @@ export function TryOnSourceLibraryDialog({
         >
           <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4">
             <div className="min-w-0">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--codex-accent)]0">作品库</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--codex-accent)]">作品库</p>
               <h3 id="tryon-source-library-title" className="mt-1 text-base font-bold text-slate-950">
                 选择{targetLabel}
               </h3>

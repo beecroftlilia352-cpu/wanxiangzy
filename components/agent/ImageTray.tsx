@@ -45,7 +45,7 @@ export function ImageTray({ images, onAdd, onRemove, onClear, onRoleChange, onPr
   return (
     <div className="mb-2 rounded-2xl border border-[rgba(91,124,255,0.22)] bg-[rgba(91,124,255,0.1)] p-2 shadow-sm shadow-slate-300/40">
       <div className="mb-2 flex items-center gap-2 px-1">
-        <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-white text-[var(--codex-accent)]0 shadow-sm">
+        <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-white text-[var(--codex-accent)] shadow-sm">
           <Images className="h-3.5 w-3.5" />
         </span>
         <div className="min-w-0 flex-1 text-left">
@@ -53,7 +53,7 @@ export function ImageTray({ images, onAdd, onRemove, onClear, onRoleChange, onPr
             <span className="text-xs font-bold text-slate-700">
               本次可用 {readyCount} 张附件图
             </span>
-            <span className="rounded-full bg-white px-1.5 py-0.5 text-[10px] font-semibold text-[var(--codex-accent)]0">
+            <span className="rounded-full bg-white px-1.5 py-0.5 text-[10px] font-semibold text-[var(--codex-accent)]">
               独立上下文
             </span>
             {(uploadingCount > 0 || failedCount > 0) && (
@@ -170,7 +170,7 @@ export function ImageTray({ images, onAdd, onRemove, onClear, onRoleChange, onPr
         {images.length < 10 && (
           <button
             onClick={() => inputRef.current?.click()}
-            className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl border-2 border-dashed border-[rgba(91,124,255,0.22)] bg-white/70 text-[var(--codex-accent)] transition-all hover:border-[rgba(91,124,255,0.3)] hover:bg-white hover:text-[var(--codex-accent)]0"
+            className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl border-2 border-dashed border-[rgba(91,124,255,0.22)] bg-white/70 text-[var(--codex-accent)] transition-all hover:border-[rgba(91,124,255,0.3)] hover:bg-white hover:text-[var(--codex-accent)]"
             title="添加图片"
           >
             <Plus className="h-4 w-4" />

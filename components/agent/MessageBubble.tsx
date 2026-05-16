@@ -464,7 +464,7 @@ function GenerationLoadingGrid({
               <div className="relative flex h-11 w-11 items-center justify-center">
                 <div className="gen-ring absolute inset-0 rounded-full bg-[rgba(91,124,255,0.1)]" />
                 <div className="relative flex h-11 w-11 items-center justify-center rounded-full bg-white/85 shadow-lg backdrop-blur-sm">
-                  <Activity className="gen-icon h-5 w-5 text-[var(--codex-accent)]0" />
+                  <Activity className="gen-icon h-5 w-5 text-[var(--codex-accent)]" />
                 </div>
               </div>
               <span className="text-[11px] font-bold text-slate-500">{getLoadingTileLabel(index, itemCount, safeProgress)}</span>

@@ -8,9 +8,7 @@ import {
   ChevronRight,
   Copy,
   Download,
-  Loader2,
   RotateCcw,
-  ScanFace,
   Settings2,
   Activity,
   UserRoundCheck,
@@ -21,9 +19,13 @@ import { toast } from "sonner";
 import { FeatureTabs } from "@/components/FeatureTabs";
 import { ClientPortal } from "@/components/ClientPortal";
 import { ModuleHeader } from "@/components/ModuleHeader";
+import { PreviewGuide } from "@/components/PreviewGuide";
 import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
 import { LoadingStage } from "@/components/studio/LoadingStage";
 import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
+import { StudioModelSelector, StudioOptionGrid } from "@/components/studio/StudioFormControls";
+import { StudioRunBar } from "@/components/studio/StudioRunBar";
+import { StudioUploadSection } from "@/components/studio/StudioUploadSection";
 import {
   FACE_SWAP_LIBRARY,
   FACE_SWAP_NOTE,
@@ -120,8 +122,6 @@ export default function FaceSwapPage() {
   const unitCost = getCreditCost(aiModel, imageSizeValue, aspectRatio);
   const totalCost = unitCost * normalizeFaceSwapCount(genCount);
   const faceLibrary = FACE_SWAP_LIBRARY.filter((item) => item.gender === genderFilter);
-  const previewSource = sourceUrl || FACE_SWAP_SAMPLE_IMAGES[0]?.url || "";
-  const previewFace = faceUrl || FACE_SWAP_LIBRARY[0]?.url || "";
   const finalPrompt = buildFaceSwapPrompt(prompt, textureEnhance);
   const validationHint = !sourceUrl
     ? "请先上传或选择原始模特图"
@@ -452,174 +452,138 @@ export default function FaceSwapPage() {
       />
 
       <aside className="studio-parameters flex w-full flex-col overflow-visible border-b lg:w-[472px] lg:overflow-hidden lg:border-b-0 lg:border-r">
-        <div className="studio-parameters-scroll flex-1 space-y-4 overflow-visible p-3 sm:space-y-6 sm:p-5 lg:overflow-y-auto">
+        <div className="studio-parameters-scroll flex-1 overflow-visible p-3 sm:p-5 lg:overflow-y-auto">
           <ModuleHeader
             title="换脸"
             tooltip="上传原始模特图与目标脸图，只迁移五官身份，保留原图肤色、发型、服装、姿势和场景。"
           />
 
-          <section className="face-swap-identity-card">
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-[11px] font-black uppercase tracking-normal text-slate-600">Identity Transfer</p>
-                <p className="mt-1 text-sm font-black text-slate-950">双图身份迁移</p>
-                <p className="mt-1 text-xs leading-relaxed text-slate-500">左侧锁定画面，右侧只提供五官身份。</p>
-              </div>
-              <div className="flex shrink-0 items-center gap-1.5">
-                <MiniPreviewImage src={previewSource} alt="source preview" />
-                <span className="face-swap-flow-arrow">
-                  <ScanFace className="h-4 w-4" />
-                </span>
-                <MiniPreviewImage src={previewFace} alt="face preview" square />
-              </div>
-            </div>
-          </section>
+          <StudioUploadSection
+            title="原始模特图"
+            inputRef={originalInputRef}
+            onFiles={(files) => handleUpload(files[0], "source")}
+          >
+            {(openFileDialog) => (
+              <>
+                <StudioUploadTile
+                  title="上传需要处理的原图"
+                  description="图1作为身体、服装和构图基础，建议主体完整、画面清晰。"
+                  imageUrl={sourceUrl || null}
+                  imageAlt="已上传的原始模特图"
+                  loading={isUploadingOriginal}
+                  onUploadClick={openFileDialog}
+                  onPreview={sourceUrl ? () => setLightboxSrc(sourceUrl) : undefined}
+                  onRemove={sourceUrl ? () => {
+                    setSourceUrl("");
+                    resetGenerationForInputChange();
+                  } : undefined}
+                  onDropFile={(file) => handleUpload(file, "source")}
+                  uploadLabel="从本地上传"
+                  footnote="文件大小 20KB-15MB，分辨率大于 400×400，支持 jpg/jpeg/png/webp"
+                />
+                <div className="studio-upload-demo-row">
+                  <span className="studio-upload-demo-label">示例图</span>
+                  <div className="studio-upload-demo-list">
+                    {FACE_SWAP_SAMPLE_IMAGES.map((sample) => (
+                      <button
+                        key={sample.id}
+                        type="button"
+                        onClick={() => {
+                          setSourceUrl(sample.url);
+                          resetGenerationForInputChange();
+                        }}
+                        className={`studio-upload-demo-thumb ${sourceUrl === sample.url ? "studio-upload-demo-thumb-active" : ""}`}
+                      >
+                        <img src={sample.url} alt={`sample ${sample.id}`} />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+          </StudioUploadSection>
 
-          <section>
-            <PanelTitle title="原始模特图" />
-            <StudioUploadTile
-              title="上传需要处理的原图"
-              description="图1作为身体、服装和构图基础，建议主体完整、画面清晰。"
-              imageUrl={sourceUrl || null}
-              imageAlt="已上传的原始模特图"
-              loading={isUploadingOriginal}
-              onUploadClick={() => originalInputRef.current?.click()}
-              onPreview={sourceUrl ? () => setLightboxSrc(sourceUrl) : undefined}
-              onRemove={sourceUrl ? () => {
-                setSourceUrl("");
-                resetGenerationForInputChange();
-              } : undefined}
-              onDropFile={(file) => handleUpload(file, "source")}
-              uploadLabel="从本地上传"
-              footnote="文件大小 20KB-15MB，分辨率大于 400×400，支持 jpg/jpeg/png/webp"
-            />
-            <input
-              ref={originalInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(event) => {
-                const input = event.currentTarget;
-                void handleUpload(input.files?.[0], "source").finally(() => {
-                  input.value = "";
-                });
-              }}
-            />
-            <div className="mt-3 flex items-center gap-2">
-              <span className="w-12 shrink-0 text-[11px] font-semibold leading-tight text-slate-500">示例图</span>
-              <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto pb-1">
-                {FACE_SWAP_SAMPLE_IMAGES.map((sample) => (
-                  <button
-                    key={sample.id}
-                    type="button"
-                    onClick={() => {
-                      setSourceUrl(sample.url);
-                      resetGenerationForInputChange();
-                    }}
-                    className={`h-16 w-14 shrink-0 overflow-hidden rounded-xl border bg-white p-1 shadow-sm transition-all hover:border-neutral-300 ${sourceUrl === sample.url ? "border-emerald-500 ring-2 ring-emerald-100" : "border-neutral-200"}`}
-                  >
-                    <img src={sample.url} alt={`sample ${sample.id}`} className="h-full w-full rounded-lg object-cover" />
-                  </button>
-                ))}
-              </div>
-            </div>
-          </section>
-
-          <section>
-            <div className="mb-2 flex items-center justify-between">
-              <PanelTitle title="目标脸图" />
-              <button type="button" onClick={() => setDrawerOpen(true)} className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 hover:text-emerald-700">
-                模特脸库 <ChevronRight className="h-3.5 w-3.5" />
+          <StudioUploadSection
+            title="目标脸图"
+            inputRef={faceInputRef}
+            onFiles={(files) => handleUpload(files[0], "face")}
+            actions={(
+              <button type="button" onClick={() => setDrawerOpen(true)} className="studio-upload-rule-button">
+                模特脸库 <ChevronRight className="h-3 w-3" />
               </button>
-            </div>
-            <StudioUploadTile
-              title="上传目标脸图"
-              description={faceUrl ? "已选择目标脸图，可更换、预览或删除。" : FACE_SWAP_NOTE}
-              imageUrl={faceUrl || null}
-              imageAlt="已上传的目标脸图"
-              loading={isUploadingFace}
-              onUploadClick={() => faceInputRef.current?.click()}
-              onLibraryClick={() => setDrawerOpen(true)}
-              onPreview={faceUrl ? () => setLightboxSrc(faceUrl) : undefined}
-              onRemove={faceUrl ? () => {
-                setFaceUrl("");
-                resetGenerationForInputChange();
-              } : undefined}
-              onDropFile={(file) => handleUpload(file, "face")}
-              uploadLabel="上传脸图"
-              libraryLabel="选择官方脸"
-              footnote="只提取五官身份，不改变原图肤色、发型、身体、服装和背景。"
-            />
-            <input
-              ref={faceInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(event) => {
-                const input = event.currentTarget;
-                void handleUpload(input.files?.[0], "face").finally(() => {
-                  input.value = "";
-                });
-              }}
+            )}
+          >
+            {(openFileDialog) => (
+              <StudioUploadTile
+                title="上传目标脸图"
+                description={faceUrl ? "已选择目标脸图，可更换、预览或删除。" : FACE_SWAP_NOTE}
+                imageUrl={faceUrl || null}
+                imageAlt="已上传的目标脸图"
+                loading={isUploadingFace}
+                onUploadClick={openFileDialog}
+                onLibraryClick={() => setDrawerOpen(true)}
+                onPreview={faceUrl ? () => setLightboxSrc(faceUrl) : undefined}
+                onRemove={faceUrl ? () => {
+                  setFaceUrl("");
+                  resetGenerationForInputChange();
+                } : undefined}
+                onDropFile={(file) => handleUpload(file, "face")}
+                uploadLabel="上传脸图"
+                libraryLabel="选择官方脸"
+                footnote="只提取五官身份，不改变原图肤色、发型、身体、服装和背景。"
+              />
+            )}
+          </StudioUploadSection>
+
+          <section>
+            <h3 className="mb-3 flex items-center gap-2 text-sm font-black text-slate-950">
+              <Activity className="h-4 w-4 text-[var(--codex-accent)]" />
+              生成模型
+            </h3>
+            <StudioModelSelector
+              models={MODELS}
+              value={aiModel}
+              onChange={setAiModel}
+              ariaLabel="生成模型"
+              getMeta={(model) => `${model.desc} · 当前${getCreditCost(model.value, normalizeImageSize(model.value, imageSizeValue, aspectRatio), aspectRatio)}分`}
             />
           </section>
 
-          <ControlSection title="生成模型" icon={<Activity className="h-4 w-4" />}>
-            <div className="studio-model-grid">
-              {MODELS.map((model) => (
-                <button
-                  key={model.value}
-                  type="button"
-                  onClick={() => setAiModel(model.value)}
-                  className={`studio-model-card ${aiModel === model.value ? "studio-model-card-active" : ""}`}
-                >
-                  <span className="studio-model-card-main">
-                    <span className="studio-model-icon">
-                      <img src={model.icon} alt="" />
-                    </span>
-                    <span className="min-w-0">
-                      <span className="studio-model-title-row">
-                        <span className="truncate">{model.label}</span>
-                        {model.badge && <span className="studio-model-badge">{model.badge}</span>}
-                      </span>
-                      <span className="studio-model-desc">
-                        {model.desc} · 当前{getCreditCost(model.value, normalizeImageSize(model.value, imageSizeValue, aspectRatio), aspectRatio)}分
-                      </span>
-                    </span>
-                  </span>
-                </button>
-              ))}
-            </div>
-          </ControlSection>
-
-          <ControlSection title="画面比例">
-            <OptionPillGrid
+          <section>
+            <PanelTitle title="画面比例" />
+            <StudioOptionGrid
               options={ASPECT_RATIOS}
               value={aspectRatio}
+              ariaLabel="画面比例"
               onChange={(value) => setAspectRatio(value as AspectRatio)}
             />
-          </ControlSection>
+          </section>
 
-          <ControlSection title="分辨率">
-            <OptionPillGrid
+          <section>
+            <PanelTitle title="分辨率" />
+            <StudioOptionGrid
               options={supportedSizes.map((size) => ({
                 value: size,
                 label: `${size} · ${getCreditCost(aiModel, size, aspectRatio)}积分`,
               }))}
               value={imageSizeValue}
+              ariaLabel="分辨率"
               onChange={(value) => setImageSize(value as ImageSize)}
             />
-          </ControlSection>
+          </section>
 
-          <ControlSection title="生成数量">
-            <OptionPillGrid
+          <section>
+            <PanelTitle title="生成数量" />
+            <StudioOptionGrid
               options={[1, 2, 3, 4].map((count) => ({ value: String(count), label: String(count) }))}
               value={String(genCount)}
+              ariaLabel="生成数量"
               onChange={(value) => setGenCount(Number(value))}
             />
-          </ControlSection>
+          </section>
 
-          <ControlSection title="质感增强">
+          <section>
+            <PanelTitle title="质感增强" />
             <button
               type="button"
               onClick={() => setTextureEnhance((value) => !value)}
@@ -635,7 +599,7 @@ export default function FaceSwapPage() {
                 <span className={`h-5 w-5 rounded-full bg-white shadow transition ${textureEnhance ? "translate-x-5" : "translate-x-0"}`} />
               </span>
             </button>
-          </ControlSection>
+          </section>
 
           <details className="rounded-2xl border border-slate-100 bg-white p-3">
             <summary className="flex cursor-pointer list-none items-center gap-2 text-sm font-black text-slate-800">
@@ -655,33 +619,20 @@ export default function FaceSwapPage() {
           </details>
         </div>
 
-        <div className="studio-runbar sticky bottom-0 z-10 space-y-2 border-t p-3 sm:p-4 lg:static">
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-slate-400">{genCount} 张 · {imageSizeValue} · {aspectRatio}</span>
-            {isAuthenticated
-              ? <span className="font-black text-amber-600">消耗 {totalCost} · 余额 {credits ?? "-"}</span>
-              : <span className="text-slate-400">登录后查看积分</span>}
-          </div>
-          <div className="grid grid-cols-[1fr_68px] gap-2">
-            <button
-              type="button"
-              onClick={generate}
-              disabled={!canGenerate}
-              className="gradient-brand flex h-11 items-center justify-center gap-2 rounded-2xl text-sm font-black text-white shadow-lg transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-45"
-            >
-              {status === "running" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Activity className="h-4 w-4" />}
-              {status === "running" ? "生成中" : !isAuthenticated ? "登录后生成" : "开始换脸"}
-            </button>
-            <button type="button" onClick={clearAll} className="h-11 rounded-2xl border border-neutral-200 bg-white text-sm font-bold text-emerald-600 hover:border-emerald-200">
+        <StudioRunBar
+          summary={`${genCount} 张 · ${imageSizeValue} · ${aspectRatio}`}
+          costLabel={isAuthenticated ? `消耗 ${totalCost} · 余额 ${credits ?? "-"}` : "登录后查看积分"}
+          disabled={!canGenerate}
+          disabledReason={validationHint}
+          primaryLabel={status === "running" ? "生成中" : !isAuthenticated ? "登录后生成" : "开始换脸"}
+          isLoading={status === "running"}
+          onPrimaryAction={generate}
+          secondaryActions={(
+            <button type="button" onClick={clearAll} className="studio-button studio-tone-neutral studio-button-compact">
               清空
             </button>
-          </div>
-          {validationHint && (
-            <p className="rounded-xl bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700">
-              {validationHint}
-            </p>
           )}
-        </div>
+        />
       </aside>
 
       <main className="studio-canvas relative mt-3 mb-6 min-h-[260px] flex-1 overflow-hidden sm:min-h-[360px] lg:mt-0 lg:mb-0 lg:min-h-0">
@@ -733,7 +684,19 @@ export default function FaceSwapPage() {
             </div>
           </div>
         ) : (
-          <IntroPanel sourceUrl={previewSource} faceUrl={previewFace} />
+          <div className="studio-empty-stage flex min-h-[260px] items-center justify-center px-4 py-6 sm:min-h-[360px] lg:h-full">
+            <PreviewGuide
+              title="开始制作换脸图"
+              subtitle="先上传原始模特图，再选择目标脸图；输出会保留原图的身体、服装、背景、光线和构图。"
+              imageSrc={FACE_SWAP_SAMPLE_IMAGES[0]?.url || FACE_SWAP_LIBRARY[0]?.url}
+              imageAlt="换脸图指引"
+              steps={[
+                { title: "上传原始模特图", desc: "图1决定身体、服装、背景、光线和最终构图。" },
+                { title: "选择目标脸图", desc: "只提供五官身份，不带走发型、肤色、身体或配饰。" },
+                { title: "生成换脸成片", desc: "保持商品与场景稳定，快速得到新模特成片。" },
+              ]}
+            />
+          </div>
         )}
       </main>
 
@@ -804,127 +767,6 @@ function PanelTitle({ title }: { title: string }) {
   return <h2 className="mb-3 text-sm font-black text-slate-950">{title}</h2>;
 }
 
-function ControlSection({ title, icon, children }: { title: string; icon?: ReactNode; children: ReactNode }) {
-  return (
-    <section>
-      <h3 className="face-swap-control-title">
-        {icon}
-        <span>{title}</span>
-      </h3>
-      {children}
-    </section>
-  );
-}
-
-function OptionPillGrid({
-  options,
-  value,
-  onChange,
-}: {
-  options: Array<{ value: string; label: string }>;
-  value: string;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <div className="studio-option-pill-grid">
-      {options.map((option) => (
-        <button
-          key={option.value}
-          type="button"
-          onClick={() => onChange(option.value)}
-          className={`studio-option-pill ${value === option.value ? "studio-option-pill-active" : ""}`}
-        >
-          {option.label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function MiniPreviewImage({ src, alt, square }: { src: string; alt: string; square?: boolean }) {
-  return (
-    <span className={`${square ? "aspect-square" : "aspect-[3/4]"} relative block w-11 overflow-hidden rounded-xl border border-white/80 bg-slate-100 shadow-sm`}>
-      <span aria-hidden="true" className="absolute inset-0 flex items-center justify-center text-slate-500">
-        <ScanFace className="h-4 w-4" />
-      </span>
-      <img
-        src={src}
-        alt={alt}
-        className="relative h-full w-full object-cover"
-        onError={(event) => {
-          event.currentTarget.style.display = "none";
-        }}
-      />
-    </span>
-  );
-}
-
-function IntroPanel({ sourceUrl, faceUrl }: { sourceUrl: string; faceUrl: string }) {
-  return (
-    <div className="studio-empty-stage face-swap-empty-stage flex min-h-[260px] items-center justify-center px-4 py-6 sm:min-h-[360px] lg:h-full">
-      <div className="face-swap-flow-card face-swap-intro-card">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="min-w-0">
-              <p className="text-[11px] font-black uppercase tracking-normal text-slate-600">Identity Transfer</p>
-              <h2 className="mt-2 text-lg font-black text-slate-950">开始制作换脸图</h2>
-            <p className="mt-2 max-w-md text-xs leading-relaxed text-slate-500">
-              先锁定原始模特画面，再选择目标脸图；输出会保留原图的肤色、发型、服装、姿势和场景。
-            </p>
-          </div>
-          <span className="face-swap-flow-arrow h-12 w-12">
-            <ScanFace className="h-5 w-5" />
-          </span>
-        </div>
-
-        <div className="mt-5 grid grid-cols-[1fr_42px_1fr] items-center gap-3">
-          <DemoImage src={sourceUrl} label="Original model" />
-          <span className="face-swap-flow-arrow h-10 w-10">
-            <ScanFace className="h-4 w-4" />
-          </span>
-          <DemoImage src={faceUrl} label="Target face" square />
-        </div>
-
-        <div className="face-swap-intro-steps mt-5">
-          {[
-            ["1", "上传原始模特图", "决定身体、服装、背景、光线和最终构图。"],
-            ["2", "选择目标脸图", "只提供五官身份，不带走发型、肤色或配饰。"],
-            ["3", "开始换脸", "保持商品与场景稳定，快速得到新模特成片。"],
-          ].map(([step, title, desc]) => (
-            <div key={step} className="face-swap-intro-step">
-              <span>{step}</span>
-              <p>
-                <strong>{title}</strong>
-                <small>{desc}</small>
-              </p>
-            </div>
-          ))}
-        </div>
-
-        <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/80 px-3 py-2 text-xs font-semibold leading-relaxed text-slate-600">
-          {FACE_SWAP_NOTE}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function DemoImage({ src, label, square }: { src: string; label: string; square?: boolean }) {
-  return (
-    <div className={`${square ? "aspect-square" : "aspect-[3/4]"} relative overflow-hidden rounded-2xl border border-white/80 bg-slate-100 shadow-sm`}>
-      <span aria-hidden="true" className="absolute inset-0 flex items-center justify-center text-slate-500">
-        <ScanFace className="h-8 w-8" />
-      </span>
-      <img
-        src={src}
-        alt={label}
-        className="relative h-full w-full object-cover"
-        onError={(event) => {
-          event.currentTarget.style.display = "none";
-        }}
-      />
-    </div>
-  );
-}
 
 function ResultsPanel({
   urls,

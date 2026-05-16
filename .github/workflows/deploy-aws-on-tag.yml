@@ -56,7 +56,6 @@ jobs:
             --exclude='./.git' \
             --exclude='./.github' \
             --exclude='./.next' \
-            --exclude='./.vercel' \
             --exclude='./.deploy' \
             --exclude='./.ui-check' \
             --exclude='./node_modules' \

@@ -237,8 +237,7 @@ export function getConfiguredPublicBaseUrl(options: {
       process.env.PUBLIC_SITE_URL ||
       process.env.SITE_URL ||
       process.env.APP_URL ||
-      process.env.URL ||
-      process.env.VERCEL_URL
+      process.env.URL
   );
 }
 

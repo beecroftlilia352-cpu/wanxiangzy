@@ -1363,7 +1363,7 @@ export default function ProductSetPage() {
               className="studio-fixed-upload-slot flex w-full flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-center transition hover:border-[rgba(91,124,255,0.3)] hover:bg-[rgba(91,124,255,0.12)]"
               style={{ "--studio-fixed-upload-height": "112px" } as CSSProperties}
             >
-              {isUploading ? <Loader2 className="mb-2 h-6 w-6 animate-spin text-[var(--codex-accent)]0" /> : <ImagePlus className="mb-2 h-6 w-6 text-[var(--codex-accent)]0" />}
+              {isUploading ? <Loader2 className="mb-2 h-6 w-6 animate-spin text-[var(--codex-accent)]" /> : <ImagePlus className="mb-2 h-6 w-6 text-[var(--codex-accent)]" />}
               <span className="text-sm font-black text-slate-900">{productImages.length ? "继续上传多视角商品图" : "上传 / 拖拽多视角商品图"}</span>
               <span className="mt-1 text-[11px] text-slate-400">jpg、png、webp，单张不超过 {MAX_FILE_SIZE_MB}MB</span>
             </button>
@@ -1601,7 +1601,7 @@ export default function ProductSetPage() {
                             编辑
                           </button>
                         </div>
-                        <p className="mt-2 text-[11px] leading-4 text-[var(--codex-accent)]0">这里只保存风格方向，不会立即拆模板。点击上面的“帮我写商品信息”时会传给智能分析。</p>
+                        <p className="mt-2 text-[11px] leading-4 text-[var(--codex-accent)]">这里只保存风格方向，不会立即拆模板。点击上面的“帮我写商品信息”时会传给智能分析。</p>
                       </div>
                     )}
                   </div>
@@ -1843,7 +1843,7 @@ export default function ProductSetPage() {
                         </div>
                       ) : (
                         <div className="flex aspect-[3/4] w-full flex-col items-center justify-center bg-slate-50 text-center">
-                          <Loader2 className="h-6 w-6 animate-spin text-[var(--codex-accent)]0" />
+                          <Loader2 className="h-6 w-6 animate-spin text-[var(--codex-accent)]" />
                           <p className="mt-3 text-xs font-black text-slate-500">等待生成</p>
                           <p className="mt-1 max-w-32 text-[11px] leading-4 text-slate-400">该模块完成后会自动填入预览区</p>
                         </div>
@@ -1866,7 +1866,7 @@ export default function ProductSetPage() {
                           </div>
                           {url && (
                             <div className="flex shrink-0 items-center gap-1">
-                              <button type="button" onClick={() => regenerateResult(index)} disabled={regeneratingIndex !== null || isGenerating} className="flex h-9 w-9 items-center justify-center rounded-full border border-[rgba(91,124,255,0.22)] text-[var(--codex-accent)]0 hover:bg-[rgba(91,124,255,0.12)] disabled:cursor-not-allowed disabled:opacity-50" title="重生这一张">
+                              <button type="button" onClick={() => regenerateResult(index)} disabled={regeneratingIndex !== null || isGenerating} className="flex h-9 w-9 items-center justify-center rounded-full border border-[rgba(91,124,255,0.22)] text-[var(--codex-accent)] hover:bg-[rgba(91,124,255,0.12)] disabled:cursor-not-allowed disabled:opacity-50" title="重生这一张">
                                 {regeneratingIndex === index ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
                               </button>
                               <button type="button" onClick={() => downloadResult(url, index)} className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-500 hover:bg-slate-50" title="下载">
@@ -2005,7 +2005,7 @@ function ProductModeTabs({ imageType, onChange }: { imageType: ProductSetImageTy
             </span>
             <span className="min-w-0 flex-1">
               <span className="block text-sm font-black">{item.title}</span>
-              <span className={`mt-0.5 block truncate text-[11px] ${imageType === item.value ? "text-[var(--codex-accent)]0" : "text-slate-400"}`}>{item.desc}</span>
+              <span className={`mt-0.5 block truncate text-[11px] ${imageType === item.value ? "text-[var(--codex-accent)]" : "text-slate-400"}`}>{item.desc}</span>
             </span>
           </button>
         ))}
@@ -2782,7 +2782,7 @@ function CustomTemplateSourcePanel({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <p className="inline-flex items-center gap-1.5 text-xs font-black text-slate-800">
-            <Upload className="h-3.5 w-3.5 text-[var(--codex-accent)]0" /> 上传参考图
+            <Upload className="h-3.5 w-3.5 text-[var(--codex-accent)]" /> 上传参考图
           </p>
           <p className="mt-1 line-clamp-2 text-[11px] leading-4 text-slate-400">
             上传 1 张主参考图即可，系统会自动理解版式和风格，再按{countLabel}拆成方案。
@@ -2906,7 +2906,7 @@ function ReferenceQuickStart({
 
       <details className="group rounded-2xl border border-slate-100 bg-white px-3 py-2">
         <summary className="flex cursor-pointer list-none items-center justify-between gap-2 text-xs font-black text-slate-600">
-          <span className="inline-flex items-center gap-1.5"><Settings2 className="h-3.5 w-3.5 text-[var(--codex-accent)]0" /> 高级设置</span>
+          <span className="inline-flex items-center gap-1.5"><Settings2 className="h-3.5 w-3.5 text-[var(--codex-accent)]" /> 高级设置</span>
           <ChevronRight className="h-3.5 w-3.5 transition group-open:rotate-90" />
         </summary>
         <div className="mt-3 space-y-3">
@@ -2980,7 +2980,7 @@ function FavoritePlanPanel({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <p className="inline-flex items-center gap-1.5 text-xs font-black text-slate-800">
-            <Bookmark className="h-3.5 w-3.5 text-[var(--codex-accent)]0" /> 我的收藏模板
+            <Bookmark className="h-3.5 w-3.5 text-[var(--codex-accent)]" /> 我的收藏模板
           </p>
           <p className="mt-1 line-clamp-2 text-[11px] leading-4 text-slate-400">
             收藏当前视觉方案或自定义模板，下次换商品后直接套用。
@@ -3189,7 +3189,7 @@ function ModelConfigPanel({
     <section className="space-y-3">
       <div className="rounded-2xl border border-slate-100/80 bg-white/45 p-4">
         <h3 className="mb-3 flex items-center gap-2 text-sm font-black text-slate-950">
-          <Activity className="h-4 w-4 text-[var(--codex-accent)]0" /> 生成模型
+          <Activity className="h-4 w-4 text-[var(--codex-accent)]" /> 生成模型
         </h3>
         <div className="grid grid-cols-2 items-stretch gap-2">
           {MODELS.map((model) => (
@@ -3263,7 +3263,7 @@ function ModelConfigPanel({
         </div>
         <div className="mt-3 rounded-2xl border border-[rgba(91,124,255,0.22)] bg-[rgba(91,124,255,0.1)] px-3 py-3">
           <p className="text-xs font-black text-[var(--codex-accent)]">比例按模板自动</p>
-          <p className="mt-1 text-[11px] leading-4 text-[var(--codex-accent)]0">首屏海报、细节图、白底主图会分别使用各自模板比例，避免整套图被一个比例误导。</p>
+          <p className="mt-1 text-[11px] leading-4 text-[var(--codex-accent)]">首屏海报、细节图、白底主图会分别使用各自模板比例，避免整套图被一个比例误导。</p>
         </div>
       </div>
     </section>
@@ -3550,7 +3550,7 @@ function ToggleButton({ active, label, onClick }: { active: boolean; label: stri
       className={`flex h-10 items-center justify-between rounded-xl border px-3 text-xs font-black transition ${active ? "border-[rgba(91,124,255,0.22)] bg-[rgba(91,124,255,0.1)] text-[var(--codex-accent)]" : "border-slate-100 bg-slate-50 text-slate-500"}`}
     >
       <span className="min-w-0 truncate pr-2">{label}</span>
-      <span className={`h-4 w-7 shrink-0 rounded-full p-0.5 transition ${active ? "bg-[rgba(91,124,255,0.1)]0" : "bg-slate-300"}`}>
+      <span className={`h-4 w-7 shrink-0 rounded-full p-0.5 transition ${active ? "bg-[rgba(91,124,255,0.1)]" : "bg-slate-300"}`}>
         <span className={`block h-3 w-3 rounded-full bg-white transition ${active ? "translate-x-3" : ""}`} />
       </span>
     </button>
@@ -3561,7 +3561,7 @@ function ReferenceUploadButton({ label, hint, url, loading, onClick }: { label: 
   return (
     <button type="button" onClick={onClick} className="flex min-h-[60px] w-full items-center gap-2 rounded-xl border border-slate-100 bg-slate-50 px-2 py-2 text-left text-xs font-bold text-slate-600 hover:border-[rgba(91,124,255,0.3)] hover:bg-[rgba(91,124,255,0.12)]">
       <span className={`flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg ${url ? "studio-checkerboard" : "bg-white"}`}>
-        {url ? <img src={getImageVariantUrl(url, "thumb")} alt={label} className="h-full w-full object-contain p-0.5" /> : loading ? <Loader2 className="h-4 w-4 animate-spin text-[var(--codex-accent)]0" /> : <Upload className="h-4 w-4 text-slate-400" />}
+        {url ? <img src={getImageVariantUrl(url, "thumb")} alt={label} className="h-full w-full object-contain p-0.5" /> : loading ? <Loader2 className="h-4 w-4 animate-spin text-[var(--codex-accent)]" /> : <Upload className="h-4 w-4 text-slate-400" />}
       </span>
       <span className="min-w-0 flex-1">
         <span className="block truncate">{label}</span>
