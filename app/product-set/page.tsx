@@ -30,11 +30,13 @@ import { ModuleHeader } from "@/components/ModuleHeader";
 import { PreviewGuide } from "@/components/PreviewGuide";
 import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
 import { LoadingStage } from "@/components/studio/LoadingStage";
+import { StudioGenerationCountSelector } from "@/components/studio/StudioFormControls";
+import { useStableFileDrag } from "@/components/studio/useStableFileDrag";
 import { ClientPortal } from "@/components/ClientPortal";
 import { createClient, getCachedProfileCredits, setCachedProfileCredits } from "@/lib/supabase/client";
 import { fetchHistoryApplyDetail, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
 import { getImageVariantUrl } from "@/lib/image-variants";
-import type { TaskQueueItem } from "@/lib/task-queue";
+import { clampTaskExpectedCount, type TaskQueueItem } from "@/lib/task-queue";
 import { downloadImage, generateDownloadFilename, MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
 import {
@@ -303,6 +305,12 @@ export default function ProductSetPage() {
   const [showFavoritePlans, setShowFavoritePlans] = useState(false);
   const [isLoadingFavoritePlans, setIsLoadingFavoritePlans] = useState(false);
   const [isSavingFavoritePlan, setIsSavingFavoritePlan] = useState(false);
+  const productImageDrag = useStableFileDrag<HTMLElement>({
+    isDragging,
+    setDragging: setIsDragging,
+    fileFilter: (file) => file.type.startsWith("image/"),
+    onFiles: processFiles,
+  });
 
   const templates = useMemo(() => getProductSetTemplates(imageType), [imageType]);
   const activeSelectedTemplateIds = useMemo(
@@ -488,6 +496,8 @@ export default function ProductSetPage() {
 
   function resetOutput() {
     setActiveQueueTask(null);
+    setIsGenerating(false);
+    setRegeneratingIndex(null);
     setResultUrls([]);
     setModuleResults([]);
     setResultPlan([]);
@@ -1282,6 +1292,7 @@ export default function ProductSetPage() {
     setActiveQueueTask(item);
     const urls = item.resultThumbnails || [];
     const nextProgress = Number.isFinite(Number(item.progress)) ? Number(item.progress) : 8;
+    setGenCount(clampTaskExpectedCount(item, 1, imageType === "details" ? 8 : 6));
     setIsGenerating(true);
     setRegeneratingIndex(null);
     setProgress(Math.min(Math.max(Math.round(nextProgress), 1), 99));
@@ -1326,6 +1337,7 @@ export default function ProductSetPage() {
       <ModuleTaskRail
         module="productSet"
         moduleLabel="商品套图"
+        onContinue={resetOutput}
         onRunningTask={handleRunningTask}
         onCompletedTask={handleCompletedTask}
       />
@@ -1336,11 +1348,8 @@ export default function ProductSetPage() {
           <WorkflowStepper currentStep={workflowStep} />
 
           <section
-            onDragEnter={(event) => { event.preventDefault(); setIsDragging(true); }}
-            onDragLeave={(event) => { event.preventDefault(); setIsDragging(false); }}
-            onDragOver={(event) => event.preventDefault()}
-            onDrop={(event) => { event.preventDefault(); setIsDragging(false); processFiles(event.dataTransfer.files); }}
-            className={`rounded-3xl border bg-white p-4 shadow-sm transition ${isDragging ? "border-[rgba(91,124,255,0.22)] ring-4 ring-[rgba(91,124,255,0.18)]" : "border-slate-100"}`}
+            {...productImageDrag.dragHandlers}
+            className={`studio-stable-upload-boundary rounded-3xl border bg-white p-4 shadow-sm transition ${isDragging ? "border-[rgba(91,124,255,0.22)] ring-4 ring-[rgba(91,124,255,0.18)]" : "border-slate-100"}`}
           >
             <div className="mb-3 flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
@@ -1767,7 +1776,7 @@ export default function ProductSetPage() {
           {(isGenerating || shouldShowTaskPanel) && !hasVisibleResults && moduleResults.length === 0 && (
             <div className="mx-auto max-w-3xl space-y-4">
               <LoadingStage
-                genCount={activeQueueTask?.expectedCount || Math.max(outputCount, 1)}
+                genCount={activeQueueTask ? clampTaskExpectedCount(activeQueueTask, 1, imageType === "details" ? 8 : 6) : Math.max(outputCount, 1)}
                 progress={activeQueueTask?.progress || progress}
                 moduleName="商品套图"
                 referenceImages={(activeQueueTask?.inputThumbnails?.length ? activeQueueTask.inputThumbnails : productImages.map((item) => item.url)).map((url, index) => ({
@@ -2072,18 +2081,13 @@ function CountSelector({
         <span className="font-bold text-slate-700">{imageType === "main" ? "生成张数" : "详情页屏数"}</span>
         <span className="font-black text-[var(--codex-accent)]">{value > 0 ? `${value} ${unit}` : "未选择"}</span>
       </div>
-      <div className="grid items-stretch gap-1.5" style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}>
-        {options.map((item) => (
-          <button
-            key={item}
-            type="button"
-            onClick={() => onChange(item)}
-            className={`h-10 rounded-xl border text-sm font-black transition ${value === item ? "border-[rgba(91,124,255,0.22)] bg-[rgba(91,124,255,0.1)] text-[var(--codex-accent)]" : "border-slate-200 bg-white text-slate-500 hover:border-[rgba(91,124,255,0.3)] hover:text-[var(--codex-accent)]"}`}
-          >
-            {item}
-          </button>
-        ))}
-      </div>
+      <StudioGenerationCountSelector
+        value={value}
+        onChange={onChange}
+        counts={options}
+        unit={unit}
+        ariaLabel={imageType === "main" ? "生成张数" : "详情页屏数"}
+      />
       {helper && <p className="mt-2 text-[11px] leading-5 text-slate-400">{helper}</p>}
     </div>
   );

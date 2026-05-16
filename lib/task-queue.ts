@@ -55,3 +55,22 @@ export function isTaskRunning(item: Pick<TaskQueueItem, "statusGroup">) {
 export function isTaskFinished(item: Pick<TaskQueueItem, "statusGroup">) {
   return item.statusGroup === "completed" || item.statusGroup === "failed";
 }
+
+type TaskCountSource = Pick<TaskQueueItem, "expectedCount" | "resultCount" | "resultThumbnails">;
+
+export function getTaskExpectedCount(item: TaskCountSource, fallback = 1) {
+  const candidates = [
+    Number(item.expectedCount),
+    Number(item.resultCount),
+    Array.isArray(item.resultThumbnails) ? item.resultThumbnails.length : 0,
+    Number(fallback),
+  ];
+  const value = candidates.find((candidate) => Number.isFinite(candidate) && candidate > 0) || 1;
+  return Math.max(1, Math.round(value));
+}
+
+export function clampTaskExpectedCount(item: TaskCountSource, min = 1, max = 4, fallback = 1) {
+  const lower = Math.max(1, Math.round(min));
+  const upper = Math.max(lower, Math.round(max));
+  return Math.min(Math.max(getTaskExpectedCount(item, fallback), lower), upper);
+}

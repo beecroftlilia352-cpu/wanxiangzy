@@ -22,7 +22,7 @@ export function ModuleTaskRail({
   onCompletedTask,
 }: ModuleTaskRailProps) {
   const router = useRouter();
-  const handleContinue = onContinue ?? (() => window.location.assign(window.location.pathname));
+  const handleContinue = onContinue ?? (() => undefined);
 
   const applyTask = async (item: TaskQueueItem) => {
     if (onCompletedTask) {

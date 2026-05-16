@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ChangeEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import {
   Copy,
@@ -8,9 +8,7 @@ import {
   ImagePlus,
   Loader2,
   RefreshCw,
-  Activity,
   Trash2,
-  Upload,
   Brush,
   X,
 } from "lucide-react";
@@ -22,11 +20,15 @@ import { LoadingStage } from "@/components/studio/LoadingStage";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
 import { ClientPortal } from "@/components/ClientPortal";
 import { PreviewGuide } from "@/components/PreviewGuide";
+import { StudioGenerationCountSelector, StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/components/studio/StudioFormControls";
+import { StudioRunBar } from "@/components/studio/StudioRunBar";
+import { StudioUploadSection } from "@/components/studio/StudioUploadSection";
+import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
 import { createClient, getCachedProfileCredits, setCachedProfileCredits } from "@/lib/supabase/client";
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
 import { fetchHistoryApplyDetail, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
-import type { TaskQueueItem } from "@/lib/task-queue";
+import { clampTaskExpectedCount, type TaskQueueItem } from "@/lib/task-queue";
 
 type GeneralImageMode = "text-to-image" | "image-to-image";
 
@@ -117,6 +119,11 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
         emptyImage: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/exclusive-model-01.png",
       };
   const canGenerate = !isGenerating && !isUploading && prompt.trim().length > 0 && (!isImageMode || referenceImages.length > 0);
+  const runDisabledReason = !prompt.trim()
+    ? "请先输入文本描述"
+    : isImageMode && referenceImages.length === 0
+      ? "请先上传参考图"
+      : "";
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -201,6 +208,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
 
   function resetOutput() {
     setActiveQueueTask(null);
+    setIsGenerating(false);
     setResultUrls([]);
     setError("");
     setProgress(0);
@@ -423,6 +431,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
 
   function handleRunningTask(item: TaskQueueItem) {
     setActiveQueueTask(item);
+    setGenCount(clampTaskExpectedCount(item, 1, 4));
     setIsGenerating(true);
     setProgress(Math.min(Math.max(Math.round(Number(item.progress) || 12), 1), 99));
     setError("");
@@ -444,7 +453,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
   return (
     <div className="studio-workbench min-h-[calc(100dvh-64px)] lg:h-[calc(100vh-64px)] flex flex-col lg:flex-row">
       <FeatureTabs active={activeFeature} />
-      <ModuleTaskRail module="generalImage" moduleLabel="创意生图" onRunningTask={handleRunningTask} onCompletedTask={handleCompletedTask} />
+      <ModuleTaskRail module="generalImage" moduleLabel="创意生图" onContinue={resetOutput} onRunningTask={handleRunningTask} onCompletedTask={handleCompletedTask} />
       <div className="studio-parameters w-full lg:w-[472px] border-b lg:border-b-0 lg:border-r flex flex-col overflow-visible lg:overflow-hidden">
         <div className="studio-parameters-scroll flex-1 overflow-visible lg:overflow-y-auto p-3 sm:p-5 space-y-4 sm:space-y-6">
           <ModuleHeader
@@ -453,211 +462,169 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
           />
 
           {isImageMode && (
-            <section
-              onDragEnter={(event) => { event.preventDefault(); setIsDragging(true); }}
-              onDragLeave={(event) => { event.preventDefault(); setIsDragging(false); }}
-              onDragOver={(event) => event.preventDefault()}
-              onDrop={(event) => { event.preventDefault(); setIsDragging(false); handleFiles(event.dataTransfer.files); }}
-              className={`relative transition-all ${isDragging ? "ring-2 ring-[rgba(91,124,255,0.18)] ring-offset-2" : ""}`}
+            <StudioUploadSection
+              title="参考图"
+              inputRef={fileInputRef}
+              multiple
+              isDragging={isDragging}
+              setDragging={setIsDragging}
+              onFiles={async (files) => {
+                await handleFiles(files);
+              }}
+              className="studio-general-reference-upload"
+              actions={(
+                <span className="rounded-full bg-[rgba(91,124,255,0.1)] px-2 py-1 text-[10px] font-bold text-[var(--codex-accent)]">
+                  {referenceImages.length}/8
+                </span>
+              )}
             >
-              <div className="studio-upload-header">
-                <h3 className="studio-upload-title">
-                  <Upload className="w-4 h-4 text-[var(--codex-accent)]" /> 参考图
-                </h3>
-                <span className="rounded-full bg-[rgba(91,124,255,0.1)] px-2 py-1 text-[10px] font-bold text-[var(--codex-accent)]">{referenceImages.length}/8</span>
-              </div>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                multiple
-                className="hidden"
-                onChange={(event: ChangeEvent<HTMLInputElement>) => handleFiles(event.target.files || undefined)}
-              />
-              <div className="studio-upload-dropzone rounded-2xl border border-dashed p-3">
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="studio-fixed-upload-slot flex w-full flex-col items-center justify-center rounded-xl border border-white/70 bg-white/82 px-4 py-5 text-center transition hover:bg-white"
-                  style={{ "--studio-fixed-upload-height": "112px" } as CSSProperties}
-                >
-                  {isUploading ? <Loader2 className="mb-2 h-6 w-6 animate-spin text-[var(--codex-accent)]" /> : <ImagePlus className="mb-2 h-6 w-6 text-[var(--codex-accent)]" />}
-                  <span className="text-sm font-black text-slate-900">{referenceImages.length ? "继续上传参考图" : "上传 / 拖拽参考图"}</span>
-                  <span className="mt-1 text-[11px] text-slate-400">jpg、png、webp，单张不超过 {MAX_FILE_SIZE_MB}MB</span>
-                </button>
+              {(openFileDialog) => (
+                <>
+                  <StudioUploadTile
+                    title={referenceImages.length >= 8 ? "已达 8 张上限" : referenceImages.length ? "继续上传参考图" : "上传 / 拖拽参考图"}
+                    description="支持上传多张参考图，系统会按顺序识别为图1、图2、图3。"
+                    imageUrl={null}
+                    imageAlt="图生图参考图"
+                    isDragging={isDragging}
+                    loading={isUploading}
+                    disabled={referenceImages.length >= 8}
+                    onUploadClick={openFileDialog}
+                    uploadLabel="从本地上传"
+                    footnote={`jpg / png / webp，单张不超过 ${MAX_FILE_SIZE_MB}MB`}
+                  />
 
-                {referenceImages.length > 0 && (
-                  <div className="mt-3">
-                    <div className="mb-2 flex items-center justify-between text-xs">
-                      <span className="font-medium text-slate-500">上传顺序会标记为图1、图2、图3</span>
-                      <button type="button" onClick={() => { setReferenceImages([]); resetOutput(); }} className="inline-flex items-center gap-1 text-slate-400 hover:text-red-500">
-                        <Trash2 className="h-3.5 w-3.5" /> 清空
-                      </button>
+                  {referenceImages.length > 0 && (
+                    <div className="mt-3">
+                      <div className="mb-2 flex items-center justify-between text-xs">
+                        <span className="font-medium text-slate-500">上传顺序会标记为图1、图2、图3</span>
+                        <button type="button" onClick={() => { setReferenceImages([]); resetOutput(); }} className="inline-flex items-center gap-1 text-slate-400 hover:text-red-500">
+                          <Trash2 className="h-3.5 w-3.5" /> 清空
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-4 gap-2 sm:grid-cols-5">
+                        {referenceImages.map((item, index) => (
+                          <div key={item.id} className="studio-checkerboard group relative aspect-square overflow-hidden rounded-xl border border-white shadow-sm">
+                            <img src={item.preview} alt={item.name} className="h-full w-full object-contain p-1" />
+                            <span className="absolute left-1 top-1 rounded bg-white/92 px-1.5 py-0.5 text-[10px] font-black text-slate-500">图{index + 1}</span>
+                            <button
+                              type="button"
+                              onClick={() => { setReferenceImages((prev) => prev.filter((image) => image.id !== item.id)); resetOutput(); }}
+                              className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-slate-900/80 text-white opacity-0 transition group-hover:opacity-100"
+                              aria-label={`移除图${index + 1}`}
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                    <div className="grid grid-cols-4 gap-2 sm:grid-cols-5">
-                      {referenceImages.map((item, index) => (
-                        <div key={item.id} className="studio-checkerboard group relative aspect-square overflow-hidden rounded-xl border border-white shadow-sm">
-                          <img src={item.preview} alt={item.name} className="h-full w-full object-contain p-1" />
-                          <span className="absolute left-1 top-1 rounded bg-white/92 px-1.5 py-0.5 text-[10px] font-black text-slate-500">图{index + 1}</span>
-                          <button
-                            type="button"
-                            onClick={() => { setReferenceImages((prev) => prev.filter((image) => image.id !== item.id)); resetOutput(); }}
-                            className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-slate-900/80 text-white opacity-0 transition group-hover:opacity-100"
-                            aria-label={`移除图${index + 1}`}
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </section>
+                  )}
+                </>
+              )}
+            </StudioUploadSection>
           )}
 
-          <section>
-            <h3 className="mb-3 font-bold text-sm">文本描述</h3>
-            <div className="rounded-2xl border border-slate-100 bg-white/85 p-3 shadow-sm">
-              <textarea
-                value={prompt}
-                onChange={(event) => { setPrompt(event.target.value.slice(0, 4000)); resetOutput(); }}
-                placeholder={isImageMode ? IMAGE_PROMPT_PLACEHOLDER : "输入文本描述内容，如：1个中国女性模特身着丝绸质感粉色连衣裙，妆容柔和高级，背景为玫瑰金纯色，整体氛围浪漫而精致"}
-                className="min-h-40 w-full resize-y rounded-xl border border-slate-100 bg-slate-50/65 px-3 py-3 text-sm leading-7 text-slate-800 outline-none transition placeholder:text-slate-300 focus:border-[rgba(91,124,255,0.5)] focus:bg-white focus:ring-2 focus:ring-[rgba(91,124,255,0.14)]"
-              />
-              <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-                <div className="flex flex-wrap gap-2">
-                  {!isImageMode && (
-                    <button
-                      type="button"
-                      onClick={() => setShowImagePromptModal(true)}
-                      className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[rgba(91,124,255,0.22)] bg-[rgba(91,124,255,0.1)] px-3 text-xs font-bold text-[var(--codex-accent)] transition hover:bg-[rgba(91,124,255,0.12)]"
-                    >
-                      <ImagePlus className="h-3.5 w-3.5" />
-                      图片转提示词
-                    </button>
-                  )}
+          <div>
+            <StudioPromptTextarea
+              title="文本描述"
+              value={prompt}
+              onChange={(event) => { setPrompt(event.target.value.slice(0, 4000)); resetOutput(); }}
+              placeholder={isImageMode ? IMAGE_PROMPT_PLACEHOLDER : "输入文本描述内容，如：1个中国女性模特身着丝绸质感粉色连衣裙，妆容柔和高级，背景为玫瑰金纯色，整体氛围浪漫而精致"}
+              rows={6}
+              className="studio-prompt-textarea-compact"
+            />
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap gap-2">
+                {!isImageMode && (
                   <button
                     type="button"
-                    onClick={optimizePrompt}
-                    disabled={isOptimizing}
-                    className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600 transition hover:border-[rgba(91,124,255,0.3)] hover:text-[var(--codex-accent)] disabled:cursor-not-allowed disabled:opacity-40"
+                    onClick={() => setShowImagePromptModal(true)}
+                    className="studio-button studio-button-compact"
                   >
-                    {isOptimizing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Brush className="h-3.5 w-3.5" />}
-                    AI帮写
+                    <ImagePlus className="h-3.5 w-3.5" />
+                    图片转提示词
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setShowPromptPreview(true)}
-                    className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-500 transition hover:border-[rgba(91,124,255,0.3)] hover:text-[var(--codex-accent)]"
-                  >
-                    <Eye className="h-3.5 w-3.5" />
-                    预览
-                  </button>
-                </div>
-                <span className="text-[11px] font-medium text-slate-400">{prompt.length} / 4000</span>
+                )}
+                <button
+                  type="button"
+                  onClick={optimizePrompt}
+                  disabled={isOptimizing}
+                  className="studio-button studio-button-compact"
+                >
+                  {isOptimizing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Brush className="h-3.5 w-3.5" />}
+                  AI帮写
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowPromptPreview(true)}
+                  className="studio-button studio-button-compact"
+                >
+                  <Eye className="h-3.5 w-3.5" />
+                  预览
+                </button>
               </div>
+              <span className="text-[11px] font-medium text-slate-400">{prompt.length} / 4000</span>
             </div>
-          </section>
+          </div>
 
           <section>
-            <h3 className="mb-3 flex items-center gap-2 font-bold text-sm">
-              <Activity className="h-4 w-4 text-[var(--codex-accent)]" /> 生成模型
-            </h3>
-            <div className="grid grid-cols-2 gap-2">
-              {MODELS.map((model) => (
-                <button
-                  key={model.value}
-                  type="button"
-                  onClick={() => setAiModel(model.value)}
-                  className={`rounded-xl border p-2 text-left transition-all ${
-                    aiModel === model.value ? "border-[rgba(91,124,255,0.22)]0 bg-[rgba(91,124,255,0.1)] text-[var(--codex-accent)] ring-1 ring-[rgba(91,124,255,0.18)]" : "border-gray-200 bg-white hover:border-gray-300"
-                  }`}
-                >
-                  <div className="flex min-w-0 items-center gap-1.5">
-                    <img src={model.icon} alt="" className="h-4 w-4 flex-shrink-0 object-contain" />
-                    <span className="truncate text-[11px] font-bold text-slate-900">{model.label}</span>
-                    {model.badge && <span className="rounded-full bg-[rgba(91,124,255,0.1)] px-1.5 py-0.5 text-[9px] font-bold text-[var(--codex-accent)]">{model.badge}</span>}
-                  </div>
-                  <p className="mt-1 text-[11px] font-medium text-slate-400">{model.desc}</p>
-                </button>
-              ))}
-            </div>
+            <h3 className="mb-3 font-bold text-sm">生成模型</h3>
+            <StudioModelSelector
+              models={MODELS}
+              value={aiModel}
+              onChange={setAiModel}
+              ariaLabel="选择生成模型"
+            />
           </section>
 
           <section>
             <h3 className="mb-3 font-bold text-sm">图片比例</h3>
-            <div className="grid grid-cols-3 gap-2">
-              {ASPECTS.filter((item) => item.value !== "auto").map((item) => (
-                <button
-                  key={item.value}
-                  type="button"
-                  onClick={() => setAspectRatio(item.value)}
-                  className={`rounded-lg border py-2 text-xs font-medium transition-all ${
-                    aspectRatio === item.value ? "border-[rgba(91,124,255,0.22)]0 bg-[rgba(91,124,255,0.1)] text-[var(--codex-accent)]" : "border-gray-200 bg-white hover:border-gray-300"
-                  }`}
-                >
-                  {item.label}
-                </button>
-              ))}
-            </div>
+            <StudioOptionGrid
+              options={ASPECTS.filter((item) => item.value !== "auto").map((item) => ({
+                value: item.value,
+                label: item.label,
+              }))}
+              value={aspectRatio}
+              onChange={setAspectRatio}
+              columns={3}
+              ariaLabel="选择图片比例"
+            />
           </section>
 
           <section>
             <h3 className="mb-3 font-bold text-sm">分辨率</h3>
-            <div className="grid grid-cols-3 gap-2">
-              {supportedSizes.map((size) => (
-                <button
-                  key={size}
-                  type="button"
-                  onClick={() => setImageSize(size)}
-                  className={`rounded-lg border py-2 text-xs font-medium transition-all ${
-                    imageSize === size ? "border-[rgba(91,124,255,0.22)]0 bg-[rgba(91,124,255,0.1)] text-[var(--codex-accent)]" : "border-gray-200 bg-white hover:border-gray-300"
-                  }`}
-                >
-                  {size} · {getCreditCost(aiModel, size, aspectRatio)}积分
-                </button>
-              ))}
-            </div>
+            <StudioOptionGrid
+              options={supportedSizes.map((size) => ({
+                value: size,
+                label: size,
+                description: `${getCreditCost(aiModel, size, aspectRatio)}积分`,
+              }))}
+              value={imageSize}
+              onChange={setImageSize}
+              columns={3}
+              ariaLabel="选择分辨率"
+            />
           </section>
 
           <section>
             <h3 className="mb-3 font-bold text-sm">生成数量</h3>
-            <div className="grid grid-cols-4 gap-2">
-              {[1, 2, 3, 4].map((value) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setGenCount(value)}
-                  className={`rounded-lg border py-2 text-sm font-medium transition-all ${
-                    genCount === value ? "border-[rgba(91,124,255,0.22)]0 bg-[rgba(91,124,255,0.1)] text-[var(--codex-accent)]" : "border-gray-200 bg-white hover:border-gray-300"
-                  }`}
-                >
-                  {value} 张
-                </button>
-              ))}
-            </div>
+            <StudioGenerationCountSelector
+              value={genCount}
+              onChange={setGenCount}
+              ariaLabel="生成数量"
+            />
           </section>
         </div>
 
-        <div className="studio-runbar border-t p-3 sm:p-4 space-y-2 sticky bottom-0 z-10 lg:static">
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-gray-400">{isImageMode ? `图生图 · ${referenceImages.length} 张参考` : "文生图"} · {costPerImage} × {genCount}</span>
-            {isAuthenticated
-              ? <span className="font-bold text-amber-600">消耗 {totalCost} · 余额 {credits ?? "-"}</span>
-              : <span className="text-gray-400">登录后查看积分</span>
-            }
-          </div>
-          <button
-            type="button"
-            onClick={generate}
-            disabled={!canGenerate}
-            className="gradient-brand flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold text-white shadow-lg shadow-slate-300/40 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Activity className="h-4 w-4" />}
-            {!isAuthenticated ? "登录后生成" : isGenerating ? "生成中..." : `立即生成 ${genCount} 张`}
-          </button>
-        </div>
+        <StudioRunBar
+          summary={`${isImageMode ? `图生图 · ${referenceImages.length} 张参考` : "文生图"} · ${costPerImage} × ${genCount}`}
+          costLabel={isAuthenticated ? `消耗 ${totalCost} · 余额 ${credits ?? "-"}` : "登录后查看积分"}
+          disabled={!canGenerate}
+          disabledReason={runDisabledReason}
+          primaryLabel={!isAuthenticated ? "登录后生成" : isGenerating ? "生成中..." : `立即生成 ${genCount} 张`}
+          isLoading={isGenerating}
+          onPrimaryAction={generate}
+        />
       </div>
 
       <div className="studio-canvas min-h-[260px] sm:min-h-[360px] lg:min-h-0 flex-1 relative overflow-hidden mt-3 mb-6 lg:mt-0 lg:mb-0">
@@ -696,7 +663,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
               <ResultImageGrid
                 urls={resultUrls}
                 filenamePrefix={isImageMode ? "image-to-image" : "text-to-image"}
-                expectedCount={activeQueueTask?.expectedCount || (isGenerating ? genCount : undefined)}
+                expectedCount={activeQueueTask ? clampTaskExpectedCount(activeQueueTask, 1, 4, genCount) : isGenerating ? genCount : undefined}
                 isGenerating={isGenerating}
                 inputThumbnails={activeQueueTask?.inputThumbnails?.length ? activeQueueTask.inputThumbnails : referenceImages.map((item) => item.preview || item.url)}
                 createdAt={activeQueueTask?.createdAt}

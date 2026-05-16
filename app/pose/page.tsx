@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, ChevronRight, Eye, FolderOpen, PenLine, PersonStanding, Sparkles, Upload, X, XCircle } from "lucide-react";
+import { CheckCircle2, ChevronRight, Eye, PenLine, Sparkles, X, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { createClient, getCachedProfileCredits, setCachedProfileCredits } from "@/lib/supabase/client";
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
@@ -17,9 +17,12 @@ import { PreviewGuide } from "@/components/PreviewGuide";
 import { ErrorStage } from "@/components/studio/ErrorStage";
 import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
-import { StudioPromptTextarea } from "@/components/studio/StudioFormControls";
+import { StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/components/studio/StudioFormControls";
+import { StudioRunBar } from "@/components/studio/StudioRunBar";
+import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
+import { useStableFileDrag } from "@/components/studio/useStableFileDrag";
 import { fetchHistoryApplyDetail, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
-import type { TaskQueueItem } from "@/lib/task-queue";
+import { clampTaskExpectedCount, type TaskQueueItem } from "@/lib/task-queue";
 import { applyRepairPrompt } from "@/lib/generation-repair";
 import {
   DEFAULT_POSE_SERIES_STYLE,
@@ -33,8 +36,8 @@ import {
 import { POSE_UPLOAD_RULE, type PoseRuleDemo } from "@/lib/pose-upload-rules";
 
 const MODELS: { value: LingyaModel; label: string; desc: string; badge?: string; icon: string }[] = [
-  { value: "gpt-image-2", label: "GPT-Image-2", desc: "4K · 4分/次", badge: "最新", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/openai.svg" },
   { value: "nano-banana-2", label: "Nano-Banana-2", desc: "4K · 3分/次", badge: "推荐", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
+  { value: "gpt-image-2", label: "GPT-Image-2", desc: "4K · 4分/次", badge: "最新", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/openai.svg" },
   { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "4K · 4分/次", badge: "推荐", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
 ];
 
@@ -75,15 +78,27 @@ export default function PosePage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
   const [resultUrls, setResultUrls] = useState<string[]>([]);
+  const [runningExpectedCount, setRunningExpectedCount] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [showPromptPreview, setShowPromptPreview] = useState(false);
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const [showPoseRules, setShowPoseRules] = useState(false);
   const [rulesPopoverStyle, setRulesPopoverStyle] = useState<{ top: number; left: number; maxHeight: number } | null>(null);
+  const mainImageDrag = useStableFileDrag<HTMLDivElement>({
+    isDragging,
+    setDragging: setIsDragging,
+    fileFilter: (file) => file.type.startsWith("image/"),
+    onFiles: (files) => handleFile(files[0]),
+  });
 
   const imageSizes = getSupportedImageSizes(aiModel, "3:4");
   const unitCost = getCreditCost(aiModel, imageSize, "3:4");
   const cost = unitCost * (outputMode === "separate" ? 4 : 1);
+  const runDisabledReason = !mainImage
+    ? "请先上传主图"
+    : credits !== null && credits < cost
+      ? `积分不足，生成需要 ${cost} 积分`
+      : undefined;
   const effectivePosePrompt = stripLegacyRuleDemoText([
     poseStyle === "user_custom" ? buildCustomPosePrompt() : prompt,
     supplementPrompt.trim() ? `补充要求：${supplementPrompt.trim()}` : "",
@@ -294,6 +309,7 @@ export default function PosePage() {
     }
 
     setIsGenerating(true);
+    setRunningExpectedCount(null);
     setProgress(10);
     setError("");
     setResultUrls([]);
@@ -371,6 +387,9 @@ export default function PosePage() {
   }
 
   function handleRunningTask(item: TaskQueueItem) {
+    const expectedCount = clampTaskExpectedCount(item, 1, 4);
+    setRunningExpectedCount(expectedCount);
+    setOutputMode(expectedCount > 1 ? "separate" : "grid");
     setIsGenerating(true);
     setProgress(Math.min(Math.max(Math.round(Number(item.progress) || 12), 1), 99));
     setError("");
@@ -378,6 +397,7 @@ export default function PosePage() {
   }
 
   async function handleCompletedTask(item: TaskQueueItem) {
+    setRunningExpectedCount(null);
     try {
       const detail = await fetchHistoryApplyDetail(item.id, "pose");
       applyPoseHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : item.resultThumbnails);
@@ -388,31 +408,24 @@ export default function PosePage() {
     }
   }
 
+  function handleContinueCreate() {
+    setRunningExpectedCount(null);
+    setIsGenerating(false);
+    setProgress(0);
+    setResultUrls([]);
+    setError("");
+  }
+
   return (
     <div className="studio-workbench min-h-[calc(100dvh-64px)] lg:h-[calc(100vh-64px)] flex flex-col lg:flex-row">
       <FeatureTabs active="pose" />
-      <ModuleTaskRail module="pose" moduleLabel="姿势裂变" onRunningTask={handleRunningTask} onCompletedTask={handleCompletedTask} />
+      <ModuleTaskRail module="pose" moduleLabel="姿势裂变" onContinue={handleContinueCreate} onRunningTask={handleRunningTask} onCompletedTask={handleCompletedTask} />
       <div className="studio-parameters w-full lg:w-[472px] border-b lg:border-b-0 lg:border-r flex flex-col overflow-visible lg:overflow-hidden">
         <div className="studio-parameters-scroll flex-1 overflow-visible lg:overflow-y-auto p-3 sm:p-5 space-y-4 sm:space-y-6">
           <ModuleHeader
             title="姿势裂变"
             tooltip="基于图1人物、服装、场景和光线，生成同一套视觉里的四宫格姿势变化，适合主图延展、搭配展示和社媒排版。"
-          />
-          <section
-            onDragEnter={(e) => { e.preventDefault(); setIsDragging(true); }}
-            onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => {
-              e.preventDefault();
-              setIsDragging(false);
-              handleFile(e.dataTransfer.files?.[0]);
-            }}
-            className={`relative rounded-xl transition-all ${isDragging ? "ring-2 ring-purple-400 ring-offset-2" : ""}`}
-          >
-            <div className="studio-upload-header">
-              <h3 className="studio-upload-title">
-                <Upload className="w-4 h-4 text-purple-500" /> 上传主图
-              </h3>
+            actions={(
               <button
                 ref={rulesButtonRef}
                 type="button"
@@ -425,7 +438,12 @@ export default function PosePage() {
               >
                 图片规则 <ChevronRight className="h-3 w-3" />
               </button>
-            </div>
+            )}
+          />
+          <section
+            {...mainImageDrag.dragHandlers}
+            className={`studio-stable-upload-boundary relative rounded-xl transition-all ${isDragging ? "ring-2 ring-[rgba(91,124,255,0.38)] ring-offset-2" : ""}`}
+          >
             <input
               ref={fileInputRef}
               type="file"
@@ -438,34 +456,19 @@ export default function PosePage() {
                 });
               }}
             />
-            {mainImage ? (
-              <div className="group studio-checkerboard studio-fixed-upload-preview relative overflow-hidden rounded-2xl border border-dashed border-slate-200" style={{ "--studio-fixed-preview-height": "320px" } as CSSProperties}>
-                <img src={mainImage} alt="姿势裂变主图" className="h-full w-full object-contain p-3" />
-                <span className="absolute left-3 top-3 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-medium text-slate-600 shadow-sm">
-                  模特主图
-                </span>
-                <button onClick={() => setMainImage("")}
-                  className="absolute top-2 right-2 w-8 h-8 rounded-full bg-white/90 shadow flex items-center justify-center opacity-0 group-hover:opacity-100">
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            ) : (
-              <div className="studio-fixed-upload-slot flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 px-4 py-8 text-center">
-                <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-sm">
-                  <PersonStanding className="h-7 w-7 text-violet-400" />
-                </div>
-                <p className="text-sm font-semibold text-slate-800">上传模特图</p>
-                <div className="mt-3 flex flex-wrap justify-center gap-2">
-                  <button type="button" onClick={() => fileInputRef.current?.click()} className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-violet-700">
-                    <Upload className="h-3.5 w-3.5" /> 从本地上传
-                  </button>
-                  <button type="button" onClick={() => toast.info("作品库选择即将接入")} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-slate-300">
-                    <FolderOpen className="h-3.5 w-3.5" /> 从作品选择
-                  </button>
-                </div>
-                <p className="mt-2 text-[11px] text-slate-400">{POSE_UPLOAD_RULE.uploadSpecText}</p>
-              </div>
-            )}
+            <StudioUploadTile
+              title="上传模特图"
+              description="图1作为服装、人物关系和构图基础，建议主体完整、服装清晰。"
+              imageUrl={mainImage || null}
+              imageAlt="姿势裂变主图"
+              isDragging={isDragging}
+              onUploadClick={() => fileInputRef.current?.click()}
+              onLibraryClick={() => toast.info("作品库选择即将接入")}
+              onPreview={mainImage ? () => setLightboxSrc(mainImage) : undefined}
+              onRemove={mainImage ? () => setMainImage("") : undefined}
+              libraryLabel="从作品选择"
+              footnote={POSE_UPLOAD_RULE.uploadSpecText}
+            />
             <div className="studio-upload-demo-row">
               <span className="studio-upload-demo-label">试一试</span>
               <div className="studio-upload-demo-list studio-scrollbar-hide">
@@ -486,50 +489,34 @@ export default function PosePage() {
 
           <section>
             <h3 className="font-bold text-sm mb-3 flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-purple-500" /> 生成模型
+              <Sparkles className="w-4 h-4 text-[var(--codex-accent)]" /> 生成模型
             </h3>
-            <div className="grid grid-cols-2 gap-2">
-              {MODELS.map((opt) => (
-                <button key={opt.value} onClick={() => setAiModel(opt.value)}
-                  className={`text-left px-3 py-2 rounded-lg border transition-all ${
-                    aiModel === opt.value ? "border-purple-500 bg-purple-50" : "border-gray-100 hover:border-gray-300"
-                  }`}>
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <img src={opt.icon} alt="" className="w-3.5 h-3.5 object-contain flex-shrink-0" />
-                    <span className="text-[11px] font-bold truncate min-w-0">{opt.label}</span>
-                    {opt.badge && <span className="text-[9px] px-1 rounded bg-purple-100 text-purple-600 flex-shrink-0">{opt.badge}</span>}
-                  </div>
-                  <p className="text-[10px] text-gray-400 pl-5 leading-tight truncate">{opt.desc} · 单张{getCreditCost(opt.value, imageSize, "3:4")}分</p>
-                </button>
-              ))}
-            </div>
+            <StudioModelSelector
+              models={MODELS}
+              value={aiModel}
+              onChange={setAiModel}
+              ariaLabel="生成模型"
+              getMeta={(model) => `${model.desc} · 单张${getCreditCost(model.value, imageSize, "3:4")}积分`}
+            />
           </section>
 
           <section>
             <h3 className="font-bold text-sm mb-3">输出方式</h3>
-            <div className="grid grid-cols-2 gap-2">
-              {[
-                { value: "grid" as const, label: "四宫格拼图", desc: "1 张 2x2 pose sheet" },
-                { value: "separate" as const, label: "每姿势一张", desc: "4 张独立图片" },
-              ].map((mode) => (
-                <button
-                  key={mode.value}
-                  type="button"
-                  onClick={() => setOutputMode(mode.value)}
-                  className={`rounded-lg border px-3 py-2 text-left transition-all ${
-                    outputMode === mode.value ? "border-purple-500 bg-purple-50 text-purple-700" : "border-gray-200 hover:border-gray-300"
-                  }`}
-                >
-                  <p className="text-xs font-bold">{mode.label}</p>
-                  <p className="mt-0.5 text-[10px] leading-relaxed text-gray-400">{mode.desc}</p>
-                </button>
-              ))}
-            </div>
+            <StudioOptionGrid
+              options={[
+                { value: "grid" as const, label: "四宫格拼图", description: "1 张 2x2 pose sheet" },
+                { value: "separate" as const, label: "每姿势一张", description: "4 张独立图片" },
+              ]}
+              value={outputMode}
+              onChange={setOutputMode}
+              columns={2}
+              ariaLabel="输出方式"
+            />
           </section>
 
           <section>
             <h3 className="font-bold text-sm mb-3">画布比例</h3>
-            <div className="px-3 py-2 rounded-lg border border-purple-200 bg-purple-50 text-xs font-medium text-purple-600">固定 3:4 竖版</div>
+            <div className="studio-option-control studio-option-control-selected flex items-center justify-center text-xs font-medium">固定 3:4 竖版</div>
             <div className="mt-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-[11px] leading-relaxed text-slate-500">
               人物比例按图1保护：头身比、肩宽、腰胯、腿长、脚部大小和服装穿着尺度不变；镜头、画幅、构图未指定时由 AI 按风格自然决定。
             </div>
@@ -538,37 +525,31 @@ export default function PosePage() {
           {imageSizes.length > 1 && (
             <section>
               <h3 className="font-bold text-sm mb-3">分辨率</h3>
-              <div className="flex gap-2">
-                {imageSizes.map((s) => (
-                  <button key={s} onClick={() => setImageSize(s)}
-                    className={`flex-1 py-2 rounded-lg border text-xs font-medium transition-all ${
-                      imageSize === s ? "border-purple-500 bg-purple-50 text-purple-600" : "border-gray-200 hover:border-gray-300"
-                    }`}>{s} · 单张{getCreditCost(aiModel, s, "3:4")}积分</button>
-                ))}
-              </div>
+              <StudioOptionGrid
+                options={imageSizes.map((size) => ({
+                  value: size,
+                  label: `${size} · 单张${getCreditCost(aiModel, size, "3:4")}积分`,
+                }))}
+                value={imageSize}
+                onChange={setImageSize}
+                columns={3}
+                ariaLabel="分辨率"
+              />
             </section>
           )}
 
           <section>
             <h3 className="font-bold text-sm mb-3">表情控制</h3>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                onClick={() => setVaryExpression(true)}
-                className={`px-3 py-2 rounded-lg border text-left text-xs font-medium transition-all ${
-                  varyExpression ? "border-purple-500 bg-purple-50 text-purple-600" : "border-gray-200 hover:border-gray-300"
-                }`}
-              >
-                自然变化
-              </button>
-              <button
-                onClick={() => setVaryExpression(false)}
-                className={`px-3 py-2 rounded-lg border text-left text-xs font-medium transition-all ${
-                  !varyExpression ? "border-purple-500 bg-purple-50 text-purple-600" : "border-gray-200 hover:border-gray-300"
-                }`}
-              >
-                严格一致
-              </button>
-            </div>
+            <StudioOptionGrid
+              options={[
+                { value: "natural", label: "自然变化" },
+                { value: "strict", label: "严格一致" },
+              ]}
+              value={varyExpression ? "natural" : "strict"}
+              onChange={(value) => setVaryExpression(value === "natural")}
+              columns={2}
+              ariaLabel="表情控制"
+            />
           </section>
 
           <section>
@@ -591,22 +572,22 @@ export default function PosePage() {
 
                 <div>
                   <label className="mb-1 block text-xs font-bold text-slate-600">整体描述</label>
-                  <textarea
+                  <StudioPromptTextarea
                     value={customPosePrompt}
                     onChange={(e) => setCustomPosePrompt(e.target.value)}
                     rows={4}
-                    className="custom-scroll w-full resize-none rounded-lg border border-slate-200 px-3 py-2 text-xs leading-relaxed outline-none focus:border-violet-300 focus:ring-1 focus:ring-violet-200"
+                    className="custom-scroll studio-prompt-textarea-compact"
                     placeholder="描述四宫格的整体拍摄方向..."
                   />
                 </div>
 
                 <div>
                   <label className="mb-1 block text-xs font-bold text-slate-600">镜头/画幅补充（可选）</label>
-                  <textarea
+                  <StudioPromptTextarea
                     value={customCamera}
                     onChange={(e) => setCustomCamera(e.target.value)}
                     rows={3}
-                    className="custom-scroll w-full resize-none rounded-lg border border-slate-200 px-3 py-2 text-xs leading-relaxed outline-none focus:border-violet-300 focus:ring-1 focus:ring-violet-200"
+                    className="custom-scroll"
                     placeholder="可为空；需要时可写统一镜头，或指定某个姿势的镜头距离、焦段、景别、画幅和构图。"
                   />
                 </div>
@@ -614,7 +595,7 @@ export default function PosePage() {
                 {customPoses.map((pose, i) => (
                   <div key={i}>
                     <label className="mb-1 block text-xs font-bold text-slate-600">姿势 {i + 1}</label>
-                    <textarea
+                    <StudioPromptTextarea
                       value={pose}
                       onChange={(e) => {
                         const next = [...customPoses];
@@ -622,7 +603,7 @@ export default function PosePage() {
                         setCustomPoses(next);
                       }}
                       rows={3}
-                      className="custom-scroll w-full resize-none rounded-lg border border-slate-200 px-3 py-2 text-xs leading-relaxed outline-none focus:border-violet-300 focus:ring-1 focus:ring-violet-200"
+                      className="custom-scroll"
                     />
                   </div>
                 ))}
@@ -671,20 +652,15 @@ export default function PosePage() {
           </section>
         </div>
 
-        <div className="studio-runbar border-t p-3 sm:p-4 space-y-2 sticky bottom-0 z-10 lg:static">
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-gray-400">{outputMode === "separate" ? "每姿势一张 · 4 张结果" : "四宫格 · 单张结果"}</span>
-            {isAuthenticated
-              ? <span className="font-bold text-amber-600">消耗 {cost} · 余额 {credits ?? "-"}</span>
-              : <span className="text-gray-400">登录后查看积分</span>
-            }
-          </div>
-          <button onClick={() => generate()} disabled={isGenerating || !mainImage}
-            className="w-full py-3 rounded-xl gradient-brand text-white text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-40 hover:opacity-90 shadow-lg shadow-purple-200">
-            <Sparkles className="w-4 h-4" />
-            {!isAuthenticated ? "登录后生成" : isGenerating ? "生成中..." : outputMode === "separate" ? "生成 4 张独立图" : "生成四宫格"}
-          </button>
-        </div>
+        <StudioRunBar
+          summary={outputMode === "separate" ? "每姿势一张 · 4 张结果" : "四宫格 · 单张结果"}
+          costLabel={isAuthenticated ? `消耗 ${cost} · 余额 ${credits ?? "-"}` : "登录后查看积分"}
+          disabled={isGenerating || Boolean(runDisabledReason)}
+          disabledReason={runDisabledReason}
+          primaryLabel={!isAuthenticated ? "登录后生成" : isGenerating ? `生成中 ${Math.round(progress)}%` : outputMode === "separate" ? "生成 4 张独立图" : "生成四宫格"}
+          isLoading={isGenerating}
+          onPrimaryAction={() => generate()}
+        />
       </div>
 
       <div className="studio-canvas min-h-[260px] sm:min-h-[360px] lg:min-h-0 flex-1 relative overflow-hidden mt-3 mb-6 lg:mt-0 lg:mb-0">
@@ -708,7 +684,7 @@ export default function PosePage() {
           <div className="studio-result-stage min-h-[260px] sm:min-h-[360px] overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:h-full flex flex-col animate-fade-in">
             {isGenerating && (
               <div className="mb-4 rounded-xl border border-purple-100 bg-white/80 px-3 py-2 text-xs font-medium text-purple-600 shadow-sm">
-                已生成 {resultUrls.length}{outputMode === "separate" ? " / 4" : ""}，剩余图片生成中...
+                已生成 {resultUrls.length}{runningExpectedCount ? ` / ${runningExpectedCount}` : outputMode === "separate" ? " / 4" : ""}，剩余图片生成中...
               </div>
             )}
             <div className="flex min-h-0 flex-1 items-start justify-start">
@@ -717,7 +693,7 @@ export default function PosePage() {
                 filenamePrefix="pose"
                 extension="jpg"
                 onOpen={setLightboxSrc}
-                expectedCount={isGenerating ? outputMode === "separate" ? 4 : 1 : undefined}
+                expectedCount={isGenerating ? runningExpectedCount || (outputMode === "separate" ? 4 : 1) : undefined}
                 isGenerating={isGenerating}
                 inputThumbnails={mainImage ? [mainImage] : []}
                 statusGroup={isGenerating ? "running" : undefined}
@@ -853,10 +829,10 @@ export default function PosePage() {
                     复制
                   </button>
                 </div>
-                <textarea
+                <StudioPromptTextarea
                   readOnly
                   value={finalPosePrompt}
-                  className="min-h-[360px] w-full resize-y rounded-lg border border-emerald-100 bg-white/85 px-3 py-2 text-[11px] leading-relaxed text-gray-700 outline-none"
+                  className="studio-prompt-textarea-tall"
                 />
               </div>
             </div>

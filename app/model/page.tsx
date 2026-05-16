@@ -13,7 +13,7 @@ import { ModuleHeader } from "@/components/ModuleHeader";
 import { PreviewGuide } from "@/components/PreviewGuide";
 import { ErrorStage } from "@/components/studio/ErrorStage";
 import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
-import { StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/components/studio/StudioFormControls";
+import { StudioGenerationCountSelector, StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/components/studio/StudioFormControls";
 import { StudioRunBar } from "@/components/studio/StudioRunBar";
 import { StudioUploadSection } from "@/components/studio/StudioUploadSection";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
@@ -21,7 +21,7 @@ import { createClient, getCachedProfileCredits, setCachedProfileCredits } from "
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
 import { fetchHistoryApplyDetail, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
-import type { TaskQueueItem } from "@/lib/task-queue";
+import { clampTaskExpectedCount, type TaskQueueItem } from "@/lib/task-queue";
 import { applyRepairPrompt } from "@/lib/generation-repair";
 import { enforceModelPromptRequirements } from "@/lib/model-prompt";
 import {
@@ -37,8 +37,8 @@ import { MODEL_UPLOAD_RULE, type ModelRuleDemo } from "@/lib/model-upload-rules"
 type Gender = "female" | "male";
 
 const MODELS: { value: LingyaModel; label: string; desc: string; badge?: string; icon: string }[] = [
-  { value: "gpt-image-2", label: "GPT-Image-2", desc: "4K · 4分/次", badge: "最新", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/openai.svg" },
   { value: "nano-banana-2", label: "Nano-Banana-2", desc: "4K · 3分/次", badge: "推荐", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
+  { value: "gpt-image-2", label: "GPT-Image-2", desc: "4K · 4分/次", badge: "最新", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/openai.svg" },
   { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "4K · 4分/次", badge: "推荐", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
 ];
 
@@ -113,12 +113,17 @@ export default function ModelPage() {
   const imageSizes = getSupportedImageSizes(aiModel, aspectRatio);
   const cost = getCreditCost(aiModel, imageSize, aspectRatio);
   const totalCost = cost * genCount;
+  const runDisabledReason = !referenceUrls.length
+    ? "请上传至少 1 张参考图"
+    : credits !== null && credits < totalCost
+      ? `积分不足，生成需要 ${totalCost} 积分`
+      : undefined;
   const defaultPrompt = useMemo(
     () => buildDefaultPrompt(referenceUrls.length || 1, gender, hairStyle, hairColor, !!hairReferenceUrl, !!hairColorReferenceUrl, modelStyle),
     [referenceUrls.length, gender, hairStyle, hairColor, hairReferenceUrl, hairColorReferenceUrl, modelStyle]
   );
   const taskInputThumbnails = useMemo(
-    () => [referenceUrls[0], hairReferenceUrl, hairColorReferenceUrl].filter(Boolean) as string[],
+    () => [...referenceUrls, hairReferenceUrl, hairColorReferenceUrl].filter(Boolean) as string[],
     [referenceUrls, hairReferenceUrl, hairColorReferenceUrl]
   );
 
@@ -499,6 +504,7 @@ export default function ModelPage() {
   }
 
   function handleRunningTask(item: TaskQueueItem) {
+    setGenCount(clampTaskExpectedCount(item, 1, 4));
     setIsGenerating(true);
     setProgress(Math.min(Math.max(Math.round(Number(item.progress) || 12), 1), 99));
     setError("");
@@ -520,23 +526,23 @@ export default function ModelPage() {
     }
   }
 
+  function handleContinueCreate() {
+    setIsGenerating(false);
+    setProgress(0);
+    setResultUrls([]);
+    setActiveResultMeta(null);
+    setError("");
+  }
+
   return (
     <div className="studio-workbench min-h-[calc(100dvh-64px)] lg:h-[calc(100vh-64px)] flex flex-col lg:flex-row">
       <FeatureTabs active="model" />
-      <ModuleTaskRail module="model" moduleLabel="模特生成" onRunningTask={handleRunningTask} onCompletedTask={handleCompletedTask} />
+      <ModuleTaskRail module="model" moduleLabel="模特生成" onContinue={handleContinueCreate} onRunningTask={handleRunningTask} onCompletedTask={handleCompletedTask} />
       <div className="studio-parameters w-full lg:w-[472px] border-b lg:border-b-0 lg:border-r flex flex-col overflow-visible lg:overflow-hidden">
         <div className="studio-parameters-scroll flex-1 overflow-visible lg:overflow-y-auto p-3 sm:p-5 space-y-4 sm:space-y-6">
           <ModuleHeader
             title="专属模特"
             tooltip="上传 1-3 张人物参考图，融合脸型、五官比例、肤色、妆感和气质，生成稳定可复用的品牌模特形象。"
-          />
-          <StudioUploadSection
-            title="上传参考图"
-            inputRef={fileInputRef}
-            multiple
-            isDragging={isReferenceDragging}
-            setDragging={setIsReferenceDragging}
-            onFiles={addFiles}
             actions={(
               <button
                 ref={rulesButtonRef}
@@ -551,14 +557,20 @@ export default function ModelPage() {
                 图片规则 <ChevronRight className="h-3 w-3" />
               </button>
             )}
+          />
+          <StudioUploadSection
+            title="上传参考图"
+            inputRef={fileInputRef}
+            multiple
+            isDragging={isReferenceDragging}
+            setDragging={setIsReferenceDragging}
+            onFiles={addFiles}
           >
             {(openFileDialog) => (
               <>
             <div
-              className={`studio-fixed-upload-slot studio-fixed-upload-scroll relative flex flex-col rounded-2xl border border-dashed px-4 py-5 text-center transition-all ${
-                isReferenceDragging
-                  ? "border-violet-400 bg-violet-50/80 shadow-[0_18px_42px_rgba(124,58,237,0.14)] ring-2 ring-violet-200"
-                  : "border-slate-200 bg-slate-50/70"
+              className={`studio-upload-tile studio-model-reference-upload relative flex flex-col text-center transition-all ${
+                isReferenceDragging ? "studio-upload-tile-dragging" : ""
               }`}
               style={{ "--studio-fixed-upload-height": "260px" } as CSSProperties}
             >
@@ -610,21 +622,21 @@ export default function ModelPage() {
                   </div>
                 </>
               ) : (
-                <div className="flex flex-1 flex-col items-center justify-center py-2">
-                  <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-sm">
-                    <UserRound className="h-7 w-7 text-violet-400" />
-                  </div>
-                  <p className="text-sm font-semibold text-slate-800">上传 / 拖入 1-3 张人物参考图</p>
-                  <p className="mt-1 text-[11px] text-slate-400">拖拽图片到这里，或从本地选择；用于融合脸型、肤色、妆感和气质</p>
-                  <div className="mt-3 flex flex-wrap justify-center gap-2">
+                <div className="studio-upload-tile-empty">
+                  <span className="studio-upload-tile-icon">
+                    <UserRound className="h-6 w-6 text-[var(--codex-accent)]" />
+                  </span>
+                  <span className="studio-upload-tile-title text-sm font-black leading-snug text-codex-ink">上传 / 拖入 1-3 张人物参考图</span>
+                  <span className="studio-upload-tile-description mt-1.5 text-center text-[12px] leading-5 text-codex-muted">拖拽图片到这里，或从本地选择；用于融合脸型、肤色、妆感和气质</span>
+                  <span className="studio-upload-tile-action-row">
                     <button type="button" onClick={openFileDialog} className="studio-upload-tile-primary">
                       <Upload className="h-3.5 w-3.5" /> 从本地上传
                     </button>
                     <button type="button" onClick={() => toast.info("作品库选择即将接入")} className="studio-upload-tile-secondary">
                       <FolderOpen className="h-3.5 w-3.5" /> 从作品选择
                     </button>
-                  </div>
-                  <p className="mt-2 text-[11px] text-slate-400">{MODEL_UPLOAD_RULE.uploadSpecText}</p>
+                  </span>
+                  <span className="studio-upload-tile-footnote mt-2.5 text-center text-[11px] leading-5 text-codex-faint">{MODEL_UPLOAD_RULE.uploadSpecText}</span>
                 </div>
               )}
             </div>
@@ -662,16 +674,16 @@ export default function ModelPage() {
 
           <section>
             <h3 className="font-bold text-sm mb-3">性别</h3>
-            <div className="grid grid-cols-2 gap-1 rounded-xl bg-gray-50 p-1">
-              <button onClick={() => selectGender("female")}
-                className={`py-2 rounded-lg text-xs font-medium ${gender === "female" ? "bg-white text-purple-600 shadow-sm" : "text-gray-500"}`}>
-                女
-              </button>
-              <button onClick={() => selectGender("male")}
-                className={`py-2 rounded-lg text-xs font-medium ${gender === "male" ? "bg-white text-purple-600 shadow-sm" : "text-gray-500"}`}>
-                男
-              </button>
-            </div>
+            <StudioOptionGrid<Gender>
+              options={[
+                { value: "female", label: "女" },
+                { value: "male", label: "男" },
+              ]}
+              value={gender}
+              onChange={selectGender}
+              columns={2}
+              ariaLabel="性别"
+            />
           </section>
 
           <section>
@@ -894,14 +906,9 @@ export default function ModelPage() {
 
           <section>
             <h3 className="font-bold text-sm mb-3">生成数量</h3>
-            <StudioOptionGrid
-              options={[1, 2, 3, 4].map((count) => ({
-                value: String(count),
-                label: `${count} 张`,
-              }))}
-              value={String(genCount)}
-              onChange={(value) => setGenCount(Number(value))}
-              columns={4}
+            <StudioGenerationCountSelector
+              value={genCount}
+              onChange={setGenCount}
               ariaLabel="生成数量"
             />
           </section>
@@ -910,7 +917,8 @@ export default function ModelPage() {
         <StudioRunBar
           summary={`${referenceUrls.length} 张参考图 · ${cost} × ${genCount}`}
           costLabel={isAuthenticated ? `消耗 ${totalCost} · 余额 ${credits ?? "-"}` : "登录后查看积分"}
-          disabled={isGenerating || !referenceUrls.length}
+          disabled={isGenerating || Boolean(runDisabledReason)}
+          disabledReason={runDisabledReason}
           primaryLabel={!isAuthenticated ? "登录后生成" : isGenerating ? "生成中..." : `生成 ${genCount} 张`}
           isLoading={isGenerating}
           onPrimaryAction={() => generate()}
@@ -1071,13 +1079,13 @@ export default function ModelPage() {
                   </div>
                 ))}
               </div>
-              <textarea
+              <StudioPromptTextarea
                 value={prompt}
                 onChange={(e) => {
                   setPromptTouched(true);
                   setPrompt(e.target.value);
                 }}
-                className="min-h-[320px] w-full resize-y rounded-lg border px-3 py-2 text-xs leading-relaxed text-gray-700 outline-none focus:ring-2 focus:ring-purple-200"
+                className="studio-prompt-textarea-tall"
               />
               <ModelPromptPreview kind="model" model={aiModel} prompt={prompt} />
               <button

@@ -26,6 +26,7 @@ import {
 import { toast } from "sonner";
 import { ClientPortal } from "@/components/ClientPortal";
 import { FeatureTabs } from "@/components/FeatureTabs";
+import { StudioGenerationCountSelector } from "@/components/studio/StudioFormControls";
 import {
   ALL_CATEGORY_PRODUCT_IMAGE_LANGUAGES,
   ALL_CATEGORY_PRODUCT_IMAGE_PLATFORMS,
@@ -753,7 +754,15 @@ export default function AllCategoryProductImagePage() {
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <SelectField label="画质" value={imageSize} options={supportedSizes} onChange={(value) => { setImageSize(value as ImageSize); resetOutput(); }} />
-                    <SelectField label="生成数量" value={`${imageCount}张`} options={countOptions.map((count) => `${count}张`)} onChange={(value) => changeCount(Number.parseInt(value, 10) || 1)} />
+                    <div>
+                      <span className="mb-2 block text-xs font-semibold text-slate-500">生成数量</span>
+                      <StudioGenerationCountSelector
+                        value={imageCount}
+                        onChange={changeCount}
+                        counts={countOptions}
+                        ariaLabel="生成数量"
+                      />
+                    </div>
                   </div>
                 </div>
               </section>

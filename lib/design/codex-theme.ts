@@ -1,7 +1,7 @@
 export const codexTheme = {
   brand: {
     name: "VastWearGen",
-    subtitle: "服装视觉生产工作台",
+    subtitle: "AI 服装视觉生产工作台",
     tagline: "面向服装品牌和电商团队的 AI 服装视觉生产工作台。",
     description: "上传服装、模特和参考图，生成上身图、商品套图、种草封面和场景版本。",
     logo: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/gemini-icon.png",
@@ -28,13 +28,13 @@ export const codexTheme = {
     running: "#5b7cff",
   },
   gradients: {
-    page: "radial-gradient(circle at 10% 4%, rgba(82,116,255,0.62), transparent 30%), radial-gradient(circle at 86% 8%, rgba(174,184,255,0.72), transparent 35%), linear-gradient(180deg, #cfe0ff 0%, #aebeff 43%, #5d6b94 78%, #07080d 100%)",
-    hero: "radial-gradient(circle at 14% 12%, rgba(91,124,255,0.78), transparent 34%), radial-gradient(circle at 82% 20%, rgba(188,180,255,0.84), transparent 36%), linear-gradient(180deg, #dbe8ff 0%, #aeb8ff 56%, #101322 100%)",
+    page: "radial-gradient(ellipse at 18% 0%, rgba(91,124,255,0.26), transparent 34%), radial-gradient(ellipse at 84% 8%, rgba(174,184,255,0.34), transparent 38%), linear-gradient(180deg, #f6f9ff 0%, #eef4ff 42%, #ffffff 100%)",
+    hero: "linear-gradient(180deg, #f7fbff 0%, #eaf2ff 24%, #dce6ff 46%, #aeb8ff 70%, #6670a8 88%, #25283d 100%)",
     loader: "linear-gradient(120deg, rgba(91,124,255,0.92), rgba(174,184,255,0.82), rgba(219,232,255,0.92))",
     primary: "linear-gradient(180deg, rgba(255,255,255,0.12), transparent 38%), linear-gradient(180deg, #111318 0%, #050505 100%)",
   },
   fontStack: {
-    sans: 'Inter, Geist, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+    sans: '"OpenAI Sans", Inter, "Helvetica Neue", Arial, ui-sans-serif, system-ui, sans-serif',
     mono: '"SF Mono", "Cascadia Code", "JetBrains Mono", ui-monospace, monospace',
   },
   radius: {

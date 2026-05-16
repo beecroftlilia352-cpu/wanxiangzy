@@ -1,5 +1,6 @@
 import type { ReactNode, RefObject } from "react";
 import { cn } from "@/lib/utils";
+import { useStableFileDrag, type StableFileDragContext } from "@/components/studio/useStableFileDrag";
 
 export type StudioUploadSectionProps = {
   title: ReactNode;
@@ -11,7 +12,7 @@ export type StudioUploadSectionProps = {
   isDragging?: boolean;
   setDragging?: (dragging: boolean) => void;
   className?: string;
-  children: (openFileDialog: () => void) => ReactNode;
+  children: (openFileDialog: () => void, dragContext: StableFileDragContext) => ReactNode;
 };
 
 export function StudioUploadSection({
@@ -27,23 +28,17 @@ export function StudioUploadSection({
   children,
 }: StudioUploadSectionProps) {
   const openFileDialog = () => inputRef.current?.click();
+  const { dragHandlers, finishDragging } = useStableFileDrag<HTMLElement>({
+    isDragging,
+    setDragging,
+    onFiles,
+    accept,
+    multiple: Boolean(multiple),
+  });
 
   return (
     <section
-      onDragEnter={(event) => {
-        event.preventDefault();
-        setDragging?.(true);
-      }}
-      onDragLeave={(event) => {
-        event.preventDefault();
-        setDragging?.(false);
-      }}
-      onDragOver={(event) => event.preventDefault()}
-      onDrop={(event) => {
-        event.preventDefault();
-        setDragging?.(false);
-        void onFiles(Array.from(event.dataTransfer.files || []));
-      }}
+      {...dragHandlers}
       className={cn("studio-upload-section", isDragging && "studio-upload-section-dragging", className)}
     >
       <div className="studio-upload-header">
@@ -65,7 +60,7 @@ export function StudioUploadSection({
         }}
       />
 
-      {children(openFileDialog)}
+      {children(openFileDialog, { finishDragging })}
     </section>
   );
 }

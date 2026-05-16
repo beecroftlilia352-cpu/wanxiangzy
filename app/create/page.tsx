@@ -30,11 +30,11 @@ import { StudioSection } from "@/components/studio/StudioSection";
 import { StudioSegmentedControl } from "@/components/studio/StudioSegmentedControl";
 import { StudioTaskRail } from "@/components/studio/StudioTaskRail";
 import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
-import { StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/components/studio/StudioFormControls";
+import { useStableFileDrag } from "@/components/studio/useStableFileDrag";
+import { StudioGenerationCountSelector, StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/components/studio/StudioFormControls";
 import { takeApplyPayload, type HistoryJobPayload } from "@/lib/history-apply";
 import { applyRepairPrompt } from "@/lib/generation-repair";
-import type { TaskQueueItem } from "@/lib/task-queue";
-import { isTaskRunning } from "@/lib/task-queue";
+import { clampTaskExpectedCount, isTaskRunning, type TaskQueueItem } from "@/lib/task-queue";
 import {
   AUTO_DESIGN_BACKGROUNDS,
   AUTO_DESIGN_FRAMINGS,
@@ -173,6 +173,27 @@ export default function CreatePage() {
   const [isDraggingRef, setIsDraggingRef] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeQueueTask, setActiveQueueTask] = useState<TaskQueueItem | null>(null);
+  const clothingDrag = useStableFileDrag<HTMLElement>({
+    isDragging: isDraggingClothing,
+    setDragging: setIsDraggingClothing,
+    stopPropagation: true,
+    fileFilter: (file) => file.type.startsWith("image/"),
+    onFiles: (files) => processFiles(files, pendingClothingRole),
+  });
+  const referenceDrag = useStableFileDrag<HTMLElement>({
+    isDragging: isDraggingRef,
+    setDragging: setIsDraggingRef,
+    stopPropagation: true,
+    fileFilter: (file) => file.type.startsWith("image/"),
+    onFiles: (files) => handleCustomRefFile(files[0]),
+  });
+  const modelDrag = useStableFileDrag<HTMLElement>({
+    isDragging: isDraggingModel,
+    setDragging: setIsDraggingModel,
+    stopPropagation: true,
+    fileFilter: (file) => file.type.startsWith("image/"),
+    onFiles: (files) => handleCustomModelFile(files[0]),
+  });
   const customRefInputRef = useRef<HTMLInputElement>(null);
   const customModelInputRef = useRef<HTMLInputElement>(null);
   const sourceLibrary = useTryOnSourceLibrary({
@@ -1012,11 +1033,13 @@ export default function CreatePage() {
 
   const handleTaskSelect = useCallback(async (item: TaskQueueItem) => {
     if (isTaskRunning(item)) {
+      const expectedCount = clampTaskExpectedCount(item, 1, 4);
       activeGenerationRef.current = item.id;
       setActiveQueueTask(item);
+      setGenCount(expectedCount);
       store.startGeneration();
       store.updateProgress(item.progress || 10);
-      void watchGeneration(item.id, item.expectedCount || 1);
+      void watchGeneration(item.id, expectedCount);
       return;
     }
 
@@ -1219,15 +1242,6 @@ export default function CreatePage() {
           <ModuleHeader
             title="服装上身"
             tooltip="上传单件或多件服装，选择模特与参考场景，生成可直接用于商品展示、主图延展和内容投放的成片。"
-          />
-        )}
-        controlPanel={(
-          <StudioControlPanel>
-          {/* ---- 服装（整个区域可拖拽） ---- */}
-          <StudioSection
-            title="上传服装"
-            description={currentUploadRule.uploadSpecText}
-            badge={isUploading ? <Loader2 className="h-3.5 w-3.5 animate-spin text-violet-500" /> : null}
             actions={(
               <button
                 ref={rulesButtonRef}
@@ -1242,18 +1256,24 @@ export default function CreatePage() {
                 图片规则 <ChevronRight className="h-3 w-3" />
               </button>
             )}
-            onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setIsDraggingClothing(true); }}
-            onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setIsDraggingClothing(false); }}
-            onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
-            onDrop={(e) => { e.preventDefault(); e.stopPropagation(); setIsDraggingClothing(false); processFiles(e.dataTransfer.files); }}
-            className={`relative rounded-xl transition-all ${isDraggingClothing ? "ring-2 ring-purple-400 ring-offset-2" : ""}`}
+          />
+        )}
+        controlPanel={(
+          <StudioControlPanel>
+          {/* ---- 服装（整个区域可拖拽） ---- */}
+          <StudioSection
+            title="上传服装"
+            description={currentUploadRule.uploadSpecText}
+            badge={isUploading ? <Loader2 className="h-3.5 w-3.5 animate-spin text-violet-500" /> : null}
+            {...clothingDrag.dragHandlers}
+            className={`studio-clothing-upload-section studio-stable-upload-boundary relative rounded-xl transition-all ${isDraggingClothing ? "ring-2 ring-[rgba(91,124,255,0.38)] ring-offset-2" : ""}`}
           >
             {/* 拖拽遮罩 */}
             {isDraggingClothing && (
-              <div className="absolute inset-0 z-10 bg-purple-500/10 border-2 border-dashed border-purple-400 rounded-xl flex items-center justify-center pointer-events-none">
+              <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl border-2 border-dashed border-[rgba(91,124,255,0.48)] bg-[rgba(91,124,255,0.10)] pointer-events-none">
                 <div className="text-center">
-                  <Upload className="w-8 h-8 mx-auto text-purple-500 mb-1" />
-                  <p className="text-sm font-medium text-purple-600">松开上传服装</p>
+                  <Upload className="w-8 h-8 mx-auto text-[var(--codex-accent)] mb-1" />
+                  <p className="text-sm font-medium text-[var(--codex-accent)]">松开上传服装</p>
                 </div>
               </div>
             )}
@@ -1294,6 +1314,7 @@ export default function CreatePage() {
                   onDropFile={(file) => {
                     if (file) processFiles([file], "single");
                   }}
+                  dragContext={clothingDrag}
                   libraryLabel="从作品选择"
                   footnote={currentUploadRule.uploadSpecText}
                 />
@@ -1320,6 +1341,7 @@ export default function CreatePage() {
                       onDropFile={(file) => {
                         if (file) processFiles([file], role);
                       }}
+                      dragContext={clothingDrag}
                       libraryLabel="从作品选择"
                       footnote={currentUploadRule.uploadSpecText}
                     />
@@ -1420,23 +1442,14 @@ export default function CreatePage() {
 
           {/* ---- 参考图（整个区域可拖拽） ---- */}
           <section
-            onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setIsDraggingRef(true); }}
-            onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setIsDraggingRef(false); }}
-            onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
-            onDrop={(e) => {
-              e.preventDefault(); e.stopPropagation(); setIsDraggingRef(false);
-              const file = e.dataTransfer.files?.[0];
-              if (file && file.type.startsWith("image/")) {
-                void handleCustomRefFile(file);
-              }
-            }}
-            className={`relative rounded-xl transition-all ${isDraggingRef ? "ring-2 ring-purple-400 ring-offset-2" : ""}`}
+            {...referenceDrag.dragHandlers}
+            className={`studio-stable-upload-boundary relative rounded-xl transition-all ${isDraggingRef ? "ring-2 ring-[rgba(91,124,255,0.38)] ring-offset-2" : ""}`}
           >
             {isDraggingRef && (
-              <div className="absolute inset-0 z-10 bg-purple-500/10 border-2 border-dashed border-purple-400 rounded-xl flex items-center justify-center pointer-events-none">
+              <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl border-2 border-dashed border-[rgba(91,124,255,0.48)] bg-[rgba(91,124,255,0.10)] pointer-events-none">
                 <div className="text-center">
-                  <Upload className="w-8 h-8 mx-auto text-purple-500 mb-1" />
-                  <p className="text-sm font-medium text-purple-600">松开上传参考图</p>
+                  <Upload className="w-8 h-8 mx-auto text-[var(--codex-accent)] mb-1" />
+                  <p className="text-sm font-medium text-[var(--codex-accent)]">松开上传参考图</p>
                 </div>
               </div>
             )}
@@ -1458,19 +1471,17 @@ export default function CreatePage() {
               )}
             </div>
 
-            <div className="mb-3 grid grid-cols-4 gap-1 rounded-xl bg-gray-100 p-1">
-              {SCENE_MODE_TABS.map((tab) => (
-                <button
-                  key={tab.value}
-                  onClick={() => switchSceneMode(tab.value)}
-                  className={`py-1.5 rounded-lg text-[11px] font-medium transition-all ${
-                    sceneMode === tab.value ? "bg-white text-purple-600 shadow-sm" : "text-gray-500 hover:text-gray-700"
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
+            <StudioOptionGrid
+              options={SCENE_MODE_TABS.map((tab) => ({
+                value: tab.value,
+                label: tab.label,
+              }))}
+              value={sceneMode}
+              onChange={switchSceneMode}
+              columns={4}
+              ariaLabel="参考图 / 场景"
+              className="mb-3"
+            />
 
             {sceneMode === "system_reference" && (
               <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50/70 p-3">
@@ -1535,55 +1546,55 @@ export default function CreatePage() {
             )}
 
             {sceneMode === "auto_design" && (
-              <div className="rounded-xl border border-purple-100 bg-purple-50/40 p-3 space-y-4">
+              <div className="space-y-4 rounded-xl border border-slate-100 bg-slate-50/70 p-3">
                 <div>
                   <p className="mb-2 text-xs font-bold text-gray-800">摄影方案</p>
-                  <div className="grid grid-cols-2 gap-2">
-                    {AUTO_DESIGN_PLATFORMS.map((item) => (
-                      <button
-                        key={item.value}
-                        onClick={() => { setAutoDesign((prev) => ({ ...prev, platform: item.value })); setPromptOverride(null); }}
-                        className={`text-left rounded-lg border px-3 py-2 transition-all ${
-                          autoDesign.platform === item.value ? "border-purple-500 bg-white text-purple-600 shadow-sm" : "border-white bg-white/70 text-gray-600 hover:border-purple-200"
-                        }`}
-                      >
-                        <span className="block text-xs font-bold">{item.label}</span>
-                        <span className="mt-0.5 block text-[10px] text-gray-400">{item.desc}</span>
-                      </button>
-                    ))}
-                  </div>
+                  <StudioOptionGrid
+                    options={AUTO_DESIGN_PLATFORMS.map((item) => ({
+                      value: item.value,
+                      label: item.label,
+                      description: item.desc,
+                    }))}
+                    value={autoDesign.platform}
+                    onChange={(platform) => {
+                      setAutoDesign((prev) => ({ ...prev, platform }));
+                      setPromptOverride(null);
+                    }}
+                    columns={2}
+                    ariaLabel="摄影方案"
+                  />
                 </div>
                 <div>
                   <p className="mb-2 text-xs font-bold text-gray-800">构图</p>
-                  <div className="flex flex-wrap gap-2">
-                    {AUTO_DESIGN_FRAMINGS.map((item) => (
-                      <button
-                        key={item.value}
-                        onClick={() => { setAutoDesign((prev) => ({ ...prev, framing: item.value })); setPromptOverride(null); }}
-                        className={`px-3 py-1.5 rounded-lg border text-[11px] font-medium ${
-                          autoDesign.framing === item.value ? "border-purple-500 bg-white text-purple-600" : "border-white bg-white/70 text-gray-500 hover:border-purple-200"
-                        }`}
-                      >
-                        {item.label}
-                      </button>
-                    ))}
-                  </div>
+                  <StudioOptionGrid
+                    options={AUTO_DESIGN_FRAMINGS.map((item) => ({
+                      value: item.value,
+                      label: item.label,
+                    }))}
+                    value={autoDesign.framing}
+                    onChange={(framing) => {
+                      setAutoDesign((prev) => ({ ...prev, framing }));
+                      setPromptOverride(null);
+                    }}
+                    columns={4}
+                    ariaLabel="构图"
+                  />
                 </div>
                 <div>
                   <p className="mb-2 text-xs font-bold text-gray-800">背景</p>
-                  <div className="flex gap-2">
-                    {AUTO_DESIGN_BACKGROUNDS.map((item) => (
-                      <button
-                        key={item.value}
-                        onClick={() => { setAutoDesign((prev) => ({ ...prev, background: item.value })); setPromptOverride(null); }}
-                        className={`flex-1 py-1.5 rounded-lg border text-[11px] font-medium ${
-                          autoDesign.background === item.value ? "border-purple-500 bg-white text-purple-600" : "border-white bg-white/70 text-gray-500 hover:border-purple-200"
-                        }`}
-                      >
-                        {item.label}
-                      </button>
-                    ))}
-                  </div>
+                  <StudioOptionGrid
+                    options={AUTO_DESIGN_BACKGROUNDS.map((item) => ({
+                      value: item.value,
+                      label: item.label,
+                    }))}
+                    value={autoDesign.background}
+                    onChange={(background) => {
+                      setAutoDesign((prev) => ({ ...prev, background }));
+                      setPromptOverride(null);
+                    }}
+                    columns={2}
+                    ariaLabel="背景"
+                  />
                 </div>
               </div>
             )}
@@ -1637,24 +1648,15 @@ export default function CreatePage() {
 
           {/* ---- 模特（整个区域可拖拽·可选） ---- */}
           <section
-            onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setIsDraggingModel(true); }}
-            onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setIsDraggingModel(false); }}
-            onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
-            onDrop={(e) => {
-              e.preventDefault(); e.stopPropagation(); setIsDraggingModel(false);
-              const file = e.dataTransfer.files?.[0];
-              if (file && file.type.startsWith("image/")) {
-                void handleCustomModelFile(file);
-              }
-            }}
-            className={`relative rounded-xl transition-all ${isDraggingModel ? "ring-2 ring-purple-400 ring-offset-2" : ""}`}
+            {...modelDrag.dragHandlers}
+            className={`studio-stable-upload-boundary relative rounded-xl transition-all ${isDraggingModel ? "ring-2 ring-[rgba(91,124,255,0.38)] ring-offset-2" : ""}`}
           >
             {/* 拖拽遮罩 */}
             {isDraggingModel && (
-              <div className="absolute inset-0 z-10 bg-purple-500/10 border-2 border-dashed border-purple-400 rounded-xl flex items-center justify-center pointer-events-none">
+              <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl border-2 border-dashed border-[rgba(91,124,255,0.48)] bg-[rgba(91,124,255,0.10)] pointer-events-none">
                 <div className="text-center">
-                  <Upload className="w-8 h-8 mx-auto text-purple-500 mb-1" />
-                  <p className="text-sm font-medium text-purple-600">松开上传模特图</p>
+                  <Upload className="w-8 h-8 mx-auto text-[var(--codex-accent)] mb-1" />
+                  <p className="text-sm font-medium text-[var(--codex-accent)]">松开上传模特图</p>
                 </div>
               </div>
             )}
@@ -1762,21 +1764,25 @@ export default function CreatePage() {
 
           {/* ---- 细节补充 + 智能整理 ---- */}
           <section>
-            <div className="relative">
-              <StudioPromptTextarea
-                title="补充要求"
-                badge="可选"
-                value={customStyle}
-                onChange={(e) => { setCustomStyle(e.target.value); setPromptOverride(null); }}
-                placeholder="可选：补充不改变主风格的细节要求，如面料、肤色、光线、商品细节..."
-                rows={4}
-              />
-              <button onClick={handleOptimizePrompt} disabled={optimizing || !customStyle.trim()}
-                className="absolute right-2 top-11 p-1.5 rounded-md bg-purple-50 text-purple-500 hover:bg-purple-100 disabled:opacity-30"
-                title="智能整理提示词">
-                {optimizing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand className="w-3.5 h-3.5" />}
-              </button>
-            </div>
+            <StudioPromptTextarea
+              title="补充要求"
+              badge="可选"
+              value={customStyle}
+              onChange={(e) => { setCustomStyle(e.target.value); setPromptOverride(null); }}
+              placeholder="可选：补充不改变主风格的细节要求，如面料、肤色、光线、商品细节..."
+              rows={4}
+              action={(
+                <button
+                  type="button"
+                  onClick={handleOptimizePrompt}
+                  disabled={optimizing || !customStyle.trim()}
+                  className="studio-prompt-icon-action"
+                  title="智能整理提示词"
+                >
+                  {optimizing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand className="w-3.5 h-3.5" />}
+                </button>
+              )}
+            />
             <div className="flex flex-wrap gap-1.5 mt-2">
               {STYLE_PRESETS.map((s, i) => (
                 <button key={i} onClick={() => { setCustomStyle(s); setPromptOverride(null); }}
@@ -1802,17 +1808,10 @@ export default function CreatePage() {
 
           {/* ---- 生成数量 ---- */}
           <StudioSection title="生成数量" description="结果张数越多，消耗积分越高。">
-            <StudioSegmentedControl<"1" | "2" | "3" | "4">
-              value={`${genCount}` as "1" | "2" | "3" | "4"}
+            <StudioGenerationCountSelector
+              value={genCount}
+              onChange={setGenCount}
               ariaLabel="选择生成数量"
-              columns={4}
-              onChange={(value) => setGenCount(Number(value))}
-              options={[
-                { value: "1", label: "1 张" },
-                { value: "2", label: "2 张" },
-                { value: "3", label: "3 张" },
-                { value: "4", label: "4 张" },
-              ]}
             />
           </StudioSection>
           </StudioControlPanel>
@@ -1896,7 +1895,7 @@ export default function CreatePage() {
                       filenamePrefix="tryon"
                       onOpen={(url, index) => openLightbox(url, `服装上身结果 ${index + 1}`)}
                       imageAltPrefix="服装上身结果"
-                      expectedCount={activeQueueTask?.expectedCount || genCount}
+                      expectedCount={activeQueueTask ? clampTaskExpectedCount(activeQueueTask, 1, 4, genCount) : genCount}
                       isGenerating={store.isGenerating}
                       inputThumbnails={activeQueueTask?.inputThumbnails}
                       createdAt={activeQueueTask?.createdAt}
@@ -2111,13 +2110,13 @@ export default function CreatePage() {
                   </div>
                 ))}
               </div>
-              <textarea
+              <StudioPromptTextarea
                 value={finalPrompt}
                 onChange={(e) => {
                   setPromptOverride(e.target.value);
                   store.setPromptUsed(e.target.value);
                 }}
-                className="w-full min-h-[320px] px-3 py-2 rounded-lg border text-xs text-gray-700 leading-relaxed outline-none focus:ring-2 focus:ring-purple-200 resize-y"
+                className="studio-prompt-textarea-tall"
               />
               <ModelPromptPreview kind="tryon" model={aiModel} prompt={finalPrompt} className="mt-3" />
               <button

@@ -380,6 +380,9 @@ async function runClaimedJob(
     const repaired = quality.shouldRegenerate && shouldAutoRegenerate(payload, job)
       ? await regenerateForQuality(supabase, job, payload, quality, partialPromptTrace)
       : null;
+    if (quality.shouldRegenerate && !repaired && !isAutoRegenerationEnabled()) {
+      logger.info(`[jobs] quality auto-regeneration disabled ${job.id}: score=${quality.score}`);
+    }
     const finalUrls = repaired?.resultUrls || persistedResultUrls;
     const finalPromptTrace = repaired?.promptTrace || execution.promptTrace;
     const finalQuality = repaired?.quality || quality;
@@ -1386,7 +1389,7 @@ function appendQualityMetadata(
       evaluatedAt: new Date().toISOString(),
     },
     autoRegeneration: {
-      enabled: true,
+      enabled: isAutoRegenerationEnabled(),
       performed: autoRegenerated,
       maxAttempts: 1,
     },
@@ -1394,11 +1397,15 @@ function appendQualityMetadata(
 }
 
 function shouldAutoRegenerate(payload: GenerationJobPayload, job: ClaimedJob) {
-  if (process.env.AGENT_VISUAL_AUTO_REGENERATE_ENABLED === "false") return false;
+  if (!isAutoRegenerationEnabled()) return false;
   if (payload.kind === "productSet") return false;
   if (job.job_attempts > 1) return false;
   const meta = payload as GenerationJobPayload & { autoRegeneration?: { performed?: boolean } };
   return meta.autoRegeneration?.performed !== true;
+}
+
+function isAutoRegenerationEnabled() {
+  return process.env.AGENT_VISUAL_AUTO_REGENERATE_ENABLED === "true";
 }
 
 function repairPayloadPrompt(payload: GenerationJobPayload, quality: VisualQualityEvaluation): GenerationJobPayload {

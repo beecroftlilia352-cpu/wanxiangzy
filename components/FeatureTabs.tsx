@@ -50,7 +50,7 @@ export function FeatureTabs({ active }: { active: FeatureKey }) {
               <span className={`relative flex h-6 w-6 items-center justify-center ${isActive ? "text-[var(--codex-accent)]" : "text-codex-faint group-hover:text-codex-ink"}`}>
                 <Icon className="h-5 w-5" />
               </span>
-              <span className="max-w-full text-center leading-tight [overflow-wrap:anywhere]">{item.shortLabel || item.label}</span>
+              <span className="max-w-full text-center leading-tight [overflow-wrap:anywhere]">{item.label}</span>
             </Link>
           );
         })}

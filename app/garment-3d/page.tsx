@@ -13,7 +13,7 @@ import { ModuleHeader } from "@/components/ModuleHeader";
 import { PreviewGuide } from "@/components/PreviewGuide";
 import { ErrorStage } from "@/components/studio/ErrorStage";
 import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
-import { StudioModelSelector, StudioOptionGrid } from "@/components/studio/StudioFormControls";
+import { StudioGenerationCountSelector, StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/components/studio/StudioFormControls";
 import { StudioRunBar } from "@/components/studio/StudioRunBar";
 import { StudioUploadSection } from "@/components/studio/StudioUploadSection";
 import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
@@ -23,7 +23,7 @@ import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
 import { fetchHistoryApplyDetail, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
 import { applyRepairPrompt } from "@/lib/generation-repair";
-import type { TaskQueueItem } from "@/lib/task-queue";
+import { clampTaskExpectedCount, type TaskQueueItem } from "@/lib/task-queue";
 import {
   DEFAULT_GARMENT_3D_DISPLAY_STYLE,
   GARMENT_3D_DISPLAY_STYLES,
@@ -42,8 +42,8 @@ const GARMENT_3D_QUALITY =
   "photorealistic, 8K ultra-detailed, high contrast, commercial e-commerce catalog quality, sharp fabric details, raw photo quality";
 
 const MODELS: { value: LingyaModel; label: string; desc: string; badge?: string; icon: string }[] = [
-  { value: "gpt-image-2", label: "GPT-Image-2", desc: "4K · 4积分", badge: "最新", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/openai.svg" },
   { value: "nano-banana-2", label: "Nano-Banana-2", desc: "4K · 3积分", badge: "推荐", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
+  { value: "gpt-image-2", label: "GPT-Image-2", desc: "4K · 4积分", badge: "最新", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/openai.svg" },
   { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "4K · 4积分", badge: "推荐", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
 ];
 
@@ -120,6 +120,11 @@ export default function Garment3dPage() {
     });
   }, [activeReferenceUrl, customGarmentType, displayStyle, garmentType, outputMode, prompt]);
   const finalPrompt = promptOverride ?? builtPrompt;
+  const runDisabledReason = !garmentUrl
+    ? "请先上传服装图"
+    : credits !== null && credits < totalCost
+      ? `积分不足，生成需要 ${totalCost} 积分`
+      : undefined;
 
   const imageRoles = outputMode === "reference"
     ? ["图1：用户上传服装图", "图2：3D立体效果参考图"]
@@ -457,6 +462,7 @@ export default function Garment3dPage() {
   function handleRunningTask(item: TaskQueueItem) {
     const urls = item.resultThumbnails || [];
     const nextProgress = Number.isFinite(Number(item.progress)) ? Number(item.progress) : 8;
+    setGenCount(clampTaskExpectedCount(item, 1, 4));
     setIsGenerating(true);
     setProgress(Math.min(Math.max(Math.round(nextProgress), 1), 99));
     setResultUrls(urls);
@@ -474,12 +480,20 @@ export default function Garment3dPage() {
     }
   }
 
+  function handleContinueCreate() {
+    setIsGenerating(false);
+    setProgress(0);
+    setResultUrls([]);
+    setError(null);
+  }
+
   return (
     <div className="studio-workbench min-h-[calc(100dvh-64px)] lg:h-[calc(100vh-64px)] flex flex-col lg:flex-row">
       <FeatureTabs active="garment3d" />
       <ModuleTaskRail
         module="garment3d"
         moduleLabel="服装 3D"
+        onContinue={handleContinueCreate}
         onRunningTask={handleRunningTask}
         onCompletedTask={handleCompletedTask}
       />
@@ -488,13 +502,6 @@ export default function Garment3dPage() {
           <ModuleHeader
             title="服装 3D"
             tooltip="上传单张清晰服装图，将平铺、挂拍或人台服装转成更有厚度、体积和材质表达的商品展示图。"
-          />
-          <StudioUploadSection
-            title="上传服装图"
-            inputRef={garmentInputRef}
-            isDragging={isDragging}
-            setDragging={setIsDragging}
-            onFiles={handleGarmentFiles}
             actions={(
               <button
                 ref={rulesButtonRef}
@@ -509,8 +516,15 @@ export default function Garment3dPage() {
                 图片规则 <ChevronRight className="h-3 w-3" />
               </button>
             )}
+          />
+          <StudioUploadSection
+            title="上传服装图"
+            inputRef={garmentInputRef}
+            isDragging={isDragging}
+            setDragging={setIsDragging}
+            onFiles={handleGarmentFiles}
           >
-            {(openFileDialog) => (
+            {(openFileDialog, dragContext) => (
               <>
                 <StudioUploadTile
                   title="上传单件衣服平铺图"
@@ -526,6 +540,7 @@ export default function Garment3dPage() {
                     setGarmentName("");
                   } : undefined}
                   onDropFile={(file) => handleGarmentFiles(file ? [file] : [])}
+                  dragContext={dragContext}
                   uploadLabel="从本地上传"
                   libraryLabel="从作品选择"
                   footnote={garmentUrl ? garmentName || "已上传图片" : GARMENT_3D_UPLOAD_RULE.uploadSpecText}
@@ -552,53 +567,44 @@ export default function Garment3dPage() {
 
           <section>
             <h3 className="font-bold text-sm mb-3">上传的服装类型</h3>
-            <div className="grid grid-cols-4 gap-2">
-              {(["上装", "下装", "连体衣", "其他"] as GarmentType[]).map((type) => (
-                <button
-                  key={type}
-                  onClick={() => setGarmentType(type)}
-                  className={`py-2 rounded-lg border text-xs font-medium transition-all ${
-                    garmentType === type ? "border-purple-500 bg-purple-50 text-purple-600" : "border-gray-200 hover:border-gray-300"
-                  }`}
-                >
-                  {type}
-                </button>
-              ))}
-            </div>
+            <StudioOptionGrid
+              options={(["上装", "下装", "连体衣", "其他"] as GarmentType[]).map((type) => ({
+                value: type,
+                label: type,
+              }))}
+              value={garmentType}
+              onChange={setGarmentType}
+              columns={4}
+              ariaLabel="上传的服装类型"
+            />
             {garmentType === "其他" && (
               <input
                 value={customGarmentType}
                 onChange={(e) => setCustomGarmentType(e.target.value)}
                 placeholder="例如：斗篷、围巾、礼服套装"
-                className="mt-2 w-full px-3 py-2 rounded-lg border text-xs outline-none focus:ring-2 focus:ring-purple-200"
+                className="studio-text-input mt-2"
               />
             )}
           </section>
 
           <section>
             <h3 className="font-bold text-sm mb-3">出图模式</h3>
-            <div className="grid grid-cols-2 gap-2 mb-3">
-              <button
-                onClick={() => {
-                  setOutputMode("reference");
-                  setPromptOverride(null);
-                  if (prompt.trim() === DEFAULT_PROMPT) setPrompt("");
-                }}
-                className={`py-2 rounded-lg border text-xs font-medium ${outputMode === "reference" ? "border-purple-500 bg-purple-50 text-purple-600" : "border-gray-200"}`}
-              >
-                选择参考图
-              </button>
-              <button
-                onClick={() => {
-                  setOutputMode("prompt");
-                  setPromptOverride(null);
-                  if (!prompt.trim()) setPrompt(DEFAULT_PROMPT);
-                }}
-                className={`py-2 rounded-lg border text-xs font-medium ${outputMode === "prompt" ? "border-purple-500 bg-purple-50 text-purple-600" : "border-gray-200"}`}
-              >
-                自定义提示词
-              </button>
-            </div>
+            <StudioOptionGrid
+              options={[
+                { value: "reference" as const, label: "选择参考图" },
+                { value: "prompt" as const, label: "自定义提示词" },
+              ]}
+              value={outputMode}
+              onChange={(nextMode) => {
+                setOutputMode(nextMode);
+                setPromptOverride(null);
+                if (nextMode === "reference" && prompt.trim() === DEFAULT_PROMPT) setPrompt("");
+                if (nextMode === "prompt" && !prompt.trim()) setPrompt(DEFAULT_PROMPT);
+              }}
+              columns={2}
+              ariaLabel="出图模式"
+              className="mb-3"
+            />
 
             {outputMode === "reference" && (
               <div className="space-y-3">
@@ -672,33 +678,31 @@ export default function Garment3dPage() {
               </p>
             </div>
 
-            <div className="mt-3">
-              <h3 className="font-bold text-sm mb-3">
-                {outputMode === "reference" ? "补充生成要求（可选）" : "描述3D效果"}
-              </h3>
-              <div className="relative">
-                <textarea
-                  value={prompt}
-                  onChange={(e) => { setPrompt(e.target.value); setPromptOverride(null); }}
-                  placeholder={outputMode === "reference"
-                    ? "可补充角度、厚度、背景、布料质感等要求；参考图只负责立体结构和棚拍光影"
-                    : "描述衣服的立体角度、厚度、旋转方向、背景风格等"}
-                  className="w-full px-3 py-2 pr-10 rounded-lg border text-xs focus:ring-2 focus:ring-purple-200 outline-none resize-none h-24"
-                />
-                <button
-                  onClick={optimizePrompt}
-                  disabled={isOptimizing || !garmentUrl}
-                  className="absolute right-2 top-2 p-1.5 rounded-md bg-purple-50 text-purple-500 hover:bg-purple-100 disabled:opacity-30"
-                  title="视觉分析优化提示词"
-                >
-                  {isOptimizing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand className="w-3.5 h-3.5" />}
-                </button>
-              </div>
-              {outputMode === "reference" && (
-                <p className="mt-1.5 text-[11px] text-gray-400">
-                  参考图用于锁定立体感、厚度、空间角度和棚拍光影；这里输入的文字会作为额外生成要求一起进入最终提示词。
-                </p>
-              )}
+            <div className="relative mt-3">
+              <StudioPromptTextarea
+                title={outputMode === "reference" ? "补充生成要求" : "描述3D效果"}
+                badge={outputMode === "reference" ? "可选" : undefined}
+                value={prompt}
+                onChange={(e) => { setPrompt(e.target.value); setPromptOverride(null); }}
+                placeholder={outputMode === "reference"
+                  ? "可补充角度、厚度、背景、布料质感等要求；参考图只负责立体结构和棚拍光影"
+                  : "描述衣服的立体角度、厚度、旋转方向、背景风格等"}
+                rows={4}
+                description={outputMode === "reference"
+                  ? "参考图用于锁定立体感、厚度、空间角度和棚拍光影；这里输入的文字会作为额外生成要求一起进入最终提示词。"
+                  : undefined}
+                action={(
+                  <button
+                    type="button"
+                    onClick={optimizePrompt}
+                    disabled={isOptimizing || !garmentUrl}
+                    className="studio-prompt-icon-action"
+                    title="视觉分析优化提示词"
+                  >
+                    {isOptimizing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand className="w-3.5 h-3.5" />}
+                  </button>
+                )}
+              />
             </div>
           </section>
 
@@ -756,16 +760,9 @@ export default function Garment3dPage() {
 
           <section>
             <h3 className="font-bold text-sm mb-3">生成数量</h3>
-            <StudioOptionGrid
-              options={[
-                { value: "1", label: "1 张" },
-                { value: "2", label: "2 张" },
-                { value: "3", label: "3 张" },
-                { value: "4", label: "4 张" },
-              ] as const}
-              value={`${genCount}`}
-              onChange={(value) => setGenCount(Number(value))}
-              columns={4}
+            <StudioGenerationCountSelector
+              value={genCount}
+              onChange={setGenCount}
               ariaLabel="生成数量"
             />
           </section>
@@ -774,7 +771,8 @@ export default function Garment3dPage() {
         <StudioRunBar
           summary={`${costPerImage} × ${genCount} 张`}
           costLabel={isAuthenticated ? `消耗 ${totalCost} · 余额 ${credits ?? "-"}` : "登录后查看积分"}
-          disabled={isGenerating || !garmentUrl}
+          disabled={isGenerating || Boolean(runDisabledReason)}
+          disabledReason={runDisabledReason}
           primaryLabel={!isAuthenticated ? "登录后生成" : isGenerating ? "生成中..." : `生成 ${genCount} 张`}
           isLoading={isGenerating}
           onPrimaryAction={() => generate()}
@@ -934,10 +932,10 @@ export default function Garment3dPage() {
                   </div>
                 ))}
               </div>
-              <textarea
+              <StudioPromptTextarea
                 value={finalPrompt}
                 onChange={(e) => setPromptOverride(e.target.value)}
-                className="w-full min-h-[320px] px-3 py-2 rounded-lg border text-xs text-gray-700 leading-relaxed outline-none focus:ring-2 focus:ring-purple-200 resize-y"
+                className="studio-prompt-textarea-tall"
               />
               <ModelPromptPreview kind="garment3d" model={aiModel} prompt={finalPrompt} />
               <button

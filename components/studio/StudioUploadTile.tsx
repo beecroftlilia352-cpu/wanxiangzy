@@ -1,6 +1,7 @@
 import { FolderOpen, ImageIcon, Loader2, Upload, X, ZoomIn } from "lucide-react";
-import type { ReactNode } from "react";
+import type { DragEvent, ReactNode } from "react";
 import { getImageVariantUrl } from "@/lib/image-variants";
+import type { StableFileDragContext } from "@/components/studio/useStableFileDrag";
 
 export type StudioUploadTileProps = {
   title: string;
@@ -15,11 +16,16 @@ export type StudioUploadTileProps = {
   onPreview?: () => void;
   onRemove?: () => void;
   onDropFile?: (file?: File) => void;
+  dragContext?: StableFileDragContext;
   uploadLabel?: string;
   libraryLabel?: string;
   footnote?: string;
   actions?: ReactNode;
 };
+
+function hasFileDrag(event: DragEvent<HTMLElement>) {
+  return Array.from(event.dataTransfer.types || []).includes("Files");
+}
 
 export function StudioUploadTile({
   title,
@@ -34,6 +40,7 @@ export function StudioUploadTile({
   onPreview,
   onRemove,
   onDropFile,
+  dragContext,
   uploadLabel = "从本地上传",
   libraryLabel = "从作品库选择",
   footnote,
@@ -44,10 +51,19 @@ export function StudioUploadTile({
   return (
     <div
       className={`studio-upload-tile ${isDragging ? "studio-upload-tile-dragging" : ""}`}
-      onDragEnter={onDropFile ? (event) => event.preventDefault() : undefined}
-      onDragOver={onDropFile ? (event) => event.preventDefault() : undefined}
-      onDrop={onDropFile ? (event) => {
+      onDragEnter={onDropFile ? (event) => {
+        if (hasFileDrag(event)) event.preventDefault();
+      } : undefined}
+      onDragOver={onDropFile ? (event) => {
+        if (!hasFileDrag(event)) return;
         event.preventDefault();
+        event.dataTransfer.dropEffect = "copy";
+      } : undefined}
+      onDrop={onDropFile ? (event) => {
+        if (!hasFileDrag(event)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        dragContext?.finishDragging();
         if (!disabled) onDropFile(event.dataTransfer.files?.[0]);
       } : undefined}
     >

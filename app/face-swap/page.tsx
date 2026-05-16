@@ -20,9 +20,9 @@ import { ModuleHeader } from "@/components/ModuleHeader";
 import { PreviewGuide } from "@/components/PreviewGuide";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
 import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
-import { LoadingStage } from "@/components/studio/LoadingStage";
+import { StudioResultViewport, type StudioResultStatus } from "@/components/studio/StudioResultViewport";
 import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
-import { StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/components/studio/StudioFormControls";
+import { StudioGenerationCountSelector, StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/components/studio/StudioFormControls";
 import { StudioRunBar } from "@/components/studio/StudioRunBar";
 import { StudioUploadSection } from "@/components/studio/StudioUploadSection";
 import {
@@ -47,7 +47,7 @@ import {
 } from "@/lib/utils";
 import { createClient, getCachedProfileCredits, setCachedProfileCredits } from "@/lib/supabase/client";
 import { fetchHistoryApplyDetail, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
-import type { TaskQueueItem } from "@/lib/task-queue";
+import { clampTaskExpectedCount, type TaskQueueItem } from "@/lib/task-queue";
 
 const MODELS: Array<{ value: LingyaModel; label: string; desc: string; icon: string; badge?: string }> = [
   { value: "nano-banana-2", label: "Nano-Banana-2", desc: "4K · 3分/次", icon: "/model-icons/gemini.png", badge: "默认" },
@@ -417,6 +417,7 @@ export default function FaceSwapPage() {
     setActiveQueueTask(item);
     const urls = item.resultThumbnails || [];
     const nextProgress = Number.isFinite(Number(item.progress)) ? Number(item.progress) : 8;
+    setGenCount(normalizeFaceSwapCount(clampTaskExpectedCount(item, 1, 4)));
     clearPolling();
     setGenerationId(item.id);
     setStatus("running");
@@ -438,12 +439,30 @@ export default function FaceSwapPage() {
     }
   }
 
+  const resultStatus: StudioResultStatus =
+    status === "running" || resultUrls.length > 0 || activeQueueTask
+      ? "results"
+      : error
+        ? "error"
+        : "empty";
+  const faceSwapInputThumbnails = (
+    activeQueueTask?.inputThumbnails?.length
+      ? activeQueueTask.inputThumbnails
+      : [sourceUrl, faceUrl]
+  ).filter(Boolean);
+  const faceSwapExpectedCount = activeQueueTask
+    ? clampTaskExpectedCount(activeQueueTask, 1, 4, genCount)
+    : status === "running"
+      ? normalizeFaceSwapCount(genCount)
+      : undefined;
+
   return (
     <div className="studio-workbench face-swap-workbench flex min-h-[calc(100dvh-64px)] flex-col lg:h-[calc(100vh-64px)] lg:flex-row">
       <FeatureTabs active="faceSwap" />
       <ModuleTaskRail
         module="faceSwap"
         moduleLabel="换脸"
+        onContinue={clearAll}
         onRunningTask={handleRunningTask}
         onCompletedTask={handleCompletedTask}
       />
@@ -460,7 +479,7 @@ export default function FaceSwapPage() {
             inputRef={originalInputRef}
             onFiles={(files) => handleUpload(files[0], "source")}
           >
-            {(openFileDialog) => (
+            {(openFileDialog, dragContext) => (
               <>
                 <StudioUploadTile
                   title="上传需要处理的原图"
@@ -469,13 +488,16 @@ export default function FaceSwapPage() {
                   imageAlt="已上传的原始模特图"
                   loading={isUploadingOriginal}
                   onUploadClick={openFileDialog}
+                  onLibraryClick={() => toast.info("作品库选择即将接入")}
                   onPreview={sourceUrl ? () => setLightboxSrc(sourceUrl) : undefined}
                   onRemove={sourceUrl ? () => {
                     setSourceUrl("");
                     resetGenerationForInputChange();
                   } : undefined}
                   onDropFile={(file) => handleUpload(file, "source")}
+                  dragContext={dragContext}
                   uploadLabel="从本地上传"
+                  libraryLabel="从作品选择"
                   footnote="文件大小 20KB-15MB，分辨率大于 400×400，支持 jpg/jpeg/png/webp"
                 />
                 <div className="studio-upload-demo-row">
@@ -510,7 +532,7 @@ export default function FaceSwapPage() {
               </button>
             )}
           >
-            {(openFileDialog) => (
+            {(openFileDialog, dragContext) => (
               <StudioUploadTile
                 title="上传目标脸图"
                 description={faceUrl ? "已选择目标脸图，可更换、预览或删除。" : FACE_SWAP_NOTE}
@@ -525,6 +547,7 @@ export default function FaceSwapPage() {
                   resetGenerationForInputChange();
                 } : undefined}
                 onDropFile={(file) => handleUpload(file, "face")}
+                dragContext={dragContext}
                 uploadLabel="上传脸图"
                 libraryLabel="选择官方脸"
                 footnote="只提取五官身份，不改变原图肤色、发型、身体、服装和背景。"
@@ -571,11 +594,10 @@ export default function FaceSwapPage() {
 
           <section>
             <PanelTitle title="生成数量" />
-            <StudioOptionGrid
-              options={[1, 2, 3, 4].map((count) => ({ value: String(count), label: String(count) }))}
-              value={String(genCount)}
+            <StudioGenerationCountSelector
+              value={genCount}
+              onChange={setGenCount}
               ariaLabel="生成数量"
-              onChange={(value) => setGenCount(Number(value))}
             />
           </section>
 
@@ -613,11 +635,11 @@ export default function FaceSwapPage() {
               <Settings2 className="h-4 w-4 text-emerald-600" />
               高级提示词
             </summary>
-            <textarea
+            <StudioPromptTextarea
               value={prompt}
               onChange={(event) => setPrompt(event.target.value)}
               rows={5}
-              className="mt-3 w-full resize-none rounded-xl border border-neutral-200 px-3 py-2 text-xs leading-relaxed outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+              className="mt-3 studio-prompt-textarea-compact"
               placeholder="可选：补充保留眼镜、雀斑、配饰、冷感表情等细节。默认模板已锁定只换五官身份，不换肤色/发型/表情/配饰。"
             />
             <div className="mt-2 rounded-xl bg-slate-50 p-3 text-[11px] leading-relaxed text-slate-500">
@@ -643,68 +665,64 @@ export default function FaceSwapPage() {
       </aside>
 
       <main className="studio-canvas relative mt-3 mb-6 min-h-[260px] flex-1 overflow-hidden sm:min-h-[360px] lg:mt-0 lg:mb-0 lg:min-h-0">
-        {status === "running" && resultUrls.length === 0 && !activeQueueTask ? (
-          <LoadingStage
-            genCount={normalizeFaceSwapCount(genCount)}
-            progress={progress}
-            moduleName="AI 换脸"
-            referenceImages={[
-              { label: "原始模特图", url: sourceUrl },
-              { label: "目标脸参考", url: faceUrl },
-            ]}
-            metaItems={[aspectRatio, imageSizeValue, textureEnhance ? "纹理增强" : "标准质感"]}
-          />
-        ) : status === "running" || resultUrls.length > 0 || activeQueueTask ? (
-          <ResultsPanel
-            urls={resultUrls}
-            isGenerating={status === "running"}
-            expectedCount={activeQueueTask?.expectedCount || (status === "running" ? genCount : undefined)}
-            task={activeQueueTask}
-            onOpen={setLightboxSrc}
-            onUseAsSource={(url) => {
-              setSourceUrl(url);
-              resetGenerationForInputChange();
-              toast.success("已设为原始模特图");
-            }}
-            onUseAsFace={(url) => {
-              setFaceUrl(url);
-              resetGenerationForInputChange();
-              toast.success("已设为目标脸图");
-            }}
-            onCopyUrl={async (url) => {
-              await navigator.clipboard.writeText(url);
-              toast.success("图片链接已复制");
-            }}
-            onRegenerate={generate}
-          />
-        ) : error ? (
-          <div className="studio-result-stage flex min-h-[260px] items-center justify-center px-4 sm:min-h-[360px] lg:h-full">
-            <div className="max-w-md rounded-2xl border border-white/80 bg-white/[0.84] p-6 text-center shadow-[0_24px_76px_rgba(15,23,42,0.12)] backdrop-blur-2xl">
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-red-50 text-red-500">
-                <X className="h-6 w-6" />
-              </div>
-              <h2 className="mt-4 text-lg font-black text-slate-950">生成失败</h2>
-              <p className="mt-2 text-sm leading-relaxed text-slate-500">{error}</p>
-              <button type="button" onClick={generate} className="gradient-brand mt-5 inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold text-white hover:opacity-95">
-                <RotateCcw className="h-4 w-4" /> 重新生成
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="studio-empty-stage flex min-h-[260px] items-center justify-center px-4 py-6 sm:min-h-[360px] lg:h-full">
-            <PreviewGuide
-              title="开始制作换脸图"
-              subtitle="先上传原始模特图，再选择目标脸图；输出会保留原图的身体、服装、背景、光线和构图。"
-              imageSrc={FACE_SWAP_SAMPLE_IMAGES[0]?.url || FACE_SWAP_LIBRARY[0]?.url}
-              imageAlt="换脸图指引"
-              steps={[
-                { title: "上传原始模特图", desc: "图1决定身体、服装、背景、光线和最终构图。" },
-                { title: "选择目标脸图", desc: "只提供五官身份，不带走发型、肤色、身体或配饰。" },
-                { title: "生成换脸成片", desc: "保持商品与场景稳定，快速得到新模特成片。" },
-              ]}
+        <StudioResultViewport
+          status={resultStatus}
+          loadingState={null}
+          results={(
+            <ResultsPanel
+              urls={resultUrls}
+              isGenerating={status === "running"}
+              expectedCount={faceSwapExpectedCount}
+              task={activeQueueTask}
+              inputThumbnails={faceSwapInputThumbnails}
+              onOpen={setLightboxSrc}
+              onUseAsSource={(url) => {
+                setSourceUrl(url);
+                resetGenerationForInputChange();
+                toast.success("已设为原始模特图");
+              }}
+              onUseAsFace={(url) => {
+                setFaceUrl(url);
+                resetGenerationForInputChange();
+                toast.success("已设为目标脸图");
+              }}
+              onCopyUrl={async (url) => {
+                await navigator.clipboard.writeText(url);
+                toast.success("图片链接已复制");
+              }}
+              onRegenerate={generate}
             />
-          </div>
-        )}
+          )}
+          errorState={(
+            <div className="studio-result-stage flex min-h-[260px] items-center justify-center px-4 sm:min-h-[360px] lg:h-full">
+              <div className="max-w-md rounded-2xl border border-white/80 bg-white/[0.84] p-6 text-center shadow-[0_24px_76px_rgba(15,23,42,0.12)] backdrop-blur-2xl">
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-red-50 text-red-500">
+                  <X className="h-6 w-6" />
+                </div>
+                <h2 className="mt-4 text-lg font-black text-slate-950">生成失败</h2>
+                <p className="mt-2 text-sm leading-relaxed text-slate-500">{error}</p>
+                <button type="button" onClick={generate} className="gradient-brand mt-5 inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold text-white hover:opacity-95">
+                  <RotateCcw className="h-4 w-4" /> 重新生成
+                </button>
+              </div>
+            </div>
+          )}
+          emptyState={(
+            <div className="studio-empty-stage flex min-h-[260px] items-center justify-center px-4 py-6 sm:min-h-[360px] lg:h-full">
+              <PreviewGuide
+                title="开始制作换脸图"
+                subtitle="先上传原始模特图，再选择目标脸图；输出会保留原图的身体、服装、背景、光线和构图。"
+                imageSrc={FACE_SWAP_SAMPLE_IMAGES[0]?.url || FACE_SWAP_LIBRARY[0]?.url}
+                imageAlt="换脸图指引"
+                steps={[
+                  { title: "上传原始模特图", desc: "图1决定身体、服装、背景、光线和最终构图。" },
+                  { title: "选择目标脸图", desc: "只提供五官身份，不带走发型、肤色、身体或配饰。" },
+                  { title: "生成换脸成片", desc: "保持商品与场景稳定，快速得到新模特成片。" },
+                ]}
+              />
+            </div>
+          )}
+        />
       </main>
 
       {drawerOpen && (
@@ -785,11 +803,13 @@ function ResultsPanel({
   onCopyUrl,
   onRegenerate,
   task,
+  inputThumbnails,
 }: {
   urls: string[];
   expectedCount?: number;
   isGenerating: boolean;
   task?: TaskQueueItem | null;
+  inputThumbnails: string[];
   onOpen: (url: string) => void;
   onUseAsSource: (url: string) => void;
   onUseAsFace: (url: string) => void;
@@ -807,7 +827,7 @@ function ResultsPanel({
           filenamePrefix="face-swap"
           expectedCount={count}
           isGenerating={isGenerating}
-          inputThumbnails={[task?.inputThumbnails?.[0] || "", task?.inputThumbnails?.[1] || ""].filter(Boolean)}
+          inputThumbnails={inputThumbnails}
           createdAt={task?.createdAt}
           statusGroup={failed ? "failed" : isGenerating ? "running" : task?.statusGroup}
           imageAltPrefix="换脸结果"

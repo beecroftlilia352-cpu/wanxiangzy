@@ -116,6 +116,35 @@ export function StudioModelSelector<T extends string>({
   );
 }
 
+export function StudioGenerationCountSelector({
+  value,
+  onChange,
+  counts = [1, 2, 3, 4],
+  unit = "张",
+  ariaLabel = "生成数量",
+}: {
+  value: number;
+  onChange: (value: number) => void;
+  counts?: readonly number[];
+  unit?: string;
+  ariaLabel?: string;
+}) {
+  const columnCount: 2 | 3 | 4 | "auto" = counts.length === 4 ? 4 : counts.length === 3 ? 3 : counts.length === 2 ? 2 : "auto";
+
+  return (
+    <StudioOptionGrid
+      options={counts.map((count) => ({
+        value: String(count),
+        label: `${count} ${unit}`,
+      }))}
+      value={String(value)}
+      onChange={(nextValue) => onChange(Number(nextValue))}
+      columns={columnCount}
+      ariaLabel={ariaLabel}
+    />
+  );
+}
+
 export function StudioHiddenFileInput({
   inputRef,
   multiple,
@@ -155,23 +184,30 @@ export function StudioPromptTextarea({
   title,
   badge,
   description,
+  action,
   className,
   ...props
 }: TextareaHTMLAttributes<HTMLTextAreaElement> & {
-  title: ReactNode;
+  title?: ReactNode;
   badge?: ReactNode;
   description?: ReactNode;
+  action?: ReactNode;
 }) {
   return (
     <section className="studio-prompt-control">
-      <div className="mb-3 flex min-w-0 items-center gap-2">
-        <h3 className="text-sm font-black text-codex-ink">{title}</h3>
-        {badge && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-codex-muted">{badge}</span>}
+      {(title || badge) && (
+        <div className="mb-3 flex min-w-0 items-center gap-2">
+          {title && <h3 className="text-sm font-black text-codex-ink">{title}</h3>}
+          {badge && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-codex-muted">{badge}</span>}
+        </div>
+      )}
+      <div className="studio-prompt-field">
+        <textarea
+          {...props}
+          className={cn("studio-prompt-textarea", action && "studio-prompt-textarea-with-action", className)}
+        />
+        {action ? <div className="studio-prompt-inline-action">{action}</div> : null}
       </div>
-      <textarea
-        {...props}
-        className={cn("studio-prompt-textarea", className)}
-      />
       {description && <p className="mt-2 text-[11px] leading-relaxed text-codex-faint">{description}</p>}
     </section>
   );

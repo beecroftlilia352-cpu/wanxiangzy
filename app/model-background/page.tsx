@@ -7,11 +7,9 @@ import {
   CheckCircle2,
   ChevronRight,
   Eye,
-  FolderOpen,
   Images,
   Loader2,
   Sparkles,
-  Upload,
   UserRound,
   Wand,
   X,
@@ -26,13 +24,17 @@ import { PreviewGuide } from "@/components/PreviewGuide";
 import { RepairPromptPanel } from "@/components/RepairPromptPanel";
 import { ErrorStage } from "@/components/studio/ErrorStage";
 import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
+import { StudioGenerationCountSelector, StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/components/studio/StudioFormControls";
+import { StudioRunBar } from "@/components/studio/StudioRunBar";
+import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
+import { useStableFileDrag } from "@/components/studio/useStableFileDrag";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
 import { createClient, getCachedProfileCredits, setCachedProfileCredits } from "@/lib/supabase/client";
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
 import { applyRepairPrompt } from "@/lib/generation-repair";
 import { fetchHistoryApplyDetail, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
-import type { TaskQueueItem } from "@/lib/task-queue";
+import { clampTaskExpectedCount, type TaskQueueItem } from "@/lib/task-queue";
 import {
   BACKGROUND_PRESETS,
   BACKGROUND_SOURCE_LABELS,
@@ -53,9 +55,9 @@ import {
 } from "@/lib/model-background";
 
 const MODELS: { value: LingyaModel; label: string; desc: string; badge?: string; icon: string }[] = [
-  { value: "gpt-image-2", label: "GPT-Image-2", desc: "4K · 高质感", badge: "推荐", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/openai.svg" },
-  { value: "nano-banana-2", label: "Nano-Banana-2", desc: "快速稳定", badge: "稳定", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
-  { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "细节更强", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
+  { value: "nano-banana-2", label: "Nano-Banana-2", desc: "4K · 3分/次", badge: "推荐", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
+  { value: "gpt-image-2", label: "GPT-Image-2", desc: "4K · 4分/次", badge: "最新", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/openai.svg" },
+  { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "4K · 4分/次", badge: "推荐", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
 ];
 
 type ModelBackgroundHistoryPayload = Extract<HistoryJobPayload, { kind: "modelBackground" }>;
@@ -117,6 +119,12 @@ export default function ModelBackgroundPage() {
   const [showRules, setShowRules] = useState(false);
   const [rulesPopoverStyle, setRulesPopoverStyle] = useState<{ top: number; left: number; maxHeight: number } | null>(null);
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+  const sourceDrag = useStableFileDrag<HTMLDivElement>({
+    isDragging,
+    setDragging: setIsDragging,
+    fileFilter: (file) => file.type.startsWith("image/"),
+    onFiles: (files) => handleUpload(files[0], "source"),
+  });
 
   const hasModelReference = mode !== "background_only" && Boolean(modelReferenceUrl);
   const hasBackgroundReference = mode !== "model_only" && (backgroundSource === "preset" || backgroundSource === "upload") && Boolean(backgroundReferenceUrl);
@@ -137,6 +145,15 @@ export default function ModelBackgroundPage() {
   }), [promptOverride, mode, backgroundSource, backgroundPresetId, backgroundText, userPrompt, hasModelReference, hasBackgroundReference]);
   const imageSizes = getSupportedImageSizes(aiModel, aspectRatio);
   const cost = getCreditCost(aiModel, imageSize, aspectRatio) * genCount;
+  const runDisabledReason = !sourceUrl
+    ? "请先上传原图"
+    : mode !== "background_only" && !modelReferenceUrl
+      ? "请选择或上传模特参考图"
+      : mode !== "model_only" && (backgroundSource === "preset" || backgroundSource === "upload") && !backgroundReferenceUrl
+        ? "请选择或上传背景参考图"
+        : credits !== null && credits < cost
+          ? `积分不足，生成需要 ${cost} 积分`
+          : undefined;
   const backgroundReferenceLabel = mode === "model_only"
     ? "未使用"
     : backgroundSource === "preset"
@@ -380,6 +397,7 @@ export default function ModelBackgroundPage() {
   }
 
   function handleRunningTask(item: TaskQueueItem) {
+    setGenCount(clampTaskExpectedCount(item, 1, 4));
     setIsGenerating(true);
     setProgress(Math.min(Math.max(Math.round(Number(item.progress) || 12), 1), 99));
     setError("");
@@ -395,6 +413,13 @@ export default function ModelBackgroundPage() {
       toast.error(err instanceof Error ? err.message : "历史参数加载失败");
       return true;
     }
+  }
+
+  function handleContinueCreate() {
+    setIsGenerating(false);
+    setProgress(0);
+    setResultUrls([]);
+    setError("");
   }
 
   async function handleOptimizeGenerationPrompt() {
@@ -442,20 +467,13 @@ export default function ModelBackgroundPage() {
   return (
     <div className="studio-workbench min-h-[calc(100dvh-64px)] lg:h-[calc(100vh-64px)] flex flex-col lg:flex-row">
       <FeatureTabs active="modelBackground" />
-      <ModuleTaskRail module="modelBackground" moduleLabel="换背景" onRunningTask={handleRunningTask} onCompletedTask={handleCompletedTask} />
+      <ModuleTaskRail module="modelBackground" moduleLabel="换背景" onContinue={handleContinueCreate} onRunningTask={handleRunningTask} onCompletedTask={handleCompletedTask} />
       <div className="studio-parameters w-full lg:w-[472px] border-b lg:border-b-0 lg:border-r flex flex-col overflow-visible lg:overflow-hidden">
         <div className="studio-parameters-scroll flex-1 overflow-visible lg:overflow-y-auto p-3 sm:p-5 space-y-4 sm:space-y-5">
-          <ModuleHeader title="换背景" tooltip="默认只替换原图背景，人物、服装和穿搭保持不变；切换到换模特时需要先选择或上传模特参考图。" />
-
-          <section
-            onDragEnter={(e) => { e.preventDefault(); setIsDragging(true); }}
-            onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => { e.preventDefault(); setIsDragging(false); handleUpload(e.dataTransfer.files?.[0], "source"); }}
-            className={`relative rounded-xl transition-all ${isDragging ? "ring-2 ring-purple-400 ring-offset-2" : ""}`}
-          >
-            <div className="studio-upload-header">
-              <h3 className="studio-upload-title"><Upload className="h-4 w-4 text-purple-500" /> 上传人物/穿搭原图</h3>
+          <ModuleHeader
+            title="换背景"
+            tooltip="默认只替换原图背景，人物、服装和穿搭保持不变；切换到换模特时需要先选择或上传模特参考图。"
+            actions={(
               <button
                 ref={rulesButtonRef}
                 type="button"
@@ -468,7 +486,13 @@ export default function ModelBackgroundPage() {
               >
                 图片规则 <ChevronRight className="h-3 w-3" />
               </button>
-            </div>
+            )}
+          />
+
+          <section
+            {...sourceDrag.dragHandlers}
+            className={`studio-stable-upload-boundary relative rounded-xl transition-all ${isDragging ? "ring-2 ring-[rgba(91,124,255,0.38)] ring-offset-2" : ""}`}
+          >
             <input
               ref={sourceInputRef}
               type="file"
@@ -481,53 +505,23 @@ export default function ModelBackgroundPage() {
                 });
               }}
             />
-            <div className="relative overflow-hidden rounded-2xl border border-dashed border-slate-200 bg-slate-50/70">
-              {sourceUrl ? (
-                <div className="group studio-checkerboard studio-fixed-upload-preview relative flex items-center justify-center overflow-hidden rounded-2xl" style={{ "--studio-fixed-preview-height": "320px" } as CSSProperties}>
-                  <img src={sourceUrl} alt="原图" className="h-full w-full object-contain p-3" />
-                  <span className="absolute left-3 top-3 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-medium text-slate-600 shadow-sm">图1 原图</span>
-                  <div className="absolute right-2 top-2 flex gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => setLightboxSrc(sourceUrl)}
-                      className="flex h-9 w-9 items-center justify-center rounded-full border border-white/80 bg-white/92 text-slate-600 opacity-0 shadow-sm backdrop-blur transition-opacity hover:text-violet-600 focus:opacity-100 group-hover:opacity-100"
-                      title="放大预览"
-                    >
-                      <ZoomIn className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSourceUrl("");
-                        setSourceName("");
-                        setPromptOverride(null);
-                      }}
-                      className="flex h-9 w-9 items-center justify-center rounded-full border border-white/80 bg-white/92 text-slate-700 shadow-sm backdrop-blur hover:text-slate-950"
-                      title="移除图片"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="studio-upload-dropzone studio-fixed-upload-slot flex flex-col items-center justify-center px-4 py-8 text-center">
-                  <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-sm">
-                    <Images className="h-7 w-7 text-violet-500" />
-                  </div>
-                  <p className="text-sm font-semibold text-slate-800">上传需要处理的原图</p>
-                  <p className="mt-1 max-w-[300px] text-xs leading-relaxed text-slate-500">图1作为服装、人物关系和构图基础，建议主体完整、服装清晰。</p>
-                  <div className="mt-3 flex flex-wrap justify-center gap-2">
-                    <button type="button" onClick={() => sourceInputRef.current?.click()} className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-violet-700">
-                      <Upload className="h-3.5 w-3.5" /> 从本地上传
-                    </button>
-                    <button type="button" onClick={() => toast.info("作品库选择即将接入")} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-slate-300">
-                      <FolderOpen className="h-3.5 w-3.5" /> 从作品选择
-                    </button>
-                  </div>
-                  <p className="mt-2 text-[11px] text-slate-400">{MODEL_BACKGROUND_UPLOAD_RULE.uploadSpecText}</p>
-                </div>
-              )}
-            </div>
+            <StudioUploadTile
+              title="上传需要处理的原图"
+              description="图1作为服装、人物关系和构图基础，建议主体完整、服装清晰。"
+              imageUrl={sourceUrl || null}
+              imageAlt="原图"
+              isDragging={isDragging}
+              onUploadClick={() => sourceInputRef.current?.click()}
+              onLibraryClick={() => toast.info("作品库选择即将接入")}
+              onPreview={sourceUrl ? () => setLightboxSrc(sourceUrl) : undefined}
+              onRemove={sourceUrl ? () => {
+                setSourceUrl("");
+                setSourceName("");
+                setPromptOverride(null);
+              } : undefined}
+              libraryLabel="从作品选择"
+              footnote={MODEL_BACKGROUND_UPLOAD_RULE.uploadSpecText}
+            />
             {sourceName ? <p className="mt-2 truncate text-[11px] text-slate-400">{sourceName}</p> : null}
             <div className="studio-upload-demo-row">
               <span className="studio-upload-demo-label">试一试</span>
@@ -543,19 +537,17 @@ export default function ModelBackgroundPage() {
 
           <section>
             <h3 className="font-bold text-sm mb-3">操作模式</h3>
-            <div className="grid grid-cols-3 gap-1 rounded-2xl bg-slate-100 p-1">
-              {MODE_OPTIONS.map((item) => (
-                <button
-                  key={item.value}
-                  type="button"
-                  onClick={() => { setMode(item.value); setPromptOverride(null); }}
-                  className={`rounded-xl px-2 py-2 text-center transition-all ${mode === item.value ? "bg-white text-violet-700 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}
-                >
-                  <span className="block text-xs font-bold">{MODEL_BACKGROUND_MODE_LABELS[item.value]}</span>
-                  <span className="mt-0.5 block text-[10px] opacity-70">{item.desc}</span>
-                </button>
-              ))}
-            </div>
+            <StudioOptionGrid
+              options={MODE_OPTIONS.map((item) => ({
+                value: item.value,
+                label: MODEL_BACKGROUND_MODE_LABELS[item.value],
+                description: item.desc,
+              }))}
+              value={mode}
+              onChange={(value) => { setMode(value); setPromptOverride(null); }}
+              columns={3}
+              ariaLabel="操作模式"
+            />
           </section>
 
           {mode !== "background_only" ? (
@@ -636,9 +628,14 @@ export default function ModelBackgroundPage() {
                 <Images className="h-4 w-4 text-purple-500" /> 参考图 / 场景
               </h3>
               <p className="mb-3 text-[11px] text-slate-400">预设背景、上传背景和文生背景互斥；选择参考图后会优先锁定场景、光线和构图氛围。</p>
-              <div className="mb-3 grid grid-cols-3 gap-1 rounded-2xl bg-slate-100 p-1">
-                {BACKGROUND_SOURCE_OPTIONS.map((item) => (
-                  <button key={item} type="button" onClick={() => {
+              <div className="mb-3">
+                <StudioOptionGrid
+                  options={BACKGROUND_SOURCE_OPTIONS.map((item) => ({
+                    value: item,
+                    label: BACKGROUND_SOURCE_LABELS[item],
+                  }))}
+                  value={backgroundSource}
+                  onChange={(item) => {
                     setBackgroundSource(item);
                     if (item === "preset") {
                       setBackgroundReferenceUrl(getBackgroundPreset(backgroundPresetId).imageUrl);
@@ -647,10 +644,10 @@ export default function ModelBackgroundPage() {
                       setBackgroundReferenceUrl("");
                     }
                     setPromptOverride(null);
-                  }} className={`rounded-xl px-2 py-2 text-xs font-bold transition ${backgroundSource === item ? "bg-white text-violet-700 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}>
-                    {BACKGROUND_SOURCE_LABELS[item]}
-                  </button>
-                ))}
+                  }}
+                  columns={3}
+                  ariaLabel="背景来源"
+                />
               </div>
               <input
                 ref={backgroundInputRef}
@@ -698,9 +695,9 @@ export default function ModelBackgroundPage() {
                   </div>
                 </div>
               ) : backgroundSource === "upload" ? (
-                <button type="button" onClick={() => backgroundInputRef.current?.click()} className="group studio-upload-dropzone w-full overflow-hidden rounded-2xl border border-dashed border-slate-200 p-3 text-center transition hover:border-purple-300">
+                <button type="button" onClick={() => backgroundInputRef.current?.click()} className="group studio-upload-dropzone studio-fixed-upload-slot flex w-full flex-col items-center justify-center overflow-hidden rounded-2xl border border-dashed border-slate-200 p-3 text-center transition hover:border-purple-300" style={{ "--studio-fixed-upload-height": "328px" } as CSSProperties}>
                   {backgroundReferenceUrl ? (
-                    <div className="studio-fixed-upload-preview relative mb-2 overflow-hidden rounded-xl bg-slate-100" style={{ "--studio-fixed-preview-height": "220px" } as CSSProperties}>
+                    <div className="studio-fixed-upload-preview studio-checkerboard relative mb-2 overflow-hidden rounded-xl" style={{ "--studio-fixed-preview-height": "220px" } as CSSProperties}>
                       <img src={backgroundReferenceUrl} alt="背景参考" className="h-full w-full object-contain p-2" />
                       <span
                         role="button"
@@ -729,7 +726,7 @@ export default function ModelBackgroundPage() {
                 </button>
               ) : (
                 <div className="space-y-3">
-                  <textarea value={backgroundText} onChange={(e) => { setBackgroundText(e.target.value); setPromptOverride(null); }} rows={4} className="w-full resize-none rounded-2xl border border-slate-200 bg-white p-3 text-sm outline-none transition focus:border-purple-300 focus:ring-2 focus:ring-purple-100" placeholder="描述你想要的背景..." />
+                <StudioPromptTextarea value={backgroundText} onChange={(e) => { setBackgroundText(e.target.value); setPromptOverride(null); }} rows={4} className="studio-prompt-textarea-compact" placeholder="描述你想要的背景..." />
                   <div className="flex flex-wrap gap-2">
                     {BACKGROUND_TEXT_PRESETS.map((preset) => (
                       <button key={preset} type="button" onClick={() => { setBackgroundText(preset); setPromptOverride(null); }} className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] text-slate-600 hover:border-purple-200 hover:text-purple-600">
@@ -742,55 +739,43 @@ export default function ModelBackgroundPage() {
             </section>
           ) : null}
 
+          <StudioPromptTextarea
+            title="补充要求"
+            badge="可选"
+            value={userPrompt}
+            onChange={(e) => { setUserPrompt(e.target.value); setPromptOverride(null); }}
+            rows={4}
+            placeholder={MODEL_BACKGROUND_USER_PROMPT_PLACEHOLDER}
+          />
+
           <section>
-            <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-950">
-              补充要求 <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-medium text-slate-400">可选</span>
-            </h3>
-            <textarea
-              value={userPrompt}
-              onChange={(e) => { setUserPrompt(e.target.value); setPromptOverride(null); }}
-              rows={4}
-              className="w-full resize-none rounded-2xl border border-slate-200 bg-white p-3 text-sm leading-relaxed outline-none transition focus:border-purple-300 focus:ring-2 focus:ring-purple-100"
-              placeholder={MODEL_BACKGROUND_USER_PROMPT_PLACEHOLDER}
+            <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-950"><Sparkles className="h-4 w-4 text-[var(--codex-accent)]" /> 生成模型</h3>
+            <StudioModelSelector
+              models={MODELS}
+              value={aiModel}
+              onChange={setAiModel}
+              ariaLabel="生成模型"
+              getMeta={(model) => `${model.desc} · 当前${getCreditCost(model.value, imageSize, aspectRatio)}积分`}
             />
           </section>
 
           <section>
-            <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-950"><Sparkles className="h-4 w-4 text-purple-500" /> 生成模型</h3>
-            <div className="grid grid-cols-2 gap-2">
-              {MODELS.map((model) => (
-                <button key={model.value} type="button" onClick={() => setAiModel(model.value)} className={`rounded-xl border p-2 text-left transition-all ${aiModel === model.value ? "border-purple-500 bg-purple-50 ring-1 ring-purple-200" : "border-gray-200 hover:border-gray-300"}`}>
-                  <span className="flex min-w-0 items-center gap-1.5">
-                    <img src={model.icon} alt="" className="h-3.5 w-3.5 flex-shrink-0 object-contain" />
-                    <span className="truncate text-[11px] font-bold text-slate-900">{model.label}</span>
-                    {model.badge ? <span className="flex-shrink-0 rounded bg-purple-100 px-1 text-[9px] text-purple-600">{model.badge}</span> : null}
-                  </span>
-                  <span className="mt-1 block truncate text-[10px] text-slate-400">{model.desc}</span>
-                </button>
-              ))}
-            </div>
-          </section>
-
-          <section>
             <h3 className="mb-3 text-sm font-bold text-slate-950">图片比例</h3>
-            <div className="grid grid-cols-3 gap-2">
-              {ASPECTS.map((item) => (
-                <button key={item.value} type="button" onClick={() => setAspectRatio(item.value)} className={`rounded-lg border py-2 text-xs font-medium transition-all ${aspectRatio === item.value ? "border-purple-500 bg-purple-50 text-purple-600" : "border-gray-200 hover:border-gray-300"}`}>
-                  {item.label}
-                </button>
-              ))}
-            </div>
+            <StudioOptionGrid options={ASPECTS} value={aspectRatio} onChange={setAspectRatio} columns={3} ariaLabel="图片比例" />
           </section>
 
           <section>
             <h3 className="mb-3 text-sm font-bold text-slate-950">分辨率</h3>
-            <div className="grid grid-cols-3 gap-2">
-              {imageSizes.map((size) => (
-                <button key={size} type="button" onClick={() => setImageSize(size)} className={`rounded-lg border py-2 text-xs font-medium transition-all ${imageSize === size ? "border-purple-500 bg-purple-50 text-purple-600" : "border-gray-200 hover:border-gray-300"}`}>
-                  {size} · {getCreditCost(aiModel, size, aspectRatio)}积分
-                </button>
-              ))}
-            </div>
+            <StudioOptionGrid
+              options={imageSizes.map((size) => ({
+                value: size,
+                label: `${size} · ${getCreditCost(aiModel, size, aspectRatio)}积分`,
+              }))}
+              value={imageSize}
+              onChange={setImageSize}
+              columns={3}
+              ariaLabel="分辨率"
+            />
           </section>
 
           <section>
@@ -801,25 +786,22 @@ export default function ModelBackgroundPage() {
 
           <section>
             <h3 className="mb-3 text-sm font-bold text-slate-950">生成数量</h3>
-            <div className="grid grid-cols-4 gap-2">
-              {[1, 2, 3, 4].map((count) => (
-                <button key={count} type="button" onClick={() => setGenCount(count)} className={`rounded-lg border py-2 text-sm font-medium transition-all ${genCount === count ? "border-purple-500 bg-purple-50 text-purple-600" : "border-gray-200 hover:border-gray-300"}`}>
-                  {count} 张
-                </button>
-              ))}
-            </div>
+            <StudioGenerationCountSelector
+              value={genCount}
+              onChange={setGenCount}
+              ariaLabel="生成数量"
+            />
           </section>
         </div>
-        <div className="studio-runbar space-y-2 border-t p-3 sm:p-4 sticky bottom-0 z-10 lg:static">
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-gray-400">{sourceUrl ? "原图已上传" : "等待上传原图"} · {genCount} 张</span>
-            {isAuthenticated ? <span className="font-bold text-orange-500">消耗 {cost} · 余额 {credits ?? "-"}</span> : <span className="text-orange-500">登录后生成</span>}
-          </div>
-          <button type="button" disabled={isGenerating || !sourceUrl} onClick={() => generate()} className="gradient-brand flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold text-white shadow-lg shadow-purple-200 hover:opacity-90 disabled:opacity-40">
-            {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-            {!isAuthenticated ? "登录后生成" : isGenerating ? `生成中 ${Math.round(progress)}%` : `生成 ${genCount} 张`}
-          </button>
-        </div>
+        <StudioRunBar
+          summary={`${sourceUrl ? "原图已上传" : "等待上传原图"} · ${genCount} 张`}
+          costLabel={isAuthenticated ? `消耗 ${cost} · 余额 ${credits ?? "-"}` : "登录后生成"}
+          disabled={isGenerating || Boolean(runDisabledReason)}
+          disabledReason={runDisabledReason}
+          primaryLabel={!isAuthenticated ? "登录后生成" : isGenerating ? `生成中 ${Math.round(progress)}%` : `生成 ${genCount} 张`}
+          isLoading={isGenerating}
+          onPrimaryAction={() => generate()}
+        />
       </div>
 
       <div className="studio-canvas relative flex-1 min-h-[520px] lg:h-full overflow-hidden mt-3 mb-6 lg:mt-0 lg:mb-0">
@@ -953,10 +935,10 @@ export default function ModelBackgroundPage() {
                     </div>
                   ))}
                 </div>
-                <textarea
+                <StudioPromptTextarea
                   value={finalPrompt}
                   onChange={(e) => setPromptOverride(e.target.value)}
-                  className="min-h-[320px] w-full resize-y rounded-lg border px-3 py-2 text-xs leading-relaxed text-gray-700 outline-none focus:ring-2 focus:ring-purple-200"
+                  className="studio-prompt-textarea-tall"
                 />
                 <ModelPromptPreview kind="modelBackground" model={aiModel} prompt={finalPrompt} className="mt-3" />
                 <button

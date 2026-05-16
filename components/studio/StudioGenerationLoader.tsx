@@ -83,9 +83,9 @@ export function StudioGenerationLoader({
         <div className={`mx-auto grid ${gridClass} gap-3 sm:gap-4`}>
           {Array.from({ length: safeCount }).map((_, index) => (
             <div key={index} className="gen-card relative overflow-hidden rounded-[28px]" style={{ aspectRatio }}>
-              <div className="absolute inset-0 bg-[var(--codex-gradient-loader)] opacity-35" />
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_25%_20%,rgba(91,124,255,0.34),transparent_34%),radial-gradient(circle_at_80%_18%,rgba(174,184,255,0.26),transparent_36%)]" />
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
+              <div className="studio-loading-card-base" />
+              <div className="studio-loading-card-sheen" />
+              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2">
                 <div className="relative flex h-14 w-14 items-center justify-center">
                   <div className="gen-ring absolute inset-0 rounded-full bg-[#aeb8ff]/40" />
                   <div className="relative flex h-14 w-14 items-center justify-center rounded-full border border-white/16 bg-white/10 shadow-lg backdrop-blur-md">

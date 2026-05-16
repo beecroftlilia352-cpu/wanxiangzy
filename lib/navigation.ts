@@ -61,7 +61,8 @@ const SHOW_INTERNAL_NAV =
   process.env.NEXT_PUBLIC_SHOW_INTERNAL_NAV === "true" || process.env.NODE_ENV !== "production";
 
 export const TOP_MODULES: TopModuleNavItem[] = [
-  { key: "aiShoots", href: "/create", label: "拍摄工作台", icon: Camera },
+  { key: "home", href: "/", label: "首页", icon: Home },
+  { key: "aiShoots", href: "/create", label: "模特图", icon: Camera },
   { key: "assistant", href: "/agent", label: "工作流助手", icon: Bot },
   { key: "tools", href: "/general-image", label: "素材生成", icon: Images },
   { key: "aiVideo", href: "#", label: "视频", icon: Clapperboard, comingSoon: true },
@@ -101,7 +102,7 @@ export const FEATURE_ITEMS: FeatureNavItem[] = [
     href: "/face-swap",
     label: "换脸",
     shortLabel: "换脸",
-    description: "只替换面部五官特征",
+    description: "替换面部特征并保留主体风格",
     icon: ScanFace,
   },
   {
@@ -110,7 +111,7 @@ export const FEATURE_ITEMS: FeatureNavItem[] = [
     href: "/grass",
     label: "种草图",
     shortLabel: "种草",
-    description: "小红书、电商内容种草图",
+    description: "小红书、电商和内容种草图",
     icon: Heart,
   },
   {
@@ -119,7 +120,7 @@ export const FEATURE_ITEMS: FeatureNavItem[] = [
     href: "/product-set",
     label: "商品套图",
     shortLabel: "套图",
-    description: "一键生成主图、辅图和详情页商品视觉",
+    description: "生成主图、辅图和详情页商品视觉",
     icon: GalleryHorizontalEnd,
   },
   {
@@ -138,7 +139,7 @@ export const FEATURE_ITEMS: FeatureNavItem[] = [
     href: "/model-background",
     label: "换背景",
     shortLabel: "背景",
-    description: "保留主体并替换场景",
+    description: "保留主体并替换拍摄场景",
     icon: Images,
   },
   {
@@ -147,7 +148,7 @@ export const FEATURE_ITEMS: FeatureNavItem[] = [
     href: "/pose",
     label: "姿势裂变",
     shortLabel: "姿势",
-    description: "多姿势、单图或四宫格输出",
+    description: "生成多姿势、单图或宫格输出",
     icon: PersonStanding,
   },
   {
@@ -224,17 +225,18 @@ export function getActiveTopModule(pathname: string | null | undefined): AppModu
     .filter((item) => item.href !== "/")
     .sort((a, b) => b.href.length - a.href.length)
     .find((item) => path === item.href || path.startsWith(`${item.href}/`));
+
   if (feature) return feature.module;
   if (path === "/" || path.startsWith("/login") || path.startsWith("/auth")) return "home";
   return "aiShoots";
 }
 
 export function getFeatureItemsForModule(module: AppModuleKey) {
-  const items = module === "home"
-    ? FEATURE_ITEMS.filter((item) => item.module === "aiShoots")
-    : FEATURE_ITEMS.filter((item) => item.module === module);
+  const items =
+    module === "home"
+      ? FEATURE_ITEMS.filter((item) => item.module === "aiShoots")
+      : FEATURE_ITEMS.filter((item) => item.module === module);
 
   const visibleItems = items.filter((item) => !isHiddenFeatureItem(item));
-
   return SHOW_INTERNAL_NAV ? visibleItems : visibleItems.filter((item) => !isInternalFeatureItem(item));
 }

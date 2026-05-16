@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Coins, Home, LogOut, Menu } from "lucide-react";
+import { ArrowUpRight, ChevronDown, Coins, Home, LogOut, Menu, Search } from "lucide-react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import {
   clearCachedProfileCredits,
@@ -17,12 +17,35 @@ import { TOP_MODULES, getActiveTopModule } from "@/lib/navigation";
 import { TaskQueueButton } from "@/components/TaskQueueButton";
 import { codexTheme } from "@/lib/design/codex-theme";
 
+type HeaderAccountState = {
+  authReady: boolean;
+  creditsReady: boolean;
+  credits: number | null;
+  email: string | null;
+  isLoggingOut: boolean;
+  onLogout: () => Promise<void>;
+};
+
+const marketingNav = [
+  { label: "产品", href: "/create" },
+  { label: "工作流", href: "/agent" },
+  { label: "模特库", href: "/model" },
+  { label: "案例", href: "/history" },
+  { label: "资源", href: "/general-image" },
+];
+
 export function HeaderClient() {
-  const supabase = useMemo(() => createClient(), []);
   const pathname = usePathname();
-  const [locationSearch, setLocationSearch] = useState("");
-  const activeModule = pathname === "/agent" && new URLSearchParams(locationSearch).get("intent") === "video" ? "aiVideo" : getActiveTopModule(pathname);
-  const isLoginPage = pathname === "/login";
+
+  if (pathname === "/") {
+    return <MarketingHeader />;
+  }
+
+  return <AppHeader pathname={pathname} />;
+}
+
+function useHeaderAccount(): HeaderAccountState {
+  const supabase = useMemo(() => createClient(), []);
   const [email, setEmail] = useState<string | null>(null);
   const [credits, setCredits] = useState<number | null>(null);
   const [authReady, setAuthReady] = useState(false);
@@ -31,15 +54,12 @@ export function HeaderClient() {
   const loadedCreditsForUserRef = useRef<string | null>(null);
 
   useEffect(() => {
-    setLocationSearch(window.location.search);
-  }, [pathname]);
-
-  useEffect(() => {
     let cancelled = false;
 
     async function loadProfileFromApi() {
       const controller = new AbortController();
       const timeout = window.setTimeout(() => controller.abort(), 10000);
+
       try {
         const res = await fetch("/api/profile", {
           cache: "no-store",
@@ -47,6 +67,7 @@ export function HeaderClient() {
         });
 
         if (cancelled) return false;
+
         if (res.status === 401) {
           loadedCreditsForUserRef.current = null;
           setEmail(null);
@@ -78,6 +99,7 @@ export function HeaderClient() {
       setAuthReady(true);
       setCreditsReady(false);
       loadedCreditsForUserRef.current = user.id;
+
       const apiLoaded = await loadProfileFromApi();
       if (apiLoaded) return;
 
@@ -90,7 +112,7 @@ export function HeaderClient() {
 
     loadProfileFromApi()
       .then((loaded) => {
-        if (loaded || cancelled) return;
+        if (loaded || cancelled) return undefined;
         return supabase.auth.getUser();
       })
       .then((result) => {
@@ -110,7 +132,271 @@ export function HeaderClient() {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_e, session) => {
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (session?.user) {
+        await loadUserCredits(session.user);
+      } else {
+        loadedCreditsForUserRef.current = null;
+        setEmail(null);
+        setCredits(null);
+        setAuthReady(true);
+        setCreditsReady(true);
+      }
+    });
+
+    const unsubscribeCredits = subscribeToProfileCredits(({ userId, credits: nextCredits }) => {
+      if (loadedCreditsForUserRef.current === userId) {
+        setCredits(nextCredits);
+        setCreditsReady(true);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      unsubscribeCredits();
+      subscription.unsubscribe();
+    };
+  }, [supabase]);
+
+  const onLogout = async () => {
+    setIsLoggingOut(true);
+    clearCachedProfileCredits();
+    setEmail(null);
+    setCredits(null);
+    setCreditsReady(false);
+
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 2000);
+    await fetch("/api/logout", { method: "POST", cache: "no-store", signal: controller.signal }).catch(() => {});
+    window.clearTimeout(timeout);
+    await supabase.auth.signOut({ scope: "local" }).catch(() => {});
+    clearSupabaseLocalStorage();
+    window.location.replace("/login");
+  };
+
+  return { authReady, creditsReady, credits, email, isLoggingOut, onLogout };
+}
+
+function MarketingHeader() {
+  const [scrolled, setScrolled] = useState(false);
+  const account = useHeaderAccount();
+
+  useEffect(() => {
+    const updateScrolled = () => setScrolled(window.scrollY > 96);
+    updateScrolled();
+    window.addEventListener("scroll", updateScrolled, { passive: true });
+    return () => window.removeEventListener("scroll", updateScrolled);
+  }, []);
+
+  return (
+    <header
+      className={`home-marketing-header sticky top-0 z-50 ${scrolled ? "home-marketing-header-scrolled" : ""}`}
+    >
+      <div className="mx-auto flex h-16 w-full max-w-[1440px] items-center justify-between gap-6 px-5 sm:px-8 lg:px-10">
+        <Link
+          href="/"
+          className="home-marketing-logo shrink-0 text-[18px] font-semibold leading-none"
+          aria-label="VastWearGen 首页"
+        >
+          VastWearGen
+        </Link>
+
+        <nav className="home-marketing-nav hidden flex-1 items-center gap-8 pl-4 text-[14px] font-semibold leading-none lg:flex" aria-label="主导航">
+          {marketingNav.map((item) => (
+            <Link key={item.label} href={item.href} className="transition">
+              {item.label}
+            </Link>
+          ))}
+          <button type="button" className="inline-flex h-9 w-9 items-center justify-center" aria-label="搜索">
+            <Search className="h-4 w-4" />
+          </button>
+        </nav>
+
+        <div className="home-marketing-actions flex shrink-0 items-center gap-3 text-[14px] font-semibold leading-none">
+          <MarketingAccountActions {...account} />
+          <Link href="/create" className="home-trial-pill inline-flex h-10 items-center gap-1.5 rounded-full px-5 transition">
+            进入工作台
+            <ArrowUpRight className="h-3.5 w-3.5" />
+          </Link>
+          <button
+            type="button"
+            className="home-menu-pill inline-flex h-10 w-10 items-center justify-center rounded-full lg:hidden"
+            aria-label="打开导航"
+          >
+            <Menu className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+    </header>
+  );
+}
+
+function MarketingAccountActions({
+  authReady,
+  creditsReady,
+  credits,
+  email,
+  isLoggingOut,
+  onLogout,
+}: HeaderAccountState) {
+  if (!authReady) {
+    return (
+      <span className="home-login-pill hidden h-10 w-[92px] items-center justify-center rounded-full px-5 transition sm:inline-flex">
+        <span className="h-3 w-10 animate-pulse rounded-full bg-current opacity-20" />
+      </span>
+    );
+  }
+
+  if (!email) {
+    return (
+      <Link href="/login" className="home-login-pill hidden h-10 items-center gap-1 rounded-full px-5 transition sm:inline-flex">
+        登录
+        <ChevronDown className="h-3.5 w-3.5" />
+      </Link>
+    );
+  }
+
+  return (
+    <DropdownMenu.Root>
+      <DropdownMenu.Trigger asChild>
+        <button type="button" className="home-login-pill hidden h-10 items-center gap-1.5 rounded-full px-4 transition sm:inline-flex">
+          <Coins className="h-3.5 w-3.5" />
+          {creditsReady ? <span>{credits ?? "--"}</span> : <span className="h-3 w-5 animate-pulse rounded bg-current opacity-20" />}
+          <ChevronDown className="h-3.5 w-3.5" />
+        </button>
+      </DropdownMenu.Trigger>
+      <DropdownMenu.Portal>
+        <DropdownMenu.Content
+          align="end"
+          sideOffset={8}
+          className="mac-surface z-[80] min-w-[180px] overflow-hidden rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl shadow-slate-200/50"
+        >
+          <DropdownMenu.Item asChild>
+            <Link href="/history" className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 outline-none transition hover:bg-slate-50">
+              我的作品
+            </Link>
+          </DropdownMenu.Item>
+          <DropdownMenu.Item asChild>
+            <Link href="/create" className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 outline-none transition hover:bg-slate-50">
+              进入工作台
+            </Link>
+          </DropdownMenu.Item>
+          <DropdownMenu.Item
+            disabled={isLoggingOut}
+            onSelect={(event) => {
+              event.preventDefault();
+              onLogout();
+            }}
+            className="flex cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 outline-none transition hover:bg-slate-50 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50"
+          >
+            <LogOut className="h-4 w-4" />
+            {isLoggingOut ? "退出中" : "退出登录"}
+          </DropdownMenu.Item>
+        </DropdownMenu.Content>
+      </DropdownMenu.Portal>
+    </DropdownMenu.Root>
+  );
+}
+
+function AppHeader({ pathname }: { pathname: string }) {
+  const supabase = useMemo(() => createClient(), []);
+  const [locationSearch, setLocationSearch] = useState("");
+  const activeModule =
+    pathname === "/agent" && new URLSearchParams(locationSearch).get("intent") === "video"
+      ? "aiVideo"
+      : getActiveTopModule(pathname);
+  const isLoginPage = pathname === "/login";
+  const [email, setEmail] = useState<string | null>(null);
+  const [credits, setCredits] = useState<number | null>(null);
+  const [authReady, setAuthReady] = useState(false);
+  const [creditsReady, setCreditsReady] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const loadedCreditsForUserRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    setLocationSearch(window.location.search);
+  }, [pathname]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadProfileFromApi() {
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 10000);
+
+      try {
+        const res = await fetch("/api/profile", {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+
+        if (cancelled) return false;
+
+        if (res.status === 401) {
+          loadedCreditsForUserRef.current = null;
+          setEmail(null);
+          setCredits(null);
+          setAuthReady(true);
+          setCreditsReady(true);
+          return true;
+        }
+
+        const payload = await res.json().catch(() => ({}));
+        if (!res.ok || !payload.user) return false;
+
+        loadedCreditsForUserRef.current = payload.user.id;
+        setEmail(payload.user.email ?? null);
+        setCredits(payload.credits ?? 0);
+        setCachedProfileCredits(payload.user.id, payload.credits ?? 0);
+        setAuthReady(true);
+        setCreditsReady(true);
+        return true;
+      } catch {
+        return false;
+      } finally {
+        window.clearTimeout(timeout);
+      }
+    }
+
+    async function loadUserCredits(user: { id: string; email?: string | null }) {
+      setEmail(user.email ?? null);
+      setAuthReady(true);
+      setCreditsReady(false);
+      loadedCreditsForUserRef.current = user.id;
+
+      const apiLoaded = await loadProfileFromApi();
+      if (apiLoaded) return;
+
+      const profileCredits = await getCachedProfileCredits(user.id);
+      if (!cancelled && loadedCreditsForUserRef.current === user.id) {
+        setCredits(profileCredits);
+        setCreditsReady(true);
+      }
+    }
+
+    loadProfileFromApi()
+      .then((loaded) => {
+        if (loaded || cancelled) return undefined;
+        return supabase.auth.getUser();
+      })
+      .then((result) => {
+        if (!result || cancelled) return;
+        const { data } = result;
+        if (data.user) {
+          loadUserCredits(data.user);
+        } else {
+          setAuthReady(true);
+          setCreditsReady(true);
+        }
+      })
+      .catch(() => {
+        setAuthReady(true);
+        setCreditsReady(true);
+      });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session?.user) {
         await loadUserCredits(session.user);
       } else {
@@ -142,6 +428,7 @@ export function HeaderClient() {
     setEmail(null);
     setCredits(null);
     setCreditsReady(false);
+
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), 2000);
     await fetch("/api/logout", { method: "POST", cache: "no-store", signal: controller.signal }).catch(() => {});
@@ -310,6 +597,7 @@ function UserCreditActions({
 function MobileModuleMenu({ activeModule }: { activeModule: string }) {
   const active = TOP_MODULES.find((item) => item.key === activeModule) || TOP_MODULES[0];
   const ActiveIcon = active.icon;
+
   return (
     <DropdownMenu.Root>
       <DropdownMenu.Trigger asChild>
@@ -332,6 +620,7 @@ function MobileModuleMenu({ activeModule }: { activeModule: string }) {
           {TOP_MODULES.map((item) => {
             const Icon = item.icon;
             const isActive = item.key === activeModule;
+
             if (item.comingSoon) {
               return (
                 <DropdownMenu.Item

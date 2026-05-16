@@ -10,6 +10,7 @@ import { detectSlashTrigger, applyCommand, type SlashCommand } from "@/lib/agent
 import { ImageTray } from "./ImageTray";
 import { MentionDropdown } from "./MentionDropdown";
 import { SlashCommandDropdown } from "./SlashCommandDropdown";
+import { useStableFileDrag } from "@/components/studio/useStableFileDrag";
 
 
 type Props = {
@@ -150,11 +151,12 @@ export function InputComposer({
     if (files.length > 0) { e.preventDefault(); onAddImages(files); }
   };
 
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault(); setIsDragging(false);
-    const files = Array.from(e.dataTransfer.files).filter((f) => f.type.startsWith("image/"));
-    if (files.length > 0) onAddImages(files);
-  };
+  const composerDrag = useStableFileDrag<HTMLDivElement>({
+    isDragging,
+    setDragging: setIsDragging,
+    fileFilter: (file) => file.type.startsWith("image/"),
+    onFiles: onAddImages,
+  });
 
   const isUploadingImages = inputImages.some((image) => image.uploading);
   const hasUploadError = inputImages.some((image) => image.uploadError);
@@ -189,10 +191,7 @@ export function InputComposer({
   return (
     <div
       className="border-t border-slate-100 bg-gradient-to-b from-white to-slate-50/80"
-      onDragEnter={(e) => { e.preventDefault(); setIsDragging(true); }}
-      onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
-      onDragOver={(e) => e.preventDefault()}
-      onDrop={handleDrop}
+      {...composerDrag.dragHandlers}
     >
       <div className="mx-auto max-w-4xl px-4 pb-3 pt-2 sm:px-6">
         {isDragging && (
