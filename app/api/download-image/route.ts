@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createAliyunOssDownloadUrl } from "@/lib/api/image-storage";
 
+export const runtime = "nodejs";
 export const maxDuration = 30;
 
 const MAX_DOWNLOAD_BYTES = 15 * 1024 * 1024;
@@ -52,6 +54,13 @@ export async function GET(request: NextRequest) {
 
   if (!isAllowedHost(parsedUrl.hostname)) {
     return NextResponse.json({ error: "Image host is not allowed" }, { status: 400 });
+  }
+
+  const aliyunOssDownloadUrl = createAliyunOssDownloadUrl(parsedUrl.toString(), filename);
+  if (aliyunOssDownloadUrl) {
+    const redirect = NextResponse.redirect(aliyunOssDownloadUrl, 302);
+    redirect.headers.set("Cache-Control", "no-store");
+    return redirect;
   }
 
   const controller = new AbortController();
@@ -184,19 +193,27 @@ function isAllowedHost(hostname: string): boolean {
 }
 
 function getAllowedHosts(): string[] {
-  const configuredHosts = (process.env.DOWNLOAD_IMAGE_ALLOWED_HOSTS || "")
-    .split(",")
-    .map((item) => item.trim().toLowerCase())
-    .filter(Boolean);
+  const configuredHosts = parseHostList(process.env.DOWNLOAD_IMAGE_ALLOWED_HOSTS);
+  const aliyunOssImageHosts = parseHostList(process.env.NEXT_PUBLIC_ALIYUN_OSS_IMAGE_HOSTS);
 
   const supabaseHost = getHostname(process.env.NEXT_PUBLIC_SUPABASE_URL);
   const aliyunOssPublicHost = getHostname(process.env.ALIYUN_OSS_PUBLIC_BASE_URL);
+  const aliyunOssDownloadHost = getHostname(process.env.ALIYUN_OSS_DOWNLOAD_BASE_URL);
   return [
     ...DEFAULT_ALLOWED_HOSTS,
     ...(supabaseHost ? [supabaseHost] : []),
     ...(aliyunOssPublicHost ? [aliyunOssPublicHost] : []),
+    ...(aliyunOssDownloadHost ? [aliyunOssDownloadHost] : []),
+    ...aliyunOssImageHosts,
     ...configuredHosts,
   ];
+}
+
+function parseHostList(value?: string) {
+  return (value || "")
+    .split(",")
+    .map((item) => item.trim().toLowerCase())
+    .filter(Boolean);
 }
 
 function matchesHostPattern(host: string, pattern: string): boolean {

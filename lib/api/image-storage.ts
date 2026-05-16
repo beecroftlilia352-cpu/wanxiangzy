@@ -3,6 +3,7 @@ import { createHmac, randomUUID } from "node:crypto";
 const IMGBB_API_URL = "https://api.imgbb.com/1/upload";
 const DEFAULT_IMAGE_UPLOAD_TIMEOUT_MS = 45_000;
 const MAX_IMAGE_STORAGE_BYTES = 32 * 1024 * 1024;
+const DEFAULT_ALIYUN_DOWNLOAD_EXPIRES_SECONDS = 5 * 60;
 
 export type ImageStorageProvider = "imgbb" | "aliyun-oss";
 export type ImageStorageClass = "upload" | "generated" | "favorite" | "site-asset" | "temp";
@@ -53,6 +54,42 @@ export async function storeImage(
   options?: StoreImageOptions
 ) {
   return getImageStorageAdapter().storeImage(input, options);
+}
+
+export function createAliyunOssDownloadUrl(
+  imageUrl: string,
+  filename: string,
+  expiresInSeconds = DEFAULT_ALIYUN_DOWNLOAD_EXPIRES_SECONDS
+) {
+  let config: ReturnType<typeof getAliyunOssConfig>;
+  try {
+    config = getAliyunOssConfig();
+  } catch {
+    return null;
+  }
+
+  const objectKey = resolveAliyunOssObjectKey(imageUrl, config);
+  if (!objectKey) return null;
+
+  const expires = String(Math.floor(Date.now() / 1000) + expiresInSeconds);
+  const downloadUrl = new URL(buildPublicObjectUrl(config.downloadBaseUrl, objectKey));
+  const canonicalQuery: Record<string, string> = {
+    "response-content-disposition": buildAttachmentContentDisposition(filename),
+  };
+  if (config.securityToken) canonicalQuery["security-token"] = config.securityToken;
+
+  const canonicalizedResource = buildAliyunCanonicalizedResource(config.bucket, objectKey, canonicalQuery);
+  const stringToSign = ["GET", "", "", expires, canonicalizedResource].join("\n");
+  const signature = createHmac("sha1", config.accessKeySecret).update(stringToSign).digest("base64");
+
+  downloadUrl.searchParams.set("OSSAccessKeyId", config.accessKeyId);
+  downloadUrl.searchParams.set("Expires", expires);
+  for (const [key, value] of Object.entries(canonicalQuery)) {
+    downloadUrl.searchParams.set(key, value);
+  }
+  downloadUrl.searchParams.set("Signature", signature);
+
+  return downloadUrl.toString();
 }
 
 const imgbbStorageAdapter: ImageStorageAdapter = {
@@ -167,7 +204,7 @@ const aliyunOssStorageAdapter: ImageStorageAdapter = {
       throw new Error(`图片上传失败: Aliyun OSS HTTP ${response.status}`);
     }
 
-    const url = `${config.publicBaseUrl}/${encodeObjectKey(objectKey)}`;
+    const url = buildPublicObjectUrl(config.publicBaseUrl, objectKey);
     return {
       url,
       display_url: url,
@@ -184,6 +221,7 @@ function getAliyunOssConfig() {
   const bucket = process.env.ALIYUN_OSS_BUCKET?.trim();
   const region = process.env.ALIYUN_OSS_REGION?.trim();
   const publicBaseUrl = normalizeBaseUrl(process.env.ALIYUN_OSS_PUBLIC_BASE_URL);
+  const downloadBaseUrl = normalizeBaseUrl(process.env.ALIYUN_OSS_DOWNLOAD_BASE_URL) || publicBaseUrl;
   const endpoint = process.env.ALIYUN_OSS_ENDPOINT?.trim().replace(/^https?:\/\//i, "").replace(/\/+$/, "");
   const securityToken = process.env.ALIYUN_OSS_SECURITY_TOKEN?.trim();
 
@@ -193,7 +231,99 @@ function getAliyunOssConfig() {
     );
   }
 
-  return { accessKeyId, accessKeySecret, bucket, region, publicBaseUrl, endpoint, securityToken };
+  return { accessKeyId, accessKeySecret, bucket, region, publicBaseUrl, downloadBaseUrl, endpoint, securityToken };
+}
+
+function resolveAliyunOssObjectKey(
+  imageUrl: string,
+  config: ReturnType<typeof getAliyunOssConfig>
+) {
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(imageUrl);
+  } catch {
+    return null;
+  }
+
+  if (!["http:", "https:"].includes(parsedUrl.protocol)) return null;
+
+  const host = parsedUrl.hostname.toLowerCase();
+  if (!getAliyunOssDownloadHosts(config).has(host)) return null;
+
+  let pathname = parsedUrl.pathname;
+  const publicBase = new URL(config.publicBaseUrl);
+  if (host === publicBase.hostname.toLowerCase()) {
+    pathname = stripBasePath(pathname, publicBase.pathname);
+    if (!pathname) return null;
+  }
+
+  return decodeObjectKey(pathname);
+}
+
+function getAliyunOssDownloadHosts(config: ReturnType<typeof getAliyunOssConfig>) {
+  const hosts = new Set<string>();
+  hosts.add(new URL(config.publicBaseUrl).hostname.toLowerCase());
+  hosts.add(new URL(config.downloadBaseUrl).hostname.toLowerCase());
+  hosts.add(`${config.bucket}.${config.region}.aliyuncs.com`.toLowerCase());
+  if (config.endpoint) hosts.add(config.endpoint.toLowerCase());
+
+  for (const host of (process.env.NEXT_PUBLIC_ALIYUN_OSS_IMAGE_HOSTS || "").split(",")) {
+    const normalizedHost = normalizeHost(host);
+    if (normalizedHost) hosts.add(normalizedHost);
+  }
+
+  return hosts;
+}
+
+function buildPublicObjectUrl(baseUrl: string, objectKey: string) {
+  return `${normalizeBaseUrl(baseUrl)}/${encodeObjectKey(objectKey)}`;
+}
+
+function stripBasePath(pathname: string, basePathname: string) {
+  const basePath = basePathname === "/" ? "" : basePathname.replace(/\/+$/, "");
+  if (!basePath) return pathname;
+  if (pathname === basePath) return "";
+  if (!pathname.startsWith(`${basePath}/`)) return "";
+  return pathname.slice(basePath.length);
+}
+
+function decodeObjectKey(pathname: string) {
+  const path = pathname.replace(/^\/+/, "");
+  if (!path) return null;
+
+  try {
+    return path.split("/").map(decodeURIComponent).filter(Boolean).join("/");
+  } catch {
+    return null;
+  }
+}
+
+function buildAliyunCanonicalizedResource(
+  bucket: string,
+  objectKey: string,
+  query: Record<string, string>
+) {
+  const queryString = Object.entries(query)
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([key, value]) => `${key}=${value}`)
+    .join("&");
+  const resource = `/${bucket}/${objectKey}`;
+  return queryString ? `${resource}?${queryString}` : resource;
+}
+
+function buildAttachmentContentDisposition(filename: string) {
+  const safeFilename = sanitizeDownloadFilename(filename);
+  return `attachment; filename="${safeFilename}"; filename*=UTF-8''${encodeRFC5987ValueChars(safeFilename)}`;
+}
+
+function sanitizeDownloadFilename(value: string) {
+  return value.replace(/[\\/:*?"<>|]+/g, "-").slice(0, 120) || "tryon-result.jpg";
+}
+
+function encodeRFC5987ValueChars(value: string) {
+  return encodeURIComponent(value)
+    .replace(/['()]/g, (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`)
+    .replace(/\*/g, "%2A");
 }
 
 async function resolveUploadPayload(image: string, name: string, options: StoreImageOptions) {
@@ -301,6 +431,11 @@ function encodeObjectKey(value: string) {
 
 function normalizeBaseUrl(value?: string | null) {
   return (value || "").trim().replace(/\/+$/, "");
+}
+
+function normalizeHost(value?: string | null) {
+  const host = (value || "").trim().replace(/^https?:\/\//i, "").split("/")[0]?.trim();
+  return host ? host.toLowerCase() : "";
 }
 
 function normalizeImageContentType(value?: string | null) {

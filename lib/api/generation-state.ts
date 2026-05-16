@@ -49,13 +49,15 @@ export function normalizeGenerationState(input: NormalizeGenerationStateInput): 
   const expectedCount = moduleExpectedCount || readExpectedCount(payload, resultCount);
   const providerStatus = asyncTask?.status || null;
   const providerDone = isProviderDone(providerStatus);
+  const providerFailed = isProviderFailed(providerStatus);
   const hasEnoughResults = resultCount > 0 && resultCount >= expectedCount;
   const explicitCompleted = isCompletedStatus(status);
   const explicitFailed = isFailedStatus(status);
   const providerCompleted = providerDone && hasEnoughResults;
-  const completed = !explicitFailed && (explicitCompleted || hasEnoughResults || providerCompleted);
-  const normalizedStatus = completed ? "completed" : canonicalStatus;
-  const progress = completed ? 100 : moduleExpectedCount ? readModuleProgress(moduleResults) : readRunningProgress({
+  const failed = explicitFailed || providerFailed;
+  const completed = !failed && (explicitCompleted || hasEnoughResults || providerCompleted);
+  const normalizedStatus = failed ? "failed" : completed ? "completed" : canonicalStatus;
+  const progress = failed || completed ? 100 : moduleExpectedCount ? readModuleProgress(moduleResults) : readRunningProgress({
     asyncProgress: asyncTask?.progress,
     resultCount,
     expectedCount,
@@ -63,7 +65,7 @@ export function normalizeGenerationState(input: NormalizeGenerationStateInput): 
 
   return {
     status: normalizedStatus,
-    statusGroup: explicitFailed || completed || !isRunningStatus(normalizedStatus) ? "finished" : "running",
+    statusGroup: failed || completed || !isRunningStatus(normalizedStatus) ? "finished" : "running",
     progress,
     resultCount,
     expectedCount,
@@ -133,6 +135,17 @@ function isProviderDone(status?: string | null) {
   if (!status) return false;
   const normalized = normalizeStatusText(status);
   return normalized === "success" || normalized === "succeeded" || normalized === "completed" || normalized === "done" || normalized === "sync_completed";
+}
+
+function isProviderFailed(status?: string | null) {
+  if (!status) return false;
+  const normalized = normalizeStatusText(status);
+  return normalized === "failed" ||
+    normalized === "fail" ||
+    normalized === "failure" ||
+    normalized === "error" ||
+    normalized === "cancelled" ||
+    normalized === "canceled";
 }
 
 function normalizeStatusText(status?: string | null) {

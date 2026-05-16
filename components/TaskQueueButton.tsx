@@ -30,6 +30,7 @@ export function TaskQueueButton() {
   const [activeTab, setActiveTab] = useState<"running" | "finished">("running");
   const [loading, setLoading] = useState(false);
   const [detailsLoaded, setDetailsLoaded] = useState(false);
+  const [summaryLoaded, setSummaryLoaded] = useState(false);
   const [optimisticRunning, setOptimisticRunning] = useState(false);
   const [optimisticStartedAt, setOptimisticStartedAt] = useState(0);
   const detailsLoadedRef = useRef(false);
@@ -40,15 +41,24 @@ export function TaskQueueButton() {
 
   const running = rows.filter(isTaskRunning);
   const finished = rows.filter(isTaskFinished);
-  const runningCount = detailsLoaded ? running.length : optimisticRunning ? 1 : 0;
+  const runningCount = detailsLoaded
+    ? summaryLoaded
+      ? Math.min(running.length, summary.runningTaskNum)
+      : running.length
+    : summaryLoaded
+      ? summary.runningTaskNum
+      : optimisticRunning ? 1 : 0;
   const finishedCount = Math.max(summary.finishedTaskNum + summary.failedTaskNum, finished.length);
-  const activeRows = activeTab === "running" ? running : finished;
+  const visibleRunning = detailsLoaded && summaryLoaded ? running.slice(0, runningCount) : running;
+  const activeRows = activeTab === "running" ? visibleRunning : finished;
   const groupedRows = groupQueueRows(activeRows.slice(0, 12));
-  const isRunning = runningCount > 0 || optimisticRunning;
+  const showOptimisticRunning = optimisticRunning && (!summaryLoaded || summary.runningTaskNum > 0);
+  const isRunning = runningCount > 0 || showOptimisticRunning;
   const totalCount = Math.max(summary.totalTaskNum, runningCount + finishedCount);
 
   const applySummary = useCallback((payload: TaskQueuePayload) => {
     const nextSummary = normalizeSummaryPayload(payload);
+    setSummaryLoaded(true);
     const summarySignature = JSON.stringify(nextSummary);
     if (summarySignature !== summarySignatureRef.current) {
       summarySignatureRef.current = summarySignature;
@@ -163,9 +173,9 @@ export function TaskQueueButton() {
   }, [loadQueue, loadSummary, open]);
 
   useEffect(() => {
-    if (runningCount > 0 || optimisticRunning) setActiveTab("running");
+    if (runningCount > 0 || showOptimisticRunning) setActiveTab("running");
     else if (finishedCount > 0) setActiveTab("finished");
-  }, [finishedCount, runningCount, optimisticRunning]);
+  }, [finishedCount, runningCount, showOptimisticRunning]);
 
   const buttonLabel = useMemo(() => (
     isRunning ? `任务 ${Math.max(runningCount, 1)}` : `任务 ${summary.finishedNeedReadTaskNum || totalCount || 0}`
@@ -236,7 +246,7 @@ export function TaskQueueButton() {
               ))
             ) : (
               <div className="flex h-28 flex-col items-center justify-center text-center text-xs text-slate-400">
-                {activeTab === "running" && optimisticRunning ? (
+                {activeTab === "running" && showOptimisticRunning ? (
                   <>
                     <Loader2 className="mb-2 h-5 w-5 animate-spin text-blue-500" />
                     正在同步新任务...

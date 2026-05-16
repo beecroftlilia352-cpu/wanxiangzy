@@ -39,6 +39,15 @@ const EMPTY_SUMMARY: TaskQueueSummary = {
 const PAGE_SIZE = 24;
 const RECENT_TASK_LIMIT = 20;
 const CONTINUE_CARD_ID = "__continue__";
+const TASK_RAIL_CACHE_PREFIX = "wanxiang:task-rail:";
+const TASK_RAIL_CACHE_TTL_MS = 5 * 60 * 1000;
+const TASK_RAIL_RUNNING_CACHE_TTL_MS = 15_000;
+
+type TaskRailCache = {
+  cachedAt: number;
+  rows: TaskQueueItem[];
+  summary: TaskQueueSummary;
+};
 
 export function StudioTaskRail({
   module,
@@ -77,7 +86,7 @@ export function StudioTaskRail({
     return [optimisticTask, ...rows];
   }, [optimisticTask, rows]);
 
-  const hasRunningTask = mergedRows.some(isTaskRunning) || summary.runningTaskNum > 0;
+  const hasRunningTask = mergedRows.some(isTaskRunning);
 
   const loadQueue = useCallback(async (options?: { append?: boolean }) => {
     const append = Boolean(options?.append);
@@ -89,6 +98,7 @@ export function StudioTaskRail({
     try {
       const params = new URLSearchParams();
       params.set("limit", expanded ? String(PAGE_SIZE) : String(RECENT_TASK_LIMIT));
+      if (!expanded) params.set("summary", "0");
       if (append && nextCursor) params.set("cursor", nextCursor);
       if (!expanded || moduleOnly) params.set("module", module);
       if (expanded && query.trim()) params.set("q", query.trim());
@@ -113,6 +123,13 @@ export function StudioTaskRail({
       if (summarySignature !== summarySignatureRef.current) {
         summarySignatureRef.current = summarySignature;
         setSummary(nextSummary);
+      }
+      if (!append && !expanded && moduleOnly && !query.trim()) {
+        writeTaskRailCache(module, {
+          cachedAt: Date.now(),
+          rows: nextRows.slice(0, RECENT_TASK_LIMIT),
+          summary: nextSummary,
+        });
       }
     } catch {
       // Keep the last successful task list visible; the next poll will try again.
@@ -147,6 +164,16 @@ export function StudioTaskRail({
     setNextCursor(null);
     rowsSignatureRef.current = "";
   }, [displayMode, expanded, moduleOnly, query]);
+
+  useEffect(() => {
+    const cached = readTaskRailCache(module);
+    rowsSignatureRef.current = cached ? getRowsSignature(cached.rows) : "";
+    summarySignatureRef.current = cached ? JSON.stringify(cached.summary) : "";
+    setRows(cached?.rows || []);
+    setSummary(cached?.summary || EMPTY_SUMMARY);
+    setHasLoaded(Boolean(cached));
+    hasLoadedRef.current = Boolean(cached);
+  }, [module]);
 
   useEffect(() => {
     loadQueue();
@@ -740,4 +767,60 @@ function getTaskSelectionSignature(item: TaskQueueItem) {
     item.error || "",
     item.resultThumbnails.join("|"),
   ].join("::");
+}
+
+function readTaskRailCache(module: string): TaskRailCache | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.sessionStorage.getItem(getTaskRailCacheKey(module));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<TaskRailCache>;
+    const cachedAt = Number(parsed.cachedAt);
+    if (!Number.isFinite(cachedAt) || Date.now() - cachedAt > TASK_RAIL_CACHE_TTL_MS) return null;
+    const rows = Array.isArray(parsed.rows) ? parsed.rows.filter(isTaskQueueItem) : [];
+    const stableRows = Date.now() - cachedAt > TASK_RAIL_RUNNING_CACHE_TTL_MS
+      ? rows.filter((item) => !isTaskRunning(item))
+      : rows;
+    return {
+      cachedAt,
+      rows: stableRows.slice(0, RECENT_TASK_LIMIT),
+      summary: normalizeCachedSummary(parsed.summary),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writeTaskRailCache(module: string, cache: TaskRailCache) {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(getTaskRailCacheKey(module), JSON.stringify(cache));
+  } catch {
+    // Ignore storage quota/private mode failures; the live queue still refreshes.
+  }
+}
+
+function getTaskRailCacheKey(module: string) {
+  return `${TASK_RAIL_CACHE_PREFIX}${module}`;
+}
+
+function isTaskQueueItem(value: unknown): value is TaskQueueItem {
+  return Boolean(
+    value &&
+    typeof value === "object" &&
+    typeof (value as TaskQueueItem).id === "string" &&
+    typeof (value as TaskQueueItem).module === "string" &&
+    typeof (value as TaskQueueItem).statusGroup === "string"
+  );
+}
+
+function normalizeCachedSummary(value: unknown): TaskQueueSummary {
+  const summary = value && typeof value === "object" ? value as Partial<TaskQueueSummary> : {};
+  return {
+    totalTaskNum: firstFiniteNumber(summary.totalTaskNum, 0),
+    finishedTaskNum: firstFiniteNumber(summary.finishedTaskNum, 0),
+    finishedNeedReadTaskNum: firstFiniteNumber(summary.finishedNeedReadTaskNum, 0),
+    runningTaskNum: firstFiniteNumber(summary.runningTaskNum, 0),
+    failedTaskNum: firstFiniteNumber(summary.failedTaskNum, 0),
+  };
 }

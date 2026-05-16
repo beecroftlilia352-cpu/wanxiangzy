@@ -95,6 +95,7 @@ export async function GET(request: Request) {
   try {
     const searchParams = new URL(request.url).searchParams;
     const summaryOnly = searchParams.get("summary") === "1" || searchParams.get("mode") === "summary";
+    const includeSummary = summaryOnly || searchParams.get("summary") !== "0";
     const moduleFilter = normalizeModuleFilter(searchParams.get("module"));
     const searchQuery = (searchParams.get("q") || searchParams.get("query") || "").trim().toLowerCase();
     const limit = clampNumber(searchParams.get("limit"), 8, 80, 32);
@@ -106,7 +107,7 @@ export async function GET(request: Request) {
     const rateLimit = await safeEnforceReadRateLimit(user.id);
     if (rateLimit) return rateLimit;
 
-    const summary = await loadQueueSummary(supabase, user.id);
+    const summary = includeSummary ? await loadQueueSummary(supabase, user.id) : EMPTY_SUMMARY;
     if (summaryOnly) return queueJson(summaryPayload(summary));
 
     let generationsQuery = supabase
@@ -172,10 +173,10 @@ async function loadQueueSummary(supabase: Awaited<ReturnType<typeof createServer
   const [
     generationTotal,
     generationFailed,
-    generationStale,
+    generationRunningBuckets,
     workflowTotal,
     workflowFailed,
-    workflowStale,
+    workflowRunningBuckets,
   ] = await Promise.all([
     countRows(
       supabase
@@ -192,7 +193,7 @@ async function loadQueueSummary(supabase: Awaited<ReturnType<typeof createServer
         .in("status", [...GENERATION_FAILED_STATUS_FILTERS]),
       "generations failed"
     ),
-    loadStaleRunningGenerationCount(supabase, userId),
+    loadRunningGenerationBuckets(supabase, userId),
     countRows(
       supabase
         .from("agent_workflows")
@@ -210,16 +211,12 @@ async function loadQueueSummary(supabase: Awaited<ReturnType<typeof createServer
       "workflows failed",
       true
     ),
-    loadStaleRunningWorkflowCount(supabase, userId),
-  ]);
-  const [generationRunning, workflowRunning] = await Promise.all([
-    loadRunningGenerationCount(supabase, userId),
-    loadRunningWorkflowCount(supabase, userId),
+    loadRunningWorkflowBuckets(supabase, userId),
   ]);
 
   const totalTaskNum = generationTotal + workflowTotal;
-  const runningTaskNum = generationRunning + workflowRunning;
-  const failedTaskNum = generationFailed + generationStale + workflowFailed + workflowStale;
+  const runningTaskNum = generationRunningBuckets.running + workflowRunningBuckets.running;
+  const failedTaskNum = generationFailed + generationRunningBuckets.failed + workflowFailed + workflowRunningBuckets.failed;
   const finishedTaskNum = Math.max(0, totalTaskNum - runningTaskNum - failedTaskNum);
 
   return {
@@ -231,7 +228,7 @@ async function loadQueueSummary(supabase: Awaited<ReturnType<typeof createServer
   };
 }
 
-async function loadRunningGenerationCount(supabase: Awaited<ReturnType<typeof createServerSupabase>>, userId: string) {
+async function loadRunningGenerationBuckets(supabase: Awaited<ReturnType<typeof createServerSupabase>>, userId: string) {
   try {
     const { data, error } = await withTimeout(
       supabase
@@ -245,59 +242,32 @@ async function loadRunningGenerationCount(supabase: Awaited<ReturnType<typeof cr
 
     if (error) {
       logTaskQueueWarning("generations running unavailable", error.message);
-      return 0;
+      return { running: 0, failed: 0 };
     }
 
     const rows = (Array.isArray(data) ? data : []) as unknown as QueueRow[];
-    return rows.filter((row) => {
+    return rows.reduce((counts, row) => {
       const state = normalizeGenerationState({
         status: row.status,
         resultUrls: row.result_urls,
         payload: row.job_payload,
         completedAt: row.completed_at,
       });
-      return state.statusGroup === "running" && !isStaleRunningGeneration(row);
-    }).length;
+      if (state.statusGroup !== "running") {
+        if (state.status === "failed") counts.failed += 1;
+        return counts;
+      }
+      if (state.resultCount <= 0 && isStaleRunningGeneration(row)) counts.failed += 1;
+      else counts.running += 1;
+      return counts;
+    }, { running: 0, failed: 0 });
   } catch (error) {
     logTaskQueueWarning("generations running unavailable", toLogMessage(error));
-    return 0;
+    return { running: 0, failed: 0 };
   }
 }
 
-async function loadStaleRunningGenerationCount(supabase: Awaited<ReturnType<typeof createServerSupabase>>, userId: string) {
-  try {
-    const { data, error } = await withTimeout(
-      supabase
-        .from("generations")
-        .select(SUMMARY_GENERATION_COLUMNS)
-        .eq("user_id", userId)
-        .in("status", [...GENERATION_RUNNING_STATUS_FILTERS]),
-      SUMMARY_QUERY_TIMEOUT_MS,
-      "generations stale running timeout"
-    );
-
-    if (error) {
-      logTaskQueueWarning("generations stale running unavailable", error.message);
-      return 0;
-    }
-
-    const rows = (Array.isArray(data) ? data : []) as unknown as QueueRow[];
-    return rows.filter((row) => {
-      const state = normalizeGenerationState({
-        status: row.status,
-        resultUrls: row.result_urls,
-        payload: row.job_payload,
-        completedAt: row.completed_at,
-      });
-      return state.statusGroup === "running" && state.resultCount <= 0 && isStaleRunningGeneration(row);
-    }).length;
-  } catch (error) {
-    logTaskQueueWarning("generations stale running unavailable", toLogMessage(error));
-    return 0;
-  }
-}
-
-async function loadRunningWorkflowCount(supabase: Awaited<ReturnType<typeof createServerSupabase>>, userId: string) {
+async function loadRunningWorkflowBuckets(supabase: Awaited<ReturnType<typeof createServerSupabase>>, userId: string) {
   try {
     const { data, error } = await withTimeout(
       supabase
@@ -311,39 +281,19 @@ async function loadRunningWorkflowCount(supabase: Awaited<ReturnType<typeof crea
 
     if (error) {
       logTaskQueueWarning("workflows running unavailable", error.message);
-      return 0;
+      return { running: 0, failed: 0 };
     }
 
     const rows = (Array.isArray(data) ? data : []) as unknown as Pick<WorkflowRow, "status" | "created_at" | "updated_at">[];
-    return rows.filter((row) => isRunningWorkflowStatus(row.status) && !isStaleRunningDate(row.updated_at || row.created_at)).length;
+    return rows.reduce((counts, row) => {
+      if (!isRunningWorkflowStatus(row.status)) return counts;
+      if (isStaleRunningDate(row.updated_at || row.created_at)) counts.failed += 1;
+      else counts.running += 1;
+      return counts;
+    }, { running: 0, failed: 0 });
   } catch (error) {
     logTaskQueueWarning("workflows running unavailable", toLogMessage(error));
-    return 0;
-  }
-}
-
-async function loadStaleRunningWorkflowCount(supabase: Awaited<ReturnType<typeof createServerSupabase>>, userId: string) {
-  try {
-    const { data, error } = await withTimeout(
-      supabase
-        .from("agent_workflows")
-        .select(SUMMARY_WORKFLOW_COLUMNS)
-        .eq("user_id", userId)
-        .in("status", RUNNING_WORKFLOW_STATUSES),
-      SUMMARY_QUERY_TIMEOUT_MS,
-      "workflows stale running timeout"
-    );
-
-    if (error) {
-      logTaskQueueWarning("workflows stale running unavailable", error.message);
-      return 0;
-    }
-
-    const rows = (Array.isArray(data) ? data : []) as unknown as Pick<WorkflowRow, "status" | "created_at" | "updated_at">[];
-    return rows.filter((row) => isRunningWorkflowStatus(row.status) && isStaleRunningDate(row.updated_at || row.created_at)).length;
-  } catch (error) {
-    logTaskQueueWarning("workflows stale running unavailable", toLogMessage(error));
-    return 0;
+    return { running: 0, failed: 0 };
   }
 }
 

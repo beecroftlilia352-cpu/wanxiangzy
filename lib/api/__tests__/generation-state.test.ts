@@ -61,6 +61,24 @@ describe("normalizeGenerationState", () => {
     expect(state.progress).toBe(100);
   });
 
+  it("treats failed provider progress as failed even when the database row is still processing", () => {
+    const state = normalizeGenerationState({
+      status: "processing_tryon",
+      resultUrls: [],
+      payload: {
+        genCount: 1,
+        asyncTask: {
+          status: "FAILED",
+          progress: 100,
+        },
+      },
+    });
+
+    expect(state.status).toBe("failed");
+    expect(state.statusGroup).toBe("finished");
+    expect(state.progress).toBe(100);
+  });
+
   it("uses product-set module results for progress and expected count", () => {
     const state = normalizeGenerationState({
       status: "processing_tryon",
