@@ -24,12 +24,14 @@ import { PreviewGuide } from "@/components/PreviewGuide";
 import { RepairPromptPanel } from "@/components/RepairPromptPanel";
 import { ErrorStage } from "@/components/studio/ErrorStage";
 import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
+import { useStudioAuth } from "@/components/studio/useStudioAuth";
+import type { TaskSelectionSession } from "@/components/studio/useTaskSelectionSession";
 import { StudioGenerationCountSelector, StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/components/studio/StudioFormControls";
 import { StudioRunBar } from "@/components/studio/StudioRunBar";
 import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
 import { useStableFileDrag } from "@/components/studio/useStableFileDrag";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
-import { createClient, getCachedProfileCredits, setCachedProfileCredits } from "@/lib/supabase/client";
+import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
 import { applyRepairPrompt } from "@/lib/generation-repair";
@@ -84,16 +86,20 @@ type UploadTarget = "source" | "model" | "background";
 
 export default function ModelBackgroundPage() {
   const router = useRouter();
-  const supabase = createClient();
   const sourceInputRef = useRef<HTMLInputElement>(null);
   const modelInputRef = useRef<HTMLInputElement>(null);
   const backgroundInputRef = useRef<HTMLInputElement>(null);
   const rulesButtonRef = useRef<HTMLButtonElement>(null);
   const rulesHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [credits, setCredits] = useState<number | null>(null);
+  const {
+    authChecked,
+    isAuthenticated,
+    userId,
+    credits,
+    setCredits,
+    refreshAuth,
+  } = useStudioAuth();
   const [sourceUrl, setSourceUrl] = useState("");
   const [sourceName, setSourceName] = useState("");
   const [mode, setMode] = useState<ModelBackgroundMode>("background_only");
@@ -145,6 +151,7 @@ export default function ModelBackgroundPage() {
   }), [promptOverride, mode, backgroundSource, backgroundPresetId, backgroundText, userPrompt, hasModelReference, hasBackgroundReference]);
   const imageSizes = getSupportedImageSizes(aiModel, aspectRatio);
   const cost = getCreditCost(aiModel, imageSize, aspectRatio) * genCount;
+  const authIsAnonymous = authChecked && !isAuthenticated;
   const runDisabledReason = !sourceUrl
     ? "请先上传原图"
     : mode !== "background_only" && !modelReferenceUrl
@@ -161,28 +168,6 @@ export default function ModelBackgroundPage() {
       : backgroundSource === "upload"
         ? backgroundReferenceUrl ? "自定义上传" : "未上传"
         : "文生背景";
-
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user) {
-        setIsAuthenticated(true);
-        setUserId(data.user.id);
-        getCachedProfileCredits(data.user.id).then(setCredits);
-      }
-    });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
-      if (session?.user) {
-        setIsAuthenticated(true);
-        setUserId(session.user.id);
-        getCachedProfileCredits(session.user.id).then(setCredits);
-      } else {
-        setIsAuthenticated(false);
-        setUserId(null);
-        setCredits(null);
-      }
-    });
-    return () => subscription.unsubscribe();
-  }, [supabase]);
 
   useEffect(() => {
     const nextSizes = getSupportedImageSizes(aiModel, aspectRatio);
@@ -311,7 +296,7 @@ export default function ModelBackgroundPage() {
   }
 
   async function generate(promptForRun?: string) {
-    if (!isAuthenticated) {
+    if (!isAuthenticated && !(await refreshAuth())) {
       toast.error("请先登录");
       router.push("/login");
       return;
@@ -348,6 +333,11 @@ export default function ModelBackgroundPage() {
       });
       const data = await res.json();
       if (!res.ok) {
+        if (res.status === 401) {
+          await refreshAuth();
+          router.push("/login");
+          return;
+        }
         if (res.status === 402) {
           const nextCredits = data.balance ?? 0;
           setCredits(nextCredits);
@@ -404,12 +394,14 @@ export default function ModelBackgroundPage() {
     setResultUrls(item.resultThumbnails || []);
   }
 
-  async function handleCompletedTask(item: TaskQueueItem) {
+  async function handleCompletedTask(item: TaskQueueItem, session: TaskSelectionSession) {
     try {
-      const detail = await fetchHistoryApplyDetail(item.id, "modelBackground");
+      const detail = await fetchHistoryApplyDetail(item.id, "modelBackground", session.signal);
+      if (!session.isCurrent()) return true;
       applyModelBackgroundHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : item.resultThumbnails);
       return true;
     } catch (err) {
+      if (session.signal.aborted || !session.isCurrent()) return true;
       toast.error(err instanceof Error ? err.message : "历史参数加载失败");
       return true;
     }
@@ -795,10 +787,10 @@ export default function ModelBackgroundPage() {
         </div>
         <StudioRunBar
           summary={`${sourceUrl ? "原图已上传" : "等待上传原图"} · ${genCount} 张`}
-          costLabel={isAuthenticated ? `消耗 ${cost} · 余额 ${credits ?? "-"}` : "登录后生成"}
+          costLabel={authIsAnonymous ? "登录后查看积分" : `消耗 ${cost} · 余额 ${credits ?? "-"}`}
           disabled={isGenerating || Boolean(runDisabledReason)}
           disabledReason={runDisabledReason}
-          primaryLabel={!isAuthenticated ? "登录后生成" : isGenerating ? `生成中 ${Math.round(progress)}%` : `生成 ${genCount} 张`}
+          primaryLabel={authIsAnonymous ? "登录后生成" : isGenerating ? `生成中 ${Math.round(progress)}%` : `生成 ${genCount} 张`}
           isLoading={isGenerating}
           onPrimaryAction={() => generate()}
         />

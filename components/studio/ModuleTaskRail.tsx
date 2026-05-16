@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { StudioTaskRail } from "@/components/studio/StudioTaskRail";
+import type { TaskSelectionSession } from "@/components/studio/useTaskSelectionSession";
 import type { TaskQueueItem } from "@/lib/task-queue";
 import { isTaskRunning } from "@/lib/task-queue";
 
@@ -10,8 +11,8 @@ type ModuleTaskRailProps = {
   module: string;
   moduleLabel: string;
   onContinue?: () => void;
-  onRunningTask?: (item: TaskQueueItem) => void | Promise<void>;
-  onCompletedTask?: (item: TaskQueueItem) => boolean | void | Promise<boolean | void>;
+  onRunningTask?: (item: TaskQueueItem, session: TaskSelectionSession) => void | Promise<void>;
+  onCompletedTask?: (item: TaskQueueItem, session: TaskSelectionSession) => boolean | void | Promise<boolean | void>;
 };
 
 export function ModuleTaskRail({
@@ -24,9 +25,10 @@ export function ModuleTaskRail({
   const router = useRouter();
   const handleContinue = onContinue ?? (() => undefined);
 
-  const applyTask = async (item: TaskQueueItem) => {
+  const applyTask = async (item: TaskQueueItem, session: TaskSelectionSession) => {
     if (onCompletedTask) {
-      const handled = await onCompletedTask(item);
+      const handled = await onCompletedTask(item, session);
+      if (!session.isCurrent()) return true;
       if (handled === true) return true;
     }
     if (!item.applyUrl) return false;
@@ -40,14 +42,14 @@ export function ModuleTaskRail({
     return true;
   };
 
-  const handleSelectTask = async (item: TaskQueueItem) => {
+  const handleSelectTask = async (item: TaskQueueItem, session: TaskSelectionSession) => {
     if (isTaskRunning(item)) {
-      await onRunningTask?.(item);
+      await onRunningTask?.(item, session);
       return;
     }
 
     if (item.statusGroup === "completed" || item.statusGroup === "failed") {
-      const applied = await applyTask(item);
+      const applied = await applyTask(item, session);
       if (!applied && item.statusGroup === "failed") {
         toast.error(item.error || "任务失败，可套用参数重试");
       }

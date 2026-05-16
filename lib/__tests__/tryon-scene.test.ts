@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_AUTO_DESIGN,
   buildAutoDesignPrompt,
+  normalizeAutoDesignSettings,
   normalizeSceneMode,
   type TryOnSceneMode,
 } from "../tryon-scene";
@@ -30,6 +31,39 @@ describe("try-on scene mode", () => {
 });
 
 describe("try-on auto design prompt", () => {
+  it("keeps the default ecommerce clean preset on a white background", () => {
+    expect(DEFAULT_AUTO_DESIGN).toMatchObject({
+      platform: "ecommerce_clean",
+      background: "white",
+    });
+  });
+
+  it("normalizes ecommerce clean away from conflicting non-white backgrounds", () => {
+    expect(normalizeAutoDesignSettings({
+      platform: "ecommerce_clean",
+      framing: "auto",
+      background: "non_white",
+    })).toMatchObject({
+      platform: "ecommerce_clean",
+      background: "white",
+    });
+  });
+
+  it("builds the same ecommerce clean prompt even when a legacy non-white background is supplied", () => {
+    const normalizedPrompt = buildAutoDesignPrompt({
+      platform: "ecommerce_clean",
+      framing: "auto",
+      background: "white",
+    });
+    const legacyPrompt = buildAutoDesignPrompt({
+      platform: "ecommerce_clean",
+      framing: "auto",
+      background: "non_white",
+    });
+
+    expect(legacyPrompt).toBe(normalizedPrompt);
+  });
+
   it("states that auto design does not use a reference image", () => {
     const prompt = buildAutoDesignPrompt(DEFAULT_AUTO_DESIGN);
 

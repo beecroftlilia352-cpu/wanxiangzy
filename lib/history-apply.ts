@@ -134,11 +134,13 @@ export function getApplyPath(kind: HistoryJobPayload["kind"], generationId?: str
 
 export async function fetchHistoryApplyDetail<K extends HistoryJobPayload["kind"]>(
   generationId: string,
-  kind?: K
+  kind?: K,
+  signal?: AbortSignal
 ): Promise<HistoryApplyDetail<K>> {
   const res = await fetch(`/api/history?id=${encodeURIComponent(generationId)}`, {
     method: "GET",
     cache: "no-store",
+    signal,
   });
   const data = await res.json().catch(() => ({})) as {
     row?: HistoryApplyRow | null;

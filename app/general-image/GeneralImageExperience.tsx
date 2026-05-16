@@ -16,15 +16,17 @@ import { toast } from "sonner";
 import { FeatureTabs } from "@/components/FeatureTabs";
 import { ModuleHeader } from "@/components/ModuleHeader";
 import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
+import type { TaskSelectionSession } from "@/components/studio/useTaskSelectionSession";
 import { LoadingStage } from "@/components/studio/LoadingStage";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
 import { ClientPortal } from "@/components/ClientPortal";
 import { PreviewGuide } from "@/components/PreviewGuide";
 import { StudioGenerationCountSelector, StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/components/studio/StudioFormControls";
+import { useStudioAuth } from "@/components/studio/useStudioAuth";
 import { StudioRunBar } from "@/components/studio/StudioRunBar";
 import { StudioUploadSection } from "@/components/studio/StudioUploadSection";
 import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
-import { createClient, getCachedProfileCredits, setCachedProfileCredits } from "@/lib/supabase/client";
+import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
 import { fetchHistoryApplyDetail, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
@@ -68,16 +70,20 @@ const IMAGE_PROMPT_PLACEHOLDER =
 
 export function GeneralImageExperience({ initialMode = "text-to-image" }: { initialMode?: GeneralImageMode }) {
   const router = useRouter();
-  const supabase = useMemo(() => createClient(), []);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imagePromptInputRef = useRef<HTMLInputElement>(null);
 
   const [mode, setMode] = useState<GeneralImageMode>(initialMode);
   const [prompt, setPrompt] = useState("");
   const [referenceImages, setReferenceImages] = useState<ReferenceImage[]>([]);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [credits, setCredits] = useState<number | null>(null);
+  const {
+    authChecked,
+    isAuthenticated,
+    userId,
+    credits,
+    setCredits,
+    refreshAuth,
+  } = useStudioAuth();
   const [aiModel, setAiModel] = useState<LingyaModel>("nano-banana-2");
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("3:4");
   const [imageSize, setImageSize] = useState<ImageSize>("1K");
@@ -102,6 +108,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
   const costPerImage = getCreditCost(aiModel, imageSize, aspectRatio);
   const totalCost = costPerImage * genCount;
   const isImageMode = mode === "image-to-image";
+  const authIsAnonymous = authChecked && !isAuthenticated;
   const activeFeature = isImageMode ? "imageToImage" : "textToImage";
   const modeMeta = isImageMode
     ? {
@@ -124,28 +131,6 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     : isImageMode && referenceImages.length === 0
       ? "请先上传参考图"
       : "";
-
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user) {
-        setIsAuthenticated(true);
-        setUserId(data.user.id);
-        getCachedProfileCredits(data.user.id).then(setCredits);
-      }
-    });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
-        setIsAuthenticated(true);
-        setUserId(session.user.id);
-        getCachedProfileCredits(session.user.id).then(setCredits);
-      } else {
-        setIsAuthenticated(false);
-        setUserId(null);
-        setCredits(null);
-      }
-    });
-    return () => subscription.unsubscribe();
-  }, [supabase]);
 
   useEffect(() => {
     const nextSizes = getSupportedImageSizes(aiModel, aspectRatio);
@@ -258,7 +243,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
   }
 
   async function optimizePrompt() {
-    if (!isAuthenticated) {
+    if (!isAuthenticated && !(await refreshAuth())) {
       toast.error("请先登录");
       router.push("/login");
       return;
@@ -298,7 +283,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     if (!file.type.startsWith("image/")) return toast.error("请选择图片文件");
     if (file.size > MAX_FILE_SIZE) return toast.error(`${file.name} 超过 ${MAX_FILE_SIZE_MB}MB`);
 
-    if (!isAuthenticated) {
+    if (!isAuthenticated && !(await refreshAuth())) {
       toast.error("请先登录");
       router.push("/login");
       return;
@@ -326,7 +311,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
 
   async function generateImagePrompt(imageUrl = imagePromptImage?.url) {
     if (!imageUrl) return toast.error("请先上传图片");
-    if (!isAuthenticated) {
+    if (!isAuthenticated && !(await refreshAuth())) {
       toast.error("请先登录");
       router.push("/login");
       return;
@@ -361,7 +346,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
   }
 
   async function generate() {
-    if (!isAuthenticated) {
+    if (!isAuthenticated && !(await refreshAuth())) {
       toast.error("请先登录");
       router.push("/login");
       return;
@@ -391,6 +376,11 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
       });
       const data = await res.json();
       if (!res.ok) {
+        if (res.status === 401) {
+          await refreshAuth();
+          router.push("/login");
+          return;
+        }
         if (res.status === 402) {
           const nextCredits = data.balance ?? 0;
           setCredits(nextCredits);
@@ -438,13 +428,15 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     setResultUrls(item.resultThumbnails || []);
   }
 
-  async function handleCompletedTask(item: TaskQueueItem) {
+  async function handleCompletedTask(item: TaskQueueItem, session: TaskSelectionSession) {
     setActiveQueueTask(item);
     try {
-      const detail = await fetchHistoryApplyDetail(item.id, "generalImage");
+      const detail = await fetchHistoryApplyDetail(item.id, "generalImage", session.signal);
+      if (!session.isCurrent()) return true;
       applyGeneralImageHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : item.resultThumbnails);
       return true;
     } catch (err) {
+      if (session.signal.aborted || !session.isCurrent()) return true;
       toast.error(err instanceof Error ? err.message : "历史参数加载失败");
       return true;
     }
@@ -618,10 +610,10 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
 
         <StudioRunBar
           summary={`${isImageMode ? `图生图 · ${referenceImages.length} 张参考` : "文生图"} · ${costPerImage} × ${genCount}`}
-          costLabel={isAuthenticated ? `消耗 ${totalCost} · 余额 ${credits ?? "-"}` : "登录后查看积分"}
+          costLabel={authIsAnonymous ? "登录后查看积分" : `消耗 ${totalCost} · 余额 ${credits ?? "-"}`}
           disabled={!canGenerate}
           disabledReason={runDisabledReason}
-          primaryLabel={!isAuthenticated ? "登录后生成" : isGenerating ? "生成中..." : `立即生成 ${genCount} 张`}
+          primaryLabel={authIsAnonymous ? "登录后生成" : isGenerating ? "生成中..." : `立即生成 ${genCount} 张`}
           isLoading={isGenerating}
           onPrimaryAction={generate}
         />

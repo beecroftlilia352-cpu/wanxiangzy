@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireApiUser } from "@/lib/api/auth";
 import { createAliyunOssDownloadUrl } from "@/lib/api/image-storage";
 
 export const runtime = "nodejs";
@@ -33,6 +34,9 @@ const downloadRateBuckets = new Map<string, { count: number; resetAt: number }>(
 export async function GET(request: NextRequest) {
   const rateLimit = checkDownloadRateLimit(request);
   if (!rateLimit.ok) return downloadRateLimitResponse(rateLimit.retryAfterSeconds);
+
+  const { response: authResponse } = await requireApiUser();
+  if (authResponse) return authResponse;
 
   const imageUrl = request.nextUrl.searchParams.get("url");
   const filename = request.nextUrl.searchParams.get("filename") || "tryon-result.jpg";

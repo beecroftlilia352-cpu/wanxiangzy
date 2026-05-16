@@ -13,12 +13,14 @@ import { ModuleHeader } from "@/components/ModuleHeader";
 import { PreviewGuide } from "@/components/PreviewGuide";
 import { ErrorStage } from "@/components/studio/ErrorStage";
 import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
+import { useStudioAuth } from "@/components/studio/useStudioAuth";
+import type { TaskSelectionSession } from "@/components/studio/useTaskSelectionSession";
 import { StudioGenerationCountSelector, StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/components/studio/StudioFormControls";
 import { StudioRunBar } from "@/components/studio/StudioRunBar";
 import { StudioUploadSection } from "@/components/studio/StudioUploadSection";
 import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
-import { createClient, getCachedProfileCredits, setCachedProfileCredits } from "@/lib/supabase/client";
+import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
 import { fetchHistoryApplyDetail, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
@@ -64,15 +66,19 @@ const REFERENCE_PRESETS = [
 
 export default function Garment3dPage() {
   const router = useRouter();
-  const supabase = createClient();
   const garmentInputRef = useRef<HTMLInputElement>(null);
   const referenceInputRef = useRef<HTMLInputElement>(null);
   const rulesButtonRef = useRef<HTMLButtonElement>(null);
   const rulesHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [credits, setCredits] = useState<number | null>(null);
+  const {
+    authChecked,
+    isAuthenticated,
+    userId,
+    credits,
+    setCredits,
+    refreshAuth,
+  } = useStudioAuth();
 
   const [garmentUrl, setGarmentUrl] = useState("");
   const [garmentName, setGarmentName] = useState("");
@@ -105,6 +111,7 @@ export default function Garment3dPage() {
   const costPerImage = getCreditCost(aiModel, imageSize, aspectRatio);
   const totalCost = costPerImage * genCount;
   const activeReferenceUrl = customReferenceUrl || selectedReference.url;
+  const authIsAnonymous = authChecked && !isAuthenticated;
   const taskInputThumbnails = useMemo(
     () => [garmentUrl, outputMode === "reference" ? activeReferenceUrl : ""].filter(Boolean) as string[],
     [garmentUrl, outputMode, activeReferenceUrl]
@@ -159,28 +166,6 @@ export default function Garment3dPage() {
       setRulesPopoverStyle(null);
     }, 120);
   };
-
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user) {
-        setIsAuthenticated(true);
-        setUserId(data.user.id);
-        getCachedProfileCredits(data.user.id).then(setCredits);
-      }
-    });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
-      if (session?.user) {
-        setIsAuthenticated(true);
-        setUserId(session.user.id);
-        getCachedProfileCredits(session.user.id).then(setCredits);
-      } else {
-        setIsAuthenticated(false);
-        setUserId(null);
-        setCredits(null);
-      }
-    });
-    return () => subscription.unsubscribe();
-  }, [supabase]);
 
   useEffect(() => {
     return () => cancelRulesHide();
@@ -337,7 +322,7 @@ export default function Garment3dPage() {
   }
 
   async function generate(finalPromptForRun?: string) {
-    if (!isAuthenticated) {
+    if (!isAuthenticated && !(await refreshAuth())) {
       toast.error("请先登录");
       router.push("/login");
       return;
@@ -384,6 +369,11 @@ export default function Garment3dPage() {
       const data = await res.json();
 
       if (!res.ok) {
+        if (res.status === 401) {
+          await refreshAuth();
+          router.push("/login");
+          return;
+        }
         if (res.status === 402) {
           const nextCredits = data.balance ?? 0;
           setCredits(nextCredits);
@@ -469,12 +459,14 @@ export default function Garment3dPage() {
     setError(null);
   }
 
-  async function handleCompletedTask(item: TaskQueueItem) {
+  async function handleCompletedTask(item: TaskQueueItem, session: TaskSelectionSession) {
     try {
-      const detail = await fetchHistoryApplyDetail(item.id, "garment3d");
+      const detail = await fetchHistoryApplyDetail(item.id, "garment3d", session.signal);
+      if (!session.isCurrent()) return true;
       applyGarment3dHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : item.resultThumbnails);
       return true;
     } catch (err) {
+      if (session.signal.aborted || !session.isCurrent()) return true;
       toast.error(err instanceof Error ? err.message : "历史任务加载失败");
       return true;
     }
@@ -770,10 +762,10 @@ export default function Garment3dPage() {
 
         <StudioRunBar
           summary={`${costPerImage} × ${genCount} 张`}
-          costLabel={isAuthenticated ? `消耗 ${totalCost} · 余额 ${credits ?? "-"}` : "登录后查看积分"}
+          costLabel={authIsAnonymous ? "登录后查看积分" : `消耗 ${totalCost} · 余额 ${credits ?? "-"}`}
           disabled={isGenerating || Boolean(runDisabledReason)}
           disabledReason={runDisabledReason}
-          primaryLabel={!isAuthenticated ? "登录后生成" : isGenerating ? "生成中..." : `生成 ${genCount} 张`}
+          primaryLabel={authIsAnonymous ? "登录后生成" : isGenerating ? "生成中..." : `生成 ${genCount} 张`}
           isLoading={isGenerating}
           onPrimaryAction={() => generate()}
         />

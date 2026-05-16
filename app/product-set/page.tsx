@@ -29,11 +29,13 @@ import { FeatureTabs } from "@/components/FeatureTabs";
 import { ModuleHeader } from "@/components/ModuleHeader";
 import { PreviewGuide } from "@/components/PreviewGuide";
 import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
+import { useStudioAuth } from "@/components/studio/useStudioAuth";
+import type { TaskSelectionSession } from "@/components/studio/useTaskSelectionSession";
 import { LoadingStage } from "@/components/studio/LoadingStage";
 import { StudioGenerationCountSelector } from "@/components/studio/StudioFormControls";
 import { useStableFileDrag } from "@/components/studio/useStableFileDrag";
 import { ClientPortal } from "@/components/ClientPortal";
-import { createClient, getCachedProfileCredits, setCachedProfileCredits } from "@/lib/supabase/client";
+import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { fetchHistoryApplyDetail, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
 import { getImageVariantUrl } from "@/lib/image-variants";
 import { clampTaskExpectedCount, type TaskQueueItem } from "@/lib/task-queue";
@@ -242,16 +244,19 @@ function buildReferenceStyleBrief(plan: typeof PRODUCT_SET_PRESET_PLANS[number])
 
 export default function ProductSetPage() {
   const router = useRouter();
-  const supabase = useMemo(() => createClient(), []);
   const productInputRef = useRef<HTMLInputElement>(null);
   const customRefInputRef = useRef<HTMLInputElement>(null);
   const customModelRefInputRef = useRef<HTMLInputElement>(null);
   const customOtherRefInputRef = useRef<HTMLInputElement>(null);
 
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [authChecked, setAuthChecked] = useState(false);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [credits, setCredits] = useState<number | null>(null);
+  const {
+    authChecked,
+    isAuthenticated,
+    userId,
+    credits,
+    setCredits,
+    refreshAuth,
+  } = useStudioAuth();
   const [productImages, setProductImages] = useState<ProductImage[]>([]);
   const [productInfo, setProductInfo] = useState("");
   const [productProfile, setProductProfile] = useState<ProductSetProductProfile | null>(null);
@@ -386,30 +391,6 @@ export default function ProductSetPage() {
     () => buildDefaultFavoritePlanName(displayProductInfoFields.name, imageType, isPlaceholderProductName),
     [displayProductInfoFields.name, imageType]
   );
-
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user) {
-        setIsAuthenticated(true);
-        setUserId(data.user.id);
-        getCachedProfileCredits(data.user.id).then(setCredits);
-      }
-      setAuthChecked(true);
-    });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
-        setIsAuthenticated(true);
-        setUserId(session.user.id);
-        getCachedProfileCredits(session.user.id).then(setCredits);
-      } else {
-        setIsAuthenticated(false);
-        setUserId(null);
-        setCredits(null);
-      }
-      setAuthChecked(true);
-    });
-    return () => subscription.unsubscribe();
-  }, [supabase]);
 
   useEffect(() => {
     let cancelled = false;
@@ -644,7 +625,7 @@ export default function ProductSetPage() {
   async function analyzeProductInfo(options: { silent?: boolean } = {}) {
     if (!productImages.length) return toast.error("请先上传商品图");
     if (genCount <= 0) return toast.error(`请先选择${imageType === "main" ? "生成张数" : "详情页屏数"}`);
-    if (!isAuthenticated) {
+    if (!isAuthenticated && !(await refreshAuth())) {
       if (!options.silent) toast.error("请先登录后使用智能分析");
       return;
     }
@@ -666,6 +647,11 @@ export default function ProductSetPage() {
         }),
       });
       const data = await res.json().catch(() => ({}));
+      if (res.status === 401) {
+        await refreshAuth();
+        if (!options.silent) router.push("/login");
+        return;
+      }
       if (!res.ok) throw new Error(data.error || "分析失败");
       if (data.product_info) {
         const nextProductInfo = String(data.product_info).slice(0, 2000);
@@ -824,7 +810,7 @@ export default function ProductSetPage() {
   }
 
   async function saveCurrentPlanAsFavorite() {
-    if (!isAuthenticated) return toast.error("请先登录后再收藏方案");
+    if (!isAuthenticated && !(await refreshAuth())) return toast.error("请先登录后再收藏方案");
     if (!planTemplates.length) return toast.error("当前还没有可收藏的生成方案");
     const now = new Date().toISOString();
     const name = (favoritePlanName.trim() || favoritePlanDefaultName).slice(0, 40);
@@ -855,6 +841,11 @@ export default function ProductSetPage() {
         body: JSON.stringify(nextPlan),
       });
       const data = await res.json().catch(() => ({}));
+      if (res.status === 401) {
+        await refreshAuth();
+        router.push("/login");
+        return;
+      }
       if (!res.ok) throw new Error(data.error || "收藏方案保存失败");
       const savedPlan = normalizeFavoriteProductSetPlan(data.plan, DEFAULT_SETTINGS);
       if (!savedPlan) throw new Error("收藏方案保存结果无效");
@@ -893,12 +884,17 @@ export default function ProductSetPage() {
   }
 
   async function removeFavoritePlan(id: string) {
-    if (!isAuthenticated) return toast.error("请先登录");
+    if (!isAuthenticated && !(await refreshAuth())) return toast.error("请先登录");
     const previousPlans = favoritePlans;
     setFavoritePlans((prev) => prev.filter((plan) => plan.id !== id));
     try {
       const res = await fetch(`/api/product-set/favorite-plans/${encodeURIComponent(id)}`, { method: "DELETE" });
       const data = await res.json().catch(() => ({}));
+      if (res.status === 401) {
+        await refreshAuth();
+        router.push("/login");
+        return;
+      }
       if (!res.ok) throw new Error(data.error || "删除收藏方案失败");
       toast.success("已删除收藏方案");
     } catch (err: unknown) {
@@ -1074,7 +1070,7 @@ export default function ProductSetPage() {
   }
 
   async function generate() {
-    if (!isAuthenticated) {
+    if (!isAuthenticated && !(await refreshAuth())) {
       toast.error("请先登录");
       router.push("/login");
       return;
@@ -1121,6 +1117,11 @@ export default function ProductSetPage() {
       });
       const data = await res.json();
       if (!res.ok) {
+        if (res.status === 401) {
+          await refreshAuth();
+          router.push("/login");
+          return;
+        }
         if (res.status === 402) {
           const nextCredits = data.balance ?? 0;
           setCredits(nextCredits);
@@ -1202,7 +1203,7 @@ export default function ProductSetPage() {
     const currentPlan = resultPlan.length ? resultPlan : planTemplates;
     const template = currentPlan[index];
     if (!template) return toast.error("未找到要重生的模块");
-    if (!isAuthenticated) {
+    if (!isAuthenticated && !(await refreshAuth())) {
       toast.error("请先登录");
       router.push("/login");
       return;
@@ -1240,6 +1241,11 @@ export default function ProductSetPage() {
         }),
       });
       const data = await res.json();
+      if (res.status === 401) {
+        await refreshAuth();
+        router.push("/login");
+        return;
+      }
       if (!res.ok) throw new Error(data.error || "单张重生失败");
       if (data.credits_remaining !== undefined) {
         setCredits(data.credits_remaining);
@@ -1302,13 +1308,15 @@ export default function ProductSetPage() {
     setError("");
   }
 
-  async function handleCompletedTask(item: TaskQueueItem) {
+  async function handleCompletedTask(item: TaskQueueItem, session: TaskSelectionSession) {
     setActiveQueueTask(item);
     try {
-      const detail = await fetchHistoryApplyDetail(item.id, "productSet");
+      const detail = await fetchHistoryApplyDetail(item.id, "productSet", session.signal);
+      if (!session.isCurrent()) return true;
       applyProductSetHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : item.resultThumbnails);
       return true;
     } catch (err) {
+      if (session.signal.aborted || !session.isCurrent()) return true;
       toast.error(err instanceof Error ? err.message : "历史任务加载失败");
       return true;
     }

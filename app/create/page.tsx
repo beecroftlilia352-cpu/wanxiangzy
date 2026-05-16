@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { useTryOnStore } from "@/lib/store/tryon-store";
 import { fileToBase64, MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
-import { createClient, getCachedProfileCredits, setCachedProfileCredits } from "@/lib/supabase/client";
+import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { getCreditCost, getSupportedImageSizes, buildTryOnPrompt, type LingyaModel, type ImageSize, type AspectRatio } from "@/lib/api/lingya";
 import { toast } from "sonner";
 import { RepairPromptPanel } from "@/components/RepairPromptPanel";
@@ -30,9 +30,11 @@ import { StudioSection } from "@/components/studio/StudioSection";
 import { StudioSegmentedControl } from "@/components/studio/StudioSegmentedControl";
 import { StudioTaskRail } from "@/components/studio/StudioTaskRail";
 import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
+import { useStudioAuth } from "@/components/studio/useStudioAuth";
+import { useTaskSelectionSession } from "@/components/studio/useTaskSelectionSession";
 import { useStableFileDrag } from "@/components/studio/useStableFileDrag";
 import { StudioGenerationCountSelector, StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/components/studio/StudioFormControls";
-import { takeApplyPayload, type HistoryJobPayload } from "@/lib/history-apply";
+import { fetchHistoryApplyDetail, takeApplyPayload, type HistoryJobPayload } from "@/lib/history-apply";
 import { applyRepairPrompt } from "@/lib/generation-repair";
 import { clampTaskExpectedCount, isTaskRunning, type TaskQueueItem } from "@/lib/task-queue";
 import {
@@ -42,6 +44,7 @@ import {
   DEFAULT_AUTO_DESIGN,
   SCENE_MODE_LABELS,
   buildAutoDesignPrompt,
+  normalizeAutoDesignSettings,
   type AutoDesignSettings,
   type TryOnSceneMode,
 } from "@/lib/tryon-scene";
@@ -132,21 +135,29 @@ function findPresetReferenceByUrl(url?: string | null) {
 
 export default function CreatePage() {
   const router = useRouter();
-  const supabase = createClient();
   const store = useTryOnStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const rulesButtonRef = useRef<HTMLButtonElement>(null);
   const rulesHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeGenerationRef = useRef<string | null>(null);
-  const taskSelectionSeqRef = useRef(0);
+  const generationSubmitRef = useRef<{ id: string; controller: AbortController } | null>(null);
   const watchedGenerationIdsRef = useRef<Set<string>>(new Set());
+  const {
+    pendingId: applyingTaskId,
+    begin: beginTaskSelection,
+    cancel: cancelTaskSelection,
+  } = useTaskSelectionSession();
   const [genCount, setGenCount] = useState(1);
 
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [authChecked, setAuthChecked] = useState(false);
-  const [userId, setUserId] = useState<string | null>(null);
+  const {
+    authChecked,
+    isAuthenticated,
+    userId,
+    credits,
+    setCredits,
+    refreshAuth,
+  } = useStudioAuth();
   const [isUploading, setIsUploading] = useState(false);
-  const [credits, setCredits] = useState<number | null>(null);
   const [aiModel, setAiModel] = useState<LingyaModel>("nano-banana-2");
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("3:4");
   const [imageSize, setImageSize] = useState<ImageSize>("1K");
@@ -199,6 +210,7 @@ export default function CreatePage() {
   const customRefInputRef = useRef<HTMLInputElement>(null);
   const customModelInputRef = useRef<HTMLInputElement>(null);
   const sourceLibrary = useTryOnSourceLibrary({
+    ensureAuthenticated: refreshAuth,
     isAuthenticated,
     onUnauthenticated: () => {
       toast.error("请先登录后使用作品库");
@@ -218,7 +230,11 @@ export default function CreatePage() {
   const isCurrentReferenceFavorited = Boolean(
     store.referenceImage?.url && favoriteReferences.some((item) => item.url === store.referenceImage?.url)
   );
-  const autoDesignPrompt = sceneMode === "auto_design" ? buildAutoDesignPrompt(autoDesign) : "";
+  const resolvedAutoDesign = normalizeAutoDesignSettings(autoDesign);
+  const autoDesignBackgroundOptions = resolvedAutoDesign.platform === "ecommerce_clean"
+    ? AUTO_DESIGN_BACKGROUNDS.filter((item) => item.value === "white")
+    : AUTO_DESIGN_BACKGROUNDS;
+  const autoDesignPrompt = sceneMode === "auto_design" ? buildAutoDesignPrompt(resolvedAutoDesign) : "";
   const stylePrompt = [autoDesignPrompt, customStyle.trim()].filter(Boolean).join("\n");
   const clothingItems = store.clothingPreviews.map((preview, index) => ({
     preview,
@@ -350,7 +366,7 @@ export default function CreatePage() {
   };
 
   const addCurrentReferenceToFavorites = async () => {
-    if (!isAuthenticated) {
+    if (!isAuthenticated && !(await refreshAuth())) {
       toast.error("请先登录后收藏");
       router.push("/login");
       return;
@@ -426,36 +442,14 @@ export default function CreatePage() {
   }
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user) {
-        setIsAuthenticated(true);
-        setUserId(data.user.id);
-        getCachedProfileCredits(data.user.id).then(setCredits);
-      } else {
-        setIsAuthenticated(false);
-        setUserId(null);
-        setCredits(null);
-      }
-    }).finally(() => {
-      setAuthChecked(true);
-    });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
-      if (session?.user) {
-        setIsAuthenticated(true);
-        setUserId(session.user.id);
-        getCachedProfileCredits(session.user.id).then(setCredits);
-      } else {
-        setIsAuthenticated(false);
-        setUserId(null);
-        setCredits(null);
-      }
-      setAuthChecked(true);
-    });
-    return () => subscription.unsubscribe();
+    return () => cancelRulesHide();
   }, []);
 
   useEffect(() => {
-    return () => cancelRulesHide();
+    return () => {
+      generationSubmitRef.current?.controller.abort();
+      generationSubmitRef.current = null;
+    };
   }, []);
 
   useEffect(() => {
@@ -562,7 +556,7 @@ export default function CreatePage() {
       store.setReferenceImage(null);
     }
     setSceneMode(appliedSceneMode);
-    setAutoDesign(payload.autoDesign || DEFAULT_AUTO_DESIGN);
+    setAutoDesign(normalizeAutoDesignSettings(payload.autoDesign || DEFAULT_AUTO_DESIGN));
     setAiModel(payload.aiModel);
     setAspectRatio(payload.aspectRatio);
     setImageSize(payload.imageSize);
@@ -947,9 +941,12 @@ export default function CreatePage() {
   }, [refreshTaskQueue, store]);
 
   const handleContinueCreate = useCallback(() => {
-    taskSelectionSeqRef.current += 1;
+    cancelTaskSelection();
+    generationSubmitRef.current?.controller.abort();
+    generationSubmitRef.current = null;
     activeGenerationRef.current = null;
     setActiveQueueTask(null);
+    setIsSubmitting(false);
     setUploadedClothingUrls([]);
     setClothingRoles([]);
     setCustomModelPreview(null);
@@ -958,11 +955,11 @@ export default function CreatePage() {
     setSceneMode("auto_design");
     setAutoDesign(DEFAULT_AUTO_DESIGN);
     store.reset();
-  }, [store]);
+  }, [cancelTaskSelection, store]);
 
   const applyTryOnHistoryPayload = useCallback((
     payload: TryOnHistoryPayload,
-    options?: { resultUrls?: string[]; selectedTask?: TaskQueueItem | null }
+    options?: { resultUrls?: string[]; selectedTask?: TaskQueueItem | null; errorMessage?: string | null }
   ) => {
     const files = payload.clothingUrls.map((_, index) =>
       new File([], `history-clothing-${index + 1}.jpg`, { type: "image/jpeg" })
@@ -1025,7 +1022,7 @@ export default function CreatePage() {
     }
 
     setSceneMode(appliedSceneMode);
-    setAutoDesign(payload.autoDesign || DEFAULT_AUTO_DESIGN);
+    setAutoDesign(normalizeAutoDesignSettings(payload.autoDesign || DEFAULT_AUTO_DESIGN));
     setAiModel(payload.aiModel);
     setAspectRatio(payload.aspectRatio);
     setImageSize(payload.imageSize);
@@ -1034,16 +1031,14 @@ export default function CreatePage() {
     setPromptOverride(payload.rawPrompt || null);
     store.setPromptUsed(payload.rawPrompt || "");
     store.setResult(options?.resultUrls || []);
-    store.setError(null);
+    store.setError(options?.errorMessage || null);
     activeGenerationRef.current = null;
     setActiveQueueTask(options?.selectedTask ?? null);
     toast.success("已套用历史参数");
   }, [store]);
 
   const handleTaskSelect = useCallback(async (item: TaskQueueItem) => {
-    const selectionSeq = taskSelectionSeqRef.current + 1;
-    taskSelectionSeqRef.current = selectionSeq;
-    const isCurrentSelection = () => taskSelectionSeqRef.current === selectionSeq;
+    const selection = beginTaskSelection(item.id);
 
     if (isTaskRunning(item)) {
       const expectedCount = clampTaskExpectedCount(item, 1, 4);
@@ -1055,55 +1050,56 @@ export default function CreatePage() {
       if (partialResultUrls.length) store.setPartialResult(partialResultUrls);
       store.updateProgress(item.progress || 10);
       void watchGeneration(item.id, expectedCount);
+      selection.finish();
       return;
     }
 
-    if (item.statusGroup === "completed") {
+    if (item.statusGroup === "completed" || item.statusGroup === "failed") {
+      const isFailedTask = item.statusGroup === "failed";
       if (item.module === "tryon") {
-        const resultUrls = item.resultThumbnails.length ? item.resultThumbnails : item.thumbnails;
+        const resultUrls = item.resultThumbnails.length ? item.resultThumbnails : isFailedTask ? [] : item.thumbnails;
+        const errorMessage = isFailedTask ? item.error || "任务失败，可重新生成" : null;
         activeGenerationRef.current = null;
         setActiveQueueTask(item);
-        store.setError(null);
         store.setResult(resultUrls);
+        store.setError(errorMessage);
         try {
-          const res = await fetch(`/api/history?id=${encodeURIComponent(item.id)}`, { cache: "no-store" });
-          const data = await res.json().catch(() => ({})) as {
-            row?: { job_payload?: HistoryJobPayload | Record<string, unknown> | null };
-            error?: string;
-          };
-          if (!isCurrentSelection()) return;
-          if (!res.ok || !data.row?.job_payload) {
-            throw new Error(data.error || "历史参数加载失败");
-          }
-
-          const payload = data.row.job_payload as HistoryJobPayload;
-          if (payload.kind !== "tryon") {
-            if (item.applyUrl) router.push(item.applyUrl);
-            return;
-          }
-
-          applyTryOnHistoryPayload(payload, { resultUrls, selectedTask: item });
+          const detail = await fetchHistoryApplyDetail(item.id, "tryon", selection.signal);
+          if (!selection.isCurrent()) return;
+          applyTryOnHistoryPayload(detail.payload, {
+            resultUrls: detail.resultUrls.length ? detail.resultUrls : resultUrls,
+            selectedTask: item,
+            errorMessage,
+          });
         } catch (err: any) {
-          if (!isCurrentSelection()) return;
+          if (selection.signal.aborted || !selection.isCurrent()) return;
           toast.error(err?.message || "历史参数加载失败");
+        } finally {
+          selection.finish();
         }
         return;
       }
 
-      if (item.applyUrl) router.push(item.applyUrl);
+      if (item.applyUrl) {
+        router.push(item.applyUrl);
+      } else if (isFailedTask) {
+        activeGenerationRef.current = null;
+        setActiveQueueTask(item);
+        store.setResult([]);
+        store.setError(item.error || "任务失败，可重新生成");
+      }
+      selection.finish();
       return;
     }
-
-    if (item.statusGroup === "failed") {
-      activeGenerationRef.current = null;
-      setActiveQueueTask(item);
-      store.setError(item.error || "任务失败，可重新生成");
-    }
-  }, [applyTryOnHistoryPayload, router, store, watchGeneration]);
+  }, [applyTryOnHistoryPayload, beginTaskSelection, router, store, watchGeneration]);
 
   const handleGenerate = async (promptForRun?: string) => {
-    if (isSubmitting) return;
-    if (!isAuthenticated) { toast.error("请先登录"); router.push("/login"); return; }
+    if (isSubmitting || generationSubmitRef.current) return;
+    if (!isAuthenticated && !(await refreshAuth())) {
+      toast.error("请先登录");
+      router.push("/login");
+      return;
+    }
     if (!uploadedClothingUrls.length) { toast.error("请上传衣服"); return; }
     if (clothingMode === "multi") {
       const hasUpper = clothingItems.some((item) => item.role === "upper");
@@ -1120,7 +1116,37 @@ export default function CreatePage() {
     if (credits !== null && credits < totalCost) { toast.error(`积分不足 ${totalCost}，余额 ${credits}`); return; }
 
     setIsSubmitting(true);
-    taskSelectionSeqRef.current += 1;
+    cancelTaskSelection();
+    const provisionalTaskId = `local-tryon-${Date.now()}`;
+    const submitController = new AbortController();
+    generationSubmitRef.current = { id: provisionalTaskId, controller: submitController };
+    const isCurrentSubmit = () =>
+      generationSubmitRef.current?.id === provisionalTaskId && !submitController.signal.aborted;
+    const submittingAt = new Date().toISOString();
+    const taskInputThumbnails = [
+      ...uploadedClothingUrls,
+      store.selectedModel?.image_url || "",
+      effectiveReferenceUrl || "",
+    ].filter(Boolean) as string[];
+    setActiveQueueTask({
+      id: provisionalTaskId,
+      module: "tryon",
+      title: "服装上身",
+      status: "submitting",
+      statusGroup: "queued",
+      time: "0:00",
+      createdAt: submittingAt,
+      updatedAt: submittingAt,
+      completedAt: null,
+      error: "",
+      progress: 5,
+      expectedCount: genCount,
+      resultCount: 0,
+      inputThumbnails: taskInputThumbnails,
+      resultThumbnails: [],
+      thumbnails: taskInputThumbnails.slice(0, 2),
+      applyUrl: "",
+    });
     store.startGeneration();
 
     try {
@@ -1144,6 +1170,7 @@ export default function CreatePage() {
       const res = await fetch("/api/tryon", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: submitController.signal,
         body: JSON.stringify({
           clothing_urls: uploadedClothingUrls,
           clothing_mode: clothingMode,
@@ -1161,12 +1188,24 @@ export default function CreatePage() {
           raw_prompt: usedAiPrompt ? finalStyle : undefined,
           gen_count: genCount,
           scene_mode: sceneMode,
-          auto_design: sceneMode === "auto_design" ? autoDesign : undefined,
+          auto_design: sceneMode === "auto_design" ? resolvedAutoDesign : undefined,
         }),
       });
+      if (!isCurrentSubmit()) return;
 
       if (!res.ok) {
         const e = await res.json().catch(() => ({}));
+        if (!isCurrentSubmit()) return;
+        if (res.status === 401) {
+          await refreshAuth();
+          if (!isCurrentSubmit()) return;
+          store.setError(null);
+          setActiveQueueTask((prev) => prev?.id === provisionalTaskId ? null : prev);
+          setIsSubmitting(false);
+          generationSubmitRef.current = null;
+          router.push("/login");
+          return;
+        }
         if (res.status === 402) {
           const nextCredits = e.balance ?? 0;
           setCredits(nextCredits);
@@ -1176,6 +1215,7 @@ export default function CreatePage() {
       }
 
       const { generation_id, credits_remaining } = await res.json();
+      if (!isCurrentSubmit()) return;
       if (credits_remaining !== undefined) {
         setCredits(credits_remaining);
         if (userId) setCachedProfileCredits(userId, credits_remaining);
@@ -1184,11 +1224,6 @@ export default function CreatePage() {
 
       if (!generation_id) throw new Error("任务提交失败");
       const now = new Date().toISOString();
-      const inputThumbnails = [
-        ...uploadedClothingUrls,
-        store.selectedModel?.image_url || "",
-        effectiveReferenceUrl || "",
-      ].filter(Boolean) as string[];
       const optimisticTask: TaskQueueItem = {
         id: generation_id,
         module: "tryon",
@@ -1203,9 +1238,9 @@ export default function CreatePage() {
         progress: 25,
         expectedCount: genCount,
         resultCount: 0,
-        inputThumbnails,
+        inputThumbnails: taskInputThumbnails,
         resultThumbnails: [],
-        thumbnails: inputThumbnails.slice(0, 2),
+        thumbnails: taskInputThumbnails.slice(0, 2),
         applyUrl: `/create?apply=${encodeURIComponent(generation_id)}`,
       };
 
@@ -1214,12 +1249,16 @@ export default function CreatePage() {
       refreshTaskQueue();
       toast.success("任务已提交，可继续创建");
       setIsSubmitting(false);
+      generationSubmitRef.current = null;
       void watchGeneration(generation_id, genCount);
       return;
     } catch (err: any) {
+      if (err?.name === "AbortError" || !isCurrentSubmit()) return;
       store.setError(err.message);
+      setActiveQueueTask((prev) => prev?.id === provisionalTaskId ? null : prev);
       toast.error(err.message);
       setIsSubmitting(false);
+      generationSubmitRef.current = null;
     }
   };
 
@@ -1236,7 +1275,9 @@ export default function CreatePage() {
       : store.isGenerating || store.resultUrls.length > 0
         ? "results"
         : "empty";
+  const retryDisabled = store.isGenerating || Boolean(applyingTaskId);
   const runDisabled = isSubmitting || !uploadedClothingUrls.length;
+  const authIsAnonymous = authChecked && !isAuthenticated;
   const runDisabledReason = isSubmitting
     ? "正在提交任务，请稍候。"
     : !uploadedClothingUrls.length
@@ -1573,9 +1614,9 @@ export default function CreatePage() {
                       label: item.label,
                       description: item.desc,
                     }))}
-                    value={autoDesign.platform}
+                    value={resolvedAutoDesign.platform}
                     onChange={(platform) => {
-                      setAutoDesign((prev) => ({ ...prev, platform }));
+                      setAutoDesign((prev) => normalizeAutoDesignSettings({ ...prev, platform }));
                       setPromptOverride(null);
                     }}
                     columns={2}
@@ -1589,9 +1630,9 @@ export default function CreatePage() {
                       value: item.value,
                       label: item.label,
                     }))}
-                    value={autoDesign.framing}
+                    value={resolvedAutoDesign.framing}
                     onChange={(framing) => {
-                      setAutoDesign((prev) => ({ ...prev, framing }));
+                      setAutoDesign((prev) => normalizeAutoDesignSettings({ ...prev, framing }));
                       setPromptOverride(null);
                     }}
                     columns={4}
@@ -1601,13 +1642,13 @@ export default function CreatePage() {
                 <div>
                   <p className="mb-2 text-xs font-bold text-gray-800">背景</p>
                   <StudioOptionGrid
-                    options={AUTO_DESIGN_BACKGROUNDS.map((item) => ({
+                    options={autoDesignBackgroundOptions.map((item) => ({
                       value: item.value,
                       label: item.label,
                     }))}
-                    value={autoDesign.background}
+                    value={resolvedAutoDesign.background}
                     onChange={(background) => {
-                      setAutoDesign((prev) => ({ ...prev, background }));
+                      setAutoDesign((prev) => normalizeAutoDesignSettings({ ...prev, background }));
                       setPromptOverride(null);
                     }}
                     columns={2}
@@ -1619,7 +1660,7 @@ export default function CreatePage() {
 
             {sceneMode === "favorites" && (
               <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50/70 p-3">
-                {!isAuthenticated ? (
+                {authIsAnonymous ? (
                   <div className="py-8 text-center text-xs text-gray-400">登录后查看收藏参考图</div>
                 ) : isLoadingFavoriteReferences ? (
                   <div className="py-8 text-center text-xs text-gray-400 flex items-center justify-center gap-2">
@@ -1837,10 +1878,10 @@ export default function CreatePage() {
         runBar={(
           <StudioRunBar
             summary={`${clothingMode === "multi" ? "多件搭配" : "单件上身"} · ${store.clothingFiles.length} 张输入 · ${costPerImage} × ${genCount} 张`}
-            costLabel={isAuthenticated ? `消耗 ${totalCost} · 余额 ${credits ?? "—"}` : "登录后查看积分"}
+            costLabel={authIsAnonymous ? "登录后查看积分" : `消耗 ${totalCost} · 余额 ${credits ?? "—"}`}
             disabled={runDisabled}
             disabledReason={runDisabledReason}
-            primaryLabel={!isAuthenticated ? "登录后生成" : isSubmitting ? "提交中..." : `生成 ${genCount} 张`}
+            primaryLabel={authIsAnonymous ? "登录后生成" : isSubmitting ? "提交中..." : `生成 ${genCount} 张`}
             isLoading={isSubmitting}
             onPrimaryAction={() => handleGenerate()}
           />
@@ -1901,6 +1942,8 @@ export default function CreatePage() {
                 onRetry={() => { store.setError(null); handleGenerate(); }}
                 onRepair={handleRepairGenerate}
                 isGenerating={store.isGenerating}
+                retryDisabled={retryDisabled}
+                retryLabel={applyingTaskId ? "正在套用..." : undefined}
                 repairKind="tryon"
               />
             ) : null}
@@ -2120,7 +2163,8 @@ export default function CreatePage() {
                   ["模特脸", store.selectedModel ? "已使用" : "未使用"],
                   ["场景模式", SCENE_MODE_LABELS[sceneMode]],
                   ["参考图", effectiveReferenceUrl ? "已使用" : "未使用"],
-                  ["智能方案", sceneMode === "auto_design" ? AUTO_DESIGN_PLATFORMS.find((item) => item.value === autoDesign.platform)?.label || "-" : "未使用"],
+                  ["智能方案", sceneMode === "auto_design" ? AUTO_DESIGN_PLATFORMS.find((item) => item.value === resolvedAutoDesign.platform)?.label || "-" : "未使用"],
+                  ["智能背景", sceneMode === "auto_design" ? AUTO_DESIGN_BACKGROUNDS.find((item) => item.value === resolvedAutoDesign.background)?.label || "-" : "未使用"],
                   ["用户输入", customStyle || "无"],
                 ].map(([label, value]) => (
                   <div key={label} className="rounded-lg border bg-gray-50 px-3 py-2">

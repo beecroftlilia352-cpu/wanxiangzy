@@ -12,13 +12,15 @@ import { ClientPortal } from "@/components/ClientPortal";
 import { PreviewGuide } from "@/components/PreviewGuide";
 import { ErrorStage } from "@/components/studio/ErrorStage";
 import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
+import { useStudioAuth } from "@/components/studio/useStudioAuth";
+import type { TaskSelectionSession } from "@/components/studio/useTaskSelectionSession";
 import { StudioGenerationCountSelector, StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/components/studio/StudioFormControls";
 import { StudioRunBar } from "@/components/studio/StudioRunBar";
 import { StudioUploadSection } from "@/components/studio/StudioUploadSection";
 import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
 import { useStableFileDrag } from "@/components/studio/useStableFileDrag";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
-import { createClient, getCachedProfileCredits, setCachedProfileCredits } from "@/lib/supabase/client";
+import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
 import { applyRepairPrompt } from "@/lib/generation-repair";
@@ -61,15 +63,19 @@ const GRASS_SCENE_MODE_LABELS: Record<GrassSceneMode, string> = {
 
 export default function GrassPage() {
   const router = useRouter();
-  const supabase = createClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const referenceInputRef = useRef<HTMLInputElement>(null);
   const rulesButtonRef = useRef<HTMLButtonElement>(null);
   const rulesHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [credits, setCredits] = useState<number | null>(null);
+  const {
+    authChecked,
+    isAuthenticated,
+    userId,
+    credits,
+    setCredits,
+    refreshAuth,
+  } = useStudioAuth();
   const [garmentUrl, setGarmentUrl] = useState("");
   const [garmentName, setGarmentName] = useState("");
   const [templateId, setTemplateId] = useState<GrassTemplateId>("street");
@@ -137,33 +143,12 @@ export default function GrassPage() {
   );
   const imageSizes = getSupportedImageSizes(aiModel, aspectRatio);
   const cost = getCreditCost(aiModel, imageSize, aspectRatio) * genCount;
+  const authIsAnonymous = authChecked && !isAuthenticated;
   const runDisabledReason = !garmentUrl
     ? "请先上传服装或穿搭图"
     : credits !== null && credits < cost
       ? `积分不足，生成需要 ${cost} 积分`
       : undefined;
-
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user) {
-        setIsAuthenticated(true);
-        setUserId(data.user.id);
-        getCachedProfileCredits(data.user.id).then(setCredits);
-      }
-    });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
-      if (session?.user) {
-        setIsAuthenticated(true);
-        setUserId(session.user.id);
-        getCachedProfileCredits(session.user.id).then(setCredits);
-      } else {
-        setIsAuthenticated(false);
-        setUserId(null);
-        setCredits(null);
-      }
-    });
-    return () => subscription.unsubscribe();
-  }, [supabase]);
 
   useEffect(() => {
     const nextSizes = getSupportedImageSizes(aiModel, aspectRatio);
@@ -306,7 +291,7 @@ export default function GrassPage() {
   }
 
   async function generate(promptForRun?: string) {
-    if (!isAuthenticated) {
+    if (!isAuthenticated && !(await refreshAuth())) {
       toast.error("请先登录");
       router.push("/login");
       return;
@@ -340,6 +325,11 @@ export default function GrassPage() {
       });
       const data = await res.json();
       if (!res.ok) {
+        if (res.status === 401) {
+          await refreshAuth();
+          router.push("/login");
+          return;
+        }
         if (res.status === 402) {
           const nextCredits = data.balance ?? 0;
           setCredits(nextCredits);
@@ -396,12 +386,14 @@ export default function GrassPage() {
     setResultUrls(item.resultThumbnails || []);
   }
 
-  async function handleCompletedTask(item: TaskQueueItem) {
+  async function handleCompletedTask(item: TaskQueueItem, session: TaskSelectionSession) {
     try {
-      const detail = await fetchHistoryApplyDetail(item.id, "grass");
+      const detail = await fetchHistoryApplyDetail(item.id, "grass", session.signal);
+      if (!session.isCurrent()) return true;
       applyGrassHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : item.resultThumbnails);
       return true;
     } catch (err) {
+      if (session.signal.aborted || !session.isCurrent()) return true;
       toast.error(err instanceof Error ? err.message : "历史参数加载失败");
       return true;
     }
@@ -722,10 +714,10 @@ export default function GrassPage() {
 
         <StudioRunBar
           summary={`${garmentUrl ? `${effectiveReferenceUrl ? 2 : 1} 张输入图` : "未上传"} · ${genCount} 张`}
-          costLabel={isAuthenticated ? `消耗 ${cost} · 余额 ${credits ?? "-"}` : "登录后生成"}
+          costLabel={authIsAnonymous ? "登录后查看积分" : `消耗 ${cost} · 余额 ${credits ?? "-"}`}
           disabled={isGenerating || Boolean(runDisabledReason)}
           disabledReason={runDisabledReason}
-          primaryLabel={!isAuthenticated ? "登录后生成" : isGenerating ? "生成中..." : `生成 ${genCount} 张`}
+          primaryLabel={authIsAnonymous ? "登录后生成" : isGenerating ? "生成中..." : `生成 ${genCount} 张`}
           isLoading={isGenerating}
           onPrimaryAction={() => generate()}
         />

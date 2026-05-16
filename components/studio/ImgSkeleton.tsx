@@ -12,7 +12,14 @@ export function ImgSkeleton({ src, alt, className, variant = "thumb" }: ImgSkele
 
   return (
     <div className={`${className} bg-gray-100`}>
-      <img src={displaySrc} alt={alt || ""} className="h-full w-full object-cover" />
+      <img
+        src={displaySrc}
+        alt={alt || ""}
+        loading="lazy"
+        decoding="async"
+        fetchPriority="low"
+        className="h-full w-full object-cover"
+      />
     </div>
   );
 }

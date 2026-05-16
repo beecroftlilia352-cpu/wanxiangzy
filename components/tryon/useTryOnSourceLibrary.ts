@@ -10,10 +10,12 @@ import {
 
 type UseTryOnSourceLibraryOptions = {
   isAuthenticated: boolean;
+  ensureAuthenticated?: () => Promise<boolean>;
   onUnauthenticated: () => void;
 };
 
 export function useTryOnSourceLibrary({
+  ensureAuthenticated,
   isAuthenticated,
   onUnauthenticated,
 }: UseTryOnSourceLibraryOptions) {
@@ -41,8 +43,9 @@ export function useTryOnSourceLibrary({
     }
   };
 
-  const open = (nextRole: TryOnClothingRole) => {
-    if (!isAuthenticated) {
+  const open = async (nextRole: TryOnClothingRole) => {
+    const authenticated = isAuthenticated || (ensureAuthenticated ? await ensureAuthenticated() : false);
+    if (!authenticated) {
       onUnauthenticated();
       return;
     }

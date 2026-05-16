@@ -93,6 +93,7 @@ const LIGHTWEIGHT_QUEUE_QUERY_TIMEOUT_MS = 6_000;
 const LIGHTWEIGHT_QUEUE_RATE_LIMIT = 240;
 const LIGHTWEIGHT_QUEUE_RATE_WINDOW_MS = 60_000;
 const RUNNING_QUEUE_PIN_LIMIT = 80;
+const LIGHTWEIGHT_LEGACY_SCAN_LIMIT = 96;
 const lightweightQueueBuckets = new Map<string, { count: number; resetAt: number }>();
 
 export async function GET(request: Request) {
@@ -406,11 +407,12 @@ async function loadLightweightModuleQueue(
     .order("created_at", { ascending: false })
     .limit(Math.min(RUNNING_QUEUE_PIN_LIMIT, Math.max(8, limit)));
 
-  const [recentResult, runningResult] = await Promise.all([
+  const [recentResult, runningResult, inferredRunningRows] = await Promise.all([
     withTimeout(recentQuery, LIGHTWEIGHT_QUEUE_QUERY_TIMEOUT_MS, "module queue recent timeout")
       .catch((error) => ({ data: [], error: { message: toLogMessage(error) } })),
     withTimeout(runningQuery, LIGHTWEIGHT_QUEUE_QUERY_TIMEOUT_MS, "module queue running timeout")
       .catch((error) => ({ data: [], error: { message: toLogMessage(error) } })),
+    loadLightweightInferredRunningRows(supabase, userId, moduleFilter, limit),
   ]);
 
   if (recentResult.error) logTaskQueueWarning("module queue recent unavailable", recentResult.error.message);
@@ -418,18 +420,94 @@ async function loadLightweightModuleQueue(
 
   const recentRows = (Array.isArray(recentResult.data) ? recentResult.data : []) as unknown as QueueRow[];
   const runningRows = (Array.isArray(runningResult.data) ? runningResult.data : []) as unknown as QueueRow[];
-  const rows = mergeQueueRows([
+  let rows = mergeQueueRows([
     ...runningRows.map(normalizeQueueRow).filter(isQueueItemRunning),
+    ...inferredRunningRows,
     ...recentRows.map(normalizeQueueRow),
   ])
     .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
     .slice(0, limit);
+
+  if (rows.length === 0) {
+    rows = await loadLightweightInferredModuleQueue(supabase, userId, moduleFilter, limit);
+  }
+
   const hasMore = recentRows.length > limit;
   return {
     rows,
     hasMore,
     nextCursor: hasMore ? rows[rows.length - 1]?.createdAt || null : null,
   };
+}
+
+async function loadLightweightInferredRunningRows(
+  supabase: Awaited<ReturnType<typeof createServerSupabase>>,
+  userId: string,
+  moduleFilter: string,
+  limit: number
+) {
+  const runningQuery = supabase
+    .from("generations")
+    .select(QUEUE_COLUMNS)
+    .eq("user_id", userId)
+    .in("status", [...GENERATION_RUNNING_STATUS_FILTERS])
+    .order("created_at", { ascending: false })
+    .limit(Math.min(RUNNING_QUEUE_PIN_LIMIT, Math.max(8, limit)));
+
+  const result = await withTimeout(
+    runningQuery,
+    LIGHTWEIGHT_QUEUE_QUERY_TIMEOUT_MS,
+    "module queue inferred running pin timeout"
+  ).catch((error) => ({ data: [], error: { message: toLogMessage(error) } }));
+
+  if (result.error) logTaskQueueWarning("module queue inferred running pin unavailable", result.error.message);
+
+  return ((Array.isArray(result.data) ? result.data : []) as unknown as QueueRow[])
+    .map(normalizeQueueRow)
+    .filter(isQueueItemRunning)
+    .filter((row) => row.module === moduleFilter);
+}
+
+async function loadLightweightInferredModuleQueue(
+  supabase: Awaited<ReturnType<typeof createServerSupabase>>,
+  userId: string,
+  moduleFilter: string,
+  limit: number
+) {
+  const scanLimit = Math.min(LIGHTWEIGHT_LEGACY_SCAN_LIMIT, Math.max(limit * 4, 48));
+  const recentQuery = supabase
+    .from("generations")
+    .select(QUEUE_COLUMNS)
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(scanLimit);
+  const runningQuery = supabase
+    .from("generations")
+    .select(QUEUE_COLUMNS)
+    .eq("user_id", userId)
+    .in("status", [...GENERATION_RUNNING_STATUS_FILTERS])
+    .order("created_at", { ascending: false })
+    .limit(Math.min(RUNNING_QUEUE_PIN_LIMIT, scanLimit));
+
+  const [recentResult, runningResult] = await Promise.all([
+    withTimeout(recentQuery, LIGHTWEIGHT_QUEUE_QUERY_TIMEOUT_MS, "module queue inferred recent timeout")
+      .catch((error) => ({ data: [], error: { message: toLogMessage(error) } })),
+    withTimeout(runningQuery, LIGHTWEIGHT_QUEUE_QUERY_TIMEOUT_MS, "module queue inferred running timeout")
+      .catch((error) => ({ data: [], error: { message: toLogMessage(error) } })),
+  ]);
+
+  if (recentResult.error) logTaskQueueWarning("module queue inferred recent unavailable", recentResult.error.message);
+  if (runningResult.error) logTaskQueueWarning("module queue inferred running unavailable", runningResult.error.message);
+
+  const recentRows = (Array.isArray(recentResult.data) ? recentResult.data : []) as unknown as QueueRow[];
+  const runningRows = (Array.isArray(runningResult.data) ? runningResult.data : []) as unknown as QueueRow[];
+  return mergeQueueRows([
+    ...runningRows.map(normalizeQueueRow).filter(isQueueItemRunning),
+    ...recentRows.map(normalizeQueueRow),
+  ])
+    .filter((row) => row.module === moduleFilter)
+    .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+    .slice(0, limit);
 }
 
 async function loadWorkflowRows(

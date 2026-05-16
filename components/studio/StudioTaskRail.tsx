@@ -15,15 +15,17 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
+import { getImageVariantUrl } from "@/lib/image-variants";
 import { cn } from "@/lib/utils";
 import type { TaskDisplayMode, TaskQueueItem, TaskQueuePayload, TaskQueueSummary } from "@/lib/task-queue";
 import { isTaskRunning, TASK_DISPLAY_MODE_KEY } from "@/lib/task-queue";
+import { useTaskSelectionSession, type TaskSelectionSession } from "@/components/studio/useTaskSelectionSession";
 
 type StudioTaskRailProps = {
   module: string;
   moduleLabel?: string;
   onContinue?: () => void;
-  onSelectTask?: (item: TaskQueueItem) => void | Promise<void>;
+  onSelectTask?: (item: TaskQueueItem, session: TaskSelectionSession) => void | Promise<void>;
   optimisticTask?: TaskQueueItem | null;
   className?: string;
 };
@@ -42,6 +44,7 @@ const CONTINUE_CARD_ID = "__continue__";
 const TASK_RAIL_CACHE_PREFIX = "wanxiang:task-rail:";
 const TASK_RAIL_CACHE_TTL_MS = 5 * 60 * 1000;
 const TASK_RAIL_RUNNING_CACHE_TTL_MS = 15_000;
+const TASK_QUEUE_FETCH_TIMEOUT_MS = 8_000;
 
 type TaskRailCache = {
   cachedAt: number;
@@ -67,16 +70,19 @@ export function StudioTaskRail({
   const [loading, setLoading] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
   const [selectedId, setSelectedId] = useState<string>(CONTINUE_CARD_ID);
-  const [applyingId, setApplyingId] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const loadInFlightRef = useRef(false);
   const hasLoadedRef = useRef(false);
   const rowsSignatureRef = useRef("");
   const summarySignatureRef = useRef("");
-  const selectSequenceRef = useRef(0);
   const autoSelectSignatureRef = useRef("");
   const runningSelectionRef = useRef<string | null>(null);
+  const {
+    pendingId: applyingId,
+    begin: beginSelection,
+    cancel: cancelSelection,
+  } = useTaskSelectionSession();
 
   const mergedRows = useMemo(() => {
     if (!optimisticTask) return rows;
@@ -85,6 +91,13 @@ export function StudioTaskRail({
     }
     return [optimisticTask, ...rows];
   }, [optimisticTask, rows]);
+
+  useEffect(() => {
+    if (!optimisticTask || optimisticTask.module !== module || !isTaskRunning(optimisticTask)) return;
+    autoSelectSignatureRef.current = getTaskSelectionSignature(optimisticTask);
+    runningSelectionRef.current = optimisticTask.id;
+    setSelectedId(optimisticTask.id);
+  }, [module, optimisticTask]);
 
   const hasRunningTask = mergedRows.some(isTaskRunning);
 
@@ -95,6 +108,7 @@ export function StudioTaskRail({
     if (append && !nextCursor) return;
     loadInFlightRef.current = true;
     if (!hasLoadedRef.current) setLoading(true);
+    let loaded = false;
     try {
       const params = new URLSearchParams();
       params.set("limit", expanded ? String(PAGE_SIZE) : String(RECENT_TASK_LIMIT));
@@ -103,12 +117,19 @@ export function StudioTaskRail({
       if (!expanded || moduleOnly) params.set("module", module);
       if (expanded && query.trim()) params.set("q", query.trim());
 
-      const res = await fetch(`/api/task-queue?${params.toString()}`, { cache: "no-store" });
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), TASK_QUEUE_FETCH_TIMEOUT_MS);
+      const res = await fetch(`/api/task-queue?${params.toString()}`, {
+        cache: "no-store",
+        signal: controller.signal,
+      }).finally(() => window.clearTimeout(timeout));
       const payload = await res.json().catch(() => ({})) as TaskQueuePayload;
-      if (!res.ok) return;
+      if (!res.ok) throw new Error("task queue request failed");
 
       const nextRows = Array.isArray(payload.rows) ? payload.rows : [];
+      const keepCurrentRowsOnEmpty = !append && !expanded && moduleOnly && !query.trim() && nextRows.length === 0;
       setRows((currentRows) => {
+        if (keepCurrentRowsOnEmpty && currentRows.length > 0) return currentRows;
         const mergedRows = append ? mergeTaskRows(currentRows, nextRows) : nextRows;
         const rowsSignature = getRowsSignature(mergedRows);
         if (rowsSignature === rowsSignatureRef.current) return currentRows;
@@ -125,19 +146,24 @@ export function StudioTaskRail({
         setSummary(nextSummary);
       }
       if (!append && !expanded && moduleOnly && !query.trim()) {
-        writeTaskRailCache(module, {
-          cachedAt: Date.now(),
-          rows: nextRows.slice(0, RECENT_TASK_LIMIT),
-          summary: nextSummary,
-        });
+        if (nextRows.length > 0) {
+          writeTaskRailCache(module, {
+            cachedAt: Date.now(),
+            rows: nextRows.slice(0, RECENT_TASK_LIMIT),
+            summary: nextSummary,
+          });
+        }
       }
+      loaded = true;
     } catch {
       // Keep the last successful task list visible; the next poll will try again.
     } finally {
       loadInFlightRef.current = false;
       setLoading(false);
-      hasLoadedRef.current = true;
-      setHasLoaded(true);
+      if (loaded) {
+        hasLoadedRef.current = true;
+        setHasLoaded(true);
+      }
     }
   }, [expanded, module, moduleOnly, nextCursor, query]);
 
@@ -167,12 +193,15 @@ export function StudioTaskRail({
 
   useEffect(() => {
     const cached = readTaskRailCache(module);
-    rowsSignatureRef.current = cached ? getRowsSignature(cached.rows) : "";
-    summarySignatureRef.current = cached ? JSON.stringify(cached.summary) : "";
-    setRows(cached?.rows || []);
-    setSummary(cached?.summary || EMPTY_SUMMARY);
-    setHasLoaded(Boolean(cached));
-    hasLoadedRef.current = Boolean(cached);
+    const cachedRows = cached?.rows || [];
+    const cachedSummary = cached?.summary || EMPTY_SUMMARY;
+    const hasCachedRows = cachedRows.length > 0;
+    rowsSignatureRef.current = hasCachedRows ? getRowsSignature(cachedRows) : "";
+    summarySignatureRef.current = hasCachedRows ? JSON.stringify(cachedSummary) : "";
+    setRows(hasCachedRows ? cachedRows : []);
+    setSummary(hasCachedRows ? cachedSummary : EMPTY_SUMMARY);
+    setHasLoaded(hasCachedRows);
+    hasLoadedRef.current = hasCachedRows;
   }, [module]);
 
   useEffect(() => {
@@ -209,47 +238,50 @@ export function StudioTaskRail({
   const totalPages = Math.max(1, Math.ceil(expandedRows.length / PAGE_SIZE));
   const pagedRows = expandedRows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const visibleRows = expanded ? pagedRows : recentRows;
-  const interactionLocked = applyingId !== null;
   const initialLoading = !hasLoaded && !optimisticTask && mergedRows.length === 0;
 
   useEffect(() => {
-    if (!onSelectTask || selectedId === CONTINUE_CARD_ID || interactionLocked) return;
+    if (!onSelectTask || selectedId === CONTINUE_CARD_ID) return;
     const selected = mergedRows.find((item) => item.id === selectedId);
     if (!selected) return;
 
     const running = isTaskRunning(selected);
     const shouldNotifyCompletion = runningSelectionRef.current === selected.id && !running;
-    if (!running && !shouldNotifyCompletion) return;
+    if (running || !shouldNotifyCompletion) return;
 
     const signature = getTaskSelectionSignature(selected);
     if (signature === autoSelectSignatureRef.current) return;
     autoSelectSignatureRef.current = signature;
-    runningSelectionRef.current = running ? selected.id : null;
-    void Promise.resolve(onSelectTask(selected)).catch((error) => {
-      console.error("Task auto selection failed", error);
-      toast.error(error instanceof Error ? error.message : "任务套用失败，请手动重试");
-    });
-  }, [interactionLocked, mergedRows, onSelectTask, selectedId]);
+    runningSelectionRef.current = null;
 
-  const handleSelect = async (item: TaskQueueItem) => {
-    if (interactionLocked) return;
-    const sequence = selectSequenceRef.current + 1;
-    selectSequenceRef.current = sequence;
+    const session = beginSelection(selected.id);
+    void Promise.resolve(onSelectTask(selected, session))
+      .catch((error) => {
+        if (!session.isCurrent()) return;
+        console.error("Task auto selection failed", error);
+        toast.error(error instanceof Error ? error.message : "任务套用失败，请手动重试");
+      })
+      .finally(session.finish);
+  }, [beginSelection, mergedRows, onSelectTask, selectedId]);
+
+  const handleSelect = (item: TaskQueueItem) => {
     autoSelectSignatureRef.current = getTaskSelectionSignature(item);
     runningSelectionRef.current = isTaskRunning(item) ? item.id : null;
     setSelectedId(item.id);
-    setApplyingId(item.id);
-    try {
-      await onSelectTask?.(item);
-    } catch (error) {
-      console.error("Task selection failed", error);
-    } finally {
-      if (selectSequenceRef.current === sequence) setApplyingId(null);
-    }
+    if (!onSelectTask) return;
+
+    const session = beginSelection(item.id);
+    void Promise.resolve(onSelectTask(item, session))
+      .catch((error) => {
+        if (!session.isCurrent()) return;
+        console.error("Task selection failed", error);
+        toast.error(error instanceof Error ? error.message : "任务套用失败，请重试");
+      })
+      .finally(session.finish);
   };
 
   const handleContinue = () => {
-    if (interactionLocked) return;
+    cancelSelection();
     autoSelectSignatureRef.current = "";
     runningSelectionRef.current = null;
     setSelectedId(CONTINUE_CARD_ID);
@@ -257,7 +289,6 @@ export function StudioTaskRail({
   };
 
   const handleNextPage = async () => {
-    if (interactionLocked) return;
     if (page < totalPages) {
       setPage((value) => Math.min(totalPages, value + 1));
       return;
@@ -300,7 +331,6 @@ export function StudioTaskRail({
             <button
               type="button"
               onClick={() => setExpanded(false)}
-              disabled={interactionLocked}
               className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
               aria-label="收起全部任务"
               title="收起全部任务"
@@ -316,25 +346,24 @@ export function StudioTaskRail({
               <Search className="h-3.5 w-3.5" />
               <input
                 value={query}
-                disabled={interactionLocked}
                 onChange={(event) => setQuery(event.target.value)}
                 className="min-w-0 flex-1 bg-transparent font-semibold text-slate-700 outline-none placeholder:text-slate-300"
                 placeholder="搜索任务号"
               />
             </label>
             <div className="grid grid-cols-2 gap-2">
-              <SegmentButton active={moduleOnly} disabled={interactionLocked} onClick={() => setModuleOnly(true)}>
+              <SegmentButton active={moduleOnly} onClick={() => setModuleOnly(true)}>
                 {moduleLabel}
               </SegmentButton>
-              <SegmentButton active={!moduleOnly} disabled={interactionLocked} onClick={() => setModuleOnly(false)}>
+              <SegmentButton active={!moduleOnly} onClick={() => setModuleOnly(false)}>
                 全部模块
               </SegmentButton>
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <SegmentButton active={displayMode === "flat"} disabled={interactionLocked} onClick={() => setDisplayMode("flat")} icon={<Grid2X2 className="h-3.5 w-3.5" />}>
+              <SegmentButton active={displayMode === "flat"} onClick={() => setDisplayMode("flat")} icon={<Grid2X2 className="h-3.5 w-3.5" />}>
                 平铺图片
               </SegmentButton>
-              <SegmentButton active={displayMode === "grouped"} disabled={interactionLocked} onClick={() => setDisplayMode("grouped")} icon={<Layers3 className="h-3.5 w-3.5" />}>
+              <SegmentButton active={displayMode === "grouped"} onClick={() => setDisplayMode("grouped")} icon={<Layers3 className="h-3.5 w-3.5" />}>
                 任务拼图
               </SegmentButton>
             </div>
@@ -344,12 +373,12 @@ export function StudioTaskRail({
         <div className={cn("min-h-0 flex-1 overflow-y-auto custom-scroll", expanded ? "space-y-2 px-3 py-3" : "space-y-2 px-2 py-2")}>
           {initialLoading ? (
             <>
-              {!expanded && <ContinueCard selected={selectedId === CONTINUE_CARD_ID} disabled={interactionLocked} onClick={handleContinue} />}
+              {!expanded && <ContinueCard selected={selectedId === CONTINUE_CARD_ID} onClick={handleContinue} />}
               <TaskRailSkeleton compact={!expanded} />
             </>
           ) : visibleRows.length ? (
             <>
-              {!expanded && <ContinueCard selected={selectedId === CONTINUE_CARD_ID} disabled={interactionLocked} onClick={handleContinue} />}
+              {!expanded && <ContinueCard selected={selectedId === CONTINUE_CARD_ID} onClick={handleContinue} />}
               {visibleRows.map((item) => (
                 <TaskCard
                   key={item.id}
@@ -357,7 +386,6 @@ export function StudioTaskRail({
                   compact={!expanded}
                   selected={selectedId === item.id}
                   applying={applyingId === item.id}
-                  disabled={interactionLocked}
                   displayMode={displayMode}
                   onClick={() => handleSelect(item)}
                 />
@@ -365,7 +393,7 @@ export function StudioTaskRail({
             </>
           ) : (
             <>
-              {!expanded && <ContinueCard selected={selectedId === CONTINUE_CARD_ID} disabled={interactionLocked} onClick={handleContinue} />}
+              {!expanded && <ContinueCard selected={selectedId === CONTINUE_CARD_ID} onClick={handleContinue} />}
               <TaskRailEmpty compact={!expanded} moduleLabel={moduleLabel} />
             </>
           )}
@@ -377,7 +405,6 @@ export function StudioTaskRail({
               <button
                 type="button"
                 onClick={() => void loadQueue()}
-                disabled={interactionLocked}
                 className="inline-flex h-8 items-center gap-1.5 rounded-lg px-2 text-xs font-bold text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
@@ -386,7 +413,7 @@ export function StudioTaskRail({
               <div className="flex items-center gap-1">
                 <button
                   type="button"
-                  disabled={interactionLocked || page <= 1}
+                  disabled={page <= 1}
                   onClick={() => setPage((value) => Math.max(1, value - 1))}
                   className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-30"
                   aria-label="上一页"
@@ -399,7 +426,7 @@ export function StudioTaskRail({
                 </span>
                 <button
                   type="button"
-                  disabled={interactionLocked || loading || (page >= totalPages && !hasMore)}
+                  disabled={loading || (page >= totalPages && !hasMore)}
                   onClick={handleNextPage}
                   className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-30"
                   aria-label="下一页"
@@ -412,7 +439,6 @@ export function StudioTaskRail({
           ) : (
             <button
               type="button"
-              disabled={interactionLocked}
               onClick={() => setExpanded(true)}
               className="inline-flex h-9 w-full items-center justify-center gap-0.5 whitespace-nowrap rounded-lg px-1 text-[12px] font-black text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
             >
@@ -426,7 +452,7 @@ export function StudioTaskRail({
   );
 }
 
-function ContinueCard({ selected, disabled, onClick }: { selected: boolean; disabled: boolean; onClick: () => void }) {
+function ContinueCard({ selected, disabled = false, onClick }: { selected: boolean; disabled?: boolean; onClick: () => void }) {
   return (
     <button
       type="button"
@@ -480,7 +506,7 @@ function TaskCard({
   compact,
   selected,
   applying,
-  disabled,
+  disabled = false,
   displayMode,
   onClick,
 }: {
@@ -488,7 +514,7 @@ function TaskCard({
   compact: boolean;
   selected: boolean;
   applying: boolean;
-  disabled: boolean;
+  disabled?: boolean;
   displayMode: TaskDisplayMode;
   onClick: () => void;
 }) {
@@ -504,14 +530,14 @@ function TaskCard({
         disabled={disabled}
         onClick={onClick}
         className={cn(
-          "group relative flex h-[68px] w-full items-center justify-center rounded border bg-white p-1 text-left transition hover:border-blue-300 hover:bg-blue-50/40",
+          "studio-task-card group relative flex h-[68px] w-full items-center justify-center rounded border bg-white p-1 text-left transition hover:border-blue-300 hover:bg-blue-50/40",
           running && "border-blue-100 bg-blue-50/45",
           applying ? "cursor-wait" : disabled && "cursor-not-allowed opacity-55",
           selected ? "border-blue-500 bg-blue-50/60 shadow-[0_0_0_1px_rgba(59,130,246,0.18)]" : "border-slate-100"
         )}
         title={item.title || item.id}
       >
-        <TaskThumb url={cover} running={running} failed={failed} applying={applying} compact className="h-full w-full" />
+        <TaskThumb url={cover} running={running} failed={failed} applying={applying} activeMotion={selected || applying} compact className="h-full w-full" />
         {selected && <span className="absolute -right-2 top-2 h-[54px] w-1 rounded-full bg-blue-500" />}
       </button>
     );
@@ -523,14 +549,14 @@ function TaskCard({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        "group w-full rounded-lg border bg-white p-2 text-left transition hover:border-blue-200 hover:bg-blue-50/35",
+        "studio-task-card studio-task-card-expanded group w-full rounded-lg border bg-white p-2 text-left transition hover:border-blue-200 hover:bg-blue-50/35",
         applying ? "cursor-wait" : disabled && "cursor-not-allowed opacity-55",
         selected ? "border-blue-400 ring-2 ring-blue-100" : "border-slate-100",
         failed && "border-red-200 bg-red-50/60"
       )}
     >
       <div className="flex items-start gap-3">
-        <TaskThumb url={cover} running={running} failed={failed} applying={applying} className="h-16 w-12 shrink-0" />
+        <TaskThumb url={cover} running={running} failed={failed} applying={applying} activeMotion={selected || applying} className="h-16 w-12 shrink-0" />
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-start justify-between gap-2">
             <div className="min-w-0">
@@ -561,6 +587,7 @@ function TaskThumb({
   running,
   failed,
   applying,
+  activeMotion,
   compact = false,
   className,
 }: {
@@ -568,17 +595,27 @@ function TaskThumb({
   running: boolean;
   failed: boolean;
   applying: boolean;
+  activeMotion: boolean;
   compact?: boolean;
   className?: string;
 }) {
+  const displayUrl = getImageVariantUrl(url, "thumb");
+
   return (
     <span className={cn(
       "relative block overflow-hidden",
-      compact ? "rounded bg-white" : "gen-card rounded-lg bg-gradient-to-br from-slate-100 via-white to-blue-50",
+      compact ? "rounded bg-white" : "studio-task-thumb-frame rounded-lg",
       className
     )}>
-      {url ? (
-        <img src={url} alt="" className="relative z-[1] h-full w-full object-cover" />
+      {displayUrl ? (
+        <img
+          src={displayUrl}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          fetchPriority="low"
+          className="relative z-[1] h-full w-full object-cover"
+        />
       ) : (
         <span className="relative z-[1] flex h-full w-full items-center justify-center text-slate-300">
           <ImageIcon className="h-4 w-4" />
@@ -586,7 +623,7 @@ function TaskThumb({
       )}
       {running && (
         <span className="absolute inset-0 z-[2] flex items-center justify-center gap-1 bg-white/58 text-[10px] font-semibold text-slate-600 backdrop-blur-[1px]">
-          <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-500" />
+          <Loader2 className={cn("h-3.5 w-3.5 animate-spin text-blue-500", !activeMotion && "opacity-85")} />
           {compact && <span>生成中</span>}
         </span>
       )}
@@ -623,7 +660,11 @@ function TaskPreviewStrip({ item, displayMode }: { item: TaskQueueItem; displayM
               slot.kind === "input" ? "border-slate-200" : "border-blue-100"
             )}
           >
-            {slot.url ? <img src={slot.url} alt="" className="h-full w-full object-cover" /> : <span className="gen-card block h-full w-full bg-gradient-to-br from-slate-50 to-blue-50" />}
+            {slot.url ? (
+              <TaskStripImage url={slot.url} />
+            ) : (
+              <span className="studio-task-placeholder-thumb block h-full w-full" />
+            )}
           </span>
         ))}
       </div>
@@ -635,10 +676,23 @@ function TaskPreviewStrip({ item, displayMode }: { item: TaskQueueItem; displayM
     <div className="mt-2 grid grid-cols-4 gap-1">
       {slots.slice(0, 4).map((url, index) => (
         <span key={`${url || "pending"}-${index}`} className="aspect-square w-full overflow-hidden rounded-md border border-slate-100 bg-slate-50">
-          {url ? <img src={url} alt="" className="h-full w-full object-cover" /> : <span className="gen-card block h-full w-full bg-gradient-to-br from-slate-50 to-blue-50" />}
+          {url ? <TaskStripImage url={url} /> : <span className="studio-task-placeholder-thumb block h-full w-full" />}
         </span>
       ))}
     </div>
+  );
+}
+
+function TaskStripImage({ url }: { url: string }) {
+  return (
+    <img
+      src={getImageVariantUrl(url, "thumb")}
+      alt=""
+      loading="lazy"
+      decoding="async"
+      fetchPriority="low"
+      className="h-full w-full object-cover"
+    />
   );
 }
 

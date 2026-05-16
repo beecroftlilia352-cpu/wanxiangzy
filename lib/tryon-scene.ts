@@ -19,8 +19,10 @@ export interface AutoDesignSettings {
 export const DEFAULT_AUTO_DESIGN: AutoDesignSettings = {
   platform: "ecommerce_clean",
   framing: "auto",
-  background: "non_white",
+  background: "white",
 };
+
+const WHITE_BACKGROUND_LOCKED_PLATFORMS: AutoDesignPlatform[] = ["ecommerce_clean"];
 
 export const SCENE_MODE_LABELS: Record<TryOnSceneMode, string> = {
   system_reference: "系统预设",
@@ -134,13 +136,21 @@ export function normalizeAutoDesignSettings(value: unknown): AutoDesignSettings 
     ? record.background as AutoDesignBackground
     : DEFAULT_AUTO_DESIGN.background;
 
-  return { platform, framing, background };
+  return resolveAutoDesignSettings({ platform, framing, background });
 }
 
 export function buildAutoDesignPrompt(settings: AutoDesignSettings) {
-  const platform = AUTO_DESIGN_PLATFORMS.find((item) => item.value === settings.platform) || AUTO_DESIGN_PLATFORMS[0];
-  const framing = AUTO_DESIGN_FRAMINGS.find((item) => item.value === settings.framing) || AUTO_DESIGN_FRAMINGS[0];
-  const background = AUTO_DESIGN_BACKGROUNDS.find((item) => item.value === settings.background) || AUTO_DESIGN_BACKGROUNDS[0];
+  const resolved = resolveAutoDesignSettings(settings);
+  const platform = AUTO_DESIGN_PLATFORMS.find((item) => item.value === resolved.platform) || AUTO_DESIGN_PLATFORMS[0];
+  const framing = AUTO_DESIGN_FRAMINGS.find((item) => item.value === resolved.framing) || AUTO_DESIGN_FRAMINGS[0];
+  const background = AUTO_DESIGN_BACKGROUNDS.find((item) => item.value === resolved.background) || AUTO_DESIGN_BACKGROUNDS[0];
 
   return `智能模式拍摄方案：${platform.label}，构图为${framing.label}，背景为${background.label}。当前不使用参考图，由 AI 根据服装类型、版型和商业展示需求，自动设计最适合的模特姿势、构图、背景场景、镜头距离和灯光方案。${platform.prompt}${framing.prompt}${background.prompt}智能模式只能决定拍摄方案，不得改变服装图的版型、颜色、材质、图案和细节，不得默认美白，不得过度瘦身或改变真实体态。`;
+}
+
+export function resolveAutoDesignSettings(settings: AutoDesignSettings): AutoDesignSettings {
+  if (WHITE_BACKGROUND_LOCKED_PLATFORMS.includes(settings.platform)) {
+    return { ...settings, background: "white" };
+  }
+  return settings;
 }

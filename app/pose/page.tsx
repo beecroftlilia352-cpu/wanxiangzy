@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, ChevronRight, Eye, PenLine, Sparkles, X, XCircle } from "lucide-react";
 import { toast } from "sonner";
-import { createClient, getCachedProfileCredits, setCachedProfileCredits } from "@/lib/supabase/client";
+import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
 import { FeatureTabs } from "@/components/FeatureTabs";
@@ -16,6 +16,8 @@ import { ModuleHeader } from "@/components/ModuleHeader";
 import { PreviewGuide } from "@/components/PreviewGuide";
 import { ErrorStage } from "@/components/studio/ErrorStage";
 import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
+import { useStudioAuth } from "@/components/studio/useStudioAuth";
+import type { TaskSelectionSession } from "@/components/studio/useTaskSelectionSession";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
 import { StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/components/studio/StudioFormControls";
 import { StudioRunBar } from "@/components/studio/StudioRunBar";
@@ -54,14 +56,18 @@ function stripLegacyRuleDemoText(value: string) {
 
 export default function PosePage() {
   const router = useRouter();
-  const supabase = createClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const rulesButtonRef = useRef<HTMLButtonElement>(null);
   const rulesHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [credits, setCredits] = useState<number | null>(null);
+  const {
+    authChecked,
+    isAuthenticated,
+    userId,
+    credits,
+    setCredits,
+    refreshAuth,
+  } = useStudioAuth();
   const [aiModel, setAiModel] = useState<LingyaModel>("nano-banana-2");
   const [imageSize, setImageSize] = useState<ImageSize>("1K");
   const [mainImage, setMainImage] = useState<string>("");
@@ -94,6 +100,7 @@ export default function PosePage() {
   const imageSizes = getSupportedImageSizes(aiModel, "3:4");
   const unitCost = getCreditCost(aiModel, imageSize, "3:4");
   const cost = unitCost * (outputMode === "separate" ? 4 : 1);
+  const authIsAnonymous = authChecked && !isAuthenticated;
   const runDisabledReason = !mainImage
     ? "请先上传主图"
     : credits !== null && credits < cost
@@ -137,28 +144,6 @@ export default function PosePage() {
       setRulesPopoverStyle(null);
     }, 120);
   };
-
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user) {
-        setIsAuthenticated(true);
-        setUserId(data.user.id);
-        getCachedProfileCredits(data.user.id).then(setCredits);
-      }
-    });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
-      if (session?.user) {
-        setIsAuthenticated(true);
-        setUserId(session.user.id);
-        getCachedProfileCredits(session.user.id).then(setCredits);
-      } else {
-        setIsAuthenticated(false);
-        setUserId(null);
-        setCredits(null);
-      }
-    });
-    return () => subscription.unsubscribe();
-  }, [supabase]);
 
   useEffect(() => {
     return () => cancelRulesHide();
@@ -294,7 +279,7 @@ export default function PosePage() {
   }
 
   async function generate(promptForRun?: string) {
-    if (!isAuthenticated) {
+    if (!isAuthenticated && !(await refreshAuth())) {
       toast.error("请先登录");
       router.push("/login");
       return;
@@ -336,6 +321,11 @@ export default function PosePage() {
       });
       const data = await res.json();
       if (!res.ok) {
+        if (res.status === 401) {
+          await refreshAuth();
+          router.push("/login");
+          return;
+        }
         if (res.status === 402) {
           const nextCredits = data.balance ?? 0;
           setCredits(nextCredits);
@@ -396,13 +386,15 @@ export default function PosePage() {
     setResultUrls(item.resultThumbnails || []);
   }
 
-  async function handleCompletedTask(item: TaskQueueItem) {
+  async function handleCompletedTask(item: TaskQueueItem, session: TaskSelectionSession) {
     setRunningExpectedCount(null);
     try {
-      const detail = await fetchHistoryApplyDetail(item.id, "pose");
+      const detail = await fetchHistoryApplyDetail(item.id, "pose", session.signal);
+      if (!session.isCurrent()) return true;
       applyPoseHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : item.resultThumbnails);
       return true;
     } catch (err) {
+      if (session.signal.aborted || !session.isCurrent()) return true;
       toast.error(err instanceof Error ? err.message : "历史参数加载失败");
       return true;
     }
@@ -654,10 +646,10 @@ export default function PosePage() {
 
         <StudioRunBar
           summary={outputMode === "separate" ? "每姿势一张 · 4 张结果" : "四宫格 · 单张结果"}
-          costLabel={isAuthenticated ? `消耗 ${cost} · 余额 ${credits ?? "-"}` : "登录后查看积分"}
+          costLabel={authIsAnonymous ? "登录后查看积分" : `消耗 ${cost} · 余额 ${credits ?? "-"}`}
           disabled={isGenerating || Boolean(runDisabledReason)}
           disabledReason={runDisabledReason}
-          primaryLabel={!isAuthenticated ? "登录后生成" : isGenerating ? `生成中 ${Math.round(progress)}%` : outputMode === "separate" ? "生成 4 张独立图" : "生成四宫格"}
+          primaryLabel={authIsAnonymous ? "登录后生成" : isGenerating ? `生成中 ${Math.round(progress)}%` : outputMode === "separate" ? "生成 4 张独立图" : "生成四宫格"}
           isLoading={isGenerating}
           onPrimaryAction={() => generate()}
         />

@@ -20,6 +20,8 @@ import { ModuleHeader } from "@/components/ModuleHeader";
 import { PreviewGuide } from "@/components/PreviewGuide";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
 import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
+import { useStudioAuth } from "@/components/studio/useStudioAuth";
+import type { TaskSelectionSession } from "@/components/studio/useTaskSelectionSession";
 import { StudioResultViewport, type StudioResultStatus } from "@/components/studio/StudioResultViewport";
 import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
 import { StudioGenerationCountSelector, StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/components/studio/StudioFormControls";
@@ -45,7 +47,7 @@ import {
   MAX_FILE_SIZE_MB,
   uploadImage,
 } from "@/lib/utils";
-import { createClient, getCachedProfileCredits, setCachedProfileCredits } from "@/lib/supabase/client";
+import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { fetchHistoryApplyDetail, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
 import { clampTaskExpectedCount, type TaskQueueItem } from "@/lib/task-queue";
 
@@ -84,16 +86,20 @@ type ActiveFaceSwapJob = {
 
 export default function FaceSwapPage() {
   const router = useRouter();
-  const supabase = createClient();
   const originalInputRef = useRef<HTMLInputElement>(null);
   const faceInputRef = useRef<HTMLInputElement>(null);
   const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const skipActiveRestoreRef = useRef(false);
   const historyApplyConsumedRef = useRef(false);
 
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [credits, setCredits] = useState<number | null>(null);
+  const {
+    authChecked,
+    isAuthenticated,
+    userId,
+    credits,
+    setCredits,
+    refreshAuth,
+  } = useStudioAuth();
   const [sourceUrl, setSourceUrl] = useState("");
   const [faceUrl, setFaceUrl] = useState("");
   const [aiModel, setAiModel] = useState<LingyaModel>("nano-banana-2");
@@ -130,28 +136,7 @@ export default function FaceSwapPage() {
           ? `积分不足，生成需要 ${totalCost} 积分`
           : "";
   const canGenerate = status !== "running" && !validationHint;
-
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user) {
-        setIsAuthenticated(true);
-        setUserId(data.user.id);
-        getCachedProfileCredits(data.user.id).then(setCredits);
-      }
-    });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
-        setIsAuthenticated(true);
-        setUserId(session.user.id);
-        getCachedProfileCredits(session.user.id).then(setCredits);
-      } else {
-        setIsAuthenticated(false);
-        setUserId(null);
-        setCredits(null);
-      }
-    });
-    return () => subscription.unsubscribe();
-  }, [supabase]);
+  const authIsAnonymous = authChecked && !isAuthenticated;
 
   useEffect(() => {
     if (!supportedSizes.includes(imageSize)) setImageSize(supportedSizes[0] || "1K");
@@ -329,7 +314,7 @@ export default function FaceSwapPage() {
   }
 
   async function generate() {
-    if (!isAuthenticated) {
+    if (!isAuthenticated && !(await refreshAuth())) {
       toast.error("请先登录");
       router.push("/login");
       return;
@@ -377,6 +362,11 @@ export default function FaceSwapPage() {
       });
       const data = await res.json();
       if (!res.ok) {
+        if (res.status === 401) {
+          await refreshAuth();
+          router.push("/login");
+          return;
+        }
         if (res.status === 402) {
           const nextCredits = data.balance ?? 0;
           setCredits(nextCredits);
@@ -427,13 +417,15 @@ export default function FaceSwapPage() {
     pollGeneration(item.id, true);
   }
 
-  async function handleCompletedTask(item: TaskQueueItem) {
+  async function handleCompletedTask(item: TaskQueueItem, session: TaskSelectionSession) {
     setActiveQueueTask(item);
     try {
-      const detail = await fetchHistoryApplyDetail(item.id, "faceSwap");
+      const detail = await fetchHistoryApplyDetail(item.id, "faceSwap", session.signal);
+      if (!session.isCurrent()) return true;
       applyFaceSwapHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : item.resultThumbnails);
       return true;
     } catch (err) {
+      if (session.signal.aborted || !session.isCurrent()) return true;
       toast.error(err instanceof Error ? err.message : "历史任务加载失败");
       return true;
     }
@@ -650,10 +642,10 @@ export default function FaceSwapPage() {
 
         <StudioRunBar
           summary={`${genCount} 张 · ${imageSizeValue} · ${aspectRatio}`}
-          costLabel={isAuthenticated ? `消耗 ${totalCost} · 余额 ${credits ?? "-"}` : "登录后查看积分"}
+          costLabel={authIsAnonymous ? "登录后查看积分" : `消耗 ${totalCost} · 余额 ${credits ?? "-"}`}
           disabled={!canGenerate}
           disabledReason={validationHint}
-          primaryLabel={status === "running" ? "生成中" : !isAuthenticated ? "登录后生成" : "开始换脸"}
+          primaryLabel={status === "running" ? "生成中" : authIsAnonymous ? "登录后生成" : "开始换脸"}
           isLoading={status === "running"}
           onPrimaryAction={generate}
           secondaryActions={(
