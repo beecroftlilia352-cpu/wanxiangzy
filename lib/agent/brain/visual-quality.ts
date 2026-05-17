@@ -46,6 +46,8 @@ export async function evaluateGeneratedImages(params: {
       "Return ONLY JSON. No markdown.",
       "Judge whether the generated images satisfy the user's prompt, module purpose, count, identity/garment consistency, commercial usefulness, and obvious visual defects.",
       "Do not be overly harsh about subjective style, but be strict about wrong task type, missing output count, malformed body/face/hands, unreadable ecommerce layout, or broken identity/clothing preservation.",
+      "For tryon tasks, fail the result if any candidate switches to a different model/person, different ethnicity/body type, different studio/background/floor, different pose family, different camera distance/crop/framing, or visibly wrong head-to-body ratio compared with the target/reference image.",
+      "For tryon batches, one chaotic outlier is enough to mark shouldRegenerate=true; do not average it away just because other candidates look acceptable.",
     ].join("\n"),
     text: [
       "Output schema:",
@@ -118,7 +120,7 @@ export function getQualityThreshold(module: string) {
 }
 
 function buildDefaultRepairPrompt(module: string, issues: string[]) {
-  if (module === "tryon") return "重新生成，重点保持同一人物身份、服装结构、真实穿着和自然肢体。";
+  if (module === "tryon") return "重新生成，重点保持同一固定底图、同一人物身份、同一镜头画幅、同一背景地面、同一头身比例、同一姿势范围，并排除任何乱入候选。";
   if (module === "pose") return "重新生成，重点保持身体比例、脸部一致、自然关节和用户指定输出形式。";
   if (module === "commerce_detail") return "重新生成，必须是清晰的电商详情页版式，包含首屏、卖点、细节和参数信息区。";
   return issues.length ? `重新生成并修复：${issues.join("；")}` : "重新生成并提升商业可用性、主体清晰度和画面稳定性。";

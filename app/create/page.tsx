@@ -171,7 +171,7 @@ export default function CreatePage() {
   } = useStudioAuth();
   const [isUploading, setIsUploading] = useState(false);
   const [uploadingClothingRoles, setUploadingClothingRoles] = useState<TryOnClothingRole[]>([]);
-  const [aiModel, setAiModel] = useState<LingyaModel>("nano-banana-2");
+  const [aiModel, setAiModel] = useState<LingyaModel>("gpt-image-2");
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("3:4");
   const [imageSize, setImageSize] = useState<ImageSize>("1K");
   const [customStyle, setCustomStyle] = useState("");

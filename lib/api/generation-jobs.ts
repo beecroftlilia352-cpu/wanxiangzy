@@ -681,23 +681,26 @@ async function executePayload(
   };
   const executeParallelImageBatch = async (params: {
     count: number;
+    serial?: boolean;
     promptKind: string | ((index: number) => string);
     run: (index: number, onTaskProgress: (progress: ImageTaskProgress) => Promise<void>) => Promise<ParallelImageRunResult>;
   }): Promise<GenerationExecutionResult> => {
     const expectedCount = Math.max(1, Math.floor(params.count || 1));
-    const resultUrls: string[] = [];
-    const traces: PromptTraceItem[] = [];
+    const resultUrlSlots: string[][] = Array.from({ length: expectedCount }, () => []);
+    const traceSlots: Array<PromptTraceItem | null> = Array.from({ length: expectedCount }, () => null);
     const failures: Array<{ index: number; message: string }> = [];
     const taskProgress = Array.from({ length: expectedCount }, () => 0);
     let completedCount = 0;
     let progressQueue = Promise.resolve();
+    const getCompletedResultUrls = () => resultUrlSlots.flat();
+    const getCompletedPromptTrace = () => traceSlots.filter((item): item is PromptTraceItem => Boolean(item));
     const emitProgress = (update: GenerationProgressUpdate) => {
       if (!onProgress) return Promise.resolve();
       progressQueue = progressQueue.then(() => onProgress(update));
       return progressQueue;
     };
 
-    await Promise.all(Array.from({ length: expectedCount }, async (_, index) => {
+    const runOne = async (index: number) => {
       try {
         const result = await params.run(index, (progress) => {
           taskProgress[index] = Math.max(taskProgress[index] || 0, clampProgress(progress.progress));
@@ -706,8 +709,8 @@ async function executePayload(
             Math.max(1, Math.round(taskProgress.reduce((sum, value) => sum + value, 0) / expectedCount))
           );
           return emitProgress({
-            resultUrls: [...resultUrls],
-            promptTrace: [...traces],
+            resultUrls: getCompletedResultUrls(),
+            promptTrace: getCompletedPromptTrace(),
             progress: aggregateProgress,
             externalTaskId: progress.taskId,
             externalStatus: progress.providerStatus || progress.status,
@@ -715,20 +718,20 @@ async function executePayload(
         });
         const nextUrls = (result.resultUrls?.length ? result.resultUrls : result.resultUrl ? [result.resultUrl] : [])
           .filter((url): url is string => Boolean(url));
-        resultUrls.push(...nextUrls);
-        traces.push(createPromptTraceItem({
+        resultUrlSlots[index] = nextUrls;
+        traceSlots[index] = createPromptTraceItem({
           index: index + 1,
           kind: payload.kind,
           model: payload.aiModel,
           promptKind: typeof params.promptKind === "function" ? params.promptKind(index) : params.promptKind,
           prompt: result.prompt,
           compiledPrompt: result.compiledPrompt,
-        }));
+        });
         taskProgress[index] = 100;
         completedCount += 1;
         await emitProgress(createCompletedImageProgress(
-          [...resultUrls],
-          [...traces],
+          getCompletedResultUrls(),
+          getCompletedPromptTrace(),
           result.taskId,
           completedCount,
           expectedCount
@@ -738,15 +741,25 @@ async function executePayload(
         failures.push({ index, message });
         taskProgress[index] = 100;
         await emitProgress({
-          resultUrls: [...resultUrls],
-          promptTrace: [...traces],
+          resultUrls: getCompletedResultUrls(),
+          promptTrace: getCompletedPromptTrace(),
           progress: Math.min(99, Math.round(taskProgress.reduce((sum, value) => sum + value, 0) / expectedCount)),
           externalStatus: "FAILED",
         });
       }
-    }));
+    };
+
+    if (params.serial) {
+      for (let index = 0; index < expectedCount; index++) {
+        await runOne(index);
+      }
+    } else {
+      await Promise.all(Array.from({ length: expectedCount }, async (_, index) => runOne(index)));
+    }
 
     await progressQueue;
+    const resultUrls = getCompletedResultUrls();
+    const traces = getCompletedPromptTrace();
     if (!resultUrls.length && failures.length) {
       throw new Error(failures[0]?.message || "image task failed");
     }
@@ -767,8 +780,9 @@ async function executePayload(
     });
     return executeParallelImageBatch({
       count: payload.genCount,
+      serial: isNanoBananaPayload(payload),
       promptKind: "tryon",
-      run: async (_index, onTaskProgress) => {
+      run: async (index, onTaskProgress) => {
         const result = await batchTryOn({
           model: payload.aiModel,
           clothingUrls: imageInputs.clothingUrls,
@@ -783,6 +797,8 @@ async function executePayload(
           image_size: payload.imageSize,
           style: payload.style,
           raw_prompt: payload.rawPrompt,
+          candidateIndex: index,
+          candidateCount: payload.genCount,
           onProgress: onTaskProgress,
         });
         return {
@@ -1705,6 +1721,10 @@ function getFirstRow(data: unknown): ClaimedJob | null {
 
 function isSeedreamPayload(payload: GenerationJobPayload) {
   return payload.aiModel.startsWith("doubao-seedream-");
+}
+
+function isNanoBananaPayload(payload: GenerationJobPayload) {
+  return payload.aiModel === "nano-banana-2" || payload.aiModel === "nano-banana-pro";
 }
 
 async function refundExhaustedJobs(supabase: ReturnType<typeof createAdminClient>) {
