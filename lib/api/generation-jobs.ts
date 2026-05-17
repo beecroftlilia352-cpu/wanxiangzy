@@ -791,6 +791,8 @@ async function executePayload(
           image_size: payload.imageSize,
           style: payload.style,
           raw_prompt: payload.rawPrompt,
+          candidateIndex: index,
+          candidateCount: payload.genCount,
           onProgress: onTaskProgress,
         });
         return {

@@ -148,6 +148,8 @@ interface BatchTryOnInput {
   image_size?: ImageSize;
   style?: string;
   raw_prompt?: string;
+  candidateIndex?: number;
+  candidateCount?: number;
   onProgress?: (update: ImageTaskProgress) => Promise<void> | void;
 }
 
@@ -339,7 +341,7 @@ export async function batchTryOn(input: BatchTryOnInput): Promise<{ resultUrls: 
     hasReference: !!input.referenceUrl,
     style: input.style,
   });
-  const finalPrompt = input.raw_prompt?.trim() || prompt;
+  const finalPrompt = applyTryOnCandidateVariantPrompt(input.raw_prompt?.trim() || prompt, input);
 
   const imageInputs = [
     ...input.clothingUrls,
@@ -363,6 +365,24 @@ export async function batchTryOn(input: BatchTryOnInput): Promise<{ resultUrls: 
   }
 
   return { resultUrls: [resultUrl], prompt: finalPrompt, compiledPrompt: result.compiledPrompt || finalPrompt, taskId: result.taskId };
+}
+
+function applyTryOnCandidateVariantPrompt(prompt: string, input: BatchTryOnInput) {
+  const count = Math.max(1, Math.floor(Number(input.candidateCount || 1)));
+  if (count <= 1) return prompt;
+
+  const index = Math.max(0, Math.floor(Number(input.candidateIndex || 0))) % count;
+  const variants = [
+    "balanced clean fit with natural front drape",
+    "slightly relaxed fit with deeper natural sleeve and body folds",
+    "more structured fit with cleaner seams and straighter garment edges",
+    "subtle movement fit with different realistic hem folds and contact shadows",
+  ];
+  const variant = variants[index % variants.length];
+  return [
+    prompt.trim(),
+    `Candidate ${index + 1}/${count}: keep the same person, face, expression, pose, camera, crop, background, lower outfit, and sourced garment design; vary only the garment rendering as ${variant}.`,
+  ].join("\n");
 }
 
 function buildGenerateRequestBody(input: GenerateInput, compiledPrompt: string): Record<string, any> {
