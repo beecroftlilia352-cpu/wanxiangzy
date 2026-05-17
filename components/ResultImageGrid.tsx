@@ -18,10 +18,16 @@ type ResultImageGridProps = {
   isGenerating?: boolean;
   imageAltPrefix?: string;
   inputThumbnails?: string[];
+  inputReferences?: ResultInputReference[];
   createdAt?: string | null;
   statusGroup?: TaskStatusGroup;
   variant?: "cards" | "task";
   renderKey?: string;
+};
+
+export type ResultInputReference = {
+  url: string;
+  label: string;
 };
 
 function getGridClass(count: number) {
@@ -44,6 +50,7 @@ export function ResultImageGrid({
   isGenerating,
   imageAltPrefix = "生成结果",
   inputThumbnails = [],
+  inputReferences = [],
   createdAt,
   statusGroup,
   variant = "cards",
@@ -57,7 +64,7 @@ export function ResultImageGrid({
   if (variant === "task") {
     const running = isGenerating || statusGroup === "running" || statusGroup === "queued";
     const failed = statusGroup === "failed";
-    const referenceUrls = inputThumbnails.filter(Boolean).slice(0, 3);
+    const referenceItems = buildReferenceItems(inputReferences, inputThumbnails).slice(0, 4);
     const timestamp = formatTaskTimestamp(createdAt) || formatTaskTimestamp(fallbackCreatedAt);
 
     return (
@@ -68,12 +75,12 @@ export function ResultImageGrid({
         <p className="studio-result-time">{timestamp}</p>
 
         <div className="flex w-full items-start gap-3">
-          {referenceUrls.length > 0 && (
+          {referenceItems.length > 0 && (
             <div className="studio-result-reference-list">
-              {referenceUrls.map((referenceUrl, index) => (
-                <div key={`${referenceUrl}-${index}`} className="studio-result-reference-thumb">
-                  <img src={getImageVariantUrl(referenceUrl, "thumb")} alt={`参考图 ${index + 1}`} />
-                  <span>参考图{index + 1}</span>
+              {referenceItems.map(({ url: referenceUrl, label }, index) => (
+                <div key={`${referenceUrl}-${label}-${index}`} className="studio-result-reference-thumb">
+                  <img src={getImageVariantUrl(referenceUrl, "thumb")} alt={`${label} ${index + 1}`} />
+                  <span className="studio-result-reference-label">{label}</span>
                 </div>
               ))}
             </div>
@@ -119,6 +126,19 @@ export function ResultImageGrid({
       ))}
     </div>
   );
+}
+
+function buildReferenceItems(inputReferences: ResultInputReference[], inputThumbnails: string[]): ResultInputReference[] {
+  const labeled = inputReferences
+    .filter((item) => item.url)
+    .map((item) => ({
+      url: item.url,
+      label: item.label || "参考图",
+    }));
+  if (labeled.length) return labeled;
+  return inputThumbnails
+    .filter(Boolean)
+    .map((url, index) => ({ url, label: `参考图${index + 1}` }));
 }
 
 function ResultCard({

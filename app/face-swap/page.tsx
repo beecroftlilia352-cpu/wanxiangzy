@@ -207,7 +207,7 @@ export default function FaceSwapPage() {
     setError("");
   }, [clearPolling]);
 
-  const applyFaceSwapHistoryPayload = useCallback((payload: FaceSwapHistoryPayload, historyResultUrls: string[] = []) => {
+  const applyFaceSwapHistoryPayload = useCallback((payload: FaceSwapHistoryPayload, historyResultUrls: string[] = [], options?: { silent?: boolean }) => {
     clearPolling();
     historyApplyConsumedRef.current = true;
     skipActiveRestoreRef.current = true;
@@ -224,7 +224,7 @@ export default function FaceSwapPage() {
     setStatus(historyResultUrls.length ? "completed" : "idle");
     setGenerationId("");
     setError("");
-    toast.success("已套用历史换脸参数");
+    if (!options?.silent) toast.success("已套用历史换脸参数");
   }, [clearPolling]);
 
   const pollGeneration = useCallback(async (id: string, immediate = false) => {
@@ -490,7 +490,9 @@ export default function FaceSwapPage() {
     try {
       const detail = await fetchHistoryApplyDetail(item.id, "faceSwap", session.signal);
       if (!session.isCurrent()) return true;
-      applyFaceSwapHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : safeTaskQueueUrls(item.resultThumbnails));
+      applyFaceSwapHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : safeTaskQueueUrls(item.resultThumbnails), {
+        silent: session.reason === "restore",
+      });
       return true;
     } catch (err) {
       if (session.signal.aborted || !session.isCurrent()) return true;

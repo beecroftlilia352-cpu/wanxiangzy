@@ -19,7 +19,7 @@ import { ClientPortal } from "@/components/ClientPortal";
 import { ModuleHeader } from "@/components/ModuleHeader";
 import { LoadingStage } from "@/components/studio/LoadingStage";
 import { ErrorStage } from "@/components/studio/ErrorStage";
-import { ResultImageGrid } from "@/components/ResultImageGrid";
+import { ResultImageGrid, type ResultInputReference } from "@/components/ResultImageGrid";
 import { ImgSkeleton } from "@/components/studio/ImgSkeleton";
 import { StudioControlPanel } from "@/components/studio/StudioControlPanel";
 import { StudioEmptyState } from "@/components/studio/StudioEmptyState";
@@ -31,7 +31,7 @@ import { StudioSegmentedControl } from "@/components/studio/StudioSegmentedContr
 import { StudioTaskRail } from "@/components/studio/StudioTaskRail";
 import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
 import { useStudioAuth } from "@/components/studio/useStudioAuth";
-import { useTaskSelectionSession } from "@/components/studio/useTaskSelectionSession";
+import { useTaskSelectionSession, type TaskSelectionSession } from "@/components/studio/useTaskSelectionSession";
 import { useStableFileDrag } from "@/components/studio/useStableFileDrag";
 import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
 import { StudioGenerationCountSelector, StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/components/studio/StudioFormControls";
@@ -83,6 +83,7 @@ import {
 import { TryOnSourceLibraryDialog } from "@/components/tryon/TryOnSourceLibraryDialog";
 import { useTryOnSourceLibrary } from "@/components/tryon/useTryOnSourceLibrary";
 import type { TryOnSourceLibraryItem } from "@/lib/tryon-source-library";
+import { buildTryOnInputReferences } from "@/lib/tryon-input-references";
 
 type FavoriteReference = {
   id: string;
@@ -191,6 +192,7 @@ export default function CreatePage() {
   const [isDraggingRef, setIsDraggingRef] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeQueueTask, setActiveQueueTask] = useState<TaskQueueItem | null>(null);
+  const [activeTaskReferences, setActiveTaskReferences] = useState<ResultInputReference[]>([]);
   const taskQueue = useTaskQueueGeneration({
     module: "tryon",
     title: "服装上身",
@@ -256,7 +258,6 @@ export default function CreatePage() {
   const upperClothing = clothingItems.find((item) => item.role === "upper");
   const lowerClothing = clothingItems.find((item) => item.role === "lower");
   const singleClothing = clothingItems[0] || null;
-
   const openLightbox = (src: string, alt: string) => {
     setLightboxImage({ src, alt });
   };
@@ -573,8 +574,15 @@ export default function CreatePage() {
     setImageSize(payload.imageSize);
     setGenCount(payload.genCount);
     setCustomStyle(payload.style || "");
-    setPromptOverride(payload.rawPrompt || null);
-    store.setPromptUsed(payload.rawPrompt || "");
+    setPromptOverride(null);
+    store.setPromptUsed("");
+    setActiveTaskReferences(buildTryOnInputReferences({
+      clothingUrls: payload.clothingUrls,
+      clothingMode: nextClothingMode,
+      clothingRoles: payload.clothingRoles,
+      referenceUrl: appliedSceneMode === "auto_design" ? null : payload.referenceUrl,
+      modelFaceUrl: payload.modelFaceUrl,
+    }));
     toast.success("已套用历史参数");
     })();
     return () => {
@@ -1006,6 +1014,7 @@ export default function CreatePage() {
     setCustomModelPreview(null);
     setCustomRefPreview(null);
     setPromptOverride(null);
+    setActiveTaskReferences([]);
     setSceneMode("auto_design");
     setAutoDesign(DEFAULT_AUTO_DESIGN);
     store.reset();
@@ -1013,7 +1022,7 @@ export default function CreatePage() {
 
   const applyTryOnHistoryPayload = useCallback((
     payload: TryOnHistoryPayload,
-    options?: { resultUrls?: string[]; selectedTask?: TaskQueueItem | null; errorMessage?: string | null }
+    options?: { resultUrls?: string[]; selectedTask?: TaskQueueItem | null; errorMessage?: string | null; silent?: boolean }
   ) => {
     const files = payload.clothingUrls.map((_, index) =>
       new File([], `history-clothing-${index + 1}.jpg`, { type: "image/jpeg" })
@@ -1082,17 +1091,25 @@ export default function CreatePage() {
     setImageSize(payload.imageSize);
     setGenCount(payload.genCount);
     setCustomStyle(payload.style || "");
-    setPromptOverride(payload.rawPrompt || null);
-    store.setPromptUsed(payload.rawPrompt || "");
+    setPromptOverride(null);
+    store.setPromptUsed("");
+    setActiveTaskReferences(buildTryOnInputReferences({
+      clothingUrls: payload.clothingUrls,
+      clothingMode: nextClothingMode,
+      clothingRoles: payload.clothingRoles,
+      referenceUrl: appliedSceneMode === "auto_design" ? null : payload.referenceUrl,
+      modelFaceUrl: payload.modelFaceUrl,
+    }));
     store.setResult(options?.resultUrls || []);
     store.setError(options?.errorMessage || null);
     activeGenerationRef.current = null;
     setActiveQueueTask(options?.selectedTask ?? null);
-    toast.success("已套用历史参数");
+    if (!options?.silent) toast.success("已套用历史参数");
   }, [store]);
 
-  const handleTaskSelect = useCallback(async (item: TaskQueueItem) => {
-    const selection = beginTaskSelection(item.id);
+  const handleTaskSelect = useCallback(async (item: TaskQueueItem, railSelection?: TaskSelectionSession) => {
+    const selection = beginTaskSelection(item.id, railSelection?.reason ?? "manual");
+    setActiveTaskReferences([]);
 
     if (isTaskRunning(item)) {
       const expectedCount = clampTaskExpectedCount(item, 1, 4);
@@ -1126,6 +1143,7 @@ export default function CreatePage() {
             resultUrls: detail.resultUrls.length ? detail.resultUrls : resultUrls,
             selectedTask: item,
             errorMessage,
+            silent: selection.reason === "restore",
           });
         } catch (err: any) {
           if (selection.signal.aborted || !selection.isCurrent()) return;
@@ -1171,11 +1189,15 @@ export default function CreatePage() {
     const isCurrentSubmit = () =>
       generationSubmitRef.current?.id === provisionalTaskId && !submitController.signal.aborted;
     const submittingAt = new Date().toISOString();
-    const taskInputThumbnails = [
-      ...uploadedClothingUrls,
-      store.selectedModel?.image_url || "",
-      effectiveReferenceUrl || "",
-    ].filter(Boolean) as string[];
+    const taskInputReferences = buildTryOnInputReferences({
+      clothingUrls: uploadedClothingUrls,
+      clothingMode,
+      clothingRoles,
+      referenceUrl: effectiveReferenceUrl,
+      modelFaceUrl: store.selectedModel?.image_url,
+    });
+    const taskInputThumbnails = taskInputReferences.map((item) => item.url);
+    setActiveTaskReferences(taskInputReferences);
     const provisionalTask = taskQueue.startTask({
       id: provisionalTaskId,
       status: "submitting",
@@ -1878,7 +1900,7 @@ export default function CreatePage() {
               title="补充要求"
               badge="可选"
               value={customStyle}
-              onChange={(e) => { setCustomStyle(e.target.value); setPromptOverride(null); }}
+              onChange={(e) => { setCustomStyle(e.target.value); setPromptOverride(null); store.setPromptUsed(""); }}
               placeholder="可选：补充不改变主风格的细节要求，如面料、肤色、光线、商品细节..."
               rows={4}
               action={(
@@ -1895,7 +1917,7 @@ export default function CreatePage() {
             />
             <div className="flex flex-wrap gap-1.5 mt-2">
               {STYLE_PRESETS.map((s, i) => (
-                <button key={i} onClick={() => { setCustomStyle(s); setPromptOverride(null); }}
+                <button key={i} onClick={() => { setCustomStyle(s); setPromptOverride(null); store.setPromptUsed(""); }}
                   className="px-2 py-0.5 rounded-full bg-gray-50 border text-[10px] text-gray-500 hover:bg-purple-50 hover:text-purple-600 transition-all">{s}</button>
               ))}
             </div>
@@ -2010,6 +2032,7 @@ export default function CreatePage() {
                       expectedCount={activeQueueTask ? clampTaskExpectedCount(activeQueueTask, 1, 4, genCount) : genCount}
                       isGenerating={store.isGenerating}
                       inputThumbnails={safeTaskQueueUrls(activeQueueTask?.inputThumbnails)}
+                      inputReferences={activeTaskReferences}
                       createdAt={activeQueueTask?.createdAt}
                       statusGroup={activeQueueTask?.statusGroup}
                       variant="task"

@@ -187,7 +187,7 @@ export default function ModelPage() {
     if (!nextSizes.includes(imageSize)) setImageSize(nextSizes[0]);
   }, [aiModel, aspectRatio, imageSize]);
 
-  function applyModelHistoryPayload(payload: ModelHistoryPayload, historyResultUrls: string[] = []) {
+  function applyModelHistoryPayload(payload: ModelHistoryPayload, historyResultUrls: string[] = [], options?: { silent?: boolean }) {
     setReferenceUrls(payload.referenceUrls);
     setHairReferenceUrl(payload.hairReferenceUrl || null);
     setHairColorReferenceUrl(payload.hairColorReferenceUrl || null);
@@ -205,7 +205,7 @@ export default function ModelPage() {
     setIsGenerating(false);
     setProgress(historyResultUrls.length ? 100 : 0);
     setError("");
-    toast.success("已套用历史参数");
+    if (!options?.silent) toast.success("已套用历史参数");
   }
 
   useEffect(() => {
@@ -565,7 +565,9 @@ export default function ModelPage() {
     try {
       const detail = await fetchHistoryApplyDetail(item.id, "model", session.signal);
       if (!session.isCurrent()) return true;
-      applyModelHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : safeTaskQueueUrls(item.resultThumbnails));
+      applyModelHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : safeTaskQueueUrls(item.resultThumbnails), {
+        silent: session.reason === "restore",
+      });
       return true;
     } catch (err) {
       if (session.signal.aborted || !session.isCurrent()) return true;

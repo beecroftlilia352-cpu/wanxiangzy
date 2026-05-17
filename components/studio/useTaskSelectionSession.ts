@@ -2,8 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+export type TaskSelectionReason = "manual" | "restore" | "completion";
+
 export type TaskSelectionSession = {
   signal: AbortSignal;
+  reason: TaskSelectionReason;
   isCurrent: () => boolean;
   finish: () => void;
 };
@@ -13,7 +16,7 @@ export function useTaskSelectionSession() {
   const controllerRef = useRef<AbortController | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
 
-  const begin = useCallback((taskId?: string | null): TaskSelectionSession => {
+  const begin = useCallback((taskId?: string | null, reason: TaskSelectionReason = "manual"): TaskSelectionSession => {
     controllerRef.current?.abort();
 
     const controller = new AbortController();
@@ -29,6 +32,7 @@ export function useTaskSelectionSession() {
 
     return {
       signal: controller.signal,
+      reason,
       isCurrent,
       finish: () => {
         if (!isCurrent()) return;

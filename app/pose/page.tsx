@@ -166,7 +166,7 @@ export default function PosePage() {
     setPrompt((prev) => stripLegacyRuleDemoText(prev));
   }, []);
 
-  function applyPoseHistoryPayload(payload: PoseHistoryPayload, historyResultUrls: string[] = []) {
+  function applyPoseHistoryPayload(payload: PoseHistoryPayload, historyResultUrls: string[] = [], options?: { silent?: boolean }) {
     setMainImage(payload.mainImageUrl);
     setAiModel(payload.aiModel);
     setImageSize(payload.imageSize);
@@ -178,7 +178,7 @@ export default function PosePage() {
     setIsGenerating(false);
     setProgress(historyResultUrls.length ? 100 : 0);
     setError("");
-    toast.success("已套用历史参数");
+    if (!options?.silent) toast.success("已套用历史参数");
   }
 
   useEffect(() => {
@@ -444,7 +444,9 @@ export default function PosePage() {
     try {
       const detail = await fetchHistoryApplyDetail(item.id, "pose", session.signal);
       if (!session.isCurrent()) return true;
-      applyPoseHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : safeTaskQueueUrls(item.resultThumbnails));
+      applyPoseHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : safeTaskQueueUrls(item.resultThumbnails), {
+        silent: session.reason === "restore",
+      });
       return true;
     } catch (err) {
       if (session.signal.aborted || !session.isCurrent()) return true;

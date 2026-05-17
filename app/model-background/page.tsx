@@ -186,7 +186,7 @@ export default function ModelBackgroundPage() {
     if (!nextSizes.includes(imageSize)) setImageSize(nextSizes[0]);
   }, [aiModel, aspectRatio, imageSize]);
 
-  function applyModelBackgroundHistoryPayload(payload: ModelBackgroundHistoryPayload, historyResultUrls: string[] = []) {
+  function applyModelBackgroundHistoryPayload(payload: ModelBackgroundHistoryPayload, historyResultUrls: string[] = [], options?: { silent?: boolean }) {
     const nextSource = normalizeBackgroundSourceMode(payload.backgroundSource);
     const nextPreset = normalizeBackgroundPreset(payload.templateId);
     setSourceUrl(payload.sourceUrl);
@@ -207,7 +207,7 @@ export default function ModelBackgroundPage() {
     setIsGenerating(false);
     setProgress(historyResultUrls.length ? 100 : 0);
     setError("");
-    toast.success("已套用历史参数");
+    if (!options?.silent) toast.success("已套用历史参数");
   }
 
   useEffect(() => {
@@ -454,7 +454,9 @@ export default function ModelBackgroundPage() {
     try {
       const detail = await fetchHistoryApplyDetail(item.id, "modelBackground", session.signal);
       if (!session.isCurrent()) return true;
-      applyModelBackgroundHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : safeTaskQueueUrls(item.resultThumbnails));
+      applyModelBackgroundHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : safeTaskQueueUrls(item.resultThumbnails), {
+        silent: session.reason === "restore",
+      });
       return true;
     } catch (err) {
       if (session.signal.aborted || !session.isCurrent()) return true;

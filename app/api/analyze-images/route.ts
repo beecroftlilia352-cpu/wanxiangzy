@@ -79,7 +79,9 @@ export async function POST(request: NextRequest) {
         ? `图${referenceImageNumber}：参考图，分析并提取人物姿势、身体比例、构图角度、背景场景、光影方向、摄影风格。`
         : "",
       model_face_url
-        ? `图${faceImageNumber}：模特脸图，分析五官特征、肤色、发型、气质风格。`
+        ? reference_url
+          ? `图${faceImageNumber}：模特脸图，只分析可识别脸部身份、五官结构、脸型倾向、发型气质；不要把该图的头部大小、头部角度、光线或最终肤色直接搬到结果里。`
+          : `图${faceImageNumber}：模特脸图，分析五官特征、肤色、发型、气质风格。`
         : "",
     ].filter(Boolean).join("\n");
 
@@ -96,6 +98,9 @@ export async function POST(request: NextRequest) {
     const poseRule = reference_url
       ? `优先保持图${referenceImageNumber}的姿势、身体角度、四肢位置、头部朝向、手部动作、背景、构图、镜头角度、光影方向和人物位置；允许为了服装真实贴合人体产生自然褶皱、遮挡关系和边缘轮廓调整。`
       : "根据服装类型、版型和目标风格选择自然、利于展示服装结构的姿势和构图。";
+    const faceFusionRule = model_face_url && reference_url
+      ? `- 图${faceImageNumber}模特脸图只提供可识别脸部身份，不提供最终头部大小、头部朝向、光线、肤色或构图；最终头部空间、头身比、颈肩衔接、身体肤色、发丝/配饰遮挡和场景光影必须跟随图${referenceImageNumber}参考图。`
+      : "";
 
     const textPrompt = `你是顶级商业时尚摄影师和 AI 换装提示词工程师。请仔细分析所有图片，把系统预设提示词、用户风格补充和图片内容融合为一段最终可用的换装生成提示词。
 
@@ -108,6 +113,7 @@ ${roleStatement}
 - 图片顺序、图号含义、服装图/参考图/模特脸图的角色不得改写。
 - 可以优化摄影语言和服装细节，但不能把图号换成“第一张图/参考图片/人物图”等模糊说法。
 - ${clothingRefs.join("、")} 是服装图，只能作为服装硬参考；如果服装图是真人上身图，图中人物、脸、姿势、背景、房间、户外环境、光线、构图和镜头距离都不能作为最终画面参考。
+${faceFusionRule}
 
 【服装图隔离硬规则】
 ${TRYON_CLOTHING_IMAGE_ROLE_RULE}
@@ -121,7 +127,7 @@ ${userStyle || "无"}
 【输出维度】
 1. 任务：说明将${clothingRefs.join("、")}的服装穿到最终人物身上，图号和${clothingMode === "multi" ? "上装/下装搭配关系" : "单件服装关系"}必须保留。
 2. 服装还原：详细描述品类、版型、廓形、颜色、面料、纹理、图案、纽扣/拉链/口袋/刺绣/印花/缝线等细节，不要编造图中没有的配饰。
-3. 人物主体：${model_face_url ? `脸部严格使用图${faceImageNumber}的五官、肤色、发型和气质` : "自然真实的人物，符合商业服装摄影审美"}
+3. 人物主体：${model_face_url ? reference_url ? `脸部身份来自图${faceImageNumber}，但头部姿态、头部大小、颈肩衔接、身体肤色、光线方向、曝光和阴影必须跟随图${referenceImageNumber}，像同一张照片自然融合` : `脸部严格使用图${faceImageNumber}的五官、肤色、发型和气质` : "自然真实的人物，符合商业服装摄影审美"}
 4. 姿态和场景：${poseRule}
 5. 拍摄设备：根据风格选择合适的相机镜头参数（如 medium format camera, 85mm f/1.4）
 6. 光线和质感：主光、辅光、轮廓光、景深、焦点、真实皮肤、毛孔、自然瑕疵、不过度磨皮、真实布料褶皱。
@@ -201,6 +207,7 @@ ${userStyle || "无"}
         hasReference: !!reference_url,
         hasModelFace: !!model_face_url,
         referenceImageNumber,
+        faceImageNumber,
       });
       logger.info("[analyze] 提示词生成完成, 长度:", checked.prompt.length);
       return NextResponse.json({
@@ -270,6 +277,7 @@ function enforcePromptRequirements(
     hasReference?: boolean;
     hasModelFace?: boolean;
     referenceImageNumber?: number;
+    faceImageNumber?: number;
   } = {}
 ) {
   let nextPrompt = prompt.trim().replace(/\s+/g, " ");
@@ -295,7 +303,10 @@ function enforcePromptRequirements(
       garmentAudience: audience.garmentAudience,
       ageGroup: audience.ageGroup,
       garmentCategory: audience.garmentCategory,
+      hasReference: audience.hasReference,
       hasModelFace: audience.hasModelFace,
+      referenceImageNumber: audience.referenceImageNumber,
+      modelFaceImageNumber: audience.faceImageNumber,
     }
   );
   if (enforcedPrompt !== nextPrompt) {
@@ -326,7 +337,9 @@ function buildFallbackPrompt(params: {
     ? `优先保持图${params.referenceImageNumber}参考图的背景场景、构图角度、光影方向、人物姿势和身体比例，允许服装为真实贴合产生自然褶皱和遮挡调整。`
     : "Clean seamless light grey studio background, minimalist aesthetic, natural single-person fashion photography composition.";
   const faceText = params.hasModelFace
-    ? `最终人物脸部严格替换为图${params.faceImageNumber}的模特脸，保持五官、肤色、发型和气质一致。`
+    ? params.hasReference
+      ? `最终脸部身份来自图${params.faceImageNumber}模特脸，但图${params.faceImageNumber}不提供最终头部比例、姿态、光线或肤色基准；头部大小、头部朝向、视线方向、颈肩衔接、光线方向、色温、曝光、阴影和身体肤色连续性必须跟随图${params.referenceImageNumber}参考图，让脸、颈部、胸口、手臂和手部像同一张照片自然拍摄，不要证件照式正脸、贴上去的头、长脖子、肤色断层或不同图层光影。`
+      : `最终人物脸部严格替换为图${params.faceImageNumber}的模特脸，保持五官、肤色、发型和气质一致，并维持真实头部大小、颈部衔接和自然光影。`
     : "Hyper-realistic skin texture, natural pores, smooth yet realistic dermis, natural skin tone with subtle imperfections.";
   const clothingDetail = params.clothingCount > 1
     ? `将${clothingText}的服装搭配成一套完整穿搭，保留每件服装的版型、颜色、材质、图案、纹理和细节（纽扣/拉链/口袋/刺绣/印花等），服装自然贴合人体，布料褶皱真实。`
@@ -352,7 +365,10 @@ function buildFallbackPrompt(params: {
       garmentAudience: params.garmentAudience,
       ageGroup: params.ageGroup,
       garmentCategory: params.garmentCategory,
+      hasReference: params.hasReference,
       hasModelFace: params.hasModelFace,
+      referenceImageNumber: params.referenceImageNumber,
+      modelFaceImageNumber: params.faceImageNumber,
     }
   );
 }

@@ -2590,6 +2590,13 @@
   line-height: 1;
 }
 
+.studio-result-reference-thumb .studio-result-reference-label {
+  z-index: 2;
+  min-width: 100%;
+  border-radius: 0;
+  text-align: center;
+}
+
 .studio-result-card {
   border: 1px solid rgba(255, 255, 255, 0.82);
   border-radius: 14px;

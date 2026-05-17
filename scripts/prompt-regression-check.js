@@ -125,7 +125,7 @@ const singleTryOn = lingya.buildTryOnPrompt({
 }).prompt;
 assertIncludes(singleTryOn, "use image 1 only as clothing source", "单件英文精简提示");
 assertIncludes(singleTryOn, "replace the outfit on the person in image 2 with the clothing from image 1", "单件英文精简提示");
-assertIncludes(singleTryOn, "Strict role lock: image 1 = clothing source ONLY; image 2 = target body / pose / composition / background ONLY", "单件角色锁定");
+assertIncludes(singleTryOn, "Strict role lock: image 1 = clothing source ONLY; image 2 = target body / pose / head placement / composition / background / lighting / skin continuity ONLY", "单件角色锁定");
 assertIncludes(singleTryOn, "Do not mix roles under any circumstance", "单件角色锁定");
 assertIncludes(singleTryOn, "Clothing source isolation - HARD", "单件服装源隔离");
 assertIncludes(singleTryOn, "do NOT reuse identity, face, skin, body shape, pose", "单件服装源隔离");
@@ -148,13 +148,13 @@ const multiTryOn = lingya.buildTryOnPrompt({
 }).prompt;
 assertIncludes(multiTryOn, "use image 1 and image 2 only as clothing sources", "多件英文精简提示");
 assertIncludes(multiTryOn, "replace the outfit on the person in image 3 with the clothing from image 1 and image 2", "多件英文精简提示");
-assertIncludes(multiTryOn, "use the face from image 4", "多件英文极简提示");
-assertIncludes(multiTryOn, "Strict role lock: image 1 = upper clothing source ONLY; image 2 = lower clothing source ONLY; image 3 = target body / pose / composition / background ONLY; image 4 = face identity ONLY", "多件角色锁定");
+assertIncludes(multiTryOn, "adapt only the recognizable face identity from image 4", "多件英文极简提示");
+assertIncludes(multiTryOn, "Strict role lock: image 1 = upper clothing source ONLY; image 2 = lower clothing source ONLY; image 3 = target body / pose / head placement / composition / background / lighting / skin continuity ONLY; image 4 = face identity ONLY, not head pose, head scale, lighting, or final skin color", "多件角色锁定");
 assertIncludes(multiTryOn, "Multi-garment rule: image 1 = upper-body garment; image 2 = lower-body garment", "多件服装动态规则");
-assertIncludes(multiTryOn, "image 4 is the final face identity ONLY", "多件模特脸动态规则");
-assertIncludes(multiTryOn, "Fully replace the target facial identity with image 4", "多件模特脸覆盖规则");
-assertIncludes(multiTryOn, "Conflict priority: face identity = image 4; clothing = image 1 and image 2; body/pose/composition/background = image 3", "多件优先级规则");
-assertIncludes(multiTryOn, "never fall back to identity from image 1 and image 2 or image 3", "多件失败处理规则");
+assertIncludes(multiTryOn, "Use image 4 only for recognizable identity", "多件模特脸动态规则");
+assertIncludes(multiTryOn, "do not perform a hard face swap", "多件模特脸覆盖规则");
+assertIncludes(multiTryOn, "Conflict priority: facial identity = image 4; head pose, gaze, expression intensity, head scale, neck/shoulder connection, lighting, final skin color, body/pose/composition/background = image 3; clothing = image 1 and image 2", "多件优先级规则");
+assertIncludes(multiTryOn, "keep image 3's original head box, head turn, body skin tone, light/shadow, pose, and scene", "多件失败处理规则");
 assertNotIncludes(multiTryOn, "如果有参考图", "多件参考图不使用条件句");
 assertNotIncludes(multiTryOn, "如果有模特脸图", "多件模特脸不使用条件句");
 

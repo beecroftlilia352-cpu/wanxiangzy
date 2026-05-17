@@ -42,7 +42,7 @@ export const TRYON_MATERIAL_RULE =
   "材质重量规则：根据服装图判断面料厚度、硬挺或柔软程度、弹性、垂坠重量、透明度、光泽和织物纹理；生成时必须让布料褶皱、边缘厚度、阴影和反光符合真实材质，不要把厚面料变薄、软面料变硬或把哑光面料变成亮面。";
 
 export const TRYON_SKIN_TONE_RULE =
-  "肤色规则：严格保留参考人物或模特脸图的自然肤色、肤色明暗、冷暖调、局部红润、阴影层次和真实皮肤质感；不要自动美白、不要雪白皮、不要冷白皮、不要过度提亮肤色，不要把亚洲肤色统一变成瓷白。";
+  "肤色规则：有参考人物时，以参考人物身体可见皮肤为最终肤色和光影基准，脸、颈部、胸口、手臂、手部的冷暖调、明暗、反光和阴影必须连续；无参考人物时才使用模特脸图的自然肤色范围。不要自动美白、不要雪白皮、不要冷白皮、不要过度提亮肤色，不要把亚洲肤色统一变成瓷白。";
 
 export const TRYON_BODY_PROPORTION_RULE =
   "体态比例规则：人物身体比例、头身比、肩颈宽度、躯干长度、腰胯比例、四肢长度和脚下接触点必须真实稳定；有全身参考图时，身体骨架、站姿尺度、镜头距离和人物占画面比例优先参考全身参考图；不要大头小身、短腿、玩偶感、Q版比例、过度瘦身、窄肩、夸张小腰或改变身体骨架。";
@@ -62,13 +62,15 @@ export function buildTryOnReferencePrompt(referenceImageNumber?: number) {
 }
 
 export const TRYON_FACE_RULE =
-  "模特脸规则：模特脸图是唯一脸部身份参考，最终人物脸部身份必须使用模特脸图的五官、肤色、发型、脸型倾向和气质；模特脸图只提供脸部身份、肤色、发型和气质，不提供身体比例、年龄身高、头部大小、肩宽、四肢长度、服装、姿势、背景或构图；最终头部大小必须与目标年龄段身体自然匹配，不要因为头像参考变成大头、短腿、无依据小孩身材或玩偶比例；儿童/青少年服装的脸部和身体都必须保持对应年龄段自然比例，不要成人化或成熟妆容；不要把服装图或参考图中的脸误当成最终身份，不要自动改成标准鹅蛋脸、小V脸或雪白皮。";
+  "模特脸规则：模特脸图只提供最终脸部身份、五官结构、脸型倾向、发型气质和可识别身份特征，不提供身体比例、年龄身高、头部大小、肩宽、四肢长度、服装、姿势、背景、构图、光线或最终肤色基准；有参考人物时，头部大小、头部朝向、头身比、颈肩衔接、身体肤色、光影和镜头透视必须跟随参考人物。不要把模特脸硬贴到身体上，不要证件照式换脸，不要大头、长脖子、肤色断层、不同图层光影、过度磨皮、小V脸或雪白皮。";
 
 type TryOnPromptContext = {
   garmentAudience?: TryOnGarmentAudience;
   ageGroup?: TryOnAgeGroup;
   garmentCategory?: TryOnGarmentCategory;
+  hasReference?: boolean;
   hasModelFace?: boolean;
+  referenceImageNumber?: number;
   modelFaceImageNumber?: number;
 };
 
@@ -154,6 +156,11 @@ export function buildTryOnFacePrompt(params: TryOnPromptContext = {}) {
       ? `青少年${genderLabel}`
       : `成人${genderLabel}`;
   const faceRef = params.modelFaceImageNumber ? `图${params.modelFaceImageNumber}模特脸图` : "模特脸图";
+  const referenceRef = params.referenceImageNumber ? `图${params.referenceImageNumber}参考图` : "参考图";
+
+  if (params.hasReference) {
+    return `模特脸规则（融合）：${faceRef}只提供最终脸部身份、五官结构、脸型倾向和发型气质；${referenceRef}是最终人物的头部姿态和身体融合基准，必须保持${referenceRef}的头部位置、头部朝向、视线方向、表情强度、头部大小、头身比、颈肩衔接、镜头距离、光线方向、色温、曝光、阴影层次和可见身体肤色。最终效果不是硬换脸，而是把${faceRef}的可识别身份自然重建到${referenceRef}原本的头部空间里；如果${faceRef}与${referenceRef}冲突，优先服从${referenceRef}的头部比例、皮肤冷暖调、明暗反光、发丝遮挡、配饰遮挡和场景光影。脸、颈部、胸口、手臂、手部等可见皮肤必须像同一张照片里连续拍摄，保留毛孔、轻微瑕疵、局部红润和真实阴影；不要证件照式正脸、贴上去的头、面具边缘、不同图层光影、头过大/过小、长脖子、肤色断层、过度磨皮、小V脸或雪白皮。最终年龄感必须与${targetIdentity}身体自然匹配，不要把服装图或参考图中的脸误当成最终身份。`;
+  }
 
   return `模特脸规则：${faceRef}是唯一脸部身份参考，最终人物脸部身份必须使用该图的五官、肤色、发型、脸型倾向和气质；${faceRef}只提供脸部身份、肤色、发型和气质，不提供身体比例、服装、姿势、背景或构图。最终头部大小和年龄感必须与${targetIdentity}身体自然匹配，不要把服装图或参考图中的脸误当成最终身份，不要自动改成标准鹅蛋脸、小V脸或雪白皮。`;
 }

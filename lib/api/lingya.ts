@@ -339,7 +339,7 @@ export async function batchTryOn(input: BatchTryOnInput): Promise<{ resultUrls: 
     hasReference: !!input.referenceUrl,
     style: input.style,
   });
-  const finalPrompt = prompt;
+  const finalPrompt = input.raw_prompt?.trim() || prompt;
 
   const imageInputs = [
     ...input.clothingUrls,
@@ -1297,7 +1297,9 @@ export function buildTryOnPrompt(params: {
     garmentAudience: params.garmentAudience,
     ageGroup: params.ageGroup,
     garmentCategory: params.garmentCategory,
+    hasReference: params.hasReference,
     hasModelFace: params.hasModelFace,
+    referenceImageNumber,
     modelFaceImageNumber: faceImageNumber,
   });
   const negativeRule = buildTryOnNegativePrompt({
@@ -1385,7 +1387,7 @@ function buildConciseTryOnPrompt(params: {
   lines.push(buildConciseRoleLockRule(params));
 
   if (params.hasReference && params.hasModelFace) {
-    lines.push(`Task: use ${clothingSource} only as ${sourceNoun}; replace the outfit on the person in ${targetRef} with the clothing from ${clothingSource}; keep ${targetRef}'s pose/body/background/camera/framing/lighting; use the face from ${faceRef}.`);
+    lines.push(`Task: use ${clothingSource} only as ${sourceNoun}; replace the outfit on the person in ${targetRef} with the clothing from ${clothingSource}; keep ${targetRef}'s pose/body/head placement/background/camera/framing/lighting/skin continuity; adapt only the recognizable face identity from ${faceRef}.`);
   } else if (params.hasReference) {
     lines.push(`Task: use ${clothingSource} only as ${sourceNoun}; replace the outfit on the person in ${targetRef} with the clothing from ${clothingSource}; keep ${targetRef}'s pose/body/background/camera/framing/lighting.`);
   } else if (params.hasModelFace) {
@@ -1403,7 +1405,11 @@ function buildConciseTryOnPrompt(params: {
   }
 
   if (params.hasModelFace) {
-    lines.push(`${faceRef} is the final face identity ONLY. Fully replace the target facial identity with ${faceRef}; do not keep target eyes, nose, lips, face shape, or identity; do not blend identities. Adapt ${faceRef} naturally to the target head angle, lighting, expression, and skin texture.`);
+    lines.push(buildConciseFaceIntegrationRule({
+      hasReference: params.hasReference,
+      targetRef,
+      faceRef,
+    }));
   }
 
   lines.push(buildConcisePriorityRule({
@@ -1458,10 +1464,10 @@ function buildConciseRoleLockRule(params: {
   });
 
   if (params.hasReference) {
-    roles.push(`image ${params.referenceImageNumber} = target body / pose / composition / background ONLY`);
+    roles.push(`image ${params.referenceImageNumber} = target body / pose / head placement / composition / background / lighting / skin continuity ONLY`);
   }
   if (params.hasModelFace) {
-    roles.push(`image ${params.faceImageNumber} = face identity ONLY`);
+    roles.push(`image ${params.faceImageNumber} = face identity ONLY, not head pose, head scale, lighting, or final skin color`);
   }
 
   return `Strict role lock: ${roles.join("; ")}. Do not mix roles under any circumstance.`;
@@ -1475,7 +1481,7 @@ function buildConcisePriorityRule(params: {
   faceRef: string;
 }) {
   if (params.hasReference && params.hasModelFace) {
-    return `Conflict priority: face identity = ${params.faceRef}; clothing = ${params.clothingSource}; body/pose/composition/background = ${params.targetRef}. No blending, no fallback, no reinterpretation.`;
+    return `Conflict priority: facial identity = ${params.faceRef}; head pose, gaze, expression intensity, head scale, neck/shoulder connection, lighting, final skin color, body/pose/composition/background = ${params.targetRef}; clothing = ${params.clothingSource}. No hard face-swap, no ID-photo face, no pasted-head look.`;
   }
 
   if (params.hasReference) {
@@ -1497,7 +1503,7 @@ function buildConciseFailureHandlingRule(params: {
   faceRef: string;
 }) {
   if (params.hasReference && params.hasModelFace) {
-    return `Failure handling: if anything is ambiguous, never fall back to identity from ${params.clothingSource} or ${params.targetRef}; face identity must stay from ${params.faceRef}, clothing accuracy from ${params.clothingSource}, and body/scene from ${params.targetRef}.`;
+    return `Failure handling: if anything is ambiguous, keep ${params.targetRef}'s original head box, head turn, body skin tone, light/shadow, pose, and scene; transfer only the recognizable identity from ${params.faceRef}; clothing accuracy stays from ${params.clothingSource}.`;
   }
 
   if (params.hasReference) {
@@ -1509,6 +1515,18 @@ function buildConciseFailureHandlingRule(params: {
   }
 
   return `Failure handling: if anything is ambiguous, use ${params.clothingSource} only for clothing and generate one neutral photorealistic model.`;
+}
+
+function buildConciseFaceIntegrationRule(params: {
+  hasReference: boolean;
+  targetRef: string;
+  faceRef: string;
+}) {
+  if (params.hasReference) {
+    return `Face integration rule: do not perform a hard face swap. Rebuild one coherent person in ${params.targetRef}'s existing head space. Use ${params.faceRef} only for recognizable identity, facial structure, and hairstyle character; keep ${params.targetRef}'s head box, head turn, gaze direction, expression intensity, head-to-body ratio, neck length, neck/shoulder connection, camera distance, lighting direction, exposure, color temperature, shadows, and final visible skin color. Match the face to ${params.targetRef}'s neck/chest/arms/hands with continuous undertone, brightness, reflected light, pores, subtle redness, and natural shadow falloff. If ${params.faceRef} conflicts with ${params.targetRef}, ${params.targetRef} wins for pose, scale, skin tone, light, hair/accessory occlusion, and perspective. No pasted head, ID-photo face, mask edge, mismatched skin, porcelain retouch, oversized head, long neck, separate lighting, or face-swap seam.`;
+  }
+
+  return `${params.faceRef} is the final face identity source. Use its facial structure, hair, natural skin tone, and expression style, while keeping a realistic head size, neck connection, lighting, and skin texture for one coherent commercial fashion photo.`;
 }
 
 function buildConciseSourceIsolationRule(clothingRefs: string[]) {

@@ -155,7 +155,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     resetOutput();
   }, [initialMode]);
 
-  function applyGeneralImageHistoryPayload(payload: GeneralImageHistoryPayload, historyResultUrls: string[] = []) {
+  function applyGeneralImageHistoryPayload(payload: GeneralImageHistoryPayload, historyResultUrls: string[] = [], options?: { silent?: boolean }) {
     setMode(payload.mode);
     setPrompt(payload.prompt);
     setAiModel(payload.aiModel);
@@ -172,7 +172,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     setIsGenerating(false);
     setError("");
     setProgress(historyResultUrls.length ? 100 : 0);
-    toast.success("已套用历史参数");
+    if (!options?.silent) toast.success("已套用历史参数");
   }
 
   useEffect(() => {
@@ -492,7 +492,9 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     try {
       const detail = await fetchHistoryApplyDetail(item.id, "generalImage", session.signal);
       if (!session.isCurrent()) return true;
-      applyGeneralImageHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : safeTaskQueueUrls(item.resultThumbnails));
+      applyGeneralImageHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : safeTaskQueueUrls(item.resultThumbnails), {
+        silent: session.reason === "restore",
+      });
       return true;
     } catch (err) {
       if (session.signal.aborted || !session.isCurrent()) return true;

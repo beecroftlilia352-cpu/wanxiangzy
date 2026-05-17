@@ -168,7 +168,7 @@ export default function GrassPage() {
     if (!nextSizes.includes(imageSize)) setImageSize(nextSizes[0]);
   }, [aiModel, aspectRatio, imageSize]);
 
-  function applyGrassHistoryPayload(payload: GrassHistoryPayload, historyResultUrls: string[] = []) {
+  function applyGrassHistoryPayload(payload: GrassHistoryPayload, historyResultUrls: string[] = [], options?: { silent?: boolean }) {
     setGarmentUrl(payload.garmentUrl);
     setTemplateId(normalizeGrassTemplate(payload.templateId));
     const nextSceneMode = normalizeGrassSceneMode(payload.sceneMode || (payload.referenceUrl ? "upload_reference" : "system_reference"));
@@ -191,7 +191,7 @@ export default function GrassPage() {
     setIsGenerating(false);
     setProgress(historyResultUrls.length ? 100 : 0);
     setError("");
-    toast.success("已套用历史参数");
+    if (!options?.silent) toast.success("已套用历史参数");
   }
 
   useEffect(() => {
@@ -449,7 +449,9 @@ export default function GrassPage() {
     try {
       const detail = await fetchHistoryApplyDetail(item.id, "grass", session.signal);
       if (!session.isCurrent()) return true;
-      applyGrassHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : safeTaskQueueUrls(item.resultThumbnails));
+      applyGrassHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : safeTaskQueueUrls(item.resultThumbnails), {
+        silent: session.reason === "restore",
+      });
       return true;
     } catch (err) {
       if (session.signal.aborted || !session.isCurrent()) return true;

@@ -1,6 +1,7 @@
 import type { TaskQueueItem, TaskQueueSummary, TaskStatusGroup } from "@/lib/task-queue";
 import { safeTaskQueueUrls } from "@/lib/task-queue";
 import { normalizeGenerationState } from "@/lib/api/generation-state";
+import { getTryOnInputReferenceUrls } from "@/lib/tryon-input-references";
 
 export const TASK_QUEUE_ITEM_TTL_SECONDS = 60 * 60 * 24 * 30;
 export const TASK_QUEUE_SUMMARY_TTL_SECONDS = 60 * 5;
@@ -381,6 +382,18 @@ export function isTaskQueueIndexMissingError(error: { code?: string; message?: s
 
 function extractGenerationInputThumbnails(row: TaskQueueGenerationSourceRow): string[] {
   const payload = row.job_payload || {};
+  if (payload.kind === "tryon") {
+    return getTryOnInputReferenceUrls({
+      clothingUrls: arrayOfStrings(payload.clothingUrls).length
+        ? arrayOfStrings(payload.clothingUrls)
+        : row.clothing_urls,
+      clothingMode: stringValue(payload.clothingMode),
+      clothingRoles: Array.isArray(payload.clothingRoles) ? payload.clothingRoles : undefined,
+      referenceUrl: stringValue(payload.referenceUrl) || row.reference_url,
+      modelFaceUrl: stringValue(payload.modelFaceUrl) || row.model_face_url,
+    });
+  }
+
   return uniqueStrings([
     ...arrayOfStrings(row.clothing_urls),
     row.reference_url,

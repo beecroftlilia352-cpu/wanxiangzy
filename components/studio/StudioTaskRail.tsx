@@ -68,6 +68,8 @@ export function StudioTaskRail({
   const loadInFlightRef = useRef(false);
   const autoSelectSignatureRef = useRef("");
   const runningSelectionRef = useRef<string | null>(null);
+  const localSelectionRef = useRef<string | null>(null);
+  const initialSelectionSettledRef = useRef(false);
   const handledRefreshVersionRef = useRef(0);
   const {
     pendingId: applyingId,
@@ -155,6 +157,8 @@ export function StudioTaskRail({
 
   useEffect(() => {
     handledRefreshVersionRef.current = 0;
+    localSelectionRef.current = null;
+    initialSelectionSettledRef.current = false;
     hydrateModule(module);
   }, [hydrateModule, module]);
 
@@ -199,20 +203,45 @@ export function StudioTaskRail({
   const initialLoading = !hasLoaded && rows.length === 0;
 
   useEffect(() => {
-    if (!onSelectTask || selectedId === TASK_QUEUE_CONTINUE_ID) return;
+    if (initialSelectionSettledRef.current) return;
+    if (selectedId === TASK_QUEUE_CONTINUE_ID) {
+      initialSelectionSettledRef.current = true;
+      return;
+    }
+    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).has("apply")) {
+      initialSelectionSettledRef.current = true;
+      return;
+    }
+    if (!hasLoaded && rows.length === 0) return;
+
+    initialSelectionSettledRef.current = true;
+    if (localSelectionRef.current === selectedId) return;
+    autoSelectSignatureRef.current = "";
+    runningSelectionRef.current = null;
+    clearSelectedTask(module);
+    onContinue?.();
+  }, [clearSelectedTask, hasLoaded, module, onContinue, rows.length, selectedId]);
+
+  useEffect(() => {
+    if (!onSelectTask || selectedId === TASK_QUEUE_CONTINUE_ID) {
+      autoSelectSignatureRef.current = "";
+      runningSelectionRef.current = null;
+      return;
+    }
+    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).has("apply")) return;
     const selected = rows.find((item) => item.id === selectedId);
     if (!selected) return;
 
     const running = isTaskRunning(selected);
     const shouldNotifyCompletion = runningSelectionRef.current === selected.id && !running;
-    if (running || !shouldNotifyCompletion) return;
-
     const signature = getTaskSelectionSignature(selected);
+    if (running || !shouldNotifyCompletion) return;
     if (signature === autoSelectSignatureRef.current) return;
+
     autoSelectSignatureRef.current = signature;
     runningSelectionRef.current = null;
 
-    const session = beginSelection(selected.id);
+    const session = beginSelection(selected.id, "completion");
     void Promise.resolve(onSelectTask(selected, session))
       .catch((error) => {
         if (!session.isCurrent()) return;
@@ -223,12 +252,13 @@ export function StudioTaskRail({
   }, [beginSelection, rows, onSelectTask, selectedId]);
 
   const handleSelect = (item: TaskQueueItem) => {
+    localSelectionRef.current = item.id;
     autoSelectSignatureRef.current = getTaskSelectionSignature(item);
     runningSelectionRef.current = isTaskRunning(item) ? item.id : null;
     setSelectedTask(module, item.id);
     if (!onSelectTask) return;
 
-    const session = beginSelection(item.id);
+    const session = beginSelection(item.id, "manual");
     void Promise.resolve(onSelectTask(item, session))
       .catch((error) => {
         if (!session.isCurrent()) return;
@@ -242,6 +272,7 @@ export function StudioTaskRail({
     cancelSelection();
     autoSelectSignatureRef.current = "";
     runningSelectionRef.current = null;
+    localSelectionRef.current = null;
     clearSelectedTask(module);
     onContinue?.();
   };

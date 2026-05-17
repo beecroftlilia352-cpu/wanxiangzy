@@ -184,7 +184,7 @@ export default function Garment3dPage() {
     if (!nextSizes.includes(imageSize)) setImageSize(nextSizes[0]);
   }, [aiModel, aspectRatio, imageSize]);
 
-  function applyGarment3dHistoryPayload(payload: Garment3dHistoryPayload, historyResultUrls: string[] = []) {
+  function applyGarment3dHistoryPayload(payload: Garment3dHistoryPayload, historyResultUrls: string[] = [], options?: { silent?: boolean }) {
     setGarmentUrl(payload.garmentUrl);
     setGarmentName("历史服装图");
     setGarmentType(
@@ -210,7 +210,7 @@ export default function Garment3dPage() {
     setIsGenerating(false);
     setProgress(historyResultUrls.length ? 100 : 0);
     setError(null);
-    toast.success("已套用历史参数");
+    if (!options?.silent) toast.success("已套用历史参数");
   }
 
   useEffect(() => {
@@ -531,7 +531,9 @@ export default function Garment3dPage() {
     try {
       const detail = await fetchHistoryApplyDetail(item.id, "garment3d", session.signal);
       if (!session.isCurrent()) return true;
-      applyGarment3dHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : safeTaskQueueUrls(item.resultThumbnails));
+      applyGarment3dHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : safeTaskQueueUrls(item.resultThumbnails), {
+        silent: session.reason === "restore",
+      });
       return true;
     } catch (err) {
       if (session.signal.aborted || !session.isCurrent()) return true;

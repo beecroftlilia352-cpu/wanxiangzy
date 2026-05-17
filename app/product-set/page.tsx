@@ -498,7 +498,7 @@ export default function ProductSetPage() {
     setProgress(0);
   }
 
-  function applyProductSetHistoryPayload(applyPayload: ProductSetHistoryPayload, historyResultUrls: string[] = []) {
+  function applyProductSetHistoryPayload(applyPayload: ProductSetHistoryPayload, historyResultUrls: string[] = [], options?: { silent?: boolean }) {
     const appliedImageType = applyPayload.imageType === "details" ? "details" : "main";
     const nextSettings = { ...DEFAULT_SETTINGS, ...(applyPayload.settings || {}) };
     const nextMode = applyPayload.mode === "custom" ? "custom" : "smart";
@@ -543,7 +543,7 @@ export default function ProductSetPage() {
     setProgress(historyResultUrls.length ? 100 : 0);
     setIsGenerating(false);
     setRegeneratingIndex(null);
-    toast.success("已套用历史商品套图参数");
+    if (!options?.silent) toast.success("已套用历史商品套图参数");
   }
 
   function resetAnalysisPlan(source: ProductAnalysisSource = productInfo.trim() ? "manual" : "idle", message = "") {
@@ -1383,7 +1383,9 @@ export default function ProductSetPage() {
     try {
       const detail = await fetchHistoryApplyDetail(item.id, "productSet", session.signal);
       if (!session.isCurrent()) return true;
-      applyProductSetHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : safeTaskQueueUrls(item.resultThumbnails));
+      applyProductSetHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : safeTaskQueueUrls(item.resultThumbnails), {
+        silent: session.reason === "restore",
+      });
       return true;
     } catch (err) {
       if (session.signal.aborted || !session.isCurrent()) return true;
