@@ -373,14 +373,16 @@ async function runClaimedJob(
       : await persistGeneratedImageUrls(execution.resultUrls, job.id, {
         forceServerDownload: isSeedreamPayload(payload),
       });
-    const quality = await evaluateGeneratedImages({
-      userPrompt: getPayloadPrompt(payload),
-      module: payload.kind,
-      resultUrls: persistedResultUrls,
-      expectedCount: getExpectedResultCount(payload),
-      referenceImageUrls: getPayloadReferenceImages(payload),
-    });
-    const repaired = quality.shouldRegenerate && shouldAutoRegenerate(payload, job)
+    const quality = shouldSkipVisualQualityEvaluation(payload)
+      ? createSkippedVisualQualityEvaluation(payload)
+      : await evaluateGeneratedImages({
+        userPrompt: getPayloadPrompt(payload),
+        module: payload.kind,
+        resultUrls: persistedResultUrls,
+        expectedCount: getExpectedResultCount(payload),
+        referenceImageUrls: getPayloadReferenceImages(payload),
+      });
+    const repaired = !shouldSkipVisualQualityEvaluation(payload) && quality.shouldRegenerate && shouldAutoRegenerate(payload, job)
       ? await regenerateForQuality(supabase, job, payload, quality, partialPromptTrace)
       : null;
     if (quality.shouldRegenerate && !repaired && !isAutoRegenerationEnabled()) {
@@ -681,7 +683,6 @@ async function executePayload(
   };
   const executeParallelImageBatch = async (params: {
     count: number;
-    serial?: boolean;
     promptKind: string | ((index: number) => string);
     run: (index: number, onTaskProgress: (progress: ImageTaskProgress) => Promise<void>) => Promise<ParallelImageRunResult>;
   }): Promise<GenerationExecutionResult> => {
@@ -749,13 +750,7 @@ async function executePayload(
       }
     };
 
-    if (params.serial) {
-      for (let index = 0; index < expectedCount; index++) {
-        await runOne(index);
-      }
-    } else {
-      await Promise.all(Array.from({ length: expectedCount }, async (_, index) => runOne(index)));
-    }
+    await Promise.all(Array.from({ length: expectedCount }, async (_, index) => runOne(index)));
 
     await progressQueue;
     const resultUrls = getCompletedResultUrls();
@@ -780,7 +775,6 @@ async function executePayload(
     });
     return executeParallelImageBatch({
       count: payload.genCount,
-      serial: isNanoBananaPayload(payload),
       promptKind: "tryon",
       run: async (index, onTaskProgress) => {
         const result = await batchTryOn({
@@ -797,8 +791,6 @@ async function executePayload(
           image_size: payload.imageSize,
           style: payload.style,
           raw_prompt: payload.rawPrompt,
-          candidateIndex: index,
-          candidateCount: payload.genCount,
           onProgress: onTaskProgress,
         });
         return {
@@ -1425,6 +1417,21 @@ function shouldAutoRegenerate(payload: GenerationJobPayload, job: ClaimedJob) {
   return meta.autoRegeneration?.performed !== true;
 }
 
+function shouldSkipVisualQualityEvaluation(payload: GenerationJobPayload) {
+  return payload.kind === "tryon";
+}
+
+function createSkippedVisualQualityEvaluation(payload: GenerationJobPayload): VisualQualityEvaluation {
+  return {
+    ok: true,
+    score: 1,
+    shouldRegenerate: false,
+    summary: payload.kind === "tryon" ? "服装上身已跳过自动视觉评估。" : "已跳过自动视觉评估。",
+    issues: [],
+    source: "deterministic",
+  };
+}
+
 function isAutoRegenerationEnabled() {
   return process.env.AGENT_VISUAL_AUTO_REGENERATE_ENABLED === "true";
 }
@@ -1721,10 +1728,6 @@ function getFirstRow(data: unknown): ClaimedJob | null {
 
 function isSeedreamPayload(payload: GenerationJobPayload) {
   return payload.aiModel.startsWith("doubao-seedream-");
-}
-
-function isNanoBananaPayload(payload: GenerationJobPayload) {
-  return payload.aiModel === "nano-banana-2" || payload.aiModel === "nano-banana-pro";
 }
 
 async function refundExhaustedJobs(supabase: ReturnType<typeof createAdminClient>) {

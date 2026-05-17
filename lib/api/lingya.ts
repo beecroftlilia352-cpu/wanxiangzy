@@ -148,8 +148,6 @@ interface BatchTryOnInput {
   image_size?: ImageSize;
   style?: string;
   raw_prompt?: string;
-  candidateIndex?: number;
-  candidateCount?: number;
   onProgress?: (update: ImageTaskProgress) => Promise<void> | void;
 }
 
@@ -341,8 +339,7 @@ export async function batchTryOn(input: BatchTryOnInput): Promise<{ resultUrls: 
     hasReference: !!input.referenceUrl,
     style: input.style,
   });
-  const basePrompt = input.raw_prompt?.trim() || prompt;
-  const finalPrompt = applyTryOnGenerationStabilityPrompt(basePrompt, input);
+  const finalPrompt = input.raw_prompt?.trim() || prompt;
 
   const imageInputs = [
     ...input.clothingUrls,
@@ -366,45 +363,6 @@ export async function batchTryOn(input: BatchTryOnInput): Promise<{ resultUrls: 
   }
 
   return { resultUrls: [resultUrl], prompt: finalPrompt, compiledPrompt: result.compiledPrompt || finalPrompt, taskId: result.taskId };
-}
-
-function applyTryOnGenerationStabilityPrompt(prompt: string, input: BatchTryOnInput) {
-  const lines = [prompt.trim()];
-  const candidateCount = Math.max(1, Math.floor(Number(input.candidateCount || 1)));
-  const candidateIndex = Math.max(0, Math.floor(Number(input.candidateIndex || 0)));
-  const hasFixedCanvas = Boolean(input.referenceUrl);
-  const multiCandidate = candidateCount > 1;
-
-  if (hasFixedCanvas) {
-    lines.push([
-      "Production stability lock:",
-      "Treat every output as a local edit of the same fixed target canvas, not a new fashion shoot.",
-      "Keep the target image's camera distance, lens perspective, crop rectangle, floor line, background boundaries, person scale, head-to-body ratio, shoulder width, neck length, limb length, hand size, leg length, foot/boot scale, visible body range, and negative space unchanged.",
-      "If the target image is full body, every output must remain full body with the same feet/boots visibility and the same top/bottom margins; do not zoom to half-body or crop off boots.",
-      "The head must stay the same size as the target head relative to the body; no oversized head, doll head, tiny body, short legs, stretched torso, or catalog-model reshoot.",
-      "Invalid output: a different model, different ethnicity/body, different pose family, different background, different floor, different camera angle, different crop, different framing, or a standalone studio photo.",
-    ].join(" "));
-  }
-
-  if (multiCandidate) {
-    lines.push([
-      `Candidate consistency: this is output ${candidateIndex + 1} of ${candidateCount}.`,
-      "All candidates must look like the same edited source photo with the same person identity, same body proportions, same pose, same camera, same framing, same background, and same lower outfit.",
-      "Do not create a diverse set of models, poses, crops, scenes, or camera distances; only tiny natural fabric-drape/contact-shadow differences are allowed.",
-    ].join(" "));
-  }
-
-  if (isNanoBananaModel(input.model)) {
-    lines.push([
-      "Nano-Banana strict edit mode:",
-      "Prioritize reference-image geometry over creative generation.",
-      "Do not reinterpret the task as a new model photo.",
-      "Reject any candidate that changes the target canvas crop, zoom, body scale, head scale, floor line, boots visibility, skin/body type, or background.",
-      "The final image must be a conservative fixed-base clothing edit with stable 3:4 framing.",
-    ].join(" "));
-  }
-
-  return lines.filter(Boolean).join("\n");
 }
 
 function buildGenerateRequestBody(input: GenerateInput, compiledPrompt: string): Record<string, any> {
@@ -1528,9 +1486,7 @@ function buildFixedBaseTryOnPrompt(params: {
     `Edit the face identity area too: replace ${params.targetRef}'s original facial identity with ${params.faceRef}'s recognizable identity while preserving ${params.targetRef}'s expression, head geometry, skin tone, makeup style, and lighting.`,
     `Keep ${params.targetRef} unchanged for body shape, pose, head position, head pose, head size, gaze, facial expression, skin tone, makeup style, background, floor, lighting, shadows, camera angle, framing, lower-body clothing, shoes, legs, hands, and accessories.`,
     `Discard ${params.targetRef}'s original facial identity. Do not leave the face unchanged. Every generated candidate must use ${params.faceRef}'s identity.`,
-    "Camera/framing/proportion lock:",
-    `Keep ${params.targetRef}'s exact camera distance, lens perspective, crop rectangle, person scale, floor line, top/bottom margins, visible body range, head-to-body ratio, shoulder width, neck length, limb length, hand size, foot/boot scale, and background boundaries.`,
-    `If ${params.targetRef} is full body, the final output must stay full body with the same feet/boots visibility; do not zoom in, crop to half-body, crop off boots, enlarge the head, shrink the body, shorten the legs, stretch the torso, or create a new studio-photo framing.`,
+    `Fixed-canvas geometry: keep ${params.targetRef}'s camera distance, crop, person scale, head-to-body ratio, floor line, and visible feet unchanged.`,
     "Clothing rule:",
     `${params.clothingSource} ${params.clothingRefs.length === 1 ? "is" : "are"} not a person reference. Do not copy any model, body, face, pose, skin, lighting, background, or scene from ${params.clothingSource}. Extract only the sourced garment material.`,
     "Preserve source clothing accurately: garment type, silhouette, color, pattern, logo/text, fabric texture, neckline, sleeves, hem, pockets, buttons, zippers, seams, layers, length, and visible construction details.",
