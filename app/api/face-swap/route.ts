@@ -18,6 +18,7 @@ import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 import {
   buildFaceSwapPrompt,
   enforceFaceSwapPromptRequirements,
+  getFaceSwapUserPromptFromPayload,
   normalizeFaceSwapCount,
 } from "@/lib/face-swap";
 
@@ -50,8 +51,9 @@ export async function POST(request: NextRequest) {
     const imageSize: ImageSize = normalizeImageSize(model, body.image_size as ImageSize | undefined, aspectRatio);
     const genCount = normalizeFaceSwapCount(body.gen_count);
     const textureEnhance = body.texture_enhance === true;
+    const userPrompt = typeof body.prompt === "string" ? body.prompt.trim() : "";
     const prompt = enforceFaceSwapPromptRequirements(buildFaceSwapPrompt(
-      typeof body.prompt === "string" ? body.prompt : "",
+      userPrompt,
       textureEnhance,
     ));
     const costPerImage = getCreditCost(model, imageSize, aspectRatio);
@@ -65,6 +67,7 @@ export async function POST(request: NextRequest) {
       aiModel: model,
       aspectRatio,
       imageSize,
+      userPrompt,
       prompt,
       genCount,
       textureEnhance,
@@ -147,6 +150,7 @@ async function handleActiveFaceSwapGet() {
         error: data.error_message,
         sourceUrl: typeof payload?.sourceUrl === "string" ? payload.sourceUrl : "",
         faceUrl: typeof payload?.faceUrl === "string" ? payload.faceUrl : "",
+        userPrompt: getFaceSwapUserPromptFromPayload(payload || {}),
         textureEnhance: payload?.textureEnhance === true,
       },
     });

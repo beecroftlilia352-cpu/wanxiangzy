@@ -11,7 +11,7 @@ import {
 import { useTryOnStore } from "@/lib/store/tryon-store";
 import { fileToBase64, MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { setCachedProfileCredits } from "@/lib/supabase/client";
-import { getCreditCost, getSupportedImageSizes, buildTryOnPrompt, type LingyaModel, type ImageSize, type AspectRatio } from "@/lib/api/lingya";
+import { getCreditCost, getSupportedImageSizes, buildTryOnPrompt, isNanoBananaModel, type LingyaModel, type ImageSize, type AspectRatio } from "@/lib/api/lingya";
 import { toast } from "sonner";
 import { RepairPromptPanel } from "@/components/RepairPromptPanel";
 import { ModelPromptPreview } from "@/components/ModelPromptPreview";
@@ -115,6 +115,7 @@ const TRYON_STATUS_FETCH_TIMEOUT_MS = 8_000;
 const TRYON_STATUS_HIDDEN_POLL_MS = 30_000;
 const TRYON_STATUS_QUEUE_REFRESH_MS = 20_000;
 const activeTryOnStatusWatchers = new Map<string, AbortController>();
+const TRYON_FACE_MODEL_BANANA_NOTICE = "已选择模特脸时，Banana 暂不可用。建议用 GPT-Image-2 直接融合；如果想用 Banana 的换装效果，先不选模特图完成换装，再到换脸模块处理脸部。";
 
 function createPlaceholderFile(name: string) {
   return new File([], name, { type: "image/jpeg" });
@@ -172,7 +173,7 @@ export default function CreatePage() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadingClothingRoles, setUploadingClothingRoles] = useState<TryOnClothingRole[]>([]);
   const [aiModel, setAiModel] = useState<LingyaModel>("gpt-image-2");
-  const [aspectRatio, setAspectRatio] = useState<AspectRatio>("3:4");
+  const [aspectRatio, setAspectRatio] = useState<AspectRatio>("auto");
   const [imageSize, setImageSize] = useState<ImageSize>("1K");
   const [customStyle, setCustomStyle] = useState("");
   const [optimizing, setOptimizing] = useState(false);
@@ -247,6 +248,12 @@ export default function CreatePage() {
   const aspects = aiModel === "gpt-image-2" ? GPT_ASPECTS : BANANA_ASPECTS;
   const imageSizes = getSupportedImageSizes(aiModel, aspectRatio);
   const effectiveReferenceUrl = sceneMode === "auto_design" ? null : store.referenceImage?.url || null;
+  const hasModelFace = Boolean(store.selectedModel?.image_url);
+  const isBananaDisabledByModelFace = hasModelFace;
+  const selectableModels = MODELS.map((model) => ({
+    ...model,
+    disabled: isBananaDisabledByModelFace && isNanoBananaModel(model.value),
+  }));
   const isCurrentReferenceFavorited = Boolean(
     store.referenceImage?.url && favoriteReferences.some((item) => item.url === store.referenceImage?.url)
   );
@@ -265,6 +272,7 @@ export default function CreatePage() {
   const upperClothing = clothingItems.find((item) => item.role === "upper");
   const lowerClothing = clothingItems.find((item) => item.role === "lower");
   const singleClothing = clothingItems[0] || null;
+  const selectedReferencePreviewUrl = customRefPreview || store.referenceImage?.url || "";
   const openLightbox = (src: string, alt: string) => {
     setLightboxImage({ src, alt });
   };
@@ -515,6 +523,12 @@ export default function CreatePage() {
     const nextImageSizes = getSupportedImageSizes(aiModel, aspectRatio);
     if (!nextImageSizes.includes(imageSize)) setImageSize(nextImageSizes[0]);
   }, [aiModel, aspectRatio, imageSize]);
+
+  useEffect(() => {
+    if (!hasModelFace || !isNanoBananaModel(aiModel)) return;
+    setAiModel("gpt-image-2");
+    toast.info(TRYON_FACE_MODEL_BANANA_NOTICE);
+  }, [aiModel, hasModelFace]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1151,14 +1165,40 @@ export default function CreatePage() {
     if (isTaskRunning(item)) {
       const expectedCount = clampTaskExpectedCount(item, 1, 4);
       const partialResultUrls = safeTaskQueueUrls(item.resultThumbnails);
+      const progress = Math.min(Math.max(Math.round(Number(item.progress) || 10), 1), 99);
       activeGenerationRef.current = item.id;
       setActiveQueueTask(item);
       setGenCount(expectedCount);
       store.startGeneration();
       if (partialResultUrls.length) store.setPartialResult(partialResultUrls);
-      store.updateProgress(item.progress || 10);
-      void watchGeneration(item.id, expectedCount);
-      selection.finish();
+      store.updateProgress(progress);
+      try {
+        const detail = await fetchHistoryApplyDetail(item.id, "tryon", selection.signal);
+        if (!selection.isCurrent()) return;
+        const nextExpectedCount = clampTaskExpectedCount(
+          { ...item, expectedCount: detail.payload.genCount },
+          1,
+          4,
+          expectedCount
+        );
+        const nextResultUrls = detail.resultUrls.length ? detail.resultUrls : partialResultUrls;
+        applyTryOnHistoryPayload(detail.payload, {
+          resultUrls: nextResultUrls,
+          selectedTask: item,
+          silent: true,
+        });
+        activeGenerationRef.current = item.id;
+        setActiveQueueTask(item);
+        store.startGeneration();
+        if (nextResultUrls.length) store.setPartialResult(nextResultUrls);
+        store.updateProgress(progress);
+        void watchGeneration(item.id, nextExpectedCount);
+      } catch {
+        if (selection.signal.aborted || !selection.isCurrent()) return;
+        void watchGeneration(item.id, expectedCount);
+      } finally {
+        selection.finish();
+      }
       return;
     }
 
@@ -1691,18 +1731,41 @@ export default function CreatePage() {
             {sceneMode === "upload_reference" && (
               <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50/70 p-3">
                 <input ref={customRefInputRef} type="file" accept="image/*" className="hidden" onChange={handleCustomRef} />
-                <button
-                  type="button"
-                  onClick={() => customRefInputRef.current?.click()}
-                  className="studio-fixed-upload-slot w-full rounded-xl border-2 border-dashed border-gray-200 bg-white hover:border-purple-300 flex flex-col items-center justify-center overflow-hidden transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
-                  style={{ "--studio-fixed-upload-height": "132px" } as CSSProperties}
-                  aria-label={(customRefPreview || store.referenceImage?.url) ? "更换上传参考图" : "上传参考图"}
-                >
-                  {(customRefPreview || store.referenceImage?.url)
-                    ? <img src={customRefPreview || store.referenceImage?.url} alt="已上传的参考图" className="h-full w-full object-contain p-2" />
-                    : <><Camera className="w-6 h-6 text-gray-300 mb-2" /><span className="text-xs text-gray-500">上传参考图</span><span className="text-[11px] text-gray-400 mt-1">用于锁定姿势、背景、构图和镜头</span></>
-                  }
-                </button>
+                {selectedReferencePreviewUrl ? (
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => openLightbox(selectedReferencePreviewUrl, "已上传的参考图")}
+                      className="studio-fixed-upload-slot group w-full rounded-xl border-2 border-dashed border-gray-200 bg-white hover:border-purple-300 flex flex-col items-center justify-center overflow-hidden transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+                      style={{ "--studio-fixed-upload-height": "132px" } as CSSProperties}
+                      aria-label="放大预览上传参考图"
+                    >
+                      <img src={selectedReferencePreviewUrl} alt="已上传的参考图" className="h-full w-full object-contain p-2" />
+                      <span className="absolute right-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-slate-600 shadow-sm transition group-hover:bg-white">
+                        <ZoomIn className="h-4 w-4" />
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => customRefInputRef.current?.click()}
+                      className="absolute bottom-2 right-2 z-10 rounded-full bg-white/92 px-3 py-1 text-[11px] font-bold text-slate-600 shadow-sm transition hover:bg-white hover:text-purple-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+                    >
+                      更换
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => customRefInputRef.current?.click()}
+                    className="studio-fixed-upload-slot w-full rounded-xl border-2 border-dashed border-gray-200 bg-white hover:border-purple-300 flex flex-col items-center justify-center overflow-hidden transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+                    style={{ "--studio-fixed-upload-height": "132px" } as CSSProperties}
+                    aria-label="上传参考图"
+                  >
+                    <Camera className="w-6 h-6 text-gray-300 mb-2" />
+                    <span className="text-xs text-gray-500">上传参考图</span>
+                    <span className="text-[11px] text-gray-400 mt-1">用于锁定姿势、背景、构图和镜头</span>
+                  </button>
+                )}
                 {store.referenceImage && (
                   <button
                     onClick={() => { store.setReferenceImage(null); setCustomRefPreview(null); setPromptOverride(null); }}
@@ -1796,6 +1859,16 @@ export default function CreatePage() {
                           store.referenceImage?.url === ref.url ? "border-purple-500 ring-1 ring-purple-200" : "border-transparent hover:border-gray-300"
                         }`}>
                         <ImgSkeleton src={ref.url} alt={`收藏参考图：${ref.label}`} className="w-full aspect-[3/4] object-cover" />
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); openLightbox(ref.url, `收藏参考图：${ref.label}`); }}
+                          onKeyDown={(e) => { e.stopPropagation(); }}
+                          className="absolute left-1 top-1 w-6 h-6 rounded-full bg-white/85 shadow-sm flex items-center justify-center opacity-100 transition-opacity hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
+                          aria-label={`预览收藏参考图：${ref.label}`}
+                          title={`预览收藏参考图：${ref.label}`}
+                        >
+                          <ZoomIn className="w-3 h-3 text-gray-500" />
+                        </button>
                         <button
                           type="button"
                           onClick={(e) => { e.stopPropagation(); removeFavoriteReference(ref.id); }}
@@ -1904,12 +1977,29 @@ export default function CreatePage() {
               <Sparkles className="w-4 h-4 text-purple-500" /> 生成模型
             </h3>
             <StudioModelSelector
-              models={MODELS}
+              models={selectableModels}
               value={aiModel}
-              onChange={setAiModel}
+              onChange={(value) => {
+                if (hasModelFace && isNanoBananaModel(value)) {
+                  toast.info(TRYON_FACE_MODEL_BANANA_NOTICE);
+                  return;
+                }
+                setAiModel(value);
+              }}
               ariaLabel="生成模型"
-              getMeta={(model) => `${model.desc} · 当前${getCreditCost(model.value, imageSize, aspectRatio)}分`}
+              getMeta={(model) => (
+                hasModelFace && isNanoBananaModel(model.value)
+                  ? "带模特脸时暂不可用"
+                  : `${model.desc} · 当前${getCreditCost(model.value, imageSize, aspectRatio)}分`
+              )}
             />
+            {hasModelFace && (
+              <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-5 text-amber-800">
+                已选择模特脸，Banana 会临时关闭。当前推荐用 GPT-Image-2 做“参考图 + 模特脸”融合；如果想保留 Banana 的换装质感，先取消模特脸完成换装，再去
+                <a href="/face-swap" className="mx-1 font-bold text-amber-900 underline decoration-amber-400 underline-offset-2">换脸模块</a>
+                替换脸部。
+              </div>
+            )}
           </section>
 
           {/* ---- 比例 ---- */}

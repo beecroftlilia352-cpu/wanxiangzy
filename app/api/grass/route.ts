@@ -5,7 +5,7 @@ import { createDebitedGeneration, errorToResponsePayload } from "@/lib/api/credi
 import { startGenerationJob, type GenerationJobPayload } from "@/lib/api/generation-jobs";
 import { handleGenerationStatusGet } from "@/lib/api/generation-status";
 import { getPublicBaseUrlFromRequest } from "@/lib/api/image-inputs.server";
-import { buildGrassPrompt, DEFAULT_GRASS_USER_PROMPT, enforceGrassPromptRequirements, normalizeGrassSceneBackgroundMode, normalizeGrassSceneMode, normalizeGrassTemplate } from "@/lib/grass-planting";
+import { buildGrassPrompt, enforceGrassPromptRequirements, normalizeGrassSceneBackgroundMode, normalizeGrassSceneMode, normalizeGrassTemplate } from "@/lib/grass-planting";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 
 export const maxDuration = 60;
@@ -32,9 +32,7 @@ export async function POST(request: NextRequest) {
     const size: ImageSize = normalizeImageSize(model, (typeof body.image_size === "string" ? body.image_size : "1K") as ImageSize, aspectRatio);
     const genCount = Math.min(Math.max(Number(body.gen_count) || 1, 1), 4);
     const templateId = normalizeGrassTemplate(body.template_id);
-    const userPrompt = typeof body.user_prompt === "string" && body.user_prompt.trim()
-      ? body.user_prompt
-      : DEFAULT_GRASS_USER_PROMPT;
+    const userPrompt = typeof body.user_prompt === "string" ? body.user_prompt.trim() : "";
     const changeModel = body.change_model !== false;
     const sceneMode = normalizeGrassSceneMode(body.scene_mode);
     const sceneBackgroundMode = normalizeGrassSceneBackgroundMode(body.scene_background_mode);

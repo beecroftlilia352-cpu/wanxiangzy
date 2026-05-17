@@ -1149,6 +1149,13 @@
   background: #fff;
 }
 
+.studio-model-option:disabled {
+  cursor: not-allowed;
+  border-color: rgb(229, 231, 235);
+  background: rgba(248, 250, 252, 0.72);
+  opacity: 0.58;
+}
+
 .studio-model-option-selected {
   border-color: rgba(91, 124, 255, 0.48) !important;
   background: rgba(91, 124, 255, 0.1) !important;

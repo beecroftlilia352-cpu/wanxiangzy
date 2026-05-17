@@ -27,7 +27,6 @@ import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize
 import { applyRepairPrompt } from "@/lib/generation-repair";
 import {
   buildGrassPrompt,
-  DEFAULT_GRASS_USER_PROMPT,
   GRASS_PROMPT_REFERENCES,
   GRASS_TEMPLATES,
   GRASS_UPLOAD_RULE,
@@ -92,7 +91,7 @@ export default function GrassPage() {
   const [uploadedReferenceUrl, setUploadedReferenceUrl] = useState("");
   const [uploadedReferenceName, setUploadedReferenceName] = useState("");
   const [changeModel, setChangeModel] = useState(true);
-  const [userPrompt, setUserPrompt] = useState(DEFAULT_GRASS_USER_PROMPT);
+  const [userPrompt, setUserPrompt] = useState("");
   const [supplementPrompt, setSupplementPrompt] = useState("");
   const [aiModel, setAiModel] = useState<LingyaModel>("nano-banana-2");
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("3:4");
@@ -189,7 +188,7 @@ export default function GrassPage() {
     setUploadedReferenceName(payload.referenceUrl ? "历史参考图" : "");
     setChangeModel(payload.changeModel);
     if (nextSceneMode === "custom_prompt") {
-      setUserPrompt(payload.userPrompt || DEFAULT_GRASS_USER_PROMPT);
+      setUserPrompt(payload.userPrompt || "");
       setSupplementPrompt("");
     } else {
       setSupplementPrompt(payload.userPrompt || "");
@@ -221,7 +220,7 @@ export default function GrassPage() {
     setUploadedReferenceName(payload.referenceUrl ? "历史参考图" : "");
     setChangeModel(payload.changeModel);
     if (nextSceneMode === "custom_prompt") {
-      setUserPrompt(payload.userPrompt || DEFAULT_GRASS_USER_PROMPT);
+      setUserPrompt(payload.userPrompt || "");
       setSupplementPrompt("");
     } else {
       setSupplementPrompt(payload.userPrompt || "");
@@ -475,10 +474,29 @@ export default function GrassPage() {
   }
 
   function handleContinueCreate() {
+    setGarmentUrl("");
+    setGarmentName("");
+    setTemplateId("street");
+    setSceneMode("system_reference");
+    setSceneBackgroundMode("reference_scene");
+    setUploadedReferenceUrl("");
+    setUploadedReferenceName("");
+    setChangeModel(true);
+    setUserPrompt("");
+    setSupplementPrompt("");
+    setAiModel("nano-banana-2");
+    setAspectRatio("3:4");
+    setImageSize("1K");
+    setGenCount(1);
+    setPromptOverride(null);
     setIsGenerating(false);
     setProgress(0);
     setResultUrls([]);
     setError("");
+    setShowPromptPreview(false);
+    setLightboxSrc(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    if (referenceInputRef.current) referenceInputRef.current.value = "";
   }
 
   async function handleOptimizeGenerationPrompt() {
@@ -766,7 +784,7 @@ export default function GrassPage() {
               <StudioOptionGrid
                 options={[
                   { value: "reference_scene" as const, label: "沿用参考场景", description: "保持现有效果" },
-                  { value: "similar_style" as const, label: "AI 重构相似场景", description: "同风格不照搬" },
+                  { value: "similar_style" as const, label: "AI 重构相似场景", description: "保留滤镜氛围" },
                 ]}
                 value={sceneBackgroundMode}
                 onChange={(value) => { setSceneBackgroundMode(value); setPromptOverride(null); }}

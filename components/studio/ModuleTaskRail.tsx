@@ -45,6 +45,9 @@ export function ModuleTaskRail({
   const handleSelectTask = async (item: TaskQueueItem, session: TaskSelectionSession) => {
     if (isTaskRunning(item)) {
       await onRunningTask?.(item, session);
+      const applied = await applyTask(item, session);
+      if (!session.isCurrent()) return;
+      if (applied) await onRunningTask?.(item, session);
       return;
     }
 

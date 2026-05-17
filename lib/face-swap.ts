@@ -40,6 +40,7 @@ export const FACE_SWAP_NOTE =
   "Swap Face only changes facial features. It does not change the model's skin tone or hairstyle.";
 
 export const DEFAULT_FACE_SWAP_PROMPT = [
+  "Use image 1 as the fixed base photo. Only perform a local facial-identity edit; do not recreate, reframe, beautify, or generate a new photo.",
   "Image 1 is the original model photo and the target canvas. Image 2 is the target face identity reference.",
   "Replace only the inner facial identity of the person in image 1 with the identity from image 2.",
   "Keep image 1 unchanged for body, pose, head angle, gaze direction, facial expression, hairstyle, hair color, skin tone, neck, body proportions, clothing, accessories, background, camera angle, framing, lighting, and commercial photography quality.",
@@ -68,6 +69,34 @@ export function buildFaceSwapPrompt(extra?: string, textureEnhance = false) {
   return parts.join("\n\n");
 }
 
+export function isFaceSwapSystemPrompt(value: string) {
+  const normalized = value.trim();
+  if (!normalized) return false;
+  return [
+    "Image 1 is the original model photo and the target canvas.",
+    "Image 2 is the target face identity reference.",
+    "Replace only the inner facial identity",
+    "Hard rule: image 1 is the target canvas",
+  ].some((marker) => normalized.includes(marker));
+}
+
+export function getFaceSwapUserPromptFromPayload(payload: { prompt?: unknown; userPrompt?: unknown }) {
+  if (typeof payload.userPrompt === "string") return payload.userPrompt.trim();
+
+  const storedPrompt = typeof payload.prompt === "string" ? payload.prompt.trim() : "";
+  if (!storedPrompt) return "";
+
+  const marker = "User extra instruction:";
+  const markerIndex = storedPrompt.lastIndexOf(marker);
+  if (markerIndex >= 0) {
+    const extraBlock = storedPrompt.slice(markerIndex + marker.length).trim();
+    const hardRuleIndex = extraBlock.search(/\n\s*Hard rule:/);
+    return (hardRuleIndex >= 0 ? extraBlock.slice(0, hardRuleIndex) : extraBlock).trim();
+  }
+
+  return isFaceSwapSystemPrompt(storedPrompt) ? "" : storedPrompt;
+}
+
 export function enforceFaceSwapPromptRequirements(prompt: string) {
   const normalized = prompt.trim() || DEFAULT_FACE_SWAP_PROMPT;
   const required = [
@@ -94,6 +123,7 @@ export type FaceSwapApiPayload = {
   aiModel: LingyaModel;
   aspectRatio: AspectRatio;
   imageSize: ImageSize;
+  userPrompt?: string;
   prompt: string;
   genCount: number;
   textureEnhance?: boolean;

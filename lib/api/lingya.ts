@@ -377,28 +377,28 @@ export async function batchTryOn(input: BatchTryOnInput): Promise<{ resultUrls: 
 
 export function applyTryOnRequestPrompt(prompt: string, input: TryOnRequestPromptOptions) {
   const lines = [prompt.trim()];
-  if (isNanoBananaModel(input.model)) {
-    lines.push(buildNanoBananaTryOnDirective(input));
-  }
+  lines.push(buildTryOnPhotoFinishDirective(input));
   const candidateDirective = buildTryOnCandidateDirective(input);
   if (candidateDirective) lines.push(candidateDirective);
   return lines.filter(Boolean).join("\n");
 }
 
-function buildNanoBananaTryOnDirective(input: TryOnRequestPromptOptions) {
-  const roles = [
-    "clothing images provide garment only",
-    input.referenceUrl ? "the target reference provides body, pose family, scene, expression, skin tone, makeup, lighting, camera style, and proportions" : "",
-    input.modelFaceUrl ? "the face reference provides identity and feature proportions only" : "",
-  ].filter(Boolean).join("; ");
+function buildTryOnPhotoFinishDirective(input: TryOnRequestPromptOptions) {
+  if (input.referenceUrl) {
+    return [
+      "Reference-based photo finish:",
+      "Use the target reference as the photography style source.",
+      "Replicate its shadow design: cast-shadow direction, shadow length, edge softness, density, wall/floor shadow geometry, body shadow placement, and contact-shadow intensity.",
+      "Inherit its light direction, light hardness, color temperature, contrast curve, shadow shape, highlight rolloff, exposure, white balance, lens perspective, depth of field, texture/noise level, and filter/color mood.",
+      "Make the reference filter/color mood visibly present in the final image while preserving true garment color; you may subtly polish clarity and shadow depth, but do not apply a new generic fashion filter or a different color grade.",
+      "Keep garment colors, logos/text, fabric texture, face identity, skin tone continuity, and body proportions accurate; no heavy beauty filter, no poster layout, no added text, no washed-out skin, no color-shifted clothing.",
+    ].join(" ");
+  }
 
   return [
-    "Nano Banana try-on mode:",
-    "Do image-guided try-on editing, not a new model shoot.",
-    `Read roles literally: ${roles}.`,
-    "Face result: rebuild the face identity and blend it into the target head with target expression, skin tone, makeup, light direction, shadows, and neck/arm skin continuity.",
-    "Proportion guard: keep natural adult head-to-body ratio and body scale close to the target; avoid big head, tiny body, long neck, short legs, distorted shoulders, or changed body type.",
-    "Allow variation only in garment fit, folds, hem, contact shadows, and tiny natural body/hand relaxation; no new person, no new background, no pasted face.",
+    "Photo finish:",
+    "Use a clean natural fashion-photo finish with believable light, accurate white balance, real camera lens perspective, and subtle texture.",
+    "Keep garment colors, logos/text, fabric texture, face identity, skin tone continuity, and body proportions accurate; no heavy beauty filter, no poster layout, no added text, no washed-out skin, no color-shifted clothing.",
   ].join(" ");
 }
 
@@ -421,10 +421,10 @@ function buildTryOnCandidateDirective(input: TryOnRequestPromptOptions) {
   ];
   const variant = variants[index % variants.length];
   const gptExpression = input.model === "gpt-image-2"
-    ? ` For GPT candidate variation, avoid identical facial expressions across candidates; use a subtle natural micro-expression within the target emotion: ${expressionVariants[index % expressionVariants.length]}.`
+    ? ` For GPT candidate variation, avoid identical facial expressions; use a subtle natural micro-expression within the target emotion: ${expressionVariants[index % expressionVariants.length]}.`
     : "";
 
-  return `Candidate ${index + 1}/${count}: create a distinct but consistent try-on variation, not a near-duplicate. Keep the same facial identity, natural face integration, adult proportions, target pose family, general camera/framing, background, lower outfit, and sourced garment design; vary garment fit, folds, hem, contact shadows, and small natural body/hand relaxation as ${variant}.${gptExpression}`;
+  return `Candidate ${index + 1}/${count}: create a distinct but consistent try-on variation, not a near-duplicate. Keep the same facial identity, natural face integration, adult proportions, target pose family, general camera/framing, background, lower outfit, sourced garment design, and reference-derived photography mood; vary garment fit, folds, hem, contact shadows, and small natural body/hand relaxation as ${variant}.${gptExpression}`;
 }
 
 function buildGenerateRequestBody(input: GenerateInput, compiledPrompt: string): Record<string, any> {
@@ -1234,7 +1234,7 @@ function normalizeLaozhangAspectRatio(value?: AspectRatio): string {
   return value && value !== "auto" ? value : "1:1";
 }
 
-function isNanoBananaModel(model: LingyaModel): boolean {
+export function isNanoBananaModel(model: LingyaModel): boolean {
   return model === "nano-banana-2" || model === "nano-banana-pro";
 }
 
@@ -1547,7 +1547,7 @@ function buildFixedBaseTryOnPrompt(params: {
     buildFixedBaseReplacementTask(params),
     `Reconstruct the final face using ${params.faceRef}'s recognizable identity and facial feature proportions, while adapting it to ${params.targetRef}'s expression, skin tone, makeup, head angle, lighting, and camera perspective.`,
     `Do not preserve ${params.targetRef}'s original facial identity. Every generated candidate must use ${params.faceRef}'s identity.`,
-    `Keep natural adult proportions and a realistic head-to-body ratio close to ${params.targetRef}; avoid oversized head, tiny body, long neck, short legs, distorted shoulders, or changed body type.`,
+    `Keep natural adult proportions and a realistic head-to-body ratio close to ${params.targetRef}; favor a reference-realistic, slightly conservative head scale rather than beauty-enlarged head proportions; avoid oversized head, tiny body, long neck, short legs, distorted shoulders, or changed body type.`,
     `Keep the overall camera distance, framing style, background, floor, and non-sourced outfit areas close to ${params.targetRef}, while allowing natural variation in garment fit, folds, hem shape, contact shadows, fabric drape, and small body/hand relaxation.`,
     "Clothing rule:",
     `${params.clothingSource} ${params.clothingRefs.length === 1 ? "is" : "are"} not a person reference. Do not copy any model, body, face, pose, skin, lighting, background, or scene from ${params.clothingSource}. Extract only the sourced garment material.`,

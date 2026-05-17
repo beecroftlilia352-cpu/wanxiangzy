@@ -5,7 +5,7 @@ import type { TryOnAgeGroup, TryOnGarmentAudience } from "@/lib/tryon-prompt";
 const SITE_ASSET_BASE = "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original";
 
 export const PRESET_MODELS = [
-  { id: "m0", name: "自然", image_url: `${SITE_ASSET_BASE}/models/model-natural-smile.jpg`, gender: "female" as const },
+  { id: "m0", name: "自然", image_url: `${SITE_ASSET_BASE}/models/preset-model-soft-wind-20260518.png`, gender: "female" as const },
   { id: "m1", name: "甜妹", image_url: `${SITE_ASSET_BASE}/models/model-18542-0875a4d282bb.jpg`, gender: "female" as const },
   { id: "m2", name: "优雅", image_url: `${SITE_ASSET_BASE}/models/model-22921-89d4664cd1b0.jpg`, gender: "female" as const },
   { id: "m3", name: "红裙", image_url: `${SITE_ASSET_BASE}/models/model-26829-dca5c791efa8.jpg`, gender: "female" as const },
@@ -15,7 +15,7 @@ export const PRESET_MODELS = [
 ];
 
 export const PRESET_REFERENCES = [
-  { id: "r1", url: `${SITE_ASSET_BASE}/references/reference-108513-b6db713a5d2f.jpg`, label: "白T街头", category: "scene" as const },
+  { id: "r1", url: `${SITE_ASSET_BASE}/references/preset-reference-sun-shadow-20260518.png`, label: "白T街头", category: "scene" as const },
   { id: "r10", url: `${SITE_ASSET_BASE}/references/reference-white-top-denim-shorts.jpg`, label: "奢牌白底", category: "style" as const },
   { id: "r2", url: `${SITE_ASSET_BASE}/references/reference-56020-dc1aa74e5515.jpg`, label: "黑蕾丝夜景", category: "style" as const },
   { id: "r3", url: `${SITE_ASSET_BASE}/references/reference-23353-c281a160d01d.jpg`, label: "白衫桥边", category: "style" as const },

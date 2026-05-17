@@ -20,6 +20,7 @@ import { ClientPortal } from "@/components/ClientPortal";
 import { ModuleHeader } from "@/components/ModuleHeader";
 import { PreviewGuide } from "@/components/PreviewGuide";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
+import { ModelPromptPreview } from "@/components/ModelPromptPreview";
 import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
 import { useStudioAuth } from "@/components/studio/useStudioAuth";
 import type { TaskSelectionSession } from "@/components/studio/useTaskSelectionSession";
@@ -34,6 +35,7 @@ import {
   FACE_SWAP_NOTE,
   FACE_SWAP_SAMPLE_IMAGES,
   buildFaceSwapPrompt,
+  getFaceSwapUserPromptFromPayload,
   normalizeFaceSwapCount,
 } from "@/lib/face-swap";
 import {
@@ -83,6 +85,7 @@ type ActiveFaceSwapJob = {
   resultUrls: string[];
   progress: number;
   status: GenerationStatus;
+  userPrompt?: string;
   textureEnhance?: boolean;
 };
 
@@ -105,10 +108,11 @@ export default function FaceSwapPage() {
   const [sourceUrl, setSourceUrl] = useState("");
   const [faceUrl, setFaceUrl] = useState("");
   const [aiModel, setAiModel] = useState<LingyaModel>("nano-banana-2");
-  const [aspectRatio, setAspectRatio] = useState<AspectRatio>("3:4");
+  const [aspectRatio, setAspectRatio] = useState<AspectRatio>("auto");
   const [imageSize, setImageSize] = useState<ImageSize>("1K");
   const [genCount, setGenCount] = useState(1);
   const [prompt, setPrompt] = useState("");
+  const [showPromptPreview, setShowPromptPreview] = useState(false);
   const [textureEnhance, setTextureEnhance] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [genderFilter, setGenderFilter] = useState<GenderFilter>("female");
@@ -174,7 +178,7 @@ export default function FaceSwapPage() {
       setAiModel(payload.aiModel);
       setAspectRatio(payload.aspectRatio);
       setImageSize(payload.imageSize);
-      setPrompt(payload.prompt);
+      setPrompt(getFaceSwapUserPromptFromPayload(payload));
       setGenCount(normalizeFaceSwapCount(payload.genCount));
       setTextureEnhance(Boolean(payload.textureEnhance));
       setResultUrls(detail.resultUrls);
@@ -216,7 +220,7 @@ export default function FaceSwapPage() {
     setAiModel(payload.aiModel);
     setAspectRatio(payload.aspectRatio);
     setImageSize(payload.imageSize);
-    setPrompt(payload.prompt);
+    setPrompt(getFaceSwapUserPromptFromPayload(payload));
     setGenCount(normalizeFaceSwapCount(payload.genCount));
     setTextureEnhance(Boolean(payload.textureEnhance));
     setResultUrls(historyResultUrls);
@@ -319,6 +323,7 @@ export default function FaceSwapPage() {
         setResultUrls(job.resultUrls || []);
         setProgress(job.progress || 0);
         setTextureEnhance(Boolean(job.textureEnhance));
+        setPrompt(getFaceSwapUserPromptFromPayload(job));
         setStatus("running");
         pollGeneration(job.generationId, true);
       } catch {
@@ -695,22 +700,30 @@ export default function FaceSwapPage() {
             description="补充说明会附加到系统提示词中，影响最终生成效果。"
           />
 
-          <details className="hidden rounded-2xl border border-slate-100 bg-white p-3">
-            <summary className="flex cursor-pointer list-none items-center gap-2 text-sm font-black text-slate-800">
-              <Settings2 className="h-4 w-4 text-emerald-600" />
-              高级提示词
-            </summary>
-            <StudioPromptTextarea
-              value={prompt}
-              onChange={(event) => setPrompt(event.target.value)}
-              rows={5}
-              className="mt-3 studio-prompt-textarea-compact"
-              placeholder="可选：补充保留眼镜、雀斑、配饰、冷感表情等细节。默认模板已锁定只换五官身份，不换肤色/发型/表情/配饰。"
+          <div className="-mt-2 flex justify-end">
+            <button
+              type="button"
+              onClick={() => setShowPromptPreview((value) => !value)}
+              className="studio-button studio-tone-neutral studio-button-compact"
+            >
+              <Settings2 className="h-3.5 w-3.5" />
+              完整提示词
+            </button>
+          </div>
+
+          {showPromptPreview && (
+            <ModelPromptPreview
+              kind="faceSwap"
+              model={aiModel}
+              prompt={finalPrompt}
+              onClose={() => setShowPromptPreview(false)}
+              metadata={{
+                模型: aiModel,
+                比例: aspectRatio,
+                分辨率: imageSizeValue,
+              }}
             />
-            <div className="mt-2 rounded-xl bg-slate-50 p-3 text-[11px] leading-relaxed text-slate-500">
-              {finalPrompt.slice(0, 360)}...
-            </div>
-          </details>
+          )}
         </div>
 
         <StudioRunBar

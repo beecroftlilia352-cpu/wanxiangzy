@@ -6,7 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { logger } from "@/lib/logger";
-import { getCreditCost, normalizeAspectRatio, normalizeImageSize, normalizeLingyaModel, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
+import { getCreditCost, isNanoBananaModel, normalizeAspectRatio, normalizeImageSize, normalizeLingyaModel, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
 import {
   createDebitedGeneration,
   errorToResponsePayload,
@@ -58,8 +58,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "图片参数无效" }, { status: 400 });
     }
 
-    const model: LingyaModel = normalizeLingyaModel(ai_model);
-    const aspectRatio = normalizeAspectRatio(aspect_ratio);
+    const hasExplicitAiModel = typeof ai_model === "string" && ai_model.trim().length > 0;
+    const model: LingyaModel = model_face_url && !hasExplicitAiModel
+      ? "gpt-image-2"
+      : normalizeLingyaModel(ai_model);
+    if (model_face_url && isNanoBananaModel(model)) {
+      return NextResponse.json({
+        error: "已选择模特脸时，服装上身暂不支持 Banana 模型。请改用 GPT-Image-2；如果想用 Banana 的换装效果，建议先不选模特图完成换装，再到换脸模块处理脸部。",
+      }, { status: 400 });
+    }
+    const aspectRatio = normalizeAspectRatio(aspect_ratio, "auto");
     const size: ImageSize = normalizeImageSize(model, image_size || "1K", aspectRatio);
     const costPerImage = getCreditCost(model, size, aspectRatio);
     const totalCost = costPerImage * genCount;

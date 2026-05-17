@@ -34,9 +34,6 @@ export type GrassPromptReference = {
   text: string;
 };
 
-export const DEFAULT_GRASS_USER_PROMPT =
-  "改变模特、背景、构图、姿势，保持服装与穿搭单品不变。\n模特：【年轻女性模特】。\n姿势：【自然的街拍动作，正面朝向镜头】。\n背景：【午后阳光斑驳的时尚街区或充满格调的咖啡店门口】。";
-
 export const GRASS_PROMPT_REFERENCES: GrassPromptReference[] = [
   {
     title: "通勤质感",
@@ -194,7 +191,7 @@ function buildGrassHardRule(params: {
 
   const referenceRule = params.hasReference && params.sceneMode !== "custom_prompt"
     ? sceneBackgroundMode === "similar_style"
-      ? "图2只作为场景风格参考：提取场景类型、空间层次、光线方向、色彩倾向、镜头、构图节奏、姿势气质和社媒氛围；AI 必须重新生成同类但不同的背景场景，不要复刻图2的具体地点、店招文字、建筑外观、室内陈设、墙面图案、地标、品牌标识或可识别版权元素。不要复制图2的人物、脸、发型、肤色、主体服装、鞋子和整套穿搭。"
+      ? "图2只作为场景风格参考：提取场景类型、空间层次、光线方向、阴影软硬、色彩滤镜、曝光反差、相机质感、镜头、构图节奏、姿势气质和社媒氛围；AI 必须重新生成同类但不同的背景场景，不要复刻图2的具体地点、店招文字、建筑外观、室内陈设、墙面图案、地标、品牌标识或可识别版权元素。不要复制图2的人物、脸、发型、肤色、主体服装、鞋子和整套穿搭。"
       : "图2只参考场景、背景空间、光线、色彩、镜头、构图、姿势和社媒氛围；不要复制图2的人物、脸、发型、肤色、主体服装、鞋子和整套穿搭。可按图1风格添加少量自然配饰，但不能遮挡服装卖点。"
     : "没有图2参考图时，场景和拍摄氛围只根据模板或用户文字生成。";
 
@@ -239,7 +236,7 @@ export function buildGrassPrompt(params: {
     sceneBackgroundMode,
   });
   const trimmedUserPrompt = params.userPrompt.trim();
-  const userPrompt = isCustom ? trimmedUserPrompt || DEFAULT_GRASS_USER_PROMPT : trimmedUserPrompt;
+  const userPrompt = trimmedUserPrompt;
   const modelRule = isCustom
     ? "用户自定义模式不追加固定模特规则；模特、背景、构图和姿势以用户自定义文字提示词为准。"
     : params.changeModel
@@ -254,11 +251,11 @@ export function buildGrassPrompt(params: {
     ? `系统预设风格（必须执行）：${template.name}。${template.prompt} 输出必须明显呈现该预设的摄影风格、色彩倾向、光线质感、镜头语言和社媒氛围；图2是该预设的视觉参考，文字预设和图2需要共同生效。`
     : !isCustom && params.sceneMode === "upload_reference"
     ? useSimilarScene
-      ? "上传参考图风格（必须执行）：以图2的场景类型、姿势气质、构图节奏、镜头距离、光线方向、色彩和照片氛围为准，但背景必须由 AI 重新设计为相似风格的新场景，不额外套用系统预设模板风格。"
+      ? "上传参考图风格（必须执行）：以图2的场景类型、姿势气质、构图节奏、镜头距离、光线方向、阴影形状、色彩滤镜、曝光反差和照片氛围为准，但背景必须由 AI 重新设计为相似风格的新场景，不额外套用系统预设模板风格。"
       : "上传参考图风格（必须执行）：以图2的姿势、场景、构图、背景、镜头距离、光线方向和照片氛围为准，不额外套用系统预设模板风格。"
     : "";
   const sceneBackgroundRule = useSimilarScene
-    ? "场景控制：生成与图2同风格、同氛围、同拍摄语言的相似场景，但不要一比一复刻图2背景；需要重新组合空间、道具、背景元素和光影细节，避免出现图2相同的店名、招牌文字、地标、建筑立面、墙面装饰、室内陈设、品牌标识或可识别版权元素。"
+    ? "场景控制：生成与图2同风格、同氛围、同拍摄语言的相似场景；保留图2的滤镜观感、光影方向、阴影软硬、明暗反差和相机质感，但不要一比一复刻图2背景。重新组合空间、道具、背景元素和光影细节，避免出现图2相同的店名、招牌文字、地标、建筑立面、墙面装饰、室内陈设、品牌标识或可识别版权元素。"
     : params.hasReference && !isCustom
     ? "场景控制：参考图可以直接决定场景、背景空间、光线、构图和社媒氛围。"
     : "";
@@ -268,7 +265,7 @@ export function buildGrassPrompt(params: {
         ? `参考执行：提取图2的“${template.name}”摄影风格与场景气质，生成同类但不同的背景；服装和穿搭只来自图1。`
         : `参考执行：画面氛围接近图2，并呈现“${template.name}”风格；服装和穿搭只来自图1。`
       : useSimilarScene
-      ? "参考执行：场景类型、姿势气质、构图节奏、镜头距离、光线和照片氛围接近图2，但背景细节、地点、招牌、陈设和可识别元素必须重新生成；服装和穿搭只来自图1。"
+      ? "参考执行：场景类型、姿势气质、构图节奏、镜头距离、光线、阴影、滤镜和照片氛围接近图2，但背景细节、地点、招牌、陈设和可识别元素必须重新生成；服装和穿搭只来自图1。"
       : "参考执行：场景、姿势、构图、镜头距离、光线和照片氛围接近图2；服装和穿搭只来自图1。"
     : !isCustom
     ? `系统模板执行：${template.prompt}`

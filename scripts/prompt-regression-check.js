@@ -213,7 +213,16 @@ const gptRuntimePrompt = lingya.applyTryOnRequestPrompt("BASE", {
   referenceUrl: "target.jpg",
   modelFaceUrl: "face.jpg",
 });
-assertIncludes(gptRuntimePrompt, "For GPT candidate variation, avoid identical facial expressions across candidates", "gpt-image-2 candidate expression variation");
+assertIncludes(gptRuntimePrompt, "Reference-based photo finish:", "tryon photo finish directive");
+assertIncludes(gptRuntimePrompt, "Use the target reference as the photography style source.", "tryon reference photo finish");
+assertIncludes(gptRuntimePrompt, "Replicate its shadow design: cast-shadow direction, shadow length, edge softness, density", "tryon reference shadow replication");
+assertIncludes(gptRuntimePrompt, "Inherit its light direction, light hardness, color temperature", "tryon reference camera finish");
+assertIncludes(gptRuntimePrompt, "Make the reference filter/color mood visibly present in the final image", "tryon visible reference filter");
+assertIncludes(gptRuntimePrompt, "do not apply a new generic fashion filter or a different color grade", "tryon no generic filter");
+assertIncludes(multiTryOn, "favor a reference-realistic, slightly conservative head scale", "tryon head scale control");
+assertIncludes(gptRuntimePrompt, "Keep garment colors, logos/text, fabric texture, face identity, skin tone continuity, and body proportions accurate", "tryon finish safeguards");
+assertIncludes(gptRuntimePrompt, "For GPT candidate variation, avoid identical facial expressions", "gpt-image-2 candidate expression variation");
+assertIncludes(gptRuntimePrompt, "reference-derived photography mood", "tryon candidate keeps reference mood");
 assertNotIncludes(gptRuntimePrompt, "Nano Banana try-on mode", "gpt-image-2 no banana directive");
 
 const nanoRuntimePrompt = lingya.applyTryOnRequestPrompt("BASE", {
@@ -223,9 +232,9 @@ const nanoRuntimePrompt = lingya.applyTryOnRequestPrompt("BASE", {
   referenceUrl: "target.jpg",
   modelFaceUrl: "face.jpg",
 });
-assertIncludes(nanoRuntimePrompt, "Nano Banana try-on mode", "nano-banana dedicated directive");
-assertIncludes(nanoRuntimePrompt, "Do image-guided try-on editing, not a new model shoot.", "nano-banana dedicated directive");
-assertIncludes(nanoRuntimePrompt, "Proportion guard: keep natural adult head-to-body ratio", "nano-banana proportion guard");
+assertIncludes(nanoRuntimePrompt, "Reference-based photo finish:", "nano-banana also uses reference photo finish");
+assertNotIncludes(nanoRuntimePrompt, "Nano Banana try-on mode", "nano-banana uses common tryon prompt");
+assertNotIncludes(nanoRuntimePrompt, "Proportion guard:", "nano-banana uses common tryon prompt");
 assertNotIncludes(nanoRuntimePrompt, "For GPT candidate variation", "nano-banana no gpt expression directive");
 
 console.log("prompt regression check passed");

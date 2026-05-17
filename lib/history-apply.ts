@@ -108,6 +108,7 @@ export type HistoryJobPayload =
       aiModel: LingyaModel;
       aspectRatio: AspectRatio;
       imageSize: ImageSize;
+      userPrompt?: string;
       prompt: string;
       genCount: number;
       textureEnhance?: boolean;
