@@ -206,4 +206,26 @@ assertNotIncludes(gptCompiled, "GPT-Image-2 执行提示", "gpt-image-2 临时�
 assertNotIncludes(gptCompiled, "服装图角色隔离规则", "gpt-image-2 临时极简直出");
 assertNotIncludes(gptCompiled, "输入顺序规则", "gpt-image-2 不再重排图片");
 
+const gptRuntimePrompt = lingya.applyTryOnRequestPrompt("BASE", {
+  model: "gpt-image-2",
+  candidateIndex: 1,
+  candidateCount: 4,
+  referenceUrl: "target.jpg",
+  modelFaceUrl: "face.jpg",
+});
+assertIncludes(gptRuntimePrompt, "For GPT candidate variation, avoid identical facial expressions across candidates", "gpt-image-2 candidate expression variation");
+assertNotIncludes(gptRuntimePrompt, "Nano Banana try-on mode", "gpt-image-2 no banana directive");
+
+const nanoRuntimePrompt = lingya.applyTryOnRequestPrompt("BASE", {
+  model: "nano-banana-2",
+  candidateIndex: 0,
+  candidateCount: 4,
+  referenceUrl: "target.jpg",
+  modelFaceUrl: "face.jpg",
+});
+assertIncludes(nanoRuntimePrompt, "Nano Banana try-on mode", "nano-banana dedicated directive");
+assertIncludes(nanoRuntimePrompt, "Do image-guided try-on editing, not a new model shoot.", "nano-banana dedicated directive");
+assertIncludes(nanoRuntimePrompt, "Proportion guard: keep natural adult head-to-body ratio", "nano-banana proportion guard");
+assertNotIncludes(nanoRuntimePrompt, "For GPT candidate variation", "nano-banana no gpt expression directive");
+
 console.log("prompt regression check passed");

@@ -153,6 +153,14 @@ interface BatchTryOnInput {
   onProgress?: (update: ImageTaskProgress) => Promise<void> | void;
 }
 
+type TryOnRequestPromptOptions = {
+  model: LingyaModel;
+  candidateIndex?: number;
+  candidateCount?: number;
+  referenceUrl?: string;
+  modelFaceUrl?: string;
+};
+
 export async function generateImage(input: GenerateInput, retries = 2): Promise<GenerateResult> {
   const provider = getImageProvider(input.model);
   const apiKey = provider.apiKey;
@@ -341,7 +349,7 @@ export async function batchTryOn(input: BatchTryOnInput): Promise<{ resultUrls: 
     hasReference: !!input.referenceUrl,
     style: input.style,
   });
-  const finalPrompt = applyTryOnCandidateVariantPrompt(input.raw_prompt?.trim() || prompt, input);
+  const finalPrompt = applyTryOnRequestPrompt(input.raw_prompt?.trim() || prompt, input);
 
   const imageInputs = [
     ...input.clothingUrls,
@@ -367,9 +375,36 @@ export async function batchTryOn(input: BatchTryOnInput): Promise<{ resultUrls: 
   return { resultUrls: [resultUrl], prompt: finalPrompt, compiledPrompt: result.compiledPrompt || finalPrompt, taskId: result.taskId };
 }
 
-function applyTryOnCandidateVariantPrompt(prompt: string, input: BatchTryOnInput) {
+export function applyTryOnRequestPrompt(prompt: string, input: TryOnRequestPromptOptions) {
+  const lines = [prompt.trim()];
+  if (isNanoBananaModel(input.model)) {
+    lines.push(buildNanoBananaTryOnDirective(input));
+  }
+  const candidateDirective = buildTryOnCandidateDirective(input);
+  if (candidateDirective) lines.push(candidateDirective);
+  return lines.filter(Boolean).join("\n");
+}
+
+function buildNanoBananaTryOnDirective(input: TryOnRequestPromptOptions) {
+  const roles = [
+    "clothing images provide garment only",
+    input.referenceUrl ? "the target reference provides body, pose family, scene, expression, skin tone, makeup, lighting, camera style, and proportions" : "",
+    input.modelFaceUrl ? "the face reference provides identity and feature proportions only" : "",
+  ].filter(Boolean).join("; ");
+
+  return [
+    "Nano Banana try-on mode:",
+    "Do image-guided try-on editing, not a new model shoot.",
+    `Read roles literally: ${roles}.`,
+    "Face result: rebuild the face identity and blend it into the target head with target expression, skin tone, makeup, light direction, shadows, and neck/arm skin continuity.",
+    "Proportion guard: keep natural adult head-to-body ratio and body scale close to the target; avoid big head, tiny body, long neck, short legs, distorted shoulders, or changed body type.",
+    "Allow variation only in garment fit, folds, hem, contact shadows, and tiny natural body/hand relaxation; no new person, no new background, no pasted face.",
+  ].join(" ");
+}
+
+function buildTryOnCandidateDirective(input: TryOnRequestPromptOptions) {
   const count = Math.max(1, Math.floor(Number(input.candidateCount || 1)));
-  if (count <= 1) return prompt;
+  if (count <= 1) return "";
 
   const index = Math.max(0, Math.floor(Number(input.candidateIndex || 0))) % count;
   const variants = [
@@ -378,11 +413,18 @@ function applyTryOnCandidateVariantPrompt(prompt: string, input: BatchTryOnInput
     "more structured fit with cleaner seams and sharper collar/hem edges",
     "subtle live-model variation with tiny hand or shoulder relaxation and different hem/contact shadows",
   ];
+  const expressionVariants = [
+    "reference-like expression with a relaxed mouth",
+    "slightly softer eyes and a faint natural smile change",
+    "slightly more neutral mouth with attentive eyes",
+    "small brow/eye openness change while keeping the same emotion",
+  ];
   const variant = variants[index % variants.length];
-  return [
-    prompt.trim(),
-    `Candidate ${index + 1}/${count}: create a distinct but consistent try-on variation, not a near-duplicate. Keep the same facial identity, natural face integration, adult proportions, target pose family, general camera/framing, background, lower outfit, and sourced garment design; vary only garment fit, folds, hem, contact shadows, and small natural body/hand relaxation as ${variant}.`,
-  ].join("\n");
+  const gptExpression = input.model === "gpt-image-2"
+    ? ` For GPT candidate variation, avoid identical facial expressions across candidates; use a subtle natural micro-expression within the target emotion: ${expressionVariants[index % expressionVariants.length]}.`
+    : "";
+
+  return `Candidate ${index + 1}/${count}: create a distinct but consistent try-on variation, not a near-duplicate. Keep the same facial identity, natural face integration, adult proportions, target pose family, general camera/framing, background, lower outfit, and sourced garment design; vary garment fit, folds, hem, contact shadows, and small natural body/hand relaxation as ${variant}.${gptExpression}`;
 }
 
 function buildGenerateRequestBody(input: GenerateInput, compiledPrompt: string): Record<string, any> {

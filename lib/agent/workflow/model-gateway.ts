@@ -81,6 +81,8 @@ export async function gatewayTryOn(request: GatewayTryonRequest) {
       aspect_ratio: request.aspectRatio,
       image_size: request.imageSize,
       style: request.style,
+      candidateIndex: index,
+      candidateCount: request.count,
       onProgress: (progress) => request.onProgress?.(mapGatewayProgress(progress, index, request.count)),
     });
     urls.push(...result.resultUrls);
