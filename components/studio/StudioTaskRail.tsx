@@ -38,9 +38,10 @@ type StudioTaskRailProps = {
 };
 
 const TASK_QUEUE_FETCH_TIMEOUT_MS = 5_000;
-const TASK_RAIL_RUNNING_POLL_MS = 5_000;
-const TASK_RAIL_IDLE_POLL_MS = 30_000;
-const TASK_RAIL_IDLE_CACHE_GRACE_MS = 20_000;
+const TASK_RAIL_RUNNING_POLL_MS = 12_000;
+const TASK_RAIL_IDLE_POLL_MS = 45_000;
+const TASK_RAIL_IDLE_CACHE_GRACE_MS = 30_000;
+const TASK_RAIL_MIN_LOAD_GAP_MS = 8_000;
 
 export function StudioTaskRail({
   module,
@@ -66,6 +67,7 @@ export function StudioTaskRail({
   const [hasMore, setHasMore] = useState(false);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const loadInFlightRef = useRef(false);
+  const lastLoadStartedAtRef = useRef(0);
   const autoSelectSignatureRef = useRef("");
   const runningSelectionRef = useRef<string | null>(null);
   const localSelectionRef = useRef<string | null>(null);
@@ -103,6 +105,9 @@ export function StudioTaskRail({
     if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
     if (loadInFlightRef.current) return;
     if (append && !snapshot.nextCursor) return;
+    const now = Date.now();
+    if (!append && snapshot.hasLoaded && now - lastLoadStartedAtRef.current < TASK_RAIL_MIN_LOAD_GAP_MS) return;
+    lastLoadStartedAtRef.current = now;
     loadInFlightRef.current = true;
     if (!snapshot.hasLoaded) setLoading(true);
     try {

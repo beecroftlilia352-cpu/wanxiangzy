@@ -23,6 +23,11 @@ const EMPTY_QUEUE_SUMMARY: QueueSummary = {
   failedTaskNum: 0,
 };
 
+const TASK_QUEUE_BADGE_RUNNING_POLL_MS = 10_000;
+const TASK_QUEUE_BADGE_IDLE_POLL_MS = 30_000;
+const TASK_QUEUE_MENU_RUNNING_POLL_MS = 12_000;
+const TASK_QUEUE_MENU_IDLE_POLL_MS = 30_000;
+
 export function TaskQueueButton() {
   const [rows, setRows] = useState<TaskQueueItem[]>([]);
   const [summary, setSummary] = useState<QueueSummary>(EMPTY_QUEUE_SUMMARY);
@@ -64,6 +69,7 @@ export function TaskQueueButton() {
   }, []);
 
   const loadSummary = useCallback(async () => {
+    if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
     if (summaryInFlightRef.current) return;
     summaryInFlightRef.current = true;
     try {
@@ -79,6 +85,7 @@ export function TaskQueueButton() {
   }, [applySummary]);
 
   const loadQueue = useCallback(async (showSpinner = false) => {
+    if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
     if (queueInFlightRef.current) return;
     queueInFlightRef.current = true;
     if (showSpinner || !detailsLoadedRef.current) setLoading(true);
@@ -126,14 +133,14 @@ export function TaskQueueButton() {
 
   useEffect(() => {
     if (open) return;
-    const timer = window.setInterval(loadSummary, isRunning ? 3000 : 8000);
+    const timer = window.setInterval(loadSummary, isRunning ? TASK_QUEUE_BADGE_RUNNING_POLL_MS : TASK_QUEUE_BADGE_IDLE_POLL_MS);
     return () => window.clearInterval(timer);
   }, [isRunning, loadSummary, open]);
 
   useEffect(() => {
     if (!open) return;
     loadQueue();
-    const timer = window.setInterval(loadQueue, isRunning ? 3000 : 8000);
+    const timer = window.setInterval(loadQueue, isRunning ? TASK_QUEUE_MENU_RUNNING_POLL_MS : TASK_QUEUE_MENU_IDLE_POLL_MS);
     return () => window.clearInterval(timer);
   }, [isRunning, loadQueue, open]);
 

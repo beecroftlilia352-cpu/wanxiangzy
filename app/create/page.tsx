@@ -110,6 +110,12 @@ const CLOTHING_ROLE_ORDER: Record<TryOnClothingRole, number> = {
   extra: 3,
 };
 
+const TRYON_STATUS_POLL_TIMEOUT_MS = 10 * 60 * 1000;
+const TRYON_STATUS_FETCH_TIMEOUT_MS = 8_000;
+const TRYON_STATUS_HIDDEN_POLL_MS = 30_000;
+const TRYON_STATUS_QUEUE_REFRESH_MS = 20_000;
+const activeTryOnStatusWatchers = new Map<string, AbortController>();
+
 function createPlaceholderFile(name: string) {
   return new File([], name, { type: "image/jpeg" });
 }
@@ -147,6 +153,7 @@ export default function CreatePage() {
   const activeGenerationRef = useRef<string | null>(null);
   const generationSubmitRef = useRef<{ id: string; controller: AbortController } | null>(null);
   const watchedGenerationIdsRef = useRef<Set<string>>(new Set());
+  const statusWatcherControllersRef = useRef<Map<string, AbortController>>(new Map());
   const {
     pendingId: applyingTaskId,
     begin: beginTaskSelection,
@@ -461,6 +468,8 @@ export default function CreatePage() {
     return () => {
       generationSubmitRef.current?.controller.abort();
       generationSubmitRef.current = null;
+      statusWatcherControllersRef.current.forEach((controller) => controller.abort());
+      statusWatcherControllersRef.current.clear();
     };
   }, []);
 
@@ -901,8 +910,16 @@ export default function CreatePage() {
 
   const watchGeneration = useCallback(async (generationId: string, expectedCount: number) => {
     if (watchedGenerationIdsRef.current.has(generationId)) return;
+    const globalWatcher = activeTryOnStatusWatchers.get(generationId);
+    if (globalWatcher && !globalWatcher.signal.aborted) return;
+
+    const watcherController = new AbortController();
+    activeTryOnStatusWatchers.set(generationId, watcherController);
+    statusWatcherControllersRef.current.set(generationId, watcherController);
     watchedGenerationIdsRef.current.add(generationId);
     let attempts = 0;
+    const startedAt = Date.now();
+    let lastQueueRefreshAt = Date.now();
     const updateActiveTask = (patch: Partial<TaskQueueItem>) => {
       const updatedAt = patch.updatedAt ?? new Date().toISOString();
       taskQueue.patchTask(generationId, { ...patch, updatedAt });
@@ -913,20 +930,28 @@ export default function CreatePage() {
     };
 
     try {
-      while (attempts < 120) {
-        await new Promise((resolve) => setTimeout(resolve, 2000));
+      while (!watcherController.signal.aborted && Date.now() - startedAt < TRYON_STATUS_POLL_TIMEOUT_MS) {
+        try {
+          await waitForTryOnStatusPoll(attempts, watcherController.signal);
+        } catch (error) {
+          if (watcherController.signal.aborted || isAbortLikeError(error)) return;
+          throw error;
+        }
+        if (watcherController.signal.aborted) return;
+        if (typeof document !== "undefined" && document.visibilityState === "hidden") continue;
         attempts++;
 
         const isActive = activeGenerationRef.current === generationId;
         try {
-          const pollRes = await fetch(`/api/tryon?generation_id=${encodeURIComponent(generationId)}`, { cache: "no-store" });
+          const pollRes = await fetchTryOnGenerationStatus(generationId, watcherController.signal);
           if (!pollRes.ok) continue;
 
           const pollData = await pollRes.json();
           if (pollData.status === "processing_tryon" || pollData.status === "processing" || pollData.status === "pending") {
             const partialResultUrls = Array.isArray(pollData.result_urls) ? pollData.result_urls.filter(Boolean) : [];
+            const elapsedSeconds = Math.max(0, (Date.now() - startedAt) / 1000);
             const progress = Math.min(
-              Math.max(Number(pollData.progress) || 0, 25 + attempts * 1.5),
+              Math.max(Number(pollData.progress) || 0, 25 + elapsedSeconds * 0.6),
               99
             );
             if (isActive) {
@@ -943,7 +968,10 @@ export default function CreatePage() {
                 thumbnails: partialResultUrls.slice(0, 2),
               } : {}),
             });
-            if (attempts % 3 === 0) refreshTaskQueue();
+            if (Date.now() - lastQueueRefreshAt >= TRYON_STATUS_QUEUE_REFRESH_MS) {
+              lastQueueRefreshAt = Date.now();
+              refreshTaskQueue();
+            }
             continue;
           }
 
@@ -983,20 +1011,27 @@ export default function CreatePage() {
             refreshTaskQueue();
             return;
           }
-        } catch {
+        } catch (error) {
+          if (watcherController.signal.aborted || isAbortLikeError(error)) return;
           // Network blips are tolerated during polling.
         }
       }
 
-      if (activeGenerationRef.current === generationId) {
+      if (!watcherController.signal.aborted && activeGenerationRef.current === generationId) {
         const message = "生成超时";
         store.setError(message);
         updateActiveTask({ status: "timeout", statusGroup: "failed", error: message, progress: 100 });
         toast.error(message);
       }
-      refreshTaskQueue();
+      if (!watcherController.signal.aborted) refreshTaskQueue();
     } finally {
       watchedGenerationIdsRef.current.delete(generationId);
+      if (statusWatcherControllersRef.current.get(generationId) === watcherController) {
+        statusWatcherControllersRef.current.delete(generationId);
+      }
+      if (activeTryOnStatusWatchers.get(generationId) === watcherController) {
+        activeTryOnStatusWatchers.delete(generationId);
+      }
     }
   }, [refreshTaskQueue, store, taskQueue]);
 
@@ -1004,6 +1039,8 @@ export default function CreatePage() {
     cancelTaskSelection();
     const pendingSubmitId = generationSubmitRef.current?.id || "";
     generationSubmitRef.current?.controller.abort();
+    statusWatcherControllersRef.current.forEach((controller) => controller.abort());
+    statusWatcherControllersRef.current.clear();
     if (pendingSubmitId.startsWith("local-")) removeTaskQueueItem(pendingSubmitId);
     generationSubmitRef.current = null;
     activeGenerationRef.current = null;
@@ -2285,5 +2322,62 @@ export default function CreatePage() {
         </ClientPortal>
       )}
     </>
+  );
+}
+
+function getTryOnStatusPollDelayMs(attempts: number) {
+  if (attempts < 1) return 5_000;
+  if (attempts < 3) return 7_000;
+  if (attempts < 8) return 10_000;
+  return 15_000;
+}
+
+function waitForTryOnStatusPoll(attempts: number, signal: AbortSignal) {
+  const delay = typeof document !== "undefined" && document.visibilityState === "hidden"
+    ? TRYON_STATUS_HIDDEN_POLL_MS
+    : getTryOnStatusPollDelayMs(attempts);
+  return waitForAbortableDelay(delay, signal);
+}
+
+function waitForAbortableDelay(ms: number, signal: AbortSignal) {
+  return new Promise<void>((resolve, reject) => {
+    if (signal.aborted) {
+      reject(new DOMException("Aborted", "AbortError"));
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      signal.removeEventListener("abort", abort);
+      resolve();
+    }, ms);
+    const abort = () => {
+      window.clearTimeout(timer);
+      reject(new DOMException("Aborted", "AbortError"));
+    };
+    signal.addEventListener("abort", abort, { once: true });
+  });
+}
+
+async function fetchTryOnGenerationStatus(generationId: string, watcherSignal: AbortSignal) {
+  const controller = new AbortController();
+  const relayAbort = () => controller.abort();
+  watcherSignal.addEventListener("abort", relayAbort, { once: true });
+  const timeout = window.setTimeout(() => controller.abort(), TRYON_STATUS_FETCH_TIMEOUT_MS);
+
+  try {
+    return await fetch(`/api/tryon?generation_id=${encodeURIComponent(generationId)}`, {
+      cache: "no-store",
+      signal: controller.signal,
+    });
+  } finally {
+    window.clearTimeout(timeout);
+    watcherSignal.removeEventListener("abort", relayAbort);
+  }
+}
+
+function isAbortLikeError(error: unknown) {
+  return (
+    (error instanceof DOMException && error.name === "AbortError") ||
+    (error instanceof Error && error.name === "AbortError")
   );
 }
