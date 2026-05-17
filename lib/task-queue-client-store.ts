@@ -190,7 +190,8 @@ export const useTaskQueueStore = create<TaskQueueClientState>((set, get) => ({
     set((state) => updateModuleState(state, module, (current) => {
       const withoutTemporary = current.rows.filter((row) => row.id !== temporaryId);
       const previous = current.rows.find((row) => row.id === temporaryId || row.id === normalizedItem.id);
-      const nextRows = upsertTaskQueueRow(withoutTemporary, normalizedItem, module);
+      const nextItem = preserveLocalTaskPreview(previous, normalizedItem);
+      const nextRows = upsertTaskQueueRow(withoutTemporary, nextItem, module);
       const nextState = {
         ...current,
         rows: nextRows,
@@ -277,12 +278,14 @@ export function mergeTaskQueueRows(currentRows: TaskQueueItem[], nextRows: TaskQ
 }
 
 export function upsertTaskQueueRow(currentRows: TaskQueueItem[], item: TaskQueueItem, module: string) {
+  const previewSource = currentRows.find((row) => row.id === item.id) || findLocalRunningPreviewForServerTask(currentRows, item, module);
+  const nextItem = preserveLocalTaskPreview(previewSource, item);
   const currentWithoutReplacedLocal = currentRows.filter((row) => {
-    if (row.id === item.id) return false;
-    if (item.id.startsWith("local-")) return true;
+    if (row.id === nextItem.id) return false;
+    if (nextItem.id.startsWith("local-")) return true;
     return !(row.module === module && row.id.startsWith("local-") && isTaskRunning(row));
   });
-  return mergeTaskQueueRows(currentWithoutReplacedLocal, [item]);
+  return mergeTaskQueueRows(currentWithoutReplacedLocal, [nextItem]);
 }
 
 export function reconcileTaskQueueRows(currentRows: TaskQueueItem[], serverRows: TaskQueueItem[], module: string) {
@@ -292,7 +295,10 @@ export function reconcileTaskQueueRows(currentRows: TaskQueueItem[], serverRows:
   }
 
   const currentById = new Map(currentRows.map((item) => [item.id, item]));
-  const hydratedServerRows = serverRows.map((item) => preserveLocalTaskPreview(currentById.get(item.id), item));
+  const hydratedServerRows = serverRows.map((item) => {
+    const previewSource = currentById.get(item.id) || findLocalRunningPreviewForServerTask(currentRows, item, module);
+    return preserveLocalTaskPreview(previewSource, item);
+  });
   const serverIds = new Set(hydratedServerRows.map((item) => item.id));
   const hasServerRunningForModule = hydratedServerRows.some((item) => item.module === module && isTaskRunning(item));
   const localRows = currentRows.filter((item) => {
@@ -394,6 +400,20 @@ function shouldKeepLocalPendingTask(item: TaskQueueItem, module: string) {
   const createdAt = Date.parse(item.createdAt || "");
   if (!Number.isFinite(createdAt)) return item.id.startsWith("local-");
   return item.id.startsWith("local-") || Date.now() - createdAt < TASK_QUEUE_LOCAL_PENDING_TTL_MS;
+}
+
+function findLocalRunningPreviewForServerTask(currentRows: TaskQueueItem[], server: TaskQueueItem, module: string) {
+  if (server.id.startsWith("local-") || server.module !== module || !isTaskRunning(server)) return undefined;
+  if (safeTaskQueueUrls(server.inputThumbnails).length) return undefined;
+
+  return currentRows
+    .filter((item) =>
+      item.module === module &&
+      item.id.startsWith("local-") &&
+      isTaskRunning(item) &&
+      safeTaskQueueUrls(item.inputThumbnails).length > 0
+    )
+    .sort(compareTaskQueueRows)[0];
 }
 
 function preserveLocalTaskPreview(current: TaskQueueItem | undefined, server: TaskQueueItem): TaskQueueItem {

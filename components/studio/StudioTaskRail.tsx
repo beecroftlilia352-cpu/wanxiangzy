@@ -549,7 +549,7 @@ function TaskCard({
   const inputThumbnails = safeTaskUrls(item.inputThumbnails);
   const thumbnails = safeTaskUrls(item.thumbnails);
   const cover = running
-    ? inputThumbnails[0] || thumbnails[0] || resultThumbnails[0] || ""
+    ? inputThumbnails[0] || ""
     : resultThumbnails[0] || inputThumbnails[0] || thumbnails[0] || "";
   const progress = clampProgress(item.progress);
 
@@ -673,14 +673,19 @@ function TaskPreviewStrip({ item, displayMode }: { item: TaskQueueItem; displayM
   const expectedCount = Math.max(1, Math.min(item.expectedCount || 1, 4));
 
   if (displayMode === "grouped") {
+    const runningSlots: Array<{ url: string; kind: "input" | "result" }> =
+      inputUrls.map((url) => ({ url, kind: "input" }));
+    while (running && runningSlots.length < Math.max(inputUrls.length, expectedCount)) {
+      runningSlots.push({ url: "", kind: "result" as const });
+    }
     const slots = [
       ...inputUrls.map((url) => ({ url, kind: "input" as const })),
       ...resultUrls.map((url) => ({ url, kind: "result" as const })),
     ];
-    while (running && slots.length < expectedCount + inputUrls.length) slots.push({ url: "", kind: "result" });
+    const visibleSlots = running ? runningSlots : slots;
     return (
       <div className="mt-2 flex gap-1 overflow-hidden">
-        {slots.slice(0, 6).map((slot, index) => (
+        {visibleSlots.slice(0, 6).map((slot, index) => (
           <span
             key={`${slot.url || slot.kind}-${index}`}
             className={cn(
@@ -699,7 +704,13 @@ function TaskPreviewStrip({ item, displayMode }: { item: TaskQueueItem; displayM
     );
   }
 
-  const slots = resultUrls.length ? resultUrls : running ? Array.from({ length: expectedCount }, () => "") : inputUrls;
+  const slots = running
+    ? inputUrls.length
+      ? inputUrls
+      : Array.from({ length: expectedCount }, () => "")
+    : resultUrls.length
+      ? resultUrls
+      : inputUrls;
   return (
     <div className="mt-2 grid grid-cols-4 gap-1">
       {slots.slice(0, 4).map((url, index) => (

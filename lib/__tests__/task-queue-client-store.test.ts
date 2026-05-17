@@ -68,6 +68,66 @@ describe("task queue client store helpers", () => {
     expect(upsertTaskQueueRow([local], server, "tryon")).toEqual([server]);
   });
 
+  it("keeps uploaded input thumbnails when a server task replaces a temporary id", () => {
+    const local = task({
+      id: "local-tryon-1",
+      statusGroup: "queued",
+      progress: 45,
+      expectedCount: 4,
+      inputThumbnails: ["https://example.com/upload.png"],
+      thumbnails: ["https://example.com/upload.png"],
+    });
+    const server = task({
+      id: "gen-1",
+      statusGroup: "running",
+      progress: 20,
+      expectedCount: 1,
+      inputThumbnails: [],
+      resultThumbnails: [],
+      thumbnails: [],
+    });
+
+    expect(upsertTaskQueueRow([local], server, "tryon")).toEqual([
+      {
+        ...server,
+        progress: 45,
+        expectedCount: 4,
+        inputThumbnails: ["https://example.com/upload.png"],
+        thumbnails: ["https://example.com/upload.png"],
+      },
+    ]);
+  });
+
+  it("keeps uploaded input thumbnails during server reconciliation with a new id", () => {
+    const local = task({
+      id: "local-tryon-1",
+      statusGroup: "queued",
+      progress: 35,
+      expectedCount: 2,
+      inputThumbnails: ["https://example.com/upload.png"],
+      thumbnails: ["https://example.com/upload.png"],
+    });
+    const server = task({
+      id: "gen-1",
+      statusGroup: "running",
+      progress: 15,
+      expectedCount: 1,
+      inputThumbnails: [],
+      resultThumbnails: [],
+      thumbnails: [],
+    });
+
+    expect(reconcileTaskQueueRows([local], [server], "tryon")).toEqual([
+      {
+        ...server,
+        progress: 35,
+        expectedCount: 2,
+        inputThumbnails: ["https://example.com/upload.png"],
+        thumbnails: ["https://example.com/upload.png"],
+      },
+    ]);
+  });
+
   it("keeps local thumbnails during stale running server refreshes", () => {
     const current = task({
       id: "gen-1",
@@ -212,5 +272,35 @@ describe("task queue client store helpers", () => {
 
     useTaskQueueStore.getState().replaceTask("tryon", local.id, task({ id: "gen-1", progress: 25 }));
     expect(useTaskQueueStore.getState().modules.tryon.selectedId).toBe("gen-1");
+  });
+
+  it("keeps uploaded input thumbnails when replacing a temporary task in the store", () => {
+    useTaskQueueStore.getState().resetModule("tryon");
+    const local = useTaskQueueStore.getState().createOptimisticTask({
+      id: "local-tryon-1",
+      module: "tryon",
+      title: "鏈嶈涓婅韩",
+      expectedCount: 4,
+      inputThumbnails: ["https://example.com/upload.png"],
+    });
+
+    useTaskQueueStore.getState().replaceTask(
+      "tryon",
+      local.id,
+      task({
+        id: "gen-1",
+        progress: 25,
+        expectedCount: 1,
+        inputThumbnails: [],
+        resultThumbnails: [],
+        thumbnails: [],
+      })
+    );
+
+    const row = useTaskQueueStore.getState().modules.tryon.rows[0];
+    expect(row.id).toBe("gen-1");
+    expect(row.expectedCount).toBe(4);
+    expect(row.inputThumbnails).toEqual(["https://example.com/upload.png"]);
+    expect(row.thumbnails).toEqual(["https://example.com/upload.png"]);
   });
 });
