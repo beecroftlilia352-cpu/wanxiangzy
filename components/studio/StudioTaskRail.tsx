@@ -38,7 +38,7 @@ type StudioTaskRailProps = {
 };
 
 const TASK_QUEUE_FETCH_TIMEOUT_MS = 5_000;
-const TASK_RAIL_RUNNING_POLL_MS = 3_000;
+const TASK_RAIL_RUNNING_POLL_MS = 5_000;
 const TASK_RAIL_IDLE_POLL_MS = 30_000;
 const TASK_RAIL_IDLE_CACHE_GRACE_MS = 20_000;
 
@@ -78,21 +78,43 @@ export function StudioTaskRail({
   } = useTaskSelectionSession();
 
   const hasRunningTask = rows.some(isTaskRunning);
+  const queueSnapshotRef = useRef({
+    rows,
+    hasLoaded,
+    expanded,
+    moduleOnly,
+    query,
+    nextCursor,
+    lastLoadedAt,
+  });
+  queueSnapshotRef.current = {
+    rows,
+    hasLoaded,
+    expanded,
+    moduleOnly,
+    query,
+    nextCursor,
+    lastLoadedAt,
+  };
 
   const loadQueue = useCallback(async (options?: { append?: boolean }) => {
+    const snapshot = queueSnapshotRef.current;
     const append = Boolean(options?.append);
     if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
     if (loadInFlightRef.current) return;
-    if (append && !nextCursor) return;
+    if (append && !snapshot.nextCursor) return;
     loadInFlightRef.current = true;
-    if (!hasLoaded) setLoading(true);
+    if (!snapshot.hasLoaded) setLoading(true);
     try {
+      const isExpanded = snapshot.expanded;
+      const isModuleOnly = snapshot.moduleOnly;
+      const searchQuery = snapshot.query.trim();
       const params = new URLSearchParams();
-      params.set("limit", expanded ? String(TASK_QUEUE_PAGE_SIZE) : String(TASK_QUEUE_RECENT_LIMIT));
-      if (!expanded) params.set("summary", "0");
-      if (append && nextCursor) params.set("cursor", nextCursor);
-      if (!expanded || moduleOnly) params.set("module", module);
-      if (expanded && query.trim()) params.set("q", query.trim());
+      params.set("limit", isExpanded ? String(TASK_QUEUE_PAGE_SIZE) : String(TASK_QUEUE_RECENT_LIMIT));
+      if (!isExpanded) params.set("summary", "0");
+      if (append && snapshot.nextCursor) params.set("cursor", snapshot.nextCursor);
+      if (!isExpanded || isModuleOnly) params.set("module", module);
+      if (isExpanded && searchQuery) params.set("q", searchQuery);
 
       const controller = new AbortController();
       const timeout = window.setTimeout(() => controller.abort(), TASK_QUEUE_FETCH_TIMEOUT_MS);
@@ -104,21 +126,24 @@ export function StudioTaskRail({
       if (!res.ok) throw new Error("task queue request failed");
 
       const nextRows = Array.isArray(payload.rows) ? payload.rows : [];
-      const keepCurrentRowsOnEmpty = !append && !expanded && moduleOnly && !query.trim() && nextRows.length === 0;
-      if (!(keepCurrentRowsOnEmpty && rows.length > 0)) {
+      const currentRows = queueSnapshotRef.current.rows;
+      const keepCurrentRowsOnEmpty = !append && !isExpanded && isModuleOnly && !searchQuery && nextRows.length === 0;
+      if (!(keepCurrentRowsOnEmpty && currentRows.length > 0)) {
         applyServerRows(module, nextRows, normalizeSummary(payload), {
           append,
-          preserveLocal: !append && !expanded && moduleOnly && !query.trim(),
+          preserveLocal: !append && !isExpanded && isModuleOnly && !searchQuery,
         });
       } else {
         setModuleLoadingFailed(module, false);
       }
       setHasMore(Boolean(payload.hasMore));
-      setNextCursor(typeof payload.nextCursor === "string" && payload.nextCursor ? payload.nextCursor : null);
+      const resolvedNextCursor = typeof payload.nextCursor === "string" && payload.nextCursor ? payload.nextCursor : null;
+      queueSnapshotRef.current = { ...queueSnapshotRef.current, nextCursor: resolvedNextCursor };
+      setNextCursor(resolvedNextCursor);
 
       const nextSummary = normalizeSummary(payload);
-      if (keepCurrentRowsOnEmpty && rows.length > 0) {
-        applyServerRows(module, rows, nextSummary, {
+      if (keepCurrentRowsOnEmpty && currentRows.length > 0) {
+        applyServerRows(module, currentRows, nextSummary, {
           append: false,
           preserveLocal: true,
         });
@@ -130,7 +155,7 @@ export function StudioTaskRail({
       loadInFlightRef.current = false;
       setLoading(false);
     }
-  }, [applyServerRows, expanded, hasLoaded, module, moduleOnly, nextCursor, query, rows, setModuleLoadingFailed]);
+  }, [applyServerRows, module, setModuleLoadingFailed]);
 
   useEffect(() => {
     try {
@@ -152,8 +177,16 @@ export function StudioTaskRail({
   useEffect(() => {
     setPage(1);
     setHasMore(false);
+    queueSnapshotRef.current = { ...queueSnapshotRef.current, nextCursor: null };
     setNextCursor(null);
   }, [displayMode, expanded, moduleOnly, query]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void loadQueue();
+    }, query.trim() ? 250 : 0);
+    return () => window.clearTimeout(timer);
+  }, [expanded, loadQueue, module, moduleOnly, query]);
 
   useEffect(() => {
     handledRefreshVersionRef.current = 0;
@@ -170,13 +203,16 @@ export function StudioTaskRail({
 
   useEffect(() => {
     const pollMs = hasRunningTask ? TASK_RAIL_RUNNING_POLL_MS : TASK_RAIL_IDLE_POLL_MS;
-    const cacheIsFreshEnough = Date.now() - lastLoadedAt < TASK_RAIL_IDLE_CACHE_GRACE_MS;
-    if (hasRunningTask || !hasLoaded || !cacheIsFreshEnough) {
-      loadQueue();
+    const snapshot = queueSnapshotRef.current;
+    const cacheIsFreshEnough = Date.now() - snapshot.lastLoadedAt < TASK_RAIL_IDLE_CACHE_GRACE_MS;
+    if (!snapshot.hasLoaded || !cacheIsFreshEnough) {
+      void loadQueue();
     }
-    const timer = window.setInterval(loadQueue, pollMs);
+    const timer = window.setInterval(() => {
+      void loadQueue();
+    }, pollMs);
     return () => window.clearInterval(timer);
-  }, [hasLoaded, hasRunningTask, lastLoadedAt, loadQueue]);
+  }, [hasRunningTask, loadQueue]);
 
   useEffect(() => {
     const refreshVisible = () => {
@@ -512,7 +548,9 @@ function TaskCard({
   const resultThumbnails = safeTaskUrls(item.resultThumbnails);
   const inputThumbnails = safeTaskUrls(item.inputThumbnails);
   const thumbnails = safeTaskUrls(item.thumbnails);
-  const cover = resultThumbnails[0] || inputThumbnails[0] || thumbnails[0] || "";
+  const cover = running
+    ? inputThumbnails[0] || thumbnails[0] || resultThumbnails[0] || ""
+    : resultThumbnails[0] || inputThumbnails[0] || thumbnails[0] || "";
   const progress = clampProgress(item.progress);
 
   if (compact) {
@@ -529,7 +567,7 @@ function TaskCard({
         )}
         title={item.title || item.id}
       >
-        <TaskThumb url={cover} running={running} failed={failed} applying={applying} activeMotion={selected || applying} compact className="h-full w-full" />
+        <TaskThumb url={cover} running={running} failed={failed} applying={applying} compact className="h-full w-full" />
         {selected && <span className="absolute -right-2 top-2 h-[54px] w-1 rounded-full bg-blue-500" />}
       </button>
     );
@@ -548,7 +586,7 @@ function TaskCard({
       )}
     >
       <div className="flex items-start gap-3">
-        <TaskThumb url={cover} running={running} failed={failed} applying={applying} activeMotion={selected || applying} className="h-16 w-12 shrink-0" />
+        <TaskThumb url={cover} running={running} failed={failed} applying={applying} className="h-16 w-12 shrink-0" />
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-start justify-between gap-2">
             <div className="min-w-0">
@@ -579,7 +617,6 @@ function TaskThumb({
   running,
   failed,
   applying,
-  activeMotion,
   compact = false,
   className,
 }: {
@@ -587,7 +624,6 @@ function TaskThumb({
   running: boolean;
   failed: boolean;
   applying: boolean;
-  activeMotion: boolean;
   compact?: boolean;
   className?: string;
 }) {
@@ -614,9 +650,9 @@ function TaskThumb({
         </span>
       )}
       {running && (
-        <span className="absolute inset-0 z-[2] flex items-center justify-center gap-1 bg-white/58 text-[10px] font-semibold text-slate-600 backdrop-blur-[1px]">
-          <Loader2 className={cn("h-3.5 w-3.5 animate-spin text-blue-500", !activeMotion && "opacity-85")} />
-          {compact && <span>生成中</span>}
+        <span className="absolute inset-x-1 bottom-1 z-[2] flex items-center justify-center gap-1 rounded bg-blue-600/90 px-1.5 py-0.5 text-[9px] font-black leading-none text-white shadow-sm">
+          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-white/90" />
+          <span className="truncate">生成中</span>
         </span>
       )}
       {applying && !running && (

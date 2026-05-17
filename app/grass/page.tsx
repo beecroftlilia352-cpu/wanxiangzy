@@ -32,8 +32,10 @@ import {
   GRASS_TEMPLATES,
   GRASS_UPLOAD_RULE,
   getGrassTemplate,
+  normalizeGrassSceneBackgroundMode,
   normalizeGrassSceneMode,
   normalizeGrassTemplate,
+  type GrassSceneBackgroundMode,
   type GrassSceneMode,
   type GrassTemplateId,
 } from "@/lib/grass-planting";
@@ -62,6 +64,11 @@ const GRASS_SCENE_MODE_LABELS: Record<GrassSceneMode, string> = {
   custom_prompt: "用户自定义",
 };
 
+const GRASS_SCENE_BACKGROUND_MODE_LABELS: Record<GrassSceneBackgroundMode, string> = {
+  reference_scene: "沿用参考场景",
+  similar_style: "AI 重构相似场景",
+};
+
 export default function GrassPage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -81,6 +88,7 @@ export default function GrassPage() {
   const [garmentName, setGarmentName] = useState("");
   const [templateId, setTemplateId] = useState<GrassTemplateId>("street");
   const [sceneMode, setSceneMode] = useState<GrassSceneMode>("system_reference");
+  const [sceneBackgroundMode, setSceneBackgroundMode] = useState<GrassSceneBackgroundMode>("reference_scene");
   const [uploadedReferenceUrl, setUploadedReferenceUrl] = useState("");
   const [uploadedReferenceName, setUploadedReferenceName] = useState("");
   const [changeModel, setChangeModel] = useState(true);
@@ -129,9 +137,11 @@ export default function GrassPage() {
       url: effectiveReferenceUrl,
       role: sceneMode === "system_reference"
         ? `系统种草参考图 / ${selectedTemplate.name}`
-        : "上传种草参考图 / 场景姿势构图参考",
+        : sceneBackgroundMode === "similar_style"
+          ? "上传种草参考图 / 场景风格参考"
+          : "上传种草参考图 / 场景姿势构图参考",
     }] : []),
-  ], [garmentUrl, effectiveReferenceUrl, sceneMode, selectedTemplate.name]);
+  ], [garmentUrl, effectiveReferenceUrl, sceneMode, sceneBackgroundMode, selectedTemplate.name]);
   const taskInputThumbnails = useMemo(
     () => promptImages.map((item) => item.url).filter(Boolean),
     [promptImages]
@@ -145,8 +155,9 @@ export default function GrassPage() {
       sceneMode,
       hasReference: !!effectiveReferenceUrl,
       referenceName: effectiveReferenceName,
+      sceneBackgroundMode,
     }),
-    [promptOverride, templateId, activePrompt, changeModel, sceneMode, effectiveReferenceUrl, effectiveReferenceName]
+    [promptOverride, templateId, activePrompt, changeModel, sceneMode, effectiveReferenceUrl, effectiveReferenceName, sceneBackgroundMode]
   );
   const imageSizes = getSupportedImageSizes(aiModel, aspectRatio);
   const cost = getCreditCost(aiModel, imageSize, aspectRatio) * genCount;
@@ -173,6 +184,7 @@ export default function GrassPage() {
     setTemplateId(normalizeGrassTemplate(payload.templateId));
     const nextSceneMode = normalizeGrassSceneMode(payload.sceneMode || (payload.referenceUrl ? "upload_reference" : "system_reference"));
     setSceneMode(nextSceneMode);
+    setSceneBackgroundMode(normalizeGrassSceneBackgroundMode(payload.sceneBackgroundMode));
     setUploadedReferenceUrl(payload.referenceUrl || "");
     setUploadedReferenceName(payload.referenceUrl ? "历史参考图" : "");
     setChangeModel(payload.changeModel);
@@ -204,6 +216,7 @@ export default function GrassPage() {
     setTemplateId(normalizeGrassTemplate(payload.templateId));
     const nextSceneMode = normalizeGrassSceneMode(payload.sceneMode || (payload.referenceUrl ? "upload_reference" : "system_reference"));
     setSceneMode(nextSceneMode);
+    setSceneBackgroundMode(normalizeGrassSceneBackgroundMode(payload.sceneBackgroundMode));
     setUploadedReferenceUrl(payload.referenceUrl || "");
     setUploadedReferenceName(payload.referenceUrl ? "历史参考图" : "");
     setChangeModel(payload.changeModel);
@@ -345,6 +358,7 @@ export default function GrassPage() {
           gen_count: genCount,
           reference_url: effectiveReferenceUrl || null,
           scene_mode: sceneMode,
+          scene_background_mode: sceneBackgroundMode,
           prompt: typeof promptForRun === "string" ? promptForRun : finalPrompt,
         }),
       });
@@ -740,6 +754,28 @@ export default function GrassPage() {
             </section>
           )}
 
+          {sceneMode !== "custom_prompt" && (
+            <section>
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <h3 className="text-sm font-bold">场景控制</h3>
+                <span className="text-[11px] text-slate-400">控制背景相似度</span>
+              </div>
+              <p className="mb-3 text-[11px] leading-5 text-slate-500">
+                可让 AI 只学习参考图的光线、色调和空间气质，重新生成同风格但不完全相同的背景，降低照搬风险。
+              </p>
+              <StudioOptionGrid
+                options={[
+                  { value: "reference_scene" as const, label: "沿用参考场景", description: "保持现有效果" },
+                  { value: "similar_style" as const, label: "AI 重构相似场景", description: "同风格不照搬" },
+                ]}
+                value={sceneBackgroundMode}
+                onChange={(value) => { setSceneBackgroundMode(value); setPromptOverride(null); }}
+                columns={2}
+                ariaLabel="场景控制"
+              />
+            </section>
+          )}
+
           <section>
             <h3 className="font-bold text-sm mb-3 flex items-center gap-2"><Sparkles className="w-4 h-4 text-purple-500" /> 生成模型</h3>
             <StudioModelSelector models={MODELS} value={aiModel} onChange={setAiModel} ariaLabel="生成模型" />
@@ -861,6 +897,11 @@ export default function GrassPage() {
                   <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700">
                     {GRASS_SCENE_MODE_LABELS[sceneMode]}
                   </span>
+                  {sceneMode !== "custom_prompt" && (
+                    <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-medium text-sky-700">
+                      {GRASS_SCENE_BACKGROUND_MODE_LABELS[sceneBackgroundMode]}
+                    </span>
+                  )}
                 </div>
               </div>
               <div className="max-h-[64dvh] space-y-3 overflow-y-auto px-5 py-4">
@@ -873,6 +914,7 @@ export default function GrassPage() {
                     ["场景模式", GRASS_SCENE_MODE_LABELS[sceneMode]],
                     ["种草参考", effectiveReferenceUrl ? effectiveReferenceName : "未使用"],
                     ["模特控制", sceneMode === "custom_prompt" ? "提示词为准" : changeModel ? "更换模特" : "保持模特"],
+                    ["场景控制", sceneMode === "custom_prompt" ? "提示词为准" : GRASS_SCENE_BACKGROUND_MODE_LABELS[sceneBackgroundMode]],
                     ["补充输入", activePrompt || "无"],
                   ].map(([label, value]) => (
                     <div key={label} className="rounded-lg border bg-gray-50 px-3 py-2">

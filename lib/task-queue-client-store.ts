@@ -161,6 +161,7 @@ export const useTaskQueueStore = create<TaskQueueClientState>((set, get) => ({
   createOptimisticTask: (input) => {
     const item = createOptimisticTaskQueueItem(input);
     get().upsertTask(item);
+    get().setSelectedTask(item.module, item.id);
     return item;
   },
 
@@ -175,7 +176,7 @@ export const useTaskQueueStore = create<TaskQueueClientState>((set, get) => ({
         summary: patchSummaryForTask(current.summary, current.rows.find((row) => row.id === normalizedItem.id), normalizedItem),
         hasLoaded: true,
         loadError: false,
-        selectedId: isTaskRunning(normalizedItem) ? normalizedItem.id : current.selectedId,
+        selectedId: current.selectedId,
         lastLoadedAt: Date.now(),
       };
       writeTaskQueueModuleCache(normalizedItem.module, nextState);
@@ -196,7 +197,7 @@ export const useTaskQueueStore = create<TaskQueueClientState>((set, get) => ({
         summary: patchSummaryForTask(current.summary, previous, normalizedItem),
         hasLoaded: true,
         loadError: false,
-        selectedId: isTaskRunning(normalizedItem) ? normalizedItem.id : current.selectedId === temporaryId ? normalizedItem.id : current.selectedId,
+        selectedId: current.selectedId === temporaryId ? normalizedItem.id : current.selectedId,
         lastLoadedAt: Date.now(),
       };
       writeTaskQueueModuleCache(module, nextState);
@@ -207,7 +208,8 @@ export const useTaskQueueStore = create<TaskQueueClientState>((set, get) => ({
   patchTask: (module, taskId, patch) => {
     const current = get().modules[module]?.rows.find((item) => item.id === taskId);
     if (!current) return null;
-    const next = { ...current, ...patch, updatedAt: patch.updatedAt ?? new Date().toISOString() };
+    const stablePatch = preserveCurrentPreviewInRunningPatch(current, patch);
+    const next = { ...current, ...stablePatch, updatedAt: stablePatch.updatedAt ?? new Date().toISOString() };
     get().upsertTask(next);
     return next;
   },
@@ -289,15 +291,17 @@ export function reconcileTaskQueueRows(currentRows: TaskQueueItem[], serverRows:
     return keepRows.length ? keepRows : serverRows;
   }
 
-  const serverIds = new Set(serverRows.map((item) => item.id));
-  const hasServerRunningForModule = serverRows.some((item) => item.module === module && isTaskRunning(item));
+  const currentById = new Map(currentRows.map((item) => [item.id, item]));
+  const hydratedServerRows = serverRows.map((item) => preserveLocalTaskPreview(currentById.get(item.id), item));
+  const serverIds = new Set(hydratedServerRows.map((item) => item.id));
+  const hasServerRunningForModule = hydratedServerRows.some((item) => item.module === module && isTaskRunning(item));
   const localRows = currentRows.filter((item) => {
     if (serverIds.has(item.id)) return false;
     if (!shouldKeepLocalPendingTask(item, module)) return false;
     if (item.id.startsWith("local-") && hasServerRunningForModule) return false;
     return true;
   });
-  return mergeTaskQueueRows(localRows, serverRows);
+  return mergeTaskQueueRows(localRows, hydratedServerRows);
 }
 
 export function removeTaskQueueRow(currentRows: TaskQueueItem[], taskId: string) {
@@ -390,6 +394,73 @@ function shouldKeepLocalPendingTask(item: TaskQueueItem, module: string) {
   const createdAt = Date.parse(item.createdAt || "");
   if (!Number.isFinite(createdAt)) return item.id.startsWith("local-");
   return item.id.startsWith("local-") || Date.now() - createdAt < TASK_QUEUE_LOCAL_PENDING_TTL_MS;
+}
+
+function preserveLocalTaskPreview(current: TaskQueueItem | undefined, server: TaskQueueItem): TaskQueueItem {
+  if (!current || !isTaskRunning(server)) return server;
+
+  const inputThumbnails = mergePreviewUrls(server.inputThumbnails, current.inputThumbnails);
+  const resultThumbnails = mergePreviewUrls(server.resultThumbnails, current.resultThumbnails);
+  const thumbnails = mergePreviewUrls(
+    server.thumbnails,
+    resultThumbnails.length ? resultThumbnails : mergePreviewUrls(current.thumbnails, inputThumbnails)
+  );
+
+  return {
+    ...server,
+    progress: Math.max(server.progress, current.progress),
+    expectedCount: Math.max(server.expectedCount, current.expectedCount),
+    resultCount: Math.max(server.resultCount, resultThumbnails.length),
+    inputThumbnails,
+    resultThumbnails,
+    thumbnails,
+  };
+}
+
+function preserveCurrentPreviewInRunningPatch(current: TaskQueueItem, patch: Partial<TaskQueueItem>): Partial<TaskQueueItem> {
+  const nextStatusGroup = patch.statusGroup || current.statusGroup;
+  if (nextStatusGroup !== "queued" && nextStatusGroup !== "running") return patch;
+
+  const next = { ...patch };
+  const currentInputThumbnails = safeTaskQueueUrls(current.inputThumbnails);
+  const currentResultThumbnails = safeTaskQueueUrls(current.resultThumbnails);
+  const currentThumbnails = safeTaskQueueUrls(current.thumbnails);
+  const patchInputThumbnails = safeTaskQueueUrls(patch.inputThumbnails);
+  const patchResultThumbnails = safeTaskQueueUrls(patch.resultThumbnails);
+  const patchThumbnails = safeTaskQueueUrls(patch.thumbnails);
+
+  if (Array.isArray(patch.inputThumbnails) && patchInputThumbnails.length === 0 && currentInputThumbnails.length) {
+    next.inputThumbnails = currentInputThumbnails;
+  }
+  if (Array.isArray(patch.resultThumbnails) && patchResultThumbnails.length === 0 && currentResultThumbnails.length) {
+    next.resultThumbnails = currentResultThumbnails;
+    next.resultCount = Math.max(Number(next.resultCount || 0), current.resultCount, currentResultThumbnails.length);
+  }
+  if (Array.isArray(patch.thumbnails) && patchThumbnails.length === 0 && currentThumbnails.length) {
+    next.thumbnails = currentThumbnails;
+  } else if (
+    Array.isArray(patch.resultThumbnails) &&
+    patchResultThumbnails.length === 0 &&
+    currentResultThumbnails.length &&
+    !patchThumbnails.length
+  ) {
+    next.thumbnails = currentThumbnails.length ? currentThumbnails : currentResultThumbnails.slice(0, 2);
+  }
+  if (typeof patch.progress === "number") {
+    next.progress = Math.max(patch.progress, current.progress);
+  }
+  if (typeof patch.expectedCount === "number") {
+    next.expectedCount = Math.max(patch.expectedCount, current.expectedCount);
+  }
+
+  return next;
+}
+
+function mergePreviewUrls(primary: unknown, fallback: unknown) {
+  return Array.from(new Set([
+    ...safeTaskQueueUrls(primary),
+    ...safeTaskQueueUrls(fallback),
+  ]));
 }
 
 function patchSummaryForTask(

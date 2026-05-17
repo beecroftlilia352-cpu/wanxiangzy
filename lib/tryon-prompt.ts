@@ -1,5 +1,5 @@
 export const TRYON_QUALITY =
-  "photorealistic, 8K ultra-detailed, high contrast, cinematic color grade, commercial fashion catalog quality, sharp facial details, sharp fabric texture, raw photo quality";
+  "photorealistic raw camera photo, natural fashion editorial quality, realistic skin texture, true fabric texture, believable light and shadow, unforced natural expression, non-synthetic real-person appearance";
 
 export type TryOnGarmentAudience = "women" | "men";
 export type TryOnAgeGroup = "adult" | "teen" | "big_child" | "middle_child" | "small_child" | "toddler";
@@ -51,7 +51,7 @@ export const TRYON_COLOR_RULE =
   "色彩管理规则：保持准确白平衡和真实曝光，保留服装原始颜色、肤色层次和场景光色；不要把画面统一调成过曝白亮、粉白滤镜或冷白皮风格。";
 
 export const TRYON_PHOTOGRAPHY_RULE =
-  "商业摄影规则：画面必须是高端真实服装摄影，肤色自然、毛孔和轻微瑕疵可见、布料纹理清晰、光影方向可信、景深和焦点自然，整体像商业 lookbook / fashion catalog / editorial photo，而不是AI渲染、蜡像、塑料皮肤或过度磨皮。";
+  "商业摄影规则：画面必须像真实相机拍摄的服装图片，肤色自然、毛孔和轻微瑕疵可见、表情不过度营业、布料纹理和背景材质真实、光影方向可信、景深和焦点自然；允许真实照片里的轻微不完美和非对称感。不要生成过干净棚拍、素材库假笑、AI精修脸、蜡像、塑料皮肤或过度磨皮。";
 
 export const TRYON_REFERENCE_RULE =
   "参考图规则：优先保持参考图中的人物姿势、身体角度、四肢位置、头部朝向、手部动作、背景、构图、镜头角度、光影方向和人物位置；但允许为了服装真实贴合人体而产生自然褶皱、遮挡关系和边缘轮廓调整。";
@@ -62,7 +62,7 @@ export function buildTryOnReferencePrompt(referenceImageNumber?: number) {
 }
 
 export const TRYON_FACE_RULE =
-  "模特脸规则：模特脸图只提供最终脸部身份、五官结构、脸型倾向、发型气质和可识别身份特征，不提供身体比例、年龄身高、头部大小、肩宽、四肢长度、服装、姿势、背景、构图、光线或最终肤色基准；有参考人物时，头部大小、头部朝向、头身比、颈肩衔接、身体肤色、光影和镜头透视必须跟随参考人物。不要把模特脸硬贴到身体上，不要证件照式换脸，不要大头、长脖子、肤色断层、不同图层光影、过度磨皮、小V脸或雪白皮。";
+  "模特脸规则：模特脸图只提供最终脸部身份和五官结构/五官大小比例/脸型倾向，不提供肤色、妆容、表情、身体比例、年龄身高、头部大小、肩宽、四肢长度、服装、姿势、背景、构图或场景光线；有参考人物时，最终表情、肤色、妆容、头部大小、头部朝向、头身比、颈肩衔接、光影方向和镜头透视必须跟随参考人物，但参考人物原脸身份必须被模特脸身份自然重建替换。不要把模特脸硬贴到身体上，不要复制模特脸图的笑容、雪白肤色或妆容，不要证件照式换脸，不要大头、长脖子、肤色断层、不同图层光影、过度磨皮、小V脸、假笑模板脸或过度对称的AI脸。";
 
 type TryOnPromptContext = {
   garmentAudience?: TryOnGarmentAudience;
@@ -159,10 +159,10 @@ export function buildTryOnFacePrompt(params: TryOnPromptContext = {}) {
   const referenceRef = params.referenceImageNumber ? `图${params.referenceImageNumber}参考图` : "参考图";
 
   if (params.hasReference) {
-    return `模特脸规则（融合）：${faceRef}只提供最终脸部身份、五官结构、脸型倾向和发型气质；${referenceRef}是最终人物的头部姿态和身体融合基准，必须保持${referenceRef}的头部位置、头部朝向、视线方向、表情强度、头部大小、头身比、颈肩衔接、镜头距离、光线方向、色温、曝光、阴影层次和可见身体肤色。最终效果不是硬换脸，而是把${faceRef}的可识别身份自然重建到${referenceRef}原本的头部空间里；如果${faceRef}与${referenceRef}冲突，优先服从${referenceRef}的头部比例、皮肤冷暖调、明暗反光、发丝遮挡、配饰遮挡和场景光影。脸、颈部、胸口、手臂、手部等可见皮肤必须像同一张照片里连续拍摄，保留毛孔、轻微瑕疵、局部红润和真实阴影；不要证件照式正脸、贴上去的头、面具边缘、不同图层光影、头过大/过小、长脖子、肤色断层、过度磨皮、小V脸或雪白皮。最终年龄感必须与${targetIdentity}身体自然匹配，不要把服装图或参考图中的脸误当成最终身份。`;
+    return `模特脸规则（融合）：${faceRef}只提供最终可识别脸部身份、五官结构、五官大小比例和脸型倾向；${referenceRef}提供最终摄影基准，并控制最终表情、肤色、妆容、头部姿态、头部大小、光影和皮肤连续性。必须把${faceRef}的身份自然重建进${referenceRef}原有头部空间，而不是把一张正脸贴上去，也不是重新生成一个标准棚拍模特。${referenceRef}原来的眼睛、鼻子、嘴巴和脸型不能保留为最终身份特征，但${referenceRef}的表情运动状态必须保留：嘴巴开合、嘴角方向、笑/不笑强度、眼睛睁合、眉毛紧张度、视线、下颌放松程度和整体情绪都以${referenceRef}为准。最终脸必须一眼看出来自${faceRef}的身份和五官结构，但表情、肤色、妆容、姿态和光影像原本就在${referenceRef}场景里拍到。头部位置、头部朝向、视线方向、自然表情强度、肤色深浅冷暖、妆容浓淡、头部大小、头身比、颈肩衔接、镜头距离、光线方向、色温、曝光、阴影层次和透视以${referenceRef}为准；${faceRef}只控制身份辨识度和五官大小比例。肤色处理采用参考图原则：按${referenceRef}的肤色、妆容和场景光线重新打光，使脸、颈部、胸口、手臂、手部等可见皮肤像同一张照片里连续拍摄，保留毛孔、轻微瑕疵、局部红润、真实阴影和自然不对称；不要证件照式正脸、贴上去的头、面具边缘、不同图层光影、头过大/过小、长脖子、肤色断层、过度磨皮、小V脸、雪白皮、假笑模板脸、复制${faceRef}笑容、复制${faceRef}肤色或复制${faceRef}妆容。最终年龄感必须与${targetIdentity}身体自然匹配，不要把服装图或${referenceRef}中的原脸误当成最终身份。`;
   }
 
-  return `模特脸规则：${faceRef}是唯一脸部身份参考，最终人物脸部身份必须使用该图的五官、肤色、发型、脸型倾向和气质；${faceRef}只提供脸部身份、肤色、发型和气质，不提供身体比例、服装、姿势、背景或构图。最终头部大小和年龄感必须与${targetIdentity}身体自然匹配，不要把服装图或参考图中的脸误当成最终身份，不要自动改成标准鹅蛋脸、小V脸或雪白皮。`;
+  return `模特脸规则：${faceRef}是唯一脸部身份参考，最终人物脸部身份必须使用该图的五官、五官大小比例、脸型倾向和身份气质；${faceRef}不提供身体比例、服装、姿势、背景、构图、固定表情、固定肤色或固定妆容。最终头部大小、脖颈长度、肩颈连接、身体肤色和光影要和生成身体统一，年龄感必须与${targetIdentity}身体自然匹配；表情保持自然克制，不要复制夸张假笑。不要把服装图或参考图中的脸误当成最终身份，不要自动改成标准鹅蛋脸、小V脸、雪白皮、假笑模板脸、素材库笑脸或过度对称的AI脸。`;
 }
 
 export function buildTryOnNegativePrompt(params: TryOnPromptContext = {}) {
@@ -173,7 +173,7 @@ export function buildTryOnNegativePrompt(params: TryOnPromptContext = {}) {
   const intimateNegative = garmentCategory === "intimate"
     ? "；不要裸露生殖器、乳头、透明走光、性行为、挑逗姿势、床上/情色场景、未成年人或未成年人外观"
     : "";
-  const base = "负面约束：不要生成多余人物，不要扭曲身体和服装，不要改变服装结构，不要自动美白，不要雪白皮或冷白皮，不要塑料皮肤，不要蜡像感，不要卡通感，不要AI渲染感，不要文字水印";
+  const base = "负面约束：不要生成多余人物，不要扭曲身体和服装，不要改变服装结构，不要保留错误的参考图原脸，不要硬贴脸，不要面具边缘，不要肤色断层，不要自动美白，不要雪白皮或冷白皮，不要塑料皮肤，不要蜡像感，不要卡通感，不要AI渲染感，不要素材库假笑，不要过干净灰底棚拍，不要过度对称AI脸，不要文字水印";
 
   if (CHILD_AGE_GROUPS.includes(ageGroup)) {
     return `${base}；不要成人化、性感化、浓妆化、成熟挑逗姿势、网红成人脸、Q版比例、玩偶比例、大头小身或短腿${intimateNegative}。`;

@@ -68,6 +68,39 @@ describe("task queue client store helpers", () => {
     expect(upsertTaskQueueRow([local], server, "tryon")).toEqual([server]);
   });
 
+  it("keeps local thumbnails during stale running server refreshes", () => {
+    const current = task({
+      id: "gen-1",
+      progress: 62,
+      expectedCount: 2,
+      resultCount: 1,
+      inputThumbnails: ["https://example.com/input.png"],
+      resultThumbnails: ["https://example.com/result.png"],
+      thumbnails: ["https://example.com/result.png"],
+    });
+    const staleServer = task({
+      id: "gen-1",
+      progress: 40,
+      expectedCount: 1,
+      resultCount: 0,
+      inputThumbnails: [],
+      resultThumbnails: [],
+      thumbnails: [],
+    });
+
+    expect(reconcileTaskQueueRows([current], [staleServer], "tryon")).toEqual([
+      {
+        ...staleServer,
+        progress: 62,
+        expectedCount: 2,
+        resultCount: 1,
+        inputThumbnails: ["https://example.com/input.png"],
+        resultThumbnails: ["https://example.com/result.png"],
+        thumbnails: ["https://example.com/result.png"],
+      },
+    ]);
+  });
+
   it("removes a task row by id", () => {
     const first = task({ id: "gen-1" });
     const second = task({ id: "gen-2" });
@@ -126,5 +159,58 @@ describe("task queue client store helpers", () => {
     expect(row.resultThumbnails).toEqual([]);
     expect(row.inputThumbnails).toEqual([]);
     expect(row.thumbnails).toEqual([]);
+  });
+
+  it("does not let background running updates steal the selected task", () => {
+    useTaskQueueStore.getState().resetModule("tryon");
+    useTaskQueueStore.getState().upsertTask(task({ id: "gen-1", progress: 20 }));
+    useTaskQueueStore.getState().setSelectedTask("tryon", "gen-1");
+
+    useTaskQueueStore.getState().upsertTask(task({ id: "gen-2", progress: 35 }));
+    expect(useTaskQueueStore.getState().modules.tryon.selectedId).toBe("gen-1");
+
+    useTaskQueueStore.getState().patchTask("tryon", "gen-2", { progress: 60 });
+    expect(useTaskQueueStore.getState().modules.tryon.selectedId).toBe("gen-1");
+  });
+
+  it("keeps already visible result thumbnails when a running patch is empty", () => {
+    useTaskQueueStore.getState().resetModule("tryon");
+    useTaskQueueStore.getState().upsertTask(task({
+      id: "gen-1",
+      progress: 70,
+      expectedCount: 2,
+      resultCount: 1,
+      resultThumbnails: ["https://example.com/result.png"],
+      thumbnails: ["https://example.com/result.png"],
+    }));
+
+    const next = useTaskQueueStore.getState().patchTask("tryon", "gen-1", {
+      statusGroup: "running",
+      progress: 45,
+      expectedCount: 1,
+      resultCount: 0,
+      resultThumbnails: [],
+      thumbnails: [],
+    });
+
+    expect(next?.progress).toBe(70);
+    expect(next?.expectedCount).toBe(2);
+    expect(next?.resultCount).toBe(1);
+    expect(next?.resultThumbnails).toEqual(["https://example.com/result.png"]);
+    expect(next?.thumbnails).toEqual(["https://example.com/result.png"]);
+  });
+
+  it("keeps a newly created task selected when its temporary id is replaced", () => {
+    useTaskQueueStore.getState().resetModule("tryon");
+    const local = useTaskQueueStore.getState().createOptimisticTask({
+      id: "local-tryon-1",
+      module: "tryon",
+      title: "服装上身",
+    });
+
+    expect(useTaskQueueStore.getState().modules.tryon.selectedId).toBe(local.id);
+
+    useTaskQueueStore.getState().replaceTask("tryon", local.id, task({ id: "gen-1", progress: 25 }));
+    expect(useTaskQueueStore.getState().modules.tryon.selectedId).toBe("gen-1");
   });
 });

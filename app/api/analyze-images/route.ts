@@ -99,7 +99,7 @@ export async function POST(request: NextRequest) {
       ? `优先保持图${referenceImageNumber}的姿势、身体角度、四肢位置、头部朝向、手部动作、背景、构图、镜头角度、光影方向和人物位置；允许为了服装真实贴合人体产生自然褶皱、遮挡关系和边缘轮廓调整。`
       : "根据服装类型、版型和目标风格选择自然、利于展示服装结构的姿势和构图。";
     const faceFusionRule = model_face_url && reference_url
-      ? `- 图${faceImageNumber}模特脸图只提供可识别脸部身份，不提供最终头部大小、头部朝向、光线、肤色或构图；最终头部空间、头身比、颈肩衔接、身体肤色、发丝/配饰遮挡和场景光影必须跟随图${referenceImageNumber}参考图。`
+      ? `- 图${faceImageNumber}模特脸图提供最终可识别身份，但不是贴脸素材；必须把它的身份重建到图${referenceImageNumber}参考图的头部空间里，头部大小、头部朝向、视线、表情强度、颈肩衔接、身体肤色、发丝/配饰遮挡和场景光影都跟随图${referenceImageNumber}。`
       : "";
 
     const textPrompt = `你是顶级商业时尚摄影师和 AI 换装提示词工程师。请仔细分析所有图片，把系统预设提示词、用户风格补充和图片内容融合为一段最终可用的换装生成提示词。
@@ -127,10 +127,10 @@ ${userStyle || "无"}
 【输出维度】
 1. 任务：说明将${clothingRefs.join("、")}的服装穿到最终人物身上，图号和${clothingMode === "multi" ? "上装/下装搭配关系" : "单件服装关系"}必须保留。
 2. 服装还原：详细描述品类、版型、廓形、颜色、面料、纹理、图案、纽扣/拉链/口袋/刺绣/印花/缝线等细节，不要编造图中没有的配饰。
-3. 人物主体：${model_face_url ? reference_url ? `脸部身份来自图${faceImageNumber}，但头部姿态、头部大小、颈肩衔接、身体肤色、光线方向、曝光和阴影必须跟随图${referenceImageNumber}，像同一张照片自然融合` : `脸部严格使用图${faceImageNumber}的五官、肤色、发型和气质` : "自然真实的人物，符合商业服装摄影审美"}
+3. 人物主体：${model_face_url ? reference_url ? `脸部身份来自图${faceImageNumber}，但要重建在图${referenceImageNumber}的真实摄影头部空间里；头部姿态、头部大小、颈肩衔接、身体肤色、光线方向、曝光和阴影必须跟随图${referenceImageNumber}，像同一张照片自然融合` : `脸部身份来自图${faceImageNumber}，保留自然肤色范围、发型和脸型气质，同时让头身比、颈肩衔接、身体肤色和光影统一，不要素材库假笑` : "自然真实的人物，符合商业服装摄影审美"}
 4. 姿态和场景：${poseRule}
 5. 拍摄设备：根据风格选择合适的相机镜头参数（如 medium format camera, 85mm f/1.4）
-6. 光线和质感：主光、辅光、轮廓光、景深、焦点、真实皮肤、毛孔、自然瑕疵、不过度磨皮、真实布料褶皱。
+6. 光线和质感：真实环境光或可信商业光源、景深、焦点、真实皮肤、毛孔、自然瑕疵、不过度磨皮、不过度干净棚拍、真实布料褶皱。
 7. 图像质量：最终提示词必须原样包含英文质量维度：${QUALITY_DIMENSIONS}
 8. 用户风格：如有用户风格补充，将其融入画面色调、氛围和摄影风格，不要覆盖图号硬约束。
 9. 敏感服装：${garmentCategory === "intimate" ? "按成人贴身/泳装类商品图处理，必须保持中性、专业、非色情，不要裸露、挑逗姿势、床上/情色场景、未成年人或未成年人外观。" : "无。"}
@@ -138,7 +138,7 @@ ${userStyle || "无"}
 【格式要求】
 - 用中文描述服装和风格，用英文写摄影技术参数
 - 一段连贯的话，350-500字，不要分段，不要解释
-- 必须去AI味：强调真实摄影质感、自然光影、真实皮肤、布料褶皱
+- 必须去AI味：强调真实摄影质感、自然光影、真实皮肤、自然表情、非对称真实感、布料褶皱；不要素材库假笑、塑料脸、过干净灰底棚拍
 
 【负面约束】不要生成多余人物，不要扭曲身体和服装，不要塑料皮肤，不要蜡像感，不要卡通感，不要AI渲染感，不要改变图号含义。`;
 
@@ -338,8 +338,8 @@ function buildFallbackPrompt(params: {
     : "Clean seamless light grey studio background, minimalist aesthetic, natural single-person fashion photography composition.";
   const faceText = params.hasModelFace
     ? params.hasReference
-      ? `最终脸部身份来自图${params.faceImageNumber}模特脸，但图${params.faceImageNumber}不提供最终头部比例、姿态、光线或肤色基准；头部大小、头部朝向、视线方向、颈肩衔接、光线方向、色温、曝光、阴影和身体肤色连续性必须跟随图${params.referenceImageNumber}参考图，让脸、颈部、胸口、手臂和手部像同一张照片自然拍摄，不要证件照式正脸、贴上去的头、长脖子、肤色断层或不同图层光影。`
-      : `最终人物脸部严格替换为图${params.faceImageNumber}的模特脸，保持五官、肤色、发型和气质一致，并维持真实头部大小、颈部衔接和自然光影。`
+      ? `最终脸部身份来自图${params.faceImageNumber}模特脸，但图${params.faceImageNumber}不提供最终头部比例、姿态、光线或肤色基准；必须把身份重建在图${params.referenceImageNumber}参考图的头部空间里，头部大小、头部朝向、视线方向、自然表情、颈肩衔接、光线方向、色温、曝光、阴影和身体肤色连续性都跟随图${params.referenceImageNumber}，让脸、颈部、胸口、手臂和手部像同一张照片自然拍摄，不要证件照式正脸、贴上去的头、长脖子、肤色断层、不同图层光影或素材库假笑。`
+      : `最终人物脸部身份来自图${params.faceImageNumber}的模特脸，保持五官、自然肤色范围、发型和气质一致，并维持真实头部大小、颈部衔接、身体肤色连续、自然表情和自然光影。`
     : "Hyper-realistic skin texture, natural pores, smooth yet realistic dermis, natural skin tone with subtle imperfections.";
   const clothingDetail = params.clothingCount > 1
     ? `将${clothingText}的服装搭配成一套完整穿搭，保留每件服装的版型、颜色、材质、图案、纹理和细节（纽扣/拉链/口袋/刺绣/印花等），服装自然贴合人体，布料褶皱真实。`
@@ -349,7 +349,7 @@ function buildFallbackPrompt(params: {
     applyTryOnFramePrompt(
       applyTryOnGarmentCategoryPrompt(
         applyTryOnAudiencePrompt(
-          `${params.roleStatement} Fashion photography, full body portrait of a real fashion model with natural real-person appearance, wearing clothing from ${clothingText}. ${TRYON_CLOTHING_IMAGE_ROLE_RULE} ${clothingDetail} ${TRYON_GARMENT_RULE}${TRYON_FIT_RULE}${TRYON_PHOTOGRAPHY_RULE} Elegant and confident posture, natural dynamic fashion pose, subtle eye contact with camera. Shot on medium format camera, 85mm f/1.4 prime lens, ultra-shallow depth of field, crisp focus on model. Professional studio lighting: key light from soft octabox, gentle fill light, delicate rim light. ${referenceText} ${faceText} ${QUALITY_DIMENSIONS}. No extra people, no body distortion, no plastic skin, no wax figure look, no cartoon style, no AI rendering artifacts. ${params.style?.trim() ? params.style.trim() : ""}`,
+          `${params.roleStatement} Real camera fashion photo of a believable person with natural real-person appearance, wearing clothing from ${clothingText}. ${TRYON_CLOTHING_IMAGE_ROLE_RULE} ${clothingDetail} ${TRYON_GARMENT_RULE}${TRYON_FIT_RULE}${TRYON_PHOTOGRAPHY_RULE} Natural posture, restrained expression, believable fabric weight, normal photo imperfections, subtle eye contact only if it matches the reference. Use realistic lens perspective and credible light from the scene; do not default to a clean gray studio backdrop unless the user or reference requests it. ${referenceText} ${faceText} ${QUALITY_DIMENSIONS}. No extra people, no body distortion, no plastic skin, no wax figure look, no stock-model smile, no porcelain retouch, no cartoon style, no AI rendering artifacts. ${params.style?.trim() ? params.style.trim() : ""}`,
           { garmentAudience: params.garmentAudience, ageGroup: params.ageGroup }
         ),
         { garmentCategory: params.garmentCategory, ageGroup: params.ageGroup }

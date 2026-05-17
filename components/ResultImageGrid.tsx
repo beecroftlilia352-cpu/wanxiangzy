@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, type CSSProperties } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { Download, Loader2, XCircle } from "lucide-react";
 import { getImageVariantUrl } from "@/lib/image-variants";
 import { downloadImage, generateDownloadFilename } from "@/lib/utils";
@@ -89,7 +89,7 @@ export function ResultImageGrid({
           <div className={`grid min-w-0 flex-1 gap-3 ${getGridClass(count)}`}>
             {slots.map((url, index) => (
               <ResultCard
-                key={`${renderKey}-${url || "pending"}-${index}`}
+                key={`${renderKey}-${index}`}
                 url={url}
                 index={index}
                 count={count}
@@ -111,7 +111,7 @@ export function ResultImageGrid({
     <div className={`studio-result-card-grid mx-auto grid w-full gap-3 sm:gap-4 ${getGridClass(count)}`}>
       {slots.map((url, index) => (
         <ResultCard
-          key={`${renderKey}-${url || "pending"}-${index}`}
+          key={`${renderKey}-${index}`}
           url={url}
           index={index}
           count={count}
@@ -184,13 +184,9 @@ function ResultCard({
     >
       <div className="flex items-center justify-center" style={getTileStyle()}>
         {url ? (
-          <img
+          <StableResultImage
             src={getImageVariantUrl(url, count <= 1 ? "preview" : "card")}
             alt={`${imageAltPrefix} ${index + 1}`}
-            className="h-full w-full object-cover"
-            onError={(event) => {
-              (event.currentTarget as HTMLImageElement).src = FALLBACK_IMAGE;
-            }}
           />
         ) : (
           <PendingResultSlot failed={failed} running={running} index={index} />
@@ -215,6 +211,45 @@ function ResultCard({
         </button>
       )}
     </div>
+  );
+}
+
+function StableResultImage({ src, alt }: { src: string; alt: string }) {
+  const [displaySrc, setDisplaySrc] = useState(src);
+  const [failedSrc, setFailedSrc] = useState("");
+
+  useEffect(() => {
+    if (src === displaySrc || src === failedSrc) return;
+    let cancelled = false;
+    const image = new Image();
+    image.onload = () => {
+      if (!cancelled) {
+        setDisplaySrc(src);
+        setFailedSrc("");
+      }
+    };
+    image.onerror = () => {
+      if (!cancelled) {
+        setDisplaySrc(FALLBACK_IMAGE);
+        setFailedSrc(src);
+      }
+    };
+    image.src = src;
+    return () => {
+      cancelled = true;
+    };
+  }, [displaySrc, failedSrc, src]);
+
+  return (
+    <img
+      src={displaySrc}
+      alt={alt}
+      className="h-full w-full object-cover"
+      onError={() => {
+        setDisplaySrc(FALLBACK_IMAGE);
+        setFailedSrc(src);
+      }}
+    />
   );
 }
 

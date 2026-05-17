@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { applyPoseSeriesStylePrompt } from "@/lib/module-style-presets";
-import { enforcePosePromptRequirements } from "@/lib/pose-prompt";
+import { buildSeparatePoseSlotDirective, buildSeparatePoseStoryboardPlan, enforcePosePromptRequirements } from "@/lib/pose-prompt";
 
 describe("pose prompt handling", () => {
   it("keeps user custom pose lines instead of replacing them with defaults", () => {
@@ -72,6 +72,37 @@ describe("pose prompt handling", () => {
     expect(enforced).not.toContain("四个分格");
     expect(enforced).not.toContain("连续 pose sheet");
     expect(enforced).toContain("姿势裂变拍摄风格档位：轻奢 Lookbook");
+    expect(enforced).toContain("单图裂变规则");
+    expect(enforced).toContain("单张生产线分镜");
+    expect(enforced).toContain("不要复制图1原动作");
+  });
+
+  it("provides distinct default directions for separate pose slots", () => {
+    expect(buildSeparatePoseSlotDirective(1)).toContain("正面");
+    expect(buildSeparatePoseSlotDirective(1)).toContain("不能复刻图1原动作");
+    expect(buildSeparatePoseSlotDirective(2)).toContain("侧转");
+    expect(buildSeparatePoseSlotDirective(3)).toContain("迈步");
+    expect(buildSeparatePoseSlotDirective(4)).toContain("回眸");
+  });
+
+  it("uses style-specific pose directions for preset styles", () => {
+    expect(buildSeparatePoseSlotDirective(2, "ecommerce_clean")).toContain("侧面结构展示");
+    expect(buildSeparatePoseSlotDirective(4, "luxury_lookbook")).toContain("品牌大片感");
+    expect(buildSeparatePoseSlotDirective(3, "fashion_editorial")).toContain("editorial 张力");
+    expect(buildSeparatePoseSlotDirective(1, "xiaohongshu_lifestyle")).toContain("真实生活方式站姿");
+    expect(buildSeparatePoseSlotDirective(3, "euro_campaign")).toContain("campaign 张力");
+  });
+
+  it("builds a full storyboard plan for separate pose production", () => {
+    const plan = buildSeparatePoseStoryboardPlan("korean_clean");
+
+    expect(plan).toContain("生产线四槽计划");
+    expect(plan).toContain("槽位1方向");
+    expect(plan).toContain("槽位2方向");
+    expect(plan).toContain("槽位3方向");
+    expect(plan).toContain("槽位4方向");
+    expect(plan).toContain("至少两张为完整服装展示");
+    expect(plan).toContain("不要把四张都做成同一距离的正面站姿");
   });
 
   it("makes expression toggle produce clearly different instructions", () => {

@@ -1205,6 +1205,12 @@ function formatGrassSceneMode(mode?: string) {
   return "-";
 }
 
+function formatGrassSceneBackgroundMode(mode?: string) {
+  if (mode === "similar_style") return "AI 重构相似场景";
+  if (mode === "reference_scene" || !mode) return "沿用参考场景";
+  return "-";
+}
+
 function getStatusClasses(status: string) {
   const normalizedStatus = normalizeHistoryStatusFilter(status);
   if (normalizedStatus === "completed") return "bg-emerald-50 text-emerald-700";
@@ -1307,7 +1313,10 @@ function getHistoryInputSummary(payload?: HistoryJobPayload) {
     return `${mode} · ${payload.clothingUrls.length} 张服装 · ${modelFace} · ${reference}`;
   }
   if (payload.kind === "grass") {
-    return `服装图 · ${formatGrassSceneMode(payload.sceneMode)} · ${payload.changeModel ? "改变模特" : "保持模特"}`;
+    const sceneControl = payload.sceneMode === "custom_prompt"
+      ? "提示词场景"
+      : formatGrassSceneBackgroundMode(payload.sceneBackgroundMode);
+    return `服装图 · ${formatGrassSceneMode(payload.sceneMode)} · ${payload.changeModel ? "改变模特" : "保持模特"} · ${sceneControl}`;
   }
   if (payload.kind === "productSet") {
     return `${payload.productImageUrls.length} 张商品图 · ${payload.mode === "custom" ? "自定义套图" : "智能套图"}`;
@@ -1458,6 +1467,7 @@ function getParameterItems(row: HistoryRow) {
       { label: "生成张数", value: String(payload.genCount) },
       { label: "模板", value: payload.templateId },
       { label: "场景模式", value: formatGrassSceneMode(payload.sceneMode) },
+      { label: "场景控制", value: payload.sceneMode === "custom_prompt" ? "提示词场景" : formatGrassSceneBackgroundMode(payload.sceneBackgroundMode) },
       { label: "种草参考图", value: payload.referenceUrl ? "已使用" : "未使用" },
       { label: "模特控制", value: payload.changeModel ? "改变模特" : "保持模特" },
     ];

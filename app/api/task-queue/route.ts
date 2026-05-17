@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { API_RATE_LIMITS, enforceApiRateLimit } from "@/lib/api/rate-limit";
+import { getReadAuthenticatedUser } from "@/lib/api/read-auth";
 import { createServerSupabase } from "@/lib/supabase/server";
 import {
   GENERATION_FAILED_STATUS_FILTERS,
@@ -98,7 +99,8 @@ const EMPTY_SUMMARY: QueueSummaryData = {
 const RUNNING_WORKFLOW_STATUSES = ["queued", "running"];
 const FAILED_WORKFLOW_STATUSES = ["failed", "cancelled", "canceled"];
 const RUNNING_TASK_STALE_MS = getRunningTaskStaleMs();
-const AUTH_TIMEOUT_MS = 10_000;
+const AUTH_CLAIMS_TIMEOUT_MS = 1_500;
+const AUTH_USER_FALLBACK_TIMEOUT_MS = 3_000;
 const READ_RATE_LIMIT_TIMEOUT_MS = 1_500;
 const SUMMARY_QUERY_TIMEOUT_MS = 8_000;
 const QUEUE_QUERY_TIMEOUT_MS = 15_000;
@@ -215,16 +217,11 @@ async function safeEnforceReadRateLimit(userId: string) {
 }
 
 async function getQueueUser(supabase: Awaited<ReturnType<typeof createServerSupabase>>) {
-  const userResult = await withTimeout(
-    supabase.auth.getUser(),
-    AUTH_TIMEOUT_MS,
-    "auth getUser timeout"
-  ).catch((error) => {
-    logTaskQueueWarning("auth getUser unavailable", toLogMessage(error));
-    return null;
+  return getReadAuthenticatedUser(supabase, {
+    claimsTimeoutMs: AUTH_CLAIMS_TIMEOUT_MS,
+    userFallbackTimeoutMs: AUTH_USER_FALLBACK_TIMEOUT_MS,
+    onWarning: logTaskQueueWarning,
   });
-  const user = userResult?.data?.user;
-  return user?.id ? { id: user.id } : null;
 }
 
 function checkLightweightQueueRateLimit(userId: string) {

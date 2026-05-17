@@ -25,7 +25,7 @@ import {
   type CommerceDetailSectionSpec,
 } from "@/lib/commerce-detail-sections";
 import { enforceModelPromptRequirements } from "@/lib/model-prompt";
-import { enforcePosePromptRequirements, type PoseOutputMode } from "@/lib/pose-prompt";
+import { buildSeparatePoseSlotDirective, buildSeparatePoseStoryboardPlan, enforcePosePromptRequirements, type PoseOutputMode } from "@/lib/pose-prompt";
 import {
   applyGarment3dDisplayStylePrompt,
   applyModelShootStylePrompt,
@@ -33,6 +33,7 @@ import {
   normalizeGarment3dDisplayStyle,
   normalizeModelShootStyle,
   normalizePoseSeriesStyle,
+  POSE_SERIES_STYLES,
   type Garment3dDisplayStyle,
   type ModelShootStyle,
   type PoseSeriesStyle,
@@ -1434,8 +1435,8 @@ function getExpectedResultCount(payload: GenerationJobPayload) {
 function getPayloadReferenceImages(payload: GenerationJobPayload) {
   if (payload.kind === "tryon") return [
     ...payload.clothingUrls,
-    payload.modelFaceUrl,
     payload.referenceUrl,
+    payload.modelFaceUrl,
   ].filter((url): url is string => typeof url === "string" && url.length > 0);
   if (payload.kind === "model") return [
     ...payload.referenceUrls,
@@ -1636,6 +1637,10 @@ function normalizeCommerceDetailSections(
 }
 
 function buildSeparatePosePrompt(prompt: string, poseIndex: number) {
+  const explicitPosePattern = new RegExp(`^\\s*姿势\\s*${poseIndex}[：:]`, "m");
+  const poseStyle = inferPoseStyleFromPrompt(prompt);
+  const explicitPoseLines = extractExplicitPoseLines(prompt);
+  const hasExplicitPoseLine = explicitPosePattern.test(prompt);
   const scopedPrompt = prompt
     .split("\n")
     .filter((line) => {
@@ -1647,10 +1652,43 @@ function buildSeparatePosePrompt(prompt: string, poseIndex: number) {
 
   return [
     scopedPrompt,
+    "本组四张生产线分镜计划（每次单图任务都必须参考，用来和其它槽位拉开差异；但当前只生成指定槽位）：",
+    explicitPoseLines.length ? buildExplicitPoseStoryboardPlan(explicitPoseLines) : buildSeparatePoseStoryboardPlan(poseStyle),
     `本次单图任务：只生成姿势${poseIndex}这一张完整图片。`,
-    `如果用户提示词里有“姿势${poseIndex}：”，严格执行该条姿势；如果没有逐条指定，则根据所选风格自主设计第${poseIndex}个自然姿势，并确保它与同组其它姿势有明显变化。`,
+    hasExplicitPoseLine
+      ? `用户已指定“姿势${poseIndex}：”，严格执行该条姿势，不要混入其它姿势槽位。`
+      : buildSeparatePoseSlotDirective(poseIndex, poseStyle),
+    `差异硬约束：第${poseIndex}张必须与原图和同组其它槽位在身体角度、手臂动作、重心、视线或步态上明显不同；只保持人物身份、服装、场景、光线和摄影质感一致。`,
     "不要生成四宫格、拼图、分屏、边框、编号文字或 contact sheet。",
   ].join("\n");
+}
+
+function extractExplicitPoseLines(prompt: string) {
+  return prompt
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => /^姿势\s*[1-4][：:]/.test(line));
+}
+
+function buildExplicitPoseStoryboardPlan(explicitPoseLines: string[]) {
+  const slots = Array.from({ length: 4 }, (_, index) => {
+    const poseIndex = index + 1;
+    return explicitPoseLines.find((line) => new RegExp(`^姿势\\s*${poseIndex}[：:]`).test(line))
+      || `姿势${poseIndex}：用户未填写，AI 按整体风格补足一个与其它槽位明显不同的自然商业姿势。`;
+  });
+  return [
+    "用户自定义四槽计划：",
+    ...slots.map((line, index) => `${index + 1}. ${line}`),
+    "全组差异校验：四个姿势必须在身体角度、手部动作、重心、视线、表情或景别上拉开差异；不要把四张都做成同一距离的正面站姿。",
+  ].join("\n");
+}
+
+function inferPoseStyleFromPrompt(prompt: string): PoseSeriesStyle | undefined {
+  const match = prompt.match(/姿势裂变拍摄风格档位：([^。\n]+)/);
+  const label = match?.[1]?.trim();
+  if (!label) return undefined;
+  const style = POSE_SERIES_STYLES.find((item) => item.label === label || label.includes(item.label));
+  return style?.value;
 }
 
 function hasStringArray(value: unknown): value is string[] {

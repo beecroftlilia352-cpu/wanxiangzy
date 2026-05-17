@@ -5,7 +5,7 @@ import { createDebitedGeneration, errorToResponsePayload } from "@/lib/api/credi
 import { startGenerationJob, type GenerationJobPayload } from "@/lib/api/generation-jobs";
 import { handleGenerationStatusGet } from "@/lib/api/generation-status";
 import { getPublicBaseUrlFromRequest } from "@/lib/api/image-inputs.server";
-import { buildGrassPrompt, DEFAULT_GRASS_USER_PROMPT, enforceGrassPromptRequirements, normalizeGrassSceneMode, normalizeGrassTemplate } from "@/lib/grass-planting";
+import { buildGrassPrompt, DEFAULT_GRASS_USER_PROMPT, enforceGrassPromptRequirements, normalizeGrassSceneBackgroundMode, normalizeGrassSceneMode, normalizeGrassTemplate } from "@/lib/grass-planting";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 
 export const maxDuration = 60;
@@ -37,6 +37,7 @@ export async function POST(request: NextRequest) {
       : DEFAULT_GRASS_USER_PROMPT;
     const changeModel = body.change_model !== false;
     const sceneMode = normalizeGrassSceneMode(body.scene_mode);
+    const sceneBackgroundMode = normalizeGrassSceneBackgroundMode(body.scene_background_mode);
     const requestedReferenceUrl = typeof body.reference_url === "string" ? body.reference_url.trim() : "";
     const referenceUrl = sceneMode === "custom_prompt" ? null : requestedReferenceUrl || null;
     if (sceneMode === "upload_reference" && !referenceUrl) {
@@ -50,11 +51,13 @@ export async function POST(request: NextRequest) {
           changeModel,
           sceneMode,
           hasReference: !!referenceUrl,
+          sceneBackgroundMode,
         });
     const prompt = enforceGrassPromptRequirements(rawPrompt, {
       sceneMode,
       hasReference: !!referenceUrl,
       changeModel,
+      sceneBackgroundMode,
     });
     const totalCost = getCreditCost(model, size, aspectRatio) * genCount;
 
@@ -64,6 +67,7 @@ export async function POST(request: NextRequest) {
       garmentUrl,
       referenceUrl,
       sceneMode,
+      sceneBackgroundMode,
       templateId,
       changeModel,
       userPrompt,

@@ -21,7 +21,7 @@ Environment:
   SSR_SIZE_WARN_MIB        Warn threshold. Default: 90% of limit
   SSR_SIZE_LARGE_FILE_MIB  Large file report threshold. Default: 8
   SSR_SIZE_TOP_COUNT       Number of largest files/modules to print. Default: 10
-  SSR_SIZE_FAIL_ON_RISK=1  Exit non-zero when risk is detected
+  SSR_SIZE_FAIL_ON_RISK=1  Exit non-zero when totals exceed warning or hard limits
 `);
   process.exit(0);
 }
@@ -252,7 +252,7 @@ function printSummary(summary, traceIndex) {
 
   if (summary.existingPaths.length === 0) {
     console.log(`  not found: ${summary.paths.map(relative).join(", ")}`);
-    return false;
+    return { blocking: false, reported: false };
   }
 
   const label = riskLabel(summary.total);
@@ -277,7 +277,7 @@ function printSummary(summary, traceIndex) {
     printFileList(summary.largest, traceIndex);
   }
 
-  return label !== "OK" || summary.largeFiles.length > 0;
+  return { blocking: label !== "OK", reported: label !== "OK" || summary.largeFiles.length > 0 };
 }
 
 if (!fs.existsSync(nextDir)) {
@@ -290,11 +290,15 @@ console.log(`  limit: ${formatBytes(edgeOneLimitBytes)}, warn at: ${formatBytes(
 
 const traceIndex = buildTraceIndex();
 const summaries = sections.map(summarize);
-const hasRisk = summaries.map((summary) => printSummary(summary, traceIndex)).some(Boolean);
+const results = summaries.map((summary) => printSummary(summary, traceIndex));
+const hasBlockingRisk = results.some((result) => result.blocking);
+const hasReportedRisk = results.some((result) => result.reported);
 
-if (hasRisk) {
+if (hasBlockingRisk) {
   console.log("\n[check-next-ssr-size] Risk reported. Review the listed server files/modules before deploying to a 128 MiB SSR runtime.");
   if (failOnRisk) process.exit(2);
+} else if (hasReportedRisk) {
+  console.log("\n[check-next-ssr-size] Large files reported for review, but section totals are within the configured SSR limits.");
 } else {
   console.log("\n[check-next-ssr-size] No SSR bundle size risk found.");
 }
