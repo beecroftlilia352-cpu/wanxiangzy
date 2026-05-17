@@ -146,26 +146,27 @@ const multiTryOn = lingya.buildTryOnPrompt({
   hasModelFace: true,
   hasReference: true,
 }).prompt;
-assertIncludes(multiTryOn, "Use image 3 as the fixed base image for the whole photo, except for exactly two local edit areas", "多件固定底图规则");
+assertIncludes(multiTryOn, "Use image 3 as the base try-on photo. Perform a realistic fashion edit, not a full photo regeneration.", "多件固定底图规则");
 assertIncludes(multiTryOn, "- image 1 = upper-body clothing source only.", "多件角色锁定");
 assertIncludes(multiTryOn, "- image 2 = lower-body clothing source only.", "多件角色锁定");
-assertIncludes(multiTryOn, "- image 3 = fixed target canvas", "多件角色锁定");
+assertIncludes(multiTryOn, "- image 3 = target try-on reference", "多件角色锁定");
 assertIncludes(multiTryOn, "- image 4 = mandatory face identity reference only", "多件角色锁定");
-assertIncludes(multiTryOn, "Edit image 3 only.", "多件本地编辑规则");
+assertIncludes(multiTryOn, "Edit image 3 into a believable try-on photo.", "多件本地编辑规则");
 assertIncludes(multiTryOn, "Replace only the sourced upper- and lower-body clothing on the person in image 3 with the garments from image 1 and image 2.", "多件替换规则");
-assertIncludes(multiTryOn, "Edit the face identity area too: replace image 3's original facial identity with image 4's recognizable identity", "多件脸部身份替换规则");
-assertIncludes(multiTryOn, "Do not leave the face unchanged. Every generated candidate must use image 4's identity.", "多件脸部身份替换规则");
-assertIncludes(multiTryOn, "Fixed-canvas geometry: keep image 3's camera distance, crop, person scale, head-to-body ratio, floor line, and visible feet unchanged.", "多件镜头画幅锁定");
+assertIncludes(multiTryOn, "Reconstruct the final face using image 4's recognizable identity and facial feature proportions", "多件脸部身份替换规则");
+assertIncludes(multiTryOn, "Every generated candidate must use image 4's identity.", "多件脸部身份替换规则");
+assertIncludes(multiTryOn, "Keep natural adult proportions and a realistic head-to-body ratio close to image 3", "多件头身比例规则");
+assertIncludes(multiTryOn, "Keep the overall camera distance, framing style, background, floor, and non-sourced outfit areas close to image 3", "多件镜头画幅规则");
 assertIncludes(multiTryOn, "image 1 and image 2 are not a person reference", "多件服装源隔离");
 assertIncludes(multiTryOn, "If image 1 contains only one garment, do not invent extra upper-body garments.", "多件上装不发散规则");
 assertIncludes(multiTryOn, "If image 2 contains only one garment, do not invent extra lower-body garments.", "多件下装不发散规则");
 assertIncludes(multiTryOn, "This is identity reconstruction, not a hard face swap.", "多件模特脸规则");
 assertIncludes(multiTryOn, "Use image 4 only for recognizable facial identity", "多件模特脸规则");
-assertIncludes(multiTryOn, "Do not use image 4's expression, smile intensity, skin tone, makeup, lighting, pose, head size, or background.", "多件模特脸排除规则");
-assertIncludes(multiTryOn, "If it still looks like image 3's original face, the result is invalid.", "多件模特脸强制生效规则");
-assertIncludes(multiTryOn, "The final face must keep image 3's expression exactly", "多件表情锁定");
-assertIncludes(multiTryOn, "The final face must match image 3's visible skin tone", "多件肤色光影锁定");
-assertIncludes(multiTryOn, "1. image 3 controls the fixed base photo", "多件优先级规则");
+assertIncludes(multiTryOn, "Do not copy image 4's expression, smile intensity, skin tone, makeup, lighting, pose, body, head size, or background.", "多件模特脸排除规则");
+assertIncludes(multiTryOn, "The final face must be recognizable as image 4's person but naturally integrated", "多件模特脸强制生效规则");
+assertIncludes(multiTryOn, "Adapt image 4's identity to image 3's expression", "多件表情适配");
+assertIncludes(multiTryOn, "Match image 3's visible skin tone", "多件肤色光影融合");
+assertIncludes(multiTryOn, "1. image 3 controls body proportions", "多件优先级规则");
 assertIncludes(multiTryOn, "3. image 4 controls only final facial identity and feature proportions.", "多件优先级规则");
 assertIncludes(multiTryOn, "The identity change to image 4 is mandatory in every output.", "多件身份强制规则");
 assertNotIncludes(multiTryOn, "如果有参考图", "多件参考图不使用条件句");
@@ -182,7 +183,7 @@ const upperOnlyTryOn = lingya.buildTryOnPrompt({
   hasReference: true,
 }).prompt;
 assertIncludes(upperOnlyTryOn, "Replace only the upper-body clothing on the person in image 2 with the upper-body garment from image 1.", "单上装替换规则");
-assertIncludes(upperOnlyTryOn, "Do not change image 2's lower-body clothing, shoes, legs, hands, accessories, background, or scene", "单上装下半身保护");
+assertIncludes(upperOnlyTryOn, "Keep image 2's lower-body clothing, shoes, legs, hands, accessories, background, and scene close to the reference", "单上装下半身保护");
 assertIncludes(upperOnlyTryOn, "Do not keep image 2's original facial identity.", "单上装图3脸优先");
 assertIncludes(upperOnlyTryOn, "If image 1 contains only one garment, do not invent extra upper-body garments.", "单上装不凭空发散");
 
@@ -200,7 +201,7 @@ const gptCompiled = compiler.compileImagePromptForModel({
   model: "gpt-image-2",
   prompt: multiTryOn,
 });
-assertIncludes(gptCompiled, "Use image 3 as the fixed base image for the whole photo, except for exactly two local edit areas", "gpt-image-2 精简直出");
+assertIncludes(gptCompiled, "Use image 3 as the base try-on photo. Perform a realistic fashion edit, not a full photo regeneration.", "gpt-image-2 精简直出");
 assertNotIncludes(gptCompiled, "GPT-Image-2 执行提示", "gpt-image-2 临时极简直出");
 assertNotIncludes(gptCompiled, "服装图角色隔离规则", "gpt-image-2 临时极简直出");
 assertNotIncludes(gptCompiled, "输入顺序规则", "gpt-image-2 不再重排图片");
