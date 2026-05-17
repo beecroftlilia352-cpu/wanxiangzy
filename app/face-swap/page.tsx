@@ -51,7 +51,7 @@ import {
 } from "@/lib/utils";
 import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { fetchHistoryApplyDetail, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
-import { clampTaskExpectedCount, type TaskQueueItem } from "@/lib/task-queue";
+import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
 
 const MODELS: Array<{ value: LingyaModel; label: string; desc: string; icon: string; badge?: string }> = [
   { value: "nano-banana-2", label: "Nano-Banana-2", desc: "4K · 3分/次", icon: "/model-icons/gemini.png", badge: "默认" },
@@ -473,7 +473,7 @@ export default function FaceSwapPage() {
 
   function handleRunningTask(item: TaskQueueItem) {
     setActiveQueueTask(item);
-    const urls = item.resultThumbnails || [];
+    const urls = safeTaskQueueUrls(item.resultThumbnails);
     const nextProgress = Number.isFinite(Number(item.progress)) ? Number(item.progress) : 8;
     setGenCount(normalizeFaceSwapCount(clampTaskExpectedCount(item, 1, 4)));
     clearPolling();
@@ -490,7 +490,7 @@ export default function FaceSwapPage() {
     try {
       const detail = await fetchHistoryApplyDetail(item.id, "faceSwap", session.signal);
       if (!session.isCurrent()) return true;
-      applyFaceSwapHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : item.resultThumbnails);
+      applyFaceSwapHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : safeTaskQueueUrls(item.resultThumbnails));
       return true;
     } catch (err) {
       if (session.signal.aborted || !session.isCurrent()) return true;
@@ -506,8 +506,8 @@ export default function FaceSwapPage() {
         ? "error"
         : "empty";
   const faceSwapInputThumbnails = (
-    activeQueueTask?.inputThumbnails?.length
-      ? activeQueueTask.inputThumbnails
+    safeTaskQueueUrls(activeQueueTask?.inputThumbnails).length
+      ? safeTaskQueueUrls(activeQueueTask?.inputThumbnails)
       : [sourceUrl, faceUrl]
   ).filter(Boolean);
   const faceSwapExpectedCount = activeQueueTask

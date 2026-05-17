@@ -24,7 +24,7 @@ import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
 import { fetchHistoryApplyDetail, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
-import { clampTaskExpectedCount, type TaskQueueItem } from "@/lib/task-queue";
+import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
 import { applyRepairPrompt } from "@/lib/generation-repair";
 import { enforceModelPromptRequirements } from "@/lib/model-prompt";
 import {
@@ -554,10 +554,10 @@ export default function ModelPage() {
     setIsGenerating(true);
     setProgress(Math.min(Math.max(Math.round(Number(item.progress) || 12), 1), 99));
     setError("");
-    setResultUrls(item.resultThumbnails || []);
+    setResultUrls(safeTaskQueueUrls(item.resultThumbnails));
     setActiveResultMeta({
       createdAt: item.createdAt || item.updatedAt || new Date().toISOString(),
-      inputThumbnails: item.inputThumbnails || [],
+      inputThumbnails: safeTaskQueueUrls(item.inputThumbnails),
     });
   }
 
@@ -565,7 +565,7 @@ export default function ModelPage() {
     try {
       const detail = await fetchHistoryApplyDetail(item.id, "model", session.signal);
       if (!session.isCurrent()) return true;
-      applyModelHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : item.resultThumbnails);
+      applyModelHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : safeTaskQueueUrls(item.resultThumbnails));
       return true;
     } catch (err) {
       if (session.signal.aborted || !session.isCurrent()) return true;

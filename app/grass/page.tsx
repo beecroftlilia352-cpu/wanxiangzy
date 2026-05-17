@@ -38,7 +38,7 @@ import {
   type GrassTemplateId,
 } from "@/lib/grass-planting";
 import { fetchHistoryApplyDetail, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
-import { clampTaskExpectedCount, type TaskQueueItem } from "@/lib/task-queue";
+import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
 
 const MODELS: { value: LingyaModel; label: string; desc: string; badge?: string; icon: string }[] = [
   { value: "nano-banana-2", label: "Nano-Banana-2", desc: "4K · 3分/次", badge: "推荐", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
@@ -442,14 +442,14 @@ export default function GrassPage() {
     setIsGenerating(true);
     setProgress(Math.min(Math.max(Math.round(Number(item.progress) || 12), 1), 99));
     setError("");
-    setResultUrls(item.resultThumbnails || []);
+    setResultUrls(safeTaskQueueUrls(item.resultThumbnails));
   }
 
   async function handleCompletedTask(item: TaskQueueItem, session: TaskSelectionSession) {
     try {
       const detail = await fetchHistoryApplyDetail(item.id, "grass", session.signal);
       if (!session.isCurrent()) return true;
-      applyGrassHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : item.resultThumbnails);
+      applyGrassHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : safeTaskQueueUrls(item.resultThumbnails));
       return true;
     } catch (err) {
       if (session.signal.aborted || !session.isCurrent()) return true;

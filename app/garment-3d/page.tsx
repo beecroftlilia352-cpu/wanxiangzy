@@ -26,7 +26,7 @@ import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
 import { fetchHistoryApplyDetail, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
 import { applyRepairPrompt } from "@/lib/generation-repair";
-import { clampTaskExpectedCount, type TaskQueueItem } from "@/lib/task-queue";
+import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
 import {
   DEFAULT_GARMENT_3D_DISPLAY_STYLE,
   GARMENT_3D_DISPLAY_STYLES,
@@ -518,7 +518,7 @@ export default function Garment3dPage() {
   }
 
   function handleRunningTask(item: TaskQueueItem) {
-    const urls = item.resultThumbnails || [];
+    const urls = safeTaskQueueUrls(item.resultThumbnails);
     const nextProgress = Number.isFinite(Number(item.progress)) ? Number(item.progress) : 8;
     setGenCount(clampTaskExpectedCount(item, 1, 4));
     setIsGenerating(true);
@@ -531,7 +531,7 @@ export default function Garment3dPage() {
     try {
       const detail = await fetchHistoryApplyDetail(item.id, "garment3d", session.signal);
       if (!session.isCurrent()) return true;
-      applyGarment3dHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : item.resultThumbnails);
+      applyGarment3dHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : safeTaskQueueUrls(item.resultThumbnails));
       return true;
     } catch (err) {
       if (session.signal.aborted || !session.isCurrent()) return true;

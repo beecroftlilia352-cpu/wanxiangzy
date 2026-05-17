@@ -40,7 +40,7 @@ import { ClientPortal } from "@/components/ClientPortal";
 import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { fetchHistoryApplyDetail, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
 import { getImageVariantUrl } from "@/lib/image-variants";
-import { clampTaskExpectedCount, type TaskQueueItem } from "@/lib/task-queue";
+import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
 import { downloadImage, generateDownloadFilename, MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
 import {
@@ -1366,7 +1366,7 @@ export default function ProductSetPage() {
 
   function handleRunningTask(item: TaskQueueItem) {
     setActiveQueueTask(item);
-    const urls = item.resultThumbnails || [];
+    const urls = safeTaskQueueUrls(item.resultThumbnails);
     const nextProgress = Number.isFinite(Number(item.progress)) ? Number(item.progress) : 8;
     setGenCount(clampTaskExpectedCount(item, 1, imageType === "details" ? 8 : 6));
     setIsGenerating(true);
@@ -1383,7 +1383,7 @@ export default function ProductSetPage() {
     try {
       const detail = await fetchHistoryApplyDetail(item.id, "productSet", session.signal);
       if (!session.isCurrent()) return true;
-      applyProductSetHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : item.resultThumbnails);
+      applyProductSetHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : safeTaskQueueUrls(item.resultThumbnails));
       return true;
     } catch (err) {
       if (session.signal.aborted || !session.isCurrent()) return true;
@@ -1855,7 +1855,7 @@ export default function ProductSetPage() {
                 genCount={activeQueueTask ? clampTaskExpectedCount(activeQueueTask, 1, imageType === "details" ? 8 : 6) : Math.max(outputCount, 1)}
                 progress={activeQueueTask?.progress || progress}
                 moduleName="商品套图"
-                referenceImages={(activeQueueTask?.inputThumbnails?.length ? activeQueueTask.inputThumbnails : productImages.map((item) => item.url)).map((url, index) => ({
+                referenceImages={(safeTaskQueueUrls(activeQueueTask?.inputThumbnails).length ? safeTaskQueueUrls(activeQueueTask?.inputThumbnails) : productImages.map((item) => item.url)).map((url, index) => ({
                   label: `商品参考 ${index + 1}`,
                   url,
                 }))}

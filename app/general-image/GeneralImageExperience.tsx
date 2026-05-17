@@ -31,7 +31,7 @@ import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
 import { fetchHistoryApplyDetail, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
-import { clampTaskExpectedCount, type TaskQueueItem } from "@/lib/task-queue";
+import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
 
 type GeneralImageMode = "text-to-image" | "image-to-image";
 
@@ -484,7 +484,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     setIsGenerating(true);
     setProgress(Math.min(Math.max(Math.round(Number(item.progress) || 12), 1), 99));
     setError("");
-    setResultUrls(item.resultThumbnails || []);
+    setResultUrls(safeTaskQueueUrls(item.resultThumbnails));
   }
 
   async function handleCompletedTask(item: TaskQueueItem, session: TaskSelectionSession) {
@@ -492,7 +492,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     try {
       const detail = await fetchHistoryApplyDetail(item.id, "generalImage", session.signal);
       if (!session.isCurrent()) return true;
-      applyGeneralImageHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : item.resultThumbnails);
+      applyGeneralImageHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : safeTaskQueueUrls(item.resultThumbnails));
       return true;
     } catch (err) {
       if (session.signal.aborted || !session.isCurrent()) return true;
@@ -716,7 +716,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
                 filenamePrefix={isImageMode ? "image-to-image" : "text-to-image"}
                 expectedCount={activeQueueTask ? clampTaskExpectedCount(activeQueueTask, 1, 4, genCount) : isGenerating ? genCount : undefined}
                 isGenerating={isGenerating}
-                inputThumbnails={activeQueueTask?.inputThumbnails?.length ? activeQueueTask.inputThumbnails : referenceImages.map((item) => item.preview || item.url)}
+                inputThumbnails={safeTaskQueueUrls(activeQueueTask?.inputThumbnails).length ? safeTaskQueueUrls(activeQueueTask?.inputThumbnails) : referenceImages.map((item) => item.preview || item.url)}
                 createdAt={activeQueueTask?.createdAt}
                 statusGroup={activeQueueTask?.statusGroup || (isGenerating ? "running" : undefined)}
                 variant="task"

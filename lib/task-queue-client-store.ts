@@ -2,7 +2,7 @@
 
 import { create } from "zustand";
 import type { TaskQueueItem, TaskQueueSummary } from "@/lib/task-queue";
-import { isTaskRunning } from "@/lib/task-queue";
+import { isTaskRunning, safeTaskQueueUrls } from "@/lib/task-queue";
 
 export const TASK_QUEUE_RECENT_LIMIT = 12;
 export const TASK_QUEUE_PAGE_SIZE = 24;
@@ -139,11 +139,12 @@ export const useTaskQueueStore = create<TaskQueueClientState>((set, get) => ({
 
   applyServerRows: (module, rows, summary, options) => {
     set((state) => updateModuleState(state, module, (current) => {
+      const normalizedRows = rows.map(normalizeCachedTaskQueueItem).filter((item): item is TaskQueueItem => Boolean(item));
       const nextRows = options?.append
-        ? mergeTaskQueueRows(current.rows, rows)
+        ? mergeTaskQueueRows(current.rows, normalizedRows)
         : options?.preserveLocal
-          ? reconcileTaskQueueRows(current.rows, rows, module)
-          : rows;
+          ? reconcileTaskQueueRows(current.rows, normalizedRows, module)
+          : normalizedRows;
       const nextState = {
         ...current,
         rows: nextRows,
@@ -164,34 +165,38 @@ export const useTaskQueueStore = create<TaskQueueClientState>((set, get) => ({
   },
 
   upsertTask: (item) => {
-    set((state) => updateModuleState(state, item.module, (current) => {
-      const nextRows = upsertTaskQueueRow(current.rows, item, item.module);
+    const normalizedItem = normalizeCachedTaskQueueItem(item);
+    if (!normalizedItem) return;
+    set((state) => updateModuleState(state, normalizedItem.module, (current) => {
+      const nextRows = upsertTaskQueueRow(current.rows, normalizedItem, normalizedItem.module);
       const nextState = {
         ...current,
         rows: nextRows,
-        summary: patchSummaryForTask(current.summary, current.rows.find((row) => row.id === item.id), item),
+        summary: patchSummaryForTask(current.summary, current.rows.find((row) => row.id === normalizedItem.id), normalizedItem),
         hasLoaded: true,
         loadError: false,
-        selectedId: isTaskRunning(item) ? item.id : current.selectedId,
+        selectedId: isTaskRunning(normalizedItem) ? normalizedItem.id : current.selectedId,
         lastLoadedAt: Date.now(),
       };
-      writeTaskQueueModuleCache(item.module, nextState);
+      writeTaskQueueModuleCache(normalizedItem.module, nextState);
       return nextState;
     }));
   },
 
   replaceTask: (module, temporaryId, item) => {
+    const normalizedItem = normalizeCachedTaskQueueItem(item);
+    if (!normalizedItem) return;
     set((state) => updateModuleState(state, module, (current) => {
       const withoutTemporary = current.rows.filter((row) => row.id !== temporaryId);
-      const previous = current.rows.find((row) => row.id === temporaryId || row.id === item.id);
-      const nextRows = upsertTaskQueueRow(withoutTemporary, item, module);
+      const previous = current.rows.find((row) => row.id === temporaryId || row.id === normalizedItem.id);
+      const nextRows = upsertTaskQueueRow(withoutTemporary, normalizedItem, module);
       const nextState = {
         ...current,
         rows: nextRows,
-        summary: patchSummaryForTask(current.summary, previous, item),
+        summary: patchSummaryForTask(current.summary, previous, normalizedItem),
         hasLoaded: true,
         loadError: false,
-        selectedId: isTaskRunning(item) ? item.id : current.selectedId === temporaryId ? item.id : current.selectedId,
+        selectedId: isTaskRunning(normalizedItem) ? normalizedItem.id : current.selectedId === temporaryId ? normalizedItem.id : current.selectedId,
         lastLoadedAt: Date.now(),
       };
       writeTaskQueueModuleCache(module, nextState);
@@ -238,9 +243,9 @@ export function getEmptyTaskQueueModuleState(): TaskQueueModuleState {
 
 export function createOptimisticTaskQueueItem(input: TaskQueueOptimisticInput): TaskQueueItem {
   const createdAt = input.createdAt || new Date().toISOString();
-  const inputThumbnails = safeStringArray(input.inputThumbnails);
-  const resultThumbnails = safeStringArray(input.resultThumbnails);
-  const thumbnails = safeStringArray(input.thumbnails);
+  const inputThumbnails = safeTaskQueueUrls(input.inputThumbnails);
+  const resultThumbnails = safeTaskQueueUrls(input.resultThumbnails);
+  const thumbnails = safeTaskQueueUrls(input.thumbnails);
   return {
     id: input.id || `local-${input.module}-${Date.now()}`,
     module: input.module,
@@ -304,9 +309,9 @@ export function normalizeCachedTaskQueueItem(value: unknown): TaskQueueItem | nu
   const item = value as Partial<TaskQueueItem>;
   const statusGroup = normalizeTaskStatusGroup(item.statusGroup);
   if (!statusGroup) return null;
-  const inputThumbnails = safeStringArray(item.inputThumbnails);
-  const resultThumbnails = safeStringArray(item.resultThumbnails);
-  const thumbnails = safeStringArray(item.thumbnails);
+  const inputThumbnails = safeTaskQueueUrls(item.inputThumbnails);
+  const resultThumbnails = safeTaskQueueUrls(item.resultThumbnails);
+  const thumbnails = safeTaskQueueUrls(item.thumbnails);
   const createdAt = typeof item.createdAt === "string" && item.createdAt ? item.createdAt : new Date(0).toISOString();
   return {
     id: value.id,
@@ -442,10 +447,6 @@ function normalizeCachedSummary(value: unknown): TaskQueueSummary {
     runningTaskNum: firstFiniteNumber(summary.runningTaskNum, 0),
     failedTaskNum: firstFiniteNumber(summary.failedTaskNum, 0),
   };
-}
-
-function safeStringArray(value: unknown) {
-  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string" && item.length > 0) : [];
 }
 
 function firstFiniteNumber(...values: unknown[]) {

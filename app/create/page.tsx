@@ -37,7 +37,7 @@ import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGenerati
 import { StudioGenerationCountSelector, StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/components/studio/StudioFormControls";
 import { fetchHistoryApplyDetail, takeApplyPayload, type HistoryJobPayload } from "@/lib/history-apply";
 import { applyRepairPrompt } from "@/lib/generation-repair";
-import { clampTaskExpectedCount, isTaskRunning, type TaskQueueItem } from "@/lib/task-queue";
+import { clampTaskExpectedCount, isTaskRunning, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
 import {
   AUTO_DESIGN_BACKGROUNDS,
   AUTO_DESIGN_FRAMINGS,
@@ -1096,7 +1096,7 @@ export default function CreatePage() {
 
     if (isTaskRunning(item)) {
       const expectedCount = clampTaskExpectedCount(item, 1, 4);
-      const partialResultUrls = item.resultThumbnails.length ? item.resultThumbnails : [];
+      const partialResultUrls = safeTaskQueueUrls(item.resultThumbnails);
       activeGenerationRef.current = item.id;
       setActiveQueueTask(item);
       setGenCount(expectedCount);
@@ -1111,7 +1111,9 @@ export default function CreatePage() {
     if (item.statusGroup === "completed" || item.statusGroup === "failed") {
       const isFailedTask = item.statusGroup === "failed";
       if (item.module === "tryon") {
-        const resultUrls = item.resultThumbnails.length ? item.resultThumbnails : isFailedTask ? [] : item.thumbnails;
+        const resultThumbnails = safeTaskQueueUrls(item.resultThumbnails);
+        const thumbnails = safeTaskQueueUrls(item.thumbnails);
+        const resultUrls = resultThumbnails.length ? resultThumbnails : isFailedTask ? [] : thumbnails;
         const errorMessage = isFailedTask ? item.error || "任务失败，可重新生成" : null;
         activeGenerationRef.current = null;
         setActiveQueueTask(item);
@@ -2007,7 +2009,7 @@ export default function CreatePage() {
                       imageAltPrefix="服装上身结果"
                       expectedCount={activeQueueTask ? clampTaskExpectedCount(activeQueueTask, 1, 4, genCount) : genCount}
                       isGenerating={store.isGenerating}
-                      inputThumbnails={activeQueueTask?.inputThumbnails}
+                      inputThumbnails={safeTaskQueueUrls(activeQueueTask?.inputThumbnails)}
                       createdAt={activeQueueTask?.createdAt}
                       statusGroup={activeQueueTask?.statusGroup}
                       variant="task"

@@ -1,4 +1,5 @@
 import type { TaskQueueItem, TaskQueueSummary, TaskStatusGroup } from "@/lib/task-queue";
+import { safeTaskQueueUrls } from "@/lib/task-queue";
 import { normalizeGenerationState } from "@/lib/api/generation-state";
 
 export const TASK_QUEUE_ITEM_TTL_SECONDS = 60 * 60 * 24 * 30;
@@ -345,8 +346,8 @@ export function taskQueueItemToIndexWrite(
     progress: clampProgress(item.progress),
     expected_count: Math.max(1, Number(item.expectedCount) || 1),
     result_count: Math.max(0, Number(item.resultCount) || 0),
-    input_thumbnails: item.inputThumbnails.slice(0, 8),
-    result_thumbnails: item.resultThumbnails.slice(0, 2),
+    input_thumbnails: safeTaskQueueUrls(item.inputThumbnails).slice(0, 8),
+    result_thumbnails: safeTaskQueueUrls(item.resultThumbnails).slice(0, 2),
     error_message: item.error || null,
     apply_url: item.applyUrl || `${modulePath(item.module)}?task=${encodeURIComponent(item.id)}`,
     created_at: item.createdAt,

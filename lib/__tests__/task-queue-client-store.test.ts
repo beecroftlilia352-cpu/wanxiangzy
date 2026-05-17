@@ -6,6 +6,7 @@ import {
   reconcileTaskQueueRows,
   removeTaskQueueRow,
   upsertTaskQueueRow,
+  useTaskQueueStore,
 } from "../task-queue-client-store";
 import { buildTaskQueueGenerationItem } from "../../components/studio/useTaskQueueGeneration";
 
@@ -90,5 +91,40 @@ describe("task queue client store helpers", () => {
     expect(item.expectedCount).toBe(3);
     expect(item.resultCount).toBe(2);
     expect(item.thumbnails).toEqual(["https://example.com/out-1.png", "https://example.com/out-2.png"]);
+  });
+
+  it("normalizes incomplete server rows before exposing them to UI consumers", () => {
+    useTaskQueueStore.getState().resetModule("tryon");
+    useTaskQueueStore.getState().applyServerRows(
+      "tryon",
+      [
+        {
+          id: "gen-missing-arrays",
+          module: "tryon",
+          title: "服装上身",
+          status: "processing",
+          statusGroup: "running",
+          progress: 20,
+          expectedCount: 1,
+          resultCount: 0,
+          createdAt: "2026-05-16T10:00:00.000Z",
+          time: "0:10",
+          error: "",
+          applyUrl: "/create?apply=gen-missing-arrays",
+        } as TaskQueueItem,
+      ],
+      {
+        totalTaskNum: 1,
+        finishedTaskNum: 0,
+        finishedNeedReadTaskNum: 0,
+        runningTaskNum: 1,
+        failedTaskNum: 0,
+      }
+    );
+
+    const row = useTaskQueueStore.getState().modules.tryon.rows[0];
+    expect(row.resultThumbnails).toEqual([]);
+    expect(row.inputThumbnails).toEqual([]);
+    expect(row.thumbnails).toEqual([]);
   });
 });

@@ -56,13 +56,17 @@ export function isTaskFinished(item: Pick<TaskQueueItem, "statusGroup">) {
   return item.statusGroup === "completed" || item.statusGroup === "failed";
 }
 
-type TaskCountSource = Pick<TaskQueueItem, "expectedCount" | "resultCount" | "resultThumbnails">;
+type TaskCountSource = {
+  expectedCount?: unknown;
+  resultCount?: unknown;
+  resultThumbnails?: unknown;
+};
 
 export function getTaskExpectedCount(item: TaskCountSource, fallback = 1) {
   const candidates = [
     Number(item.expectedCount),
     Number(item.resultCount),
-    Array.isArray(item.resultThumbnails) ? item.resultThumbnails.length : 0,
+    safeTaskQueueUrls(item.resultThumbnails).length,
     Number(fallback),
   ];
   const value = candidates.find((candidate) => Number.isFinite(candidate) && candidate > 0) || 1;
@@ -73,4 +77,10 @@ export function clampTaskExpectedCount(item: TaskCountSource, min = 1, max = 4, 
   const lower = Math.max(1, Math.round(min));
   const upper = Math.max(lower, Math.round(max));
   return Math.min(Math.max(getTaskExpectedCount(item, fallback), lower), upper);
+}
+
+export function safeTaskQueueUrls(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((url): url is string => typeof url === "string" && url.trim().length > 0)
+    : [];
 }

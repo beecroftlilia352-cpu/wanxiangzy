@@ -24,7 +24,7 @@ import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
 import { useStableFileDrag } from "@/components/studio/useStableFileDrag";
 import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
 import { fetchHistoryApplyDetail, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
-import { clampTaskExpectedCount, type TaskQueueItem } from "@/lib/task-queue";
+import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
 import { applyRepairPrompt } from "@/lib/generation-repair";
 import {
   DEFAULT_POSE_SERIES_STYLE,
@@ -436,7 +436,7 @@ export default function PosePage() {
     setIsGenerating(true);
     setProgress(Math.min(Math.max(Math.round(Number(item.progress) || 12), 1), 99));
     setError("");
-    setResultUrls(item.resultThumbnails || []);
+    setResultUrls(safeTaskQueueUrls(item.resultThumbnails));
   }
 
   async function handleCompletedTask(item: TaskQueueItem, session: TaskSelectionSession) {
@@ -444,7 +444,7 @@ export default function PosePage() {
     try {
       const detail = await fetchHistoryApplyDetail(item.id, "pose", session.signal);
       if (!session.isCurrent()) return true;
-      applyPoseHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : item.resultThumbnails);
+      applyPoseHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : safeTaskQueueUrls(item.resultThumbnails));
       return true;
     } catch (err) {
       if (session.signal.aborted || !session.isCurrent()) return true;
