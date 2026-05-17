@@ -1,4 +1,5 @@
 import { getAdminClient } from "@/lib/supabase/admin";
+import { syncWorkflowTaskQueueById } from "@/lib/task-queue-store";
 import type {
   PlanValidationResult,
   QualityCheckResult,
@@ -90,7 +91,17 @@ export async function createWorkflowRecord(params: {
     payload: { intent: params.plan.intent, validation: params.validation },
   });
 
+  await syncWorkflowQueueIndex(workflowId, "create");
+
   return getWorkflowBundle(workflowId, params.userId);
+}
+
+async function syncWorkflowQueueIndex(workflowId: string, phase: string) {
+  try {
+    await syncWorkflowTaskQueueById(workflowId);
+  } catch (error) {
+    console.warn(`[task-queue-index] workflow ${phase} sync skipped:`, error);
+  }
 }
 
 export async function getWorkflowBundle(workflowId: string, userId: string): Promise<WorkflowBundle> {
@@ -165,6 +176,7 @@ export async function setWorkflowStatus(
     .update({ status, updated_at: new Date().toISOString(), ...updates })
     .eq("id", workflowId);
   if (error) throw new Error(`更新 workflow 状态失败: ${error.message}`);
+  await syncWorkflowQueueIndex(workflowId, "status");
 }
 
 export async function setStepStatus(

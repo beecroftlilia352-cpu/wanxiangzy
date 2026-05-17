@@ -7,7 +7,18 @@ import {
   GENERATION_RUNNING_STATUS_FILTERS,
   normalizeGenerationState,
 } from "@/lib/api/generation-state";
+import {
+  getCachedTaskQueue,
+  getCachedTaskSummary,
+  warmTaskQueueCache,
+  writeCachedTaskSummary,
+} from "@/lib/redis/task-queue-cache";
 import type { TaskQueueItem, TaskStatusGroup } from "@/lib/task-queue";
+import { normalizeModule } from "@/lib/task-queue-index";
+import {
+  loadTaskQueueItemsFromIndex,
+  loadTaskQueueSummaryFromIndex,
+} from "@/lib/task-queue-store";
 
 const QUEUE_COLUMNS = [
   "id",
@@ -74,6 +85,8 @@ type QueueSummaryData = {
   failedTaskNum: number;
 };
 
+type TaskQueueCacheMode = "redis" | "supabase" | "legacy";
+
 const EMPTY_SUMMARY: QueueSummaryData = {
   totalTaskNum: 0,
   finishedTaskNum: 0,
@@ -89,7 +102,10 @@ const AUTH_TIMEOUT_MS = 10_000;
 const READ_RATE_LIMIT_TIMEOUT_MS = 1_500;
 const SUMMARY_QUERY_TIMEOUT_MS = 8_000;
 const QUEUE_QUERY_TIMEOUT_MS = 15_000;
-const LIGHTWEIGHT_QUEUE_QUERY_TIMEOUT_MS = 6_000;
+const INDEX_QUEUE_QUERY_TIMEOUT_MS = 1_500;
+const INDEX_SUMMARY_QUERY_TIMEOUT_MS = 1_000;
+const LIGHTWEIGHT_MODULE_PRIMARY_TIMEOUT_MS = 2_500;
+const LIGHTWEIGHT_MODULE_FALLBACK_TIMEOUT_MS = 2_500;
 const LIGHTWEIGHT_QUEUE_RATE_LIMIT = 240;
 const LIGHTWEIGHT_QUEUE_RATE_WINDOW_MS = 60_000;
 const RUNNING_QUEUE_PIN_LIMIT = 80;
@@ -107,13 +123,28 @@ export async function GET(request: Request) {
     const cursor = searchParams.get("cursor");
     const lightweightModuleQueue = !includeSummary && Boolean(moduleFilter) && !cursor && !searchQuery;
     const supabase = await createServerSupabase({ readonlyCookies: true });
-    const userResult = await withTimeout(supabase.auth.getUser(), AUTH_TIMEOUT_MS, "auth getUser timeout");
-    const user = userResult.data.user;
+    const user = await getQueueUser(supabase);
     if (!user) return queueJson(summaryOnly ? summaryPayload(EMPTY_SUMMARY) : detailPayload([], EMPTY_SUMMARY));
     const rateLimit = lightweightModuleQueue
       ? checkLightweightQueueRateLimit(user.id)
       : await safeEnforceReadRateLimit(user.id);
     if (rateLimit) return rateLimit;
+
+    const cacheMode = getTaskQueueCacheMode();
+    if (cacheMode !== "legacy") {
+      const indexedResponse = await loadIndexedTaskQueueResponse({
+        supabase,
+        userId: user.id,
+        summaryOnly,
+        includeSummary,
+        moduleFilter,
+        searchQuery,
+        limit,
+        cursor,
+        cacheMode,
+      });
+      if (indexedResponse) return indexedResponse;
+    }
 
     if (lightweightModuleQueue) {
       const result = await loadLightweightModuleQueue(supabase, user.id, moduleFilter, limit);
@@ -183,6 +214,19 @@ async function safeEnforceReadRateLimit(userId: string) {
   }
 }
 
+async function getQueueUser(supabase: Awaited<ReturnType<typeof createServerSupabase>>) {
+  const userResult = await withTimeout(
+    supabase.auth.getUser(),
+    AUTH_TIMEOUT_MS,
+    "auth getUser timeout"
+  ).catch((error) => {
+    logTaskQueueWarning("auth getUser unavailable", toLogMessage(error));
+    return null;
+  });
+  const user = userResult?.data?.user;
+  return user?.id ? { id: user.id } : null;
+}
+
 function checkLightweightQueueRateLimit(userId: string) {
   const now = Date.now();
   const existing = lightweightQueueBuckets.get(userId);
@@ -212,6 +256,101 @@ function cleanupLightweightQueueBuckets(now: number) {
   }
 }
 
+async function loadIndexedTaskQueueResponse(args: {
+  supabase: Awaited<ReturnType<typeof createServerSupabase>>;
+  userId: string;
+  summaryOnly: boolean;
+  includeSummary: boolean;
+  moduleFilter: string;
+  searchQuery: string;
+  limit: number;
+  cursor: string | null;
+  cacheMode: TaskQueueCacheMode;
+}): Promise<NextResponse | null> {
+  const moduleFilter = args.moduleFilter ? normalizeModule(args.moduleFilter) : "";
+  let summary: QueueSummaryData = EMPTY_SUMMARY;
+  let summaryLoaded = false;
+
+  if (args.includeSummary) {
+    if (args.cacheMode === "redis") {
+      const cachedSummary = await getCachedTaskSummary(args.userId);
+      if (cachedSummary.hit) {
+        summary = cachedSummary.value;
+        summaryLoaded = true;
+      }
+    }
+
+    if (!summaryLoaded) {
+      const loadedSummary = await withTimeout(
+        loadTaskQueueSummaryFromIndex(args.supabase, args.userId),
+        INDEX_SUMMARY_QUERY_TIMEOUT_MS,
+        "task queue index summary timeout"
+      ).catch((error) => ({ ok: false as const, error: toLogMessage(error) }));
+
+      if (!loadedSummary.ok) {
+        logTaskQueueWarning("task queue index summary unavailable", loadedSummary.error);
+        return null;
+      }
+
+      summary = loadedSummary.summary;
+      summaryLoaded = true;
+      if (args.cacheMode === "redis") {
+        await writeCachedTaskSummary(args.userId, summary);
+      }
+    }
+  }
+
+  if (args.summaryOnly) {
+    return queueJson(summaryPayload(summary));
+  }
+
+  if (args.cacheMode === "redis" && moduleFilter && !args.cursor && !args.searchQuery) {
+    const cachedRows = await getCachedTaskQueue(args.userId, moduleFilter, args.limit);
+    if (cachedRows.hit) {
+      const rows = cachedRows.value.slice(0, args.limit);
+      return queueJson(
+        detailPayload(
+          rows,
+          summary,
+          cachedRows.value.length >= args.limit,
+          rows.length ? rows[rows.length - 1]?.createdAt || null : null
+        )
+      );
+    }
+  }
+
+  const loadedRows = await withTimeout(
+    loadTaskQueueItemsFromIndex(args.supabase, {
+      userId: args.userId,
+      module: moduleFilter || undefined,
+      limit: args.limit,
+      cursor: args.cursor,
+      searchQuery: args.searchQuery,
+    }),
+    INDEX_QUEUE_QUERY_TIMEOUT_MS,
+    "task queue index list timeout"
+  ).catch((error) => ({ ok: false as const, error: toLogMessage(error) }));
+
+  if (!loadedRows.ok) {
+    logTaskQueueWarning("task queue index list unavailable", loadedRows.error);
+    return null;
+  }
+
+  if (args.cacheMode === "redis" && moduleFilter && !args.cursor && !args.searchQuery) {
+    await warmTaskQueueCache(args.userId, moduleFilter, loadedRows.rows);
+  }
+
+  return queueJson(detailPayload(loadedRows.rows, summary, loadedRows.hasMore, loadedRows.nextCursor));
+}
+
+function getTaskQueueCacheMode(): TaskQueueCacheMode {
+  const value = (process.env.TASK_QUEUE_CACHE_MODE || "redis").trim().toLowerCase();
+  if (value === "legacy" || value === "supabase" || value === "redis") {
+    return value;
+  }
+  return "redis";
+}
+
 async function loadQueueSummary(supabase: Awaited<ReturnType<typeof createServerSupabase>>, userId: string): Promise<QueueSummaryData> {
   const [
     generationTotal,
@@ -224,14 +363,14 @@ async function loadQueueSummary(supabase: Awaited<ReturnType<typeof createServer
     countRows(
       supabase
         .from("generations")
-        .select("id", { count: "exact", head: true })
+        .select("id", { count: "planned", head: true })
         .eq("user_id", userId),
       "generations total"
     ),
     countRows(
       supabase
         .from("generations")
-        .select("id", { count: "exact", head: true })
+        .select("id", { count: "planned", head: true })
         .eq("user_id", userId)
         .in("status", [...GENERATION_FAILED_STATUS_FILTERS]),
       "generations failed"
@@ -240,7 +379,7 @@ async function loadQueueSummary(supabase: Awaited<ReturnType<typeof createServer
     countRows(
       supabase
         .from("agent_workflows")
-        .select("id", { count: "exact", head: true })
+        .select("id", { count: "planned", head: true })
         .eq("user_id", userId),
       "workflows total",
       true
@@ -248,7 +387,7 @@ async function loadQueueSummary(supabase: Awaited<ReturnType<typeof createServer
     countRows(
       supabase
         .from("agent_workflows")
-        .select("id", { count: "exact", head: true })
+        .select("id", { count: "planned", head: true })
         .eq("user_id", userId)
         .in("status", FAILED_WORKFLOW_STATUSES),
       "workflows failed",
@@ -278,7 +417,9 @@ async function loadRunningGenerationBuckets(supabase: Awaited<ReturnType<typeof 
         .from("generations")
         .select(SUMMARY_GENERATION_COLUMNS)
         .eq("user_id", userId)
-        .in("status", [...GENERATION_RUNNING_STATUS_FILTERS]),
+        .in("status", [...GENERATION_RUNNING_STATUS_FILTERS])
+        .order("created_at", { ascending: false })
+        .limit(RUNNING_QUEUE_PIN_LIMIT),
       SUMMARY_QUERY_TIMEOUT_MS,
       "generations running timeout"
     );
@@ -317,7 +458,9 @@ async function loadRunningWorkflowBuckets(supabase: Awaited<ReturnType<typeof cr
         .from("agent_workflows")
         .select(SUMMARY_WORKFLOW_COLUMNS)
         .eq("user_id", userId)
-        .in("status", RUNNING_WORKFLOW_STATUSES),
+        .in("status", RUNNING_WORKFLOW_STATUSES)
+        .order("created_at", { ascending: false })
+        .limit(RUNNING_QUEUE_PIN_LIMIT),
       SUMMARY_QUERY_TIMEOUT_MS,
       "workflows running timeout"
     );
@@ -398,31 +541,15 @@ async function loadLightweightModuleQueue(
     .eq("job_payload->>kind", moduleFilter)
     .order("created_at", { ascending: false })
     .limit(limit + 1);
-  const runningQuery = supabase
-    .from("generations")
-    .select(QUEUE_COLUMNS)
-    .eq("user_id", userId)
-    .eq("job_payload->>kind", moduleFilter)
-    .in("status", [...GENERATION_RUNNING_STATUS_FILTERS])
-    .order("created_at", { ascending: false })
-    .limit(Math.min(RUNNING_QUEUE_PIN_LIMIT, Math.max(8, limit)));
 
-  const [recentResult, runningResult, inferredRunningRows] = await Promise.all([
-    withTimeout(recentQuery, LIGHTWEIGHT_QUEUE_QUERY_TIMEOUT_MS, "module queue recent timeout")
-      .catch((error) => ({ data: [], error: { message: toLogMessage(error) } })),
-    withTimeout(runningQuery, LIGHTWEIGHT_QUEUE_QUERY_TIMEOUT_MS, "module queue running timeout")
-      .catch((error) => ({ data: [], error: { message: toLogMessage(error) } })),
-    loadLightweightInferredRunningRows(supabase, userId, moduleFilter, limit),
-  ]);
-
+  const recentResult = await withTimeout(
+    recentQuery,
+    LIGHTWEIGHT_MODULE_PRIMARY_TIMEOUT_MS,
+    "module queue recent timeout"
+  ).catch((error) => ({ data: [], error: { message: toLogMessage(error) } }));
   if (recentResult.error) logTaskQueueWarning("module queue recent unavailable", recentResult.error.message);
-  if (runningResult.error) logTaskQueueWarning("module queue running unavailable", runningResult.error.message);
-
   const recentRows = (Array.isArray(recentResult.data) ? recentResult.data : []) as unknown as QueueRow[];
-  const runningRows = (Array.isArray(runningResult.data) ? runningResult.data : []) as unknown as QueueRow[];
   let rows = mergeQueueRows([
-    ...runningRows.map(normalizeQueueRow).filter(isQueueItemRunning),
-    ...inferredRunningRows,
     ...recentRows.map(normalizeQueueRow),
   ])
     .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
@@ -440,34 +567,6 @@ async function loadLightweightModuleQueue(
   };
 }
 
-async function loadLightweightInferredRunningRows(
-  supabase: Awaited<ReturnType<typeof createServerSupabase>>,
-  userId: string,
-  moduleFilter: string,
-  limit: number
-) {
-  const runningQuery = supabase
-    .from("generations")
-    .select(QUEUE_COLUMNS)
-    .eq("user_id", userId)
-    .in("status", [...GENERATION_RUNNING_STATUS_FILTERS])
-    .order("created_at", { ascending: false })
-    .limit(Math.min(RUNNING_QUEUE_PIN_LIMIT, Math.max(8, limit)));
-
-  const result = await withTimeout(
-    runningQuery,
-    LIGHTWEIGHT_QUEUE_QUERY_TIMEOUT_MS,
-    "module queue inferred running pin timeout"
-  ).catch((error) => ({ data: [], error: { message: toLogMessage(error) } }));
-
-  if (result.error) logTaskQueueWarning("module queue inferred running pin unavailable", result.error.message);
-
-  return ((Array.isArray(result.data) ? result.data : []) as unknown as QueueRow[])
-    .map(normalizeQueueRow)
-    .filter(isQueueItemRunning)
-    .filter((row) => row.module === moduleFilter);
-}
-
 async function loadLightweightInferredModuleQueue(
   supabase: Awaited<ReturnType<typeof createServerSupabase>>,
   userId: string,
@@ -481,28 +580,16 @@ async function loadLightweightInferredModuleQueue(
     .eq("user_id", userId)
     .order("created_at", { ascending: false })
     .limit(scanLimit);
-  const runningQuery = supabase
-    .from("generations")
-    .select(QUEUE_COLUMNS)
-    .eq("user_id", userId)
-    .in("status", [...GENERATION_RUNNING_STATUS_FILTERS])
-    .order("created_at", { ascending: false })
-    .limit(Math.min(RUNNING_QUEUE_PIN_LIMIT, scanLimit));
 
-  const [recentResult, runningResult] = await Promise.all([
-    withTimeout(recentQuery, LIGHTWEIGHT_QUEUE_QUERY_TIMEOUT_MS, "module queue inferred recent timeout")
-      .catch((error) => ({ data: [], error: { message: toLogMessage(error) } })),
-    withTimeout(runningQuery, LIGHTWEIGHT_QUEUE_QUERY_TIMEOUT_MS, "module queue inferred running timeout")
-      .catch((error) => ({ data: [], error: { message: toLogMessage(error) } })),
-  ]);
-
+  const recentResult = await withTimeout(
+    recentQuery,
+    LIGHTWEIGHT_MODULE_FALLBACK_TIMEOUT_MS,
+    "module queue inferred recent timeout"
+  ).catch((error) => ({ data: [], error: { message: toLogMessage(error) } }));
   if (recentResult.error) logTaskQueueWarning("module queue inferred recent unavailable", recentResult.error.message);
-  if (runningResult.error) logTaskQueueWarning("module queue inferred running unavailable", runningResult.error.message);
 
   const recentRows = (Array.isArray(recentResult.data) ? recentResult.data : []) as unknown as QueueRow[];
-  const runningRows = (Array.isArray(runningResult.data) ? runningResult.data : []) as unknown as QueueRow[];
   return mergeQueueRows([
-    ...runningRows.map(normalizeQueueRow).filter(isQueueItemRunning),
     ...recentRows.map(normalizeQueueRow),
   ])
     .filter((row) => row.module === moduleFilter)

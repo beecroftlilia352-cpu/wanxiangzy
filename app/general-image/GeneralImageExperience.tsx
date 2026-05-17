@@ -26,6 +26,7 @@ import { useStudioAuth } from "@/components/studio/useStudioAuth";
 import { StudioRunBar } from "@/components/studio/StudioRunBar";
 import { StudioUploadSection } from "@/components/studio/StudioUploadSection";
 import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
+import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
 import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
@@ -110,6 +111,18 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
   const isImageMode = mode === "image-to-image";
   const authIsAnonymous = authChecked && !isAuthenticated;
   const activeFeature = isImageMode ? "imageToImage" : "textToImage";
+  const taskInputThumbnails = useMemo(
+    () => isImageMode
+      ? referenceImages.map((item) => item.preview || item.url).filter((url): url is string => Boolean(url))
+      : [],
+    [isImageMode, referenceImages]
+  );
+  const taskQueue = useTaskQueueGeneration({
+    module: "generalImage",
+    title: "创意生图",
+    defaultExpectedCount: genCount,
+    applyPath: "/general-image",
+  });
   const modeMeta = isImageMode
     ? {
         title: "图生图",
@@ -360,6 +373,13 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     setProgress(8);
     setError("");
     setResultUrls([]);
+    const provisionalTask = taskQueue.startTask({
+      expectedCount: genCount,
+      inputThumbnails: taskInputThumbnails,
+      progress: 8,
+    });
+    let activeTaskId = provisionalTask.id;
+    let latestTaskResultUrls: string[] = [];
     try {
       const res = await fetch("/api/general-image", {
         method: "POST",
@@ -377,6 +397,8 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
       const data = await res.json();
       if (!res.ok) {
         if (res.status === 401) {
+          taskQueue.removeTask(activeTaskId);
+          setIsGenerating(false);
           await refreshAuth();
           router.push("/login");
           return;
@@ -393,17 +415,48 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
         if (userId) setCachedProfileCredits(userId, data.credits_remaining);
       }
 
+      if (typeof data.generation_id === "string" && data.generation_id) {
+        const serverTask = taskQueue.replaceWithServerTask(activeTaskId, {
+          id: data.generation_id,
+          expectedCount: genCount,
+          inputThumbnails: taskInputThumbnails,
+          status: data.status || "processing",
+          progress: 12,
+        });
+        activeTaskId = serverTask.id;
+      }
+
       for (let attempts = 0; attempts < 150; attempts++) {
         await new Promise((resolve) => setTimeout(resolve, 2000));
         const poll = await fetch(`/api/general-image?generation_id=${encodeURIComponent(data.generation_id)}`);
         if (!poll.ok) continue;
         const state = await poll.json();
         const nextProgress = Number(state.progress);
-        if (Number.isFinite(nextProgress)) setProgress(Math.min(Math.max(Math.round(nextProgress), 0), 100));
-        if (Array.isArray(state.result_urls) && state.result_urls.length) setResultUrls(state.result_urls);
+        const runningProgress = Number.isFinite(nextProgress) ? Math.min(Math.max(Math.round(nextProgress), 0), 99) : 25;
+        if (Number.isFinite(nextProgress)) setProgress(runningProgress);
+        if (Array.isArray(state.result_urls) && state.result_urls.length) {
+          latestTaskResultUrls = state.result_urls;
+          setResultUrls(latestTaskResultUrls);
+        }
+        taskQueue.markRunning(activeTaskId, {
+          expectedCount: genCount,
+          inputThumbnails: taskInputThumbnails,
+          resultThumbnails: latestTaskResultUrls,
+          resultCount: latestTaskResultUrls.length,
+          progress: runningProgress,
+          status: state.status || "processing",
+        });
         if (state.status === "completed") {
+          const finalUrls = Array.isArray(state.result_urls) ? state.result_urls : [];
+          latestTaskResultUrls = finalUrls;
           setProgress(100);
-          setResultUrls(state.result_urls || []);
+          setResultUrls(finalUrls);
+          taskQueue.markCompleted(activeTaskId, {
+            expectedCount: genCount,
+            inputThumbnails: taskInputThumbnails,
+            resultThumbnails: finalUrls,
+            resultCount: finalUrls.length,
+          });
           setIsGenerating(false);
           toast.success(`${modeMeta.title}生成完成`);
           return;
@@ -414,6 +467,12 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "生成失败";
       setError(message);
+      taskQueue.markFailed(activeTaskId, message, {
+        expectedCount: genCount,
+        inputThumbnails: taskInputThumbnails,
+        resultThumbnails: latestTaskResultUrls,
+        resultCount: latestTaskResultUrls.length,
+      });
       toast.error(message);
       setIsGenerating(false);
     }
@@ -482,7 +541,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
                     disabled={referenceImages.length >= 8}
                     onUploadClick={openFileDialog}
                     uploadLabel="从本地上传"
-                    footnote={`jpg / png / webp，单张不超过 ${MAX_FILE_SIZE_MB}MB`}
+                    footnote="参考图会按上传顺序作为图1、图2、图3；画面清晰、主体明确更好控图。"
                   />
 
                   {referenceImages.length > 0 && (

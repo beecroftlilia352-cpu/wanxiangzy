@@ -16,6 +16,7 @@ export const PRESET_MODELS = [
 
 export const PRESET_REFERENCES = [
   { id: "r1", url: `${SITE_ASSET_BASE}/references/reference-108513-b6db713a5d2f.jpg`, label: "白T街头", category: "scene" as const },
+  { id: "r10", url: `${SITE_ASSET_BASE}/references/reference-white-top-denim-shorts.jpg`, label: "奢牌白底", category: "style" as const },
   { id: "r2", url: `${SITE_ASSET_BASE}/references/reference-56020-dc1aa74e5515.jpg`, label: "黑蕾丝夜景", category: "style" as const },
   { id: "r3", url: `${SITE_ASSET_BASE}/references/reference-23353-c281a160d01d.jpg`, label: "白衫桥边", category: "style" as const },
   { id: "r4", url: `${SITE_ASSET_BASE}/references/reference-soft-blue-cardigan.jpg`, label: "蓝衫光影", category: "pose" as const },

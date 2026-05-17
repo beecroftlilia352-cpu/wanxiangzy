@@ -1,6 +1,7 @@
 export type TryOnSceneMode = "system_reference" | "upload_reference" | "auto_design" | "favorites";
 export type AutoDesignPlatform =
   | "ecommerce_clean"
+  | "luxury_white_studio"
   | "luxury_lookbook"
   | "fashion_editorial"
   | "korean_clean"
@@ -22,7 +23,7 @@ export const DEFAULT_AUTO_DESIGN: AutoDesignSettings = {
   background: "white",
 };
 
-const WHITE_BACKGROUND_LOCKED_PLATFORMS: AutoDesignPlatform[] = ["ecommerce_clean"];
+const WHITE_BACKGROUND_LOCKED_PLATFORMS: AutoDesignPlatform[] = ["ecommerce_clean", "luxury_white_studio"];
 
 export const SCENE_MODE_LABELS: Record<TryOnSceneMode, string> = {
   system_reference: "系统预设",
@@ -37,6 +38,12 @@ export const AUTO_DESIGN_PLATFORMS: Array<{ value: AutoDesignPlatform; label: st
     label: "电商白底",
     desc: "干净准确，细节优先",
     prompt: "电商白底摄影方案：干净白底或浅灰白棚拍背景，准确白平衡，均匀柔和棚拍灯光，服装颜色和结构清楚，边缘干净，适合商品详情页。不要过曝美白，不要改变服装原色。",
+  },
+  {
+    value: "luxury_white_studio",
+    label: "奢牌白底",
+    desc: "官网棚拍，细节锐利",
+    prompt: "奢牌白底棚拍摄影方案：纯净白色或极浅灰无缝棚拍背景，柔和但有方向的主光，细腻轮廓光，脚下和服装接触处有自然灰阶阴影；模特姿态克制高级，像高端品牌官网商品图，允许正面、侧面、背面或半身细节构图，服装图案、logo、纹理、剪裁和配饰只来自用户上传服装本身，不要凭空新增品牌标识或无关花纹；画面留白充足，商品边缘锐利，肤色真实不过度美白。",
   },
   {
     value: "luxury_lookbook",

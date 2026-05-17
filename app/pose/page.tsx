@@ -11,7 +11,6 @@ import { FeatureTabs } from "@/components/FeatureTabs";
 import { RepairPromptPanel } from "@/components/RepairPromptPanel";
 import { ClientPortal } from "@/components/ClientPortal";
 import { enforcePosePromptRequirements, type PoseOutputMode } from "@/lib/pose-prompt";
-import { StyleChoiceGrid } from "@/components/StyleChoiceGrid";
 import { ModuleHeader } from "@/components/ModuleHeader";
 import { PreviewGuide } from "@/components/PreviewGuide";
 import { ErrorStage } from "@/components/studio/ErrorStage";
@@ -23,6 +22,7 @@ import { StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/c
 import { StudioRunBar } from "@/components/studio/StudioRunBar";
 import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
 import { useStableFileDrag } from "@/components/studio/useStableFileDrag";
+import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
 import { fetchHistoryApplyDetail, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
 import { clampTaskExpectedCount, type TaskQueueItem } from "@/lib/task-queue";
 import { applyRepairPrompt } from "@/lib/generation-repair";
@@ -80,6 +80,7 @@ export default function PosePage() {
   const [customCamera, setCustomCamera] = useState(USER_CUSTOM_POSE_DEFAULT.camera);
   const [customPoses, setCustomPoses] = useState([...USER_CUSTOM_POSE_DEFAULT.poses]);
   const [isDragging, setIsDragging] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -99,7 +100,14 @@ export default function PosePage() {
 
   const imageSizes = getSupportedImageSizes(aiModel, "3:4");
   const unitCost = getCreditCost(aiModel, imageSize, "3:4");
-  const cost = unitCost * (outputMode === "separate" ? 4 : 1);
+  const poseExpectedCount = outputMode === "separate" ? 4 : 1;
+  const cost = unitCost * poseExpectedCount;
+  const taskQueue = useTaskQueueGeneration({
+    module: "pose",
+    title: "姿势裂变",
+    defaultExpectedCount: poseExpectedCount,
+    applyPath: "/pose",
+  });
   const authIsAnonymous = authChecked && !isAuthenticated;
   const runDisabledReason = !mainImage
     ? "请先上传主图"
@@ -212,6 +220,7 @@ export default function PosePage() {
     setError("");
 
     toast.info("正在上传主图...");
+    setIsUploading(true);
     try {
       const result = await uploadImage(file);
       setMainImage(result.url);
@@ -219,6 +228,8 @@ export default function PosePage() {
     } catch {
       setMainImage("");
       toast.error("主图上传失败，请重试");
+    } finally {
+      setIsUploading(false);
     }
   }
 
@@ -298,6 +309,14 @@ export default function PosePage() {
     setProgress(10);
     setError("");
     setResultUrls([]);
+    const taskInputThumbnails = mainImage ? [mainImage] : [];
+    const provisionalTask = taskQueue.startTask({
+      expectedCount: poseExpectedCount,
+      inputThumbnails: taskInputThumbnails,
+      progress: 10,
+    });
+    let activeTaskId = provisionalTask.id;
+    let latestTaskResultUrls: string[] = [];
 
     try {
       const res = await fetch("/api/pose", {
@@ -323,6 +342,8 @@ export default function PosePage() {
       if (!res.ok) {
         if (res.status === 401) {
           await refreshAuth();
+          taskQueue.removeTask(activeTaskId);
+          setIsGenerating(false);
           router.push("/login");
           return;
         }
@@ -338,6 +359,16 @@ export default function PosePage() {
         if (userId) setCachedProfileCredits(userId, data.credits_remaining);
       }
       setProgress(25);
+      if (typeof data.generation_id === "string" && data.generation_id) {
+        const serverTask = taskQueue.replaceWithServerTask(activeTaskId, {
+          id: data.generation_id,
+          expectedCount: poseExpectedCount,
+          inputThumbnails: taskInputThumbnails,
+          status: data.status || "processing_tryon",
+          progress: 25,
+        });
+        activeTaskId = serverTask.id;
+      }
 
       let attempts = 0;
       while (attempts < 120) {
@@ -348,12 +379,28 @@ export default function PosePage() {
         const state = await poll.json();
         if (state.status === "processing_tryon" || state.status === "processing" || state.status === "pending") {
           if (Array.isArray(state.result_urls) && state.result_urls.length) {
+            latestTaskResultUrls = state.result_urls;
             setResultUrls(state.result_urls);
           }
-          setProgress(Math.min(25 + attempts * 1.5, 90));
+          const runningProgress = Math.min(25 + attempts * 1.5, 90);
+          setProgress(runningProgress);
+          taskQueue.markRunning(activeTaskId, {
+            expectedCount: poseExpectedCount,
+            inputThumbnails: taskInputThumbnails,
+            resultThumbnails: latestTaskResultUrls,
+            progress: runningProgress,
+            status: state.status,
+          });
         } else if (state.status === "completed") {
+          const finalUrls = Array.isArray(state.result_urls) ? state.result_urls : latestTaskResultUrls;
           setProgress(100);
-          setResultUrls(state.result_urls || []);
+          setResultUrls(finalUrls);
+          taskQueue.markCompleted(activeTaskId, {
+            expectedCount: poseExpectedCount,
+            inputThumbnails: taskInputThumbnails,
+            resultThumbnails: finalUrls,
+            resultCount: finalUrls.length,
+          });
           toast.success("姿势裂变完成");
           setIsGenerating(false);
           return;
@@ -363,8 +410,14 @@ export default function PosePage() {
       }
       throw new Error("生成超时");
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "生成失败");
-      toast.error(err instanceof Error ? err.message : "生成失败");
+      const message = err instanceof Error ? err.message : "生成失败";
+      setError(message);
+      taskQueue.markFailed(activeTaskId, message, {
+        expectedCount: poseExpectedCount,
+        inputThumbnails: taskInputThumbnails,
+        resultThumbnails: latestTaskResultUrls,
+      });
+      toast.error(message);
       setIsGenerating(false);
     }
   }
@@ -454,29 +507,19 @@ export default function PosePage() {
               imageUrl={mainImage || null}
               imageAlt="姿势裂变主图"
               isDragging={isDragging}
+              loading={isUploading}
               onUploadClick={() => fileInputRef.current?.click()}
               onLibraryClick={() => toast.info("作品库选择即将接入")}
               onPreview={mainImage ? () => setLightboxSrc(mainImage) : undefined}
               onRemove={mainImage ? () => setMainImage("") : undefined}
               libraryLabel="从作品选择"
-              footnote={POSE_UPLOAD_RULE.uploadSpecText}
+              footnote="主体完整、服装清晰、无遮挡时最稳；系统会保留人物和穿搭，只变化姿势。"
+              examples={{
+                label: "试一试",
+                images: POSE_UPLOAD_RULE.demos.map((demo) => ({ url: demo.imageUrl, title: demo.title })),
+                onSelect: (image) => applyRuleDemo({ title: image.title, imageUrl: image.url }),
+              }}
             />
-            <div className="studio-upload-demo-row">
-              <span className="studio-upload-demo-label">试一试</span>
-              <div className="studio-upload-demo-list studio-scrollbar-hide">
-                {POSE_UPLOAD_RULE.demos.map((demo) => (
-                  <button
-                    key={demo.imageUrl}
-                    type="button"
-                    onClick={() => applyRuleDemo(demo)}
-                    className="studio-upload-demo-thumb"
-                    title={demo.title}
-                  >
-                    <img src={demo.imageUrl} alt={demo.title} />
-                  </button>
-                ))}
-              </div>
-            </div>
           </section>
 
           <section>
@@ -546,7 +589,17 @@ export default function PosePage() {
 
           <section>
             <h3 className="font-bold text-sm mb-3">拍摄风格</h3>
-            <StyleChoiceGrid options={POSE_SERIES_STYLES} value={poseStyle} onChange={selectPoseStyle} />
+            <StudioOptionGrid
+              options={POSE_SERIES_STYLES.map((style) => ({
+                value: style.value,
+                label: style.label,
+                description: style.desc,
+              }))}
+              value={poseStyle}
+              onChange={selectPoseStyle}
+              columns={2}
+              ariaLabel="拍摄风格"
+            />
             <p className="mt-2 text-[11px] leading-relaxed text-gray-400">
               预设只给风格方向，AI 会自由设计四个姿势；人物身份、服装结构和身体比例仍然优先。
             </p>

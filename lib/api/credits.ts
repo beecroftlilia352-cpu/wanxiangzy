@@ -1,3 +1,5 @@
+import { syncGenerationTaskQueueById } from "@/lib/task-queue-store";
+
 type SupabaseLike = {
   rpc: (
     fn: string,
@@ -54,6 +56,8 @@ export async function createDebitedGeneration(
     throw new CreditError("积分事务返回异常");
   }
 
+  await syncGenerationQueueIndex(row.generation_id, "create");
+
   return {
     generationId: row.generation_id,
     creditsRemaining: row.credits_remaining,
@@ -80,7 +84,10 @@ export async function failGenerationWithRefund(
       p_error_message: params.errorMessage,
     });
 
-    if (!error) return;
+    if (!error) {
+      await syncGenerationQueueIndex(params.generationId, "fail");
+      return;
+    }
 
     if (process.env.NODE_ENV === "development") {
       console.error(`[credits] refund rpc failed (attempt ${attempt}/${maxRetries}):`, error.message);
@@ -122,7 +129,10 @@ export async function completeGenerationWithCreditAdjustment(
       p_error_message: params.errorMessage ?? null,
     });
 
-    if (!error) return true;
+    if (!error) {
+      await syncGenerationQueueIndex(params.generationId, "complete");
+      return true;
+    }
 
     const message = error.message || "";
     if (message.includes("complete_generation_with_credit_adjustment") || message.includes("Could not find the function")) {
@@ -189,4 +199,12 @@ function isDebitedGenerationRow(
     typeof (value as { generation_id?: unknown }).generation_id === "string" &&
     typeof (value as { credits_remaining?: unknown }).credits_remaining === "number"
   );
+}
+
+async function syncGenerationQueueIndex(generationId: string, phase: string) {
+  try {
+    await syncGenerationTaskQueueById(generationId);
+  } catch (error) {
+    console.warn(`[task-queue-index] generation ${phase} sync skipped:`, error);
+  }
 }

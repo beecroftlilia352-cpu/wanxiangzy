@@ -19,6 +19,14 @@ import { getImageVariantUrl } from "@/lib/image-variants";
 import { cn } from "@/lib/utils";
 import type { TaskDisplayMode, TaskQueueItem, TaskQueuePayload, TaskQueueSummary } from "@/lib/task-queue";
 import { isTaskRunning, TASK_DISPLAY_MODE_KEY } from "@/lib/task-queue";
+import {
+  EMPTY_TASK_QUEUE_SUMMARY,
+  TASK_QUEUE_CONTINUE_ID,
+  TASK_QUEUE_PAGE_SIZE,
+  TASK_QUEUE_RECENT_LIMIT,
+  getEmptyTaskQueueModuleState,
+  useTaskQueueStore,
+} from "@/lib/task-queue-client-store";
 import { useTaskSelectionSession, type TaskSelectionSession } from "@/components/studio/useTaskSelectionSession";
 
 type StudioTaskRailProps = {
@@ -26,80 +34,48 @@ type StudioTaskRailProps = {
   moduleLabel?: string;
   onContinue?: () => void;
   onSelectTask?: (item: TaskQueueItem, session: TaskSelectionSession) => void | Promise<void>;
-  optimisticTask?: TaskQueueItem | null;
   className?: string;
 };
 
-const EMPTY_SUMMARY: TaskQueueSummary = {
-  totalTaskNum: 0,
-  finishedTaskNum: 0,
-  finishedNeedReadTaskNum: 0,
-  runningTaskNum: 0,
-  failedTaskNum: 0,
-};
-
-const PAGE_SIZE = 24;
-const RECENT_TASK_LIMIT = 20;
-const CONTINUE_CARD_ID = "__continue__";
-const TASK_RAIL_CACHE_PREFIX = "wanxiang:task-rail:";
-const TASK_RAIL_CACHE_TTL_MS = 5 * 60 * 1000;
-const TASK_RAIL_RUNNING_CACHE_TTL_MS = 15_000;
-const TASK_QUEUE_FETCH_TIMEOUT_MS = 8_000;
-
-type TaskRailCache = {
-  cachedAt: number;
-  rows: TaskQueueItem[];
-  summary: TaskQueueSummary;
-};
+const TASK_QUEUE_FETCH_TIMEOUT_MS = 5_000;
+const TASK_RAIL_RUNNING_POLL_MS = 3_000;
+const TASK_RAIL_IDLE_POLL_MS = 30_000;
+const TASK_RAIL_IDLE_CACHE_GRACE_MS = 20_000;
 
 export function StudioTaskRail({
   module,
   moduleLabel = "当前模块",
   onContinue,
   onSelectTask,
-  optimisticTask,
   className,
 }: StudioTaskRailProps) {
-  const [rows, setRows] = useState<TaskQueueItem[]>([]);
-  const [summary, setSummary] = useState<TaskQueueSummary>(EMPTY_SUMMARY);
+  const moduleState = useTaskQueueStore((state) => state.modules[module]);
+  const hydrateModule = useTaskQueueStore((state) => state.hydrateModule);
+  const applyServerRows = useTaskQueueStore((state) => state.applyServerRows);
+  const setModuleLoadingFailed = useTaskQueueStore((state) => state.setModuleLoadingFailed);
+  const setSelectedTask = useTaskQueueStore((state) => state.setSelectedTask);
+  const clearSelectedTask = useTaskQueueStore((state) => state.clearSelectedTask);
+  const { rows, summary, hasLoaded, loadError, selectedId, lastLoadedAt, refreshVersion } =
+    moduleState || getEmptyTaskQueueModuleState();
   const [expanded, setExpanded] = useState(false);
   const [moduleOnly, setModuleOnly] = useState(true);
   const [displayMode, setDisplayMode] = useState<TaskDisplayMode>("flat");
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [hasLoaded, setHasLoaded] = useState(false);
-  const [selectedId, setSelectedId] = useState<string>(CONTINUE_CARD_ID);
   const [hasMore, setHasMore] = useState(false);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const loadInFlightRef = useRef(false);
-  const hasLoadedRef = useRef(false);
-  const rowsSignatureRef = useRef("");
-  const summarySignatureRef = useRef("");
   const autoSelectSignatureRef = useRef("");
   const runningSelectionRef = useRef<string | null>(null);
+  const handledRefreshVersionRef = useRef(0);
   const {
     pendingId: applyingId,
     begin: beginSelection,
     cancel: cancelSelection,
   } = useTaskSelectionSession();
 
-  const mergedRows = useMemo(() => {
-    if (!optimisticTask) return rows;
-    if (rows.some((item) => item.id === optimisticTask.id)) {
-      return rows.map((item) => item.id === optimisticTask.id ? { ...item, ...optimisticTask } : item);
-    }
-    return [optimisticTask, ...rows];
-  }, [optimisticTask, rows]);
-
-  useEffect(() => {
-    if (!optimisticTask || optimisticTask.module !== module || !isTaskRunning(optimisticTask)) return;
-    autoSelectSignatureRef.current = getTaskSelectionSignature(optimisticTask);
-    runningSelectionRef.current = optimisticTask.id;
-    setSelectedId(optimisticTask.id);
-  }, [module, optimisticTask]);
-
-  const hasRunningTask = mergedRows.some(isTaskRunning);
+  const hasRunningTask = rows.some(isTaskRunning);
 
   const loadQueue = useCallback(async (options?: { append?: boolean }) => {
     const append = Boolean(options?.append);
@@ -107,11 +83,10 @@ export function StudioTaskRail({
     if (loadInFlightRef.current) return;
     if (append && !nextCursor) return;
     loadInFlightRef.current = true;
-    if (!hasLoadedRef.current) setLoading(true);
-    let loaded = false;
+    if (!hasLoaded) setLoading(true);
     try {
       const params = new URLSearchParams();
-      params.set("limit", expanded ? String(PAGE_SIZE) : String(RECENT_TASK_LIMIT));
+      params.set("limit", expanded ? String(TASK_QUEUE_PAGE_SIZE) : String(TASK_QUEUE_RECENT_LIMIT));
       if (!expanded) params.set("summary", "0");
       if (append && nextCursor) params.set("cursor", nextCursor);
       if (!expanded || moduleOnly) params.set("module", module);
@@ -128,44 +103,32 @@ export function StudioTaskRail({
 
       const nextRows = Array.isArray(payload.rows) ? payload.rows : [];
       const keepCurrentRowsOnEmpty = !append && !expanded && moduleOnly && !query.trim() && nextRows.length === 0;
-      setRows((currentRows) => {
-        if (keepCurrentRowsOnEmpty && currentRows.length > 0) return currentRows;
-        const mergedRows = append ? mergeTaskRows(currentRows, nextRows) : nextRows;
-        const rowsSignature = getRowsSignature(mergedRows);
-        if (rowsSignature === rowsSignatureRef.current) return currentRows;
-        rowsSignatureRef.current = rowsSignature;
-        return mergedRows;
-      });
+      if (!(keepCurrentRowsOnEmpty && rows.length > 0)) {
+        applyServerRows(module, nextRows, normalizeSummary(payload), {
+          append,
+          preserveLocal: !append && !expanded && moduleOnly && !query.trim(),
+        });
+      } else {
+        setModuleLoadingFailed(module, false);
+      }
       setHasMore(Boolean(payload.hasMore));
       setNextCursor(typeof payload.nextCursor === "string" && payload.nextCursor ? payload.nextCursor : null);
 
       const nextSummary = normalizeSummary(payload);
-      const summarySignature = JSON.stringify(nextSummary);
-      if (summarySignature !== summarySignatureRef.current) {
-        summarySignatureRef.current = summarySignature;
-        setSummary(nextSummary);
+      if (keepCurrentRowsOnEmpty && rows.length > 0) {
+        applyServerRows(module, rows, nextSummary, {
+          append: false,
+          preserveLocal: true,
+        });
       }
-      if (!append && !expanded && moduleOnly && !query.trim()) {
-        if (nextRows.length > 0) {
-          writeTaskRailCache(module, {
-            cachedAt: Date.now(),
-            rows: nextRows.slice(0, RECENT_TASK_LIMIT),
-            summary: nextSummary,
-          });
-        }
-      }
-      loaded = true;
-    } catch {
-      // Keep the last successful task list visible; the next poll will try again.
+    } catch (error) {
+      console.warn("[task-rail] queue load failed:", error instanceof Error ? error.message : error);
+      setModuleLoadingFailed(module, true);
     } finally {
       loadInFlightRef.current = false;
       setLoading(false);
-      if (loaded) {
-        hasLoadedRef.current = true;
-        setHasLoaded(true);
-      }
     }
-  }, [expanded, module, moduleOnly, nextCursor, query]);
+  }, [applyServerRows, expanded, hasLoaded, module, moduleOnly, nextCursor, query, rows, setModuleLoadingFailed]);
 
   useEffect(() => {
     try {
@@ -188,61 +151,56 @@ export function StudioTaskRail({
     setPage(1);
     setHasMore(false);
     setNextCursor(null);
-    rowsSignatureRef.current = "";
   }, [displayMode, expanded, moduleOnly, query]);
 
   useEffect(() => {
-    const cached = readTaskRailCache(module);
-    const cachedRows = cached?.rows || [];
-    const cachedSummary = cached?.summary || EMPTY_SUMMARY;
-    const hasCachedRows = cachedRows.length > 0;
-    rowsSignatureRef.current = hasCachedRows ? getRowsSignature(cachedRows) : "";
-    summarySignatureRef.current = hasCachedRows ? JSON.stringify(cachedSummary) : "";
-    setRows(hasCachedRows ? cachedRows : []);
-    setSummary(hasCachedRows ? cachedSummary : EMPTY_SUMMARY);
-    setHasLoaded(hasCachedRows);
-    hasLoadedRef.current = hasCachedRows;
-  }, [module]);
+    handledRefreshVersionRef.current = 0;
+    hydrateModule(module);
+  }, [hydrateModule, module]);
 
   useEffect(() => {
+    if (refreshVersion <= handledRefreshVersionRef.current) return;
+    handledRefreshVersionRef.current = refreshVersion;
     loadQueue();
-    const timer = window.setInterval(loadQueue, hasRunningTask ? 3000 : 10000);
-    return () => window.clearInterval(timer);
-  }, [hasRunningTask, loadQueue]);
+  }, [loadQueue, refreshVersion]);
 
   useEffect(() => {
-    const refresh = () => {
-      window.setTimeout(loadQueue, 150);
-      window.setTimeout(loadQueue, 1500);
-    };
+    const pollMs = hasRunningTask ? TASK_RAIL_RUNNING_POLL_MS : TASK_RAIL_IDLE_POLL_MS;
+    const cacheIsFreshEnough = Date.now() - lastLoadedAt < TASK_RAIL_IDLE_CACHE_GRACE_MS;
+    if (hasRunningTask || !hasLoaded || !cacheIsFreshEnough) {
+      loadQueue();
+    }
+    const timer = window.setInterval(loadQueue, pollMs);
+    return () => window.clearInterval(timer);
+  }, [hasLoaded, hasRunningTask, lastLoadedAt, loadQueue]);
+
+  useEffect(() => {
     const refreshVisible = () => {
       if (document.visibilityState === "hidden") return;
       loadQueue();
     };
-    window.addEventListener("wanxiang:task-queue-refresh", refresh);
     window.addEventListener("focus", refreshVisible);
     document.addEventListener("visibilitychange", refreshVisible);
     return () => {
-      window.removeEventListener("wanxiang:task-queue-refresh", refresh);
       window.removeEventListener("focus", refreshVisible);
       document.removeEventListener("visibilitychange", refreshVisible);
     };
   }, [loadQueue]);
 
   const recentRows = useMemo(
-    () => mergedRows.filter((item) => item.module === module).slice(0, RECENT_TASK_LIMIT),
-    [mergedRows, module]
+    () => rows.filter((item) => item.module === module).slice(0, TASK_QUEUE_RECENT_LIMIT),
+    [rows, module]
   );
 
-  const expandedRows = useMemo(() => mergedRows.slice(), [mergedRows]);
-  const totalPages = Math.max(1, Math.ceil(expandedRows.length / PAGE_SIZE));
-  const pagedRows = expandedRows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const expandedRows = useMemo(() => rows.slice(), [rows]);
+  const totalPages = Math.max(1, Math.ceil(expandedRows.length / TASK_QUEUE_PAGE_SIZE));
+  const pagedRows = expandedRows.slice((page - 1) * TASK_QUEUE_PAGE_SIZE, page * TASK_QUEUE_PAGE_SIZE);
   const visibleRows = expanded ? pagedRows : recentRows;
-  const initialLoading = !hasLoaded && !optimisticTask && mergedRows.length === 0;
+  const initialLoading = !hasLoaded && rows.length === 0;
 
   useEffect(() => {
-    if (!onSelectTask || selectedId === CONTINUE_CARD_ID) return;
-    const selected = mergedRows.find((item) => item.id === selectedId);
+    if (!onSelectTask || selectedId === TASK_QUEUE_CONTINUE_ID) return;
+    const selected = rows.find((item) => item.id === selectedId);
     if (!selected) return;
 
     const running = isTaskRunning(selected);
@@ -262,12 +220,12 @@ export function StudioTaskRail({
         toast.error(error instanceof Error ? error.message : "任务套用失败，请手动重试");
       })
       .finally(session.finish);
-  }, [beginSelection, mergedRows, onSelectTask, selectedId]);
+  }, [beginSelection, rows, onSelectTask, selectedId]);
 
   const handleSelect = (item: TaskQueueItem) => {
     autoSelectSignatureRef.current = getTaskSelectionSignature(item);
     runningSelectionRef.current = isTaskRunning(item) ? item.id : null;
-    setSelectedId(item.id);
+    setSelectedTask(module, item.id);
     if (!onSelectTask) return;
 
     const session = beginSelection(item.id);
@@ -284,7 +242,7 @@ export function StudioTaskRail({
     cancelSelection();
     autoSelectSignatureRef.current = "";
     runningSelectionRef.current = null;
-    setSelectedId(CONTINUE_CARD_ID);
+    clearSelectedTask(module);
     onContinue?.();
   };
 
@@ -373,12 +331,12 @@ export function StudioTaskRail({
         <div className={cn("min-h-0 flex-1 overflow-y-auto custom-scroll", expanded ? "space-y-2 px-3 py-3" : "space-y-2 px-2 py-2")}>
           {initialLoading ? (
             <>
-              {!expanded && <ContinueCard selected={selectedId === CONTINUE_CARD_ID} onClick={handleContinue} />}
+              {!expanded && <ContinueCard selected={selectedId === TASK_QUEUE_CONTINUE_ID} onClick={handleContinue} />}
               <TaskRailSkeleton compact={!expanded} />
             </>
           ) : visibleRows.length ? (
             <>
-              {!expanded && <ContinueCard selected={selectedId === CONTINUE_CARD_ID} onClick={handleContinue} />}
+              {!expanded && <ContinueCard selected={selectedId === TASK_QUEUE_CONTINUE_ID} onClick={handleContinue} />}
               {visibleRows.map((item) => (
                 <TaskCard
                   key={item.id}
@@ -393,8 +351,8 @@ export function StudioTaskRail({
             </>
           ) : (
             <>
-              {!expanded && <ContinueCard selected={selectedId === CONTINUE_CARD_ID} onClick={handleContinue} />}
-              <TaskRailEmpty compact={!expanded} moduleLabel={moduleLabel} />
+              {!expanded && <ContinueCard selected={selectedId === TASK_QUEUE_CONTINUE_ID} onClick={handleContinue} />}
+              <TaskRailEmpty compact={!expanded} moduleLabel={moduleLabel} failed={loadError} onRetry={() => void loadQueue()} />
             </>
           )}
         </div>
@@ -520,7 +478,10 @@ function TaskCard({
 }) {
   const running = isTaskRunning(item);
   const failed = item.statusGroup === "failed";
-  const cover = item.resultThumbnails[0] || item.inputThumbnails[0] || item.thumbnails[0] || "";
+  const resultThumbnails = safeTaskUrls(item.resultThumbnails);
+  const inputThumbnails = safeTaskUrls(item.inputThumbnails);
+  const thumbnails = safeTaskUrls(item.thumbnails);
+  const cover = resultThumbnails[0] || inputThumbnails[0] || thumbnails[0] || "";
   const progress = clampProgress(item.progress);
 
   if (compact) {
@@ -640,8 +601,8 @@ function TaskThumb({
 
 function TaskPreviewStrip({ item, displayMode }: { item: TaskQueueItem; displayMode: TaskDisplayMode }) {
   const running = isTaskRunning(item);
-  const resultUrls = item.resultThumbnails.slice(0, 4);
-  const inputUrls = item.inputThumbnails.slice(0, 2);
+  const resultUrls = safeTaskUrls(item.resultThumbnails).slice(0, 4);
+  const inputUrls = safeTaskUrls(item.inputThumbnails).slice(0, 2);
   const expectedCount = Math.max(1, Math.min(item.expectedCount || 1, 4));
 
   if (displayMode === "grouped") {
@@ -730,7 +691,17 @@ function TaskRailSkeleton({ compact }: { compact: boolean }) {
   );
 }
 
-function TaskRailEmpty({ compact = false, moduleLabel = "当前模块" }: { compact?: boolean; moduleLabel?: string }) {
+function TaskRailEmpty({
+  compact = false,
+  moduleLabel = "当前模块",
+  failed = false,
+  onRetry,
+}: {
+  compact?: boolean;
+  moduleLabel?: string;
+  failed?: boolean;
+  onRetry?: () => void;
+}) {
   return (
     <div
       className={cn(
@@ -738,9 +709,25 @@ function TaskRailEmpty({ compact = false, moduleLabel = "当前模块" }: { comp
         compact ? "min-h-[92px] px-1 py-3" : "min-h-32 px-4 py-5"
       )}
     >
-      <Clock3 className="mb-2 h-5 w-5 text-[var(--codex-accent)]" />
-      <span>{compact ? "暂无" : `${moduleLabel}暂无任务`}</span>
-      {!compact && <span className="mt-1 text-[11px] font-medium text-slate-400">生成后会自动出现在这里</span>}
+      {failed ? <RefreshCw className="mb-2 h-5 w-5 text-amber-500" /> : <Clock3 className="mb-2 h-5 w-5 text-[var(--codex-accent)]" />}
+      <span>{failed ? (compact ? "重试" : "任务加载失败") : compact ? "暂无" : `${moduleLabel}暂无任务`}</span>
+      {!compact && (
+        <span className="mt-1 text-[11px] font-medium text-slate-400">
+          {failed ? "网络或接口暂时不可用，可以手动刷新。" : "生成后会自动出现在这里"}
+        </span>
+      )}
+      {failed && onRetry ? (
+        <button
+          type="button"
+          onClick={onRetry}
+          className={cn(
+            "mt-2 inline-flex items-center justify-center rounded-lg border border-amber-200 bg-amber-50 font-black text-amber-700 transition hover:bg-amber-100",
+            compact ? "h-7 px-2 text-[11px]" : "h-8 px-3 text-xs"
+          )}
+        >
+          刷新
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -787,31 +774,6 @@ function clampProgress(value: unknown) {
   return Math.min(Math.max(Math.round(num), 0), 100);
 }
 
-function getRowsSignature(rows: TaskQueueItem[]) {
-  return JSON.stringify(rows.map((item) => [
-    item.id,
-    item.title,
-    item.time,
-    item.createdAt,
-    item.status,
-    item.statusGroup,
-    item.progress,
-    item.updatedAt,
-    item.expectedCount,
-    item.resultCount,
-    item.error,
-    item.inputThumbnails.join("|"),
-    item.resultThumbnails.join("|"),
-  ]));
-}
-
-function mergeTaskRows(currentRows: TaskQueueItem[], nextRows: TaskQueueItem[]) {
-  const rowsById = new Map<string, TaskQueueItem>();
-  for (const item of currentRows) rowsById.set(item.id, item);
-  for (const item of nextRows) rowsById.set(item.id, item);
-  return Array.from(rowsById.values()).sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
-}
-
 function getTaskSelectionSignature(item: TaskQueueItem) {
   return [
     item.id,
@@ -822,62 +784,10 @@ function getTaskSelectionSignature(item: TaskQueueItem) {
     item.resultCount,
     item.expectedCount,
     item.error || "",
-    item.resultThumbnails.join("|"),
+    safeTaskUrls(item.resultThumbnails).join("|"),
   ].join("::");
 }
 
-function readTaskRailCache(module: string): TaskRailCache | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = window.localStorage.getItem(getTaskRailCacheKey(module));
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as Partial<TaskRailCache>;
-    const cachedAt = Number(parsed.cachedAt);
-    if (!Number.isFinite(cachedAt) || Date.now() - cachedAt > TASK_RAIL_CACHE_TTL_MS) return null;
-    const rows = Array.isArray(parsed.rows) ? parsed.rows.filter(isTaskQueueItem) : [];
-    const stableRows = Date.now() - cachedAt > TASK_RAIL_RUNNING_CACHE_TTL_MS
-      ? rows.filter((item) => !isTaskRunning(item))
-      : rows;
-    return {
-      cachedAt,
-      rows: stableRows.slice(0, RECENT_TASK_LIMIT),
-      summary: normalizeCachedSummary(parsed.summary),
-    };
-  } catch {
-    return null;
-  }
-}
-
-function writeTaskRailCache(module: string, cache: TaskRailCache) {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(getTaskRailCacheKey(module), JSON.stringify(cache));
-  } catch {
-    // Ignore storage quota/private mode failures; the live queue still refreshes.
-  }
-}
-
-function getTaskRailCacheKey(module: string) {
-  return `${TASK_RAIL_CACHE_PREFIX}${module}`;
-}
-
-function isTaskQueueItem(value: unknown): value is TaskQueueItem {
-  return Boolean(
-    value &&
-    typeof value === "object" &&
-    typeof (value as TaskQueueItem).id === "string" &&
-    typeof (value as TaskQueueItem).module === "string" &&
-    typeof (value as TaskQueueItem).statusGroup === "string"
-  );
-}
-
-function normalizeCachedSummary(value: unknown): TaskQueueSummary {
-  const summary = value && typeof value === "object" ? value as Partial<TaskQueueSummary> : {};
-  return {
-    totalTaskNum: firstFiniteNumber(summary.totalTaskNum, 0),
-    finishedTaskNum: firstFiniteNumber(summary.finishedTaskNum, 0),
-    finishedNeedReadTaskNum: firstFiniteNumber(summary.finishedNeedReadTaskNum, 0),
-    runningTaskNum: firstFiniteNumber(summary.runningTaskNum, 0),
-    failedTaskNum: firstFiniteNumber(summary.failedTaskNum, 0),
-  };
+function safeTaskUrls(value: unknown) {
+  return Array.isArray(value) ? value.filter((url): url is string => typeof url === "string" && url.trim().length > 0) : [];
 }

@@ -8,7 +8,6 @@ import { FeatureTabs } from "@/components/FeatureTabs";
 import { RepairPromptPanel } from "@/components/RepairPromptPanel";
 import { ModelPromptPreview } from "@/components/ModelPromptPreview";
 import { ClientPortal } from "@/components/ClientPortal";
-import { StyleChoiceGrid } from "@/components/StyleChoiceGrid";
 import { ModuleHeader } from "@/components/ModuleHeader";
 import { PreviewGuide } from "@/components/PreviewGuide";
 import { ErrorStage } from "@/components/studio/ErrorStage";
@@ -18,6 +17,8 @@ import type { TaskSelectionSession } from "@/components/studio/useTaskSelectionS
 import { StudioGenerationCountSelector, StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/components/studio/StudioFormControls";
 import { StudioRunBar } from "@/components/studio/StudioRunBar";
 import { StudioUploadSection } from "@/components/studio/StudioUploadSection";
+import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
+import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
 import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
@@ -92,6 +93,7 @@ export default function ModelPage() {
   } = useStudioAuth();
   const [referenceUrls, setReferenceUrls] = useState<string[]>([]);
   const [isReferenceDragging, setIsReferenceDragging] = useState(false);
+  const [isUploadingReference, setIsUploadingReference] = useState(false);
   const [gender, setGender] = useState<Gender>("female");
   const [modelStyle, setModelStyle] = useState<ModelShootStyle>(DEFAULT_MODEL_SHOOT_STYLE);
   const [hairStyle, setHairStyle] = useState<string | null>(null);
@@ -133,6 +135,12 @@ export default function ModelPage() {
     () => [...referenceUrls, hairReferenceUrl, hairColorReferenceUrl].filter(Boolean) as string[],
     [referenceUrls, hairReferenceUrl, hairColorReferenceUrl]
   );
+  const taskQueue = useTaskQueueGeneration({
+    module: "model",
+    title: "专属模特",
+    defaultExpectedCount: genCount,
+    applyPath: "/model",
+  });
 
   const cancelRulesHide = () => {
     if (rulesHideTimerRef.current) {
@@ -238,26 +246,32 @@ export default function ModelPage() {
       toast.error("最多上传 3 张参考图");
       return;
     }
+
+    setIsUploadingReference(true);
     toast.info(`正在上传 ${incoming.length} 张参考图...`);
     const next: string[] = [];
-    for (const file of incoming) {
-      if (!file.type.startsWith("image/")) continue;
-      if (file.size > MAX_FILE_SIZE) {
-        toast.error(`${file.name} 超过 ${MAX_FILE_SIZE_MB}MB`);
-        continue;
+    try {
+      for (const file of incoming) {
+        if (!file.type.startsWith("image/")) continue;
+        if (file.size > MAX_FILE_SIZE) {
+          toast.error(`${file.name} 超过 ${MAX_FILE_SIZE_MB}MB`);
+          continue;
+        }
+        try {
+          const result = await uploadImage(file);
+          next.push(result.url);
+        } catch {
+          toast.error(`${file.name} 上传失败，请重试`);
+        }
       }
-      try {
-        const result = await uploadImage(file);
-        next.push(result.url);
-      } catch {
-        toast.error(`${file.name} 上传失败，请重试`);
+      if (next.length) {
+        setReferenceUrls((prev) => [...prev, ...next].slice(0, 3));
+        setResultUrls([]);
+        setError("");
+        toast.success(`已添加 ${next.length} 张参考图`);
       }
-    }
-    if (next.length) {
-      setReferenceUrls((prev) => [...prev, ...next].slice(0, 3));
-      setResultUrls([]);
-      setError("");
-      toast.success(`已添加 ${next.length} 张参考图`);
+    } finally {
+      setIsUploadingReference(false);
     }
   }
 
@@ -398,6 +412,13 @@ export default function ModelPage() {
       createdAt: new Date().toISOString(),
       inputThumbnails: taskInputThumbnails,
     });
+    const provisionalTask = taskQueue.startTask({
+      expectedCount: genCount,
+      inputThumbnails: taskInputThumbnails,
+      progress: 10,
+    });
+    let activeTaskId = provisionalTask.id;
+    let latestTaskResultUrls: string[] = [];
 
     try {
       const res = await fetch("/api/model", {
@@ -426,6 +447,8 @@ export default function ModelPage() {
       if (!res.ok) {
         if (res.status === 401) {
           await refreshAuth();
+          taskQueue.removeTask(activeTaskId);
+          setIsGenerating(false);
           router.push("/login");
           return;
         }
@@ -441,6 +464,16 @@ export default function ModelPage() {
         if (userId) setCachedProfileCredits(userId, data.credits_remaining);
       }
       setProgress(25);
+      if (typeof data.generation_id === "string" && data.generation_id) {
+        const serverTask = taskQueue.replaceWithServerTask(activeTaskId, {
+          id: data.generation_id,
+          expectedCount: genCount,
+          inputThumbnails: taskInputThumbnails,
+          status: data.status || "processing_tryon",
+          progress: 25,
+        });
+        activeTaskId = serverTask.id;
+      }
 
       let attempts = 0;
       while (attempts < 120) {
@@ -451,16 +484,33 @@ export default function ModelPage() {
         const state = await poll.json();
         if (state.status === "processing_tryon" || state.status === "processing" || state.status === "pending") {
           if (Array.isArray(state.result_urls) && state.result_urls.length) {
+            latestTaskResultUrls = state.result_urls;
             setResultUrls(state.result_urls);
           }
           const nextProgress = Number(state.progress);
-          setProgress(Number.isFinite(nextProgress)
+          const runningProgress = Number.isFinite(nextProgress)
             ? Math.min(Math.max(Math.round(nextProgress), 0), 99)
-            : Math.min(25 + attempts * 1.5, 90));
+            : Math.min(25 + attempts * 1.5, 90);
+          setProgress(runningProgress);
+          taskQueue.markRunning(activeTaskId, {
+            expectedCount: genCount,
+            inputThumbnails: taskInputThumbnails,
+            resultThumbnails: Array.isArray(state.result_urls) ? state.result_urls : [],
+            progress: runningProgress,
+            status: state.status,
+          });
         } else if (state.status === "completed") {
+          const finalUrls = Array.isArray(state.result_urls) ? state.result_urls : [];
+          latestTaskResultUrls = finalUrls;
           setProgress(100);
-          setResultUrls(state.result_urls || []);
+          setResultUrls(finalUrls);
           setIsGenerating(false);
+          taskQueue.markCompleted(activeTaskId, {
+            expectedCount: genCount,
+            inputThumbnails: taskInputThumbnails,
+            resultThumbnails: finalUrls,
+            resultCount: finalUrls.length,
+          });
           toast.success("专属模特生成完成");
           return;
         } else if (state.status === "failed") {
@@ -469,9 +519,15 @@ export default function ModelPage() {
       }
       throw new Error("生成超时");
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "生成失败");
+      const message = err instanceof Error ? err.message : "生成失败";
+      setError(message);
       setIsGenerating(false);
-      toast.error(err instanceof Error ? err.message : "生成失败");
+      taskQueue.markFailed(activeTaskId, message, {
+        expectedCount: genCount,
+        inputThumbnails: taskInputThumbnails,
+        resultThumbnails: latestTaskResultUrls,
+      });
+      toast.error(message);
     }
   }
 
@@ -560,105 +616,123 @@ export default function ModelPage() {
           >
             {(openFileDialog) => (
               <>
-            <div
-              className={`studio-upload-tile studio-model-reference-upload relative flex flex-col text-center transition-all ${
-                isReferenceDragging ? "studio-upload-tile-dragging" : ""
-              }`}
-              style={{ "--studio-fixed-upload-height": "260px" } as CSSProperties}
-            >
-              {isReferenceDragging && (
-                <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-2xl border border-violet-300 bg-violet-50/85 text-sm font-semibold text-violet-700 shadow-inner backdrop-blur-sm">
-                  {referenceUrls.length >= 3 ? "最多 3 张参考图" : "松开即可上传图片"}
-                </div>
-              )}
-              {referenceUrls.length > 0 ? (
-                <>
-                  <div className="mb-3 flex items-center justify-between gap-3 text-left">
-                    <div>
-                      <p className="text-sm font-semibold text-slate-800">已上传 {referenceUrls.length}/3 张参考图</p>
-                      <p className="mt-0.5 text-[11px] text-slate-400">{referenceUrls.length < 3 ? "图片已进入融合参考，可拖入继续补充或移除单张" : "图片已进入融合参考，最多 3 张，可移除后重新拖入"}</p>
-                    </div>
-                    {referenceUrls.length < 3 && (
-                      <button
-                        type="button"
-                        onClick={openFileDialog}
-                        className="shrink-0 rounded-lg border border-violet-200 bg-white px-3 py-1.5 text-xs font-semibold text-violet-600 shadow-sm hover:border-violet-300 hover:bg-violet-50"
-                      >
-                        继续上传
-                      </button>
-                    )}
-                  </div>
-                  <div className="grid grid-cols-3 gap-2">
-                    {referenceUrls.map((url, index) => (
-                      <div key={index} className="studio-checkerboard group relative overflow-hidden rounded-xl border border-white shadow-sm ring-1 ring-slate-100">
-                        <img src={url} alt={`专属模特参考图${index + 1}`} className="h-[150px] w-full object-contain p-1.5" />
-                        <span className="absolute left-2 top-2 rounded-full border border-white/70 bg-white/80 px-2 py-0.5 text-[10px] font-bold text-slate-700 shadow-sm backdrop-blur">图{index + 1}</span>
-                        <button
-                          type="button"
-                          onClick={() => setReferenceUrls((prev) => prev.filter((_, i) => i !== index))}
-                          className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-slate-950/70 text-white opacity-0 shadow-sm backdrop-blur transition-opacity group-hover:opacity-100"
-                          aria-label={`移除图${index + 1}`}
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="mt-3 flex flex-wrap justify-center gap-2">
-                    <button type="button" onClick={openFileDialog} className="studio-upload-tile-primary">
-                      <Upload className="h-3.5 w-3.5" /> 从本地上传
-                    </button>
-                    <button type="button" onClick={() => toast.info("作品库选择即将接入")} className="studio-upload-tile-secondary">
-                      <FolderOpen className="h-3.5 w-3.5" /> 从作品选择
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <div className="studio-upload-tile-empty">
-                  <span className="studio-upload-tile-icon">
-                    <UserRound className="h-6 w-6 text-[var(--codex-accent)]" />
-                  </span>
-                  <span className="studio-upload-tile-title text-sm font-black leading-snug text-codex-ink">上传 / 拖入 1-3 张人物参考图</span>
-                  <span className="studio-upload-tile-description mt-1.5 text-center text-[12px] leading-5 text-codex-muted">拖拽图片到这里，或从本地选择；用于融合脸型、肤色、妆感和气质</span>
-                  <span className="studio-upload-tile-action-row">
-                    <button type="button" onClick={openFileDialog} className="studio-upload-tile-primary">
-                      <Upload className="h-3.5 w-3.5" /> 从本地上传
-                    </button>
-                    <button type="button" onClick={() => toast.info("作品库选择即将接入")} className="studio-upload-tile-secondary">
-                      <FolderOpen className="h-3.5 w-3.5" /> 从作品选择
-                    </button>
-                  </span>
-                  <span className="studio-upload-tile-footnote mt-2.5 text-center text-[11px] leading-5 text-codex-faint">{MODEL_UPLOAD_RULE.uploadSpecText}</span>
-                </div>
-              )}
-            </div>
-            <div className="studio-upload-demo-row">
-              <span className="studio-upload-demo-label">试一试</span>
-              <div className="studio-upload-demo-list studio-scrollbar-hide">
-                {MODEL_UPLOAD_RULE.demos.map((demo) => (
-                  <button
-                    key={demo.title}
-                    type="button"
-                    onClick={() => applyRuleDemo(demo)}
-                    className="studio-upload-demo-thumb studio-upload-demo-thumb-multi"
-                    title={demo.description}
+                {referenceUrls.length > 0 ? (
+                  <div
+                    className={`studio-upload-tile studio-model-reference-upload relative flex flex-col text-center transition-all ${
+                      isReferenceDragging ? "studio-upload-tile-dragging" : ""
+                    }`}
+                    style={{ "--studio-fixed-upload-height": "260px" } as CSSProperties}
+                    aria-busy={isUploadingReference ? "true" : undefined}
                   >
-                    {demo.imageUrls.map((url) => (
-                      <span key={url} className="studio-upload-demo-cell">
-                        <img src={url} alt={demo.title} />
-                      </span>
-                    ))}
-                  </button>
-                ))}
-              </div>
-            </div>
+                    {isReferenceDragging && (
+                      <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-2xl border border-violet-300 bg-violet-50/85 text-sm font-semibold text-violet-700 shadow-inner backdrop-blur-sm">
+                        {referenceUrls.length >= 3 ? "最多 3 张参考图" : "松开即可上传图片"}
+                      </div>
+                    )}
+                    <div className="mb-3 flex items-center justify-between gap-3 text-left">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-800">已上传 {referenceUrls.length}/3 张参考图</p>
+                        <p className="mt-0.5 text-[11px] text-slate-400">{referenceUrls.length < 3 ? "图片已进入融合参考，可拖入继续补充或移除单张" : "图片已进入融合参考，最多 3 张，可移除后重新拖入"}</p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      {referenceUrls.map((url, index) => (
+                        <div key={index} className="studio-checkerboard group relative overflow-hidden rounded-xl border border-white shadow-sm ring-1 ring-slate-100">
+                          <img src={url} alt={`专属模特参考图${index + 1}`} className="h-[150px] w-full object-contain p-1.5" />
+                          <span className="absolute left-2 top-2 rounded-full border border-white/70 bg-white/80 px-2 py-0.5 text-[10px] font-bold text-slate-700 shadow-sm backdrop-blur">图{index + 1}</span>
+                          <button
+                            type="button"
+                            onClick={() => setReferenceUrls((prev) => prev.filter((_, i) => i !== index))}
+                            className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-slate-950/70 text-white opacity-0 shadow-sm backdrop-blur transition-opacity group-hover:opacity-100"
+                            aria-label={`移除图${index + 1}`}
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-3 flex flex-wrap justify-center gap-2">
+                      {referenceUrls.length < 3 && (
+                        <button type="button" onClick={openFileDialog} disabled={isUploadingReference} className="studio-upload-tile-primary">
+                          {isUploadingReference ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />} {isUploadingReference ? "上传中..." : "从本地上传"}
+                        </button>
+                      )}
+                      <button type="button" onClick={() => toast.info("作品库选择即将接入")} disabled={isUploadingReference} className="studio-upload-tile-secondary">
+                        <FolderOpen className="h-3.5 w-3.5" /> 从作品选择
+                      </button>
+                    </div>
+                    <div className="studio-upload-tile-examples mx-auto mt-3">
+                      <span className="studio-upload-tile-example-label">试一试</span>
+                      <div className="studio-upload-tile-example-list studio-scrollbar-hide">
+                        {MODEL_UPLOAD_RULE.demos.map((demo) => (
+                          <button
+                            key={demo.title}
+                            type="button"
+                            onClick={() => applyRuleDemo(demo)}
+                            disabled={isUploadingReference}
+                            className="studio-upload-tile-example-thumb studio-upload-tile-example-thumb-multi"
+                            title={demo.description}
+                          >
+                            {demo.imageUrls.slice(0, 4).map((url, index) => (
+                              <span key={`${url}-${index}`} className="studio-upload-tile-example-cell">
+                                <img src={url} alt={`${demo.title}${index + 1}`} />
+                              </span>
+                            ))}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="studio-upload-tile-tips px-0 pb-0">
+                      <span className="studio-upload-tile-tips-label">Tips.</span>
+                      <span className="studio-upload-tile-tips-text" title="建议 1-3 张清晰正脸或半身图；光线统一、无遮挡会更稳定。">建议 1-3 张清晰正脸或半身图；光线统一、无遮挡会更稳定。</span>
+                    </div>
+                  </div>
+                ) : (
+                  <StudioUploadTile
+                    title="上传 / 拖拽 1-3 张人物参考图"
+                    description="用于融合脸型、肤色、妆感和气质。"
+                    imageUrl={null}
+                    imageAlt="专属模特参考图"
+                    isDragging={isReferenceDragging}
+                    loading={isUploadingReference}
+                    onUploadClick={openFileDialog}
+                    onLibraryClick={() => toast.info("作品库选择即将接入")}
+                    uploadLabel="从本地上传"
+                    libraryLabel="从作品选择"
+                    supportBadge="最多 3 张"
+                    footnote="建议 1-3 张清晰正脸或半身图；光线统一、无遮挡会更稳定。"
+                    examples={{
+                      label: "试一试",
+                      images: MODEL_UPLOAD_RULE.demos.map((demo) => ({
+                        url: demo.imageUrls[0],
+                        title: demo.title,
+                        previewUrls: demo.imageUrls,
+                      })),
+                      disabled: isUploadingReference,
+                      onSelect: (image) => {
+                        const demo = MODEL_UPLOAD_RULE.demos.find((item) => item.title === image.title && item.imageUrls[0] === image.url);
+                        if (demo) applyRuleDemo(demo);
+                      },
+                    }}
+                  />
+                )}
               </>
             )}
           </StudioUploadSection>
 
           <section>
             <h3 className="font-bold text-sm mb-3">模特风格</h3>
-            <StyleChoiceGrid options={MODEL_SHOOT_STYLES} value={modelStyle} onChange={selectModelStyle} />
+            <StudioOptionGrid
+              options={MODEL_SHOOT_STYLES.map((style) => ({
+                value: style.value,
+                label: style.label,
+                description: style.desc,
+              }))}
+              value={modelStyle}
+              onChange={selectModelStyle}
+              columns={2}
+              ariaLabel="模特风格"
+            />
             <p className="mt-2 text-[11px] leading-relaxed text-gray-400">
               风格只决定妆造、光线和商业气质；多图融合、肤色、脸型骨相和五官辨识度优先级更高。
             </p>

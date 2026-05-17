@@ -1230,14 +1230,17 @@ export function buildTryOnPrompt(params: {
     .map((ref, index) => `${ref}是${TRYON_CLOTHING_ROLE_LABELS[normalizedRoles[index]] || "服装"}图，只提供衣服本身`)
     .join("，");
   const mainClothingRef = clothingRefs[0];
+  const explicitSlotText = clothingRefs
+    .map((ref, index) => `${ref}的${TRYON_CLOTHING_ROLE_LABELS[normalizedRoles[index]] || "服装"}`)
+    .join("、");
   const clothingText = clothingMode === "multi"
     ? normalizedRoles.includes("upper") && normalizedRoles.includes("lower")
       ? `${clothingRefs.join("、")}的上装与下装`
-      : `${clothingRefs.join("、")}的多件服装`
-    : `${mainClothingRef}的单件服装`;
+      : explicitSlotText
+    : `${mainClothingRef}的连体/全身服装`;
   const outfitAssemblyRule = clothingMode === "multi"
-    ? "多件服装必须按各自品类正确穿着：上装只替换上半身衣服，下装只替换下半身衣服，保持层次关系、遮挡关系、腰线衔接和真实垂坠，不要把多件衣服融合成一件新衣服。"
-    : `只将${mainClothingRef}这件单件服装应用到对应身体部位，不要额外生成${mainClothingRef}以外的新服装；参考图中原本存在且不与${mainClothingRef}冲突的下装、鞋履和配饰应自然保留，用于维持完整人物构图和真实穿搭关系。`;
+    ? "用户已选择换上下装槽位：每张服装图必须按显式槽位正确穿着，上装只替换上半身衣服，下装只替换下半身衣服；如果只上传一个槽位，只替换该槽位覆盖的服装并保留不冲突穿搭，保持层次关系、遮挡关系、腰线衔接和真实垂坠，不要把不同槽位融合成一件新衣服。"
+    : `用户已选择连体/全身槽位：将${mainClothingRef}作为一件完整连体衣、连衣裙、套装或全身服装来处理，替换它覆盖范围内所有冲突的上装和下装，不要把它拆成无关上下装，也不要额外生成${mainClothingRef}以外的新服装；鞋履和不冲突配饰可自然保留。`;
   const referenceImageNumber = params.clothingCount + 1;
   const faceImageNumber = params.clothingCount + (params.hasReference ? 2 : 1);
 
@@ -1526,7 +1529,7 @@ function buildConciseClothingRoleRule(clothingRefs: string[], roles: TryOnClothi
     return `Multi-garment rule: ${roleLines.join("; ")}. Wear each item on its correct body area, keep natural layering, and do not merge them into one new garment.`;
   }
 
-  return "Single-garment rule: apply image 1 to its matching body area. If image 1 is a dress, one-piece, coat, or full outfit, replace all conflicting target garments it covers.";
+  return "Single-garment rule: image 1 was uploaded into the explicit one-piece/full-outfit slot. Treat it as one complete dress, jumpsuit, set, coat, or full-body garment; replace every conflicting target garment it covers, do not split it into unrelated upper/lower pieces, and do not invent extra clothing outside image 1.";
 }
 
 function buildConciseAudienceRule(garmentAudience?: TryOnGarmentAudience, ageGroup?: TryOnAgeGroup) {

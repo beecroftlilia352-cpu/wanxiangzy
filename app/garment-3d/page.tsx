@@ -19,6 +19,7 @@ import { StudioGenerationCountSelector, StudioModelSelector, StudioOptionGrid, S
 import { StudioRunBar } from "@/components/studio/StudioRunBar";
 import { StudioUploadSection } from "@/components/studio/StudioUploadSection";
 import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
+import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
 import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
@@ -97,6 +98,7 @@ export default function Garment3dPage() {
   const [genCount, setGenCount] = useState(1);
 
   const [isDragging, setIsDragging] = useState(false);
+  const [isUploadingGarment, setIsUploadingGarment] = useState(false);
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -116,6 +118,12 @@ export default function Garment3dPage() {
     () => [garmentUrl, outputMode === "reference" ? activeReferenceUrl : ""].filter(Boolean) as string[],
     [garmentUrl, outputMode, activeReferenceUrl]
   );
+  const taskQueue = useTaskQueueGeneration({
+    module: "garment3d",
+    title: "服装 3D",
+    defaultExpectedCount: genCount,
+    applyPath: "/garment-3d",
+  });
 
   const builtPrompt = useMemo(() => {
     return buildGarment3dPrompt({
@@ -234,6 +242,7 @@ export default function Garment3dPage() {
     setError(null);
 
     toast.info("正在上传服装图...");
+    setIsUploadingGarment(true);
     try {
       const result = await uploadImage(file);
       setGarmentUrl(result.url);
@@ -241,6 +250,8 @@ export default function Garment3dPage() {
     } catch {
       setGarmentUrl("");
       toast.error("服装图上传失败，请重试");
+    } finally {
+      setIsUploadingGarment(false);
     }
   }
 
@@ -345,6 +356,14 @@ export default function Garment3dPage() {
     setResultUrls([]);
     setError(null);
 
+    const provisionalTask = taskQueue.startTask({
+      expectedCount: genCount,
+      inputThumbnails: taskInputThumbnails,
+      progress: 12,
+    });
+    let activeTaskId = provisionalTask.id;
+    let latestTaskResultUrls: string[] = [];
+
     try {
       const submittedFinalPrompt = typeof finalPromptForRun === "string" ? finalPromptForRun : finalPrompt;
       const referencePayload = outputMode === "reference" ? await urlToBase64(activeReferenceUrl) : null;
@@ -370,6 +389,7 @@ export default function Garment3dPage() {
 
       if (!res.ok) {
         if (res.status === 401) {
+          taskQueue.removeTask(activeTaskId);
           await refreshAuth();
           router.push("/login");
           return;
@@ -387,9 +407,30 @@ export default function Garment3dPage() {
         if (userId) setCachedProfileCredits(userId, data.credits_remaining);
       }
 
+      if (typeof data.generation_id === "string" && data.generation_id) {
+        const serverTask = taskQueue.replaceWithServerTask(activeTaskId, {
+          id: data.generation_id,
+          expectedCount: genCount,
+          inputThumbnails: taskInputThumbnails,
+          status: data.status || "processing",
+          progress: data.status === "completed" ? 100 : 25,
+          resultThumbnails: Array.isArray(data.result_urls) ? data.result_urls : [],
+          resultCount: Array.isArray(data.result_urls) ? data.result_urls.length : 0,
+        });
+        activeTaskId = serverTask.id;
+      }
+
       if (data.status === "completed") {
+        const finalUrls = Array.isArray(data.result_urls) ? data.result_urls : [];
+        latestTaskResultUrls = finalUrls;
         setProgress(100);
-        setResultUrls(data.result_urls || []);
+        setResultUrls(finalUrls);
+        taskQueue.markCompleted(activeTaskId, {
+          expectedCount: genCount,
+          inputThumbnails: taskInputThumbnails,
+          resultThumbnails: finalUrls,
+          resultCount: finalUrls.length,
+        });
         toast.success("服装转3D完成");
         return;
       }
@@ -398,22 +439,42 @@ export default function Garment3dPage() {
       while (attempts < 120) {
         await new Promise((resolve) => setTimeout(resolve, 2000));
         attempts++;
-        setProgress(Math.min(18 + attempts * 1.6, 92));
+        const fallbackProgress = Math.min(18 + attempts * 1.6, 92);
+        let runningProgress = fallbackProgress;
+        setProgress(fallbackProgress);
 
         const poll = await fetch(`/api/garment-3d?generation_id=${data.generation_id}`);
         if (!poll.ok) continue;
         const pollData = await poll.json();
         if (Array.isArray(pollData.result_urls) && pollData.result_urls.length) {
-          setResultUrls(pollData.result_urls);
+          latestTaskResultUrls = pollData.result_urls;
+          setResultUrls(latestTaskResultUrls);
         }
         const nextProgress = Number(pollData.progress);
         if (Number.isFinite(nextProgress)) {
-          setProgress(Math.min(Math.max(Math.round(nextProgress), 0), 99));
+          runningProgress = Math.min(Math.max(Math.round(nextProgress), 0), 99);
+          setProgress(runningProgress);
         }
+        taskQueue.markRunning(activeTaskId, {
+          expectedCount: genCount,
+          inputThumbnails: taskInputThumbnails,
+          resultThumbnails: latestTaskResultUrls,
+          resultCount: latestTaskResultUrls.length,
+          progress: runningProgress,
+          status: pollData.status || "processing",
+        });
 
         if (pollData.status === "completed") {
+          const finalUrls = Array.isArray(pollData.result_urls) ? pollData.result_urls : [];
+          latestTaskResultUrls = finalUrls;
           setProgress(100);
-          setResultUrls(pollData.result_urls || []);
+          setResultUrls(finalUrls);
+          taskQueue.markCompleted(activeTaskId, {
+            expectedCount: genCount,
+            inputThumbnails: taskInputThumbnails,
+            resultThumbnails: finalUrls,
+            resultCount: finalUrls.length,
+          });
           toast.success("服装转3D完成");
           return;
         }
@@ -423,8 +484,15 @@ export default function Garment3dPage() {
       }
       throw new Error("生成超时");
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "操作失败");
-      toast.error(err instanceof Error ? err.message : "操作失败");
+      const message = err instanceof Error ? err.message : "操作失败";
+      setError(message);
+      taskQueue.markFailed(activeTaskId, message, {
+        expectedCount: genCount,
+        inputThumbnails: taskInputThumbnails,
+        resultThumbnails: latestTaskResultUrls,
+        resultCount: latestTaskResultUrls.length,
+      });
+      toast.error(message);
     } finally {
       setIsGenerating(false);
     }
@@ -524,6 +592,7 @@ export default function Garment3dPage() {
                   imageUrl={garmentUrl || null}
                   imageAlt="已上传服装图"
                   isDragging={isDragging}
+                  loading={isUploadingGarment}
                   onUploadClick={openFileDialog}
                   onLibraryClick={() => toast.info("作品库选择即将接入")}
                   onPreview={garmentUrl ? () => setLightboxSrc(garmentUrl) : undefined}
@@ -535,24 +604,16 @@ export default function Garment3dPage() {
                   dragContext={dragContext}
                   uploadLabel="从本地上传"
                   libraryLabel="从作品选择"
-                  footnote={garmentUrl ? garmentName || "已上传图片" : GARMENT_3D_UPLOAD_RULE.uploadSpecText}
+                  footnote={garmentUrl ? garmentName || "已上传图片" : "单件商品、边缘清晰、背景干净，更容易还原版型、厚度和材质。"}
+                  examples={{
+                    label: "试一试",
+                    images: GARMENT_3D_UPLOAD_RULE.demos.map((demo) => ({ url: demo.imageUrl, title: demo.title })),
+                    onSelect: (image) => {
+                      const demo = GARMENT_3D_UPLOAD_RULE.demos.find((item) => item.imageUrl === image.url);
+                      if (demo) applyRuleDemo(demo);
+                    },
+                  }}
                 />
-            <div className="studio-upload-demo-row">
-              <span className="studio-upload-demo-label">试一试</span>
-              <div className="studio-upload-demo-list studio-scrollbar-hide">
-                {GARMENT_3D_UPLOAD_RULE.demos.map((demo) => (
-                  <button
-                    key={demo.imageUrl}
-                    type="button"
-                    onClick={() => applyRuleDemo(demo)}
-                    className="studio-upload-demo-thumb"
-                    title={demo.description}
-                  >
-                    <img src={demo.imageUrl} alt={demo.title} />
-                  </button>
-                ))}
-              </div>
-            </div>
               </>
             )}
           </StudioUploadSection>

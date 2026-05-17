@@ -30,6 +30,7 @@ import { StudioGenerationCountSelector, StudioModelSelector, StudioOptionGrid, S
 import { StudioRunBar } from "@/components/studio/StudioRunBar";
 import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
 import { useStableFileDrag } from "@/components/studio/useStableFileDrag";
+import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
 import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
@@ -117,6 +118,7 @@ export default function ModelBackgroundPage() {
   const [promptOverride, setPromptOverride] = useState<string | null>(null);
   const [isOptimizingPrompt, setIsOptimizingPrompt] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [uploadingTarget, setUploadingTarget] = useState<UploadTarget | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
   const [resultUrls, setResultUrls] = useState<string[]>([]);
@@ -140,6 +142,10 @@ export default function ModelBackgroundPage() {
     ...(hasModelReference ? [{ imageNumber: 2, url: modelReferenceUrl, role: mode === "model_only" ? "脸部参考图 / 只替换主图脸部" : "必选模特参考图 / 人物气质身份参考" }] : []),
     ...(hasBackgroundReference ? [{ imageNumber: mode === "model_background" ? 3 : 2, url: backgroundReferenceUrl, role: "背景参考图 / 场景光线构图参考" }] : []),
   ], [sourceUrl, hasModelReference, modelReferenceUrl, mode, hasBackgroundReference, backgroundReferenceUrl]);
+  const taskInputThumbnails = useMemo(
+    () => promptImages.map((item) => item.url).filter(Boolean),
+    [promptImages]
+  );
   const finalPrompt = useMemo(() => promptOverride ?? buildModelBackgroundPrompt({
     mode,
     backgroundSource,
@@ -151,6 +157,12 @@ export default function ModelBackgroundPage() {
   }), [promptOverride, mode, backgroundSource, backgroundPresetId, backgroundText, userPrompt, hasModelReference, hasBackgroundReference]);
   const imageSizes = getSupportedImageSizes(aiModel, aspectRatio);
   const cost = getCreditCost(aiModel, imageSize, aspectRatio) * genCount;
+  const taskQueue = useTaskQueueGeneration({
+    module: "modelBackground",
+    title: "换背景",
+    defaultExpectedCount: genCount,
+    applyPath: "/model-background",
+  });
   const authIsAnonymous = authChecked && !isAuthenticated;
   const runDisabledReason = !sourceUrl
     ? "请先上传原图"
@@ -264,6 +276,7 @@ export default function ModelBackgroundPage() {
     if (file.size > MAX_FILE_SIZE) return toast.error(`图片不能超过 ${MAX_FILE_SIZE_MB}MB`);
     const label = target === "source" ? "原图" : target === "model" ? "模特参考图" : "背景参考图";
     toast.info(`正在上传${label}...`);
+    setUploadingTarget(target);
     try {
       const result = await uploadImage(file);
       if (target === "source") {
@@ -281,6 +294,8 @@ export default function ModelBackgroundPage() {
       toast.success(`${label}已上传`);
     } catch {
       toast.error("上传失败，请重试");
+    } finally {
+      setUploadingTarget(null);
     }
   }
 
@@ -310,6 +325,13 @@ export default function ModelBackgroundPage() {
     setProgress(10);
     setResultUrls([]);
     setError("");
+    const provisionalTask = taskQueue.startTask({
+      expectedCount: genCount,
+      inputThumbnails: taskInputThumbnails,
+      progress: 10,
+    });
+    let activeTaskId = provisionalTask.id;
+    let latestTaskResultUrls: string[] = [];
 
     try {
       const res = await fetch("/api/model-background", {
@@ -335,6 +357,8 @@ export default function ModelBackgroundPage() {
       if (!res.ok) {
         if (res.status === 401) {
           await refreshAuth();
+          taskQueue.removeTask(activeTaskId);
+          setIsGenerating(false);
           router.push("/login");
           return;
         }
@@ -350,31 +374,63 @@ export default function ModelBackgroundPage() {
         if (userId) setCachedProfileCredits(userId, data.credits_remaining);
       }
       setProgress(25);
+      if (typeof data.generation_id === "string" && data.generation_id) {
+        const serverTask = taskQueue.replaceWithServerTask(activeTaskId, {
+          id: data.generation_id,
+          expectedCount: genCount,
+          inputThumbnails: taskInputThumbnails,
+          status: data.status || "processing_tryon",
+          progress: 25,
+        });
+        activeTaskId = serverTask.id;
+      }
       for (let attempts = 0; attempts < 120; attempts++) {
         await new Promise((r) => setTimeout(r, 2000));
         const poll = await fetch(`/api/model-background?generation_id=${data.generation_id}`);
         if (!poll.ok) continue;
         const state = await poll.json();
         if (Array.isArray(state.result_urls) && state.result_urls.length) {
+          latestTaskResultUrls = state.result_urls;
           setResultUrls(state.result_urls);
         }
         if (state.status === "completed") {
+          const finalUrls = Array.isArray(state.result_urls) ? state.result_urls : latestTaskResultUrls;
           setProgress(100);
-          setResultUrls(state.result_urls || []);
+          setResultUrls(finalUrls);
           setIsGenerating(false);
+          taskQueue.markCompleted(activeTaskId, {
+            expectedCount: genCount,
+            inputThumbnails: taskInputThumbnails,
+            resultThumbnails: finalUrls,
+            resultCount: finalUrls.length,
+          });
           toast.success("换背景生成完成");
           return;
         }
         if (state.status === "failed") throw new Error(state.error || "生成失败");
         const nextProgress = Number(state.progress);
-        setProgress(Number.isFinite(nextProgress)
+        const runningProgress = Number.isFinite(nextProgress)
           ? Math.min(Math.max(Math.round(nextProgress), 0), 99)
-          : Math.min(25 + attempts * 1.5, 90));
+          : Math.min(25 + attempts * 1.5, 90);
+        setProgress(runningProgress);
+        taskQueue.markRunning(activeTaskId, {
+          expectedCount: genCount,
+          inputThumbnails: taskInputThumbnails,
+          resultThumbnails: latestTaskResultUrls,
+          progress: runningProgress,
+          status: state.status,
+        });
       }
       throw new Error("生成超时");
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "生成失败");
-      toast.error(err instanceof Error ? err.message : "生成失败");
+      const message = err instanceof Error ? err.message : "生成失败";
+      setError(message);
+      taskQueue.markFailed(activeTaskId, message, {
+        expectedCount: genCount,
+        inputThumbnails: taskInputThumbnails,
+        resultThumbnails: latestTaskResultUrls,
+      });
+      toast.error(message);
       setIsGenerating(false);
     }
   }
@@ -503,6 +559,7 @@ export default function ModelBackgroundPage() {
               imageUrl={sourceUrl || null}
               imageAlt="原图"
               isDragging={isDragging}
+              loading={uploadingTarget === "source"}
               onUploadClick={() => sourceInputRef.current?.click()}
               onLibraryClick={() => toast.info("作品库选择即将接入")}
               onPreview={sourceUrl ? () => setLightboxSrc(sourceUrl) : undefined}
@@ -512,19 +569,14 @@ export default function ModelBackgroundPage() {
                 setPromptOverride(null);
               } : undefined}
               libraryLabel="从作品选择"
-              footnote={MODEL_BACKGROUND_UPLOAD_RULE.uploadSpecText}
+              footnote="人物和服装主体完整、边缘清楚时最稳；换背景/换模特都会优先保留穿搭。"
+              examples={{
+                label: "试一试",
+                images: MODEL_BACKGROUND_UPLOAD_RULE.demos.map((demo) => ({ url: demo.imageUrl, title: demo.title })),
+                onSelect: (image) => applyDemo({ title: image.title, imageUrl: image.url }),
+              }}
             />
             {sourceName ? <p className="mt-2 truncate text-[11px] text-slate-400">{sourceName}</p> : null}
-            <div className="studio-upload-demo-row">
-              <span className="studio-upload-demo-label">试一试</span>
-              <div className="studio-upload-demo-list studio-scrollbar-hide">
-                {MODEL_BACKGROUND_UPLOAD_RULE.demos.map((demo) => (
-                  <button key={demo.imageUrl} type="button" onClick={() => applyDemo(demo)} className="studio-upload-demo-thumb" title={demo.title}>
-                    <img src={demo.imageUrl} alt={demo.title} />
-                  </button>
-                ))}
-              </div>
-            </div>
           </section>
 
           <section>

@@ -33,6 +33,7 @@ import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
 import { useStudioAuth } from "@/components/studio/useStudioAuth";
 import { useTaskSelectionSession } from "@/components/studio/useTaskSelectionSession";
 import { useStableFileDrag } from "@/components/studio/useStableFileDrag";
+import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
 import { StudioGenerationCountSelector, StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/components/studio/StudioFormControls";
 import { fetchHistoryApplyDetail, takeApplyPayload, type HistoryJobPayload } from "@/lib/history-apply";
 import { applyRepairPrompt } from "@/lib/generation-repair";
@@ -49,13 +50,16 @@ import {
   type TryOnSceneMode,
 } from "@/lib/tryon-scene";
 import {
+  TRYON_CLOTHING_MODE_LABELS,
   TRYON_CLOTHING_ROLE_LABELS,
   TRYON_UPLOAD_RULES,
+  TRYON_UPLOAD_SLOT_EXAMPLES,
   normalizeTryOnClothingMode,
   normalizeTryOnClothingRole,
   type TryOnClothingMode,
   type TryOnClothingRole,
   type TryOnRuleDemo,
+  type TryOnRuleImage,
 } from "@/lib/tryon-upload-rules";
 import {
   TRYON_AGE_GROUP_LABELS,
@@ -158,6 +162,7 @@ export default function CreatePage() {
     refreshAuth,
   } = useStudioAuth();
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadingClothingRoles, setUploadingClothingRoles] = useState<TryOnClothingRole[]>([]);
   const [aiModel, setAiModel] = useState<LingyaModel>("nano-banana-2");
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("3:4");
   const [imageSize, setImageSize] = useState<ImageSize>("1K");
@@ -170,12 +175,12 @@ export default function CreatePage() {
   const [favoriteReferences, setFavoriteReferences] = useState<FavoriteReference[]>([]);
   const [isLoadingFavoriteReferences, setIsLoadingFavoriteReferences] = useState(false);
   const [isSavingFavoriteReference, setIsSavingFavoriteReference] = useState(false);
-  const [clothingMode, setClothingMode] = useState<TryOnClothingMode>("single");
+  const [clothingMode, setClothingMode] = useState<TryOnClothingMode>("multi");
   const [clothingRoles, setClothingRoles] = useState<TryOnClothingRole[]>([]);
   const [garmentAudience, setGarmentAudience] = useState<TryOnGarmentAudience>("women");
   const [ageGroup, setAgeGroup] = useState<TryOnAgeGroup>("adult");
   const [isIntimateGarment, setIsIntimateGarment] = useState(false);
-  const [pendingClothingRole, setPendingClothingRole] = useState<TryOnClothingRole>("single");
+  const [pendingClothingRole, setPendingClothingRole] = useState<TryOnClothingRole>("upper");
   const [showClothingRules, setShowClothingRules] = useState(false);
   const [rulesPopoverStyle, setRulesPopoverStyle] = useState<{ top: number; left: number; maxHeight: number } | null>(null);
 
@@ -186,6 +191,12 @@ export default function CreatePage() {
   const [isDraggingRef, setIsDraggingRef] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeQueueTask, setActiveQueueTask] = useState<TaskQueueItem | null>(null);
+  const taskQueue = useTaskQueueGeneration({
+    module: "tryon",
+    title: "服装上身",
+    defaultExpectedCount: genCount,
+    applyPath: "/create",
+  });
   const clothingDrag = useStableFileDrag<HTMLElement>({
     isDragging: isDraggingClothing,
     setDragging: setIsDraggingClothing,
@@ -670,6 +681,10 @@ export default function CreatePage() {
     .filter((item) => item.url);
 
   const switchClothingMode = (mode: TryOnClothingMode) => {
+    if (isUploading) {
+      toast.info("图片上传中，请稍候再切换模式");
+      return;
+    }
     if (mode === clothingMode) return;
     setClothingMode(mode);
     setPendingClothingRole(mode === "multi" ? "upper" : "single");
@@ -702,6 +717,7 @@ export default function CreatePage() {
   };
 
   const applyRuleDemo = (demo: TryOnRuleDemo) => {
+    if (isUploading) return;
     const nextMode: TryOnClothingMode = demo.images.length > 1 ? "multi" : "single";
     setClothingMode(nextMode);
     setPendingClothingRole(nextMode === "multi" ? "upper" : "single");
@@ -716,8 +732,33 @@ export default function CreatePage() {
     toast.success(`已套用${demo.title}`);
   };
 
+  const applyRuleImage = (image: TryOnRuleImage) => {
+    if (isUploading) return;
+    const nextMode: TryOnClothingMode = image.role === "single" ? "single" : "multi";
+    const retainedItems = nextMode === "multi" && clothingMode === "multi"
+      ? getCurrentClothingItemStates().filter((current) => current.role !== image.role && current.role !== "single")
+      : [];
+
+    setClothingMode(nextMode);
+    setPendingClothingRole(image.role === "single" ? "single" : image.role);
+    applyClothingItems([
+      ...retainedItems,
+      {
+        file: createPlaceholderFile(`demo-${image.role}.jpg`),
+        preview: image.url,
+        url: image.url,
+        role: image.role,
+      },
+    ]);
+    toast.success(`已套用${image.title}`);
+  };
+
   // ---- 文件处理：选择后立即上传到图床 ----
   const processFiles = async (files: FileList | File[], targetRole: TryOnClothingRole = pendingClothingRole) => {
+    if (isUploading) {
+      toast.info("图片上传中，请稍候");
+      return;
+    }
     const arr = Array.from(files);
     if (!arr.length) return;
 
@@ -727,10 +768,11 @@ export default function CreatePage() {
     const filesToUpload = arr.slice(0, rolePlan.length);
 
     if (arr.length > filesToUpload.length) {
-      toast.info(clothingMode === "multi" ? "多件模式最多一次处理上装和下装各 1 张" : "单件模式只需上传 1 张服装图");
+      toast.info(clothingMode === "multi" ? "换上下装最多一次处理上装和下装各 1 张" : "换连体只需上传 1 张服装图");
     }
 
     setIsUploading(true);
+    setUploadingClothingRoles([...new Set(rolePlan.slice(0, filesToUpload.length))]);
     const validItems: { file: File; preview: string; role: TryOnClothingRole }[] = [];
 
     for (let index = 0; index < filesToUpload.length; index++) {
@@ -768,10 +810,11 @@ export default function CreatePage() {
           ? []
           : getCurrentClothingItemStates().filter((item) => !replaceRoles.has(item.role));
         applyClothingItems([...retainedItems, ...uploadedItems]);
-        toast.success(clothingMode === "multi" ? "搭配服装已就绪" : "单件服装已就绪");
+        toast.success(clothingMode === "multi" ? "服装槽位已就绪" : "连体服装已就绪");
       }
     }
     setIsUploading(false);
+    setUploadingClothingRoles([]);
   };
 
   // 删除服装时同步删除已上传的 URL
@@ -841,15 +884,24 @@ export default function CreatePage() {
 
   // ---- 生成（识图 → 生成提示词 → 生成图片） ----
   const refreshTaskQueue = useCallback(() => {
-    window.dispatchEvent(new CustomEvent("wanxiang:task-queue-refresh"));
-  }, []);
+    taskQueue.refresh();
+  }, [taskQueue]);
+
+  const removeTaskQueueItem = useCallback((taskId: string) => {
+    taskQueue.removeTask(taskId);
+  }, [taskQueue]);
 
   const watchGeneration = useCallback(async (generationId: string, expectedCount: number) => {
     if (watchedGenerationIdsRef.current.has(generationId)) return;
     watchedGenerationIdsRef.current.add(generationId);
     let attempts = 0;
     const updateActiveTask = (patch: Partial<TaskQueueItem>) => {
-      setActiveQueueTask((prev) => prev?.id === generationId ? { ...prev, ...patch } : prev);
+      const updatedAt = patch.updatedAt ?? new Date().toISOString();
+      taskQueue.patchTask(generationId, { ...patch, updatedAt });
+      setActiveQueueTask((prev) => {
+        if (prev?.id !== generationId) return prev;
+        return { ...prev, ...patch, updatedAt };
+      });
     };
 
     try {
@@ -931,18 +983,20 @@ export default function CreatePage() {
       if (activeGenerationRef.current === generationId) {
         const message = "生成超时";
         store.setError(message);
-        setActiveQueueTask((prev) => prev?.id === generationId ? { ...prev, status: "timeout", statusGroup: "failed", error: message } : prev);
+        updateActiveTask({ status: "timeout", statusGroup: "failed", error: message, progress: 100 });
         toast.error(message);
       }
       refreshTaskQueue();
     } finally {
       watchedGenerationIdsRef.current.delete(generationId);
     }
-  }, [refreshTaskQueue, store]);
+  }, [refreshTaskQueue, store, taskQueue]);
 
   const handleContinueCreate = useCallback(() => {
     cancelTaskSelection();
+    const pendingSubmitId = generationSubmitRef.current?.id || "";
     generationSubmitRef.current?.controller.abort();
+    if (pendingSubmitId.startsWith("local-")) removeTaskQueueItem(pendingSubmitId);
     generationSubmitRef.current = null;
     activeGenerationRef.current = null;
     setActiveQueueTask(null);
@@ -955,7 +1009,7 @@ export default function CreatePage() {
     setSceneMode("auto_design");
     setAutoDesign(DEFAULT_AUTO_DESIGN);
     store.reset();
-  }, [cancelTaskSelection, store]);
+  }, [cancelTaskSelection, removeTaskQueueItem, store]);
 
   const applyTryOnHistoryPayload = useCallback((
     payload: TryOnHistoryPayload,
@@ -1101,14 +1155,6 @@ export default function CreatePage() {
       return;
     }
     if (!uploadedClothingUrls.length) { toast.error("请上传衣服"); return; }
-    if (clothingMode === "multi") {
-      const hasUpper = clothingItems.some((item) => item.role === "upper");
-      const hasLower = clothingItems.some((item) => item.role === "lower");
-      if (!hasUpper || !hasLower) {
-        toast.error("多件上身请分别上传上装和下装");
-        return;
-      }
-    }
     if (isIntimateGarment && ageGroup !== "adult") {
       toast.error("内衣/泳衣类服装仅支持成人模特生成");
       return;
@@ -1128,10 +1174,8 @@ export default function CreatePage() {
       store.selectedModel?.image_url || "",
       effectiveReferenceUrl || "",
     ].filter(Boolean) as string[];
-    setActiveQueueTask({
+    const provisionalTask = taskQueue.startTask({
       id: provisionalTaskId,
-      module: "tryon",
-      title: "服装上身",
       status: "submitting",
       statusGroup: "queued",
       time: "0:00",
@@ -1147,6 +1191,7 @@ export default function CreatePage() {
       thumbnails: taskInputThumbnails.slice(0, 2),
       applyUrl: "",
     });
+    setActiveQueueTask(provisionalTask);
     store.startGeneration();
 
     try {
@@ -1201,6 +1246,7 @@ export default function CreatePage() {
           if (!isCurrentSubmit()) return;
           store.setError(null);
           setActiveQueueTask((prev) => prev?.id === provisionalTaskId ? null : prev);
+          removeTaskQueueItem(provisionalTaskId);
           setIsSubmitting(false);
           generationSubmitRef.current = null;
           router.push("/login");
@@ -1246,6 +1292,7 @@ export default function CreatePage() {
 
       activeGenerationRef.current = generation_id;
       setActiveQueueTask(optimisticTask);
+      taskQueue.replaceWithServerTask(provisionalTaskId, optimisticTask);
       refreshTaskQueue();
       toast.success("任务已提交，可继续创建");
       setIsSubmitting(false);
@@ -1256,6 +1303,7 @@ export default function CreatePage() {
       if (err?.name === "AbortError" || !isCurrentSubmit()) return;
       store.setError(err.message);
       setActiveQueueTask((prev) => prev?.id === provisionalTaskId ? null : prev);
+      removeTaskQueueItem(provisionalTaskId);
       toast.error(err.message);
       setIsSubmitting(false);
       generationSubmitRef.current = null;
@@ -1294,13 +1342,12 @@ export default function CreatePage() {
             moduleLabel="服装上身"
             onContinue={handleContinueCreate}
             onSelectTask={handleTaskSelect}
-            optimisticTask={activeQueueTask}
           />
         )}
         header={(
           <ModuleHeader
             title="服装上身"
-            tooltip="上传单件或多件服装，选择模特与参考场景，生成可直接用于商品展示、主图延展和内容投放的成片。"
+            tooltip="按上装、下装或连体槽位上传服装，选择模特与参考场景，生成可直接用于商品展示、主图延展和内容投放的成片。"
             actions={(
               <button
                 ref={rulesButtonRef}
@@ -1343,6 +1390,10 @@ export default function CreatePage() {
               multiple={clothingMode === "multi"}
               className="hidden"
               onChange={(e) => {
+                if (isUploading) {
+                  e.currentTarget.value = "";
+                  return;
+                }
                 if (e.target.files) processFiles(e.target.files, pendingClothingRole);
                 e.currentTarget.value = "";
               }}
@@ -1353,82 +1404,80 @@ export default function CreatePage() {
               ariaLabel="选择服装上身模式"
               onChange={switchClothingMode}
               options={[
-                { value: "single", label: "单件上身", description: "1 张服装图" },
-                { value: "multi", label: "多件上身", description: "上装 + 下装" },
+                { value: "multi", label: TRYON_CLOTHING_MODE_LABELS.multi, description: "上装 + 下装", disabled: isUploading },
+                { value: "single", label: TRYON_CLOTHING_MODE_LABELS.single, description: "连体 / 全身", disabled: isUploading },
               ]}
             />
 
             {clothingMode === "single" ? (
-              <div className="space-y-2">
+              <div className="studio-clothing-slot-stack" data-mode="single">
                 <StudioUploadTile
-                  title="上传需要处理的原图"
-                  description="图1作为服装、人像关系和构图基础，建议主体完整、服装清晰。"
+                  title="上传 / 拖拽【连体/全身】"
+                  description="图1会按连衣裙、套装或全身服装处理，建议主体完整、边缘清晰。"
                   imageUrl={singleClothing?.preview}
-                  imageAlt="已上传的单件服装"
+                  imageAlt="已上传的连体/全身服装"
                   isDragging={isDraggingClothing}
+                  disabled={isUploading}
+                  loading={isUploading && uploadingClothingRoles.includes("single")}
+                  supportBadge="1张服装图"
                   onUploadClick={() => openClothingPicker("single")}
                   onLibraryClick={() => sourceLibrary.open("single")}
-                  onPreview={singleClothing ? () => openLightbox(singleClothing.preview, "已上传的单件服装") : undefined}
+                  onPreview={singleClothing ? () => openLightbox(singleClothing.preview, "已上传的连体/全身服装") : undefined}
                   onRemove={singleClothing ? () => removeClothing(0) : undefined}
                   onDropFile={(file) => {
                     if (file) processFiles([file], "single");
                   }}
                   dragContext={clothingDrag}
-                  libraryLabel="从作品选择"
-                  footnote={currentUploadRule.uploadSpecText}
+                  libraryLabel="从资源库导入"
+                  footnote="连体/全身服装建议主体完整、边缘清晰、无遮挡，生成会更稳定。"
+                  examples={{
+                    label: "试一试",
+                    images: TRYON_UPLOAD_SLOT_EXAMPLES.overall,
+                    disabled: isUploading,
+                    onSelect: (image) => applyRuleImage(image as TryOnRuleImage),
+                  }}
                 />
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-2">
+              <div className="studio-clothing-slot-stack" data-mode="multi">
                 {([
-                  ["upper", "上传上装图", upperClothing],
-                  ["lower", "上传下装图", lowerClothing],
+                  ["upper", "上传 / 拖拽【上装】", upperClothing],
+                  ["lower", "上传 / 拖拽【下装】", lowerClothing],
                 ] as const).map(([role, title, item]) => {
                   const itemIndex = clothingItems.findIndex((clothing) => clothing.role === role);
                   return (
-                    <StudioUploadTile
-                      key={role}
-                      title={title}
-                      description={`${TRYON_CLOTHING_ROLE_LABELS[role]}作为硬参考，建议轮廓完整、面料清晰。`}
-                      imageUrl={item?.preview}
-                      imageAlt={`已上传的${TRYON_CLOTHING_ROLE_LABELS[role]}`}
-                      isDragging={isDraggingClothing}
-                      onUploadClick={() => openClothingPicker(role)}
-                      onLibraryClick={() => sourceLibrary.open(role)}
-                      onPreview={item ? () => openLightbox(item.preview, `已上传的${TRYON_CLOTHING_ROLE_LABELS[role]}`) : undefined}
-                      onRemove={item && itemIndex >= 0 ? () => removeClothing(itemIndex) : undefined}
-                      onDropFile={(file) => {
-                        if (file) processFiles([file], role);
-                      }}
-                      dragContext={clothingDrag}
-                      libraryLabel="从作品选择"
-                      footnote={currentUploadRule.uploadSpecText}
-                    />
+                    <div key={role} className="studio-clothing-slot-card">
+                      <StudioUploadTile
+                        title={title}
+                        description={`${TRYON_CLOTHING_ROLE_LABELS[role]}会锁定到对应身体区域，可单独上传也可上下装组合。`}
+                        imageUrl={item?.preview}
+                        imageAlt={`已上传的${TRYON_CLOTHING_ROLE_LABELS[role]}`}
+                        isDragging={isDraggingClothing}
+                        disabled={isUploading}
+                        loading={isUploading && uploadingClothingRoles.includes(role)}
+                        supportBadge="可单独上传"
+                        onUploadClick={() => openClothingPicker(role)}
+                        onLibraryClick={() => sourceLibrary.open(role)}
+                        onPreview={item ? () => openLightbox(item.preview, `已上传的${TRYON_CLOTHING_ROLE_LABELS[role]}`) : undefined}
+                        onRemove={item && itemIndex >= 0 ? () => removeClothing(itemIndex) : undefined}
+                        onDropFile={(file) => {
+                          if (file) processFiles([file], role);
+                        }}
+                        dragContext={clothingDrag}
+                        libraryLabel="从资源库导入"
+                        footnote="款式图上传无遮挡、无码图；平铺、人台或干净上身图效果更稳。"
+                        examples={{
+                          label: "试一试",
+                          images: role === "upper" ? TRYON_UPLOAD_SLOT_EXAMPLES.upper : TRYON_UPLOAD_SLOT_EXAMPLES.lower,
+                          disabled: isUploading,
+                          onSelect: (image) => applyRuleImage(image as TryOnRuleImage),
+                        }}
+                      />
+                    </div>
                   );
                 })}
               </div>
             )}
-
-            <div className="studio-upload-demo-row">
-              <span className="studio-upload-demo-label">试一试</span>
-              <div className="studio-upload-demo-list studio-scrollbar-hide">
-                {currentUploadRule.demos.map((demo, demoIndex) => (
-                  <button
-                    key={`${clothingMode}-${demo.title}-${demoIndex}`}
-                    type="button"
-                    onClick={() => applyRuleDemo(demo)}
-                    className="studio-upload-demo-thumb studio-upload-demo-thumb-multi"
-                    title={demo.title}
-                  >
-                    {demo.images.map((image) => (
-                      <span key={`${demo.title}-${image.role}`} className="studio-upload-demo-cell">
-                        <img src={image.url} alt={image.title} />
-                      </span>
-                    ))}
-                  </button>
-                ))}
-              </div>
-            </div>
 
             <label className="mt-3 flex cursor-pointer items-start gap-2 rounded-xl border border-slate-100 bg-white/70 px-3 py-2 text-xs text-slate-700 transition-colors hover:border-violet-200">
               <input
@@ -1877,7 +1926,7 @@ export default function CreatePage() {
         )}
         runBar={(
           <StudioRunBar
-            summary={`${clothingMode === "multi" ? "多件搭配" : "单件上身"} · ${store.clothingFiles.length} 张输入 · ${costPerImage} × ${genCount} 张`}
+            summary={`${TRYON_CLOTHING_MODE_LABELS[clothingMode]} · ${store.clothingFiles.length} 张输入 · ${costPerImage} × ${genCount} 张`}
             costLabel={authIsAnonymous ? "登录后查看积分" : `消耗 ${totalCost} · 余额 ${credits ?? "—"}`}
             disabled={runDisabled}
             disabledReason={runDisabledReason}
@@ -1894,11 +1943,11 @@ export default function CreatePage() {
               <div className="flex min-h-[320px] items-center justify-center p-4 sm:min-h-[420px] lg:h-full">
                 <StudioEmptyState
                   title="开始制作服装上身图"
-                  description="先确定服装硬参考，再选择模特和场景，生成可直接用于商品展示的成片。"
+                  description="先选择上装、下装或连体槽位，再选择模特和场景，生成可直接用于商品展示的成片。"
                   imageSrc="https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/model-striped-top-white-skirt.png"
                   imageAlt="服装上身指引"
                   steps={[
-                    { title: "上传服装", description: "单件模式上传 1 张服装图，多件模式分别上传上装和下装。" },
+                    { title: "选择槽位", description: "换上下装时明确上传上装或下装；换连体时上传整件连体/全身服装。" },
                     { title: "选择模特 / 场景", description: "可用系统模特、上传模特图；场景参考只控制姿势、背景、构图和镜头。" },
                     { title: "生成上身图", description: "保持服装款式、颜色、图案和穿搭关系不变，输出真实成片。" },
                   ]}
@@ -1929,7 +1978,7 @@ export default function CreatePage() {
                 progress={store.generationProgress}
                 moduleName="服装上身"
                 referenceImages={[
-                  { label: clothingMode === "multi" ? "服装搭配参考" : "服装硬参考", url: store.clothingPreviews[0] },
+                  { label: clothingMode === "multi" ? "上装/下装参考" : "连体服装参考", url: store.clothingPreviews[0] },
                   { label: "模特参考", url: store.selectedModel?.image_url },
                   { label: "姿势/场景参考", url: store.referenceImage?.url },
                 ]}
@@ -2154,7 +2203,7 @@ export default function CreatePage() {
                   ["比例", aspectRatio],
                   ["分辨率", imageSize],
                   ["生成张数", `${genCount}`],
-                  ["上身模式", clothingMode === "multi" ? "多件上身" : "单件上身"],
+                  ["上身模式", TRYON_CLOTHING_MODE_LABELS[clothingMode]],
                   ["服装角色", clothingRoles.map((role) => TRYON_CLOTHING_ROLE_LABELS[role]).join("、") || "未上传"],
                   ["服装人群", TRYON_GARMENT_AUDIENCE_LABELS[garmentAudience]],
                   ["年龄段", TRYON_AGE_GROUP_LABELS[ageGroup]],

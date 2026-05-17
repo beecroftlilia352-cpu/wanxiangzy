@@ -1,6 +1,6 @@
 import type { AspectRatio, ImageSize, LingyaModel } from "@/lib/api/lingya";
 
-const SUPABASE_STORAGE = "https://mtdfvnhphpulhjtnmubw.supabase.co/storage/v1/object/public";
+const SITE_ASSET_BASE = "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original";
 
 export type ModelBackgroundMode = "model_background" | "background_only" | "model_only";
 export type BackgroundSourceMode = "preset" | "upload" | "text" | "auto";
@@ -48,13 +48,13 @@ export const BACKGROUND_SOURCE_LABELS: Record<BackgroundSourceMode, string> = {
 };
 
 export const PRESET_BACKGROUND_MODELS: PresetModel[] = [
-  { id: "m0", name: "自然", imageUrl: `${SUPABASE_STORAGE}https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/models/model-natural-smile.jpg` },
-  { id: "m1", name: "甜妹", imageUrl: `${SUPABASE_STORAGE}https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/models/model-18542-0875a4d282bb.jpg` },
-  { id: "m2", name: "优雅", imageUrl: `${SUPABASE_STORAGE}https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/models/model-22921-89d4664cd1b0.jpg` },
-  { id: "m3", name: "红裙", imageUrl: `${SUPABASE_STORAGE}https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/models/model-26829-dca5c791efa8.jpg` },
-  { id: "m4", name: "酷飒", imageUrl: `${SUPABASE_STORAGE}https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/models/model-97612-bdc397740113.jpg` },
-  { id: "m5", name: "清纯", imageUrl: `${SUPABASE_STORAGE}https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/models/model-35127-693ee11382eb.png` },
-  { id: "m6", name: "清透", imageUrl: `${SUPABASE_STORAGE}/models/model-clear-black-long-20260502.png` },
+  { id: "m0", name: "自然", imageUrl: `${SITE_ASSET_BASE}/models/model-natural-smile.jpg` },
+  { id: "m1", name: "甜妹", imageUrl: `${SITE_ASSET_BASE}/models/model-18542-0875a4d282bb.jpg` },
+  { id: "m2", name: "优雅", imageUrl: `${SITE_ASSET_BASE}/models/model-22921-89d4664cd1b0.jpg` },
+  { id: "m3", name: "红裙", imageUrl: `${SITE_ASSET_BASE}/models/model-26829-dca5c791efa8.jpg` },
+  { id: "m4", name: "酷飒", imageUrl: `${SITE_ASSET_BASE}/models/model-97612-bdc397740113.jpg` },
+  { id: "m5", name: "清纯", imageUrl: `${SITE_ASSET_BASE}/models/model-35127-693ee11382eb.png` },
+  { id: "m6", name: "清透", imageUrl: `${SITE_ASSET_BASE}/models/model-clear-black-long-20260502.png` },
 ];
 
 export const MODEL_BACKGROUND_UPLOAD_RULE = {

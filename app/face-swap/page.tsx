@@ -11,6 +11,7 @@ import {
   Activity,
   UserRoundCheck,
   Brush,
+  ZoomIn,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -27,6 +28,7 @@ import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
 import { StudioGenerationCountSelector, StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/components/studio/StudioFormControls";
 import { StudioRunBar } from "@/components/studio/StudioRunBar";
 import { StudioUploadSection } from "@/components/studio/StudioUploadSection";
+import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
 import {
   FACE_SWAP_LIBRARY,
   FACE_SWAP_NOTE,
@@ -118,12 +120,14 @@ export default function FaceSwapPage() {
   const [resultUrls, setResultUrls] = useState<string[]>([]);
   const [error, setError] = useState("");
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+  const [lightboxCaption, setLightboxCaption] = useState("");
   const [activeQueueTask, setActiveQueueTask] = useState<TaskQueueItem | null>(null);
 
   const supportedSizes = useMemo(() => getSupportedImageSizes(aiModel, aspectRatio), [aiModel, aspectRatio]);
   const imageSizeValue = normalizeImageSize(aiModel, imageSize, aspectRatio);
   const unitCost = getCreditCost(aiModel, imageSizeValue, aspectRatio);
   const totalCost = unitCost * normalizeFaceSwapCount(genCount);
+  const requestedFaceSwapCount = normalizeFaceSwapCount(genCount);
   const faceLibrary = FACE_SWAP_LIBRARY.filter((item) => item.gender === genderFilter);
   const finalPrompt = buildFaceSwapPrompt(prompt, textureEnhance);
   const validationHint = !sourceUrl
@@ -137,6 +141,22 @@ export default function FaceSwapPage() {
           : "";
   const canGenerate = status !== "running" && !validationHint;
   const authIsAnonymous = authChecked && !isAuthenticated;
+  const taskQueue = useTaskQueueGeneration({
+    module: "faceSwap",
+    title: "换脸",
+    defaultExpectedCount: requestedFaceSwapCount,
+    applyPath: "/face-swap",
+  });
+
+  const openLightbox = useCallback((src: string, caption = "") => {
+    setLightboxSrc(src);
+    setLightboxCaption(caption);
+  }, []);
+
+  const closeLightbox = useCallback(() => {
+    setLightboxSrc(null);
+    setLightboxCaption("");
+  }, []);
 
   useEffect(() => {
     if (!supportedSizes.includes(imageSize)) setImageSize(supportedSizes[0] || "1K");
@@ -217,33 +237,59 @@ export default function FaceSwapPage() {
 
         const nextProgress = Number.isFinite(Number(data.progress)) ? Number(data.progress) : progress;
         const nextUrls = Array.isArray(data.result_urls) ? data.result_urls : [];
-        setProgress(Math.min(Math.max(Math.round(nextProgress), 0), 100));
+        const roundedProgress = Math.min(Math.max(Math.round(nextProgress), 0), 100);
+        const inputThumbnails = [sourceUrl, faceUrl].filter(Boolean);
+        setProgress(roundedProgress);
         if (nextUrls.length) setResultUrls(nextUrls);
 
         if (data.status === "completed") {
           setStatus("completed");
           setProgress(100);
           setResultUrls(nextUrls);
-      toast.success("换脸完成");
+          taskQueue.markCompleted(id, {
+            expectedCount: requestedFaceSwapCount,
+            inputThumbnails,
+            resultThumbnails: nextUrls,
+            resultCount: nextUrls.length,
+          });
+          toast.success("换脸完成");
           return;
         }
 
         if (data.status === "failed") {
           setStatus("failed");
-          setError(data.error || "换脸生成失败");
+          const message = data.error || "换脸生成失败";
+          setError(message);
+          taskQueue.markFailed(id, message, {
+            expectedCount: requestedFaceSwapCount,
+            inputThumbnails,
+            resultThumbnails: nextUrls,
+          });
           return;
         }
 
         setStatus("running");
+        taskQueue.markRunning(id, {
+          expectedCount: requestedFaceSwapCount,
+          inputThumbnails,
+          resultThumbnails: nextUrls,
+          progress: roundedProgress,
+          status: data.status,
+        });
         pollTimerRef.current = setTimeout(() => pollGeneration(id), 2200);
       } catch (err) {
+        const message = err instanceof Error ? err.message : "查询生成进度失败";
         setStatus("failed");
-        setError(err instanceof Error ? err.message : "查询生成进度失败");
+        setError(message);
+        taskQueue.markFailed(id, message, {
+          expectedCount: requestedFaceSwapCount,
+          inputThumbnails: [sourceUrl, faceUrl].filter(Boolean),
+        });
       }
     };
     if (immediate) void run();
     else pollTimerRef.current = setTimeout(run, 2200);
-  }, [clearPolling, faceUrl, progress, sourceUrl, textureEnhance]);
+  }, [clearPolling, faceUrl, progress, requestedFaceSwapCount, sourceUrl, taskQueue, textureEnhance]);
 
   useEffect(() => {
     if (!isAuthenticated || status !== "idle" || generationId || sourceUrl || faceUrl) return;
@@ -343,7 +389,13 @@ export default function FaceSwapPage() {
     setProgress(1);
     setResultUrls([]);
     setError("");
-    window.dispatchEvent(new CustomEvent("wanxiang:task-queue-refresh"));
+    const taskInputThumbnails = [sourceUrl, faceUrl].filter(Boolean);
+    const provisionalTask = taskQueue.startTask({
+      expectedCount: requestedFaceSwapCount,
+      inputThumbnails: taskInputThumbnails,
+      progress: 1,
+    });
+    let activeTaskId = provisionalTask.id;
 
     try {
       const res = await fetch("/api/face-swap", {
@@ -364,6 +416,8 @@ export default function FaceSwapPage() {
       if (!res.ok) {
         if (res.status === 401) {
           await refreshAuth();
+          taskQueue.removeTask(activeTaskId);
+          setStatus("idle");
           router.push("/login");
           return;
         }
@@ -375,16 +429,30 @@ export default function FaceSwapPage() {
         throw new Error(data.error || "提交换脸任务失败");
       }
       setGenerationId(data.generation_id);
-      window.dispatchEvent(new CustomEvent("wanxiang:task-queue-refresh"));
+      if (typeof data.generation_id === "string" && data.generation_id) {
+        const serverTask = taskQueue.replaceWithServerTask(activeTaskId, {
+          id: data.generation_id,
+          expectedCount: requestedFaceSwapCount,
+          inputThumbnails: taskInputThumbnails,
+          status: data.status || "processing_tryon",
+          progress: 5,
+        });
+        activeTaskId = serverTask.id;
+      }
       if (typeof data.credits_remaining === "number") {
         setCredits(data.credits_remaining);
         if (userId) setCachedProfileCredits(userId, data.credits_remaining);
       }
       pollGeneration(data.generation_id, true);
     } catch (err) {
+      const message = err instanceof Error ? err.message : "提交换脸任务失败";
       setStatus("failed");
-      setError(err instanceof Error ? err.message : "提交换脸任务失败");
-      toast.error(err instanceof Error ? err.message : "提交换脸任务失败");
+      setError(message);
+      taskQueue.markFailed(activeTaskId, message, {
+        expectedCount: requestedFaceSwapCount,
+        inputThumbnails: taskInputThumbnails,
+      });
+      toast.error(message);
     }
   }
 
@@ -481,7 +549,7 @@ export default function FaceSwapPage() {
                   loading={isUploadingOriginal}
                   onUploadClick={openFileDialog}
                   onLibraryClick={() => toast.info("作品库选择即将接入")}
-                  onPreview={sourceUrl ? () => setLightboxSrc(sourceUrl) : undefined}
+                  onPreview={sourceUrl ? () => openLightbox(sourceUrl, "原始模特图：保留身体、服装、姿势和场景") : undefined}
                   onRemove={sourceUrl ? () => {
                     setSourceUrl("");
                     resetGenerationForInputChange();
@@ -490,32 +558,27 @@ export default function FaceSwapPage() {
                   dragContext={dragContext}
                   uploadLabel="从本地上传"
                   libraryLabel="从作品选择"
-                  footnote="文件大小 20KB-15MB，分辨率大于 400×400，支持 jpg/jpeg/png/webp"
+                  footnote="主体完整、脸部清晰时最稳；换脸会保留原图身体、服装、姿势和场景。"
+                  examples={{
+                    label: "试一试",
+                    images: FACE_SWAP_SAMPLE_IMAGES.map((sample) => ({ url: sample.url, title: `示例图 ${sample.id}` })),
+                    onSelect: (image) => {
+                      setSourceUrl(image.url);
+                      resetGenerationForInputChange();
+                    },
+                  }}
                 />
-                <div className="studio-upload-demo-row">
-                  <span className="studio-upload-demo-label">示例图</span>
-                  <div className="studio-upload-demo-list">
-                    {FACE_SWAP_SAMPLE_IMAGES.map((sample) => (
-                      <button
-                        key={sample.id}
-                        type="button"
-                        onClick={() => {
-                          setSourceUrl(sample.url);
-                          resetGenerationForInputChange();
-                        }}
-                        className={`studio-upload-demo-thumb ${sourceUrl === sample.url ? "studio-upload-demo-thumb-active" : ""}`}
-                      >
-                        <img src={sample.url} alt={`sample ${sample.id}`} />
-                      </button>
-                    ))}
-                  </div>
-                </div>
               </>
             )}
           </StudioUploadSection>
 
           <StudioUploadSection
-            title="目标脸图"
+            title={(
+              <span className="face-swap-target-title">
+                <span>目标脸图</span>
+                <span>建议选择与原图肤色相近、正脸清晰的人脸</span>
+              </span>
+            )}
             inputRef={faceInputRef}
             onFiles={(files) => handleUpload(files[0], "face")}
             actions={(
@@ -533,7 +596,7 @@ export default function FaceSwapPage() {
                 loading={isUploadingFace}
                 onUploadClick={openFileDialog}
                 onLibraryClick={() => setDrawerOpen(true)}
-                onPreview={faceUrl ? () => setLightboxSrc(faceUrl) : undefined}
+                onPreview={faceUrl ? () => openLightbox(faceUrl, "目标脸图：只迁移五官身份，不带入发型、肤色和穿搭") : undefined}
                 onRemove={faceUrl ? () => {
                   setFaceUrl("");
                   resetGenerationForInputChange();
@@ -542,7 +605,15 @@ export default function FaceSwapPage() {
                 dragContext={dragContext}
                 uploadLabel="上传脸图"
                 libraryLabel="选择官方脸"
-                footnote="只提取五官身份，不改变原图肤色、发型、身体、服装和背景。"
+                footnote="目标脸尽量正脸清晰；仅迁移五官身份，不带入发型、肤色和穿搭。"
+                examples={{
+                  label: "试一试",
+                  images: FACE_SWAP_LIBRARY.slice(0, 5).map((face) => ({ url: face.url, title: `脸图 ${face.id}` })),
+                  onSelect: (image) => {
+                    setFaceUrl(image.url);
+                    resetGenerationForInputChange();
+                  },
+                }}
               />
             )}
           </StudioUploadSection>
@@ -667,7 +738,7 @@ export default function FaceSwapPage() {
               expectedCount={faceSwapExpectedCount}
               task={activeQueueTask}
               inputThumbnails={faceSwapInputThumbnails}
-              onOpen={setLightboxSrc}
+              onOpen={(url) => openLightbox(url, "换脸结果预览")}
               onUseAsSource={(url) => {
                 setSourceUrl(url);
                 resetGenerationForInputChange();
@@ -719,8 +790,8 @@ export default function FaceSwapPage() {
 
       {drawerOpen && (
         <ClientPortal>
-        <aside className="fixed bottom-0 left-0 right-0 top-[64px] z-[230] flex flex-col border-l border-slate-200 bg-white shadow-[0_28px_90px_rgba(15,23,42,0.16)] lg:left-auto lg:w-[min(720px,calc(100vw-672px))]">
-            <div className="flex items-start justify-between border-b p-5">
+          <aside className="face-swap-face-library-panel" aria-label="模特脸库">
+            <div className="face-swap-face-library-header">
               <div>
                 <h2 className="text-lg font-black text-slate-950">模特脸库</h2>
                 <p className="mt-1 text-xs text-slate-500">选择一张脸作为身份参考，只替换五官特征，不改变肤色和发型。</p>
@@ -729,38 +800,59 @@ export default function FaceSwapPage() {
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <div className="grid grid-cols-2 gap-2 p-4">
+            <div className="face-swap-face-library-tabs">
               {(["female", "male"] as GenderFilter[]).map((gender) => (
                 <button
                   key={gender}
                   type="button"
                   onClick={() => setGenderFilter(gender)}
-                  className={`rounded-xl border py-2 text-sm font-black ${genderFilter === gender ? "border-emerald-500 bg-emerald-50 text-emerald-700" : "border-neutral-200 text-neutral-500"}`}
+                  className={`face-swap-face-library-tab ${genderFilter === gender ? "face-swap-face-library-tab-active" : ""}`}
                 >
                   {gender === "female" ? "女模特" : "男模特"}
                 </button>
               ))}
             </div>
-            <div className="grid flex-1 grid-cols-2 gap-3 overflow-y-auto p-4 pt-0 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5">
-              {faceLibrary.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => {
-                    setFaceUrl(item.url);
-                    setDrawerOpen(false);
-                    resetGenerationForInputChange();
-                  }}
-                  className={`group relative aspect-[3/4] overflow-hidden rounded-2xl border bg-neutral-50 p-1 shadow-sm transition-all hover:-translate-y-0.5 hover:border-neutral-300 ${faceUrl === item.url ? "border-emerald-500 ring-2 ring-emerald-100" : "border-neutral-200"}`}
-                >
-                  <img src={item.url} alt={`face ${item.id}`} className="h-full w-full rounded-xl object-cover" />
-                  {faceUrl === item.url && (
-                    <span className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-600 text-white shadow">
-                      <Check className="h-3.5 w-3.5" />
-                    </span>
-                  )}
-                </button>
-              ))}
+            <div className="face-swap-face-library-grid">
+              {faceLibrary.map((item, index) => {
+                const label = `${genderFilter === "female" ? "女模特" : "男模特"} ${String(index + 1).padStart(2, "0")}`;
+                const active = faceUrl === item.url;
+                return (
+                  <div
+                    key={item.id}
+                    className={`face-swap-face-library-card ${active ? "face-swap-face-library-card-active" : ""}`}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFaceUrl(item.url);
+                        setDrawerOpen(false);
+                        resetGenerationForInputChange();
+                      }}
+                      className="face-swap-face-library-select"
+                      aria-label={`选择${label}`}
+                    >
+                      <span className="face-swap-face-library-image">
+                        <img src={item.url} alt={label} />
+                      </span>
+                      <span className="face-swap-face-library-name">{label}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => openLightbox(item.url, `${label}：仅作为五官身份参考`)}
+                      className="face-swap-face-library-zoom"
+                      aria-label={`放大预览${label}`}
+                      title={`放大预览${label}`}
+                    >
+                      <ZoomIn className="h-3.5 w-3.5" />
+                    </button>
+                    {active && (
+                      <span className="face-swap-face-library-check">
+                        <Check className="h-3.5 w-3.5" />
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </aside>
         </ClientPortal>
@@ -768,9 +860,16 @@ export default function FaceSwapPage() {
 
       {lightboxSrc && (
         <ClientPortal>
-          <div className="fixed inset-0 z-[240] flex cursor-zoom-out items-center justify-center bg-slate-950/70 p-6 backdrop-blur-xl" onClick={() => setLightboxSrc(null)}>
-            <img src={lightboxSrc} alt="result preview" className="max-h-full max-w-full rounded-3xl object-contain shadow-[0_32px_120px_rgba(0,0,0,0.5)]" />
-            <button type="button" onClick={() => setLightboxSrc(null)} className="absolute right-5 top-5 flex h-10 w-10 items-center justify-center rounded-full bg-white text-slate-700 shadow-lg">
+          <div className="fixed inset-0 z-[240] flex cursor-zoom-out items-center justify-center bg-slate-950/70 p-6 backdrop-blur-xl" onClick={closeLightbox}>
+            <div className="flex max-h-full max-w-full flex-col items-center gap-3">
+              <img src={lightboxSrc} alt={lightboxCaption || "result preview"} className="max-h-[calc(100dvh-120px)] max-w-full rounded-3xl object-contain shadow-[0_32px_120px_rgba(0,0,0,0.5)]" />
+              {lightboxCaption && (
+                <div className="max-w-[min(680px,90vw)] rounded-full bg-white/92 px-4 py-2 text-center text-xs font-bold text-slate-700 shadow-lg">
+                  {lightboxCaption}
+                </div>
+              )}
+            </div>
+            <button type="button" onClick={closeLightbox} className="absolute right-5 top-5 flex h-10 w-10 items-center justify-center rounded-full bg-white text-slate-700 shadow-lg">
               <X className="h-5 w-5" />
             </button>
           </div>

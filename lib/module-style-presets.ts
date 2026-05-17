@@ -21,6 +21,7 @@ const STYLE_REFERENCE_IMAGES = {
 
 export type PoseSeriesStyle =
   | "source_continuity"
+  | "luxury_white_studio"
   | "ecommerce_clean"
   | "luxury_lookbook"
   | "fashion_editorial"
@@ -31,6 +32,7 @@ export type PoseSeriesStyle =
 
 export type ModelShootStyle =
   | "fusion_natural"
+  | "luxury_white_studio"
   | "ecommerce_clean"
   | "luxury_lookbook"
   | "fashion_editorial"
@@ -63,6 +65,15 @@ export const POSE_SERIES_STYLES: StylePreset<PoseSeriesStyle>[] = [
     imageUrl: STYLE_REFERENCE_IMAGES.sourceContinuity,
     prompt:
       "沿用图1原始场景氛围、背景色调、光线方向和商业摄影质感，主要做姿势与轻微自然表情变化，镜头和构图由 AI 按原图气质自然发挥。",
+  },
+  {
+    value: "luxury_white_studio",
+    label: "奢牌白底",
+    desc: "白场棚拍，商品细节锐利",
+    swatches: ["#ffffff", "#edf2f7", "#94a3b8"],
+    imageUrl: STYLE_REFERENCE_IMAGES.ecommerceClean,
+    prompt:
+      "呈现奢牌电商白底棚拍质感：纯净白色或极浅灰无缝背景，柔和但方向明确的棚拍光，人物脚下、裤脚、包袋和身体接触处有细腻自然阴影；模特姿态克制高级，重心自然，适合生成正面、半身细节、侧面、背面或侧后回眸等商品展示角度；服装图案、logo、纹理、剪裁和配饰只能来自图1本身，不要凭空新增任何品牌标识或无关花纹；商品边缘锐利，皮肤真实，画面留白充足，整体像高端官网商品图而不是普通白底证件照。",
   },
   {
     value: "ecommerce_clean",
@@ -148,6 +159,15 @@ export const MODEL_SHOOT_STYLES: StylePreset<ModelShootStyle>[] = [
     imageUrl: STYLE_REFERENCE_IMAGES.sourceContinuity,
     prompt:
       "优先服务人脸融合与真实身份稳定，妆造自然克制，保留参考图的肤色、脸型骨相、五官记忆点、年龄感和面部氛围，生成像真实模特卡的专属人物。",
+  },
+  {
+    value: "luxury_white_studio",
+    label: "奢牌白底",
+    desc: "高级白场，真实克制",
+    swatches: ["#ffffff", "#eef2f7", "#64748b"],
+    imageUrl: STYLE_REFERENCE_IMAGES.ecommerceClean,
+    prompt:
+      "专属模特呈现奢牌白底棚拍质感：干净白色或极浅灰背景，清晰轮廓光、柔和主光和自然接触阴影，表情克制、高级、不网红化；面部保留真实皮肤纹理、骨相和五官辨识度，发丝边缘干净，整体像高端商品官网中的真实模特；不要凭空生成任何品牌 logo、文字水印或与用户服装无关的图案。",
   },
   {
     value: "ecommerce_clean",

@@ -31,8 +31,6 @@ export function TaskQueueButton() {
   const [loading, setLoading] = useState(false);
   const [detailsLoaded, setDetailsLoaded] = useState(false);
   const [summaryLoaded, setSummaryLoaded] = useState(false);
-  const [optimisticRunning, setOptimisticRunning] = useState(false);
-  const [optimisticStartedAt, setOptimisticStartedAt] = useState(0);
   const detailsLoadedRef = useRef(false);
   const summaryInFlightRef = useRef(false);
   const queueInFlightRef = useRef(false);
@@ -47,13 +45,12 @@ export function TaskQueueButton() {
       : running.length
     : summaryLoaded
       ? summary.runningTaskNum
-      : optimisticRunning ? 1 : 0;
+      : 0;
   const finishedCount = Math.max(summary.finishedTaskNum + summary.failedTaskNum, finished.length);
   const visibleRunning = detailsLoaded && summaryLoaded ? running.slice(0, runningCount) : running;
   const activeRows = activeTab === "running" ? visibleRunning : finished;
   const groupedRows = groupQueueRows(activeRows.slice(0, 12));
-  const showOptimisticRunning = optimisticRunning && (!summaryLoaded || summary.runningTaskNum > 0);
-  const isRunning = runningCount > 0 || showOptimisticRunning;
+  const isRunning = runningCount > 0;
   const totalCount = Math.max(summary.totalTaskNum, runningCount + finishedCount);
 
   const applySummary = useCallback((payload: TaskQueuePayload) => {
@@ -64,12 +61,7 @@ export function TaskQueueButton() {
       summarySignatureRef.current = summarySignature;
       setSummary(nextSummary);
     }
-    if (nextSummary.runningTaskNum > 0) {
-      setOptimisticRunning(false);
-    } else if (optimisticRunning && Date.now() - optimisticStartedAt > 1500) {
-      setOptimisticRunning(false);
-    }
-  }, [optimisticRunning, optimisticStartedAt]);
+  }, []);
 
   const loadSummary = useCallback(async () => {
     if (summaryInFlightRef.current) return;
@@ -104,7 +96,7 @@ export function TaskQueueButton() {
         item.resultCount,
         item.expectedCount,
         item.error,
-        item.thumbnails.join("|"),
+        safeTaskUrls(item.thumbnails).join("|"),
       ]));
       if (rowsSignature !== rowsSignatureRef.current) {
         rowsSignatureRef.current = rowsSignature;
@@ -146,36 +138,23 @@ export function TaskQueueButton() {
   }, [isRunning, loadQueue, open]);
 
   useEffect(() => {
-    const refresh = (event: Event) => {
-      const detail = event instanceof CustomEvent ? event.detail as { optimisticRunning?: boolean } | undefined : undefined;
-      if (detail?.optimisticRunning) {
-        setOptimisticStartedAt(Date.now());
-        setOptimisticRunning(true);
-        setActiveTab("running");
-      }
-      void loadSummary();
-      window.setTimeout(loadSummary, 800);
-      if (open) window.setTimeout(() => void loadQueue(), 800);
-    };
     const refreshVisible = () => {
       if (document.visibilityState === "hidden") return;
       loadSummary();
       if (open) loadQueue();
     };
-    window.addEventListener("wanxiang:task-queue-refresh", refresh);
     window.addEventListener("focus", refreshVisible);
     document.addEventListener("visibilitychange", refreshVisible);
     return () => {
-      window.removeEventListener("wanxiang:task-queue-refresh", refresh);
       window.removeEventListener("focus", refreshVisible);
       document.removeEventListener("visibilitychange", refreshVisible);
     };
   }, [loadQueue, loadSummary, open]);
 
   useEffect(() => {
-    if (runningCount > 0 || showOptimisticRunning) setActiveTab("running");
+    if (runningCount > 0) setActiveTab("running");
     else if (finishedCount > 0) setActiveTab("finished");
-  }, [finishedCount, runningCount, showOptimisticRunning]);
+  }, [finishedCount, runningCount]);
 
   const buttonLabel = useMemo(() => (
     isRunning ? `任务 ${Math.max(runningCount, 1)}` : `任务 ${summary.finishedNeedReadTaskNum || totalCount || 0}`
@@ -246,17 +225,8 @@ export function TaskQueueButton() {
               ))
             ) : (
               <div className="flex h-28 flex-col items-center justify-center text-center text-xs text-slate-400">
-                {activeTab === "running" && showOptimisticRunning ? (
-                  <>
-                    <Loader2 className="mb-2 h-5 w-5 animate-spin text-blue-500" />
-                    正在同步新任务...
-                  </>
-                ) : (
-                  <>
-                    <Clock3 className="mb-2 h-5 w-5" />
-                    暂无{activeTab === "running" ? "进行中" : "已完成"}任务
-                  </>
-                )}
+                <Clock3 className="mb-2 h-5 w-5" />
+                暂无{activeTab === "running" ? "进行中" : "已完成"}任务
               </div>
             )}
           </div>
@@ -282,8 +252,8 @@ export function TaskQueueButton() {
   );
 }
 
-function ThumbnailStack({ urls }: { urls: string[] }) {
-  const safeUrls = urls.filter((url) => typeof url === "string" && url.trim().length > 0).slice(0, 2);
+function ThumbnailStack({ urls }: { urls: unknown }) {
+  const safeUrls = safeTaskUrls(urls).slice(0, 2);
   if (!safeUrls.length) {
     return (
       <span className="flex h-10 w-8 items-center justify-center rounded-lg border border-slate-100 bg-slate-50 text-[10px] font-black text-slate-300">
@@ -303,6 +273,10 @@ function ThumbnailStack({ urls }: { urls: string[] }) {
       ))}
     </span>
   );
+}
+
+function safeTaskUrls(value: unknown) {
+  return Array.isArray(value) ? value.filter((url): url is string => typeof url === "string" && url.trim().length > 0) : [];
 }
 
 function getTaskQueueHref(item: TaskQueueItem) {

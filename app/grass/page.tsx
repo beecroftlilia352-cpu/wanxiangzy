@@ -19,6 +19,7 @@ import { StudioRunBar } from "@/components/studio/StudioRunBar";
 import { StudioUploadSection } from "@/components/studio/StudioUploadSection";
 import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
 import { useStableFileDrag } from "@/components/studio/useStableFileDrag";
+import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
 import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
@@ -92,6 +93,8 @@ export default function GrassPage() {
   const [promptOverride, setPromptOverride] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isDraggingReference, setIsDraggingReference] = useState(false);
+  const [isUploadingGarment, setIsUploadingGarment] = useState(false);
+  const [isUploadingReference, setIsUploadingReference] = useState(false);
   const [isOptimizingPrompt, setIsOptimizingPrompt] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -129,6 +132,10 @@ export default function GrassPage() {
         : "上传种草参考图 / 场景姿势构图参考",
     }] : []),
   ], [garmentUrl, effectiveReferenceUrl, sceneMode, selectedTemplate.name]);
+  const taskInputThumbnails = useMemo(
+    () => promptImages.map((item) => item.url).filter(Boolean),
+    [promptImages]
+  );
   const activePrompt = sceneMode === "custom_prompt" ? userPrompt : supplementPrompt;
   const finalPrompt = useMemo(
     () => promptOverride ?? buildGrassPrompt({
@@ -143,6 +150,12 @@ export default function GrassPage() {
   );
   const imageSizes = getSupportedImageSizes(aiModel, aspectRatio);
   const cost = getCreditCost(aiModel, imageSize, aspectRatio) * genCount;
+  const taskQueue = useTaskQueueGeneration({
+    module: "grass",
+    title: "种草图",
+    defaultExpectedCount: genCount,
+    applyPath: "/grass",
+  });
   const authIsAnonymous = authChecked && !isAuthenticated;
   const runDisabledReason = !garmentUrl
     ? "请先上传服装或穿搭图"
@@ -244,6 +257,7 @@ export default function GrassPage() {
     setResultUrls([]);
     setError("");
     toast.info("正在上传服装图...");
+    setIsUploadingGarment(true);
     try {
       const result = await uploadImage(file);
       setGarmentUrl(result.url);
@@ -252,6 +266,8 @@ export default function GrassPage() {
       toast.success("服装图已上传");
     } catch {
       toast.error("上传失败，请重试");
+    } finally {
+      setIsUploadingGarment(false);
     }
   }
 
@@ -260,6 +276,7 @@ export default function GrassPage() {
     if (!file.type.startsWith("image/")) return toast.error("请上传图片文件");
     if (file.size > MAX_FILE_SIZE) return toast.error(`图片不能超过 ${MAX_FILE_SIZE_MB}MB`);
     toast.info("正在上传种草参考图...");
+    setIsUploadingReference(true);
     try {
       const result = await uploadImage(file);
       setUploadedReferenceUrl(result.url);
@@ -270,6 +287,7 @@ export default function GrassPage() {
     } catch {
       toast.error("参考图上传失败，请重试");
     } finally {
+      setIsUploadingReference(false);
       if (referenceInputRef.current) referenceInputRef.current.value = "";
     }
   }
@@ -304,6 +322,13 @@ export default function GrassPage() {
     setProgress(10);
     setResultUrls([]);
     setError("");
+    const provisionalTask = taskQueue.startTask({
+      expectedCount: genCount,
+      inputThumbnails: taskInputThumbnails,
+      progress: 10,
+    });
+    let activeTaskId = provisionalTask.id;
+    let latestTaskResultUrls: string[] = [];
 
     try {
       const res = await fetch("/api/grass", {
@@ -327,6 +352,8 @@ export default function GrassPage() {
       if (!res.ok) {
         if (res.status === 401) {
           await refreshAuth();
+          taskQueue.removeTask(activeTaskId);
+          setIsGenerating(false);
           router.push("/login");
           return;
         }
@@ -342,31 +369,63 @@ export default function GrassPage() {
         if (userId) setCachedProfileCredits(userId, data.credits_remaining);
       }
       setProgress(25);
+      if (typeof data.generation_id === "string" && data.generation_id) {
+        const serverTask = taskQueue.replaceWithServerTask(activeTaskId, {
+          id: data.generation_id,
+          expectedCount: genCount,
+          inputThumbnails: taskInputThumbnails,
+          status: data.status || "processing_tryon",
+          progress: 25,
+        });
+        activeTaskId = serverTask.id;
+      }
       for (let attempts = 0; attempts < 120; attempts++) {
         await new Promise((r) => setTimeout(r, 2000));
         const poll = await fetch(`/api/grass?generation_id=${data.generation_id}`);
         if (!poll.ok) continue;
         const state = await poll.json();
         if (Array.isArray(state.result_urls) && state.result_urls.length) {
+          latestTaskResultUrls = state.result_urls;
           setResultUrls(state.result_urls);
         }
         if (state.status === "completed") {
+          const finalUrls = Array.isArray(state.result_urls) ? state.result_urls : latestTaskResultUrls;
           setProgress(100);
-          setResultUrls(state.result_urls || []);
+          setResultUrls(finalUrls);
           setIsGenerating(false);
+          taskQueue.markCompleted(activeTaskId, {
+            expectedCount: genCount,
+            inputThumbnails: taskInputThumbnails,
+            resultThumbnails: finalUrls,
+            resultCount: finalUrls.length,
+          });
           toast.success("服装种草图生成完成");
           return;
         }
         if (state.status === "failed") throw new Error(state.error || "生成失败");
         const nextProgress = Number(state.progress);
-        setProgress(Number.isFinite(nextProgress)
+        const runningProgress = Number.isFinite(nextProgress)
           ? Math.min(Math.max(Math.round(nextProgress), 0), 99)
-          : Math.min(25 + attempts * 1.5, 90));
+          : Math.min(25 + attempts * 1.5, 90);
+        setProgress(runningProgress);
+        taskQueue.markRunning(activeTaskId, {
+          expectedCount: genCount,
+          inputThumbnails: taskInputThumbnails,
+          resultThumbnails: latestTaskResultUrls,
+          progress: runningProgress,
+          status: state.status,
+        });
       }
       throw new Error("生成超时");
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "生成失败");
-      toast.error(err instanceof Error ? err.message : "生成失败");
+      const message = err instanceof Error ? err.message : "生成失败";
+      setError(message);
+      taskQueue.markFailed(activeTaskId, message, {
+        expectedCount: genCount,
+        inputThumbnails: taskInputThumbnails,
+        resultThumbnails: latestTaskResultUrls,
+      });
+      toast.error(message);
       setIsGenerating(false);
     }
   }
@@ -481,6 +540,7 @@ export default function GrassPage() {
                   imageUrl={garmentUrl || null}
                   imageAlt="服装图"
                   isDragging={isDragging}
+                  loading={isUploadingGarment}
                   onUploadClick={openFileDialog}
                   onLibraryClick={() => toast.info("作品库选择即将接入")}
                   onPreview={garmentUrl ? () => setLightboxSrc(garmentUrl) : undefined}
@@ -489,21 +549,16 @@ export default function GrassPage() {
                   dragContext={dragContext}
                   uploadLabel="从本地上传"
                   libraryLabel="从作品选择"
-                  footnote={garmentUrl ? garmentName || "已上传" : GRASS_UPLOAD_RULE.uploadSpecText}
-                />
-            <div className="studio-upload-demo-row">
-              <span className="studio-upload-demo-label">试一试</span>
-              <div className="studio-upload-demo-list studio-scrollbar-hide">
-                {GRASS_UPLOAD_RULE.demos.map((demo) => (
-                  <button key={demo.imageUrl} type="button" onClick={() => applyDemo(demo)} className="studio-upload-demo-thumb" title={demo.description}>
-                    <img src={demo.imageUrl} alt={demo.title} />
-                  </button>
-                ))}
-              </div>
-            </div>
-              </>
-            )}
-          </StudioUploadSection>
+                  footnote={garmentUrl ? garmentName || "已上传" : "款式图上传无遮挡、无码图；平铺、人台或自然上身图都可以。"}
+                  examples={{
+                    label: "试一试",
+                    images: GRASS_UPLOAD_RULE.demos.map((demo) => ({ url: demo.imageUrl, title: demo.title })),
+                    onSelect: (image) => applyDemo({ title: image.title, imageUrl: image.url }),
+                  }}
+                  />
+                </>
+              )}
+            </StudioUploadSection>
 
           <section>
             <div className="mb-3 flex items-center justify-between gap-2">
@@ -605,11 +660,16 @@ export default function GrassPage() {
                   <button
                     type="button"
                     onClick={() => referenceInputRef.current?.click()}
+                    disabled={isUploadingReference}
                     className="studio-fixed-upload-slot flex w-full flex-col items-center justify-center rounded-xl bg-slate-50 px-4 py-6 text-center hover:bg-slate-100"
                     style={{ "--studio-fixed-upload-height": "160px" } as CSSProperties}
                   >
-                    <Upload className="mb-3 h-7 w-7 text-violet-400" />
-                    <span className="text-sm font-semibold text-slate-800">上传种草参考图</span>
+                    {isUploadingReference ? (
+                      <Loader2 className="mb-3 h-7 w-7 animate-spin text-violet-400" />
+                    ) : (
+                      <Upload className="mb-3 h-7 w-7 text-violet-400" />
+                    )}
+                    <span className="text-sm font-semibold text-slate-800">{isUploadingReference ? "上传中..." : "上传种草参考图"}</span>
                     <span className="mt-1 text-[11px] text-slate-400">姿势、场景、构图会作为图2进入提示词</span>
                   </button>
                 )}

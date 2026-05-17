@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ChangeEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import {
   Bookmark,
@@ -33,7 +33,9 @@ import { useStudioAuth } from "@/components/studio/useStudioAuth";
 import type { TaskSelectionSession } from "@/components/studio/useTaskSelectionSession";
 import { LoadingStage } from "@/components/studio/LoadingStage";
 import { StudioGenerationCountSelector } from "@/components/studio/StudioFormControls";
+import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
 import { useStableFileDrag } from "@/components/studio/useStableFileDrag";
+import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
 import { ClientPortal } from "@/components/ClientPortal";
 import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { fetchHistoryApplyDetail, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
@@ -370,6 +372,16 @@ export default function ProductSetPage() {
   const cost = planTemplates.length
     ? planTemplates.reduce((sum, template) => sum + getCreditCost(aiModel, imageSize, template.aspectRatio || aspectRatio), 0)
     : 0;
+  const taskInputThumbnails = useMemo(
+    () => productImages.map((item) => item.url).filter(Boolean),
+    [productImages]
+  );
+  const taskQueue = useTaskQueueGeneration({
+    module: "productSet",
+    title: "商品套图",
+    defaultExpectedCount: Math.max(1, outputCount || genCount),
+    applyPath: "/product-set",
+  });
   const requiresProductConfirmation = productImages.length > 0 && !isAnalyzing && mode === "smart" && !hasAnalyzedProduct;
   const canGenerate = !isGenerating && !isUploading && !isAnalyzing && canResolvePlan && productImages.length > 0 && Boolean(productInfo.trim()) && outputCount > 0;
   const canAnalyzeProduct = !isAnalyzing && !isUploading && productImages.length > 0;
@@ -1089,6 +1101,13 @@ export default function ProductSetPage() {
     setResultUrls([]);
     setResultPlan(currentPlan);
     setModuleResults(createClientModuleResults(currentPlan));
+    const provisionalTask = taskQueue.startTask({
+      expectedCount: expectedResultCount,
+      inputThumbnails: taskInputThumbnails,
+      progress: 8,
+    });
+    let activeTaskId = provisionalTask.id;
+    let latestUrls: string[] = [];
     try {
       const finalSettings = {
         ...settings,
@@ -1119,6 +1138,8 @@ export default function ProductSetPage() {
       if (!res.ok) {
         if (res.status === 401) {
           await refreshAuth();
+          taskQueue.removeTask(activeTaskId);
+          setIsGenerating(false);
           router.push("/login");
           return;
         }
@@ -1135,8 +1156,21 @@ export default function ProductSetPage() {
       }
       const initialModules = readModuleResults(data.module_results);
       if (initialModules.length) setModuleResults(initialModules);
+      if (typeof data.generation_id === "string" && data.generation_id) {
+        const initialUrls = urlsFromModules(initialModules, currentPlan);
+        latestUrls = initialUrls;
+        const serverTask = taskQueue.replaceWithServerTask(activeTaskId, {
+          id: data.generation_id,
+          expectedCount: expectedResultCount,
+          inputThumbnails: taskInputThumbnails,
+          resultThumbnails: initialUrls,
+          resultCount: initialUrls.length,
+          status: data.status || "processing_tryon",
+          progress: 12,
+        });
+        activeTaskId = serverTask.id;
+      }
 
-      let latestUrls: string[] = [];
       for (let attempts = 0; attempts < 900; attempts++) {
         await new Promise((resolve) => setTimeout(resolve, 2000));
         const poll = await fetch(`/api/product-set?generation_id=${encodeURIComponent(data.generation_id)}`);
@@ -1152,7 +1186,16 @@ export default function ProductSetPage() {
         const nextProgress = Number(state.progress);
         if (Number.isFinite(nextProgress)) {
           const rounded = Math.min(Math.max(Math.round(nextProgress), 0), 100);
-          setProgress(!hasAllResults && rounded >= 100 ? 99 : rounded);
+          const runningProgress = !hasAllResults && rounded >= 100 ? 99 : rounded;
+          setProgress(runningProgress);
+          taskQueue.markRunning(activeTaskId, {
+            expectedCount: expectedResultCount,
+            inputThumbnails: taskInputThumbnails,
+            resultThumbnails: latestUrls,
+            resultCount: latestUrls.length,
+            progress: runningProgress,
+            status: state.status,
+          });
         }
         if (nextModules.length) {
           setModuleResults(nextModules);
@@ -1174,9 +1217,24 @@ export default function ProductSetPage() {
           if (nextModules.length) {
             setModuleResults(nextModules);
             const moduleUrls = urlsFromModules(nextModules, currentPlan);
-            setResultUrls(moduleUrls.length ? moduleUrls : nextUrls);
+            const finalUrls = moduleUrls.length ? moduleUrls : nextUrls;
+            latestUrls = finalUrls;
+            setResultUrls(finalUrls);
+            taskQueue.markCompleted(activeTaskId, {
+              expectedCount: expectedResultCount,
+              inputThumbnails: taskInputThumbnails,
+              resultThumbnails: finalUrls,
+              resultCount: finalUrls.length,
+            });
           } else {
+            latestUrls = nextUrls;
             setResultUrls(nextUrls);
+            taskQueue.markCompleted(activeTaskId, {
+              expectedCount: expectedResultCount,
+              inputThumbnails: taskInputThumbnails,
+              resultThumbnails: nextUrls,
+              resultCount: nextUrls.length,
+            });
           }
           setIsGenerating(false);
           toast.success("商品套图生成完成");
@@ -1186,6 +1244,13 @@ export default function ProductSetPage() {
       }
       if (latestUrls.length > 0) {
         setIsGenerating(false);
+        taskQueue.markRunning(activeTaskId, {
+          expectedCount: expectedResultCount,
+          inputThumbnails: taskInputThumbnails,
+          resultThumbnails: latestUrls,
+          resultCount: latestUrls.length,
+          progress: 99,
+        });
         toast.info("生成仍在后台继续，可稍后在历史记录查看完整结果");
         return;
       }
@@ -1193,6 +1258,11 @@ export default function ProductSetPage() {
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "生成失败";
       setError(message);
+      taskQueue.markFailed(activeTaskId, message, {
+        expectedCount: expectedResultCount,
+        inputThumbnails: taskInputThumbnails,
+        resultThumbnails: latestUrls,
+      });
       toast.error(message);
       setIsGenerating(false);
     }
@@ -1374,18 +1444,36 @@ export default function ProductSetPage() {
               className="hidden"
               onChange={(event: ChangeEvent<HTMLInputElement>) => event.target.files && processFiles(event.target.files)}
             />
-            <button
-              type="button"
-              onClick={() => productInputRef.current?.click()}
-              className="studio-fixed-upload-slot flex w-full flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-center transition hover:border-[rgba(91,124,255,0.3)] hover:bg-[rgba(91,124,255,0.12)]"
-              style={{ "--studio-fixed-upload-height": "112px" } as CSSProperties}
-            >
-              {isUploading ? <Loader2 className="mb-2 h-6 w-6 animate-spin text-[var(--codex-accent)]" /> : <ImagePlus className="mb-2 h-6 w-6 text-[var(--codex-accent)]" />}
-              <span className="text-sm font-black text-slate-900">{productImages.length ? "继续上传多视角商品图" : "上传 / 拖拽多视角商品图"}</span>
-              <span className="mt-1 text-[11px] text-slate-400">jpg、png、webp，单张不超过 {MAX_FILE_SIZE_MB}MB</span>
-            </button>
+            <StudioUploadTile
+              title={productImages.length >= 3 ? "已达 3 张上限" : productImages.length ? "继续上传多视角商品图" : "上传 / 拖拽【商品图】"}
+              description="支持正面、侧面、背面或细节图，最多 3 张。"
+              imageUrl={null}
+              imageAlt="商品图"
+              isDragging={isDragging}
+              loading={isUploading}
+              onUploadClick={() => productInputRef.current?.click()}
+              onLibraryClick={() => toast.info("资源库导入即将接入")}
+              uploadLabel={productImages.length ? "继续上传" : "本地上传"}
+              libraryLabel="从资源库导入"
+              supportBadge="支持多图(最多3张)"
+              footnote="款式图上传无遮挡、无码图；正面、侧面、背面或细节图越完整，套图方案越准。"
+              examples={{
+                label: "试一试",
+                images: PRODUCT_SET_EXAMPLE_GROUPS.map((group) => ({
+                  url: group.images[0],
+                  title: group.name,
+                  previewUrls: group.images,
+                })),
+                disabled: isUploading,
+                onSelect: (image) => {
+                  const group = PRODUCT_SET_EXAMPLE_GROUPS.find((item) => item.name === image.title && item.images[0] === image.url);
+                  if (group) applyExampleGroup(group);
+                },
+              }}
+            />
 
             {productImages.length > 0 && (
+              <>
               <div className="mt-3 grid grid-cols-3 gap-2">
                 {productImages.map((item, index) => (
                   <div key={`${item.url}-${index}`} className="studio-checkerboard group relative aspect-square overflow-hidden rounded-xl border border-white bg-white shadow-sm">
@@ -1397,33 +1485,13 @@ export default function ProductSetPage() {
                   </div>
                 ))}
               </div>
-            )}
-
-            <div className="studio-upload-demo-row">
-              <span className="studio-upload-demo-label">试一试</span>
-              <div className="studio-upload-demo-list studio-scrollbar-hide">
-                {PRODUCT_SET_EXAMPLE_GROUPS.map((group) => (
-                  <button
-                    key={group.id}
-                    type="button"
-                    onClick={() => applyExampleGroup(group)}
-                    className="studio-upload-demo-thumb studio-upload-demo-thumb-multi"
-                    title={group.name}
-                  >
-                    {group.images.map((url, index) => (
-                      <span key={`${group.id}-${index}`} className="studio-upload-demo-cell">
-                        <img src={getImageVariantUrl(url, "thumb")} alt={`${group.name}${index + 1}`} />
-                      </span>
-                    ))}
+                <div className="mt-2 flex justify-end">
+                  <button type="button" onClick={() => { setProductImages([]); setProductInfo(""); resetAnalysisPlan("idle"); }} className="inline-flex h-8 shrink-0 items-center gap-1 rounded-full px-2 text-xs font-bold text-slate-400 hover:bg-red-50 hover:text-red-500">
+                    <Trash2 className="h-3.5 w-3.5" /> 清空
                   </button>
-                ))}
-              </div>
-              {productImages.length > 0 && (
-                <button type="button" onClick={() => { setProductImages([]); setProductInfo(""); resetAnalysisPlan("idle"); }} className="inline-flex h-8 shrink-0 items-center gap-1 rounded-full px-2 text-xs font-bold text-slate-400 hover:bg-red-50 hover:text-red-500">
-                  <Trash2 className="h-3.5 w-3.5" /> 清空
-                </button>
-              )}
-            </div>
+                </div>
+              </>
+            )}
           </section>
 
           <section className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm">

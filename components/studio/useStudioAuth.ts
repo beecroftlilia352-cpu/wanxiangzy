@@ -74,13 +74,13 @@ export function useStudioAuth() {
     }
 
     try {
-      const { data } = await supabase.auth.getSession();
-      if (data.session?.user) {
-        await applyIfCurrent(() => applyAuthenticatedUser(data.session.user));
+      const { data } = await supabase.auth.getUser();
+      if (data.user) {
+        await applyIfCurrent(() => applyAuthenticatedUser(data.user));
         return true;
       }
     } catch {
-      // If both profile and session fail, treat it as anonymous only after this fallback.
+      // If both profile and user verification fail, treat it as anonymous only after this fallback.
     }
 
     await applyIfCurrent(setAnonymousState);
@@ -97,13 +97,15 @@ export function useStudioAuth() {
 
     void refreshAuth();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (cancelled) return;
-      if (session?.user) {
-        void applyAuthenticatedUser(session.user);
+      if (event === "SIGNED_OUT") {
+        applyAnonymous();
         return;
       }
-      if (event === "SIGNED_OUT") applyAnonymous();
+      if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "USER_UPDATED") {
+        void refreshAuth();
+      }
     });
 
     return () => {

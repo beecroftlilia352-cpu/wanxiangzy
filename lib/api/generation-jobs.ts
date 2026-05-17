@@ -10,6 +10,7 @@ import {
 import { completeGenerationWithCreditAdjustment, failGenerationWithRefund } from "@/lib/api/credits";
 import { resolveImageInputs } from "@/lib/api/image-inputs.server";
 import { persistGeneratedImageUrls } from "@/lib/api/result-image-storage";
+import { syncGenerationTaskQueueById } from "@/lib/task-queue-store";
 import {
   applyQualityRepairToPrompt,
   evaluateGeneratedImages,
@@ -285,6 +286,7 @@ async function runClaimedJob(
   job: ClaimedJob
 ) {
   try {
+    await syncGenerationQueueIndex(job.id, "claim");
     const payload = parseJobPayload(job.job_payload);
     const partialResultUrls: string[] = [];
     const partialPromptTrace: PromptTraceItem[] = [];
@@ -474,6 +476,8 @@ async function completeGenerationRecord(
   if (error) throw new Error(`更新任务结果失败: ${error.message}`);
   if (!data) {
     logger.warn(`[jobs] generation ${job.id} was no longer completable; skipped completion write`);
+  } else {
+    await syncGenerationQueueIndex(job.id, "complete-fallback");
   }
 }
 
@@ -1598,6 +1602,7 @@ async function writeGenerationProgress(
     .eq("status", "processing_tryon");
 
   if (error) throw new Error(`更新任务进度失败: ${error.message}`);
+  await syncGenerationQueueIndex(job.id, "progress");
 }
 
 function normalizePoseOutputMode(value: unknown): PoseOutputMode {
@@ -1702,6 +1707,14 @@ function getStaleMinutes() {
   const value = Number(process.env.GENERATION_JOB_STALE_MINUTES || 8);
   if (!Number.isFinite(value)) return 8;
   return Math.min(Math.max(value, 1), 60);
+}
+
+async function syncGenerationQueueIndex(generationId: string, phase: string) {
+  try {
+    await syncGenerationTaskQueueById(generationId);
+  } catch (error) {
+    logger.warn(`[task-queue-index] generation ${phase} sync skipped: ${error instanceof Error ? error.message : String(error)}`);
+  }
 }
 
 import { getAdminClient } from "@/lib/supabase/admin";

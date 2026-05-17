@@ -14,7 +14,6 @@ import {
   subscribeToProfileCredits,
 } from "@/lib/supabase/client";
 import { TOP_MODULES, getActiveTopModule } from "@/lib/navigation";
-import { TaskQueueButton } from "@/components/TaskQueueButton";
 import { codexTheme } from "@/lib/design/codex-theme";
 
 type HeaderAccountState = {
@@ -572,7 +571,6 @@ function UserCreditActions({
 
   return (
     <>
-      <TaskQueueButton />
       <Link href="/history" className="studio-button studio-button-compact hidden sm:inline-flex">
         我的作品
       </Link>
