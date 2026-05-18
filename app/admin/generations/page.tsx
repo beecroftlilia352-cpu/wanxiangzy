@@ -10,6 +10,7 @@ import {
   formatDateTime,
   formatNumber,
 } from "@/components/admin/AdminPrimitives";
+import { AdminTaskActions } from "@/components/admin/AdminTaskActions";
 import { listAdminTasks, type AdminTaskListItem } from "@/lib/admin/data";
 
 export const dynamic = "force-dynamic";
@@ -44,16 +45,18 @@ export default async function AdminGenerationsPage({ searchParams }: PageProps) 
   const q = getSearchParam(params.q);
   const status = getSearchParam(params.status);
   const module = getSearchParam(params.module);
-  const tasks = await listAdminTasks({ q, status, module, limit: 60 });
+  const stale = getSearchParam(params.stale) === "1";
+  const tasks = await listAdminTasks({ q, status, module, stale, limit: 60 });
   const failed = tasks.rows.filter((row) => row.statusGroup === "failed").length;
   const running = tasks.rows.filter((row) => row.statusGroup === "running" || row.statusGroup === "queued").length;
+  const staleCount = tasks.rows.filter((row) => row.isStale).length;
 
   return (
     <div className="space-y-5">
       <AdminPageHeader
         eyebrow="Tasks"
         title="任务中心"
-        description="统一查看 generation 与 Agent workflow。V1 先做只读诊断，不直接暴露取消、重试、退款等高风险写操作。"
+        description="统一查看 generation 与 Agent workflow；支持对卡住任务重新入队、标记失败、取消并退款。"
         actions={
           <Link
             href="/api/jobs/process-generations"
@@ -72,7 +75,7 @@ export default async function AdminGenerationsPage({ searchParams }: PageProps) 
         </AdminNotice>
       )}
 
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-4">
         <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
           <p className="text-xs font-black uppercase tracking-[0.1em] text-slate-400">当前列表</p>
           <p className="mt-3 text-2xl font-black text-slate-950">{formatNumber(tasks.rows.length)}</p>
@@ -84,6 +87,10 @@ export default async function AdminGenerationsPage({ searchParams }: PageProps) 
         <div className="rounded-lg border border-red-200 bg-white p-4 shadow-sm">
           <p className="text-xs font-black uppercase tracking-[0.1em] text-slate-400">失败</p>
           <p className="mt-3 text-2xl font-black text-red-700">{formatNumber(failed)}</p>
+        </div>
+        <div className="rounded-lg border border-orange-200 bg-white p-4 shadow-sm">
+          <p className="text-xs font-black uppercase tracking-[0.1em] text-slate-400">卡住</p>
+          <p className="mt-3 text-2xl font-black text-orange-700">{formatNumber(staleCount)}</p>
         </div>
       </div>
 
@@ -107,6 +114,10 @@ export default async function AdminGenerationsPage({ searchParams }: PageProps) 
             <select name="status" defaultValue={status} className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs font-bold text-slate-700">
               {statusOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
             </select>
+            <label className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2 text-xs font-black text-slate-700">
+              <input name="stale" value="1" type="checkbox" defaultChecked={stale} className="h-3.5 w-3.5 rounded border-slate-300" />
+              只看卡住
+            </label>
             <button className="h-9 rounded-lg bg-slate-950 px-3 text-xs font-black text-white" type="submit">
               筛选
             </button>
@@ -167,9 +178,31 @@ export default async function AdminGenerationsPage({ searchParams }: PageProps) 
               render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-slate-500">{row.model || "-"}</span>,
             },
             {
+              key: "stale",
+              label: "卡住",
+              render: (row) => (
+                <span className={`whitespace-nowrap text-xs font-black ${row.isStale ? "text-orange-700" : "text-slate-400"}`}>
+                  {row.isStale ? `${row.staleMinutes} 分钟` : "-"}
+                </span>
+              ),
+            },
+            {
               key: "created",
               label: "创建",
               render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-slate-500">{formatDateTime(row.createdAt)}</span>,
+            },
+            {
+              key: "actions",
+              label: "操作",
+              render: (row) => (
+                <AdminTaskActions
+                  id={row.sourceId}
+                  sourceType={row.sourceType}
+                  statusGroup={row.statusGroup}
+                  isStale={row.isStale}
+                  compact
+                />
+              ),
             },
             {
               key: "error",

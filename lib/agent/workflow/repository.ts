@@ -265,6 +265,8 @@ export async function reserveWorkflowCredits(params: {
   workflowId: string;
   amount: number;
 }) {
+  await assertUserCanReserveWorkflow(params.userId);
+
   const { data, error } = await params.supabase.rpc("reserve_agent_workflow_credits", {
     p_user_id: params.userId,
     p_workflow_id: params.workflowId,
@@ -274,6 +276,46 @@ export async function reserveWorkflowCredits(params: {
   if (error) throw new Error(normalizeCreditRpcError(error.message, params.amount));
   const row = Array.isArray(data) ? data[0] : data;
   return Number((row as { credits_remaining?: number } | null)?.credits_remaining ?? 0);
+}
+
+async function assertUserCanReserveWorkflow(userId: string) {
+  try {
+    const { data, error } = await getAdminClient()
+      .from("admin_user_controls")
+      .select("status,generate_enabled,reason,expires_at")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (error) {
+      if (isMissingUserControlTable(error)) return;
+      throw new Error(error.message || "用户运营状态检查失败");
+    }
+    if (!data) return;
+
+    const expiresAt = typeof data.expires_at === "string" ? Date.parse(data.expires_at) : NaN;
+    if (Number.isFinite(expiresAt) && expiresAt <= Date.now()) return;
+
+    const status = String(data.status || "active").toLowerCase();
+    const generateEnabled = data.generate_enabled !== false;
+    if (status === "suspended" || !generateEnabled) {
+      const reason = typeof data.reason === "string" && data.reason.trim() ? `：${data.reason.trim()}` : "";
+      throw new Error(`账号已被运营暂停生成${reason}`);
+    }
+  } catch (error) {
+    if (error instanceof Error && (error.message.includes("暂停生成") || error.message.includes("运营状态检查失败"))) throw error;
+    if (process.env.NODE_ENV === "development") {
+      console.warn("[user-control] workflow credit check skipped:", error);
+    }
+  }
+}
+
+function isMissingUserControlTable(error: { code?: string; message?: string }) {
+  const message = `${error.code || ""} ${error.message || ""}`.toLowerCase();
+  return (
+    message.includes("42p01") ||
+    message.includes("does not exist") ||
+    (message.includes("could not find") && message.includes("admin_user_controls"))
+  );
 }
 
 export async function settleWorkflowCredits(userId: string, workflowId: string, amount: number) {

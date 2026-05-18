@@ -15,7 +15,9 @@ const resources = [
   "prompt_experiments",
   "diagnostics",
   "reports",
+  "risk_scores",
   "requests",
+  "support_tickets",
   "moderation",
   "workers",
 ];

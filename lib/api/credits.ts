@@ -1,4 +1,5 @@
 import { syncGenerationTaskQueueById } from "@/lib/task-queue-store";
+import { getAdminClient } from "@/lib/supabase/admin";
 
 type SupabaseLike = {
   rpc: (
@@ -35,6 +36,8 @@ export async function createDebitedGeneration(
     jobPayload?: Record<string, unknown>;
   }
 ): Promise<{ generationId: string; creditsRemaining: number }> {
+  await assertUserCanGenerate(params.userId);
+
   const { data, error } = await supabase.rpc("create_generation_with_credit_debit", {
     p_user_id: params.userId,
     p_clothing_urls: params.clothingUrls,
@@ -100,6 +103,46 @@ export async function failGenerationWithRefund(
 
   console.error(
     `[credits] CRITICAL: refund failed after ${maxRetries} attempts for generation ${params.generationId}, user ${params.userId}, amount ${params.amount}`
+  );
+}
+
+async function assertUserCanGenerate(userId: string) {
+  try {
+    const { data, error } = await getAdminClient()
+      .from("admin_user_controls")
+      .select("status,generate_enabled,reason,expires_at")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (error) {
+      if (isMissingUserControlTable(error)) return;
+      throw new CreditError(error.message || "用户运营状态检查失败", 500);
+    }
+
+    if (!data) return;
+    const expiresAt = typeof data.expires_at === "string" ? Date.parse(data.expires_at) : NaN;
+    if (Number.isFinite(expiresAt) && expiresAt <= Date.now()) return;
+
+    const status = String(data.status || "active").toLowerCase();
+    const generateEnabled = data.generate_enabled !== false;
+    if (status === "suspended" || !generateEnabled) {
+      const reason = typeof data.reason === "string" && data.reason.trim() ? `：${data.reason.trim()}` : "";
+      throw new CreditError(`账号已被运营暂停生成${reason}`, 403);
+    }
+  } catch (error) {
+    if (error instanceof CreditError) throw error;
+    if (process.env.NODE_ENV === "development") {
+      console.warn("[user-control] generation check skipped:", error);
+    }
+  }
+}
+
+function isMissingUserControlTable(error: { code?: string; message?: string }) {
+  const message = `${error.code || ""} ${error.message || ""}`.toLowerCase();
+  return (
+    message.includes("42p01") ||
+    message.includes("does not exist") ||
+    (message.includes("could not find") && message.includes("admin_user_controls"))
   );
 }
 

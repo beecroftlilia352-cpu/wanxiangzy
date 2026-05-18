@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { AlertTriangle, ArrowUpRight, ImageIcon } from "lucide-react";
+import { AdminImagePreview } from "@/components/admin/AdminImagePreview";
 import type { TaskStatusGroup } from "@/lib/task-queue";
 
 export function AdminPageHeader({
@@ -88,13 +89,18 @@ export function AdminNotice({ children, tone = "warning" }: { children: ReactNod
 export function AdminStatusBadge({ status, group }: { status: string; group?: TaskStatusGroup }) {
   const normalized = (group || status).toLowerCase();
   const className =
-    normalized === "completed" || normalized === "success" || normalized === "published" || normalized === "pass" || normalized === "approved"
+    normalized === "completed" ||
+    normalized === "success" ||
+    normalized === "published" ||
+    normalized === "pass" ||
+    normalized === "approved" ||
+    normalized === "active"
       ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-      : normalized === "failed" || normalized === "danger" || normalized === "hide" || normalized === "rejected"
+      : normalized === "failed" || normalized === "danger" || normalized === "hide" || normalized === "rejected" || normalized === "suspended"
         ? "border-red-200 bg-red-50 text-red-700"
       : normalized === "running" || normalized.startsWith("processing")
         ? "border-blue-200 bg-blue-50 text-blue-700"
-        : normalized === "queued" || normalized === "draft" || normalized === "escalate" || normalized === "pending"
+        : normalized === "queued" || normalized === "draft" || normalized === "escalate" || normalized === "pending" || normalized === "restricted"
             ? "border-amber-200 bg-amber-50 text-amber-700"
             : "border-slate-200 bg-slate-100 text-slate-600";
 
@@ -167,21 +173,28 @@ export function AdminTable<T>({
 }
 
 export function ThumbnailStrip({ urls }: { urls: string[] }) {
-  const visible = urls.filter(Boolean).slice(0, 3);
+  const cleanUrls = urls.map((url) => url.trim()).filter(Boolean);
+  const visible = cleanUrls.slice(0, 3);
   if (!visible.length) return <span className="text-xs font-semibold text-slate-400">无图片</span>;
 
   return (
     <div className="flex items-center -space-x-2">
       {visible.map((url, index) => (
-        <span key={`${url}-${index}`} className="relative h-9 w-9 overflow-hidden rounded-md border border-white bg-slate-100 shadow-sm">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={url} alt="" className="h-full w-full object-cover" loading="lazy" />
-        </span>
+        <AdminImagePreview
+          key={`${url}-${index}`}
+          urls={cleanUrls}
+          initialIndex={index}
+          label={`预览图片 ${index + 1}`}
+        />
       ))}
-      {urls.length > visible.length && (
-        <span className="flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 bg-white text-[11px] font-black text-slate-500">
-          +{urls.length - visible.length}
-        </span>
+      {cleanUrls.length > visible.length && (
+        <AdminImagePreview
+          urls={cleanUrls}
+          initialIndex={visible.length}
+          label="预览更多图片"
+          countLabel={`+${cleanUrls.length - visible.length}`}
+          triggerClassName="flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 bg-white shadow-sm"
+        />
       )}
     </div>
   );
@@ -239,6 +252,9 @@ function formatStatusLabel(status: string, group?: TaskStatusGroup) {
   if (label === "pending") return "待处理";
   if (label === "approved") return "已通过";
   if (label === "rejected") return "已驳回";
+  if (label === "active") return "正常";
+  if (label === "restricted") return "观察";
+  if (label === "suspended") return "暂停";
   if (label === "hide") return "下架";
   if (label === "pass") return "通过";
   if (label === "escalate") return "复核";

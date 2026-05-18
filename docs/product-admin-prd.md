@@ -410,6 +410,7 @@ sequenceDiagram
 | `admin_role_permissions` | 角色权限关联 |
 | `admin_audit_logs` | 所有后台操作审计 |
 | `admin_operation_requests` | 需审批操作，如大额补偿、批量删除 |
+| `admin_user_controls` | 用户运营状态、生成权限、服务等级、限制原因和到期时间 |
 | `admin_config_versions` | 配置草稿、发布、回滚 |
 | `provider_model_configs` | provider、模型、模块、价格、开关 |
 | `moderation_cases` | 审核案件 |
@@ -445,12 +446,14 @@ sequenceDiagram
 | `/api/admin/users/:id` | GET/PATCH | 用户详情/状态 |
 | `/api/admin/users/:id/credits` | POST | 积分调整 |
 | `/api/admin/generations` | GET | 任务列表 |
-| `/api/admin/generations/:id` | GET | 任务详情 |
-| `/api/admin/generations/:id/retry` | POST | 安全重跑 |
+| `/api/admin/generations/:id` | GET/PATCH | 任务详情、重新入队、失败退款、取消退款、失败不退 |
 | `/api/admin/assets` | GET | 素材列表 |
 | `/api/admin/assets/lifecycle` | GET | 素材生命周期总览 |
 | `/api/admin/assets/lifecycle/plan` | POST | 创建迁移/归档/冻结计划审计 |
 | `/api/admin/assets/:id/moderate` | POST | 审核操作 |
+| `/api/admin/support-tickets` | GET/POST | 客服工单列表/创建 |
+| `/api/admin/support-tickets/:id` | PATCH | 客服工单状态、优先级和解决说明 |
+| `/api/admin/risk` | GET | 智能风控评分队列 |
 | `/api/admin/provider-models` | GET/PATCH | 模型配置 |
 | `/api/admin/configs` | GET/POST | 配置版本 |
 | `/api/admin/workers/run` | POST | 手动触发 worker |
@@ -577,8 +580,8 @@ P2 长期：
 | --- | --- | --- |
 | 登录、RBAC、审计日志 | 已落地 | `/admin` 统一鉴权，`admin_members` 管理成员，写操作进入 `admin_audit_logs`。 |
 | 总览 Dashboard | 已落地 | 用户、积分、任务、模块、模型、任务健康和快速入口已接入。 |
-| 用户查询与积分流水 | 已落地 | 支持用户列表、用户详情、积分流水、人工调账、补偿审批申请和审计。 |
-| 生成任务中心 | 已落地 | 支持全模块任务列表、generation/workflow 详情、payload、积分、审计、步骤和事件下钻。 |
+| 用户查询与积分流水 | 已落地 | 支持用户列表、用户详情、资料编辑、生成权限暂停/恢复、服务等级、限制原因、限制到期、积分人工调账、补偿审批申请和审计；运行时生成扣费前会检查 `admin_user_controls`。 |
+| 生成任务中心 | 已落地 | 支持全模块任务列表、卡住任务筛选、generation/workflow 详情、payload、积分、审计、步骤和事件下钻；卡住任务可重新入队、失败退款、取消退款或失败不退，所有操作必须填写原因并写入审计。 |
 | 模型/provider 健康与开关 | 已落地管理面 | provider 健康只展示 secret 配置状态；模型开关与降级策略通过 `model.routing` 配置版本创建、发布和归档。运行时代码消费配置属于后续增强。 |
 | 素材/结果图查看与下架 | 已落地 | 资产列表支持最新审核状态、通过/下架/复核记录，generation 会写入 `job_payload.adminModeration`；历史列表与任务队列会过滤或清空下架结果展示。 |
 | 任务队列与 worker 状态 | 已落地 | `/admin/workers` 支持 processor secret 健康、队列样本、stale 任务、手动触发 worker 和审计记录。 |
@@ -595,3 +598,10 @@ P2 长期：
 | 自动异常诊断建议 | 已落地规则引擎 V1 | `/admin/diagnostics` 汇总 Dashboard、Worker、成本、审核、审批和 provider 配置，输出严重/预警/提示级诊断、影响、证据和处理建议，并接入 `/api/admin/diagnostics` 与 CSV 导出数据集。LLM 诊断和主动告警属于后续增强。 |
 | Agent eval 管理 | 已落地管理面 V1 | `/admin/evals` 汇总 `agent_eval_runs`、`agent_eval_results`、内置 `BRAIN_EVAL_CASES` 和 Agent eval worker secret 健康，支持失败 case 定位、手动触发回归、`/api/admin/evals`、保存视图和 CSV 导出数据集。趋势图、上线门禁自动阻断和 LLM 失败聚类属于后续增强。 |
 | 批量素材迁移和生命周期策略 | 已落地安全编排 V1 | `/admin/assets/lifecycle` 汇总生成结果、输入图、参考图、收藏方案和审核状态，识别 OSS、ImgBB、外部 URL、临时输入图、保护资产、归档候选和下架冻结候选；支持 `/api/admin/assets/lifecycle`、计划创建审计、保存视图和 CSV 导出数据集。真实 OSS 迁移、物理删除、缩略图重建和引用回写 worker 属于后续增强。 |
+
+## 19. P2 实施状态
+
+| P2 项 | 当前落地 | 说明 |
+| --- | --- | --- |
+| 自动客服工单 | 已落地人工工单 V1 | `/admin/support` 基于 `admin_support_tickets` 管理客服工单，支持新建、筛选、状态流转、优先级、分类、用户/任务/资产关联、解决说明、审计日志、`/api/admin/support-tickets`、保存视图和 CSV 导出数据集。用户端自动反馈入口、Agent 自动总结、SLA 计时和客服通知属于后续增强。 |
+| 智能风控评分 | 已落地可解释评分 V1 | `/admin/risk` 基于 `profiles`、`generations`、`credit_logs`、`moderation_cases` 和 `admin_support_tickets` 计算近 7/14/30/90 天用户风险分，支持严重/高/中/低分层、命中信号、推荐动作、用户详情跳转、`/api/admin/risk`、保存视图和 CSV 导出数据集。自动封禁、实时拦截、可配置权重、设备/IP 指纹和申诉工作流属于后续增强。 |

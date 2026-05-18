@@ -12,6 +12,7 @@ export async function GET(request: Request) {
     module: params.get("module") || "",
     status: params.get("status") || "",
     sourceType: normalizeSourceType(params.get("sourceType")),
+    stale: params.get("stale") === "1" || params.get("stale") === "true",
     limit: Number(params.get("limit") || 50),
   });
 

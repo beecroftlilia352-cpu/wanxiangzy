@@ -10,6 +10,8 @@ import {
   formatDateTime,
   formatNumber,
 } from "@/components/admin/AdminPrimitives";
+import { AdminTaskActions } from "@/components/admin/AdminTaskActions";
+import { AdminUserManagementForm } from "@/components/admin/AdminUserManagementForm";
 import {
   getAdminUserDetail,
   type AdminAssetListItem,
@@ -33,7 +35,7 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
       <AdminPageHeader
         eyebrow="User Detail"
         title={profile?.email || "用户详情"}
-        description="集中查看用户资料、积分流水、任务历史和资产作品，便于客服排障和财务核查。"
+        description="集中查看用户资料、积分流水、任务历史和资产作品，并提供资料、积分和生成权限管理。"
         actions={
           <Link href="/admin/users" className="inline-flex h-9 items-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 shadow-sm hover:bg-slate-50">
             返回用户列表
@@ -47,8 +49,13 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <AdminMetricCard label="积分余额" value={formatNumber(profile?.credits || 0)} />
         <AdminMetricCard label="累计消耗" value={formatNumber(profile?.totalCreditsUsed || 0)} />
+        <AdminMetricCard
+          label="生成权限"
+          value={profile?.generateEnabled ? "可生成" : "已暂停"}
+          tone={profile?.generateEnabled ? "good" : "danger"}
+          hint={profile?.controlReason || undefined}
+        />
         <AdminMetricCard label="任务样本" value={formatNumber(detail.tasks.length)} />
-        <AdminMetricCard label="资产样本" value={formatNumber(detail.assets.length)} />
       </div>
 
       <AdminSection title="基础资料">
@@ -56,9 +63,21 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
           <DetailItem label="用户 ID" value={id} mono />
           <DetailItem label="邮箱" value={profile?.email || "-"} />
           <DetailItem label="显示名" value={profile?.displayName || "-"} />
+          <DetailItem label="账号状态" value={profile ? accountStatusLabel(profile.accountStatus) : "-"} />
+          <DetailItem label="服务等级" value={profile ? supportLevelLabel(profile.supportLevel) : "-"} />
+          <DetailItem label="限制到期" value={formatDateTime(profile?.controlExpiresAt)} />
           <DetailItem label="注册时间" value={formatDateTime(profile?.createdAt)} />
         </dl>
       </AdminSection>
+
+      {profile && (
+        <AdminSection
+          title="用户操作"
+          description="所有写操作都会进入后台审计日志；暂停生成会在扣积分和创建任务前生效。"
+        >
+          <AdminUserManagementForm profile={profile} />
+        </AdminSection>
+      )}
 
       <AdminSection title="最近积分流水">
         <AdminTable<AdminCreditLogItem>
@@ -96,6 +115,8 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
             },
             { key: "thumbs", label: "图像", render: (row) => <ThumbnailStrip urls={row.resultThumbnails.length ? row.resultThumbnails : row.inputThumbnails} /> },
             { key: "module", label: "模块", render: (row) => <span className="text-sm font-bold text-slate-700">{row.moduleLabel}</span> },
+            { key: "stale", label: "卡住", render: (row) => <span className={`whitespace-nowrap text-xs font-black ${row.isStale ? "text-orange-700" : "text-slate-400"}`}>{row.isStale ? `${row.staleMinutes} 分钟` : "-"}</span> },
+            { key: "actions", label: "操作", render: (row) => <AdminTaskActions id={row.sourceId} sourceType={row.sourceType} statusGroup={row.statusGroup} isStale={row.isStale} compact /> },
             { key: "time", label: "时间", render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-slate-500">{formatDateTime(row.createdAt)}</span> },
           ]}
         />
@@ -125,4 +146,16 @@ function DetailItem({ label, value, mono = false }: { label: string; value: stri
       <dd className={`mt-1 break-all text-sm font-bold text-slate-800 ${mono ? "font-mono" : ""}`}>{value}</dd>
     </div>
   );
+}
+
+function accountStatusLabel(value: string) {
+  if (value === "restricted") return "观察";
+  if (value === "suspended") return "暂停";
+  return "正常";
+}
+
+function supportLevelLabel(value: string) {
+  if (value === "priority") return "优先";
+  if (value === "watch") return "重点观察";
+  return "标准";
 }

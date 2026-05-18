@@ -9,6 +9,7 @@ import {
   formatDateTime,
   formatNumber,
 } from "@/components/admin/AdminPrimitives";
+import { AdminTaskActions } from "@/components/admin/AdminTaskActions";
 import {
   getAdminTaskDetail,
   type AdminAuditLog,
@@ -48,11 +49,28 @@ export default async function AdminTaskDetailPage({ params }: PageProps) {
             <DetailItem label="任务 ID" value={task.sourceId} mono />
             <DetailItem label="用户 ID" value={task.userId} mono href={`/admin/users/${task.userId}`} />
             <DetailItem label="模块" value={task.moduleLabel} />
+            <DetailItem label="卡住时长" value={task.isStale ? `${task.staleMinutes} 分钟` : "-"} />
             <div>
               <dt className="text-xs font-black uppercase tracking-[0.08em] text-slate-400">状态</dt>
               <dd className="mt-1"><AdminStatusBadge status={task.status} group={task.statusGroup} /></dd>
             </div>
             <DetailItem label="时间" value={formatDateTime(task.createdAt)} />
+          </div>
+        </AdminSection>
+      )}
+
+      {task && (
+        <AdminSection
+          title="任务操作"
+          description="重新入队不会再次扣积分；失败退款和取消退款会复用积分事务，避免重复退还。"
+        >
+          <div className="p-4">
+            <AdminTaskActions
+              id={task.sourceId}
+              sourceType={task.sourceType}
+              statusGroup={task.statusGroup}
+              isStale={task.isStale}
+            />
           </div>
         </AdminSection>
       )}

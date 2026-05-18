@@ -119,6 +119,73 @@ CREATE INDEX IF NOT EXISTS admin_operation_requests_target_idx
 
 ALTER TABLE public.admin_operation_requests ENABLE ROW LEVEL SECURITY;
 
+CREATE TABLE IF NOT EXISTS public.admin_user_controls (
+  user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  status TEXT NOT NULL DEFAULT 'active'
+    CHECK (status IN ('active', 'restricted', 'suspended')),
+  generate_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+  support_level TEXT NOT NULL DEFAULT 'standard'
+    CHECK (support_level IN ('standard', 'priority', 'watch')),
+  reason TEXT,
+  note TEXT,
+  expires_at TIMESTAMPTZ,
+  updated_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  updated_by_email TEXT,
+  updated_by_role TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS admin_user_controls_status_idx
+  ON public.admin_user_controls (status, generate_enabled, updated_at DESC);
+
+CREATE INDEX IF NOT EXISTS admin_user_controls_support_idx
+  ON public.admin_user_controls (support_level, updated_at DESC);
+
+ALTER TABLE public.admin_user_controls ENABLE ROW LEVEL SECURITY;
+
+CREATE TABLE IF NOT EXISTS public.admin_support_tickets (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  ticket_no TEXT UNIQUE NOT NULL DEFAULT ('ST-' || upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 10))),
+  status TEXT NOT NULL DEFAULT 'open'
+    CHECK (status IN ('open', 'pending', 'waiting_user', 'resolved', 'closed')),
+  priority TEXT NOT NULL DEFAULT 'medium'
+    CHECK (priority IN ('low', 'medium', 'high', 'urgent')),
+  category TEXT NOT NULL DEFAULT 'other'
+    CHECK (category IN ('generation_failure', 'credit_issue', 'content_moderation', 'billing', 'account', 'technical', 'other')),
+  source TEXT NOT NULL DEFAULT 'admin'
+    CHECK (source IN ('admin', 'user_feedback', 'diagnostic', 'agent')),
+  user_id UUID,
+  user_email TEXT,
+  generation_id UUID,
+  asset_source_type TEXT,
+  asset_source_id TEXT,
+  title TEXT NOT NULL,
+  description TEXT NOT NULL,
+  resolution TEXT,
+  tags JSONB NOT NULL DEFAULT '[]'::jsonb,
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  assigned_to UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  assigned_to_email TEXT,
+  created_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  created_by_email TEXT,
+  created_by_role TEXT,
+  resolved_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS admin_support_tickets_status_created_idx
+  ON public.admin_support_tickets (status, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS admin_support_tickets_user_created_idx
+  ON public.admin_support_tickets (user_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS admin_support_tickets_generation_idx
+  ON public.admin_support_tickets (generation_id);
+
+ALTER TABLE public.admin_support_tickets ENABLE ROW LEVEL SECURITY;
+
 CREATE TABLE IF NOT EXISTS public.admin_saved_views (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   owner_user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
@@ -180,6 +247,18 @@ CREATE TRIGGER admin_members_touch_updated_at
 DROP TRIGGER IF EXISTS admin_operation_requests_touch_updated_at ON public.admin_operation_requests;
 CREATE TRIGGER admin_operation_requests_touch_updated_at
   BEFORE UPDATE ON public.admin_operation_requests
+  FOR EACH ROW
+  EXECUTE FUNCTION public.touch_admin_member_updated_at();
+
+DROP TRIGGER IF EXISTS admin_user_controls_touch_updated_at ON public.admin_user_controls;
+CREATE TRIGGER admin_user_controls_touch_updated_at
+  BEFORE UPDATE ON public.admin_user_controls
+  FOR EACH ROW
+  EXECUTE FUNCTION public.touch_admin_member_updated_at();
+
+DROP TRIGGER IF EXISTS admin_support_tickets_touch_updated_at ON public.admin_support_tickets;
+CREATE TRIGGER admin_support_tickets_touch_updated_at
+  BEFORE UPDATE ON public.admin_support_tickets
   FOR EACH ROW
   EXECUTE FUNCTION public.touch_admin_member_updated_at();
 

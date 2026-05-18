@@ -9,6 +9,8 @@ import {
   getAdminCostReport,
   listAdminModerationCases,
   listAdminOperationRequests,
+  getAdminRiskOverview,
+  listAdminSupportTickets,
   listAdminTasks,
   listAdminUsers,
 } from "@/lib/admin/data";
@@ -24,7 +26,9 @@ export const ADMIN_EXPORT_TYPES = [
   "prompt_experiments",
   "diagnostics",
   "reports",
+  "risk_scores",
   "requests",
+  "support_tickets",
   "moderation",
 ] as const;
 
@@ -35,6 +39,7 @@ export type AdminExportFilters = {
   status?: string;
   module?: string;
   sourceType?: "generation" | "workflow" | "all";
+  stale?: boolean;
   limit?: number;
   days?: number;
 };
@@ -52,11 +57,16 @@ export async function loadAdminExportData(
   if (exportType === "users") {
     const result = await listAdminUsers({ q: filters.q, limit });
     return {
-      columns: ["id", "email", "display_name", "credits", "total_credits_used", "generation_count", "workflow_count", "created_at", "updated_at"],
+      columns: ["id", "email", "display_name", "account_status", "generate_enabled", "support_level", "control_reason", "control_expires_at", "credits", "total_credits_used", "generation_count", "workflow_count", "created_at", "updated_at"],
       rows: result.rows.map((row) => [
         row.id,
         row.email,
         row.displayName || "",
+        row.accountStatus,
+        String(row.generateEnabled),
+        row.supportLevel,
+        row.controlReason || "",
+        row.controlExpiresAt || "",
         String(row.credits),
         String(row.totalCreditsUsed),
         String(row.generationCount),
@@ -90,10 +100,11 @@ export async function loadAdminExportData(
       module: filters.module,
       status: filters.status,
       sourceType: filters.sourceType,
+      stale: filters.stale,
       limit,
     });
     return {
-      columns: ["id", "source_id", "source_type", "user_id", "module", "status", "status_group", "progress", "expected_count", "result_count", "credits", "created_at", "updated_at", "completed_at", "error"],
+      columns: ["id", "source_id", "source_type", "user_id", "module", "status", "status_group", "progress", "expected_count", "result_count", "is_stale", "stale_minutes", "credits", "created_at", "updated_at", "completed_at", "error"],
       rows: result.rows.map((row) => [
         row.id,
         row.sourceId,
@@ -105,6 +116,8 @@ export async function loadAdminExportData(
         String(row.progress),
         String(row.expectedCount),
         String(row.resultCount),
+        String(row.isStale),
+        String(row.staleMinutes),
         String(row.credits || 0),
         row.createdAt || "",
         row.updatedAt || "",
@@ -300,6 +313,31 @@ export async function loadAdminExportData(
     };
   }
 
+  if (exportType === "risk_scores") {
+    const result = await getAdminRiskOverview({ q: filters.q, level: filters.status, days: filters.days || 30, limit });
+    return {
+      columns: ["user_id", "email", "score", "level", "credits", "total_credits_used", "generation_count", "failed_generations", "refund_credits", "adjustment_credits", "moderation_hits", "support_tickets", "urgent_support_tickets", "signals", "recommended_action", "latest_activity_at"],
+      rows: result.rows.map((row) => [
+        row.userId,
+        row.email || "",
+        String(row.score),
+        row.level,
+        String(row.credits),
+        String(row.totalCreditsUsed),
+        String(row.generationCount),
+        String(row.failedGenerations),
+        String(row.refundCredits),
+        String(row.adjustmentCredits),
+        String(row.moderationHits),
+        String(row.supportTickets),
+        String(row.urgentSupportTickets),
+        row.signals.map((signal) => `${signal.label}(+${signal.score})`).join("; "),
+        row.recommendedAction,
+        row.latestActivityAt || "",
+      ]),
+    };
+  }
+
   if (exportType === "requests") {
     const result = await listAdminOperationRequests({ q: filters.q, status: filters.status, limit });
     return {
@@ -316,6 +354,35 @@ export async function loadAdminExportData(
         row.approvedByEmail || "",
         row.createdAt || "",
         row.approvedAt || "",
+      ]),
+    };
+  }
+
+  if (exportType === "support_tickets") {
+    const result = await listAdminSupportTickets({ q: filters.q, status: filters.status, category: filters.module, limit });
+    return {
+      columns: ["id", "ticket_no", "status", "priority", "category", "source", "user_id", "user_email", "generation_id", "asset_source_type", "asset_source_id", "title", "description", "resolution", "tags", "assigned_to_email", "created_by_email", "created_at", "updated_at", "resolved_at"],
+      rows: result.rows.map((row) => [
+        row.id,
+        row.ticketNo,
+        row.status,
+        row.priority,
+        row.category,
+        row.source,
+        row.userId || "",
+        row.userEmail || "",
+        row.generationId || "",
+        row.assetSourceType || "",
+        row.assetSourceId || "",
+        row.title,
+        row.description,
+        row.resolution || "",
+        row.tags.join(";"),
+        row.assignedToEmail || "",
+        row.createdByEmail || "",
+        row.createdAt || "",
+        row.updatedAt || "",
+        row.resolvedAt || "",
       ]),
     };
   }
@@ -378,6 +445,7 @@ export function normalizeAdminExportFilters(value: unknown): AdminExportFilters 
     status: stringValue(input.status),
     module: stringValue(input.module),
     sourceType,
+    stale: input.stale === true || input.stale === "1" || input.stale === "true",
     limit: clampExportLimit(input.limit),
     days: clampReportDays(input.days),
   };

@@ -15,7 +15,9 @@ const exportTypes = [
   { value: "prompt_experiments", label: "Prompt 实验" },
   { value: "diagnostics", label: "异常诊断" },
   { value: "reports", label: "成本报表" },
+  { value: "risk_scores", label: "风控评分" },
   { value: "requests", label: "审批单" },
+  { value: "support_tickets", label: "客服工单" },
   { value: "moderation", label: "审核案件" },
 ];
 
@@ -25,6 +27,7 @@ export function AdminExportForm() {
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("");
   const [module, setModule] = useState("");
+  const [stale, setStale] = useState(false);
   const [limit, setLimit] = useState(100);
   const [reason, setReason] = useState("");
   const [message, setMessage] = useState("");
@@ -42,7 +45,7 @@ export function AdminExportForm() {
         body: JSON.stringify({
           exportType,
           reason,
-          filters: { q, status, module, limit },
+          filters: { q, status, module, stale, limit },
         }),
       });
       const payload = await res.json().catch(() => ({}));
@@ -58,7 +61,7 @@ export function AdminExportForm() {
   }
 
   return (
-    <form onSubmit={submit} className="grid gap-3 p-4 xl:grid-cols-[180px_minmax(180px,1fr)_150px_150px_120px_minmax(220px,1fr)_auto]">
+    <form onSubmit={submit} className="grid gap-3 p-4 xl:grid-cols-[180px_minmax(180px,1fr)_150px_150px_120px_120px_minmax(220px,1fr)_auto]">
       <label className="space-y-1.5">
         <span className="text-xs font-black text-slate-500">数据集</span>
         <select
@@ -107,6 +110,17 @@ export function AdminExportForm() {
           className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold outline-none focus:border-slate-400"
         />
       </label>
+      <label className="flex items-end">
+        <span className="inline-flex h-10 w-full items-center gap-2 rounded-lg border border-slate-200 bg-white px-2 text-xs font-black text-slate-700">
+          <input
+            type="checkbox"
+            checked={stale}
+            onChange={(event) => setStale(event.target.checked)}
+            className="h-3.5 w-3.5 rounded border-slate-300"
+          />
+          卡住任务
+        </span>
+      </label>
       <label className="space-y-1.5">
         <span className="text-xs font-black text-slate-500">导出原因</span>
         <input
@@ -125,7 +139,7 @@ export function AdminExportForm() {
         </button>
       </div>
       {message && (
-        <p className={`xl:col-span-7 text-sm font-bold ${message.includes("已创建") ? "text-emerald-700" : "text-red-700"}`}>
+        <p className={`xl:col-span-8 text-sm font-bold ${message.includes("已创建") ? "text-emerald-700" : "text-red-700"}`}>
           {message}
         </p>
       )}

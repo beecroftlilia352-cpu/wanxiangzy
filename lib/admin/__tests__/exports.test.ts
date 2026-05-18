@@ -10,6 +10,7 @@ describe("admin exports", () => {
       status: "",
       module: "",
       sourceType: "workflow",
+      stale: false,
       limit: 500,
       days: 14,
     });

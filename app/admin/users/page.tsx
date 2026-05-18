@@ -5,6 +5,7 @@ import {
   AdminNotice,
   AdminPageHeader,
   AdminSection,
+  AdminStatusBadge,
   AdminTable,
   formatDateTime,
   formatNumber,
@@ -23,14 +24,14 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
   const users = await listAdminUsers({ q, limit: 50 });
   const totalCredits = users.rows.reduce((sum, row) => sum + row.credits, 0);
   const totalUsed = users.rows.reduce((sum, row) => sum + row.totalCreditsUsed, 0);
-  const totalGenerations = users.rows.reduce((sum, row) => sum + row.generationCount, 0);
+  const paused = users.rows.filter((row) => row.accountStatus === "suspended" || !row.generateEnabled).length;
 
   return (
     <div className="space-y-5">
       <AdminPageHeader
         eyebrow="Users"
         title="用户管理"
-        description="查看用户余额、积分消耗、生成活跃度和最近任务时间。写操作会在下一阶段接入二次确认与审计。"
+        description="查看用户余额、积分消耗、生成活跃度和运营控制状态；进入详情页可编辑资料、调整积分、暂停生成。"
         actions={
           <Link
             href="/admin/audit"
@@ -48,7 +49,7 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
         <AdminMetricCard label="匹配用户" value={formatNumber(users.total)} hint={q ? `搜索：${q}` : "当前列表"} />
         <AdminMetricCard label="样本余额" value={formatNumber(totalCredits)} hint="当前页用户合计" />
         <AdminMetricCard label="样本消耗" value={formatNumber(totalUsed)} hint="当前页用户合计" />
-        <AdminMetricCard label="样本生成" value={formatNumber(totalGenerations)} hint="当前页最多统计 2000 条" />
+        <AdminMetricCard label="暂停生成" value={formatNumber(paused)} tone={paused > 0 ? "warning" : "neutral"} hint="当前页运营控制" />
       </div>
 
       <AdminSection
@@ -90,6 +91,18 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
               ),
             },
             {
+              key: "status",
+              label: "状态",
+              render: (row) => (
+                <div className="space-y-1">
+                  <AdminStatusBadge status={row.accountStatus} />
+                  <p className={`text-xs font-bold ${row.generateEnabled ? "text-emerald-700" : "text-red-700"}`}>
+                    {row.generateEnabled ? "可生成" : "已暂停生成"}
+                  </p>
+                </div>
+              ),
+            },
+            {
               key: "credits",
               label: "余额",
               render: (row) => <span className="font-mono text-sm font-black text-slate-800">{formatNumber(row.credits)}</span>,
@@ -110,6 +123,11 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
               render: (row) => <span className="font-mono text-sm font-bold text-slate-700">{formatNumber(row.workflowCount)}</span>,
             },
             {
+              key: "support",
+              label: "服务",
+              render: (row) => <span className="whitespace-nowrap text-xs font-black text-slate-600">{supportLevelLabel(row.supportLevel)}</span>,
+            },
+            {
               key: "latest",
               label: "最近生成",
               render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-slate-500">{formatDateTime(row.latestGenerationAt)}</span>,
@@ -128,4 +146,10 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
 
 function getSearchParam(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] || "" : value || "";
+}
+
+function supportLevelLabel(value: string) {
+  if (value === "priority") return "优先";
+  if (value === "watch") return "观察";
+  return "标准";
 }

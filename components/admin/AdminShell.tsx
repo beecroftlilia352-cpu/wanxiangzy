@@ -11,6 +11,7 @@ import {
   DatabaseZap,
   FileDown,
   Gauge,
+  Headset,
   FileText,
   FlaskConical,
   ImageIcon,
@@ -43,6 +44,8 @@ const adminNav = [
   { href: "/admin/users", label: "用户", icon: Users },
   { href: "/admin/credits", label: "积分", icon: Coins },
   { href: "/admin/requests", label: "审批", icon: ClipboardCheck },
+  { href: "/admin/support", label: "客服", icon: Headset },
+  { href: "/admin/risk", label: "风控", icon: ShieldAlert },
   { href: "/admin/generations", label: "任务", icon: Activity },
   { href: "/admin/assets", label: "资产", icon: ImageIcon },
   { href: "/admin/reports", label: "报表", icon: BarChart3 },
@@ -168,6 +171,8 @@ function currentTitle(pathname: string) {
   if (pathname.startsWith("/admin/users")) return "用户";
   if (pathname.startsWith("/admin/credits")) return "积分";
   if (pathname.startsWith("/admin/requests")) return "审批";
+  if (pathname.startsWith("/admin/support")) return "客服";
+  if (pathname.startsWith("/admin/risk")) return "风控";
   if (pathname.startsWith("/admin/generations")) return "任务";
   if (pathname.startsWith("/admin/assets")) return "资产";
   if (pathname.startsWith("/admin/reports")) return "报表";

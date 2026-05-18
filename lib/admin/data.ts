@@ -56,11 +56,33 @@ export type AdminUserListItem = {
   displayName: string | null;
   credits: number;
   totalCreditsUsed: number;
+  accountStatus: AdminUserAccountStatus;
+  generateEnabled: boolean;
+  supportLevel: AdminUserSupportLevel;
+  controlReason: string | null;
+  controlNote: string | null;
+  controlExpiresAt: string | null;
   createdAt: string | null;
   updatedAt: string | null;
   generationCount: number;
   workflowCount: number;
   latestGenerationAt: string | null;
+};
+
+export type AdminUserAccountStatus = "active" | "restricted" | "suspended";
+
+export type AdminUserSupportLevel = "standard" | "priority" | "watch";
+
+export type AdminUserControl = {
+  userId: string;
+  status: AdminUserAccountStatus;
+  generateEnabled: boolean;
+  supportLevel: AdminUserSupportLevel;
+  reason: string | null;
+  note: string | null;
+  expiresAt: string | null;
+  updatedByEmail: string | null;
+  updatedAt: string | null;
 };
 
 export type AdminUserList = {
@@ -92,6 +114,8 @@ export type AdminTaskListItem = {
   model?: string | null;
   imageSize?: string | null;
   credits?: number | null;
+  isStale: boolean;
+  staleMinutes: number;
 };
 
 export type AdminTaskList = {
@@ -282,6 +306,60 @@ export type AdminOperationRequest = {
 export type AdminOperationRequestList = {
   rows: AdminOperationRequest[];
   available: boolean;
+  warnings: string[];
+};
+
+export type AdminSupportTicketStatus = "open" | "pending" | "waiting_user" | "resolved" | "closed";
+export type AdminSupportTicketPriority = "low" | "medium" | "high" | "urgent";
+export type AdminSupportTicketCategory =
+  | "generation_failure"
+  | "credit_issue"
+  | "content_moderation"
+  | "billing"
+  | "account"
+  | "technical"
+  | "other";
+
+export type AdminSupportTicket = {
+  id: string;
+  ticketNo: string;
+  status: AdminSupportTicketStatus;
+  priority: AdminSupportTicketPriority;
+  category: AdminSupportTicketCategory;
+  source: string;
+  userId: string | null;
+  userEmail: string | null;
+  generationId: string | null;
+  assetSourceType: string | null;
+  assetSourceId: string | null;
+  title: string;
+  description: string;
+  resolution: string | null;
+  tags: string[];
+  metadata: Record<string, unknown>;
+  assignedTo: string | null;
+  assignedToEmail: string | null;
+  createdBy: string | null;
+  createdByEmail: string | null;
+  createdByRole: string | null;
+  resolvedAt: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+};
+
+export type AdminSupportTicketList = {
+  rows: AdminSupportTicket[];
+  available: boolean;
+  total: number;
+  metrics: {
+    open: number;
+    pending: number;
+    waitingUser: number;
+    resolved: number;
+    closed: number;
+    urgent: number;
+    linkedGenerations: number;
+  };
   warnings: string[];
 };
 
@@ -609,6 +687,65 @@ export type AdminDiagnosticsReport = {
   warnings: string[];
 };
 
+export type AdminRiskLevel = "low" | "medium" | "high" | "critical";
+
+export type AdminRiskSignal = {
+  key: string;
+  label: string;
+  severity: AdminRiskLevel;
+  score: number;
+  detail: string;
+  evidence: Array<{ label: string; value: string | number }>;
+};
+
+export type AdminRiskUserItem = {
+  userId: string;
+  email: string | null;
+  displayName: string | null;
+  credits: number;
+  totalCreditsUsed: number;
+  generationCount: number;
+  failedGenerations: number;
+  refundCredits: number;
+  adjustmentCredits: number;
+  moderationHits: number;
+  supportTickets: number;
+  urgentSupportTickets: number;
+  latestActivityAt: string | null;
+  score: number;
+  level: AdminRiskLevel;
+  signals: AdminRiskSignal[];
+  recommendedAction: string;
+  detailUrl: string;
+};
+
+export type AdminRiskPolicy = {
+  id: string;
+  title: string;
+  description: string;
+  score: number;
+  level: AdminRiskLevel;
+};
+
+export type AdminRiskOverview = {
+  generatedAt: string;
+  days: number;
+  rows: AdminRiskUserItem[];
+  policies: AdminRiskPolicy[];
+  metrics: {
+    sampledUsers: number;
+    criticalUsers: number;
+    highUsers: number;
+    mediumUsers: number;
+    failedGenerations: number;
+    refundCredits: number;
+    moderationHits: number;
+    urgentSupportTickets: number;
+    averageScore: number;
+  };
+  warnings: string[];
+};
+
 type CountQuery = PromiseLike<unknown>;
 type SupabaseQuery = PromiseLike<unknown>;
 
@@ -616,6 +753,18 @@ const QUERY_TIMEOUT_MS = 7_000;
 const SHORT_QUERY_TIMEOUT_MS = 3_500;
 const PROFILE_COLUMNS = "id,email,display_name,credits,total_credits_used,created_at,updated_at";
 const PROFILE_COLUMNS_FALLBACK = "id,email,display_name,credits,created_at,updated_at";
+const ADMIN_STALE_TASK_MINUTES = 20;
+const ADMIN_USER_CONTROL_COLUMNS = [
+  "user_id",
+  "status",
+  "generate_enabled",
+  "support_level",
+  "reason",
+  "note",
+  "expires_at",
+  "updated_by_email",
+  "updated_at",
+].join(",");
 const TASK_QUEUE_COLUMNS = [
   "id",
   "user_id",
@@ -693,6 +842,32 @@ const OPERATION_REQUEST_COLUMNS = [
   "created_at",
   "updated_at",
   "approved_at",
+].join(",");
+const SUPPORT_TICKET_COLUMNS = [
+  "id",
+  "ticket_no",
+  "status",
+  "priority",
+  "category",
+  "source",
+  "user_id",
+  "user_email",
+  "generation_id",
+  "asset_source_type",
+  "asset_source_id",
+  "title",
+  "description",
+  "resolution",
+  "tags",
+  "metadata",
+  "assigned_to",
+  "assigned_to_email",
+  "created_by",
+  "created_by_email",
+  "created_by_role",
+  "resolved_at",
+  "created_at",
+  "updated_at",
 ].join(",");
 const SAVED_VIEW_COLUMNS = "id,owner_user_id,owner_email,name,resource,visibility,filters,columns,sort,created_at,updated_at";
 const EXPORT_JOB_COLUMNS = "id,export_type,status,requested_by,requested_by_email,requested_by_role,filters,row_count,download_token,expires_at,error_message,created_at";
@@ -1224,6 +1399,446 @@ export async function getAdminDiagnostics(): Promise<AdminDiagnosticsReport> {
   };
 }
 
+export async function getAdminRiskOverview(args: {
+  q?: string;
+  level?: string;
+  days?: number;
+  limit?: number;
+} = {}): Promise<AdminRiskOverview> {
+  const warnings: string[] = [];
+  const admin = getAdminClient();
+  const days = clampRiskDays(args.days);
+  const limit = clampLimit(args.limit, 10, 160, 80);
+  const q = (args.q || "").trim().toLowerCase();
+  const level = normalizeRiskLevel(args.level);
+  const sinceIso = new Date(Date.now() - days * 86_400_000).toISOString();
+
+  let profileQuery = admin
+    .from("profiles")
+    .select(PROFILE_COLUMNS)
+    .order("updated_at", { ascending: false })
+    .limit(Math.min(limit * 4, 500));
+  if (q) profileQuery = profileQuery.ilike("email", `%${q}%`);
+
+  let profileResult = await runQuery<Record<string, unknown>[]>(
+    profileQuery,
+    "risk profiles",
+    warnings,
+    true,
+  );
+  if (!profileResult.data && profileResult.error?.toLowerCase().includes("total_credits_used")) {
+    let fallbackQuery = admin
+      .from("profiles")
+      .select(PROFILE_COLUMNS_FALLBACK)
+      .order("updated_at", { ascending: false })
+      .limit(Math.min(limit * 4, 500));
+    if (q) fallbackQuery = fallbackQuery.ilike("email", `%${q}%`);
+    profileResult = await runQuery<Record<string, unknown>[]>(
+      fallbackQuery,
+      "risk profiles fallback",
+      warnings,
+      true,
+    );
+  }
+
+  const [generationResult, creditResult, moderationResult, supportResult] = await Promise.all([
+    runQuery<Record<string, unknown>[]>(
+      admin
+        .from("generations")
+        .select("id,user_id,status,result_urls,credits_used,credits_cost,created_at,updated_at,completed_at")
+        .gte("created_at", sinceIso)
+        .order("created_at", { ascending: false })
+        .limit(2500),
+      "risk generations",
+      warnings,
+      true,
+    ),
+    runQuery<Record<string, unknown>[]>(
+      admin
+        .from("credit_logs")
+        .select(CREDIT_LOG_COLUMNS)
+        .gte("created_at", sinceIso)
+        .order("created_at", { ascending: false })
+        .limit(2500),
+      "risk credit logs",
+      warnings,
+      true,
+    ),
+    runQuery<Record<string, unknown>[]>(
+      admin
+        .from("moderation_cases")
+        .select(MODERATION_CASE_COLUMNS)
+        .gte("created_at", sinceIso)
+        .order("created_at", { ascending: false })
+        .limit(1000),
+      "risk moderation cases",
+      warnings,
+      true,
+    ),
+    runQuery<Record<string, unknown>[]>(
+      admin
+        .from("admin_support_tickets")
+        .select(SUPPORT_TICKET_COLUMNS)
+        .gte("created_at", sinceIso)
+        .order("created_at", { ascending: false })
+        .limit(1000),
+      "risk support tickets",
+      warnings,
+      true,
+    ),
+  ]);
+
+  const profileMap = new Map<string, AdminUserListItem>();
+  for (const row of profileResult.data || []) {
+    const profile = mapProfileRow(row);
+    if (profile.id) profileMap.set(profile.id, profile);
+  }
+
+  const stats = new Map<string, RiskUserStats>();
+  const generationOwnerMap = new Map<string, string>();
+  for (const row of generationResult.data || []) {
+    const userId = stringValue(row.user_id);
+    const generationId = stringValue(row.id);
+    if (!userId) continue;
+    if (generationId) generationOwnerMap.set(generationId, userId);
+    const stat = getRiskStats(stats, userId);
+    const resultCount = arrayOfStrings(row.result_urls).length;
+    const statusGroup = normalizeTaskStatusGroup(stringValue(row.status), resultCount);
+    stat.generationCount += 1;
+    if (statusGroup === "failed") stat.failedGenerations += 1;
+    stat.generationCredits += Math.max(0, numberValue(row.credits_used) || numberValue(row.credits_cost));
+    stat.latestActivityAt = latestDate(stat.latestActivityAt, nullableString(row.updated_at) || nullableString(row.completed_at) || nullableString(row.created_at));
+  }
+
+  for (const row of creditResult.data || []) {
+    const userId = stringValue(row.user_id);
+    if (!userId) continue;
+    const stat = getRiskStats(stats, userId);
+    const amount = numberValue(row.amount);
+    const reason = stringValue(row.reason).toLowerCase();
+    if (amount > 0 && (stringValue(row.generation_id) || /refund|compens|退|补偿|失败/.test(reason))) {
+      stat.refundCredits += amount;
+    }
+    if (/admin|manual|adjust|后台|人工|客服|补偿/.test(reason)) {
+      stat.adjustmentCredits += Math.abs(amount);
+    }
+    stat.latestActivityAt = latestDate(stat.latestActivityAt, nullableString(row.created_at));
+  }
+
+  for (const row of moderationResult.data || []) {
+    const action = stringValue(row.action);
+    if (action !== "hide" && action !== "escalate") continue;
+    const userId = generationOwnerMap.get(stringValue(row.source_id));
+    if (!userId) continue;
+    const stat = getRiskStats(stats, userId);
+    stat.moderationHits += action === "hide" ? 2 : 1;
+    stat.latestActivityAt = latestDate(stat.latestActivityAt, nullableString(row.created_at));
+  }
+
+  for (const row of supportResult.data || []) {
+    const userId = stringValue(row.user_id);
+    if (!userId) continue;
+    const stat = getRiskStats(stats, userId);
+    const status = stringValue(row.status);
+    if (status !== "resolved" && status !== "closed") stat.supportTickets += 1;
+    if (stringValue(row.priority) === "urgent") stat.urgentSupportTickets += 1;
+    stat.latestActivityAt = latestDate(stat.latestActivityAt, nullableString(row.updated_at) || nullableString(row.created_at));
+  }
+
+  for (const userId of stats.keys()) {
+    if (!profileMap.has(userId)) {
+      profileMap.set(userId, {
+        id: userId,
+        email: "",
+        displayName: null,
+        credits: 0,
+        totalCreditsUsed: 0,
+        accountStatus: "active",
+        generateEnabled: true,
+        supportLevel: "standard",
+        controlReason: null,
+        controlNote: null,
+        controlExpiresAt: null,
+        createdAt: null,
+        updatedAt: null,
+        generationCount: 0,
+        workflowCount: 0,
+        latestGenerationAt: null,
+      });
+    }
+  }
+
+  let rows = Array.from(profileMap.values()).map((profile) => buildRiskUserItem(profile, stats.get(profile.id) || createRiskStats()));
+  if (q) rows = rows.filter((row) => matchesRiskSearch(row, q));
+  if (level) rows = rows.filter((row) => row.level === level);
+  rows = rows.sort((a, b) => b.score - a.score || Date.parse(b.latestActivityAt || "") - Date.parse(a.latestActivityAt || "")).slice(0, limit);
+
+  return {
+    generatedAt: new Date().toISOString(),
+    days,
+    rows,
+    policies: RISK_SCORE_POLICIES,
+    metrics: createRiskMetrics(rows),
+    warnings: uniqueStrings(warnings),
+  };
+}
+
+type RiskUserStats = {
+  generationCount: number;
+  failedGenerations: number;
+  generationCredits: number;
+  refundCredits: number;
+  adjustmentCredits: number;
+  moderationHits: number;
+  supportTickets: number;
+  urgentSupportTickets: number;
+  latestActivityAt: string | null;
+};
+
+const RISK_SCORE_POLICIES: AdminRiskPolicy[] = [
+  {
+    id: "moderation",
+    title: "内容风险",
+    description: "审核下架和升级复核是最高优先级风险信号，需先确认是否需要限制公开展示。",
+    score: 35,
+    level: "critical",
+  },
+  {
+    id: "refunds",
+    title: "退款/补偿异常",
+    description: "短期内多次退款、补偿或人工调整，优先核对任务失败原因与积分流水。",
+    score: 30,
+    level: "high",
+  },
+  {
+    id: "failure-rate",
+    title: "生成失败异常",
+    description: "任务量足够时失败率偏高，可能意味着素材质量、提示词、provider 或滥用问题。",
+    score: 30,
+    level: "high",
+  },
+  {
+    id: "support",
+    title: "客服压力",
+    description: "未完结工单和紧急工单会抬高风险分，避免重复补偿或遗漏用户承诺。",
+    score: 25,
+    level: "medium",
+  },
+];
+
+function createRiskStats(): RiskUserStats {
+  return {
+    generationCount: 0,
+    failedGenerations: 0,
+    generationCredits: 0,
+    refundCredits: 0,
+    adjustmentCredits: 0,
+    moderationHits: 0,
+    supportTickets: 0,
+    urgentSupportTickets: 0,
+    latestActivityAt: null,
+  };
+}
+
+function getRiskStats(map: Map<string, RiskUserStats>, userId: string) {
+  const existing = map.get(userId);
+  if (existing) return existing;
+  const created = createRiskStats();
+  map.set(userId, created);
+  return created;
+}
+
+function buildRiskUserItem(profile: AdminUserListItem, stats: RiskUserStats): AdminRiskUserItem {
+  const signals: AdminRiskSignal[] = [];
+  const failedRate = stats.generationCount > 0 ? stats.failedGenerations / stats.generationCount : 0;
+
+  if (profile.credits < 0) {
+    signals.push({
+      key: "negative_balance",
+      label: "余额为负",
+      severity: "critical",
+      score: 35,
+      detail: "用户积分余额为负，需要核对扣费、退款或人工调整链路。",
+      evidence: [{ label: "credits", value: profile.credits }],
+    });
+  }
+  if (stats.moderationHits >= 3) {
+    signals.push({
+      key: "moderation_high",
+      label: "多次审核命中",
+      severity: "critical",
+      score: 35,
+      detail: "近期存在多次下架或升级复核，建议优先人工复查内容和账户行为。",
+      evidence: [{ label: "hits", value: stats.moderationHits }],
+    });
+  } else if (stats.moderationHits > 0) {
+    signals.push({
+      key: "moderation",
+      label: "审核命中",
+      severity: "high",
+      score: 20,
+      detail: "近期存在下架或复核记录，建议跟进内容安全上下文。",
+      evidence: [{ label: "hits", value: stats.moderationHits }],
+    });
+  }
+  if (stats.generationCount >= 5 && failedRate >= 0.6) {
+    signals.push({
+      key: "failure_rate",
+      label: "失败率偏高",
+      severity: "high",
+      score: 30,
+      detail: "生成任务失败率超过 60%，需确认素材质量、provider 或重复提交行为。",
+      evidence: [
+        { label: "failed", value: stats.failedGenerations },
+        { label: "total", value: stats.generationCount },
+      ],
+    });
+  } else if (stats.failedGenerations >= 10) {
+    signals.push({
+      key: "failure_count",
+      label: "失败次数偏高",
+      severity: "medium",
+      score: 18,
+      detail: "近期失败任务数量偏高，建议客服和工程联动检查。",
+      evidence: [{ label: "failed", value: stats.failedGenerations }],
+    });
+  }
+  if (stats.refundCredits >= 100) {
+    signals.push({
+      key: "refund_high",
+      label: "退款补偿偏高",
+      severity: "high",
+      score: 30,
+      detail: "近期退款或补偿积分偏高，需核对是否存在重复补偿或批量失败。",
+      evidence: [{ label: "refundCredits", value: stats.refundCredits }],
+    });
+  } else if (stats.refundCredits >= 30) {
+    signals.push({
+      key: "refund_medium",
+      label: "退款补偿增加",
+      severity: "medium",
+      score: 15,
+      detail: "近期存在较多退款或补偿，建议保留客服上下文。",
+      evidence: [{ label: "refundCredits", value: stats.refundCredits }],
+    });
+  }
+  if (stats.adjustmentCredits >= 50) {
+    signals.push({
+      key: "manual_adjustment",
+      label: "人工调整偏多",
+      severity: "medium",
+      score: 15,
+      detail: "近期人工调整积分较多，应核对审批和客服记录。",
+      evidence: [{ label: "adjustmentCredits", value: stats.adjustmentCredits }],
+    });
+  }
+  if (stats.urgentSupportTickets > 0) {
+    signals.push({
+      key: "urgent_support",
+      label: "紧急工单",
+      severity: "high",
+      score: 25,
+      detail: "存在未完结紧急客服工单，建议先处理用户承诺和风险动作。",
+      evidence: [{ label: "urgent", value: stats.urgentSupportTickets }],
+    });
+  } else if (stats.supportTickets >= 3) {
+    signals.push({
+      key: "support_backlog",
+      label: "工单积压",
+      severity: "medium",
+      score: 10,
+      detail: "未完结工单较多，可能影响后续补偿和账户处理判断。",
+      evidence: [{ label: "openTickets", value: stats.supportTickets }],
+    });
+  }
+  if (stats.generationCount >= 40) {
+    signals.push({
+      key: "burst_usage",
+      label: "短期高频生成",
+      severity: "medium",
+      score: 12,
+      detail: "近期生成频次偏高，建议观察是否为批量任务或异常脚本行为。",
+      evidence: [{ label: "generationCount", value: stats.generationCount }],
+    });
+  }
+
+  const score = Math.min(100, signals.reduce((sum, signal) => sum + signal.score, 0));
+  const level = score >= 80 ? "critical" : score >= 55 ? "high" : score >= 25 ? "medium" : "low";
+
+  return {
+    userId: profile.id,
+    email: profile.email || null,
+    displayName: profile.displayName,
+    credits: profile.credits,
+    totalCreditsUsed: profile.totalCreditsUsed,
+    generationCount: stats.generationCount,
+    failedGenerations: stats.failedGenerations,
+    refundCredits: stats.refundCredits,
+    adjustmentCredits: stats.adjustmentCredits,
+    moderationHits: stats.moderationHits,
+    supportTickets: stats.supportTickets,
+    urgentSupportTickets: stats.urgentSupportTickets,
+    latestActivityAt: latestDate(stats.latestActivityAt, profile.updatedAt || profile.createdAt),
+    score,
+    level,
+    signals,
+    recommendedAction: riskRecommendedAction(level),
+    detailUrl: `/admin/users/${profile.id}`,
+  };
+}
+
+function createRiskMetrics(rows: AdminRiskUserItem[]): AdminRiskOverview["metrics"] {
+  const totalScore = rows.reduce((sum, row) => sum + row.score, 0);
+  return {
+    sampledUsers: rows.length,
+    criticalUsers: rows.filter((row) => row.level === "critical").length,
+    highUsers: rows.filter((row) => row.level === "high").length,
+    mediumUsers: rows.filter((row) => row.level === "medium").length,
+    failedGenerations: rows.reduce((sum, row) => sum + row.failedGenerations, 0),
+    refundCredits: rows.reduce((sum, row) => sum + row.refundCredits, 0),
+    moderationHits: rows.reduce((sum, row) => sum + row.moderationHits, 0),
+    urgentSupportTickets: rows.reduce((sum, row) => sum + row.urgentSupportTickets, 0),
+    averageScore: rows.length ? Math.round(totalScore / rows.length) : 0,
+  };
+}
+
+function matchesRiskSearch(row: AdminRiskUserItem, q: string) {
+  return [
+    row.userId,
+    row.email || "",
+    row.displayName || "",
+    row.level,
+    row.recommendedAction,
+    row.signals.map((signal) => signal.label).join(" "),
+  ].some((value) => value.toLowerCase().includes(q));
+}
+
+function normalizeRiskLevel(value: unknown): AdminRiskLevel | "" {
+  const normalized = stringValue(value).toLowerCase();
+  return normalized === "low" || normalized === "medium" || normalized === "high" || normalized === "critical"
+    ? normalized
+    : "";
+}
+
+function clampRiskDays(value: unknown) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return 30;
+  return Math.min(90, Math.max(7, Math.floor(parsed)));
+}
+
+function latestDate(a: string | null | undefined, b: string | null | undefined) {
+  if (!a) return b || null;
+  if (!b) return a;
+  return Date.parse(a) >= Date.parse(b) ? a : b;
+}
+
+function riskRecommendedAction(level: AdminRiskLevel) {
+  if (level === "critical") return "立即人工复核，必要时限制公开展示和大额补偿。";
+  if (level === "high") return "进入风控复核队列，先核对任务、积分、审核和客服记录。";
+  if (level === "medium") return "观察并保留上下文，后续补偿或下架前复核。";
+  return "低风险，保持正常观察。";
+}
+
 export async function listAdminUsers(args: { q?: string; limit?: number } = {}): Promise<AdminUserList> {
   const admin = getAdminClient();
   const warnings: string[] = [];
@@ -1253,19 +1868,22 @@ export async function listAdminUsers(args: { q?: string; limit?: number } = {}):
 
   const profiles = Array.isArray(result.data) ? result.data : [];
   const userIds = profiles.map((row) => stringValue(row.id)).filter(Boolean);
-  const generationStats = await loadUserGenerationStats(userIds, warnings);
-  const workflowStats = await loadUserWorkflowStats(userIds, warnings);
+  const [generationStats, workflowStats, controls] = await Promise.all([
+    loadUserGenerationStats(userIds, warnings),
+    loadUserWorkflowStats(userIds, warnings),
+    loadUserControlMap(userIds, warnings),
+  ]);
 
   return {
     rows: profiles.map((row) => {
       const profile = mapProfileRow(row);
       const generation = generationStats.get(profile.id) || { count: 0, latestAt: null };
-      return {
+      return applyUserControl({
         ...profile,
         generationCount: generation.count,
         workflowCount: workflowStats.get(profile.id) || 0,
         latestGenerationAt: generation.latestAt,
-      };
+      }, controls.get(profile.id));
     }),
     total: result.count ?? profiles.length,
     warnings: uniqueStrings(warnings),
@@ -1279,6 +1897,12 @@ function mapProfileRow(row: Record<string, unknown>): AdminUserListItem {
     displayName: nullableString(row.display_name),
     credits: numberValue(row.credits),
     totalCreditsUsed: numberValue(row.total_credits_used),
+    accountStatus: "active",
+    generateEnabled: true,
+    supportLevel: "standard",
+    controlReason: null,
+    controlNote: null,
+    controlExpiresAt: null,
     createdAt: nullableString(row.created_at),
     updatedAt: nullableString(row.updated_at),
     generationCount: 0,
@@ -1292,6 +1916,7 @@ export async function listAdminTasks(args: {
   module?: string;
   status?: string;
   sourceType?: "generation" | "workflow" | "all";
+  stale?: boolean;
   limit?: number;
 } = {}): Promise<AdminTaskList> {
   const admin = getAdminClient();
@@ -1315,6 +1940,7 @@ export async function listAdminTasks(args: {
   if (indexed.data) {
     let rows = indexed.data.map(mapTaskQueueRow);
     if (q) rows = rows.filter((row) => matchesTaskSearch(row, q));
+    if (args.stale) rows = rows.filter((row) => row.isStale);
     return {
       rows: rows.slice(0, limit),
       total: indexed.count ?? rows.length,
@@ -1324,9 +1950,10 @@ export async function listAdminTasks(args: {
   }
 
   const fallback = await loadFallbackTasks({ limit, status, module, sourceType, q }, warnings);
+  const fallbackRows = args.stale ? fallback.rows.filter((row) => row.isStale) : fallback.rows;
   return {
-    rows: fallback.rows,
-    total: fallback.total,
+    rows: fallbackRows,
+    total: args.stale ? fallbackRows.length : fallback.total,
     source: "fallback",
     warnings: uniqueStrings(warnings),
   };
@@ -1556,6 +2183,59 @@ export async function listAdminOperationRequests(args: {
   };
 }
 
+export async function listAdminSupportTickets(args: {
+  q?: string;
+  status?: string;
+  priority?: string;
+  category?: string;
+  limit?: number;
+} = {}): Promise<AdminSupportTicketList> {
+  const warnings: string[] = [];
+  const limit = clampLimit(args.limit, 10, 160, 80);
+  const q = (args.q || "").trim().toLowerCase();
+  const status = normalizeSupportTicketStatus(args.status);
+  const priority = normalizeSupportTicketPriority(args.priority);
+  const category = normalizeSupportTicketCategory(args.category);
+  let query = getAdminClient()
+    .from("admin_support_tickets")
+    .select(SUPPORT_TICKET_COLUMNS, { count: "exact" })
+    .order("created_at", { ascending: false })
+    .limit(q ? Math.min(limit * 4, 400) : limit);
+
+  if (status) query = query.eq("status", status);
+  if (priority) query = query.eq("priority", priority);
+  if (category) query = query.eq("category", category);
+
+  const result = await runQuery<Record<string, unknown>[]>(
+    query,
+    "support tickets",
+    warnings,
+    true,
+  );
+
+  if (!result.data) {
+    return {
+      rows: [],
+      available: false,
+      total: 0,
+      metrics: createSupportTicketMetrics([]),
+      warnings: uniqueStrings(warnings),
+    };
+  }
+
+  let rows = result.data.map(mapSupportTicket);
+  if (q) rows = rows.filter((row) => matchesSupportTicketSearch(row, q));
+  const visibleRows = rows.slice(0, limit);
+
+  return {
+    rows: visibleRows,
+    available: true,
+    total: result.count ?? rows.length,
+    metrics: createSupportTicketMetrics(visibleRows),
+    warnings: uniqueStrings(warnings),
+  };
+}
+
 export async function listAdminSavedViews(args: { resource?: string; limit?: number } = {}): Promise<AdminSavedViewList> {
   const warnings: string[] = [];
   const limit = clampLimit(args.limit, 10, 120, 60);
@@ -1761,12 +2441,14 @@ export async function getAdminUserDetail(userId: string): Promise<AdminUserDetai
     profileRows = fallback.data || [];
   }
 
-  const profile = profileRows[0] ? mapProfileRow(profileRows[0]) : null;
-  const [creditLogs, tasks, assets] = await Promise.all([
+  const baseProfile = profileRows[0] ? mapProfileRow(profileRows[0]) : null;
+  const [creditLogs, tasks, assets, controls] = await Promise.all([
     listAdminCreditLogs({ q: userId, limit: 30 }),
     loadUserTasks(userId, warnings),
     loadUserAssets(userId, warnings),
+    loadUserControlMap([userId], warnings),
   ]);
+  const profile = baseProfile ? applyUserControl(baseProfile, controls.get(userId)) : null;
 
   return {
     profile,
@@ -2578,6 +3260,40 @@ function normalizeOperationRequestStatus(value?: string) {
     : "";
 }
 
+export function normalizeSupportTicketStatus(value: unknown): AdminSupportTicketStatus | "" {
+  const normalized = stringValue(value).toLowerCase();
+  return normalized === "open" ||
+    normalized === "pending" ||
+    normalized === "waiting_user" ||
+    normalized === "resolved" ||
+    normalized === "closed"
+    ? normalized
+    : "";
+}
+
+export function normalizeSupportTicketPriority(value: unknown): AdminSupportTicketPriority | "" {
+  const normalized = stringValue(value).toLowerCase();
+  return normalized === "low" ||
+    normalized === "medium" ||
+    normalized === "high" ||
+    normalized === "urgent"
+    ? normalized
+    : "";
+}
+
+export function normalizeSupportTicketCategory(value: unknown): AdminSupportTicketCategory | "" {
+  const normalized = stringValue(value).toLowerCase();
+  return normalized === "generation_failure" ||
+    normalized === "credit_issue" ||
+    normalized === "content_moderation" ||
+    normalized === "billing" ||
+    normalized === "account" ||
+    normalized === "technical" ||
+    normalized === "other"
+    ? normalized
+    : "";
+}
+
 function getRuntimeSettingHealth(): AdminSettingsOverview["runtime"] {
   return [
     { key: "NEXT_PUBLIC_SUPABASE_URL", label: "Supabase URL", configured: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL), scope: "auth" },
@@ -2948,6 +3664,63 @@ async function loadUserWorkflowStats(userIds: string[], warnings: string[]) {
   return stats;
 }
 
+async function loadUserControlMap(userIds: string[], warnings: string[]) {
+  const controls = new Map<string, AdminUserControl>();
+  if (!userIds.length) return controls;
+
+  const result = await runQuery<Record<string, unknown>[]>(
+    getAdminClient()
+      .from("admin_user_controls")
+      .select(ADMIN_USER_CONTROL_COLUMNS)
+      .in("user_id", userIds),
+    "admin user controls",
+    warnings,
+    true,
+  );
+
+  for (const row of result.data || []) {
+    const control = mapUserControlRow(row);
+    if (control.userId) controls.set(control.userId, control);
+  }
+
+  return controls;
+}
+
+function mapUserControlRow(row: Record<string, unknown>): AdminUserControl {
+  return {
+    userId: stringValue(row.user_id),
+    status: normalizeUserAccountStatus(row.status),
+    generateEnabled: row.generate_enabled !== false,
+    supportLevel: normalizeUserSupportLevel(row.support_level),
+    reason: nullableString(row.reason),
+    note: nullableString(row.note),
+    expiresAt: nullableString(row.expires_at),
+    updatedByEmail: nullableString(row.updated_by_email),
+    updatedAt: nullableString(row.updated_at),
+  };
+}
+
+function applyUserControl(profile: AdminUserListItem, control: AdminUserControl | undefined): AdminUserListItem {
+  if (!control) return profile;
+  return {
+    ...profile,
+    accountStatus: control.status,
+    generateEnabled: control.generateEnabled,
+    supportLevel: control.supportLevel,
+    controlReason: control.reason,
+    controlNote: control.note,
+    controlExpiresAt: control.expiresAt,
+  };
+}
+
+function normalizeUserAccountStatus(value: unknown): AdminUserAccountStatus {
+  return value === "restricted" || value === "suspended" ? value : "active";
+}
+
+function normalizeUserSupportLevel(value: unknown): AdminUserSupportLevel {
+  return value === "priority" || value === "watch" ? value : "standard";
+}
+
 async function loadFallbackTasks(
   args: { limit: number; status: TaskStatusGroup | ""; module: string; sourceType: string; q: string },
   warnings: string[],
@@ -2995,6 +3768,10 @@ async function loadFallbackTasks(
 function mapTaskQueueRow(row: Record<string, unknown>): AdminTaskListItem {
   const sourceType = stringValue(row.source_type) === "workflow" ? "workflow" : "generation";
   const module = normalizeModuleFilter(stringValue(row.module)) || (sourceType === "workflow" ? "workflow" : "unknown");
+  const resultCount = Math.max(0, numberValue(row.result_count));
+  const statusGroup = normalizeTaskStatusGroup(stringValue(row.status_group) || stringValue(row.status), resultCount);
+  const createdAt = nullableString(row.created_at);
+  const updatedAt = nullableString(row.updated_at);
   return {
     id: stringValue(row.id) || stringValue(row.source_id),
     sourceId: stringValue(row.source_id),
@@ -3004,17 +3781,18 @@ function mapTaskQueueRow(row: Record<string, unknown>): AdminTaskListItem {
     moduleLabel: moduleLabel(module),
     title: stringValue(row.title) || moduleLabel(module),
     status: stringValue(row.status) || stringValue(row.status_group),
-    statusGroup: normalizeTaskStatusGroup(stringValue(row.status_group) || stringValue(row.status), numberValue(row.result_count)),
+    statusGroup,
     progress: clampProgress(row.progress),
     expectedCount: Math.max(1, numberValue(row.expected_count) || 1),
-    resultCount: Math.max(0, numberValue(row.result_count)),
+    resultCount,
     inputThumbnails: arrayOfStrings(row.input_thumbnails),
     resultThumbnails: arrayOfStrings(row.result_thumbnails),
     errorMessage: nullableString(row.error_message),
     applyUrl: stringValue(row.apply_url),
-    createdAt: nullableString(row.created_at),
-    updatedAt: nullableString(row.updated_at),
+    createdAt,
+    updatedAt,
     completedAt: nullableString(row.completed_at),
+    ...staleTaskMeta(statusGroup, createdAt, updatedAt, resultCount),
   };
 }
 
@@ -3024,6 +3802,8 @@ function mapGenerationRow(row: Record<string, unknown>): AdminTaskListItem {
   const module = normalizeModuleFilter(stringValue(payload.kind) || stringValue(payload.module) || inferModuleFromPayload(payload)) || "tryon";
   const status = stringValue(row.status) || "queued";
   const statusGroup = normalizeTaskStatusGroup(status, resultUrls.length);
+  const createdAt = nullableString(row.created_at);
+  const updatedAt = nullableString(row.updated_at) || nullableString(row.processing_started_at);
   return {
     id: stringValue(row.id),
     sourceId: stringValue(row.id),
@@ -3041,12 +3821,13 @@ function mapGenerationRow(row: Record<string, unknown>): AdminTaskListItem {
     resultThumbnails: resultUrls.slice(0, 4),
     errorMessage: nullableString(row.error_message),
     applyUrl: `${moduleRoute(module)}?apply=${encodeURIComponent(stringValue(row.id))}`,
-    createdAt: nullableString(row.created_at),
-    updatedAt: nullableString(row.updated_at) || nullableString(row.processing_started_at),
+    createdAt,
+    updatedAt,
     completedAt: nullableString(row.completed_at),
     model: nullableString(row.ai_model) || nullableString(payload.aiModel),
     imageSize: nullableString(row.image_size) || nullableString(payload.imageSize),
     credits: readGenerationBillingCredits(row, statusGroup),
+    ...staleTaskMeta(statusGroup, createdAt, updatedAt, resultUrls.length),
   };
 }
 
@@ -3054,6 +3835,8 @@ function mapWorkflowRow(row: Record<string, unknown>): AdminTaskListItem {
   const status = stringValue(row.status) || "queued";
   const resultThumbnails = extractUrls(row.final_outputs).slice(0, 4);
   const statusGroup = normalizeTaskStatusGroup(status, resultThumbnails.length);
+  const createdAt = nullableString(row.created_at);
+  const updatedAt = nullableString(row.updated_at);
   return {
     id: stringValue(row.id),
     sourceId: stringValue(row.id),
@@ -3071,10 +3854,11 @@ function mapWorkflowRow(row: Record<string, unknown>): AdminTaskListItem {
     resultThumbnails,
     errorMessage: nullableString(row.error_message),
     applyUrl: `/agent?workflow=${encodeURIComponent(stringValue(row.id))}`,
-    createdAt: nullableString(row.created_at),
-    updatedAt: nullableString(row.updated_at),
+    createdAt,
+    updatedAt,
     completedAt: nullableString(row.completed_at),
     credits: numberValue(row.cost_settled) || numberValue(row.cost_reserved),
+    ...staleTaskMeta(statusGroup, createdAt, updatedAt, resultThumbnails.length),
   };
 }
 
@@ -3327,6 +4111,76 @@ function mapOperationRequest(row: Record<string, unknown>): AdminOperationReques
   };
 }
 
+function mapSupportTicket(row: Record<string, unknown>): AdminSupportTicket {
+  return {
+    id: stringValue(row.id),
+    ticketNo: stringValue(row.ticket_no),
+    status: normalizeSupportTicketStatus(row.status) || "open",
+    priority: normalizeSupportTicketPriority(row.priority) || "medium",
+    category: normalizeSupportTicketCategory(row.category) || "other",
+    source: stringValue(row.source) || "admin",
+    userId: nullableString(row.user_id),
+    userEmail: nullableString(row.user_email),
+    generationId: nullableString(row.generation_id),
+    assetSourceType: nullableString(row.asset_source_type),
+    assetSourceId: nullableString(row.asset_source_id),
+    title: stringValue(row.title),
+    description: stringValue(row.description),
+    resolution: nullableString(row.resolution),
+    tags: arrayOfStrings(row.tags),
+    metadata: isRecord(row.metadata) ? row.metadata : {},
+    assignedTo: nullableString(row.assigned_to),
+    assignedToEmail: nullableString(row.assigned_to_email),
+    createdBy: nullableString(row.created_by),
+    createdByEmail: nullableString(row.created_by_email),
+    createdByRole: nullableString(row.created_by_role),
+    resolvedAt: nullableString(row.resolved_at),
+    createdAt: nullableString(row.created_at),
+    updatedAt: nullableString(row.updated_at),
+  };
+}
+
+function createSupportTicketMetrics(rows: AdminSupportTicket[]): AdminSupportTicketList["metrics"] {
+  return rows.reduce((metrics, row) => {
+    if (row.status === "open") metrics.open += 1;
+    if (row.status === "pending") metrics.pending += 1;
+    if (row.status === "waiting_user") metrics.waitingUser += 1;
+    if (row.status === "resolved") metrics.resolved += 1;
+    if (row.status === "closed") metrics.closed += 1;
+    if (row.priority === "urgent") metrics.urgent += 1;
+    if (row.generationId) metrics.linkedGenerations += 1;
+    return metrics;
+  }, {
+    open: 0,
+    pending: 0,
+    waitingUser: 0,
+    resolved: 0,
+    closed: 0,
+    urgent: 0,
+    linkedGenerations: 0,
+  });
+}
+
+function matchesSupportTicketSearch(row: AdminSupportTicket, q: string) {
+  return [
+    row.id,
+    row.ticketNo,
+    row.status,
+    row.priority,
+    row.category,
+    row.userId || "",
+    row.userEmail || "",
+    row.generationId || "",
+    row.assetSourceType || "",
+    row.assetSourceId || "",
+    row.title,
+    row.description,
+    row.assignedToEmail || "",
+    row.createdByEmail || "",
+    row.tags.join(" "),
+  ].some((value) => value.toLowerCase().includes(q));
+}
+
 function mapSavedView(row: Record<string, unknown>): AdminSavedView {
   const visibility = stringValue(row.visibility);
   return {
@@ -3575,6 +4429,17 @@ function clampProgress(value: unknown) {
   if (progress <= 0) return 0;
   if (progress >= 100) return 100;
   return Math.round(progress);
+}
+
+function staleTaskMeta(statusGroup: TaskStatusGroup, createdAt: string | null, updatedAt: string | null, resultCount: number) {
+  const base = updatedAt || createdAt;
+  const time = base ? Date.parse(base) : NaN;
+  const staleMinutes = Number.isFinite(time) ? Math.max(0, Math.floor((Date.now() - time) / 60000)) : 0;
+  const running = statusGroup === "queued" || statusGroup === "running";
+  return {
+    isStale: running && resultCount <= 0 && staleMinutes >= ADMIN_STALE_TASK_MINUTES,
+    staleMinutes,
+  };
 }
 
 function numberValue(value: unknown): number {
