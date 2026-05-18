@@ -36,6 +36,10 @@ const marketingNav = [
 export function HeaderClient() {
   const pathname = usePathname();
 
+  if (pathname.startsWith("/admin")) {
+    return null;
+  }
+
   if (pathname === "/") {
     return <MarketingHeader />;
   }

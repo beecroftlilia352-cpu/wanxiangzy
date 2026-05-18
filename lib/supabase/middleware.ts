@@ -5,6 +5,7 @@ export async function updateSession(request: NextRequest) {
   // refresh large chunked auth cookies and trigger Nginx "upstream sent too big header".
   // API routes still perform authoritative auth checks with createServerSupabase().
   const protectedPaths = [
+    "/admin",
     "/agent",
     "/dashboard",
     "/create",
@@ -20,7 +21,8 @@ export async function updateSession(request: NextRequest) {
   ];
 
   const isProtected = protectedPaths.some((path) =>
-    request.nextUrl.pathname.startsWith(path),
+    request.nextUrl.pathname === path ||
+    request.nextUrl.pathname.startsWith(`${path}/`),
   );
 
   if (!isProtected) {

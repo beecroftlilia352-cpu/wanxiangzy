@@ -38,6 +38,13 @@ const showcaseImages = [
   "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/references/reference-soft-blue-cardigan.jpg",
 ];
 
+function getSafeAuthRedirectTarget() {
+  if (typeof window === "undefined") return "/create";
+  const next = new URLSearchParams(window.location.search).get("next") || "";
+  if (!next.startsWith("/") || next.startsWith("//") || next.startsWith("/api/")) return "/create";
+  return next;
+}
+
 export default function LoginPage() {
   const supabase = useMemo(() => createClient(), []);
 
@@ -52,14 +59,14 @@ export default function LoginPage() {
     let mounted = true;
 
     supabase.auth.getUser().then(({ data }) => {
-      if (mounted && data.user) window.location.replace("/create");
+      if (mounted && data.user) window.location.replace(getSafeAuthRedirectTarget());
     });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_IN" && session && window.location.pathname === "/login") {
-        window.location.replace("/create");
+        window.location.replace(getSafeAuthRedirectTarget());
       }
     });
 
@@ -89,7 +96,7 @@ export default function LoginPage() {
       return;
     }
 
-    window.location.href = "/create";
+    window.location.href = getSafeAuthRedirectTarget();
   };
 
   const handleSignUp = async (e: React.FormEvent) => {
@@ -107,7 +114,7 @@ export default function LoginPage() {
       email,
       password,
       options: {
-        emailRedirectTo: `${window.location.origin}/create`,
+        emailRedirectTo: `${window.location.origin}${getSafeAuthRedirectTarget()}`,
       },
     });
 
@@ -123,7 +130,7 @@ export default function LoginPage() {
     }
 
     if (data.session) {
-      window.location.href = "/create";
+      window.location.href = getSafeAuthRedirectTarget();
       return;
     }
 
