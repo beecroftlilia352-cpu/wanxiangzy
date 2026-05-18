@@ -469,6 +469,7 @@ export default function ProductSetPage() {
     setAspectRatio(applyPayload.aspectRatio);
     setImageSize(applyPayload.imageSize);
     setGenCount(Math.min(Math.max(applyPayload.genCount || getDefaultGenerationCount(appliedImageType), 1), appliedImageType === "details" ? 8 : 6));
+    setActiveQueueTask(null);
     setResultUrls(detail.resultUrls);
     setModuleResults([]);
     setResultPlan([]);
@@ -536,6 +537,7 @@ export default function ProductSetPage() {
     setAspectRatio(applyPayload.aspectRatio);
     setImageSize(applyPayload.imageSize);
     setGenCount(nextGenCount);
+    setActiveQueueTask(null);
     setResultUrls(historyResultUrls);
     setModuleResults([]);
     setResultPlan([]);
@@ -1106,6 +1108,7 @@ export default function ProductSetPage() {
       inputThumbnails: taskInputThumbnails,
       progress: 8,
     });
+    setActiveQueueTask(provisionalTask);
     let activeTaskId = provisionalTask.id;
     let latestUrls: string[] = [];
     try {
@@ -1139,6 +1142,7 @@ export default function ProductSetPage() {
         if (res.status === 401) {
           await refreshAuth();
           taskQueue.removeTask(activeTaskId);
+          setActiveQueueTask(null);
           setIsGenerating(false);
           router.push("/login");
           return;
@@ -1168,6 +1172,7 @@ export default function ProductSetPage() {
           status: data.status || "processing_tryon",
           progress: 12,
         });
+        setActiveQueueTask(serverTask);
         activeTaskId = serverTask.id;
       }
 
@@ -1188,7 +1193,7 @@ export default function ProductSetPage() {
           const rounded = Math.min(Math.max(Math.round(nextProgress), 0), 100);
           const runningProgress = !hasAllResults && rounded >= 100 ? 99 : rounded;
           setProgress(runningProgress);
-          taskQueue.markRunning(activeTaskId, {
+          const runningTask = taskQueue.markRunning(activeTaskId, {
             expectedCount: expectedResultCount,
             inputThumbnails: taskInputThumbnails,
             resultThumbnails: latestUrls,
@@ -1196,6 +1201,7 @@ export default function ProductSetPage() {
             progress: runningProgress,
             status: state.status,
           });
+          setActiveQueueTask(runningTask);
         }
         if (nextModules.length) {
           setModuleResults(nextModules);
@@ -1220,21 +1226,23 @@ export default function ProductSetPage() {
             const finalUrls = moduleUrls.length ? moduleUrls : nextUrls;
             latestUrls = finalUrls;
             setResultUrls(finalUrls);
-            taskQueue.markCompleted(activeTaskId, {
+            const completedTask = taskQueue.markCompleted(activeTaskId, {
               expectedCount: expectedResultCount,
               inputThumbnails: taskInputThumbnails,
               resultThumbnails: finalUrls,
               resultCount: finalUrls.length,
             });
+            setActiveQueueTask(completedTask);
           } else {
             latestUrls = nextUrls;
             setResultUrls(nextUrls);
-            taskQueue.markCompleted(activeTaskId, {
+            const completedTask = taskQueue.markCompleted(activeTaskId, {
               expectedCount: expectedResultCount,
               inputThumbnails: taskInputThumbnails,
               resultThumbnails: nextUrls,
               resultCount: nextUrls.length,
             });
+            setActiveQueueTask(completedTask);
           }
           setIsGenerating(false);
           toast.success("商品套图生成完成");
@@ -1244,13 +1252,14 @@ export default function ProductSetPage() {
       }
       if (latestUrls.length > 0) {
         setIsGenerating(false);
-        taskQueue.markRunning(activeTaskId, {
+        const backgroundTask = taskQueue.markRunning(activeTaskId, {
           expectedCount: expectedResultCount,
           inputThumbnails: taskInputThumbnails,
           resultThumbnails: latestUrls,
           resultCount: latestUrls.length,
           progress: 99,
         });
+        setActiveQueueTask(backgroundTask);
         toast.info("生成仍在后台继续，可稍后在历史记录查看完整结果");
         return;
       }
@@ -1258,11 +1267,12 @@ export default function ProductSetPage() {
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "生成失败";
       setError(message);
-      taskQueue.markFailed(activeTaskId, message, {
+      const failedTask = taskQueue.markFailed(activeTaskId, message, {
         expectedCount: expectedResultCount,
         inputThumbnails: taskInputThumbnails,
         resultThumbnails: latestUrls,
       });
+      setActiveQueueTask(failedTask);
       toast.error(message);
       setIsGenerating(false);
     }
@@ -1368,7 +1378,6 @@ export default function ProductSetPage() {
     setActiveQueueTask(item);
     const urls = safeTaskQueueUrls(item.resultThumbnails);
     const nextProgress = Number.isFinite(Number(item.progress)) ? Number(item.progress) : 8;
-    setGenCount(clampTaskExpectedCount(item, 1, imageType === "details" ? 8 : 6));
     setIsGenerating(true);
     setRegeneratingIndex(null);
     setProgress(Math.min(Math.max(Math.round(nextProgress), 1), 99));

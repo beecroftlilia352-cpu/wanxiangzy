@@ -181,6 +181,7 @@ export default function FaceSwapPage() {
       setPrompt(getFaceSwapUserPromptFromPayload(payload));
       setGenCount(normalizeFaceSwapCount(payload.genCount));
       setTextureEnhance(Boolean(payload.textureEnhance));
+      setActiveQueueTask(null);
       setResultUrls(detail.resultUrls);
       setProgress(detail.resultUrls.length ? 100 : 0);
       setStatus(detail.resultUrls.length ? "completed" : "idle");
@@ -223,6 +224,7 @@ export default function FaceSwapPage() {
     setPrompt(getFaceSwapUserPromptFromPayload(payload));
     setGenCount(normalizeFaceSwapCount(payload.genCount));
     setTextureEnhance(Boolean(payload.textureEnhance));
+    setActiveQueueTask(null);
     setResultUrls(historyResultUrls);
     setProgress(historyResultUrls.length ? 100 : 0);
     setStatus(historyResultUrls.length ? "completed" : "idle");
@@ -250,12 +252,13 @@ export default function FaceSwapPage() {
           setStatus("completed");
           setProgress(100);
           setResultUrls(nextUrls);
-          taskQueue.markCompleted(id, {
+          const completedTask = taskQueue.markCompleted(id, {
             expectedCount: requestedFaceSwapCount,
             inputThumbnails,
             resultThumbnails: nextUrls,
             resultCount: nextUrls.length,
           });
+          setActiveQueueTask(completedTask);
           toast.success("换脸完成");
           return;
         }
@@ -264,31 +267,34 @@ export default function FaceSwapPage() {
           setStatus("failed");
           const message = data.error || "换脸生成失败";
           setError(message);
-          taskQueue.markFailed(id, message, {
+          const failedTask = taskQueue.markFailed(id, message, {
             expectedCount: requestedFaceSwapCount,
             inputThumbnails,
             resultThumbnails: nextUrls,
           });
+          setActiveQueueTask(failedTask);
           return;
         }
 
         setStatus("running");
-        taskQueue.markRunning(id, {
+        const runningTask = taskQueue.markRunning(id, {
           expectedCount: requestedFaceSwapCount,
           inputThumbnails,
           resultThumbnails: nextUrls,
           progress: roundedProgress,
           status: data.status,
         });
+        setActiveQueueTask(runningTask);
         pollTimerRef.current = setTimeout(() => pollGeneration(id), 2200);
       } catch (err) {
         const message = err instanceof Error ? err.message : "查询生成进度失败";
         setStatus("failed");
         setError(message);
-        taskQueue.markFailed(id, message, {
+        const failedTask = taskQueue.markFailed(id, message, {
           expectedCount: requestedFaceSwapCount,
           inputThumbnails: [sourceUrl, faceUrl].filter(Boolean),
         });
+        setActiveQueueTask(failedTask);
       }
     };
     if (immediate) void run();
@@ -400,6 +406,7 @@ export default function FaceSwapPage() {
       inputThumbnails: taskInputThumbnails,
       progress: 1,
     });
+    setActiveQueueTask(provisionalTask);
     let activeTaskId = provisionalTask.id;
 
     try {
@@ -422,6 +429,7 @@ export default function FaceSwapPage() {
         if (res.status === 401) {
           await refreshAuth();
           taskQueue.removeTask(activeTaskId);
+          setActiveQueueTask(null);
           setStatus("idle");
           router.push("/login");
           return;
@@ -442,6 +450,7 @@ export default function FaceSwapPage() {
           status: data.status || "processing_tryon",
           progress: 5,
         });
+        setActiveQueueTask(serverTask);
         activeTaskId = serverTask.id;
       }
       if (typeof data.credits_remaining === "number") {
@@ -453,10 +462,11 @@ export default function FaceSwapPage() {
       const message = err instanceof Error ? err.message : "提交换脸任务失败";
       setStatus("failed");
       setError(message);
-      taskQueue.markFailed(activeTaskId, message, {
+      const failedTask = taskQueue.markFailed(activeTaskId, message, {
         expectedCount: requestedFaceSwapCount,
         inputThumbnails: taskInputThumbnails,
       });
+      setActiveQueueTask(failedTask);
       toast.error(message);
     }
   }

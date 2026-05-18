@@ -103,6 +103,7 @@ export default function Garment3dPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
   const [resultUrls, setResultUrls] = useState<string[]>([]);
+  const [runningExpectedCount, setRunningExpectedCount] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showPromptPreview, setShowPromptPreview] = useState(false);
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
@@ -206,6 +207,7 @@ export default function Garment3dPage() {
     setGenCount(payload.genCount);
     setPrompt(payload.userPrompt || payload.prompt);
     setPromptOverride(payload.prompt);
+    setRunningExpectedCount(null);
     setResultUrls(historyResultUrls);
     setIsGenerating(false);
     setProgress(historyResultUrls.length ? 100 : 0);
@@ -352,6 +354,7 @@ export default function Garment3dPage() {
     }
 
     setIsGenerating(true);
+    setRunningExpectedCount(genCount);
     setProgress(12);
     setResultUrls([]);
     setError(null);
@@ -520,7 +523,7 @@ export default function Garment3dPage() {
   function handleRunningTask(item: TaskQueueItem) {
     const urls = safeTaskQueueUrls(item.resultThumbnails);
     const nextProgress = Number.isFinite(Number(item.progress)) ? Number(item.progress) : 8;
-    setGenCount(clampTaskExpectedCount(item, 1, 4));
+    setRunningExpectedCount(clampTaskExpectedCount(item, 1, 4));
     setIsGenerating(true);
     setProgress(Math.min(Math.max(Math.round(nextProgress), 1), 99));
     setResultUrls(urls);
@@ -544,6 +547,7 @@ export default function Garment3dPage() {
 
   function handleContinueCreate() {
     setIsGenerating(false);
+    setRunningExpectedCount(null);
     setProgress(0);
     setResultUrls([]);
     setError(null);
@@ -857,7 +861,7 @@ export default function Garment3dPage() {
               <ResultImageGrid
                 urls={resultUrls}
                 filenamePrefix="garment-3d"
-                expectedCount={isGenerating ? genCount : undefined}
+                expectedCount={isGenerating ? runningExpectedCount || genCount : undefined}
                 isGenerating={isGenerating}
                 inputThumbnails={taskInputThumbnails}
                 statusGroup={isGenerating ? "running" : undefined}

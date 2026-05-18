@@ -106,6 +106,7 @@ export default function GrassPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
   const [resultUrls, setResultUrls] = useState<string[]>([]);
+  const [runningExpectedCount, setRunningExpectedCount] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [showPromptPreview, setShowPromptPreview] = useState(false);
   const [showRules, setShowRules] = useState(false);
@@ -198,6 +199,7 @@ export default function GrassPage() {
     setImageSize(payload.imageSize);
     setGenCount(payload.genCount);
     setPromptOverride(payload.prompt);
+    setRunningExpectedCount(null);
     setResultUrls(historyResultUrls);
     setIsGenerating(false);
     setProgress(historyResultUrls.length ? 100 : 0);
@@ -230,6 +232,7 @@ export default function GrassPage() {
     setImageSize(payload.imageSize);
     setGenCount(payload.genCount);
     setPromptOverride(payload.prompt);
+    setRunningExpectedCount(null);
     toast.success("已套用历史参数");
     })();
     return () => {
@@ -331,6 +334,7 @@ export default function GrassPage() {
     if (credits !== null && credits < cost) return toast.error(`积分不足，需要 ${cost}，余额 ${credits}`);
 
     setIsGenerating(true);
+    setRunningExpectedCount(genCount);
     setProgress(10);
     setResultUrls([]);
     setError("");
@@ -451,7 +455,7 @@ export default function GrassPage() {
   }
 
   function handleRunningTask(item: TaskQueueItem) {
-    setGenCount(clampTaskExpectedCount(item, 1, 4));
+    setRunningExpectedCount(clampTaskExpectedCount(item, 1, 4));
     setIsGenerating(true);
     setProgress(Math.min(Math.max(Math.round(Number(item.progress) || 12), 1), 99));
     setError("");
@@ -489,6 +493,7 @@ export default function GrassPage() {
     setImageSize("1K");
     setGenCount(1);
     setPromptOverride(null);
+    setRunningExpectedCount(null);
     setIsGenerating(false);
     setProgress(0);
     setResultUrls([]);
@@ -862,7 +867,7 @@ export default function GrassPage() {
                 urls={resultUrls}
                 filenamePrefix="grass"
                 extension="jpg"
-                expectedCount={isGenerating ? genCount : undefined}
+                expectedCount={isGenerating ? runningExpectedCount || genCount : undefined}
                 isGenerating={isGenerating}
                 inputThumbnails={promptImages.map((item) => item.url)}
                 statusGroup={isGenerating ? "running" : undefined}

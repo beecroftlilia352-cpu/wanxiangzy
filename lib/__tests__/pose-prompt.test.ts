@@ -37,11 +37,11 @@ describe("pose prompt handling", () => {
 
     expect(enforced).toContain("姿势3：右手拿包，轻微迈步。");
     expect(enforced).not.toContain("一手轻抚头发或整理衣领");
-    expect(enforced).toContain("比例锁定");
+    expect(enforced).toContain("身体动作规则");
     expect(enforced).toContain("图1角色");
   });
 
-  it("lets preset styles use AI creative pose variation instead of fixed pose scripts", () => {
+  it("restores default pose scripts for preset styles", () => {
     const prompt = "保持图1人物、服装和商业摄影质感，生成四宫格姿势裂变。";
 
     const styled = applyPoseSeriesStylePrompt(prompt, "korean_clean");
@@ -50,12 +50,13 @@ describe("pose prompt handling", () => {
       varyExpression: true,
     });
 
-    expect(enforced).toContain("姿势：");
-    expect(enforced).toContain("由 AI 按风格自由设计");
+    expect(enforced).toContain("姿势1：正面自然站立");
+    expect(enforced).toContain("姿势2：身体轻微侧转30度");
+    expect(enforced).toContain("姿势4：轻微迈步或转身");
+    expect(enforced).toContain("consistent medium full-body framing");
+    expect(enforced).toContain("时装大片连贯性规则");
     expect(enforced).not.toContain("手指自然整理发丝或衣领");
-    expect(enforced).not.toContain("姿势1：正面自然站立");
-    expect(enforced).not.toContain("镜头统一规则");
-    expect(enforced).not.toContain("consistent clean medium full-body framing");
+    expect(enforced).not.toContain("由 AI 按风格自由设计");
   });
 
   it("switches layout wording for separate pose outputs", () => {
@@ -113,8 +114,8 @@ describe("pose prompt handling", () => {
       varyExpression: false,
     });
 
-    expect(varying).toContain("允许 AI 按姿势和风格自由发挥自然表情变化");
-    expect(consistent).toContain("尽量保持一致，只允许轻微自然差异");
+    expect(varying).toContain("需要轻微自然的表情差异");
+    expect(consistent).toContain("四个分格保持接近一致");
     expect(varying).not.toContain("中性、浅笑、自信微笑");
     expect(consistent).not.toContain("同一种自然中性表情");
   });

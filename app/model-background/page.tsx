@@ -122,6 +122,7 @@ export default function ModelBackgroundPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
   const [resultUrls, setResultUrls] = useState<string[]>([]);
+  const [runningExpectedCount, setRunningExpectedCount] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [showPromptPreview, setShowPromptPreview] = useState(false);
   const [showRules, setShowRules] = useState(false);
@@ -203,6 +204,7 @@ export default function ModelBackgroundPage() {
     setImageSize(payload.imageSize);
     setGenCount(payload.genCount);
     setPromptOverride(payload.prompt);
+    setRunningExpectedCount(null);
     setResultUrls(historyResultUrls);
     setIsGenerating(false);
     setProgress(historyResultUrls.length ? 100 : 0);
@@ -232,6 +234,7 @@ export default function ModelBackgroundPage() {
     setImageSize(payload.imageSize);
     setGenCount(payload.genCount);
     setPromptOverride(payload.prompt);
+    setRunningExpectedCount(null);
     setResultUrls(detail?.resultUrls || []);
     setIsGenerating(false);
     setProgress(detail?.resultUrls.length ? 100 : 0);
@@ -322,6 +325,7 @@ export default function ModelBackgroundPage() {
     if (credits !== null && credits < cost) return toast.error(`积分不足，需要 ${cost}，余额 ${credits}`);
 
     setIsGenerating(true);
+    setRunningExpectedCount(genCount);
     setProgress(10);
     setResultUrls([]);
     setError("");
@@ -443,7 +447,7 @@ export default function ModelBackgroundPage() {
   }
 
   function handleRunningTask(item: TaskQueueItem) {
-    setGenCount(clampTaskExpectedCount(item, 1, 4));
+    setRunningExpectedCount(clampTaskExpectedCount(item, 1, 4));
     setIsGenerating(true);
     setProgress(Math.min(Math.max(Math.round(Number(item.progress) || 12), 1), 99));
     setError("");
@@ -467,6 +471,7 @@ export default function ModelBackgroundPage() {
 
   function handleContinueCreate() {
     setIsGenerating(false);
+    setRunningExpectedCount(null);
     setProgress(0);
     setResultUrls([]);
     setError("");
@@ -873,7 +878,7 @@ export default function ModelBackgroundPage() {
               <ResultImageGrid
                 urls={resultUrls}
                 filenamePrefix="model-background"
-                expectedCount={isGenerating ? genCount : undefined}
+                expectedCount={isGenerating ? runningExpectedCount || genCount : undefined}
                 isGenerating={isGenerating}
                 inputThumbnails={promptImages.map((item) => item.url)}
                 statusGroup={isGenerating ? "running" : undefined}

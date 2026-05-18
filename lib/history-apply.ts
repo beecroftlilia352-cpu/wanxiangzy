@@ -1,5 +1,6 @@
 import type { AspectRatio, ImageSize, LingyaModel } from "@/lib/api/lingya";
 import type { Garment3dDisplayStyle, ModelShootStyle, PoseSeriesStyle } from "@/lib/module-style-presets";
+import type { PoseOutputMode } from "@/lib/pose-prompt";
 import type { AutoDesignSettings, TryOnSceneMode } from "@/lib/tryon-scene";
 import type { TryOnAgeGroup, TryOnGarmentAudience } from "@/lib/tryon-prompt";
 import type { TryOnClothingMode, TryOnClothingRole } from "@/lib/tryon-upload-rules";
@@ -68,6 +69,8 @@ export type HistoryJobPayload =
       prompt: string;
       varyExpression?: boolean;
       poseStyle?: PoseSeriesStyle;
+      outputMode?: PoseOutputMode;
+      genCount?: number;
     }
   | {
       kind: "garment3d";

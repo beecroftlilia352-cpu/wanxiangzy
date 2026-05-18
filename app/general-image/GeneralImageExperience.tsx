@@ -168,6 +168,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
       url,
       preview: url,
     })));
+    setActiveQueueTask(null);
     setResultUrls(historyResultUrls);
     setIsGenerating(false);
     setError("");
@@ -193,6 +194,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
       url,
       preview: url,
     })));
+    setActiveQueueTask(null);
     setResultUrls(detail?.resultUrls || []);
     setIsGenerating(false);
     setError("");
@@ -378,6 +380,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
       inputThumbnails: taskInputThumbnails,
       progress: 8,
     });
+    setActiveQueueTask(provisionalTask);
     let activeTaskId = provisionalTask.id;
     let latestTaskResultUrls: string[] = [];
     try {
@@ -398,6 +401,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
       if (!res.ok) {
         if (res.status === 401) {
           taskQueue.removeTask(activeTaskId);
+          setActiveQueueTask(null);
           setIsGenerating(false);
           await refreshAuth();
           router.push("/login");
@@ -423,6 +427,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
           status: data.status || "processing",
           progress: 12,
         });
+        setActiveQueueTask(serverTask);
         activeTaskId = serverTask.id;
       }
 
@@ -438,7 +443,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
           latestTaskResultUrls = state.result_urls;
           setResultUrls(latestTaskResultUrls);
         }
-        taskQueue.markRunning(activeTaskId, {
+        const runningTask = taskQueue.markRunning(activeTaskId, {
           expectedCount: genCount,
           inputThumbnails: taskInputThumbnails,
           resultThumbnails: latestTaskResultUrls,
@@ -446,17 +451,19 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
           progress: runningProgress,
           status: state.status || "processing",
         });
+        setActiveQueueTask(runningTask);
         if (state.status === "completed") {
           const finalUrls = Array.isArray(state.result_urls) ? state.result_urls : [];
           latestTaskResultUrls = finalUrls;
           setProgress(100);
           setResultUrls(finalUrls);
-          taskQueue.markCompleted(activeTaskId, {
+          const completedTask = taskQueue.markCompleted(activeTaskId, {
             expectedCount: genCount,
             inputThumbnails: taskInputThumbnails,
             resultThumbnails: finalUrls,
             resultCount: finalUrls.length,
           });
+          setActiveQueueTask(completedTask);
           setIsGenerating(false);
           toast.success(`${modeMeta.title}生成完成`);
           return;
@@ -467,12 +474,13 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "生成失败";
       setError(message);
-      taskQueue.markFailed(activeTaskId, message, {
+      const failedTask = taskQueue.markFailed(activeTaskId, message, {
         expectedCount: genCount,
         inputThumbnails: taskInputThumbnails,
         resultThumbnails: latestTaskResultUrls,
         resultCount: latestTaskResultUrls.length,
       });
+      setActiveQueueTask(failedTask);
       toast.error(message);
       setIsGenerating(false);
     }
@@ -480,7 +488,6 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
 
   function handleRunningTask(item: TaskQueueItem) {
     setActiveQueueTask(item);
-    setGenCount(clampTaskExpectedCount(item, 1, 4));
     setIsGenerating(true);
     setProgress(Math.min(Math.max(Math.round(Number(item.progress) || 12), 1), 99));
     setError("");
@@ -703,7 +710,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
 
         {isGenerating && resultUrls.length === 0 && !activeQueueTask && (
           <LoadingStage
-            genCount={genCount}
+            genCount={activeQueueTask ? clampTaskExpectedCount(activeQueueTask, 1, 4, genCount) : genCount}
             progress={progress}
             moduleName={modeMeta.title}
             referenceImages={referenceImages.map((item, index) => ({ label: item.name || `参考图 ${index + 1}`, url: item.preview || item.url }))}

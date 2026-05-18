@@ -111,6 +111,7 @@ export default function ModelPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
   const [resultUrls, setResultUrls] = useState<string[]>([]);
+  const [runningExpectedCount, setRunningExpectedCount] = useState<number | null>(null);
   const [activeResultMeta, setActiveResultMeta] = useState<{ createdAt: string; inputThumbnails: string[] } | null>(null);
   const [error, setError] = useState("");
   const [showPromptPreview, setShowPromptPreview] = useState(false);
@@ -201,6 +202,7 @@ export default function ModelPage() {
     setGenCount(payload.genCount);
     setPromptTouched(true);
     setPrompt(payload.prompt);
+    setRunningExpectedCount(null);
     setResultUrls(historyResultUrls);
     setIsGenerating(false);
     setProgress(historyResultUrls.length ? 100 : 0);
@@ -228,6 +230,7 @@ export default function ModelPage() {
     setGenCount(payload.genCount);
     setPromptTouched(true);
     setPrompt(payload.prompt);
+    setRunningExpectedCount(null);
     setResultUrls(detail?.resultUrls || []);
     setIsGenerating(false);
     setProgress(detail?.resultUrls.length ? 100 : 0);
@@ -405,6 +408,7 @@ export default function ModelPage() {
     }
 
     setIsGenerating(true);
+    setRunningExpectedCount(genCount);
     setProgress(10);
     setError("");
     setResultUrls([]);
@@ -550,7 +554,7 @@ export default function ModelPage() {
   }
 
   function handleRunningTask(item: TaskQueueItem) {
-    setGenCount(clampTaskExpectedCount(item, 1, 4));
+    setRunningExpectedCount(clampTaskExpectedCount(item, 1, 4));
     setIsGenerating(true);
     setProgress(Math.min(Math.max(Math.round(Number(item.progress) || 12), 1), 99));
     setError("");
@@ -578,6 +582,7 @@ export default function ModelPage() {
 
   function handleContinueCreate() {
     setIsGenerating(false);
+    setRunningExpectedCount(null);
     setProgress(0);
     setResultUrls([]);
     setActiveResultMeta(null);
@@ -1017,7 +1022,7 @@ export default function ModelPage() {
                 urls={resultUrls}
                 filenamePrefix="model"
                 extension="jpg"
-                expectedCount={isGenerating ? genCount : undefined}
+                expectedCount={isGenerating ? runningExpectedCount || genCount : undefined}
                 isGenerating={isGenerating}
                 inputThumbnails={activeResultMeta?.inputThumbnails.length ? activeResultMeta.inputThumbnails : taskInputThumbnails}
                 createdAt={activeResultMeta?.createdAt}

@@ -90,6 +90,7 @@ export const ACCEPTED_IMAGE_TYPES = {
 
 export const MAX_FILE_SIZE_MB = 15;
 export const MAX_FILE_SIZE = MAX_FILE_SIZE_MB * 1024 * 1024;
+const UPLOAD_TRANSPORT_SAFE_SIZE_MB = 8;
 export const MAX_CLOTHING_FILES = 5;
 
 export interface UploadResult {
@@ -108,6 +109,13 @@ async function compressImage(file: File, maxSizeMB: number = MAX_FILE_SIZE_MB): 
 
   return new Promise((resolve) => {
     const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+    const isPng = file.type === "image/png" || /\.png$/i.test(file.name);
+    const outputType = isPng ? "image/webp" : "image/jpeg";
+    const outputExt = outputType === "image/webp" ? "webp" : "jpg";
+    const outputName = file.name.replace(/\.[^.]+$/, `.${outputExt}`);
+    const cleanup = () => URL.revokeObjectURL(objectUrl);
+
     img.onload = () => {
       const canvas = document.createElement("canvas");
       let { width, height } = img;
@@ -130,22 +138,30 @@ async function compressImage(file: File, maxSizeMB: number = MAX_FILE_SIZE_MB): 
       const tryCompress = () => {
         canvas.toBlob(
           (blob) => {
-            if (!blob) { resolve(file); return; }
+            if (!blob) {
+              cleanup();
+              resolve(file);
+              return;
+            }
             if (blob.size > maxSizeMB * 1024 * 1024 && quality > 0.3) {
               quality -= 0.1;
               tryCompress();
             } else {
-              resolve(new File([blob], file.name, { type: "image/jpeg" }));
+              cleanup();
+              resolve(new File([blob], outputName, { type: outputType }));
             }
           },
-          "image/jpeg",
+          outputType,
           quality
         );
       };
       tryCompress();
     };
-    img.onerror = () => resolve(file);
-    img.src = URL.createObjectURL(file);
+    img.onerror = () => {
+      cleanup();
+      resolve(file);
+    };
+    img.src = objectUrl;
   });
 }
 
@@ -195,22 +211,17 @@ export async function compressImageForAgent(file: File): Promise<File> {
  * 上传图片到 imgbb（通过服务端 API 代理）
  */
 export async function uploadImage(file: File): Promise<UploadResult> {
-  const compressed = await compressImage(file, MAX_FILE_SIZE_MB);
-
-  const base64 = await new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(compressed);
-  });
+  const uploadLimitMB = file.size > UPLOAD_TRANSPORT_SAFE_SIZE_MB * 1024 * 1024
+    ? UPLOAD_TRANSPORT_SAFE_SIZE_MB
+    : MAX_FILE_SIZE_MB;
+  const compressed = await compressImage(file, uploadLimitMB);
+  const form = new FormData();
+  form.append("image", compressed);
+  form.append("name", file.name.replace(/\.[^.]+$/, ""));
 
   const res = await fetch("/api/upload-image", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      image: base64,
-      name: file.name.replace(/\.[^.]+$/, ""),
-    }),
+    body: form,
   });
 
   if (!res.ok) {

@@ -45,7 +45,25 @@ const MODELS: { value: LingyaModel; label: string; desc: string; badge?: string;
 
 type PoseHistoryPayload = Extract<HistoryJobPayload, { kind: "pose" }>;
 
-const DEFAULT_POSE_PROMPT = "基于图1生成同一人物、同一服装、同一摄影质感的姿势变化；姿势由 AI 按所选风格自由设计，保持人物比例、脸、肤色、发型和服装结构稳定。";
+const DEFAULT_POSE_PROMPT = `High-end fashion magazine editorial photography, same person from 图1, same face identity, hairstyle, body proportion, clothing, fabric texture, color, pattern, scene, lighting and photography quality. Four-panel pose variation from the same fashion photo series, consistent framing, same camera distance, same lens style, same background and color grade. Professional studio lighting with soft key light and natural fill. Hyper-realistic skin texture with natural pores. photorealistic, 8K ultra-detailed, cinematic color grade, sharp details.
+
+时装大片连贯性规则：四个分格必须像同一套商业时装大片的连续 pose sheet，而不是四张不同照片拼贴；保持统一构图、统一背景、统一光线、统一肤色质感、统一色彩管理和统一服装展示尺度。
+服装展示规则：四个姿势都要清楚展示同一套服装的版型、腰线、肩线、袖长、下摆、面料垂坠、纹理和图案；允许动作造成自然褶皱、遮挡和张力变化，但绝不能改变服装结构、颜色、图案、长度、开口位置或搭配关系。
+身体动作规则：动作变化要自然、可信、符合真人关节运动，避免夸张扭腰、断手、错位手指、肢体拉长、身体比例漂移；每个姿势都要稳定站立并服务于服装展示。
+肤色和色彩规则：四个分格必须保留图1人物的自然肤色、肤色明暗、冷暖调、局部红润、阴影层次和真实皮肤质感；保持准确白平衡和真实曝光，不要自动美白、不要雪白皮、不要冷白皮、不要过度提亮肤色。
+脸型五官规则：四个分格必须保持图1人物的脸型骨相、脸长宽比例、颧骨、下颌线、下巴形状、眼型、眼距、鼻翼宽度、唇形和真实五官辨识度；不要自动变成标准鹅蛋脸、小V脸、尖下巴、大眼高鼻的网红脸。
+
+姿势1：正面自然站立，双手自然下垂或轻触口袋，表情平静自然，眼神直视镜头，完整展示服装正面版型。镜头：consistent medium full-body framing, 50mm lens, eye level angle
+姿势2：身体轻微侧转30度，肩线放松，一手轻抚头发或整理衣领，柔和浅笑，展示服装侧面轮廓和肩颈线条。镜头：consistent medium full-body framing, 50mm lens, eye level angle
+姿势3：重心轻微偏移，一手叉腰或扶腰，另一只手自然下垂，自信微笑，展示服装腰线、廓形和面料垂坠。镜头：consistent medium full-body framing, 50mm lens, eye level angle
+姿势4：轻微迈步或转身的自然动态，专注或轻微回眸的自然表情，衣服产生真实褶皱、张力和垂坠，不改变服装结构。镜头：consistent medium full-body framing, 50mm lens, eye level angle
+
+表情控制：保持同一个人、同一张脸、不要换脸，但四个分格需要轻微自然的表情差异，避免复制粘贴脸；建议分别呈现平静自然、自信微笑、柔和浅笑、专注或轻微回眸的眼神表情。
+负面约束：不要换脸，不要换衣服，不要改变场景，不要生成多余人物，不要扭曲手指和肢体，不要塑料皮肤，不要AI渲染感。`;
+
+function resolvePoseOutputModeFromPayload(payload: PoseHistoryPayload): PoseOutputMode {
+  return payload.outputMode === "separate" || Number(payload.genCount || 0) > 1 ? "separate" : "grid";
+}
 
 function stripLegacyRuleDemoText(value: string) {
   return value
@@ -59,6 +77,7 @@ export default function PosePage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const rulesButtonRef = useRef<HTMLButtonElement>(null);
   const rulesHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const generationRunRef = useRef(0);
 
   const {
     authChecked,
@@ -167,6 +186,7 @@ export default function PosePage() {
   }, []);
 
   function applyPoseHistoryPayload(payload: PoseHistoryPayload, historyResultUrls: string[] = [], options?: { silent?: boolean }) {
+    generationRunRef.current += 1;
     setMainImage(payload.mainImageUrl);
     setAiModel(payload.aiModel);
     setImageSize(payload.imageSize);
@@ -174,6 +194,8 @@ export default function PosePage() {
     setSupplementPrompt("");
     setVaryExpression(payload.varyExpression !== false);
     setPoseStyle(normalizePoseSeriesStyle(payload.poseStyle));
+    setOutputMode(resolvePoseOutputModeFromPayload(payload));
+    setRunningExpectedCount(null);
     setResultUrls(historyResultUrls);
     setIsGenerating(false);
     setProgress(historyResultUrls.length ? 100 : 0);
@@ -188,6 +210,7 @@ export default function PosePage() {
     const payload = detail?.payload;
     if (cancelled || !payload) return;
 
+    generationRunRef.current += 1;
     setMainImage(payload.mainImageUrl);
     setAiModel(payload.aiModel);
     setImageSize(payload.imageSize);
@@ -195,6 +218,8 @@ export default function PosePage() {
     setSupplementPrompt("");
     setVaryExpression(payload.varyExpression !== false);
     setPoseStyle(normalizePoseSeriesStyle(payload.poseStyle));
+    setOutputMode(resolvePoseOutputModeFromPayload(payload));
+    setRunningExpectedCount(null);
     setResultUrls(detail?.resultUrls || []);
     setIsGenerating(false);
     setProgress(detail?.resultUrls.length ? 100 : 0);
@@ -304,8 +329,11 @@ export default function PosePage() {
       return;
     }
 
+    const runId = generationRunRef.current + 1;
+    generationRunRef.current = runId;
+    const isCurrentRun = () => generationRunRef.current === runId;
     setIsGenerating(true);
-    setRunningExpectedCount(null);
+    setRunningExpectedCount(poseExpectedCount);
     setProgress(10);
     setError("");
     setResultUrls([]);
@@ -336,6 +364,7 @@ export default function PosePage() {
           vary_expression: varyExpression,
           pose_style: poseStyle,
           output_mode: outputMode,
+          gen_count: poseExpectedCount,
         }),
       });
       const data = await res.json();
@@ -343,8 +372,10 @@ export default function PosePage() {
         if (res.status === 401) {
           await refreshAuth();
           taskQueue.removeTask(activeTaskId);
-          setIsGenerating(false);
-          router.push("/login");
+          if (isCurrentRun()) {
+            setIsGenerating(false);
+            router.push("/login");
+          }
           return;
         }
         if (res.status === 402) {
@@ -358,7 +389,7 @@ export default function PosePage() {
         setCredits(data.credits_remaining);
         if (userId) setCachedProfileCredits(userId, data.credits_remaining);
       }
-      setProgress(25);
+      if (isCurrentRun()) setProgress(25);
       if (typeof data.generation_id === "string" && data.generation_id) {
         const serverTask = taskQueue.replaceWithServerTask(activeTaskId, {
           id: data.generation_id,
@@ -380,10 +411,10 @@ export default function PosePage() {
         if (state.status === "processing_tryon" || state.status === "processing" || state.status === "pending") {
           if (Array.isArray(state.result_urls) && state.result_urls.length) {
             latestTaskResultUrls = state.result_urls;
-            setResultUrls(state.result_urls);
+            if (isCurrentRun()) setResultUrls(state.result_urls);
           }
           const runningProgress = Math.min(25 + attempts * 1.5, 90);
-          setProgress(runningProgress);
+          if (isCurrentRun()) setProgress(runningProgress);
           taskQueue.markRunning(activeTaskId, {
             expectedCount: poseExpectedCount,
             inputThumbnails: taskInputThumbnails,
@@ -393,16 +424,20 @@ export default function PosePage() {
           });
         } else if (state.status === "completed") {
           const finalUrls = Array.isArray(state.result_urls) ? state.result_urls : latestTaskResultUrls;
-          setProgress(100);
-          setResultUrls(finalUrls);
+          if (isCurrentRun()) {
+            setProgress(100);
+            setResultUrls(finalUrls);
+          }
           taskQueue.markCompleted(activeTaskId, {
             expectedCount: poseExpectedCount,
             inputThumbnails: taskInputThumbnails,
             resultThumbnails: finalUrls,
             resultCount: finalUrls.length,
           });
-          toast.success("姿势裂变完成");
-          setIsGenerating(false);
+          if (isCurrentRun()) {
+            toast.success("姿势裂变完成");
+            setIsGenerating(false);
+          }
           return;
         } else if (state.status === "failed") {
           throw new Error(state.error || "生成失败");
@@ -411,14 +446,16 @@ export default function PosePage() {
       throw new Error("生成超时");
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "生成失败";
-      setError(message);
       taskQueue.markFailed(activeTaskId, message, {
         expectedCount: poseExpectedCount,
         inputThumbnails: taskInputThumbnails,
         resultThumbnails: latestTaskResultUrls,
       });
-      toast.error(message);
-      setIsGenerating(false);
+      if (isCurrentRun()) {
+        setError(message);
+        toast.error(message);
+        setIsGenerating(false);
+      }
     }
   }
 
@@ -430,9 +467,9 @@ export default function PosePage() {
   }
 
   function handleRunningTask(item: TaskQueueItem) {
+    generationRunRef.current += 1;
     const expectedCount = clampTaskExpectedCount(item, 1, 4);
     setRunningExpectedCount(expectedCount);
-    setOutputMode(expectedCount > 1 ? "separate" : "grid");
     setIsGenerating(true);
     setProgress(Math.min(Math.max(Math.round(Number(item.progress) || 12), 1), 99));
     setError("");
@@ -456,6 +493,7 @@ export default function PosePage() {
   }
 
   function handleContinueCreate() {
+    generationRunRef.current += 1;
     setRunningExpectedCount(null);
     setIsGenerating(false);
     setProgress(0);
@@ -702,10 +740,10 @@ export default function PosePage() {
         <StudioRunBar
           summary={outputMode === "separate" ? "每姿势一张 · 4 张结果" : "四宫格 · 单张结果"}
           costLabel={authIsAnonymous ? "登录后查看积分" : `消耗 ${cost} · 余额 ${credits ?? "-"}`}
-          disabled={isGenerating || Boolean(runDisabledReason)}
+          disabled={Boolean(runDisabledReason)}
           disabledReason={runDisabledReason}
-          primaryLabel={authIsAnonymous ? "登录后生成" : isGenerating ? `生成中 ${Math.round(progress)}%` : outputMode === "separate" ? "生成 4 张独立图" : "生成四宫格"}
-          isLoading={isGenerating}
+          primaryLabel={authIsAnonymous ? "登录后生成" : isGenerating ? "继续生成" : outputMode === "separate" ? "生成 4 张独立图" : "生成四宫格"}
+          isLoading={false}
           onPrimaryAction={() => generate()}
         />
       </div>
@@ -731,7 +769,7 @@ export default function PosePage() {
           <div className="studio-result-stage min-h-[260px] sm:min-h-[360px] overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:h-full flex flex-col animate-fade-in">
             {isGenerating && (
               <div className="mb-4 rounded-xl border border-purple-100 bg-white/80 px-3 py-2 text-xs font-medium text-purple-600 shadow-sm">
-                已生成 {resultUrls.length}{runningExpectedCount ? ` / ${runningExpectedCount}` : outputMode === "separate" ? " / 4" : ""}，剩余图片生成中...
+                已生成 {resultUrls.length}{` / ${runningExpectedCount || poseExpectedCount}`}，剩余图片生成中...
               </div>
             )}
             <div className="flex min-h-0 flex-1 items-start justify-start">
@@ -740,7 +778,7 @@ export default function PosePage() {
                 filenamePrefix="pose"
                 extension="jpg"
                 onOpen={setLightboxSrc}
-                expectedCount={isGenerating ? runningExpectedCount || (outputMode === "separate" ? 4 : 1) : undefined}
+                expectedCount={isGenerating ? runningExpectedCount || poseExpectedCount : undefined}
                 isGenerating={isGenerating}
                 inputThumbnails={mainImage ? [mainImage] : []}
                 statusGroup={isGenerating ? "running" : undefined}

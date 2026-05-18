@@ -7,7 +7,37 @@ export const maxDuration = 60;
 
 const IMAGE_UPLOAD_TIMEOUT_MS = 60_000;
 const MAX_UPLOAD_MB = 15;
+const MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024;
 const MAX_BASE64_LENGTH = 21 * 1024 * 1024; // ~15MB after base64 encoding
+
+async function readUploadRequest(request: Request) {
+  const contentType = request.headers.get("content-type") || "";
+
+  if (contentType.toLowerCase().includes("multipart/form-data")) {
+    const form = await request.formData();
+    const file = form.get("image");
+    const nameValue = form.get("name");
+    if (!(file instanceof File)) {
+      return { image: "", name: "" };
+    }
+    if (file.size > MAX_UPLOAD_BYTES) {
+      return { image: "", name: "", tooLarge: true };
+    }
+    const bytes = Buffer.from(await file.arrayBuffer());
+    const image = `data:${file.type || "image/jpeg"};base64,${bytes.toString("base64")}`;
+    const name = typeof nameValue === "string" && nameValue.trim()
+      ? nameValue.trim()
+      : file.name.replace(/\.[^.]+$/, "");
+    return { image, name };
+  }
+
+  const body = await request.json();
+  const { image, name } = body;
+  return {
+    image,
+    name: typeof name === "string" ? name : "",
+  };
+}
 
 export async function POST(request: Request) {
   try {
@@ -17,8 +47,11 @@ export async function POST(request: Request) {
     const limit = await checkRateLimit(`upload:${user.id}`, 30, 60_000);
     if (!limit.ok) return rateLimitResponse(limit.retryAfterSeconds);
 
-    const body = await request.json();
-    const { image, name } = body;
+    const { image, name, tooLarge } = await readUploadRequest(request);
+
+    if (tooLarge) {
+      return NextResponse.json({ error: `图片不能超过 ${MAX_UPLOAD_MB}MB` }, { status: 400 });
+    }
 
     if (!image || typeof image !== "string") {
       return NextResponse.json({ error: "请选择图片" }, { status: 400 });
