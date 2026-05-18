@@ -11,6 +11,7 @@ const resources = [
   "assets",
   "audit",
   "agent_evals",
+  "prompt_experiments",
   "diagnostics",
   "reports",
   "requests",

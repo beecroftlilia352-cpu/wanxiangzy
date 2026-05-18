@@ -4,7 +4,15 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Archive, Loader2, Rocket } from "lucide-react";
 
-export function AdminConfigActions({ id, status }: { id: string; status: string }) {
+export function AdminConfigActions({
+  id,
+  status,
+  endpointBase = "/api/admin/settings/configs",
+}: {
+  id: string;
+  status: string;
+  endpointBase?: string;
+}) {
   const router = useRouter();
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const canPublish = status !== "published";
@@ -16,7 +24,7 @@ export function AdminConfigActions({ id, status }: { id: string; status: string 
 
     setLoadingAction(action);
     try {
-      const res = await fetch(`/api/admin/settings/configs/${id}`, {
+      const res = await fetch(`${endpointBase}/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action, reason }),

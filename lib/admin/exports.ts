@@ -4,6 +4,7 @@ import {
   getAdminAgentEvalOverview,
   listAdminCreditLogs,
   getAdminDiagnostics,
+  getAdminPromptExperimentOverview,
   getAdminCostReport,
   listAdminModerationCases,
   listAdminOperationRequests,
@@ -18,6 +19,7 @@ export const ADMIN_EXPORT_TYPES = [
   "assets",
   "audit",
   "agent_evals",
+  "prompt_experiments",
   "diagnostics",
   "reports",
   "requests",
@@ -194,6 +196,31 @@ export async function loadAdminExportData(
           row.createdAt || "",
         ]),
       ],
+    };
+  }
+
+  if (exportType === "prompt_experiments") {
+    const result = await getAdminPromptExperimentOverview();
+    return {
+      columns: ["experiment_id", "name", "module", "status", "traffic", "primary_metric", "variant_key", "variant_label", "variant_weight", "template", "guardrails", "version_id", "version_status", "version_published_at"],
+      rows: result.experiments.flatMap((experiment) => (
+        experiment.variants.length ? experiment.variants : [{ key: "", label: "", weight: 0, template: "", notes: null }]
+      ).map((variant) => [
+        experiment.id,
+        experiment.name,
+        experiment.module,
+        experiment.status,
+        String(experiment.traffic),
+        experiment.primaryMetric,
+        variant.key,
+        variant.label,
+        String(variant.weight),
+        variant.template,
+        experiment.guardrails.join("; "),
+        experiment.versionId,
+        experiment.versionStatus,
+        experiment.versionPublishedAt || "",
+      ])),
     };
   }
 

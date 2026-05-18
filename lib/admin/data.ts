@@ -371,6 +371,57 @@ export type AdminSettingsOverview = {
   warnings: string[];
 };
 
+export type AdminPromptExperimentStatus = "draft" | "running" | "paused" | "completed";
+
+export type AdminPromptExperimentVariant = {
+  key: string;
+  label: string;
+  weight: number;
+  template: string;
+  notes: string | null;
+};
+
+export type AdminPromptExperiment = {
+  id: string;
+  name: string;
+  module: string;
+  moduleLabel: string;
+  status: AdminPromptExperimentStatus;
+  traffic: number;
+  primaryMetric: string;
+  guardrails: string[];
+  variants: AdminPromptExperimentVariant[];
+  owner: string | null;
+  notes: string | null;
+  startedAt: string | null;
+  endedAt: string | null;
+  versionId: string;
+  versionStatus: string;
+  versionCreatedAt: string | null;
+  versionPublishedAt: string | null;
+};
+
+export type AdminPromptExperimentOverview = {
+  available: boolean;
+  configKey: "prompt.experiments";
+  activeVersion: AdminConfigVersion | null;
+  draftVersions: AdminConfigVersion[];
+  archivedVersions: AdminConfigVersion[];
+  experiments: AdminPromptExperiment[];
+  metrics: {
+    total: number;
+    running: number;
+    draft: number;
+    paused: number;
+    completed: number;
+    coveredModules: number;
+    variants: number;
+    averageTraffic: number;
+  };
+  warnings: string[];
+  exampleValue: Record<string, unknown>;
+};
+
 export type AdminUserDetail = {
   profile: AdminUserListItem | null;
   creditLogs: AdminCreditLogItem[];
@@ -594,6 +645,45 @@ const SAVED_VIEW_COLUMNS = "id,owner_user_id,owner_email,name,resource,visibilit
 const EXPORT_JOB_COLUMNS = "id,export_type,status,requested_by,requested_by_email,requested_by_role,filters,row_count,download_token,expires_at,error_message,created_at";
 const AGENT_EVAL_RUN_COLUMNS = "id,user_id,total,passed,failed,score,latency_ms,summary,created_at";
 const AGENT_EVAL_RESULT_COLUMNS = "id,run_id,user_id,case_id,title,ok,failures,action,module,confidence,trace_id,created_at";
+export const PROMPT_EXPERIMENT_CONFIG_KEY = "prompt.experiments" as const;
+export const DEFAULT_PROMPT_EXPERIMENT_CONFIG = {
+  schemaVersion: 1,
+  assignment: {
+    stickyKey: "user_id",
+    method: "hash_bucket",
+  },
+  experiments: [
+    {
+      id: "pose-prompt-v2",
+      name: "姿势裂变 Prompt V2",
+      module: "pose",
+      status: "draft",
+      traffic: 10,
+      primaryMetric: "success_rate",
+      guardrails: ["agent_eval_score >= 90", "failed_case_count = 0", "refund_rate <= control"],
+      variants: [
+        {
+          key: "control",
+          label: "线上模板",
+          weight: 50,
+          template: "保持当前生产提示词，不改变人物身份、服装结构和画幅。",
+          notes: "对照组",
+        },
+        {
+          key: "variant-a",
+          label: "姿势多样性增强",
+          weight: 50,
+          template: "在保持人物身份、服装结构和画幅不变的前提下，生成更明显区分的自然站姿、半身转体和轻微动态姿势。",
+          notes: "实验组",
+        },
+      ],
+      owner: "ops",
+      notes: "发布前需要先通过 Agent Eval 回归。",
+      startedAt: null,
+      endedAt: null,
+    },
+  ],
+};
 
 export async function getAdminOverview(): Promise<AdminOverview> {
   const admin = getAdminClient();
@@ -1495,6 +1585,68 @@ export async function getAdminSettingsOverview(): Promise<AdminSettingsOverview>
     available: Boolean(result.data),
     runtime: getRuntimeSettingHealth(),
     warnings: uniqueStrings(warnings),
+  };
+}
+
+export async function getAdminPromptExperimentOverview(): Promise<AdminPromptExperimentOverview> {
+  const warnings: string[] = [];
+  const result = await runQuery<Record<string, unknown>[]>(
+    getAdminClient()
+      .from("admin_config_versions")
+      .select(ADMIN_CONFIG_COLUMNS)
+      .eq("config_key", PROMPT_EXPERIMENT_CONFIG_KEY)
+      .order("created_at", { ascending: false })
+      .limit(80),
+    "prompt experiment config versions",
+    warnings,
+    true,
+  );
+
+  if (!result.data) {
+    return {
+      available: false,
+      configKey: PROMPT_EXPERIMENT_CONFIG_KEY,
+      activeVersion: null,
+      draftVersions: [],
+      archivedVersions: [],
+      experiments: [],
+      metrics: emptyPromptExperimentMetrics(),
+      warnings: uniqueStrings([
+        ...warnings,
+        result.error
+          ? `admin_config_versions: ${result.error}`
+          : "admin_config_versions table is not ready. Run supabase/admin-console.sql first.",
+      ]),
+      exampleValue: DEFAULT_PROMPT_EXPERIMENT_CONFIG,
+    };
+  }
+
+  const versions = result.data.map(mapConfigVersion);
+  const activeVersion = versions.find((item) => item.status === "published") || null;
+  const sourceVersions = activeVersion ? [activeVersion] : versions.filter((item) => item.status !== "archived").slice(0, 1);
+  const experiments = sourceVersions.flatMap((version) => parsePromptExperiments(version, warnings));
+  const coveredModules = new Set(experiments.map((item) => item.module).filter(Boolean));
+  const totalTraffic = experiments.reduce((sum, item) => sum + item.traffic, 0);
+
+  return {
+    available: true,
+    configKey: PROMPT_EXPERIMENT_CONFIG_KEY,
+    activeVersion,
+    draftVersions: versions.filter((item) => item.status === "draft"),
+    archivedVersions: versions.filter((item) => item.status === "archived"),
+    experiments,
+    metrics: {
+      total: experiments.length,
+      running: experiments.filter((item) => item.status === "running").length,
+      draft: experiments.filter((item) => item.status === "draft").length,
+      paused: experiments.filter((item) => item.status === "paused").length,
+      completed: experiments.filter((item) => item.status === "completed").length,
+      coveredModules: coveredModules.size,
+      variants: experiments.reduce((sum, item) => sum + item.variants.length, 0),
+      averageTraffic: experiments.length ? Math.round(totalTraffic / experiments.length) : 0,
+    },
+    warnings: uniqueStrings(warnings),
+    exampleValue: DEFAULT_PROMPT_EXPERIMENT_CONFIG,
   };
 }
 
@@ -2683,6 +2835,108 @@ function mapAuditRow(row: Record<string, unknown>): AdminAuditLog {
     reason: nullableString(row.reason),
     metadata: isRecord(row.metadata) ? row.metadata : {},
     createdAt: nullableString(row.created_at),
+  };
+}
+
+function mapConfigVersion(row: Record<string, unknown>): AdminConfigVersion {
+  return {
+    id: stringValue(row.id),
+    configKey: stringValue(row.config_key),
+    status: stringValue(row.status) || "draft",
+    value: isRecord(row.value) ? row.value : {},
+    createdBy: nullableString(row.created_by),
+    publishedAt: nullableString(row.published_at),
+    createdAt: nullableString(row.created_at),
+  };
+}
+
+function parsePromptExperiments(version: AdminConfigVersion, warnings: string[]): AdminPromptExperiment[] {
+  const rawExperiments = Array.isArray(version.value.experiments) ? version.value.experiments : [];
+  if (!rawExperiments.length && Object.keys(version.value).length > 0) {
+    warnings.push(`${PROMPT_EXPERIMENT_CONFIG_KEY}: no experiments array found in version ${version.id}`);
+  }
+
+  return rawExperiments
+    .map((value, index) => mapPromptExperiment(value, version, index, warnings))
+    .filter((item): item is AdminPromptExperiment => Boolean(item));
+}
+
+function mapPromptExperiment(
+  value: unknown,
+  version: AdminConfigVersion,
+  index: number,
+  warnings: string[],
+): AdminPromptExperiment | null {
+  if (!isRecord(value)) {
+    warnings.push(`${PROMPT_EXPERIMENT_CONFIG_KEY}: experiment ${index + 1} is not an object`);
+    return null;
+  }
+
+  const id = stringValue(value.id) || `experiment-${index + 1}`;
+  const module = normalizeModuleFilter(stringValue(value.module)) || "generalImage";
+  const status = normalizePromptExperimentStatus(stringValue(value.status));
+  const variants = Array.isArray(value.variants)
+    ? value.variants.map((variant, variantIndex) => mapPromptVariant(variant, variantIndex)).filter((item): item is AdminPromptExperimentVariant => Boolean(item))
+    : [];
+  const traffic = clampLimit(value.traffic, 0, 100, 0);
+
+  if (variants.length < 2) {
+    warnings.push(`${id}: at least two variants are recommended for A/B testing`);
+  }
+  const weightTotal = variants.reduce((sum, variant) => sum + variant.weight, 0);
+  if (variants.length >= 2 && weightTotal !== 100) {
+    warnings.push(`${id}: variant weights sum to ${weightTotal}, expected 100`);
+  }
+
+  return {
+    id,
+    name: stringValue(value.name) || id,
+    module,
+    moduleLabel: moduleLabel(module),
+    status,
+    traffic,
+    primaryMetric: stringValue(value.primaryMetric) || "success_rate",
+    guardrails: arrayOfStrings(value.guardrails),
+    variants,
+    owner: nullableString(value.owner),
+    notes: nullableString(value.notes),
+    startedAt: nullableString(value.startedAt),
+    endedAt: nullableString(value.endedAt),
+    versionId: version.id,
+    versionStatus: version.status,
+    versionCreatedAt: version.createdAt,
+    versionPublishedAt: version.publishedAt,
+  };
+}
+
+function mapPromptVariant(value: unknown, index: number): AdminPromptExperimentVariant | null {
+  if (!isRecord(value)) return null;
+  const key = stringValue(value.key) || `variant-${index + 1}`;
+  return {
+    key,
+    label: stringValue(value.label) || key,
+    weight: clampLimit(value.weight, 0, 100, index === 0 ? 50 : 0),
+    template: stringValue(value.template),
+    notes: nullableString(value.notes),
+  };
+}
+
+function normalizePromptExperimentStatus(value: string): AdminPromptExperimentStatus {
+  return value === "running" || value === "paused" || value === "completed" || value === "draft"
+    ? value
+    : "draft";
+}
+
+function emptyPromptExperimentMetrics(): AdminPromptExperimentOverview["metrics"] {
+  return {
+    total: 0,
+    running: 0,
+    draft: 0,
+    paused: 0,
+    completed: 0,
+    coveredModules: 0,
+    variants: 0,
+    averageTraffic: 0,
   };
 }
 

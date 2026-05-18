@@ -35,6 +35,8 @@ export type AdminPermission =
   | "diagnostics:read"
   | "evals:read"
   | "evals:write"
+  | "prompts:read"
+  | "prompts:write"
   | "providers:read"
   | "providers:write"
   | "audit:read"
@@ -67,6 +69,8 @@ const ROLE_PERMISSIONS: Record<AdminRole, AdminPermission[]> = {
     "diagnostics:read",
     "evals:read",
     "evals:write",
+    "prompts:read",
+    "prompts:write",
     "providers:read",
     "providers:write",
     "audit:read",
@@ -95,6 +99,8 @@ const ROLE_PERMISSIONS: Record<AdminRole, AdminPermission[]> = {
     "diagnostics:read",
     "evals:read",
     "evals:write",
+    "prompts:read",
+    "prompts:write",
     "providers:read",
     "audit:read",
     "settings:read",
@@ -113,6 +119,7 @@ const ROLE_PERMISSIONS: Record<AdminRole, AdminPermission[]> = {
     "reports:read",
     "diagnostics:read",
     "evals:read",
+    "prompts:read",
     "audit:read",
   ],
   finance: [
@@ -130,6 +137,7 @@ const ROLE_PERMISSIONS: Record<AdminRole, AdminPermission[]> = {
     "reports:read",
     "diagnostics:read",
     "evals:read",
+    "prompts:read",
     "audit:read",
   ],
   reviewer: [
@@ -147,6 +155,7 @@ const ROLE_PERMISSIONS: Record<AdminRole, AdminPermission[]> = {
     "reports:read",
     "diagnostics:read",
     "evals:read",
+    "prompts:read",
     "audit:read",
   ],
   engineer: [
@@ -171,6 +180,8 @@ const ROLE_PERMISSIONS: Record<AdminRole, AdminPermission[]> = {
     "diagnostics:read",
     "evals:read",
     "evals:write",
+    "prompts:read",
+    "prompts:write",
     "providers:read",
     "providers:write",
     "audit:read",
@@ -191,6 +202,7 @@ const ROLE_PERMISSIONS: Record<AdminRole, AdminPermission[]> = {
     "reports:read",
     "diagnostics:read",
     "evals:read",
+    "prompts:read",
     "providers:read",
     "audit:read",
     "settings:read",

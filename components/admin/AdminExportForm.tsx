@@ -11,6 +11,7 @@ const exportTypes = [
   { value: "assets", label: "资产" },
   { value: "audit", label: "审计日志" },
   { value: "agent_evals", label: "Agent Eval" },
+  { value: "prompt_experiments", label: "Prompt 实验" },
   { value: "diagnostics", label: "异常诊断" },
   { value: "reports", label: "成本报表" },
   { value: "requests", label: "审批单" },
