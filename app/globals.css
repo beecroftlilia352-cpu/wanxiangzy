@@ -377,6 +377,10 @@
     grid-template-areas: "nav tasks controls canvas";
   }
 
+  .studio-page-shell:has(.studio-shell-task-rail > .studio-task-rail-expanded) {
+    grid-template-columns: var(--studio-nav-rail-width) 340px var(--studio-sidebar-width) minmax(0, 1fr);
+  }
+
   .studio-page-shell:not(:has(.studio-shell-task-rail)):not(:has(.studio-task-rail)) {
     grid-template-columns: var(--studio-nav-rail-width) var(--studio-sidebar-width) minmax(0, 1fr);
     grid-template-areas: "nav controls canvas";
@@ -424,9 +428,15 @@
 }
 
 .studio-shell-task-rail > .studio-task-rail-expanded {
-  position: absolute;
-  inset: 0 auto 0 0;
+  position: relative;
+  inset: auto;
   z-index: 20;
+}
+
+.studio-shell-task-rail:has(.studio-task-rail-expanded) {
+  width: 340px;
+  min-width: 340px;
+  max-width: 340px;
 }
 
 .studio-nav-rail * {
