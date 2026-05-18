@@ -77,3 +77,76 @@ CREATE TRIGGER admin_members_touch_updated_at
   BEFORE UPDATE ON public.admin_members
   FOR EACH ROW
   EXECUTE FUNCTION public.touch_admin_member_updated_at();
+
+CREATE OR REPLACE FUNCTION public.admin_adjust_user_credits(
+  p_user_id UUID,
+  p_amount INTEGER,
+  p_reason TEXT,
+  p_actor_user_id UUID,
+  p_actor_email TEXT DEFAULT NULL,
+  p_actor_role TEXT DEFAULT NULL
+)
+RETURNS TABLE(user_id UUID, balance INTEGER, amount INTEGER)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_balance INTEGER;
+  v_reason TEXT;
+BEGIN
+  IF p_user_id IS NULL THEN
+    RAISE EXCEPTION 'user_id is required';
+  END IF;
+
+  IF COALESCE(p_amount, 0) = 0 THEN
+    RAISE EXCEPTION 'amount must not be zero';
+  END IF;
+
+  v_reason := LEFT(COALESCE(NULLIF(TRIM(p_reason), ''), 'admin manual adjustment'), 240);
+
+  UPDATE public.profiles
+  SET
+    credits = GREATEST(COALESCE(credits, 0) + p_amount, 0),
+    total_credits_used = CASE
+      WHEN p_amount < 0 THEN COALESCE(total_credits_used, 0) + ABS(p_amount)
+      ELSE COALESCE(total_credits_used, 0)
+    END,
+    updated_at = NOW()
+  WHERE id = p_user_id
+  RETURNING credits INTO v_balance;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'profile not found';
+  END IF;
+
+  INSERT INTO public.credit_logs(user_id, amount, balance, reason)
+  VALUES (p_user_id, p_amount, v_balance, CONCAT('admin: ', v_reason));
+
+  INSERT INTO public.admin_audit_logs(
+    actor_user_id,
+    actor_email,
+    actor_role,
+    action,
+    resource_type,
+    resource_id,
+    reason,
+    metadata
+  )
+  VALUES (
+    p_actor_user_id,
+    p_actor_email,
+    p_actor_role,
+    'credits.adjust',
+    'profile',
+    p_user_id::TEXT,
+    v_reason,
+    jsonb_build_object('amount', p_amount, 'balance', v_balance)
+  );
+
+  RETURN QUERY SELECT p_user_id, v_balance, p_amount;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.admin_adjust_user_credits(UUID, INTEGER, TEXT, UUID, TEXT, TEXT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.admin_adjust_user_credits(UUID, INTEGER, TEXT, UUID, TEXT, TEXT) TO service_role;

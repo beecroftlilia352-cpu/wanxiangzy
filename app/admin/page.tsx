@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Activity, DatabaseZap, RefreshCw, Users } from "lucide-react";
+import { Activity, Coins, DatabaseZap, ImageIcon, RefreshCw, Settings, Users } from "lucide-react";
 import {
   AdminMetricCard,
   AdminNotice,
@@ -112,9 +112,11 @@ export default async function AdminDashboardPage() {
           <AdminSection title="快速入口">
             <div className="grid grid-cols-2 gap-2 p-4">
               <QuickLink href="/admin/users" icon={<Users className="h-4 w-4" />} label="用户管理" />
+              <QuickLink href="/admin/credits" icon={<Coins className="h-4 w-4" />} label="积分流水" />
               <QuickLink href="/admin/generations" icon={<Activity className="h-4 w-4" />} label="任务中心" />
+              <QuickLink href="/admin/assets" icon={<ImageIcon className="h-4 w-4" />} label="资产作品" />
               <QuickLink href="/admin/providers" icon={<DatabaseZap className="h-4 w-4" />} label="供应商" />
-              <QuickLink href="/admin/audit" icon={<RefreshCw className="h-4 w-4" />} label="审计日志" />
+              <QuickLink href="/admin/settings" icon={<Settings className="h-4 w-4" />} label="系统配置" />
             </div>
           </AdminSection>
         </div>

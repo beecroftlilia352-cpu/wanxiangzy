@@ -139,6 +139,89 @@ export type AdminProviderCatalog = {
   }>;
 };
 
+export type AdminCreditLogItem = {
+  id: string;
+  userId: string;
+  email: string | null;
+  amount: number;
+  balance: number;
+  reason: string;
+  generationId: string | null;
+  createdAt: string | null;
+};
+
+export type AdminCreditList = {
+  rows: AdminCreditLogItem[];
+  total: number;
+  metrics: {
+    debits: number;
+    credits: number;
+    net: number;
+    affectedUsers: number;
+  };
+  warnings: string[];
+};
+
+export type AdminAssetListItem = {
+  id: string;
+  userId: string;
+  sourceType: "generation" | "reference" | "favorite-plan";
+  module: string;
+  moduleLabel: string;
+  title: string;
+  status: string;
+  urls: string[];
+  inputUrls: string[];
+  createdAt: string | null;
+  updatedAt: string | null;
+  detailUrl: string;
+};
+
+export type AdminAssetList = {
+  rows: AdminAssetListItem[];
+  total: number;
+  warnings: string[];
+};
+
+export type AdminMemberListItem = {
+  userId: string;
+  email: string | null;
+  role: string;
+  status: string;
+  enabled: boolean;
+  displayName: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+};
+
+export type AdminMemberList = {
+  rows: AdminMemberListItem[];
+  available: boolean;
+  warnings: string[];
+};
+
+export type AdminConfigVersion = {
+  id: string;
+  configKey: string;
+  status: string;
+  value: Record<string, unknown>;
+  createdBy: string | null;
+  publishedAt: string | null;
+  createdAt: string | null;
+};
+
+export type AdminSettingsOverview = {
+  configVersions: AdminConfigVersion[];
+  available: boolean;
+  runtime: Array<{
+    key: string;
+    label: string;
+    configured: boolean;
+    scope: "auth" | "storage" | "provider" | "queue" | "admin";
+  }>;
+  warnings: string[];
+};
+
 type CountQuery = PromiseLike<unknown>;
 type SupabaseQuery = PromiseLike<unknown>;
 
@@ -200,6 +283,9 @@ const WORKFLOW_COLUMNS = [
   "cost_reserved",
   "cost_settled",
 ].join(",");
+const CREDIT_LOG_COLUMNS = "id,user_id,amount,balance,reason,generation_id,created_at";
+const ADMIN_MEMBER_COLUMNS = "user_id,email,role,status,enabled,display_name,created_at,updated_at";
+const ADMIN_CONFIG_COLUMNS = "id,config_key,value,status,created_by,published_at,created_at";
 
 export async function getAdminOverview(): Promise<AdminOverview> {
   const admin = getAdminClient();
@@ -416,6 +502,165 @@ export async function listAdminAuditLogs(args: { limit?: number } = {}): Promise
   };
 }
 
+export async function listAdminCreditLogs(args: { q?: string; limit?: number } = {}): Promise<AdminCreditList> {
+  const warnings: string[] = [];
+  const limit = clampLimit(args.limit, 10, 200, 80);
+  const q = (args.q || "").trim().toLowerCase();
+  const result = await runQuery<Record<string, unknown>[]>(
+    getAdminClient()
+      .from("credit_logs")
+      .select(CREDIT_LOG_COLUMNS, { count: "exact" })
+      .order("created_at", { ascending: false })
+      .limit(q ? Math.min(limit * 4, 300) : limit),
+    "credit logs",
+    warnings,
+    true,
+  );
+
+  const rows = result.data || [];
+  const profileEmails = await loadProfileEmails(rows.map((row) => stringValue(row.user_id)), warnings);
+  let mapped = rows.map((row) => {
+    const userId = stringValue(row.user_id);
+    return {
+      id: stringValue(row.id),
+      userId,
+      email: profileEmails.get(userId) || null,
+      amount: numberValue(row.amount),
+      balance: numberValue(row.balance),
+      reason: stringValue(row.reason),
+      generationId: nullableString(row.generation_id),
+      createdAt: nullableString(row.created_at),
+    };
+  });
+
+  if (q) {
+    mapped = mapped.filter((row) => [
+      row.id,
+      row.userId,
+      row.email || "",
+      row.reason,
+      row.generationId || "",
+    ].some((value) => value.toLowerCase().includes(q)));
+  }
+
+  const visible = mapped.slice(0, limit);
+  const debits = visible.filter((row) => row.amount < 0).reduce((sum, row) => sum + Math.abs(row.amount), 0);
+  const credits = visible.filter((row) => row.amount > 0).reduce((sum, row) => sum + row.amount, 0);
+  return {
+    rows: visible,
+    total: result.count ?? mapped.length,
+    metrics: {
+      debits,
+      credits,
+      net: credits - debits,
+      affectedUsers: new Set(visible.map((row) => row.userId).filter(Boolean)).size,
+    },
+    warnings: uniqueStrings(warnings),
+  };
+}
+
+export async function listAdminAssets(args: { q?: string; module?: string; limit?: number } = {}): Promise<AdminAssetList> {
+  const warnings: string[] = [];
+  const limit = clampLimit(args.limit, 12, 120, 60);
+  const q = (args.q || "").trim().toLowerCase();
+  const module = normalizeModuleFilter(args.module);
+
+  let generationQuery = getAdminClient()
+    .from("generations")
+    .select(GENERATION_COLUMNS, { count: "exact" })
+    .order("created_at", { ascending: false })
+    .limit(q || module ? Math.min(limit * 4, 300) : limit);
+  if (module) generationQuery = generationQuery.eq("job_payload->>kind", module);
+
+  const generationResult = await runQuery<Record<string, unknown>[]>(
+    generationQuery,
+    "asset generations",
+    warnings,
+    true,
+  );
+
+  let rows = (generationResult.data || [])
+    .map(mapGenerationAssetRow)
+    .filter((row) => row.urls.length > 0 || row.inputUrls.length > 0);
+
+  if (!module) {
+    rows.push(...await loadReferenceAssets(Math.min(30, limit), warnings));
+    rows.push(...await loadFavoritePlanAssets(Math.min(30, limit), warnings));
+  }
+
+  if (q) rows = rows.filter((row) => matchesAssetSearch(row, q));
+  rows = rows.sort((a, b) => Date.parse(b.createdAt || "") - Date.parse(a.createdAt || ""));
+
+  return {
+    rows: rows.slice(0, limit),
+    total: generationResult.count ?? rows.length,
+    warnings: uniqueStrings(warnings),
+  };
+}
+
+export async function listAdminMembers(args: { limit?: number } = {}): Promise<AdminMemberList> {
+  const warnings: string[] = [];
+  const limit = clampLimit(args.limit, 10, 100, 50);
+  const result = await runQuery<Record<string, unknown>[]>(
+    getAdminClient()
+      .from("admin_members")
+      .select(ADMIN_MEMBER_COLUMNS)
+      .order("created_at", { ascending: false })
+      .limit(limit),
+    "admin members",
+    warnings,
+    true,
+  );
+
+  if (!result.data) {
+    return { rows: [], available: false, warnings: uniqueStrings(warnings) };
+  }
+
+  return {
+    rows: result.data.map((row) => ({
+      userId: stringValue(row.user_id),
+      email: nullableString(row.email),
+      role: stringValue(row.role) || "viewer",
+      status: stringValue(row.status) || (row.enabled === false ? "disabled" : "active"),
+      enabled: row.enabled !== false,
+      displayName: nullableString(row.display_name),
+      createdAt: nullableString(row.created_at),
+      updatedAt: nullableString(row.updated_at),
+    })),
+    available: true,
+    warnings: uniqueStrings(warnings),
+  };
+}
+
+export async function getAdminSettingsOverview(): Promise<AdminSettingsOverview> {
+  const warnings: string[] = [];
+  const result = await runQuery<Record<string, unknown>[]>(
+    getAdminClient()
+      .from("admin_config_versions")
+      .select(ADMIN_CONFIG_COLUMNS)
+      .order("created_at", { ascending: false })
+      .limit(50),
+    "admin config versions",
+    warnings,
+    true,
+  );
+
+  return {
+    configVersions: (result.data || []).map((row) => ({
+      id: stringValue(row.id),
+      configKey: stringValue(row.config_key),
+      status: stringValue(row.status) || "draft",
+      value: isRecord(row.value) ? row.value : {},
+      createdBy: nullableString(row.created_by),
+      publishedAt: nullableString(row.published_at),
+      createdAt: nullableString(row.created_at),
+    })),
+    available: Boolean(result.data),
+    runtime: getRuntimeSettingHealth(),
+    warnings: uniqueStrings(warnings),
+  };
+}
+
 export function getAdminProviderCatalog(): AdminProviderCatalog {
   return {
     defaultModel: DEFAULT_LINGYA_MODEL,
@@ -460,6 +705,140 @@ export function getAdminProviderCatalog(): AdminProviderCatalog {
       { key: "workflow", label: "Agent 工作流", route: "/agent", readModel: "agent_workflows + steps/events", risk: "high", adminV1: "只读诊断" },
     ],
   };
+}
+
+async function loadProfileEmails(userIds: string[], warnings: string[]) {
+  const uniqueIds = uniqueStrings(userIds).slice(0, 300);
+  const emails = new Map<string, string>();
+  if (!uniqueIds.length) return emails;
+
+  const result = await runQuery<Record<string, unknown>[]>(
+    getAdminClient()
+      .from("profiles")
+      .select("id,email")
+      .in("id", uniqueIds),
+    "profile email lookup",
+    warnings,
+    true,
+  );
+
+  for (const row of result.data || []) {
+    const id = stringValue(row.id);
+    const email = stringValue(row.email);
+    if (id && email) emails.set(id, email);
+  }
+  return emails;
+}
+
+async function loadReferenceAssets(limit: number, warnings: string[]): Promise<AdminAssetListItem[]> {
+  const result = await runQuery<Record<string, unknown>[]>(
+    getAdminClient()
+      .from("reference_images")
+      .select("id,user_id,url,label,category,is_preset,created_at")
+      .order("created_at", { ascending: false })
+      .limit(limit),
+    "reference assets",
+    warnings,
+    true,
+  );
+
+  return (result.data || []).map((row) => {
+    const id = stringValue(row.id);
+    const category = stringValue(row.category) || "reference";
+    return {
+      id,
+      userId: stringValue(row.user_id),
+      sourceType: "reference" as const,
+      module: category,
+      moduleLabel: `参考图:${category}`,
+      title: stringValue(row.label) || "参考图",
+      status: row.is_preset === true ? "preset" : "user",
+      urls: [stringValue(row.url)].filter(Boolean),
+      inputUrls: [],
+      createdAt: nullableString(row.created_at),
+      updatedAt: nullableString(row.created_at),
+      detailUrl: "/admin/assets",
+    };
+  });
+}
+
+async function loadFavoritePlanAssets(limit: number, warnings: string[]): Promise<AdminAssetListItem[]> {
+  const result = await runQuery<Record<string, unknown>[]>(
+    getAdminClient()
+      .from("product_set_favorite_plans")
+      .select("id,user_id,name,mode,image_type,plan_preview,created_at,updated_at")
+      .order("updated_at", { ascending: false })
+      .limit(limit),
+    "favorite plan assets",
+    warnings,
+    true,
+  );
+
+  return (result.data || []).map((row) => {
+    const id = stringValue(row.id);
+    return {
+      id,
+      userId: stringValue(row.user_id),
+      sourceType: "favorite-plan" as const,
+      module: "productSet",
+      moduleLabel: "商品套图方案",
+      title: stringValue(row.name) || "收藏方案",
+      status: stringValue(row.mode) || "smart",
+      urls: extractUrls(row.plan_preview).slice(0, 4),
+      inputUrls: [],
+      createdAt: nullableString(row.created_at),
+      updatedAt: nullableString(row.updated_at),
+      detailUrl: "/admin/assets",
+    };
+  });
+}
+
+function mapGenerationAssetRow(row: Record<string, unknown>): AdminAssetListItem {
+  const payload = isRecord(row.job_payload) ? row.job_payload : {};
+  const module = normalizeModuleFilter(stringValue(payload.kind) || stringValue(payload.module) || inferModuleFromPayload(payload)) || "tryon";
+  const id = stringValue(row.id);
+  return {
+    id,
+    userId: stringValue(row.user_id),
+    sourceType: "generation",
+    module,
+    moduleLabel: moduleLabel(module),
+    title: `${moduleLabel(module)} ${id.slice(0, 8)}`,
+    status: stringValue(row.status) || "unknown",
+    urls: arrayOfStrings(row.result_urls),
+    inputUrls: inferInputThumbnails(row, payload),
+    createdAt: nullableString(row.created_at),
+    updatedAt: nullableString(row.updated_at) || nullableString(row.completed_at),
+    detailUrl: `/admin/generations?q=${encodeURIComponent(id)}`,
+  };
+}
+
+function matchesAssetSearch(row: AdminAssetListItem, q: string) {
+  return [
+    row.id,
+    row.userId,
+    row.sourceType,
+    row.module,
+    row.moduleLabel,
+    row.title,
+    row.status,
+  ].some((value) => value.toLowerCase().includes(q));
+}
+
+function getRuntimeSettingHealth(): AdminSettingsOverview["runtime"] {
+  return [
+    { key: "NEXT_PUBLIC_SUPABASE_URL", label: "Supabase URL", configured: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL), scope: "auth" },
+    { key: "NEXT_PUBLIC_SUPABASE_ANON_KEY", label: "Supabase anon key", configured: Boolean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY), scope: "auth" },
+    { key: "SUPABASE_SERVICE_ROLE_KEY", label: "Supabase service role", configured: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY), scope: "admin" },
+    { key: "ADMIN_BOOTSTRAP_EMAILS", label: "Bootstrap admin emails", configured: Boolean(process.env.ADMIN_BOOTSTRAP_EMAILS || process.env.ADMIN_EMAILS), scope: "admin" },
+    { key: "TASK_QUEUE_CACHE_MODE", label: "Task queue cache mode", configured: Boolean(process.env.TASK_QUEUE_CACHE_MODE), scope: "queue" },
+    { key: "UPSTASH_REDIS_REST_URL", label: "Upstash Redis", configured: Boolean(process.env.UPSTASH_REDIS_REST_URL), scope: "queue" },
+    { key: "IMAGE_STORAGE_PROVIDER", label: "Image storage provider", configured: Boolean(process.env.IMAGE_STORAGE_PROVIDER), scope: "storage" },
+    { key: "ALIYUN_OSS_BUCKET", label: "Aliyun OSS bucket", configured: Boolean(process.env.ALIYUN_OSS_BUCKET), scope: "storage" },
+    { key: "LAOZHANG_API_KEY", label: "LaoZhang API", configured: Boolean(process.env.LAOZHANG_API_KEY), scope: "provider" },
+    { key: "PLATO_API_KEY", label: "Plato API", configured: Boolean(process.env.PLATO_API_KEY), scope: "provider" },
+    { key: "LINGYA_API_KEY", label: "Lingya API", configured: Boolean(process.env.LINGYA_API_KEY), scope: "provider" },
+  ];
 }
 
 function aggregateGenerations(rows: Record<string, unknown>[]) {

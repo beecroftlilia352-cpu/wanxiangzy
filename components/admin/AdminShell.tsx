@@ -6,11 +6,15 @@ import {
   Activity,
   BarChart3,
   ChevronRight,
+  Coins,
   DatabaseZap,
   FileText,
+  ImageIcon,
   LayoutDashboard,
   LockKeyhole,
+  Settings,
   ShieldCheck,
+  UserCog,
   Users,
 } from "lucide-react";
 import type { AdminRole } from "@/lib/admin/permissions";
@@ -27,8 +31,12 @@ type AdminShellProps = {
 const adminNav = [
   { href: "/admin", label: "总览", icon: LayoutDashboard },
   { href: "/admin/users", label: "用户", icon: Users },
+  { href: "/admin/credits", label: "积分", icon: Coins },
   { href: "/admin/generations", label: "任务", icon: Activity },
+  { href: "/admin/assets", label: "资产", icon: ImageIcon },
   { href: "/admin/providers", label: "模型供应商", icon: DatabaseZap },
+  { href: "/admin/members", label: "成员", icon: UserCog },
+  { href: "/admin/settings", label: "配置", icon: Settings },
   { href: "/admin/audit", label: "审计", icon: ShieldCheck },
 ];
 
@@ -140,8 +148,12 @@ export function AdminShell({ admin, children }: AdminShellProps) {
 
 function currentTitle(pathname: string) {
   if (pathname.startsWith("/admin/users")) return "用户";
+  if (pathname.startsWith("/admin/credits")) return "积分";
   if (pathname.startsWith("/admin/generations")) return "任务";
+  if (pathname.startsWith("/admin/assets")) return "资产";
   if (pathname.startsWith("/admin/providers")) return "模型供应商";
+  if (pathname.startsWith("/admin/members")) return "成员";
+  if (pathname.startsWith("/admin/settings")) return "配置";
   if (pathname.startsWith("/admin/audit")) return "审计";
   if (pathname.startsWith("/admin/forbidden")) return "无权限";
   return "总览";
