@@ -39,6 +39,7 @@ const adminNav = [
   { href: "/admin/requests", label: "审批", icon: ClipboardCheck },
   { href: "/admin/generations", label: "任务", icon: Activity },
   { href: "/admin/assets", label: "资产", icon: ImageIcon },
+  { href: "/admin/reports", label: "报表", icon: BarChart3 },
   { href: "/admin/exports", label: "导出", icon: FileDown },
   { href: "/admin/moderation", label: "审核", icon: ShieldAlert },
   { href: "/admin/providers", label: "模型供应商", icon: DatabaseZap },
@@ -160,6 +161,7 @@ function currentTitle(pathname: string) {
   if (pathname.startsWith("/admin/requests")) return "审批";
   if (pathname.startsWith("/admin/generations")) return "任务";
   if (pathname.startsWith("/admin/assets")) return "资产";
+  if (pathname.startsWith("/admin/reports")) return "报表";
   if (pathname.startsWith("/admin/exports")) return "导出";
   if (pathname.startsWith("/admin/moderation")) return "审核";
   if (pathname.startsWith("/admin/providers")) return "模型供应商";

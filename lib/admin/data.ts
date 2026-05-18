@@ -272,6 +272,65 @@ export type AdminExportJobList = {
   warnings: string[];
 };
 
+export type AdminCostBreakdownItem = {
+  key: string;
+  label: string;
+  count: number;
+  completed: number;
+  failed: number;
+  running: number;
+  grossCredits: number;
+  refundCredits: number;
+  netCredits: number;
+  settledCredits: number;
+  inFlightCredits: number;
+  marginCredits: number;
+  averageCredits: number;
+  failureRate: number;
+};
+
+export type AdminCostDailyItem = {
+  date: string;
+  grossCredits: number;
+  refundCredits: number;
+  adjustmentCredits: number;
+  generationSettledCredits: number;
+  workflowSettledCredits: number;
+  marginCredits: number;
+  tasks: number;
+  failed: number;
+};
+
+export type AdminCostReport = {
+  days: number;
+  since: string;
+  until: string;
+  metrics: {
+    grossCredits: number;
+    refundCredits: number;
+    adjustmentCredits: number;
+    netCredits: number;
+    generationReservedCredits: number;
+    generationSettledCredits: number;
+    workflowReservedCredits: number;
+    workflowSettledCredits: number;
+    inFlightCredits: number;
+    failedReservedCredits: number;
+    marginCredits: number;
+    marginRate: number;
+    generationCount: number;
+    workflowCount: number;
+    completedCount: number;
+    failedCount: number;
+    runningCount: number;
+  };
+  modules: AdminCostBreakdownItem[];
+  models: AdminCostBreakdownItem[];
+  daily: AdminCostDailyItem[];
+  assumptions: string[];
+  warnings: string[];
+};
+
 export type AdminMemberListItem = {
   userId: string;
   email: string | null;
@@ -523,6 +582,194 @@ export async function getAdminOverview(): Promise<AdminOverview> {
     modelStats: aggregate.modelStats,
     recentTasks: recentTasks.rows,
     warnings: uniqueStrings([...warnings, ...recentTasks.warnings]),
+  };
+}
+
+export async function getAdminCostReport(args: { days?: number } = {}): Promise<AdminCostReport> {
+  const admin = getAdminClient();
+  const warnings: string[] = [];
+  const days = clampLimit(args.days, 1, 90, 14);
+  const until = new Date();
+  const since = new Date(until.getTime() - (days - 1) * 24 * 60 * 60 * 1000);
+  since.setUTCHours(0, 0, 0, 0);
+  const sinceIso = since.toISOString();
+
+  const [generationResult, creditLogResult, workflowResult] = await Promise.all([
+    runQuery<Record<string, unknown>[]>(
+      admin
+        .from("generations")
+        .select(GENERATION_COLUMNS)
+        .gte("created_at", sinceIso)
+        .order("created_at", { ascending: false })
+        .limit(2500),
+      "cost report generations",
+      warnings,
+      true,
+    ),
+    runQuery<Record<string, unknown>[]>(
+      admin
+        .from("credit_logs")
+        .select(CREDIT_LOG_COLUMNS)
+        .gte("created_at", sinceIso)
+        .order("created_at", { ascending: false })
+        .limit(4000),
+      "cost report credit logs",
+      warnings,
+      true,
+    ),
+    runQuery<Record<string, unknown>[]>(
+      admin
+        .from("agent_workflows")
+        .select(WORKFLOW_COLUMNS)
+        .gte("created_at", sinceIso)
+        .order("created_at", { ascending: false })
+        .limit(1500),
+      "cost report workflows",
+      warnings,
+      true,
+    ),
+  ]);
+
+  const creditLogs = creditLogResult.data || [];
+  const generations = generationResult.data || [];
+  const workflows = workflowResult.data || [];
+  const debitsByGeneration = new Map<string, number>();
+  const refundsByGeneration = new Map<string, number>();
+  let grossCredits = 0;
+  let refundCredits = 0;
+  let adjustmentCredits = 0;
+
+  for (const row of creditLogs) {
+    const amount = numberValue(row.amount);
+    const generationId = nullableString(row.generation_id);
+    if (amount < 0) {
+      const debit = Math.abs(amount);
+      grossCredits += debit;
+      if (generationId) debitsByGeneration.set(generationId, (debitsByGeneration.get(generationId) || 0) + debit);
+    } else if (amount > 0 && generationId) {
+      refundCredits += amount;
+      refundsByGeneration.set(generationId, (refundsByGeneration.get(generationId) || 0) + amount);
+    } else if (amount > 0) {
+      adjustmentCredits += amount;
+    }
+  }
+
+  const modules = new Map<string, AdminCostBreakdownItem>();
+  const models = new Map<string, AdminCostBreakdownItem>();
+  const daily = createCostDailyMap(since, days);
+  let generationReservedCredits = 0;
+  let generationSettledCredits = 0;
+  let inFlightCredits = 0;
+  let failedReservedCredits = 0;
+  let completedCount = 0;
+  let failedCount = 0;
+  let runningCount = 0;
+
+  for (const row of generations) {
+    const payload = isRecord(row.job_payload) ? row.job_payload : {};
+    const id = stringValue(row.id);
+    const resultCount = arrayOfStrings(row.result_urls).length;
+    const module = normalizeModuleFilter(stringValue(payload.kind) || stringValue(payload.module) || inferModuleFromPayload(payload)) || "tryon";
+    const model = stringValue(row.ai_model) || stringValue(payload.aiModel) || "unknown";
+    const statusGroup = normalizeTaskStatusGroup(stringValue(row.status), resultCount);
+    const reservedCredits = Math.max(0, numberValue(row.credits_cost));
+    const rawUsed = Math.max(0, numberValue(row.credits_used));
+    const settledCredits = statusGroup === "completed" ? (rawUsed || reservedCredits) : 0;
+    const debitCredits = debitsByGeneration.get(id) || reservedCredits;
+    const inferredRefund = statusGroup === "failed" || statusGroup === "completed"
+      ? Math.max(0, reservedCredits - settledCredits)
+      : 0;
+    const generationRefund = refundsByGeneration.get(id) ?? inferredRefund;
+    const netCredits = Math.max(0, debitCredits - generationRefund);
+    const rowInFlight = statusGroup === "queued" || statusGroup === "running" ? reservedCredits : 0;
+    const rowFailedReserved = statusGroup === "failed" ? reservedCredits : 0;
+
+    generationReservedCredits += reservedCredits;
+    generationSettledCredits += settledCredits;
+    inFlightCredits += rowInFlight;
+    failedReservedCredits += rowFailedReserved;
+    if (statusGroup === "completed") completedCount += 1;
+    if (statusGroup === "failed") failedCount += 1;
+    if (statusGroup === "queued" || statusGroup === "running") runningCount += 1;
+
+    const snapshot = {
+      count: 1,
+      completed: statusGroup === "completed" ? 1 : 0,
+      failed: statusGroup === "failed" ? 1 : 0,
+      running: statusGroup === "queued" || statusGroup === "running" ? 1 : 0,
+      grossCredits: debitCredits,
+      refundCredits: generationRefund,
+      netCredits,
+      settledCredits,
+      inFlightCredits: rowInFlight,
+      marginCredits: netCredits - settledCredits,
+    };
+    bumpCostBreakdown(modules, module, moduleLabel(module), snapshot);
+    bumpCostBreakdown(models, model, model, snapshot);
+    bumpDailyGeneration(daily, nullableString(row.created_at), {
+      settledCredits,
+      failed: statusGroup === "failed" ? 1 : 0,
+    });
+  }
+
+  let workflowReservedCredits = 0;
+  let workflowSettledCredits = 0;
+  for (const row of workflows) {
+    const statusGroup = normalizeTaskStatusGroup(stringValue(row.status));
+    const reservedCredits = Math.max(0, numberValue(row.cost_reserved));
+    const settledCredits = statusGroup === "completed"
+      ? Math.max(0, numberValue(row.cost_settled) || reservedCredits)
+      : Math.max(0, numberValue(row.cost_settled));
+    workflowReservedCredits += reservedCredits;
+    workflowSettledCredits += settledCredits;
+    if (statusGroup === "completed") completedCount += 1;
+    if (statusGroup === "failed") failedCount += 1;
+    if (statusGroup === "queued" || statusGroup === "running") runningCount += 1;
+    bumpDailyWorkflow(daily, nullableString(row.created_at), settledCredits);
+  }
+
+  for (const row of creditLogs) {
+    bumpDailyCreditLog(daily, nullableString(row.created_at), row);
+  }
+
+  const netCredits = Math.max(0, grossCredits - refundCredits);
+  const fulfillmentCredits = generationSettledCredits + workflowSettledCredits;
+  const marginCredits = netCredits - fulfillmentCredits;
+  const sortedModules = finalizeCostBreakdowns(modules);
+  const sortedModels = finalizeCostBreakdowns(models);
+
+  return {
+    days,
+    since: sinceIso,
+    until: until.toISOString(),
+    metrics: {
+      grossCredits,
+      refundCredits,
+      adjustmentCredits,
+      netCredits,
+      generationReservedCredits,
+      generationSettledCredits,
+      workflowReservedCredits,
+      workflowSettledCredits,
+      inFlightCredits,
+      failedReservedCredits,
+      marginCredits,
+      marginRate: netCredits > 0 ? marginCredits / netCredits : 0,
+      generationCount: generations.length,
+      workflowCount: workflows.length,
+      completedCount,
+      failedCount,
+      runningCount,
+    },
+    modules: sortedModules,
+    models: sortedModels,
+    daily: Array.from(daily.values()).sort((a, b) => a.date.localeCompare(b.date)),
+    assumptions: [
+      "收入使用 credit_logs 中 amount < 0 的积分扣费作为收入代理。",
+      "退款使用带 generation_id 的正向 credit_logs；老数据缺少流水时按 credits_cost - credits_used 推断。",
+      "真实 provider 账单尚未接入，本报表的成本为积分履约口径，可用于运营毛利代理和异常排查。",
+    ],
+    warnings: uniqueStrings(warnings),
   };
 }
 
@@ -1611,7 +1858,7 @@ function aggregateGenerations(rows: Record<string, unknown>[]) {
     const module = normalizeModuleFilter(stringValue(payload.kind) || stringValue(payload.module) || inferModuleFromPayload(payload));
     const model = stringValue(row.ai_model) || stringValue(payload.aiModel) || "unknown";
     const statusGroup = normalizeTaskStatusGroup(stringValue(row.status), arrayOfStrings(row.result_urls).length);
-    const credits = numberValue(row.credits_used) || numberValue(row.credits_cost);
+    const credits = readGenerationBillingCredits(row, statusGroup);
 
     bumpBreakdown(moduleMap, module || "unknown", moduleLabel(module || "unknown"), statusGroup, credits);
     bumpBreakdown(modelMap, model, model, statusGroup, credits);
@@ -1636,6 +1883,138 @@ function bumpBreakdown(
   if (statusGroup === "failed") item.failed += 1;
   if (statusGroup === "queued" || statusGroup === "running") item.running += 1;
   map.set(key, item);
+}
+
+function bumpCostBreakdown(
+  map: Map<string, AdminCostBreakdownItem>,
+  key: string,
+  label: string,
+  snapshot: {
+    count: number;
+    completed: number;
+    failed: number;
+    running: number;
+    grossCredits: number;
+    refundCredits: number;
+    netCredits: number;
+    settledCredits: number;
+    inFlightCredits: number;
+    marginCredits: number;
+  },
+) {
+  const item = map.get(key) || {
+    key,
+    label,
+    count: 0,
+    completed: 0,
+    failed: 0,
+    running: 0,
+    grossCredits: 0,
+    refundCredits: 0,
+    netCredits: 0,
+    settledCredits: 0,
+    inFlightCredits: 0,
+    marginCredits: 0,
+    averageCredits: 0,
+    failureRate: 0,
+  };
+  item.count += snapshot.count;
+  item.completed += snapshot.completed;
+  item.failed += snapshot.failed;
+  item.running += snapshot.running;
+  item.grossCredits += snapshot.grossCredits;
+  item.refundCredits += snapshot.refundCredits;
+  item.netCredits += snapshot.netCredits;
+  item.settledCredits += snapshot.settledCredits;
+  item.inFlightCredits += snapshot.inFlightCredits;
+  item.marginCredits += snapshot.marginCredits;
+  map.set(key, item);
+}
+
+function finalizeCostBreakdowns(map: Map<string, AdminCostBreakdownItem>) {
+  return Array.from(map.values())
+    .map((item) => ({
+      ...item,
+      averageCredits: item.count > 0 ? item.netCredits / item.count : 0,
+      failureRate: item.count > 0 ? item.failed / item.count : 0,
+    }))
+    .sort((a, b) => b.netCredits - a.netCredits)
+    .slice(0, 12);
+}
+
+function createCostDailyMap(since: Date, days: number) {
+  const map = new Map<string, AdminCostDailyItem>();
+  for (let index = days - 1; index >= 0; index -= 1) {
+    const day = new Date(since.getTime() + (days - 1 - index) * 24 * 60 * 60 * 1000);
+    const key = dayKey(day.toISOString());
+    map.set(key, createCostDailyItem(key));
+  }
+  return map;
+}
+
+function bumpDailyCreditLog(
+  map: Map<string, AdminCostDailyItem>,
+  createdAt: string | null,
+  row: Record<string, unknown>,
+) {
+  const day = getCostDailyItem(map, createdAt);
+  if (!day) return;
+  const amount = numberValue(row.amount);
+  if (amount < 0) day.grossCredits += Math.abs(amount);
+  if (amount > 0 && nullableString(row.generation_id)) day.refundCredits += amount;
+  if (amount > 0 && !nullableString(row.generation_id)) day.adjustmentCredits += amount;
+  refreshDailyMargin(day);
+}
+
+function bumpDailyGeneration(
+  map: Map<string, AdminCostDailyItem>,
+  createdAt: string | null,
+  snapshot: { settledCredits: number; failed: number },
+) {
+  const day = getCostDailyItem(map, createdAt);
+  if (!day) return;
+  day.tasks += 1;
+  day.failed += snapshot.failed;
+  day.generationSettledCredits += snapshot.settledCredits;
+  refreshDailyMargin(day);
+}
+
+function bumpDailyWorkflow(map: Map<string, AdminCostDailyItem>, createdAt: string | null, settledCredits: number) {
+  const day = getCostDailyItem(map, createdAt);
+  if (!day) return;
+  day.workflowSettledCredits += settledCredits;
+  refreshDailyMargin(day);
+}
+
+function getCostDailyItem(map: Map<string, AdminCostDailyItem>, value: string | null) {
+  if (!value) return null;
+  const key = dayKey(value);
+  if (!map.has(key)) return null;
+  return map.get(key) || null;
+}
+
+function createCostDailyItem(date: string): AdminCostDailyItem {
+  return {
+    date,
+    grossCredits: 0,
+    refundCredits: 0,
+    adjustmentCredits: 0,
+    generationSettledCredits: 0,
+    workflowSettledCredits: 0,
+    marginCredits: 0,
+    tasks: 0,
+    failed: 0,
+  };
+}
+
+function refreshDailyMargin(day: AdminCostDailyItem) {
+  day.marginCredits = day.grossCredits - day.refundCredits - day.generationSettledCredits - day.workflowSettledCredits;
+}
+
+function dayKey(value: string) {
+  const time = Date.parse(value);
+  if (!Number.isFinite(time)) return value.slice(0, 10);
+  return new Date(time).toISOString().slice(0, 10);
 }
 
 async function loadCreditHealth(sinceIso: string, warnings: string[]) {
@@ -1840,7 +2219,7 @@ function mapGenerationRow(row: Record<string, unknown>): AdminTaskListItem {
     completedAt: nullableString(row.completed_at),
     model: nullableString(row.ai_model) || nullableString(payload.aiModel),
     imageSize: nullableString(row.image_size) || nullableString(payload.imageSize),
-    credits: numberValue(row.credits_used) || numberValue(row.credits_cost),
+    credits: readGenerationBillingCredits(row, statusGroup),
   };
 }
 
@@ -2091,6 +2470,14 @@ function inferExpectedCount(payload: Record<string, unknown>, resultCount: numbe
       resultCount ||
       1,
   );
+}
+
+function readGenerationBillingCredits(row: Record<string, unknown>, statusGroup: TaskStatusGroup) {
+  const used = Math.max(0, numberValue(row.credits_used));
+  const reserved = Math.max(0, numberValue(row.credits_cost));
+  if (statusGroup === "failed") return 0;
+  if (statusGroup === "completed") return used || reserved;
+  return reserved;
 }
 
 function inferInputThumbnails(row: Record<string, unknown>, payload: Record<string, unknown>) {

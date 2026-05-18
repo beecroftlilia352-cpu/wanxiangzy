@@ -2,6 +2,7 @@ import {
   listAdminAssets,
   listAdminAuditLogs,
   listAdminCreditLogs,
+  getAdminCostReport,
   listAdminModerationCases,
   listAdminOperationRequests,
   listAdminTasks,
@@ -14,6 +15,7 @@ export const ADMIN_EXPORT_TYPES = [
   "generations",
   "assets",
   "audit",
+  "reports",
   "requests",
   "moderation",
 ] as const;
@@ -26,6 +28,7 @@ export type AdminExportFilters = {
   module?: string;
   sourceType?: "generation" | "workflow" | "all";
   limit?: number;
+  days?: number;
 };
 
 export type AdminExportData = {
@@ -141,6 +144,39 @@ export async function loadAdminExportData(
     };
   }
 
+  if (exportType === "reports") {
+    const result = await getAdminCostReport({ days: filters.days || 14 });
+    return {
+      columns: ["scope", "key", "label", "count", "gross_credits", "refund_credits", "net_credits", "settled_credits", "margin_credits", "failure_rate"],
+      rows: [
+        ...result.modules.map((row) => [
+          "module",
+          row.key,
+          row.label,
+          String(row.count),
+          String(row.grossCredits),
+          String(row.refundCredits),
+          String(row.netCredits),
+          String(row.settledCredits),
+          String(row.marginCredits),
+          String(row.failureRate),
+        ]),
+        ...result.models.map((row) => [
+          "model",
+          row.key,
+          row.label,
+          String(row.count),
+          String(row.grossCredits),
+          String(row.refundCredits),
+          String(row.netCredits),
+          String(row.settledCredits),
+          String(row.marginCredits),
+          String(row.failureRate),
+        ]),
+      ],
+    };
+  }
+
   if (exportType === "requests") {
     const result = await listAdminOperationRequests({ q: filters.q, status: filters.status, limit });
     return {
@@ -220,6 +256,7 @@ export function normalizeAdminExportFilters(value: unknown): AdminExportFilters 
     module: stringValue(input.module),
     sourceType,
     limit: clampExportLimit(input.limit),
+    days: clampReportDays(input.days),
   };
 }
 
@@ -227,6 +264,12 @@ function clampExportLimit(value: unknown) {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return 100;
   return Math.min(500, Math.max(1, Math.floor(parsed)));
+}
+
+function clampReportDays(value: unknown) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return 14;
+  return Math.min(90, Math.max(1, Math.floor(parsed)));
 }
 
 function csvCell(value: string) {

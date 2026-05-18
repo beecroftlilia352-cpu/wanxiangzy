@@ -583,3 +583,9 @@ P2 长期：
 | 配置版本与回滚 | 已落地 | `admin_config_versions` 支持创建、发布、归档；发布同 key 新版本会归档旧发布版本，形成回滚式切换。 |
 | 高危操作审批 | 已落地 | `admin_operation_requests` 支持积分补偿审批单；Support/Ops 发起，Finance/Owner 审批后执行积分 RPC。 |
 | 导出与保存视图 | 已落地 | `admin_export_jobs` 支持短期 CSV 下载链接、水印信息和下载审计；`admin_saved_views` 支持保存表格筛选、列和排序配置。 |
+
+## 18. P1 实施状态
+
+| P1 项 | 当前落地 | 说明 |
+| --- | --- | --- |
+| 成本利润报表 | 已落地积分口径 V1 | `/admin/reports` 汇总 `credit_logs`、`generations`、`agent_workflows`，支持近 7/14/30/90 天收入代理、退款、履约成本、毛利代理、模块/模型拆分、每日趋势，并接入 `/api/admin/reports` 和 CSV 导出数据集。真实 provider 账单属于后续增强。 |

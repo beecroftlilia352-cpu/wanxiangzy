@@ -11,6 +11,7 @@ describe("admin exports", () => {
       module: "",
       sourceType: "workflow",
       limit: 500,
+      days: 14,
     });
   });
 
