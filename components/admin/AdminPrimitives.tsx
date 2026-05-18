@@ -88,13 +88,13 @@ export function AdminNotice({ children, tone = "warning" }: { children: ReactNod
 export function AdminStatusBadge({ status, group }: { status: string; group?: TaskStatusGroup }) {
   const normalized = (group || status).toLowerCase();
   const className =
-    normalized === "completed" || normalized === "success" || normalized === "published" || normalized === "pass"
+    normalized === "completed" || normalized === "success" || normalized === "published" || normalized === "pass" || normalized === "approved"
       ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-      : normalized === "failed" || normalized === "danger" || normalized === "hide"
+      : normalized === "failed" || normalized === "danger" || normalized === "hide" || normalized === "rejected"
         ? "border-red-200 bg-red-50 text-red-700"
       : normalized === "running" || normalized.startsWith("processing")
         ? "border-blue-200 bg-blue-50 text-blue-700"
-        : normalized === "queued" || normalized === "draft" || normalized === "escalate"
+        : normalized === "queued" || normalized === "draft" || normalized === "escalate" || normalized === "pending"
             ? "border-amber-200 bg-amber-50 text-amber-700"
             : "border-slate-200 bg-slate-100 text-slate-600";
 
@@ -236,6 +236,9 @@ function formatStatusLabel(status: string, group?: TaskStatusGroup) {
   if (label === "published") return "已发布";
   if (label === "draft") return "草稿";
   if (label === "archived") return "已归档";
+  if (label === "pending") return "待处理";
+  if (label === "approved") return "已通过";
+  if (label === "rejected") return "已驳回";
   if (label === "hide") return "下架";
   if (label === "pass") return "通过";
   if (label === "escalate") return "复核";

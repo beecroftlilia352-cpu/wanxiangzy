@@ -575,9 +575,10 @@ P2 长期：
 | --- | --- | --- |
 | 登录、RBAC、审计日志 | 已落地 | `/admin` 统一鉴权，`admin_members` 管理成员，写操作进入 `admin_audit_logs`。 |
 | 总览 Dashboard | 已落地 | 用户、积分、任务、模块、模型、任务健康和快速入口已接入。 |
-| 用户查询与积分流水 | 已落地 | 支持用户列表、用户详情、积分流水、人工调账和审计。 |
+| 用户查询与积分流水 | 已落地 | 支持用户列表、用户详情、积分流水、人工调账、补偿审批申请和审计。 |
 | 生成任务中心 | 已落地 | 支持全模块任务列表、generation/workflow 详情、payload、积分、审计、步骤和事件下钻。 |
 | 模型/provider 健康与开关 | 已落地管理面 | provider 健康只展示 secret 配置状态；模型开关与降级策略通过 `model.routing` 配置版本创建、发布和归档。运行时代码消费配置属于后续增强。 |
 | 素材/结果图查看与下架 | 已落地 | 资产列表支持最新审核状态、通过/下架/复核记录，generation 会写入 `job_payload.adminModeration`；历史列表与任务队列会过滤或清空下架结果展示。 |
 | 任务队列与 worker 状态 | 已落地 | `/admin/workers` 支持 processor secret 健康、队列样本、stale 任务、手动触发 worker 和审计记录。 |
 | 配置版本与回滚 | 已落地 | `admin_config_versions` 支持创建、发布、归档；发布同 key 新版本会归档旧发布版本，形成回滚式切换。 |
+| 高危操作审批 | 已落地 | `admin_operation_requests` 支持积分补偿审批单；Support/Ops 发起，Finance/Owner 审批后执行积分 RPC。 |

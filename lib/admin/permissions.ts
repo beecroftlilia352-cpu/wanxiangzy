@@ -24,6 +24,9 @@ export type AdminPermission =
   | "moderation:write"
   | "workers:read"
   | "workers:write"
+  | "operation_requests:read"
+  | "operation_requests:write"
+  | "operation_requests:approve"
   | "providers:read"
   | "providers:write"
   | "audit:read"
@@ -45,6 +48,9 @@ const ROLE_PERMISSIONS: Record<AdminRole, AdminPermission[]> = {
     "moderation:write",
     "workers:read",
     "workers:write",
+    "operation_requests:read",
+    "operation_requests:write",
+    "operation_requests:approve",
     "providers:read",
     "providers:write",
     "audit:read",
@@ -63,6 +69,8 @@ const ROLE_PERMISSIONS: Record<AdminRole, AdminPermission[]> = {
     "moderation:write",
     "workers:read",
     "workers:write",
+    "operation_requests:read",
+    "operation_requests:write",
     "providers:read",
     "audit:read",
     "settings:read",
@@ -74,6 +82,8 @@ const ROLE_PERMISSIONS: Record<AdminRole, AdminPermission[]> = {
     "tasks:read",
     "assets:read",
     "moderation:read",
+    "operation_requests:read",
+    "operation_requests:write",
     "audit:read",
   ],
   finance: [
@@ -81,6 +91,9 @@ const ROLE_PERMISSIONS: Record<AdminRole, AdminPermission[]> = {
     "users:read",
     "credits:read",
     "credits:write",
+    "operation_requests:read",
+    "operation_requests:write",
+    "operation_requests:approve",
     "audit:read",
   ],
   reviewer: [
@@ -91,6 +104,8 @@ const ROLE_PERMISSIONS: Record<AdminRole, AdminPermission[]> = {
     "assets:write",
     "moderation:read",
     "moderation:write",
+    "operation_requests:read",
+    "operation_requests:write",
     "audit:read",
   ],
   engineer: [
@@ -105,6 +120,8 @@ const ROLE_PERMISSIONS: Record<AdminRole, AdminPermission[]> = {
     "moderation:write",
     "workers:read",
     "workers:write",
+    "operation_requests:read",
+    "operation_requests:write",
     "providers:read",
     "providers:write",
     "audit:read",
@@ -119,6 +136,7 @@ const ROLE_PERMISSIONS: Record<AdminRole, AdminPermission[]> = {
     "assets:read",
     "moderation:read",
     "workers:read",
+    "operation_requests:read",
     "providers:read",
     "audit:read",
     "settings:read",

@@ -204,6 +204,33 @@ export type AdminModerationList = {
   warnings: string[];
 };
 
+export type AdminOperationRequest = {
+  id: string;
+  requestType: string;
+  status: string;
+  requestedBy: string | null;
+  requestedByEmail: string | null;
+  requestedByRole: string | null;
+  approvedBy: string | null;
+  approvedByEmail: string | null;
+  approvedByRole: string | null;
+  targetType: string;
+  targetId: string;
+  reason: string;
+  riskLevel: "low" | "medium" | "high";
+  payload: Record<string, unknown>;
+  result: Record<string, unknown>;
+  createdAt: string | null;
+  updatedAt: string | null;
+  approvedAt: string | null;
+};
+
+export type AdminOperationRequestList = {
+  rows: AdminOperationRequest[];
+  available: boolean;
+  warnings: string[];
+};
+
 export type AdminMemberListItem = {
   userId: string;
   email: string | null;
@@ -355,6 +382,26 @@ const CREDIT_LOG_COLUMNS = "id,user_id,amount,balance,reason,generation_id,creat
 const ADMIN_MEMBER_COLUMNS = "user_id,email,role,status,enabled,display_name,created_at,updated_at";
 const ADMIN_CONFIG_COLUMNS = "id,config_key,value,status,created_by,published_at,created_at";
 const MODERATION_CASE_COLUMNS = "id,source_type,source_id,action,status,reason,metadata,created_by,created_at,resolved_at";
+const OPERATION_REQUEST_COLUMNS = [
+  "id",
+  "request_type",
+  "status",
+  "requested_by",
+  "requested_by_email",
+  "requested_by_role",
+  "approved_by",
+  "approved_by_email",
+  "approved_by_role",
+  "target_type",
+  "target_id",
+  "reason",
+  "risk_level",
+  "payload",
+  "result",
+  "created_at",
+  "updated_at",
+  "approved_at",
+].join(",");
 
 export async function getAdminOverview(): Promise<AdminOverview> {
   const admin = getAdminClient();
@@ -691,6 +738,43 @@ export async function listAdminModerationCases(args: { q?: string; limit?: numbe
 
   let rows = result.data.map(mapModerationCase);
   if (q) rows = rows.filter((row) => matchesModerationSearch(row, q));
+
+  return {
+    rows: rows.slice(0, limit),
+    available: true,
+    warnings: uniqueStrings(warnings),
+  };
+}
+
+export async function listAdminOperationRequests(args: {
+  q?: string;
+  status?: string;
+  limit?: number;
+} = {}): Promise<AdminOperationRequestList> {
+  const warnings: string[] = [];
+  const limit = clampLimit(args.limit, 10, 120, 60);
+  const q = (args.q || "").trim().toLowerCase();
+  const status = normalizeOperationRequestStatus(args.status);
+  let query = getAdminClient()
+    .from("admin_operation_requests")
+    .select(OPERATION_REQUEST_COLUMNS)
+    .order("created_at", { ascending: false })
+    .limit(q ? Math.min(limit * 4, 300) : limit);
+  if (status) query = query.eq("status", status);
+
+  const result = await runQuery<Record<string, unknown>[]>(
+    query,
+    "operation requests",
+    warnings,
+    true,
+  );
+
+  if (!result.data) {
+    return { rows: [], available: false, warnings: uniqueStrings(warnings) };
+  }
+
+  let rows = result.data.map(mapOperationRequest);
+  if (q) rows = rows.filter((row) => matchesOperationRequestSearch(row, q));
 
   return {
     rows: rows.slice(0, limit),
@@ -1312,6 +1396,31 @@ function matchesModerationSearch(row: AdminModerationCase, q: string) {
   ].some((value) => value.toLowerCase().includes(q));
 }
 
+function matchesOperationRequestSearch(row: AdminOperationRequest, q: string) {
+  return [
+    row.id,
+    row.requestType,
+    row.status,
+    row.targetType,
+    row.targetId,
+    row.reason,
+    row.requestedByEmail || "",
+    row.requestedBy || "",
+    JSON.stringify(row.payload),
+  ].some((value) => value.toLowerCase().includes(q));
+}
+
+function normalizeOperationRequestStatus(value?: string) {
+  const normalized = (value || "").trim().toLowerCase();
+  return normalized === "pending" ||
+    normalized === "approved" ||
+    normalized === "rejected" ||
+    normalized === "cancelled" ||
+    normalized === "failed"
+    ? normalized
+    : "";
+}
+
 function getRuntimeSettingHealth(): AdminSettingsOverview["runtime"] {
   return [
     { key: "NEXT_PUBLIC_SUPABASE_URL", label: "Supabase URL", configured: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL), scope: "auth" },
@@ -1693,6 +1802,30 @@ function mapModerationCase(row: Record<string, unknown>): AdminModerationCase {
     createdBy: nullableString(row.created_by),
     createdAt: nullableString(row.created_at),
     resolvedAt: nullableString(row.resolved_at),
+  };
+}
+
+function mapOperationRequest(row: Record<string, unknown>): AdminOperationRequest {
+  const risk = stringValue(row.risk_level);
+  return {
+    id: stringValue(row.id),
+    requestType: stringValue(row.request_type),
+    status: stringValue(row.status) || "pending",
+    requestedBy: nullableString(row.requested_by),
+    requestedByEmail: nullableString(row.requested_by_email),
+    requestedByRole: nullableString(row.requested_by_role),
+    approvedBy: nullableString(row.approved_by),
+    approvedByEmail: nullableString(row.approved_by_email),
+    approvedByRole: nullableString(row.approved_by_role),
+    targetType: stringValue(row.target_type),
+    targetId: stringValue(row.target_id),
+    reason: stringValue(row.reason),
+    riskLevel: risk === "high" || risk === "low" ? risk : "medium",
+    payload: isRecord(row.payload) ? row.payload : {},
+    result: isRecord(row.result) ? row.result : {},
+    createdAt: nullableString(row.created_at),
+    updatedAt: nullableString(row.updated_at),
+    approvedAt: nullableString(row.approved_at),
   };
 }
 

@@ -13,6 +13,7 @@ import {
   ImageIcon,
   LayoutDashboard,
   LockKeyhole,
+  ClipboardCheck,
   Settings,
   ShieldAlert,
   ShieldCheck,
@@ -34,6 +35,7 @@ const adminNav = [
   { href: "/admin", label: "总览", icon: LayoutDashboard },
   { href: "/admin/users", label: "用户", icon: Users },
   { href: "/admin/credits", label: "积分", icon: Coins },
+  { href: "/admin/requests", label: "审批", icon: ClipboardCheck },
   { href: "/admin/generations", label: "任务", icon: Activity },
   { href: "/admin/assets", label: "资产", icon: ImageIcon },
   { href: "/admin/moderation", label: "审核", icon: ShieldAlert },
@@ -153,6 +155,7 @@ export function AdminShell({ admin, children }: AdminShellProps) {
 function currentTitle(pathname: string) {
   if (pathname.startsWith("/admin/users")) return "用户";
   if (pathname.startsWith("/admin/credits")) return "积分";
+  if (pathname.startsWith("/admin/requests")) return "审批";
   if (pathname.startsWith("/admin/generations")) return "任务";
   if (pathname.startsWith("/admin/assets")) return "资产";
   if (pathname.startsWith("/admin/moderation")) return "审核";

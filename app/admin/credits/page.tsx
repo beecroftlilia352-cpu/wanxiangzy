@@ -41,9 +41,16 @@ export default async function AdminCreditsPage({ searchParams }: PageProps) {
 
       <AdminSection
         title="人工调整"
-        description="需要先执行 supabase/admin-console.sql 中的 admin_adjust_user_credits RPC。"
+        description="Finance/Owner 可直接执行。需要先执行 supabase/admin-console.sql 中的 admin_adjust_user_credits RPC。"
       >
         <AdminCreditAdjustForm />
+      </AdminSection>
+
+      <AdminSection
+        title="补偿审批申请"
+        description="Support/Ops 可创建审批单；Finance/Owner 在审批中心通过后才会真正调用积分 RPC。"
+      >
+        <AdminCreditAdjustForm mode="request" />
       </AdminSection>
 
       <AdminSection

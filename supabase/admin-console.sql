@@ -87,6 +87,38 @@ CREATE INDEX IF NOT EXISTS moderation_cases_status_created_idx
 
 ALTER TABLE public.moderation_cases ENABLE ROW LEVEL SECURITY;
 
+CREATE TABLE IF NOT EXISTS public.admin_operation_requests (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  request_type TEXT NOT NULL
+    CHECK (request_type IN ('credits.adjust')),
+  status TEXT NOT NULL DEFAULT 'pending'
+    CHECK (status IN ('pending', 'approved', 'rejected', 'cancelled', 'failed')),
+  requested_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  requested_by_email TEXT,
+  requested_by_role TEXT,
+  approved_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  approved_by_email TEXT,
+  approved_by_role TEXT,
+  target_type TEXT NOT NULL,
+  target_id TEXT NOT NULL,
+  reason TEXT NOT NULL,
+  risk_level TEXT NOT NULL DEFAULT 'medium'
+    CHECK (risk_level IN ('low', 'medium', 'high')),
+  payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+  result JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  approved_at TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS admin_operation_requests_status_created_idx
+  ON public.admin_operation_requests (status, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS admin_operation_requests_target_idx
+  ON public.admin_operation_requests (target_type, target_id, created_at DESC);
+
+ALTER TABLE public.admin_operation_requests ENABLE ROW LEVEL SECURITY;
+
 CREATE OR REPLACE FUNCTION public.touch_admin_member_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -98,6 +130,12 @@ $$ LANGUAGE plpgsql;
 DROP TRIGGER IF EXISTS admin_members_touch_updated_at ON public.admin_members;
 CREATE TRIGGER admin_members_touch_updated_at
   BEFORE UPDATE ON public.admin_members
+  FOR EACH ROW
+  EXECUTE FUNCTION public.touch_admin_member_updated_at();
+
+DROP TRIGGER IF EXISTS admin_operation_requests_touch_updated_at ON public.admin_operation_requests;
+CREATE TRIGGER admin_operation_requests_touch_updated_at
+  BEFORE UPDATE ON public.admin_operation_requests
   FOR EACH ROW
   EXECUTE FUNCTION public.touch_admin_member_updated_at();
 
