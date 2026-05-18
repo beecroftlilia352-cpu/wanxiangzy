@@ -582,3 +582,4 @@ P2 长期：
 | 任务队列与 worker 状态 | 已落地 | `/admin/workers` 支持 processor secret 健康、队列样本、stale 任务、手动触发 worker 和审计记录。 |
 | 配置版本与回滚 | 已落地 | `admin_config_versions` 支持创建、发布、归档；发布同 key 新版本会归档旧发布版本，形成回滚式切换。 |
 | 高危操作审批 | 已落地 | `admin_operation_requests` 支持积分补偿审批单；Support/Ops 发起，Finance/Owner 审批后执行积分 RPC。 |
+| 导出与保存视图 | 已落地 | `admin_export_jobs` 支持短期 CSV 下载链接、水印信息和下载审计；`admin_saved_views` 支持保存表格筛选、列和排序配置。 |

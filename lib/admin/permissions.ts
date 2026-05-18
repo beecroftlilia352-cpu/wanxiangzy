@@ -27,6 +27,10 @@ export type AdminPermission =
   | "operation_requests:read"
   | "operation_requests:write"
   | "operation_requests:approve"
+  | "exports:read"
+  | "exports:write"
+  | "saved_views:read"
+  | "saved_views:write"
   | "providers:read"
   | "providers:write"
   | "audit:read"
@@ -51,6 +55,10 @@ const ROLE_PERMISSIONS: Record<AdminRole, AdminPermission[]> = {
     "operation_requests:read",
     "operation_requests:write",
     "operation_requests:approve",
+    "exports:read",
+    "exports:write",
+    "saved_views:read",
+    "saved_views:write",
     "providers:read",
     "providers:write",
     "audit:read",
@@ -71,6 +79,10 @@ const ROLE_PERMISSIONS: Record<AdminRole, AdminPermission[]> = {
     "workers:write",
     "operation_requests:read",
     "operation_requests:write",
+    "exports:read",
+    "exports:write",
+    "saved_views:read",
+    "saved_views:write",
     "providers:read",
     "audit:read",
     "settings:read",
@@ -84,6 +96,8 @@ const ROLE_PERMISSIONS: Record<AdminRole, AdminPermission[]> = {
     "moderation:read",
     "operation_requests:read",
     "operation_requests:write",
+    "saved_views:read",
+    "saved_views:write",
     "audit:read",
   ],
   finance: [
@@ -94,6 +108,10 @@ const ROLE_PERMISSIONS: Record<AdminRole, AdminPermission[]> = {
     "operation_requests:read",
     "operation_requests:write",
     "operation_requests:approve",
+    "exports:read",
+    "exports:write",
+    "saved_views:read",
+    "saved_views:write",
     "audit:read",
   ],
   reviewer: [
@@ -106,6 +124,8 @@ const ROLE_PERMISSIONS: Record<AdminRole, AdminPermission[]> = {
     "moderation:write",
     "operation_requests:read",
     "operation_requests:write",
+    "saved_views:read",
+    "saved_views:write",
     "audit:read",
   ],
   engineer: [
@@ -122,6 +142,10 @@ const ROLE_PERMISSIONS: Record<AdminRole, AdminPermission[]> = {
     "workers:write",
     "operation_requests:read",
     "operation_requests:write",
+    "exports:read",
+    "exports:write",
+    "saved_views:read",
+    "saved_views:write",
     "providers:read",
     "providers:write",
     "audit:read",
@@ -137,6 +161,8 @@ const ROLE_PERMISSIONS: Record<AdminRole, AdminPermission[]> = {
     "moderation:read",
     "workers:read",
     "operation_requests:read",
+    "exports:read",
+    "saved_views:read",
     "providers:read",
     "audit:read",
     "settings:read",

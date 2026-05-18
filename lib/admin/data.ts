@@ -231,6 +231,47 @@ export type AdminOperationRequestList = {
   warnings: string[];
 };
 
+export type AdminSavedView = {
+  id: string;
+  ownerUserId: string | null;
+  ownerEmail: string | null;
+  name: string;
+  resource: string;
+  visibility: "private" | "team";
+  filters: Record<string, unknown>;
+  columns: unknown[];
+  sort: Record<string, unknown>;
+  createdAt: string | null;
+  updatedAt: string | null;
+};
+
+export type AdminSavedViewList = {
+  rows: AdminSavedView[];
+  available: boolean;
+  warnings: string[];
+};
+
+export type AdminExportJob = {
+  id: string;
+  exportType: string;
+  status: string;
+  requestedBy: string | null;
+  requestedByEmail: string | null;
+  requestedByRole: string | null;
+  filters: Record<string, unknown>;
+  rowCount: number;
+  downloadToken: string;
+  expiresAt: string | null;
+  errorMessage: string | null;
+  createdAt: string | null;
+};
+
+export type AdminExportJobList = {
+  rows: AdminExportJob[];
+  available: boolean;
+  warnings: string[];
+};
+
 export type AdminMemberListItem = {
   userId: string;
   email: string | null;
@@ -402,6 +443,8 @@ const OPERATION_REQUEST_COLUMNS = [
   "updated_at",
   "approved_at",
 ].join(",");
+const SAVED_VIEW_COLUMNS = "id,owner_user_id,owner_email,name,resource,visibility,filters,columns,sort,created_at,updated_at";
+const EXPORT_JOB_COLUMNS = "id,export_type,status,requested_by,requested_by_email,requested_by_role,filters,row_count,download_token,expires_at,error_message,created_at";
 
 export async function getAdminOverview(): Promise<AdminOverview> {
   const admin = getAdminClient();
@@ -778,6 +821,60 @@ export async function listAdminOperationRequests(args: {
 
   return {
     rows: rows.slice(0, limit),
+    available: true,
+    warnings: uniqueStrings(warnings),
+  };
+}
+
+export async function listAdminSavedViews(args: { resource?: string; limit?: number } = {}): Promise<AdminSavedViewList> {
+  const warnings: string[] = [];
+  const limit = clampLimit(args.limit, 10, 120, 60);
+  const resource = (args.resource || "").trim();
+  let query = getAdminClient()
+    .from("admin_saved_views")
+    .select(SAVED_VIEW_COLUMNS)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (resource) query = query.eq("resource", resource);
+
+  const result = await runQuery<Record<string, unknown>[]>(
+    query,
+    "saved views",
+    warnings,
+    true,
+  );
+
+  if (!result.data) {
+    return { rows: [], available: false, warnings: uniqueStrings(warnings) };
+  }
+
+  return {
+    rows: result.data.map(mapSavedView),
+    available: true,
+    warnings: uniqueStrings(warnings),
+  };
+}
+
+export async function listAdminExportJobs(args: { limit?: number } = {}): Promise<AdminExportJobList> {
+  const warnings: string[] = [];
+  const limit = clampLimit(args.limit, 10, 120, 60);
+  const result = await runQuery<Record<string, unknown>[]>(
+    getAdminClient()
+      .from("admin_export_jobs")
+      .select(EXPORT_JOB_COLUMNS)
+      .order("created_at", { ascending: false })
+      .limit(limit),
+    "export jobs",
+    warnings,
+    true,
+  );
+
+  if (!result.data) {
+    return { rows: [], available: false, warnings: uniqueStrings(warnings) };
+  }
+
+  return {
+    rows: result.data.map(mapExportJob),
     available: true,
     warnings: uniqueStrings(warnings),
   };
@@ -1826,6 +1923,40 @@ function mapOperationRequest(row: Record<string, unknown>): AdminOperationReques
     createdAt: nullableString(row.created_at),
     updatedAt: nullableString(row.updated_at),
     approvedAt: nullableString(row.approved_at),
+  };
+}
+
+function mapSavedView(row: Record<string, unknown>): AdminSavedView {
+  const visibility = stringValue(row.visibility);
+  return {
+    id: stringValue(row.id),
+    ownerUserId: nullableString(row.owner_user_id),
+    ownerEmail: nullableString(row.owner_email),
+    name: stringValue(row.name),
+    resource: stringValue(row.resource),
+    visibility: visibility === "team" ? "team" : "private",
+    filters: isRecord(row.filters) ? row.filters : {},
+    columns: Array.isArray(row.columns) ? row.columns : [],
+    sort: isRecord(row.sort) ? row.sort : {},
+    createdAt: nullableString(row.created_at),
+    updatedAt: nullableString(row.updated_at),
+  };
+}
+
+function mapExportJob(row: Record<string, unknown>): AdminExportJob {
+  return {
+    id: stringValue(row.id),
+    exportType: stringValue(row.export_type),
+    status: stringValue(row.status) || "ready",
+    requestedBy: nullableString(row.requested_by),
+    requestedByEmail: nullableString(row.requested_by_email),
+    requestedByRole: nullableString(row.requested_by_role),
+    filters: isRecord(row.filters) ? row.filters : {},
+    rowCount: numberValue(row.row_count),
+    downloadToken: stringValue(row.download_token),
+    expiresAt: nullableString(row.expires_at),
+    errorMessage: nullableString(row.error_message),
+    createdAt: nullableString(row.created_at),
   };
 }
 

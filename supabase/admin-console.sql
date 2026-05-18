@@ -119,6 +119,50 @@ CREATE INDEX IF NOT EXISTS admin_operation_requests_target_idx
 
 ALTER TABLE public.admin_operation_requests ENABLE ROW LEVEL SECURITY;
 
+CREATE TABLE IF NOT EXISTS public.admin_saved_views (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  owner_user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  owner_email TEXT,
+  name TEXT NOT NULL,
+  resource TEXT NOT NULL,
+  visibility TEXT NOT NULL DEFAULT 'private'
+    CHECK (visibility IN ('private', 'team')),
+  filters JSONB NOT NULL DEFAULT '{}'::jsonb,
+  columns JSONB NOT NULL DEFAULT '[]'::jsonb,
+  sort JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS admin_saved_views_resource_owner_idx
+  ON public.admin_saved_views (resource, owner_user_id, created_at DESC);
+
+ALTER TABLE public.admin_saved_views ENABLE ROW LEVEL SECURITY;
+
+CREATE TABLE IF NOT EXISTS public.admin_export_jobs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  export_type TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'ready'
+    CHECK (status IN ('queued', 'ready', 'failed', 'expired')),
+  requested_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  requested_by_email TEXT,
+  requested_by_role TEXT,
+  filters JSONB NOT NULL DEFAULT '{}'::jsonb,
+  row_count INTEGER NOT NULL DEFAULT 0,
+  download_token TEXT NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL,
+  error_message TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS admin_export_jobs_requested_created_idx
+  ON public.admin_export_jobs (requested_by, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS admin_export_jobs_expires_idx
+  ON public.admin_export_jobs (expires_at);
+
+ALTER TABLE public.admin_export_jobs ENABLE ROW LEVEL SECURITY;
+
 CREATE OR REPLACE FUNCTION public.touch_admin_member_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -136,6 +180,12 @@ CREATE TRIGGER admin_members_touch_updated_at
 DROP TRIGGER IF EXISTS admin_operation_requests_touch_updated_at ON public.admin_operation_requests;
 CREATE TRIGGER admin_operation_requests_touch_updated_at
   BEFORE UPDATE ON public.admin_operation_requests
+  FOR EACH ROW
+  EXECUTE FUNCTION public.touch_admin_member_updated_at();
+
+DROP TRIGGER IF EXISTS admin_saved_views_touch_updated_at ON public.admin_saved_views;
+CREATE TRIGGER admin_saved_views_touch_updated_at
+  BEFORE UPDATE ON public.admin_saved_views
   FOR EACH ROW
   EXECUTE FUNCTION public.touch_admin_member_updated_at();
 
