@@ -417,6 +417,33 @@ export type AdminWorkerOverview = {
   warnings: string[];
 };
 
+export type AdminDiagnosticSeverity = "critical" | "warning" | "info";
+
+export type AdminDiagnosticItem = {
+  id: string;
+  severity: AdminDiagnosticSeverity;
+  category: "queue" | "worker" | "finance" | "content" | "approval" | "provider" | "data";
+  title: string;
+  summary: string;
+  impact: string;
+  recommendation: string;
+  evidence: Array<{ label: string; value: string | number }>;
+  links: Array<{ href: string; label: string }>;
+  createdAt: string;
+};
+
+export type AdminDiagnosticsReport = {
+  generatedAt: string;
+  summary: {
+    total: number;
+    critical: number;
+    warning: number;
+    info: number;
+  };
+  items: AdminDiagnosticItem[];
+  warnings: string[];
+};
+
 type CountQuery = PromiseLike<unknown>;
 type SupabaseQuery = PromiseLike<unknown>;
 
@@ -770,6 +797,224 @@ export async function getAdminCostReport(args: { days?: number } = {}): Promise<
       "真实 provider 账单尚未接入，本报表的成本为积分履约口径，可用于运营毛利代理和异常排查。",
     ],
     warnings: uniqueStrings(warnings),
+  };
+}
+
+export async function getAdminDiagnostics(): Promise<AdminDiagnosticsReport> {
+  const generatedAt = new Date().toISOString();
+  const [
+    overview,
+    workers,
+    costReport,
+    moderation,
+    pendingRequests,
+    failedTasks,
+  ] = await Promise.all([
+    getAdminOverview(),
+    getAdminWorkerOverview(),
+    getAdminCostReport({ days: 7 }),
+    listAdminModerationCases({ limit: 60 }),
+    listAdminOperationRequests({ status: "pending", limit: 40 }),
+    listAdminTasks({ status: "failed", limit: 50 }),
+  ]);
+  const providerCatalog = getAdminProviderCatalog();
+  const items: AdminDiagnosticItem[] = [];
+
+  pushDiagnostic(items, {
+    id: "queue-stale",
+    severity: workers.queue.stale >= 3 ? "critical" : workers.queue.stale > 0 ? "warning" : null,
+    category: "queue",
+    title: "存在 stale 运行任务",
+    summary: `${workers.queue.stale} 个任务运行超过 ${workers.queue.staleMinutes} 分钟无进展。`,
+    impact: "用户侧会持续看到处理中，可能重复轮询并引发投诉。",
+    recommendation: "进入 Worker 页面查看 stale 样本，先确认 provider 状态和积分结算，再手动触发 worker 或做定向退款处理。",
+    evidence: [
+      { label: "staleTasks", value: workers.queue.stale },
+      { label: "thresholdMinutes", value: workers.queue.staleMinutes },
+      { label: "sampled", value: workers.queue.sampled },
+    ],
+    links: [
+      { href: "/admin/workers", label: "查看 Worker" },
+      { href: "/admin/generations?status=running", label: "运行中任务" },
+    ],
+    createdAt: generatedAt,
+  });
+
+  const backlog = workers.queue.queued + workers.queue.running;
+  pushDiagnostic(items, {
+    id: "queue-backlog",
+    severity: backlog >= 80 ? "critical" : backlog >= 20 ? "warning" : null,
+    category: "queue",
+    title: "队列积压偏高",
+    summary: `当前队列中排队/运行任务合计 ${backlog} 个。`,
+    impact: "生成等待时间会拉长，用户可能反复提交或刷新。",
+    recommendation: "确认 processor secret、provider 可用性和任务失败分布；必要时提高 worker 频率或临时关闭高成本模型。",
+    evidence: [
+      { label: "queued", value: workers.queue.queued },
+      { label: "running", value: workers.queue.running },
+      { label: "failed", value: workers.queue.failed },
+    ],
+    links: [
+      { href: "/admin/workers", label: "Worker 队列" },
+      { href: "/admin/providers", label: "Provider 健康" },
+    ],
+    createdAt: generatedAt,
+  });
+
+  pushDiagnostic(items, {
+    id: "generation-failure-rate",
+    severity: overview.generationHealth.failureRate >= 0.08 ? "critical" : overview.generationHealth.failureRate >= 0.03 ? "warning" : null,
+    category: "provider",
+    title: "生成失败率升高",
+    summary: `当前累计失败率 ${Math.round(overview.generationHealth.failureRate * 1000) / 10}%。`,
+    impact: "会增加退款、占用 worker，并拉低近期产出质量。",
+    recommendation: "按失败任务列表聚合 module/model，优先检查最近 provider 错误、prompt 变更和素材可访问性。",
+    evidence: [
+      { label: "generationTotal", value: overview.generationHealth.total },
+      { label: "failed", value: overview.generationHealth.failed },
+      { label: "failedSamples", value: failedTasks.rows.length },
+    ],
+    links: [
+      { href: "/admin/generations?status=failed", label: "失败任务" },
+      { href: "/admin/reports", label: "成本报表" },
+    ],
+    createdAt: generatedAt,
+  });
+
+  const missingProcessors = workers.processors.filter((processor) => !processor.configured);
+  pushDiagnostic(items, {
+    id: "worker-secret-missing",
+    severity: missingProcessors.length ? "critical" : null,
+    category: "worker",
+    title: "Worker secret 未完整配置",
+    summary: `${missingProcessors.length} 条 processor 缺少可用 secret。`,
+    impact: "定时任务或手动触发会失败，队列无法稳定消化。",
+    recommendation: "补齐对应环境变量后重启服务，再在 Worker 页面手动触发一次验证。",
+    evidence: missingProcessors.map((processor) => ({ label: processor.key, value: processor.secretNames.join(" / ") })),
+    links: [
+      { href: "/admin/workers", label: "Processor 健康" },
+      { href: "/admin/settings", label: "运行时配置" },
+    ],
+    createdAt: generatedAt,
+  });
+
+  const pendingModeration = moderation.rows.filter((row) => !row.resolvedAt && row.status !== "resolved");
+  const escalatedModeration = pendingModeration.filter((row) => row.action === "escalate");
+  pushDiagnostic(items, {
+    id: "moderation-pending",
+    severity: escalatedModeration.length >= 5 ? "critical" : pendingModeration.length >= 5 ? "warning" : null,
+    category: "content",
+    title: "内容审核积压",
+    summary: `${pendingModeration.length} 条审核案件未解决，其中 ${escalatedModeration.length} 条需要复核。`,
+    impact: "违规结果可能停留在作品库，或正常素材无法恢复展示。",
+    recommendation: "优先处理 escalate 和 hide 相关案件，确保下架结果在历史列表与任务队列中同步过滤。",
+    evidence: [
+      { label: "pending", value: pendingModeration.length },
+      { label: "escalated", value: escalatedModeration.length },
+      { label: "available", value: moderation.available ? "yes" : "no" },
+    ],
+    links: [
+      { href: "/admin/moderation", label: "审核中心" },
+      { href: "/admin/assets", label: "资产列表" },
+    ],
+    createdAt: generatedAt,
+  });
+
+  const highRiskRequests = pendingRequests.rows.filter((row) => row.riskLevel === "high");
+  pushDiagnostic(items, {
+    id: "operation-requests-pending",
+    severity: highRiskRequests.length > 0 ? "critical" : pendingRequests.rows.length >= 5 ? "warning" : null,
+    category: "approval",
+    title: "高危审批待处理",
+    summary: `${pendingRequests.rows.length} 条操作审批待处理，其中 ${highRiskRequests.length} 条高风险。`,
+    impact: "补偿、下架、配置变更等操作可能停在半路，影响用户恢复或运营 SLA。",
+    recommendation: "Finance/Owner 优先处理高风险和超过当天的审批单；低风险可批量复核原因后通过。",
+    evidence: [
+      { label: "pending", value: pendingRequests.rows.length },
+      { label: "highRisk", value: highRiskRequests.length },
+      { label: "available", value: pendingRequests.available ? "yes" : "no" },
+    ],
+    links: [
+      { href: "/admin/requests?status=pending", label: "审批中心" },
+      { href: "/admin/audit", label: "审计日志" },
+    ],
+    createdAt: generatedAt,
+  });
+
+  pushDiagnostic(items, {
+    id: "refund-ratio",
+    severity: costReport.metrics.netCredits > 0 && costReport.metrics.refundCredits / costReport.metrics.netCredits >= 0.2
+      ? "warning"
+      : null,
+    category: "finance",
+    title: "退款占比偏高",
+    summary: `近 7 天退款 ${costReport.metrics.refundCredits} 积分，净收入 ${costReport.metrics.netCredits} 积分。`,
+    impact: "高退款通常对应 provider 不稳定、部分失败结算或误扣费体验问题。",
+    recommendation: "在成本报表中按模块和模型拆分，优先修复退款贡献最高的模块。",
+    evidence: [
+      { label: "refundCredits", value: costReport.metrics.refundCredits },
+      { label: "netCredits", value: costReport.metrics.netCredits },
+      { label: "failedReservedCredits", value: costReport.metrics.failedReservedCredits },
+    ],
+    links: [
+      { href: "/admin/reports?days=7", label: "近 7 天报表" },
+      { href: "/admin/credits", label: "积分流水" },
+    ],
+    createdAt: generatedAt,
+  });
+
+  const missingProviders = providerCatalog.models.filter((model) => !model.configured);
+  pushDiagnostic(items, {
+    id: "provider-config-missing",
+    severity: missingProviders.length ? "warning" : null,
+    category: "provider",
+    title: "模型 provider 配置不完整",
+    summary: `${missingProviders.length} 个模型缺少可用 provider 配置。`,
+    impact: "用户选择相关模型时会失败，或降级路径无法覆盖。",
+    recommendation: "补齐 provider key 或在 model.routing 配置中临时关闭未配置模型。",
+    evidence: missingProviders.map((model) => ({ label: model.model, value: model.provider })),
+    links: [
+      { href: "/admin/providers", label: "模型供应商" },
+      { href: "/admin/settings", label: "配置版本" },
+    ],
+    createdAt: generatedAt,
+  });
+
+  const dataWarnings = uniqueStrings([
+    ...overview.warnings,
+    ...workers.warnings,
+    ...costReport.warnings,
+    ...moderation.warnings,
+    ...pendingRequests.warnings,
+    ...failedTasks.warnings,
+  ]);
+  pushDiagnostic(items, {
+    id: "admin-data-warnings",
+    severity: dataWarnings.length ? "info" : null,
+    category: "data",
+    title: "后台数据源存在提示",
+    summary: `本次诊断收集到 ${dataWarnings.length} 条数据源提示。`,
+    impact: "部分 read model 或可选表缺失时，诊断会退回样本估算。",
+    recommendation: "优先执行 PRD 中列出的 Supabase SQL，并确认生产环境 service role 权限。",
+    evidence: dataWarnings.slice(0, 6).map((warning, index) => ({ label: `warning_${index + 1}`, value: warning })),
+    links: [
+      { href: "/admin/settings", label: "运行时配置" },
+      { href: "/admin/workers", label: "Worker 健康" },
+    ],
+    createdAt: generatedAt,
+  });
+
+  const sortedItems = items.sort((a, b) => severityRank(b.severity) - severityRank(a.severity));
+  return {
+    generatedAt,
+    summary: {
+      total: sortedItems.length,
+      critical: sortedItems.filter((item) => item.severity === "critical").length,
+      warning: sortedItems.filter((item) => item.severity === "warning").length,
+      info: sortedItems.filter((item) => item.severity === "info").length,
+    },
+    items: sortedItems,
+    warnings: dataWarnings,
   };
 }
 
@@ -1841,6 +2086,20 @@ function workerProcessor({
     secretNames: candidates.map((candidate) => candidate.name),
     statusHint: validation.ok ? "secret 已配置，可手动触发" : validation.message,
   };
+}
+
+function pushDiagnostic(
+  items: AdminDiagnosticItem[],
+  item: Omit<AdminDiagnosticItem, "severity"> & { severity: AdminDiagnosticSeverity | null },
+) {
+  if (!item.severity) return;
+  items.push(item as AdminDiagnosticItem);
+}
+
+function severityRank(severity: AdminDiagnosticSeverity) {
+  if (severity === "critical") return 3;
+  if (severity === "warning") return 2;
+  return 1;
 }
 
 function isTaskStale(row: AdminTaskListItem, staleMinutes: number) {

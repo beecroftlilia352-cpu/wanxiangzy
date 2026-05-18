@@ -2,6 +2,7 @@ import {
   listAdminAssets,
   listAdminAuditLogs,
   listAdminCreditLogs,
+  getAdminDiagnostics,
   getAdminCostReport,
   listAdminModerationCases,
   listAdminOperationRequests,
@@ -15,6 +16,7 @@ export const ADMIN_EXPORT_TYPES = [
   "generations",
   "assets",
   "audit",
+  "diagnostics",
   "reports",
   "requests",
   "moderation",
@@ -140,6 +142,24 @@ export async function loadAdminExportData(
         row.resourceId || "",
         row.reason || "",
         row.createdAt || "",
+      ]),
+    };
+  }
+
+  if (exportType === "diagnostics") {
+    const result = await getAdminDiagnostics();
+    return {
+      columns: ["id", "severity", "category", "title", "summary", "impact", "recommendation", "evidence", "created_at"],
+      rows: result.items.map((row) => [
+        row.id,
+        row.severity,
+        row.category,
+        row.title,
+        row.summary,
+        row.impact,
+        row.recommendation,
+        JSON.stringify(row.evidence),
+        row.createdAt,
       ]),
     };
   }

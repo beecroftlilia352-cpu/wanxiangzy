@@ -589,3 +589,4 @@ P2 长期：
 | P1 项 | 当前落地 | 说明 |
 | --- | --- | --- |
 | 成本利润报表 | 已落地积分口径 V1 | `/admin/reports` 汇总 `credit_logs`、`generations`、`agent_workflows`，支持近 7/14/30/90 天收入代理、退款、履约成本、毛利代理、模块/模型拆分、每日趋势，并接入 `/api/admin/reports` 和 CSV 导出数据集。真实 provider 账单属于后续增强。 |
+| 自动异常诊断建议 | 已落地规则引擎 V1 | `/admin/diagnostics` 汇总 Dashboard、Worker、成本、审核、审批和 provider 配置，输出严重/预警/提示级诊断、影响、证据和处理建议，并接入 `/api/admin/diagnostics` 与 CSV 导出数据集。LLM 诊断和主动告警属于后续增强。 |

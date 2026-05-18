@@ -10,6 +10,7 @@ const exportTypes = [
   { value: "generations", label: "生成任务" },
   { value: "assets", label: "资产" },
   { value: "audit", label: "审计日志" },
+  { value: "diagnostics", label: "异常诊断" },
   { value: "reports", label: "成本报表" },
   { value: "requests", label: "审批单" },
   { value: "moderation", label: "审核案件" },

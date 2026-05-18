@@ -10,6 +10,7 @@ const resources = [
   "generations",
   "assets",
   "audit",
+  "diagnostics",
   "reports",
   "requests",
   "moderation",
