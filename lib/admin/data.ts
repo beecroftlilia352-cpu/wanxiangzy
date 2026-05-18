@@ -1,4 +1,5 @@
 import { CREDIT_COSTS, DEFAULT_LINGYA_MODEL, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
+import { getConfiguredProcessorSecrets } from "@/lib/env";
 import { getAdminClient } from "@/lib/supabase/admin";
 import type { TaskStatusGroup } from "@/lib/task-queue";
 import { normalizeModule } from "@/lib/task-queue-index";
@@ -175,11 +176,31 @@ export type AdminAssetListItem = {
   createdAt: string | null;
   updatedAt: string | null;
   detailUrl: string;
+  moderationCase?: AdminModerationCase | null;
 };
 
 export type AdminAssetList = {
   rows: AdminAssetListItem[];
   total: number;
+  warnings: string[];
+};
+
+export type AdminModerationCase = {
+  id: string;
+  sourceType: string;
+  sourceId: string;
+  action: string;
+  status: string;
+  reason: string | null;
+  metadata: Record<string, unknown>;
+  createdBy: string | null;
+  createdAt: string | null;
+  resolvedAt: string | null;
+};
+
+export type AdminModerationList = {
+  rows: AdminModerationCase[];
+  available: boolean;
   warnings: string[];
 };
 
@@ -240,6 +261,32 @@ export type AdminTaskDetail = {
   workflowSteps: Array<Record<string, unknown>>;
   workflowEvents: Array<Record<string, unknown>>;
   auditLogs: AdminAuditLog[];
+  warnings: string[];
+};
+
+export type AdminWorkerProcessor = {
+  key: "generations" | "agent-workflows" | "agent-evals";
+  label: string;
+  endpoint: string;
+  configured: boolean;
+  batchSize: number;
+  secretNames: string[];
+  statusHint: string;
+};
+
+export type AdminWorkerOverview = {
+  processors: AdminWorkerProcessor[];
+  queue: {
+    sampled: number;
+    queued: number;
+    running: number;
+    completed: number;
+    failed: number;
+    stale: number;
+    staleMinutes: number;
+  };
+  staleTasks: AdminTaskListItem[];
+  recentRuns: AdminAuditLog[];
   warnings: string[];
 };
 
@@ -307,6 +354,7 @@ const WORKFLOW_COLUMNS = [
 const CREDIT_LOG_COLUMNS = "id,user_id,amount,balance,reason,generation_id,created_at";
 const ADMIN_MEMBER_COLUMNS = "user_id,email,role,status,enabled,display_name,created_at,updated_at";
 const ADMIN_CONFIG_COLUMNS = "id,config_key,value,status,created_by,published_at,created_at";
+const MODERATION_CASE_COLUMNS = "id,source_type,source_id,action,status,reason,metadata,created_by,created_at,resolved_at";
 
 export async function getAdminOverview(): Promise<AdminOverview> {
   const admin = getAdminClient();
@@ -515,18 +563,7 @@ export async function listAdminAuditLogs(args: { limit?: number } = {}): Promise
   }
 
   return {
-    rows: result.data.map((row) => ({
-      id: stringValue(row.id),
-      actorUserId: nullableString(row.actor_user_id),
-      actorEmail: nullableString(row.actor_email),
-      actorRole: nullableString(row.actor_role),
-      action: stringValue(row.action),
-      resourceType: stringValue(row.resource_type),
-      resourceId: nullableString(row.resource_id),
-      reason: nullableString(row.reason),
-      metadata: isRecord(row.metadata) ? row.metadata : {},
-      createdAt: nullableString(row.created_at),
-    })),
+    rows: result.data.map(mapAuditRow),
     available: true,
     warnings: uniqueStrings(warnings),
   };
@@ -620,10 +657,44 @@ export async function listAdminAssets(args: { q?: string; module?: string; limit
 
   if (q) rows = rows.filter((row) => matchesAssetSearch(row, q));
   rows = rows.sort((a, b) => Date.parse(b.createdAt || "") - Date.parse(a.createdAt || ""));
+  const visibleRows = rows.slice(0, limit);
+  const moderationMap = await loadLatestModerationForAssets(visibleRows, warnings);
+
+  return {
+    rows: visibleRows.map((row) => ({
+      ...row,
+      moderationCase: moderationMap.get(assetModerationKey(row.sourceType, row.id)) || null,
+    })),
+    total: generationResult.count ?? rows.length,
+    warnings: uniqueStrings(warnings),
+  };
+}
+
+export async function listAdminModerationCases(args: { q?: string; limit?: number } = {}): Promise<AdminModerationList> {
+  const warnings: string[] = [];
+  const limit = clampLimit(args.limit, 10, 120, 60);
+  const q = (args.q || "").trim().toLowerCase();
+  const result = await runQuery<Record<string, unknown>[]>(
+    getAdminClient()
+      .from("moderation_cases")
+      .select(MODERATION_CASE_COLUMNS)
+      .order("created_at", { ascending: false })
+      .limit(q ? Math.min(limit * 4, 300) : limit),
+    "moderation cases",
+    warnings,
+    true,
+  );
+
+  if (!result.data) {
+    return { rows: [], available: false, warnings: uniqueStrings(warnings) };
+  }
+
+  let rows = result.data.map(mapModerationCase);
+  if (q) rows = rows.filter((row) => matchesModerationSearch(row, q));
 
   return {
     rows: rows.slice(0, limit),
-    total: generationResult.count ?? rows.length,
+    available: true,
     warnings: uniqueStrings(warnings),
   };
 }
@@ -792,6 +863,62 @@ export async function getAdminTaskDetail(id: string): Promise<AdminTaskDetail> {
     workflowSteps: [],
     workflowEvents: [],
     auditLogs: await loadAuditLogsByResource(id, warnings),
+    warnings: uniqueStrings(warnings),
+  };
+}
+
+export async function getAdminWorkerOverview(): Promise<AdminWorkerOverview> {
+  const warnings: string[] = [];
+  const staleMinutes = clampLimit(process.env.GENERATION_JOB_STALE_MINUTES, 5, 180, 20);
+  const result = await runQuery<Record<string, unknown>[]>(
+    getAdminClient()
+      .from("task_queue_items")
+      .select(TASK_QUEUE_COLUMNS)
+      .order("updated_at", { ascending: false })
+      .limit(300),
+    "worker task queue sample",
+    warnings,
+    true,
+  );
+
+  let rows = (result.data || []).map(mapTaskQueueRow);
+  if (!result.data) {
+    const fallback = await listAdminTasks({ limit: 120 });
+    rows = fallback.rows;
+    warnings.push(...fallback.warnings);
+  }
+
+  const queue = {
+    sampled: rows.length,
+    queued: rows.filter((row) => row.statusGroup === "queued").length,
+    running: rows.filter((row) => row.statusGroup === "running").length,
+    completed: rows.filter((row) => row.statusGroup === "completed").length,
+    failed: rows.filter((row) => row.statusGroup === "failed").length,
+    stale: 0,
+    staleMinutes,
+  };
+  const staleTasks = rows
+    .filter((row) => row.statusGroup === "running" && isTaskStale(row, staleMinutes))
+    .slice(0, 30);
+  queue.stale = staleTasks.length;
+
+  const auditResult = await runQuery<Record<string, unknown>[]>(
+    getAdminClient()
+      .from("admin_audit_logs")
+      .select("id,actor_user_id,actor_email,actor_role,action,resource_type,resource_id,reason,metadata,created_at")
+      .like("action", "worker.run%")
+      .order("created_at", { ascending: false })
+      .limit(20),
+    "worker audit runs",
+    warnings,
+    true,
+  );
+
+  return {
+    processors: getWorkerProcessors(),
+    queue,
+    staleTasks,
+    recentRuns: (auditResult.data || []).map(mapAuditRow),
     warnings: uniqueStrings(warnings),
   };
 }
@@ -1144,6 +1271,47 @@ function matchesAssetSearch(row: AdminAssetListItem, q: string) {
   ].some((value) => value.toLowerCase().includes(q));
 }
 
+async function loadLatestModerationForAssets(rows: AdminAssetListItem[], warnings: string[]) {
+  const ids = uniqueStrings(rows.map((row) => row.id));
+  const map = new Map<string, AdminModerationCase>();
+  if (!ids.length) return map;
+
+  const result = await runQuery<Record<string, unknown>[]>(
+    getAdminClient()
+      .from("moderation_cases")
+      .select(MODERATION_CASE_COLUMNS)
+      .in("source_id", ids)
+      .order("created_at", { ascending: false })
+      .limit(Math.min(ids.length * 3, 500)),
+    "asset moderation cases",
+    warnings,
+    true,
+  );
+
+  for (const row of result.data || []) {
+    const item = mapModerationCase(row);
+    const key = assetModerationKey(item.sourceType, item.sourceId);
+    if (!map.has(key)) map.set(key, item);
+  }
+
+  return map;
+}
+
+function assetModerationKey(sourceType: string, id: string) {
+  return `${sourceType}:${id}`;
+}
+
+function matchesModerationSearch(row: AdminModerationCase, q: string) {
+  return [
+    row.id,
+    row.sourceType,
+    row.sourceId,
+    row.action,
+    row.status,
+    row.reason || "",
+  ].some((value) => value.toLowerCase().includes(q));
+}
+
 function getRuntimeSettingHealth(): AdminSettingsOverview["runtime"] {
   return [
     { key: "NEXT_PUBLIC_SUPABASE_URL", label: "Supabase URL", configured: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL), scope: "auth" },
@@ -1158,6 +1326,74 @@ function getRuntimeSettingHealth(): AdminSettingsOverview["runtime"] {
     { key: "PLATO_API_KEY", label: "Plato API", configured: Boolean(process.env.PLATO_API_KEY), scope: "provider" },
     { key: "LINGYA_API_KEY", label: "Lingya API", configured: Boolean(process.env.LINGYA_API_KEY), scope: "provider" },
   ];
+}
+
+function getWorkerProcessors(): AdminWorkerProcessor[] {
+  return [
+    workerProcessor({
+      key: "generations",
+      label: "生成任务 worker",
+      endpoint: "/api/jobs/process-generations",
+      batchSize: clampLimit(process.env.GENERATION_JOB_BATCH_SIZE, 1, 10, 2),
+      candidates: [
+        { name: "JOB_PROCESSOR_SECRET", value: process.env.JOB_PROCESSOR_SECRET },
+        { name: "CRON_SECRET", value: process.env.CRON_SECRET },
+      ],
+    }),
+    workerProcessor({
+      key: "agent-workflows",
+      label: "Agent workflow worker",
+      endpoint: "/api/jobs/process-agent-workflows",
+      batchSize: clampLimit(process.env.AGENT_WORKFLOW_BATCH_SIZE, 1, 10, 2),
+      candidates: [
+        { name: "AGENT_WORKFLOW_PROCESSOR_SECRET", value: process.env.AGENT_WORKFLOW_PROCESSOR_SECRET },
+        { name: "JOB_PROCESSOR_SECRET", value: process.env.JOB_PROCESSOR_SECRET },
+        { name: "CRON_SECRET", value: process.env.CRON_SECRET },
+      ],
+    }),
+    workerProcessor({
+      key: "agent-evals",
+      label: "Agent eval worker",
+      endpoint: "/api/jobs/run-agent-evals",
+      batchSize: clampLimit(process.env.AGENT_EVAL_MAX_USERS, 1, 100, 20),
+      candidates: [
+        { name: "AGENT_EVAL_PROCESSOR_SECRET", value: process.env.AGENT_EVAL_PROCESSOR_SECRET },
+        { name: "JOB_PROCESSOR_SECRET", value: process.env.JOB_PROCESSOR_SECRET },
+        { name: "CRON_SECRET", value: process.env.CRON_SECRET },
+      ],
+    }),
+  ];
+}
+
+function workerProcessor({
+  key,
+  label,
+  endpoint,
+  batchSize,
+  candidates,
+}: {
+  key: AdminWorkerProcessor["key"];
+  label: string;
+  endpoint: string;
+  batchSize: number;
+  candidates: Array<{ name: string; value?: string }>;
+}): AdminWorkerProcessor {
+  const validation = getConfiguredProcessorSecrets(candidates, label);
+  return {
+    key,
+    label,
+    endpoint,
+    configured: validation.ok,
+    batchSize,
+    secretNames: candidates.map((candidate) => candidate.name),
+    statusHint: validation.ok ? "secret 已配置，可手动触发" : validation.message,
+  };
+}
+
+function isTaskStale(row: AdminTaskListItem, staleMinutes: number) {
+  const timestamp = Date.parse(row.updatedAt || row.createdAt || "");
+  if (!Number.isFinite(timestamp)) return false;
+  return Date.now() - timestamp > staleMinutes * 60 * 1000;
 }
 
 function aggregateGenerations(rows: Record<string, unknown>[]) {
@@ -1427,6 +1663,36 @@ function mapWorkflowRow(row: Record<string, unknown>): AdminTaskListItem {
     updatedAt: nullableString(row.updated_at),
     completedAt: nullableString(row.completed_at),
     credits: numberValue(row.cost_settled) || numberValue(row.cost_reserved),
+  };
+}
+
+function mapAuditRow(row: Record<string, unknown>): AdminAuditLog {
+  return {
+    id: stringValue(row.id),
+    actorUserId: nullableString(row.actor_user_id),
+    actorEmail: nullableString(row.actor_email),
+    actorRole: nullableString(row.actor_role),
+    action: stringValue(row.action),
+    resourceType: stringValue(row.resource_type),
+    resourceId: nullableString(row.resource_id),
+    reason: nullableString(row.reason),
+    metadata: isRecord(row.metadata) ? row.metadata : {},
+    createdAt: nullableString(row.created_at),
+  };
+}
+
+function mapModerationCase(row: Record<string, unknown>): AdminModerationCase {
+  return {
+    id: stringValue(row.id),
+    sourceType: stringValue(row.source_type),
+    sourceId: stringValue(row.source_id),
+    action: stringValue(row.action),
+    status: stringValue(row.status) || "open",
+    reason: nullableString(row.reason),
+    metadata: isRecord(row.metadata) ? row.metadata : {},
+    createdBy: nullableString(row.created_by),
+    createdAt: nullableString(row.created_at),
+    resolvedAt: nullableString(row.resolved_at),
   };
 }
 

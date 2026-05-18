@@ -6,6 +6,7 @@ import {
   AdminTable,
   formatDateTime,
 } from "@/components/admin/AdminPrimitives";
+import { AdminConfigActions } from "@/components/admin/AdminConfigActions";
 import { AdminConfigForm } from "@/components/admin/AdminConfigForm";
 import { getAdminSettingsOverview, type AdminConfigVersion } from "@/lib/admin/data";
 
@@ -61,6 +62,7 @@ export default async function AdminSettingsPage() {
             { key: "value", label: "内容", render: (row) => <code className="line-clamp-2 max-w-[420px] text-xs text-slate-600">{JSON.stringify(row.value)}</code> },
             { key: "published", label: "发布时间", render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-slate-500">{formatDateTime(row.publishedAt)}</span> },
             { key: "created", label: "创建", render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-slate-500">{formatDateTime(row.createdAt)}</span> },
+            { key: "actions", label: "操作", render: (row) => <AdminConfigActions id={row.id} status={row.status} /> },
           ]}
         />
       </AdminSection>

@@ -8,6 +8,7 @@ import {
   ThumbnailStrip,
   formatDateTime,
 } from "@/components/admin/AdminPrimitives";
+import { AdminAssetModerationForm } from "@/components/admin/AdminAssetModerationForm";
 import { listAdminAssets, type AdminAssetListItem } from "@/lib/admin/data";
 
 export const dynamic = "force-dynamic";
@@ -92,9 +93,20 @@ export default async function AdminAssetsPage({ searchParams }: PageProps) {
               ),
             },
             { key: "module", label: "模块", render: (row) => <span className="whitespace-nowrap text-sm font-bold text-slate-700">{row.moduleLabel}</span> },
+            {
+              key: "moderation",
+              label: "审核",
+              render: (row) => row.moderationCase ? (
+                <div className="min-w-[140px]">
+                  <AdminStatusBadge status={row.moderationCase.action} group={row.moderationCase.action === "hide" ? "failed" : row.moderationCase.action === "pass" ? "completed" : "queued"} />
+                  <p className="mt-1 line-clamp-1 text-xs text-slate-500">{row.moderationCase.reason || "-"}</p>
+                </div>
+              ) : <span className="text-xs font-semibold text-slate-400">未处理</span>,
+            },
             { key: "count", label: "图片", render: (row) => <span className="font-mono text-sm font-bold text-slate-700">{row.urls.length}/{row.inputUrls.length}</span> },
             { key: "user", label: "用户", render: (row) => <code className="text-xs text-slate-500">{row.userId || "-"}</code> },
             { key: "time", label: "时间", render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-slate-500">{formatDateTime(row.updatedAt || row.createdAt)}</span> },
+            { key: "action", label: "操作", render: (row) => <AdminAssetModerationForm sourceId={row.id} sourceType={row.sourceType} /> },
           ]}
         />
       </AdminSection>

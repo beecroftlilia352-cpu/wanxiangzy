@@ -18,6 +18,12 @@ export type AdminPermission =
   | "credits:write"
   | "tasks:read"
   | "tasks:operate"
+  | "assets:read"
+  | "assets:write"
+  | "moderation:read"
+  | "moderation:write"
+  | "workers:read"
+  | "workers:write"
   | "providers:read"
   | "providers:write"
   | "audit:read"
@@ -33,6 +39,12 @@ const ROLE_PERMISSIONS: Record<AdminRole, AdminPermission[]> = {
     "credits:write",
     "tasks:read",
     "tasks:operate",
+    "assets:read",
+    "assets:write",
+    "moderation:read",
+    "moderation:write",
+    "workers:read",
+    "workers:write",
     "providers:read",
     "providers:write",
     "audit:read",
@@ -45,6 +57,12 @@ const ROLE_PERMISSIONS: Record<AdminRole, AdminPermission[]> = {
     "credits:read",
     "tasks:read",
     "tasks:operate",
+    "assets:read",
+    "assets:write",
+    "moderation:read",
+    "moderation:write",
+    "workers:read",
+    "workers:write",
     "providers:read",
     "audit:read",
     "settings:read",
@@ -54,6 +72,8 @@ const ROLE_PERMISSIONS: Record<AdminRole, AdminPermission[]> = {
     "users:read",
     "credits:read",
     "tasks:read",
+    "assets:read",
+    "moderation:read",
     "audit:read",
   ],
   finance: [
@@ -67,6 +87,10 @@ const ROLE_PERMISSIONS: Record<AdminRole, AdminPermission[]> = {
     "admin:read",
     "users:read",
     "tasks:read",
+    "assets:read",
+    "assets:write",
+    "moderation:read",
+    "moderation:write",
     "audit:read",
   ],
   engineer: [
@@ -75,6 +99,12 @@ const ROLE_PERMISSIONS: Record<AdminRole, AdminPermission[]> = {
     "credits:read",
     "tasks:read",
     "tasks:operate",
+    "assets:read",
+    "assets:write",
+    "moderation:read",
+    "moderation:write",
+    "workers:read",
+    "workers:write",
     "providers:read",
     "providers:write",
     "audit:read",
@@ -86,6 +116,9 @@ const ROLE_PERMISSIONS: Record<AdminRole, AdminPermission[]> = {
     "users:read",
     "credits:read",
     "tasks:read",
+    "assets:read",
+    "moderation:read",
+    "workers:read",
     "providers:read",
     "audit:read",
     "settings:read",

@@ -9,11 +9,19 @@ const defaultJson = `{
   "notes": "draft config"
 }`;
 
-export function AdminConfigForm() {
+export function AdminConfigForm({
+  defaultConfigKey = "",
+  defaultStatus = "draft",
+  defaultValue = defaultJson,
+}: {
+  defaultConfigKey?: string;
+  defaultStatus?: "draft" | "published";
+  defaultValue?: string;
+}) {
   const router = useRouter();
-  const [configKey, setConfigKey] = useState("");
-  const [status, setStatus] = useState("draft");
-  const [value, setValue] = useState(defaultJson);
+  const [configKey, setConfigKey] = useState(defaultConfigKey);
+  const [status, setStatus] = useState<string>(defaultStatus);
+  const [value, setValue] = useState(defaultValue);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -37,9 +45,9 @@ export function AdminConfigForm() {
       const payload = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(payload.error || `保存失败 (${res.status})`);
       setMessage("配置版本已创建，审计日志已记录。");
-      setConfigKey("");
-      setStatus("draft");
-      setValue(defaultJson);
+      setConfigKey(defaultConfigKey);
+      setStatus(defaultStatus);
+      setValue(defaultValue);
       router.refresh();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "保存失败");

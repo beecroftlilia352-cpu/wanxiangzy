@@ -8,11 +8,13 @@ import {
   ChevronRight,
   Coins,
   DatabaseZap,
+  Gauge,
   FileText,
   ImageIcon,
   LayoutDashboard,
   LockKeyhole,
   Settings,
+  ShieldAlert,
   ShieldCheck,
   UserCog,
   Users,
@@ -34,7 +36,9 @@ const adminNav = [
   { href: "/admin/credits", label: "积分", icon: Coins },
   { href: "/admin/generations", label: "任务", icon: Activity },
   { href: "/admin/assets", label: "资产", icon: ImageIcon },
+  { href: "/admin/moderation", label: "审核", icon: ShieldAlert },
   { href: "/admin/providers", label: "模型供应商", icon: DatabaseZap },
+  { href: "/admin/workers", label: "Worker", icon: Gauge },
   { href: "/admin/members", label: "成员", icon: UserCog },
   { href: "/admin/settings", label: "配置", icon: Settings },
   { href: "/admin/audit", label: "审计", icon: ShieldCheck },
@@ -151,7 +155,9 @@ function currentTitle(pathname: string) {
   if (pathname.startsWith("/admin/credits")) return "积分";
   if (pathname.startsWith("/admin/generations")) return "任务";
   if (pathname.startsWith("/admin/assets")) return "资产";
+  if (pathname.startsWith("/admin/moderation")) return "审核";
   if (pathname.startsWith("/admin/providers")) return "模型供应商";
+  if (pathname.startsWith("/admin/workers")) return "Worker";
   if (pathname.startsWith("/admin/members")) return "成员";
   if (pathname.startsWith("/admin/settings")) return "配置";
   if (pathname.startsWith("/admin/audit")) return "审计";

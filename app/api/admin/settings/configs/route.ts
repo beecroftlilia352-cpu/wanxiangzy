@@ -23,7 +23,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "value 必须是 JSON object" }, { status: 400 });
   }
 
-  const { data, error } = await getAdminClient()
+  const admin = getAdminClient();
+  if (status === "published") {
+    await admin
+      .from("admin_config_versions")
+      .update({ status: "archived" })
+      .eq("config_key", configKey)
+      .eq("status", "published");
+  }
+
+  const { data, error } = await admin
     .from("admin_config_versions")
     .insert({
       config_key: configKey,

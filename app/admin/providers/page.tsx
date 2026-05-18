@@ -6,6 +6,7 @@ import {
   AdminTable,
   formatNumber,
 } from "@/components/admin/AdminPrimitives";
+import { AdminConfigForm } from "@/components/admin/AdminConfigForm";
 import { getAdminProviderCatalog } from "@/lib/admin/data";
 
 export const dynamic = "force-dynamic";
@@ -106,6 +107,24 @@ export default function AdminProvidersPage() {
             },
             { key: "adminV1", label: "V1 范围", render: (row) => <span className="text-xs font-bold text-slate-700">{row.adminV1}</span> },
           ]}
+        />
+      </AdminSection>
+
+      <AdminSection title="模型策略版本" description="用配置版本管理模型开关、默认路由、备用 provider 和降级策略；发布动作会自动归档同 key 的旧版本。">
+        <AdminConfigForm
+          defaultConfigKey="model.routing"
+          defaultValue={`{
+  "defaultModel": "${catalog.defaultModel}",
+  "models": {
+    "nano-banana-2": { "enabled": true, "provider": "laozhang" },
+    "nano-banana-pro": { "enabled": true, "provider": "laozhang" },
+    "gpt-image-2": { "enabled": true, "provider": "plato" }
+  },
+  "degrade": {
+    "disable4k": false,
+    "fallbackModel": "nano-banana-2"
+  }
+}`}
         />
       </AdminSection>
     </div>

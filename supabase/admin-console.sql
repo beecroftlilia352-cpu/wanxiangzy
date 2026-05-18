@@ -64,6 +64,29 @@ CREATE INDEX IF NOT EXISTS admin_config_versions_key_status_idx
 
 ALTER TABLE public.admin_config_versions ENABLE ROW LEVEL SECURITY;
 
+CREATE TABLE IF NOT EXISTS public.moderation_cases (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  source_type TEXT NOT NULL,
+  source_id TEXT NOT NULL,
+  action TEXT NOT NULL
+    CHECK (action IN ('hide', 'pass', 'escalate')),
+  status TEXT NOT NULL DEFAULT 'open'
+    CHECK (status IN ('open', 'resolved', 'rejected')),
+  reason TEXT,
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  resolved_at TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS moderation_cases_source_idx
+  ON public.moderation_cases (source_type, source_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS moderation_cases_status_created_idx
+  ON public.moderation_cases (status, created_at DESC);
+
+ALTER TABLE public.moderation_cases ENABLE ROW LEVEL SECURITY;
+
 CREATE OR REPLACE FUNCTION public.touch_admin_member_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN

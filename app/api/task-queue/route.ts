@@ -179,6 +179,7 @@ export async function GET(request: Request) {
 
     const rawRows = (Array.isArray(data) ? data : []) as unknown as QueueRow[];
     const generationRows = rawRows
+      .filter((row) => !isHiddenByAdmin(row))
       .map(normalizeQueueRow)
       .filter((row) => !moduleFilter || row.module === moduleFilter);
     const pinnedGenerationRows = cursor ? [] : await loadRunningGenerationRows(supabase, user.id, moduleFilter);
@@ -547,7 +548,7 @@ async function loadLightweightModuleQueue(
   if (recentResult.error) logTaskQueueWarning("module queue recent unavailable", recentResult.error.message);
   const recentRows = (Array.isArray(recentResult.data) ? recentResult.data : []) as unknown as QueueRow[];
   let rows = mergeQueueRows([
-    ...recentRows.map(normalizeQueueRow),
+    ...recentRows.filter((row) => !isHiddenByAdmin(row)).map(normalizeQueueRow),
   ])
     .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
     .slice(0, limit);
@@ -587,7 +588,7 @@ async function loadLightweightInferredModuleQueue(
 
   const recentRows = (Array.isArray(recentResult.data) ? recentResult.data : []) as unknown as QueueRow[];
   return mergeQueueRows([
-    ...recentRows.map(normalizeQueueRow),
+    ...recentRows.filter((row) => !isHiddenByAdmin(row)).map(normalizeQueueRow),
   ])
     .filter((row) => row.module === moduleFilter)
     .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
@@ -655,6 +656,7 @@ async function loadRunningGenerationRows(
     }
 
     return ((Array.isArray(data) ? data : []) as unknown as QueueRow[])
+      .filter((row) => !isHiddenByAdmin(row))
       .map(normalizeQueueRow)
       .filter(isQueueItemRunning)
       .filter((row) => !moduleFilter || row.module === moduleFilter);
@@ -693,6 +695,16 @@ async function loadRunningWorkflowRows(
     logTaskQueueWarning("running workflows unavailable", toLogMessage(error));
     return [];
   }
+}
+
+function isHiddenByAdmin(row: QueueRow) {
+  const payload = row.job_payload && typeof row.job_payload === "object" ? row.job_payload : {};
+  const moderation = isRecord(payload.adminModeration) ? payload.adminModeration : null;
+  return moderation?.action === "hide";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 function normalizeQueueRow(row: QueueRow): TaskQueueItem {

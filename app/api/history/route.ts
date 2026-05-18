@@ -98,6 +98,9 @@ export async function GET(request: Request) {
       if (!data) {
         return NextResponse.json({ error: "历史记录不存在" }, { status: 404 });
       }
+      if (isHiddenByAdmin(data as HistoryListRow)) {
+        return NextResponse.json({ error: "历史记录已下架" }, { status: 404 });
+      }
 
       return NextResponse.json({ row: normalizeHistoryRow(data as HistoryListRow) });
     }
@@ -141,7 +144,8 @@ export async function GET(request: Request) {
     }
 
     const fetchedRows = Array.isArray(data) ? data as HistoryListRow[] : [];
-    const rows = fetchedRows.slice(0, pageSize).map(normalizeHistoryRow);
+    const visibleRows = fetchedRows.filter((row) => !isHiddenByAdmin(row));
+    const rows = visibleRows.slice(0, pageSize).map(normalizeHistoryRow);
     const hasMore = fetchedRows.length > pageSize;
     const nextCursor = hasMore ? rows[rows.length - 1]?.created_at || null : null;
 
@@ -187,6 +191,15 @@ function normalizeHistoryRow<T extends HistoryListRow>(row: T): T {
     completed_at: row.completed_at || state.completedAt || null,
     progress: state.progress,
   } as T;
+}
+
+function isHiddenByAdmin(row: HistoryListRow) {
+  const moderation = isRecord(row.job_payload?.adminModeration) ? row.job_payload.adminModeration : null;
+  return moderation?.action === "hide";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 function withTimeout<T>(promise: PromiseLike<T>, ms: number, message: string): Promise<T> {
