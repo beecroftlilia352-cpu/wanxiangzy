@@ -1,18 +1,39 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { Loader2, Play } from "lucide-react";
 
-export function AdminWorkerRunForm() {
+type WorkerTarget = "generations" | "agent-workflows" | "agent-evals";
+
+type AdminWorkerRunFormProps = {
+  defaultTarget?: WorkerTarget;
+  defaultLimit?: number;
+  defaultReason?: string;
+  lockTarget?: boolean;
+};
+
+const WORKER_OPTIONS: Array<{ value: WorkerTarget; label: string }> = [
+  { value: "generations", label: "生成任务" },
+  { value: "agent-workflows", label: "Agent workflow" },
+  { value: "agent-evals", label: "Agent eval" },
+];
+
+export function AdminWorkerRunForm({
+  defaultTarget = "generations",
+  defaultLimit,
+  defaultReason = "",
+  lockTarget = false,
+}: AdminWorkerRunFormProps) {
   const router = useRouter();
-  const [target, setTarget] = useState("generations");
-  const [limit, setLimit] = useState(2);
-  const [reason, setReason] = useState("");
+  const [target, setTarget] = useState<WorkerTarget>(defaultTarget);
+  const [limit, setLimit] = useState(defaultLimit || (defaultTarget === "agent-evals" ? 20 : 2));
+  const [reason, setReason] = useState(defaultReason);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const maxLimit = target === "agent-evals" ? 100 : 10;
 
-  async function submit(event: React.FormEvent<HTMLFormElement>) {
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setLoading(true);
     setMessage("");
@@ -26,7 +47,7 @@ export function AdminWorkerRunForm() {
       const payload = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(payload.error || `触发失败 (${res.status})`);
       setMessage(`已触发 ${target}，结果已写入审计。`);
-      setReason("");
+      if (!defaultReason) setReason("");
       router.refresh();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "触发失败");
@@ -39,22 +60,32 @@ export function AdminWorkerRunForm() {
     <form onSubmit={submit} className="grid gap-3 p-4 lg:grid-cols-[220px_120px_minmax(320px,1fr)_auto]">
       <label className="space-y-1.5">
         <span className="text-xs font-black text-slate-500">Worker</span>
-        <select
-          value={target}
-          onChange={(event) => setTarget(event.target.value)}
-          className="h-10 w-full rounded-lg border border-slate-200 bg-white px-2 text-sm font-bold text-slate-700"
-        >
-          <option value="generations">生成任务</option>
-          <option value="agent-workflows">Agent workflow</option>
-          <option value="agent-evals">Agent eval</option>
-        </select>
+        {lockTarget ? (
+          <div className="flex h-10 w-full items-center rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-bold text-slate-700">
+            {WORKER_OPTIONS.find((option) => option.value === target)?.label || target}
+          </div>
+        ) : (
+          <select
+            value={target}
+            onChange={(event) => {
+              const nextTarget = event.target.value as WorkerTarget;
+              setTarget(nextTarget);
+              setLimit(nextTarget === "agent-evals" ? 20 : 2);
+            }}
+            className="h-10 w-full rounded-lg border border-slate-200 bg-white px-2 text-sm font-bold text-slate-700"
+          >
+            {WORKER_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
+          </select>
+        )}
       </label>
       <label className="space-y-1.5">
         <span className="text-xs font-black text-slate-500">批量</span>
         <input
           type="number"
           min={1}
-          max={target === "agent-evals" ? 100 : 10}
+          max={maxLimit}
           value={limit}
           onChange={(event) => setLimit(Number(event.target.value))}
           className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold outline-none focus:border-slate-400"
@@ -78,7 +109,7 @@ export function AdminWorkerRunForm() {
         </button>
       </div>
       {message && (
-        <p className={`lg:col-span-4 text-sm font-bold ${message.startsWith("已触发") ? "text-emerald-700" : "text-red-700"}`}>
+        <p className={`text-sm font-bold lg:col-span-4 ${message.startsWith("已触发") ? "text-emerald-700" : "text-red-700"}`}>
           {message}
         </p>
       )}

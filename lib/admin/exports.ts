@@ -1,6 +1,7 @@
 import {
   listAdminAssets,
   listAdminAuditLogs,
+  getAdminAgentEvalOverview,
   listAdminCreditLogs,
   getAdminDiagnostics,
   getAdminCostReport,
@@ -16,6 +17,7 @@ export const ADMIN_EXPORT_TYPES = [
   "generations",
   "assets",
   "audit",
+  "agent_evals",
   "diagnostics",
   "reports",
   "requests",
@@ -143,6 +145,55 @@ export async function loadAdminExportData(
         row.reason || "",
         row.createdAt || "",
       ]),
+    };
+  }
+
+  if (exportType === "agent_evals") {
+    const result = await getAdminAgentEvalOverview({ q: filters.q, limit });
+    return {
+      columns: ["scope", "run_id", "result_id", "user_id", "email", "case_id", "title", "status", "score", "total", "passed", "failed", "action", "module", "confidence", "latency_ms", "failures", "created_at"],
+      rows: [
+        ...result.runs.map((row) => [
+          "run",
+          row.id,
+          "",
+          row.userId,
+          row.email || "",
+          "",
+          "",
+          row.status,
+          String(row.score),
+          String(row.total),
+          String(row.passed),
+          String(row.failed),
+          "",
+          "",
+          "",
+          String(row.latencyMs),
+          "",
+          row.createdAt || "",
+        ]),
+        ...result.failures.map((row) => [
+          "failed_case",
+          row.runId,
+          row.id,
+          row.userId,
+          row.email || "",
+          row.caseId,
+          row.title,
+          row.ok ? "pass" : "failed",
+          "",
+          "",
+          "",
+          "",
+          row.action || "",
+          row.module || "",
+          String(row.confidence),
+          "",
+          row.failures.join("; "),
+          row.createdAt || "",
+        ]),
+      ],
     };
   }
 

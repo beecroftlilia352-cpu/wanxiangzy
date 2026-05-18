@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Activity, AlertTriangle, BarChart3, ClipboardCheck, Coins, DatabaseZap, FileDown, Gauge, ImageIcon, RefreshCw, Settings, ShieldAlert, Users } from "lucide-react";
+import { Activity, AlertTriangle, BarChart3, ClipboardCheck, Coins, DatabaseZap, FileDown, FlaskConical, Gauge, ImageIcon, RefreshCw, Settings, ShieldAlert, Users } from "lucide-react";
 import {
   AdminMetricCard,
   AdminNotice,
@@ -113,6 +113,7 @@ export default async function AdminDashboardPage() {
             <div className="grid grid-cols-2 gap-2 p-4">
               <QuickLink href="/admin/users" icon={<Users className="h-4 w-4" />} label="用户管理" />
               <QuickLink href="/admin/diagnostics" icon={<AlertTriangle className="h-4 w-4" />} label="异常诊断" />
+              <QuickLink href="/admin/evals" icon={<FlaskConical className="h-4 w-4" />} label="Agent Eval" />
               <QuickLink href="/admin/credits" icon={<Coins className="h-4 w-4" />} label="积分流水" />
               <QuickLink href="/admin/requests" icon={<ClipboardCheck className="h-4 w-4" />} label="审批中心" />
               <QuickLink href="/admin/generations" icon={<Activity className="h-4 w-4" />} label="任务中心" />

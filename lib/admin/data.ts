@@ -1,4 +1,5 @@
 import { CREDIT_COSTS, DEFAULT_LINGYA_MODEL, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
+import { BRAIN_EVAL_CASES, type BrainEvalCase } from "@/lib/agent/brain/eval-cases";
 import { getConfiguredProcessorSecrets } from "@/lib/env";
 import { getAdminClient } from "@/lib/supabase/admin";
 import type { TaskStatusGroup } from "@/lib/task-queue";
@@ -417,6 +418,66 @@ export type AdminWorkerOverview = {
   warnings: string[];
 };
 
+export type AdminAgentEvalRunStatus = "pass" | "failed" | "empty";
+
+export type AdminAgentEvalRun = {
+  id: string;
+  userId: string;
+  email: string | null;
+  total: number;
+  passed: number;
+  failed: number;
+  score: number;
+  latencyMs: number;
+  status: AdminAgentEvalRunStatus;
+  summary: Record<string, unknown>;
+  createdAt: string | null;
+};
+
+export type AdminAgentEvalResult = {
+  id: string;
+  runId: string;
+  userId: string;
+  email: string | null;
+  caseId: string;
+  title: string;
+  ok: boolean;
+  failures: string[];
+  action: string | null;
+  module: string | null;
+  confidence: number;
+  traceId: string | null;
+  createdAt: string | null;
+};
+
+export type AdminAgentEvalCase = {
+  id: string;
+  title: string;
+  expected: string[];
+  imageCount: number;
+};
+
+export type AdminAgentEvalOverview = {
+  available: boolean;
+  generatedAt: string;
+  processor: AdminWorkerProcessor;
+  metrics: {
+    totalRuns: number;
+    recentRuns: number;
+    avgScore: number;
+    passRate: number;
+    failedRuns: number;
+    failedCases: number;
+    uniqueUsers: number;
+    averageLatencyMs: number;
+    latestRunAt: string | null;
+  };
+  runs: AdminAgentEvalRun[];
+  failures: AdminAgentEvalResult[];
+  baselineCases: AdminAgentEvalCase[];
+  warnings: string[];
+};
+
 export type AdminDiagnosticSeverity = "critical" | "warning" | "info";
 
 export type AdminDiagnosticItem = {
@@ -531,6 +592,8 @@ const OPERATION_REQUEST_COLUMNS = [
 ].join(",");
 const SAVED_VIEW_COLUMNS = "id,owner_user_id,owner_email,name,resource,visibility,filters,columns,sort,created_at,updated_at";
 const EXPORT_JOB_COLUMNS = "id,export_type,status,requested_by,requested_by_email,requested_by_role,filters,row_count,download_token,expires_at,error_message,created_at";
+const AGENT_EVAL_RUN_COLUMNS = "id,user_id,total,passed,failed,score,latency_ms,summary,created_at";
+const AGENT_EVAL_RESULT_COLUMNS = "id,run_id,user_id,case_id,title,ok,failures,action,module,confidence,trace_id,created_at";
 
 export async function getAdminOverview(): Promise<AdminOverview> {
   const admin = getAdminClient();
@@ -1596,6 +1659,104 @@ export async function getAdminWorkerOverview(): Promise<AdminWorkerOverview> {
   };
 }
 
+export async function getAdminAgentEvalOverview(args: { q?: string; limit?: number } = {}): Promise<AdminAgentEvalOverview> {
+  const warnings: string[] = [];
+  const limit = clampLimit(args.limit, 10, 120, 50);
+  const q = (args.q || "").trim().toLowerCase();
+  const generatedAt = new Date().toISOString();
+  const processor = getWorkerProcessors().find((item) => item.key === "agent-evals") || getWorkerProcessors()[2];
+  const admin = getAdminClient();
+  const [runsResult, failuresResult] = await Promise.all([
+    runQuery<Record<string, unknown>[]>(
+      admin
+        .from("agent_eval_runs")
+        .select(AGENT_EVAL_RUN_COLUMNS, { count: "exact" })
+        .order("created_at", { ascending: false })
+        .limit(q ? Math.min(limit * 4, 300) : limit),
+      "agent eval runs",
+      warnings,
+      true,
+    ),
+    runQuery<Record<string, unknown>[]>(
+      admin
+        .from("agent_eval_results")
+        .select(AGENT_EVAL_RESULT_COLUMNS)
+        .eq("ok", false)
+        .order("created_at", { ascending: false })
+        .limit(q ? Math.min(limit * 4, 300) : 80),
+      "agent eval failed results",
+      warnings,
+      true,
+    ),
+  ]);
+
+  if (!runsResult.data) {
+    return {
+      available: false,
+      generatedAt,
+      processor,
+      metrics: emptyAgentEvalMetrics(),
+      runs: [],
+      failures: [],
+      baselineCases: BRAIN_EVAL_CASES.map(mapBrainEvalCase),
+      warnings: uniqueStrings([
+        ...warnings,
+        runsResult.error
+          ? `agent_eval_runs: ${runsResult.error}`
+          : "agent_eval_runs table is not ready. Run supabase/agent-brain-traces.sql first.",
+      ]),
+    };
+  }
+
+  if (failuresResult.error) {
+    warnings.push(`agent_eval_results: ${failuresResult.error}`);
+  }
+
+  const userIds = uniqueStrings([
+    ...runsResult.data.map((row) => stringValue(row.user_id)),
+    ...((failuresResult.data || []).map((row) => stringValue(row.user_id))),
+  ]);
+  const emails = await loadProfileEmails(userIds, warnings);
+  let runs = runsResult.data.map((row) => mapAgentEvalRun(row, emails));
+  let failures = (failuresResult.data || []).map((row) => mapAgentEvalResult(row, emails));
+
+  if (q) {
+    runs = runs.filter((row) => matchesAgentEvalRunSearch(row, q));
+    failures = failures.filter((row) => matchesAgentEvalResultSearch(row, q));
+  }
+
+  runs = runs.slice(0, limit);
+  failures = failures.slice(0, Math.min(limit, 80));
+  const totalCases = runs.reduce((sum, row) => sum + row.total, 0);
+  const passedCases = runs.reduce((sum, row) => sum + row.passed, 0);
+  const latencySamples = runs.filter((row) => row.latencyMs > 0);
+  const avgScore = runs.length ? Math.round(runs.reduce((sum, row) => sum + row.score, 0) / runs.length) : 0;
+  const averageLatencyMs = latencySamples.length
+    ? Math.round(latencySamples.reduce((sum, row) => sum + row.latencyMs, 0) / latencySamples.length)
+    : 0;
+
+  return {
+    available: true,
+    generatedAt,
+    processor,
+    metrics: {
+      totalRuns: q ? runs.length : runsResult.count ?? runs.length,
+      recentRuns: runs.length,
+      avgScore,
+      passRate: totalCases ? Math.round((passedCases / totalCases) * 100) : 0,
+      failedRuns: runs.filter((row) => row.failed > 0 || row.total === 0).length,
+      failedCases: failures.length,
+      uniqueUsers: new Set(runs.map((row) => row.userId).filter(Boolean)).size,
+      averageLatencyMs,
+      latestRunAt: runs[0]?.createdAt || null,
+    },
+    runs,
+    failures,
+    baselineCases: BRAIN_EVAL_CASES.map(mapBrainEvalCase),
+    warnings: uniqueStrings(warnings),
+  };
+}
+
 export function getAdminProviderCatalog(): AdminProviderCatalog {
   return {
     defaultModel: DEFAULT_LINGYA_MODEL,
@@ -2523,6 +2684,99 @@ function mapAuditRow(row: Record<string, unknown>): AdminAuditLog {
     metadata: isRecord(row.metadata) ? row.metadata : {},
     createdAt: nullableString(row.created_at),
   };
+}
+
+function mapAgentEvalRun(row: Record<string, unknown>, emails: Map<string, string>): AdminAgentEvalRun {
+  const userId = stringValue(row.user_id);
+  const total = numberValue(row.total);
+  const failed = numberValue(row.failed);
+  return {
+    id: stringValue(row.id),
+    userId,
+    email: emails.get(userId) || null,
+    total,
+    passed: numberValue(row.passed),
+    failed,
+    score: numberValue(row.score),
+    latencyMs: numberValue(row.latency_ms),
+    status: total === 0 ? "empty" : failed > 0 ? "failed" : "pass",
+    summary: isRecord(row.summary) ? row.summary : {},
+    createdAt: nullableString(row.created_at),
+  };
+}
+
+function mapAgentEvalResult(row: Record<string, unknown>, emails: Map<string, string>): AdminAgentEvalResult {
+  const userId = stringValue(row.user_id);
+  return {
+    id: stringValue(row.id),
+    runId: stringValue(row.run_id),
+    userId,
+    email: emails.get(userId) || null,
+    caseId: stringValue(row.case_id),
+    title: stringValue(row.title),
+    ok: row.ok === true,
+    failures: arrayOfStrings(row.failures),
+    action: nullableString(row.action),
+    module: nullableString(row.module),
+    confidence: numberValue(row.confidence),
+    traceId: nullableString(row.trace_id),
+    createdAt: nullableString(row.created_at),
+  };
+}
+
+function mapBrainEvalCase(testCase: BrainEvalCase): AdminAgentEvalCase {
+  const expected = [
+    testCase.expect.action ? `action=${testCase.expect.action}` : "",
+    "module" in testCase.expect ? `module=${testCase.expect.module || "none"}` : "",
+    testCase.expect.visualTaskType ? `visualTask=${testCase.expect.visualTaskType}` : "",
+    testCase.expect.mustClarify ? "clarify=true" : "",
+  ].filter(Boolean);
+
+  return {
+    id: testCase.id,
+    title: testCase.title,
+    expected,
+    imageCount: testCase.request.images?.length || 0,
+  };
+}
+
+function emptyAgentEvalMetrics(): AdminAgentEvalOverview["metrics"] {
+  return {
+    totalRuns: 0,
+    recentRuns: 0,
+    avgScore: 0,
+    passRate: 0,
+    failedRuns: 0,
+    failedCases: 0,
+    uniqueUsers: 0,
+    averageLatencyMs: 0,
+    latestRunAt: null,
+  };
+}
+
+function matchesAgentEvalRunSearch(row: AdminAgentEvalRun, q: string) {
+  return [
+    row.id,
+    row.userId,
+    row.email || "",
+    row.status,
+    String(row.score),
+    JSON.stringify(row.summary),
+  ].some((value) => value.toLowerCase().includes(q));
+}
+
+function matchesAgentEvalResultSearch(row: AdminAgentEvalResult, q: string) {
+  return [
+    row.id,
+    row.runId,
+    row.userId,
+    row.email || "",
+    row.caseId,
+    row.title,
+    row.action || "",
+    row.module || "",
+    row.failures.join(" "),
+  ].some((value) => value.toLowerCase().includes(q));
 }
 
 function mapModerationCase(row: Record<string, unknown>): AdminModerationCase {

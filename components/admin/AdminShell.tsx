@@ -12,6 +12,7 @@ import {
   FileDown,
   Gauge,
   FileText,
+  FlaskConical,
   ImageIcon,
   LayoutDashboard,
   LockKeyhole,
@@ -36,6 +37,7 @@ type AdminShellProps = {
 const adminNav = [
   { href: "/admin", label: "总览", icon: LayoutDashboard },
   { href: "/admin/diagnostics", label: "诊断", icon: AlertTriangle },
+  { href: "/admin/evals", label: "Agent Eval", icon: FlaskConical },
   { href: "/admin/users", label: "用户", icon: Users },
   { href: "/admin/credits", label: "积分", icon: Coins },
   { href: "/admin/requests", label: "审批", icon: ClipboardCheck },
@@ -159,6 +161,7 @@ export function AdminShell({ admin, children }: AdminShellProps) {
 
 function currentTitle(pathname: string) {
   if (pathname.startsWith("/admin/diagnostics")) return "诊断";
+  if (pathname.startsWith("/admin/evals")) return "Agent Eval";
   if (pathname.startsWith("/admin/users")) return "用户";
   if (pathname.startsWith("/admin/credits")) return "积分";
   if (pathname.startsWith("/admin/requests")) return "审批";

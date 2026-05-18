@@ -4,7 +4,7 @@ import { writeAdminAuditLog } from "@/lib/admin/audit";
 import { listAdminSavedViews } from "@/lib/admin/data";
 import { getAdminClient } from "@/lib/supabase/admin";
 
-const RESOURCES = new Set(["users", "credits", "generations", "assets", "audit", "diagnostics", "reports", "requests", "moderation", "workers"]);
+const RESOURCES = new Set(["users", "credits", "generations", "assets", "audit", "agent_evals", "diagnostics", "reports", "requests", "moderation", "workers"]);
 
 export async function GET(request: Request) {
   const auth = await requireAdminApi("saved_views:read");
