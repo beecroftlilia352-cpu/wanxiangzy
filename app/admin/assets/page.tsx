@@ -1,4 +1,5 @@
-import { Search } from "lucide-react";
+import Link from "next/link";
+import { ArchiveRestore, Search } from "lucide-react";
 import {
   AdminNotice,
   AdminPageHeader,
@@ -40,7 +41,16 @@ export default async function AdminAssetsPage({ searchParams }: PageProps) {
       <AdminPageHeader
         eyebrow="Assets"
         title="资产与作品"
-        description="统一查看生成结果、输入图、预设参考图和商品套图收藏方案。删除、隐藏和资产归档会在下一阶段接入审计后开放。"
+        description="统一查看生成结果、输入图、预设参考图和商品套图收藏方案；生命周期页用于创建迁移、归档和冻结计划审计。"
+        actions={
+          <Link
+            href="/admin/assets/lifecycle"
+            className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 shadow-sm hover:bg-slate-50"
+          >
+            <ArchiveRestore className="h-3.5 w-3.5" />
+            生命周期
+          </Link>
+        }
       />
 
       {assets.warnings.length > 0 && <AdminNotice>资产数据源提示：{assets.warnings.slice(0, 3).join("；")}</AdminNotice>}

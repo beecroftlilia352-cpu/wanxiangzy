@@ -1,6 +1,7 @@
 import {
   listAdminAssets,
   listAdminAuditLogs,
+  getAdminAssetLifecycleOverview,
   getAdminAgentEvalOverview,
   listAdminCreditLogs,
   getAdminDiagnostics,
@@ -17,6 +18,7 @@ export const ADMIN_EXPORT_TYPES = [
   "credits",
   "generations",
   "assets",
+  "asset_lifecycle",
   "audit",
   "agent_evals",
   "prompt_experiments",
@@ -128,6 +130,29 @@ export async function loadAdminExportData(
         row.moderationCase?.reason || "",
         row.createdAt || "",
         row.updatedAt || "",
+      ]),
+    };
+  }
+
+  if (exportType === "asset_lifecycle") {
+    const result = await getAdminAssetLifecycleOverview({ q: filters.q, module: filters.module, limit });
+    return {
+      columns: ["id", "source_type", "user_id", "module", "stage", "risk_level", "providers", "url_count", "input_count", "age_days", "recommended_action", "moderation_action", "reasons", "detail_url"],
+      rows: result.rows.map((row) => [
+        row.id,
+        row.sourceType,
+        row.userId,
+        row.module,
+        row.stage,
+        row.riskLevel,
+        row.providers.join(";"),
+        String(row.urlCount),
+        String(row.inputCount),
+        String(row.ageDays),
+        row.recommendedAction,
+        row.moderationAction || "",
+        row.reasons.join("; "),
+        row.detailUrl,
       ]),
     };
   }

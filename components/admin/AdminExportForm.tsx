@@ -9,6 +9,7 @@ const exportTypes = [
   { value: "credits", label: "积分流水" },
   { value: "generations", label: "生成任务" },
   { value: "assets", label: "资产" },
+  { value: "asset_lifecycle", label: "素材生命周期" },
   { value: "audit", label: "审计日志" },
   { value: "agent_evals", label: "Agent Eval" },
   { value: "prompt_experiments", label: "Prompt 实验" },

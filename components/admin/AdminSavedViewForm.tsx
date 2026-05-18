@@ -9,6 +9,7 @@ const resources = [
   "credits",
   "generations",
   "assets",
+  "asset_lifecycle",
   "audit",
   "agent_evals",
   "prompt_experiments",

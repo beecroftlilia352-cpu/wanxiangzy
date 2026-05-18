@@ -186,6 +186,59 @@ export type AdminAssetList = {
   warnings: string[];
 };
 
+export type AdminAssetStorageProvider = "aliyun-oss" | "imgbb" | "data-url" | "external" | "unknown";
+
+export type AdminAssetLifecycleStage = "protected" | "retained" | "migrate" | "review" | "archive";
+
+export type AdminAssetLifecycleAction =
+  | "retain"
+  | "migrate_to_oss"
+  | "review_temp_inputs"
+  | "archive_generated_result"
+  | "freeze_and_hide";
+
+export type AdminAssetLifecyclePolicy = {
+  id: string;
+  title: string;
+  description: string;
+  stage: AdminAssetLifecycleStage;
+  action: AdminAssetLifecycleAction;
+  threshold: string;
+};
+
+export type AdminAssetLifecycleItem = AdminAssetListItem & {
+  providers: AdminAssetStorageProvider[];
+  urlCount: number;
+  inputCount: number;
+  ageDays: number;
+  stage: AdminAssetLifecycleStage;
+  riskLevel: "low" | "medium" | "high";
+  reasons: string[];
+  recommendedAction: AdminAssetLifecycleAction;
+  moderationAction: string | null;
+};
+
+export type AdminAssetLifecycleOverview = {
+  generatedAt: string;
+  rows: AdminAssetLifecycleItem[];
+  policies: AdminAssetLifecyclePolicy[];
+  metrics: {
+    sampledAssets: number;
+    sampledUrls: number;
+    ossUrls: number;
+    imgbbUrls: number;
+    externalUrls: number;
+    dataUrls: number;
+    unknownUrls: number;
+    migrationCandidates: number;
+    archiveCandidates: number;
+    protectedAssets: number;
+    reviewCandidates: number;
+    hiddenAssets: number;
+  };
+  warnings: string[];
+};
+
 export type AdminModerationCase = {
   id: string;
   sourceType: string;
@@ -1405,6 +1458,38 @@ export async function listAdminAssets(args: { q?: string; module?: string; limit
   };
 }
 
+export async function getAdminAssetLifecycleOverview(args: {
+  q?: string;
+  module?: string;
+  limit?: number;
+} = {}): Promise<AdminAssetLifecycleOverview> {
+  const limit = clampLimit(args.limit, 20, 160, 100);
+  const assets = await listAdminAssets({ q: args.q, module: args.module, limit });
+  const rows = assets.rows.map(mapAssetLifecycleItem);
+
+  return {
+    generatedAt: new Date().toISOString(),
+    rows,
+    policies: ASSET_LIFECYCLE_POLICIES,
+    metrics: rows.reduce((metrics, row) => {
+      metrics.sampledAssets += 1;
+      metrics.sampledUrls += row.urlCount + row.inputCount;
+      if (row.providers.includes("aliyun-oss")) metrics.ossUrls += countProviderUrls(row, "aliyun-oss");
+      if (row.providers.includes("imgbb")) metrics.imgbbUrls += countProviderUrls(row, "imgbb");
+      if (row.providers.includes("external")) metrics.externalUrls += countProviderUrls(row, "external");
+      if (row.providers.includes("data-url")) metrics.dataUrls += countProviderUrls(row, "data-url");
+      if (row.providers.includes("unknown")) metrics.unknownUrls += countProviderUrls(row, "unknown");
+      if (row.stage === "migrate") metrics.migrationCandidates += 1;
+      if (row.stage === "archive") metrics.archiveCandidates += 1;
+      if (row.stage === "protected") metrics.protectedAssets += 1;
+      if (row.stage === "review") metrics.reviewCandidates += 1;
+      if (row.moderationAction === "hide") metrics.hiddenAssets += 1;
+      return metrics;
+    }, createAssetLifecycleMetrics()),
+    warnings: assets.warnings,
+  };
+}
+
 export async function listAdminModerationCases(args: { q?: string; limit?: number } = {}): Promise<AdminModerationList> {
   const warnings: string[] = [];
   const limit = clampLimit(args.limit, 10, 120, 60);
@@ -2255,6 +2340,176 @@ function matchesAssetSearch(row: AdminAssetListItem, q: string) {
     row.title,
     row.status,
   ].some((value) => value.toLowerCase().includes(q));
+}
+
+const ASSET_LIFECYCLE_POLICIES: AdminAssetLifecyclePolicy[] = [
+  {
+    id: "favorite-protection",
+    title: "收藏与参考素材保留",
+    description: "用户收藏方案、参考图和可复用素材默认进入保护池，迁移和删除前必须先确认引用影响。",
+    stage: "protected",
+    action: "retain",
+    threshold: "reference/favorite-plan",
+  },
+  {
+    id: "external-storage-migration",
+    title: "外部 URL 迁移到 OSS",
+    description: "ImgBB、第三方域名和未知来源 URL 进入迁移候选，优先复制到当前 OSS 前缀并回写引用。",
+    stage: "migrate",
+    action: "migrate_to_oss",
+    threshold: "provider != aliyun-oss",
+  },
+  {
+    id: "temporary-input-review",
+    title: "临时输入图复核",
+    description: "超过 30 天仍被任务引用的输入图进入复核池，确认是否需要长期保留或转入归档前缀。",
+    stage: "review",
+    action: "review_temp_inputs",
+    threshold: "input age > 30d",
+  },
+  {
+    id: "generated-result-archive",
+    title: "历史生成结果归档",
+    description: "超过 180 天的非收藏生成结果进入归档候选，后续由异步 worker 做软归档或冷存储迁移。",
+    stage: "archive",
+    action: "archive_generated_result",
+    threshold: "generation age > 180d",
+  },
+  {
+    id: "moderation-freeze",
+    title: "审核下架冻结",
+    description: "审核标记为下架的素材优先冻结展示，并阻止再次进入用户作品库或公开分享链路。",
+    stage: "archive",
+    action: "freeze_and_hide",
+    threshold: "moderation = hide",
+  },
+];
+
+function mapAssetLifecycleItem(row: AdminAssetListItem): AdminAssetLifecycleItem {
+  const allUrls = uniqueStrings([...row.urls, ...row.inputUrls]);
+  const providers = uniqueStrings(allUrls.map(classifyAssetUrl)) as AdminAssetStorageProvider[];
+  const ageDays = getAssetAgeDays(row.updatedAt || row.createdAt);
+  const moderationAction = row.moderationCase?.action || null;
+  const reasons: string[] = [];
+  let stage: AdminAssetLifecycleStage = "retained";
+  let riskLevel: AdminAssetLifecycleItem["riskLevel"] = "low";
+  let recommendedAction: AdminAssetLifecycleAction = "retain";
+
+  if (row.sourceType === "reference" || row.sourceType === "favorite-plan") {
+    stage = "protected";
+    reasons.push("用户参考图或收藏方案仍有业务引用，默认保护。");
+  }
+
+  if (providers.some((provider) => provider !== "aliyun-oss" && provider !== "data-url")) {
+    stage = "migrate";
+    riskLevel = "medium";
+    recommendedAction = "migrate_to_oss";
+    reasons.push("存在 ImgBB、第三方或未知来源 URL，建议迁移到 OSS。");
+  }
+
+  if (row.inputUrls.length > 0 && ageDays > 30 && stage !== "migrate") {
+    stage = "review";
+    riskLevel = "medium";
+    recommendedAction = "review_temp_inputs";
+    reasons.push("输入图超过 30 天仍被引用，需要确认长期保留策略。");
+  }
+
+  if (row.sourceType === "generation" && ageDays > 180 && stage !== "migrate" && stage !== "review") {
+    stage = "archive";
+    riskLevel = "medium";
+    recommendedAction = "archive_generated_result";
+    reasons.push("生成结果超过 180 天，可进入归档候选。");
+  }
+
+  if (moderationAction === "hide") {
+    stage = "archive";
+    riskLevel = "high";
+    recommendedAction = "freeze_and_hide";
+    reasons.push("审核已标记下架，应优先冻结展示。");
+  }
+
+  if (!reasons.length) {
+    reasons.push("当前 URL 来源和引用状态正常，继续保留。");
+  }
+
+  return {
+    ...row,
+    providers: providers.length ? providers : ["unknown"],
+    urlCount: row.urls.length,
+    inputCount: row.inputUrls.length,
+    ageDays,
+    stage,
+    riskLevel,
+    reasons,
+    recommendedAction,
+    moderationAction,
+  };
+}
+
+function createAssetLifecycleMetrics(): AdminAssetLifecycleOverview["metrics"] {
+  return {
+    sampledAssets: 0,
+    sampledUrls: 0,
+    ossUrls: 0,
+    imgbbUrls: 0,
+    externalUrls: 0,
+    dataUrls: 0,
+    unknownUrls: 0,
+    migrationCandidates: 0,
+    archiveCandidates: 0,
+    protectedAssets: 0,
+    reviewCandidates: 0,
+    hiddenAssets: 0,
+  };
+}
+
+function countProviderUrls(row: AdminAssetLifecycleItem, provider: AdminAssetStorageProvider) {
+  return [...row.urls, ...row.inputUrls].filter((url) => classifyAssetUrl(url) === provider).length;
+}
+
+function classifyAssetUrl(url: string): AdminAssetStorageProvider {
+  if (!url) return "unknown";
+  if (url.startsWith("data:image/")) return "data-url";
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.toLowerCase();
+    const configuredHost = getConfiguredOssHost();
+    if (
+      host.includes("aliyuncs.com") ||
+      host.includes("oss-") ||
+      (configuredHost && host === configuredHost)
+    ) {
+      return "aliyun-oss";
+    }
+    if (host.includes("ibb.co") || host.includes("imgbb.com")) return "imgbb";
+    if (parsed.protocol === "http:" || parsed.protocol === "https:") return "external";
+    return "unknown";
+  } catch {
+    return "unknown";
+  }
+}
+
+function getConfiguredOssHost() {
+  const candidates = [
+    process.env.ALIYUN_OSS_PUBLIC_BASE_URL,
+    process.env.ALIYUN_OSS_ENDPOINT,
+    process.env.ALIYUN_OSS_BUCKET,
+  ].filter(Boolean);
+  for (const candidate of candidates) {
+    try {
+      return new URL(String(candidate)).hostname.toLowerCase();
+    } catch {
+      const normalized = String(candidate).trim().toLowerCase();
+      if (normalized.includes(".")) return normalized;
+    }
+  }
+  return "";
+}
+
+function getAssetAgeDays(value: string | null | undefined) {
+  const time = Date.parse(value || "");
+  if (!Number.isFinite(time)) return 0;
+  return Math.max(0, Math.floor((Date.now() - time) / 86_400_000));
 }
 
 async function loadLatestModerationForAssets(rows: AdminAssetListItem[], warnings: string[]) {
