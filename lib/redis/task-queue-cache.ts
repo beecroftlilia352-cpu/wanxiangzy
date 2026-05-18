@@ -14,9 +14,17 @@ type CacheReadResult<T> =
   | { hit: false; value: T; reason?: string };
 
 let taskQueueRedis: Redis | null | undefined;
+const lastModuleTrimAt = new Map<string, number>();
+const lastSummaryInvalidationAt = new Map<string, number>();
+const MODULE_TRIM_MIN_INTERVAL_MS = 5 * 60 * 1000;
+const SUMMARY_INVALIDATION_MIN_INTERVAL_MS = 15 * 1000;
 
 export function getTaskQueueRedis(): Redis | null {
   if (taskQueueRedis !== undefined) {
+    return taskQueueRedis;
+  }
+  if (!shouldUseTaskQueueRedis()) {
+    taskQueueRedis = null;
     return taskQueueRedis;
   }
   const url = process.env.UPSTASH_REDIS_REST_URL;
@@ -27,6 +35,10 @@ export function getTaskQueueRedis(): Redis | null {
   }
   taskQueueRedis = new Redis({ url, token });
   return taskQueueRedis;
+}
+
+function shouldUseTaskQueueRedis() {
+  return (process.env.TASK_QUEUE_CACHE_MODE || "redis").trim().toLowerCase() === "redis";
 }
 
 export async function getCachedTaskQueue(
@@ -67,18 +79,11 @@ export async function writeTaskQueueItem(userId: string, item: TaskQueueItem): P
     const score = Date.parse(item.createdAt || "") || Date.now();
     const key = itemKey(userId, item.id);
     const moduleKey = moduleZsetKey(userId, item.module);
-    const runningKey = runningZsetKey(userId);
 
     await (redis as any).set(key, item, { ex: TASK_QUEUE_ITEM_TTL_SECONDS });
     await (redis as any).zadd(moduleKey, { score, member: item.id });
-    await (redis as any).expire(moduleKey, TASK_QUEUE_ITEM_TTL_SECONDS);
-    await trimModuleZset(redis, moduleKey);
-
-    if (item.statusGroup === "queued" || item.statusGroup === "running") {
-      await (redis as any).zadd(runningKey, { score, member: item.id });
-      await (redis as any).expire(runningKey, TASK_QUEUE_ITEM_TTL_SECONDS);
-    } else {
-      await (redis as any).zrem(runningKey, item.id);
+    if (shouldTrimModuleZset(moduleKey)) {
+      await trimModuleZset(redis, moduleKey);
     }
 
     await invalidateCachedTaskSummary(userId);
@@ -100,8 +105,9 @@ export async function warmTaskQueueCache(userId: string, module: string, items: 
       await (redis as any).set(itemKey(userId, item.id), item, { ex: TASK_QUEUE_ITEM_TTL_SECONDS });
       await (redis as any).zadd(moduleKey, { score, member: item.id });
     }
-    await (redis as any).expire(moduleKey, TASK_QUEUE_ITEM_TTL_SECONDS);
-    await trimModuleZset(redis, moduleKey);
+    if (shouldTrimModuleZset(moduleKey)) {
+      await trimModuleZset(redis, moduleKey);
+    }
   } catch (error) {
     console.warn("[task-queue-cache] warm queue unavailable:", error);
   }
@@ -140,7 +146,7 @@ export async function writeCachedTaskSummary(userId: string, summary: TaskQueueS
 
 export async function invalidateCachedTaskSummary(userId: string): Promise<void> {
   const redis = getTaskQueueRedis();
-  if (!redis) {
+  if (!redis || !shouldInvalidateCachedSummary(userId)) {
     return;
   }
   try {
@@ -152,6 +158,24 @@ export async function invalidateCachedTaskSummary(userId: string): Promise<void>
 
 async function trimModuleZset(redis: Redis, key: string) {
   await (redis as any).zremrangebyrank(key, 0, -TASK_QUEUE_MODULE_CACHE_LIMIT - 1);
+}
+
+function shouldTrimModuleZset(key: string) {
+  return shouldRunThrottled(lastModuleTrimAt, key, MODULE_TRIM_MIN_INTERVAL_MS);
+}
+
+function shouldInvalidateCachedSummary(userId: string) {
+  return shouldRunThrottled(lastSummaryInvalidationAt, userId, SUMMARY_INVALIDATION_MIN_INTERVAL_MS);
+}
+
+function shouldRunThrottled(cache: Map<string, number>, key: string, intervalMs: number) {
+  const now = Date.now();
+  const last = cache.get(key) || 0;
+  if (now - last < intervalMs) {
+    return false;
+  }
+  cache.set(key, now);
+  return true;
 }
 
 function parseCachedTaskQueueItem(value: unknown): TaskQueueItem | null {
@@ -198,10 +222,6 @@ function itemKey(userId: string, taskId: string) {
 
 function moduleZsetKey(userId: string, module: string) {
   return `taskq:z:${userId}:module:${module}`;
-}
-
-function runningZsetKey(userId: string) {
-  return `taskq:z:${userId}:running`;
 }
 
 function summaryKey(userId: string) {

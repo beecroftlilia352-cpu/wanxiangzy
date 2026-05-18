@@ -37,6 +37,11 @@ type StudioTaskRailProps = {
   className?: string;
 };
 
+type TaskQueueLoadResult = {
+  rowCount: number;
+  hasMore: boolean;
+} | null;
+
 const TASK_QUEUE_FETCH_TIMEOUT_MS = 5_000;
 const TASK_RAIL_RUNNING_POLL_MS = 12_000;
 const TASK_RAIL_IDLE_POLL_MS = 45_000;
@@ -99,17 +104,18 @@ export function StudioTaskRail({
     lastLoadedAt,
   };
 
-  const loadQueue = useCallback(async (options?: { append?: boolean }) => {
+  const loadQueue = useCallback(async (options?: { append?: boolean; force?: boolean }): Promise<TaskQueueLoadResult> => {
     const snapshot = queueSnapshotRef.current;
     const append = Boolean(options?.append);
-    if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
-    if (loadInFlightRef.current) return;
-    if (append && !snapshot.nextCursor) return;
+    const force = Boolean(options?.force);
+    if (typeof document !== "undefined" && document.visibilityState === "hidden") return null;
+    if (loadInFlightRef.current) return null;
+    if (append && !snapshot.nextCursor) return null;
     const now = Date.now();
-    if (!append && snapshot.hasLoaded && now - lastLoadStartedAtRef.current < TASK_RAIL_MIN_LOAD_GAP_MS) return;
+    if (!append && !force && snapshot.hasLoaded && now - lastLoadStartedAtRef.current < TASK_RAIL_MIN_LOAD_GAP_MS) return null;
     lastLoadStartedAtRef.current = now;
     loadInFlightRef.current = true;
-    if (!snapshot.hasLoaded) setLoading(true);
+    if (!snapshot.hasLoaded || append || force) setLoading(true);
     try {
       const isExpanded = snapshot.expanded;
       const isModuleOnly = snapshot.moduleOnly;
@@ -153,9 +159,11 @@ export function StudioTaskRail({
           preserveLocal: true,
         });
       }
+      return { rowCount: nextRows.length, hasMore: Boolean(payload.hasMore) };
     } catch (error) {
       console.warn("[task-rail] queue load failed:", error instanceof Error ? error.message : error);
       setModuleLoadingFailed(module, true);
+      return null;
     } finally {
       loadInFlightRef.current = false;
       setLoading(false);
@@ -188,7 +196,7 @@ export function StudioTaskRail({
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      void loadQueue();
+      void loadQueue({ force: expanded });
     }, query.trim() ? 250 : 0);
     return () => window.clearTimeout(timer);
   }, [expanded, loadQueue, module, moduleOnly, query]);
@@ -203,7 +211,7 @@ export function StudioTaskRail({
   useEffect(() => {
     if (refreshVersion <= handledRefreshVersionRef.current) return;
     handledRefreshVersionRef.current = refreshVersion;
-    loadQueue();
+    void loadQueue({ force: true });
   }, [loadQueue, refreshVersion]);
 
   useEffect(() => {
@@ -242,6 +250,10 @@ export function StudioTaskRail({
   const pagedRows = expandedRows.slice((page - 1) * TASK_QUEUE_PAGE_SIZE, page * TASK_QUEUE_PAGE_SIZE);
   const visibleRows = expanded ? pagedRows : recentRows;
   const initialLoading = !hasLoaded && rows.length === 0;
+  const loadedCount = expandedRows.length;
+  const canGoPreviousPage = page > 1;
+  const canGoNextLoadedPage = page < totalPages;
+  const canGoNextPage = canGoNextLoadedPage || hasMore;
 
   useEffect(() => {
     if (initialSelectionSettledRef.current) return;
@@ -319,13 +331,15 @@ export function StudioTaskRail({
   };
 
   const handleNextPage = async () => {
-    if (page < totalPages) {
+    if (canGoNextLoadedPage) {
       setPage((value) => Math.min(totalPages, value + 1));
       return;
     }
     if (!hasMore || loading) return;
-    await loadQueue({ append: true });
-    setPage((value) => value + 1);
+    const result = await loadQueue({ append: true, force: true });
+    if (result?.rowCount) {
+      setPage((value) => value + 1);
+    }
   };
 
   return (
@@ -434,37 +448,49 @@ export function StudioTaskRail({
             <div className="flex items-center justify-between gap-2">
               <button
                 type="button"
-                onClick={() => void loadQueue()}
+                onClick={() => void loadQueue({ force: true })}
                 className="inline-flex h-8 items-center gap-1.5 rounded-lg px-2 text-xs font-bold text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
                 刷新
               </button>
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  disabled={page <= 1}
-                  onClick={() => setPage((value) => Math.max(1, value - 1))}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-30"
-                  aria-label="上一页"
-                  title="上一页"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </button>
-                <span className="min-w-12 text-center text-xs font-black text-slate-600">
-                  {page}/{totalPages}{hasMore ? "+" : ""}
-                </span>
-                <button
-                  type="button"
-                  disabled={loading || (page >= totalPages && !hasMore)}
-                  onClick={handleNextPage}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-30"
-                  aria-label="下一页"
-                  title="下一页"
-                >
-                  {loading && page >= totalPages ? <Loader2 className="h-4 w-4 animate-spin" /> : <ChevronRight className="h-4 w-4" />}
-                </button>
-              </div>
+              {totalPages > 1 || hasMore ? (
+                <div className="flex min-w-0 items-center gap-1">
+                  <button
+                    type="button"
+                    disabled={!canGoPreviousPage}
+                    onClick={() => setPage((value) => Math.max(1, value - 1))}
+                    className="inline-flex h-8 items-center justify-center gap-1 rounded-lg px-2 text-[11px] font-black text-slate-500 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-30"
+                    aria-label="上一页"
+                    title="上一页"
+                  >
+                    <ChevronLeft className="h-3.5 w-3.5" />
+                    上一页
+                  </button>
+                  <span className="min-w-14 text-center text-[11px] font-black text-slate-600">
+                    {page}/{totalPages}{hasMore ? "+" : ""}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={loading || !canGoNextPage}
+                    onClick={handleNextPage}
+                    className="inline-flex h-8 items-center justify-center gap-1 rounded-lg px-2 text-[11px] font-black text-slate-500 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-30"
+                    aria-label={canGoNextLoadedPage ? "下一页" : "加载更多"}
+                    title={canGoNextLoadedPage ? "下一页" : "加载更多"}
+                  >
+                    {loading && !canGoNextLoadedPage ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <>
+                        {canGoNextLoadedPage ? "下一页" : "加载更多"}
+                        <ChevronRight className="h-3.5 w-3.5" />
+                      </>
+                    )}
+                  </button>
+                </div>
+              ) : (
+                <span className="truncate text-xs font-black text-slate-500">已加载 {loadedCount} 条</span>
+              )}
             </div>
           ) : (
             <button

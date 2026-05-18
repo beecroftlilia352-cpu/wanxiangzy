@@ -43,6 +43,11 @@ const MODELS: { value: LingyaModel; label: string; desc: string; badge?: string;
   { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "4K · 4分/次", badge: "推荐", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
 ];
 
+const POSE_GENERATION_POLL_TIMEOUT_MS = 4 * 60 * 1000;
+const POSE_GENERATION_POLL_FAST_WINDOW_MS = 30 * 1000;
+const POSE_GENERATION_POLL_FAST_MS = 3 * 1000;
+const POSE_GENERATION_POLL_SLOW_MS = 5 * 1000;
+
 type PoseHistoryPayload = Extract<HistoryJobPayload, { kind: "pose" }>;
 
 const DEFAULT_POSE_PROMPT = `High-end fashion magazine editorial photography, same person from 图1, same face identity, hairstyle, body proportion, clothing, fabric texture, color, pattern, scene, lighting and photography quality. Four-panel pose variation from the same fashion photo series, consistent framing, same camera distance, same lens style, same background and color grade. Professional studio lighting with soft key light and natural fill. Hyper-realistic skin texture with natural pores. photorealistic, 8K ultra-detailed, cinematic color grade, sharp details.
@@ -70,6 +75,23 @@ function stripLegacyRuleDemoText(value: string) {
     .replace(/\n?人物和姿势气质参考：[^\n]*(?:\n|$)/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+}
+
+function getPoseGenerationPollDelay(elapsedMs: number) {
+  return elapsedMs < POSE_GENERATION_POLL_FAST_WINDOW_MS
+    ? POSE_GENERATION_POLL_FAST_MS
+    : POSE_GENERATION_POLL_SLOW_MS;
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+class PoseGenerationPollTimeoutError extends Error {
+  constructor() {
+    super("生成仍在后台处理中，可稍后在任务队列或作品库查看。");
+    this.name = "PoseGenerationPollTimeoutError";
+  }
 }
 
 export default function PosePage() {
@@ -411,10 +433,11 @@ export default function PosePage() {
         toast.success("任务已提交，可继续创建");
       }
 
-      let attempts = 0;
-      while (attempts < 120) {
-        await new Promise((r) => setTimeout(r, 2000));
-        attempts++;
+      let elapsedMs = 0;
+      while (elapsedMs < POSE_GENERATION_POLL_TIMEOUT_MS) {
+        const pollDelayMs = getPoseGenerationPollDelay(elapsedMs);
+        await sleep(pollDelayMs);
+        elapsedMs += pollDelayMs;
         const poll = await fetch(`/api/pose?generation_id=${data.generation_id}`);
         if (!poll.ok) continue;
         const state = await poll.json();
@@ -423,7 +446,7 @@ export default function PosePage() {
             latestTaskResultUrls = state.result_urls;
             if (isCurrentRun()) setResultUrls(state.result_urls);
           }
-          const runningProgress = Math.min(25 + attempts * 1.5, 90);
+          const runningProgress = Math.min(25 + (elapsedMs / POSE_GENERATION_POLL_TIMEOUT_MS) * 65, 90);
           if (isCurrentRun()) setProgress(runningProgress);
           taskQueue.markRunning(activeTaskId, {
             expectedCount: poseExpectedCount,
@@ -453,9 +476,26 @@ export default function PosePage() {
           throw new Error(state.error || "生成失败");
         }
       }
-      throw new Error("生成超时");
+      throw new PoseGenerationPollTimeoutError();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "生成失败";
+      if (err instanceof PoseGenerationPollTimeoutError) {
+        taskQueue.markRunning(activeTaskId, {
+          expectedCount: poseExpectedCount,
+          inputThumbnails: taskInputThumbnails,
+          resultThumbnails: latestTaskResultUrls,
+          progress: 90,
+          status: "processing",
+        });
+        taskQueue.refresh();
+        if (isCurrentRun()) {
+          setError("");
+          toast.info(message);
+          setIsSubmitting(false);
+          setIsGenerating(false);
+        }
+        return;
+      }
       taskQueue.markFailed(activeTaskId, message, {
         expectedCount: poseExpectedCount,
         inputThumbnails: taskInputThumbnails,

@@ -1421,7 +1421,7 @@ function shouldAutoRegenerate(payload: GenerationJobPayload, job: ClaimedJob) {
 }
 
 function shouldSkipVisualQualityEvaluation(payload: GenerationJobPayload) {
-  return payload.kind === "tryon";
+  return payload.kind === "tryon" || payload.kind === "pose";
 }
 
 function createSkippedVisualQualityEvaluation(payload: GenerationJobPayload): VisualQualityEvaluation {
@@ -1429,7 +1429,11 @@ function createSkippedVisualQualityEvaluation(payload: GenerationJobPayload): Vi
     ok: true,
     score: 1,
     shouldRegenerate: false,
-    summary: payload.kind === "tryon" ? "服装上身已跳过自动视觉评估。" : "已跳过自动视觉评估。",
+    summary: payload.kind === "tryon"
+      ? "服装上身已跳过自动视觉评估。"
+      : payload.kind === "pose"
+        ? "姿势裂变已跳过自动视觉评估。"
+        : "已跳过自动视觉评估。",
     issues: [],
     source: "deterministic",
   };
@@ -1677,15 +1681,27 @@ function buildSeparatePosePrompt(prompt: string, poseIndex: number) {
     .trim();
 
   return [
+    buildSeparatePosePriorityDirective(poseIndex),
+    hasExplicitPoseLine
+      ? `User explicitly specified pose ${poseIndex}. Execute ONLY that pose line and do not blend in other pose slots.`
+      : buildSeparatePoseSlotDirective(poseIndex, poseStyle),
     scopedPrompt,
     "本组四张生产线分镜计划（每次单图任务都必须参考，用来和其它槽位拉开差异；但当前只生成指定槽位）：",
     explicitPoseLines.length ? buildExplicitPoseStoryboardPlan(explicitPoseLines) : buildSeparatePoseStoryboardPlan(poseStyle),
     `本次单图任务：只生成姿势${poseIndex}这一张完整图片。`,
-    hasExplicitPoseLine
-      ? `用户已指定“姿势${poseIndex}：”，严格执行该条姿势，不要混入其它姿势槽位。`
-      : buildSeparatePoseSlotDirective(poseIndex, poseStyle),
     `差异硬约束：第${poseIndex}张必须与原图和同组其它槽位在身体角度、手臂动作、重心、视线或步态上明显不同；只保持人物身份、服装、场景、光线和摄影质感一致。`,
     "不要生成四宫格、拼图、分屏、边框、编号文字或 contact sheet。",
+  ].join("\n");
+}
+
+function buildSeparatePosePriorityDirective(poseIndex: number) {
+  const safeIndex = Math.min(Math.max(Math.floor(Number(poseIndex) || 1), 1), 4);
+  return [
+    `HARD TARGET POSE SLOT ${safeIndex}/4.`,
+    `Generate exactly ONE standalone 3:4 photo for pose ${safeIndex}.`,
+    "Do NOT generate a 2x2 grid, collage, contact sheet, split-screen, border, label, or all four poses in one image.",
+    `Pose ${safeIndex} must be visibly different from the source and the other slots: change body angle, hand/arm action, weight shift, gaze, step, sitting, leaning, or turn direction according to the slot directive below.`,
+    "Keep only the same person identity, outfit, scene, lighting, camera quality, and realistic body proportions.",
   ].join("\n");
 }
 

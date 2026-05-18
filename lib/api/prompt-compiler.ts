@@ -28,7 +28,7 @@ const QUALITY_LINE =
 
 const IMPORTANT_PATTERNS = [
   /图像角色|图\d|核心任务|任务|必须|严格|最重要|参考图|服装图|服装图角色隔离|只提供衣服|真人上身|模特脸|发型参考|发色参考/,
-  /姿势\s*[1-4]|四宫格|2x2|four-panel|contact sheet|镜头统一规则|framing|lens|eye level/,
+  /姿势\s*[1-4]|槽位\s*[1-4]|HARD TARGET POSE SLOT|standalone 3:4 photo|only that pose line|四宫格|2x2|four-panel|contact sheet|镜头统一规则|framing|lens|eye level/,
   /画幅|构图规则|裁切|裁掉|全身|大半身|半身|头像|商品特写|镜头距离|人物占画面|上下留白|脚部|鞋履|下半身|3:4|4:5|9:16|1:1/,
   /服装|版型|颜色|图案|logo|材质|纹理|袖口|下摆|拉链|纽扣|口袋|腰线|廓形|面料/,
   /体态|比例|头身比|头部大小|大头|短腿|儿童化|玩偶|成人|肩颈|腰胯|四肢|脚下接触|身体骨架/,
@@ -71,7 +71,7 @@ const REQUIRED_SIGNALS: Record<ImagePromptKind, RequiredSignal[]> = {
     { name: "负面约束", pattern: /避免|不要|负面/, fallback: "负面约束：不要改变图1服装、不要复制背景参考图人物或衣服、不要白边硬边、漂浮、肢体畸形、水印或AI渲染感。" },
   ],
   pose: [
-    { name: "任务", pattern: /图像角色|核心任务|2x2|四宫格/, fallback: "核心任务：生成单张2x2四宫格姿势裂变图，四格保持同一人、同一衣服和同一人物比例；镜头、画幅和构图可按用户每格描述变化。" },
+    { name: "任务", pattern: /图像角色|核心任务|2x2|四宫格|每个姿势单独生成一张完整图片|本次单图任务|只生成姿势\d|HARD TARGET POSE SLOT|standalone 3:4 photo/, fallback: "核心任务：生成单张2x2四宫格姿势裂变图，四格保持同一人、同一衣服和同一人物比例；镜头、画幅和构图可按用户每格描述变化。" },
     { name: "服装", pattern: /服装展示规则|不要换衣服/, fallback: "服装展示规则：四个姿势都保持同一套服装的结构、颜色、图案、长度、纹理和搭配关系。" },
     { name: "人体", pattern: /身体动作规则|身体比例|手指|肢体/, fallback: "身体动作规则：动作自然可信，避免断手、错位手指、肢体拉长、身体比例漂移和过度瘦身。" },
     { name: "负面约束", pattern: /负面约束|不要换脸|不要换衣服/, fallback: "负面约束：不要换脸，不要换衣服，不要改变场景，不要生成多余人物，不要文字水印。" },
@@ -148,7 +148,7 @@ function compileConcisePrompt(kind: ImagePromptKind, prompt: string, maxChars: n
 }
 
 function getKindHeader(kind: ImagePromptKind, prompt: string) {
-  if (kind === "pose" && /每个姿势单独生成一张完整图片|本次单图任务|只生成姿势\d/.test(prompt)) {
+  if (kind === "pose" && /每个姿势单独生成一张完整图片|本次单图任务|只生成姿势\d|HARD TARGET POSE SLOT|standalone 3:4 photo/.test(prompt)) {
     return "核心任务：生成一张独立的单姿势完整图片，保持图1同一人、同一衣服和同一人物比例；不要生成 2x2、四宫格、拼图、分屏或 contact sheet。";
   }
 
