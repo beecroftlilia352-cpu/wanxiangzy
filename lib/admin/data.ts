@@ -222,6 +222,27 @@ export type AdminSettingsOverview = {
   warnings: string[];
 };
 
+export type AdminUserDetail = {
+  profile: AdminUserListItem | null;
+  creditLogs: AdminCreditLogItem[];
+  tasks: AdminTaskListItem[];
+  assets: AdminAssetListItem[];
+  warnings: string[];
+};
+
+export type AdminTaskDetail = {
+  id: string;
+  sourceType: "generation" | "workflow";
+  task: AdminTaskListItem | null;
+  payload: Record<string, unknown>;
+  queueItem: AdminTaskListItem | null;
+  creditLogs: AdminCreditLogItem[];
+  workflowSteps: Array<Record<string, unknown>>;
+  workflowEvents: Array<Record<string, unknown>>;
+  auditLogs: AdminAuditLog[];
+  warnings: string[];
+};
+
 type CountQuery = PromiseLike<unknown>;
 type SupabaseQuery = PromiseLike<unknown>;
 
@@ -401,23 +422,32 @@ export async function listAdminUsers(args: { q?: string; limit?: number } = {}):
 
   return {
     rows: profiles.map((row) => {
-      const id = stringValue(row.id);
-      const generation = generationStats.get(id) || { count: 0, latestAt: null };
+      const profile = mapProfileRow(row);
+      const generation = generationStats.get(profile.id) || { count: 0, latestAt: null };
       return {
-        id,
-        email: stringValue(row.email),
-        displayName: nullableString(row.display_name),
-        credits: numberValue(row.credits),
-        totalCreditsUsed: numberValue(row.total_credits_used),
-        createdAt: nullableString(row.created_at),
-        updatedAt: nullableString(row.updated_at),
+        ...profile,
         generationCount: generation.count,
-        workflowCount: workflowStats.get(id) || 0,
+        workflowCount: workflowStats.get(profile.id) || 0,
         latestGenerationAt: generation.latestAt,
       };
     }),
     total: result.count ?? profiles.length,
     warnings: uniqueStrings(warnings),
+  };
+}
+
+function mapProfileRow(row: Record<string, unknown>): AdminUserListItem {
+  return {
+    id: stringValue(row.id),
+    email: stringValue(row.email),
+    displayName: nullableString(row.display_name),
+    credits: numberValue(row.credits),
+    totalCreditsUsed: numberValue(row.total_credits_used),
+    createdAt: nullableString(row.created_at),
+    updatedAt: nullableString(row.updated_at),
+    generationCount: 0,
+    workflowCount: 0,
+    latestGenerationAt: null,
   };
 }
 
@@ -661,6 +691,111 @@ export async function getAdminSettingsOverview(): Promise<AdminSettingsOverview>
   };
 }
 
+export async function getAdminUserDetail(userId: string): Promise<AdminUserDetail> {
+  const warnings: string[] = [];
+  const profileResult = await runQuery<Record<string, unknown>[]>(
+    getAdminClient()
+      .from("profiles")
+      .select(PROFILE_COLUMNS)
+      .eq("id", userId)
+      .limit(1),
+    "user detail profile",
+    warnings,
+  );
+  let profileRows = profileResult.data || [];
+  if (!profileRows.length && profileResult.error?.toLowerCase().includes("total_credits_used")) {
+    const fallback = await runQuery<Record<string, unknown>[]>(
+      getAdminClient()
+        .from("profiles")
+        .select(PROFILE_COLUMNS_FALLBACK)
+        .eq("id", userId)
+        .limit(1),
+      "user detail profile fallback",
+      warnings,
+      true,
+    );
+    profileRows = fallback.data || [];
+  }
+
+  const profile = profileRows[0] ? mapProfileRow(profileRows[0]) : null;
+  const [creditLogs, tasks, assets] = await Promise.all([
+    listAdminCreditLogs({ q: userId, limit: 30 }),
+    loadUserTasks(userId, warnings),
+    loadUserAssets(userId, warnings),
+  ]);
+
+  return {
+    profile,
+    creditLogs: creditLogs.rows,
+    tasks,
+    assets,
+    warnings: uniqueStrings([...warnings, ...creditLogs.warnings]),
+  };
+}
+
+export async function getAdminTaskDetail(id: string): Promise<AdminTaskDetail> {
+  const warnings: string[] = [];
+  const [queueItem, generation, workflow] = await Promise.all([
+    loadQueueItemBySourceId(id, warnings),
+    loadGenerationDetail(id, warnings),
+    loadWorkflowDetail(id, warnings),
+  ]);
+
+  if (generation.row) {
+    const task = mapGenerationRow(generation.row);
+    const [creditLogs, auditLogs] = await Promise.all([
+      loadCreditLogsByGeneration(id, warnings),
+      loadAuditLogsByResource(id, warnings),
+    ]);
+    return {
+      id,
+      sourceType: "generation",
+      task,
+      payload: isRecord(generation.row.job_payload) ? generation.row.job_payload : {},
+      queueItem,
+      creditLogs,
+      workflowSteps: [],
+      workflowEvents: [],
+      auditLogs,
+      warnings: uniqueStrings([...warnings, ...generation.warnings]),
+    };
+  }
+
+  if (workflow.row) {
+    const task = mapWorkflowRow(workflow.row);
+    const [steps, events, auditLogs] = await Promise.all([
+      loadWorkflowSteps(id, warnings),
+      loadWorkflowEvents(id, warnings),
+      loadAuditLogsByResource(id, warnings),
+    ]);
+    return {
+      id,
+      sourceType: "workflow",
+      task,
+      payload: workflow.row,
+      queueItem,
+      creditLogs: [],
+      workflowSteps: steps,
+      workflowEvents: events,
+      auditLogs,
+      warnings: uniqueStrings([...warnings, ...workflow.warnings]),
+    };
+  }
+
+  return {
+    id,
+    sourceType: queueItem?.sourceType || "generation",
+    task: queueItem,
+    payload: {},
+    queueItem,
+    creditLogs: [],
+    workflowSteps: [],
+    workflowEvents: [],
+    auditLogs: await loadAuditLogsByResource(id, warnings),
+    warnings: uniqueStrings(warnings),
+  };
+}
+
 export function getAdminProviderCatalog(): AdminProviderCatalog {
   return {
     defaultModel: DEFAULT_LINGYA_MODEL,
@@ -728,6 +863,190 @@ async function loadProfileEmails(userIds: string[], warnings: string[]) {
     if (id && email) emails.set(id, email);
   }
   return emails;
+}
+
+async function loadUserTasks(userId: string, warnings: string[]) {
+  const [generations, workflows] = await Promise.all([
+    runQuery<Record<string, unknown>[]>(
+      getAdminClient()
+        .from("generations")
+        .select(GENERATION_COLUMNS)
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(30),
+      "user detail generations",
+      warnings,
+      true,
+    ),
+    runQuery<Record<string, unknown>[]>(
+      getAdminClient()
+        .from("agent_workflows")
+        .select(WORKFLOW_COLUMNS)
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(20),
+      "user detail workflows",
+      warnings,
+      true,
+    ),
+  ]);
+
+  return [
+    ...(generations.data || []).map(mapGenerationRow),
+    ...(workflows.data || []).map(mapWorkflowRow),
+  ]
+    .sort((a, b) => Date.parse(b.createdAt || "") - Date.parse(a.createdAt || ""))
+    .slice(0, 40);
+}
+
+async function loadUserAssets(userId: string, warnings: string[]) {
+  const result = await runQuery<Record<string, unknown>[]>(
+    getAdminClient()
+      .from("generations")
+      .select(GENERATION_COLUMNS)
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(40),
+    "user detail assets",
+    warnings,
+    true,
+  );
+
+  return (result.data || [])
+    .map(mapGenerationAssetRow)
+    .filter((row) => row.urls.length > 0 || row.inputUrls.length > 0)
+    .slice(0, 24);
+}
+
+async function loadQueueItemBySourceId(id: string, warnings: string[]) {
+  const result = await runQuery<Record<string, unknown>[]>(
+    getAdminClient()
+      .from("task_queue_items")
+      .select(TASK_QUEUE_COLUMNS)
+      .eq("source_id", id)
+      .limit(1),
+    "task detail queue item",
+    warnings,
+    true,
+  );
+  return result.data?.[0] ? mapTaskQueueRow(result.data[0]) : null;
+}
+
+async function loadGenerationDetail(id: string, warnings: string[]) {
+  const localWarnings: string[] = [];
+  const result = await runQuery<Record<string, unknown>[]>(
+    getAdminClient()
+      .from("generations")
+      .select(GENERATION_COLUMNS)
+      .eq("id", id)
+      .limit(1),
+    "task detail generation",
+    localWarnings,
+    true,
+  );
+  warnings.push(...localWarnings);
+  return { row: result.data?.[0] || null, warnings: localWarnings };
+}
+
+async function loadWorkflowDetail(id: string, warnings: string[]) {
+  const localWarnings: string[] = [];
+  const result = await runQuery<Record<string, unknown>[]>(
+    getAdminClient()
+      .from("agent_workflows")
+      .select(WORKFLOW_COLUMNS)
+      .eq("id", id)
+      .limit(1),
+    "task detail workflow",
+    localWarnings,
+    true,
+  );
+  warnings.push(...localWarnings);
+  return { row: result.data?.[0] || null, warnings: localWarnings };
+}
+
+async function loadCreditLogsByGeneration(generationId: string, warnings: string[]) {
+  const result = await runQuery<Record<string, unknown>[]>(
+    getAdminClient()
+      .from("credit_logs")
+      .select(CREDIT_LOG_COLUMNS)
+      .eq("generation_id", generationId)
+      .order("created_at", { ascending: false })
+      .limit(20),
+    "task detail credit logs",
+    warnings,
+    true,
+  );
+  const rows = result.data || [];
+  const emails = await loadProfileEmails(rows.map((row) => stringValue(row.user_id)), warnings);
+  return rows.map((row) => {
+    const userId = stringValue(row.user_id);
+    return {
+      id: stringValue(row.id),
+      userId,
+      email: emails.get(userId) || null,
+      amount: numberValue(row.amount),
+      balance: numberValue(row.balance),
+      reason: stringValue(row.reason),
+      generationId: nullableString(row.generation_id),
+      createdAt: nullableString(row.created_at),
+    };
+  });
+}
+
+async function loadAuditLogsByResource(resourceId: string, warnings: string[]) {
+  const result = await runQuery<Record<string, unknown>[]>(
+    getAdminClient()
+      .from("admin_audit_logs")
+      .select("id,actor_user_id,actor_email,actor_role,action,resource_type,resource_id,reason,metadata,created_at")
+      .eq("resource_id", resourceId)
+      .order("created_at", { ascending: false })
+      .limit(20),
+    "task detail audit logs",
+    warnings,
+    true,
+  );
+  return (result.data || []).map((row) => ({
+    id: stringValue(row.id),
+    actorUserId: nullableString(row.actor_user_id),
+    actorEmail: nullableString(row.actor_email),
+    actorRole: nullableString(row.actor_role),
+    action: stringValue(row.action),
+    resourceType: stringValue(row.resource_type),
+    resourceId: nullableString(row.resource_id),
+    reason: nullableString(row.reason),
+    metadata: isRecord(row.metadata) ? row.metadata : {},
+    createdAt: nullableString(row.created_at),
+  }));
+}
+
+async function loadWorkflowSteps(workflowId: string, warnings: string[]) {
+  const result = await runQuery<Record<string, unknown>[]>(
+    getAdminClient()
+      .from("agent_workflow_steps")
+      .select("id,workflow_id,step_key,type,title,status,depends_on,input,params,output,quality,error_message,retry_count,started_at,completed_at,created_at")
+      .eq("workflow_id", workflowId)
+      .order("created_at", { ascending: true })
+      .limit(80),
+    "workflow detail steps",
+    warnings,
+    true,
+  );
+  return result.data || [];
+}
+
+async function loadWorkflowEvents(workflowId: string, warnings: string[]) {
+  const result = await runQuery<Record<string, unknown>[]>(
+    getAdminClient()
+      .from("agent_workflow_events")
+      .select("id,workflow_id,event_type,step_id,message,metadata,created_at")
+      .eq("workflow_id", workflowId)
+      .order("created_at", { ascending: false })
+      .limit(80),
+    "workflow detail events",
+    warnings,
+    true,
+  );
+  return result.data || [];
 }
 
 async function loadReferenceAssets(limit: number, warnings: string[]): Promise<AdminAssetListItem[]> {

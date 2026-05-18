@@ -127,7 +127,9 @@ export default async function AdminGenerationsPage({ searchParams }: PageProps) 
                     <AdminStatusBadge status={row.status} group={row.statusGroup} />
                     <span className="rounded-md bg-slate-100 px-1.5 py-1 text-[10px] font-black text-slate-500">{row.sourceType}</span>
                   </div>
-                  <p className="mt-1 truncate text-sm font-black text-slate-950">{row.title}</p>
+                  <Link href={`/admin/generations/${row.sourceId}`} className="mt-1 block truncate text-sm font-black text-slate-950 hover:underline">
+                    {row.title}
+                  </Link>
                   <p className="mt-0.5 truncate font-mono text-[11px] text-slate-400">{row.sourceId}</p>
                 </div>
               ),

@@ -82,6 +82,9 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
               render: (row) => (
                 <div className="min-w-[240px]">
                   <p className="truncate text-sm font-black text-slate-950">{row.email || "未记录邮箱"}</p>
+                  <Link href={`/admin/users/${row.id}`} className="mt-1 inline-flex text-xs font-black text-slate-700 hover:underline">
+                    查看详情
+                  </Link>
                   <p className="mt-0.5 truncate font-mono text-[11px] text-slate-400">{row.id}</p>
                 </div>
               ),

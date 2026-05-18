@@ -6,6 +6,7 @@ import {
   AdminTable,
   formatDateTime,
 } from "@/components/admin/AdminPrimitives";
+import { AdminMemberForm } from "@/components/admin/AdminMemberForm";
 import { listAdminMembers, type AdminMemberListItem } from "@/lib/admin/data";
 
 export const dynamic = "force-dynamic";
@@ -28,7 +29,11 @@ export default async function AdminMembersPage() {
       )}
       {members.warnings.length > 0 && <AdminNotice tone="info">成员数据源提示：{members.warnings.slice(0, 3).join("；")}</AdminNotice>}
 
-      <AdminSection title="成员列表" description="V1 只读展示；新增/停用成员建议先通过 SQL 变更，避免误锁管理员。">
+      <AdminSection title="添加或更新成员" description="通过 user_id upsert，停用成员请将 status 设为 disabled。">
+        <AdminMemberForm />
+      </AdminSection>
+
+      <AdminSection title="成员列表" description="写操作通过服务端权限校验和审计记录，不在浏览器暴露 service role。">
         <AdminTable<AdminMemberListItem>
           rows={members.rows}
           rowKey={(row) => row.userId || row.email || row.role}

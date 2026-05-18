@@ -6,6 +6,7 @@ import {
   AdminTable,
   formatDateTime,
 } from "@/components/admin/AdminPrimitives";
+import { AdminConfigForm } from "@/components/admin/AdminConfigForm";
 import { getAdminSettingsOverview, type AdminConfigVersion } from "@/lib/admin/data";
 
 export const dynamic = "force-dynamic";
@@ -43,6 +44,10 @@ export default async function AdminSettingsPage() {
             </div>
           ))}
         </div>
+      </AdminSection>
+
+      <AdminSection title="创建配置版本" description="生产配置以版本形式写入，发布前请先在草稿中确认 JSON 和影响范围。">
+        <AdminConfigForm />
       </AdminSection>
 
       <AdminSection title="配置版本" description="后续可用于模型路由、积分价格、功能开关和风控策略的版本化发布。">

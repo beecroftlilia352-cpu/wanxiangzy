@@ -1,0 +1,28 @@
+import { NextResponse } from "next/server";
+import { requireAdminApi } from "@/lib/admin/auth";
+import { getAdminUserDetail } from "@/lib/admin/data";
+
+type RouteContext = {
+  params: Promise<{ id: string }>;
+};
+
+export async function GET(_request: Request, context: RouteContext) {
+  const auth = await requireAdminApi("users:read");
+  if (!auth.ok) return auth.response;
+
+  const { id } = await context.params;
+  if (!isUuid(id)) {
+    return NextResponse.json({ error: "无效用户 ID" }, { status: 400 });
+  }
+
+  const detail = await getAdminUserDetail(id);
+  if (!detail.profile) {
+    return NextResponse.json({ error: "用户不存在", detail }, { status: 404 });
+  }
+
+  return NextResponse.json(detail, { headers: { "Cache-Control": "no-store" } });
+}
+
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
