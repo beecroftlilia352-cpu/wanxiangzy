@@ -101,6 +101,7 @@ export default function PosePage() {
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [isOptimizing, setIsOptimizing] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
   const [resultUrls, setResultUrls] = useState<string[]>([]);
@@ -197,6 +198,7 @@ export default function PosePage() {
     setOutputMode(resolvePoseOutputModeFromPayload(payload));
     setRunningExpectedCount(null);
     setResultUrls(historyResultUrls);
+    setIsSubmitting(false);
     setIsGenerating(false);
     setProgress(historyResultUrls.length ? 100 : 0);
     setError("");
@@ -221,6 +223,7 @@ export default function PosePage() {
     setOutputMode(resolvePoseOutputModeFromPayload(payload));
     setRunningExpectedCount(null);
     setResultUrls(detail?.resultUrls || []);
+    setIsSubmitting(false);
     setIsGenerating(false);
     setProgress(detail?.resultUrls.length ? 100 : 0);
     setError("");
@@ -315,6 +318,7 @@ export default function PosePage() {
   }
 
   async function generate(promptForRun?: string) {
+    if (isSubmitting) return;
     if (!isAuthenticated && !(await refreshAuth())) {
       toast.error("请先登录");
       router.push("/login");
@@ -332,6 +336,7 @@ export default function PosePage() {
     const runId = generationRunRef.current + 1;
     generationRunRef.current = runId;
     const isCurrentRun = () => generationRunRef.current === runId;
+    setIsSubmitting(true);
     setIsGenerating(true);
     setRunningExpectedCount(poseExpectedCount);
     setProgress(10);
@@ -373,6 +378,7 @@ export default function PosePage() {
           await refreshAuth();
           taskQueue.removeTask(activeTaskId);
           if (isCurrentRun()) {
+            setIsSubmitting(false);
             setIsGenerating(false);
             router.push("/login");
           }
@@ -399,6 +405,10 @@ export default function PosePage() {
           progress: 25,
         });
         activeTaskId = serverTask.id;
+      }
+      if (isCurrentRun()) {
+        setIsSubmitting(false);
+        toast.success("任务已提交，可继续创建");
       }
 
       let attempts = 0;
@@ -454,6 +464,7 @@ export default function PosePage() {
       if (isCurrentRun()) {
         setError(message);
         toast.error(message);
+        setIsSubmitting(false);
         setIsGenerating(false);
       }
     }
@@ -470,6 +481,7 @@ export default function PosePage() {
     generationRunRef.current += 1;
     const expectedCount = clampTaskExpectedCount(item, 1, 4);
     setRunningExpectedCount(expectedCount);
+    setIsSubmitting(false);
     setIsGenerating(true);
     setProgress(Math.min(Math.max(Math.round(Number(item.progress) || 12), 1), 99));
     setError("");
@@ -495,6 +507,7 @@ export default function PosePage() {
   function handleContinueCreate() {
     generationRunRef.current += 1;
     setRunningExpectedCount(null);
+    setIsSubmitting(false);
     setIsGenerating(false);
     setProgress(0);
     setResultUrls([]);
@@ -740,10 +753,10 @@ export default function PosePage() {
         <StudioRunBar
           summary={outputMode === "separate" ? "每姿势一张 · 4 张结果" : "四宫格 · 单张结果"}
           costLabel={authIsAnonymous ? "登录后查看积分" : `消耗 ${cost} · 余额 ${credits ?? "-"}`}
-          disabled={Boolean(runDisabledReason)}
+          disabled={isSubmitting || Boolean(runDisabledReason)}
           disabledReason={runDisabledReason}
-          primaryLabel={authIsAnonymous ? "登录后生成" : isGenerating ? "继续生成" : outputMode === "separate" ? "生成 4 张独立图" : "生成四宫格"}
-          isLoading={false}
+          primaryLabel={authIsAnonymous ? "登录后生成" : isSubmitting ? "提交中..." : isGenerating ? "继续生成" : outputMode === "separate" ? "生成 4 张独立图" : "生成四宫格"}
+          isLoading={isSubmitting}
           onPrimaryAction={() => generate()}
         />
       </div>
