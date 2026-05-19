@@ -483,7 +483,7 @@ export default function ModelPage() {
             expectedCount: genCount,
             inputThumbnails: taskInputThumbnails,
             resultThumbnails: finalUrls,
-            resultCount: finalUrls.length,
+            resultCount: finalUrls.filter(Boolean).length,
           });
           toast.success("专属模特生成完成");
           return;
@@ -551,12 +551,32 @@ export default function ModelPage() {
   }
 
   function handleContinueCreate() {
+    setReferenceUrls([]);
+    setGender("female");
+    setModelStyle(DEFAULT_MODEL_SHOOT_STYLE);
+    setHairStyle(null);
+    setHairColor(null);
+    setHairReferenceUrl(null);
+    setHairColorReferenceUrl(null);
+    setAiModel("nano-banana-2");
+    setAspectRatio("3:4");
+    setImageSize("1K");
+    setGenCount(1);
+    setPrompt("");
+    setPromptTouched(false);
+    setUserExtraPrompt("");
     setIsGenerating(false);
     setRunningExpectedCount(null);
     setProgress(0);
     setResultUrls([]);
     setActiveResultMeta(null);
     setError("");
+    setLightboxSrc(null);
+    setShowModelRules(false);
+    setRulesPopoverStyle(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    if (hairInputRef.current) hairInputRef.current.value = "";
+    if (hairColorInputRef.current) hairColorInputRef.current.value = "";
   }
 
   return (

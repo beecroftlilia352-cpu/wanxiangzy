@@ -124,7 +124,6 @@ export type GenerationJobPayload = GenerationJobPayloadBase & (
       aiModel: LingyaModel;
       imageSize: ImageSize;
       prompt: string;
-      varyExpression?: boolean;
       poseStyle?: PoseSeriesStyle;
       outputMode?: PoseOutputMode;
       genCount?: number;
@@ -294,7 +293,28 @@ async function runClaimedJob(
     let partialModuleResults: ProductSetModuleResult[] = [];
     const rawModuleUrlByKey = new Map<string, string>();
     const persistedModuleUrlByKey = new Map<string, string>();
+    const persistedResultUrlByRawUrl = new Map<string, string>();
     let lastProgress = 0;
+    const persistOrderedResultUrls = async (rawUrls: string[]) => {
+      const persistedUrls = Array.from({ length: rawUrls.length }, () => "");
+      for (const [index, rawUrl] of rawUrls.entries()) {
+        if (!rawUrl) continue;
+        const cached = persistedResultUrlByRawUrl.get(rawUrl);
+        if (cached) {
+          persistedUrls[index] = cached;
+          continue;
+        }
+
+        const [persisted] = await persistGeneratedImageUrls([rawUrl], job.id, {
+          forceServerDownload: isSeedreamPayload(payload),
+          startIndex: index,
+        });
+        const finalUrl = persisted || rawUrl;
+        persistedResultUrlByRawUrl.set(rawUrl, finalUrl);
+        persistedUrls[index] = finalUrl;
+      }
+      return persistedUrls;
+    };
     const persistModuleResults = async (moduleResults: ProductSetModuleResult[]) => {
       const normalized = normalizeProductSetModuleResults(moduleResults);
       const persistedModules: ProductSetModuleResult[] = [];
@@ -340,17 +360,13 @@ async function runClaimedJob(
         return;
       }
 
-      const newUrls = update.resultUrls.slice(partialResultUrls.length);
+      const nextRawUrls = update.resultUrls;
+      const hasNextRawUrls = nextRawUrls.some(Boolean);
       const nextProgress = typeof update.progress === "number" ? update.progress : lastProgress;
-      if (!newUrls.length && update.promptTrace.length === partialPromptTrace.length && nextProgress === lastProgress) return;
+      if (!hasNextRawUrls && update.promptTrace.length === partialPromptTrace.length && nextProgress === lastProgress) return;
 
-      const persistedNewUrls = newUrls.length
-        ? await persistGeneratedImageUrls(newUrls, job.id, {
-          forceServerDownload: isSeedreamPayload(payload),
-          startIndex: partialResultUrls.length,
-        })
-        : [];
-      partialResultUrls.push(...persistedNewUrls);
+      const persistedNextUrls = hasNextRawUrls ? await persistOrderedResultUrls(nextRawUrls) : nextRawUrls;
+      partialResultUrls.splice(0, partialResultUrls.length, ...persistedNextUrls);
       partialPromptTrace.splice(0, partialPromptTrace.length, ...update.promptTrace);
       lastProgress = Math.max(lastProgress, nextProgress);
 
@@ -368,11 +384,7 @@ async function runClaimedJob(
       : undefined;
     const persistedResultUrls = finalModuleResults
       ? getProductSetResultUrlsFromModules(finalModuleResults)
-      : partialResultUrls.length === execution.resultUrls.length
-      ? partialResultUrls
-      : await persistGeneratedImageUrls(execution.resultUrls, job.id, {
-        forceServerDownload: isSeedreamPayload(payload),
-      });
+      : await persistOrderedResultUrls(execution.resultUrls);
     const quality = shouldSkipVisualQualityEvaluation(payload)
       ? createSkippedVisualQualityEvaluation(payload)
       : await evaluateGeneratedImages({
@@ -404,7 +416,8 @@ async function runClaimedJob(
       ?.filter((item) => item.status === "failed")
       .map((item) => `${item.name || item.moduleKey}: ${item.error || "failed"}`)
       .join("; ");
-    const partialRefundAmount = calculatePartialRefund(Number(job.credits_cost || 0), finalUrls.length, expectedCount);
+    const refundAmount = calculatePartialRefund(Number(job.credits_cost || 0), finalUrls.length, expectedCount);
+    const settlementError = execution.partialError || moduleFailureSummary;
     const finalPayload = appendGenerationSettlementMetadata(appendProductSetModuleResults(
       appendPromptTrace(appendQualityMetadata(repaired?.payload || payload, finalQuality, Boolean(repaired)), finalPromptTrace),
       finalModulePayload
@@ -412,13 +425,13 @@ async function runClaimedJob(
       expectedCount,
       resultCount: finalUrls.length,
       failedCount: Math.max(Number(execution.failedCount || 0), Math.max(0, expectedCount - finalUrls.length)),
-      refundAmount: partialRefundAmount,
-      errorMessage: execution.partialError || moduleFailureSummary,
+      refundAmount,
+      errorMessage: settlementError,
     });
 
     await completeGenerationRecord(supabase, job, finalUrls, finalPayload, {
-      refundAmount: partialRefundAmount,
-      errorMessage: execution.partialError || moduleFailureSummary,
+      refundAmount,
+      errorMessage: settlementError,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "生成失败";
@@ -694,6 +707,7 @@ async function executePayload(
     let completedCount = 0;
     let progressQueue = Promise.resolve();
     const getCompletedResultUrls = () => resultUrlSlots.flat();
+    const getSlottedResultUrls = () => resultUrlSlots.map((slot) => slot[0] || "");
     const getCompletedPromptTrace = () => traceSlots.filter((item): item is PromptTraceItem => Boolean(item));
     const emitProgress = (update: GenerationProgressUpdate) => {
       if (!onProgress) return Promise.resolve();
@@ -710,7 +724,7 @@ async function executePayload(
             Math.max(1, Math.round(taskProgress.reduce((sum, value) => sum + value, 0) / expectedCount))
           );
           return emitProgress({
-            resultUrls: getCompletedResultUrls(),
+            resultUrls: getSlottedResultUrls(),
             promptTrace: getCompletedPromptTrace(),
             progress: aggregateProgress,
             externalTaskId: progress.taskId,
@@ -731,7 +745,7 @@ async function executePayload(
         taskProgress[index] = 100;
         completedCount += 1;
         await emitProgress(createCompletedImageProgress(
-          getCompletedResultUrls(),
+          getSlottedResultUrls(),
           getCompletedPromptTrace(),
           result.taskId,
           completedCount,
@@ -742,7 +756,7 @@ async function executePayload(
         failures.push({ index, message });
         taskProgress[index] = 100;
         await emitProgress({
-          resultUrls: getCompletedResultUrls(),
+          resultUrls: getSlottedResultUrls(),
           promptTrace: getCompletedPromptTrace(),
           progress: Math.min(99, Math.round(taskProgress.reduce((sum, value) => sum + value, 0) / expectedCount)),
           externalStatus: "FAILED",
@@ -940,7 +954,6 @@ async function executePayload(
     const poseStyle = normalizePoseSeriesStyle(payload.poseStyle);
     const outputMode = normalizePoseOutputMode(payload.outputMode);
     const prompt = enforcePosePromptRequirements(applyPoseSeriesStylePrompt(payload.prompt, poseStyle), {
-      varyExpression: payload.varyExpression !== false,
       poseStyle,
       outputMode,
     });
@@ -951,7 +964,7 @@ async function executePayload(
         count: generationCount,
         promptKind: "pose",
         run: async (index, onTaskProgress) => {
-          const posePrompt = buildSeparatePosePrompt(prompt, index + 1);
+          const posePrompt = buildSeparatePosePrompt(prompt, index + 1, poseStyle, payload.prompt);
           const result = await generateImage({
             model: payload.aiModel,
             prompt: posePrompt,
@@ -1391,6 +1404,13 @@ function appendQualityMetadata(
   quality: VisualQualityEvaluation,
   autoRegenerated: boolean
 ) {
+  if (isSkippedQualityEvaluation(quality)) {
+    const rest = { ...payload } as Record<string, unknown>;
+    delete rest.qualityEvaluation;
+    delete rest.autoRegeneration;
+    return rest as GenerationJobPayload;
+  }
+
   return {
     ...payload,
     qualityEvaluation: {
@@ -1411,6 +1431,13 @@ function appendQualityMetadata(
   };
 }
 
+function isSkippedQualityEvaluation(quality: VisualQualityEvaluation) {
+  return quality.source === "deterministic"
+    && quality.ok
+    && !quality.shouldRegenerate
+    && /已跳过自动视觉评估/.test(quality.summary);
+}
+
 function shouldAutoRegenerate(payload: GenerationJobPayload, job: ClaimedJob) {
   if (!isAutoRegenerationEnabled()) return false;
   if (payload.kind === "productSet") return false;
@@ -1420,7 +1447,8 @@ function shouldAutoRegenerate(payload: GenerationJobPayload, job: ClaimedJob) {
 }
 
 function shouldSkipVisualQualityEvaluation(payload: GenerationJobPayload) {
-  return payload.kind === "tryon" || payload.kind === "pose";
+  if (payload.kind === "tryon" || payload.kind === "pose") return true;
+  return false;
 }
 
 function createSkippedVisualQualityEvaluation(payload: GenerationJobPayload): VisualQualityEvaluation {

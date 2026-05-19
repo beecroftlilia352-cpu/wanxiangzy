@@ -897,7 +897,7 @@ function getWorkflowResultThumbnails(row: WorkflowRow) {
 }
 
 function getDisplayThumbnails(resultUrls: string[], inputUrls: string[]) {
-  return Array.from(new Set([...resultUrls, ...inputUrls])).slice(0, 2);
+  return Array.from(new Set([...resultUrls, ...inputUrls].filter(Boolean))).slice(0, 2);
 }
 
 function getApplyUrl(kind: string, generationId: string) {

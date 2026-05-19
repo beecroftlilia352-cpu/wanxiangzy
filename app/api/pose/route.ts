@@ -30,7 +30,6 @@ export async function POST(request: NextRequest) {
     try { body = await request.json(); }
     catch { return NextResponse.json({ error: "请求格式无效" }, { status: 400 }); }
     const { main_image_url, ai_model, image_size, prompt, pose_style } = body;
-    const varyExpression = body.vary_expression !== false;
     const outputMode: PoseOutputMode = body.output_mode === "separate" ? "separate" : "grid";
     const genCount = outputMode === "separate" ? normalizePoseCount(body.gen_count ?? body.count ?? 4) : 1;
     if (!main_image_url || typeof main_image_url !== "string") return NextResponse.json({ error: "缺少主图" }, { status: 400 });
@@ -48,7 +47,6 @@ export async function POST(request: NextRequest) {
       aiModel: model,
       imageSize: size,
       prompt: String(prompt).trim(),
-      varyExpression,
       poseStyle,
       outputMode,
       genCount,

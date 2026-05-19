@@ -411,7 +411,7 @@ export default function GrassPage() {
             expectedCount: genCount,
             inputThumbnails: taskInputThumbnails,
             resultThumbnails: finalUrls,
-            resultCount: finalUrls.length,
+            resultCount: finalUrls.filter(Boolean).length,
           });
           toast.success("服装种草图生成完成");
           return;

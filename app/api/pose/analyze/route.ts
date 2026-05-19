@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
     const llm = getLlmConfig("vision");
     if (!llm.apiKey || !llm.baseUrl) return NextResponse.json({ prompt: "" });
 
-    const { main_image_url, prompt, vary_expression, pose_style } = await request.json();
+    const { main_image_url, prompt, pose_style } = await request.json();
     if (!main_image_url) return NextResponse.json({ prompt: "" });
     const poseStyle = normalizePoseSeriesStyle(pose_style);
     const stylePrompt = buildPoseSeriesStylePrompt(poseStyle);
@@ -81,7 +81,7 @@ ${stylePrompt}
     return NextResponse.json({
       prompt: enforcePosePromptRequirements(
         applyPoseSeriesStylePrompt(data.choices?.[0]?.message?.content?.trim() || "", poseStyle),
-        { varyExpression: vary_expression !== false, poseStyle }
+        { poseStyle }
       ),
     });
   } catch (err: unknown) {

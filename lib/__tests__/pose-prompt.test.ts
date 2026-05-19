@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { applyPoseSeriesStylePrompt } from "@/lib/module-style-presets";
-import { buildSeparatePosePrompt, buildSeparatePoseSlotDirective, buildSeparatePoseStoryboardPlan, enforcePosePromptRequirements } from "@/lib/pose-prompt";
+import { buildSeparatePosePrompt, buildSeparatePoseSlotDirective, enforcePosePromptRequirements } from "@/lib/pose-prompt";
 
 describe("pose prompt handling", () => {
   it("keeps user custom pose lines instead of replacing them with defaults", () => {
@@ -32,7 +32,6 @@ describe("pose prompt handling", () => {
 
     const enforced = enforcePosePromptRequirements(prompt, {
       poseStyle: "user_custom",
-      varyExpression: true,
     });
 
     expect(enforced).toContain("姿势3：右手拿包，轻微迈步。");
@@ -47,13 +46,12 @@ describe("pose prompt handling", () => {
     const styled = applyPoseSeriesStylePrompt(prompt, "korean_clean");
     const enforced = enforcePosePromptRequirements(styled, {
       poseStyle: "korean_clean",
-      varyExpression: true,
     });
 
-    expect(enforced).toContain("姿势1：正面自然站立");
-    expect(enforced).toContain("姿势2：身体轻微侧转30度");
-    expect(enforced).toContain("姿势4：轻微迈步或转身");
-    expect(enforced).toContain("consistent medium full-body framing");
+    expect(enforced).toContain("姿势1：正面服装展示方向");
+    expect(enforced).toContain("姿势2：侧身或三分之二侧身展示方向");
+    expect(enforced).toContain("姿势4：动态行走、转身或回眸方向");
+    expect(enforced).not.toContain("consistent medium full-body framing");
     expect(enforced).toContain("时装大片连贯性规则");
     expect(enforced).not.toContain("手指自然整理发丝或衣领");
     expect(enforced).not.toContain("由 AI 按风格自由设计");
@@ -88,62 +86,87 @@ describe("pose prompt handling", () => {
         "姿势3：重心偏移，一手扶腰。",
         "姿势4：轻微迈步回眸。",
       ].join("\n"),
-      { poseStyle: "fashion_editorial", outputMode: "separate", varyExpression: true }
+      { poseStyle: "fashion_editorial", outputMode: "separate" }
     );
 
-    const slot2 = buildSeparatePosePrompt(basePrompt, 2);
+    const slot2 = buildSeparatePosePrompt(basePrompt, 2, "fashion_editorial");
 
-    expect(slot2).toContain("HARD TARGET POSE SLOT 2/4");
-    expect(slot2).toContain("API call has no memory");
-    expect(slot2).toContain("姿势2：身体侧转30度");
+    expect(slot2.startsWith("Use the source image only")).toBe(true);
+    expect(slot2).toContain("Generate one standalone premium womenswear fashion photo.");
+    expect(slot2).toContain("Keep the outfit commercially readable");
+    expect(slot2).toContain("Target pose:");
+    expect(slot2).toContain("Strong three-quarter or side-angle outfit read");
+    expect(slot2).toContain("The body must clearly read as side or three-quarter view");
+    expect(slot2).toContain("Camera:");
+    expect(slot2).toContain("Full-body or 7/8-body three-quarter fashion framing");
+    expect(slot2).toContain("Expression:");
+    expect(slot2).toContain("Soft slight smile");
+    expect(slot2).toContain("Keep:");
+    expect(slot2).toContain("Negative:");
+    expect(slot2).not.toContain("Shot:");
+    expect(slot2).not.toContain("avoid close-up");
+    expect(slot2).not.toContain("HARD TARGET POSE SLOT");
+    expect(slot2).not.toContain("API call has no memory");
+    expect(slot2).not.toContain("姿势2：身体侧转30度");
     expect(slot2).not.toContain("姿势1：");
     expect(slot2).not.toContain("姿势3：");
     expect(slot2).not.toContain("姿势4：");
     expect(slot2).not.toContain("本组四张");
     expect(slot2).not.toContain("用户自定义四槽计划");
     expect(slot2).not.toContain("全组差异校验");
-    expect(slot2.length).toBeLessThan(3600);
+    expect(slot2).not.toContain("same camera distance");
+    expect(slot2).not.toContain("统一构图");
+    expect(slot2).not.toContain("统一镜头语言");
+    expect(slot2.length).toBeLessThan(2200);
   });
 
   it("provides distinct default directions for separate pose slots", () => {
-    expect(buildSeparatePoseSlotDirective(1)).toContain("正面");
-    expect(buildSeparatePoseSlotDirective(1)).toContain("不能复刻图1原动作");
-    expect(buildSeparatePoseSlotDirective(2)).toContain("侧转");
-    expect(buildSeparatePoseSlotDirective(3)).toContain("迈步");
-    expect(buildSeparatePoseSlotDirective(4)).toContain("回眸");
+    expect(buildSeparatePoseSlotDirective(1)).toContain("Relaxed front-view");
+    expect(buildSeparatePoseSlotDirective(2)).toContain("Strong three-quarter or side-angle");
+    expect(buildSeparatePoseSlotDirective(3)).toContain("Stationary confident shape pose");
+    expect(buildSeparatePoseSlotDirective(4)).toContain("Light movement or soft turning pose");
   });
 
-  it("uses style-specific pose directions for preset styles", () => {
-    expect(buildSeparatePoseSlotDirective(2, "ecommerce_clean")).toContain("侧面结构展示");
-    expect(buildSeparatePoseSlotDirective(4, "luxury_lookbook")).toContain("品牌大片感");
-    expect(buildSeparatePoseSlotDirective(3, "fashion_editorial")).toContain("editorial 张力");
-    expect(buildSeparatePoseSlotDirective(1, "xiaohongshu_lifestyle")).toContain("真实生活方式站姿");
-    expect(buildSeparatePoseSlotDirective(3, "euro_campaign")).toContain("campaign 张力");
+  it("keeps preset style as a mood hint without changing the production slot structure", () => {
+    const prompt = buildSeparatePosePrompt("", 3, "fashion_editorial");
+    expect(prompt).toContain("Style preset:");
+    expect(prompt).toContain("Fashion editorial.");
+    expect(prompt).toContain("Use stronger styling attitude");
+    expect(prompt).toContain("Stationary confident shape pose");
+    expect(prompt).toContain("Full-body or 7/8-body premium editorial framing");
+    expect(prompt).toContain("Confident editorial gaze");
   });
 
-  it("builds a full storyboard plan for separate pose production", () => {
-    const plan = buildSeparatePoseStoryboardPlan("korean_clean");
+  it("keeps separate execution prompts short even when the source prompt is noisy", () => {
+    const noisyPrompt = [
+      "High-end fashion photo series, consistent framing, same camera distance, same lens style.",
+      "同组四张独立图片必须保持统一构图、统一镜头语言和同一画幅留白。",
+      "生产线四槽计划：",
+      "姿势1：正面自然站立，镜头：consistent medium full-body framing, 50mm lens, eye level angle",
+      "姿势2：身体轻微侧转30度，镜头：consistent medium full-body framing, 50mm lens, eye level angle",
+      "姿势3：重心轻微偏移，镜头：consistent medium full-body framing, 50mm lens, eye level angle",
+      "姿势4：轻微迈步回眸，镜头：consistent medium full-body framing, 50mm lens, eye level angle",
+      "补充要求：衣服图案必须清楚。",
+    ].join("\n");
 
-    expect(plan).toContain("生产线四槽计划");
-    expect(plan).toContain("槽位1方向");
-    expect(plan).toContain("槽位2方向");
-    expect(plan).toContain("槽位3方向");
-    expect(plan).toContain("槽位4方向");
-    expect(plan).toContain("至少两张为完整服装展示");
-    expect(plan).toContain("不要把四张都做成同一距离的正面站姿");
+    const slot2 = buildSeparatePosePrompt(noisyPrompt, 2);
+
+    expect(slot2).toContain("Target pose:");
+    expect(slot2).toContain("Strong three-quarter or side-angle outfit read");
+    expect(slot2).toContain("补充要求：衣服图案必须清楚。");
+    expect(slot2).not.toContain("Generate exactly ONE");
+    expect(slot2).not.toContain("same camera distance");
+    expect(slot2).not.toContain("consistent medium full-body framing");
+    expect(slot2).not.toContain("统一构图");
+    expect(slot2).not.toContain("生产线四槽计划");
+    expect(slot2.length).toBeLessThan(1800);
   });
 
-  it("makes expression toggle produce clearly different instructions", () => {
-    const varying = enforcePosePromptRequirements("保持图1人物和服装，生成姿势变化。", {
-      varyExpression: true,
-    });
-    const consistent = enforcePosePromptRequirements("保持图1人物和服装，生成姿势变化。", {
-      varyExpression: false,
-    });
+  it("keeps expression guidance fixed instead of exposing a toggle", () => {
+    const enforced = enforcePosePromptRequirements("保持图1人物和服装，生成姿势变化。");
 
-    expect(varying).toContain("需要轻微自然的表情差异");
-    expect(consistent).toContain("四个分格保持接近一致");
-    expect(varying).not.toContain("中性、浅笑、自信微笑");
-    expect(consistent).not.toContain("同一种自然中性表情");
+    expect(enforced).toContain("表情规则");
+    expect(enforced).toContain("轻微自然");
+    expect(enforced).not.toContain("表情控制");
   });
 });

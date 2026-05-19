@@ -412,7 +412,7 @@ export default function Garment3dPage() {
           status: data.status || "processing",
           progress: data.status === "completed" ? 100 : 25,
           resultThumbnails: Array.isArray(data.result_urls) ? data.result_urls : [],
-          resultCount: Array.isArray(data.result_urls) ? data.result_urls.length : 0,
+          resultCount: Array.isArray(data.result_urls) ? data.result_urls.filter(Boolean).length : 0,
         });
         activeTaskId = serverTask.id;
       }
@@ -426,7 +426,7 @@ export default function Garment3dPage() {
           expectedCount: genCount,
           inputThumbnails: taskInputThumbnails,
           resultThumbnails: finalUrls,
-          resultCount: finalUrls.length,
+          resultCount: finalUrls.filter(Boolean).length,
         });
         toast.success("服装转3D完成");
         return;
@@ -456,7 +456,7 @@ export default function Garment3dPage() {
           expectedCount: genCount,
           inputThumbnails: taskInputThumbnails,
           resultThumbnails: latestTaskResultUrls,
-          resultCount: latestTaskResultUrls.length,
+          resultCount: latestTaskResultUrls.filter(Boolean).length,
           progress: runningProgress,
           status: pollData.status || "processing",
         });
@@ -470,7 +470,7 @@ export default function Garment3dPage() {
             expectedCount: genCount,
             inputThumbnails: taskInputThumbnails,
             resultThumbnails: finalUrls,
-            resultCount: finalUrls.length,
+            resultCount: finalUrls.filter(Boolean).length,
           });
           toast.success("服装转3D完成");
           return;
@@ -487,7 +487,7 @@ export default function Garment3dPage() {
         expectedCount: genCount,
         inputThumbnails: taskInputThumbnails,
         resultThumbnails: latestTaskResultUrls,
-        resultCount: latestTaskResultUrls.length,
+        resultCount: latestTaskResultUrls.filter(Boolean).length,
       });
       toast.error(message);
     } finally {
@@ -540,11 +540,30 @@ export default function Garment3dPage() {
   }
 
   function handleContinueCreate() {
+    setGarmentUrl("");
+    setGarmentName("");
+    setGarmentType("上装");
+    setCustomGarmentType("");
+    setOutputMode("reference");
+    setDisplayStyle(DEFAULT_GARMENT_3D_DISPLAY_STYLE);
+    setSelectedReference(REFERENCE_PRESETS[0]);
+    setCustomReferenceUrl("");
+    setPrompt("");
+    setPromptOverride(null);
+    setAiModel("nano-banana-2");
+    setAspectRatio("1:1");
+    setImageSize("1K");
+    setGenCount(1);
     setIsGenerating(false);
     setRunningExpectedCount(null);
     setProgress(0);
     setResultUrls([]);
     setError(null);
+    setLightboxSrc(null);
+    setShowGarmentRules(false);
+    setRulesPopoverStyle(null);
+    if (garmentInputRef.current) garmentInputRef.current.value = "";
+    if (referenceInputRef.current) referenceInputRef.current.value = "";
   }
 
   return (

@@ -1331,7 +1331,7 @@ function getHistoryInputSummary(payload?: HistoryJobPayload) {
     return `${payload.gender === "male" ? "男模" : "女模"} · ${payload.referenceUrls.length} 张人物参考 · ${getModelShootStyleLabel(payload.modelStyle)}`;
   }
   if (payload.kind === "pose") {
-    return `主图 · ${getPoseSeriesStyleLabel(payload.poseStyle)} · ${payload.varyExpression === false ? "表情尽量一致" : "自然变化"}`;
+    return `主图 · ${getPoseSeriesStyleLabel(payload.poseStyle)}`;
   }
   if (payload.kind === "garment3d") {
     return `服装图 · ${payload.outputMode === "reference" ? "参考图模式" : "提示词模式"} · ${getGarment3dDisplayStyleLabel(payload.displayStyle)}`;
@@ -1513,7 +1513,6 @@ function getParameterItems(row: HistoryRow) {
       { label: "比例", value: "3:4" },
       { label: "生成张数", value: "1" },
       { label: "拍摄风格", value: getPoseSeriesStyleLabel(payload.poseStyle) },
-      { label: "表情控制", value: payload.varyExpression === false ? "尽量一致" : "自然变化" },
     ];
   }
   if (payload.kind === "faceSwap") {

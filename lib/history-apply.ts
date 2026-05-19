@@ -67,7 +67,6 @@ export type HistoryJobPayload =
       aiModel: LingyaModel;
       imageSize: ImageSize;
       prompt: string;
-      varyExpression?: boolean;
       poseStyle?: PoseSeriesStyle;
       outputMode?: PoseOutputMode;
       genCount?: number;

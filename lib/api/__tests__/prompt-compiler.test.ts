@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { compileImagePromptForModel, type ImagePromptKind } from "@/lib/api/prompt-compiler";
+import { buildSeparatePosePrompt } from "@/lib/pose-prompt";
 
 describe("compileImagePromptForModel", () => {
   const shortPrompt =
@@ -58,36 +59,90 @@ describe("compileImagePromptForModel", () => {
     expect(result.length).toBeLessThanOrEqual(1900);
   });
 
-  it("uses a single-image pose header for separate pose prompts", () => {
+  it("does not wrap separate pose prompts with generic task boilerplate", () => {
     const result = compileImagePromptForModel({
       kind: "pose",
       model: "nano-banana-2",
-      prompt: "输出方式：每个姿势单独生成一张完整图片。不要生成四宫格。本次单图任务：只生成姿势2这一张完整图片。",
+      prompt: buildSeparatePosePrompt("", 2),
     });
 
-    expect(result).toContain("生成一张独立的单姿势完整图片");
-    expect(result).toContain("不要生成 2x2、四宫格、拼图、分屏或 contact sheet");
+    expect(result.startsWith("Use the source image only")).toBe(true);
+    expect(result).toContain("Generate one standalone premium womenswear fashion photo.");
+    expect(result).toContain("Keep the outfit commercially readable");
+    expect(result).toContain("Target pose:");
+    expect(result).toContain("Strong three-quarter or side-angle outfit read");
+    expect(result).toContain("Camera:");
+    expect(result).toContain("Full-body or 7/8-body three-quarter fashion framing");
+    expect(result).toContain("Expression:");
+    expect(result).toContain("Soft slight smile");
+    expect(result).toContain("Keep:");
+    expect(result).toContain("Negative:");
+    expect(result).not.toContain("Shot:");
+    expect(result).not.toContain("avoid close-up");
+    expect(result).not.toContain("生成一张独立的单姿势完整图片");
+    expect(result).not.toContain("不要生成 2x2、四宫格、拼图、分屏或 contact sheet");
     expect(result).not.toContain("生成单张 2x2 四宫格姿势裂变图");
   });
 
   it("keeps gpt-image-2 separate pose prompts concise", () => {
+    const posePrompt = [
+      buildSeparatePosePrompt("", 3),
+      "冗余描述".repeat(2000),
+    ].join("\n");
     const result = compileImagePromptForModel({
       kind: "pose",
       model: "gpt-image-2",
-      prompt: [
-        "HARD TARGET POSE SLOT 3/4.",
-        "Generate exactly ONE standalone 3:4 photo for pose 3.",
-        "当前姿势硬目标：姿势3：重心偏移，一手扶腰，另一只手自然下垂。",
-        "服装展示规则：当前单张图片必须保持同一套服装的版型、颜色和纹理。",
-        "身体动作规则：动作自然可信，避免断手和身体比例漂移。",
-        "负面约束：不要换脸，不要换衣服，不要改变场景。",
-        "冗余描述".repeat(2000),
-      ].join("\n"),
+      prompt: posePrompt,
     });
 
-    expect(result).toContain("单图执行提示");
-    expect(result).toContain("HARD TARGET POSE SLOT 3/4");
-    expect(result.length).toBeLessThanOrEqual(2800);
+    expect(result.startsWith("Use the source image only")).toBe(true);
+    expect(result).toContain("Target pose:");
+    expect(result).toContain("Stationary confident shape pose");
+    expect(result).toContain("Emphasize waist, hip line");
+    expect(result).toContain("Full-body or 7/8-body premium editorial framing");
+    expect(result).toContain("Confident editorial gaze");
+    expect(result).not.toContain("HARD TARGET POSE SLOT");
+    expect(result).not.toContain("图像质量：");
+    expect(result.length).toBeLessThanOrEqual(2400);
+  });
+
+  it("preserves each separate pose target in the final compiled prompt", () => {
+    const slotAssertions = [
+      { slot: 1, keywords: ["Target pose:", "front-view", "front silhouette", "Clean full-body product/editorial framing"] },
+      { slot: 2, keywords: ["Target pose:", "side-angle", "side silhouette", "Full-body or 7/8-body"] },
+      { slot: 3, keywords: ["Target pose:", "stationary", "not walking", "waistline"] },
+      { slot: 4, keywords: ["Target pose:", "light movement", "soft turning", "natural fabric drape"] },
+    ];
+
+    slotAssertions.forEach(({ slot, keywords }) => {
+      const result = compileImagePromptForModel({
+        kind: "pose",
+        model: "gpt-image-2",
+        prompt: buildSeparatePosePrompt("", slot),
+      });
+
+      expect(result.startsWith("Use the source image only")).toBe(true);
+      expect(result).not.toContain("Generate exactly ONE");
+      expect(result).not.toContain("核心任务：");
+      keywords.forEach((keyword) => expect(result.toLowerCase()).toContain(keyword.toLowerCase()));
+    });
+  });
+
+  it("throws before model call when a separate pose compiled prompt would lose target pose", () => {
+    expect(() =>
+      compileImagePromptForModel({
+        kind: "pose",
+        model: "gpt-image-2",
+        prompt: [
+          "HARD TARGET POSE SLOT 2/4.",
+          "Generate exactly ONE standalone 3:4 photo for pose 2.",
+          "Use the uploaded image as the only reference for the same person, outfit, background and lighting.",
+          "Keep: same outfit and identity.",
+          "Allow: clear pose change.",
+          "Negative: no grid.",
+        ].join("\n"),
+      })
+    ).toThrow("compiledPrompt missing Target pose");
   });
 
   it("normalizes line breaks and excess whitespace", () => {

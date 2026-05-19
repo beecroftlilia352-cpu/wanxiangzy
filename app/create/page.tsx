@@ -910,7 +910,8 @@ export default function CreatePage() {
 
           const pollData = await pollRes.json();
           if (pollData.status === "processing_tryon" || pollData.status === "processing" || pollData.status === "pending") {
-            const partialResultUrls = Array.isArray(pollData.result_urls) ? pollData.result_urls.filter(Boolean) : [];
+            const partialResultUrls = Array.isArray(pollData.result_urls) ? pollData.result_urls : [];
+            const partialResultCount = partialResultUrls.filter(Boolean).length;
             const elapsedSeconds = Math.max(0, (Date.now() - startedAt) / 1000);
             const progress = Math.min(
               Math.max(Number(pollData.progress) || 0, 25 + elapsedSeconds * 0.6),
@@ -924,10 +925,10 @@ export default function CreatePage() {
               status: "processing_tryon",
               statusGroup: "running",
               progress,
-              resultCount: partialResultUrls.length,
-              ...(partialResultUrls.length ? {
+              resultCount: partialResultCount,
+              ...(partialResultCount ? {
                 resultThumbnails: partialResultUrls,
-                thumbnails: partialResultUrls.slice(0, 2),
+                thumbnails: partialResultUrls.filter(Boolean).slice(0, 2),
               } : {}),
             });
             if (Date.now() - lastQueueRefreshAt >= TRYON_STATUS_QUEUE_REFRESH_MS) {
@@ -938,7 +939,8 @@ export default function CreatePage() {
           }
 
           if (pollData.status === "completed") {
-            const resultUrls = Array.isArray(pollData.result_urls) ? pollData.result_urls.filter(Boolean) : [];
+            const resultUrls = Array.isArray(pollData.result_urls) ? pollData.result_urls : [];
+            const resultCount = resultUrls.filter(Boolean).length;
             if (isActive) {
               store.updateProgress(100);
               store.setResult(resultUrls);
@@ -948,10 +950,10 @@ export default function CreatePage() {
               status: "completed",
               statusGroup: "completed",
               progress: 100,
-              resultCount: resultUrls.length,
-              expectedCount: Math.max(expectedCount, resultUrls.length || 1),
+              resultCount,
+              expectedCount: Math.max(expectedCount, resultCount || 1),
               resultThumbnails: resultUrls,
-              thumbnails: resultUrls.slice(0, 2),
+              thumbnails: resultUrls.filter(Boolean).slice(0, 2),
               completedAt: new Date().toISOString(),
             });
             refreshTaskQueue();

@@ -49,21 +49,15 @@ const POSE_GENERATION_POLL_SLOW_MS = 5 * 1000;
 
 type PoseHistoryPayload = Extract<HistoryJobPayload, { kind: "pose" }>;
 
-const DEFAULT_POSE_PROMPT = `High-end fashion magazine editorial photography, same person from 图1, same face identity, hairstyle, body proportion, clothing, fabric texture, color, pattern, scene, lighting and photography quality. Four-panel pose variation from the same fashion photo series, consistent framing, same camera distance, same lens style, same background and color grade. Professional studio lighting with soft key light and natural fill. Hyper-realistic skin texture with natural pores. photorealistic, 8K ultra-detailed, cinematic color grade, sharp details.
+const DEFAULT_POSE_PROMPT = `Use 图1 as the only reference for the same person, outfit, background, lighting and overall photography style.
+Main priority: create clearly different body poses while keeping the outfit design, color, pattern, fabric texture, face identity, natural skin tone and realistic body proportions.
+Allow camera framing, body angle and composition to change naturally for each target pose.
+Negative: no outfit change, no face change, no extra person, no collage, no text, no distorted hands, no broken limbs.
 
-时装大片连贯性规则：四个分格必须像同一套商业时装大片的连续 pose sheet，而不是四张不同照片拼贴；保持统一构图、统一背景、统一光线、统一肤色质感、统一色彩管理和统一服装展示尺度。
-服装展示规则：四个姿势都要清楚展示同一套服装的版型、腰线、肩线、袖长、下摆、面料垂坠、纹理和图案；允许动作造成自然褶皱、遮挡和张力变化，但绝不能改变服装结构、颜色、图案、长度、开口位置或搭配关系。
-身体动作规则：动作变化要自然、可信、符合真人关节运动，避免夸张扭腰、断手、错位手指、肢体拉长、身体比例漂移；每个姿势都要稳定站立并服务于服装展示。
-肤色和色彩规则：四个分格必须保留图1人物的自然肤色、肤色明暗、冷暖调、局部红润、阴影层次和真实皮肤质感；保持准确白平衡和真实曝光，不要自动美白、不要雪白皮、不要冷白皮、不要过度提亮肤色。
-脸型五官规则：四个分格必须保持图1人物的脸型骨相、脸长宽比例、颧骨、下颌线、下巴形状、眼型、眼距、鼻翼宽度、唇形和真实五官辨识度；不要自动变成标准鹅蛋脸、小V脸、尖下巴、大眼高鼻的网红脸。
-
-姿势1：正面自然站立，双手自然下垂或轻触口袋，表情平静自然，眼神直视镜头，完整展示服装正面版型。镜头：consistent medium full-body framing, 50mm lens, eye level angle
-姿势2：身体轻微侧转30度，肩线放松，一手轻抚头发或整理衣领，柔和浅笑，展示服装侧面轮廓和肩颈线条。镜头：consistent medium full-body framing, 50mm lens, eye level angle
-姿势3：重心轻微偏移，一手叉腰或扶腰，另一只手自然下垂，自信微笑，展示服装腰线、廓形和面料垂坠。镜头：consistent medium full-body framing, 50mm lens, eye level angle
-姿势4：轻微迈步或转身的自然动态，专注或轻微回眸的自然表情，衣服产生真实褶皱、张力和垂坠，不改变服装结构。镜头：consistent medium full-body framing, 50mm lens, eye level angle
-
-表情控制：保持同一个人、同一张脸、不要换脸，但四个分格需要轻微自然的表情差异，避免复制粘贴脸；建议分别呈现平静自然、自信微笑、柔和浅笑、专注或轻微回眸的眼神表情。
-负面约束：不要换脸，不要换衣服，不要改变场景，不要生成多余人物，不要扭曲手指和肢体，不要塑料皮肤，不要AI渲染感。`;
+姿势1：正面服装展示方向；AI 可自由选择自然手势、重心、视线、表情和镜头语言，服装正面轮廓必须清楚。
+姿势2：侧身或三分之二侧身展示方向；AI 可自由选择头发/衣领/袖口/衣摆手势、腿部节奏、视线和镜头语言，侧面轮廓和肩线必须清楚。
+姿势3：站定造型方向，不要走路；AI 可自由选择扶腰、胯部、肩线、手部造型、视线和镜头语言，腰线、廓形和面料垂坠必须清楚。
+姿势4：动态行走、转身或回眸方向，不要静态扶腰；AI 可自由选择步态、手臂运动、身体转向、视线和镜头语言，服装运动褶皱和垂坠必须清楚。`;
 
 function resolvePoseOutputModeFromPayload(payload: PoseHistoryPayload): PoseOutputMode {
   return payload.outputMode === "separate" || Number(payload.genCount || 0) > 1 ? "separate" : "grid";
@@ -113,7 +107,6 @@ export default function PosePage() {
   const [mainImage, setMainImage] = useState<string>("");
   const [prompt, setPrompt] = useState(DEFAULT_POSE_PROMPT);
   const [supplementPrompt, setSupplementPrompt] = useState("");
-  const [varyExpression, setVaryExpression] = useState(true);
   const [outputMode, setOutputMode] = useState<PoseOutputMode>("grid");
   const [poseStyle, setPoseStyle] = useState<PoseSeriesStyle>(DEFAULT_POSE_SERIES_STYLE);
   const [customPosePrompt, setCustomPosePrompt] = useState(USER_CUSTOM_POSE_DEFAULT.prompt);
@@ -204,7 +197,6 @@ export default function PosePage() {
     setImageSize(payload.imageSize);
     setPrompt(payload.prompt);
     setSupplementPrompt("");
-    setVaryExpression(payload.varyExpression !== false);
     setPoseStyle(normalizePoseSeriesStyle(payload.poseStyle));
     setOutputMode(resolvePoseOutputModeFromPayload(payload));
     setRunningExpectedCount(null);
@@ -229,7 +221,6 @@ export default function PosePage() {
     setImageSize(payload.imageSize);
     setPrompt(payload.prompt);
     setSupplementPrompt("");
-    setVaryExpression(payload.varyExpression !== false);
     setPoseStyle(normalizePoseSeriesStyle(payload.poseStyle));
     setOutputMode(resolvePoseOutputModeFromPayload(payload));
     setRunningExpectedCount(null);
@@ -282,7 +273,7 @@ export default function PosePage() {
       const res = await fetch("/api/pose/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ main_image_url: mainImage, prompt: stripLegacyRuleDemoText(prompt), vary_expression: varyExpression, pose_style: poseStyle }),
+        body: JSON.stringify({ main_image_url: mainImage, prompt: stripLegacyRuleDemoText(prompt), pose_style: poseStyle }),
       });
       const data = await res.json();
       if (data.prompt) {
@@ -378,7 +369,6 @@ export default function PosePage() {
                 : prompt,
             supplementPrompt.trim() ? `补充要求：${supplementPrompt.trim()}` : "",
           ].filter(Boolean).join("\n\n")),
-          vary_expression: varyExpression,
           pose_style: poseStyle,
           output_mode: outputMode,
           gen_count: poseExpectedCount,
@@ -455,7 +445,7 @@ export default function PosePage() {
             expectedCount: poseExpectedCount,
             inputThumbnails: taskInputThumbnails,
             resultThumbnails: finalUrls,
-            resultCount: finalUrls.length,
+            resultCount: finalUrls.filter(Boolean).length,
           });
           if (isCurrentRun()) {
             toast.success("姿势裂变完成");
@@ -536,12 +526,26 @@ export default function PosePage() {
 
   function handleContinueCreate() {
     generationRunRef.current += 1;
+    setAiModel("nano-banana-2");
+    setImageSize("1K");
+    setMainImage("");
+    setPrompt(DEFAULT_POSE_PROMPT);
+    setSupplementPrompt("");
+    setOutputMode("grid");
+    setPoseStyle(DEFAULT_POSE_SERIES_STYLE);
+    setCustomPosePrompt(USER_CUSTOM_POSE_DEFAULT.prompt);
+    setCustomCamera(USER_CUSTOM_POSE_DEFAULT.camera);
+    setCustomPoses([...USER_CUSTOM_POSE_DEFAULT.poses]);
     setRunningExpectedCount(null);
     setIsSubmitting(false);
     setIsGenerating(false);
     setProgress(0);
     setResultUrls([]);
     setError("");
+    setLightboxSrc(null);
+    setShowPoseRules(false);
+    setRulesPopoverStyle(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
   return (
@@ -655,20 +659,6 @@ export default function PosePage() {
               />
             </section>
           )}
-
-          <section>
-            <h3 className="font-bold text-sm mb-3">表情控制</h3>
-            <StudioOptionGrid
-              options={[
-                { value: "natural", label: "自然变化" },
-                { value: "strict", label: "严格一致" },
-              ]}
-              value={varyExpression ? "natural" : "strict"}
-              onChange={(value) => setVaryExpression(value === "natural")}
-              columns={2}
-              ariaLabel="表情控制"
-            />
-          </section>
 
           <section>
             <h3 className="font-bold text-sm mb-3">拍摄风格</h3>

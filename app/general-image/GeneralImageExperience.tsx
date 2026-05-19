@@ -212,6 +212,25 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     setProgress(0);
   }
 
+  function handleContinueCreate() {
+    setMode(initialMode);
+    setPrompt("");
+    setReferenceImages([]);
+    setAiModel("nano-banana-2");
+    setAspectRatio("3:4");
+    setImageSize("1K");
+    setGenCount(1);
+    setIsDragging(false);
+    setShowImagePromptModal(false);
+    setImagePromptImage(null);
+    setImagePromptText("");
+    setIsImagePromptGenerating(false);
+    setLightboxSrc(null);
+    resetOutput();
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    if (imagePromptInputRef.current) imagePromptInputRef.current.value = "";
+  }
+
   async function handleFiles(files?: FileList | File[]) {
     const selected = Array.from(files || []);
     if (!selected.length) return;
@@ -445,7 +464,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
           expectedCount: genCount,
           inputThumbnails: taskInputThumbnails,
           resultThumbnails: latestTaskResultUrls,
-          resultCount: latestTaskResultUrls.length,
+          resultCount: latestTaskResultUrls.filter(Boolean).length,
           progress: runningProgress,
           status: state.status || "processing",
         });
@@ -459,7 +478,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
             expectedCount: genCount,
             inputThumbnails: taskInputThumbnails,
             resultThumbnails: finalUrls,
-            resultCount: finalUrls.length,
+            resultCount: finalUrls.filter(Boolean).length,
           });
           setActiveQueueTask(completedTask);
           setIsGenerating(false);
@@ -476,7 +495,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
         expectedCount: genCount,
         inputThumbnails: taskInputThumbnails,
         resultThumbnails: latestTaskResultUrls,
-        resultCount: latestTaskResultUrls.length,
+        resultCount: latestTaskResultUrls.filter(Boolean).length,
       });
       setActiveQueueTask(failedTask);
       toast.error(message);
@@ -511,7 +530,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
   return (
     <div className="studio-workbench min-h-[calc(100dvh-64px)] lg:h-[calc(100vh-64px)] flex flex-col lg:flex-row">
       <FeatureTabs active={activeFeature} />
-      <ModuleTaskRail module="generalImage" moduleLabel="创意生图" onContinue={resetOutput} onRunningTask={handleRunningTask} onCompletedTask={handleCompletedTask} />
+      <ModuleTaskRail module="generalImage" moduleLabel="创意生图" onContinue={handleContinueCreate} onRunningTask={handleRunningTask} onCompletedTask={handleCompletedTask} />
       <div className="studio-parameters w-full lg:w-[472px] border-b lg:border-b-0 lg:border-r flex flex-col overflow-visible lg:overflow-hidden">
         <div className="studio-parameters-scroll flex-1 overflow-visible lg:overflow-y-auto p-3 sm:p-5 space-y-4 sm:space-y-6">
           <ModuleHeader

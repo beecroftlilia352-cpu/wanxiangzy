@@ -56,6 +56,91 @@ const POSE_STYLE_MARKER = "姿势裂变拍摄风格档位";
 const MODEL_STYLE_MARKER = "专属模特拍摄风格档位";
 const GARMENT_3D_STYLE_MARKER = "服装3D展示风格档位";
 
+const POSE_SEPARATE_STYLE_PROMPTS: Record<PoseSeriesStyle, string> = {
+  source_continuity: [
+    "Style preset:",
+    "Source continuity.",
+    "",
+    "Keep the original background, lighting direction, color tone and overall photography mood as much as possible.",
+    "The result should look like a new shot from the same photoshoot.",
+    "Prioritize realism, consistency and outfit readability.",
+    "Do not create a new studio setup, new scene or overly stylized atmosphere.",
+  ].join("\n"),
+  luxury_white_studio: [
+    "Style preset:",
+    "Clean ecommerce white studio.",
+    "",
+    "Use a bright white or light neutral studio background.",
+    "Use soft commercial lighting, clean shadows, accurate clothing color and low-distraction composition.",
+    "Prioritize product clarity, outfit readability and clean ecommerce presentation.",
+    "Avoid dramatic editorial lighting, complex props, heavy shadows or lifestyle background.",
+  ].join("\n"),
+  ecommerce_clean: [
+    "Style preset:",
+    "Clean ecommerce white studio.",
+    "",
+    "Use a bright white or light neutral studio background.",
+    "Use soft commercial lighting, clean shadows, accurate clothing color and low-distraction composition.",
+    "Prioritize product clarity, outfit readability and clean ecommerce presentation.",
+    "Avoid dramatic editorial lighting, complex props, heavy shadows or lifestyle background.",
+  ].join("\n"),
+  luxury_lookbook: [
+    "Style preset:",
+    "Premium womenswear lookbook.",
+    "",
+    "Use soft refined lighting, elegant neutral background, natural skin tone and tasteful fashion composition.",
+    "Create a quiet luxury brand feeling while keeping the outfit clearly readable.",
+    "The image should feel polished, calm, premium and commercially usable.",
+    "Avoid excessive glamour, heavy retouching, dramatic posing or over-stylized fashion effects.",
+  ].join("\n"),
+  fashion_editorial: [
+    "Style preset:",
+    "Fashion editorial.",
+    "",
+    "Use stronger styling attitude, refined composition and premium magazine-like visual language.",
+    "The pose and camera can feel more expressive, but the outfit must remain commercially readable.",
+    "Keep the result elegant, high-end and fashion-forward.",
+    "Avoid extreme crop, unreadable clothing, excessive cinematic lighting, strange body angles or over-stylized poses.",
+  ].join("\n"),
+  korean_clean: [
+    "Style preset:",
+    "Korean clean fashion photography.",
+    "",
+    "Use fresh, soft and natural lighting with a clean airy color tone.",
+    "Keep skin texture natural, bright and realistic, not over-whitened.",
+    "The mood should feel gentle, clean, relaxed and polished.",
+    "Avoid snow-white skin, plastic face, overexposure, overly cute expression or heavy beauty filter.",
+  ].join("\n"),
+  xiaohongshu_lifestyle: [
+    "Style preset:",
+    "Premium womenswear lookbook.",
+    "",
+    "Use soft refined lighting, elegant neutral background, natural skin tone and tasteful fashion composition.",
+    "Create a quiet luxury brand feeling while keeping the outfit clearly readable.",
+    "The image should feel polished, calm, premium and commercially usable.",
+    "Avoid excessive glamour, heavy retouching, dramatic posing or over-stylized fashion effects.",
+  ].join("\n"),
+  euro_campaign: [
+    "Style preset:",
+    "Fashion editorial.",
+    "",
+    "Use stronger styling attitude, refined composition and premium magazine-like visual language.",
+    "The pose and camera can feel more expressive, but the outfit must remain commercially readable.",
+    "Keep the result elegant, high-end and fashion-forward.",
+    "Avoid extreme crop, unreadable clothing, excessive cinematic lighting, strange body angles or over-stylized poses.",
+  ].join("\n"),
+  user_custom: [
+    "Style preset:",
+    "Custom user style.",
+    "",
+    "Follow the user's custom style direction:",
+    "{{USER_STYLE}}",
+    "",
+    "Still keep the same person, same outfit, realistic body proportions, commercially readable clothing and clean fashion photography quality.",
+    "Avoid outfit change, face change, unreadable clothing, distorted limbs, excessive retouching or over-stylized results that break product readability.",
+  ].join("\n"),
+};
+
 export const POSE_SERIES_STYLES: StylePreset<PoseSeriesStyle>[] = [
   {
     value: "source_continuity",
@@ -140,13 +225,13 @@ export const POSE_SERIES_STYLES: StylePreset<PoseSeriesStyle>[] = [
 ];
 
 export const USER_CUSTOM_POSE_DEFAULT = {
-  prompt: "保持图1人物身份、脸、发型、身体比例、服装结构、背景色调、光线方向和商业摄影质感；按下方姿势描述生成同一套视觉里的姿势变化。",
-  camera: "可选镜头/画幅补充：如果需要，可以写统一镜头，也可以给某个姿势单独指定镜头距离、焦段、景别、画幅或构图；不填写则由 AI 根据姿势和风格自然决定。",
+  prompt: "以图1作为同一人物、服装、背景和光线参考；优先让四个姿势明显不同，同时保持服装设计、颜色、图案、面料质感、自然脸部身份、肤色和真实身体比例。",
+  camera: "可选镜头/画幅补充：只写风格化方向，不要写死同一相机距离、同一焦段或统一构图；不填写则由 AI 根据姿势和风格自然决定。",
   poses: [
-    "姿势1：正面自然站立，双手自然下垂或轻触口袋，表情平静自然，完整展示服装正面版型。",
-    "姿势2：身体轻微侧转30度，肩线放松，一手轻抚头发或整理衣领，柔和浅笑，展示服装侧面轮廓和肩颈线条。",
-    "姿势3：重心轻微偏移，一手叉腰或扶腰，另一只手自然下垂，自信微笑，展示服装腰线、廓形和面料垂坠。",
-    "姿势4：轻微迈步或自然转身，专注或轻微回眸，衣服产生真实褶皱、张力和垂坠，不改变服装结构。",
+    "姿势1：正面服装展示方向；AI 可自由选择自然手势、重心、视线、表情和镜头语言，服装正面轮廓必须清楚。",
+    "姿势2：侧身或三分之二侧身展示方向；AI 可自由选择头发/衣领/袖口/衣摆手势、腿部节奏、视线和镜头语言，侧面轮廓和肩线必须清楚。",
+    "姿势3：站定造型方向，不要走路；AI 可自由选择扶腰、胯部、肩线、手部造型、视线和镜头语言，腰线、廓形和面料垂坠必须清楚。",
+    "姿势4：动态行走、转身或回眸方向，不要静态扶腰；AI 可自由选择步态、手臂运动、身体转向、视线和镜头语言，服装运动褶皱和垂坠必须清楚。",
   ],
 };
 
@@ -312,6 +397,15 @@ export function buildPoseSeriesStylePrompt(value: unknown) {
     return `${POSE_STYLE_MARKER}：${style.label}。按用户填写的姿势1-4执行，不用默认姿势覆盖。`;
   }
   return `${POSE_STYLE_MARKER}：${style.label}。${style.prompt}`;
+}
+
+export function buildPoseSeparateStylePresetPrompt(value: unknown, userStyle = "") {
+  const styleId = normalizePoseSeriesStyle(value);
+  if (styleId === "source_continuity") return "";
+  const preset = POSE_SEPARATE_STYLE_PROMPTS[styleId] || "";
+  if (styleId !== "user_custom") return preset;
+  const customStyle = userStyle.trim() || "Use the user's custom pose, camera and style notes.";
+  return preset.replace("{{USER_STYLE}}", customStyle);
 }
 
 export function getPoseSeriesStylePoseLines(value: unknown) {

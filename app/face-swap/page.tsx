@@ -238,6 +238,7 @@ export default function FaceSwapPage() {
 
         const nextProgress = Number.isFinite(Number(data.progress)) ? Number(data.progress) : progress;
         const nextUrls = Array.isArray(data.result_urls) ? data.result_urls : [];
+        const nextResultCount = nextUrls.filter(Boolean).length;
         const roundedProgress = Math.min(Math.max(Math.round(nextProgress), 0), 100);
         const inputThumbnails = [sourceUrl, faceUrl].filter(Boolean);
         setProgress(roundedProgress);
@@ -251,7 +252,7 @@ export default function FaceSwapPage() {
             expectedCount: requestedFaceSwapCount,
             inputThumbnails,
             resultThumbnails: nextUrls,
-            resultCount: nextUrls.length,
+            resultCount: nextResultCount,
           });
           setActiveQueueTask(completedTask);
           toast.success("换脸完成");

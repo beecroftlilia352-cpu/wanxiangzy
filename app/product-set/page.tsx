@@ -499,6 +499,52 @@ export default function ProductSetPage() {
     setProgress(0);
   }
 
+  function handleContinueCreate() {
+    setProductImages([]);
+    setProductInfo("");
+    setProductProfile(null);
+    setAnalysisDetail(null);
+    setAnalysisSource("idle");
+    setAnalysisMessage("");
+    setShowProductInfoEditor(false);
+    setShowProfileEditor(false);
+    setSettings({ ...DEFAULT_SETTINGS });
+    setMode("smart");
+    setPlanSourceTab("smart");
+    setImageType("details");
+    setSelectedTemplateIds([]);
+    setSelectedPlanId("smart");
+    setCustomTemplates([]);
+    setModuleOverrides([]);
+    setEditingModuleIndex(null);
+    setCustomDraft({ ...DEFAULT_DRAFT });
+    setAiModel("nano-banana-2");
+    setAspectRatio("3:4");
+    setImageSize("2K");
+    setGenCount(0);
+    setQualityMode("standard");
+    setReferenceStyleBrief("");
+    setReferenceStyleDraft(DEFAULT_REFERENCE_STYLE_BRIEF);
+    setTemplateFilter("all");
+    setTemplateQuery("");
+    setFavoritePlanName("");
+    setShowFavoritePlans(false);
+    setShowSettingsModal(false);
+    setShowTemplateModal(false);
+    setShowCustomBuilder(false);
+    setShowAnalysisDetails(false);
+    setShowAdvancedPlanSource(false);
+    setShowFullPlan(false);
+    setShowGenerationSettings(false);
+    setShowReferenceStyleModal(false);
+    setLightboxSrc(null);
+    resetOutput();
+    if (productInputRef.current) productInputRef.current.value = "";
+    if (customRefInputRef.current) customRefInputRef.current.value = "";
+    if (customModelRefInputRef.current) customModelRefInputRef.current.value = "";
+    if (customOtherRefInputRef.current) customOtherRefInputRef.current.value = "";
+  }
+
   function applyProductSetHistoryPayload(applyPayload: ProductSetHistoryPayload, historyResultUrls: string[] = [], options?: { silent?: boolean }) {
     const appliedImageType = applyPayload.imageType === "details" ? "details" : "main";
     const nextSettings = { ...DEFAULT_SETTINGS, ...(applyPayload.settings || {}) };
@@ -1426,7 +1472,7 @@ export default function ProductSetPage() {
       <ModuleTaskRail
         module="productSet"
         moduleLabel="商品套图"
-        onContinue={resetOutput}
+        onContinue={handleContinueCreate}
         onRunningTask={handleRunningTask}
         onCompletedTask={handleCompletedTask}
       />

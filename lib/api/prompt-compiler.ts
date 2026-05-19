@@ -122,11 +122,9 @@ export function compileImagePromptForModel(params: {
   }
 
   if (params.kind === "pose" && isSeparatePosePrompt(normalized)) {
-    return compileConcisePrompt(
-      params.kind,
+    return compileSeparatePosePrompt(
       normalized,
-      params.model === "gpt-image-2" ? 2800 : 2300,
-      "姿势裂变单图执行提示：本次只执行当前姿势槽位，参考图只锁定身份、服装、场景、光线、肤色和身体比例。"
+      params.model === "gpt-image-2" ? 2400 : 2200
     );
   }
 
@@ -156,6 +154,140 @@ function compileConcisePrompt(kind: ImagePromptKind, prompt: string, maxChars: n
   return limitPrompt(selected.join("\n"), maxChars);
 }
 
+function compileSeparatePosePrompt(prompt: string, maxChars: number) {
+  const lines = splitPromptIntoSignalLines(prompt);
+  const slotIndex = inferSeparatePoseSlotIndex(prompt);
+
+  if (isProductionSeparatePosePrompt(lines)) {
+    const compiled = limitPrompt(prompt, maxChars);
+    validateSeparatePoseCompiledPrompt(compiled, slotIndex);
+    return compiled;
+  }
+
+  const targetPoseLines = extractTargetPoseLines(lines, slotIndex);
+  const posePriorityLine = findFirstLine(lines, /^Priority:/i) || findFirstLine(lines, /^Pose priority:/i)
+    || "Priority: execute this pose direction clearly; do not copy the source pose.";
+  const creativeFreedomLine = findFirstLine(lines, /^Freedom:/i) || findFirstLine(lines, /^Creative freedom:/i)
+    || "Freedom: choose natural action details, hand gesture, gaze, expression, body angle and camera language.";
+  const cameraLine = findFirstLine(lines, /^Camera:/i)
+    || "Camera: auto choose premium womenswear model framing, lens feel, crop, distance, composition and negative space.";
+  const referenceLine = findFirstLine(lines, /^Keep:/i) || findFirstLine(lines, /^Reference only:/i) || findFirstLine(lines, /^Reference lock:/i)
+    || "Keep: same person, face, outfit, background, lighting, skin tone and realistic body proportions.";
+  const negativeLine = findFirstLine(lines, /^Negative:/i)
+    || "Negative: no outfit change, no face change, no extra person, no text, no grid/collage, no distorted hands or limbs.";
+  const selected = dedupeLines([
+    ...targetPoseLines,
+    posePriorityLine,
+    creativeFreedomLine,
+    cameraLine,
+    referenceLine,
+    ...lines.filter((line) => /^Style:/i.test(line)),
+    ...lines.filter((line) => /^补充要求[：:]/.test(line)),
+    negativeLine,
+  ]);
+  const compiled = limitPrompt(selected.join("\n"), maxChars);
+  validateSeparatePoseCompiledPrompt(compiled, slotIndex);
+  return compiled;
+}
+
+function isProductionSeparatePosePrompt(lines: string[]) {
+  return lines.some((line) => /^Use the source image only for the same person/i.test(line))
+    && lines.some((line) => /^Generate one standalone premium womenswear fashion photo/i.test(line))
+    && lines.some((line) => /^Keep the outfit commercially readable/i.test(line))
+    && lines.some((line) => /^Target pose:/i.test(line))
+    && lines.some((line) => /^Camera:/i.test(line));
+}
+
+const SEPARATE_POSE_TARGET_STOP_PATTERNS = [
+  /^Priority:/i,
+  /^Freedom:/i,
+  /^Camera:/i,
+  /^Keep:/i,
+  /^Pose priority:/i,
+  /^Creative freedom:/i,
+  /^Reference only:/i,
+  /^Reference lock:/i,
+  /^Style:/i,
+  /^Style hint:/i,
+  /^补充要求[：:]/,
+  /^Shot:/i,
+  /^Negative:/i,
+  /^HARD TARGET POSE SLOT/i,
+  /^Generate exactly ONE/i,
+  /^This API call/i,
+  /^Do NOT generate/i,
+  /^Use the uploaded image/i,
+  /^Priority:/i,
+  /^[1-4]\.\s/,
+  /^Keep:/i,
+  /^Allow:/i,
+  /^Generate one standalone/i,
+];
+
+const SEPARATE_POSE_REQUIRED_KEYWORDS: Record<number, string[]> = {
+  1: ["front-view", "front silhouette", "outfit"],
+  2: ["side-angle", "side silhouette", "shoulder line"],
+  3: ["stationary", "not walking", "waistline"],
+  4: ["movement", "walking", "fabric motion"],
+};
+
+function extractTargetPoseLines(lines: string[], slotIndex?: number) {
+  const targetLines: string[] = [];
+  let collecting = false;
+
+  for (const line of lines) {
+    if (/^Target pose:/i.test(line)) {
+      collecting = true;
+      targetLines.push("Target pose:");
+      const inlineTarget = line.replace(/^Target pose:\s*/i, "").trim();
+      if (inlineTarget) targetLines.push(inlineTarget);
+      continue;
+    }
+
+    if (collecting) {
+      if (SEPARATE_POSE_TARGET_STOP_PATTERNS.some((pattern) => pattern.test(line))) break;
+      targetLines.push(line);
+    }
+  }
+
+  if (targetLines.length > 1) return targetLines;
+
+  const fallbackPoseLine = lines.find((line) => {
+    if (slotIndex) {
+      return new RegExp(`^Pose\\s*${slotIndex}:`, "i").test(line)
+        || new RegExp(`^姿势\\s*${slotIndex}[：:]`).test(line);
+    }
+    return /^Pose\s*[1-4]:/i.test(line) || /^姿势\s*[1-4][：:]/.test(line);
+  });
+  return fallbackPoseLine ? ["Target pose:", fallbackPoseLine] : targetLines;
+}
+
+function inferSeparatePoseSlotIndex(prompt: string) {
+  const slotMatch = prompt.match(/HARD TARGET POSE SLOT\s+([1-4])\/4/i);
+  if (slotMatch) return Number(slotMatch[1]);
+  const targetMatch = prompt.match(/Target pose:\s*(?:\n|\r\n)?\s*Pose\s*([1-4]):/i);
+  if (targetMatch) return Number(targetMatch[1]);
+  const onlyMatch = prompt.match(/只生成姿势\s*([1-4])|pose\s*([1-4])/i);
+  if (onlyMatch) return Number(onlyMatch[1] || onlyMatch[2]);
+  const chinesePoseMatch = prompt.match(/^姿势\s*([1-4])[：:]/m);
+  return chinesePoseMatch ? Number(chinesePoseMatch[1]) : undefined;
+}
+
+function validateSeparatePoseCompiledPrompt(compiledPrompt: string, slotIndex?: number) {
+  if (!slotIndex) return;
+  if (!/Target pose:/i.test(compiledPrompt)) {
+    throw new Error(`Pose slot ${slotIndex}: compiledPrompt missing Target pose`);
+  }
+
+  const keywords = SEPARATE_POSE_REQUIRED_KEYWORDS[slotIndex] || [];
+  const lower = compiledPrompt.toLowerCase();
+  const hasRequiredKeyword = keywords.some((keyword) => lower.includes(keyword.toLowerCase()));
+  const hasCustomPoseLine = new RegExp(`姿势\\s*${slotIndex}[：:]`).test(compiledPrompt);
+  if (!hasRequiredKeyword && !hasCustomPoseLine) {
+    throw new Error(`Pose slot ${slotIndex}: compiledPrompt missing unique pose keywords`);
+  }
+}
+
 function getKindHeader(kind: ImagePromptKind, prompt: string) {
   if (kind === "pose" && isSeparatePosePrompt(prompt)) {
     return "核心任务：生成一张独立的单姿势完整图片，保持图1同一人、同一衣服和同一人物比例；不要生成 2x2、四宫格、拼图、分屏或 contact sheet。";
@@ -165,7 +297,11 @@ function getKindHeader(kind: ImagePromptKind, prompt: string) {
 }
 
 function isSeparatePosePrompt(prompt: string) {
-  return /每个姿势单独生成一张完整图片|当前请求只生成一张|本次单图任务|只生成姿势\d|HARD TARGET POSE SLOT|standalone 3:4 photo|独立单图请求/.test(prompt);
+  return /每个姿势单独生成一张完整图片|当前请求只生成一张|本次单图任务|只生成姿势\d|HARD TARGET POSE SLOT|standalone 3:4 photo|独立单图请求|Target pose:|Pose priority:|Creative freedom:|Reference only:|Reference lock:/.test(prompt);
+}
+
+function findFirstLine(lines: string[], pattern: RegExp) {
+  return lines.find((line) => pattern.test(line));
 }
 
 function collectRequiredSignalLines(kind: ImagePromptKind, lines: string[]) {

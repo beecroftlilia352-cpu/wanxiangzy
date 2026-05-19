@@ -401,7 +401,7 @@ export default function ModelBackgroundPage() {
             expectedCount: genCount,
             inputThumbnails: taskInputThumbnails,
             resultThumbnails: finalUrls,
-            resultCount: finalUrls.length,
+            resultCount: finalUrls.filter(Boolean).length,
           });
           toast.success("换背景生成完成");
           return;
@@ -465,11 +465,32 @@ export default function ModelBackgroundPage() {
   }
 
   function handleContinueCreate() {
+    setSourceUrl("");
+    setSourceName("");
+    setMode("background_only");
+    setModelReferenceUrl("");
+    setModelReferenceName("");
+    setBackgroundSource("preset");
+    setBackgroundPresetId("cafe-courtyard");
+    setBackgroundReferenceUrl(BACKGROUND_PRESETS[0].imageUrl);
+    setBackgroundText(DEFAULT_BACKGROUND_TEXT);
+    setUserPrompt("");
+    setAiModel("nano-banana-2");
+    setAspectRatio("3:4");
+    setImageSize("1K");
+    setGenCount(1);
+    setPromptOverride(null);
     setIsGenerating(false);
     setRunningExpectedCount(null);
     setProgress(0);
     setResultUrls([]);
     setError("");
+    setLightboxSrc(null);
+    setShowRules(false);
+    setRulesPopoverStyle(null);
+    if (sourceInputRef.current) sourceInputRef.current.value = "";
+    if (modelInputRef.current) modelInputRef.current.value = "";
+    if (backgroundInputRef.current) backgroundInputRef.current.value = "";
   }
 
   return (
