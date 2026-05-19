@@ -2,11 +2,10 @@
 
 import { type CSSProperties, type DragEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Camera, CheckCircle2, ChevronRight, Eye, FolderOpen, Loader2, Sparkles, Upload, UserRound, Wand, X, XCircle } from "lucide-react";
+import { Camera, CheckCircle2, ChevronRight, FolderOpen, Loader2, Sparkles, Upload, UserRound, X, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { FeatureTabs } from "@/components/FeatureTabs";
 import { RepairPromptPanel } from "@/components/RepairPromptPanel";
-import { ModelPromptPreview } from "@/components/ModelPromptPreview";
 import { ClientPortal } from "@/components/ClientPortal";
 import { ModuleHeader } from "@/components/ModuleHeader";
 import { PreviewGuide } from "@/components/PreviewGuide";
@@ -107,14 +106,12 @@ export default function ModelPage() {
   const [prompt, setPrompt] = useState("");
   const [promptTouched, setPromptTouched] = useState(false);
   const [userExtraPrompt, setUserExtraPrompt] = useState("");
-  const [isOptimizing, setIsOptimizing] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
   const [resultUrls, setResultUrls] = useState<string[]>([]);
   const [runningExpectedCount, setRunningExpectedCount] = useState<number | null>(null);
   const [activeResultMeta, setActiveResultMeta] = useState<{ createdAt: string; inputThumbnails: string[] } | null>(null);
   const [error, setError] = useState("");
-  const [showPromptPreview, setShowPromptPreview] = useState(false);
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const [showModelRules, setShowModelRules] = useState(false);
   const [rulesPopoverStyle, setRulesPopoverStyle] = useState<{ top: number; left: number; maxHeight: number } | null>(null);
@@ -362,33 +359,6 @@ export default function ModelPage() {
     } catch {
       setHairColorReferenceUrl(null);
       toast.error("发色参考图上传失败，请重试");
-    }
-  }
-
-  async function optimizePrompt() {
-    if (!referenceUrls.length) {
-      toast.error("请先上传参考图");
-      return;
-    }
-    setIsOptimizing(true);
-    try {
-      const res = await fetch("/api/model/analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reference_urls: referenceUrls, hair_reference_url: hairReferenceUrl, hair_color_reference_url: hairColorReferenceUrl, gender, hair_style: hairStyle, hair_color: hairColor, model_style: modelStyle, prompt }),
-      });
-      const data = await res.json();
-      if (data.prompt) {
-        setPromptTouched(true);
-        setPrompt(data.prompt);
-        toast.success("视觉分析已优化提示词");
-      } else {
-        toast.error("视觉优化失败，已保留当前提示词");
-      }
-    } catch {
-      toast.error("视觉优化失败");
-    } finally {
-      setIsOptimizing(false);
     }
   }
 
@@ -960,21 +930,6 @@ export default function ModelPage() {
               rows={4}
               description="补充说明会附加到系统提示词中，影响最终生成效果。"
             />
-
-            <button
-              type="button"
-              data-prompt-trigger="model"
-              aria-label="查看完整提示词"
-              onClick={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                setShowPromptPreview(true);
-              }}
-              className="studio-prompt-trigger flex w-full items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-bold transition-all"
-            >
-              <Eye className="w-3.5 h-3.5" />
-              查看完整提示词
-            </button>
           </section>
 
           <section>
@@ -1115,86 +1070,6 @@ export default function ModelPage() {
               </div>
             </div>
           </div>
-        </ClientPortal>
-      )}
-
-      {showPromptPreview && (
-        <ClientPortal>
-        <div
-          className="fixed inset-0 z-[220] flex min-h-dvh w-dvw items-center justify-center bg-slate-950/38 p-4 backdrop-blur-xl sm:p-6"
-          onClick={() => setShowPromptPreview(false)}
-        >
-          <div
-            className="max-h-[86dvh] w-full max-w-4xl overflow-hidden rounded-[28px] border border-white/80 bg-white/[0.94] shadow-[0_32px_100px_rgba(15,23,42,0.22)] backdrop-blur-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between border-b px-5 py-3">
-              <h3 className="text-sm font-bold">完整提示词</h3>
-              <button onClick={() => setShowPromptPreview(false)} className="rounded p-1 hover:bg-gray-100">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="max-h-[64dvh] space-y-3 overflow-y-auto px-5 py-4">
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  ["模块", "专属模特"],
-                  ["模型", aiModel],
-                  ["比例", aspectRatio],
-                  ["分辨率", imageSize],
-                  ["生成张数", `${genCount}`],
-                  ["融合参考", `${referenceUrls.length} 张`],
-                  ["发型参考", hairReferenceUrl ? "已使用" : hairStyle || "未使用"],
-                  ["发色参考", hairColorReferenceUrl ? "已使用" : hairColor || "未使用"],
-                ].map(([label, value]) => (
-                  <div key={label} className="rounded-lg border bg-gray-50 px-3 py-2">
-                    <p className="text-[10px] text-gray-400">{label}</p>
-                    <p className="break-words text-xs font-medium text-gray-700">{value}</p>
-                  </div>
-                ))}
-              </div>
-              <StudioPromptTextarea
-                value={prompt}
-                onChange={(e) => {
-                  setPromptTouched(true);
-                  setPrompt(e.target.value);
-                }}
-                className="studio-prompt-textarea-tall"
-              />
-              <ModelPromptPreview kind="model" model={aiModel} prompt={prompt} />
-              <button
-                onClick={optimizePrompt}
-                disabled={isOptimizing || !referenceUrls.length}
-                className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-purple-200 py-2 text-xs font-medium text-purple-600 hover:bg-purple-50 disabled:opacity-40"
-              >
-                {isOptimizing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand className="w-3.5 h-3.5" />}
-                分析图片并优化提示词
-              </button>
-              <button
-                onClick={() => {
-                  setPromptTouched(false);
-                  setPrompt(defaultPrompt);
-                }}
-                className="w-full rounded-lg border py-2 text-xs font-medium text-gray-500 hover:border-purple-300 hover:text-purple-600"
-              >
-                恢复默认模板
-              </button>
-            </div>
-            <div className="flex justify-end gap-2 border-t px-5 py-3">
-              <button
-                onClick={() => {
-                  navigator.clipboard.writeText(prompt);
-                  toast.success("已复制");
-                }}
-                className="rounded-full border px-4 py-1.5 text-xs font-medium hover:bg-gray-50"
-              >
-                复制
-              </button>
-              <button onClick={() => setShowPromptPreview(false)} className="gradient-brand rounded-full px-4 py-1.5 text-xs font-medium text-white">
-                关闭
-              </button>
-            </div>
-          </div>
-        </div>
         </ClientPortal>
       )}
 

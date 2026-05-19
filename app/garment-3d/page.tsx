@@ -2,11 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, ChevronRight, Eye, Loader2, Plus, Wand, X, XCircle, ZoomIn } from "lucide-react";
+import { CheckCircle2, ChevronRight, Loader2, Plus, Wand, X, XCircle, ZoomIn } from "lucide-react";
 import { toast } from "sonner";
 import { FeatureTabs } from "@/components/FeatureTabs";
 import { RepairPromptPanel } from "@/components/RepairPromptPanel";
-import { ModelPromptPreview } from "@/components/ModelPromptPreview";
 import { ClientPortal } from "@/components/ClientPortal";
 import { StyleChoiceGrid } from "@/components/StyleChoiceGrid";
 import { ModuleHeader } from "@/components/ModuleHeader";
@@ -105,7 +104,6 @@ export default function Garment3dPage() {
   const [resultUrls, setResultUrls] = useState<string[]>([]);
   const [runningExpectedCount, setRunningExpectedCount] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [showPromptPreview, setShowPromptPreview] = useState(false);
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const [showGarmentRules, setShowGarmentRules] = useState(false);
   const [rulesPopoverStyle, setRulesPopoverStyle] = useState<{ top: number; left: number; maxHeight: number } | null>(null);
@@ -141,10 +139,6 @@ export default function Garment3dPage() {
     : credits !== null && credits < totalCost
       ? `积分不足，生成需要 ${totalCost} 积分`
       : undefined;
-
-  const imageRoles = outputMode === "reference"
-    ? ["图1：用户上传服装图", "图2：3D立体效果参考图"]
-    : ["图1：用户上传服装图"];
 
   const cancelRulesHide = () => {
     if (rulesHideTimerRef.current) {
@@ -802,21 +796,6 @@ export default function Garment3dPage() {
               ariaLabel="分辨率"
             />
           </section>
-
-          <button
-            type="button"
-            data-prompt-trigger="garment3d"
-            aria-label="查看完整提示词"
-            onClick={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              setShowPromptPreview(true);
-            }}
-            className="studio-prompt-trigger flex w-full items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-bold transition-all"
-          >
-            <Eye className="w-3.5 h-3.5" /> 查看完整提示词
-          </button>
-
           <section>
             <h3 className="font-bold text-sm mb-3">生成数量</h3>
             <StudioGenerationCountSelector
@@ -953,69 +932,6 @@ export default function Garment3dPage() {
               </div>
             </div>
           </div>
-        </ClientPortal>
-      )}
-
-      {showPromptPreview && (
-        <ClientPortal>
-        <div className="fixed inset-0 z-[220] flex min-h-dvh w-dvw items-center justify-center bg-slate-950/38 p-4 backdrop-blur-xl sm:p-6" onClick={() => setShowPromptPreview(false)}>
-          <div className="max-h-[86dvh] w-full max-w-4xl overflow-hidden rounded-[28px] border border-white/80 bg-white/[0.94] shadow-[0_32px_100px_rgba(15,23,42,0.22)] backdrop-blur-2xl" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-5 py-3 border-b">
-              <h3 className="font-bold text-sm">完整提示词</h3>
-              <button onClick={() => setShowPromptPreview(false)} className="p-1 rounded hover:bg-gray-100">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="px-5 py-2 bg-gray-50 border-b flex gap-2 flex-wrap">
-              {imageRoles.map((role) => (
-                <span key={role} className="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 text-[10px] font-medium">
-                  {role}
-                </span>
-              ))}
-            </div>
-            <div className="px-5 py-4 overflow-y-auto max-h-[64dvh] space-y-3">
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  ["模型", aiModel],
-                  ["比例", aspectRatio],
-                  ["分辨率", imageSize],
-                  ["生成张数", `${genCount}`],
-                  ["服装类型", garmentType === "其他" ? customGarmentType || "其他" : garmentType],
-                  ["输出模式", outputMode === "reference" ? "参考图模式" : "提示词模式"],
-                  ["3D参考图", outputMode === "reference" && activeReferenceUrl ? "已使用" : "未使用"],
-                  ["用户输入", prompt || "无"],
-                ].map(([label, value]) => (
-                  <div key={label} className="rounded-lg border bg-gray-50 px-3 py-2">
-                    <p className="text-[10px] text-gray-400">{label}</p>
-                    <p className="text-xs font-medium text-gray-700 break-words">{value}</p>
-                  </div>
-                ))}
-              </div>
-              <StudioPromptTextarea
-                value={finalPrompt}
-                onChange={(e) => setPromptOverride(e.target.value)}
-                className="studio-prompt-textarea-tall"
-              />
-              <ModelPromptPreview kind="garment3d" model={aiModel} prompt={finalPrompt} />
-              <button
-                onClick={optimizePrompt}
-                disabled={isOptimizing || !garmentUrl}
-                className="w-full py-2 rounded-lg border border-dashed border-purple-200 text-xs font-medium text-purple-600 hover:bg-purple-50 disabled:opacity-40 flex items-center justify-center gap-1.5"
-              >
-                {isOptimizing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand className="w-3.5 h-3.5" />}
-                分析图片并优化提示词
-              </button>
-            </div>
-            <div className="px-5 py-3 border-t bg-gray-50 flex justify-end gap-2">
-              <button onClick={() => { navigator.clipboard.writeText(finalPrompt); toast.success("已复制"); }} className="px-4 py-1.5 rounded-full border text-xs font-medium hover:bg-gray-50">
-                复制
-              </button>
-              <button onClick={() => setShowPromptPreview(false)} className="px-4 py-1.5 rounded-full gradient-brand text-white text-xs font-medium">
-                关闭
-              </button>
-            </div>
-          </div>
-        </div>
         </ClientPortal>
       )}
 

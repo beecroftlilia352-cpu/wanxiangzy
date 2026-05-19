@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { applyPoseSeriesStylePrompt } from "@/lib/module-style-presets";
-import { buildSeparatePoseSlotDirective, buildSeparatePoseStoryboardPlan, enforcePosePromptRequirements } from "@/lib/pose-prompt";
+import { buildSeparatePosePrompt, buildSeparatePoseSlotDirective, buildSeparatePoseStoryboardPlan, enforcePosePromptRequirements } from "@/lib/pose-prompt";
 
 describe("pose prompt handling", () => {
   it("keeps user custom pose lines instead of replacing them with defaults", () => {
@@ -66,16 +66,43 @@ describe("pose prompt handling", () => {
       outputMode: "separate",
     });
 
-    expect(enforced).toContain("每个姿势单独一张图");
+    expect(enforced).toContain("当前请求只生成一张");
     expect(enforced).toContain("不要四宫格");
     expect(enforced).not.toContain("必须生成单张图片中的 2x2 四宫格");
     expect(enforced).not.toContain("生成四宫格姿势裂变");
     expect(enforced).not.toContain("四个分格");
     expect(enforced).not.toContain("连续 pose sheet");
     expect(enforced).toContain("姿势裂变拍摄风格档位：轻奢 Lookbook");
-    expect(enforced).toContain("单图裂变规则");
-    expect(enforced).toContain("单张生产线分镜");
-    expect(enforced).toContain("不要复制图1原动作");
+    expect(enforced).not.toContain("单图裂变规则");
+    expect(enforced).not.toContain("单张生产线分镜");
+    expect(enforced).not.toContain("同组四张");
+    expect(enforced).toContain("当前单张图片");
+  });
+
+  it("scopes separate execution prompt to one slot without group storyboard noise", () => {
+    const basePrompt = enforcePosePromptRequirements(
+      [
+        "保持图1人物、服装和商业摄影质感，生成姿势裂变。",
+        "姿势1：正面自然站立，双手自然下垂。",
+        "姿势2：身体侧转30度，一手整理衣领。",
+        "姿势3：重心偏移，一手扶腰。",
+        "姿势4：轻微迈步回眸。",
+      ].join("\n"),
+      { poseStyle: "fashion_editorial", outputMode: "separate", varyExpression: true }
+    );
+
+    const slot2 = buildSeparatePosePrompt(basePrompt, 2);
+
+    expect(slot2).toContain("HARD TARGET POSE SLOT 2/4");
+    expect(slot2).toContain("API call has no memory");
+    expect(slot2).toContain("姿势2：身体侧转30度");
+    expect(slot2).not.toContain("姿势1：");
+    expect(slot2).not.toContain("姿势3：");
+    expect(slot2).not.toContain("姿势4：");
+    expect(slot2).not.toContain("本组四张");
+    expect(slot2).not.toContain("用户自定义四槽计划");
+    expect(slot2).not.toContain("全组差异校验");
+    expect(slot2.length).toBeLessThan(3600);
   });
 
   it("provides distinct default directions for separate pose slots", () => {

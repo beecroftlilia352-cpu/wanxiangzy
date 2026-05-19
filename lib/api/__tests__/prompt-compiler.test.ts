@@ -70,6 +70,26 @@ describe("compileImagePromptForModel", () => {
     expect(result).not.toContain("生成单张 2x2 四宫格姿势裂变图");
   });
 
+  it("keeps gpt-image-2 separate pose prompts concise", () => {
+    const result = compileImagePromptForModel({
+      kind: "pose",
+      model: "gpt-image-2",
+      prompt: [
+        "HARD TARGET POSE SLOT 3/4.",
+        "Generate exactly ONE standalone 3:4 photo for pose 3.",
+        "当前姿势硬目标：姿势3：重心偏移，一手扶腰，另一只手自然下垂。",
+        "服装展示规则：当前单张图片必须保持同一套服装的版型、颜色和纹理。",
+        "身体动作规则：动作自然可信，避免断手和身体比例漂移。",
+        "负面约束：不要换脸，不要换衣服，不要改变场景。",
+        "冗余描述".repeat(2000),
+      ].join("\n"),
+    });
+
+    expect(result).toContain("单图执行提示");
+    expect(result).toContain("HARD TARGET POSE SLOT 3/4");
+    expect(result.length).toBeLessThanOrEqual(2800);
+  });
+
   it("normalizes line breaks and excess whitespace", () => {
     const messyPrompt = "  Hello   world  \r\n\r\n\r\n  Test  ";
     const result = compileImagePromptForModel({

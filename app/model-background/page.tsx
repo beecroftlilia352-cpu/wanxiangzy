@@ -6,12 +6,10 @@ import {
   Camera,
   CheckCircle2,
   ChevronRight,
-  Eye,
   Images,
   Loader2,
   Sparkles,
   UserRound,
-  Wand,
   X,
   ZoomIn,
 } from "lucide-react";
@@ -19,7 +17,6 @@ import { toast } from "sonner";
 import { ClientPortal } from "@/components/ClientPortal";
 import { FeatureTabs } from "@/components/FeatureTabs";
 import { ModuleHeader } from "@/components/ModuleHeader";
-import { ModelPromptPreview } from "@/components/ModelPromptPreview";
 import { PreviewGuide } from "@/components/PreviewGuide";
 import { RepairPromptPanel } from "@/components/RepairPromptPanel";
 import { ErrorStage } from "@/components/studio/ErrorStage";
@@ -116,7 +113,6 @@ export default function ModelBackgroundPage() {
   const [imageSize, setImageSize] = useState<ImageSize>("1K");
   const [genCount, setGenCount] = useState(1);
   const [promptOverride, setPromptOverride] = useState<string | null>(null);
-  const [isOptimizingPrompt, setIsOptimizingPrompt] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [uploadingTarget, setUploadingTarget] = useState<UploadTarget | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -124,7 +120,6 @@ export default function ModelBackgroundPage() {
   const [resultUrls, setResultUrls] = useState<string[]>([]);
   const [runningExpectedCount, setRunningExpectedCount] = useState<number | null>(null);
   const [error, setError] = useState("");
-  const [showPromptPreview, setShowPromptPreview] = useState(false);
   const [showRules, setShowRules] = useState(false);
   const [rulesPopoverStyle, setRulesPopoverStyle] = useState<{ top: number; left: number; maxHeight: number } | null>(null);
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
@@ -477,48 +472,6 @@ export default function ModelBackgroundPage() {
     setError("");
   }
 
-  async function handleOptimizeGenerationPrompt() {
-    if (!sourceUrl) {
-      toast.error("请先上传原图");
-      return;
-    }
-    if (mode !== "background_only" && !modelReferenceUrl) {
-      toast.error("请选择或上传模特参考图");
-      return;
-    }
-    if (mode !== "model_only" && (backgroundSource === "preset" || backgroundSource === "upload") && !backgroundReferenceUrl) {
-      toast.error("请选择或上传背景参考图");
-      return;
-    }
-    setIsOptimizingPrompt(true);
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 30000);
-      const res = await fetch("/api/optimize-generation-prompt", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        signal: controller.signal,
-        body: JSON.stringify({
-          module_kind: "modelBackground",
-          base_prompt: finalPrompt,
-          user_context: `${MODEL_BACKGROUND_MODE_LABELS[mode]} / ${BACKGROUND_SOURCE_LABELS[backgroundSource]} / 补充：${userPrompt.trim() || "无"}`,
-          images: promptImages,
-        }),
-      }).finally(() => clearTimeout(timeout));
-      const data = await res.json().catch(() => ({}));
-      if (res.ok && data.prompt) {
-        setPromptOverride(data.prompt);
-        toast.success("AI 已优化完整提示词");
-      } else {
-        toast.error(data.error || "暂时没有返回优化结果");
-      }
-    } catch (err: unknown) {
-      toast.error(err instanceof Error && err.name === "AbortError" ? "AI 优化超时" : "AI 优化失败");
-    } finally {
-      setIsOptimizingPrompt(false);
-    }
-  }
-
   return (
     <div className="studio-workbench min-h-[calc(100dvh-64px)] lg:h-[calc(100vh-64px)] flex flex-col lg:flex-row">
       <FeatureTabs active="modelBackground" />
@@ -828,13 +781,6 @@ export default function ModelBackgroundPage() {
               ariaLabel="分辨率"
             />
           </section>
-
-          <section>
-            <button type="button" onClick={() => setShowPromptPreview(true)} className="studio-prompt-trigger flex w-full items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-bold transition-all">
-              <Eye className="h-3.5 w-3.5" /> 查看完整提示词
-            </button>
-          </section>
-
           <section>
             <h3 className="mb-3 text-sm font-bold text-slate-950">生成数量</h3>
             <StudioGenerationCountSelector
@@ -942,92 +888,6 @@ export default function ModelBackgroundPage() {
                     <p className="mt-2 text-center text-xs font-semibold text-slate-700">{bad.title}</p>
                   </div>
                 ))}
-              </div>
-            </div>
-          </div>
-        </ClientPortal>
-      ) : null}
-
-      {showPromptPreview ? (
-        <ClientPortal>
-          <div className="fixed inset-0 z-[220] flex min-h-dvh w-dvw items-center justify-center bg-slate-950/38 p-4 backdrop-blur-xl sm:p-6" onClick={() => setShowPromptPreview(false)}>
-            <div className="max-h-[86dvh] w-full max-w-4xl overflow-hidden rounded-[28px] border border-white/80 bg-white/[0.94] shadow-[0_32px_100px_rgba(15,23,42,0.22)] backdrop-blur-2xl" onClick={(e) => e.stopPropagation()}>
-              <div className="flex items-center justify-between border-b px-5 py-3">
-                <h3 className="text-sm font-bold">{promptOverride ? "完整提示词" : "默认提示词模板"}</h3>
-                <button type="button" onClick={() => setShowPromptPreview(false)} className="rounded p-1 hover:bg-gray-100"><X className="h-4 w-4" /></button>
-              </div>
-              <div className="border-b bg-gray-50 px-5 py-2">
-                <div className="flex flex-wrap gap-2">
-                  {promptImages.map((image) => (
-                    <span key={`${image.imageNumber}-${image.url}`} className="rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-medium text-purple-700">
-                      图{image.imageNumber}：{image.role}
-                    </span>
-                  ))}
-                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700">
-                    {MODEL_BACKGROUND_MODE_LABELS[mode]}
-                  </span>
-                </div>
-              </div>
-              <div className="max-h-[64dvh] space-y-3 overflow-y-auto px-5 py-4">
-                <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
-                  {[
-                    ["模型", aiModel],
-                    ["比例", aspectRatio],
-                    ["分辨率", imageSize],
-                    ["生成张数", `${genCount}`],
-                    ["模式", MODEL_BACKGROUND_MODE_LABELS[mode]],
-                    ["背景来源", mode === "model_only" ? "未使用" : BACKGROUND_SOURCE_LABELS[backgroundSource]],
-                    ["背景参考", backgroundReferenceLabel],
-                    ["模特参考", mode === "background_only" ? "未使用" : hasModelReference ? "已使用" : "必选未选"],
-                  ].map(([label, value]) => (
-                    <div key={label} className="rounded-lg border bg-gray-50 px-3 py-2">
-                      <p className="text-[10px] text-gray-400">{label}</p>
-                      <p className="break-words text-xs font-medium text-gray-700">{value}</p>
-                    </div>
-                  ))}
-                </div>
-                <StudioPromptTextarea
-                  value={finalPrompt}
-                  onChange={(e) => setPromptOverride(e.target.value)}
-                  className="studio-prompt-textarea-tall"
-                />
-                <ModelPromptPreview kind="modelBackground" model={aiModel} prompt={finalPrompt} className="mt-3" />
-                <button
-                  type="button"
-                  onClick={handleOptimizeGenerationPrompt}
-                  disabled={isOptimizingPrompt || !sourceUrl}
-                  className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-purple-200 py-2 text-xs font-medium text-purple-600 hover:bg-purple-50 disabled:opacity-40"
-                >
-                  {isOptimizingPrompt ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand className="h-3.5 w-3.5" />}
-                  AI 优化完整提示词
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const repaired = applyRepairPrompt(finalPrompt, "tryon", "garment_restore");
-                    setPromptOverride(repaired);
-                    navigator.clipboard.writeText(repaired);
-                    toast.success("已复制并套用服装还原修复提示词");
-                  }}
-                  className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-purple-200 py-2 text-xs font-medium text-purple-600 hover:bg-purple-50"
-                >
-                  <Wand className="h-3.5 w-3.5" /> 一键加强服装还原
-                </button>
-              </div>
-              <div className="flex justify-between gap-2 border-t bg-gray-50 px-5 py-3">
-                <button
-                  onClick={() => {
-                    setPromptOverride(null);
-                    toast.success("已重置为默认提示词");
-                  }}
-                  className="rounded-full border border-dashed border-gray-300 px-4 py-1.5 text-xs font-medium text-gray-500 transition-colors hover:border-purple-300 hover:text-purple-600"
-                >
-                  重置默认
-                </button>
-                <div className="flex gap-2">
-                  <button onClick={() => { navigator.clipboard.writeText(finalPrompt); toast.success("已复制"); }} className="rounded-full border px-4 py-1.5 text-xs font-medium hover:bg-gray-50">复制</button>
-                  <button onClick={() => setShowPromptPreview(false)} className="gradient-brand rounded-full px-4 py-1.5 text-xs font-medium text-white">关闭</button>
-                </div>
               </div>
             </div>
           </div>

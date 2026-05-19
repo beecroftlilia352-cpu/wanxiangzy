@@ -5,7 +5,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { 
   Upload, UserRound, Image, Sparkles,
-  RefreshCw, X, Camera, ChevronRight, Wand, Loader2, ZoomIn, Eye,
+  RefreshCw, X, Camera, ChevronRight, Wand, Loader2, ZoomIn,
   FolderOpen, CheckCircle2, XCircle,
 } from "lucide-react";
 import { useTryOnStore } from "@/lib/store/tryon-store";
@@ -14,7 +14,6 @@ import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { getCreditCost, getSupportedImageSizes, buildTryOnPrompt, isNanoBananaModel, type LingyaModel, type ImageSize, type AspectRatio } from "@/lib/api/lingya";
 import { toast } from "sonner";
 import { RepairPromptPanel } from "@/components/RepairPromptPanel";
-import { ModelPromptPreview } from "@/components/ModelPromptPreview";
 import { ClientPortal } from "@/components/ClientPortal";
 import { ModuleHeader } from "@/components/ModuleHeader";
 import { LoadingStage } from "@/components/studio/LoadingStage";
@@ -177,7 +176,6 @@ export default function CreatePage() {
   const [imageSize, setImageSize] = useState<ImageSize>("1K");
   const [customStyle, setCustomStyle] = useState("");
   const [optimizing, setOptimizing] = useState(false);
-  const [showPromptPreview, setShowPromptPreview] = useState(false);
   const [promptOverride, setPromptOverride] = useState<string | null>(null);
   const [sceneMode, setSceneMode] = useState<TryOnSceneMode>("auto_design");
   const [autoDesign, setAutoDesign] = useState<AutoDesignSettings>(DEFAULT_AUTO_DESIGN);
@@ -626,16 +624,6 @@ export default function CreatePage() {
     hasReference: !!effectiveReferenceUrl,
     style: stylePrompt || undefined,
   });
-  const analysisBasePrompt = buildTryOnPrompt({
-    clothingCount: store.clothingFiles.length || 1,
-    clothingMode,
-    clothingRoles,
-    garmentAudience,
-    ageGroup,
-    aspectRatio,
-    hasModelFace: !!store.selectedModel,
-    hasReference: !!effectiveReferenceUrl,
-  });
   const finalPrompt = promptOverride ?? (store.promptUsed || promptPreview.prompt);
 
   // ---- 智能优化提示词 ----
@@ -651,46 +639,6 @@ export default function CreatePage() {
       if (data.optimized) { setCustomStyle(data.optimized); toast.success("提示词已优化"); }
     } catch { toast.error("优化失败"); }
     setOptimizing(false);
-  };
-
-  const handleAnalyzeFullPrompt = async () => {
-    if (!uploadedClothingUrls.length) { toast.error("请先上传衣服"); return; }
-    setOptimizing(true);
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 30000);
-      const res = await fetch("/api/analyze-images", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        signal: controller.signal,
-        body: JSON.stringify({
-          clothing_urls: uploadedClothingUrls,
-          clothing_mode: clothingMode,
-          clothing_roles: clothingRoles,
-          garment_audience: garmentAudience,
-          age_group: ageGroup,
-          garment_category: isIntimateGarment ? "intimate" : "regular",
-          aspect_ratio: aspectRatio,
-          model_face_url: store.selectedModel?.image_url,
-          reference_url: effectiveReferenceUrl,
-          base_prompt: analysisBasePrompt.prompt,
-          user_style: stylePrompt || undefined,
-        }),
-      }).finally(() => clearTimeout(timeout));
-
-      const data = await res.json().catch(() => ({}));
-      if (res.ok && data.prompt) {
-        setPromptOverride(data.prompt);
-        store.setPromptUsed(data.prompt);
-        toast.success("视觉分析已优化完整提示词");
-      } else {
-        toast.error(data.error || "暂时没有返回优化结果");
-      }
-    } catch (err: any) {
-      toast.error(err?.name === "AbortError" ? "视觉分析超时" : "视觉分析失败");
-    } finally {
-      setOptimizing(false);
-    }
   };
 
   const applyClothingItems = (items: ClothingItemState[]) => {
@@ -2049,20 +1997,6 @@ export default function CreatePage() {
               ))}
             </div>
 
-            {/* 查看提示词 */}
-            <button
-              type="button"
-              data-prompt-trigger="tryon"
-              aria-label="查看完整提示词"
-              onClick={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                setShowPromptPreview(true);
-              }}
-              className="studio-prompt-trigger mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-bold transition-all">
-              <Eye className="w-3.5 h-3.5" />
-              查看完整提示词
-            </button>
           </section>
 
           {/* ---- 生成数量 ---- */}
@@ -2169,22 +2103,7 @@ export default function CreatePage() {
                 </div>
 
                 <div className="absolute bottom-0 left-0 right-0 flex flex-col gap-2 border-t border-white/70 bg-white/86 px-4 py-3 shadow-[0_-18px_45px_rgba(15,23,42,0.08)] backdrop-blur-2xl sm:flex-row sm:items-center sm:justify-between sm:px-6">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-slate-500">服装上身结果</span>
-                    {store.promptUsed && (
-                      <button
-                        type="button"
-                        onClick={(event) => {
-                          event.preventDefault();
-                          event.stopPropagation();
-                          setShowPromptPreview(true);
-                        }}
-                        className="text-xs font-semibold text-violet-600 underline-offset-2 hover:text-violet-800 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
-                      >
-                        查看提示词
-                      </button>
-                    )}
-                  </div>
+                  <span className="text-xs text-slate-500">服装上身结果</span>
                   <div className="flex flex-wrap gap-2">
                     <RepairPromptPanel
                       kind="tryon"
@@ -2314,103 +2233,6 @@ export default function CreatePage() {
         </ClientPortal>
       )}
 
-      {/* ========== 提示词预览 ========== */}
-      {showPromptPreview && (
-        <ClientPortal>
-        <div className="fixed inset-0 z-[220] flex min-h-dvh w-dvw items-center justify-center bg-slate-950/38 p-4 backdrop-blur-xl sm:p-6"
-          onClick={() => setShowPromptPreview(false)}>
-          <div className="max-h-[86dvh] w-full max-w-4xl overflow-hidden rounded-[28px] border border-white/80 bg-white/[0.94] shadow-[0_32px_100px_rgba(15,23,42,0.22)] backdrop-blur-2xl"
-            onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-5 py-3 border-b">
-              <h3 className="font-bold text-sm">{promptOverride || store.promptUsed ? "完整提示词" : "默认提示词模板"}</h3>
-              <button onClick={() => setShowPromptPreview(false)} className="p-1 rounded hover:bg-gray-100">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="px-5 py-2 bg-gray-50 border-b">
-              <div className="flex gap-2 flex-wrap">
-                {promptPreview.imageRoles.map((role, i) => (
-                  <span key={i} className="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 text-[10px] font-medium">
-                    图{i + 1}：{role}
-                  </span>
-                ))}
-                {customStyle && (
-                  <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-medium">
-                    + 风格补充
-                  </span>
-                )}
-                {sceneMode === "auto_design" && (
-                  <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-medium">
-                    + 智能模式
-                  </span>
-                )}
-              </div>
-            </div>
-
-            <div className="px-5 py-4 overflow-y-auto max-h-[64dvh] space-y-3">
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  ["模型", aiModel],
-                  ["比例", aspectRatio],
-                  ["分辨率", imageSize],
-                  ["生成张数", `${genCount}`],
-                  ["上身模式", TRYON_CLOTHING_MODE_LABELS[clothingMode]],
-                  ["服装角色", clothingRoles.map((role) => TRYON_CLOTHING_ROLE_LABELS[role]).join("、") || "未上传"],
-                  ["服装人群", TRYON_GARMENT_AUDIENCE_LABELS[garmentAudience]],
-                  ["年龄段", TRYON_AGE_GROUP_LABELS[ageGroup]],
-                  ["服装类别", isIntimateGarment ? "内衣/泳衣类" : "常规服装"],
-                  ["服装数量", `${uploadedClothingUrls.length}`],
-                  ["模特脸", store.selectedModel ? "已使用" : "未使用"],
-                  ["场景模式", SCENE_MODE_LABELS[sceneMode]],
-                  ["参考图", effectiveReferenceUrl ? "已使用" : "未使用"],
-                  ["智能方案", sceneMode === "auto_design" ? AUTO_DESIGN_PLATFORMS.find((item) => item.value === resolvedAutoDesign.platform)?.label || "-" : "未使用"],
-                  ["智能背景", sceneMode === "auto_design" ? AUTO_DESIGN_BACKGROUNDS.find((item) => item.value === resolvedAutoDesign.background)?.label || "-" : "未使用"],
-                  ["用户输入", customStyle || "无"],
-                ].map(([label, value]) => (
-                  <div key={label} className="rounded-lg border bg-gray-50 px-3 py-2">
-                    <p className="text-[10px] text-gray-400">{label}</p>
-                    <p className="text-xs font-medium text-gray-700 break-words">{value}</p>
-                  </div>
-                ))}
-              </div>
-              <StudioPromptTextarea
-                value={finalPrompt}
-                onChange={(e) => {
-                  setPromptOverride(e.target.value);
-                  store.setPromptUsed(e.target.value);
-                }}
-                className="studio-prompt-textarea-tall"
-              />
-              <ModelPromptPreview kind="tryon" model={aiModel} prompt={finalPrompt} className="mt-3" />
-              <button
-                onClick={handleAnalyzeFullPrompt}
-                disabled={optimizing || !uploadedClothingUrls.length}
-                className="w-full py-2 rounded-lg border border-dashed border-purple-200 text-xs font-medium text-purple-600 hover:bg-purple-50 disabled:opacity-40 flex items-center justify-center gap-1.5"
-              >
-                {optimizing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand className="w-3.5 h-3.5" />}
-                分析图片并优化提示词
-              </button>
-            </div>
-
-            <div className="px-5 py-3 border-t bg-gray-50 flex justify-between gap-2">
-              <button onClick={() => {
-                setPromptOverride(null);
-                store.setPromptUsed("");
-                toast.success("已重置为默认提示词");
-              }}
-                className="px-4 py-1.5 rounded-full border border-dashed border-gray-300 text-xs font-medium text-gray-500 hover:border-purple-300 hover:text-purple-600 transition-colors">重置默认</button>
-              <div className="flex gap-2">
-                <button onClick={() => { navigator.clipboard.writeText(finalPrompt); toast.success("已复制"); }}
-                  className="px-4 py-1.5 rounded-full border text-xs font-medium hover:bg-gray-50">复制</button>
-                <button onClick={() => setShowPromptPreview(false)}
-                  className="px-4 py-1.5 rounded-full gradient-brand text-white text-xs font-medium">关闭</button>
-              </div>
-            </div>
-          </div>
-        </div>
-        </ClientPortal>
-      )}
     </>
   );
 }

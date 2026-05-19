@@ -8,8 +8,8 @@ import {
 import { startGenerationJob, type GenerationJobPayload } from "@/lib/api/generation-jobs";
 import { handleGenerationStatusGet } from "@/lib/api/generation-status";
 import { getPublicBaseUrlFromRequest } from "@/lib/api/image-inputs.server";
-import { enforcePosePromptRequirements, type PoseOutputMode } from "@/lib/pose-prompt";
-import { applyPoseSeriesStylePrompt, normalizePoseSeriesStyle } from "@/lib/module-style-presets";
+import { type PoseOutputMode } from "@/lib/pose-prompt";
+import { normalizePoseSeriesStyle } from "@/lib/module-style-presets";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 
 export const maxDuration = 60;
@@ -41,14 +41,13 @@ export async function POST(request: NextRequest) {
     const unitCost = getCreditCost(model, size, POSE_ASPECT_RATIO);
     const totalCost = unitCost * genCount;
     const poseStyle = normalizePoseSeriesStyle(pose_style);
-    const finalPrompt = enforcePosePromptRequirements(applyPoseSeriesStylePrompt(prompt, poseStyle), { varyExpression, poseStyle, outputMode });
     const jobPayload: GenerationJobPayload = {
       kind: "pose",
       publicBaseUrl: getPublicBaseUrlFromRequest(request),
       mainImageUrl: main_image_url,
       aiModel: model,
       imageSize: size,
-      prompt: finalPrompt,
+      prompt: String(prompt).trim(),
       varyExpression,
       poseStyle,
       outputMode,

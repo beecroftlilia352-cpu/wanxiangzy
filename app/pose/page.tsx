@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, ChevronRight, Eye, PenLine, Sparkles, X, XCircle } from "lucide-react";
+import { CheckCircle2, ChevronRight, PenLine, Sparkles, X, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
@@ -10,7 +10,7 @@ import { getCreditCost, getSupportedImageSizes, type ImageSize, type LingyaModel
 import { FeatureTabs } from "@/components/FeatureTabs";
 import { RepairPromptPanel } from "@/components/RepairPromptPanel";
 import { ClientPortal } from "@/components/ClientPortal";
-import { enforcePosePromptRequirements, type PoseOutputMode } from "@/lib/pose-prompt";
+import { type PoseOutputMode } from "@/lib/pose-prompt";
 import { ModuleHeader } from "@/components/ModuleHeader";
 import { PreviewGuide } from "@/components/PreviewGuide";
 import { ErrorStage } from "@/components/studio/ErrorStage";
@@ -31,7 +31,6 @@ import {
   POSE_SERIES_STYLES,
   USER_CUSTOM_POSE_DEFAULT,
   applyPoseSeriesStylePrompt,
-  getPoseSeriesStyleLabel,
   normalizePoseSeriesStyle,
   type PoseSeriesStyle,
 } from "@/lib/module-style-presets";
@@ -129,7 +128,6 @@ export default function PosePage() {
   const [resultUrls, setResultUrls] = useState<string[]>([]);
   const [runningExpectedCount, setRunningExpectedCount] = useState<number | null>(null);
   const [error, setError] = useState("");
-  const [showPromptPreview, setShowPromptPreview] = useState(false);
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const [showPoseRules, setShowPoseRules] = useState(false);
   const [rulesPopoverStyle, setRulesPopoverStyle] = useState<{ top: number; left: number; maxHeight: number } | null>(null);
@@ -156,15 +154,6 @@ export default function PosePage() {
     : credits !== null && credits < cost
       ? `积分不足，生成需要 ${cost} 积分`
       : undefined;
-  const effectivePosePrompt = stripLegacyRuleDemoText([
-    poseStyle === "user_custom" ? buildCustomPosePrompt() : prompt,
-    supplementPrompt.trim() ? `补充要求：${supplementPrompt.trim()}` : "",
-  ].filter(Boolean).join("\n\n"));
-  const finalPosePrompt = enforcePosePromptRequirements(
-    applyPoseSeriesStylePrompt(effectivePosePrompt, poseStyle),
-    { varyExpression, poseStyle, outputMode }
-  );
-
   const cancelRulesHide = () => {
     if (rulesHideTimerRef.current) {
       clearTimeout(rulesHideTimerRef.current);
@@ -381,13 +370,14 @@ export default function PosePage() {
           main_image_url: mainImage,
           ai_model: aiModel,
           image_size: imageSize,
-          prompt: stripLegacyRuleDemoText(
+          prompt: stripLegacyRuleDemoText([
             typeof promptForRun === "string"
               ? promptForRun
               : poseStyle === "user_custom"
                 ? buildCustomPosePrompt()
-                : prompt
-          ),
+                : prompt,
+            supplementPrompt.trim() ? `补充要求：${supplementPrompt.trim()}` : "",
+          ].filter(Boolean).join("\n\n")),
           vary_expression: varyExpression,
           pose_style: poseStyle,
           output_mode: outputMode,
@@ -770,24 +760,6 @@ export default function PosePage() {
             placeholder="可选：例如希望动作更自然、镜头更干净、服装褶皱保持一致、四张图构图更统一..."
             description="补充说明会附加到系统提示词中，影响最终生成效果。"
           />
-
-          <section>
-            <h3 className="font-bold text-sm mb-3">提示词</h3>
-            <button
-              type="button"
-              data-prompt-trigger="pose"
-              aria-label="查看完整提示词"
-              onClick={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                setShowPromptPreview(true);
-              }}
-              className="studio-prompt-trigger flex w-full items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-bold transition-all"
-            >
-              <Eye className="w-3.5 h-3.5" />
-              查看完整提示词
-            </button>
-          </section>
         </div>
 
         <StudioRunBar
@@ -917,79 +889,6 @@ export default function PosePage() {
               </div>
             </div>
           </div>
-        </ClientPortal>
-      )}
-
-      {showPromptPreview && (
-        <ClientPortal>
-        <div
-          className="fixed inset-0 z-[220] flex min-h-dvh w-dvw items-center justify-center bg-slate-950/38 p-4 backdrop-blur-xl sm:p-6"
-          onClick={() => setShowPromptPreview(false)}
-        >
-          <div
-            className="max-h-[86dvh] w-full max-w-4xl overflow-hidden rounded-[28px] border border-white/80 bg-white/[0.94] shadow-[0_32px_100px_rgba(15,23,42,0.22)] backdrop-blur-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between border-b px-5 py-3">
-              <h3 className="text-sm font-bold">完整提示词</h3>
-              <button onClick={() => setShowPromptPreview(false)} className="rounded p-1 hover:bg-gray-100">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="max-h-[64dvh] space-y-3 overflow-y-auto px-5 py-4">
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  ["模块", "姿势裂变"],
-                  ["模型", aiModel],
-                  ["分辨率", imageSize],
-                  ["风格", getPoseSeriesStyleLabel(poseStyle)],
-                  ["输出", outputMode === "separate" ? "每姿势一张" : "四宫格拼图"],
-                  ["表情控制", varyExpression ? "自然变化" : "严格一致"],
-                  ["主图", mainImage ? "已上传" : "未上传"],
-                ].map(([label, value]) => (
-                  <div key={label} className="rounded-lg border bg-gray-50 px-3 py-2">
-                    <p className="text-[10px] text-gray-400">{label}</p>
-                    <p className="break-words text-xs font-medium text-gray-700">{value}</p>
-                  </div>
-                ))}
-              </div>
-              <div className="rounded-xl border border-emerald-100 bg-emerald-50/60 p-3">
-                <div className="mb-2 flex items-center justify-between gap-2">
-                  <p className="text-xs font-bold text-emerald-700">最终执行提示词</p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      navigator.clipboard.writeText(finalPosePrompt);
-                      toast.success("已复制最终执行提示词");
-                    }}
-                    className="rounded-full border border-emerald-100 bg-white px-3 py-1 text-[10px] font-medium text-emerald-700 hover:border-emerald-300"
-                  >
-                    复制
-                  </button>
-                </div>
-                <StudioPromptTextarea
-                  readOnly
-                  value={finalPosePrompt}
-                  className="studio-prompt-textarea-tall"
-                />
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 border-t px-5 py-3">
-              <button
-                onClick={() => {
-                  navigator.clipboard.writeText(finalPosePrompt);
-                  toast.success("已复制");
-                }}
-                className="rounded-full border px-4 py-1.5 text-xs font-medium hover:bg-gray-50"
-              >
-                复制
-              </button>
-              <button onClick={() => setShowPromptPreview(false)} className="gradient-brand rounded-full px-4 py-1.5 text-xs font-medium text-white">
-                关闭
-              </button>
-            </div>
-          </div>
-        </div>
         </ClientPortal>
       )}
 

@@ -1,4 +1,4 @@
-import { getPoseSeriesStylePoseLines, type PoseSeriesStyle } from "@/lib/module-style-presets";
+import { POSE_SERIES_STYLES, getPoseSeriesStylePoseLines, type PoseSeriesStyle } from "@/lib/module-style-presets";
 
 export type PoseOutputMode = "grid" | "separate";
 
@@ -9,7 +9,7 @@ export const POSE_LAYOUT_REQUIREMENT =
   "必须生成单张图片中的 2x2 四宫格 / four-panel pose variation / contact sheet，四个分格分别展示姿势1、姿势2、姿势3、姿势4；不要只生成单人单姿势，不要只生成一张普通照片，不要把四个姿势拆成多张独立图片。";
 
 export const POSE_SEPARATE_LAYOUT_REQUIREMENT =
-  "输出方式：每个姿势单独一张图；当前请求只生成指定姿势，不要四宫格、拼图或分屏。";
+  "输出方式：当前请求只生成一张 3:4 单人完整图片；不要四宫格、拼图、分屏、边框、编号文字或 contact sheet。";
 
 export const POSE_SEPARATE_VARIATION_REQUIREMENT =
   "单图裂变规则：每张独立图必须有清晰不同的身体角度、手臂动作、重心、视线或步态；保留图1身份、服装、场景和光影，但不要复制图1原动作，也不要让同组多张看起来只是同一姿势的轻微重绘。";
@@ -53,6 +53,18 @@ export const POSE_EXPRESSION_VARIATION_REQUIREMENT =
 export const POSE_EXPRESSION_CONSISTENT_REQUIREMENT =
   "表情控制：四个分格保持接近一致的自然表情，只允许极轻微的眼神和嘴角变化；不要夸张表情，不要改变五官身份。";
 
+const POSE_SINGLE_IMAGE_CONSISTENCY_REQUIREMENT =
+  "当前单张图片必须保持图1同一个人物身份、同一张脸、同一脸型骨相、同一自然肤色、同一发型、同一身体比例、同一套服装、同一背景场景、同一光线、同一色调和同一摄影质量。";
+
+const POSE_SINGLE_IMAGE_CAMERA_REQUIREMENT =
+  "当前单张图片使用商业时装中景全身或七分身构图，保持自然相机距离、50mm/70mm/85mm 中长焦质感、视平线机位和完整服装展示；禁止 close-up、特写、wide angle、大广角、俯拍、仰拍或夸张透视。";
+
+const POSE_SINGLE_EXPRESSION_VARIATION_REQUIREMENT =
+  "表情控制：当前单张图片保持图1同一个人和同一张脸，可按当前姿势产生轻微自然表情变化；不要夸张表情，不要改变五官身份，不要复制成僵硬表情。";
+
+const POSE_SINGLE_EXPRESSION_CONSISTENT_REQUIREMENT =
+  "表情控制：当前单张图片保持图1接近一致的自然表情，只允许极轻微眼神和嘴角变化；不要夸张表情，不要改变五官身份。";
+
 const DEFAULT_POSE_LINES = [
   "姿势1：正面自然站立，双手自然下垂或轻触口袋，表情平静自然，眼神直视镜头，完整展示服装正面版型。镜头：consistent medium full-body framing, 50mm lens, eye level angle",
   "姿势2：身体轻微侧转30度，肩线放松，一手轻抚头发或整理衣领，柔和浅笑，展示服装侧面轮廓和肩颈线条。镜头：consistent medium full-body framing, 50mm lens, eye level angle",
@@ -84,15 +96,9 @@ export function enforcePosePromptRequirements(
   }
 
   if (options.outputMode === "separate") {
-    nextPrompt = removeGridLayoutWording(nextPrompt);
-    if (!/每个姿势单独生成一张完整图片|不要生成四宫格/.test(nextPrompt)) {
+    nextPrompt = normalizeSeparatePromptScope(removeGridLayoutWording(nextPrompt));
+    if (!/当前请求只生成一张|不要四宫格|不要生成四宫格/.test(nextPrompt)) {
       nextPrompt = `${POSE_SEPARATE_LAYOUT_REQUIREMENT}\n${nextPrompt}`;
-    }
-    if (!nextPrompt.includes("单图裂变规则：")) {
-      nextPrompt = `${nextPrompt}\n${POSE_SEPARATE_VARIATION_REQUIREMENT}`;
-    }
-    if (!nextPrompt.includes("单张生产线分镜：")) {
-      nextPrompt = `${nextPrompt}\n${POSE_SEPARATE_STORYBOARD_REQUIREMENT}`;
     }
   } else if (!/(四宫格|2x2|four-panel|4-panel|contact sheet)/i.test(nextPrompt)) {
     nextPrompt = `${POSE_LAYOUT_REQUIREMENT}\n${nextPrompt}`;
@@ -100,7 +106,7 @@ export function enforcePosePromptRequirements(
 
   if (!/same face identity|同一张脸|人物身份/.test(nextPrompt)) {
     const consistencyRule = options.outputMode === "separate"
-      ? toSeparateOutputRule(POSE_CONSISTENCY_REQUIREMENT)
+      ? POSE_SINGLE_IMAGE_CONSISTENCY_REQUIREMENT
       : POSE_CONSISTENCY_REQUIREMENT;
     nextPrompt = `${consistencyRule}\n${nextPrompt}`;
   }
@@ -114,7 +120,7 @@ export function enforcePosePromptRequirements(
   ] as const;
   requiredRules.forEach(([marker, rule]) => {
     if (!nextPrompt.includes(marker)) {
-      const nextRule = options.outputMode === "separate" ? toSeparateOutputRule(rule) : rule;
+      const nextRule = options.outputMode === "separate" ? toSinglePoseRule(rule) : rule;
       nextPrompt = `${nextPrompt}\n${nextRule}`;
     }
   });
@@ -125,13 +131,13 @@ export function enforcePosePromptRequirements(
     .join("\n")
     .trim();
   const expressionRule = options.varyExpression === false
-    ? POSE_EXPRESSION_CONSISTENT_REQUIREMENT
-    : POSE_EXPRESSION_VARIATION_REQUIREMENT;
-  nextPrompt = `${nextPrompt}\n${options.outputMode === "separate" ? toSeparateOutputRule(expressionRule) : expressionRule}`;
+    ? options.outputMode === "separate" ? POSE_SINGLE_EXPRESSION_CONSISTENT_REQUIREMENT : POSE_EXPRESSION_CONSISTENT_REQUIREMENT
+    : options.outputMode === "separate" ? POSE_SINGLE_EXPRESSION_VARIATION_REQUIREMENT : POSE_EXPRESSION_VARIATION_REQUIREMENT;
+  nextPrompt = `${nextPrompt}\n${expressionRule}`;
 
   if (!/consistent .*medium full-body framing|consistent medium full-body framing/i.test(nextPrompt)) {
     const cameraRule = options.outputMode === "separate"
-      ? toSeparateOutputRule(POSE_CAMERA_REQUIREMENT)
+      ? POSE_SINGLE_IMAGE_CAMERA_REQUIREMENT
       : POSE_CAMERA_REQUIREMENT;
     nextPrompt = `${nextPrompt}\n${cameraRule}`;
   }
@@ -172,6 +178,70 @@ export function buildSeparatePoseStoryboardPlan(poseStyle?: PoseSeriesStyle) {
     ...directives.map((directive, index) => `${index + 1}. ${directive}`),
     "全组差异校验：至少两张为完整服装展示，至少一张在景别或姿态高度上明显不同（半身、中近景、坐姿、蹲姿、倚靠或侧后背面展示任选其一）；不要把四张都做成同一距离的正面站姿。",
   ].join("\n");
+}
+
+export function buildSeparatePosePrompt(prompt: string, poseIndex: number) {
+  const explicitPosePattern = new RegExp(`^\\s*姿势\\s*${poseIndex}[：:]`, "m");
+  const poseStyle = inferPoseStyleFromPrompt(prompt);
+  const explicitPoseLines = extractExplicitPoseLines(prompt);
+  const hasExplicitPoseLine = explicitPosePattern.test(prompt);
+  const currentPoseLine = explicitPoseLines.find((line) => explicitPosePattern.test(line));
+  const slotDirective = buildSeparatePoseSlotDirective(poseIndex, poseStyle);
+  const scopedPrompt = scopeSeparatePosePrompt(prompt, poseIndex);
+
+  return [
+    buildSeparatePosePriorityDirective(poseIndex),
+    hasExplicitPoseLine
+      ? [
+          `当前姿势硬目标：${currentPoseLine}`,
+          poseStyle === "user_custom" ? "" : `动作强化解释：${slotDirective}`,
+        ].filter(Boolean).join("\n")
+      : `当前姿势硬目标：${slotDirective}`,
+    scopedPrompt,
+    `本次单图任务：只生成姿势${poseIndex}这一张完整图片。`,
+    "动作必须真正落地到画面：身体角度、手臂位置、重心、视线或步态至少有三项按当前姿势变化；不要把图1原动作轻微重绘。",
+    "只保持图1人物身份、服装、场景、光线、肤色、身体比例和摄影质感一致。",
+    "不要生成四宫格、拼图、分屏、边框、编号文字或 contact sheet。",
+  ].filter(Boolean).join("\n");
+}
+
+function buildSeparatePosePriorityDirective(poseIndex: number) {
+  const safeIndex = Math.min(Math.max(Math.floor(Number(poseIndex) || 1), 1), 4);
+  return [
+    `HARD TARGET POSE SLOT ${safeIndex}/4.`,
+    `Generate exactly ONE standalone 3:4 photo for pose ${safeIndex}.`,
+    "This API call has no memory of the other three calls; execute only this pose slot, not a group plan.",
+    "Do NOT generate a 2x2 grid, collage, contact sheet, split-screen, border, label, or all four poses in one image.",
+    "Change the pose from the source image while keeping the same person identity, outfit, scene, lighting, skin tone, camera quality, and realistic body proportions.",
+  ].join("\n");
+}
+
+function scopeSeparatePosePrompt(prompt: string, poseIndex: number) {
+  return prompt
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter((line) => {
+      const poseMatch = line.match(/^姿势\s*([1-4])[：:]/);
+      if (poseMatch) return Number(poseMatch[1]) === poseIndex;
+      return !/(本组四张|生产线四槽计划|用户自定义四槽计划|全组差异校验|其它槽位|其他槽位|同组四张|四张独立图|四张独立图片|每次单图任务)/.test(line);
+    })
+    .join("\n")
+    .trim();
+}
+
+function extractExplicitPoseLines(prompt: string) {
+  return prompt
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => /^姿势\s*[1-4][：:]/.test(line));
+}
+
+function inferPoseStyleFromPrompt(prompt: string): PoseSeriesStyle | undefined {
+  const markerMatch = prompt.match(/姿势裂变拍摄风格档位：([^。\n]+)/);
+  if (!markerMatch) return undefined;
+  const label = markerMatch[1].trim();
+  return POSE_SERIES_STYLES.find((style) => label.includes(style.label))?.value;
 }
 
 function getSeparatePoseSlotDirectives(poseStyle?: PoseSeriesStyle) {
@@ -243,12 +313,35 @@ function removeGridLayoutWording(prompt: string) {
     .trim();
 }
 
-function toSeparateOutputRule(rule: string) {
+function normalizeSeparatePromptScope(prompt: string) {
+  return prompt
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter((line) => {
+      if (/^姿势\s*[1-4][：:]/.test(line)) return true;
+      return !/(单图裂变规则|单张生产线分镜|本组四张|生产线四槽计划|用户自定义四槽计划|全组差异校验|其它槽位|其他槽位|同组四张|四张独立图|四张独立图片)/.test(line);
+    })
+    .map((line) => /^姿势\s*[1-4][：:]/.test(line) ? line : toSinglePoseRule(line))
+    .join("\n")
+    .trim();
+}
+
+function toSinglePoseRule(rule: string) {
   return rule
-    .replace(/四个分格/g, "同组四张独立图片")
-    .replace(/四个姿势/g, "四张独立图中的姿势")
-    .replace(/同一套商业时装大片的连续 pose sheet，而不是四张不同照片拼贴/g, "同一套商业时装大片的连续姿势系列，而不是四张风格割裂的照片")
-    .replace(/每格/g, "每张图")
-    .replace(/四格/g, "四张图")
-    .replace(/四宫格/g, "同组独立图");
+    .replace(/同组四张独立图片都必须/g, "当前单张图片必须")
+    .replace(/同组四张独立图片/g, "当前单张图片")
+    .replace(/四张独立图中的姿势/g, "当前姿势")
+    .replace(/四张独立图片/g, "当前单张图片")
+    .replace(/四张独立图/g, "当前单张图片")
+    .replace(/四个分格必须/g, "当前单张图片必须")
+    .replace(/四个分格/g, "当前单张图片")
+    .replace(/四个姿势都要/g, "当前单张图片必须")
+    .replace(/四个姿势/g, "当前姿势")
+    .replace(/四格/g, "当前单张图片")
+    .replace(/每格/g, "当前单张图片")
+    .replace(/同一套商业时装大片的连续 pose sheet，而不是四张不同照片拼贴/g, "图1延展出来的同一套商业时装大片画面")
+    .replace(/同一套商业时装大片的连续姿势系列，而不是四张风格割裂的照片/g, "图1延展出来的同一套商业时装大片画面")
+    .replace(/同组独立图/g, "当前单张图片")
+    .replace(/四宫格/g, "单图");
 }

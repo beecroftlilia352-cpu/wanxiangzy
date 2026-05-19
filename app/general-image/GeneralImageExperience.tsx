@@ -4,7 +4,6 @@ import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import {
   Copy,
-  Eye,
   ImagePlus,
   Loader2,
   RefreshCw,
@@ -97,7 +96,6 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
   const [resultUrls, setResultUrls] = useState<string[]>([]);
   const [error, setError] = useState("");
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
-  const [showPromptPreview, setShowPromptPreview] = useState(false);
   const [showImagePromptModal, setShowImagePromptModal] = useState(false);
   const [imagePromptImage, setImagePromptImage] = useState<ImagePromptImage | null>(null);
   const [imagePromptText, setImagePromptText] = useState("");
@@ -614,14 +612,6 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
                   {isOptimizing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Brush className="h-3.5 w-3.5" />}
                   AI帮写
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setShowPromptPreview(true)}
-                  className="studio-button studio-button-compact"
-                >
-                  <Eye className="h-3.5 w-3.5" />
-                  预览
-                </button>
               </div>
               <span className="text-[11px] font-medium text-slate-400">{prompt.length} / 4000</span>
             </div>
@@ -696,7 +686,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
               imageSrc={modeMeta.emptyImage}
               imageAlt={`${modeMeta.title}指引`}
               steps={!isImageMode ? [
-                { title: "输入想法", desc: "可先写一句简短描述，再让 帮写成完整提示词。" },
+                { title: "输入想法", desc: "可先写一句简短描述，再让系统优化成生成描述。" },
                 { title: "选择参数", desc: "确认模型、画幅、清晰度和张数。" },
                 { title: "生成结果", desc: "结果会进入作品资产，可下载或继续放大查看。" },
               ] : [
@@ -862,64 +852,6 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
                   className="gradient-brand inline-flex h-9 items-center justify-center rounded-lg px-5 text-sm font-black text-white shadow-lg shadow-slate-300/40 disabled:cursor-not-allowed disabled:opacity-45"
                 >
                   应用到描述
-                </button>
-              </div>
-            </div>
-          </div>
-        </ClientPortal>
-      )}
-
-      {showPromptPreview && (
-        <ClientPortal>
-          <div
-            className="fixed inset-0 z-[220] flex min-h-dvh w-dvw items-center justify-center bg-slate-950/38 p-4 backdrop-blur-xl sm:p-6"
-            onClick={() => setShowPromptPreview(false)}
-          >
-            <div
-              className="max-h-[86dvh] w-full max-w-4xl overflow-hidden rounded-[28px] border border-white/80 bg-white/[0.94] shadow-[0_32px_100px_rgba(15,23,42,0.22)] backdrop-blur-2xl"
-              onClick={(event) => event.stopPropagation()}
-            >
-              <div className="flex items-center justify-between border-b px-5 py-3">
-                <h3 className="text-sm font-bold">完整提示词</h3>
-                <button onClick={() => setShowPromptPreview(false)} className="rounded p-1 hover:bg-gray-100" aria-label="关闭提示词预览">
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-              <div className="max-h-[64dvh] space-y-3 overflow-y-auto px-5 py-4">
-                <div className="grid grid-cols-2 gap-2">
-                  {[
-                    ["模式", modeMeta.title],
-                    ["模型", aiModel],
-                    ["比例", aspectRatio],
-                    ["分辨率", imageSize],
-                    ["生成张数", `${genCount}`],
-                    ["参考图", `${isImageMode ? referenceImages.length : 0} 张`],
-                  ].map(([label, value]) => (
-                    <div key={label} className="rounded-lg border bg-gray-50 px-3 py-2">
-                      <p className="text-[10px] text-gray-400">{label}</p>
-                      <p className="break-words text-xs font-medium text-gray-700">{value}</p>
-                    </div>
-                  ))}
-                </div>
-                <textarea
-                  value={prompt}
-                  onChange={(event) => setPrompt(event.target.value.slice(0, 4000))}
-                  className="min-h-[320px] w-full resize-y rounded-lg border px-3 py-2 text-xs leading-relaxed text-gray-700 outline-none focus:ring-2 focus:ring-[rgba(91,124,255,0.14)]"
-                />
-              </div>
-              <div className="flex justify-end gap-2 border-t px-5 py-3">
-                <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(prompt);
-                    toast.success("已复制");
-                  }}
-                  className="inline-flex items-center gap-1.5 rounded-full border px-4 py-1.5 text-xs font-medium hover:bg-gray-50"
-                >
-                  <Copy className="h-3.5 w-3.5" />
-                  复制
-                </button>
-                <button onClick={() => setShowPromptPreview(false)} className="gradient-brand rounded-full px-4 py-1.5 text-xs font-medium text-white">
-                  关闭
                 </button>
               </div>
             </div>

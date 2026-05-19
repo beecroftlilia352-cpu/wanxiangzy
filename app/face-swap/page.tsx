@@ -7,7 +7,6 @@ import {
   ChevronRight,
   Copy,
   RotateCcw,
-  Settings2,
   Activity,
   UserRoundCheck,
   Brush,
@@ -20,7 +19,6 @@ import { ClientPortal } from "@/components/ClientPortal";
 import { ModuleHeader } from "@/components/ModuleHeader";
 import { PreviewGuide } from "@/components/PreviewGuide";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
-import { ModelPromptPreview } from "@/components/ModelPromptPreview";
 import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
 import { useStudioAuth } from "@/components/studio/useStudioAuth";
 import type { TaskSelectionSession } from "@/components/studio/useTaskSelectionSession";
@@ -34,7 +32,6 @@ import {
   FACE_SWAP_LIBRARY,
   FACE_SWAP_NOTE,
   FACE_SWAP_SAMPLE_IMAGES,
-  buildFaceSwapPrompt,
   getFaceSwapUserPromptFromPayload,
   normalizeFaceSwapCount,
 } from "@/lib/face-swap";
@@ -112,7 +109,6 @@ export default function FaceSwapPage() {
   const [imageSize, setImageSize] = useState<ImageSize>("1K");
   const [genCount, setGenCount] = useState(1);
   const [prompt, setPrompt] = useState("");
-  const [showPromptPreview, setShowPromptPreview] = useState(false);
   const [textureEnhance, setTextureEnhance] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [genderFilter, setGenderFilter] = useState<GenderFilter>("female");
@@ -133,7 +129,6 @@ export default function FaceSwapPage() {
   const totalCost = unitCost * normalizeFaceSwapCount(genCount);
   const requestedFaceSwapCount = normalizeFaceSwapCount(genCount);
   const faceLibrary = FACE_SWAP_LIBRARY.filter((item) => item.gender === genderFilter);
-  const finalPrompt = buildFaceSwapPrompt(prompt, textureEnhance);
   const validationHint = !sourceUrl
     ? "请先上传或选择原始模特图"
     : !faceUrl
@@ -709,31 +704,6 @@ export default function FaceSwapPage() {
             placeholder="可选：补充保留眼镜、雀斑、配饰、冷感表情等细节。默认模板已锁定只换五官身份，不换肤色、发型、表情和配饰。"
             description="补充说明会附加到系统提示词中，影响最终生成效果。"
           />
-
-          <div className="-mt-2 flex justify-end">
-            <button
-              type="button"
-              onClick={() => setShowPromptPreview((value) => !value)}
-              className="studio-button studio-tone-neutral studio-button-compact"
-            >
-              <Settings2 className="h-3.5 w-3.5" />
-              完整提示词
-            </button>
-          </div>
-
-          {showPromptPreview && (
-            <ModelPromptPreview
-              kind="faceSwap"
-              model={aiModel}
-              prompt={finalPrompt}
-              onClose={() => setShowPromptPreview(false)}
-              metadata={{
-                模型: aiModel,
-                比例: aspectRatio,
-                分辨率: imageSizeValue,
-              }}
-            />
-          )}
         </div>
 
         <StudioRunBar

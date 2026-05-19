@@ -121,6 +121,15 @@ export function compileImagePromptForModel(params: {
     return compileConcisePrompt(params.kind, normalized, params.model === "gpt-image-2" ? 3400 : 2300, "专属模特执行提示：图片角色、均衡融合、发型发色硬约束和负面审美约束优先。");
   }
 
+  if (params.kind === "pose" && isSeparatePosePrompt(normalized)) {
+    return compileConcisePrompt(
+      params.kind,
+      normalized,
+      params.model === "gpt-image-2" ? 2800 : 2300,
+      "姿势裂变单图执行提示：本次只执行当前姿势槽位，参考图只锁定身份、服装、场景、光线、肤色和身体比例。"
+    );
+  }
+
   if (params.model === "gpt-image-2") {
     return limitPrompt(normalized, 6200);
   }
@@ -148,11 +157,15 @@ function compileConcisePrompt(kind: ImagePromptKind, prompt: string, maxChars: n
 }
 
 function getKindHeader(kind: ImagePromptKind, prompt: string) {
-  if (kind === "pose" && /每个姿势单独生成一张完整图片|本次单图任务|只生成姿势\d|HARD TARGET POSE SLOT|standalone 3:4 photo/.test(prompt)) {
+  if (kind === "pose" && isSeparatePosePrompt(prompt)) {
     return "核心任务：生成一张独立的单姿势完整图片，保持图1同一人、同一衣服和同一人物比例；不要生成 2x2、四宫格、拼图、分屏或 contact sheet。";
   }
 
   return KIND_HEADERS[kind];
+}
+
+function isSeparatePosePrompt(prompt: string) {
+  return /每个姿势单独生成一张完整图片|当前请求只生成一张|本次单图任务|只生成姿势\d|HARD TARGET POSE SLOT|standalone 3:4 photo|独立单图请求/.test(prompt);
 }
 
 function collectRequiredSignalLines(kind: ImagePromptKind, lines: string[]) {
