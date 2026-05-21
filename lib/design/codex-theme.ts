@@ -34,7 +34,7 @@ export const codexTheme = {
     primary: "linear-gradient(180deg, rgba(255,255,255,0.12), transparent 38%), linear-gradient(180deg, #111318 0%, #050505 100%)",
   },
   fontStack: {
-    sans: '"OpenAI Sans", Inter, "Helvetica Neue", Arial, ui-sans-serif, system-ui, sans-serif',
+    sans: 'Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", "Noto Sans CJK SC", sans-serif',
     mono: '"SF Mono", "Cascadia Code", "JetBrains Mono", ui-monospace, monospace',
   },
   radius: {
