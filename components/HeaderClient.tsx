@@ -25,10 +25,20 @@ type HeaderAccountState = {
   onLogout: () => Promise<void>;
 };
 
+const publicHeaderAccount: HeaderAccountState = {
+  authReady: true,
+  creditsReady: true,
+  credits: null,
+  email: null,
+  isLoggingOut: false,
+  onLogout: async () => {},
+};
+
 const marketingNav = [
   { label: "产品", href: "/create" },
   { label: "工作流", href: "/agent" },
   { label: "模特库", href: "/model" },
+  { label: "价格", href: "/pricing" },
   { label: "案例", href: "/history" },
   { label: "资源", href: "/general-image" },
 ];
@@ -41,7 +51,11 @@ export function HeaderClient() {
   }
 
   if (pathname === "/") {
-    return <MarketingHeader />;
+    return <MarketingHeaderWithAccount />;
+  }
+
+  if (pathname.startsWith("/pricing")) {
+    return <MarketingHeader account={publicHeaderAccount} />;
   }
 
   return <AppHeader pathname={pathname} />;
@@ -180,9 +194,14 @@ function useHeaderAccount(): HeaderAccountState {
   return { authReady, creditsReady, credits, email, isLoggingOut, onLogout };
 }
 
-function MarketingHeader() {
-  const [scrolled, setScrolled] = useState(false);
+function MarketingHeaderWithAccount() {
   const account = useHeaderAccount();
+
+  return <MarketingHeader account={account} />;
+}
+
+function MarketingHeader({ account }: { account: HeaderAccountState }) {
+  const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
     const updateScrolled = () => setScrolled(window.scrollY > 96);
@@ -282,6 +301,11 @@ function MarketingAccountActions({
           <DropdownMenu.Item asChild>
             <Link href="/create" className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 outline-none transition hover:bg-slate-50">
               进入工作台
+            </Link>
+          </DropdownMenu.Item>
+          <DropdownMenu.Item asChild>
+            <Link href="/pricing" className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 outline-none transition hover:bg-slate-50">
+              购买积分
             </Link>
           </DropdownMenu.Item>
           <DropdownMenu.Item
@@ -453,6 +477,10 @@ function AppHeader({ pathname }: { pathname: string }) {
           <div className="lg:hidden">
             <MobileModuleMenu activeModule={activeModule} />
           </div>
+          <Link href="/pricing" className="studio-button studio-button-compact" title="价格与购买积分">
+            <Coins className="h-3.5 w-3.5 text-[var(--codex-accent)]" />
+            <span className="hidden sm:inline">价格</span>
+          </Link>
           <UserCreditActions
             authReady={authReady}
             creditsReady={creditsReady}
