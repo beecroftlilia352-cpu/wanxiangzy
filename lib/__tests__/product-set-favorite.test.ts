@@ -148,7 +148,7 @@ describe("product set favorite plan payload boundary", () => {
       customTemplates: [],
       aiModel: "nano-banana-2",
       aspectRatio: "3:4",
-      imageSize: "4K",
+      imageSize: "1K",
       qualityMode: "standard",
     });
     expect(client.moduleOverrides).toHaveLength(1);

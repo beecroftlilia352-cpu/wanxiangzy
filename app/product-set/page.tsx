@@ -90,12 +90,12 @@ import {
 } from "@/lib/product-set-ui-state";
 
 const MODELS: { value: LingyaModel; label: string; desc: string; badge?: string; icon: string }[] = [
-  { value: "nano-banana-2", label: "Nano-Banana-2", desc: "4K · 3分/次", badge: "默认", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
-  { value: "gpt-image-2", label: "GPT-Image-2", desc: "4K · 4分/次", badge: "高质感", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/openai.svg" },
-  { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "4K · 4分/次", badge: "推荐", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
+  { value: "nano-banana-2", label: "Nano-Banana-2", desc: "最高4K", badge: "默认", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
+  { value: "gpt-image-2", label: "GPT-Image-2", desc: "最高4K", badge: "高质感", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/openai.svg" },
+  { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "最高4K", badge: "推荐", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
 ];
 
-const CUSTOM_ASPECTS: AspectRatio[] = ["4:3", "3:4", "9:16", "16:9", "1:1", "3:2", "2:3", "21:9"];
+const CUSTOM_ASPECTS: AspectRatio[] = ["3:4", "4:5", "1:1", "4:3", "9:16", "16:9", "3:2", "2:3", "21:9"];
 
 const PLAN_SOURCE_TABS: { value: ProductSetPlanSourceTab; label: string; description: string }[] = [
   { value: "smart", label: "智能模式", description: "视觉分析" },

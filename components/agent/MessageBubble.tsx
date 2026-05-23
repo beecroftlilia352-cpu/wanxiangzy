@@ -60,6 +60,7 @@ const CONFIRM_MODEL_OPTIONS: Array<{ value: LingyaModel; label: string }> = [
 
 const CONFIRM_RATIO_OPTIONS: Array<{ value: AspectRatio; label: string }> = [
   { value: "3:4", label: "3:4" },
+  { value: "4:5", label: "4:5" },
   { value: "1:1", label: "1:1" },
   { value: "9:16", label: "9:16" },
   { value: "4:3", label: "4:3" },

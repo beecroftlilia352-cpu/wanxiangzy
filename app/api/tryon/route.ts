@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
         error: "已选择模特脸时，服装上身暂不支持 Banana 模型。请改用 GPT-Image-2；如果想用 Banana 的换装效果，建议先不选模特图完成换装，再到换脸模块处理脸部。",
       }, { status: 400 });
     }
-    const aspectRatio = normalizeAspectRatio(aspect_ratio, "auto");
+    const aspectRatio = normalizeAspectRatio(aspect_ratio, "3:4");
     const size: ImageSize = normalizeImageSize(model, image_size || "1K", aspectRatio);
     const costPerImage = getCreditCost(model, size, aspectRatio);
     const totalCost = costPerImage * genCount;

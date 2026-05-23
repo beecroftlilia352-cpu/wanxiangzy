@@ -48,6 +48,9 @@ const IMAGE_REQUEST_PROGRESS_INTERVAL_MS = 8000;
 const IMAGE_REQUEST_PROGRESS_CURVE_MS = 90_000;
 const SYNC_IMAGE_REQUEST_PROGRESS_MAX = 92;
 const ASYNC_IMAGE_SUBMIT_PROGRESS_MAX = 8;
+const IMAGE_EDIT_MAX_IMAGES = 15;
+const IMAGE_EDIT_MAX_IMAGE_BYTES = 50 * 1024 * 1024;
+const IMAGE_EDIT_FETCH_TIMEOUT_MS = 60_000;
 
 export type LingyaModel = "gpt-image-2" | "nano-banana-pro" | "nano-banana-2";
 export type AspectRatio = "auto" | "1:1" | "9:16" | "16:9" | "4:3" | "3:4" | "2:3" | "3:2" | "4:5" | "5:4" | "21:9";
@@ -103,7 +106,7 @@ export function getSupportedImageSizes(model: LingyaModel, aspectRatio?: AspectR
 
 export function normalizeImageSize(model: LingyaModel, size: ImageSize = "1K", aspectRatio?: AspectRatio): ImageSize {
   const supported = getSupportedImageSizes(model, aspectRatio);
-  return supported.includes(size) ? size : supported[supported.length - 1];
+  return supported.includes(size) ? size : supported[0] || "1K";
 }
 
 interface GenerateInput {
@@ -441,8 +444,8 @@ function buildGenerateRequestBody(input: GenerateInput, compiledPrompt: string):
   }
   if (input.image && input.image.length > 0 && input.model !== "gpt-image-2") body.image = input.image;
   if (input.model === "gpt-image-2") {
-    // gpt-image-2 只接受标准尺寸，不接受自定义像素值或 aspect_ratio
-    body.size = input.image_size ? resolveGptImage2Size(input.aspect_ratio || "3:4") : "auto";
+    // gpt-image-2 /images/edits uses the documented size field, not image_size.
+    body.size = input.image_size ? resolveGptImage2Size(input.image_size, input.aspect_ratio || "auto") : "auto";
     body.quality = "auto";
   }
   if (input.image_size && isSeedreamModel(input.model)) {
@@ -537,6 +540,9 @@ async function buildImageEditRequest(params: {
   if (!params.imageUrls.length) {
     throw new Error("gpt-image-2 image edit requires at least one reference image");
   }
+  if (params.imageUrls.length > IMAGE_EDIT_MAX_IMAGES) {
+    throw new Error("gpt-image-2 image edit supports fewer than 16 reference images");
+  }
 
   const form = new FormData();
   for (const [key, value] of Object.entries(params.body)) {
@@ -571,7 +577,7 @@ async function fetchImageFormPart(src: string, index: number): Promise<{ blob: B
 
   let res: Response;
   try {
-    res = await fetch(imageUrl);
+    res = await fetch(imageUrl, { signal: AbortSignal.timeout(IMAGE_EDIT_FETCH_TIMEOUT_MS) });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     throw new Error(`Failed to download reference image: ${message}`);
@@ -592,6 +598,9 @@ async function fetchImageFormPart(src: string, index: number): Promise<{ blob: B
   const bytes = await res.arrayBuffer();
   if (bytes.byteLength === 0) {
     throw new Error("Reference image is empty");
+  }
+  if (bytes.byteLength > IMAGE_EDIT_MAX_IMAGE_BYTES) {
+    throw new Error("Reference image exceeds 50MB");
   }
 
   return {
@@ -1088,7 +1097,7 @@ function shouldRequestAsyncImageTask(provider: { name: string }): boolean {
 
 function resolveProviderImageModel(model: LingyaModel, provider: { name: string }): string {
   if (provider.name === "plato" && model === "gpt-image-2") {
-    return process.env.PLATO_GPT_IMAGE_MODEL?.trim() || DEFAULT_GPT_IMAGE_2_PROVIDER_MODEL;
+    return DEFAULT_GPT_IMAGE_2_PROVIDER_MODEL;
   }
   if (provider.name === "laozhang" && model === "nano-banana-2") {
     return process.env.LAOZHANG_NANO_BANANA_MODEL?.trim() || DEFAULT_NANO_BANANA_PROVIDER_MODEL;
@@ -1107,23 +1116,46 @@ function isDeprecatedGptImage2ProviderBase(apiBase: string) {
   }
 }
 
-/**
- * gpt-image-2 只接受标准尺寸，映射宽高比到 API 支持的值
- */
-function resolveGptImage2Size(aspectRatio: AspectRatio): string {
-  const map: Record<string, string> = {
-    "1:1": "1024x1024",
-    "3:4": "1024x1536",
-    "4:3": "1536x1024",
-    "9:16": "1024x1536",
-    "16:9": "1536x1024",
-    "2:3": "1024x1536",
-    "3:2": "1536x1024",
-    "4:5": "1024x1536",
-    "5:4": "1536x1024",
-    "21:9": "1536x1024",
-  };
-  return map[aspectRatio] || "auto";
+function resolveGptImage2Size(imageSize: ImageSize | undefined, aspectRatio: AspectRatio): string {
+  const normalizedImageSize = isImageSizeValue(imageSize) ? imageSize : "1K";
+  if (aspectRatio === "auto") return getDefaultGptImage2Size(normalizedImageSize);
+
+  const ratio = getAspectRatioValue(aspectRatio);
+  if (normalizedImageSize === "1K") {
+    if (isSquareRatio(ratio)) return "1024x1024";
+    return ratio > 1 ? "1536x1024" : "1024x1536";
+  }
+
+  if (normalizedImageSize === "2K") {
+    return resolveLongEdgePixelSize(ratio, 2048);
+  }
+
+  return resolveConstrainedPixelSize(ratio, 3840 * 2160);
+}
+
+function isImageSizeValue(value: unknown): value is ImageSize {
+  return value === "1K" || value === "2K" || value === "4K";
+}
+
+function getDefaultGptImage2Size(imageSize: ImageSize): string {
+  if (imageSize === "1K") return "1024x1024";
+  if (imageSize === "2K") return "2048x2048";
+  return "3840x2160";
+}
+
+function isSquareRatio(ratio: number): boolean {
+  return Math.abs(ratio - 1) < 0.01;
+}
+
+function resolveLongEdgePixelSize(ratio: number, longEdge: number): string {
+  const safeRatio = Math.min(Math.max(ratio, 1 / 3), 3);
+  const width = safeRatio >= 1 ? longEdge : longEdge * safeRatio;
+  const height = safeRatio >= 1 ? longEdge / safeRatio : longEdge;
+  return `${roundToMultipleOf16(width)}x${roundToMultipleOf16(height)}`;
+}
+
+function roundToMultipleOf16(value: number): number {
+  return Math.max(16, Math.round(value / 16) * 16);
 }
 
 function resolvePixelSize(imageSize: ImageSize, aspectRatio: AspectRatio): string {
@@ -1860,6 +1892,7 @@ function toEnglishImageRef(value: string) {
 }
 
 export const __lingyaTaskResponseTestUtils = {
+  buildImageEditRequest,
   buildLaozhangNativeImageRequest,
   buildGenerateRequestBody,
   calculateImageRequestHeartbeatProgress,
@@ -1869,6 +1902,7 @@ export const __lingyaTaskResponseTestUtils = {
   getLaozhangGenerateContentUrl,
   getPlatoApiBaseUrl,
   normalizeImageTaskResponse,
+  resolveGptImage2Size,
   resolveProviderImageModel,
   shouldUseLaozhangNativeEndpoint,
   shouldUseImageEditEndpoint,

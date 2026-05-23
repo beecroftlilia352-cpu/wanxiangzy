@@ -3,8 +3,11 @@ import { API_RATE_LIMITS, enforceApiRateLimit } from "@/lib/api/rate-limit";
 import { createServerSupabase } from "@/lib/supabase/server";
 
 const REQUEST_TIMEOUT_MS = 300000;
+const IMAGE_FETCH_TIMEOUT_MS = 60000;
 const MAX_IMAGE_DATA_URL_LENGTH = 21 * 1024 * 1024;
-const DEFAULT_ALLOWED_API_HOSTS = ["value.apiqik.online", "hk-api.gptbest.vip", "api.bltcy.ai", "api.whatai.cc"];
+const MAX_EDIT_IMAGE_COUNT = 15;
+const MAX_EDIT_IMAGE_BYTES = 50 * 1024 * 1024;
+const DEFAULT_ALLOWED_API_HOSTS = ["yunwu.ai", "value.apiqik.online", "hk-api.gptbest.vip", "api.bltcy.ai", "api.whatai.cc"];
 
 type ImageSize = "1K" | "2K" | "4K";
 type ImageQuality = "auto" | "low" | "medium" | "high";
@@ -30,11 +33,12 @@ export async function POST(request: Request) {
     if (rateLimit) return rateLimit;
 
     const body = await request.json() as RequestBody;
-    const apiUrl = normalizeApiUrl(body.apiUrl);
     const apiKey = body.apiKey?.trim();
     const model = body.model?.trim();
     const prompt = body.prompt?.trim();
     const images = (body.images || []).map((image) => image.trim()).filter(Boolean);
+    const useImageEditEndpoint = shouldUseImageEditEndpoint(model, images);
+    const apiUrl = normalizeApiUrl(body.apiUrl, useImageEditEndpoint ? "edits" : "generations");
     const aspectRatio = normalizeAspectRatio(body.aspectRatio);
     const requestedImageSize = normalizeImageSize(body.imageSize);
     const quality = normalizeQuality(body.quality);
@@ -46,27 +50,38 @@ export async function POST(request: Request) {
     if (images.some((image) => image.length > MAX_IMAGE_DATA_URL_LENGTH)) {
       return NextResponse.json({ error: "参考图过大，请换小图测试" }, { status: 413 });
     }
+    if (images.length > MAX_EDIT_IMAGE_COUNT) {
+      return NextResponse.json({ error: "参考图数量需少于 16 张" }, { status: 400 });
+    }
 
     const startedAt = Date.now();
     const imageSize = resolveModelImageSize(model, requestedImageSize);
     const size = resolvePixelSize(imageSize, aspectRatio);
-    const upstreamBody = buildGenerationsBody({
-      model,
-      prompt,
-      images,
-      size,
-      aspectRatio,
-      imageSize,
-      quality,
-    });
+    const upstreamRequest = useImageEditEndpoint
+      ? await buildEditsRequest({
+          model,
+          prompt,
+          images,
+          size,
+          quality,
+        })
+      : buildGenerationsRequest({
+          model,
+          prompt,
+          images,
+          size,
+          aspectRatio,
+          imageSize,
+          quality,
+        });
 
     const response = await fetch(apiUrl, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
+        ...upstreamRequest.headers,
       },
-      body: JSON.stringify(upstreamBody),
+      body: upstreamRequest.body,
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
 
@@ -76,7 +91,7 @@ export async function POST(request: Request) {
         error: `上游接口失败: ${response.status}`,
         status: response.status,
         raw: safeJsonOrText(responseText),
-        request_body: redactLargeFields(upstreamBody),
+        request_body: redactLargeFields(upstreamRequest.preview),
       }, { status: 502 });
     }
 
@@ -88,7 +103,7 @@ export async function POST(request: Request) {
       ok: true,
       elapsed_ms: Date.now() - startedAt,
       model: json.model || model,
-      request_body: redactLargeFields(upstreamBody),
+      request_body: redactLargeFields(upstreamRequest.preview),
       image_urls: imageUrls,
       b64_images: b64Images,
       content: json.choices?.[0]?.message?.content || "",
@@ -101,7 +116,7 @@ export async function POST(request: Request) {
   }
 }
 
-function buildGenerationsBody(params: {
+function buildGenerationsRequest(params: {
   model: string;
   prompt: string;
   images: string[];
@@ -125,7 +140,50 @@ function buildGenerationsBody(params: {
     body.image_size = params.imageSize;
   }
 
-  return body;
+  return {
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+    preview: body,
+  };
+}
+
+async function buildEditsRequest(params: {
+  model: string;
+  prompt: string;
+  images: string[];
+  size: string;
+  quality: ImageQuality;
+}) {
+  const form = new FormData();
+  const files = await Promise.all(params.images.map(fetchImageForFormData));
+
+  for (const file of files) {
+    form.append("image", file.blob, file.filename);
+  }
+  form.append("prompt", params.prompt);
+  form.append("model", params.model);
+  form.append("n", "1");
+  form.append("size", params.size);
+  form.append("quality", params.quality);
+  form.append("background", "auto");
+
+  return {
+    headers: { Accept: "application/json" },
+    body: form,
+    preview: {
+      model: params.model,
+      prompt: params.prompt,
+      n: 1,
+      size: params.size,
+      quality: params.quality,
+      background: "auto",
+      image_count: params.images.length,
+      endpoint: "/v1/images/edits",
+    },
+  };
 }
 
 function supportsQualityParam(model: string) {
@@ -144,7 +202,11 @@ function resolveModelImageSize(model: string, fallback: ImageSize): ImageSize {
   return fallback;
 }
 
-function normalizeApiUrl(value: string | undefined) {
+function shouldUseImageEditEndpoint(model: string | undefined, images: string[]) {
+  return Boolean(model && model.toLowerCase().startsWith("gpt-image-2") && images.length > 0);
+}
+
+function normalizeApiUrl(value: string | undefined, endpoint: "generations" | "edits") {
   const raw = value?.trim().replace(/\/+$/, "");
   if (!raw) return "";
 
@@ -157,11 +219,15 @@ function normalizeApiUrl(value: string | undefined) {
 
   if (!["http:", "https:"].includes(url.protocol)) return "";
   if (!isAllowedApiHost(url.hostname)) return "";
-  if (url.pathname.endsWith("/images/generations")) return url.toString();
+  if (/\/images\/(?:generations|edits)\/?$/i.test(url.pathname)) {
+    url.pathname = url.pathname.replace(/\/images\/(?:generations|edits)\/?$/i, `/images/${endpoint}`);
+    url.search = "";
+    return url.toString();
+  }
 
   const base = url.toString().replace(/\/+$/, "");
   const v1Base = base.endsWith("/v1") ? base : `${base}/v1`;
-  return `${v1Base}/images/generations`;
+  return `${v1Base}/images/${endpoint}`;
 }
 
 function isAllowedApiHost(hostname: string) {
@@ -186,8 +252,71 @@ function normalizeQuality(value: unknown): ImageQuality {
   return value === "low" || value === "medium" || value === "high" ? value : "auto";
 }
 
+async function fetchImageForFormData(src: string, index: number): Promise<{ blob: Blob; filename: string }> {
+  if (src.startsWith("data:")) return parseDataUrlImage(src, index);
+
+  const response = await fetch(src, { signal: AbortSignal.timeout(IMAGE_FETCH_TIMEOUT_MS) });
+  if (!response.ok) {
+    throw new Error(`参考图 ${index + 1} 下载失败: ${response.status}`);
+  }
+
+  const contentType = normalizeImageContentType(response.headers.get("content-type"));
+  if (!contentType) throw new Error(`参考图 ${index + 1} 不是支持的图片格式`);
+
+  const buffer = await response.arrayBuffer();
+  if (buffer.byteLength > MAX_EDIT_IMAGE_BYTES) {
+    throw new Error(`参考图 ${index + 1} 超过 50MB`);
+  }
+
+  return {
+    blob: new Blob([buffer], { type: contentType }),
+    filename: buildImageFilename(src, contentType, index),
+  };
+}
+
+function parseDataUrlImage(src: string, index: number): { blob: Blob; filename: string } {
+  const match = src.match(/^data:([^;,]+);base64,(.+)$/);
+  if (!match) throw new Error(`参考图 ${index + 1} data URL 无效`);
+
+  const contentType = normalizeImageContentType(match[1]);
+  if (!contentType) throw new Error(`参考图 ${index + 1} 不是支持的图片格式`);
+
+  const binary = Buffer.from(match[2], "base64");
+  if (binary.byteLength > MAX_EDIT_IMAGE_BYTES) {
+    throw new Error(`参考图 ${index + 1} 超过 50MB`);
+  }
+
+  return {
+    blob: new Blob([binary], { type: contentType }),
+    filename: `reference-${index + 1}.${extensionForContentType(contentType)}`,
+  };
+}
+
+function normalizeImageContentType(value: string | null) {
+  const contentType = (value || "").split(";")[0].trim().toLowerCase();
+  if (["image/png", "image/jpeg", "image/jpg", "image/webp"].includes(contentType)) {
+    return contentType === "image/jpg" ? "image/jpeg" : contentType;
+  }
+  return "";
+}
+
+function buildImageFilename(src: string, contentType: string, index: number) {
+  try {
+    const url = new URL(src);
+    const name = url.pathname.split("/").filter(Boolean).pop();
+    if (name && /\.[a-z0-9]+$/i.test(name)) return name;
+  } catch {}
+  return `reference-${index + 1}.${extensionForContentType(contentType)}`;
+}
+
+function extensionForContentType(contentType: string) {
+  if (contentType === "image/png") return "png";
+  if (contentType === "image/webp") return "webp";
+  return "jpg";
+}
+
 function resolvePixelSize(imageSize: ImageSize, aspectRatio: string) {
-  if (aspectRatio === "auto") return "auto";
+  if (aspectRatio === "auto") return getDefaultPixelSize(imageSize);
 
   const ratio = getAspectRatioValue(aspectRatio);
   const targetPixels: Record<ImageSize, number> = {
@@ -197,6 +326,12 @@ function resolvePixelSize(imageSize: ImageSize, aspectRatio: string) {
   };
 
   return resolveConstrainedPixelSize(ratio, targetPixels[imageSize]);
+}
+
+function getDefaultPixelSize(imageSize: ImageSize) {
+  if (imageSize === "1K") return "1024x1024";
+  if (imageSize === "2K") return "2048x2048";
+  return "3840x2160";
 }
 
 function getAspectRatioValue(aspectRatio: string): number {
@@ -247,6 +382,10 @@ function extractImageUrls(json: Record<string, unknown>): string[] {
       }
     }
   }
+  if (json.data && typeof json.data === "object" && !Array.isArray(json.data)) {
+    const url = (json.data as Record<string, unknown>).url;
+    if (typeof url === "string") urls.add(url);
+  }
 
   const choices = json.choices as Array<Record<string, unknown>> | undefined;
   const content = choices?.[0]?.message as Record<string, unknown> | undefined;
@@ -260,15 +399,20 @@ function extractImageUrls(json: Record<string, unknown>): string[] {
 
 function extractBase64Images(json: Record<string, unknown>): string[] {
   const images: string[] = [];
+  const appendB64 = (value: unknown) => {
+    if (typeof value === "string") {
+      images.push(value.startsWith("data:") ? value : `data:image/png;base64,${value}`);
+    }
+  };
   if (Array.isArray(json.data)) {
     for (const item of json.data) {
       if (item && typeof item === "object") {
-        const b64 = (item as Record<string, unknown>).b64_json;
-        if (typeof b64 === "string") {
-          images.push(b64.startsWith("data:") ? b64 : `data:image/png;base64,${b64}`);
-        }
+        appendB64((item as Record<string, unknown>).b64_json);
       }
     }
+  }
+  if (json.data && typeof json.data === "object" && !Array.isArray(json.data)) {
+    appendB64((json.data as Record<string, unknown>).b64_json);
   }
   return images;
 }

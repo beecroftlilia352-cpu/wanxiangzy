@@ -41,16 +41,16 @@ import { fetchHistoryApplyDetail, takeApplyDetail, type HistoryJobPayload } from
 import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
 
 const MODELS: { value: LingyaModel; label: string; desc: string; badge?: string; icon: string }[] = [
-  { value: "nano-banana-2", label: "Nano-Banana-2", desc: "4K · 3分/次", badge: "推荐", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
-  { value: "gpt-image-2", label: "GPT-Image-2", desc: "4K · 4分/次", badge: "最新", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/openai.svg" },
-  { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "4K · 4分/次", badge: "推荐", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
+  { value: "nano-banana-2", label: "Nano-Banana-2", desc: "最高4K", badge: "推荐", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
+  { value: "gpt-image-2", label: "GPT-Image-2", desc: "最高4K", badge: "最新", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/openai.svg" },
+  { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "最高4K", badge: "推荐", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
 ];
 
 type GrassHistoryPayload = Extract<HistoryJobPayload, { kind: "grass" }>;
 
 const ASPECTS: { value: AspectRatio; label: string }[] = [
-  { value: "3:4", label: "3:4 竖版" },
   { value: "4:5", label: "4:5 种草" },
+  { value: "3:4", label: "3:4 竖版" },
   { value: "1:1", label: "1:1 方图" },
   { value: "9:16", label: "9:16 手机" },
   { value: "4:3", label: "4:3 横图" },
@@ -93,7 +93,7 @@ export default function GrassPage() {
   const [userPrompt, setUserPrompt] = useState("");
   const [supplementPrompt, setSupplementPrompt] = useState("");
   const [aiModel, setAiModel] = useState<LingyaModel>("nano-banana-2");
-  const [aspectRatio, setAspectRatio] = useState<AspectRatio>("3:4");
+  const [aspectRatio, setAspectRatio] = useState<AspectRatio>("4:5");
   const [imageSize, setImageSize] = useState<ImageSize>("1K");
   const [genCount, setGenCount] = useState(1);
   const [promptOverride, setPromptOverride] = useState<string | null>(null);
@@ -486,7 +486,7 @@ export default function GrassPage() {
     setUserPrompt("");
     setSupplementPrompt("");
     setAiModel("nano-banana-2");
-    setAspectRatio("3:4");
+    setAspectRatio("4:5");
     setImageSize("1K");
     setGenCount(1);
     setPromptOverride(null);

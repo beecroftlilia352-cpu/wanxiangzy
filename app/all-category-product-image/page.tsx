@@ -132,7 +132,7 @@ const MODELS: Array<{ value: LingyaModel; label: string; badge?: string }> = [
 ];
 
 const MAIN_ASPECTS: AspectRatio[] = ["1:1", "3:4", "4:3"];
-const DETAILS_ASPECTS: AspectRatio[] = ["3:4", "4:3", "1:1"];
+const DETAILS_ASPECTS: AspectRatio[] = ["3:4", "4:5", "4:3", "1:1"];
 const ANALYZE_PROGRESS_MESSAGES = ["正在识别商品主体...", "正在分析材质与卖点...", "正在生成视觉规划..."];
 const GENERATE_PROGRESS_MESSAGES = [
   "正在模拟物理级光影分布...",

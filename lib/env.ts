@@ -115,7 +115,6 @@ const ALIYUN_OSS_REQUIRED_ENV: EnvContractEntry[] = [
 const OPTIONAL_ENV: EnvContractEntry[] = [
   { name: "LINGYA_BASE_URL", category: "optional", description: "Lingya API base URL override." },
   { name: "PLATO_BASE_URL", category: "optional", description: "Plato API base URL override." },
-  { name: "PLATO_GPT_IMAGE_MODEL", category: "optional", description: "Provider-specific model id used when the app requests gpt-image-2 through the Plato-compatible image provider slot." },
   { name: "ANALYZE_LLM_PROVIDER", category: "optional", description: "Prompt analysis provider: xiaomi or lingya." },
   { name: "LINGYA_TEXT_MODEL", category: "optional", description: "Lingya text model override." },
   { name: "LINGYA_VISION_MODEL", category: "optional", description: "Lingya vision model override." },

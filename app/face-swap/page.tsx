@@ -53,9 +53,9 @@ import { fetchHistoryApplyDetail, takeApplyDetail, type HistoryJobPayload } from
 import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
 
 const MODELS: Array<{ value: LingyaModel; label: string; desc: string; icon: string; badge?: string }> = [
-  { value: "nano-banana-2", label: "Nano-Banana-2", desc: "4K · 3分/次", icon: "/model-icons/gemini.png", badge: "默认" },
-  { value: "gpt-image-2", label: "GPT-Image-2", desc: "4K · 4分/次", icon: "/model-icons/openai.svg", badge: "高质感" },
-  { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "4K · 4分/次", icon: "/model-icons/gemini.png", badge: "推荐" },
+  { value: "nano-banana-2", label: "Nano-Banana-2", desc: "最高4K", icon: "/model-icons/gemini.png", badge: "默认" },
+  { value: "gpt-image-2", label: "GPT-Image-2", desc: "最高4K", icon: "/model-icons/openai.svg", badge: "高质感" },
+  { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "最高4K", icon: "/model-icons/gemini.png", badge: "推荐" },
 ];
 
 const ASPECT_RATIOS: Array<{ value: AspectRatio; label: string }> = [
@@ -69,7 +69,7 @@ const ASPECT_RATIOS: Array<{ value: AspectRatio; label: string }> = [
   { value: "4:5", label: "4:5" },
   { value: "5:4", label: "5:4" },
   { value: "21:9", label: "21:9" },
-  { value: "auto", label: "自动" },
+  { value: "auto", label: "自动/原图" },
 ];
 
 type GenerationStatus = "idle" | "running" | "completed" | "failed";

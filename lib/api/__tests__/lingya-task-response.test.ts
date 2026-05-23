@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { __lingyaTaskResponseTestUtils } from "../lingya";
 
 const {
+  buildImageEditRequest,
   buildLaozhangNativeImageRequest,
   buildGenerateRequestBody,
   calculateImageRequestHeartbeatProgress,
@@ -11,6 +12,7 @@ const {
   getLaozhangGenerateContentUrl,
   getPlatoApiBaseUrl,
   normalizeImageTaskResponse,
+  resolveGptImage2Size,
   resolveProviderImageModel,
   shouldUseLaozhangNativeEndpoint,
   shouldUseImageEditEndpoint,
@@ -147,6 +149,101 @@ describe("lingya async task response parsing", () => {
     expect(body).not.toHaveProperty("aspect_ratio");
   });
 
+  it("builds gpt-image-2 edits as multipart form data", async () => {
+    const request = await buildImageEditRequest({
+      apiBase: "https://yunwu.ai/v1",
+      apiKey: "test-key",
+      body: {
+        model: "gpt-image-2",
+        prompt: "make it premium",
+        size: "2048x2048",
+        quality: "auto",
+      },
+      imageUrls: ["data:image/png;base64,aGVsbG8="],
+    });
+
+    expect(request.url).toBe("https://yunwu.ai/v1/images/edits");
+    expect(request.init.headers).toMatchObject({
+      Authorization: "Bearer test-key",
+      Accept: "application/json",
+    });
+    expect(request.init.body).toBeInstanceOf(FormData);
+  });
+
+  it("rejects too many gpt-image-2 edit reference images before calling the provider", async () => {
+    await expect(buildImageEditRequest({
+      apiBase: "https://yunwu.ai/v1",
+      apiKey: "test-key",
+      body: {
+        model: "gpt-image-2",
+        prompt: "make it premium",
+        size: "2048x2048",
+        quality: "auto",
+      },
+      imageUrls: Array.from({ length: 16 }, () => "data:image/png;base64,aGVsbG8="),
+    })).rejects.toThrow("fewer than 16");
+  });
+
+  it("maps gpt-image-2 selected resolution into the documented size field", () => {
+    expect(resolveGptImage2Size("1K", "1:1")).toBe("1024x1024");
+    expect(resolveGptImage2Size("1K", "16:9")).toBe("1536x1024");
+    expect(resolveGptImage2Size("1K", "9:16")).toBe("1024x1536");
+    expect(resolveGptImage2Size("2K", "1:1")).toBe("2048x2048");
+    expect(resolveGptImage2Size("2K", "16:9")).toBe("2048x1152");
+    expect(resolveGptImage2Size("2K", "9:16")).toBe("1152x2048");
+    expect(resolveGptImage2Size("4K", "16:9")).toBe("3840x2160");
+    expect(resolveGptImage2Size("4K", "9:16")).toBe("2160x3840");
+    expect(resolveGptImage2Size("4K", "1:1")).toBe("2880x2880");
+    expect(resolveGptImage2Size("2K", "auto")).toBe("2048x2048");
+    expect(resolveGptImage2Size("4K", "auto")).toBe("3840x2160");
+  });
+
+  it("falls back to the safest supported size for unknown image size values", () => {
+    const body = buildGenerateRequestBody({
+      model: "gpt-image-2",
+      prompt: "make it premium",
+      aspect_ratio: "16:9",
+      image: ["https://example.com/source.png"],
+      image_size: "1024x1024" as never,
+    }, "compiled prompt");
+
+    expect(body).toMatchObject({ model: "gpt-image-2", size: "1536x1024", quality: "auto" });
+  });
+
+  it("preserves gpt-image-2 2K and 4K selections in request bodies", () => {
+    const twoK = buildGenerateRequestBody({
+      model: "gpt-image-2",
+      prompt: "make it premium",
+      aspect_ratio: "16:9",
+      image: ["https://example.com/source.png"],
+      image_size: "2K",
+    }, "compiled prompt");
+    const fourK = buildGenerateRequestBody({
+      model: "gpt-image-2",
+      prompt: "make it premium",
+      aspect_ratio: "16:9",
+      image: ["https://example.com/source.png"],
+      image_size: "4K",
+    }, "compiled prompt");
+
+    expect(twoK).toMatchObject({ model: "gpt-image-2", size: "2048x1152", quality: "auto" });
+    expect(fourK).toMatchObject({ model: "gpt-image-2", size: "3840x2160", quality: "auto" });
+    expect(twoK).not.toHaveProperty("image_size");
+    expect(fourK).not.toHaveProperty("image_size");
+  });
+
+  it("does not collapse gpt-image-2 selected resolution when aspect ratio is auto", () => {
+    const body = buildGenerateRequestBody({
+      model: "gpt-image-2",
+      prompt: "make it premium",
+      aspect_ratio: "auto",
+      image: ["https://example.com/source.png"],
+      image_size: "4K",
+    }, "compiled prompt");
+
+    expect(body).toMatchObject({ model: "gpt-image-2", size: "3840x2160", quality: "auto" });
+  });
+
   it("keeps nano banana reference image requests on the existing JSON shape", () => {
     const body = buildGenerateRequestBody({
       model: "nano-banana-2",
@@ -168,15 +265,14 @@ describe("lingya async task response parsing", () => {
     });
   });
 
-  it("can override Plato gpt-image-2 with a provider-specific model id", () => {
+  it("keeps Plato gpt-image-2 pinned to the official model id", () => {
     const previous = process.env.PLATO_GPT_IMAGE_MODEL;
-    delete process.env.PLATO_GPT_IMAGE_MODEL;
 
     expect(resolveProviderImageModel("gpt-image-2", { name: "plato" })).toBe("gpt-image-2");
 
     process.env.PLATO_GPT_IMAGE_MODEL = "gpt-image-2-custom";
 
-    expect(resolveProviderImageModel("gpt-image-2", { name: "plato" })).toBe("gpt-image-2-custom");
+    expect(resolveProviderImageModel("gpt-image-2", { name: "plato" })).toBe("gpt-image-2");
     expect(resolveProviderImageModel("gpt-image-2", { name: "lingya" })).toBe("gpt-image-2");
     expect(resolveProviderImageModel("nano-banana-2", { name: "laozhang" })).toBe("gemini-3.1-flash-image-preview");
     expect(resolveProviderImageModel("nano-banana-pro", { name: "laozhang" })).toBe("gemini-3-pro-image-preview");

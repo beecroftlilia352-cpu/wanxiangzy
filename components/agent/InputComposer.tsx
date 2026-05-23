@@ -40,8 +40,8 @@ const MODEL_OPTS = [
   { value: "gpt-image-2", label: "GPT Image", desc: "OpenAI" },
 ];
 const RATIO_OPTS: Array<{ value: AspectRatio; label: string }> = [
-  { value: "3:4", label: "3:4" }, { value: "1:1", label: "1:1" },
-  { value: "9:16", label: "9:16" }, { value: "4:3", label: "4:3" },
+  { value: "3:4", label: "3:4" }, { value: "4:5", label: "4:5" },
+  { value: "1:1", label: "1:1" }, { value: "9:16", label: "9:16" }, { value: "4:3", label: "4:3" },
   { value: "16:9", label: "16:9" },
 ];
 const SIZE_OPTS: Array<{ value: ImageSize; label: string; desc: string }> = [

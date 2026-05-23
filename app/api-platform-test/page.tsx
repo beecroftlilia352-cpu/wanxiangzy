@@ -8,7 +8,7 @@ import { ModuleHeader } from "@/components/ModuleHeader";
 import { LoadingStage } from "@/components/studio/LoadingStage";
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 
-const DEFAULT_API_URL = "https://value.apiqik.online";
+const DEFAULT_API_URL = "https://yunwu.ai";
 const DEFAULT_API_KEY = "";
 
 const MODEL_OPTIONS = [
@@ -223,7 +223,7 @@ export default function ApiPlatformTestPage() {
             <div className="mb-4">
               <ModuleHeader
                 title="模型生图测试"
-                tooltip="用 Generations 模式测试中转平台、模型、比例、清晰度和多张参考图输入，方便对比 API 可用性与出图质量。"
+                tooltip="测试中转平台、模型、比例、清晰度和多张参考图输入；GPT-Image-2 带参考图时会按官方 Edits multipart 格式请求。"
               />
             </div>
 
@@ -236,7 +236,7 @@ export default function ApiPlatformTestPage() {
                   value={apiUrl}
                   onChange={(e) => setApiUrl(e.target.value)}
                   className="w-full rounded-lg border px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-[rgba(91,124,255,0.14)]"
-                  placeholder="https://value.apiqik.online"
+                  placeholder="https://yunwu.ai"
                 />
               </label>
 
@@ -254,7 +254,7 @@ export default function ApiPlatformTestPage() {
               </label>
 
               <div className="rounded-lg border border-[rgba(91,124,255,0.22)] bg-[rgba(91,124,255,0.1)] px-3 py-2 text-xs text-[var(--codex-accent)]">
-                调用模式：Generations /v1/images/generations
+                调用模式：GPT-Image-2 + 参考图走 Edits /v1/images/edits；其他走 Generations
               </div>
 
               <label className="block">

@@ -2703,7 +2703,7 @@ export function getAdminProviderCatalog(): AdminProviderCatalog {
         provider: "Plato",
         endpointKind: "OpenAI-compatible image",
         configured: Boolean(process.env.PLATO_API_KEY || process.env.LINGYA_API_KEY),
-        envKeys: ["PLATO_API_KEY", "PLATO_BASE_URL", "PLATO_GPT_IMAGE_MODEL"],
+        envKeys: ["PLATO_API_KEY", "PLATO_BASE_URL"],
         costs: CREDIT_COSTS["gpt-image-2"],
         notes: "适合稳定编辑类任务，Plato 未配置时回退 LINGYA_API_KEY。",
       },
