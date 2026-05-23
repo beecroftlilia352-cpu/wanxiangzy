@@ -193,6 +193,8 @@ export default function CreatePage() {
 
   const [customModelPreview, setCustomModelPreview] = useState<string | null>(null);
   const [customRefPreview, setCustomRefPreview] = useState<string | null>(null);
+  const [isUploadingCustomModel, setIsUploadingCustomModel] = useState(false);
+  const [isUploadingCustomRef, setIsUploadingCustomRef] = useState(false);
   const [isDraggingClothing, setIsDraggingClothing] = useState(false);
   const [isDraggingModel, setIsDraggingModel] = useState(false);
   const [isDraggingRef, setIsDraggingRef] = useState(false);
@@ -228,6 +230,8 @@ export default function CreatePage() {
   });
   const customRefInputRef = useRef<HTMLInputElement>(null);
   const customModelInputRef = useRef<HTMLInputElement>(null);
+  const customRefUploadSeqRef = useRef(0);
+  const customModelUploadSeqRef = useRef(0);
   const sourceLibrary = useTryOnSourceLibrary({
     ensureAuthenticated: refreshAuth,
     isAuthenticated,
@@ -246,6 +250,11 @@ export default function CreatePage() {
   const aspects = aiModel === "gpt-image-2" ? GPT_ASPECTS : BANANA_ASPECTS;
   const imageSizes = getSupportedImageSizes(aiModel, aspectRatio);
   const effectiveReferenceUrl = sceneMode === "auto_design" ? null : store.referenceImage?.url || null;
+  const isAuxiliaryUploading = isUploadingCustomModel || isUploadingCustomRef;
+  const isReferenceUploadPending = sceneMode !== "auto_design" && Boolean(customRefPreview) && !effectiveReferenceUrl;
+  const isModelUploadPending = Boolean(customModelPreview) && !store.selectedModel?.image_url;
+  const isReferenceUploadBusy = isUploadingCustomRef || isReferenceUploadPending;
+  const isModelUploadBusy = isUploadingCustomModel || isModelUploadPending;
   const hasModelFace = Boolean(store.selectedModel?.image_url);
   const isBananaDisabledByModelFace = hasModelFace;
   const selectableModels = MODELS.map((model) => ({
@@ -329,13 +338,17 @@ export default function CreatePage() {
   };
 
   const switchSceneMode = (mode: TryOnSceneMode) => {
+    if (isUploadingCustomRef) {
+      toast.info("参考图上传中，请稍候");
+      return false;
+    }
     setSceneMode(mode);
     resetScenePrompt();
 
     if (mode === "auto_design") {
       store.setReferenceImage(null);
       setCustomRefPreview(null);
-      return;
+      return true;
     }
 
     if (mode === "system_reference") {
@@ -343,7 +356,7 @@ export default function CreatePage() {
         const firstPreset = PRESET_REFERENCES[0];
         if (firstPreset) applyPresetReference(firstPreset);
       }
-      return;
+      return true;
     }
 
     if (mode === "upload_reference") {
@@ -351,7 +364,7 @@ export default function CreatePage() {
         store.setReferenceImage(null);
         setCustomRefPreview(null);
       }
-      return;
+      return true;
     }
 
     const currentFavorite = favoriteReferences.find((item) => item.url === store.referenceImage?.url);
@@ -362,6 +375,7 @@ export default function CreatePage() {
       store.setReferenceImage(null);
       setCustomRefPreview(null);
     }
+    return true;
   };
 
   const updateGarmentAudience = (value: TryOnGarmentAudience) => {
@@ -810,17 +824,29 @@ export default function CreatePage() {
     if (!file.type.startsWith("image/")) return toast.error("请上传图片文件");
     if (file.size > MAX_FILE_SIZE) return toast.error(`${file.name} 超过 ${MAX_FILE_SIZE_MB}MB`);
 
+    const uploadSeq = customModelUploadSeqRef.current + 1;
+    customModelUploadSeqRef.current = uploadSeq;
+    setIsUploadingCustomModel(true);
+    store.setSelectedModel(null);
+    setCustomModelPreview(null);
+    setPromptOverride(null);
     toast.info("正在上传模特图...");
     try {
       const base64 = await fileToBase64(file);
+      if (customModelUploadSeqRef.current !== uploadSeq) return;
       setCustomModelPreview(base64);
       const result = await uploadImage(file);
+      if (customModelUploadSeqRef.current !== uploadSeq) return;
       store.setSelectedModel({ id: "custom", name: "自定义", image_url: result.url, gender: "female", is_preset: false, user_id: null });
       setPromptOverride(null);
       toast.success("模特已选择");
     } catch {
-      setCustomModelPreview(null);
-      toast.error("模特图上传失败，请重试");
+      if (customModelUploadSeqRef.current === uploadSeq) {
+        setCustomModelPreview(null);
+        toast.error("模特图上传失败，请重试");
+      }
+    } finally {
+      if (customModelUploadSeqRef.current === uploadSeq) setIsUploadingCustomModel(false);
     }
   };
 
@@ -837,19 +863,32 @@ export default function CreatePage() {
     if (!file.type.startsWith("image/")) return toast.error("请上传图片文件");
     if (file.size > MAX_FILE_SIZE) return toast.error(`${file.name} 超过 ${MAX_FILE_SIZE_MB}MB`);
 
+    const uploadSeq = customRefUploadSeqRef.current + 1;
+    customRefUploadSeqRef.current = uploadSeq;
+    setIsUploadingCustomRef(true);
+    setSceneMode("upload_reference");
+    store.setReferenceImage(null);
+    setCustomRefPreview(null);
+    resetScenePrompt();
     toast.info("正在上传参考图...");
     try {
       const base64 = await fileToBase64(file);
+      if (customRefUploadSeqRef.current !== uploadSeq) return;
       setCustomRefPreview(base64);
       const result = await uploadImage(file);
+      if (customRefUploadSeqRef.current !== uploadSeq) return;
       store.setReferenceImage({ id: "custom", url: result.url, label: "自定义参考", category: "style", is_preset: false, user_id: null });
       setSceneMode("upload_reference");
       setPromptOverride(null);
       store.setPromptUsed("");
       toast.success("参考图已选择");
     } catch {
-      setCustomRefPreview(null);
-      toast.error("参考图上传失败，请重试");
+      if (customRefUploadSeqRef.current === uploadSeq) {
+        setCustomRefPreview(null);
+        toast.error("参考图上传失败，请重试");
+      }
+    } finally {
+      if (customRefUploadSeqRef.current === uploadSeq) setIsUploadingCustomRef(false);
     }
   };
 
@@ -1008,8 +1047,12 @@ export default function CreatePage() {
     if (pendingSubmitId.startsWith("local-")) removeTaskQueueItem(pendingSubmitId);
     generationSubmitRef.current = null;
     activeGenerationRef.current = null;
+    customModelUploadSeqRef.current += 1;
+    customRefUploadSeqRef.current += 1;
     setActiveQueueTask(null);
     setIsSubmitting(false);
+    setIsUploadingCustomModel(false);
+    setIsUploadingCustomRef(false);
     setUploadedClothingUrls([]);
     setClothingRoles([]);
     setCustomModelPreview(null);
@@ -1025,6 +1068,11 @@ export default function CreatePage() {
     payload: TryOnHistoryPayload,
     options?: { resultUrls?: string[]; selectedTask?: TaskQueueItem | null; errorMessage?: string | null; silent?: boolean }
   ) => {
+    customModelUploadSeqRef.current += 1;
+    customRefUploadSeqRef.current += 1;
+    setIsUploadingCustomModel(false);
+    setIsUploadingCustomRef(false);
+
     const files = payload.clothingUrls.map((_, index) =>
       new File([], `history-clothing-${index + 1}.jpg`, { type: "image/jpeg" })
     );
@@ -1201,7 +1249,16 @@ export default function CreatePage() {
       router.push("/login");
       return;
     }
+    if (isUploading) {
+      toast.info("服装图正在上传，请稍候");
+      return;
+    }
     if (!uploadedClothingUrls.length) { toast.error("请上传衣服"); return; }
+    if (isAuxiliaryUploading || isReferenceUploadPending || isModelUploadPending) {
+      const pendingLabel = isModelUploadBusy ? "模特图" : "参考图";
+      toast.info(`${pendingLabel}正在上传，请稍候`);
+      return;
+    }
     if (isIntimateGarment && ageGroup !== "adult") {
       toast.error("内衣/泳衣类服装仅支持成人模特生成");
       return;
@@ -1375,13 +1432,24 @@ export default function CreatePage() {
         ? "results"
         : "empty";
   const retryDisabled = store.isGenerating || Boolean(applyingTaskId);
-  const runDisabled = isSubmitting || !uploadedClothingUrls.length;
+  const runDisabled = isSubmitting
+    || isUploading
+    || isAuxiliaryUploading
+    || isReferenceUploadPending
+    || isModelUploadPending
+    || !uploadedClothingUrls.length;
   const authIsAnonymous = authChecked && !isAuthenticated;
   const runDisabledReason = isSubmitting
     ? "正在提交任务，请稍候。"
-    : !uploadedClothingUrls.length
-      ? "请先上传服装图，或从作品库选择一张历史结果。"
-      : undefined;
+    : isUploading
+      ? "服装图正在上传，请稍候。"
+      : isModelUploadBusy
+        ? "模特图正在上传，请稍候。"
+        : isReferenceUploadBusy
+          ? "参考图正在上传，请稍候。"
+          : !uploadedClothingUrls.length
+            ? "请先上传服装图，或从作品库选择一张历史结果。"
+            : undefined;
 
   return (
     <>
@@ -1650,11 +1718,11 @@ export default function CreatePage() {
                     <div key={ref.id} role="button" tabIndex={0}
                       aria-label={`选择系统参考图：${ref.label}`}
                       onClick={() => {
-                        switchSceneMode("system_reference");
+                        if (!switchSceneMode("system_reference")) return;
                         applyPresetReference(ref);
                       }}
                       onKeyDown={(event) => handlePreviewKeyDown(event, () => {
-                        switchSceneMode("system_reference");
+                        if (!switchSceneMode("system_reference")) return;
                         applyPresetReference(ref);
                       })}
                       className={`group relative rounded-lg overflow-hidden border-2 bg-white transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 ${
@@ -1680,7 +1748,7 @@ export default function CreatePage() {
 
             {sceneMode === "upload_reference" && (
               <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50/70 p-3">
-                <input ref={customRefInputRef} type="file" accept="image/*" className="hidden" onChange={handleCustomRef} />
+                <input ref={customRefInputRef} type="file" accept="image/*" className="hidden" onChange={handleCustomRef} disabled={isReferenceUploadBusy} />
                 {selectedReferencePreviewUrl ? (
                   <div className="relative">
                     <button
@@ -1694,19 +1762,27 @@ export default function CreatePage() {
                       <span className="absolute right-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-slate-600 shadow-sm transition group-hover:bg-white">
                         <ZoomIn className="h-4 w-4" />
                       </span>
+                      {isReferenceUploadBusy && (
+                        <span className="absolute inset-0 flex items-center justify-center gap-2 bg-white/78 text-xs font-bold text-[var(--codex-accent)] backdrop-blur-[1px]">
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          上传中
+                        </span>
+                      )}
                     </button>
                     <button
                       type="button"
                       onClick={() => customRefInputRef.current?.click()}
-                      className="absolute bottom-2 right-2 z-10 rounded-full bg-white/92 px-3 py-1 text-[11px] font-bold text-slate-600 shadow-sm transition hover:bg-white hover:text-purple-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+                      disabled={isReferenceUploadBusy}
+                      className="absolute bottom-2 right-2 z-10 rounded-full bg-white/92 px-3 py-1 text-[11px] font-bold text-slate-600 shadow-sm transition hover:bg-white hover:text-purple-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      更换
+                      {isReferenceUploadBusy ? "上传中" : "更换"}
                     </button>
                   </div>
                 ) : (
                   <button
                     type="button"
                     onClick={() => customRefInputRef.current?.click()}
+                    disabled={isReferenceUploadBusy}
                     className="studio-fixed-upload-slot w-full rounded-xl border-2 border-dashed border-gray-200 bg-white hover:border-purple-300 flex flex-col items-center justify-center overflow-hidden transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
                     style={{ "--studio-fixed-upload-height": "132px" } as CSSProperties}
                     aria-label="上传参考图"
@@ -1798,11 +1874,11 @@ export default function CreatePage() {
                       <div key={ref.id} role="button" tabIndex={0}
                         aria-label={`选择收藏参考图：${ref.label}`}
                         onClick={() => {
-                          switchSceneMode("favorites");
+                          if (!switchSceneMode("favorites")) return;
                           applyFavoriteReference(ref);
                         }}
                         onKeyDown={(event) => handlePreviewKeyDown(event, () => {
-                          switchSceneMode("favorites");
+                          if (!switchSceneMode("favorites")) return;
                           applyFavoriteReference(ref);
                         })}
                         className={`group relative rounded-lg overflow-hidden border-2 bg-white transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 ${
@@ -1861,11 +1937,16 @@ export default function CreatePage() {
               <button
                 type="button"
                 onClick={() => {
+                  if (isModelUploadBusy) {
+                    toast.info("模特图上传中，请稍候");
+                    return;
+                  }
                   store.setSelectedModel(null);
                   setCustomModelPreview(null);
                   toast.success("已设为不替换脸部");
                 }}
-                className={`rounded-lg border-2 flex flex-col items-center justify-center aspect-square transition-all ${
+                disabled={isModelUploadBusy}
+                className={`rounded-lg border-2 flex flex-col items-center justify-center aspect-square transition-all disabled:cursor-not-allowed disabled:opacity-60 ${
                   !store.selectedModel ? "border-purple-500 bg-purple-50 ring-1 ring-purple-200" : "border-gray-200 hover:border-gray-300"
                 }`}
               >
@@ -1878,16 +1959,26 @@ export default function CreatePage() {
                 <div key={m.id} role="button" tabIndex={0}
                   aria-label={`选择模特：${m.name}`}
                   onClick={() => {
+                    if (isModelUploadBusy) {
+                      toast.info("模特图上传中，请稍候");
+                      return;
+                    }
                     setCustomModelPreview(null);
                     store.setSelectedModel({ ...m, is_preset: true, user_id: null });
                     setPromptOverride(null);
                   }}
                   onKeyDown={(event) => handlePreviewKeyDown(event, () => {
+                    if (isModelUploadBusy) {
+                      toast.info("模特图上传中，请稍候");
+                      return;
+                    }
                     setCustomModelPreview(null);
                     store.setSelectedModel({ ...m, is_preset: true, user_id: null });
                     setPromptOverride(null);
                   })}
-                  className={`group relative rounded-lg overflow-hidden border-2 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 ${
+                  className={`group relative rounded-lg overflow-hidden border-2 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 ${
+                    isModelUploadBusy ? "cursor-not-allowed opacity-60" : "cursor-pointer"
+                  } ${
                     store.selectedModel?.id === m.id ? "border-purple-500 ring-1 ring-purple-200" : "border-transparent hover:border-gray-300"
                   }`}>
                   <ImgSkeleton src={m.image_url} alt={`模特：${m.name}`} className="w-full aspect-square object-cover" />
@@ -1909,15 +2000,22 @@ export default function CreatePage() {
               <button
                 type="button"
                 onClick={() => customModelInputRef.current?.click()}
-                className="rounded-lg border-2 border-dashed border-gray-200 hover:border-purple-300 flex flex-col items-center justify-center aspect-square transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+                disabled={isModelUploadBusy}
+                className="relative rounded-lg border-2 border-dashed border-gray-200 hover:border-purple-300 flex flex-col items-center justify-center aspect-square transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-80"
                 aria-label={customModelPreview ? "更换上传模特图" : "上传模特图"}
               >
                 {customModelPreview
                   ? <img src={customModelPreview} alt="已上传的模特图" className="h-full w-full rounded-lg object-contain p-1" />
                   : <><Camera className="w-5 h-5 text-gray-300" /><span className="text-[10px] text-gray-400">点击上传</span></>
                 }
+                {isModelUploadBusy && (
+                  <span className="absolute inset-0 flex flex-col items-center justify-center gap-1 rounded-lg bg-white/78 text-[10px] font-bold text-[var(--codex-accent)] backdrop-blur-[1px]">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    上传中
+                  </span>
+                )}
               </button>
-              <input ref={customModelInputRef} type="file" accept="image/*" className="hidden" onChange={handleCustomModel} />
+              <input ref={customModelInputRef} type="file" accept="image/*" className="hidden" onChange={handleCustomModel} disabled={isModelUploadBusy} />
             </div>
           </section>
 
