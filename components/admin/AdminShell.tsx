@@ -22,6 +22,7 @@ import {
   Settings,
   ShieldAlert,
   ShieldCheck,
+  Shirt,
   UserCog,
   Users,
 } from "lucide-react";
@@ -41,6 +42,7 @@ const adminNav = [
   { href: "/admin/diagnostics", label: "诊断", icon: AlertTriangle },
   { href: "/admin/evals", label: "Agent Eval", icon: FlaskConical },
   { href: "/admin/prompts", label: "Prompt", icon: MessageSquareText },
+  { href: "/admin/tryon", label: "试衣配置", icon: Shirt },
   { href: "/admin/users", label: "用户", icon: Users },
   { href: "/admin/credits", label: "积分", icon: Coins },
   { href: "/admin/requests", label: "审批", icon: ClipboardCheck },
@@ -168,6 +170,7 @@ function currentTitle(pathname: string) {
   if (pathname.startsWith("/admin/diagnostics")) return "诊断";
   if (pathname.startsWith("/admin/evals")) return "Agent Eval";
   if (pathname.startsWith("/admin/prompts")) return "Prompt";
+  if (pathname.startsWith("/admin/tryon")) return "试衣配置";
   if (pathname.startsWith("/admin/users")) return "用户";
   if (pathname.startsWith("/admin/credits")) return "积分";
   if (pathname.startsWith("/admin/requests")) return "审批";

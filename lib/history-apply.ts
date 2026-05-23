@@ -25,6 +25,7 @@ export type HistoryJobPayload =
       ageGroup?: TryOnAgeGroup;
       modelFaceUrl?: string | null;
       referenceUrl?: string | null;
+      referenceUrls?: string[];
       aiModel: LingyaModel;
       aspectRatio: AspectRatio;
       imageSize: ImageSize;

@@ -115,6 +115,11 @@ const ALIYUN_OSS_REQUIRED_ENV: EnvContractEntry[] = [
 const OPTIONAL_ENV: EnvContractEntry[] = [
   { name: "LINGYA_BASE_URL", category: "optional", description: "Lingya API base URL override." },
   { name: "PLATO_BASE_URL", category: "optional", description: "Plato API base URL override." },
+  { name: "TRYON_CLOTHING_ANALYZE_API_KEY", category: "optional", description: "Yunwu/OpenAI-compatible API key for try-on clothing recognition; falls back to LINGYA_API_KEY." },
+  { name: "TRYON_CLOTHING_ANALYZE_BASE_URL", category: "optional", description: "Yunwu/OpenAI-compatible base URL for try-on clothing recognition." },
+  { name: "TRYON_CLOTHING_ANALYZE_MODEL", category: "optional", description: "Vision-capable model for try-on clothing recognition, default gpt-5-nano." },
+  { name: "TRYON_CLOTHING_ANALYZE_TIMEOUT_MS", category: "optional", description: "Timeout for try-on clothing recognition requests." },
+  { name: "TRYON_REFERENCE_IMAGE_ALLOWED_HOSTS", category: "optional", description: "Comma-separated extra hosts allowed for managed try-on reference scene images." },
   { name: "ANALYZE_LLM_PROVIDER", category: "optional", description: "Prompt analysis provider: xiaomi or lingya." },
   { name: "LINGYA_TEXT_MODEL", category: "optional", description: "Lingya text model override." },
   { name: "LINGYA_VISION_MODEL", category: "optional", description: "Lingya vision model override." },

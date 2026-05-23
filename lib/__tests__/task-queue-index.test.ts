@@ -59,4 +59,36 @@ describe("task queue index", () => {
     expect(row.result_thumbnails).toHaveLength(2);
     expect(indexRowToTaskQueueItem(row).resultCount).toBe(3);
   });
+
+  it("multiplies try-on expected count by selected reference count", () => {
+    const item = normalizeGenerationTaskQueueItem({
+      id: "gen_3",
+      user_id: "user_1",
+      status: "processing_tryon",
+      error_message: null,
+      result_urls: [],
+      created_at: "2026-05-16T10:00:00.000Z",
+      completed_at: null,
+      job_payload: {
+        kind: "tryon",
+        genCount: 2,
+        referenceUrls: [
+          "https://example.com/ref-1.png",
+          "https://example.com/ref-2.png",
+          "https://example.com/ref-3.png",
+        ],
+      },
+      clothing_urls: ["https://example.com/clothing.png"],
+      model_face_url: null,
+      reference_url: null,
+    });
+
+    expect(item.expectedCount).toBe(6);
+    expect(item.inputThumbnails).toEqual([
+      "https://example.com/clothing.png",
+      "https://example.com/ref-1.png",
+      "https://example.com/ref-2.png",
+      "https://example.com/ref-3.png",
+    ]);
+  });
 });

@@ -11,11 +11,14 @@ export type TryOnInputReference = {
   label: string;
 };
 
+export const TRYON_INPUT_REFERENCE_LIMIT = 14;
+
 type TryOnInputReferenceParams = {
   clothingUrls?: unknown;
   clothingMode?: TryOnClothingMode | string | null;
   clothingRoles?: unknown;
   referenceUrl?: unknown;
+  referenceUrls?: unknown;
   modelFaceUrl?: unknown;
 };
 
@@ -34,17 +37,19 @@ export function buildTryOnInputReferences(params: TryOnInputReferenceParams): Tr
     });
   });
 
-  const referenceUrl = stringValue(params.referenceUrl);
-  if (referenceUrl) {
-    references.push({ url: referenceUrl, label: "参考图" });
-  }
+  const referenceUrls = stringArray(params.referenceUrls);
+  const fallbackReferenceUrl = stringValue(params.referenceUrl);
+  const allReferenceUrls = referenceUrls.length ? referenceUrls : fallbackReferenceUrl ? [fallbackReferenceUrl] : [];
+  allReferenceUrls.forEach((url, index) => {
+    references.push({ url, label: allReferenceUrls.length > 1 ? `参考图${index + 1}` : "参考图" });
+  });
 
   const modelFaceUrl = stringValue(params.modelFaceUrl);
   if (modelFaceUrl) {
     references.push({ url: modelFaceUrl, label: "模特" });
   }
 
-  return uniqueReferences(references).slice(0, 8);
+  return uniqueReferences(references).slice(0, TRYON_INPUT_REFERENCE_LIMIT);
 }
 
 export function getTryOnInputReferenceUrls(params: TryOnInputReferenceParams): string[] {

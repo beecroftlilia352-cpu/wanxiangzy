@@ -1,7 +1,7 @@
 import type { TaskQueueItem, TaskQueueSummary, TaskStatusGroup } from "@/lib/task-queue";
 import { safeTaskQueueUrls } from "@/lib/task-queue";
 import { normalizeGenerationState } from "@/lib/api/generation-state";
-import { getTryOnInputReferenceUrls } from "@/lib/tryon-input-references";
+import { getTryOnInputReferenceUrls, TRYON_INPUT_REFERENCE_LIMIT } from "@/lib/tryon-input-references";
 
 export const TASK_QUEUE_ITEM_TTL_SECONDS = 60 * 60 * 24 * 30;
 export const TASK_QUEUE_SUMMARY_TTL_SECONDS = 60 * 5;
@@ -347,7 +347,7 @@ export function taskQueueItemToIndexWrite(
     progress: clampProgress(item.progress),
     expected_count: Math.max(1, Number(item.expectedCount) || 1),
     result_count: Math.max(0, Number(item.resultCount) || 0),
-    input_thumbnails: safeTaskQueueUrls(item.inputThumbnails).slice(0, 8),
+    input_thumbnails: safeTaskQueueUrls(item.inputThumbnails).slice(0, item.module === "tryon" ? TRYON_INPUT_REFERENCE_LIMIT : 8),
     result_thumbnails: safeTaskQueueUrls(item.resultThumbnails).slice(0, 2),
     error_message: item.error || null,
     apply_url: item.applyUrl || `${modulePath(item.module)}?task=${encodeURIComponent(item.id)}`,
@@ -390,6 +390,7 @@ function extractGenerationInputThumbnails(row: TaskQueueGenerationSourceRow): st
       clothingMode: stringValue(payload.clothingMode),
       clothingRoles: Array.isArray(payload.clothingRoles) ? payload.clothingRoles : undefined,
       referenceUrl: stringValue(payload.referenceUrl) || row.reference_url,
+      referenceUrls: arrayOfStrings(payload.referenceUrls),
       modelFaceUrl: stringValue(payload.modelFaceUrl) || row.model_face_url,
     });
   }
@@ -469,6 +470,13 @@ function extractUrlsFromUnknown(value: unknown): string[] {
 function inferExpectedCount(payload: Record<string, unknown> | null | undefined, resultCount: number): number {
   if (!payload) {
     return Math.max(1, resultCount || 1);
+  }
+  if (payload.kind === "tryon") {
+    const referenceCount = payload.sceneMode === "auto_design"
+      ? 1
+      : Math.max(1, uniqueStrings([...arrayOfStrings(payload.referenceUrls), stringValue(payload.referenceUrl)]).length);
+    const perReferenceCount = Math.max(1, Math.floor(numberValue(payload.genCount) || 1));
+    return Math.max(1, perReferenceCount * referenceCount, resultCount || 1);
   }
   return Math.max(
     1,

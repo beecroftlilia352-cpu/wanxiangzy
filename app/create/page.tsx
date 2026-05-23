@@ -79,10 +79,16 @@ import {
   SCENE_MODE_TABS,
   STYLE_PRESETS,
 } from "@/lib/tryon-studio-options";
+import { TRYON_CATEGORY_BY_CODE, type TryOnClothingAnalysis } from "@/lib/tryon-reference-config";
 import { TryOnSourceLibraryDialog } from "@/components/tryon/TryOnSourceLibraryDialog";
+import {
+  ReferenceScenePicker,
+  type ReferenceScenePickerTab,
+} from "@/components/tryon/ReferenceScenePicker";
 import { useTryOnSourceLibrary } from "@/components/tryon/useTryOnSourceLibrary";
 import type { TryOnSourceLibraryItem } from "@/lib/tryon-source-library";
 import { buildTryOnInputReferences } from "@/lib/tryon-input-references";
+import type { ReferenceImage } from "@/types";
 
 type FavoriteReference = {
   id: string;
@@ -91,6 +97,67 @@ type FavoriteReference = {
   category: "scene" | "style" | "pose";
   is_preset: false;
   user_id: null;
+};
+
+type ReferenceSource = "preset" | "upload" | "favorite" | "history" | "template";
+
+type SelectedReferenceImage = ReferenceImage & {
+  source?: ReferenceSource;
+  sceneKey?: string;
+  score?: number;
+  matchReasons?: string[];
+  clothCategories?: string[];
+  childReferences?: SelectedReferenceImage[];
+  viewTags?: string[];
+  cropTags?: string[];
+  sceneTags?: string[];
+  styleTags?: string[];
+};
+
+type ReferenceTemplate = {
+  id: string;
+  name: string;
+  coverUrl: string;
+  references: SelectedReferenceImage[];
+};
+
+type CustomReferenceUpload = {
+  id: string;
+  preview: string;
+  label: string;
+  status: "uploading" | "ready" | "error";
+  url?: string;
+};
+
+type SystemReferenceApiItem = {
+  id?: string;
+  sceneKey?: string;
+  name?: string;
+  imageUrl?: string;
+  reference?: {
+    id?: string;
+    url?: string;
+    label?: string;
+    category?: unknown;
+    is_preset?: boolean;
+    user_id?: string | null;
+  };
+  score?: number;
+  matchReasons?: string[];
+  clothCategories?: string[];
+  childReferences?: Array<{
+    id?: string;
+    url?: string;
+    label?: string;
+    category?: unknown;
+    is_preset?: boolean;
+    user_id?: string | null;
+    source?: unknown;
+  }>;
+  viewTags?: string[];
+  cropTags?: string[];
+  sceneTags?: string[];
+  styleTags?: string[];
 };
 
 type TryOnHistoryPayload = Extract<HistoryJobPayload, { kind: "tryon" }>;
@@ -115,6 +182,8 @@ const TRYON_STATUS_HIDDEN_POLL_MS = 30_000;
 const TRYON_STATUS_QUEUE_REFRESH_MS = 20_000;
 const activeTryOnStatusWatchers = new Map<string, AbortController>();
 const TRYON_FACE_MODEL_BANANA_NOTICE = "已选择模特脸时，Banana 暂不可用。建议用 GPT-Image-2 直接融合；如果想用 Banana 的换装效果，先不选模特图完成换装，再到换脸模块处理脸部。";
+const MAX_TRYON_REFERENCE_IMAGES = 8;
+const MAX_TRYON_OUTPUT_IMAGES = 32;
 
 function createPlaceholderFile(name: string) {
   return new File([], name, { type: "image/jpeg" });
@@ -142,6 +211,149 @@ function findPresetModelByUrl(url?: string | null) {
 
 function findPresetReferenceByUrl(url?: string | null) {
   return PRESET_REFERENCES.find((reference) => sameAssetUrl(reference.url, url));
+}
+
+function uniqueReferenceImages(refs: SelectedReferenceImage[]) {
+  const seen = new Set<string>();
+  const unique: SelectedReferenceImage[] = [];
+  for (const ref of refs) {
+    if (!ref?.url || seen.has(ref.url)) continue;
+    seen.add(ref.url);
+    unique.push(ref);
+    if (unique.length >= MAX_TRYON_REFERENCE_IMAGES) break;
+  }
+  return unique;
+}
+
+function toPresetReference(ref: typeof PRESET_REFERENCES[number]): SelectedReferenceImage {
+  return { ...ref, is_preset: true, user_id: null, source: "preset" } as SelectedReferenceImage;
+}
+
+function toSystemReference(ref: SystemReferenceApiItem): SelectedReferenceImage | null {
+  const url = ref.reference?.url || ref.imageUrl;
+  if (!url) return null;
+  return {
+    id: ref.reference?.id || ref.id || ref.sceneKey || url,
+    url,
+    label: ref.reference?.label || ref.name || "系统参考图",
+    category: normalizeReferenceCategoryValue(ref.reference?.category),
+    is_preset: ref.reference?.is_preset ?? true,
+    user_id: ref.reference?.user_id ?? null,
+    source: "preset",
+    sceneKey: ref.sceneKey,
+    score: typeof ref.score === "number" ? ref.score : undefined,
+    matchReasons: Array.isArray(ref.matchReasons) ? ref.matchReasons.filter((item): item is string => typeof item === "string") : [],
+    clothCategories: Array.isArray(ref.clothCategories) ? ref.clothCategories.filter((item): item is string => typeof item === "string") : [],
+    childReferences: Array.isArray(ref.childReferences)
+      ? ref.childReferences.map((item, index) => toSystemReferenceChild(item, `${ref.sceneKey || ref.id || "scene"}-${index + 1}`)).filter(Boolean) as SelectedReferenceImage[]
+      : [],
+    viewTags: normalizeStringTags(ref.viewTags),
+    cropTags: normalizeStringTags(ref.cropTags),
+    sceneTags: normalizeStringTags(ref.sceneTags),
+    styleTags: normalizeStringTags(ref.styleTags),
+  };
+}
+
+function toSystemReferenceChild(ref: NonNullable<SystemReferenceApiItem["childReferences"]>[number], fallbackId: string): SelectedReferenceImage | null {
+  if (!ref?.url) return null;
+  return {
+    id: ref.id || fallbackId,
+    url: ref.url,
+    label: ref.label || "场景姿势图",
+    category: normalizeReferenceCategoryValue(ref.category),
+    is_preset: ref.is_preset ?? true,
+    user_id: ref.user_id ?? null,
+    source: "preset",
+  };
+}
+
+function toFavoriteReference(ref: FavoriteReference): SelectedReferenceImage {
+  return { ...ref, source: "favorite" };
+}
+
+function normalizeReferenceCategoryValue(value: unknown): FavoriteReference["category"] {
+  return value === "style" || value === "pose" || value === "scene" ? value : "scene";
+}
+
+function normalizeStringTags(value: unknown) {
+  return Array.isArray(value)
+    ? value.map((item) => typeof item === "string" ? item.trim().toLowerCase() : "").filter(Boolean)
+    : [];
+}
+
+function getFallbackSystemReferences() {
+  return PRESET_REFERENCES.map(toPresetReference);
+}
+
+function normalizeSystemReferenceList(value: unknown) {
+  return Array.isArray(value)
+    ? uniqueReferenceImages(value.map((item) => toSystemReference(item as SystemReferenceApiItem)).filter(Boolean) as SelectedReferenceImage[])
+    : [];
+}
+
+function getClothingAnalysisLabel(analysis: TryOnClothingAnalysis | null) {
+  if (!analysis) return "";
+  const categoryCode = analysis.subcategories[0] || analysis.mainCategory || "";
+  const category = categoryCode ? TRYON_CATEGORY_BY_CODE.get(categoryCode) : null;
+  const audienceLabel = analysis.genderType === "men" ? "男装" : analysis.genderType === "unisex" ? "通用" : "女装";
+  const ageLabel = analysis.ageRange === "adult" || !analysis.ageRange ? "成人" : TRYON_AGE_GROUP_LABELS[analysis.ageRange as TryOnAgeGroup] || "成人";
+  return [category?.nameZh || categoryCode, audienceLabel, ageLabel].filter(Boolean).join(" / ");
+}
+
+function getSceneChildReferences(scene: SelectedReferenceImage | null) {
+  if (!scene) return [];
+  return uniqueReferenceImages((scene.childReferences?.length ? scene.childReferences : [scene]) as SelectedReferenceImage[]);
+}
+
+function referenceMatchesSceneFilters(ref: SelectedReferenceImage, filters: {
+  view: "all" | "front" | "back";
+  body: "all" | "whole" | "upper" | "lower";
+  search: string;
+}) {
+  const haystack = [
+    ref.label,
+    ...(ref.viewTags || []),
+    ...(ref.cropTags || []),
+    ...(ref.sceneTags || []),
+    ...(ref.styleTags || []),
+    ...(ref.clothCategories || []),
+  ].join(" ").toLowerCase();
+  const search = filters.search.trim().toLowerCase();
+  if (search && !haystack.includes(search)) return false;
+  if (filters.view === "front" && !haystack.includes("front") && !haystack.includes("正面")) return false;
+  if (filters.view === "back" && !haystack.includes("back") && !haystack.includes("背面")) return false;
+  if (filters.body === "whole" && !haystack.includes("whole") && !haystack.includes("full") && !haystack.includes("全身")) return false;
+  if (filters.body === "upper" && !haystack.includes("upper") && !haystack.includes("half") && !haystack.includes("上半身")) return false;
+  if (filters.body === "lower" && !haystack.includes("lower") && !haystack.includes("下半身")) return false;
+  return true;
+}
+
+function toHistoryReference(url: string, index = 0): SelectedReferenceImage {
+  const preset = findPresetReferenceByUrl(url);
+  if (preset) return toPresetReference(preset);
+  return {
+    id: `history-reference-${index + 1}`,
+    url,
+    label: index > 0 ? `历史参考${index + 1}` : "历史参考",
+    category: "style",
+    is_preset: false,
+    user_id: null,
+    source: "history",
+  };
+}
+
+function getHistoryReferenceUrls(payload: TryOnHistoryPayload) {
+  return uniqueReferenceImages([
+    ...((Array.isArray(payload.referenceUrls) ? payload.referenceUrls : [])
+      .map((url, index) => typeof url === "string" && url.trim() ? toHistoryReference(url.trim(), index) : null)
+      .filter(Boolean) as SelectedReferenceImage[]),
+    ...(payload.referenceUrl ? [toHistoryReference(payload.referenceUrl)] : []),
+  ]).map((item) => item.url);
+}
+
+function getTryOnHistoryExpectedCount(payload: TryOnHistoryPayload) {
+  const referenceCount = payload.sceneMode === "auto_design" ? 1 : getHistoryReferenceUrls(payload).length || 1;
+  return Math.min(MAX_TRYON_OUTPUT_IMAGES, Math.max(1, payload.genCount * referenceCount));
 }
 
 export default function CreatePage() {
@@ -177,9 +389,10 @@ export default function CreatePage() {
   const [customStyle, setCustomStyle] = useState("");
   const [optimizing, setOptimizing] = useState(false);
   const [promptOverride, setPromptOverride] = useState<string | null>(null);
-  const [sceneMode, setSceneMode] = useState<TryOnSceneMode>("auto_design");
+  const [sceneMode, setSceneMode] = useState<TryOnSceneMode>("system_reference");
   const [autoDesign, setAutoDesign] = useState<AutoDesignSettings>(DEFAULT_AUTO_DESIGN);
   const [favoriteReferences, setFavoriteReferences] = useState<FavoriteReference[]>([]);
+  const [referenceTemplates, setReferenceTemplates] = useState<ReferenceTemplate[]>([]);
   const [isLoadingFavoriteReferences, setIsLoadingFavoriteReferences] = useState(false);
   const [isSavingFavoriteReference, setIsSavingFavoriteReference] = useState(false);
   const [clothingMode, setClothingMode] = useState<TryOnClothingMode>("multi");
@@ -192,9 +405,8 @@ export default function CreatePage() {
   const [rulesPopoverStyle, setRulesPopoverStyle] = useState<{ top: number; left: number; maxHeight: number } | null>(null);
 
   const [customModelPreview, setCustomModelPreview] = useState<string | null>(null);
-  const [customRefPreview, setCustomRefPreview] = useState<string | null>(null);
+  const [customRefUploads, setCustomRefUploads] = useState<CustomReferenceUpload[]>([]);
   const [isUploadingCustomModel, setIsUploadingCustomModel] = useState(false);
-  const [isUploadingCustomRef, setIsUploadingCustomRef] = useState(false);
   const [isDraggingClothing, setIsDraggingClothing] = useState(false);
   const [isDraggingModel, setIsDraggingModel] = useState(false);
   const [isDraggingRef, setIsDraggingRef] = useState(false);
@@ -219,7 +431,7 @@ export default function CreatePage() {
     setDragging: setIsDraggingRef,
     stopPropagation: true,
     fileFilter: (file) => file.type.startsWith("image/"),
-    onFiles: (files) => handleCustomRefFile(files[0]),
+    onFiles: (files) => handleCustomRefFiles(files),
   });
   const modelDrag = useStableFileDrag<HTMLElement>({
     isDragging: isDraggingModel,
@@ -232,6 +444,9 @@ export default function CreatePage() {
   const customModelInputRef = useRef<HTMLInputElement>(null);
   const customRefUploadSeqRef = useRef(0);
   const customModelUploadSeqRef = useRef(0);
+  const referenceSelectionTouchedRef = useRef(false);
+  const clothingAnalysisSeqRef = useRef(0);
+  const lastClothingAnalysisKeyRef = useRef("");
   const sourceLibrary = useTryOnSourceLibrary({
     ensureAuthenticated: refreshAuth,
     isAuthenticated,
@@ -243,15 +458,34 @@ export default function CreatePage() {
 
   // 已上传的服装 URL 列表（选择后立即上传）
   const [uploadedClothingUrls, setUploadedClothingUrls] = useState<string[]>([]);
+  const [clothingAnalysis, setClothingAnalysis] = useState<TryOnClothingAnalysis | null>(null);
+  const [clothingAnalysisSource, setClothingAnalysisSource] = useState<"yunwu" | "cache" | "fallback" | null>(null);
+  const [isAnalyzingClothing, setIsAnalyzingClothing] = useState(false);
+  const [isLoadingSystemReferences, setIsLoadingSystemReferences] = useState(false);
+  const [recommendedSystemReferences, setRecommendedSystemReferences] = useState<SelectedReferenceImage[]>(getFallbackSystemReferences().slice(0, 4));
+  const [allSystemReferences, setAllSystemReferences] = useState<SelectedReferenceImage[]>(getFallbackSystemReferences());
+  const [isReferenceScenePanelOpen, setIsReferenceScenePanelOpen] = useState(false);
+  const [referencePanelTab, setReferencePanelTab] = useState<ReferenceScenePickerTab>("recommended");
+  const [referencePanelViewFilter, setReferencePanelViewFilter] = useState<"all" | "front" | "back">("all");
+  const [referencePanelBodyFilter, setReferencePanelBodyFilter] = useState<"all" | "whole" | "upper" | "lower">("all");
+  const [referencePanelSearch, setReferencePanelSearch] = useState("");
+  const [activeReferenceSceneUrl, setActiveReferenceSceneUrl] = useState<string | null>(null);
 
   // 大图预览
   const [lightboxImage, setLightboxImage] = useState<{ src: string; alt: string } | null>(null);
 
   const aspects = aiModel === "gpt-image-2" ? GPT_ASPECTS : BANANA_ASPECTS;
   const imageSizes = getSupportedImageSizes(aiModel, aspectRatio);
-  const effectiveReferenceUrl = sceneMode === "auto_design" ? null : store.referenceImage?.url || null;
+  const selectedReferenceImages = sceneMode === "auto_design"
+    ? []
+    : uniqueReferenceImages((store.referenceImages?.length ? store.referenceImages : store.referenceImage ? [store.referenceImage] : []) as SelectedReferenceImage[]);
+  const effectiveReferenceUrls = selectedReferenceImages.map((item) => item.url).filter(Boolean);
+  const effectiveReferenceUrl = effectiveReferenceUrls[0] || null;
+  const referenceMultiplier = sceneMode === "auto_design" ? 1 : effectiveReferenceUrls.length;
+  const expectedOutputCount = genCount * referenceMultiplier;
+  const isUploadingCustomRef = customRefUploads.some((item) => item.status === "uploading");
   const isAuxiliaryUploading = isUploadingCustomModel || isUploadingCustomRef;
-  const isReferenceUploadPending = sceneMode !== "auto_design" && Boolean(customRefPreview) && !effectiveReferenceUrl;
+  const isReferenceUploadPending = isUploadingCustomRef;
   const isModelUploadPending = Boolean(customModelPreview) && !store.selectedModel?.image_url;
   const isReferenceUploadBusy = isUploadingCustomRef || isReferenceUploadPending;
   const isModelUploadBusy = isUploadingCustomModel || isModelUploadPending;
@@ -261,9 +495,7 @@ export default function CreatePage() {
     ...model,
     disabled: isBananaDisabledByModelFace && isNanoBananaModel(model.value),
   }));
-  const isCurrentReferenceFavorited = Boolean(
-    store.referenceImage?.url && favoriteReferences.some((item) => item.url === store.referenceImage?.url)
-  );
+  const selectedReferenceCount = selectedReferenceImages.length;
   const resolvedAutoDesign = normalizeAutoDesignSettings(autoDesign);
   const autoDesignBackgroundOptions = resolvedAutoDesign.platform === "ecommerce_clean"
     ? AUTO_DESIGN_BACKGROUNDS.filter((item) => item.value === "white")
@@ -279,7 +511,6 @@ export default function CreatePage() {
   const upperClothing = clothingItems.find((item) => item.role === "upper");
   const lowerClothing = clothingItems.find((item) => item.role === "lower");
   const singleClothing = clothingItems[0] || null;
-  const selectedReferencePreviewUrl = customRefPreview || store.referenceImage?.url || "";
   const openLightbox = (src: string, alt: string) => {
     setLightboxImage({ src, alt });
   };
@@ -325,16 +556,35 @@ export default function CreatePage() {
     store.setPromptUsed("");
   };
 
-  const applyPresetReference = (ref: typeof PRESET_REFERENCES[number]) => {
-    store.setReferenceImage({ ...ref, is_preset: true, user_id: null } as any);
-    setCustomRefPreview(null);
+  const setSelectedReferences = (refs: SelectedReferenceImage[], options: { touch?: boolean } = {}) => {
+    if (options.touch !== false) referenceSelectionTouchedRef.current = true;
+    store.setReferenceImages(uniqueReferenceImages(refs) as ReferenceImage[]);
     resetScenePrompt();
   };
 
-  const applyFavoriteReference = (ref: FavoriteReference) => {
-    store.setReferenceImage(ref as any);
-    setCustomRefPreview(null);
+  const toggleReferenceImage = (ref: SelectedReferenceImage) => {
+    const exists = selectedReferenceImages.some((item) => item.url === ref.url);
+    if (exists) {
+      setSelectedReferences(selectedReferenceImages.filter((item) => item.url !== ref.url));
+      return;
+    }
+    if (selectedReferenceImages.length >= MAX_TRYON_REFERENCE_IMAGES) {
+      toast.info(`参考图最多选择 ${MAX_TRYON_REFERENCE_IMAGES} 张`);
+      return;
+    }
+    setSelectedReferences([...selectedReferenceImages, ref]);
+  };
+
+  const clearSelectedReferences = () => {
+    referenceSelectionTouchedRef.current = true;
+    store.setReferenceImages([]);
+    setCustomRefUploads((prev) => prev.filter((item) => item.status === "uploading"));
     resetScenePrompt();
+  };
+
+  const applyReferenceTemplate = (template: ReferenceTemplate) => {
+    setSelectedReferences(template.references);
+    toast.success(`已套用${template.name}`);
   };
 
   const switchSceneMode = (mode: TryOnSceneMode) => {
@@ -346,35 +596,12 @@ export default function CreatePage() {
     resetScenePrompt();
 
     if (mode === "auto_design") {
-      store.setReferenceImage(null);
-      setCustomRefPreview(null);
+      referenceSelectionTouchedRef.current = true;
+      store.setReferenceImages([]);
+      setCustomRefUploads([]);
       return true;
     }
 
-    if (mode === "system_reference") {
-      if (!store.referenceImage?.is_preset) {
-        const firstPreset = PRESET_REFERENCES[0];
-        if (firstPreset) applyPresetReference(firstPreset);
-      }
-      return true;
-    }
-
-    if (mode === "upload_reference") {
-      if (store.referenceImage?.is_preset || favoriteReferences.some((item) => item.url === store.referenceImage?.url)) {
-        store.setReferenceImage(null);
-        setCustomRefPreview(null);
-      }
-      return true;
-    }
-
-    const currentFavorite = favoriteReferences.find((item) => item.url === store.referenceImage?.url);
-    const nextFavorite = currentFavorite || favoriteReferences[0];
-    if (nextFavorite) {
-      applyFavoriteReference(nextFavorite);
-    } else {
-      store.setReferenceImage(null);
-      setCustomRefPreview(null);
-    }
     return true;
   };
 
@@ -404,40 +631,45 @@ export default function CreatePage() {
     store.setPromptUsed("");
   };
 
-  const addCurrentReferenceToFavorites = async () => {
+  const saveSelectedReferenceTemplate = async () => {
     if (!isAuthenticated && !(await refreshAuth())) {
       toast.error("请先登录后收藏");
       router.push("/login");
       return;
     }
-    if (!store.referenceImage?.url) {
+    if (!selectedReferenceImages.length) {
       toast.error("请先选择参考图");
       return;
     }
 
     setIsSavingFavoriteReference(true);
     try {
-      const res = await fetch("/api/tryon/reference-favorites", {
+      const res = await fetch("/api/tryon/reference-templates", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          url: store.referenceImage.url,
-          label: store.referenceImage.label || "收藏参考图",
-          category: normalizeReferenceCategory(store.referenceImage.category),
+          name: `参考模板 ${selectedReferenceImages.length} 张`,
+          references: selectedReferenceImages.map((item) => ({
+            id: item.id,
+            url: item.url,
+            label: item.label,
+            category: normalizeReferenceCategory(item.category),
+            source: item.source || (item.is_preset ? "preset" : "upload"),
+          })),
         }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || "收藏失败");
+      if (!res.ok) throw new Error(data.error || "收藏模板失败");
 
-      const favorite = normalizeFavoriteReference(data.favorite);
-      if (!favorite) throw new Error("收藏数据异常");
-      setFavoriteReferences((prev) => [
-        favorite,
-        ...prev.filter((item) => item.id !== favorite.id && item.url !== favorite.url),
+      const template = normalizeReferenceTemplate(data.template);
+      if (!template) throw new Error("模板数据异常");
+      setReferenceTemplates((prev) => [
+        template,
+        ...prev.filter((item) => item.id !== template.id),
       ].slice(0, 24));
-      toast.success(isCurrentReferenceFavorited ? "已更新收藏" : "已收藏参考图");
+      toast.success("已收藏为参考模板");
     } catch (err: any) {
-      toast.error(err?.message || "收藏失败");
+      toast.error(err?.message || "收藏模板失败");
     } finally {
       setIsSavingFavoriteReference(false);
     }
@@ -447,9 +679,8 @@ export default function CreatePage() {
     const removed = favoriteReferences.find((item) => item.id === id);
     if (!removed) return;
     setFavoriteReferences((prev) => prev.filter((item) => item.id !== id));
-    if (store.referenceImage?.url === removed.url) {
-      store.setReferenceImage(null);
-      setCustomRefPreview(null);
+    if (selectedReferenceImages.some((item) => item.url === removed.url)) {
+      setSelectedReferences(selectedReferenceImages.filter((item) => item.url !== removed.url));
     }
     try {
       const res = await fetch(`/api/tryon/reference-favorites/${encodeURIComponent(id)}`, { method: "DELETE" });
@@ -476,8 +707,37 @@ export default function CreatePage() {
     };
   }
 
+  function normalizeReferenceTemplate(value: unknown): ReferenceTemplate | null {
+    if (!value || typeof value !== "object") return null;
+    const record = value as Record<string, unknown>;
+    if (typeof record.id !== "string") return null;
+    const references = Array.isArray(record.references)
+      ? uniqueReferenceImages(record.references.map((item, index) => {
+        if (!item || typeof item !== "object") return null;
+        const ref = item as Record<string, unknown>;
+        if (typeof ref.url !== "string" || !ref.url.trim()) return null;
+        return {
+          id: typeof ref.id === "string" && ref.id.trim() ? ref.id : `template-${record.id}-${index}`,
+          url: ref.url.trim(),
+          label: typeof ref.label === "string" && ref.label.trim() ? ref.label : `参考图${index + 1}`,
+          category: normalizeReferenceCategory(ref.category),
+          is_preset: ref.source === "preset",
+          user_id: null,
+          source: "template",
+        } as SelectedReferenceImage;
+      }).filter(Boolean) as SelectedReferenceImage[])
+      : [];
+    if (!references.length) return null;
+    return {
+      id: record.id,
+      name: typeof record.name === "string" && record.name.trim() ? record.name : `参考模板 ${references.length} 张`,
+      coverUrl: typeof record.coverUrl === "string" && record.coverUrl ? record.coverUrl : references[0].url,
+      references,
+    };
+  }
+
   function normalizeReferenceCategory(value: unknown): FavoriteReference["category"] {
-    return value === "style" || value === "pose" || value === "scene" ? value : "scene";
+    return normalizeReferenceCategoryValue(value);
   }
 
   useEffect(() => {
@@ -498,21 +758,32 @@ export default function CreatePage() {
     if (!authChecked) return;
     if (!isAuthenticated) {
       setFavoriteReferences([]);
+      setReferenceTemplates([]);
       setIsLoadingFavoriteReferences(false);
       return;
     }
 
     setIsLoadingFavoriteReferences(true);
-    fetch("/api/tryon/reference-favorites")
-      .then(async (res) => {
+    Promise.all([
+      fetch("/api/tryon/reference-favorites").then(async (res) => {
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.error || "收藏加载失败");
         return Array.isArray(data.favorites)
           ? data.favorites.map(normalizeFavoriteReference).filter(Boolean) as FavoriteReference[]
           : [];
-      })
-      .then((items) => {
-        if (!cancelled) setFavoriteReferences(items.slice(0, 24));
+      }),
+      fetch("/api/tryon/reference-templates").then(async (res) => {
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || "参考模板加载失败");
+        return Array.isArray(data.templates)
+          ? data.templates.map(normalizeReferenceTemplate).filter(Boolean) as ReferenceTemplate[]
+          : [];
+      }),
+    ])
+      .then(([favorites, templates]) => {
+        if (cancelled) return;
+        setFavoriteReferences(favorites.slice(0, 24));
+        setReferenceTemplates(templates.slice(0, 24));
       })
       .catch((err: any) => {
         if (!cancelled) toast.error(err?.message || "收藏加载失败");
@@ -525,10 +796,91 @@ export default function CreatePage() {
   }, [authChecked, isAuthenticated]);
 
   useEffect(() => {
-    if (sceneMode !== "favorites" || isLoadingFavoriteReferences || favoriteReferences.length === 0) return;
-    if (favoriteReferences.some((item) => item.url === store.referenceImage?.url)) return;
-    applyFavoriteReference(favoriteReferences[0]);
-  }, [sceneMode, isLoadingFavoriteReferences, favoriteReferences, store.referenceImage?.url]);
+    const urls = uploadedClothingUrls.filter(Boolean);
+    if (!urls.length) {
+      lastClothingAnalysisKeyRef.current = "";
+      clothingAnalysisSeqRef.current += 1;
+      setClothingAnalysis(null);
+      setClothingAnalysisSource(null);
+      setIsAnalyzingClothing(false);
+      setIsLoadingSystemReferences(false);
+      setRecommendedSystemReferences(getFallbackSystemReferences().slice(0, 4));
+      setAllSystemReferences(getFallbackSystemReferences());
+      return;
+    }
+
+    const analysisKey = JSON.stringify({ urls, clothingMode, garmentAudience, ageGroup });
+    if (lastClothingAnalysisKeyRef.current === analysisKey) return;
+    lastClothingAnalysisKeyRef.current = analysisKey;
+    const seq = clothingAnalysisSeqRef.current + 1;
+    clothingAnalysisSeqRef.current = seq;
+
+    const run = async () => {
+      setIsAnalyzingClothing(true);
+      setIsLoadingSystemReferences(true);
+      try {
+        const analysisRes = await fetch("/api/tryon/analyze-clothing", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            clothing_urls: urls,
+            clothing_mode: clothingMode,
+            garment_audience: garmentAudience,
+            age_group: ageGroup,
+          }),
+        });
+        const analysisData = await analysisRes.json().catch(() => ({}));
+        if (clothingAnalysisSeqRef.current !== seq) return;
+        if (!analysisRes.ok) throw new Error(analysisData.error || "服装识别失败");
+        const nextAnalysis = analysisData.analysis as TryOnClothingAnalysis;
+        setClothingAnalysis(nextAnalysis);
+        setClothingAnalysisSource(analysisData.cached ? "cache" : analysisData.source || "fallback");
+
+        const recommendationRes = await fetch("/api/tryon/reference-recommendations", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            analysis: nextAnalysis,
+            garment_audience: garmentAudience,
+            age_group: ageGroup,
+            selected_count: selectedReferenceImages.length,
+          }),
+        });
+        const recommendationData = await recommendationRes.json().catch(() => ({}));
+        if (clothingAnalysisSeqRef.current !== seq) return;
+        if (!recommendationRes.ok) throw new Error(recommendationData.error || "参考图推荐失败");
+
+        const recommended = normalizeSystemReferenceList(recommendationData.recommended);
+        const all = normalizeSystemReferenceList(recommendationData.all);
+        const nextAll = all.length ? all : getFallbackSystemReferences();
+        const nextRecommended = recommended.length ? recommended : nextAll.slice(0, 4);
+        setRecommendedSystemReferences(nextRecommended);
+        setAllSystemReferences(nextAll);
+        if (recommendationData.safetyBlocked) {
+          toast.info("内衣/泳衣类参考图已按成人安全规则过滤");
+        }
+        if (!referenceSelectionTouchedRef.current && sceneMode !== "auto_design" && !selectedReferenceImages.length && nextRecommended[0]) {
+          setSelectedReferences([nextRecommended[0]], { touch: false });
+        }
+      } catch (err: any) {
+        if (clothingAnalysisSeqRef.current !== seq) return;
+        setClothingAnalysis(null);
+        setClothingAnalysisSource(null);
+        setRecommendedSystemReferences(getFallbackSystemReferences().slice(0, 4));
+        setAllSystemReferences(getFallbackSystemReferences());
+        if (err?.message && !String(err.message).includes("请先登录")) {
+          toast.info("暂时使用默认系统参考图");
+        }
+      } finally {
+        if (clothingAnalysisSeqRef.current === seq) {
+          setIsAnalyzingClothing(false);
+          setIsLoadingSystemReferences(false);
+        }
+      }
+    };
+
+    void run();
+  }, [uploadedClothingUrls, clothingMode, garmentAudience, ageGroup]);
 
   useEffect(() => {
     if (!aspects.find(a => a.value === aspectRatio)) setAspectRatio("3:4");
@@ -581,27 +933,12 @@ export default function CreatePage() {
       setCustomModelPreview(null);
       store.setSelectedModel(null);
     }
-    const presetReference = findPresetReferenceByUrl(payload.referenceUrl);
-    const appliedSceneMode = payload.sceneMode || (presetReference ? "system_reference" : payload.referenceUrl ? "upload_reference" : "auto_design");
-    if (appliedSceneMode !== "auto_design" && payload.referenceUrl) {
-      if (presetReference) {
-        setCustomRefPreview(null);
-        store.setReferenceImage({ ...presetReference, is_preset: true, user_id: null } as any);
-      } else {
-        setCustomRefPreview(payload.referenceUrl);
-        store.setReferenceImage({
-          id: "history-reference",
-          url: payload.referenceUrl,
-          label: "历史参考",
-          category: "style",
-          is_preset: false,
-          user_id: null,
-        });
-      }
-    } else {
-      setCustomRefPreview(null);
-      store.setReferenceImage(null);
-    }
+    const historyReferenceUrls = getHistoryReferenceUrls(payload);
+    const historyReferences = historyReferenceUrls.map((url, index) => toHistoryReference(url, index));
+    const appliedSceneMode = payload.sceneMode || (historyReferences.length ? "upload_reference" : "auto_design");
+    setCustomRefUploads([]);
+    referenceSelectionTouchedRef.current = historyReferences.length > 0;
+    store.setReferenceImages(appliedSceneMode === "auto_design" ? [] : historyReferences as ReferenceImage[]);
     setSceneMode(appliedSceneMode);
     setAutoDesign(normalizeAutoDesignSettings(payload.autoDesign || DEFAULT_AUTO_DESIGN));
     setAiModel(payload.aiModel);
@@ -615,7 +952,7 @@ export default function CreatePage() {
       clothingUrls: payload.clothingUrls,
       clothingMode: nextClothingMode,
       clothingRoles: payload.clothingRoles,
-      referenceUrl: appliedSceneMode === "auto_design" ? null : payload.referenceUrl,
+      referenceUrls: appliedSceneMode === "auto_design" ? [] : historyReferenceUrls,
       modelFaceUrl: payload.modelFaceUrl,
     }));
     toast.success("已套用历史参数");
@@ -626,7 +963,7 @@ export default function CreatePage() {
   }, []);
 
   const costPerImage = getCreditCost(aiModel, imageSize, aspectRatio);
-  const totalCost = costPerImage * genCount;
+  const totalCost = costPerImage * expectedOutputCount;
   const promptPreview = buildTryOnPrompt({
     clothingCount: store.clothingFiles.length || 1,
     clothingMode,
@@ -635,7 +972,7 @@ export default function CreatePage() {
     ageGroup,
     aspectRatio,
     hasModelFace: !!store.selectedModel,
-    hasReference: !!effectiveReferenceUrl,
+    hasReference: effectiveReferenceUrls.length > 0,
     style: stylePrompt || undefined,
   });
   const finalPrompt = promptOverride ?? (store.promptUsed || promptPreview.prompt);
@@ -858,44 +1195,91 @@ export default function CreatePage() {
     });
   };
 
-  const handleCustomRefFile = async (file?: File) => {
-    if (!file) return;
-    if (!file.type.startsWith("image/")) return toast.error("请上传图片文件");
-    if (file.size > MAX_FILE_SIZE) return toast.error(`${file.name} 超过 ${MAX_FILE_SIZE_MB}MB`);
+  const handleCustomRefFiles = async (files?: FileList | File[]) => {
+    if (isUploadingCustomRef) {
+      toast.info("参考图上传中，请稍候");
+      return;
+    }
+    const arr = Array.from(files || []);
+    if (!arr.length) return;
+    const remaining = MAX_TRYON_REFERENCE_IMAGES - selectedReferenceImages.length;
+    if (remaining <= 0) {
+      toast.info(`参考图最多选择 ${MAX_TRYON_REFERENCE_IMAGES} 张`);
+      return;
+    }
+    const limited = arr.slice(0, remaining);
+    if (arr.length > limited.length) {
+      toast.info(`最多还能添加 ${remaining} 张参考图，已自动截取`);
+    }
 
     const uploadSeq = customRefUploadSeqRef.current + 1;
     customRefUploadSeqRef.current = uploadSeq;
-    setIsUploadingCustomRef(true);
     setSceneMode("upload_reference");
-    store.setReferenceImage(null);
-    setCustomRefPreview(null);
     resetScenePrompt();
-    toast.info("正在上传参考图...");
-    try {
-      const base64 = await fileToBase64(file);
-      if (customRefUploadSeqRef.current !== uploadSeq) return;
-      setCustomRefPreview(base64);
-      const result = await uploadImage(file);
-      if (customRefUploadSeqRef.current !== uploadSeq) return;
-      store.setReferenceImage({ id: "custom", url: result.url, label: "自定义参考", category: "style", is_preset: false, user_id: null });
-      setSceneMode("upload_reference");
-      setPromptOverride(null);
-      store.setPromptUsed("");
-      toast.success("参考图已选择");
-    } catch {
-      if (customRefUploadSeqRef.current === uploadSeq) {
-        setCustomRefPreview(null);
-        toast.error("参考图上传失败，请重试");
+
+    const uploadItems: Array<{ id: string; file: File; preview: string; label: string }> = [];
+    for (const file of limited) {
+      if (!file.type.startsWith("image/")) { toast.error(`${file.name} 不是图片`); continue; }
+      if (file.size > MAX_FILE_SIZE) { toast.error(`${file.name} 超过 ${MAX_FILE_SIZE_MB}MB`); continue; }
+      try {
+        uploadItems.push({
+          id: `custom-ref-${Date.now()}-${uploadItems.length}`,
+          file,
+          preview: await fileToBase64(file),
+          label: file.name.replace(/\.[^.]+$/, "").slice(0, 24) || `上传参考${selectedReferenceImages.length + uploadItems.length + 1}`,
+        });
+      } catch {
+        toast.error(`${file.name} 处理失败`);
       }
-    } finally {
-      if (customRefUploadSeqRef.current === uploadSeq) setIsUploadingCustomRef(false);
     }
+    if (!uploadItems.length) return;
+
+    setCustomRefUploads((prev) => [
+      ...prev,
+      ...uploadItems.map((item) => ({
+        id: item.id,
+        preview: item.preview,
+        label: item.label,
+        status: "uploading" as const,
+      })),
+    ]);
+    toast.info(`正在上传 ${uploadItems.length} 张参考图...`);
+
+    const results = await Promise.allSettled(uploadItems.map((item) => uploadImage(item.file)));
+    if (customRefUploadSeqRef.current !== uploadSeq) return;
+
+    const readyRefs: SelectedReferenceImage[] = [];
+    setCustomRefUploads((prev) => prev.flatMap((item) => {
+      const index = uploadItems.findIndex((upload) => upload.id === item.id);
+      if (index < 0) return [item];
+      const result = results[index];
+      if (result.status !== "fulfilled") {
+        return [];
+      }
+      readyRefs.push({
+        id: item.id,
+        url: result.value.url,
+        label: item.label,
+        category: "style",
+        is_preset: false,
+        user_id: null,
+        source: "upload",
+      });
+      return [{ ...item, status: "ready" as const, url: result.value.url }];
+    }));
+
+    if (readyRefs.length) {
+      setSelectedReferences([...selectedReferenceImages, ...readyRefs]);
+      toast.success(`已添加 ${readyRefs.length} 张参考图`);
+    }
+    const failedCount = results.filter((item) => item.status === "rejected").length;
+    if (failedCount) toast.error(`${failedCount} 张参考图上传失败，请重试`);
   };
 
   const handleCustomRef = (event: ChangeEvent<HTMLInputElement>) => {
     const input = event.currentTarget;
-    const file = input.files?.[0];
-    void handleCustomRefFile(file).finally(() => {
+    const files = input.files;
+    void handleCustomRefFiles(files || undefined).finally(() => {
       input.value = "";
     });
   };
@@ -1049,17 +1433,25 @@ export default function CreatePage() {
     activeGenerationRef.current = null;
     customModelUploadSeqRef.current += 1;
     customRefUploadSeqRef.current += 1;
+    clothingAnalysisSeqRef.current += 1;
+    referenceSelectionTouchedRef.current = false;
+    lastClothingAnalysisKeyRef.current = "";
     setActiveQueueTask(null);
     setIsSubmitting(false);
     setIsUploadingCustomModel(false);
-    setIsUploadingCustomRef(false);
     setUploadedClothingUrls([]);
     setClothingRoles([]);
+    setClothingAnalysis(null);
+    setClothingAnalysisSource(null);
+    setIsAnalyzingClothing(false);
+    setIsLoadingSystemReferences(false);
+    setRecommendedSystemReferences(getFallbackSystemReferences().slice(0, 4));
+    setAllSystemReferences(getFallbackSystemReferences());
     setCustomModelPreview(null);
-    setCustomRefPreview(null);
+    setCustomRefUploads([]);
     setPromptOverride(null);
     setActiveTaskReferences([]);
-    setSceneMode("auto_design");
+    setSceneMode("system_reference");
     setAutoDesign(DEFAULT_AUTO_DESIGN);
     store.reset();
   }, [cancelTaskSelection, removeTaskQueueItem, store]);
@@ -1071,7 +1463,7 @@ export default function CreatePage() {
     customModelUploadSeqRef.current += 1;
     customRefUploadSeqRef.current += 1;
     setIsUploadingCustomModel(false);
-    setIsUploadingCustomRef(false);
+    setCustomRefUploads([]);
 
     const files = payload.clothingUrls.map((_, index) =>
       new File([], `history-clothing-${index + 1}.jpg`, { type: "image/jpeg" })
@@ -1111,27 +1503,12 @@ export default function CreatePage() {
       store.setSelectedModel(null);
     }
 
-    const presetReference = findPresetReferenceByUrl(payload.referenceUrl);
-    const appliedSceneMode = payload.sceneMode || (presetReference ? "system_reference" : payload.referenceUrl ? "upload_reference" : "auto_design");
-    if (appliedSceneMode !== "auto_design" && payload.referenceUrl) {
-      if (presetReference) {
-        setCustomRefPreview(null);
-        store.setReferenceImage({ ...presetReference, is_preset: true, user_id: null } as any);
-      } else {
-        setCustomRefPreview(payload.referenceUrl);
-        store.setReferenceImage({
-          id: "history-reference",
-          url: payload.referenceUrl,
-          label: "历史参考",
-          category: "style",
-          is_preset: false,
-          user_id: null,
-        });
-      }
-    } else {
-      setCustomRefPreview(null);
-      store.setReferenceImage(null);
-    }
+    const historyReferenceUrls = getHistoryReferenceUrls(payload);
+    const historyReferences = historyReferenceUrls.map((url, index) => toHistoryReference(url, index));
+    const appliedSceneMode = payload.sceneMode || (historyReferences.length ? "upload_reference" : "auto_design");
+    setCustomRefUploads([]);
+    referenceSelectionTouchedRef.current = historyReferences.length > 0;
+    store.setReferenceImages(appliedSceneMode === "auto_design" ? [] : historyReferences as ReferenceImage[]);
 
     setSceneMode(appliedSceneMode);
     setAutoDesign(normalizeAutoDesignSettings(payload.autoDesign || DEFAULT_AUTO_DESIGN));
@@ -1146,7 +1523,7 @@ export default function CreatePage() {
       clothingUrls: payload.clothingUrls,
       clothingMode: nextClothingMode,
       clothingRoles: payload.clothingRoles,
-      referenceUrl: appliedSceneMode === "auto_design" ? null : payload.referenceUrl,
+      referenceUrls: appliedSceneMode === "auto_design" ? [] : historyReferenceUrls,
       modelFaceUrl: payload.modelFaceUrl,
     }));
     store.setResult(options?.resultUrls || []);
@@ -1161,12 +1538,12 @@ export default function CreatePage() {
     setActiveTaskReferences([]);
 
     if (isTaskRunning(item)) {
-      const expectedCount = clampTaskExpectedCount(item, 1, 4);
+      const expectedCount = clampTaskExpectedCount(item, 1, MAX_TRYON_OUTPUT_IMAGES);
       const partialResultUrls = safeTaskQueueUrls(item.resultThumbnails);
       const progress = Math.min(Math.max(Math.round(Number(item.progress) || 10), 1), 99);
       activeGenerationRef.current = item.id;
       setActiveQueueTask(item);
-      setGenCount(expectedCount);
+      setGenCount(Math.min(Math.max(expectedCount, 1), 4));
       store.startGeneration();
       if (partialResultUrls.length) store.setPartialResult(partialResultUrls);
       store.updateProgress(progress);
@@ -1174,9 +1551,9 @@ export default function CreatePage() {
         const detail = await fetchHistoryApplyDetail(item.id, "tryon", selection.signal);
         if (!selection.isCurrent()) return;
         const nextExpectedCount = clampTaskExpectedCount(
-          { ...item, expectedCount: detail.payload.genCount },
+          { ...item, expectedCount: getTryOnHistoryExpectedCount(detail.payload) },
           1,
-          4,
+          MAX_TRYON_OUTPUT_IMAGES,
           expectedCount
         );
         const nextResultUrls = detail.resultUrls.length ? detail.resultUrls : partialResultUrls;
@@ -1259,6 +1636,10 @@ export default function CreatePage() {
       toast.info(`${pendingLabel}正在上传，请稍候`);
       return;
     }
+    if (sceneMode !== "auto_design" && !effectiveReferenceUrls.length) {
+      toast.error("请选择至少 1 张参考图");
+      return;
+    }
     if (isIntimateGarment && ageGroup !== "adult") {
       toast.error("内衣/泳衣类服装仅支持成人模特生成");
       return;
@@ -1277,7 +1658,7 @@ export default function CreatePage() {
       clothingUrls: uploadedClothingUrls,
       clothingMode,
       clothingRoles,
-      referenceUrl: effectiveReferenceUrl,
+      referenceUrls: effectiveReferenceUrls,
       modelFaceUrl: store.selectedModel?.image_url,
     });
     const taskInputThumbnails = taskInputReferences.map((item) => item.url);
@@ -1292,7 +1673,7 @@ export default function CreatePage() {
       completedAt: null,
       error: "",
       progress: 5,
-      expectedCount: genCount,
+        expectedCount: expectedOutputCount,
       resultCount: 0,
       inputThumbnails: taskInputThumbnails,
       resultThumbnails: [],
@@ -1334,6 +1715,7 @@ export default function CreatePage() {
           is_intimate_garment: isIntimateGarment,
           model_face_url: store.selectedModel?.image_url,
           reference_url: effectiveReferenceUrl,
+          reference_urls: effectiveReferenceUrls,
           ai_model: aiModel,
           aspect_ratio: aspectRatio,
           image_size: imageSize,
@@ -1390,7 +1772,7 @@ export default function CreatePage() {
         completedAt: null,
         error: "",
         progress: 25,
-        expectedCount: genCount,
+      expectedCount: expectedOutputCount,
         resultCount: 0,
         inputThumbnails: taskInputThumbnails,
         resultThumbnails: [],
@@ -1405,7 +1787,7 @@ export default function CreatePage() {
       toast.success("任务已提交，可继续创建");
       setIsSubmitting(false);
       generationSubmitRef.current = null;
-      void watchGeneration(generation_id, genCount);
+      void watchGeneration(generation_id, expectedOutputCount);
       return;
     } catch (err: any) {
       if (err?.name === "AbortError" || !isCurrentSubmit()) return;
@@ -1437,6 +1819,7 @@ export default function CreatePage() {
     || isAuxiliaryUploading
     || isReferenceUploadPending
     || isModelUploadPending
+    || (sceneMode !== "auto_design" && !effectiveReferenceUrls.length)
     || !uploadedClothingUrls.length;
   const authIsAnonymous = authChecked && !isAuthenticated;
   const runDisabledReason = isSubmitting
@@ -1447,9 +1830,52 @@ export default function CreatePage() {
         ? "模特图正在上传，请稍候。"
         : isReferenceUploadBusy
           ? "参考图正在上传，请稍候。"
-          : !uploadedClothingUrls.length
-            ? "请先上传服装图，或从作品库选择一张历史结果。"
-            : undefined;
+          : sceneMode !== "auto_design" && !effectiveReferenceUrls.length
+            ? "请先选择至少 1 张参考图。"
+            : !uploadedClothingUrls.length
+              ? "请先上传服装图，或从作品库选择一张历史结果。"
+              : undefined;
+  const clothingAnalysisLabel = getClothingAnalysisLabel(clothingAnalysis);
+  const recommendedSystemReferenceUrls = new Set(recommendedSystemReferences.map((item) => item.url));
+  const secondarySystemReferences = allSystemReferences.filter((item) => !recommendedSystemReferenceUrls.has(item.url));
+  const referencePanelBaseReferences = referencePanelTab === "recommended"
+    ? recommendedSystemReferences
+    : referencePanelTab === "exclusive"
+      ? allSystemReferences.filter((item) => item.styleTags?.some((tag) => tag.includes("exclusive")) || item.sceneTags?.some((tag) => tag.includes("exclusive")))
+      : allSystemReferences;
+  const referencePanelMainReferences = referencePanelBaseReferences.filter((ref) => referenceMatchesSceneFilters(ref, {
+    view: referencePanelViewFilter,
+    body: referencePanelBodyFilter,
+    search: referencePanelSearch,
+  }));
+  const activeReferenceScene = referencePanelMainReferences.find((item) => item.url === activeReferenceSceneUrl)
+    || referencePanelMainReferences[0]
+    || recommendedSystemReferences[0]
+    || allSystemReferences[0]
+    || null;
+  const activeReferenceSceneChildren = getSceneChildReferences(activeReferenceScene);
+  const isReferenceSelected = (url: string) => selectedReferenceImages.some((item) => item.url === url);
+  const referenceSelectionFooter = sceneMode !== "auto_design" ? (
+    <div className="mt-3 flex flex-wrap items-center justify-end gap-3 text-[11px] font-medium">
+      <span className="text-[var(--codex-accent)]">已选 {selectedReferenceCount}/{MAX_TRYON_REFERENCE_IMAGES}</span>
+      <button
+        type="button"
+        onClick={clearSelectedReferences}
+        disabled={!selectedReferenceCount}
+        className="text-red-500 transition hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        全部删除
+      </button>
+      <button
+        type="button"
+        onClick={saveSelectedReferenceTemplate}
+        disabled={!selectedReferenceCount || isSavingFavoriteReference}
+        className="text-[var(--codex-accent)] transition hover:text-violet-700 disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        {isSavingFavoriteReference ? "收藏中" : "收藏为模板"}
+      </button>
+    </div>
+  ) : null;
 
   return (
     <>
@@ -1687,14 +2113,10 @@ export default function CreatePage() {
                 </h3>
                 <p className="mt-1 text-[11px] text-gray-400">智能模式不使用参考图；预设、上传、收藏会作为参考来源</p>
               </div>
-              {store.referenceImage && sceneMode !== "auto_design" && (
-                <button
-                  onClick={addCurrentReferenceToFavorites}
-                  disabled={isSavingFavoriteReference}
-                  className="px-2 py-1 rounded-full border text-[10px] text-gray-500 hover:text-purple-600 hover:border-purple-300 disabled:opacity-50"
-                >
-                  {isSavingFavoriteReference ? "保存中" : isCurrentReferenceFavorited ? "已收藏" : "收藏"}
-                </button>
+              {sceneMode !== "auto_design" && (
+                <span className="rounded-full bg-violet-50 px-2 py-1 text-[10px] font-semibold text-[var(--codex-accent)]">
+                  最多 {MAX_TRYON_REFERENCE_IMAGES} 张
+                </span>
               )}
             </div>
 
@@ -1712,94 +2134,126 @@ export default function CreatePage() {
 
             {sceneMode === "system_reference" && (
               <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50/70 p-3">
-                <p className="mb-2 text-[11px] font-medium text-gray-500">选择系统参考图，姿势、场景、构图会以参考图为最高优先级</p>
-                <div className="grid grid-cols-3 gap-2">
-                  {PRESET_REFERENCES.map((ref) => (
-                    <div key={ref.id} role="button" tabIndex={0}
-                      aria-label={`选择系统参考图：${ref.label}`}
-                      onClick={() => {
-                        if (!switchSceneMode("system_reference")) return;
-                        applyPresetReference(ref);
-                      }}
-                      onKeyDown={(event) => handlePreviewKeyDown(event, () => {
-                        if (!switchSceneMode("system_reference")) return;
-                        applyPresetReference(ref);
-                      })}
-                      className={`group relative rounded-lg overflow-hidden border-2 bg-white transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 ${
-                        store.referenceImage?.id === ref.id ? "border-purple-500 ring-1 ring-purple-200" : "border-transparent hover:border-gray-300"
-                      }`}>
-                      <ImgSkeleton src={ref.url} alt={`系统参考图：${ref.label}`} className="w-full aspect-[3/4] object-cover" />
+                {selectedReferenceImages.length === 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setReferencePanelTab("recommended");
+                      setActiveReferenceSceneUrl((prev) => prev || recommendedSystemReferences[0]?.url || allSystemReferences[0]?.url || null);
+                      setIsReferenceScenePanelOpen(true);
+                    }}
+                    className="group flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white/80 p-3 text-left transition hover:border-[var(--codex-accent)] hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+                    aria-label="打开系统参考图场景选择"
+                  >
+                    <div className="relative h-24 w-20 shrink-0 overflow-hidden rounded-xl bg-slate-100 shadow-sm">
+                      <ImgSkeleton
+                        src={recommendedSystemReferences[0]?.url || allSystemReferences[0]?.url || ""}
+                        alt="推荐参考图"
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-bold text-slate-900">选择参考图 <span className="font-medium text-slate-400">（可多选）</span></p>
+                      <p className="mt-2 inline-flex max-w-full rounded-lg bg-orange-50 px-2 py-1 text-[11px] font-medium text-orange-600">
+                        请选择尽量与服装图款式、角度一致的参考图，效果更佳
+                      </p>
+                      {clothingAnalysisLabel && (
+                        <p className="mt-2 truncate text-[10px] font-semibold text-[var(--codex-accent)]">已识别：{clothingAnalysisLabel}</p>
+                      )}
+                      {(isAnalyzingClothing || isLoadingSystemReferences) && (
+                        <p className="mt-2 inline-flex items-center gap-1 text-[10px] font-medium text-violet-500">
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                          {isAnalyzingClothing ? "识别服装中" : "推荐场景中"}
+                        </p>
+                      )}
+                    </div>
+                    <ChevronRight className="h-7 w-7 shrink-0 text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-[var(--codex-accent)]" />
+                  </button>
+                ) : (
+                  <div className="grid grid-cols-4 gap-2">
+                    {selectedReferenceImages.slice(0, 8).map((ref) => (
+                      <button
+                        key={ref.url}
+                        type="button"
+                        onClick={() => openLightbox(ref.url, ref.label || "参考图")}
+                        className="group relative overflow-hidden rounded-lg border border-[var(--codex-accent)] bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+                        aria-label={`预览已选参考图：${ref.label}`}
+                      >
+                        <img src={ref.url} alt={ref.label || "参考图"} className="aspect-[3/4] w-full object-cover" />
+                        <CheckCircle2 className="absolute right-1 top-1 h-4 w-4 rounded-full bg-[var(--codex-accent)] text-white" />
+                      </button>
+                    ))}
+                    {!isReferenceScenePanelOpen && selectedReferenceCount < MAX_TRYON_REFERENCE_IMAGES && (
                       <button
                         type="button"
-                        onClick={(e) => { e.stopPropagation(); openLightbox(ref.url, `系统参考图：${ref.label}`); }}
-                        onKeyDown={(e) => { e.stopPropagation(); }}
-                        className="absolute right-1 top-1 w-7 h-7 rounded-full bg-white/85 shadow-sm flex items-center justify-center opacity-100 transition-opacity hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
-                        aria-label={`预览系统参考图：${ref.label}`}
-                        title={`预览系统参考图：${ref.label}`}
+                        onClick={() => {
+                          setReferencePanelTab("recommended");
+                          setActiveReferenceSceneUrl((prev) => prev || recommendedSystemReferences[0]?.url || allSystemReferences[0]?.url || null);
+                          setIsReferenceScenePanelOpen(true);
+                        }}
+                        className="flex aspect-[3/4] flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-200 bg-white text-slate-400 transition hover:border-[var(--codex-accent)] hover:text-[var(--codex-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+                        aria-label="添加系统参考图"
                       >
-                        <ZoomIn className="w-3.5 h-3.5 text-gray-600" />
+                        <ChevronRight className="mb-1 h-6 w-6" />
+                        <span className="text-xs font-medium">添加</span>
                       </button>
-                      <div className="p-1 text-center"><span className="text-[10px] font-medium">{ref.label}</span></div>
-                    </div>
-                  ))}
-                </div>
+                    )}
+                  </div>
+                )}
+                {referenceSelectionFooter}
               </div>
             )}
 
             {sceneMode === "upload_reference" && (
               <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50/70 p-3">
-                <input ref={customRefInputRef} type="file" accept="image/*" className="hidden" onChange={handleCustomRef} disabled={isReferenceUploadBusy} />
-                {selectedReferencePreviewUrl ? (
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => openLightbox(selectedReferencePreviewUrl, "已上传的参考图")}
-                      className="studio-fixed-upload-slot group w-full rounded-xl border-2 border-dashed border-gray-200 bg-white hover:border-purple-300 flex flex-col items-center justify-center overflow-hidden transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
-                      style={{ "--studio-fixed-upload-height": "132px" } as CSSProperties}
-                      aria-label="放大预览上传参考图"
-                    >
-                      <img src={selectedReferencePreviewUrl} alt="已上传的参考图" className="h-full w-full object-contain p-2" />
-                      <span className="absolute right-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-slate-600 shadow-sm transition group-hover:bg-white">
-                        <ZoomIn className="h-4 w-4" />
+                <input ref={customRefInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleCustomRef} disabled={selectedReferenceCount >= MAX_TRYON_REFERENCE_IMAGES || isReferenceUploadBusy} />
+                <div className="grid grid-cols-3 gap-2">
+                  {selectedReferenceImages.map((ref) => (
+                    <div key={ref.url} className="group relative overflow-hidden rounded-lg border-2 border-[var(--codex-accent)] bg-white">
+                      <button
+                        type="button"
+                        onClick={() => openLightbox(ref.url, ref.label || "参考图")}
+                        className="block w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+                        aria-label={`预览参考图：${ref.label}`}
+                      >
+                        <img src={ref.url} alt={`参考图：${ref.label}`} className="aspect-[3/4] w-full object-cover" />
+                      </button>
+                      <span className="absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-[var(--codex-accent)] text-white shadow-sm">
+                        <CheckCircle2 className="h-4 w-4" />
                       </span>
-                      {isReferenceUploadBusy && (
-                        <span className="absolute inset-0 flex items-center justify-center gap-2 bg-white/78 text-xs font-bold text-[var(--codex-accent)] backdrop-blur-[1px]">
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          上传中
-                        </span>
-                      )}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => customRefInputRef.current?.click()}
-                      disabled={isReferenceUploadBusy}
-                      className="absolute bottom-2 right-2 z-10 rounded-full bg-white/92 px-3 py-1 text-[11px] font-bold text-slate-600 shadow-sm transition hover:bg-white hover:text-purple-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {isReferenceUploadBusy ? "上传中" : "更换"}
-                    </button>
-                  </div>
-                ) : (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedReferences(selectedReferenceImages.filter((item) => item.url !== ref.url))}
+                        className="absolute left-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/88 text-slate-500 shadow-sm transition hover:text-red-500"
+                        aria-label={`移除参考图：${ref.label}`}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                      <div className="p-1 text-center"><span className="text-[10px] font-medium">{ref.label}</span></div>
+                    </div>
+                  ))}
+                  {customRefUploads.filter((item) => item.status === "uploading" || item.status === "error").map((item) => (
+                    <div key={item.id} className="relative overflow-hidden rounded-lg border-2 border-dashed border-gray-200 bg-white">
+                      <img src={item.preview} alt={item.label} className="aspect-[3/4] w-full object-cover opacity-70" />
+                      <span className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-white/70 text-[10px] font-bold text-[var(--codex-accent)] backdrop-blur-[1px]">
+                        {item.status === "uploading" ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4 text-red-500" />}
+                        {item.status === "uploading" ? "上传中" : "失败"}
+                      </span>
+                    </div>
+                  ))}
                   <button
                     type="button"
                     onClick={() => customRefInputRef.current?.click()}
-                    disabled={isReferenceUploadBusy}
-                    className="studio-fixed-upload-slot w-full rounded-xl border-2 border-dashed border-gray-200 bg-white hover:border-purple-300 flex flex-col items-center justify-center overflow-hidden transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
-                    style={{ "--studio-fixed-upload-height": "132px" } as CSSProperties}
+                    disabled={selectedReferenceCount >= MAX_TRYON_REFERENCE_IMAGES || isReferenceUploadBusy}
+                    className="aspect-[3/4] rounded-lg border-2 border-dashed border-gray-200 bg-white hover:border-purple-300 flex flex-col items-center justify-center overflow-hidden transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                     aria-label="上传参考图"
                   >
                     <Camera className="w-6 h-6 text-gray-300 mb-2" />
-                    <span className="text-xs text-gray-500">上传参考图</span>
-                    <span className="text-[11px] text-gray-400 mt-1">用于锁定姿势、背景、构图和镜头</span>
+                    <span className="text-xs text-gray-500">添加</span>
+                    <span className="text-[11px] text-gray-400 mt-1">{selectedReferenceCount}/{MAX_TRYON_REFERENCE_IMAGES}</span>
                   </button>
-                )}
-                {store.referenceImage && (
-                  <button
-                    onClick={() => { store.setReferenceImage(null); setCustomRefPreview(null); setPromptOverride(null); }}
-                    className="mt-2 text-xs text-gray-400 hover:text-red-500"
-                  >
-                    移除上传参考图
-                  </button>
-                )}
+                </div>
+                {referenceSelectionFooter}
               </div>
             )}
 
@@ -1866,25 +2320,62 @@ export default function CreatePage() {
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
                     加载收藏中
                   </div>
-                ) : favoriteReferences.length === 0 ? (
+                ) : favoriteReferences.length === 0 && referenceTemplates.length === 0 ? (
                   <div className="py-8 text-center text-xs text-gray-400">还没有收藏参考图</div>
                 ) : (
-                  <div className="grid grid-cols-3 gap-2">
-                    {favoriteReferences.map((ref) => (
+                  <div className="space-y-3">
+                    {referenceTemplates.length > 0 && (
+                      <div>
+                        <p className="mb-2 text-[11px] font-bold text-slate-600">参考模板</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          {referenceTemplates.map((template) => (
+                            <button
+                              key={template.id}
+                              type="button"
+                              onClick={() => applyReferenceTemplate(template)}
+                              className="group overflow-hidden rounded-lg border-2 border-transparent bg-white text-left transition hover:border-[var(--codex-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+                              aria-label={`套用参考模板：${template.name}`}
+                            >
+                              <div className="relative aspect-[4/3] overflow-hidden">
+                                <img src={template.coverUrl} alt={template.name} className="h-full w-full object-cover transition-transform group-hover:scale-[1.03]" />
+                                <span className="absolute right-1 top-1 rounded-full bg-white/90 px-1.5 py-0.5 text-[10px] font-bold text-[var(--codex-accent)]">
+                                  {template.references.length}张
+                                </span>
+                              </div>
+                              <div className="px-2 py-1">
+                                <p className="truncate text-[10px] font-bold text-slate-700">{template.name}</p>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {favoriteReferences.length > 0 && (
+                      <div>
+                        <p className="mb-2 text-[11px] font-bold text-slate-600">单张收藏</p>
+                        <div className="grid grid-cols-3 gap-2">
+                    {favoriteReferences.map((ref) => {
+                      const selected = isReferenceSelected(ref.url);
+                      return (
                       <div key={ref.id} role="button" tabIndex={0}
                         aria-label={`选择收藏参考图：${ref.label}`}
                         onClick={() => {
                           if (!switchSceneMode("favorites")) return;
-                          applyFavoriteReference(ref);
+                          toggleReferenceImage(toFavoriteReference(ref));
                         }}
                         onKeyDown={(event) => handlePreviewKeyDown(event, () => {
                           if (!switchSceneMode("favorites")) return;
-                          applyFavoriteReference(ref);
+                          toggleReferenceImage(toFavoriteReference(ref));
                         })}
                         className={`group relative rounded-lg overflow-hidden border-2 bg-white transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 ${
-                          store.referenceImage?.url === ref.url ? "border-purple-500 ring-1 ring-purple-200" : "border-transparent hover:border-gray-300"
+                          selected ? "border-[var(--codex-accent)] ring-1 ring-blue-200" : "border-transparent hover:border-gray-300"
                         }`}>
                         <ImgSkeleton src={ref.url} alt={`收藏参考图：${ref.label}`} className="w-full aspect-[3/4] object-cover" />
+                        {selected && (
+                          <span className="absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-[var(--codex-accent)] text-white shadow-sm">
+                            <CheckCircle2 className="h-4 w-4" />
+                          </span>
+                        )}
                         <button
                           type="button"
                           onClick={(e) => { e.stopPropagation(); openLightbox(ref.url, `收藏参考图：${ref.label}`); }}
@@ -1907,9 +2398,13 @@ export default function CreatePage() {
                         </button>
                         <div className="p-1 text-center"><span className="text-[10px] font-medium">{ref.label}</span></div>
                       </div>
-                    ))}
+                    );})}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
+                {referenceSelectionFooter}
               </div>
             )}
           </section>
@@ -2111,11 +2606,11 @@ export default function CreatePage() {
         )}
         runBar={(
           <StudioRunBar
-            summary={`${TRYON_CLOTHING_MODE_LABELS[clothingMode]} · ${store.clothingFiles.length} 张输入 · ${costPerImage} × ${genCount} 张`}
+            summary={`${TRYON_CLOTHING_MODE_LABELS[clothingMode]} · ${store.clothingFiles.length} 张输入 · ${sceneMode === "auto_design" ? "自动设计" : `${selectedReferenceCount} 张参考`} · ${costPerImage} × ${expectedOutputCount} 张`}
             costLabel={authIsAnonymous ? "登录后查看积分" : `消耗 ${totalCost} · 余额 ${credits ?? "—"}`}
             disabled={runDisabled}
             disabledReason={runDisabledReason}
-            primaryLabel={authIsAnonymous ? "登录后生成" : isSubmitting ? "提交中..." : `生成 ${genCount} 张`}
+            primaryLabel={authIsAnonymous ? "登录后生成" : isSubmitting ? "提交中..." : `生成 ${expectedOutputCount} 张`}
             isLoading={isSubmitting}
             onPrimaryAction={() => handleGenerate()}
           />
@@ -2165,9 +2660,9 @@ export default function CreatePage() {
                 referenceImages={[
                   { label: clothingMode === "multi" ? "上装/下装参考" : "连体服装参考", url: store.clothingPreviews[0] },
                   { label: "模特参考", url: store.selectedModel?.image_url },
-                  { label: "姿势/场景参考", url: store.referenceImage?.url },
+                  ...selectedReferenceImages.map((item, index) => ({ label: `姿势/场景参考${selectedReferenceImages.length > 1 ? index + 1 : ""}`, url: item.url })),
                 ]}
-                metaItems={[aspectRatio, imageSize]}
+                metaItems={[aspectRatio, imageSize, sceneMode === "auto_design" ? "自动设计" : `${selectedReferenceCount} 张参考`]}
               />
             )}
             errorState={store.error ? (
@@ -2190,7 +2685,7 @@ export default function CreatePage() {
                       filenamePrefix="tryon"
                       onOpen={(url, index) => openLightbox(url, `服装上身结果 ${index + 1}`)}
                       imageAltPrefix="服装上身结果"
-                      expectedCount={activeQueueTask ? clampTaskExpectedCount(activeQueueTask, 1, 4, genCount) : genCount}
+                      expectedCount={activeQueueTask ? clampTaskExpectedCount(activeQueueTask, 1, MAX_TRYON_OUTPUT_IMAGES, expectedOutputCount || genCount) : expectedOutputCount || genCount}
                       isGenerating={store.isGenerating}
                       inputThumbnails={safeTaskQueueUrls(activeQueueTask?.inputThumbnails)}
                       inputReferences={activeTaskReferences}
@@ -2305,6 +2800,44 @@ export default function CreatePage() {
           </div>
         </ClientPortal>
       )}
+
+      <ReferenceScenePicker
+        open={isReferenceScenePanelOpen}
+        tabs={[
+          { value: "recommended", label: "推荐场景" },
+          { value: "exclusive", label: "专属场景" },
+          { value: "all", label: "全部场景" },
+        ]}
+        activeTab={referencePanelTab}
+        onTabChange={(tab) => {
+          setReferencePanelTab(tab);
+          setActiveReferenceSceneUrl(null);
+        }}
+        mainReferences={referencePanelMainReferences}
+        activeReference={activeReferenceScene}
+        childReferences={activeReferenceSceneChildren}
+        selectedCount={selectedReferenceCount}
+        maxSelected={MAX_TRYON_REFERENCE_IMAGES}
+        categoryLabels={(clothingAnalysis?.subcategories || [])
+          .slice(0, 2)
+          .map((category) => TRYON_CATEGORY_BY_CODE.get(category)?.nameZh || category)}
+        viewFilter={referencePanelViewFilter}
+        onViewFilterChange={setReferencePanelViewFilter}
+        bodyFilter={referencePanelBodyFilter}
+        onBodyFilterChange={setReferencePanelBodyFilter}
+        search={referencePanelSearch}
+        onSearchChange={setReferencePanelSearch}
+        isSelected={isReferenceSelected}
+        onActiveReferenceChange={setActiveReferenceSceneUrl}
+        onToggleReference={(ref) => {
+          if (!switchSceneMode("system_reference")) return;
+          toggleReferenceImage(ref as SelectedReferenceImage);
+        }}
+        onClearSelected={clearSelectedReferences}
+        onClose={() => setIsReferenceScenePanelOpen(false)}
+        onConfirm={() => setIsReferenceScenePanelOpen(false)}
+        onPreview={(url, label) => openLightbox(url, label || "主场景")}
+      />
 
       {/* ========== 大图 Lightbox ========== */}
       {lightboxImage && (

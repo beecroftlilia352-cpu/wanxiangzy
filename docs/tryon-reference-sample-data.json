@@ -1,0 +1,272 @@
+{
+  "version": 1,
+  "project": "wanxiangzy",
+  "purpose": "Sample operational data for try-on clothing categories and system reference scenes.",
+  "externalSceneListRequest": {
+    "configKey": "SCENE",
+    "pageNum": 1,
+    "pageSize": 54,
+    "ids": null,
+    "types": [],
+    "isExclusive": null,
+    "typesOr": null,
+    "genderTypes": ["female", "Common"],
+    "bizType": "ALL",
+    "positions": null,
+    "bodyTypes": null,
+    "text": null,
+    "name": null,
+    "onlyLora": true,
+    "orderBy": null,
+    "ageRange": "adult",
+    "ageRanges": null,
+    "onlyExperimental": false,
+    "clothCategory": ["fitted_top", "single_fitted_top"],
+    "typesOrList": [],
+    "isHasShowImage": true
+  },
+  "externalChildSceneRequest": {
+    "idList": [107237]
+  },
+  "categoryTaxonomy": [
+    {
+      "mainCategoryName": "外套",
+      "mainCategory": "outerwear",
+      "children": [
+        { "subcategoryName": "宽松外套", "subcategory": "loose_top" },
+        { "subcategoryName": "合身外套", "subcategory": "fitted_top" },
+        { "subcategoryName": "大衣", "subcategory": "overcoat" },
+        { "subcategoryName": "披肩", "subcategory": "shawl" },
+        { "subcategoryName": "羽绒服", "subcategory": "down_jacket" },
+        { "subcategoryName": "皮草", "subcategory": "fur_coat" },
+        { "subcategoryName": "西装多件套", "subcategory": "suit_set" }
+      ]
+    },
+    {
+      "mainCategoryName": "单件上衣",
+      "mainCategory": "single_piece_top",
+      "children": [
+        { "subcategoryName": "单件宽松款上衣", "subcategory": "single_loose_top" },
+        { "subcategoryName": "单件合身款上衣", "subcategory": "single_fitted_top" }
+      ]
+    },
+    {
+      "mainCategoryName": "下身裙子",
+      "mainCategory": "bottom_skirt",
+      "children": [
+        { "subcategoryName": "裹身裙", "subcategory": "wrap_skirt" },
+        { "subcategoryName": "裹身及地裙", "subcategory": "wrap_maxi_skirt" },
+        { "subcategoryName": "短裙", "subcategory": "short_skirt" },
+        { "subcategoryName": "伞裙", "subcategory": "aline_skirt" },
+        { "subcategoryName": "伞裙及地裙", "subcategory": "aline_maxi_skirt" }
+      ]
+    },
+    {
+      "mainCategoryName": "下身裤子",
+      "mainCategory": "bottom_pants",
+      "children": [
+        { "subcategoryName": "短裤", "subcategory": "shorts" },
+        { "subcategoryName": "长裤", "subcategory": "long_pants" },
+        { "subcategoryName": "背带裤", "subcategory": "overalls" }
+      ]
+    },
+    {
+      "mainCategoryName": "连衣裙",
+      "mainCategory": "dress",
+      "children": [
+        { "subcategoryName": "裹身短连衣裙", "subcategory": "wrap_short_dress" },
+        { "subcategoryName": "裹身连衣裙", "subcategory": "wrap_dress" },
+        { "subcategoryName": "伞裙短连衣裙", "subcategory": "aline_short_dress" },
+        { "subcategoryName": "伞裙连衣裙", "subcategory": "aline_dress" }
+      ]
+    },
+    {
+      "mainCategoryName": "内衣裤",
+      "mainCategory": "underwear",
+      "children": [
+        { "subcategoryName": "泳衣", "subcategory": "swimsuit" },
+        { "subcategoryName": "内衣裤", "subcategory": "underwear_set" },
+        { "subcategoryName": "情趣内衣", "subcategory": "sexy_lingerie" }
+      ]
+    },
+    {
+      "mainCategoryName": "功能性服装",
+      "mainCategory": "functional_wear",
+      "children": [
+        { "subcategoryName": "斗篷", "subcategory": "cape" },
+        { "subcategoryName": "雨衣", "subcategory": "raincoat" },
+        { "subcategoryName": "道具类服装", "subcategory": "costume" },
+        { "subcategoryName": "芭蕾舞裙", "subcategory": "ballet_skirt" },
+        { "subcategoryName": "睡衣", "subcategory": "pajamas" }
+      ]
+    },
+    {
+      "mainCategoryName": "运动类",
+      "mainCategory": "sports_wear",
+      "children": [
+        { "subcategoryName": "瑜伽服", "subcategory": "yoga_wear" },
+        { "subcategoryName": "排球服", "subcategory": "volleyball_uniform" }
+      ]
+    }
+  ],
+  "mainSceneImportExample": {
+    "success": true,
+    "data": {
+      "list": [
+        {
+          "id": 107237,
+          "name": "熟女-裹身裙咖啡馆街拍",
+          "configKey": "SCENE",
+          "status": "PROD",
+          "order": 1,
+          "showImage": "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/reference-scenes/107237-cover.jpg",
+          "type": ["style scene", "front view", "whole body", "Female", "adult"],
+          "tags": ["cafe", "street", "commute"],
+          "extInfo": {
+            "showImgs": "[\"https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/reference-scenes/107237-preview-1.jpg\"]"
+          }
+        },
+        {
+          "id": 107238,
+          "name": "简约裙子场景棚拍",
+          "configKey": "SCENE",
+          "status": "PROD",
+          "order": 2,
+          "showImage": "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/reference-scenes/107238-cover.jpg",
+          "type": ["style scene", "front view", "whole body", "Female", "adult"],
+          "tags": ["studio", "minimal"],
+          "extInfo": {
+            "showImgs": "[\"https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/reference-scenes/107238-preview-1.jpg\"]"
+          }
+        }
+      ]
+    }
+  },
+  "childSceneImportExample": {
+    "success": true,
+    "data": {
+      "107237": {
+        "children": [
+          {
+            "id": 20723701,
+            "parentId": 107237,
+            "name": "咖啡馆正面全身",
+            "order": 1,
+            "showImage": "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/reference-scenes/107237-child-1.jpg",
+            "type": ["style scene", "front view", "whole body", "Female", "adult"],
+            "tags": ["cafe", "street", "commute"],
+            "extInfo": {
+              "clothCategory": ["wrap_skirt", "single_fitted_top"],
+              "lens": "front view whole body",
+              "posture": "standing natural pose",
+              "showImage": "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/reference-scenes/107237-child-1.jpg"
+            }
+          },
+          {
+            "id": 20723702,
+            "parentId": 107237,
+            "name": "咖啡馆背面全身",
+            "order": 2,
+            "showImage": "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/reference-scenes/107237-child-2.jpg",
+            "type": ["style scene", "back view", "whole body", "Female", "adult"],
+            "tags": ["cafe", "street", "commute"],
+            "extInfo": {
+              "clothCategory": ["wrap_skirt", "single_fitted_top"],
+              "lens": "back view whole body",
+              "posture": "standing natural pose",
+              "showImage": "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/reference-scenes/107237-child-2.jpg"
+            }
+          }
+        ]
+      },
+      "107238": {
+        "children": [
+          {
+            "id": 20723801,
+            "parentId": 107238,
+            "name": "棚拍正面全身",
+            "order": 1,
+            "showImage": "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/reference-scenes/107238-child-1.jpg",
+            "type": ["style scene", "front view", "whole body", "Female", "adult"],
+            "tags": ["studio", "minimal"],
+            "extInfo": {
+              "clothCategory": ["wrap_dress", "aline_dress", "single_fitted_top"],
+              "lens": "front view whole body",
+              "posture": "standing clean pose",
+              "showImage": "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/reference-scenes/107238-child-1.jpg"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "adminImportRequestExample": {
+    "publish": false,
+    "rawText": "{...paste mainSceneImportExample JSON as string...}",
+    "childRawText": "{...paste childSceneImportExample JSON as string...}"
+  },
+  "analysisExample": {
+    "clothing_urls": [
+      "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/uploads/sample-striped-top.png"
+    ],
+    "clothing_mode": "single",
+    "garment_audience": "women",
+    "age_group": "adult",
+    "expectedAnalysis": {
+      "mainCategory": "single_piece_top",
+      "subcategories": ["single_fitted_top", "fitted_top"],
+      "clothTypeRaw": "upper garment",
+      "desc": "A sleeveless, black and white horizontally striped tank top crafted from a ribbed knit material.",
+      "genderType": "women",
+      "ageRange": "adult",
+      "slot": "upper",
+      "fit": "fitted",
+      "confidence": 0.88
+    }
+  },
+  "recommendationPreviewRequestExample": {
+    "analysis": {
+      "mainCategory": "single_piece_top",
+      "subcategories": ["single_fitted_top", "fitted_top"],
+      "clothTypeRaw": "upper garment",
+      "desc": "sleeveless striped ribbed tank top",
+      "genderType": "women",
+      "ageRange": "adult",
+      "slot": "upper",
+      "fit": "fitted",
+      "confidence": 0.88
+    },
+    "garment_audience": "women",
+    "age_group": "adult",
+    "selected_count": 0
+  },
+  "manualSceneUpsertExample": {
+    "scene_key": "scene_107237_cafe_wrap_skirt",
+    "external_scene_id": "107237",
+    "name": "熟女-裹身裙咖啡馆街拍",
+    "image_url": "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/reference-scenes/107237-cover.jpg",
+    "status": "draft",
+    "priority": 10,
+    "sort_order": 1,
+    "cloth_categories": ["wrap_skirt", "single_fitted_top"],
+    "gender": "women",
+    "age_ranges": ["adult"],
+    "view_tags": ["front_view"],
+    "crop_tags": ["whole_body"],
+    "scene_tags": ["cafe", "street"],
+    "style_tags": ["commute"],
+    "lens": "front view whole body",
+    "posture": "standing natural pose",
+    "prompt_tags": ["clean product look", "natural street style"],
+    "raw_config": {
+      "source": "manual_sample",
+      "children": [
+        {
+          "id": "20723701",
+          "name": "咖啡馆正面全身",
+          "showImage": "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/reference-scenes/107237-child-1.jpg"
+        }
+      ]
+    }
+  }
+}

@@ -9,25 +9,28 @@ const MAX_DATA_URL_LENGTH = 21 * 1024 * 1024;
 export async function resolveImageInputs(input: {
   clothingUrls: string[];
   referenceUrl?: string;
+  referenceUrls?: string[];
   modelFaceUrl?: string;
 }, options: {
   publicBaseUrl?: string | null;
 } = {}): Promise<{
   clothingUrls: string[];
   referenceUrl?: string;
+  referenceUrls?: string[];
   modelFaceUrl?: string;
 }> {
   const publicBaseUrl = normalizePublicBaseUrl(
     options.publicBaseUrl || getConfiguredPublicBaseUrl()
   );
 
-  const [clothingUrls, referenceUrl, modelFaceUrl] = await Promise.all([
+  const [clothingUrls, referenceUrls, modelFaceUrl] = await Promise.all([
     Promise.all(input.clothingUrls.map((src) => resolveImageInput(src, publicBaseUrl))),
-    input.referenceUrl ? resolveImageInput(input.referenceUrl, publicBaseUrl) : undefined,
+    Promise.all((input.referenceUrls?.length ? input.referenceUrls : input.referenceUrl ? [input.referenceUrl] : [])
+      .map((src) => resolveImageInput(src, publicBaseUrl))),
     input.modelFaceUrl ? resolveImageInput(input.modelFaceUrl, publicBaseUrl) : undefined,
   ]);
 
-  return { clothingUrls, referenceUrl, modelFaceUrl };
+  return { clothingUrls, referenceUrl: referenceUrls[0], referenceUrls, modelFaceUrl };
 }
 
 export function getPublicBaseUrlFromRequest(request: Request): string {

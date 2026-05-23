@@ -61,6 +61,7 @@ export interface TryOnWorkflowState {
   clothingPreviews: string[];
   selectedModel: TryOnModel | null;
   referenceImage: ReferenceImage | null;
+  referenceImages: ReferenceImage[];
   isGenerating: boolean;
   generationProgress: number;
   resultUrls: string[];

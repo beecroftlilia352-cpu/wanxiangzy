@@ -218,6 +218,40 @@ BEGIN
 END;
 $$;
 
+CREATE OR REPLACE FUNCTION public.task_queue_generation_expected_count(
+  p_payload JSONB,
+  p_reference_url TEXT,
+  p_result_count INTEGER
+)
+RETURNS INTEGER
+LANGUAGE plpgsql
+IMMUTABLE
+AS $$
+DECLARE
+  v_kind TEXT := coalesce(p_payload ->> 'kind', p_payload ->> 'module', '');
+  v_gen_count INTEGER := public.task_queue_json_int(p_payload, ARRAY['genCount', 'count', 'n'], 1);
+  v_reference_count INTEGER := 1;
+BEGIN
+  IF v_kind = 'tryon' THEN
+    IF coalesce(p_payload ->> 'sceneMode', '') = 'auto_design' THEN
+      v_reference_count := 1;
+    ELSIF jsonb_typeof(p_payload -> 'referenceUrls') = 'array' THEN
+      v_reference_count := greatest(1, jsonb_array_length(p_payload -> 'referenceUrls'));
+    ELSIF coalesce(p_payload ->> 'referenceUrl', p_reference_url, '') <> '' THEN
+      v_reference_count := 1;
+    END IF;
+
+    RETURN greatest(1, v_gen_count * v_reference_count, p_result_count);
+  END IF;
+
+  RETURN greatest(
+    1,
+    public.task_queue_json_int(p_payload, ARRAY['imageCount', 'count', 'genCount', 'n'], greatest(1, p_result_count)),
+    p_result_count
+  );
+END;
+$$;
+
 CREATE OR REPLACE FUNCTION public.task_queue_upsert_generation(p_item public.generations)
 RETURNS VOID
 LANGUAGE plpgsql
@@ -274,7 +308,7 @@ BEGIN
   VALUES (
     p_item.user_id, 'generation', p_item.id, v_module, public.task_queue_module_title(v_module),
     coalesce(p_item.status, 'queued'), v_status_group, v_progress,
-    public.task_queue_json_int(v_payload, ARRAY['imageCount', 'count', 'genCount', 'n'], greatest(1, v_result_count)),
+    public.task_queue_generation_expected_count(v_payload, p_item.reference_url, v_result_count),
     v_result_count, v_input_thumbnails, v_result_thumbnails, p_item.error_message,
     public.task_queue_module_path(v_module) || '?apply=' || p_item.id::TEXT,
     p_item.created_at, coalesce(p_item.updated_at, p_item.completed_at, p_item.processing_started_at, p_item.created_at), p_item.completed_at

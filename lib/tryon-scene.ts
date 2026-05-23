@@ -26,10 +26,10 @@ export const DEFAULT_AUTO_DESIGN: AutoDesignSettings = {
 const WHITE_BACKGROUND_LOCKED_PLATFORMS: AutoDesignPlatform[] = ["ecommerce_clean", "luxury_white_studio"];
 
 export const SCENE_MODE_LABELS: Record<TryOnSceneMode, string> = {
-  system_reference: "系统预设",
-  upload_reference: "上传",
-  auto_design: "智能模式",
-  favorites: "收藏",
+  system_reference: "系统生成参考图",
+  upload_reference: "上传参考图",
+  auto_design: "自动设计",
+  favorites: "我的收藏",
 };
 
 export const AUTO_DESIGN_PLATFORMS: Array<{ value: AutoDesignPlatform; label: string; desc: string; prompt: string }> = [

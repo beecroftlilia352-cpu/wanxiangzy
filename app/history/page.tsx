@@ -1309,7 +1309,8 @@ function getHistoryInputSummary(payload?: HistoryJobPayload) {
   if (payload.kind === "tryon") {
     const mode = payload.clothingMode === "multi" ? "多件上身" : "单件上身";
     const modelFace = payload.modelFaceUrl ? "模特脸" : "无模特脸";
-    const reference = payload.referenceUrl ? "参考图" : "无参考图";
+    const referenceCount = getTryonReferenceUrls(payload).length;
+    const reference = referenceCount ? `${referenceCount} 张参考图` : "无参考图";
     return `${mode} · ${payload.clothingUrls.length} 张服装 · ${modelFace} · ${reference}`;
   }
   if (payload.kind === "grass") {
@@ -1342,6 +1343,17 @@ function getHistoryInputSummary(payload?: HistoryJobPayload) {
   return "已保存输入参数";
 }
 
+function getTryonReferenceUrls(payload: Extract<HistoryJobPayload, { kind: "tryon" }>) {
+  const seen = new Set<string>();
+  const urls: string[] = [];
+  for (const value of [...(Array.isArray(payload.referenceUrls) ? payload.referenceUrls : []), payload.referenceUrl]) {
+    if (typeof value !== "string" || !value.trim() || seen.has(value.trim())) continue;
+    seen.add(value.trim());
+    urls.push(value.trim());
+  }
+  return urls;
+}
+
 function getHistoryOutputSummary(row: HistoryRow, payload?: HistoryJobPayload) {
   const resultCount = row.result_urls?.length || 0;
   const model = payload?.aiModel || row.ai_model || "模型未记录";
@@ -1357,12 +1369,13 @@ function getHistoryReuseLabel(payload?: HistoryJobPayload) {
 
 function getInputImages(payload: HistoryJobPayload) {
   if (payload.kind === "tryon") {
+    const referenceUrls = getTryonReferenceUrls(payload);
     return [
       ...payload.clothingUrls.map((url, index) => ({
         label: payload.clothingRoles?.[index] ? TRYON_CLOTHING_ROLE_LABELS[payload.clothingRoles[index]] : `服装图${index + 1}`,
         url,
       })),
-      ...(payload.referenceUrl ? [{ label: "参考图", url: payload.referenceUrl }] : []),
+      ...referenceUrls.map((url, index) => ({ label: referenceUrls.length > 1 ? `参考图${index + 1}` : "参考图", url })),
       ...(payload.modelFaceUrl ? [{ label: "模特脸", url: payload.modelFaceUrl }] : []),
     ];
   }
@@ -1430,7 +1443,7 @@ function getParameterItems(row: HistoryRow) {
       { label: "服装角色", value: payload.clothingRoles?.map((role) => TRYON_CLOTHING_ROLE_LABELS[role]).join("、") || "-" },
       { label: "服装数量", value: String(payload.clothingUrls.length) },
       { label: "模特脸", value: payload.modelFaceUrl ? "已使用" : "未使用" },
-      { label: "参考图", value: payload.referenceUrl ? "已使用" : "未使用" },
+      { label: "参考图", value: `${getTryonReferenceUrls(payload).length} 张` },
       { label: "场景模式", value: payload.sceneMode ? SCENE_MODE_LABELS[payload.sceneMode] : "-" },
       { label: "自动设计", value: payload.autoDesign ? AUTO_DESIGN_PLATFORMS.find((item) => item.value === payload.autoDesign?.platform)?.label || "已使用" : "未使用" },
     ];

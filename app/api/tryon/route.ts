@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     try { body = await request.json(); }
     catch { return NextResponse.json({ error: "请求格式无效" }, { status: 400 }); }
     const {
-      clothing_urls, model_face_url, reference_url,
+      clothing_urls, model_face_url, reference_url, reference_urls,
       ai_model, aspect_ratio, image_size, style, gen_count, raw_prompt, scene_mode, auto_design,
       clothing_mode, clothing_roles, garment_audience, age_group, garment_category, is_intimate_garment,
     } = body;
@@ -53,8 +53,13 @@ export async function POST(request: NextRequest) {
     }
     if (
       (model_face_url && typeof model_face_url !== "string") ||
-      (reference_url && typeof reference_url !== "string")
+      (reference_url && typeof reference_url !== "string") ||
+      (reference_urls !== undefined && !Array.isArray(reference_urls))
     ) {
+      return NextResponse.json({ error: "图片参数无效" }, { status: 400 });
+    }
+    const requestedReferenceUrls = normalizeReferenceUrls(reference_urls, reference_url);
+    if (requestedReferenceUrls.some((url) => typeof url !== "string")) {
       return NextResponse.json({ error: "图片参数无效" }, { status: 400 });
     }
 
@@ -70,11 +75,16 @@ export async function POST(request: NextRequest) {
     const aspectRatio = normalizeAspectRatio(aspect_ratio, "3:4");
     const size: ImageSize = normalizeImageSize(model, image_size || "1K", aspectRatio);
     const costPerImage = getCreditCost(model, size, aspectRatio);
-    const totalCost = costPerImage * genCount;
-    const sceneMode = scene_mode === undefined && reference_url
+    const sceneMode = scene_mode === undefined && requestedReferenceUrls.length
       ? "upload_reference"
       : normalizeSceneMode(scene_mode);
     const autoDesign = sceneMode === "auto_design" ? normalizeAutoDesignSettings(auto_design) : undefined;
+    const effectiveReferenceUrls = sceneMode === "auto_design" ? [] : requestedReferenceUrls;
+    if (sceneMode !== "auto_design" && !effectiveReferenceUrls.length) {
+      return NextResponse.json({ error: "请选择至少 1 张参考图" }, { status: 400 });
+    }
+    const expectedCount = genCount * (effectiveReferenceUrls.length || 1);
+    const totalCost = costPerImage * expectedCount;
     const clothingMode = normalizeTryOnClothingMode(clothing_mode || (clothing_urls.length > 1 ? "multi" : "single"));
     const clothingRoles = Array.isArray(clothing_roles)
       ? clothing_urls.map((_: string, index: number) => normalizeTryOnClothingRole(
@@ -98,7 +108,8 @@ export async function POST(request: NextRequest) {
       ageGroup,
       garmentCategory,
       modelFaceUrl: model_face_url || null,
-      referenceUrl: sceneMode === "auto_design" ? null : reference_url || null,
+      referenceUrl: effectiveReferenceUrls[0] || null,
+      referenceUrls: effectiveReferenceUrls,
       aiModel: model,
       aspectRatio,
       imageSize: size,
@@ -117,7 +128,7 @@ export async function POST(request: NextRequest) {
       creditsCost: totalCost,
       aiModel: model,
       imageSize: size,
-      reason: `生成 ${genCount} 张，输入 ${clothing_urls.length} 件服装 (${model}, ${size}, ${TRYON_GARMENT_CATEGORY_LABELS[garmentCategory]})`,
+      reason: `生成 ${expectedCount} 张，输入 ${clothing_urls.length} 件服装、${effectiveReferenceUrls.length || 1} 组参考 (${model}, ${size}, ${TRYON_GARMENT_CATEGORY_LABELS[garmentCategory]})`,
       jobPayload,
     });
 
@@ -127,6 +138,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       generation_id: debit.generationId,
       credits_cost: totalCost,
+      expected_count: expectedCount,
       credits_remaining: debit.creditsRemaining,
       status: "processing_tryon",
     });
@@ -140,4 +152,20 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   return handleGenerationStatusGet(request.nextUrl.searchParams.get("generation_id"));
+}
+
+function normalizeReferenceUrls(referenceUrls: unknown, fallbackReferenceUrl: unknown) {
+  const values = Array.isArray(referenceUrls) ? referenceUrls : [];
+  if (!values.length && typeof fallbackReferenceUrl === "string") values.push(fallbackReferenceUrl);
+  const seen = new Set<string>();
+  const normalized: string[] = [];
+  for (const value of values) {
+    if (typeof value !== "string") continue;
+    const url = value.trim();
+    if (!url || seen.has(url)) continue;
+    seen.add(url);
+    normalized.push(url);
+    if (normalized.length >= 8) break;
+  }
+  return normalized;
 }

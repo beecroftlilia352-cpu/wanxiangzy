@@ -82,6 +82,7 @@ export type GenerationJobPayload = GenerationJobPayloadBase & (
       garmentCategory?: TryOnGarmentCategory;
       modelFaceUrl?: string | null;
       referenceUrl?: string | null;
+      referenceUrls?: string[];
       aiModel: LingyaModel;
       aspectRatio: AspectRatio;
       imageSize: ImageSize;
@@ -696,6 +697,7 @@ async function executePayload(
   };
   const executeParallelImageBatch = async (params: {
     count: number;
+    concurrency?: number;
     promptKind: string | ((index: number) => string);
     run: (index: number, onTaskProgress: (progress: ImageTaskProgress) => Promise<void>) => Promise<ParallelImageRunResult>;
   }): Promise<GenerationExecutionResult> => {
@@ -764,7 +766,18 @@ async function executePayload(
       }
     };
 
-    await Promise.all(Array.from({ length: expectedCount }, async (_, index) => runOne(index)));
+    const workerCount = Math.min(
+      expectedCount,
+      Math.max(1, Math.floor(params.concurrency || expectedCount))
+    );
+    let nextIndex = 0;
+    await Promise.all(Array.from({ length: workerCount }, async () => {
+      while (nextIndex < expectedCount) {
+        const index = nextIndex;
+        nextIndex += 1;
+        await runOne(index);
+      }
+    }));
 
     await progressQueue;
     const resultUrls = getCompletedResultUrls();
@@ -782,15 +795,25 @@ async function executePayload(
   };
 
   if (payload.kind === "tryon") {
+    const referenceUrls = getTryOnPayloadReferenceUrls(payload);
     const imageInputs = await resolvePayloadImageInputs({
       clothingUrls: payload.clothingUrls,
       modelFaceUrl: payload.modelFaceUrl || undefined,
-      referenceUrl: payload.referenceUrl || undefined,
+      referenceUrls,
     });
+    const resolvedReferenceUrls = imageInputs.referenceUrls?.length ? imageInputs.referenceUrls : [];
+    const referenceBatchSize = Math.max(1, resolvedReferenceUrls.length);
+    const perReferenceCount = Math.max(1, Math.floor(payload.genCount || 1));
     return executeParallelImageBatch({
-      count: payload.genCount,
-      promptKind: "tryon",
+      count: perReferenceCount * referenceBatchSize,
+      concurrency: 4,
+      promptKind: (index) => resolvedReferenceUrls.length
+        ? `tryon:reference-${Math.floor(index / perReferenceCount) + 1}`
+        : "tryon",
       run: async (index, onTaskProgress) => {
+        const referenceIndex = resolvedReferenceUrls.length ? Math.floor(index / perReferenceCount) : -1;
+        const candidateIndex = resolvedReferenceUrls.length ? index % perReferenceCount : index;
+        const referenceUrl = referenceIndex >= 0 ? resolvedReferenceUrls[referenceIndex] : undefined;
         const result = await batchTryOn({
           model: payload.aiModel,
           clothingUrls: imageInputs.clothingUrls,
@@ -800,13 +823,13 @@ async function executePayload(
           ageGroup: payload.ageGroup,
           garmentCategory: payload.garmentCategory,
           modelFaceUrl: imageInputs.modelFaceUrl,
-          referenceUrl: imageInputs.referenceUrl,
+          referenceUrl,
           aspect_ratio: payload.aspectRatio,
           image_size: payload.imageSize,
           style: payload.style,
           raw_prompt: payload.rawPrompt,
-          candidateIndex: index,
-          candidateCount: payload.genCount,
+          candidateIndex,
+          candidateCount: perReferenceCount,
           onProgress: onTaskProgress,
         });
         return {
@@ -1486,13 +1509,17 @@ function getPayloadPrompt(payload: GenerationJobPayload) {
 function getExpectedResultCount(payload: GenerationJobPayload) {
   if (payload.kind === "pose") return getPoseGenerationCount(payload);
   if (payload.kind === "productSet" && payload.moduleResults?.length) return payload.moduleResults.length;
+  if (payload.kind === "tryon") {
+    const referenceCount = getTryOnPayloadReferenceUrls(payload).length || 1;
+    return Math.max(1, Number(payload.genCount || 1)) * referenceCount;
+  }
   return Math.max(1, Number((payload as { genCount?: number }).genCount || 1));
 }
 
 function getPayloadReferenceImages(payload: GenerationJobPayload) {
   if (payload.kind === "tryon") return [
     ...payload.clothingUrls,
-    payload.referenceUrl,
+    ...getTryOnPayloadReferenceUrls(payload),
     payload.modelFaceUrl,
   ].filter((url): url is string => typeof url === "string" && url.length > 0);
   if (payload.kind === "model") return [
@@ -1527,6 +1554,14 @@ function getPayloadReferenceImages(payload: GenerationJobPayload) {
     ];
   }
   return [payload.garmentUrl, payload.referenceUrl].filter((url): url is string => typeof url === "string" && url.length > 0);
+}
+
+function getTryOnPayloadReferenceUrls(payload: Extract<GenerationJobPayload, { kind: "tryon" }>) {
+  if (payload.sceneMode === "auto_design") return [];
+  return uniqueStrings([
+    ...(Array.isArray(payload.referenceUrls) ? payload.referenceUrls : []),
+    payload.referenceUrl,
+  ]).slice(0, 8);
 }
 
 function limitStoredPrompt(prompt: string) {
@@ -1695,6 +1730,18 @@ function normalizeCommerceDetailSections(
 
 function hasStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((item) => typeof item === "string");
+}
+
+function uniqueStrings(values: Array<string | null | undefined>) {
+  const seen = new Set<string>();
+  const unique: string[] = [];
+  for (const value of values) {
+    const normalized = typeof value === "string" ? value.trim() : "";
+    if (!normalized || seen.has(normalized)) continue;
+    seen.add(normalized);
+    unique.push(normalized);
+  }
+  return unique;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

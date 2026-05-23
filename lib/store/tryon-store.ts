@@ -10,6 +10,7 @@ interface TryOnStore {
   clothingPreviews: string[];
   selectedModel: TryOnModel | null;
   referenceImage: ReferenceImage | null;
+  referenceImages: ReferenceImage[];
   isGenerating: boolean;
   generationProgress: number;
   resultUrls: string[];
@@ -23,6 +24,7 @@ interface TryOnStore {
   removeClothing: (index: number) => void;
   setSelectedModel: (model: TryOnModel | null) => void;
   setReferenceImage: (ref: ReferenceImage | null) => void;
+  setReferenceImages: (refs: ReferenceImage[]) => void;
   startGeneration: () => void;
   updateProgress: (progress: number) => void;
   setPartialResult: (urls: string[]) => void;
@@ -38,6 +40,7 @@ const initialState = {
   clothingPreviews: [],
   selectedModel: null,
   referenceImage: null,
+  referenceImages: [],
   isGenerating: false,
   generationProgress: 0,
   resultUrls: [],
@@ -89,7 +92,12 @@ export const useTryOnStore = create<TryOnStore>((set, get) => ({
 
   setSelectedModel: (model) => set({ selectedModel: model }),
 
-  setReferenceImage: (ref) => set({ referenceImage: ref }),
+  setReferenceImage: (ref) => set({ referenceImage: ref, referenceImages: ref ? [ref] : [] }),
+
+  setReferenceImages: (refs) => set({
+    referenceImages: refs,
+    referenceImage: refs[0] || null,
+  }),
 
   startGeneration: () =>
     set({ isGenerating: true, generationProgress: 0, resultUrls: [], error: null }),

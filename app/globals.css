@@ -194,6 +194,74 @@
     box-shadow: var(--codex-shadow-md);
   }
 
+  .admin-tryon-input {
+    width: 100%;
+    border-radius: 8px;
+    border: 1px solid rgb(226 232 240);
+    background: #fff;
+    padding-left: 12px;
+    padding-right: 12px;
+    font-size: 13px;
+    font-weight: 600;
+    color: rgb(51 65 85);
+    outline: none;
+    transition: border-color 160ms ease, box-shadow 160ms ease;
+  }
+
+  .admin-tryon-input:focus {
+    border-color: rgb(100 116 139);
+    box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.08);
+  }
+
+  .admin-tryon-btn {
+    display: inline-flex;
+    height: 36px;
+    align-items: center;
+    gap: 6px;
+    border-radius: 8px;
+    padding: 0 12px;
+    font-size: 12px;
+    font-weight: 900;
+    transition: background-color 160ms ease, opacity 160ms ease, border-color 160ms ease;
+  }
+
+  .admin-tryon-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+
+  .admin-tryon-btn-primary {
+    background: rgb(15 23 42);
+    color: #fff;
+  }
+
+  .admin-tryon-btn-primary:hover:not(:disabled) {
+    background: rgb(30 41 59);
+  }
+
+  .admin-tryon-btn-secondary,
+  .admin-tryon-mini-btn {
+    border: 1px solid rgb(226 232 240);
+    background: #fff;
+    color: rgb(51 65 85);
+  }
+
+  .admin-tryon-btn-secondary:hover:not(:disabled),
+  .admin-tryon-mini-btn:hover {
+    background: rgb(248 250 252);
+  }
+
+  .admin-tryon-mini-btn {
+    display: inline-flex;
+    height: 28px;
+    align-items: center;
+    gap: 4px;
+    border-radius: 7px;
+    padding: 0 8px;
+    font-size: 11px;
+    font-weight: 900;
+  }
+
   .studio-surface {
     border: 1px solid var(--codex-border);
     border-radius: 20px;

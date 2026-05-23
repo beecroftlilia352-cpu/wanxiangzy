@@ -16,6 +16,7 @@ import {
 } from "@/lib/redis/task-queue-cache";
 import type { TaskQueueItem, TaskStatusGroup } from "@/lib/task-queue";
 import { normalizeModule } from "@/lib/task-queue-index";
+import { getTryOnInputReferenceUrls, TRYON_INPUT_REFERENCE_LIMIT } from "@/lib/tryon-input-references";
 import {
   loadTaskQueueItemsFromIndex,
   loadTaskQueueSummaryFromIndex,
@@ -861,6 +862,16 @@ function workflowLabel(intent: string) {
 }
 
 function getInputThumbnails(row: QueueRow, payload: Record<string, unknown>) {
+  if (payload.kind === "tryon") {
+    return getTryOnInputReferenceUrls({
+      clothingUrls: stringArray(payload.clothingUrls).length ? stringArray(payload.clothingUrls) : row.clothing_urls,
+      clothingMode: stringValue(payload.clothingMode),
+      clothingRoles: Array.isArray(payload.clothingRoles) ? payload.clothingRoles : undefined,
+      referenceUrl: stringValue(payload.referenceUrl) || row.reference_url,
+      referenceUrls: stringArray(payload.referenceUrls),
+      modelFaceUrl: stringValue(payload.modelFaceUrl) || row.model_face_url,
+    }).slice(0, TRYON_INPUT_REFERENCE_LIMIT);
+  }
   return Array.from(new Set([
     ...stringArray(payload.clothingUrls),
     ...stringArray(payload.referenceUrls),

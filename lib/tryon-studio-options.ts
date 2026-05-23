@@ -64,8 +64,8 @@ export const GARMENT_AUDIENCE_OPTIONS: TryOnGarmentAudience[] = ["women", "men"]
 export const AGE_GROUP_OPTIONS: TryOnAgeGroup[] = ["adult", "teen", "big_child", "middle_child", "small_child", "toddler"];
 
 export const SCENE_MODE_TABS: Array<{ value: TryOnSceneMode; label: string }> = [
-  { value: "auto_design", label: "智能模式" },
-  { value: "system_reference", label: "系统预设" },
-  { value: "upload_reference", label: "上传" },
-  { value: "favorites", label: "收藏" },
+  { value: "system_reference", label: "系统生成参考图" },
+  { value: "upload_reference", label: "上传参考图" },
+  { value: "auto_design", label: "自动设计" },
+  { value: "favorites", label: "我的收藏" },
 ];
