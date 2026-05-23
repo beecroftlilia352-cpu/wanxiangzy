@@ -1855,7 +1855,7 @@ export default function CreatePage() {
     || null;
   const activeReferenceSceneChildren = getSceneChildReferences(activeReferenceScene);
   const isReferenceSelected = (url: string) => selectedReferenceImages.some((item) => item.url === url);
-  const referenceSelectionFooter = sceneMode !== "auto_design" ? (
+  const referenceSelectionFooter = sceneMode !== "auto_design" && selectedReferenceCount > 0 ? (
     <div className="mt-3 flex flex-wrap items-center justify-end gap-3 text-[11px] font-medium">
       <span className="text-[var(--codex-accent)]">已选 {selectedReferenceCount}/{MAX_TRYON_REFERENCE_IMAGES}</span>
       <button
@@ -2042,9 +2042,9 @@ export default function CreatePage() {
 
           {/* ---- 服装人群 ---- */}
           <section className="rounded-2xl border border-violet-100 bg-white/78 p-3 shadow-sm">
-            <div className="mb-3 flex items-start justify-between gap-3">
+            <div className="mb-2.5 flex items-start justify-between gap-3">
               <div>
-                <h3 className="text-sm font-bold text-slate-900">
+                <h3 className="text-[13px] font-bold text-slate-900">
                   服装人群 <span className="ml-1 rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-400">可选</span>
                 </h3>
                 <p className="mt-1 truncate text-[11px] text-slate-400">
@@ -2062,7 +2062,7 @@ export default function CreatePage() {
                   key={value}
                   type="button"
                   onClick={() => updateGarmentAudience(value)}
-                  className={`rounded-xl border px-2 py-2 text-xs font-bold transition-all ${
+                  className={`rounded-xl border px-2 py-1.5 text-[11px] font-bold transition-all ${
                     garmentAudience === value
                       ? "border-violet-400 bg-violet-50 text-violet-700 shadow-sm"
                       : "border-slate-200 bg-white text-slate-500 hover:border-violet-200 hover:text-violet-600"
@@ -2073,14 +2073,14 @@ export default function CreatePage() {
               ))}
             </div>
 
-            <div className="mt-2 grid grid-cols-3 gap-1.5">
+            <div className="mt-2 grid grid-cols-6 gap-1.5">
               {AGE_GROUP_OPTIONS.map((value) => {
                 return (
                   <button
                     key={value}
                     type="button"
                     onClick={() => updateAgeGroup(value)}
-                    className={`rounded-xl border px-2 py-1.5 text-[11px] font-medium transition-all ${
+                    className={`rounded-lg border px-1.5 py-1.5 text-[10px] font-medium leading-none transition-all ${
                       ageGroup === value
                         ? "border-violet-400 bg-violet-50 text-violet-700 shadow-sm"
                         : "border-slate-200 bg-white text-slate-500 hover:border-violet-200 hover:text-violet-600"
@@ -2129,7 +2129,7 @@ export default function CreatePage() {
               onChange={switchSceneMode}
               columns={4}
               ariaLabel="参考图 / 场景"
-              className="mb-3"
+              className="tryon-scene-mode-tabs mb-3"
             />
 
             {sceneMode === "system_reference" && (

@@ -1209,6 +1209,24 @@
   box-shadow: none !important;
 }
 
+.tryon-scene-mode-tabs {
+  gap: 7px;
+}
+
+.tryon-scene-mode-tabs .studio-option-control {
+  min-height: 32px;
+  padding: 7px 5px;
+  border-radius: 8px;
+  font-size: 11px;
+  line-height: 1;
+}
+
+.tryon-scene-mode-tabs .studio-option-control .truncate {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: nowrap;
+}
+
 .studio-model-selector {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
