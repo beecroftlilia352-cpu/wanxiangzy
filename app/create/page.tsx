@@ -592,6 +592,7 @@ export default function CreatePage() {
       toast.info("参考图上传中，请稍候");
       return false;
     }
+    const isChangingSource = mode !== sceneMode;
     setSceneMode(mode);
     resetScenePrompt();
 
@@ -600,6 +601,12 @@ export default function CreatePage() {
       store.setReferenceImages([]);
       setCustomRefUploads([]);
       return true;
+    }
+
+    if (isChangingSource) {
+      referenceSelectionTouchedRef.current = true;
+      store.setReferenceImages([]);
+      if (mode !== "upload_reference") setCustomRefUploads([]);
     }
 
     return true;
@@ -1202,7 +1209,8 @@ export default function CreatePage() {
     }
     const arr = Array.from(files || []);
     if (!arr.length) return;
-    const remaining = MAX_TRYON_REFERENCE_IMAGES - selectedReferenceImages.length;
+    const baseUploadReferences = sceneMode === "upload_reference" ? selectedReferenceImages : [];
+    const remaining = MAX_TRYON_REFERENCE_IMAGES - baseUploadReferences.length;
     if (remaining <= 0) {
       toast.info(`参考图最多选择 ${MAX_TRYON_REFERENCE_IMAGES} 张`);
       return;
@@ -1214,6 +1222,11 @@ export default function CreatePage() {
 
     const uploadSeq = customRefUploadSeqRef.current + 1;
     customRefUploadSeqRef.current = uploadSeq;
+    if (sceneMode !== "upload_reference") {
+      referenceSelectionTouchedRef.current = true;
+      store.setReferenceImages([]);
+      setCustomRefUploads([]);
+    }
     setSceneMode("upload_reference");
     resetScenePrompt();
 
@@ -1226,7 +1239,7 @@ export default function CreatePage() {
           id: `custom-ref-${Date.now()}-${uploadItems.length}`,
           file,
           preview: await fileToBase64(file),
-          label: file.name.replace(/\.[^.]+$/, "").slice(0, 24) || `上传参考${selectedReferenceImages.length + uploadItems.length + 1}`,
+          label: file.name.replace(/\.[^.]+$/, "").slice(0, 24) || `上传参考${baseUploadReferences.length + uploadItems.length + 1}`,
         });
       } catch {
         toast.error(`${file.name} 处理失败`);
@@ -1269,7 +1282,7 @@ export default function CreatePage() {
     }));
 
     if (readyRefs.length) {
-      setSelectedReferences([...selectedReferenceImages, ...readyRefs]);
+      setSelectedReferences([...baseUploadReferences, ...readyRefs]);
       toast.success(`已添加 ${readyRefs.length} 张参考图`);
     }
     const failedCount = results.filter((item) => item.status === "rejected").length;
@@ -2062,7 +2075,7 @@ export default function CreatePage() {
                   key={value}
                   type="button"
                   onClick={() => updateGarmentAudience(value)}
-                  className={`rounded-xl border px-2 py-1.5 text-[11px] font-bold transition-all ${
+                  className={`rounded-lg border px-2 py-1.5 text-[11px] font-medium leading-none transition-all ${
                     garmentAudience === value
                       ? "border-violet-400 bg-violet-50 text-violet-700 shadow-sm"
                       : "border-slate-200 bg-white text-slate-500 hover:border-violet-200 hover:text-violet-600"
@@ -2080,7 +2093,7 @@ export default function CreatePage() {
                     key={value}
                     type="button"
                     onClick={() => updateAgeGroup(value)}
-                    className={`rounded-lg border px-1.5 py-1.5 text-[10px] font-medium leading-none transition-all ${
+                    className={`rounded-lg border px-1.5 py-1.5 text-[11px] font-medium leading-none transition-all ${
                       ageGroup === value
                         ? "border-violet-400 bg-violet-50 text-violet-700 shadow-sm"
                         : "border-slate-200 bg-white text-slate-500 hover:border-violet-200 hover:text-violet-600"
@@ -2099,10 +2112,10 @@ export default function CreatePage() {
             className={`studio-stable-upload-boundary relative rounded-xl transition-all ${isDraggingRef ? "ring-2 ring-[rgba(91,124,255,0.38)] ring-offset-2" : ""}`}
           >
             {isDraggingRef && (
-              <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl border-2 border-dashed border-[rgba(91,124,255,0.48)] bg-[rgba(91,124,255,0.10)] pointer-events-none">
+              <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-xl border-2 border-dashed border-[rgba(91,124,255,0.58)] bg-[rgba(91,124,255,0.12)]">
                 <div className="text-center">
-                  <Upload className="w-8 h-8 mx-auto text-[var(--codex-accent)] mb-1" />
-                  <p className="text-sm font-medium text-[var(--codex-accent)]">松开上传参考图</p>
+                  <Upload className="mx-auto mb-1 h-7 w-7 text-[var(--codex-accent)]" />
+                  <p className="text-xs font-semibold text-[var(--codex-accent)]">松开上传参考图</p>
                 </div>
               </div>
             )}
@@ -2176,7 +2189,7 @@ export default function CreatePage() {
                         key={ref.url}
                         type="button"
                         onClick={() => openLightbox(ref.url, ref.label || "参考图")}
-                        className="group relative overflow-hidden rounded-lg border border-[var(--codex-accent)] bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+                        className="group relative overflow-hidden rounded-lg border-2 border-[var(--codex-accent)] bg-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
                         aria-label={`预览已选参考图：${ref.label}`}
                       >
                         <img src={ref.url} alt={ref.label || "参考图"} className="aspect-[3/4] w-full object-cover" />
@@ -2191,7 +2204,7 @@ export default function CreatePage() {
                           setActiveReferenceSceneUrl((prev) => prev || recommendedSystemReferences[0]?.url || allSystemReferences[0]?.url || null);
                           setIsReferenceScenePanelOpen(true);
                         }}
-                        className="flex aspect-[3/4] flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-200 bg-white text-slate-400 transition hover:border-[var(--codex-accent)] hover:text-[var(--codex-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+                        className="flex aspect-[3/4] flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-200 bg-white text-slate-400 transition hover:border-[var(--codex-accent)] hover:bg-violet-50/40 hover:text-[var(--codex-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
                         aria-label="添加系统参考图"
                       >
                         <ChevronRight className="mb-1 h-6 w-6" />
@@ -2205,11 +2218,11 @@ export default function CreatePage() {
             )}
 
             {sceneMode === "upload_reference" && (
-              <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50/70 p-3">
+              <div className={`rounded-xl border border-dashed p-3 transition-colors ${isDraggingRef ? "border-[rgba(91,124,255,0.58)] bg-violet-50/50" : "border-gray-200 bg-gray-50/70"}`}>
                 <input ref={customRefInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleCustomRef} disabled={selectedReferenceCount >= MAX_TRYON_REFERENCE_IMAGES || isReferenceUploadBusy} />
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-4 gap-2">
                   {selectedReferenceImages.map((ref) => (
-                    <div key={ref.url} className="group relative overflow-hidden rounded-lg border-2 border-[var(--codex-accent)] bg-white">
+                    <div key={ref.url} className="group relative overflow-hidden rounded-lg border-2 border-[var(--codex-accent)] bg-white shadow-sm">
                       <button
                         type="button"
                         onClick={() => openLightbox(ref.url, ref.label || "参考图")}
@@ -2229,7 +2242,6 @@ export default function CreatePage() {
                       >
                         <X className="h-3.5 w-3.5" />
                       </button>
-                      <div className="p-1 text-center"><span className="text-[10px] font-medium">{ref.label}</span></div>
                     </div>
                   ))}
                   {customRefUploads.filter((item) => item.status === "uploading" || item.status === "error").map((item) => (
@@ -2245,12 +2257,11 @@ export default function CreatePage() {
                     type="button"
                     onClick={() => customRefInputRef.current?.click()}
                     disabled={selectedReferenceCount >= MAX_TRYON_REFERENCE_IMAGES || isReferenceUploadBusy}
-                    className="aspect-[3/4] rounded-lg border-2 border-dashed border-gray-200 bg-white hover:border-purple-300 flex flex-col items-center justify-center overflow-hidden transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    className={`flex aspect-[3/4] flex-col items-center justify-center overflow-hidden rounded-lg border-2 border-dashed bg-white text-slate-400 transition-all hover:border-[var(--codex-accent)] hover:bg-violet-50/40 hover:text-[var(--codex-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${isDraggingRef ? "border-[var(--codex-accent)] bg-violet-50 text-[var(--codex-accent)]" : "border-gray-200"}`}
                     aria-label="上传参考图"
                   >
-                    <Camera className="w-6 h-6 text-gray-300 mb-2" />
-                    <span className="text-xs text-gray-500">添加</span>
-                    <span className="text-[11px] text-gray-400 mt-1">{selectedReferenceCount}/{MAX_TRYON_REFERENCE_IMAGES}</span>
+                    <ChevronRight className="mb-1 h-6 w-6" />
+                    <span className="text-xs font-medium">添加</span>
                   </button>
                 </div>
                 {referenceSelectionFooter}
@@ -2423,12 +2434,12 @@ export default function CreatePage() {
                 </div>
               </div>
             )}
-            <h3 className="font-bold text-sm mb-1 flex items-center gap-2">
+            <h3 className="mb-1 flex items-center gap-2 text-[13px] font-bold">
               <UserRound className="w-4 h-4 text-purple-500" /> 模特 <span className="text-purple-400 font-normal text-xs">· 控制脸部</span>
               <span className="px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-400 text-[9px]">可选</span>
             </h3>
             <p className="text-[11px] text-gray-400 mb-3">不选则使用参考图中的人物面部 · 可拖拽图片到此处</p>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-4 gap-2">
               <button
                 type="button"
                 onClick={() => {
@@ -2441,13 +2452,15 @@ export default function CreatePage() {
                   toast.success("已设为不替换脸部");
                 }}
                 disabled={isModelUploadBusy}
-                className={`rounded-lg border-2 flex flex-col items-center justify-center aspect-square transition-all disabled:cursor-not-allowed disabled:opacity-60 ${
-                  !store.selectedModel ? "border-purple-500 bg-purple-50 ring-1 ring-purple-200" : "border-gray-200 hover:border-gray-300"
+                className={`overflow-hidden rounded-lg border bg-white text-center transition-all disabled:cursor-not-allowed disabled:opacity-60 ${
+                  !store.selectedModel ? "border-[var(--codex-accent)] shadow-sm ring-1 ring-blue-100" : "border-gray-200 hover:border-gray-300"
                 }`}
               >
-                <UserRound className={`w-5 h-5 mb-1 ${!store.selectedModel ? "text-purple-500" : "text-gray-300"}`} />
-                <span className={`text-[10px] font-medium ${!store.selectedModel ? "text-purple-600" : "text-gray-400"}`}>
-                  不选默认
+                <span className="flex aspect-square items-center justify-center">
+                  <UserRound className={`h-5 w-5 ${!store.selectedModel ? "text-[var(--codex-accent)]" : "text-gray-300"}`} />
+                </span>
+                <span className={`block truncate px-1.5 py-1.5 text-[10px] font-medium ${!store.selectedModel ? "text-[var(--codex-accent)]" : "text-gray-500"}`}>
+                  不选择
                 </span>
               </button>
               {PRESET_MODELS.map((m) => (
@@ -2471,10 +2484,10 @@ export default function CreatePage() {
                     store.setSelectedModel({ ...m, is_preset: true, user_id: null });
                     setPromptOverride(null);
                   })}
-                  className={`group relative rounded-lg overflow-hidden border-2 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 ${
+                  className={`group relative overflow-hidden rounded-lg border bg-white transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 ${
                     isModelUploadBusy ? "cursor-not-allowed opacity-60" : "cursor-pointer"
                   } ${
-                    store.selectedModel?.id === m.id ? "border-purple-500 ring-1 ring-purple-200" : "border-transparent hover:border-gray-300"
+                    store.selectedModel?.id === m.id ? "border-[var(--codex-accent)] shadow-sm ring-1 ring-blue-100" : "border-gray-200 hover:border-gray-300"
                   }`}>
                   <ImgSkeleton src={m.image_url} alt={`模特：${m.name}`} className="w-full aspect-square object-cover" />
                   <div className="absolute inset-0 pointer-events-none flex items-end justify-end bg-violet-950/0 p-1 opacity-100 transition-all sm:opacity-0 sm:group-hover:bg-violet-950/10 sm:group-hover:opacity-100 sm:group-focus-within:bg-violet-950/10 sm:group-focus-within:opacity-100">
@@ -2489,20 +2502,29 @@ export default function CreatePage() {
                       <ZoomIn className="w-3.5 h-3.5 text-gray-600" />
                     </button>
                   </div>
-                  <div className="p-1 text-center"><span className="text-[10px] font-medium">{m.name}</span></div>
+                  <div className={`px-1.5 py-1.5 text-center ${store.selectedModel?.id === m.id ? "bg-blue-50" : ""}`}>
+                    <span className="block truncate text-[10px] font-medium text-slate-700">{m.name}</span>
+                  </div>
                 </div>
               ))}
               <button
                 type="button"
                 onClick={() => customModelInputRef.current?.click()}
                 disabled={isModelUploadBusy}
-                className="relative rounded-lg border-2 border-dashed border-gray-200 hover:border-purple-300 flex flex-col items-center justify-center aspect-square transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-80"
+                className={`relative overflow-hidden rounded-lg border bg-white text-center transition-all hover:border-[var(--codex-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-80 ${
+                  customModelPreview ? "border-[var(--codex-accent)] shadow-sm ring-1 ring-blue-100" : "border-dashed border-gray-200"
+                }`}
                 aria-label={customModelPreview ? "更换上传模特图" : "上传模特图"}
               >
-                {customModelPreview
-                  ? <img src={customModelPreview} alt="已上传的模特图" className="h-full w-full rounded-lg object-contain p-1" />
-                  : <><Camera className="w-5 h-5 text-gray-300" /><span className="text-[10px] text-gray-400">点击上传</span></>
-                }
+                <span className="flex aspect-square items-center justify-center overflow-hidden bg-white">
+                  {customModelPreview
+                    ? <img src={customModelPreview} alt="已上传的模特图" className="h-full w-full object-contain p-1" />
+                    : <Camera className="h-5 w-5 text-gray-300" />
+                  }
+                </span>
+                <span className={`block truncate px-1.5 py-1.5 text-[10px] font-medium ${customModelPreview ? "bg-blue-50 text-slate-700" : "text-gray-400"}`}>
+                  {customModelPreview ? "已上传" : "上传"}
+                </span>
                 {isModelUploadBusy && (
                   <span className="absolute inset-0 flex flex-col items-center justify-center gap-1 rounded-lg bg-white/78 text-[10px] font-bold text-[var(--codex-accent)] backdrop-blur-[1px]">
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
