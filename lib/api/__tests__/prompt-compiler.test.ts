@@ -111,7 +111,7 @@ describe("compileImagePromptForModel", () => {
       { slot: 1, keywords: ["Target pose:", "front-view", "front silhouette", "Clean full-body product/editorial framing"] },
       { slot: 2, keywords: ["Target pose:", "side-angle", "side silhouette", "Full-body or 7/8-body"] },
       { slot: 3, keywords: ["Target pose:", "stationary", "not walking", "waistline"] },
-      { slot: 4, keywords: ["Target pose:", "light movement", "soft turning", "natural fabric drape"] },
+      { slot: 4, keywords: ["Target pose:", "light movement", "aligned turning", "same natural direction", "natural fabric drape"] },
     ];
 
     slotAssertions.forEach(({ slot, keywords }) => {

@@ -57,7 +57,7 @@ Negative: no outfit change, no face change, no extra person, no collage, no text
 姿势1：正面服装展示方向；AI 可自由选择自然手势、重心、视线、表情和镜头语言，服装正面轮廓必须清楚。
 姿势2：侧身或三分之二侧身展示方向；AI 可自由选择头发/衣领/袖口/衣摆手势、腿部节奏、视线和镜头语言，侧面轮廓和肩线必须清楚。
 姿势3：站定造型方向，不要走路；AI 可自由选择扶腰、胯部、肩线、手部造型、视线和镜头语言，腰线、廓形和面料垂坠必须清楚。
-姿势4：动态行走、转身或回眸方向，不要静态扶腰；AI 可自由选择步态、手臂运动、身体转向、视线和镜头语言，服装运动褶皱和垂坠必须清楚。`;
+姿势4：轻微迈步或自然转身方向，不要静态扶腰；头部方向与肩膀、躯干和身体转向保持一致，不要单独回头看镜头；AI 可自由选择步态、手臂运动、身体转向、视线和镜头语言，服装运动褶皱和垂坠必须清楚。`;
 
 function resolvePoseOutputModeFromPayload(payload: PoseHistoryPayload): PoseOutputMode {
   return payload.outputMode === "separate" || Number(payload.genCount || 0) > 1 ? "separate" : "grid";

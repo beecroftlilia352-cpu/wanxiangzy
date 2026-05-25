@@ -496,6 +496,8 @@ export default function CreatePage() {
     disabled: isBananaDisabledByModelFace && isNanoBananaModel(model.value),
   }));
   const selectedReferenceCount = selectedReferenceImages.length;
+  const visibleCustomRefUploads = customRefUploads.filter((item) => item.status === "uploading" || item.status === "error");
+  const showUploadReferenceEmptyTile = sceneMode === "upload_reference" && selectedReferenceCount === 0 && visibleCustomRefUploads.length === 0;
   const resolvedAutoDesign = normalizeAutoDesignSettings(autoDesign);
   const autoDesignBackgroundOptions = resolvedAutoDesign.platform === "ecommerce_clean"
     ? AUTO_DESIGN_BACKGROUNDS.filter((item) => item.value === "white")
@@ -2220,50 +2222,66 @@ export default function CreatePage() {
             {sceneMode === "upload_reference" && (
               <div className={`rounded-xl border border-dashed p-3 transition-colors ${isDraggingRef ? "border-[rgba(91,124,255,0.58)] bg-violet-50/50" : "border-gray-200 bg-gray-50/70"}`}>
                 <input ref={customRefInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleCustomRef} disabled={selectedReferenceCount >= MAX_TRYON_REFERENCE_IMAGES || isReferenceUploadBusy} />
-                <div className="grid grid-cols-4 gap-2">
-                  {selectedReferenceImages.map((ref) => (
-                    <div key={ref.url} className="group relative overflow-hidden rounded-lg border-2 border-[var(--codex-accent)] bg-white shadow-sm">
-                      <button
-                        type="button"
-                        onClick={() => openLightbox(ref.url, ref.label || "参考图")}
-                        className="block w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
-                        aria-label={`预览参考图：${ref.label}`}
-                      >
-                        <img src={ref.url} alt={`参考图：${ref.label}`} className="aspect-[3/4] w-full object-cover" />
-                      </button>
-                      <span className="absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-[var(--codex-accent)] text-white shadow-sm">
-                        <CheckCircle2 className="h-4 w-4" />
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedReferences(selectedReferenceImages.filter((item) => item.url !== ref.url))}
-                        className="absolute left-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/88 text-slate-500 shadow-sm transition hover:text-red-500"
-                        aria-label={`移除参考图：${ref.label}`}
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  ))}
-                  {customRefUploads.filter((item) => item.status === "uploading" || item.status === "error").map((item) => (
-                    <div key={item.id} className="relative overflow-hidden rounded-lg border-2 border-dashed border-gray-200 bg-white">
-                      <img src={item.preview} alt={item.label} className="aspect-[3/4] w-full object-cover opacity-70" />
-                      <span className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-white/70 text-[10px] font-bold text-[var(--codex-accent)] backdrop-blur-[1px]">
-                        {item.status === "uploading" ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4 text-red-500" />}
-                        {item.status === "uploading" ? "上传中" : "失败"}
-                      </span>
-                    </div>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={() => customRefInputRef.current?.click()}
-                    disabled={selectedReferenceCount >= MAX_TRYON_REFERENCE_IMAGES || isReferenceUploadBusy}
-                    className={`flex aspect-[3/4] flex-col items-center justify-center overflow-hidden rounded-lg border-2 border-dashed bg-white text-slate-400 transition-all hover:border-[var(--codex-accent)] hover:bg-violet-50/40 hover:text-[var(--codex-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${isDraggingRef ? "border-[var(--codex-accent)] bg-violet-50 text-[var(--codex-accent)]" : "border-gray-200"}`}
-                    aria-label="上传参考图"
-                  >
-                    <ChevronRight className="mb-1 h-6 w-6" />
-                    <span className="text-xs font-medium">添加</span>
-                  </button>
-                </div>
+                {showUploadReferenceEmptyTile ? (
+                  <StudioUploadTile
+                    title="上传 / 拖拽参考图"
+                    description={`可上传 1-${MAX_TRYON_REFERENCE_IMAGES} 张人物姿势、场景或构图参考图。`}
+                    imageAlt="服装上身参考图"
+                    isDragging={isDraggingRef}
+                    disabled={isReferenceUploadBusy}
+                    loading={isReferenceUploadBusy}
+                    supportBadge={`最多 ${MAX_TRYON_REFERENCE_IMAGES} 张`}
+                    onUploadClick={() => customRefInputRef.current?.click()}
+                    uploadLabel="从本地上传"
+                    loadingLabel="上传参考图..."
+                    footnote="拖拽图片到此区域也可以上传；参考图会作为人物姿势、场景、构图和光影来源。"
+                  />
+                ) : (
+                  <div className="grid grid-cols-4 gap-2">
+                    {selectedReferenceImages.map((ref) => (
+                      <div key={ref.url} className="group relative overflow-hidden rounded-lg border-2 border-[var(--codex-accent)] bg-white shadow-sm">
+                        <button
+                          type="button"
+                          onClick={() => openLightbox(ref.url, ref.label || "参考图")}
+                          className="block w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+                          aria-label={`预览参考图：${ref.label}`}
+                        >
+                          <img src={ref.url} alt={`参考图：${ref.label}`} className="aspect-[3/4] w-full object-cover" />
+                        </button>
+                        <span className="absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-[var(--codex-accent)] text-white shadow-sm">
+                          <CheckCircle2 className="h-4 w-4" />
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedReferences(selectedReferenceImages.filter((item) => item.url !== ref.url))}
+                          className="absolute left-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/88 text-slate-500 shadow-sm transition hover:text-red-500"
+                          aria-label={`移除参考图：${ref.label}`}
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                    {visibleCustomRefUploads.map((item) => (
+                      <div key={item.id} className="relative overflow-hidden rounded-lg border-2 border-dashed border-gray-200 bg-white">
+                        <img src={item.preview} alt={item.label} className="aspect-[3/4] w-full object-cover opacity-70" />
+                        <span className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-white/70 text-[10px] font-bold text-[var(--codex-accent)] backdrop-blur-[1px]">
+                          {item.status === "uploading" ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4 text-red-500" />}
+                          {item.status === "uploading" ? "上传中" : "失败"}
+                        </span>
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => customRefInputRef.current?.click()}
+                      disabled={selectedReferenceCount >= MAX_TRYON_REFERENCE_IMAGES || isReferenceUploadBusy}
+                      className={`flex aspect-[3/4] flex-col items-center justify-center overflow-hidden rounded-lg border-2 border-dashed bg-white text-slate-400 transition-all hover:border-[var(--codex-accent)] hover:bg-violet-50/40 hover:text-[var(--codex-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${isDraggingRef ? "border-[var(--codex-accent)] bg-violet-50 text-[var(--codex-accent)]" : "border-gray-200"}`}
+                      aria-label="上传参考图"
+                    >
+                      <ChevronRight className="mb-1 h-6 w-6" />
+                      <span className="text-xs font-medium">添加</span>
+                    </button>
+                  </div>
+                )}
                 {referenceSelectionFooter}
               </div>
             )}

@@ -50,7 +50,9 @@ describe("pose prompt handling", () => {
 
     expect(enforced).toContain("姿势1：正面服装展示方向");
     expect(enforced).toContain("姿势2：侧身或三分之二侧身展示方向");
-    expect(enforced).toContain("姿势4：动态行走、转身或回眸方向");
+    expect(enforced).toContain("姿势4：轻微迈步或自然转身方向");
+    expect(enforced).toContain("头部方向与肩膀、躯干和身体转向保持一致");
+    expect(enforced).not.toContain("动态行走、转身或回眸方向");
     expect(enforced).not.toContain("consistent medium full-body framing");
     expect(enforced).toContain("时装大片连贯性规则");
     expect(enforced).not.toContain("手指自然整理发丝或衣领");
@@ -124,7 +126,9 @@ describe("pose prompt handling", () => {
     expect(buildSeparatePoseSlotDirective(1)).toContain("Relaxed front-view");
     expect(buildSeparatePoseSlotDirective(2)).toContain("Strong three-quarter or side-angle");
     expect(buildSeparatePoseSlotDirective(3)).toContain("Stationary confident shape pose");
-    expect(buildSeparatePoseSlotDirective(4)).toContain("Light movement or soft turning pose");
+    expect(buildSeparatePoseSlotDirective(4)).toContain("Light movement or natural aligned turning pose");
+    expect(buildSeparatePoseSlotDirective(4)).toContain("same natural direction");
+    expect(buildSeparatePoseSlotDirective(4)).not.toContain("over-shoulder gaze");
   });
 
   it("keeps preset style as a mood hint without changing the production slot structure", () => {
@@ -167,6 +171,7 @@ describe("pose prompt handling", () => {
 
     expect(enforced).toContain("表情规则");
     expect(enforced).toContain("轻微自然");
+    expect(enforced).toContain("过度扭颈");
     expect(enforced).not.toContain("表情控制");
   });
 });

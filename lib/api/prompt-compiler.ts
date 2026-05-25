@@ -228,7 +228,7 @@ const SEPARATE_POSE_REQUIRED_KEYWORDS: Record<number, string[]> = {
   1: ["front-view", "front silhouette", "outfit"],
   2: ["side-angle", "side silhouette", "shoulder line"],
   3: ["stationary", "not walking", "waistline"],
-  4: ["movement", "walking", "fabric motion"],
+  4: ["movement", "aligned turning", "same natural direction", "fabric drape"],
 };
 
 function extractTargetPoseLines(lines: string[], slotIndex?: number) {

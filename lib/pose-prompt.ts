@@ -35,7 +35,7 @@ export const POSE_CLOTHING_RULE =
   "服装展示规则：四个姿势都要清楚展示同一套服装的版型、腰线、肩线、袖长、下摆、面料垂坠、纹理和图案；允许动作造成自然褶皱、遮挡和张力变化，但绝不能改变服装结构、颜色、图案、长度、开口位置或搭配关系。";
 
 export const POSE_BODY_RULE =
-  "身体动作规则：动作变化要自然、可信、符合真人关节运动，保留图1或自然商业模特的真实头身比例、肩宽、腰胯比例、四肢长度和体态；避免夸张扭腰、断手、错位手指、肢体拉长、腿被拉长、头被缩小、身体比例漂移或过度瘦身。";
+  "身体动作规则：动作变化要自然、可信、符合真人关节运动，保留图1或自然商业模特的真实头身比例、肩宽、腰胯比例、四肢长度和体态；头部、颈部、肩膀和躯干转向必须协调一致，避免头部单独回望、过度扭颈、肩颈错位、夸张扭腰、断手、错位手指、肢体拉长、腿被拉长、头被缩小、身体比例漂移或过度瘦身。";
 
 export const POSE_SKIN_COLOR_RULE =
   "肤色和色彩规则：四个分格必须保留图1人物的自然肤色、肤色明暗、冷暖调、局部红润、阴影层次和真实皮肤质感；保持准确白平衡和真实曝光，不要自动美白、不要雪白皮、不要冷白皮、不要过度提亮肤色，不要把画面统一调成过曝白亮或粉白滤镜。";
@@ -67,6 +67,7 @@ const POSE_SINGLE_EXPRESSION_CONSISTENT_REQUIREMENT =
 const POSE_SEPARATE_BASE_PROMPT = [
   "Use the source image only for the same person, face, hairstyle, outfit, fabric, color, pattern, background mood, lighting mood and overall fashion-photo style.",
   "Do not use the source image as the pose reference. Do not copy the original pose.",
+  "Keep head, neck, shoulders and torso aligned with one natural body direction. Do not make the head look back independently from the body.",
   "",
   "Generate one standalone premium womenswear fashion photo.",
   "The target pose and camera direction must be clearly executed and noticeably different from the source image.",
@@ -77,14 +78,14 @@ const POSE_SEPARATE_BASE_PROMPT = [
   "same person, same face identity, same hairstyle, same outfit design, same fabric texture, same color and pattern, same background mood, same lighting mood, natural skin tone, realistic body proportions.",
   "",
   "Negative:",
-  "no outfit change, no face change, no extra person, no text, no logo, no watermark, no grid, no collage, no distorted hands, no broken limbs, no unrealistic body shape.",
+  "no outfit change, no face change, no extra person, no text, no logo, no watermark, no grid, no collage, no distorted hands, no broken limbs, no twisted neck, no disconnected head, no over-shoulder look, no unrealistic body shape.",
 ].join("\n");
 
 const DEFAULT_POSE_LINES = [
   "姿势1：正面服装展示方向；AI 可自由选择自然手势、重心、视线、表情和镜头语言，服装正面轮廓必须清楚。",
   "姿势2：侧身或三分之二侧身展示方向；AI 可自由选择头发/衣领/袖口/衣摆手势、腿部节奏、视线和镜头语言，侧面轮廓和肩线必须清楚。",
   "姿势3：站定造型方向，不要走路；AI 可自由选择扶腰、胯部、肩线、手部造型、视线和镜头语言，腰线、廓形和面料垂坠必须清楚。",
-  "姿势4：动态行走、转身或回眸方向，不要静态扶腰；AI 可自由选择步态、手臂运动、身体转向、视线和镜头语言，服装运动褶皱和垂坠必须清楚。",
+  "姿势4：轻微迈步或自然转身方向，不要静态扶腰；头部方向与肩膀、躯干和身体转向保持一致，不要单独回头看镜头；AI 可自由选择步态、手臂运动、身体转向、视线和镜头语言，服装运动褶皱和垂坠必须清楚。",
 ];
 
 const NEGATIVE_POSE_REQUIREMENT =
@@ -322,8 +323,11 @@ function getSeparatePoseSlotDirectives(poseStyle?: PoseSeriesStyle) {
     ].join("\n"),
     [
       "Target pose:",
-      "Light movement or soft turning pose.",
-      "Use a small step, gentle body turn, or subtle over-shoulder motion.",
+      "Light movement or natural aligned turning pose.",
+      "Use a small step, gentle side or three-quarter body turn, or soft side-back rotation.",
+      "The head, neck, shoulders and torso must face the same natural direction.",
+      "The gaze should follow the body direction or look slightly side-forward.",
+      "Do not create an over-shoulder look, independent head turn, twisted neck or disconnected shoulder line.",
       "Do not create a large walking stride or exaggerated motion.",
       "Keep the movement elegant, controlled and feminine.",
       "Show a slight sense of motion through body turn, soft arm movement, and natural fabric drape.",
@@ -336,7 +340,7 @@ function getSeparatePoseSlotDirectives(poseStyle?: PoseSeriesStyle) {
       "Avoid aggressive action framing, extreme stride, strong street-style walking energy, excessive motion blur or extreme crop.",
       "",
       "Expression:",
-      "Soft candid expression or gentle over-shoulder gaze.",
+      "Soft candid expression with gaze aligned to the body direction.",
       "Natural, relaxed, slightly lively, but not exaggerated.",
     ].join("\n"),
   ];
