@@ -48,4 +48,30 @@ describe("lingya try-on prompt framing", () => {
     expect(prompt).toContain("Keep the same visible subject range, no-face/partial-body crop if present");
     expect(prompt).not.toContain("Keep the same facial identity");
   });
+
+  it("locks upper-only replacement to the upper slot without changing lower clothing", () => {
+    const prompt = applyTryOnRequestPrompt("Base try-on prompt.", {
+      model: "nano-banana-2",
+      referenceUrl: "https://example.com/reference.png",
+      clothingMode: "multi",
+      clothingRoles: ["upper"],
+    });
+
+    expect(prompt).toContain("Slot replacement lock: replace only the target reference's upper-body clothing");
+    expect(prompt).toContain("Preserve the target reference's lower-body clothing");
+    expect(prompt).not.toContain("blue jeans");
+  });
+
+  it("locks lower-only replacement to the lower slot without changing upper clothing", () => {
+    const prompt = applyTryOnRequestPrompt("Base try-on prompt.", {
+      model: "nano-banana-2",
+      referenceUrl: "https://example.com/reference.png",
+      clothingMode: "multi",
+      clothingRoles: ["lower"],
+    });
+
+    expect(prompt).toContain("Slot replacement lock: replace only the target reference's lower-body clothing");
+    expect(prompt).toContain("Preserve the target reference's upper-body clothing");
+    expect(prompt).not.toContain("blue jeans");
+  });
 });

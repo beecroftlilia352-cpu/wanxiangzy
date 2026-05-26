@@ -23,6 +23,9 @@ type ResultImageGridProps = {
   statusGroup?: TaskStatusGroup;
   variant?: "cards" | "task";
   renderKey?: string;
+  markMissingAsFailed?: boolean;
+  missingFailureLabel?: string;
+  missingFailureDetail?: string;
 };
 
 export type ResultInputReference = {
@@ -55,6 +58,9 @@ export function ResultImageGrid({
   statusGroup,
   variant = "cards",
   renderKey = "result",
+  markMissingAsFailed = false,
+  missingFailureLabel,
+  missingFailureDetail,
 }: ResultImageGridProps) {
   const fallbackCreatedAt = useMemo(() => new Date().toISOString(), []);
   const count = Math.max(urls.length, expectedCount || 0, 1);
@@ -93,12 +99,14 @@ export function ResultImageGrid({
                 url={url}
                 index={index}
                 count={count}
-                failed={failed}
+                failed={failed || (markMissingAsFailed && !url && !running)}
                 running={running}
                 filenamePrefix={filenamePrefix}
                 extension={extension}
                 imageAltPrefix={imageAltPrefix}
                 onOpen={onOpen}
+                failureLabel={markMissingAsFailed && !url && !running ? missingFailureLabel : undefined}
+                failureDetail={markMissingAsFailed && !url && !running ? missingFailureDetail : undefined}
               />
             ))}
           </div>
@@ -115,13 +123,15 @@ export function ResultImageGrid({
           url={url}
           index={index}
           count={count}
-          failed={false}
+          failed={markMissingAsFailed && !url && !isGenerating}
           running={Boolean(isGenerating)}
           filenamePrefix={filenamePrefix}
           extension={extension}
           imageAltPrefix={imageAltPrefix}
           onOpen={onOpen}
           isSingle={isSingle}
+          failureLabel={markMissingAsFailed && !url && !isGenerating ? missingFailureLabel : undefined}
+          failureDetail={markMissingAsFailed && !url && !isGenerating ? missingFailureDetail : undefined}
         />
       ))}
     </div>
@@ -152,6 +162,8 @@ function ResultCard({
   imageAltPrefix,
   onOpen,
   isSingle,
+  failureLabel,
+  failureDetail,
 }: {
   url: string | null;
   index: number;
@@ -163,6 +175,8 @@ function ResultCard({
   imageAltPrefix: string;
   onOpen: (url: string, index: number) => void;
   isSingle?: boolean;
+  failureLabel?: string;
+  failureDetail?: string;
 }) {
   return (
     <div
@@ -189,7 +203,13 @@ function ResultCard({
             alt={`${imageAltPrefix} ${index + 1}`}
           />
         ) : (
-          <PendingResultSlot failed={failed} running={running} index={index} />
+          <PendingResultSlot
+            failed={failed}
+            running={running}
+            index={index}
+            failureLabel={failureLabel}
+            failureDetail={failureDetail}
+          />
         )}
       </div>
 
@@ -253,7 +273,19 @@ function StableResultImage({ src, alt }: { src: string; alt: string }) {
   );
 }
 
-function PendingResultSlot({ failed = false, running = false, index }: { failed?: boolean; running?: boolean; index: number }) {
+function PendingResultSlot({
+  failed = false,
+  running = false,
+  index,
+  failureLabel,
+  failureDetail,
+}: {
+  failed?: boolean;
+  running?: boolean;
+  index: number;
+  failureLabel?: string;
+  failureDetail?: string;
+}) {
   return (
     <div className={`gen-card studio-result-pending-card flex h-full w-full flex-col items-center justify-center gap-2 ${failed ? "studio-result-pending-card-failed" : ""}`}>
       <div className="relative z-[1] flex h-14 w-14 items-center justify-center">
@@ -263,8 +295,13 @@ function PendingResultSlot({ failed = false, running = false, index }: { failed?
         </div>
       </div>
       <p className="relative z-[1] text-xs font-semibold text-white/72">
-        {failed ? "生成失败，可套用参数重试" : running ? "预计1-2分钟" : "等待生成"}
+        {failed ? failureLabel || "生成失败，可套用参数重试" : running ? "预计1-2分钟" : "等待生成"}
       </p>
+      {failed && failureDetail && (
+        <p className="relative z-[1] max-w-[76%] text-center text-[11px] font-medium leading-4 text-white/48">
+          {failureDetail}
+        </p>
+      )}
       {!failed && running && (
         <p className="relative z-[1] text-[11px] font-medium text-white/42">第 {index + 1} 张生成中</p>
       )}

@@ -162,6 +162,8 @@ type TryOnRequestPromptOptions = {
   candidateCount?: number;
   referenceUrl?: string;
   modelFaceUrl?: string;
+  clothingMode?: TryOnClothingMode;
+  clothingRoles?: TryOnClothingRole[];
 };
 
 export async function generateImage(input: GenerateInput, retries = 2): Promise<GenerateResult> {
@@ -380,10 +382,33 @@ export async function batchTryOn(input: BatchTryOnInput): Promise<{ resultUrls: 
 
 export function applyTryOnRequestPrompt(prompt: string, input: TryOnRequestPromptOptions) {
   const lines = [prompt.trim()];
+  const nonSourcedOutfitDirective = buildTryOnNonSourcedOutfitDirective(input);
+  if (nonSourcedOutfitDirective) lines.push(nonSourcedOutfitDirective);
   lines.push(buildTryOnPhotoFinishDirective(input));
   const candidateDirective = buildTryOnCandidateDirective(input);
   if (candidateDirective) lines.push(candidateDirective);
   return lines.filter(Boolean).join("\n");
+}
+
+function buildTryOnNonSourcedOutfitDirective(input: TryOnRequestPromptOptions) {
+  if (!input.referenceUrl) return "";
+  const clothingMode = normalizeTryOnClothingMode(input.clothingMode || "single");
+  const roles = Array.isArray(input.clothingRoles) ? input.clothingRoles.map((role) => normalizeTryOnClothingRole(role)) : [];
+  if (clothingMode === "multi") {
+    const hasUpper = roles.includes("upper");
+    const hasLower = roles.includes("lower");
+    if (hasUpper && !hasLower) {
+      return "Slot replacement lock: replace only the target reference's upper-body clothing with the sourced upper garment. Preserve the target reference's lower-body clothing, shoes, legs, hands, accessories, background, scene, camera distance, and framing unless physically covered by the new upper garment.";
+    }
+    if (hasLower && !hasUpper) {
+      return "Slot replacement lock: replace only the target reference's lower-body clothing with the sourced lower garment. Preserve the target reference's upper-body clothing, hands, accessories, background, scene, camera distance, and framing unless physically covered by the new lower garment.";
+    }
+    if (hasUpper && hasLower) {
+      return "Slot replacement lock: replace only the sourced upper- and lower-body outfit areas. Preserve all non-conflicting hands, shoes, accessories, visible skin, background, scene, camera distance, and framing from the target reference.";
+    }
+  }
+
+  return "Slot replacement lock: replace only the outfit area naturally covered by the sourced garment. Preserve the target reference's non-conflicting shoes, hands, accessories, visible skin, background, scene, camera distance, and framing.";
 }
 
 function buildTryOnPhotoFinishDirective(input: TryOnRequestPromptOptions) {
@@ -435,7 +460,7 @@ function buildTryOnCandidateDirective(input: TryOnRequestPromptOptions) {
     : "";
 
   if (input.referenceUrl && !input.modelFaceUrl) {
-    return `Candidate ${index + 1}/${count}: create a distinct but consistent try-on variation, not a near-duplicate. Keep the same visible subject range, no-face/partial-body crop if present, adult proportions, target pose family, general camera/framing, background, sourced garment design, and reference-derived photography mood; do not invent a missing face/head/full body; vary garment fit, folds, hem, contact shadows, and small natural body/hand relaxation as ${variant}.`;
+    return `Candidate ${index + 1}/${count}: create a distinct but consistent try-on variation, not a near-duplicate. Keep the same visible subject range, no-face/partial-body crop if present, adult proportions, target pose family, general camera/framing, background, non-sourced outfit areas, sourced garment design, and reference-derived photography mood; do not invent a missing face/head/full body; vary garment fit, folds, hem, contact shadows, and small natural body/hand relaxation as ${variant}.`;
   }
 
   return `Candidate ${index + 1}/${count}: create a distinct but consistent try-on variation, not a near-duplicate. Keep the same facial identity, natural face integration, adult proportions, target pose family, general camera/framing, background, lower outfit, sourced garment design, and reference-derived photography mood; vary garment fit, folds, hem, contact shadows, and small natural body/hand relaxation as ${variant}.${gptExpression}`;

@@ -127,6 +127,7 @@ type CustomReferenceUpload = {
   label: string;
   status: "uploading" | "ready" | "error";
   url?: string;
+  error?: string;
 };
 
 type SystemReferenceApiItem = {
@@ -1269,7 +1270,8 @@ export default function CreatePage() {
       if (index < 0) return [item];
       const result = results[index];
       if (result.status !== "fulfilled") {
-        return [];
+        const message = result.reason instanceof Error ? result.reason.message : "上传失败";
+        return [{ ...item, status: "error" as const, error: message }];
       }
       readyRefs.push({
         id: item.id,
@@ -1379,6 +1381,11 @@ export default function CreatePage() {
           if (pollData.status === "completed") {
             const resultUrls = Array.isArray(pollData.result_urls) ? pollData.result_urls : [];
             const resultCount = resultUrls.filter(Boolean).length;
+            const expectedResultCount = Math.max(Number(pollData.expected_count) || expectedCount, resultCount || 1);
+            const partialFailure = pollData.partial_failure && typeof pollData.partial_failure === "object"
+              ? pollData.partial_failure as { message?: unknown }
+              : null;
+            const completedError = String(pollData.error || partialFailure?.message || "");
             if (isActive) {
               store.updateProgress(100);
               store.setResult(resultUrls);
@@ -1388,8 +1395,9 @@ export default function CreatePage() {
               status: "completed",
               statusGroup: "completed",
               progress: 100,
+              error: completedError,
               resultCount,
-              expectedCount: Math.max(expectedCount, resultCount || 1),
+              expectedCount: expectedResultCount,
               resultThumbnails: resultUrls,
               thumbnails: resultUrls.filter(Boolean).slice(0, 2),
               completedAt: new Date().toISOString(),
@@ -1823,6 +1831,14 @@ export default function CreatePage() {
     handleGenerate(repairedPrompt);
   };
 
+  const displayedResultUrls = store.resultUrls.filter(Boolean);
+  const activeResultExpectedCount = activeQueueTask
+    ? clampTaskExpectedCount(activeQueueTask, 1, MAX_TRYON_OUTPUT_IMAGES, expectedOutputCount || genCount)
+    : expectedOutputCount || genCount;
+  const hasCompletedPartialResults = Boolean(
+    activeQueueTask?.statusGroup === "completed"
+    && activeResultExpectedCount > displayedResultUrls.length
+  );
   const resultStatus: StudioResultStatus = store.error
       ? "error"
       : store.isGenerating || store.resultUrls.length > 0
@@ -2268,6 +2284,17 @@ export default function CreatePage() {
                           {item.status === "uploading" ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4 text-red-500" />}
                           {item.status === "uploading" ? "上传中" : "失败"}
                         </span>
+                        {item.status === "error" && (
+                          <button
+                            type="button"
+                            onClick={() => setCustomRefUploads((prev) => prev.filter((upload) => upload.id !== item.id))}
+                            className="absolute right-1 top-1 z-[2] inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/88 text-slate-500 shadow-sm transition hover:text-red-500"
+                            aria-label={`移除上传失败参考图：${item.label}`}
+                            title={item.error || "上传失败"}
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        )}
                       </div>
                     ))}
                     <button
@@ -2725,7 +2752,7 @@ export default function CreatePage() {
                       filenamePrefix="tryon"
                       onOpen={(url, index) => openLightbox(url, `服装上身结果 ${index + 1}`)}
                       imageAltPrefix="服装上身结果"
-                      expectedCount={activeQueueTask ? clampTaskExpectedCount(activeQueueTask, 1, MAX_TRYON_OUTPUT_IMAGES, expectedOutputCount || genCount) : expectedOutputCount || genCount}
+                      expectedCount={activeResultExpectedCount}
                       isGenerating={store.isGenerating}
                       inputThumbnails={safeTaskQueueUrls(activeQueueTask?.inputThumbnails)}
                       inputReferences={activeTaskReferences}
@@ -2733,6 +2760,9 @@ export default function CreatePage() {
                       statusGroup={activeQueueTask?.statusGroup}
                       variant="task"
                       renderKey={activeQueueTask?.id || "tryon-create"}
+                      markMissingAsFailed={hasCompletedPartialResults}
+                      missingFailureLabel="本张生成失败"
+                      missingFailureDetail="成功图片可正常使用，失败张数已按任务结算处理。"
                     />
                   </div>
                 </div>

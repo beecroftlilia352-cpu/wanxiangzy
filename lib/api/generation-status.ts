@@ -42,6 +42,9 @@ export async function handleGenerationStatusGet(generationId: string | null) {
       status_group: state.statusGroup,
       result_urls: resultUrls,
       module_results: state.moduleResults || [],
+      expected_count: state.expectedCount,
+      result_count: state.resultCount,
+      partial_failure: readPartialFailure(gen.job_payload),
       error: gen.error_message,
       progress: state.progress,
       provider_status: state.providerStatus,
@@ -51,6 +54,12 @@ export async function handleGenerationStatusGet(generationId: string | null) {
     const message = err instanceof Error ? err.message : "查询失败";
     return NextResponse.json({ error: message }, { status: 500 });
   }
+}
+
+function readPartialFailure(payload: unknown) {
+  if (!payload || typeof payload !== "object") return null;
+  const value = (payload as Record<string, unknown>).partialFailure;
+  return value && typeof value === "object" ? value : null;
 }
 
 async function reconcileCompletedGeneration(generationId: string, userId: string) {
