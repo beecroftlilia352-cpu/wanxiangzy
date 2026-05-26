@@ -388,14 +388,21 @@ export function applyTryOnRequestPrompt(prompt: string, input: TryOnRequestPromp
 
 function buildTryOnPhotoFinishDirective(input: TryOnRequestPromptOptions) {
   if (input.referenceUrl) {
+    const visibleFrameRule = input.modelFaceUrl
+      ? ""
+      : "When no model-face reference is provided, keep the target reference's visible crop and subject range: if the target reference is no-face, lower-body-only, or partial-body, the final image must remain no-face/lower-body/partial-body and must not invent a missing face, head, full body, or extra scene area.";
+    const identityFinishRule = input.modelFaceUrl
+      ? "Keep garment colors, logos/text, fabric texture, face identity, skin tone continuity, and body proportions accurate; no heavy beauty filter, no poster layout, no added text, no washed-out skin, no color-shifted clothing."
+      : "Keep garment colors, logos/text, fabric texture, visible skin tone continuity, visible body proportions, and the reference crop accurate; no heavy beauty filter, no poster layout, no added text, no washed-out skin, no color-shifted clothing.";
     return [
       "Reference-based photo finish:",
       "Use the target reference as the photography style source.",
+      visibleFrameRule,
       "Replicate its shadow design: cast-shadow direction, shadow length, edge softness, density, wall/floor shadow geometry, body shadow placement, and contact-shadow intensity.",
       "Inherit its light direction, light hardness, color temperature, contrast curve, shadow shape, highlight rolloff, exposure, white balance, lens perspective, depth of field, texture/noise level, and filter/color mood.",
       "Make the reference filter/color mood visibly present in the final image while preserving true garment color; you may subtly polish clarity and shadow depth, but do not apply a new generic fashion filter or a different color grade.",
-      "Keep garment colors, logos/text, fabric texture, face identity, skin tone continuity, and body proportions accurate; no heavy beauty filter, no poster layout, no added text, no washed-out skin, no color-shifted clothing.",
-    ].join(" ");
+      identityFinishRule,
+    ].filter(Boolean).join(" ");
   }
 
   return [
@@ -426,6 +433,10 @@ function buildTryOnCandidateDirective(input: TryOnRequestPromptOptions) {
   const gptExpression = input.model === "gpt-image-2"
     ? ` For GPT candidate variation, avoid identical facial expressions; use a subtle natural micro-expression within the target emotion: ${expressionVariants[index % expressionVariants.length]}.`
     : "";
+
+  if (input.referenceUrl && !input.modelFaceUrl) {
+    return `Candidate ${index + 1}/${count}: create a distinct but consistent try-on variation, not a near-duplicate. Keep the same visible subject range, no-face/partial-body crop if present, adult proportions, target pose family, general camera/framing, background, sourced garment design, and reference-derived photography mood; do not invent a missing face/head/full body; vary garment fit, folds, hem, contact shadows, and small natural body/hand relaxation as ${variant}.`;
+  }
 
   return `Candidate ${index + 1}/${count}: create a distinct but consistent try-on variation, not a near-duplicate. Keep the same facial identity, natural face integration, adult proportions, target pose family, general camera/framing, background, lower outfit, sourced garment design, and reference-derived photography mood; vary garment fit, folds, hem, contact shadows, and small natural body/hand relaxation as ${variant}.${gptExpression}`;
 }
@@ -1422,7 +1433,7 @@ export function buildTryOnPrompt(params: {
       poseLock,
       garmentRules,
       skinAndQuality,
-      "不要改变参考图场景，不要生成多余人物，脸部身份保持不变。",
+      "不要改变参考图场景，不要生成多余人物；只保留参考图中实际可见的脸部身份，如果参考图无脸、局部身体或下半身构图，不要补出新的脸、头部或完整人物。",
       negativeRule,
     ].join("\n");
   } else if (!params.hasReference && params.hasModelFace) {
@@ -1493,7 +1504,7 @@ function buildConciseTryOnPrompt(params: {
   if (params.hasReference && params.hasModelFace) {
     lines.push(`Task: use ${clothingSource} only as ${sourceNoun}; replace the outfit on the person in ${targetRef} with the clothing from ${clothingSource}; discard ${targetRef}'s original facial identity; rebuild ${faceRef}'s recognizable identity and facial landmark geometry inside ${targetRef}'s original head space; retarget ${targetRef}'s facial expression, skin tone, makeup style, visible-skin continuity, pose/body/head placement/background/camera/framing/lighting onto that ${faceRef} identity. Expression means mouth open/closed, lip-corner direction, smile/frown intensity, eye openness, brow tension, gaze, jaw tension, and emotional tone.`);
   } else if (params.hasReference) {
-    lines.push(`Task: use ${clothingSource} only as ${sourceNoun}; replace the outfit on the person in ${targetRef} with the clothing from ${clothingSource}; keep ${targetRef}'s pose/body/background/camera/framing/lighting.`);
+    lines.push(`Task: use ${clothingSource} only as ${sourceNoun}; replace the outfit on the person in ${targetRef} with the clothing from ${clothingSource}; treat that person as only the visible person/body shown in ${targetRef}; keep ${targetRef}'s visible subject, pose, body crop, background, camera distance, framing, and lighting. Because no model-face reference is provided, do not invent or reveal a missing face/head/full body; if ${targetRef} is lower-body-only, no-face, or partial-body, the final image must keep the same no-face/partial-body framing.`);
   } else if (params.hasModelFace) {
     lines.push(`Task: create a believable single-person fashion photo wearing the clothing from ${clothingSource}; use ${faceRef} as the final recognizable face identity, natural skin-tone range, hairstyle character, and facial structure reference.`);
   } else {
@@ -1510,7 +1521,9 @@ function buildConciseTryOnPrompt(params: {
       clothingRoles: params.clothingRoles,
       hasModelFace: params.hasModelFace,
     }));
-    lines.push(`Body/composition rule: keep ${targetRef}'s body proportions, adult body type when applicable, pose, visible body range, facial expression, head-to-body ratio, neck length, shoulder connection, camera angle, camera distance, perspective, framing, background, lighting direction, exposure, color temperature, shadows, and overall photo mood. Only allow natural changes caused by the new garment: fabric volume, folds, contact shadows, occlusion, sleeve coverage, and realistic drape.`);
+    lines.push(params.hasModelFace
+      ? `Body/composition rule: keep ${targetRef}'s body proportions, adult body type when applicable, pose, visible body range, facial expression, head-to-body ratio, neck length, shoulder connection, camera angle, camera distance, perspective, framing, background, lighting direction, exposure, color temperature, shadows, and overall photo mood. Only allow natural changes caused by the new garment: fabric volume, folds, contact shadows, occlusion, sleeve coverage, and realistic drape.`
+      : `Visible-frame rule: keep ${targetRef}'s body proportions, adult body type when applicable, pose, visible body range, crop boundaries, camera angle, camera distance, perspective, framing, background, lighting direction, exposure, color temperature, shadows, and overall photo mood. If ${targetRef} does not show a face, head, or full body, do not generate those missing areas; preserve the lower-body/no-face/partial-body composition instead of expanding to a full-model portrait. Only allow natural changes caused by the new garment: fabric volume, folds, contact shadows, occlusion, sleeve coverage, and realistic drape.`);
   }
 
   if (params.hasModelFace) {
@@ -1741,7 +1754,7 @@ function buildConciseRoleLockRule(params: {
   if (params.hasReference) {
     roles.push(params.hasModelFace
       ? `image ${params.referenceImageNumber} = target expression driver / skin tone / makeup / target body / pose / head placement / composition / background / lighting / skin continuity ONLY, not final facial identity`
-      : `image ${params.referenceImageNumber} = target body / pose / head placement / composition / background / lighting / skin continuity ONLY`);
+      : `image ${params.referenceImageNumber} = target body / pose / head placement / composition / background / lighting / skin continuity ONLY; preserve the actual visible crop/body range; preserve no-face or partial-body framing when that is what the image shows`);
   }
   if (params.hasModelFace) {
     roles.push(`image ${params.faceImageNumber} = final face identity / full facial landmark geometry / feature anatomy / likeness anchor ONLY, not facial expression, skin tone, makeup, body, clothing, head pose, head scale, background, or scene lighting`);
@@ -1762,6 +1775,9 @@ function buildConcisePriorityRule(params: {
   }
 
   if (params.hasReference) {
+    if (!params.hasModelFace) {
+      return `Conflict priority: clothing = ${params.clothingSource}; body/pose/composition/background = ${params.targetRef}; visible crop/body range must also stay from ${params.targetRef}. If ${params.targetRef} is no-face, lower-body-only, or partial-body, preserve that framing and do not invent a missing face/head/full body. No fallback to the target's original outfit.`;
+    }
     return `Conflict priority: clothing = ${params.clothingSource}; body/pose/composition/background = ${params.targetRef}. No fallback to the target's original outfit.`;
   }
 
@@ -1784,6 +1800,9 @@ function buildConciseFailureHandlingRule(params: {
   }
 
   if (params.hasReference) {
+    if (!params.hasModelFace) {
+      return `Failure handling: if anything is ambiguous, never use identity, pose, or scene from ${params.clothingSource}; clothing accuracy from ${params.clothingSource} and visible body/crop/scene from ${params.targetRef} are mandatory. Do not add a face, head, full upper body, full lower body, or extra scene area that is not visible in ${params.targetRef}.`;
+    }
     return `Failure handling: if anything is ambiguous, never use identity, pose, or scene from ${params.clothingSource}; clothing accuracy from ${params.clothingSource} and body/scene from ${params.targetRef} are mandatory.`;
   }
 
@@ -1842,7 +1861,7 @@ function buildConciseTargetCanvasRule(params: {
 }) {
   const faceInstruction = params.hasModelFace
     ? `Do not preserve ${params.targetRef}'s original facial identity; preserve only head placement, head pose, scale, hair/occlusion when compatible, lighting, and scene continuity.`
-    : `Preserve ${params.targetRef}'s original facial identity, hair, and scene continuity.`;
+    : `Preserve only the face, hair, and identity details that are actually visible in ${params.targetRef}; if the face/head is not visible, keep the output no-face/partial-body and do not invent or reveal a new face/head/full body. Preserve scene continuity.`;
 
   if (params.clothingMode === "multi") {
     const hasUpper = params.clothingRoles.includes("upper");
