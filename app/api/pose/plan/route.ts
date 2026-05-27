@@ -256,6 +256,8 @@ async function requestPosePlan(input: {
               "你不能写最终生成 prompt，只能输出结构化 posePlan。",
               `返回 { posePlan: { version: \"${POSE_PLAN_VERSION}\", style, outputMode, edited:false, slots:[...] } }。`,
               "slots 必须正好 4 个，每个字段：index, poseName, bodyAction, handAction, headDirection, cameraFraming, garmentVisibilityRule, avoidRules, confidence。",
+              "所有用户可见字段必须使用简体中文，包括 poseName、bodyAction、handAction、headDirection、cameraFraming、garmentVisibilityRule、avoidRules；不要输出英文姿势名、英文动作句或英文风险词。",
+              "poseName 用 4-12 个中文字，bodyAction/handAction/headDirection/cameraFraming/garmentVisibilityRule 用短中文短句。",
               "姿势必须基于 poseAnalysis 的性别表达、身体裁切范围、服装、镜头、手脚可见性规划。",
               "不要规划会改变性别表达、身体骨架、脸、服装结构或构图范围的动作。",
               "如果 bodyCrop 是 upper_body，不要规划脚步、鞋履或全身大动作。",

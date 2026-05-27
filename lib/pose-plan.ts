@@ -43,7 +43,7 @@ export type PosePlan = {
   edited: boolean;
 };
 
-export const POSE_PLAN_VERSION = "pose-plan-v2";
+export const POSE_PLAN_VERSION = "pose-plan-v3";
 
 export type PosePlanContext = {
   poseAnalysis?: PoseVisualAnalysis | null;
@@ -202,8 +202,8 @@ export function getPosePlanSummary(plan: PosePlan | null | undefined) {
   if (!plan) return [];
   return plan.slots.map((slot) => ({
     key: `pose-slot-${slot.index}`,
-    title: `姿势${slot.index}：${slot.poseName}`,
-    detail: [slot.bodyAction, slot.handAction, slot.headDirection].filter(Boolean).join("；"),
+    title: `姿势${slot.index}：${getPoseSlotDisplayName(slot)}`,
+    detail: getPoseSlotDisplayDetail(slot),
   }));
 }
 
@@ -374,6 +374,49 @@ function normalizePoseSlotPlan(input: unknown, fallback: PoseSlotPlan, fallbackI
   };
 }
 
+function getPoseSlotDisplayName(slot: PoseSlotPlan) {
+  if (isChineseDisplayText(slot.poseName)) return clampText(slot.poseName, 24);
+  const text = [slot.poseName, slot.bodyAction].join(" ").toLowerCase();
+  if (/front|facing|confident/.test(text) && slot.index === 1) return "正面服装展示";
+  if (/side|angle|turn|profile/.test(text)) return "侧身角度展示";
+  if (/walk-free|walk free|paused|stride|stand/.test(text) && slot.index === 3) return "站定造型展示";
+  if (/powerful|open|confident|chest/.test(text)) return "开放站姿展示";
+  return LEGACY_DISPLAY_SLOT_NAMES[slot.index - 1] || "自然姿势展示";
+}
+
+function getPoseSlotDisplayDetail(slot: PoseSlotPlan) {
+  const raw = [slot.bodyAction, slot.handAction, slot.headDirection].filter(Boolean).join("；");
+  if (isChineseDisplayText(raw)) return raw;
+  const text = raw.toLowerCase();
+  if (/20\s*-\s*30|side|turn body|one side/.test(text)) {
+    return "身体轻微侧转，保持直立姿态，重心自然变化，展示侧面轮廓和服装线条。";
+  }
+  if (/paused|stride|one foot|heel|knees|walk-free/.test(text)) {
+    return "站定跨步造型，一脚轻微向前但不走路，保持身体稳定并突出服装垂坠。";
+  }
+  if (/chest|open posture|arms slightly away|powerful/.test(text)) {
+    return "挺拔开放站姿，胸肩自然打开，手臂轻微离身，表现自信但不过度摆拍。";
+  }
+  if (/standing|stand|shoulders|weight|torso|front/.test(text)) {
+    return "正面自然站立，肩颈放松，重心轻微变化，服装正面轮廓清楚。";
+  }
+  return LEGACY_DISPLAY_SLOT_DETAILS[slot.index - 1] || "自然可信的商业时装姿势，保持人物身份、服装结构和身体比例稳定。";
+}
+
+const LEGACY_DISPLAY_SLOT_NAMES = [
+  "正面服装展示",
+  "侧身角度展示",
+  "站定造型展示",
+  "轻微动态展示",
+];
+
+const LEGACY_DISPLAY_SLOT_DETAILS = [
+  "正面服装展示方向，服装正面轮廓清楚，手势和重心自然变化。",
+  "侧身或三分之二侧身展示方向，侧面轮廓和肩线清楚。",
+  "站定造型方向，不要走路，腰线、廓形和面料垂坠清楚。",
+  "轻微迈步或自然转身方向，动作幅度克制，服装运动褶皱和垂坠清楚。",
+];
+
 function normalizeOutputMode(value: unknown): PosePlanOutputMode {
   return value === "separate" ? "separate" : "grid";
 }
@@ -416,6 +459,14 @@ function toRecord(value: unknown): Record<string, unknown> | null {
 
 function clampText(value: string, maxLength = 180) {
   return value.replace(/\s+/g, " ").trim().slice(0, maxLength);
+}
+
+function containsCjk(value: string) {
+  return /[\u3400-\u9fff]/.test(value);
+}
+
+function isChineseDisplayText(value: string) {
+  return containsCjk(value) && !/[A-Za-z]{4,}/.test(value);
 }
 
 function clamp(value: number, min: number, max: number) {

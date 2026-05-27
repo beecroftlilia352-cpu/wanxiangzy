@@ -151,9 +151,9 @@ export function getPoseVisualAnalysisDetailItems(analysis: PoseVisualAnalysis | 
   const details: PoseVisualAnalysisDetailItem[] = [];
   const outfit = summarizeOutfitForDisplay(analysis.outfitDescription);
   if (outfit) details.push({ label: "服装", value: outfit, title: analysis.outfitDescription });
-  const camera = summarizeFactForDisplay(analysis.cameraFraming);
+  const camera = summarizeCameraForDisplay(analysis.cameraFraming);
   if (camera) details.push({ label: "构图", value: camera, title: analysis.cameraFraming });
-  const lighting = summarizeFactForDisplay(analysis.lighting);
+  const lighting = summarizeLightingForDisplay(analysis.lighting);
   if (lighting) details.push({ label: "光线", value: lighting, title: analysis.lighting });
   const risks = analysis.generationRisks
     .slice(0, 2)
@@ -234,7 +234,7 @@ function getBodyCropPromptRule(bodyCrop: PoseVisualBodyCrop) {
 function toPoseDisplayPhrase(value: string) {
   const normalized = value.trim().toLowerCase().replace(/[\s-]+/g, "_");
   if (!normalized) return "";
-  if (containsCjk(value)) return value.trim();
+  if (isChineseDisplayText(value)) return value.trim();
   const exact: Record<string, string> = {
     front_facing: "正面",
     frontal: "正面",
@@ -264,7 +264,7 @@ function toPoseDisplayPhrase(value: string) {
 function summarizeOutfitForDisplay(value: string) {
   const text = value.trim();
   if (!text) return "";
-  if (containsCjk(text)) return clampText(text, 46);
+  if (isChineseDisplayText(text)) return clampText(text, 46);
   const normalized = text.toLowerCase();
   const parts: string[] = [];
   const color = getFirstMatchLabel(normalized, [
@@ -306,10 +306,42 @@ function summarizeOutfitForDisplay(value: string) {
 function summarizeFactForDisplay(value: string) {
   const text = value.trim();
   if (!text) return "";
-  if (containsCjk(text)) return clampText(text, 32);
+  if (isChineseDisplayText(text)) return clampText(text, 32);
   const mapped = toPoseDisplayPhrase(text);
   if (mapped) return mapped;
-  return clampText(text.replace(/_/g, " "), 28);
+  return "";
+}
+
+function summarizeCameraForDisplay(value: string) {
+  const text = value.trim();
+  if (!text) return "";
+  if (isChineseDisplayText(text)) return clampText(text, 32);
+  const normalized = text.toLowerCase().replace(/[_-]+/g, " ");
+  const parts: string[] = [];
+  if (/center|centred|centered/.test(normalized)) parts.push("居中");
+  if (/full\s*body|whole\s*body|head\s*to\s*toe/.test(normalized)) parts.push("全身");
+  else if (/three\s*quarter|3\/4|seven/.test(normalized)) parts.push("七分身");
+  else if (/upper|half\s*body|medium/.test(normalized)) parts.push("半身");
+  else if (/close|detail|crop/.test(normalized)) parts.push("近景");
+  if (/studio/.test(normalized)) parts.push("棚拍");
+  if (/portrait|vertical/.test(normalized)) parts.push("竖幅");
+  return parts.length ? Array.from(new Set(parts)).join("") : summarizeFactForDisplay(text) || "构图已识别";
+}
+
+function summarizeLightingForDisplay(value: string) {
+  const text = value.trim();
+  if (!text) return "";
+  if (isChineseDisplayText(text)) return clampText(text, 32);
+  const normalized = text.toLowerCase().replace(/[_-]+/g, " ");
+  const parts: string[] = [];
+  if (/soft|diffused|diffuse/.test(normalized)) parts.push("柔和");
+  if (/even|balanced/.test(normalized)) parts.push("均匀");
+  if (/studio/.test(normalized)) parts.push("棚拍光");
+  else if (/daylight|natural/.test(normalized)) parts.push("自然光");
+  if (/backlight|rim/.test(normalized)) parts.push("轮廓光");
+  if (/warm/.test(normalized)) parts.push("暖调");
+  if (/cool/.test(normalized)) parts.push("冷调");
+  return parts.length ? Array.from(new Set(parts)).join("") : summarizeFactForDisplay(text) || "光线已识别";
 }
 
 function getFirstMatchLabel(text: string, rules: Array<[RegExp, string]>) {
@@ -318,6 +350,10 @@ function getFirstMatchLabel(text: string, rules: Array<[RegExp, string]>) {
 
 function containsCjk(value: string) {
   return /[\u3400-\u9fff]/.test(value);
+}
+
+function isChineseDisplayText(value: string) {
+  return containsCjk(value) && !/[A-Za-z]{4,}/.test(value);
 }
 
 function normalizeAnalysisUrl(value: string) {

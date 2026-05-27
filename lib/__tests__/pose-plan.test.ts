@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildFallbackPosePlan,
   buildUserCustomPosePlan,
+  getPosePlanSummary,
   normalizePosePlan,
 } from "@/lib/pose-plan";
 
@@ -182,5 +183,26 @@ describe("pose plan", () => {
     expect(plan.slots[0].poseName).toBe("自然侧身");
     expect(plan.slots[0].bodyAction).toBe("三分之二侧身站立");
     expect(plan.slots[0].garmentVisibilityRule).toBe("肩线和领口清楚");
+  });
+
+  it("localizes English model output in user-facing summaries", () => {
+    const plan = normalizePosePlan({
+      slots: [
+        { poseName: "Confident front stance with relaxed shoulders", bodyAction: "standing tall, shoulders relaxed, weight slightly on one leg, torso facing front", confidence: 0.9 },
+        { poseName: "Side angle with one leg forward", bodyAction: "turn body slightly 20-30 degrees to one side, keep upright posture, shift weight", confidence: 0.9 },
+        { poseName: "Editorial walk-free pose", bodyAction: "standing in a paused stride: one foot slightly forward with heel down, knees relaxed", confidence: 0.9 },
+        { poseName: "Powerful open posture", bodyAction: "upright stance, chest lifted, arms slightly away from body for a confident look", confidence: 0.9 },
+      ],
+    });
+
+    const summary = getPosePlanSummary(plan);
+    expect(summary[0].title).toBe("姿势1：正面服装展示");
+    expect(summary[0].detail).toContain("正面自然站立");
+    expect(summary[1].title).toBe("姿势2：侧身角度展示");
+    expect(summary[1].detail).toContain("身体轻微侧转");
+    expect(summary[2].detail).toContain("站定跨步造型");
+    expect(summary[3].detail).toContain("挺拔开放站姿");
+    const visibleText = summary.map((item) => `${item.title}${item.detail}`).join("");
+    expect(visibleText).not.toMatch(/[A-Za-z]{4,}/);
   });
 });

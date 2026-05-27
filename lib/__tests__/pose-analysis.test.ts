@@ -38,6 +38,8 @@ describe("pose visual analysis display", () => {
   it("turns long English outfit facts into compact chips", () => {
     const items = getPoseVisualAnalysisDetailItems(baseAnalysis);
     expect(items.find((item) => item.label === "服装")?.value).toBe("深红 / 吊带 / 多层 / 荷叶边 / 蕾丝");
+    expect(items.find((item) => item.label === "构图")?.value).toBe("全身棚拍");
+    expect(items.find((item) => item.label === "光线")?.value).toBe("柔和棚拍光");
     expect(items.find((item) => item.label === "风险")?.value).toBe("性别漂移、手部风险");
   });
 });
