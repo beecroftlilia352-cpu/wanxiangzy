@@ -68,7 +68,8 @@ type PoseAnalysisEntry = {
   source: PoseAnalysisSource;
   error: string | null;
 };
-type PosePlanSource = "vision_plan" | "cache" | "fallback" | "history" | "user_custom";
+type PosePlanMode = "preset" | "ai";
+type PosePlanSource = "vision_plan" | "cache" | "fallback" | "preset" | "history" | "user_custom";
 type PosePlanEntry = {
   plan: PosePlan;
   source: PosePlanSource;
@@ -86,6 +87,7 @@ const POSE_PLAN_SOURCE_LABELS: Record<PosePlanSource, string> = {
   vision_plan: "AI 规划",
   cache: "缓存规划",
   fallback: "保守规划",
+  preset: "预设计划",
   history: "历史规划",
   user_custom: "已编辑",
 };
@@ -169,6 +171,7 @@ export default function PosePage() {
   const [poseAnalysisSource, setPoseAnalysisSource] = useState<PoseAnalysisSource | null>(null);
   const [poseAnalysisError, setPoseAnalysisError] = useState<string | null>(null);
   const [poseAnalysisRetryCount, setPoseAnalysisRetryCount] = useState(0);
+  const [posePlanMode, setPosePlanMode] = useState<PosePlanMode>("preset");
   const [isPlanningPose, setIsPlanningPose] = useState(false);
   const [posePlan, setPosePlan] = useState<PosePlan | null>(null);
   const [posePlanSource, setPosePlanSource] = useState<PosePlanSource | null>(null);
@@ -205,13 +208,11 @@ export default function PosePage() {
   const authIsAnonymous = authChecked && !isAuthenticated;
   const runDisabledReason = !mainImage
     ? "请先上传主图"
-    : isAnalyzingPose
-      ? "主图正在识别，请稍候。"
-      : isPlanningPose
-        ? "姿势正在规划，请稍候。"
-        : credits !== null && credits < cost
-          ? `积分不足，生成需要 ${cost} 积分`
-          : undefined;
+    : posePlanMode === "ai" && isPlanningPose
+      ? "AI 姿势计划生成中，也可切回预设计划立即生成。"
+      : credits !== null && credits < cost
+        ? `积分不足，生成需要 ${cost} 积分`
+        : undefined;
   const cancelRulesHide = () => {
     if (rulesHideTimerRef.current) {
       clearTimeout(rulesHideTimerRef.current);
@@ -273,7 +274,7 @@ export default function PosePage() {
 
   function applyPosePlanSnapshot(payload: PoseHistoryPayload, source: PosePlanSource = "history") {
     const analysis = normalizePoseVisualAnalysis(payload.poseAnalysis);
-    const planKey = buildPosePlanKey(payload.mainImageUrl, analysis, normalizePoseSeriesStyle(payload.poseStyle), resolvePoseOutputModeFromPayload(payload), payload.prompt);
+    const planKey = buildPosePlanKey(payload.mainImageUrl, analysis, normalizePoseSeriesStyle(payload.poseStyle), resolvePoseOutputModeFromPayload(payload), payload.prompt, "preset");
     posePlanSeqRef.current += 1;
     if (payload.posePlan && planKey) {
       const entry: PosePlanEntry = {
@@ -312,16 +313,18 @@ export default function PosePage() {
     analysis = getActivePoseAnalysis(),
     style = poseStyle,
     mode = outputMode,
-    planPrompt = buildPlanPromptSource()
+    planPrompt = buildPlanPromptSource(),
+    planMode = posePlanMode
   ) {
     if (!imageUrl) return "";
-    return buildPosePlanCacheKey({
+    const baseKey = buildPosePlanCacheKey({
       mainImageUrl: imageUrl,
       poseAnalysis: analysis,
       poseStyle: style,
       outputMode: mode,
       prompt: planPrompt,
     });
+    return `${baseKey}|mode:${style === "user_custom" ? "custom" : planMode}`;
   }
 
   function getActivePosePlan() {
@@ -341,6 +344,7 @@ export default function PosePage() {
 
   function retryPosePlan() {
     if (!mainImage || isPlanningPose) return;
+    setPosePlanMode("ai");
     const planKey = buildPosePlanKey();
     if (planKey) posePlanCacheRef.current.delete(planKey);
     lastPosePlanKeyRef.current = "";
@@ -463,7 +467,6 @@ export default function PosePage() {
     }
 
     const activeAnalysis = getActivePoseAnalysis();
-    if (!activeAnalysis && !poseAnalysisError) return;
     const planPrompt = buildPlanPromptSource();
     const planKey = buildPosePlanKey(imageUrl, activeAnalysis, poseStyle, outputMode, planPrompt);
     if (lastPosePlanKeyRef.current === planKey) return;
@@ -492,6 +495,21 @@ export default function PosePage() {
       setPosePlanEntry(cachedPlan);
       return;
     }
+
+    if (posePlanMode === "preset") {
+      const plan = normalizePosePlan(null, {
+        poseAnalysis: activeAnalysis,
+        poseStyle,
+        outputMode,
+        prompt: planPrompt,
+      });
+      const entry: PosePlanEntry = { plan, source: "preset", error: null };
+      posePlanCacheRef.current.set(planKey, entry);
+      setPosePlanEntry(entry);
+      return;
+    }
+
+    if (!activeAnalysis && !poseAnalysisError) return;
 
     const run = async () => {
       setIsPlanningPose(true);
@@ -570,6 +588,7 @@ export default function PosePage() {
     poseAnalysisError,
     poseAnalysisSource,
     poseStyle,
+    posePlanMode,
     outputMode,
     prompt,
     supplementPrompt,
@@ -581,6 +600,7 @@ export default function PosePage() {
 
   function applyPoseHistoryPayload(payload: PoseHistoryPayload, historyResultUrls: string[] = [], options?: { silent?: boolean }) {
     generationRunRef.current += 1;
+    setPosePlanMode("preset");
     setMainImage(payload.mainImageUrl);
     applyPoseAnalysisSnapshot(payload.mainImageUrl, payload.poseAnalysis);
     applyPosePlanSnapshot(payload);
@@ -922,6 +942,7 @@ export default function PosePage() {
     lastPosePlanKeyRef.current = "";
     posePlanSeqRef.current += 1;
     setPosePlanEntry(null);
+    setPosePlanMode("preset");
     setShowPosePlanEditor(false);
     setPrompt(DEFAULT_POSE_PROMPT);
     setSupplementPrompt("");
@@ -1213,17 +1234,17 @@ export default function PosePage() {
             <section>
               <div className="mb-3 flex items-center justify-between gap-3">
                 <h3 className="font-bold text-sm flex items-center gap-2">
-                  <PenLine className="w-4 h-4 text-[var(--codex-accent)]" /> AI 姿势计划
+                  <PenLine className="w-4 h-4 text-[var(--codex-accent)]" /> 姿势计划
                 </h3>
                 <div className="flex shrink-0 items-center gap-2">
-                  {poseStyle !== "user_custom" && (
+                  {poseStyle !== "user_custom" && posePlanMode === "ai" && (
                     <button
                       type="button"
                       onClick={retryPosePlan}
                       disabled={isPlanningPose || !mainImage}
                       className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-500 transition-colors hover:border-violet-200 hover:text-violet-600 disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      恢复 AI 规划
+                      重新 AI 规划
                     </button>
                   )}
                   <button
@@ -1236,6 +1257,24 @@ export default function PosePage() {
                   </button>
                 </div>
               </div>
+
+              {poseStyle !== "user_custom" && (
+                <div className="mb-3">
+                  <StudioOptionGrid
+                    options={[
+                      { value: "preset" as const, label: "预设计划", description: "默认 · 立即生成" },
+                      { value: "ai" as const, label: "AI 精修", description: "更贴主图 · 较慢" },
+                    ]}
+                    value={posePlanMode}
+                    onChange={setPosePlanMode}
+                    columns={2}
+                    ariaLabel="姿势计划模式"
+                  />
+                  <p className="mt-2 text-[11px] leading-relaxed text-slate-400">
+                    默认走本地预设计划，不等待 AI 规划；需要更贴合主图气质时再开启 AI 精修。
+                  </p>
+                </div>
+              )}
 
               {posePlanStatus && (
                 <div

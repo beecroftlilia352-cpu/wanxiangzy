@@ -251,15 +251,17 @@ function buildFallbackSlots(analysis: PoseVisualAnalysis, policy: PoseStylePolic
 }
 
 function buildLegacyFullBodySlots(policy: PoseStylePolicy, analysis: PoseVisualAnalysis, crop: PoseVisualBodyCrop): PoseSlotPlan[] {
-  const cameraBase = crop === "three_quarter" ? "保持七分身或近全身范围，重要服装部位不要被裁掉" : "保持头脚完整或接近完整的服装展示范围";
-  const garmentRule = "沿用旧版稳定姿势模板：服装正面轮廓、侧面轮廓、肩线、腰线、廓形、面料垂坠、运动褶皱和垂坠必须清楚";
+  const cameraBase = crop === "three_quarter"
+    ? "以图1七分身/近全身为参考，可按姿势在近全身、七分身或偏半身商业构图之间自然变化"
+    : "以图1全身比例为参考，可按姿势在全身、近全身、七分身之间自然变化，不要固定同一镜头距离";
+  const garmentRule = "服装正面轮廓、侧面轮廓、肩线、腰线、廓形、面料垂坠、运动褶皱和关键细节必须清楚";
   const avoid = buildAvoidRules(policy, analysis);
 
   return [
-    createSlot(1, "正面服装展示", "正面服装展示方向；AI 可自由选择自然手势、重心、视线、表情和镜头语言，服装正面轮廓必须清楚", "", "", `${cameraBase}，沿用旧版稳定构图逻辑`, garmentRule, avoid, 0.72),
-    createSlot(2, "侧身或三分之二侧身展示", "侧身或三分之二侧身展示方向；AI 可自由选择头发/衣领/袖口/衣摆手势、腿部节奏、视线和镜头语言，侧面轮廓和肩线必须清楚", "", "", `${cameraBase}，沿用旧版稳定构图逻辑`, garmentRule, avoid, 0.72),
-    createSlot(3, "站定造型", "站定造型方向，不要走路；AI 可自由选择扶腰、胯部、肩线、手部造型、视线和镜头语言，腰线、廓形和面料垂坠必须清楚", "", "", `${cameraBase}，沿用旧版稳定构图逻辑`, garmentRule, avoid, 0.72),
-    createSlot(4, "轻微迈步或自然转身", "轻微迈步或自然转身方向，不要静态扶腰；头部方向与肩膀、躯干和身体转向保持一致，不要单独回头看镜头；AI 可自由选择步态、手臂运动、身体转向、视线和镜头语言，服装运动褶皱和垂坠必须清楚", "", "", `${cameraBase}，沿用旧版稳定构图逻辑`, garmentRule, avoid, 0.72),
+    createSlot(1, "正面服装展示", "正面服装展示方向；AI 可自由选择自然手势、重心、视线、表情和镜头语言，服装正面轮廓必须清楚", "手臂自然离身或轻触衣摆/口袋，不遮挡核心版型", "轻松直视镜头，表情自然克制", `${cameraBase}，构图干净但可有自然留白`, garmentRule, avoid, 0.72),
+    createSlot(2, "侧身或三分之二侧身展示", "侧身或三分之二侧身展示方向；AI 可自由选择头发/衣领/袖口/衣摆手势、腿部节奏、视线和镜头语言，侧面轮廓和肩线必须清楚", "一只手可整理领口、袖口或自然靠近腰侧", "视线略偏离镜头，可带轻微微笑", `${cameraBase}，允许略微靠近以突出侧面轮廓`, garmentRule, avoid, 0.72),
+    createSlot(3, "站定造型", "站定造型方向，不要走路；AI 可自由选择扶腰、胯部、肩线、手部造型、视线和镜头语言，腰线、廓形和面料垂坠必须清楚", "手部造型与服装结构配合，不要两张都重复同一扶腰动作", "自信眼神或轻微抬下巴，与姿势气质匹配", `${cameraBase}，可使用七分身或偏半身商业构图突出上身结构和腰线`, garmentRule, avoid, 0.72),
+    createSlot(4, "轻微迈步或自然转身", "轻微迈步或自然转身方向，不要静态扶腰；头部方向与肩膀、躯干和身体转向保持一致，不要单独回头看镜头；AI 可自由选择步态、手臂运动、身体转向、视线和镜头语言，服装运动褶皱和垂坠必须清楚", "手臂随步态自然摆动或轻带衣摆，形成可信动态褶皱", "表情更有呼吸感，视线跟随身体方向", `${cameraBase}，允许方向性留白和轻微动态构图`, garmentRule, avoid, 0.72),
   ];
 }
 

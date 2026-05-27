@@ -30,7 +30,7 @@ export const POSE_SOURCE_ROLE_REQUIREMENT =
   "图1角色：唯一的人物、性别表达、年龄感、身体骨架、服装、比例、场景和光线参考；文字只改变姿势、可选镜头和构图。";
 
 export const POSE_CAMERA_REQUIREMENT =
-  "四个分格都必须使用同一个风格档位下的统一镜头语言，保持同一相机距离、同一焦段、同一视平线和同一画幅留白；允许在 50mm / 70mm / 85mm 中按风格选择一致焦段，但禁止 close-up、特写、wide angle、大广角、high angle、俯拍、low angle、仰拍，避免改变人物比例或服装展示范围。";
+  "镜头构图规则：四个分格保持同一商业摄影风格、真实透视和稳定人物比例，但不要机械复制图1画幅或固定同一相机距离；可按姿势在全身、近全身、七分身或偏半身商业构图之间自然变化，关键服装结构必须清楚。避免 extreme close-up、无关特写、大广角、俯拍、仰拍或夸张透视。";
 
 export const POSE_PROPORTION_LOCK_RULE =
   "比例锁定：保持图1头身比、头部大小、肩宽、腰胯、四肢长度、脚部大小、腰线和服装穿着尺度；不要拉高拉瘦、长腿化或变体型。";
@@ -57,30 +57,31 @@ export const POSE_CREATIVE_VARIATION_RULE =
   "姿势：未逐条指定时，由 AI 按风格自由设计自然、不同、适合展示服装的姿势；不要套模板。";
 
 export const POSE_EXPRESSION_VARIATION_REQUIREMENT =
-  "表情规则：保持同一个人、同一张脸、不要换脸；允许按不同姿势产生轻微自然的眼神和表情变化，避免复制粘贴脸或僵硬同脸。不要夸张表情，不要改变五官身份。";
+  "表情规则：保持同一个人、同一张脸、同一年龄感，不要换脸；四个姿势必须有轻微自然但可察觉的眼神和表情差异，例如轻松直视、轻微微笑、沉静侧视、自信轻抬下巴等，避免复制粘贴脸或僵硬同脸。不要夸张表情，不要改变五官身份。";
 
 export const POSE_EXPRESSION_CONSISTENT_REQUIREMENT =
-  "表情规则：保持同一个人、同一张脸、不要换脸；允许按不同姿势产生轻微自然的眼神和表情变化，避免复制粘贴脸或僵硬同脸。不要夸张表情，不要改变五官身份。";
+  POSE_EXPRESSION_VARIATION_REQUIREMENT;
 
 const POSE_SINGLE_IMAGE_CONSISTENCY_REQUIREMENT =
   "当前单张图片以图1作为人物身份、性别表达、年龄感、身体骨架、服装、背景和光线参考；优先让姿势明显变化，同时保持同一套服装设计、颜色、图案、面料质感、自然脸部身份、肤色和真实身体比例。";
 
 const POSE_SINGLE_IMAGE_CAMERA_REQUIREMENT =
-  "当前单张图片允许相机距离、身体角度和画面留白随目标姿势自然调整；保持时装全身或七分身展示，避免 close-up、特写、wide angle、大广角、俯拍、仰拍或夸张透视。";
+  "当前单张图片允许相机距离、身体角度、景别和画面留白随目标姿势自然调整；不要因为图1是全身就固定生成全身照，可按服装展示需要选择全身、近全身、七分身或偏半身商业构图。避免 extreme close-up、无关特写、wide angle、大广角、俯拍、仰拍或夸张透视。";
 
 const POSE_SINGLE_EXPRESSION_VARIATION_REQUIREMENT =
-  "表情规则：保持图1同一个人和同一张脸；允许当前姿势产生轻微自然的眼神和表情变化。不要夸张表情，不要改变五官身份，不要复制成僵硬表情。";
+  "表情规则：保持图1同一个人、同一张脸和同一年龄感；当前姿势必须匹配动作产生轻微自然但可察觉的眼神或表情变化，不要照搬图1原表情。不要夸张表情，不要改变五官身份，不要复制成僵硬表情。";
 
 const POSE_SINGLE_EXPRESSION_CONSISTENT_REQUIREMENT =
-  "表情规则：保持图1同一个人和同一张脸；允许当前姿势产生轻微自然的眼神和表情变化。不要夸张表情，不要改变五官身份，不要复制成僵硬表情。";
+  POSE_SINGLE_EXPRESSION_VARIATION_REQUIREMENT;
 
 const POSE_SEPARATE_BASE_PROMPT = [
-  "Use the source image only to preserve: same person, same gender expression, same age impression, same face, same hairstyle, same body frame/proportions, same outfit, fabric, color, pattern, background mood and lighting mood.",
+  "Use the source image only to preserve: same person, same gender expression, age impression, face, hairstyle, body proportions, outfit, fabric/color/pattern, background and lighting mood.",
   "Do not use the source image as the pose reference. Do not copy its pose.",
   "Keep head, neck, shoulders and torso aligned; no independent look-back.",
   "",
   "Generate one standalone premium fashion editorial photo.",
   "The target pose and camera direction must be clearly executed and noticeably different from the source image.",
+  "Do not copy source expression; keep face identity and adapt gaze/expression to the target pose.",
   "",
   "Keep the outfit readable: neckline, shoulder line, sleeves, waistline, hem, lower garment and shoes if visible.",
   "",
@@ -92,10 +93,10 @@ const POSE_SEPARATE_BASE_PROMPT = [
 ].join("\n");
 
 const DEFAULT_POSE_LINES = [
-  "姿势1：正面服装展示方向；AI 可自由选择自然手势、重心、视线、表情和镜头语言，服装正面轮廓必须清楚。",
-  "姿势2：侧身或三分之二侧身展示方向；AI 可自由选择头发/衣领/袖口/衣摆手势、腿部节奏、视线和镜头语言，侧面轮廓和肩线必须清楚。",
-  "姿势3：站定造型方向，不要走路；AI 可自由选择扶腰、胯部、肩线、手部造型、视线和镜头语言，腰线、廓形和面料垂坠必须清楚。",
-  "姿势4：轻微迈步或自然转身方向，不要静态扶腰；头部方向与肩膀、躯干和身体转向保持一致，不要单独回头看镜头；AI 可自由选择步态、手臂运动、身体转向、视线和镜头语言，服装运动褶皱和垂坠必须清楚。",
+  "姿势1：正面服装展示方向；AI 可自由选择自然手势、重心、视线、轻松直视或淡定表情和镜头语言，服装正面轮廓必须清楚。",
+  "姿势2：侧身或三分之二侧身展示方向；AI 可自由选择头发/衣领/袖口/衣摆手势、腿部节奏、微笑或侧向视线和镜头语言，侧面轮廓和肩线必须清楚。",
+  "姿势3：站定造型方向，不要走路；AI 可自由选择扶腰、胯部、肩线、手部造型、自信眼神或轻微抬下巴和镜头语言，腰线、廓形和面料垂坠必须清楚。",
+  "姿势4：轻微迈步或自然转身方向，不要静态扶腰；头部方向与肩膀、躯干和身体转向保持一致，不要单独回头看镜头；AI 可自由选择步态、手臂运动、身体转向、更有呼吸感的自然表情和镜头语言，服装运动褶皱和垂坠必须清楚。",
 ];
 
 const NEGATIVE_POSE_REQUIREMENT =
@@ -174,8 +175,8 @@ export function enforcePosePromptRequirements(
     .join("\n")
     .trim();
   const expressionRule = options.outputMode === "separate"
-    ? "表情规则：保持图1同一个人和同一张脸；允许当前姿势产生轻微自然的眼神和表情变化。不要夸张表情，不要改变五官身份，不要复制成僵硬表情。"
-    : "表情规则：保持同一个人、同一张脸、不要换脸；允许按不同姿势产生轻微自然的眼神和表情变化，避免复制粘贴脸或僵硬同脸。不要夸张表情，不要改变五官身份。";
+    ? POSE_SINGLE_EXPRESSION_VARIATION_REQUIREMENT
+    : POSE_EXPRESSION_VARIATION_REQUIREMENT;
   nextPrompt = `${nextPrompt}\n${expressionRule}`;
 
   if (!/consistent .*medium full-body framing|consistent medium full-body framing/i.test(nextPrompt)) {

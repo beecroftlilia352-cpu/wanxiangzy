@@ -556,6 +556,11 @@ function DesktopTopNav({ activeModule }: { activeModule: string }) {
           <Link key={item.key} href={item.href} className={className} aria-current={active ? "page" : undefined}>
             <Icon className="h-3.5 w-3.5" />
             {item.label}
+            {item.badge && (
+              <span className="ml-0.5 rounded-full bg-red-500 px-1.5 py-0.5 text-[9px] font-black leading-none text-white shadow-sm shadow-red-500/25">
+                {item.badge}
+              </span>
+            )}
           </Link>
         );
       })}
@@ -678,7 +683,14 @@ function MobileModuleMenu({ activeModule }: { activeModule: string }) {
                   }`}
                 >
                   <Icon className="h-4 w-4" />
-                  {item.label}
+                  <span className="flex min-w-0 flex-1 items-center justify-between gap-3">
+                    <span className="truncate">{item.label}</span>
+                    {item.badge && (
+                      <span className="rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-black leading-none text-white shadow-sm shadow-red-500/20">
+                        {item.badge}
+                      </span>
+                    )}
+                  </span>
                 </Link>
               </DropdownMenu.Item>
             );

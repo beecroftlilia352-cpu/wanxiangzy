@@ -197,13 +197,14 @@ export function buildPoseVisualAnalysisRule(
     analysis.hairDescription ? `发型锁定：${analysis.hairDescription}。` : "",
     analysis.skinToneNotes ? `肤色锁定：${analysis.skinToneNotes}；不要自动美白或改变冷暖明暗。` : "",
     analysis.background || analysis.lighting ? `场景光线锁定：${[analysis.background, analysis.lighting].filter(Boolean).join("；")}。` : "",
-    `可见性：${visibility}。生成时不要因为目标姿势而改变图1本来可见的身体范围、服装展示尺度或镜头距离。`,
+    `可见性：${visibility}。${getFramingFlexRule(analysis.bodyCrop)}`,
+    "表情/视线：保持同一脸部身份和年龄感，但不要机械复制图1表情；每个目标姿势都可以有克制、自然、可察觉的眼神和表情变化。",
     analysis.occlusionNotes ? `遮挡风险：${analysis.occlusionNotes}；动作遮挡必须自然，不能遮掉关键服装结构。` : "",
     analysis.generationRisks.length ? `风险规避：${analysis.generationRisks.join("；")}。` : "",
     analysis.promptNotes ? `补充识别说明：${analysis.promptNotes}` : "",
     outputMode === "separate"
-      ? "当前是单张 slot 生成：每个 slot 只改变目标姿势，不继承上一张结果，不改变上述图1身份和服装事实。"
-      : "当前是四宫格生成：四个分格必须共享上述图1身份、服装、构图范围、背景和光线事实。",
+      ? "当前是单张 slot 生成：每个 slot 只改变目标姿势、表情眼神和适配构图，不继承上一张结果，不改变上述图1身份和服装事实。"
+      : "当前是四宫格生成：四个分格必须共享上述图1身份、服装、背景和光线事实，但姿势、表情眼神和商业构图可以形成明确差异。",
   ].filter(Boolean);
 
   return fields.join("\n");
@@ -223,12 +224,31 @@ function getGenderPromptRule(gender: PoseVisualGenderExpression) {
 }
 
 function getBodyCropPromptRule(bodyCrop: PoseVisualBodyCrop) {
-  if (bodyCrop === "full_body") return "保持全身头脚展示范围，避免裁掉头、手、腿、脚或鞋。";
-  if (bodyCrop === "three_quarter") return "保持七分身/三分之二以上身体展示范围，不要突然变成近景特写或无关全身扩图。";
+  if (bodyCrop === "full_body") return "图1是完整身体参考；生成时可按姿势和风格在全身、近全身或七分身之间自然取景，不要因为源图是全身就机械复制全身距离，也不要裁掉正在展示的关键服装细节。";
+  if (bodyCrop === "three_quarter") return "图1是七分身/近全身参考；生成时可在近全身、七分身或偏半身商业构图之间自然调整，不要突然变成无关特写或不可信全身扩图。";
   if (bodyCrop === "upper_body") return "保持上半身展示逻辑，不要强行补出不可信的下半身、脚部或远景全身。";
   if (bodyCrop === "lower_body") return "保持下半身展示逻辑，不要强行补出不可信的人脸、头部或完整上半身。";
   if (bodyCrop === "closeup") return "保持局部近景展示逻辑，不要扩成无关全身照。";
-  return "保持图1实际可见身体范围和裁切边界，无法确认的部位不要主动重构。";
+  return "以图1实际可见身体范围为参考，允许为目标姿势选择合理商业构图；无法确认的部位不要主动重构。";
+}
+
+function getFramingFlexRule(bodyCrop: PoseVisualBodyCrop) {
+  if (bodyCrop === "full_body") {
+    return "图1全身范围只作为服装和比例参考；目标姿势可在全身、近全身、七分身之间调整镜头距离和留白，避免固定同一画幅。";
+  }
+  if (bodyCrop === "three_quarter") {
+    return "图1近全身范围只作为服装和比例参考；目标姿势可在近全身、七分身或偏半身之间调整构图，关键服装细节必须清楚。";
+  }
+  if (bodyCrop === "upper_body") {
+    return "保持上半身输入逻辑，不要强行扩成全身；可围绕领口、肩线、袖型和上衣结构做构图变化。";
+  }
+  if (bodyCrop === "lower_body") {
+    return "保持下半身输入逻辑，不要强行补脸或完整上半身；可围绕腰胯、腿部、裤脚/裙摆做构图变化。";
+  }
+  if (bodyCrop === "closeup") {
+    return "保持局部近景输入逻辑，只做局部角度、姿态和质感变化，不扩成无关远景。";
+  }
+  return "可按目标姿势选择合理商业构图，但不要无故变成极端特写或裁掉关键服装结构。";
 }
 
 function toPoseDisplayPhrase(value: string) {

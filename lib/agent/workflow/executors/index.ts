@@ -215,7 +215,7 @@ async function executePoseVariation(input: StepExecutionInput) {
     "姿势自然可信，头部、颈部、肩膀和躯干转向协调一致，避免单独回头、过度扭颈、肩颈错位、手指、关节、肢体拉长和换脸。",
     String(input.step.params.prompt || input.workflow.summary || ""),
     outputMode === "separate"
-      ? `Output contract: this workflow will make ${generationCount} separate calls. Each call must return exactly one standalone full-subject photo. Do not create a collage, four-grid, 2x2 layout, split panel, contact sheet, or pose sheet.`
+      ? `Output contract: this workflow will make ${generationCount} separate calls. Each call must return exactly one standalone fashion photo with pose-appropriate framing. Do not create a collage, four-grid, 2x2 layout, split panel, contact sheet, or pose sheet.`
       : "Output contract: create one 2x2 four-panel grid image.",
   ].join("\n");
   const result = await gatewayGenerateImages({
@@ -260,10 +260,10 @@ function hasExplicitGridIntent(text: string) {
 
 function getPoseVariationBrief(index: number) {
   const briefs = [
-    "Pose direction: calm front-facing fashion stance with natural arms.",
-    "Pose direction: slight body angle with one hand near waist or pocket, relaxed expression.",
-    "Pose direction: gentle contrapposto stance, one arm changing naturally, commercial lookbook feel.",
-    "Pose direction: subtle side or three-quarter turn, head and torso aligned in the same direction, stable posture, clothing still clearly visible.",
+    "Pose direction: calm front-facing fashion stance with natural arms, relaxed direct gaze.",
+    "Pose direction: slight body angle with one hand near waist or pocket, soft slight smile or side gaze.",
+    "Pose direction: gentle contrapposto stance, one arm changing naturally, confident editorial gaze.",
+    "Pose direction: subtle side or three-quarter turn, head and torso aligned in the same direction, stable posture, clothing still clearly visible, candid natural expression.",
   ];
   return briefs[(index - 1) % briefs.length];
 }

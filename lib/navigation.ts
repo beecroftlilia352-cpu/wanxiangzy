@@ -45,6 +45,7 @@ export type TopModuleNavItem = {
   href: string;
   label: string;
   icon: LucideIcon;
+  badge?: "NEW";
   comingSoon?: boolean;
 };
 
@@ -68,7 +69,7 @@ export const TOP_MODULES: TopModuleNavItem[] = [
   { key: "aiShoots", href: "/create", label: "模特图", icon: Camera },
   { key: "assistant", href: "/agent", label: "工作流助手", icon: Bot },
   { key: "tools", href: "/general-image", label: "素材生成", icon: Images },
-  { key: "aiVideo", href: "/video", label: "视频", icon: Clapperboard },
+  { key: "aiVideo", href: "/video", label: "AI视频", icon: Clapperboard, badge: "NEW" },
   { key: "works", href: "/history", label: "作品库", icon: GalleryHorizontalEnd },
 ];
 
