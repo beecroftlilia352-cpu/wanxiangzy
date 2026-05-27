@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  applyStaleRunningFallback,
   indexRowToTaskQueueItem,
   normalizeGenerationTaskQueueItem,
   taskQueueItemToIndexWrite,
 } from "../task-queue-index";
+import type { TaskQueueItem } from "../task-queue";
 
 describe("task queue index", () => {
   it("normalizes a generation into the lightweight queue shape", () => {
@@ -90,5 +92,34 @@ describe("task queue index", () => {
       "https://example.com/ref-2.png",
       "https://example.com/ref-3.png",
     ]);
+  });
+
+  it("keeps stale running tasks non-terminal so late provider results can still appear", () => {
+    const staleRunning: TaskQueueItem = {
+      id: "gen_stale",
+      module: "tryon",
+      title: "服装上身",
+      status: "processing_tryon",
+      statusGroup: "running",
+      time: "60:00",
+      createdAt: "2026-05-16T10:00:00.000Z",
+      updatedAt: "2026-05-16T10:00:00.000Z",
+      completedAt: null,
+      error: "",
+      progress: 34,
+      expectedCount: 4,
+      resultCount: 0,
+      inputThumbnails: ["https://example.com/input.png"],
+      resultThumbnails: [],
+      thumbnails: ["https://example.com/input.png"],
+      applyUrl: "/create?apply=gen_stale",
+    };
+
+    expect(applyStaleRunningFallback(staleRunning)).toMatchObject({
+      status: "processing_delayed",
+      statusGroup: "running",
+      error: "",
+      progress: 99,
+    });
   });
 });

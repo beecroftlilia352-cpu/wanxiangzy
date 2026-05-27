@@ -1856,6 +1856,11 @@ function clearPollTimer(
 }
 
 // ======== 轮询 ========
+const AGENT_GENERATION_POLL_INTERVAL_MS = 2_000;
+const AGENT_GENERATION_POLL_BASE_TIMEOUT_MS = 20 * 60 * 1000;
+const AGENT_GENERATION_POLL_PER_IMAGE_MS = 4 * 60 * 1000;
+const AGENT_GENERATION_POLL_MAX_TIMEOUT_MS = 90 * 60 * 1000;
+
 function pollGeneration(
   get: () => Store,
   set: (fn: (s: Store) => Partial<Store>) => void,
@@ -1871,22 +1876,45 @@ function pollGeneration(
   const tick = async () => {
     try {
       attempts++;
+      const maxAttempts = getAgentGenerationPollMaxAttempts(get, aiMsgId);
       const stillExists = get().messages.some((message) => message.id === aiMsgId);
       if (!stillExists) {
         clearPollTimer(get, set, aiMsgId);
         return;
       }
-      if (attempts > 180) {
-        throw new Error("生成轮询超时，请稍后重试或刷新查看结果。");
+      if (attempts > maxAttempts) {
+        clearPollTimer(get, set, aiMsgId);
+        set((s) => ({
+          isSending: false,
+          messages: s.messages.map((m) =>
+            m.id === aiMsgId && m.generation
+              ? { ...m, generation: { ...m.generation, status: "generating" as const, progress: Math.max(m.generation.progress || 0, 99), error: undefined } }
+              : m
+          ),
+        }));
+        const delayedGen = get().messages.find((m) => m.id === aiMsgId)?.generation;
+        if (delayedGen) updateMessageGeneration(convId, aiMsgId, delayedGen);
+        return;
       }
       const res = await fetch(url);
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "读取生成状态失败");
       consecutiveErrors = 0;
       const status = data.status as string;
-      const resultUrls: string[] = Array.isArray(data.result_urls) ? data.result_urls : [];
-      const progress = resultUrls.length > 0 ? 100 : normalizeServerProgress(data.progress, status);
-      const done = status === "completed" || resultUrls.length > 0;
+      const resultUrls: string[] = Array.isArray(data.result_urls)
+        ? data.result_urls.filter((url: unknown): url is string => typeof url === "string" && url.trim().length > 0)
+        : [];
+      const expectedCount = Math.max(
+        Number(data.expected_count) || 0,
+        readAgentGenerationExpectedCount(get().messages.find((m) => m.id === aiMsgId)?.generation),
+        resultUrls.length || 1,
+      );
+      const serverProgress = normalizeServerProgress(data.progress, status);
+      const partialProgress = resultUrls.length > 0
+        ? Math.floor((Math.min(resultUrls.length, expectedCount) / Math.max(1, expectedCount)) * 100)
+        : 0;
+      const progress = status === "completed" ? 100 : Math.min(99, Math.max(serverProgress, partialProgress));
+      const done = status === "completed" || (resultUrls.length > 0 && resultUrls.length >= expectedCount);
       const failed = status === "failed";
 
       if (done || failed) {
@@ -1934,7 +1962,7 @@ function pollGeneration(
 
       set((s) => ({
         messages: s.messages.map((m) =>
-          m.id === aiMsgId && m.generation ? { ...m, generation: { ...m.generation, progress, status: "generating" } } : m
+          m.id === aiMsgId && m.generation ? { ...m, generation: { ...m.generation, progress, status: "generating", resultUrls } } : m
         ),
       }));
     } catch (err) {
@@ -1963,7 +1991,7 @@ function pollGeneration(
   };
 
   void tick();
-  const timer = setInterval(() => { void tick(); }, 2000);
+  const timer = setInterval(() => { void tick(); }, AGENT_GENERATION_POLL_INTERVAL_MS);
 
   set((s) => {
     const timers = new Map(s.pollTimers);
@@ -1984,6 +2012,48 @@ function resumeGenerationPolling(
       pollGeneration(get, set, message.id, convId, generationId);
     }
   }
+}
+
+function getAgentGenerationPollMaxAttempts(get: () => Store, aiMsgId: string) {
+  const generation = get().messages.find((message) => message.id === aiMsgId)?.generation;
+  const expectedCount = readAgentGenerationExpectedCount(generation);
+  const timeoutMs = Math.min(
+    Math.max(
+      AGENT_GENERATION_POLL_BASE_TIMEOUT_MS + expectedCount * AGENT_GENERATION_POLL_PER_IMAGE_MS,
+      AGENT_GENERATION_POLL_BASE_TIMEOUT_MS,
+    ),
+    AGENT_GENERATION_POLL_MAX_TIMEOUT_MS,
+  );
+  return Math.max(1, Math.ceil(timeoutMs / AGENT_GENERATION_POLL_INTERVAL_MS));
+}
+
+function readAgentGenerationExpectedCount(generation?: Message["generation"]) {
+  const data = generation?._lastRunData || generation?._confirmData;
+  const params = data?.params || {};
+  const payload = data?.jobPayload || {};
+  const count = firstPositiveNumber([
+    params.count,
+    params.gen_count,
+    payload.genCount,
+    payload.count,
+    generation?.resultUrls?.length,
+  ]);
+  const referenceCount = Array.isArray(params.reference_urls)
+    ? params.reference_urls.filter(Boolean).length
+    : Array.isArray(params.referenceUrls)
+      ? params.referenceUrls.filter(Boolean).length
+      : Array.isArray(payload.referenceUrls)
+        ? payload.referenceUrls.filter(Boolean).length
+        : 0;
+  return Math.max(1, Math.min(count * Math.max(1, referenceCount || 1), 32));
+}
+
+function firstPositiveNumber(values: unknown[]) {
+  for (const value of values) {
+    const number = Number(value);
+    if (Number.isFinite(number) && number > 0) return Math.floor(number);
+  }
+  return 1;
 }
 
 function normalizeServerProgress(value: unknown, status: string) {

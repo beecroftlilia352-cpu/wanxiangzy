@@ -1060,8 +1060,8 @@ function getImageTaskPollIntervalMs() {
 }
 
 function getImageTaskTimeoutMs() {
-  const value = Number(process.env.IMAGE_TASK_TIMEOUT_MS || 10 * 60 * 1000);
-  return Number.isFinite(value) ? Math.min(Math.max(value, 30_000), 30 * 60 * 1000) : 10 * 60 * 1000;
+  const value = Number(process.env.IMAGE_TASK_TIMEOUT_MS || 20 * 60 * 1000);
+  return Number.isFinite(value) ? Math.min(Math.max(value, 30_000), 45 * 60 * 1000) : 20 * 60 * 1000;
 }
 
 function getImageTaskResultGraceMs() {

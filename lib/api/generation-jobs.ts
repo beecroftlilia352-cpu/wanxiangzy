@@ -1791,8 +1791,8 @@ async function refundExhaustedJobs(supabase: ReturnType<typeof createAdminClient
 }
 
 function getStaleMinutes() {
-  const value = Number(process.env.GENERATION_JOB_STALE_MINUTES || 8);
-  if (!Number.isFinite(value)) return 8;
+  const value = Number(process.env.GENERATION_JOB_STALE_MINUTES || 45);
+  if (!Number.isFinite(value)) return 45;
   return Math.min(Math.max(value, 1), 60);
 }
 

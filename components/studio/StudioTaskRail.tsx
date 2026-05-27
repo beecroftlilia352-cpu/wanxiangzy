@@ -843,6 +843,7 @@ function TaskRailEmpty({
 
 function statusText(item: TaskQueueItem, progress: number) {
   if (item.statusGroup === "queued") return "排队中";
+  if (item.status === "processing_delayed") return "后台处理中";
   if (item.statusGroup === "running") return progress > 0 ? `${progress}%` : "生成中";
   if (item.statusGroup === "failed") return "失败";
   return "已完成";
@@ -850,7 +851,7 @@ function statusText(item: TaskQueueItem, progress: number) {
 
 function getTaskMeta(item: TaskQueueItem, progress: number) {
   if (isTaskRunning(item)) {
-    const pieces = ["预计 1-2 分钟"];
+    const pieces = [item.status === "processing_delayed" ? "生成时间较长" : item.expectedCount > 4 ? "多图任务耗时较长" : "预计几分钟"];
     if (progress > 0) pieces.unshift(`${progress}%`);
     return pieces.join(" · ");
   }

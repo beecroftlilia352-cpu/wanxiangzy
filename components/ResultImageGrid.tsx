@@ -295,7 +295,7 @@ function PendingResultSlot({
         </div>
       </div>
       <p className="relative z-[1] text-xs font-semibold text-white/72">
-        {failed ? failureLabel || "生成失败，可套用参数重试" : running ? "预计1-2分钟" : "等待生成"}
+        {failed ? failureLabel || "生成失败，可套用参数重试" : running ? "生成中，请稍候" : "等待生成"}
       </p>
       {failed && failureDetail && (
         <p className="relative z-[1] max-w-[76%] text-center text-[11px] font-medium leading-4 text-white/48">

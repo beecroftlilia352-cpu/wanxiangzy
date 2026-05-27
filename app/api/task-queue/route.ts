@@ -440,8 +440,7 @@ async function loadRunningGenerationBuckets(supabase: Awaited<ReturnType<typeof 
         if (state.status === "failed") counts.failed += 1;
         return counts;
       }
-      if (state.resultCount <= 0 && isStaleRunningGeneration(row)) counts.failed += 1;
-      else counts.running += 1;
+      counts.running += 1;
       return counts;
     }, { running: 0, failed: 0 });
   } catch (error) {
@@ -472,8 +471,7 @@ async function loadRunningWorkflowBuckets(supabase: Awaited<ReturnType<typeof cr
     const rows = (Array.isArray(data) ? data : []) as unknown as Pick<WorkflowRow, "status" | "created_at" | "updated_at">[];
     return rows.reduce((counts, row) => {
       if (!isRunningWorkflowStatus(row.status)) return counts;
-      if (isStaleRunningDate(row.updated_at || row.created_at)) counts.failed += 1;
-      else counts.running += 1;
+      counts.running += 1;
       return counts;
     }, { running: 0, failed: 0 });
   } catch (error) {
@@ -727,7 +725,7 @@ function normalizeQueueRow(row: QueueRow): TaskQueueItem {
     id: row.id,
     module: kind || "unknown",
     title: moduleLabel(kind),
-    status: staleRunning && statusGroup === "failed" ? "stale" : state.status,
+    status: staleRunning && statusGroup === "running" ? "processing_delayed" : state.status,
     statusGroup,
     progress: state.progress,
     expectedCount: state.expectedCount,
@@ -736,7 +734,7 @@ function normalizeQueueRow(row: QueueRow): TaskQueueItem {
     createdAt: row.created_at,
     updatedAt,
     completedAt,
-    error: row.error_message || (staleRunning && statusGroup === "failed" ? "任务超时，请重新生成" : ""),
+    error: row.error_message || "",
     inputThumbnails,
     resultThumbnails,
     thumbnails: getDisplayThumbnails(resultThumbnails, inputThumbnails),
@@ -753,13 +751,13 @@ function normalizeWorkflowRow(row: WorkflowRow): TaskQueueItem {
     id: row.id,
     module: "workflow",
     title: row.summary || workflowLabel(row.intent || ""),
-    status: staleRunning && statusGroup === "failed" ? "stale" : row.status,
+    status: staleRunning && statusGroup === "running" ? "processing_delayed" : row.status,
     statusGroup,
     time: formatDuration(row.created_at, isTaskCompleteLike(statusGroup) ? row.updated_at : null),
     createdAt: row.created_at,
     updatedAt: row.updated_at || row.created_at,
     completedAt: row.updated_at,
-    error: row.error_message || (staleRunning && statusGroup === "failed" ? "任务超时，请重新生成" : ""),
+    error: row.error_message || "",
     progress: statusGroup === "completed" ? 100 : statusGroup === "failed" ? 100 : 15,
     expectedCount: Math.max(1, resultThumbnails.length || inputThumbnails.length || 1),
     resultCount: resultThumbnails.length,
@@ -795,7 +793,7 @@ function isRunningWorkflowStatus(status: string) {
 function getGenerationStatusGroup(status: string, staleRunning: boolean, resultCount: number): TaskStatusGroup {
   const normalized = status.toLowerCase();
   if (GENERATION_FAILED_STATUS_FILTERS.includes(normalized as typeof GENERATION_FAILED_STATUS_FILTERS[number])) return "failed";
-  if (staleRunning && resultCount <= 0) return "failed";
+  if (staleRunning && resultCount <= 0) return "running";
   if (GENERATION_PENDING_STATUS_FILTERS.includes(normalized as typeof GENERATION_PENDING_STATUS_FILTERS[number])) return "queued";
   if (GENERATION_RUNNING_STATUS_FILTERS.includes(normalized as typeof GENERATION_RUNNING_STATUS_FILTERS[number]) || normalized.startsWith("processing_")) {
     return "running";
@@ -806,7 +804,7 @@ function getGenerationStatusGroup(status: string, staleRunning: boolean, resultC
 function getWorkflowStatusGroup(row: WorkflowRow): TaskStatusGroup {
   const normalized = row.status.toLowerCase();
   if (FAILED_WORKFLOW_STATUSES.includes(normalized)) return "failed";
-  if (isRunningWorkflowStatus(normalized) && isStaleRunningDate(row.updated_at || row.created_at)) return "failed";
+  if (isRunningWorkflowStatus(normalized) && isStaleRunningDate(row.updated_at || row.created_at)) return "running";
   if (isRunningWorkflowStatus(normalized) && !isStaleRunningDate(row.updated_at || row.created_at)) {
     return normalized === "queued" ? "queued" : "running";
   }
@@ -836,8 +834,8 @@ function readAsyncTaskUpdatedAt(payload: QueueRow["job_payload"]) {
 }
 
 function getRunningTaskStaleMs() {
-  const value = Number(process.env.TASK_QUEUE_RUNNING_STALE_MS || process.env.IMAGE_TASK_TIMEOUT_MS || 10 * 60 * 1000);
-  return Number.isFinite(value) ? Math.min(Math.max(value, 5 * 60 * 1000), 2 * 60 * 60 * 1000) : 10 * 60 * 1000;
+  const value = Number(process.env.TASK_QUEUE_RUNNING_STALE_MS || process.env.IMAGE_TASK_TIMEOUT_MS || 60 * 60 * 1000);
+  return Number.isFinite(value) ? Math.min(Math.max(value, 5 * 60 * 1000), 2 * 60 * 60 * 1000) : 60 * 60 * 1000;
 }
 
 function moduleLabel(kind: string) {

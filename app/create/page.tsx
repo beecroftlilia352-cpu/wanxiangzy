@@ -177,7 +177,9 @@ const CLOTHING_ROLE_ORDER: Record<TryOnClothingRole, number> = {
   extra: 3,
 };
 
-const TRYON_STATUS_POLL_TIMEOUT_MS = 10 * 60 * 1000;
+const TRYON_STATUS_POLL_BASE_TIMEOUT_MS = 20 * 60 * 1000;
+const TRYON_STATUS_POLL_PER_IMAGE_MS = 4 * 60 * 1000;
+const TRYON_STATUS_POLL_MAX_TIMEOUT_MS = 90 * 60 * 1000;
 const TRYON_STATUS_FETCH_TIMEOUT_MS = 8_000;
 const TRYON_STATUS_HIDDEN_POLL_MS = 30_000;
 const TRYON_STATUS_QUEUE_REFRESH_MS = 20_000;
@@ -1332,7 +1334,8 @@ export default function CreatePage() {
     };
 
     try {
-      while (!watcherController.signal.aborted && Date.now() - startedAt < TRYON_STATUS_POLL_TIMEOUT_MS) {
+      const pollTimeoutMs = getTryOnStatusPollTimeoutMs(expectedCount);
+      while (!watcherController.signal.aborted && Date.now() - startedAt < pollTimeoutMs) {
         try {
           await waitForTryOnStatusPoll(attempts, watcherController.signal);
         } catch (error) {
@@ -1428,10 +1431,14 @@ export default function CreatePage() {
       }
 
       if (!watcherController.signal.aborted && activeGenerationRef.current === generationId) {
-        const message = "生成超时";
-        store.setError(message);
-        updateActiveTask({ status: "timeout", statusGroup: "failed", error: message, progress: 100 });
-        toast.error(message);
+        updateActiveTask({
+          status: "processing_delayed",
+          statusGroup: "running",
+          error: "",
+          progress: 99,
+        });
+        store.updateProgress(99);
+        toast.info("生成时间较长，任务仍在后台处理中，可稍后从左侧任务列表查看结果");
       }
       if (!watcherController.signal.aborted) refreshTaskQueue();
     } finally {
@@ -2952,6 +2959,12 @@ function waitForTryOnStatusPoll(attempts: number, signal: AbortSignal) {
     ? TRYON_STATUS_HIDDEN_POLL_MS
     : getTryOnStatusPollDelayMs(attempts);
   return waitForAbortableDelay(delay, signal);
+}
+
+function getTryOnStatusPollTimeoutMs(expectedCount: number) {
+  const count = Math.max(1, Math.min(Math.round(Number(expectedCount) || 1), MAX_TRYON_OUTPUT_IMAGES));
+  const dynamicTimeout = TRYON_STATUS_POLL_BASE_TIMEOUT_MS + count * TRYON_STATUS_POLL_PER_IMAGE_MS;
+  return Math.min(Math.max(dynamicTimeout, TRYON_STATUS_POLL_BASE_TIMEOUT_MS), TRYON_STATUS_POLL_MAX_TIMEOUT_MS);
 }
 
 function waitForAbortableDelay(ms: number, signal: AbortSignal) {

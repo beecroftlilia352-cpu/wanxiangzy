@@ -6,7 +6,7 @@ import { getTryOnInputReferenceUrls, TRYON_INPUT_REFERENCE_LIMIT } from "@/lib/t
 export const TASK_QUEUE_ITEM_TTL_SECONDS = 60 * 60 * 24 * 30;
 export const TASK_QUEUE_SUMMARY_TTL_SECONDS = 60 * 5;
 export const TASK_QUEUE_MODULE_CACHE_LIMIT = 100;
-export const TASK_QUEUE_RUNNING_STALE_MS = 20 * 60 * 1000;
+export const TASK_QUEUE_RUNNING_STALE_MS = 60 * 60 * 1000;
 
 export type TaskQueueSourceType = "generation" | "workflow";
 
@@ -151,10 +151,10 @@ export function applyStaleRunningFallback(item: TaskQueueItem): TaskQueueItem {
   }
   return {
     ...item,
-    status: "failed",
-    statusGroup: "failed",
-    error: item.error || "任务超时，请重新生成",
-    progress: 0,
+    status: "processing_delayed",
+    statusGroup: "running",
+    error: item.error || "",
+    progress: Math.max(item.progress, 99),
   };
 }
 

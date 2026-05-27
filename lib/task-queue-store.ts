@@ -11,7 +11,6 @@ import {
   applyStaleRunningFallback,
   emptyTaskQueueSummary,
   indexRowToTaskQueueItem,
-  isRunningTaskStale,
   normalizeGenerationTaskQueueItem,
   normalizeModule,
   normalizeWorkflowTaskQueueItem,
@@ -164,10 +163,9 @@ export async function loadTaskQueueSummaryFromIndex(
     const runningRows = (Array.isArray(runningRowsResult.data) ? runningRowsResult.data : []) as TaskQueueIndexRow[];
     const runningItems = runningRows.map(indexRowToTaskQueueItem);
     const runningTaskNum = runningItems.filter(
-      (item) => (item.statusGroup === "queued" || item.statusGroup === "running") && !isRunningTaskStale(item),
+      (item) => item.statusGroup === "queued" || item.statusGroup === "running",
     ).length;
-    const staleRunningTaskNum = runningItems.length - runningTaskNum;
-    const failedCount = failedTaskNum.count + staleRunningTaskNum;
+    const failedCount = failedTaskNum.count;
     const summary = {
       ...emptyTaskQueueSummary(),
       totalTaskNum: totalTaskNum.count,
