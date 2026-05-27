@@ -15,6 +15,14 @@ const DEFAULT_BASE_URL = "https://yunwu.ai/v1";
 const DEFAULT_TIMEOUT_MS = 12_000;
 const MAX_ANALYZE_IMAGES = 4;
 
+type ClothingAnalysisResult = {
+  source: "yunwu" | "fallback";
+  analysis: TryOnClothingAnalysis;
+  rawResponse: unknown;
+};
+
+const clothingAnalysisInflight = new Map<string, Promise<ClothingAnalysisResult>>();
+
 type ClothingAnalyzeRequest = {
   clothing_urls?: unknown;
   clothing_mode?: unknown;
@@ -54,46 +62,27 @@ export async function POST(request: Request) {
   const apiKey = process.env.TRYON_CLOTHING_ANALYZE_API_KEY || process.env.LINGYA_API_KEY || "";
   const baseUrl = normalizeOpenAiBaseUrl(process.env.TRYON_CLOTHING_ANALYZE_BASE_URL || process.env.LINGYA_BASE_URL || DEFAULT_BASE_URL);
 
-  let analysis: TryOnClothingAnalysis;
-  let source: "yunwu" | "fallback" = "fallback";
-  let rawResponse: unknown = null;
-
-  if (apiKey) {
-    try {
-      const result = await requestYunwuClothingAnalysis({
-        apiKey,
-        baseUrl,
-        model,
-        clothingUrls,
-        clothingMode,
-        garmentAudience,
-        ageGroup,
-      });
-      rawResponse = result.raw;
-      analysis = normalizeTryOnClothingAnalysis({
-        ...result.parsed,
-        genderType: result.parsed.genderType || garmentAudience,
-        ageRange: result.parsed.ageRange || ageGroup,
-        raw: result.raw,
-      });
-      source = "yunwu";
-    } catch (error) {
-      console.warn("[tryon/analyze-clothing] provider fallback:", error);
-      analysis = normalizeTryOnClothingAnalysis({
-        cloth_type: clothingMode === "multi" ? "upper garment" : "dress or one-piece garment",
-        desc: "",
-        genderType: garmentAudience,
-        ageRange: ageGroup,
-      });
-    }
-  } else {
-    analysis = normalizeTryOnClothingAnalysis({
-      cloth_type: clothingMode === "multi" ? "upper garment" : "dress or one-piece garment",
-      desc: "",
-      genderType: garmentAudience,
-      ageRange: ageGroup,
+  let inflightRequest = clothingAnalysisInflight.get(cacheKey);
+  if (!inflightRequest) {
+    const nextRequest = runClothingAnalysis({
+      apiKey,
+      baseUrl,
+      model,
+      clothingUrls,
+      clothingMode,
+      garmentAudience,
+      ageGroup,
     });
+    clothingAnalysisInflight.set(cacheKey, nextRequest);
+    void nextRequest.finally(() => {
+      if (clothingAnalysisInflight.get(cacheKey) === nextRequest) {
+        clothingAnalysisInflight.delete(cacheKey);
+      }
+    });
+    inflightRequest = nextRequest;
   }
+
+  const result = await inflightRequest;
 
   await writeCachedAnalysis({
     cacheKey,
@@ -101,18 +90,75 @@ export async function POST(request: Request) {
     clothingMode,
     garmentAudience,
     ageGroup,
-    analysis,
-    provider: source,
+    analysis: result.analysis,
+    provider: result.source,
     model,
-    rawResponse,
+    rawResponse: result.rawResponse,
   });
 
   return NextResponse.json({
     ok: true,
     cached: false,
+    source: result.source,
+    analysis: result.analysis,
+  }, { headers: { "Cache-Control": "no-store" } });
+}
+
+async function runClothingAnalysis(input: {
+  apiKey: string;
+  baseUrl: string;
+  model: string;
+  clothingUrls: string[];
+  clothingMode: string;
+  garmentAudience: string;
+  ageGroup: string;
+}): Promise<ClothingAnalysisResult> {
+  let analysis: TryOnClothingAnalysis;
+  let source: "yunwu" | "fallback" = "fallback";
+  let rawResponse: unknown = null;
+
+  if (input.apiKey) {
+    try {
+      const result = await requestYunwuClothingAnalysis({
+        apiKey: input.apiKey,
+        baseUrl: input.baseUrl,
+        model: input.model,
+        clothingUrls: input.clothingUrls,
+        clothingMode: input.clothingMode,
+        garmentAudience: input.garmentAudience,
+        ageGroup: input.ageGroup,
+      });
+      rawResponse = result.raw;
+      analysis = normalizeTryOnClothingAnalysis({
+        ...result.parsed,
+        genderType: result.parsed.genderType || input.garmentAudience,
+        ageRange: result.parsed.ageRange || input.ageGroup,
+        raw: result.raw,
+      });
+      source = "yunwu";
+    } catch (error) {
+      console.warn("[tryon/analyze-clothing] provider fallback:", error);
+      analysis = normalizeTryOnClothingAnalysis({
+        cloth_type: input.clothingMode === "multi" ? "upper garment" : "dress or one-piece garment",
+        desc: "",
+        genderType: input.garmentAudience,
+        ageRange: input.ageGroup,
+      });
+    }
+  } else {
+    analysis = normalizeTryOnClothingAnalysis({
+      cloth_type: input.clothingMode === "multi" ? "upper garment" : "dress or one-piece garment",
+      desc: "",
+      genderType: input.garmentAudience,
+      ageRange: input.ageGroup,
+    });
+  }
+
+  return {
     source,
     analysis,
-  }, { headers: { "Cache-Control": "no-store" } });
+    rawResponse,
+  };
 }
 
 async function requestYunwuClothingAnalysis(input: {
@@ -189,7 +235,10 @@ async function readCachedAnalysis(cacheKey: string) {
       .eq("image_url_hash", cacheKey)
       .maybeSingle();
     if (error || !data) return null;
+    const rawRecord = toRecord(data.raw_response);
+    const parsedRecord = toRecord(rawRecord.parsed ?? rawRecord);
     return normalizeTryOnClothingAnalysis({
+      ...parsedRecord,
       mainCategory: data.main_category,
       subcategories: data.subcategories,
       clothTypeRaw: data.cloth_type_raw,
@@ -237,7 +286,7 @@ async function writeCachedAnalysis(input: {
         confidence: input.analysis.confidence,
         provider: input.provider,
         model: input.model,
-        raw_response: input.rawResponse || input.analysis.raw || {},
+        raw_response: { provider: input.rawResponse || null, parsed: input.analysis },
       }, { onConflict: "image_url_hash" });
   } catch {
     // Cache is an optimization; recommendation must still work without it.
@@ -250,7 +299,19 @@ function buildAnalysisCacheKey(value: {
   garmentAudience: string;
   ageGroup: string;
 }) {
-  return createHash("sha256").update(JSON.stringify(value)).digest("hex");
+  return createHash("sha256").update(JSON.stringify({
+    ...value,
+    clothingUrls: value.clothingUrls.map((url) => normalizeCacheUrl(url)),
+  })).digest("hex");
+}
+
+function normalizeCacheUrl(value: string) {
+  try {
+    const url = new URL(value);
+    return `${url.origin}${url.pathname}`.toLowerCase();
+  } catch {
+    return value.split("?")[0].trim().toLowerCase();
+  }
 }
 
 function normalizeOpenAiBaseUrl(value: string) {
@@ -282,4 +343,8 @@ function parseJsonObject(content: string) {
     const match = trimmed.match(/\{[\s\S]*\}/);
     return match ? JSON.parse(match[0]) : {};
   }
+}
+
+function toRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
 }

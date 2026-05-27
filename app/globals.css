@@ -2637,6 +2637,100 @@
   }
 }
 
+.studio-side-drawer-overlay {
+  position: fixed;
+  inset: 64px 0 0;
+  z-index: 230;
+  background: rgba(15, 23, 42, 0.22);
+  backdrop-filter: blur(8px);
+}
+
+.studio-side-drawer-panel {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  min-width: 0;
+  max-width: calc(100% - 16px);
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid rgba(226, 232, 240, 0.92);
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 28px 90px rgba(15, 23, 42, 0.18);
+}
+
+.studio-side-drawer-panel-left {
+  left: 0;
+  border-left: 0;
+  border-radius: 0 24px 24px 0;
+  animation: studio-side-drawer-left-in 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.studio-side-drawer-panel-right {
+  right: 0;
+  border-right: 0;
+  border-radius: 24px 0 0 24px;
+  animation: studio-side-drawer-right-in 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.studio-side-drawer-panel-md {
+  width: min(560px, calc(100% - 16px));
+}
+
+.studio-side-drawer-panel-lg {
+  width: min(760px, calc(100% - 16px));
+}
+
+.studio-side-drawer-header {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.9);
+  padding: 18px 20px;
+}
+
+.studio-side-drawer-content {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+@keyframes studio-side-drawer-left-in {
+  from {
+    opacity: 0;
+    transform: translateX(-18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes studio-side-drawer-right-in {
+  from {
+    opacity: 0;
+    transform: translateX(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@media (min-width: 1024px) {
+  .studio-side-drawer-overlay {
+    left: calc(var(--studio-nav-rail-width) + var(--studio-task-rail-width) + var(--studio-sidebar-width));
+  }
+
+  body:has(.studio-task-rail-expanded) .studio-side-drawer-overlay {
+    left: calc(var(--studio-nav-rail-width) + 340px + var(--studio-sidebar-width));
+  }
+}
+
 /* Result stages and generation loader */
 .studio-empty-stage,
 .studio-result-stage,

@@ -9,6 +9,8 @@ import { startGenerationJob, type GenerationJobPayload } from "@/lib/api/generat
 import { handleGenerationStatusGet } from "@/lib/api/generation-status";
 import { getPublicBaseUrlFromRequest } from "@/lib/api/image-inputs.server";
 import { type PoseOutputMode } from "@/lib/pose-prompt";
+import { normalizePoseVisualAnalysis } from "@/lib/pose-analysis";
+import { normalizePosePlan } from "@/lib/pose-plan";
 import { normalizePoseSeriesStyle } from "@/lib/module-style-presets";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 
@@ -40,6 +42,15 @@ export async function POST(request: NextRequest) {
     const unitCost = getCreditCost(model, size, POSE_ASPECT_RATIO);
     const totalCost = unitCost * genCount;
     const poseStyle = normalizePoseSeriesStyle(pose_style);
+    const poseAnalysis = normalizePoseVisualAnalysis(body.pose_analysis ?? body.poseAnalysis);
+    const posePlan = body.pose_plan || body.posePlan
+      ? normalizePosePlan(body.pose_plan ?? body.posePlan, {
+          poseAnalysis,
+          poseStyle,
+          outputMode,
+          prompt: String(prompt).trim(),
+        })
+      : null;
     const jobPayload: GenerationJobPayload = {
       kind: "pose",
       publicBaseUrl: getPublicBaseUrlFromRequest(request),
@@ -50,6 +61,8 @@ export async function POST(request: NextRequest) {
       poseStyle,
       outputMode,
       genCount,
+      poseAnalysis,
+      posePlan,
     };
 
     const debit = await createDebitedGeneration(supabase, {

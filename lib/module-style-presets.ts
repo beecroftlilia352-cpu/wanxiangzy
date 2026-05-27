@@ -86,7 +86,7 @@ const POSE_SEPARATE_STYLE_PROMPTS: Record<PoseSeriesStyle, string> = {
   ].join("\n"),
   luxury_lookbook: [
     "Style preset:",
-    "Premium womenswear lookbook.",
+    "Premium fashion lookbook.",
     "",
     "Use soft refined lighting, elegant neutral background, natural skin tone and tasteful fashion composition.",
     "Create a quiet luxury brand feeling while keeping the outfit clearly readable.",
@@ -113,7 +113,7 @@ const POSE_SEPARATE_STYLE_PROMPTS: Record<PoseSeriesStyle, string> = {
   ].join("\n"),
   xiaohongshu_lifestyle: [
     "Style preset:",
-    "Premium womenswear lookbook.",
+    "Premium fashion lookbook.",
     "",
     "Use soft refined lighting, elegant neutral background, natural skin tone and tasteful fashion composition.",
     "Create a quiet luxury brand feeling while keeping the outfit clearly readable.",

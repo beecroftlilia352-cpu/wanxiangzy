@@ -67,8 +67,9 @@ describe("compileImagePromptForModel", () => {
     });
 
     expect(result.startsWith("Use the source image only")).toBe(true);
-    expect(result).toContain("Generate one standalone premium womenswear fashion photo.");
-    expect(result).toContain("Keep the outfit commercially readable");
+    expect(result).toContain("same gender expression");
+    expect(result).toContain("Generate one standalone premium fashion editorial photo.");
+    expect(result).toContain("Keep the outfit readable");
     expect(result).toContain("Target pose:");
     expect(result).toContain("Strong three-quarter or side-angle outfit read");
     expect(result).toContain("Camera:");
@@ -98,7 +99,7 @@ describe("compileImagePromptForModel", () => {
     expect(result.startsWith("Use the source image only")).toBe(true);
     expect(result).toContain("Target pose:");
     expect(result).toContain("Stationary confident shape pose");
-    expect(result).toContain("Emphasize waist, hip line");
+    expect(result).toContain("Emphasize natural body structure");
     expect(result).toContain("Full-body or 7/8-body premium editorial framing");
     expect(result).toContain("Confident editorial gaze");
     expect(result).not.toContain("HARD TARGET POSE SLOT");

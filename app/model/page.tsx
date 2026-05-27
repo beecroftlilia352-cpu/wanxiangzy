@@ -680,7 +680,7 @@ export default function ModelPage() {
                       </div>
                     </div>
                     <div className="studio-upload-tile-tips px-0 pb-0">
-                      <span className="studio-upload-tile-tips-label">Tips.</span>
+                      <span className="studio-upload-tile-tips-label">提示</span>
                       <span className="studio-upload-tile-tips-text" title="建议 1-3 张清晰正脸或半身图；光线统一、无遮挡会更稳定。">建议 1-3 张清晰正脸或半身图；光线统一、无遮挡会更稳定。</span>
                     </div>
                   </div>

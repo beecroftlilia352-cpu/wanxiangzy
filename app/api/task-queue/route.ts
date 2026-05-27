@@ -134,6 +134,11 @@ export async function GET(request: Request) {
     if (rateLimit) return rateLimit;
 
     const cacheMode = getTaskQueueCacheMode();
+    if (lightweightModuleQueue) {
+      const result = await loadLightweightModuleQueue(supabase, user.id, moduleFilter, limit);
+      return queueJson(detailPayload(result.rows, EMPTY_SUMMARY, result.hasMore, result.nextCursor));
+    }
+
     if (cacheMode !== "legacy") {
       const indexedResponse = await loadIndexedTaskQueueResponse({
         supabase,
@@ -147,11 +152,6 @@ export async function GET(request: Request) {
         cacheMode,
       });
       if (indexedResponse) return indexedResponse;
-    }
-
-    if (lightweightModuleQueue) {
-      const result = await loadLightweightModuleQueue(supabase, user.id, moduleFilter, limit);
-      return queueJson(detailPayload(result.rows, EMPTY_SUMMARY, result.hasMore, result.nextCursor));
     }
 
     const summary = includeSummary ? await loadQueueSummary(supabase, user.id) : EMPTY_SUMMARY;
@@ -201,6 +201,9 @@ export async function GET(request: Request) {
     return queueJson(detailPayload(rows, summary, hasMore, hasMore ? nextCursor : null));
   } catch (error) {
     console.error("[task-queue] error:", toLogMessage(error));
+    if (isLightweightModuleQueueRequest(request)) {
+      return queueJson(detailPayload([], EMPTY_SUMMARY));
+    }
     return NextResponse.json({ error: "任务队列加载失败" }, { status: 500 });
   }
 }
@@ -246,6 +249,20 @@ function checkLightweightQueueRateLimit(userId: string) {
 
   existing.count += 1;
   return null;
+}
+
+function isLightweightModuleQueueRequest(request: Request) {
+  try {
+    const searchParams = new URL(request.url).searchParams;
+    return (
+      searchParams.get("summary") === "0"
+      && Boolean(normalizeModuleFilter(searchParams.get("module")))
+      && !searchParams.get("cursor")
+      && !(searchParams.get("q") || searchParams.get("query"))
+    );
+  } catch {
+    return false;
+  }
 }
 
 function cleanupLightweightQueueBuckets(now: number) {

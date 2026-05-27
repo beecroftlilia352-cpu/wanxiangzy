@@ -16,6 +16,8 @@ import { handleGenerationStatusGet } from "@/lib/api/generation-status";
 import { getPublicBaseUrlFromRequest } from "@/lib/api/image-inputs.server";
 import { API_RATE_LIMITS, enforceApiRateLimit } from "@/lib/api/rate-limit";
 import { normalizeAutoDesignSettings, normalizeSceneMode } from "@/lib/tryon-scene";
+import { normalizeTryOnClothingAnalysis } from "@/lib/tryon-reference-config";
+import { normalizeTryOnReferenceAnalyses } from "@/lib/tryon-reference-analysis";
 import { normalizeTryOnClothingMode, normalizeTryOnClothingRole } from "@/lib/tryon-upload-rules";
 import {
   TRYON_GARMENT_CATEGORY_LABELS,
@@ -40,7 +42,7 @@ export async function POST(request: NextRequest) {
     const {
       clothing_urls, model_face_url, reference_url, reference_urls,
       ai_model, aspect_ratio, image_size, style, gen_count, raw_prompt, scene_mode, auto_design,
-      clothing_mode, clothing_roles, garment_audience, age_group, garment_category, is_intimate_garment,
+      clothing_mode, clothing_roles, clothing_analysis, reference_analyses, garment_audience, age_group, garment_category, is_intimate_garment,
     } = body;
 
     const genCount = Math.min(Math.max(Number(gen_count) || 1, 1), 4);
@@ -95,6 +97,11 @@ export async function POST(request: NextRequest) {
     const garmentAudience = normalizeTryOnGarmentAudience(garment_audience);
     const ageGroup = normalizeTryOnAgeGroup(age_group);
     const garmentCategory = normalizeTryOnGarmentCategory(is_intimate_garment ? "intimate" : garment_category);
+    const clothingAnalysis = clothing_analysis && typeof clothing_analysis === "object"
+      ? normalizeTryOnClothingAnalysis(clothing_analysis)
+      : null;
+    const referenceAnalyses = normalizeTryOnReferenceAnalyses(reference_analyses)
+      .slice(0, effectiveReferenceUrls.length);
     if (garmentCategory === "intimate" && ageGroup !== "adult") {
       return NextResponse.json({ error: "内衣/泳衣类服装仅支持成人模特生成，请将年龄段改为成人后再提交" }, { status: 400 });
     }
@@ -104,12 +111,14 @@ export async function POST(request: NextRequest) {
       clothingUrls: clothing_urls,
       clothingMode,
       clothingRoles,
+      clothingAnalysis,
       garmentAudience,
       ageGroup,
       garmentCategory,
       modelFaceUrl: model_face_url || null,
       referenceUrl: effectiveReferenceUrls[0] || null,
       referenceUrls: effectiveReferenceUrls,
+      referenceAnalyses,
       aiModel: model,
       aspectRatio,
       imageSize: size,

@@ -170,7 +170,7 @@ function compileSeparatePosePrompt(prompt: string, maxChars: number) {
   const creativeFreedomLine = findFirstLine(lines, /^Freedom:/i) || findFirstLine(lines, /^Creative freedom:/i)
     || "Freedom: choose natural action details, hand gesture, gaze, expression, body angle and camera language.";
   const cameraLine = findFirstLine(lines, /^Camera:/i)
-    || "Camera: auto choose premium womenswear model framing, lens feel, crop, distance, composition and negative space.";
+    || "Camera: auto choose premium fashion model framing, lens feel, crop, distance, composition and negative space.";
   const referenceLine = findFirstLine(lines, /^Keep:/i) || findFirstLine(lines, /^Reference only:/i) || findFirstLine(lines, /^Reference lock:/i)
     || "Keep: same person, face, outfit, background, lighting, skin tone and realistic body proportions.";
   const negativeLine = findFirstLine(lines, /^Negative:/i)
@@ -191,9 +191,9 @@ function compileSeparatePosePrompt(prompt: string, maxChars: number) {
 }
 
 function isProductionSeparatePosePrompt(lines: string[]) {
-  return lines.some((line) => /^Use the source image only for the same person/i.test(line))
-    && lines.some((line) => /^Generate one standalone premium womenswear fashion photo/i.test(line))
-    && lines.some((line) => /^Keep the outfit commercially readable/i.test(line))
+  return lines.some((line) => /^Use the source image only (?:for the same person|to preserve)/i.test(line))
+    && lines.some((line) => /^Generate one standalone premium (?:womenswear fashion|fashion editorial) photo/i.test(line))
+    && lines.some((line) => /^Keep the outfit (?:commercially )?readable/i.test(line))
     && lines.some((line) => /^Target pose:/i.test(line))
     && lines.some((line) => /^Camera:/i.test(line));
 }

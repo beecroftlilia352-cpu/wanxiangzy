@@ -11,6 +11,7 @@ import {
   ImagePlus,
   PackageSearch,
   PersonStanding,
+  PlaySquare,
   ScanFace,
   ServerCog,
   Shirt,
@@ -31,6 +32,8 @@ export type FeatureKey =
   | "pose"
   | "model"
   | "garment3d"
+  | "videoImageToVideo"
+  | "videoMotion"
   | "generalImage"
   | "textToImage"
   | "imageToImage"
@@ -65,7 +68,7 @@ export const TOP_MODULES: TopModuleNavItem[] = [
   { key: "aiShoots", href: "/create", label: "模特图", icon: Camera },
   { key: "assistant", href: "/agent", label: "工作流助手", icon: Bot },
   { key: "tools", href: "/general-image", label: "素材生成", icon: Images },
-  { key: "aiVideo", href: "#", label: "视频", icon: Clapperboard, comingSoon: true },
+  { key: "aiVideo", href: "/video", label: "视频", icon: Clapperboard },
   { key: "works", href: "/history", label: "作品库", icon: GalleryHorizontalEnd },
 ];
 
@@ -159,6 +162,24 @@ export const FEATURE_ITEMS: FeatureNavItem[] = [
     shortLabel: "3D",
     description: "服装立体展示素材",
     icon: Box,
+  },
+  {
+    key: "videoImageToVideo",
+    module: "aiVideo",
+    href: "/video",
+    label: "图生视频",
+    shortLabel: "图生视频",
+    description: "上传图片并生成模特展示视频",
+    icon: Clapperboard,
+  },
+  {
+    key: "videoMotion",
+    module: "aiVideo",
+    href: "/video/motion-control",
+    label: "动作模仿",
+    shortLabel: "动作",
+    description: "用参考视频驱动模特动作",
+    icon: PlaySquare,
   },
   {
     key: "agent",

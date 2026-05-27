@@ -1,0 +1,147 @@
+import { describe, expect, it } from "vitest";
+import {
+  buildFallbackPosePlan,
+  buildUserCustomPosePlan,
+  normalizePosePlan,
+} from "@/lib/pose-plan";
+
+describe("pose plan", () => {
+  it("normalizes invalid input by filling four fallback slots", () => {
+    const plan = normalizePosePlan({ slots: [{ poseName: "Only one", bodyAction: "Front pose" }] }, {
+      poseStyle: "ecommerce_clean",
+      outputMode: "separate",
+    });
+
+    expect(plan.slots).toHaveLength(4);
+    expect(plan.slots[0].poseName).toBe("Only one");
+    expect(plan.slots[1].poseName).toBeTruthy();
+    expect(plan.outputMode).toBe("separate");
+  });
+
+  it("keeps upper-body fallback away from foot and shoe actions", () => {
+    const plan = buildFallbackPosePlan({
+      poseStyle: "korean_clean",
+      poseAnalysis: {
+        bodyCrop: "upper_body",
+        genderExpression: "female",
+        ageRange: "adult",
+        personVisible: true,
+        personCount: 1,
+        bodyOrientation: "",
+        headDirection: "",
+        poseBaseline: "",
+        cameraFraming: "",
+        cameraAngle: "",
+        outfitDescription: "",
+        hairDescription: "",
+        faceIdentityNotes: "",
+        skinToneNotes: "",
+        background: "",
+        lighting: "",
+        handsVisible: true,
+        feetVisible: false,
+        occlusionNotes: "",
+        generationRisks: [],
+        promptNotes: "",
+        confidence: 0.8,
+      },
+    });
+    const actionText = plan.slots.map((slot) => [slot.bodyAction, slot.handAction, slot.cameraFraming].join(" ")).join(" ");
+
+    expect(actionText).not.toMatch(/foot|feet|shoe|脚|鞋/i);
+  });
+
+  it("keeps lower-body fallback away from face and head actions", () => {
+    const plan = buildFallbackPosePlan({
+      poseStyle: "luxury_white_studio",
+      poseAnalysis: {
+        bodyCrop: "lower_body",
+        genderExpression: "unknown",
+        ageRange: "adult",
+        personVisible: true,
+        personCount: 1,
+        bodyOrientation: "",
+        headDirection: "",
+        poseBaseline: "",
+        cameraFraming: "",
+        cameraAngle: "",
+        outfitDescription: "",
+        hairDescription: "",
+        faceIdentityNotes: "",
+        skinToneNotes: "",
+        background: "",
+        lighting: "",
+        handsVisible: false,
+        feetVisible: true,
+        occlusionNotes: "",
+        generationRisks: [],
+        promptNotes: "",
+        confidence: 0.8,
+      },
+    });
+    const actionText = plan.slots.map((slot) => [slot.bodyAction, slot.handAction, slot.headDirection].join(" ")).join(" ");
+
+    expect(actionText).not.toMatch(/face|head|expression|脸|头|表情/i);
+  });
+
+  it("does not use feminine language for male fallback plans", () => {
+    const plan = buildFallbackPosePlan({
+      poseStyle: "euro_campaign",
+      poseAnalysis: {
+        bodyCrop: "full_body",
+        genderExpression: "male",
+        ageRange: "adult",
+        personVisible: true,
+        personCount: 1,
+        bodyOrientation: "",
+        headDirection: "",
+        poseBaseline: "",
+        cameraFraming: "",
+        cameraAngle: "",
+        outfitDescription: "",
+        hairDescription: "",
+        faceIdentityNotes: "",
+        skinToneNotes: "",
+        background: "",
+        lighting: "",
+        handsVisible: true,
+        feetVisible: true,
+        occlusionNotes: "",
+        generationRisks: [],
+        promptNotes: "",
+        confidence: 0.8,
+      },
+    });
+
+    expect(JSON.stringify(plan).toLowerCase()).not.toContain("feminine");
+    expect(JSON.stringify(plan).toLowerCase()).not.toContain("womenswear");
+  });
+
+  it("turns user custom poses into an edited pose plan", () => {
+    const plan = buildUserCustomPosePlan({
+      poseStyle: "user_custom",
+      customCamera: "clean medium framing",
+      customPoses: ["姿势1：双手插兜", "姿势2：侧身整理衣领", "姿势3：站定扶腰", "姿势4：轻微迈步"],
+    });
+
+    expect(plan.style).toBe("user_custom");
+    expect(plan.edited).toBe(true);
+    expect(plan.slots[1].bodyAction).toContain("侧身整理衣领");
+    expect(plan.slots[0].cameraFraming).toContain("clean medium framing");
+  });
+
+  it("accepts common Chinese slot keys from model output", () => {
+    const plan = normalizePosePlan({
+      slots: [
+        { "姿势名": "自然侧身", "身体动作": "三分之二侧身站立", "手部动作": "轻触衣领", "头部方向": "视线随身体侧转", "构图": "半身商业构图", "服装展示": "肩线和领口清楚", confidence: 0.9 },
+        { "姿势名": "正面展示", "身体动作": "正面站定", "手部动作": "自然下垂", "头部方向": "看向镜头", "构图": "全身构图", "服装展示": "整体廓形清楚", confidence: 0.9 },
+        { "姿势名": "细节展示", "身体动作": "重心轻偏", "手部动作": "整理袖口", "头部方向": "自然偏头", "构图": "略近景", "服装展示": "袖口清楚", confidence: 0.9 },
+        { "姿势名": "轻动作", "身体动作": "小幅迈步", "手部动作": "手臂自然摆动", "头部方向": "随身体方向", "构图": "留白稳定", "服装展示": "动态褶皱清楚", confidence: 0.9 },
+      ],
+    });
+
+    expect(plan.slots[0].poseName).toBe("自然侧身");
+    expect(plan.slots[0].bodyAction).toBe("三分之二侧身站立");
+    expect(plan.slots[0].garmentVisibilityRule).toBe("肩线和领口清楚");
+  });
+});

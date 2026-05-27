@@ -28,6 +28,11 @@ import {
   type TryOnGarmentAudience,
 } from "@/lib/tryon-prompt";
 import { compileImagePromptForModel, type ImagePromptKind } from "@/lib/api/prompt-compiler";
+import { TRYON_CATEGORY_BY_CODE, type TryOnClothingAnalysis } from "@/lib/tryon-reference-config";
+import {
+  buildTryOnReferenceAnalysisRule,
+  type TryOnReferenceAnalysis,
+} from "@/lib/tryon-reference-analysis";
 import {
   TRYON_CLOTHING_ROLE_LABELS,
   normalizeTryOnClothingMode,
@@ -142,11 +147,13 @@ interface BatchTryOnInput {
   clothingUrls: string[];
   clothingMode?: TryOnClothingMode;
   clothingRoles?: TryOnClothingRole[];
+  clothingAnalysis?: TryOnClothingAnalysis | null;
   garmentAudience?: TryOnGarmentAudience;
   ageGroup?: TryOnAgeGroup;
   garmentCategory?: TryOnGarmentCategory;
   modelFaceUrl?: string;
   referenceUrl?: string;
+  referenceAnalysis?: TryOnReferenceAnalysis | null;
   aspect_ratio?: AspectRatio;
   image_size?: ImageSize;
   style?: string;
@@ -161,9 +168,8 @@ type TryOnRequestPromptOptions = {
   candidateIndex?: number;
   candidateCount?: number;
   referenceUrl?: string;
+  referenceAnalysis?: TryOnReferenceAnalysis | null;
   modelFaceUrl?: string;
-  clothingMode?: TryOnClothingMode;
-  clothingRoles?: TryOnClothingRole[];
 };
 
 export async function generateImage(input: GenerateInput, retries = 2): Promise<GenerateResult> {
@@ -346,12 +352,14 @@ export async function batchTryOn(input: BatchTryOnInput): Promise<{ resultUrls: 
     clothingCount: input.clothingUrls.length,
     clothingMode: input.clothingMode,
     clothingRoles: input.clothingRoles,
+    clothingAnalysis: input.clothingAnalysis,
     garmentAudience: input.garmentAudience,
     ageGroup: input.ageGroup,
     garmentCategory: input.garmentCategory,
     aspectRatio: input.aspect_ratio,
     hasModelFace: !!input.modelFaceUrl,
     hasReference: !!input.referenceUrl,
+    referenceAnalysis: input.referenceAnalysis,
     style: input.style,
   });
   const finalPrompt = applyTryOnRequestPrompt(input.raw_prompt?.trim() || prompt, input);
@@ -382,52 +390,22 @@ export async function batchTryOn(input: BatchTryOnInput): Promise<{ resultUrls: 
 
 export function applyTryOnRequestPrompt(prompt: string, input: TryOnRequestPromptOptions) {
   const lines = [prompt.trim()];
-  const nonSourcedOutfitDirective = buildTryOnNonSourcedOutfitDirective(input);
-  if (nonSourcedOutfitDirective) lines.push(nonSourcedOutfitDirective);
   lines.push(buildTryOnPhotoFinishDirective(input));
   const candidateDirective = buildTryOnCandidateDirective(input);
   if (candidateDirective) lines.push(candidateDirective);
   return lines.filter(Boolean).join("\n");
 }
 
-function buildTryOnNonSourcedOutfitDirective(input: TryOnRequestPromptOptions) {
-  if (!input.referenceUrl) return "";
-  const clothingMode = normalizeTryOnClothingMode(input.clothingMode || "single");
-  const roles = Array.isArray(input.clothingRoles) ? input.clothingRoles.map((role) => normalizeTryOnClothingRole(role)) : [];
-  if (clothingMode === "multi") {
-    const hasUpper = roles.includes("upper");
-    const hasLower = roles.includes("lower");
-    if (hasUpper && !hasLower) {
-      return "Slot replacement lock: replace only the target reference's upper-body clothing with the sourced upper garment. Preserve the target reference's lower-body clothing, shoes, legs, hands, accessories, background, scene, camera distance, and framing unless physically covered by the new upper garment.";
-    }
-    if (hasLower && !hasUpper) {
-      return "Slot replacement lock: replace only the target reference's lower-body clothing with the sourced lower garment. Preserve the target reference's upper-body clothing, hands, accessories, background, scene, camera distance, and framing unless physically covered by the new lower garment.";
-    }
-    if (hasUpper && hasLower) {
-      return "Slot replacement lock: replace only the sourced upper- and lower-body outfit areas. Preserve all non-conflicting hands, shoes, accessories, visible skin, background, scene, camera distance, and framing from the target reference.";
-    }
-  }
-
-  return "Slot replacement lock: replace only the outfit area naturally covered by the sourced garment. Preserve the target reference's non-conflicting shoes, hands, accessories, visible skin, background, scene, camera distance, and framing.";
-}
-
 function buildTryOnPhotoFinishDirective(input: TryOnRequestPromptOptions) {
   if (input.referenceUrl) {
-    const visibleFrameRule = input.modelFaceUrl
-      ? ""
-      : "When no model-face reference is provided, keep the target reference's visible crop and subject range: if the target reference is no-face, lower-body-only, or partial-body, the final image must remain no-face/lower-body/partial-body and must not invent a missing face, head, full body, or extra scene area.";
-    const identityFinishRule = input.modelFaceUrl
-      ? "Keep garment colors, logos/text, fabric texture, face identity, skin tone continuity, and body proportions accurate; no heavy beauty filter, no poster layout, no added text, no washed-out skin, no color-shifted clothing."
-      : "Keep garment colors, logos/text, fabric texture, visible skin tone continuity, visible body proportions, and the reference crop accurate; no heavy beauty filter, no poster layout, no added text, no washed-out skin, no color-shifted clothing.";
     return [
       "Reference-based photo finish:",
       "Use the target reference as the photography style source.",
-      visibleFrameRule,
       "Replicate its shadow design: cast-shadow direction, shadow length, edge softness, density, wall/floor shadow geometry, body shadow placement, and contact-shadow intensity.",
       "Inherit its light direction, light hardness, color temperature, contrast curve, shadow shape, highlight rolloff, exposure, white balance, lens perspective, depth of field, texture/noise level, and filter/color mood.",
       "Make the reference filter/color mood visibly present in the final image while preserving true garment color; you may subtly polish clarity and shadow depth, but do not apply a new generic fashion filter or a different color grade.",
-      identityFinishRule,
-    ].filter(Boolean).join(" ");
+      "Keep garment colors, logos/text, fabric texture, face identity, skin tone continuity, and body proportions accurate; no heavy beauty filter, no poster layout, no added text, no washed-out skin, no color-shifted clothing.",
+    ].join(" ");
   }
 
   return [
@@ -458,10 +436,6 @@ function buildTryOnCandidateDirective(input: TryOnRequestPromptOptions) {
   const gptExpression = input.model === "gpt-image-2"
     ? ` For GPT candidate variation, avoid identical facial expressions; use a subtle natural micro-expression within the target emotion: ${expressionVariants[index % expressionVariants.length]}.`
     : "";
-
-  if (input.referenceUrl && !input.modelFaceUrl) {
-    return `Candidate ${index + 1}/${count}: create a distinct but consistent try-on variation, not a near-duplicate. Keep the same visible subject range, no-face/partial-body crop if present, adult proportions, target pose family, general camera/framing, background, non-sourced outfit areas, sourced garment design, and reference-derived photography mood; do not invent a missing face/head/full body; vary garment fit, folds, hem, contact shadows, and small natural body/hand relaxation as ${variant}.`;
-  }
 
   return `Candidate ${index + 1}/${count}: create a distinct but consistent try-on variation, not a near-duplicate. Keep the same facial identity, natural face integration, adult proportions, target pose family, general camera/framing, background, lower outfit, sourced garment design, and reference-derived photography mood; vary garment fit, folds, hem, contact shadows, and small natural body/hand relaxation as ${variant}.${gptExpression}`;
 }
@@ -1331,12 +1305,14 @@ export function buildTryOnPrompt(params: {
   clothingCount: number;
   clothingMode?: TryOnClothingMode;
   clothingRoles?: TryOnClothingRole[];
+  clothingAnalysis?: TryOnClothingAnalysis | null;
   garmentAudience?: TryOnGarmentAudience;
   ageGroup?: TryOnAgeGroup;
   garmentCategory?: TryOnGarmentCategory;
   aspectRatio?: AspectRatio;
   hasModelFace: boolean;
   hasReference: boolean;
+  referenceAnalysis?: TryOnReferenceAnalysis | null;
   style?: string;
 }): { prompt: string; imageRoles: string[] } {
   const imageRoles: string[] = [];
@@ -1380,12 +1356,14 @@ export function buildTryOnPrompt(params: {
         clothingRefs,
         clothingMode,
         clothingRoles: normalizedRoles,
+        clothingAnalysis: params.clothingAnalysis,
         garmentAudience: params.garmentAudience,
         ageGroup: params.ageGroup,
         garmentCategory: params.garmentCategory,
         aspectRatio: params.aspectRatio,
         hasReference: params.hasReference,
         hasModelFace: params.hasModelFace,
+        referenceAnalysis: params.referenceAnalysis,
         referenceImageNumber,
         faceImageNumber,
         style: params.style,
@@ -1399,6 +1377,7 @@ export function buildTryOnPrompt(params: {
   const poseLock = `【最重要】${buildTryOnReferencePrompt(referenceImageNumber)}`;
   const garmentRules = [
     TRYON_CLOTHING_IMAGE_ROLE_RULE,
+    buildTryOnClothingAnalysisRule(params.clothingAnalysis, normalizedRoles, clothingMode),
     buildTryOnAudiencePrompt({
       garmentAudience: params.garmentAudience,
       ageGroup: params.ageGroup,
@@ -1412,6 +1391,7 @@ export function buildTryOnPrompt(params: {
       hasReference: params.hasReference,
       referenceImageNumber,
     }),
+    params.hasReference ? buildTryOnReferenceAnalysisRule(params.referenceAnalysis, referenceImageNumber) : "",
     TRYON_GARMENT_RULE,
     TRYON_FIT_RULE,
     TRYON_MATERIAL_RULE,
@@ -1458,7 +1438,7 @@ export function buildTryOnPrompt(params: {
       poseLock,
       garmentRules,
       skinAndQuality,
-      "不要改变参考图场景，不要生成多余人物；只保留参考图中实际可见的脸部身份，如果参考图无脸、局部身体或下半身构图，不要补出新的脸、头部或完整人物。",
+      "不要改变参考图场景，不要生成多余人物，脸部身份保持不变。",
       negativeRule,
     ].join("\n");
   } else if (!params.hasReference && params.hasModelFace) {
@@ -1496,12 +1476,14 @@ function buildConciseTryOnPrompt(params: {
   clothingRefs: string[];
   clothingMode: TryOnClothingMode;
   clothingRoles: TryOnClothingRole[];
+  clothingAnalysis?: TryOnClothingAnalysis | null;
   garmentAudience?: TryOnGarmentAudience;
   ageGroup?: TryOnAgeGroup;
   garmentCategory?: TryOnGarmentCategory;
   aspectRatio?: AspectRatio;
   hasReference: boolean;
   hasModelFace: boolean;
+  referenceAnalysis?: TryOnReferenceAnalysis | null;
   referenceImageNumber: number;
   faceImageNumber: number;
   style?: string;
@@ -1521,6 +1503,8 @@ function buildConciseTryOnPrompt(params: {
       sourceNoun,
       targetRef,
       faceRef,
+      clothingAnalysis: params.clothingAnalysis,
+      referenceAnalysis: params.referenceAnalysis,
     });
   }
 
@@ -1529,7 +1513,7 @@ function buildConciseTryOnPrompt(params: {
   if (params.hasReference && params.hasModelFace) {
     lines.push(`Task: use ${clothingSource} only as ${sourceNoun}; replace the outfit on the person in ${targetRef} with the clothing from ${clothingSource}; discard ${targetRef}'s original facial identity; rebuild ${faceRef}'s recognizable identity and facial landmark geometry inside ${targetRef}'s original head space; retarget ${targetRef}'s facial expression, skin tone, makeup style, visible-skin continuity, pose/body/head placement/background/camera/framing/lighting onto that ${faceRef} identity. Expression means mouth open/closed, lip-corner direction, smile/frown intensity, eye openness, brow tension, gaze, jaw tension, and emotional tone.`);
   } else if (params.hasReference) {
-    lines.push(`Task: use ${clothingSource} only as ${sourceNoun}; replace the outfit on the person in ${targetRef} with the clothing from ${clothingSource}; treat that person as only the visible person/body shown in ${targetRef}; keep ${targetRef}'s visible subject, pose, body crop, background, camera distance, framing, and lighting. Because no model-face reference is provided, do not invent or reveal a missing face/head/full body; if ${targetRef} is lower-body-only, no-face, or partial-body, the final image must keep the same no-face/partial-body framing.`);
+    lines.push(`Task: use ${clothingSource} only as ${sourceNoun}; replace the outfit on the person in ${targetRef} with the clothing from ${clothingSource}; keep ${targetRef}'s pose/body/background/camera/framing/lighting.`);
   } else if (params.hasModelFace) {
     lines.push(`Task: create a believable single-person fashion photo wearing the clothing from ${clothingSource}; use ${faceRef} as the final recognizable face identity, natural skin-tone range, hairstyle character, and facial structure reference.`);
   } else {
@@ -1538,17 +1522,19 @@ function buildConciseTryOnPrompt(params: {
 
   lines.push(buildConciseSourceIsolationRule(params.clothingRefs));
   lines.push(buildConciseClothingRoleRule(params.clothingRefs, params.clothingRoles, params.clothingMode));
+  const analysisRule = buildTryOnClothingAnalysisRule(params.clothingAnalysis, params.clothingRoles, params.clothingMode);
+  if (analysisRule) lines.push(analysisRule);
 
   if (params.hasReference) {
+    const referenceAnalysisRule = buildTryOnReferenceAnalysisRule(params.referenceAnalysis, params.referenceImageNumber);
+    if (referenceAnalysisRule) lines.push(referenceAnalysisRule);
     lines.push(buildConciseTargetCanvasRule({
       targetRef,
       clothingMode: params.clothingMode,
       clothingRoles: params.clothingRoles,
       hasModelFace: params.hasModelFace,
     }));
-    lines.push(params.hasModelFace
-      ? `Body/composition rule: keep ${targetRef}'s body proportions, adult body type when applicable, pose, visible body range, facial expression, head-to-body ratio, neck length, shoulder connection, camera angle, camera distance, perspective, framing, background, lighting direction, exposure, color temperature, shadows, and overall photo mood. Only allow natural changes caused by the new garment: fabric volume, folds, contact shadows, occlusion, sleeve coverage, and realistic drape.`
-      : `Visible-frame rule: keep ${targetRef}'s body proportions, adult body type when applicable, pose, visible body range, crop boundaries, camera angle, camera distance, perspective, framing, background, lighting direction, exposure, color temperature, shadows, and overall photo mood. If ${targetRef} does not show a face, head, or full body, do not generate those missing areas; preserve the lower-body/no-face/partial-body composition instead of expanding to a full-model portrait. Only allow natural changes caused by the new garment: fabric volume, folds, contact shadows, occlusion, sleeve coverage, and realistic drape.`);
+    lines.push(`Body/composition rule: keep ${targetRef}'s body proportions, adult body type when applicable, pose, visible body range, facial expression, head-to-body ratio, neck length, shoulder connection, camera angle, camera distance, perspective, framing, background, lighting direction, exposure, color temperature, shadows, and overall photo mood. Only allow natural changes caused by the new garment: fabric volume, folds, contact shadows, occlusion, sleeve coverage, and realistic drape.`);
   }
 
   if (params.hasModelFace) {
@@ -1606,6 +1592,8 @@ function buildFixedBaseTryOnPrompt(params: {
   faceRef: string;
   clothingSource: string;
   sourceNoun: string;
+  clothingAnalysis?: TryOnClothingAnalysis | null;
+  referenceAnalysis?: TryOnReferenceAnalysis | null;
   style?: string;
 }) {
   const lines: string[] = [
@@ -1615,12 +1603,14 @@ function buildFixedBaseTryOnPrompt(params: {
     "Task:",
     `Edit ${params.targetRef} into a believable try-on photo.`,
     buildFixedBaseReplacementTask(params),
+    buildTryOnReferenceAnalysisRule(params.referenceAnalysis, Number(params.targetRef.replace(/\D/g, "")) || 2),
     `Reconstruct the final face using ${params.faceRef}'s recognizable identity and facial feature proportions, while adapting it to ${params.targetRef}'s expression, skin tone, makeup, head angle, lighting, and camera perspective.`,
     `Do not preserve ${params.targetRef}'s original facial identity. Every generated candidate must use ${params.faceRef}'s identity.`,
     `Keep natural adult proportions and a realistic head-to-body ratio close to ${params.targetRef}; favor a reference-realistic, slightly conservative head scale rather than beauty-enlarged head proportions; avoid oversized head, tiny body, long neck, short legs, distorted shoulders, or changed body type.`,
     `Keep the overall camera distance, framing style, background, floor, and non-sourced outfit areas close to ${params.targetRef}, while allowing natural variation in garment fit, folds, hem shape, contact shadows, fabric drape, and small body/hand relaxation.`,
     "Clothing rule:",
     `${params.clothingSource} ${params.clothingRefs.length === 1 ? "is" : "are"} not a person reference. Do not copy any model, body, face, pose, skin, lighting, background, or scene from ${params.clothingSource}. Extract only the sourced garment material.`,
+    buildTryOnClothingAnalysisRule(params.clothingAnalysis, params.clothingRoles, params.clothingMode),
     "Preserve source clothing accurately: garment type, silhouette, color, pattern, logo/text, fabric texture, neckline, sleeves, hem, pockets, buttons, zippers, seams, layers, length, and visible construction details.",
     ...buildFixedBaseLayeringRules(params),
     buildFixedBaseAreaRule(params),
@@ -1779,7 +1769,7 @@ function buildConciseRoleLockRule(params: {
   if (params.hasReference) {
     roles.push(params.hasModelFace
       ? `image ${params.referenceImageNumber} = target expression driver / skin tone / makeup / target body / pose / head placement / composition / background / lighting / skin continuity ONLY, not final facial identity`
-      : `image ${params.referenceImageNumber} = target body / pose / head placement / composition / background / lighting / skin continuity ONLY; preserve the actual visible crop/body range; preserve no-face or partial-body framing when that is what the image shows`);
+      : `image ${params.referenceImageNumber} = target body / pose / head placement / composition / background / lighting / skin continuity ONLY`);
   }
   if (params.hasModelFace) {
     roles.push(`image ${params.faceImageNumber} = final face identity / full facial landmark geometry / feature anatomy / likeness anchor ONLY, not facial expression, skin tone, makeup, body, clothing, head pose, head scale, background, or scene lighting`);
@@ -1800,9 +1790,6 @@ function buildConcisePriorityRule(params: {
   }
 
   if (params.hasReference) {
-    if (!params.hasModelFace) {
-      return `Conflict priority: clothing = ${params.clothingSource}; body/pose/composition/background = ${params.targetRef}; visible crop/body range must also stay from ${params.targetRef}. If ${params.targetRef} is no-face, lower-body-only, or partial-body, preserve that framing and do not invent a missing face/head/full body. No fallback to the target's original outfit.`;
-    }
     return `Conflict priority: clothing = ${params.clothingSource}; body/pose/composition/background = ${params.targetRef}. No fallback to the target's original outfit.`;
   }
 
@@ -1825,9 +1812,6 @@ function buildConciseFailureHandlingRule(params: {
   }
 
   if (params.hasReference) {
-    if (!params.hasModelFace) {
-      return `Failure handling: if anything is ambiguous, never use identity, pose, or scene from ${params.clothingSource}; clothing accuracy from ${params.clothingSource} and visible body/crop/scene from ${params.targetRef} are mandatory. Do not add a face, head, full upper body, full lower body, or extra scene area that is not visible in ${params.targetRef}.`;
-    }
     return `Failure handling: if anything is ambiguous, never use identity, pose, or scene from ${params.clothingSource}; clothing accuracy from ${params.clothingSource} and body/scene from ${params.targetRef} are mandatory.`;
   }
 
@@ -1878,6 +1862,35 @@ function buildConciseClothingRoleRule(clothingRefs: string[], roles: TryOnClothi
   return "Single-garment rule: image 1 was uploaded into the explicit one-piece/full-outfit slot. Treat it as one complete dress, jumpsuit, set, coat, or full-body garment; replace every conflicting target garment it covers, do not split it into unrelated upper/lower pieces, and do not invent extra clothing outside image 1.";
 }
 
+function buildTryOnClothingAnalysisRule(
+  analysis: TryOnClothingAnalysis | null | undefined,
+  roles: TryOnClothingRole[],
+  mode: TryOnClothingMode
+) {
+  if (!analysis) return "";
+
+  const categoryLabels = [
+    ...analysis.subcategories.map((code) => TRYON_CATEGORY_BY_CODE.get(code)?.nameEn || code),
+    analysis.mainCategory ? TRYON_CATEGORY_BY_CODE.get(analysis.mainCategory)?.nameEn || analysis.mainCategory : "",
+  ].filter(Boolean);
+  const slot = analysis.slot || null;
+  const fit = analysis.fit || "regular";
+  const rawType = analysis.clothTypeRaw || categoryLabels[0] || "garment";
+  const confidence = analysis.confidence ? ` Confidence: ${Math.round(analysis.confidence * 100)}%.` : "";
+  const categoryText = categoryLabels.length ? categoryLabels.join(" / ") : rawType;
+  const explicitRoles = roles.map((role, index) => `image ${index + 1}=${role}`).join(", ");
+
+  const scopeRule = slot === "lower"
+      ? "Treat this as a lower-body garment source. Replace only lower-body clothing and preserve non-conflicting upper-body clothing, hands, face, hair, background, and scene from the target reference."
+      : slot === "upper" || slot === "outer"
+        ? "Treat this as an upper-body garment source. Replace only upper/outer clothing and preserve non-conflicting lower-body clothing, shoes, hands, face, hair, background, and scene from the target reference."
+        : slot === "single" || slot === "intimate" || slot === "functional"
+          ? "Treat this as a complete single-piece/full-body garment source and replace only the body areas it naturally covers."
+          : "Use the explicit upload slot roles as the replacement scope when classification is uncertain.";
+
+  return `Visual clothing classification: detected ${categoryText}; raw type=${rawType}; slot=${slot || "unknown"}; fit=${fit}; upload mode=${mode}; explicit slots=${explicitRoles}.${confidence} ${scopeRule}`;
+}
+
 function buildConciseTargetCanvasRule(params: {
   targetRef: string;
   clothingMode: TryOnClothingMode;
@@ -1886,7 +1899,7 @@ function buildConciseTargetCanvasRule(params: {
 }) {
   const faceInstruction = params.hasModelFace
     ? `Do not preserve ${params.targetRef}'s original facial identity; preserve only head placement, head pose, scale, hair/occlusion when compatible, lighting, and scene continuity.`
-    : `Preserve only the face, hair, and identity details that are actually visible in ${params.targetRef}; if the face/head is not visible, keep the output no-face/partial-body and do not invent or reveal a new face/head/full body. Preserve scene continuity.`;
+    : `Preserve ${params.targetRef}'s original facial identity, hair, and scene continuity.`;
 
   if (params.clothingMode === "multi") {
     const hasUpper = params.clothingRoles.includes("upper");

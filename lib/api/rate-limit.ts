@@ -13,6 +13,9 @@ export type ApiRateLimitPolicy = {
 export const API_RATE_LIMITS = {
   tryonGenerate: { bucket: "tryon", limit: 20, windowMs: ONE_MINUTE_MS },
   tryonClothingAnalyze: { bucket: "tryon-clothing-analyze", limit: 30, windowMs: ONE_MINUTE_MS },
+  tryonReferenceAnalyze: { bucket: "tryon-reference-analyze", limit: 60, windowMs: ONE_MINUTE_MS },
+  poseVisualAnalyze: { bucket: "pose-visual-analyze", limit: 60, windowMs: ONE_MINUTE_MS },
+  posePlan: { bucket: "pose-plan", limit: 60, windowMs: ONE_MINUTE_MS },
   tryonReferenceRecommendations: { bucket: "tryon-reference-recommendations", limit: 120, windowMs: ONE_MINUTE_MS },
   agentWorkflowCreate: { bucket: "agent-workflow-create", limit: 12, windowMs: ONE_MINUTE_MS },
   agentWorkflowPlan: { bucket: "agent-workflow-plan", limit: 20, windowMs: ONE_MINUTE_MS },

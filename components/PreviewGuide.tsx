@@ -44,7 +44,7 @@ export function PreviewGuide({
         </div>
 
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-black uppercase tracking-normal text-[var(--codex-accent)] sm:text-[11px]">Preview Guide</p>
+          <p className="text-[10px] font-black uppercase tracking-normal text-[var(--codex-accent)] sm:text-[11px]">使用指引</p>
           <h3 className="mt-1 text-base font-black text-slate-950 sm:text-lg">{title}</h3>
           <p className="mt-0.5 text-[11px] leading-4 text-slate-500 sm:mt-1 sm:text-xs sm:leading-5">{subtitle}</p>
 

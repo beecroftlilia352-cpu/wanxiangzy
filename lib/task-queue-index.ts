@@ -80,6 +80,8 @@ const MODULE_LABELS: Record<string, string> = {
   pose: "姿势裂变",
   "3d": "服装 3D",
   image: "图生图",
+  videoImageToVideo: "图生视频",
+  videoMotion: "动作模仿",
   workflow: "工作流",
 };
 
@@ -98,6 +100,8 @@ const MODULE_PATHS: Record<string, string> = {
   pose: "/pose",
   "3d": "/garment-3d",
   image: "/image-to-image",
+  videoImageToVideo: "/video",
+  videoMotion: "/video/motion-control",
   workflow: "/workflow",
 };
 
@@ -221,6 +225,12 @@ export function normalizeModule(module: string): string {
   }
   if (lower === "general-image" || lower === "general_image" || lower === "generalimage") {
     return "generalImage";
+  }
+  if (lower === "video-image-to-video" || lower === "video_image_to_video" || lower === "videoimagetovideo" || lower === "image-to-video-video") {
+    return "videoImageToVideo";
+  }
+  if (lower === "video-motion" || lower === "video_motion" || lower === "videomotion" || lower === "motion-control" || lower === "motion_control") {
+    return "videoMotion";
   }
   if (lower.includes("tryon") || lower.includes("try-on")) {
     return "tryon";
@@ -411,6 +421,8 @@ function extractGenerationInputThumbnails(row: TaskQueueGenerationSourceRow): st
     stringValue(payload.targetFaceUrl),
     stringValue(payload.backgroundReferenceUrl),
     stringValue(payload.poseReferenceUrl),
+    stringValue(payload.imageUrl),
+    stringValue(payload.modelImageUrl),
   ]).slice(0, 8);
 }
 
@@ -563,7 +575,7 @@ function uniqueStrings(values: Array<string | null | undefined>): string[] {
 }
 
 function isLikelyUrl(value: string): boolean {
-  return value.startsWith("http://") || value.startsWith("https://") || value.startsWith("data:image/");
+  return value.startsWith("http://") || value.startsWith("https://") || value.startsWith("data:image/") || value.startsWith("data:video/");
 }
 
 function clampProgress(value: unknown): number {

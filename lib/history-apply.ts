@@ -1,7 +1,11 @@
 import type { AspectRatio, ImageSize, LingyaModel } from "@/lib/api/lingya";
 import type { Garment3dDisplayStyle, ModelShootStyle, PoseSeriesStyle } from "@/lib/module-style-presets";
 import type { PoseOutputMode } from "@/lib/pose-prompt";
+import type { PoseVisualAnalysis } from "@/lib/pose-analysis";
+import type { PosePlan } from "@/lib/pose-plan";
 import type { AutoDesignSettings, TryOnSceneMode } from "@/lib/tryon-scene";
+import type { TryOnClothingAnalysis } from "@/lib/tryon-reference-config";
+import type { TryOnReferenceAnalysis } from "@/lib/tryon-reference-analysis";
 import type { TryOnAgeGroup, TryOnGarmentAudience } from "@/lib/tryon-prompt";
 import type { TryOnClothingMode, TryOnClothingRole } from "@/lib/tryon-upload-rules";
 import type { GrassPayloadBase } from "@/lib/grass-planting";
@@ -14,6 +18,7 @@ import type {
   ProductSetProductProfile,
   ProductSetSettings,
 } from "@/lib/product-set";
+import type { AiVideoResolution } from "@/lib/ai-video";
 
 export type HistoryJobPayload =
   | {
@@ -21,11 +26,13 @@ export type HistoryJobPayload =
       clothingUrls: string[];
       clothingMode?: TryOnClothingMode;
       clothingRoles?: TryOnClothingRole[];
+      clothingAnalysis?: TryOnClothingAnalysis | null;
       garmentAudience?: TryOnGarmentAudience;
       ageGroup?: TryOnAgeGroup;
       modelFaceUrl?: string | null;
       referenceUrl?: string | null;
       referenceUrls?: string[];
+      referenceAnalyses?: TryOnReferenceAnalysis[];
       aiModel: LingyaModel;
       aspectRatio: AspectRatio;
       imageSize: ImageSize;
@@ -71,6 +78,8 @@ export type HistoryJobPayload =
       poseStyle?: PoseSeriesStyle;
       outputMode?: PoseOutputMode;
       genCount?: number;
+      poseAnalysis?: PoseVisualAnalysis | null;
+      posePlan?: PosePlan | null;
     }
   | {
       kind: "garment3d";
@@ -115,6 +124,28 @@ export type HistoryJobPayload =
       prompt: string;
       genCount: number;
       textureEnhance?: boolean;
+    }
+  | {
+      kind: "videoImageToVideo";
+      imageUrl: string;
+      prompt: string;
+      templateId?: number;
+      templateTitle?: string;
+      resolution: AiVideoResolution;
+      aspectRatio?: "9:16" | "16:9";
+      aiModel: string;
+      genCount: number;
+    }
+  | {
+      kind: "videoMotion";
+      modelImageUrl: string;
+      referenceVideoUrl: string;
+      prompt?: string;
+      templateId?: number;
+      templateTitle?: string;
+      resolution: AiVideoResolution;
+      aiModel: string;
+      genCount: number;
     };
 
 export type HistoryApplyRow = {
@@ -231,6 +262,8 @@ function getModulePath(kind: HistoryJobPayload["kind"]) {
   if (kind === "productSet") return "/product-set";
   if (kind === "garment3d") return "/garment-3d";
   if (kind === "faceSwap") return "/face-swap";
+  if (kind === "videoImageToVideo") return "/video";
+  if (kind === "videoMotion") return "/video/motion-control";
   if (kind === "model") return "/model";
   return "/pose";
 }

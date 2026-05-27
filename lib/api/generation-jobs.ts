@@ -10,6 +10,8 @@ import {
 import { completeGenerationWithCreditAdjustment, failGenerationWithRefund } from "@/lib/api/credits";
 import { resolveImageInputs } from "@/lib/api/image-inputs.server";
 import { persistGeneratedImageUrls } from "@/lib/api/result-image-storage";
+import { persistGeneratedMediaUrls } from "@/lib/api/result-media-storage";
+import { generateKlingMotionControl, generateOmniImageToVideo } from "@/lib/api/yunwu-video";
 import { syncGenerationTaskQueueById } from "@/lib/task-queue-store";
 import {
   applyQualityRepairToPrompt,
@@ -38,6 +40,10 @@ import {
   type PoseSeriesStyle,
 } from "@/lib/module-style-presets";
 import type { AutoDesignSettings, TryOnSceneMode } from "@/lib/tryon-scene";
+import type { TryOnClothingAnalysis } from "@/lib/tryon-reference-config";
+import type { TryOnReferenceAnalysis } from "@/lib/tryon-reference-analysis";
+import { normalizePoseVisualAnalysis, type PoseVisualAnalysis } from "@/lib/pose-analysis";
+import { normalizePosePlan, type PosePlan } from "@/lib/pose-plan";
 import type { TryOnAgeGroup, TryOnGarmentCategory, TryOnGarmentAudience } from "@/lib/tryon-prompt";
 import type { TryOnClothingMode, TryOnClothingRole } from "@/lib/tryon-upload-rules";
 import type { GrassPayloadBase } from "@/lib/grass-planting";
@@ -66,6 +72,7 @@ import {
   type ProductSetResolvedTemplate,
   type ProductSetSettings,
 } from "@/lib/product-set";
+import type { AiVideoResolution } from "@/lib/ai-video";
 
 type GenerationJobPayloadBase = {
   publicBaseUrl?: string | null;
@@ -77,12 +84,14 @@ export type GenerationJobPayload = GenerationJobPayloadBase & (
       clothingUrls: string[];
       clothingMode?: TryOnClothingMode;
       clothingRoles?: TryOnClothingRole[];
+      clothingAnalysis?: TryOnClothingAnalysis | null;
       garmentAudience?: TryOnGarmentAudience;
       ageGroup?: TryOnAgeGroup;
       garmentCategory?: TryOnGarmentCategory;
       modelFaceUrl?: string | null;
       referenceUrl?: string | null;
       referenceUrls?: string[];
+      referenceAnalyses?: TryOnReferenceAnalysis[];
       aiModel: LingyaModel;
       aspectRatio: AspectRatio;
       imageSize: ImageSize;
@@ -128,6 +137,8 @@ export type GenerationJobPayload = GenerationJobPayloadBase & (
       poseStyle?: PoseSeriesStyle;
       outputMode?: PoseOutputMode;
       genCount?: number;
+      poseAnalysis?: PoseVisualAnalysis | null;
+      posePlan?: PosePlan | null;
     }
   | {
       kind: "garment3d";
@@ -187,6 +198,28 @@ export type GenerationJobPayload = GenerationJobPayloadBase & (
       prompt: string;
       genCount: number;
     }
+  | {
+      kind: "videoImageToVideo";
+      imageUrl: string;
+      prompt: string;
+      templateId?: number;
+      templateTitle?: string;
+      resolution: AiVideoResolution;
+      aspectRatio?: "9:16" | "16:9";
+      aiModel: string;
+      genCount: number;
+    }
+  | {
+      kind: "videoMotion";
+      modelImageUrl: string;
+      referenceVideoUrl: string;
+      prompt?: string;
+      templateId?: number;
+      templateTitle?: string;
+      resolution: AiVideoResolution;
+      aiModel: string;
+      genCount: number;
+    }
 );
 
 interface ClaimedJob {
@@ -208,7 +241,7 @@ interface ExhaustedJob {
 type PromptTraceItem = {
   index: number;
   kind: GenerationJobPayload["kind"];
-  model: LingyaModel;
+  model: string;
   promptKind: string;
   prompt: string;
   compiledPrompt: string;
@@ -306,9 +339,10 @@ async function runClaimedJob(
           continue;
         }
 
-        const [persisted] = await persistGeneratedImageUrls([rawUrl], job.id, {
+        const [persisted] = await persistGeneratedMediaUrls([rawUrl], job.id, {
           forceServerDownload: isSeedreamPayload(payload),
           startIndex: index,
+          mediaType: isVideoPayload(payload) ? "video" : "image",
         });
         const finalUrl = persisted || rawUrl;
         persistedResultUrlByRawUrl.set(rawUrl, finalUrl);
@@ -698,10 +732,12 @@ async function executePayload(
   const executeParallelImageBatch = async (params: {
     count: number;
     concurrency?: number;
+    maxAttemptsPerSlot?: number;
     promptKind: string | ((index: number) => string);
     run: (index: number, onTaskProgress: (progress: ImageTaskProgress) => Promise<void>) => Promise<ParallelImageRunResult>;
   }): Promise<GenerationExecutionResult> => {
     const expectedCount = Math.max(1, Math.floor(params.count || 1));
+    const maxAttemptsPerSlot = Math.max(1, Math.floor(params.maxAttemptsPerSlot || 1));
     const resultUrlSlots: string[][] = Array.from({ length: expectedCount }, () => []);
     const traceSlots: Array<PromptTraceItem | null> = Array.from({ length: expectedCount }, () => null);
     const failures: Array<{ index: number; message: string }> = [];
@@ -718,52 +754,68 @@ async function executePayload(
     };
 
     const runOne = async (index: number) => {
-      try {
-        const result = await params.run(index, (progress) => {
-          taskProgress[index] = Math.max(taskProgress[index] || 0, clampProgress(progress.progress));
-          const aggregateProgress = Math.min(
-            99,
-            Math.max(1, Math.round(taskProgress.reduce((sum, value) => sum + value, 0) / expectedCount))
-          );
-          return emitProgress({
-            resultUrls: getSlottedResultUrls(),
-            promptTrace: getCompletedPromptTrace(),
-            progress: aggregateProgress,
-            externalTaskId: progress.taskId,
-            externalStatus: progress.providerStatus || progress.status,
+      let lastMessage = "image task failed";
+      for (let attempt = 1; attempt <= maxAttemptsPerSlot; attempt++) {
+        try {
+          const result = await params.run(index, (progress) => {
+            taskProgress[index] = Math.max(taskProgress[index] || 0, clampProgress(progress.progress));
+            const aggregateProgress = Math.min(
+              99,
+              Math.max(1, Math.round(taskProgress.reduce((sum, value) => sum + value, 0) / expectedCount))
+            );
+            return emitProgress({
+              resultUrls: getSlottedResultUrls(),
+              promptTrace: getCompletedPromptTrace(),
+              progress: aggregateProgress,
+              externalTaskId: progress.taskId,
+              externalStatus: progress.providerStatus || progress.status,
+            });
           });
-        });
-        const nextUrls = (result.resultUrls?.length ? result.resultUrls : result.resultUrl ? [result.resultUrl] : [])
-          .filter((url): url is string => Boolean(url));
-        resultUrlSlots[index] = nextUrls;
-        traceSlots[index] = createPromptTraceItem({
-          index: index + 1,
-          kind: payload.kind,
-          model: payload.aiModel,
-          promptKind: typeof params.promptKind === "function" ? params.promptKind(index) : params.promptKind,
-          prompt: result.prompt,
-          compiledPrompt: result.compiledPrompt,
-        });
-        taskProgress[index] = 100;
-        completedCount += 1;
-        await emitProgress(createCompletedImageProgress(
-          getSlottedResultUrls(),
-          getCompletedPromptTrace(),
-          result.taskId,
-          completedCount,
-          expectedCount
-        ));
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "image task failed";
-        failures.push({ index, message });
-        taskProgress[index] = 100;
-        await emitProgress({
-          resultUrls: getSlottedResultUrls(),
-          promptTrace: getCompletedPromptTrace(),
-          progress: Math.min(99, Math.round(taskProgress.reduce((sum, value) => sum + value, 0) / expectedCount)),
-          externalStatus: "FAILED",
-        });
+          const nextUrls = (result.resultUrls?.length ? result.resultUrls : result.resultUrl ? [result.resultUrl] : [])
+            .filter((url): url is string => Boolean(url));
+          if (!nextUrls.length) throw new Error("image task returned no image");
+          resultUrlSlots[index] = nextUrls;
+          traceSlots[index] = createPromptTraceItem({
+            index: index + 1,
+            kind: payload.kind,
+            model: payload.aiModel,
+            promptKind: typeof params.promptKind === "function" ? params.promptKind(index) : params.promptKind,
+            prompt: result.prompt,
+            compiledPrompt: result.compiledPrompt,
+          });
+          taskProgress[index] = 100;
+          completedCount += 1;
+          await emitProgress(createCompletedImageProgress(
+            getSlottedResultUrls(),
+            getCompletedPromptTrace(),
+            result.taskId,
+            completedCount,
+            expectedCount
+          ));
+          return;
+        } catch (error) {
+          lastMessage = error instanceof Error ? error.message : "image task failed";
+          if (attempt < maxAttemptsPerSlot) {
+            taskProgress[index] = Math.max(taskProgress[index] || 0, 5);
+            await emitProgress({
+              resultUrls: getSlottedResultUrls(),
+              promptTrace: getCompletedPromptTrace(),
+              progress: Math.min(99, Math.round(taskProgress.reduce((sum, value) => sum + value, 0) / expectedCount)),
+              externalStatus: `RETRYING_${attempt + 1}`,
+            });
+            continue;
+          }
+        }
       }
+
+      failures.push({ index, message: lastMessage });
+      taskProgress[index] = 100;
+      await emitProgress({
+        resultUrls: getSlottedResultUrls(),
+        promptTrace: getCompletedPromptTrace(),
+        progress: Math.min(99, Math.round(taskProgress.reduce((sum, value) => sum + value, 0) / expectedCount)),
+        externalStatus: "FAILED",
+      });
     };
 
     const workerCount = Math.min(
@@ -794,6 +846,74 @@ async function executePayload(
     };
   };
 
+  if (payload.kind === "videoImageToVideo") {
+    const result = await generateOmniImageToVideo({
+      imageUrl: payload.imageUrl,
+      prompt: payload.prompt,
+      resolution: payload.resolution,
+      aspectRatio: payload.aspectRatio,
+      onProgress: async (progress) => {
+        await onProgress?.({
+          resultUrls: progress.urls || [],
+          promptTrace,
+          progress: progress.progress,
+          externalTaskId: progress.taskId,
+          externalStatus: progress.providerStatus || progress.status,
+        });
+      },
+    });
+    const trace = createPromptTraceItem({
+      index: 1,
+      kind: payload.kind,
+      model: payload.aiModel,
+      promptKind: "video:image-to-video",
+      prompt: result.prompt,
+      compiledPrompt: result.compiledPrompt,
+    });
+    promptTrace.push(trace);
+    return {
+      resultUrls: result.urls,
+      promptTrace,
+      progress: 100,
+      externalTaskId: result.taskId,
+      externalStatus: result.providerStatus,
+    };
+  }
+
+  if (payload.kind === "videoMotion") {
+    const result = await generateKlingMotionControl({
+      modelImageUrl: payload.modelImageUrl,
+      referenceVideoUrl: payload.referenceVideoUrl,
+      prompt: payload.prompt,
+      resolution: payload.resolution,
+      onProgress: async (progress) => {
+        await onProgress?.({
+          resultUrls: progress.urls || [],
+          promptTrace,
+          progress: progress.progress,
+          externalTaskId: progress.taskId,
+          externalStatus: progress.providerStatus || progress.status,
+        });
+      },
+    });
+    const trace = createPromptTraceItem({
+      index: 1,
+      kind: payload.kind,
+      model: payload.aiModel,
+      promptKind: "video:motion-control",
+      prompt: result.prompt,
+      compiledPrompt: result.compiledPrompt,
+    });
+    promptTrace.push(trace);
+    return {
+      resultUrls: result.urls,
+      promptTrace,
+      progress: 100,
+      externalTaskId: result.taskId,
+      externalStatus: result.providerStatus,
+    };
+  }
+
   if (payload.kind === "tryon") {
     const referenceUrls = getTryOnPayloadReferenceUrls(payload);
     const imageInputs = await resolvePayloadImageInputs({
@@ -814,16 +934,19 @@ async function executePayload(
         const referenceIndex = resolvedReferenceUrls.length ? Math.floor(index / perReferenceCount) : -1;
         const candidateIndex = resolvedReferenceUrls.length ? index % perReferenceCount : index;
         const referenceUrl = referenceIndex >= 0 ? resolvedReferenceUrls[referenceIndex] : undefined;
+        const referenceAnalysis = referenceIndex >= 0 ? payload.referenceAnalyses?.[referenceIndex] : undefined;
         const result = await batchTryOn({
           model: payload.aiModel,
           clothingUrls: imageInputs.clothingUrls,
           clothingMode: payload.clothingMode,
           clothingRoles: payload.clothingRoles,
+          clothingAnalysis: payload.clothingAnalysis,
           garmentAudience: payload.garmentAudience,
           ageGroup: payload.ageGroup,
           garmentCategory: payload.garmentCategory,
           modelFaceUrl: imageInputs.modelFaceUrl,
           referenceUrl,
+          referenceAnalysis,
           aspect_ratio: payload.aspectRatio,
           image_size: payload.imageSize,
           style: payload.style,
@@ -976,18 +1099,29 @@ async function executePayload(
     const imageInputs = await resolvePayloadImageInputs({ clothingUrls: [payload.mainImageUrl] });
     const poseStyle = normalizePoseSeriesStyle(payload.poseStyle);
     const outputMode = normalizePoseOutputMode(payload.outputMode);
+    const poseAnalysis = normalizePoseVisualAnalysis(payload.poseAnalysis);
+    const posePlan = normalizePosePlan(payload.posePlan, {
+      poseAnalysis,
+      poseStyle,
+      outputMode,
+      prompt: payload.prompt,
+    });
     const prompt = enforcePosePromptRequirements(applyPoseSeriesStylePrompt(payload.prompt, poseStyle), {
       poseStyle,
       outputMode,
+      poseAnalysis,
+      posePlan,
     });
 
     if (outputMode === "separate") {
       const generationCount = getPoseGenerationCount(payload);
       return executeParallelImageBatch({
         count: generationCount,
+        concurrency: 2,
+        maxAttemptsPerSlot: 3,
         promptKind: "pose",
         run: async (index, onTaskProgress) => {
-          const posePrompt = buildSeparatePosePrompt(prompt, index + 1, poseStyle, payload.prompt);
+          const posePrompt = buildSeparatePosePrompt(prompt, index + 1, poseStyle, payload.prompt, poseAnalysis, posePlan);
           const result = await generateImage({
             model: payload.aiModel,
             prompt: posePrompt,
@@ -1470,7 +1604,7 @@ function shouldAutoRegenerate(payload: GenerationJobPayload, job: ClaimedJob) {
 }
 
 function shouldSkipVisualQualityEvaluation(payload: GenerationJobPayload) {
-  if (payload.kind === "tryon" || payload.kind === "pose") return true;
+  if (payload.kind === "tryon" || payload.kind === "pose" || isVideoPayload(payload)) return true;
   return false;
 }
 
@@ -1483,7 +1617,9 @@ function createSkippedVisualQualityEvaluation(payload: GenerationJobPayload): Vi
       ? "服装上身已跳过自动视觉评估。"
       : payload.kind === "pose"
         ? "姿势裂变已跳过自动视觉评估。"
-        : "已跳过自动视觉评估。",
+        : isVideoPayload(payload)
+          ? "视频生成已跳过自动视觉评估。"
+          : "已跳过自动视觉评估。",
     issues: [],
     source: "deterministic",
   };
@@ -1503,6 +1639,7 @@ function repairPayloadPrompt(payload: GenerationJobPayload, quality: VisualQuali
 function getPayloadPrompt(payload: GenerationJobPayload) {
   if (payload.kind === "tryon") return payload.rawPrompt || payload.style || "人物换装生成";
   if (payload.kind === "garment3d") return payload.userPrompt || payload.prompt;
+  if (payload.kind === "videoMotion") return payload.prompt || "动作模仿视频生成";
   return payload.prompt;
 }
 
@@ -1531,6 +1668,8 @@ function getPayloadReferenceImages(payload: GenerationJobPayload) {
   if (payload.kind === "modelBackground") return [payload.sourceUrl, payload.modelReferenceUrl, payload.backgroundReferenceUrl].filter((url): url is string => typeof url === "string" && url.length > 0);
   if (payload.kind === "generalImage") return payload.referenceUrls;
   if (payload.kind === "pose") return [payload.mainImageUrl];
+  if (payload.kind === "videoImageToVideo") return [payload.imageUrl];
+  if (payload.kind === "videoMotion") return [payload.modelImageUrl];
   if (payload.kind === "faceSwap") return [payload.sourceUrl, payload.faceUrl];
   if (payload.kind === "commerceDetail") return payload.sourceUrls;
   if (payload.kind === "productSet") {
@@ -1675,6 +1814,22 @@ function isJobPayload(value: unknown): value is GenerationJobPayload {
       typeof value.genCount === "number";
   }
 
+  if (value.kind === "videoImageToVideo") {
+    return typeof value.imageUrl === "string" &&
+      typeof value.prompt === "string" &&
+      typeof value.resolution === "string" &&
+      typeof value.aiModel === "string" &&
+      typeof value.genCount === "number";
+  }
+
+  if (value.kind === "videoMotion") {
+    return typeof value.modelImageUrl === "string" &&
+      typeof value.referenceVideoUrl === "string" &&
+      typeof value.resolution === "string" &&
+      typeof value.aiModel === "string" &&
+      typeof value.genCount === "number";
+  }
+
   return false;
 }
 
@@ -1753,7 +1908,11 @@ function getFirstRow(data: unknown): ClaimedJob | null {
 }
 
 function isSeedreamPayload(payload: GenerationJobPayload) {
-  return payload.aiModel.startsWith("doubao-seedream-");
+  return "aiModel" in payload && typeof payload.aiModel === "string" && payload.aiModel.startsWith("doubao-seedream-");
+}
+
+function isVideoPayload(payload: GenerationJobPayload): payload is Extract<GenerationJobPayload, { kind: "videoImageToVideo" | "videoMotion" }> {
+  return payload.kind === "videoImageToVideo" || payload.kind === "videoMotion";
 }
 
 async function refundExhaustedJobs(supabase: ReturnType<typeof createAdminClient>) {

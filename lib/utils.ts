@@ -43,13 +43,16 @@ export function generateDownloadFilename(prefix: string, index: number, ext = "p
  */
 function inferExt(url: string): string {
   const lower = url.toLowerCase();
+  if (lower.includes(".mp4")) return "mp4";
+  if (lower.includes(".mov")) return "mov";
+  if (lower.includes(".webm")) return "webm";
   if (lower.includes(".jpg") || lower.includes(".jpeg")) return "jpg";
   if (lower.includes(".webp")) return "webp";
   if (lower.includes(".png")) return "png";
   return "png";
 }
 
-export async function downloadImage(url: string, filename: string) {
+export async function downloadMedia(url: string, filename: string) {
   const downloadUrl = url.startsWith("http")
     ? `/api/download-image?url=${encodeURIComponent(url)}&filename=${encodeURIComponent(filename)}`
     : url;
@@ -66,6 +69,10 @@ export async function downloadImage(url: string, filename: string) {
   } catch {
     window.open(downloadUrl, "_blank", "noopener,noreferrer");
   }
+}
+
+export async function downloadImage(url: string, filename: string) {
+  return downloadMedia(url, filename);
 }
 
 /**
@@ -88,8 +95,16 @@ export const ACCEPTED_IMAGE_TYPES = {
   "image/webp": [".webp"],
 };
 
+export const ACCEPTED_VIDEO_TYPES = {
+  "video/mp4": [".mp4"],
+  "video/quicktime": [".mov"],
+  "video/mov": [".mov"],
+};
+
 export const MAX_FILE_SIZE_MB = 15;
 export const MAX_FILE_SIZE = MAX_FILE_SIZE_MB * 1024 * 1024;
+export const MAX_VIDEO_FILE_SIZE_MB = 100;
+export const MAX_VIDEO_FILE_SIZE = MAX_VIDEO_FILE_SIZE_MB * 1024 * 1024;
 const UPLOAD_TRANSPORT_SAFE_SIZE_MB = 8;
 export const MAX_CLOTHING_FILES = 5;
 
@@ -220,6 +235,24 @@ export async function uploadImage(file: File): Promise<UploadResult> {
   form.append("name", file.name.replace(/\.[^.]+$/, ""));
 
   const res = await fetch("/api/upload-image", {
+    method: "POST",
+    body: form,
+  });
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || `上传失败 (${res.status})`);
+  }
+
+  return res.json();
+}
+
+export async function uploadVideo(file: File): Promise<UploadResult> {
+  const form = new FormData();
+  form.append("video", file);
+  form.append("name", file.name.replace(/\.[^.]+$/, ""));
+
+  const res = await fetch("/api/upload-video", {
     method: "POST",
     body: form,
   });

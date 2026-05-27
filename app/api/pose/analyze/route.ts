@@ -8,6 +8,7 @@ import {
   POSE_CLOTHING_RULE,
   POSE_CONSISTENCY_REQUIREMENT,
   POSE_FACE_SHAPE_RULE,
+  POSE_GENDER_IDENTITY_LOCK_RULE,
   POSE_LAYOUT_REQUIREMENT,
   POSE_QUALITY,
   POSE_SERIES_RULE,
@@ -34,23 +35,24 @@ export async function POST(request: NextRequest) {
     const stylePrompt = buildPoseSeriesStylePrompt(poseStyle);
 
     const textPrompt = `分析图1，生成 100 分商业时装姿势裂变提示词。
-图1：主图，分析人物身份、脸部特征、发型、服装版型、面料纹理、服装结构、场景、构图、镜头、光影和色彩。
+图1：主图，分析人物身份、性别表达、年龄感、身体骨架、脸部特征、发型、服装版型、面料纹理、服装结构、场景、构图、镜头、光影和色彩。
 
 硬性输出规则，不能省略，不能改写成普通单人照片：
 1. ${POSE_LAYOUT_REQUIREMENT}
 2. ${POSE_CONSISTENCY_REQUIREMENT}
-3. 镜头、画幅、景别和构图由当前风格与用户提示词决定；不要强制统一焦段、统一镜头距离或固定 50mm。
-4. ${POSE_SERIES_RULE}
-5. ${POSE_CLOTHING_RULE}
-6. ${POSE_BODY_RULE}
-7. ${POSE_SKIN_COLOR_RULE}
-8. ${POSE_FACE_SHAPE_RULE}
-9. 只改变人物动作、轻微自然表情和用户允许的镜头/构图变化；不要改变人物身份、身体比例、服装结构、背景光线和色调。
-10. 不要套用固定姿势模板。根据当前风格、图1人物气质和服装版型，自主设计四个自然可信、彼此不同、适合商业展示的姿势。
-11. 如果需要描述镜头，只写风格化方向，不要写死 consistent medium full-body framing、50mm、eye level 等固定参数。
-12. 用中文描述，一段总述加四个姿势行，340-520字。
-13. 结尾必须包含：${POSE_QUALITY}
-14. 负面：不要换脸、不要换衣服、不要改变场景、不要改变服装结构、不要生成多余人物、不要自动美白、不要雪白皮或冷白皮、不要标准鹅蛋脸或小V脸、不要AI味、不要文字水印。
+3. ${POSE_GENDER_IDENTITY_LOCK_RULE}
+4. 镜头、画幅、景别和构图由当前风格与用户提示词决定；不要强制统一焦段、统一镜头距离或固定 50mm。
+5. ${POSE_SERIES_RULE}
+6. ${POSE_CLOTHING_RULE}
+7. ${POSE_BODY_RULE}
+8. ${POSE_SKIN_COLOR_RULE}
+9. ${POSE_FACE_SHAPE_RULE}
+10. 只改变人物动作、轻微自然表情和用户允许的镜头/构图变化；不要改变人物身份、性别表达、身体骨架、身体比例、服装结构、背景光线和色调。
+11. 不要套用固定姿势模板。根据当前风格、图1人物气质和服装版型，自主设计四个自然可信、彼此不同、适合商业展示的姿势。
+12. 如果需要描述镜头，只写风格化方向，不要写死 consistent medium full-body framing、50mm、eye level 等固定参数。
+13. 用中文描述，一段总述加四个姿势行，340-520字。
+14. 结尾必须包含：${POSE_QUALITY}
+15. 负面：不要换脸、不要换衣服、不要改变性别表达、不要把男性变成女性或女性化男性身体、不要改变场景、不要改变服装结构、不要生成多余人物、不要自动美白、不要雪白皮或冷白皮、不要标准鹅蛋脸或小V脸、不要AI味、不要文字水印。
 
 当前拍摄风格档位：${getPoseSeriesStyleLabel(poseStyle)}
 ${stylePrompt}

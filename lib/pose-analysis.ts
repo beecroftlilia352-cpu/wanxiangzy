@@ -1,0 +1,407 @@
+export type PoseVisualGenderExpression = "male" | "female" | "androgynous" | "unknown";
+export type PoseVisualAgeRange = "child" | "teen" | "adult" | "unknown";
+export type PoseVisualBodyCrop =
+  | "full_body"
+  | "three_quarter"
+  | "upper_body"
+  | "lower_body"
+  | "closeup"
+  | "partial_unknown";
+
+export type PoseVisualAnalysis = {
+  personVisible: boolean;
+  personCount: number;
+  genderExpression: PoseVisualGenderExpression;
+  ageRange: PoseVisualAgeRange;
+  bodyCrop: PoseVisualBodyCrop;
+  bodyOrientation: string;
+  headDirection: string;
+  poseBaseline: string;
+  cameraFraming: string;
+  cameraAngle: string;
+  outfitDescription: string;
+  hairDescription: string;
+  faceIdentityNotes: string;
+  skinToneNotes: string;
+  background: string;
+  lighting: string;
+  handsVisible: boolean;
+  feetVisible: boolean;
+  occlusionNotes: string;
+  generationRisks: string[];
+  promptNotes: string;
+  confidence: number;
+};
+
+export type PoseVisualAnalysisDetailItem = {
+  label: string;
+  value: string;
+  title?: string;
+};
+
+export const POSE_VISUAL_ANALYSIS_VERSION = "pose-visual-analysis-v1";
+
+export const POSE_VISUAL_GENDER_LABELS: Record<PoseVisualGenderExpression, string> = {
+  male: "男",
+  female: "女",
+  androgynous: "中性",
+  unknown: "性别未知",
+};
+
+export const POSE_VISUAL_AGE_LABELS: Record<PoseVisualAgeRange, string> = {
+  child: "儿童",
+  teen: "青少年",
+  adult: "成人",
+  unknown: "年龄未知",
+};
+
+export const POSE_VISUAL_BODY_CROP_LABELS: Record<PoseVisualBodyCrop, string> = {
+  full_body: "全身",
+  three_quarter: "七分身",
+  upper_body: "上半身",
+  lower_body: "下半身",
+  closeup: "局部特写",
+  partial_unknown: "构图未知",
+};
+
+export function normalizePoseVisualAnalysis(input: unknown): PoseVisualAnalysis | null {
+  const record = toRecord(input);
+  if (!record) return null;
+  const confidence = Number(record.confidence);
+  const personVisible = readBoolean(record, "personVisible", "person_visible") ?? true;
+
+  return {
+    personVisible,
+    personCount: normalizePersonCount(record.personCount ?? record.person_count),
+    genderExpression: normalizeGenderExpression(readString(record, "genderExpression", "gender_expression", "gender")),
+    ageRange: normalizeAgeRange(readString(record, "ageRange", "age_range", "age")),
+    bodyCrop: normalizeBodyCrop(readString(record, "bodyCrop", "body_crop", "crop")),
+    bodyOrientation: clampText(readString(record, "bodyOrientation", "body_orientation")),
+    headDirection: clampText(readString(record, "headDirection", "head_direction")),
+    poseBaseline: clampText(readString(record, "poseBaseline", "pose_baseline", "pose")),
+    cameraFraming: clampText(readString(record, "cameraFraming", "camera_framing", "framing")),
+    cameraAngle: clampText(readString(record, "cameraAngle", "camera_angle")),
+    outfitDescription: clampText(readString(record, "outfitDescription", "outfit_description", "outfit"), 220),
+    hairDescription: clampText(readString(record, "hairDescription", "hair_description", "hair")),
+    faceIdentityNotes: clampText(readString(record, "faceIdentityNotes", "face_identity_notes", "face"), 220),
+    skinToneNotes: clampText(readString(record, "skinToneNotes", "skin_tone_notes", "skin")),
+    background: clampText(readString(record, "background", "scene")),
+    lighting: clampText(readString(record, "lighting", "light")),
+    handsVisible: readBoolean(record, "handsVisible", "hands_visible") ?? false,
+    feetVisible: readBoolean(record, "feetVisible", "feet_visible") ?? false,
+    occlusionNotes: clampText(readString(record, "occlusionNotes", "occlusion_notes", "occlusion")),
+    generationRisks: normalizeStringArray(record.generationRisks ?? record.generation_risks ?? record.risks, 5, 90),
+    promptNotes: clampText(readString(record, "promptNotes", "prompt_notes"), 240),
+    confidence: Number.isFinite(confidence) ? clamp(confidence, 0, 1) : personVisible ? 0.5 : 0.35,
+  };
+}
+
+export function fallbackPoseVisualAnalysis(): PoseVisualAnalysis {
+  return {
+    personVisible: true,
+    personCount: 1,
+    genderExpression: "unknown",
+    ageRange: "unknown",
+    bodyCrop: "partial_unknown",
+    bodyOrientation: "",
+    headDirection: "",
+    poseBaseline: "",
+    cameraFraming: "",
+    cameraAngle: "",
+    outfitDescription: "",
+    hairDescription: "",
+    faceIdentityNotes: "",
+    skinToneNotes: "",
+    background: "",
+    lighting: "",
+    handsVisible: false,
+    feetVisible: false,
+    occlusionNotes: "",
+    generationRisks: ["visual analysis unavailable"],
+    promptNotes: "Use the source image conservatively: preserve the visible person, outfit, crop, camera distance, background, lighting, gender expression and body proportions.",
+    confidence: 0.35,
+  };
+}
+
+export function buildPoseVisualAnalysisKey(mainImageUrl: string, version = POSE_VISUAL_ANALYSIS_VERSION) {
+  return JSON.stringify({
+    version,
+    mainImageUrl: normalizeAnalysisUrl(mainImageUrl),
+  });
+}
+
+export function getPoseVisualAnalysisSummary(analysis: PoseVisualAnalysis | null | undefined) {
+  if (!analysis) return "";
+  const parts = [
+    POSE_VISUAL_AGE_LABELS[analysis.ageRange],
+    POSE_VISUAL_GENDER_LABELS[analysis.genderExpression],
+    POSE_VISUAL_BODY_CROP_LABELS[analysis.bodyCrop],
+  ].filter((part) => part && !part.includes("未知"));
+
+  const orientation = toPoseDisplayPhrase(analysis.bodyOrientation);
+  if (orientation) parts.push(orientation);
+  if (analysis.handsVisible) parts.push("手可见");
+  if (analysis.feetVisible) parts.push("脚可见");
+
+  return parts.length ? parts.slice(0, 5).join(" / ") : "主图已识别";
+}
+
+export function getPoseVisualAnalysisDetailItems(analysis: PoseVisualAnalysis | null | undefined): PoseVisualAnalysisDetailItem[] {
+  if (!analysis) return [];
+  const details: PoseVisualAnalysisDetailItem[] = [];
+  const outfit = summarizeOutfitForDisplay(analysis.outfitDescription);
+  if (outfit) details.push({ label: "服装", value: outfit, title: analysis.outfitDescription });
+  const camera = summarizeFactForDisplay(analysis.cameraFraming);
+  if (camera) details.push({ label: "构图", value: camera, title: analysis.cameraFraming });
+  const lighting = summarizeFactForDisplay(analysis.lighting);
+  if (lighting) details.push({ label: "光线", value: lighting, title: analysis.lighting });
+  const risks = analysis.generationRisks
+    .slice(0, 2)
+    .map((risk) => toPoseDisplayPhrase(risk) || summarizeFactForDisplay(risk))
+    .filter(Boolean);
+  if (risks.length) details.push({ label: "风险", value: risks.join("、"), title: analysis.generationRisks.join("、") });
+  details.push({ label: "置信", value: `${Math.round(analysis.confidence * 100)}%` });
+  return details;
+}
+
+export function getPoseVisualAnalysisDetailText(analysis: PoseVisualAnalysis | null | undefined) {
+  return getPoseVisualAnalysisDetailItems(analysis)
+    .map((item) => `${item.label}：${item.value}`)
+    .join(" · ");
+}
+
+export function buildPoseVisualAnalysisRule(
+  analysis: PoseVisualAnalysis | null | undefined,
+  outputMode: "grid" | "separate" = "grid"
+) {
+  if (!analysis) return "";
+  const person = [
+    `${POSE_VISUAL_AGE_LABELS[analysis.ageRange]}${POSE_VISUAL_GENDER_LABELS[analysis.genderExpression]}`,
+    analysis.personCount > 1 ? `${analysis.personCount} people detected; generate only the intended same primary person from image 1` : "single source person",
+    analysis.bodyOrientation,
+    analysis.headDirection,
+  ].filter(Boolean).join("; ");
+  const cropRule = getBodyCropPromptRule(analysis.bodyCrop);
+  const genderRule = getGenderPromptRule(analysis.genderExpression);
+  const visibility = [
+    analysis.handsVisible ? "hands visible in source" : "hands not clearly visible in source",
+    analysis.feetVisible ? "feet visible in source" : "feet not clearly visible in source",
+  ].join(", ");
+  const fields = [
+    `视觉识别约束（来自图1主图，优先级高于姿势变化）：${person || "source person detected"}.`,
+    genderRule,
+    `构图：${POSE_VISUAL_BODY_CROP_LABELS[analysis.bodyCrop]}${analysis.cameraFraming ? `；${analysis.cameraFraming}` : ""}${analysis.cameraAngle ? `；${analysis.cameraAngle}` : ""}。${cropRule}`,
+    analysis.poseBaseline ? `源姿势：${analysis.poseBaseline}。不要复制源姿势，但要保持真实身体结构和关节逻辑。` : "",
+    analysis.outfitDescription ? `服装锁定：${analysis.outfitDescription}；所有姿势保持同一服装结构、颜色、图案、材质、穿着层次和可见细节。` : "",
+    analysis.faceIdentityNotes ? `身份锁定：${analysis.faceIdentityNotes}；不要改脸、脸型、五官比例或年龄感。` : "",
+    analysis.hairDescription ? `发型锁定：${analysis.hairDescription}。` : "",
+    analysis.skinToneNotes ? `肤色锁定：${analysis.skinToneNotes}；不要自动美白或改变冷暖明暗。` : "",
+    analysis.background || analysis.lighting ? `场景光线锁定：${[analysis.background, analysis.lighting].filter(Boolean).join("；")}。` : "",
+    `可见性：${visibility}。生成时不要因为目标姿势而改变图1本来可见的身体范围、服装展示尺度或镜头距离。`,
+    analysis.occlusionNotes ? `遮挡风险：${analysis.occlusionNotes}；动作遮挡必须自然，不能遮掉关键服装结构。` : "",
+    analysis.generationRisks.length ? `风险规避：${analysis.generationRisks.join("；")}。` : "",
+    analysis.promptNotes ? `补充识别说明：${analysis.promptNotes}` : "",
+    outputMode === "separate"
+      ? "当前是单张 slot 生成：每个 slot 只改变目标姿势，不继承上一张结果，不改变上述图1身份和服装事实。"
+      : "当前是四宫格生成：四个分格必须共享上述图1身份、服装、构图范围、背景和光线事实。",
+  ].filter(Boolean);
+
+  return fields.join("\n");
+}
+
+function getGenderPromptRule(gender: PoseVisualGenderExpression) {
+  if (gender === "male") {
+    return "性别锁定：图1识别为男性表达；最终必须仍是同一个男性人物，不要女性化身体、妆发、胸腰胯比例、站姿气质或脸部气质。";
+  }
+  if (gender === "female") {
+    return "性别锁定：图1识别为女性表达；最终必须仍是同一个女性人物，不要男性化身体骨架、妆发、站姿气质或脸部气质。";
+  }
+  if (gender === "androgynous") {
+    return "性别锁定：保持图1中性/弱性别化表达，不要强行女性化或男性化。";
+  }
+  return "性别锁定：图1性别表达置信不足；保持源图原有性别气质、身体骨架、肩宽、胸腰胯比例、妆发和身份感，不要漂移。";
+}
+
+function getBodyCropPromptRule(bodyCrop: PoseVisualBodyCrop) {
+  if (bodyCrop === "full_body") return "保持全身头脚展示范围，避免裁掉头、手、腿、脚或鞋。";
+  if (bodyCrop === "three_quarter") return "保持七分身/三分之二以上身体展示范围，不要突然变成近景特写或无关全身扩图。";
+  if (bodyCrop === "upper_body") return "保持上半身展示逻辑，不要强行补出不可信的下半身、脚部或远景全身。";
+  if (bodyCrop === "lower_body") return "保持下半身展示逻辑，不要强行补出不可信的人脸、头部或完整上半身。";
+  if (bodyCrop === "closeup") return "保持局部近景展示逻辑，不要扩成无关全身照。";
+  return "保持图1实际可见身体范围和裁切边界，无法确认的部位不要主动重构。";
+}
+
+function toPoseDisplayPhrase(value: string) {
+  const normalized = value.trim().toLowerCase().replace(/[\s-]+/g, "_");
+  if (!normalized) return "";
+  if (containsCjk(value)) return value.trim();
+  const exact: Record<string, string> = {
+    front_facing: "正面",
+    frontal: "正面",
+    front_view: "正面",
+    facing_camera: "正面看镜头",
+    three_quarter: "三分之二侧身",
+    three_quarter_view: "三分之二侧身",
+    side_facing: "侧身",
+    side_view: "侧身",
+    back_facing: "背面",
+    back_view: "背面",
+    standing: "站姿",
+    seated: "坐姿",
+    walking: "行走",
+    hand_distortion: "手部风险",
+    hands_distortion: "手部风险",
+    gender_drift: "性别漂移",
+    face_drift: "脸部漂移",
+    identity_drift: "身份漂移",
+    body_proportion_drift: "比例漂移",
+    crop_expansion: "构图扩展",
+    visual_analysis_unavailable: "识别不可用",
+  };
+  return exact[normalized] || "";
+}
+
+function summarizeOutfitForDisplay(value: string) {
+  const text = value.trim();
+  if (!text) return "";
+  if (containsCjk(text)) return clampText(text, 46);
+  const normalized = text.toLowerCase();
+  const parts: string[] = [];
+  const color = getFirstMatchLabel(normalized, [
+    [/dark\s+red|burgundy|wine\s+red/, "深红"],
+    [/red/, "红色"],
+    [/black/, "黑色"],
+    [/white|ivory|cream/, "白色"],
+    [/blue|denim/, "蓝色"],
+    [/gray|grey/, "灰色"],
+    [/beige|khaki/, "米色"],
+    [/green/, "绿色"],
+    [/pink/, "粉色"],
+  ]);
+  if (color) parts.push(color);
+  const garment = getFirstMatchLabel(normalized, [
+    [/spaghetti[-\s]?strap|camisole|tank/, "吊带"],
+    [/mini\s+dress|dress/, "连衣裙"],
+    [/skirt/, "半裙"],
+    [/jeans|pants|trousers/, "裤装"],
+    [/jacket|coat|blazer/, "外套"],
+    [/shirt|blouse/, "衬衫"],
+    [/t[-\s]?shirt|tee/, "T 恤"],
+  ]);
+  if (garment) parts.push(garment);
+  const detailRules: Array<[RegExp, string]> = [
+    [/tiered/, "多层"],
+    [/ruffled|ruffle/, "荷叶边"],
+    [/lace/, "蕾丝"],
+    [/pleated|pleat/, "褶裥"],
+    [/denim/, "牛仔"],
+    [/sleeveless/, "无袖"],
+    [/long[-\s]?sleeve/, "长袖"],
+  ];
+  const details = detailRules.flatMap(([pattern, label]) => pattern.test(normalized) ? [label] : []);
+  parts.push(...details.slice(0, 3));
+  return parts.length ? Array.from(new Set(parts)).join(" / ") : "服装已识别";
+}
+
+function summarizeFactForDisplay(value: string) {
+  const text = value.trim();
+  if (!text) return "";
+  if (containsCjk(text)) return clampText(text, 32);
+  const mapped = toPoseDisplayPhrase(text);
+  if (mapped) return mapped;
+  return clampText(text.replace(/_/g, " "), 28);
+}
+
+function getFirstMatchLabel(text: string, rules: Array<[RegExp, string]>) {
+  return rules.find(([pattern]) => pattern.test(text))?.[1] || "";
+}
+
+function containsCjk(value: string) {
+  return /[\u3400-\u9fff]/.test(value);
+}
+
+function normalizeAnalysisUrl(value: string) {
+  try {
+    const url = new URL(value);
+    return `${url.origin}${url.pathname}`.toLowerCase();
+  } catch {
+    return String(value || "").split("?")[0].trim().toLowerCase();
+  }
+}
+
+function normalizePersonCount(value: unknown) {
+  const count = Number(value);
+  if (!Number.isFinite(count)) return 1;
+  return Math.min(Math.max(Math.floor(count), 0), 6);
+}
+
+function normalizeGenderExpression(value: string): PoseVisualGenderExpression {
+  const normalized = value.toLowerCase();
+  if (["female", "woman", "women", "girl", "feminine", "女", "女性", "女装"].some((item) => normalized.includes(item))) return "female";
+  if (["male", "man", "men", "boy", "masculine", "男", "男性", "男装"].some((item) => normalized.includes(item))) return "male";
+  if (["androgynous", "unisex", "neutral", "中性"].some((item) => normalized.includes(item))) return "androgynous";
+  return "unknown";
+}
+
+function normalizeAgeRange(value: string): PoseVisualAgeRange {
+  const normalized = value.toLowerCase();
+  if (["adult", "成年人", "成人"].some((item) => normalized.includes(item))) return "adult";
+  if (["teen", "teenager", "青少年", "少年"].some((item) => normalized.includes(item))) return "teen";
+  if (["child", "kid", "children", "儿童", "小孩", "幼童"].some((item) => normalized.includes(item))) return "child";
+  return "unknown";
+}
+
+function normalizeBodyCrop(value: string): PoseVisualBodyCrop {
+  if (
+    value === "full_body"
+    || value === "three_quarter"
+    || value === "upper_body"
+    || value === "lower_body"
+    || value === "closeup"
+    || value === "partial_unknown"
+  ) return value;
+  const normalized = value.toLowerCase();
+  if (normalized.includes("full") || normalized.includes("全身")) return "full_body";
+  if (normalized.includes("three") || normalized.includes("七分") || normalized.includes("3/4")) return "three_quarter";
+  if (normalized.includes("upper") || normalized.includes("上半身")) return "upper_body";
+  if (normalized.includes("lower") || normalized.includes("下半身")) return "lower_body";
+  if (normalized.includes("close") || normalized.includes("局部") || normalized.includes("特写")) return "closeup";
+  return "partial_unknown";
+}
+
+function readBoolean(record: Record<string, unknown>, ...keys: string[]) {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "boolean") return value;
+  }
+  return null;
+}
+
+function readString(record: Record<string, unknown>, ...keys: string[]) {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return "";
+}
+
+function normalizeStringArray(value: unknown, maxItems: number, maxLength: number) {
+  return Array.isArray(value)
+    ? value
+        .map((item) => typeof item === "string" ? clampText(item, maxLength) : "")
+        .filter(Boolean)
+        .slice(0, maxItems)
+    : [];
+}
+
+function toRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
+}
+
+function clampText(value: string, maxLength = 140) {
+  return value.replace(/\s+/g, " ").trim().slice(0, maxLength);
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}

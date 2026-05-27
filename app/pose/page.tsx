@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, ChevronRight, PenLine, Sparkles, X, XCircle } from "lucide-react";
+import { CheckCircle2, ChevronRight, Loader2, PenLine, Sparkles, X, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
@@ -11,6 +11,20 @@ import { FeatureTabs } from "@/components/FeatureTabs";
 import { RepairPromptPanel } from "@/components/RepairPromptPanel";
 import { ClientPortal } from "@/components/ClientPortal";
 import { type PoseOutputMode } from "@/lib/pose-prompt";
+import {
+  buildPoseVisualAnalysisKey,
+  getPoseVisualAnalysisDetailItems,
+  getPoseVisualAnalysisSummary,
+  normalizePoseVisualAnalysis,
+  type PoseVisualAnalysis,
+} from "@/lib/pose-analysis";
+import {
+  buildPosePlanCacheKey,
+  buildUserCustomPosePlan,
+  getPosePlanSummary,
+  normalizePosePlan,
+  type PosePlan,
+} from "@/lib/pose-plan";
 import { ModuleHeader } from "@/components/ModuleHeader";
 import { PreviewGuide } from "@/components/PreviewGuide";
 import { ErrorStage } from "@/components/studio/ErrorStage";
@@ -48,6 +62,33 @@ const POSE_GENERATION_POLL_FAST_MS = 3 * 1000;
 const POSE_GENERATION_POLL_SLOW_MS = 5 * 1000;
 
 type PoseHistoryPayload = Extract<HistoryJobPayload, { kind: "pose" }>;
+type PoseAnalysisSource = "vision" | "cache" | "fallback" | "history";
+type PoseAnalysisEntry = {
+  analysis: PoseVisualAnalysis;
+  source: PoseAnalysisSource;
+  error: string | null;
+};
+type PosePlanSource = "vision_plan" | "cache" | "fallback" | "history" | "user_custom";
+type PosePlanEntry = {
+  plan: PosePlan;
+  source: PosePlanSource;
+  error: string | null;
+};
+
+const POSE_ANALYSIS_SOURCE_LABELS: Record<PoseAnalysisSource, string> = {
+  vision: "已识别",
+  cache: "缓存识别",
+  fallback: "保守识别",
+  history: "历史识别",
+};
+
+const POSE_PLAN_SOURCE_LABELS: Record<PosePlanSource, string> = {
+  vision_plan: "AI 规划",
+  cache: "缓存规划",
+  fallback: "保守规划",
+  history: "历史规划",
+  user_custom: "已编辑",
+};
 
 const DEFAULT_POSE_PROMPT = `Use 图1 as the only reference for the same person, outfit, background, lighting and overall photography style.
 Main priority: create clearly different body poses while keeping the outfit design, color, pattern, fabric texture, face identity, natural skin tone and realistic body proportions.
@@ -93,6 +134,15 @@ export default function PosePage() {
   const rulesButtonRef = useRef<HTMLButtonElement>(null);
   const rulesHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const generationRunRef = useRef(0);
+  const poseAnalysisCacheRef = useRef(new Map<string, PoseAnalysisEntry>());
+  const poseAnalysisInflightRef = useRef(new Map<string, Promise<PoseAnalysisEntry>>());
+  const lastPoseAnalysisKeyRef = useRef("");
+  const poseAnalysisSeqRef = useRef(0);
+  const posePlanCacheRef = useRef(new Map<string, PosePlanEntry>());
+  const posePlanInflightRef = useRef(new Map<string, Promise<PosePlanEntry>>());
+  const lastPosePlanKeyRef = useRef("");
+  const posePlanSeqRef = useRef(0);
+  const posePlanBypassCacheRef = useRef(false);
 
   const {
     authChecked,
@@ -114,6 +164,17 @@ export default function PosePage() {
   const [customPoses, setCustomPoses] = useState([...USER_CUSTOM_POSE_DEFAULT.poses]);
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isAnalyzingPose, setIsAnalyzingPose] = useState(false);
+  const [poseAnalysis, setPoseAnalysis] = useState<PoseVisualAnalysis | null>(null);
+  const [poseAnalysisSource, setPoseAnalysisSource] = useState<PoseAnalysisSource | null>(null);
+  const [poseAnalysisError, setPoseAnalysisError] = useState<string | null>(null);
+  const [poseAnalysisRetryCount, setPoseAnalysisRetryCount] = useState(0);
+  const [isPlanningPose, setIsPlanningPose] = useState(false);
+  const [posePlan, setPosePlan] = useState<PosePlan | null>(null);
+  const [posePlanSource, setPosePlanSource] = useState<PosePlanSource | null>(null);
+  const [posePlanError, setPosePlanError] = useState<string | null>(null);
+  const [posePlanRetryCount, setPosePlanRetryCount] = useState(0);
+  const [showPosePlanEditor, setShowPosePlanEditor] = useState(false);
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -144,9 +205,13 @@ export default function PosePage() {
   const authIsAnonymous = authChecked && !isAuthenticated;
   const runDisabledReason = !mainImage
     ? "请先上传主图"
-    : credits !== null && credits < cost
-      ? `积分不足，生成需要 ${cost} 积分`
-      : undefined;
+    : isAnalyzingPose
+      ? "主图正在识别，请稍候。"
+      : isPlanningPose
+        ? "姿势正在规划，请稍候。"
+        : credits !== null && credits < cost
+          ? `积分不足，生成需要 ${cost} 积分`
+          : undefined;
   const cancelRulesHide = () => {
     if (rulesHideTimerRef.current) {
       clearTimeout(rulesHideTimerRef.current);
@@ -177,6 +242,128 @@ export default function PosePage() {
     }, 120);
   };
 
+  function setPoseAnalysisEntry(entry: PoseAnalysisEntry | null) {
+    setPoseAnalysis(entry?.analysis || null);
+    setPoseAnalysisSource(entry?.source || null);
+    setPoseAnalysisError(entry?.error || null);
+    setIsAnalyzingPose(false);
+  }
+
+  function setPosePlanEntry(entry: PosePlanEntry | null) {
+    setPosePlan(entry?.plan || null);
+    setPosePlanSource(entry?.source || null);
+    setPosePlanError(entry?.error || null);
+    setIsPlanningPose(false);
+  }
+
+  function applyPoseAnalysisSnapshot(mainImageUrl: string, rawAnalysis: unknown, source: PoseAnalysisSource = "history") {
+    const analysis = normalizePoseVisualAnalysis(rawAnalysis);
+    const analysisKey = mainImageUrl ? buildPoseVisualAnalysisKey(mainImageUrl) : "";
+    poseAnalysisSeqRef.current += 1;
+    if (analysis && analysisKey) {
+      const entry: PoseAnalysisEntry = { analysis, source, error: null };
+      poseAnalysisCacheRef.current.set(analysisKey, entry);
+      lastPoseAnalysisKeyRef.current = analysisKey;
+      setPoseAnalysisEntry(entry);
+      return;
+    }
+    lastPoseAnalysisKeyRef.current = "";
+    setPoseAnalysisEntry(null);
+  }
+
+  function applyPosePlanSnapshot(payload: PoseHistoryPayload, source: PosePlanSource = "history") {
+    const analysis = normalizePoseVisualAnalysis(payload.poseAnalysis);
+    const planKey = buildPosePlanKey(payload.mainImageUrl, analysis, normalizePoseSeriesStyle(payload.poseStyle), resolvePoseOutputModeFromPayload(payload), payload.prompt);
+    posePlanSeqRef.current += 1;
+    if (payload.posePlan && planKey) {
+      const entry: PosePlanEntry = {
+        plan: normalizePosePlan(payload.posePlan, {
+          poseAnalysis: analysis,
+          poseStyle: normalizePoseSeriesStyle(payload.poseStyle),
+          outputMode: resolvePoseOutputModeFromPayload(payload),
+          prompt: payload.prompt,
+        }),
+        source,
+        error: null,
+      };
+      posePlanCacheRef.current.set(planKey, entry);
+      lastPosePlanKeyRef.current = planKey;
+      setPosePlanEntry(entry);
+      return;
+    }
+    lastPosePlanKeyRef.current = "";
+    setPosePlanEntry(null);
+  }
+
+  function getActivePoseAnalysis() {
+    if (!mainImage || !poseAnalysis) return null;
+    return lastPoseAnalysisKeyRef.current === buildPoseVisualAnalysisKey(mainImage) ? poseAnalysis : null;
+  }
+
+  function buildPlanPromptSource() {
+    return stripLegacyRuleDemoText([
+      poseStyle === "user_custom" ? buildCustomPosePrompt() : prompt,
+      supplementPrompt.trim() ? `补充要求：${supplementPrompt.trim()}` : "",
+    ].filter(Boolean).join("\n\n"));
+  }
+
+  function buildPosePlanKey(
+    imageUrl = mainImage,
+    analysis = getActivePoseAnalysis(),
+    style = poseStyle,
+    mode = outputMode,
+    planPrompt = buildPlanPromptSource()
+  ) {
+    if (!imageUrl) return "";
+    return buildPosePlanCacheKey({
+      mainImageUrl: imageUrl,
+      poseAnalysis: analysis,
+      poseStyle: style,
+      outputMode: mode,
+      prompt: planPrompt,
+    });
+  }
+
+  function getActivePosePlan() {
+    if (!mainImage || !posePlan) return null;
+    return lastPosePlanKeyRef.current === buildPosePlanKey() ? posePlan : null;
+  }
+
+  function retryPoseAnalysis() {
+    if (!mainImage || isAnalyzingPose) return;
+    const analysisKey = buildPoseVisualAnalysisKey(mainImage);
+    poseAnalysisCacheRef.current.delete(analysisKey);
+    lastPoseAnalysisKeyRef.current = "";
+    poseAnalysisSeqRef.current += 1;
+    setPoseAnalysisEntry(null);
+    setPoseAnalysisRetryCount((count) => count + 1);
+  }
+
+  function retryPosePlan() {
+    if (!mainImage || isPlanningPose) return;
+    const planKey = buildPosePlanKey();
+    if (planKey) posePlanCacheRef.current.delete(planKey);
+    lastPosePlanKeyRef.current = "";
+    posePlanSeqRef.current += 1;
+    posePlanBypassCacheRef.current = true;
+    setPosePlanEntry(null);
+    setPosePlanRetryCount((count) => count + 1);
+  }
+
+  function updatePosePlanSlot(index: number, key: keyof Pick<PosePlan["slots"][number], "bodyAction" | "handAction" | "headDirection" | "cameraFraming" | "garmentVisibilityRule">, value: string) {
+    setPosePlan((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        edited: true,
+        slots: prev.slots.map((slot, slotIndex) => (
+          slotIndex === index ? { ...slot, [key]: value } : slot
+        )),
+      };
+    });
+    setPosePlanSource("user_custom");
+  }
+
   useEffect(() => {
     return () => cancelRulesHide();
   }, []);
@@ -190,9 +377,213 @@ export default function PosePage() {
     setPrompt((prev) => stripLegacyRuleDemoText(prev));
   }, []);
 
+  useEffect(() => {
+    const imageUrl = mainImage.trim();
+    if (!imageUrl) {
+      lastPoseAnalysisKeyRef.current = "";
+      poseAnalysisSeqRef.current += 1;
+      setPoseAnalysisEntry(null);
+      return;
+    }
+
+    const analysisKey = buildPoseVisualAnalysisKey(imageUrl);
+    if (lastPoseAnalysisKeyRef.current === analysisKey) return;
+    lastPoseAnalysisKeyRef.current = analysisKey;
+    const seq = poseAnalysisSeqRef.current + 1;
+    poseAnalysisSeqRef.current = seq;
+
+    const cachedAnalysis = poseAnalysisCacheRef.current.get(analysisKey);
+    if (cachedAnalysis) {
+      setPoseAnalysisEntry(cachedAnalysis);
+      return;
+    }
+
+    const run = async () => {
+      setIsAnalyzingPose(true);
+      setPoseAnalysisError(null);
+      try {
+        let request = poseAnalysisInflightRef.current.get(analysisKey);
+        if (!request) {
+          const nextRequest = fetch("/api/pose/analyze-image", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ main_image_url: imageUrl }),
+          }).then(async (res) => {
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || "主图识别失败");
+            const nextAnalysis = normalizePoseVisualAnalysis(data.analysis);
+            if (!nextAnalysis) throw new Error("主图识别结果无效");
+            const nextSource: PoseAnalysisSource = data.cached
+              ? "cache"
+              : data.source === "fallback" ? "fallback" : "vision";
+            const nextError = nextSource === "fallback"
+              ? "主图识别失败，已按保守规则继续"
+              : nextAnalysis.confidence < 0.45
+                ? "主图识别置信较低，已按保守规则继续"
+                : null;
+            return {
+              analysis: nextAnalysis,
+              source: nextSource,
+              error: nextError,
+            };
+          });
+          poseAnalysisInflightRef.current.set(analysisKey, nextRequest);
+          void nextRequest.finally(() => {
+            if (poseAnalysisInflightRef.current.get(analysisKey) === nextRequest) {
+              poseAnalysisInflightRef.current.delete(analysisKey);
+            }
+          });
+          request = nextRequest;
+        }
+
+        const nextEntry = await request;
+        poseAnalysisCacheRef.current.set(analysisKey, nextEntry);
+        if (poseAnalysisSeqRef.current !== seq) return;
+        setPoseAnalysisEntry(nextEntry);
+      } catch (err: any) {
+        if (poseAnalysisSeqRef.current !== seq) return;
+        setPoseAnalysis(null);
+        setPoseAnalysisSource(null);
+        setPoseAnalysisError(err?.message || "主图识别失败，已按默认规则继续");
+      } finally {
+        if (poseAnalysisSeqRef.current === seq) setIsAnalyzingPose(false);
+      }
+    };
+
+    void run();
+  }, [mainImage, poseAnalysisRetryCount]);
+
+  useEffect(() => {
+    const imageUrl = mainImage.trim();
+    if (!imageUrl) {
+      lastPosePlanKeyRef.current = "";
+      posePlanSeqRef.current += 1;
+      setPosePlanEntry(null);
+      return;
+    }
+
+    const activeAnalysis = getActivePoseAnalysis();
+    if (!activeAnalysis && !poseAnalysisError) return;
+    const planPrompt = buildPlanPromptSource();
+    const planKey = buildPosePlanKey(imageUrl, activeAnalysis, poseStyle, outputMode, planPrompt);
+    if (lastPosePlanKeyRef.current === planKey) return;
+    lastPosePlanKeyRef.current = planKey;
+    const seq = posePlanSeqRef.current + 1;
+    posePlanSeqRef.current = seq;
+
+    if (poseStyle === "user_custom") {
+      const plan = buildUserCustomPosePlan({
+        poseAnalysis: activeAnalysis,
+        poseStyle,
+        outputMode,
+        prompt: planPrompt,
+        customPosePrompt,
+        customCamera,
+        customPoses,
+      });
+      const entry: PosePlanEntry = { plan, source: "user_custom", error: null };
+      posePlanCacheRef.current.set(planKey, entry);
+      setPosePlanEntry(entry);
+      return;
+    }
+
+    const cachedPlan = posePlanCacheRef.current.get(planKey);
+    if (cachedPlan) {
+      setPosePlanEntry(cachedPlan);
+      return;
+    }
+
+    const run = async () => {
+      setIsPlanningPose(true);
+      setPosePlanError(null);
+      const forcePlanRequest = posePlanBypassCacheRef.current;
+      try {
+        let request = posePlanInflightRef.current.get(planKey);
+        if (!request || forcePlanRequest) {
+          const nextRequest = fetch("/api/pose/plan", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              main_image_url: imageUrl,
+              pose_analysis: activeAnalysis,
+              pose_style: poseStyle,
+              output_mode: outputMode,
+              prompt: planPrompt,
+              force: forcePlanRequest,
+            }),
+          }).then(async (res) => {
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || "姿势规划失败");
+            const nextPlan = normalizePosePlan(data.posePlan, {
+              poseAnalysis: activeAnalysis,
+              poseStyle,
+              outputMode,
+              prompt: planPrompt,
+            });
+            const nextSource: PosePlanSource = data.source === "fallback"
+              ? "fallback"
+              : data.cached ? "cache" : "vision_plan";
+            return {
+              plan: nextPlan,
+              source: nextSource,
+              error: nextSource === "fallback" ? (data.reasonText || "姿势规划已使用保守方案") : null,
+            };
+          });
+          posePlanInflightRef.current.set(planKey, nextRequest);
+          void nextRequest.finally(() => {
+            if (posePlanInflightRef.current.get(planKey) === nextRequest) {
+              posePlanInflightRef.current.delete(planKey);
+            }
+          });
+          request = nextRequest;
+        }
+
+        const nextEntry = await request;
+        posePlanCacheRef.current.set(planKey, nextEntry);
+        if (posePlanSeqRef.current !== seq) return;
+        setPosePlanEntry(nextEntry);
+      } catch (err: any) {
+        if (posePlanSeqRef.current !== seq) return;
+        const fallback = normalizePosePlan(null, {
+          poseAnalysis: activeAnalysis,
+          poseStyle,
+          outputMode,
+          prompt: planPrompt,
+        });
+        setPosePlanEntry({
+          plan: fallback,
+          source: "fallback",
+          error: err?.message || "姿势规划失败，已使用保守方案",
+        });
+      } finally {
+        if (posePlanSeqRef.current === seq) {
+          posePlanBypassCacheRef.current = false;
+          setIsPlanningPose(false);
+        }
+      }
+    };
+
+    void run();
+  }, [
+    mainImage,
+    poseAnalysis,
+    poseAnalysisError,
+    poseAnalysisSource,
+    poseStyle,
+    outputMode,
+    prompt,
+    supplementPrompt,
+    customPosePrompt,
+    customCamera,
+    customPoses,
+    posePlanRetryCount,
+  ]);
+
   function applyPoseHistoryPayload(payload: PoseHistoryPayload, historyResultUrls: string[] = [], options?: { silent?: boolean }) {
     generationRunRef.current += 1;
     setMainImage(payload.mainImageUrl);
+    applyPoseAnalysisSnapshot(payload.mainImageUrl, payload.poseAnalysis);
+    applyPosePlanSnapshot(payload);
     setAiModel(payload.aiModel);
     setImageSize(payload.imageSize);
     setPrompt(payload.prompt);
@@ -215,21 +606,7 @@ export default function PosePage() {
     const payload = detail?.payload;
     if (cancelled || !payload) return;
 
-    generationRunRef.current += 1;
-    setMainImage(payload.mainImageUrl);
-    setAiModel(payload.aiModel);
-    setImageSize(payload.imageSize);
-    setPrompt(payload.prompt);
-    setSupplementPrompt("");
-    setPoseStyle(normalizePoseSeriesStyle(payload.poseStyle));
-    setOutputMode(resolvePoseOutputModeFromPayload(payload));
-    setRunningExpectedCount(null);
-    setResultUrls(detail?.resultUrls || []);
-    setIsSubmitting(false);
-    setIsGenerating(false);
-    setProgress(detail?.resultUrls.length ? 100 : 0);
-    setError("");
-    toast.success("已套用历史参数");
+    applyPoseHistoryPayload(payload, detail?.resultUrls || []);
     })();
     return () => {
       cancelled = true;
@@ -345,6 +722,8 @@ export default function PosePage() {
     setError("");
     setResultUrls([]);
     const taskInputThumbnails = mainImage ? [mainImage] : [];
+    const activePoseAnalysis = getActivePoseAnalysis();
+    const activePosePlan = getActivePosePlan();
     const provisionalTask = taskQueue.startTask({
       expectedCount: poseExpectedCount,
       inputThumbnails: taskInputThumbnails,
@@ -372,6 +751,8 @@ export default function PosePage() {
           pose_style: poseStyle,
           output_mode: outputMode,
           gen_count: poseExpectedCount,
+          pose_analysis: activePoseAnalysis,
+          pose_plan: activePosePlan,
         }),
       });
       const data = await res.json();
@@ -437,18 +818,24 @@ export default function PosePage() {
           });
         } else if (state.status === "completed") {
           const finalUrls = Array.isArray(state.result_urls) ? state.result_urls : latestTaskResultUrls;
+          const finalResultCount = finalUrls.filter(Boolean).length;
+          const expectedResultCount = Math.max(Number(state.expected_count) || poseExpectedCount, poseExpectedCount);
           if (isCurrentRun()) {
             setProgress(100);
             setResultUrls(finalUrls);
           }
           taskQueue.markCompleted(activeTaskId, {
-            expectedCount: poseExpectedCount,
+            expectedCount: expectedResultCount,
             inputThumbnails: taskInputThumbnails,
             resultThumbnails: finalUrls,
-            resultCount: finalUrls.filter(Boolean).length,
+            resultCount: finalResultCount,
           });
           if (isCurrentRun()) {
-            toast.success("姿势裂变完成");
+            if (finalResultCount < expectedResultCount) {
+              toast.warning(`姿势裂变部分完成：已生成 ${finalResultCount}/${expectedResultCount} 张，失败图片积分会自动退回`);
+            } else {
+              toast.success("姿势裂变完成");
+            }
             setIsGenerating(false);
           }
           return;
@@ -529,6 +916,13 @@ export default function PosePage() {
     setAiModel("nano-banana-2");
     setImageSize("1K");
     setMainImage("");
+    lastPoseAnalysisKeyRef.current = "";
+    poseAnalysisSeqRef.current += 1;
+    setPoseAnalysisEntry(null);
+    lastPosePlanKeyRef.current = "";
+    posePlanSeqRef.current += 1;
+    setPosePlanEntry(null);
+    setShowPosePlanEditor(false);
     setPrompt(DEFAULT_POSE_PROMPT);
     setSupplementPrompt("");
     setOutputMode("grid");
@@ -547,6 +941,34 @@ export default function PosePage() {
     setRulesPopoverStyle(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
+
+  const activePoseAnalysis = getActivePoseAnalysis();
+  const activePosePlan = getActivePosePlan();
+  const poseAnalysisSummary = getPoseVisualAnalysisSummary(activePoseAnalysis);
+  const poseAnalysisDetails = getPoseVisualAnalysisDetailItems(activePoseAnalysis);
+  const poseAnalysisStatus = isAnalyzingPose
+    ? { tone: "loading" as const, text: "识别主图中" }
+    : activePoseAnalysis
+      ? {
+          tone: poseAnalysisError || poseAnalysisSource === "fallback" || activePoseAnalysis.confidence < 0.45
+            ? "warning" as const
+            : "success" as const,
+          text: `${POSE_ANALYSIS_SOURCE_LABELS[poseAnalysisSource || "vision"]}：${poseAnalysisSummary || "主图已识别"}`,
+        }
+      : poseAnalysisError
+        ? { tone: "warning" as const, text: poseAnalysisError }
+        : null;
+  const posePlanSummaries = getPosePlanSummary(activePosePlan);
+  const posePlanStatus = isPlanningPose
+    ? { tone: "loading" as const, text: "规划姿势中" }
+    : activePosePlan
+      ? {
+          tone: posePlanError || posePlanSource === "fallback" ? "warning" as const : "success" as const,
+          text: `${activePosePlan.edited ? "已编辑" : POSE_PLAN_SOURCE_LABELS[posePlanSource || "vision_plan"]}：${activePosePlan.slots.length} 个姿势`,
+        }
+      : posePlanError
+        ? { tone: "warning" as const, text: posePlanError }
+        : null;
 
   return (
     <div className="studio-workbench min-h-[calc(100dvh-64px)] lg:h-[calc(100vh-64px)] flex flex-col lg:flex-row">
@@ -607,6 +1029,52 @@ export default function PosePage() {
                 onSelect: (image) => applyRuleDemo({ title: image.title, imageUrl: image.url }),
               }}
             />
+            {poseAnalysisStatus && (
+              <div
+                className={`mt-2 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold ${
+                  poseAnalysisStatus.tone === "loading"
+                    ? "border-violet-100 bg-violet-50/70 text-violet-600"
+                    : poseAnalysisStatus.tone === "success"
+                      ? "border-emerald-100 bg-emerald-50/80 text-emerald-700"
+                      : "border-amber-100 bg-amber-50/80 text-amber-700"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  {poseAnalysisStatus.tone === "loading" ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : poseAnalysisStatus.tone === "success" ? (
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                  ) : (
+                    <XCircle className="h-3.5 w-3.5" />
+                  )}
+                  <span className="min-w-0 truncate" title={poseAnalysisStatus.text}>{poseAnalysisStatus.text}</span>
+                  {poseAnalysisStatus.tone === "warning" && mainImage && (
+                    <button
+                      type="button"
+                      onClick={retryPoseAnalysis}
+                      className="ml-auto shrink-0 rounded-md bg-white/70 px-2 py-0.5 text-[10px] font-semibold text-amber-700 transition-colors hover:bg-white"
+                    >
+                      重试
+                    </button>
+                  )}
+                </div>
+                {!isAnalyzingPose && activePoseAnalysis && poseAnalysisDetails.length > 0 && (
+                  <div className="mt-1.5 grid grid-cols-1 gap-1.5 pl-5 sm:grid-cols-2">
+                    {poseAnalysisDetails.map((item) => (
+                      <span
+                        key={item.label}
+                        className={`min-w-0 truncate rounded-md bg-white/70 px-2 py-1 text-[10px] font-medium leading-4 ${
+                          poseAnalysisStatus.tone === "warning" ? "text-amber-800" : "text-emerald-800"
+                        }`}
+                        title={item.title || `${item.label}：${item.value}`}
+                      >
+                        <span className="font-bold">{item.label}：</span>{item.value}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </section>
 
           <section>
@@ -740,6 +1208,114 @@ export default function PosePage() {
               </div>
             )}
           </section>
+
+          {mainImage && (
+            <section>
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <h3 className="font-bold text-sm flex items-center gap-2">
+                  <PenLine className="w-4 h-4 text-[var(--codex-accent)]" /> AI 姿势计划
+                </h3>
+                <div className="flex shrink-0 items-center gap-2">
+                  {poseStyle !== "user_custom" && (
+                    <button
+                      type="button"
+                      onClick={retryPosePlan}
+                      disabled={isPlanningPose || !mainImage}
+                      className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-500 transition-colors hover:border-violet-200 hover:text-violet-600 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      恢复 AI 规划
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setShowPosePlanEditor((value) => !value)}
+                    disabled={!activePosePlan}
+                    className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600 transition-colors hover:border-violet-200 hover:text-violet-600 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {showPosePlanEditor ? "收起编辑" : "高级编辑"}
+                  </button>
+                </div>
+              </div>
+
+              {posePlanStatus && (
+                <div
+                  className={`mb-2 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold ${
+                    posePlanStatus.tone === "loading"
+                      ? "border-violet-100 bg-violet-50/70 text-violet-600"
+                      : posePlanStatus.tone === "success"
+                        ? "border-emerald-100 bg-emerald-50/80 text-emerald-700"
+                        : "border-amber-100 bg-amber-50/80 text-amber-700"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    {posePlanStatus.tone === "loading" ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : posePlanStatus.tone === "success" ? (
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                    ) : (
+                      <XCircle className="h-3.5 w-3.5" />
+                    )}
+                    <span className="min-w-0 truncate" title={posePlanStatus.text}>{posePlanStatus.text}</span>
+                  </div>
+                  {posePlanError && posePlanStatus.tone !== "loading" && (
+                    <p className="mt-1 pl-5 text-[10px] leading-relaxed font-medium opacity-80">
+                      {posePlanError}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {activePosePlan && (
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {posePlanSummaries.map((item, index) => (
+                    <div key={item.key} className="rounded-xl border border-slate-200 bg-white/80 p-2.5">
+                      <p className="truncate text-[11px] font-bold text-slate-800" title={item.title}>{item.title}</p>
+                      <p className="mt-1 line-clamp-2 text-[10px] leading-relaxed text-slate-500" title={item.detail}>{item.detail || "姿势规划已就绪"}</p>
+                      {showPosePlanEditor && (
+                        <div className="mt-2 space-y-2 border-t border-slate-100 pt-2">
+                          <StudioPromptTextarea
+                            value={activePosePlan.slots[index]?.bodyAction || ""}
+                            onChange={(event) => updatePosePlanSlot(index, "bodyAction", event.target.value)}
+                            rows={2}
+                            className="custom-scroll"
+                            placeholder="身体动作"
+                          />
+                          <StudioPromptTextarea
+                            value={activePosePlan.slots[index]?.handAction || ""}
+                            onChange={(event) => updatePosePlanSlot(index, "handAction", event.target.value)}
+                            rows={2}
+                            className="custom-scroll"
+                            placeholder="手部动作"
+                          />
+                          <StudioPromptTextarea
+                            value={activePosePlan.slots[index]?.headDirection || ""}
+                            onChange={(event) => updatePosePlanSlot(index, "headDirection", event.target.value)}
+                            rows={2}
+                            className="custom-scroll"
+                            placeholder="头部/视线"
+                          />
+                          <StudioPromptTextarea
+                            value={activePosePlan.slots[index]?.cameraFraming || ""}
+                            onChange={(event) => updatePosePlanSlot(index, "cameraFraming", event.target.value)}
+                            rows={2}
+                            className="custom-scroll"
+                            placeholder="镜头构图"
+                          />
+                          <StudioPromptTextarea
+                            value={activePosePlan.slots[index]?.garmentVisibilityRule || ""}
+                            onChange={(event) => updatePosePlanSlot(index, "garmentVisibilityRule", event.target.value)}
+                            rows={2}
+                            className="custom-scroll"
+                            placeholder="服装展示重点"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
 
           <StudioPromptTextarea
             title="补充要求"

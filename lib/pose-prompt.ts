@@ -4,6 +4,13 @@ import {
   getPoseSeriesStylePoseLines,
   type PoseSeriesStyle,
 } from "@/lib/module-style-presets";
+import { buildPoseVisualAnalysisRule, type PoseVisualAnalysis } from "@/lib/pose-analysis";
+import {
+  buildPosePlanPoseLines,
+  buildPoseSlotPlanDirective,
+  normalizePosePlan,
+  type PosePlan,
+} from "@/lib/pose-plan";
 
 export type PoseOutputMode = "grid" | "separate";
 
@@ -17,16 +24,19 @@ export const POSE_SEPARATE_LAYOUT_REQUIREMENT =
   "输出方式：当前请求只生成一张 3:4 单人完整图片；不要四宫格、拼图、分屏、边框、编号文字或 contact sheet。";
 
 export const POSE_CONSISTENCY_REQUIREMENT =
-  "四个分格必须保持图1同一个人物身份、同一张脸、同一脸型骨相、同一自然肤色、同一发型、同一身体比例、同一套服装、同一面料纹理、同一颜色图案、同一背景场景、同一光线、同一色调和同一摄影质量。";
+  "四个分格必须保持图1同一个人物身份、同一性别表达、同一年龄感、同一身体骨架、同一张脸、同一脸型骨相、同一自然肤色、同一发型、同一身体比例、同一套服装、同一面料纹理、同一颜色图案、同一背景场景、同一光线、同一色调和同一摄影质量。";
 
 export const POSE_SOURCE_ROLE_REQUIREMENT =
-  "图1角色：唯一的人物、服装、比例、场景和光线参考；文字只改变姿势、可选镜头和构图。";
+  "图1角色：唯一的人物、性别表达、年龄感、身体骨架、服装、比例、场景和光线参考；文字只改变姿势、可选镜头和构图。";
 
 export const POSE_CAMERA_REQUIREMENT =
   "四个分格都必须使用同一个风格档位下的统一镜头语言，保持同一相机距离、同一焦段、同一视平线和同一画幅留白；允许在 50mm / 70mm / 85mm 中按风格选择一致焦段，但禁止 close-up、特写、wide angle、大广角、high angle、俯拍、low angle、仰拍，避免改变人物比例或服装展示范围。";
 
 export const POSE_PROPORTION_LOCK_RULE =
   "比例锁定：保持图1头身比、头部大小、肩宽、腰胯、四肢长度、脚部大小、腰线和服装穿着尺度；不要拉高拉瘦、长腿化或变体型。";
+
+export const POSE_GENDER_IDENTITY_LOCK_RULE =
+  "性别身份锁定：必须保持图1人物的性别表达、年龄感、身体骨架、肩宽、胸腰胯比例、肌肉/脂肪分布、发型气质和整体身份气质；如果图1是男性，最终必须仍是同一个男性人物，不要把男性变成女性、不要女性化、不要变成女模、不要生成女性胸型、女性腰胯比例、女性妆容、女性发型或女性化站姿；如果图1是女性，也不要男性化或改变原本性别气质。";
 
 export const POSE_SERIES_RULE =
   "时装大片连贯性规则：四个分格必须像同一套商业时装大片的连续 pose sheet，而不是四张不同照片拼贴；保持统一构图、统一背景、统一光线、统一肤色质感、统一色彩管理和统一服装展示尺度。";
@@ -53,7 +63,7 @@ export const POSE_EXPRESSION_CONSISTENT_REQUIREMENT =
   "表情规则：保持同一个人、同一张脸、不要换脸；允许按不同姿势产生轻微自然的眼神和表情变化，避免复制粘贴脸或僵硬同脸。不要夸张表情，不要改变五官身份。";
 
 const POSE_SINGLE_IMAGE_CONSISTENCY_REQUIREMENT =
-  "当前单张图片以图1作为人物身份、服装、背景和光线参考；优先让姿势明显变化，同时保持同一套服装设计、颜色、图案、面料质感、自然脸部身份、肤色和真实身体比例。";
+  "当前单张图片以图1作为人物身份、性别表达、年龄感、身体骨架、服装、背景和光线参考；优先让姿势明显变化，同时保持同一套服装设计、颜色、图案、面料质感、自然脸部身份、肤色和真实身体比例。";
 
 const POSE_SINGLE_IMAGE_CAMERA_REQUIREMENT =
   "当前单张图片允许相机距离、身体角度和画面留白随目标姿势自然调整；保持时装全身或七分身展示，避免 close-up、特写、wide angle、大广角、俯拍、仰拍或夸张透视。";
@@ -65,20 +75,20 @@ const POSE_SINGLE_EXPRESSION_CONSISTENT_REQUIREMENT =
   "表情规则：保持图1同一个人和同一张脸；允许当前姿势产生轻微自然的眼神和表情变化。不要夸张表情，不要改变五官身份，不要复制成僵硬表情。";
 
 const POSE_SEPARATE_BASE_PROMPT = [
-  "Use the source image only for the same person, face, hairstyle, outfit, fabric, color, pattern, background mood, lighting mood and overall fashion-photo style.",
-  "Do not use the source image as the pose reference. Do not copy the original pose.",
-  "Keep head, neck, shoulders and torso aligned with one natural body direction. Do not make the head look back independently from the body.",
+  "Use the source image only to preserve: same person, same gender expression, same age impression, same face, same hairstyle, same body frame/proportions, same outfit, fabric, color, pattern, background mood and lighting mood.",
+  "Do not use the source image as the pose reference. Do not copy its pose.",
+  "Keep head, neck, shoulders and torso aligned; no independent look-back.",
   "",
-  "Generate one standalone premium womenswear fashion photo.",
+  "Generate one standalone premium fashion editorial photo.",
   "The target pose and camera direction must be clearly executed and noticeably different from the source image.",
   "",
-  "Keep the outfit commercially readable, including neckline, shoulder line, sleeve shape, waistline, hem, lower garment and shoes if visible in the source image.",
+  "Keep the outfit readable: neckline, shoulder line, sleeves, waistline, hem, lower garment and shoes if visible.",
   "",
   "Keep:",
-  "same person, same face identity, same hairstyle, same outfit design, same fabric texture, same color and pattern, same background mood, same lighting mood, natural skin tone, realistic body proportions.",
+  "same person, same gender expression, same age impression, same face identity, same hairstyle, same body frame/proportions, same outfit design, fabric texture, color/pattern, background and lighting mood, natural skin tone.",
   "",
   "Negative:",
-  "no outfit change, no face change, no extra person, no text, no logo, no watermark, no grid, no collage, no distorted hands, no broken limbs, no twisted neck, no disconnected head, no over-shoulder look, no unrealistic body shape.",
+  "no outfit/face/gender change, no male-to-female/female-to-male change, no feminized male body, no gendered makeup/hair change, no extra person, text, logo, watermark, grid, collage, distorted hands, broken limbs, twisted neck, disconnected head, over-shoulder look or unrealistic body shape.",
 ].join("\n");
 
 const DEFAULT_POSE_LINES = [
@@ -89,11 +99,11 @@ const DEFAULT_POSE_LINES = [
 ];
 
 const NEGATIVE_POSE_REQUIREMENT =
-  "负面约束：不要换脸，不要换衣服，不要改变场景，不要改变服装结构，不要生成多余人物，不要扭曲手指和肢体，不要身体比例漂移，不要自动美白，不要雪白皮或冷白皮，不要标准鹅蛋脸或小V脸，不要塑料皮肤，不要AI渲染感，不要文字水印。";
+  "负面约束：不要换脸，不要换衣服，不要改变性别表达，不要把男性变成女性，不要女性化男性身体骨架或妆发，不要改变场景，不要改变服装结构，不要生成多余人物，不要扭曲手指和肢体，不要身体比例漂移，不要自动美白，不要雪白皮或冷白皮，不要标准鹅蛋脸或小V脸，不要塑料皮肤，不要AI渲染感，不要文字水印。";
 
 export function enforcePosePromptRequirements(
   prompt: string,
-  options: { poseStyle?: PoseSeriesStyle; outputMode?: PoseOutputMode } = {}
+  options: { poseStyle?: PoseSeriesStyle; outputMode?: PoseOutputMode; poseAnalysis?: PoseVisualAnalysis | null; posePlan?: PosePlan | null } = {}
 ) {
   if (!prompt.trim()) return "";
 
@@ -110,6 +120,20 @@ export function enforcePosePromptRequirements(
   if (!/图1角色|图像角色硬规则/.test(nextPrompt)) {
     nextPrompt = `${POSE_SOURCE_ROLE_REQUIREMENT}\n${nextPrompt}`;
   }
+
+  const analysisRule = buildPoseVisualAnalysisRule(options.poseAnalysis, options.outputMode);
+  if (analysisRule && !nextPrompt.includes("视觉识别约束")) {
+    nextPrompt = `${analysisRule}\n${nextPrompt}`;
+  }
+
+  const activePosePlan = options.posePlan
+    ? normalizePosePlan(options.posePlan, {
+        poseAnalysis: options.poseAnalysis,
+        poseStyle: options.poseStyle,
+        outputMode: options.outputMode,
+        prompt,
+      })
+    : null;
 
   if (options.outputMode === "separate") {
     nextPrompt = normalizeSeparatePromptScope(removeGridLayoutWording(nextPrompt));
@@ -130,6 +154,8 @@ export function enforcePosePromptRequirements(
   const requiredRules = [
     ["时装大片连贯性规则", POSE_SERIES_RULE],
     ["服装展示规则", POSE_CLOTHING_RULE],
+    ["性别身份锁定", POSE_GENDER_IDENTITY_LOCK_RULE],
+    ["比例锁定", POSE_PROPORTION_LOCK_RULE],
     ["身体动作规则", POSE_BODY_RULE],
     ["肤色和色彩规则", POSE_SKIN_COLOR_RULE],
     ["脸型五官规则", POSE_FACE_SHAPE_RULE],
@@ -159,16 +185,21 @@ export function enforcePosePromptRequirements(
     nextPrompt = `${nextPrompt}\n${cameraRule}`;
   }
 
+  if (activePosePlan) {
+    nextPrompt = removePosePlanLines(nextPrompt);
+  }
   const poseLines = getPoseSeriesStylePoseLines(options.poseStyle);
-  const requiredPoseLines = options.poseStyle === "user_custom" ? [] : poseLines.length ? poseLines : DEFAULT_POSE_LINES;
+  const requiredPoseLines = activePosePlan
+    ? buildPosePlanPoseLines(activePosePlan)
+    : options.poseStyle === "user_custom" ? [] : poseLines.length ? poseLines : DEFAULT_POSE_LINES;
   requiredPoseLines.forEach((line, index) => {
     const poseNumber = index + 1;
-    if (!new RegExp(`姿势\\s*${poseNumber}`).test(nextPrompt)) {
+    if (!new RegExp(`^\\s*姿势\\s*${poseNumber}[：:]`, "m").test(nextPrompt)) {
       nextPrompt = `${nextPrompt}\n${line}`;
     }
   });
 
-  if (!/不要换脸|不要换衣服|不要改变场景/.test(nextPrompt)) {
+  if (!/负面约束/.test(nextPrompt)) {
     nextPrompt = `${nextPrompt}\n${NEGATIVE_POSE_REQUIREMENT}`;
   }
 
@@ -192,14 +223,24 @@ export function buildSeparatePosePrompt(
   prompt: string,
   poseIndex: number,
   poseStyleOverride?: PoseSeriesStyle,
-  styleSourcePrompt = prompt
+  styleSourcePrompt = prompt,
+  poseAnalysis?: PoseVisualAnalysis | null,
+  posePlan?: PosePlan | null
 ) {
   const explicitPosePattern = new RegExp(`^\\s*姿势\\s*${poseIndex}[：:]`, "m");
   const poseStyle = poseStyleOverride || inferPoseStyleFromPrompt(prompt);
   const explicitPoseLines = extractExplicitPoseLines(prompt);
   const currentPoseLine = explicitPoseLines.find((line) => explicitPosePattern.test(line));
-  const slotDirective = buildSeparatePoseSlotDirective(poseIndex, poseStyle);
-  const targetPose = currentPoseLine && poseStyle === "user_custom"
+  const normalizedPosePlan = posePlan
+    ? normalizePosePlan(posePlan, { poseAnalysis, poseStyle, outputMode: "separate", prompt })
+    : null;
+  const planSlotDirective = normalizedPosePlan
+    ? buildPoseSlotPlanDirective(normalizedPosePlan.slots[Math.min(Math.max(poseIndex, 1), 4) - 1])
+    : "";
+  const slotDirective = planSlotDirective || buildSeparatePoseSlotDirective(poseIndex, poseStyle);
+  const targetPose = planSlotDirective
+    ? planSlotDirective
+    : currentPoseLine && poseStyle === "user_custom"
     ? buildCustomSeparatePoseSlotPrompt(sanitizeSeparatePoseLine(currentPoseLine))
     : slotDirective;
   const stylePrompt = buildPoseSeparateStylePresetPrompt(
@@ -207,9 +248,11 @@ export function buildSeparatePosePrompt(
     extractCustomSeparateStyleDirection(styleSourcePrompt)
   );
   const supplementLines = extractSeparatePoseSupplementLines(prompt);
+  const analysisRule = buildPoseVisualAnalysisRule(poseAnalysis, "separate");
 
   return [
     POSE_SEPARATE_BASE_PROMPT,
+    analysisRule,
     stylePrompt,
     targetPose,
     ...supplementLines,
@@ -245,13 +288,21 @@ function extractExplicitPoseLines(prompt: string) {
     .filter((line) => /^姿势\s*[1-4][：:]/.test(line));
 }
 
+function removePosePlanLines(prompt: string) {
+  return prompt
+    .split("\n")
+    .filter((line) => !/^\s*姿势\s*[1-4][：:]/.test(line.trim()))
+    .join("\n")
+    .trim();
+}
+
 function buildCustomSeparatePoseSlotPrompt(targetPose: string) {
   return [
     "Target pose:",
     targetPose,
     "",
     "Camera:",
-    "AI may choose the most suitable premium womenswear framing, crop, distance, composition and negative space for this target pose.",
+    "AI may choose the most suitable premium fashion framing, crop, distance, composition and negative space for this target pose.",
     "Keep head, body and important clothing details readable.",
   ].join("\n");
 }
@@ -306,7 +357,7 @@ function getSeparatePoseSlotDirectives(poseStyle?: PoseSeriesStyle) {
     [
       "Target pose:",
       "Stationary confident shape pose.",
-      "Emphasize waist, hip line, shoulder attitude and elegant womenswear styling.",
+      "Emphasize natural body structure, shoulder line, waist/hip balance and refined fashion styling.",
       "Feet stay planted.",
       "One hand may rest on waist, touch the outfit edge, adjust sleeve or hold a natural styling gesture.",
       "Not walking.",
@@ -329,7 +380,7 @@ function getSeparatePoseSlotDirectives(poseStyle?: PoseSeriesStyle) {
       "The gaze should follow the body direction or look slightly side-forward.",
       "Do not create an over-shoulder look, independent head turn, twisted neck or disconnected shoulder line.",
       "Do not create a large walking stride or exaggerated motion.",
-      "Keep the movement elegant, controlled and feminine.",
+      "Keep the movement elegant, controlled and aligned with the source person's gender expression.",
       "Show a slight sense of motion through body turn, soft arm movement, and natural fabric drape.",
       "The outfit must remain clearly readable and refined.",
       "",

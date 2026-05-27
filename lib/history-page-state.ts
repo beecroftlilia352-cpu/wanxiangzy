@@ -10,7 +10,9 @@ export type HistoryModuleFilter =
   | "pose"
   | "model"
   | "garment3d"
-  | "faceSwap";
+  | "faceSwap"
+  | "videoImageToVideo"
+  | "videoMotion";
 
 export type HistoryStatusFilter = "all" | "completed" | "processing" | "pending" | "failed";
 
@@ -46,6 +48,8 @@ const MODULE_FILTER_LABELS: Record<HistoryModuleFilter, string> = {
   model: "专属模特",
   garment3d: "服装 3D",
   faceSwap: "换脸",
+  videoImageToVideo: "图生视频",
+  videoMotion: "动作模仿",
 };
 
 const STATUS_FILTER_LABELS: Record<HistoryStatusFilter, string> = {

@@ -206,7 +206,7 @@ export function StudioUploadTile({
 
       {footnote && (
         <div className="studio-upload-tile-tips">
-          <span className="studio-upload-tile-tips-label">Tips.</span>
+          <span className="studio-upload-tile-tips-label">提示</span>
           <span className="studio-upload-tile-tips-text" title={footnote}>{footnote}</span>
           {tipsAction && (
             <span className="studio-upload-tile-tips-action">

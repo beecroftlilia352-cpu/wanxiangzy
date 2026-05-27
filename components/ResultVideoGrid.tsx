@@ -1,0 +1,152 @@
+"use client";
+
+import { Download, Loader2, Play, XCircle } from "lucide-react";
+import { downloadMedia, generateDownloadFilename } from "@/lib/utils";
+import type { TaskStatusGroup } from "@/lib/task-queue";
+
+type ResultVideoGridProps = {
+  urls: string[];
+  filenamePrefix: string;
+  onOpen: (url: string, index: number) => void;
+  expectedCount?: number;
+  isGenerating?: boolean;
+  inputThumbnails?: string[];
+  createdAt?: string | null;
+  statusGroup?: TaskStatusGroup;
+  renderKey?: string;
+};
+
+export function ResultVideoGrid({
+  urls,
+  filenamePrefix,
+  onOpen,
+  expectedCount,
+  isGenerating,
+  inputThumbnails = [],
+  createdAt,
+  statusGroup,
+  renderKey = "video-result",
+}: ResultVideoGridProps) {
+  const count = Math.max(urls.length, expectedCount || 0, 1);
+  const slots = Array.from({ length: count }, (_, index) => urls[index] || null);
+  const running = isGenerating || statusGroup === "running" || statusGroup === "queued";
+
+  return (
+    <div className="studio-result-set w-full max-w-[min(1080px,100%)]">
+      <p className="studio-result-disclaimer">
+        视频生成可能需要更长时间，完成后可在当前模块、最近任务和作品库中播放。
+      </p>
+      {createdAt && <p className="studio-result-time">{formatTaskTimestamp(createdAt)}</p>}
+      <div className="flex w-full items-start gap-3">
+        {inputThumbnails.length > 0 && (
+          <div className="studio-result-reference-list">
+            {inputThumbnails.slice(0, 4).map((url, index) => (
+              <div key={`${url}-${index}`} className="studio-result-reference-thumb">
+                {isVideoUrl(url) ? (
+                  <video src={url} muted playsInline preload="metadata" />
+                ) : (
+                  <img src={url} alt={`输入 ${index + 1}`} />
+                )}
+                <span className="studio-result-reference-label">输入{index + 1}</span>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="grid min-w-0 flex-1 grid-cols-1 gap-4">
+          {slots.map((url, index) => (
+            <VideoResultCard
+              key={`${renderKey}-${index}`}
+              url={url}
+              index={index}
+              running={running}
+              filenamePrefix={filenamePrefix}
+              onOpen={onOpen}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function VideoResultCard({
+  url,
+  index,
+  running,
+  filenamePrefix,
+  onOpen,
+}: {
+  url: string | null;
+  index: number;
+  running: boolean;
+  filenamePrefix: string;
+  onOpen: (url: string, index: number) => void;
+}) {
+  if (!url) {
+    return (
+      <div className="studio-result-card min-h-[340px] overflow-hidden bg-white">
+        <div className="gen-card studio-result-pending-card flex h-full min-h-[340px] w-full flex-col items-center justify-center gap-2">
+          <div className="relative z-[1] flex h-14 w-14 items-center justify-center">
+            <div className="gen-ring absolute inset-0 rounded-full bg-[#aeb8ff]/45" />
+            <div className="relative flex h-14 w-14 items-center justify-center rounded-full border border-white/16 bg-white/10 shadow-lg backdrop-blur-md">
+              {running ? <Loader2 className="h-6 w-6 animate-spin text-white" /> : <XCircle className="h-6 w-6 text-white/70" />}
+            </div>
+          </div>
+          <p className="relative z-[1] text-xs font-semibold text-white/72">
+            {running ? "视频生成中" : "等待生成"}
+          </p>
+          <p className="relative z-[1] text-[11px] font-medium text-white/42">预计 2-5 分钟</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="studio-result-card group relative overflow-hidden bg-black">
+      <button
+        type="button"
+        onClick={() => onOpen(url, index)}
+        className="relative block w-full bg-black text-left"
+        style={{ aspectRatio: "9 / 16" }}
+        aria-label={`播放生成视频 ${index + 1}`}
+      >
+        <video
+          src={url}
+          controls
+          playsInline
+          preload="metadata"
+          className="h-full w-full bg-black object-contain"
+          onClick={(event) => event.stopPropagation()}
+        />
+        <span className="pointer-events-none absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-black/66 px-2.5 py-1 text-[11px] font-black text-white shadow-sm backdrop-blur">
+          <Play className="h-3 w-3" />
+          结果
+        </span>
+      </button>
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          downloadMedia(url, generateDownloadFilename(filenamePrefix, index, "mp4"));
+        }}
+        className="absolute right-3 top-3 z-[3] flex h-9 w-9 items-center justify-center rounded-full bg-white/92 text-slate-700 opacity-100 shadow-lg ring-1 ring-slate-200/70 backdrop-blur transition-all hover:bg-white hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
+        aria-label={`下载生成视频 ${index + 1}`}
+        title={`下载生成视频 ${index + 1}`}
+      >
+        <Download className="h-4 w-4" />
+      </button>
+    </div>
+  );
+}
+
+function isVideoUrl(url: string) {
+  return /\.(mp4|mov|webm)(?:$|[?#])/i.test(url);
+}
+
+function formatTaskTimestamp(value?: string | null) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  const pad = (num: number) => String(num).padStart(2, "0");
+  return `${date.getFullYear()}.${pad(date.getMonth() + 1)}.${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+}

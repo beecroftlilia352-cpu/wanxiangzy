@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { applyPoseSeriesStylePrompt } from "@/lib/module-style-presets";
 import { buildSeparatePosePrompt, buildSeparatePoseSlotDirective, enforcePosePromptRequirements } from "@/lib/pose-prompt";
+import { normalizePoseVisualAnalysis } from "@/lib/pose-analysis";
+import { buildFallbackPosePlan } from "@/lib/pose-plan";
 
 describe("pose prompt handling", () => {
   it("keeps user custom pose lines instead of replacing them with defaults", () => {
@@ -94,8 +96,9 @@ describe("pose prompt handling", () => {
     const slot2 = buildSeparatePosePrompt(basePrompt, 2, "fashion_editorial");
 
     expect(slot2.startsWith("Use the source image only")).toBe(true);
-    expect(slot2).toContain("Generate one standalone premium womenswear fashion photo.");
-    expect(slot2).toContain("Keep the outfit commercially readable");
+    expect(slot2).toContain("same gender expression");
+    expect(slot2).toContain("Generate one standalone premium fashion editorial photo.");
+    expect(slot2).toContain("Keep the outfit readable");
     expect(slot2).toContain("Target pose:");
     expect(slot2).toContain("Strong three-quarter or side-angle outfit read");
     expect(slot2).toContain("The body must clearly read as side or three-quarter view");
@@ -126,8 +129,12 @@ describe("pose prompt handling", () => {
     expect(buildSeparatePoseSlotDirective(1)).toContain("Relaxed front-view");
     expect(buildSeparatePoseSlotDirective(2)).toContain("Strong three-quarter or side-angle");
     expect(buildSeparatePoseSlotDirective(3)).toContain("Stationary confident shape pose");
+    expect(buildSeparatePoseSlotDirective(3)).toContain("natural body structure");
+    expect(buildSeparatePoseSlotDirective(3)).not.toContain("womenswear");
     expect(buildSeparatePoseSlotDirective(4)).toContain("Light movement or natural aligned turning pose");
     expect(buildSeparatePoseSlotDirective(4)).toContain("same natural direction");
+    expect(buildSeparatePoseSlotDirective(4)).toContain("source person's gender expression");
+    expect(buildSeparatePoseSlotDirective(4)).not.toContain("feminine");
     expect(buildSeparatePoseSlotDirective(4)).not.toContain("over-shoulder gaze");
   });
 
@@ -173,5 +180,94 @@ describe("pose prompt handling", () => {
     expect(enforced).toContain("轻微自然");
     expect(enforced).toContain("过度扭颈");
     expect(enforced).not.toContain("表情控制");
+  });
+
+  it("locks source gender identity and body frame for pose generation", () => {
+    const enforced = enforcePosePromptRequirements("保持图1人物和服装，生成姿势变化。");
+
+    expect(enforced).toContain("性别身份锁定");
+    expect(enforced).toContain("如果图1是男性");
+    expect(enforced).toContain("不要把男性变成女性");
+    expect(enforced).toContain("比例锁定");
+    expect(enforced).toContain("同一性别表达");
+  });
+
+  it("injects structured visual analysis as high priority pose constraints", () => {
+    const analysis = normalizePoseVisualAnalysis({
+      genderExpression: "male",
+      ageRange: "adult",
+      bodyCrop: "full_body",
+      bodyOrientation: "front-facing standing posture",
+      outfitDescription: "black blazer, white shirt, straight trousers",
+      faceIdentityNotes: "angular face and short hair",
+      skinToneNotes: "natural warm skin tone",
+      confidence: 0.82,
+    });
+
+    const enforced = enforcePosePromptRequirements("保持图1人物和服装，生成姿势变化。", {
+      poseAnalysis: analysis,
+    });
+
+    expect(enforced).toContain("视觉识别约束");
+    expect(enforced).toContain("图1识别为男性表达");
+    expect(enforced).toContain("black blazer");
+    expect(enforced).toContain("natural warm skin tone");
+    expect(enforced).toContain("不要把男性变成女性");
+  });
+
+  it("passes visual analysis into separate slot prompts without relying on previous slots", () => {
+    const analysis = normalizePoseVisualAnalysis({
+      genderExpression: "female",
+      ageRange: "adult",
+      bodyCrop: "upper_body",
+      cameraFraming: "upper-body studio portrait crop",
+      outfitDescription: "cream knit top with visible neckline",
+      confidence: 0.76,
+    });
+
+    const slot1 = buildSeparatePosePrompt("补充要求：领口细节必须清楚。", 1, "korean_clean", "", analysis);
+
+    expect(slot1).toContain("视觉识别约束");
+    expect(slot1).toContain("图1识别为女性表达");
+    expect(slot1).toContain("保持上半身展示逻辑");
+    expect(slot1).toContain("cream knit top");
+    expect(slot1).toContain("每个 slot 只改变目标姿势");
+    expect(slot1).toContain("领口细节必须清楚");
+  });
+
+  it("uses pose plan lines for grid prompts", () => {
+    const posePlan = buildFallbackPosePlan({
+      poseStyle: "fashion_editorial",
+      poseAnalysis: normalizePoseVisualAnalysis({
+        genderExpression: "male",
+        ageRange: "adult",
+        bodyCrop: "full_body",
+        confidence: 0.8,
+      }),
+    });
+
+    const enforced = enforcePosePromptRequirements("保持图1人物和服装，生成姿势变化。\n姿势1：旧姿势。", {
+      poseStyle: "fashion_editorial",
+      posePlan,
+    });
+
+    expect(enforced).toContain("姿势1：正面自然站立");
+    expect(enforced).toContain("姿势2：身体转为三分之二侧身");
+    expect(enforced).not.toContain("姿势1：旧姿势。");
+  });
+
+  it("uses only the current pose plan slot for separate prompts", () => {
+    const posePlan = buildFallbackPosePlan({
+      poseStyle: "ecommerce_clean",
+      outputMode: "separate",
+    });
+
+    const slot3 = buildSeparatePosePrompt("补充要求：衣摆清晰。", 3, "ecommerce_clean", "", null, posePlan);
+
+    expect(slot3).toContain("Target pose:");
+    expect(slot3).toContain(posePlan.slots[2].poseName);
+    expect(slot3).toContain(posePlan.slots[2].bodyAction);
+    expect(slot3).not.toContain(posePlan.slots[0].bodyAction);
+    expect(slot3).toContain("补充要求：衣摆清晰。");
   });
 });

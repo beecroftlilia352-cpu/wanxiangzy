@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Download, Clock, XCircle, Loader2, Coins, X, RotateCcw, Copy, Maximize2, Eye, ImageIcon, ZoomIn, ZoomOut, Plus } from "lucide-react";
+import { Download, Clock, XCircle, Loader2, Coins, X, RotateCcw, Copy, Maximize2, Eye, ImageIcon, ZoomIn, ZoomOut, Plus, Play } from "lucide-react";
 import { downloadImage, generateDownloadFilename } from "@/lib/utils";
 import { getImageVariantUrl } from "@/lib/image-variants";
 import { getApplyPath, type HistoryJobPayload } from "@/lib/history-apply";
+import { inferMediaExtension, isLikelyVideoUrl } from "@/lib/media";
 import { buildTryOnPrompt } from "@/lib/api/lingya";
 import { ClientPortal } from "@/components/ClientPortal";
 import {
@@ -43,6 +44,8 @@ const MODULE_FILTERS: { value: HistoryModuleFilter; label: string }[] = [
   { value: "model", label: "专属模特" },
   { value: "garment3d", label: "服装 3D" },
   { value: "faceSwap", label: "换脸" },
+  { value: "videoImageToVideo", label: "图生视频" },
+  { value: "videoMotion", label: "动作模仿" },
 ];
 
 const STATUS_FILTERS: { value: HistoryStatusFilter; label: string }[] = [
@@ -538,7 +541,7 @@ export default function HistoryPage() {
                   className="relative aspect-[4/5] overflow-hidden bg-slate-100 sm:w-44 sm:flex-shrink-0 sm:aspect-[3/4] md:w-52"
                 >
                   {coverUrl ? (
-                    <img src={getImageVariantUrl(coverUrl, "card")} className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]" alt="历史作品封面" />
+                    <HistoryMediaPreview url={coverUrl} variant="card" className="transition duration-300 group-hover:scale-[1.03]" alt="历史作品封面" />
                   ) : (
                     <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-gray-300">
                       <ImageIcon className="h-9 w-9" />
@@ -550,7 +553,7 @@ export default function HistoryPage() {
                   </span>
                   {resultUrls.length > 1 && (
                     <span className="absolute bottom-3 left-3 rounded-full border border-white/70 bg-white/80 px-2.5 py-1 text-[11px] font-medium text-gray-700 shadow-sm backdrop-blur">
-                      {resultUrls.length} 张结果
+                      {resultUrls.length} 个结果
                     </span>
                   )}
                 </button>
@@ -574,11 +577,11 @@ export default function HistoryPage() {
                     </div>
                     <div className="min-w-0">
                       <p className="text-[10px] text-gray-400">尺寸</p>
-                      <p className="mt-0.5 truncate font-medium text-gray-800">{g.image_size || payload?.imageSize || "-"}</p>
+                      <p className="mt-0.5 truncate font-medium text-gray-800">{g.image_size || getPayloadDisplaySize(payload) || "-"}</p>
                     </div>
                     <div className="min-w-0">
                       <p className="text-[10px] text-gray-400">结果</p>
-                      <p className="mt-0.5 truncate font-medium text-gray-800">{resultUrls.length || 0} 张</p>
+                      <p className="mt-0.5 truncate font-medium text-gray-800">{resultUrls.length || 0} 个</p>
                     </div>
                   </div>
 
@@ -603,7 +606,7 @@ export default function HistoryPage() {
                           aria-label={`查看第 ${index + 1} 张结果`}
                           className="h-12 w-10 flex-shrink-0 overflow-hidden rounded-md border bg-gray-50"
                         >
-                          <img src={getImageVariantUrl(url, "thumb")} className="h-full w-full object-cover" alt={`结果 ${index + 1}`} />
+                          <HistoryMediaPreview url={url} variant="thumb" alt={`结果 ${index + 1}`} />
                         </button>
                       ))}
                       {resultUrls.length > 5 && (
@@ -764,11 +767,13 @@ export default function HistoryPage() {
                       onClick={() => setLightboxSrc(selectedResultUrl)}
                       className="group flex h-full w-full items-center justify-center p-2 sm:p-4"
                     >
-                      <img
-                        src={getImageVariantUrl(selectedResultUrl, "preview")}
+                      <HistoryMediaPreview
+                        url={selectedResultUrl}
+                        variant="preview"
                         className="max-h-[62vh] w-full object-contain transition-transform duration-200"
                         style={{ transform: `scale(${detailZoom / 100})` }}
                         alt={`生成结果 ${selectedResultIndex + 1}`}
+                        controls
                       />
                       <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full border border-white/70 bg-white/80 px-2.5 py-1 text-[11px] text-gray-700 opacity-0 shadow-sm backdrop-blur transition-opacity group-hover:opacity-100">
                         <Maximize2 className="w-3 h-3" />
@@ -831,7 +836,7 @@ export default function HistoryPage() {
                           selectedResultIndex === index ? "border-slate-900 ring-2 ring-slate-200" : "border-white/80 opacity-75 hover:opacity-100"
                         }`}
                       >
-                        <img src={getImageVariantUrl(url, "thumb")} className="h-full w-full object-cover" alt={`结果缩略图 ${index + 1}`} />
+                        <HistoryMediaPreview url={url} variant="thumb" alt={`结果缩略图 ${index + 1}`} />
                       </button>
                     ))}
                   </div>
@@ -905,9 +910,10 @@ export default function HistoryPage() {
                           className="group min-w-0 rounded-xl text-left outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
                         >
                           <div className="relative h-24 overflow-hidden rounded-xl border border-gray-200 bg-gray-50 shadow-sm transition duration-200 group-hover:-translate-y-0.5 group-hover:shadow-md">
-                            <img
-                              src={getImageVariantUrl(image.url, "thumb")}
-                              className="h-full w-full object-cover transition duration-300 group-hover:scale-110 group-focus-visible:scale-110"
+                            <HistoryMediaPreview
+                              url={image.url}
+                              variant="thumb"
+                              className="transition duration-300 group-hover:scale-110 group-focus-visible:scale-110"
                               alt={image.label}
                             />
                             <div className="absolute inset-0 flex items-center justify-center bg-slate-950/0 transition duration-200 group-hover:bg-slate-950/18 group-focus-visible:bg-slate-950/18">
@@ -969,10 +975,12 @@ export default function HistoryPage() {
             onClick={() => setLightboxSrc(null)}
           >
           <div className="flex max-h-full max-w-full items-center justify-center rounded-[28px] border border-white/70 bg-white/75 p-4 shadow-[0_28px_90px_rgba(15,23,42,0.32)] backdrop-blur-2xl">
-            <img
-              src={lightboxSrc}
-              className="max-h-[86vh] max-w-full object-contain rounded-[20px] shadow-2xl"
+            <HistoryMediaPreview
+              url={lightboxSrc}
+              variant="preview"
+              className="max-h-[86vh] max-w-full rounded-[20px] object-contain shadow-2xl"
               alt="历史记录大图预览"
+              controls
             />
           </div>
           <button
@@ -1118,6 +1126,53 @@ function HistoryFailureNotice({ copy }: { copy: HistoryFailureRecoveryCopy }) {
   );
 }
 
+function HistoryMediaPreview({
+  url,
+  variant,
+  className = "",
+  alt,
+  style,
+  controls = false,
+}: {
+  url: string;
+  variant: "card" | "thumb" | "preview";
+  className?: string;
+  alt: string;
+  style?: CSSProperties;
+  controls?: boolean;
+}) {
+  const isVideo = isLikelyVideoUrl(url);
+  const mediaClass = `${variant === "preview" ? "max-h-full max-w-full object-contain" : "h-full w-full object-cover"} ${className}`.trim();
+
+  if (isVideo) {
+    return (
+      <span className={`relative block overflow-hidden bg-black ${variant === "preview" ? "max-h-full max-w-full" : "h-full w-full"}`}>
+        <video
+          src={url}
+          className={mediaClass}
+          style={style}
+          controls={controls}
+          muted={!controls}
+          playsInline
+          preload="metadata"
+          onClick={(event) => {
+            if (controls) event.stopPropagation();
+          }}
+        />
+        {!controls && (
+          <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/10 text-white">
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-black/58 shadow-sm backdrop-blur">
+              <Play className="h-3.5 w-3.5 fill-current" />
+            </span>
+          </span>
+        )}
+      </span>
+    );
+  }
+
+  return <img src={getImageVariantUrl(url, variant)} className={mediaClass} style={style} alt={alt} />;
+}
+
 function HistorySkeletonStyles() {
   return (
     <style>{`
@@ -1186,6 +1241,8 @@ function formatKind(kind?: HistoryJobPayload["kind"]) {
   if (kind === "faceSwap") return "换脸";
   if (kind === "model") return "专属模特";
   if (kind === "pose") return "姿势裂变";
+  if (kind === "videoImageToVideo") return "图生视频";
+  if (kind === "videoMotion") return "动作模仿";
   return "未知模块";
 }
 
@@ -1258,7 +1315,7 @@ async function requestHistoryPage({
 }
 
 function downloadHistoryResult(row: HistoryRow, url: string, index: number) {
-  const ext = url.toLowerCase().includes(".jpg") || url.toLowerCase().includes(".jpeg") ? "jpg" : "png";
+  const ext = inferMediaExtension(url, isLikelyVideoUrl(url) ? "mp4" : "png");
   const dateStr = row.created_at
     ? new Date(row.created_at).toISOString().slice(0, 10).replace(/-/g, "")
     : "";
@@ -1274,7 +1331,7 @@ function getRowPayload(row: HistoryRow) {
   if (!payload || typeof payload !== "object") return undefined;
 
   const kind = (payload as { kind?: unknown }).kind;
-  if (kind === "tryon" || kind === "grass" || kind === "productSet" || kind === "modelBackground" || kind === "generalImage" || kind === "garment3d" || kind === "model" || kind === "pose" || kind === "faceSwap") {
+  if (kind === "tryon" || kind === "grass" || kind === "productSet" || kind === "modelBackground" || kind === "generalImage" || kind === "garment3d" || kind === "model" || kind === "pose" || kind === "faceSwap" || kind === "videoImageToVideo" || kind === "videoMotion") {
     return payload as HistoryJobPayload;
   }
 
@@ -1299,6 +1356,9 @@ function getPromptText(payload: HistoryJobPayload) {
   }
   if (payload.kind === "productSet") {
     return payload.productInfo?.trim() || payload.prompt || "";
+  }
+  if (payload.kind === "videoMotion") {
+    return payload.prompt || "";
   }
   return payload.prompt || "";
 }
@@ -1334,6 +1394,12 @@ function getHistoryInputSummary(payload?: HistoryJobPayload) {
   if (payload.kind === "pose") {
     return `主图 · ${getPoseSeriesStyleLabel(payload.poseStyle)}`;
   }
+  if (payload.kind === "videoImageToVideo") {
+    return `输入图 · ${payload.templateTitle || "自定义动作"} · ${payload.resolution}`;
+  }
+  if (payload.kind === "videoMotion") {
+    return `模特图 + 参考视频 · ${payload.templateTitle || "动作模仿"} · ${payload.resolution}`;
+  }
   if (payload.kind === "garment3d") {
     return `服装图 · ${payload.outputMode === "reference" ? "参考图模式" : "提示词模式"} · ${getGarment3dDisplayStyleLabel(payload.displayStyle)}`;
   }
@@ -1357,9 +1423,16 @@ function getTryonReferenceUrls(payload: Extract<HistoryJobPayload, { kind: "tryo
 function getHistoryOutputSummary(row: HistoryRow, payload?: HistoryJobPayload) {
   const resultCount = row.result_urls?.length || 0;
   const model = payload?.aiModel || row.ai_model || "模型未记录";
-  const size = payload?.imageSize || row.image_size || "尺寸未记录";
+  const size = getPayloadDisplaySize(payload) || row.image_size || "尺寸未记录";
   const status = formatStatus(row.status);
-  return `${status} · ${resultCount} 张结果 · ${model} · ${size}`;
+  const unit = payload?.kind === "videoImageToVideo" || payload?.kind === "videoMotion" ? "个视频" : "张结果";
+  return `${status} · ${resultCount} ${unit} · ${model} · ${size}`;
+}
+
+function getPayloadDisplaySize(payload?: HistoryJobPayload) {
+  if (!payload) return "";
+  if (payload.kind === "videoImageToVideo" || payload.kind === "videoMotion") return payload.resolution;
+  return "imageSize" in payload ? payload.imageSize : "";
 }
 
 function getHistoryReuseLabel(payload?: HistoryJobPayload) {
@@ -1414,6 +1487,15 @@ function getInputImages(payload: HistoryJobPayload) {
   if (payload.kind === "pose") {
     return [{ label: "主图", url: payload.mainImageUrl }];
   }
+  if (payload.kind === "videoImageToVideo") {
+    return [{ label: "输入图", url: payload.imageUrl }];
+  }
+  if (payload.kind === "videoMotion") {
+    return [
+      { label: "模特图", url: payload.modelImageUrl },
+      { label: "参考视频", url: payload.referenceVideoUrl },
+    ];
+  }
   if (payload.kind === "faceSwap") {
     return [
       { label: "原始模特图", url: payload.sourceUrl },
@@ -1429,7 +1511,7 @@ function getParameterItems(row: HistoryRow) {
     { label: "模块", value: formatKind(payload?.kind) },
     { label: "状态", value: formatStatus(row.status) },
     { label: "模型", value: String(payload?.aiModel || row.ai_model || "-") },
-    { label: "尺寸", value: String(payload?.imageSize || row.image_size || "-") },
+    { label: "尺寸", value: String(getPayloadDisplaySize(payload) || row.image_size || "-") },
     { label: "积分", value: String(row.credits_cost || row.credits_used || "-") },
   ];
   if (!payload) return common;
@@ -1526,6 +1608,25 @@ function getParameterItems(row: HistoryRow) {
       { label: "比例", value: "3:4" },
       { label: "生成张数", value: "1" },
       { label: "拍摄风格", value: getPoseSeriesStyleLabel(payload.poseStyle) },
+    ];
+  }
+  if (payload.kind === "videoImageToVideo") {
+    return [
+      ...common,
+      { label: "比例", value: payload.aspectRatio || "9:16" },
+      { label: "生成数量", value: "1" },
+      { label: "分辨率", value: payload.resolution },
+      { label: "动作模板", value: payload.templateTitle || "-" },
+    ];
+  }
+  if (payload.kind === "videoMotion") {
+    return [
+      ...common,
+      { label: "生成数量", value: "1" },
+      { label: "分辨率", value: payload.resolution },
+      { label: "质量档", value: payload.resolution === "1080p" ? "pro" : "std" },
+      { label: "动作模板", value: payload.templateTitle || "-" },
+      { label: "参考视频", value: payload.referenceVideoUrl ? "已使用" : "未使用" },
     ];
   }
   if (payload.kind === "faceSwap") {

@@ -1,7 +1,7 @@
 "use client";
 
 import type { ChangeEvent, CSSProperties, KeyboardEvent } from "react";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { 
   Upload, UserRound, Image, Sparkles,
@@ -79,7 +79,8 @@ import {
   SCENE_MODE_TABS,
   STYLE_PRESETS,
 } from "@/lib/tryon-studio-options";
-import { TRYON_CATEGORY_BY_CODE, type TryOnClothingAnalysis } from "@/lib/tryon-reference-config";
+import { TRYON_CATEGORY_BY_CODE, isIntimateAnalysis, normalizeTryOnClothingAnalysis, type TryOnClothingAnalysis } from "@/lib/tryon-reference-config";
+import { normalizeTryOnReferenceAnalyses, type TryOnReferenceAnalysis, type TryOnReferenceBodyCrop } from "@/lib/tryon-reference-analysis";
 import { TryOnSourceLibraryDialog } from "@/components/tryon/TryOnSourceLibraryDialog";
 import {
   ReferenceScenePicker,
@@ -128,6 +129,18 @@ type CustomReferenceUpload = {
   status: "uploading" | "ready" | "error";
   url?: string;
   error?: string;
+};
+
+type ClothingAnalysisCacheEntry = {
+  analysis: TryOnClothingAnalysis | null;
+  source: "yunwu" | "cache" | "fallback" | "history";
+  error?: string | null;
+};
+
+type ReferenceAnalysisCacheEntry = {
+  analyses: TryOnReferenceAnalysis[];
+  source: "yunwu" | "cache" | "fallback" | "history";
+  error?: string | null;
 };
 
 type SystemReferenceApiItem = {
@@ -187,6 +200,15 @@ const activeTryOnStatusWatchers = new Map<string, AbortController>();
 const TRYON_FACE_MODEL_BANANA_NOTICE = "已选择模特脸时，Banana 暂不可用。建议用 GPT-Image-2 直接融合；如果想用 Banana 的换装效果，先不选模特图完成换装，再到换脸模块处理脸部。";
 const MAX_TRYON_REFERENCE_IMAGES = 8;
 const MAX_TRYON_OUTPUT_IMAGES = 32;
+const TRYON_REFERENCE_BODY_CROP_LABELS: Record<TryOnReferenceBodyCrop, string> = {
+  full_body: "全身",
+  three_quarter: "七分身",
+  upper_body: "上半身",
+  lower_body: "下半身局部",
+  closeup: "局部特写",
+  scene_only: "纯场景",
+  partial_unknown: "局部未知",
+};
 
 function createPlaceholderFile(name: string) {
   return new File([], name, { type: "image/jpeg" });
@@ -303,6 +325,89 @@ function getClothingAnalysisLabel(analysis: TryOnClothingAnalysis | null) {
   return [category?.nameZh || categoryCode, audienceLabel, ageLabel].filter(Boolean).join(" / ");
 }
 
+function getAutoClothingRoleFromAnalysis(analysis: TryOnClothingAnalysis | null): TryOnClothingRole | null {
+  if (!analysis || analysis.confidence < 0.62) return null;
+  const scope = analysis.slot;
+  if (scope === "lower") return "lower";
+  if (scope === "upper" || scope === "outer") return "upper";
+  if (scope === "single" || scope === "intimate" || scope === "functional") return "single";
+
+  const main = analysis.mainCategory;
+  if (main === "bottom_pants" || main === "bottom_skirt") return "lower";
+  if (main === "single_piece_top" || main === "outerwear") return "upper";
+  if (main === "dress" || main === "underwear" || main === "sports_wear" || main === "functional_wear") return "single";
+  return null;
+}
+
+function getReferenceAnalysisSummary(analysis: TryOnReferenceAnalysis | null | undefined) {
+  if (!analysis) return "";
+  const parts = [TRYON_REFERENCE_BODY_CROP_LABELS[analysis.bodyCrop] || "参考图"];
+  if (analysis.personVisible) {
+    parts.push(analysis.faceVisible ? "露脸" : "无脸");
+    if (!analysis.headVisible) parts.push("无头部");
+    if (analysis.upperBodyVisible && !analysis.lowerBodyVisible) parts.push("只见上身");
+    if (!analysis.upperBodyVisible && analysis.lowerBodyVisible) parts.push("只见下身");
+    if (analysis.handsVisible) parts.push("手部可见");
+    if (analysis.feetVisible) parts.push("脚部可见");
+  } else {
+    parts.push("无人像");
+  }
+  return parts.slice(0, 4).join(" / ");
+}
+
+function getReferenceAnalysisDetailText(analysis: TryOnReferenceAnalysis | null | undefined) {
+  if (!analysis) return "";
+  const details = analysis.detailFocus.slice(0, 3).join("、");
+  const confidence = Math.round(analysis.confidence * 100);
+  return [details ? `细节：${details}` : "", confidence ? `置信 ${confidence}%` : ""].filter(Boolean).join(" · ");
+}
+
+function buildClothingAnalysisKey(params: {
+  urls: string[];
+  clothingMode: TryOnClothingMode;
+  garmentAudience: TryOnGarmentAudience;
+  ageGroup: TryOnAgeGroup;
+}) {
+  return JSON.stringify({
+    urls: params.urls.filter(Boolean).map((url) => normalizeAssetUrl(url) || url),
+    clothingMode: params.clothingMode,
+    garmentAudience: params.garmentAudience,
+    ageGroup: params.ageGroup,
+  });
+}
+
+function buildReferenceAnalysisKey(params: {
+  urls: string[];
+  clothingMode: TryOnClothingMode;
+  clothingRoles: TryOnClothingRole[];
+  garmentAudience: TryOnGarmentAudience;
+  ageGroup: TryOnAgeGroup;
+}) {
+  return JSON.stringify({
+    urls: params.urls.filter(Boolean).map((url) => normalizeAssetUrl(url) || url),
+    clothingMode: params.clothingMode,
+    clothingRoles: [...new Set(params.clothingRoles)].sort(),
+    garmentAudience: params.garmentAudience,
+    ageGroup: params.ageGroup,
+  });
+}
+
+function getReferenceSceneMode(ref: SelectedReferenceImage): TryOnSceneMode {
+  if (ref.source === "favorite" || ref.source === "template") return "favorites";
+  if (ref.source === "upload" || ref.source === "history") return "upload_reference";
+  return "system_reference";
+}
+
+function referenceBelongsToSceneMode(ref: SelectedReferenceImage, mode: TryOnSceneMode) {
+  if (mode === "auto_design") return false;
+  return getReferenceSceneMode(ref) === mode;
+}
+
+function coerceVisibleSceneMode(mode: TryOnSceneMode | undefined): TryOnSceneMode {
+  if (mode && mode !== "system_reference") return mode;
+  return "upload_reference";
+}
+
 function getSceneChildReferences(scene: SelectedReferenceImage | null) {
   if (!scene) return [];
   return uniqueReferenceImages((scene.childReferences?.length ? scene.childReferences : [scene]) as SelectedReferenceImage[]);
@@ -331,9 +436,9 @@ function referenceMatchesSceneFilters(ref: SelectedReferenceImage, filters: {
   return true;
 }
 
-function toHistoryReference(url: string, index = 0): SelectedReferenceImage {
+function toHistoryReference(url: string, index = 0, source: ReferenceSource = "history"): SelectedReferenceImage {
   const preset = findPresetReferenceByUrl(url);
-  if (preset) return toPresetReference(preset);
+  if (preset) return { ...toPresetReference(preset), source };
   return {
     id: `history-reference-${index + 1}`,
     url,
@@ -341,8 +446,13 @@ function toHistoryReference(url: string, index = 0): SelectedReferenceImage {
     category: "style",
     is_preset: false,
     user_id: null,
-    source: "history",
+    source,
   };
+}
+
+function getHistoryReferenceSource(sceneMode: TryOnSceneMode): ReferenceSource {
+  if (sceneMode === "favorites") return "favorite";
+  return "history";
 }
 
 function getHistoryReferenceUrls(payload: TryOnHistoryPayload) {
@@ -392,7 +502,7 @@ export default function CreatePage() {
   const [customStyle, setCustomStyle] = useState("");
   const [optimizing, setOptimizing] = useState(false);
   const [promptOverride, setPromptOverride] = useState<string | null>(null);
-  const [sceneMode, setSceneMode] = useState<TryOnSceneMode>("system_reference");
+  const [sceneMode, setSceneMode] = useState<TryOnSceneMode>("upload_reference");
   const [autoDesign, setAutoDesign] = useState<AutoDesignSettings>(DEFAULT_AUTO_DESIGN);
   const [favoriteReferences, setFavoriteReferences] = useState<FavoriteReference[]>([]);
   const [referenceTemplates, setReferenceTemplates] = useState<ReferenceTemplate[]>([]);
@@ -450,6 +560,13 @@ export default function CreatePage() {
   const referenceSelectionTouchedRef = useRef(false);
   const clothingAnalysisSeqRef = useRef(0);
   const lastClothingAnalysisKeyRef = useRef("");
+  const lastAutoAppliedClothingAnalysisKeyRef = useRef("");
+  const referenceAnalysisSeqRef = useRef(0);
+  const lastReferenceAnalysisKeyRef = useRef("");
+  const clothingAnalysisCacheRef = useRef(new Map<string, ClothingAnalysisCacheEntry>());
+  const clothingAnalysisInflightRef = useRef(new Map<string, Promise<ClothingAnalysisCacheEntry>>());
+  const referenceAnalysisCacheRef = useRef(new Map<string, ReferenceAnalysisCacheEntry>());
+  const referenceAnalysisInflightRef = useRef(new Map<string, Promise<ReferenceAnalysisCacheEntry>>());
   const sourceLibrary = useTryOnSourceLibrary({
     ensureAuthenticated: refreshAuth,
     isAuthenticated,
@@ -462,8 +579,13 @@ export default function CreatePage() {
   // 已上传的服装 URL 列表（选择后立即上传）
   const [uploadedClothingUrls, setUploadedClothingUrls] = useState<string[]>([]);
   const [clothingAnalysis, setClothingAnalysis] = useState<TryOnClothingAnalysis | null>(null);
-  const [clothingAnalysisSource, setClothingAnalysisSource] = useState<"yunwu" | "cache" | "fallback" | null>(null);
+  const [clothingAnalysisSource, setClothingAnalysisSource] = useState<"yunwu" | "cache" | "fallback" | "history" | null>(null);
   const [isAnalyzingClothing, setIsAnalyzingClothing] = useState(false);
+  const [referenceAnalyses, setReferenceAnalyses] = useState<TryOnReferenceAnalysis[]>([]);
+  const [isAnalyzingReferences, setIsAnalyzingReferences] = useState(false);
+  const [clothingAnalysisError, setClothingAnalysisError] = useState<string | null>(null);
+  const [referenceAnalysisError, setReferenceAnalysisError] = useState<string | null>(null);
+  const [referenceAnalysisSource, setReferenceAnalysisSource] = useState<"yunwu" | "cache" | "fallback" | "history" | null>(null);
   const [isLoadingSystemReferences, setIsLoadingSystemReferences] = useState(false);
   const [recommendedSystemReferences, setRecommendedSystemReferences] = useState<SelectedReferenceImage[]>(getFallbackSystemReferences().slice(0, 4));
   const [allSystemReferences, setAllSystemReferences] = useState<SelectedReferenceImage[]>(getFallbackSystemReferences());
@@ -479,10 +601,16 @@ export default function CreatePage() {
 
   const aspects = aiModel === "gpt-image-2" ? GPT_ASPECTS : BANANA_ASPECTS;
   const imageSizes = getSupportedImageSizes(aiModel, aspectRatio);
-  const selectedReferenceImages = sceneMode === "auto_design"
-    ? []
-    : uniqueReferenceImages((store.referenceImages?.length ? store.referenceImages : store.referenceImage ? [store.referenceImage] : []) as SelectedReferenceImage[]);
-  const effectiveReferenceUrls = selectedReferenceImages.map((item) => item.url).filter(Boolean);
+  const allSelectedReferenceImages = useMemo(() => (
+    uniqueReferenceImages((store.referenceImages?.length ? store.referenceImages : store.referenceImage ? [store.referenceImage] : []) as SelectedReferenceImage[])
+  ), [store.referenceImage, store.referenceImages]);
+  const selectedReferenceImages = useMemo(() => (
+    allSelectedReferenceImages.filter((item) => referenceBelongsToSceneMode(item, sceneMode))
+  ), [allSelectedReferenceImages, sceneMode]);
+  const effectiveReferenceUrls = useMemo(
+    () => selectedReferenceImages.map((item) => item.url).filter(Boolean),
+    [selectedReferenceImages]
+  );
   const effectiveReferenceUrl = effectiveReferenceUrls[0] || null;
   const referenceMultiplier = sceneMode === "auto_design" ? 1 : effectiveReferenceUrls.length;
   const expectedOutputCount = genCount * referenceMultiplier;
@@ -561,9 +689,15 @@ export default function CreatePage() {
     store.setPromptUsed("");
   };
 
-  const setSelectedReferences = (refs: SelectedReferenceImage[], options: { touch?: boolean } = {}) => {
+  const setSelectedReferences = (refs: SelectedReferenceImage[], options: { touch?: boolean; mode?: TryOnSceneMode } = {}) => {
     if (options.touch !== false) referenceSelectionTouchedRef.current = true;
-    store.setReferenceImages(uniqueReferenceImages(refs) as ReferenceImage[]);
+    const mode = options.mode || sceneMode;
+    const nextReferenceUrlKeys = new Set(refs.map((item) => normalizeAssetUrl(item.url) || item.url));
+    const inactiveReferences = allSelectedReferenceImages.filter((item) => (
+      !referenceBelongsToSceneMode(item, mode)
+      && !nextReferenceUrlKeys.has(normalizeAssetUrl(item.url) || item.url)
+    ));
+    store.setReferenceImages(uniqueReferenceImages([...refs, ...inactiveReferences]) as ReferenceImage[]);
     resetScenePrompt();
   };
 
@@ -582,7 +716,7 @@ export default function CreatePage() {
 
   const clearSelectedReferences = () => {
     referenceSelectionTouchedRef.current = true;
-    store.setReferenceImages([]);
+    setSelectedReferences([], { touch: false });
     setCustomRefUploads((prev) => prev.filter((item) => item.status === "uploading"));
     resetScenePrompt();
   };
@@ -603,15 +737,11 @@ export default function CreatePage() {
 
     if (mode === "auto_design") {
       referenceSelectionTouchedRef.current = true;
-      store.setReferenceImages([]);
-      setCustomRefUploads([]);
       return true;
     }
 
     if (isChangingSource) {
       referenceSelectionTouchedRef.current = true;
-      store.setReferenceImages([]);
-      if (mode !== "upload_reference") setCustomRefUploads([]);
     }
 
     return true;
@@ -811,9 +941,11 @@ export default function CreatePage() {
     const urls = uploadedClothingUrls.filter(Boolean);
     if (!urls.length) {
       lastClothingAnalysisKeyRef.current = "";
+      lastAutoAppliedClothingAnalysisKeyRef.current = "";
       clothingAnalysisSeqRef.current += 1;
       setClothingAnalysis(null);
       setClothingAnalysisSource(null);
+      setClothingAnalysisError(null);
       setIsAnalyzingClothing(false);
       setIsLoadingSystemReferences(false);
       setRecommendedSystemReferences(getFallbackSystemReferences().slice(0, 4));
@@ -821,67 +953,94 @@ export default function CreatePage() {
       return;
     }
 
-    const analysisKey = JSON.stringify({ urls, clothingMode, garmentAudience, ageGroup });
+    const analysisKey = buildClothingAnalysisKey({ urls, clothingMode, garmentAudience, ageGroup });
     if (lastClothingAnalysisKeyRef.current === analysisKey) return;
     lastClothingAnalysisKeyRef.current = analysisKey;
     const seq = clothingAnalysisSeqRef.current + 1;
     clothingAnalysisSeqRef.current = seq;
 
+    const cachedAnalysis = clothingAnalysisCacheRef.current.get(analysisKey);
+    if (cachedAnalysis) {
+      setClothingAnalysis(cachedAnalysis.analysis);
+      setClothingAnalysisSource(cachedAnalysis.source);
+      setClothingAnalysisError(cachedAnalysis.error || null);
+      setIsAnalyzingClothing(false);
+      setIsLoadingSystemReferences(false);
+      return;
+    }
+
     const run = async () => {
       setIsAnalyzingClothing(true);
-      setIsLoadingSystemReferences(true);
+      setIsLoadingSystemReferences(false);
+      setClothingAnalysisError(null);
       try {
-        const analysisRes = await fetch("/api/tryon/analyze-clothing", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            clothing_urls: urls,
-            clothing_mode: clothingMode,
-            garment_audience: garmentAudience,
-            age_group: ageGroup,
-          }),
-        });
-        const analysisData = await analysisRes.json().catch(() => ({}));
-        if (clothingAnalysisSeqRef.current !== seq) return;
-        if (!analysisRes.ok) throw new Error(analysisData.error || "服装识别失败");
-        const nextAnalysis = analysisData.analysis as TryOnClothingAnalysis;
-        setClothingAnalysis(nextAnalysis);
-        setClothingAnalysisSource(analysisData.cached ? "cache" : analysisData.source || "fallback");
-
-        const recommendationRes = await fetch("/api/tryon/reference-recommendations", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            analysis: nextAnalysis,
-            garment_audience: garmentAudience,
-            age_group: ageGroup,
-            selected_count: selectedReferenceImages.length,
-          }),
-        });
-        const recommendationData = await recommendationRes.json().catch(() => ({}));
-        if (clothingAnalysisSeqRef.current !== seq) return;
-        if (!recommendationRes.ok) throw new Error(recommendationData.error || "参考图推荐失败");
-
-        const recommended = normalizeSystemReferenceList(recommendationData.recommended);
-        const all = normalizeSystemReferenceList(recommendationData.all);
-        const nextAll = all.length ? all : getFallbackSystemReferences();
-        const nextRecommended = recommended.length ? recommended : nextAll.slice(0, 4);
-        setRecommendedSystemReferences(nextRecommended);
-        setAllSystemReferences(nextAll);
-        if (recommendationData.safetyBlocked) {
-          toast.info("内衣/泳衣类参考图已按成人安全规则过滤");
+        let request = clothingAnalysisInflightRef.current.get(analysisKey);
+        if (!request) {
+          const nextRequest = fetch("/api/tryon/analyze-clothing", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              clothing_urls: urls,
+              clothing_mode: clothingMode,
+              garment_audience: garmentAudience,
+              age_group: ageGroup,
+            }),
+          }).then(async (analysisRes) => {
+            const analysisData = await analysisRes.json().catch(() => ({}));
+            if (!analysisRes.ok) throw new Error(analysisData.error || "服装识别失败");
+            const nextAnalysis = analysisData.analysis as TryOnClothingAnalysis;
+            const nextSource: "yunwu" | "cache" | "fallback" = analysisData.cached
+              ? "cache"
+              : analysisData.source === "yunwu" ? "yunwu" : "fallback";
+            return {
+              analysis: nextAnalysis,
+              source: nextSource,
+              error: null,
+            };
+          });
+          clothingAnalysisInflightRef.current.set(analysisKey, nextRequest);
+          void nextRequest.finally(() => {
+            if (clothingAnalysisInflightRef.current.get(analysisKey) === nextRequest) {
+              clothingAnalysisInflightRef.current.delete(analysisKey);
+            }
+          });
+          request = nextRequest;
         }
-        if (!referenceSelectionTouchedRef.current && sceneMode !== "auto_design" && !selectedReferenceImages.length && nextRecommended[0]) {
-          setSelectedReferences([nextRecommended[0]], { touch: false });
+
+        const nextEntry = await request;
+        clothingAnalysisCacheRef.current.set(analysisKey, nextEntry);
+        if (clothingAnalysisSeqRef.current !== seq) return;
+        const nextAnalysis = nextEntry.analysis;
+        setClothingAnalysis(nextAnalysis);
+        setClothingAnalysisSource(nextEntry.source);
+        setClothingAnalysisError(nextEntry.error || null);
+        const autoRole = getAutoClothingRoleFromAnalysis(nextAnalysis);
+        const autoMode: TryOnClothingMode | null = autoRole ? autoRole === "single" ? "single" : "multi" : null;
+        const autoApplyKey = JSON.stringify({ urls, autoRole, autoMode, intimate: isIntimateAnalysis(nextAnalysis) });
+        if (urls.length === 1 && autoRole && autoMode && lastAutoAppliedClothingAnalysisKeyRef.current !== autoApplyKey) {
+          lastAutoAppliedClothingAnalysisKeyRef.current = autoApplyKey;
+          if (autoMode !== clothingMode) setClothingMode(autoMode);
+          setPendingClothingRole(autoRole);
+          setClothingRoles([autoRole]);
+          toast.info(`已识别为${TRYON_CLOTHING_ROLE_LABELS[autoRole]}，自动切换上传分类`);
+        }
+        if (isIntimateAnalysis(nextAnalysis) && !isIntimateGarment) {
+          if (ageGroup !== "adult") {
+            setAgeGroup("adult");
+            toast.info("识别为内衣/泳衣类服装，已切换为成人安全规则");
+          }
+          setIsIntimateGarment(true);
         }
       } catch (err: any) {
         if (clothingAnalysisSeqRef.current !== seq) return;
+        const message = err?.message || "服装识别失败，已按当前上传分类继续";
         setClothingAnalysis(null);
         setClothingAnalysisSource(null);
+        setClothingAnalysisError(message);
         setRecommendedSystemReferences(getFallbackSystemReferences().slice(0, 4));
         setAllSystemReferences(getFallbackSystemReferences());
-        if (err?.message && !String(err.message).includes("请先登录")) {
-          toast.info("暂时使用默认系统参考图");
+        if (message && !String(message).includes("请先登录")) {
+          toast.info("服装识别失败，已按当前上传分类继续");
         }
       } finally {
         if (clothingAnalysisSeqRef.current === seq) {
@@ -892,7 +1051,92 @@ export default function CreatePage() {
     };
 
     void run();
-  }, [uploadedClothingUrls, clothingMode, garmentAudience, ageGroup]);
+  }, [uploadedClothingUrls, clothingMode, garmentAudience, ageGroup, isIntimateGarment]);
+
+  useEffect(() => {
+    const urls = effectiveReferenceUrls.filter(Boolean);
+    if (sceneMode === "auto_design" || !urls.length) {
+      lastReferenceAnalysisKeyRef.current = "";
+      referenceAnalysisSeqRef.current += 1;
+      setReferenceAnalyses((prev) => prev.length ? [] : prev);
+      setIsAnalyzingReferences((prev) => prev ? false : prev);
+      setReferenceAnalysisError(null);
+      setReferenceAnalysisSource(null);
+      return;
+    }
+
+    const analysisKey = buildReferenceAnalysisKey({ urls, clothingMode, clothingRoles, garmentAudience, ageGroup });
+    if (lastReferenceAnalysisKeyRef.current === analysisKey) return;
+    lastReferenceAnalysisKeyRef.current = analysisKey;
+    const seq = referenceAnalysisSeqRef.current + 1;
+    referenceAnalysisSeqRef.current = seq;
+
+    const cachedAnalysis = referenceAnalysisCacheRef.current.get(analysisKey);
+    if (cachedAnalysis) {
+      setReferenceAnalyses(cachedAnalysis.analyses);
+      setReferenceAnalysisSource(cachedAnalysis.source);
+      setReferenceAnalysisError(cachedAnalysis.error || null);
+      setIsAnalyzingReferences(false);
+      return;
+    }
+
+    const run = async () => {
+      setIsAnalyzingReferences(true);
+      setReferenceAnalysisError(null);
+      try {
+        let request = referenceAnalysisInflightRef.current.get(analysisKey);
+        if (!request) {
+          const nextRequest = fetch("/api/tryon/analyze-references", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              reference_urls: urls,
+              clothing_mode: clothingMode,
+              clothing_roles: clothingRoles,
+              garment_audience: garmentAudience,
+              age_group: ageGroup,
+            }),
+          }).then(async (res) => {
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || "参考图识别失败");
+            const nextAnalyses = normalizeTryOnReferenceAnalyses(data.analyses);
+            const nextSource: "yunwu" | "cache" | "fallback" = data.cached
+              ? "cache"
+              : data.source === "yunwu" ? "yunwu" : "fallback";
+            const nextError = nextSource === "fallback" ? "参考图已做保守识别，生成会继续使用原图构图" : null;
+            return {
+              analyses: nextAnalyses,
+              source: nextSource,
+              error: nextError,
+            };
+          });
+          referenceAnalysisInflightRef.current.set(analysisKey, nextRequest);
+          void nextRequest.finally(() => {
+            if (referenceAnalysisInflightRef.current.get(analysisKey) === nextRequest) {
+              referenceAnalysisInflightRef.current.delete(analysisKey);
+            }
+          });
+          request = nextRequest;
+        }
+
+        const nextEntry = await request;
+        referenceAnalysisCacheRef.current.set(analysisKey, nextEntry);
+        if (referenceAnalysisSeqRef.current !== seq) return;
+        setReferenceAnalyses(nextEntry.analyses);
+        setReferenceAnalysisSource(nextEntry.source);
+        setReferenceAnalysisError(nextEntry.error || null);
+      } catch (err: any) {
+        if (referenceAnalysisSeqRef.current !== seq) return;
+        setReferenceAnalyses([]);
+        setReferenceAnalysisSource(null);
+        setReferenceAnalysisError(err?.message || "参考图识别失败，已按原参考图继续");
+      } finally {
+        if (referenceAnalysisSeqRef.current === seq) setIsAnalyzingReferences(false);
+      }
+    };
+
+    void run();
+  }, [effectiveReferenceUrls, sceneMode, clothingMode, clothingRoles, garmentAudience, ageGroup]);
 
   useEffect(() => {
     if (!aspects.find(a => a.value === aspectRatio)) setAspectRatio("3:4");
@@ -919,12 +1163,41 @@ export default function CreatePage() {
     setUploadedClothingUrls(payload.clothingUrls);
     const nextClothingMode = normalizeTryOnClothingMode(payload.clothingMode || (payload.clothingUrls.length > 1 ? "multi" : "single"));
     setClothingMode(nextClothingMode);
-    setClothingRoles(payload.clothingUrls.map((_, index) => normalizeTryOnClothingRole(
+    const nextClothingRoles = payload.clothingUrls.map((_, index) => normalizeTryOnClothingRole(
       payload.clothingRoles?.[index],
       nextClothingMode === "multi" ? index === 0 ? "upper" : index === 1 ? "lower" : "extra" : "single"
-    )));
-    setGarmentAudience(normalizeTryOnGarmentAudience(payload.garmentAudience));
-    setAgeGroup(normalizeTryOnAgeGroup(payload.ageGroup));
+    ));
+    setClothingRoles(nextClothingRoles);
+    const nextGarmentAudience = normalizeTryOnGarmentAudience(payload.garmentAudience);
+    const nextAgeGroup = normalizeTryOnAgeGroup(payload.ageGroup);
+    setGarmentAudience(nextGarmentAudience);
+    setAgeGroup(nextAgeGroup);
+    const historyClothingAnalysis = payload.clothingAnalysis
+      ? normalizeTryOnClothingAnalysis(payload.clothingAnalysis)
+      : null;
+    const historyClothingAnalysisKey = buildClothingAnalysisKey({
+      urls: payload.clothingUrls,
+      clothingMode: nextClothingMode,
+      garmentAudience: nextGarmentAudience,
+      ageGroup: nextAgeGroup,
+    });
+    if (historyClothingAnalysis) {
+      lastClothingAnalysisKeyRef.current = historyClothingAnalysisKey;
+      clothingAnalysisCacheRef.current.set(historyClothingAnalysisKey, {
+        analysis: historyClothingAnalysis,
+        source: "history",
+        error: null,
+      });
+      setClothingAnalysis(historyClothingAnalysis);
+      setClothingAnalysisSource("history");
+      setClothingAnalysisError(null);
+      setIsAnalyzingClothing(false);
+    } else {
+      lastClothingAnalysisKeyRef.current = "";
+      setClothingAnalysis(null);
+      setClothingAnalysisSource(null);
+      setClothingAnalysisError(null);
+    }
     if (payload.modelFaceUrl) {
       const presetModel = findPresetModelByUrl(payload.modelFaceUrl);
       if (presetModel) {
@@ -946,12 +1219,38 @@ export default function CreatePage() {
       store.setSelectedModel(null);
     }
     const historyReferenceUrls = getHistoryReferenceUrls(payload);
-    const historyReferences = historyReferenceUrls.map((url, index) => toHistoryReference(url, index));
-    const appliedSceneMode = payload.sceneMode || (historyReferences.length ? "upload_reference" : "auto_design");
+    const appliedSceneMode = coerceVisibleSceneMode(payload.sceneMode);
+    const historyReferenceSource = getHistoryReferenceSource(appliedSceneMode);
+    const historyReferences = historyReferenceUrls.map((url, index) => toHistoryReference(url, index, historyReferenceSource));
     setCustomRefUploads([]);
     referenceSelectionTouchedRef.current = historyReferences.length > 0;
     store.setReferenceImages(appliedSceneMode === "auto_design" ? [] : historyReferences as ReferenceImage[]);
     setSceneMode(appliedSceneMode);
+    const historyReferenceAnalyses = normalizeTryOnReferenceAnalyses(payload.referenceAnalyses).slice(0, historyReferenceUrls.length);
+    const historyReferenceAnalysisKey = buildReferenceAnalysisKey({
+      urls: appliedSceneMode === "auto_design" ? [] : historyReferenceUrls,
+      clothingMode: nextClothingMode,
+      clothingRoles: nextClothingRoles,
+      garmentAudience: nextGarmentAudience,
+      ageGroup: nextAgeGroup,
+    });
+    if (appliedSceneMode !== "auto_design" && historyReferenceAnalyses.length) {
+      lastReferenceAnalysisKeyRef.current = historyReferenceAnalysisKey;
+      referenceAnalysisCacheRef.current.set(historyReferenceAnalysisKey, {
+        analyses: historyReferenceAnalyses,
+        source: "history",
+        error: null,
+      });
+      setReferenceAnalyses(historyReferenceAnalyses);
+      setReferenceAnalysisSource("history");
+      setReferenceAnalysisError(null);
+      setIsAnalyzingReferences(false);
+    } else {
+      lastReferenceAnalysisKeyRef.current = "";
+      setReferenceAnalyses([]);
+      setReferenceAnalysisSource(null);
+      setReferenceAnalysisError(null);
+    }
     setAutoDesign(normalizeAutoDesignSettings(payload.autoDesign || DEFAULT_AUTO_DESIGN));
     setAiModel(payload.aiModel);
     setAspectRatio(payload.aspectRatio);
@@ -963,7 +1262,7 @@ export default function CreatePage() {
     setActiveTaskReferences(buildTryOnInputReferences({
       clothingUrls: payload.clothingUrls,
       clothingMode: nextClothingMode,
-      clothingRoles: payload.clothingRoles,
+      clothingRoles: nextClothingRoles,
       referenceUrls: appliedSceneMode === "auto_design" ? [] : historyReferenceUrls,
       modelFaceUrl: payload.modelFaceUrl,
     }));
@@ -980,11 +1279,13 @@ export default function CreatePage() {
     clothingCount: store.clothingFiles.length || 1,
     clothingMode,
     clothingRoles,
+    clothingAnalysis,
     garmentAudience,
     ageGroup,
     aspectRatio,
     hasModelFace: !!store.selectedModel,
     hasReference: effectiveReferenceUrls.length > 0,
+    referenceAnalysis: referenceAnalyses[0] || null,
     style: stylePrompt || undefined,
   });
   const finalPrompt = promptOverride ?? (store.promptUsed || promptPreview.prompt);
@@ -1092,6 +1393,37 @@ export default function CreatePage() {
         role: image.role,
       },
     ]);
+    toast.success(`已套用${image.title}`);
+  };
+
+  const applyReferenceExample = (image: { url: string; title: string }) => {
+    if (isReferenceUploadBusy) {
+      toast.info("参考图上传中，请稍候");
+      return;
+    }
+    const uploadReferences = allSelectedReferenceImages.filter((item) => referenceBelongsToSceneMode(item, "upload_reference"));
+    if (uploadReferences.some((item) => item.url === image.url)) {
+      toast.info("这张参考图已在上传参考里");
+      setSceneMode("upload_reference");
+      return;
+    }
+    if (uploadReferences.length >= MAX_TRYON_REFERENCE_IMAGES) {
+      toast.info(`参考图最多选择 ${MAX_TRYON_REFERENCE_IMAGES} 张`);
+      return;
+    }
+    setSceneMode("upload_reference");
+    setSelectedReferences([
+      ...uploadReferences,
+      {
+        id: `reference-demo-${image.url}`,
+        url: image.url,
+        label: image.title,
+        category: "style",
+        is_preset: true,
+        user_id: null,
+        source: "upload",
+      },
+    ], { mode: "upload_reference" });
     toast.success(`已套用${image.title}`);
   };
 
@@ -1214,7 +1546,7 @@ export default function CreatePage() {
     }
     const arr = Array.from(files || []);
     if (!arr.length) return;
-    const baseUploadReferences = sceneMode === "upload_reference" ? selectedReferenceImages : [];
+    const baseUploadReferences = allSelectedReferenceImages.filter((item) => referenceBelongsToSceneMode(item, "upload_reference"));
     const remaining = MAX_TRYON_REFERENCE_IMAGES - baseUploadReferences.length;
     if (remaining <= 0) {
       toast.info(`参考图最多选择 ${MAX_TRYON_REFERENCE_IMAGES} 张`);
@@ -1229,8 +1561,6 @@ export default function CreatePage() {
     customRefUploadSeqRef.current = uploadSeq;
     if (sceneMode !== "upload_reference") {
       referenceSelectionTouchedRef.current = true;
-      store.setReferenceImages([]);
-      setCustomRefUploads([]);
     }
     setSceneMode("upload_reference");
     resetScenePrompt();
@@ -1464,8 +1794,10 @@ export default function CreatePage() {
     customModelUploadSeqRef.current += 1;
     customRefUploadSeqRef.current += 1;
     clothingAnalysisSeqRef.current += 1;
+    referenceAnalysisSeqRef.current += 1;
     referenceSelectionTouchedRef.current = false;
     lastClothingAnalysisKeyRef.current = "";
+    lastReferenceAnalysisKeyRef.current = "";
     setActiveQueueTask(null);
     setIsSubmitting(false);
     setIsUploadingCustomModel(false);
@@ -1473,7 +1805,12 @@ export default function CreatePage() {
     setClothingRoles([]);
     setClothingAnalysis(null);
     setClothingAnalysisSource(null);
+    setClothingAnalysisError(null);
     setIsAnalyzingClothing(false);
+    setReferenceAnalyses([]);
+    setReferenceAnalysisSource(null);
+    setReferenceAnalysisError(null);
+    setIsAnalyzingReferences(false);
     setIsLoadingSystemReferences(false);
     setRecommendedSystemReferences(getFallbackSystemReferences().slice(0, 4));
     setAllSystemReferences(getFallbackSystemReferences());
@@ -1481,7 +1818,7 @@ export default function CreatePage() {
     setCustomRefUploads([]);
     setPromptOverride(null);
     setActiveTaskReferences([]);
-    setSceneMode("system_reference");
+    setSceneMode("upload_reference");
     setAutoDesign(DEFAULT_AUTO_DESIGN);
     store.reset();
   }, [cancelTaskSelection, removeTaskQueueItem, store]);
@@ -1505,12 +1842,41 @@ export default function CreatePage() {
       payload.clothingMode || (payload.clothingUrls.length > 1 ? "multi" : "single")
     );
     setClothingMode(nextClothingMode);
-    setClothingRoles(payload.clothingUrls.map((_, index) => normalizeTryOnClothingRole(
+    const nextClothingRoles = payload.clothingUrls.map((_, index) => normalizeTryOnClothingRole(
       payload.clothingRoles?.[index],
       nextClothingMode === "multi" ? index === 0 ? "upper" : index === 1 ? "lower" : "extra" : "single"
-    )));
-    setGarmentAudience(normalizeTryOnGarmentAudience(payload.garmentAudience));
-    setAgeGroup(normalizeTryOnAgeGroup(payload.ageGroup));
+    ));
+    setClothingRoles(nextClothingRoles);
+    const nextGarmentAudience = normalizeTryOnGarmentAudience(payload.garmentAudience);
+    const nextAgeGroup = normalizeTryOnAgeGroup(payload.ageGroup);
+    setGarmentAudience(nextGarmentAudience);
+    setAgeGroup(nextAgeGroup);
+    const historyClothingAnalysis = payload.clothingAnalysis
+      ? normalizeTryOnClothingAnalysis(payload.clothingAnalysis)
+      : null;
+    const historyClothingAnalysisKey = buildClothingAnalysisKey({
+      urls: payload.clothingUrls,
+      clothingMode: nextClothingMode,
+      garmentAudience: nextGarmentAudience,
+      ageGroup: nextAgeGroup,
+    });
+    if (historyClothingAnalysis) {
+      lastClothingAnalysisKeyRef.current = historyClothingAnalysisKey;
+      clothingAnalysisCacheRef.current.set(historyClothingAnalysisKey, {
+        analysis: historyClothingAnalysis,
+        source: "history",
+        error: null,
+      });
+      setClothingAnalysis(historyClothingAnalysis);
+      setClothingAnalysisSource("history");
+      setClothingAnalysisError(null);
+      setIsAnalyzingClothing(false);
+    } else {
+      lastClothingAnalysisKeyRef.current = "";
+      setClothingAnalysis(null);
+      setClothingAnalysisSource(null);
+      setClothingAnalysisError(null);
+    }
 
     if (payload.modelFaceUrl) {
       const presetModel = findPresetModelByUrl(payload.modelFaceUrl);
@@ -1534,13 +1900,39 @@ export default function CreatePage() {
     }
 
     const historyReferenceUrls = getHistoryReferenceUrls(payload);
-    const historyReferences = historyReferenceUrls.map((url, index) => toHistoryReference(url, index));
-    const appliedSceneMode = payload.sceneMode || (historyReferences.length ? "upload_reference" : "auto_design");
+    const appliedSceneMode = coerceVisibleSceneMode(payload.sceneMode);
+    const historyReferenceSource = getHistoryReferenceSource(appliedSceneMode);
+    const historyReferences = historyReferenceUrls.map((url, index) => toHistoryReference(url, index, historyReferenceSource));
     setCustomRefUploads([]);
     referenceSelectionTouchedRef.current = historyReferences.length > 0;
     store.setReferenceImages(appliedSceneMode === "auto_design" ? [] : historyReferences as ReferenceImage[]);
 
     setSceneMode(appliedSceneMode);
+    const historyReferenceAnalyses = normalizeTryOnReferenceAnalyses(payload.referenceAnalyses).slice(0, historyReferenceUrls.length);
+    const historyReferenceAnalysisKey = buildReferenceAnalysisKey({
+      urls: appliedSceneMode === "auto_design" ? [] : historyReferenceUrls,
+      clothingMode: nextClothingMode,
+      clothingRoles: nextClothingRoles,
+      garmentAudience: nextGarmentAudience,
+      ageGroup: nextAgeGroup,
+    });
+    if (appliedSceneMode !== "auto_design" && historyReferenceAnalyses.length) {
+      lastReferenceAnalysisKeyRef.current = historyReferenceAnalysisKey;
+      referenceAnalysisCacheRef.current.set(historyReferenceAnalysisKey, {
+        analyses: historyReferenceAnalyses,
+        source: "history",
+        error: null,
+      });
+      setReferenceAnalyses(historyReferenceAnalyses);
+      setReferenceAnalysisSource("history");
+      setReferenceAnalysisError(null);
+      setIsAnalyzingReferences(false);
+    } else {
+      lastReferenceAnalysisKeyRef.current = "";
+      setReferenceAnalyses([]);
+      setReferenceAnalysisSource(null);
+      setReferenceAnalysisError(null);
+    }
     setAutoDesign(normalizeAutoDesignSettings(payload.autoDesign || DEFAULT_AUTO_DESIGN));
     setAiModel(payload.aiModel);
     setAspectRatio(payload.aspectRatio);
@@ -1552,7 +1944,7 @@ export default function CreatePage() {
     setActiveTaskReferences(buildTryOnInputReferences({
       clothingUrls: payload.clothingUrls,
       clothingMode: nextClothingMode,
-      clothingRoles: payload.clothingRoles,
+      clothingRoles: nextClothingRoles,
       referenceUrls: appliedSceneMode === "auto_design" ? [] : historyReferenceUrls,
       modelFaceUrl: payload.modelFaceUrl,
     }));
@@ -1739,6 +2131,7 @@ export default function CreatePage() {
           clothing_urls: uploadedClothingUrls,
           clothing_mode: clothingMode,
           clothing_roles: clothingRoles,
+          clothing_analysis: clothingAnalysis,
           garment_audience: garmentAudience,
           age_group: ageGroup,
           garment_category: isIntimateGarment ? "intimate" : "regular",
@@ -1746,6 +2139,7 @@ export default function CreatePage() {
           model_face_url: store.selectedModel?.image_url,
           reference_url: effectiveReferenceUrl,
           reference_urls: effectiveReferenceUrls,
+          reference_analyses: referenceAnalyses.slice(0, effectiveReferenceUrls.length),
           ai_model: aiModel,
           aspect_ratio: aspectRatio,
           image_size: imageSize,
@@ -1852,11 +2246,13 @@ export default function CreatePage() {
         ? "results"
         : "empty";
   const retryDisabled = store.isGenerating || Boolean(applyingTaskId);
+  const isVisualAnalysisPending = isAnalyzingClothing || (sceneMode !== "auto_design" && isAnalyzingReferences);
   const runDisabled = isSubmitting
     || isUploading
     || isAuxiliaryUploading
     || isReferenceUploadPending
     || isModelUploadPending
+    || isVisualAnalysisPending
     || (sceneMode !== "auto_design" && !effectiveReferenceUrls.length)
     || !uploadedClothingUrls.length;
   const authIsAnonymous = authChecked && !isAuthenticated;
@@ -1865,15 +2261,50 @@ export default function CreatePage() {
     : isUploading
       ? "服装图正在上传，请稍候。"
       : isModelUploadBusy
-        ? "模特图正在上传，请稍候。"
-        : isReferenceUploadBusy
-          ? "参考图正在上传，请稍候。"
-          : sceneMode !== "auto_design" && !effectiveReferenceUrls.length
-            ? "请先选择至少 1 张参考图。"
-            : !uploadedClothingUrls.length
-              ? "请先上传服装图，或从作品库选择一张历史结果。"
-              : undefined;
+      ? "模特图正在上传，请稍候。"
+      : isReferenceUploadBusy
+        ? "参考图正在上传，请稍候。"
+        : isAnalyzingClothing
+          ? "服装图正在识别，请稍候。"
+          : sceneMode !== "auto_design" && isAnalyzingReferences
+            ? "参考图正在识别，请稍候。"
+            : sceneMode !== "auto_design" && !effectiveReferenceUrls.length
+              ? "请先选择至少 1 张参考图。"
+              : !uploadedClothingUrls.length
+                ? "请先上传服装图，或从作品库选择一张历史结果。"
+                : undefined;
   const clothingAnalysisLabel = getClothingAnalysisLabel(clothingAnalysis);
+  const visibleSceneModeTabs = SCENE_MODE_TABS.filter((tab) => tab.value !== "system_reference");
+  const clothingAnalysisStatus = isAnalyzingClothing
+    ? { tone: "loading" as const, text: "识别服装中" }
+    : clothingAnalysisLabel
+      ? { tone: "success" as const, text: `${clothingAnalysisSource === "history" ? "历史识别" : clothingAnalysisSource === "cache" ? "缓存识别" : "已识别"}：${clothingAnalysisLabel}` }
+      : clothingAnalysisError
+        ? { tone: "warning" as const, text: clothingAnalysisError }
+        : null;
+  const referenceAnalysisStatus = isAnalyzingReferences
+    ? { tone: "loading" as const, text: "识别参考图中" }
+    : referenceAnalysisError
+      ? { tone: "warning" as const, text: referenceAnalysisError }
+      : selectedReferenceCount > 0 && referenceAnalyses.length > 0
+        ? {
+            tone: referenceAnalysisSource === "fallback" ? "warning" as const : "success" as const,
+            text: `${referenceAnalysisSource === "history" ? "历史识别" : referenceAnalysisSource === "cache" ? "缓存识别" : "已识别"} ${Math.min(referenceAnalyses.length, selectedReferenceCount)}/${selectedReferenceCount} 张参考图`,
+          }
+        : null;
+  const referenceAnalysisSummaries = selectedReferenceImages
+    .map((ref, index) => {
+      const analysis = referenceAnalyses[index];
+      if (!analysis) return null;
+      return {
+        key: ref.url || `${analysis.index}-${index}`,
+        title: `#${index + 1} ${getReferenceAnalysisSummary(analysis)}`,
+        detail: getReferenceAnalysisDetailText(analysis),
+      };
+    })
+    .filter(Boolean) as Array<{ key: string; title: string; detail: string }>;
+  const isCustomModelSelected = Boolean(store.selectedModel && !store.selectedModel.is_preset);
+  const customModelImageUrl = customModelPreview || (isCustomModelSelected ? store.selectedModel?.image_url || "" : "");
   const recommendedSystemReferenceUrls = new Set(recommendedSystemReferences.map((item) => item.url));
   const secondarySystemReferences = allSystemReferences.filter((item) => !recommendedSystemReferenceUrls.has(item.url));
   const referencePanelBaseReferences = referencePanelTab === "recommended"
@@ -1991,6 +2422,27 @@ export default function CreatePage() {
                 { value: "single", label: TRYON_CLOTHING_MODE_LABELS.single, description: "连体 / 全身", disabled: isUploading },
               ]}
             />
+
+            {clothingAnalysisStatus && (
+              <div
+                className={`mt-2 flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold ${
+                  clothingAnalysisStatus.tone === "loading"
+                    ? "border-violet-100 bg-violet-50/70 text-violet-600"
+                    : clothingAnalysisStatus.tone === "success"
+                      ? "border-emerald-100 bg-emerald-50/80 text-emerald-700"
+                      : "border-amber-100 bg-amber-50/80 text-amber-700"
+                }`}
+              >
+                {clothingAnalysisStatus.tone === "loading" ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : clothingAnalysisStatus.tone === "success" ? (
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                ) : (
+                  <XCircle className="h-3.5 w-3.5" />
+                )}
+                <span className="min-w-0 truncate" title={clothingAnalysisStatus.text}>{clothingAnalysisStatus.text}</span>
+              </div>
+            )}
 
             {clothingMode === "single" ? (
               <div className="studio-clothing-slot-stack" data-mode="single">
@@ -2149,7 +2601,7 @@ export default function CreatePage() {
                 <h3 className="font-bold text-sm flex items-center gap-2">
                   <Image className="w-4 h-4 text-purple-500" /> 参考图 / 场景
                 </h3>
-                <p className="mt-1 text-[11px] text-gray-400">智能模式不使用参考图；预设、上传、收藏会作为参考来源</p>
+                <p className="mt-1 text-[11px] text-gray-400">默认上传参考图；切换 tab 会保留记录，生成只使用当前 tab 的参考图</p>
               </div>
               {sceneMode !== "auto_design" && (
                 <span className="rounded-full bg-violet-50 px-2 py-1 text-[10px] font-semibold text-[var(--codex-accent)]">
@@ -2159,18 +2611,18 @@ export default function CreatePage() {
             </div>
 
             <StudioOptionGrid
-              options={SCENE_MODE_TABS.map((tab) => ({
+              options={visibleSceneModeTabs.map((tab) => ({
                 value: tab.value,
                 label: tab.label,
               }))}
               value={sceneMode}
               onChange={switchSceneMode}
-              columns={4}
+              columns={3}
               ariaLabel="参考图 / 场景"
               className="tryon-scene-mode-tabs mb-3"
             />
 
-            {sceneMode === "system_reference" && (
+            {false && sceneMode === "system_reference" && (
               <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50/70 p-3">
                 {selectedReferenceImages.length === 0 ? (
                   <button
@@ -2243,8 +2695,52 @@ export default function CreatePage() {
             )}
 
             {sceneMode === "upload_reference" && (
-              <div className={`rounded-xl border border-dashed p-3 transition-colors ${isDraggingRef ? "border-[rgba(91,124,255,0.58)] bg-violet-50/50" : "border-gray-200 bg-gray-50/70"}`}>
+              <div className={`studio-reference-upload-panel rounded-xl border p-2.5 transition-colors ${isDraggingRef ? "border-[rgba(91,124,255,0.58)] bg-violet-50/50" : "border-[rgba(91,124,255,0.16)] bg-white/80"}`}>
                 <input ref={customRefInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleCustomRef} disabled={selectedReferenceCount >= MAX_TRYON_REFERENCE_IMAGES || isReferenceUploadBusy} />
+                {referenceAnalysisStatus && (
+                  <div
+                    className={`mb-2 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold ${
+                      referenceAnalysisStatus.tone === "loading"
+                        ? "border-violet-100 bg-violet-50/70 text-violet-600"
+                        : referenceAnalysisStatus.tone === "success"
+                          ? "border-emerald-100 bg-emerald-50/80 text-emerald-700"
+                          : "border-amber-100 bg-amber-50/80 text-amber-700"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      {referenceAnalysisStatus.tone === "loading" ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : referenceAnalysisStatus.tone === "success" ? (
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                      ) : (
+                        <XCircle className="h-3.5 w-3.5" />
+                      )}
+                      <span className="min-w-0 truncate" title={referenceAnalysisStatus.text}>{referenceAnalysisStatus.text}</span>
+                    </div>
+                    {!isAnalyzingReferences && referenceAnalysisSummaries.length > 0 && (
+                      <div className="mt-1.5 flex flex-wrap gap-1.5 pl-5">
+                        {referenceAnalysisSummaries.slice(0, 4).map((item) => (
+                          <span
+                            key={item.key}
+                            className={`inline-block max-w-full truncate rounded-md bg-white/70 px-2 py-1 text-[10px] font-medium leading-4 ${
+                              referenceAnalysisStatus.tone === "warning" ? "text-amber-800" : "text-emerald-800"
+                            }`}
+                            title={[item.title, item.detail].filter(Boolean).join(" · ")}
+                          >
+                            {item.title}{item.detail ? ` · ${item.detail}` : ""}
+                          </span>
+                        ))}
+                        {referenceAnalysisSummaries.length > 4 && (
+                          <span className={`rounded-md bg-white/70 px-2 py-1 text-[10px] font-medium leading-4 ${
+                            referenceAnalysisStatus.tone === "warning" ? "text-amber-700" : "text-emerald-700"
+                          }`}>
+                            另 {referenceAnalysisSummaries.length - 4} 张
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
                 {showUploadReferenceEmptyTile ? (
                   <StudioUploadTile
                     title="上传 / 拖拽参考图"
@@ -2258,6 +2754,15 @@ export default function CreatePage() {
                     uploadLabel="从本地上传"
                     loadingLabel="上传参考图..."
                     footnote="拖拽图片到此区域也可以上传；参考图会作为人物姿势、场景、构图和光影来源。"
+                    examples={{
+                      label: "试一试",
+                      images: PRESET_REFERENCES.slice(0, 6).map((item) => ({
+                        url: item.url,
+                        title: item.label,
+                      })),
+                      disabled: isReferenceUploadBusy,
+                      onSelect: applyReferenceExample,
+                    }}
                   />
                 ) : (
                   <div className="grid grid-cols-4 gap-2">
@@ -2270,6 +2775,11 @@ export default function CreatePage() {
                           aria-label={`预览参考图：${ref.label}`}
                         >
                           <img src={ref.url} alt={`参考图：${ref.label}`} className="aspect-[3/4] w-full object-cover" />
+                          <span className="absolute inset-0 flex items-center justify-center bg-slate-950/0 opacity-0 transition group-hover:bg-slate-950/18 group-hover:opacity-100 group-focus-within:bg-slate-950/18 group-focus-within:opacity-100">
+                            <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/92 text-slate-700 shadow-sm">
+                              <ZoomIn className="h-4 w-4" />
+                            </span>
+                          </span>
                         </button>
                         <span className="absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-[var(--codex-accent)] text-white shadow-sm">
                           <CheckCircle2 className="h-4 w-4" />
@@ -2477,7 +2987,6 @@ export default function CreatePage() {
             {...modelDrag.dragHandlers}
             className={`studio-stable-upload-boundary relative rounded-xl transition-all ${isDraggingModel ? "ring-2 ring-[rgba(91,124,255,0.38)] ring-offset-2" : ""}`}
           >
-            {/* 拖拽遮罩 */}
             {isDraggingModel && (
               <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl border-2 border-dashed border-[rgba(91,124,255,0.48)] bg-[rgba(91,124,255,0.10)] pointer-events-none">
                 <div className="text-center">
@@ -2486,11 +2995,19 @@ export default function CreatePage() {
                 </div>
               </div>
             )}
-            <h3 className="mb-1 flex items-center gap-2 text-[13px] font-bold">
-              <UserRound className="w-4 h-4 text-purple-500" /> 模特 <span className="text-purple-400 font-normal text-xs">· 控制脸部</span>
-              <span className="px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-400 text-[9px]">可选</span>
-            </h3>
-            <p className="text-[11px] text-gray-400 mb-3">不选则使用参考图中的人物面部 · 可拖拽图片到此处</p>
+            <div className="mb-3 flex items-start justify-between gap-3">
+              <div>
+                <h3 className="flex items-center gap-2 text-[13px] font-bold text-slate-900">
+                  <UserRound className="h-4 w-4 text-purple-500" />
+                  模特
+                  <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-400">可选</span>
+                </h3>
+                <p className="mt-1 text-[11px] text-gray-400">默认不选；上传或选择模特时只控制脸部身份</p>
+              </div>
+              <span className="shrink-0 rounded-full bg-violet-50 px-2 py-1 text-[10px] font-semibold text-[var(--codex-accent)]">
+                可拖拽上传
+              </span>
+            </div>
             <div className="grid grid-cols-4 gap-2">
               <button
                 type="button"
@@ -2504,19 +3021,29 @@ export default function CreatePage() {
                   toast.success("已设为不替换脸部");
                 }}
                 disabled={isModelUploadBusy}
-                className={`overflow-hidden rounded-lg border bg-white text-center transition-all disabled:cursor-not-allowed disabled:opacity-60 ${
-                  !store.selectedModel ? "border-[var(--codex-accent)] shadow-sm ring-1 ring-blue-100" : "border-gray-200 hover:border-gray-300"
+                className={`group relative overflow-hidden rounded-xl border bg-white text-center transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 ${
+                  !store.selectedModel
+                    ? "border-[var(--codex-accent)] bg-[rgba(91,124,255,0.10)] shadow-sm ring-1 ring-blue-100"
+                    : "border-slate-200 hover:border-[rgba(91,124,255,0.34)] hover:bg-violet-50/30"
                 }`}
               >
-                <span className="flex aspect-square items-center justify-center">
-                  <UserRound className={`h-5 w-5 ${!store.selectedModel ? "text-[var(--codex-accent)]" : "text-gray-300"}`} />
+                <span className="flex aspect-[4/5] items-center justify-center">
+                  <span className="flex flex-col items-center gap-2">
+                    <UserRound className={`h-7 w-7 ${!store.selectedModel ? "text-[var(--codex-accent)]" : "text-slate-300"}`} />
+                    <span className={`text-[13px] font-bold ${!store.selectedModel ? "text-[var(--codex-accent)]" : "text-slate-400"}`}>
+                      不选默认
+                    </span>
+                  </span>
                 </span>
-                <span className={`block truncate px-1.5 py-1.5 text-[10px] font-medium ${!store.selectedModel ? "text-[var(--codex-accent)]" : "text-gray-500"}`}>
-                  不选择
+                <span className={`block border-t px-2 py-2 text-[11px] font-semibold ${!store.selectedModel ? "border-[rgba(91,124,255,0.12)] text-[var(--codex-accent)]" : "border-slate-100 text-slate-500"}`}>
+                  不替换脸部
                 </span>
               </button>
               {PRESET_MODELS.map((m) => (
-                <div key={m.id} role="button" tabIndex={0}
+                <div
+                  key={m.id}
+                  role="button"
+                  tabIndex={0}
                   aria-label={`选择模特：${m.name}`}
                   onClick={() => {
                     if (isModelUploadBusy) {
@@ -2536,54 +3063,97 @@ export default function CreatePage() {
                     store.setSelectedModel({ ...m, is_preset: true, user_id: null });
                     setPromptOverride(null);
                   })}
-                  className={`group relative overflow-hidden rounded-lg border bg-white transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 ${
+                  className={`group relative overflow-hidden rounded-xl border bg-white transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 ${
                     isModelUploadBusy ? "cursor-not-allowed opacity-60" : "cursor-pointer"
                   } ${
-                    store.selectedModel?.id === m.id ? "border-[var(--codex-accent)] shadow-sm ring-1 ring-blue-100" : "border-gray-200 hover:border-gray-300"
+                    store.selectedModel?.id === m.id
+                      ? "border-[var(--codex-accent)] shadow-sm ring-1 ring-blue-100"
+                      : "border-slate-200 hover:border-[rgba(91,124,255,0.34)] hover:shadow-sm"
                   }`}>
-                  <ImgSkeleton src={m.image_url} alt={`模特：${m.name}`} className="w-full aspect-square object-cover" />
-                  <div className="absolute inset-0 pointer-events-none flex items-end justify-end bg-violet-950/0 p-1 opacity-100 transition-all sm:opacity-0 sm:group-hover:bg-violet-950/10 sm:group-hover:opacity-100 sm:group-focus-within:bg-violet-950/10 sm:group-focus-within:opacity-100">
+                  <ImgSkeleton src={m.image_url} alt={`模特：${m.name}`} className="aspect-[4/5] w-full object-cover" />
+                  {store.selectedModel?.id === m.id && (
+                    <span className="absolute right-2 top-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-[var(--codex-accent)] text-white shadow-sm">
+                      <CheckCircle2 className="h-4 w-4" />
+                    </span>
+                  )}
+                  <div className="absolute inset-0 pointer-events-none flex items-end justify-end bg-violet-950/0 p-2 opacity-100 transition-all sm:opacity-0 sm:group-hover:bg-violet-950/10 sm:group-hover:opacity-100 sm:group-focus-within:bg-violet-950/10 sm:group-focus-within:opacity-100">
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); openLightbox(m.image_url, `模特：${m.name}`); }}
                       onKeyDown={(e) => { e.stopPropagation(); }}
-                      className="pointer-events-auto w-7 h-7 rounded-full bg-white/80 flex items-center justify-center hover:bg-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+                      className="pointer-events-auto flex h-8 w-8 items-center justify-center rounded-full bg-white/90 shadow-sm transition hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
                       aria-label={`预览模特：${m.name}`}
                       title={`预览模特：${m.name}`}
                     >
-                      <ZoomIn className="w-3.5 h-3.5 text-gray-600" />
+                      <ZoomIn className="h-4 w-4 text-gray-600" />
                     </button>
                   </div>
-                  <div className={`px-1.5 py-1.5 text-center ${store.selectedModel?.id === m.id ? "bg-blue-50" : ""}`}>
-                    <span className="block truncate text-[10px] font-medium text-slate-700">{m.name}</span>
+                  <div className={`border-t px-2 py-2 text-center ${store.selectedModel?.id === m.id ? "border-[rgba(91,124,255,0.12)] bg-blue-50" : "border-slate-100"}`}>
+                    <span className="block truncate text-[11px] font-bold text-slate-800">{m.name}</span>
                   </div>
                 </div>
               ))}
-              <button
-                type="button"
+              <div
+                role="button"
+                tabIndex={0}
                 onClick={() => customModelInputRef.current?.click()}
-                disabled={isModelUploadBusy}
-                className={`relative overflow-hidden rounded-lg border bg-white text-center transition-all hover:border-[var(--codex-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-80 ${
-                  customModelPreview ? "border-[var(--codex-accent)] shadow-sm ring-1 ring-blue-100" : "border-dashed border-gray-200"
+                onKeyDown={(event) => handlePreviewKeyDown(event, () => customModelInputRef.current?.click())}
+                className={`group relative overflow-hidden rounded-xl border bg-white text-center transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 ${
+                  isModelUploadBusy ? "cursor-not-allowed opacity-80" : "cursor-pointer"
+                } ${
+                  isCustomModelSelected
+                    ? "border-[var(--codex-accent)] shadow-sm ring-1 ring-blue-100"
+                    : "border-dashed border-slate-200 hover:border-[rgba(91,124,255,0.38)] hover:bg-violet-50/30"
                 }`}
-                aria-label={customModelPreview ? "更换上传模特图" : "上传模特图"}
+                aria-label={customModelImageUrl ? "更换上传模特图" : "上传模特图"}
               >
-                <span className="flex aspect-square items-center justify-center overflow-hidden bg-white">
-                  {customModelPreview
-                    ? <img src={customModelPreview} alt="已上传的模特图" className="h-full w-full object-contain p-1" />
-                    : <Camera className="h-5 w-5 text-gray-300" />
+                <span className="flex aspect-[4/5] items-center justify-center overflow-hidden bg-slate-50">
+                  {customModelImageUrl
+                    ? <img src={customModelImageUrl} alt="已上传的模特图" className="h-full w-full object-cover" />
+                    : (
+                      <span className="flex flex-col items-center gap-2 px-3 text-slate-400">
+                        <Camera className="h-7 w-7" />
+                        <span className="text-[13px] font-bold text-slate-500">上传模特脸</span>
+                        <span className="text-[10px] leading-4 text-slate-400">只参考脸，不参考姿势</span>
+                        <span className="text-[10px] text-slate-300">≤{MAX_FILE_SIZE_MB}MB</span>
+                      </span>
+                    )
                   }
                 </span>
-                <span className={`block truncate px-1.5 py-1.5 text-[10px] font-medium ${customModelPreview ? "bg-blue-50 text-slate-700" : "text-gray-400"}`}>
-                  {customModelPreview ? "已上传" : "上传"}
+                {isCustomModelSelected && (
+                  <span className="absolute right-2 top-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-[var(--codex-accent)] text-white shadow-sm">
+                    <CheckCircle2 className="h-4 w-4" />
+                  </span>
+                )}
+                {customModelImageUrl && (
+                  <div className="absolute inset-0 pointer-events-none flex items-end justify-end bg-violet-950/0 p-2 opacity-100 transition-all sm:opacity-0 sm:group-hover:bg-violet-950/10 sm:group-hover:opacity-100 sm:group-focus-within:bg-violet-950/10 sm:group-focus-within:opacity-100">
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        openLightbox(customModelImageUrl, "已上传的模特图");
+                      }}
+                      onKeyDown={(event) => { event.stopPropagation(); }}
+                      className="pointer-events-auto flex h-8 w-8 items-center justify-center rounded-full bg-white/90 shadow-sm transition hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+                      aria-label="预览上传模特图"
+                      title="预览上传模特图"
+                    >
+                      <ZoomIn className="h-4 w-4 text-gray-600" />
+                    </button>
+                  </div>
+                )}
+                <span className={`block truncate border-t px-2 py-2 text-[11px] font-bold ${
+                  isCustomModelSelected ? "border-[rgba(91,124,255,0.12)] bg-blue-50 text-slate-800" : "border-slate-100 text-slate-500"
+                }`}>
+                  {customModelImageUrl ? "已上传" : "上传"}
                 </span>
                 {isModelUploadBusy && (
-                  <span className="absolute inset-0 flex flex-col items-center justify-center gap-1 rounded-lg bg-white/78 text-[10px] font-bold text-[var(--codex-accent)] backdrop-blur-[1px]">
+                  <span className="absolute inset-0 flex flex-col items-center justify-center gap-1 rounded-xl bg-white/78 text-[11px] font-bold text-[var(--codex-accent)] backdrop-blur-[1px]">
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
                     上传中
                   </span>
                 )}
-              </button>
+              </div>
               <input ref={customModelInputRef} type="file" accept="image/*" className="hidden" onChange={handleCustomModel} disabled={isModelUploadBusy} />
             </div>
           </section>
@@ -2879,7 +3449,7 @@ export default function CreatePage() {
       )}
 
       <ReferenceScenePicker
-        open={isReferenceScenePanelOpen}
+        open={false && isReferenceScenePanelOpen}
         tabs={[
           { value: "recommended", label: "推荐场景" },
           { value: "exclusive", label: "专属场景" },
@@ -2907,7 +3477,7 @@ export default function CreatePage() {
         isSelected={isReferenceSelected}
         onActiveReferenceChange={setActiveReferenceSceneUrl}
         onToggleReference={(ref) => {
-          if (!switchSceneMode("system_reference")) return;
+          if (!switchSceneMode("upload_reference")) return;
           toggleReferenceImage(ref as SelectedReferenceImage);
         }}
         onClearSelected={clearSelectedReferences}

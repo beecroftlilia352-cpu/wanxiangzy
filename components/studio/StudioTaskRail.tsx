@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { getImageVariantUrl } from "@/lib/image-variants";
+import { isLikelyVideoUrl } from "@/lib/media";
 import { cn } from "@/lib/utils";
 import type { TaskDisplayMode, TaskQueueItem, TaskQueuePayload, TaskQueueSummary } from "@/lib/task-queue";
 import { isTaskRunning, TASK_DISPLAY_MODE_KEY } from "@/lib/task-queue";
@@ -42,7 +43,7 @@ type TaskQueueLoadResult = {
   hasMore: boolean;
 } | null;
 
-const TASK_QUEUE_FETCH_TIMEOUT_MS = 5_000;
+const TASK_QUEUE_FETCH_TIMEOUT_MS = 12_000;
 const TASK_RAIL_RUNNING_POLL_MS = 12_000;
 const TASK_RAIL_IDLE_POLL_MS = 45_000;
 const TASK_RAIL_IDLE_CACHE_GRACE_MS = 30_000;
@@ -658,7 +659,8 @@ function TaskThumb({
   compact?: boolean;
   className?: string;
 }) {
-  const displayUrl = getImageVariantUrl(url, "thumb");
+  const isVideo = isLikelyVideoUrl(url);
+  const displayUrl = isVideo ? url : getImageVariantUrl(url, "thumb");
 
   return (
     <span className={cn(
@@ -667,14 +669,24 @@ function TaskThumb({
       className
     )}>
       {displayUrl ? (
-        <img
-          src={displayUrl}
-          alt=""
-          loading="lazy"
-          decoding="async"
-          fetchPriority="low"
-          className="relative z-[1] h-full w-full object-cover"
-        />
+        isVideo ? (
+          <video
+            src={displayUrl}
+            muted
+            playsInline
+            preload="metadata"
+            className="relative z-[1] h-full w-full object-cover"
+          />
+        ) : (
+          <img
+            src={displayUrl}
+            alt=""
+            loading="lazy"
+            decoding="async"
+            fetchPriority="low"
+            className="relative z-[1] h-full w-full object-cover"
+          />
+        )
       ) : (
         <span className="relative z-[1] flex h-full w-full items-center justify-center text-slate-300">
           <ImageIcon className="h-4 w-4" />
@@ -754,6 +766,18 @@ function TaskPreviewStrip({ item, displayMode }: { item: TaskQueueItem; displayM
 }
 
 function TaskStripImage({ url }: { url: string }) {
+  if (isLikelyVideoUrl(url)) {
+    return (
+      <video
+        src={url}
+        muted
+        playsInline
+        preload="metadata"
+        className="h-full w-full object-cover"
+      />
+    );
+  }
+
   return (
     <img
       src={getImageVariantUrl(url, "thumb")}
