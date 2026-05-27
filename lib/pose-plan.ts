@@ -43,7 +43,7 @@ export type PosePlan = {
   edited: boolean;
 };
 
-export const POSE_PLAN_VERSION = "pose-plan-v1";
+export const POSE_PLAN_VERSION = "pose-plan-v2";
 
 export type PosePlanContext = {
   poseAnalysis?: PoseVisualAnalysis | null;
@@ -247,24 +247,19 @@ function buildFallbackSlots(analysis: PoseVisualAnalysis, policy: PoseStylePolic
   if (crop === "upper_body") return buildUpperBodySlots(policy, analysis);
   if (crop === "lower_body") return buildLowerBodySlots(policy, analysis);
   if (crop === "closeup") return buildCloseupSlots(policy, analysis);
-  return buildFullBodySlots(policy, analysis, crop);
+  return buildLegacyFullBodySlots(policy, analysis, crop);
 }
 
-function buildFullBodySlots(policy: PoseStylePolicy, analysis: PoseVisualAnalysis, crop: PoseVisualBodyCrop): PoseSlotPlan[] {
-  const strictProduct = policy.productReadability === "strict";
-  const expressive = policy.motionLevel === "expressive";
-  const natural = policy.motionLevel === "natural";
+function buildLegacyFullBodySlots(policy: PoseStylePolicy, analysis: PoseVisualAnalysis, crop: PoseVisualBodyCrop): PoseSlotPlan[] {
   const cameraBase = crop === "three_quarter" ? "保持七分身或近全身范围，重要服装部位不要被裁掉" : "保持头脚完整或接近完整的服装展示范围";
-  const garmentRule = strictProduct
-    ? "正面、侧面、腰线、袖口、裤脚/裙摆和整体廓形必须清楚"
-    : "保持服装廓形、腰线、袖口、下摆和面料垂坠清楚";
+  const garmentRule = "沿用旧版稳定姿势模板：服装正面轮廓、侧面轮廓、肩线、腰线、廓形、面料垂坠、运动褶皱和垂坠必须清楚";
   const avoid = buildAvoidRules(policy, analysis);
 
   return [
-    createSlot(1, "正面服装展示", "正面自然站立，重心轻微变化，不复制源图站姿", "手部自然垂放、轻触衣摆或整理袖口", "视线自然看向镜头或轻微偏离", `${cameraBase}，构图干净稳定`, garmentRule, avoid, 0.62),
-    createSlot(2, "三分之二侧身展示", "身体转为三分之二侧身，展示侧面轮廓、肩线和服装厚度", "一只手可轻触衣领、袖口或口袋附近", "头颈和肩膀保持同一自然方向", `${cameraBase}，允许轻微偏中心留白`, garmentRule, avoid, 0.62),
-    createSlot(3, strictProduct ? "站定细节展示" : "站定造型变化", strictProduct ? "站定重心偏移，突出腰线、衣摆和面料垂坠" : "站定造型，肩线、腰胯和身体重心更有层次", "手部做克制的服装整理动作，避免夸张摆拍", "表情自然，头部方向跟随身体", expressive ? "高级 editorial 构图，但不要极端裁切" : `${cameraBase}，可略微拉近`, garmentRule, avoid, 0.62),
-    createSlot(4, expressive ? "轻微动态转身" : natural ? "自然轻动作" : "轻微转身展示", expressive ? "小幅迈步或自然转身，动作有张力但身体稳定" : "轻微迈步、侧转或自然转身，动作幅度小且可信", "手臂随身体自然摆动或轻触服装边缘", "头、颈、肩、躯干保持一致方向，不单独回头", `${cameraBase}，允许方向性留白`, garmentRule, avoid, 0.62),
+    createSlot(1, "正面服装展示", "正面服装展示方向；AI 可自由选择自然手势、重心、视线、表情和镜头语言，服装正面轮廓必须清楚", "", "", `${cameraBase}，沿用旧版稳定构图逻辑`, garmentRule, avoid, 0.72),
+    createSlot(2, "侧身或三分之二侧身展示", "侧身或三分之二侧身展示方向；AI 可自由选择头发/衣领/袖口/衣摆手势、腿部节奏、视线和镜头语言，侧面轮廓和肩线必须清楚", "", "", `${cameraBase}，沿用旧版稳定构图逻辑`, garmentRule, avoid, 0.72),
+    createSlot(3, "站定造型", "站定造型方向，不要走路；AI 可自由选择扶腰、胯部、肩线、手部造型、视线和镜头语言，腰线、廓形和面料垂坠必须清楚", "", "", `${cameraBase}，沿用旧版稳定构图逻辑`, garmentRule, avoid, 0.72),
+    createSlot(4, "轻微迈步或自然转身", "轻微迈步或自然转身方向，不要静态扶腰；头部方向与肩膀、躯干和身体转向保持一致，不要单独回头看镜头；AI 可自由选择步态、手臂运动、身体转向、视线和镜头语言，服装运动褶皱和垂坠必须清楚", "", "", `${cameraBase}，沿用旧版稳定构图逻辑`, garmentRule, avoid, 0.72),
   ];
 }
 

@@ -117,6 +117,45 @@ describe("pose plan", () => {
     expect(JSON.stringify(plan).toLowerCase()).not.toContain("womenswear");
   });
 
+  it("uses the legacy stable four-pose logic for full-body fallback", () => {
+    const plan = buildFallbackPosePlan({
+      poseStyle: "korean_clean",
+      poseAnalysis: {
+        bodyCrop: "full_body",
+        genderExpression: "female",
+        ageRange: "adult",
+        personVisible: true,
+        personCount: 1,
+        bodyOrientation: "",
+        headDirection: "",
+        poseBaseline: "",
+        cameraFraming: "",
+        cameraAngle: "",
+        outfitDescription: "",
+        hairDescription: "",
+        faceIdentityNotes: "",
+        skinToneNotes: "",
+        background: "",
+        lighting: "",
+        handsVisible: true,
+        feetVisible: true,
+        occlusionNotes: "",
+        generationRisks: [],
+        promptNotes: "",
+        confidence: 0.8,
+      },
+    });
+
+    expect(plan.slots.map((slot) => slot.poseName)).toEqual([
+      "正面服装展示",
+      "侧身或三分之二侧身展示",
+      "站定造型",
+      "轻微迈步或自然转身",
+    ]);
+    expect(plan.slots[0].bodyAction).toContain("AI 可自由选择自然手势、重心、视线、表情和镜头语言");
+    expect(plan.slots[3].bodyAction).toContain("不要静态扶腰");
+  });
+
   it("turns user custom poses into an edited pose plan", () => {
     const plan = buildUserCustomPosePlan({
       poseStyle: "user_custom",

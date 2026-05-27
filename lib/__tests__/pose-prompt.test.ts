@@ -251,8 +251,8 @@ describe("pose prompt handling", () => {
       posePlan,
     });
 
-    expect(enforced).toContain("姿势1：正面自然站立");
-    expect(enforced).toContain("姿势2：身体转为三分之二侧身");
+    expect(enforced).toContain("姿势1：正面服装展示方向");
+    expect(enforced).toContain("姿势2：侧身或三分之二侧身展示方向");
     expect(enforced).not.toContain("姿势1：旧姿势。");
   });
 
