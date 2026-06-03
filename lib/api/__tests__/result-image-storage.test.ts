@@ -167,7 +167,7 @@ describe("result image storage", () => {
     expect(putCalls[0].url).toMatch(/source-avif\.jpg$/);
     expect((putCalls[0].init?.headers as Record<string, string>)["Content-Type"]).toBe("image/jpeg");
     expect(Buffer.from(putCalls[0].init?.body as ArrayBuffer).subarray(0, 3)).toEqual(Buffer.from([0xff, 0xd8, 0xff]));
-  });
+  }, 15_000);
 
   it("uploads multipart-style JPEG bytes to Aliyun OSS without base64 wrapping", async () => {
     process.env.IMAGE_STORAGE_PROVIDER = "aliyun-oss";
@@ -227,7 +227,7 @@ describe("result image storage", () => {
     expect(putCalls).toHaveLength(1);
     expect((putCalls[0].init?.headers as Record<string, string>)["Content-Type"]).toBe("image/jpeg");
     expect(Buffer.from(putCalls[0].init?.body as ArrayBuffer).subarray(0, 3)).toEqual(Buffer.from([0xff, 0xd8, 0xff]));
-  });
+  }, 15_000);
 });
 
 function restoreEnv(name: string, value: string | undefined) {

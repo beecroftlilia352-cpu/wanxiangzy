@@ -6,6 +6,7 @@ import {
 import {
   POSE_VISUAL_BODY_CROP_LABELS,
   fallbackPoseVisualAnalysis,
+  normalizeConfidence,
   normalizePoseVisualAnalysis,
   type PoseVisualAnalysis,
   type PoseVisualBodyCrop,
@@ -106,12 +107,18 @@ export function getPoseStylePolicy(value: unknown): PoseStylePolicy {
 
 export function normalizePosePlan(input: unknown, context: PosePlanContext = {}): PosePlan {
   const fallback = buildFallbackPosePlan(context);
-  const record = toRecord(input);
+  const record = Array.isArray(input) ? { slots: input } : toRecord(input);
   if (!record) return fallback;
   const rawSlots = Array.isArray(record.slots)
     ? record.slots
     : Array.isArray(record.items)
       ? record.items
+      : Array.isArray(record.poses)
+        ? record.poses
+        : Array.isArray(record.poseSlots)
+          ? record.poseSlots
+          : Array.isArray(record["姿势列表"])
+            ? record["姿势列表"]
       : [];
   const slots = [0, 1, 2, 3].map((slotIndex) => normalizePoseSlotPlan(rawSlots[slotIndex], fallback.slots[slotIndex], slotIndex + 1));
   const style = normalizePoseSeriesStyle(readString(record, "style", "poseStyle", "pose_style") || context.poseStyle || fallback.style);
@@ -362,7 +369,6 @@ function createSlot(
 function normalizePoseSlotPlan(input: unknown, fallback: PoseSlotPlan, fallbackIndex: number): PoseSlotPlan {
   const record = toRecord(input);
   if (!record) return { ...fallback, index: fallbackIndex as 1 | 2 | 3 | 4 };
-  const confidence = Number(record.confidence);
   return {
     index: fallbackIndex as 1 | 2 | 3 | 4,
     poseName: clampText(readString(record, "poseName", "pose_name", "name", "title", "summary", "姿势名", "名称") || fallback.poseName),
@@ -372,7 +378,7 @@ function normalizePoseSlotPlan(input: unknown, fallback: PoseSlotPlan, fallbackI
     cameraFraming: clampText(readString(record, "cameraFraming", "camera_framing", "camera", "framing", "composition", "镜头", "构图", "取景") || fallback.cameraFraming, 220),
     garmentVisibilityRule: clampText(readString(record, "garmentVisibilityRule", "garment_visibility_rule", "outfit", "garment", "garment_rule", "visibility", "服装展示", "服装可读性") || fallback.garmentVisibilityRule, 240),
     avoidRules: normalizeStringArray(record.avoidRules ?? record.avoid_rules ?? record.avoid ?? record.negative ?? record.禁忌 ?? record.避免, 10, 90, fallback.avoidRules),
-    confidence: Number.isFinite(confidence) ? clamp(confidence, 0, 1) : fallback.confidence,
+    confidence: normalizeConfidence(record.confidence, fallback.confidence),
   };
 }
 

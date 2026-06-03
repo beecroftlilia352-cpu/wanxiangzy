@@ -58,7 +58,7 @@ export const TRYON_REFERENCE_RULE =
 
 export function buildTryOnReferencePrompt(referenceImageNumber?: number) {
   const referenceRef = `图${referenceImageNumber || 2}`;
-  return `参考图规则：${referenceRef}是最终画面的主参考图和画面骨架，必须保持${referenceRef}中的人物姿势、身体角度、四肢位置、头部朝向、手部动作、背景、构图、镜头角度、光影方向、人物位置和镜头距离；只允许为了服装真实贴合人体产生自然褶皱、遮挡关系和边缘轮廓调整。`;
+  return `参考图规则：${referenceRef}是最终画面的主参考图和画面骨架，必须保持${referenceRef}中的可见身体范围、裁切边界、人物姿势、身体角度、可见四肢位置、背景、构图、镜头角度、光影方向、人物位置和镜头距离；如果${referenceRef}是上半身、下半身、腿部、无头局部或特写图，最终也必须保持同类裁切和可见范围，不要自动拉远成全身图，不要补出参考图没有出现的头、脸、完整躯干、腿或脚。只允许为了服装真实贴合人体产生自然褶皱、遮挡关系和边缘轮廓调整。`;
 }
 
 export const TRYON_FACE_RULE =
@@ -222,10 +222,10 @@ export function buildTryOnFramePrompt(params: {
     : "用户选择的画幅比例";
   const referenceRef = `图${params.referenceImageNumber || 2}`;
   const referenceRule = params.hasReference
-    ? `如果${referenceRef}参考图是全身或大半身构图，必须保持${referenceRef}的人物占画面比例、镜头距离、上下留白和可见身体范围；不要自动裁成半身、头像、商品特写或只展示上半身。`
+    ? `必须保持${referenceRef}的人物占画面比例、镜头距离、上下留白、裁切边界和可见身体范围；如果${referenceRef}是全身图，不要裁成半身或特写；如果${referenceRef}是上半身、下半身、腿部、无头局部或特写图，不要自动拉远成全身图，也不要补出参考图没有出现的头、脸、完整躯干、腿或脚。`
     : "根据服装类型选择完整展示服装结构的构图，默认不要过近裁切。";
 
-  return `画幅构图规则：最终输出必须严格保持${aspectText}。${referenceRule}不要裁掉头部、手部、腿部、脚部或鞋履；不要因为目标服装是单件上装/外套就裁掉下半身；参考图中未与目标服装冲突的下装、鞋履和配饰应自然保留，用于维持完整人物构图和真实穿搭关系。`;
+  return `画幅构图规则：最终输出必须严格保持${aspectText}。${referenceRule}不要改变参考图的主体尺度和裁切意图；参考图中可见且未与目标服装冲突的下装、鞋履、配饰、手部、背景和场景应自然保留。`;
 }
 
 export function applyTryOnFramePrompt(

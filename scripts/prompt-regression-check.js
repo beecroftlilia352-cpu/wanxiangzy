@@ -155,7 +155,8 @@ assertIncludes(multiTryOn, "Edit image 3 into a believable try-on photo.", "多�
 assertIncludes(multiTryOn, "Replace only the sourced upper- and lower-body clothing on the person in image 3 with the garments from image 1 and image 2.", "多件替换规则");
 assertIncludes(multiTryOn, "Reconstruct the final face using image 4's recognizable identity and facial feature proportions", "多件脸部身份替换规则");
 assertIncludes(multiTryOn, "Every generated candidate must use image 4's identity.", "多件脸部身份替换规则");
-assertIncludes(multiTryOn, "Keep natural adult proportions and a realistic head-to-body ratio close to image 3", "多件头身比例规则");
+assertIncludes(multiTryOn, "Keep natural adult proportions for the body parts visible in image 3", "多件可见身体比例规则");
+assertIncludes(multiTryOn, "preserve its detected body scale, crop boundary, and camera distance", "多件参考图构图锁定规则");
 assertIncludes(multiTryOn, "Keep the overall camera distance, framing style, background, floor, and non-sourced outfit areas close to image 3", "多件镜头画幅规则");
 assertIncludes(multiTryOn, "image 1 and image 2 are not a person reference", "多件服装源隔离");
 assertIncludes(multiTryOn, "If image 1 contains only one garment, do not invent extra upper-body garments.", "多件上装不发散规则");
@@ -166,8 +167,8 @@ assertIncludes(multiTryOn, "Do not copy image 4's expression, smile intensity, s
 assertIncludes(multiTryOn, "The final face must be recognizable as image 4's person but naturally integrated", "多件模特脸强制生效规则");
 assertIncludes(multiTryOn, "Adapt image 4's identity to image 3's expression", "多件表情适配");
 assertIncludes(multiTryOn, "Match image 3's visible skin tone", "多件肤色光影融合");
-assertIncludes(multiTryOn, "1. image 3 controls body proportions", "多件优先级规则");
-assertIncludes(multiTryOn, "3. image 4 controls only final facial identity and feature proportions.", "多件优先级规则");
+assertIncludes(multiTryOn, "1. image 3 controls visible body proportions", "多件优先级规则");
+assertIncludes(multiTryOn, "3. image 4 controls only final facial identity and feature proportions where a face is visible in the target crop.", "多件优先级规则");
 assertIncludes(multiTryOn, "The identity change to image 4 is mandatory in every output.", "多件身份强制规则");
 assertNotIncludes(multiTryOn, "如果有参考图", "多件参考图不使用条件句");
 assertNotIncludes(multiTryOn, "如果有模特脸图", "多件模特脸不使用条件句");
@@ -183,7 +184,8 @@ const upperOnlyTryOn = lingya.buildTryOnPrompt({
   hasReference: true,
 }).prompt;
 assertIncludes(upperOnlyTryOn, "Replace only the upper-body clothing on the person in image 2 with the upper-body garment from image 1.", "单上装替换规则");
-assertIncludes(upperOnlyTryOn, "Keep image 2's lower-body clothing, shoes, legs, hands, accessories, background, and scene close to the reference", "单上装下半身保护");
+assertIncludes(upperOnlyTryOn, "Keep image 2's visible lower-body clothing, shoes, legs, hands, accessories, background, and scene close to the reference", "单上装可见下半身保护");
+assertIncludes(upperOnlyTryOn, "Do not reveal lower-body areas outside the original crop.", "单上装裁切外区域保护");
 assertIncludes(upperOnlyTryOn, "Do not keep image 2's original facial identity.", "单上装图3脸优先");
 assertIncludes(upperOnlyTryOn, "If image 1 contains only one garment, do not invent extra upper-body garments.", "单上装不凭空发散");
 
@@ -219,8 +221,8 @@ assertIncludes(gptRuntimePrompt, "Replicate its shadow design: cast-shadow direc
 assertIncludes(gptRuntimePrompt, "Inherit its light direction, light hardness, color temperature", "tryon reference camera finish");
 assertIncludes(gptRuntimePrompt, "Make the reference filter/color mood visibly present in the final image", "tryon visible reference filter");
 assertIncludes(gptRuntimePrompt, "do not apply a new generic fashion filter or a different color grade", "tryon no generic filter");
-assertIncludes(multiTryOn, "favor a reference-realistic, slightly conservative head scale", "tryon head scale control");
-assertIncludes(gptRuntimePrompt, "Keep garment colors, logos/text, fabric texture, face identity, skin tone continuity, and body proportions accurate", "tryon finish safeguards");
+assertIncludes(multiTryOn, "If head or full body is not visible, do not invent it.", "tryon crop-aware body completion guard");
+assertIncludes(gptRuntimePrompt, "Keep garment colors, logos/text, fabric texture, visible identity cues, visible skin tone continuity, and visible body proportions accurate", "tryon finish safeguards");
 assertIncludes(gptRuntimePrompt, "For GPT candidate variation, avoid identical facial expressions", "gpt-image-2 candidate expression variation");
 assertIncludes(gptRuntimePrompt, "reference-derived photography mood", "tryon candidate keeps reference mood");
 assertNotIncludes(gptRuntimePrompt, "Nano Banana try-on mode", "gpt-image-2 no banana directive");

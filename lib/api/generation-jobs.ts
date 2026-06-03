@@ -41,7 +41,7 @@ import {
 } from "@/lib/module-style-presets";
 import type { AutoDesignSettings, TryOnSceneMode } from "@/lib/tryon-scene";
 import type { TryOnClothingAnalysis } from "@/lib/tryon-reference-config";
-import type { TryOnReferenceAnalysis } from "@/lib/tryon-reference-analysis";
+import { alignTryOnReferenceAnalyses, type TryOnReferenceAnalysis } from "@/lib/tryon-reference-analysis";
 import { normalizePoseVisualAnalysis, type PoseVisualAnalysis } from "@/lib/pose-analysis";
 import { normalizePosePlan, type PosePlan } from "@/lib/pose-plan";
 import type { TryOnAgeGroup, TryOnGarmentCategory, TryOnGarmentAudience } from "@/lib/tryon-prompt";
@@ -933,6 +933,7 @@ async function executePayload(
       referenceUrls,
     });
     const resolvedReferenceUrls = imageInputs.referenceUrls?.length ? imageInputs.referenceUrls : [];
+    const referenceAnalyses = alignTryOnReferenceAnalyses(payload.referenceAnalyses, resolvedReferenceUrls.length);
     const referenceBatchSize = Math.max(1, resolvedReferenceUrls.length);
     const perReferenceCount = Math.max(1, Math.floor(payload.genCount || 1));
     return executeParallelImageBatch({
@@ -945,7 +946,7 @@ async function executePayload(
         const referenceIndex = resolvedReferenceUrls.length ? Math.floor(index / perReferenceCount) : -1;
         const candidateIndex = resolvedReferenceUrls.length ? index % perReferenceCount : index;
         const referenceUrl = referenceIndex >= 0 ? resolvedReferenceUrls[referenceIndex] : undefined;
-        const referenceAnalysis = referenceIndex >= 0 ? payload.referenceAnalyses?.[referenceIndex] : undefined;
+        const referenceAnalysis = referenceIndex >= 0 ? referenceAnalyses[referenceIndex] : undefined;
         const result = await batchTryOn({
           model: payload.aiModel,
           clothingUrls: imageInputs.clothingUrls,

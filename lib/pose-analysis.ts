@@ -67,8 +67,8 @@ export const POSE_VISUAL_BODY_CROP_LABELS: Record<PoseVisualBodyCrop, string> = 
 export function normalizePoseVisualAnalysis(input: unknown): PoseVisualAnalysis | null {
   const record = toRecord(input);
   if (!record) return null;
-  const confidence = Number(record.confidence);
   const personVisible = readBoolean(record, "personVisible", "person_visible") ?? true;
+  const confidence = normalizeConfidence(record.confidence, personVisible ? 0.5 : 0.35);
 
   return {
     personVisible,
@@ -92,8 +92,28 @@ export function normalizePoseVisualAnalysis(input: unknown): PoseVisualAnalysis 
     occlusionNotes: clampText(readString(record, "occlusionNotes", "occlusion_notes", "occlusion")),
     generationRisks: normalizeStringArray(record.generationRisks ?? record.generation_risks ?? record.risks, 5, 90),
     promptNotes: clampText(readString(record, "promptNotes", "prompt_notes"), 240),
-    confidence: Number.isFinite(confidence) ? clamp(confidence, 0, 1) : personVisible ? 0.5 : 0.35,
+    confidence,
   };
+}
+
+export function normalizeConfidence(value: unknown, fallback: number): number {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return clamp(value > 1 ? value / 100 : value, 0, 1);
+  }
+  if (typeof value !== "string") return clamp(fallback, 0, 1);
+
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) return clamp(fallback, 0, 1);
+
+  const numeric = Number(normalized.replace(/%$/, ""));
+  if (Number.isFinite(numeric)) {
+    return clamp(numeric > 1 ? numeric / 100 : numeric, 0, 1);
+  }
+
+  if (/very\s*low|low|weak|uncertain|not\s+confident|低|较低|不确定/.test(normalized)) return 0.38;
+  if (/medium|moderate|normal|中|一般|中等/.test(normalized)) return 0.62;
+  if (/very\s*high|high|strong|confident|高|很高|高置信/.test(normalized)) return 0.86;
+  return clamp(fallback, 0, 1);
 }
 
 export function fallbackPoseVisualAnalysis(): PoseVisualAnalysis {

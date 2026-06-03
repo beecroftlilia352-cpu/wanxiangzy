@@ -1,0 +1,69 @@
+import { describe, expect, it } from "vitest";
+import { alignTryOnReferenceAnalyses, buildTryOnReferenceAnalysisRule } from "@/lib/tryon-reference-analysis";
+
+describe("try-on reference analysis alignment", () => {
+  it("reorders unique explicit indexes and fills missing references", () => {
+    const analyses = alignTryOnReferenceAnalyses([
+      { index: 3, bodyCrop: "lower_body", confidence: 0.8 },
+      { index: 1, bodyCrop: "full_body", confidence: 0.9 },
+    ], 4);
+
+    expect(analyses.map((item) => item.index)).toEqual([1, 2, 3, 4]);
+    expect(analyses.map((item) => item.bodyCrop)).toEqual([
+      "full_body",
+      "partial_unknown",
+      "lower_body",
+      "partial_unknown",
+    ]);
+  });
+
+  it("uses array order when model returns duplicate indexes", () => {
+    const analyses = alignTryOnReferenceAnalyses([
+      { index: 1, bodyCrop: "full_body", confidence: 0.9 },
+      { index: 1, bodyCrop: "lower_body", confidence: 0.9 },
+      { index: 2, bodyCrop: "upper_body", confidence: 0.9 },
+      { index: 3, bodyCrop: "scene_only", confidence: 0.9 },
+    ], 5);
+
+    expect(analyses.map((item) => item.index)).toEqual([1, 2, 3, 4, 5]);
+    expect(analyses.map((item) => item.bodyCrop)).toEqual([
+      "full_body",
+      "lower_body",
+      "upper_body",
+      "scene_only",
+      "partial_unknown",
+    ]);
+  });
+
+  it("creates conservative fallbacks for empty analysis results", () => {
+    const analyses = alignTryOnReferenceAnalyses([], 3);
+
+    expect(analyses).toHaveLength(3);
+    expect(analyses.map((item) => item.index)).toEqual([1, 2, 3]);
+    expect(analyses.every((item) => item.bodyCrop === "partial_unknown")).toBe(true);
+  });
+
+  it("locks lower-body references against full-body expansion", () => {
+    const rule = buildTryOnReferenceAnalysisRule({
+      index: 1,
+      bodyCrop: "lower_body",
+      personVisible: true,
+      faceVisible: false,
+      headVisible: false,
+      upperBodyVisible: false,
+      lowerBodyVisible: true,
+      handsVisible: false,
+      feetVisible: true,
+      detailFocus: ["pants", "leg stance"],
+      promptNotes: "Keep a waist-to-feet crop and do not add a head or full torso.",
+      confidence: 0.92,
+    }, 2);
+
+    expect(rule).toContain("Crop lock - HARD");
+    expect(rule).toContain("lower-body target frame");
+    expect(rule).toContain("Do not zoom out");
+    expect(rule).toContain("do not convert it into a full-body portrait");
+    expect(rule).toContain("do not add a head, face, shoulders, or full torso");
+    expect(rule).toContain("Do not invent or reveal missing head, face, upper torso");
+  });
+});

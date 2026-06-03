@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   getPoseVisualAnalysisDetailItems,
   getPoseVisualAnalysisSummary,
+  normalizePoseVisualAnalysis,
   type PoseVisualAnalysis,
 } from "@/lib/pose-analysis";
 
@@ -41,5 +42,25 @@ describe("pose visual analysis display", () => {
     expect(items.find((item) => item.label === "构图")?.value).toBe("全身棚拍");
     expect(items.find((item) => item.label === "光线")?.value).toBe("柔和棚拍光");
     expect(items.find((item) => item.label === "风险")?.value).toBe("性别漂移、手部风险");
+  });
+
+  it("normalizes confidence labels returned by vision models", () => {
+    const analysis = normalizePoseVisualAnalysis({
+      personVisible: true,
+      bodyCrop: "full_body",
+      confidence: "high",
+    });
+
+    expect(analysis?.confidence).toBeGreaterThan(0.8);
+  });
+
+  it("normalizes percentage confidence strings", () => {
+    const analysis = normalizePoseVisualAnalysis({
+      personVisible: true,
+      bodyCrop: "full_body",
+      confidence: "82%",
+    });
+
+    expect(analysis?.confidence).toBe(0.82);
   });
 });

@@ -185,6 +185,47 @@ describe("pose plan", () => {
     expect(plan.slots[0].garmentVisibilityRule).toBe("肩线和领口清楚");
   });
 
+  it("accepts direct array pose plans and confidence labels", () => {
+    const plan = normalizePosePlan([
+      { poseName: "正面展示", bodyAction: "正面站定", confidence: "high" },
+      { poseName: "侧身展示", bodyAction: "三分之二侧身", confidence: "medium" },
+      { poseName: "重心变化", bodyAction: "站定重心轻偏", confidence: "82%" },
+      { poseName: "轻微动态", bodyAction: "小幅转身", confidence: 78 },
+    ]);
+
+    expect(plan.slots[0].poseName).toBe("正面展示");
+    expect(plan.slots[0].confidence).toBeGreaterThan(0.8);
+    expect(plan.slots[1].confidence).toBeGreaterThan(0.6);
+    expect(plan.slots[2].confidence).toBe(0.82);
+    expect(plan.slots[3].confidence).toBe(0.78);
+  });
+
+  it("accepts pose list aliases from model output", () => {
+    const plan = normalizePosePlan({
+      poses: [
+        { poseName: "正面展示", bodyAction: "正面站定" },
+        { poseName: "侧身展示", bodyAction: "三分之二侧身" },
+        { poseName: "重心变化", bodyAction: "站定重心轻偏" },
+        { poseName: "轻微动态", bodyAction: "小幅转身" },
+      ],
+    });
+
+    expect(plan.slots.map((slot) => slot.poseName)).toEqual(["正面展示", "侧身展示", "重心变化", "轻微动态"]);
+  });
+
+  it("accepts Chinese pose list aliases from model output", () => {
+    const plan = normalizePosePlan({
+      "姿势列表": [
+        { "姿势名": "正面展示", "身体动作": "正面站定" },
+        { "姿势名": "侧身展示", "身体动作": "三分之二侧身" },
+        { "姿势名": "重心变化", "身体动作": "站定重心轻偏" },
+        { "姿势名": "轻微动态", "身体动作": "小幅转身" },
+      ],
+    });
+
+    expect(plan.slots.map((slot) => slot.poseName)).toEqual(["正面展示", "侧身展示", "重心变化", "轻微动态"]);
+  });
+
   it("localizes English model output in user-facing summaries", () => {
     const plan = normalizePosePlan({
       slots: [

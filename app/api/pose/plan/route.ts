@@ -15,7 +15,7 @@ import {
   type PosePlan,
 } from "@/lib/pose-plan";
 
-const DEFAULT_TIMEOUT_MS = 12_000;
+const DEFAULT_TIMEOUT_MS = 20_000;
 const POSE_PLAN_SUCCESS_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const POSE_PLAN_FALLBACK_CACHE_TTL_MS = 60 * 1000;
 const POSE_PLAN_CACHE_MAX_ENTRIES = 300;
@@ -42,7 +42,7 @@ const POSE_PLAN_FALLBACK_REASON_TEXT: Record<PosePlanFallbackReason, string> = {
   missing_pose_analysis: "主图视觉识别缺失，无法做图像相关姿势规划",
   low_pose_analysis_confidence: "主图视觉识别置信度过低，已收敛到保守姿势",
   missing_model_config: "姿势规划 text 模型未配置",
-  provider_error: "姿势规划模型调用失败，已使用保守方案",
+  provider_error: "AI 姿势规划暂不可用，已基于主图视觉识别生成可用姿势方案",
   invalid_model_response: "姿势规划模型返回结构无效，已使用保守方案",
   low_plan_confidence: "姿势规划置信度过低，已使用保守方案",
 };
@@ -184,11 +184,12 @@ async function runPosePlan(input: {
         try {
           const result = await requestPosePlan({ ...input, ...config, useJsonMode });
           lastRaw = result.raw;
-          if (!isModelPosePlanUsable(result.parsed)) {
+          const parsedModelPlan = extractModelPosePlan(result.parsed);
+          if (!isModelPosePlanUsable(parsedModelPlan)) {
             lastReason = "invalid_model_response";
             continue;
           }
-          const parsedPlan = normalizePosePlan(result.parsed?.posePlan ?? result.parsed?.plan ?? result.parsed, input);
+          const parsedPlan = normalizePosePlan(parsedModelPlan, input);
           if (getAverageConfidence(parsedPlan) < 0.45) {
             lastReason = "low_plan_confidence";
             continue;
@@ -256,6 +257,7 @@ async function requestPosePlan(input: {
               "你不能写最终生成 prompt，只能输出结构化 posePlan。",
               `返回 { posePlan: { version: \"${POSE_PLAN_VERSION}\", style, outputMode, edited:false, slots:[...] } }。`,
               "slots 必须正好 4 个，每个字段：index, poseName, bodyAction, handAction, headDirection, cameraFraming, garmentVisibilityRule, avoidRules, confidence。",
+              "confidence 必须是 0 到 1 的数字，例如 0.82；不要返回 high、medium、low 或百分比字符串。",
               "所有用户可见字段必须使用简体中文，包括 poseName、bodyAction、handAction、headDirection、cameraFraming、garmentVisibilityRule、avoidRules；不要输出英文姿势名、英文动作句或英文风险词。",
               "poseName 用 4-12 个中文字，bodyAction/handAction/headDirection/cameraFraming/garmentVisibilityRule 用短中文短句。",
               "姿势必须基于 poseAnalysis 的性别表达、服装、手脚可见性和输入裁切逻辑规划。",
@@ -328,12 +330,26 @@ function getPosePlanLlmConfigs() {
       model: process.env.POSE_PLAN_MODEL || primary.model,
     }];
   }
-  return getLlmFallbackConfigs("text").map((config) => ({
+  const configs = [
+    ...getLlmFallbackConfigs("text"),
+    // Pose planning is a text-only task, but many deployed vision/chat models
+    // are also fully chat-compatible. Including the vision config prevents a
+    // valid main-image analysis setup from falling back only because the text
+    // model env is missing, unsupported, or temporarily unhealthy.
+    ...getLlmFallbackConfigs("vision"),
+  ].map((config) => ({
     provider: config.provider,
     apiKey: config.apiKey,
     baseUrl: normalizeOpenAiCompatibleBaseUrl(config.baseUrl),
     model: config.model,
   }));
+  const seen = new Set<string>();
+  return configs.filter((config) => {
+    const key = `${config.provider}:${config.baseUrl}:${config.model}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function buildFallbackResult(
@@ -350,9 +366,25 @@ function buildFallbackResult(
   };
 }
 
-function isModelPosePlanUsable(parsed: any) {
-  const plan = parsed?.posePlan ?? parsed?.plan ?? parsed;
-  const slots = Array.isArray(plan?.slots) ? plan.slots : Array.isArray(plan?.items) ? plan.items : [];
+function extractModelPosePlan(parsed: any) {
+  if (Array.isArray(parsed)) return parsed;
+  return parsed?.posePlan ?? parsed?.plan ?? parsed?.result ?? parsed?.data ?? parsed;
+}
+
+function isModelPosePlanUsable(plan: any) {
+  const slots = Array.isArray(plan)
+    ? plan
+    : Array.isArray(plan?.slots)
+      ? plan.slots
+      : Array.isArray(plan?.items)
+        ? plan.items
+        : Array.isArray(plan?.poses)
+          ? plan.poses
+          : Array.isArray(plan?.poseSlots)
+            ? plan.poseSlots
+            : Array.isArray(plan?.["姿势列表"])
+              ? plan["姿势列表"]
+              : [];
   return slots.length >= 4;
 }
 
@@ -370,12 +402,34 @@ function extractMessageContent(raw: any) {
 }
 
 function parseJsonObject(content: string): any {
-  const trimmed = content.trim();
+  const trimmed = stripJsonCodeFence(content.trim());
   if (!trimmed) return {};
   try {
     return JSON.parse(trimmed);
   } catch {
     const match = trimmed.match(/\{[\s\S]*\}/);
-    return match ? JSON.parse(match[0]) : {};
+    if (match) {
+      try {
+        return JSON.parse(match[0]);
+      } catch {
+        return {};
+      }
+    }
+    const arrayMatch = trimmed.match(/\[[\s\S]*\]/);
+    if (arrayMatch) {
+      try {
+        return JSON.parse(arrayMatch[0]);
+      } catch {
+        return {};
+      }
+    }
+    return {};
   }
+}
+
+function stripJsonCodeFence(value: string) {
+  return value
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/i, "")
+    .trim();
 }

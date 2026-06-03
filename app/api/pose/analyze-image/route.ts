@@ -166,6 +166,7 @@ async function requestPoseVisualAnalysis(input: {
               "bodyCrop 只能是 full_body/three_quarter/upper_body/lower_body/closeup/partial_unknown。",
               "generationRisks 写 0-5 个短风险，例如 gender drift, face drift, body proportion drift, hand distortion, crop expansion。",
               "promptNotes 用一句英文写给生成模型：姿势变化时必须保持什么、禁止改变什么。",
+              "confidence 必须是 0 到 1 的数字，例如 0.86；不要返回 high、medium、low 或百分比字符串。",
               "如果无法确认，填 unknown 或 partial_unknown，不要猜测细节。",
             ].join("\n"),
           },
@@ -251,12 +252,26 @@ function extractMessageContent(raw: any) {
 }
 
 function parseJsonObject(content: string): any {
-  const trimmed = content.trim();
+  const trimmed = stripJsonCodeFence(content.trim());
   if (!trimmed) return {};
   try {
     return JSON.parse(trimmed);
   } catch {
     const match = trimmed.match(/\{[\s\S]*\}/);
-    return match ? JSON.parse(match[0]) : {};
+    if (match) {
+      try {
+        return JSON.parse(match[0]);
+      } catch {
+        return {};
+      }
+    }
+    return {};
   }
+}
+
+function stripJsonCodeFence(value: string) {
+  return value
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/i, "")
+    .trim();
 }

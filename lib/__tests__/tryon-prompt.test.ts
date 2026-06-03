@@ -3,6 +3,7 @@ import {
   buildTryOnFacePrompt,
   enforceTryOnPromptRequirements,
 } from "@/lib/tryon-prompt";
+import { buildTryOnPrompt } from "@/lib/api/lingya";
 
 describe("try-on prompt face integration", () => {
   it("uses the scene reference for head scale, lighting, and skin continuity when a model face is present", () => {
@@ -48,5 +49,36 @@ describe("try-on prompt face integration", () => {
     expect(prompt).toContain("图3模特脸图是最终脸部身份锚点");
     expect(prompt).toContain("保留图2参考图原脸身份");
     expect(prompt).toContain("不同图层光影");
+  });
+
+  it("keeps lower-body no-head references from expanding into full-body outputs", () => {
+    const { prompt } = buildTryOnPrompt({
+      clothingCount: 1,
+      clothingMode: "multi",
+      clothingRoles: ["lower"],
+      hasReference: true,
+      hasModelFace: true,
+      referenceAnalysis: {
+        index: 1,
+        bodyCrop: "lower_body",
+        personVisible: true,
+        faceVisible: false,
+        headVisible: false,
+        upperBodyVisible: false,
+        lowerBodyVisible: true,
+        handsVisible: false,
+        feetVisible: true,
+        detailFocus: ["pants", "leg stance"],
+        promptNotes: "Keep the waist-to-feet crop and do not add a head, face, shoulders, or full torso.",
+        confidence: 0.95,
+      },
+      aspectRatio: "3:4",
+    });
+
+    expect(prompt).toContain("does not provide a visible head/face target");
+    expect(prompt).toContain("Do not zoom out, add a head, add a face");
+    expect(prompt).toContain("Preserving the reference crop is higher priority than showing face identity");
+    expect(prompt).not.toContain("Reconstruct the final face");
+    expect(prompt).not.toContain("Every generated candidate must use image 3's identity");
   });
 });

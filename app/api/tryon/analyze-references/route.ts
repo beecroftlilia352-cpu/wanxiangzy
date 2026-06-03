@@ -3,7 +3,8 @@ import { NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/api/auth";
 import { API_RATE_LIMITS, enforceApiRateLimit } from "@/lib/api/rate-limit";
 import {
-  normalizeTryOnReferenceAnalyses,
+  alignTryOnReferenceAnalyses,
+  createFallbackTryOnReferenceAnalysis,
   type TryOnReferenceAnalysis,
 } from "@/lib/tryon-reference-analysis";
 import { normalizeTryOnAgeGroup, normalizeTryOnGarmentAudience } from "@/lib/tryon-prompt";
@@ -137,18 +138,18 @@ async function runReferenceAnalysis(input: {
         ageGroup: input.ageGroup,
       });
       rawResponse = result.raw;
-      analyses = normalizeTryOnReferenceAnalyses(result.parsed);
+      analyses = alignTryOnReferenceAnalyses(result.parsed, input.referenceUrls.length);
       source = "yunwu";
     } catch (error) {
       console.warn("[tryon/analyze-references] provider fallback:", error);
-      analyses = input.referenceUrls.map((_, index) => fallbackReferenceAnalysis(index + 1));
+      analyses = input.referenceUrls.map((_, index) => createFallbackTryOnReferenceAnalysis(index + 1));
     }
   } else {
-    analyses = input.referenceUrls.map((_, index) => fallbackReferenceAnalysis(index + 1));
+    analyses = input.referenceUrls.map((_, index) => createFallbackTryOnReferenceAnalysis(index + 1));
   }
 
   if (analyses.length !== input.referenceUrls.length) {
-    analyses = input.referenceUrls.map((_, index) => analyses[index] || fallbackReferenceAnalysis(index + 1));
+    analyses = alignTryOnReferenceAnalyses(analyses, input.referenceUrls.length);
   }
 
   return {
@@ -194,6 +195,9 @@ async function requestYunwuReferenceAnalysis(input: {
               "字段：index, bodyCrop, personVisible, faceVisible, headVisible, upperBodyVisible, lowerBodyVisible, handsVisible, feetVisible, detailFocus, promptNotes, confidence。",
               "bodyCrop 只能是 full_body/three_quarter/upper_body/lower_body/closeup/scene_only/partial_unknown。",
               "如果是下装局部、腿部、腰胯、裤脚、鞋履参考，bodyCrop=lower_body；如果无脸局部，不要把 faceVisible/headVisible 写成 true。",
+              "如果参考图是上半身、下半身、腿部、无头局部或特写，promptNotes 必须写成硬性裁切/姿势指令：保持同类可见身体范围和镜头距离，不要扩成 full-body，不要补出未出现的 head/face/torso/legs/feet。",
+              "如果只有下半身、腿部、裤子、鞋履或腰胯到脚，bodyCrop=lower_body，personVisible=true，faceVisible=false，headVisible=false，upperBodyVisible=false；promptNotes 必须描述最佳下半身姿势，而不是完整人物姿势。",
+              "如果只有上半身、肩颈、胸口、手臂或半身特写，bodyCrop=upper_body 或 closeup；promptNotes 必须保持上半身/特写裁切，不要要求生成腿部或全身。",
               "promptNotes 用一句英文写给生成模型：最终应该保留的构图/身体范围/是否禁止补脸或扩成全身。",
             ].join("\n"),
           },
@@ -204,7 +208,7 @@ async function requestYunwuReferenceAnalysis(input: {
                 type: "text",
                 text: [
                   `识别这些服装上身参考图。clothing_mode=${input.clothingMode}, clothing_roles=${input.clothingRoles.join(",") || "none"}, garment_audience=${input.garmentAudience}, age_group=${input.ageGroup}。`,
-                  "重点判断：参考图是全身、上半身、下半身、局部特写、纯场景，脸/头/手/脚是否可见，以及生成时是否必须禁止补出参考图没有出现的人脸、头部或完整身体。",
+                  "重点判断：参考图是全身、上半身、下半身、局部特写、纯场景，脸/头/手/脚是否可见，以及生成时是否必须禁止补出参考图没有出现的人脸、头部、完整身体或参考图外的肢体。",
                 ].join("\n"),
               },
               ...input.referenceUrls.map((url) => ({
@@ -229,23 +233,6 @@ async function requestYunwuReferenceAnalysis(input: {
   } finally {
     clearTimeout(timer);
   }
-}
-
-function fallbackReferenceAnalysis(index: number): TryOnReferenceAnalysis {
-  return {
-    index,
-    bodyCrop: "partial_unknown",
-    personVisible: true,
-    faceVisible: true,
-    headVisible: true,
-    upperBodyVisible: true,
-    lowerBodyVisible: true,
-    handsVisible: false,
-    feetVisible: false,
-    detailFocus: [],
-    promptNotes: "Preserve the target reference's visible body range, crop boundaries, pose family, camera distance, background, lighting, and photo mood.",
-    confidence: 0.35,
-  };
 }
 
 function readReferenceAnalysisMemoryCache(cacheKey: string) {

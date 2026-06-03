@@ -80,7 +80,7 @@ import {
   STYLE_PRESETS,
 } from "@/lib/tryon-studio-options";
 import { TRYON_CATEGORY_BY_CODE, isIntimateAnalysis, normalizeTryOnClothingAnalysis, type TryOnClothingAnalysis } from "@/lib/tryon-reference-config";
-import { normalizeTryOnReferenceAnalyses, type TryOnReferenceAnalysis, type TryOnReferenceBodyCrop } from "@/lib/tryon-reference-analysis";
+import { alignTryOnReferenceAnalyses, type TryOnReferenceAnalysis, type TryOnReferenceBodyCrop } from "@/lib/tryon-reference-analysis";
 import { TryOnSourceLibraryDialog } from "@/components/tryon/TryOnSourceLibraryDialog";
 import {
   ReferenceScenePicker,
@@ -582,6 +582,7 @@ export default function CreatePage() {
   const [clothingAnalysisSource, setClothingAnalysisSource] = useState<"yunwu" | "cache" | "fallback" | "history" | null>(null);
   const [isAnalyzingClothing, setIsAnalyzingClothing] = useState(false);
   const [referenceAnalyses, setReferenceAnalyses] = useState<TryOnReferenceAnalysis[]>([]);
+  const [referenceAnalysisKey, setReferenceAnalysisKey] = useState("");
   const [isAnalyzingReferences, setIsAnalyzingReferences] = useState(false);
   const [clothingAnalysisError, setClothingAnalysisError] = useState<string | null>(null);
   const [referenceAnalysisError, setReferenceAnalysisError] = useState<string | null>(null);
@@ -611,6 +612,10 @@ export default function CreatePage() {
     () => selectedReferenceImages.map((item) => item.url).filter(Boolean),
     [selectedReferenceImages]
   );
+  const activeReferenceAnalysisKey = useMemo(() => {
+    if (sceneMode === "auto_design" || !effectiveReferenceUrls.length) return "";
+    return buildReferenceAnalysisKey({ urls: effectiveReferenceUrls, clothingMode, clothingRoles, garmentAudience, ageGroup });
+  }, [effectiveReferenceUrls, sceneMode, clothingMode, clothingRoles, garmentAudience, ageGroup]);
   const effectiveReferenceUrl = effectiveReferenceUrls[0] || null;
   const referenceMultiplier = sceneMode === "auto_design" ? 1 : effectiveReferenceUrls.length;
   const expectedOutputCount = genCount * referenceMultiplier;
@@ -1055,25 +1060,31 @@ export default function CreatePage() {
 
   useEffect(() => {
     const urls = effectiveReferenceUrls.filter(Boolean);
-    if (sceneMode === "auto_design" || !urls.length) {
+    if (!activeReferenceAnalysisKey) {
       lastReferenceAnalysisKeyRef.current = "";
       referenceAnalysisSeqRef.current += 1;
       setReferenceAnalyses((prev) => prev.length ? [] : prev);
+      setReferenceAnalysisKey("");
       setIsAnalyzingReferences((prev) => prev ? false : prev);
       setReferenceAnalysisError(null);
       setReferenceAnalysisSource(null);
       return;
     }
 
-    const analysisKey = buildReferenceAnalysisKey({ urls, clothingMode, clothingRoles, garmentAudience, ageGroup });
+    const analysisKey = activeReferenceAnalysisKey;
     if (lastReferenceAnalysisKeyRef.current === analysisKey) return;
     lastReferenceAnalysisKeyRef.current = analysisKey;
     const seq = referenceAnalysisSeqRef.current + 1;
     referenceAnalysisSeqRef.current = seq;
+    setReferenceAnalyses((prev) => prev.length ? [] : prev);
+    setReferenceAnalysisKey("");
+    setReferenceAnalysisSource(null);
 
     const cachedAnalysis = referenceAnalysisCacheRef.current.get(analysisKey);
     if (cachedAnalysis) {
-      setReferenceAnalyses(cachedAnalysis.analyses);
+      const cachedAnalyses = alignTryOnReferenceAnalyses(cachedAnalysis.analyses, urls.length);
+      setReferenceAnalyses(cachedAnalyses);
+      setReferenceAnalysisKey(analysisKey);
       setReferenceAnalysisSource(cachedAnalysis.source);
       setReferenceAnalysisError(cachedAnalysis.error || null);
       setIsAnalyzingReferences(false);
@@ -1099,7 +1110,7 @@ export default function CreatePage() {
           }).then(async (res) => {
             const data = await res.json().catch(() => ({}));
             if (!res.ok) throw new Error(data.error || "参考图识别失败");
-            const nextAnalyses = normalizeTryOnReferenceAnalyses(data.analyses);
+            const nextAnalyses = alignTryOnReferenceAnalyses(data.analyses, urls.length);
             const nextSource: "yunwu" | "cache" | "fallback" = data.cached
               ? "cache"
               : data.source === "yunwu" ? "yunwu" : "fallback";
@@ -1123,12 +1134,15 @@ export default function CreatePage() {
         referenceAnalysisCacheRef.current.set(analysisKey, nextEntry);
         if (referenceAnalysisSeqRef.current !== seq) return;
         setReferenceAnalyses(nextEntry.analyses);
+        setReferenceAnalysisKey(analysisKey);
         setReferenceAnalysisSource(nextEntry.source);
         setReferenceAnalysisError(nextEntry.error || null);
       } catch (err: any) {
         if (referenceAnalysisSeqRef.current !== seq) return;
-        setReferenceAnalyses([]);
-        setReferenceAnalysisSource(null);
+        const fallbackAnalyses = alignTryOnReferenceAnalyses([], urls.length);
+        setReferenceAnalyses(fallbackAnalyses);
+        setReferenceAnalysisKey(analysisKey);
+        setReferenceAnalysisSource("fallback");
         setReferenceAnalysisError(err?.message || "参考图识别失败，已按原参考图继续");
       } finally {
         if (referenceAnalysisSeqRef.current === seq) setIsAnalyzingReferences(false);
@@ -1136,7 +1150,7 @@ export default function CreatePage() {
     };
 
     void run();
-  }, [effectiveReferenceUrls, sceneMode, clothingMode, clothingRoles, garmentAudience, ageGroup]);
+  }, [activeReferenceAnalysisKey, effectiveReferenceUrls, clothingMode, clothingRoles, garmentAudience, ageGroup]);
 
   useEffect(() => {
     if (!aspects.find(a => a.value === aspectRatio)) setAspectRatio("3:4");
@@ -1226,7 +1240,7 @@ export default function CreatePage() {
     referenceSelectionTouchedRef.current = historyReferences.length > 0;
     store.setReferenceImages(appliedSceneMode === "auto_design" ? [] : historyReferences as ReferenceImage[]);
     setSceneMode(appliedSceneMode);
-    const historyReferenceAnalyses = normalizeTryOnReferenceAnalyses(payload.referenceAnalyses).slice(0, historyReferenceUrls.length);
+    const historyReferenceAnalyses = alignTryOnReferenceAnalyses(payload.referenceAnalyses, historyReferenceUrls.length);
     const historyReferenceAnalysisKey = buildReferenceAnalysisKey({
       urls: appliedSceneMode === "auto_design" ? [] : historyReferenceUrls,
       clothingMode: nextClothingMode,
@@ -1242,12 +1256,14 @@ export default function CreatePage() {
         error: null,
       });
       setReferenceAnalyses(historyReferenceAnalyses);
+      setReferenceAnalysisKey(historyReferenceAnalysisKey);
       setReferenceAnalysisSource("history");
       setReferenceAnalysisError(null);
       setIsAnalyzingReferences(false);
     } else {
       lastReferenceAnalysisKeyRef.current = "";
       setReferenceAnalyses([]);
+      setReferenceAnalysisKey("");
       setReferenceAnalysisSource(null);
       setReferenceAnalysisError(null);
     }
@@ -1907,7 +1923,7 @@ export default function CreatePage() {
     store.setReferenceImages(appliedSceneMode === "auto_design" ? [] : historyReferences as ReferenceImage[]);
 
     setSceneMode(appliedSceneMode);
-    const historyReferenceAnalyses = normalizeTryOnReferenceAnalyses(payload.referenceAnalyses).slice(0, historyReferenceUrls.length);
+    const historyReferenceAnalyses = alignTryOnReferenceAnalyses(payload.referenceAnalyses, historyReferenceUrls.length);
     const historyReferenceAnalysisKey = buildReferenceAnalysisKey({
       urls: appliedSceneMode === "auto_design" ? [] : historyReferenceUrls,
       clothingMode: nextClothingMode,
@@ -1923,12 +1939,14 @@ export default function CreatePage() {
         error: null,
       });
       setReferenceAnalyses(historyReferenceAnalyses);
+      setReferenceAnalysisKey(historyReferenceAnalysisKey);
       setReferenceAnalysisSource("history");
       setReferenceAnalysisError(null);
       setIsAnalyzingReferences(false);
     } else {
       lastReferenceAnalysisKeyRef.current = "";
       setReferenceAnalyses([]);
+      setReferenceAnalysisKey("");
       setReferenceAnalysisSource(null);
       setReferenceAnalysisError(null);
     }
@@ -2061,6 +2079,16 @@ export default function CreatePage() {
       toast.error("请选择至少 1 张参考图");
       return;
     }
+    if (
+      sceneMode !== "auto_design"
+      && (
+        referenceAnalysisKey !== activeReferenceAnalysisKey
+        || referenceAnalyses.length !== effectiveReferenceUrls.length
+      )
+    ) {
+      toast.info("参考图正在识别，请稍候");
+      return;
+    }
     if (isIntimateGarment && ageGroup !== "adult") {
       toast.error("内衣/泳衣类服装仅支持成人模特生成");
       return;
@@ -2138,7 +2166,7 @@ export default function CreatePage() {
           model_face_url: store.selectedModel?.image_url,
           reference_url: effectiveReferenceUrl,
           reference_urls: effectiveReferenceUrls,
-          reference_analyses: referenceAnalyses.slice(0, effectiveReferenceUrls.length),
+          reference_analyses: alignTryOnReferenceAnalyses(referenceAnalyses, effectiveReferenceUrls.length),
           ai_model: aiModel,
           aspect_ratio: aspectRatio,
           image_size: imageSize,
@@ -2246,32 +2274,34 @@ export default function CreatePage() {
         : "empty";
   const retryDisabled = store.isGenerating || Boolean(applyingTaskId);
   const isVisualAnalysisPending = isAnalyzingClothing || (sceneMode !== "auto_design" && isAnalyzingReferences);
+  const isReferenceAnalysisReady = sceneMode === "auto_design"
+    || !effectiveReferenceUrls.length
+    || (
+      referenceAnalysisKey === activeReferenceAnalysisKey
+      && referenceAnalyses.length === effectiveReferenceUrls.length
+    );
   const runDisabled = isSubmitting
     || isUploading
     || isAuxiliaryUploading
     || isReferenceUploadPending
     || isModelUploadPending
     || isVisualAnalysisPending
+    || !isReferenceAnalysisReady
     || (sceneMode !== "auto_design" && !effectiveReferenceUrls.length)
     || !uploadedClothingUrls.length;
   const authIsAnonymous = authChecked && !isAuthenticated;
-  const runDisabledReason = isSubmitting
-    ? "正在提交任务，请稍候。"
-    : isUploading
-      ? "服装图正在上传，请稍候。"
-      : isModelUploadBusy
-      ? "模特图正在上传，请稍候。"
-      : isReferenceUploadBusy
-        ? "参考图正在上传，请稍候。"
-        : isAnalyzingClothing
-          ? "服装图正在识别，请稍候。"
-          : sceneMode !== "auto_design" && isAnalyzingReferences
-            ? "参考图正在识别，请稍候。"
-            : sceneMode !== "auto_design" && !effectiveReferenceUrls.length
-              ? "请先选择至少 1 张参考图。"
-              : !uploadedClothingUrls.length
-                ? "请先上传服装图，或从作品库选择一张历史结果。"
-                : undefined;
+  const runDisabledReason = (() => {
+    if (isSubmitting) return "正在提交任务，请稍候。";
+    if (isUploading) return "服装图正在上传，请稍候。";
+    if (isModelUploadBusy) return "模特图正在上传，请稍候。";
+    if (isReferenceUploadBusy) return "参考图正在上传，请稍候。";
+    if (isAnalyzingClothing) return "服装图正在识别，请稍候。";
+    if (sceneMode !== "auto_design" && isAnalyzingReferences) return "参考图正在识别，请稍候。";
+    if (!isReferenceAnalysisReady) return "参考图识别结果正在更新，请稍候。";
+    if (sceneMode !== "auto_design" && !effectiveReferenceUrls.length) return "请先选择至少 1 张参考图。";
+    if (!uploadedClothingUrls.length) return "请先上传服装图，或从作品库选择一张历史结果。";
+    return undefined;
+  })();
   const clothingAnalysisLabel = getClothingAnalysisLabel(clothingAnalysis);
   const visibleSceneModeTabs = SCENE_MODE_TABS.filter((tab) => tab.value !== "system_reference");
   const clothingAnalysisStatus = isAnalyzingClothing

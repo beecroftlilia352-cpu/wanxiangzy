@@ -17,7 +17,7 @@ import { getPublicBaseUrlFromRequest } from "@/lib/api/image-inputs.server";
 import { API_RATE_LIMITS, enforceApiRateLimit } from "@/lib/api/rate-limit";
 import { normalizeAutoDesignSettings, normalizeSceneMode } from "@/lib/tryon-scene";
 import { normalizeTryOnClothingAnalysis } from "@/lib/tryon-reference-config";
-import { normalizeTryOnReferenceAnalyses } from "@/lib/tryon-reference-analysis";
+import { alignTryOnReferenceAnalyses } from "@/lib/tryon-reference-analysis";
 import { normalizeTryOnClothingMode, normalizeTryOnClothingRole } from "@/lib/tryon-upload-rules";
 import {
   TRYON_GARMENT_CATEGORY_LABELS,
@@ -100,8 +100,7 @@ export async function POST(request: NextRequest) {
     const clothingAnalysis = clothing_analysis && typeof clothing_analysis === "object"
       ? normalizeTryOnClothingAnalysis(clothing_analysis)
       : null;
-    const referenceAnalyses = normalizeTryOnReferenceAnalyses(reference_analyses)
-      .slice(0, effectiveReferenceUrls.length);
+    const referenceAnalyses = alignTryOnReferenceAnalyses(reference_analyses, effectiveReferenceUrls.length);
     if (garmentCategory === "intimate" && ageGroup !== "adult") {
       return NextResponse.json({ error: "内衣/泳衣类服装仅支持成人模特生成，请将年龄段改为成人后再提交" }, { status: 400 });
     }
