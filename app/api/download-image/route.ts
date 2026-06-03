@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/api/auth";
 import { createAliyunOssDownloadUrl } from "@/lib/api/image-storage";
+import { rateLimitResponse } from "@/lib/api/rate-limit";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -166,13 +167,11 @@ function checkDownloadRateLimit(request: NextRequest) {
 }
 
 function downloadRateLimitResponse(retryAfterSeconds: number) {
-  return NextResponse.json(
-    { error: "请求过于频繁，请稍后再试" },
-    {
-      status: 429,
-      headers: { "Retry-After": String(retryAfterSeconds) },
-    }
-  );
+  return rateLimitResponse(retryAfterSeconds, {
+    label: "图片下载",
+    limit: DOWNLOAD_RATE_LIMIT,
+    windowMs: DOWNLOAD_RATE_WINDOW_MS,
+  });
 }
 
 function cleanupDownloadRateBuckets(now: number) {

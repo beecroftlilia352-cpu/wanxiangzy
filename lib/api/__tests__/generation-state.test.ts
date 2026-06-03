@@ -79,6 +79,23 @@ describe("normalizeGenerationState", () => {
     expect(state.progress).toBe(100);
   });
 
+  it("does not treat completed rows with only blank result URLs as successful", () => {
+    const state = normalizeGenerationState({
+      status: "completed",
+      resultUrls: ["", "  "],
+      payload: {
+        kind: "tryon",
+        genCount: 2,
+        referenceUrls: ["https://example.com/ref.png"],
+      },
+    });
+
+    expect(state.status).toBe("failed");
+    expect(state.statusGroup).toBe("finished");
+    expect(state.resultCount).toBe(0);
+    expect(state.expectedCount).toBe(2);
+  });
+
   it("uses product-set module results for progress and expected count", () => {
     const state = normalizeGenerationState({
       status: "processing_tryon",

@@ -54,7 +54,8 @@ export function normalizeGenerationState(input: NormalizeGenerationStateInput): 
   const explicitCompleted = isCompletedStatus(status);
   const explicitFailed = isFailedStatus(status);
   const providerCompleted = providerDone && hasEnoughResults;
-  const failed = explicitFailed || providerFailed;
+  const completedWithoutResults = explicitCompleted && resultCount <= 0 && expectedCount > 0;
+  const failed = explicitFailed || providerFailed || completedWithoutResults;
   const completed = !failed && (explicitCompleted || hasEnoughResults || providerCompleted);
   const normalizedStatus = failed ? "failed" : completed ? "completed" : canonicalStatus;
   const progress = completed ? 100 : failed ? readFailedProgress({

@@ -61,7 +61,16 @@ describe("enforceApiRateLimit", () => {
 
     const response = await enforceApiRateLimit("user-1", API_RATE_LIMITS.apiPlatformTestProxy);
 
+    expect(response).not.toBeNull();
     expect(response?.status).toBe(429);
     expect(response?.headers.get("Retry-After")).toBe("7");
+    await expect(response!.json()).resolves.toMatchObject({
+      code: "RATE_LIMITED",
+      retry_after_seconds: 7,
+      retry_after_label: "7 秒",
+      limit: 5,
+      window_seconds: 60,
+      error: expect.stringContaining("接口测试请求过于频繁，请7秒后再试"),
+    });
   });
 });

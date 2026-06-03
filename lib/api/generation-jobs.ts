@@ -385,7 +385,7 @@ async function runClaimedJob(
         partialPromptTrace.splice(0, partialPromptTrace.length, ...update.promptTrace);
         lastProgress = Math.max(lastProgress, nextProgress);
         await writeGenerationProgress(supabase, job, payload, {
-          resultUrls: partialResultUrls,
+          resultUrls: compactResultUrls(partialResultUrls),
           promptTrace: partialPromptTrace,
           moduleResults: persistedModules,
           progress: lastProgress,
@@ -406,7 +406,7 @@ async function runClaimedJob(
       lastProgress = Math.max(lastProgress, nextProgress);
 
       await writeGenerationProgress(supabase, job, payload, {
-        resultUrls: partialResultUrls,
+        resultUrls: compactResultUrls(partialResultUrls),
         promptTrace: partialPromptTrace,
         moduleResults: partialModuleResults,
         progress: lastProgress,
@@ -420,12 +420,16 @@ async function runClaimedJob(
     const persistedResultUrls = finalModuleResults
       ? getProductSetResultUrlsFromModules(finalModuleResults)
       : await persistOrderedResultUrls(execution.resultUrls);
+    const validPersistedResultUrls = compactResultUrls(persistedResultUrls);
+    if (!validPersistedResultUrls.length) {
+      throw new Error(execution.partialError || "生成任务未返回有效图片 URL");
+    }
     const quality = shouldSkipVisualQualityEvaluation(payload)
       ? createSkippedVisualQualityEvaluation(payload)
       : await evaluateGeneratedImages({
         userPrompt: getPayloadPrompt(payload),
         module: payload.kind,
-        resultUrls: persistedResultUrls,
+        resultUrls: validPersistedResultUrls,
         expectedCount: getExpectedResultCount(payload),
         referenceImageUrls: getPayloadReferenceImages(payload),
       });
@@ -435,7 +439,10 @@ async function runClaimedJob(
     if (quality.shouldRegenerate && !repaired && !isAutoRegenerationEnabled()) {
       logger.info(`[jobs] quality auto-regeneration disabled ${job.id}: score=${quality.score}`);
     }
-    const finalUrls = repaired?.resultUrls || persistedResultUrls;
+    const finalUrls = compactResultUrls(repaired?.resultUrls || validPersistedResultUrls);
+    if (!finalUrls.length) {
+      throw new Error(execution.partialError || "生成任务未返回有效图片 URL");
+    }
     const finalPromptTrace = repaired?.promptTrace || execution.promptTrace;
     const finalQuality = repaired?.quality || quality;
     const finalModulePayload = finalModuleResults
@@ -554,7 +561,7 @@ async function settleFailedGenerationFromProgress(
   const status = String(row.status || "").toLowerCase();
   if (status === "completed" || status === "success" || status === "succeeded") return true;
 
-  const resultUrls = Array.isArray(row.result_urls) ? row.result_urls.filter(Boolean) : [];
+  const resultUrls = Array.isArray(row.result_urls) ? compactResultUrls(row.result_urls) : [];
   if (!resultUrls.length) return false;
 
   const payloadRecord = isRecord(row.job_payload) ? row.job_payload : {};
@@ -614,6 +621,10 @@ function calculatePartialRefund(totalCost: number, resultCount: number, expected
   if (completed <= 0) return cost;
   const charged = Math.min(cost, Math.max(1, Math.floor((cost * completed) / expected)));
   return Math.max(0, cost - charged);
+}
+
+function compactResultUrls(urls: string[]) {
+  return urls.filter((url): url is string => typeof url === "string" && url.trim().length > 0);
 }
 
 function readExpectedCountFromRecord(payload: Record<string, unknown>, fallback: number) {

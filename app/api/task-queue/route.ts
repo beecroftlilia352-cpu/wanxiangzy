@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { API_RATE_LIMITS, enforceApiRateLimit } from "@/lib/api/rate-limit";
+import { API_RATE_LIMITS, enforceApiRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 import { getReadAuthenticatedUser } from "@/lib/api/read-auth";
 import { createServerSupabase } from "@/lib/supabase/server";
 import {
@@ -241,10 +241,11 @@ function checkLightweightQueueRateLimit(userId: string) {
 
   if (existing.count >= LIGHTWEIGHT_QUEUE_RATE_LIMIT) {
     const retryAfterSeconds = Math.max(1, Math.ceil((existing.resetAt - now) / 1000));
-    return NextResponse.json(
-      { error: "请求过于频繁，请稍后再试" },
-      { status: 429, headers: { "Retry-After": String(retryAfterSeconds) } }
-    );
+    return rateLimitResponse(retryAfterSeconds, {
+      label: "任务列表刷新",
+      limit: LIGHTWEIGHT_QUEUE_RATE_LIMIT,
+      windowMs: LIGHTWEIGHT_QUEUE_RATE_WINDOW_MS,
+    });
   }
 
   existing.count += 1;

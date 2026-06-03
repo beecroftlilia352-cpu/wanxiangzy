@@ -8,25 +8,26 @@ export type ApiRateLimitPolicy = {
   bucket: string;
   limit: number;
   windowMs: number;
+  label?: string;
 };
 
 export const API_RATE_LIMITS = {
-  tryonGenerate: { bucket: "tryon", limit: 20, windowMs: ONE_MINUTE_MS },
-  tryonClothingAnalyze: { bucket: "tryon-clothing-analyze", limit: 30, windowMs: ONE_MINUTE_MS },
-  tryonReferenceAnalyze: { bucket: "tryon-reference-analyze", limit: 60, windowMs: ONE_MINUTE_MS },
-  poseVisualAnalyze: { bucket: "pose-visual-analyze", limit: 60, windowMs: ONE_MINUTE_MS },
-  posePlan: { bucket: "pose-plan", limit: 60, windowMs: ONE_MINUTE_MS },
-  tryonReferenceRecommendations: { bucket: "tryon-reference-recommendations", limit: 120, windowMs: ONE_MINUTE_MS },
-  agentWorkflowCreate: { bucket: "agent-workflow-create", limit: 12, windowMs: ONE_MINUTE_MS },
-  agentWorkflowPlan: { bucket: "agent-workflow-plan", limit: 20, windowMs: ONE_MINUTE_MS },
-  agentWorkflowMutation: { bucket: "agent-workflow-mutation", limit: 30, windowMs: ONE_MINUTE_MS },
-  conversationReadMutation: { bucket: "conversation-read-mutation", limit: 120, windowMs: ONE_MINUTE_MS },
-  conversationMutation: { bucket: "conversation-mutation", limit: 60, windowMs: ONE_MINUTE_MS },
-  messageMutation: { bucket: "message-mutation", limit: 120, windowMs: ONE_MINUTE_MS },
-  favoriteMutation: { bucket: "favorite-mutation", limit: 60, windowMs: ONE_MINUTE_MS },
-  apiPlatformTestProxy: { bucket: "api-platform-test-proxy", limit: 5, windowMs: ONE_MINUTE_MS },
-  taskQueueRead: { bucket: "task-queue-read", limit: 120, windowMs: ONE_MINUTE_MS },
-  historyRead: { bucket: "history-read", limit: 120, windowMs: ONE_MINUTE_MS },
+  tryonGenerate: { bucket: "tryon", limit: 20, windowMs: ONE_MINUTE_MS, label: "换装生成" },
+  tryonClothingAnalyze: { bucket: "tryon-clothing-analyze", limit: 30, windowMs: ONE_MINUTE_MS, label: "服装分析" },
+  tryonReferenceAnalyze: { bucket: "tryon-reference-analyze", limit: 60, windowMs: ONE_MINUTE_MS, label: "参考图分析" },
+  poseVisualAnalyze: { bucket: "pose-visual-analyze", limit: 60, windowMs: ONE_MINUTE_MS, label: "姿势分析" },
+  posePlan: { bucket: "pose-plan", limit: 60, windowMs: ONE_MINUTE_MS, label: "姿势规划" },
+  tryonReferenceRecommendations: { bucket: "tryon-reference-recommendations", limit: 120, windowMs: ONE_MINUTE_MS, label: "参考图推荐" },
+  agentWorkflowCreate: { bucket: "agent-workflow-create", limit: 12, windowMs: ONE_MINUTE_MS, label: "工作流创建" },
+  agentWorkflowPlan: { bucket: "agent-workflow-plan", limit: 20, windowMs: ONE_MINUTE_MS, label: "工作流规划" },
+  agentWorkflowMutation: { bucket: "agent-workflow-mutation", limit: 30, windowMs: ONE_MINUTE_MS, label: "工作流操作" },
+  conversationReadMutation: { bucket: "conversation-read-mutation", limit: 120, windowMs: ONE_MINUTE_MS, label: "对话读取" },
+  conversationMutation: { bucket: "conversation-mutation", limit: 60, windowMs: ONE_MINUTE_MS, label: "对话操作" },
+  messageMutation: { bucket: "message-mutation", limit: 120, windowMs: ONE_MINUTE_MS, label: "消息操作" },
+  favoriteMutation: { bucket: "favorite-mutation", limit: 60, windowMs: ONE_MINUTE_MS, label: "收藏操作" },
+  apiPlatformTestProxy: { bucket: "api-platform-test-proxy", limit: 5, windowMs: ONE_MINUTE_MS, label: "接口测试" },
+  taskQueueRead: { bucket: "task-queue-read", limit: 120, windowMs: ONE_MINUTE_MS, label: "任务列表刷新" },
+  historyRead: { bucket: "history-read", limit: 120, windowMs: ONE_MINUTE_MS, label: "历史记录读取" },
 } as const satisfies Record<string, ApiRateLimitPolicy>;
 
 function getRateLimitClient() {
@@ -78,15 +79,39 @@ export async function checkRateLimit(
 
 export async function enforceApiRateLimit(userId: string, policy: ApiRateLimitPolicy) {
   const limit = await checkRateLimit(`${policy.bucket}:${userId}`, policy.limit, policy.windowMs);
-  return limit.ok ? null : rateLimitResponse(limit.retryAfterSeconds);
+  return limit.ok ? null : rateLimitResponse(limit.retryAfterSeconds, policy);
 }
 
-export function rateLimitResponse(retryAfterSeconds: number) {
+export function rateLimitResponse(
+  retryAfterSeconds: number,
+  options: { label?: string; limit?: number; windowMs?: number } = {}
+) {
+  const safeRetryAfter = Math.max(1, Math.ceil(retryAfterSeconds));
+  const retryAfterLabel = formatRetryAfter(safeRetryAfter);
+  const retryAfterText = retryAfterLabel.replace(/\s+/g, "");
+  const label = options.label ? `${options.label}请求` : "请求";
+  const policyHint = options.limit && options.windowMs
+    ? `当前限制为 ${Math.max(1, Math.floor(options.windowMs / 1000))} 秒内最多 ${options.limit} 次。`
+    : "";
+  const error = `${label}过于频繁，请${retryAfterText}后再试。本次请求未执行；如果这是生成操作，不会扣除积分。${policyHint}`;
   return NextResponse.json(
-    { error: "请求过于频繁，请稍后再试" },
+    {
+      error,
+      code: "RATE_LIMITED",
+      retry_after_seconds: safeRetryAfter,
+      retry_after_label: retryAfterLabel,
+      limit: options.limit,
+      window_seconds: options.windowMs ? Math.max(1, Math.floor(options.windowMs / 1000)) : undefined,
+    },
     {
       status: 429,
-      headers: { "Retry-After": String(retryAfterSeconds) },
+      headers: { "Retry-After": String(safeRetryAfter) },
     }
   );
+}
+
+function formatRetryAfter(seconds: number) {
+  if (seconds < 60) return `${seconds} 秒`;
+  const minutes = Math.ceil(seconds / 60);
+  return `${minutes} 分钟`;
 }
