@@ -9,7 +9,7 @@ import {
   FolderOpen, CheckCircle2, XCircle,
 } from "lucide-react";
 import { useTryOnStore } from "@/lib/store/tryon-store";
-import { fileToBase64, MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
+import { createLocalImagePreview, isLikelyImageFile, MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { getCreditCost, getSupportedImageSizes, buildTryOnPrompt, isNanoBananaModel, type LingyaModel, type ImageSize, type AspectRatio } from "@/lib/api/lingya";
 import { toast } from "sonner";
@@ -536,21 +536,21 @@ export default function CreatePage() {
     isDragging: isDraggingClothing,
     setDragging: setIsDraggingClothing,
     stopPropagation: true,
-    fileFilter: (file) => file.type.startsWith("image/"),
+    fileFilter: isLikelyImageFile,
     onFiles: (files) => processFiles(files, pendingClothingRole),
   });
   const referenceDrag = useStableFileDrag<HTMLElement>({
     isDragging: isDraggingRef,
     setDragging: setIsDraggingRef,
     stopPropagation: true,
-    fileFilter: (file) => file.type.startsWith("image/"),
+    fileFilter: isLikelyImageFile,
     onFiles: (files) => handleCustomRefFiles(files),
   });
   const modelDrag = useStableFileDrag<HTMLElement>({
     isDragging: isDraggingModel,
     setDragging: setIsDraggingModel,
     stopPropagation: true,
-    fileFilter: (file) => file.type.startsWith("image/"),
+    fileFilter: isLikelyImageFile,
     onFiles: (files) => handleCustomModelFile(files[0]),
   });
   const customRefInputRef = useRef<HTMLInputElement>(null);
@@ -1451,13 +1451,9 @@ export default function CreatePage() {
 
     for (let index = 0; index < filesToUpload.length; index++) {
       const file = filesToUpload[index];
-      if (!file.type.startsWith("image/")) { toast.error(`${file.name} 不是图片`); continue; }
+      if (!isLikelyImageFile(file)) { toast.error(`${file.name} 不是图片`); continue; }
       if (file.size > MAX_FILE_SIZE) { toast.error(`${file.name} 超过 ${MAX_FILE_SIZE_MB}MB`); continue; }
-      try {
-        validItems.push({ file, preview: await fileToBase64(file), role: rolePlan[index] });
-      } catch {
-        toast.error(`${file.name} 处理失败`);
-      }
+      validItems.push({ file, preview: createLocalImagePreview(file), role: rolePlan[index] });
     }
 
     if (validItems.length > 0) {
@@ -1474,7 +1470,8 @@ export default function CreatePage() {
             role: validItems[index].role,
           });
         } else {
-          toast.error(`${validItems[index].file.name} 上传失败，请重试`);
+          const message = result.reason instanceof Error ? result.reason.message : "上传失败";
+          toast.error(`${validItems[index].file.name} 上传失败：${message}`);
         }
       });
 
@@ -1502,7 +1499,7 @@ export default function CreatePage() {
 
   const handleCustomModelFile = async (file?: File) => {
     if (!file) return;
-    if (!file.type.startsWith("image/")) return toast.error("请上传图片文件");
+    if (!isLikelyImageFile(file)) return toast.error("请上传图片文件");
     if (file.size > MAX_FILE_SIZE) return toast.error(`${file.name} 超过 ${MAX_FILE_SIZE_MB}MB`);
 
     const uploadSeq = customModelUploadSeqRef.current + 1;
@@ -1513,18 +1510,18 @@ export default function CreatePage() {
     setPromptOverride(null);
     toast.info("正在上传模特图...");
     try {
-      const base64 = await fileToBase64(file);
       if (customModelUploadSeqRef.current !== uploadSeq) return;
-      setCustomModelPreview(base64);
+      setCustomModelPreview(createLocalImagePreview(file));
       const result = await uploadImage(file);
       if (customModelUploadSeqRef.current !== uploadSeq) return;
       store.setSelectedModel({ id: "custom", name: "自定义", image_url: result.url, gender: "female", is_preset: false, user_id: null });
       setPromptOverride(null);
       toast.success("模特已选择");
-    } catch {
+    } catch (error) {
       if (customModelUploadSeqRef.current === uploadSeq) {
         setCustomModelPreview(null);
-        toast.error("模特图上传失败，请重试");
+        const message = error instanceof Error ? error.message : "上传失败";
+        toast.error(`模特图上传失败：${message}`);
       }
     } finally {
       if (customModelUploadSeqRef.current === uploadSeq) setIsUploadingCustomModel(false);
@@ -1567,18 +1564,14 @@ export default function CreatePage() {
 
     const uploadItems: Array<{ id: string; file: File; preview: string; label: string }> = [];
     for (const file of limited) {
-      if (!file.type.startsWith("image/")) { toast.error(`${file.name} 不是图片`); continue; }
+      if (!isLikelyImageFile(file)) { toast.error(`${file.name} 不是图片`); continue; }
       if (file.size > MAX_FILE_SIZE) { toast.error(`${file.name} 超过 ${MAX_FILE_SIZE_MB}MB`); continue; }
-      try {
-        uploadItems.push({
-          id: `custom-ref-${Date.now()}-${uploadItems.length}`,
-          file,
-          preview: await fileToBase64(file),
-          label: file.name.replace(/\.[^.]+$/, "").slice(0, 24) || `上传参考${baseUploadReferences.length + uploadItems.length + 1}`,
-        });
-      } catch {
-        toast.error(`${file.name} 处理失败`);
-      }
+      uploadItems.push({
+        id: `custom-ref-${Date.now()}-${uploadItems.length}`,
+        file,
+        preview: createLocalImagePreview(file),
+        label: file.name.replace(/\.[^.]+$/, "").slice(0, 24) || `上传参考${baseUploadReferences.length + uploadItems.length + 1}`,
+      });
     }
     if (!uploadItems.length) return;
 
@@ -1622,7 +1615,13 @@ export default function CreatePage() {
       toast.success(`已添加 ${readyRefs.length} 张参考图`);
     }
     const failedCount = results.filter((item) => item.status === "rejected").length;
-    if (failedCount) toast.error(`${failedCount} 张参考图上传失败，请重试`);
+    if (failedCount) {
+      const firstFailure = results.find((item) => item.status === "rejected");
+      const message = firstFailure?.status === "rejected" && firstFailure.reason instanceof Error
+        ? firstFailure.reason.message
+        : "请重试";
+      toast.error(`${failedCount} 张参考图上传失败：${message}`);
+    }
   };
 
   const handleCustomRef = (event: ChangeEvent<HTMLInputElement>) => {

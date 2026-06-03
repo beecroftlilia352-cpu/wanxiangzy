@@ -95,6 +95,17 @@ export const ACCEPTED_IMAGE_TYPES = {
   "image/webp": [".webp"],
 };
 
+const LIKELY_IMAGE_EXTENSION_PATTERN = /\.(jpe?g|png|webp|avif|heic|heif)$/i;
+
+export function isLikelyImageFile(file: Pick<File, "type" | "name">): boolean {
+  const type = (file.type || "").toLowerCase();
+  return type.startsWith("image/") || LIKELY_IMAGE_EXTENSION_PATTERN.test(file.name || "");
+}
+
+export function createLocalImagePreview(file: File): string {
+  return URL.createObjectURL(file);
+}
+
 export const ACCEPTED_VIDEO_TYPES = {
   "video/mp4": [".mp4"],
   "video/quicktime": [".mov"],

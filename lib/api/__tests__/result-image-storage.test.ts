@@ -16,6 +16,7 @@ describe("result image storage", () => {
   const originalOssFavoritePrefix = process.env.ALIYUN_OSS_FAVORITE_PREFIX;
   const originalOssSiteAssetPrefix = process.env.ALIYUN_OSS_SITE_ASSET_PREFIX;
   const originalOssTempPrefix = process.env.ALIYUN_OSS_TEMP_PREFIX;
+  const tinyAvifBase64 = "AAAAHGZ0eXBhdmlmAAAAAG1pZjFhdmlmbWlhZgAAANZtZXRhAAAAAAAAACFoZGxyAAAAAAAAAABwaWN0AAAAAAAAAAAAAAAAAAAAAA5waXRtAAAAAAABAAAAImlsb2MAAAAAREAAAQABAAAAAAD6AAEAAAAAAAAAHgAAACNpaW5mAAAAAAABAAAAFWluZmUCAAAAAAEAAGF2MDEAAAAAVmlwcnAAAAA4aXBjbwAAAAxhdjFDgSACAAAAABRpc3BlAAAAAAAAAAIAAAACAAAAEHBpeGkAAAAAAwgICAAAABZpcG1hAAAAAAAAAAEAAQOBAgMAAAAmbWRhdBIACgc4ADYQENBpMhEWQAYYYYQAAHlM2KcgXkzU8A==";
 
   beforeEach(() => {
     delete process.env.IMAGE_STORAGE_PROVIDER;
@@ -148,7 +149,65 @@ describe("result image storage", () => {
     process.env.ALIYUN_OSS_PUBLIC_BASE_URL = "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com";
     process.env.ALIYUN_OSS_PREFIX = "ai-tryon";
 
-    const avifBase64 = "AAAAHGZ0eXBhdmlmAAAAAG1pZjFhdmlmbWlhZgAAANZtZXRhAAAAAAAAACFoZGxyAAAAAAAAAABwaWN0AAAAAAAAAAAAAAAAAAAAAA5waXRtAAAAAAABAAAAImlsb2MAAAAAREAAAQABAAAAAAD6AAEAAAAAAAAAHgAAACNpaW5mAAAAAAABAAAAFWluZmUCAAAAAAEAAGF2MDEAAAAAVmlwcnAAAAA4aXBjbwAAAAxhdjFDgSACAAAAABRpc3BlAAAAAAAAAAIAAAACAAAAEHBpeGkAAAAAAwgICAAAABZpcG1hAAAAAAAAAAEAAQOBAgMAAAAmbWRhdBIACgc4ADYQENBpMhEWQAYYYYQAAHlM2KcgXkzU8A==";
+    const putCalls: Array<{ url: string; init?: RequestInit }> = [];
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      putCalls.push({ url, init });
+      return new Response("", { status: 200 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const stored = await storeImage({
+      image: `data:image/avif;base64,${tinyAvifBase64}`,
+      name: "source-avif",
+      storageClass: "upload",
+    });
+
+    expect(stored.url).toMatch(/source-avif\.jpg$/);
+    expect(putCalls).toHaveLength(1);
+    expect(putCalls[0].url).toMatch(/source-avif\.jpg$/);
+    expect((putCalls[0].init?.headers as Record<string, string>)["Content-Type"]).toBe("image/jpeg");
+    expect(Buffer.from(putCalls[0].init?.body as ArrayBuffer).subarray(0, 3)).toEqual(Buffer.from([0xff, 0xd8, 0xff]));
+  });
+
+  it("uploads multipart-style JPEG bytes to Aliyun OSS without base64 wrapping", async () => {
+    process.env.IMAGE_STORAGE_PROVIDER = "aliyun-oss";
+    process.env.ALIYUN_OSS_ACCESS_KEY_ID = "test-access-key-id";
+    process.env.ALIYUN_OSS_ACCESS_KEY_SECRET = "test-access-key-secret";
+    process.env.ALIYUN_OSS_BUCKET = "vastweargen-images";
+    process.env.ALIYUN_OSS_REGION = "oss-cn-hongkong";
+    process.env.ALIYUN_OSS_PUBLIC_BASE_URL = "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com";
+    process.env.ALIYUN_OSS_PREFIX = "ai-tryon";
+
+    const jpegBytes = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0xff, 0xd9]);
+    const putCalls: Array<{ url: string; init?: RequestInit }> = [];
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      putCalls.push({ url, init });
+      return new Response("", { status: 200 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const stored = await storeImage({
+      bytes: jpegBytes,
+      contentType: "",
+      name: "reference-photo.jpg",
+      storageClass: "upload",
+    });
+
+    expect(stored.url).toMatch(/reference-photo\.jpg$/);
+    expect(putCalls).toHaveLength(1);
+    expect(putCalls[0].url).toMatch(/reference-photo\.jpg$/);
+    expect((putCalls[0].init?.headers as Record<string, string>)["Content-Type"]).toBe("image/jpeg");
+    expect(Buffer.from(putCalls[0].init?.body as ArrayBuffer)).toEqual(jpegBytes);
+  });
+
+  it("uses image magic bytes over incorrect declared content types", async () => {
+    process.env.IMAGE_STORAGE_PROVIDER = "aliyun-oss";
+    process.env.ALIYUN_OSS_ACCESS_KEY_ID = "test-access-key-id";
+    process.env.ALIYUN_OSS_ACCESS_KEY_SECRET = "test-access-key-secret";
+    process.env.ALIYUN_OSS_BUCKET = "vastweargen-images";
+    process.env.ALIYUN_OSS_REGION = "oss-cn-hongkong";
+    process.env.ALIYUN_OSS_PUBLIC_BASE_URL = "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com";
+    process.env.ALIYUN_OSS_PREFIX = "ai-tryon";
 
     const putCalls: Array<{ url: string; init?: RequestInit }> = [];
     const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
@@ -158,14 +217,14 @@ describe("result image storage", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const stored = await storeImage({
-      image: `data:image/avif;base64,${avifBase64}`,
-      name: "source-avif",
+      bytes: Buffer.from(tinyAvifBase64, "base64"),
+      contentType: "image/jpeg",
+      name: "mislabeled-reference.jpg",
       storageClass: "upload",
     });
 
-    expect(stored.url).toMatch(/source-avif\.jpg$/);
+    expect(stored.url).toMatch(/mislabeled-reference\.jpg$/);
     expect(putCalls).toHaveLength(1);
-    expect(putCalls[0].url).toMatch(/source-avif\.jpg$/);
     expect((putCalls[0].init?.headers as Record<string, string>)["Content-Type"]).toBe("image/jpeg");
     expect(Buffer.from(putCalls[0].init?.body as ArrayBuffer).subarray(0, 3)).toEqual(Buffer.from([0xff, 0xd8, 0xff]));
   });

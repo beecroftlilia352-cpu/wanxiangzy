@@ -5,7 +5,9 @@ const DEFAULT_IMAGE_UPLOAD_TIMEOUT_MS = 45_000;
 const MAX_IMAGE_STORAGE_BYTES = 32 * 1024 * 1024;
 const DEFAULT_ALIYUN_DOWNLOAD_EXPIRES_SECONDS = 5 * 60;
 const AI_INPUT_UNSTABLE_IMAGE_TYPES = new Set(["image/avif", "image/heic", "image/heif"]);
+const AI_INPUT_NORMALIZABLE_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const NORMALIZED_AI_INPUT_MAX_EDGE = 3072;
+const NORMALIZED_AI_INPUT_TARGET_BYTES = 8 * 1024 * 1024;
 const NORMALIZED_JPEG_QUALITY = 92;
 const NORMALIZED_WEBP_QUALITY = 90;
 
@@ -21,7 +23,9 @@ export interface StoredImage {
 }
 
 export interface StoreImageInput {
-  image: string;
+  image?: string;
+  bytes?: Buffer;
+  contentType?: string;
   name: string;
   namePrefix?: string;
   storageClass?: ImageStorageClass;
@@ -116,7 +120,7 @@ const imgbbStorageAdapter: ImageStorageAdapter = {
 
     const form = new FormData();
     form.append("key", apiKey);
-    form.append("image", input.image);
+    form.append("image", await resolveImgBbImageField(input, options));
     form.append("name", `${input.namePrefix || ""}${input.name}`);
 
     const response = await fetch(IMGBB_API_URL, {
@@ -171,7 +175,7 @@ const aliyunOssStorageAdapter: ImageStorageAdapter = {
 
   async storeImage(input: StoreImageInput, options: StoreImageOptions = {}) {
     const config = getAliyunOssConfig();
-    const upload = await resolveUploadPayload(input.image, input.name, options);
+    const upload = await resolveUploadPayload(input, options);
     const objectKey = buildAliyunObjectKey(input, upload.extension);
     const endpoint = config.endpoint || `${config.bucket}.${config.region}.aliyuncs.com`;
     const uploadUrl = `https://${endpoint}/${encodeObjectKey(objectKey)}`;
@@ -330,27 +334,54 @@ function encodeRFC5987ValueChars(value: string) {
     .replace(/\*/g, "%2A");
 }
 
-async function resolveUploadPayload(image: string, name: string, options: StoreImageOptions) {
-  if (isRemoteUrl(image)) {
-    const response = await fetch(image, {
+async function resolveImgBbImageField(input: StoreImageInput, options: StoreImageOptions) {
+  if (input.bytes) {
+    const upload = await resolveUploadPayload(input, options);
+    return upload.bytes.toString("base64");
+  }
+  if (!input.image) throw new Error("图片内容为空");
+  return input.image;
+}
+
+async function resolveUploadPayload(input: StoreImageInput, options: StoreImageOptions) {
+  const name = input.name;
+
+  if (input.bytes) {
+    const bytes = input.bytes;
+    assertUploadSize(bytes);
+    const contentType = resolveContentType(bytes, name, input.contentType);
+    return normalizeUploadPayloadForStableAiInput(bytes, contentType);
+  }
+
+  if (!input.image) throw new Error("图片内容为空");
+
+  if (isRemoteUrl(input.image)) {
+    const response = await fetch(input.image, {
       signal: AbortSignal.timeout(options.timeoutMs || DEFAULT_IMAGE_UPLOAD_TIMEOUT_MS),
     });
     if (!response.ok) throw new Error(`图片上传失败: remote image HTTP ${response.status}`);
     const bytes = Buffer.from(await response.arrayBuffer());
     assertUploadSize(bytes);
-    const contentType = normalizeImageContentType(response.headers.get("content-type")) || inferContentType(bytes, name);
+    const contentType = resolveContentType(bytes, name, response.headers.get("content-type"));
     return normalizeUploadPayloadForStableAiInput(bytes, contentType);
   }
 
-  const contentTypeFromDataUrl = image.match(/^data:([^;,]+)[;,]/i)?.[1];
-  const bytes = Buffer.from(getBase64Payload(image), "base64");
+  const contentTypeFromDataUrl = input.image.match(/^data:([^;,]+)[;,]/i)?.[1];
+  const bytes = Buffer.from(getBase64Payload(input.image), "base64");
   assertUploadSize(bytes);
-  const contentType = normalizeImageContentType(contentTypeFromDataUrl) || inferContentType(bytes, name);
+  const contentType = resolveContentType(bytes, name, contentTypeFromDataUrl);
   return normalizeUploadPayloadForStableAiInput(bytes, contentType);
 }
 
 async function normalizeUploadPayloadForStableAiInput(bytes: Buffer, contentType: string) {
-  if (!AI_INPUT_UNSTABLE_IMAGE_TYPES.has(contentType)) {
+  if (!contentType.startsWith("image/")) {
+    throw new Error("当前图片格式暂不支持，请上传 JPG、PNG 或 WebP");
+  }
+
+  const shouldNormalize = AI_INPUT_UNSTABLE_IMAGE_TYPES.has(contentType)
+    || (AI_INPUT_NORMALIZABLE_IMAGE_TYPES.has(contentType) && bytes.length > NORMALIZED_AI_INPUT_TARGET_BYTES);
+
+  if (!shouldNormalize) {
     return { bytes, contentType, extension: extensionFromContentType(contentType) };
   }
 
@@ -366,19 +397,46 @@ async function normalizeUploadPayloadForStableAiInput(bytes: Buffer, contentType
     });
 
     if (metadata.hasAlpha) {
-      const normalized = await resized.webp({ quality: NORMALIZED_WEBP_QUALITY }).toBuffer();
+      const normalized = await encodeWebpWithinTarget(resized);
       assertUploadSize(normalized);
       return { bytes: normalized, contentType: "image/webp", extension: "webp" };
     }
 
-    const normalized = await resized.jpeg({ quality: NORMALIZED_JPEG_QUALITY, mozjpeg: true }).toBuffer();
+    const normalized = await encodeJpegWithinTarget(resized);
     assertUploadSize(normalized);
     return { bytes: normalized, contentType: "image/jpeg", extension: "jpg" };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    console.warn("[image-storage] unstable image normalization failed:", message);
-    throw new Error("当前图片格式暂不支持，请上传 JPG、PNG 或 WebP");
+    console.warn("[image-storage] image normalization failed:", { contentType, bytes: bytes.length, message });
+    if (AI_INPUT_UNSTABLE_IMAGE_TYPES.has(contentType)) {
+      throw new Error("当前图片格式暂不支持，请上传 JPG、PNG 或 WebP");
+    }
+    throw new Error("图片文件无法解析，请重新保存为 JPG、PNG 或 WebP 后再上传");
   }
+}
+
+async function encodeJpegWithinTarget(image: import("sharp").Sharp) {
+  let last: Buffer | null = null;
+  for (const quality of [NORMALIZED_JPEG_QUALITY, 86, 78, 70]) {
+    last = await image.clone().jpeg({ quality, mozjpeg: true }).toBuffer();
+    if (last.length <= NORMALIZED_AI_INPUT_TARGET_BYTES) return last;
+  }
+  return last!;
+}
+
+async function encodeWebpWithinTarget(image: import("sharp").Sharp) {
+  let last: Buffer | null = null;
+  for (const quality of [NORMALIZED_WEBP_QUALITY, 82, 74, 66]) {
+    last = await image.clone().webp({ quality }).toBuffer();
+    if (last.length <= NORMALIZED_AI_INPUT_TARGET_BYTES) return last;
+  }
+  return last!;
+}
+
+function resolveContentType(bytes: Buffer, name: string, declaredContentType?: string | null) {
+  const inferred = inferContentType(bytes, name);
+  if (inferred !== "application/octet-stream") return inferred;
+  return normalizeImageContentType(declaredContentType) || "application/octet-stream";
 }
 
 function assertUploadSize(bytes: Buffer) {
