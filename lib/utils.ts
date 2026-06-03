@@ -117,6 +117,7 @@ export const MAX_FILE_SIZE = MAX_FILE_SIZE_MB * 1024 * 1024;
 export const MAX_VIDEO_FILE_SIZE_MB = 100;
 export const MAX_VIDEO_FILE_SIZE = MAX_VIDEO_FILE_SIZE_MB * 1024 * 1024;
 const UPLOAD_TRANSPORT_SAFE_SIZE_MB = 8;
+const IMAGE_UPLOAD_CLIENT_TIMEOUT_MS = 75_000;
 export const MAX_CLOTHING_FILES = 5;
 
 export interface UploadResult {
@@ -245,10 +246,23 @@ export async function uploadImage(file: File): Promise<UploadResult> {
   form.append("image", compressed);
   form.append("name", file.name.replace(/\.[^.]+$/, ""));
 
-  const res = await fetch("/api/upload-image", {
-    method: "POST",
-    body: form,
-  });
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), IMAGE_UPLOAD_CLIENT_TIMEOUT_MS);
+  let res: Response;
+  try {
+    res = await fetch("/api/upload-image", {
+      method: "POST",
+      body: form,
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error("图片上传超时，请稍后重试");
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeout);
+  }
 
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));

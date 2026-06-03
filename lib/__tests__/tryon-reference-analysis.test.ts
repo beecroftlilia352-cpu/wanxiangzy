@@ -43,6 +43,16 @@ describe("try-on reference analysis alignment", () => {
     expect(analyses.every((item) => item.bodyCrop === "partial_unknown")).toBe(true);
   });
 
+  it("normalizes reference confidence labels from vision models", () => {
+    const analyses = alignTryOnReferenceAnalyses([
+      { index: 1, bodyCrop: "upper_body", confidence: "high" },
+      { index: 2, bodyCrop: "lower_body", confidence: "82%" },
+    ], 2);
+
+    expect(analyses[0].confidence).toBeGreaterThan(0.8);
+    expect(analyses[1].confidence).toBe(0.82);
+  });
+
   it("locks lower-body references against full-body expansion", () => {
     const rule = buildTryOnReferenceAnalysisRule({
       index: 1,

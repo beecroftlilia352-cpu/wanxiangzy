@@ -200,6 +200,7 @@ const activeTryOnStatusWatchers = new Map<string, AbortController>();
 const TRYON_FACE_MODEL_BANANA_NOTICE = "已选择模特脸时，Banana 暂不可用。建议用 GPT-Image-2 直接融合；如果想用 Banana 的换装效果，先不选模特图完成换装，再到换脸模块处理脸部。";
 const MAX_TRYON_REFERENCE_IMAGES = 8;
 const MAX_TRYON_OUTPUT_IMAGES = 32;
+const TRYON_REFERENCE_UPLOAD_CONCURRENCY = 2;
 const TRYON_REFERENCE_BODY_CROP_LABELS: Record<TryOnReferenceBodyCrop, string> = {
   full_body: "全身",
   three_quarter: "七分身",
@@ -248,6 +249,24 @@ function uniqueReferenceImages(refs: SelectedReferenceImage[]) {
     if (unique.length >= MAX_TRYON_REFERENCE_IMAGES) break;
   }
   return unique;
+}
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  worker: (item: T, index: number) => Promise<R>
+) {
+  const results: R[] = new Array(items.length);
+  let nextIndex = 0;
+  const workerCount = Math.min(Math.max(1, limit), items.length);
+  await Promise.all(Array.from({ length: workerCount }, async () => {
+    while (nextIndex < items.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      results[index] = await worker(items[index], index);
+    }
+  }));
+  return results;
 }
 
 function toPresetReference(ref: typeof PRESET_REFERENCES[number]): SelectedReferenceImage {
@@ -697,8 +716,15 @@ export default function CreatePage() {
   const setSelectedReferences = (refs: SelectedReferenceImage[], options: { touch?: boolean; mode?: TryOnSceneMode } = {}) => {
     if (options.touch !== false) referenceSelectionTouchedRef.current = true;
     const mode = options.mode || sceneMode;
+    const currentReferences = uniqueReferenceImages(
+      (useTryOnStore.getState().referenceImages?.length
+        ? useTryOnStore.getState().referenceImages
+        : useTryOnStore.getState().referenceImage
+          ? [useTryOnStore.getState().referenceImage]
+          : []) as SelectedReferenceImage[]
+    );
     const nextReferenceUrlKeys = new Set(refs.map((item) => normalizeAssetUrl(item.url) || item.url));
-    const inactiveReferences = allSelectedReferenceImages.filter((item) => (
+    const inactiveReferences = currentReferences.filter((item) => (
       !referenceBelongsToSceneMode(item, mode)
       && !nextReferenceUrlKeys.has(normalizeAssetUrl(item.url) || item.url)
     ));
@@ -721,8 +747,9 @@ export default function CreatePage() {
 
   const clearSelectedReferences = () => {
     referenceSelectionTouchedRef.current = true;
+    customRefUploadSeqRef.current += 1;
     setSelectedReferences([], { touch: false });
-    setCustomRefUploads((prev) => prev.filter((item) => item.status === "uploading"));
+    setCustomRefUploads([]);
     resetScenePrompt();
   };
 
@@ -1600,34 +1627,57 @@ export default function CreatePage() {
         status: "uploading" as const,
       })),
     ]);
-    toast.info(`正在上传 ${uploadItems.length} 张参考图...`);
+    toast.info(`正在上传 ${uploadItems.length} 张参考图，系统会分批处理以提高成功率...`);
 
-    const results = await Promise.allSettled(uploadItems.map((item) => uploadImage(item.file)));
+    const results = await mapWithConcurrency(
+      uploadItems,
+      TRYON_REFERENCE_UPLOAD_CONCURRENCY,
+      async (upload) => {
+        try {
+          const result = await uploadImage(upload.file);
+          if (customRefUploadSeqRef.current === uploadSeq) {
+            setCustomRefUploads((prev) => prev.map((item) => item.id === upload.id
+              ? { ...item, status: "ready" as const, url: result.url }
+              : item
+            ));
+          }
+          return { status: "fulfilled" as const, upload, url: result.url };
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "上传失败";
+          if (customRefUploadSeqRef.current === uploadSeq) {
+            setCustomRefUploads((prev) => prev.map((item) => item.id === upload.id
+              ? { ...item, status: "error" as const, error: message }
+              : item
+            ));
+          }
+          return { status: "rejected" as const, upload, reason: error };
+        }
+      }
+    );
     if (customRefUploadSeqRef.current !== uploadSeq) return;
 
-    const readyRefs: SelectedReferenceImage[] = [];
-    setCustomRefUploads((prev) => prev.flatMap((item) => {
-      const index = uploadItems.findIndex((upload) => upload.id === item.id);
-      if (index < 0) return [item];
-      const result = results[index];
-      if (result.status !== "fulfilled") {
-        const message = result.reason instanceof Error ? result.reason.message : "上传失败";
-        return [{ ...item, status: "error" as const, error: message }];
-      }
-      readyRefs.push({
-        id: item.id,
-        url: result.value.url,
-        label: item.label,
+    const readyRefs: SelectedReferenceImage[] = results.flatMap((result) => {
+      if (result.status !== "fulfilled") return [];
+      return [{
+        id: result.upload.id,
+        url: result.url,
+        label: result.upload.label,
         category: "style",
         is_preset: false,
         user_id: null,
         source: "upload",
-      });
-      return [{ ...item, status: "ready" as const, url: result.value.url }];
-    }));
+      }];
+    });
 
     if (readyRefs.length) {
-      setSelectedReferences([...baseUploadReferences, ...readyRefs]);
+      const currentUploadReferences = uniqueReferenceImages(
+        ((useTryOnStore.getState().referenceImages || []) as SelectedReferenceImage[])
+          .filter((item) => referenceBelongsToSceneMode(item, "upload_reference"))
+      );
+      setSelectedReferences(
+        uniqueReferenceImages([...currentUploadReferences, ...readyRefs]),
+        { mode: "upload_reference" }
+      );
       toast.success(`已添加 ${readyRefs.length} 张参考图`);
     }
     const failedCount = results.filter((item) => item.status === "rejected").length;

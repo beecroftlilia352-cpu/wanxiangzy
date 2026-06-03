@@ -199,6 +199,7 @@ async function requestYunwuReferenceAnalysis(input: {
               "如果只有下半身、腿部、裤子、鞋履或腰胯到脚，bodyCrop=lower_body，personVisible=true，faceVisible=false，headVisible=false，upperBodyVisible=false；promptNotes 必须描述最佳下半身姿势，而不是完整人物姿势。",
               "如果只有上半身、肩颈、胸口、手臂或半身特写，bodyCrop=upper_body 或 closeup；promptNotes 必须保持上半身/特写裁切，不要要求生成腿部或全身。",
               "promptNotes 用一句英文写给生成模型：最终应该保留的构图/身体范围/是否禁止补脸或扩成全身。",
+              "confidence 必须是 0 到 1 的数字，例如 0.86；不要返回 high、medium、low 或百分比字符串。",
             ].join("\n"),
           },
           {
@@ -300,12 +301,26 @@ function extractMessageContent(raw: any) {
 }
 
 function parseJsonObject(content: string) {
-  const trimmed = content.trim();
+  const trimmed = stripJsonCodeFence(content.trim());
   if (!trimmed) return {};
   try {
     return JSON.parse(trimmed);
   } catch {
     const match = trimmed.match(/\{[\s\S]*\}/);
-    return match ? JSON.parse(match[0]) : {};
+    if (match) {
+      try {
+        return JSON.parse(match[0]);
+      } catch {
+        return {};
+      }
+    }
+    return {};
   }
+}
+
+function stripJsonCodeFence(value: string) {
+  return value
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/i, "")
+    .trim();
 }

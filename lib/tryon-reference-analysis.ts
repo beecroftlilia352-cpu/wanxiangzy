@@ -1,3 +1,5 @@
+import { normalizeConfidence } from "@/lib/pose-analysis";
+
 export type TryOnReferenceBodyCrop =
   | "full_body"
   | "three_quarter"
@@ -25,7 +27,6 @@ export type TryOnReferenceAnalysis = {
 export function normalizeTryOnReferenceAnalysis(input: unknown, fallbackIndex = 1): TryOnReferenceAnalysis {
   const record = toRecord(input);
   const bodyCrop = normalizeBodyCrop(readString(record, "bodyCrop") || readString(record, "body_crop"));
-  const confidence = Number(record.confidence);
 
   return {
     index: normalizeIndex(record.index, fallbackIndex),
@@ -39,7 +40,7 @@ export function normalizeTryOnReferenceAnalysis(input: unknown, fallbackIndex = 
     feetVisible: readBoolean(record, "feetVisible", "feet_visible") ?? (bodyCrop === "full_body"),
     detailFocus: normalizeStringArray(record.detailFocus ?? record.detail_focus),
     promptNotes: readString(record, "promptNotes") || readString(record, "prompt_notes"),
-    confidence: Number.isFinite(confidence) ? clamp(confidence, 0, 1) : 0.5,
+    confidence: normalizeConfidence(record.confidence, 0.5),
   };
 }
 
