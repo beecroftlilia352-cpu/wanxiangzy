@@ -4,6 +4,10 @@ const IMGBB_API_URL = "https://api.imgbb.com/1/upload";
 const DEFAULT_IMAGE_UPLOAD_TIMEOUT_MS = 45_000;
 const MAX_IMAGE_STORAGE_BYTES = 32 * 1024 * 1024;
 const DEFAULT_ALIYUN_DOWNLOAD_EXPIRES_SECONDS = 5 * 60;
+const AI_INPUT_UNSTABLE_IMAGE_TYPES = new Set(["image/avif", "image/heic", "image/heif"]);
+const NORMALIZED_AI_INPUT_MAX_EDGE = 3072;
+const NORMALIZED_JPEG_QUALITY = 92;
+const NORMALIZED_WEBP_QUALITY = 90;
 
 export type ImageStorageProvider = "imgbb" | "aliyun-oss";
 export type ImageStorageClass = "upload" | "generated" | "favorite" | "site-asset" | "temp";
@@ -191,7 +195,7 @@ const aliyunOssStorageAdapter: ImageStorageAdapter = {
 
     const response = await fetch(uploadUrl, {
       method: "PUT",
-      body: upload.bytes,
+      body: bufferToArrayBuffer(upload.bytes),
       headers,
       signal: AbortSignal.timeout(options.timeoutMs || DEFAULT_IMAGE_UPLOAD_TIMEOUT_MS),
     });
@@ -335,19 +339,55 @@ async function resolveUploadPayload(image: string, name: string, options: StoreI
     const bytes = Buffer.from(await response.arrayBuffer());
     assertUploadSize(bytes);
     const contentType = normalizeImageContentType(response.headers.get("content-type")) || inferContentType(bytes, name);
-    return { bytes, contentType, extension: extensionFromContentType(contentType) };
+    return normalizeUploadPayloadForStableAiInput(bytes, contentType);
   }
 
   const contentTypeFromDataUrl = image.match(/^data:([^;,]+)[;,]/i)?.[1];
   const bytes = Buffer.from(getBase64Payload(image), "base64");
   assertUploadSize(bytes);
   const contentType = normalizeImageContentType(contentTypeFromDataUrl) || inferContentType(bytes, name);
-  return { bytes, contentType, extension: extensionFromContentType(contentType) };
+  return normalizeUploadPayloadForStableAiInput(bytes, contentType);
+}
+
+async function normalizeUploadPayloadForStableAiInput(bytes: Buffer, contentType: string) {
+  if (!AI_INPUT_UNSTABLE_IMAGE_TYPES.has(contentType)) {
+    return { bytes, contentType, extension: extensionFromContentType(contentType) };
+  }
+
+  try {
+    const sharp = (await import("sharp")).default;
+    const source = sharp(bytes, { failOn: "none" }).rotate();
+    const metadata = await source.metadata();
+    const resized = source.resize({
+      width: NORMALIZED_AI_INPUT_MAX_EDGE,
+      height: NORMALIZED_AI_INPUT_MAX_EDGE,
+      fit: "inside",
+      withoutEnlargement: true,
+    });
+
+    if (metadata.hasAlpha) {
+      const normalized = await resized.webp({ quality: NORMALIZED_WEBP_QUALITY }).toBuffer();
+      assertUploadSize(normalized);
+      return { bytes: normalized, contentType: "image/webp", extension: "webp" };
+    }
+
+    const normalized = await resized.jpeg({ quality: NORMALIZED_JPEG_QUALITY, mozjpeg: true }).toBuffer();
+    assertUploadSize(normalized);
+    return { bytes: normalized, contentType: "image/jpeg", extension: "jpg" };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn("[image-storage] unstable image normalization failed:", message);
+    throw new Error("当前图片格式暂不支持，请上传 JPG、PNG 或 WebP");
+  }
 }
 
 function assertUploadSize(bytes: Buffer) {
   if (!bytes.length) throw new Error("图片内容为空");
   if (bytes.length > MAX_IMAGE_STORAGE_BYTES) throw new Error("图片过大，无法上传");
+}
+
+function bufferToArrayBuffer(bytes: Buffer) {
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
 }
 
 function isRemoteUrl(value: string) {
@@ -448,12 +488,22 @@ function inferContentType(bytes: Buffer, name: string) {
   if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return "image/jpeg";
   if (bytes.subarray(0, 4).toString("ascii") === "RIFF" && bytes.subarray(8, 12).toString("ascii") === "WEBP") return "image/webp";
   if (bytes.subarray(0, 6).toString("ascii").startsWith("GIF8")) return "image/gif";
+  if (hasIsoBmffBrand(bytes, ["avif", "avis"])) return "image/avif";
+  if (hasIsoBmffBrand(bytes, ["heic", "heix", "hevc", "hevx", "mif1", "msf1"])) return "image/heif";
   const extension = name.match(/\.([a-z0-9]{2,5})$/i)?.[1]?.toLowerCase();
   if (extension === "jpg" || extension === "jpeg") return "image/jpeg";
   if (extension === "png") return "image/png";
   if (extension === "webp") return "image/webp";
   if (extension === "gif") return "image/gif";
+  if (extension === "avif") return "image/avif";
+  if (extension === "heic" || extension === "heif") return "image/heif";
   return "application/octet-stream";
+}
+
+function hasIsoBmffBrand(bytes: Buffer, brands: string[]) {
+  if (bytes.length < 12 || bytes.subarray(4, 8).toString("ascii") !== "ftyp") return false;
+  const brandText = bytes.subarray(8, Math.min(bytes.length, 64)).toString("ascii").toLowerCase();
+  return brands.some((brand) => brandText.includes(brand));
 }
 
 function extensionFromContentType(contentType: string) {
@@ -461,5 +511,8 @@ function extensionFromContentType(contentType: string) {
   if (contentType === "image/png") return "png";
   if (contentType === "image/webp") return "webp";
   if (contentType === "image/gif") return "gif";
+  if (contentType === "image/avif") return "avif";
+  if (contentType === "image/heic") return "heic";
+  if (contentType === "image/heif") return "heif";
   return "bin";
 }

@@ -1,16 +1,8 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import { Toaster } from "sonner";
 import "./globals.css";
 import { HeaderClient } from "@/components/HeaderClient";
 import "@/lib/env";
-
-const uiSans = Inter({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-ui-sans",
-  weight: ["400", "500", "600", "700", "800", "900"],
-});
 
 export const metadata: Metadata = {
   title: "VastWearGen - AI 服装视觉生产工作台",
@@ -28,7 +20,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="zh-CN">
-      <body className={`${uiSans.variable} min-h-screen text-codex-ink`}>
+      <body className="min-h-screen text-codex-ink">
         <HeaderClient />
         <main>{children}</main>
         <Toaster

@@ -83,6 +83,9 @@ export async function POST(request: Request) {
     if (message.includes("图片上传服务未配置") || message.includes("图床上传服务未配置") || message.includes("IMGBB_API_KEY") || message.includes("ALIYUN_OSS")) {
       return NextResponse.json({ error: "图片上传服务未配置" }, { status: 500 });
     }
+    if (message.includes("当前图片格式暂不支持")) {
+      return NextResponse.json({ error: message }, { status: 400 });
+    }
     if (message.includes("图片上传失败") || message.includes("转存图床失败")) {
       return NextResponse.json({ error: message }, { status: 502 });
     }

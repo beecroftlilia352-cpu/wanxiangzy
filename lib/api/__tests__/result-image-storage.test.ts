@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { storeImage } from "../image-storage";
 import { persistGeneratedImageUrls } from "../result-image-storage";
 
 describe("result image storage", () => {
@@ -136,6 +137,37 @@ describe("result image storage", () => {
     expect(putCalls[0].url).toContain("https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/generated-results/original/");
     expect((putCalls[0].init?.headers as Record<string, string>).Authorization).toMatch(/^OSS test-access-key-id:/);
     expect((putCalls[0].init?.headers as Record<string, string>)["Content-Type"]).toBe("image/png");
+  });
+
+  it("normalizes AVIF uploads to JPEG before storing in Aliyun OSS", async () => {
+    process.env.IMAGE_STORAGE_PROVIDER = "aliyun-oss";
+    process.env.ALIYUN_OSS_ACCESS_KEY_ID = "test-access-key-id";
+    process.env.ALIYUN_OSS_ACCESS_KEY_SECRET = "test-access-key-secret";
+    process.env.ALIYUN_OSS_BUCKET = "vastweargen-images";
+    process.env.ALIYUN_OSS_REGION = "oss-cn-hongkong";
+    process.env.ALIYUN_OSS_PUBLIC_BASE_URL = "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com";
+    process.env.ALIYUN_OSS_PREFIX = "ai-tryon";
+
+    const avifBase64 = "AAAAHGZ0eXBhdmlmAAAAAG1pZjFhdmlmbWlhZgAAANZtZXRhAAAAAAAAACFoZGxyAAAAAAAAAABwaWN0AAAAAAAAAAAAAAAAAAAAAA5waXRtAAAAAAABAAAAImlsb2MAAAAAREAAAQABAAAAAAD6AAEAAAAAAAAAHgAAACNpaW5mAAAAAAABAAAAFWluZmUCAAAAAAEAAGF2MDEAAAAAVmlwcnAAAAA4aXBjbwAAAAxhdjFDgSACAAAAABRpc3BlAAAAAAAAAAIAAAACAAAAEHBpeGkAAAAAAwgICAAAABZpcG1hAAAAAAAAAAEAAQOBAgMAAAAmbWRhdBIACgc4ADYQENBpMhEWQAYYYYQAAHlM2KcgXkzU8A==";
+
+    const putCalls: Array<{ url: string; init?: RequestInit }> = [];
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      putCalls.push({ url, init });
+      return new Response("", { status: 200 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const stored = await storeImage({
+      image: `data:image/avif;base64,${avifBase64}`,
+      name: "source-avif",
+      storageClass: "upload",
+    });
+
+    expect(stored.url).toMatch(/source-avif\.jpg$/);
+    expect(putCalls).toHaveLength(1);
+    expect(putCalls[0].url).toMatch(/source-avif\.jpg$/);
+    expect((putCalls[0].init?.headers as Record<string, string>)["Content-Type"]).toBe("image/jpeg");
+    expect(Buffer.from(putCalls[0].init?.body as ArrayBuffer).subarray(0, 3)).toEqual(Buffer.from([0xff, 0xd8, 0xff]));
   });
 });
 

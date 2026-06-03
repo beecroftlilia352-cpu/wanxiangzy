@@ -46,6 +46,7 @@
     --codex-warning: #a66a00;
     --codex-danger: #d13b35;
     --codex-running: #5b7cff;
+    --font-ui-sans: Inter;
     --codex-font:
       var(--font-ui-sans),
       Inter,
