@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 
 type CreateServerSupabaseOptions = {
   readonlyCookies?: boolean;
+  fetch?: typeof fetch;
 };
 
 export async function createServerSupabase(options: CreateServerSupabaseOptions = {}) {
@@ -11,6 +12,7 @@ export async function createServerSupabase(options: CreateServerSupabaseOptions 
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      global: options.fetch ? { fetch: options.fetch } : undefined,
       cookies: {
         getAll() {
           return cookieStore.getAll();

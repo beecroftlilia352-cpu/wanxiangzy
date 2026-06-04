@@ -58,9 +58,12 @@ export default function LoginPage() {
   useEffect(() => {
     let mounted = true;
 
-    supabase.auth.getUser().then(({ data }) => {
-      if (mounted && data.user) window.location.replace(getSafeAuthRedirectTarget());
-    });
+    supabase.auth
+      .getUser()
+      .then(({ data }) => {
+        if (mounted && data.user) window.location.replace(getSafeAuthRedirectTarget());
+      })
+      .catch(() => undefined);
 
     const {
       data: { subscription },
@@ -81,22 +84,35 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        cache: "no-store",
+        body: JSON.stringify({ email, password }),
+      });
+      const payload = await res.json().catch(() => ({}));
 
-    if (error) {
-      if (error.message.includes("Invalid login credentials")) {
-        setError("邮箱或密码错误");
-      } else if (error.message.includes("Email not confirmed")) {
-        setError("请先点击确认邮件中的链接完成验证");
-        setView("check-email");
-      } else {
-        setError(error.message);
+      if (!res.ok) {
+        const message = typeof payload.error === "string" ? payload.error : "登录失败，请稍后重试";
+        if (message.includes("Invalid login credentials")) {
+          setError("邮箱或密码错误");
+        } else if (message.includes("Email not confirmed")) {
+          setError("请先点击确认邮件中的链接完成验证");
+          setView("check-email");
+        } else {
+          setError(message);
+        }
+        return;
       }
-      setLoading(false);
-      return;
-    }
 
-    window.location.href = getSafeAuthRedirectTarget();
+      window.location.href = getSafeAuthRedirectTarget();
+    } catch {
+      setError("网络连接失败，请稍后重试");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSignUp = async (e: React.FormEvent) => {
