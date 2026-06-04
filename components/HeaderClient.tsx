@@ -85,14 +85,7 @@ function useHeaderAccount(): HeaderAccountState {
 
         if (cancelled) return false;
 
-        if (res.status === 401) {
-          loadedCreditsForUserRef.current = null;
-          setEmail(null);
-          setCredits(null);
-          setAuthReady(true);
-          setCreditsReady(true);
-          return true;
-        }
+        if (res.status === 401) return false;
 
         const payload = await res.json().catch(() => ({}));
         if (!res.ok || !payload.user) return false;
@@ -359,14 +352,7 @@ function AppHeader({ pathname }: { pathname: string }) {
 
         if (cancelled) return false;
 
-        if (res.status === 401) {
-          loadedCreditsForUserRef.current = null;
-          setEmail(null);
-          setCredits(null);
-          setAuthReady(true);
-          setCreditsReady(true);
-          return true;
-        }
+        if (res.status === 401) return false;
 
         const payload = await res.json().catch(() => ({}));
         if (!res.ok || !payload.user) return false;

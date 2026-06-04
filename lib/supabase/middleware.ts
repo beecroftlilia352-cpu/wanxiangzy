@@ -18,6 +18,7 @@ export async function updateSession(request: NextRequest) {
     "/grass",
     "/product-set",
     "/garment-3d",
+    "/video",
   ];
 
   const isProtected = protectedPaths.some((path) =>
