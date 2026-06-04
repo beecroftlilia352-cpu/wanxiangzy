@@ -42,6 +42,7 @@ export async function POST(request: NextRequest) {
     const unitCost = getCreditCost(model, size, POSE_ASPECT_RATIO);
     const totalCost = unitCost * genCount;
     const poseStyle = normalizePoseSeriesStyle(pose_style);
+    const posePlanMode = body.pose_plan_mode === "ai" || body.posePlanMode === "ai" ? "ai" : "preset";
     const poseAnalysis = normalizePoseVisualAnalysis(body.pose_analysis ?? body.poseAnalysis);
     const posePlan = body.pose_plan || body.posePlan
       ? normalizePosePlan(body.pose_plan ?? body.posePlan, {
@@ -59,6 +60,7 @@ export async function POST(request: NextRequest) {
       imageSize: size,
       prompt: String(prompt).trim(),
       poseStyle,
+      posePlanMode,
       outputMode,
       genCount,
       poseAnalysis,

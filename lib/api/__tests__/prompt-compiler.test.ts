@@ -70,6 +70,9 @@ describe("compileImagePromptForModel", () => {
     expect(result.startsWith("Use the source image only")).toBe(true);
     expect(result).toContain("same gender expression");
     expect(result).toContain("Generate one standalone premium fashion editorial photo.");
+    expect(result).toContain("Image quality:");
+    expect(result).toContain("8K");
+    expect(result).toContain("RAW photo quality");
     expect(result).toContain("Keep the outfit readable");
     expect(result).toContain("Target pose:");
     expect(result).toContain("Strong three-quarter or side-angle outfit read");

@@ -76,6 +76,7 @@ export type HistoryJobPayload =
       imageSize: ImageSize;
       prompt: string;
       poseStyle?: PoseSeriesStyle;
+      posePlanMode?: "preset" | "ai";
       outputMode?: PoseOutputMode;
       genCount?: number;
       poseAnalysis?: PoseVisualAnalysis | null;

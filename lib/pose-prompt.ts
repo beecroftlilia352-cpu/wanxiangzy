@@ -15,7 +15,10 @@ import {
 export type PoseOutputMode = "grid" | "separate";
 
 export const POSE_QUALITY =
-  "photorealistic, 8K ultra-detailed, commercial fashion editorial quality, cinematic color grade, sharp facial details, sharp fabric texture, raw photo quality";
+  "photorealistic, 8K ultra-detailed, commercial fashion editorial quality, cinematic color grade, sharp facial details, sharp fabric texture, RAW photo quality";
+
+const POSE_SEPARATE_QUALITY =
+  "Image quality: 8K, RAW photo quality.";
 
 export const POSE_LAYOUT_REQUIREMENT =
   "必须生成单张图片中的 2x2 四宫格 / four-panel pose variation / contact sheet，四个分格分别展示姿势1、姿势2、姿势3、姿势4；不要只生成单人单姿势，不要只生成一张普通照片，不要把四个姿势拆成多张独立图片。";
@@ -80,6 +83,7 @@ const POSE_SEPARATE_BASE_PROMPT = [
   "Keep head, neck, shoulders and torso aligned; no independent look-back.",
   "",
   "Generate one standalone premium fashion editorial photo.",
+  POSE_SEPARATE_QUALITY,
   "The target pose and camera direction must be clearly executed and noticeably different from the source image.",
   "Do not copy source expression; keep face identity and adapt gaze/expression to the target pose.",
   "",

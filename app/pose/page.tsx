@@ -106,6 +106,11 @@ function resolvePoseOutputModeFromPayload(payload: PoseHistoryPayload): PoseOutp
   return payload.outputMode === "separate" || Number(payload.genCount || 0) > 1 ? "separate" : "grid";
 }
 
+function resolvePosePlanModeFromPayload(payload: PoseHistoryPayload): PosePlanMode {
+  const rawPayload = payload as PoseHistoryPayload & { pose_plan_mode?: unknown };
+  return rawPayload.posePlanMode === "ai" || rawPayload.pose_plan_mode === "ai" ? "ai" : "preset";
+}
+
 function stripLegacyRuleDemoText(value: string) {
   return value
     .replace(/\n?人物和姿势气质参考：[^\n]*(?:\n|$)/g, "\n")
@@ -274,7 +279,8 @@ export default function PosePage() {
 
   function applyPosePlanSnapshot(payload: PoseHistoryPayload, source: PosePlanSource = "history") {
     const analysis = normalizePoseVisualAnalysis(payload.poseAnalysis);
-    const planKey = buildPosePlanKey(payload.mainImageUrl, analysis, normalizePoseSeriesStyle(payload.poseStyle), resolvePoseOutputModeFromPayload(payload), payload.prompt, "preset");
+    const planMode = resolvePosePlanModeFromPayload(payload);
+    const planKey = buildPosePlanKey(payload.mainImageUrl, analysis, normalizePoseSeriesStyle(payload.poseStyle), resolvePoseOutputModeFromPayload(payload), payload.prompt, planMode);
     posePlanSeqRef.current += 1;
     if (payload.posePlan && planKey) {
       const entry: PosePlanEntry = {
@@ -600,7 +606,8 @@ export default function PosePage() {
 
   function applyPoseHistoryPayload(payload: PoseHistoryPayload, historyResultUrls: string[] = [], options?: { silent?: boolean }) {
     generationRunRef.current += 1;
-    setPosePlanMode("preset");
+    const nextPosePlanMode = resolvePosePlanModeFromPayload(payload);
+    setPosePlanMode(nextPosePlanMode);
     setMainImage(payload.mainImageUrl);
     applyPoseAnalysisSnapshot(payload.mainImageUrl, payload.poseAnalysis);
     applyPosePlanSnapshot(payload);
@@ -769,6 +776,7 @@ export default function PosePage() {
             supplementPrompt.trim() ? `补充要求：${supplementPrompt.trim()}` : "",
           ].filter(Boolean).join("\n\n")),
           pose_style: poseStyle,
+          pose_plan_mode: posePlanMode,
           output_mode: outputMode,
           gen_count: poseExpectedCount,
           pose_analysis: activePoseAnalysis,

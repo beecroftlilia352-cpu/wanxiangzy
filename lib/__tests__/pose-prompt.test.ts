@@ -98,6 +98,9 @@ describe("pose prompt handling", () => {
     expect(slot2.startsWith("Use the source image only")).toBe(true);
     expect(slot2).toContain("same gender expression");
     expect(slot2).toContain("Generate one standalone premium fashion editorial photo.");
+    expect(slot2).toContain("Image quality:");
+    expect(slot2).toContain("8K");
+    expect(slot2).toContain("RAW photo quality");
     expect(slot2).toContain("Keep the outfit readable");
     expect(slot2).toContain("Target pose:");
     expect(slot2).toContain("Strong three-quarter or side-angle outfit read");

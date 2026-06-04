@@ -173,6 +173,8 @@ function compileSeparatePosePrompt(prompt: string, maxChars: number) {
     || "Camera: auto choose premium fashion model framing, lens feel, crop, distance, composition and negative space.";
   const referenceLine = findFirstLine(lines, /^Keep:/i) || findFirstLine(lines, /^Reference only:/i) || findFirstLine(lines, /^Reference lock:/i)
     || "Keep: same person, face, outfit, background, lighting, skin tone and realistic body proportions.";
+  const qualityLine = findFirstLine(lines, /^(?:Image quality|图像质量)[:：]/i)
+    || "Image quality: 8K, RAW photo quality.";
   const negativeLine = findFirstLine(lines, /^Negative:/i)
     || "Negative: no outfit change, no face change, no extra person, no text, no grid/collage, no distorted hands or limbs.";
   const selected = dedupeLines([
@@ -183,6 +185,7 @@ function compileSeparatePosePrompt(prompt: string, maxChars: number) {
     referenceLine,
     ...lines.filter((line) => /^Style:/i.test(line)),
     ...lines.filter((line) => /^补充要求[：:]/.test(line)),
+    qualityLine,
     negativeLine,
   ]);
   const compiled = limitPrompt(selected.join("\n"), maxChars);
