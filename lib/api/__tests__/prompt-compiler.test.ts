@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { compileImagePromptForModel, type ImagePromptKind } from "@/lib/api/prompt-compiler";
+import { buildFaceSwapPrompt } from "@/lib/face-swap";
 import { buildSeparatePosePrompt } from "@/lib/pose-prompt";
 
 describe("compileImagePromptForModel", () => {
@@ -196,6 +197,20 @@ describe("compileImagePromptForModel", () => {
       prompt: "一些描述文字",
     });
     expect(result).toContain("参考图");
+  });
+
+  it("keeps face-swap texture enhancement signal for nano prompts", () => {
+    const result = compileImagePromptForModel({
+      kind: "faceSwap",
+      model: "nano-banana-2",
+      prompt: buildFaceSwapPrompt("保持冷感表情"),
+    });
+
+    expect(result).toContain("服装质感增强");
+    expect(result).toContain("材质");
+    expect(result).toContain("纹理");
+    expect(result).toContain("不要磨皮");
+    expect(result.length).toBeLessThanOrEqual(2300);
   });
 
   it("keeps gpt-image-2 model prompts concise with hair constraints", () => {

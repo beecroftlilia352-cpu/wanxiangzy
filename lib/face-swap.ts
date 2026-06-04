@@ -39,6 +39,8 @@ function isLegacyOssAssetUrl(url: string) {
 export const FACE_SWAP_NOTE =
   "Swap Face only changes facial features. It does not change the model's skin tone or hairstyle.";
 
+export const DEFAULT_FACE_SWAP_TEXTURE_ENHANCE = true;
+
 export const DEFAULT_FACE_SWAP_PROMPT = [
   "Use image 1 as the fixed base photo. Only perform a local facial-identity edit; do not recreate, reframe, beautify, or generate a new photo.",
   "Image 1 is the original model photo and the target canvas. Image 2 is the target face identity reference.",
@@ -55,13 +57,14 @@ export const DEFAULT_FACE_SWAP_PROMPT = [
 ].join("\n");
 
 export const FACE_SWAP_TEXTURE_ENHANCE_PROMPT = [
-  "Texture enhancement mode is enabled, but identity and source preservation are still higher priority than enhancement.",
-  "Enhance only the finished commercial image quality and garment material: clearer fabric weave, knit/cotton texture, seams, print edges, logo/text clarity, folds, shadow depth, product sharpness, clean exposure, and premium fashion retouching.",
-  "Keep face identity, source expression, glasses/accessories, skin tone, real pores, freckles, moles, small blemishes, hairstyle, clothing design, garment color, scene, lighting direction, and composition stable.",
-  "Do not smooth the face, do not remove freckles or skin imperfections, do not whiten skin, do not change makeup style, do not change hairstyle, do not change body shape, and do not alter clothing structure, color, graphics, or text.",
+  "服装质感增强规则：开启后必须对图1全图做商业成片级精修，而不是只做脸部局部替换；脸部身份仍只来自图2，画面主体仍以图1为底图。",
+  "增强范围：在不改变图1服装款式、颜色、图案、logo、文字、版型、长度和搭配关系的前提下，显著提升服装材质解析力、纤维/绒毛/针织/棉麻/皮革/金属反光等真实纹理、缝线、袖口、领口、下摆、纽扣、拉链、口袋边缘、褶皱层次、接触阴影、印花边缘锐度和商品细节清晰度。",
+  "画质目标：premium fashion retouching, high-frequency garment texture, crisp fabric weave, tactile material depth, natural micro-contrast, sharp product details, clean exposure, realistic shadows, commercial e-commerce image quality.",
+  "分区控制：只增强服装、配饰、背景和整体摄影质感；脸部只能做自然融合，必须保留图1表情、肤色、毛孔、雀斑、痣、瑕疵和皮肤颗粒，不要磨皮、不要美白、不要网红脸。",
+  "负面约束：不要改变服装结构、颜色、图形、文字或logo，不要新增不存在的纹样，不要把衣服变成另一种面料，不要塑料感、蜡像感、过锐化光晕、磨皮、雪白皮或AI渲染感。",
 ].join("\n");
 
-export function buildFaceSwapPrompt(extra?: string, textureEnhance = false) {
+export function buildFaceSwapPrompt(extra?: string, textureEnhance = DEFAULT_FACE_SWAP_TEXTURE_ENHANCE) {
   const userExtra = typeof extra === "string" ? extra.trim() : "";
   const parts = [DEFAULT_FACE_SWAP_PROMPT];
   if (textureEnhance) parts.push(FACE_SWAP_TEXTURE_ENHANCE_PROMPT);
@@ -107,8 +110,18 @@ export function enforceFaceSwapPromptRequirements(prompt: string) {
     "Do not change body, pose, hairstyle, hair color, skin tone, clothing, garment print, accessories, background, lighting, camera, framing, or image 1 composition.",
     "Do not blend two identities; replace facial features cleanly and realistically while preserving original skin tone, expression, accessories, and hair.",
   ];
+  if (hasTextureEnhancePrompt(normalized)) {
+    required.push(
+      "Hard rule: texture enhancement is active; improve garment material clarity, fabric weave, seams, folds, print/logo edges, accessory highlights, exposure, shadow depth, and commercial sharpness while preserving image 1 clothing structure, color, graphics, text, and composition.",
+      "Hard rule: do not apply beauty smoothing, whitening, porcelain skin, generic makeup, or face retouching while enhancing clothing texture."
+    );
+  }
   const missing = required.filter((line) => !normalized.includes(line));
   return missing.length ? `${normalized}\n\n${missing.join("\n")}` : normalized;
+}
+
+function hasTextureEnhancePrompt(prompt: string) {
+  return /服装质感增强规则|Texture enhancement mode|texture enhancement is active/i.test(prompt);
 }
 
 export function normalizeFaceSwapCount(value: unknown) {

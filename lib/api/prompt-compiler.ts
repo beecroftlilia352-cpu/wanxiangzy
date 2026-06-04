@@ -16,7 +16,7 @@ const KIND_HEADERS: Record<ImagePromptKind, string> = {
   garment3d:
     "核心任务：把图1服装转换为无真人、无头脸手的 3D 立体商品展示图，只增加体积和棚拍质感，不改变款式颜色细节。",
   faceSwap:
-    "核心任务：AI 换脸。图1是原始模特/主体画面，图2只提供面部五官身份；只替换五官，不改变图1肤色、发型、身体、服装、背景、光线和构图。",
+    "核心任务：AI 换脸。图1是原始模特/主体画面，图2只提供面部五官身份；只替换五官，不改变图1肤色、发型、身体、服装款式、背景、光线和构图；如启用服装质感增强，只提升图1服装材质纹理、缝线褶皱、印花/logo边缘和商业画质。",
   commerceDetail:
     "Core task: generate one independent e-commerce detail-page section/module, not a complete detail page. The section must be mobile-first, readable, spacious, and structurally different from other sections.",
   productSet:

@@ -32,6 +32,7 @@ import {
   FACE_SWAP_LIBRARY,
   FACE_SWAP_NOTE,
   FACE_SWAP_SAMPLE_IMAGES,
+  DEFAULT_FACE_SWAP_TEXTURE_ENHANCE,
   getFaceSwapUserPromptFromPayload,
   normalizeFaceSwapCount,
 } from "@/lib/face-swap";
@@ -109,7 +110,7 @@ export default function FaceSwapPage() {
   const [imageSize, setImageSize] = useState<ImageSize>("1K");
   const [genCount, setGenCount] = useState(1);
   const [prompt, setPrompt] = useState("");
-  const [textureEnhance, setTextureEnhance] = useState(false);
+  const [textureEnhance, setTextureEnhance] = useState(DEFAULT_FACE_SWAP_TEXTURE_ENHANCE);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [genderFilter, setGenderFilter] = useState<GenderFilter>("female");
   const [isUploadingOriginal, setIsUploadingOriginal] = useState(false);
@@ -175,7 +176,7 @@ export default function FaceSwapPage() {
       setImageSize(payload.imageSize);
       setPrompt(getFaceSwapUserPromptFromPayload(payload));
       setGenCount(normalizeFaceSwapCount(payload.genCount));
-      setTextureEnhance(Boolean(payload.textureEnhance));
+      setTextureEnhance(payload.textureEnhance === false ? false : DEFAULT_FACE_SWAP_TEXTURE_ENHANCE);
       setActiveQueueTask(null);
       setResultUrls(detail.resultUrls);
       setProgress(detail.resultUrls.length ? 100 : 0);
@@ -218,7 +219,7 @@ export default function FaceSwapPage() {
     setImageSize(payload.imageSize);
     setPrompt(getFaceSwapUserPromptFromPayload(payload));
     setGenCount(normalizeFaceSwapCount(payload.genCount));
-    setTextureEnhance(Boolean(payload.textureEnhance));
+    setTextureEnhance(payload.textureEnhance === false ? false : DEFAULT_FACE_SWAP_TEXTURE_ENHANCE);
     setActiveQueueTask(null);
     setResultUrls(historyResultUrls);
     setProgress(historyResultUrls.length ? 100 : 0);
@@ -473,7 +474,7 @@ export default function FaceSwapPage() {
     setSourceUrl("");
     setFaceUrl("");
     setPrompt("");
-    setTextureEnhance(false);
+    setTextureEnhance(DEFAULT_FACE_SWAP_TEXTURE_ENHANCE);
     setResultUrls([]);
     setProgress(0);
     setStatus("idle");
@@ -687,7 +688,7 @@ export default function FaceSwapPage() {
               <span>
                 <span className="block text-sm font-black">服装质感增强</span>
                 <span className="mt-1 block text-xs leading-relaxed text-slate-500">
-                  默认保持原图质感；开启后只强化布料纹理、印花清晰度和光影层次，不磨皮、不改表情、不移除眼镜配饰。
+                  默认开启；会做全图商业精修，明显强化布料纤维、褶皱、缝线、印花锐度和光影层次，同时不磨皮、不改表情、不移除眼镜配饰。
                 </span>
               </span>
               <span className={`ml-3 flex h-7 w-12 shrink-0 items-center rounded-full p-1 transition ${textureEnhance ? "bg-emerald-600" : "bg-neutral-200"}`}>
