@@ -450,6 +450,13 @@
     overflow: hidden;
   }
 
+  .history-workbench {
+    height: auto;
+    min-height: calc(100dvh - 64px) !important;
+    overflow-x: hidden;
+    overflow-y: visible;
+  }
+
   .studio-page-shell {
     height: calc(100dvh - 64px);
     min-height: 0;

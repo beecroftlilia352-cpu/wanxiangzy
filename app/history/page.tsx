@@ -456,7 +456,7 @@ export default function HistoryPage() {
   );
 
   return (
-    <div className="studio-workbench min-h-[calc(100dvh-64px)] px-4 py-6 sm:py-8">
+    <div className="studio-workbench history-workbench min-h-[calc(100dvh-64px)] px-4 py-6 sm:py-8">
       <HistorySkeletonStyles />
       <div className="mx-auto mb-6 flex max-w-7xl flex-col gap-4 rounded-[28px] border border-white/80 bg-white/72 p-5 shadow-[0_18px_60px_rgba(15,23,42,0.08)] backdrop-blur-2xl sm:flex-row sm:items-end sm:justify-between">
         <div>
@@ -1000,7 +1000,7 @@ export default function HistoryPage() {
 
 function HistoryLoadingSkeleton() {
   return (
-    <div className="studio-workbench min-h-[calc(100dvh-64px)] px-4 py-6 sm:py-8">
+    <div className="studio-workbench history-workbench min-h-[calc(100dvh-64px)] px-4 py-6 sm:py-8">
       <HistorySkeletonStyles />
       <div className="mx-auto mb-6 flex max-w-7xl flex-col gap-4 rounded-[28px] border border-white/80 bg-white/72 p-5 shadow-[0_18px_60px_rgba(15,23,42,0.08)] backdrop-blur-2xl sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-3">
