@@ -347,7 +347,7 @@ export default function HistoryPage() {
       }
     };
 
-    const timer = window.setInterval(pollDetail, 3000);
+    const timer = window.setInterval(pollDetail, 8_000);
     pollDetail();
     return () => {
       cancelled = true;

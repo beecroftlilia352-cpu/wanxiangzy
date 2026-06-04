@@ -23,10 +23,10 @@ const EMPTY_QUEUE_SUMMARY: QueueSummary = {
   failedTaskNum: 0,
 };
 
-const TASK_QUEUE_BADGE_RUNNING_POLL_MS = 10_000;
-const TASK_QUEUE_BADGE_IDLE_POLL_MS = 30_000;
-const TASK_QUEUE_MENU_RUNNING_POLL_MS = 12_000;
-const TASK_QUEUE_MENU_IDLE_POLL_MS = 30_000;
+const TASK_QUEUE_BADGE_RUNNING_POLL_MS = 15_000;
+const TASK_QUEUE_BADGE_IDLE_POLL_MS = 180_000;
+const TASK_QUEUE_MENU_RUNNING_POLL_MS = 20_000;
+const TASK_QUEUE_MENU_IDLE_POLL_MS = 120_000;
 
 export function TaskQueueButton() {
   const [rows, setRows] = useState<TaskQueueItem[]>([]);

@@ -44,10 +44,10 @@ type TaskQueueLoadResult = {
 } | null;
 
 const TASK_QUEUE_FETCH_TIMEOUT_MS = 12_000;
-const TASK_RAIL_RUNNING_POLL_MS = 12_000;
-const TASK_RAIL_IDLE_POLL_MS = 45_000;
-const TASK_RAIL_IDLE_CACHE_GRACE_MS = 30_000;
-const TASK_RAIL_MIN_LOAD_GAP_MS = 8_000;
+const TASK_RAIL_RUNNING_POLL_MS = 20_000;
+const TASK_RAIL_IDLE_POLL_MS = 180_000;
+const TASK_RAIL_IDLE_CACHE_GRACE_MS = 120_000;
+const TASK_RAIL_MIN_LOAD_GAP_MS = 15_000;
 
 export function StudioTaskRail({
   module,

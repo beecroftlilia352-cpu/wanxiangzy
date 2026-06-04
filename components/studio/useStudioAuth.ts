@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  clearCachedProfile,
   createClient,
+  getCachedProfile,
   getCachedProfileCredits,
   setCachedProfileCredits,
 } from "@/lib/supabase/client";
@@ -61,13 +63,10 @@ export function useStudioAuth() {
     };
 
     try {
-      const res = await fetch("/api/profile", { cache: "no-store" });
-      if (res.ok) {
-        const profile = await res.json().catch(() => ({})) as StudioAuthProfile;
-        if (profile.user?.id) {
-          await applyIfCurrent(() => applyAuthenticatedUser({ id: profile.user!.id! }, profile.credits));
-          return true;
-        }
+      const profile = await getCachedProfile();
+      if (profile?.user?.id) {
+        await applyIfCurrent(() => applyAuthenticatedUser({ id: profile.user!.id! }, profile.credits));
+        return true;
       }
     } catch {
       // Fall back to the browser session below.
@@ -100,6 +99,7 @@ export function useStudioAuth() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (cancelled) return;
       if (event === "SIGNED_OUT") {
+        clearCachedProfile();
         applyAnonymous();
         return;
       }

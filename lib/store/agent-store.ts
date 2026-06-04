@@ -1768,7 +1768,7 @@ function pollWorkflow(
     }
   };
 
-  const timer = setInterval(tick, 2500);
+  const timer = setInterval(tick, 5_000);
   set((s) => {
     const timers = new Map(s.pollTimers);
     timers.set(timerKey, timer);
@@ -1856,7 +1856,7 @@ function clearPollTimer(
 }
 
 // ======== 轮询 ========
-const AGENT_GENERATION_POLL_INTERVAL_MS = 2_000;
+const AGENT_GENERATION_POLL_INTERVAL_MS = 4_000;
 const AGENT_GENERATION_POLL_BASE_TIMEOUT_MS = 20 * 60 * 1000;
 const AGENT_GENERATION_POLL_PER_IMAGE_MS = 4 * 60 * 1000;
 const AGENT_GENERATION_POLL_MAX_TIMEOUT_MS = 90 * 60 * 1000;

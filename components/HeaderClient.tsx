@@ -7,8 +7,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUpRight, ChevronDown, Coins, Home, LogOut, Menu, Search } from "lucide-react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import {
+  clearCachedProfile,
   clearCachedProfileCredits,
   createClient,
+  getCachedProfile,
   getCachedProfileCredits,
   setCachedProfileCredits,
   subscribeToProfileCredits,
@@ -74,34 +76,16 @@ function useHeaderAccount(): HeaderAccountState {
     let cancelled = false;
 
     async function loadProfileFromApi() {
-      const controller = new AbortController();
-      const timeout = window.setTimeout(() => controller.abort(), 10000);
+      const payload = await getCachedProfile();
+      if (cancelled || !payload?.user?.id) return false;
 
-      try {
-        const res = await fetch("/api/profile", {
-          cache: "no-store",
-          signal: controller.signal,
-        });
-
-        if (cancelled) return false;
-
-        if (res.status === 401) return false;
-
-        const payload = await res.json().catch(() => ({}));
-        if (!res.ok || !payload.user) return false;
-
-        loadedCreditsForUserRef.current = payload.user.id;
-        setEmail(payload.user.email ?? null);
-        setCredits(payload.credits ?? 0);
-        setCachedProfileCredits(payload.user.id, payload.credits ?? 0);
-        setAuthReady(true);
-        setCreditsReady(true);
-        return true;
-      } catch {
-        return false;
-      } finally {
-        window.clearTimeout(timeout);
-      }
+      loadedCreditsForUserRef.current = payload.user.id;
+      setEmail(payload.user.email ?? null);
+      setCredits(payload.credits ?? 0);
+      setCachedProfileCredits(payload.user.id, payload.credits ?? 0);
+      setAuthReady(true);
+      setCreditsReady(true);
+      return true;
     }
 
     async function loadUserCredits(user: { id: string; email?: string | null }) {
@@ -146,6 +130,8 @@ function useHeaderAccount(): HeaderAccountState {
       if (session?.user) {
         await loadUserCredits(session.user);
       } else {
+        clearCachedProfile();
+        clearCachedProfileCredits();
         loadedCreditsForUserRef.current = null;
         setEmail(null);
         setCredits(null);
@@ -170,6 +156,7 @@ function useHeaderAccount(): HeaderAccountState {
 
   const onLogout = async () => {
     setIsLoggingOut(true);
+    clearCachedProfile();
     clearCachedProfileCredits();
     setEmail(null);
     setCredits(null);
@@ -341,34 +328,16 @@ function AppHeader({ pathname }: { pathname: string }) {
     let cancelled = false;
 
     async function loadProfileFromApi() {
-      const controller = new AbortController();
-      const timeout = window.setTimeout(() => controller.abort(), 10000);
+      const payload = await getCachedProfile();
+      if (cancelled || !payload?.user?.id) return false;
 
-      try {
-        const res = await fetch("/api/profile", {
-          cache: "no-store",
-          signal: controller.signal,
-        });
-
-        if (cancelled) return false;
-
-        if (res.status === 401) return false;
-
-        const payload = await res.json().catch(() => ({}));
-        if (!res.ok || !payload.user) return false;
-
-        loadedCreditsForUserRef.current = payload.user.id;
-        setEmail(payload.user.email ?? null);
-        setCredits(payload.credits ?? 0);
-        setCachedProfileCredits(payload.user.id, payload.credits ?? 0);
-        setAuthReady(true);
-        setCreditsReady(true);
-        return true;
-      } catch {
-        return false;
-      } finally {
-        window.clearTimeout(timeout);
-      }
+      loadedCreditsForUserRef.current = payload.user.id;
+      setEmail(payload.user.email ?? null);
+      setCredits(payload.credits ?? 0);
+      setCachedProfileCredits(payload.user.id, payload.credits ?? 0);
+      setAuthReady(true);
+      setCreditsReady(true);
+      return true;
     }
 
     async function loadUserCredits(user: { id: string; email?: string | null }) {
@@ -413,6 +382,8 @@ function AppHeader({ pathname }: { pathname: string }) {
       if (session?.user) {
         await loadUserCredits(session.user);
       } else {
+        clearCachedProfile();
+        clearCachedProfileCredits();
         loadedCreditsForUserRef.current = null;
         setEmail(null);
         setCredits(null);
@@ -437,6 +408,7 @@ function AppHeader({ pathname }: { pathname: string }) {
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
+    clearCachedProfile();
     clearCachedProfileCredits();
     setEmail(null);
     setCredits(null);
