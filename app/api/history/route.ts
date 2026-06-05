@@ -43,6 +43,9 @@ const HISTORY_MODULE_FILTERS = new Set([
   "model",
   "garment3d",
   "faceSwap",
+  "videoImageToVideo",
+  "videoMotion",
+  "videoFirstLastFrame",
 ]);
 const HISTORY_STATUS_FILTERS: Record<string, string[]> = {
   completed: [...GENERATION_COMPLETED_STATUS_FILTERS],

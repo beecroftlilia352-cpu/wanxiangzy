@@ -82,6 +82,7 @@ const MODULE_LABELS: Record<string, string> = {
   image: "图生图",
   videoImageToVideo: "图生视频",
   videoMotion: "动作模仿",
+  videoFirstLastFrame: "首尾帧",
   workflow: "工作流",
 };
 
@@ -102,6 +103,7 @@ const MODULE_PATHS: Record<string, string> = {
   image: "/image-to-image",
   videoImageToVideo: "/video",
   videoMotion: "/video/motion-control",
+  videoFirstLastFrame: "/video/first-last-frame",
   workflow: "/workflow",
 };
 
@@ -231,6 +233,9 @@ export function normalizeModule(module: string): string {
   }
   if (lower === "video-motion" || lower === "video_motion" || lower === "videomotion" || lower === "motion-control" || lower === "motion_control") {
     return "videoMotion";
+  }
+  if (lower === "video-first-last-frame" || lower === "video_first_last_frame" || lower === "videofirstlastframe" || lower === "first-last-frame" || lower === "first_last_frame") {
+    return "videoFirstLastFrame";
   }
   if (lower.includes("tryon") || lower.includes("try-on")) {
     return "tryon";
@@ -423,6 +428,9 @@ function extractGenerationInputThumbnails(row: TaskQueueGenerationSourceRow): st
     stringValue(payload.poseReferenceUrl),
     stringValue(payload.imageUrl),
     stringValue(payload.modelImageUrl),
+    stringValue(payload.firstFrameUrl),
+    stringValue(payload.lastFrameUrl),
+    stringValue(payload.referenceVideoUrl),
   ]).slice(0, 8);
 }
 

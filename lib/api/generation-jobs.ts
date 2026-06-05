@@ -11,7 +11,7 @@ import { completeGenerationWithCreditAdjustment, failGenerationWithRefund } from
 import { resolveImageInputs } from "@/lib/api/image-inputs.server";
 import { persistGeneratedImageUrls } from "@/lib/api/result-image-storage";
 import { persistGeneratedMediaUrls } from "@/lib/api/result-media-storage";
-import { generateKlingMotionControl, generateOmniImageToVideo } from "@/lib/api/yunwu-video";
+import { generateSeedanceFirstLastFrame, generateSeedanceImageToVideo, generateSeedanceMotionControl } from "@/lib/api/seedance-video";
 import { syncGenerationTaskQueueById } from "@/lib/task-queue-store";
 import {
   applyQualityRepairToPrompt,
@@ -72,7 +72,7 @@ import {
   type ProductSetResolvedTemplate,
   type ProductSetSettings,
 } from "@/lib/product-set";
-import type { AiVideoResolution } from "@/lib/ai-video";
+import type { AiVideoDuration, AiVideoResolution } from "@/lib/ai-video";
 
 type GenerationJobPayloadBase = {
   publicBaseUrl?: string | null;
@@ -217,6 +217,17 @@ export type GenerationJobPayload = GenerationJobPayloadBase & (
       prompt?: string;
       templateId?: number;
       templateTitle?: string;
+      resolution: AiVideoResolution;
+      aiModel: string;
+      genCount: number;
+    }
+  | {
+      kind: "videoFirstLastFrame";
+      firstFrameUrl: string;
+      lastFrameUrl: string;
+      prompt: string;
+      title?: string;
+      duration: AiVideoDuration;
       resolution: AiVideoResolution;
       aiModel: string;
       genCount: number;
@@ -859,7 +870,7 @@ async function executePayload(
   };
 
   if (payload.kind === "videoImageToVideo") {
-    const result = await generateOmniImageToVideo({
+    const result = await generateSeedanceImageToVideo({
       imageUrl: payload.imageUrl,
       prompt: payload.prompt,
       resolution: payload.resolution,
@@ -893,7 +904,7 @@ async function executePayload(
   }
 
   if (payload.kind === "videoMotion") {
-    const result = await generateKlingMotionControl({
+    const result = await generateSeedanceMotionControl({
       modelImageUrl: payload.modelImageUrl,
       referenceVideoUrl: payload.referenceVideoUrl,
       prompt: payload.prompt,
@@ -913,6 +924,41 @@ async function executePayload(
       kind: payload.kind,
       model: payload.aiModel,
       promptKind: "video:motion-control",
+      prompt: result.prompt,
+      compiledPrompt: result.compiledPrompt,
+    });
+    promptTrace.push(trace);
+    return {
+      resultUrls: result.urls,
+      promptTrace,
+      progress: 100,
+      externalTaskId: result.taskId,
+      externalStatus: result.providerStatus,
+    };
+  }
+
+  if (payload.kind === "videoFirstLastFrame") {
+    const result = await generateSeedanceFirstLastFrame({
+      firstFrameUrl: payload.firstFrameUrl,
+      lastFrameUrl: payload.lastFrameUrl,
+      prompt: payload.prompt,
+      duration: payload.duration,
+      resolution: payload.resolution,
+      onProgress: async (progress) => {
+        await onProgress?.({
+          resultUrls: progress.urls || [],
+          promptTrace,
+          progress: progress.progress,
+          externalTaskId: progress.taskId,
+          externalStatus: progress.providerStatus || progress.status,
+        });
+      },
+    });
+    const trace = createPromptTraceItem({
+      index: 1,
+      kind: payload.kind,
+      model: payload.aiModel,
+      promptKind: "video:first-last-frame",
       prompt: result.prompt,
       compiledPrompt: result.compiledPrompt,
     });
@@ -1653,6 +1699,7 @@ function getPayloadPrompt(payload: GenerationJobPayload) {
   if (payload.kind === "tryon") return payload.rawPrompt || payload.style || "人物换装生成";
   if (payload.kind === "garment3d") return payload.userPrompt || payload.prompt;
   if (payload.kind === "videoMotion") return payload.prompt || "动作模仿视频生成";
+  if (payload.kind === "videoFirstLastFrame") return payload.prompt || "首尾帧视频生成";
   return payload.prompt;
 }
 
@@ -1683,6 +1730,7 @@ function getPayloadReferenceImages(payload: GenerationJobPayload) {
   if (payload.kind === "pose") return [payload.mainImageUrl];
   if (payload.kind === "videoImageToVideo") return [payload.imageUrl];
   if (payload.kind === "videoMotion") return [payload.modelImageUrl];
+  if (payload.kind === "videoFirstLastFrame") return [payload.firstFrameUrl, payload.lastFrameUrl];
   if (payload.kind === "faceSwap") return [payload.sourceUrl, payload.faceUrl];
   if (payload.kind === "commerceDetail") return payload.sourceUrls;
   if (payload.kind === "productSet") {
@@ -1843,6 +1891,16 @@ function isJobPayload(value: unknown): value is GenerationJobPayload {
       typeof value.genCount === "number";
   }
 
+  if (value.kind === "videoFirstLastFrame") {
+    return typeof value.firstFrameUrl === "string" &&
+      typeof value.lastFrameUrl === "string" &&
+      typeof value.prompt === "string" &&
+      typeof value.duration === "number" &&
+      typeof value.resolution === "string" &&
+      typeof value.aiModel === "string" &&
+      typeof value.genCount === "number";
+  }
+
   return false;
 }
 
@@ -1924,8 +1982,8 @@ function isSeedreamPayload(payload: GenerationJobPayload) {
   return "aiModel" in payload && typeof payload.aiModel === "string" && payload.aiModel.startsWith("doubao-seedream-");
 }
 
-function isVideoPayload(payload: GenerationJobPayload): payload is Extract<GenerationJobPayload, { kind: "videoImageToVideo" | "videoMotion" }> {
-  return payload.kind === "videoImageToVideo" || payload.kind === "videoMotion";
+function isVideoPayload(payload: GenerationJobPayload): payload is Extract<GenerationJobPayload, { kind: "videoImageToVideo" | "videoMotion" | "videoFirstLastFrame" }> {
+  return payload.kind === "videoImageToVideo" || payload.kind === "videoMotion" || payload.kind === "videoFirstLastFrame";
 }
 
 async function refundExhaustedJobs(supabase: ReturnType<typeof createAdminClient>) {

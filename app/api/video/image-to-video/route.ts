@@ -7,7 +7,7 @@ import { getPublicBaseUrlFromRequest } from "@/lib/api/image-inputs.server";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 import {
   AI_VIDEO_DEFAULT_ASPECT_RATIO,
-  OMNI_IMAGE_TO_VIDEO_MODEL,
+  AI_VIDEO_SEEDANCE_MODEL,
   getAiVideoCreditCost,
   getAiVideoTemplate,
   normalizeAiVideoResolution,
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
       templateTitle: template?.title,
       resolution,
       aspectRatio,
-      aiModel: OMNI_IMAGE_TO_VIDEO_MODEL,
+      aiModel: AI_VIDEO_SEEDANCE_MODEL,
       genCount: 1,
     };
 
@@ -58,9 +58,9 @@ export async function POST(request: NextRequest) {
       modelFaceUrl: null,
       referenceUrl: null,
       creditsCost: totalCost,
-      aiModel: OMNI_IMAGE_TO_VIDEO_MODEL,
+      aiModel: AI_VIDEO_SEEDANCE_MODEL,
       imageSize: resolution,
-      reason: `图生视频 (${OMNI_IMAGE_TO_VIDEO_MODEL}, ${resolution})`,
+      reason: `图生视频 (${AI_VIDEO_SEEDANCE_MODEL}, ${resolution})`,
       jobPayload,
     });
 

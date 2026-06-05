@@ -58,6 +58,11 @@ const FEATURE_REQUIRED_ENV: EnvContractEntry[] = [
     description: "Required for GPT-Image-2 through Plato; falls back to LINGYA_API_KEY when empty.",
   },
   {
+    name: "LAOZHANG_SEEDANCE_API_KEY or LAOZHANG_API_KEY",
+    category: "feature-required",
+    description: "Required for AI video generation through LaoZhang Seedance 2.0.",
+  },
+  {
     name: "XIAOMI_MIMO_API_KEY",
     category: "feature-required",
     description: "Required when ANALYZE_LLM_PROVIDER=xiaomi.",
@@ -115,6 +120,9 @@ const ALIYUN_OSS_REQUIRED_ENV: EnvContractEntry[] = [
 const OPTIONAL_ENV: EnvContractEntry[] = [
   { name: "LINGYA_BASE_URL", category: "optional", description: "Lingya API base URL override." },
   { name: "PLATO_BASE_URL", category: "optional", description: "Plato API base URL override." },
+  { name: "LAOZHANG_SEEDANCE_BASE_URL", category: "optional", description: "Seedance 2.0 API base URL, default https://api.laozhang.ai/seedance/api/v3." },
+  { name: "LAOZHANG_SEEDANCE_MODEL", category: "optional", description: "Seedance 2.0 model override, default doubao-seedance-2-0-fast-260128." },
+  { name: "LAOZHANG_SEEDANCE_FIRST_LAST_FRAME_MODEL", category: "optional", description: "Seedance 2.0 first/last-frame model override, default doubao-seedance-2-0-260128." },
   { name: "TRYON_CLOTHING_ANALYZE_API_KEY", category: "optional", description: "Yunwu/OpenAI-compatible API key for try-on clothing recognition; falls back to LINGYA_API_KEY." },
   { name: "TRYON_CLOTHING_ANALYZE_BASE_URL", category: "optional", description: "Yunwu/OpenAI-compatible base URL for try-on clothing recognition." },
   { name: "TRYON_CLOTHING_ANALYZE_MODEL", category: "optional", description: "Vision-capable model for try-on clothing recognition, default gpt-5-nano." },
@@ -199,6 +207,15 @@ export function validateEnv(options: { log?: boolean; nodeEnv?: string } = {}): 
         message: `${entry.name} is not set; related features will fail when used.`,
       });
     }
+  }
+
+  if (!process.env.LAOZHANG_SEEDANCE_API_KEY && !process.env.LAOZHANG_API_KEY) {
+    issues.push({
+      name: "LAOZHANG_SEEDANCE_API_KEY or LAOZHANG_API_KEY",
+      category: "feature-required",
+      severity: "warning",
+      message: "LAOZHANG_SEEDANCE_API_KEY or LAOZHANG_API_KEY is not set; AI video generation will fail when used.",
+    });
   }
 
   if (imageStorageProvider === "aliyun-oss") {

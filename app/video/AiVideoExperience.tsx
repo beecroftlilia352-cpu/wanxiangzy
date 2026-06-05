@@ -33,12 +33,15 @@ import type { TaskSelectionSession } from "@/components/studio/useTaskSelectionS
 import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
 import {
   AI_VIDEO_ACTION_TEMPLATES,
+  AI_VIDEO_DURATION_OPTIONS,
   AI_VIDEO_RESOLUTION_OPTIONS,
   getAiVideoCreditCost,
   getAiVideoKind,
   getAiVideoPath,
+  normalizeAiVideoDuration,
   normalizeAiVideoResolution,
   type AiVideoActionTemplate,
+  type AiVideoDuration,
   type AiVideoMode,
   type AiVideoResolution,
 } from "@/lib/ai-video";
@@ -61,6 +64,7 @@ const VIDEO_GENERATION_POLL_SLOW_MS = 7 * 1000;
 
 type VideoImagePayload = Extract<HistoryJobPayload, { kind: "videoImageToVideo" }>;
 type VideoMotionPayload = Extract<HistoryJobPayload, { kind: "videoMotion" }>;
+type VideoFirstLastPayload = Extract<HistoryJobPayload, { kind: "videoFirstLastFrame" }>;
 
 type AiVideoExperienceProps = {
   mode: AiVideoMode;
@@ -70,28 +74,39 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
   const router = useRouter();
   const imageInputRef = useRef<HTMLInputElement>(null);
   const modelImageInputRef = useRef<HTMLInputElement>(null);
+  const firstFrameInputRef = useRef<HTMLInputElement>(null);
+  const lastFrameInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
   const generationRunRef = useRef(0);
   const isMotion = mode === "motion-control";
+  const isFirstLastFrame = mode === "first-last-frame";
   const generationKind = getAiVideoKind(mode);
-  const featureKey = isMotion ? "videoMotion" : "videoImageToVideo";
-  const moduleTitle = isMotion ? "动作模仿" : "图生视频";
-  const moduleLabel = isMotion ? "动作模仿" : "图生视频";
-  const apiPath = isMotion ? "/api/video/motion-control" : "/api/video/image-to-video";
+  const featureKey = isFirstLastFrame ? "videoFirstLastFrame" : isMotion ? "videoMotion" : "videoImageToVideo";
+  const moduleTitle = isFirstLastFrame ? "首尾帧" : isMotion ? "动作模仿" : "图生视频";
+  const moduleLabel = moduleTitle;
+  const apiPath = isFirstLastFrame ? "/api/video/first-last-frame" : isMotion ? "/api/video/motion-control" : "/api/video/image-to-video";
   const applyPath = getAiVideoPath(generationKind);
 
   const { authChecked, isAuthenticated, userId, credits, setCredits, refreshAuth } = useStudioAuth();
+  const [title, setTitle] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [modelImageUrl, setModelImageUrl] = useState("");
+  const [firstFrameUrl, setFirstFrameUrl] = useState("");
+  const [lastFrameUrl, setLastFrameUrl] = useState("");
   const [referenceVideoUrl, setReferenceVideoUrl] = useState("");
-  const [prompt, setPrompt] = useState(AI_VIDEO_ACTION_TEMPLATES[0]?.promptContent || "");
-  const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(AI_VIDEO_ACTION_TEMPLATES[0]?.id || null);
+  const [prompt, setPrompt] = useState(isFirstLastFrame ? "" : AI_VIDEO_ACTION_TEMPLATES[0]?.promptContent || "");
+  const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(isFirstLastFrame ? null : AI_VIDEO_ACTION_TEMPLATES[0]?.id || null);
   const [resolution, setResolution] = useState<AiVideoResolution>("720p");
+  const [duration, setDuration] = useState<AiVideoDuration>(5);
   const [isDraggingImage, setIsDraggingImage] = useState(false);
   const [isDraggingModelImage, setIsDraggingModelImage] = useState(false);
+  const [isDraggingFirstFrame, setIsDraggingFirstFrame] = useState(false);
+  const [isDraggingLastFrame, setIsDraggingLastFrame] = useState(false);
   const [isDraggingVideo, setIsDraggingVideo] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [isUploadingModelImage, setIsUploadingModelImage] = useState(false);
+  const [isUploadingFirstFrame, setIsUploadingFirstFrame] = useState(false);
+  const [isUploadingLastFrame, setIsUploadingLastFrame] = useState(false);
   const [isUploadingVideo, setIsUploadingVideo] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -107,12 +122,24 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
     defaultExpectedCount: 1,
     applyPath,
   });
-  const cost = getAiVideoCreditCost(resolution);
   const authIsAnonymous = authChecked && !isAuthenticated;
-  const inputThumbnails = isMotion
+  const cost = getAiVideoCreditCost(resolution, isFirstLastFrame ? duration : undefined);
+  const inputThumbnails = isFirstLastFrame
+    ? [firstFrameUrl, lastFrameUrl].filter(Boolean)
+    : isMotion
     ? [modelImageUrl, referenceVideoUrl].filter(Boolean)
     : [imageUrl].filter(Boolean);
-  const runDisabledReason = isMotion
+  const runDisabledReason = isFirstLastFrame
+    ? !firstFrameUrl
+      ? "请先上传首帧图片"
+      : !lastFrameUrl
+        ? "请先上传尾帧图片"
+        : !prompt.trim()
+          ? "请输入视频生成效果描述"
+          : credits !== null && credits < cost
+            ? `积分不足，生成需要 ${cost} 积分`
+            : undefined
+    : isMotion
     ? !modelImageUrl
       ? "请先上传模特图"
       : !referenceVideoUrl
@@ -142,6 +169,20 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
     multiple: false,
     onFiles: (files) => handleImageFile(files[0], "model"),
   });
+  const firstFrameDrag = useStableFileDrag<HTMLDivElement>({
+    isDragging: isDraggingFirstFrame,
+    setDragging: setIsDraggingFirstFrame,
+    accept: "image/*",
+    multiple: false,
+    onFiles: (files) => handleImageFile(files[0], "firstFrame"),
+  });
+  const lastFrameDrag = useStableFileDrag<HTMLDivElement>({
+    isDragging: isDraggingLastFrame,
+    setDragging: setIsDraggingLastFrame,
+    accept: "image/*",
+    multiple: false,
+    onFiles: (files) => handleImageFile(files[0], "lastFrame"),
+  });
   const videoDrag = useStableFileDrag<HTMLDivElement>({
     isDragging: isDraggingVideo,
     setDragging: setIsDraggingVideo,
@@ -167,7 +208,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
     };
   }, [generationKind]);
 
-  async function handleImageFile(file?: File, target: "image" | "model" = "image") {
+  async function handleImageFile(file?: File, target: "image" | "model" | "firstFrame" | "lastFrame" = "image") {
     if (!file) return;
     if (!file.type.startsWith("image/")) {
       toast.error("请上传图片文件");
@@ -180,12 +221,20 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
 
     setError("");
     setResultUrls([]);
-    const setUploading = target === "model" ? setIsUploadingModelImage : setIsUploadingImage;
+    const setUploading = target === "model"
+      ? setIsUploadingModelImage
+      : target === "firstFrame"
+        ? setIsUploadingFirstFrame
+        : target === "lastFrame"
+          ? setIsUploadingLastFrame
+          : setIsUploadingImage;
     setUploading(true);
     toast.info("正在上传图片...");
     try {
       const result = await uploadImage(file);
       if (target === "model") setModelImageUrl(result.url);
+      else if (target === "firstFrame") setFirstFrameUrl(result.url);
+      else if (target === "lastFrame") setLastFrameUrl(result.url);
       else setImageUrl(result.url);
       toast.success("图片已上传");
     } catch (err) {
@@ -231,6 +280,14 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
     toast.success("已套用动作模板");
   }
 
+  function applyFirstLastPromptSuggestion() {
+    const subject = title.trim() ? `围绕「${title.trim()}」` : "围绕首尾帧主体";
+    setSelectedTemplateId(null);
+    setPrompt(`${subject}生成顺滑过渡视频，主体从首帧自然移动到尾帧姿态，服装版型和人物身份保持一致，镜头稳定，动作连贯，避免跳切、变形和多余人物。`);
+    setResultUrls([]);
+    setError("");
+  }
+
   async function generate() {
     if (isSubmitting) return;
     if (!isAuthenticated && !(await refreshAuth())) {
@@ -261,10 +318,16 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
     let latestTaskResultUrls: string[] = [];
 
     try {
-      const res = await fetch(apiPath, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(isMotion
+      const requestBody = isFirstLastFrame
+        ? {
+            firstFrameUrl,
+            lastFrameUrl,
+            title: title.trim(),
+            prompt: prompt.trim(),
+            duration,
+            resolution,
+          }
+        : isMotion
           ? {
               modelImageUrl,
               referenceVideoUrl,
@@ -278,7 +341,11 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
               templateId: selectedTemplateId,
               resolution,
               aspectRatio: "9:16",
-            }),
+            };
+      const res = await fetch(apiPath, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(requestBody),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -417,21 +484,40 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
     }
   }
 
-  function applyHistoryPayload(payload: VideoImagePayload | VideoMotionPayload, historyResultUrls: string[] = [], options?: { silent?: boolean }) {
+  function applyHistoryPayload(payload: VideoImagePayload | VideoMotionPayload | VideoFirstLastPayload, historyResultUrls: string[] = [], options?: { silent?: boolean }) {
     generationRunRef.current += 1;
-    if (payload.kind === "videoMotion") {
+    if (payload.kind === "videoFirstLastFrame") {
+      setTitle(payload.title || "");
+      setFirstFrameUrl(payload.firstFrameUrl);
+      setLastFrameUrl(payload.lastFrameUrl);
+      setImageUrl("");
+      setModelImageUrl("");
+      setReferenceVideoUrl("");
+      setPrompt(payload.prompt);
+      setSelectedTemplateId(null);
+      setDuration(normalizeAiVideoDuration(payload.duration));
+      setResolution(normalizeAiVideoResolution(payload.resolution));
+    } else if (payload.kind === "videoMotion") {
+      setTitle("");
+      setFirstFrameUrl("");
+      setLastFrameUrl("");
       setModelImageUrl(payload.modelImageUrl);
       setReferenceVideoUrl(payload.referenceVideoUrl);
       setImageUrl("");
       setPrompt(payload.prompt || "");
       setSelectedTemplateId(payload.templateId || null);
+      setDuration(5);
       setResolution(normalizeAiVideoResolution(payload.resolution));
     } else {
+      setTitle("");
+      setFirstFrameUrl("");
+      setLastFrameUrl("");
       setImageUrl(payload.imageUrl);
       setModelImageUrl("");
       setReferenceVideoUrl("");
       setPrompt(payload.prompt);
       setSelectedTemplateId(payload.templateId || null);
+      setDuration(5);
       setResolution(normalizeAiVideoResolution(payload.resolution));
     }
     setResultUrls(historyResultUrls);
@@ -444,12 +530,16 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
 
   function handleContinueCreate() {
     generationRunRef.current += 1;
+    setTitle("");
     setImageUrl("");
     setModelImageUrl("");
+    setFirstFrameUrl("");
+    setLastFrameUrl("");
     setReferenceVideoUrl("");
-    setPrompt(AI_VIDEO_ACTION_TEMPLATES[0]?.promptContent || "");
-    setSelectedTemplateId(AI_VIDEO_ACTION_TEMPLATES[0]?.id || null);
+    setPrompt(isFirstLastFrame ? "" : AI_VIDEO_ACTION_TEMPLATES[0]?.promptContent || "");
+    setSelectedTemplateId(isFirstLastFrame ? null : AI_VIDEO_ACTION_TEMPLATES[0]?.id || null);
     setResolution("720p");
+    setDuration(5);
     setResultUrls([]);
     setError("");
     setProgress(0);
@@ -462,7 +552,100 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
   const controlPanel = (
     <div className="studio-parameters-scroll flex-1 overflow-visible p-3 sm:p-5 lg:overflow-y-auto">
       <div className="space-y-4">
-        {!isMotion ? (
+        {isFirstLastFrame ? (
+          <>
+            <section className="rounded-xl bg-slate-50/90 p-4">
+              <h3 className="mb-3 text-sm font-black text-codex-ink">填写标题</h3>
+              <input
+                type="text"
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+                placeholder="请输入标题"
+                className="h-11 w-full rounded-[10px] border border-slate-200 bg-white px-3 text-sm font-bold text-slate-900 outline-none transition focus:border-blue-300 focus:ring-4 focus:ring-blue-100"
+              />
+            </section>
+
+            <section className="rounded-xl bg-slate-50/90 p-4">
+              <h3 className="mb-3 text-sm font-black text-codex-ink">选择单条视频时长</h3>
+              <StudioOptionGrid
+                options={AI_VIDEO_DURATION_OPTIONS.map((item) => ({
+                  value: String(item.value),
+                  label: item.label,
+                  description: `${item.cost} 积分`,
+                }))}
+                value={String(duration)}
+                onChange={(value) => setDuration(normalizeAiVideoDuration(value))}
+                columns={2}
+                ariaLabel="视频时长"
+              />
+            </section>
+
+            <section className="rounded-xl bg-slate-50/90 p-4">
+              <div className="mb-3">
+                <h3 className="text-sm font-black text-codex-ink">上传图片</h3>
+                <p className="mt-2 text-[11px] font-semibold leading-5 text-codex-faint">
+                  图片大小不超过 {MAX_FILE_SIZE_MB}MB，首帧和尾帧的主体、比例和画面风格建议保持一致。
+                </p>
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+                <section {...firstFrameDrag.dragHandlers} className={`rounded-xl transition-all ${isDraggingFirstFrame ? "ring-2 ring-[rgba(91,124,255,0.38)] ring-offset-2" : ""}`}>
+                  <input
+                    ref={firstFrameInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(event) => {
+                      const input = event.currentTarget;
+                      void handleImageFile(input.files?.[0], "firstFrame").finally(() => {
+                        input.value = "";
+                      });
+                    }}
+                  />
+                  <StudioUploadTile
+                    title="上传首帧图片"
+                    description="点击或拖拽图片至此"
+                    imageUrl={firstFrameUrl || null}
+                    imageAlt="首帧图片"
+                    isDragging={isDraggingFirstFrame}
+                    loading={isUploadingFirstFrame}
+                    onUploadClick={() => firstFrameInputRef.current?.click()}
+                    onLibraryClick={() => toast.info("作品库选择即将接入")}
+                    onRemove={firstFrameUrl ? () => setFirstFrameUrl("") : undefined}
+                    libraryLabel="从作品库选择"
+                    uploadLabel="上传首帧"
+                  />
+                </section>
+                <section {...lastFrameDrag.dragHandlers} className={`rounded-xl transition-all ${isDraggingLastFrame ? "ring-2 ring-[rgba(91,124,255,0.38)] ring-offset-2" : ""}`}>
+                  <input
+                    ref={lastFrameInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(event) => {
+                      const input = event.currentTarget;
+                      void handleImageFile(input.files?.[0], "lastFrame").finally(() => {
+                        input.value = "";
+                      });
+                    }}
+                  />
+                  <StudioUploadTile
+                    title="上传尾帧图片"
+                    description="点击或拖拽图片至此"
+                    imageUrl={lastFrameUrl || null}
+                    imageAlt="尾帧图片"
+                    isDragging={isDraggingLastFrame}
+                    loading={isUploadingLastFrame}
+                    onUploadClick={() => lastFrameInputRef.current?.click()}
+                    onLibraryClick={() => toast.info("作品库选择即将接入")}
+                    onRemove={lastFrameUrl ? () => setLastFrameUrl("") : undefined}
+                    libraryLabel="从作品库选择"
+                    uploadLabel="上传尾帧"
+                  />
+                </section>
+              </div>
+            </section>
+          </>
+        ) : !isMotion ? (
           <section {...imageDrag.dragHandlers} className={`rounded-xl transition-all ${isDraggingImage ? "ring-2 ring-[rgba(91,124,255,0.38)] ring-offset-2" : ""}`}>
             <input
               ref={imageInputRef}
@@ -547,63 +730,79 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
         )}
 
         <StudioPromptTextarea
-          title={isMotion ? "动作补充" : "动作描述"}
-          badge={selectedTemplate ? selectedTemplate.title : "自定义"}
+          title={isFirstLastFrame ? "描述视频生成效果" : isMotion ? "动作补充" : "动作描述"}
+          badge={isFirstLastFrame ? `${duration}秒` : selectedTemplate ? selectedTemplate.title : "自定义"}
           value={prompt}
           onChange={(event) => {
             setPrompt(event.target.value);
             setSelectedTemplateId(null);
           }}
-          rows={isMotion ? 4 : 7}
-          placeholder="描述想要的视频动作，例如：模特自然向前走，保持微笑，镜头平稳推进"
-          description={isMotion ? "可选：补充服装、动作细节或镜头稳定要求；参考视频仍是主要动作来源。" : "模板会自动填入动作描述，也可以自行编辑。"}
-        />
-
-        <section>
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <h3 className="text-sm font-black text-codex-ink">动作模板</h3>
+          rows={isFirstLastFrame ? 5 : isMotion ? 4 : 7}
+          placeholder={isFirstLastFrame
+            ? "描述两张图之间的动态衔接过程、运镜和转场方式，例如：模特从自然站立过渡到抬手展示包袋，固定镜头，动作连贯。"
+            : "描述想要的视频动作，例如：模特自然向前走，保持微笑，镜头平稳推进"}
+          description={isFirstLastFrame
+            ? "重点描述首帧到尾帧之间如何过渡，主体身份、服装版型和画面比例会作为硬参考。"
+            : isMotion ? "可选：补充服装、动作细节或镜头稳定要求；参考视频仍是主要动作来源。" : "模板会自动填入动作描述，也可以自行编辑。"}
+          action={isFirstLastFrame ? (
             <button
               type="button"
-              onClick={() => setTemplatePanelOpen(true)}
-              className="inline-flex items-center gap-1 text-xs font-black text-codex-faint transition hover:text-codex-ink"
+              onClick={applyFirstLastPromptSuggestion}
+              className="inline-flex h-8 items-center gap-1.5 rounded-full border border-blue-100 bg-blue-50 px-3 text-xs font-black text-blue-600 transition hover:bg-blue-100"
             >
-              更多 <ChevronRight className="h-3.5 w-3.5" />
+              <Sparkles className="h-3.5 w-3.5" />
+              AI帮写
             </button>
-          </div>
-          <TemplateStrip selectedId={selectedTemplateId} onSelect={applyTemplate} />
-        </section>
+          ) : undefined}
+        />
 
-        {isMotion && (
+        {!isFirstLastFrame && (
           <section>
-            <h3 className="mb-3 text-sm font-black text-codex-ink">分辨率</h3>
-            <StudioOptionGrid
-              options={AI_VIDEO_RESOLUTION_OPTIONS.map((item) => ({
-                value: item.value,
-                label: item.label,
-                description: `${item.cost} 积分`,
-              }))}
-              value={resolution}
-              onChange={setResolution}
-              columns={2}
-              ariaLabel="视频分辨率"
-            />
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h3 className="text-sm font-black text-codex-ink">动作模板</h3>
+              <button
+                type="button"
+                onClick={() => setTemplatePanelOpen(true)}
+                className="inline-flex items-center gap-1 text-xs font-black text-codex-faint transition hover:text-codex-ink"
+              >
+                更多 <ChevronRight className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            <TemplateStrip selectedId={selectedTemplateId} onSelect={applyTemplate} />
           </section>
         )}
 
-        {!isMotion && (
-          <section>
-            <h3 className="mb-3 text-sm font-black text-codex-ink">分辨率</h3>
-            <StudioOptionGrid
-              options={AI_VIDEO_RESOLUTION_OPTIONS.map((item) => ({
-                value: item.value,
-                label: item.label,
-                description: `${item.cost} 积分`,
-              }))}
-              value={resolution}
-              onChange={setResolution}
-              columns={2}
-              ariaLabel="视频分辨率"
-            />
+        <section>
+          <h3 className="mb-3 text-sm font-black text-codex-ink">分辨率</h3>
+          <StudioOptionGrid
+            options={AI_VIDEO_RESOLUTION_OPTIONS.map((item) => ({
+              value: item.value,
+              label: item.label,
+              description: isFirstLastFrame ? `${duration}秒视频` : `${item.cost} 积分`,
+            }))}
+            value={resolution}
+            onChange={setResolution}
+            columns={2}
+            ariaLabel="视频分辨率"
+          />
+        </section>
+
+        {isFirstLastFrame && (
+          <section className="rounded-xl bg-slate-50/90 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-sm font-black text-codex-ink">添加音效</h3>
+              <span className="text-xs font-black text-codex-faint">暂未开启</span>
+            </div>
+          </section>
+        )}
+
+        {isFirstLastFrame && (
+          <section className="rounded-xl bg-slate-50/90 p-4">
+            <h3 className="mb-3 text-sm font-black text-codex-ink">生成条数</h3>
+            <div className="flex items-center gap-3">
+              <span className="flex h-11 w-28 items-center justify-center rounded-[10px] border border-slate-200 bg-white text-sm font-black text-slate-900">1</span>
+              <span className="text-xs font-bold text-codex-faint">当前单次生成 1 条视频</span>
+            </div>
           </section>
         )}
       </div>
@@ -624,14 +823,16 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
         <div className="studio-shell-header">
           <ModuleHeader
             title={moduleLabel}
-            tooltip={isMotion
-              ? "上传模特图与参考视频，系统会复刻参考视频中的人物动作并生成新视频。"
-              : "上传图片并选择动作模板，系统会生成服装或模特展示视频。"}
+            tooltip={isFirstLastFrame
+              ? "上传首帧和尾帧图片，描述中间动态过程，系统会生成从首帧过渡到尾帧的视频。"
+              : isMotion
+                ? "上传模特图与参考视频，系统会复刻参考视频中的人物动作并生成新视频。"
+                : "上传图片并选择动作模板，系统会生成服装或模特展示视频。"}
           />
         </div>
         {controlPanel}
         <StudioRunBar
-          summary={isMotion ? "模特图 + 参考视频 · 单个结果" : "单图驱动 · 9:16 竖版视频"}
+          summary={isFirstLastFrame ? `首帧 + 尾帧 · ${duration}秒视频` : isMotion ? "模特图 + 参考视频 · 单个结果" : "单图驱动 · 9:16 竖版视频"}
           costLabel={authIsAnonymous ? "登录后查看积分" : `消耗 ${cost} · 余额 ${credits ?? "-"}`}
           disabled={isSubmitting || Boolean(runDisabledReason)}
           disabledReason={runDisabledReason}
@@ -662,7 +863,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
             )}
             <ResultVideoGrid
               urls={resultUrls}
-              filenamePrefix={isMotion ? "motion-video" : "image-video"}
+              filenamePrefix={isFirstLastFrame ? "first-last-frame-video" : isMotion ? "motion-video" : "image-video"}
               onOpen={(url) => setLightboxVideo(url)}
               expectedCount={isGenerating ? 1 : undefined}
               isGenerating={isGenerating}
@@ -670,6 +871,8 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
               statusGroup={isGenerating ? "running" : undefined}
             />
           </div>
+        ) : isFirstLastFrame ? (
+          <FirstLastFrameCanvas firstFrameUrl={firstFrameUrl} lastFrameUrl={lastFrameUrl} />
         ) : isMotion ? (
           <MotionControlCanvas />
         ) : (
@@ -677,7 +880,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
         )}
       </main>
 
-      {templatePanelOpen && (
+      {!isFirstLastFrame && templatePanelOpen && (
         <StudioSideDrawer
           open={templatePanelOpen}
           side="left"
@@ -770,6 +973,63 @@ function ImageToVideoGuide({ onOpenTemplates }: { onOpenTemplates: () => void })
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function FirstLastFrameCanvas({ firstFrameUrl, lastFrameUrl }: { firstFrameUrl: string; lastFrameUrl: string }) {
+  const generatedPreview = AI_VIDEO_ACTION_TEMPLATES[6]?.previewImage || AI_VIDEO_ACTION_TEMPLATES[0]?.previewImage || "";
+
+  return (
+    <div className="flex h-full min-h-[520px] items-center justify-center bg-[#f6f7fb] px-5 py-10">
+      <div className="w-full max-w-5xl text-center">
+        <h2 className="text-2xl font-black tracking-normal text-slate-950 sm:text-3xl">
+          上传首帧和尾帧，生成过渡视频
+        </h2>
+        <p className="mx-auto mt-3 max-w-2xl text-sm font-semibold leading-6 text-slate-500">
+          首尾两张图决定开始和结束画面，描述控制中间动作、镜头和转场节奏。
+        </p>
+        <div className="mx-auto mt-10 flex max-w-4xl flex-col items-center justify-center gap-4 sm:flex-row sm:gap-5">
+          <FrameStep image={firstFrameUrl} label="首帧画面" placeholder="等待上传首帧" />
+          <FlowArrow />
+          <FrameStep image={lastFrameUrl} label="尾帧画面" placeholder="等待上传尾帧" />
+          <FlowArrow />
+          <FrameStep image={generatedPreview} label="生成视频" placeholder="生成结果" isResult />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FlowArrow() {
+  return (
+    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--codex-accent)] text-white shadow-[0_14px_34px_rgba(91,124,255,0.32)] sm:h-11 sm:w-11">
+      <ArrowRight className="h-5 w-5 rotate-90 sm:rotate-0" />
+    </div>
+  );
+}
+
+function FrameStep({ image, label, placeholder, isResult }: { image: string; label: string; placeholder: string; isResult?: boolean }) {
+  return (
+    <div className="min-w-0">
+      <div className="relative mx-auto aspect-[3/4] w-[150px] overflow-hidden rounded-[12px] border border-slate-100 bg-white shadow-sm sm:w-[170px] lg:w-[190px]">
+        {image ? (
+          <img src={image} alt={label} className="h-full w-full object-contain p-2" />
+        ) : (
+          <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-white text-codex-faint">
+            <ImagePlus className="h-7 w-7 text-blue-500" />
+            <span className="px-3 text-center text-xs font-black">{placeholder}</span>
+          </div>
+        )}
+        {isResult && (
+          <span className="absolute inset-0 flex items-center justify-center bg-slate-950/8">
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white/92 text-blue-600 shadow-[0_12px_28px_rgba(15,23,42,0.18)]">
+              <Play className="ml-0.5 h-5 w-5 fill-current" />
+            </span>
+          </span>
+        )}
+      </div>
+      <p className="mt-3 text-sm font-black text-slate-600">{label}</p>
     </div>
   );
 }

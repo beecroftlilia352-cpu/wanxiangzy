@@ -34,6 +34,7 @@ export type FeatureKey =
   | "garment3d"
   | "videoImageToVideo"
   | "videoMotion"
+  | "videoFirstLastFrame"
   | "generalImage"
   | "textToImage"
   | "imageToImage"
@@ -181,6 +182,15 @@ export const FEATURE_ITEMS: FeatureNavItem[] = [
     shortLabel: "动作",
     description: "用参考视频驱动模特动作",
     icon: PlaySquare,
+  },
+  {
+    key: "videoFirstLastFrame",
+    module: "aiVideo",
+    href: "/video/first-last-frame",
+    label: "首尾帧",
+    shortLabel: "首尾帧",
+    description: "指定首帧和尾帧生成过渡视频",
+    icon: ImagePlus,
   },
   {
     key: "agent",

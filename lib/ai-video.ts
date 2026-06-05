@@ -1,6 +1,7 @@
-export type AiVideoResolution = "720p" | "1080p";
-export type AiVideoMode = "image-to-video" | "motion-control";
-export type AiVideoGenerationKind = "videoImageToVideo" | "videoMotion";
+export type AiVideoResolution = "720p";
+export type AiVideoDuration = 5 | 10;
+export type AiVideoMode = "image-to-video" | "motion-control" | "first-last-frame";
+export type AiVideoGenerationKind = "videoImageToVideo" | "videoMotion" | "videoFirstLastFrame";
 
 export type AiVideoActionTemplate = {
   id: number;
@@ -12,14 +13,17 @@ export type AiVideoActionTemplate = {
 };
 
 export const AI_VIDEO_DEFAULT_ASPECT_RATIO = "9:16" as const;
-export const OMNI_IMAGE_TO_VIDEO_MODEL = "omni-flash-components";
-export const OMNI_VIDEO_QUERY_MODEL = "omni-flash";
-export const KLING_MOTION_MODEL = "kling-v3";
+export const AI_VIDEO_SEEDANCE_MODEL = "doubao-seedance-2-0-fast-260128";
+export const AI_VIDEO_SEEDANCE_FIRST_LAST_FRAME_MODEL = "doubao-seedance-2-0-260128";
 const AI_VIDEO_TEMPLATE_ASSET_BASE = "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/video-templates";
 
 export const AI_VIDEO_RESOLUTION_OPTIONS: Array<{ value: AiVideoResolution; label: string; cost: number }> = [
   { value: "720p", label: "720p", cost: 6 },
-  { value: "1080p", label: "1080p", cost: 10 },
+];
+
+export const AI_VIDEO_DURATION_OPTIONS: Array<{ value: AiVideoDuration; label: string; cost: number }> = [
+  { value: 5, label: "5秒", cost: 6 },
+  { value: 10, label: "10秒", cost: 10 },
 ];
 
 export const AI_VIDEO_ACTION_TEMPLATES: AiVideoActionTemplate[] = [
@@ -98,10 +102,17 @@ export const AI_VIDEO_ACTION_TEMPLATES: AiVideoActionTemplate[] = [
 ];
 
 export function normalizeAiVideoResolution(value: unknown): AiVideoResolution {
-  return value === "1080p" ? "1080p" : "720p";
+  return "720p";
 }
 
-export function getAiVideoCreditCost(resolution: AiVideoResolution) {
+export function normalizeAiVideoDuration(value: unknown): AiVideoDuration {
+  return Number(value) === 10 ? 10 : 5;
+}
+
+export function getAiVideoCreditCost(resolution: AiVideoResolution, duration?: AiVideoDuration) {
+  if (duration) {
+    return AI_VIDEO_DURATION_OPTIONS.find((item) => item.value === duration)?.cost || 6;
+  }
   return AI_VIDEO_RESOLUTION_OPTIONS.find((item) => item.value === resolution)?.cost || 6;
 }
 
@@ -110,9 +121,11 @@ export function getAiVideoTemplate(templateId?: number | null) {
 }
 
 export function getAiVideoKind(mode: AiVideoMode): AiVideoGenerationKind {
+  if (mode === "first-last-frame") return "videoFirstLastFrame";
   return mode === "motion-control" ? "videoMotion" : "videoImageToVideo";
 }
 
 export function getAiVideoPath(kind: AiVideoGenerationKind) {
+  if (kind === "videoFirstLastFrame") return "/video/first-last-frame";
   return kind === "videoMotion" ? "/video/motion-control" : "/video";
 }

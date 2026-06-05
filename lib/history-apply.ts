@@ -18,7 +18,7 @@ import type {
   ProductSetProductProfile,
   ProductSetSettings,
 } from "@/lib/product-set";
-import type { AiVideoResolution } from "@/lib/ai-video";
+import type { AiVideoDuration, AiVideoResolution } from "@/lib/ai-video";
 
 export type HistoryJobPayload =
   | {
@@ -147,6 +147,17 @@ export type HistoryJobPayload =
       resolution: AiVideoResolution;
       aiModel: string;
       genCount: number;
+    }
+  | {
+      kind: "videoFirstLastFrame";
+      firstFrameUrl: string;
+      lastFrameUrl: string;
+      prompt: string;
+      title?: string;
+      duration: AiVideoDuration;
+      resolution: AiVideoResolution;
+      aiModel: string;
+      genCount: number;
     };
 
 export type HistoryApplyRow = {
@@ -265,6 +276,7 @@ function getModulePath(kind: HistoryJobPayload["kind"]) {
   if (kind === "faceSwap") return "/face-swap";
   if (kind === "videoImageToVideo") return "/video";
   if (kind === "videoMotion") return "/video/motion-control";
+  if (kind === "videoFirstLastFrame") return "/video/first-last-frame";
   if (kind === "model") return "/model";
   return "/pose";
 }

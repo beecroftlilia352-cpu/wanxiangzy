@@ -17,6 +17,8 @@ describe("environment contract", () => {
     delete process.env.SITE_URL;
     delete process.env.APP_URL;
     delete process.env.URL;
+    delete process.env.LAOZHANG_API_KEY;
+    delete process.env.LAOZHANG_SEEDANCE_API_KEY;
   });
 
   afterEach(() => {
@@ -106,5 +108,15 @@ describe("environment contract", () => {
         { nodeEnv: "production" }
       )
     ).toEqual({ ok: true, secrets: [strongSecret] });
+  });
+
+  it("allows the shared LaoZhang key as the Seedance video fallback", () => {
+    process.env.LAOZHANG_API_KEY = "shared-laozhang-key";
+
+    expect(validateEnv({ nodeEnv: "development" })).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: "LAOZHANG_SEEDANCE_API_KEY or LAOZHANG_API_KEY" }),
+      ])
+    );
   });
 });

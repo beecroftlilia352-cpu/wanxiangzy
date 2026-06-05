@@ -6,9 +6,9 @@ import { handleGenerationStatusGet } from "@/lib/api/generation-status";
 import { getPublicBaseUrlFromRequest } from "@/lib/api/image-inputs.server";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 import {
-  AI_VIDEO_SEEDANCE_MODEL,
+  AI_VIDEO_SEEDANCE_FIRST_LAST_FRAME_MODEL,
   getAiVideoCreditCost,
-  getAiVideoTemplate,
+  normalizeAiVideoDuration,
   normalizeAiVideoResolution,
 } from "@/lib/ai-video";
 
@@ -20,46 +20,47 @@ export async function POST(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "请先登录" }, { status: 401 });
 
-    const limit = await checkRateLimit(`video-motion-control:${user.id}`, 12, 60_000);
+    const limit = await checkRateLimit(`video-first-last-frame:${user.id}`, 12, 60_000);
     if (!limit.ok) return rateLimitResponse(limit.retryAfterSeconds);
 
     let body: Record<string, unknown>;
     try { body = await request.json(); }
     catch { return NextResponse.json({ error: "请求格式无效" }, { status: 400 }); }
 
-    const modelImageUrl = typeof body.modelImageUrl === "string" ? body.modelImageUrl.trim() : "";
-    const referenceVideoUrl = typeof body.referenceVideoUrl === "string" ? body.referenceVideoUrl.trim() : "";
+    const firstFrameUrl = typeof body.firstFrameUrl === "string" ? body.firstFrameUrl.trim() : "";
+    const lastFrameUrl = typeof body.lastFrameUrl === "string" ? body.lastFrameUrl.trim() : "";
     const prompt = typeof body.prompt === "string" ? body.prompt.trim() : "";
+    const title = typeof body.title === "string" ? body.title.trim().slice(0, 80) : "";
+    const duration = normalizeAiVideoDuration(body.duration);
     const resolution = normalizeAiVideoResolution(body.resolution);
-    const templateId = Number(body.templateId || 0) || undefined;
-    const template = getAiVideoTemplate(templateId);
 
-    if (!modelImageUrl) return NextResponse.json({ error: "请先上传模特图" }, { status: 400 });
-    if (!referenceVideoUrl) return NextResponse.json({ error: "请先上传参考视频" }, { status: 400 });
+    if (!firstFrameUrl) return NextResponse.json({ error: "请先上传首帧图片" }, { status: 400 });
+    if (!lastFrameUrl) return NextResponse.json({ error: "请先上传尾帧图片" }, { status: 400 });
+    if (!prompt) return NextResponse.json({ error: "请描述首尾帧之间的动态衔接过程" }, { status: 400 });
 
-    const totalCost = getAiVideoCreditCost(resolution);
+    const totalCost = getAiVideoCreditCost(resolution, duration);
     const jobPayload: GenerationJobPayload = {
-      kind: "videoMotion",
+      kind: "videoFirstLastFrame",
       publicBaseUrl: getPublicBaseUrlFromRequest(request),
-      modelImageUrl,
-      referenceVideoUrl,
+      firstFrameUrl,
+      lastFrameUrl,
       prompt,
-      templateId,
-      templateTitle: template?.title,
+      title,
+      duration,
       resolution,
-      aiModel: AI_VIDEO_SEEDANCE_MODEL,
+      aiModel: AI_VIDEO_SEEDANCE_FIRST_LAST_FRAME_MODEL,
       genCount: 1,
     };
 
     const debit = await createDebitedGeneration(supabase, {
       userId: user.id,
-      clothingUrls: [modelImageUrl],
+      clothingUrls: [firstFrameUrl, lastFrameUrl],
       modelFaceUrl: null,
-      referenceUrl: referenceVideoUrl,
+      referenceUrl: null,
       creditsCost: totalCost,
-      aiModel: AI_VIDEO_SEEDANCE_MODEL,
-      imageSize: resolution,
-      reason: `动作模仿 (${AI_VIDEO_SEEDANCE_MODEL}, ${resolution})`,
+      aiModel: AI_VIDEO_SEEDANCE_FIRST_LAST_FRAME_MODEL,
+      imageSize: `${duration}s`,
+      reason: `首尾帧视频 (${AI_VIDEO_SEEDANCE_FIRST_LAST_FRAME_MODEL}, ${duration}s)`,
       jobPayload,
     });
 
@@ -72,7 +73,7 @@ export async function POST(request: NextRequest) {
       status: "processing_tryon",
     });
   } catch (err: unknown) {
-    console.error("[video:motion-control] POST error:", err instanceof Error ? err.message : err);
+    console.error("[video:first-last-frame] POST error:", err instanceof Error ? err.message : err);
     const payload = errorToResponsePayload(err);
     return NextResponse.json(payload.body, { status: payload.status });
   }

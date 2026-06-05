@@ -46,6 +46,7 @@ const MODULE_FILTERS: { value: HistoryModuleFilter; label: string }[] = [
   { value: "faceSwap", label: "换脸" },
   { value: "videoImageToVideo", label: "图生视频" },
   { value: "videoMotion", label: "动作模仿" },
+  { value: "videoFirstLastFrame", label: "首尾帧" },
 ];
 
 const STATUS_FILTERS: { value: HistoryStatusFilter; label: string }[] = [
@@ -1243,6 +1244,7 @@ function formatKind(kind?: HistoryJobPayload["kind"]) {
   if (kind === "pose") return "姿势裂变";
   if (kind === "videoImageToVideo") return "图生视频";
   if (kind === "videoMotion") return "动作模仿";
+  if (kind === "videoFirstLastFrame") return "首尾帧";
   return "未知模块";
 }
 
@@ -1331,7 +1333,7 @@ function getRowPayload(row: HistoryRow) {
   if (!payload || typeof payload !== "object") return undefined;
 
   const kind = (payload as { kind?: unknown }).kind;
-  if (kind === "tryon" || kind === "grass" || kind === "productSet" || kind === "modelBackground" || kind === "generalImage" || kind === "garment3d" || kind === "model" || kind === "pose" || kind === "faceSwap" || kind === "videoImageToVideo" || kind === "videoMotion") {
+  if (kind === "tryon" || kind === "grass" || kind === "productSet" || kind === "modelBackground" || kind === "generalImage" || kind === "garment3d" || kind === "model" || kind === "pose" || kind === "faceSwap" || kind === "videoImageToVideo" || kind === "videoMotion" || kind === "videoFirstLastFrame") {
     return payload as HistoryJobPayload;
   }
 
@@ -1358,6 +1360,9 @@ function getPromptText(payload: HistoryJobPayload) {
     return payload.productInfo?.trim() || payload.prompt || "";
   }
   if (payload.kind === "videoMotion") {
+    return payload.prompt || "";
+  }
+  if (payload.kind === "videoFirstLastFrame") {
     return payload.prompt || "";
   }
   return payload.prompt || "";
@@ -1400,6 +1405,9 @@ function getHistoryInputSummary(payload?: HistoryJobPayload) {
   if (payload.kind === "videoMotion") {
     return `模特图 + 参考视频 · ${payload.templateTitle || "动作模仿"} · ${payload.resolution}`;
   }
+  if (payload.kind === "videoFirstLastFrame") {
+    return `首帧 + 尾帧 · ${payload.duration}秒 · ${payload.resolution}`;
+  }
   if (payload.kind === "garment3d") {
     return `服装图 · ${payload.outputMode === "reference" ? "参考图模式" : "提示词模式"} · ${getGarment3dDisplayStyleLabel(payload.displayStyle)}`;
   }
@@ -1425,13 +1433,14 @@ function getHistoryOutputSummary(row: HistoryRow, payload?: HistoryJobPayload) {
   const model = payload?.aiModel || row.ai_model || "模型未记录";
   const size = getPayloadDisplaySize(payload) || row.image_size || "尺寸未记录";
   const status = formatStatus(row.status);
-  const unit = payload?.kind === "videoImageToVideo" || payload?.kind === "videoMotion" ? "个视频" : "张结果";
+  const unit = payload?.kind === "videoImageToVideo" || payload?.kind === "videoMotion" || payload?.kind === "videoFirstLastFrame" ? "个视频" : "张结果";
   return `${status} · ${resultCount} ${unit} · ${model} · ${size}`;
 }
 
 function getPayloadDisplaySize(payload?: HistoryJobPayload) {
   if (!payload) return "";
   if (payload.kind === "videoImageToVideo" || payload.kind === "videoMotion") return payload.resolution;
+  if (payload.kind === "videoFirstLastFrame") return `${payload.duration}秒`;
   return "imageSize" in payload ? payload.imageSize : "";
 }
 
@@ -1494,6 +1503,12 @@ function getInputImages(payload: HistoryJobPayload) {
     return [
       { label: "模特图", url: payload.modelImageUrl },
       { label: "参考视频", url: payload.referenceVideoUrl },
+    ];
+  }
+  if (payload.kind === "videoFirstLastFrame") {
+    return [
+      { label: "首帧", url: payload.firstFrameUrl },
+      { label: "尾帧", url: payload.lastFrameUrl },
     ];
   }
   if (payload.kind === "faceSwap") {
@@ -1624,9 +1639,20 @@ function getParameterItems(row: HistoryRow) {
       ...common,
       { label: "生成数量", value: "1" },
       { label: "分辨率", value: payload.resolution },
-      { label: "质量档", value: payload.resolution === "1080p" ? "pro" : "std" },
+      { label: "视频模型", value: "Seedance2" },
       { label: "动作模板", value: payload.templateTitle || "-" },
       { label: "参考视频", value: payload.referenceVideoUrl ? "已使用" : "未使用" },
+    ];
+  }
+  if (payload.kind === "videoFirstLastFrame") {
+    return [
+      ...common,
+      { label: "生成数量", value: "1" },
+      { label: "视频时长", value: `${payload.duration}秒` },
+      { label: "分辨率", value: payload.resolution },
+      { label: "标题", value: payload.title || "-" },
+      { label: "首帧", value: payload.firstFrameUrl ? "已使用" : "未使用" },
+      { label: "尾帧", value: payload.lastFrameUrl ? "已使用" : "未使用" },
     ];
   }
   if (payload.kind === "faceSwap") {
