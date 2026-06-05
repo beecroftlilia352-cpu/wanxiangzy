@@ -123,8 +123,6 @@ const OPTIONAL_ENV: EnvContractEntry[] = [
   { name: "LAOZHANG_SEEDANCE_BASE_URL", category: "optional", description: "Seedance 2.0 API base URL, default https://api.laozhang.ai/seedance/api/v3." },
   { name: "LAOZHANG_SEEDANCE_FAST_MODEL", category: "optional", description: "Seedance 2.0 fast model override, default doubao-seedance-2-0-fast-260128." },
   { name: "LAOZHANG_SEEDANCE_PRO_MODEL", category: "optional", description: "Seedance 2.0 professional/standard model override, default doubao-seedance-2-0-260128." },
-  { name: "LAOZHANG_SEEDANCE_MODEL", category: "optional", description: "Legacy Seedance 2.0 fast model override. Prefer LAOZHANG_SEEDANCE_FAST_MODEL." },
-  { name: "LAOZHANG_SEEDANCE_FIRST_LAST_FRAME_MODEL", category: "optional", description: "Legacy Seedance 2.0 standard model override. Prefer LAOZHANG_SEEDANCE_PRO_MODEL." },
   { name: "TRYON_CLOTHING_ANALYZE_API_KEY", category: "optional", description: "Yunwu/OpenAI-compatible API key for try-on clothing recognition; falls back to LINGYA_API_KEY." },
   { name: "TRYON_CLOTHING_ANALYZE_BASE_URL", category: "optional", description: "Yunwu/OpenAI-compatible base URL for try-on clothing recognition." },
   { name: "TRYON_CLOTHING_ANALYZE_MODEL", category: "optional", description: "Vision-capable model for try-on clothing recognition, default gpt-5-nano." },
