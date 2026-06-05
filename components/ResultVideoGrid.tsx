@@ -33,6 +33,7 @@ export function ResultVideoGrid({
   const count = Math.max(urls.length, expectedCount || 0, 1);
   const slots = Array.from({ length: count }, (_, index) => urls[index] || null);
   const running = isGenerating || statusGroup === "running" || statusGroup === "queued";
+  const gridClassName = getVideoGridClass(count);
 
   return (
     <div className="studio-result-set w-full max-w-[min(1080px,100%)]">
@@ -55,7 +56,7 @@ export function ResultVideoGrid({
             ))}
           </div>
         )}
-        <div className="grid min-w-0 flex-1 grid-cols-1 gap-4">
+        <div className={`grid min-w-0 flex-1 justify-items-start gap-3 sm:gap-4 ${gridClassName}`}>
           {slots.map((url, index) => (
             <VideoResultCard
               key={`${renderKey}-${index}`}
@@ -71,6 +72,12 @@ export function ResultVideoGrid({
       </div>
     </div>
   );
+}
+
+function getVideoGridClass(count: number) {
+  if (count <= 1) return "max-w-[min(520px,100%)] grid-cols-1";
+  if (count === 2) return "max-w-[min(760px,100%)] grid-cols-1 sm:grid-cols-2";
+  return "max-w-[min(1040px,100%)] grid-cols-1 sm:grid-cols-2 xl:grid-cols-3";
 }
 
 function VideoResultCard({
@@ -92,7 +99,7 @@ function VideoResultCard({
 
   if (!url) {
     return (
-      <div className="studio-result-card w-full justify-self-center overflow-hidden bg-white" style={layout}>
+      <div className="studio-result-card w-full justify-self-start overflow-hidden bg-white" style={layout}>
         <div className="gen-card studio-result-pending-card flex h-full w-full flex-col items-center justify-center gap-2">
           <div className="relative z-[1] flex h-14 w-14 items-center justify-center">
             <div className="gen-ring absolute inset-0 rounded-full bg-[#aeb8ff]/45" />
@@ -110,7 +117,7 @@ function VideoResultCard({
   }
 
   return (
-    <div className="studio-result-card group relative w-full justify-self-center overflow-hidden bg-black" style={layout}>
+    <div className="studio-result-card group relative w-full justify-self-start overflow-hidden bg-black" style={layout}>
       <button
         type="button"
         onClick={() => onOpen(url, index)}
@@ -154,14 +161,14 @@ function getVideoResultLayout(aspectRatio?: string): CSSProperties {
   const height = Number.isFinite(rawHeight) && rawHeight > 0 ? rawHeight : 16;
   const ratio = width / height;
   const maxWidth = ratio < 0.7
-    ? 420
+    ? 260
     : ratio < 0.9
-      ? 500
+      ? 300
       : ratio < 1.15
-        ? 560
+        ? 340
         : ratio < 1.6
-          ? 760
-          : 1080;
+          ? 520
+          : 680;
 
   return {
     aspectRatio: `${width} / ${height}`,
