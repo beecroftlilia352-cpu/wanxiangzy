@@ -116,6 +116,8 @@ export const MAX_FILE_SIZE_MB = 15;
 export const MAX_FILE_SIZE = MAX_FILE_SIZE_MB * 1024 * 1024;
 export const MAX_VIDEO_FILE_SIZE_MB = 100;
 export const MAX_VIDEO_FILE_SIZE = MAX_VIDEO_FILE_SIZE_MB * 1024 * 1024;
+export const MAX_AUDIO_FILE_SIZE_MB = 30;
+export const MAX_AUDIO_FILE_SIZE = MAX_AUDIO_FILE_SIZE_MB * 1024 * 1024;
 const UPLOAD_TRANSPORT_SAFE_SIZE_MB = 8;
 const IMAGE_UPLOAD_CLIENT_TIMEOUT_MS = 75_000;
 export const MAX_CLOTHING_FILES = 5;
@@ -278,6 +280,24 @@ export async function uploadVideo(file: File): Promise<UploadResult> {
   form.append("name", file.name.replace(/\.[^.]+$/, ""));
 
   const res = await fetch("/api/upload-video", {
+    method: "POST",
+    body: form,
+  });
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || `上传失败 (${res.status})`);
+  }
+
+  return res.json();
+}
+
+export async function uploadAudio(file: File): Promise<UploadResult> {
+  const form = new FormData();
+  form.append("audio", file);
+  form.append("name", file.name.replace(/\.[^.]+$/, ""));
+
+  const res = await fetch("/api/upload-audio", {
     method: "POST",
     body: form,
   });

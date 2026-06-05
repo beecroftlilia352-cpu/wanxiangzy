@@ -1400,13 +1400,13 @@ function getHistoryInputSummary(payload?: HistoryJobPayload) {
     return `主图 · ${getPoseSeriesStyleLabel(payload.poseStyle)}`;
   }
   if (payload.kind === "videoImageToVideo") {
-    return `输入图 · ${payload.templateTitle || "自定义动作"} · ${payload.resolution}`;
+    return `输入图 · ${payload.templateTitle || "自定义动作"} · ${getVideoModeLabel(payload.modelMode)} · ${payload.resolution} · ${payload.aspectRatio || "9:16"} · ${payload.duration || 5}秒 · ${getVideoAudioLabel(payload)}`;
   }
   if (payload.kind === "videoMotion") {
-    return `模特图 + 参考视频 · ${payload.templateTitle || "动作模仿"} · ${payload.resolution}`;
+    return `模特图 + 参考视频 · ${payload.templateTitle || "动作模仿"} · ${getVideoModeLabel(payload.modelMode)} · ${payload.resolution} · ${payload.aspectRatio || "9:16"} · ${payload.duration || 5}秒 · ${getVideoAudioLabel(payload)}`;
   }
   if (payload.kind === "videoFirstLastFrame") {
-    return `首帧 + 尾帧 · ${payload.duration}秒 · ${payload.resolution}`;
+    return `首帧 + 尾帧 · ${getVideoModeLabel(payload.modelMode)} · ${payload.resolution} · ${payload.aspectRatio || "9:16"} · ${payload.duration || 5}秒 · ${getVideoAudioLabel(payload)}`;
   }
   if (payload.kind === "garment3d") {
     return `服装图 · ${payload.outputMode === "reference" ? "参考图模式" : "提示词模式"} · ${getGarment3dDisplayStyleLabel(payload.displayStyle)}`;
@@ -1439,9 +1439,20 @@ function getHistoryOutputSummary(row: HistoryRow, payload?: HistoryJobPayload) {
 
 function getPayloadDisplaySize(payload?: HistoryJobPayload) {
   if (!payload) return "";
-  if (payload.kind === "videoImageToVideo" || payload.kind === "videoMotion") return payload.resolution;
-  if (payload.kind === "videoFirstLastFrame") return `${payload.duration}秒`;
+  if (payload.kind === "videoImageToVideo" || payload.kind === "videoMotion" || payload.kind === "videoFirstLastFrame") {
+    return `${payload.resolution} · ${payload.aspectRatio || "9:16"} · ${payload.duration || 5}秒`;
+  }
   return "imageSize" in payload ? payload.imageSize : "";
+}
+
+function getVideoModeLabel(mode?: string) {
+  return mode === "fast" ? "快速模式" : "专业模式";
+}
+
+function getVideoAudioLabel(payload: Extract<HistoryJobPayload, { kind: "videoImageToVideo" | "videoMotion" | "videoFirstLastFrame" }>) {
+  if (payload.audioMode === "off" || payload.generateAudio === false) return "静音";
+  if (payload.audioMode === "custom" || payload.audioUrl) return "上传音频";
+  return "智能音效";
 }
 
 function getHistoryReuseLabel(payload?: HistoryJobPayload) {
@@ -1628,17 +1639,26 @@ function getParameterItems(row: HistoryRow) {
   if (payload.kind === "videoImageToVideo") {
     return [
       ...common,
+      { label: "生成模式", value: getVideoModeLabel(payload.modelMode) },
       { label: "比例", value: payload.aspectRatio || "9:16" },
-      { label: "生成数量", value: "1" },
+      { label: "视频时长", value: `${payload.duration || 5}秒` },
+      { label: "生成数量", value: String(payload.genCount || 1) },
       { label: "分辨率", value: payload.resolution },
+      { label: "音效", value: getVideoAudioLabel(payload) },
+      { label: "音频控制", value: payload.audioPrompt || "-" },
       { label: "动作模板", value: payload.templateTitle || "-" },
     ];
   }
   if (payload.kind === "videoMotion") {
     return [
       ...common,
-      { label: "生成数量", value: "1" },
+      { label: "生成模式", value: getVideoModeLabel(payload.modelMode) },
+      { label: "比例", value: payload.aspectRatio || "9:16" },
+      { label: "视频时长", value: `${payload.duration || 5}秒` },
+      { label: "生成数量", value: String(payload.genCount || 1) },
       { label: "分辨率", value: payload.resolution },
+      { label: "音效", value: getVideoAudioLabel(payload) },
+      { label: "音频控制", value: payload.audioPrompt || "-" },
       { label: "视频模型", value: "Seedance2" },
       { label: "动作模板", value: payload.templateTitle || "-" },
       { label: "参考视频", value: payload.referenceVideoUrl ? "已使用" : "未使用" },
@@ -1647,10 +1667,13 @@ function getParameterItems(row: HistoryRow) {
   if (payload.kind === "videoFirstLastFrame") {
     return [
       ...common,
-      { label: "生成数量", value: "1" },
-      { label: "视频时长", value: `${payload.duration}秒` },
+      { label: "生成模式", value: getVideoModeLabel(payload.modelMode) },
+      { label: "比例", value: payload.aspectRatio || "9:16" },
+      { label: "视频时长", value: `${payload.duration || 5}秒` },
+      { label: "生成数量", value: String(payload.genCount || 1) },
       { label: "分辨率", value: payload.resolution },
-      { label: "标题", value: payload.title || "-" },
+      { label: "音效", value: getVideoAudioLabel(payload) },
+      { label: "音频控制", value: payload.audioPrompt || "-" },
       { label: "首帧", value: payload.firstFrameUrl ? "已使用" : "未使用" },
       { label: "尾帧", value: payload.lastFrameUrl ? "已使用" : "未使用" },
     ];

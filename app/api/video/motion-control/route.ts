@@ -6,9 +6,14 @@ import { handleGenerationStatusGet } from "@/lib/api/generation-status";
 import { getPublicBaseUrlFromRequest } from "@/lib/api/image-inputs.server";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 import {
-  AI_VIDEO_SEEDANCE_MODEL,
   getAiVideoCreditCost,
+  getAiVideoSeedanceModel,
   getAiVideoTemplate,
+  normalizeAiVideoAudioMode,
+  normalizeAiVideoAspectRatio,
+  normalizeAiVideoDuration,
+  normalizeAiVideoGenCount,
+  normalizeAiVideoModelMode,
   normalizeAiVideoResolution,
 } from "@/lib/ai-video";
 
@@ -30,14 +35,23 @@ export async function POST(request: NextRequest) {
     const modelImageUrl = typeof body.modelImageUrl === "string" ? body.modelImageUrl.trim() : "";
     const referenceVideoUrl = typeof body.referenceVideoUrl === "string" ? body.referenceVideoUrl.trim() : "";
     const prompt = typeof body.prompt === "string" ? body.prompt.trim() : "";
-    const resolution = normalizeAiVideoResolution(body.resolution);
+    const modelMode = normalizeAiVideoModelMode(body.modelMode, "videoMotion");
+    const resolution = normalizeAiVideoResolution(body.resolution, modelMode);
+    const duration = normalizeAiVideoDuration(body.duration);
+    const aspectRatio = normalizeAiVideoAspectRatio(body.aspectRatio);
+    const genCount = normalizeAiVideoGenCount(body.genCount);
+    const audioMode = normalizeAiVideoAudioMode(body.audioMode);
+    const audioUrl = typeof body.audioUrl === "string" ? body.audioUrl.trim() : "";
+    const audioPrompt = typeof body.audioPrompt === "string" ? body.audioPrompt.trim() : "";
     const templateId = Number(body.templateId || 0) || undefined;
     const template = getAiVideoTemplate(templateId);
 
     if (!modelImageUrl) return NextResponse.json({ error: "请先上传模特图" }, { status: 400 });
     if (!referenceVideoUrl) return NextResponse.json({ error: "请先上传参考视频" }, { status: 400 });
+    if (audioMode === "custom" && !audioUrl) return NextResponse.json({ error: "请先上传音频或切换为智能音效" }, { status: 400 });
 
-    const totalCost = getAiVideoCreditCost(resolution);
+    const aiModel = getAiVideoSeedanceModel(modelMode, "videoMotion");
+    const totalCost = getAiVideoCreditCost({ modelMode, resolution, duration, genCount, audioMode });
     const jobPayload: GenerationJobPayload = {
       kind: "videoMotion",
       publicBaseUrl: getPublicBaseUrlFromRequest(request),
@@ -46,9 +60,16 @@ export async function POST(request: NextRequest) {
       prompt,
       templateId,
       templateTitle: template?.title,
+      modelMode,
+      duration,
       resolution,
-      aiModel: AI_VIDEO_SEEDANCE_MODEL,
-      genCount: 1,
+      aspectRatio,
+      audioMode,
+      audioUrl: audioMode === "custom" ? audioUrl : undefined,
+      audioPrompt,
+      generateAudio: audioMode !== "off",
+      aiModel,
+      genCount,
     };
 
     const debit = await createDebitedGeneration(supabase, {
@@ -57,9 +78,9 @@ export async function POST(request: NextRequest) {
       modelFaceUrl: null,
       referenceUrl: referenceVideoUrl,
       creditsCost: totalCost,
-      aiModel: AI_VIDEO_SEEDANCE_MODEL,
-      imageSize: resolution,
-      reason: `动作模仿 (${AI_VIDEO_SEEDANCE_MODEL}, ${resolution})`,
+      aiModel,
+      imageSize: `${resolution} · ${aspectRatio} · ${duration}s`,
+      reason: `动作模仿 (${modelMode}, ${aiModel}, ${resolution}, ${aspectRatio}, ${duration}s, ${getAudioReasonLabel(audioMode)} × ${genCount})`,
       jobPayload,
     });
 
@@ -76,6 +97,12 @@ export async function POST(request: NextRequest) {
     const payload = errorToResponsePayload(err);
     return NextResponse.json(payload.body, { status: payload.status });
   }
+}
+
+function getAudioReasonLabel(audioMode: string) {
+  if (audioMode === "custom") return "custom audio";
+  if (audioMode === "off") return "silent";
+  return "generated audio";
 }
 
 export async function GET(request: NextRequest) {

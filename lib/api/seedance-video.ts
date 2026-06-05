@@ -1,8 +1,14 @@
 import {
   AI_VIDEO_DEFAULT_ASPECT_RATIO,
+  AI_VIDEO_DEFAULT_DURATION,
   AI_VIDEO_SEEDANCE_FIRST_LAST_FRAME_MODEL,
   AI_VIDEO_SEEDANCE_MODEL,
+  AI_VIDEO_SEEDANCE_STANDARD_MODEL,
+  normalizeAiVideoAudioMode,
+  type AiVideoAudioMode,
+  type AiVideoAspectRatio,
   type AiVideoDuration,
+  type AiVideoModelMode,
   type AiVideoResolution,
 } from "@/lib/ai-video";
 
@@ -11,7 +17,6 @@ const SEEDANCE_API_PATH = "/seedance/api/v3";
 const VIDEO_SUBMIT_PROGRESS_MAX = 10;
 const VIDEO_POLL_INTERVAL_MS = 5_000;
 const VIDEO_POLL_TIMEOUT_MS = 10 * 60 * 1000;
-const DEFAULT_SEEDANCE_DURATION_SECONDS = 4;
 
 export type VideoTaskProgress = {
   taskId?: string;
@@ -34,8 +39,14 @@ export type VideoGenerationResult = {
 export type SeedanceImageToVideoInput = {
   imageUrl: string;
   prompt: string;
+  modelMode: AiVideoModelMode;
+  duration: AiVideoDuration;
   resolution: AiVideoResolution;
-  aspectRatio?: "9:16" | "16:9";
+  aspectRatio: AiVideoAspectRatio;
+  audioMode: AiVideoAudioMode;
+  audioUrl?: string | null;
+  audioPrompt?: string | null;
+  generateAudio: boolean;
   onProgress?: (update: VideoTaskProgress) => Promise<void> | void;
 };
 
@@ -43,7 +54,14 @@ export type SeedanceMotionControlInput = {
   modelImageUrl: string;
   referenceVideoUrl: string;
   prompt?: string;
+  modelMode: AiVideoModelMode;
+  duration: AiVideoDuration;
   resolution: AiVideoResolution;
+  aspectRatio: AiVideoAspectRatio;
+  audioMode: AiVideoAudioMode;
+  audioUrl?: string | null;
+  audioPrompt?: string | null;
+  generateAudio: boolean;
   onProgress?: (update: VideoTaskProgress) => Promise<void> | void;
 };
 
@@ -51,8 +69,14 @@ export type SeedanceFirstLastFrameInput = {
   firstFrameUrl: string;
   lastFrameUrl: string;
   prompt: string;
+  modelMode: AiVideoModelMode;
   duration: AiVideoDuration;
   resolution: AiVideoResolution;
+  aspectRatio: AiVideoAspectRatio;
+  audioMode: AiVideoAudioMode;
+  audioUrl?: string | null;
+  audioPrompt?: string | null;
+  generateAudio: boolean;
   onProgress?: (update: VideoTaskProgress) => Promise<void> | void;
 };
 
@@ -79,19 +103,24 @@ type PollState = {
 type SeedanceContentItem =
   | { type: "text"; text: string }
   | { type: "image_url"; image_url: { url: string }; role: "first_frame" | "last_frame" | "reference_image" }
-  | { type: "video_url"; video_url: { url: string }; role: "reference_video" };
-type SeedanceRatio = "9:16" | "16:9" | "adaptive";
+  | { type: "video_url"; video_url: { url: string }; role: "reference_video" }
+  | { type: "audio_url"; audio_url: { url: string }; role: "reference_audio" };
+type SeedanceRatio = AiVideoAspectRatio | "adaptive";
 
 export async function generateSeedanceImageToVideo(input: SeedanceImageToVideoInput): Promise<VideoGenerationResult> {
-  const provider = getSeedanceVideoProvider();
-  const prompt = buildImageToVideoPrompt(input.prompt);
+  const provider = getSeedanceVideoProvider({ modelMode: input.modelMode, resolution: input.resolution });
+  const prompt = appendAudioPrompt(buildImageToVideoPrompt(input.prompt), input);
+  const content: SeedanceContentItem[] = [
+    { type: "text", text: prompt },
+    { type: "image_url", image_url: { url: input.imageUrl }, role: "first_frame" },
+    ...getAudioContentItems(input),
+  ];
   const body = buildSeedanceTaskBody(provider.model, {
-    content: [
-      { type: "text", text: prompt },
-      { type: "image_url", image_url: { url: input.imageUrl }, role: "first_frame" },
-    ],
+    content,
     ratio: input.aspectRatio || AI_VIDEO_DEFAULT_ASPECT_RATIO,
+    duration: input.duration,
     resolution: input.resolution,
+    generateAudio: shouldGenerateOrUseAudio(input),
   });
 
   const completed = await runSeedanceTask(provider, body, input.onProgress);
@@ -107,17 +136,20 @@ export async function generateSeedanceImageToVideo(input: SeedanceImageToVideoIn
 }
 
 export async function generateSeedanceFirstLastFrame(input: SeedanceFirstLastFrameInput): Promise<VideoGenerationResult> {
-  const provider = getSeedanceVideoProvider("first-last-frame");
-  const prompt = buildFirstLastFramePrompt(input.prompt);
+  const provider = getSeedanceVideoProvider({ mode: "first-last-frame", modelMode: input.modelMode, resolution: input.resolution });
+  const prompt = appendAudioPrompt(buildFirstLastFramePrompt(input.prompt), input);
+  const content: SeedanceContentItem[] = [
+    { type: "text", text: prompt },
+    { type: "image_url", image_url: { url: input.firstFrameUrl }, role: "first_frame" },
+    { type: "image_url", image_url: { url: input.lastFrameUrl }, role: "last_frame" },
+    ...getAudioContentItems(input),
+  ];
   const body = buildSeedanceTaskBody(provider.model, {
-    content: [
-      { type: "text", text: prompt },
-      { type: "image_url", image_url: { url: input.firstFrameUrl }, role: "first_frame" },
-      { type: "image_url", image_url: { url: input.lastFrameUrl }, role: "last_frame" },
-    ],
-    ratio: "adaptive",
+    content,
+    ratio: input.aspectRatio || AI_VIDEO_DEFAULT_ASPECT_RATIO,
     duration: input.duration,
     resolution: input.resolution,
+    generateAudio: shouldGenerateOrUseAudio(input),
   });
 
   const completed = await runSeedanceTask(provider, body, input.onProgress);
@@ -133,16 +165,20 @@ export async function generateSeedanceFirstLastFrame(input: SeedanceFirstLastFra
 }
 
 export async function generateSeedanceMotionControl(input: SeedanceMotionControlInput): Promise<VideoGenerationResult> {
-  const provider = getSeedanceVideoProvider();
-  const prompt = buildMotionControlPrompt(input.prompt);
+  const provider = getSeedanceVideoProvider({ modelMode: input.modelMode, resolution: input.resolution });
+  const prompt = appendAudioPrompt(buildMotionControlPrompt(input.prompt), input);
+  const content: SeedanceContentItem[] = [
+    { type: "text", text: prompt },
+    { type: "image_url", image_url: { url: input.modelImageUrl }, role: "reference_image" },
+    { type: "video_url", video_url: { url: input.referenceVideoUrl }, role: "reference_video" },
+    ...getAudioContentItems(input),
+  ];
   const body = buildSeedanceTaskBody(provider.model, {
-    content: [
-      { type: "text", text: prompt },
-      { type: "image_url", image_url: { url: input.modelImageUrl }, role: "reference_image" },
-      { type: "video_url", video_url: { url: input.referenceVideoUrl }, role: "reference_video" },
-    ],
-    ratio: AI_VIDEO_DEFAULT_ASPECT_RATIO,
+    content,
+    ratio: input.aspectRatio || AI_VIDEO_DEFAULT_ASPECT_RATIO,
+    duration: input.duration,
     resolution: input.resolution,
+    generateAudio: shouldGenerateOrUseAudio(input),
   });
 
   const completed = await runSeedanceTask(provider, body, input.onProgress);
@@ -155,6 +191,17 @@ export async function generateSeedanceMotionControl(input: SeedanceMotionControl
     prompt,
     compiledPrompt: JSON.stringify(body),
   };
+}
+
+function getAudioContentItems(input: { audioMode: AiVideoAudioMode; audioUrl?: string | null }): SeedanceContentItem[] {
+  if (normalizeAiVideoAudioMode(input.audioMode) !== "custom") return [];
+  const audioUrl = input.audioUrl?.trim();
+  if (!audioUrl) throw new Error("自定义音频 URL 为空");
+  return [{ type: "audio_url", audio_url: { url: audioUrl }, role: "reference_audio" }];
+}
+
+function shouldGenerateOrUseAudio(input: { audioMode: AiVideoAudioMode; generateAudio: boolean }) {
+  return normalizeAiVideoAudioMode(input.audioMode) !== "off" && input.generateAudio !== false;
 }
 
 async function runSeedanceTask(
@@ -191,16 +238,17 @@ function buildSeedanceTaskBody(
     ratio: SeedanceRatio;
     duration?: AiVideoDuration;
     resolution: AiVideoResolution;
+    generateAudio: boolean;
   }
 ) {
   return {
     model,
     content: params.content,
     ratio: params.ratio,
-    duration: params.duration || DEFAULT_SEEDANCE_DURATION_SECONDS,
+    duration: params.duration || AI_VIDEO_DEFAULT_DURATION,
     resolution: params.resolution,
     watermark: false,
-    generate_audio: false,
+    generate_audio: params.generateAudio,
     return_last_frame: true,
   };
 }
@@ -229,6 +277,31 @@ function buildMotionControlPrompt(prompt?: string) {
     trimmed || "复刻参考视频中的人物动作节奏和镜头运动。",
     "参考视频只用于动作、节奏和运镜；人物身份、服装、比例和画面主体以输入模特图为准。",
     "保持真实商业摄影质感，避免转场、字幕、水印和额外人物。",
+  ].join("\n");
+}
+
+function appendAudioPrompt(
+  prompt: string,
+  input: { audioMode: AiVideoAudioMode; audioPrompt?: string | null; audioUrl?: string | null }
+) {
+  const audioMode = normalizeAiVideoAudioMode(input.audioMode);
+  if (audioMode === "off") return prompt;
+
+  const audioPrompt = input.audioPrompt?.trim();
+  if (audioMode === "custom") {
+    return [
+      prompt,
+      audioPrompt
+        ? `音频要求：使用上传音频作为主要声音参考，${audioPrompt}`
+        : "音频要求：使用上传音频作为主要声音参考，保留其节奏、情绪和关键人声/旋律，画面动作与音频节拍自然对齐，不额外添加突兀人声。",
+    ].join("\n");
+  }
+
+  return [
+    prompt,
+    audioPrompt
+      ? `音效要求：${audioPrompt}`
+      : "音效要求：生成干净自然的商业展示环境声和轻动作音效，节奏贴合画面，不添加嘈杂人声、尖锐噪音或夸张音效。",
   ].join("\n");
 }
 
@@ -313,7 +386,7 @@ function buildHeaders(apiKey: string) {
   };
 }
 
-function getSeedanceVideoProvider(mode: "default" | "first-last-frame" = "default"): ProviderConfig {
+function getSeedanceVideoProvider(options: { mode?: "default" | "first-last-frame"; modelMode?: AiVideoModelMode; resolution?: AiVideoResolution } = {}): ProviderConfig {
   const apiKey = (
     process.env.LAOZHANG_SEEDANCE_API_KEY ||
     process.env.LAOZHANG_API_KEY ||
@@ -326,9 +399,19 @@ function getSeedanceVideoProvider(mode: "default" | "first-last-frame" = "defaul
     process.env.LAOZHANG_BASE_URL ||
     DEFAULT_LAOZHANG_BASE_URL
   );
-  const model = mode === "first-last-frame"
-    ? (process.env.LAOZHANG_SEEDANCE_FIRST_LAST_FRAME_MODEL || process.env.LAOZHANG_SEEDANCE_MODEL || AI_VIDEO_SEEDANCE_FIRST_LAST_FRAME_MODEL).trim()
-    : (process.env.LAOZHANG_SEEDANCE_MODEL || AI_VIDEO_SEEDANCE_MODEL).trim();
+  const useStandardModel = options.mode === "first-last-frame" || options.modelMode === "pro" || options.resolution === "1080p";
+  const model = useStandardModel
+    ? (
+        process.env.LAOZHANG_SEEDANCE_PRO_MODEL ||
+        process.env.LAOZHANG_SEEDANCE_FIRST_LAST_FRAME_MODEL ||
+        AI_VIDEO_SEEDANCE_FIRST_LAST_FRAME_MODEL ||
+        AI_VIDEO_SEEDANCE_STANDARD_MODEL
+      ).trim()
+    : (
+        process.env.LAOZHANG_SEEDANCE_FAST_MODEL ||
+        process.env.LAOZHANG_SEEDANCE_MODEL ||
+        AI_VIDEO_SEEDANCE_MODEL
+      ).trim();
   return { apiBase, apiKey, model };
 }
 

@@ -11,7 +11,13 @@ import { completeGenerationWithCreditAdjustment, failGenerationWithRefund } from
 import { resolveImageInputs } from "@/lib/api/image-inputs.server";
 import { persistGeneratedImageUrls } from "@/lib/api/result-image-storage";
 import { persistGeneratedMediaUrls } from "@/lib/api/result-media-storage";
-import { generateSeedanceFirstLastFrame, generateSeedanceImageToVideo, generateSeedanceMotionControl } from "@/lib/api/seedance-video";
+import {
+  generateSeedanceFirstLastFrame,
+  generateSeedanceImageToVideo,
+  generateSeedanceMotionControl,
+  type VideoGenerationResult,
+  type VideoTaskProgress,
+} from "@/lib/api/seedance-video";
 import { syncGenerationTaskQueueById } from "@/lib/task-queue-store";
 import {
   applyQualityRepairToPrompt,
@@ -72,7 +78,20 @@ import {
   type ProductSetResolvedTemplate,
   type ProductSetSettings,
 } from "@/lib/product-set";
-import type { AiVideoDuration, AiVideoResolution } from "@/lib/ai-video";
+import {
+  normalizeAiVideoAudioMode,
+  normalizeAiVideoAspectRatio,
+  normalizeAiVideoDuration,
+  normalizeAiVideoGenCount,
+  normalizeAiVideoGenerateAudio,
+  normalizeAiVideoModelMode,
+  normalizeAiVideoResolution,
+  type AiVideoAudioMode,
+  type AiVideoAspectRatio,
+  type AiVideoDuration,
+  type AiVideoModelMode,
+  type AiVideoResolution,
+} from "@/lib/ai-video";
 
 type GenerationJobPayloadBase = {
   publicBaseUrl?: string | null;
@@ -205,8 +224,14 @@ export type GenerationJobPayload = GenerationJobPayloadBase & (
       prompt: string;
       templateId?: number;
       templateTitle?: string;
+      modelMode?: AiVideoModelMode;
+      duration?: AiVideoDuration;
       resolution: AiVideoResolution;
-      aspectRatio?: "9:16" | "16:9";
+      aspectRatio?: AiVideoAspectRatio;
+      audioMode?: AiVideoAudioMode;
+      audioUrl?: string;
+      audioPrompt?: string;
+      generateAudio?: boolean;
       aiModel: string;
       genCount: number;
     }
@@ -217,7 +242,14 @@ export type GenerationJobPayload = GenerationJobPayloadBase & (
       prompt?: string;
       templateId?: number;
       templateTitle?: string;
+      modelMode?: AiVideoModelMode;
+      duration?: AiVideoDuration;
       resolution: AiVideoResolution;
+      aspectRatio?: AiVideoAspectRatio;
+      audioMode?: AiVideoAudioMode;
+      audioUrl?: string;
+      audioPrompt?: string;
+      generateAudio?: boolean;
       aiModel: string;
       genCount: number;
     }
@@ -226,9 +258,14 @@ export type GenerationJobPayload = GenerationJobPayloadBase & (
       firstFrameUrl: string;
       lastFrameUrl: string;
       prompt: string;
-      title?: string;
-      duration: AiVideoDuration;
+      modelMode?: AiVideoModelMode;
+      duration?: AiVideoDuration;
       resolution: AiVideoResolution;
+      aspectRatio?: AiVideoAspectRatio;
+      audioMode?: AiVideoAudioMode;
+      audioUrl?: string;
+      audioPrompt?: string;
+      generateAudio?: boolean;
       aiModel: string;
       genCount: number;
     }
@@ -869,107 +906,108 @@ async function executePayload(
     };
   };
 
-  if (payload.kind === "videoImageToVideo") {
-    const result = await generateSeedanceImageToVideo({
-      imageUrl: payload.imageUrl,
-      prompt: payload.prompt,
-      resolution: payload.resolution,
-      aspectRatio: payload.aspectRatio,
-      onProgress: async (progress) => {
+  const runVideoBatch = async (
+    promptKind: string,
+    runOne: (index: number, onVideoProgress: (progress: VideoTaskProgress) => Promise<void>) => Promise<VideoGenerationResult>
+  ) => {
+    const expectedCount = normalizeAiVideoGenCount(payload.genCount);
+    const resultUrls: string[] = [];
+    let externalTaskId: string | undefined;
+    let externalStatus: string | undefined;
+
+    for (let index = 0; index < expectedCount; index += 1) {
+      const result = await runOne(index, async (progress) => {
+        const currentUrls = progress.urls?.length ? [...resultUrls, ...progress.urls] : resultUrls;
         await onProgress?.({
-          resultUrls: progress.urls || [],
+          resultUrls: currentUrls,
           promptTrace,
-          progress: progress.progress,
+          progress: Math.min(99, Math.round((index / expectedCount) * 100 + progress.progress / expectedCount)),
           externalTaskId: progress.taskId,
           externalStatus: progress.providerStatus || progress.status,
         });
-      },
-    });
-    const trace = createPromptTraceItem({
-      index: 1,
-      kind: payload.kind,
-      model: payload.aiModel,
-      promptKind: "video:image-to-video",
-      prompt: result.prompt,
-      compiledPrompt: result.compiledPrompt,
-    });
-    promptTrace.push(trace);
+      });
+
+      resultUrls.push(...result.urls);
+      externalTaskId = result.taskId;
+      externalStatus = result.providerStatus;
+      promptTrace.push(createPromptTraceItem({
+        index: index + 1,
+        kind: payload.kind,
+        model: payload.aiModel,
+        promptKind,
+        prompt: result.prompt,
+        compiledPrompt: result.compiledPrompt,
+      }));
+
+      await onProgress?.({
+        resultUrls,
+        promptTrace,
+        progress: Math.min(99, Math.round(((index + 1) / expectedCount) * 100)),
+        externalTaskId,
+        externalStatus,
+      });
+    }
+
     return {
-      resultUrls: result.urls,
+      resultUrls,
       promptTrace,
       progress: 100,
-      externalTaskId: result.taskId,
-      externalStatus: result.providerStatus,
+      externalTaskId,
+      externalStatus,
     };
+  };
+
+  if (payload.kind === "videoImageToVideo") {
+    const modelMode = normalizeAiVideoModelMode(payload.modelMode, payload.kind);
+    return runVideoBatch("video:image-to-video", (_index, onVideoProgress) => generateSeedanceImageToVideo({
+      imageUrl: payload.imageUrl,
+      prompt: payload.prompt,
+      modelMode,
+      duration: normalizeAiVideoDuration(payload.duration),
+      resolution: normalizeAiVideoResolution(payload.resolution, modelMode),
+      aspectRatio: normalizeAiVideoAspectRatio(payload.aspectRatio),
+      audioMode: normalizeAiVideoAudioMode(payload.audioMode),
+      audioUrl: payload.audioUrl,
+      audioPrompt: payload.audioPrompt,
+      generateAudio: normalizeAiVideoGenerateAudio(payload.generateAudio),
+      onProgress: onVideoProgress,
+    }));
   }
 
   if (payload.kind === "videoMotion") {
-    const result = await generateSeedanceMotionControl({
+    const modelMode = normalizeAiVideoModelMode(payload.modelMode, payload.kind);
+    return runVideoBatch("video:motion-control", (_index, onVideoProgress) => generateSeedanceMotionControl({
       modelImageUrl: payload.modelImageUrl,
       referenceVideoUrl: payload.referenceVideoUrl,
       prompt: payload.prompt,
-      resolution: payload.resolution,
-      onProgress: async (progress) => {
-        await onProgress?.({
-          resultUrls: progress.urls || [],
-          promptTrace,
-          progress: progress.progress,
-          externalTaskId: progress.taskId,
-          externalStatus: progress.providerStatus || progress.status,
-        });
-      },
-    });
-    const trace = createPromptTraceItem({
-      index: 1,
-      kind: payload.kind,
-      model: payload.aiModel,
-      promptKind: "video:motion-control",
-      prompt: result.prompt,
-      compiledPrompt: result.compiledPrompt,
-    });
-    promptTrace.push(trace);
-    return {
-      resultUrls: result.urls,
-      promptTrace,
-      progress: 100,
-      externalTaskId: result.taskId,
-      externalStatus: result.providerStatus,
-    };
+      modelMode,
+      duration: normalizeAiVideoDuration(payload.duration),
+      resolution: normalizeAiVideoResolution(payload.resolution, modelMode),
+      aspectRatio: normalizeAiVideoAspectRatio(payload.aspectRatio),
+      audioMode: normalizeAiVideoAudioMode(payload.audioMode),
+      audioUrl: payload.audioUrl,
+      audioPrompt: payload.audioPrompt,
+      generateAudio: normalizeAiVideoGenerateAudio(payload.generateAudio),
+      onProgress: onVideoProgress,
+    }));
   }
 
   if (payload.kind === "videoFirstLastFrame") {
-    const result = await generateSeedanceFirstLastFrame({
+    const modelMode = normalizeAiVideoModelMode(payload.modelMode, payload.kind);
+    return runVideoBatch("video:first-last-frame", (_index, onVideoProgress) => generateSeedanceFirstLastFrame({
       firstFrameUrl: payload.firstFrameUrl,
       lastFrameUrl: payload.lastFrameUrl,
       prompt: payload.prompt,
-      duration: payload.duration,
-      resolution: payload.resolution,
-      onProgress: async (progress) => {
-        await onProgress?.({
-          resultUrls: progress.urls || [],
-          promptTrace,
-          progress: progress.progress,
-          externalTaskId: progress.taskId,
-          externalStatus: progress.providerStatus || progress.status,
-        });
-      },
-    });
-    const trace = createPromptTraceItem({
-      index: 1,
-      kind: payload.kind,
-      model: payload.aiModel,
-      promptKind: "video:first-last-frame",
-      prompt: result.prompt,
-      compiledPrompt: result.compiledPrompt,
-    });
-    promptTrace.push(trace);
-    return {
-      resultUrls: result.urls,
-      promptTrace,
-      progress: 100,
-      externalTaskId: result.taskId,
-      externalStatus: result.providerStatus,
-    };
+      modelMode,
+      duration: normalizeAiVideoDuration(payload.duration),
+      resolution: normalizeAiVideoResolution(payload.resolution, modelMode),
+      aspectRatio: normalizeAiVideoAspectRatio(payload.aspectRatio),
+      audioMode: normalizeAiVideoAudioMode(payload.audioMode),
+      audioUrl: payload.audioUrl,
+      audioPrompt: payload.audioPrompt,
+      generateAudio: normalizeAiVideoGenerateAudio(payload.generateAudio),
+      onProgress: onVideoProgress,
+    }));
   }
 
   if (payload.kind === "tryon") {
@@ -1895,7 +1933,6 @@ function isJobPayload(value: unknown): value is GenerationJobPayload {
     return typeof value.firstFrameUrl === "string" &&
       typeof value.lastFrameUrl === "string" &&
       typeof value.prompt === "string" &&
-      typeof value.duration === "number" &&
       typeof value.resolution === "string" &&
       typeof value.aiModel === "string" &&
       typeof value.genCount === "number";

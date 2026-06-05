@@ -18,7 +18,7 @@ import type {
   ProductSetProductProfile,
   ProductSetSettings,
 } from "@/lib/product-set";
-import type { AiVideoDuration, AiVideoResolution } from "@/lib/ai-video";
+import type { AiVideoAspectRatio, AiVideoAudioMode, AiVideoDuration, AiVideoModelMode, AiVideoResolution } from "@/lib/ai-video";
 
 export type HistoryJobPayload =
   | {
@@ -132,8 +132,14 @@ export type HistoryJobPayload =
       prompt: string;
       templateId?: number;
       templateTitle?: string;
+      modelMode?: AiVideoModelMode;
+      duration?: AiVideoDuration;
       resolution: AiVideoResolution;
-      aspectRatio?: "9:16" | "16:9";
+      aspectRatio?: AiVideoAspectRatio;
+      audioMode?: AiVideoAudioMode;
+      audioUrl?: string;
+      audioPrompt?: string;
+      generateAudio?: boolean;
       aiModel: string;
       genCount: number;
     }
@@ -144,7 +150,14 @@ export type HistoryJobPayload =
       prompt?: string;
       templateId?: number;
       templateTitle?: string;
+      modelMode?: AiVideoModelMode;
+      duration?: AiVideoDuration;
       resolution: AiVideoResolution;
+      aspectRatio?: AiVideoAspectRatio;
+      audioMode?: AiVideoAudioMode;
+      audioUrl?: string;
+      audioPrompt?: string;
+      generateAudio?: boolean;
       aiModel: string;
       genCount: number;
     }
@@ -153,9 +166,14 @@ export type HistoryJobPayload =
       firstFrameUrl: string;
       lastFrameUrl: string;
       prompt: string;
-      title?: string;
-      duration: AiVideoDuration;
+      modelMode?: AiVideoModelMode;
+      duration?: AiVideoDuration;
       resolution: AiVideoResolution;
+      aspectRatio?: AiVideoAspectRatio;
+      audioMode?: AiVideoAudioMode;
+      audioUrl?: string;
+      audioPrompt?: string;
+      generateAudio?: boolean;
       aiModel: string;
       genCount: number;
     };

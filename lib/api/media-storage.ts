@@ -208,11 +208,17 @@ function normalizeMediaContentType(value?: string | null) {
 }
 
 function inferMediaContentType(bytes: Buffer, name: string) {
+  if (bytes.subarray(0, 3).toString("ascii") === "ID3") return "audio/mpeg";
+  if (bytes.subarray(0, 4).toString("ascii") === "RIFF" && bytes.subarray(8, 12).toString("ascii") === "WAVE") return "audio/wav";
   if (bytes.subarray(4, 8).toString("ascii") === "ftyp") return "video/mp4";
   const extension = name.match(/\.([a-z0-9]{2,5})$/i)?.[1]?.toLowerCase();
   if (extension === "mp4" || extension === "m4v") return "video/mp4";
   if (extension === "mov") return "video/quicktime";
   if (extension === "webm") return "video/webm";
+  if (extension === "mp3") return "audio/mpeg";
+  if (extension === "wav") return "audio/wav";
+  if (extension === "m4a") return "audio/mp4";
+  if (extension === "aac") return "audio/aac";
   if (extension === "jpg" || extension === "jpeg") return "image/jpeg";
   if (extension === "png") return "image/png";
   if (extension === "webp") return "image/webp";
@@ -223,6 +229,10 @@ function extensionFromContentType(contentType: string) {
   if (contentType === "video/mp4") return "mp4";
   if (contentType === "video/quicktime" || contentType === "video/mov") return "mov";
   if (contentType === "video/webm") return "webm";
+  if (contentType === "audio/mpeg" || contentType === "audio/mp3") return "mp3";
+  if (contentType === "audio/wav" || contentType === "audio/x-wav" || contentType === "audio/wave") return "wav";
+  if (contentType === "audio/mp4" || contentType === "audio/x-m4a") return "m4a";
+  if (contentType === "audio/aac") return "aac";
   if (contentType === "image/jpeg") return "jpg";
   if (contentType === "image/png") return "png";
   if (contentType === "image/webp") return "webp";

@@ -10,9 +10,11 @@ import {
   ImagePlus,
   Loader2,
   Maximize2,
+  Music2,
   Play,
   Sparkles,
   Upload,
+  Volume2,
   Video,
   X,
 } from "lucide-react";
@@ -23,7 +25,7 @@ import { ModuleHeader } from "@/components/ModuleHeader";
 import { PreviewGuide } from "@/components/PreviewGuide";
 import { ResultVideoGrid } from "@/components/ResultVideoGrid";
 import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
-import { StudioOptionGrid, StudioPromptTextarea } from "@/components/studio/StudioFormControls";
+import { StudioGenerationCountSelector, StudioOptionGrid, StudioPromptTextarea, StudioToggleRow } from "@/components/studio/StudioFormControls";
 import { StudioRunBar } from "@/components/studio/StudioRunBar";
 import { StudioSideDrawer } from "@/components/studio/StudioSideDrawer";
 import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
@@ -33,16 +35,28 @@ import type { TaskSelectionSession } from "@/components/studio/useTaskSelectionS
 import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
 import {
   AI_VIDEO_ACTION_TEMPLATES,
+  AI_VIDEO_AUDIO_MODE_OPTIONS,
+  AI_VIDEO_ASPECT_RATIO_OPTIONS,
   AI_VIDEO_DURATION_OPTIONS,
-  AI_VIDEO_RESOLUTION_OPTIONS,
+  AI_VIDEO_MODEL_MODE_OPTIONS,
+  getAiVideoAudioCreditCost,
+  getAiVideoPerVideoCreditCost,
   getAiVideoCreditCost,
   getAiVideoKind,
   getAiVideoPath,
+  getAiVideoResolutionOptions,
+  normalizeAiVideoAspectRatio,
+  normalizeAiVideoAudioMode,
   normalizeAiVideoDuration,
+  normalizeAiVideoGenCount,
+  normalizeAiVideoModelMode,
   normalizeAiVideoResolution,
   type AiVideoActionTemplate,
+  type AiVideoAudioMode,
+  type AiVideoAspectRatio,
   type AiVideoDuration,
   type AiVideoMode,
+  type AiVideoModelMode,
   type AiVideoResolution,
 } from "@/lib/ai-video";
 import { fetchHistoryApplyDetail, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
@@ -51,8 +65,11 @@ import { safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
 import {
   MAX_FILE_SIZE,
   MAX_FILE_SIZE_MB,
+  MAX_AUDIO_FILE_SIZE,
+  MAX_AUDIO_FILE_SIZE_MB,
   MAX_VIDEO_FILE_SIZE,
   MAX_VIDEO_FILE_SIZE_MB,
+  uploadAudio,
   uploadImage,
   uploadVideo,
 } from "@/lib/utils";
@@ -77,6 +94,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
   const firstFrameInputRef = useRef<HTMLInputElement>(null);
   const lastFrameInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
+  const audioInputRef = useRef<HTMLInputElement>(null);
   const generationRunRef = useRef(0);
   const isMotion = mode === "motion-control";
   const isFirstLastFrame = mode === "first-last-frame";
@@ -88,7 +106,6 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
   const applyPath = getAiVideoPath(generationKind);
 
   const { authChecked, isAuthenticated, userId, credits, setCredits, refreshAuth } = useStudioAuth();
-  const [title, setTitle] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [modelImageUrl, setModelImageUrl] = useState("");
   const [firstFrameUrl, setFirstFrameUrl] = useState("");
@@ -96,18 +113,26 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
   const [referenceVideoUrl, setReferenceVideoUrl] = useState("");
   const [prompt, setPrompt] = useState(isFirstLastFrame ? "" : AI_VIDEO_ACTION_TEMPLATES[0]?.promptContent || "");
   const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(isFirstLastFrame ? null : AI_VIDEO_ACTION_TEMPLATES[0]?.id || null);
-  const [resolution, setResolution] = useState<AiVideoResolution>("720p");
+  const [modelMode, setModelMode] = useState<AiVideoModelMode>("pro");
+  const [resolution, setResolution] = useState<AiVideoResolution>("1080p");
+  const [aspectRatio, setAspectRatio] = useState<AiVideoAspectRatio>("9:16");
   const [duration, setDuration] = useState<AiVideoDuration>(5);
+  const [audioMode, setAudioMode] = useState<AiVideoAudioMode>("generated");
+  const [audioUrl, setAudioUrl] = useState("");
+  const [audioPrompt, setAudioPrompt] = useState("");
+  const [genCount, setGenCount] = useState(1);
   const [isDraggingImage, setIsDraggingImage] = useState(false);
   const [isDraggingModelImage, setIsDraggingModelImage] = useState(false);
   const [isDraggingFirstFrame, setIsDraggingFirstFrame] = useState(false);
   const [isDraggingLastFrame, setIsDraggingLastFrame] = useState(false);
   const [isDraggingVideo, setIsDraggingVideo] = useState(false);
+  const [isDraggingAudio, setIsDraggingAudio] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [isUploadingModelImage, setIsUploadingModelImage] = useState(false);
   const [isUploadingFirstFrame, setIsUploadingFirstFrame] = useState(false);
   const [isUploadingLastFrame, setIsUploadingLastFrame] = useState(false);
   const [isUploadingVideo, setIsUploadingVideo] = useState(false);
+  const [isUploadingAudio, setIsUploadingAudio] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -119,11 +144,17 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
   const taskQueue = useTaskQueueGeneration({
     module: generationKind,
     title: moduleTitle,
-    defaultExpectedCount: 1,
+    defaultExpectedCount: genCount,
     applyPath,
   });
   const authIsAnonymous = authChecked && !isAuthenticated;
-  const cost = getAiVideoCreditCost(resolution, isFirstLastFrame ? duration : undefined);
+  const effectiveModelMode = isFirstLastFrame ? "pro" : modelMode;
+  const generateAudio = audioMode !== "off";
+  const resolutionOptions = useMemo(
+    () => getAiVideoResolutionOptions(effectiveModelMode),
+    [effectiveModelMode]
+  );
+  const cost = getAiVideoCreditCost({ modelMode: effectiveModelMode, resolution, duration, genCount, audioMode });
   const inputThumbnails = isFirstLastFrame
     ? [firstFrameUrl, lastFrameUrl].filter(Boolean)
     : isMotion
@@ -136,6 +167,8 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
         ? "请先上传尾帧图片"
         : !prompt.trim()
           ? "请输入视频生成效果描述"
+          : audioMode === "custom" && !audioUrl
+            ? "请先上传音频或切换为智能音效"
           : credits !== null && credits < cost
             ? `积分不足，生成需要 ${cost} 积分`
             : undefined
@@ -144,6 +177,8 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
       ? "请先上传模特图"
       : !referenceVideoUrl
         ? "请先上传参考视频"
+        : audioMode === "custom" && !audioUrl
+          ? "请先上传音频或切换为智能音效"
         : credits !== null && credits < cost
           ? `积分不足，生成需要 ${cost} 积分`
           : undefined
@@ -151,6 +186,8 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
       ? "请先上传图片"
       : !prompt.trim()
         ? "请输入动作描述或选择动作模板"
+        : audioMode === "custom" && !audioUrl
+          ? "请先上传音频或切换为智能音效"
         : credits !== null && credits < cost
           ? `积分不足，生成需要 ${cost} 积分`
           : undefined;
@@ -190,11 +227,36 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
     multiple: false,
     onFiles: (files) => handleVideoFile(files[0]),
   });
+  const audioDrag = useStableFileDrag<HTMLDivElement>({
+    isDragging: isDraggingAudio,
+    setDragging: setIsDraggingAudio,
+    accept: "audio/*,.mp3,.wav,.m4a,.aac",
+    multiple: false,
+    onFiles: (files) => handleAudioFile(files[0]),
+  });
 
   const selectedTemplate = useMemo(
     () => AI_VIDEO_ACTION_TEMPLATES.find((item) => item.id === selectedTemplateId) || null,
     [selectedTemplateId]
   );
+  const modelModeOptions = useMemo(
+    () => AI_VIDEO_MODEL_MODE_OPTIONS.map((item) => ({
+      value: item.value,
+      label: item.label,
+      description: isFirstLastFrame && item.value === "fast" ? "首尾帧需专业模式" : item.description,
+      disabled: isFirstLastFrame && item.value === "fast",
+    })),
+    [isFirstLastFrame]
+  );
+  const perVideoCost = getAiVideoPerVideoCreditCost({ modelMode: effectiveModelMode, resolution, duration, audioMode });
+  const audioCreditCost = getAiVideoAudioCreditCost({ duration, audioMode });
+
+  useEffect(() => {
+    const nextMode = isFirstLastFrame ? "pro" : normalizeAiVideoModelMode(modelMode);
+    if (nextMode !== modelMode) setModelMode(nextMode);
+    const nextResolution = normalizeAiVideoResolution(resolution, nextMode);
+    if (nextResolution !== resolution) setResolution(nextResolution);
+  }, [isFirstLastFrame, modelMode, resolution]);
 
   useEffect(() => {
     let cancelled = false;
@@ -271,6 +333,34 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
     }
   }
 
+  async function handleAudioFile(file?: File) {
+    if (!file) return;
+    const accepted = file.type.startsWith("audio/") || /\.(mp3|wav|m4a|aac)$/i.test(file.name);
+    if (!accepted) {
+      toast.error("请上传 MP3、WAV、M4A 或 AAC 音频");
+      return;
+    }
+    if (file.size > MAX_AUDIO_FILE_SIZE) {
+      toast.error(`音频不能超过 ${MAX_AUDIO_FILE_SIZE_MB}MB`);
+      return;
+    }
+
+    setError("");
+    setResultUrls([]);
+    setIsUploadingAudio(true);
+    setAudioMode("custom");
+    toast.info("正在上传音频...");
+    try {
+      const result = await uploadAudio(file);
+      setAudioUrl(result.url);
+      toast.success("音频已上传");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "音频上传失败，请重试");
+    } finally {
+      setIsUploadingAudio(false);
+    }
+  }
+
   function applyTemplate(template: AiVideoActionTemplate) {
     setSelectedTemplateId(template.id);
     setPrompt(template.promptContent);
@@ -281,9 +371,8 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
   }
 
   function applyFirstLastPromptSuggestion() {
-    const subject = title.trim() ? `围绕「${title.trim()}」` : "围绕首尾帧主体";
     setSelectedTemplateId(null);
-    setPrompt(`${subject}生成顺滑过渡视频，主体从首帧自然移动到尾帧姿态，服装版型和人物身份保持一致，镜头稳定，动作连贯，避免跳切、变形和多余人物。`);
+    setPrompt("围绕首尾帧主体生成顺滑过渡视频，主体从首帧自然移动到尾帧姿态，服装版型和人物身份保持一致，镜头稳定，动作连贯，避免跳切、变形和多余人物。");
     setResultUrls([]);
     setError("");
   }
@@ -310,7 +399,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
     setResultUrls([]);
 
     const provisionalTask = taskQueue.startTask({
-      expectedCount: 1,
+      expectedCount: genCount,
       inputThumbnails,
       progress: 10,
     });
@@ -322,10 +411,16 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
         ? {
             firstFrameUrl,
             lastFrameUrl,
-            title: title.trim(),
             prompt: prompt.trim(),
+            modelMode: effectiveModelMode,
             duration,
             resolution,
+            aspectRatio,
+            audioMode,
+            audioUrl: audioMode === "custom" ? audioUrl : "",
+            audioPrompt: audioPrompt.trim(),
+            generateAudio,
+            genCount,
           }
         : isMotion
           ? {
@@ -333,14 +428,29 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
               referenceVideoUrl,
               prompt: prompt.trim(),
               templateId: selectedTemplateId,
+              modelMode: effectiveModelMode,
+              duration,
               resolution,
+              aspectRatio,
+              audioMode,
+              audioUrl: audioMode === "custom" ? audioUrl : "",
+              audioPrompt: audioPrompt.trim(),
+              generateAudio,
+              genCount,
             }
           : {
               imageUrl,
               prompt: prompt.trim(),
               templateId: selectedTemplateId,
+              modelMode: effectiveModelMode,
+              duration,
               resolution,
-              aspectRatio: "9:16",
+              aspectRatio,
+              audioMode,
+              audioUrl: audioMode === "custom" ? audioUrl : "",
+              audioPrompt: audioPrompt.trim(),
+              generateAudio,
+              genCount,
             };
       const res = await fetch(apiPath, {
         method: "POST",
@@ -374,7 +484,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
       if (typeof data.generation_id === "string" && data.generation_id) {
         const serverTask = taskQueue.replaceWithServerTask(activeTaskId, {
           id: data.generation_id,
-          expectedCount: 1,
+          expectedCount: genCount,
           inputThumbnails,
           status: data.status || "processing_tryon",
           progress: 25,
@@ -405,7 +515,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
           const runningProgress = Math.min(Number(state.progress) || 25 + (elapsedMs / VIDEO_GENERATION_POLL_TIMEOUT_MS) * 65, 95);
           if (isCurrentRun()) setProgress(runningProgress);
           taskQueue.markRunning(activeTaskId, {
-            expectedCount: 1,
+            expectedCount: genCount,
             inputThumbnails,
             resultThumbnails: latestTaskResultUrls,
             progress: runningProgress,
@@ -420,7 +530,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
             toast.success("视频生成完成");
           }
           taskQueue.markCompleted(activeTaskId, {
-            expectedCount: 1,
+            expectedCount: genCount,
             inputThumbnails,
             resultThumbnails: finalUrls,
             resultCount: finalUrls.length,
@@ -432,7 +542,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
       }
 
       taskQueue.markRunning(activeTaskId, {
-        expectedCount: 1,
+        expectedCount: genCount,
         inputThumbnails,
         resultThumbnails: latestTaskResultUrls,
         progress: 90,
@@ -447,7 +557,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
     } catch (err) {
       const message = err instanceof Error ? err.message : "视频生成失败";
       taskQueue.markFailed(activeTaskId, message, {
-        expectedCount: 1,
+        expectedCount: genCount,
         inputThumbnails,
         resultThumbnails: latestTaskResultUrls,
       });
@@ -487,7 +597,6 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
   function applyHistoryPayload(payload: VideoImagePayload | VideoMotionPayload | VideoFirstLastPayload, historyResultUrls: string[] = [], options?: { silent?: boolean }) {
     generationRunRef.current += 1;
     if (payload.kind === "videoFirstLastFrame") {
-      setTitle(payload.title || "");
       setFirstFrameUrl(payload.firstFrameUrl);
       setLastFrameUrl(payload.lastFrameUrl);
       setImageUrl("");
@@ -495,10 +604,15 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
       setReferenceVideoUrl("");
       setPrompt(payload.prompt);
       setSelectedTemplateId(null);
+      setModelMode(normalizeAiVideoModelMode(payload.modelMode, payload.kind));
       setDuration(normalizeAiVideoDuration(payload.duration));
-      setResolution(normalizeAiVideoResolution(payload.resolution));
+      setResolution(normalizeAiVideoResolution(payload.resolution, normalizeAiVideoModelMode(payload.modelMode, payload.kind)));
+      setAspectRatio(normalizeAiVideoAspectRatio(payload.aspectRatio));
+      setAudioMode(normalizeAiVideoAudioMode(payload.audioMode ?? (payload.generateAudio === false ? "off" : payload.audioUrl ? "custom" : "generated")));
+      setAudioUrl(payload.audioUrl || "");
+      setAudioPrompt(payload.audioPrompt || "");
+      setGenCount(normalizeAiVideoGenCount(payload.genCount));
     } else if (payload.kind === "videoMotion") {
-      setTitle("");
       setFirstFrameUrl("");
       setLastFrameUrl("");
       setModelImageUrl(payload.modelImageUrl);
@@ -506,10 +620,15 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
       setImageUrl("");
       setPrompt(payload.prompt || "");
       setSelectedTemplateId(payload.templateId || null);
-      setDuration(5);
-      setResolution(normalizeAiVideoResolution(payload.resolution));
+      setModelMode(normalizeAiVideoModelMode(payload.modelMode, payload.kind));
+      setDuration(normalizeAiVideoDuration(payload.duration));
+      setResolution(normalizeAiVideoResolution(payload.resolution, normalizeAiVideoModelMode(payload.modelMode, payload.kind)));
+      setAspectRatio(normalizeAiVideoAspectRatio(payload.aspectRatio));
+      setAudioMode(normalizeAiVideoAudioMode(payload.audioMode ?? (payload.generateAudio === false ? "off" : payload.audioUrl ? "custom" : "generated")));
+      setAudioUrl(payload.audioUrl || "");
+      setAudioPrompt(payload.audioPrompt || "");
+      setGenCount(normalizeAiVideoGenCount(payload.genCount));
     } else {
-      setTitle("");
       setFirstFrameUrl("");
       setLastFrameUrl("");
       setImageUrl(payload.imageUrl);
@@ -517,8 +636,14 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
       setReferenceVideoUrl("");
       setPrompt(payload.prompt);
       setSelectedTemplateId(payload.templateId || null);
-      setDuration(5);
-      setResolution(normalizeAiVideoResolution(payload.resolution));
+      setModelMode(normalizeAiVideoModelMode(payload.modelMode, payload.kind));
+      setDuration(normalizeAiVideoDuration(payload.duration));
+      setResolution(normalizeAiVideoResolution(payload.resolution, normalizeAiVideoModelMode(payload.modelMode, payload.kind)));
+      setAspectRatio(normalizeAiVideoAspectRatio(payload.aspectRatio));
+      setAudioMode(normalizeAiVideoAudioMode(payload.audioMode ?? (payload.generateAudio === false ? "off" : payload.audioUrl ? "custom" : "generated")));
+      setAudioUrl(payload.audioUrl || "");
+      setAudioPrompt(payload.audioPrompt || "");
+      setGenCount(normalizeAiVideoGenCount(payload.genCount));
     }
     setResultUrls(historyResultUrls);
     setIsSubmitting(false);
@@ -530,7 +655,6 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
 
   function handleContinueCreate() {
     generationRunRef.current += 1;
-    setTitle("");
     setImageUrl("");
     setModelImageUrl("");
     setFirstFrameUrl("");
@@ -538,8 +662,14 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
     setReferenceVideoUrl("");
     setPrompt(isFirstLastFrame ? "" : AI_VIDEO_ACTION_TEMPLATES[0]?.promptContent || "");
     setSelectedTemplateId(isFirstLastFrame ? null : AI_VIDEO_ACTION_TEMPLATES[0]?.id || null);
-    setResolution("720p");
+    setModelMode("pro");
+    setResolution("1080p");
+    setAspectRatio("9:16");
     setDuration(5);
+    setAudioMode("generated");
+    setAudioUrl("");
+    setAudioPrompt("");
+    setGenCount(1);
     setResultUrls([]);
     setError("");
     setProgress(0);
@@ -554,32 +684,6 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
       <div className="space-y-4">
         {isFirstLastFrame ? (
           <>
-            <section className="rounded-xl bg-slate-50/90 p-4">
-              <h3 className="mb-3 text-sm font-black text-codex-ink">填写标题</h3>
-              <input
-                type="text"
-                value={title}
-                onChange={(event) => setTitle(event.target.value)}
-                placeholder="请输入标题"
-                className="h-11 w-full rounded-[10px] border border-slate-200 bg-white px-3 text-sm font-bold text-slate-900 outline-none transition focus:border-blue-300 focus:ring-4 focus:ring-blue-100"
-              />
-            </section>
-
-            <section className="rounded-xl bg-slate-50/90 p-4">
-              <h3 className="mb-3 text-sm font-black text-codex-ink">选择单条视频时长</h3>
-              <StudioOptionGrid
-                options={AI_VIDEO_DURATION_OPTIONS.map((item) => ({
-                  value: String(item.value),
-                  label: item.label,
-                  description: `${item.cost} 积分`,
-                }))}
-                value={String(duration)}
-                onChange={(value) => setDuration(normalizeAiVideoDuration(value))}
-                columns={2}
-                ariaLabel="视频时长"
-              />
-            </section>
-
             <section className="rounded-xl bg-slate-50/90 p-4">
               <div className="mb-3">
                 <h3 className="text-sm font-black text-codex-ink">上传图片</h3>
@@ -773,38 +877,150 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
         )}
 
         <section>
+          <h3 className="mb-3 text-sm font-black text-codex-ink">生成模式</h3>
+          <StudioOptionGrid
+            options={modelModeOptions}
+            value={effectiveModelMode}
+            onChange={(value) => {
+              const nextMode = normalizeAiVideoModelMode(value, generationKind);
+              setModelMode(nextMode);
+              setResolution((current) => normalizeAiVideoResolution(current, nextMode));
+            }}
+            columns={2}
+            ariaLabel="视频生成模式"
+          />
+        </section>
+
+        <section>
           <h3 className="mb-3 text-sm font-black text-codex-ink">分辨率</h3>
           <StudioOptionGrid
-            options={AI_VIDEO_RESOLUTION_OPTIONS.map((item) => ({
+            options={resolutionOptions.map((item) => ({
               value: item.value,
               label: item.label,
-              description: isFirstLastFrame ? `${duration}秒视频` : `${item.cost} 积分`,
+              description: item.description,
             }))}
             value={resolution}
-            onChange={setResolution}
+            onChange={(value) => setResolution(normalizeAiVideoResolution(value, effectiveModelMode))}
             columns={2}
             ariaLabel="视频分辨率"
           />
         </section>
 
-        {isFirstLastFrame && (
-          <section className="rounded-xl bg-slate-50/90 p-4">
-            <div className="flex items-center justify-between gap-3">
-              <h3 className="text-sm font-black text-codex-ink">添加音效</h3>
-              <span className="text-xs font-black text-codex-faint">暂未开启</span>
-            </div>
-          </section>
-        )}
+        <section>
+          <h3 className="mb-3 text-sm font-black text-codex-ink">画面比例</h3>
+          <StudioOptionGrid
+            options={AI_VIDEO_ASPECT_RATIO_OPTIONS.map((item) => ({
+              value: item.value,
+              label: item.label,
+              description: item.description,
+            }))}
+            value={aspectRatio}
+            onChange={(value) => setAspectRatio(normalizeAiVideoAspectRatio(value))}
+            columns={3}
+            ariaLabel="视频画面比例"
+          />
+        </section>
 
-        {isFirstLastFrame && (
-          <section className="rounded-xl bg-slate-50/90 p-4">
-            <h3 className="mb-3 text-sm font-black text-codex-ink">生成条数</h3>
-            <div className="flex items-center gap-3">
-              <span className="flex h-11 w-28 items-center justify-center rounded-[10px] border border-slate-200 bg-white text-sm font-black text-slate-900">1</span>
-              <span className="text-xs font-bold text-codex-faint">当前单次生成 1 条视频</span>
+        <section>
+          <h3 className="mb-3 text-sm font-black text-codex-ink">视频时长</h3>
+          <StudioOptionGrid
+            options={AI_VIDEO_DURATION_OPTIONS.map((item) => ({
+              value: String(item.value),
+              label: item.label,
+              description: `${getAiVideoPerVideoCreditCost({ modelMode: effectiveModelMode, resolution, duration: item.value, audioMode })} 积分/条`,
+            }))}
+            value={String(duration)}
+            onChange={(value) => setDuration(normalizeAiVideoDuration(value))}
+            columns={3}
+            ariaLabel="视频时长"
+          />
+        </section>
+
+        <section>
+          <StudioToggleRow
+            title={(
+              <span className="inline-flex items-center gap-1.5">
+                <Volume2 className="h-4 w-4 text-[var(--codex-accent)]" />
+                音效
+              </span>
+            )}
+            description="默认开启智能音效；需要品牌 BGM、口播或指定节奏时切换为上传音频。"
+            meta={generateAudio ? `+${audioCreditCost} 积分/条` : "静音"}
+            checked={generateAudio}
+            onChange={(checked) => {
+              setAudioMode(checked ? "generated" : "off");
+              if (!checked) setAudioPrompt("");
+            }}
+            ariaLabel="视频音效开关"
+          />
+          {generateAudio && (
+            <div className="mt-3 space-y-3">
+              <StudioOptionGrid
+                options={AI_VIDEO_AUDIO_MODE_OPTIONS.map((item) => ({
+                  value: item.value,
+                  label: item.label,
+                  description: item.description,
+                }))}
+                value={audioMode}
+                onChange={(value) => setAudioMode(normalizeAiVideoAudioMode(value))}
+                columns={2}
+                ariaLabel="视频音效模式"
+              />
+
+              {audioMode === "custom" && (
+                <section {...audioDrag.dragHandlers} className={`rounded-xl transition-all ${isDraggingAudio ? "ring-2 ring-[rgba(91,124,255,0.38)] ring-offset-2" : ""}`}>
+                  <input
+                    ref={audioInputRef}
+                    type="file"
+                    accept="audio/*,.mp3,.wav,.m4a,.aac"
+                    className="hidden"
+                    onChange={(event) => {
+                      const input = event.currentTarget;
+                      void handleAudioFile(input.files?.[0]).finally(() => {
+                        input.value = "";
+                      });
+                    }}
+                  />
+                  <AudioUploadTile
+                    audioUrl={audioUrl}
+                    loading={isUploadingAudio}
+                    isDragging={isDraggingAudio}
+                    onUploadClick={() => audioInputRef.current?.click()}
+                    onRemove={audioUrl ? () => setAudioUrl("") : undefined}
+                  />
+                </section>
+              )}
+
+              <StudioPromptTextarea
+                title={audioMode === "custom" ? "音频控制" : "音效描述"}
+                badge={audioMode === "custom" ? "可选" : "可选"}
+                value={audioPrompt}
+                onChange={(event) => setAudioPrompt(event.target.value)}
+                rows={3}
+                placeholder={audioMode === "custom"
+                  ? "例如：保留上传音频的人声和主旋律，按鼓点切换动作；不要额外生成环境声。"
+                  : "例如：轻快清爽的商拍环境声，保留脚步声和衣料轻响，不要人声，不要夸张音效。"}
+                description={audioMode === "custom"
+                  ? "上传音频会作为声音参考；这里用于控制节奏对齐、人声保留、音量层次和是否叠加环境声。"
+                  : "不填写时由模型按画面自动生成干净的环境声和轻动作声。"}
+              />
             </div>
-          </section>
-        )}
+          )}
+        </section>
+
+        <section>
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h3 className="text-sm font-black text-codex-ink">生成条数</h3>
+            <span className="text-[11px] font-bold text-codex-faint">{perVideoCost} 积分/条</span>
+          </div>
+          <StudioGenerationCountSelector
+            value={genCount}
+            onChange={(value) => setGenCount(normalizeAiVideoGenCount(value))}
+            counts={[1, 2, 3, 4]}
+            unit="条"
+            ariaLabel="视频生成条数"
+          />
+        </section>
       </div>
     </div>
   );
@@ -832,7 +1048,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
         </div>
         {controlPanel}
         <StudioRunBar
-          summary={isFirstLastFrame ? `首帧 + 尾帧 · ${duration}秒视频` : isMotion ? "模特图 + 参考视频 · 单个结果" : "单图驱动 · 9:16 竖版视频"}
+          summary={`${effectiveModelMode === "pro" ? "专业模式" : "快速模式"} · ${resolution} · ${aspectRatio} · ${duration}秒 · ${generateAudio ? "音效" : "静音"} · ${genCount}条`}
           costLabel={authIsAnonymous ? "登录后查看积分" : `消耗 ${cost} · 余额 ${credits ?? "-"}`}
           disabled={isSubmitting || Boolean(runDisabledReason)}
           disabledReason={runDisabledReason}
@@ -865,7 +1081,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
               urls={resultUrls}
               filenamePrefix={isFirstLastFrame ? "first-last-frame-video" : isMotion ? "motion-video" : "image-video"}
               onOpen={(url) => setLightboxVideo(url)}
-              expectedCount={isGenerating ? 1 : undefined}
+              expectedCount={isGenerating ? genCount : undefined}
               isGenerating={isGenerating}
               inputThumbnails={inputThumbnails}
               statusGroup={isGenerating ? "running" : undefined}
@@ -1183,6 +1399,79 @@ function VideoUploadTile({
         <div className="studio-upload-tile-actions">
           {onRemove && (
             <button type="button" onClick={onRemove} disabled={loading} className="studio-icon-button studio-icon-button-danger" aria-label="删除参考视频" title="删除参考视频">
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+      )}
+      {loading && (
+        <div className="pointer-events-none absolute inset-0 z-[5] flex items-center justify-center rounded-[inherit] bg-white/72 backdrop-blur-[2px]">
+          <div className="flex items-center gap-2 rounded-full border border-white/80 bg-white/95 px-3.5 py-2 text-xs font-black text-slate-700 shadow-[0_14px_36px_rgba(15,23,42,0.16)]">
+            <Loader2 className="h-4 w-4 animate-spin text-[var(--codex-accent)]" />
+            <span>上传中...</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AudioUploadTile({
+  audioUrl,
+  isDragging,
+  loading,
+  onUploadClick,
+  onRemove,
+}: {
+  audioUrl: string;
+  isDragging: boolean;
+  loading: boolean;
+  onUploadClick: () => void;
+  onRemove?: () => void;
+}) {
+  return (
+    <div className={`studio-upload-tile ${isDragging ? "studio-upload-tile-dragging" : ""}`} aria-busy={loading ? "true" : undefined}>
+      <div className="studio-upload-tile-panel min-h-[138px]">
+        {audioUrl ? (
+          <div className="flex min-h-[138px] flex-col justify-center gap-3 rounded-[inherit] bg-white/78 p-4">
+            <div className="flex items-center gap-3">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-[var(--codex-accent)]">
+                <Music2 className="h-5 w-5" />
+              </span>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-black text-codex-ink">已上传音频</p>
+                <p className="mt-1 text-[11px] font-semibold text-codex-faint">生成时会作为 BGM、口播或节奏参考</p>
+              </div>
+            </div>
+            <audio src={audioUrl} controls preload="metadata" className="w-full" />
+          </div>
+        ) : (
+          <div className="studio-upload-tile-empty min-h-[138px]" aria-label="上传音频">
+            <button type="button" onClick={onUploadClick} disabled={loading} className="studio-upload-tile-heading">
+              <span className="studio-upload-tile-icon">
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Music2 className="h-4 w-4" />}
+              </span>
+              <span className="studio-upload-tile-title">上传音频</span>
+            </button>
+            <span className="studio-upload-tile-description text-center">
+              点击上传或拖拽音频到这里
+            </span>
+            <p className="max-w-[330px] text-center text-[12px] font-semibold leading-6 text-codex-faint">
+              支持 MP3、WAV、M4A、AAC，最大 {MAX_AUDIO_FILE_SIZE_MB}MB；推荐上传已经剪好节奏的 BGM、口播或品牌音效。
+            </p>
+            <span className="studio-upload-tile-action-row">
+              <button type="button" onClick={onUploadClick} disabled={loading} className="studio-upload-tile-primary">
+                {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                {loading ? "上传中..." : "点击上传"}
+              </button>
+            </span>
+          </div>
+        )}
+      </div>
+      {audioUrl && (
+        <div className="studio-upload-tile-actions">
+          {onRemove && (
+            <button type="button" onClick={onRemove} disabled={loading} className="studio-icon-button studio-icon-button-danger" aria-label="删除音频" title="删除音频">
               <X className="h-3.5 w-3.5" />
             </button>
           )}
