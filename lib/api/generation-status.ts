@@ -49,6 +49,8 @@ export async function handleGenerationStatusGet(generationId: string | null) {
       progress: state.progress,
       provider_status: state.providerStatus,
       task_id: state.taskId,
+      request_id: state.requestId,
+      provider_details: state.providerDetails,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "查询失败";

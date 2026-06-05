@@ -11,6 +11,19 @@ function jsonResponse(body: unknown, status = 200) {
   });
 }
 
+function seedanceInput() {
+  return {
+    imageUrl: "https://cdn.example.com/model-grid.png",
+    prompt: "模特双手自然插入口袋，展示服装整体廓形与线条。",
+    modelMode: "pro" as const,
+    duration: 4 as const,
+    resolution: "720p" as const,
+    aspectRatio: "9:16" as const,
+    audioMode: "off" as const,
+    generateAudio: false,
+  };
+}
+
 describe("seedance video", () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -29,78 +42,106 @@ describe("seedance video", () => {
     process.env = { ...ORIGINAL_ENV };
   });
 
-  it("falls back to text-only generation when an image submit is rejected for real-person privacy", async () => {
+  it("keeps polling when the provider reports terminated before the final successful task detail", async () => {
     const requests: Array<{ method: string; url: string; body?: Record<string, unknown> }> = [];
+    let pollCount = 0;
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const method = (init?.method || "GET").toUpperCase();
       const url = String(input);
       const rawBody = typeof init?.body === "string" ? JSON.parse(init.body) as Record<string, unknown> : undefined;
       requests.push({ method, url, body: rawBody });
 
-      if (method === "POST" && requests.filter((item) => item.method === "POST").length === 1) {
+      if (method === "POST") {
         return jsonResponse({
-          error: {
-            code: "InputImageSensitiveContentDetected.PrivacyInformation",
-            message: "The request failed because the input image may contain real person.",
-            type: "invalid_request_error",
-          },
-        }, 400);
+          id: "cgt-20260606031519-xwgp9",
+          request_id: "req-submit-1",
+          status: "submitted",
+        });
       }
 
-      if (method === "POST") {
-        return jsonResponse({ id: "task-text-fallback", status: "submitted" });
+      pollCount += 1;
+      if (pollCount === 1) {
+        return jsonResponse({
+          id: "cgt-20260606031519-xwgp9",
+          request_id: "req-poll-1",
+          status: "terminated",
+          message: "terminated",
+        });
       }
 
       return jsonResponse({
-        id: "task-text-fallback",
-        status: "succeeded",
-        output: [{ url: "https://cdn.example.com/video.mp4" }],
+        id: "cgt-20260606031519-xwgp9",
+        task_id: "cgt-20260606031519-xwgp9",
+        request_id: "req-final-1",
+        status: "completed",
+        data: {
+          status: "succeeded",
+          content: {
+            last_frame_url: "https://ark.example.com/last-frame.png",
+            video_url: "https://ark.example.com/result.mp4",
+          },
+        },
+        result_url: "https://ark.example.com/result.mp4",
       });
     });
     vi.stubGlobal("fetch", fetchMock);
 
     const onProgress = vi.fn();
-    const pending = generateSeedanceImageToVideo({
-      imageUrl: "https://cdn.example.com/real-person.png",
-      prompt: "模特双手自然插入口袋，展示服装整体廓形与线条。",
-      modelMode: "pro",
-      duration: 4,
-      resolution: "720p",
-      aspectRatio: "9:16",
-      audioMode: "off",
-      generateAudio: false,
-      onProgress,
-    });
+    const pending = generateSeedanceImageToVideo({ ...seedanceInput(), onProgress });
 
-    await vi.advanceTimersByTimeAsync(5_000);
+    await vi.advanceTimersByTimeAsync(10_000);
     const result = await pending;
     const postRequests = requests.filter((item) => item.method === "POST");
+    const getRequests = requests.filter((item) => item.method === "GET");
 
+    expect(postRequests).toHaveLength(1);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://seedance.test/seedance/api/v3/contents/generations/tasks",
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          "Accept-Encoding": "identity",
+        }),
+      })
+    );
+    expect(getRequests).toHaveLength(2);
     expect(result).toMatchObject({
-      taskId: "task-text-fallback",
-      url: "https://cdn.example.com/video.mp4",
-      providerStatus: "succeeded",
+      taskId: "cgt-20260606031519-xwgp9",
+      requestId: "req-final-1",
+      url: "https://ark.example.com/result.mp4",
+      providerStatus: "completed",
     });
-    expect(postRequests).toHaveLength(2);
-    expect(postRequests[0]?.body?.content).toEqual(
+    expect(result.urls).toEqual(["https://ark.example.com/result.mp4"]);
+    expect(result.providerDetails?.finalResponse).toBeTruthy();
+    expect(onProgress).toHaveBeenCalledWith(expect.objectContaining({
+      providerStatus: "terminated",
+      status: "running",
+    }));
+  });
+
+  it("does not submit a text-only fallback when the provider rejects an image for real-person privacy", async () => {
+    const requests: Array<{ method: string; url: string; body?: Record<string, unknown> }> = [];
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const method = (init?.method || "GET").toUpperCase();
+      const url = String(input);
+      const rawBody = typeof init?.body === "string" ? JSON.parse(init.body) as Record<string, unknown> : undefined;
+      requests.push({ method, url, body: rawBody });
+      return jsonResponse({
+        error: {
+          code: "InputImageSensitiveContentDetected.PrivacyInformation",
+          message: "The request failed because the input image may contain real person.",
+          type: "invalid_request_error",
+        },
+      }, 400);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(generateSeedanceImageToVideo(seedanceInput())).rejects.toThrow("InputImageSensitiveContentDetected");
+
+    expect(requests.filter((item) => item.method === "POST")).toHaveLength(1);
+    expect(requests[0]?.body?.content).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ type: "image_url", role: "reference_image" }),
       ])
     );
-    expect(postRequests[1]?.body).toMatchObject({
-      model: "doubao-seedance-2-0-260128",
-      ratio: "9:16",
-      duration: 4,
-      resolution: "720p",
-      generate_audio: false,
-    });
-    expect(postRequests[1]?.body?.content).toEqual([
-      expect.objectContaining({ type: "text" }),
-    ]);
-    expect(JSON.stringify(postRequests[1]?.body)).not.toContain("image_url");
-    expect(result.compiledPrompt).not.toContain("image_url");
-    expect(onProgress).toHaveBeenCalledWith(expect.objectContaining({
-      providerStatus: "IMAGE_PRIVACY_TEXT_FALLBACK",
-    }));
   });
 });

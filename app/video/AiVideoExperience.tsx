@@ -72,12 +72,13 @@ import {
   MAX_AUDIO_FILE_SIZE_MB,
   MAX_VIDEO_FILE_SIZE,
   MAX_VIDEO_FILE_SIZE_MB,
+  addImageGridOverlay,
   uploadAudio,
   uploadImage,
   uploadVideo,
 } from "@/lib/utils";
 
-const VIDEO_GENERATION_POLL_TIMEOUT_MS = 10 * 60 * 1000;
+const VIDEO_GENERATION_POLL_TIMEOUT_MS = 20 * 60 * 1000;
 const VIDEO_GENERATION_POLL_FAST_WINDOW_MS = 60 * 1000;
 const VIDEO_GENERATION_POLL_FAST_MS = 4 * 1000;
 const VIDEO_GENERATION_POLL_SLOW_MS = 7 * 1000;
@@ -294,9 +295,10 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
           ? setIsUploadingLastFrame
           : setIsUploadingImage;
     setUploading(true);
-    toast.info("正在上传图片...");
+    toast.info("正在处理并上传图片...");
     try {
-      const result = await uploadImage(file);
+      const uploadFile = await addImageGridOverlay(file, { rows: 6, columns: 6 });
+      const result = await uploadImage(uploadFile);
       if (target === "model") setModelImageUrl(result.url);
       else if (target === "firstFrame") setFirstFrameUrl(result.url);
       else if (target === "lastFrame") setLastFrameUrl(result.url);
@@ -516,7 +518,12 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
         const poll = await fetch(`${apiPath}?generation_id=${encodeURIComponent(data.generation_id)}`);
         if (!poll.ok) continue;
         const state = await poll.json();
-        if (state.status === "processing_tryon" || state.status === "processing" || state.status === "pending") {
+        const statusGroup = typeof state.status_group === "string" ? state.status_group : "";
+        const isRunningStatus = statusGroup === "running" ||
+          state.status === "processing_tryon" ||
+          state.status === "processing" ||
+          state.status === "pending";
+        if (isRunningStatus) {
           if (Array.isArray(state.result_urls) && state.result_urls.length) {
             latestTaskResultUrls = state.result_urls;
             if (isCurrentRun()) setResultUrls(state.result_urls);

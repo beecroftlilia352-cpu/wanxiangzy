@@ -303,7 +303,9 @@ type GenerationExecutionResult = {
   moduleResults?: ProductSetModuleResult[];
   progress?: number;
   externalTaskId?: string;
+  externalRequestId?: string;
   externalStatus?: string;
+  providerDetails?: Record<string, unknown>;
   failedCount?: number;
   partialError?: string;
 };
@@ -441,7 +443,9 @@ async function runClaimedJob(
           moduleResults: persistedModules,
           progress: lastProgress,
           externalTaskId: update.externalTaskId,
+          externalRequestId: update.externalRequestId,
           externalStatus: update.externalStatus,
+          providerDetails: update.providerDetails,
         });
         return;
       }
@@ -468,7 +472,9 @@ async function runClaimedJob(
         moduleResults: partialModuleResults,
         progress: lastProgress,
         externalTaskId: update.externalTaskId,
+        externalRequestId: update.externalRequestId,
         externalStatus: update.externalStatus,
+        providerDetails: update.providerDetails,
       });
     });
     const finalModuleResults = execution.moduleResults?.length
@@ -969,7 +975,9 @@ async function executePayload(
     const expectedCount = normalizeAiVideoGenCount(payload.genCount);
     const resultUrls: string[] = [];
     let externalTaskId: string | undefined;
+    let externalRequestId: string | undefined;
     let externalStatus: string | undefined;
+    let providerDetails: Record<string, unknown> | undefined;
 
     for (let index = 0; index < expectedCount; index += 1) {
       const result = await runOne(index, async (progress) => {
@@ -979,13 +987,17 @@ async function executePayload(
           promptTrace,
           progress: Math.min(99, Math.round((index / expectedCount) * 100 + progress.progress / expectedCount)),
           externalTaskId: progress.taskId,
+          externalRequestId: progress.requestId,
           externalStatus: progress.providerStatus || progress.status,
+          providerDetails: progress.providerDetails,
         });
       });
 
       resultUrls.push(...result.urls);
       externalTaskId = result.taskId;
+      externalRequestId = result.requestId || externalRequestId;
       externalStatus = result.providerStatus;
+      providerDetails = result.providerDetails || providerDetails;
       promptTrace.push(createPromptTraceItem({
         index: index + 1,
         kind: payload.kind,
@@ -1000,7 +1012,9 @@ async function executePayload(
         promptTrace,
         progress: Math.min(99, Math.round(((index + 1) / expectedCount) * 100)),
         externalTaskId,
+        externalRequestId,
         externalStatus,
+        providerDetails,
       });
     }
 
@@ -1009,7 +1023,9 @@ async function executePayload(
       promptTrace,
       progress: 100,
       externalTaskId,
+      externalRequestId,
       externalStatus,
+      providerDetails,
     };
   };
 
@@ -1689,7 +1705,9 @@ function appendAsyncProgress(payload: GenerationJobPayload, update: GenerationPr
   if (
     typeof update.progress !== "number" &&
     !update.externalTaskId &&
-    !update.externalStatus
+    !update.externalRequestId &&
+    !update.externalStatus &&
+    !update.providerDetails
   ) {
     return payload;
   }
@@ -1699,22 +1717,51 @@ function appendAsyncProgress(payload: GenerationJobPayload, update: GenerationPr
     ...payload,
     asyncTask: {
       taskId: update.externalTaskId || existingAsyncTask.taskId,
+      requestId: update.externalRequestId || existingAsyncTask.requestId,
       status: update.externalStatus || existingAsyncTask.status,
-      progress: typeof update.progress === "number" ? Math.min(Math.max(Math.round(update.progress), 0), 100) : undefined,
+      progress: typeof update.progress === "number"
+        ? Math.min(Math.max(Math.round(update.progress), 0), 100)
+        : existingAsyncTask.progress,
+      providerDetails: update.providerDetails || existingAsyncTask.providerDetails,
       updatedAt: new Date().toISOString(),
     },
   } as unknown as GenerationJobPayload;
   return appendProductSetModuleResults(nextPayload, update.moduleResults);
 }
 
-function readExistingAsyncTask(payload: GenerationJobPayload): { taskId?: string; status?: string } {
+function readExistingAsyncTask(payload: GenerationJobPayload): {
+  taskId?: string;
+  requestId?: string;
+  status?: string;
+  progress?: unknown;
+  providerDetails?: Record<string, unknown>;
+} {
   const maybePayload = payload as unknown as { asyncTask?: unknown };
   const asyncTask = maybePayload.asyncTask;
   if (!asyncTask || typeof asyncTask !== "object") return {};
-  const task = asyncTask as { taskId?: unknown; status?: unknown };
+  const task = asyncTask as {
+    taskId?: unknown;
+    task_id?: unknown;
+    requestId?: unknown;
+    request_id?: unknown;
+    status?: unknown;
+    progress?: unknown;
+    providerDetails?: unknown;
+  };
   return {
-    taskId: typeof task.taskId === "string" ? task.taskId : undefined,
+    taskId: typeof task.taskId === "string"
+      ? task.taskId
+      : typeof task.task_id === "string"
+        ? task.task_id
+        : undefined,
+    requestId: typeof task.requestId === "string"
+      ? task.requestId
+      : typeof task.request_id === "string"
+        ? task.request_id
+        : undefined,
     status: typeof task.status === "string" ? task.status : undefined,
+    progress: task.progress,
+    providerDetails: isRecord(task.providerDetails) ? task.providerDetails : undefined,
   };
 }
 

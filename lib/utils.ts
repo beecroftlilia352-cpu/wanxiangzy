@@ -236,6 +236,76 @@ export async function compressImageForAgent(file: File): Promise<File> {
   });
 }
 
+export async function addImageGridOverlay(
+  file: File,
+  options: { rows?: number; columns?: number; color?: string; lineWidthRatio?: number } = {}
+): Promise<File> {
+  const rows = Math.max(1, Math.round(options.rows || 6));
+  const columns = Math.max(1, Math.round(options.columns || 6));
+  const color = options.color || "#ffffff";
+  const lineWidthRatio = Number.isFinite(options.lineWidthRatio) ? Number(options.lineWidthRatio) : 0.006;
+
+  return new Promise((resolve) => {
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+    const cleanup = () => URL.revokeObjectURL(objectUrl);
+
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      const width = img.naturalWidth || img.width;
+      const height = img.naturalHeight || img.height;
+      canvas.width = width;
+      canvas.height = height;
+
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        cleanup();
+        resolve(file);
+        return;
+      }
+
+      ctx.drawImage(img, 0, 0, width, height);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = Math.max(3, Math.round(Math.max(width, height) * lineWidthRatio));
+      ctx.lineCap = "butt";
+
+      for (let col = 0; col <= columns; col += 1) {
+        const x = Math.round((width * col) / columns);
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, height);
+        ctx.stroke();
+      }
+      for (let row = 0; row <= rows; row += 1) {
+        const y = Math.round((height * row) / rows);
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(width, y);
+        ctx.stroke();
+      }
+
+      canvas.toBlob(
+        (blob) => {
+          cleanup();
+          if (!blob) {
+            resolve(file);
+            return;
+          }
+          const outputName = file.name.replace(/\.[^.]+$/, "_grid.png");
+          resolve(new File([blob], outputName, { type: "image/png" }));
+        },
+        "image/png"
+      );
+    };
+
+    img.onerror = () => {
+      cleanup();
+      resolve(file);
+    };
+    img.src = objectUrl;
+  });
+}
+
 /**
  * 上传图片到 imgbb（通过服务端 API 代理）
  */

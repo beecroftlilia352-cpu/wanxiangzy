@@ -28,6 +28,8 @@ export type NormalizedGenerationState = {
   completedAt?: string | null;
   providerStatus?: string | null;
   taskId?: string | null;
+  requestId?: string | null;
+  providerDetails?: Record<string, unknown> | null;
 };
 
 type NormalizeGenerationStateInput = {
@@ -79,6 +81,8 @@ export function normalizeGenerationState(input: NormalizeGenerationStateInput): 
     completedAt: input.completedAt || (completed ? asyncTask?.updatedAt || null : null),
     providerStatus,
     taskId: asyncTask?.taskId || null,
+    requestId: asyncTask?.requestId || null,
+    providerDetails: asyncTask?.providerDetails || null,
   };
 }
 
@@ -141,6 +145,14 @@ function readAsyncTask(payload: Record<string, unknown>) {
         : undefined,
     status: typeof payload.asyncTask.status === "string" ? payload.asyncTask.status : undefined,
     progress: payload.asyncTask.progress,
+    requestId: typeof payload.asyncTask.requestId === "string"
+      ? payload.asyncTask.requestId
+      : typeof payload.asyncTask.request_id === "string"
+        ? payload.asyncTask.request_id
+        : undefined,
+    providerDetails: isRecord(payload.asyncTask.providerDetails)
+      ? payload.asyncTask.providerDetails
+      : null,
     updatedAt: typeof payload.asyncTask.updatedAt === "string" ? payload.asyncTask.updatedAt : undefined,
   };
 }
