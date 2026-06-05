@@ -116,8 +116,8 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
   const [firstFrameUrl, setFirstFrameUrl] = useState("");
   const [lastFrameUrl, setLastFrameUrl] = useState("");
   const [referenceVideoUrl, setReferenceVideoUrl] = useState("");
-  const [prompt, setPrompt] = useState(isFirstLastFrame ? "" : AI_VIDEO_ACTION_TEMPLATES[0]?.promptContent || "");
-  const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(isFirstLastFrame ? null : AI_VIDEO_ACTION_TEMPLATES[0]?.id || null);
+  const [prompt, setPrompt] = useState(isFirstLastFrame ? "" : isMotion ? "" : AI_VIDEO_ACTION_TEMPLATES[0]?.promptContent || "");
+  const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(isFirstLastFrame || isMotion ? null : AI_VIDEO_ACTION_TEMPLATES[0]?.id || null);
   const [modelMode, setModelMode] = useState<AiVideoModelMode>("pro");
   const [resolution, setResolution] = useState<AiVideoResolution>(AI_VIDEO_DEFAULT_RESOLUTION);
   const [aspectRatio, setAspectRatio] = useState<AiVideoAspectRatio>("9:16");
@@ -330,6 +330,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
     try {
       const result = await uploadVideo(file);
       setReferenceVideoUrl(result.url);
+      setSelectedTemplateId(null);
       toast.success("参考视频已上传");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "视频上传失败，请重试");
@@ -368,11 +369,21 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
 
   function applyTemplate(template: AiVideoActionTemplate) {
     setSelectedTemplateId(template.id);
-    setPrompt(template.promptContent);
+    if (isMotion) {
+      setReferenceVideoUrl(template.previewVideo);
+      setPrompt("");
+    } else {
+      setPrompt(template.promptContent);
+    }
     setTemplatePanelOpen(false);
     setResultUrls([]);
     setError("");
-    toast.success("已套用动作模板");
+    toast.success(isMotion ? "已套用示例参考视频" : "已套用动作模板");
+  }
+
+  function removeReferenceVideo() {
+    setReferenceVideoUrl("");
+    setSelectedTemplateId(null);
   }
 
   function applyFirstLastPromptSuggestion() {
@@ -638,7 +649,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
       setReferenceVideoUrl(payload.referenceVideoUrl);
       setImageUrl("");
       setPrompt(payload.prompt || "");
-      setSelectedTemplateId(payload.templateId || null);
+      setSelectedTemplateId(resolveMotionTemplateId(payload.referenceVideoUrl, payload.templateId));
       setModelMode(normalizeAiVideoModelMode(payload.modelMode, payload.kind));
       setDuration(normalizeAiVideoDuration(payload.duration));
       setResolution(normalizeAiVideoResolution(payload.resolution, normalizeAiVideoModelMode(payload.modelMode, payload.kind)));
@@ -680,8 +691,8 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
     setFirstFrameUrl("");
     setLastFrameUrl("");
     setReferenceVideoUrl("");
-    setPrompt(isFirstLastFrame ? "" : AI_VIDEO_ACTION_TEMPLATES[0]?.promptContent || "");
-    setSelectedTemplateId(isFirstLastFrame ? null : AI_VIDEO_ACTION_TEMPLATES[0]?.id || null);
+    setPrompt(isFirstLastFrame ? "" : isMotion ? "" : AI_VIDEO_ACTION_TEMPLATES[0]?.promptContent || "");
+    setSelectedTemplateId(isFirstLastFrame || isMotion ? null : AI_VIDEO_ACTION_TEMPLATES[0]?.id || null);
     setModelMode("pro");
     setResolution(AI_VIDEO_DEFAULT_RESOLUTION);
     setAspectRatio("9:16");
@@ -847,7 +858,8 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
                 loading={isUploadingVideo}
                 onUploadClick={() => videoInputRef.current?.click()}
                 onLibraryClick={() => toast.info("作品库选择即将接入")}
-                onRemove={referenceVideoUrl ? () => setReferenceVideoUrl("") : undefined}
+                onRemove={referenceVideoUrl ? removeReferenceVideo : undefined}
+                sourceLabel={selectedTemplate ? `示例参考视频 · ${selectedTemplate.title}` : undefined}
               />
             </section>
           </>
@@ -859,7 +871,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
           value={prompt}
           onChange={(event) => {
             setPrompt(event.target.value);
-            setSelectedTemplateId(null);
+            if (!isMotion) setSelectedTemplateId(null);
           }}
           rows={isFirstLastFrame ? 5 : isMotion ? 4 : 7}
           placeholder={isFirstLastFrame
@@ -883,7 +895,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
         {!isFirstLastFrame && (
           <section>
             <div className="mb-3 flex items-center justify-between gap-3">
-              <h3 className="text-sm font-black text-codex-ink">动作模板</h3>
+              <h3 className="text-sm font-black text-codex-ink">{isMotion ? "示例参考视频" : "动作模板"}</h3>
               <button
                 type="button"
                 onClick={() => setTemplatePanelOpen(true)}
@@ -1122,9 +1134,9 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
           open={templatePanelOpen}
           side="left"
           size="lg"
-          title="动作模板"
-          description="选择模板后会自动写入动作描述，也可以在左侧继续编辑。"
-          ariaLabel="动作模板选择"
+          title={isMotion ? "示例参考视频" : "动作模板"}
+          description={isMotion ? "选择示例后会作为参考视频试用；手动上传参考视频会自动取消示例选择。" : "选择模板后会自动写入动作描述，也可以在左侧继续编辑。"}
+          ariaLabel={isMotion ? "示例参考视频选择" : "动作模板选择"}
           onClose={() => setTemplatePanelOpen(false)}
         >
           <div className="border-b border-slate-100 px-5 py-3">
@@ -1139,7 +1151,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
             </div>
           </div>
           <div className="custom-scroll min-h-0 flex-1 overflow-y-auto p-5">
-            <TemplateGrid selectedId={selectedTemplateId} onSelect={applyTemplate} />
+            <TemplateGrid selectedId={selectedTemplateId} onSelect={applyTemplate} actionLabel={isMotion ? "试用示例视频" : "使用模板"} />
           </div>
         </StudioSideDrawer>
       )}
@@ -1166,25 +1178,88 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
 }
 
 function TemplateStrip({ selectedId, onSelect }: { selectedId: number | null; onSelect: (template: AiVideoActionTemplate) => void }) {
+  const [previewTemplate, setPreviewTemplate] = useState<AiVideoActionTemplate | null>(null);
+  const previewVideoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const video = previewVideoRef.current;
+    if (!video) return;
+
+    if (previewTemplate) {
+      video.currentTime = 0;
+      void video.play().catch(() => undefined);
+      return;
+    }
+
+    video.pause();
+    video.currentTime = 0;
+  }, [previewTemplate]);
+
   return (
-    <div className="studio-scrollbar-hide flex gap-2 overflow-x-auto pb-1">
-      {AI_VIDEO_ACTION_TEMPLATES.slice(0, 6).map((template) => (
-        <button
-          key={template.id}
-          type="button"
-          onClick={() => onSelect(template)}
-          aria-pressed={selectedId === template.id}
-          className={`relative h-[78px] w-[68px] shrink-0 overflow-hidden rounded-[12px] border bg-slate-100 transition ${
-            selectedId === template.id ? "border-blue-500 ring-2 ring-blue-100" : "border-slate-200 hover:border-blue-200"
-          }`}
-          title={template.title}
-        >
-          <img src={template.previewImage} alt={template.title} className="h-full w-full object-cover" />
-          {selectedId === template.id && <span className="absolute inset-x-2 bottom-1 h-1 rounded-full bg-blue-500" />}
-        </button>
-      ))}
+    <div className="relative" onMouseLeave={() => setPreviewTemplate(null)}>
+      {previewTemplate && (
+        <div className="pointer-events-none absolute bottom-[94px] left-0 z-30 aspect-[4/5] w-[232px] overflow-hidden rounded-[18px] border border-white/90 bg-slate-950 shadow-[0_28px_70px_rgba(15,23,42,0.22)] ring-1 ring-blue-200/80">
+          <img src={previewTemplate.previewImage} alt="" className="absolute inset-0 h-full w-full object-cover" />
+          <video
+            ref={previewVideoRef}
+            key={previewTemplate.id}
+            src={previewTemplate.previewVideo}
+            muted
+            loop
+            playsInline
+            preload="metadata"
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/18 via-transparent to-slate-950/42" />
+          <span className="absolute left-3 top-3 rounded-full bg-slate-950/72 px-3 py-1.5 text-sm font-black text-white shadow-sm backdrop-blur">00:05</span>
+          <span className="absolute inset-x-3 bottom-3 rounded-full border border-white/22 bg-white/16 px-3 py-2 text-xs font-black text-white shadow-sm backdrop-blur-md">
+            {previewTemplate.title}
+          </span>
+        </div>
+      )}
+
+      <div className="studio-scrollbar-hide flex gap-2 overflow-x-auto pb-1 pt-1">
+        {AI_VIDEO_ACTION_TEMPLATES.slice(0, 6).map((template) => {
+          const selected = selectedId === template.id;
+          const previewing = previewTemplate?.id === template.id;
+
+          return (
+            <button
+              key={template.id}
+              type="button"
+              onClick={() => onSelect(template)}
+              onMouseEnter={() => setPreviewTemplate(template)}
+              onFocus={() => setPreviewTemplate(template)}
+              onBlur={() => setPreviewTemplate(null)}
+              aria-pressed={selected}
+              className={`group relative h-[78px] w-[68px] shrink-0 overflow-hidden rounded-[12px] border bg-slate-100 transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 ${
+                selected || previewing
+                  ? "border-blue-500 shadow-[0_12px_28px_rgba(59,130,246,0.18)] ring-2 ring-blue-100"
+                  : "border-slate-200 hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-[0_10px_22px_rgba(15,23,42,0.10)]"
+              }`}
+              title={template.title}
+            >
+              <img src={template.previewImage} alt={template.title} className="h-full w-full object-cover transition duration-200 group-hover:scale-[1.04]" />
+              <span className={`absolute inset-0 transition ${previewing ? "bg-blue-500/10" : "bg-transparent"}`} />
+              {(selected || previewing) && <span className="absolute inset-x-2 bottom-1 h-1 rounded-full bg-blue-500" />}
+              {previewing && (
+                <span className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-white/92 text-blue-600 shadow-sm">
+                  <Play className="ml-0.5 h-3 w-3 fill-current" />
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
+}
+
+function resolveMotionTemplateId(referenceVideoUrl: string, templateId?: number | null) {
+  if (!referenceVideoUrl) return null;
+  const template = AI_VIDEO_ACTION_TEMPLATES.find((item) => item.id === templateId);
+  if (template?.previewVideo === referenceVideoUrl) return template.id;
+  return AI_VIDEO_ACTION_TEMPLATES.find((item) => item.previewVideo === referenceVideoUrl)?.id || null;
 }
 
 function ImageToVideoGuide({ onOpenTemplates }: { onOpenTemplates: () => void }) {
@@ -1289,7 +1364,15 @@ function TemplateTabs() {
   );
 }
 
-function TemplateGrid({ selectedId, onSelect }: { selectedId: number | null; onSelect: (template: AiVideoActionTemplate) => void }) {
+function TemplateGrid({
+  selectedId,
+  onSelect,
+  actionLabel = "使用模板",
+}: {
+  selectedId: number | null;
+  onSelect: (template: AiVideoActionTemplate) => void;
+  actionLabel?: string;
+}) {
   return (
     <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
       {AI_VIDEO_ACTION_TEMPLATES.map((template) => (
@@ -1298,13 +1381,24 @@ function TemplateGrid({ selectedId, onSelect }: { selectedId: number | null; onS
           template={template}
           selected={selectedId === template.id}
           onSelect={() => onSelect(template)}
+          actionLabel={actionLabel}
         />
       ))}
     </div>
   );
 }
 
-function TemplateCard({ template, selected, onSelect }: { template: AiVideoActionTemplate; selected: boolean; onSelect: () => void }) {
+function TemplateCard({
+  template,
+  selected,
+  onSelect,
+  actionLabel,
+}: {
+  template: AiVideoActionTemplate;
+  selected: boolean;
+  onSelect: () => void;
+  actionLabel: string;
+}) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [active, setActive] = useState(false);
 
@@ -1357,7 +1451,7 @@ function TemplateCard({ template, selected, onSelect }: { template: AiVideoActio
           onClick={onSelect}
           className="gradient-brand mt-4 inline-flex h-10 w-full items-center justify-center rounded-[8px] text-sm font-black text-white"
         >
-          使用模板
+          {actionLabel}
         </button>
       </div>
     </article>
@@ -1371,6 +1465,7 @@ function VideoUploadTile({
   onUploadClick,
   onLibraryClick,
   onRemove,
+  sourceLabel,
 }: {
   videoUrl: string;
   isDragging: boolean;
@@ -1378,13 +1473,19 @@ function VideoUploadTile({
   onUploadClick: () => void;
   onLibraryClick: () => void;
   onRemove?: () => void;
+  sourceLabel?: string;
 }) {
   return (
     <div className={`studio-upload-tile ${isDragging ? "studio-upload-tile-dragging" : ""}`} aria-busy={loading ? "true" : undefined}>
       <div className="studio-upload-tile-panel">
         {videoUrl ? (
-          <div className="studio-upload-tile-main bg-black">
+          <div className="studio-upload-tile-main relative bg-black">
             <video src={videoUrl} controls playsInline preload="metadata" className="h-full w-full object-contain" />
+            {sourceLabel && (
+              <span className="absolute left-3 top-3 rounded-full bg-black/70 px-2.5 py-1 text-[11px] font-black text-white shadow-sm">
+                {sourceLabel}
+              </span>
+            )}
           </div>
         ) : (
           <div className="studio-upload-tile-empty" aria-label="上传参考视频">
