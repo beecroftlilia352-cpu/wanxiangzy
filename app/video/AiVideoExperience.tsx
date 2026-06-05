@@ -37,6 +37,8 @@ import {
   AI_VIDEO_ACTION_TEMPLATES,
   AI_VIDEO_AUDIO_MODE_OPTIONS,
   AI_VIDEO_ASPECT_RATIO_OPTIONS,
+  AI_VIDEO_DEFAULT_AUDIO_MODE,
+  AI_VIDEO_DEFAULT_DURATION,
   AI_VIDEO_DEFAULT_RESOLUTION,
   AI_VIDEO_DURATION_OPTIONS,
   AI_VIDEO_MODEL_MODE_OPTIONS,
@@ -97,6 +99,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
   const videoInputRef = useRef<HTMLInputElement>(null);
   const audioInputRef = useRef<HTMLInputElement>(null);
   const generationRunRef = useRef(0);
+  const submitLockRef = useRef(false);
   const isMotion = mode === "motion-control";
   const isFirstLastFrame = mode === "first-last-frame";
   const generationKind = getAiVideoKind(mode);
@@ -117,8 +120,8 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
   const [modelMode, setModelMode] = useState<AiVideoModelMode>("pro");
   const [resolution, setResolution] = useState<AiVideoResolution>(AI_VIDEO_DEFAULT_RESOLUTION);
   const [aspectRatio, setAspectRatio] = useState<AiVideoAspectRatio>("9:16");
-  const [duration, setDuration] = useState<AiVideoDuration>(5);
-  const [audioMode, setAudioMode] = useState<AiVideoAudioMode>("generated");
+  const [duration, setDuration] = useState<AiVideoDuration>(AI_VIDEO_DEFAULT_DURATION);
+  const [audioMode, setAudioMode] = useState<AiVideoAudioMode>(AI_VIDEO_DEFAULT_AUDIO_MODE);
   const [audioUrl, setAudioUrl] = useState("");
   const [audioPrompt, setAudioPrompt] = useState("");
   const [genCount, setGenCount] = useState(1);
@@ -192,7 +195,6 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
         : credits !== null && credits < cost
           ? `积分不足，生成需要 ${cost} 积分`
           : undefined;
-
   const imageDrag = useStableFileDrag<HTMLDivElement>({
     isDragging: isDraggingImage,
     setDragging: setIsDraggingImage,
@@ -379,7 +381,10 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
   }
 
   async function generate() {
-    if (isSubmitting) return;
+    if (submitLockRef.current || isSubmitting) {
+      toast.info("视频任务正在提交，请稍候。");
+      return;
+    }
     if (!isAuthenticated && !(await refreshAuth())) {
       toast.error("请先登录");
       router.push("/login");
@@ -393,6 +398,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
     const runId = generationRunRef.current + 1;
     generationRunRef.current = runId;
     const isCurrentRun = () => generationRunRef.current === runId;
+    submitLockRef.current = true;
     setIsSubmitting(true);
     setIsGenerating(true);
     setProgress(10);
@@ -463,6 +469,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
         if (res.status === 401) {
           await refreshAuth();
           taskQueue.removeTask(activeTaskId);
+          submitLockRef.current = false;
           if (isCurrentRun()) {
             setIsSubmitting(false);
             setIsGenerating(false);
@@ -492,6 +499,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
         });
         activeTaskId = serverTask.id;
       }
+      submitLockRef.current = false;
       if (isCurrentRun()) {
         setProgress(25);
         setIsSubmitting(false);
@@ -556,6 +564,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
         toast.info("视频仍在后台生成，可稍后在任务队列或作品库查看");
       }
     } catch (err) {
+      submitLockRef.current = false;
       const message = err instanceof Error ? err.message : "视频生成失败";
       taskQueue.markFailed(activeTaskId, message, {
         expectedCount: genCount,
@@ -573,6 +582,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
 
   function handleRunningTask(item: TaskQueueItem) {
     generationRunRef.current += 1;
+    submitLockRef.current = false;
     setIsSubmitting(false);
     setIsGenerating(true);
     setProgress(Math.min(Math.max(Math.round(Number(item.progress) || 12), 1), 99));
@@ -597,6 +607,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
 
   function applyHistoryPayload(payload: VideoImagePayload | VideoMotionPayload | VideoFirstLastPayload, historyResultUrls: string[] = [], options?: { silent?: boolean }) {
     generationRunRef.current += 1;
+    submitLockRef.current = false;
     if (payload.kind === "videoFirstLastFrame") {
       setFirstFrameUrl(payload.firstFrameUrl);
       setLastFrameUrl(payload.lastFrameUrl);
@@ -609,7 +620,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
       setDuration(normalizeAiVideoDuration(payload.duration));
       setResolution(normalizeAiVideoResolution(payload.resolution, normalizeAiVideoModelMode(payload.modelMode, payload.kind)));
       setAspectRatio(normalizeAiVideoAspectRatio(payload.aspectRatio));
-      setAudioMode(normalizeAiVideoAudioMode(payload.audioMode ?? (payload.generateAudio === false ? "off" : payload.audioUrl ? "custom" : "generated")));
+      setAudioMode(normalizeAiVideoAudioMode(payload.audioMode ?? (payload.audioUrl ? "custom" : payload.generateAudio === true ? "generated" : "off")));
       setAudioUrl(payload.audioUrl || "");
       setAudioPrompt(payload.audioPrompt || "");
       setGenCount(normalizeAiVideoGenCount(payload.genCount));
@@ -625,7 +636,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
       setDuration(normalizeAiVideoDuration(payload.duration));
       setResolution(normalizeAiVideoResolution(payload.resolution, normalizeAiVideoModelMode(payload.modelMode, payload.kind)));
       setAspectRatio(normalizeAiVideoAspectRatio(payload.aspectRatio));
-      setAudioMode(normalizeAiVideoAudioMode(payload.audioMode ?? (payload.generateAudio === false ? "off" : payload.audioUrl ? "custom" : "generated")));
+      setAudioMode(normalizeAiVideoAudioMode(payload.audioMode ?? (payload.audioUrl ? "custom" : payload.generateAudio === true ? "generated" : "off")));
       setAudioUrl(payload.audioUrl || "");
       setAudioPrompt(payload.audioPrompt || "");
       setGenCount(normalizeAiVideoGenCount(payload.genCount));
@@ -641,7 +652,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
       setDuration(normalizeAiVideoDuration(payload.duration));
       setResolution(normalizeAiVideoResolution(payload.resolution, normalizeAiVideoModelMode(payload.modelMode, payload.kind)));
       setAspectRatio(normalizeAiVideoAspectRatio(payload.aspectRatio));
-      setAudioMode(normalizeAiVideoAudioMode(payload.audioMode ?? (payload.generateAudio === false ? "off" : payload.audioUrl ? "custom" : "generated")));
+      setAudioMode(normalizeAiVideoAudioMode(payload.audioMode ?? (payload.audioUrl ? "custom" : payload.generateAudio === true ? "generated" : "off")));
       setAudioUrl(payload.audioUrl || "");
       setAudioPrompt(payload.audioPrompt || "");
       setGenCount(normalizeAiVideoGenCount(payload.genCount));
@@ -656,6 +667,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
 
   function handleContinueCreate() {
     generationRunRef.current += 1;
+    submitLockRef.current = false;
     setImageUrl("");
     setModelImageUrl("");
     setFirstFrameUrl("");
@@ -666,8 +678,8 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
     setModelMode("pro");
     setResolution(AI_VIDEO_DEFAULT_RESOLUTION);
     setAspectRatio("9:16");
-    setDuration(5);
-    setAudioMode("generated");
+    setDuration(AI_VIDEO_DEFAULT_DURATION);
+    setAudioMode(AI_VIDEO_DEFAULT_AUDIO_MODE);
     setAudioUrl("");
     setAudioPrompt("");
     setGenCount(1);
@@ -945,7 +957,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
                 音效
               </span>
             )}
-            description="默认开启智能音效；需要品牌 BGM、口播或指定节奏时切换为上传音频。"
+            description="默认静音以提高生成稳定性；需要品牌 BGM、口播或指定节奏时再开启。"
             meta={generateAudio ? `+${audioCreditCost} 积分/条` : "静音"}
             checked={generateAudio}
             onChange={(checked) => {
@@ -1053,7 +1065,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
           costLabel={authIsAnonymous ? "登录后查看积分" : `消耗 ${cost} · 余额 ${credits ?? "-"}`}
           disabled={isSubmitting || Boolean(runDisabledReason)}
           disabledReason={runDisabledReason}
-          primaryLabel={authIsAnonymous ? "登录后生成" : isSubmitting ? "提交中..." : isGenerating ? `生成中 ${Math.round(progress)}%` : "生成视频"}
+          primaryLabel={authIsAnonymous ? "登录后生成" : isSubmitting ? "提交中..." : "生成视频"}
           isLoading={isSubmitting}
           onPrimaryAction={generate}
         />

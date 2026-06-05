@@ -1015,6 +1015,7 @@ async function executePayload(
 
   if (payload.kind === "videoImageToVideo") {
     const modelMode = normalizeAiVideoModelMode(payload.modelMode, payload.kind);
+    const audioMode = resolvePayloadAiVideoAudioMode(payload);
     return runVideoBatch("video:image-to-video", (_index, onVideoProgress) => generateSeedanceImageToVideo({
       imageUrl: payload.imageUrl,
       prompt: payload.prompt,
@@ -1022,7 +1023,7 @@ async function executePayload(
       duration: normalizeAiVideoDuration(payload.duration),
       resolution: normalizeAiVideoResolution(payload.resolution, modelMode),
       aspectRatio: normalizeAiVideoAspectRatio(payload.aspectRatio),
-      audioMode: normalizeAiVideoAudioMode(payload.audioMode),
+      audioMode,
       audioUrl: payload.audioUrl,
       audioPrompt: payload.audioPrompt,
       generateAudio: normalizeAiVideoGenerateAudio(payload.generateAudio),
@@ -1032,6 +1033,7 @@ async function executePayload(
 
   if (payload.kind === "videoMotion") {
     const modelMode = normalizeAiVideoModelMode(payload.modelMode, payload.kind);
+    const audioMode = resolvePayloadAiVideoAudioMode(payload);
     return runVideoBatch("video:motion-control", (_index, onVideoProgress) => generateSeedanceMotionControl({
       modelImageUrl: payload.modelImageUrl,
       referenceVideoUrl: payload.referenceVideoUrl,
@@ -1040,7 +1042,7 @@ async function executePayload(
       duration: normalizeAiVideoDuration(payload.duration),
       resolution: normalizeAiVideoResolution(payload.resolution, modelMode),
       aspectRatio: normalizeAiVideoAspectRatio(payload.aspectRatio),
-      audioMode: normalizeAiVideoAudioMode(payload.audioMode),
+      audioMode,
       audioUrl: payload.audioUrl,
       audioPrompt: payload.audioPrompt,
       generateAudio: normalizeAiVideoGenerateAudio(payload.generateAudio),
@@ -1050,6 +1052,7 @@ async function executePayload(
 
   if (payload.kind === "videoFirstLastFrame") {
     const modelMode = normalizeAiVideoModelMode(payload.modelMode, payload.kind);
+    const audioMode = resolvePayloadAiVideoAudioMode(payload);
     return runVideoBatch("video:first-last-frame", (_index, onVideoProgress) => generateSeedanceFirstLastFrame({
       firstFrameUrl: payload.firstFrameUrl,
       lastFrameUrl: payload.lastFrameUrl,
@@ -1058,7 +1061,7 @@ async function executePayload(
       duration: normalizeAiVideoDuration(payload.duration),
       resolution: normalizeAiVideoResolution(payload.resolution, modelMode),
       aspectRatio: normalizeAiVideoAspectRatio(payload.aspectRatio),
-      audioMode: normalizeAiVideoAudioMode(payload.audioMode),
+      audioMode,
       audioUrl: payload.audioUrl,
       audioPrompt: payload.audioPrompt,
       generateAudio: normalizeAiVideoGenerateAudio(payload.generateAudio),
@@ -1580,6 +1583,12 @@ async function executePayload(
       };
     },
   });
+}
+
+function resolvePayloadAiVideoAudioMode(payload: { audioMode?: AiVideoAudioMode; audioUrl?: string | null; generateAudio?: boolean }) {
+  if (payload.audioMode) return normalizeAiVideoAudioMode(payload.audioMode);
+  if (payload.audioUrl) return "custom";
+  return normalizeAiVideoGenerateAudio(payload.generateAudio) ? "generated" : "off";
 }
 
 function mapImageTaskProgress(

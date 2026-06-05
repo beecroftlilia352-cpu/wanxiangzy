@@ -100,6 +100,12 @@ type PollState = {
   error?: string;
 };
 
+type SeedanceTaskOutcome = {
+  completed: PollState;
+  prompt: string;
+  body: Record<string, unknown>;
+};
+
 type SeedanceContentItem =
   | { type: "text"; text: string }
   | { type: "image_url"; image_url: { url: string }; role: "first_frame" | "last_frame" | "reference_image" }
@@ -107,12 +113,19 @@ type SeedanceContentItem =
   | { type: "audio_url"; audio_url: { url: string }; role: "reference_audio" };
 type SeedanceRatio = AiVideoAspectRatio | "adaptive";
 
+class SeedanceSubmitPrivacyError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "SeedanceSubmitPrivacyError";
+  }
+}
+
 export async function generateSeedanceImageToVideo(input: SeedanceImageToVideoInput): Promise<VideoGenerationResult> {
   const provider = getSeedanceVideoProvider({ modelMode: input.modelMode, resolution: input.resolution });
   const prompt = appendAudioPrompt(buildImageToVideoPrompt(input.prompt), input);
   const content: SeedanceContentItem[] = [
     { type: "text", text: prompt },
-    { type: "image_url", image_url: { url: input.imageUrl }, role: "first_frame" },
+    { type: "image_url", image_url: { url: input.imageUrl }, role: "reference_image" },
     ...getAudioContentItems(input),
   ];
   const body = buildSeedanceTaskBody(provider.model, {
@@ -123,15 +136,25 @@ export async function generateSeedanceImageToVideo(input: SeedanceImageToVideoIn
     generateAudio: shouldGenerateOrUseAudio(input),
   });
 
-  const completed = await runSeedanceTask(provider, body, input.onProgress);
+  const outcome = await runSeedanceTaskWithPrivacyFallback({
+    provider,
+    body,
+    prompt,
+    fallbackPrompt: appendAudioPrompt(buildImagePrivacyFallbackPrompt(input.prompt), input),
+    ratio: input.aspectRatio || AI_VIDEO_DEFAULT_ASPECT_RATIO,
+    duration: input.duration,
+    resolution: input.resolution,
+    generateAudio: shouldGenerateOrUseAudio(input),
+    onProgress: input.onProgress,
+  });
 
   return {
-    url: completed.urls[0],
-    urls: completed.urls,
-    taskId: completed.taskId,
-    providerStatus: completed.providerStatus,
-    prompt,
-    compiledPrompt: JSON.stringify(body),
+    url: outcome.completed.urls[0],
+    urls: outcome.completed.urls,
+    taskId: outcome.completed.taskId,
+    providerStatus: outcome.completed.providerStatus,
+    prompt: outcome.prompt,
+    compiledPrompt: stringifySeedanceTraceBody(outcome.body),
   };
 }
 
@@ -152,15 +175,25 @@ export async function generateSeedanceFirstLastFrame(input: SeedanceFirstLastFra
     generateAudio: shouldGenerateOrUseAudio(input),
   });
 
-  const completed = await runSeedanceTask(provider, body, input.onProgress);
+  const outcome = await runSeedanceTaskWithPrivacyFallback({
+    provider,
+    body,
+    prompt,
+    fallbackPrompt: appendAudioPrompt(buildFirstLastFramePrivacyFallbackPrompt(input.prompt), input),
+    ratio: input.aspectRatio || AI_VIDEO_DEFAULT_ASPECT_RATIO,
+    duration: input.duration,
+    resolution: input.resolution,
+    generateAudio: shouldGenerateOrUseAudio(input),
+    onProgress: input.onProgress,
+  });
 
   return {
-    url: completed.urls[0],
-    urls: completed.urls,
-    taskId: completed.taskId,
-    providerStatus: completed.providerStatus,
-    prompt,
-    compiledPrompt: JSON.stringify(body),
+    url: outcome.completed.urls[0],
+    urls: outcome.completed.urls,
+    taskId: outcome.completed.taskId,
+    providerStatus: outcome.completed.providerStatus,
+    prompt: outcome.prompt,
+    compiledPrompt: stringifySeedanceTraceBody(outcome.body),
   };
 }
 
@@ -181,16 +214,95 @@ export async function generateSeedanceMotionControl(input: SeedanceMotionControl
     generateAudio: shouldGenerateOrUseAudio(input),
   });
 
-  const completed = await runSeedanceTask(provider, body, input.onProgress);
+  const outcome = await runSeedanceTaskWithPrivacyFallback({
+    provider,
+    body,
+    prompt,
+    fallbackPrompt: appendAudioPrompt(buildMotionPrivacyFallbackPrompt(input.prompt), input),
+    ratio: input.aspectRatio || AI_VIDEO_DEFAULT_ASPECT_RATIO,
+    duration: input.duration,
+    resolution: input.resolution,
+    generateAudio: shouldGenerateOrUseAudio(input),
+    onProgress: input.onProgress,
+  });
 
   return {
-    url: completed.urls[0],
-    urls: completed.urls,
-    taskId: completed.taskId,
-    providerStatus: completed.providerStatus,
-    prompt,
-    compiledPrompt: JSON.stringify(body),
+    url: outcome.completed.urls[0],
+    urls: outcome.completed.urls,
+    taskId: outcome.completed.taskId,
+    providerStatus: outcome.completed.providerStatus,
+    prompt: outcome.prompt,
+    compiledPrompt: stringifySeedanceTraceBody(outcome.body),
   };
+}
+
+async function runSeedanceTaskWithPrivacyFallback(params: {
+  provider: ProviderConfig;
+  body: Record<string, unknown>;
+  prompt: string;
+  fallbackPrompt: string;
+  ratio: SeedanceRatio;
+  duration: AiVideoDuration;
+  resolution: AiVideoResolution;
+  generateAudio: boolean;
+  onProgress?: SeedanceImageToVideoInput["onProgress"];
+}): Promise<SeedanceTaskOutcome> {
+  try {
+    return {
+      completed: await runSeedanceTask(params.provider, params.body, params.onProgress),
+      prompt: params.prompt,
+      body: params.body,
+    };
+  } catch (error) {
+    if (!(error instanceof SeedanceSubmitPrivacyError)) throw error;
+  }
+
+  await params.onProgress?.({
+    status: "queued",
+    providerStatus: "IMAGE_PRIVACY_TEXT_FALLBACK",
+    progress: VIDEO_SUBMIT_PROGRESS_MAX,
+  });
+
+  const fallbackBody = buildSeedanceTaskBody(params.provider.model, {
+    content: [{ type: "text", text: params.fallbackPrompt }],
+    ratio: params.ratio,
+    duration: params.duration,
+    resolution: params.resolution,
+    generateAudio: params.generateAudio,
+  });
+  return {
+    completed: await runSeedanceTask(params.provider, fallbackBody, params.onProgress),
+    prompt: params.fallbackPrompt,
+    body: fallbackBody,
+  };
+}
+
+function stringifySeedanceTraceBody(body: Record<string, unknown>) {
+  return JSON.stringify(redactSeedanceSignedUrls(body));
+}
+
+function redactSeedanceSignedUrls(value: unknown): unknown {
+  if (typeof value === "string") return redactSignedUrl(value);
+  if (Array.isArray(value)) return value.map((item) => redactSeedanceSignedUrls(item));
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>).map(([key, entry]) => [key, redactSeedanceSignedUrls(entry)])
+  );
+}
+
+function redactSignedUrl(value: string) {
+  if (!/^https?:\/\//i.test(value) || !/[?&](OSSAccessKeyId|Signature|Expires)=/i.test(value)) return value;
+  try {
+    const url = new URL(value);
+    url.searchParams.delete("OSSAccessKeyId");
+    url.searchParams.delete("Expires");
+    url.searchParams.delete("Signature");
+    url.searchParams.delete("security-token");
+    url.searchParams.set("signed", "redacted");
+    return url.toString();
+  } catch {
+    return "[signed-url-redacted]";
+  }
 }
 
 function getAudioContentItems(input: { audioMode: AiVideoAudioMode; audioUrl?: string | null }): SeedanceContentItem[] {
@@ -210,7 +322,15 @@ async function runSeedanceTask(
   onProgress: SeedanceImageToVideoInput["onProgress"]
 ) {
   await onProgress?.({ status: "queued", providerStatus: "SUBMITTING", progress: 1 });
-  const submitted = await submitJson(`${provider.apiBase}/contents/generations/tasks`, provider.apiKey, body);
+  let submitted: unknown;
+  try {
+    submitted = await submitJson(`${provider.apiBase}/contents/generations/tasks`, provider.apiKey, body);
+  } catch (error) {
+    if (isSeedanceInputPrivacyError(error)) {
+      throw new SeedanceSubmitPrivacyError(error instanceof Error ? error.message : String(error));
+    }
+    throw error;
+  }
   const taskId = extractTaskId(submitted);
   if (!taskId) throw new Error(`Seedance2 视频接口未返回任务 ID，响应字段: ${describeResponseKeys(submitted)}`);
   const providerStatus = extractStatusText(submitted) || "submitted";
@@ -266,9 +386,33 @@ function buildImageToVideoPrompt(prompt: string) {
   const trimmed = prompt.trim();
   return [
     trimmed,
-    "以输入图片作为首帧和人物/服装硬参考，保持主体身份、服装结构、颜色、材质和比例一致。",
+    "以输入图片作为人物、服装和画面风格参考，保持主体身份、服装结构、颜色、材质和比例一致。",
     "生成真实商业摄影风格的短视频，镜头稳定，动作自然，不添加字幕、水印或无关人物。",
   ].filter(Boolean).join("\n");
+}
+
+function buildImagePrivacyFallbackPrompt(prompt: string) {
+  return [
+    prompt || "生成一段服装展示短视频。",
+    "使用虚拟商业模特完成服装展示，不复刻任何真实人物身份。",
+    "保持真实商拍光线、稳定镜头和自然动作，突出服装版型、材质和穿搭效果，不添加字幕、水印或无关人物。",
+  ].join("\n");
+}
+
+function buildFirstLastFramePrivacyFallbackPrompt(prompt: string) {
+  return [
+    prompt || "生成首尾姿态自然过渡的服装展示短视频。",
+    "使用虚拟商业模特完成首尾姿态之间的顺滑过渡，不复刻任何真实人物身份。",
+    "保持服装结构、颜色、材质和整体画面比例稳定，使用商业摄影运镜，不添加字幕、水印或无关人物。",
+  ].join("\n");
+}
+
+function buildMotionPrivacyFallbackPrompt(prompt?: string) {
+  return [
+    prompt?.trim() || "生成一段自然动作的服装展示短视频。",
+    "使用虚拟商业模特表现参考动作意图，不复刻任何真实人物身份。",
+    "保持镜头平稳、动作连贯和真实商拍质感，突出服装版型和动态效果，不添加字幕、水印或无关人物。",
+  ].join("\n");
 }
 
 function buildMotionControlPrompt(prompt?: string) {
@@ -369,7 +513,7 @@ async function getJson(url: string, apiKey: string) {
 
 async function readJsonResponse(response: Response, prefix: string) {
   const text = await response.text();
-  if (!response.ok) throw new Error(`${prefix}: HTTP ${response.status} ${text.slice(0, 300)}`);
+  if (!response.ok) throw new Error(`${prefix}: HTTP ${response.status} ${formatSeedanceErrorBody(text)}`);
   if (!text.trim()) throw new Error(`${prefix}: 响应为空`);
   try {
     return JSON.parse(text);
@@ -384,6 +528,25 @@ function buildHeaders(apiKey: string) {
     "Content-Type": "application/json",
     Accept: "application/json",
   };
+}
+
+function formatSeedanceErrorBody(text: string) {
+  const trimmed = text.trim();
+  if (!trimmed) return "响应为空";
+  try {
+    const json = JSON.parse(trimmed);
+    const code = typeof json?.error?.code === "string" ? json.error.code : "";
+    const message = typeof json?.error?.message === "string" ? json.error.message : "";
+    const type = typeof json?.error?.type === "string" ? json.error.type : "";
+    return [code, message, type].filter(Boolean).join(" | ") || trimmed.slice(0, 300);
+  } catch {
+    return trimmed.slice(0, 300);
+  }
+}
+
+function isSeedanceInputPrivacyError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  return /InputImageSensitiveContentDetected|PrivacyInformation|input image may contain real person/i.test(message);
 }
 
 function getSeedanceVideoProvider(options: { mode?: "default" | "first-last-frame"; modelMode?: AiVideoModelMode; resolution?: AiVideoResolution } = {}): ProviderConfig {

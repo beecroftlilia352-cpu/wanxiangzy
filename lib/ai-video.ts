@@ -17,9 +17,9 @@ export type AiVideoActionTemplate = {
 
 export const AI_VIDEO_DEFAULT_ASPECT_RATIO = "9:16" as const;
 export const AI_VIDEO_DEFAULT_RESOLUTION = "720p" as const;
-export const AI_VIDEO_DEFAULT_DURATION: AiVideoDuration = 5;
-export const AI_VIDEO_DEFAULT_AUDIO_MODE = "generated" as const;
-export const AI_VIDEO_DEFAULT_GENERATE_AUDIO = true;
+export const AI_VIDEO_DEFAULT_DURATION: AiVideoDuration = 4;
+export const AI_VIDEO_DEFAULT_AUDIO_MODE = "off" as const;
+export const AI_VIDEO_DEFAULT_GENERATE_AUDIO = false;
 export const AI_VIDEO_MIN_DURATION = 4;
 export const AI_VIDEO_MAX_DURATION = 15;
 export const AI_VIDEO_MAX_GENERATION_COUNT = 4;
@@ -177,7 +177,7 @@ export function normalizeAiVideoGenCount(value: unknown) {
 }
 
 export function normalizeAiVideoAudioMode(value: unknown): AiVideoAudioMode {
-  if (value === "custom" || value === "off") return value;
+  if (value === "generated" || value === "custom" || value === "off") return value;
   return AI_VIDEO_DEFAULT_AUDIO_MODE;
 }
 
@@ -195,7 +195,7 @@ export function getAiVideoAudioCreditCost(input: {
   const duration = normalizeAiVideoDuration(input.duration);
   const audioMode = input.audioMode
     ? normalizeAiVideoAudioMode(input.audioMode)
-    : normalizeAiVideoGenerateAudio(input.generateAudio) ? AI_VIDEO_DEFAULT_AUDIO_MODE : "off";
+    : normalizeAiVideoGenerateAudio(input.generateAudio) ? "generated" : AI_VIDEO_DEFAULT_AUDIO_MODE;
   if (audioMode === "off") return 0;
   return Math.max(2, Math.ceil(duration * 0.4));
 }
