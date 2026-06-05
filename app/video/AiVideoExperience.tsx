@@ -1081,6 +1081,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
               urls={resultUrls}
               filenamePrefix={isFirstLastFrame ? "first-last-frame-video" : isMotion ? "motion-video" : "image-video"}
               onOpen={(url) => setLightboxVideo(url)}
+              aspectRatio={aspectRatio}
               expectedCount={isGenerating ? genCount : undefined}
               isGenerating={isGenerating}
               inputThumbnails={inputThumbnails}

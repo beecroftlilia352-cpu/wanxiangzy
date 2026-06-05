@@ -1,5 +1,6 @@
 "use client";
 
+import type { CSSProperties } from "react";
 import { Download, Loader2, Play, XCircle } from "lucide-react";
 import { downloadMedia, generateDownloadFilename } from "@/lib/utils";
 import type { TaskStatusGroup } from "@/lib/task-queue";
@@ -8,6 +9,7 @@ type ResultVideoGridProps = {
   urls: string[];
   filenamePrefix: string;
   onOpen: (url: string, index: number) => void;
+  aspectRatio?: string;
   expectedCount?: number;
   isGenerating?: boolean;
   inputThumbnails?: string[];
@@ -20,6 +22,7 @@ export function ResultVideoGrid({
   urls,
   filenamePrefix,
   onOpen,
+  aspectRatio,
   expectedCount,
   isGenerating,
   inputThumbnails = [],
@@ -59,6 +62,7 @@ export function ResultVideoGrid({
               url={url}
               index={index}
               running={running}
+              aspectRatio={aspectRatio}
               filenamePrefix={filenamePrefix}
               onOpen={onOpen}
             />
@@ -73,19 +77,23 @@ function VideoResultCard({
   url,
   index,
   running,
+  aspectRatio,
   filenamePrefix,
   onOpen,
 }: {
   url: string | null;
   index: number;
   running: boolean;
+  aspectRatio?: string;
   filenamePrefix: string;
   onOpen: (url: string, index: number) => void;
 }) {
+  const layout = getVideoResultLayout(aspectRatio);
+
   if (!url) {
     return (
-      <div className="studio-result-card min-h-[340px] overflow-hidden bg-white">
-        <div className="gen-card studio-result-pending-card flex h-full min-h-[340px] w-full flex-col items-center justify-center gap-2">
+      <div className="studio-result-card w-full justify-self-center overflow-hidden bg-white" style={layout}>
+        <div className="gen-card studio-result-pending-card flex h-full w-full flex-col items-center justify-center gap-2">
           <div className="relative z-[1] flex h-14 w-14 items-center justify-center">
             <div className="gen-ring absolute inset-0 rounded-full bg-[#aeb8ff]/45" />
             <div className="relative flex h-14 w-14 items-center justify-center rounded-full border border-white/16 bg-white/10 shadow-lg backdrop-blur-md">
@@ -102,12 +110,12 @@ function VideoResultCard({
   }
 
   return (
-    <div className="studio-result-card group relative overflow-hidden bg-black">
+    <div className="studio-result-card group relative w-full justify-self-center overflow-hidden bg-black" style={layout}>
       <button
         type="button"
         onClick={() => onOpen(url, index)}
         className="relative block w-full bg-black text-left"
-        style={{ aspectRatio: "9 / 16" }}
+        style={{ aspectRatio: "inherit" }}
         aria-label={`播放生成视频 ${index + 1}`}
       >
         <video
@@ -137,6 +145,28 @@ function VideoResultCard({
       </button>
     </div>
   );
+}
+
+function getVideoResultLayout(aspectRatio?: string): CSSProperties {
+  const normalized = typeof aspectRatio === "string" ? aspectRatio.trim() : "9:16";
+  const [rawWidth, rawHeight] = normalized.split(":").map((value) => Number(value));
+  const width = Number.isFinite(rawWidth) && rawWidth > 0 ? rawWidth : 9;
+  const height = Number.isFinite(rawHeight) && rawHeight > 0 ? rawHeight : 16;
+  const ratio = width / height;
+  const maxWidth = ratio < 0.7
+    ? 420
+    : ratio < 0.9
+      ? 500
+      : ratio < 1.15
+        ? 560
+        : ratio < 1.6
+          ? 760
+          : 1080;
+
+  return {
+    aspectRatio: `${width} / ${height}`,
+    maxWidth: `min(${maxWidth}px, 100%)`,
+  };
 }
 
 function isVideoUrl(url: string) {
