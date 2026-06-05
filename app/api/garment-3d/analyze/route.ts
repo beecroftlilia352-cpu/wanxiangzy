@@ -6,7 +6,7 @@ import { buildGarment3dDisplayStylePrompt, getGarment3dDisplayStyleLabel, normal
 
 const ANALYZE_TIMEOUT_MS = Number(process.env.LINGYA_ANALYZE_TIMEOUT_MS || 30000);
 const GARMENT_3D_QUALITY =
-  "photorealistic, 8K ultra-detailed, high contrast, commercial e-commerce catalog quality, sharp fabric details, raw photo quality";
+  "photorealistic, 8K ultra-detailed, RAW photo quality, high contrast, commercial e-commerce catalog quality, sharp fabric details";
 
 export async function POST(request: NextRequest) {
   try {

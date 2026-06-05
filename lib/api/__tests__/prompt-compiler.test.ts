@@ -49,6 +49,30 @@ describe("compileImagePromptForModel", () => {
     expect(result.length).toBeLessThanOrEqual(2300);
   });
 
+  it("uses enhanced RAW quality outside untouched detail prompts", () => {
+    const grass = compileImagePromptForModel({
+      kind: "grass",
+      model: "nano-banana-2",
+      prompt: shortPrompt,
+    });
+    const commerceDetail = compileImagePromptForModel({
+      kind: "commerceDetail",
+      model: "nano-banana-2",
+      prompt: shortPrompt,
+    });
+    const productSet = compileImagePromptForModel({
+      kind: "productSet",
+      model: "nano-banana-2",
+      prompt: shortPrompt,
+    });
+
+    expect(grass).toContain("RAW photo quality");
+    expect(commerceDetail).toContain("raw photo quality");
+    expect(commerceDetail).not.toContain("RAW photo quality");
+    expect(productSet).toContain("raw photo quality");
+    expect(productSet).not.toContain("RAW photo quality");
+  });
+
   it("produces concise prompt for nano-banana-pro with required signals", () => {
     const result = compileImagePromptForModel({
       kind: "pose",

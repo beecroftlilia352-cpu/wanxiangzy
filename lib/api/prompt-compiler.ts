@@ -24,6 +24,8 @@ const KIND_HEADERS: Record<ImagePromptKind, string> = {
 };
 
 const QUALITY_LINE =
+  "图像质量：photorealistic, 8K ultra-detailed, sharp details, commercial photography quality, RAW photo quality.";
+const DEFAULT_DETAIL_QUALITY_LINE =
   "图像质量：photorealistic, 8K ultra-detailed, sharp details, commercial photography quality, raw photo quality.";
 
 const IMPORTANT_PATTERNS = [
@@ -148,10 +150,15 @@ function compileConcisePrompt(kind: ImagePromptKind, prompt: string, maxChars: n
     modelLine,
     ...requiredSignal,
     ...highSignal,
-    QUALITY_LINE,
+    getQualityLine(kind),
   ]);
 
   return limitPrompt(selected.join("\n"), maxChars);
+}
+
+function getQualityLine(kind: ImagePromptKind) {
+  if (kind === "commerceDetail" || kind === "productSet") return DEFAULT_DETAIL_QUALITY_LINE;
+  return QUALITY_LINE;
 }
 
 function compileSeparatePosePrompt(prompt: string, maxChars: number) {

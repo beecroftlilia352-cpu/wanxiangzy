@@ -1,5 +1,5 @@
 const MODEL_QUALITY =
-  "photorealistic, 8K ultra-detailed, commercial portrait quality, cinematic color grade, sharp facial details, sharp hair details, raw photo quality";
+  "photorealistic, 8K ultra-detailed, commercial portrait quality, cinematic color grade, sharp facial details, sharp hair details, RAW photo quality";
 const MODEL_PROMPT_MARKER = "专属模特生成协议 v2";
 
 export const MODEL_FACE_STYLE_RULE =

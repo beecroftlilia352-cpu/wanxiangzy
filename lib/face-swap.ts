@@ -53,13 +53,13 @@ export const DEFAULT_FACE_SWAP_PROMPT = [
   "Preserve real skin texture from image 1: pores, freckles, moles, tiny blemishes, natural asymmetry, local redness, shadows, and realistic skin grain. Do not smooth skin, whiten skin, make porcelain skin, remove freckles or blemishes, or create a generic beauty face.",
   "Preserve image 1 garment design exactly: clothing color, print, logo, text, fabric texture, seams, folds, sleeve shape, hem, pants/skirt, styling, and hand-clothing interaction.",
   "The transition around forehead, jawline, ears, neck, and hairline must be seamless and realistic. Keep the original model skin tone and do not whiten, tan, beautify, age-shift, change makeup style, change hairstyle, remove accessories, or change clothing.",
-  "Output a photorealistic fashion image with faithful source details, natural pores, no face distortion, no extra people, no watermark, no AI-render look.",
+  "Output a photorealistic, 8K ultra-detailed, RAW photo quality fashion image with faithful source details, natural pores, no face distortion, no extra people, no watermark, no AI-render look.",
 ].join("\n");
 
 export const FACE_SWAP_TEXTURE_ENHANCE_PROMPT = [
   "服装质感增强规则：开启后必须对图1全图做商业成片级精修，而不是只做脸部局部替换；脸部身份仍只来自图2，画面主体仍以图1为底图。",
   "增强范围：在不改变图1服装款式、颜色、图案、logo、文字、版型、长度和搭配关系的前提下，显著提升服装材质解析力、纤维/绒毛/针织/棉麻/皮革/金属反光等真实纹理、缝线、袖口、领口、下摆、纽扣、拉链、口袋边缘、褶皱层次、接触阴影、印花边缘锐度和商品细节清晰度。",
-  "画质目标：premium fashion retouching, high-frequency garment texture, crisp fabric weave, tactile material depth, natural micro-contrast, sharp product details, clean exposure, realistic shadows, commercial e-commerce image quality.",
+  "画质目标：8K ultra-detailed, RAW photo quality, premium fashion retouching, high-frequency garment texture, crisp fabric weave, tactile material depth, natural micro-contrast, sharp product details, clean exposure, realistic shadows, commercial e-commerce image quality.",
   "分区控制：只增强服装、配饰、背景和整体摄影质感；脸部只能做自然融合，必须保留图1表情、肤色、毛孔、雀斑、痣、瑕疵和皮肤颗粒，不要磨皮、不要美白、不要网红脸。",
   "负面约束：不要改变服装结构、颜色、图形、文字或logo，不要新增不存在的纹样，不要把衣服变成另一种面料，不要塑料感、蜡像感、过锐化光晕、磨皮、雪白皮或AI渲染感。",
 ].join("\n");

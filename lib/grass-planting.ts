@@ -293,7 +293,7 @@ ${modelRule}
 可以添加少量符合图1风格的自然配饰，不能遮挡服装卖点。
 画面要像真实社媒穿搭照片：自然光、真实相机/手机质感、动作松弛、肤色自然、白平衡准确。
 
-输出质量：photorealistic, commercial lifestyle fashion photography, social-media outfit sharing, sharp clothing details, natural skin texture, realistic fabric texture, clean color grading.
+输出质量：photorealistic, 8K ultra-detailed, RAW photo quality, commercial lifestyle fashion photography, social-media outfit sharing, sharp clothing details, natural skin texture, realistic fabric texture, clean color grading.
 避免：换掉图1服装、改色改款、丢失图案/logo/文字${referenceNegative}，不要海报排版、多余人物、肢体或手指错误、网红假脸、过度美颜、雪白皮肤、过曝、水印、AI 渲染感。`;
 }
 

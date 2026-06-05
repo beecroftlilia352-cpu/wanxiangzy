@@ -1,5 +1,5 @@
 export const TRYON_QUALITY =
-  "photorealistic raw camera photo, natural fashion editorial quality, realistic skin texture, true fabric texture, believable light and shadow, unforced natural expression, non-synthetic real-person appearance";
+  "photorealistic raw camera photo, 8K ultra-detailed, RAW photo quality, natural fashion editorial quality, realistic skin texture, true fabric texture, believable light and shadow, unforced natural expression, non-synthetic real-person appearance";
 
 export type TryOnGarmentAudience = "women" | "men";
 export type TryOnAgeGroup = "adult" | "teen" | "big_child" | "middle_child" | "small_child" | "toddler";
