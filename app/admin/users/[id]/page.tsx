@@ -9,6 +9,7 @@ import {
   ThumbnailStrip,
   formatDateTime,
   formatNumber,
+  shortAdminCode,
 } from "@/components/admin/AdminPrimitives";
 import { AdminTaskActions } from "@/components/admin/AdminTaskActions";
 import { AdminUserManagementForm } from "@/components/admin/AdminUserManagementForm";
@@ -60,7 +61,7 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
 
       <AdminSection title="基础资料">
         <dl className="grid gap-4 p-4 sm:grid-cols-2 lg:grid-cols-4">
-          <DetailItem label="用户 ID" value={id} mono />
+          <DetailItem label="内部编号" value={shortAdminCode(id, "用户")} />
           <DetailItem label="邮箱" value={profile?.email || "-"} />
           <DetailItem label="显示名" value={profile?.displayName || "-"} />
           <DetailItem label="账号状态" value={profile ? accountStatusLabel(profile.accountStatus) : "-"} />
@@ -88,7 +89,7 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
             { key: "amount", label: "变动", render: (row) => <span className={`font-mono text-sm font-black ${row.amount >= 0 ? "text-emerald-700" : "text-red-700"}`}>{row.amount > 0 ? "+" : ""}{formatNumber(row.amount)}</span> },
             { key: "balance", label: "余额", render: (row) => <span className="font-mono text-sm font-bold text-slate-700">{formatNumber(row.balance)}</span> },
             { key: "reason", label: "原因", render: (row) => <span className="text-sm font-semibold text-slate-700">{row.reason}</span> },
-            { key: "generation", label: "生成", render: (row) => row.generationId ? <Link href={`/admin/generations/${row.generationId}`} className="font-mono text-xs font-bold text-slate-700 hover:underline">{row.generationId}</Link> : <span className="text-xs text-slate-400">-</span> },
+            { key: "generation", label: "关联任务", render: (row) => row.generationId ? <Link href={`/admin/generations/${row.generationId}`} className="text-xs font-bold text-slate-700 hover:underline">查看任务（{shortAdminCode(row.generationId, "")}）</Link> : <span className="text-xs text-slate-400">-</span> },
             { key: "time", label: "时间", render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-slate-500">{formatDateTime(row.createdAt)}</span> },
           ]}
         />
@@ -109,13 +110,13 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
                   <Link href={`/admin/generations/${row.sourceId}`} className="mt-1 block truncate text-sm font-black text-slate-950 hover:underline">
                     {row.title}
                   </Link>
-                  <p className="mt-0.5 truncate font-mono text-[11px] text-slate-400">{row.sourceId}</p>
+                  <p className="mt-0.5 truncate text-[11px] font-semibold text-slate-400">{shortAdminCode(row.sourceId, "任务")}</p>
                 </div>
               ),
             },
             { key: "thumbs", label: "图像", render: (row) => <ThumbnailStrip urls={row.resultThumbnails.length ? row.resultThumbnails : row.inputThumbnails} /> },
             { key: "module", label: "模块", render: (row) => <span className="text-sm font-bold text-slate-700">{row.moduleLabel}</span> },
-            { key: "stale", label: "卡住", render: (row) => <span className={`whitespace-nowrap text-xs font-black ${row.isStale ? "text-orange-700" : "text-slate-400"}`}>{row.isStale ? `${row.staleMinutes} 分钟` : "-"}</span> },
+            { key: "stale", label: "处理状态", render: (row) => <span className={`whitespace-nowrap text-xs font-black ${row.isStale ? "text-orange-700" : "text-slate-400"}`}>{row.isStale ? `长时间未完成 ${row.staleMinutes} 分钟` : "正常"}</span> },
             { key: "actions", label: "操作", render: (row) => <AdminTaskActions id={row.sourceId} sourceType={row.sourceType} statusGroup={row.statusGroup} isStale={row.isStale} compact /> },
             { key: "time", label: "时间", render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-slate-500">{formatDateTime(row.createdAt)}</span> },
           ]}

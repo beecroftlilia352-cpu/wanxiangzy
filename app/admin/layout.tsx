@@ -1,3 +1,5 @@
+import { AntdRegistry } from "@ant-design/nextjs-registry";
+import { AdminAntdProvider } from "@/components/admin/AdminAntdProvider";
 import { AdminShell } from "@/components/admin/AdminShell";
 import { requireAdmin } from "@/lib/admin/auth";
 
@@ -7,8 +9,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const admin = await requireAdmin("admin:read");
 
   return (
-    <AdminShell admin={{ email: admin.email, role: admin.role, source: admin.source }}>
-      {children}
-    </AdminShell>
+    <AntdRegistry>
+      <AdminAntdProvider>
+        <AdminShell admin={{ email: admin.email, role: admin.role, source: admin.source }}>
+          {children}
+        </AdminShell>
+      </AdminAntdProvider>
+    </AntdRegistry>
   );
 }

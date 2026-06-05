@@ -1,22 +1,29 @@
 import { NextResponse } from "next/server";
 import { requireAdminApi } from "@/lib/admin/auth";
 import { listAdminTasks } from "@/lib/admin/data";
+import { parseAdminListQuery } from "@/lib/admin/query";
 
 export async function GET(request: Request) {
   const auth = await requireAdminApi("tasks:read");
   if (!auth.ok) return auth.response;
 
   const params = new URL(request.url).searchParams;
+  const query = parseAdminListQuery(params, {
+    defaultPageSize: 50,
+    maxPageSize: 200,
+    allowedSorts: ["createdAt", "updatedAt", "status", "module"],
+  });
   const tasks = await listAdminTasks({
-    q: params.get("q") || "",
-    module: params.get("module") || "",
-    status: params.get("status") || "",
+    q: query.q,
+    module: query.module,
+    status: query.status,
     sourceType: normalizeSourceType(params.get("sourceType")),
     stale: params.get("stale") === "1" || params.get("stale") === "true",
-    limit: Number(params.get("limit") || 50),
+    page: query.page,
+    pageSize: query.pageSize,
   });
 
-  return NextResponse.json(tasks, { headers: { "Cache-Control": "no-store" } });
+  return NextResponse.json({ ...tasks, query }, { headers: { "Cache-Control": "no-store" } });
 }
 
 function normalizeSourceType(value: string | null): "generation" | "workflow" | "all" {

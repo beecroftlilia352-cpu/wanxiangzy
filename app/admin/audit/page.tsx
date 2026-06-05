@@ -4,6 +4,8 @@ import {
   AdminSection,
   AdminTable,
   formatDateTime,
+  resourceTypeLabel,
+  shortAdminCode,
 } from "@/components/admin/AdminPrimitives";
 import { listAdminAuditLogs, type AdminAuditLog } from "@/lib/admin/data";
 
@@ -17,12 +19,12 @@ export default async function AdminAuditPage() {
       <AdminPageHeader
         eyebrow="Audit"
         title="审计日志"
-        description="所有后台写操作都应写入 admin_audit_logs。V1 页面先验证审计底座和权限链路，后续写操作直接复用。"
+        description="集中追踪后台所有写操作，便于确认谁在什么时候处理了什么问题。"
       />
 
       {!audit.available && (
         <AdminNotice>
-          admin_audit_logs 表还未安装。执行 supabase/admin-console.sql 后，此处会显示真实审计记录。
+          操作记录数据尚未初始化。完成后台管理数据初始化后，此处会显示真实操作记录。
         </AdminNotice>
       )}
       {audit.warnings.length > 0 && <AdminNotice tone="info">审计数据源提示：{audit.warnings.slice(0, 3).join("；")}</AdminNotice>}
@@ -39,7 +41,7 @@ export default async function AdminAuditPage() {
               render: (row) => (
                 <div className="min-w-[180px]">
                   <p className="font-mono text-sm font-black text-slate-950">{row.action}</p>
-                  <p className="mt-1 text-xs font-semibold text-slate-500">{row.resourceType}</p>
+                  <p className="mt-1 text-xs font-semibold text-slate-500">{resourceTypeLabel(row.resourceType)}</p>
                 </div>
               ),
             },
@@ -49,14 +51,14 @@ export default async function AdminAuditPage() {
               render: (row) => (
                 <div className="min-w-[220px]">
                   <p className="truncate text-sm font-bold text-slate-800">{row.actorEmail || "-"}</p>
-                  <p className="mt-0.5 font-mono text-[11px] text-slate-400">{row.actorUserId || "-"}</p>
+                  <p className="mt-0.5 text-[11px] font-semibold text-slate-400">{shortAdminCode(row.actorUserId, "用户")}</p>
                 </div>
               ),
             },
             {
               key: "resource",
-              label: "资源",
-              render: (row) => <code className="text-xs font-semibold text-slate-600">{row.resourceId || "-"}</code>,
+              label: "处理对象",
+              render: (row) => <span className="text-xs font-semibold text-slate-600">{shortAdminCode(row.resourceId, "编号")}</span>,
             },
             {
               key: "reason",

@@ -6,6 +6,8 @@ import {
   AdminStatusBadge,
   AdminTable,
   formatDateTime,
+  resourceTypeLabel,
+  shortAdminCode,
 } from "@/components/admin/AdminPrimitives";
 import { listAdminModerationCases, type AdminModerationCase } from "@/lib/admin/data";
 
@@ -37,14 +39,14 @@ export default async function AdminModerationPage({ searchParams }: PageProps) {
 
       <AdminSection
         title="审核案件"
-        description="最新记录在前，可按案件 ID、资产 ID、动作、状态和原因搜索。"
+        description="最新记录在前，可按处理对象、动作、状态和原因搜索。"
         actions={
           <form action="/admin/moderation" className="relative">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
             <input
               name="q"
               defaultValue={q}
-              placeholder="搜索审核案件 / 资产 ID"
+              placeholder="搜索对象 / 动作 / 原因"
               className="h-9 w-64 rounded-lg border border-slate-200 bg-white pl-8 pr-3 text-sm font-semibold outline-none focus:border-slate-400"
             />
           </form>
@@ -61,12 +63,12 @@ export default async function AdminModerationPage({ searchParams }: PageProps) {
               render: (row) => (
                 <div className="min-w-[220px]">
                   <AdminStatusBadge status={row.action} group={row.action === "hide" ? "failed" : row.action === "pass" ? "completed" : "queued"} />
-                  <p className="mt-1 truncate font-mono text-[11px] text-slate-400">{row.id}</p>
+                  <p className="mt-1 truncate text-[11px] font-semibold text-slate-400">{shortAdminCode(row.id, "案件")}</p>
                 </div>
               ),
             },
-            { key: "source", label: "对象", render: (row) => <span className="font-mono text-xs font-bold text-slate-600">{row.sourceType}:{row.sourceId}</span> },
-            { key: "status", label: "状态", render: (row) => <span className="text-xs font-black text-slate-700">{row.status}</span> },
+            { key: "source", label: "处理对象", render: (row) => <span className="text-xs font-bold text-slate-600">{resourceTypeLabel(row.sourceType)}（{shortAdminCode(row.sourceId, "")}）</span> },
+            { key: "status", label: "处理状态", render: (row) => <AdminStatusBadge status={row.status} /> },
             { key: "reason", label: "原因", render: (row) => <p className="max-w-[360px] text-xs leading-5 text-slate-500">{row.reason || "-"}</p> },
             { key: "created", label: "创建", render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-slate-500">{formatDateTime(row.createdAt)}</span> },
             { key: "resolved", label: "解决", render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-slate-500">{formatDateTime(row.resolvedAt)}</span> },

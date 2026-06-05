@@ -1,31 +1,34 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 import {
-  Activity,
-  AlertTriangle,
-  BarChart3,
-  ChevronRight,
-  Coins,
-  DatabaseZap,
-  FileDown,
-  Gauge,
-  Headset,
-  FileText,
-  FlaskConical,
-  ImageIcon,
-  LayoutDashboard,
-  LockKeyhole,
-  MessageSquareText,
-  ClipboardCheck,
-  Settings,
-  ShieldAlert,
-  ShieldCheck,
-  Shirt,
-  UserCog,
-  Users,
-} from "lucide-react";
+  AlertOutlined,
+  ApiOutlined,
+  AppstoreOutlined,
+  AuditOutlined,
+  BarChartOutlined,
+  CheckCircleOutlined,
+  ControlOutlined,
+  DashboardOutlined,
+  DatabaseOutlined,
+  DollarOutlined,
+  DownloadOutlined,
+  ExperimentOutlined,
+  FileProtectOutlined,
+  MenuFoldOutlined,
+  MenuOutlined,
+  MenuUnfoldOutlined,
+  PictureOutlined,
+  SafetyCertificateOutlined,
+  SettingOutlined,
+  TeamOutlined,
+  ToolOutlined,
+  UserOutlined,
+} from "@ant-design/icons";
+import { Avatar, Breadcrumb, Button, Drawer, Layout, Menu, Space, Spin, Tag, Typography } from "antd";
+import type { MenuProps } from "antd";
 import type { AdminRole } from "@/lib/admin/permissions";
 
 type AdminShellProps = {
@@ -37,155 +40,265 @@ type AdminShellProps = {
   children: React.ReactNode;
 };
 
-const adminNav = [
-  { href: "/admin", label: "总览", icon: LayoutDashboard },
-  { href: "/admin/diagnostics", label: "诊断", icon: AlertTriangle },
-  { href: "/admin/evals", label: "Agent Eval", icon: FlaskConical },
-  { href: "/admin/prompts", label: "Prompt", icon: MessageSquareText },
-  { href: "/admin/tryon", label: "试衣配置", icon: Shirt },
-  { href: "/admin/users", label: "用户", icon: Users },
-  { href: "/admin/credits", label: "积分", icon: Coins },
-  { href: "/admin/requests", label: "审批", icon: ClipboardCheck },
-  { href: "/admin/support", label: "客服", icon: Headset },
-  { href: "/admin/risk", label: "风控", icon: ShieldAlert },
-  { href: "/admin/generations", label: "任务", icon: Activity },
-  { href: "/admin/assets", label: "资产", icon: ImageIcon },
-  { href: "/admin/reports", label: "报表", icon: BarChart3 },
-  { href: "/admin/exports", label: "导出", icon: FileDown },
-  { href: "/admin/moderation", label: "审核", icon: ShieldAlert },
-  { href: "/admin/providers", label: "模型供应商", icon: DatabaseZap },
-  { href: "/admin/workers", label: "Worker", icon: Gauge },
-  { href: "/admin/members", label: "成员", icon: UserCog },
-  { href: "/admin/settings", label: "配置", icon: Settings },
-  { href: "/admin/audit", label: "审计", icon: ShieldCheck },
+type AdminNavItem = {
+  href: string;
+  label: string;
+  icon: React.ReactNode;
+};
+
+const navGroups: Array<{ key: string; label: string; children: AdminNavItem[] }> = [
+  {
+    key: "overview",
+    label: "总览",
+    children: [
+      { href: "/admin", label: "运营总览", icon: <DashboardOutlined /> },
+      { href: "/admin/diagnostics", label: "异常诊断", icon: <AlertOutlined /> },
+    ],
+  },
+  {
+    key: "operations",
+    label: "运营",
+    children: [
+      { href: "/admin/features", label: "功能管理", icon: <AppstoreOutlined /> },
+      { href: "/admin/users", label: "用户账户", icon: <TeamOutlined /> },
+      { href: "/admin/generations", label: "任务中心", icon: <ControlOutlined /> },
+      { href: "/admin/support", label: "客服工单", icon: <FileProtectOutlined /> },
+      { href: "/admin/requests", label: "审批中心", icon: <CheckCircleOutlined /> },
+    ],
+  },
+  {
+    key: "content",
+    label: "内容",
+    children: [
+      { href: "/admin/assets", label: "资产作品", icon: <PictureOutlined /> },
+      { href: "/admin/assets/lifecycle", label: "生命周期", icon: <DatabaseOutlined /> },
+      { href: "/admin/moderation", label: "内容审核", icon: <SafetyCertificateOutlined /> },
+      { href: "/admin/tryon", label: "试衣配置", icon: <AppstoreOutlined /> },
+      { href: "/admin/prompts", label: "Prompt 实验", icon: <ExperimentOutlined /> },
+    ],
+  },
+  {
+    key: "finance",
+    label: "财务",
+    children: [
+      { href: "/admin/credits", label: "积分流水", icon: <DollarOutlined /> },
+      { href: "/admin/reports", label: "成本报表", icon: <BarChartOutlined /> },
+      { href: "/admin/exports", label: "导出视图", icon: <DownloadOutlined /> },
+      { href: "/admin/risk", label: "智能风控", icon: <AlertOutlined /> },
+    ],
+  },
+  {
+    key: "system",
+    label: "系统",
+    children: [
+      { href: "/admin/evals", label: "回归评测", icon: <ExperimentOutlined /> },
+      { href: "/admin/providers", label: "模型通道", icon: <ApiOutlined /> },
+      { href: "/admin/workers", label: "任务队列", icon: <ToolOutlined /> },
+      { href: "/admin/members", label: "成员权限", icon: <UserOutlined /> },
+      { href: "/admin/settings", label: "系统配置", icon: <SettingOutlined /> },
+      { href: "/admin/audit", label: "审计日志", icon: <AuditOutlined /> },
+    ],
+  },
 ];
 
 export function AdminShell({ admin, children }: AdminShellProps) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const [collapsed, setCollapsed] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [routeLoading, setRouteLoading] = useState(false);
+  const activeHref = getActiveHref(pathname);
+  const routeKey = `${pathname}?${searchParams.toString()}`;
+  const openKeys = useMemo(() => navGroups.filter((group) => group.children.some((item) => item.href === activeHref)).map((group) => group.key), [activeHref]);
+  const menuItems = useMemo<MenuProps["items"]>(
+    () =>
+      navGroups.map((group) => ({
+        key: group.key,
+        label: group.label,
+        type: "group" as const,
+        children: group.children.map((item) => ({
+          key: item.href,
+          icon: item.icon,
+          label: (
+            <Link href={item.href} onClick={() => setDrawerOpen(false)}>
+              {item.label}
+            </Link>
+          ),
+        })),
+      })),
+    [],
+  );
+
+  useEffect(() => {
+    setRouteLoading(false);
+    setDrawerOpen(false);
+  }, [routeKey]);
+
+  useEffect(() => {
+    if (!routeLoading) return;
+    const timer = window.setTimeout(() => setRouteLoading(false), 12000);
+    return () => window.clearTimeout(timer);
+  }, [routeLoading]);
+
+  function handleClick(event: React.MouseEvent<HTMLElement>) {
+    if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    const target = event.target instanceof Element ? event.target : null;
+    const anchor = target?.closest("a[href]");
+    if (!(anchor instanceof HTMLAnchorElement)) return;
+    if (anchor.target && anchor.target !== "_self") return;
+    if (anchor.hasAttribute("download")) return;
+
+    const url = new URL(anchor.href, window.location.href);
+    if (url.origin !== window.location.origin || !url.pathname.startsWith("/admin")) return;
+    if (`${url.pathname}${url.search}` === `${window.location.pathname}${window.location.search}` && !url.hash) return;
+    setRouteLoading(true);
+  }
+
+  function handleSubmit(event: React.FormEvent<HTMLElement>) {
+    if (event.defaultPrevented) return;
+    const form = event.target;
+    if (!(form instanceof HTMLFormElement)) return;
+    const method = (form.method || "get").toLowerCase();
+    if (method !== "get") return;
+    const url = new URL(form.action || window.location.href, window.location.href);
+    if (url.origin === window.location.origin && url.pathname.startsWith("/admin")) {
+      setRouteLoading(true);
+    }
+  }
 
   return (
-    <div className="min-h-dvh bg-[#f7f9fc] text-slate-950">
-      <div className="grid min-h-dvh lg:grid-cols-[248px_minmax(0,1fr)]">
-        <aside className="hidden border-r border-slate-200/80 bg-white lg:block">
-          <div className="sticky top-0 flex h-dvh flex-col">
-            <div className="border-b border-slate-200 px-5 py-5">
-              <Link href="/admin" className="flex items-center gap-3" aria-label="后台总览">
-                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-950 text-white">
-                  <LockKeyhole className="h-4 w-4" />
-                </span>
-                <span className="min-w-0">
-                  <span className="block text-sm font-black leading-5">产品管理后台</span>
-                  <span className="block truncate text-xs font-semibold text-slate-500">VastWearGen Console</span>
-                </span>
-              </Link>
-            </div>
-            <nav className="flex-1 space-y-1 px-3 py-4" aria-label="后台导航">
-              {adminNav.map((item) => {
-                const active = item.href === "/admin" ? pathname === item.href : pathname.startsWith(item.href);
-                const Icon = item.icon;
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    aria-current={active ? "page" : undefined}
-                    className={`flex h-10 items-center gap-3 rounded-lg px-3 text-sm font-bold transition ${
-                      active
-                        ? "bg-slate-950 text-white"
-                        : "text-slate-600 hover:bg-slate-100 hover:text-slate-950"
-                    }`}
-                  >
-                    <Icon className="h-4 w-4" />
-                    <span>{item.label}</span>
-                  </Link>
-                );
-              })}
-            </nav>
-            <div className="border-t border-slate-200 p-4">
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                <div className="flex items-center gap-2 text-xs font-black text-slate-700">
-                  <ShieldCheck className="h-4 w-4 text-emerald-600" />
-                  {admin.role}
-                </div>
-                <p className="mt-2 truncate text-xs font-medium text-slate-500">{admin.email || "no email"}</p>
-                {admin.source === "bootstrap-env" && (
-                  <p className="mt-2 rounded-md bg-amber-50 px-2 py-1 text-[11px] font-bold text-amber-700">
-                    来自环境变量引导权限
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-        </aside>
+    <Layout className="admin-app-shell" onClick={handleClick} onSubmit={handleSubmit}>
+      <AdminRouteLoading active={routeLoading} />
+      <Layout.Sider
+        width={252}
+        collapsedWidth={76}
+        collapsible
+        collapsed={collapsed}
+        trigger={null}
+        className="admin-sider"
+      >
+        <AdminBrand collapsed={collapsed} />
+        <Menu
+          mode="inline"
+          selectedKeys={[activeHref]}
+          defaultOpenKeys={openKeys}
+          items={menuItems}
+          className="admin-side-menu"
+        />
+        <AdminAccount admin={admin} collapsed={collapsed} />
+      </Layout.Sider>
 
-        <div className="min-w-0">
-          <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/92 backdrop-blur-xl">
-            <div className="flex min-h-14 items-center justify-between gap-3 px-4 sm:px-6">
-              <div className="flex min-w-0 items-center gap-2 text-sm font-bold text-slate-600">
-                <BarChart3 className="h-4 w-4 text-slate-400 lg:hidden" />
-                <span className="truncate">产品管理后台</span>
-                <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
-                <span className="truncate text-slate-950">{currentTitle(pathname)}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span
-                  className="hidden h-8 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600 shadow-sm sm:inline-flex"
-                  title="PRD: docs/product-admin-prd.md"
-                >
-                  <FileText className="h-3.5 w-3.5" />
-                  PRD
-                </span>
-                <span className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-black text-slate-700">
-                  {admin.role}
-                </span>
-              </div>
-            </div>
-            <nav className="flex gap-1 overflow-x-auto border-t border-slate-100 px-3 py-2 lg:hidden" aria-label="移动后台导航">
-              {adminNav.map((item) => {
-                const active = item.href === "/admin" ? pathname === item.href : pathname.startsWith(item.href);
-                const Icon = item.icon;
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={`inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg px-3 text-xs font-black ${
-                      active ? "bg-slate-950 text-white" : "text-slate-600 hover:bg-slate-100"
-                    }`}
-                  >
-                    <Icon className="h-3.5 w-3.5" />
-                    {item.label}
-                  </Link>
-                );
-              })}
-            </nav>
-          </header>
-
-          <main className="mx-auto w-full max-w-[1500px] px-4 py-5 sm:px-6 sm:py-6">{children}</main>
+      <Drawer
+        title={<AdminBrand collapsed={false} compact />}
+        placement="left"
+        size={292}
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        className="admin-mobile-drawer"
+      >
+        <Menu mode="inline" selectedKeys={[activeHref]} defaultOpenKeys={openKeys} items={menuItems} />
+        <div className="mt-4">
+          <AdminAccount admin={admin} collapsed={false} />
         </div>
+      </Drawer>
+
+      <Layout>
+        <Layout.Header className="admin-topbar">
+          <Space className="min-w-0" size={12}>
+            <Button
+              className="admin-desktop-trigger"
+              type="text"
+              icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+              onClick={() => setCollapsed((value) => !value)}
+            />
+            <Button
+              className="admin-mobile-trigger"
+              type="text"
+              icon={<MenuOutlined />}
+              onClick={() => setDrawerOpen(true)}
+            />
+            <Breadcrumb
+              items={[
+                { title: "产品管理后台" },
+                { title: currentTitle(pathname) },
+              ]}
+            />
+          </Space>
+          <Space size={8}>
+            {admin.source === "bootstrap-env" && <Tag color="gold">Bootstrap</Tag>}
+            <Tag color="blue">{admin.role}</Tag>
+          </Space>
+        </Layout.Header>
+        <Layout.Content className="admin-content">
+          {children}
+        </Layout.Content>
+      </Layout>
+    </Layout>
+  );
+}
+
+function AdminRouteLoading({ active }: { active: boolean }) {
+  if (!active) return null;
+
+  return (
+    <div className="admin-route-loading" role="status" aria-live="polite" aria-label="页面加载中">
+      <div className="admin-route-loading-bar" />
+      <div className="admin-route-loading-card">
+        <Spin size="small" />
+        <Typography.Text className="!text-xs !font-bold !text-slate-700">页面加载中</Typography.Text>
       </div>
     </div>
   );
 }
 
+function AdminBrand({ collapsed, compact = false }: { collapsed: boolean; compact?: boolean }) {
+  return (
+    <Link href="/admin" className={`admin-brand ${compact ? "admin-brand-compact" : ""}`}>
+      <span className="admin-brand-mark">
+        <SafetyCertificateOutlined />
+      </span>
+      {!collapsed && (
+        <span className="min-w-0">
+          <Typography.Text strong className="block !text-slate-950">
+            产品管理后台
+          </Typography.Text>
+          <Typography.Text type="secondary" className="block truncate !text-xs">
+            VastWearGen Console
+          </Typography.Text>
+        </span>
+      )}
+    </Link>
+  );
+}
+
+function AdminAccount({ admin, collapsed }: { admin: AdminShellProps["admin"]; collapsed: boolean }) {
+  return (
+    <div className="admin-account">
+      <Avatar size={collapsed ? 32 : 36} icon={<UserOutlined />} />
+      {!collapsed && (
+        <div className="min-w-0">
+          <Typography.Text strong className="block truncate">
+            {admin.role}
+          </Typography.Text>
+          <Typography.Text type="secondary" className="block truncate !text-xs">
+            {admin.email || "no email"}
+          </Typography.Text>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function getActiveHref(pathname: string) {
+  const allItems = navGroups.flatMap((group) => group.children);
+  return (
+    allItems
+      .filter((item) => item.href !== "/admin")
+      .sort((a, b) => b.href.length - a.href.length)
+      .find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))?.href || "/admin"
+  );
+}
+
 function currentTitle(pathname: string) {
-  if (pathname.startsWith("/admin/diagnostics")) return "诊断";
-  if (pathname.startsWith("/admin/evals")) return "Agent Eval";
-  if (pathname.startsWith("/admin/prompts")) return "Prompt";
-  if (pathname.startsWith("/admin/tryon")) return "试衣配置";
-  if (pathname.startsWith("/admin/users")) return "用户";
-  if (pathname.startsWith("/admin/credits")) return "积分";
-  if (pathname.startsWith("/admin/requests")) return "审批";
-  if (pathname.startsWith("/admin/support")) return "客服";
-  if (pathname.startsWith("/admin/risk")) return "风控";
-  if (pathname.startsWith("/admin/generations")) return "任务";
-  if (pathname.startsWith("/admin/assets")) return "资产";
-  if (pathname.startsWith("/admin/reports")) return "报表";
-  if (pathname.startsWith("/admin/exports")) return "导出";
-  if (pathname.startsWith("/admin/moderation")) return "审核";
-  if (pathname.startsWith("/admin/providers")) return "模型供应商";
-  if (pathname.startsWith("/admin/workers")) return "Worker";
-  if (pathname.startsWith("/admin/members")) return "成员";
-  if (pathname.startsWith("/admin/settings")) return "配置";
-  if (pathname.startsWith("/admin/audit")) return "审计";
-  if (pathname.startsWith("/admin/forbidden")) return "无权限";
-  return "总览";
+  return navGroups.flatMap((group) => group.children).find((item) => item.href === getActiveHref(pathname))?.label || "总览";
 }

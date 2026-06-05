@@ -10,6 +10,8 @@ import {
   ThumbnailStrip,
   formatDateTime,
   formatNumber,
+  resourceTypeLabel,
+  shortAdminCode,
 } from "@/components/admin/AdminPrimitives";
 import { AdminAssetLifecyclePlanForm } from "@/components/admin/AdminAssetLifecyclePlanForm";
 import {
@@ -129,7 +131,7 @@ export default async function AdminAssetLifecyclePage({ searchParams }: PageProp
               ),
             },
             { key: "threshold", label: "阈值", render: (row) => <code className="text-xs text-slate-500">{row.threshold}</code> },
-            { key: "action", label: "动作", render: (row) => <span className="font-mono text-xs font-black text-slate-700">{row.action}</span> },
+            { key: "action", label: "建议动作", render: (row) => <span className="text-xs font-black text-slate-700">{lifecycleActionLabel(row.action)}</span> },
           ]}
         />
       </AdminSection>
@@ -152,10 +154,10 @@ export default async function AdminAssetLifecyclePage({ searchParams }: PageProp
                 <div className="min-w-[260px]">
                   <div className="flex items-center gap-2">
                     <AdminStatusBadge status={row.stage} group={stageGroup(row.stage, row.riskLevel)} />
-                    <span className="rounded-md bg-slate-100 px-1.5 py-1 text-[10px] font-black text-slate-500">{row.sourceType}</span>
+                    <span className="rounded-md bg-slate-100 px-1.5 py-1 text-[10px] font-black text-slate-500">{resourceTypeLabel(row.sourceType)}</span>
                   </div>
                   <p className="mt-1 truncate text-sm font-black text-slate-950">{row.title}</p>
-                  <p className="mt-0.5 truncate font-mono text-[11px] text-slate-400">{row.id}</p>
+                  <p className="mt-0.5 truncate text-[11px] font-semibold text-slate-400">{shortAdminCode(row.id, "资产")}</p>
                 </div>
               ),
             },
@@ -174,13 +176,13 @@ export default async function AdminAssetLifecyclePage({ searchParams }: PageProp
               ),
             },
             { key: "count", label: "图片", render: (row) => <span className="font-mono text-sm font-bold text-slate-700">{row.urlCount}/{row.inputCount}</span> },
-            { key: "age", label: "年龄", render: (row) => <span className="font-mono text-sm font-bold text-slate-700">{row.ageDays}d</span> },
+            { key: "age", label: "保存时长", render: (row) => <span className="text-sm font-bold text-slate-700">{row.ageDays} 天</span> },
             {
               key: "action",
               label: "建议",
               render: (row) => (
                 <div className="min-w-[240px]">
-                  <p className="font-mono text-xs font-black text-slate-700">{row.recommendedAction}</p>
+                  <p className="text-xs font-black text-slate-700">{lifecycleActionLabel(row.recommendedAction)}</p>
                   <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-500">{row.reasons.join("；")}</p>
                 </div>
               ),
@@ -207,6 +209,15 @@ function stageGroup(stage: string, riskLevel: string): TaskStatusGroup {
   if (stage === "migrate" || stage === "review") return "queued";
   if (stage === "protected") return "completed";
   return "running";
+}
+
+function lifecycleActionLabel(action: string) {
+  if (action === "retain") return "继续保留";
+  if (action === "migrate_to_oss") return "迁移到长期存储";
+  if (action === "review_temp_inputs") return "人工复核临时素材";
+  if (action === "archive_generated_result") return "归档生成结果";
+  if (action === "freeze_and_hide") return "冻结并下架";
+  return action;
 }
 
 function getSearchParam(value: string | string[] | undefined) {

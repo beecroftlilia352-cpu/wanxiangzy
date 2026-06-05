@@ -1,54 +1,72 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { CheckCircle2, Loader2, XCircle } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { App, Button, Form, Input, Modal, Space, Typography } from "antd";
+import { CheckCircleOutlined, CloseCircleOutlined } from "@ant-design/icons";
+
+type ApprovalAction = "approve" | "reject";
 
 export function AdminOperationRequestActions({ id, status }: { id: string; status: string }) {
   const router = useRouter();
-  const [loadingAction, setLoadingAction] = useState<string | null>(null);
-  if (status !== "pending") return <span className="text-xs font-semibold text-slate-400">已处理</span>;
+  const { message } = App.useApp();
+  const [form] = Form.useForm<{ reason: string }>();
+  const [action, setAction] = useState<ApprovalAction | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  async function run(action: "approve" | "reject") {
-    const reason = window.prompt(action === "approve" ? "请输入审批通过原因" : "请输入驳回原因");
-    if (!reason || reason.trim().length < 4) return;
-    setLoadingAction(action);
+  if (status !== "pending") return <Typography.Text type="secondary">已处理</Typography.Text>;
+
+  async function submit(values: { reason: string }) {
+    if (!action) return;
+    setLoading(true);
     try {
       const res = await fetch(`/api/admin/operation-requests/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, reason }),
+        body: JSON.stringify({ action, reason: values.reason }),
       });
       const payload = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(payload.error || `审批失败 (${res.status})`);
+      message.success(action === "approve" ? "审批已通过" : "审批已驳回");
+      setAction(null);
+      form.resetFields();
       router.refresh();
     } catch (error) {
-      window.alert(error instanceof Error ? error.message : "审批失败");
+      message.error(error instanceof Error ? error.message : "审批失败");
     } finally {
-      setLoadingAction(null);
+      setLoading(false);
     }
   }
 
   return (
-    <div className="flex items-center gap-1.5">
-      <button
-        type="button"
-        onClick={() => run("approve")}
-        disabled={Boolean(loadingAction)}
-        className="inline-flex h-8 items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2 text-xs font-black text-emerald-700 disabled:opacity-60"
+    <>
+      <Space>
+        <Button size="small" type="primary" icon={<CheckCircleOutlined />} onClick={() => setAction("approve")}>
+          通过
+        </Button>
+        <Button size="small" danger icon={<CloseCircleOutlined />} onClick={() => setAction("reject")}>
+          驳回
+        </Button>
+      </Space>
+      <Modal
+        title={action === "approve" ? "确认通过申请" : "确认驳回申请"}
+        open={Boolean(action)}
+        onCancel={() => setAction(null)}
+        onOk={() => form.submit()}
+        okText={action === "approve" ? "确认通过" : "确认驳回"}
+        okButtonProps={{ danger: action === "reject" }}
+        confirmLoading={loading}
+        destroyOnClose
       >
-        {loadingAction === "approve" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-        通过
-      </button>
-      <button
-        type="button"
-        onClick={() => run("reject")}
-        disabled={Boolean(loadingAction)}
-        className="inline-flex h-8 items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-2 text-xs font-black text-red-700 disabled:opacity-60"
-      >
-        {loadingAction === "reject" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <XCircle className="h-3.5 w-3.5" />}
-        驳回
-      </button>
-    </div>
+        <Typography.Paragraph type="secondary">
+          请用业务语言说明原因，例如“任务失败已核实，补偿合理”或“证据不足，需客服补充截图”。
+        </Typography.Paragraph>
+        <Form form={form} layout="vertical" onFinish={submit}>
+          <Form.Item name="reason" label="审批原因" rules={[{ required: true, min: 4, message: "请填写至少 4 个字的原因" }]}>
+            <Input.TextArea rows={3} maxLength={240} />
+          </Form.Item>
+        </Form>
+      </Modal>
+    </>
   );
 }

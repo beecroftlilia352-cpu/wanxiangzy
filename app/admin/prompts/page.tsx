@@ -73,9 +73,9 @@ export default async function AdminPromptsPage() {
           </div>
         </AdminSection>
 
-        <AdminSection title="上线门禁" description="发布前建议先确认 Agent eval 和关键指标。">
+        <AdminSection title="上线门禁" description="发布前建议先确认回归评测和关键指标。">
           <div className="space-y-2 p-4">
-            {["Agent Eval 分数 >= 90", "失败 case = 0", "实验流量 <= 30%", "变体权重合计 = 100", "可一键归档回滚"].map((item) => (
+            {["回归评测分数 >= 90", "失败用例 = 0", "实验流量 <= 30%", "变体权重合计 = 100", "可一键归档回滚"].map((item) => (
               <div key={item} className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-700">
                 <ShieldCheck className="h-4 w-4 text-emerald-600" />
                 {item}

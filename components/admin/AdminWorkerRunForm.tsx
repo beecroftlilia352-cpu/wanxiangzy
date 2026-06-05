@@ -15,8 +15,8 @@ type AdminWorkerRunFormProps = {
 
 const WORKER_OPTIONS: Array<{ value: WorkerTarget; label: string }> = [
   { value: "generations", label: "生成任务" },
-  { value: "agent-workflows", label: "Agent workflow" },
-  { value: "agent-evals", label: "Agent eval" },
+  { value: "agent-workflows", label: "工作流助手" },
+  { value: "agent-evals", label: "回归评测" },
 ];
 
 export function AdminWorkerRunForm({
@@ -46,7 +46,7 @@ export function AdminWorkerRunForm({
       });
       const payload = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(payload.error || `触发失败 (${res.status})`);
-      setMessage(`已触发 ${target}，结果已写入审计。`);
+      setMessage(`已触发${targetLabel(target)}，处理结果已记录。`);
       if (!defaultReason) setReason("");
       router.refresh();
     } catch (error) {
@@ -59,7 +59,7 @@ export function AdminWorkerRunForm({
   return (
     <form onSubmit={submit} className="grid gap-3 p-4 lg:grid-cols-[220px_120px_minmax(320px,1fr)_auto]">
       <label className="space-y-1.5">
-        <span className="text-xs font-black text-slate-500">Worker</span>
+        <span className="text-xs font-black text-slate-500">处理类型</span>
         {lockTarget ? (
           <div className="flex h-10 w-full items-center rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-bold text-slate-700">
             {WORKER_OPTIONS.find((option) => option.value === target)?.label || target}
@@ -97,7 +97,7 @@ export function AdminWorkerRunForm({
           value={reason}
           onChange={(event) => setReason(event.target.value)}
           className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold outline-none focus:border-slate-400"
-          placeholder="例如：处理积压队列 / 验证修复后的 worker"
+          placeholder="例如：处理积压队列 / 验证修复后的处理服务"
           required
           minLength={6}
         />
@@ -115,4 +115,8 @@ export function AdminWorkerRunForm({
       )}
     </form>
   );
+}
+
+function targetLabel(target: WorkerTarget) {
+  return WORKER_OPTIONS.find((option) => option.value === target)?.label || "处理任务";
 }

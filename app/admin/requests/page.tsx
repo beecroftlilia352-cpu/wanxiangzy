@@ -7,6 +7,9 @@ import {
   AdminTable,
   formatDateTime,
   formatNumber,
+  operationTypeLabel,
+  resourceTypeLabel,
+  shortAdminCode,
 } from "@/components/admin/AdminPrimitives";
 import { AdminOperationRequestActions } from "@/components/admin/AdminOperationRequestActions";
 import { listAdminOperationRequests, type AdminOperationRequest } from "@/lib/admin/data";
@@ -36,7 +39,7 @@ export default async function AdminRequestsPage({ searchParams }: PageProps) {
       <AdminPageHeader
         eyebrow="Approvals"
         title="审批中心"
-        description="集中处理高危或需授权的后台操作。当前支持积分补偿审批，通过后会执行积分 RPC 并保留审计。"
+        description="集中处理高风险或需要授权的运营动作。当前支持积分补偿审批，通过后会自动完成补偿并保留操作记录。"
       />
 
       {!requests.available && (
@@ -48,7 +51,7 @@ export default async function AdminRequestsPage({ searchParams }: PageProps) {
 
       <AdminSection
         title="审批单"
-        description="Finance/Owner 可审批；每次通过、驳回和执行失败都会写入 admin_audit_logs。"
+        description="财务和负责人可审批；通过、驳回和执行失败都会留下完整操作记录。"
         actions={
           <form action="/admin/requests" className="flex flex-wrap items-center gap-2">
             <div className="relative">
@@ -83,19 +86,19 @@ export default async function AdminRequestsPage({ searchParams }: PageProps) {
                     <AdminStatusBadge status={row.status} />
                     <RiskBadge risk={row.riskLevel} />
                   </div>
-                  <p className="mt-1 font-mono text-xs font-black text-slate-700">{row.requestType}</p>
-                  <p className="mt-0.5 truncate font-mono text-[11px] text-slate-400">{row.id}</p>
+                  <p className="mt-1 text-sm font-black text-slate-800">{operationTypeLabel(row.requestType)}</p>
+                  <p className="mt-0.5 truncate text-[11px] font-semibold text-slate-400">{shortAdminCode(row.id, "单号")}</p>
                 </div>
               ),
             },
             {
               key: "target",
-              label: "对象",
+              label: "处理对象",
               render: (row) => (
                 <div className="min-w-[220px]">
-                  <p className="font-mono text-xs font-bold text-slate-700">{row.targetType}:{row.targetId}</p>
+                  <p className="text-sm font-bold text-slate-700">{resourceTypeLabel(row.targetType)}（{shortAdminCode(row.targetId, "")}）</p>
                   <p className="mt-1 text-xs text-slate-500">
-                    amount: <span className="font-mono font-black">{formatNumber(Number(row.payload.amount || 0))}</span>
+                    补偿积分：<span className="font-black text-slate-800">{formatNumber(Number(row.payload.amount || 0))}</span>
                   </p>
                 </div>
               ),
@@ -118,7 +121,8 @@ function RiskBadge({ risk }: { risk: AdminOperationRequest["riskLevel"] }) {
     : risk === "medium"
       ? "bg-amber-50 text-amber-700 border-amber-200"
       : "bg-emerald-50 text-emerald-700 border-emerald-200";
-  return <span className={`inline-flex h-6 items-center rounded-md border px-2 text-[11px] font-black ${className}`}>{risk}</span>;
+  const label = risk === "high" ? "高风险" : risk === "medium" ? "中风险" : "低风险";
+  return <span className={`inline-flex h-6 items-center rounded-md border px-2 text-[11px] font-black ${className}`}>{label}</span>;
 }
 
 function getSearchParam(value: string | string[] | undefined) {

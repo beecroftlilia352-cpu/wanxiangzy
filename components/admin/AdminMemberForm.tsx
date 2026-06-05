@@ -1,101 +1,85 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { Loader2, UserPlus } from "lucide-react";
+import { App, Button, Form, Input, Select } from "antd";
+import { UserAddOutlined } from "@ant-design/icons";
+import { AdminUserPicker, type AdminUserOption } from "@/components/admin/AdminUserPicker";
 
-const roles = ["owner", "ops", "support", "finance", "reviewer", "engineer", "viewer"];
+type MemberFormValue = {
+  userId: string;
+  email: string;
+  role: string;
+  status: string;
+};
+
+const roleOptions = [
+  { value: "owner", label: "负责人：全部权限" },
+  { value: "ops", label: "运营：功能、任务、内容" },
+  { value: "support", label: "客服：用户和工单" },
+  { value: "finance", label: "财务：积分和报表" },
+  { value: "reviewer", label: "审核：内容处理" },
+  { value: "engineer", label: "技术：任务队列和排障" },
+  { value: "viewer", label: "只读：查看数据" },
+];
+
+const statusOptions = [
+  { value: "active", label: "启用" },
+  { value: "disabled", label: "停用" },
+];
 
 export function AdminMemberForm() {
   const router = useRouter();
-  const [userId, setUserId] = useState("");
-  const [email, setEmail] = useState("");
-  const [role, setRole] = useState("viewer");
-  const [status, setStatus] = useState("active");
-  const [message, setMessage] = useState("");
-  const [loading, setLoading] = useState(false);
+  const { message } = App.useApp();
+  const [form] = Form.useForm<MemberFormValue>();
 
-  async function submit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setLoading(true);
-    setMessage("");
-
+  async function submit(values: MemberFormValue) {
     try {
       const res = await fetch("/api/admin/members", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, email, role, status }),
+        body: JSON.stringify(values),
       });
       const payload = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(payload.error || `保存失败 (${res.status})`);
-      setMessage("后台成员已保存，审计日志已记录。");
-      setUserId("");
-      setEmail("");
-      setRole("viewer");
-      setStatus("active");
+      message.success("后台成员已保存，审计日志已记录");
+      form.resetFields();
       router.refresh();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "保存失败");
-    } finally {
-      setLoading(false);
+      message.error(error instanceof Error ? error.message : "保存失败");
     }
   }
 
+  function handleUserChange(user: AdminUserOption | null) {
+    if (user?.email) form.setFieldValue("email", user.email);
+  }
+
   return (
-    <form onSubmit={submit} className="grid gap-3 p-4 lg:grid-cols-[minmax(260px,1fr)_minmax(220px,0.8fr)_140px_130px_auto]">
-      <label className="space-y-1.5">
-        <span className="text-xs font-black text-slate-500">用户 UUID</span>
-        <input
-          value={userId}
-          onChange={(event) => setUserId(event.target.value)}
-          className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold outline-none focus:border-slate-400"
-          placeholder="auth.users id"
-          required
-        />
-      </label>
-      <label className="space-y-1.5">
-        <span className="text-xs font-black text-slate-500">邮箱</span>
-        <input
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold outline-none focus:border-slate-400"
-          placeholder="admin@example.com"
-          type="email"
-          required
-        />
-      </label>
-      <label className="space-y-1.5">
-        <span className="text-xs font-black text-slate-500">角色</span>
-        <select
-          value={role}
-          onChange={(event) => setRole(event.target.value)}
-          className="h-10 w-full rounded-lg border border-slate-200 bg-white px-2 text-sm font-bold text-slate-700"
-        >
-          {roles.map((item) => <option key={item} value={item}>{item}</option>)}
-        </select>
-      </label>
-      <label className="space-y-1.5">
-        <span className="text-xs font-black text-slate-500">状态</span>
-        <select
-          value={status}
-          onChange={(event) => setStatus(event.target.value)}
-          className="h-10 w-full rounded-lg border border-slate-200 bg-white px-2 text-sm font-bold text-slate-700"
-        >
-          <option value="active">active</option>
-          <option value="disabled">disabled</option>
-        </select>
-      </label>
-      <div className="flex items-end">
-        <button type="submit" disabled={loading} className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-slate-950 px-4 text-sm font-black text-white disabled:opacity-60 lg:w-auto">
-          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
-          保存
-        </button>
+    <Form<MemberFormValue>
+      form={form}
+      layout="vertical"
+      onFinish={submit}
+      className="p-4"
+      initialValues={{ role: "viewer", status: "active" }}
+    >
+      <div className="grid gap-3 lg:grid-cols-[minmax(260px,1.2fr)_minmax(220px,0.9fr)_220px_130px_auto]">
+        <Form.Item name="userId" label="选择成员账号" rules={[{ required: true, message: "请先搜索并选择账号" }]}>
+          <AdminUserPicker onUserChange={handleUserChange} placeholder="搜索要加入后台的用户邮箱" />
+        </Form.Item>
+        <Form.Item name="email" label="邮箱" rules={[{ required: true, type: "email", message: "请输入有效邮箱" }]}>
+          <Input placeholder="admin@example.com" />
+        </Form.Item>
+        <Form.Item name="role" label="后台角色" rules={[{ required: true }]}>
+          <Select options={roleOptions} />
+        </Form.Item>
+        <Form.Item name="status" label="状态" rules={[{ required: true }]}>
+          <Select options={statusOptions} />
+        </Form.Item>
+        <Form.Item label=" " className="!mb-0">
+          <Button type="primary" htmlType="submit" icon={<UserAddOutlined />}>
+            保存成员
+          </Button>
+        </Form.Item>
       </div>
-      {message && (
-        <p className={`lg:col-span-5 text-sm font-bold ${message.includes("已保存") ? "text-emerald-700" : "text-red-700"}`}>
-          {message}
-        </p>
-      )}
-    </form>
+    </Form>
   );
 }

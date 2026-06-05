@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Coins, Search } from "lucide-react";
 import { AdminCreditAdjustForm } from "@/components/admin/AdminCreditAdjustForm";
 import {
@@ -27,7 +28,7 @@ export default async function AdminCreditsPage({ searchParams }: PageProps) {
       <AdminPageHeader
         eyebrow="Credits"
         title="积分管理"
-        description="查看积分流水、扣费/退款趋势，并通过受控 RPC 做人工调整。所有调整都会写入 credit_logs 和 admin_audit_logs。"
+        description="查看积分流水、扣费和补偿记录；人工调整必须选择用户并填写原因，系统会自动保存审计记录。"
       />
 
       {credits.warnings.length > 0 && <AdminNotice>积分数据源提示：{credits.warnings.slice(0, 3).join("；")}</AdminNotice>}
@@ -41,14 +42,14 @@ export default async function AdminCreditsPage({ searchParams }: PageProps) {
 
       <AdminSection
         title="人工调整"
-        description="Finance/Owner 可直接执行。需要先执行 supabase/admin-console.sql 中的 admin_adjust_user_credits RPC。"
+        description="适合财务或负责人直接处理已核实的问题，例如补发积分、扣回误发积分。"
       >
         <AdminCreditAdjustForm />
       </AdminSection>
 
       <AdminSection
         title="补偿审批申请"
-        description="Support/Ops 可创建审批单；Finance/Owner 在审批中心通过后才会真正调用积分 RPC。"
+        description="适合运营先提交申请；财务或负责人在审批中心确认后才会生效。"
       >
         <AdminCreditAdjustForm mode="request" />
       </AdminSection>
@@ -63,7 +64,7 @@ export default async function AdminCreditsPage({ searchParams }: PageProps) {
               <input
                 name="q"
                 defaultValue={q}
-                placeholder="搜索用户 / 原因 / 生成 ID"
+                placeholder="搜索邮箱 / 原因 / 任务"
                 className="h-9 w-64 rounded-lg border border-slate-200 bg-white pl-8 pr-3 text-sm font-semibold outline-none focus:border-slate-400"
               />
             </div>
@@ -95,12 +96,11 @@ export default async function AdminCreditsPage({ searchParams }: PageProps) {
               render: (row) => (
                 <div className="min-w-[240px]">
                   <p className="truncate text-sm font-bold text-slate-800">{row.email || "-"}</p>
-                  <p className="mt-0.5 truncate font-mono text-[11px] text-slate-400">{row.userId}</p>
                 </div>
               ),
             },
             { key: "reason", label: "原因", render: (row) => <span className="text-sm font-semibold text-slate-700">{row.reason}</span> },
-            { key: "generation", label: "生成", render: (row) => <code className="text-xs text-slate-500">{row.generationId || "-"}</code> },
+            { key: "generation", label: "关联任务", render: (row) => row.generationId ? <Link href={`/admin/generations/${row.generationId}`} className="text-xs font-bold text-slate-700 hover:underline">查看任务</Link> : <span className="text-xs text-slate-400">-</span> },
             { key: "time", label: "时间", render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-slate-500">{formatDateTime(row.createdAt)}</span> },
           ]}
         />

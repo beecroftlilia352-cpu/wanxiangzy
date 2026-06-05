@@ -9,6 +9,7 @@ import {
   AdminTable,
   formatDateTime,
   formatNumber,
+  shortAdminCode,
 } from "@/components/admin/AdminPrimitives";
 import { AdminWorkerRunForm } from "@/components/admin/AdminWorkerRunForm";
 import {
@@ -32,9 +33,9 @@ export default async function AdminEvalsPage({ searchParams }: PageProps) {
   return (
     <div className="space-y-5">
       <AdminPageHeader
-        eyebrow="Agent Evals"
-        title="Agent Eval 管理"
-        description="集中查看 Agent brain 回归评估、失败 case、worker secret 健康和手动触发记录。用于上线前门禁、坏反馈沉淀和 prompt/决策链路回归。"
+        eyebrow="Regression"
+        title="回归评测"
+        description="集中查看上线前回归、失败用例、处理服务配置和手动触发记录。用于发布门禁、坏反馈沉淀和提示词变更复测。"
         actions={
           <>
             <Link
@@ -49,7 +50,7 @@ export default async function AdminEvalsPage({ searchParams }: PageProps) {
               className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 shadow-sm hover:bg-slate-50"
             >
               <Settings2 className="h-3.5 w-3.5" />
-              Worker
+              任务队列
             </Link>
           </>
         }
@@ -57,17 +58,17 @@ export default async function AdminEvalsPage({ searchParams }: PageProps) {
 
       {!overview.available && (
         <AdminNotice>
-          agent_eval_runs / agent_eval_results 表尚未可用。先执行 supabase/agent-brain-traces.sql 后，后台会展示真实 eval 运行记录。
+          回归评测数据尚未初始化。完成评测数据初始化后，后台会展示真实运行记录。
         </AdminNotice>
       )}
       {!overview.processor.configured && (
         <AdminNotice tone="danger">
-          Agent eval worker secret 未配置，/api/jobs/run-agent-evals 和后台手动触发会被拒绝。候选环境变量：{overview.processor.secretNames.join("、")}。
+          回归评测处理服务配置未完成，后台手动触发会被拒绝。候选配置：{overview.processor.secretNames.join("、")}。
         </AdminNotice>
       )}
       {overview.warnings.length > 0 && (
         <AdminNotice tone="info">
-          Eval 数据源提示：{overview.warnings.slice(0, 3).join("；")}
+          评测数据提示：{overview.warnings.slice(0, 3).join("；")}
         </AdminNotice>
       )}
 
@@ -80,7 +81,7 @@ export default async function AdminEvalsPage({ searchParams }: PageProps) {
         <AdminMetricCard label="平均耗时" value={formatLatency(overview.metrics.averageLatencyMs)} />
       </div>
 
-      <AdminSection title="筛选" description="按 run ID、用户、邮箱、状态、case 标题或失败原因快速定位回归问题。">
+      <AdminSection title="筛选" description="按运行编号、用户、邮箱、状态、用例标题或失败原因快速定位回归问题。">
         <form action="/admin/evals" className="grid gap-3 p-4 sm:grid-cols-[minmax(260px,1fr)_auto]">
           <label className="relative block">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -88,7 +89,7 @@ export default async function AdminEvalsPage({ searchParams }: PageProps) {
               name="q"
               defaultValue={q}
               className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm font-semibold outline-none focus:border-slate-400"
-              placeholder="搜索 run、user、case、failure"
+              placeholder="搜索运行编号 / 用户 / 用例 / 失败原因"
             />
           </label>
           <button className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-slate-950 px-4 text-sm font-black text-white">
@@ -98,14 +99,14 @@ export default async function AdminEvalsPage({ searchParams }: PageProps) {
         </form>
       </AdminSection>
 
-      <AdminSection title="手动触发 Agent Eval" description="用于上线前回归、prompt 改动后复测或坏反馈沉淀验证。触发会写入 admin_audit_logs。">
-        <AdminWorkerRunForm defaultTarget="agent-evals" defaultLimit={overview.processor.batchSize} defaultReason="Agent eval 回归验证" lockTarget />
+      <AdminSection title="手动触发回归评测" description="用于上线前回归、提示词改动后复测或坏反馈沉淀验证。触发记录会保留，方便追踪。">
+        <AdminWorkerRunForm defaultTarget="agent-evals" defaultLimit={overview.processor.batchSize} defaultReason="回归评测验证" lockTarget />
       </AdminSection>
 
-      <AdminSection title="Worker 配置" description="只展示 secret 是否可用和候选变量名，不展示明文 secret。">
+      <AdminSection title="处理服务配置" description="只展示配置是否可用和候选配置名，不展示明文密钥。">
         <div className="grid gap-3 p-4 md:grid-cols-4">
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-            <p className="text-xs font-black text-slate-500">Endpoint</p>
+            <p className="text-xs font-black text-slate-500">触发入口</p>
             <code className="mt-2 block break-all text-xs font-bold text-slate-700">{overview.processor.endpoint}</code>
           </div>
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
@@ -113,7 +114,7 @@ export default async function AdminEvalsPage({ searchParams }: PageProps) {
             <p className="mt-2 font-mono text-xl font-black text-slate-950">{overview.processor.batchSize}</p>
           </div>
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-            <p className="text-xs font-black text-slate-500">Secret</p>
+            <p className="text-xs font-black text-slate-500">配置状态</p>
             <div className="mt-2"><AdminStatusBadge status={overview.processor.configured ? "pass" : "failed"} /></div>
           </div>
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
@@ -127,16 +128,16 @@ export default async function AdminEvalsPage({ searchParams }: PageProps) {
         </div>
       </AdminSection>
 
-      <AdminSection title="最近 Eval 运行" description="按创建时间倒序展示。分数低或 total=0 的运行优先进入回归排查。">
+      <AdminSection title="最近评测运行" description="按创建时间倒序展示。分数低或样本为 0 的运行优先进入回归排查。">
         <AdminTable<AdminAgentEvalRun>
           rows={overview.runs}
           rowKey={(row) => row.id}
-          empty="暂无 eval 运行记录"
+          empty="暂无评测运行记录"
           columns={[
             { key: "status", label: "状态", render: (row) => <AdminStatusBadge status={row.status} /> },
             {
               key: "run",
-              label: "Run",
+              label: "运行",
               render: (row) => (
                 <div className="min-w-[220px]">
                   <p className="font-mono text-xs font-black text-slate-700">{row.id}</p>
@@ -149,8 +150,8 @@ export default async function AdminEvalsPage({ searchParams }: PageProps) {
               label: "用户",
               render: (row) => (
                 <div className="min-w-[180px]">
-                  <p className="truncate text-xs font-bold text-slate-700">{row.email || row.userId || "-"}</p>
-                  <p className="mt-0.5 truncate font-mono text-[11px] text-slate-400">{row.userId}</p>
+                  <p className="truncate text-xs font-bold text-slate-700">{row.email || shortAdminCode(row.userId, "用户")}</p>
+                  <p className="mt-0.5 truncate text-[11px] font-semibold text-slate-400">{shortAdminCode(row.userId, "用户")}</p>
                 </div>
               ),
             },
@@ -162,15 +163,15 @@ export default async function AdminEvalsPage({ searchParams }: PageProps) {
         />
       </AdminSection>
 
-      <AdminSection title="失败 Case" description="来自 agent_eval_results.ok=false，可直接定位失败期望、实际 action/module 和 trace。">
+      <AdminSection title="失败用例" description="用于定位失败期望、实际结果和追踪记录。">
         <AdminTable<AdminAgentEvalResult>
           rows={overview.failures}
           rowKey={(row) => row.id}
-          empty="暂无失败 case"
+          empty="暂无失败用例"
           columns={[
             {
               key: "case",
-              label: "Case",
+              label: "用例",
               render: (row) => (
                 <div className="min-w-[260px]">
                   <p className="text-sm font-black text-slate-950">{row.title || row.caseId}</p>
@@ -178,16 +179,16 @@ export default async function AdminEvalsPage({ searchParams }: PageProps) {
                 </div>
               ),
             },
-            { key: "actual", label: "实际", render: (row) => <span className="whitespace-nowrap font-mono text-xs font-bold text-slate-700">{row.action || "-"} / {row.module || "none"}</span> },
+            { key: "actual", label: "实际结果", render: (row) => <span className="whitespace-nowrap text-xs font-bold text-slate-700">{row.action || "-"} / {row.module || "无模块"}</span> },
             { key: "confidence", label: "置信度", render: (row) => <span className="font-mono text-xs font-bold text-slate-600">{Math.round(row.confidence * 100)}%</span> },
             { key: "failure", label: "失败原因", render: (row) => <p className="max-w-[420px] text-xs leading-5 text-slate-600">{row.failures.slice(0, 3).join("；") || "-"}</p> },
-            { key: "trace", label: "Trace", render: (row) => <code className="text-[11px] font-bold text-slate-500">{row.traceId || "-"}</code> },
+            { key: "trace", label: "追踪", render: (row) => <span className="text-[11px] font-bold text-slate-500">{shortAdminCode(row.traceId, "记录")}</span> },
             { key: "time", label: "时间", render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-slate-500">{formatDateTime(row.createdAt)}</span> },
           ]}
         />
       </AdminSection>
 
-      <AdminSection title="内置基线用例" description="来自代码中的 BRAIN_EVAL_CASES。坏反馈沉淀用例会在运行时追加，不污染基线定义。">
+      <AdminSection title="内置基线用例" description="用于固定验证核心决策链路。坏反馈沉淀用例会在运行时追加，不污染基线定义。">
         <AdminTable<AdminAgentEvalCase>
           rows={overview.baselineCases}
           rowKey={(row) => row.id}
@@ -195,7 +196,7 @@ export default async function AdminEvalsPage({ searchParams }: PageProps) {
           columns={[
             {
               key: "case",
-              label: "Case",
+              label: "用例",
               render: (row) => (
                 <div className="min-w-[260px]">
                   <p className="text-sm font-black text-slate-950">{row.title}</p>
@@ -212,7 +213,7 @@ export default async function AdminEvalsPage({ searchParams }: PageProps) {
       <div className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm leading-6 text-blue-700">
         <FlaskConical className="mt-0.5 h-4 w-4 shrink-0" />
         <p>
-          上线建议：prompt、Agent brain 或 safety guard 改动后先在此页触发回归；若失败 case 非 0，进入 trace 和坏反馈沉淀后再发生产 tag。
+          上线建议：提示词、智能助手决策或安全策略改动后先在此页触发回归；若失败用例非 0，完成追踪和坏反馈沉淀后再发布生产版本。
         </p>
       </div>
     </div>

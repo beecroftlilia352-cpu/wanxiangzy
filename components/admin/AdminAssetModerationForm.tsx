@@ -1,8 +1,20 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Loader2, ShieldCheck } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { App, Button, Form, Input, Modal, Radio, Space, Typography } from "antd";
+import { SafetyCertificateOutlined } from "@ant-design/icons";
+
+type ModerationValue = {
+  action: "hide" | "pass" | "escalate";
+  reason: string;
+};
+
+const actionOptions = [
+  { value: "hide", label: "下架作品", help: "用户端不再展示，适合违规、低质或版权风险内容。" },
+  { value: "pass", label: "标记通过", help: "确认内容可继续展示。" },
+  { value: "escalate", label: "转人工复核", help: "证据不足或需要负责人判断时使用。" },
+];
 
 export function AdminAssetModerationForm({
   sourceId,
@@ -12,59 +24,74 @@ export function AdminAssetModerationForm({
   sourceType: string;
 }) {
   const router = useRouter();
-  const [action, setAction] = useState("hide");
-  const [reason, setReason] = useState("");
+  const { message } = App.useApp();
+  const [form] = Form.useForm<ModerationValue>();
+  const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  async function submit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function submit(values: ModerationValue) {
     setLoading(true);
-
     try {
       const res = await fetch(`/api/admin/assets/${sourceId}/moderate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sourceType, action, reason }),
+        body: JSON.stringify({ sourceType, action: values.action, reason: values.reason }),
       });
       const payload = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(payload.error || `审核失败 (${res.status})`);
-      setReason("");
+      if (!res.ok) throw new Error(payload.error || `处理失败 (${res.status})`);
+      message.success("内容处理记录已保存");
+      setOpen(false);
+      form.resetFields();
       router.refresh();
     } catch (error) {
-      window.alert(error instanceof Error ? error.message : "审核失败");
+      message.error(error instanceof Error ? error.message : "处理失败");
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <form onSubmit={submit} className="flex min-w-[280px] items-center gap-1.5">
-      <select
-        value={action}
-        onChange={(event) => setAction(event.target.value)}
-        className="h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs font-bold text-slate-700"
-        aria-label="审核动作"
+    <>
+      <Button size="small" icon={<SafetyCertificateOutlined />} onClick={() => setOpen(true)}>
+        处理内容
+      </Button>
+      <Modal
+        title="处理内容审核"
+        open={open}
+        onCancel={() => setOpen(false)}
+        onOk={() => form.submit()}
+        okText="保存处理结果"
+        confirmLoading={loading}
+        destroyOnClose
       >
-        <option value="hide">下架</option>
-        <option value="pass">通过</option>
-        <option value="escalate">复核</option>
-      </select>
-      <input
-        value={reason}
-        onChange={(event) => setReason(event.target.value)}
-        className="h-8 min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold outline-none focus:border-slate-400"
-        placeholder="原因"
-        required
-        minLength={4}
-      />
-      <button
-        type="submit"
-        disabled={loading}
-        className="inline-flex h-8 items-center gap-1 rounded-lg bg-slate-950 px-2 text-xs font-black text-white disabled:opacity-60"
-      >
-        {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ShieldCheck className="h-3.5 w-3.5" />}
-        记录
-      </button>
-    </form>
+        <Typography.Paragraph type="secondary">
+          选择一个运营动作并填写原因。原因会进入审计记录，便于后续客服、财务和负责人追溯。
+        </Typography.Paragraph>
+        <Form<ModerationValue>
+          form={form}
+          layout="vertical"
+          onFinish={submit}
+          initialValues={{ action: "hide" }}
+        >
+          <Form.Item name="action" label="处理动作" rules={[{ required: true }]}>
+            <Radio.Group className="w-full">
+              <Space direction="vertical" className="w-full">
+                {actionOptions.map((item) => (
+                  <Radio key={item.value} value={item.value}>
+                    <Space direction="vertical" size={0}>
+                      <Typography.Text strong>{item.label}</Typography.Text>
+                      <Typography.Text type="secondary" className="text-xs">{item.help}</Typography.Text>
+                    </Space>
+                  </Radio>
+                ))}
+              </Space>
+            </Radio.Group>
+          </Form.Item>
+          <Form.Item name="reason" label="处理原因" rules={[{ required: true, min: 4, message: "请填写至少 4 个字的原因" }]}>
+            <Input.TextArea rows={3} maxLength={240} placeholder="例如：商品图含违规元素，先下架并等待复核" />
+          </Form.Item>
+        </Form>
+      </Modal>
+    </>
   );
 }

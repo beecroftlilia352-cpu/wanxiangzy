@@ -9,6 +9,7 @@ import {
   AdminTable,
   formatDateTime,
   formatNumber,
+  shortAdminCode,
 } from "@/components/admin/AdminPrimitives";
 import { AdminWorkerRunForm } from "@/components/admin/AdminWorkerRunForm";
 import { getAdminWorkerOverview, type AdminAuditLog, type AdminTaskListItem, type AdminWorkerProcessor } from "@/lib/admin/data";
@@ -21,9 +22,9 @@ export default async function AdminWorkersPage() {
   return (
     <div className="space-y-5">
       <AdminPageHeader
-        eyebrow="Workers"
-        title="任务队列与 Worker"
-        description="查看队列积压、stale 任务、processor secret 健康，并在有审计记录的前提下手动触发 worker。"
+        eyebrow="Queue"
+        title="任务队列与处理服务"
+        description="查看队列积压、长时间未完成任务和处理服务健康状态，并在有操作记录的前提下手动触发处理。"
         actions={
           <Link
             href="/admin/workers"
@@ -37,7 +38,7 @@ export default async function AdminWorkersPage() {
 
       {overview.warnings.length > 0 && (
         <AdminNotice>
-          Worker 数据源提示：{overview.warnings.slice(0, 3).join("；")}
+          处理服务数据提示：{overview.warnings.slice(0, 3).join("；")}
         </AdminNotice>
       )}
 
@@ -45,23 +46,23 @@ export default async function AdminWorkersPage() {
         <AdminMetricCard label="样本任务" value={formatNumber(overview.queue.sampled)} hint="最近队列样本" />
         <AdminMetricCard label="排队" value={formatNumber(overview.queue.queued)} tone="warning" />
         <AdminMetricCard label="运行" value={formatNumber(overview.queue.running)} />
-        <AdminMetricCard label="Stale" value={formatNumber(overview.queue.stale)} tone={overview.queue.stale > 0 ? "danger" : "good"} hint={`${overview.queue.staleMinutes} 分钟无进展`} />
+        <AdminMetricCard label="长时间未完成" value={formatNumber(overview.queue.stale)} tone={overview.queue.stale > 0 ? "danger" : "good"} hint={`${overview.queue.staleMinutes} 分钟无进展`} />
         <AdminMetricCard label="失败" value={formatNumber(overview.queue.failed)} tone={overview.queue.failed > 0 ? "danger" : "neutral"} />
         <AdminMetricCard label="完成" value={formatNumber(overview.queue.completed)} tone="good" />
       </div>
 
-      <AdminSection title="手动触发 Worker" description="用于处理积压或验证修复。所有触发都会写入 admin_audit_logs，并返回 worker 原始结果摘要。">
+      <AdminSection title="手动触发处理" description="用于处理积压或验证修复。所有触发都会保留操作记录，并返回处理结果摘要。">
         <AdminWorkerRunForm />
       </AdminSection>
 
-      <AdminSection title="Processor 健康" description="只展示 secret 是否可用，不展示密钥内容。">
+      <AdminSection title="处理服务健康" description="只展示配置是否可用，不展示密钥内容。">
         <AdminTable<AdminWorkerProcessor>
           rows={overview.processors}
           rowKey={(row) => row.key}
           columns={[
-            { key: "label", label: "Processor", render: (row) => <span className="font-black text-slate-950">{row.label}</span> },
+            { key: "label", label: "处理服务", render: (row) => <span className="font-black text-slate-950">{row.label}</span> },
             { key: "endpoint", label: "入口", render: (row) => <code className="text-xs font-bold text-slate-600">{row.endpoint}</code> },
-            { key: "configured", label: "Secret", render: (row) => <AdminStatusBadge status={row.configured ? "completed" : "failed"} group={row.configured ? "completed" : "failed"} /> },
+            { key: "configured", label: "配置状态", render: (row) => <AdminStatusBadge status={row.configured ? "completed" : "failed"} group={row.configured ? "completed" : "failed"} /> },
             { key: "batch", label: "批量", render: (row) => <span className="font-mono text-sm font-black text-slate-700">{row.batchSize}</span> },
             {
               key: "secretNames",
@@ -77,11 +78,11 @@ export default async function AdminWorkersPage() {
         />
       </AdminSection>
 
-      <AdminSection title="Stale 任务" description="运行中且超过阈值无进展的任务。手动重跑前先查看任务详情，避免重复扣费或 provider 幂等风险。">
+      <AdminSection title="长时间未完成任务" description="运行中且超过阈值没有进展的任务。手动重新处理前先查看任务详情，避免重复扣费或重复补偿。">
         <AdminTable<AdminTaskListItem>
           rows={overview.staleTasks}
           rowKey={(row) => row.id}
-          empty="暂无 stale 任务"
+          empty="暂无长时间未完成任务"
           columns={[
             {
               key: "task",
@@ -92,7 +93,7 @@ export default async function AdminWorkersPage() {
                   <Link href={`/admin/generations/${row.sourceId}`} className="mt-1 block truncate text-sm font-black text-slate-950 hover:underline">
                     {row.title}
                   </Link>
-                  <p className="mt-0.5 truncate font-mono text-[11px] text-slate-400">{row.sourceId}</p>
+                  <p className="mt-0.5 truncate text-[11px] font-semibold text-slate-400">{shortAdminCode(row.sourceId, "任务")}</p>
                 </div>
               ),
             },
@@ -103,7 +104,7 @@ export default async function AdminWorkersPage() {
         />
       </AdminSection>
 
-      <AdminSection title="最近手动触发记录" description="来自 admin_audit_logs，便于追踪谁在什么时候触发了哪条处理链路。">
+      <AdminSection title="最近手动触发记录" description="用于追踪谁在什么时候手动触发了处理，方便排查重复执行和异常补偿。">
         <AdminTable<AdminAuditLog>
           rows={overview.recentRuns}
           rowKey={(row) => row.id}

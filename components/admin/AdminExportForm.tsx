@@ -11,7 +11,7 @@ const exportTypes = [
   { value: "assets", label: "资产" },
   { value: "asset_lifecycle", label: "素材生命周期" },
   { value: "audit", label: "审计日志" },
-  { value: "agent_evals", label: "Agent Eval" },
+  { value: "agent_evals", label: "回归评测" },
   { value: "prompt_experiments", label: "Prompt 实验" },
   { value: "diagnostics", label: "异常诊断" },
   { value: "reports", label: "成本报表" },
@@ -19,6 +19,30 @@ const exportTypes = [
   { value: "requests", label: "审批单" },
   { value: "support_tickets", label: "客服工单" },
   { value: "moderation", label: "审核案件" },
+];
+
+const statusOptions = [
+  { value: "", label: "全部状态" },
+  { value: "pending", label: "待处理" },
+  { value: "queued", label: "排队中" },
+  { value: "running", label: "运行中" },
+  { value: "completed", label: "已完成" },
+  { value: "failed", label: "失败" },
+  { value: "approved", label: "已通过" },
+  { value: "rejected", label: "已驳回" },
+];
+
+const moduleOptions = [
+  { value: "", label: "全部模块" },
+  { value: "tryon", label: "服装上身" },
+  { value: "pose", label: "姿势裂变" },
+  { value: "model", label: "专属模特" },
+  { value: "modelBackground", label: "模特换背景" },
+  { value: "grass", label: "种草图" },
+  { value: "productSet", label: "商品套图" },
+  { value: "garment3d", label: "服装 3D" },
+  { value: "faceSwap", label: "换脸" },
+  { value: "workflow", label: "工作流助手" },
 ];
 
 export function AdminExportForm() {
@@ -83,21 +107,23 @@ export function AdminExportForm() {
       </label>
       <label className="space-y-1.5">
         <span className="text-xs font-black text-slate-500">状态</span>
-        <input
+        <select
           value={status}
           onChange={(event) => setStatus(event.target.value)}
           className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold outline-none focus:border-slate-400"
-          placeholder="pending / failed"
-        />
+        >
+          {statusOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+        </select>
       </label>
       <label className="space-y-1.5">
         <span className="text-xs font-black text-slate-500">模块</span>
-        <input
+        <select
           value={module}
           onChange={(event) => setModule(event.target.value)}
           className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold outline-none focus:border-slate-400"
-          placeholder="pose / tryon"
-        />
+        >
+          {moduleOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+        </select>
       </label>
       <label className="space-y-1.5">
         <span className="text-xs font-black text-slate-500">上限</span>
@@ -118,7 +144,7 @@ export function AdminExportForm() {
             onChange={(event) => setStale(event.target.checked)}
             className="h-3.5 w-3.5 rounded border-slate-300"
           />
-          卡住任务
+          长时间未完成
         </span>
       </label>
       <label className="space-y-1.5">

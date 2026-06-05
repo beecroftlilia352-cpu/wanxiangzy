@@ -8,6 +8,7 @@ import {
   ThumbnailStrip,
   formatDateTime,
   formatNumber,
+  shortAdminCode,
 } from "@/components/admin/AdminPrimitives";
 import { AdminTaskActions } from "@/components/admin/AdminTaskActions";
 import {
@@ -32,7 +33,7 @@ export default async function AdminTaskDetailPage({ params }: PageProps) {
       <AdminPageHeader
         eyebrow="Task Detail"
         title={task?.title || "任务详情"}
-        description="集中查看任务状态、输入输出、payload、积分流水、workflow 步骤和审计记录。"
+        description="集中处理生成任务的状态、图片结果、积分变动和操作记录，适合排查失败、卡住和补偿问题。"
         actions={
           <Link href="/admin/generations" className="inline-flex h-9 items-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 shadow-sm hover:bg-slate-50">
             返回任务列表
@@ -46,10 +47,10 @@ export default async function AdminTaskDetailPage({ params }: PageProps) {
       {task && (
         <AdminSection title="任务摘要">
           <div className="grid gap-4 p-4 sm:grid-cols-2 xl:grid-cols-5">
-            <DetailItem label="任务 ID" value={task.sourceId} mono />
-            <DetailItem label="用户 ID" value={task.userId} mono href={`/admin/users/${task.userId}`} />
+            <DetailItem label="任务编号" value={shortAdminCode(task.sourceId, "任务")} />
+            <DetailItem label="用户" value={shortAdminCode(task.userId, "用户")} href={`/admin/users/${task.userId}`} />
             <DetailItem label="模块" value={task.moduleLabel} />
-            <DetailItem label="卡住时长" value={task.isStale ? `${task.staleMinutes} 分钟` : "-"} />
+            <DetailItem label="处理状态" value={task.isStale ? `长时间未完成 ${task.staleMinutes} 分钟` : "正常推进"} />
             <div>
               <dt className="text-xs font-black uppercase tracking-[0.08em] text-slate-400">状态</dt>
               <dd className="mt-1"><AdminStatusBadge status={task.status} group={task.statusGroup} /></dd>
@@ -62,7 +63,7 @@ export default async function AdminTaskDetailPage({ params }: PageProps) {
       {task && (
         <AdminSection
           title="任务操作"
-          description="重新入队不会再次扣积分；失败退款和取消退款会复用积分事务，避免重复退还。"
+          description="重新处理不会再次扣积分；退积分类操作会复用已有积分记录，避免重复补偿。"
         >
           <div className="p-4">
             <AdminTaskActions
@@ -90,7 +91,7 @@ export default async function AdminTaskDetailPage({ params }: PageProps) {
         </AdminSection>
       )}
 
-      <AdminSection title="Payload / 参数">
+      <AdminSection title="技术排查信息" description="运营日常处理通常不需要查看；只有排查参数异常或对接问题时再展开核对。">
         <pre className="max-h-[520px] overflow-auto p-4 text-xs leading-5 text-slate-700">
           {JSON.stringify(detail.payload, null, 2)}
         </pre>
@@ -112,8 +113,8 @@ export default async function AdminTaskDetailPage({ params }: PageProps) {
 
       {detail.sourceType === "workflow" && (
         <div className="grid gap-5 xl:grid-cols-2">
-          <JsonRows title="Workflow Steps" rows={detail.workflowSteps} empty="暂无步骤" />
-          <JsonRows title="Workflow Events" rows={detail.workflowEvents} empty="暂无事件" />
+          <JsonRows title="工作流步骤" rows={detail.workflowSteps} empty="暂无步骤" />
+          <JsonRows title="工作流事件" rows={detail.workflowEvents} empty="暂无事件" />
         </div>
       )}
 

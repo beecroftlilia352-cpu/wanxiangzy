@@ -1,17 +1,22 @@
 import { NextResponse } from "next/server";
 import { requireAdminApi } from "@/lib/admin/auth";
 import { listAdminAssets } from "@/lib/admin/data";
+import { parseAdminListQuery } from "@/lib/admin/query";
 
 export async function GET(request: Request) {
   const auth = await requireAdminApi("assets:read");
   if (!auth.ok) return auth.response;
 
-  const params = new URL(request.url).searchParams;
+  const query = parseAdminListQuery(new URL(request.url).searchParams, {
+    defaultPageSize: 60,
+    maxPageSize: 200,
+    allowedSorts: ["createdAt", "updatedAt", "module", "status"],
+  });
   const assets = await listAdminAssets({
-    q: params.get("q") || "",
-    module: params.get("module") || "",
-    limit: Number(params.get("limit") || 60),
+    q: query.q,
+    module: query.module,
+    limit: query.pageSize,
   });
 
-  return NextResponse.json(assets, { headers: { "Cache-Control": "no-store" } });
+  return NextResponse.json({ ...assets, query }, { headers: { "Cache-Control": "no-store" } });
 }

@@ -19,17 +19,17 @@ export default async function AdminMembersPage() {
       <AdminPageHeader
         eyebrow="Members"
         title="后台成员"
-        description="管理后台访问入口。权限校验在服务端执行，middleware 只做登录粗拦截。"
+        description="给已注册用户开通后台访问权限。运营只需要搜索账号、选择角色和状态。"
       />
 
       {!members.available && (
         <AdminNotice>
-          admin_members 表还未安装。执行 supabase/admin-console.sql 后，可通过 SQL 插入正式管理员。
+          后台成员数据表尚未初始化。请先完成后台管理数据初始化，再添加正式管理员。
         </AdminNotice>
       )}
       {members.warnings.length > 0 && <AdminNotice tone="info">成员数据源提示：{members.warnings.slice(0, 3).join("；")}</AdminNotice>}
 
-      <AdminSection title="添加或更新成员" description="通过 user_id upsert，停用成员请将 status 设为 disabled。">
+      <AdminSection title="添加或更新成员" description="先搜索用户账号，再选择后台角色。停用成员不会删除记录，可随时重新启用。">
         <AdminMemberForm />
       </AdminSection>
 
@@ -45,11 +45,10 @@ export default async function AdminMembersPage() {
               render: (row) => (
                 <div className="min-w-[260px]">
                   <p className="truncate text-sm font-black text-slate-950">{row.email || row.displayName || "-"}</p>
-                  <p className="mt-0.5 truncate font-mono text-[11px] text-slate-400">{row.userId || "-"}</p>
                 </div>
               ),
             },
-            { key: "role", label: "角色", render: (row) => <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-black text-slate-700">{row.role}</span> },
+            { key: "role", label: "角色", render: (row) => <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-black text-slate-700">{roleLabel(row.role)}</span> },
             { key: "status", label: "状态", render: (row) => <AdminStatusBadge status={row.enabled && row.status === "active" ? "completed" : "failed"} /> },
             { key: "created", label: "创建", render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-slate-500">{formatDateTime(row.createdAt)}</span> },
             { key: "updated", label: "更新", render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-slate-500">{formatDateTime(row.updatedAt)}</span> },
@@ -57,17 +56,21 @@ export default async function AdminMembersPage() {
         />
       </AdminSection>
 
-      <AdminSection title="添加管理员 SQL" description="先用 SQL 添加，后续再开放 UI 写操作。">
-        <pre className="overflow-x-auto p-4 text-xs leading-6 text-slate-700">
-{`INSERT INTO public.admin_members (user_id, email, role, status, enabled)
-VALUES ('<auth-user-uuid>', 'admin@example.com', 'owner', 'active', true)
-ON CONFLICT (user_id) DO UPDATE
-SET role = EXCLUDED.role,
-    status = EXCLUDED.status,
-    enabled = EXCLUDED.enabled,
-    updated_at = NOW();`}
-        </pre>
+      <AdminSection title="操作提示" description="如果搜索不到成员，请让对方先正常登录一次产品，再回到这里搜索邮箱添加。">
+        <div className="p-4 text-sm font-semibold leading-6 text-slate-600">
+          角色建议：日常运营选择“运营”，审核同学选择“审核”，财务同学选择“财务”，只需要看数据的人选择“只读”。
+        </div>
       </AdminSection>
     </div>
   );
+}
+
+function roleLabel(role: string) {
+  if (role === "owner") return "负责人";
+  if (role === "ops") return "运营";
+  if (role === "support") return "客服";
+  if (role === "finance") return "财务";
+  if (role === "reviewer") return "审核";
+  if (role === "engineer") return "工程";
+  return "只读";
 }

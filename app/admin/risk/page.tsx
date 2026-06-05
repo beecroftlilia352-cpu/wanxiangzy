@@ -8,6 +8,7 @@ import {
   AdminTable,
   formatDateTime,
   formatNumber,
+  shortAdminCode,
 } from "@/components/admin/AdminPrimitives";
 import {
   getAdminRiskOverview,
@@ -131,9 +132,9 @@ export default async function AdminRiskPage({ searchParams }: PageProps) {
                     <span className="rounded-md bg-slate-100 px-1.5 py-1 font-mono text-[10px] font-black text-slate-500">{row.score}/100</span>
                   </div>
                   <Link href={row.detailUrl} className="mt-1 block truncate text-sm font-black text-slate-950 hover:text-slate-700">
-                    {row.email || row.userId}
+                    {row.email || row.displayName || shortAdminCode(row.userId, "用户")}
                   </Link>
-                  <p className="mt-0.5 truncate font-mono text-[11px] text-slate-400">{row.userId}</p>
+                  <p className="mt-0.5 truncate text-[11px] font-semibold text-slate-400">{shortAdminCode(row.userId, "用户")}</p>
                 </div>
               ),
             },
@@ -154,16 +155,16 @@ export default async function AdminRiskPage({ searchParams }: PageProps) {
               key: "stats",
               label: "近况",
               render: (row) => (
-                <div className="grid min-w-[220px] grid-cols-2 gap-1 font-mono text-xs font-bold text-slate-600">
-                  <span>gen {formatNumber(row.generationCount)}</span>
-                  <span>fail {formatNumber(row.failedGenerations)}</span>
-                  <span>refund {formatNumber(row.refundCredits)}</span>
-                  <span>mod {formatNumber(row.moderationHits)}</span>
+                <div className="grid min-w-[240px] grid-cols-2 gap-1 text-xs font-bold text-slate-600">
+                  <span>生成 {formatNumber(row.generationCount)}</span>
+                  <span>失败 {formatNumber(row.failedGenerations)}</span>
+                  <span>补偿 {formatNumber(row.refundCredits)}</span>
+                  <span>审核 {formatNumber(row.moderationHits)}</span>
                 </div>
               ),
             },
-            { key: "credits", label: "积分", render: (row) => <span className="font-mono text-sm font-black text-slate-700">{formatNumber(row.credits)}</span> },
-            { key: "support", label: "工单", render: (row) => <span className="font-mono text-sm font-bold text-slate-700">{formatNumber(row.supportTickets)} / {formatNumber(row.urgentSupportTickets)}</span> },
+            { key: "credits", label: "积分", render: (row) => <span className="text-sm font-black text-slate-700">{formatNumber(row.credits)}</span> },
+            { key: "support", label: "工单", render: (row) => <span className="text-sm font-bold text-slate-700">{formatNumber(row.supportTickets)} 个，紧急 {formatNumber(row.urgentSupportTickets)} 个</span> },
             { key: "action", label: "建议", render: (row) => <p className="max-w-[280px] text-xs leading-5 text-slate-600">{row.recommendedAction}</p> },
             { key: "time", label: "最后活动", render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-slate-500">{formatDateTime(row.latestActivityAt)}</span> },
           ]}

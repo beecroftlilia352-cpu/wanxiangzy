@@ -227,6 +227,28 @@ export function formatNumber(value: number) {
   return new Intl.NumberFormat("zh-CN").format(value);
 }
 
+export function shortAdminCode(value: string | null | undefined, prefix = "编号") {
+  if (!value) return "-";
+  return prefix ? `${prefix} ${value.slice(0, 8)}` : value.slice(0, 8);
+}
+
+export function resourceTypeLabel(value: string | null | undefined) {
+  if (value === "generation") return "生成任务";
+  if (value === "workflow") return "工作流任务";
+  if (value === "reference") return "参考素材";
+  if (value === "favorite-plan") return "收藏方案";
+  if (value === "user") return "用户";
+  if (value === "credit") return "积分";
+  return value || "对象";
+}
+
+export function operationTypeLabel(value: string | null | undefined) {
+  if (value === "credit_adjustment") return "积分补偿";
+  if (value === "asset_moderation") return "内容处理";
+  if (value === "generation_recovery") return "任务处理";
+  return value || "后台操作";
+}
+
 function metricToneClass(tone: "neutral" | "good" | "warning" | "danger") {
   if (tone === "good") return "border-emerald-200";
   if (tone === "warning") return "border-amber-200";

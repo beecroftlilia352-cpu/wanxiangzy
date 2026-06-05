@@ -906,7 +906,7 @@ export const DEFAULT_PROMPT_EXPERIMENT_CONFIG = {
         },
       ],
       owner: "ops",
-      notes: "发布前需要先通过 Agent Eval 回归。",
+      notes: "发布前需要先通过回归评测。",
       startedAt: null,
       endedAt: null,
     },
@@ -1205,17 +1205,17 @@ export async function getAdminDiagnostics(): Promise<AdminDiagnosticsReport> {
     id: "queue-stale",
     severity: workers.queue.stale >= 3 ? "critical" : workers.queue.stale > 0 ? "warning" : null,
     category: "queue",
-    title: "存在 stale 运行任务",
+    title: "存在长时间未完成任务",
     summary: `${workers.queue.stale} 个任务运行超过 ${workers.queue.staleMinutes} 分钟无进展。`,
     impact: "用户侧会持续看到处理中，可能重复轮询并引发投诉。",
-    recommendation: "进入 Worker 页面查看 stale 样本，先确认 provider 状态和积分结算，再手动触发 worker 或做定向退款处理。",
+    recommendation: "进入任务队列页面查看样本，先确认模型通道状态和积分结算，再手动重新处理或做定向退款处理。",
     evidence: [
-      { label: "staleTasks", value: workers.queue.stale },
-      { label: "thresholdMinutes", value: workers.queue.staleMinutes },
-      { label: "sampled", value: workers.queue.sampled },
+      { label: "长时间未完成", value: workers.queue.stale },
+      { label: "阈值分钟", value: workers.queue.staleMinutes },
+      { label: "采样任务", value: workers.queue.sampled },
     ],
     links: [
-      { href: "/admin/workers", label: "查看 Worker" },
+      { href: "/admin/workers", label: "查看任务队列" },
       { href: "/admin/generations?status=running", label: "运行中任务" },
     ],
     createdAt: generatedAt,
@@ -1229,15 +1229,15 @@ export async function getAdminDiagnostics(): Promise<AdminDiagnosticsReport> {
     title: "队列积压偏高",
     summary: `当前队列中排队/运行任务合计 ${backlog} 个。`,
     impact: "生成等待时间会拉长，用户可能反复提交或刷新。",
-    recommendation: "确认 processor secret、provider 可用性和任务失败分布；必要时提高 worker 频率或临时关闭高成本模型。",
+    recommendation: "确认处理服务配置、模型通道可用性和任务失败分布；必要时提高处理频率或临时关闭高成本模型。",
     evidence: [
-      { label: "queued", value: workers.queue.queued },
-      { label: "running", value: workers.queue.running },
-      { label: "failed", value: workers.queue.failed },
+      { label: "排队中", value: workers.queue.queued },
+      { label: "运行中", value: workers.queue.running },
+      { label: "失败", value: workers.queue.failed },
     ],
     links: [
-      { href: "/admin/workers", label: "Worker 队列" },
-      { href: "/admin/providers", label: "Provider 健康" },
+      { href: "/admin/workers", label: "任务队列" },
+      { href: "/admin/providers", label: "模型通道健康" },
     ],
     createdAt: generatedAt,
   });
@@ -1248,12 +1248,12 @@ export async function getAdminDiagnostics(): Promise<AdminDiagnosticsReport> {
     category: "provider",
     title: "生成失败率升高",
     summary: `当前累计失败率 ${Math.round(overview.generationHealth.failureRate * 1000) / 10}%。`,
-    impact: "会增加退款、占用 worker，并拉低近期产出质量。",
-    recommendation: "按失败任务列表聚合 module/model，优先检查最近 provider 错误、prompt 变更和素材可访问性。",
+    impact: "会增加退款、占用处理队列，并拉低近期产出质量。",
+    recommendation: "按失败任务列表聚合功能模块和模型，优先检查最近模型通道错误、提示词变更和素材可访问性。",
     evidence: [
-      { label: "generationTotal", value: overview.generationHealth.total },
-      { label: "failed", value: overview.generationHealth.failed },
-      { label: "failedSamples", value: failedTasks.rows.length },
+      { label: "生成总数", value: overview.generationHealth.total },
+      { label: "失败任务", value: overview.generationHealth.failed },
+      { label: "失败样本", value: failedTasks.rows.length },
     ],
     links: [
       { href: "/admin/generations?status=failed", label: "失败任务" },
@@ -1267,13 +1267,13 @@ export async function getAdminDiagnostics(): Promise<AdminDiagnosticsReport> {
     id: "worker-secret-missing",
     severity: missingProcessors.length ? "critical" : null,
     category: "worker",
-    title: "Worker secret 未完整配置",
-    summary: `${missingProcessors.length} 条 processor 缺少可用 secret。`,
+    title: "处理服务配置未完整",
+    summary: `${missingProcessors.length} 条处理服务缺少可用配置。`,
     impact: "定时任务或手动触发会失败，队列无法稳定消化。",
-    recommendation: "补齐对应环境变量后重启服务，再在 Worker 页面手动触发一次验证。",
+    recommendation: "补齐对应运行配置后重启服务，再在任务队列页面手动触发一次验证。",
     evidence: missingProcessors.map((processor) => ({ label: processor.key, value: processor.secretNames.join(" / ") })),
     links: [
-      { href: "/admin/workers", label: "Processor 健康" },
+      { href: "/admin/workers", label: "处理服务健康" },
       { href: "/admin/settings", label: "运行时配置" },
     ],
     createdAt: generatedAt,
@@ -1330,12 +1330,12 @@ export async function getAdminDiagnostics(): Promise<AdminDiagnosticsReport> {
     category: "finance",
     title: "退款占比偏高",
     summary: `近 7 天退款 ${costReport.metrics.refundCredits} 积分，净收入 ${costReport.metrics.netCredits} 积分。`,
-    impact: "高退款通常对应 provider 不稳定、部分失败结算或误扣费体验问题。",
+    impact: "高退款通常对应模型通道不稳定、部分失败结算或误扣费体验问题。",
     recommendation: "在成本报表中按模块和模型拆分，优先修复退款贡献最高的模块。",
     evidence: [
-      { label: "refundCredits", value: costReport.metrics.refundCredits },
-      { label: "netCredits", value: costReport.metrics.netCredits },
-      { label: "failedReservedCredits", value: costReport.metrics.failedReservedCredits },
+      { label: "退款积分", value: costReport.metrics.refundCredits },
+      { label: "净收入积分", value: costReport.metrics.netCredits },
+      { label: "失败锁定积分", value: costReport.metrics.failedReservedCredits },
     ],
     links: [
       { href: "/admin/reports?days=7", label: "近 7 天报表" },
@@ -1349,10 +1349,10 @@ export async function getAdminDiagnostics(): Promise<AdminDiagnosticsReport> {
     id: "provider-config-missing",
     severity: missingProviders.length ? "warning" : null,
     category: "provider",
-    title: "模型 provider 配置不完整",
-    summary: `${missingProviders.length} 个模型缺少可用 provider 配置。`,
+    title: "模型通道配置不完整",
+    summary: `${missingProviders.length} 个模型缺少可用通道配置。`,
     impact: "用户选择相关模型时会失败，或降级路径无法覆盖。",
-    recommendation: "补齐 provider key 或在 model.routing 配置中临时关闭未配置模型。",
+    recommendation: "补齐模型通道配置，或在模型路由配置中临时关闭未配置模型。",
     evidence: missingProviders.map((model) => ({ label: model.model, value: model.provider })),
     links: [
       { href: "/admin/providers", label: "模型供应商" },
@@ -1375,12 +1375,12 @@ export async function getAdminDiagnostics(): Promise<AdminDiagnosticsReport> {
     category: "data",
     title: "后台数据源存在提示",
     summary: `本次诊断收集到 ${dataWarnings.length} 条数据源提示。`,
-    impact: "部分 read model 或可选表缺失时，诊断会退回样本估算。",
-    recommendation: "优先执行 PRD 中列出的 Supabase SQL，并确认生产环境 service role 权限。",
+    impact: "部分统计表或可选表缺失时，诊断会退回样本估算。",
+    recommendation: "优先完成后台管理数据初始化，并确认生产环境管理服务权限。",
     evidence: dataWarnings.slice(0, 6).map((warning, index) => ({ label: `warning_${index + 1}`, value: warning })),
     links: [
       { href: "/admin/settings", label: "运行时配置" },
-      { href: "/admin/workers", label: "Worker 健康" },
+      { href: "/admin/workers", label: "处理服务健康" },
     ],
     createdAt: generatedAt,
   });
@@ -1917,24 +1917,30 @@ export async function listAdminTasks(args: {
   status?: string;
   sourceType?: "generation" | "workflow" | "all";
   stale?: boolean;
+  page?: number;
+  pageSize?: number;
   limit?: number;
 } = {}): Promise<AdminTaskList> {
   const admin = getAdminClient();
   const warnings: string[] = [];
-  const limit = clampLimit(args.limit, 10, 100, 40);
+  const page = clampLimit(args.page, 1, 10_000, 1);
+  const pageSize = clampLimit(args.pageSize ?? args.limit, 10, 200, 40);
+  const offset = (page - 1) * pageSize;
   const status = normalizeStatusFilter(args.status);
   const module = normalizeModuleFilter(args.module);
   const sourceType = args.sourceType && args.sourceType !== "all" ? args.sourceType : "";
   const q = (args.q || "").trim().toLowerCase();
+  const needsClientFilter = Boolean(q || args.stale);
+  const clientFilterLimit = Math.min(1000, Math.max(page * pageSize * (q ? 3 : 2), pageSize));
 
   let query = admin
     .from("task_queue_items")
     .select(TASK_QUEUE_COLUMNS, { count: "exact" })
-    .order("created_at", { ascending: false })
-    .limit(limit * (q ? 3 : 1));
+    .order("created_at", { ascending: false });
   if (status) query = query.eq("status_group", status);
   if (module) query = query.eq("module", module);
   if (sourceType) query = query.eq("source_type", sourceType);
+  query = needsClientFilter ? query.limit(clientFilterLimit) : query.range(offset, offset + pageSize - 1);
 
   const indexed = await runQuery<Record<string, unknown>[]>(query, "task queue list", warnings, true);
   if (indexed.data) {
@@ -1942,18 +1948,17 @@ export async function listAdminTasks(args: {
     if (q) rows = rows.filter((row) => matchesTaskSearch(row, q));
     if (args.stale) rows = rows.filter((row) => row.isStale);
     return {
-      rows: rows.slice(0, limit),
-      total: indexed.count ?? rows.length,
+      rows: needsClientFilter ? rows.slice(offset, offset + pageSize) : rows,
+      total: needsClientFilter ? rows.length : indexed.count ?? rows.length,
       source: "task_queue_items",
       warnings: uniqueStrings(warnings),
     };
   }
 
-  const fallback = await loadFallbackTasks({ limit, status, module, sourceType, q }, warnings);
-  const fallbackRows = args.stale ? fallback.rows.filter((row) => row.isStale) : fallback.rows;
+  const fallback = await loadFallbackTasks({ page, pageSize, status, module, sourceType, q, stale: Boolean(args.stale) }, warnings);
   return {
-    rows: fallbackRows,
-    total: args.stale ? fallbackRows.length : fallback.total,
+    rows: fallback.rows,
+    total: fallback.total,
     source: "fallback",
     warnings: uniqueStrings(warnings),
   };
@@ -3314,7 +3319,7 @@ function getWorkerProcessors(): AdminWorkerProcessor[] {
   return [
     workerProcessor({
       key: "generations",
-      label: "生成任务 worker",
+      label: "生成任务处理",
       endpoint: "/api/jobs/process-generations",
       batchSize: clampLimit(process.env.GENERATION_JOB_BATCH_SIZE, 1, 10, 2),
       candidates: [
@@ -3324,7 +3329,7 @@ function getWorkerProcessors(): AdminWorkerProcessor[] {
     }),
     workerProcessor({
       key: "agent-workflows",
-      label: "Agent workflow worker",
+      label: "工作流助手处理",
       endpoint: "/api/jobs/process-agent-workflows",
       batchSize: clampLimit(process.env.AGENT_WORKFLOW_BATCH_SIZE, 1, 10, 2),
       candidates: [
@@ -3335,7 +3340,7 @@ function getWorkerProcessors(): AdminWorkerProcessor[] {
     }),
     workerProcessor({
       key: "agent-evals",
-      label: "Agent eval worker",
+      label: "回归评测处理",
       endpoint: "/api/jobs/run-agent-evals",
       batchSize: clampLimit(process.env.AGENT_EVAL_MAX_USERS, 1, 100, 20),
       candidates: [
@@ -3722,10 +3727,12 @@ function normalizeUserSupportLevel(value: unknown): AdminUserSupportLevel {
 }
 
 async function loadFallbackTasks(
-  args: { limit: number; status: TaskStatusGroup | ""; module: string; sourceType: string; q: string },
+  args: { page: number; pageSize: number; status: TaskStatusGroup | ""; module: string; sourceType: string; q: string; stale: boolean },
   warnings: string[],
 ) {
   const rows: AdminTaskListItem[] = [];
+  const offset = (args.page - 1) * args.pageSize;
+  const fetchLimit = Math.min(1000, Math.max(args.page * args.pageSize * 2, args.pageSize));
   const loadGenerations = !args.sourceType || args.sourceType === "generation";
   const loadWorkflows = !args.sourceType || args.sourceType === "workflow";
 
@@ -3734,7 +3741,7 @@ async function loadFallbackTasks(
       .from("generations")
       .select(GENERATION_COLUMNS, { count: "exact" })
       .order("created_at", { ascending: false })
-      .limit(args.limit * 2);
+      .limit(fetchLimit);
     if (args.module) query = query.eq("job_payload->>kind", args.module);
     const generationResult = await runQuery<Record<string, unknown>[]>(query, "fallback generations", warnings, true);
     rows.push(...(generationResult.data || []).map(mapGenerationRow));
@@ -3746,7 +3753,7 @@ async function loadFallbackTasks(
         .from("agent_workflows")
         .select(WORKFLOW_COLUMNS, { count: "exact" })
         .order("created_at", { ascending: false })
-        .limit(args.limit),
+        .limit(fetchLimit),
       "fallback workflows",
       warnings,
       true,
@@ -3757,10 +3764,11 @@ async function loadFallbackTasks(
   let filtered = rows;
   if (args.status) filtered = filtered.filter((row) => row.statusGroup === args.status);
   if (args.q) filtered = filtered.filter((row) => matchesTaskSearch(row, args.q));
+  if (args.stale) filtered = filtered.filter((row) => row.isStale);
   filtered = filtered.sort((a, b) => Date.parse(b.createdAt || "") - Date.parse(a.createdAt || ""));
 
   return {
-    rows: filtered.slice(0, args.limit),
+    rows: filtered.slice(offset, offset + args.pageSize),
     total: filtered.length,
   };
 }
