@@ -378,6 +378,8 @@ async function runClaimedJob(
     const persistedModuleUrlByKey = new Map<string, string>();
     const persistedResultUrlByRawUrl = new Map<string, string>();
     let lastProgress = 0;
+    let lastExternalTaskId: string | undefined;
+    let lastExternalStatus: string | undefined;
     const persistOrderedResultUrls = async (rawUrls: string[]) => {
       const persistedUrls = Array.from({ length: rawUrls.length }, () => "");
       for (const [index, rawUrl] of rawUrls.entries()) {
@@ -447,12 +449,18 @@ async function runClaimedJob(
       const nextRawUrls = update.resultUrls;
       const hasNextRawUrls = nextRawUrls.some(Boolean);
       const nextProgress = typeof update.progress === "number" ? update.progress : lastProgress;
-      if (!hasNextRawUrls && update.promptTrace.length === partialPromptTrace.length && nextProgress === lastProgress) return;
+      const hasExternalChange = Boolean(
+        (update.externalTaskId && update.externalTaskId !== lastExternalTaskId) ||
+        (update.externalStatus && update.externalStatus !== lastExternalStatus)
+      );
+      if (!hasNextRawUrls && update.promptTrace.length === partialPromptTrace.length && nextProgress === lastProgress && !hasExternalChange) return;
 
       const persistedNextUrls = hasNextRawUrls ? await persistOrderedResultUrls(nextRawUrls) : nextRawUrls;
       partialResultUrls.splice(0, partialResultUrls.length, ...persistedNextUrls);
       partialPromptTrace.splice(0, partialPromptTrace.length, ...update.promptTrace);
       lastProgress = Math.max(lastProgress, nextProgress);
+      lastExternalTaskId = update.externalTaskId || lastExternalTaskId;
+      lastExternalStatus = update.externalStatus || lastExternalStatus;
 
       await writeGenerationProgress(supabase, job, payload, {
         resultUrls: compactResultUrls(partialResultUrls),
@@ -527,13 +535,16 @@ async function runClaimedJob(
   } catch (err) {
     const message = err instanceof Error ? err.message : "生成失败";
     const settled = await settleFailedGenerationFromProgress(supabase, job, message);
-    if (!settled) await failGenerationWithRefund(supabase, {
-      userId: job.user_id,
-      generationId: job.id,
-      amount: Number(job.credits_cost || 0),
-      reason: "生成失败退还",
-      errorMessage: message,
-    });
+    if (!settled) {
+      await failGenerationWithRefund(supabase, {
+        userId: job.user_id,
+        generationId: job.id,
+        amount: Number(job.credits_cost || 0),
+        reason: "生成失败退还",
+        errorMessage: message,
+      });
+      await annotateFailedGenerationPayload(supabase, job, message);
+    }
     throw err;
   }
 }
@@ -631,6 +642,51 @@ async function settleFailedGenerationFromProgress(
   return true;
 }
 
+async function annotateFailedGenerationPayload(
+  supabase: ReturnType<typeof createAdminClient>,
+  job: ClaimedJob,
+  errorMessage: string
+) {
+  const { data, error } = await supabase
+    .from("generations")
+    .select("result_urls,job_payload,credits_cost")
+    .eq("id", job.id)
+    .eq("user_id", job.user_id)
+    .maybeSingle();
+
+  if (error) {
+    logger.error(`[jobs] failed to annotate failed payload for ${job.id}: ${error.message}`);
+    return;
+  }
+
+  const row = data as { result_urls?: string[] | null; job_payload?: unknown; credits_cost?: number | null } | null;
+  if (!row) return;
+
+  const resultUrls = Array.isArray(row.result_urls) ? compactResultUrls(row.result_urls) : [];
+  const payloadRecord = isRecord(row.job_payload) ? row.job_payload : {};
+  const expectedCount = readExpectedCountFromRecord(payloadRecord, resultUrls.length || 1);
+  const failedPayload = appendGenerationSettlementMetadata(payloadRecord, {
+    expectedCount,
+    resultCount: resultUrls.length,
+    failedCount: Math.max(1, expectedCount - resultUrls.length),
+    refundAmount: Number(row.credits_cost ?? job.credits_cost ?? 0),
+    errorMessage,
+  });
+
+  const { error: updateError } = await supabase
+    .from("generations")
+    .update({ job_payload: failedPayload })
+    .eq("id", job.id)
+    .eq("user_id", job.user_id)
+    .neq("status", "completed");
+
+  if (updateError) {
+    logger.error(`[jobs] failed to write failed payload for ${job.id}: ${updateError.message}`);
+    return;
+  }
+  await syncGenerationQueueIndex(job.id, "fail-payload");
+}
+
 function appendGenerationSettlementMetadata<T extends Record<string, unknown>>(
   payload: T,
   params: {
@@ -647,7 +703,7 @@ function appendGenerationSettlementMetadata<T extends Record<string, unknown>>(
     ...payload,
     asyncTask: {
       ...asyncTask,
-      status: params.resultCount > 0 ? "PARTIAL_SUCCESS" : asyncTask.status,
+      status: params.resultCount > 0 ? "PARTIAL_SUCCESS" : "FAILED",
       progress: 100,
       updatedAt: new Date().toISOString(),
     },

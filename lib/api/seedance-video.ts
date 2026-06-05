@@ -425,7 +425,7 @@ function normalizeSeedanceBaseUrl(value: string) {
 function normalizeSeedancePollState(json: unknown, fallbackTaskId: string): PollState {
   const providerStatus = extractStatusText(json) || "running";
   const urls = extractVideoUrls(json);
-  const error = extractErrorMessage(json);
+  const error = normalizeSeedanceErrorMessage(extractErrorMessage(json), providerStatus);
   const status = normalizeSeedanceStatus(providerStatus, urls, error);
   return {
     taskId: extractTaskId(json) || fallbackTaskId,
@@ -439,11 +439,19 @@ function normalizeSeedancePollState(json: unknown, fallbackTaskId: string): Poll
 
 function normalizeSeedanceStatus(providerStatus: string, urls: string[], error?: string): PollState["status"] {
   const status = providerStatus.trim().toLowerCase();
-  if (error || ["failed", "fail", "failure", "error", "cancelled", "canceled", "expired"].includes(status)) return "failed";
+  if (error || ["failed", "fail", "failure", "error", "cancelled", "canceled", "expired", "terminated"].includes(status)) return "failed";
   if (status === "succeeded") return urls.length ? "completed" : "failed";
   if (["completed", "complete", "success", "done", "finished"].includes(status)) return urls.length ? "completed" : "running";
   if (["pending", "queued", "submitted", "created"].includes(status)) return "queued";
   return "running";
+}
+
+function normalizeSeedanceErrorMessage(error: string, providerStatus: string) {
+  const raw = (error || providerStatus || "").trim();
+  if (/^terminated$/i.test(raw)) {
+    return "上游视频任务被终止（terminated）。建议先用 720p、4-5 秒，或关闭音效后重试；首尾帧主体、构图和比例需要尽量一致。";
+  }
+  return error;
 }
 
 function extractTaskId(value: unknown): string {

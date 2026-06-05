@@ -16,6 +16,7 @@ export type AiVideoActionTemplate = {
 };
 
 export const AI_VIDEO_DEFAULT_ASPECT_RATIO = "9:16" as const;
+export const AI_VIDEO_DEFAULT_RESOLUTION = "720p" as const;
 export const AI_VIDEO_DEFAULT_DURATION: AiVideoDuration = 5;
 export const AI_VIDEO_DEFAULT_AUDIO_MODE = "generated" as const;
 export const AI_VIDEO_DEFAULT_GENERATE_AUDIO = true;

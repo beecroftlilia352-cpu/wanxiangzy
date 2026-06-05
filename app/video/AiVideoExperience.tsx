@@ -37,6 +37,7 @@ import {
   AI_VIDEO_ACTION_TEMPLATES,
   AI_VIDEO_AUDIO_MODE_OPTIONS,
   AI_VIDEO_ASPECT_RATIO_OPTIONS,
+  AI_VIDEO_DEFAULT_RESOLUTION,
   AI_VIDEO_DURATION_OPTIONS,
   AI_VIDEO_MODEL_MODE_OPTIONS,
   getAiVideoAudioCreditCost,
@@ -114,7 +115,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
   const [prompt, setPrompt] = useState(isFirstLastFrame ? "" : AI_VIDEO_ACTION_TEMPLATES[0]?.promptContent || "");
   const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(isFirstLastFrame ? null : AI_VIDEO_ACTION_TEMPLATES[0]?.id || null);
   const [modelMode, setModelMode] = useState<AiVideoModelMode>("pro");
-  const [resolution, setResolution] = useState<AiVideoResolution>("1080p");
+  const [resolution, setResolution] = useState<AiVideoResolution>(AI_VIDEO_DEFAULT_RESOLUTION);
   const [aspectRatio, setAspectRatio] = useState<AiVideoAspectRatio>("9:16");
   const [duration, setDuration] = useState<AiVideoDuration>(5);
   const [audioMode, setAudioMode] = useState<AiVideoAudioMode>("generated");
@@ -663,7 +664,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
     setPrompt(isFirstLastFrame ? "" : AI_VIDEO_ACTION_TEMPLATES[0]?.promptContent || "");
     setSelectedTemplateId(isFirstLastFrame ? null : AI_VIDEO_ACTION_TEMPLATES[0]?.id || null);
     setModelMode("pro");
-    setResolution("1080p");
+    setResolution(AI_VIDEO_DEFAULT_RESOLUTION);
     setAspectRatio("9:16");
     setDuration(5);
     setAudioMode("generated");
