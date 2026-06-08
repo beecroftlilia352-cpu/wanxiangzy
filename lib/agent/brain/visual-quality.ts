@@ -44,7 +44,7 @@ export async function evaluateGeneratedImages(params: {
     system: [
       "You are a production visual quality evaluator for AI-generated ecommerce/fashion images.",
       "Return ONLY JSON. No markdown.",
-      "Judge whether the generated images satisfy the user's prompt, module purpose, count, identity/garment consistency, commercial usefulness, and obvious visual defects.",
+      "Judge whether the generated images satisfy the user's prompt, module purpose, count, identity/garment consistency, product-fidelity of the garment, commercial usefulness, and obvious visual defects.",
       "Do not be overly harsh about subjective style, but be strict about wrong task type, missing output count, malformed body/face/hands, unreadable ecommerce layout, or broken identity/clothing preservation.",
     ].join("\n"),
     text: [
@@ -113,13 +113,15 @@ export function applyQualityRepairToPrompt(prompt: string, quality: VisualQualit
 
 export function getQualityThreshold(module: string) {
   if (module === "tryon" || module === "pose") return 0.78;
+  if (module === "materialEnhancement") return 0.76;
   if (module === "commerce_detail") return 0.76;
   return 0.72;
 }
 
 function buildDefaultRepairPrompt(module: string, issues: string[]) {
   if (module === "tryon") return "重新生成，重点保持同一人物身份、服装结构、真实穿着和自然肢体。";
-  if (module === "pose") return "重新生成，重点保持身体比例、脸部一致、自然关节和用户指定输出形式。";
+  if (module === "pose") return "重新生成，重点保持身体比例、脸部一致、自然关节、用户指定输出形式和服装商品保真；不要把服装重绘成新材质或滤镜风格。";
+  if (module === "materialEnhancement") return "重新生成，只增强图1目标服装区域的材质、织纹、走线、五金和logo细节；保持人物、姿势、背景、服装款式、固有色和图案位置不变。";
   if (module === "commerce_detail") return "重新生成，必须是清晰的电商详情页版式，包含首屏、卖点、细节和参数信息区。";
   return issues.length ? `重新生成并修复：${issues.join("；")}` : "重新生成并提升商业可用性、主体清晰度和画面稳定性。";
 }

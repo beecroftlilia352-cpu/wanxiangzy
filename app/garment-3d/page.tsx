@@ -26,6 +26,7 @@ import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize
 import { fetchHistoryApplyDetail, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
 import { applyRepairPrompt } from "@/lib/generation-repair";
 import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
+import { GARMENT_TYPE_OPTIONS, type GarmentType } from "@/lib/garment-types";
 import {
   DEFAULT_GARMENT_3D_DISPLAY_STYLE,
   GARMENT_3D_DISPLAY_STYLES,
@@ -35,7 +36,6 @@ import {
 } from "@/lib/module-style-presets";
 import { GARMENT_3D_UPLOAD_RULE, type Garment3dRuleDemo } from "@/lib/garment-3d-upload-rules";
 
-type GarmentType = "上装" | "下装" | "连体衣" | "其他";
 type OutputMode = "reference" | "prompt";
 type Garment3dHistoryPayload = Extract<HistoryJobPayload, { kind: "garment3d" }>;
 
@@ -640,7 +640,7 @@ export default function Garment3dPage() {
           <section>
             <h3 className="font-bold text-sm mb-3">上传的服装类型</h3>
             <StudioOptionGrid
-              options={(["上装", "下装", "连体衣", "其他"] as GarmentType[]).map((type) => ({
+              options={GARMENT_TYPE_OPTIONS.map((type) => ({
                 value: type,
                 label: type,
               }))}

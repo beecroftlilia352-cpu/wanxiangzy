@@ -54,6 +54,7 @@ import type { TryOnAgeGroup, TryOnGarmentCategory, TryOnGarmentAudience } from "
 import type { TryOnClothingMode, TryOnClothingRole } from "@/lib/tryon-upload-rules";
 import type { GrassPayloadBase } from "@/lib/grass-planting";
 import type { ModelBackgroundPayloadBase } from "@/lib/model-background";
+import type { MaterialEnhancementPayloadBase } from "@/lib/material-enhancement";
 import { enforceFaceSwapPromptRequirements } from "@/lib/face-swap";
 import {
   buildProductSetPrompt,
@@ -137,6 +138,7 @@ export type GenerationJobPayload = GenerationJobPayloadBase & (
     }
   | ({ kind: "grass" } & GrassPayloadBase)
   | ({ kind: "modelBackground" } & ModelBackgroundPayloadBase)
+  | ({ kind: "materialEnhancement" } & MaterialEnhancementPayloadBase)
   | {
       kind: "generalImage";
       mode: "text-to-image" | "image-to-image";
@@ -1240,6 +1242,34 @@ async function executePayload(
     });
   }
 
+  if (payload.kind === "materialEnhancement") {
+    const imageInputs = await resolvePayloadImageInputs({
+      clothingUrls: [payload.sourceUrl, payload.garmentUrl],
+    });
+
+    return executeParallelImageBatch({
+      count: payload.genCount,
+      promptKind: "materialEnhancement",
+      run: async (_index, onTaskProgress) => {
+        const result = await generateImage({
+          model: payload.aiModel,
+          prompt: payload.prompt,
+          prompt_kind: "materialEnhancement",
+          aspect_ratio: payload.aspectRatio,
+          image: imageInputs.clothingUrls,
+          image_size: payload.imageSize,
+          onProgress: onTaskProgress,
+        });
+        return {
+          resultUrl: getResultUrl(result),
+          prompt: payload.prompt,
+          compiledPrompt: result.compiledPrompt || payload.prompt,
+          taskId: result.taskId,
+        };
+      },
+    });
+  }
+
   if (payload.kind === "generalImage") {
     const imageInputs = payload.mode === "image-to-image"
       ? await resolvePayloadImageInputs({ clothingUrls: payload.referenceUrls })
@@ -1842,12 +1872,14 @@ function repairPayloadPrompt(payload: GenerationJobPayload, quality: VisualQuali
   const prompt = applyQualityRepairToPrompt(getPayloadPrompt(payload), quality);
   if (payload.kind === "tryon") return { ...payload, rawPrompt: prompt };
   if (payload.kind === "garment3d") return { ...payload, prompt, userPrompt: prompt };
+  if (payload.kind === "materialEnhancement") return { ...payload, prompt, userPrompt: prompt };
   return { ...payload, prompt } as GenerationJobPayload;
 }
 
 function getPayloadPrompt(payload: GenerationJobPayload) {
   if (payload.kind === "tryon") return payload.rawPrompt || payload.style || "人物换装生成";
   if (payload.kind === "garment3d") return payload.userPrompt || payload.prompt;
+  if (payload.kind === "materialEnhancement") return payload.userPrompt || payload.prompt;
   if (payload.kind === "videoMotion") return payload.prompt || "动作模仿视频生成";
   if (payload.kind === "videoFirstLastFrame") return payload.prompt || "首尾帧视频生成";
   return payload.prompt;
@@ -1876,6 +1908,7 @@ function getPayloadReferenceImages(payload: GenerationJobPayload) {
   ].filter((url): url is string => typeof url === "string" && url.length > 0);
   if (payload.kind === "grass") return [payload.garmentUrl, payload.referenceUrl].filter((url): url is string => typeof url === "string" && url.length > 0);
   if (payload.kind === "modelBackground") return [payload.sourceUrl, payload.modelReferenceUrl, payload.backgroundReferenceUrl].filter((url): url is string => typeof url === "string" && url.length > 0);
+  if (payload.kind === "materialEnhancement") return [payload.sourceUrl, payload.garmentUrl];
   if (payload.kind === "generalImage") return payload.referenceUrls;
   if (payload.kind === "pose") return [payload.mainImageUrl];
   if (payload.kind === "videoImageToVideo") return [payload.imageUrl];
@@ -1964,6 +1997,16 @@ function isJobPayload(value: unknown): value is GenerationJobPayload {
 
   if (value.kind === "modelBackground") {
     return typeof value.sourceUrl === "string" &&
+      typeof value.aiModel === "string" &&
+      typeof value.aspectRatio === "string" &&
+      typeof value.imageSize === "string" &&
+      typeof value.prompt === "string" &&
+      typeof value.genCount === "number";
+  }
+
+  if (value.kind === "materialEnhancement") {
+    return typeof value.sourceUrl === "string" &&
+      typeof value.garmentUrl === "string" &&
       typeof value.aiModel === "string" &&
       typeof value.aspectRatio === "string" &&
       typeof value.imageSize === "string" &&

@@ -15,6 +15,7 @@ import {
   ScanFace,
   ServerCog,
   Shirt,
+  Sparkles,
   type LucideIcon,
 } from "lucide-react";
 
@@ -29,6 +30,7 @@ export type FeatureKey =
   | "productSet"
   | "allCategoryProductImage"
   | "modelBackground"
+  | "materialEnhancement"
   | "pose"
   | "model"
   | "garment3d"
@@ -146,6 +148,15 @@ export const FEATURE_ITEMS: FeatureNavItem[] = [
     shortLabel: "背景",
     description: "保留主体并替换拍摄场景",
     icon: Images,
+  },
+  {
+    key: "materialEnhancement",
+    module: "aiShoots",
+    href: "/material-enhancement",
+    label: "材质增强",
+    shortLabel: "材质",
+    description: "用高清服装图增强上身图材质细节",
+    icon: Sparkles,
   },
   {
     key: "pose",

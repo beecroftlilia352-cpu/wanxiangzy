@@ -795,6 +795,7 @@ function inferGenerationModule(row: QueueRow, payload: Record<string, unknown>) 
   if (stringArray(payload.productImageUrls).length) return "productSet";
   if (stringValue(payload.sourceUrl) && stringValue(payload.faceUrl)) return "faceSwap";
   if (stringValue(payload.sourceUrl) && ("backgroundSource" in payload || "backgroundText" in payload)) return "modelBackground";
+  if (stringValue(payload.sourceUrl) && stringValue(payload.garmentUrl) && "enhancementLevel" in payload) return "materialEnhancement";
   if (stringValue(payload.mainImageUrl)) return "pose";
   if (stringValue(payload.garmentUrl) && ("templateId" in payload || "changeModel" in payload)) return "grass";
   if (stringValue(payload.garmentUrl)) return "garment3d";
@@ -863,6 +864,7 @@ function moduleLabel(kind: string) {
   if (kind === "pose") return "姿势裂变";
   if (kind === "grass") return "种草图";
   if (kind === "modelBackground") return "换模特背景";
+  if (kind === "materialEnhancement") return "材质增强";
   if (kind === "garment3d") return "平铺转3D";
   if (kind === "productSet") return "商品套图";
   if (kind === "generalImage") return "创意生图";
@@ -937,6 +939,7 @@ function getModulePath(kind: string) {
   if (kind === "tryon") return "/create";
   if (kind === "grass") return "/grass";
   if (kind === "modelBackground") return "/model-background";
+  if (kind === "materialEnhancement") return "/material-enhancement";
   if (kind === "generalImage") return "/general-image";
   if (kind === "productSet") return "/product-set";
   if (kind === "garment3d") return "/garment-3d";

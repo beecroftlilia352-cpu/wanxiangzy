@@ -10,7 +10,7 @@ type ErrorStageProps = {
   isGenerating: boolean;
   retryDisabled?: boolean;
   retryLabel?: string;
-  repairKind: "tryon" | "model" | "pose" | "garment3d" | "grass" | "modelBackground";
+  repairKind: "tryon" | "model" | "pose" | "garment3d" | "grass" | "modelBackground" | "general";
 };
 
 export function ErrorStage({

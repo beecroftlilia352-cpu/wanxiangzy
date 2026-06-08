@@ -30,6 +30,7 @@ import {
   getPoseSeriesStyleLabel,
 } from "@/lib/module-style-presets";
 import { BACKGROUND_SOURCE_LABELS, MODEL_BACKGROUND_MODE_LABELS } from "@/lib/model-background";
+import { getMaterialEnhancementLevelLabel } from "@/lib/material-enhancement";
 
 const HISTORY_PAGE_SIZE = 12;
 
@@ -39,6 +40,7 @@ const MODULE_FILTERS: { value: HistoryModuleFilter; label: string }[] = [
   { value: "grass", label: "服装种草" },
   { value: "productSet", label: "商品套图" },
   { value: "modelBackground", label: "模特换背景" },
+  { value: "materialEnhancement", label: "材质增强" },
   { value: "generalImage", label: "通用生图" },
   { value: "pose", label: "姿势裂变" },
   { value: "model", label: "专属模特" },
@@ -1237,6 +1239,7 @@ function formatKind(kind?: HistoryJobPayload["kind"]) {
   if (kind === "grass") return "服装种草图";
   if (kind === "productSet") return "商品套图";
   if (kind === "modelBackground") return "模特换背景";
+  if (kind === "materialEnhancement") return "材质增强";
   if (kind === "generalImage") return "通用生图";
   if (kind === "garment3d") return "服装转3D";
   if (kind === "faceSwap") return "换脸";
@@ -1333,7 +1336,7 @@ function getRowPayload(row: HistoryRow) {
   if (!payload || typeof payload !== "object") return undefined;
 
   const kind = (payload as { kind?: unknown }).kind;
-  if (kind === "tryon" || kind === "grass" || kind === "productSet" || kind === "modelBackground" || kind === "generalImage" || kind === "garment3d" || kind === "model" || kind === "pose" || kind === "faceSwap" || kind === "videoImageToVideo" || kind === "videoMotion" || kind === "videoFirstLastFrame") {
+  if (kind === "tryon" || kind === "grass" || kind === "productSet" || kind === "modelBackground" || kind === "materialEnhancement" || kind === "generalImage" || kind === "garment3d" || kind === "model" || kind === "pose" || kind === "faceSwap" || kind === "videoImageToVideo" || kind === "videoMotion" || kind === "videoFirstLastFrame") {
     return payload as HistoryJobPayload;
   }
 
@@ -1389,6 +1392,9 @@ function getHistoryInputSummary(payload?: HistoryJobPayload) {
   }
   if (payload.kind === "modelBackground") {
     return `原图 · ${MODEL_BACKGROUND_MODE_LABELS[payload.mode]} · ${BACKGROUND_SOURCE_LABELS[payload.backgroundSource]}`;
+  }
+  if (payload.kind === "materialEnhancement") {
+    return `原图 + 高清服装图 · ${payload.garmentType || "服装"} · ${getMaterialEnhancementLevelLabel(payload.enhancementLevel)}`;
   }
   if (payload.kind === "generalImage") {
     return `${payload.mode === "text-to-image" ? "文生图" : "图生图"} · ${payload.referenceUrls.length} 张参考图`;
@@ -1492,6 +1498,12 @@ function getInputImages(payload: HistoryJobPayload) {
       { label: "原图", url: payload.sourceUrl },
       ...(payload.modelReferenceUrl ? [{ label: "模特参考", url: payload.modelReferenceUrl }] : []),
       ...(payload.backgroundReferenceUrl ? [{ label: "背景参考", url: payload.backgroundReferenceUrl }] : []),
+    ];
+  }
+  if (payload.kind === "materialEnhancement") {
+    return [
+      { label: "原图", url: payload.sourceUrl },
+      { label: "高清服装图", url: payload.garmentUrl },
     ];
   }
   if (payload.kind === "generalImage") {
@@ -1617,6 +1629,16 @@ function getParameterItems(row: HistoryRow) {
       { label: "背景模板", value: payload.templateId },
       { label: "模特参考", value: payload.modelReferenceUrl ? "已使用" : "未使用" },
       { label: "背景参考", value: payload.backgroundReferenceUrl ? "已使用" : "未使用" },
+    ];
+  }
+  if (payload.kind === "materialEnhancement") {
+    return [
+      ...common,
+      { label: "比例", value: payload.aspectRatio },
+      { label: "生成张数", value: String(payload.genCount) },
+      { label: "服装类型", value: payload.garmentType || "-" },
+      { label: "增强方式", value: getMaterialEnhancementLevelLabel(payload.enhancementLevel) },
+      { label: "高清服装图", value: payload.garmentUrl ? "已使用" : "未使用" },
     ];
   }
   if (payload.kind === "generalImage") {

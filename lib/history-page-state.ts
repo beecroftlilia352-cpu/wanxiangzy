@@ -6,6 +6,7 @@ export type HistoryModuleFilter =
   | "grass"
   | "productSet"
   | "modelBackground"
+  | "materialEnhancement"
   | "generalImage"
   | "pose"
   | "model"
@@ -44,6 +45,7 @@ const MODULE_FILTER_LABELS: Record<HistoryModuleFilter, string> = {
   grass: "服装种草",
   productSet: "商品套图",
   modelBackground: "模特换背景",
+  materialEnhancement: "材质增强",
   generalImage: "通用生图",
   pose: "姿势裂变",
   model: "专属模特",

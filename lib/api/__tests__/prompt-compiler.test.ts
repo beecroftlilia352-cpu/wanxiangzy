@@ -49,6 +49,21 @@ describe("compileImagePromptForModel", () => {
     expect(result.length).toBeLessThanOrEqual(2300);
   });
 
+  it("preserves material enhancement edit boundaries in concise prompts", () => {
+    const result = compileImagePromptForModel({
+      kind: "materialEnhancement",
+      model: "nano-banana-2",
+      prompt: "任务：增强服装材质。图2只提供服装细节。负面约束：不要换脸。",
+    });
+
+    expect(result).toContain("材质增强");
+    expect(result).toContain("图1是最终画面原图");
+    expect(result).toContain("只处理图1目标服装可见区域");
+    expect(result).toContain("图2只用于补足面料织法");
+    expect(result).toContain("不要换脸");
+    expect(result.length).toBeLessThanOrEqual(2300);
+  });
+
   it("uses enhanced RAW quality outside untouched detail prompts", () => {
     const grass = compileImagePromptForModel({
       kind: "grass",

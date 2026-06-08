@@ -286,15 +286,16 @@ ${sceneBackgroundRule}
 ${directionRule}
 ${!isCustom && userPrompt ? `补充文字提示：${userPrompt}` : ""}
 
-必须执行的生成规则：
-保留图1服装的版型、颜色、图案/logo、面料、长短、领口、袖口、下摆、口袋、纽扣/拉链和穿搭层次。
-${modelRule}
-场景、姿势、构图、光线和内容氛围可以变化，但不能改变图1服装。
-可以添加少量符合图1风格的自然配饰，不能遮挡服装卖点。
-画面要像真实社媒穿搭照片：自然光、真实相机/手机质感、动作松弛、肤色自然、白平衡准确。
+	必须执行的生成规则：
+	保留图1服装的版型、颜色、图案/logo、面料、长短、领口、袖口、下摆、口袋、纽扣/拉链和穿搭层次。
+	服装产品保真：图1服装按商品资产处理，锁定固有色、图案/logo 和面料表面；场景氛围、滤镜和社媒风格不能重绘服装材质。
+	${modelRule}
+	场景、姿势、构图、光线和内容氛围可以变化，但不能改变图1服装。
+	可以添加少量符合图1风格的自然配饰，不能遮挡服装卖点。
+	画面要像真实社媒穿搭照片：自然光、真实相机/手机质感、动作松弛、肤色自然、白平衡准确。
 
-输出质量：photorealistic, 8K ultra-detailed, RAW photo quality, commercial lifestyle fashion photography, social-media outfit sharing, sharp clothing details, natural skin texture, realistic fabric texture, clean color grading.
-避免：换掉图1服装、改色改款、丢失图案/logo/文字${referenceNegative}，不要海报排版、多余人物、肢体或手指错误、网红假脸、过度美颜、雪白皮肤、过曝、水印、AI 渲染感。`;
+	输出质量：photorealistic, 8K ultra-detailed, RAW photo quality, true-to-source garment rendering, natural skin texture, commercial lifestyle fashion photography, social-media outfit sharing, neutral commercial color management.
+	避免：换掉图1服装、改色改款、重绘服装材质、丢失图案/logo/文字${referenceNegative}，不要海报排版、多余人物、肢体或手指错误、网红假脸、过度美颜、雪白皮肤、过曝、水印、AI 渲染感。`;
 }
 
 export type GrassPayloadBase = {

@@ -10,6 +10,7 @@ import type { TryOnAgeGroup, TryOnGarmentAudience } from "@/lib/tryon-prompt";
 import type { TryOnClothingMode, TryOnClothingRole } from "@/lib/tryon-upload-rules";
 import type { GrassPayloadBase } from "@/lib/grass-planting";
 import type { ModelBackgroundPayloadBase } from "@/lib/model-background";
+import type { MaterialEnhancementPayloadBase } from "@/lib/material-enhancement";
 import type {
   ProductSetCreationMode,
   ProductSetCustomTemplate,
@@ -59,6 +60,7 @@ export type HistoryJobPayload =
     }
   | ({ kind: "grass" } & GrassPayloadBase)
   | ({ kind: "modelBackground" } & ModelBackgroundPayloadBase)
+  | ({ kind: "materialEnhancement" } & MaterialEnhancementPayloadBase)
   | {
       kind: "generalImage";
       mode: "text-to-image" | "image-to-image";
@@ -288,6 +290,7 @@ function getModulePath(kind: HistoryJobPayload["kind"]) {
   if (kind === "tryon") return "/create";
   if (kind === "grass") return "/grass";
   if (kind === "modelBackground") return "/model-background";
+  if (kind === "materialEnhancement") return "/material-enhancement";
   if (kind === "generalImage") return "/general-image";
   if (kind === "productSet") return "/product-set";
   if (kind === "garment3d") return "/garment-3d";

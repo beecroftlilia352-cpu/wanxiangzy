@@ -15,7 +15,7 @@ import {
 export type PoseOutputMode = "grid" | "separate";
 
 export const POSE_QUALITY =
-  "photorealistic, 8K ultra-detailed, commercial fashion editorial quality, cinematic color grade, sharp facial details, sharp fabric texture, RAW photo quality";
+  "photorealistic, 8K ultra-detailed, commercial fashion editorial quality, neutral commercial color management, sharp facial details, true-to-source garment rendering, RAW photo quality";
 
 const POSE_SEPARATE_QUALITY =
   "Image quality: 8K, RAW photo quality.";
@@ -46,6 +46,9 @@ export const POSE_SERIES_RULE =
 
 export const POSE_CLOTHING_RULE =
   "服装展示规则：四个姿势都要清楚展示同一套服装的版型、腰线、肩线、袖长、下摆、面料垂坠、纹理和图案；允许动作造成自然褶皱、遮挡和张力变化，但绝不能改变服装结构、颜色、图案、长度、开口位置或搭配关系。";
+
+export const POSE_GARMENT_PRODUCT_FIDELITY_RULE =
+  "服装产品保真规则：把图1服装当作受保护的商品资产；锁定版型、固有色、图案/logo、面料表面和清洁度。姿势变化只改变人体动作、受力褶皱、垂坠和真实阴影，不重新设计布料、不套风格滤镜。";
 
 export const POSE_BODY_RULE =
   "身体动作规则：动作变化要自然、可信、符合真人关节运动，保留图1或自然商业模特的真实头身比例、肩宽、腰胯比例、四肢长度和体态；头部、颈部、肩膀和躯干转向必须协调一致，避免头部单独回望、过度扭颈、肩颈错位、夸张扭腰、断手、错位手指、肢体拉长、腿被拉长、头被缩小、身体比例漂移或过度瘦身。";
@@ -78,22 +81,23 @@ const POSE_SINGLE_EXPRESSION_CONSISTENT_REQUIREMENT =
   POSE_SINGLE_EXPRESSION_VARIATION_REQUIREMENT;
 
 const POSE_SEPARATE_BASE_PROMPT = [
-  "Use the source image only to preserve: same person, same gender expression, age impression, face, hairstyle, body proportions, outfit, fabric/color/pattern, background and lighting mood.",
-  "Do not use the source image as the pose reference. Do not copy its pose.",
+  "Use the source image only to preserve: same person, same gender expression, face, hairstyle, body proportions, outfit, fabric/color/pattern, background and lighting mood.",
+  "Do not copy the source pose.",
   "Keep head, neck, shoulders and torso aligned; no independent look-back.",
   "",
   "Generate one standalone premium fashion editorial photo.",
   POSE_SEPARATE_QUALITY,
-  "The target pose and camera direction must be clearly executed and noticeably different from the source image.",
-  "Do not copy source expression; keep face identity and adapt gaze/expression to the target pose.",
+  "Execute the target pose clearly and make it noticeably different.",
+  "Keep face identity; adapt gaze/expression to the target pose.",
   "",
   "Keep the outfit readable: neckline, shoulder line, sleeves, waistline, hem, lower garment and shoes if visible.",
+  "Product fidelity: outfit is protected; keep source color, pattern/logo and textile surface. Pose may add physical folds/shadows only; no retexturing or style filter.",
   "",
   "Keep:",
-  "same person, same gender expression, same age impression, same face identity, same hairstyle, same body frame/proportions, same outfit design, fabric texture, color/pattern, background and lighting mood, natural skin tone.",
+  "same person, same gender expression, same face identity, same hairstyle, same body frame/proportions, same outfit design, fabric texture, color/pattern, background, lighting mood and natural skin tone.",
   "",
   "Negative:",
-  "no outfit/face/gender change, no male-to-female/female-to-male change, no feminized male body, no gendered makeup/hair change, no extra person, text, logo, watermark, grid, collage, distorted hands, broken limbs, twisted neck, disconnected head, over-shoulder look or unrealistic body shape.",
+  "no outfit/face/gender change, no feminized body, no garment retexturing, no color shift, no heavy filter, no extra person, text, watermark, grid, collage, distorted hands, broken limbs, twisted neck, disconnected head, over-shoulder look or unrealistic body shape.",
 ].join("\n");
 
 const DEFAULT_POSE_LINES = [
@@ -104,7 +108,7 @@ const DEFAULT_POSE_LINES = [
 ];
 
 const NEGATIVE_POSE_REQUIREMENT =
-  "负面约束：不要换脸，不要换衣服，不要改变性别表达，不要把男性变成女性，不要女性化男性身体骨架或妆发，不要改变场景，不要改变服装结构，不要生成多余人物，不要扭曲手指和肢体，不要身体比例漂移，不要自动美白，不要雪白皮或冷白皮，不要标准鹅蛋脸或小V脸，不要塑料皮肤，不要AI渲染感，不要文字水印。";
+  "负面约束：不要换脸，不要换衣服，不要改变性别表达，不要把男性变成女性，不要女性化男性身体骨架或妆发，不要改变场景，不要改变服装结构，不要重绘服装材质或改变服装固有色，不要生成多余人物，不要扭曲手指和肢体，不要身体比例漂移，不要自动美白，不要雪白皮或冷白皮，不要标准鹅蛋脸或小V脸，不要塑料皮肤，不要AI渲染感，不要文字水印。";
 
 export function enforcePosePromptRequirements(
   prompt: string,
@@ -159,6 +163,7 @@ export function enforcePosePromptRequirements(
   const requiredRules = [
     ["时装大片连贯性规则", POSE_SERIES_RULE],
     ["服装展示规则", POSE_CLOTHING_RULE],
+    ["服装产品保真规则", POSE_GARMENT_PRODUCT_FIDELITY_RULE],
     ["性别身份锁定", POSE_GENDER_IDENTITY_LOCK_RULE],
     ["比例锁定", POSE_PROPORTION_LOCK_RULE],
     ["身体动作规则", POSE_BODY_RULE],

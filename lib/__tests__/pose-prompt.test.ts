@@ -195,6 +195,20 @@ describe("pose prompt handling", () => {
     expect(enforced).toContain("同一性别表达");
   });
 
+  it("uses product-fidelity wording instead of defect keyword stuffing", () => {
+    const enforced = enforcePosePromptRequirements("保持图1人物和服装，生成姿势变化。");
+    const separate = buildSeparatePosePrompt("补充要求：保持衣服质感。", 2);
+
+    expect(enforced).toContain("服装产品保真规则");
+    expect(enforced).toContain("受保护的商品资产");
+    expect(enforced).toContain("不重新设计布料");
+    expect(enforced).toContain("neutral commercial color management");
+    expect(enforced).not.toContain("cinematic color grade");
+    expect(separate).toContain("Product fidelity");
+    expect(separate).toContain("outfit is protected");
+    expect(separate).not.toContain("dirty fabric");
+  });
+
   it("injects structured visual analysis as high priority pose constraints", () => {
     const analysis = normalizePoseVisualAnalysis({
       genderExpression: "male",

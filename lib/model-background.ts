@@ -177,6 +177,8 @@ export function getBackgroundPreset(presetId: BackgroundPresetId) {
 }
 
 const MODEL_BACKGROUND_HARD_RULE_MARK = "【换景硬规则】";
+const MODEL_BACKGROUND_PRODUCT_FIDELITY_RULE =
+  "服装产品保真：图1服装按商品资产处理，锁定品类、版型、固有色、图案/logo、面料表面、穿着层次和清洁度；换背景/换模特只允许调整环境光、投影、接触阴影和边缘融合，不重新设计布料、不套风格滤镜。";
 
 function buildModelBackgroundHardRule(params: {
   mode: ModelBackgroundMode;
@@ -189,6 +191,7 @@ function buildModelBackgroundHardRule(params: {
   if (params.mode === "background_only") {
     return `${MODEL_BACKGROUND_HARD_RULE_MARK}
 只换背景。图1是唯一人物和唯一服装来源，保留同一张脸、发型、肤色、身材比例、衣服、穿搭和主体姿态。
+${MODEL_BACKGROUND_PRODUCT_FIDELITY_RULE}
 ${params.hasBackgroundReference ? `${backgroundIndex} 只提供无人环境参考：场景、空间透视、光线、色彩、景深、墙面、地面、建筑、绿植等。忽略 ${backgroundIndex} 里的人物、脸、衣服、包、配饰和姿势。` : "没有背景参考图时，只根据文字描述更换背景。"}
 必须把图1人物真实放进新环境，不要像抠图贴上去：根据新背景重新匹配光线方向、色温、曝光、对比度、景深、镜头距离、地面透视和人物尺度；在脚下、腿部、衣摆、鞋子与地面接触处生成自然接触阴影和环境反射；人物边缘、发丝、袖口、裙摆和鞋底边界要自然融合，没有白边、硬切边、漂浮感或贴纸感。
 任何冲突都以图1人物和服装为准。`;
@@ -197,6 +200,7 @@ ${params.hasBackgroundReference ? `${backgroundIndex} 只提供无人环境参�
   if (params.mode === "model_background") {
     return `${MODEL_BACKGROUND_HARD_RULE_MARK}
 换模特换背景。图1是唯一服装/穿搭来源，不能被任何参考图替换。
+${MODEL_BACKGROUND_PRODUCT_FIDELITY_RULE}
 ${modelIndex} 是必选模特参考图，只参考脸型气质、五官比例、肤色、发型和身材比例，不复制服装或背景。
 ${params.hasBackgroundReference ? `${backgroundIndex} 只参考背景场景、光线、色彩和空间氛围；忽略其中人物、衣服、包、配饰和姿势。` : "没有背景参考图时，根据文字或预设设计背景。"}
 生成的人物必须自然融入新环境：统一光线方向、色温、曝光、对比度、景深、镜头距离和地面透视；脸部、颈部、手臂等可见皮肤要处在同一套光影和肤色连续性里，头部大小、颈肩衔接和头身比真实自然；脚下与地面有可信接触阴影，边缘没有抠图白边、硬切边或漂浮感。`;
@@ -262,7 +266,7 @@ export function buildModelBackgroundPrompt(params: {
     : "不要改变图1原始背景、空间关系、光线方向和构图。";
 
   const integrationRule = params.mode !== "model_only"
-    ? "融合：人物不是贴纸合成，必须根据新背景重新渲染整体自然光影。匹配背景的主光方向、环境光、色温、曝光、对比度、景深、镜头高度、地面透视和人物尺度；补充脚下接触阴影、腿部/衣摆/鞋底遮挡关系和轻微环境反光；保留图1人物与服装细节，但允许全局光色、阴影和边缘过渡自然适配新场景。禁止白边、硬边、漂浮、比例不对、脚不落地、人物过亮或背景过暗。"
+    ? "融合：人物不是贴纸合成，必须根据新背景重新渲染整体自然光影。匹配背景的主光方向、环境光、色温、曝光、对比度、景深、镜头高度、地面透视和人物尺度；补充脚下接触阴影、腿部/衣摆/鞋底遮挡关系和轻微环境反光。环境光可以影响服装明暗，但不能改变服装固有色或面料表面。禁止白边、硬边、漂浮、比例不对、脚不落地、人物过亮或背景过暗。"
     : "融合：只替换脸部身份，头部位置、头部大小、头身比、颈肩衔接、脸部光线、肤色、清晰度、噪点和镜头质感必须匹配图1原图；脸、颈部和可见身体皮肤要自然连续，不要出现换脸贴片感、面具边缘、不同图层光影或头部比例变化。";
 
   const userPromptText = params.userPrompt.trim();
@@ -283,12 +287,13 @@ export function buildModelBackgroundPrompt(params: {
 模特：${modelRule}
 背景：${backgroundRule}
 ${integrationRule}
-服装：保持图1服装的品类、版型、颜色、图案/logo、面料纹理、穿着层次和搭配关系；允许自然贴合身体产生褶皱，不改款、不换色。
+${MODEL_BACKGROUND_PRODUCT_FIDELITY_RULE}
+服装：保持图1服装的品类、版型、颜色、图案/logo、面料纹理、穿着层次和搭配关系；允许自然贴合身体产生真实褶皱和阴影，不改款、不换色。
 摄影：自然光影，白平衡准确，肤色真实不过白，人物比例稳定，手指和肢体自然。
 用户补充：${userPromptText || "无，按以上模式和硬规则执行。"}
 
-输出质量：photorealistic, 8K ultra-detailed, RAW photo quality, sharp clothing details, natural skin texture, commercial fashion lifestyle photography, realistic color grade.
-避免：改变图1服装、丢失图案文字、多余人物、复制背景参考图里的人物/衣服/包/配饰/姿势、肢体畸形、手指错误、塑料皮肤、AI 渲染感、水印、文字。`;
+输出质量：photorealistic, 8K ultra-detailed, RAW photo quality, true-to-source garment rendering, natural skin texture, commercial fashion lifestyle photography, neutral commercial color management.
+避免：改变图1服装、丢失图案文字、把服装重绘成新材质或滤镜风格、多余人物、复制背景参考图里的人物/衣服/包/配饰/姿势、肢体畸形、手指错误、塑料皮肤、AI 渲染感、水印、文字。`;
 }
 
 export type ModelBackgroundPayloadBase = {

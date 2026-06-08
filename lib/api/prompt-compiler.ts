@@ -1,6 +1,6 @@
 import type { LingyaModel } from "@/lib/api/lingya";
 
-export type ImagePromptKind = "tryon" | "grass" | "modelBackground" | "pose" | "model" | "garment3d" | "faceSwap" | "commerceDetail" | "productSet";
+export type ImagePromptKind = "tryon" | "grass" | "modelBackground" | "materialEnhancement" | "pose" | "model" | "garment3d" | "faceSwap" | "commerceDetail" | "productSet";
 
 const KIND_HEADERS: Record<ImagePromptKind, string> = {
   tryon:
@@ -9,6 +9,8 @@ const KIND_HEADERS: Record<ImagePromptKind, string> = {
     "核心任务：生成真实社媒服装种草图。图1是服装/穿搭来源；图2如存在，只提供场景、构图、光线、姿势和氛围。保持图1服装，可按图1风格添加少量自然配饰。",
   modelBackground:
     "核心任务：完成换背景/换模特。图1是原始人物/服装/穿搭来源；只换背景时只替换背景，图1人物、脸、发型、服装、姿势和构图保持不变；只换模特时只替换图1脸部，其它不变；背景参考图只提供场景、光线、色彩和空间氛围。人物必须自然融入新背景，匹配光线、色温、曝光、景深、透视、人物尺度、接触阴影和边缘过渡，避免贴纸感。",
+  materialEnhancement:
+    "核心任务：材质增强。图1是最终画面原图，图2只提供同款/同系列服装材质和细节参考；只增强图1目标服装区域，人物、脸、皮肤、姿势、背景、构图和整体光线保持不变。",
   pose:
     "核心任务：生成单张 2x2 四宫格姿势裂变图，四格保持同一人、同一衣服和同一人物比例；镜头、画幅和构图可按用户每格描述变化。",
   model:
@@ -71,6 +73,12 @@ const REQUIRED_SIGNALS: Record<ImagePromptKind, RequiredSignal[]> = {
     { name: "换景硬规则", pattern: /换景硬规则|只换背景|只换模特|换模特换背景/, fallback: "换景硬规则：按当前模式只替换允许变化的部分，其他人物、服装、姿势和构图关系保持不变。" },
     { name: "自然融合", pattern: /自然融入|接触阴影|边缘|贴纸感|空间透视/, fallback: "自然融合：统一光线方向、色温、曝光、对比度、景深、空间透视、人物尺度、接触阴影和边缘过渡，避免贴纸感。" },
     { name: "负面约束", pattern: /避免|不要|负面/, fallback: "负面约束：不要改变图1服装、不要复制背景参考图人物或衣服、不要白边硬边、漂浮、肢体畸形、水印或AI渲染感。" },
+  ],
+  materialEnhancement: [
+    { name: "图片关系", pattern: /图1是最终画面原图|图2.*服装高清|图2.*材质/, fallback: "图像角色：图1是最终画面原图，图2只提供同款或同系列服装的材质、纹理、工艺和细节参考。" },
+    { name: "编辑边界", pattern: /编辑边界|只处理图1目标服装|只增强.*服装/, fallback: "编辑边界：只处理图1目标服装可见区域；人物身份、脸、皮肤、发型、身体比例、姿势、背景、镜头距离、画幅和整体光线方向不变。" },
+    { name: "服装保真", pattern: /服装保真|图1决定.*版型|图2只用于.*面料|材质表现/, fallback: "服装保真：图1决定穿着版型、轮廓、褶皱、垂坠、遮挡和阴影；图2只用于补足面料织法、纹理方向、缝线、压线、纽扣、拉链、刺绣、logo、五金和边缘细节。" },
+    { name: "负面约束", pattern: /负面约束|不要换脸|不要换服装|不要改/, fallback: "负面约束：不要换脸、换人、改身体、换背景、换服装款式、改服装主色、改图案/logo位置或新增不存在的服装结构。" },
   ],
   pose: [
     { name: "任务", pattern: /图像角色|核心任务|2x2|四宫格|每个姿势单独生成一张完整图片|本次单图任务|只生成姿势\d|HARD TARGET POSE SLOT|standalone 3:4 photo/, fallback: "核心任务：生成单张2x2四宫格姿势裂变图，四格保持同一人、同一衣服和同一人物比例；镜头、画幅和构图可按用户每格描述变化。" },

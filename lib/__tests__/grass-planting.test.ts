@@ -42,4 +42,23 @@ describe("grass scene background control", () => {
     expect(prompt).toContain("AI 必须重新生成同类但不同的背景场景");
     expect(prompt).toContain("不要复刻图2的具体地点");
   });
+
+  it("keeps garment quality as product fidelity instead of texture enhancement", () => {
+    const prompt = buildGrassPrompt({
+      templateId: "street",
+      userPrompt: "",
+      changeModel: true,
+      sceneMode: "system_reference",
+      hasReference: true,
+      referenceName: "街拍参考",
+      sceneBackgroundMode: "reference_scene",
+    });
+
+    expect(prompt).toContain("服装产品保真");
+    expect(prompt).toContain("图1服装按商品资产处理");
+    expect(prompt).toContain("场景氛围、滤镜和社媒风格不能重绘服装材质");
+    expect(prompt).toContain("true-to-source garment rendering");
+    expect(prompt).not.toContain("realistic fabric texture");
+    expect(prompt).not.toContain("clean color grading");
+  });
 });

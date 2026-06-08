@@ -35,6 +35,7 @@ describe("getHistoryFilterStateCopy", () => {
 
   it("parses supported URL filters and falls back to all for unknown values", () => {
     expect(parseHistoryModuleFilter("tryon")).toBe("tryon");
+    expect(parseHistoryModuleFilter("materialEnhancement")).toBe("materialEnhancement");
     expect(parseHistoryStatusFilter("failed")).toBe("failed");
     expect(parseHistoryModuleFilter("unknown")).toBe("all");
     expect(parseHistoryStatusFilter("archived")).toBe("all");

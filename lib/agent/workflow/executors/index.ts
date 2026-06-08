@@ -142,7 +142,7 @@ async function executeBackgroundReplace(input: StepExecutionInput) {
     ...resolveImageList(input, input.step.input.backgroundReference),
   ];
   const prompt = [
-    "保留主体身份、服装、比例和真实光影关系，只替换背景/场景并自然融合。",
+    "只替换背景/场景并自然融合；服装按商品资产保真，保持版型、固有色、图案/logo 和面料表面，环境光只影响明暗与投影。",
     String(input.step.params.prompt || input.workflow.summary || ""),
   ].join("\n");
   return runImageGeneration(input, { images, promptKind: "modelBackground", fallbackPrompt: prompt });
@@ -213,8 +213,9 @@ async function executePoseVariation(input: StepExecutionInput) {
   const generationCount = outputMode === "separate" ? requestedCount : 1;
   const prompt = [
     outputMode === "separate"
-      ? "基于主图生成一组不同姿势的独立图片，保持人物身份、服装结构、身体比例和光线质感稳定。"
-      : "基于主图生成 2x2 四宫格姿势变化图，保持人物身份、服装结构、身体比例和光线质感稳定。",
+      ? "基于主图生成一组不同姿势的独立图片，保持人物身份、身体比例和服装商品保真。"
+      : "基于主图生成 2x2 四宫格姿势变化图，保持人物身份、身体比例和服装商品保真。",
+    "服装保持图1版型、固有色、图案/logo 和面料表面；姿势只带来自然受力褶皱、垂坠和阴影，不把服装重绘成新材质或滤镜风格。",
     "姿势自然可信，头部、颈部、肩膀和躯干转向协调一致，避免单独回头、过度扭颈、肩颈错位、手指、关节、肢体拉长和换脸。",
     String(input.step.params.prompt || input.workflow.summary || ""),
     outputMode === "separate"
