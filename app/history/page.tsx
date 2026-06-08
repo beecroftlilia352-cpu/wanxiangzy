@@ -1446,7 +1446,7 @@ function getPayloadDisplaySize(payload?: HistoryJobPayload) {
 }
 
 function getVideoModeLabel(mode?: string) {
-  return mode === "fast" ? "快速模式" : "专业模式";
+  return mode === "fast" ? "快速模式" : "高清模式";
 }
 
 function getVideoAudioLabel(payload: Extract<HistoryJobPayload, { kind: "videoImageToVideo" | "videoMotion" | "videoFirstLastFrame" }>) {
@@ -1659,7 +1659,7 @@ function getParameterItems(row: HistoryRow) {
       { label: "分辨率", value: payload.resolution },
       { label: "音效", value: getVideoAudioLabel(payload) },
       { label: "音频控制", value: payload.audioPrompt || "-" },
-      { label: "视频模型", value: "Seedance2" },
+      { label: "视频模型", value: "HappyHorse" },
       { label: "动作模板", value: payload.templateTitle || "-" },
       { label: "参考视频", value: payload.referenceVideoUrl ? "已使用" : "未使用" },
     ];

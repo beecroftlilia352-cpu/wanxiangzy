@@ -10,7 +10,6 @@ import {
   ImagePlus,
   Loader2,
   Maximize2,
-  Music2,
   Play,
   Sparkles,
   Upload,
@@ -35,14 +34,14 @@ import type { TaskSelectionSession } from "@/components/studio/useTaskSelectionS
 import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
 import {
   AI_VIDEO_ACTION_TEMPLATES,
-  AI_VIDEO_AUDIO_MODE_OPTIONS,
   AI_VIDEO_ASPECT_RATIO_OPTIONS,
   AI_VIDEO_DEFAULT_AUDIO_MODE,
   AI_VIDEO_DEFAULT_DURATION,
+  AI_VIDEO_DEFAULT_FIXED_ASPECT_RATIO,
   AI_VIDEO_DEFAULT_RESOLUTION,
   AI_VIDEO_DURATION_OPTIONS,
   AI_VIDEO_MODEL_MODE_OPTIONS,
-  getAiVideoAudioCreditCost,
+  getClosestAiVideoAspectRatio,
   getAiVideoPerVideoCreditCost,
   getAiVideoCreditCost,
   getAiVideoKind,
@@ -51,6 +50,7 @@ import {
   normalizeAiVideoAspectRatio,
   normalizeAiVideoAudioMode,
   normalizeAiVideoDuration,
+  normalizeAiVideoFixedAspectRatio,
   normalizeAiVideoGenCount,
   normalizeAiVideoModelMode,
   normalizeAiVideoResolution,
@@ -58,6 +58,7 @@ import {
   type AiVideoAudioMode,
   type AiVideoAspectRatio,
   type AiVideoDuration,
+  type AiVideoFixedAspectRatio,
   type AiVideoMode,
   type AiVideoModelMode,
   type AiVideoResolution,
@@ -68,12 +69,8 @@ import { safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
 import {
   MAX_FILE_SIZE,
   MAX_FILE_SIZE_MB,
-  MAX_AUDIO_FILE_SIZE,
-  MAX_AUDIO_FILE_SIZE_MB,
   MAX_VIDEO_FILE_SIZE,
   MAX_VIDEO_FILE_SIZE_MB,
-  addImageGridOverlay,
-  uploadAudio,
   uploadImage,
   uploadVideo,
 } from "@/lib/utils";
@@ -91,6 +88,11 @@ type AiVideoExperienceProps = {
   mode: AiVideoMode;
 };
 
+function normalizeHappyHorseUiAudioMode(value: unknown): AiVideoAudioMode {
+  const audioMode = normalizeAiVideoAudioMode(value);
+  return audioMode === "custom" ? "generated" : audioMode;
+}
+
 export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
   const router = useRouter();
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -98,7 +100,6 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
   const firstFrameInputRef = useRef<HTMLInputElement>(null);
   const lastFrameInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
-  const audioInputRef = useRef<HTMLInputElement>(null);
   const generationRunRef = useRef(0);
   const submitLockRef = useRef(false);
   const isMotion = mode === "motion-control";
@@ -116,14 +117,17 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
   const [firstFrameUrl, setFirstFrameUrl] = useState("");
   const [lastFrameUrl, setLastFrameUrl] = useState("");
   const [referenceVideoUrl, setReferenceVideoUrl] = useState("");
+  const [imageRatio, setImageRatio] = useState<AiVideoFixedAspectRatio | null>(null);
+  const [modelImageRatio, setModelImageRatio] = useState<AiVideoFixedAspectRatio | null>(null);
+  const [firstFrameRatio, setFirstFrameRatio] = useState<AiVideoFixedAspectRatio | null>(null);
+  const [lastFrameRatio, setLastFrameRatio] = useState<AiVideoFixedAspectRatio | null>(null);
   const [prompt, setPrompt] = useState(isFirstLastFrame ? "" : isMotion ? "" : AI_VIDEO_ACTION_TEMPLATES[0]?.promptContent || "");
   const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(isFirstLastFrame || isMotion ? null : AI_VIDEO_ACTION_TEMPLATES[0]?.id || null);
   const [modelMode, setModelMode] = useState<AiVideoModelMode>("pro");
   const [resolution, setResolution] = useState<AiVideoResolution>(AI_VIDEO_DEFAULT_RESOLUTION);
-  const [aspectRatio, setAspectRatio] = useState<AiVideoAspectRatio>("9:16");
+  const [aspectRatio, setAspectRatio] = useState<AiVideoAspectRatio>("auto");
   const [duration, setDuration] = useState<AiVideoDuration>(AI_VIDEO_DEFAULT_DURATION);
   const [audioMode, setAudioMode] = useState<AiVideoAudioMode>(AI_VIDEO_DEFAULT_AUDIO_MODE);
-  const [audioUrl, setAudioUrl] = useState("");
   const [audioPrompt, setAudioPrompt] = useState("");
   const [genCount, setGenCount] = useState(1);
   const [isDraggingImage, setIsDraggingImage] = useState(false);
@@ -131,19 +135,18 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
   const [isDraggingFirstFrame, setIsDraggingFirstFrame] = useState(false);
   const [isDraggingLastFrame, setIsDraggingLastFrame] = useState(false);
   const [isDraggingVideo, setIsDraggingVideo] = useState(false);
-  const [isDraggingAudio, setIsDraggingAudio] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [isUploadingModelImage, setIsUploadingModelImage] = useState(false);
   const [isUploadingFirstFrame, setIsUploadingFirstFrame] = useState(false);
   const [isUploadingLastFrame, setIsUploadingLastFrame] = useState(false);
   const [isUploadingVideo, setIsUploadingVideo] = useState(false);
-  const [isUploadingAudio, setIsUploadingAudio] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
   const [resultUrls, setResultUrls] = useState<string[]>([]);
   const [error, setError] = useState("");
   const [templatePanelOpen, setTemplatePanelOpen] = useState(false);
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   const [lightboxVideo, setLightboxVideo] = useState<string | null>(null);
 
   const taskQueue = useTaskQueueGeneration({
@@ -155,6 +158,15 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
   const authIsAnonymous = authChecked && !isAuthenticated;
   const effectiveModelMode = isFirstLastFrame ? "pro" : modelMode;
   const generateAudio = audioMode !== "off";
+  const detectedAspectRatio = isFirstLastFrame
+    ? firstFrameRatio || lastFrameRatio
+    : isMotion
+      ? modelImageRatio
+      : imageRatio;
+  const effectiveAspectRatio = aspectRatio === "auto"
+    ? detectedAspectRatio || AI_VIDEO_DEFAULT_FIXED_ASPECT_RATIO
+    : normalizeAiVideoFixedAspectRatio(aspectRatio);
+  const aspectRatioSummary = aspectRatio === "auto" ? `自动(${effectiveAspectRatio})` : effectiveAspectRatio;
   const resolutionOptions = useMemo(
     () => getAiVideoResolutionOptions(effectiveModelMode),
     [effectiveModelMode]
@@ -172,8 +184,6 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
         ? "请先上传尾帧图片"
         : !prompt.trim()
           ? "请输入视频生成效果描述"
-          : audioMode === "custom" && !audioUrl
-            ? "请先上传音频或切换为智能音效"
           : credits !== null && credits < cost
             ? `积分不足，生成需要 ${cost} 积分`
             : undefined
@@ -182,8 +192,6 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
       ? "请先上传模特图"
       : !referenceVideoUrl
         ? "请先上传参考视频"
-        : audioMode === "custom" && !audioUrl
-          ? "请先上传音频或切换为智能音效"
         : credits !== null && credits < cost
           ? `积分不足，生成需要 ${cost} 积分`
           : undefined
@@ -191,8 +199,6 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
       ? "请先上传图片"
       : !prompt.trim()
         ? "请输入动作描述或选择动作模板"
-        : audioMode === "custom" && !audioUrl
-          ? "请先上传音频或切换为智能音效"
         : credits !== null && credits < cost
           ? `积分不足，生成需要 ${cost} 积分`
           : undefined;
@@ -231,14 +237,6 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
     multiple: false,
     onFiles: (files) => handleVideoFile(files[0]),
   });
-  const audioDrag = useStableFileDrag<HTMLDivElement>({
-    isDragging: isDraggingAudio,
-    setDragging: setIsDraggingAudio,
-    accept: "audio/*,.mp3,.wav,.m4a,.aac",
-    multiple: false,
-    onFiles: (files) => handleAudioFile(files[0]),
-  });
-
   const selectedTemplate = useMemo(
     () => AI_VIDEO_ACTION_TEMPLATES.find((item) => item.id === selectedTemplateId) || null,
     [selectedTemplateId]
@@ -247,13 +245,12 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
     () => AI_VIDEO_MODEL_MODE_OPTIONS.map((item) => ({
       value: item.value,
       label: item.label,
-      description: isFirstLastFrame && item.value === "fast" ? "首尾帧需专业模式" : item.description,
+      description: isFirstLastFrame && item.value === "fast" ? "首尾帧需高清模式" : item.description,
       disabled: isFirstLastFrame && item.value === "fast",
     })),
     [isFirstLastFrame]
   );
   const perVideoCost = getAiVideoPerVideoCreditCost({ modelMode: effectiveModelMode, resolution, duration, audioMode });
-  const audioCreditCost = getAiVideoAudioCreditCost({ duration, audioMode });
 
   useEffect(() => {
     const nextMode = isFirstLastFrame ? "pro" : normalizeAiVideoModelMode(modelMode);
@@ -295,20 +292,35 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
           ? setIsUploadingLastFrame
           : setIsUploadingImage;
     setUploading(true);
-    toast.info("正在处理并上传图片...");
+    toast.info("正在上传图片...");
     try {
-      const uploadFile = await addImageGridOverlay(file, { rows: 6, columns: 6 });
-      const result = await uploadImage(uploadFile);
-      if (target === "model") setModelImageUrl(result.url);
-      else if (target === "firstFrame") setFirstFrameUrl(result.url);
-      else if (target === "lastFrame") setLastFrameUrl(result.url);
-      else setImageUrl(result.url);
+      const result = await uploadImage(file);
+      const nextRatio = getClosestAiVideoAspectRatio(result.width, result.height);
+      if (target === "model") {
+        setModelImageUrl(result.url);
+        setModelImageRatio(nextRatio);
+      } else if (target === "firstFrame") {
+        setFirstFrameUrl(result.url);
+        setFirstFrameRatio(nextRatio);
+      } else if (target === "lastFrame") {
+        setLastFrameUrl(result.url);
+        setLastFrameRatio(nextRatio);
+      } else {
+        setImageUrl(result.url);
+        setImageRatio(nextRatio);
+      }
       toast.success("图片已上传");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "图片上传失败，请重试");
     } finally {
       setUploading(false);
     }
+  }
+
+  function handleAspectRatioChange(value: string) {
+    const nextAspectRatio = normalizeAiVideoAspectRatio(value);
+    if (nextAspectRatio === aspectRatio) return;
+    setAspectRatio(nextAspectRatio);
   }
 
   async function handleVideoFile(file?: File) {
@@ -336,34 +348,6 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
       toast.error(err instanceof Error ? err.message : "视频上传失败，请重试");
     } finally {
       setIsUploadingVideo(false);
-    }
-  }
-
-  async function handleAudioFile(file?: File) {
-    if (!file) return;
-    const accepted = file.type.startsWith("audio/") || /\.(mp3|wav|m4a|aac)$/i.test(file.name);
-    if (!accepted) {
-      toast.error("请上传 MP3、WAV、M4A 或 AAC 音频");
-      return;
-    }
-    if (file.size > MAX_AUDIO_FILE_SIZE) {
-      toast.error(`音频不能超过 ${MAX_AUDIO_FILE_SIZE_MB}MB`);
-      return;
-    }
-
-    setError("");
-    setResultUrls([]);
-    setIsUploadingAudio(true);
-    setAudioMode("custom");
-    toast.info("正在上传音频...");
-    try {
-      const result = await uploadAudio(file);
-      setAudioUrl(result.url);
-      toast.success("音频已上传");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "音频上传失败，请重试");
-    } finally {
-      setIsUploadingAudio(false);
     }
   }
 
@@ -435,9 +419,8 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
             modelMode: effectiveModelMode,
             duration,
             resolution,
-            aspectRatio,
+            aspectRatio: effectiveAspectRatio,
             audioMode,
-            audioUrl: audioMode === "custom" ? audioUrl : "",
             audioPrompt: audioPrompt.trim(),
             generateAudio,
             genCount,
@@ -451,9 +434,8 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
               modelMode: effectiveModelMode,
               duration,
               resolution,
-              aspectRatio,
+              aspectRatio: effectiveAspectRatio,
               audioMode,
-              audioUrl: audioMode === "custom" ? audioUrl : "",
               audioPrompt: audioPrompt.trim(),
               generateAudio,
               genCount,
@@ -465,9 +447,8 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
               modelMode: effectiveModelMode,
               duration,
               resolution,
-              aspectRatio,
+              aspectRatio: effectiveAspectRatio,
               audioMode,
-              audioUrl: audioMode === "custom" ? audioUrl : "",
               audioPrompt: audioPrompt.trim(),
               generateAudio,
               genCount,
@@ -632,14 +613,17 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
       setImageUrl("");
       setModelImageUrl("");
       setReferenceVideoUrl("");
+      setFirstFrameRatio(null);
+      setLastFrameRatio(null);
+      setImageRatio(null);
+      setModelImageRatio(null);
       setPrompt(payload.prompt);
       setSelectedTemplateId(null);
       setModelMode(normalizeAiVideoModelMode(payload.modelMode, payload.kind));
       setDuration(normalizeAiVideoDuration(payload.duration));
       setResolution(normalizeAiVideoResolution(payload.resolution, normalizeAiVideoModelMode(payload.modelMode, payload.kind)));
       setAspectRatio(normalizeAiVideoAspectRatio(payload.aspectRatio));
-      setAudioMode(normalizeAiVideoAudioMode(payload.audioMode ?? (payload.audioUrl ? "custom" : payload.generateAudio === true ? "generated" : "off")));
-      setAudioUrl(payload.audioUrl || "");
+      setAudioMode(normalizeHappyHorseUiAudioMode(payload.generateAudio === true ? "generated" : payload.audioMode));
       setAudioPrompt(payload.audioPrompt || "");
       setGenCount(normalizeAiVideoGenCount(payload.genCount));
     } else if (payload.kind === "videoMotion") {
@@ -648,14 +632,17 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
       setModelImageUrl(payload.modelImageUrl);
       setReferenceVideoUrl(payload.referenceVideoUrl);
       setImageUrl("");
+      setFirstFrameRatio(null);
+      setLastFrameRatio(null);
+      setImageRatio(null);
+      setModelImageRatio(null);
       setPrompt(payload.prompt || "");
       setSelectedTemplateId(resolveMotionTemplateId(payload.referenceVideoUrl, payload.templateId));
       setModelMode(normalizeAiVideoModelMode(payload.modelMode, payload.kind));
       setDuration(normalizeAiVideoDuration(payload.duration));
       setResolution(normalizeAiVideoResolution(payload.resolution, normalizeAiVideoModelMode(payload.modelMode, payload.kind)));
       setAspectRatio(normalizeAiVideoAspectRatio(payload.aspectRatio));
-      setAudioMode(normalizeAiVideoAudioMode(payload.audioMode ?? (payload.audioUrl ? "custom" : payload.generateAudio === true ? "generated" : "off")));
-      setAudioUrl(payload.audioUrl || "");
+      setAudioMode(normalizeHappyHorseUiAudioMode(payload.generateAudio === true ? "generated" : payload.audioMode));
       setAudioPrompt(payload.audioPrompt || "");
       setGenCount(normalizeAiVideoGenCount(payload.genCount));
     } else {
@@ -664,14 +651,17 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
       setImageUrl(payload.imageUrl);
       setModelImageUrl("");
       setReferenceVideoUrl("");
+      setFirstFrameRatio(null);
+      setLastFrameRatio(null);
+      setImageRatio(null);
+      setModelImageRatio(null);
       setPrompt(payload.prompt);
       setSelectedTemplateId(payload.templateId || null);
       setModelMode(normalizeAiVideoModelMode(payload.modelMode, payload.kind));
       setDuration(normalizeAiVideoDuration(payload.duration));
       setResolution(normalizeAiVideoResolution(payload.resolution, normalizeAiVideoModelMode(payload.modelMode, payload.kind)));
       setAspectRatio(normalizeAiVideoAspectRatio(payload.aspectRatio));
-      setAudioMode(normalizeAiVideoAudioMode(payload.audioMode ?? (payload.audioUrl ? "custom" : payload.generateAudio === true ? "generated" : "off")));
-      setAudioUrl(payload.audioUrl || "");
+      setAudioMode(normalizeHappyHorseUiAudioMode(payload.generateAudio === true ? "generated" : payload.audioMode));
       setAudioPrompt(payload.audioPrompt || "");
       setGenCount(normalizeAiVideoGenCount(payload.genCount));
     }
@@ -691,14 +681,17 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
     setFirstFrameUrl("");
     setLastFrameUrl("");
     setReferenceVideoUrl("");
+    setImageRatio(null);
+    setModelImageRatio(null);
+    setFirstFrameRatio(null);
+    setLastFrameRatio(null);
     setPrompt(isFirstLastFrame ? "" : isMotion ? "" : AI_VIDEO_ACTION_TEMPLATES[0]?.promptContent || "");
     setSelectedTemplateId(isFirstLastFrame || isMotion ? null : AI_VIDEO_ACTION_TEMPLATES[0]?.id || null);
     setModelMode("pro");
     setResolution(AI_VIDEO_DEFAULT_RESOLUTION);
-    setAspectRatio("9:16");
+    setAspectRatio("auto");
     setDuration(AI_VIDEO_DEFAULT_DURATION);
     setAudioMode(AI_VIDEO_DEFAULT_AUDIO_MODE);
-    setAudioUrl("");
     setAudioPrompt("");
     setGenCount(1);
     setResultUrls([]);
@@ -745,7 +738,11 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
                     loading={isUploadingFirstFrame}
                     onUploadClick={() => firstFrameInputRef.current?.click()}
                     onLibraryClick={() => toast.info("作品库选择即将接入")}
-                    onRemove={firstFrameUrl ? () => setFirstFrameUrl("") : undefined}
+                    onPreview={firstFrameUrl ? () => setLightboxImage(firstFrameUrl) : undefined}
+                    onRemove={firstFrameUrl ? () => {
+                      setFirstFrameUrl("");
+                      setFirstFrameRatio(null);
+                    } : undefined}
                     libraryLabel="从作品库选择"
                     uploadLabel="上传首帧"
                   />
@@ -772,7 +769,11 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
                     loading={isUploadingLastFrame}
                     onUploadClick={() => lastFrameInputRef.current?.click()}
                     onLibraryClick={() => toast.info("作品库选择即将接入")}
-                    onRemove={lastFrameUrl ? () => setLastFrameUrl("") : undefined}
+                    onPreview={lastFrameUrl ? () => setLightboxImage(lastFrameUrl) : undefined}
+                    onRemove={lastFrameUrl ? () => {
+                      setLastFrameUrl("");
+                      setLastFrameRatio(null);
+                    } : undefined}
                     libraryLabel="从作品库选择"
                     uploadLabel="上传尾帧"
                   />
@@ -803,8 +804,11 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
               loading={isUploadingImage}
               onUploadClick={() => imageInputRef.current?.click()}
               onLibraryClick={() => toast.info("作品库选择即将接入")}
-              onPreview={imageUrl ? () => setLightboxVideo(null) : undefined}
-              onRemove={imageUrl ? () => setImageUrl("") : undefined}
+              onPreview={imageUrl ? () => setLightboxImage(imageUrl) : undefined}
+              onRemove={imageUrl ? () => {
+                setImageUrl("");
+                setImageRatio(null);
+              } : undefined}
               libraryLabel="从作品库选择"
               uploadLabel="点击或拖拽上传"
               footnote="模板动作会作为运动方向，图片主体和服装细节会作为硬参考。"
@@ -834,7 +838,11 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
                 loading={isUploadingModelImage}
                 onUploadClick={() => modelImageInputRef.current?.click()}
                 onLibraryClick={() => toast.info("作品库选择即将接入")}
-                onRemove={modelImageUrl ? () => setModelImageUrl("") : undefined}
+                onPreview={modelImageUrl ? () => setLightboxImage(modelImageUrl) : undefined}
+                onRemove={modelImageUrl ? () => {
+                  setModelImageUrl("");
+                  setModelImageRatio(null);
+                } : undefined}
                 libraryLabel="从作品库选择"
                 uploadLabel="点击或拖拽上传"
               />
@@ -947,7 +955,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
               description: item.description,
             }))}
             value={aspectRatio}
-            onChange={(value) => setAspectRatio(normalizeAiVideoAspectRatio(value))}
+            onChange={handleAspectRatioChange}
             columns={3}
             ariaLabel="视频画面比例"
           />
@@ -973,11 +981,11 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
             title={(
               <span className="inline-flex items-center gap-1.5">
                 <Volume2 className="h-4 w-4 text-[var(--codex-accent)]" />
-                音效
+                声音
               </span>
             )}
-            description="默认静音以提高生成稳定性；需要品牌 BGM、口播或指定节奏时再开启。"
-            meta={generateAudio ? `+${audioCreditCost} 积分/条` : "静音"}
+            description="HappyHorse 支持原生有声视频；关闭时会明确请求静音。"
+            meta={generateAudio ? "原生音效" : "请求静音"}
             checked={generateAudio}
             onChange={(checked) => {
               setAudioMode(checked ? "generated" : "off");
@@ -987,54 +995,14 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
           />
           {generateAudio && (
             <div className="mt-3 space-y-3">
-              <StudioOptionGrid
-                options={AI_VIDEO_AUDIO_MODE_OPTIONS.map((item) => ({
-                  value: item.value,
-                  label: item.label,
-                  description: item.description,
-                }))}
-                value={audioMode}
-                onChange={(value) => setAudioMode(normalizeAiVideoAudioMode(value))}
-                columns={2}
-                ariaLabel="视频音效模式"
-              />
-
-              {audioMode === "custom" && (
-                <section {...audioDrag.dragHandlers} className={`rounded-xl transition-all ${isDraggingAudio ? "ring-2 ring-[rgba(91,124,255,0.38)] ring-offset-2" : ""}`}>
-                  <input
-                    ref={audioInputRef}
-                    type="file"
-                    accept="audio/*,.mp3,.wav,.m4a,.aac"
-                    className="hidden"
-                    onChange={(event) => {
-                      const input = event.currentTarget;
-                      void handleAudioFile(input.files?.[0]).finally(() => {
-                        input.value = "";
-                      });
-                    }}
-                  />
-                  <AudioUploadTile
-                    audioUrl={audioUrl}
-                    loading={isUploadingAudio}
-                    isDragging={isDraggingAudio}
-                    onUploadClick={() => audioInputRef.current?.click()}
-                    onRemove={audioUrl ? () => setAudioUrl("") : undefined}
-                  />
-                </section>
-              )}
-
               <StudioPromptTextarea
-                title={audioMode === "custom" ? "音频控制" : "音效描述"}
-                badge={audioMode === "custom" ? "可选" : "可选"}
+                title="声音描述"
+                badge="可选"
                 value={audioPrompt}
                 onChange={(event) => setAudioPrompt(event.target.value)}
                 rows={3}
-                placeholder={audioMode === "custom"
-                  ? "例如：保留上传音频的人声和主旋律，按鼓点切换动作；不要额外生成环境声。"
-                  : "例如：轻快清爽的商拍环境声，保留脚步声和衣料轻响，不要人声，不要夸张音效。"}
-                description={audioMode === "custom"
-                  ? "上传音频会作为声音参考；这里用于控制节奏对齐、人声保留、音量层次和是否叠加环境声。"
-                  : "不填写时由模型按画面自动生成干净的环境声和轻动作声。"}
+                placeholder="例如：轻快清爽的商拍环境声，保留脚步声和衣料轻响，不要人声，不要夸张音效。"
+                description="不填写时由模型按画面自动生成声音。"
               />
             </div>
           )}
@@ -1080,7 +1048,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
         </div>
         {controlPanel}
         <StudioRunBar
-          summary={`${effectiveModelMode === "pro" ? "专业模式" : "快速模式"} · ${resolution} · ${aspectRatio} · ${duration}秒 · ${generateAudio ? "音效" : "静音"} · ${genCount}条`}
+          summary={`${effectiveModelMode === "pro" ? "高清模式" : "快速模式"} · ${resolution} · ${aspectRatioSummary} · ${duration}秒 · ${generateAudio ? "音效" : "静音"} · ${genCount}条`}
           costLabel={authIsAnonymous ? "登录后查看积分" : `消耗 ${cost} · 余额 ${credits ?? "-"}`}
           disabled={isSubmitting || Boolean(runDisabledReason)}
           disabledReason={runDisabledReason}
@@ -1113,7 +1081,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
               urls={resultUrls}
               filenamePrefix={isFirstLastFrame ? "first-last-frame-video" : isMotion ? "motion-video" : "image-video"}
               onOpen={(url) => setLightboxVideo(url)}
-              aspectRatio={aspectRatio}
+              aspectRatio={effectiveAspectRatio}
               expectedCount={isGenerating ? genCount : undefined}
               isGenerating={isGenerating}
               inputThumbnails={inputThumbnails}
@@ -1168,6 +1136,31 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
               onClick={(event) => event.stopPropagation()}
             />
             <button onClick={() => setLightboxVideo(null)} className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full border border-white/85 bg-white/90 text-slate-700 shadow-[0_12px_34px_rgba(15,23,42,0.22)] backdrop-blur transition-colors hover:bg-white hover:text-slate-950 sm:right-6 sm:top-6">
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+        </ClientPortal>
+      )}
+
+      {lightboxImage && (
+        <ClientPortal>
+          <div
+            className="fixed inset-0 z-[180] flex cursor-zoom-out items-center justify-center bg-slate-950/66 p-4 backdrop-blur-xl sm:p-8"
+            onClick={() => setLightboxImage(null)}
+          >
+            <img
+              src={lightboxImage}
+              alt="上传图片预览"
+              className="max-h-full max-w-full cursor-default rounded-[16px] bg-white object-contain shadow-[0_32px_120px_rgba(0,0,0,0.45)]"
+              onClick={(event) => event.stopPropagation()}
+            />
+            <button
+              type="button"
+              onClick={() => setLightboxImage(null)}
+              className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full border border-white/85 bg-white/90 text-slate-700 shadow-[0_12px_34px_rgba(15,23,42,0.22)] backdrop-blur transition-colors hover:bg-white hover:text-slate-950 sm:right-6 sm:top-6"
+              aria-label="关闭图片预览"
+              title="关闭图片预览"
+            >
               <X className="h-5 w-5" />
             </button>
           </div>
@@ -1521,79 +1514,6 @@ function VideoUploadTile({
         <div className="studio-upload-tile-actions">
           {onRemove && (
             <button type="button" onClick={onRemove} disabled={loading} className="studio-icon-button studio-icon-button-danger" aria-label="删除参考视频" title="删除参考视频">
-              <X className="h-3.5 w-3.5" />
-            </button>
-          )}
-        </div>
-      )}
-      {loading && (
-        <div className="pointer-events-none absolute inset-0 z-[5] flex items-center justify-center rounded-[inherit] bg-white/72 backdrop-blur-[2px]">
-          <div className="flex items-center gap-2 rounded-full border border-white/80 bg-white/95 px-3.5 py-2 text-xs font-black text-slate-700 shadow-[0_14px_36px_rgba(15,23,42,0.16)]">
-            <Loader2 className="h-4 w-4 animate-spin text-[var(--codex-accent)]" />
-            <span>上传中...</span>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function AudioUploadTile({
-  audioUrl,
-  isDragging,
-  loading,
-  onUploadClick,
-  onRemove,
-}: {
-  audioUrl: string;
-  isDragging: boolean;
-  loading: boolean;
-  onUploadClick: () => void;
-  onRemove?: () => void;
-}) {
-  return (
-    <div className={`studio-upload-tile ${isDragging ? "studio-upload-tile-dragging" : ""}`} aria-busy={loading ? "true" : undefined}>
-      <div className="studio-upload-tile-panel min-h-[138px]">
-        {audioUrl ? (
-          <div className="flex min-h-[138px] flex-col justify-center gap-3 rounded-[inherit] bg-white/78 p-4">
-            <div className="flex items-center gap-3">
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-[var(--codex-accent)]">
-                <Music2 className="h-5 w-5" />
-              </span>
-              <div className="min-w-0">
-                <p className="truncate text-sm font-black text-codex-ink">已上传音频</p>
-                <p className="mt-1 text-[11px] font-semibold text-codex-faint">生成时会作为 BGM、口播或节奏参考</p>
-              </div>
-            </div>
-            <audio src={audioUrl} controls preload="metadata" className="w-full" />
-          </div>
-        ) : (
-          <div className="studio-upload-tile-empty min-h-[138px]" aria-label="上传音频">
-            <button type="button" onClick={onUploadClick} disabled={loading} className="studio-upload-tile-heading">
-              <span className="studio-upload-tile-icon">
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Music2 className="h-4 w-4" />}
-              </span>
-              <span className="studio-upload-tile-title">上传音频</span>
-            </button>
-            <span className="studio-upload-tile-description text-center">
-              点击上传或拖拽音频到这里
-            </span>
-            <p className="max-w-[330px] text-center text-[12px] font-semibold leading-6 text-codex-faint">
-              支持 MP3、WAV、M4A、AAC，最大 {MAX_AUDIO_FILE_SIZE_MB}MB；推荐上传已经剪好节奏的 BGM、口播或品牌音效。
-            </p>
-            <span className="studio-upload-tile-action-row">
-              <button type="button" onClick={onUploadClick} disabled={loading} className="studio-upload-tile-primary">
-                {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
-                {loading ? "上传中..." : "点击上传"}
-              </button>
-            </span>
-          </div>
-        )}
-      </div>
-      {audioUrl && (
-        <div className="studio-upload-tile-actions">
-          {onRemove && (
-            <button type="button" onClick={onRemove} disabled={loading} className="studio-icon-button studio-icon-button-danger" aria-label="删除音频" title="删除音频">
               <X className="h-3.5 w-3.5" />
             </button>
           )}

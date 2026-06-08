@@ -12,12 +12,12 @@ import { resolveImageInputs } from "@/lib/api/image-inputs.server";
 import { persistGeneratedImageUrls } from "@/lib/api/result-image-storage";
 import { persistGeneratedMediaUrls } from "@/lib/api/result-media-storage";
 import {
-  generateSeedanceFirstLastFrame,
-  generateSeedanceImageToVideo,
-  generateSeedanceMotionControl,
+  generateHappyHorseFirstLastFrame,
+  generateHappyHorseImageToVideo,
+  generateHappyHorseMotionControl,
   type VideoGenerationResult,
   type VideoTaskProgress,
-} from "@/lib/api/seedance-video";
+} from "@/lib/api/happyhorse-video";
 import { syncGenerationTaskQueueById } from "@/lib/task-queue-store";
 import {
   applyQualityRepairToPrompt,
@@ -1032,7 +1032,7 @@ async function executePayload(
   if (payload.kind === "videoImageToVideo") {
     const modelMode = normalizeAiVideoModelMode(payload.modelMode, payload.kind);
     const audioMode = resolvePayloadAiVideoAudioMode(payload);
-    return runVideoBatch("video:image-to-video", (_index, onVideoProgress) => generateSeedanceImageToVideo({
+    return runVideoBatch("video:image-to-video", (_index, onVideoProgress) => generateHappyHorseImageToVideo({
       imageUrl: payload.imageUrl,
       prompt: payload.prompt,
       modelMode,
@@ -1050,7 +1050,7 @@ async function executePayload(
   if (payload.kind === "videoMotion") {
     const modelMode = normalizeAiVideoModelMode(payload.modelMode, payload.kind);
     const audioMode = resolvePayloadAiVideoAudioMode(payload);
-    return runVideoBatch("video:motion-control", (_index, onVideoProgress) => generateSeedanceMotionControl({
+    return runVideoBatch("video:motion-control", (_index, onVideoProgress) => generateHappyHorseMotionControl({
       modelImageUrl: payload.modelImageUrl,
       referenceVideoUrl: payload.referenceVideoUrl,
       prompt: payload.prompt,
@@ -1069,7 +1069,7 @@ async function executePayload(
   if (payload.kind === "videoFirstLastFrame") {
     const modelMode = normalizeAiVideoModelMode(payload.modelMode, payload.kind);
     const audioMode = resolvePayloadAiVideoAudioMode(payload);
-    return runVideoBatch("video:first-last-frame", (_index, onVideoProgress) => generateSeedanceFirstLastFrame({
+    return runVideoBatch("video:first-last-frame", (_index, onVideoProgress) => generateHappyHorseFirstLastFrame({
       firstFrameUrl: payload.firstFrameUrl,
       lastFrameUrl: payload.lastFrameUrl,
       prompt: payload.prompt,

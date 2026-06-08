@@ -1,5 +1,6 @@
 .env.local
 .env*.local
+env.local
 
 node_modules/
 .next/
@@ -19,6 +20,9 @@ Thumbs.db
 .ui-check/
 .claude/
 .api-platform-test-results*.json
+.output/
+output/
+outputs/
 .oss-site-assets-manifest*.json
 .qwen-edits-test-results.json
 old-references-contact.jpg

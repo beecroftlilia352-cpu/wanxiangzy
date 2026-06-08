@@ -7,7 +7,7 @@ import { getPublicBaseUrlFromRequest } from "@/lib/api/image-inputs.server";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 import {
   getAiVideoCreditCost,
-  getAiVideoSeedanceModel,
+  getAiVideoHappyHorseModel,
   normalizeAiVideoAudioMode,
   normalizeAiVideoAspectRatio,
   normalizeAiVideoDuration,
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
     if (!prompt) return NextResponse.json({ error: "请描述首尾帧之间的动态衔接过程" }, { status: 400 });
     if (audioMode === "custom" && !audioUrl) return NextResponse.json({ error: "请先上传音频或切换为智能音效" }, { status: 400 });
 
-    const aiModel = getAiVideoSeedanceModel(modelMode, "videoFirstLastFrame");
+    const aiModel = getAiVideoHappyHorseModel(modelMode, "videoFirstLastFrame");
     const totalCost = getAiVideoCreditCost({ modelMode, resolution, duration, genCount, audioMode });
     const jobPayload: GenerationJobPayload = {
       kind: "videoFirstLastFrame",

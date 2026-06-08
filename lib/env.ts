@@ -58,9 +58,9 @@ const FEATURE_REQUIRED_ENV: EnvContractEntry[] = [
     description: "Required for GPT-Image-2 through Plato; falls back to LINGYA_API_KEY when empty.",
   },
   {
-    name: "LAOZHANG_SEEDANCE_API_KEY or LAOZHANG_API_KEY",
+    name: "HAPPYHORSE_API_KEY or YUNWU_API_KEY",
     category: "feature-required",
-    description: "Required for AI video generation through LaoZhang Seedance 2.0.",
+    description: "Required for AI video generation through Yunwu HappyHorse.",
   },
   {
     name: "XIAOMI_MIMO_API_KEY",
@@ -120,9 +120,9 @@ const ALIYUN_OSS_REQUIRED_ENV: EnvContractEntry[] = [
 const OPTIONAL_ENV: EnvContractEntry[] = [
   { name: "LINGYA_BASE_URL", category: "optional", description: "Lingya API base URL override." },
   { name: "PLATO_BASE_URL", category: "optional", description: "Plato API base URL override." },
-  { name: "LAOZHANG_SEEDANCE_BASE_URL", category: "optional", description: "Seedance 2.0 API base URL, default https://api.laozhang.ai/seedance/api/v3." },
-  { name: "LAOZHANG_SEEDANCE_FAST_MODEL", category: "optional", description: "Seedance 2.0 fast model override, default doubao-seedance-2-0-fast-260128." },
-  { name: "LAOZHANG_SEEDANCE_PRO_MODEL", category: "optional", description: "Seedance 2.0 professional/standard model override, default doubao-seedance-2-0-260128." },
+  { name: "HAPPYHORSE_BASE_URL", category: "optional", description: "HappyHorse API base URL, default https://yunwu.ai. Values ending in /v1 are normalized to the documented root path." },
+  { name: "YUNWU_API_KEY", category: "optional", description: "Shared Yunwu API key fallback for HappyHorse video generation." },
+  { name: "YUNWU_API_BASE_URL", category: "optional", description: "Shared Yunwu API base URL fallback for HappyHorse video generation." },
   { name: "TRYON_CLOTHING_ANALYZE_API_KEY", category: "optional", description: "Yunwu/OpenAI-compatible API key for try-on clothing recognition; falls back to LINGYA_API_KEY." },
   { name: "TRYON_CLOTHING_ANALYZE_BASE_URL", category: "optional", description: "Yunwu/OpenAI-compatible base URL for try-on clothing recognition." },
   { name: "TRYON_CLOTHING_ANALYZE_MODEL", category: "optional", description: "Vision-capable model for try-on clothing recognition, default gpt-5-nano." },
@@ -209,12 +209,12 @@ export function validateEnv(options: { log?: boolean; nodeEnv?: string } = {}): 
     }
   }
 
-  if (!process.env.LAOZHANG_SEEDANCE_API_KEY && !process.env.LAOZHANG_API_KEY) {
+  if (!process.env.HAPPYHORSE_API_KEY && !process.env.YUNWU_HAPPYHORSE_API_KEY && !process.env.YUNWU_API_KEY) {
     issues.push({
-      name: "LAOZHANG_SEEDANCE_API_KEY or LAOZHANG_API_KEY",
+      name: "HAPPYHORSE_API_KEY or YUNWU_API_KEY",
       category: "feature-required",
       severity: "warning",
-      message: "LAOZHANG_SEEDANCE_API_KEY or LAOZHANG_API_KEY is not set; AI video generation will fail when used.",
+      message: "HAPPYHORSE_API_KEY or YUNWU_API_KEY is not set; AI video generation will fail when used.",
     });
   }
 

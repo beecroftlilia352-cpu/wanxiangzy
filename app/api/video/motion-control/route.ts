@@ -7,7 +7,7 @@ import { getPublicBaseUrlFromRequest } from "@/lib/api/image-inputs.server";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 import {
   getAiVideoCreditCost,
-  getAiVideoSeedanceModel,
+  getAiVideoHappyHorseModel,
   getAiVideoTemplate,
   normalizeAiVideoAudioMode,
   normalizeAiVideoAspectRatio,
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
     if (!referenceVideoUrl) return NextResponse.json({ error: "请先上传参考视频" }, { status: 400 });
     if (audioMode === "custom" && !audioUrl) return NextResponse.json({ error: "请先上传音频或切换为智能音效" }, { status: 400 });
 
-    const aiModel = getAiVideoSeedanceModel(modelMode, "videoMotion");
+    const aiModel = getAiVideoHappyHorseModel(modelMode, "videoMotion");
     const totalCost = getAiVideoCreditCost({ modelMode, resolution, duration, genCount, audioMode });
     const jobPayload: GenerationJobPayload = {
       kind: "videoMotion",

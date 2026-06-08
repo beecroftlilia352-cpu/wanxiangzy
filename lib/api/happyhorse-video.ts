@@ -1,10 +1,9 @@
 import {
   AI_VIDEO_DEFAULT_ASPECT_RATIO,
   AI_VIDEO_DEFAULT_DURATION,
-  AI_VIDEO_SEEDANCE_FIRST_LAST_FRAME_MODEL,
-  AI_VIDEO_SEEDANCE_MODEL,
-  AI_VIDEO_SEEDANCE_STANDARD_MODEL,
+  getAiVideoHappyHorseModel,
   normalizeAiVideoAudioMode,
+  normalizeAiVideoFixedAspectRatio,
   type AiVideoAudioMode,
   type AiVideoAspectRatio,
   type AiVideoDuration,
@@ -12,8 +11,9 @@ import {
   type AiVideoResolution,
 } from "@/lib/ai-video";
 
-const DEFAULT_LAOZHANG_BASE_URL = "https://api.laozhang.ai";
-const SEEDANCE_API_PATH = "/seedance/api/v3";
+const DEFAULT_HAPPYHORSE_BASE_URL = "https://yunwu.ai";
+const HAPPYHORSE_SUBMIT_PATH = "/alibailian/api/v1/services/aigc/video-generation/video-synthesis";
+const HAPPYHORSE_QUERY_PATH = "/alibailian/api/v1/tasks";
 const VIDEO_SUBMIT_PROGRESS_MAX = 10;
 const VIDEO_POLL_INTERVAL_MS = 5_000;
 const VIDEO_POLL_TIMEOUT_MS = 20 * 60 * 1000;
@@ -40,7 +40,7 @@ export type VideoGenerationResult = {
   providerDetails?: Record<string, unknown>;
 };
 
-export type SeedanceImageToVideoInput = {
+export type HappyHorseImageToVideoInput = {
   imageUrl: string;
   prompt: string;
   modelMode: AiVideoModelMode;
@@ -54,7 +54,7 @@ export type SeedanceImageToVideoInput = {
   onProgress?: (update: VideoTaskProgress) => Promise<void> | void;
 };
 
-export type SeedanceMotionControlInput = {
+export type HappyHorseMotionControlInput = {
   modelImageUrl: string;
   referenceVideoUrl: string;
   prompt?: string;
@@ -69,7 +69,7 @@ export type SeedanceMotionControlInput = {
   onProgress?: (update: VideoTaskProgress) => Promise<void> | void;
 };
 
-export type SeedanceFirstLastFrameInput = {
+export type HappyHorseFirstLastFrameInput = {
   firstFrameUrl: string;
   lastFrameUrl: string;
   prompt: string;
@@ -87,7 +87,6 @@ export type SeedanceFirstLastFrameInput = {
 type ProviderConfig = {
   apiBase: string;
   apiKey: string;
-  model: string;
 };
 
 type PollRequest = {
@@ -106,30 +105,25 @@ type PollState = {
   providerDetails?: Record<string, unknown>;
 };
 
-type SeedanceContentItem =
-  | { type: "text"; text: string }
-  | { type: "image_url"; image_url: { url: string }; role: "first_frame" | "last_frame" | "reference_image" }
-  | { type: "video_url"; video_url: { url: string }; role: "reference_video" }
-  | { type: "audio_url"; audio_url: { url: string }; role: "reference_audio" };
-type SeedanceRatio = AiVideoAspectRatio | "adaptive";
+type HappyHorseMediaItem =
+  | { type: "first_frame"; url: string }
+  | { type: "reference_image"; url: string }
+  | { type: "video"; url: string };
 
-export async function generateSeedanceImageToVideo(input: SeedanceImageToVideoInput): Promise<VideoGenerationResult> {
-  const provider = getSeedanceVideoProvider({ modelMode: input.modelMode, resolution: input.resolution });
-  const prompt = appendAudioPrompt(buildImageToVideoPrompt(input.prompt), input);
-  const content: SeedanceContentItem[] = [
-    { type: "text", text: prompt },
-    { type: "image_url", image_url: { url: input.imageUrl }, role: "reference_image" },
-    ...getAudioContentItems(input),
-  ];
-  const body = buildSeedanceTaskBody(provider.model, {
-    content,
-    ratio: input.aspectRatio || AI_VIDEO_DEFAULT_ASPECT_RATIO,
-    duration: input.duration,
-    resolution: input.resolution,
-    generateAudio: shouldGenerateOrUseAudio(input),
+export async function generateHappyHorseImageToVideo(input: HappyHorseImageToVideoInput): Promise<VideoGenerationResult> {
+  const provider = getHappyHorseVideoProvider();
+  const prompt = appendAudioPrompt(buildImageToVideoPrompt(input.prompt, input.aspectRatio), input);
+  const body = buildHappyHorseTaskBody(getAiVideoHappyHorseModel(input.modelMode, "videoImageToVideo"), {
+    prompt,
+    media: [{ type: "first_frame", url: input.imageUrl }],
+    parameters: {
+      resolution: toHappyHorseResolution(input.resolution),
+      duration: input.duration || AI_VIDEO_DEFAULT_DURATION,
+      watermark: false,
+    },
   });
 
-  const completed = await runSeedanceTask(provider, body, input.onProgress);
+  const completed = await runHappyHorseTask(provider, body, input.onProgress);
 
   return {
     url: completed.urls[0],
@@ -138,60 +132,28 @@ export async function generateSeedanceImageToVideo(input: SeedanceImageToVideoIn
     requestId: completed.requestId,
     providerStatus: completed.providerStatus,
     prompt,
-    compiledPrompt: stringifySeedanceTraceBody(body),
+    compiledPrompt: stringifyHappyHorseTraceBody(body),
     providerDetails: completed.providerDetails,
   };
 }
 
-export async function generateSeedanceFirstLastFrame(input: SeedanceFirstLastFrameInput): Promise<VideoGenerationResult> {
-  const provider = getSeedanceVideoProvider({ mode: "first-last-frame", modelMode: input.modelMode, resolution: input.resolution });
-  const prompt = appendAudioPrompt(buildFirstLastFramePrompt(input.prompt), input);
-  const content: SeedanceContentItem[] = [
-    { type: "text", text: prompt },
-    { type: "image_url", image_url: { url: input.firstFrameUrl }, role: "first_frame" },
-    { type: "image_url", image_url: { url: input.lastFrameUrl }, role: "last_frame" },
-    ...getAudioContentItems(input),
-  ];
-  const body = buildSeedanceTaskBody(provider.model, {
-    content,
-    ratio: input.aspectRatio || AI_VIDEO_DEFAULT_ASPECT_RATIO,
-    duration: input.duration,
-    resolution: input.resolution,
-    generateAudio: shouldGenerateOrUseAudio(input),
-  });
-
-  const completed = await runSeedanceTask(provider, body, input.onProgress);
-
-  return {
-    url: completed.urls[0],
-    urls: completed.urls,
-    taskId: completed.taskId,
-    requestId: completed.requestId,
-    providerStatus: completed.providerStatus,
-    prompt,
-    compiledPrompt: stringifySeedanceTraceBody(body),
-    providerDetails: completed.providerDetails,
-  };
-}
-
-export async function generateSeedanceMotionControl(input: SeedanceMotionControlInput): Promise<VideoGenerationResult> {
-  const provider = getSeedanceVideoProvider({ modelMode: input.modelMode, resolution: input.resolution });
+export async function generateHappyHorseMotionControl(input: HappyHorseMotionControlInput): Promise<VideoGenerationResult> {
+  const provider = getHappyHorseVideoProvider();
   const prompt = appendAudioPrompt(buildMotionControlPrompt(input.prompt), input);
-  const content: SeedanceContentItem[] = [
-    { type: "text", text: prompt },
-    { type: "image_url", image_url: { url: input.modelImageUrl }, role: "reference_image" },
-    { type: "video_url", video_url: { url: input.referenceVideoUrl }, role: "reference_video" },
-    ...getAudioContentItems(input),
-  ];
-  const body = buildSeedanceTaskBody(provider.model, {
-    content,
-    ratio: input.aspectRatio || AI_VIDEO_DEFAULT_ASPECT_RATIO,
-    duration: input.duration,
-    resolution: input.resolution,
-    generateAudio: shouldGenerateOrUseAudio(input),
+  const body = buildHappyHorseTaskBody(getAiVideoHappyHorseModel(input.modelMode, "videoMotion"), {
+    prompt,
+    media: [
+      { type: "video", url: input.referenceVideoUrl },
+      { type: "reference_image", url: input.modelImageUrl },
+    ],
+    parameters: {
+      resolution: toHappyHorseResolution(input.resolution),
+      watermark: false,
+      audio_setting: shouldUseHappyHorseAudio(input) ? "auto" : undefined,
+    },
   });
 
-  const completed = await runSeedanceTask(provider, body, input.onProgress);
+  const completed = await runHappyHorseTask(provider, body, input.onProgress);
 
   return {
     url: completed.urls[0],
@@ -200,67 +162,144 @@ export async function generateSeedanceMotionControl(input: SeedanceMotionControl
     requestId: completed.requestId,
     providerStatus: completed.providerStatus,
     prompt,
-    compiledPrompt: stringifySeedanceTraceBody(body),
+    compiledPrompt: stringifyHappyHorseTraceBody(body),
     providerDetails: completed.providerDetails,
   };
 }
 
-function stringifySeedanceTraceBody(body: Record<string, unknown>) {
-  return JSON.stringify(redactSeedanceSignedUrls(body));
+export async function generateHappyHorseFirstLastFrame(input: HappyHorseFirstLastFrameInput): Promise<VideoGenerationResult> {
+  const provider = getHappyHorseVideoProvider();
+  const prompt = appendAudioPrompt(buildFirstLastFramePrompt(input.prompt, input.aspectRatio), input);
+  const body = buildHappyHorseTaskBody(getAiVideoHappyHorseModel(input.modelMode, "videoFirstLastFrame"), {
+    prompt,
+    media: [
+      { type: "reference_image", url: input.firstFrameUrl },
+      { type: "reference_image", url: input.lastFrameUrl },
+    ],
+    parameters: {
+      resolution: toHappyHorseResolution(input.resolution),
+      ratio: toHappyHorseRatio(input.aspectRatio),
+      duration: input.duration || AI_VIDEO_DEFAULT_DURATION,
+      watermark: false,
+    },
+  });
+
+  const completed = await runHappyHorseTask(provider, body, input.onProgress);
+
+  return {
+    url: completed.urls[0],
+    urls: completed.urls,
+    taskId: completed.taskId,
+    requestId: completed.requestId,
+    providerStatus: completed.providerStatus,
+    prompt,
+    compiledPrompt: stringifyHappyHorseTraceBody(body),
+    providerDetails: completed.providerDetails,
+  };
 }
 
-function redactSeedanceSignedUrls(value: unknown): unknown {
-  if (typeof value === "string") return redactSignedUrl(value);
-  if (Array.isArray(value)) return value.map((item) => redactSeedanceSignedUrls(item));
-  if (!value || typeof value !== "object") return value;
-  return Object.fromEntries(
-    Object.entries(value as Record<string, unknown>).map(([key, entry]) => [key, redactSeedanceSignedUrls(entry)])
-  );
-}
-
-function redactSignedUrl(value: string) {
-  if (!/^https?:\/\//i.test(value) || !/[?&](OSSAccessKeyId|Signature|Expires)=/i.test(value)) return value;
-  try {
-    const url = new URL(value);
-    url.searchParams.delete("OSSAccessKeyId");
-    url.searchParams.delete("Expires");
-    url.searchParams.delete("Signature");
-    url.searchParams.delete("security-token");
-    url.searchParams.set("signed", "redacted");
-    return url.toString();
-  } catch {
-    return "[signed-url-redacted]";
+function buildHappyHorseTaskBody(
+  model: string,
+  params: {
+    prompt: string;
+    media?: HappyHorseMediaItem[];
+    parameters: Record<string, unknown>;
   }
+) {
+  return pruneUndefined({
+    model,
+    input: pruneUndefined({
+      prompt: params.prompt,
+      media: params.media,
+    }),
+    parameters: pruneUndefined(params.parameters),
+  });
 }
 
-function getAudioContentItems(input: { audioMode: AiVideoAudioMode; audioUrl?: string | null }): SeedanceContentItem[] {
-  if (normalizeAiVideoAudioMode(input.audioMode) !== "custom") return [];
-  const audioUrl = input.audioUrl?.trim();
-  if (!audioUrl) throw new Error("自定义音频 URL 为空");
-  return [{ type: "audio_url", audio_url: { url: audioUrl }, role: "reference_audio" }];
+function buildFirstLastFramePrompt(prompt: string, aspectRatio: AiVideoAspectRatio) {
+  const trimmed = prompt.trim();
+  return [
+    trimmed || "根据[Image 1]首帧和[Image 2]尾帧生成顺滑过渡视频。",
+    "[Image 1]必须作为视频开头的主体参考，[Image 2]必须作为视频结尾的目标参考；中间过程自然衔接。",
+    "保持人物身份、服装结构、颜色、材质和画面主体一致，使用稳定商业摄影运镜，不添加字幕、水印、额外人物或无关物体。",
+    buildAspectRatioPrompt(aspectRatio),
+  ].join("\n");
 }
 
-function shouldGenerateOrUseAudio(input: { audioMode: AiVideoAudioMode; generateAudio: boolean }) {
-  return normalizeAiVideoAudioMode(input.audioMode) !== "off" && input.generateAudio !== false;
+function buildImageToVideoPrompt(prompt: string, aspectRatio: AiVideoAspectRatio) {
+  const trimmed = prompt.trim();
+  return [
+    trimmed,
+    "以输入首帧图片作为人物、服装和画面风格参考，保持主体身份、服装结构、颜色、材质和比例一致。",
+    "生成真实商业摄影风格的短视频，镜头稳定，动作自然，不添加字幕、水印或无关人物。",
+    buildAspectRatioPrompt(aspectRatio),
+  ].filter(Boolean).join("\n");
 }
 
-async function runSeedanceTask(
+function buildAspectRatioPrompt(aspectRatio: AiVideoAspectRatio) {
+  if (aspectRatio === "auto") {
+    return "输出画面优先沿用输入图片的自然比例，主体自然铺满画面，不添加黑边、白边、留白边框或画中画式缩放。";
+  }
+  return `输出画面必须保持 ${aspectRatio} 比例，主体铺满画面，不添加黑边、白边、留白边框或画中画式缩放。`;
+}
+
+function buildMotionControlPrompt(prompt?: string) {
+  const trimmed = prompt?.trim();
+  return [
+    trimmed || "将参考视频中的人物动作节奏和镜头运动应用到参考图像中的模特身上。",
+    "视频素材只用于动作、节奏和运镜；人物身份、服装、比例和画面主体以参考图像为准。",
+    "保持真实商业摄影质感，避免转场、字幕、水印和额外人物。",
+  ].join("\n");
+}
+
+function appendAudioPrompt(
+  prompt: string,
+  input: { audioMode: AiVideoAudioMode; audioPrompt?: string | null; audioUrl?: string | null; generateAudio?: boolean }
+) {
+  if (!shouldUseHappyHorseAudio(input)) {
+    return [
+      prompt,
+      "声音要求：生成静音视频，不添加人声、音乐、环境声或动作音效；如果模型必须输出音轨，音轨保持完全静音。",
+    ].join("\n");
+  }
+
+  const audioPrompt = input.audioPrompt?.trim();
+  return [
+    prompt,
+    audioPrompt
+      ? `音效要求：${audioPrompt}`
+      : "音效要求：生成干净自然的商业展示环境声和轻动作音效，节奏贴合画面。",
+  ].join("\n");
+}
+
+function shouldUseHappyHorseAudio(input: { audioMode: AiVideoAudioMode; generateAudio?: boolean }) {
+  return normalizeHappyHorseAudioMode(input.audioMode) !== "off" && input.generateAudio !== false;
+}
+
+function normalizeHappyHorseAudioMode(value: unknown): Exclude<AiVideoAudioMode, "custom"> {
+  const audioMode = normalizeAiVideoAudioMode(value);
+  return audioMode === "custom" ? "generated" : audioMode;
+}
+
+async function runHappyHorseTask(
   provider: ProviderConfig,
   body: Record<string, unknown>,
-  onProgress: SeedanceImageToVideoInput["onProgress"]
+  onProgress: HappyHorseImageToVideoInput["onProgress"]
 ) {
   await onProgress?.({
     status: "queued",
     providerStatus: "SUBMITTING",
     progress: 1,
-    providerDetails: buildSeedanceProviderDetails({ requestBody: body }),
+    providerDetails: buildHappyHorseProviderDetails({ requestBody: body }),
   });
-  const submitted = await submitJson(`${provider.apiBase}/contents/generations/tasks`, provider.apiKey, body);
+
+  const submitted = await submitJson(`${provider.apiBase}${HAPPYHORSE_SUBMIT_PATH}`, provider.apiKey, body);
   const taskId = extractTaskId(submitted);
-  if (!taskId) throw new Error(`Seedance2 视频接口未返回任务 ID，响应字段: ${describeResponseKeys(submitted)}`);
+  if (!taskId) throw new Error(`HappyHorse 视频接口未返回任务 ID，响应字段: ${describeResponseKeys(submitted)}`);
+
   const requestId = extractRequestId(submitted);
   const providerStatus = extractStatusText(submitted) || "submitted";
-  const submitDetails = buildSeedanceProviderDetails({
+  const submitDetails = buildHappyHorseProviderDetails({
     requestBody: body,
     submitResponse: submitted,
     taskId,
@@ -279,8 +318,8 @@ async function runSeedanceTask(
     { taskId, providerStatus },
     onProgress,
     async (request) => {
-      const json = await getJson(`${provider.apiBase}/contents/generations/tasks/${encodeURIComponent(request.taskId)}`, provider.apiKey);
-      return normalizeSeedancePollState(json, {
+      const json = await getJson(`${provider.apiBase}${HAPPYHORSE_QUERY_PATH}/${encodeURIComponent(request.taskId)}`, provider.apiKey);
+      return normalizeHappyHorsePollState(json, {
         requestBody: body,
         submitResponse: submitted,
         fallbackTaskId: request.taskId,
@@ -290,83 +329,9 @@ async function runSeedanceTask(
   );
 }
 
-function buildSeedanceTaskBody(
-  model: string,
-  params: {
-    content: SeedanceContentItem[];
-    ratio: SeedanceRatio;
-    duration?: AiVideoDuration;
-    resolution: AiVideoResolution;
-    generateAudio: boolean;
-  }
-) {
-  return {
-    model,
-    content: params.content,
-    ratio: params.ratio,
-    duration: params.duration || AI_VIDEO_DEFAULT_DURATION,
-    resolution: params.resolution,
-    watermark: false,
-    generate_audio: params.generateAudio,
-    return_last_frame: true,
-  };
-}
-
-function buildFirstLastFramePrompt(prompt: string) {
-  const trimmed = prompt.trim();
-  return [
-    trimmed || "根据首帧和尾帧生成顺滑过渡视频。",
-    "首帧必须作为视频开头，尾帧必须作为视频结尾；中间过程自然衔接，不改变人物身份、服装结构、颜色、材质和画面主体。",
-    "使用稳定商业摄影运镜，动作和转场要顺滑，不添加字幕、水印、额外人物或无关物体。",
-  ].join("\n");
-}
-
-function buildImageToVideoPrompt(prompt: string) {
-  const trimmed = prompt.trim();
-  return [
-    trimmed,
-    "以输入图片作为人物、服装和画面风格参考，保持主体身份、服装结构、颜色、材质和比例一致。",
-    "生成真实商业摄影风格的短视频，镜头稳定，动作自然，不添加字幕、水印或无关人物。",
-  ].filter(Boolean).join("\n");
-}
-
-function buildMotionControlPrompt(prompt?: string) {
-  const trimmed = prompt?.trim();
-  return [
-    trimmed || "复刻参考视频中的人物动作节奏和镜头运动。",
-    "参考视频只用于动作、节奏和运镜；人物身份、服装、比例和画面主体以输入模特图为准。",
-    "保持真实商业摄影质感，避免转场、字幕、水印和额外人物。",
-  ].join("\n");
-}
-
-function appendAudioPrompt(
-  prompt: string,
-  input: { audioMode: AiVideoAudioMode; audioPrompt?: string | null; audioUrl?: string | null }
-) {
-  const audioMode = normalizeAiVideoAudioMode(input.audioMode);
-  if (audioMode === "off") return prompt;
-
-  const audioPrompt = input.audioPrompt?.trim();
-  if (audioMode === "custom") {
-    return [
-      prompt,
-      audioPrompt
-        ? `音频要求：使用上传音频作为主要声音参考，${audioPrompt}`
-        : "音频要求：使用上传音频作为主要声音参考，保留其节奏、情绪和关键人声/旋律，画面动作与音频节拍自然对齐，不额外添加突兀人声。",
-    ].join("\n");
-  }
-
-  return [
-    prompt,
-    audioPrompt
-      ? `音效要求：${audioPrompt}`
-      : "音效要求：生成干净自然的商业展示环境声和轻动作音效，节奏贴合画面，不添加嘈杂人声、尖锐噪音或夸张音效。",
-  ].join("\n");
-}
-
 async function pollVideoTask(
   request: PollRequest,
-  onProgress: SeedanceImageToVideoInput["onProgress"],
+  onProgress: HappyHorseImageToVideoInput["onProgress"],
   poll: (request: PollRequest) => Promise<PollState>
 ) {
   const startedAt = Date.now();
@@ -389,7 +354,7 @@ async function pollVideoTask(
       lastState = {
         ...lastState,
         status: "running",
-        providerStatus: normalizeSeedanceTransientPollStatus(message),
+        providerStatus: normalizeHappyHorseTransientPollStatus(message),
         progress: Math.max(lastState.progress, Math.min(95, VIDEO_SUBMIT_PROGRESS_MAX + Math.round((elapsed / VIDEO_POLL_TIMEOUT_MS) * 85))),
         error: "",
       };
@@ -405,6 +370,7 @@ async function pollVideoTask(
       });
       continue;
     }
+
     lastState = {
       ...state,
       progress: state.status === "completed"
@@ -429,7 +395,7 @@ async function pollVideoTask(
     if (lastState.status === "failed") throw new Error(lastState.error || "视频生成失败");
   }
 
-  throw new Error(`视频生成超时，可稍后在任务队列或作品库查看。Seedance task_id: ${lastState.taskId}`);
+  throw new Error(`视频生成超时，可稍后在任务队列或作品库查看。HappyHorse task_id: ${lastState.taskId}`);
 }
 
 async function submitJson(url: string, apiKey: string, body: Record<string, unknown>) {
@@ -453,7 +419,7 @@ async function getJson(url: string, apiKey: string) {
 
 async function readJsonResponse(response: Response, prefix: string) {
   const text = await response.text();
-  if (!response.ok) throw new Error(`${prefix}: HTTP ${response.status} ${formatSeedanceErrorBody(text)}`);
+  if (!response.ok) throw new Error(`${prefix}: HTTP ${response.status} ${formatHappyHorseErrorBody(text)}`);
   if (!text.trim()) throw new Error(`${prefix}: 响应为空`);
   try {
     return JSON.parse(text);
@@ -471,7 +437,7 @@ function buildHeaders(apiKey: string) {
   };
 }
 
-function formatSeedanceErrorBody(text: string) {
+function formatHappyHorseErrorBody(text: string) {
   const trimmed = text.trim();
   if (!trimmed) return "响应为空";
   try {
@@ -485,48 +451,32 @@ function formatSeedanceErrorBody(text: string) {
   }
 }
 
-function isSeedanceInputPrivacyError(error: unknown) {
-  const message = error instanceof Error ? error.message : String(error);
-  return /InputImageSensitiveContentDetected|PrivacyInformation|input image may contain real person/i.test(message);
-}
-
-function getSeedanceVideoProvider(options: { mode?: "default" | "first-last-frame"; modelMode?: AiVideoModelMode; resolution?: AiVideoResolution } = {}): ProviderConfig {
+function getHappyHorseVideoProvider(): ProviderConfig {
   const apiKey = (
-    process.env.LAOZHANG_SEEDANCE_API_KEY ||
-    process.env.LAOZHANG_API_KEY ||
+    process.env.HAPPYHORSE_API_KEY ||
+    process.env.YUNWU_HAPPYHORSE_API_KEY ||
+    process.env.YUNWU_API_KEY ||
     ""
   ).trim();
-  if (!apiKey) throw new Error("Seedance2 视频 API Key 未配置，请设置 LAOZHANG_SEEDANCE_API_KEY 或 LAOZHANG_API_KEY");
+  if (!apiKey) throw new Error("HappyHorse 视频 API Key 未配置，请设置 HAPPYHORSE_API_KEY 或 YUNWU_API_KEY");
 
-  const apiBase = normalizeSeedanceBaseUrl(
-    process.env.LAOZHANG_SEEDANCE_BASE_URL ||
-    process.env.LAOZHANG_BASE_URL ||
-    DEFAULT_LAOZHANG_BASE_URL
+  const apiBase = normalizeHappyHorseBaseUrl(
+    process.env.HAPPYHORSE_BASE_URL ||
+    process.env.YUNWU_HAPPYHORSE_BASE_URL ||
+    process.env.YUNWU_API_BASE_URL ||
+    DEFAULT_HAPPYHORSE_BASE_URL
   );
-  const useStandardModel = options.mode === "first-last-frame" || options.modelMode === "pro" || options.resolution === "1080p";
-  const model = useStandardModel
-    ? (
-        process.env.LAOZHANG_SEEDANCE_PRO_MODEL ||
-        process.env.LAOZHANG_SEEDANCE_FIRST_LAST_FRAME_MODEL ||
-        AI_VIDEO_SEEDANCE_FIRST_LAST_FRAME_MODEL ||
-        AI_VIDEO_SEEDANCE_STANDARD_MODEL
-      ).trim()
-    : (
-        process.env.LAOZHANG_SEEDANCE_FAST_MODEL ||
-        process.env.LAOZHANG_SEEDANCE_MODEL ||
-        AI_VIDEO_SEEDANCE_MODEL
-      ).trim();
-  return { apiBase, apiKey, model };
+  return { apiBase, apiKey };
 }
 
-function normalizeSeedanceBaseUrl(value: string) {
-  const base = value.trim().replace(/\/+$/, "") || DEFAULT_LAOZHANG_BASE_URL;
-  const withoutTaskPath = base.replace(/\/contents\/generations\/tasks$/i, "");
-  if (/\/api\/v3$/i.test(withoutTaskPath)) return withoutTaskPath;
-  return `${withoutTaskPath}${SEEDANCE_API_PATH}`;
+function normalizeHappyHorseBaseUrl(value: string) {
+  const base = value.trim().replace(/\/+$/, "") || DEFAULT_HAPPYHORSE_BASE_URL;
+  const withoutSubmitPath = base.replace(/\/alibailian\/api\/v1\/services\/aigc\/video-generation\/video-synthesis$/i, "");
+  const withoutTaskPath = withoutSubmitPath.replace(/\/alibailian\/api\/v1\/tasks$/i, "");
+  return withoutTaskPath.replace(/\/v1$/i, "");
 }
 
-function normalizeSeedancePollState(json: unknown, context: {
+function normalizeHappyHorsePollState(json: unknown, context: {
   requestBody: Record<string, unknown>;
   submitResponse: unknown;
   fallbackTaskId: string;
@@ -534,10 +484,10 @@ function normalizeSeedancePollState(json: unknown, context: {
 }): PollState {
   const providerStatus = extractStatusText(json) || "running";
   const urls = extractVideoUrls(json);
-  const error = isSeedanceSuccessfulStatus(providerStatus, urls)
+  const error = isHappyHorseSuccessfulStatus(providerStatus, urls)
     ? ""
-    : normalizeSeedanceErrorMessage(extractErrorMessage(json), providerStatus);
-  const status = normalizeSeedanceStatus(providerStatus, urls, error);
+    : extractErrorMessage(json);
+  const status = normalizeHappyHorseStatus(providerStatus, urls, error);
   const taskId = extractTaskId(json) || context.fallbackTaskId;
   const requestId = extractRequestId(json) || context.fallbackRequestId;
   return {
@@ -548,7 +498,7 @@ function normalizeSeedancePollState(json: unknown, context: {
     progress: extractProgress(json),
     urls,
     error,
-    providerDetails: buildSeedanceProviderDetails({
+    providerDetails: buildHappyHorseProviderDetails({
       requestBody: context.requestBody,
       submitResponse: context.submitResponse,
       latestResponse: json,
@@ -559,30 +509,20 @@ function normalizeSeedancePollState(json: unknown, context: {
   };
 }
 
-function normalizeSeedanceStatus(providerStatus: string, urls: string[], error?: string): PollState["status"] {
+function normalizeHappyHorseStatus(providerStatus: string, urls: string[], error?: string): PollState["status"] {
   const status = providerStatus.trim().toLowerCase();
   if (error || ["failed", "fail", "failure", "error", "cancelled", "canceled", "expired"].includes(status)) return "failed";
-  if (status === "succeeded") return urls.length ? "completed" : "failed";
-  if (["completed", "complete", "success", "done", "finished"].includes(status)) return urls.length ? "completed" : "running";
+  if (["succeeded", "completed", "complete", "success", "done", "finished"].includes(status)) return urls.length ? "completed" : "failed";
   if (["pending", "queued", "submitted", "created"].includes(status)) return "queued";
   return "running";
 }
 
-function isSeedanceSuccessfulStatus(providerStatus: string, urls: string[]) {
+function isHappyHorseSuccessfulStatus(providerStatus: string, urls: string[]) {
   const status = providerStatus.trim().toLowerCase();
   return urls.length > 0 && ["succeeded", "completed", "complete", "success", "done", "finished"].includes(status);
 }
 
-function normalizeSeedanceErrorMessage(error: string, providerStatus: string) {
-  const raw = (error || providerStatus || "").trim();
-  if (/terminated/i.test(raw)) {
-    return "";
-  }
-  return error;
-}
-
-function normalizeSeedanceTransientPollStatus(message: string) {
-  if (/terminated/i.test(message)) return "QUERY_TERMINATED_RETRYING";
+function normalizeHappyHorseTransientPollStatus(message: string) {
   if (/timeout|aborted/i.test(message)) return "QUERY_TIMEOUT_RETRYING";
   if (/HTTP\s+429/i.test(message)) return "QUERY_RATE_LIMIT_RETRYING";
   if (/HTTP\s+5\d\d/i.test(message)) return "QUERY_SERVER_RETRYING";
@@ -656,7 +596,35 @@ function extractVideoUrls(value: unknown): string[] {
   return [...urls];
 }
 
-function buildSeedanceProviderDetails(input: {
+function stringifyHappyHorseTraceBody(body: Record<string, unknown>) {
+  return JSON.stringify(redactHappyHorseSignedUrls(body));
+}
+
+function redactHappyHorseSignedUrls(value: unknown): unknown {
+  if (typeof value === "string") return redactSignedUrl(value);
+  if (Array.isArray(value)) return value.map((item) => redactHappyHorseSignedUrls(item));
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>).map(([key, entry]) => [key, redactHappyHorseSignedUrls(entry)])
+  );
+}
+
+function redactSignedUrl(value: string) {
+  if (!/^https?:\/\//i.test(value) || !/[?&](OSSAccessKeyId|Signature|Expires)=/i.test(value)) return value;
+  try {
+    const url = new URL(value);
+    url.searchParams.delete("OSSAccessKeyId");
+    url.searchParams.delete("Expires");
+    url.searchParams.delete("Signature");
+    url.searchParams.delete("security-token");
+    url.searchParams.set("signed", "redacted");
+    return url.toString();
+  } catch {
+    return "[signed-url-redacted]";
+  }
+}
+
+function buildHappyHorseProviderDetails(input: {
   requestBody: Record<string, unknown>;
   submitResponse?: unknown;
   latestResponse?: unknown;
@@ -665,13 +633,13 @@ function buildSeedanceProviderDetails(input: {
   requestId?: string;
 }) {
   return pruneUndefined({
-    platform: "seedance",
+    platform: "happyhorse",
     taskId: input.taskId,
     requestId: input.requestId,
-    request: redactSeedanceSignedUrls(input.requestBody),
-    submitResponse: input.submitResponse === undefined ? undefined : redactSeedanceSignedUrls(limitProviderDetail(input.submitResponse)),
-    latestResponse: input.latestResponse === undefined ? undefined : redactSeedanceSignedUrls(limitProviderDetail(input.latestResponse)),
-    finalResponse: input.finalResponse === undefined ? undefined : redactSeedanceSignedUrls(limitProviderDetail(input.finalResponse)),
+    request: redactHappyHorseSignedUrls(input.requestBody),
+    submitResponse: input.submitResponse === undefined ? undefined : redactHappyHorseSignedUrls(limitProviderDetail(input.submitResponse)),
+    latestResponse: input.latestResponse === undefined ? undefined : redactHappyHorseSignedUrls(limitProviderDetail(input.latestResponse)),
+    finalResponse: input.finalResponse === undefined ? undefined : redactHappyHorseSignedUrls(limitProviderDetail(input.finalResponse)),
     updatedAt: new Date().toISOString(),
   });
 }
@@ -685,8 +653,16 @@ function limitProviderDetail(value: unknown): unknown {
   };
 }
 
-function pruneUndefined(value: Record<string, unknown>) {
-  return Object.fromEntries(Object.entries(value).filter(([, entry]) => entry !== undefined));
+function toHappyHorseResolution(resolution: AiVideoResolution) {
+  return resolution === "1080p" ? "1080P" : "720P";
+}
+
+function toHappyHorseRatio(aspectRatio: AiVideoAspectRatio) {
+  return normalizeAiVideoFixedAspectRatio(aspectRatio || AI_VIDEO_DEFAULT_ASPECT_RATIO);
+}
+
+function pruneUndefined<T extends Record<string, unknown>>(value: T) {
+  return Object.fromEntries(Object.entries(value).filter(([, entry]) => entry !== undefined)) as T;
 }
 
 function findValuesByKey(value: unknown, keys: string[]) {

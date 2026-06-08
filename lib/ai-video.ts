@@ -1,6 +1,7 @@
 export type AiVideoResolution = "720p" | "1080p";
-export type AiVideoDuration = 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15;
-export type AiVideoAspectRatio = "9:16" | "16:9" | "1:1" | "3:4" | "4:3" | "21:9";
+export type AiVideoDuration = 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15;
+export type AiVideoFixedAspectRatio = "3:4" | "9:16" | "1:1" | "4:3" | "16:9";
+export type AiVideoAspectRatio = "auto" | AiVideoFixedAspectRatio;
 export type AiVideoModelMode = "fast" | "pro";
 export type AiVideoAudioMode = "generated" | "custom" | "off";
 export type AiVideoMode = "image-to-video" | "motion-control" | "first-last-frame";
@@ -15,57 +16,50 @@ export type AiVideoActionTemplate = {
   promptContent: string;
 };
 
-export const AI_VIDEO_DEFAULT_ASPECT_RATIO = "9:16" as const;
+export const AI_VIDEO_DEFAULT_ASPECT_RATIO = "auto" as const;
+export const AI_VIDEO_DEFAULT_FIXED_ASPECT_RATIO = "3:4" as const;
 export const AI_VIDEO_DEFAULT_RESOLUTION = "720p" as const;
-export const AI_VIDEO_DEFAULT_DURATION: AiVideoDuration = 4;
+export const AI_VIDEO_DEFAULT_DURATION: AiVideoDuration = 5;
 export const AI_VIDEO_DEFAULT_AUDIO_MODE = "off" as const;
 export const AI_VIDEO_DEFAULT_GENERATE_AUDIO = false;
-export const AI_VIDEO_MIN_DURATION = 4;
+export const AI_VIDEO_MIN_DURATION = 3;
 export const AI_VIDEO_MAX_DURATION = 15;
 export const AI_VIDEO_MAX_GENERATION_COUNT = 4;
-export const AI_VIDEO_SEEDANCE_MODEL = "doubao-seedance-2-0-fast-260128";
-export const AI_VIDEO_SEEDANCE_STANDARD_MODEL = "doubao-seedance-2-0-260128";
-export const AI_VIDEO_SEEDANCE_FIRST_LAST_FRAME_MODEL = AI_VIDEO_SEEDANCE_STANDARD_MODEL;
+export const AI_VIDEO_HAPPYHORSE_I2V_MODEL = "happyhorse-1.0-i2v";
+export const AI_VIDEO_HAPPYHORSE_R2V_MODEL = "happyhorse-1.0-r2v";
+export const AI_VIDEO_HAPPYHORSE_VIDEO_EDIT_MODEL = "happyhorse-1.0-video-edit";
 const AI_VIDEO_TEMPLATE_ASSET_BASE = "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/video-templates";
 
 export const AI_VIDEO_RESOLUTION_OPTIONS: Array<{ value: AiVideoResolution; label: string; description: string }> = [
   { value: "720p", label: "720p", description: "快速生成" },
-  { value: "1080p", label: "1080p", description: "标准模型" },
+  { value: "1080p", label: "1080p", description: "高清生成" },
 ];
 
 export const AI_VIDEO_FAST_RESOLUTION_OPTIONS = AI_VIDEO_RESOLUTION_OPTIONS.filter((item) => item.value === "720p");
 
 export const AI_VIDEO_MODEL_MODE_OPTIONS: Array<{ value: AiVideoModelMode; label: string; description: string }> = [
-  { value: "pro", label: "专业模式", description: "标准质量，支持 1080p" },
-  { value: "fast", label: "快速模式", description: "快速生成，仅 720p" },
+  { value: "pro", label: "高清模式", description: "HappyHorse 高清生成，支持 1080p" },
+  { value: "fast", label: "快速模式", description: "HappyHorse 快速生成，仅 720p" },
 ];
 
 export const AI_VIDEO_ASPECT_RATIO_OPTIONS: Array<{ value: AiVideoAspectRatio; label: string; description: string }> = [
+  { value: "auto", label: "自动", description: "跟随上传图" },
+  { value: "3:4", label: "3:4", description: "女装常用" },
   { value: "9:16", label: "9:16", description: "手机竖屏" },
-  { value: "16:9", label: "16:9", description: "横屏视频" },
   { value: "1:1", label: "1:1", description: "方图" },
-  { value: "3:4", label: "3:4", description: "竖版海报" },
   { value: "4:3", label: "4:3", description: "经典横幅" },
-  { value: "21:9", label: "21:9", description: "宽银幕" },
+  { value: "16:9", label: "16:9", description: "横屏视频" },
 ];
+export const AI_VIDEO_FIXED_ASPECT_RATIOS: AiVideoFixedAspectRatio[] = ["3:4", "9:16", "1:1", "4:3", "16:9"];
 
 export const AI_VIDEO_AUDIO_MODE_OPTIONS: Array<{ value: Exclude<AiVideoAudioMode, "off">; label: string; description: string }> = [
-  { value: "generated", label: "智能音效", description: "AI 匹配画面节奏" },
-  { value: "custom", label: "上传音频", description: "品牌 BGM / 口播 / 指定音效" },
+  { value: "generated", label: "原生音效", description: "HappyHorse 按画面生成声音" },
 ];
 
 export const AI_VIDEO_DURATION_OPTIONS: Array<{ value: AiVideoDuration; label: string }> = [
-  { value: 4, label: "4秒" },
+  { value: 3, label: "3秒" },
   { value: 5, label: "5秒" },
-  { value: 6, label: "6秒" },
-  { value: 7, label: "7秒" },
-  { value: 8, label: "8秒" },
-  { value: 9, label: "9秒" },
   { value: 10, label: "10秒" },
-  { value: 11, label: "11秒" },
-  { value: 12, label: "12秒" },
-  { value: 13, label: "13秒" },
-  { value: 14, label: "14秒" },
   { value: 15, label: "15秒" },
 ];
 
@@ -170,6 +164,26 @@ export function normalizeAiVideoAspectRatio(value: unknown): AiVideoAspectRatio 
     : AI_VIDEO_DEFAULT_ASPECT_RATIO;
 }
 
+export function normalizeAiVideoFixedAspectRatio(value: unknown): AiVideoFixedAspectRatio {
+  return AI_VIDEO_FIXED_ASPECT_RATIOS.some((item) => item === value)
+    ? value as AiVideoFixedAspectRatio
+    : AI_VIDEO_DEFAULT_FIXED_ASPECT_RATIO;
+}
+
+export function getClosestAiVideoAspectRatio(width: unknown, height: unknown): AiVideoFixedAspectRatio | null {
+  const numericWidth = Number(width);
+  const numericHeight = Number(height);
+  if (!Number.isFinite(numericWidth) || !Number.isFinite(numericHeight) || numericWidth <= 0 || numericHeight <= 0) return null;
+
+  const sourceRatio = numericWidth / numericHeight;
+  return AI_VIDEO_FIXED_ASPECT_RATIOS.reduce<{ value: AiVideoFixedAspectRatio; distance: number }>((closest, candidate) => {
+    const [candidateWidth, candidateHeight] = candidate.split(":").map(Number);
+    const candidateRatio = candidateWidth / candidateHeight;
+    const distance = Math.abs(Math.log(sourceRatio / candidateRatio));
+    return distance < closest.distance ? { value: candidate, distance } : closest;
+  }, { value: AI_VIDEO_DEFAULT_FIXED_ASPECT_RATIO, distance: Number.POSITIVE_INFINITY }).value;
+}
+
 export function normalizeAiVideoGenCount(value: unknown) {
   const numericValue = Math.round(Number(value));
   if (!Number.isFinite(numericValue)) return 1;
@@ -187,17 +201,12 @@ export function normalizeAiVideoGenerateAudio(value: unknown) {
   return value !== false;
 }
 
-export function getAiVideoAudioCreditCost(input: {
+export function getAiVideoAudioCreditCost(_input: {
   duration?: AiVideoDuration;
   audioMode?: AiVideoAudioMode;
   generateAudio?: boolean;
 }) {
-  const duration = normalizeAiVideoDuration(input.duration);
-  const audioMode = input.audioMode
-    ? normalizeAiVideoAudioMode(input.audioMode)
-    : normalizeAiVideoGenerateAudio(input.generateAudio) ? "generated" : AI_VIDEO_DEFAULT_AUDIO_MODE;
-  if (audioMode === "off") return 0;
-  return Math.max(2, Math.ceil(duration * 0.4));
+  return 0;
 }
 
 export function getAiVideoCreditCost(input: {
@@ -235,11 +244,10 @@ export function getAiVideoPerVideoCreditCost(input: {
   return getAiVideoCreditCost({ ...input, genCount: 1 });
 }
 
-export function getAiVideoSeedanceModel(modelMode: AiVideoModelMode, mode?: AiVideoMode | AiVideoGenerationKind) {
-  if (normalizeAiVideoModelMode(modelMode, mode) === "pro") {
-    return AI_VIDEO_SEEDANCE_STANDARD_MODEL;
-  }
-  return AI_VIDEO_SEEDANCE_MODEL;
+export function getAiVideoHappyHorseModel(_modelMode: AiVideoModelMode, mode?: AiVideoMode | AiVideoGenerationKind) {
+  if (mode === "motion-control" || mode === "videoMotion") return AI_VIDEO_HAPPYHORSE_VIDEO_EDIT_MODEL;
+  if (mode === "first-last-frame" || mode === "videoFirstLastFrame") return AI_VIDEO_HAPPYHORSE_R2V_MODEL;
+  return AI_VIDEO_HAPPYHORSE_I2V_MODEL;
 }
 
 export function getAiVideoTemplate(templateId?: number | null) {
