@@ -149,10 +149,16 @@ const multiTryOn = lingya.buildTryOnPrompt({
 assertIncludes(multiTryOn, "Use image 3 as the base try-on photo. Perform a realistic fashion edit, not a full photo regeneration.", "多件固定底图规则");
 assertIncludes(multiTryOn, "- image 1 = upper-body clothing source only.", "多件角色锁定");
 assertIncludes(multiTryOn, "- image 2 = lower-body clothing source only.", "多件角色锁定");
-assertIncludes(multiTryOn, "- image 3 = target try-on reference", "多件角色锁定");
+assertIncludes(multiTryOn, "- image 3 = target expression and try-on reference: facial expression exactly", "多件角色锁定");
 assertIncludes(multiTryOn, "- image 4 = mandatory face identity reference only", "多件角色锁定");
+assertIncludes(multiTryOn, "not expression, smile intensity, skin tone, makeup", "多件模特脸不提供表情");
 assertIncludes(multiTryOn, "Edit image 3 into a believable try-on photo.", "多件本地编辑规则");
 assertIncludes(multiTryOn, "Replace only the sourced upper- and lower-body clothing on the person in image 3 with the garments from image 1 and image 2.", "多件替换规则");
+assertIncludes(multiTryOn, "Expression lock - HARD:", "多件表情硬锁");
+assertIncludes(multiTryOn, "image 3 is the final expression source", "多件参考图表情来源");
+assertIncludes(multiTryOn, "image 4 is not an expression source", "多件模特脸非表情来源");
+assertIncludes(multiTryOn, "match image 3's smile intensity, not image 4's", "多件参考图笑容强度");
+assertIncludes(multiTryOn, "Model-face expression leakage is a failure", "多件禁止模特脸表情泄漏");
 assertIncludes(multiTryOn, "Reconstruct the final face using image 4's recognizable identity and facial feature proportions", "多件脸部身份替换规则");
 assertIncludes(multiTryOn, "Every generated candidate must use image 4's identity.", "多件脸部身份替换规则");
 assertIncludes(multiTryOn, "Keep natural adult proportions for the body parts visible in image 3", "多件可见身体比例规则");
@@ -165,11 +171,12 @@ assertIncludes(multiTryOn, "This is identity reconstruction, not a hard face swa
 assertIncludes(multiTryOn, "Use image 4 only for recognizable facial identity", "多件模特脸规则");
 assertIncludes(multiTryOn, "Do not copy image 4's expression, smile intensity, skin tone, makeup, lighting, pose, body, head size, or background.", "多件模特脸排除规则");
 assertIncludes(multiTryOn, "The final face must be recognizable as image 4's person but naturally integrated", "多件模特脸强制生效规则");
-assertIncludes(multiTryOn, "Adapt image 4's identity to image 3's expression", "多件表情适配");
+assertIncludes(multiTryOn, "Adapt image 4's identity to image 3's exact expression geometry", "多件表情适配");
 assertIncludes(multiTryOn, "Match image 3's visible skin tone", "多件肤色光影融合");
-assertIncludes(multiTryOn, "1. image 3 controls visible body proportions", "多件优先级规则");
-assertIncludes(multiTryOn, "3. image 4 controls only final facial identity and feature proportions where a face is visible in the target crop.", "多件优先级规则");
+assertIncludes(multiTryOn, "1. image 3 controls final facial expression exactly", "多件优先级规则");
+assertIncludes(multiTryOn, "3. image 4 controls only final facial identity and feature proportions where a face is visible in the target crop; it must not control expression", "多件优先级规则");
 assertIncludes(multiTryOn, "The identity change to image 4 is mandatory in every output.", "多件身份强制规则");
+assertNotIncludes(multiTryOn, "image 3 = target try-on reference: visible body range, crop boundary, pose family, visible expression/skin/makeup when present", "有脸参考图不能弱化表情");
 assertNotIncludes(multiTryOn, "如果有参考图", "多件参考图不使用条件句");
 assertNotIncludes(multiTryOn, "如果有模特脸图", "多件模特脸不使用条件句");
 
@@ -188,6 +195,55 @@ assertIncludes(upperOnlyTryOn, "Keep image 2's visible lower-body clothing, shoe
 assertIncludes(upperOnlyTryOn, "Do not reveal lower-body areas outside the original crop.", "单上装裁切外区域保护");
 assertIncludes(upperOnlyTryOn, "Do not keep image 2's original facial identity.", "单上装图3脸优先");
 assertIncludes(upperOnlyTryOn, "If image 1 contains only one garment, do not invent extra upper-body garments.", "单上装不凭空发散");
+
+const lowerBodyNoHeadAnalysis = {
+  index: 1,
+  bodyCrop: "lower_body",
+  personVisible: true,
+  faceVisible: false,
+  headVisible: false,
+  upperBodyVisible: false,
+  lowerBodyVisible: true,
+  handsVisible: false,
+  feetVisible: true,
+  detailFocus: ["pants", "leg stance"],
+  promptNotes: "Keep the waist-to-feet crop and do not add a head, face, shoulders, or full torso.",
+  confidence: 0.95,
+};
+
+const lowerNoFaceWithModelFace = lingya.buildTryOnPrompt({
+  clothingCount: 1,
+  clothingMode: "multi",
+  clothingRoles: ["lower"],
+  garmentAudience: "women",
+  ageGroup: "adult",
+  aspectRatio: "3:4",
+  hasModelFace: true,
+  hasReference: true,
+  referenceAnalysis: lowerBodyNoHeadAnalysis,
+}).prompt;
+assertIncludes(lowerNoFaceWithModelFace, "Head/face absence lock - HARD:", "下半身无头硬锁");
+assertIncludes(lowerNoFaceWithModelFace, "image 2 is a lower-body-only target frame with no visible head or face", "下半身无头目标");
+assertIncludes(lowerNoFaceWithModelFace, "ignore image 3 completely for this lower-body crop", "下半身无头忽略模特脸");
+assertIncludes(lowerNoFaceWithModelFace, "A result with any visible face or newly added head is invalid", "下半身无头禁止出脸");
+assertNotIncludes(lowerNoFaceWithModelFace, "Reconstruct the final face", "下半身无头不重建脸");
+
+const lowerNoFaceWithoutModelFace = lingya.buildTryOnPrompt({
+  clothingCount: 1,
+  clothingMode: "multi",
+  clothingRoles: ["lower"],
+  garmentAudience: "women",
+  ageGroup: "adult",
+  aspectRatio: "3:4",
+  hasModelFace: false,
+  hasReference: true,
+  referenceAnalysis: lowerBodyNoHeadAnalysis,
+}).prompt;
+assertIncludes(lowerNoFaceWithoutModelFace, "Head/face absence lock - HARD:", "无模特脸下半身无头硬锁");
+assertIncludes(lowerNoFaceWithoutModelFace, "do not invent a default face or complete person", "无模特脸下半身无头不补脸");
+assertIncludes(lowerNoFaceWithoutModelFace, "no head, no face, no upper torso, no full-body expansion", "无模特脸下半身角色锁");
+assertIncludes(lowerNoFaceWithoutModelFace, "There is no visible face, head, hair, neck, shoulders, or upper torso to preserve; do not add any of them.", "无模特脸下半身不保留脸");
+assertNotIncludes(lowerNoFaceWithoutModelFace, "Preserve image 2's original facial identity", "无模特脸下半身不保留脸身份");
 
 const nanoCompiled = compiler.compileImagePromptForModel({
   kind: "tryon",

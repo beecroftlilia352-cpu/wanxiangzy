@@ -6,6 +6,21 @@ import {
 import { buildTryOnPrompt } from "@/lib/api/lingya";
 
 describe("try-on prompt face integration", () => {
+  const lowerBodyNoHeadReference = {
+    index: 1,
+    bodyCrop: "lower_body" as const,
+    personVisible: true,
+    faceVisible: false,
+    headVisible: false,
+    upperBodyVisible: false,
+    lowerBodyVisible: true,
+    handsVisible: false,
+    feetVisible: true,
+    detailFocus: ["pants", "leg stance"],
+    promptNotes: "Keep the waist-to-feet crop and do not add a head, face, shoulders, or full torso.",
+    confidence: 0.95,
+  };
+
   it("uses the scene reference for head scale, lighting, and skin continuity when a model face is present", () => {
     const prompt = buildTryOnFacePrompt({
       hasReference: true,
@@ -51,6 +66,43 @@ describe("try-on prompt face integration", () => {
     expect(prompt).toContain("不同图层光影");
   });
 
+  it("keeps reference facial expression as the hard source when both reference and model face are present", () => {
+    const { prompt } = buildTryOnPrompt({
+      clothingCount: 1,
+      clothingMode: "single",
+      clothingRoles: ["single"],
+      hasReference: true,
+      hasModelFace: true,
+      referenceAnalysis: {
+        index: 1,
+        bodyCrop: "upper_body",
+        personVisible: true,
+        faceVisible: true,
+        headVisible: true,
+        upperBodyVisible: true,
+        lowerBodyVisible: false,
+        handsVisible: true,
+        feetVisible: false,
+        detailFocus: ["face", "upper body"],
+        promptNotes: "Use the visible face and upper-body crop.",
+        confidence: 0.92,
+      },
+      aspectRatio: "3:4",
+    });
+
+    expect(prompt).toContain("Expression lock - HARD:");
+    expect(prompt).toContain("image 2 is the final expression source");
+    expect(prompt).toContain("image 3 is not an expression source");
+    expect(prompt).toContain("match image 2's smile intensity, not image 3's");
+    expect(prompt).toContain("Model-face expression leakage is a failure");
+    expect(prompt).toContain("image 2 = target expression and try-on reference: facial expression exactly");
+    expect(prompt).toContain("image 3 = mandatory face identity reference only");
+    expect(prompt).toContain("not expression, smile intensity, skin tone, makeup");
+    expect(prompt).toContain("image 2 controls final facial expression exactly");
+    expect(prompt).toContain("image 3 controls only final facial identity and feature proportions");
+    expect(prompt).not.toContain("visible expression/skin/makeup when present");
+  });
+
   it("keeps lower-body no-head references from expanding into full-body outputs", () => {
     const { prompt } = buildTryOnPrompt({
       clothingCount: 1,
@@ -58,27 +110,38 @@ describe("try-on prompt face integration", () => {
       clothingRoles: ["lower"],
       hasReference: true,
       hasModelFace: true,
-      referenceAnalysis: {
-        index: 1,
-        bodyCrop: "lower_body",
-        personVisible: true,
-        faceVisible: false,
-        headVisible: false,
-        upperBodyVisible: false,
-        lowerBodyVisible: true,
-        handsVisible: false,
-        feetVisible: true,
-        detailFocus: ["pants", "leg stance"],
-        promptNotes: "Keep the waist-to-feet crop and do not add a head, face, shoulders, or full torso.",
-        confidence: 0.95,
-      },
+      referenceAnalysis: lowerBodyNoHeadReference,
       aspectRatio: "3:4",
     });
 
+    expect(prompt).toContain("Head/face absence lock - HARD:");
+    expect(prompt).toContain("image 2 is a lower-body-only target frame with no visible head or face");
+    expect(prompt).toContain("ignore image 3 completely for this lower-body crop");
+    expect(prompt).toContain("A result with any visible face or newly added head is invalid");
     expect(prompt).toContain("does not provide a visible head/face target");
     expect(prompt).toContain("Do not zoom out, add a head, add a face");
     expect(prompt).toContain("Preserving the reference crop is higher priority than showing face identity");
     expect(prompt).not.toContain("Reconstruct the final face");
     expect(prompt).not.toContain("Every generated candidate must use image 3's identity");
+  });
+
+  it("keeps lower-body no-head references faceless even without a model face upload", () => {
+    const { prompt } = buildTryOnPrompt({
+      clothingCount: 1,
+      clothingMode: "multi",
+      clothingRoles: ["lower"],
+      hasReference: true,
+      hasModelFace: false,
+      referenceAnalysis: lowerBodyNoHeadReference,
+      aspectRatio: "3:4",
+    });
+
+    expect(prompt).toContain("Head/face absence lock - HARD:");
+    expect(prompt).toContain("image 2 is a lower-body-only target frame with no visible head or face");
+    expect(prompt).toContain("do not invent a default face or complete person");
+    expect(prompt).toContain("A result with any visible face or newly added head is invalid");
+    expect(prompt).toContain("Do not reveal upper-body areas, head, or face outside the original crop");
+    expect(prompt).not.toContain("Face identity integration:");
+    expect(prompt).not.toContain("mandatory face identity reference");
   });
 });

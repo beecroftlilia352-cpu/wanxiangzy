@@ -1565,11 +1565,17 @@ function buildConciseTryOnPrompt(params: {
   if (params.hasReference) {
     const referenceAnalysisRule = buildTryOnReferenceAnalysisRule(params.referenceAnalysis, params.referenceImageNumber);
     if (referenceAnalysisRule) lines.push(referenceAnalysisRule);
+    lines.push(...buildReferenceNoHeadFaceLockLines({
+      referenceAnalysis: params.referenceAnalysis,
+      targetRef,
+      faceRef: params.hasModelFace ? faceRef : undefined,
+    }));
     lines.push(buildConciseTargetCanvasRule({
       targetRef,
       clothingMode: params.clothingMode,
       clothingRoles: params.clothingRoles,
       hasModelFace: params.hasModelFace,
+      referenceAnalysis: params.referenceAnalysis,
     }));
     lines.push(`Body/composition rule: keep ${targetRef}'s body proportions, adult body type when applicable, pose, visible body range, facial expression, head-to-body ratio, neck length, shoulder connection, camera angle, camera distance, perspective, framing, background, lighting direction, exposure, color temperature, shadows, and overall photo mood. Only allow natural changes caused by the new garment: fabric volume, folds, contact shadows, occlusion, sleeve coverage, and realistic drape.`);
   }
@@ -1637,7 +1643,7 @@ function buildFixedBaseTryOnPrompt(params: {
   const shouldUseFaceIdentity = shouldApplyFaceIdentityToReference(params.referenceAnalysis);
   const faceSetupLines = shouldUseFaceIdentity
     ? [
-        `Reconstruct the final face using ${params.faceRef}'s recognizable identity and facial feature proportions, while adapting it to ${params.targetRef}'s expression, skin tone, makeup, head angle, lighting, and camera perspective.`,
+        `Reconstruct the final face using ${params.faceRef}'s recognizable identity and facial feature proportions, while preserving ${params.targetRef}'s facial expression exactly and adapting to ${params.targetRef}'s skin tone, makeup, head angle, lighting, and camera perspective.`,
         `Do not preserve ${params.targetRef}'s original facial identity. Every generated candidate must use ${params.faceRef}'s identity.`,
       ]
     : [
@@ -1648,9 +1654,9 @@ function buildFixedBaseTryOnPrompt(params: {
     ? [
         "Face identity rule:",
         "This is identity reconstruction, not a hard face swap.",
-        `Use ${params.faceRef} only for recognizable facial identity: face shape, eyes, brows, nose, mouth structure, and feature proportions.`,
+        `Use ${params.faceRef} only for recognizable facial identity: face shape, eyes, brows, nose, mouth anatomy, and feature proportions.`,
         `Do not copy ${params.faceRef}'s expression, smile intensity, skin tone, makeup, lighting, pose, body, head size, or background.`,
-        `Adapt ${params.faceRef}'s identity to ${params.targetRef}'s expression: mouth state, smile/frown intensity, eye openness, brow tension, gaze direction, jaw tension, and emotional tone; natural micro-adjustments are allowed for a real face.`,
+        `Adapt ${params.faceRef}'s identity to ${params.targetRef}'s exact expression geometry: mouth state, lip-corner direction, smile/frown intensity, eye openness, brow tension, gaze direction, jaw tension, and emotional tone; natural micro-adjustments are allowed only to keep ${params.faceRef}'s identity believable.`,
         `The final face must be recognizable as ${params.faceRef}'s person but naturally integrated, not pasted or ID-photo-like.`,
         "Face integration:",
         `Match ${params.targetRef}'s visible skin tone, undertone, brightness, makeup style, pores, subtle redness, reflected light, shadows, and scene lighting.`,
@@ -1662,9 +1668,9 @@ function buildFixedBaseTryOnPrompt(params: {
       ];
   const priorityLines = shouldUseFaceIdentity
     ? [
-        `1. ${params.targetRef} controls visible body proportions, pose family, expression, skin tone, makeup, lighting, scene, camera style, crop boundary, non-sourced outfit areas, and final mood.`,
+        `1. ${params.targetRef} controls final facial expression exactly, plus visible body proportions, pose family, skin tone, makeup, lighting, scene, camera style, crop boundary, non-sourced outfit areas, and final mood.`,
         `2. ${params.clothingSource} controls only the sourced clothing.`,
-        `3. ${params.faceRef} controls only final facial identity and feature proportions where a face is visible in the target crop.`,
+        `3. ${params.faceRef} controls only final facial identity and feature proportions where a face is visible in the target crop; it must not control expression, smile intensity, skin tone, makeup, head pose, head scale, or lighting.`,
       ]
     : [
         `1. ${params.targetRef} controls visible body range, crop boundary, pose family, lighting, scene, camera style, non-sourced outfit areas, and final mood.`,
@@ -1678,6 +1684,12 @@ function buildFixedBaseTryOnPrompt(params: {
     "Task:",
     `Edit ${params.targetRef} into a believable try-on photo.`,
     buildFixedBaseReplacementTask(params),
+    ...buildReferenceNoHeadFaceLockLines({
+      referenceAnalysis: params.referenceAnalysis,
+      targetRef: params.targetRef,
+      faceRef: params.faceRef,
+    }),
+    ...buildFixedBaseExpressionLockLines(params, shouldUseFaceIdentity),
     buildTryOnReferenceAnalysisRule(params.referenceAnalysis, targetImageNumber),
     ...faceSetupLines,
     `Keep natural adult proportions for the body parts visible in ${params.targetRef}; preserve its detected body scale, crop boundary, and camera distance. If head or full body is not visible, do not invent it. Avoid oversized head, tiny body, long neck, short legs, distorted shoulders, or changed body type.`,
@@ -1735,13 +1747,49 @@ function buildFixedBaseRoleBullets(params: {
   });
 
   const faceRole = shouldApplyFaceIdentityToReference(params.referenceAnalysis)
-    ? `- ${params.faceRef} = mandatory face identity reference only: facial structure and feature proportions.`
+    ? `- ${params.faceRef} = mandatory face identity reference only: facial structure and feature proportions; not expression, smile intensity, skin tone, makeup, head pose, head scale, lighting, body, clothing, background, or scene.`
     : `- ${params.faceRef} = conditional face identity reference only; do not use it to add a head/face outside ${params.targetRef}'s original crop.`;
+  const targetRole = shouldApplyFaceIdentityToReference(params.referenceAnalysis)
+    ? `- ${params.targetRef} = target expression and try-on reference: facial expression exactly, mouth open/closed state, lip-corner direction, smile/frown intensity, eye openness, brow tension, gaze direction, jaw tension, emotional tone, visible skin tone, makeup style, head pose, head size, visible body range, crop boundary, pose family, background, lighting, camera style, framing style, non-sourced outfit areas, and final photo mood. Its original facial identity must not be preserved.`
+    : `- ${params.targetRef} = target try-on reference: visible body range, crop boundary, pose family, visible expression/skin/makeup when present, background, lighting, camera style, framing style, non-sourced outfit areas, and final photo mood. Its original facial identity must not be preserved only when a face is visible in the target crop.`;
 
   return [
     ...clothing,
-    `- ${params.targetRef} = target try-on reference: visible body range, crop boundary, pose family, visible expression/skin/makeup when present, background, lighting, camera style, framing style, non-sourced outfit areas, and final photo mood. Its original facial identity must not be preserved only when a face is visible in the target crop.`,
+    targetRole,
     faceRole,
+  ];
+}
+
+function buildFixedBaseExpressionLockLines(
+  params: {
+    targetRef: string;
+    faceRef: string;
+  },
+  shouldUseFaceIdentity: boolean
+) {
+  if (!shouldUseFaceIdentity) return [];
+  return [
+    "Expression lock - HARD:",
+    `${params.targetRef} is the final expression source. Keep its mouth open/closed state, lip-corner direction, smile/frown intensity, eye openness, brow tension, gaze direction, jaw tension, and emotional tone in the final face.`,
+    `${params.faceRef} is not an expression source. If ${params.faceRef} is smiling but ${params.targetRef} is serious or closed-mouth, the final ${params.faceRef} identity must be serious or closed-mouth. If ${params.targetRef} is smiling, match ${params.targetRef}'s smile intensity, not ${params.faceRef}'s.`,
+    `Do not solve identity transfer by copying ${params.faceRef}'s fixed expression. Model-face expression leakage is a failure even when identity likeness is strong.`,
+  ];
+}
+
+function buildReferenceNoHeadFaceLockLines(params: {
+  referenceAnalysis?: TryOnReferenceAnalysis | null;
+  targetRef: string;
+  faceRef?: string;
+}) {
+  if (!isHeadlessLowerBodyReference(params.referenceAnalysis)) return [];
+  const faceSourceRule = params.faceRef
+    ? `This applies even if ${params.faceRef} was uploaded; ignore ${params.faceRef} completely for this lower-body crop.`
+    : "This applies even when no model face was uploaded; do not invent a default face or complete person.";
+  return [
+    "Head/face absence lock - HARD:",
+    `${params.targetRef} is a lower-body-only target frame with no visible head or face. The final image must remain lower-body-only/partial-body.`,
+    `Do not generate, reveal, add, infer, or hallucinate any head, face, neck, shoulders, upper torso, portrait, or full-body expansion outside ${params.targetRef}'s original crop.`,
+    `${faceSourceRule} A result with any visible face or newly added head is invalid, even if the clothing looks correct.`,
   ];
 }
 
@@ -1750,6 +1798,10 @@ function shouldApplyFaceIdentityToReference(analysis?: TryOnReferenceAnalysis | 
   if (analysis.bodyCrop === "lower_body" || analysis.bodyCrop === "scene_only") return false;
   if (analysis.bodyCrop === "closeup" && !analysis.faceVisible && !analysis.headVisible) return false;
   return analysis.faceVisible || analysis.headVisible;
+}
+
+function isHeadlessLowerBodyReference(analysis?: TryOnReferenceAnalysis | null) {
+  return Boolean(analysis && analysis.bodyCrop === "lower_body" && !analysis.faceVisible && !analysis.headVisible);
 }
 
 function buildFixedBaseReplacementTask(params: {
@@ -1834,6 +1886,7 @@ function buildConciseRoleLockRule(params: {
   hasModelFace: boolean;
   referenceImageNumber: number;
   faceImageNumber: number;
+  referenceAnalysis?: TryOnReferenceAnalysis | null;
 }) {
   const roles = params.clothingRefs.map((ref, index) => {
     const imageRef = toEnglishImageRef(ref);
@@ -1847,9 +1900,13 @@ function buildConciseRoleLockRule(params: {
   });
 
   if (params.hasReference) {
-    roles.push(params.hasModelFace
-      ? `image ${params.referenceImageNumber} = target expression driver / skin tone / makeup / target body / pose / head placement / composition / background / lighting / skin continuity ONLY, not final facial identity`
-      : `image ${params.referenceImageNumber} = target body / pose / head placement / composition / background / lighting / skin continuity ONLY`);
+    if (isHeadlessLowerBodyReference(params.referenceAnalysis)) {
+      roles.push(`image ${params.referenceImageNumber} = lower-body target frame / visible hips-legs-feet stance / crop boundary / camera distance / background / lighting ONLY; no head, no face, no upper torso, no full-body expansion`);
+    } else {
+      roles.push(params.hasModelFace
+        ? `image ${params.referenceImageNumber} = target expression driver / skin tone / makeup / target body / pose / head placement / composition / background / lighting / skin continuity ONLY, not final facial identity`
+        : `image ${params.referenceImageNumber} = target body / pose / head placement / composition / background / lighting / skin continuity ONLY`);
+    }
   }
   if (params.hasModelFace) {
     roles.push(`image ${params.faceImageNumber} = final face identity / full facial landmark geometry / feature anatomy / likeness anchor ONLY, not facial expression, skin tone, makeup, body, clothing, head pose, head scale, background, or scene lighting`);
@@ -1961,9 +2018,9 @@ function buildTryOnClothingAnalysisRule(
   const explicitRoles = roles.map((role, index) => `image ${index + 1}=${role}`).join(", ");
 
   const scopeRule = slot === "lower"
-      ? "Treat this as a lower-body garment source. Replace only lower-body clothing and preserve non-conflicting upper-body clothing, hands, face, hair, background, and scene from the target reference."
+      ? "Treat this as a lower-body garment source. Replace only lower-body clothing and preserve non-conflicting visible upper-body clothing, hands, face/hair only when already visible in the target reference, background, and scene."
       : slot === "upper" || slot === "outer"
-        ? "Treat this as an upper-body garment source. Replace only upper/outer clothing and preserve non-conflicting lower-body clothing, shoes, hands, face, hair, background, and scene from the target reference."
+        ? "Treat this as an upper-body garment source. Replace only upper/outer clothing and preserve non-conflicting visible lower-body clothing, shoes, hands, face/hair only when already visible in the target reference, background, and scene."
         : slot === "single" || slot === "intimate" || slot === "functional"
           ? "Treat this as a complete single-piece/full-body garment source and replace only the body areas it naturally covers."
           : "Use the explicit upload slot roles as the replacement scope when classification is uncertain.";
@@ -1976,8 +2033,11 @@ function buildConciseTargetCanvasRule(params: {
   clothingMode: TryOnClothingMode;
   clothingRoles: TryOnClothingRole[];
   hasModelFace: boolean;
+  referenceAnalysis?: TryOnReferenceAnalysis | null;
 }) {
-  const faceInstruction = params.hasModelFace
+  const faceInstruction = isHeadlessLowerBodyReference(params.referenceAnalysis)
+    ? `There is no visible face, head, hair, neck, shoulders, or upper torso to preserve; do not add any of them.`
+    : params.hasModelFace
     ? `Do not preserve ${params.targetRef}'s original facial identity; preserve only head placement, head pose, scale, hair/occlusion when compatible, lighting, and scene continuity.`
     : `Preserve ${params.targetRef}'s original facial identity, hair, and scene continuity.`;
 
