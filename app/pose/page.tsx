@@ -211,13 +211,21 @@ export default function PosePage() {
     applyPath: "/pose",
   });
   const authIsAnonymous = authChecked && !isAuthenticated;
+  const activePoseAnalysisForGate = mainImage ? getActivePoseAnalysis() : null;
+  const isPoseAnalysisPending = Boolean(
+    mainImage && (isAnalyzingPose || (!activePoseAnalysisForGate && !poseAnalysisError))
+  );
   const runDisabledReason = !mainImage
     ? "请先上传主图"
-    : posePlanMode === "ai" && isPlanningPose
-      ? "AI 姿势计划生成中，也可切回预设计划立即生成。"
-      : credits !== null && credits < cost
-        ? `积分不足，生成需要 ${cost} 积分`
-        : undefined;
+    : isUploading
+      ? "主图上传中，请稍候"
+      : isPoseAnalysisPending
+        ? "正在识别主图，完成后才能生成"
+        : posePlanMode === "ai" && isPlanningPose
+          ? "AI 姿势计划生成中，也可切回预设计划立即生成。"
+          : credits !== null && credits < cost
+            ? `积分不足，生成需要 ${cost} 积分`
+            : undefined;
   const cancelRulesHide = () => {
     if (rulesHideTimerRef.current) {
       clearTimeout(rulesHideTimerRef.current);
@@ -734,6 +742,12 @@ export default function PosePage() {
       toast.error("请先上传主图");
       return;
     }
+    const activePoseAnalysis = getActivePoseAnalysis();
+    const poseAnalysisPending = isAnalyzingPose || (!activePoseAnalysis && !poseAnalysisError);
+    if (poseAnalysisPending) {
+      toast.info("主图视觉识别中，完成后再生成");
+      return;
+    }
     if (credits !== null && credits < cost) {
       toast.error(`积分不足，需要 ${cost}，余额 ${credits}`);
       return;
@@ -749,7 +763,6 @@ export default function PosePage() {
     setError("");
     setResultUrls([]);
     const taskInputThumbnails = mainImage ? [mainImage] : [];
-    const activePoseAnalysis = getActivePoseAnalysis();
     const activePosePlan = getActivePosePlan();
     const provisionalTask = taskQueue.startTask({
       expectedCount: poseExpectedCount,
@@ -1380,8 +1393,8 @@ export default function PosePage() {
           costLabel={authIsAnonymous ? "登录后查看积分" : `消耗 ${cost} · 余额 ${credits ?? "-"}`}
           disabled={isSubmitting || Boolean(runDisabledReason)}
           disabledReason={runDisabledReason}
-          primaryLabel={authIsAnonymous ? "登录后生成" : isSubmitting ? "提交中..." : isGenerating ? "继续生成" : outputMode === "separate" ? "生成 4 张独立图" : "生成四宫格"}
-          isLoading={isSubmitting}
+          primaryLabel={authIsAnonymous ? "登录后生成" : isUploading ? "上传中..." : isPoseAnalysisPending ? "识别主图中..." : isSubmitting ? "提交中..." : isGenerating ? "继续生成" : outputMode === "separate" ? "生成 4 张独立图" : "生成四宫格"}
+          isLoading={isSubmitting || isPoseAnalysisPending}
           onPrimaryAction={() => generate()}
         />
       </div>

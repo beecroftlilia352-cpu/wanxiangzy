@@ -6,8 +6,10 @@ import {
 import {
   POSE_VISUAL_BODY_CROP_LABELS,
   fallbackPoseVisualAnalysis,
+  isPoseHeadlessCrop,
   normalizeConfidence,
   normalizePoseVisualAnalysis,
+  shouldSuppressPoseFacePlanning,
   type PoseVisualAnalysis,
   type PoseVisualBodyCrop,
 } from "@/lib/pose-analysis";
@@ -120,7 +122,11 @@ export function normalizePosePlan(input: unknown, context: PosePlanContext = {})
           : Array.isArray(record["姿势列表"])
             ? record["姿势列表"]
       : [];
-  const slots = [0, 1, 2, 3].map((slotIndex) => normalizePoseSlotPlan(rawSlots[slotIndex], fallback.slots[slotIndex], slotIndex + 1));
+  const analysis = normalizePoseVisualAnalysis(context.poseAnalysis);
+  const slots = [0, 1, 2, 3].map((slotIndex) => sanitizePoseSlotForVisibility(
+    normalizePoseSlotPlan(rawSlots[slotIndex], fallback.slots[slotIndex], slotIndex + 1),
+    analysis
+  ));
   const style = normalizePoseSeriesStyle(readString(record, "style", "poseStyle", "pose_style") || context.poseStyle || fallback.style);
   const outputMode = normalizeOutputMode(readString(record, "outputMode", "output_mode") || context.outputMode || fallback.outputMode);
 
@@ -195,6 +201,10 @@ export function buildPosePlanCacheKey(input: {
       genderExpression: analysis.genderExpression,
       ageRange: analysis.ageRange,
       bodyCrop: analysis.bodyCrop,
+      headVisible: analysis.headVisible,
+      faceVisible: analysis.faceVisible,
+      upperTorsoVisible: analysis.upperTorsoVisible,
+      lowerBodyVisible: analysis.lowerBodyVisible,
       bodyOrientation: analysis.bodyOrientation,
       poseBaseline: analysis.poseBaseline,
       cameraFraming: analysis.cameraFraming,
@@ -251,6 +261,7 @@ export function buildPoseSlotPlanDirective(slot: PoseSlotPlan | null | undefined
 
 function buildFallbackSlots(analysis: PoseVisualAnalysis, policy: PoseStylePolicy): PoseSlotPlan[] {
   const crop = analysis.bodyCrop;
+  if (isPoseHeadlessCrop(analysis) && crop === "lower_body") return buildLowerBodySlots(policy, analysis);
   if (crop === "upper_body") return buildUpperBodySlots(policy, analysis);
   if (crop === "lower_body") return buildLowerBodySlots(policy, analysis);
   if (crop === "closeup") return buildCloseupSlots(policy, analysis);
@@ -278,6 +289,14 @@ function buildUpperBodySlots(policy: PoseStylePolicy, analysis: PoseVisualAnalys
   const camera = policy.cameraFreedom === "source_locked"
     ? "保持图1上半身裁切和镜头距离"
     : "保持上半身或半身商业构图，不扩成全身";
+  if (shouldSuppressPoseFacePlanning(analysis)) {
+    return [
+      createSlot(1, "无头上身正面展示", "保持无头上半身正面展示，肩线、胸前、袖型和衣摆上缘清楚", "手部可轻触衣摆上缘、袖口或自然入画", "", camera, garmentRule, avoid, 0.58),
+      createSlot(2, "无头上身侧向展示", "无头上半身转为三分之二侧向，展示侧面肩线、衣身厚度和袖型", "一只手可整理领口以下或袖口，不越界补脸", "", camera, garmentRule, avoid, 0.58),
+      createSlot(3, "无头上身细节造型", "躯干轻微倾斜或重心变化，突出领口以下服装层次和面料垂坠", "手部靠近服装细节但不遮挡关键图案", "", camera, garmentRule, avoid, 0.58),
+      createSlot(4, "无头上身轻微转动", "肩部和躯干做小幅自然转动，保持无头裁切和可信服装动态", "手臂自然带动袖口和衣摆产生可信褶皱", "", camera, garmentRule, avoid, 0.58),
+    ];
+  }
   return [
     createSlot(1, "上半身正面展示", "上半身正面自然姿态，肩颈放松，躯干轻微重心变化", "手部可轻触衣摆上缘、袖口或自然入画", "视线自然看向镜头", camera, garmentRule, avoid, 0.6),
     createSlot(2, "上半身侧向展示", "肩膀和躯干转为三分之二侧向，展示侧面肩线和衣身厚度", "一只手可整理领口或袖口", "头颈跟随肩膀方向，避免独立回望", camera, garmentRule, avoid, 0.6),
@@ -290,7 +309,7 @@ function buildLowerBodySlots(policy: PoseStylePolicy, analysis: PoseVisualAnalys
   const avoid = buildAvoidRules(policy, analysis);
   const garmentRule = "腰部、胯部、腿部线条、裤脚/裙摆、面料垂坠和下装长度必须清楚";
   const camera = policy.cameraFreedom === "source_locked"
-    ? "保持图1下半身裁切和镜头距离"
+    ? "保持图1下半身无头裁切和镜头距离，不扩成完整人像"
     : "保持下半身局部商业构图，不扩成完整人像";
   return [
     createSlot(1, "下装正面展示", "下半身正面站姿，重心轻微变化，展示腰胯和裤管/裙摆正面", "", "", camera, garmentRule, avoid, 0.58),
@@ -315,7 +334,11 @@ function buildCloseupSlots(policy: PoseStylePolicy, analysis: PoseVisualAnalysis
 }
 
 function buildAvoidRules(policy: PoseStylePolicy, analysis: PoseVisualAnalysis) {
+  const criticalRules = shouldSuppressPoseFacePlanning(analysis)
+    ? ["invented head", "invented face", "portrait expansion", "gaze direction", "facial expression", "looking at camera"]
+    : [];
   const rules = [
+    ...criticalRules,
     ...policy.avoid,
     "face change",
     "outfit change",
@@ -334,12 +357,47 @@ function buildAvoidRules(policy: PoseStylePolicy, analysis: PoseVisualAnalysis) 
     rules.push("full-body expansion", "invented lower body");
   }
   if (analysis.bodyCrop === "lower_body") {
-    rules.push("full portrait expansion", "invented upper body");
+    rules.push("full portrait expansion", "invented upper body", "invented head", "invented face", "facial expression planning");
   }
   if (analysis.bodyCrop === "closeup") {
     rules.push("wide shot expansion");
   }
   return Array.from(new Set(rules)).slice(0, 10);
+}
+
+function sanitizePoseSlotForVisibility(slot: PoseSlotPlan, analysis: PoseVisualAnalysis | null): PoseSlotPlan {
+  if (!shouldSuppressPoseFacePlanning(analysis)) return slot;
+  return {
+    ...slot,
+    headDirection: "",
+    bodyAction: stripFacePlanningText(slot.bodyAction),
+    handAction: stripFacePlanningText(slot.handAction),
+    cameraFraming: ensureNoHeadCameraRule(slot.cameraFraming, analysis),
+    avoidRules: Array.from(new Set([
+      ...slot.avoidRules,
+      "invented head",
+      "invented face",
+      "portrait expansion",
+      "facial expression",
+      "looking at camera",
+    ])).slice(0, 10),
+  };
+}
+
+function stripFacePlanningText(value: string) {
+  return value
+    .replace(/(?:，|；|、)?[^，；。]*?(?:看镜头|直视|视线|眼神|表情|微笑|回眸|抬下巴|头部|脸部|发型)[^，；。]*/g, "")
+    .replace(/\s{2,}/g, " ")
+    .replace(/^[，；、\s]+|[，；、\s]+$/g, "")
+    .trim();
+}
+
+function ensureNoHeadCameraRule(value: string, analysis: PoseVisualAnalysis | null) {
+  const base = value || (analysis?.bodyCrop === "lower_body" ? "保持下半身局部商业构图" : "保持原图无头裁切");
+  const lock = analysis?.bodyCrop === "lower_body"
+    ? "保持下半身无头局部裁切，不扩成完整人像"
+    : "保持无头裁切，不补头不补脸";
+  return base.includes("无头") || base.includes("不补头") ? base : `${base}；${lock}`;
 }
 
 function createSlot(

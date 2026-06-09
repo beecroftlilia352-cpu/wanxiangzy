@@ -14,6 +14,10 @@ export type PoseVisualAnalysis = {
   genderExpression: PoseVisualGenderExpression;
   ageRange: PoseVisualAgeRange;
   bodyCrop: PoseVisualBodyCrop;
+  headVisible?: boolean | null;
+  faceVisible?: boolean | null;
+  upperTorsoVisible?: boolean | null;
+  lowerBodyVisible?: boolean | null;
   bodyOrientation: string;
   headDirection: string;
   poseBaseline: string;
@@ -39,7 +43,7 @@ export type PoseVisualAnalysisDetailItem = {
   title?: string;
 };
 
-export const POSE_VISUAL_ANALYSIS_VERSION = "pose-visual-analysis-v1";
+export const POSE_VISUAL_ANALYSIS_VERSION = "pose-visual-analysis-v2";
 
 export const POSE_VISUAL_GENDER_LABELS: Record<PoseVisualGenderExpression, string> = {
   male: "男",
@@ -76,6 +80,10 @@ export function normalizePoseVisualAnalysis(input: unknown): PoseVisualAnalysis 
     genderExpression: normalizeGenderExpression(readString(record, "genderExpression", "gender_expression", "gender")),
     ageRange: normalizeAgeRange(readString(record, "ageRange", "age_range", "age")),
     bodyCrop: normalizeBodyCrop(readString(record, "bodyCrop", "body_crop", "crop")),
+    headVisible: readBoolean(record, "headVisible", "head_visible", "head"),
+    faceVisible: readBoolean(record, "faceVisible", "face_visible", "face"),
+    upperTorsoVisible: readBoolean(record, "upperTorsoVisible", "upper_torso_visible", "upperBodyVisible", "upper_body_visible"),
+    lowerBodyVisible: readBoolean(record, "lowerBodyVisible", "lower_body_visible", "legsVisible", "legs_visible"),
     bodyOrientation: clampText(readString(record, "bodyOrientation", "body_orientation")),
     headDirection: clampText(readString(record, "headDirection", "head_direction")),
     poseBaseline: clampText(readString(record, "poseBaseline", "pose_baseline", "pose")),
@@ -123,6 +131,10 @@ export function fallbackPoseVisualAnalysis(): PoseVisualAnalysis {
     genderExpression: "unknown",
     ageRange: "unknown",
     bodyCrop: "partial_unknown",
+    headVisible: null,
+    faceVisible: null,
+    upperTorsoVisible: null,
+    lowerBodyVisible: null,
     bodyOrientation: "",
     headDirection: "",
     poseBaseline: "",
@@ -158,6 +170,9 @@ export function getPoseVisualAnalysisSummary(analysis: PoseVisualAnalysis | null
     POSE_VISUAL_BODY_CROP_LABELS[analysis.bodyCrop],
   ].filter((part) => part && !part.includes("未知"));
 
+  if (isPoseHeadlessCrop(analysis)) parts.push("无头");
+  else if (analysis.faceVisible === true) parts.push("露脸");
+  else if (analysis.faceVisible === false) parts.push("脸不可见");
   const orientation = toPoseDisplayPhrase(analysis.bodyOrientation);
   if (orientation) parts.push(orientation);
   if (analysis.handsVisible) parts.push("手可见");
@@ -175,6 +190,8 @@ export function getPoseVisualAnalysisDetailItems(analysis: PoseVisualAnalysis | 
   if (camera) details.push({ label: "构图", value: camera, title: analysis.cameraFraming });
   const lighting = summarizeLightingForDisplay(analysis.lighting);
   if (lighting) details.push({ label: "光线", value: lighting, title: analysis.lighting });
+  const visibility = summarizeVisibilityForDisplay(analysis);
+  if (visibility) details.push({ label: "可见性", value: visibility });
   const risks = analysis.generationRisks
     .slice(0, 2)
     .map((risk) => toPoseDisplayPhrase(risk) || summarizeFactForDisplay(risk))
@@ -204,9 +221,14 @@ export function buildPoseVisualAnalysisRule(
   const cropRule = getBodyCropPromptRule(analysis.bodyCrop);
   const genderRule = getGenderPromptRule(analysis.genderExpression);
   const visibility = [
+    analysis.headVisible === false || isPoseHeadlessCrop(analysis) ? "head not visible in source" : analysis.headVisible === true ? "head visible in source" : "head visibility unknown",
+    analysis.faceVisible === false || isPoseHeadlessCrop(analysis) ? "face not visible in source" : analysis.faceVisible === true ? "face visible in source" : "face visibility unknown",
+    analysis.upperTorsoVisible === false ? "upper torso not visible in source" : analysis.upperTorsoVisible === true ? "upper torso visible in source" : "upper torso visibility unknown",
+    analysis.lowerBodyVisible === false ? "lower body not visible in source" : analysis.lowerBodyVisible === true ? "lower body visible in source" : "lower body visibility unknown",
     analysis.handsVisible ? "hands visible in source" : "hands not clearly visible in source",
     analysis.feetVisible ? "feet visible in source" : "feet not clearly visible in source",
   ].join(", ");
+  const headlessRule = buildHeadlessPoseRule(analysis);
   const fields = [
     `视觉识别约束（来自图1主图，优先级高于姿势变化）：${person || "source person detected"}.`,
     genderRule,
@@ -218,7 +240,10 @@ export function buildPoseVisualAnalysisRule(
     analysis.skinToneNotes ? `肤色锁定：${analysis.skinToneNotes}；不要自动美白或改变冷暖明暗。` : "",
     analysis.background || analysis.lighting ? `场景光线锁定：${[analysis.background, analysis.lighting].filter(Boolean).join("；")}。` : "",
     `可见性：${visibility}。${getFramingFlexRule(analysis.bodyCrop)}`,
-    "表情/视线：保持同一脸部身份和年龄感，但不要机械复制图1表情；每个目标姿势都可以有克制、自然、可察觉的眼神和表情变化。",
+    headlessRule,
+    shouldSuppressPoseFacePlanning(analysis)
+      ? "表情/视线：源图没有可用脸部目标，本次不要规划表情、视线、回眸、看镜头或脸部身份变化。"
+      : "表情/视线：保持同一脸部身份和年龄感，但不要机械复制图1表情；每个目标姿势都可以有克制、自然、可察觉的眼神和表情变化。",
     analysis.occlusionNotes ? `遮挡风险：${analysis.occlusionNotes}；动作遮挡必须自然，不能遮掉关键服装结构。` : "",
     analysis.generationRisks.length ? `风险规避：${analysis.generationRisks.join("；")}。` : "",
     analysis.promptNotes ? `补充识别说明：${analysis.promptNotes}` : "",
@@ -228,6 +253,25 @@ export function buildPoseVisualAnalysisRule(
   ].filter(Boolean);
 
   return fields.join("\n");
+}
+
+export function isPoseHeadlessCrop(analysis: PoseVisualAnalysis | null | undefined) {
+  if (!analysis) return false;
+  if (analysis.bodyCrop === "lower_body") return true;
+  return analysis.headVisible === false && analysis.faceVisible === false;
+}
+
+export function shouldSuppressPoseFacePlanning(analysis: PoseVisualAnalysis | null | undefined) {
+  if (!analysis) return false;
+  return isPoseHeadlessCrop(analysis) || analysis.faceVisible === false || analysis.headVisible === false;
+}
+
+function buildHeadlessPoseRule(analysis: PoseVisualAnalysis) {
+  if (!shouldSuppressPoseFacePlanning(analysis)) return "";
+  if (analysis.bodyCrop === "lower_body") {
+    return "无头下半身硬规则：图1是下半身/腰腿脚局部参考，最终必须保持无头、无脸、非完整人像裁切；不要补出头、脸、脖子、肩部、完整上半身、回眸、看镜头或任何表情。姿势变化只能发生在腰胯、腿部、膝部、脚步、裤脚/裙摆、包袋和可见手臂范围内。";
+  }
+  return "无头裁切硬规则：图1没有可见头部或脸部，最终必须保持同类无头裁切；不要补出头、脸、发型、表情、回眸或完整人像。姿势变化只能发生在原图可见身体范围内。";
 }
 
 function getGenderPromptRule(gender: PoseVisualGenderExpression) {
@@ -350,6 +394,24 @@ function summarizeFactForDisplay(value: string) {
   const mapped = toPoseDisplayPhrase(text);
   if (mapped) return mapped;
   return "";
+}
+
+function summarizeVisibilityForDisplay(analysis: PoseVisualAnalysis) {
+  const parts: string[] = [];
+  if (isPoseHeadlessCrop(analysis)) parts.push("无头");
+  else if (analysis.headVisible === true) parts.push("头可见");
+  else if (analysis.headVisible === false) parts.push("头不可见");
+
+  if (isPoseHeadlessCrop(analysis) || analysis.faceVisible === false) parts.push("脸不可见");
+  else if (analysis.faceVisible === true) parts.push("露脸");
+
+  if (analysis.upperTorsoVisible === true) parts.push("上身可见");
+  else if (analysis.upperTorsoVisible === false) parts.push("上身不可见");
+  if (analysis.lowerBodyVisible === true) parts.push("下身可见");
+  else if (analysis.lowerBodyVisible === false) parts.push("下身不可见");
+  if (analysis.handsVisible) parts.push("手可见");
+  if (analysis.feetVisible) parts.push("脚可见");
+  return Array.from(new Set(parts)).slice(0, 5).join(" / ");
 }
 
 function summarizeCameraForDisplay(value: string) {

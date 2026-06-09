@@ -4,7 +4,11 @@ import {
   getPoseSeriesStylePoseLines,
   type PoseSeriesStyle,
 } from "@/lib/module-style-presets";
-import { buildPoseVisualAnalysisRule, type PoseVisualAnalysis } from "@/lib/pose-analysis";
+import {
+  buildPoseVisualAnalysisRule,
+  shouldSuppressPoseFacePlanning,
+  type PoseVisualAnalysis,
+} from "@/lib/pose-analysis";
 import {
   buildPosePlanPoseLines,
   buildPoseSlotPlanDirective,
@@ -77,8 +81,14 @@ export const POSE_EXPRESSION_CONSISTENT_REQUIREMENT =
 const POSE_SINGLE_IMAGE_CONSISTENCY_REQUIREMENT =
   "当前单张图片以图1作为人物身份、性别表达、年龄感、身体骨架、服装、背景和光线参考；优先让姿势明显变化，同时保持同一套服装设计、颜色、图案、面料质感、自然脸部身份、肤色和真实身体比例。";
 
+const POSE_HEADLESS_SINGLE_IMAGE_CONSISTENCY_REQUIREMENT =
+  "当前单张图片以图1可见身体范围、性别表达、身体骨架、服装、背景和光线参考；优先让姿势在原图可见范围内明显变化，同时保持同一套服装设计、颜色、图案、面料质感、肤色和真实身体比例。图1没有可用脸部目标时，不要补头、补脸或扩成完整人像。";
+
 const POSE_SINGLE_IMAGE_CAMERA_REQUIREMENT =
   "当前单张图片允许相机距离、身体角度、景别和画面留白随目标姿势自然调整；不要因为图1是全身就固定生成全身照，可按服装展示需要选择全身、近全身、七分身或偏半身商业构图。避免 extreme close-up、无关特写、wide angle、大广角、俯拍、仰拍或夸张透视。";
+
+const POSE_HEADLESS_SINGLE_IMAGE_CAMERA_REQUIREMENT =
+  "当前单张图片必须保持图1同类无头裁切和可见身体范围；相机距离、身体角度、景别和画面留白只在原图可见范围内自然调整。不要扩成完整人像，不要补出头、脸、脖子、肩部或原图外身体部位。";
 
 const POSE_SINGLE_EXPRESSION_VARIATION_REQUIREMENT =
   "表情规则：保持图1同一个人、同一张脸和同一年龄感；当前姿势必须匹配动作产生轻微自然但可察觉的眼神或表情变化，不要照搬图1原表情。不要夸张表情，不要改变五官身份，不要复制成僵硬表情。";
@@ -100,6 +110,20 @@ const POSE_SEPARATE_BASE_PROMPT = [
   "no outfit/face/gender change, no feminized body, no garment retexturing, no color/contrast shift, no heavy filter, no extra sharpening, no moire, no extra person, text/watermark/grid/collage, distorted hands/limbs, twisted neck, disconnected head or unrealistic body.",
 ].join("\n");
 
+const POSE_HEADLESS_SEPARATE_BASE_PROMPT = [
+  "Use the source image only to preserve: same visible body range, same gender expression, body proportions, outfit, fabric/color/pattern, background, lighting and visible skin tone.",
+  "Do not copy the source pose; execute the target pose clearly within the original visible crop.",
+  "Generate one standalone premium fashion editorial photo.",
+  POSE_SEPARATE_QUALITY,
+  "Hard crop lock: if the source image has no visible head or face, keep the result headless and faceless. Do not invent a head, face, neck, shoulders, portrait, gaze or expression.",
+  "Keep the outfit readable inside the visible body area: waistline, hips, legs, hem, lower garment, shoes and visible accessories if present.",
+  "Product fidelity: outfit is protected; keep source color, pattern/logo and textile surface; folds/shadows only; no retexturing or style filter.",
+  "Source tone lock: keep source exposure/contrast/white balance/grain; no recolor, HDR, clarity/local-contrast boost, extra sharpening or retouch filter.",
+  "Fine textile safety: keep repeated patterns at source scale; no moire, wavy/ripple/vibrating fabric lines, fake fibers or invented detail.",
+  "Negative:",
+  "no head, no face, no portrait expansion, no gaze, no expression, no outfit/gender change, no garment retexturing, no color/contrast shift, no heavy filter, no extra sharpening, no moire, no extra person, text/watermark/grid/collage, distorted limbs, unrealistic body.",
+].join("\n");
+
 const DEFAULT_POSE_LINES = [
   "姿势1：正面服装展示方向；AI 可自由选择自然手势、重心、视线、轻松直视或淡定表情和镜头语言，服装正面轮廓必须清楚。",
   "姿势2：侧身或三分之二侧身展示方向；AI 可自由选择头发/衣领/袖口/衣摆手势、腿部节奏、微笑或侧向视线和镜头语言，侧面轮廓和肩线必须清楚。",
@@ -115,6 +139,7 @@ export function enforcePosePromptRequirements(
   options: { poseStyle?: PoseSeriesStyle; outputMode?: PoseOutputMode; poseAnalysis?: PoseVisualAnalysis | null; posePlan?: PosePlan | null } = {}
 ) {
   if (!prompt.trim()) return "";
+  const suppressFacePlanning = shouldSuppressPoseFacePlanning(options.poseAnalysis);
 
   let nextPrompt = prompt
     .replace(/\r\n/g, "\n")
@@ -154,9 +179,11 @@ export function enforcePosePromptRequirements(
   }
 
   if (!/same face identity|同一张脸|人物身份/.test(nextPrompt)) {
-    const consistencyRule = options.outputMode === "separate"
-      ? POSE_SINGLE_IMAGE_CONSISTENCY_REQUIREMENT
-      : POSE_CONSISTENCY_REQUIREMENT;
+    const consistencyRule = suppressFacePlanning
+      ? POSE_HEADLESS_SINGLE_IMAGE_CONSISTENCY_REQUIREMENT
+      : options.outputMode === "separate"
+        ? POSE_SINGLE_IMAGE_CONSISTENCY_REQUIREMENT
+        : POSE_CONSISTENCY_REQUIREMENT;
     nextPrompt = `${consistencyRule}\n${nextPrompt}`;
   }
 
@@ -174,6 +201,7 @@ export function enforcePosePromptRequirements(
   ] as const;
   requiredRules.forEach(([marker, rule]) => {
     if (options.outputMode === "separate" && marker === "时装大片连贯性规则") return;
+    if (suppressFacePlanning && marker === "脸型五官规则") return;
     if (!nextPrompt.includes(marker)) {
       const nextRule = options.outputMode === "separate" ? toSinglePoseRule(rule) : rule;
       nextPrompt = `${nextPrompt}\n${nextRule}`;
@@ -185,15 +213,21 @@ export function enforcePosePromptRequirements(
     .filter((line) => !/表情控制|表情：|表情-|expression variation|facial expression/i.test(line))
     .join("\n")
     .trim();
-  const expressionRule = options.outputMode === "separate"
-    ? POSE_SINGLE_EXPRESSION_VARIATION_REQUIREMENT
-    : POSE_EXPRESSION_VARIATION_REQUIREMENT;
-  nextPrompt = `${nextPrompt}\n${expressionRule}`;
+  if (suppressFacePlanning) {
+    nextPrompt = `${nextPrompt}\n无脸裁切规则：图1没有可用脸部目标，当前姿势只规划原图可见身体范围、服装和构图变化；不要规划或生成表情、视线、回眸、看镜头、头发、头部、脸部或完整人像。`;
+  } else {
+    const expressionRule = options.outputMode === "separate"
+      ? POSE_SINGLE_EXPRESSION_VARIATION_REQUIREMENT
+      : POSE_EXPRESSION_VARIATION_REQUIREMENT;
+    nextPrompt = `${nextPrompt}\n${expressionRule}`;
+  }
 
   if (!/consistent .*medium full-body framing|consistent medium full-body framing/i.test(nextPrompt)) {
-    const cameraRule = options.outputMode === "separate"
-      ? POSE_SINGLE_IMAGE_CAMERA_REQUIREMENT
-      : POSE_CAMERA_REQUIREMENT;
+    const cameraRule = suppressFacePlanning
+      ? POSE_HEADLESS_SINGLE_IMAGE_CAMERA_REQUIREMENT
+      : options.outputMode === "separate"
+        ? POSE_SINGLE_IMAGE_CAMERA_REQUIREMENT
+        : POSE_CAMERA_REQUIREMENT;
     nextPrompt = `${nextPrompt}\n${cameraRule}`;
   }
 
@@ -261,12 +295,13 @@ export function buildSeparatePosePrompt(
   ));
   const supplementLines = extractSeparatePoseSupplementLines(prompt);
   const analysisRule = buildPoseVisualAnalysisRule(poseAnalysis, "separate");
+  const suppressFacePlanning = shouldSuppressPoseFacePlanning(poseAnalysis);
 
   return [
-    POSE_SEPARATE_BASE_PROMPT,
+    suppressFacePlanning ? POSE_HEADLESS_SEPARATE_BASE_PROMPT : POSE_SEPARATE_BASE_PROMPT,
     analysisRule,
     stylePrompt,
-    targetPose,
+    suppressFacePlanning && !planSlotDirective ? buildHeadlessSeparatePoseSlotPrompt(poseIndex, targetPose) : targetPose,
     ...supplementLines,
   ].filter(Boolean).join("\n");
 }
@@ -347,12 +382,41 @@ function buildCustomSeparatePoseSlotPrompt(targetPose: string) {
   ].join("\n");
 }
 
+function buildHeadlessSeparatePoseSlotPrompt(poseIndex: number, fallbackTargetPose: string) {
+  const safeIndex = Math.min(Math.max(Math.floor(Number(poseIndex) || 1), 1), 4);
+  const lowerBodyTargets = [
+    "Lower-body front outfit read. Keep waist, hips, legs, hem and shoes readable inside the same headless crop.",
+    "Lower-body three-quarter or side-angle outfit read. Show side seam, fabric thickness, leg line and hem profile without expanding upward.",
+    "Stationary lower-body weight-shift pose. One knee or hip may relax naturally while waistline and garment structure remain clear.",
+    "Small lower-body step or aligned turn. Show natural fabric movement around hem, knees, pant legs or skirt edge without adding a portrait.",
+  ];
+  return [
+    "Target pose:",
+    lowerBodyTargets[safeIndex - 1] || lowerBodyTargets[0],
+    "Do not use any target pose instruction that requires gaze, expression, head direction, hair movement, portrait framing, or looking at camera.",
+    fallbackTargetPose ? `Original slot intent, body-only interpretation: ${stripHeadlessUnsafeText(fallbackTargetPose)}` : "",
+    "",
+    "Camera:",
+    "Keep the source headless lower-body/local-body crop. Do not zoom out or pan upward to reveal head, face, neck or a full portrait.",
+  ].filter(Boolean).join("\n");
+}
+
 function sanitizeSeparatePoseLine(line: string) {
   return line
     .replace(/镜头[：:].*$/i, "")
     .replace(/consistent medium full-body framing/gi, "medium full-body fashion photo")
     .replace(/same camera distance|same lens style|统一构图|统一镜头语言|同一相机距离|同一焦段|同一画幅留白/gi, "")
     .trim();
+}
+
+function stripHeadlessUnsafeText(value: string) {
+  return value
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter((line) => !/(Expression|gaze|face|head|hair|portrait|look(?:ing)? at camera|表情|视线|眼神|脸|头|头发|回眸|看镜头|完整人像)/i.test(line))
+    .join("\n")
+    .slice(0, 420);
 }
 
 function inferPoseStyleFromPrompt(prompt: string): PoseSeriesStyle | undefined {

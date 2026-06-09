@@ -259,6 +259,50 @@ describe("pose prompt handling", () => {
     expect(slot1).toContain("领口细节必须清楚");
   });
 
+  it("keeps lower-body headless pose generation from inventing faces", () => {
+    const analysis = normalizePoseVisualAnalysis({
+      genderExpression: "female",
+      ageRange: "adult",
+      bodyCrop: "lower_body",
+      headVisible: false,
+      faceVisible: false,
+      upperTorsoVisible: false,
+      lowerBodyVisible: true,
+      handsVisible: false,
+      feetVisible: true,
+      cameraFraming: "waist-to-feet crop, no head or face",
+      outfitDescription: "blue denim knee-length shorts, socks and sneakers",
+      confidence: 0.92,
+    });
+    const posePlan = buildFallbackPosePlan({
+      poseAnalysis: analysis,
+      outputMode: "separate",
+    });
+
+    expect(posePlan.slots.every((slot) => slot.headDirection === "")).toBe(true);
+    expect(posePlan.slots[0].cameraFraming).toContain("无头");
+    expect(posePlan.slots[0].avoidRules).toContain("invented head");
+    expect(posePlan.slots[0].avoidRules).toContain("invented face");
+
+    const enforced = enforcePosePromptRequirements("保持图1服装和构图，生成姿势变化。", {
+      poseAnalysis: analysis,
+      posePlan,
+      outputMode: "separate",
+    });
+    expect(enforced).toContain("无头下半身硬规则");
+    expect(enforced).toContain("无脸裁切规则");
+    expect(enforced).toContain("不要规划或生成表情、视线、回眸、看镜头");
+    expect(enforced).not.toContain("脸型五官规则");
+
+    const slotPrompt = buildSeparatePosePrompt("补充要求：短裤长度和牛仔水洗必须保持。", 2, "korean_clean", "", analysis);
+    expect(slotPrompt).toContain("Hard crop lock");
+    expect(slotPrompt).toContain("no head, no face");
+    expect(slotPrompt).toContain("Lower-body three-quarter or side-angle outfit read");
+    expect(slotPrompt).toContain("Do not zoom out or pan upward");
+    expect(slotPrompt).not.toContain("Expression:");
+    expect(slotPrompt).not.toContain("Soft slight smile");
+  });
+
   it("uses pose plan lines for grid prompts", () => {
     const posePlan = buildFallbackPosePlan({
       poseStyle: "fashion_editorial",
