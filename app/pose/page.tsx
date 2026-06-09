@@ -173,6 +173,7 @@ export default function PosePage() {
   const [isUploading, setIsUploading] = useState(false);
   const [isAnalyzingPose, setIsAnalyzingPose] = useState(false);
   const [poseAnalysis, setPoseAnalysis] = useState<PoseVisualAnalysis | null>(null);
+  const [poseAnalysisEntryKey, setPoseAnalysisEntryKey] = useState("");
   const [poseAnalysisSource, setPoseAnalysisSource] = useState<PoseAnalysisSource | null>(null);
   const [poseAnalysisError, setPoseAnalysisError] = useState<string | null>(null);
   const [poseAnalysisRetryCount, setPoseAnalysisRetryCount] = useState(0);
@@ -212,15 +213,16 @@ export default function PosePage() {
   });
   const authIsAnonymous = authChecked && !isAuthenticated;
   const activePoseAnalysisForGate = mainImage ? getActivePoseAnalysis() : null;
+  const activePoseAnalysisErrorForGate = mainImage ? getActivePoseAnalysisError() : null;
   const isPoseAnalysisPending = Boolean(
-    mainImage && (isAnalyzingPose || (!activePoseAnalysisForGate && !poseAnalysisError))
+    mainImage && (isAnalyzingPose || (!activePoseAnalysisForGate && !activePoseAnalysisErrorForGate))
   );
   const runDisabledReason = !mainImage
     ? "请先上传主图"
     : isUploading
       ? "主图上传中，请稍候"
       : isPoseAnalysisPending
-        ? "正在识别主图，完成后才能生成"
+        ? "主图正在识别，请稍候。"
         : posePlanMode === "ai" && isPlanningPose
           ? "AI 姿势计划生成中，也可切回预设计划立即生成。"
           : credits !== null && credits < cost
@@ -256,7 +258,8 @@ export default function PosePage() {
     }, 120);
   };
 
-  function setPoseAnalysisEntry(entry: PoseAnalysisEntry | null) {
+  function setPoseAnalysisEntry(entry: PoseAnalysisEntry | null, analysisKey = "") {
+    setPoseAnalysisEntryKey(entry ? analysisKey : "");
     setPoseAnalysis(entry?.analysis || null);
     setPoseAnalysisSource(entry?.source || null);
     setPoseAnalysisError(entry?.error || null);
@@ -278,7 +281,7 @@ export default function PosePage() {
       const entry: PoseAnalysisEntry = { analysis, source, error: null };
       poseAnalysisCacheRef.current.set(analysisKey, entry);
       lastPoseAnalysisKeyRef.current = analysisKey;
-      setPoseAnalysisEntry(entry);
+      setPoseAnalysisEntry(entry, analysisKey);
       return;
     }
     lastPoseAnalysisKeyRef.current = "";
@@ -312,7 +315,12 @@ export default function PosePage() {
 
   function getActivePoseAnalysis() {
     if (!mainImage || !poseAnalysis) return null;
-    return lastPoseAnalysisKeyRef.current === buildPoseVisualAnalysisKey(mainImage) ? poseAnalysis : null;
+    return poseAnalysisEntryKey === buildPoseVisualAnalysisKey(mainImage) ? poseAnalysis : null;
+  }
+
+  function getActivePoseAnalysisError() {
+    if (!mainImage || !poseAnalysisError) return null;
+    return poseAnalysisEntryKey === buildPoseVisualAnalysisKey(mainImage) ? poseAnalysisError : null;
   }
 
   function buildPlanPromptSource() {
@@ -412,7 +420,7 @@ export default function PosePage() {
 
     const cachedAnalysis = poseAnalysisCacheRef.current.get(analysisKey);
     if (cachedAnalysis) {
-      setPoseAnalysisEntry(cachedAnalysis);
+      setPoseAnalysisEntry(cachedAnalysis, analysisKey);
       return;
     }
 
@@ -457,9 +465,10 @@ export default function PosePage() {
         const nextEntry = await request;
         poseAnalysisCacheRef.current.set(analysisKey, nextEntry);
         if (poseAnalysisSeqRef.current !== seq) return;
-        setPoseAnalysisEntry(nextEntry);
+        setPoseAnalysisEntry(nextEntry, analysisKey);
       } catch (err: any) {
         if (poseAnalysisSeqRef.current !== seq) return;
+        setPoseAnalysisEntryKey(analysisKey);
         setPoseAnalysis(null);
         setPoseAnalysisSource(null);
         setPoseAnalysisError(err?.message || "主图识别失败，已按默认规则继续");
@@ -481,6 +490,7 @@ export default function PosePage() {
     }
 
     const activeAnalysis = getActivePoseAnalysis();
+    const activeAnalysisError = getActivePoseAnalysisError();
     const planPrompt = buildPlanPromptSource();
     const planKey = buildPosePlanKey(imageUrl, activeAnalysis, poseStyle, outputMode, planPrompt);
     if (lastPosePlanKeyRef.current === planKey) return;
@@ -523,7 +533,7 @@ export default function PosePage() {
       return;
     }
 
-    if (!activeAnalysis && !poseAnalysisError) return;
+    if (!activeAnalysis && !activeAnalysisError) return;
 
     const run = async () => {
       setIsPlanningPose(true);
@@ -600,6 +610,7 @@ export default function PosePage() {
     mainImage,
     poseAnalysis,
     poseAnalysisError,
+    poseAnalysisEntryKey,
     poseAnalysisSource,
     poseStyle,
     posePlanMode,
@@ -743,7 +754,8 @@ export default function PosePage() {
       return;
     }
     const activePoseAnalysis = getActivePoseAnalysis();
-    const poseAnalysisPending = isAnalyzingPose || (!activePoseAnalysis && !poseAnalysisError);
+    const activePoseAnalysisError = getActivePoseAnalysisError();
+    const poseAnalysisPending = isAnalyzingPose || (!activePoseAnalysis && !activePoseAnalysisError);
     if (poseAnalysisPending) {
       toast.info("主图视觉识别中，完成后再生成");
       return;
@@ -985,6 +997,7 @@ export default function PosePage() {
   }
 
   const activePoseAnalysis = getActivePoseAnalysis();
+  const activePoseAnalysisError = getActivePoseAnalysisError();
   const activePosePlan = getActivePosePlan();
   const poseAnalysisSummary = getPoseVisualAnalysisSummary(activePoseAnalysis);
   const poseAnalysisDetails = getPoseVisualAnalysisDetailItems(activePoseAnalysis);
@@ -992,13 +1005,13 @@ export default function PosePage() {
     ? { tone: "loading" as const, text: "识别主图中" }
     : activePoseAnalysis
       ? {
-          tone: poseAnalysisError || poseAnalysisSource === "fallback" || activePoseAnalysis.confidence < 0.45
+          tone: activePoseAnalysisError || poseAnalysisSource === "fallback" || activePoseAnalysis.confidence < 0.45
             ? "warning" as const
             : "success" as const,
           text: `${POSE_ANALYSIS_SOURCE_LABELS[poseAnalysisSource || "vision"]}：${poseAnalysisSummary || "主图已识别"}`,
         }
-      : poseAnalysisError
-        ? { tone: "warning" as const, text: poseAnalysisError }
+      : activePoseAnalysisError
+        ? { tone: "warning" as const, text: activePoseAnalysisError }
         : null;
   const posePlanSummaries = getPosePlanSummary(activePosePlan);
   const posePlanStatus = isPlanningPose
@@ -1393,8 +1406,8 @@ export default function PosePage() {
           costLabel={authIsAnonymous ? "登录后查看积分" : `消耗 ${cost} · 余额 ${credits ?? "-"}`}
           disabled={isSubmitting || Boolean(runDisabledReason)}
           disabledReason={runDisabledReason}
-          primaryLabel={authIsAnonymous ? "登录后生成" : isUploading ? "上传中..." : isPoseAnalysisPending ? "识别主图中..." : isSubmitting ? "提交中..." : isGenerating ? "继续生成" : outputMode === "separate" ? "生成 4 张独立图" : "生成四宫格"}
-          isLoading={isSubmitting || isPoseAnalysisPending}
+          primaryLabel={authIsAnonymous ? "登录后生成" : isUploading ? "上传中..." : isSubmitting ? "提交中..." : isGenerating ? "继续生成" : outputMode === "separate" ? "生成 4 张独立图" : "生成四宫格"}
+          isLoading={isSubmitting}
           onPrimaryAction={() => generate()}
         />
       </div>
