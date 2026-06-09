@@ -541,7 +541,6 @@ export default function CreatePage() {
   const [customModelPreview, setCustomModelPreview] = useState<string | null>(null);
   const [customRefUploads, setCustomRefUploads] = useState<CustomReferenceUpload[]>([]);
   const [isUploadingCustomModel, setIsUploadingCustomModel] = useState(false);
-  const [isDraggingClothing, setIsDraggingClothing] = useState(false);
   const [isDraggingModel, setIsDraggingModel] = useState(false);
   const [isDraggingRef, setIsDraggingRef] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -552,13 +551,6 @@ export default function CreatePage() {
     title: "服装上身",
     defaultExpectedCount: genCount,
     applyPath: "/create",
-  });
-  const clothingDrag = useStableFileDrag<HTMLElement>({
-    isDragging: isDraggingClothing,
-    setDragging: setIsDraggingClothing,
-    stopPropagation: true,
-    fileFilter: isLikelyImageFile,
-    onFiles: (files) => processFiles(files, pendingClothingRole),
   });
   const referenceDrag = useStableFileDrag<HTMLElement>({
     isDragging: isDraggingRef,
@@ -2470,18 +2462,8 @@ export default function CreatePage() {
             title="上传服装"
             description={currentUploadRule.uploadSpecText}
             badge={isUploading ? <Loader2 className="h-3.5 w-3.5 animate-spin text-violet-500" /> : null}
-            {...clothingDrag.dragHandlers}
-            className={`studio-clothing-upload-section studio-stable-upload-boundary relative rounded-xl transition-all ${isDraggingClothing ? "ring-2 ring-[rgba(91,124,255,0.38)] ring-offset-2" : ""}`}
+            className="studio-clothing-upload-section studio-stable-upload-boundary relative rounded-xl transition-all"
           >
-            {/* 拖拽遮罩 */}
-            {isDraggingClothing && (
-              <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl border-2 border-dashed border-[rgba(91,124,255,0.48)] bg-[rgba(91,124,255,0.10)] pointer-events-none">
-                <div className="text-center">
-                  <Upload className="w-8 h-8 mx-auto text-[var(--codex-accent)] mb-1" />
-                  <p className="text-sm font-medium text-[var(--codex-accent)]">松开上传服装</p>
-                </div>
-              </div>
-            )}
             <input
               ref={fileInputRef}
               type="file"
@@ -2536,7 +2518,6 @@ export default function CreatePage() {
                   description="图1会按连衣裙、套装或全身服装处理，建议主体完整、边缘清晰。"
                   imageUrl={singleClothing?.preview}
                   imageAlt="已上传的连体/全身服装"
-                  isDragging={isDraggingClothing}
                   disabled={isUploading}
                   loading={isUploading && uploadingClothingRoles.includes("single")}
                   supportBadge="1张服装图"
@@ -2547,7 +2528,6 @@ export default function CreatePage() {
                   onDropFile={(file) => {
                     if (file) processFiles([file], "single");
                   }}
-                  dragContext={clothingDrag}
                   libraryLabel="从资源库导入"
                   footnote="连体/全身服装建议主体完整、边缘清晰、无遮挡，生成会更稳定。"
                   examples={{
@@ -2572,7 +2552,6 @@ export default function CreatePage() {
                         description={`${TRYON_CLOTHING_ROLE_LABELS[role]}会锁定到对应身体区域，可单独上传也可上下装组合。`}
                         imageUrl={item?.preview}
                         imageAlt={`已上传的${TRYON_CLOTHING_ROLE_LABELS[role]}`}
-                        isDragging={isDraggingClothing}
                         disabled={isUploading}
                         loading={isUploading && uploadingClothingRoles.includes(role)}
                         supportBadge="可单独上传"
@@ -2583,7 +2562,6 @@ export default function CreatePage() {
                         onDropFile={(file) => {
                           if (file) processFiles([file], role);
                         }}
-                        dragContext={clothingDrag}
                         libraryLabel="从资源库导入"
                         footnote="款式图上传无遮挡、无码图；平铺、人台或干净上身图效果更稳。"
                         examples={{
