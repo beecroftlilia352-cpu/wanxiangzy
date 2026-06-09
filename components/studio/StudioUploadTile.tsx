@@ -1,7 +1,7 @@
 "use client";
 
 import { CirclePlus, Eye, FolderOpen, Loader2, Upload, X, ZoomIn } from "lucide-react";
-import { useState, type DragEvent, type ReactNode } from "react";
+import { useRef, useState, type DragEvent, type ReactNode } from "react";
 import { getImageVariantUrl } from "@/lib/image-variants";
 import type { StableFileDragContext } from "@/components/studio/useStableFileDrag";
 
@@ -70,26 +70,55 @@ export function StudioUploadTile({
   const activate = imageUrl && onPreview ? onPreview : onUploadClick;
   const hasExamples = Boolean(examples?.images.length);
   const [examplesHidden, setExamplesHidden] = useState(false);
+  const [isFileOver, setIsFileOver] = useState(false);
+  const dragDepthRef = useRef(0);
   const exampleLabel = examples?.label || "试一试";
+  const tileDragging = isDragging || isFileOver;
+
+  const finishTileDrag = () => {
+    dragDepthRef.current = 0;
+    setIsFileOver(false);
+    dragContext?.finishDragging();
+  };
 
   return (
     <div
-      className={`studio-upload-tile ${isDragging ? "studio-upload-tile-dragging" : ""}`}
+      className={`studio-upload-tile ${tileDragging ? "studio-upload-tile-dragging" : ""}`}
       aria-busy={loading ? "true" : undefined}
       onDragEnter={onDropFile ? (event) => {
-        if (hasFileDrag(event)) event.preventDefault();
+        if (!hasFileDrag(event)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        if (disabled || loading) return;
+        dragDepthRef.current += 1;
+        setIsFileOver(true);
+        event.dataTransfer.dropEffect = "copy";
+      } : undefined}
+      onDragLeave={onDropFile ? (event) => {
+        if (!hasFileDrag(event)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        if (disabled || loading) return;
+        dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+        if (dragDepthRef.current === 0) setIsFileOver(false);
       } : undefined}
       onDragOver={onDropFile ? (event) => {
         if (!hasFileDrag(event)) return;
         event.preventDefault();
+        event.stopPropagation();
         event.dataTransfer.dropEffect = "copy";
+        if (!disabled && !loading) setIsFileOver(true);
       } : undefined}
       onDrop={onDropFile ? (event) => {
         if (!hasFileDrag(event)) return;
         event.preventDefault();
         event.stopPropagation();
-        dragContext?.finishDragging();
+        finishTileDrag();
         if (!disabled && !loading) onDropFile(event.dataTransfer.files?.[0]);
+      } : undefined}
+      onDragEnd={onDropFile ? (event) => {
+        event.stopPropagation();
+        finishTileDrag();
       } : undefined}
     >
       <div className="studio-upload-tile-panel">
