@@ -49,6 +49,7 @@ describe("try-on prompt face integration", () => {
     expect(prompt).toContain("图2参考图只作为自然表情、肤色、妆容");
     expect(prompt).toContain("图2参考图原来的眼睛、鼻子、嘴巴和脸型不能保留为最终身份特征");
     expect(prompt).toContain("图2参考图的表情状态要作为完整表演依据");
+    expect(prompt).toContain("轻微人脸微调");
     expect(prompt).toContain("自然融合只允许调整表情肌肉、视线、肤色重打光、妆容匹配、毛孔、阴影和边缘融合");
     expect(prompt).toContain("不要为了自然而改动图3模特脸图的脸型轮廓、眼睛形状、眼距、眉形、鼻子结构、嘴部结构、五官比例或身份相似度");
     expect(prompt).toContain("最终脸必须一眼看出来自图3模特脸图本人");
@@ -123,6 +124,7 @@ describe("try-on prompt face integration", () => {
     expect(prompt).toContain("do not copy its original expression style, expression intensity, skin tone, makeup");
     expect(prompt).toContain("image 3 controls final facial identity and feature proportions");
     expect(prompt).toContain("it must not control final facial identity");
+    expect(prompt).toContain("subtle human micro-adjustments");
     expect(prompt).toContain("Limit adaptation to expression muscles, gaze, skin relighting, makeup matching, pores, shadows, and edge blending");
     expect(prompt).toContain("do not alter image 3's face outline, eye shape, eye spacing, brow shape, nose structure, mouth anatomy, feature proportions, or recognizable likeness");
     expect(prompt).not.toContain("facial expression exactly");
