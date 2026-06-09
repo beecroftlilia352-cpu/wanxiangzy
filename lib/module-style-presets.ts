@@ -149,7 +149,7 @@ export const POSE_SERIES_STYLES: StylePreset<PoseSeriesStyle>[] = [
     swatches: ["#f8fafc", "#dbeafe", "#a78bfa"],
     imageUrl: STYLE_REFERENCE_IMAGES.sourceContinuity,
     prompt:
-      "沿用图1原始场景氛围、背景色调、光线方向和商业摄影质感，主要做姿势与轻微自然表情变化，镜头和构图由 AI 按原图气质自然发挥。",
+      "原图延展只做姿势扩展：严格沿用图1原始背景、曝光、白平衡、色温、肤色、服装固有色、面料表面、光线方向和相机质感；主要变化姿势与轻微自然表情。不要美化、清透化、重新调色、提亮、锐化、增强质感、净化背景或套用新的商业摄影风格。",
   },
   {
     value: "luxury_white_studio",

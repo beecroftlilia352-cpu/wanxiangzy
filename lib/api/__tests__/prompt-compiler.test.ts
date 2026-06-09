@@ -114,7 +114,7 @@ describe("compileImagePromptForModel", () => {
 
     expect(result.startsWith("Use the source image only")).toBe(true);
     expect(result).toContain("same gender expression");
-    expect(result).toContain("Generate one standalone premium fashion editorial photo.");
+    expect(result).toContain("Generate one standalone source-matched pose variation photo");
     expect(result).toContain("Image quality:");
     expect(result).toContain("source-matched natural camera photo");
     expect(result).toContain("no extra sharpening");
@@ -125,7 +125,7 @@ describe("compileImagePromptForModel", () => {
     expect(result).toContain("Target pose:");
     expect(result).toContain("Strong three-quarter or side-angle outfit read");
     expect(result).toContain("Camera:");
-    expect(result).toContain("Full-body or 7/8-body three-quarter fashion framing");
+    expect(result).toContain("Full-body or 7/8-body source-matched three-quarter framing");
     expect(result).toContain("Expression:");
     expect(result).toContain("Soft slight smile");
     expect(result).toContain("Negative:");
@@ -151,8 +151,8 @@ describe("compileImagePromptForModel", () => {
     expect(result).toContain("Target pose:");
     expect(result).toContain("Stationary confident shape pose");
     expect(result).toContain("Emphasize natural body structure");
-    expect(result).toContain("Full-body or 7/8-body premium editorial framing");
-    expect(result).toContain("Confident editorial gaze");
+    expect(result).toContain("Full-body or 7/8-body source-matched outfit framing");
+    expect(result).toContain("Confident natural gaze");
     expect(result).not.toContain("HARD TARGET POSE SLOT");
     expect(result).not.toContain("图像质量：");
     expect(result.length).toBeLessThanOrEqual(2400);
@@ -160,7 +160,7 @@ describe("compileImagePromptForModel", () => {
 
   it("preserves each separate pose target in the final compiled prompt", () => {
     const slotAssertions = [
-      { slot: 1, keywords: ["Target pose:", "front-view", "front silhouette", "Clean full-body product/editorial framing"] },
+      { slot: 1, keywords: ["Target pose:", "front-view", "front silhouette", "Source-matched full-body product-readable framing"] },
       { slot: 2, keywords: ["Target pose:", "side-angle", "side silhouette", "Full-body or 7/8-body"] },
       { slot: 3, keywords: ["Target pose:", "stationary", "not walking", "waistline"] },
       { slot: 4, keywords: ["Target pose:", "light movement", "aligned turning", "same natural direction", "natural fabric drape"] },

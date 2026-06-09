@@ -97,7 +97,7 @@ describe("pose prompt handling", () => {
 
     expect(slot2.startsWith("Use the source image only")).toBe(true);
     expect(slot2).toContain("same gender expression");
-    expect(slot2).toContain("Generate one standalone premium fashion editorial photo.");
+    expect(slot2).toContain("Generate one standalone source-matched pose variation photo");
     expect(slot2).toContain("Image quality:");
     expect(slot2).toContain("source-matched natural camera photo");
     expect(slot2).toContain("no extra sharpening");
@@ -109,7 +109,7 @@ describe("pose prompt handling", () => {
     expect(slot2).toContain("Strong three-quarter or side-angle outfit read");
     expect(slot2).toContain("The body must clearly read as side or three-quarter view");
     expect(slot2).toContain("Camera:");
-    expect(slot2).toContain("Full-body or 7/8-body three-quarter fashion framing");
+    expect(slot2).toContain("Full-body or 7/8-body source-matched three-quarter framing");
     expect(slot2).toContain("Expression:");
     expect(slot2).toContain("Soft slight smile");
     expect(slot2).toContain("Negative:");
@@ -149,8 +149,8 @@ describe("pose prompt handling", () => {
     expect(prompt).toContain("Fashion editorial.");
     expect(prompt).toContain("Use stronger styling attitude");
     expect(prompt).toContain("Stationary confident shape pose");
-    expect(prompt).toContain("Full-body or 7/8-body premium editorial framing");
-    expect(prompt).toContain("Confident editorial gaze");
+    expect(prompt).toContain("Full-body or 7/8-body source-matched outfit framing");
+    expect(prompt).toContain("Confident natural gaze");
   });
 
   it("keeps separate execution prompts short even when the source prompt is noisy", () => {
