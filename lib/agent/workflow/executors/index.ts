@@ -7,7 +7,7 @@ import {
   normalizeCommerceDetailLayout,
   resolveCommerceDetailAspectRatio,
 } from "@/lib/commerce-detail-sections";
-import { buildFaceSwapPrompt, DEFAULT_FACE_SWAP_TEXTURE_ENHANCE, enforceFaceSwapPromptRequirements } from "@/lib/face-swap";
+import { buildFaceSwapPrompt, enforceFaceSwapPromptRequirements, normalizeFaceSwapTextureEnhance } from "@/lib/face-swap";
 import type {
   StepExecutionInput,
   StepExecutionResult,
@@ -185,9 +185,9 @@ async function executeFaceSwap(input: StepExecutionInput): Promise<StepExecution
   }
 
   const count = normalizeCount(input.step.params.count || input.step.params.genCount || 1);
-  const textureEnhance = input.step.params.textureEnhance === false || input.step.params.texture_enhance === false
-    ? false
-    : DEFAULT_FACE_SWAP_TEXTURE_ENHANCE;
+  const textureEnhance = normalizeFaceSwapTextureEnhance(
+    input.step.params.textureEnhance ?? input.step.params.texture_enhance
+  );
   const prompt = enforceFaceSwapPromptRequirements(
     buildFaceSwapPrompt(String(input.step.params.prompt || input.workflow.summary || ""), textureEnhance)
   );

@@ -35,6 +35,7 @@ import {
   DEFAULT_FACE_SWAP_TEXTURE_ENHANCE,
   getFaceSwapUserPromptFromPayload,
   normalizeFaceSwapCount,
+  normalizeFaceSwapTextureEnhance,
 } from "@/lib/face-swap";
 import {
   getCreditCost,
@@ -176,7 +177,7 @@ export default function FaceSwapPage() {
       setImageSize(payload.imageSize);
       setPrompt(getFaceSwapUserPromptFromPayload(payload));
       setGenCount(normalizeFaceSwapCount(payload.genCount));
-      setTextureEnhance(payload.textureEnhance === false ? false : DEFAULT_FACE_SWAP_TEXTURE_ENHANCE);
+      setTextureEnhance(normalizeFaceSwapTextureEnhance(payload.textureEnhance));
       setActiveQueueTask(null);
       setResultUrls(detail.resultUrls);
       setProgress(detail.resultUrls.length ? 100 : 0);
@@ -219,7 +220,7 @@ export default function FaceSwapPage() {
     setImageSize(payload.imageSize);
     setPrompt(getFaceSwapUserPromptFromPayload(payload));
     setGenCount(normalizeFaceSwapCount(payload.genCount));
-    setTextureEnhance(payload.textureEnhance === false ? false : DEFAULT_FACE_SWAP_TEXTURE_ENHANCE);
+    setTextureEnhance(normalizeFaceSwapTextureEnhance(payload.textureEnhance));
     setActiveQueueTask(null);
     setResultUrls(historyResultUrls);
     setProgress(historyResultUrls.length ? 100 : 0);
@@ -679,16 +680,16 @@ export default function FaceSwapPage() {
           </section>
 
           <section>
-            <PanelTitle title="质感增强" />
+            <PanelTitle title="细节恢复" />
             <button
               type="button"
               onClick={() => setTextureEnhance((value) => !value)}
               className={`flex w-full items-center justify-between rounded-2xl border p-3 text-left transition-all ${textureEnhance ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-neutral-200 bg-white text-neutral-700 hover:border-neutral-300"}`}
             >
               <span>
-                <span className="block text-sm font-black">服装质感增强</span>
+                <span className="block text-sm font-black">轻量细节恢复</span>
                 <span className="mt-1 block text-xs leading-relaxed text-slate-500">
-                  默认开启；会做全图商业精修，明显强化布料纤维、褶皱、缝线、印花锐度和光影层次，同时不磨皮、不改表情、不移除眼镜配饰。
+                  默认关闭；仅在布料细节明显糊时开启。开启后只做服装局部细节恢复，不改原图曝光、对比度、白平衡，不强化细密条纹或裤纹。
                 </span>
               </span>
               <span className={`ml-3 flex h-7 w-12 shrink-0 items-center rounded-full p-1 transition ${textureEnhance ? "bg-emerald-600" : "bg-neutral-200"}`}>

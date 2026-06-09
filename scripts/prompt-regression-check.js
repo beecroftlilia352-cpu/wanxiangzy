@@ -146,20 +146,25 @@ const multiTryOn = lingya.buildTryOnPrompt({
   hasModelFace: true,
   hasReference: true,
 }).prompt;
-assertIncludes(multiTryOn, "Use image 3 as the base try-on photo. Perform a realistic fashion edit, not a full photo regeneration.", "多件固定底图规则");
+assertIncludes(multiTryOn, "Use image 3 as the body/composition/lighting base try-on photo, but replace its facial identity with image 4.", "多件固定底图规则");
 assertIncludes(multiTryOn, "- image 1 = upper-body clothing source only.", "多件角色锁定");
 assertIncludes(multiTryOn, "- image 2 = lower-body clothing source only.", "多件角色锁定");
-assertIncludes(multiTryOn, "- image 3 = target expression and try-on reference: natural facial expression direction and strength", "多件角色锁定");
-assertIncludes(multiTryOn, "- image 4 = mandatory face identity reference only", "多件角色锁定");
-assertIncludes(multiTryOn, "do not copy its original expression, smile intensity, skin tone, makeup", "多件模特脸不提供表情");
+assertIncludes(multiTryOn, "- image 3 = target expression and try-on reference: visible expression category", "多件角色锁定");
+assertIncludes(multiTryOn, "- image 4 = mandatory final face identity reference only", "多件角色锁定");
+assertIncludes(multiTryOn, "Face identity lock - HARD:", "多件脸部身份锁");
+assertIncludes(multiTryOn, "image 4 is the final person identity", "多件脸部身份锁");
+assertIncludes(multiTryOn, "image 3's face is only an expression, head-pose, skin-tone, makeup, lighting, and scale carrier", "多件脸部身份锁");
+assertIncludes(multiTryOn, "A result that still looks like image 3's original face is invalid", "多件脸部身份锁");
+assertIncludes(multiTryOn, "do not copy its original expression style, expression intensity, skin tone, makeup", "多件模特脸不提供表情");
 assertIncludes(multiTryOn, "Edit image 3 into a believable try-on photo.", "多件本地编辑规则");
 assertIncludes(multiTryOn, "Replace only the sourced upper- and lower-body clothing on the person in image 3 with the garments from image 1 and image 2.", "多件替换规则");
 assertIncludes(multiTryOn, "Expression transfer:", "多件表情迁移");
 assertIncludes(multiTryOn, "image 3 is the expression performance source", "多件参考图表情来源");
 assertIncludes(multiTryOn, "image 4 is not an expression source", "多件模特脸非表情来源");
-assertIncludes(multiTryOn, "use image 3's smile strength as the guide, not image 4's original smile", "多件参考图笑容强度");
-assertIncludes(multiTryOn, "real person naturally making image 3's expression", "多件禁止复制模特脸固定表情");
-assertIncludes(multiTryOn, "Reconstruct the final face using image 4's recognizable identity and facial feature proportions", "多件脸部身份替换规则");
+assertIncludes(multiTryOn, "visible expression category, intensity, emotional direction", "多件参考图整体表情状态");
+assertIncludes(multiTryOn, "one coherent performance", "多件参考图整体表情状态");
+assertIncludes(multiTryOn, "not flatten or remove a natural expression that is visibly present in image 3", "多件禁止压平参考图表情");
+assertIncludes(multiTryOn, "Reconstruct the final face from image 4's recognizable identity", "多件脸部身份替换规则");
 assertIncludes(multiTryOn, "Every generated candidate must use image 4's identity.", "多件脸部身份替换规则");
 assertIncludes(multiTryOn, "Keep natural adult proportions for the body parts visible in image 3", "多件可见身体比例规则");
 assertIncludes(multiTryOn, "preserve its detected body scale, crop boundary, and camera distance", "多件参考图构图锁定规则");
@@ -169,12 +174,15 @@ assertIncludes(multiTryOn, "If image 1 contains only one garment, do not invent 
 assertIncludes(multiTryOn, "If image 2 contains only one garment, do not invent extra lower-body garments.", "多件下装不发散规则");
 assertIncludes(multiTryOn, "This is identity reconstruction, not a hard face swap.", "多件模特脸规则");
 assertIncludes(multiTryOn, "Use image 4 only for recognizable facial identity", "多件模特脸规则");
-assertIncludes(multiTryOn, "Do not copy image 4's expression, smile intensity, skin tone, makeup, lighting, pose, body, head size, or background.", "多件模特脸排除规则");
+assertIncludes(multiTryOn, "Do not copy image 4's original expression style, expression intensity, skin tone, makeup, lighting, pose, body, head size, or background.", "多件模特脸排除规则");
 assertIncludes(multiTryOn, "The final face must be recognizable as image 4's person but naturally integrated", "多件模特脸强制生效规则");
 assertIncludes(multiTryOn, "Adapt image 4's identity to image 3's natural expression performance", "多件表情适配");
+assertIncludes(multiTryOn, "Limit adaptation to expression muscles, gaze, skin relighting, makeup matching, pores, shadows, and edge blending", "多件自然融合边界");
+assertIncludes(multiTryOn, "do not alter image 4's face outline, eye shape, eye spacing, brow shape, nose structure, mouth anatomy, feature proportions, or recognizable likeness", "多件禁止改身份结构");
 assertIncludes(multiTryOn, "Match image 3's visible skin tone", "多件肤色光影融合");
-assertIncludes(multiTryOn, "1. image 3 controls the final face's natural expression direction and strength", "多件优先级规则");
-assertIncludes(multiTryOn, "3. image 4 controls final facial identity and feature proportions where a face is visible in the target crop; it must not force its own original expression", "多件优先级规则");
+assertIncludes(multiTryOn, "1. image 4 controls final facial identity and feature proportions where a face is visible in the target crop", "多件优先级规则");
+assertIncludes(multiTryOn, "3. image 3 controls the final face's natural expression direction and strength", "多件优先级规则");
+assertIncludes(multiTryOn, "it must not control final facial identity", "多件优先级规则");
 assertIncludes(multiTryOn, "The identity change to image 4 is mandatory in every output.", "多件身份强制规则");
 assertNotIncludes(multiTryOn, "image 3 = target try-on reference: visible body range, crop boundary, pose family, visible expression/skin/makeup when present", "有脸参考图不能弱化表情");
 assertNotIncludes(multiTryOn, "facial expression exactly", "多件不能回到表情几何硬锁");
@@ -261,7 +269,7 @@ const gptCompiled = compiler.compileImagePromptForModel({
   model: "gpt-image-2",
   prompt: multiTryOn,
 });
-assertIncludes(gptCompiled, "Use image 3 as the base try-on photo. Perform a realistic fashion edit, not a full photo regeneration.", "gpt-image-2 精简直出");
+assertIncludes(gptCompiled, "Use image 3 as the body/composition/lighting base try-on photo, but replace its facial identity with image 4.", "gpt-image-2 精简直出");
 assertNotIncludes(gptCompiled, "GPT-Image-2 执行提示", "gpt-image-2 临时极简直出");
 assertNotIncludes(gptCompiled, "服装图角色隔离规则", "gpt-image-2 临时极简直出");
 assertNotIncludes(gptCompiled, "输入顺序规则", "gpt-image-2 不再重排图片");

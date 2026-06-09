@@ -17,10 +17,10 @@ import { getPublicBaseUrlFromRequest } from "@/lib/api/image-inputs.server";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 import {
   buildFaceSwapPrompt,
-  DEFAULT_FACE_SWAP_TEXTURE_ENHANCE,
   enforceFaceSwapPromptRequirements,
   getFaceSwapUserPromptFromPayload,
   normalizeFaceSwapCount,
+  normalizeFaceSwapTextureEnhance,
 } from "@/lib/face-swap";
 
 export const maxDuration = 60;
@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
     const aspectRatio: AspectRatio = normalizeAspectRatio(body.aspect_ratio, "auto");
     const imageSize: ImageSize = normalizeImageSize(model, body.image_size as ImageSize | undefined, aspectRatio);
     const genCount = normalizeFaceSwapCount(body.gen_count);
-    const textureEnhance = body.texture_enhance === false ? false : DEFAULT_FACE_SWAP_TEXTURE_ENHANCE;
+    const textureEnhance = normalizeFaceSwapTextureEnhance(body.texture_enhance);
     const userPrompt = typeof body.prompt === "string" ? body.prompt.trim() : "";
     const prompt = enforceFaceSwapPromptRequirements(buildFaceSwapPrompt(
       userPrompt,

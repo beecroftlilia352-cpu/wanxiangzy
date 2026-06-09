@@ -99,8 +99,11 @@ describe("pose prompt handling", () => {
     expect(slot2).toContain("same gender expression");
     expect(slot2).toContain("Generate one standalone premium fashion editorial photo.");
     expect(slot2).toContain("Image quality:");
-    expect(slot2).toContain("8K");
-    expect(slot2).toContain("RAW photo quality");
+    expect(slot2).toContain("source-matched natural camera photo");
+    expect(slot2).toContain("no extra sharpening");
+    expect(slot2).toContain("no moire");
+    expect(slot2).not.toContain("8K");
+    expect(slot2).not.toContain("RAW photo quality");
     expect(slot2).toContain("Keep the outfit readable");
     expect(slot2).toContain("Target pose:");
     expect(slot2).toContain("Strong three-quarter or side-angle outfit read");
@@ -109,7 +112,6 @@ describe("pose prompt handling", () => {
     expect(slot2).toContain("Full-body or 7/8-body three-quarter fashion framing");
     expect(slot2).toContain("Expression:");
     expect(slot2).toContain("Soft slight smile");
-    expect(slot2).toContain("Keep:");
     expect(slot2).toContain("Negative:");
     expect(slot2).not.toContain("Shot:");
     expect(slot2).not.toContain("avoid close-up");
@@ -202,10 +204,15 @@ describe("pose prompt handling", () => {
     expect(enforced).toContain("服装产品保真规则");
     expect(enforced).toContain("受保护的商品资产");
     expect(enforced).toContain("不重新设计布料");
-    expect(enforced).toContain("neutral commercial color management");
+    expect(enforced).toContain("neutral source color management");
+    expect(enforced).toContain("细密纹理安全规则");
+    expect(enforced).toContain("摩尔纹");
     expect(enforced).not.toContain("cinematic color grade");
     expect(separate).toContain("Product fidelity");
     expect(separate).toContain("outfit is protected");
+    expect(separate).toContain("Fine textile safety");
+    expect(separate).not.toContain("8K");
+    expect(separate).not.toContain("RAW photo quality");
     expect(separate).not.toContain("dirty fabric");
   });
 

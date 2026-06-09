@@ -24,6 +24,8 @@ describe("grass scene background control", () => {
     });
 
     expect(prompt).toContain("同风格、同氛围、同拍摄语言的相似场景");
+    expect(prompt).toContain("保留图2的滤镜观感");
+    expect(prompt).toContain("明暗反差");
     expect(prompt).toContain("不要一比一复刻图2背景");
     expect(prompt).toContain("不要复刻图2的具体地点");
     expect(prompt).toContain("可识别版权元素");
@@ -57,7 +59,12 @@ describe("grass scene background control", () => {
     expect(prompt).toContain("服装产品保真");
     expect(prompt).toContain("图1服装按商品资产处理");
     expect(prompt).toContain("场景氛围、滤镜和社媒风格不能重绘服装材质");
+    expect(prompt).toContain("源图主体保真");
+    expect(prompt).toContain("曝光反差");
+    expect(prompt).toContain("细密纹理安全");
     expect(prompt).toContain("true-to-source garment rendering");
+    expect(prompt).not.toContain("8K ultra-detailed");
+    expect(prompt).not.toContain("RAW photo quality");
     expect(prompt).not.toContain("realistic fabric texture");
     expect(prompt).not.toContain("clean color grading");
   });

@@ -18,17 +18,30 @@ const KIND_HEADERS: Record<ImagePromptKind, string> = {
   garment3d:
     "核心任务：把图1服装转换为无真人、无头脸手的 3D 立体商品展示图，只增加体积和棚拍质感，不改变款式颜色细节。",
   faceSwap:
-    "核心任务：AI 换脸。图1是原始模特/主体画面，图2只提供面部五官身份；只替换五官，不改变图1肤色、发型、身体、服装款式、背景、光线和构图；如启用服装质感增强，只提升图1服装材质纹理、缝线褶皱、印花/logo边缘和商业画质。",
+    "核心任务：AI 换脸。图1是原始模特/主体画面，图2只提供面部五官身份；只替换五官，不改变图1肤色、发型、身体、服装款式、背景、光线、曝光、对比度和构图；如启用细节恢复，只允许轻量恢复图1服装已有细节。",
   commerceDetail:
     "Core task: generate one independent e-commerce detail-page section/module, not a complete detail page. The section must be mobile-first, readable, spacious, and structurally different from other sections.",
   productSet:
     "核心任务：生成一张独立商品套图素材。商品图是唯一商品硬参考；样式参考只提供版式和氛围；不要生成整套拼图、网页截图或编辑器界面。",
 };
 
-const QUALITY_LINE =
-  "图像质量：photorealistic, 8K ultra-detailed, sharp details, commercial photography quality, RAW photo quality.";
+const SOURCE_MATCHED_QUALITY_LINE =
+  "图像质量：photorealistic source-matched edit, faithful source exposure and contrast, natural camera texture, no extra sharpening, no HDR, no heavy filter.";
+const REFERENCE_MATCHED_QUALITY_LINE =
+  "图像质量：photorealistic reference-matched edit, natural filter mood and exposure contrast, true-to-source garment rendering, natural camera texture, no extra sharpening, no HDR.";
 const DEFAULT_DETAIL_QUALITY_LINE =
   "图像质量：photorealistic, 8K ultra-detailed, sharp details, commercial photography quality, raw photo quality.";
+const SOURCE_TONE_MATCH_RULE =
+  "原图影调保真：保持图1/源图的原始曝光、对比度、白平衡、色温、肤色、阴影层次、颗粒/噪点和相机质感；除必要局部融合外，不要整体重调色、HDR、clarity/局部反差增强、额外锐化、超分纹理或商业精修滤镜。";
+const REFERENCE_FUSION_TONE_RULE =
+  "参考融合影调：种草/换背景可按参考图滤镜观感、曝光反差、背景对比度和新场景光线做自然融合匹配；图1服装的固有色、图案/logo、材质表面和商品结构不能被重绘，且不要 HDR、clarity/局部反差增强、额外锐化、超分纹理或商业精修滤镜。";
+const SOURCE_TEXTURE_SAFETY_RULE =
+  "细密纹理安全：细条纹、罗纹、针织、裤纹、网纱、格纹和重复图案只按原图可见尺度自然保留；不要增强成摩尔纹、波纹、水波纹、频闪条纹、振荡线、假纤维或不存在的面料纹理。";
+const SEPARATE_POSE_QUALITY_LINE =
+  "Image quality: source-matched natural camera photo; keep original exposure, contrast, white balance, tone, grain/noise; no HDR, no extra sharpening, no clarity boost, no moire or wavy fabric artifacts.";
+const SOURCE_MATCHED_KINDS = new Set<ImagePromptKind>(["grass", "modelBackground", "materialEnhancement", "pose", "faceSwap"]);
+const REFERENCE_MATCHED_KINDS = new Set<ImagePromptKind>(["grass", "modelBackground"]);
+const OBSOLETE_QUALITY_SANITIZED_KINDS = new Set<ImagePromptKind>(["tryon", ...SOURCE_MATCHED_KINDS]);
 
 const IMPORTANT_PATTERNS = [
   /图像角色|图\d|核心任务|任务|必须|严格|最重要|参考图|服装图|服装图角色隔离|只提供衣服|真人上身|模特脸|发型参考|发色参考/,
@@ -123,7 +136,10 @@ export function compileImagePromptForModel(params: {
   model: LingyaModel;
   prompt: string;
 }) {
-  const normalized = normalizePrompt(params.prompt);
+  const normalized = sanitizeSourceImagePrompt(
+    params.kind,
+    appendSourceImageSafetyGuards(params.kind, normalizePrompt(params.prompt))
+  );
   if (!params.kind) return normalized;
   if (params.kind === "tryon") return normalized;
 
@@ -166,7 +182,56 @@ function compileConcisePrompt(kind: ImagePromptKind, prompt: string, maxChars: n
 
 function getQualityLine(kind: ImagePromptKind) {
   if (kind === "commerceDetail" || kind === "productSet") return DEFAULT_DETAIL_QUALITY_LINE;
-  return QUALITY_LINE;
+  if (REFERENCE_MATCHED_KINDS.has(kind)) return REFERENCE_MATCHED_QUALITY_LINE;
+  return SOURCE_MATCHED_KINDS.has(kind) ? SOURCE_MATCHED_QUALITY_LINE : DEFAULT_DETAIL_QUALITY_LINE;
+}
+
+function getSourceImageSafetyLines(kind: ImagePromptKind) {
+  if (REFERENCE_MATCHED_KINDS.has(kind)) return [REFERENCE_FUSION_TONE_RULE, SOURCE_TEXTURE_SAFETY_RULE];
+  return SOURCE_MATCHED_KINDS.has(kind) ? [SOURCE_TONE_MATCH_RULE, SOURCE_TEXTURE_SAFETY_RULE] : [];
+}
+
+function appendSourceImageSafetyGuards(kind: ImagePromptKind | undefined, prompt: string) {
+  if (!kind || !SOURCE_MATCHED_KINDS.has(kind)) return prompt;
+  if (REFERENCE_MATCHED_KINDS.has(kind)) {
+    const missing = [
+      !/参考融合影调|源图主体保真|reference-matched|filter mood|exposure contrast/i.test(prompt) ? REFERENCE_FUSION_TONE_RULE : "",
+      !/细密纹理安全|摩尔纹|moire/i.test(prompt) ? SOURCE_TEXTURE_SAFETY_RULE : "",
+    ].filter(Boolean);
+    return missing.length ? `${prompt}\n${missing.join("\n")}` : prompt;
+  }
+  const missing = [
+    !/原图影调保真|source exposure|source-matched/i.test(prompt) ? SOURCE_TONE_MATCH_RULE : "",
+    !/细密纹理安全|摩尔纹|moire/i.test(prompt) ? SOURCE_TEXTURE_SAFETY_RULE : "",
+  ].filter(Boolean);
+  return missing.length ? `${prompt}\n${missing.join("\n")}` : prompt;
+}
+
+function sanitizeSourceImagePrompt(kind: ImagePromptKind | undefined, prompt: string) {
+  if (!kind || !OBSOLETE_QUALITY_SANITIZED_KINDS.has(kind)) return prompt;
+  return prompt
+    .split("\n")
+    .map(sanitizeObsoleteQualityTerms)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .join("\n")
+    .trim();
+}
+
+function sanitizeObsoleteQualityTerms(line: string) {
+  return line
+    .replace(/,?\s*8K\s+ultra-detailed\.?/gi, "")
+    .replace(/,?\s*RAW\s+photo\s+quality\.?/gi, "")
+    .replace(/,?\s*raw\s+photo\s+quality\.?/g, "")
+    .replace(/,?\s*sharp\s+details\.?/gi, "")
+    .replace(/,?\s*high-frequency\s+garment\s+texture\.?/gi, "")
+    .replace(/,?\s*natural\s+micro-contrast\.?/gi, "")
+    .replace(/\s+,/g, ",")
+    .replace(/,\s*,+/g, ",")
+    .replace(/:\s*,\s*/g, ": ")
+    .replace(/：\s*,\s*/g, "：")
+    .replace(/,\s*\./g, ".")
+    .trim();
 }
 
 function compileSeparatePosePrompt(prompt: string, maxChars: number) {
@@ -189,7 +254,7 @@ function compileSeparatePosePrompt(prompt: string, maxChars: number) {
   const referenceLine = findFirstLine(lines, /^Keep:/i) || findFirstLine(lines, /^Reference only:/i) || findFirstLine(lines, /^Reference lock:/i)
     || "Keep: same person, face, outfit, background, lighting, skin tone and realistic body proportions.";
   const qualityLine = findFirstLine(lines, /^(?:Image quality|图像质量)[:：]/i)
-    || "Image quality: 8K, RAW photo quality.";
+    || SEPARATE_POSE_QUALITY_LINE;
   const negativeLine = findFirstLine(lines, /^Negative:/i)
     || "Negative: no outfit change, no face change, no extra person, no text, no grid/collage, no distorted hands or limbs.";
   const selected = dedupeLines([
@@ -201,6 +266,7 @@ function compileSeparatePosePrompt(prompt: string, maxChars: number) {
     ...lines.filter((line) => /^Style:/i.test(line)),
     ...lines.filter((line) => /^补充要求[：:]/.test(line)),
     qualityLine,
+    ...getSourceImageSafetyLines("pose"),
     negativeLine,
   ]);
   const compiled = limitPrompt(selected.join("\n"), maxChars);

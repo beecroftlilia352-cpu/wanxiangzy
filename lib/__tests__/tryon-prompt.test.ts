@@ -21,6 +21,21 @@ describe("try-on prompt face integration", () => {
     confidence: 0.95,
   };
 
+  it("uses source-safe try-on quality without 8K or RAW sharpening terms", () => {
+    const prompt = enforceTryOnPromptRequirements(
+      "图像角色：图1是服装图，图2是参考图。任务：给图2人物换上图1服装。",
+      ["图1", "图2"],
+      { hasReference: true, referenceImageNumber: 2 }
+    );
+
+    expect(prompt).toContain("图像质量：");
+    expect(prompt).toContain("photorealistic natural camera photo");
+    expect(prompt).toContain("no extra sharpening");
+    expect(prompt).toContain("no moire");
+    expect(prompt).not.toContain("8K ultra-detailed");
+    expect(prompt).not.toContain("RAW photo quality");
+  });
+
   it("uses the scene reference for head scale, lighting, and skin continuity when a model face is present", () => {
     const prompt = buildTryOnFacePrompt({
       hasReference: true,
@@ -33,17 +48,19 @@ describe("try-on prompt face integration", () => {
     expect(prompt).toContain("五官大小比例");
     expect(prompt).toContain("图2参考图只作为自然表情、肤色、妆容");
     expect(prompt).toContain("图2参考图原来的眼睛、鼻子、嘴巴和脸型不能保留为最终身份特征");
-    expect(prompt).toContain("图2参考图的表情线索要作为自然表演依据");
+    expect(prompt).toContain("图2参考图的表情状态要作为完整表演依据");
+    expect(prompt).toContain("自然融合只允许调整表情肌肉、视线、肤色重打光、妆容匹配、毛孔、阴影和边缘融合");
+    expect(prompt).toContain("不要为了自然而改动图3模特脸图的脸型轮廓、眼睛形状、眼距、眉形、鼻子结构、嘴部结构、五官比例或身份相似度");
     expect(prompt).toContain("最终脸必须一眼看出来自图3模特脸图本人");
     expect(prompt).toContain("如果不像图3模特脸图，即使服装、姿势或表情正确也算失败");
-    expect(prompt).toContain("让图3模特脸图这个人自然做出图2参考图的表情状态");
+    expect(prompt).toContain("不能因此压平、移除或重设计图2参考图中真实存在的自然表情");
     expect(prompt).toContain("按图2参考图的肤色、妆容和场景光线重新打光");
     expect(prompt).toContain("图3模特脸图只在身份/相似度/五官结构上优先");
     expect(prompt).toContain("图2参考图在自然表情/肤色/妆容/姿态/比例/光影上优先");
     expect(prompt).toContain("不要证件照式正脸");
     expect(prompt).toContain("贴上去的头");
-    expect(prompt).toContain("假笑模板脸");
-    expect(prompt).toContain("复制图3模特脸图笑容");
+    expect(prompt).toContain("模板表情脸");
+    expect(prompt).toContain("复制图3模特脸图原表情");
     expect(prompt).toContain("复制图3模特脸图肤色");
     expect(prompt).toContain("复制图3模特脸图妆容");
   });
@@ -91,16 +108,23 @@ describe("try-on prompt face integration", () => {
     });
 
     expect(prompt).toContain("Expression transfer:");
+    expect(prompt).toContain("Use image 2 as the body/composition/lighting base try-on photo, but replace its facial identity with image 3");
+    expect(prompt).toContain("Face identity lock - HARD:");
+    expect(prompt).toContain("image 3 is the final person identity");
+    expect(prompt).toContain("image 2's face is only an expression, head-pose, skin-tone, makeup, lighting, and scale carrier");
+    expect(prompt).toContain("A result that still looks like image 2's original face is invalid");
     expect(prompt).toContain("image 2 is the expression performance source");
     expect(prompt).toContain("image 3 is not an expression source");
-    expect(prompt).toContain("use image 2's smile strength as the guide, not image 3's original smile");
-    expect(prompt).toContain("real person naturally making image 2's expression");
-    expect(prompt).toContain("image 2 = target expression and try-on reference: natural facial expression direction and strength");
-    expect(prompt).toContain("image 3 = mandatory face identity reference only");
-    expect(prompt).toContain("do not copy its original expression, smile intensity, skin tone, makeup");
-    expect(prompt).toContain("image 2 controls the final face's natural expression direction and strength");
+    expect(prompt).toContain("visible expression category, intensity, emotional direction");
+    expect(prompt).toContain("one coherent performance");
+    expect(prompt).toContain("not flatten or remove a natural expression that is visibly present in image 2");
+    expect(prompt).toContain("image 2 = target expression and try-on reference: visible expression category");
+    expect(prompt).toContain("image 3 = mandatory final face identity reference only");
+    expect(prompt).toContain("do not copy its original expression style, expression intensity, skin tone, makeup");
     expect(prompt).toContain("image 3 controls final facial identity and feature proportions");
-    expect(prompt).toContain("subtle human micro-adjustments");
+    expect(prompt).toContain("it must not control final facial identity");
+    expect(prompt).toContain("Limit adaptation to expression muscles, gaze, skin relighting, makeup matching, pores, shadows, and edge blending");
+    expect(prompt).toContain("do not alter image 3's face outline, eye shape, eye spacing, brow shape, nose structure, mouth anatomy, feature proportions, or recognizable likeness");
     expect(prompt).not.toContain("facial expression exactly");
     expect(prompt).not.toContain("exact expression geometry");
     expect(prompt).not.toContain("visible expression/skin/makeup when present");

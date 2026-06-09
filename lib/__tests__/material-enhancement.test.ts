@@ -20,7 +20,11 @@ describe("material enhancement prompt", () => {
     expect(prompt).toContain("图1决定服装在人物身上的版型、轮廓、褶皱、垂坠、遮挡和阴影");
     expect(prompt).toContain("图2只用于补足面料织法、纹理方向、缝线");
     expect(prompt).toContain("细节优先");
-    expect(prompt).toContain("true-to-source garment material enhancement");
+    expect(prompt).toContain("source-matched garment material enhancement");
+    expect(prompt).toContain("细密纹理安全");
+    expect(prompt).toContain("摩尔纹");
+    expect(prompt).not.toContain("8K ultra-detailed");
+    expect(prompt).not.toContain("RAW photo quality");
     expect(prompt).toContain("重点增强针织纹理和纽扣边缘");
   });
 

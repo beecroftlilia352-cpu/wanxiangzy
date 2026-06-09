@@ -68,7 +68,7 @@ export function createFallbackTryOnReferenceAnalysis(index: number): TryOnRefere
     handsVisible: false,
     feetVisible: false,
     detailFocus: [],
-    promptNotes: "Preserve the target reference's visible body range, crop boundaries, pose family, camera distance, background, lighting, and photo mood.",
+    promptNotes: "Reference analysis unavailable. Preserve the original image crop, visible-body range, camera distance, body scale, background, lighting, and photo mood exactly; do not zoom out or infer missing body parts from the clothing source.",
     confidence: 0.35,
   };
 }
@@ -104,6 +104,14 @@ export function buildTryOnReferenceAnalysisRule(
 ) {
   if (!analysis) return "";
   const ref = `image ${referenceImageNumber}`;
+  if (isFallbackUnknownReferenceAnalysis(analysis)) {
+    return [
+      `Reference visual analysis: ${ref} used fallback crop preservation; exact face/head visibility is unknown.`,
+      `Crop lock - HARD: preserve ${ref}'s original image crop, visible-body range, camera distance, body scale, background, lighting, and photo mood exactly.`,
+      "Do not zoom out, do not expand to a full-body portrait, do not add body parts outside the original frame, and do not infer any head/face/body identity from the clothing source image.",
+      analysis.promptNotes ? `Reference notes: ${analysis.promptNotes}` : "",
+    ].filter(Boolean).join(" ");
+  }
   const bodyCropRule = getBodyCropRule(analysis.bodyCrop, ref);
   const cropLockRule = buildTryOnReferenceCropLockRule(analysis, referenceImageNumber);
   const visibility = [
@@ -116,6 +124,15 @@ export function buildTryOnReferenceAnalysisRule(
   const details = analysis.detailFocus.length ? ` Detail focus: ${analysis.detailFocus.join(", ")}.` : "";
   const notes = analysis.promptNotes ? ` Reference notes: ${analysis.promptNotes}` : "";
   return `Reference visual analysis: ${ref} body crop=${analysis.bodyCrop}; ${visibility}. ${bodyCropRule} ${cropLockRule}${details}${notes}`;
+}
+
+export function isFallbackUnknownReferenceAnalysis(analysis: TryOnReferenceAnalysis | null | undefined) {
+  return Boolean(
+    analysis
+    && analysis.bodyCrop === "partial_unknown"
+    && analysis.confidence <= 0.4
+    && analysis.detailFocus.length === 0
+  );
 }
 
 export function buildTryOnReferenceCropLockRule(

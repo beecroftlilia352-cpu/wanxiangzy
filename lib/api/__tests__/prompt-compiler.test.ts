@@ -16,13 +16,16 @@ describe("compileImagePromptForModel", () => {
     expect(result).toBe(shortPrompt);
   });
 
-  it("returns normalized prompt when kind is tryon", () => {
+  it("returns tryon prompt without obsolete 8K/RAW quality terms", () => {
     const result = compileImagePromptForModel({
       kind: "tryon",
       model: "gpt-image-2",
       prompt: shortPrompt,
     });
-    expect(result).toBe(shortPrompt);
+    expect(result).toContain("图像角色：图1是服装图");
+    expect(result).toContain("图像质量：photorealistic");
+    expect(result).not.toContain("8K ultra-detailed");
+    expect(result).not.toContain("RAW photo quality");
   });
 
   it("truncates long prompt for gpt-image-2 to 6200 chars", () => {
@@ -64,7 +67,7 @@ describe("compileImagePromptForModel", () => {
     expect(result.length).toBeLessThanOrEqual(2300);
   });
 
-  it("uses enhanced RAW quality outside untouched detail prompts", () => {
+  it("uses source/reference matched quality for image-edit modules while keeping detail prompts unchanged", () => {
     const grass = compileImagePromptForModel({
       kind: "grass",
       model: "nano-banana-2",
@@ -81,7 +84,10 @@ describe("compileImagePromptForModel", () => {
       prompt: shortPrompt,
     });
 
-    expect(grass).toContain("RAW photo quality");
+    expect(grass).toContain("reference-matched edit");
+    expect(grass).toContain("exposure contrast");
+    expect(grass).not.toContain("RAW photo quality");
+    expect(grass).not.toContain("8K ultra-detailed");
     expect(commerceDetail).toContain("raw photo quality");
     expect(commerceDetail).not.toContain("RAW photo quality");
     expect(productSet).toContain("raw photo quality");
@@ -110,8 +116,11 @@ describe("compileImagePromptForModel", () => {
     expect(result).toContain("same gender expression");
     expect(result).toContain("Generate one standalone premium fashion editorial photo.");
     expect(result).toContain("Image quality:");
-    expect(result).toContain("8K");
-    expect(result).toContain("RAW photo quality");
+    expect(result).toContain("source-matched natural camera photo");
+    expect(result).toContain("no extra sharpening");
+    expect(result).toContain("no moire");
+    expect(result).not.toContain("8K");
+    expect(result).not.toContain("RAW photo quality");
     expect(result).toContain("Keep the outfit readable");
     expect(result).toContain("Target pose:");
     expect(result).toContain("Strong three-quarter or side-angle outfit read");
@@ -119,7 +128,6 @@ describe("compileImagePromptForModel", () => {
     expect(result).toContain("Full-body or 7/8-body three-quarter fashion framing");
     expect(result).toContain("Expression:");
     expect(result).toContain("Soft slight smile");
-    expect(result).toContain("Keep:");
     expect(result).toContain("Negative:");
     expect(result).not.toContain("Shot:");
     expect(result).not.toContain("avoid close-up");
@@ -230,6 +238,10 @@ describe("compileImagePromptForModel", () => {
       prompt: "一些描述文字",
     });
     expect(result).toContain("图1");
+    expect(result).toContain("参考融合影调");
+    expect(result).toContain("背景对比度");
+    expect(result).toContain("reference-matched edit");
+    expect(result).not.toContain("RAW photo quality");
   });
 
   it("model kind includes required identity signal", () => {
@@ -241,17 +253,20 @@ describe("compileImagePromptForModel", () => {
     expect(result).toContain("参考图");
   });
 
-  it("keeps face-swap texture enhancement signal for nano prompts", () => {
+  it("keeps conservative face-swap detail recovery signal for nano prompts when explicitly enabled", () => {
     const result = compileImagePromptForModel({
       kind: "faceSwap",
       model: "nano-banana-2",
-      prompt: buildFaceSwapPrompt("保持冷感表情"),
+      prompt: buildFaceSwapPrompt("保持冷感表情", true),
     });
 
-    expect(result).toContain("服装质感增强");
+    expect(result).toContain("服装轻量细节恢复");
     expect(result).toContain("材质");
-    expect(result).toContain("纹理");
+    expect(result).toContain("细密纹理安全");
     expect(result).toContain("不要磨皮");
+    expect(result).not.toContain("8K ultra-detailed");
+    expect(result).not.toContain("RAW photo quality");
+    expect(result).not.toContain("high-frequency garment texture");
     expect(result.length).toBeLessThanOrEqual(2300);
   });
 

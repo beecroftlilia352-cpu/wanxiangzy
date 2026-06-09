@@ -15,10 +15,10 @@ import {
 export type PoseOutputMode = "grid" | "separate";
 
 export const POSE_QUALITY =
-  "photorealistic, 8K ultra-detailed, commercial fashion editorial quality, neutral commercial color management, sharp facial details, true-to-source garment rendering, RAW photo quality";
+  "photorealistic source-matched fashion photo, faithful source exposure and contrast, neutral source color management, natural facial detail, true-to-source garment rendering, no extra sharpening, no HDR";
 
 const POSE_SEPARATE_QUALITY =
-  "Image quality: 8K, RAW photo quality.";
+  "Image quality: source-matched natural camera photo; no HDR, no extra sharpening, no moire or wavy fabric artifacts.";
 
 export const POSE_LAYOUT_REQUIREMENT =
   "必须生成单张图片中的 2x2 四宫格 / four-panel pose variation / contact sheet，四个分格分别展示姿势1、姿势2、姿势3、姿势4；不要只生成单人单姿势，不要只生成一张普通照片，不要把四个姿势拆成多张独立图片。";
@@ -49,6 +49,12 @@ export const POSE_CLOTHING_RULE =
 
 export const POSE_GARMENT_PRODUCT_FIDELITY_RULE =
   "服装产品保真规则：把图1服装当作受保护的商品资产；锁定版型、固有色、图案/logo、面料表面和清洁度。姿势变化只改变人体动作、受力褶皱、垂坠和真实阴影，不重新设计布料、不套风格滤镜。";
+
+export const POSE_SOURCE_TONE_LOCK_RULE =
+  "原图影调保真规则：保持图1原始曝光、对比度、白平衡、色温、肤色明暗、阴影/高光层次、颗粒/噪点和相机质感；姿势变化只做必要局部融合，不要整体重调色、HDR、提高 clarity、提高局部反差、额外锐化、超分纹理或商业精修滤镜。";
+
+export const POSE_FINE_TEXTURE_SAFETY_RULE =
+  "细密纹理安全规则：细条纹、罗纹、针织、裤纹、网纱、格纹、logo/文字和重复图案只按图1可见尺度自然保留；不要增强成摩尔纹、波纹、水波纹、频闪条纹、振荡线、假纤维或不存在的面料纹理。";
 
 export const POSE_BODY_RULE =
   "身体动作规则：动作变化要自然、可信、符合真人关节运动，保留图1或自然商业模特的真实头身比例、肩宽、腰胯比例、四肢长度和体态；头部、颈部、肩膀和躯干转向必须协调一致，避免头部单独回望、过度扭颈、肩颈错位、夸张扭腰、断手、错位手指、肢体拉长、腿被拉长、头被缩小、身体比例漂移或过度瘦身。";
@@ -81,23 +87,17 @@ const POSE_SINGLE_EXPRESSION_CONSISTENT_REQUIREMENT =
   POSE_SINGLE_EXPRESSION_VARIATION_REQUIREMENT;
 
 const POSE_SEPARATE_BASE_PROMPT = [
-  "Use the source image only to preserve: same person, same gender expression, face, hairstyle, body proportions, outfit, fabric/color/pattern, background and lighting mood.",
-  "Do not copy the source pose.",
-  "Keep head, neck, shoulders and torso aligned; no independent look-back.",
-  "",
+  "Use the source image only to preserve: same person, same gender expression, face, hair, body proportions, outfit, fabric/color/pattern, background, lighting and skin tone.",
+  "Do not copy the source pose; execute the target pose clearly.",
   "Generate one standalone premium fashion editorial photo.",
   POSE_SEPARATE_QUALITY,
-  "Execute the target pose clearly and make it noticeably different.",
-  "Keep face identity; adapt gaze/expression to the target pose.",
-  "",
+  "Keep head/neck/shoulders/torso aligned; preserve face identity and adapt gaze/expression.",
   "Keep the outfit readable: neckline, shoulder line, sleeves, waistline, hem, lower garment and shoes if visible.",
-  "Product fidelity: outfit is protected; keep source color, pattern/logo and textile surface. Pose may add physical folds/shadows only; no retexturing or style filter.",
-  "",
-  "Keep:",
-  "same person, same gender expression, same face identity, same hairstyle, same body frame/proportions, same outfit design, fabric texture, color/pattern, background, lighting mood and natural skin tone.",
-  "",
+  "Product fidelity: outfit is protected; keep source color, pattern/logo and textile surface; folds/shadows only; no retexturing or style filter.",
+  "Source tone lock: keep source exposure/contrast/white balance/grain; no recolor, HDR, clarity/local-contrast boost, extra sharpening or retouch filter.",
+  "Fine textile safety: keep repeated patterns at source scale; no moire, wavy/ripple/vibrating fabric lines, fake fibers or invented detail.",
   "Negative:",
-  "no outfit/face/gender change, no feminized body, no garment retexturing, no color shift, no heavy filter, no extra person, text, watermark, grid, collage, distorted hands, broken limbs, twisted neck, disconnected head, over-shoulder look or unrealistic body shape.",
+  "no outfit/face/gender change, no feminized body, no garment retexturing, no color/contrast shift, no heavy filter, no extra sharpening, no moire, no extra person, text/watermark/grid/collage, distorted hands/limbs, twisted neck, disconnected head or unrealistic body.",
 ].join("\n");
 
 const DEFAULT_POSE_LINES = [
@@ -108,7 +108,7 @@ const DEFAULT_POSE_LINES = [
 ];
 
 const NEGATIVE_POSE_REQUIREMENT =
-  "负面约束：不要换脸，不要换衣服，不要改变性别表达，不要把男性变成女性，不要女性化男性身体骨架或妆发，不要改变场景，不要改变服装结构，不要重绘服装材质或改变服装固有色，不要生成多余人物，不要扭曲手指和肢体，不要身体比例漂移，不要自动美白，不要雪白皮或冷白皮，不要标准鹅蛋脸或小V脸，不要塑料皮肤，不要AI渲染感，不要文字水印。";
+  "负面约束：不要换脸，不要换衣服，不要改变性别表达，不要把男性变成女性，不要女性化男性身体骨架或妆发，不要改变场景，不要改变服装结构，不要重绘服装材质或改变服装固有色，不要改变原图曝光/对比度/白平衡，不要额外锐化，不要摩尔纹、波纹、水波纹、频闪条纹、振荡线或假纤维，不要生成多余人物，不要扭曲手指和肢体，不要身体比例漂移，不要自动美白，不要雪白皮或冷白皮，不要标准鹅蛋脸或小V脸，不要塑料皮肤，不要AI渲染感，不要文字水印。";
 
 export function enforcePosePromptRequirements(
   prompt: string,
@@ -164,6 +164,8 @@ export function enforcePosePromptRequirements(
     ["时装大片连贯性规则", POSE_SERIES_RULE],
     ["服装展示规则", POSE_CLOTHING_RULE],
     ["服装产品保真规则", POSE_GARMENT_PRODUCT_FIDELITY_RULE],
+    ["原图影调保真规则", POSE_SOURCE_TONE_LOCK_RULE],
+    ["细密纹理安全规则", POSE_FINE_TEXTURE_SAFETY_RULE],
     ["性别身份锁定", POSE_GENDER_IDENTITY_LOCK_RULE],
     ["比例锁定", POSE_PROPORTION_LOCK_RULE],
     ["身体动作规则", POSE_BODY_RULE],
@@ -253,10 +255,10 @@ export function buildSeparatePosePrompt(
     : currentPoseLine && poseStyle === "user_custom"
     ? buildCustomSeparatePoseSlotPrompt(sanitizeSeparatePoseLine(currentPoseLine))
     : slotDirective;
-  const stylePrompt = buildPoseSeparateStylePresetPrompt(
+  const stylePrompt = compactSeparateStylePrompt(buildPoseSeparateStylePresetPrompt(
     poseStyle,
     extractCustomSeparateStyleDirection(styleSourcePrompt)
-  );
+  ));
   const supplementLines = extractSeparatePoseSupplementLines(prompt);
   const analysisRule = buildPoseVisualAnalysisRule(poseAnalysis, "separate");
 
@@ -266,6 +268,34 @@ export function buildSeparatePosePrompt(
     stylePrompt,
     targetPose,
     ...supplementLines,
+  ].filter(Boolean).join("\n");
+}
+
+function compactSeparateStylePrompt(prompt: string) {
+  const lines = prompt
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (!lines.length) return "";
+
+  if (lines[1] === "Custom user style.") {
+    const customIndex = lines.findIndex((line) => line === "Follow the user's custom style direction:");
+    const customLine = customIndex >= 0 ? lines[customIndex + 1] : "";
+    return [
+      "Style preset:",
+      "Custom user style.",
+      customLine ? `Follow custom style: ${customLine}` : "Follow the user's custom pose, camera and style notes.",
+      "Keep same person/outfit and readable clothing; avoid outfit change, face change, distorted limbs or excessive retouching.",
+    ].join("\n");
+  }
+
+  const positive = lines.find((line) => /Use |Keep |Prioritize|Create|The result|The mood|The image/i.test(line) && !/^Avoid/i.test(line));
+  const negative = lines.find((line) => /^Avoid/i.test(line));
+  return [
+    lines[0],
+    lines[1],
+    positive,
+    negative,
   ].filter(Boolean).join("\n");
 }
 
@@ -354,12 +384,9 @@ function getSeparatePoseSlotDirectives(poseStyle?: PoseSeriesStyle) {
       "Strong three-quarter or side-angle outfit read.",
       "The body must clearly read as side or three-quarter view, not front-facing.",
       "Show side silhouette, shoulder line, sleeve shape, waist thickness, fabric drape and hem profile.",
-      "Not a waist-pose shot.",
       "",
       "Camera:",
       "Full-body or 7/8-body three-quarter fashion framing.",
-      "Slight off-center composition with clean negative space.",
-      "Emphasize side silhouette while keeping the outfit readable.",
       "",
       "Expression:",
       "Soft slight smile, gaze slightly away from camera.",

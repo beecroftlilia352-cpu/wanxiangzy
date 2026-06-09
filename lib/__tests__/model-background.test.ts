@@ -20,7 +20,12 @@ describe("model background prompt handling", () => {
     expect(prompt).toContain("图1服装按商品资产处理");
     expect(prompt).toContain("环境光可以影响服装明暗");
     expect(prompt).toContain("不能改变服装固有色或面料表面");
+    expect(prompt).toContain("匹配背景的主光方向");
+    expect(prompt).toContain("对比度");
+    expect(prompt).toContain("reference-matched exposure/contrast");
     expect(prompt).toContain("true-to-source garment rendering");
+    expect(prompt).not.toContain("8K ultra-detailed");
+    expect(prompt).not.toContain("RAW photo quality");
     expect(prompt).not.toContain("realistic color grade");
     expect(prompt).not.toContain("霉点");
     expect(prompt).not.toContain("毛球");

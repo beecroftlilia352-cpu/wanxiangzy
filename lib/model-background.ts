@@ -292,8 +292,8 @@ ${MODEL_BACKGROUND_PRODUCT_FIDELITY_RULE}
 摄影：自然光影，白平衡准确，肤色真实不过白，人物比例稳定，手指和肢体自然。
 用户补充：${userPromptText || "无，按以上模式和硬规则执行。"}
 
-输出质量：photorealistic, 8K ultra-detailed, RAW photo quality, true-to-source garment rendering, natural skin texture, commercial fashion lifestyle photography, neutral commercial color management.
-避免：改变图1服装、丢失图案文字、把服装重绘成新材质或滤镜风格、多余人物、复制背景参考图里的人物/衣服/包/配饰/姿势、肢体畸形、手指错误、塑料皮肤、AI 渲染感、水印、文字。`;
+输出质量：photorealistic commercial fashion lifestyle photography, reference-matched exposure/contrast and color mood, true-to-source garment rendering, natural skin texture, natural camera texture.
+避免：改变图1服装、丢失图案文字、把服装重绘成新材质或滤镜风格、额外锐化、摩尔纹、波纹、水波纹、频闪条纹、振荡线、假纤维、多余人物、复制背景参考图里的人物/衣服/包/配饰/姿势、肢体畸形、手指错误、塑料皮肤、AI 渲染感、水印、文字。`;
 }
 
 export type ModelBackgroundPayloadBase = {

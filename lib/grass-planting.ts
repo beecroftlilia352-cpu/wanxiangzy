@@ -145,7 +145,7 @@ export const GRASS_TEMPLATES: GrassTemplate[] = [
     desc: "商业人像，画质清晰",
     imageUrl: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/i.ibb.co/sdMVRCsK/grass-template-canon-2feaa41a21.png",
     prompt:
-      "佳能商业人像摄影风格：清透明亮的 Canon 色彩，肤色自然红润不过白，白平衡准确，服装边缘和面料纹理锐利清晰；使用 50mm/85mm 人像镜头感，浅景深但服装主体完整清楚，画面有干净高级的商业种草质感。",
+      "佳能商业人像摄影风格：清透明亮的 Canon 色彩，肤色自然红润不过白，白平衡准确，服装边缘和面料纹理自然清晰；使用 50mm/85mm 人像镜头感，浅景深但服装主体完整清楚，画面有干净高级的商业种草质感。",
   },
   {
     id: "hat",
@@ -177,6 +177,10 @@ export function getGrassTemplate(templateId: GrassTemplateId) {
 }
 
 const GRASS_HARD_RULE_MARK = "【种草硬规则】";
+const GRASS_SOURCE_TONE_RULE =
+  "源图主体保真：图1人物和服装保持固有色、自然肤色、服装材质、图案/logo、颗粒/噪点和真实相机质感；允许为贴合参考图滤镜观感、曝光反差和新场景做自然的整体氛围/融合匹配，但不要把图1服装或人物过度重调色、HDR、提高 clarity、提高局部反差、额外锐化或商业精修化。";
+const GRASS_FINE_TEXTURE_SAFETY_RULE =
+  "细密纹理安全：细条纹、罗纹、针织、裤纹、网纱、格纹、logo/文字和重复图案只按图1可见尺度自然保留；不要增强成摩尔纹、波纹、水波纹、频闪条纹、振荡线、假纤维或不存在的面料纹理。";
 
 function buildGrassHardRule(params: {
   sceneMode: GrassSceneMode;
@@ -199,6 +203,8 @@ function buildGrassHardRule(params: {
 图1是唯一服装/穿搭来源。必须保留图1服装的品类、版型、颜色、图案/logo、面料纹理、领口、袖口、下摆、长短、口袋、纽扣/拉链和穿搭层次。
 ${modelRule}
 ${referenceRule}
+${GRASS_SOURCE_TONE_RULE}
+${GRASS_FINE_TEXTURE_SAFETY_RULE}
 如果图2或文字风格与图1服装还原冲突，优先还原图1服装。`;
 }
 
@@ -289,13 +295,15 @@ ${!isCustom && userPrompt ? `补充文字提示：${userPrompt}` : ""}
 	必须执行的生成规则：
 	保留图1服装的版型、颜色、图案/logo、面料、长短、领口、袖口、下摆、口袋、纽扣/拉链和穿搭层次。
 	服装产品保真：图1服装按商品资产处理，锁定固有色、图案/logo 和面料表面；场景氛围、滤镜和社媒风格不能重绘服装材质。
+	${GRASS_SOURCE_TONE_RULE}
+	${GRASS_FINE_TEXTURE_SAFETY_RULE}
 	${modelRule}
 	场景、姿势、构图、光线和内容氛围可以变化，但不能改变图1服装。
 	可以添加少量符合图1风格的自然配饰，不能遮挡服装卖点。
 	画面要像真实社媒穿搭照片：自然光、真实相机/手机质感、动作松弛、肤色自然、白平衡准确。
 
-	输出质量：photorealistic, 8K ultra-detailed, RAW photo quality, true-to-source garment rendering, natural skin texture, commercial lifestyle fashion photography, social-media outfit sharing, neutral commercial color management.
-	避免：换掉图1服装、改色改款、重绘服装材质、丢失图案/logo/文字${referenceNegative}，不要海报排版、多余人物、肢体或手指错误、网红假脸、过度美颜、雪白皮肤、过曝、水印、AI 渲染感。`;
+	输出质量：photorealistic social-media outfit photo, reference-matched filter mood and exposure contrast, true-to-source garment rendering, natural skin texture, natural camera texture.
+	避免：换掉图1服装、改色改款、过度重调人物/服装导致固有色失真、重绘服装材质、丢失图案/logo/文字${referenceNegative}，不要海报排版、多余人物、肢体或手指错误、网红假脸、过度美颜、雪白皮肤、过曝、额外锐化、摩尔纹、波纹、水波纹、频闪条纹、振荡线、假纤维、水印、AI 渲染感。`;
 }
 
 export type GrassPayloadBase = {

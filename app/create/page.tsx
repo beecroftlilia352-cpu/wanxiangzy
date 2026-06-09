@@ -141,6 +141,7 @@ type ReferenceAnalysisCacheEntry = {
   analyses: TryOnReferenceAnalysis[];
   source: "yunwu" | "cache" | "fallback" | "history";
   error?: string | null;
+  reasonText?: string | null;
 };
 
 type SystemReferenceApiItem = {
@@ -358,8 +359,9 @@ function getAutoClothingRoleFromAnalysis(analysis: TryOnClothingAnalysis | null)
   return null;
 }
 
-function getReferenceAnalysisSummary(analysis: TryOnReferenceAnalysis | null | undefined) {
+function getReferenceAnalysisSummary(analysis: TryOnReferenceAnalysis | null | undefined, options?: { fallback?: boolean }) {
   if (!analysis) return "";
+  if (options?.fallback) return "识别不可用 / 保持原图构图";
   const parts = [TRYON_REFERENCE_BODY_CROP_LABELS[analysis.bodyCrop] || "参考图"];
   if (analysis.personVisible) {
     parts.push(analysis.faceVisible ? "露脸" : "无脸");
@@ -374,8 +376,9 @@ function getReferenceAnalysisSummary(analysis: TryOnReferenceAnalysis | null | u
   return parts.slice(0, 4).join(" / ");
 }
 
-function getReferenceAnalysisDetailText(analysis: TryOnReferenceAnalysis | null | undefined) {
+function getReferenceAnalysisDetailText(analysis: TryOnReferenceAnalysis | null | undefined, options?: { fallback?: boolean; reasonText?: string | null }) {
   if (!analysis) return "";
+  if (options?.fallback) return options.reasonText || "不会按兜底值判断露脸或头部";
   const details = analysis.detailFocus.slice(0, 3).join("、");
   const confidence = Math.round(analysis.confidence * 100);
   return [details ? `细节：${details}` : "", confidence ? `置信 ${confidence}%` : ""].filter(Boolean).join(" · ");
@@ -1137,11 +1140,15 @@ export default function CreatePage() {
             const nextSource: "yunwu" | "cache" | "fallback" = data.cached
               ? "cache"
               : data.source === "yunwu" ? "yunwu" : "fallback";
-            const nextError = nextSource === "fallback" ? "参考图已做保守识别，生成会继续使用原图构图" : null;
+            const reasonText = typeof data.reasonText === "string" && data.reasonText.trim()
+              ? data.reasonText.trim()
+              : null;
+            const nextError = nextSource === "fallback" ? reasonText || "参考图识别未成功，已按原图构图保守处理" : null;
             return {
               analyses: nextAnalyses,
               source: nextSource,
               error: nextError,
+              reasonText,
             };
           });
           referenceAnalysisInflightRef.current.set(analysisKey, nextRequest);
@@ -2373,10 +2380,14 @@ export default function CreatePage() {
     .map((ref, index) => {
       const analysis = referenceAnalyses[index];
       if (!analysis) return null;
+      const isFallback = referenceAnalysisSource === "fallback";
       return {
         key: ref.url || `${analysis.index}-${index}`,
-        title: `#${index + 1} ${getReferenceAnalysisSummary(analysis)}`,
-        detail: getReferenceAnalysisDetailText(analysis),
+        title: `#${index + 1} ${getReferenceAnalysisSummary(analysis, { fallback: isFallback })}`,
+        detail: getReferenceAnalysisDetailText(analysis, {
+          fallback: isFallback,
+          reasonText: referenceAnalysisError,
+        }),
       };
     })
     .filter(Boolean) as Array<{ key: string; title: string; detail: string }>;
