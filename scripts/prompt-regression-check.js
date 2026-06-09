@@ -226,7 +226,7 @@ const lowerNoFaceWithModelFace = lingya.buildTryOnPrompt({
 }).prompt;
 assertIncludes(lowerNoFaceWithModelFace, "Head/face absence lock - HARD:", "下半身无头硬锁");
 assertIncludes(lowerNoFaceWithModelFace, "image 2 is a lower-body-only target frame with no visible head or face", "下半身无头目标");
-assertIncludes(lowerNoFaceWithModelFace, "ignore image 3 completely for this lower-body crop", "下半身无头忽略模特脸");
+assertIncludes(lowerNoFaceWithModelFace, "ignore image 3 completely for this no-head crop", "下半身无头忽略模特脸");
 assertIncludes(lowerNoFaceWithModelFace, "A result with any visible face or newly added head is invalid", "下半身无头禁止出脸");
 assertNotIncludes(lowerNoFaceWithModelFace, "Reconstruct the final face", "下半身无头不重建脸");
 

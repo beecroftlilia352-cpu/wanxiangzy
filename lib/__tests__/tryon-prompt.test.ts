@@ -170,6 +170,52 @@ describe("try-on prompt face integration", () => {
     expect(prompt).not.toContain("User extra instruction:");
   });
 
+  it("lets an explicit lower upload slot override a conflicting upper visual classification", () => {
+    const { prompt } = buildTryOnPrompt({
+      clothingCount: 1,
+      clothingMode: "multi",
+      clothingRoles: ["lower"],
+      hasReference: true,
+      hasModelFace: false,
+      clothingAnalysis: {
+        mainCategory: "single_piece_top",
+        subcategories: ["single_fitted_top"],
+        clothTypeRaw: "upper garment",
+        desc: "mistaken upper-body classification from a person image",
+        genderType: "women",
+        ageRange: "adult",
+        slot: "upper",
+        fit: "regular",
+        confidence: 0.74,
+      },
+      referenceAnalysis: {
+        index: 1,
+        bodyCrop: "three_quarter",
+        personVisible: true,
+        faceVisible: false,
+        headVisible: false,
+        upperBodyVisible: true,
+        lowerBodyVisible: true,
+        handsVisible: false,
+        feetVisible: true,
+        detailFocus: ["lower body"],
+        promptNotes: "Use the visible lower-body stance and crop.",
+        confidence: 0.86,
+      },
+      aspectRatio: "3:4",
+    });
+
+    expect(prompt).toContain("image 1 = lower clothing source ONLY");
+    expect(prompt).toContain("explicit slots=image 1=lower");
+    expect(prompt).toContain("User explicit upload slot overrides visual classifier slot=upper");
+    expect(prompt).toContain("Treat this as a lower-body garment source");
+    expect(prompt).toContain("Replace only lower-body clothing");
+    expect(prompt).toContain("image 2 is a no-head/no-face target frame");
+    expect(prompt).toContain("do not add a new face, head, or hair outside the original crop");
+    expect(prompt).not.toContain("Replace only upper/outer clothing");
+    expect(prompt).not.toContain("Preserve image 2's original facial identity");
+  });
+
   it("keeps lower-body no-head references from expanding into full-body outputs", () => {
     const { prompt } = buildTryOnPrompt({
       clothingCount: 1,
@@ -183,7 +229,7 @@ describe("try-on prompt face integration", () => {
 
     expect(prompt).toContain("Head/face absence lock - HARD:");
     expect(prompt).toContain("image 2 is a lower-body-only target frame with no visible head or face");
-    expect(prompt).toContain("ignore image 3 completely for this lower-body crop");
+    expect(prompt).toContain("ignore image 3 completely for this no-head crop");
     expect(prompt).toContain("A result with any visible face or newly added head is invalid");
     expect(prompt).toContain("does not provide a visible head/face target");
     expect(prompt).toContain("Do not zoom out, add a head, add a face");
