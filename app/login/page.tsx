@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { AlertCircle, ArrowLeft, CheckCircle, Eye, EyeOff, Lock, Mail } from "lucide-react";
+import { AlertCircle, ArrowLeft, CheckCircle, Eye, EyeOff, KeyRound, Lock, Mail } from "lucide-react";
 
 type AuthView = "login" | "signup" | "check-email" | "forgot-password" | "reset-sent";
 
@@ -51,6 +51,7 @@ export default function LoginPage() {
   const [view, setView] = useState<AuthView>("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [inviteCode, setInviteCode] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -126,32 +127,43 @@ export default function LoginPage() {
       return;
     }
 
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: `${window.location.origin}${getSafeAuthRedirectTarget()}`,
-      },
-    });
+    try {
+      const res = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        cache: "no-store",
+        body: JSON.stringify({
+          email,
+          password,
+          inviteCode,
+          next: getSafeAuthRedirectTarget(),
+        }),
+      });
+      const payload = await res.json().catch(() => ({}));
 
-    if (error) {
-      if (error.message.includes("already registered")) {
-        setError("该邮箱已注册，请直接登录");
-        setView("login");
-      } else {
-        setError(error.message);
+      if (!res.ok) {
+        const message = typeof payload.error === "string" ? payload.error : "注册失败，请稍后重试";
+        if (message.includes("已注册")) {
+          setError("该邮箱已注册，请直接登录");
+          setView("login");
+        } else {
+          setError(message);
+        }
+        return;
       }
+
+      if (payload.session) {
+        window.location.href = getSafeAuthRedirectTarget();
+        return;
+      }
+
+      setView("check-email");
+    } catch {
+      setError("网络连接失败，请稍后重试");
+    } finally {
       setLoading(false);
-      return;
     }
-
-    if (data.session) {
-      window.location.href = getSafeAuthRedirectTarget();
-      return;
-    }
-
-    setView("check-email");
-    setLoading(false);
   };
 
   const handleForgotPassword = async (e: React.FormEvent) => {
@@ -316,6 +328,20 @@ export default function LoginPage() {
                     required
                     className="w-full rounded-2xl border border-[var(--codex-border)] bg-white px-4 py-3 pl-10 text-sm outline-none transition-all focus:border-[rgba(91,124,255,0.5)] focus:ring-4 focus:ring-[rgba(91,124,255,0.14)]"
                     placeholder="you@example.com"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-sm font-bold text-slate-700">邀请码</label>
+                <div className="relative">
+                  <KeyRound className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <input
+                    value={inviteCode}
+                    onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+                    required
+                    className="w-full rounded-2xl border border-[var(--codex-border)] bg-white px-4 py-3 pl-10 font-mono text-sm font-black uppercase tracking-[0.08em] outline-none transition-all focus:border-[rgba(91,124,255,0.5)] focus:ring-4 focus:ring-[rgba(91,124,255,0.14)]"
+                    placeholder="输入邀请码"
                   />
                 </div>
               </div>
