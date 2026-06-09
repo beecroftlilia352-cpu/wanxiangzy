@@ -3,6 +3,14 @@ import { NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/api/auth";
 import { API_RATE_LIMITS, enforceApiRateLimit } from "@/lib/api/rate-limit";
 import {
+  TryOnVisionProviderError,
+  buildTryOnReferenceVisionProviderConfigs,
+  getTryOnVisionFallbackReasonText,
+  toTryOnVisionFallbackReason,
+  type TryOnVisionFallbackReason,
+  type TryOnVisionProviderConfig,
+} from "@/lib/api/tryon-vision-provider";
+import {
   alignTryOnReferenceAnalyses,
   createFallbackTryOnReferenceAnalysis,
   type TryOnReferenceAnalysis,
@@ -21,6 +29,8 @@ type ReferenceAnalysisResult = {
   source: "yunwu" | "fallback";
   analyses: TryOnReferenceAnalysis[];
   rawResponse: unknown;
+  fallbackReason: TryOnVisionFallbackReason | null;
+  reasonText: string | null;
 };
 
 const referenceAnalysisCache = new Map<string, {
@@ -57,9 +67,7 @@ export async function POST(request: Request) {
   const garmentAudience = normalizeTryOnGarmentAudience(typeof body.garment_audience === "string" ? body.garment_audience : undefined);
   const ageGroup = normalizeTryOnAgeGroup(typeof body.age_group === "string" ? body.age_group : undefined);
 
-  const model = process.env.TRYON_REFERENCE_ANALYZE_MODEL || process.env.TRYON_CLOTHING_ANALYZE_MODEL || DEFAULT_MODEL;
-  const apiKey = process.env.TRYON_REFERENCE_ANALYZE_API_KEY || process.env.TRYON_CLOTHING_ANALYZE_API_KEY || process.env.LINGYA_API_KEY || "";
-  const baseUrl = normalizeOpenAiBaseUrl(process.env.TRYON_REFERENCE_ANALYZE_BASE_URL || process.env.TRYON_CLOTHING_ANALYZE_BASE_URL || process.env.LINGYA_BASE_URL || DEFAULT_BASE_URL);
+  const providerConfigs = buildTryOnReferenceVisionProviderConfigs(DEFAULT_BASE_URL, DEFAULT_MODEL);
   const cacheKey = buildReferenceAnalysisCacheKey({
     referenceUrls,
     clothingMode,
@@ -75,15 +83,15 @@ export async function POST(request: Request) {
       source: cached.source,
       analyses: cached.analyses,
       raw: null,
+      fallbackReason: cached.fallbackReason,
+      reasonText: cached.reasonText,
     }, { headers: { "Cache-Control": "no-store" } });
   }
 
   let inflightRequest = referenceAnalysisInflight.get(cacheKey);
   if (!inflightRequest) {
     const nextRequest = runReferenceAnalysis({
-      apiKey,
-      baseUrl,
-      model,
+      providerConfigs,
       referenceUrls,
       clothingMode,
       clothingRoles,
@@ -108,13 +116,13 @@ export async function POST(request: Request) {
     source: result.source,
     analyses: result.analyses,
     raw: result.rawResponse,
+    fallbackReason: result.fallbackReason,
+    reasonText: result.reasonText,
   }, { headers: { "Cache-Control": "no-store" } });
 }
 
 async function runReferenceAnalysis(input: {
-  apiKey: string;
-  baseUrl: string;
-  model: string;
+  providerConfigs: TryOnVisionProviderConfig[];
   referenceUrls: string[];
   clothingMode: string;
   clothingRoles: string[];
@@ -124,13 +132,12 @@ async function runReferenceAnalysis(input: {
   let analyses: TryOnReferenceAnalysis[];
   let source: "yunwu" | "fallback" = "fallback";
   let rawResponse: unknown = null;
+  let fallbackReason: TryOnVisionFallbackReason | null = input.providerConfigs.length ? null : "missing_api_key";
 
-  if (input.apiKey) {
+  for (const provider of input.providerConfigs) {
     try {
       const result = await requestYunwuReferenceAnalysis({
-        apiKey: input.apiKey,
-        baseUrl: input.baseUrl,
-        model: input.model,
+        provider,
         referenceUrls: input.referenceUrls,
         clothingMode: input.clothingMode,
         clothingRoles: input.clothingRoles,
@@ -140,13 +147,31 @@ async function runReferenceAnalysis(input: {
       rawResponse = result.raw;
       analyses = alignTryOnReferenceAnalyses(result.parsed, input.referenceUrls.length);
       source = "yunwu";
+      fallbackReason = null;
+      if (analyses.length !== input.referenceUrls.length) {
+        analyses = alignTryOnReferenceAnalyses(analyses, input.referenceUrls.length);
+      }
+      return {
+        source,
+        analyses,
+        rawResponse,
+        fallbackReason,
+        reasonText: null,
+      };
     } catch (error) {
-      console.warn("[tryon/analyze-references] provider fallback:", error);
-      analyses = input.referenceUrls.map((_, index) => createFallbackTryOnReferenceAnalysis(index + 1));
+      fallbackReason = toTryOnVisionFallbackReason(error);
+      console.warn("[tryon/analyze-references] provider failed:", {
+        provider: provider.label,
+        baseUrl: redactBaseUrl(provider.baseUrl),
+        model: provider.model,
+        reason: fallbackReason,
+        status: error instanceof TryOnVisionProviderError ? error.status : undefined,
+        message: error instanceof Error ? error.message : String(error),
+      });
     }
-  } else {
-    analyses = input.referenceUrls.map((_, index) => createFallbackTryOnReferenceAnalysis(index + 1));
   }
+
+  analyses = input.referenceUrls.map((_, index) => createFallbackTryOnReferenceAnalysis(index + 1));
 
   if (analyses.length !== input.referenceUrls.length) {
     analyses = alignTryOnReferenceAnalyses(analyses, input.referenceUrls.length);
@@ -156,13 +181,13 @@ async function runReferenceAnalysis(input: {
     source,
     analyses,
     rawResponse,
+    fallbackReason,
+    reasonText: getTryOnVisionFallbackReasonText(fallbackReason),
   };
 }
 
 async function requestYunwuReferenceAnalysis(input: {
-  apiKey: string;
-  baseUrl: string;
-  model: string;
+  provider: TryOnVisionProviderConfig;
   referenceUrls: string[];
   clothingMode: string;
   clothingRoles: string[];
@@ -173,16 +198,16 @@ async function requestYunwuReferenceAnalysis(input: {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), Number.isFinite(timeoutMs) ? timeoutMs : DEFAULT_TIMEOUT_MS);
   try {
-    const response = await fetch(`${input.baseUrl}/chat/completions`, {
+    const response = await fetch(`${input.provider.baseUrl}/chat/completions`, {
       method: "POST",
       signal: controller.signal,
       headers: {
         "Content-Type": "application/json",
         Accept: "application/json",
-        Authorization: `Bearer ${input.apiKey}`,
+        Authorization: `Bearer ${input.provider.apiKey}`,
       },
       body: JSON.stringify({
-        model: input.model,
+        model: input.provider.model,
         temperature: 0,
         response_format: { type: "json_object" },
         messages: [
@@ -224,15 +249,47 @@ async function requestYunwuReferenceAnalysis(input: {
 
     const raw = await response.json().catch(() => ({}));
     if (!response.ok) {
-      throw new Error(typeof raw?.error?.message === "string" ? raw.error.message : `Yunwu ${response.status}`);
+      throw new TryOnVisionProviderError(
+        getHttpFallbackReason(response.status),
+        typeof raw?.error?.message === "string" ? raw.error.message : `Provider HTTP ${response.status}`,
+        response.status
+      );
     }
     const content = extractMessageContent(raw);
+    if (!content.trim()) {
+      throw new TryOnVisionProviderError("provider_empty_content", "Provider returned empty message content");
+    }
+    const parsed = parseJsonObject(content);
+    if (!hasReferenceAnalysisItems(parsed)) {
+      throw new TryOnVisionProviderError("provider_parse_error", "Provider returned no reference analysis items");
+    }
     return {
       raw,
-      parsed: parseJsonObject(content),
+      parsed,
     };
   } finally {
     clearTimeout(timer);
+  }
+}
+
+function getHttpFallbackReason(status: number): TryOnVisionFallbackReason {
+  if (status === 401) return "provider_http_401";
+  if (status === 403) return "provider_http_403";
+  if (status === 429) return "provider_http_429";
+  return "provider_http_error";
+}
+
+function hasReferenceAnalysisItems(value: unknown) {
+  const record = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  return Array.isArray(record.items) || Array.isArray(record.analyses);
+}
+
+function redactBaseUrl(value: string) {
+  try {
+    const url = new URL(value);
+    return `${url.origin}${url.pathname}`;
+  } catch {
+    return value.split("?")[0];
   }
 }
 

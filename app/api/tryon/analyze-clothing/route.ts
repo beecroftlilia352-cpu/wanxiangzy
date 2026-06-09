@@ -2,6 +2,12 @@ import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/api/auth";
 import { API_RATE_LIMITS, enforceApiRateLimit } from "@/lib/api/rate-limit";
+import {
+  TryOnVisionProviderError,
+  buildTryOnClothingVisionProviderConfigs,
+  toTryOnVisionFallbackReason,
+  type TryOnVisionProviderConfig,
+} from "@/lib/api/tryon-vision-provider";
 import { getAdminClient } from "@/lib/supabase/admin";
 import {
   normalizeTryOnClothingAnalysis,
@@ -24,6 +30,7 @@ type ClothingAnalysisResult = {
   source: "yunwu" | "fallback";
   analysis: TryOnClothingAnalysis;
   rawResponse: unknown;
+  providerModel: string;
 };
 
 const clothingAnalysisInflight = new Map<string, Promise<ClothingAnalysisResult>>();
@@ -71,16 +78,12 @@ export async function POST(request: Request) {
     }, { headers: { "Cache-Control": "no-store" } });
   }
 
-  const model = process.env.TRYON_CLOTHING_ANALYZE_MODEL || DEFAULT_MODEL;
-  const apiKey = process.env.TRYON_CLOTHING_ANALYZE_API_KEY || process.env.LINGYA_API_KEY || "";
-  const baseUrl = normalizeOpenAiBaseUrl(process.env.TRYON_CLOTHING_ANALYZE_BASE_URL || process.env.LINGYA_BASE_URL || DEFAULT_BASE_URL);
+  const providerConfigs = buildTryOnClothingVisionProviderConfigs(DEFAULT_BASE_URL, DEFAULT_MODEL);
 
   let inflightRequest = clothingAnalysisInflight.get(cacheKey);
   if (!inflightRequest) {
     const nextRequest = runClothingAnalysis({
-      apiKey,
-      baseUrl,
-      model,
+      providerConfigs,
       clothingUrls,
       clothingMode,
       clothingRoles,
@@ -107,7 +110,7 @@ export async function POST(request: Request) {
     ageGroup,
     analysis: result.analysis,
     provider: result.source,
-    model,
+    model: result.providerModel,
     rawResponse: result.rawResponse,
   });
 
@@ -120,9 +123,7 @@ export async function POST(request: Request) {
 }
 
 async function runClothingAnalysis(input: {
-  apiKey: string;
-  baseUrl: string;
-  model: string;
+  providerConfigs: TryOnVisionProviderConfig[];
   clothingUrls: string[];
   clothingMode: string;
   clothingRoles: TryOnClothingRole[];
@@ -132,13 +133,12 @@ async function runClothingAnalysis(input: {
   let analysis: TryOnClothingAnalysis;
   let source: "yunwu" | "fallback" = "fallback";
   let rawResponse: unknown = null;
+  let providerModel = input.providerConfigs[0]?.model || DEFAULT_MODEL;
 
-  if (input.apiKey) {
+  for (const provider of input.providerConfigs) {
     try {
       const result = await requestYunwuClothingAnalysis({
-        apiKey: input.apiKey,
-        baseUrl: input.baseUrl,
-        model: input.model,
+        provider,
         clothingUrls: input.clothingUrls,
         clothingMode: input.clothingMode,
         clothingRoles: input.clothingRoles,
@@ -153,35 +153,42 @@ async function runClothingAnalysis(input: {
         raw: result.raw,
       }), input.clothingRoles, input.clothingUrls.length);
       source = "yunwu";
+      providerModel = provider.model;
+      return {
+        source,
+        analysis,
+        rawResponse,
+        providerModel,
+      };
     } catch (error) {
-      console.warn("[tryon/analyze-clothing] provider fallback:", error);
-      analysis = applyUserRoleToClothingAnalysis(normalizeTryOnClothingAnalysis({
-        cloth_type: getFallbackClothType(input),
-        desc: "",
-        genderType: input.garmentAudience,
-        ageRange: input.ageGroup,
-      }), input.clothingRoles, input.clothingUrls.length);
+      console.warn("[tryon/analyze-clothing] provider failed:", {
+        provider: provider.label,
+        baseUrl: redactBaseUrl(provider.baseUrl),
+        model: provider.model,
+        reason: toTryOnVisionFallbackReason(error),
+        status: error instanceof TryOnVisionProviderError ? error.status : undefined,
+        message: error instanceof Error ? error.message : String(error),
+      });
     }
-  } else {
-    analysis = applyUserRoleToClothingAnalysis(normalizeTryOnClothingAnalysis({
-      cloth_type: getFallbackClothType(input),
-      desc: "",
-      genderType: input.garmentAudience,
-      ageRange: input.ageGroup,
-    }), input.clothingRoles, input.clothingUrls.length);
   }
+
+  analysis = applyUserRoleToClothingAnalysis(normalizeTryOnClothingAnalysis({
+    cloth_type: getFallbackClothType(input),
+    desc: "",
+    genderType: input.garmentAudience,
+    ageRange: input.ageGroup,
+  }), input.clothingRoles, input.clothingUrls.length);
 
   return {
     source,
     analysis,
     rawResponse,
+    providerModel,
   };
 }
 
 async function requestYunwuClothingAnalysis(input: {
-  apiKey: string;
-  baseUrl: string;
-  model: string;
+  provider: TryOnVisionProviderConfig;
   clothingUrls: string[];
   clothingMode: string;
   clothingRoles: TryOnClothingRole[];
@@ -192,16 +199,16 @@ async function requestYunwuClothingAnalysis(input: {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), Number.isFinite(timeoutMs) ? timeoutMs : DEFAULT_TIMEOUT_MS);
   try {
-    const response = await fetch(`${input.baseUrl}/chat/completions`, {
+    const response = await fetch(`${input.provider.baseUrl}/chat/completions`, {
       method: "POST",
       signal: controller.signal,
       headers: {
         "Content-Type": "application/json",
         Accept: "application/json",
-        Authorization: `Bearer ${input.apiKey}`,
+        Authorization: `Bearer ${input.provider.apiKey}`,
       },
       body: JSON.stringify({
-        model: input.model,
+        model: input.provider.model,
         temperature: 0,
         response_format: { type: "json_object" },
         messages: [
@@ -239,15 +246,38 @@ async function requestYunwuClothingAnalysis(input: {
 
     const raw = await response.json().catch(() => ({}));
     if (!response.ok) {
-      throw new Error(typeof raw?.error?.message === "string" ? raw.error.message : `Yunwu ${response.status}`);
+      throw new TryOnVisionProviderError(
+        getHttpFallbackReason(response.status),
+        typeof raw?.error?.message === "string" ? raw.error.message : `Provider HTTP ${response.status}`,
+        response.status
+      );
     }
     const content = extractMessageContent(raw);
+    if (!content.trim()) {
+      throw new TryOnVisionProviderError("provider_empty_content", "Provider returned empty message content");
+    }
     return {
       raw,
       parsed: parseJsonObject(content),
     };
   } finally {
     clearTimeout(timer);
+  }
+}
+
+function getHttpFallbackReason(status: number) {
+  if (status === 401) return "provider_http_401";
+  if (status === 403) return "provider_http_403";
+  if (status === 429) return "provider_http_429";
+  return "provider_http_error";
+}
+
+function redactBaseUrl(value: string) {
+  try {
+    const url = new URL(value);
+    return `${url.origin}${url.pathname}`;
+  } catch {
+    return value.split("?")[0];
   }
 }
 
@@ -423,11 +453,6 @@ function normalizeCacheUrl(value: string) {
   } catch {
     return value.split("?")[0].trim().toLowerCase();
   }
-}
-
-function normalizeOpenAiBaseUrl(value: string) {
-  const trimmed = value.trim().replace(/\/+$/, "");
-  return trimmed.endsWith("/v1") ? trimmed : `${trimmed}/v1`;
 }
 
 function normalizeUrlArray(value: unknown) {

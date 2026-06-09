@@ -43,6 +43,17 @@ describe("try-on reference analysis alignment", () => {
     expect(analyses.every((item) => item.bodyCrop === "partial_unknown")).toBe(true);
   });
 
+  it("does not present fallback unknown analysis as real face visibility", () => {
+    const [analysis] = alignTryOnReferenceAnalyses([], 1);
+    const rule = buildTryOnReferenceAnalysisRule(analysis, 2);
+
+    expect(rule).toContain("fallback crop preservation");
+    expect(rule).toContain("exact face/head visibility is unknown");
+    expect(rule).toContain("do not infer any head/face/body identity from the clothing source image");
+    expect(rule).not.toContain("face visible");
+    expect(rule).not.toContain("head visible");
+  });
+
   it("normalizes reference confidence labels from vision models", () => {
     const analyses = alignTryOnReferenceAnalyses([
       { index: 1, bodyCrop: "upper_body", confidence: "high" },
