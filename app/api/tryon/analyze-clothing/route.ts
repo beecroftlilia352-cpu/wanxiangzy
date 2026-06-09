@@ -8,7 +8,12 @@ import {
   type TryOnClothingAnalysis,
 } from "@/lib/tryon-reference-config";
 import { normalizeTryOnAgeGroup, normalizeTryOnGarmentAudience } from "@/lib/tryon-prompt";
-import { normalizeTryOnClothingMode } from "@/lib/tryon-upload-rules";
+import {
+  TRYON_CLOTHING_ROLE_LABELS,
+  normalizeTryOnClothingMode,
+  normalizeTryOnClothingRole,
+  type TryOnClothingRole,
+} from "@/lib/tryon-upload-rules";
 
 const DEFAULT_MODEL = "gpt-5-nano";
 const DEFAULT_BASE_URL = "https://yunwu.ai/v1";
@@ -26,6 +31,7 @@ const clothingAnalysisInflight = new Map<string, Promise<ClothingAnalysisResult>
 type ClothingAnalyzeRequest = {
   clothing_urls?: unknown;
   clothing_mode?: unknown;
+  clothing_roles?: unknown;
   garment_audience?: unknown;
   age_group?: unknown;
 };
@@ -44,9 +50,16 @@ export async function POST(request: Request) {
   }
 
   const clothingMode = normalizeTryOnClothingMode(typeof body.clothing_mode === "string" ? body.clothing_mode : undefined);
+  const requestedClothingRoles = Array.isArray(body.clothing_roles) ? body.clothing_roles : [];
+  const clothingRoles = requestedClothingRoles.length
+    ? clothingUrls.map((_, index) => normalizeTryOnClothingRole(
+      requestedClothingRoles[index],
+      clothingMode === "multi" ? index === 0 ? "upper" : index === 1 ? "lower" : "extra" : "single"
+    ))
+    : clothingUrls.map((_, index) => clothingMode === "multi" ? index === 0 ? "upper" : index === 1 ? "lower" : "extra" : "single");
   const garmentAudience = normalizeTryOnGarmentAudience(typeof body.garment_audience === "string" ? body.garment_audience : undefined);
   const ageGroup = normalizeTryOnAgeGroup(typeof body.age_group === "string" ? body.age_group : undefined);
-  const cacheKey = buildAnalysisCacheKey({ clothingUrls, clothingMode, garmentAudience, ageGroup });
+  const cacheKey = buildAnalysisCacheKey({ clothingUrls, clothingMode, clothingRoles, garmentAudience, ageGroup });
 
   const cached = await readCachedAnalysis(cacheKey);
   if (cached) {
@@ -70,6 +83,7 @@ export async function POST(request: Request) {
       model,
       clothingUrls,
       clothingMode,
+      clothingRoles,
       garmentAudience,
       ageGroup,
     });
@@ -88,6 +102,7 @@ export async function POST(request: Request) {
     cacheKey,
     clothingUrls,
     clothingMode,
+    clothingRoles,
     garmentAudience,
     ageGroup,
     analysis: result.analysis,
@@ -110,6 +125,7 @@ async function runClothingAnalysis(input: {
   model: string;
   clothingUrls: string[];
   clothingMode: string;
+  clothingRoles: TryOnClothingRole[];
   garmentAudience: string;
   ageGroup: string;
 }): Promise<ClothingAnalysisResult> {
@@ -125,33 +141,34 @@ async function runClothingAnalysis(input: {
         model: input.model,
         clothingUrls: input.clothingUrls,
         clothingMode: input.clothingMode,
+        clothingRoles: input.clothingRoles,
         garmentAudience: input.garmentAudience,
         ageGroup: input.ageGroup,
       });
       rawResponse = result.raw;
-      analysis = normalizeTryOnClothingAnalysis({
+      analysis = applyUserRoleToClothingAnalysis(normalizeTryOnClothingAnalysis({
         ...result.parsed,
         genderType: result.parsed.genderType || input.garmentAudience,
         ageRange: result.parsed.ageRange || input.ageGroup,
         raw: result.raw,
-      });
+      }), input.clothingRoles, input.clothingUrls.length);
       source = "yunwu";
     } catch (error) {
       console.warn("[tryon/analyze-clothing] provider fallback:", error);
-      analysis = normalizeTryOnClothingAnalysis({
-        cloth_type: input.clothingMode === "multi" ? "upper garment" : "dress or one-piece garment",
+      analysis = applyUserRoleToClothingAnalysis(normalizeTryOnClothingAnalysis({
+        cloth_type: getFallbackClothType(input),
         desc: "",
         genderType: input.garmentAudience,
         ageRange: input.ageGroup,
-      });
+      }), input.clothingRoles, input.clothingUrls.length);
     }
   } else {
-    analysis = normalizeTryOnClothingAnalysis({
-      cloth_type: input.clothingMode === "multi" ? "upper garment" : "dress or one-piece garment",
+    analysis = applyUserRoleToClothingAnalysis(normalizeTryOnClothingAnalysis({
+      cloth_type: getFallbackClothType(input),
       desc: "",
       genderType: input.garmentAudience,
       ageRange: input.ageGroup,
-    });
+    }), input.clothingRoles, input.clothingUrls.length);
   }
 
   return {
@@ -167,6 +184,7 @@ async function requestYunwuClothingAnalysis(input: {
   model: string;
   clothingUrls: string[];
   clothingMode: string;
+  clothingRoles: TryOnClothingRole[];
   garmentAudience: string;
   ageGroup: string;
 }) {
@@ -201,7 +219,13 @@ async function requestYunwuClothingAnalysis(input: {
             content: [
               {
                 type: "text",
-                text: `识别这些服装图。clothing_mode=${input.clothingMode}, garment_audience=${input.garmentAudience}, age_group=${input.ageGroup}。如果是条纹背心、吊带、修身上衣，优先 single_fitted_top，并兼容 fitted_top。`,
+                text: [
+                  `识别这些服装图。clothing_mode=${input.clothingMode}, clothing_roles=${input.clothingRoles.join(",") || "none"}, garment_audience=${input.garmentAudience}, age_group=${input.ageGroup}。`,
+                  buildClothingRoleAnalysisInstruction(input.clothingRoles),
+                  "用户上传槽位是强约束：如果图片里同时有人、脸、上衣、下装或背景，只识别槽位对应的服装区域，不要因为画面中脸/上身更显眼而改判槽位。",
+                  "如果用户槽位与视觉主体冲突，slot 必须优先沿用用户槽位；desc 可以说明实际观察到的对应区域细节。",
+                  "如果是条纹背心、吊带、修身上衣且用户槽位不是 lower，优先 single_fitted_top，并兼容 fitted_top。",
+                ].filter(Boolean).join("\n"),
               },
               ...input.clothingUrls.map((url) => ({
                 type: "image_url",
@@ -225,6 +249,91 @@ async function requestYunwuClothingAnalysis(input: {
   } finally {
     clearTimeout(timer);
   }
+}
+
+function getFallbackClothType(input: {
+  clothingMode: string;
+  clothingRoles: TryOnClothingRole[];
+}) {
+  const primaryRole = input.clothingRoles[0];
+  if (primaryRole === "lower") return "lower garment pants or skirt";
+  if (primaryRole === "upper") return "upper garment";
+  if (primaryRole === "single") return "dress or one-piece garment";
+  return input.clothingMode === "multi" ? "upper garment" : "dress or one-piece garment";
+}
+
+function buildClothingRoleAnalysisInstruction(roles: TryOnClothingRole[]) {
+  if (!roles.length) return "";
+  const roleLines = roles.map((role, index) => {
+    const imageRef = `image ${index + 1}`;
+    const label = TRYON_CLOTHING_ROLE_LABELS[role] || role;
+    if (role === "lower") {
+      return `${imageRef} was placed by the user in the ${label} slot. Analyze only the lower garment: pants, shorts, skirt, waistband, pockets, leg opening, hem length, fabric, color, seams, cargo pockets, pleats, and lower-body construction. Ignore any visible head, face, hair, upper top, arms, background, logo, or model identity. Return slot="lower" unless there is no lower garment at all.`;
+    }
+    if (role === "upper") {
+      return `${imageRef} was placed by the user in the ${label} slot. Analyze only the upper garment: top, shirt, vest, jacket, neckline, sleeves, shoulder line, hem, fabric, color, print, seams, and buttons. Ignore any visible face, lower garment, shoes, background, or model identity. Return slot="upper" unless there is no upper garment at all.`;
+    }
+    if (role === "single") {
+      return `${imageRef} was placed by the user in the ${label} slot. Analyze the one-piece or complete garment as the source. Ignore the model identity, pose, face, background, and non-garment context.`;
+    }
+    return `${imageRef} was placed by the user in the ${label} slot. Use that slot as the primary interpretation and ignore unrelated person or background content.`;
+  });
+  return roleLines.join("\n");
+}
+
+function applyUserRoleToClothingAnalysis(
+  analysis: TryOnClothingAnalysis,
+  roles: TryOnClothingRole[],
+  imageCount: number
+): TryOnClothingAnalysis {
+  if (imageCount !== 1) return analysis;
+  const role = roles[0];
+  if (role !== "upper" && role !== "lower" && role !== "single") return analysis;
+
+  if (role === "lower") {
+    const text = `${analysis.clothTypeRaw} ${analysis.desc} ${analysis.mainCategory || ""} ${analysis.subcategories.join(" ")}`.toLowerCase();
+    const isSkirt = /skirt|裙/.test(text);
+    return {
+      ...analysis,
+      slot: "lower",
+      mainCategory: isSkirt ? "bottom_skirt" : "bottom_pants",
+      subcategories: analysis.subcategories.some((code) => code === "shorts" || code === "long_pants" || code === "overalls" || code.includes("skirt"))
+        ? analysis.subcategories
+        : [isSkirt ? "aline_skirt" : "long_pants"],
+      clothTypeRaw: analysis.clothTypeRaw || (isSkirt ? "lower skirt garment" : "lower pants garment"),
+      raw: {
+        provider: analysis.raw ?? null,
+        userRoleGuard: { role, reason: "single image uploaded into explicit lower slot" },
+      },
+    };
+  }
+
+  if (role === "upper") {
+    return {
+      ...analysis,
+      slot: analysis.slot === "outer" ? "outer" : "upper",
+      mainCategory: analysis.slot === "outer" || analysis.mainCategory === "outerwear" ? "outerwear" : "single_piece_top",
+      subcategories: analysis.subcategories.some((code) => code.includes("top") || code.includes("coat") || code.includes("jacket"))
+        ? analysis.subcategories
+        : ["single_fitted_top"],
+      clothTypeRaw: analysis.clothTypeRaw || "upper garment",
+      raw: {
+        provider: analysis.raw ?? null,
+        userRoleGuard: { role, reason: "single image uploaded into explicit upper slot" },
+      },
+    };
+  }
+
+  return {
+    ...analysis,
+    slot: "single",
+    mainCategory: analysis.mainCategory || "dress",
+    clothTypeRaw: analysis.clothTypeRaw || "dress or one-piece garment",
+    raw: {
+      provider: analysis.raw ?? null,
+      userRoleGuard: { role, reason: "single image uploaded into explicit one-piece slot" },
+    },
+  };
 }
 
 async function readCachedAnalysis(cacheKey: string) {
@@ -259,6 +368,7 @@ async function writeCachedAnalysis(input: {
   cacheKey: string;
   clothingUrls: string[];
   clothingMode: string;
+  clothingRoles: TryOnClothingRole[];
   garmentAudience: string;
   ageGroup: string;
   analysis: TryOnClothingAnalysis;
@@ -296,6 +406,7 @@ async function writeCachedAnalysis(input: {
 function buildAnalysisCacheKey(value: {
   clothingUrls: string[];
   clothingMode: string;
+  clothingRoles: TryOnClothingRole[];
   garmentAudience: string;
   ageGroup: string;
 }) {

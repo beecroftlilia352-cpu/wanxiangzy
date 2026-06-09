@@ -1848,14 +1848,19 @@ function buildReferenceNoHeadFaceLockLines(params: {
   targetRef: string;
   faceRef?: string;
 }) {
-  if (!isHeadlessLowerBodyReference(params.referenceAnalysis)) return [];
+  if (!isHeadlessReference(params.referenceAnalysis)) return [];
+  const isLowerBodyOnly = isHeadlessLowerBodyReference(params.referenceAnalysis);
   const faceSourceRule = params.faceRef
-    ? `This applies even if ${params.faceRef} was uploaded; ignore ${params.faceRef} completely for this lower-body crop.`
+    ? `This applies even if ${params.faceRef} was uploaded; ignore ${params.faceRef} completely for this no-head crop.`
     : "This applies even when no model face was uploaded; do not invent a default face or complete person.";
   return [
     "Head/face absence lock - HARD:",
-    `${params.targetRef} is a lower-body-only target frame with no visible head or face. The final image must remain lower-body-only/partial-body.`,
-    `Do not generate, reveal, add, infer, or hallucinate any head, face, neck, shoulders, upper torso, portrait, or full-body expansion outside ${params.targetRef}'s original crop.`,
+    isLowerBodyOnly
+      ? `${params.targetRef} is a lower-body-only target frame with no visible head or face. The final image must remain lower-body-only/partial-body.`
+      : `${params.targetRef} is a no-head/no-face target frame. The final image must preserve that crop and must not create a visible face or head.`,
+    isLowerBodyOnly
+      ? `Do not generate, reveal, add, infer, or hallucinate any head, face, neck, shoulders, upper torso, portrait, or full-body expansion outside ${params.targetRef}'s original crop.`
+      : `Do not generate, reveal, add, infer, or hallucinate any head, face, hair, portrait, or full-body expansion outside ${params.targetRef}'s original crop.`,
     `${faceSourceRule} A result with any visible face or newly added head is invalid, even if the clothing looks correct.`,
   ];
 }
@@ -1869,6 +1874,10 @@ function shouldApplyFaceIdentityToReference(analysis?: TryOnReferenceAnalysis | 
 
 function isHeadlessLowerBodyReference(analysis?: TryOnReferenceAnalysis | null) {
   return Boolean(analysis && analysis.bodyCrop === "lower_body" && !analysis.faceVisible && !analysis.headVisible);
+}
+
+function isHeadlessReference(analysis?: TryOnReferenceAnalysis | null) {
+  return Boolean(analysis && !analysis.faceVisible && !analysis.headVisible);
 }
 
 function buildFixedBaseReplacementTask(params: {
@@ -2077,12 +2086,18 @@ function buildTryOnClothingAnalysisRule(
     ...analysis.subcategories.map((code) => TRYON_CATEGORY_BY_CODE.get(code)?.nameEn || code),
     analysis.mainCategory ? TRYON_CATEGORY_BY_CODE.get(analysis.mainCategory)?.nameEn || analysis.mainCategory : "",
   ].filter(Boolean);
-  const slot = analysis.slot || null;
+  const explicitScope = mode === "multi" && roles.length === 1 && (roles[0] === "upper" || roles[0] === "lower")
+    ? roles[0]
+    : null;
+  const slot = explicitScope || analysis.slot || null;
   const fit = analysis.fit || "regular";
   const rawType = analysis.clothTypeRaw || categoryLabels[0] || "garment";
   const confidence = analysis.confidence ? ` Confidence: ${Math.round(analysis.confidence * 100)}%.` : "";
   const categoryText = categoryLabels.length ? categoryLabels.join(" / ") : rawType;
   const explicitRoles = roles.map((role, index) => `image ${index + 1}=${role}`).join(", ");
+  const explicitScopeNote = explicitScope && analysis.slot && analysis.slot !== explicitScope
+    ? ` User explicit upload slot overrides visual classifier slot=${analysis.slot}; use ${explicitScope} as the replacement scope.`
+    : "";
 
   const scopeRule = slot === "lower"
       ? "Treat this as a lower-body garment source. Replace only lower-body clothing and preserve non-conflicting visible upper-body clothing, hands, face/hair only when already visible in the target reference, background, and scene."
@@ -2092,7 +2107,7 @@ function buildTryOnClothingAnalysisRule(
           ? "Treat this as a complete single-piece/full-body garment source and replace only the body areas it naturally covers."
           : "Use the explicit upload slot roles as the replacement scope when classification is uncertain.";
 
-  return `Visual clothing classification: detected ${categoryText}; raw type=${rawType}; slot=${slot || "unknown"}; fit=${fit}; upload mode=${mode}; explicit slots=${explicitRoles}.${confidence} ${scopeRule}`;
+  return `Visual clothing classification: detected ${categoryText}; raw type=${rawType}; slot=${slot || "unknown"}; fit=${fit}; upload mode=${mode}; explicit slots=${explicitRoles}.${confidence}${explicitScopeNote} ${scopeRule}`;
 }
 
 function buildConciseTargetCanvasRule(params: {
@@ -2102,8 +2117,10 @@ function buildConciseTargetCanvasRule(params: {
   hasModelFace: boolean;
   referenceAnalysis?: TryOnReferenceAnalysis | null;
 }) {
-  const faceInstruction = isHeadlessLowerBodyReference(params.referenceAnalysis)
-    ? `There is no visible face, head, hair, neck, shoulders, or upper torso to preserve; do not add any of them.`
+  const faceInstruction = isHeadlessReference(params.referenceAnalysis)
+    ? isHeadlessLowerBodyReference(params.referenceAnalysis)
+      ? `There is no visible face, head, hair, neck, shoulders, or upper torso to preserve; do not add any of them.`
+      : `There is no visible face, head, or hair to preserve; do not add a new face, head, or hair outside the original crop.`
     : params.hasModelFace
     ? `Do not preserve ${params.targetRef}'s original facial identity; preserve only head placement, head pose, scale, hair/occlusion when compatible, lighting, and scene continuity.`
     : `Preserve ${params.targetRef}'s original facial identity, hair, and scene continuity.`;

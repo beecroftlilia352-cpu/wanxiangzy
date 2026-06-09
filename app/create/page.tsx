@@ -384,12 +384,14 @@ function getReferenceAnalysisDetailText(analysis: TryOnReferenceAnalysis | null 
 function buildClothingAnalysisKey(params: {
   urls: string[];
   clothingMode: TryOnClothingMode;
+  clothingRoles: TryOnClothingRole[];
   garmentAudience: TryOnGarmentAudience;
   ageGroup: TryOnAgeGroup;
 }) {
   return JSON.stringify({
     urls: params.urls.filter(Boolean).map((url) => normalizeAssetUrl(url) || url),
     clothingMode: params.clothingMode,
+    clothingRoles: params.clothingRoles,
     garmentAudience: params.garmentAudience,
     ageGroup: params.ageGroup,
   });
@@ -985,7 +987,7 @@ export default function CreatePage() {
       return;
     }
 
-    const analysisKey = buildClothingAnalysisKey({ urls, clothingMode, garmentAudience, ageGroup });
+    const analysisKey = buildClothingAnalysisKey({ urls, clothingMode, clothingRoles, garmentAudience, ageGroup });
     if (lastClothingAnalysisKeyRef.current === analysisKey) return;
     lastClothingAnalysisKeyRef.current = analysisKey;
     const seq = clothingAnalysisSeqRef.current + 1;
@@ -1014,6 +1016,7 @@ export default function CreatePage() {
             body: JSON.stringify({
               clothing_urls: urls,
               clothing_mode: clothingMode,
+              clothing_roles: clothingRoles,
               garment_audience: garmentAudience,
               age_group: ageGroup,
             }),
@@ -1049,7 +1052,8 @@ export default function CreatePage() {
         const autoRole = getAutoClothingRoleFromAnalysis(nextAnalysis);
         const autoMode: TryOnClothingMode | null = autoRole ? autoRole === "single" ? "single" : "multi" : null;
         const autoApplyKey = JSON.stringify({ urls, autoRole, autoMode, intimate: isIntimateAnalysis(nextAnalysis) });
-        if (urls.length === 1 && autoRole && autoMode && lastAutoAppliedClothingAnalysisKeyRef.current !== autoApplyKey) {
+        const hasUserSelectedRole = clothingRoles.some((role) => role === "upper" || role === "lower" || role === "single");
+        if (!hasUserSelectedRole && urls.length === 1 && autoRole && autoMode && lastAutoAppliedClothingAnalysisKeyRef.current !== autoApplyKey) {
           lastAutoAppliedClothingAnalysisKeyRef.current = autoApplyKey;
           if (autoMode !== clothingMode) setClothingMode(autoMode);
           setPendingClothingRole(autoRole);
@@ -1083,7 +1087,7 @@ export default function CreatePage() {
     };
 
     void run();
-  }, [uploadedClothingUrls, clothingMode, garmentAudience, ageGroup, isIntimateGarment]);
+  }, [uploadedClothingUrls, clothingMode, clothingRoles, garmentAudience, ageGroup, isIntimateGarment]);
 
   useEffect(() => {
     const urls = effectiveReferenceUrls.filter(Boolean);
@@ -1219,6 +1223,7 @@ export default function CreatePage() {
     const historyClothingAnalysisKey = buildClothingAnalysisKey({
       urls: payload.clothingUrls,
       clothingMode: nextClothingMode,
+      clothingRoles: nextClothingRoles,
       garmentAudience: nextGarmentAudience,
       ageGroup: nextAgeGroup,
     });
@@ -1922,6 +1927,7 @@ export default function CreatePage() {
     const historyClothingAnalysisKey = buildClothingAnalysisKey({
       urls: payload.clothingUrls,
       clothingMode: nextClothingMode,
+      clothingRoles: nextClothingRoles,
       garmentAudience: nextGarmentAudience,
       ageGroup: nextAgeGroup,
     });
