@@ -31,15 +31,15 @@ describe("try-on prompt face integration", () => {
 
     expect(prompt).toContain("图3模特脸图是最终脸部身份锚点");
     expect(prompt).toContain("五官大小比例");
-    expect(prompt).toContain("图2参考图只作为表情、肤色、妆容");
+    expect(prompt).toContain("图2参考图只作为自然表情、肤色、妆容");
     expect(prompt).toContain("图2参考图原来的眼睛、鼻子、嘴巴和脸型不能保留为最终身份特征");
-    expect(prompt).toContain("图2参考图的表情运动状态必须保留");
+    expect(prompt).toContain("图2参考图的表情线索要作为自然表演依据");
     expect(prompt).toContain("最终脸必须一眼看出来自图3模特脸图本人");
     expect(prompt).toContain("如果不像图3模特脸图，即使服装、姿势或表情正确也算失败");
-    expect(prompt).toContain("让图3模特脸图这个人做出图2参考图的表情");
+    expect(prompt).toContain("让图3模特脸图这个人自然做出图2参考图的表情状态");
     expect(prompt).toContain("按图2参考图的肤色、妆容和场景光线重新打光");
     expect(prompt).toContain("图3模特脸图只在身份/相似度/五官结构上优先");
-    expect(prompt).toContain("图2参考图在表情/肤色/妆容/姿态/比例/光影上优先");
+    expect(prompt).toContain("图2参考图在自然表情/肤色/妆容/姿态/比例/光影上优先");
     expect(prompt).toContain("不要证件照式正脸");
     expect(prompt).toContain("贴上去的头");
     expect(prompt).toContain("假笑模板脸");
@@ -66,7 +66,7 @@ describe("try-on prompt face integration", () => {
     expect(prompt).toContain("不同图层光影");
   });
 
-  it("keeps reference facial expression as the hard source when both reference and model face are present", () => {
+  it("uses reference facial expression as a natural performance source when both reference and model face are present", () => {
     const { prompt } = buildTryOnPrompt({
       clothingCount: 1,
       clothingMode: "single",
@@ -90,16 +90,19 @@ describe("try-on prompt face integration", () => {
       aspectRatio: "3:4",
     });
 
-    expect(prompt).toContain("Expression lock - HARD:");
-    expect(prompt).toContain("image 2 is the final expression source");
+    expect(prompt).toContain("Expression transfer:");
+    expect(prompt).toContain("image 2 is the expression performance source");
     expect(prompt).toContain("image 3 is not an expression source");
-    expect(prompt).toContain("match image 2's smile intensity, not image 3's");
-    expect(prompt).toContain("Model-face expression leakage is a failure");
-    expect(prompt).toContain("image 2 = target expression and try-on reference: facial expression exactly");
+    expect(prompt).toContain("use image 2's smile strength as the guide, not image 3's original smile");
+    expect(prompt).toContain("real person naturally making image 2's expression");
+    expect(prompt).toContain("image 2 = target expression and try-on reference: natural facial expression direction and strength");
     expect(prompt).toContain("image 3 = mandatory face identity reference only");
-    expect(prompt).toContain("not expression, smile intensity, skin tone, makeup");
-    expect(prompt).toContain("image 2 controls final facial expression exactly");
-    expect(prompt).toContain("image 3 controls only final facial identity and feature proportions");
+    expect(prompt).toContain("do not copy its original expression, smile intensity, skin tone, makeup");
+    expect(prompt).toContain("image 2 controls the final face's natural expression direction and strength");
+    expect(prompt).toContain("image 3 controls final facial identity and feature proportions");
+    expect(prompt).toContain("subtle human micro-adjustments");
+    expect(prompt).not.toContain("facial expression exactly");
+    expect(prompt).not.toContain("exact expression geometry");
     expect(prompt).not.toContain("visible expression/skin/makeup when present");
   });
 
