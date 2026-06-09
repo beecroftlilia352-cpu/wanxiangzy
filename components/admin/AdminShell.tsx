@@ -17,6 +17,7 @@ import {
   DownloadOutlined,
   ExperimentOutlined,
   FileProtectOutlined,
+  KeyOutlined,
   MenuFoldOutlined,
   MenuOutlined,
   MenuUnfoldOutlined,
@@ -61,6 +62,7 @@ const navGroups: Array<{ key: string; label: string; children: AdminNavItem[] }>
     children: [
       { href: "/admin/features", label: "功能管理", icon: <AppstoreOutlined /> },
       { href: "/admin/users", label: "用户账户", icon: <TeamOutlined /> },
+      { href: "/admin/invite-codes", label: "邀请码", icon: <KeyOutlined /> },
       { href: "/admin/generations", label: "任务中心", icon: <ControlOutlined /> },
       { href: "/admin/support", label: "客服工单", icon: <FileProtectOutlined /> },
       { href: "/admin/requests", label: "审批中心", icon: <CheckCircleOutlined /> },
