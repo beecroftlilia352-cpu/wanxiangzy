@@ -411,8 +411,9 @@ function buildTryOnPhotoFinishDirective(input: TryOnRequestPromptOptions) {
       "Replicate its shadow design: cast-shadow direction, shadow length, edge softness, density, wall/floor shadow geometry, body shadow placement, and contact-shadow intensity.",
       "Inherit its light direction, light hardness, color temperature, contrast curve, shadow shape, highlight rolloff, exposure, white balance, lens perspective, depth of field, texture/noise level, and filter/color mood.",
       "Make the reference filter/color mood visibly present in the final image while preserving true garment color; you may subtly polish clarity and shadow depth, but do not apply a new generic fashion filter or a different color grade.",
+      input.modelFaceUrl ? "Before applying the global color mood, make the final face skin match the target reference's neck, chest, arms, and hands in undertone, brightness, shadow falloff, pores, and reflected light." : "",
       "Keep garment colors, logos/text, fabric texture, visible identity cues, visible skin tone continuity, and visible body proportions accurate; no heavy beauty filter, no poster layout, no added text, no washed-out skin, no color-shifted clothing.",
-    ].join(" ");
+    ].filter(Boolean).join(" ");
   }
 
   return [
@@ -442,19 +443,18 @@ function buildTryOnCandidateDirective(input: TryOnRequestPromptOptions) {
     "more structured fit with cleaner seams and sharper collar/hem edges",
     "subtle live-model variation with tiny hand or shoulder relaxation and different hem/contact shadows",
   ];
-  const expressionVariants = [
-    "reference-like expression with a relaxed mouth",
-    "slightly softer eyes and a faint natural smile change",
-    "slightly more neutral mouth with attentive eyes",
-    "small brow/eye openness change while keeping the same emotion",
-  ];
   const variant = variants[index % variants.length];
-  const gptExpression = input.model === "gpt-image-2"
-    ? ` For GPT candidate variation, avoid identical facial expressions; use a subtle natural micro-expression within the target emotion: ${expressionVariants[index % expressionVariants.length]}.`
+  const shouldKeepFaceFixed = Boolean(input.referenceUrl && input.modelFaceUrl && shouldApplyFaceIdentityToReference(input.referenceAnalysis));
+  const gptExpression = input.model === "gpt-image-2" && !shouldKeepFaceFixed
+    ? " For GPT candidate variation, keep any visible face naturally consistent; do not create a stock smile or beauty-retouched face."
     : "";
   const cropVariation = buildCandidateCropVariationRule(input.referenceAnalysis);
 
-  return `Candidate ${index + 1}/${count}: create a distinct but consistent try-on variation, not a near-duplicate. Keep the same visible identity cues, natural visible-skin integration, target visible-body proportions, target pose family, exact camera/framing/crop boundary, background, non-sourced outfit areas, sourced garment design, and reference-derived photography mood; vary garment fit, folds, hem, contact shadows, and small natural relaxation only within the visible crop as ${variant}. ${cropVariation}${gptExpression}`;
+  const faceVariationLock = shouldKeepFaceFixed
+    ? " Do not vary the face, facial expression, gaze, head pose, head scale, makeup, or face lighting between candidates; candidate diversity must come from garment fit, folds, hem, contact shadows, and tiny non-face body relaxation only."
+    : "";
+
+  return `Candidate ${index + 1}/${count}: create a distinct but consistent try-on variation, not a near-duplicate. Keep the same visible identity cues, natural visible-skin integration, target visible-body proportions, target pose family, exact camera/framing/crop boundary, background, non-sourced outfit areas, sourced garment design, and reference-derived photography mood; vary garment fit, folds, hem, contact shadows, and small natural relaxation only within the visible crop as ${variant}. ${cropVariation}${faceVariationLock}${gptExpression}`;
 }
 
 function buildCandidateCropVariationRule(analysis?: TryOnReferenceAnalysis | null) {
@@ -1325,6 +1325,70 @@ function isRetryableStatus(status: number): boolean {
   return status === 500 || status === 502 || status === 503 || status === 504;
 }
 
+function buildStructuredTryOnUserInstruction(value?: string) {
+  const trimmed = value?.trim();
+  if (!trimmed) return "";
+
+  const parts = trimmed
+    .split(/[，,。；;\n]+/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+  const seen = new Set<string>();
+  const uniqueParts = parts.filter((part) => {
+    const normalized = part.replace(/\s+/g, "").toLowerCase();
+    if (seen.has(normalized)) return false;
+    seen.add(normalized);
+    return true;
+  });
+  const source = uniqueParts.length ? uniqueParts : [trimmed];
+
+  const groups = {
+    clothing: [] as string[],
+    target: [] as string[],
+    face: [] as string[],
+    cleanup: [] as string[],
+    other: [] as string[],
+  };
+
+  for (const part of source) {
+    if (/水印|文字|去除|删除|多余|清理/.test(part)) {
+      groups.cleanup.push(part);
+      continue;
+    }
+    if (/脸|五官|肤色|皮肤|头部|头大小|头的大小|头姿|表情|妆容|face|skin|expression|head/i.test(part)) {
+      groups.face.push(part);
+      continue;
+    }
+    if (/模特|参考图|身体|姿势|背景|光线|构图|镜头|比例|身上|target|reference|pose|body|background/i.test(part)) {
+      groups.target.push(part);
+      continue;
+    }
+    if (/衣|服|裙|裤|上装|下装|内衬|带子|颜色|版型|长度|面料|纹理|细节|图案|logo|领|袖|下摆|腰|clothing|garment|dress|skirt|color|fabric/i.test(part)) {
+      groups.clothing.push(part);
+      continue;
+    }
+    groups.other.push(part);
+  }
+
+  const lines = [
+    ["Clothing constraints", groups.clothing],
+    ["Target body/reference constraints", groups.target],
+    ["Face identity and integration constraints", groups.face],
+    ["Cleanup constraints", groups.cleanup],
+    ["Other user constraints", groups.other],
+  ]
+    .filter(([, entries]) => (entries as string[]).length > 0)
+    .map(([label, entries]) => `- ${label}: ${(entries as string[]).join("; ")}`);
+
+  if (!lines.length) return `User constraints: ${trimmed}`;
+
+  return [
+    "User constraints structured from the original request:",
+    ...lines,
+    "Apply these constraints within the image-role priorities above; repeated user wording must not override clothing/source/reference/face role separation.",
+  ].join("\n");
+}
+
 // ============================================================
 // 提示词构建 —— 多图任务必须显式标记每张图的角色
 // ============================================================
@@ -1502,8 +1566,9 @@ export function buildTryOnPrompt(params: {
   }
 
   // 用户风格补充
-  if (params.style?.trim()) {
-    prompt += ` ${params.style.trim()}`;
+  const userInstruction = buildStructuredTryOnUserInstruction(params.style);
+  if (userInstruction) {
+    prompt += `\n${userInstruction}`;
   }
 
   return { prompt, imageRoles };
@@ -1616,8 +1681,9 @@ function buildConciseTryOnPrompt(params: {
   }
   lines.push(`Photography: real camera fashion photo with believable lighting, natural visible skin texture, realistic fabric contact shadows, and accurate visible body parts within the target crop. ${params.hasReference ? `Preserve ${targetRef}'s original scene, camera distance, and crop boundary; only if ${targetRef} has no clear scene, use a natural commercial fashion setting.` : "Use a natural commercial fashion setting, not an empty gray stock-studio backdrop unless explicitly requested."} No extra people, no watermark, no added text, no plastic skin, no AI-render look, no stock-model smile, no model-face smile leakage, no model-face skin-tone leakage, no model-face makeup leakage, no pasted head, no face-swap seam, no mismatched skin, no oversized head, no long neck, no ID-photo face, no generic catalog face, no unrelated outfit changes.`);
 
-  if (params.style?.trim()) {
-    lines.push(`User extra instruction: ${params.style.trim()}`);
+  const userInstruction = buildStructuredTryOnUserInstruction(params.style);
+  if (userInstruction) {
+    lines.push(userInstruction);
   }
 
   return lines.join("\n");
@@ -1720,8 +1786,9 @@ function buildFixedBaseTryOnPrompt(params: {
   if (params.aspectRatio && params.aspectRatio !== "auto") {
     lines.push(`Output aspect ratio: ${params.aspectRatio}.`);
   }
-  if (params.style?.trim()) {
-    lines.push(`User extra instruction: ${params.style.trim()}`);
+  const userInstruction = buildStructuredTryOnUserInstruction(params.style);
+  if (userInstruction) {
+    lines.push(userInstruction);
   }
 
   return lines.filter(Boolean).join("\n");

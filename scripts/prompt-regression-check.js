@@ -281,9 +281,36 @@ assertIncludes(gptRuntimePrompt, "Make the reference filter/color mood visibly p
 assertIncludes(gptRuntimePrompt, "do not apply a new generic fashion filter or a different color grade", "tryon no generic filter");
 assertIncludes(multiTryOn, "If head or full body is not visible, do not invent it.", "tryon crop-aware body completion guard");
 assertIncludes(gptRuntimePrompt, "Keep garment colors, logos/text, fabric texture, visible identity cues, visible skin tone continuity, and visible body proportions accurate", "tryon finish safeguards");
-assertIncludes(gptRuntimePrompt, "For GPT candidate variation, avoid identical facial expressions", "gpt-image-2 candidate expression variation");
+assertIncludes(gptRuntimePrompt, "Before applying the global color mood", "tryon face skin continuity before finish");
+assertIncludes(gptRuntimePrompt, "Do not vary the face, facial expression, gaze, head pose, head scale", "tryon candidate conservatively locks face when reference face is possible");
 assertIncludes(gptRuntimePrompt, "reference-derived photography mood", "tryon candidate keeps reference mood");
 assertNotIncludes(gptRuntimePrompt, "Nano Banana try-on mode", "gpt-image-2 no banana directive");
+
+const gptRuntimePromptWithReferenceFace = lingya.applyTryOnRequestPrompt("BASE", {
+  model: "gpt-image-2",
+  candidateIndex: 1,
+  candidateCount: 4,
+  referenceUrl: "target.jpg",
+  modelFaceUrl: "face.jpg",
+  referenceAnalysis: {
+    index: 1,
+    bodyCrop: "upper_body",
+    personVisible: true,
+    faceVisible: true,
+    headVisible: true,
+    upperBodyVisible: true,
+    lowerBodyVisible: false,
+    handsVisible: true,
+    feetVisible: false,
+    detailFocus: ["face", "upper body"],
+    promptNotes: "Use the visible face and upper-body crop.",
+    confidence: 0.92,
+  },
+});
+assertIncludes(gptRuntimePromptWithReferenceFace, "Do not vary the face, facial expression, gaze, head pose, head scale", "tryon candidate locks reference face performance");
+assertIncludes(gptRuntimePromptWithReferenceFace, "candidate diversity must come from garment fit", "tryon candidate varies garment only");
+assertNotIncludes(gptRuntimePromptWithReferenceFace, "For GPT candidate variation", "tryon reference face lock disables gpt expression variation");
+assertNotIncludes(gptRuntimePromptWithReferenceFace, "micro-expression", "tryon reference face lock removes expression variation");
 
 const nanoRuntimePrompt = lingya.applyTryOnRequestPrompt("BASE", {
   model: "nano-banana-2",

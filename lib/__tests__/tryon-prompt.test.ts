@@ -3,7 +3,7 @@ import {
   buildTryOnFacePrompt,
   enforceTryOnPromptRequirements,
 } from "@/lib/tryon-prompt";
-import { buildTryOnPrompt } from "@/lib/api/lingya";
+import { applyTryOnRequestPrompt, buildTryOnPrompt } from "@/lib/api/lingya";
 
 describe("try-on prompt face integration", () => {
   const lowerBodyNoHeadReference = {
@@ -104,6 +104,70 @@ describe("try-on prompt face integration", () => {
     expect(prompt).not.toContain("facial expression exactly");
     expect(prompt).not.toContain("exact expression geometry");
     expect(prompt).not.toContain("visible expression/skin/makeup when present");
+  });
+
+  it("keeps candidate variation away from the face when reference and model face are present", () => {
+    const prompt = applyTryOnRequestPrompt("BASE", {
+      model: "gpt-image-2",
+      candidateIndex: 1,
+      candidateCount: 2,
+      referenceUrl: "https://example.com/reference.jpg",
+      modelFaceUrl: "https://example.com/face.jpg",
+      referenceAnalysis: {
+        index: 1,
+        bodyCrop: "upper_body",
+        personVisible: true,
+        faceVisible: true,
+        headVisible: true,
+        upperBodyVisible: true,
+        lowerBodyVisible: false,
+        handsVisible: true,
+        feetVisible: false,
+        detailFocus: ["face", "upper body"],
+        promptNotes: "Use the visible face and upper-body crop.",
+        confidence: 0.92,
+      },
+    });
+
+    expect(prompt).toContain("Do not vary the face, facial expression, gaze, head pose, head scale");
+    expect(prompt).toContain("candidate diversity must come from garment fit");
+    expect(prompt).toContain("Before applying the global color mood");
+    expect(prompt).not.toContain("avoid identical facial expressions");
+    expect(prompt).not.toContain("micro-expression");
+  });
+
+  it("structures repeated user instructions without amplifying raw duplicate text", () => {
+    const { prompt } = buildTryOnPrompt({
+      clothingCount: 1,
+      clothingMode: "single",
+      clothingRoles: ["single"],
+      hasReference: true,
+      hasModelFace: true,
+      referenceAnalysis: {
+        index: 1,
+        bodyCrop: "full_body",
+        personVisible: true,
+        faceVisible: true,
+        headVisible: true,
+        upperBodyVisible: true,
+        lowerBodyVisible: true,
+        handsVisible: true,
+        feetVisible: true,
+        detailFocus: ["face", "full body"],
+        promptNotes: "Use the visible face and full-body crop.",
+        confidence: 0.94,
+      },
+      aspectRatio: "3:4",
+      style: "裙子长度在大腿中间位置，裙子颜色和图一完全一致，模特的脸换成图三的脸，模特的脸换成图三的脸，去除多余文字水印",
+    });
+
+    expect(prompt).toContain("User constraints structured from the original request:");
+    expect(prompt).toContain("- Clothing constraints:");
+    expect(prompt).toContain("- Face identity and integration constraints:");
+    expect(prompt).toContain("- Cleanup constraints:");
+    expect(prompt).toContain("Apply these constraints within the image-role priorities above");
+    expect(prompt.match(/模特的脸换成图三的脸/g) || []).toHaveLength(1);
+    expect(prompt).not.toContain("User extra instruction:");
   });
 
   it("keeps lower-body no-head references from expanding into full-body outputs", () => {
