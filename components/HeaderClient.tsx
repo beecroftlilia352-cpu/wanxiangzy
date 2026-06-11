@@ -233,13 +233,7 @@ function MarketingHeader({ account }: { account: HeaderAccountState }) {
             进入工作台
             <ArrowUpRight className="h-3.5 w-3.5" />
           </Link>
-          <button
-            type="button"
-            className="home-menu-pill inline-flex h-10 w-10 items-center justify-center rounded-full lg:hidden"
-            aria-label="打开导航"
-          >
-            <Menu className="h-4 w-4" />
-          </button>
+          <MarketingMobileMenu />
         </div>
       </div>
     </header>
@@ -307,6 +301,40 @@ function MarketingAccountActions({
             <LogOut className="h-4 w-4" />
             {isLoggingOut ? "退出中" : "退出登录"}
           </DropdownMenu.Item>
+        </DropdownMenu.Content>
+      </DropdownMenu.Portal>
+    </DropdownMenu.Root>
+  );
+}
+
+function MarketingMobileMenu() {
+  return (
+    <DropdownMenu.Root>
+      <DropdownMenu.Trigger asChild>
+        <button
+          type="button"
+          className="home-menu-pill inline-flex h-10 w-10 items-center justify-center rounded-full outline-none transition focus-visible:ring-4 focus-visible:ring-[rgba(91,124,255,0.18)] lg:hidden"
+          aria-label="打开导航"
+        >
+          <Menu className="h-4 w-4" />
+        </button>
+      </DropdownMenu.Trigger>
+      <DropdownMenu.Portal>
+        <DropdownMenu.Content
+          align="end"
+          sideOffset={8}
+          className="mac-surface z-[80] min-w-[220px] overflow-hidden rounded-2xl border border-white/80 bg-white/95 p-1.5 shadow-xl shadow-slate-300/45"
+        >
+          {marketingNav.map((item) => (
+            <DropdownMenu.Item key={item.href} asChild>
+              <Link
+                href={item.href}
+                className="flex items-center rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 outline-none transition hover:bg-slate-50 focus:bg-slate-50 data-[highlighted]:bg-slate-50"
+              >
+                {item.label}
+              </Link>
+            </DropdownMenu.Item>
+          ))}
         </DropdownMenu.Content>
       </DropdownMenu.Portal>
     </DropdownMenu.Root>
@@ -576,7 +604,7 @@ function UserCreditActions({
     <>
       <Link
         href="/pricing"
-        className="hidden h-9 shrink-0 items-center gap-1.5 rounded-full border border-lime-200 bg-[linear-gradient(135deg,#f5ff38_0%,#dbe8ff_100%)] px-3 text-xs font-black text-slate-950 shadow-sm shadow-lime-200/40 transition hover:brightness-105 sm:inline-flex"
+        className="codex-primary-action hidden h-9 shrink-0 items-center gap-1.5 rounded-full px-3 text-xs font-black sm:inline-flex"
         title="充值中心"
       >
         <CreditCard className="h-3.5 w-3.5" />
@@ -618,7 +646,7 @@ function AccountAvatarDropdown({
       <DropdownMenu.Trigger asChild>
         <button
           type="button"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/80 bg-[linear-gradient(135deg,#dbe8ff_0%,#aeb8ff_100%)] text-slate-950 shadow-sm transition hover:scale-[1.03]"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/80 bg-white text-slate-950 shadow-sm ring-1 ring-[rgba(91,124,255,0.16)] transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(91,124,255,0.18)]"
           title="打开个人中心"
           aria-label="打开个人中心菜单"
         >
@@ -649,7 +677,7 @@ function AccountAvatarDropdown({
               event.preventDefault();
               onLogout();
             }}
-            className="flex cursor-pointer items-center gap-2.5 rounded-2xl px-3 py-2.5 text-sm font-bold text-slate-700 outline-none transition hover:bg-slate-50 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50"
+            className="flex cursor-pointer items-center gap-2.5 rounded-2xl px-3 py-2.5 text-sm font-bold text-slate-700 outline-none transition hover:bg-slate-50 data-[highlighted]:bg-slate-50 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50"
           >
             <LogOut className="h-4 w-4" />
             {isLoggingOut ? "退出中" : "退出登录"}
@@ -672,7 +700,7 @@ function AccountMenuHeader({
   return (
     <div className="mb-1 rounded-3xl bg-slate-950 px-4 py-4 text-white">
       <div className="flex items-center gap-3">
-        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,#f5ff38_0%,#aeb8ff_100%)] text-sm font-black text-slate-950">
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/15 bg-[var(--codex-gradient-primary)] text-sm font-black text-white">
           {(email || "V").slice(0, 1).toUpperCase()}
         </span>
         <div className="min-w-0">
@@ -683,7 +711,7 @@ function AccountMenuHeader({
       <div className="mt-3 flex items-center justify-between rounded-2xl bg-white/10 px-3 py-2">
         <span className="text-xs font-bold text-white/58">可用积分</span>
         <span className="inline-flex items-center gap-1 text-sm font-black">
-          <Coins className="h-3.5 w-3.5 text-[#f5ff38]" />
+          <Coins className="h-3.5 w-3.5 text-[var(--codex-accent-soft)]" />
           {creditsReady ? credits ?? "--" : "--"}
         </span>
       </div>
@@ -708,8 +736,8 @@ function AccountMenuTile({
         href={href}
         className={`flex min-h-[72px] flex-col justify-between rounded-2xl p-3 text-xs font-black outline-none transition ${
           highlight
-            ? "bg-[linear-gradient(135deg,#f5ff38_0%,#dbe8ff_100%)] text-slate-950 shadow-sm"
-            : "bg-slate-50 text-slate-700 hover:bg-slate-100"
+            ? "bg-slate-950 text-white shadow-sm"
+            : "bg-slate-50 text-slate-700 hover:bg-slate-100 data-[highlighted]:bg-slate-100"
         }`}
       >
         <Icon className="h-4 w-4" />
@@ -730,7 +758,7 @@ function AccountMenuLink({
 }) {
   return (
     <DropdownMenu.Item asChild>
-      <Link href={href} className="flex items-center gap-2.5 rounded-2xl px-3 py-2.5 text-sm font-bold text-slate-700 outline-none transition hover:bg-slate-50">
+      <Link href={href} className="flex items-center gap-2.5 rounded-2xl px-3 py-2.5 text-sm font-bold text-slate-700 outline-none transition hover:bg-slate-50 focus:bg-slate-50 data-[highlighted]:bg-slate-50">
         <Icon className="h-4 w-4" />
         {label}
       </Link>
