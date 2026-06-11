@@ -6,7 +6,6 @@ import { useState, useTransition } from "react";
 import { Alert, Button, Card, Checkbox, Image, Input, Progress, Select, Space, Statistic, Table, Tag, Tooltip, Typography } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { ApiOutlined, SearchOutlined } from "@ant-design/icons";
-import { getAdminPopupContainer, adminSizeChangerSelectProps } from "@/components/admin/AdminAntdProvider";
 import { AdminTaskActions } from "@/components/admin/AdminTaskActions";
 import type { AdminTaskList, AdminTaskListItem } from "@/lib/admin/data";
 import type { TaskStatusGroup } from "@/lib/task-queue";
@@ -97,9 +96,9 @@ export function AdminTasksClient({ tasks, q, status, module, stale, page, pageSi
           <form action="/admin/generations">
             <Space wrap>
               <Input name="q" defaultValue={q} allowClear prefix={<SearchOutlined />} placeholder="搜索任务 / 用户 / 错误" />
-              <Select className="!w-36" options={moduleOptions} value={moduleValue} onChange={setModuleValue} popupMatchSelectWidth={false} getPopupContainer={getAdminPopupContainer} />
+              <Select className="!w-36" options={moduleOptions} value={moduleValue} onChange={setModuleValue} popupMatchSelectWidth={false} />
               <input type="hidden" name="module" value={moduleValue} />
-              <Select className="!w-32" options={statusOptions} value={statusValue} onChange={setStatusValue} popupMatchSelectWidth={false} getPopupContainer={getAdminPopupContainer} />
+              <Select className="!w-32" options={statusOptions} value={statusValue} onChange={setStatusValue} popupMatchSelectWidth={false} />
               <input type="hidden" name="status" value={statusValue} />
               <input type="hidden" name="page" value="1" />
               <input type="hidden" name="pageSize" value={safePageSize} />
@@ -122,7 +121,7 @@ export function AdminTasksClient({ tasks, q, status, module, stale, page, pageSi
             current: page,
             pageSize: safePageSize,
             total: tasks.total,
-            showSizeChanger: adminSizeChangerSelectProps,
+            showSizeChanger: true,
             pageSizeOptions: [...TASK_PAGE_SIZE_OPTIONS],
             showTotal: (total, range) => `共 ${total} 条，当前 ${range[0]}-${range[1]}`,
             onChange: handlePageChange,

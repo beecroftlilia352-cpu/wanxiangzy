@@ -193,11 +193,16 @@ export function PricingSection() {
         if (!response.ok) throw new Error(payload.error || "订单状态查询失败");
         const order = payload.order || {};
         const paid = order.status === "paid" || order.credit_grant_status === "granted";
+        const creditsExpected = Number(order.credits_expected || 0);
+        const creditsGranted = Number(order.credits_granted || 0);
+        const testGrantDisabled = paid && creditsExpected <= 0 && creditsGranted <= 0;
         setNotice({
           tone: paid ? "success" : "info",
           title: paid ? "支付成功" : "支付确认中",
-          message: paid
-            ? `积分已同步到账：${Number(order.credits_granted || order.credits_expected || 0).toLocaleString("zh-CN")} 积分。`
+          message: testGrantDisabled
+            ? "测试支付已完成，当前 Stripe 测试订单不会自动入账积分。"
+            : paid
+              ? `积分已同步到账：${Number(order.credits_granted || order.credits_expected || 0).toLocaleString("zh-CN")} 积分。`
             : "Stripe 已返回，积分同步仍在处理中，稍后刷新即可查看。",
         });
         void loadCatalog();

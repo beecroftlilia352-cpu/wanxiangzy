@@ -164,3 +164,4 @@ function unique(values: string[]) {
 }
 
 export * from "@/lib/billing/catalog";
+export * from "@/lib/billing/credit-policy";

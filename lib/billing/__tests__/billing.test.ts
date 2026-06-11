@@ -4,6 +4,7 @@ import {
   computeBillingCredits,
   planStripeWebhookCreditGrant,
   resolveCheckoutPrice,
+  stripeOrderCredits,
   type BillingPriceSeed,
   type ProcessedStripeBillingState,
   type StripeBillingEvent,
@@ -111,6 +112,16 @@ describe("Stripe checkout price resolution", () => {
         clientAmountCents: 1200,
       })
     ).toThrow(/priceId/i);
+  });
+});
+
+describe("Stripe order credit policy", () => {
+  it("keeps Stripe order credit grants disabled by default", () => {
+    expect(stripeOrderCredits(1200, {})).toBe(0);
+  });
+
+  it("can be explicitly enabled for real credit fulfillment", () => {
+    expect(stripeOrderCredits(1200, { STRIPE_ENABLE_CREDIT_GRANTS: "true" })).toBe(1200);
   });
 });
 

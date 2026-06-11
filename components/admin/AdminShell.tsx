@@ -111,7 +111,10 @@ export function AdminShell({ admin, children }: AdminShellProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [routeLoading, setRouteLoading] = useState(false);
-  const activeHref = getActiveHref(pathname);
+  const [mounted, setMounted] = useState(false);
+  const activeHref = mounted ? getActiveHref(pathname) : "";
+  const selectedKeys = activeHref ? [activeHref] : [];
+  const breadcrumbTitle = mounted ? currentTitle(pathname) : "Console";
   const routeKey = `${pathname}?${searchParams.toString()}`;
   const openKeys = useMemo(() => navGroups.filter((group) => group.children.some((item) => item.href === activeHref)).map((group) => group.key), [activeHref]);
   const menuItems = useMemo<MenuProps["items"]>(
@@ -134,6 +137,10 @@ export function AdminShell({ admin, children }: AdminShellProps) {
   );
 
   useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
     setRouteLoading(false);
     setDrawerOpen(false);
   }, [routeKey]);
@@ -143,24 +150,6 @@ export function AdminShell({ admin, children }: AdminShellProps) {
     const timer = window.setTimeout(() => setRouteLoading(false), 12000);
     return () => window.clearTimeout(timer);
   }, [routeLoading]);
-
-  function handleClick(event: React.MouseEvent<HTMLElement>) {
-    if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-    const target = event.target instanceof Element ? event.target : null;
-    if (!target) return;
-    if (target.closest(".ant-select, .ant-select-dropdown, .ant-dropdown, .ant-picker-dropdown, .ant-cascader-dropdown, .ant-popover, .ant-modal-root")) {
-      return;
-    }
-    const anchor = target.closest("a[href]");
-    if (!(anchor instanceof HTMLAnchorElement)) return;
-    if (anchor.target && anchor.target !== "_self") return;
-    if (anchor.hasAttribute("download")) return;
-
-    const url = new URL(anchor.href, window.location.href);
-    if (url.origin !== window.location.origin || !url.pathname.startsWith("/admin")) return;
-    if (`${url.pathname}${url.search}` === `${window.location.pathname}${window.location.search}` && !url.hash) return;
-    setRouteLoading(true);
-  }
 
   function handleSubmit(event: React.FormEvent<HTMLElement>) {
     if (event.defaultPrevented) return;
@@ -175,7 +164,7 @@ export function AdminShell({ admin, children }: AdminShellProps) {
   }
 
   return (
-    <Layout className="admin-app-shell" onClick={handleClick} onSubmit={handleSubmit}>
+    <Layout className="admin-app-shell" onSubmit={handleSubmit}>
       <AdminRouteLoading active={routeLoading} />
       <Layout.Sider
         width={252}
@@ -188,8 +177,8 @@ export function AdminShell({ admin, children }: AdminShellProps) {
         <AdminBrand collapsed={collapsed} />
         <Menu
           mode="inline"
-          selectedKeys={[activeHref]}
-          defaultOpenKeys={openKeys}
+          selectedKeys={selectedKeys}
+          openKeys={mounted ? openKeys : []}
           items={menuItems}
           className="admin-side-menu"
         />
@@ -204,7 +193,7 @@ export function AdminShell({ admin, children }: AdminShellProps) {
         onClose={() => setDrawerOpen(false)}
         className="admin-mobile-drawer"
       >
-        <Menu mode="inline" selectedKeys={[activeHref]} defaultOpenKeys={openKeys} items={menuItems} />
+        <Menu mode="inline" selectedKeys={selectedKeys} openKeys={mounted ? openKeys : []} items={menuItems} />
         <div className="mt-4">
           <AdminAccount admin={admin} collapsed={false} />
         </div>
@@ -228,7 +217,7 @@ export function AdminShell({ admin, children }: AdminShellProps) {
             <Breadcrumb
               items={[
                 { title: "产品管理后台" },
-                { title: currentTitle(pathname) },
+                { title: breadcrumbTitle },
               ]}
             />
           </Space>

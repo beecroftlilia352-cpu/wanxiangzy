@@ -62,7 +62,7 @@ export function AdminAssetModerationForm({
         onOk={() => form.submit()}
         okText="保存处理结果"
         confirmLoading={loading}
-        destroyOnClose
+        destroyOnHidden
       >
         <Typography.Paragraph type="secondary">
           选择一个运营动作并填写原因。原因会进入审计记录，便于后续客服、财务和负责人追溯。

@@ -56,7 +56,7 @@ export function AdminOperationRequestActions({ id, status }: { id: string; statu
         okText={action === "approve" ? "确认通过" : "确认驳回"}
         okButtonProps={{ danger: action === "reject" }}
         confirmLoading={loading}
-        destroyOnClose
+        destroyOnHidden
       >
         <Typography.Paragraph type="secondary">
           请用业务语言说明原因，例如“任务失败已核实，补偿合理”或“证据不足，需客服补充截图”。

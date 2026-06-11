@@ -19,7 +19,6 @@ import {
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { DeleteOutlined, EditOutlined, PlusOutlined } from "@ant-design/icons";
-import { adminSizeChangerSelectProps, getAdminPopupContainer } from "@/components/admin/AdminAntdProvider";
 import type { AdminFeatureConfig, AdminFeatureRegistry } from "@/lib/admin/features";
 
 type AdminFeaturesClientProps = {
@@ -274,7 +273,7 @@ export function AdminFeaturesClient({ registry }: AdminFeaturesClientProps) {
           columns={columns}
           dataSource={features}
           scroll={{ x: 1250 }}
-          pagination={{ pageSize: 12, showSizeChanger: adminSizeChangerSelectProps }}
+          pagination={{ pageSize: 12, showSizeChanger: true }}
         />
       </Card>
 
@@ -286,7 +285,7 @@ export function AdminFeaturesClient({ registry }: AdminFeaturesClientProps) {
         okText="发布配置"
         confirmLoading={submitting}
         width={760}
-        destroyOnClose
+        destroyOnHidden
       >
         <Form<FeatureFormValue> form={form} layout="vertical" onFinish={submit}>
           <div className="grid gap-3 md:grid-cols-2">
@@ -297,10 +296,10 @@ export function AdminFeaturesClient({ registry }: AdminFeaturesClientProps) {
               <Input placeholder="服装上身" />
             </Form.Item>
             <Form.Item name="module" label="分组" rules={[{ required: true }]}>
-              <Select options={moduleOptions} getPopupContainer={getAdminPopupContainer} />
+              <Select options={moduleOptions} />
             </Form.Item>
             <Form.Item name="status" label="状态" rules={[{ required: true }]}>
-              <Select options={statusOptions} getPopupContainer={getAdminPopupContainer} />
+              <Select options={statusOptions} />
             </Form.Item>
             <Form.Item name="href" label="前端路由" rules={[{ required: true, message: "请输入前端路由" }]}>
               <Input placeholder="/create" />

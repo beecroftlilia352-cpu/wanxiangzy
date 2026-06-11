@@ -3,9 +3,11 @@ import {
   claimStripeEvent,
   createInvoiceOrder,
   findBundleByStripePrice,
+  findOrderById,
   findOrderByCheckoutSession,
   findUserIdByStripeCustomer,
   grantOrderCredits,
+  markOrderCreditGrantSkipped,
   markOrderFromCheckoutSession,
   markStripeEventFailed,
   markStripeEventProcessed,
@@ -69,6 +71,10 @@ async function handleCheckoutSession(session: Stripe.Checkout.Session) {
   if (session.mode === "payment" && paid) {
     const order = await findOrderByCheckoutSession(session.id);
     if (!order) throw new Error(`Payment order not found for Checkout session ${session.id}`);
+    if (order.creditsExpected <= 0) {
+      await markOrderCreditGrantSkipped(order.id);
+      return;
+    }
     await grantOrderCredits(order.id, `Stripe 支付入账：${session.id}`);
   }
 
@@ -104,6 +110,12 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
     stripeCustomerId: customerId,
     stripePriceId,
   });
+
+  const order = await findOrderById(orderId);
+  if (order && order.creditsExpected <= 0) {
+    await markOrderCreditGrantSkipped(orderId);
+    return;
+  }
 
   await grantOrderCredits(orderId, `Stripe 订阅入账：${invoice.id}`);
 }

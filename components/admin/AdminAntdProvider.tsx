@@ -4,23 +4,11 @@ import { App, ConfigProvider, theme } from "antd";
 import zhCN from "antd/locale/zh_CN";
 import type { ReactNode } from "react";
 
-export function getAdminPopupContainer(_triggerNode?: HTMLElement) {
-  return document.body;
-}
-
-export const adminSizeChangerSelectProps = {
-  getPopupContainer: getAdminPopupContainer,
-  popupMatchSelectWidth: false,
-};
-
 export function AdminAntdProvider({ children }: { children: ReactNode }) {
   return (
     <ConfigProvider
       locale={zhCN}
-      getPopupContainer={getAdminPopupContainer}
-      pagination={{
-        showSizeChanger: adminSizeChangerSelectProps,
-      }}
+      getPopupContainer={(triggerNode) => triggerNode?.parentElement || document.body}
       theme={{
         algorithm: theme.compactAlgorithm,
         token: {
@@ -36,6 +24,7 @@ export function AdminAntdProvider({ children }: { children: ReactNode }) {
           fontFamily:
             'Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif',
           fontSize: 13,
+          motion: false,
           wireframe: false,
         },
         components: {

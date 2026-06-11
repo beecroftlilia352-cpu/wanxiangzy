@@ -413,10 +413,11 @@ export function AccountCenterClient() {
   return (
     <ConfigProvider
       locale={zhCN}
+      getPopupContainer={(triggerNode) => triggerNode?.parentElement || document.body}
       theme={{
         algorithm: antdTheme.compactAlgorithm,
         token: {
-          colorPrimary: "#d8ff35",
+          colorPrimary: "#5b7cff",
           colorInfo: "#1677ff",
           colorSuccess: "#0f8a5f",
           colorWarning: "#b56a00",
@@ -427,6 +428,7 @@ export function AccountCenterClient() {
           borderRadiusLG: 6,
           fontFamily: 'Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif',
           fontSize: 14,
+          motion: false,
         },
         components: {
           Button: { borderRadius: 18, controlHeight: 34 },
@@ -439,7 +441,7 @@ export function AccountCenterClient() {
       }}
     >
       <main className="min-h-screen bg-white px-4 py-6 text-slate-950 sm:px-6 lg:px-10">
-        <div className="mx-auto grid w-full max-w-[1360px] gap-6 lg:grid-cols-[206px_minmax(0,1fr)]">
+        <div className="mx-auto grid w-full max-w-[1360px] gap-6 lg:grid-cols-[206px_minmax(0,1fr)] lg:items-start">
           <AccountSidebar activeTab={activeTab} onSelect={selectTab} />
 
           <section className="min-w-0">
@@ -537,8 +539,8 @@ export function AccountCenterClient() {
 
 function AccountSidebar({ activeTab, onSelect }: { activeTab: AccountTab; onSelect: (tab: AccountTab) => void }) {
   return (
-    <aside className="hidden lg:block">
-      <nav className="sticky top-24 min-h-[720px] bg-[#f5f7ff] px-5 py-5" aria-label="个人中心模块">
+    <aside className="hidden w-[206px] shrink-0 lg:block">
+      <nav className="sticky top-24 min-h-[720px] w-[206px] bg-[#f5f7ff] px-4 py-5" aria-label="个人中心模块">
         {accountGroups.map((group) => {
           const Icon = group.icon;
           const expanded = group.children.some((item) => item.key === activeTab);
@@ -549,26 +551,34 @@ function AccountSidebar({ activeTab, onSelect }: { activeTab: AccountTab; onSele
                 type="button"
                 onClick={() => onSelect(group.children[0].key)}
                 className={cn(
-                  "flex h-10 w-full items-center gap-3 text-left text-[15px] font-medium transition",
-                  expanded || single ? "text-slate-950" : "text-slate-500 hover:text-slate-900",
+                  "flex h-10 w-full items-center gap-3 rounded-md px-3 text-left text-[15px] font-medium transition-colors",
+                  expanded
+                    ? "bg-white text-slate-950 shadow-sm ring-1 ring-[#d8e0ff]"
+                    : "text-slate-500 hover:bg-white/70 hover:text-slate-900",
                 )}
+                aria-current={expanded && single ? "page" : undefined}
+                aria-expanded={group.children.length > 1 ? expanded : undefined}
               >
-                <Icon className="h-4 w-4 text-slate-500" />
+                <Icon className={cn("h-4 w-4", expanded ? "text-[#5b7cff]" : "text-slate-500")} />
                 <span className="flex-1">{group.label}</span>
-                {group.children.length > 1 ? <ChevronDown className={cn("h-4 w-4 text-slate-500 transition", expanded && "rotate-180")} /> : null}
+                {group.children.length > 1 ? <ChevronDown className={cn("h-4 w-4 text-slate-500 transition", expanded && "rotate-180 text-[#5b7cff]")} /> : null}
               </button>
               {group.children.length > 1 && expanded ? (
-                <div className="mt-1 space-y-1 pl-7">
+                <div className="mt-2 space-y-1 pl-7">
                   {group.children.map((item) => (
                     <button
                       key={item.key}
                       type="button"
                       onClick={() => onSelect(item.key)}
                       className={cn(
-                        "block h-[30px] w-full rounded-md px-4 py-1.5 text-center text-sm transition",
-                        activeTab === item.key ? "bg-[#d8ff35] font-medium text-slate-950" : "text-slate-500 hover:bg-white/70 hover:text-slate-900",
+                        "relative flex h-8 w-full items-center rounded-md px-4 text-left text-sm transition-colors",
+                        activeTab === item.key
+                          ? "bg-[#e9eeff] font-medium text-[#3154d4]"
+                          : "text-slate-500 hover:bg-white/70 hover:text-slate-900",
                       )}
+                      aria-current={activeTab === item.key ? "page" : undefined}
                     >
+                      {activeTab === item.key ? <span className="absolute left-2 h-3.5 w-0.5 rounded-full bg-[#5b7cff]" /> : null}
                       {item.label}
                     </button>
                   ))}
@@ -614,7 +624,7 @@ function AccountInfoPanel({
       <AccountAssetCard displayName={displayName} maskedAccount={maskedAccount} credits={credits} />
       <div className="my-8 border-t border-slate-900" />
       <section>
-        <h2 className="mb-6 inline-block bg-[#ecff8f] text-lg font-medium">账号信息</h2>
+        <h2 className="mb-6 border-l-4 border-[#5b7cff] pl-3 text-lg font-semibold text-slate-950">账号信息</h2>
         <div className="divide-y divide-slate-200">
           <InfoLine label="用户ID" value={shortUserId(userId, 12)} />
           <InfoLine label="用户名" value={displayName} hint="用户名半年内仅支持修改一次 请谨慎修改哦" action="用户名修改" />
@@ -716,11 +726,10 @@ function CreditLogsPanel({
 
   return (
     <section>
-      <h2 className="mb-5 inline-block bg-[#ecff8f] text-lg font-medium">米豆明细统计</h2>
       {error ? <Alert className="mb-4" type="error" showIcon message={error} /> : null}
       <Form
         form={form}
-        layout="inline"
+        layout="vertical"
         initialValues={{ ...filters, range: toRangeValue(filters) }}
         onFinish={(values) => {
           const [from, to] = dateRangeToStrings(values.range);
@@ -729,43 +738,35 @@ function CreditLogsPanel({
             ...values,
             from,
             to,
-            q: values.q || "",
+            q: "",
           });
         }}
         className="mb-6 !block"
       >
-        <div className="grid gap-x-5 gap-y-4 xl:grid-cols-3">
+        <div className="grid gap-x-6 gap-y-4 xl:grid-cols-3">
           <FilterItem label="产品" name="product"><Select options={productOptions} /></FilterItem>
           <FilterItem label="功能" name="feature"><Select options={featureOptions} /></FilterItem>
           <FilterItem label="收支类型" name="type"><Select options={creditTypeOptions} /></FilterItem>
           <FilterItem label="收支" name="direction">
             <Select options={[{ value: "all", label: "全部收支" }, { value: "income", label: "收入" }, { value: "spend", label: "支出" }]} />
           </FilterItem>
-          <FilterItem label="时间" name="range"><RangePicker className="w-full" /></FilterItem>
+          <FilterItem label="时间" name="range"><RangePicker className="w-full" placeholder={["开始日期", "结束日期"]} /></FilterItem>
           <FilterItem label="消耗方式" name="consumeMode">
             <Select options={[{ value: "all", label: "全部" }, { value: "saas", label: "SAAS调用" }, { value: "stripe", label: "Stripe支付" }]} />
           </FilterItem>
         </div>
         <div className="mt-4 flex flex-wrap justify-end gap-3">
-          <Form.Item name="q" className="!mb-0 min-w-[260px]">
-            <Input.Search placeholder="任务ID / 原因" allowClear enterButton="查询" onSearch={() => form.submit()} />
-          </Form.Item>
           <Button onClick={() => {
             form.resetFields();
             onFiltersChange(defaultCreditFilters);
           }}>
             重置
           </Button>
-          <Button type="primary" htmlType="submit" className="!bg-[#d8ff35] !text-slate-950">
+          <Button type="primary" htmlType="submit">
             查询
           </Button>
         </div>
       </Form>
-      <div className="mb-4 grid gap-3 sm:grid-cols-3">
-        <SmallMetric label="当前页收入" value={`+${formatNumber(summary.pageIncome)}`} />
-        <SmallMetric label="当前页支出" value={`-${formatNumber(summary.pageSpend)}`} />
-        <SmallMetric label="匹配记录" value={formatNumber(summary.count)} />
-      </div>
       <Table<CreditLog>
         size="small"
         rowKey="id"
@@ -821,7 +822,7 @@ function OrdersPanel({
       { title: "时间", dataIndex: "createdAt", width: 170, render: formatDateTime },
       { title: "状态", dataIndex: "status", width: 120, render: (value: string) => <StatusTag value={statusLabel(value)} status={value} /> },
       { title: "金额", width: 120, render: (_, order) => formatCny(order.amountNet ?? order.amountTotal - order.amountRefunded) },
-      { title: "到账", width: 130, render: (_, order) => <Tag color={order.creditGrantStatus === "granted" ? "green" : "default"}>{grantStatusLabel(order.creditGrantStatus)}</Tag> },
+      { title: "到账", width: 130, render: (_, order) => <Tag color={order.creditsExpected <= 0 ? "default" : order.creditGrantStatus === "granted" ? "blue" : "default"}>{order.creditsExpected <= 0 ? "测试不入账" : grantStatusLabel(order.creditGrantStatus)}</Tag> },
       { title: "操作", width: 110, render: (_, order) => <Link href={`/account?tab=orders&q=${encodeURIComponent(order.id)}`} className="text-[#1677ff]">详情</Link> },
     ],
     [],
@@ -829,22 +830,28 @@ function OrdersPanel({
 
   return (
     <section>
-      <h2 className="mb-5 inline-block bg-[#ecff8f] text-lg font-medium">充值记录</h2>
       {error ? <Alert className="mb-4" type="error" showIcon message={error} /> : null}
       <Form
         form={form}
-        layout="inline"
+        layout="vertical"
         initialValues={{ ...filters, range: toRangeValue(filters) }}
         onFinish={(values) => {
           const [from, to] = dateRangeToStrings(values.range);
-          onFiltersChange({ ...filters, ...values, from, to, q: values.q || "" });
+          onFiltersChange({
+            ...defaultOrderFilters,
+            status: values.status || "all",
+            mode: values.mode || "all",
+            from,
+            to,
+          });
         }}
         className="mb-6 !block"
       >
-        <div className="grid gap-x-5 gap-y-4 xl:grid-cols-3">
-          <FilterItem label="订单状态" name="status">
+        <div className="grid gap-x-6 gap-y-4 xl:grid-cols-3">
+          <FilterItem label="支付时间" name="range"><RangePicker className="w-full" placeholder={["开始日期", "结束日期"]} /></FilterItem>
+          <FilterItem label="状态" name="status">
             <Select options={[
-              { value: "all", label: "全部状态" },
+              { value: "all", label: "全部" },
               { value: "pending", label: "待支付" },
               { value: "processing", label: "处理中" },
               { value: "paid", label: "已支付" },
@@ -853,48 +860,22 @@ function OrdersPanel({
               { value: "refunded", label: "已退款" },
             ]} />
           </FilterItem>
-          <FilterItem label="到账状态" name="creditGrantStatus">
-            <Select options={[
-              { value: "all", label: "全部到账" },
-              { value: "pending", label: "入账中" },
-              { value: "granted", label: "已到账" },
-              { value: "failed", label: "入账失败" },
-              { value: "refunded", label: "已退款" },
-            ]} />
-          </FilterItem>
-          <FilterItem label="套餐类型" name="mode">
+          <FilterItem label="产品" name="mode">
             <Select options={[{ value: "all", label: "全部" }, { value: "payment", label: "积分包" }, { value: "subscription", label: "订阅" }]} />
           </FilterItem>
-          <FilterItem label="时间" name="range"><RangePicker className="w-full" /></FilterItem>
-          <FilterItem label="排序" name="sort">
-            <Select options={[
-              { value: "newest", label: "时间从新到旧" },
-              { value: "oldest", label: "时间从旧到新" },
-              { value: "amount_desc", label: "金额从高到低" },
-              { value: "credits_desc", label: "积分从高到低" },
-            ]} />
-          </FilterItem>
-          <Form.Item name="q" label="关键词" className="!mb-0">
-            <Input.Search placeholder="订单ID / Stripe会话" allowClear enterButton="查询" onSearch={() => form.submit()} />
-          </Form.Item>
         </div>
-        <div className="mt-4 flex justify-end gap-3">
+        <div className="mt-4 flex flex-wrap justify-end gap-3">
           <Button onClick={() => {
             form.resetFields();
             onFiltersChange(defaultOrderFilters);
           }}>
             重置
           </Button>
-          <Button type="primary" htmlType="submit" className="!bg-[#d8ff35] !text-slate-950">
+          <Button type="primary" htmlType="submit">
             查询
           </Button>
         </div>
       </Form>
-      <div className="mb-4 grid gap-3 sm:grid-cols-3">
-        <SmallMetric label="当前页实付" value={formatCny(summary.pageNetAmount)} />
-        <SmallMetric label="当前页到账积分" value={formatNumber(summary.pageGrantedCredits)} />
-        <SmallMetric label="匹配订单" value={formatNumber(summary.count)} />
-      </div>
       <Table<BillingOrder>
         size="small"
         rowKey="id"
@@ -1001,7 +982,7 @@ function FeedbackPanel({
           <Input value={feedback.contact} placeholder="微信 / 手机 / 邮箱" onChange={(event) => onChange({ ...feedback, contact: event.target.value })} />
         </FormLine>
         <p className="text-sm text-orange-500">若您提出的建议被平台采纳，将会获得平台奖励的米豆</p>
-        <Button type="primary" htmlType="submit" loading={submitting} icon={<Send className="h-3.5 w-3.5" />} className="!bg-[#d8ff35] !text-slate-950">
+        <Button type="primary" htmlType="submit" loading={submitting} icon={<Send className="h-3.5 w-3.5" />}>
           提交
         </Button>
       </form>
@@ -1047,9 +1028,12 @@ function Panel({ title, description, children }: { title: string; description: s
 
 function FilterItem({ label, name, children }: { label: string; name: string; children: React.ReactNode }) {
   return (
-    <Form.Item label={label} name={name} className="!mb-0 [&_.ant-form-item-control]:min-w-0 [&_.ant-form-item-control-input-content]:w-full">
-      {children}
-    </Form.Item>
+    <div className="grid grid-cols-[74px_minmax(0,1fr)] items-center gap-3">
+      <label className="whitespace-nowrap text-sm font-medium text-slate-950">{label}:</label>
+      <Form.Item name={name} noStyle>
+        {children}
+      </Form.Item>
+    </div>
   );
 }
 
@@ -1092,7 +1076,7 @@ function PageHint({ pageInfo }: { pageInfo: PageInfo }) {
 }
 
 function StatusTag({ value, status }: { value: string; status: string }) {
-  const color = status === "paid" || status === "granted" ? "green" : status === "failed" || status === "canceled" ? "red" : status === "pending" || status === "processing" ? "orange" : "default";
+  const color = status === "paid" || status === "granted" ? "blue" : status === "failed" || status === "canceled" ? "red" : status === "pending" || status === "processing" ? "orange" : "default";
   return <Tag color={color}>{value}</Tag>;
 }
 

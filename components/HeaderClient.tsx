@@ -11,7 +11,6 @@ import {
   CircleHelp,
   Coins,
   CreditCard,
-  Crown,
   Home,
   LogOut,
   Menu,
@@ -258,7 +257,7 @@ function MarketingAccountActions({
   }
 
   return (
-    <DropdownMenu.Root>
+    <DropdownMenu.Root modal={false}>
       <DropdownMenu.Trigger asChild>
         <button type="button" className="home-login-pill hidden h-10 items-center gap-1.5 rounded-full px-4 transition sm:inline-flex">
           <Coins className="h-3.5 w-3.5" />
@@ -301,7 +300,7 @@ function MarketingAccountActions({
 
 function MarketingMobileMenu() {
   return (
-    <DropdownMenu.Root>
+    <DropdownMenu.Root modal={false}>
       <DropdownMenu.Trigger asChild>
         <button
           type="button"
@@ -463,14 +462,6 @@ function AppHeader({ pathname }: { pathname: string }) {
           <div className="lg:hidden">
             <MobileModuleMenu activeModule={activeModule} />
           </div>
-          <Link
-            href="/pricing"
-            className="hidden h-8 shrink-0 items-center gap-1.5 rounded-full bg-[#3b2415] px-3 text-xs font-black text-[#ffe5b4] shadow-sm transition hover:-translate-y-0.5 hover:bg-[#2c1a0f] sm:inline-flex"
-            title="开通会员"
-          >
-            <Crown className="h-3.5 w-3.5" />
-            <span>9.9元开通会员</span>
-          </Link>
           <UserCreditActions
             authReady={authReady}
             creditsReady={creditsReady}
@@ -600,7 +591,7 @@ function UserCreditActions({
     <>
       <Link
         href="/pricing"
-        className="hidden h-8 shrink-0 items-center gap-1.5 rounded-full bg-[#d9ff35] px-3 text-xs font-black text-slate-950 shadow-sm ring-1 ring-black/5 transition hover:-translate-y-0.5 hover:bg-[#cff42d] sm:inline-flex"
+        className="hidden h-8 shrink-0 items-center gap-1.5 rounded-full bg-[#3b2415] px-3 text-xs font-black text-[#ffe5b4] shadow-sm transition hover:-translate-y-0.5 hover:bg-[#2c1a0f] sm:inline-flex"
         title="充值中心"
       >
         <CreditCard className="h-3.5 w-3.5" />
@@ -641,14 +632,35 @@ function AccountAvatarDropdown({
   isLoggingOut: boolean;
   onLogout: () => void;
 }) {
+  const [open, setOpen] = useState(false);
+  const allowOpenRef = useRef(false);
+
+  function allowIntentionalOpen() {
+    allowOpenRef.current = true;
+  }
+
   return (
-    <DropdownMenu.Root>
+    <DropdownMenu.Root
+      modal={false}
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (nextOpen && !allowOpenRef.current) return;
+        allowOpenRef.current = false;
+        setOpen(nextOpen);
+      }}
+    >
       <DropdownMenu.Trigger asChild>
         <button
           type="button"
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#dbe6ff] text-[#6d8fe8] shadow-sm ring-1 ring-[#c8d7ff] transition hover:bg-[#cfddff] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(91,124,255,0.18)]"
           title="打开个人中心"
           aria-label="打开个人中心菜单"
+          onPointerDownCapture={allowIntentionalOpen}
+          onKeyDownCapture={(event) => {
+            if (event.key === "Enter" || event.key === " " || event.key === "ArrowDown") {
+              allowIntentionalOpen();
+            }
+          }}
         >
           <UserRound className="h-4 w-4" />
         </button>
@@ -762,7 +774,7 @@ function MobileModuleMenu({ activeModule }: { activeModule: string }) {
   const ActiveIcon = active.icon;
 
   return (
-    <DropdownMenu.Root>
+    <DropdownMenu.Root modal={false}>
       <DropdownMenu.Trigger asChild>
         <button
           type="button"

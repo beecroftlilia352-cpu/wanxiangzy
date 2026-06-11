@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { stripeOrderCredits } from "@/lib/billing/credit-policy";
 import { getCheckoutPriceBundle, createPaymentOrder, attachCheckoutSessionToOrder, ensureStripePrice, getOrCreateStripeCustomer } from "@/lib/billing/repository";
 import { getAppUrl, getStripe } from "@/lib/billing/stripe";
 import { createServerSupabase } from "@/lib/supabase/server";
@@ -40,12 +41,14 @@ export async function POST(request: Request) {
     });
 
     const appUrl = getAppUrl();
+    const orderCredits = stripeOrderCredits(bundle.price.credits);
     const metadata = {
       orderId,
       userId: user.id,
       productId: bundle.product.id,
       priceId: bundle.price.id,
-      credits: String(bundle.price.credits),
+      credits: String(orderCredits),
+      catalogCredits: String(bundle.price.credits),
       mode: bundle.price.mode,
     };
 

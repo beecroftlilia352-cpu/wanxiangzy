@@ -129,7 +129,7 @@ export async function GET(request: NextRequest) {
         amountRefunded: numberValue(row.amount_refunded),
         creditsExpected: numberValue(row.credits_expected),
         creditsGranted: numberValue(row.credits_granted),
-        creditGrantStatus: stringValue(row.credit_grant_status),
+        creditGrantStatus: numberValue(row.credits_expected) <= 0 && stringValue(row.status) === "paid" ? "skipped" : stringValue(row.credit_grant_status),
         checkoutSessionId: stringValue(row.stripe_checkout_session_id),
         invoiceId: stringValue(row.stripe_invoice_id),
         createdAt: stringValue(row.created_at),

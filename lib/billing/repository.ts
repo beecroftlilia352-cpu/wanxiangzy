@@ -7,6 +7,7 @@ import {
   type BillingPrice,
   type BillingProduct,
 } from "@/lib/billing/catalog";
+import { stripeOrderCredits } from "@/lib/billing/credit-policy";
 import { getAdminClient } from "@/lib/supabase/admin";
 
 type BillingProductRow = Record<string, unknown>;
@@ -196,7 +197,7 @@ export async function createPaymentOrder(params: {
       status: "checkout_created",
       currency: params.price.currency,
       amount_total: params.price.unitAmount,
-      credits_expected: params.price.credits,
+      credits_expected: stripeOrderCredits(params.price.credits),
       stripe_customer_id: params.stripeCustomerId,
     })
     .select("id")
@@ -271,6 +272,20 @@ export async function markOrderRefunded(params: {
   if (error) throw new Error(error.message);
 }
 
+export async function markOrderCreditGrantSkipped(orderId: string) {
+  const { error } = await getAdminClient()
+    .from("payment_orders")
+    .update({
+      status: "paid",
+      credits_granted: 0,
+      credit_grant_status: "granted",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", orderId);
+
+  if (error) throw new Error(error.message);
+}
+
 export async function createInvoiceOrder(params: {
   userId: string;
   subscriptionId: string;
@@ -294,7 +309,7 @@ export async function createInvoiceOrder(params: {
       status: "paid",
       currency: bundle.price.currency,
       amount_total: bundle.price.unitAmount,
-      credits_expected: bundle.price.credits,
+      credits_expected: stripeOrderCredits(bundle.price.credits),
       stripe_customer_id: params.stripeCustomerId,
       stripe_subscription_id: params.subscriptionId,
       stripe_invoice_id: params.invoiceId,
