@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertCircle, Check, CircleDollarSign, Crown, Loader2, Sparkles, Zap } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
 type PricingMode = "credits" | "subscription";
@@ -132,7 +131,6 @@ function buildFeatures(plan: CreditPlan, mode: PricingMode) {
 
 export function PricingSection() {
   const router = useRouter();
-  const supabase = useMemo(() => createClient(), []);
   const [mode, setMode] = useState<PricingMode>("credits");
   const [catalog, setCatalog] = useState<BillingCatalogResponse | null>(null);
   const [catalogLoading, setCatalogLoading] = useState(true);
@@ -148,15 +146,6 @@ export function PricingSection() {
     setCatalogLoading(true);
     setCatalogError("");
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      router.replace("/login?next=/pricing");
-      return;
-    }
-
     try {
       const response = await fetch("/api/billing/catalog", { cache: "no-store" });
       const payload = (await response.json().catch(() => ({}))) as BillingCatalogResponse & { error?: string };
@@ -171,7 +160,7 @@ export function PricingSection() {
     } finally {
       setCatalogLoading(false);
     }
-  }, [router, supabase]);
+  }, [router]);
 
   useEffect(() => {
     void loadCatalog();

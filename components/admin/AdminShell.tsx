@@ -147,7 +147,11 @@ export function AdminShell({ admin, children }: AdminShellProps) {
   function handleClick(event: React.MouseEvent<HTMLElement>) {
     if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     const target = event.target instanceof Element ? event.target : null;
-    const anchor = target?.closest("a[href]");
+    if (!target) return;
+    if (target.closest(".ant-select, .ant-select-dropdown, .ant-dropdown, .ant-picker-dropdown, .ant-cascader-dropdown, .ant-popover, .ant-modal-root")) {
+      return;
+    }
+    const anchor = target.closest("a[href]");
     if (!(anchor instanceof HTMLAnchorElement)) return;
     if (anchor.target && anchor.target !== "_self") return;
     if (anchor.hasAttribute("download")) return;

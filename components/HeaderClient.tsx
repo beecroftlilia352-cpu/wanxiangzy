@@ -11,6 +11,7 @@ import {
   CircleHelp,
   Coins,
   CreditCard,
+  Crown,
   Home,
   LogOut,
   Menu,
@@ -40,15 +41,6 @@ type HeaderAccountState = {
   onLogout: () => Promise<void>;
 };
 
-const publicHeaderAccount: HeaderAccountState = {
-  authReady: true,
-  creditsReady: true,
-  credits: null,
-  email: null,
-  isLoggingOut: false,
-  onLogout: async () => {},
-};
-
 const marketingNav = [
   { label: "产品", href: "/create" },
   { label: "工作流", href: "/agent" },
@@ -70,7 +62,7 @@ export function HeaderClient() {
   }
 
   if (pathname.startsWith("/pricing")) {
-    return <MarketingHeader account={publicHeaderAccount} />;
+    return <MarketingHeaderWithAccount />;
   }
 
   return <AppHeader pathname={pathname} />;
@@ -471,9 +463,13 @@ function AppHeader({ pathname }: { pathname: string }) {
           <div className="lg:hidden">
             <MobileModuleMenu activeModule={activeModule} />
           </div>
-          <Link href="/pricing" className="studio-button studio-button-compact" title="价格与购买积分">
-            <Coins className="h-3.5 w-3.5 text-[var(--codex-accent)]" />
-            <span className="hidden sm:inline">价格</span>
+          <Link
+            href="/pricing"
+            className="hidden h-8 shrink-0 items-center gap-1.5 rounded-full bg-[#3b2415] px-3 text-xs font-black text-[#ffe5b4] shadow-sm transition hover:-translate-y-0.5 hover:bg-[#2c1a0f] sm:inline-flex"
+            title="开通会员"
+          >
+            <Crown className="h-3.5 w-3.5" />
+            <span>9.9元开通会员</span>
           </Link>
           <UserCreditActions
             authReady={authReady}
@@ -604,14 +600,18 @@ function UserCreditActions({
     <>
       <Link
         href="/pricing"
-        className="codex-primary-action hidden h-9 shrink-0 items-center gap-1.5 rounded-full px-3 text-xs font-black sm:inline-flex"
+        className="hidden h-8 shrink-0 items-center gap-1.5 rounded-full bg-[#d9ff35] px-3 text-xs font-black text-slate-950 shadow-sm ring-1 ring-black/5 transition hover:-translate-y-0.5 hover:bg-[#cff42d] sm:inline-flex"
         title="充值中心"
       >
         <CreditCard className="h-3.5 w-3.5" />
         充值中心
       </Link>
-      <Link href="/account?tab=credits" className="studio-button studio-button-compact" title="积分明细">
-        <Coins className="h-3.5 w-3.5 text-[var(--codex-accent)]" />
+      <Link
+        href="/account?tab=credits"
+        className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-[#ffd59c] bg-[#fff0dc] px-3 text-xs font-black text-[#9a5a00] shadow-sm transition hover:-translate-y-0.5 hover:bg-[#ffe7c2]"
+        title="积分明细"
+      >
+        <Coins className="h-3.5 w-3.5 text-[#f59e0b]" />
         {creditsReady ? <span>{credits ?? "--"}</span> : <span className="h-3 w-5 animate-pulse rounded bg-slate-200" />}
       </Link>
       <Link href="/account?tab=help" className="studio-button studio-button-compact hidden sm:inline-flex" title="帮助中心">
@@ -646,7 +646,7 @@ function AccountAvatarDropdown({
       <DropdownMenu.Trigger asChild>
         <button
           type="button"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/80 bg-white text-slate-950 shadow-sm ring-1 ring-[rgba(91,124,255,0.16)] transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(91,124,255,0.18)]"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#dbe6ff] text-[#6d8fe8] shadow-sm ring-1 ring-[#c8d7ff] transition hover:bg-[#cfddff] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(91,124,255,0.18)]"
           title="打开个人中心"
           aria-label="打开个人中心菜单"
         >
@@ -656,28 +656,26 @@ function AccountAvatarDropdown({
       <DropdownMenu.Portal>
         <DropdownMenu.Content
           align="end"
-          sideOffset={10}
-          className="mac-surface z-[80] w-[292px] overflow-hidden rounded-3xl border border-white/80 bg-white/95 p-2 shadow-2xl shadow-slate-300/50"
+          sideOffset={12}
+          className="z-[80] w-[272px] overflow-hidden rounded-md border border-slate-100 bg-white shadow-[0_18px_50px_rgba(15,23,42,0.16)]"
         >
           <AccountMenuHeader email={email} credits={credits} creditsReady={creditsReady} />
-          <div className="grid grid-cols-2 gap-1.5 p-1">
-            <AccountMenuTile href="/account" icon={UserRound} label="个人中心" />
-            <AccountMenuTile href="/pricing" icon={CreditCard} label="充值中心" highlight />
-            <AccountMenuTile href="/account?tab=credits" icon={Coins} label="积分明细" />
-            <AccountMenuTile href="/account?tab=orders" icon={CreditCard} label="充值记录" />
-            <AccountMenuTile href="/account?tab=help" icon={CircleHelp} label="帮助中心" />
-            <AccountMenuTile href="/account?tab=messages" icon={Bell} label="消息中心" />
-          </div>
+          <AccountMenuBanner />
+          <AccountMenuLink href="/account" icon={UserRound} label="个人中心" />
+          <AccountMenuLink href="/pricing" icon={CreditCard} label="充值中心" />
+          <AccountMenuLink href="/account?tab=credits" icon={Coins} label="积分明细" />
+          <AccountMenuLink href="/account?tab=orders" icon={CreditCard} label="充值记录" />
+          <AccountMenuLink href="/account?tab=help" icon={CircleHelp} label="帮助中心" />
+          <AccountMenuLink href="/account?tab=messages" icon={Bell} label="消息中心" />
           <AccountMenuLink href="/account?tab=feedback" icon={MessageSquare} label="客服反馈" />
-          <DropdownMenu.Separator className="my-1 h-px bg-slate-100" />
-          <AccountMenuLink href="/history" icon={ArrowUpRight} label="我的作品" />
+          <DropdownMenu.Separator className="h-px bg-slate-100" />
           <DropdownMenu.Item
             disabled={isLoggingOut}
             onSelect={(event) => {
               event.preventDefault();
               onLogout();
             }}
-            className="flex cursor-pointer items-center gap-2.5 rounded-2xl px-3 py-2.5 text-sm font-bold text-slate-700 outline-none transition hover:bg-slate-50 data-[highlighted]:bg-slate-50 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50"
+            className="flex cursor-pointer items-center gap-2.5 px-4 py-3 text-sm font-medium text-slate-700 outline-none transition hover:bg-slate-50 data-[highlighted]:bg-slate-50 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50"
           >
             <LogOut className="h-4 w-4" />
             {isLoggingOut ? "退出中" : "退出登录"}
@@ -697,53 +695,40 @@ function AccountMenuHeader({
   credits: number | null;
   creditsReady: boolean;
 }) {
+  const masked = email ? maskAccountLabel(email) : "个人账户";
   return (
-    <div className="mb-1 rounded-3xl bg-slate-950 px-4 py-4 text-white">
+    <div className="bg-[#f8fafc] px-3 py-3">
       <div className="flex items-center gap-3">
-        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/15 bg-[var(--codex-gradient-primary)] text-sm font-black text-white">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#c8d7ff] text-sm font-black text-white">
           {(email || "V").slice(0, 1).toUpperCase()}
         </span>
-        <div className="min-w-0">
-          <p className="truncate text-sm font-black">{email || "VastWearGen 用户"}</p>
-          <p className="mt-0.5 text-xs font-semibold text-white/55">个人账户</p>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-semibold text-slate-950">{masked}</p>
+          <p className="mt-0.5 text-xs text-slate-500">个人账户</p>
         </div>
+        <Link
+          href="/login"
+          className="shrink-0 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
+        >
+          切换账号
+        </Link>
       </div>
-      <div className="mt-3 flex items-center justify-between rounded-2xl bg-white/10 px-3 py-2">
-        <span className="text-xs font-bold text-white/58">可用积分</span>
-        <span className="inline-flex items-center gap-1 text-sm font-black">
-          <Coins className="h-3.5 w-3.5 text-[var(--codex-accent-soft)]" />
-          {creditsReady ? credits ?? "--" : "--"}
-        </span>
-      </div>
+      <p className="mt-2 text-xs font-medium text-slate-500">
+        可用积分 {creditsReady ? credits ?? "--" : "--"}
+      </p>
     </div>
   );
 }
 
-function AccountMenuTile({
-  href,
-  icon: Icon,
-  label,
-  highlight = false,
-}: {
-  href: string;
-  icon: typeof UserRound;
-  label: string;
-  highlight?: boolean;
-}) {
+function AccountMenuBanner() {
   return (
-    <DropdownMenu.Item asChild>
-      <Link
-        href={href}
-        className={`flex min-h-[72px] flex-col justify-between rounded-2xl p-3 text-xs font-black outline-none transition ${
-          highlight
-            ? "bg-slate-950 text-white shadow-sm"
-            : "bg-slate-50 text-slate-700 hover:bg-slate-100 data-[highlighted]:bg-slate-100"
-        }`}
-      >
-        <Icon className="h-4 w-4" />
-        <span>{label}</span>
-      </Link>
-    </DropdownMenu.Item>
+    <Link
+      href="/pricing"
+      className="mx-3 mb-1 mt-2 flex h-9 items-center justify-between rounded-md bg-gradient-to-r from-[#fff2ff] to-[#edf4ff] px-3 text-xs font-medium text-[#8b4bd8] transition hover:brightness-[0.98]"
+    >
+      <span>升级团队版会员，畅享团队协同</span>
+      <span className="rounded bg-[#ff8ba7] px-1.5 py-0.5 text-[10px] font-bold text-white">会员</span>
+    </Link>
   );
 }
 
@@ -758,12 +743,18 @@ function AccountMenuLink({
 }) {
   return (
     <DropdownMenu.Item asChild>
-      <Link href={href} className="flex items-center gap-2.5 rounded-2xl px-3 py-2.5 text-sm font-bold text-slate-700 outline-none transition hover:bg-slate-50 focus:bg-slate-50 data-[highlighted]:bg-slate-50">
+      <Link href={href} className="flex h-10 items-center gap-2.5 border-t border-slate-100 px-4 text-sm font-medium text-slate-800 outline-none transition hover:bg-slate-50 focus:bg-slate-50 data-[highlighted]:bg-slate-50">
         <Icon className="h-4 w-4" />
         {label}
       </Link>
     </DropdownMenu.Item>
   );
+}
+
+function maskAccountLabel(value: string) {
+  const [name, domain] = value.split("@");
+  if (!domain) return value.length > 7 ? `${value.slice(0, 3)}****${value.slice(-4)}` : value;
+  return `${name.slice(0, 3)}****@${domain}`;
 }
 
 function MobileModuleMenu({ activeModule }: { activeModule: string }) {

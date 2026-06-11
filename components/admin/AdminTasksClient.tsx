@@ -6,6 +6,7 @@ import { useState, useTransition } from "react";
 import { Alert, Button, Card, Checkbox, Image, Input, Progress, Select, Space, Statistic, Table, Tag, Tooltip, Typography } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { ApiOutlined, SearchOutlined } from "@ant-design/icons";
+import { getAdminPopupContainer, adminSizeChangerSelectProps } from "@/components/admin/AdminAntdProvider";
 import { AdminTaskActions } from "@/components/admin/AdminTaskActions";
 import type { AdminTaskList, AdminTaskListItem } from "@/lib/admin/data";
 import type { TaskStatusGroup } from "@/lib/task-queue";
@@ -46,6 +47,7 @@ export function AdminTasksClient({ tasks, q, status, module, stale, page, pageSi
   const [isPending, startTransition] = useTransition();
   const [moduleValue, setModuleValue] = useState(module);
   const [statusValue, setStatusValue] = useState(status);
+  const [staleOnly, setStaleOnly] = useState(stale);
   const failed = tasks.rows.filter((row) => row.statusGroup === "failed").length;
   const running = tasks.rows.filter((row) => row.statusGroup === "running" || row.statusGroup === "queued").length;
   const staleCount = tasks.rows.filter((row) => row.isStale).length;
@@ -90,13 +92,14 @@ export function AdminTasksClient({ tasks, q, status, module, stale, page, pageSi
           <form action="/admin/generations">
             <Space wrap>
               <Input name="q" defaultValue={q} allowClear prefix={<SearchOutlined />} placeholder="搜索任务 / 用户 / 错误" />
-              <Select className="!w-36" options={moduleOptions} value={moduleValue} onChange={setModuleValue} popupMatchSelectWidth={false} />
+              <Select className="!w-36" options={moduleOptions} value={moduleValue} onChange={setModuleValue} popupMatchSelectWidth={false} getPopupContainer={getAdminPopupContainer} />
               <input type="hidden" name="module" value={moduleValue} />
-              <Select className="!w-32" options={statusOptions} value={statusValue} onChange={setStatusValue} popupMatchSelectWidth={false} />
+              <Select className="!w-32" options={statusOptions} value={statusValue} onChange={setStatusValue} popupMatchSelectWidth={false} getPopupContainer={getAdminPopupContainer} />
               <input type="hidden" name="status" value={statusValue} />
               <input type="hidden" name="page" value="1" />
               <input type="hidden" name="pageSize" value={pageSize} />
-              <Checkbox name="stale" value="1" defaultChecked={stale}>只看长时间未完成</Checkbox>
+              {staleOnly ? <input type="hidden" name="stale" value="1" /> : null}
+              <Checkbox checked={staleOnly} onChange={(event) => setStaleOnly(event.target.checked)}>只看长时间未完成</Checkbox>
               <Button htmlType="submit" type="primary">筛选</Button>
             </Space>
           </form>
@@ -114,7 +117,7 @@ export function AdminTasksClient({ tasks, q, status, module, stale, page, pageSi
             current: page,
             pageSize,
             total: tasks.total,
-            showSizeChanger: true,
+            showSizeChanger: adminSizeChangerSelectProps,
             pageSizeOptions: [20, 50, 100],
             showTotal: (total, range) => `共 ${total} 条，当前 ${range[0]}-${range[1]}`,
             onChange: handlePageChange,

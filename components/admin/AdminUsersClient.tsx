@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Alert, Button, Card, Input, Space, Statistic, Table, Tag, Typography } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { AuditOutlined, SearchOutlined } from "@ant-design/icons";
+import { adminSizeChangerSelectProps } from "@/components/admin/AdminAntdProvider";
 import type { AdminUserList, AdminUserListItem } from "@/lib/admin/data";
 
 type AdminUsersClientProps = {
@@ -59,7 +60,7 @@ export function AdminUsersClient({ users, q }: AdminUsersClientProps) {
           columns={columns}
           dataSource={users.rows}
           scroll={{ x: 1120 }}
-          pagination={{ pageSize: 20, showSizeChanger: true }}
+          pagination={{ pageSize: 20, showSizeChanger: adminSizeChangerSelectProps }}
           locale={{ emptyText: "暂无用户" }}
         />
       </Card>

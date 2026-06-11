@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Alert, Button, Card, Image, Input, Select, Space, Table, Tag, Typography } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { DatabaseOutlined, SearchOutlined } from "@ant-design/icons";
+import { adminSizeChangerSelectProps, getAdminPopupContainer } from "@/components/admin/AdminAntdProvider";
 import { AdminAssetModerationForm } from "@/components/admin/AdminAssetModerationForm";
 import type { AdminAssetList, AdminAssetListItem } from "@/lib/admin/data";
 
@@ -52,7 +53,7 @@ export function AdminAssetsClient({ assets, q, module }: AdminAssetsClientProps)
           <form action="/admin/assets">
             <Space wrap>
               <Input name="q" defaultValue={q} allowClear prefix={<SearchOutlined />} placeholder="搜索资产 / 用户 / 状态" />
-              <Select className="!w-36" options={moduleOptions} value={moduleValue} onChange={setModuleValue} popupMatchSelectWidth={false} />
+              <Select className="!w-36" options={moduleOptions} value={moduleValue} onChange={setModuleValue} popupMatchSelectWidth={false} getPopupContainer={getAdminPopupContainer} />
               <input type="hidden" name="module" value={moduleValue} />
               <Button htmlType="submit" type="primary">筛选</Button>
             </Space>
@@ -65,7 +66,7 @@ export function AdminAssetsClient({ assets, q, module }: AdminAssetsClientProps)
           columns={columns}
           dataSource={assets.rows}
           scroll={{ x: 1250 }}
-          pagination={{ pageSize: 20, showSizeChanger: true }}
+          pagination={{ pageSize: 20, showSizeChanger: adminSizeChangerSelectProps }}
           locale={{ emptyText: "暂无资产" }}
         />
       </Card>
