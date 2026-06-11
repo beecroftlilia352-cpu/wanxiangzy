@@ -25,6 +25,7 @@ const DEFAULT_MODEL = "gpt-5-nano";
 const DEFAULT_BASE_URL = "https://yunwu.ai/v1";
 const DEFAULT_TIMEOUT_MS = 12_000;
 const MAX_ANALYZE_IMAGES = 4;
+const CLOTHING_ANALYSIS_CACHE_MIN_CONFIDENCE = 0.5;
 
 type ClothingAnalysisResult = {
   source: "yunwu" | "fallback";
@@ -101,18 +102,20 @@ export async function POST(request: Request) {
 
   const result = await inflightRequest;
 
-  await writeCachedAnalysis({
-    cacheKey,
-    clothingUrls,
-    clothingMode,
-    clothingRoles,
-    garmentAudience,
-    ageGroup,
-    analysis: result.analysis,
-    provider: result.source,
-    model: result.providerModel,
-    rawResponse: result.rawResponse,
-  });
+  if (shouldCacheClothingAnalysis(result)) {
+    await writeCachedAnalysis({
+      cacheKey,
+      clothingUrls,
+      clothingMode,
+      clothingRoles,
+      garmentAudience,
+      ageGroup,
+      analysis: result.analysis,
+      provider: result.source,
+      model: result.providerModel,
+      rawResponse: result.rawResponse,
+    });
+  }
 
   return NextResponse.json({
     ok: true,
@@ -370,10 +373,13 @@ async function readCachedAnalysis(cacheKey: string) {
   try {
     const { data, error } = await getAdminClient()
       .from("tryon_clothing_analysis_cache")
-      .select("main_category,subcategories,cloth_type_raw,description,gender_type,age_range,slot,fit,confidence,raw_response")
+      .select("main_category,subcategories,cloth_type_raw,description,gender_type,age_range,slot,fit,confidence,provider,raw_response")
       .eq("image_url_hash", cacheKey)
       .maybeSingle();
     if (error || !data) return null;
+    if (data.provider !== "yunwu") return null;
+    const cachedConfidence = Number(data.confidence);
+    if (!Number.isFinite(cachedConfidence) || cachedConfidence < CLOTHING_ANALYSIS_CACHE_MIN_CONFIDENCE) return null;
     const rawRecord = toRecord(data.raw_response);
     const parsedRecord = toRecord(rawRecord.parsed ?? rawRecord);
     return normalizeTryOnClothingAnalysis({
@@ -431,6 +437,12 @@ async function writeCachedAnalysis(input: {
   } catch {
     // Cache is an optimization; recommendation must still work without it.
   }
+}
+
+function shouldCacheClothingAnalysis(result: ClothingAnalysisResult) {
+  if (result.source !== "yunwu") return false;
+  if (result.analysis.confidence < CLOTHING_ANALYSIS_CACHE_MIN_CONFIDENCE) return false;
+  return Boolean(result.analysis.mainCategory || result.analysis.subcategories.length || result.analysis.clothTypeRaw);
 }
 
 function buildAnalysisCacheKey(value: {

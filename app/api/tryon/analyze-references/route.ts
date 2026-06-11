@@ -24,6 +24,7 @@ const DEFAULT_TIMEOUT_MS = 12_000;
 const MAX_REFERENCE_IMAGES = 8;
 const REFERENCE_ANALYSIS_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const REFERENCE_ANALYSIS_CACHE_MAX_ENTRIES = 300;
+const REFERENCE_ANALYSIS_CACHE_MIN_CONFIDENCE = 0.5;
 
 type ReferenceAnalysisResult = {
   source: "yunwu" | "fallback";
@@ -108,7 +109,9 @@ export async function POST(request: Request) {
   }
 
   const result = await inflightRequest;
-  writeReferenceAnalysisMemoryCache(cacheKey, result);
+  if (shouldCacheReferenceAnalysisResult(result, referenceUrls.length)) {
+    writeReferenceAnalysisMemoryCache(cacheKey, result);
+  }
 
   return NextResponse.json({
     ok: true,
@@ -312,6 +315,12 @@ function writeReferenceAnalysisMemoryCache(cacheKey: string, result: ReferenceAn
     expiresAt: Date.now() + REFERENCE_ANALYSIS_CACHE_TTL_MS,
     result,
   });
+}
+
+function shouldCacheReferenceAnalysisResult(result: ReferenceAnalysisResult, expectedCount: number) {
+  if (result.source !== "yunwu") return false;
+  if (result.analyses.length !== expectedCount) return false;
+  return result.analyses.every((analysis) => analysis.confidence >= REFERENCE_ANALYSIS_CACHE_MIN_CONFIDENCE);
 }
 
 function buildReferenceAnalysisCacheKey(value: {

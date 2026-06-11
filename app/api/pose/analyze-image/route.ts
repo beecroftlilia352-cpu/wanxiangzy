@@ -14,6 +14,7 @@ import {
 const DEFAULT_TIMEOUT_MS = 12_000;
 const POSE_ANALYSIS_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const POSE_ANALYSIS_CACHE_MAX_ENTRIES = 300;
+const POSE_ANALYSIS_CACHE_MIN_CONFIDENCE = 0.5;
 
 type PoseAnalysisSource = "vision" | "fallback";
 
@@ -82,7 +83,9 @@ export async function POST(request: Request) {
   }
 
   const result = await inflightRequest;
-  writePoseAnalysisMemoryCache(cacheKey, result);
+  if (shouldCachePoseAnalysisResult(result)) {
+    writePoseAnalysisMemoryCache(cacheKey, result);
+  }
 
   return NextResponse.json({
     ok: true,
@@ -228,6 +231,27 @@ function writePoseAnalysisMemoryCache(cacheKey: string, result: PoseAnalysisResu
     expiresAt: Date.now() + POSE_ANALYSIS_CACHE_TTL_MS,
     result,
   });
+}
+
+function shouldCachePoseAnalysisResult(result: PoseAnalysisResult) {
+  if (result.source !== "vision") return false;
+  if (result.analysis.confidence < POSE_ANALYSIS_CACHE_MIN_CONFIDENCE) return false;
+  return hasMeaningfulPoseAnalysis(result.analysis);
+}
+
+function hasMeaningfulPoseAnalysis(analysis: PoseVisualAnalysis) {
+  if (analysis.genderExpression !== "unknown") return true;
+  if (analysis.ageRange !== "unknown") return true;
+  if (analysis.bodyCrop !== "partial_unknown") return true;
+  if (typeof analysis.headVisible === "boolean" || typeof analysis.faceVisible === "boolean") return true;
+  return Boolean(
+    analysis.poseBaseline
+    || analysis.cameraFraming
+    || analysis.outfitDescription
+    || analysis.background
+    || analysis.lighting
+    || analysis.promptNotes
+  );
 }
 
 function buildPoseAnalysisCacheKey(mainImageUrl: string) {

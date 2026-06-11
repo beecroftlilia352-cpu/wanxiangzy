@@ -144,6 +144,9 @@ type ReferenceAnalysisCacheEntry = {
   reasonText?: string | null;
 };
 
+const CLOTHING_ANALYSIS_CLIENT_CACHE_MIN_CONFIDENCE = 0.5;
+const REFERENCE_ANALYSIS_CLIENT_CACHE_MIN_CONFIDENCE = 0.5;
+
 type SystemReferenceApiItem = {
   id?: string;
   sceneKey?: string;
@@ -357,6 +360,18 @@ function getAutoClothingRoleFromAnalysis(analysis: TryOnClothingAnalysis | null)
   if (main === "single_piece_top" || main === "outerwear") return "upper";
   if (main === "dress" || main === "underwear" || main === "sports_wear" || main === "functional_wear") return "single";
   return null;
+}
+
+function isCacheableClothingAnalysisEntry(entry: ClothingAnalysisCacheEntry) {
+  return entry.source !== "fallback"
+    && Boolean(entry.analysis)
+    && (entry.analysis?.confidence || 0) >= CLOTHING_ANALYSIS_CLIENT_CACHE_MIN_CONFIDENCE;
+}
+
+function isCacheableReferenceAnalysisEntry(entry: ReferenceAnalysisCacheEntry, expectedCount: number) {
+  return entry.source !== "fallback"
+    && entry.analyses.length === expectedCount
+    && entry.analyses.every((analysis) => analysis.confidence >= REFERENCE_ANALYSIS_CLIENT_CACHE_MIN_CONFIDENCE);
 }
 
 function getReferenceAnalysisSummary(analysis: TryOnReferenceAnalysis | null | undefined, options?: { fallback?: boolean }) {
@@ -990,12 +1005,15 @@ export default function CreatePage() {
 
     const cachedAnalysis = clothingAnalysisCacheRef.current.get(analysisKey);
     if (cachedAnalysis) {
-      setClothingAnalysis(cachedAnalysis.analysis);
-      setClothingAnalysisSource(cachedAnalysis.source);
-      setClothingAnalysisError(cachedAnalysis.error || null);
-      setIsAnalyzingClothing(false);
-      setIsLoadingSystemReferences(false);
-      return;
+      if (isCacheableClothingAnalysisEntry(cachedAnalysis)) {
+        setClothingAnalysis(cachedAnalysis.analysis);
+        setClothingAnalysisSource(cachedAnalysis.source);
+        setClothingAnalysisError(cachedAnalysis.error || null);
+        setIsAnalyzingClothing(false);
+        setIsLoadingSystemReferences(false);
+        return;
+      }
+      clothingAnalysisCacheRef.current.delete(analysisKey);
     }
 
     const run = async () => {
@@ -1019,9 +1037,9 @@ export default function CreatePage() {
             const analysisData = await analysisRes.json().catch(() => ({}));
             if (!analysisRes.ok) throw new Error(analysisData.error || "服装识别失败");
             const nextAnalysis = analysisData.analysis as TryOnClothingAnalysis;
-            const nextSource: "yunwu" | "cache" | "fallback" = analysisData.cached
-              ? "cache"
-              : analysisData.source === "yunwu" ? "yunwu" : "fallback";
+            const nextSource: "yunwu" | "cache" | "fallback" = analysisData.source === "fallback"
+              ? "fallback"
+              : analysisData.cached ? "cache" : "yunwu";
             return {
               analysis: nextAnalysis,
               source: nextSource,
@@ -1038,7 +1056,11 @@ export default function CreatePage() {
         }
 
         const nextEntry = await request;
-        clothingAnalysisCacheRef.current.set(analysisKey, nextEntry);
+        if (isCacheableClothingAnalysisEntry(nextEntry)) {
+          clothingAnalysisCacheRef.current.set(analysisKey, nextEntry);
+        } else {
+          clothingAnalysisCacheRef.current.delete(analysisKey);
+        }
         if (clothingAnalysisSeqRef.current !== seq) return;
         const nextAnalysis = nextEntry.analysis;
         setClothingAnalysis(nextAnalysis);
@@ -1108,13 +1130,16 @@ export default function CreatePage() {
 
     const cachedAnalysis = referenceAnalysisCacheRef.current.get(analysisKey);
     if (cachedAnalysis) {
-      const cachedAnalyses = alignTryOnReferenceAnalyses(cachedAnalysis.analyses, urls.length);
-      setReferenceAnalyses(cachedAnalyses);
-      setReferenceAnalysisKey(analysisKey);
-      setReferenceAnalysisSource(cachedAnalysis.source);
-      setReferenceAnalysisError(cachedAnalysis.error || null);
-      setIsAnalyzingReferences(false);
-      return;
+      if (isCacheableReferenceAnalysisEntry(cachedAnalysis, urls.length)) {
+        const cachedAnalyses = alignTryOnReferenceAnalyses(cachedAnalysis.analyses, urls.length);
+        setReferenceAnalyses(cachedAnalyses);
+        setReferenceAnalysisKey(analysisKey);
+        setReferenceAnalysisSource(cachedAnalysis.source);
+        setReferenceAnalysisError(cachedAnalysis.error || null);
+        setIsAnalyzingReferences(false);
+        return;
+      }
+      referenceAnalysisCacheRef.current.delete(analysisKey);
     }
 
     const run = async () => {
@@ -1137,9 +1162,9 @@ export default function CreatePage() {
             const data = await res.json().catch(() => ({}));
             if (!res.ok) throw new Error(data.error || "参考图识别失败");
             const nextAnalyses = alignTryOnReferenceAnalyses(data.analyses, urls.length);
-            const nextSource: "yunwu" | "cache" | "fallback" = data.cached
-              ? "cache"
-              : data.source === "yunwu" ? "yunwu" : "fallback";
+            const nextSource: "yunwu" | "cache" | "fallback" = data.source === "fallback"
+              ? "fallback"
+              : data.cached ? "cache" : "yunwu";
             const reasonText = typeof data.reasonText === "string" && data.reasonText.trim()
               ? data.reasonText.trim()
               : null;
@@ -1161,7 +1186,11 @@ export default function CreatePage() {
         }
 
         const nextEntry = await request;
-        referenceAnalysisCacheRef.current.set(analysisKey, nextEntry);
+        if (isCacheableReferenceAnalysisEntry(nextEntry, urls.length)) {
+          referenceAnalysisCacheRef.current.set(analysisKey, nextEntry);
+        } else {
+          referenceAnalysisCacheRef.current.delete(analysisKey);
+        }
         if (referenceAnalysisSeqRef.current !== seq) return;
         setReferenceAnalyses(nextEntry.analyses);
         setReferenceAnalysisKey(analysisKey);

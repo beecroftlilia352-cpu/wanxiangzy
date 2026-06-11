@@ -60,6 +60,7 @@ const POSE_GENERATION_POLL_TIMEOUT_MS = 4 * 60 * 1000;
 const POSE_GENERATION_POLL_FAST_WINDOW_MS = 30 * 1000;
 const POSE_GENERATION_POLL_FAST_MS = 3 * 1000;
 const POSE_GENERATION_POLL_SLOW_MS = 5 * 1000;
+const POSE_ANALYSIS_CLIENT_CACHE_MIN_CONFIDENCE = 0.5;
 
 type PoseHistoryPayload = Extract<HistoryJobPayload, { kind: "pose" }>;
 type PoseAnalysisSource = "vision" | "cache" | "fallback" | "history";
@@ -323,6 +324,27 @@ export default function PosePage() {
     return poseAnalysisEntryKey === buildPoseVisualAnalysisKey(mainImage) ? poseAnalysisError : null;
   }
 
+  function isCacheablePoseAnalysisEntry(entry: PoseAnalysisEntry) {
+    return entry.source !== "fallback"
+      && entry.analysis.confidence >= POSE_ANALYSIS_CLIENT_CACHE_MIN_CONFIDENCE
+      && hasMeaningfulPoseAnalysis(entry.analysis);
+  }
+
+  function hasMeaningfulPoseAnalysis(analysis: PoseVisualAnalysis) {
+    if (analysis.genderExpression !== "unknown") return true;
+    if (analysis.ageRange !== "unknown") return true;
+    if (analysis.bodyCrop !== "partial_unknown") return true;
+    if (typeof analysis.headVisible === "boolean" || typeof analysis.faceVisible === "boolean") return true;
+    return Boolean(
+      analysis.poseBaseline
+      || analysis.cameraFraming
+      || analysis.outfitDescription
+      || analysis.background
+      || analysis.lighting
+      || analysis.promptNotes
+    );
+  }
+
   function buildPlanPromptSource() {
     return stripLegacyRuleDemoText([
       poseStyle === "user_custom" ? buildCustomPosePrompt() : prompt,
@@ -420,8 +442,11 @@ export default function PosePage() {
 
     const cachedAnalysis = poseAnalysisCacheRef.current.get(analysisKey);
     if (cachedAnalysis) {
-      setPoseAnalysisEntry(cachedAnalysis, analysisKey);
-      return;
+      if (isCacheablePoseAnalysisEntry(cachedAnalysis)) {
+        setPoseAnalysisEntry(cachedAnalysis, analysisKey);
+        return;
+      }
+      poseAnalysisCacheRef.current.delete(analysisKey);
     }
 
     const run = async () => {
@@ -439,9 +464,9 @@ export default function PosePage() {
             if (!res.ok) throw new Error(data.error || "主图识别失败");
             const nextAnalysis = normalizePoseVisualAnalysis(data.analysis);
             if (!nextAnalysis) throw new Error("主图识别结果无效");
-            const nextSource: PoseAnalysisSource = data.cached
-              ? "cache"
-              : data.source === "fallback" ? "fallback" : "vision";
+            const nextSource: PoseAnalysisSource = data.source === "fallback"
+              ? "fallback"
+              : data.cached ? "cache" : "vision";
             const nextError = nextSource === "fallback"
               ? "主图识别失败，已按保守规则继续"
               : nextAnalysis.confidence < 0.45
@@ -463,7 +488,11 @@ export default function PosePage() {
         }
 
         const nextEntry = await request;
-        poseAnalysisCacheRef.current.set(analysisKey, nextEntry);
+        if (isCacheablePoseAnalysisEntry(nextEntry)) {
+          poseAnalysisCacheRef.current.set(analysisKey, nextEntry);
+        } else {
+          poseAnalysisCacheRef.current.delete(analysisKey);
+        }
         if (poseAnalysisSeqRef.current !== seq) return;
         setPoseAnalysisEntry(nextEntry, analysisKey);
       } catch (err: any) {
