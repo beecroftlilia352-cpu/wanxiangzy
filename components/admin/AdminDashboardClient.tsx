@@ -239,7 +239,7 @@ function KpiCard({
     <Col xs={24} sm={12} xl={4}>
       <Card className="admin-kpi-card">
         <Space align="start" className="w-full justify-between">
-          <Statistic title={title} value={value} precision={precision} valueStyle={{ color }} />
+          <Statistic title={title} value={value} precision={precision} styles={{ content: { color } }} />
           <span className="admin-kpi-icon">{icon}</span>
         </Space>
         {suffix && <Typography.Text type="secondary">{suffix}</Typography.Text>}

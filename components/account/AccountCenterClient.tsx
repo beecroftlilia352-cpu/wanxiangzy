@@ -2,31 +2,37 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { Children, isValidElement, useEffect, useMemo, useState, type ReactElement } from "react";
+import { Alert, Avatar as AntAvatar, Button, Card, ConfigProvider, Empty, Input, Progress, Select, Space, Statistic, Table, Tag, theme as antdTheme, Typography } from "antd";
+import type { ColumnsType } from "antd/es/table";
+import zhCN from "antd/locale/zh_CN";
 import {
   AlertCircle,
+  Activity,
   ArrowDownLeft,
   ArrowRight,
   ArrowUpRight,
   Bell,
+  Bot,
   CheckCircle2,
   CircleHelp,
   Clock3,
   Coins,
   CreditCard,
+  ImageIcon,
   LifeBuoy,
-  Loader2,
   MessageSquare,
   RefreshCw,
   RotateCcw,
-  Search,
   Send,
   ShieldCheck,
   SlidersHorizontal,
+  Sparkles,
   UserRound,
-  WalletCards,
   type LucideIcon,
 } from "lucide-react";
+
+const { Text, Title } = Typography;
 
 type AccountTab = "account" | "credits" | "orders" | "help" | "messages" | "feedback";
 type CreditDirection = "all" | "income" | "spend";
@@ -406,21 +412,47 @@ export function AccountCenterClient() {
   }
 
   return (
-    <main className="min-h-screen bg-[var(--codex-gradient-page)] px-3 py-5 text-codex-ink sm:px-5 lg:px-8">
-      <div className="mx-auto grid w-full max-w-[1280px] gap-5 lg:grid-cols-[248px_minmax(0,1fr)]">
+    <ConfigProvider
+      locale={zhCN}
+      theme={{
+        algorithm: antdTheme.compactAlgorithm,
+        token: {
+          colorPrimary: "#5b7cff",
+          colorInfo: "#5b7cff",
+          colorSuccess: "#22885f",
+          colorWarning: "#a66a00",
+          colorError: "#d13b35",
+          colorTextBase: "#0f172a",
+          colorBgLayout: "#f6f8fb",
+          borderRadius: 8,
+          borderRadiusLG: 8,
+          fontFamily: 'Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif',
+          fontSize: 13,
+        },
+        components: {
+          Card: { borderRadiusLG: 8, headerBg: "#ffffff" },
+          Table: { headerBg: "#f8fafc", rowHoverBg: "#f8fafc", cellPaddingBlockSM: 9, cellPaddingInlineSM: 12 },
+          Button: { borderRadius: 8, controlHeight: 34 },
+          Select: { borderRadius: 8, controlHeight: 36 },
+          Input: { borderRadius: 8, controlHeight: 36 },
+        },
+      }}
+    >
+      <main className="min-h-screen bg-[#f6f8fb] px-3 py-5 text-codex-ink sm:px-5 lg:px-8">
+      <div className="mx-auto grid w-full max-w-[1460px] gap-5 lg:grid-cols-[244px_minmax(0,1fr)]">
         <aside className="hidden lg:block">
-          <div className="sticky top-24 rounded-2xl border border-white/80 bg-white/88 p-3 shadow-lg shadow-slate-200/45 backdrop-blur-xl">
-            <div className="mb-3 rounded-xl bg-slate-950 p-3 text-white">
+          <div className="sticky top-24 rounded-xl border border-slate-200 bg-white p-2 shadow-sm shadow-slate-200/60">
+            <div className="mb-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 text-slate-950">
               <div className="flex items-center gap-3">
                 <Avatar name={displayName} />
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-black">{displayName}</p>
-                  <p className="mt-0.5 text-xs font-semibold text-white/55">ID {shortUserId}</p>
+                  <p className="truncate text-sm font-semibold">{displayName}</p>
+                  <p className="mt-0.5 text-xs font-semibold text-slate-500">ID {shortUserId}</p>
                 </div>
               </div>
-              <div className="mt-3 flex items-center justify-between rounded-xl bg-white/10 px-3 py-2">
-                <span className="text-xs font-semibold text-white/58">可用积分</span>
-                <span className="text-sm font-black">{formatNumber(latestBalance)}</span>
+              <div className="mt-3 flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2">
+                <span className="text-xs font-semibold text-slate-500">可用积分</span>
+                <span className="text-sm font-semibold">{formatNumber(latestBalance)}</span>
               </div>
             </div>
             <nav className="space-y-1" aria-label="个人中心模块">
@@ -433,11 +465,11 @@ export function AccountCenterClient() {
 
         <section className="min-w-0">
           <div className="mb-4 lg:hidden">
-            <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/80 bg-white/88 p-3 shadow-sm shadow-slate-200/45">
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm shadow-slate-200/50">
               <div className="flex min-w-0 items-center gap-3">
                 <Avatar name={displayName} />
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-black text-slate-950">{displayName}</p>
+                  <p className="truncate text-sm font-semibold text-slate-950">{displayName}</p>
                   <p className="text-xs font-semibold text-slate-500">可用积分 {formatNumber(latestBalance)}</p>
                 </div>
               </div>
@@ -445,7 +477,7 @@ export function AccountCenterClient() {
                 type="button"
                 onClick={() => void refreshCurrent()}
                 disabled={refreshing}
-                className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(91,124,255,0.16)] disabled:opacity-60"
+                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(91,124,255,0.16)] disabled:opacity-60"
                 aria-label="刷新个人中心"
               >
                 <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
@@ -459,10 +491,10 @@ export function AccountCenterClient() {
                   role="tab"
                   aria-selected={activeTab === tab.key}
                   onClick={() => selectTab(tab.key)}
-                  className={`h-10 shrink-0 rounded-full px-4 text-xs font-black transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(91,124,255,0.16)] ${
+                  className={`h-10 shrink-0 rounded-lg px-4 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(91,124,255,0.16)] ${
                     activeTab === tab.key
-                      ? "bg-slate-950 text-white"
-                      : "border border-white/80 bg-white/88 text-slate-600 hover:text-slate-950"
+                      ? "border border-[rgba(91,124,255,0.35)] bg-white text-[var(--codex-accent)] shadow-sm"
+                      : "border border-slate-200 bg-white text-slate-600 hover:text-slate-950"
                   }`}
                 >
                   {tab.label}
@@ -479,6 +511,8 @@ export function AccountCenterClient() {
               totalPaidAmount={totalPaidAmount}
               totalGrantedCredits={totalGrantedCredits}
               openTickets={openTickets}
+              creditLogs={creditLogs}
+              orders={orders}
               loading={loading}
               refreshing={refreshing}
               onRefresh={() => void refreshCurrent()}
@@ -492,7 +526,12 @@ export function AccountCenterClient() {
               <AccountSkeleton />
             ) : (
               <>
-                {activeTab === "account" && <AccountInfo profile={profile} orders={orders} openTickets={openTickets} />}
+                {activeTab === "account" && (
+                  <div className="space-y-4">
+                    <AccountInfo profile={profile} orders={orders} openTickets={openTickets} />
+                    <AIProductionPanel logs={creditLogs} summary={creditSummary} loading={creditLoading} />
+                  </div>
+                )}
                 {activeTab === "credits" && (
                   <CreditLogsPanel
                     filters={creditFilters}
@@ -539,7 +578,8 @@ export function AccountCenterClient() {
           </div>
         </section>
       </div>
-    </main>
+      </main>
+    </ConfigProvider>
   );
 }
 
@@ -550,6 +590,8 @@ function AccountHero({
   totalPaidAmount,
   totalGrantedCredits,
   openTickets,
+  creditLogs,
+  orders,
   loading,
   refreshing,
   onRefresh,
@@ -560,59 +602,76 @@ function AccountHero({
   totalPaidAmount: number;
   totalGrantedCredits: number;
   openTickets: number;
+  creditLogs: CreditLog[];
+  orders: BillingOrder[];
   loading: boolean;
   refreshing: boolean;
   onRefresh: () => void;
 }) {
-  return (
-    <section className="overflow-hidden rounded-2xl border border-white/80 bg-white/88 shadow-lg shadow-slate-200/45 backdrop-blur-xl">
-      <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_320px] lg:p-5">
-        <div className="rounded-xl border border-slate-100 bg-[linear-gradient(135deg,rgba(255,255,255,0.96),rgba(219,232,255,0.74))] p-5">
-          <p className="text-xs font-black uppercase tracking-[0.14em] text-[var(--codex-accent)]">Account Center</p>
-          <h1 className="mt-3 text-2xl font-black text-slate-950 sm:text-3xl">账户信息</h1>
-          <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-600">
-            管理登录资料、可用积分、充值资产和服务状态。常用入口已经放在头像菜单里，这里保留账户资产的完整视图。
-          </p>
-          <div className="mt-5 flex flex-wrap items-center gap-2">
-            <StatusPill icon={ShieldCheck} label={email || displayName} />
-            <StatusPill icon={WalletCards} label={`可用 ${formatNumber(credits)} 积分`} />
-            <StatusPill icon={LifeBuoy} label={openTickets ? `${openTickets} 个反馈处理中` : "暂无待处理反馈"} />
-          </div>
-        </div>
+  const aiLogs = creditLogs.filter(isAiGenerationLog);
+  const refundLogs = creditLogs.filter(isRefundLog);
+  const todayAiCount = aiLogs.filter((log) => isToday(log.created_at)).length;
+  const recentAiSpend = aiLogs.reduce((sum, log) => sum + Math.abs(Math.min(0, log.amount)), 0);
+  const paidOrderCount = orders.filter((order) => order.status === "paid").length;
+  const latestModel = extractModelLabel(aiLogs[0]?.reason) || "待生成";
+  const estimatedOutputs = Math.max(0, Math.floor(credits / 8));
+  const capacityPercent = Math.max(credits > 0 ? 8 : 0, Math.min(100, Math.round((credits / Math.max(credits + recentAiSpend, 1)) * 100)));
 
-        <div className="rounded-xl bg-slate-950 p-5 text-white shadow-xl shadow-slate-300/40">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.12em] text-white/50">Credits Wallet</p>
-              <p className="mt-3 text-4xl font-black">{loading ? "--" : formatNumber(credits)}</p>
-              <p className="mt-1 text-sm font-semibold text-white/60">当前可用积分</p>
-            </div>
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/10">
-              <Coins className="h-5 w-5" />
-            </div>
+  return (
+    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+      <Card className="border-slate-200 shadow-sm" styles={{ body: { padding: 20 } }}>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0">
+            <Space size={8} wrap>
+              <Tag color="blue" icon={<Sparkles className="h-3.5 w-3.5" />}>AI 生产账户</Tag>
+              <Tag icon={<ShieldCheck className="h-3.5 w-3.5" />}>{email || displayName}</Tag>
+              <Tag icon={<Bot className="h-3.5 w-3.5" />}>{latestModel}</Tag>
+            </Space>
+            <Title level={2} className="!mb-1 !mt-3 !text-2xl !font-semibold !text-slate-950 sm:!text-3xl">账户工作台</Title>
+            <Text type="secondary" className="block max-w-3xl !text-sm !leading-6">
+              聚合 AI 生成任务、积分资产、Stripe 充值和客服状态。这里展示的是生产账户的运行概览，详细流水在下方模块筛选查询。
+            </Text>
           </div>
-          <div className="mt-6 grid grid-cols-2 gap-2">
-            <MetricMini label="实付净额" value={formatCny(totalPaidAmount)} />
-            <MetricMini label="到账积分" value={formatNumber(totalGrantedCredits)} />
-          </div>
-          <div className="mt-4 flex gap-2">
-            <Link href="/pricing" className="codex-primary-action inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl px-4 text-sm font-black">
-              <CreditCard className="h-4 w-4" />
-              充值中心
+          <Space wrap>
+            <Button icon={<RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />} loading={refreshing} onClick={onRefresh}>
+              刷新
+            </Button>
+            <Link href="/pricing">
+              <Button type="primary" icon={<CreditCard className="h-4 w-4" />}>充值中心</Button>
             </Link>
-            <button
-              type="button"
-              onClick={onRefresh}
-              disabled={refreshing}
-              className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-white/12 bg-white/10 text-white transition hover:bg-white/16 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/20 disabled:opacity-60"
-              aria-label="刷新个人中心"
-            >
-              <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
-            </button>
-          </div>
+          </Space>
         </div>
-      </div>
-    </section>
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <HeroStatistic title="可用积分" value={loading ? "--" : formatNumber(credits)} note={`约可生成 ${formatNumber(estimatedOutputs)} 张`} icon={Coins} tone="accent" />
+          <HeroStatistic title="今日 AI 任务" value={formatNumber(todayAiCount)} note="按当前流水页统计" icon={Activity} tone="slate" />
+          <HeroStatistic title="失败/退款入账" value={formatNumber(refundLogs.length)} note="退款、补偿、人工调整" icon={RotateCcw} tone="warning" />
+          <HeroStatistic title="客服待处理" value={formatNumber(openTickets)} note={paidOrderCount ? `已支付 ${paidOrderCount} 笔` : "暂无已支付订单"} icon={LifeBuoy} tone="success" />
+        </div>
+      </Card>
+
+      <Card
+        title={<Space size={8}><Bot className="h-4 w-4 text-[var(--codex-accent)]" />AI 资产与产能</Space>}
+        extra={<Tag color={credits > 0 ? "green" : "default"}>{credits > 0 ? "可继续生成" : "待充值"}</Tag>}
+        className="border-slate-200 shadow-sm"
+        styles={{ body: { padding: 20 } }}
+      >
+        <Space direction="vertical" size={16} className="w-full">
+          <div>
+            <div className="mb-2 flex items-center justify-between text-xs font-semibold text-slate-500">
+              <span>积分容量</span>
+              <span>{formatNumber(credits)} / 最近消耗 {formatNumber(recentAiSpend)}</span>
+            </div>
+            <Progress percent={capacityPercent} showInfo={false} strokeColor="#5b7cff" trailColor="#eef2f7" />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <AssetFact label="实付净额" value={formatCny(totalPaidAmount)} />
+            <AssetFact label="到账积分" value={formatNumber(totalGrantedCredits)} />
+            <AssetFact label="最近模型" value={latestModel} />
+            <AssetFact label="可生成估算" value={`${formatNumber(estimatedOutputs)} 张`} />
+          </div>
+        </Space>
+      </Card>
+    </div>
   );
 }
 
@@ -630,6 +689,63 @@ function AccountInfo({ profile, orders, openTickets }: { profile: ProfilePayload
         <InfoRow label="已支付订单" value={`${paidOrders} 笔`} />
         <InfoRow label="客服状态" value={openTickets ? `${openTickets} 个处理中` : "暂无待处理反馈"} />
       </div>
+    </Panel>
+  );
+}
+
+function AIProductionPanel({ logs, summary, loading }: { logs: CreditLog[]; summary: CreditSummary; loading: boolean }) {
+  const aiLogs = logs.filter(isAiGenerationLog).slice(0, 8);
+  const refundCount = logs.filter(isRefundLog).length;
+  const columns: ColumnsType<CreditLog> = [
+    {
+      title: "AI 任务",
+      dataIndex: "reason",
+      width: 420,
+      render: (_, log) => <CreditReasonCell log={log} />,
+    },
+    {
+      title: "模型 / 组件",
+      width: 170,
+      render: (_, log) => <AiComponentTag log={log} />,
+    },
+    {
+      title: "积分",
+      dataIndex: "amount",
+      width: 120,
+      align: "right",
+      render: (_, log) => <CreditAmount log={log} />,
+    },
+    {
+      title: "处理状态",
+      width: 130,
+      render: (_, log) => (log.amount > 0 ? <Tag color="green">已回退</Tag> : <Tag color="blue">已扣费</Tag>),
+    },
+    {
+      title: "时间",
+      dataIndex: "created_at",
+      width: 150,
+      render: (value: string) => <Text type="secondary">{formatDateTime(value)}</Text>,
+    },
+  ];
+
+  return (
+    <Panel title="AI 生产动态" description="最近生成、扣费、失败退款和补偿记录会优先展示在这里。">
+      <div className="mb-4 grid gap-3 md:grid-cols-3">
+        <MetricCard label="本页 AI 消耗" value={`-${formatNumber(summary.pageSpend)}`} tone="accent" />
+        <MetricCard label="退款/补偿" value={formatNumber(refundCount)} tone="success" />
+        <MetricCard label="最近任务数" value={formatNumber(aiLogs.length)} tone="slate" />
+      </div>
+      <Table
+        rowKey="id"
+        size="small"
+        columns={columns}
+        dataSource={aiLogs}
+        loading={loading}
+        pagination={false}
+        scroll={{ x: 900 }}
+        className="overflow-hidden rounded-lg border border-slate-200 bg-white"
+        locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无 AI 生产流水" /> }}
+      />
     </Panel>
   );
 }
@@ -658,6 +774,41 @@ function CreditLogsPanel({
   onLoadMore: () => void;
 }) {
   const hasFilters = hasCreditFilters(filters);
+  const columns: ColumnsType<CreditLog> = [
+    {
+      title: "AI 任务 / 原因",
+      dataIndex: "reason",
+      width: 420,
+      render: (_, log) => <CreditReasonCell log={log} />,
+    },
+    {
+      title: "组件",
+      width: 150,
+      render: (_, log) => <AiComponentTag log={log} />,
+    },
+    {
+      title: "积分",
+      dataIndex: "amount",
+      width: 120,
+      align: "right",
+      sorter: (a, b) => a.amount - b.amount,
+      render: (_, log) => <CreditAmount log={log} />,
+    },
+    {
+      title: "余额",
+      dataIndex: "balance",
+      width: 120,
+      align: "right",
+      render: (value: number) => <Text strong>{formatNumber(value)}</Text>,
+    },
+    {
+      title: "时间",
+      dataIndex: "created_at",
+      width: 160,
+      render: (value: string) => <Text type="secondary">{formatDateTime(value)}</Text>,
+    },
+  ];
+
   return (
     <Panel title="积分明细" description="扣费、失败退款、充值入账和人工调整都会出现在这里。">
       <CreditFiltersBar filters={filters} onChange={onFiltersChange} />
@@ -672,11 +823,15 @@ function CreditLogsPanel({
         <ListSkeleton rows={5} />
       ) : logs.length ? (
         <>
-          <div className="space-y-2">
-            {logs.map((log) => (
-              <CreditLogItem key={log.id} log={log} />
-            ))}
-          </div>
+          <Table
+            rowKey="id"
+            size="small"
+            columns={columns}
+            dataSource={logs}
+            pagination={false}
+            scroll={{ x: 900 }}
+            className="overflow-hidden rounded-lg border border-slate-200 bg-white"
+          />
           <LoadMoreButton pageInfo={pageInfo} loading={loadingMore} onClick={onLoadMore} />
         </>
       ) : (
@@ -694,11 +849,12 @@ function CreditLogsPanel({
 
 function CreditFiltersBar({ filters, onChange }: { filters: CreditFilters; onChange: (value: CreditFilters) => void }) {
   return (
-    <div className="mb-4 rounded-xl border border-slate-200/70 bg-white/76 p-3">
-      <div className="mb-3 flex items-center gap-2 text-sm font-black text-slate-800">
-        <SlidersHorizontal className="h-4 w-4 text-[var(--codex-accent)]" />
-        筛选
-      </div>
+    <Card
+      size="small"
+      title={<Space size={6}><SlidersHorizontal className="h-4 w-4 text-[var(--codex-accent)]" />筛选</Space>}
+      className="mb-4 border-slate-200 shadow-none"
+      styles={{ body: { padding: 12 } }}
+    >
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <SelectField label="收支" value={filters.direction} onChange={(direction) => onChange({ ...filters, direction: direction as CreditDirection })}>
           <option value="all">全部收支</option>
@@ -721,7 +877,7 @@ function CreditFiltersBar({ filters, onChange }: { filters: CreditFilters; onCha
         <SearchField value={filters.q} placeholder="原因 / 任务 ID" onSubmit={(q) => onChange({ ...filters, q })} />
       </div>
       <DateFilterRow filters={filters} onChange={(next) => onChange({ ...filters, ...next })} onReset={() => onChange(defaultCreditFilters)} />
-    </div>
+    </Card>
   );
 }
 
@@ -749,6 +905,57 @@ function OrdersPanel({
   onLoadMore: () => void;
 }) {
   const hasFilters = hasOrderFilters(filters);
+  const columns: ColumnsType<BillingOrder> = [
+    {
+      title: "套餐 / Stripe",
+      dataIndex: "productName",
+      width: 360,
+      render: (_, order) => <OrderProductCell order={order} />,
+    },
+    {
+      title: "金额",
+      width: 130,
+      align: "right",
+      sorter: (a, b) => (a.amountNet ?? a.amountTotal - a.amountRefunded) - (b.amountNet ?? b.amountTotal - b.amountRefunded),
+      render: (_, order) => {
+        const netAmount = order.amountNet ?? Math.max(0, order.amountTotal - order.amountRefunded);
+        return (
+          <Space direction="vertical" size={0} className="items-end">
+            <Text strong>{formatCny(netAmount)}</Text>
+            {order.amountRefunded > 0 && <Text type="warning" className="!text-xs">已退 {formatCny(order.amountRefunded)}</Text>}
+          </Space>
+        );
+      },
+    },
+    {
+      title: "到账积分",
+      width: 130,
+      align: "right",
+      render: (_, order) => (
+        <Space direction="vertical" size={0} className="items-end">
+          <Text strong className="!text-[var(--codex-accent)]">{formatNumber(order.creditsGranted || order.creditsExpected)}</Text>
+          {order.creditsGranted < order.creditsExpected && <Text type="warning" className="!text-xs">预计 {formatNumber(order.creditsExpected)}</Text>}
+        </Space>
+      ),
+    },
+    {
+      title: "状态",
+      width: 190,
+      render: (_, order) => (
+        <Space size={4} wrap>
+          <StatusBadge label={statusLabel(order.status)} tone={order.status === "paid" ? "success" : order.status.includes("refund") ? "warning" : "slate"} />
+          <StatusBadge label={grantStatusLabel(order.creditGrantStatus)} tone={order.creditGrantStatus === "granted" ? "success" : order.creditGrantStatus === "failed" ? "danger" : "slate"} />
+        </Space>
+      ),
+    },
+    {
+      title: "时间",
+      dataIndex: "createdAt",
+      width: 160,
+      render: (value: string) => <Text type="secondary">{formatDateTime(value)}</Text>,
+    },
+  ];
+
   return (
     <Panel title="充值记录" description="记录 Stripe 支付状态、到账积分和退款状态。">
       <OrderFiltersBar filters={filters} onChange={onFiltersChange} />
@@ -763,20 +970,15 @@ function OrdersPanel({
         <ListSkeleton rows={5} />
       ) : orders.length ? (
         <>
-          <div className="overflow-hidden rounded-xl border border-slate-200/70 bg-white">
-            <div className="hidden grid-cols-[1.3fr_0.9fr_0.9fr_1fr_1fr] gap-3 border-b border-slate-100 bg-slate-50 px-4 py-3 text-xs font-black text-slate-500 md:grid">
-              <span>套餐</span>
-              <span>金额</span>
-              <span>到账</span>
-              <span>状态</span>
-              <span>时间</span>
-            </div>
-            <div className="divide-y divide-slate-100">
-              {orders.map((order) => (
-                <OrderRow key={order.id} order={order} />
-              ))}
-            </div>
-          </div>
+          <Table
+            rowKey="id"
+            size="small"
+            columns={columns}
+            dataSource={orders}
+            pagination={false}
+            scroll={{ x: 980 }}
+            className="overflow-hidden rounded-lg border border-slate-200 bg-white"
+          />
           <LoadMoreButton pageInfo={pageInfo} loading={loadingMore} onClick={onLoadMore} />
         </>
       ) : (
@@ -794,11 +996,12 @@ function OrdersPanel({
 
 function OrderFiltersBar({ filters, onChange }: { filters: OrderFilters; onChange: (value: OrderFilters) => void }) {
   return (
-    <div className="mb-4 rounded-xl border border-slate-200/70 bg-white/76 p-3">
-      <div className="mb-3 flex items-center gap-2 text-sm font-black text-slate-800">
-        <SlidersHorizontal className="h-4 w-4 text-[var(--codex-accent)]" />
-        筛选
-      </div>
+    <Card
+      size="small"
+      title={<Space size={6}><SlidersHorizontal className="h-4 w-4 text-[var(--codex-accent)]" />筛选</Space>}
+      className="mb-4 border-slate-200 shadow-none"
+      styles={{ body: { padding: 12 } }}
+    >
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <SelectField label="支付状态" value={filters.status} onChange={(status) => onChange({ ...filters, status: status as OrderStatus })}>
           {orderStatusOptions.map((option) => (
@@ -836,7 +1039,7 @@ function OrderFiltersBar({ filters, onChange }: { filters: OrderFilters; onChang
         <SearchField value={filters.q} placeholder="订单号 / Stripe / 套餐" onSubmit={(q) => onChange({ ...filters, q })} />
         <DateFilterRow filters={filters} onChange={(next) => onChange({ ...filters, ...next })} onReset={() => onChange(defaultOrderFilters)} compact />
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -849,7 +1052,7 @@ function HelpPanel() {
             <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-[rgba(91,124,255,0.1)] text-[var(--codex-accent)]">
               <CircleHelp className="h-5 w-5" />
             </div>
-            <h3 className="text-sm font-black text-slate-950">{item.title}</h3>
+            <h3 className="text-sm font-semibold text-slate-950">{item.title}</h3>
             <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{item.body}</p>
           </article>
         ))}
@@ -889,7 +1092,7 @@ function MessagesPanel({ orders, tickets, ticketError }: { orders: BillingOrder[
                   <Icon className="h-5 w-5" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-black text-slate-950">{message.title}</p>
+                  <p className="truncate text-sm font-semibold text-slate-950">{message.title}</p>
                   <p className="mt-1 break-words text-sm font-semibold text-slate-600">{message.body}</p>
                   <p className="mt-2 text-xs font-bold text-slate-400">{formatDateTime(message.time)}</p>
                 </div>
@@ -927,65 +1130,50 @@ function FeedbackPanel({
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="block">
-              <span className="text-xs font-black text-slate-500">反馈类型</span>
-              <select
+              <span className="text-xs font-semibold text-slate-500">反馈类型</span>
+              <Select
                 value={form.category}
-                onChange={(event) => onChange({ ...form, category: event.target.value })}
-                className={inputClassName}
-              >
-                {feedbackCategories.map((category) => (
-                  <option key={category.value} value={category.value}>
-                    {category.label}
-                  </option>
-                ))}
-              </select>
+                onChange={(category) => onChange({ ...form, category })}
+                options={feedbackCategories.map((category) => ({ value: category.value, label: category.label }))}
+                className="mt-2 w-full"
+              />
             </label>
             <label className="block">
-              <span className="text-xs font-black text-slate-500">联系方式</span>
-              <input
+              <span className="text-xs font-semibold text-slate-500">联系方式</span>
+              <Input
                 value={form.contact}
                 onChange={(event) => onChange({ ...form, contact: event.target.value })}
                 placeholder="邮箱 / 微信 / 手机号"
-                className={inputClassName}
+                className="mt-2"
               />
             </label>
           </div>
           <label className="block">
-            <span className="text-xs font-black text-slate-500">标题</span>
-            <input
+            <span className="text-xs font-semibold text-slate-500">标题</span>
+            <Input
               value={form.title}
               onChange={(event) => onChange({ ...form, title: event.target.value })}
               placeholder="例如：微信支付成功但积分未到账"
-              className={inputClassName}
+              className="mt-2"
             />
           </label>
           <label className="block">
-            <span className="text-xs font-black text-slate-500">问题描述</span>
-            <textarea
+            <span className="text-xs font-semibold text-slate-500">问题描述</span>
+            <Input.TextArea
               value={form.description}
               onChange={(event) => onChange({ ...form, description: event.target.value })}
               placeholder="请描述发生时间、操作页面、订单或任务信息。"
               rows={6}
-              className="mt-2 w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold leading-6 text-slate-800 outline-none transition focus:border-[var(--codex-accent)] focus:ring-4 focus:ring-[rgba(91,124,255,0.12)]"
+              className="mt-2"
               required
             />
           </label>
           {status && (
-            <div
-              role="alert"
-              className={`rounded-xl px-4 py-3 text-sm font-bold ${status.type === "success" ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}
-            >
-              {status.text}
-            </div>
+            <Alert type={status.type === "success" ? "success" : "error"} message={status.text} showIcon />
           )}
-          <button
-            type="submit"
-            disabled={submitting}
-            className="codex-primary-action inline-flex h-11 items-center justify-center gap-2 rounded-xl px-5 text-sm font-black disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+          <Button type="primary" htmlType="submit" loading={submitting} icon={!submitting ? <Send className="h-4 w-4" /> : undefined}>
             提交反馈
-          </button>
+          </Button>
         </form>
       </Panel>
       <Panel title="反馈记录" description="最近提交的工单会显示处理状态。">
@@ -1012,15 +1200,15 @@ function TabButton({ tab, active, onClick }: { tab: (typeof tabs)[number]; activ
       role="tab"
       aria-selected={active}
       onClick={onClick}
-      className={`relative flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(91,124,255,0.16)] ${
-        active ? "bg-white text-slate-950 shadow-sm ring-1 ring-[rgba(91,124,255,0.22)]" : "text-slate-600 hover:bg-white/80 hover:text-slate-950"
+      className={`relative flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(91,124,255,0.16)] ${
+        active ? "bg-[#f5f7ff] text-slate-950 ring-1 ring-[rgba(91,124,255,0.2)]" : "text-slate-600 hover:bg-slate-50 hover:text-slate-950"
       }`}
     >
       {active && <span className="absolute left-0 top-3 h-8 w-1 rounded-r-full bg-[var(--codex-accent)]" aria-hidden="true" />}
       <Icon className="h-4 w-4 shrink-0" />
       <span className="min-w-0">
-        <span className="block text-sm font-black">{tab.label}</span>
-        <span className="mt-0.5 block truncate text-[11px] font-semibold opacity-70">{tab.description}</span>
+        <span className="block text-sm font-semibold">{tab.label}</span>
+        <span className="mt-0.5 block truncate text-[11px] font-medium opacity-70">{tab.description}</span>
       </span>
     </button>
   );
@@ -1028,15 +1216,18 @@ function TabButton({ tab, active, onClick }: { tab: (typeof tabs)[number]; activ
 
 function Panel({ title, description, children }: { title: string; description: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-2xl border border-white/80 bg-white/88 p-4 shadow-lg shadow-slate-200/40 backdrop-blur-xl sm:p-5">
-      <div className="mb-5 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-        <div className="min-w-0">
-          <h2 className="text-xl font-black text-slate-950">{title}</h2>
-          <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">{description}</p>
+    <Card
+      className="border-slate-200 shadow-sm shadow-slate-200/50"
+      styles={{ body: { padding: 20 } }}
+      title={
+        <div className="min-w-0 py-1">
+          <div className="text-lg font-semibold text-slate-950">{title}</div>
+          <div className="mt-0.5 text-xs font-normal leading-5 text-slate-500">{description}</div>
         </div>
-      </div>
+      }
+    >
       {children}
-    </section>
+    </Card>
   );
 }
 
@@ -1051,12 +1242,17 @@ function SelectField({
   onChange: (value: string) => void;
   children: React.ReactNode;
 }) {
+  const options = Children.toArray(children)
+    .filter(isValidElement)
+    .map((child) => {
+      const element = child as ReactElement<{ value?: string; children?: React.ReactNode }>;
+      return { value: String(element.props.value ?? ""), label: element.props.children };
+    });
+
   return (
     <label className="block">
-      <span className="text-xs font-black text-slate-500">{label}</span>
-      <select value={value} onChange={(event) => onChange(event.target.value)} className={inputClassName}>
-        {children}
-      </select>
+      <span className="text-xs font-semibold text-slate-500">{label}</span>
+      <Select value={value} onChange={onChange} options={options} className="mt-2 w-full" />
     </label>
   );
 }
@@ -1074,19 +1270,16 @@ function SearchField({ value, placeholder, onSubmit }: { value: string; placehol
         onSubmit(draft.trim());
       }}
     >
-      <span className="text-xs font-black text-slate-500">关键词</span>
-      <div className="mt-2 flex h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 transition focus-within:border-[var(--codex-accent)] focus-within:ring-4 focus-within:ring-[rgba(91,124,255,0.12)]">
-        <Search className="h-4 w-4 shrink-0 text-slate-400" />
-        <input
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          placeholder={placeholder}
-          className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-slate-400"
-        />
-        <button type="submit" className="shrink-0 text-xs font-black text-[var(--codex-accent)]">
-          查询
-        </button>
-      </div>
+      <span className="text-xs font-semibold text-slate-500">关键词</span>
+      <Input.Search
+        value={draft}
+        onChange={(event) => setDraft(event.target.value)}
+        onSearch={(next) => onSubmit(next.trim())}
+        placeholder={placeholder}
+        allowClear
+        enterButton="查询"
+        className="mt-2"
+      />
     </form>
   );
 }
@@ -1106,117 +1299,140 @@ function DateFilterRow({
     <div className={`${compact ? "" : "mt-3"} flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between`}>
       <div className="grid flex-1 gap-3 sm:grid-cols-2">
         <label className="block">
-          <span className="text-xs font-black text-slate-500">开始日期</span>
-          <input type="date" value={filters.from} onChange={(event) => onChange({ from: event.target.value, to: filters.to })} className={inputClassName} />
+          <span className="text-xs font-semibold text-slate-500">开始日期</span>
+          <Input type="date" value={filters.from} onChange={(event) => onChange({ from: event.target.value, to: filters.to })} className="mt-2" />
         </label>
         <label className="block">
-          <span className="text-xs font-black text-slate-500">结束日期</span>
-          <input type="date" value={filters.to} onChange={(event) => onChange({ from: filters.from, to: event.target.value })} className={inputClassName} />
+          <span className="text-xs font-semibold text-slate-500">结束日期</span>
+          <Input type="date" value={filters.to} onChange={(event) => onChange({ from: filters.from, to: event.target.value })} className="mt-2" />
         </label>
       </div>
       <div className="flex flex-wrap gap-2">
         {[7, 30, 90].map((days) => (
-          <button key={days} type="button" onClick={() => onChange(getQuickRange(days))} className={secondaryButtonClassName}>
+          <Button key={days} onClick={() => onChange(getQuickRange(days))}>
             近{days}天
-          </button>
+          </Button>
         ))}
-        <button type="button" onClick={onReset} className={secondaryButtonClassName}>
-          <RotateCcw className="h-3.5 w-3.5" />
+        <Button onClick={onReset} icon={<RotateCcw className="h-3.5 w-3.5" />}>
           重置
-        </button>
+        </Button>
       </div>
     </div>
+  );
+}
+
+function HeroStatistic({
+  title,
+  value,
+  note,
+  icon: Icon,
+  tone,
+}: {
+  title: string;
+  value: string;
+  note: string;
+  icon: LucideIcon;
+  tone: "accent" | "success" | "warning" | "slate";
+}) {
+  const color = tone === "accent" ? "#5b7cff" : tone === "success" ? "#22885f" : tone === "warning" ? "#a66a00" : "#0f172a";
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white px-4 py-3">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <span className="text-xs font-semibold text-slate-500">{title}</span>
+        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-50 text-slate-600">
+          <Icon className="h-4 w-4" />
+        </span>
+      </div>
+      <Statistic value={value} styles={{ content: { color, fontSize: 24, fontWeight: 600, lineHeight: 1.15 } }} />
+      <div className="mt-1 truncate text-xs text-slate-500">{note}</div>
+    </div>
+  );
+}
+
+function AssetFact({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+      <div className="text-[11px] font-semibold text-slate-500">{label}</div>
+      <div className="mt-1 truncate text-sm font-semibold text-slate-950" title={value}>
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function CreditReasonCell({ log }: { log: CreditLog }) {
+  const ai = isAiGenerationLog(log);
+  const taskId = log.generation_id ? log.generation_id.slice(0, 12) : null;
+  return (
+    <Space size={10} align="start">
+      <span className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${ai ? "bg-[rgba(91,124,255,0.1)] text-[var(--codex-accent)]" : "bg-slate-100 text-slate-500"}`}>
+        {ai ? <ImageIcon className="h-4 w-4" /> : log.amount > 0 ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownLeft className="h-4 w-4" />}
+      </span>
+      <span className="min-w-0">
+        <Text strong className="block !text-slate-950">{log.reason || (ai ? "AI 生成扣费" : "积分变动")}</Text>
+        <Text type="secondary" className="block !text-xs">
+          {taskId ? `任务 ${taskId}` : creditTypeLabel((log.type || "other") as CreditType)}
+        </Text>
+      </span>
+    </Space>
+  );
+}
+
+function AiComponentTag({ log }: { log: CreditLog }) {
+  const model = extractModelLabel(log.reason);
+  if (isAiGenerationLog(log)) {
+    return (
+      <Tag color="blue" icon={<Bot className="h-3.5 w-3.5" />}>
+        {model || "AI 生成"}
+      </Tag>
+    );
+  }
+  if (isRefundLog(log)) return <Tag color="green" icon={<RotateCcw className="h-3.5 w-3.5" />}>退款/补偿</Tag>;
+  return <Tag>{creditTypeLabel((log.type || "other") as CreditType)}</Tag>;
+}
+
+function CreditAmount({ log }: { log: CreditLog }) {
+  const positive = log.amount > 0;
+  return (
+    <Text strong className={positive ? "!text-[#22885f]" : "!text-[var(--codex-accent)]"}>
+      {positive ? "+" : ""}{formatNumber(log.amount)}
+    </Text>
+  );
+}
+
+function OrderProductCell({ order }: { order: BillingOrder }) {
+  return (
+    <Space size={10} align="start">
+      <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
+        <CreditCard className="h-4 w-4" />
+      </span>
+      <span className="min-w-0">
+        <Text strong className="block !text-slate-950">{order.productName}</Text>
+        <Text type="secondary" className="block !text-xs">{order.priceLabel || (order.mode === "subscription" ? "订阅" : "一次性购买")}</Text>
+        <Text type="secondary" className="block break-all !text-[11px]">订单 {order.id}</Text>
+      </span>
+    </Space>
   );
 }
 
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-slate-200/70 bg-white px-4 py-4 shadow-sm shadow-slate-200/25">
-      <p className="text-xs font-black text-slate-400">{label}</p>
-      <p className="mt-2 break-words text-sm font-black text-slate-950">{value || "-"}</p>
-    </div>
-  );
-}
-
-function MetricMini({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl bg-white/10 px-3 py-3">
-      <p className="text-[11px] font-bold text-white/50">{label}</p>
-      <p className="mt-1 text-sm font-black text-white">{value}</p>
+    <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+      <p className="text-xs font-semibold text-slate-500">{label}</p>
+      <p className="mt-2 break-words text-sm font-semibold text-slate-950">{value || "-"}</p>
     </div>
   );
 }
 
 function MetricCard({ label, value, tone }: { label: string; value: string; tone: "success" | "accent" | "slate" }) {
   const colors = {
-    success: "border-emerald-100 bg-emerald-50/80 text-emerald-700",
-    accent: "border-[rgba(91,124,255,0.18)] bg-[rgba(91,124,255,0.08)] text-[var(--codex-accent)]",
-    slate: "border-slate-200 bg-slate-50 text-slate-700",
+    success: "#22885f",
+    accent: "#5b7cff",
+    slate: "#0f172a",
   };
   return (
-    <div className={`rounded-xl border px-4 py-4 ${colors[tone]}`}>
-      <p className="text-xs font-black opacity-70">{label}</p>
-      <p className="mt-2 text-2xl font-black">{value}</p>
-    </div>
-  );
-}
-
-function CreditLogItem({ log }: { log: CreditLog }) {
-  const positive = log.amount > 0;
-  return (
-    <div className="flex gap-3 rounded-xl border border-slate-200/70 bg-white p-4 shadow-sm shadow-slate-200/25">
-      <div
-        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${
-          positive ? "bg-emerald-50 text-emerald-600" : "bg-[rgba(91,124,255,0.1)] text-[var(--codex-accent)]"
-        }`}
-      >
-        {positive ? <ArrowUpRight className="h-5 w-5" /> : <ArrowDownLeft className="h-5 w-5" />}
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="break-words text-sm font-black text-slate-950">{log.reason || "积分变动"}</p>
-              <StatusBadge label={creditTypeLabel((log.type || "other") as CreditType)} tone="slate" />
-            </div>
-            <p className="mt-1 break-all text-xs font-semibold text-slate-400">
-              {formatDateTime(log.created_at)}{log.generation_id ? ` · 任务 ${log.generation_id.slice(0, 12)}` : ""}
-            </p>
-          </div>
-          <div className="shrink-0 text-left sm:text-right">
-            <p className={`text-base font-black ${positive ? "text-emerald-600" : "text-[var(--codex-accent)]"}`}>
-              {positive ? "+" : ""}{formatNumber(log.amount)}
-            </p>
-            <p className="text-xs font-bold text-slate-400">余额 {formatNumber(log.balance)}</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function OrderRow({ order }: { order: BillingOrder }) {
-  const netAmount = order.amountNet ?? Math.max(0, order.amountTotal - order.amountRefunded);
-  return (
-    <div className="grid gap-3 px-4 py-4 text-sm md:grid-cols-[1.3fr_0.9fr_0.9fr_1fr_1fr] md:items-center">
-      <div className="min-w-0">
-        <p className="break-words font-black text-slate-950">{order.productName}</p>
-        <p className="mt-0.5 break-words text-xs font-semibold text-slate-400">{order.priceLabel || (order.mode === "subscription" ? "订阅" : "一次性购买")}</p>
-        <p className="mt-1 break-all text-[11px] font-semibold text-slate-400">订单 {order.id}</p>
-      </div>
-      <div>
-        <p className="font-black text-slate-800">{formatCny(netAmount)}</p>
-        {order.amountRefunded > 0 && <p className="mt-1 text-xs font-bold text-amber-700">已退 {formatCny(order.amountRefunded)}</p>}
-      </div>
-      <div>
-        <p className="font-black text-[var(--codex-accent)]">{formatNumber(order.creditsGranted || order.creditsExpected)} 积分</p>
-        {order.creditsGranted < order.creditsExpected && <p className="mt-1 text-xs font-bold text-amber-700">预计 {formatNumber(order.creditsExpected)}</p>}
-      </div>
-      <div className="flex flex-wrap gap-1.5">
-        <StatusBadge label={statusLabel(order.status)} tone={order.status === "paid" ? "success" : order.status.includes("refund") ? "warning" : "slate"} />
-        <StatusBadge label={grantStatusLabel(order.creditGrantStatus)} tone={order.creditGrantStatus === "granted" ? "success" : order.creditGrantStatus === "failed" ? "danger" : "slate"} />
-      </div>
-      <p className="text-xs font-bold text-slate-400">{formatDateTime(order.createdAt)}</p>
+    <div className="rounded-lg border border-slate-200 bg-white px-4 py-3">
+      <Statistic title={label} value={value} styles={{ content: { color: colors[tone], fontWeight: 600, fontSize: 24 } }} />
     </div>
   );
 }
@@ -1226,7 +1442,7 @@ function TicketRow({ ticket }: { ticket: SupportTicket }) {
     <div className="rounded-xl border border-slate-200/70 bg-white p-4 shadow-sm shadow-slate-200/25">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="break-words text-sm font-black text-slate-950">{ticket.title}</p>
+          <p className="break-words text-sm font-semibold text-slate-950">{ticket.title}</p>
           <p className="mt-1 break-all text-xs font-semibold text-slate-400">{ticket.ticketNo || ticket.categoryLabel} · {formatDateTime(ticket.createdAt)}</p>
         </div>
         <StatusBadge label={ticketStatusLabel(ticket.status)} tone={ticket.status === "resolved" || ticket.status === "closed" ? "success" : "warning"} />
@@ -1250,20 +1466,20 @@ function EmptyState({
   onReset?: () => void;
 }) {
   return (
-    <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/80 px-5 py-12 text-center">
-      <p className="text-base font-black text-slate-800">{title}</p>
-      <p className="mx-auto mt-2 max-w-md text-sm font-semibold leading-6 text-slate-500">{description}</p>
+    <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-5 py-10 text-center">
+      <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={<span className="font-semibold text-slate-700">{title}</span>} />
+      <p className="mx-auto mt-[-8px] max-w-md text-sm leading-6 text-slate-500">{description}</p>
       <div className="mt-5 flex flex-wrap justify-center gap-2">
         {onReset && (
-          <button type="button" onClick={onReset} className={secondaryButtonClassName}>
-            <RotateCcw className="h-3.5 w-3.5" />
+          <Button onClick={onReset} icon={<RotateCcw className="h-3.5 w-3.5" />}>
             清除筛选
-          </button>
+          </Button>
         )}
         {actionHref && actionText && (
-          <Link href={actionHref} className="codex-primary-action inline-flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-black">
-            {actionText}
-            <ArrowRight className="h-4 w-4" />
+          <Link href={actionHref}>
+            <Button type="primary" icon={<ArrowRight className="h-4 w-4" />}>
+              {actionText}
+            </Button>
           </Link>
         )}
       </div>
@@ -1278,7 +1494,7 @@ function ErrorBanner({ message, onRetry }: { message: string; onRetry: () => voi
         <AlertCircle className="h-4 w-4 shrink-0" />
         {message}
       </span>
-      <button type="button" onClick={onRetry} className="rounded-lg bg-white px-3 py-1.5 text-xs font-black text-red-700">
+      <button type="button" onClick={onRetry} className="rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-red-700">
         重试
       </button>
     </div>
@@ -1293,7 +1509,7 @@ function InlineError({ message, onRetry }: { message: string; onRetry?: () => vo
         {message}
       </span>
       {onRetry && (
-        <button type="button" onClick={onRetry} className="rounded-lg bg-white px-3 py-1.5 text-xs font-black text-red-700">
+        <button type="button" onClick={onRetry} className="rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-red-700">
           重试
         </button>
       )}
@@ -1305,10 +1521,9 @@ function LoadMoreButton({ pageInfo, loading, onClick }: { pageInfo: PageInfo; lo
   if (!pageInfo.hasMore || !pageInfo.nextCursor) return null;
   return (
     <div className="mt-4 flex justify-center">
-      <button type="button" onClick={onClick} disabled={loading} className={`${secondaryButtonClassName} h-11 px-5 disabled:opacity-60`}>
-        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+      <Button onClick={onClick} loading={loading}>
         加载更多
-      </button>
+      </Button>
     </div>
   );
 }
@@ -1317,7 +1532,7 @@ function ListSkeleton({ rows }: { rows: number }) {
   return (
     <div className="space-y-2" aria-label="加载中">
       {Array.from({ length: rows }).map((_, index) => (
-        <div key={index} className="h-20 animate-pulse rounded-xl bg-slate-100" />
+        <div key={index} className="h-16 animate-pulse rounded-lg border border-slate-200 bg-white" />
       ))}
     </div>
   );
@@ -1325,11 +1540,11 @@ function ListSkeleton({ rows }: { rows: number }) {
 
 function AccountSkeleton() {
   return (
-    <div className="rounded-2xl border border-white/80 bg-white/88 p-5 shadow-lg shadow-slate-200/40">
+    <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/50">
       <div className="h-6 w-36 animate-pulse rounded-full bg-slate-100" />
       <div className="mt-6 grid gap-3 md:grid-cols-2">
         {[0, 1, 2, 3].map((item) => (
-          <div key={item} className="h-24 animate-pulse rounded-xl bg-slate-100" />
+          <div key={item} className="h-20 animate-pulse rounded-lg border border-slate-100 bg-slate-50" />
         ))}
       </div>
     </div>
@@ -1339,29 +1554,20 @@ function AccountSkeleton() {
 function Avatar({ name }: { name: string }) {
   const initial = name.trim().slice(0, 1).toUpperCase() || "V";
   return (
-    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/16 bg-[var(--codex-gradient-primary)] text-sm font-black text-white shadow-sm">
+    <AntAvatar shape="square" size={42} className="!shrink-0 !bg-slate-950 !text-sm !font-semibold !text-white">
       {initial}
-    </div>
-  );
-}
-
-function StatusPill({ icon: Icon, label }: { icon: LucideIcon; label: string }) {
-  return (
-    <span className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-white/80 bg-white/72 px-3 py-1.5 text-xs font-black text-slate-700">
-      <Icon className="h-3.5 w-3.5 shrink-0" />
-      <span className="min-w-0 truncate">{label}</span>
-    </span>
+    </AntAvatar>
   );
 }
 
 function StatusBadge({ label, tone }: { label: string; tone: "success" | "warning" | "danger" | "slate" }) {
   const colors = {
-    success: "bg-emerald-50 text-emerald-700",
-    warning: "bg-amber-50 text-amber-700",
-    danger: "bg-red-50 text-red-700",
-    slate: "bg-slate-100 text-slate-600",
+    success: "success",
+    warning: "warning",
+    danger: "error",
+    slate: "default",
   };
-  return <span className={`inline-flex shrink-0 rounded-full px-2.5 py-1 text-xs font-black ${colors[tone]}`}>{label}</span>;
+  return <Tag color={colors[tone]} className="!mr-0">{label}</Tag>;
 }
 
 async function fetchJson<T>(url: string): Promise<T> {
@@ -1495,8 +1701,30 @@ function ticketStatusLabel(status: string) {
   return labels[status] || status || "待处理";
 }
 
-const inputClassName =
-  "mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 outline-none transition focus:border-[var(--codex-accent)] focus:ring-4 focus:ring-[rgba(91,124,255,0.12)]";
+function isAiGenerationLog(log: CreditLog) {
+  if (log.type === "generation") return true;
+  const text = `${log.reason || ""} ${log.generation_id || ""}`;
+  return log.amount < 0 && /(gpt|image|生成|换模|姿势|服装|上身|抠图|参考|ai)/i.test(text);
+}
 
-const secondaryButtonClassName =
-  "inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(91,124,255,0.16)]";
+function isRefundLog(log: CreditLog) {
+  if (log.amount <= 0) return false;
+  if (["refund", "compensation"].includes(log.type || "")) return true;
+  return /(退款|退回|返还|补偿|失败)/i.test(log.reason || "");
+}
+
+function isToday(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return false;
+  const now = new Date();
+  return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth() && date.getDate() === now.getDate();
+}
+
+function extractModelLabel(reason?: string | null) {
+  if (!reason) return "";
+  const bracket = reason.match(/\(([^()]*gpt[^()]*)\)/i);
+  if (bracket?.[1]) return bracket[1].trim();
+  const model = reason.match(/gpt[-_\w.]+(?:\s*,\s*[^，、)]+)?/i);
+  if (model?.[0]) return model[0].trim();
+  return "";
+}

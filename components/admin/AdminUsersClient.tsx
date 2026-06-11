@@ -119,7 +119,7 @@ const columns: ColumnsType<AdminUserListItem> = [
 function Metric({ title, value, suffix, tone = "neutral" }: { title: string; value: number; suffix: string; tone?: "neutral" | "warning" }) {
   return (
     <Card>
-      <Statistic title={title} value={value} valueStyle={{ color: tone === "warning" ? "#d97706" : "#0f172a" }} />
+      <Statistic title={title} value={value} styles={{ content: { color: tone === "warning" ? "#d97706" : "#0f172a" } }} />
       <Typography.Text type="secondary">{suffix}</Typography.Text>
     </Card>
   );

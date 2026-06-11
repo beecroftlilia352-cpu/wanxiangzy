@@ -158,7 +158,7 @@ function Metric({ title, value, tone = "neutral", note }: { title: string; value
   const color = tone === "danger" ? "#dc2626" : tone === "warning" ? "#d97706" : "#0f172a";
   return (
     <Card>
-      <Statistic title={title} value={value} valueStyle={{ color }} />
+      <Statistic title={title} value={value} styles={{ content: { color } }} />
       {note ? <Typography.Text type="secondary" className="text-xs">{note}</Typography.Text> : null}
     </Card>
   );

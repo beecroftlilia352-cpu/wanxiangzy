@@ -99,7 +99,7 @@ function Metric({ title, value, tone = "neutral", suffix }: { title: string; val
   const color = tone === "good" ? "#16a34a" : tone === "warning" ? "#d97706" : tone === "danger" ? "#dc2626" : "#0f172a";
   return (
     <Card>
-      <Statistic title={title} value={Math.round(value * 10) / 10} valueStyle={{ color }} />
+      <Statistic title={title} value={Math.round(value * 10) / 10} styles={{ content: { color } }} />
       {suffix && <Typography.Text type="secondary">{suffix}</Typography.Text>}
     </Card>
   );
