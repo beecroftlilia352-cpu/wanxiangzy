@@ -4,12 +4,13 @@ import { App, ConfigProvider, theme } from "antd";
 import zhCN from "antd/locale/zh_CN";
 import type { ReactNode } from "react";
 
-export function getAdminPopupContainer(triggerNode?: HTMLElement) {
-  return triggerNode?.closest(".admin-app-shell") as HTMLElement | null || document.body;
+export function getAdminPopupContainer(_triggerNode?: HTMLElement) {
+  return document.body;
 }
 
 export const adminSizeChangerSelectProps = {
   getPopupContainer: getAdminPopupContainer,
+  popupMatchSelectWidth: false,
 };
 
 export function AdminAntdProvider({ children }: { children: ReactNode }) {

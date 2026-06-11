@@ -42,20 +42,25 @@ const moduleOptions = [
   { value: "workflow", label: "Agent 工作流" },
 ];
 
+const TASK_PAGE_SIZE_OPTIONS = [20, 50, 100] as const;
+
 export function AdminTasksClient({ tasks, q, status, module, stale, page, pageSize }: AdminTasksClientProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [moduleValue, setModuleValue] = useState(module);
   const [statusValue, setStatusValue] = useState(status);
   const [staleOnly, setStaleOnly] = useState(stale);
+  const safePageSize = normalizeTaskPageSize(pageSize);
   const failed = tasks.rows.filter((row) => row.statusGroup === "failed").length;
   const running = tasks.rows.filter((row) => row.statusGroup === "running" || row.statusGroup === "queued").length;
   const staleCount = tasks.rows.filter((row) => row.isStale).length;
   const pageNote = tasks.total > 0 ? `当前页 ${tasks.rows.length} 条` : "暂无匹配任务";
 
   function handlePageChange(nextPage: number, nextPageSize: number) {
+    const safeNextPageSize = normalizeTaskPageSize(nextPageSize);
+    const safeNextPage = safeNextPageSize === safePageSize ? nextPage : 1;
     startTransition(() => {
-      router.push(buildTaskListUrl({ q, status, module, stale, page: nextPage, pageSize: nextPageSize }));
+      router.push(buildTaskListUrl({ q, status, module, stale, page: safeNextPage, pageSize: safeNextPageSize }));
     });
   }
 
@@ -97,7 +102,7 @@ export function AdminTasksClient({ tasks, q, status, module, stale, page, pageSi
               <Select className="!w-32" options={statusOptions} value={statusValue} onChange={setStatusValue} popupMatchSelectWidth={false} getPopupContainer={getAdminPopupContainer} />
               <input type="hidden" name="status" value={statusValue} />
               <input type="hidden" name="page" value="1" />
-              <input type="hidden" name="pageSize" value={pageSize} />
+              <input type="hidden" name="pageSize" value={safePageSize} />
               {staleOnly ? <input type="hidden" name="stale" value="1" /> : null}
               <Checkbox checked={staleOnly} onChange={(event) => setStaleOnly(event.target.checked)}>只看长时间未完成</Checkbox>
               <Button htmlType="submit" type="primary">筛选</Button>
@@ -115,10 +120,10 @@ export function AdminTasksClient({ tasks, q, status, module, stale, page, pageSi
           scroll={{ x: 2100 }}
           pagination={{
             current: page,
-            pageSize,
+            pageSize: safePageSize,
             total: tasks.total,
             showSizeChanger: adminSizeChangerSelectProps,
-            pageSizeOptions: [20, 50, 100],
+            pageSizeOptions: [...TASK_PAGE_SIZE_OPTIONS],
             showTotal: (total, range) => `共 ${total} 条，当前 ${range[0]}-${range[1]}`,
             onChange: handlePageChange,
           }}
@@ -245,6 +250,10 @@ function summarizeTaskError(value: string) {
 function extractJsonMessage(value: string) {
   const match = value.match(/"message"\s*:\s*"([^"]+)"/);
   return match?.[1] || "";
+}
+
+function normalizeTaskPageSize(value: number) {
+  return TASK_PAGE_SIZE_OPTIONS.includes(value as (typeof TASK_PAGE_SIZE_OPTIONS)[number]) ? value : TASK_PAGE_SIZE_OPTIONS[0];
 }
 
 function buildTaskListUrl(args: { q: string; status: string; module: string; stale: boolean; page: number; pageSize: number }) {

@@ -12,15 +12,19 @@ export function parseAdminListQuery(
   searchParams: URLSearchParams,
   options: {
     defaultPageSize?: number;
+    minPageSize?: number;
     maxPageSize?: number;
+    allowedPageSizes?: readonly number[];
     allowedSorts?: string[];
     defaultSort?: string;
   } = {},
 ): AdminListQuery {
   const defaultPageSize = options.defaultPageSize || 50;
+  const minPageSize = options.minPageSize ?? 10;
   const maxPageSize = options.maxPageSize || 200;
   const page = clampInteger(searchParams.get("page"), 1, 1, 10_000);
-  const pageSize = clampInteger(searchParams.get("pageSize") || searchParams.get("limit"), defaultPageSize, 1, maxPageSize);
+  const rawPageSize = clampInteger(searchParams.get("pageSize") || searchParams.get("limit"), defaultPageSize, minPageSize, maxPageSize);
+  const pageSize = normalizePageSize(rawPageSize, defaultPageSize, options.allowedPageSizes);
   const rawSort = normalizeString(searchParams.get("sort"), 60);
   const sort = options.allowedSorts?.length
     ? options.allowedSorts.includes(rawSort)
@@ -38,6 +42,11 @@ export function parseAdminListQuery(
     sort,
     order,
   };
+}
+
+function normalizePageSize(value: number, fallback: number, allowedPageSizes?: readonly number[]) {
+  if (!allowedPageSizes?.length) return value;
+  return allowedPageSizes.includes(value) ? value : fallback;
 }
 
 function clampInteger(value: string | null, fallback: number, min: number, max: number) {

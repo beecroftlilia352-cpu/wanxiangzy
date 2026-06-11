@@ -3,14 +3,18 @@ import { requireAdminApi } from "@/lib/admin/auth";
 import { listAdminTasks } from "@/lib/admin/data";
 import { parseAdminListQuery } from "@/lib/admin/query";
 
+const TASK_PAGE_SIZE_OPTIONS = [20, 50, 100] as const;
+
 export async function GET(request: Request) {
   const auth = await requireAdminApi("tasks:read");
   if (!auth.ok) return auth.response;
 
   const params = new URL(request.url).searchParams;
   const query = parseAdminListQuery(params, {
-    defaultPageSize: 50,
-    maxPageSize: 200,
+    defaultPageSize: 20,
+    minPageSize: 20,
+    maxPageSize: 100,
+    allowedPageSizes: TASK_PAGE_SIZE_OPTIONS,
     allowedSorts: ["createdAt", "updatedAt", "status", "module"],
   });
   const tasks = await listAdminTasks({

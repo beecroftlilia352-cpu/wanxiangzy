@@ -43,4 +43,22 @@ describe("admin query parser", () => {
     expect(query.sort).toBe("createdAt");
     expect(query.order).toBe("desc");
   });
+
+  it("falls back when page size is below the supported admin table options", () => {
+    const query = parseAdminListQuery(
+      new URLSearchParams({ pageSize: "1" }),
+      { defaultPageSize: 20, minPageSize: 20, maxPageSize: 100, allowedPageSizes: [20, 50, 100] },
+    );
+
+    expect(query.pageSize).toBe(20);
+  });
+
+  it("keeps supported admin table page sizes", () => {
+    const query = parseAdminListQuery(
+      new URLSearchParams({ pageSize: "50" }),
+      { defaultPageSize: 20, minPageSize: 20, maxPageSize: 100, allowedPageSizes: [20, 50, 100] },
+    );
+
+    expect(query.pageSize).toBe(50);
+  });
 });
