@@ -30,7 +30,7 @@ export function AdminAssetsClient({ assets, q, module }: AdminAssetsClientProps)
   const [moduleValue, setModuleValue] = useState(module);
 
   return (
-    <Space direction="vertical" size={16} className="w-full">
+    <Space orientation="vertical" size={16} className="w-full">
       <div className="admin-page-hero">
         <div>
           <Typography.Text className="admin-page-eyebrow">Assets</Typography.Text>
@@ -79,7 +79,7 @@ const columns: ColumnsType<AdminAssetListItem> = [
     title: "资产",
     width: 300,
     render: (_, row) => (
-      <Space direction="vertical" size={0}>
+      <Space orientation="vertical" size={0}>
         <Space size={4}><StatusTag status={row.status} /><Tag>{sourceTypeLabel(row.sourceType)}</Tag><Tag>编号 {shortId(row.id)}</Tag></Space>
         <Typography.Text strong>{row.title}</Typography.Text>
       </Space>
@@ -90,7 +90,7 @@ const columns: ColumnsType<AdminAssetListItem> = [
     title: "审核",
     width: 160,
     render: (_, row) => row.moderationCase ? (
-      <Space direction="vertical" size={0}>
+      <Space orientation="vertical" size={0}>
         <StatusTag status={row.moderationCase.action} />
         <Typography.Text type="secondary" className="text-xs" ellipsis={{ tooltip: row.moderationCase.reason || "-" }}>
           {row.moderationCase.reason || "-"}

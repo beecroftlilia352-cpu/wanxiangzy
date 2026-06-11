@@ -1,0 +1,98 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { Loader2, RefreshCw, Repeat2, RotateCcw, XCircle } from "lucide-react";
+
+type AdminBillingAction = "refund" | "cancel-subscription" | "sync" | "replay-event";
+
+const actionConfig: Record<
+  AdminBillingAction,
+  {
+    label: string;
+    endpoint: (targetId?: string) => string;
+    idKey?: string;
+    icon: typeof RotateCcw;
+    confirm?: (targetId?: string) => string;
+    body?: (targetId?: string) => Record<string, unknown>;
+  }
+> = {
+  refund: {
+    label: "退款",
+    endpoint: (targetId) => `/api/admin/billing/orders/${encodeURIComponent(targetId || "")}/refund`,
+    icon: RotateCcw,
+    confirm: (targetId) => `确认发起退款？\n\n订单：${targetId || "-"}`,
+    body: () => ({ reason: "管理员后台发起退款" }),
+  },
+  "cancel-subscription": {
+    label: "取消订阅",
+    endpoint: (targetId) => `/api/admin/billing/subscriptions/${encodeURIComponent(targetId || "")}/cancel`,
+    icon: XCircle,
+    confirm: (targetId) => `确认取消订阅？\n\n订阅：${targetId || "-"}`,
+    body: () => ({ reason: "管理员后台取消订阅", cancelAtPeriodEnd: true }),
+  },
+  sync: {
+    label: "同步",
+    endpoint: () => "/api/admin/billing/sync",
+    icon: RefreshCw,
+  },
+  "replay-event": {
+    label: "重放事件",
+    endpoint: () => "/api/admin/billing/webhook-events/replay",
+    icon: Repeat2,
+    confirm: (targetId) => `确认重放 Webhook 事件？\n\n事件：${targetId || "-"}`,
+    body: (targetId) => ({ eventId: targetId }),
+  },
+};
+
+export function AdminBillingActionButton({
+  action,
+  targetId,
+  disabled,
+}: {
+  action: AdminBillingAction;
+  targetId?: string;
+  disabled?: boolean;
+}) {
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const config = actionConfig[action];
+  const Icon = config.icon;
+
+  async function runAction() {
+    if (config.confirm && !window.confirm(config.confirm(targetId))) return;
+
+    setLoading(true);
+    try {
+      const endpoint = config.endpoint(targetId);
+      const body = config.body ? config.body(targetId) : config.idKey ? { [config.idKey]: targetId } : {};
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const fallback = res.status === 404 ? `接口未就绪：${endpoint}` : `操作失败 (${res.status})`;
+        throw new Error(typeof payload.error === "string" ? payload.error : fallback);
+      }
+      router.refresh();
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "操作失败");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={runAction}
+      disabled={loading || disabled}
+      className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-black text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+    >
+      {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Icon className="h-3.5 w-3.5" />}
+      {config.label}
+    </button>
+  );
+}

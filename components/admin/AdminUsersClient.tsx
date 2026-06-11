@@ -17,7 +17,7 @@ export function AdminUsersClient({ users, q }: AdminUsersClientProps) {
   const paused = users.rows.filter((row) => row.accountStatus === "suspended" || !row.generateEnabled).length;
 
   return (
-    <Space direction="vertical" size={16} className="w-full">
+    <Space orientation="vertical" size={16} className="w-full">
       <div className="admin-page-hero">
         <div>
           <Typography.Text className="admin-page-eyebrow">Users</Typography.Text>
@@ -74,7 +74,7 @@ const columns: ColumnsType<AdminUserListItem> = [
     width: 300,
     sorter: (a, b) => (a.email || "").localeCompare(b.email || ""),
     render: (_, row) => (
-      <Space direction="vertical" size={0}>
+      <Space orientation="vertical" size={0}>
         <Typography.Text strong>{row.email || "未记录邮箱"}</Typography.Text>
         <Link href={`/admin/users/${row.id}`}>查看详情</Link>
       </Space>
@@ -90,7 +90,7 @@ const columns: ColumnsType<AdminUserListItem> = [
     ],
     onFilter: (value, row) => row.accountStatus === value,
     render: (_, row) => (
-      <Space direction="vertical" size={2}>
+      <Space orientation="vertical" size={2}>
         <StatusTag status={row.accountStatus} />
         <Tag color={row.generateEnabled ? "green" : "red"}>{row.generateEnabled ? "可生成" : "已暂停"}</Tag>
       </Space>

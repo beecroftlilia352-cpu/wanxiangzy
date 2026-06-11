@@ -58,7 +58,7 @@ export function AdminTasksClient({ tasks, q, status, module, stale, page, pageSi
   }
 
   return (
-    <Space direction="vertical" size={16} className="w-full">
+    <Space orientation="vertical" size={16} className="w-full">
       <div className="admin-page-hero">
         <div>
           <Typography.Text className="admin-page-eyebrow">Tasks</Typography.Text>
@@ -131,7 +131,7 @@ const columns: ColumnsType<AdminTaskListItem> = [
     title: "任务",
     width: 290,
     render: (_, row) => (
-      <Space direction="vertical" size={0}>
+      <Space orientation="vertical" size={0}>
         <Space size={4}>
           <StatusTag status={row.status} group={row.statusGroup} />
           <Tag>{sourceTypeLabel(row.sourceType)}</Tag>

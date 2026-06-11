@@ -11,6 +11,7 @@ import {
   BarChartOutlined,
   CheckCircleOutlined,
   ControlOutlined,
+  CreditCardOutlined,
   DashboardOutlined,
   DatabaseOutlined,
   DollarOutlined,
@@ -84,6 +85,7 @@ const navGroups: Array<{ key: string; label: string; children: AdminNavItem[] }>
     label: "财务",
     children: [
       { href: "/admin/credits", label: "积分流水", icon: <DollarOutlined /> },
+      { href: "/admin/billing", label: "支付账单", icon: <CreditCardOutlined /> },
       { href: "/admin/reports", label: "成本报表", icon: <BarChartOutlined /> },
       { href: "/admin/exports", label: "导出视图", icon: <DownloadOutlined /> },
       { href: "/admin/risk", label: "智能风控", icon: <AlertOutlined /> },

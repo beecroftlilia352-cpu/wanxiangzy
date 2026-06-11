@@ -75,10 +75,10 @@ export function AdminAssetModerationForm({
         >
           <Form.Item name="action" label="处理动作" rules={[{ required: true }]}>
             <Radio.Group className="w-full">
-              <Space direction="vertical" className="w-full">
+              <Space orientation="vertical" className="w-full">
                 {actionOptions.map((item) => (
                   <Radio key={item.value} value={item.value}>
-                    <Space direction="vertical" size={0}>
+                    <Space orientation="vertical" size={0}>
                       <Typography.Text strong>{item.label}</Typography.Text>
                       <Typography.Text type="secondary" className="text-xs">{item.help}</Typography.Text>
                     </Space>

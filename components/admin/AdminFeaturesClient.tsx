@@ -68,7 +68,7 @@ export function AdminFeaturesClient({ registry }: AdminFeaturesClientProps) {
       dataIndex: "label",
       width: 260,
       render: (_, row) => (
-        <Space direction="vertical" size={0}>
+        <Space orientation="vertical" size={0}>
           <Typography.Text strong>{row.label}</Typography.Text>
           <Typography.Text type="secondary" className="font-mono text-xs">
             {row.key}
@@ -111,7 +111,7 @@ export function AdminFeaturesClient({ registry }: AdminFeaturesClientProps) {
       title: "模型/积分",
       width: 180,
       render: (_, row) => (
-        <Space direction="vertical" size={0}>
+        <Space orientation="vertical" size={0}>
           <Typography.Text className="text-xs">{row.defaultModel || "未指定模型"}</Typography.Text>
           <Typography.Text type="secondary" className="text-xs">
             {row.creditPolicy || "未配置积分策略"}
@@ -205,7 +205,7 @@ export function AdminFeaturesClient({ registry }: AdminFeaturesClientProps) {
     modal.confirm({
       title: `归档 ${feature.label}`,
       content: (
-        <Space direction="vertical" className="w-full">
+        <Space orientation="vertical" className="w-full">
           <Typography.Paragraph className="!mb-0">
             归档只会发布新的后台配置版本，不会删除前端路由。
           </Typography.Paragraph>
@@ -229,7 +229,7 @@ export function AdminFeaturesClient({ registry }: AdminFeaturesClientProps) {
   }
 
   return (
-    <Space direction="vertical" size={16} className="w-full">
+    <Space orientation="vertical" size={16} className="w-full">
       <div className="admin-page-hero">
         <div>
           <Typography.Text className="admin-page-eyebrow">Features</Typography.Text>

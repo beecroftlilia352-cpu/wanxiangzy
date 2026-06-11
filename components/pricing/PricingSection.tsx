@@ -1,12 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Check, CircleDollarSign, Crown, Sparkles, Zap } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { AlertCircle, Check, CircleDollarSign, Crown, Loader2, Sparkles, Zap } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
 type PricingMode = "credits" | "subscription";
 
 type CreditPlan = {
+  key: string;
   title: string;
   price: number;
   baseCredits: number;
@@ -17,9 +20,10 @@ type CreditPlan = {
 };
 
 const CREDIT_PLANS: CreditPlan[] = [
-  { title: "入门版", price: 35, baseCredits: 250, bonusCredits: 0 },
-  { title: "专业版", price: 140, baseCredits: 1000, bonusCredits: 200, savings: 17 },
+  { key: "starter", title: "入门版", price: 35, baseCredits: 250, bonusCredits: 0 },
+  { key: "pro", title: "专业版", price: 140, baseCredits: 1000, bonusCredits: 200, savings: 17 },
   {
+    key: "business",
     title: "企业版",
     price: 700,
     baseCredits: 5000,
@@ -28,6 +32,7 @@ const CREDIT_PLANS: CreditPlan[] = [
     featured: true,
   },
   {
+    key: "premium",
     title: "豪华版",
     price: 3500,
     baseCredits: 25000,
@@ -36,6 +41,36 @@ const CREDIT_PLANS: CreditPlan[] = [
     enterpriseNote: "支持开通转积分给子账号功能，提供专属产品支持群",
   },
 ];
+
+type BillingCatalogProduct = {
+  id?: string;
+  tierKey?: string;
+  prices?: BillingCatalogPrice[];
+};
+
+type BillingCatalogPrice = {
+  id?: string;
+  mode?: "payment" | "subscription";
+  unitAmount?: number;
+  credits?: number;
+  currency?: string;
+};
+
+type BillingCatalogResponse = {
+  products?: BillingCatalogProduct[];
+  activeSubscription?: {
+    id?: string;
+    status?: string;
+    current_period_end?: string;
+    currentPeriodEnd?: string;
+  } | null;
+};
+
+type CheckoutNotice = {
+  tone: "success" | "warning" | "danger" | "info";
+  title: string;
+  message: string;
+};
 
 const CREDIT_COSTS = {
   nanoBanana: 3,
@@ -96,8 +131,161 @@ function buildFeatures(plan: CreditPlan, mode: PricingMode) {
 }
 
 export function PricingSection() {
+  const router = useRouter();
+  const supabase = useMemo(() => createClient(), []);
   const [mode, setMode] = useState<PricingMode>("credits");
+  const [catalog, setCatalog] = useState<BillingCatalogResponse | null>(null);
+  const [catalogLoading, setCatalogLoading] = useState(true);
+  const [catalogError, setCatalogError] = useState("");
+  const [checkoutPriceId, setCheckoutPriceId] = useState<string | null>(null);
+  const [portalLoading, setPortalLoading] = useState(false);
+  const [notice, setNotice] = useState<CheckoutNotice | null>(null);
   const plans = useMemo(() => CREDIT_PLANS, []);
+  const priceMap = useMemo(() => buildPriceMap(catalog), [catalog]);
+  const activeSubscription = catalog?.activeSubscription || null;
+
+  const loadCatalog = useCallback(async () => {
+    setCatalogLoading(true);
+    setCatalogError("");
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      router.replace("/login?next=/pricing");
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/billing/catalog", { cache: "no-store" });
+      const payload = (await response.json().catch(() => ({}))) as BillingCatalogResponse & { error?: string };
+      if (response.status === 401) {
+        router.replace("/login?next=/pricing");
+        return;
+      }
+      if (!response.ok) throw new Error(payload.error || `价格目录加载失败 (${response.status})`);
+      setCatalog(payload);
+    } catch (error) {
+      setCatalogError(error instanceof Error ? error.message : "价格目录加载失败");
+    } finally {
+      setCatalogLoading(false);
+    }
+  }, [router, supabase]);
+
+  useEffect(() => {
+    void loadCatalog();
+  }, [loadCatalog]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const checkout = (params.get("checkout") || "").toLowerCase();
+    const sessionId = params.get("session_id") || params.get("sessionId");
+
+    if (checkout === "cancelled" || checkout === "canceled") {
+      setNotice({
+        tone: "warning",
+        title: "支付已取消",
+        message: "你可以重新选择套餐继续支付。",
+      });
+      return;
+    }
+
+    if (!sessionId) return;
+    setNotice({
+      tone: "info",
+      title: "正在确认订单",
+      message: "支付已返回，正在同步积分到账状态。",
+    });
+
+    fetch(`/api/billing/orders/session/${encodeURIComponent(sessionId)}`, { cache: "no-store" })
+      .then(async (response) => {
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.error || "订单状态查询失败");
+        const order = payload.order || {};
+        const paid = order.status === "paid" || order.credit_grant_status === "granted";
+        setNotice({
+          tone: paid ? "success" : "info",
+          title: paid ? "支付成功" : "支付确认中",
+          message: paid
+            ? `积分已同步到账：${Number(order.credits_granted || order.credits_expected || 0).toLocaleString("zh-CN")} 积分。`
+            : "Stripe 已返回，积分同步仍在处理中，稍后刷新即可查看。",
+        });
+        void loadCatalog();
+      })
+      .catch((error) => {
+        setNotice({
+          tone: "danger",
+          title: "订单状态查询失败",
+          message: error instanceof Error ? error.message : "请稍后刷新重试。",
+        });
+      });
+  }, [loadCatalog]);
+
+  async function startCheckout(plan: CreditPlan) {
+    const billingMode = mode === "subscription" ? "subscription" : "payment";
+    const price = priceMap.get(`${plan.key}:${billingMode}`);
+    const priceId = price?.id || fallbackPriceId(plan.key, billingMode);
+
+    if (!priceId) {
+      setNotice({
+        tone: "danger",
+        title: "套餐未配置",
+        message: "后台还没有为该套餐配置价格，请先在账单后台同步价格。",
+      });
+      return;
+    }
+
+    setCheckoutPriceId(priceId);
+    setNotice(null);
+    try {
+      const response = await fetch("/api/billing/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ priceId }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (response.status === 401) {
+        router.replace("/login?next=/pricing");
+        return;
+      }
+      if (!response.ok) throw new Error(payload.error || `创建支付会话失败 (${response.status})`);
+      if (typeof payload.url !== "string" || !payload.url) throw new Error("Stripe Checkout URL 创建失败");
+      window.location.assign(payload.url);
+    } catch (error) {
+      setNotice({
+        tone: "danger",
+        title: "无法创建支付会话",
+        message: error instanceof Error ? error.message : "请稍后重试。",
+      });
+    } finally {
+      setCheckoutPriceId(null);
+    }
+  }
+
+  async function openBillingPortal() {
+    setPortalLoading(true);
+    setNotice(null);
+    try {
+      const response = await fetch("/api/billing/portal", { method: "POST" });
+      const payload = await response.json().catch(() => ({}));
+      if (response.status === 401) {
+        router.replace("/login?next=/pricing");
+        return;
+      }
+      if (!response.ok) throw new Error(payload.error || `无法打开订阅管理 (${response.status})`);
+      if (typeof payload.url !== "string" || !payload.url) throw new Error("订阅管理缺少跳转地址");
+      window.location.assign(payload.url);
+    } catch (error) {
+      setNotice({
+        tone: "danger",
+        title: "无法打开订阅管理",
+        message: error instanceof Error ? error.message : "请稍后重试。",
+      });
+    } finally {
+      setPortalLoading(false);
+    }
+  }
 
   return (
     <section className="min-h-screen bg-zinc-50 px-4 py-16 sm:px-6" aria-labelledby="pricing-title">
@@ -151,9 +339,50 @@ export function PricingSection() {
           </button>
         </div>
 
+        {(notice || catalogError || activeSubscription) && (
+          <div className="mx-auto mb-8 max-w-3xl space-y-3">
+            {notice && <NoticeCard notice={notice} />}
+            {catalogError && (
+              <NoticeCard
+                notice={{
+                  tone: "danger",
+                  title: "价格目录加载失败",
+                  message: catalogError,
+                }}
+              />
+            )}
+            {activeSubscription && (
+              <div className="flex flex-col gap-3 rounded-2xl border border-emerald-100 bg-emerald-50/80 p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm font-black text-emerald-800">当前已有活跃订阅</p>
+                  <p className="mt-1 text-xs font-semibold text-emerald-700">
+                    可进入 Stripe 客户门户查看发票、更新付款方式或取消续订。
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={openBillingPortal}
+                  disabled={portalLoading}
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 text-xs font-black text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {portalLoading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                  管理订阅
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-4">
           {plans.map((plan) => (
-            <PlanCard key={plan.title} plan={plan} mode={mode} />
+            <PlanCard
+              key={plan.title}
+              plan={plan}
+              mode={mode}
+              loading={catalogLoading || checkoutPriceId === priceMap.get(`${plan.key}:${mode === "subscription" ? "subscription" : "payment"}`)?.id}
+              disabled={Boolean(catalogError)}
+              onSelect={() => void startCheckout(plan)}
+            />
           ))}
         </div>
 
@@ -178,7 +407,19 @@ export function PricingSection() {
   );
 }
 
-function PlanCard({ plan, mode }: { plan: CreditPlan; mode: PricingMode }) {
+function PlanCard({
+  plan,
+  mode,
+  loading,
+  disabled,
+  onSelect,
+}: {
+  plan: CreditPlan;
+  mode: PricingMode;
+  loading: boolean;
+  disabled: boolean;
+  onSelect: () => void;
+}) {
   const features = buildFeatures(plan, mode);
 
   return (
@@ -237,15 +478,54 @@ function PlanCard({ plan, mode }: { plan: CreditPlan; mode: PricingMode }) {
 
       <button
         type="button"
+        onClick={onSelect}
+        disabled={loading || disabled}
         className={cn(
-          "w-full rounded-xl py-4 text-[15px] font-bold transition-all",
+          "inline-flex w-full items-center justify-center gap-2 rounded-xl py-4 text-[15px] font-bold transition-all disabled:cursor-not-allowed disabled:opacity-60",
           plan.featured
             ? "bg-zinc-900 text-white shadow-md hover:bg-zinc-800"
             : "border-2 border-zinc-100 bg-white text-zinc-900 hover:border-zinc-200 hover:bg-zinc-50"
         )}
       >
-        立即选择
+        {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+        {mode === "subscription" ? "开通订阅" : "立即购买"}
       </button>
     </article>
   );
+}
+
+function NoticeCard({ notice }: { notice: CheckoutNotice }) {
+  return (
+    <div className={cn("flex items-start gap-3 rounded-2xl border p-4", noticeToneClass(notice.tone))}>
+      <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+      <div>
+        <p className="text-sm font-black">{notice.title}</p>
+        <p className="mt-1 text-xs font-semibold leading-5">{notice.message}</p>
+      </div>
+    </div>
+  );
+}
+
+function noticeToneClass(tone: CheckoutNotice["tone"]) {
+  if (tone === "success") return "border-emerald-100 bg-emerald-50 text-emerald-800";
+  if (tone === "warning") return "border-amber-100 bg-amber-50 text-amber-800";
+  if (tone === "danger") return "border-red-100 bg-red-50 text-red-700";
+  return "border-blue-100 bg-blue-50 text-blue-800";
+}
+
+function buildPriceMap(catalog: BillingCatalogResponse | null) {
+  const map = new Map<string, BillingCatalogPrice>();
+  for (const product of catalog?.products || []) {
+    const tierKey = product.tierKey;
+    if (!tierKey) continue;
+    for (const price of product.prices || []) {
+      if (!price.mode) continue;
+      map.set(`${tierKey}:${price.mode}`, price);
+    }
+  }
+  return map;
+}
+
+function fallbackPriceId(planKey: string, mode: "payment" | "subscription") {
+  return `price_${planKey}_${mode === "subscription" ? "monthly" : "once"}`;
 }

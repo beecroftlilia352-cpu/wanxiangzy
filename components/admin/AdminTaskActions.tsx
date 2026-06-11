@@ -75,7 +75,7 @@ export function AdminTaskActions({ id, sourceType, statusGroup, isStale = false,
     modal.confirm({
       title: config.label,
       content: (
-        <Space direction="vertical" className="w-full">
+        <Space orientation="vertical" className="w-full">
           <Typography.Text type={config.danger ? "danger" : "secondary"}>
             该操作会影响用户任务或积分，请填写用户能理解的处理原因。
           </Typography.Text>

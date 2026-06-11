@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowDownLeft, ArrowUpRight, Coins, RefreshCw, X } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, Coins, CreditCard, RefreshCw, X } from "lucide-react";
 
 type CreditLog = {
   id: string;
@@ -82,20 +83,30 @@ export function CreditLogModal({ open, onClose, onCreditsRefresh }: CreditLogMod
         </div>
 
         <div className="px-5 py-4">
-          <div className="mb-3 flex items-center justify-between rounded-2xl border border-amber-100 bg-amber-50/70 px-3 py-2">
+          <div className="mb-3 flex items-center justify-between gap-3 rounded-2xl border border-amber-100 bg-amber-50/70 px-3 py-2">
             <div>
               <p className="text-[11px] font-medium text-amber-700">当前可见余额</p>
               <p className="text-lg font-black text-amber-700">{latestBalance ?? "-"}</p>
             </div>
-            <button
-              type="button"
-              onClick={() => void loadLogs()}
-              disabled={loading}
-              className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-white px-3 py-1.5 text-xs font-bold text-amber-700 transition-colors hover:border-amber-300 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
-              刷新
-            </button>
+            <div className="flex shrink-0 items-center gap-2">
+              <Link
+                href="/pricing"
+                onClick={onClose}
+                className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-white px-3 py-1.5 text-xs font-bold text-amber-700 transition-colors hover:border-amber-300"
+              >
+                <CreditCard className="h-3.5 w-3.5" />
+                购买积分
+              </Link>
+              <button
+                type="button"
+                onClick={() => void loadLogs()}
+                disabled={loading}
+                className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-white px-3 py-1.5 text-xs font-bold text-amber-700 transition-colors hover:border-amber-300 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+                刷新
+              </button>
+            </div>
           </div>
 
           {error && (

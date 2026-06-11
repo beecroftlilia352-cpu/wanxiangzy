@@ -2,7 +2,7 @@ import { Card, Col, Row, Skeleton, Space } from "antd";
 
 export default function AdminLoading() {
   return (
-    <Space direction="vertical" size={16} className="w-full">
+    <Space orientation="vertical" size={16} className="w-full">
       <div className="admin-page-hero">
         <div className="min-w-0">
           <Skeleton active paragraph={{ rows: 2, width: ["60%", "100%"] }} title={{ width: 96 }} />

@@ -69,7 +69,7 @@ export function AdminDashboardClient({ overview, report, days }: AdminDashboardC
   }));
 
   return (
-    <Space direction="vertical" size={16} className="w-full">
+    <Space orientation="vertical" size={16} className="w-full">
       <div className="admin-page-hero">
         <div>
           <Typography.Text className="admin-page-eyebrow">Console</Typography.Text>
@@ -254,7 +254,7 @@ const taskColumns: ColumnsType<AdminTaskListItem> = [
     dataIndex: "title",
     width: 260,
     render: (_, row) => (
-      <Space direction="vertical" size={0}>
+      <Space orientation="vertical" size={0}>
         <Space size={6}>
           <StatusTag status={row.statusGroup} label={row.status} />
           <Typography.Text type="secondary">{row.sourceType}</Typography.Text>

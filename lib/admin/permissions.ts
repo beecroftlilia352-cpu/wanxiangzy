@@ -16,6 +16,9 @@ export type AdminPermission =
   | "users:write"
   | "credits:read"
   | "credits:write"
+  | "billing:read"
+  | "billing:write"
+  | "billing:operate"
   | "tasks:read"
   | "tasks:operate"
   | "assets:read"
@@ -53,6 +56,9 @@ const ROLE_PERMISSIONS: Record<AdminRole, AdminPermission[]> = {
     "users:write",
     "credits:read",
     "credits:write",
+    "billing:read",
+    "billing:write",
+    "billing:operate",
     "tasks:read",
     "tasks:operate",
     "assets:read",
@@ -87,6 +93,7 @@ const ROLE_PERMISSIONS: Record<AdminRole, AdminPermission[]> = {
     "admin:read",
     "users:read",
     "credits:read",
+    "billing:read",
     "tasks:read",
     "tasks:operate",
     "assets:read",
@@ -118,6 +125,7 @@ const ROLE_PERMISSIONS: Record<AdminRole, AdminPermission[]> = {
     "admin:read",
     "users:read",
     "credits:read",
+    "billing:read",
     "tasks:read",
     "assets:read",
     "support_tickets:read",
@@ -139,6 +147,9 @@ const ROLE_PERMISSIONS: Record<AdminRole, AdminPermission[]> = {
     "users:read",
     "credits:read",
     "credits:write",
+    "billing:read",
+    "billing:write",
+    "billing:operate",
     "operation_requests:read",
     "operation_requests:write",
     "operation_requests:approve",
@@ -170,6 +181,7 @@ const ROLE_PERMISSIONS: Record<AdminRole, AdminPermission[]> = {
     "saved_views:read",
     "saved_views:write",
     "reports:read",
+    "billing:read",
     "risk:read",
     "diagnostics:read",
     "evals:read",
@@ -180,6 +192,9 @@ const ROLE_PERMISSIONS: Record<AdminRole, AdminPermission[]> = {
     "admin:read",
     "users:read",
     "credits:read",
+    "billing:read",
+    "billing:write",
+    "billing:operate",
     "tasks:read",
     "tasks:operate",
     "assets:read",
@@ -222,6 +237,7 @@ const ROLE_PERMISSIONS: Record<AdminRole, AdminPermission[]> = {
     "exports:read",
     "saved_views:read",
     "reports:read",
+    "billing:read",
     "risk:read",
     "diagnostics:read",
     "evals:read",

@@ -50,7 +50,7 @@ export function AdminUserPicker({ value, onChange, onUserChange, placeholder = "
   }
 
   return (
-    <Space direction="vertical" size={6} className="w-full">
+    <Space orientation="vertical" size={6} className="w-full">
       <Select
         showSearch
         allowClear
@@ -75,7 +75,7 @@ export function AdminUserPicker({ value, onChange, onUserChange, placeholder = "
         optionRender={(option) => {
           const user = option.data.user;
           return (
-            <Space direction="vertical" size={0}>
+            <Space orientation="vertical" size={0}>
               <Typography.Text strong>{user.email || user.displayName || "未记录邮箱"}</Typography.Text>
               <Typography.Text type="secondary" className="text-xs">
                 余额 {formatNumber(user.credits)} · {user.generateEnabled ? "可生成" : "已暂停生成"}

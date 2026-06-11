@@ -279,13 +279,13 @@ function MarketingAccountActions({
             </Link>
           </DropdownMenu.Item>
           <DropdownMenu.Item asChild>
-            <Link href="/create" className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 outline-none transition hover:bg-slate-50">
-              进入工作台
+            <Link href="/pricing" className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 outline-none transition hover:bg-slate-50">
+              购买积分
             </Link>
           </DropdownMenu.Item>
           <DropdownMenu.Item asChild>
-            <Link href="/pricing" className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 outline-none transition hover:bg-slate-50">
-              购买积分
+            <Link href="/create" className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 outline-none transition hover:bg-slate-50">
+              进入工作台
             </Link>
           </DropdownMenu.Item>
           <DropdownMenu.Item
@@ -569,7 +569,7 @@ function UserCreditActions({
       <Link href="/history" className="studio-button studio-button-compact hidden sm:inline-flex">
         我的作品
       </Link>
-      <Link href="/create" className="studio-button studio-button-compact" title="剩余积分">
+      <Link href="/pricing" className="studio-button studio-button-compact" title="购买积分">
         <Coins className="h-3.5 w-3.5 text-[var(--codex-accent)]" />
         {creditsReady ? <span>{credits ?? "--"}</span> : <span className="h-3 w-5 animate-pulse rounded bg-slate-200" />}
       </Link>

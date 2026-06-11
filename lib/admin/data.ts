@@ -463,6 +463,96 @@ export type AdminCostReport = {
   warnings: string[];
 };
 
+export type AdminBillingProduct = {
+  id: string;
+  stripeProductId: string;
+  name: string;
+  description: string | null;
+  active: boolean;
+  metadata: Record<string, unknown>;
+  createdAt: string | null;
+  updatedAt: string | null;
+};
+
+export type AdminBillingPrice = {
+  id: string;
+  stripePriceId: string;
+  stripeProductId: string;
+  productName: string | null;
+  nickname: string | null;
+  currency: string;
+  unitAmount: number;
+  recurringInterval: string | null;
+  recurringIntervalCount: number;
+  type: string;
+  active: boolean;
+  credits: number;
+  createdAt: string | null;
+};
+
+export type AdminBillingOrder = {
+  id: string;
+  userId: string | null;
+  email: string | null;
+  stripeCustomerId: string | null;
+  stripeCheckoutSessionId: string | null;
+  stripePaymentIntentId: string | null;
+  amountTotal: number;
+  currency: string;
+  status: string;
+  refundedAmount: number;
+  creditsGranted: number;
+  createdAt: string | null;
+  updatedAt: string | null;
+};
+
+export type AdminBillingSubscription = {
+  id: string;
+  userId: string | null;
+  email: string | null;
+  stripeCustomerId: string | null;
+  stripeSubscriptionId: string;
+  stripePriceId: string | null;
+  status: string;
+  currentPeriodStart: string | null;
+  currentPeriodEnd: string | null;
+  cancelAtPeriodEnd: boolean;
+  canceledAt: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+};
+
+export type AdminBillingWebhookEvent = {
+  id: string;
+  stripeEventId: string;
+  type: string;
+  status: string;
+  attempts: number;
+  errorMessage: string | null;
+  createdAt: string | null;
+  processedAt: string | null;
+};
+
+export type AdminBillingConfigStatus = {
+  key: string;
+  label: string;
+  configured: boolean;
+  scope: "env" | "table";
+  statusHint: string;
+};
+
+export type AdminBillingOverview = {
+  available: boolean;
+  metrics: AdminMetric[];
+  products: AdminBillingProduct[];
+  prices: AdminBillingPrice[];
+  orders: AdminBillingOrder[];
+  subscriptions: AdminBillingSubscription[];
+  webhookEvents: AdminBillingWebhookEvent[];
+  configStatus: AdminBillingConfigStatus[];
+  warnings: string[];
+};
+
 export type AdminMemberListItem = {
   userId: string;
   email: string | null;
@@ -873,6 +963,11 @@ const SAVED_VIEW_COLUMNS = "id,owner_user_id,owner_email,name,resource,visibilit
 const EXPORT_JOB_COLUMNS = "id,export_type,status,requested_by,requested_by_email,requested_by_role,filters,row_count,download_token,expires_at,error_message,created_at";
 const AGENT_EVAL_RUN_COLUMNS = "id,user_id,total,passed,failed,score,latency_ms,summary,created_at";
 const AGENT_EVAL_RESULT_COLUMNS = "id,run_id,user_id,case_id,title,ok,failures,action,module,confidence,trace_id,created_at";
+const BILLING_PRODUCTS_TABLE = "billing_products";
+const BILLING_PRICES_TABLE = "billing_prices";
+const BILLING_ORDERS_TABLE = "payment_orders";
+const BILLING_SUBSCRIPTIONS_TABLE = "stripe_subscriptions";
+const BILLING_WEBHOOK_EVENTS_TABLE = "stripe_webhook_events";
 export const PROMPT_EXPERIMENT_CONFIG_KEY = "prompt.experiments" as const;
 export const DEFAULT_PROMPT_EXPERIMENT_CONFIG = {
   schemaVersion: 1,
@@ -2042,6 +2137,123 @@ export async function listAdminCreditLogs(args: { q?: string; limit?: number } =
       net: credits - debits,
       affectedUsers: new Set(visible.map((row) => row.userId).filter(Boolean)).size,
     },
+    warnings: uniqueStrings(warnings),
+  };
+}
+
+export async function listAdminBillingOverview(): Promise<AdminBillingOverview> {
+  const warnings: string[] = [];
+  const admin = getAdminClient();
+
+  const [
+    productsResult,
+    pricesResult,
+    ordersResult,
+    subscriptionsResult,
+    webhookEventsResult,
+  ] = await Promise.all([
+    runQuery<Record<string, unknown>[]>(
+      admin.from(BILLING_PRODUCTS_TABLE).select("*", { count: "exact" }).limit(100),
+      "billing products",
+      warnings,
+      true,
+    ),
+    runQuery<Record<string, unknown>[]>(
+      admin.from(BILLING_PRICES_TABLE).select("*", { count: "exact" }).limit(120),
+      "billing prices",
+      warnings,
+      true,
+    ),
+    runQuery<Record<string, unknown>[]>(
+      admin.from(BILLING_ORDERS_TABLE).select("*", { count: "exact" }).limit(120),
+      "billing orders",
+      warnings,
+      true,
+    ),
+    runQuery<Record<string, unknown>[]>(
+      admin.from(BILLING_SUBSCRIPTIONS_TABLE).select("*", { count: "exact" }).limit(120),
+      "billing subscriptions",
+      warnings,
+      true,
+    ),
+    runQuery<Record<string, unknown>[]>(
+      admin.from(BILLING_WEBHOOK_EVENTS_TABLE).select("*", { count: "exact" }).limit(120),
+      "billing webhook events",
+      warnings,
+      true,
+    ),
+  ]);
+
+  const products = (productsResult.data || [])
+    .map(mapBillingProduct)
+    .sort((a, b) => compareDateDesc(a.updatedAt || a.createdAt, b.updatedAt || b.createdAt));
+  const productNames = new Map(products.map((product) => [product.stripeProductId, product.name]));
+  const prices = (pricesResult.data || [])
+    .map((row) => mapBillingPrice(row, productNames))
+    .sort((a, b) => compareDateDesc(a.createdAt, b.createdAt));
+
+  const orderEmails = await loadProfileEmails(
+    (ordersResult.data || []).map((row) => pickString(row, ["user_id", "userId"])),
+    warnings,
+  );
+  const subscriptionEmails = await loadProfileEmails(
+    (subscriptionsResult.data || []).map((row) => pickString(row, ["user_id", "userId"])),
+    warnings,
+  );
+  const orders = (ordersResult.data || [])
+    .map((row) => mapBillingOrder(row, orderEmails))
+    .sort((a, b) => compareDateDesc(a.createdAt, b.createdAt));
+  const subscriptions = (subscriptionsResult.data || [])
+    .map((row) => mapBillingSubscription(row, subscriptionEmails))
+    .sort((a, b) => compareDateDesc(a.updatedAt || a.createdAt, b.updatedAt || b.createdAt));
+  const webhookEvents = (webhookEventsResult.data || [])
+    .map(mapBillingWebhookEvent)
+    .sort((a, b) => compareDateDesc(a.createdAt, b.createdAt));
+
+  const tableStatuses = [
+    billingTableStatus(BILLING_PRODUCTS_TABLE, "Products table", productsResult),
+    billingTableStatus(BILLING_PRICES_TABLE, "Prices table", pricesResult),
+    billingTableStatus(BILLING_ORDERS_TABLE, "Orders table", ordersResult),
+    billingTableStatus(BILLING_SUBSCRIPTIONS_TABLE, "Subscriptions table", subscriptionsResult),
+    billingTableStatus(BILLING_WEBHOOK_EVENTS_TABLE, "Webhook events table", webhookEventsResult),
+  ];
+  const configStatus = [
+    billingEnvStatus("STRIPE_SECRET_KEY", "Stripe secret key", process.env.STRIPE_SECRET_KEY),
+    billingEnvStatus(
+      "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
+      "Stripe publishable key",
+      process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || process.env.STRIPE_PUBLISHABLE_KEY,
+    ),
+    billingEnvStatus("STRIPE_WEBHOOK_SECRET", "Stripe webhook secret", process.env.STRIPE_WEBHOOK_SECRET),
+    ...tableStatuses,
+  ];
+  const available = tableStatuses.some((item) => item.configured);
+  const missingConfigCount = configStatus.filter((item) => !item.configured).length;
+  const activeSubscriptions = subscriptions.filter((row) => row.status === "active" || row.status === "trialing").length;
+  const failedWebhookEvents = webhookEvents.filter((row) => {
+    const status = row.status.toLowerCase();
+    return status === "failed" || status === "error" || status === "retrying";
+  }).length;
+  const revenue = orders
+    .filter((row) => ["paid", "succeeded", "complete", "completed"].includes(row.status.toLowerCase()))
+    .reduce((sum, row) => sum + Math.max(0, row.amountTotal - row.refundedAmount), 0);
+
+  return {
+    available,
+    metrics: [
+      { label: "Active products", value: products.filter((row) => row.active).length, hint: `${products.length} loaded`, tone: "neutral" },
+      { label: "Active prices", value: prices.filter((row) => row.active).length, hint: `${prices.length} loaded`, tone: "neutral" },
+      { label: "Sample revenue", value: toMajorCurrency(revenue), hint: "paid orders minus refunds", tone: revenue > 0 ? "good" : "neutral" },
+      { label: "Active subscriptions", value: activeSubscriptions, hint: `${subscriptions.length} loaded`, tone: activeSubscriptions > 0 ? "good" : "neutral" },
+      { label: "Webhook issues", value: failedWebhookEvents, hint: `${webhookEvents.length} events sampled`, tone: failedWebhookEvents > 0 ? "warning" : "good" },
+      { label: "Missing config", value: missingConfigCount, hint: "env vars and billing tables", tone: missingConfigCount > 0 ? "warning" : "good" },
+    ],
+    products,
+    prices,
+    orders,
+    subscriptions,
+    webhookEvents,
+    configStatus,
     warnings: uniqueStrings(warnings),
   };
 }
@@ -4188,6 +4400,181 @@ function matchesSupportTicketSearch(row: AdminSupportTicket, q: string) {
     row.createdByEmail || "",
     row.tags.join(" "),
   ].some((value) => value.toLowerCase().includes(q));
+}
+
+function mapBillingProduct(row: Record<string, unknown>): AdminBillingProduct {
+  const stripeProductId =
+    pickString(row, ["stripe_product_id", "stripeProductId", "product_id", "productId", "stripe_id", "stripeId"]) ||
+    stringValue(row.id);
+  const id = stringValue(row.id) || stripeProductId;
+
+  return {
+    id,
+    stripeProductId,
+    name: pickString(row, ["name", "product_name", "productName", "title"]) || stripeProductId || "Unknown product",
+    description: pickNullableString(row, ["description", "product_description", "productDescription"]),
+    active: booleanValue(pickValue(row, ["active", "is_active", "enabled"]), true),
+    metadata: isRecord(row.metadata) ? row.metadata : {},
+    createdAt: pickNullableString(row, ["created_at", "createdAt", "stripe_created_at"]),
+    updatedAt: pickNullableString(row, ["updated_at", "updatedAt", "synced_at", "syncedAt"]),
+  };
+}
+
+function mapBillingPrice(row: Record<string, unknown>, productNames: Map<string, string>): AdminBillingPrice {
+  const metadata = isRecord(row.metadata) ? row.metadata : {};
+  const stripePriceId =
+    pickString(row, ["stripe_price_id", "stripePriceId", "price_id", "priceId", "stripe_id", "stripeId"]) ||
+    stringValue(row.id);
+  const stripeProductId = pickString(row, ["stripe_product_id", "stripeProductId", "product_id", "productId"]);
+  const recurringInterval = pickNullableString(row, ["recurring_interval", "recurringInterval", "interval", "billing_interval", "billingInterval"]);
+
+  return {
+    id: stringValue(row.id) || stripePriceId,
+    stripePriceId,
+    stripeProductId,
+    productName: productNames.get(stripeProductId) || pickNullableString(row, ["product_name", "productName"]),
+    nickname: pickNullableString(row, ["nickname", "name", "label"]),
+    currency: normalizeCurrency(pickString(row, ["currency"]) || "usd"),
+    unitAmount: pickNumber(row, ["unit_amount", "unitAmount", "amount", "amount_total", "amountTotal"]),
+    recurringInterval,
+    recurringIntervalCount: pickNumber(row, ["recurring_interval_count", "recurringIntervalCount", "interval_count", "intervalCount"]) || (recurringInterval ? 1 : 0),
+    type: pickString(row, ["type", "price_type", "priceType"]) || (recurringInterval ? "recurring" : "one_time"),
+    active: booleanValue(pickValue(row, ["active", "is_active", "enabled"]), true),
+    credits: pickNumber(row, ["credits", "credit_amount", "creditAmount", "credits_granted", "creditsGranted"]) || numberValue(metadata.credits),
+    createdAt: pickNullableString(row, ["created_at", "createdAt", "stripe_created_at"]),
+  };
+}
+
+function mapBillingOrder(row: Record<string, unknown>, emails: Map<string, string>): AdminBillingOrder {
+  const userId = pickNullableString(row, ["user_id", "userId"]);
+
+  return {
+    id: stringValue(row.id) || pickString(row, ["stripe_checkout_session_id", "stripeCheckoutSessionId", "checkout_session_id", "checkoutSessionId"]),
+    userId,
+    email: pickNullableString(row, ["email", "user_email", "userEmail", "customer_email", "customerEmail"]) || (userId ? emails.get(userId) || null : null),
+    stripeCustomerId: pickNullableString(row, ["stripe_customer_id", "stripeCustomerId", "customer_id", "customerId"]),
+    stripeCheckoutSessionId: pickNullableString(row, ["stripe_checkout_session_id", "stripeCheckoutSessionId", "checkout_session_id", "checkoutSessionId"]),
+    stripePaymentIntentId: pickNullableString(row, ["stripe_payment_intent_id", "stripePaymentIntentId", "payment_intent_id", "paymentIntentId"]),
+    amountTotal: pickNumber(row, ["amount_total", "amountTotal", "amount_paid", "amountPaid", "amount"]),
+    currency: normalizeCurrency(pickString(row, ["currency"]) || "usd"),
+    status: pickString(row, ["status", "payment_status", "paymentStatus"]) || "unknown",
+    refundedAmount: pickNumber(row, ["refunded_amount", "refundedAmount", "amount_refunded", "amountRefunded"]),
+    creditsGranted: pickNumber(row, ["credits_granted", "creditsGranted", "credits", "credit_amount", "creditAmount"]),
+    createdAt: pickNullableString(row, ["created_at", "createdAt", "paid_at", "paidAt"]),
+    updatedAt: pickNullableString(row, ["updated_at", "updatedAt", "synced_at", "syncedAt"]),
+  };
+}
+
+function mapBillingSubscription(row: Record<string, unknown>, emails: Map<string, string>): AdminBillingSubscription {
+  const userId = pickNullableString(row, ["user_id", "userId"]);
+  const stripeSubscriptionId =
+    pickString(row, ["stripe_subscription_id", "stripeSubscriptionId", "subscription_id", "subscriptionId", "stripe_id", "stripeId"]) ||
+    stringValue(row.id);
+
+  return {
+    id: stringValue(row.id) || stripeSubscriptionId,
+    userId,
+    email: pickNullableString(row, ["email", "user_email", "userEmail", "customer_email", "customerEmail"]) || (userId ? emails.get(userId) || null : null),
+    stripeCustomerId: pickNullableString(row, ["stripe_customer_id", "stripeCustomerId", "customer_id", "customerId"]),
+    stripeSubscriptionId,
+    stripePriceId: pickNullableString(row, ["stripe_price_id", "stripePriceId", "price_id", "priceId"]),
+    status: pickString(row, ["status", "subscription_status", "subscriptionStatus"]) || "unknown",
+    currentPeriodStart: pickNullableString(row, ["current_period_start", "currentPeriodStart"]),
+    currentPeriodEnd: pickNullableString(row, ["current_period_end", "currentPeriodEnd"]),
+    cancelAtPeriodEnd: booleanValue(pickValue(row, ["cancel_at_period_end", "cancelAtPeriodEnd"]), false),
+    canceledAt: pickNullableString(row, ["canceled_at", "canceledAt", "cancelled_at", "cancelledAt"]),
+    createdAt: pickNullableString(row, ["created_at", "createdAt"]),
+    updatedAt: pickNullableString(row, ["updated_at", "updatedAt", "synced_at", "syncedAt"]),
+  };
+}
+
+function mapBillingWebhookEvent(row: Record<string, unknown>): AdminBillingWebhookEvent {
+  const stripeEventId =
+    pickString(row, ["stripe_event_id", "stripeEventId", "event_id", "eventId", "stripe_id", "stripeId"]) ||
+    stringValue(row.id);
+
+  return {
+    id: stringValue(row.id) || stripeEventId,
+    stripeEventId,
+    type: pickString(row, ["type", "event_type", "eventType"]) || "unknown",
+    status: pickString(row, ["status", "processing_status", "processingStatus"]) || "received",
+    attempts: pickNumber(row, ["attempts", "retry_count", "retryCount", "delivery_attempts", "deliveryAttempts"]),
+    errorMessage: pickNullableString(row, ["error_message", "errorMessage", "last_error", "lastError"]),
+    createdAt: pickNullableString(row, ["created_at", "createdAt", "received_at", "receivedAt"]),
+    processedAt: pickNullableString(row, ["processed_at", "processedAt"]),
+  };
+}
+
+function billingEnvStatus(key: string, label: string, value: unknown): AdminBillingConfigStatus {
+  const configured = typeof value === "string" ? value.trim().length > 0 : Boolean(value);
+  return {
+    key,
+    label,
+    configured,
+    scope: "env",
+    statusHint: configured ? "configured" : "missing",
+  };
+}
+
+function billingTableStatus(
+  key: string,
+  label: string,
+  result: { data: unknown; count: number | null; error: string | null },
+): AdminBillingConfigStatus {
+  const configured = Array.isArray(result.data);
+  const rowCount = Array.isArray(result.data) ? result.count ?? result.data.length : 0;
+  return {
+    key,
+    label,
+    configured,
+    scope: "table",
+    statusHint: configured ? `${rowCount} rows visible` : result.error || "not installed",
+  };
+}
+
+function pickValue(row: Record<string, unknown>, keys: string[]) {
+  for (const key of keys) {
+    const value = row[key];
+    if (value !== undefined && value !== null && value !== "") return value;
+  }
+  return undefined;
+}
+
+function pickString(row: Record<string, unknown>, keys: string[]) {
+  return stringValue(pickValue(row, keys));
+}
+
+function pickNullableString(row: Record<string, unknown>, keys: string[]) {
+  return nullableString(pickValue(row, keys));
+}
+
+function pickNumber(row: Record<string, unknown>, keys: string[]) {
+  return numberValue(pickValue(row, keys));
+}
+
+function booleanValue(value: unknown, fallback: boolean) {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number" && Number.isFinite(value)) return value !== 0;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (["true", "1", "yes", "active", "enabled"].includes(normalized)) return true;
+    if (["false", "0", "no", "inactive", "disabled"].includes(normalized)) return false;
+  }
+  return fallback;
+}
+
+function normalizeCurrency(value: string) {
+  return value.trim().toUpperCase() || "USD";
+}
+
+function compareDateDesc(a: string | null | undefined, b: string | null | undefined) {
+  const left = Date.parse(a || "");
+  const right = Date.parse(b || "");
+  return (Number.isFinite(right) ? right : 0) - (Number.isFinite(left) ? left : 0);
+}
+
+function toMajorCurrency(value: number) {
+  return Math.round((value / 100) * 100) / 100;
 }
 
 function mapSavedView(row: Record<string, unknown>): AdminSavedView {

@@ -33,7 +33,7 @@ export function AdminReportsClient({ report }: AdminReportsClientProps) {
   }));
 
   return (
-    <Space direction="vertical" size={16} className="w-full">
+    <Space orientation="vertical" size={16} className="w-full">
       <div className="admin-page-hero">
         <div>
           <Typography.Text className="admin-page-eyebrow">Reports</Typography.Text>
@@ -127,7 +127,7 @@ const breakdownColumns: ColumnsType<AdminCostBreakdownItem> = [
     dataIndex: "label",
     width: 190,
     render: (_, row) => (
-      <Space direction="vertical" size={0}>
+      <Space orientation="vertical" size={0}>
         <Typography.Text strong>{row.label}</Typography.Text>
         <Typography.Text type="secondary" className="font-mono text-xs">{row.key}</Typography.Text>
       </Space>
