@@ -42,12 +42,12 @@ export default function AgentPage() {
       }
     });
 
-    // 实时监听积分变化
+    // 实时监听灵点变化
     const unsub = subscribeToProfileCredits(({ credits: c }) => setCredits(c));
     return unsub;
   }, []);
 
-  // 积分刷新：当有生成完成时刷新余额
+  // 灵点刷新：当有生成完成时刷新余额
   useEffect(() => {
     const hasCompleted = s.messages.some(
       (m) => m.generation?.status === "completed" && m.generation?.creditsUsed
@@ -156,13 +156,13 @@ export default function AgentPage() {
 
           <div className="flex-1" />
 
-          {/* 积分余额 */}
+          {/* 灵点余额 */}
           {credits !== null && (
             <button
               type="button"
               onClick={() => setCreditLogsOpen(true)}
               className="flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-600 transition-colors hover:bg-amber-100"
-              title="查看积分流水"
+              title="查看灵点流水"
             >
               <Coins className="h-3 w-3" />
               {credits}

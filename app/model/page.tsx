@@ -26,6 +26,7 @@ import { fetchHistoryApplyDetail, takeApplyDetail, type HistoryJobPayload } from
 import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
 import { applyRepairPrompt } from "@/lib/generation-repair";
 import { enforceModelPromptRequirements } from "@/lib/model-prompt";
+import { showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
 import {
   DEFAULT_MODEL_SHOOT_STYLE,
   MODEL_SHOOT_STYLES,
@@ -123,7 +124,7 @@ export default function ModelPage() {
   const runDisabledReason = !referenceUrls.length
     ? "请上传至少 1 张参考图"
     : credits !== null && credits < totalCost
-      ? `积分不足，生成需要 ${totalCost} 积分`
+      ? `灵点不足，生成需要 ${totalCost} 灵点`
       : undefined;
   const defaultPrompt = useMemo(
     () => buildDefaultPrompt(referenceUrls.length || 1, gender, hairStyle, hairColor, !!hairReferenceUrl, !!hairColorReferenceUrl, modelStyle),
@@ -373,7 +374,7 @@ export default function ModelPage() {
       return;
     }
     if (credits !== null && credits < totalCost) {
-      toast.error(`积分不足，需要 ${totalCost}，余额 ${credits}`);
+      showInsufficientCreditsToast({ required: totalCost, balance: credits, onRecharge: () => router.push("/pricing") });
       return;
     }
 
@@ -931,7 +932,7 @@ export default function ModelPage() {
               <StudioOptionGrid
                 options={imageSizes.map((size) => ({
                   value: size,
-                  label: `${size} · ${getCreditCost(aiModel, size, aspectRatio)}积分`,
+                  label: `${size} · ${getCreditCost(aiModel, size, aspectRatio)}灵点`,
                 }))}
                 value={imageSize}
                 onChange={setImageSize}
@@ -964,7 +965,7 @@ export default function ModelPage() {
 
         <StudioRunBar
           summary={`${referenceUrls.length} 张参考图 · ${cost} × ${genCount}`}
-          costLabel={authIsAnonymous ? "登录后查看积分" : `消耗 ${totalCost} · 余额 ${credits ?? "-"}`}
+          costLabel={authIsAnonymous ? "登录后查看灵点" : `消耗 ${totalCost} · 余额 ${credits ?? "-"}`}
           disabled={isGenerating || Boolean(runDisabledReason)}
           disabledReason={runDisabledReason}
           primaryLabel={authIsAnonymous ? "登录后生成" : isGenerating ? "生成中..." : `生成 ${genCount} 张`}

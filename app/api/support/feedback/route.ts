@@ -18,7 +18,7 @@ const SUPPORT_FIELDS = [
 
 const CATEGORY_LABELS: Record<string, string> = {
   billing: "充值支付",
-  credit_issue: "积分异常",
+  credit_issue: "灵点异常",
   generation_failure: "生成问题",
   account: "账户问题",
   technical: "功能异常",

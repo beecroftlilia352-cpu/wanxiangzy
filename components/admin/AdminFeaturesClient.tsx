@@ -108,13 +108,13 @@ export function AdminFeaturesClient({ registry }: AdminFeaturesClientProps) {
       render: (value: boolean) => <Tag color={value ? "blue" : "default"}>{value ? "展示" : "隐藏"}</Tag>,
     },
     {
-      title: "模型/积分",
+      title: "模型/灵点",
       width: 180,
       render: (_, row) => (
         <Space orientation="vertical" size={0}>
           <Typography.Text className="text-xs">{row.defaultModel || "未指定模型"}</Typography.Text>
           <Typography.Text type="secondary" className="text-xs">
-            {row.creditPolicy || "未配置积分策略"}
+            {row.creditPolicy || "未配置灵点策略"}
           </Typography.Text>
         </Space>
       ),
@@ -237,7 +237,7 @@ export function AdminFeaturesClient({ registry }: AdminFeaturesClientProps) {
             功能管理
           </Typography.Title>
           <Typography.Paragraph className="!mb-0 !text-slate-500">
-            用版本化配置统一管理前端功能展示、模型、积分策略和后台关联入口。
+            用版本化配置统一管理前端功能展示、模型、灵点策略和后台关联入口。
           </Typography.Paragraph>
         </div>
         <Button type="primary" icon={<PlusOutlined />} onClick={startCreate}>
@@ -310,7 +310,7 @@ export function AdminFeaturesClient({ registry }: AdminFeaturesClientProps) {
             <Form.Item name="defaultModel" label="默认模型">
               <Input placeholder="gpt-image-2" />
             </Form.Item>
-            <Form.Item name="creditPolicy" label="积分策略">
+            <Form.Item name="creditPolicy" label="灵点策略">
               <Input placeholder="按模型和尺寸计费" />
             </Form.Item>
           </div>

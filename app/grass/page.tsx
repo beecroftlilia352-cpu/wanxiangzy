@@ -39,6 +39,7 @@ import {
 } from "@/lib/grass-planting";
 import { fetchHistoryApplyDetail, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
 import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
+import { showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
 
 const MODELS: { value: LingyaModel; label: string; desc: string; badge?: string; icon: string }[] = [
   { value: "nano-banana-2", label: "Nano-Banana-2", desc: "最高4K", badge: "推荐", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
@@ -168,7 +169,7 @@ export default function GrassPage() {
   const runDisabledReason = !garmentUrl
     ? "请先上传服装或穿搭图"
     : credits !== null && credits < cost
-      ? `积分不足，生成需要 ${cost} 积分`
+      ? `灵点不足，生成需要 ${cost} 灵点`
       : undefined;
 
   useEffect(() => {
@@ -328,7 +329,10 @@ export default function GrassPage() {
     }
     if (!garmentUrl) return toast.error("请先上传服装图");
     if (sceneMode === "upload_reference" && !uploadedReferenceUrl) return toast.error("请先上传种草参考图");
-    if (credits !== null && credits < cost) return toast.error(`积分不足，需要 ${cost}，余额 ${credits}`);
+    if (credits !== null && credits < cost) {
+      showInsufficientCreditsToast({ required: cost, balance: credits, onRecharge: () => router.push("/pricing") });
+      return;
+    }
 
     setIsGenerating(true);
     setRunningExpectedCount(genCount);
@@ -774,7 +778,7 @@ export default function GrassPage() {
           <section>
             <h3 className="font-bold text-sm mb-3">分辨率</h3>
             <StudioOptionGrid
-              options={imageSizes.map((s) => ({ value: s, label: `${s} · ${getCreditCost(aiModel, s, aspectRatio)}积分` }))}
+              options={imageSizes.map((s) => ({ value: s, label: `${s} · ${getCreditCost(aiModel, s, aspectRatio)}灵点` }))}
               value={imageSize}
               onChange={setImageSize}
               ariaLabel="分辨率"
@@ -792,7 +796,7 @@ export default function GrassPage() {
 
         <StudioRunBar
           summary={`${garmentUrl ? `${effectiveReferenceUrl ? 2 : 1} 张输入图` : "未上传"} · ${genCount} 张`}
-          costLabel={authIsAnonymous ? "登录后查看积分" : `消耗 ${cost} · 余额 ${credits ?? "-"}`}
+          costLabel={authIsAnonymous ? "登录后查看灵点" : `消耗 ${cost} · 余额 ${credits ?? "-"}`}
           disabled={isGenerating || Boolean(runDisabledReason)}
           disabledReason={runDisabledReason}
           primaryLabel={authIsAnonymous ? "登录后生成" : isGenerating ? "生成中..." : `生成 ${genCount} 张`}

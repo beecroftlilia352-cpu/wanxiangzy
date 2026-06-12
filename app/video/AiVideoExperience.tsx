@@ -66,6 +66,7 @@ import {
 import { fetchHistoryApplyDetail, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
 import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
+import { showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
 import {
   MAX_FILE_SIZE,
   MAX_FILE_SIZE_MB,
@@ -185,7 +186,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
         : !prompt.trim()
           ? "请输入视频生成效果描述"
           : credits !== null && credits < cost
-            ? `积分不足，生成需要 ${cost} 积分`
+            ? `灵点不足，生成需要 ${cost} 灵点`
             : undefined
     : isMotion
     ? !modelImageUrl
@@ -193,14 +194,14 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
       : !referenceVideoUrl
         ? "请先上传参考视频"
         : credits !== null && credits < cost
-          ? `积分不足，生成需要 ${cost} 积分`
+          ? `灵点不足，生成需要 ${cost} 灵点`
           : undefined
     : !imageUrl
       ? "请先上传图片"
       : !prompt.trim()
         ? "请输入动作描述或选择动作模板"
         : credits !== null && credits < cost
-          ? `积分不足，生成需要 ${cost} 积分`
+          ? `灵点不足，生成需要 ${cost} 灵点`
           : undefined;
   const imageDrag = useStableFileDrag<HTMLDivElement>({
     isDragging: isDraggingImage,
@@ -388,7 +389,11 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
       return;
     }
     if (runDisabledReason) {
-      toast.error(runDisabledReason);
+      if (runDisabledReason.startsWith("灵点不足")) {
+        showInsufficientCreditsToast({ required: cost, balance: credits, onRecharge: () => router.push("/pricing") });
+      } else {
+        toast.error(runDisabledReason);
+      }
       return;
     }
 
@@ -572,7 +577,11 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
       });
       if (isCurrentRun()) {
         setError(message);
-        toast.error(message);
+        if (message.includes("灵点不足")) {
+          showInsufficientCreditsToast({ required: cost, balance: credits, onRecharge: () => router.push("/pricing") });
+        } else {
+          toast.error(message);
+        }
         setIsSubmitting(false);
         setIsGenerating(false);
       }
@@ -967,7 +976,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
             options={AI_VIDEO_DURATION_OPTIONS.map((item) => ({
               value: String(item.value),
               label: item.label,
-              description: `${getAiVideoPerVideoCreditCost({ modelMode: effectiveModelMode, resolution, duration: item.value, audioMode })} 积分/条`,
+              description: `${getAiVideoPerVideoCreditCost({ modelMode: effectiveModelMode, resolution, duration: item.value, audioMode })} 灵点/条`,
             }))}
             value={String(duration)}
             onChange={(value) => setDuration(normalizeAiVideoDuration(value))}
@@ -1011,7 +1020,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
         <section>
           <div className="mb-3 flex items-center justify-between gap-3">
             <h3 className="text-sm font-black text-codex-ink">生成条数</h3>
-            <span className="text-[11px] font-bold text-codex-faint">{perVideoCost} 积分/条</span>
+            <span className="text-[11px] font-bold text-codex-faint">{perVideoCost} 灵点/条</span>
           </div>
           <StudioGenerationCountSelector
             value={genCount}
@@ -1049,7 +1058,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
         {controlPanel}
         <StudioRunBar
           summary={`${effectiveModelMode === "pro" ? "高清模式" : "快速模式"} · ${resolution} · ${aspectRatioSummary} · ${duration}秒 · ${generateAudio ? "音效" : "静音"} · ${genCount}条`}
-          costLabel={authIsAnonymous ? "登录后查看积分" : `消耗 ${cost} · 余额 ${credits ?? "-"}`}
+          costLabel={authIsAnonymous ? "登录后查看灵点" : `消耗 ${cost} · 余额 ${credits ?? "-"}`}
           disabled={isSubmitting || Boolean(runDisabledReason)}
           disabledReason={runDisabledReason}
           primaryLabel={authIsAnonymous ? "登录后生成" : isSubmitting ? "提交中..." : "生成视频"}

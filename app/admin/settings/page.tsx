@@ -51,7 +51,7 @@ export default async function AdminSettingsPage() {
         <AdminConfigForm />
       </AdminSection>
 
-      <AdminSection title="配置版本" description="后续可用于模型路由、积分价格、功能开关和风控策略的版本化发布。">
+      <AdminSection title="配置版本" description="后续可用于模型路由、灵点价格、功能开关和风控策略的版本化发布。">
         <AdminTable<AdminConfigVersion>
           rows={settings.configVersions}
           rowKey={(row) => row.id}

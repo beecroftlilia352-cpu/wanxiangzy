@@ -77,7 +77,7 @@ export async function PATCH(request: Request, { params }: RouteProps) {
   const userId = typeof payload.userId === "string" ? payload.userId : requestRow.target_id;
   const amount = Number(payload.amount);
   if (!isUuid(userId) || !Number.isInteger(amount) || amount === 0) {
-    return NextResponse.json({ error: "审批单 payload 不完整，无法执行积分调整" }, { status: 400 });
+    return NextResponse.json({ error: "审批单 payload 不完整，无法执行灵点调整" }, { status: 400 });
   }
 
   const rpc = await admin.rpc("admin_adjust_user_credits", {

@@ -23,7 +23,7 @@ export function AdminUsersClient({ users, q }: AdminUsersClientProps) {
           <Typography.Text className="admin-page-eyebrow">Users</Typography.Text>
           <Typography.Title level={2} className="!mb-1 !mt-1">用户管理</Typography.Title>
           <Typography.Paragraph className="!mb-0 !text-slate-500">
-            查看用户余额、积分消耗、生成活跃度和运营控制状态；详情页可编辑资料、调整积分、暂停生成。
+            查看用户余额、灵点消耗、生成活跃度和运营控制状态；详情页可编辑资料、调整灵点、暂停生成。
           </Typography.Paragraph>
         </div>
         <Link href="/admin/audit">

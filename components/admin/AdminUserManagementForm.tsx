@@ -95,7 +95,7 @@ export function AdminUserManagementForm({ profile }: AdminUserManagementFormProp
       });
       const payload = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(payload.error || `调整失败 (${res.status})`);
-      setCreditMessage("积分已调整");
+      setCreditMessage("灵点已调整");
       formElement.reset();
       router.refresh();
     } catch (error) {
@@ -196,7 +196,7 @@ export function AdminUserManagementForm({ profile }: AdminUserManagementFormProp
       <form onSubmit={submitCredit} className="space-y-3">
         <div className="flex items-center gap-2 text-sm font-black text-slate-950">
           <Coins className="h-4 w-4 text-slate-500" />
-          积分调整
+          灵点调整
         </div>
         <label className="block space-y-1.5">
           <span className="text-xs font-black text-slate-500">变动数量</span>

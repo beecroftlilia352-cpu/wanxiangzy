@@ -7,6 +7,7 @@ export const TASK_QUEUE_ITEM_TTL_SECONDS = 60 * 60 * 24 * 30;
 export const TASK_QUEUE_SUMMARY_TTL_SECONDS = 60 * 5;
 export const TASK_QUEUE_MODULE_CACHE_LIMIT = 100;
 export const TASK_QUEUE_RUNNING_STALE_MS = 60 * 60 * 1000;
+export const TASK_RESULT_THUMBNAIL_LIMIT = 4;
 
 export type TaskQueueSourceType = "generation" | "workflow";
 
@@ -270,7 +271,7 @@ export function normalizeGenerationTaskQueueItem(row: TaskQueueGenerationSourceR
   const createdAt = row.created_at || new Date().toISOString();
   const updatedAt = row.updated_at || row.completed_at || row.processing_started_at || row.created_at || createdAt;
   const inputThumbnails = extractGenerationInputThumbnails(row);
-  const resultThumbnails = resultUrls.slice(0, 2);
+  const resultThumbnails = resultUrls.slice(0, TASK_RESULT_THUMBNAIL_LIMIT);
   const item: TaskQueueItem = {
     id: row.id,
     module,
@@ -295,7 +296,7 @@ export function normalizeGenerationTaskQueueItem(row: TaskQueueGenerationSourceR
 
 export function normalizeWorkflowTaskQueueItem(row: TaskQueueWorkflowSourceRow): TaskQueueItem {
   const module = inferWorkflowModule(row);
-  const resultThumbnails = extractWorkflowResultThumbnails(row.final_outputs).slice(0, 2);
+  const resultThumbnails = extractWorkflowResultThumbnails(row.final_outputs);
   const statusGroup = taskQueueStatusGroup(row.status, resultThumbnails.length);
   const createdAt = row.created_at || new Date().toISOString();
   const updatedAt = row.updated_at || row.completed_at || row.created_at || createdAt;
@@ -363,7 +364,7 @@ export function taskQueueItemToIndexWrite(
     expected_count: Math.max(1, Number(item.expectedCount) || 1),
     result_count: Math.max(0, Number(item.resultCount) || 0),
     input_thumbnails: safeTaskQueueUrls(item.inputThumbnails).slice(0, item.module === "tryon" ? TRYON_INPUT_REFERENCE_LIMIT : 8),
-    result_thumbnails: safeTaskQueueUrls(item.resultThumbnails).slice(0, 2),
+    result_thumbnails: safeTaskQueueUrls(item.resultThumbnails).slice(0, TASK_RESULT_THUMBNAIL_LIMIT),
     error_message: item.error || null,
     apply_url: item.applyUrl || `${modulePath(item.module)}?task=${encodeURIComponent(item.id)}`,
     created_at: item.createdAt,
@@ -460,9 +461,9 @@ function extractWorkflowResultThumbnails(value: unknown): string[] {
     return [];
   }
   if (Array.isArray(value)) {
-    return uniqueStrings(value.flatMap((entry) => extractUrlsFromUnknown(entry))).slice(0, 2);
+    return uniqueStrings(value.flatMap((entry) => extractUrlsFromUnknown(entry))).slice(0, TASK_RESULT_THUMBNAIL_LIMIT);
   }
-  return uniqueStrings(extractUrlsFromUnknown(value)).slice(0, 2);
+  return uniqueStrings(extractUrlsFromUnknown(value)).slice(0, TASK_RESULT_THUMBNAIL_LIMIT);
 }
 
 function extractUrlsFromUnknown(value: unknown): string[] {

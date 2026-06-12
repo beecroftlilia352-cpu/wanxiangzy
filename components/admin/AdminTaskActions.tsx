@@ -23,21 +23,21 @@ const actionConfig: Record<AdminTaskAction, { label: string; icon: ReactNode; de
     defaultReason: "任务长时间没有完成，运营重新发起处理",
   },
   mark_failed_refund: {
-    label: "结束并退积分",
+    label: "结束并退灵点",
     icon: <DollarCircleOutlined />,
-    defaultReason: "任务无法继续完成，运营结束任务并退还积分",
+    defaultReason: "任务无法继续完成，运营结束任务并退还灵点",
     danger: true,
   },
   cancel_refund: {
-    label: "取消并退积分",
+    label: "取消并退灵点",
     icon: <StopOutlined />,
-    defaultReason: "用户或运营取消未完成任务，并退还未结算积分",
+    defaultReason: "用户或运营取消未完成任务，并退还未结算灵点",
     danger: true,
   },
   mark_failed_no_refund: {
     label: "结束不退款",
     icon: <CloseCircleOutlined />,
-    defaultReason: "任务已产生履约成本，运营结束任务但不退还积分",
+    defaultReason: "任务已产生履约成本，运营结束任务但不退还灵点",
     danger: true,
   },
 };
@@ -77,7 +77,7 @@ export function AdminTaskActions({ id, sourceType, statusGroup, isStale = false,
       content: (
         <Space orientation="vertical" className="w-full">
           <Typography.Text type={config.danger ? "danger" : "secondary"}>
-            该操作会影响用户任务或积分，请填写用户能理解的处理原因。
+            该操作会影响用户任务或灵点，请填写用户能理解的处理原因。
           </Typography.Text>
           <Input.TextArea
             defaultValue={reason}

@@ -262,7 +262,7 @@ async function operateWorkflowTask(id: string, action: TaskAction, reason: strin
       p_amount: releaseAmount,
       p_reason: action === "cancel_refund" ? `Admin workflow cancel release (${id})` : `Admin workflow failed release (${id})`,
     });
-    if (release.error) return { ok: false, status: 400, error: release.error.message || "释放 workflow 积分失败" };
+    if (release.error) return { ok: false, status: 400, error: release.error.message || "释放 workflow 灵点失败" };
   }
 
   const nextStatus = action === "cancel_refund" ? "cancelled" : "failed";

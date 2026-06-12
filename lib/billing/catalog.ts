@@ -64,7 +64,7 @@ export const BILLING_TIERS: BillingTierSeed[] = [
     unitAmount: 3_500,
     creditAmount: 250,
     bonusCredits: 0,
-    features: ["250 积分", "适合体验核心生成能力", "支持所有基础模块"],
+    features: ["250 灵点", "适合体验核心生成能力", "支持所有基础模块"],
   },
   {
     tierKey: "pro",
@@ -74,7 +74,7 @@ export const BILLING_TIERS: BillingTierSeed[] = [
     unitAmount: 14_000,
     creditAmount: 1_000,
     bonusCredits: 200,
-    features: ["1,000 积分 + 赠送 200", "适合多模块连续生成", "更高性价比"],
+    features: ["1,000 灵点 + 赠送 200", "适合多模块连续生成", "更高性价比"],
   },
   {
     tierKey: "business",
@@ -84,7 +84,7 @@ export const BILLING_TIERS: BillingTierSeed[] = [
     unitAmount: 70_000,
     creditAmount: 5_000,
     bonusCredits: 2_000,
-    features: ["5,000 积分 + 赠送 2,000", "适合批量商品套图", "团队运营更稳"],
+    features: ["5,000 灵点 + 赠送 2,000", "适合批量商品套图", "团队运营更稳"],
   },
   {
     tierKey: "premium",
@@ -93,7 +93,7 @@ export const BILLING_TIERS: BillingTierSeed[] = [
     unitAmount: 350_000,
     creditAmount: 25_000,
     bonusCredits: 13_000,
-    features: ["25,000 积分 + 赠送 13,000", "适合高频生成", "最佳单积分成本"],
+    features: ["25,000 灵点 + 赠送 13,000", "适合高频生成", "最佳单灵点成本"],
   },
 ];
 

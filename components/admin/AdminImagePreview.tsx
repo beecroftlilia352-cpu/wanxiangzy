@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, ExternalLink, X } from "lucide-react";
+
+const ADMIN_IMAGE_PREVIEW_OPEN_EVENT = "admin-image-preview-open";
 
 type AdminImagePreviewProps = {
   urls: string[];
@@ -20,12 +22,21 @@ export function AdminImagePreview({
   imageClassName = "h-full w-full object-cover",
   countLabel,
 }: AdminImagePreviewProps) {
+  const previewId = useId();
   const images = useMemo(() => urls.map((url) => url.trim()).filter(Boolean), [urls]);
   const safeInitialIndex = Math.min(Math.max(initialIndex, 0), Math.max(images.length - 1, 0));
   const [open, setOpen] = useState(false);
   const [index, setIndex] = useState(safeInitialIndex);
   const currentUrl = images[index] || "";
   const hasMultiple = images.length > 1;
+
+  useEffect(() => {
+    const onPreviewOpen = (event: Event) => {
+      if ((event as CustomEvent<string>).detail !== previewId) setOpen(false);
+    };
+    window.addEventListener(ADMIN_IMAGE_PREVIEW_OPEN_EVENT, onPreviewOpen);
+    return () => window.removeEventListener(ADMIN_IMAGE_PREVIEW_OPEN_EVENT, onPreviewOpen);
+  }, [previewId]);
 
   useEffect(() => {
     if (!open) return;
@@ -35,10 +46,8 @@ export function AdminImagePreview({
       if (event.key === "ArrowRight" && hasMultiple) setIndex((value) => (value + 1) % images.length);
     };
     document.addEventListener("keydown", onKeyDown);
-    document.body.style.overflow = "hidden";
     return () => {
       document.removeEventListener("keydown", onKeyDown);
-      document.body.style.overflow = "";
     };
   }, [hasMultiple, images.length, open]);
 
@@ -59,6 +68,7 @@ export function AdminImagePreview({
         aria-label={label}
         title={label}
         onClick={() => {
+          window.dispatchEvent(new CustomEvent(ADMIN_IMAGE_PREVIEW_OPEN_EVENT, { detail: previewId }));
           setIndex(safeInitialIndex);
           setOpen(true);
         }}
@@ -77,9 +87,13 @@ export function AdminImagePreview({
           role="dialog"
           aria-modal="true"
           aria-label={label}
-          className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/85 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/90 p-4 backdrop-blur-sm"
           onClick={() => setOpen(false)}
         >
+          <div className="absolute left-4 top-4 rounded-lg border border-white/10 bg-white/10 px-3 py-2 text-xs font-black tabular-nums text-white/85 shadow-lg backdrop-blur">
+            {images.length > 1 ? `${index + 1} / ${images.length}` : label}
+          </div>
+
           <div className="absolute right-4 top-4 flex items-center gap-2">
             <a
               href={currentUrl}
@@ -131,15 +145,33 @@ export function AdminImagePreview({
             </>
           )}
 
-          <div className="max-h-[86vh] max-w-[92vw]" onClick={(event) => event.stopPropagation()}>
+          <div className="max-h-[82vh] max-w-[92vw]" onClick={(event) => event.stopPropagation()}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={currentUrl} alt="" className="max-h-[86vh] max-w-[92vw] rounded-lg object-contain shadow-2xl" />
-            {hasMultiple && (
-              <p className="mt-3 text-center text-xs font-black tabular-nums text-white/80">
-                {index + 1} / {images.length}
-              </p>
-            )}
+            <img src={currentUrl} alt={label} className="max-h-[82vh] max-w-[92vw] rounded-lg object-contain shadow-2xl" />
           </div>
+
+          {hasMultiple && (
+            <div
+              className="absolute bottom-4 left-1/2 flex max-w-[min(92vw,760px)] -translate-x-1/2 gap-2 overflow-x-auto rounded-xl border border-white/10 bg-white/10 p-2 shadow-2xl backdrop-blur"
+              onClick={(event) => event.stopPropagation()}
+            >
+              {images.map((url, itemIndex) => (
+                <button
+                  key={`${url}-${itemIndex}`}
+                  type="button"
+                  aria-label={`切换到第 ${itemIndex + 1} 张`}
+                  aria-current={itemIndex === index ? "true" : undefined}
+                  onClick={() => setIndex(itemIndex)}
+                  className={`h-12 w-12 shrink-0 overflow-hidden rounded-md border transition ${
+                    itemIndex === index ? "border-white ring-2 ring-white/70" : "border-white/20 opacity-70 hover:opacity-100"
+                  }`}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={url} alt="" className="h-full w-full object-cover" loading="lazy" />
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </>

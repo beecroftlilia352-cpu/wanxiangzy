@@ -15,7 +15,7 @@ import {
   writeCachedTaskSummary,
 } from "@/lib/redis/task-queue-cache";
 import type { TaskQueueItem, TaskStatusGroup } from "@/lib/task-queue";
-import { normalizeModule } from "@/lib/task-queue-index";
+import { TASK_RESULT_THUMBNAIL_LIMIT, normalizeModule } from "@/lib/task-queue-index";
 import { getTryOnInputReferenceUrls, TRYON_INPUT_REFERENCE_LIMIT } from "@/lib/tryon-input-references";
 import {
   loadTaskQueueItemsFromIndex,
@@ -926,7 +926,7 @@ function getWorkflowResultThumbnails(row: WorkflowRow) {
 }
 
 function getDisplayThumbnails(resultUrls: string[], inputUrls: string[]) {
-  return Array.from(new Set([...resultUrls, ...inputUrls].filter(Boolean))).slice(0, 2);
+  return Array.from(new Set([...resultUrls, ...inputUrls].filter(Boolean))).slice(0, TASK_RESULT_THUMBNAIL_LIMIT);
 }
 
 function getApplyUrl(kind: string, generationId: string) {

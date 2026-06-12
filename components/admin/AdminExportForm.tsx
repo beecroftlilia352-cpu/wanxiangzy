@@ -6,7 +6,7 @@ import { Download, Loader2 } from "lucide-react";
 
 const exportTypes = [
   { value: "users", label: "用户" },
-  { value: "credits", label: "积分流水" },
+  { value: "credits", label: "灵点流水" },
   { value: "generations", label: "生成任务" },
   { value: "assets", label: "资产" },
   { value: "asset_lifecycle", label: "素材生命周期" },

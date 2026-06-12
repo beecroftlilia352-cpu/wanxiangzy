@@ -199,7 +199,7 @@ const accountGroups: Array<{
     icon: WalletCards,
     children: [
       { key: "orders", label: "订单管理" },
-      { key: "credits", label: "米豆明细" },
+      { key: "credits", label: "灵点明细" },
       { key: "apiUsage", label: "API中心" },
     ],
   },
@@ -234,7 +234,7 @@ const productOptions = [
 
 const feedbackCategories = [
   { value: "billing", label: "充值支付" },
-  { value: "credit_issue", label: "积分异常" },
+  { value: "credit_issue", label: "灵点异常" },
   { value: "generation_failure", label: "生成问题" },
   { value: "account", label: "账户问题" },
   { value: "technical", label: "功能异常" },
@@ -243,8 +243,8 @@ const feedbackCategories = [
 
 const helpItems = [
   { title: "充值后没有到账怎么办？", body: "微信、支付宝等异步支付以 Stripe webhook 为准，通常几秒内入账。可在充值记录中查看订单和到账状态。" },
-  { title: "积分为什么会被扣除？", body: "确认生成后会扣除积分，任务失败会自动退回。积分明细会记录扣费、退款和人工补偿。" },
-  { title: "如何联系客服？", body: "在客服反馈中提交问题，系统会生成工单，后台可按充值、积分和生成问题优先处理。" },
+  { title: "灵点为什么会被扣除？", body: "确认生成后会扣除灵点，任务失败会自动退回。灵点明细会记录扣费、退款和人工补偿。" },
+  { title: "如何联系客服？", body: "在客服反馈中提交问题，系统会生成工单，后台可按充值、灵点和生成问题优先处理。" },
 ];
 
 export function AccountCenterClient() {
@@ -346,7 +346,7 @@ export function AccountCenterClient() {
       setCreditPageInfo(payload.pageInfo || defaultPageInfo);
       setCreditSummary(payload.summary || { pageIncome: 0, pageSpend: 0, count: payload.logs?.length || 0 });
     } catch (err) {
-      setCreditError(err instanceof Error ? err.message : "积分明细加载失败");
+      setCreditError(err instanceof Error ? err.message : "灵点明细加载失败");
       setCreditLogs([]);
       setCreditPageInfo(defaultPageInfo);
     } finally {
@@ -633,8 +633,8 @@ function AccountInfoPanel({
           <InfoLine label="密码" value="请设置密码，可通过登录账号+密码进行登录" action="设置密码" />
         </div>
         <div className="mt-6 grid gap-3 sm:grid-cols-4">
-          <SmallMetric label="当前积分" value={`${formatNumber(credits)} 积分`} />
-          <SmallMetric label="累计消耗" value={`${formatNumber(totalUsed)} 积分`} />
+          <SmallMetric label="当前灵点" value={`${formatNumber(credits)} 灵点`} />
+          <SmallMetric label="累计消耗" value={`${formatNumber(totalUsed)} 灵点`} />
           <SmallMetric label="已支付订单" value={`${formatNumber(paidOrders)} 笔`} />
           <SmallMetric label="客服状态" value={openTickets ? `${openTickets} 个待处理` : "暂无待处理反馈"} />
         </div>
@@ -656,7 +656,7 @@ function AccountAssetCard({ displayName, maskedAccount, credits }: { displayName
           <div className="pointer-events-none absolute right-16 top-[-20px] h-28 w-28 rounded-full bg-white/45 blur-xl" />
           <p className="text-lg font-semibold">免费版</p>
           <div className="mt-16 flex flex-wrap gap-5 text-sm text-slate-600">
-            <span>✓ 注册赠送200米豆</span>
+            <span>✓ 注册赠送200灵点</span>
             <span>✓ 仅体验版功能</span>
           </div>
           <Link href="/pricing" className="absolute bottom-6 right-8 rounded-md bg-[#4f5b60] px-8 py-2 text-sm font-semibold text-white">
@@ -665,8 +665,8 @@ function AccountAssetCard({ displayName, maskedAccount, credits }: { displayName
         </div>
         <div className="min-h-[128px] rounded-xl bg-gradient-to-r from-[#303237] to-[#77797d] px-7 py-6 text-white">
           <div className="flex items-center justify-between">
-            <p className="text-lg font-semibold">⌘ {formatNumber(credits)} 米豆</p>
-            <span className="rounded-full border border-white/40 px-2 py-0.5 text-xs text-white/80">米豆规则</span>
+            <p className="text-lg font-semibold">⌘ {formatNumber(credits)} 灵点</p>
+            <span className="rounded-full border border-white/40 px-2 py-0.5 text-xs text-white/80">灵点规则</span>
           </div>
           <div className="mt-10 text-sm">
             <p className="font-semibold">锁定 0</p>
@@ -712,7 +712,7 @@ function CreditLogsPanel({
   const [form] = Form.useForm<CreditFilters & { range?: DateRangeValue }>();
   const columns = useMemo<ColumnsType<CreditLog>>(
     () => [
-      { title: "产品", width: 120, render: () => "潮际好麦" },
+      { title: "产品", width: 120, render: () => "VastWearGen" },
       { title: "功能", width: 170, render: (_, log) => featureLabel(log.reason) },
       { title: "消耗方式", width: 130, render: (_, log) => (log.amount < 0 ? "SAAS调用" : "充值入账") },
       { title: "时间", dataIndex: "created_at", width: 170, render: formatDateTime },
@@ -783,7 +783,7 @@ function CreditLogsPanel({
           showTotal: (total, range) => `共${total}条，当前 ${range[0]}-${range[1]}`,
           onChange: onPageChange,
         }}
-        locale={{ emptyText: <Empty description="暂无米豆明细" /> }}
+        locale={{ emptyText: <Empty description="暂无灵点明细" /> }}
       />
       <PageHint pageInfo={pageInfo} />
     </section>
@@ -817,7 +817,7 @@ function OrdersPanel({
   const columns = useMemo<ColumnsType<BillingOrder>>(
     () => [
       { title: "订单ID", dataIndex: "id", width: 210, ellipsis: true },
-      { title: "套餐类型", dataIndex: "mode", width: 120, render: (value: string) => (value === "subscription" ? "订阅套餐" : "积分包") },
+      { title: "套餐类型", dataIndex: "mode", width: 120, render: (value: string) => (value === "subscription" ? "订阅套餐" : "灵点包") },
       { title: "套餐名称", dataIndex: "productName", width: 180, ellipsis: true },
       { title: "时间", dataIndex: "createdAt", width: 170, render: formatDateTime },
       { title: "状态", dataIndex: "status", width: 120, render: (value: string) => <StatusTag value={statusLabel(value)} status={value} /> },
@@ -861,7 +861,7 @@ function OrdersPanel({
             ]} />
           </FilterItem>
           <FilterItem label="产品" name="mode">
-            <Select options={[{ value: "all", label: "全部" }, { value: "payment", label: "积分包" }, { value: "subscription", label: "订阅" }]} />
+            <Select options={[{ value: "all", label: "全部" }, { value: "payment", label: "灵点包" }, { value: "subscription", label: "订阅" }]} />
           </FilterItem>
         </div>
         <div className="mt-4 flex flex-wrap justify-end gap-3">
@@ -981,7 +981,7 @@ function FeedbackPanel({
         <FormLine label="联系方式">
           <Input value={feedback.contact} placeholder="微信 / 手机 / 邮箱" onChange={(event) => onChange({ ...feedback, contact: event.target.value })} />
         </FormLine>
-        <p className="text-sm text-orange-500">若您提出的建议被平台采纳，将会获得平台奖励的米豆</p>
+        <p className="text-sm text-orange-500">若您提出的建议被平台采纳，将会获得平台奖励的灵点</p>
         <Button type="primary" htmlType="submit" loading={submitting} icon={<Send className="h-3.5 w-3.5" />}>
           提交
         </Button>

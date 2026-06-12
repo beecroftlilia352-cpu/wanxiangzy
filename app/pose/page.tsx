@@ -40,6 +40,7 @@ import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGenerati
 import { fetchHistoryApplyDetail, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
 import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
 import { applyRepairPrompt } from "@/lib/generation-repair";
+import { showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
 import {
   DEFAULT_POSE_SERIES_STYLE,
   POSE_SERIES_STYLES,
@@ -227,7 +228,7 @@ export default function PosePage() {
         : posePlanMode === "ai" && isPlanningPose
           ? "AI 姿势计划生成中，也可切回预设计划立即生成。"
           : credits !== null && credits < cost
-            ? `积分不足，生成需要 ${cost} 积分`
+            ? `灵点不足，生成需要 ${cost} 灵点`
             : undefined;
   const cancelRulesHide = () => {
     if (rulesHideTimerRef.current) {
@@ -790,7 +791,7 @@ export default function PosePage() {
       return;
     }
     if (credits !== null && credits < cost) {
-      toast.error(`积分不足，需要 ${cost}，余额 ${credits}`);
+      showInsufficientCreditsToast({ required: cost, balance: credits, onRecharge: () => router.push("/pricing") });
       return;
     }
 
@@ -914,7 +915,7 @@ export default function PosePage() {
           });
           if (isCurrentRun()) {
             if (finalResultCount < expectedResultCount) {
-              toast.warning(`姿势裂变部分完成：已生成 ${finalResultCount}/${expectedResultCount} 张，失败图片积分会自动退回`);
+              toast.warning(`姿势裂变部分完成：已生成 ${finalResultCount}/${expectedResultCount} 张，失败图片灵点会自动退回`);
             } else {
               toast.success("姿势裂变完成");
             }
@@ -1170,7 +1171,7 @@ export default function PosePage() {
               value={aiModel}
               onChange={setAiModel}
               ariaLabel="生成模型"
-              getMeta={(model) => `${model.desc} · 单张${getCreditCost(model.value, imageSize, "3:4")}积分`}
+              getMeta={(model) => `${model.desc} · 单张${getCreditCost(model.value, imageSize, "3:4")}灵点`}
             />
           </section>
 
@@ -1202,7 +1203,7 @@ export default function PosePage() {
               <StudioOptionGrid
                 options={imageSizes.map((size) => ({
                   value: size,
-                  label: `${size} · 单张${getCreditCost(aiModel, size, "3:4")}积分`,
+                  label: `${size} · 单张${getCreditCost(aiModel, size, "3:4")}灵点`,
                 }))}
                 value={imageSize}
                 onChange={setImageSize}
@@ -1432,7 +1433,7 @@ export default function PosePage() {
 
         <StudioRunBar
           summary={outputMode === "separate" ? "每姿势一张 · 4 张结果" : "四宫格 · 单张结果"}
-          costLabel={authIsAnonymous ? "登录后查看积分" : `消耗 ${cost} · 余额 ${credits ?? "-"}`}
+          costLabel={authIsAnonymous ? "登录后查看灵点" : `消耗 ${cost} · 余额 ${credits ?? "-"}`}
           disabled={isSubmitting || Boolean(runDisabledReason)}
           disabledReason={runDisabledReason}
           primaryLabel={authIsAnonymous ? "登录后生成" : isUploading ? "上传中..." : isSubmitting ? "提交中..." : isGenerating ? "继续生成" : outputMode === "separate" ? "生成 4 张独立图" : "生成四宫格"}

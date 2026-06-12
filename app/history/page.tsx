@@ -1550,7 +1550,7 @@ function getParameterItems(row: HistoryRow) {
     { label: "状态", value: formatStatus(row.status) },
     { label: "模型", value: String(payload?.aiModel || row.ai_model || "-") },
     { label: "尺寸", value: String(getPayloadDisplaySize(payload) || row.image_size || "-") },
-    { label: "积分", value: String(row.credits_cost || row.credits_used || "-") },
+    { label: "灵点", value: String(row.credits_cost || row.credits_used || "-") },
   ];
   if (!payload) return common;
 

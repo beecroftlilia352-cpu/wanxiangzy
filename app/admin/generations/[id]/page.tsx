@@ -33,7 +33,7 @@ export default async function AdminTaskDetailPage({ params }: PageProps) {
       <AdminPageHeader
         eyebrow="Task Detail"
         title={task?.title || "任务详情"}
-        description="集中处理生成任务的状态、图片结果、积分变动和操作记录，适合排查失败、卡住和补偿问题。"
+        description="集中处理生成任务的状态、图片结果、灵点变动和操作记录，适合排查失败、卡住和补偿问题。"
         actions={
           <Link href="/admin/generations" className="inline-flex h-9 items-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 shadow-sm hover:bg-slate-50">
             返回任务列表
@@ -63,7 +63,7 @@ export default async function AdminTaskDetailPage({ params }: PageProps) {
       {task && (
         <AdminSection
           title="任务操作"
-          description="重新处理不会再次扣积分；退积分类操作会复用已有积分记录，避免重复补偿。"
+          description="重新处理不会再次扣灵点；退灵点类操作会复用已有灵点记录，避免重复补偿。"
         >
           <div className="p-4">
             <AdminTaskActions
@@ -97,11 +97,11 @@ export default async function AdminTaskDetailPage({ params }: PageProps) {
         </pre>
       </AdminSection>
 
-      <AdminSection title="积分流水">
+      <AdminSection title="灵点流水">
         <AdminTable<AdminCreditLogItem>
           rows={detail.creditLogs}
           rowKey={(row) => row.id}
-          empty="暂无关联积分流水"
+          empty="暂无关联灵点流水"
           columns={[
             { key: "amount", label: "变动", render: (row) => <span className={`font-mono text-sm font-black ${row.amount >= 0 ? "text-emerald-700" : "text-red-700"}`}>{row.amount > 0 ? "+" : ""}{formatNumber(row.amount)}</span> },
             { key: "balance", label: "余额", render: (row) => <span className="font-mono text-sm font-bold text-slate-700">{formatNumber(row.balance)}</span> },

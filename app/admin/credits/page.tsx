@@ -27,11 +27,11 @@ export default async function AdminCreditsPage({ searchParams }: PageProps) {
     <div className="space-y-5">
       <AdminPageHeader
         eyebrow="Credits"
-        title="积分管理"
-        description="查看积分流水、扣费和补偿记录；人工调整必须选择用户并填写原因，系统会自动保存审计记录。"
+        title="灵点管理"
+        description="查看灵点流水、扣费和补偿记录；人工调整必须选择用户并填写原因，系统会自动保存审计记录。"
       />
 
-      {credits.warnings.length > 0 && <AdminNotice>积分数据源提示：{credits.warnings.slice(0, 3).join("；")}</AdminNotice>}
+      {credits.warnings.length > 0 && <AdminNotice>灵点数据源提示：{credits.warnings.slice(0, 3).join("；")}</AdminNotice>}
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <AdminMetricCard label="当前页消耗" value={formatNumber(credits.metrics.debits)} hint="amount < 0" />
@@ -42,7 +42,7 @@ export default async function AdminCreditsPage({ searchParams }: PageProps) {
 
       <AdminSection
         title="人工调整"
-        description="适合财务或负责人直接处理已核实的问题，例如补发积分、扣回误发积分。"
+        description="适合财务或负责人直接处理已核实的问题，例如补发灵点、扣回误发灵点。"
       >
         <AdminCreditAdjustForm />
       </AdminSection>
@@ -55,7 +55,7 @@ export default async function AdminCreditsPage({ searchParams }: PageProps) {
       </AdminSection>
 
       <AdminSection
-        title="积分流水"
+        title="灵点流水"
         description="来自 credit_logs，按时间倒序。"
         actions={
           <form action="/admin/credits" className="flex items-center gap-2">
@@ -77,7 +77,7 @@ export default async function AdminCreditsPage({ searchParams }: PageProps) {
         <AdminTable<AdminCreditLogItem>
           rows={credits.rows}
           rowKey={(row) => row.id}
-          empty="暂无积分流水"
+          empty="暂无灵点流水"
           columns={[
             {
               key: "amount",

@@ -31,6 +31,7 @@ import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
 import { fetchHistoryApplyDetail, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
 import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
+import { showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
 
 type GeneralImageMode = "text-to-image" | "image-to-image";
 
@@ -385,7 +386,10 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     }
     if (!prompt.trim()) return toast.error("请输入提示词");
     if (isImageMode && !referenceImages.length) return toast.error("请先上传参考图");
-    if (credits !== null && credits < totalCost) return toast.error(`积分不足，需要 ${totalCost}，余额 ${credits}`);
+    if (credits !== null && credits < totalCost) {
+      showInsufficientCreditsToast({ required: totalCost, balance: credits, onRecharge: () => router.push("/pricing") });
+      return;
+    }
 
     setActiveQueueTask(null);
     setIsGenerating(true);
@@ -666,7 +670,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
               options={supportedSizes.map((size) => ({
                 value: size,
                 label: size,
-                description: `${getCreditCost(aiModel, size, aspectRatio)}积分`,
+                description: `${getCreditCost(aiModel, size, aspectRatio)}灵点`,
               }))}
               value={imageSize}
               onChange={setImageSize}
@@ -687,7 +691,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
 
         <StudioRunBar
           summary={`${isImageMode ? `图生图 · ${referenceImages.length} 张参考` : "文生图"} · ${costPerImage} × ${genCount}`}
-          costLabel={authIsAnonymous ? "登录后查看积分" : `消耗 ${totalCost} · 余额 ${credits ?? "-"}`}
+          costLabel={authIsAnonymous ? "登录后查看灵点" : `消耗 ${totalCost} · 余额 ${credits ?? "-"}`}
           disabled={!canGenerate}
           disabledReason={runDisabledReason}
           primaryLabel={authIsAnonymous ? "登录后生成" : isGenerating ? "生成中..." : `立即生成 ${genCount} 张`}

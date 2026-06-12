@@ -56,7 +56,7 @@ export default async function AdminRiskPage({ searchParams }: PageProps) {
         <AdminMetricCard label="采样用户" value={formatNumber(risk.metrics.sampledUsers)} hint={`近 ${risk.days} 天信号`} />
         <AdminMetricCard label="严重风险" value={formatNumber(risk.metrics.criticalUsers)} tone={risk.metrics.criticalUsers ? "danger" : "good"} />
         <AdminMetricCard label="高风险" value={formatNumber(risk.metrics.highUsers)} tone={risk.metrics.highUsers ? "warning" : "good"} />
-        <AdminMetricCard label="退款补偿" value={formatNumber(risk.metrics.refundCredits)} hint="风险样本内积分" tone={risk.metrics.refundCredits ? "warning" : "neutral"} />
+        <AdminMetricCard label="退款补偿" value={formatNumber(risk.metrics.refundCredits)} hint="风险样本内灵点" tone={risk.metrics.refundCredits ? "warning" : "neutral"} />
         <AdminMetricCard label="平均分" value={formatNumber(risk.metrics.averageScore)} hint="0-100" />
       </div>
 
@@ -116,7 +116,7 @@ export default async function AdminRiskPage({ searchParams }: PageProps) {
         />
       </AdminSection>
 
-      <AdminSection title="用户风险队列" description="按评分从高到低排列；处理前先进入用户详情核对任务、积分、审核、客服和审计链路。">
+      <AdminSection title="用户风险队列" description="按评分从高到低排列；处理前先进入用户详情核对任务、灵点、审核、客服和审计链路。">
         <AdminTable<AdminRiskUserItem>
           rows={risk.rows}
           rowKey={(row) => row.userId}
@@ -163,7 +163,7 @@ export default async function AdminRiskPage({ searchParams }: PageProps) {
                 </div>
               ),
             },
-            { key: "credits", label: "积分", render: (row) => <span className="text-sm font-black text-slate-700">{formatNumber(row.credits)}</span> },
+            { key: "credits", label: "灵点", render: (row) => <span className="text-sm font-black text-slate-700">{formatNumber(row.credits)}</span> },
             { key: "support", label: "工单", render: (row) => <span className="text-sm font-bold text-slate-700">{formatNumber(row.supportTickets)} 个，紧急 {formatNumber(row.urgentSupportTickets)} 个</span> },
             { key: "action", label: "建议", render: (row) => <p className="max-w-[280px] text-xs leading-5 text-slate-600">{row.recommendedAction}</p> },
             { key: "time", label: "最后活动", render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-slate-500">{formatDateTime(row.latestActivityAt)}</span> },

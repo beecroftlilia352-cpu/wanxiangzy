@@ -331,7 +331,7 @@ export function InputComposer({
 
           {mode === "agent" && (
             <span className="text-[11px] font-medium tabular-nums text-amber-500">
-              {currentCost}×{params.count}={currentCost * params.count}积分
+              {currentCost}×{params.count}={currentCost * params.count}灵点
             </span>
           )}
         </div>
@@ -528,7 +528,7 @@ function SettingsPanel({
         </div>
       </div>
 
-      {/* 尺寸 + 积分 */}
+      {/* 尺寸 + 灵点 */}
       <div className="mb-3">
         <label className="mb-1.5 block text-xs font-bold text-slate-500">分辨率</label>
         <div className="flex gap-1.5">
@@ -562,11 +562,11 @@ function SettingsPanel({
       </div>
       */}
 
-      {/* 总积分 */}
+      {/* 总灵点 */}
       {mode === "agent" && (
         <div className="mt-3 flex items-center justify-between rounded-lg bg-amber-50 px-3 py-2 text-xs">
           <span className="text-amber-600">预估消耗</span>
-          <span className="font-bold text-amber-700">{getCreditForCombo(params.model, params.imageSize, params.aspectRatio) * params.count} 积分</span>
+          <span className="font-bold text-amber-700">{getCreditForCombo(params.model, params.imageSize, params.aspectRatio) * params.count} 灵点</span>
         </div>
       )}
     </div>
@@ -721,7 +721,7 @@ function getMissingComposerImageHint(text: string, imageCount: number) {
     /这[张些]?图|这些图片|上传的图|附件图|原图|参考图|服装图|模特图|商品图|图片关系/.test(normalized) ||
     /(根据|基于|参考|分析|识别|换装|穿到|套到|还原|保持).{0,12}(图片|图|照片|素材)/.test(normalized);
   if (!asksForExistingImage) return "";
-  return "你的描述像是在引用已有图片，但当前输入区没有附件。现在发送会先追问，不会直接生成或扣积分。";
+  return "你的描述像是在引用已有图片，但当前输入区没有附件。现在发送会先追问，不会直接生成或扣灵点。";
 }
 
 function getInvalidImageRefs(text: string, images: ChatImage[]) {

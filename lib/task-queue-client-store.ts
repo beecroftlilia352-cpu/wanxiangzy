@@ -10,6 +10,7 @@ export const TASK_QUEUE_CACHE_PREFIX = "wanxiang:task-rail:";
 export const TASK_QUEUE_CACHE_TTL_MS = 5 * 60 * 1000;
 export const TASK_QUEUE_RUNNING_CACHE_TTL_MS = 15_000;
 export const TASK_QUEUE_LOCAL_PENDING_TTL_MS = 2 * 60 * 1000;
+export const TASK_QUEUE_PREVIEW_THUMBNAIL_LIMIT = 4;
 
 export const EMPTY_TASK_QUEUE_SUMMARY: TaskQueueSummary = {
   totalTaskNum: 0,
@@ -265,7 +266,7 @@ export function createOptimisticTaskQueueItem(input: TaskQueueOptimisticInput): 
     resultCount: firstFiniteNumber(input.resultCount, resultThumbnails.length, 0),
     inputThumbnails,
     resultThumbnails,
-    thumbnails: thumbnails.length ? thumbnails : Array.from(new Set([...resultThumbnails, ...inputThumbnails])).slice(0, 2),
+    thumbnails: thumbnails.length ? thumbnails : Array.from(new Set([...resultThumbnails, ...inputThumbnails])).slice(0, TASK_QUEUE_PREVIEW_THUMBNAIL_LIMIT),
     applyUrl: input.applyUrl || "",
   };
 }
@@ -339,7 +340,7 @@ export function normalizeCachedTaskQueueItem(value: unknown): TaskQueueItem | nu
     resultCount: firstFiniteNumber(item.resultCount, resultThumbnails.length, 0),
     inputThumbnails,
     resultThumbnails,
-    thumbnails: thumbnails.length ? thumbnails : Array.from(new Set([...resultThumbnails, ...inputThumbnails])).slice(0, 2),
+    thumbnails: thumbnails.length ? thumbnails : Array.from(new Set([...resultThumbnails, ...inputThumbnails])).slice(0, TASK_QUEUE_PREVIEW_THUMBNAIL_LIMIT),
     applyUrl: typeof item.applyUrl === "string" && item.applyUrl ? item.applyUrl : `/history?detail=${encodeURIComponent(value.id)}`,
   };
 }
@@ -464,7 +465,7 @@ function preserveCurrentPreviewInRunningPatch(current: TaskQueueItem, patch: Par
     currentResultThumbnails.length &&
     !patchThumbnails.length
   ) {
-    next.thumbnails = currentThumbnails.length ? currentThumbnails : currentResultThumbnails.slice(0, 2);
+    next.thumbnails = currentThumbnails.length ? currentThumbnails : currentResultThumbnails.slice(0, TASK_QUEUE_PREVIEW_THUMBNAIL_LIMIT);
   }
   if (typeof patch.progress === "number") {
     next.progress = Math.max(patch.progress, current.progress);

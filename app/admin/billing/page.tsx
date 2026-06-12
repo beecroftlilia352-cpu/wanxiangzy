@@ -115,7 +115,7 @@ export default async function AdminBillingPage() {
               },
               { key: "product", label: "商品", render: (row) => <span className="text-sm font-bold text-slate-700">{row.productName || row.stripeProductId || "-"}</span> },
               { key: "stripe", label: "Stripe ID", render: (row) => <CodeText value={row.stripePriceId} /> },
-              { key: "credits", label: "积分", render: (row) => <span className="font-mono text-sm font-black text-slate-700">{formatNumber(row.credits)}</span> },
+              { key: "credits", label: "灵点", render: (row) => <span className="font-mono text-sm font-black text-slate-700">{formatNumber(row.credits)}</span> },
               { key: "status", label: "状态", render: (row) => <AdminStatusBadge status={row.active ? "active" : "inactive"} /> },
             ]}
           />
@@ -142,7 +142,7 @@ export default async function AdminBillingPage() {
             { key: "status", label: "状态", render: (row) => <AdminStatusBadge status={row.status} /> },
             { key: "amount", label: "金额", render: (row) => <MoneyCell amount={row.amountTotal} currency={row.currency} /> },
             { key: "refund", label: "已退", render: (row) => <MoneyCell amount={row.refundedAmount} currency={row.currency} muted /> },
-            { key: "credits", label: "积分", render: (row) => <span className="font-mono text-sm font-black text-slate-700">{formatNumber(row.creditsGranted)}</span> },
+            { key: "credits", label: "灵点", render: (row) => <span className="font-mono text-sm font-black text-slate-700">{formatNumber(row.creditsGranted)}</span> },
             { key: "time", label: "时间", render: (row) => <MutedText value={formatDateTime(row.createdAt)} /> },
             {
               key: "actions",

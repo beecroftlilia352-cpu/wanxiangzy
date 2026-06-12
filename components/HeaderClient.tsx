@@ -279,7 +279,7 @@ function MarketingAccountActions({
       >
         <AccountMenuHeader email={email} credits={credits} creditsReady={creditsReady} />
         <AccountMenuLink href="/account" icon={UserRound} label="个人中心" />
-        <AccountMenuLink href="/account?tab=credits" icon={Coins} label="积分明细" />
+        <AccountMenuLink href="/account?tab=credits" icon={Coins} label="灵点明细" />
         <AccountMenuLink href="/account?tab=orders" icon={CreditCard} label="充值记录" />
         <AccountMenuLink href="/account?tab=help" icon={CircleHelp} label="帮助中心" />
         <AccountMenuLink href="/account?tab=messages" icon={Bell} label="消息中心" />
@@ -293,7 +293,7 @@ function MarketingAccountActions({
             event.preventDefault();
             onLogout();
           }}
-          className="flex cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 outline-none transition hover:bg-slate-50 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50"
+          className="flex cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 outline-none transition hover:bg-slate-50 hover:text-slate-950 focus:bg-slate-50 focus:text-slate-950 data-[highlighted]:bg-slate-50 data-[highlighted]:text-slate-950 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50"
         >
           <LogOut className="h-4 w-4" />
           {isLoggingOut ? "退出中" : "退出登录"}
@@ -324,7 +324,7 @@ function MarketingMobileMenu() {
           <DropdownMenuItem key={item.href} asChild>
             <Link
               href={item.href}
-              className="flex items-center rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 outline-none transition hover:bg-slate-50 focus:bg-slate-50 data-[highlighted]:bg-slate-50"
+              className="flex items-center rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 outline-none transition hover:bg-slate-50 hover:text-slate-950 focus:bg-slate-50 focus:text-slate-950 data-[highlighted]:bg-slate-50 data-[highlighted]:text-slate-950"
             >
               {item.label}
             </Link>
@@ -603,14 +603,12 @@ function UserCreditActions({
       <Link
         href="/account?tab=credits"
         className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-[#ffd59c] bg-[#fff0dc] px-3 text-xs font-black text-[#9a5a00] shadow-sm transition hover:-translate-y-0.5 hover:bg-[#ffe7c2]"
-        title="积分明细"
+        title="灵点明细"
       >
         <Coins className="h-3.5 w-3.5 text-[#f59e0b]" />
         {creditsReady ? <span>{credits ?? "--"}</span> : <span className="h-3 w-5 animate-pulse rounded bg-slate-200" />}
       </Link>
-      <Link href="/account?tab=help" className="studio-button studio-button-compact hidden sm:inline-flex" title="帮助中心">
-        <CircleHelp className="h-3.5 w-3.5" />
-      </Link>
+      <HeaderHelpDropdown />
       <AccountAvatarDropdown
         email={email}
         credits={credits}
@@ -667,7 +665,7 @@ function AccountAvatarDropdown({
         <AccountMenuBanner />
         <AccountMenuLink href="/account" icon={UserRound} label="个人中心" />
         <AccountMenuLink href="/pricing" icon={CreditCard} label="充值中心" />
-        <AccountMenuLink href="/account?tab=credits" icon={Coins} label="积分明细" />
+        <AccountMenuLink href="/account?tab=credits" icon={Coins} label="灵点明细" />
         <AccountMenuLink href="/account?tab=orders" icon={CreditCard} label="充值记录" />
         <AccountMenuLink href="/account?tab=help" icon={CircleHelp} label="帮助中心" />
         <AccountMenuLink href="/account?tab=messages" icon={Bell} label="消息中心" />
@@ -679,7 +677,7 @@ function AccountAvatarDropdown({
             event.preventDefault();
             onLogout();
           }}
-          className="flex cursor-pointer items-center gap-2.5 px-4 py-3 text-sm font-medium text-slate-700 outline-none transition hover:bg-slate-50 data-[highlighted]:bg-slate-50 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50"
+          className="flex cursor-pointer items-center gap-2.5 px-4 py-3 text-sm font-medium text-slate-700 outline-none transition hover:bg-slate-50 hover:text-slate-950 focus:bg-slate-50 focus:text-slate-950 data-[highlighted]:bg-slate-50 data-[highlighted]:text-slate-950 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50"
         >
           <LogOut className="h-4 w-4" />
           {isLoggingOut ? "退出中" : "退出登录"}
@@ -719,7 +717,7 @@ function AccountMenuHeader({
         </Link>
       </div>
       <p className="mt-2 text-xs font-medium text-slate-500">
-        可用积分 {creditsReady ? credits ?? "--" : "--"}
+        可用灵点 {creditsReady ? credits ?? "--" : "--"}
       </p>
     </div>
   );
@@ -748,11 +746,49 @@ function AccountMenuLink({
 }) {
   return (
     <DropdownMenuItem asChild>
-      <Link href={href} className="flex h-10 items-center gap-2.5 border-t border-slate-100 px-4 text-sm font-medium text-slate-800 outline-none transition hover:bg-slate-50 focus:bg-slate-50 data-[highlighted]:bg-slate-50">
+      <Link href={href} className="flex h-10 items-center gap-2.5 border-t border-slate-100 px-4 text-sm font-medium text-slate-800 outline-none transition hover:bg-slate-50 hover:text-slate-950 focus:bg-slate-50 focus:text-slate-950 data-[highlighted]:bg-slate-50 data-[highlighted]:text-slate-950">
         <Icon className="h-4 w-4" />
         {label}
       </Link>
     </DropdownMenuItem>
+  );
+}
+
+function HeaderHelpDropdown() {
+  const items = [
+    { href: "/account?tab=help", label: "生图指南" },
+    { href: "/account?tab=feedback", label: "联系我们" },
+  ];
+
+  return (
+    <DropdownMenu modal={false}>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className="studio-button studio-button-compact hidden sm:inline-flex"
+          title="帮助中心"
+          aria-label="打开帮助菜单"
+        >
+          <CircleHelp className="h-3.5 w-3.5" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="end"
+        sideOffset={10}
+        className="z-[80] min-w-[112px] overflow-hidden rounded-md border border-slate-100 bg-white p-1 shadow-[0_12px_28px_rgba(15,23,42,0.14)]"
+      >
+        {items.map((item) => (
+          <DropdownMenuItem key={item.href} asChild>
+            <Link
+              href={item.href}
+              className="flex h-9 items-center rounded-sm px-3 text-sm font-medium text-slate-800 outline-none transition hover:bg-slate-50 hover:text-slate-950 focus:bg-slate-50 focus:text-slate-950 data-[highlighted]:bg-slate-50 data-[highlighted]:text-slate-950"
+            >
+              {item.label}
+            </Link>
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 

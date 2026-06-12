@@ -37,6 +37,7 @@ import { StudioGenerationCountSelector, StudioModelSelector, StudioOptionGrid, S
 import { fetchHistoryApplyDetail, takeApplyPayload, type HistoryJobPayload } from "@/lib/history-apply";
 import { applyRepairPrompt } from "@/lib/generation-repair";
 import { clampTaskExpectedCount, isTaskRunning, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
+import { showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
 import {
   AUTO_DESIGN_BACKGROUNDS,
   AUTO_DESIGN_FRAMINGS,
@@ -2177,7 +2178,10 @@ export default function CreatePage() {
       toast.error("内衣/泳衣类服装仅支持成人模特生成");
       return;
     }
-    if (credits !== null && credits < totalCost) { toast.error(`积分不足 ${totalCost}，余额 ${credits}`); return; }
+    if (credits !== null && credits < totalCost) {
+      showInsufficientCreditsToast({ required: totalCost, balance: credits, onRecharge: () => router.push("/pricing") });
+      return;
+    }
 
     setIsSubmitting(true);
     cancelTaskSelection();
@@ -3303,7 +3307,7 @@ export default function CreatePage() {
             <section>
               <h3 className="font-bold text-sm mb-3">分辨率</h3>
               <StudioOptionGrid
-                options={imageSizes.map((size) => ({ value: size, label: `${size} · ${getCreditCost(aiModel, size, aspectRatio)}积分` }))}
+                options={imageSizes.map((size) => ({ value: size, label: `${size} · ${getCreditCost(aiModel, size, aspectRatio)}灵点` }))}
                 value={imageSize}
                 onChange={setImageSize}
                 ariaLabel="分辨率"
@@ -3342,7 +3346,7 @@ export default function CreatePage() {
           </section>
 
           {/* ---- 生成数量 ---- */}
-          <StudioSection title="生成数量" description="结果张数越多，消耗积分越高。">
+          <StudioSection title="生成数量" description="结果张数越多，消耗灵点越高。">
             <StudioGenerationCountSelector
               value={genCount}
               onChange={setGenCount}
@@ -3354,7 +3358,7 @@ export default function CreatePage() {
         runBar={(
           <StudioRunBar
             summary={`${TRYON_CLOTHING_MODE_LABELS[clothingMode]} · ${store.clothingFiles.length} 张输入 · ${sceneMode === "auto_design" ? "自动设计" : `${selectedReferenceCount} 张参考`} · ${costPerImage} × ${expectedOutputCount} 张`}
-            costLabel={authIsAnonymous ? "登录后查看积分" : `消耗 ${totalCost} · 余额 ${credits ?? "—"}`}
+            costLabel={authIsAnonymous ? "登录后查看灵点" : `消耗 ${totalCost} · 余额 ${credits ?? "—"}`}
             disabled={runDisabled}
             disabledReason={runDisabledReason}
             primaryLabel={authIsAnonymous ? "登录后生成" : isSubmitting ? "提交中..." : `生成 ${expectedOutputCount} 张`}

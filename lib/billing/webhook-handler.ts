@@ -153,7 +153,7 @@ async function handleChargeRefunded(charge: Stripe.Charge) {
   await applyStripeRefundToOrder({
     paymentIntentId,
     cumulativeAmountRefunded: typeof charge.amount_refunded === "number" ? charge.amount_refunded : 0,
-    reason: `Stripe 退款扣回积分：${charge.id}`,
+    reason: `Stripe 退款扣回灵点：${charge.id}`,
   });
 }
 
@@ -166,7 +166,7 @@ async function handleRefundUpdated(refund: Stripe.Refund) {
     await applyStripeRefundToOrder({
       paymentIntentId: directPaymentIntentId,
       cumulativeAmountRefunded: refund.amount,
-      reason: `Stripe 退款确认扣回积分：${refund.id}`,
+      reason: `Stripe 退款确认扣回灵点：${refund.id}`,
     });
     return;
   }
@@ -179,6 +179,6 @@ async function handleRefundUpdated(refund: Stripe.Refund) {
   await applyStripeRefundToOrder({
     paymentIntentId,
     cumulativeAmountRefunded: typeof charge.amount_refunded === "number" ? charge.amount_refunded : refund.amount,
-    reason: `Stripe 退款确认扣回积分：${refund.id}`,
+    reason: `Stripe 退款确认扣回灵点：${refund.id}`,
   });
 }

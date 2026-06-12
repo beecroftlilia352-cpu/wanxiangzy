@@ -875,6 +875,7 @@ const TASK_QUEUE_COLUMNS = [
   "updated_at",
   "completed_at",
 ].join(",");
+const ADMIN_TASK_PREVIEW_LIMIT = 4;
 const GENERATION_COLUMNS = [
   "id",
   "user_id",
@@ -1068,7 +1069,7 @@ export async function getAdminOverview(): Promise<AdminOverview> {
       { label: "24h 生成", value: generationToday, hint: `累计 ${generationTotal}`, tone: "good" },
       { label: "运行中任务", value: taskHealth.queued + taskHealth.running, hint: `${taskHealth.failed} 个失败需排查`, tone: taskHealth.failed > 0 ? "warning" : "neutral" },
       { label: "失败率", value: Math.round(failureRate * 1000) / 10, hint: "按 generations 总量估算", tone: failureRate > 0.08 ? "danger" : failureRate > 0.03 ? "warning" : "good" },
-      { label: "样本积分余额", value: creditHealth.sampledBalance, hint: `近 7 天消耗 ${creditHealth.recentSpend}`, tone: "neutral" },
+      { label: "样本灵点余额", value: creditHealth.sampledBalance, hint: `近 7 天消耗 ${creditHealth.recentSpend}`, tone: "neutral" },
     ],
     taskHealth,
     generationHealth: {
@@ -1268,9 +1269,9 @@ export async function getAdminCostReport(args: { days?: number } = {}): Promise<
     models: sortedModels,
     daily: Array.from(daily.values()).sort((a, b) => a.date.localeCompare(b.date)),
     assumptions: [
-      "收入使用 credit_logs 中 amount < 0 的积分扣费作为收入代理。",
+      "收入使用 credit_logs 中 amount < 0 的灵点扣费作为收入代理。",
       "退款使用带 generation_id 的正向 credit_logs；老数据缺少流水时按 credits_cost - credits_used 推断。",
-      "真实 provider 账单尚未接入，本报表的成本为积分履约口径，可用于运营毛利代理和异常排查。",
+      "真实 provider 账单尚未接入，本报表的成本为灵点履约口径，可用于运营毛利代理和异常排查。",
     ],
     warnings: uniqueStrings(warnings),
   };
@@ -1303,7 +1304,7 @@ export async function getAdminDiagnostics(): Promise<AdminDiagnosticsReport> {
     title: "存在长时间未完成任务",
     summary: `${workers.queue.stale} 个任务运行超过 ${workers.queue.staleMinutes} 分钟无进展。`,
     impact: "用户侧会持续看到处理中，可能重复轮询并引发投诉。",
-    recommendation: "进入任务队列页面查看样本，先确认模型通道状态和积分结算，再手动重新处理或做定向退款处理。",
+    recommendation: "进入任务队列页面查看样本，先确认模型通道状态和灵点结算，再手动重新处理或做定向退款处理。",
     evidence: [
       { label: "长时间未完成", value: workers.queue.stale },
       { label: "阈值分钟", value: workers.queue.staleMinutes },
@@ -1424,17 +1425,17 @@ export async function getAdminDiagnostics(): Promise<AdminDiagnosticsReport> {
       : null,
     category: "finance",
     title: "退款占比偏高",
-    summary: `近 7 天退款 ${costReport.metrics.refundCredits} 积分，净收入 ${costReport.metrics.netCredits} 积分。`,
+    summary: `近 7 天退款 ${costReport.metrics.refundCredits} 灵点，净收入 ${costReport.metrics.netCredits} 灵点。`,
     impact: "高退款通常对应模型通道不稳定、部分失败结算或误扣费体验问题。",
     recommendation: "在成本报表中按模块和模型拆分，优先修复退款贡献最高的模块。",
     evidence: [
-      { label: "退款积分", value: costReport.metrics.refundCredits },
-      { label: "净收入积分", value: costReport.metrics.netCredits },
-      { label: "失败锁定积分", value: costReport.metrics.failedReservedCredits },
+      { label: "退款灵点", value: costReport.metrics.refundCredits },
+      { label: "净收入灵点", value: costReport.metrics.netCredits },
+      { label: "失败锁定灵点", value: costReport.metrics.failedReservedCredits },
     ],
     links: [
       { href: "/admin/reports?days=7", label: "近 7 天报表" },
-      { href: "/admin/credits", label: "积分流水" },
+      { href: "/admin/credits", label: "灵点流水" },
     ],
     createdAt: generatedAt,
   });
@@ -1701,7 +1702,7 @@ const RISK_SCORE_POLICIES: AdminRiskPolicy[] = [
   {
     id: "refunds",
     title: "退款/补偿异常",
-    description: "短期内多次退款、补偿或人工调整，优先核对任务失败原因与积分流水。",
+    description: "短期内多次退款、补偿或人工调整，优先核对任务失败原因与灵点流水。",
     score: 30,
     level: "high",
   },
@@ -1753,7 +1754,7 @@ function buildRiskUserItem(profile: AdminUserListItem, stats: RiskUserStats): Ad
       label: "余额为负",
       severity: "critical",
       score: 35,
-      detail: "用户积分余额为负，需要核对扣费、退款或人工调整链路。",
+      detail: "用户灵点余额为负，需要核对扣费、退款或人工调整链路。",
       evidence: [{ label: "credits", value: profile.credits }],
     });
   }
@@ -1804,7 +1805,7 @@ function buildRiskUserItem(profile: AdminUserListItem, stats: RiskUserStats): Ad
       label: "退款补偿偏高",
       severity: "high",
       score: 30,
-      detail: "近期退款或补偿积分偏高，需核对是否存在重复补偿或批量失败。",
+      detail: "近期退款或补偿灵点偏高，需核对是否存在重复补偿或批量失败。",
       evidence: [{ label: "refundCredits", value: stats.refundCredits }],
     });
   } else if (stats.refundCredits >= 30) {
@@ -1823,7 +1824,7 @@ function buildRiskUserItem(profile: AdminUserListItem, stats: RiskUserStats): Ad
       label: "人工调整偏多",
       severity: "medium",
       score: 15,
-      detail: "近期人工调整积分较多，应核对审批和客服记录。",
+      detail: "近期人工调整灵点较多，应核对审批和客服记录。",
       evidence: [{ label: "adjustmentCredits", value: stats.adjustmentCredits }],
     });
   }
@@ -1929,7 +1930,7 @@ function latestDate(a: string | null | undefined, b: string | null | undefined) 
 
 function riskRecommendedAction(level: AdminRiskLevel) {
   if (level === "critical") return "立即人工复核，必要时限制公开展示和大额补偿。";
-  if (level === "high") return "进入风控复核队列，先核对任务、积分、审核和客服记录。";
+  if (level === "high") return "进入风控复核队列，先核对任务、灵点、审核和客服记录。";
   if (level === "medium") return "观察并保留上下文，后续补偿或下架前复核。";
   return "低风险，保持正常观察。";
 }
@@ -2039,7 +2040,7 @@ export async function listAdminTasks(args: {
 
   const indexed = await runQuery<Record<string, unknown>[]>(query, "task queue list", warnings, true);
   if (indexed.data) {
-    let rows = indexed.data.map(mapTaskQueueRow);
+    let rows = await hydrateTaskPreviewThumbnails(indexed.data.map(mapTaskQueueRow), warnings);
     if (q) rows = rows.filter((row) => matchesTaskSearch(row, q));
     if (args.stale) rows = rows.filter((row) => row.isStale);
     return {
@@ -4017,6 +4018,57 @@ function mapTaskQueueRow(row: Record<string, unknown>): AdminTaskListItem {
   };
 }
 
+async function hydrateTaskPreviewThumbnails(rows: AdminTaskListItem[], warnings: string[]) {
+  const needsHydration = rows.filter(
+    (row) => row.resultCount > row.resultThumbnails.length && row.resultThumbnails.length < ADMIN_TASK_PREVIEW_LIMIT,
+  );
+  if (!needsHydration.length) return rows;
+
+  const generationIds = needsHydration.filter((row) => row.sourceType === "generation").map((row) => row.sourceId).filter(Boolean);
+  const workflowIds = needsHydration.filter((row) => row.sourceType === "workflow").map((row) => row.sourceId).filter(Boolean);
+  const resultUrlsById = new Map<string, string[]>();
+
+  if (generationIds.length) {
+    const result = await runQuery<Record<string, unknown>[]>(
+      getAdminClient()
+        .from("generations")
+        .select("id,result_urls")
+        .in("id", generationIds),
+      "task preview generation thumbnails",
+      warnings,
+      true,
+    );
+    for (const row of result.data || []) {
+      resultUrlsById.set(stringValue(row.id), arrayOfStrings(row.result_urls).slice(0, ADMIN_TASK_PREVIEW_LIMIT));
+    }
+  }
+
+  if (workflowIds.length) {
+    const result = await runQuery<Record<string, unknown>[]>(
+      getAdminClient()
+        .from("agent_workflows")
+        .select("id,final_outputs")
+        .in("id", workflowIds),
+      "task preview workflow thumbnails",
+      warnings,
+      true,
+    );
+    for (const row of result.data || []) {
+      resultUrlsById.set(stringValue(row.id), extractUrls(row.final_outputs).slice(0, ADMIN_TASK_PREVIEW_LIMIT));
+    }
+  }
+
+  if (!resultUrlsById.size) return rows;
+  return rows.map((row) => {
+    const hydrated = resultUrlsById.get(row.sourceId) || [];
+    if (hydrated.length <= row.resultThumbnails.length) return row;
+    return {
+      ...row,
+      resultThumbnails: uniqueStrings([...row.resultThumbnails, ...hydrated]).slice(0, ADMIN_TASK_PREVIEW_LIMIT),
+    };
+  });
+}
+
 function mapGenerationRow(row: Record<string, unknown>): AdminTaskListItem {
   const payload = isRecord(row.job_payload) ? row.job_payload : {};
   const resultUrls = arrayOfStrings(row.result_urls);
@@ -4039,7 +4091,7 @@ function mapGenerationRow(row: Record<string, unknown>): AdminTaskListItem {
     expectedCount: inferExpectedCount(payload, resultUrls.length),
     resultCount: resultUrls.length,
     inputThumbnails: inferInputThumbnails(row, payload),
-    resultThumbnails: resultUrls.slice(0, 4),
+    resultThumbnails: resultUrls.slice(0, ADMIN_TASK_PREVIEW_LIMIT),
     errorMessage: nullableString(row.error_message),
     applyUrl: `${moduleRoute(module)}?apply=${encodeURIComponent(stringValue(row.id))}`,
     createdAt,
@@ -4054,7 +4106,7 @@ function mapGenerationRow(row: Record<string, unknown>): AdminTaskListItem {
 
 function mapWorkflowRow(row: Record<string, unknown>): AdminTaskListItem {
   const status = stringValue(row.status) || "queued";
-  const resultThumbnails = extractUrls(row.final_outputs).slice(0, 4);
+  const resultThumbnails = extractUrls(row.final_outputs).slice(0, ADMIN_TASK_PREVIEW_LIMIT);
   const statusGroup = normalizeTaskStatusGroup(status, resultThumbnails.length);
   const createdAt = nullableString(row.created_at);
   const updatedAt = nullableString(row.updated_at);
@@ -4071,7 +4123,7 @@ function mapWorkflowRow(row: Record<string, unknown>): AdminTaskListItem {
     progress: statusGroup === "completed" ? 100 : statusGroup === "failed" ? 0 : 25,
     expectedCount: Math.max(1, resultThumbnails.length || 1),
     resultCount: resultThumbnails.length,
-    inputThumbnails: extractUrls(row.input_images).slice(0, 4),
+    inputThumbnails: extractUrls(row.input_images).slice(0, ADMIN_TASK_PREVIEW_LIMIT),
     resultThumbnails,
     errorMessage: nullableString(row.error_message),
     applyUrl: `/agent?workflow=${encodeURIComponent(stringValue(row.id))}`,

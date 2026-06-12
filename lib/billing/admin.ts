@@ -89,7 +89,7 @@ export async function refundBillingOrder(params: {
     await applyRefundToOrder({
       order,
       cumulativeAmountRefunded: order.amountRefunded + refundAmount,
-      reason: `管理员退款扣回积分：${params.reason}`,
+      reason: `管理员退款扣回灵点：${params.reason}`,
     });
   }
 

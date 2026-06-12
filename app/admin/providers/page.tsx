@@ -19,7 +19,7 @@ export default function AdminProvidersPage() {
       <AdminPageHeader
         eyebrow="Providers"
         title="模型与供应商"
-        description="集中查看模型路由、环境变量配置、积分成本和各业务模块接入边界。后续可扩展为模型开关、灰度、限流和成本策略。"
+        description="集中查看模型路由、环境变量配置、灵点成本和各业务模块接入边界。后续可扩展为模型开关、灰度、限流和成本策略。"
       />
 
       <AdminNotice tone="info">
@@ -53,7 +53,7 @@ export default function AdminProvidersPage() {
             },
             {
               key: "cost",
-              label: "积分成本",
+              label: "灵点成本",
               render: (row) => (
                 <div className="flex flex-wrap gap-1.5">
                   {Object.entries(row.costs).map(([size, cost]) => (

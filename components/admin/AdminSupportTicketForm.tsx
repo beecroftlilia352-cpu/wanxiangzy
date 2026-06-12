@@ -7,7 +7,7 @@ import type { AdminSupportTicketCategory, AdminSupportTicketPriority } from "@/l
 
 const categories: Array<{ value: AdminSupportTicketCategory; label: string }> = [
   { value: "generation_failure", label: "生成失败" },
-  { value: "credit_issue", label: "积分问题" },
+  { value: "credit_issue", label: "灵点问题" },
   { value: "content_moderation", label: "内容审核" },
   { value: "billing", label: "账单" },
   { value: "account", label: "账号" },

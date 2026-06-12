@@ -56,7 +56,7 @@ export async function createDebitedGeneration(
 
   const row = Array.isArray(data) ? data[0] : data;
   if (!isDebitedGenerationRow(row)) {
-    throw new CreditError("积分事务返回异常");
+    throw new CreditError("灵点事务返回异常");
   }
 
   await syncGenerationQueueIndex(row.generation_id, "create");
@@ -217,7 +217,7 @@ function normalizeCreditRpcError(message = "", required: number) {
   const insufficient = message.match(/INSUFFICIENT_CREDITS:(\d+)/);
   if (insufficient) {
     const balance = Number(insufficient[1]);
-    return new CreditError(`积分不足。需要 ${required}，余额 ${balance}`, 402, {
+    return new CreditError(`灵点不足。需要 ${required}，余额 ${balance}`, 402, {
       required,
       balance,
     });
@@ -227,10 +227,10 @@ function normalizeCreditRpcError(message = "", required: number) {
     message.includes("create_generation_with_credit_debit") ||
     message.includes("Could not find the function")
   ) {
-    return new CreditError("数据库缺少积分事务函数，请先运行 supabase/atomic-credit-rpc.sql");
+    return new CreditError("数据库缺少灵点事务函数，请先运行 supabase/atomic-credit-rpc.sql");
   }
 
-  return new CreditError(message || "积分事务失败");
+  return new CreditError(message || "灵点事务失败");
 }
 
 function isDebitedGenerationRow(

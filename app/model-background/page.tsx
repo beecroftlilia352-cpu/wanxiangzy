@@ -35,6 +35,7 @@ import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize
 import { applyRepairPrompt } from "@/lib/generation-repair";
 import { fetchHistoryApplyDetail, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
 import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
+import { showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
 import {
   BACKGROUND_PRESETS,
   BACKGROUND_SOURCE_LABELS,
@@ -167,7 +168,7 @@ export default function ModelBackgroundPage() {
       : mode !== "model_only" && (backgroundSource === "preset" || backgroundSource === "upload") && !backgroundReferenceUrl
         ? "请选择或上传背景参考图"
         : credits !== null && credits < cost
-          ? `积分不足，生成需要 ${cost} 积分`
+          ? `灵点不足，生成需要 ${cost} 灵点`
           : undefined;
   const backgroundReferenceLabel = mode === "model_only"
     ? "未使用"
@@ -317,7 +318,10 @@ export default function ModelBackgroundPage() {
     if (!sourceUrl) return toast.error("请先上传原图");
     if (mode !== "background_only" && !modelReferenceUrl) return toast.error("请选择或上传模特参考图");
     if (mode !== "model_only" && (backgroundSource === "preset" || backgroundSource === "upload") && !backgroundReferenceUrl) return toast.error("请选择或上传背景参考图");
-    if (credits !== null && credits < cost) return toast.error(`积分不足，需要 ${cost}，余额 ${credits}`);
+    if (credits !== null && credits < cost) {
+      showInsufficientCreditsToast({ required: cost, balance: credits, onRecharge: () => router.push("/pricing") });
+      return;
+    }
 
     setIsGenerating(true);
     setRunningExpectedCount(genCount);
@@ -780,7 +784,7 @@ export default function ModelBackgroundPage() {
               value={aiModel}
               onChange={setAiModel}
               ariaLabel="生成模型"
-              getMeta={(model) => `${model.desc} · 当前${getCreditCost(model.value, imageSize, aspectRatio)}积分`}
+              getMeta={(model) => `${model.desc} · 当前${getCreditCost(model.value, imageSize, aspectRatio)}灵点`}
             />
           </section>
 
@@ -794,7 +798,7 @@ export default function ModelBackgroundPage() {
             <StudioOptionGrid
               options={imageSizes.map((size) => ({
                 value: size,
-                label: `${size} · ${getCreditCost(aiModel, size, aspectRatio)}积分`,
+                label: `${size} · ${getCreditCost(aiModel, size, aspectRatio)}灵点`,
               }))}
               value={imageSize}
               onChange={setImageSize}
@@ -813,7 +817,7 @@ export default function ModelBackgroundPage() {
         </div>
         <StudioRunBar
           summary={`${sourceUrl ? "原图已上传" : "等待上传原图"} · ${genCount} 张`}
-          costLabel={authIsAnonymous ? "登录后查看积分" : `消耗 ${cost} · 余额 ${credits ?? "-"}`}
+          costLabel={authIsAnonymous ? "登录后查看灵点" : `消耗 ${cost} · 余额 ${credits ?? "-"}`}
           disabled={isGenerating || Boolean(runDisabledReason)}
           disabledReason={runDisabledReason}
           primaryLabel={authIsAnonymous ? "登录后生成" : isGenerating ? `生成中 ${Math.round(progress)}%` : `生成 ${genCount} 张`}

@@ -250,7 +250,7 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
               </div>
               <div className="rounded-lg bg-amber-100 px-3 py-1.5 text-center">
                 <p className="text-lg font-black text-amber-700">{generation.creditsUsed || 0}</p>
-                <p className="text-[10px] text-amber-600">积分</p>
+                <p className="text-[10px] text-amber-600">灵点</p>
               </div>
             </div>
             <ConfirmTaskTicket
@@ -330,7 +330,7 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
                 <p className="mt-1 text-xs leading-relaxed text-slate-500">可以下载、设为参考图，或基于当前结果继续创作。</p>
               </div>
               <div className="flex flex-wrap justify-end gap-1">
-                {generation.creditsUsed ? <span className="rounded-full bg-white/80 px-2 py-1 text-[10px] font-bold text-emerald-700 ring-1 ring-emerald-100">消耗 {generation.creditsUsed} 积分</span> : null}
+                {generation.creditsUsed ? <span className="rounded-full bg-white/80 px-2 py-1 text-[10px] font-bold text-emerald-700 ring-1 ring-emerald-100">消耗 {generation.creditsUsed} 灵点</span> : null}
                 {generation.module && <span className="rounded-full bg-white/80 px-2 py-1 text-[10px] font-bold text-slate-500 ring-1 ring-slate-100">{generation.module}</span>}
               </div>
             </div>
@@ -396,7 +396,7 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
               </div>
               <div className="mt-2 rounded-lg border border-red-100 bg-white/80 px-2.5 py-2 text-[11px] leading-relaxed text-slate-600">
                 <p>不会自动再次扣费；点击重新生成会重新进入确认流程。</p>
-                <p className="text-slate-400">如果已进入第三方生成队列，积分以服务端记录为准。</p>
+                <p className="text-slate-400">如果已进入第三方生成队列，灵点以服务端记录为准。</p>
               </div>
               <FailureCreditNotice generation={generation} />
               <div className="mt-2.5 grid gap-1.5 sm:grid-cols-2">
@@ -1054,7 +1054,7 @@ function WorkflowConfirmBrief({
           <p className="mt-0.5 text-[11px] text-slate-500">确认后才会扣费；如需调整，展开下方步骤点“编辑”。</p>
         </div>
         <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-bold text-amber-700 ring-1 ring-amber-100">
-          预计 {totalCredits || 0} 积分
+          预计 {totalCredits || 0} 灵点
         </span>
       </div>
 
@@ -1247,7 +1247,7 @@ function WorkflowClarificationPanel({
         <div className="min-w-0 flex-1">
           <p className="font-black">需要补充信息</p>
           <p className="mt-1 leading-relaxed">{question}</p>
-          <p className="mt-1 text-[11px] text-amber-700/75">我不会在缺少关键素材或目标不明确时直接生成，避免误扣积分和生成偏题。</p>
+          <p className="mt-1 text-[11px] text-amber-700/75">我不会在缺少关键素材或目标不明确时直接生成，避免误扣灵点和生成偏题。</p>
         </div>
       </div>
       {onQuickAction && (
@@ -1383,7 +1383,7 @@ function WorkflowExecutionCard({
           {totalCredits > 0 && (
             <div className="rounded-lg bg-white px-3 py-1.5 text-center ring-1 ring-[rgba(91,124,255,0.18)]">
               <p className="text-base font-black text-[var(--codex-accent)]">{totalCredits}</p>
-              <p className="text-[10px] font-semibold text-[var(--codex-accent)]">积分</p>
+              <p className="text-[10px] font-semibold text-[var(--codex-accent)]">灵点</p>
             </div>
           )}
         </div>
@@ -3292,7 +3292,7 @@ function ConfirmTaskTicket({
           <ConfirmChip label={moduleName} />
           <ConfirmChip label={outputForm} />
           <ConfirmChip label={`${normalized.count} 张`} />
-          <ConfirmChip label={`${credits || 0} 积分`} tone="amber" />
+          <ConfirmChip label={`${credits || 0} 灵点`} tone="amber" />
         </div>
       </div>
       <div className="grid gap-2 p-3 text-[11px] leading-relaxed text-slate-600 sm:grid-cols-2">
@@ -3370,7 +3370,7 @@ function ConfirmExecutionSummary({
       <p>我识别到本次任务是：<span className="font-bold text-[var(--codex-accent)]">{moduleName}</span>。</p>
       <p>将使用：{usedImages}。</p>
       <p className="mt-1 rounded-lg bg-amber-50 px-2 py-1 text-amber-700">
-        点击“确认生成”后才会扣除 {credits || 0} 积分；如果只是调整参数或图片角色，不会扣费。
+        点击“确认生成”后才会扣除 {credits || 0} 灵点；如果只是调整参数或图片角色，不会扣费。
       </p>
     </div>
   );
@@ -3404,7 +3404,7 @@ function ConfirmExecutionSummaryV2({
       <p>将使用：{usedText}。</p>
       <p>不会使用：{unusedText}。</p>
       <p className="mt-1 rounded-lg bg-amber-50 px-2 py-1 text-amber-700">
-        点击“确认生成”后才会扣除 {credits || 0} 积分；如果只是调整参数或图片角色，不会扣费。
+        点击“确认生成”后才会扣除 {credits || 0} 灵点；如果只是调整参数或图片角色，不会扣费。
       </p>
     </div>
   );
@@ -3630,7 +3630,7 @@ function ConfirmTaskPlan({
 }) {
   const steps = [
     "确认参数",
-    "扣除积分",
+    "扣除灵点",
     "生成图片",
     "校验结果",
   ];
@@ -3642,7 +3642,7 @@ function ConfirmTaskPlan({
         <ConfirmChip label={params.model} />
         <ConfirmChip label={`${params.aspectRatio} · ${params.imageSize}`} />
         <ConfirmChip label={`${params.count} 张`} />
-        <ConfirmChip label={`${credits} 积分`} tone="amber" />
+        <ConfirmChip label={`${credits} 灵点`} tone="amber" />
       </div>
       <div className="grid grid-cols-4 gap-1.5">
         {steps.map((step, index) => (
@@ -3671,7 +3671,7 @@ function ConfirmTaskPlanV2({
   credits: number;
 }) {
   const [open, setOpen] = useState(false);
-  const steps = ["确认参数", "扣除积分", "生成图片", "校验结果"];
+  const steps = ["确认参数", "扣除灵点", "生成图片", "校验结果"];
 
   return (
     <div className="mb-3 overflow-hidden rounded-xl border border-[rgba(91,124,255,0.22)] bg-white/75">
@@ -3683,7 +3683,7 @@ function ConfirmTaskPlanV2({
         <div className="min-w-0 flex-1">
           <p className="text-xs font-bold text-slate-800">执行计划</p>
           <p className="truncate text-[11px] text-slate-400">
-            {moduleName} · {params.model} · {params.aspectRatio} · {params.imageSize} · {params.count} 张 · {credits} 积分
+            {moduleName} · {params.model} · {params.aspectRatio} · {params.imageSize} · {params.count} 张 · {credits} 灵点
           </p>
         </div>
         <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
@@ -3696,7 +3696,7 @@ function ConfirmTaskPlanV2({
             <ConfirmChip label={params.model} />
             <ConfirmChip label={`${params.aspectRatio} · ${params.imageSize}`} />
             <ConfirmChip label={`${params.count} 张`} />
-            <ConfirmChip label={`${credits} 积分`} tone="amber" />
+            <ConfirmChip label={`${credits} 灵点`} tone="amber" />
           </div>
           <div className="grid grid-cols-4 gap-1.5">
             {steps.map((step, index) => (
@@ -3712,7 +3712,7 @@ function ConfirmTaskPlanV2({
             ))}
           </div>
           <p className="mt-2 rounded-lg bg-slate-50 px-2 py-1.5 text-[11px] leading-relaxed text-slate-500">
-            失败后系统不会自动再次发起扣费；如果服务端判定任务已失败且符合退款条件，会通过积分事务退回。
+            失败后系统不会自动再次发起扣费；如果服务端判定任务已失败且符合退款条件，会通过灵点事务退回。
           </p>
         </div>
       )}
@@ -3726,12 +3726,12 @@ function FailureCreditNotice({ generation }: { generation: NonNullable<Message["
 
   return (
     <div className="mt-2 rounded-lg border border-red-100 bg-white/85 px-2.5 py-2 text-[11px] leading-relaxed text-slate-600">
-      <p className="font-bold text-slate-700">积分状态</p>
+      <p className="font-bold text-slate-700">灵点状态</p>
       {hasServerJob ? (
         <p>
           本任务已创建服务端记录。失败后服务端会调用退款事务，符合条件时退回
           <span className="font-bold text-red-600"> {credits} </span>
-          积分；最终以余额和积分日志为准。
+          灵点；最终以余额和灵点日志为准。
         </p>
       ) : (
         <p>

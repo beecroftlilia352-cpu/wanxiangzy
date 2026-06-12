@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
     const costPerImage = getCreditCost(model, imageSize, aspectRatio);
     const totalCost = costPerImage * count;
 
-    // 扣减积分
+    // 扣减灵点
     const debit = await createDebitedGeneration(supabase, {
       userId: user.id,
       clothingUrls: Array.isArray(images) ? images : [],
@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
     let resultUrls: string[];
     let resultPrompt = prompt.trim();
     try {
-      // 调用生图 API。若上游失败或返回不可渲染图片，必须退还本次积分。
+      // 调用生图 API。若上游失败或返回不可渲染图片，必须退还本次灵点。
       const rawResultUrls: string[] = [];
       for (let i = 0; i < count; i++) {
         const result = await generateImage({

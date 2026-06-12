@@ -111,7 +111,7 @@ export function AdminDashboardClient({ overview, report, days }: AdminDashboardC
             运营总览
           </Typography.Title>
           <Typography.Paragraph className="!mb-0 !text-slate-500">
-            生成任务、收入积分、模型成本、队列健康和异常处理统一看板。
+            生成任务、收入灵点、模型成本、队列健康和异常处理统一看板。
           </Typography.Paragraph>
         </div>
         <Space wrap>
@@ -139,7 +139,7 @@ export function AdminDashboardClient({ overview, report, days }: AdminDashboardC
         <KpiCard title="生成任务" value={overview.generationHealth.total} suffix={`今日 ${overview.generationHealth.today}`} icon={<BarChartOutlined />} />
         <KpiCard title="成功率" value={100 - failureRate} precision={1} suffix="%" tone={failureRate > 20 ? "danger" : "good"} icon={<CheckCircleOutlined />} />
         <KpiCard title="失败率" value={failureRate} precision={1} suffix="%" tone={failureRate > 15 ? "danger" : failureRate > 5 ? "warning" : "good"} icon={<AlertOutlined />} />
-        <KpiCard title="净收入积分" value={report.metrics.netCredits} tone="good" icon={<DollarOutlined />} />
+        <KpiCard title="净收入灵点" value={report.metrics.netCredits} tone="good" icon={<DollarOutlined />} />
         <KpiCard title="退款补偿" value={report.metrics.refundCredits} tone={report.metrics.refundCredits > 0 ? "warning" : "neutral"} icon={<FireOutlined />} />
         <KpiCard title="履约成本" value={fulfillmentCredits} icon={<ClockCircleOutlined />} />
       </Row>
@@ -244,7 +244,7 @@ export function AdminDashboardClient({ overview, report, days }: AdminDashboardC
                 { label: "失败任务", value: overview.taskHealth.failed, href: "/admin/generations?status=failed", tone: "red" },
                 { label: "排队任务", value: overview.taskHealth.queued, href: "/admin/generations?status=queued", tone: "orange" },
                 { label: "运行任务", value: overview.taskHealth.running, href: "/admin/generations?status=running", tone: "blue" },
-                { label: "失败锁定积分", value: report.metrics.failedReservedCredits, href: "/admin/reports", tone: "volcano" },
+                { label: "失败锁定灵点", value: report.metrics.failedReservedCredits, href: "/admin/reports", tone: "volcano" },
               ]}
               renderItem={(item) => (
                 <List.Item actions={[<Link key="open" href={item.href}>查看</Link>]}>
@@ -349,7 +349,7 @@ function BreakdownCard({ title, rows }: { title: string; rows: AdminBreakdownIte
           { title: "数量", dataIndex: "count", render: formatNumber },
           { title: "运行", dataIndex: "running", render: (value) => <Tag color="blue">{formatNumber(value)}</Tag> },
           { title: "失败", dataIndex: "failed", render: (value) => <Tag color={value ? "red" : "default"}>{formatNumber(value)}</Tag> },
-          { title: "积分", dataIndex: "credits", render: formatNumber },
+          { title: "灵点", dataIndex: "credits", render: formatNumber },
         ]}
         locale={{ emptyText: "暂无统计样本" }}
       />

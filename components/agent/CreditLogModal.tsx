@@ -33,12 +33,12 @@ export function CreditLogModal({ open, onClose, onCreditsRefresh }: CreditLogMod
       const response = await fetch("/api/credits/logs", { cache: "no-store" });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(payload.error || "积分记录加载失败");
+        throw new Error(payload.error || "灵点记录加载失败");
       }
       setLogs(Array.isArray(payload.logs) ? payload.logs : []);
       onCreditsRefresh?.();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "积分记录加载失败");
+      setError(err instanceof Error ? err.message : "灵点记录加载失败");
     } finally {
       setLoading(false);
     }
@@ -67,7 +67,7 @@ export function CreditLogModal({ open, onClose, onCreditsRefresh }: CreditLogMod
             <Coins className="h-5 w-5" />
           </div>
           <div className="min-w-0 flex-1">
-            <h2 className="text-sm font-bold text-slate-900">积分流水</h2>
+            <h2 className="text-sm font-bold text-slate-900">灵点流水</h2>
             <p className="mt-0.5 text-xs text-slate-500">
               扣费、失败退款和余额变化都会在这里记录。
             </p>
@@ -76,7 +76,7 @@ export function CreditLogModal({ open, onClose, onCreditsRefresh }: CreditLogMod
             type="button"
             onClick={onClose}
             className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
-            aria-label="关闭积分流水"
+            aria-label="关闭灵点流水"
           >
             <X className="h-4 w-4" />
           </button>
@@ -95,7 +95,7 @@ export function CreditLogModal({ open, onClose, onCreditsRefresh }: CreditLogMod
                 className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-white px-3 py-1.5 text-xs font-bold text-amber-700 transition-colors hover:border-amber-300"
               >
                 <CreditCard className="h-3.5 w-3.5" />
-                购买积分
+                购买灵点
               </Link>
               <button
                 type="button"
@@ -120,7 +120,7 @@ export function CreditLogModal({ open, onClose, onCreditsRefresh }: CreditLogMod
               <CreditLogSkeleton />
             ) : logs.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 px-4 py-8 text-center">
-                <p className="text-sm font-bold text-slate-700">暂无积分记录</p>
+                <p className="text-sm font-bold text-slate-700">暂无灵点记录</p>
                 <p className="mt-1 text-xs text-slate-400">生成或退款后会自动出现在这里。</p>
               </div>
             ) : (
@@ -151,7 +151,7 @@ function CreditLogRow({ log }: { log: CreditLog }) {
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="truncate text-sm font-bold text-slate-800">{log.reason || "积分变动"}</p>
+            <p className="truncate text-sm font-bold text-slate-800">{log.reason || "灵点变动"}</p>
             <p className="mt-0.5 text-[11px] text-slate-400">
               {timeText}{generationText ? ` · ${generationText}` : ""}
             </p>

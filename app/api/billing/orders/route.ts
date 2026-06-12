@@ -119,7 +119,7 @@ export async function GET(request: NextRequest) {
       const order = {
         id: stringValue(row.id),
         productId: stringValue(row.product_id),
-        productName: productMap.get(stringValue(row.product_id)) || "积分套餐",
+        productName: productMap.get(stringValue(row.product_id)) || "灵点套餐",
         priceId: stringValue(row.price_id),
         priceLabel: priceMap.get(stringValue(row.price_id)) || "",
         mode: stringValue(row.mode),

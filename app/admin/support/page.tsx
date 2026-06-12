@@ -40,7 +40,7 @@ const priorityOptions = [
 const categoryOptions = [
   { value: "", label: "全部分类" },
   { value: "generation_failure", label: "生成失败" },
-  { value: "credit_issue", label: "积分问题" },
+  { value: "credit_issue", label: "灵点问题" },
   { value: "content_moderation", label: "内容审核" },
   { value: "billing", label: "账单" },
   { value: "account", label: "账号" },
@@ -61,7 +61,7 @@ export default async function AdminSupportPage({ searchParams }: PageProps) {
       <AdminPageHeader
         eyebrow="Support"
         title="客服工单"
-        description="集中跟进用户问题、失败生成、积分争议、内容审核和技术故障；每次状态流转写入后台审计，便于后续接自动客服和 SLA。"
+        description="集中跟进用户问题、失败生成、灵点争议、内容审核和技术故障；每次状态流转写入后台审计，便于后续接自动客服和 SLA。"
       />
 
       {!tickets.available && (

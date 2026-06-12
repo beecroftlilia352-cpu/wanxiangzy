@@ -83,7 +83,7 @@ const navGroups: Array<{ key: string; label: string; children: AdminNavItem[] }>
     key: "finance",
     label: "财务",
     children: [
-      { href: "/admin/credits", label: "积分流水", icon: <DollarOutlined /> },
+      { href: "/admin/credits", label: "灵点流水", icon: <DollarOutlined /> },
       { href: "/admin/billing", label: "支付账单", icon: <CreditCardOutlined /> },
       { href: "/admin/reports", label: "成本报表", icon: <BarChartOutlined /> },
       { href: "/admin/exports", label: "导出视图", icon: <DownloadOutlined /> },

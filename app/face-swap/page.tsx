@@ -50,6 +50,7 @@ import {
   MAX_FILE_SIZE_MB,
   uploadImage,
 } from "@/lib/utils";
+import { showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
 import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { fetchHistoryApplyDetail, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
 import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
@@ -138,7 +139,7 @@ export default function FaceSwapPage() {
       : sourceUrl === faceUrl
         ? "原始模特图和目标脸图不能是同一张"
         : credits !== null && credits < totalCost
-          ? `积分不足，生成需要 ${totalCost} 积分`
+          ? `灵点不足，生成需要 ${totalCost} 灵点`
           : "";
   const canGenerate = status !== "running" && !validationHint;
   const authIsAnonymous = authChecked && !isAuthenticated;
@@ -387,7 +388,7 @@ export default function FaceSwapPage() {
       return;
     }
     if (credits !== null && credits < totalCost) {
-      toast.error(`积分不足，需要 ${totalCost}，当前 ${credits}`);
+      showInsufficientCreditsToast({ required: totalCost, balance: credits, onRecharge: () => router.push("/pricing") });
       return;
     }
 
@@ -662,7 +663,7 @@ export default function FaceSwapPage() {
             <StudioOptionGrid
               options={supportedSizes.map((size) => ({
                 value: size,
-                label: `${size} · ${getCreditCost(aiModel, size, aspectRatio)}积分`,
+                label: `${size} · ${getCreditCost(aiModel, size, aspectRatio)}灵点`,
               }))}
               value={imageSizeValue}
               ariaLabel="分辨率"
@@ -711,7 +712,7 @@ export default function FaceSwapPage() {
 
         <StudioRunBar
           summary={`${genCount} 张 · ${imageSizeValue} · ${aspectRatio}`}
-          costLabel={authIsAnonymous ? "登录后查看积分" : `消耗 ${totalCost} · 余额 ${credits ?? "-"}`}
+          costLabel={authIsAnonymous ? "登录后查看灵点" : `消耗 ${totalCost} · 余额 ${credits ?? "-"}`}
           disabled={!canGenerate}
           disabledReason={validationHint}
           primaryLabel={status === "running" ? "生成中" : authIsAnonymous ? "登录后生成" : "开始换脸"}

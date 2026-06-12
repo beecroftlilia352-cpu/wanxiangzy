@@ -25,6 +25,7 @@ import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize
 import { applyRepairPrompt } from "@/lib/generation-repair";
 import { fetchHistoryApplyDetail, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
 import { GARMENT_TYPE_OPTIONS, type GarmentType } from "@/lib/garment-types";
+import { showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
 import {
   DEFAULT_MATERIAL_ENHANCEMENT_LEVEL,
   MATERIAL_ENHANCEMENT_LEVELS,
@@ -107,7 +108,7 @@ export default function MaterialEnhancementPage() {
       : garmentType === "其他" && !customGarmentType.trim()
         ? "请输入自定义服装类型"
         : credits !== null && credits < totalCost
-          ? `积分不足，生成需要 ${totalCost} 积分`
+          ? `灵点不足，生成需要 ${totalCost} 灵点`
           : undefined;
 
   useEffect(() => {
@@ -197,7 +198,11 @@ export default function MaterialEnhancementPage() {
       return;
     }
     if (runDisabledReason) {
-      toast.error(runDisabledReason);
+      if (runDisabledReason.startsWith("灵点不足")) {
+        showInsufficientCreditsToast({ required: totalCost, balance: credits, onRecharge: () => router.push("/pricing") });
+      } else {
+        toast.error(runDisabledReason);
+      }
       return;
     }
 
@@ -325,7 +330,11 @@ export default function MaterialEnhancementPage() {
         resultThumbnails: latestTaskResultUrls,
         resultCount: latestTaskResultUrls.filter(Boolean).length,
       });
-      toast.error(message);
+      if (message.includes("灵点不足")) {
+        showInsufficientCreditsToast({ required: totalCost, balance: credits, onRecharge: () => router.push("/pricing") });
+      } else {
+        toast.error(message);
+      }
     } finally {
       setIsGenerating(false);
     }
@@ -534,7 +543,7 @@ export default function MaterialEnhancementPage() {
             <StudioOptionGrid
               options={imageSizes.map((size) => ({
                 value: size,
-                label: `${size} · ${getCreditCost(aiModel, size, aspectRatio)}积分`,
+                label: `${size} · ${getCreditCost(aiModel, size, aspectRatio)}灵点`,
               }))}
               value={imageSize}
               onChange={setImageSize}
@@ -551,7 +560,7 @@ export default function MaterialEnhancementPage() {
 
         <StudioRunBar
           summary={`${costPerImage} × ${genCount} 张`}
-          costLabel={authIsAnonymous ? "登录后查看积分" : `消耗 ${totalCost} · 余额 ${credits ?? "-"}`}
+          costLabel={authIsAnonymous ? "登录后查看灵点" : `消耗 ${totalCost} · 余额 ${credits ?? "-"}`}
           disabled={isGenerating || Boolean(runDisabledReason)}
           disabledReason={runDisabledReason}
           primaryLabel={authIsAnonymous ? "登录后生成" : isGenerating ? "生成中..." : `生成 ${genCount} 张`}

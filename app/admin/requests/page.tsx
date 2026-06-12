@@ -39,7 +39,7 @@ export default async function AdminRequestsPage({ searchParams }: PageProps) {
       <AdminPageHeader
         eyebrow="Approvals"
         title="审批中心"
-        description="集中处理高风险或需要授权的运营动作。当前支持积分补偿审批，通过后会自动完成补偿并保留操作记录。"
+        description="集中处理高风险或需要授权的运营动作。当前支持灵点补偿审批，通过后会自动完成补偿并保留操作记录。"
       />
 
       {!requests.available && (
@@ -98,7 +98,7 @@ export default async function AdminRequestsPage({ searchParams }: PageProps) {
                 <div className="min-w-[220px]">
                   <p className="text-sm font-bold text-slate-700">{resourceTypeLabel(row.targetType)}（{shortAdminCode(row.targetId, "")}）</p>
                   <p className="mt-1 text-xs text-slate-500">
-                    补偿积分：<span className="font-black text-slate-800">{formatNumber(Number(row.payload.amount || 0))}</span>
+                    补偿灵点：<span className="font-black text-slate-800">{formatNumber(Number(row.payload.amount || 0))}</span>
                   </p>
                 </div>
               ),

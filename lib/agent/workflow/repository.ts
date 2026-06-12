@@ -324,7 +324,7 @@ export async function settleWorkflowCredits(userId: string, workflowId: string, 
     p_workflow_id: workflowId,
     p_amount: amount,
   });
-  if (error) throw new Error(`结算 workflow 积分失败: ${error.message}`);
+  if (error) throw new Error(`结算 workflow 灵点失败: ${error.message}`);
 }
 
 export async function releaseWorkflowCredits(userId: string, workflowId: string, amount: number, reason: string) {
@@ -334,7 +334,7 @@ export async function releaseWorkflowCredits(userId: string, workflowId: string,
     p_amount: amount,
     p_reason: reason,
   });
-  if (error) throw new Error(`释放 workflow 积分失败: ${error.message}`);
+  if (error) throw new Error(`释放 workflow 灵点失败: ${error.message}`);
 }
 
 export async function claimNextAgentWorkflows(limit = 2): Promise<string[]> {
@@ -402,10 +402,10 @@ async function findWorkflowByIdempotencyKey(supabase: SupabaseAdmin, userId: str
 function normalizeCreditRpcError(message = "", required: number) {
   const insufficient = message.match(/INSUFFICIENT_CREDITS:(\d+)/);
   if (insufficient) {
-    return `积分不足。需要 ${required}，余额 ${Number(insufficient[1])}`;
+    return `灵点不足。需要 ${required}，余额 ${Number(insufficient[1])}`;
   }
   if (message.includes("reserve_agent_workflow_credits") || message.includes("Could not find the function")) {
-    return "数据库缺少 workflow 积分预占函数，请先运行 supabase/agent-workflows.sql";
+    return "数据库缺少 workflow 灵点预占函数，请先运行 supabase/agent-workflows.sql";
   }
-  return message || "workflow 积分预占失败";
+  return message || "workflow 灵点预占失败";
 }

@@ -43,6 +43,7 @@ import { getImageVariantUrl } from "@/lib/image-variants";
 import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
 import { downloadImage, generateDownloadFilename, MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
+import { showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
 import {
   PRODUCT_SET_COUNTRIES,
   PRODUCT_SET_EXAMPLE_GROUPS,
@@ -1138,7 +1139,10 @@ export default function ProductSetPage() {
     if (!productImages.length) return toast.error("请先上传商品图");
     if (requiresProductConfirmation) return toast.warning("请先完成智能分析，或手动确认商品信息后再生成");
     if (outputCount <= 0) return toast.error("请至少选择 1 个套图样式");
-    if (credits !== null && credits < cost) return toast.error(`积分不足，需要 ${cost}，余额 ${credits}`);
+    if (credits !== null && credits < cost) {
+      showInsufficientCreditsToast({ required: cost, balance: credits, onRecharge: () => router.push("/pricing") });
+      return;
+    }
 
     const currentPlan = planTemplates;
     const expectedResultCount = Math.max(1, currentPlan.length);
@@ -1335,7 +1339,10 @@ export default function ProductSetPage() {
       return;
     }
     const singleCost = getCreditCost(aiModel, imageSize, template.aspectRatio || aspectRatio);
-    if (credits !== null && credits < singleCost) return toast.error(`积分不足，需要 ${singleCost}，余额 ${credits}`);
+    if (credits !== null && credits < singleCost) {
+      showInsufficientCreditsToast({ required: singleCost, balance: credits, onRecharge: () => router.push("/pricing") });
+      return;
+    }
 
     setRegeneratingIndex(index);
     setError("");
@@ -1868,7 +1875,7 @@ export default function ProductSetPage() {
           >
             {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Activity className="h-4 w-4" />}
             {outputCount > 0 ? `生成 ${Math.max(outputCount, 1)} ${outputUnit}` : mode === "smart" ? "请先分析生成方案" : "请先选择参考图方案"}
-            {outputCount > 0 && <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs">{cost} 积分</span>}
+            {outputCount > 0 && <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs">{cost} 灵点</span>}
           </button>
           {requiresProductConfirmation && (
             <p className="mt-2 text-center text-[11px] font-bold text-amber-600">
@@ -3369,7 +3376,7 @@ function ModelConfigPanel({
                   : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
               }`}
             >
-              {size} · {getCreditCost(aiModel, size, "3:4")}积分
+              {size} · {getCreditCost(aiModel, size, "3:4")}灵点
             </button>
           ))}
         </div>

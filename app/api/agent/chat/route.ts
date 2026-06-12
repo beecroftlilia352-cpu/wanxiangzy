@@ -340,7 +340,7 @@ export async function POST(request: NextRequest) {
     const effectiveCount = getEffectiveModuleCount(module, moduleParams, count);
     const totalCost = costPerImage * effectiveCount;
 
-    // 不直接执行，返回确认信息让用户确认后才扣积分
+    // 不直接执行，返回确认信息让用户确认后才扣灵点
     const taskBrief = buildTaskBrief({
       module,
       label: MODULE_LABELS[module] || module,
@@ -541,7 +541,7 @@ function buildClarifyReply(module: string, missingFields: string[], imageCount: 
   const missing = missingFields.join("、") || "必要图片";
   const uploaded = imageCount > 0 ? `当前已识别到 ${imageCount} 张图片，但还需要你明确图片关系。` : "当前还没有可用图片。";
   return normalizeAgentReply(
-    `我可以继续做 **${label}**，但还缺少 **${missing}**。\n\n${uploaded}\n\n**请补充一句更明确的指令**\n\n- 服装上身：把图1的衣服穿到图2的人身上\n- 种草图：用图1服装生成小红书街拍种草图\n- 换背景：把图1背景换成图2的场景\n\n确认图片关系后，我再给你生成确认卡片，避免误扣积分。`
+    `我可以继续做 **${label}**，但还缺少 **${missing}**。\n\n${uploaded}\n\n**请补充一句更明确的指令**\n\n- 服装上身：把图1的衣服穿到图2的人身上\n- 种草图：用图1服装生成小红书街拍种草图\n- 换背景：把图1背景换成图2的场景\n\n确认图片关系后，我再给你生成确认卡片，避免误扣灵点。`
   );
 }
 
@@ -555,7 +555,7 @@ function buildRoleConflictReply(module: string, issues: string[], images: AgentI
     : "";
 
   return normalizeAgentReply(
-    `我先暂停 **${label}**，因为图片角色和本次任务有冲突，直接生成容易用错图。\n\n**需要确认的问题**\n\n${issues.map((issue) => `- ${issue}`).join("\n")}${roleSummary}\n\n**建议下一步**\n\n请在图片缩略图上调整角色，或直接说明：“图1是服装，图2是参考图，图3是模特脸”。确认后我再生成确认卡，避免误扣积分。`
+    `我先暂停 **${label}**，因为图片角色和本次任务有冲突，直接生成容易用错图。\n\n**需要确认的问题**\n\n${issues.map((issue) => `- ${issue}`).join("\n")}${roleSummary}\n\n**建议下一步**\n\n请在图片缩略图上调整角色，或直接说明：“图1是服装，图2是参考图，图3是模特脸”。确认后我再生成确认卡，避免误扣灵点。`
   );
 }
 
@@ -575,7 +575,7 @@ function buildConfirmReply(
     : "";
 
   return normalizeAgentReply(
-    `${intro}\n\n**我的理解**\n\n- **任务类型**：${moduleLabel}\n- **上下文边界**：${contextLine}\n- **理解置信度**：${confidenceLabel}${plan}\n\n**扣费说明**\n\n确认卡只是预检，不会扣积分。确认无误后点击“确认生成”，系统才会扣除积分并开始任务。`
+    `${intro}\n\n**我的理解**\n\n- **任务类型**：${moduleLabel}\n- **上下文边界**：${contextLine}\n- **理解置信度**：${confidenceLabel}${plan}\n\n**扣费说明**\n\n确认卡只是预检，不会扣灵点。确认无误后点击“确认生成”，系统才会扣除灵点并开始任务。`
   );
 }
 

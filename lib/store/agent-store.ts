@@ -618,7 +618,7 @@ export const useAgentStore = create<Store>((set, get) => ({
       });
 
       if (data.action === "confirm_generate" && data.api_path) {
-        // 生图任务：显示确认卡片（需要用户确认后才扣积分执行）
+        // 生图任务：显示确认卡片（需要用户确认后才扣灵点执行）
         set((s) => ({
           isSending: false,
           messages: s.messages.map((m) =>
@@ -738,7 +738,7 @@ export const useAgentStore = create<Store>((set, get) => ({
     get().sendMessage();
   },
 
-  // ======== 确认生图（用户确认后才扣积分执行） ========
+  // ======== 确认生图（用户确认后才扣灵点执行） ========
   updateConfirmParams: (messageId: string, patch: Partial<GenerationParams>) => {
     let updatedGeneration: unknown = null;
     let convId = "";
@@ -1662,7 +1662,7 @@ function buildWorkflowReply(payload: WorkflowClientPayload) {
     `我已经把这个需求拆成 ${count || 1} 个可执行步骤，确认后会按顺序处理。`,
     "",
     `目标：${summary}`,
-    credits ? `预计消耗：${credits} 积分，确认前不会扣费。` : "确认前不会扣费。",
+    credits ? `预计消耗：${credits} 灵点，确认前不会扣费。` : "确认前不会扣费。",
   ].join("\n");
 }
 

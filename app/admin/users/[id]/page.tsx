@@ -36,7 +36,7 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
       <AdminPageHeader
         eyebrow="User Detail"
         title={profile?.email || "用户详情"}
-        description="集中查看用户资料、积分流水、任务历史和资产作品，并提供资料、积分和生成权限管理。"
+        description="集中查看用户资料、灵点流水、任务历史和资产作品，并提供资料、灵点和生成权限管理。"
         actions={
           <Link href="/admin/users" className="inline-flex h-9 items-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 shadow-sm hover:bg-slate-50">
             返回用户列表
@@ -48,7 +48,7 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
       {detail.warnings.length > 0 && <AdminNotice>详情数据源提示：{detail.warnings.slice(0, 3).join("；")}</AdminNotice>}
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <AdminMetricCard label="积分余额" value={formatNumber(profile?.credits || 0)} />
+        <AdminMetricCard label="灵点余额" value={formatNumber(profile?.credits || 0)} />
         <AdminMetricCard label="累计消耗" value={formatNumber(profile?.totalCreditsUsed || 0)} />
         <AdminMetricCard
           label="生成权限"
@@ -74,17 +74,17 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
       {profile && (
         <AdminSection
           title="用户操作"
-          description="所有写操作都会进入后台审计日志；暂停生成会在扣积分和创建任务前生效。"
+          description="所有写操作都会进入后台审计日志；暂停生成会在扣灵点和创建任务前生效。"
         >
           <AdminUserManagementForm profile={profile} />
         </AdminSection>
       )}
 
-      <AdminSection title="最近积分流水">
+      <AdminSection title="最近灵点流水">
         <AdminTable<AdminCreditLogItem>
           rows={detail.creditLogs}
           rowKey={(row) => row.id}
-          empty="暂无积分流水"
+          empty="暂无灵点流水"
           columns={[
             { key: "amount", label: "变动", render: (row) => <span className={`font-mono text-sm font-black ${row.amount >= 0 ? "text-emerald-700" : "text-red-700"}`}>{row.amount > 0 ? "+" : ""}{formatNumber(row.amount)}</span> },
             { key: "balance", label: "余额", render: (row) => <span className="font-mono text-sm font-bold text-slate-700">{formatNumber(row.balance)}</span> },

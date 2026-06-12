@@ -93,13 +93,13 @@ export function AdminBillingCatalogForms({ products }: { products: BillingProduc
           <Field name="id" label="商品 ID" placeholder="prod_starter" />
           <Field name="name" label="名称" placeholder="入门版" required />
           <Field name="badge" label="标签" placeholder="热门" />
-          <Field name="creditAmount" label="基础积分" type="number" placeholder="1000" />
-          <Field name="bonusCredits" label="赠送积分" type="number" placeholder="200" />
+          <Field name="creditAmount" label="基础灵点" type="number" placeholder="1000" />
+          <Field name="bonusCredits" label="赠送灵点" type="number" placeholder="200" />
           <Field name="subscriptionBonusPercent" label="订阅加成 %" type="number" placeholder="5" />
           <Field name="sortOrder" label="排序" type="number" placeholder="1" />
         </div>
         <TextArea name="description" label="描述" placeholder="适合稳定日常生产。" />
-        <TextArea name="features" label="权益" placeholder={"1,000 积分 + 赠送 200\n适合多模块连续生成"} />
+        <TextArea name="features" label="权益" placeholder={"1,000 灵点 + 赠送 200\n适合多模块连续生成"} />
         <div className="flex items-center justify-between gap-3">
           <label className="inline-flex items-center gap-2 text-xs font-bold text-slate-600">
             <input name="active" type="checkbox" defaultChecked className="h-4 w-4 rounded border-slate-300" />
@@ -144,7 +144,7 @@ export function AdminBillingCatalogForms({ products }: { products: BillingProduc
           <Field name="id" label="价格 ID" placeholder="price_starter_once" />
           <Field name="label" label="标签" placeholder="一次性购买" />
           <Field name="amountYuan" label="金额（元）" type="number" placeholder="35" required />
-          <Field name="credits" label="到账积分" type="number" placeholder="250" required />
+          <Field name="credits" label="到账灵点" type="number" placeholder="250" required />
           <Field name="sortOrder" label="排序" type="number" placeholder="1" />
         </div>
         <div className="flex items-center justify-between gap-3 pt-9">

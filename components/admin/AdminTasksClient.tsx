@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { Alert, Button, Card, Checkbox, Image, Input, Progress, Select, Space, Statistic, Table, Tag, Tooltip, Typography } from "@/components/ui/shadcn-compat";
+import { Alert, Button, Card, Checkbox, Input, Progress, Select, Space, Statistic, Table, Tag, Tooltip, Typography } from "@/components/ui/shadcn-compat";
 import type { ColumnsType } from "@/components/ui/shadcn-compat";
 import { ApiOutlined, SearchOutlined } from "@/components/ui/ant-icons-compat";
+import { AdminImagePreview } from "@/components/admin/AdminImagePreview";
 import { AdminTaskActions } from "@/components/admin/AdminTaskActions";
 import type { AdminTaskList, AdminTaskListItem } from "@/lib/admin/data";
 import type { TaskStatusGroup } from "@/lib/task-queue";
@@ -49,11 +50,14 @@ export function AdminTasksClient({ tasks, q, status, module, stale, page, pageSi
   const [moduleValue, setModuleValue] = useState(module);
   const [statusValue, setStatusValue] = useState(status);
   const [staleOnly, setStaleOnly] = useState(stale);
+  const taskRows = Array.isArray(tasks.rows) ? tasks.rows : [];
+  const taskWarnings = Array.isArray(tasks.warnings) ? tasks.warnings : [];
+  const taskTotal = Number.isFinite(tasks.total) ? tasks.total : taskRows.length;
   const safePageSize = normalizeTaskPageSize(pageSize);
-  const failed = tasks.rows.filter((row) => row.statusGroup === "failed").length;
-  const running = tasks.rows.filter((row) => row.statusGroup === "running" || row.statusGroup === "queued").length;
-  const staleCount = tasks.rows.filter((row) => row.isStale).length;
-  const pageNote = tasks.total > 0 ? `当前页 ${tasks.rows.length} 条` : "暂无匹配任务";
+  const failed = taskRows.filter((row) => row.statusGroup === "failed").length;
+  const running = taskRows.filter((row) => row.statusGroup === "running" || row.statusGroup === "queued").length;
+  const staleCount = taskRows.filter((row) => row.isStale).length;
+  const pageNote = taskTotal > 0 ? `当前页 ${taskRows.length} 条` : "暂无匹配任务";
 
   function handlePageChange(nextPage: number, nextPageSize: number) {
     const safeNextPageSize = normalizeTaskPageSize(nextPageSize);
@@ -70,7 +74,7 @@ export function AdminTasksClient({ tasks, q, status, module, stale, page, pageSi
           <Typography.Text className="admin-page-eyebrow">Tasks</Typography.Text>
           <Typography.Title level={2} className="!mb-1 !mt-1">任务中心</Typography.Title>
           <Typography.Paragraph className="!mb-0 !text-slate-500">
-            统一查看生成任务和工作流任务；支持长时间未完成任务重新处理、结束任务和退还积分。
+            统一查看生成任务和工作流任务；支持长时间未完成任务重新处理、结束任务和退还灵点。
           </Typography.Paragraph>
         </div>
         <Link href="/api/jobs/process-generations">
@@ -78,13 +82,13 @@ export function AdminTasksClient({ tasks, q, status, module, stale, page, pageSi
         </Link>
       </div>
 
-      {tasks.warnings.length > 0 && <Alert type="warning" showIcon message="任务数据提示" description={tasks.warnings.slice(0, 3).join("；")} />}
+      {taskWarnings.length > 0 && <Alert type="warning" showIcon message="任务数据提示" description={taskWarnings.slice(0, 3).join("；")} />}
       {tasks.source === "fallback" && (
         <Alert type="info" showIcon message="队列表暂不可用，已自动读取生成任务和工作流任务。" />
       )}
 
       <div className="grid gap-3 sm:grid-cols-4">
-        <Metric title="全部匹配" value={tasks.total} note={pageNote} />
+        <Metric title="全部匹配" value={taskTotal} note={pageNote} />
         <Metric title="排队/运行" value={running} tone="warning" note="当前页" />
         <Metric title="失败" value={failed} tone="danger" note="当前页" />
         <Metric title="长时间未完成" value={staleCount} tone="warning" note="当前页" />
@@ -113,14 +117,14 @@ export function AdminTasksClient({ tasks, q, status, module, stale, page, pageSi
           size="small"
           rowKey={(row) => `${row.sourceType}:${row.sourceId}`}
           columns={columns}
-          dataSource={tasks.rows}
+          dataSource={taskRows}
           loading={isPending}
           tableLayout="fixed"
-          scroll={{ x: 2100 }}
+          scroll={{ x: 2200 }}
           pagination={{
             current: page,
             pageSize: safePageSize,
-            total: tasks.total,
+            total: taskTotal,
             showSizeChanger: true,
             pageSizeOptions: [...TASK_PAGE_SIZE_OPTIONS],
             showTotal: (total, range) => `共 ${total} 条，当前 ${range[0]}-${range[1]}`,
@@ -148,13 +152,13 @@ const columns: ColumnsType<AdminTaskListItem> = [
       </Space>
     ),
   },
-  { title: "输入", width: 132, render: (_, row) => <TaskThumbnails urls={row.inputThumbnails} label="输入素材" /> },
-  { title: "输出", width: 132, render: (_, row) => <TaskThumbnails urls={row.resultThumbnails} label="输出结果" empty="待生成" /> },
+  { title: "输入", width: 170, render: (_, row) => <TaskThumbnails urls={row.inputThumbnails} label="输入素材" /> },
+  { title: "输出", width: 170, render: (_, row) => <TaskThumbnails urls={row.resultThumbnails} label="输出结果" empty="待生成" /> },
   { title: "模块", dataIndex: "moduleLabel", width: 130, filters: moduleOptions.filter((item) => item.value).map((item) => ({ text: item.label, value: item.label })), onFilter: (value, row) => row.moduleLabel === value },
   { title: "进度", dataIndex: "progress", width: 150, sorter: (a, b) => a.progress - b.progress, render: (value: number) => <Progress percent={value} size="small" /> },
   { title: "结果", width: 90, render: (_, row) => `${row.resultCount}/${row.expectedCount}` },
   { title: "模型", dataIndex: "model", width: 150, render: (value) => value || "-" },
-  { title: "积分", dataIndex: "credits", width: 80, sorter: (a, b) => (a.credits || 0) - (b.credits || 0), render: (value) => value ?? "-" },
+  { title: "灵点", dataIndex: "credits", width: 80, sorter: (a, b) => (a.credits || 0) - (b.credits || 0), render: (value) => value ?? "-" },
   { title: "处理状态", dataIndex: "isStale", width: 150, filters: [{ text: "长时间未完成", value: true }], onFilter: (value, row) => row.isStale === value, render: (_, row) => row.isStale ? <Tag color="orange">{row.staleMinutes} 分钟无进展</Tag> : "正常" },
   { title: "创建", dataIndex: "createdAt", width: 130, render: formatDateTime },
   { title: "操作", width: 270, render: (_, row) => <AdminTaskActions id={row.sourceId} sourceType={row.sourceType} statusGroup={row.statusGroup} isStale={row.isStale} compact /> },
@@ -198,28 +202,34 @@ function shortId(value: string) {
   return value ? value.slice(0, 8) : "-";
 }
 
-function TaskThumbnails({ urls, label, empty = "无图片" }: { urls: string[]; label: string; empty?: string }) {
-  const clean = urls.filter(Boolean);
+function TaskThumbnails({ urls, label, empty = "无图片" }: { urls?: string[] | null; label: string; empty?: string }) {
+  const clean = Array.isArray(urls) ? urls.filter(Boolean) : [];
   if (!clean.length) return <Typography.Text type="secondary" className="text-xs">{empty}</Typography.Text>;
-  const visible = clean.slice(0, 3);
+  const visibleCount = clean.length > 4 ? 3 : Math.min(clean.length, 4);
+  const visible = clean.slice(0, visibleCount);
+  const remaining = clean.length - visible.length;
   return (
-    <Image.PreviewGroup items={clean}>
-      <div className="admin-task-thumb-strip" aria-label={label}>
-        {visible.map((url, index) => (
-          <Image
-            key={`${url}-${index}`}
-            width={38}
-            height={38}
-            src={url}
-            alt={`${label} ${index + 1}`}
-            className="admin-task-thumb"
-            style={{ objectFit: "cover" }}
-            preview={{ mask: "预览" }}
-          />
-        ))}
-        {clean.length > visible.length ? <span className="admin-task-thumb-more">+{clean.length - visible.length}</span> : null}
-      </div>
-    </Image.PreviewGroup>
+    <div className="admin-task-thumb-strip" aria-label={`${label} ${clean.length} 张`}>
+      {visible.map((url, index) => (
+        <AdminImagePreview
+          key={`${url}-${index}`}
+          urls={clean}
+          initialIndex={index}
+          label={`${label} ${index + 1}/${clean.length}`}
+          triggerClassName="admin-task-thumb-trigger"
+          imageClassName="h-full w-full object-cover"
+        />
+      ))}
+      {remaining > 0 ? (
+        <AdminImagePreview
+          urls={clean}
+          initialIndex={visible.length}
+          label={`预览更多${label}`}
+          countLabel={`+${remaining}`}
+          triggerClassName="admin-task-thumb-more-trigger"
+        />
+      ) : null}
+    </div>
   );
 }
 

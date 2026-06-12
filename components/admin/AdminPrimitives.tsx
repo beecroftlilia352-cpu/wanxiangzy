@@ -174,7 +174,8 @@ export function AdminTable<T>({
 
 export function ThumbnailStrip({ urls }: { urls: string[] }) {
   const cleanUrls = urls.map((url) => url.trim()).filter(Boolean);
-  const visible = cleanUrls.slice(0, 3);
+  const visibleCount = cleanUrls.length > 4 ? 3 : Math.min(cleanUrls.length, 4);
+  const visible = cleanUrls.slice(0, visibleCount);
   if (!visible.length) return <span className="text-xs font-semibold text-slate-400">无图片</span>;
 
   return (
@@ -238,12 +239,12 @@ export function resourceTypeLabel(value: string | null | undefined) {
   if (value === "reference") return "参考素材";
   if (value === "favorite-plan") return "收藏方案";
   if (value === "user") return "用户";
-  if (value === "credit") return "积分";
+  if (value === "credit") return "灵点";
   return value || "对象";
 }
 
 export function operationTypeLabel(value: string | null | undefined) {
-  if (value === "credit_adjustment") return "积分补偿";
+  if (value === "credit_adjustment") return "灵点补偿";
   if (value === "asset_moderation") return "内容处理";
   if (value === "generation_recovery") return "任务处理";
   return value || "后台操作";

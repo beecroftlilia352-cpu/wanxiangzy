@@ -37,7 +37,7 @@ const CREDIT_PLANS: CreditPlan[] = [
     baseCredits: 25000,
     bonusCredits: 13000,
     savings: 34,
-    enterpriseNote: "支持开通转积分给子账号功能，提供专属产品支持群",
+    enterpriseNote: "支持开通转灵点给子账号功能，提供专属产品支持群",
   },
 ];
 
@@ -80,10 +80,10 @@ const CREDIT_COSTS = {
 };
 
 const usageRules = [
-  { value: "3 积分/张", label: "Nano Banana 图片" },
-  { value: "4 积分/张", label: "Nano Banana 2 / GPT Image 2 图片" },
-  { value: "5 积分/张", label: "Nano Banana Pro 图片" },
-  { value: "30 积分/套", label: "详情页生成" },
+  { value: "3 灵点/张", label: "Nano Banana 图片" },
+  { value: "4 灵点/张", label: "Nano Banana 2 / GPT Image 2 图片" },
+  { value: "5 灵点/张", label: "Nano Banana Pro 图片" },
+  { value: "30 灵点/套", label: "详情页生成" },
 ];
 
 function formatNumber(value: number) {
@@ -97,18 +97,18 @@ function getTotalCredits(plan: CreditPlan, mode: PricingMode) {
 
 function getCreditLine(plan: CreditPlan, mode: PricingMode) {
   if (mode === "subscription") {
-    return <>{formatNumber(getTotalCredits(plan, mode))} 积分</>;
+    return <>{formatNumber(getTotalCredits(plan, mode))} 灵点</>;
   }
 
   if (plan.bonusCredits <= 0) {
-    return <>{formatNumber(plan.baseCredits)} 积分</>;
+    return <>{formatNumber(plan.baseCredits)} 灵点</>;
   }
 
   return (
     <>
-      {formatNumber(plan.baseCredits)} 积分
+      {formatNumber(plan.baseCredits)} 灵点
       <span className="ml-1 inline-flex items-center gap-0.5 text-amber-600">
-        + <Sparkles className="h-3 w-3" /> 赠送{formatNumber(plan.bonusCredits)}积分
+        + <Sparkles className="h-3 w-3" /> 赠送{formatNumber(plan.bonusCredits)}灵点
       </span>
     </>
   );
@@ -184,7 +184,7 @@ export function PricingSection() {
     setNotice({
       tone: "info",
       title: "正在确认订单",
-      message: "支付已返回，正在同步积分到账状态。",
+      message: "支付已返回，正在同步灵点到账状态。",
     });
 
     fetch(`/api/billing/orders/session/${encodeURIComponent(sessionId)}`, { cache: "no-store" })
@@ -200,10 +200,10 @@ export function PricingSection() {
           tone: paid ? "success" : "info",
           title: paid ? "支付成功" : "支付确认中",
           message: testGrantDisabled
-            ? "测试支付已完成，当前 Stripe 测试订单不会自动入账积分。"
+            ? "测试支付已完成，当前 Stripe 测试订单不会自动入账灵点。"
             : paid
-              ? `积分已同步到账：${Number(order.credits_granted || order.credits_expected || 0).toLocaleString("zh-CN")} 积分。`
-            : "Stripe 已返回，积分同步仍在处理中，稍后刷新即可查看。",
+              ? `灵点已同步到账：${Number(order.credits_granted || order.credits_expected || 0).toLocaleString("zh-CN")} 灵点。`
+            : "Stripe 已返回，灵点同步仍在处理中，稍后刷新即可查看。",
         });
         void loadCatalog();
       })
@@ -285,7 +285,7 @@ export function PricingSection() {
     <section className="min-h-screen bg-zinc-50 px-4 py-16 sm:px-6" aria-labelledby="pricing-title">
       <div className="mx-auto max-w-7xl">
         <div className="mb-12 text-center">
-          <p className="mb-2 text-xs font-black uppercase tracking-widest text-amber-700">AI 电商视觉积分</p>
+          <p className="mb-2 text-xs font-black uppercase tracking-widest text-amber-700">AI 电商视觉灵点</p>
           <h1 id="pricing-title" className="mb-4 text-4xl font-black tracking-tight text-zinc-900">
             赋能您的电商视觉
           </h1>
@@ -307,7 +307,7 @@ export function PricingSection() {
             )}
           >
             <Zap className="h-4 w-4" />
-            <span>购买积分</span>
+            <span>购买灵点</span>
             <span
               className={cn(
                 "ml-1 inline-flex items-center gap-1.5 border-l border-zinc-200 pl-2 transition-opacity",
@@ -383,7 +383,7 @@ export function PricingSection() {
         <div className="mt-12 rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm">
           <div className="grid gap-6 lg:grid-cols-[280px_1fr] lg:items-center">
             <div>
-              <p className="mb-2 text-xs font-black uppercase tracking-widest text-amber-700">积分消耗</p>
+              <p className="mb-2 text-xs font-black uppercase tracking-widest text-amber-700">灵点消耗</p>
               <h2 className="text-xl font-black tracking-tight text-zinc-900">先按参考规则上线，后续再优化</h2>
             </div>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

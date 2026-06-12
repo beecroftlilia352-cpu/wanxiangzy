@@ -37,7 +37,7 @@ export function AdminCreditAdjustForm({
       });
       const payload = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(payload.error || `调整失败 (${res.status})`);
-      message.success(isRequest ? "补偿审批单已创建" : "积分已调整，审计日志已记录");
+      message.success(isRequest ? "补偿审批单已创建" : "灵点已调整，审计日志已记录");
       form.resetFields();
       router.refresh();
     } catch (error) {

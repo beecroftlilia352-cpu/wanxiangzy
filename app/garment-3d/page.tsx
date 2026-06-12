@@ -27,6 +27,7 @@ import { fetchHistoryApplyDetail, takeApplyDetail, type HistoryJobPayload } from
 import { applyRepairPrompt } from "@/lib/generation-repair";
 import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
 import { GARMENT_TYPE_OPTIONS, type GarmentType } from "@/lib/garment-types";
+import { showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
 import {
   DEFAULT_GARMENT_3D_DISPLAY_STYLE,
   GARMENT_3D_DISPLAY_STYLES,
@@ -137,7 +138,7 @@ export default function Garment3dPage() {
   const runDisabledReason = !garmentUrl
     ? "请先上传服装图"
     : credits !== null && credits < totalCost
-      ? `积分不足，生成需要 ${totalCost} 积分`
+      ? `灵点不足，生成需要 ${totalCost} 灵点`
       : undefined;
 
   const cancelRulesHide = () => {
@@ -343,7 +344,7 @@ export default function Garment3dPage() {
       return;
     }
     if (credits !== null && credits < totalCost) {
-      toast.error(`积分不足，需要 ${totalCost}，余额 ${credits}`);
+      showInsufficientCreditsToast({ required: totalCost, balance: credits, onRecharge: () => router.push("/pricing") });
       return;
     }
 
@@ -807,7 +808,7 @@ export default function Garment3dPage() {
             <StudioOptionGrid
               options={imageSizes.map((size) => ({
                 value: size,
-                label: `${size} · ${getCreditCost(aiModel, size, aspectRatio)}积分`,
+                label: `${size} · ${getCreditCost(aiModel, size, aspectRatio)}灵点`,
               }))}
               value={imageSize}
               onChange={setImageSize}
@@ -827,7 +828,7 @@ export default function Garment3dPage() {
 
         <StudioRunBar
           summary={`${costPerImage} × ${genCount} 张`}
-          costLabel={authIsAnonymous ? "登录后查看积分" : `消耗 ${totalCost} · 余额 ${credits ?? "-"}`}
+          costLabel={authIsAnonymous ? "登录后查看灵点" : `消耗 ${totalCost} · 余额 ${credits ?? "-"}`}
           disabled={isGenerating || Boolean(runDisabledReason)}
           disabledReason={runDisabledReason}
           primaryLabel={authIsAnonymous ? "登录后生成" : isGenerating ? "生成中..." : `生成 ${genCount} 张`}

@@ -3,7 +3,7 @@ import { CreditError, errorToResponsePayload } from "@/lib/api/credits";
 
 describe("CreditError", () => {
   it("stores status and details", () => {
-    const err = new CreditError("积分不足。需要 10，余额 5", 402, {
+    const err = new CreditError("灵点不足。需要 10，余额 5", 402, {
       required: 10,
       balance: 5,
     });
@@ -11,7 +11,7 @@ describe("CreditError", () => {
     expect(err.status).toBe(402);
     expect(err.required).toBe(10);
     expect(err.balance).toBe(5);
-    expect(err.message).toContain("积分不足");
+    expect(err.message).toContain("灵点不足");
   });
 
   it("defaults to status 500", () => {
@@ -24,10 +24,10 @@ describe("CreditError", () => {
 
 describe("errorToResponsePayload", () => {
   it("returns CreditError fields", () => {
-    const err = new CreditError("积分不足", 402, { required: 10, balance: 3 });
+    const err = new CreditError("灵点不足", 402, { required: 10, balance: 3 });
     const payload = errorToResponsePayload(err);
     expect(payload.status).toBe(402);
-    expect(payload.body.error).toBe("积分不足");
+    expect(payload.body.error).toBe("灵点不足");
     expect(payload.body.required).toBe(10);
     expect(payload.body.balance).toBe(3);
   });

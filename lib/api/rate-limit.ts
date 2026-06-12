@@ -93,7 +93,7 @@ export function rateLimitResponse(
   const policyHint = options.limit && options.windowMs
     ? `当前限制为 ${Math.max(1, Math.floor(options.windowMs / 1000))} 秒内最多 ${options.limit} 次。`
     : "";
-  const error = `${label}过于频繁，请${retryAfterText}后再试。本次请求未执行；如果这是生成操作，不会扣除积分。${policyHint}`;
+  const error = `${label}过于频繁，请${retryAfterText}后再试。本次请求未执行；如果这是生成操作，不会扣除灵点。${policyHint}`;
   return NextResponse.json(
     {
       error,

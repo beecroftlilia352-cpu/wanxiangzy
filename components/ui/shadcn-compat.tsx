@@ -21,7 +21,7 @@ import {
   type TextareaHTMLAttributes,
 } from "react";
 import { toast } from "sonner";
-import { Check, ChevronDown, Loader2, Search, X } from "lucide-react";
+import { ArrowRight, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Loader2, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Pagination,
@@ -33,12 +33,10 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 import {
-  Select as ShadcnSelectRoot,
-  SelectContent as ShadcnSelectContent,
-  SelectItem as ShadcnSelectItem,
-  SelectTrigger as ShadcnSelectTrigger,
-  SelectValue as ShadcnSelectValue,
-} from "@/components/ui/select";
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Skeleton as ShadcnSkeleton } from "@/components/ui/skeleton";
 
 type PrimitiveValue = string | number | boolean | null | undefined;
@@ -347,27 +345,45 @@ export function Select({
   }
 
   if (!showSearch) {
-    const radixValue = currentValue === undefined || currentValue === null || currentValue === "" ? undefined : String(currentValue);
+    const currentValueString = currentValue === undefined || currentValue === null ? "" : String(currentValue);
 
     return (
       <span className={cn("inline-block w-full", className)} style={style}>
-        <ShadcnSelectRoot
-          name={name}
-          disabled={disabled}
-          value={radixValue}
-          onValueChange={(nextValue) => commit(options.find((item) => String(item.value) === nextValue) ?? { value: nextValue, label: nextValue })}
-        >
-          <ShadcnSelectTrigger className="h-10 w-full rounded-md bg-white px-3 text-left shadow-sm" aria-label={placeholder}>
-            <ShadcnSelectValue placeholder={placeholder} />
-          </ShadcnSelectTrigger>
-          <ShadcnSelectContent position="popper" className="z-[5000] min-w-[var(--radix-select-trigger-width)] bg-white">
+        {name ? <input type="hidden" name={name} value={currentValueString} /> : null}
+        <Popover open={open} onOpenChange={setOpen}>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              disabled={disabled}
+              aria-haspopup="listbox"
+              aria-expanded={open}
+              aria-label={placeholder}
+              className="flex h-10 w-full min-w-0 items-center justify-between gap-2 rounded-md border border-input bg-white px-3 text-left text-sm shadow-sm outline-none transition-colors hover:bg-slate-50 focus:border-ring focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <span className={cn("min-w-0 flex-1 truncate", !selected && "text-slate-400")}>
+                {selected?.label ?? placeholder ?? ""}
+              </span>
+              {loading ? <Loader2 className="h-4 w-4 shrink-0 animate-spin text-slate-400" /> : <ChevronDown className="h-4 w-4 shrink-0 text-slate-500" />}
+            </button>
+          </PopoverTrigger>
+          <PopoverContent
+            align="start"
+            sideOffset={4}
+            role="listbox"
+            className="z-[5000] max-h-[min(320px,var(--radix-popover-content-available-height))] w-[var(--radix-popover-trigger-width)] min-w-[var(--radix-popover-trigger-width)] gap-0 overflow-y-auto rounded-md border border-slate-200 bg-white p-1 shadow-lg"
+          >
             {options.map((option) => (
-              <ShadcnSelectItem key={String(option.value)} value={String(option.value)} disabled={option.disabled}>
-                {option.label}
-              </ShadcnSelectItem>
+              <SelectOptionButton
+                key={String(option.value)}
+                option={option}
+                selected={String(option.value) === currentValueString}
+                onSelect={commit}
+                optionRender={optionRender}
+              />
             ))}
-          </ShadcnSelectContent>
-        </ShadcnSelectRoot>
+            {!options.length ? <div className="px-3 py-2 text-sm text-slate-500">{notFoundContent ?? "暂无数据"}</div> : null}
+          </PopoverContent>
+        </Popover>
       </span>
     );
   }
@@ -418,6 +434,35 @@ export function Select({
         </div>
       ) : null}
     </div>
+  );
+}
+
+function SelectOptionButton({
+  option,
+  selected,
+  onSelect,
+  optionRender,
+}: {
+  option: Option;
+  selected: boolean;
+  onSelect: (option: Option) => void;
+  optionRender?: (option: { data: Option }) => ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      role="option"
+      aria-selected={selected}
+      disabled={option.disabled}
+      onClick={() => onSelect(option)}
+      className={cn(
+        "relative flex min-h-8 w-full items-center rounded-sm px-3 py-1.5 pr-8 text-left text-sm outline-none transition-colors disabled:pointer-events-none disabled:opacity-50",
+        selected ? "bg-[#5b6fff] text-white" : "text-slate-900 hover:bg-slate-50 focus:bg-slate-50"
+      )}
+    >
+      <span className="min-w-0 flex-1 truncate">{optionRender ? optionRender({ data: option }) : option.label}</span>
+      {selected ? <Check className="absolute right-2 h-4 w-4" /> : null}
+    </button>
   );
 }
 
@@ -798,18 +843,12 @@ export function Table<T extends Record<string, any>>({ columns = [], dataSource 
               </PaginationContent>
             </Pagination>
             {paging.showSizeChanger ? (
-              <ShadcnSelectRoot value={String(pageSize)} onValueChange={(value) => paging.onChange?.(1, Number(value))}>
-                <ShadcnSelectTrigger className="h-8 w-[104px] rounded-md bg-white text-xs">
-                  <ShadcnSelectValue />
-                </ShadcnSelectTrigger>
-                <ShadcnSelectContent position="popper" className="z-[5000] bg-white">
-                  {(paging.pageSizeOptions || [20, 50, 100]).map((option) => (
-                    <ShadcnSelectItem key={String(option)} value={String(option)}>
-                      {option} 条/页
-                    </ShadcnSelectItem>
-                  ))}
-                </ShadcnSelectContent>
-              </ShadcnSelectRoot>
+              <Select
+                className="w-[104px]"
+                value={String(pageSize)}
+                options={(paging.pageSizeOptions || [20, 50, 100]).map((option) => ({ value: String(option), label: `${option} 条/页` }))}
+                onChange={(value) => paging.onChange?.(1, Number(value))}
+              />
             ) : null}
           </div>
         </div>
@@ -1034,22 +1073,233 @@ export function Skeleton({
 
 export const DatePicker = {
   RangePicker({ value, onChange, className, placeholder }: { value?: [any, any]; onChange?: (value: [any, any] | undefined) => void; className?: string; placeholder?: [string, string] }) {
-    const start = value?.[0]?.format?.("YYYY-MM-DD") || "";
-    const end = value?.[1]?.format?.("YYYY-MM-DD") || "";
-    function commit(nextStart: string, nextEnd: string) {
-      onChange?.(nextStart && nextEnd ? [createDateValue(nextStart), createDateValue(nextEnd)] : undefined);
+    const selectedStart = dateValueToString(value?.[0]);
+    const selectedEnd = dateValueToString(value?.[1]);
+    const [open, setOpen] = useState(false);
+    const [draftStart, setDraftStart] = useState(selectedStart);
+    const [draftEnd, setDraftEnd] = useState(selectedEnd);
+    const [viewMonth, setViewMonth] = useState(() => startOfMonth(parseDate(selectedStart) || new Date()));
+
+    useEffect(() => {
+      setDraftStart(selectedStart);
+      setDraftEnd(selectedEnd);
+      if (selectedStart) setViewMonth(startOfMonth(parseDate(selectedStart) || new Date()));
+    }, [selectedStart, selectedEnd]);
+
+    function commit(nextStart: string, nextEnd: string, close = true) {
+      if (!nextStart || !nextEnd) {
+        onChange?.(undefined);
+        return;
+      }
+      const [start, end] = compareDates(nextStart, nextEnd) <= 0 ? [nextStart, nextEnd] : [nextEnd, nextStart];
+      setDraftStart(start);
+      setDraftEnd(end);
+      onChange?.([createDateValue(start), createDateValue(end)]);
+      if (close) setOpen(false);
     }
+
+    function pickDate(date: Date) {
+      const next = formatDate(date);
+      if (!draftStart || draftEnd) {
+        setDraftStart(next);
+        setDraftEnd("");
+        return;
+      }
+      commit(draftStart, next);
+    }
+
+    function applyQuickRange(days: number) {
+      const end = formatDate(new Date());
+      const start = formatDate(addDays(new Date(), -(days - 1)));
+      commit(start, end);
+    }
+
+    function clearRange(event: React.MouseEvent<HTMLButtonElement>) {
+      event.preventDefault();
+      event.stopPropagation();
+      setDraftStart("");
+      setDraftEnd("");
+      onChange?.(undefined);
+    }
+
+    const choosingNewRange = open && Boolean(draftStart) && !draftEnd;
+    const displayStart = open ? draftStart || selectedStart : selectedStart;
+    const displayEnd = open ? (choosingNewRange ? "" : draftEnd || selectedEnd) : selectedEnd;
+
     return (
-      <span className={cn("grid grid-cols-2 gap-2", className)}>
-        <BaseInput type="date" value={start} placeholder={placeholder?.[0]} onChange={(event) => commit(event.target.value, end)} />
-        <BaseInput type="date" value={end} placeholder={placeholder?.[1]} onChange={(event) => commit(start, event.target.value)} />
-      </span>
+      <Popover open={open} onOpenChange={setOpen}>
+        <span className={cn("relative block w-full", className)}>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              aria-label="选择日期范围"
+              className="flex h-10 w-full min-w-0 items-center rounded-md border border-input bg-white px-3 pr-16 text-sm shadow-sm transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <span className="flex min-w-0 items-center gap-2 overflow-hidden">
+                <span className={cn("truncate", !displayStart && "text-slate-400")}>{displayStart || placeholder?.[0] || "开始日期"}</span>
+                <ArrowRight className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+                <span className={cn("truncate", !displayEnd && "text-slate-400")}>{displayEnd || placeholder?.[1] || "结束日期"}</span>
+              </span>
+            </button>
+          </PopoverTrigger>
+          {selectedStart || selectedEnd || draftStart || draftEnd ? (
+            <button
+              type="button"
+              aria-label="清空日期范围"
+              className="absolute right-9 top-1/2 inline-flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-sm text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              onClick={clearRange}
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          ) : null}
+          <CalendarDays className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+        </span>
+        <PopoverContent align="start" sideOffset={6} className="z-[5000] w-[min(720px,calc(100vw-2rem))] gap-0 overflow-hidden rounded-lg border border-border bg-white p-0 shadow-xl ring-1 ring-slate-950/10">
+          <div className="grid md:grid-cols-[120px_1fr]">
+            <div className="flex gap-1 border-b border-border p-2 md:block md:border-b-0 md:border-r">
+              <button type="button" className="h-9 rounded-md px-3 text-left text-sm hover:bg-slate-100 md:w-full" onClick={() => applyQuickRange(7)}>
+                最近一周
+              </button>
+              <button type="button" className="h-9 rounded-md px-3 text-left text-sm hover:bg-slate-100 md:w-full" onClick={() => applyQuickRange(30)}>
+                最近一月
+              </button>
+            </div>
+            <div className="min-w-0 p-3">
+              <div className="mb-3 flex items-center justify-between">
+                <button type="button" className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-900" onClick={() => setViewMonth((current) => addMonths(current, -1))} aria-label="上个月">
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <div className="text-sm font-semibold text-slate-900">
+                  {formatMonthTitle(viewMonth)} - {formatMonthTitle(addMonths(viewMonth, 1))}
+                </div>
+                <button type="button" className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-900" onClick={() => setViewMonth((current) => addMonths(current, 1))} aria-label="下个月">
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="grid gap-5 md:grid-cols-2">
+                {[viewMonth, addMonths(viewMonth, 1)].map((month) => (
+                  <RangeCalendarMonth
+                    key={formatMonthTitle(month)}
+                    month={month}
+                    start={draftStart}
+                    end={draftEnd}
+                    onSelect={pickDate}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        </PopoverContent>
+      </Popover>
     );
   },
 };
+
+const weekdays = ["一", "二", "三", "四", "五", "六", "日"];
+
+function RangeCalendarMonth({
+  month,
+  start,
+  end,
+  onSelect,
+}: {
+  month: Date;
+  start: string;
+  end: string;
+  onSelect: (date: Date) => void;
+}) {
+  const cells = getMonthCells(month);
+  return (
+    <div className="min-w-0">
+      <div className="mb-2 text-center text-sm font-semibold text-slate-900">{formatMonthTitle(month)}</div>
+      <div className="grid grid-cols-7 text-center text-xs font-medium text-slate-500">
+        {weekdays.map((day) => (
+          <span key={day} className="py-1">{day}</span>
+        ))}
+      </div>
+      <div className="mt-1 grid grid-cols-7 gap-1">
+        {cells.map((date) => {
+          const value = formatDate(date);
+          const inMonth = date.getMonth() === month.getMonth();
+          const selected = value === start || value === end;
+          const inRange = Boolean(start && end && compareDates(value, start) >= 0 && compareDates(value, end) <= 0);
+          return (
+            <button
+              key={value}
+              type="button"
+              aria-label={value}
+              aria-pressed={selected}
+              className={cn(
+                "h-8 rounded-md text-sm transition-colors",
+                !inMonth && "text-slate-300",
+                inRange && !selected && "bg-primary/10 text-primary",
+                selected && "bg-primary text-primary-foreground hover:bg-primary",
+                !selected && !inRange && "hover:bg-slate-100",
+              )}
+              onClick={() => onSelect(date)}
+            >
+              {date.getDate()}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function dateValueToString(value: any): string {
+  if (!value) return "";
+  if (typeof value === "string") return value.slice(0, 10);
+  if (value instanceof Date) return formatDate(value);
+  if (typeof value.format === "function") return value.format("YYYY-MM-DD");
+  return "";
+}
 
 function createDateValue(value: string) {
   return {
     format: () => value,
   };
+}
+
+function parseDate(value: string): Date | null {
+  if (!value) return null;
+  const [year, month, day] = value.split("-").map(Number);
+  if (!year || !month || !day) return null;
+  return new Date(year, month - 1, day);
+}
+
+function formatDate(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function formatMonthTitle(date: Date) {
+  return `${date.getFullYear()}年 ${date.getMonth() + 1}月`;
+}
+
+function startOfMonth(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
+function addDays(date: Date, days: number) {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+function addMonths(date: Date, months: number) {
+  return new Date(date.getFullYear(), date.getMonth() + months, 1);
+}
+
+function compareDates(left: string, right: string) {
+  return left.localeCompare(right);
+}
+
+function getMonthCells(month: Date) {
+  const first = startOfMonth(month);
+  const mondayOffset = (first.getDay() + 6) % 7;
+  const gridStart = addDays(first, -mondayOffset);
+  return Array.from({ length: 42 }, (_, index) => addDays(gridStart, index));
 }

@@ -16,7 +16,7 @@ const roleOptions = [
   { value: "owner", label: "负责人：全部权限" },
   { value: "ops", label: "运营：功能、任务、内容" },
   { value: "support", label: "客服：用户和工单" },
-  { value: "finance", label: "财务：积分和报表" },
+  { value: "finance", label: "财务：灵点和报表" },
   { value: "reviewer", label: "审核：内容处理" },
   { value: "engineer", label: "技术：任务队列和排障" },
   { value: "viewer", label: "只读：查看数据" },

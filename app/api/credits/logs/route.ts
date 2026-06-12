@@ -111,7 +111,7 @@ export async function GET(request: NextRequest) {
     if (process.env.NODE_ENV === "development") {
       console.error("[credits/logs] error:", error);
     }
-    return NextResponse.json({ error: "积分记录加载失败" }, { status: 500 });
+    return NextResponse.json({ error: "灵点记录加载失败" }, { status: 500 });
   }
 }
 
