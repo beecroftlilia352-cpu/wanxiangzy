@@ -1,10 +1,9 @@
-"use client";
+﻿"use client";
 
-import { App, ConfigProvider, theme } from "antd";
-import zhCN from "antd/locale/zh_CN";
+import { App, ConfigProvider, theme, zhCN } from "@/components/ui/shadcn-compat";
 import type { ReactNode } from "react";
 
-export function AdminAntdProvider({ children }: { children: ReactNode }) {
+export function AdminUIProvider({ children }: { children: ReactNode }) {
   return (
     <ConfigProvider
       locale={zhCN}

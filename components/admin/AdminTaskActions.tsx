@@ -1,8 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { App, Button, Input, Space, Typography } from "antd";
-import { CloseCircleOutlined, DollarCircleOutlined, RollbackOutlined, StopOutlined } from "@ant-design/icons";
+import { App, Button, Input, Space, Typography } from "@/components/ui/shadcn-compat";
+import { CloseCircleOutlined, DollarCircleOutlined, RollbackOutlined, StopOutlined } from "@/components/ui/ant-icons-compat";
 import type { ReactNode } from "react";
 import type { TaskStatusGroup } from "@/lib/task-queue";
 

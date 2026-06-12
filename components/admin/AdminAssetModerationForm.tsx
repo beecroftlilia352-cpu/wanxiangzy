@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { App, Button, Form, Input, Modal, Radio, Space, Typography } from "antd";
-import { SafetyCertificateOutlined } from "@ant-design/icons";
+import { App, Button, Form, Input, Modal, Radio, Space, Typography } from "@/components/ui/shadcn-compat";
+import { SafetyCertificateOutlined } from "@/components/ui/ant-icons-compat";
 
 type ModerationValue = {
   action: "hide" | "pass" | "escalate";

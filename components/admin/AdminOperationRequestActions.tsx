@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { App, Button, Form, Input, Modal, Space, Typography } from "antd";
-import { CheckCircleOutlined, CloseCircleOutlined } from "@ant-design/icons";
+import { App, Button, Form, Input, Modal, Space, Typography } from "@/components/ui/shadcn-compat";
+import { CheckCircleOutlined, CloseCircleOutlined } from "@/components/ui/ant-icons-compat";
 
 type ApprovalAction = "approve" | "reject";
 

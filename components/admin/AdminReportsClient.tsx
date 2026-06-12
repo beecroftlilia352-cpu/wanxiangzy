@@ -1,16 +1,20 @@
 "use client";
 
-import dynamic from "next/dynamic";
-import { Alert, Card, Select, Space, Statistic, Table, Tag, Typography } from "antd";
-import type { ColumnsType } from "antd/es/table";
+import { Bar, BarChart, CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
+import { Alert, Card, Select, Space, Statistic, Table, Tag, Typography, type ColumnsType } from "@/components/ui/shadcn-compat";
+import {
+  ChartContainer,
+  ChartLegend,
+  ChartLegendContent,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from "@/components/ui/chart";
 import type { AdminCostBreakdownItem, AdminCostDailyItem, AdminCostReport } from "@/lib/admin/data";
 
 type AdminReportsClientProps = {
   report: AdminCostReport;
 };
-
-const Line = dynamic(() => import("@ant-design/charts").then((mod) => mod.Line), { ssr: false });
-const Column = dynamic(() => import("@ant-design/charts").then((mod) => mod.Column), { ssr: false });
 
 const dayOptions = [
   { value: 7, label: "近 7 天" },
@@ -19,14 +23,26 @@ const dayOptions = [
   { value: 90, label: "近 90 天" },
 ];
 
+const reportTrendConfig = {
+  grossCredits: { label: "扣费", color: "hsl(var(--chart-1))" },
+  refundCredits: { label: "退款", color: "hsl(var(--chart-4))" },
+  settledCredits: { label: "履约", color: "hsl(var(--chart-3))" },
+  marginCredits: { label: "毛利代理", color: "hsl(var(--chart-2))" },
+} satisfies ChartConfig;
+
+const moduleMarginConfig = {
+  value: { label: "毛利代理", color: "hsl(var(--chart-2))" },
+} satisfies ChartConfig;
+
 export function AdminReportsClient({ report }: AdminReportsClientProps) {
   const fulfillmentCredits = report.metrics.generationSettledCredits + report.metrics.workflowSettledCredits;
-  const trendData = report.daily.flatMap((row) => [
-    { date: row.date, metric: "扣费", value: row.grossCredits },
-    { date: row.date, metric: "退款", value: row.refundCredits },
-    { date: row.date, metric: "履约", value: row.generationSettledCredits + row.workflowSettledCredits },
-    { date: row.date, metric: "毛利代理", value: row.marginCredits },
-  ]);
+  const trendData = report.daily.map((row) => ({
+    date: row.date,
+    grossCredits: row.grossCredits,
+    refundCredits: row.refundCredits,
+    settledCredits: row.generationSettledCredits + row.workflowSettledCredits,
+    marginCredits: row.marginCredits,
+  }));
   const moduleChart = report.modules.slice(0, 10).map((row) => ({
     label: row.label,
     value: Math.round(row.marginCredits * 10) / 10,
@@ -68,10 +84,30 @@ export function AdminReportsClient({ report }: AdminReportsClientProps) {
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.65fr)]">
         <Card title="每日趋势">
-          <Line height={320} data={trendData} xField="date" yField="value" colorField="metric" point smooth legend={{ color: { position: "bottom" } }} />
+          <ChartContainer config={reportTrendConfig} className="h-[320px] w-full">
+            <LineChart accessibilityLayer data={trendData} margin={{ left: 8, right: 16, top: 8 }}>
+              <CartesianGrid vertical={false} />
+              <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} minTickGap={24} />
+              <YAxis tickLine={false} axisLine={false} tickMargin={8} width={42} />
+              <ChartTooltip content={<ChartTooltipContent />} />
+              <ChartLegend content={<ChartLegendContent />} />
+              <Line type="monotone" dataKey="grossCredits" stroke="var(--color-grossCredits)" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="refundCredits" stroke="var(--color-refundCredits)" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="settledCredits" stroke="var(--color-settledCredits)" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="marginCredits" stroke="var(--color-marginCredits)" strokeWidth={2} dot={false} />
+            </LineChart>
+          </ChartContainer>
         </Card>
         <Card title="模块毛利代理 Top 10">
-          <Column height={320} data={moduleChart} xField="label" yField="value" colorField="label" legend={false} />
+          <ChartContainer config={moduleMarginConfig} className="h-[320px] w-full">
+            <BarChart accessibilityLayer data={moduleChart} margin={{ left: 8, right: 16 }}>
+              <CartesianGrid vertical={false} />
+              <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={8} minTickGap={18} />
+              <YAxis tickLine={false} axisLine={false} tickMargin={8} width={42} />
+              <ChartTooltip content={<ChartTooltipContent />} />
+              <Bar dataKey="value" fill="var(--color-value)" radius={4} />
+            </BarChart>
+          </ChartContainer>
         </Card>
       </div>
 

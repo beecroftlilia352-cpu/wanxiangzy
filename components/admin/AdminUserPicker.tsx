@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Select, Space, Tag, Typography } from "antd";
+import { Select, Space, Tag, Typography } from "@/components/ui/shadcn-compat";
 import type { AdminUserListItem } from "@/lib/admin/data";
 
 type AdminUserPickerProps = {

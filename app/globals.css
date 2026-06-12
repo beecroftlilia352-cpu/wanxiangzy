@@ -29,6 +29,12 @@
     --input: 226 35% 86%;
     --ring: 230 100% 68%;
     --radius: 1rem;
+    --radius-sm: calc(var(--radius) - 4px);
+    --radius-md: calc(var(--radius) - 2px);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) + 4px);
+    --spacing: 0.25rem;
+    --font-heading: var(--font-sans);
 
     --codex-ink: #050505;
     --codex-muted: #4b5263;
@@ -119,16 +125,31 @@
     --studio-top-content-gap: 6px;
     --studio-task-rail-width: 92px;
     --studio-nav-rail-width: 112px;
+    --chart-1: 230 100% 68%;
+    --chart-2: 185 58% 48%;
+    --chart-3: 38 92% 55%;
+    --chart-4: 2 64% 51%;
+    --chart-5: 262 72% 58%;
+    --sidebar: 0 0% 100%;
+    --sidebar-foreground: 0 0% 2%;
+    --sidebar-primary: 230 100% 68%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 222 100% 96%;
+    --sidebar-accent-foreground: 226 18% 18%;
+    --sidebar-border: 226 35% 86%;
+    --sidebar-ring: 230 100% 68%;
   }
 
   * {
     border-color: hsl(var(--border));
     box-sizing: border-box;
+    @apply border-border outline-ring/50;
   }
 
   html {
     background: #eef4ff;
     text-size-adjust: 100%;
+    @apply font-sans;
   }
 
   body {
@@ -141,6 +162,7 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
+    @apply bg-background text-foreground;
   }
 
   button,
@@ -155,6 +177,43 @@
   canvas,
   svg {
     max-width: 100%;
+  }
+  .theme {
+    --font-heading: var(--font-sans);
+    --font-sans: var(--font-sans);
+  }
+  .dark {
+    --background: 226 18% 12%;
+    --foreground: 0 0% 98%;
+    --card: 226 18% 16%;
+    --card-foreground: 0 0% 98%;
+    --popover: 226 18% 16%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 230 100% 76%;
+    --primary-foreground: 226 18% 12%;
+    --secondary: 226 18% 20%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 226 18% 20%;
+    --muted-foreground: 224 13% 70%;
+    --accent: 230 100% 76%;
+    --accent-foreground: 226 18% 12%;
+    --destructive: 2 70% 58%;
+    --border: 226 18% 28%;
+    --input: 226 18% 28%;
+    --ring: 230 100% 76%;
+    --chart-1: 230 100% 76%;
+    --chart-2: 185 58% 58%;
+    --chart-3: 38 92% 65%;
+    --chart-4: 2 70% 58%;
+    --chart-5: 262 72% 68%;
+    --sidebar: 226 18% 16%;
+    --sidebar-foreground: 0 0% 98%;
+    --sidebar-primary: 230 100% 76%;
+    --sidebar-primary-foreground: 226 18% 12%;
+    --sidebar-accent: 226 18% 20%;
+    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-border: 226 18% 28%;
+    --sidebar-ring: 230 100% 76%;
   }
 }
 

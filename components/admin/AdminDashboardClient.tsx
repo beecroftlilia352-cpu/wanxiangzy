@@ -1,7 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import dynamic from "next/dynamic";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  XAxis,
+  YAxis,
+} from "recharts";
 import {
   Alert,
   Button,
@@ -17,18 +28,25 @@ import {
   Table,
   Tag,
   Typography,
-} from "antd";
-import type { ColumnsType } from "antd/es/table";
+  type ColumnsType,
+} from "@/components/ui/shadcn-compat";
 import {
   AlertOutlined,
-  AppstoreOutlined,
   BarChartOutlined,
   CheckCircleOutlined,
   ClockCircleOutlined,
   DollarOutlined,
   FireOutlined,
   ReloadOutlined,
-} from "@ant-design/icons";
+} from "@/components/ui/ant-icons-compat";
+import {
+  ChartContainer,
+  ChartLegend,
+  ChartLegendContent,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from "@/components/ui/chart";
 import type { AdminBreakdownItem, AdminCostDailyItem, AdminCostReport, AdminOverview, AdminTaskListItem } from "@/lib/admin/data";
 
 type AdminDashboardClientProps = {
@@ -44,19 +62,35 @@ const dayOptions = [
   { label: "近 30 天", value: 30 },
 ];
 
-const Line = dynamic(() => import("@ant-design/charts").then((mod) => mod.Line), { ssr: false });
-const Pie = dynamic(() => import("@ant-design/charts").then((mod) => mod.Pie), { ssr: false });
-const Bar = dynamic(() => import("@ant-design/charts").then((mod) => mod.Bar), { ssr: false });
-const Column = dynamic(() => import("@ant-design/charts").then((mod) => mod.Column), { ssr: false });
+const dashboardTrendConfig = {
+  tasks: { label: "任务", color: "hsl(var(--chart-1))" },
+  failed: { label: "失败", color: "hsl(var(--chart-4))" },
+  netCredits: { label: "净收入", color: "hsl(var(--chart-2))" },
+} satisfies ChartConfig;
+
+const taskStatusConfig = {
+  queued: { label: "排队中", color: "hsl(var(--chart-3))" },
+  running: { label: "运行中", color: "hsl(var(--chart-1))" },
+  completed: { label: "已完成", color: "hsl(var(--chart-2))" },
+  failed: { label: "失败", color: "hsl(var(--chart-4))" },
+} satisfies ChartConfig;
+
+const moduleRankConfig = {
+  count: { label: "数量", color: "hsl(var(--chart-1))" },
+} satisfies ChartConfig;
+
+const modelMarginConfig = {
+  margin: { label: "毛利代理", color: "hsl(var(--chart-2))" },
+} satisfies ChartConfig;
 
 export function AdminDashboardClient({ overview, report, days }: AdminDashboardClientProps) {
   const failureRate = overview.generationHealth.failureRate;
   const fulfillmentCredits = report.metrics.generationSettledCredits + report.metrics.workflowSettledCredits;
   const taskStatusData = [
-    { type: "排队中", value: overview.taskHealth.queued },
-    { type: "运行中", value: overview.taskHealth.running },
-    { type: "已完成", value: overview.taskHealth.completed },
-    { type: "失败", value: overview.taskHealth.failed },
+    { status: "queued", type: "排队中", value: overview.taskHealth.queued },
+    { status: "running", type: "运行中", value: overview.taskHealth.running },
+    { status: "completed", type: "已完成", value: overview.taskHealth.completed },
+    { status: "failed", type: "失败", value: overview.taskHealth.failed },
   ].filter((item) => item.value > 0);
   const trendData = buildTrendData(report.daily);
   const moduleRank = overview.moduleStats.slice(0, 10).map((item) => ({
@@ -114,17 +148,18 @@ export function AdminDashboardClient({ overview, report, days }: AdminDashboardC
         <Col xs={24} xl={15}>
           <Card title="每日趋势" extra={<Typography.Text type="secondary">近 {days} 天</Typography.Text>}>
             {trendData.length ? (
-              <Line
-                height={300}
-                data={trendData}
-                xField="date"
-                yField="value"
-                colorField="metric"
-                point
-                smooth
-                legend={{ color: { position: "bottom" } }}
-                axis={{ y: { labelFormatter: (value: number) => `${value}` } }}
-              />
+              <ChartContainer config={dashboardTrendConfig} className="h-[300px] w-full">
+                <LineChart accessibilityLayer data={trendData} margin={{ left: 8, right: 16, top: 8 }}>
+                  <CartesianGrid vertical={false} />
+                  <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} minTickGap={24} />
+                  <YAxis tickLine={false} axisLine={false} tickMargin={8} width={42} />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <ChartLegend content={<ChartLegendContent />} />
+                  <Line type="monotone" dataKey="tasks" stroke="var(--color-tasks)" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="failed" stroke="var(--color-failed)" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="netCredits" stroke="var(--color-netCredits)" strokeWidth={2} dot={false} />
+                </LineChart>
+              </ChartContainer>
             ) : (
               <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无趋势数据" />
             )}
@@ -133,15 +168,17 @@ export function AdminDashboardClient({ overview, report, days }: AdminDashboardC
         <Col xs={24} xl={9}>
           <Card title="任务状态">
             {taskStatusData.length ? (
-              <Pie
-                height={300}
-                data={taskStatusData}
-                angleField="value"
-                colorField="type"
-                innerRadius={0.62}
-                legend={{ color: { position: "bottom" } }}
-                label={{ text: "type", position: "outside" }}
-              />
+              <ChartContainer config={taskStatusConfig} className="h-[300px] w-full">
+                <PieChart accessibilityLayer>
+                  <ChartTooltip content={<ChartTooltipContent nameKey="type" hideLabel />} />
+                  <Pie data={taskStatusData} dataKey="value" nameKey="type" innerRadius={70} outerRadius={108} paddingAngle={2}>
+                    {taskStatusData.map((item) => (
+                      <Cell key={item.status} fill={`var(--color-${item.status})`} />
+                    ))}
+                  </Pie>
+                  <ChartLegend content={<ChartLegendContent nameKey="status" />} />
+                </PieChart>
+              </ChartContainer>
             ) : (
               <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无任务状态" />
             )}
@@ -153,7 +190,15 @@ export function AdminDashboardClient({ overview, report, days }: AdminDashboardC
         <Col xs={24} xl={12}>
           <Card title="模块排行">
             {moduleRank.length ? (
-              <Bar height={320} data={moduleRank} xField="count" yField="module" colorField="module" legend={false} />
+              <ChartContainer config={moduleRankConfig} className="h-[320px] w-full">
+                <BarChart accessibilityLayer data={moduleRank} layout="vertical" margin={{ left: 8, right: 16 }}>
+                  <CartesianGrid horizontal={false} />
+                  <XAxis type="number" tickLine={false} axisLine={false} />
+                  <YAxis dataKey="module" type="category" tickLine={false} axisLine={false} tickMargin={8} width={112} />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Bar dataKey="count" fill="var(--color-count)" radius={4} />
+                </BarChart>
+              </ChartContainer>
             ) : (
               <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无模块统计" />
             )}
@@ -162,7 +207,15 @@ export function AdminDashboardClient({ overview, report, days }: AdminDashboardC
         <Col xs={24} xl={12}>
           <Card title="模型毛利代理">
             {modelMargin.length ? (
-              <Column height={320} data={modelMargin} xField="model" yField="margin" colorField="model" legend={false} />
+              <ChartContainer config={modelMarginConfig} className="h-[320px] w-full">
+                <BarChart accessibilityLayer data={modelMargin} margin={{ left: 8, right: 16 }}>
+                  <CartesianGrid vertical={false} />
+                  <XAxis dataKey="model" tickLine={false} axisLine={false} tickMargin={8} minTickGap={18} />
+                  <YAxis tickLine={false} axisLine={false} tickMargin={8} width={42} />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Bar dataKey="margin" fill="var(--color-margin)" radius={4} />
+                </BarChart>
+              </ChartContainer>
             ) : (
               <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无模型统计" />
             )}
@@ -310,11 +363,12 @@ function StatusTag({ status, label }: { status: string; label: string }) {
 }
 
 function buildTrendData(rows: AdminCostDailyItem[]) {
-  return rows.flatMap((row) => [
-    { date: row.date, metric: "任务", value: row.tasks },
-    { date: row.date, metric: "失败", value: row.failed },
-    { date: row.date, metric: "净收入", value: Math.round(row.grossCredits - row.refundCredits) },
-  ]);
+  return rows.map((row) => ({
+    date: row.date,
+    tasks: row.tasks,
+    failed: row.failed,
+    netCredits: Math.round(row.grossCredits - row.refundCredits),
+  }));
 }
 
 function formatNumber(value: number) {

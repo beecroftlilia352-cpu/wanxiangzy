@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { Alert, Button, Card, Checkbox, Image, Input, Progress, Select, Space, Statistic, Table, Tag, Tooltip, Typography } from "antd";
-import type { ColumnsType } from "antd/es/table";
-import { ApiOutlined, SearchOutlined } from "@ant-design/icons";
+import { Alert, Button, Card, Checkbox, Image, Input, Progress, Select, Space, Statistic, Table, Tag, Tooltip, Typography } from "@/components/ui/shadcn-compat";
+import type { ColumnsType } from "@/components/ui/shadcn-compat";
+import { ApiOutlined, SearchOutlined } from "@/components/ui/ant-icons-compat";
 import { AdminTaskActions } from "@/components/admin/AdminTaskActions";
 import type { AdminTaskList, AdminTaskListItem } from "@/lib/admin/data";
 import type { TaskStatusGroup } from "@/lib/task-queue";

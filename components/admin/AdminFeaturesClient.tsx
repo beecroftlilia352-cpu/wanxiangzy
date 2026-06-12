@@ -16,9 +16,9 @@ import {
   Tag,
   Typography,
   App as AntdApp,
-} from "antd";
-import type { ColumnsType } from "antd/es/table";
-import { DeleteOutlined, EditOutlined, PlusOutlined } from "@ant-design/icons";
+} from "@/components/ui/shadcn-compat";
+import type { ColumnsType } from "@/components/ui/shadcn-compat";
+import { DeleteOutlined, EditOutlined, PlusOutlined } from "@/components/ui/ant-icons-compat";
 import type { AdminFeatureConfig, AdminFeatureRegistry } from "@/lib/admin/features";
 
 type AdminFeaturesClientProps = {

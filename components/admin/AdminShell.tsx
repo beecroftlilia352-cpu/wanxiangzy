@@ -28,9 +28,8 @@ import {
   TeamOutlined,
   ToolOutlined,
   UserOutlined,
-} from "@ant-design/icons";
-import { Avatar, Breadcrumb, Button, Drawer, Layout, Menu, Space, Spin, Tag, Typography } from "antd";
-import type { MenuProps } from "antd";
+} from "@/components/ui/ant-icons-compat";
+import { Avatar, Breadcrumb, Button, Drawer, Layout, Menu, Space, Spin, Tag, Typography, type MenuProps } from "@/components/ui/shadcn-compat";
 import type { AdminRole } from "@/lib/admin/permissions";
 
 type AdminShellProps = {
@@ -164,7 +163,7 @@ export function AdminShell({ admin, children }: AdminShellProps) {
   }
 
   return (
-    <Layout className="admin-app-shell" onSubmit={handleSubmit}>
+    <Layout className="admin-app-shell flex" onSubmit={handleSubmit}>
       <AdminRouteLoading active={routeLoading} />
       <Layout.Sider
         width={252}
@@ -172,7 +171,7 @@ export function AdminShell({ admin, children }: AdminShellProps) {
         collapsible
         collapsed={collapsed}
         trigger={null}
-        className="admin-sider"
+        className={`admin-sider shrink-0 transition-[width] duration-200 ${collapsed ? "w-[76px]" : "w-[252px]"}`}
       >
         <AdminBrand collapsed={collapsed} />
         <Menu
@@ -199,7 +198,7 @@ export function AdminShell({ admin, children }: AdminShellProps) {
         </div>
       </Drawer>
 
-      <Layout>
+      <Layout className="min-w-0 flex-1 flex-col">
         <Layout.Header className="admin-topbar">
           <Space className="min-w-0" size={12}>
             <Button

@@ -18,7 +18,14 @@ import {
   Search,
   UserRound,
 } from "lucide-react";
-import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   clearCachedProfile,
   clearCachedProfileCredits,
@@ -257,51 +264,49 @@ function MarketingAccountActions({
   }
 
   return (
-    <DropdownMenu.Root modal={false}>
-      <DropdownMenu.Trigger asChild>
+    <DropdownMenu modal={false}>
+      <DropdownMenuTrigger asChild>
         <button type="button" className="home-login-pill hidden h-10 items-center gap-1.5 rounded-full px-4 transition sm:inline-flex">
           <Coins className="h-3.5 w-3.5" />
           {creditsReady ? <span>{credits ?? "--"}</span> : <span className="h-3 w-5 animate-pulse rounded bg-current opacity-20" />}
           <ChevronDown className="h-3.5 w-3.5" />
         </button>
-      </DropdownMenu.Trigger>
-      <DropdownMenu.Portal>
-        <DropdownMenu.Content
-          align="end"
-          sideOffset={8}
-          className="mac-surface z-[80] min-w-[180px] overflow-hidden rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl shadow-slate-200/50"
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="end"
+        sideOffset={8}
+        className="mac-surface z-[80] min-w-[180px] overflow-hidden rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl shadow-slate-200/50"
+      >
+        <AccountMenuHeader email={email} credits={credits} creditsReady={creditsReady} />
+        <AccountMenuLink href="/account" icon={UserRound} label="个人中心" />
+        <AccountMenuLink href="/account?tab=credits" icon={Coins} label="积分明细" />
+        <AccountMenuLink href="/account?tab=orders" icon={CreditCard} label="充值记录" />
+        <AccountMenuLink href="/account?tab=help" icon={CircleHelp} label="帮助中心" />
+        <AccountMenuLink href="/account?tab=messages" icon={Bell} label="消息中心" />
+        <AccountMenuLink href="/account?tab=feedback" icon={MessageSquare} label="客服反馈" />
+        <DropdownMenuSeparator className="my-1 h-px bg-slate-100" />
+        <AccountMenuLink href="/history" icon={ArrowUpRight} label="我的作品" />
+        <AccountMenuLink href="/create" icon={Home} label="进入工作台" />
+        <DropdownMenuItem
+          disabled={isLoggingOut}
+          onSelect={(event) => {
+            event.preventDefault();
+            onLogout();
+          }}
+          className="flex cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 outline-none transition hover:bg-slate-50 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50"
         >
-          <AccountMenuHeader email={email} credits={credits} creditsReady={creditsReady} />
-          <AccountMenuLink href="/account" icon={UserRound} label="个人中心" />
-          <AccountMenuLink href="/account?tab=credits" icon={Coins} label="积分明细" />
-          <AccountMenuLink href="/account?tab=orders" icon={CreditCard} label="充值记录" />
-          <AccountMenuLink href="/account?tab=help" icon={CircleHelp} label="帮助中心" />
-          <AccountMenuLink href="/account?tab=messages" icon={Bell} label="消息中心" />
-          <AccountMenuLink href="/account?tab=feedback" icon={MessageSquare} label="客服反馈" />
-          <DropdownMenu.Separator className="my-1 h-px bg-slate-100" />
-          <AccountMenuLink href="/history" icon={ArrowUpRight} label="我的作品" />
-          <AccountMenuLink href="/create" icon={Home} label="进入工作台" />
-          <DropdownMenu.Item
-            disabled={isLoggingOut}
-            onSelect={(event) => {
-              event.preventDefault();
-              onLogout();
-            }}
-            className="flex cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 outline-none transition hover:bg-slate-50 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50"
-          >
-            <LogOut className="h-4 w-4" />
-            {isLoggingOut ? "退出中" : "退出登录"}
-          </DropdownMenu.Item>
-        </DropdownMenu.Content>
-      </DropdownMenu.Portal>
-    </DropdownMenu.Root>
+          <LogOut className="h-4 w-4" />
+          {isLoggingOut ? "退出中" : "退出登录"}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
 function MarketingMobileMenu() {
   return (
-    <DropdownMenu.Root modal={false}>
-      <DropdownMenu.Trigger asChild>
+    <DropdownMenu modal={false}>
+      <DropdownMenuTrigger asChild>
         <button
           type="button"
           className="home-menu-pill inline-flex h-10 w-10 items-center justify-center rounded-full outline-none transition focus-visible:ring-4 focus-visible:ring-[rgba(91,124,255,0.18)] lg:hidden"
@@ -309,26 +314,24 @@ function MarketingMobileMenu() {
         >
           <Menu className="h-4 w-4" />
         </button>
-      </DropdownMenu.Trigger>
-      <DropdownMenu.Portal>
-        <DropdownMenu.Content
-          align="end"
-          sideOffset={8}
-          className="mac-surface z-[80] min-w-[220px] overflow-hidden rounded-2xl border border-white/80 bg-white/95 p-1.5 shadow-xl shadow-slate-300/45"
-        >
-          {marketingNav.map((item) => (
-            <DropdownMenu.Item key={item.href} asChild>
-              <Link
-                href={item.href}
-                className="flex items-center rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 outline-none transition hover:bg-slate-50 focus:bg-slate-50 data-[highlighted]:bg-slate-50"
-              >
-                {item.label}
-              </Link>
-            </DropdownMenu.Item>
-          ))}
-        </DropdownMenu.Content>
-      </DropdownMenu.Portal>
-    </DropdownMenu.Root>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="end"
+        sideOffset={8}
+        className="mac-surface z-[80] min-w-[220px] overflow-hidden rounded-2xl border border-white/80 bg-white/95 p-1.5 shadow-xl shadow-slate-300/45"
+      >
+        {marketingNav.map((item) => (
+          <DropdownMenuItem key={item.href} asChild>
+            <Link
+              href={item.href}
+              className="flex items-center rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 outline-none transition hover:bg-slate-50 focus:bg-slate-50 data-[highlighted]:bg-slate-50"
+            >
+              {item.label}
+            </Link>
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -633,68 +636,56 @@ function AccountAvatarDropdown({
   onLogout: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const allowOpenRef = useRef(false);
-
-  function allowIntentionalOpen() {
-    allowOpenRef.current = true;
-  }
 
   return (
-    <DropdownMenu.Root
+    <DropdownMenu
       modal={false}
       open={open}
-      onOpenChange={(nextOpen) => {
-        if (nextOpen && !allowOpenRef.current) return;
-        allowOpenRef.current = false;
-        setOpen(nextOpen);
-      }}
+      onOpenChange={setOpen}
     >
-      <DropdownMenu.Trigger asChild>
+      <DropdownMenuTrigger asChild>
         <button
           type="button"
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#dbe6ff] text-[#6d8fe8] shadow-sm ring-1 ring-[#c8d7ff] transition hover:bg-[#cfddff] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(91,124,255,0.18)]"
           title="打开个人中心"
           aria-label="打开个人中心菜单"
-          onPointerDownCapture={allowIntentionalOpen}
-          onKeyDownCapture={(event) => {
-            if (event.key === "Enter" || event.key === " " || event.key === "ArrowDown") {
-              allowIntentionalOpen();
-            }
-          }}
+          aria-expanded={open}
         >
-          <UserRound className="h-4 w-4" />
+          <Avatar className="size-8 bg-[#dbe6ff] text-[#6d8fe8]">
+            <AvatarFallback className="bg-[#dbe6ff] text-xs font-black text-[#6d8fe8]">
+              {getAvatarFallback(email)}
+            </AvatarFallback>
+          </Avatar>
         </button>
-      </DropdownMenu.Trigger>
-      <DropdownMenu.Portal>
-        <DropdownMenu.Content
-          align="end"
-          sideOffset={12}
-          className="z-[80] w-[272px] overflow-hidden rounded-md border border-slate-100 bg-white shadow-[0_18px_50px_rgba(15,23,42,0.16)]"
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="end"
+        sideOffset={12}
+        className="z-[80] w-[272px] overflow-hidden rounded-md border border-slate-100 bg-white shadow-[0_18px_50px_rgba(15,23,42,0.16)]"
+      >
+        <AccountMenuHeader email={email} credits={credits} creditsReady={creditsReady} />
+        <AccountMenuBanner />
+        <AccountMenuLink href="/account" icon={UserRound} label="个人中心" />
+        <AccountMenuLink href="/pricing" icon={CreditCard} label="充值中心" />
+        <AccountMenuLink href="/account?tab=credits" icon={Coins} label="积分明细" />
+        <AccountMenuLink href="/account?tab=orders" icon={CreditCard} label="充值记录" />
+        <AccountMenuLink href="/account?tab=help" icon={CircleHelp} label="帮助中心" />
+        <AccountMenuLink href="/account?tab=messages" icon={Bell} label="消息中心" />
+        <AccountMenuLink href="/account?tab=feedback" icon={MessageSquare} label="客服反馈" />
+        <DropdownMenuSeparator className="h-px bg-slate-100" />
+        <DropdownMenuItem
+          disabled={isLoggingOut}
+          onSelect={(event) => {
+            event.preventDefault();
+            onLogout();
+          }}
+          className="flex cursor-pointer items-center gap-2.5 px-4 py-3 text-sm font-medium text-slate-700 outline-none transition hover:bg-slate-50 data-[highlighted]:bg-slate-50 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50"
         >
-          <AccountMenuHeader email={email} credits={credits} creditsReady={creditsReady} />
-          <AccountMenuBanner />
-          <AccountMenuLink href="/account" icon={UserRound} label="个人中心" />
-          <AccountMenuLink href="/pricing" icon={CreditCard} label="充值中心" />
-          <AccountMenuLink href="/account?tab=credits" icon={Coins} label="积分明细" />
-          <AccountMenuLink href="/account?tab=orders" icon={CreditCard} label="充值记录" />
-          <AccountMenuLink href="/account?tab=help" icon={CircleHelp} label="帮助中心" />
-          <AccountMenuLink href="/account?tab=messages" icon={Bell} label="消息中心" />
-          <AccountMenuLink href="/account?tab=feedback" icon={MessageSquare} label="客服反馈" />
-          <DropdownMenu.Separator className="h-px bg-slate-100" />
-          <DropdownMenu.Item
-            disabled={isLoggingOut}
-            onSelect={(event) => {
-              event.preventDefault();
-              onLogout();
-            }}
-            className="flex cursor-pointer items-center gap-2.5 px-4 py-3 text-sm font-medium text-slate-700 outline-none transition hover:bg-slate-50 data-[highlighted]:bg-slate-50 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50"
-          >
-            <LogOut className="h-4 w-4" />
-            {isLoggingOut ? "退出中" : "退出登录"}
-          </DropdownMenu.Item>
-        </DropdownMenu.Content>
-      </DropdownMenu.Portal>
-    </DropdownMenu.Root>
+          <LogOut className="h-4 w-4" />
+          {isLoggingOut ? "退出中" : "退出登录"}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -711,9 +702,11 @@ function AccountMenuHeader({
   return (
     <div className="bg-[#f8fafc] px-3 py-3">
       <div className="flex items-center gap-3">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#c8d7ff] text-sm font-black text-white">
-          {(email || "V").slice(0, 1).toUpperCase()}
-        </span>
+        <Avatar size="lg" className="bg-[#c8d7ff] text-white">
+          <AvatarFallback className="bg-[#c8d7ff] text-sm font-black text-white">
+            {getAvatarFallback(email)}
+          </AvatarFallback>
+        </Avatar>
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold text-slate-950">{masked}</p>
           <p className="mt-0.5 text-xs text-slate-500">个人账户</p>
@@ -754,13 +747,18 @@ function AccountMenuLink({
   label: string;
 }) {
   return (
-    <DropdownMenu.Item asChild>
+    <DropdownMenuItem asChild>
       <Link href={href} className="flex h-10 items-center gap-2.5 border-t border-slate-100 px-4 text-sm font-medium text-slate-800 outline-none transition hover:bg-slate-50 focus:bg-slate-50 data-[highlighted]:bg-slate-50">
         <Icon className="h-4 w-4" />
         {label}
       </Link>
-    </DropdownMenu.Item>
+    </DropdownMenuItem>
   );
+}
+
+function getAvatarFallback(email: string | null) {
+  const name = email?.split("@")[0]?.trim();
+  return (name?.slice(0, 1) || "V").toUpperCase();
 }
 
 function maskAccountLabel(value: string) {
@@ -774,8 +772,8 @@ function MobileModuleMenu({ activeModule }: { activeModule: string }) {
   const ActiveIcon = active.icon;
 
   return (
-    <DropdownMenu.Root modal={false}>
-      <DropdownMenu.Trigger asChild>
+    <DropdownMenu modal={false}>
+      <DropdownMenuTrigger asChild>
         <button
           type="button"
           className="mac-button inline-flex h-9 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 shadow-sm"
@@ -785,59 +783,57 @@ function MobileModuleMenu({ activeModule }: { activeModule: string }) {
           <span className="hidden sm:inline">{active.label}</span>
           <Menu className="h-3.5 w-3.5" />
         </button>
-      </DropdownMenu.Trigger>
-      <DropdownMenu.Portal>
-        <DropdownMenu.Content
-          align="end"
-          sideOffset={8}
-          className="mac-surface z-[80] min-w-[190px] overflow-hidden rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl shadow-slate-200/50"
-        >
-          {TOP_MODULES.map((item) => {
-            const Icon = item.icon;
-            const isActive = item.key === activeModule;
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="end"
+        sideOffset={8}
+        className="mac-surface z-[80] min-w-[190px] overflow-hidden rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl shadow-slate-200/50"
+      >
+        {TOP_MODULES.map((item) => {
+          const Icon = item.icon;
+          const isActive = item.key === activeModule;
 
-            if (item.comingSoon) {
-              return (
-                <DropdownMenu.Item
-                  key={item.key}
-                  disabled
-                  className="flex cursor-not-allowed items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-400 outline-none"
-                >
-                  <Icon className="h-4 w-4" />
-                  <span className="flex flex-1 items-center justify-between gap-3">
-                    {item.label}
-                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500">
-                      即将上线
-                    </span>
-                  </span>
-                </DropdownMenu.Item>
-              );
-            }
-
+          if (item.comingSoon) {
             return (
-              <DropdownMenu.Item key={item.key} asChild>
-                <Link
-                  href={item.href}
-                  className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-bold outline-none transition-colors ${
-                    isActive ? "bg-white/80 text-[var(--mac-accent)]" : "text-slate-600 hover:bg-slate-50 hover:text-slate-950"
-                  }`}
-                >
-                  <Icon className="h-4 w-4" />
-                  <span className="flex min-w-0 flex-1 items-center justify-between gap-3">
-                    <span className="truncate">{item.label}</span>
-                    {item.badge && (
-                      <span className="rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-black leading-none text-white shadow-sm shadow-red-500/20">
-                        {item.badge}
-                      </span>
-                    )}
+              <DropdownMenuItem
+                key={item.key}
+                disabled
+                className="flex cursor-not-allowed items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-400 outline-none"
+              >
+                <Icon className="h-4 w-4" />
+                <span className="flex flex-1 items-center justify-between gap-3">
+                  {item.label}
+                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500">
+                    即将上线
                   </span>
-                </Link>
-              </DropdownMenu.Item>
+                </span>
+              </DropdownMenuItem>
             );
-          })}
-        </DropdownMenu.Content>
-      </DropdownMenu.Portal>
-    </DropdownMenu.Root>
+          }
+
+          return (
+            <DropdownMenuItem key={item.key} asChild>
+              <Link
+                href={item.href}
+                className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-bold outline-none transition-colors ${
+                  isActive ? "bg-white/80 text-[var(--mac-accent)]" : "text-slate-600 hover:bg-slate-50 hover:text-slate-950"
+                }`}
+              >
+                <Icon className="h-4 w-4" />
+                <span className="flex min-w-0 flex-1 items-center justify-between gap-3">
+                  <span className="truncate">{item.label}</span>
+                  {item.badge && (
+                    <span className="rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-black leading-none text-white shadow-sm shadow-red-500/20">
+                      {item.badge}
+                    </span>
+                  )}
+                </span>
+              </Link>
+            </DropdownMenuItem>
+          );
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 

@@ -19,11 +19,10 @@ import {
   Table,
   Tag,
   Typography,
-  theme as antdTheme,
-} from "antd";
-import type { ColumnsType } from "antd/es/table";
-import zhCN from "antd/locale/zh_CN";
-import dayjs, { type Dayjs } from "dayjs";
+  theme as uiTheme,
+  zhCN,
+  type ColumnsType,
+} from "@/components/ui/shadcn-compat";
 import {
   Bell,
   ChevronDown,
@@ -53,6 +52,7 @@ type OrderStatus = "all" | "pending" | "processing" | "paid" | "failed" | "cance
 type OrderGrantStatus = "all" | "pending" | "granted" | "failed" | "skipped" | "refunded" | "reversed" | "partial";
 type OrderMode = "all" | "payment" | "subscription";
 type OrderSort = "newest" | "oldest" | "amount_desc" | "amount_asc" | "credits_desc" | "updated_desc";
+type DateRangeValue = [{ format: (format: string) => string }, { format: (format: string) => string }];
 
 type ProfilePayload = {
   user?: { id?: string | null; email?: string | null } | null;
@@ -415,7 +415,7 @@ export function AccountCenterClient() {
       locale={zhCN}
       getPopupContainer={(triggerNode) => triggerNode?.parentElement || document.body}
       theme={{
-        algorithm: antdTheme.compactAlgorithm,
+        algorithm: uiTheme.compactAlgorithm,
         token: {
           colorPrimary: "#5b7cff",
           colorInfo: "#1677ff",
@@ -709,7 +709,7 @@ function CreditLogsPanel({
   onFiltersChange: (filters: CreditFilters) => void;
   onPageChange: (page: number, pageSize: number) => void;
 }) {
-  const [form] = Form.useForm<CreditFilters & { range?: [Dayjs, Dayjs] }>();
+  const [form] = Form.useForm<CreditFilters & { range?: DateRangeValue }>();
   const columns = useMemo<ColumnsType<CreditLog>>(
     () => [
       { title: "产品", width: 120, render: () => "潮际好麦" },
@@ -813,7 +813,7 @@ function OrdersPanel({
   onFiltersChange: (filters: OrderFilters) => void;
   onPageChange: (page: number, pageSize: number) => void;
 }) {
-  const [form] = Form.useForm<OrderFilters & { range?: [Dayjs, Dayjs] }>();
+  const [form] = Form.useForm<OrderFilters & { range?: DateRangeValue }>();
   const columns = useMemo<ColumnsType<BillingOrder>>(
     () => [
       { title: "订单ID", dataIndex: "id", width: 210, ellipsis: true },
@@ -1122,12 +1122,18 @@ function getTabLabel(tab: AccountTab) {
 }
 
 function toRangeValue(filters: { from: string; to: string }) {
-  return filters.from && filters.to ? [dayjs(filters.from), dayjs(filters.to)] as [Dayjs, Dayjs] : undefined;
+  return filters.from && filters.to ? [createDateValue(filters.from), createDateValue(filters.to)] as DateRangeValue : undefined;
 }
 
-function dateRangeToStrings(range?: [Dayjs, Dayjs]) {
+function dateRangeToStrings(range?: DateRangeValue) {
   if (!range?.[0] || !range?.[1]) return ["", ""] as const;
   return [range[0].format("YYYY-MM-DD"), range[1].format("YYYY-MM-DD")] as const;
+}
+
+function createDateValue(value: string) {
+  return {
+    format: () => value,
+  };
 }
 
 function featureLabel(reason?: string | null) {
