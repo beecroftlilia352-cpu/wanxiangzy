@@ -132,7 +132,7 @@ export async function POST(request: Request) {
       if (posePlanInflight.get(cacheKey) === nextRequest) {
         posePlanInflight.delete(cacheKey);
       }
-    });
+    }).catch(() => undefined);
     inflightRequest = nextRequest;
   }
 

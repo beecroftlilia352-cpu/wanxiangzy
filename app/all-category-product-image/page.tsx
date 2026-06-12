@@ -26,6 +26,7 @@ import {
 import { toast } from "sonner";
 import { ClientPortal } from "@/components/ClientPortal";
 import { FeatureTabs } from "@/components/FeatureTabs";
+import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
 import { StudioGenerationCountSelector } from "@/components/studio/StudioFormControls";
 import {
   ALL_CATEGORY_PRODUCT_IMAGE_LANGUAGES,
@@ -49,7 +50,9 @@ import type {
   ProductSetProductProfile,
   ProductSetSettings,
 } from "@/lib/product-set";
+import { getProductSetModuleQualityLabel } from "@/lib/product-set";
 import { downloadImage, generateDownloadFilename, MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
+import { createProductSetPreviewSession, takeSourceImageFromLocation, type ImagePreviewAction, type ImagePreviewResultStatus } from "@/lib/studio-image-preview";
 
 type StepKey = "input" | "analyzing" | "planning" | "generating" | "done";
 
@@ -141,6 +144,17 @@ const GENERATE_PROGRESS_MESSAGES = [
   "正在进行高保真像素渲染...",
   "正在优化图像纹理与细节...",
   "即将完成，正在进行最后润色...",
+];
+
+const ALL_CATEGORY_PREVIEW_ACTIONS: ImagePreviewAction[] = [
+  { kind: "download", label: "下载图片" },
+  { kind: "copy", label: "复制链接" },
+  { kind: "regenerateOne", label: "重生本张" },
+  { kind: "aiVideo", label: "AI视频" },
+  { kind: "modelBackground", label: "换背景" },
+  { kind: "pose", label: "姿势裂变" },
+  { kind: "productSet", label: "商品套图" },
+  { kind: "feedback", label: "反馈" },
 ];
 
 function cn(...classes: Array<string | false | null | undefined>) {
@@ -280,6 +294,7 @@ export default function AllCategoryProductImagePage() {
   const [showAiPlans, setShowAiPlans] = useState(false);
   const [editingDesignSpec, setEditingDesignSpec] = useState(false);
   const [previewImage, setPreviewImage] = useState<{ url: string; title: string } | null>(null);
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
 
   const defaultAspect = getDefaultAspect(imageType);
   const supportedSizes = useMemo(() => getSupportedImageSizes(aiModel, defaultAspect), [aiModel, defaultAspect]);
@@ -289,10 +304,56 @@ export default function AllCategoryProductImagePage() {
   const activeStepIndex = stepIndex(activeStep);
   const canAnalyze = productImages.length > 0 && !isUploading && !isAnalyzing && !isGenerating;
   const canGenerate = activeStepIndex >= stepIndex("planning") && productImages.length > 0 && !isAnalyzing && !isGenerating;
+  const allCategoryPreviewSession = useMemo(
+    () => createProductSetPreviewSession({
+      module: "allCategoryProductImage",
+      urls: resultSlots.map((slot) => slot.url || ""),
+      expectedCount: Math.max(resultSlots.length, modules.length, 1),
+      isGenerating,
+      statusGroup: isGenerating ? "running" : activeStep === "done" ? "completed" : undefined,
+      references: productImages.map((image, index) => ({
+        url: image.uploadedUrl || image.url,
+        label: image.name || `商品图 ${index + 1}`,
+        role: "product" as const,
+      })),
+      promptText: [productInfo || userBrief, designSpec].filter(Boolean).join("\n\n"),
+      metaItems: [
+        { label: "图片类型", value: imageType === "main" ? "主图辅图" : "详情页" },
+        { label: "平台", value: platform },
+        { label: "语言", value: language },
+        { label: "模型", value: aiModel },
+        { label: "分辨率", value: imageSize },
+        { label: "生成数量", value: modules.length },
+      ],
+      titles: resultSlots.map((slot, index) => slot.module.title || `商品图 ${index + 1}`),
+      subtitles: resultSlots.map((slot) => `${slot.module.description} · ${slot.module.aspectRatio || defaultAspect}`),
+      statuses: resultSlots.map((slot) => (slot.url ? "completed" : slot.status || (isGenerating ? "running" : "queued")) as ImagePreviewResultStatus),
+      errors: resultSlots.map((slot) => slot.error || null),
+      qualities: resultSlots.map((slot) => {
+        if (slot.result?.qualityScore === undefined && !slot.result?.qualitySummary && !slot.result?.qualityIssues?.length) return null;
+        return {
+          score: slot.result.qualityScore,
+          label: getProductSetModuleQualityLabel(slot.result.qualityScore).label,
+          summary: slot.result.qualitySummary,
+          issues: slot.result.qualityIssues || [],
+        };
+      }),
+    }),
+    [activeStep, aiModel, defaultAspect, designSpec, imageSize, imageType, isGenerating, language, modules.length, platform, productImages, productInfo, resultSlots, userBrief]
+  );
 
   useEffect(() => {
     if (!supportedSizes.includes(imageSize)) setImageSize(supportedSizes[0] || "1K");
   }, [imageSize, supportedSizes]);
+
+  useEffect(() => {
+    const sourceImage = takeSourceImageFromLocation();
+    if (sourceImage) {
+      setProductImages([{ url: sourceImage, name: "来自结果预览", uploadedUrl: sourceImage }]);
+      setActiveStep("input");
+      toast.success("已带入预览图片");
+    }
+  }, []);
 
   function resetOutput() {
     setResultUrls([]);
@@ -847,13 +908,25 @@ export default function AllCategoryProductImagePage() {
               )}
 
               {(resultUrls.length > 0 || activeStep === "done") && activeStep !== "generating" && (
-                <ResultGrid
-                  slots={resultSlots}
-                  regeneratingIndex={regeneratingIndex}
-                  onPreview={(url, title) => setPreviewImage({ url, title })}
-                  onDownload={downloadResult}
-                  onRegenerate={(index) => void submitGeneration(index)}
-                />
+                <div className="mt-6">
+                  <ResultGrid
+                    slots={resultSlots}
+                    regeneratingIndex={regeneratingIndex}
+                    onPreview={(_, __, index) => setPreviewIndex(index)}
+                    onDownload={downloadResult}
+                    onRegenerate={(index) => void submitGeneration(index)}
+                  />
+                  <StudioImagePreviewDialog
+                    open={previewIndex !== null}
+                    onClose={() => setPreviewIndex(null)}
+                    session={allCategoryPreviewSession}
+                    selectedIndex={previewIndex || 0}
+                    onSelectedIndexChange={setPreviewIndex}
+                    filenamePrefix="all-category-product-image"
+                    actions={ALL_CATEGORY_PREVIEW_ACTIONS}
+                    onRegenerateOne={(_, index) => void submitGeneration(index)}
+                  />
+                </div>
               )}
             </section>
           </div>
@@ -1089,7 +1162,7 @@ function ResultGrid({
 }: {
   slots: ReturnType<typeof buildResultSlots>;
   regeneratingIndex: number | null;
-  onPreview: (url: string, title: string) => void;
+  onPreview: (url: string, title: string, index: number) => void;
   onDownload: (url: string, index: number) => void;
   onRegenerate: (index: number) => void;
 }) {
@@ -1121,7 +1194,7 @@ function ResultGrid({
               )}
               {slot.url && (
                 <div className="absolute inset-0 flex items-center justify-center gap-2 bg-slate-950/0 opacity-0 transition hover:bg-slate-950/35 hover:opacity-100">
-                  <IconButton label="预览" onClick={() => onPreview(slot.url!, slot.module.title)} icon={<ZoomIn className="h-4 w-4" />} />
+                  <IconButton label="预览" onClick={() => onPreview(slot.url!, slot.module.title, index)} icon={<ZoomIn className="h-4 w-4" />} />
                   <IconButton label="下载" onClick={() => onDownload(slot.url!, index)} icon={<Download className="h-4 w-4" />} />
                   <IconButton label="重生" onClick={() => onRegenerate(index)} icon={regeneratingIndex === index ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />} />
                 </div>

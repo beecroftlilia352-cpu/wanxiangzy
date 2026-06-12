@@ -96,7 +96,7 @@ export async function POST(request: Request) {
       if (clothingAnalysisInflight.get(cacheKey) === nextRequest) {
         clothingAnalysisInflight.delete(cacheKey);
       }
-    });
+    }).catch(() => undefined);
     inflightRequest = nextRequest;
   }
 

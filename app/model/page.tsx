@@ -19,6 +19,7 @@ import { StudioUploadSection } from "@/components/studio/StudioUploadSection";
 import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
 import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
+import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
 import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
@@ -27,6 +28,7 @@ import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@
 import { applyRepairPrompt } from "@/lib/generation-repair";
 import { enforceModelPromptRequirements } from "@/lib/model-prompt";
 import { showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
+import { createGenericImagePreviewSession, referencesFromUrls, type ImagePreviewAction } from "@/lib/studio-image-preview";
 import {
   DEFAULT_MODEL_SHOOT_STYLE,
   MODEL_SHOOT_STYLES,
@@ -51,6 +53,18 @@ const ASPECTS: { value: AspectRatio; label: string }[] = [
   { value: "3:4", label: "3:4 竖版" },
   { value: "1:1", label: "1:1 头像" },
   { value: "4:3", label: "4:3 横版" },
+];
+
+const MODEL_PREVIEW_ACTIONS: ImagePreviewAction[] = [
+  { kind: "download", label: "下载图片" },
+  { kind: "copy", label: "复制链接" },
+  { kind: "repair", label: "AI修图" },
+  { kind: "aiVideo", label: "AI视频" },
+  { kind: "modelBackground", label: "换背景" },
+  { kind: "pose", label: "姿势裂变" },
+  { kind: "productSet", label: "商品套图" },
+  { kind: "regenerateAll", label: "重新创作" },
+  { kind: "feedback", label: "反馈" },
 ];
 
 const HAIR_STYLES = {
@@ -113,7 +127,7 @@ export default function ModelPage() {
   const [runningExpectedCount, setRunningExpectedCount] = useState<number | null>(null);
   const [activeResultMeta, setActiveResultMeta] = useState<{ createdAt: string; inputThumbnails: string[] } | null>(null);
   const [error, setError] = useState("");
-  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const [showModelRules, setShowModelRules] = useState(false);
   const [rulesPopoverStyle, setRulesPopoverStyle] = useState<{ top: number; left: number; maxHeight: number } | null>(null);
 
@@ -133,6 +147,34 @@ export default function ModelPage() {
   const taskInputThumbnails = useMemo(
     () => [...referenceUrls, hairReferenceUrl, hairColorReferenceUrl].filter(Boolean) as string[],
     [referenceUrls, hairReferenceUrl, hairColorReferenceUrl]
+  );
+  const previewReferences = useMemo(
+    () => referencesFromUrls(activeResultMeta?.inputThumbnails.length ? activeResultMeta.inputThumbnails : taskInputThumbnails, "reference", "参考图"),
+    [activeResultMeta, taskInputThumbnails]
+  );
+  const previewSession = useMemo(
+    () => createGenericImagePreviewSession({
+      module: "model",
+      title: "专属模特",
+      urls: resultUrls,
+      expectedCount: isGenerating ? runningExpectedCount || genCount : Math.max(resultUrls.length, 1),
+      isGenerating,
+      statusGroup: isGenerating ? "running" : undefined,
+      createdAt: activeResultMeta?.createdAt,
+      references: previewReferences,
+      promptText: prompt,
+      metaItems: [
+        { label: "性别", value: gender === "female" ? "女模特" : "男模特" },
+        { label: "拍摄风格", value: modelStyle },
+        { label: "模型", value: aiModel },
+        { label: "比例", value: aspectRatio },
+        { label: "分辨率", value: imageSize },
+        { label: "生成数量", value: genCount },
+      ],
+      resultTitlePrefix: "专属模特结果",
+      aspectRatio,
+    }),
+    [activeResultMeta, aiModel, aspectRatio, gender, genCount, imageSize, isGenerating, modelStyle, previewReferences, prompt, resultUrls, runningExpectedCount]
   );
   const taskQueue = useTaskQueueGeneration({
     module: "model",
@@ -572,7 +614,7 @@ export default function ModelPage() {
     setResultUrls([]);
     setActiveResultMeta(null);
     setError("");
-    setLightboxSrc(null);
+    setPreviewIndex(null);
     setShowModelRules(false);
     setRulesPopoverStyle(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -1004,7 +1046,7 @@ export default function ModelPage() {
                 createdAt={activeResultMeta?.createdAt}
                 statusGroup={isGenerating ? "running" : undefined}
                 variant="task"
-                onOpen={setLightboxSrc}
+                onOpen={(_, index) => setPreviewIndex(index)}
               />
             </div>
             <div className="mt-4 flex justify-center">
@@ -1015,6 +1057,17 @@ export default function ModelPage() {
                 className="w-full max-w-3xl"
               />
             </div>
+            <StudioImagePreviewDialog
+              open={previewIndex !== null}
+              onClose={() => setPreviewIndex(null)}
+              session={previewSession}
+              selectedIndex={previewIndex || 0}
+              onSelectedIndexChange={setPreviewIndex}
+              filenamePrefix="model"
+              extension="jpg"
+              actions={MODEL_PREVIEW_ACTIONS}
+              onRegenerateAll={() => void generate()}
+            />
           </div>
         )}
 
@@ -1094,18 +1147,6 @@ export default function ModelPage() {
         </ClientPortal>
       )}
 
-      {lightboxSrc && (
-        <ClientPortal>
-          <div className="fixed inset-0 z-[180] flex cursor-zoom-out items-center justify-center bg-slate-950/66 p-4 backdrop-blur-xl sm:p-8"
-            onClick={() => setLightboxSrc(null)}>
-            <img src={lightboxSrc} className="max-h-full max-w-full rounded-2xl object-contain shadow-[0_32px_120px_rgba(0,0,0,0.45)]" />
-            <button onClick={() => setLightboxSrc(null)}
-              className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full border border-white/85 bg-white/90 text-slate-700 shadow-[0_12px_34px_rgba(15,23,42,0.22)] backdrop-blur transition-colors hover:bg-white hover:text-slate-950 sm:right-6 sm:top-6">
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-        </ClientPortal>
-      )}
     </div>
   );
 }

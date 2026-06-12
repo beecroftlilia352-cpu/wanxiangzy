@@ -8,10 +8,11 @@ import { FeatureTabs } from "@/components/FeatureTabs";
 import { ModuleHeader } from "@/components/ModuleHeader";
 import { PreviewGuide } from "@/components/PreviewGuide";
 import { RepairPromptPanel } from "@/components/RepairPromptPanel";
-import { ResultImageGrid } from "@/components/ResultImageGrid";
 import { ClientPortal } from "@/components/ClientPortal";
 import { ErrorStage } from "@/components/studio/ErrorStage";
 import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
+import { ResultImageGrid } from "@/components/ResultImageGrid";
+import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
 import { StudioGenerationCountSelector, StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/components/studio/StudioFormControls";
 import { StudioRunBar } from "@/components/studio/StudioRunBar";
 import { StudioUploadSection } from "@/components/studio/StudioUploadSection";
@@ -34,6 +35,7 @@ import {
   type MaterialEnhancementLevel,
 } from "@/lib/material-enhancement";
 import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
+import { createGenericImagePreviewSession, type ImagePreviewAction } from "@/lib/studio-image-preview";
 
 type MaterialEnhancementHistoryPayload = Extract<HistoryJobPayload, { kind: "materialEnhancement" }>;
 
@@ -41,6 +43,18 @@ const MODELS: { value: LingyaModel; label: string; desc: string; badge?: string;
   { value: "nano-banana-2", label: "Nano-Banana-2", desc: "最高4K", badge: "推荐", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
   { value: "gpt-image-2", label: "GPT-Image-2", desc: "最高4K", badge: "最新", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/openai.svg" },
   { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "最高4K", badge: "推荐", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
+];
+
+const MATERIAL_PREVIEW_ACTIONS: ImagePreviewAction[] = [
+  { kind: "download", label: "下载图片" },
+  { kind: "copy", label: "复制链接" },
+  { kind: "repair", label: "AI修图" },
+  { kind: "aiVideo", label: "AI视频" },
+  { kind: "modelBackground", label: "换背景" },
+  { kind: "pose", label: "姿势裂变" },
+  { kind: "productSet", label: "商品套图" },
+  { kind: "regenerateAll", label: "重新创作" },
+  { kind: "feedback", label: "反馈" },
 ];
 
 export default function MaterialEnhancementPage() {
@@ -74,19 +88,13 @@ export default function MaterialEnhancementPage() {
   const [resultUrls, setResultUrls] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
 
   const imageSizes = getSupportedImageSizes(aiModel, aspectRatio);
   const costPerImage = getCreditCost(aiModel, imageSize, aspectRatio);
   const totalCost = costPerImage * genCount;
   const authIsAnonymous = authChecked && !isAuthenticated;
   const taskInputThumbnails = useMemo(() => [sourceUrl, garmentUrl].filter(Boolean), [sourceUrl, garmentUrl]);
-  const taskInputReferences = useMemo(
-    () => [
-      ...(sourceUrl ? [{ url: sourceUrl, label: "原图" }] : []),
-      ...(garmentUrl ? [{ url: garmentUrl, label: "高清服装图" }] : []),
-    ],
-    [sourceUrl, garmentUrl]
-  );
   const taskQueue = useTaskQueueGeneration({
     module: "materialEnhancement",
     title: "材质增强",
@@ -100,6 +108,36 @@ export default function MaterialEnhancementPage() {
     enhancementLevel,
     userPrompt,
   }), [customGarmentType, enhancementLevel, garmentType, userPrompt]);
+  const enhancementLevelLabel = useMemo(
+    () => MATERIAL_ENHANCEMENT_LEVELS.find((item) => item.value === enhancementLevel)?.label || enhancementLevel,
+    [enhancementLevel]
+  );
+  const previewSession = useMemo(
+    () => createGenericImagePreviewSession({
+      module: "materialEnhancement",
+      title: "材质增强",
+      urls: resultUrls,
+      expectedCount: isGenerating ? runningExpectedCount || genCount : Math.max(resultUrls.length, 1),
+      isGenerating,
+      statusGroup: isGenerating ? "running" : undefined,
+      references: [
+        ...(sourceUrl ? [{ url: sourceUrl, label: "原图", role: "source" as const }] : []),
+        ...(garmentUrl ? [{ url: garmentUrl, label: "高清服装图", role: "garment" as const }] : []),
+      ],
+      promptText: userPrompt,
+      metaItems: [
+        { label: "服装类型", value: garmentType === "其他" ? customGarmentType : garmentType },
+        { label: "增强强度", value: enhancementLevelLabel },
+        { label: "模型", value: aiModel },
+        { label: "比例", value: aspectRatio },
+        { label: "分辨率", value: imageSize },
+        { label: "生成数量", value: genCount },
+      ],
+      resultTitlePrefix: "材质增强结果",
+      aspectRatio,
+    }),
+    [aiModel, aspectRatio, customGarmentType, enhancementLevelLabel, garmentType, garmentUrl, genCount, imageSize, isGenerating, resultUrls, runningExpectedCount, sourceUrl, userPrompt]
+  );
 
   const runDisabledReason = !sourceUrl
     ? "请先上传需要增强的原图"
@@ -595,10 +633,9 @@ export default function MaterialEnhancementPage() {
                 expectedCount={isGenerating ? runningExpectedCount || genCount : undefined}
                 isGenerating={isGenerating}
                 inputThumbnails={taskInputThumbnails}
-                inputReferences={taskInputReferences}
                 statusGroup={isGenerating ? "running" : undefined}
                 variant="task"
-                onOpen={setLightboxSrc}
+                onOpen={(_, index) => setPreviewIndex(index)}
               />
             </div>
             <div className="absolute bottom-0 left-0 right-0 border-t border-white/70 bg-white/78 backdrop-blur-2xl px-4 sm:px-6 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-[0_-18px_45px_rgba(15,23,42,0.08)]">
@@ -613,6 +650,16 @@ export default function MaterialEnhancementPage() {
                 重新创作 <ChevronRight className="inline h-3 w-3" />
               </button>
             </div>
+            <StudioImagePreviewDialog
+              open={previewIndex !== null}
+              onClose={() => setPreviewIndex(null)}
+              session={previewSession}
+              selectedIndex={previewIndex || 0}
+              onSelectedIndexChange={setPreviewIndex}
+              filenamePrefix="material-enhancement"
+              actions={MATERIAL_PREVIEW_ACTIONS}
+              onRegenerateAll={() => { setResultUrls([]); setProgress(0); }}
+            />
           </div>
         )}
 

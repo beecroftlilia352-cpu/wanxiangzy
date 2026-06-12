@@ -66,6 +66,7 @@ import {
 import { fetchHistoryApplyDetail, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
 import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
+import { takeSourceImageFromLocation } from "@/lib/studio-image-preview";
 import { showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
 import {
   MAX_FILE_SIZE,
@@ -259,6 +260,26 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
     const nextResolution = normalizeAiVideoResolution(resolution, nextMode);
     if (nextResolution !== resolution) setResolution(nextResolution);
   }, [isFirstLastFrame, modelMode, resolution]);
+
+  useEffect(() => {
+    const sourceImage = takeSourceImageFromLocation();
+    if (!sourceImage) return;
+    if (isFirstLastFrame) {
+      setFirstFrameUrl(sourceImage);
+      setFirstFrameRatio(null);
+      toast.success("已带入首帧图片");
+      return;
+    }
+    if (isMotion) {
+      setModelImageUrl(sourceImage);
+      setModelImageRatio(null);
+      toast.success("已带入模特图");
+      return;
+    }
+    setImageUrl(sourceImage);
+    setImageRatio(null);
+    toast.success("已带入预览图片");
+  }, [isFirstLastFrame, isMotion]);
 
   useEffect(() => {
     let cancelled = false;

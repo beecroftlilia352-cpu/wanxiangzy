@@ -18,6 +18,7 @@ import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
 import type { TaskSelectionSession } from "@/components/studio/useTaskSelectionSession";
 import { LoadingStage } from "@/components/studio/LoadingStage";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
+import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
 import { ClientPortal } from "@/components/ClientPortal";
 import { PreviewGuide } from "@/components/PreviewGuide";
 import { StudioGenerationCountSelector, StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/components/studio/StudioFormControls";
@@ -32,6 +33,7 @@ import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize
 import { fetchHistoryApplyDetail, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
 import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
 import { showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
+import { createGenericImagePreviewSession, takeSourceImageFromLocation, type ImagePreviewAction } from "@/lib/studio-image-preview";
 
 type GeneralImageMode = "text-to-image" | "image-to-image";
 
@@ -69,6 +71,18 @@ const ASPECTS: { value: AspectRatio; label: string }[] = [
 const IMAGE_PROMPT_PLACEHOLDER =
   "例如：将图1中的无袖灰色连衣裙穿到图2的人物身上，图2人物需穿着图1的灰色无袖连衣裙，保留图2人物的黑色长发、金色十字架项链、金色耳环，背景为浅灰色，光线柔和自然，突出服装的质感和人物的优雅气质，同时参考图3的服装风格，但此处主要是替换图1的服装到图2人物身上，无需添加图3元素。";
 
+const GENERAL_IMAGE_PREVIEW_ACTIONS: ImagePreviewAction[] = [
+  { kind: "download", label: "下载图片" },
+  { kind: "copy", label: "复制链接" },
+  { kind: "repair", label: "AI修图" },
+  { kind: "aiVideo", label: "AI视频" },
+  { kind: "modelBackground", label: "换背景" },
+  { kind: "pose", label: "姿势裂变" },
+  { kind: "productSet", label: "商品套图" },
+  { kind: "regenerateAll", label: "重新创作" },
+  { kind: "feedback", label: "反馈" },
+];
+
 export function GeneralImageExperience({ initialMode = "text-to-image" }: { initialMode?: GeneralImageMode }) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -97,6 +111,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
   const [resultUrls, setResultUrls] = useState<string[]>([]);
   const [error, setError] = useState("");
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const [showImagePromptModal, setShowImagePromptModal] = useState(false);
   const [imagePromptImage, setImagePromptImage] = useState<ImagePromptImage | null>(null);
   const [imagePromptText, setImagePromptText] = useState("");
@@ -137,6 +152,36 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
         emptySubtitle: "写下主体、场景、光线和风格，也可以先用图片转提示词获得更稳定的描述。",
         emptyImage: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/exclusive-model-01.png",
       };
+  const previewReferenceUrls = safeTaskQueueUrls(activeQueueTask?.inputThumbnails).length
+    ? safeTaskQueueUrls(activeQueueTask?.inputThumbnails)
+    : referenceImages.map((item) => item.preview || item.url).filter(Boolean);
+  const previewSession = useMemo(
+    () => createGenericImagePreviewSession({
+      module: "generalImage",
+      title: modeMeta.title,
+      urls: resultUrls,
+      expectedCount: activeQueueTask ? clampTaskExpectedCount(activeQueueTask, 1, 4, genCount) : isGenerating ? genCount : Math.max(resultUrls.length, 1),
+      isGenerating,
+      statusGroup: activeQueueTask?.statusGroup || (isGenerating ? "running" : undefined),
+      createdAt: activeQueueTask?.createdAt,
+      references: previewReferenceUrls.map((url, index) => ({
+        url,
+        label: `参考图 ${index + 1}`,
+        role: "reference" as const,
+      })),
+      promptText: prompt,
+      metaItems: [
+        { label: "生成模式", value: modeMeta.title },
+        { label: "模型", value: aiModel },
+        { label: "比例", value: aspectRatio },
+        { label: "分辨率", value: imageSize },
+        { label: "生成数量", value: genCount },
+      ],
+      resultTitlePrefix: `${modeMeta.title}结果`,
+      aspectRatio,
+    }),
+    [activeQueueTask, aiModel, aspectRatio, genCount, imageSize, isGenerating, modeMeta.title, previewReferenceUrls, prompt, resultUrls]
+  );
   const canGenerate = !isGenerating && !isUploading && prompt.trim().length > 0 && (!isImageMode || referenceImages.length > 0);
   const runDisabledReason = !prompt.trim()
     ? "请先输入文本描述"
@@ -153,6 +198,21 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     setMode(initialMode);
     resetOutput();
   }, [initialMode]);
+
+  useEffect(() => {
+    const sourceImage = takeSourceImageFromLocation();
+    if (sourceImage) {
+      setMode("image-to-image");
+      setReferenceImages([{
+        id: `source-${Date.now()}`,
+        name: "来自结果预览",
+        url: sourceImage,
+        preview: sourceImage,
+      }]);
+      setPrompt((prev) => prev.trim() || "基于图1进行自然修图，保持主体、构图和风格不变。");
+      toast.success("已带入预览图片");
+    }
+  }, []);
 
   function applyGeneralImageHistoryPayload(payload: GeneralImageHistoryPayload, historyResultUrls: string[] = [], options?: { silent?: boolean }) {
     setMode(payload.mode);
@@ -742,7 +802,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
                 createdAt={activeQueueTask?.createdAt}
                 statusGroup={activeQueueTask?.statusGroup || (isGenerating ? "running" : undefined)}
                 variant="task"
-                onOpen={setLightboxSrc}
+                onOpen={(_, index) => setPreviewIndex(index)}
               />
             </div>
             <div className="mt-4 flex justify-center gap-2">
@@ -755,6 +815,16 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
                 重新创作
               </button>
             </div>
+            <StudioImagePreviewDialog
+              open={previewIndex !== null}
+              onClose={() => setPreviewIndex(null)}
+              session={previewSession}
+              selectedIndex={previewIndex || 0}
+              onSelectedIndexChange={setPreviewIndex}
+              filenamePrefix={isImageMode ? "image-to-image" : "text-to-image"}
+              actions={GENERAL_IMAGE_PREVIEW_ACTIONS}
+              onRegenerateAll={resetOutput}
+            />
           </div>
         )}
 

@@ -1,0 +1,97 @@
+import { describe, expect, it } from "vitest";
+import {
+  buildImagePreviewResults,
+  buildSourceImageHref,
+  clearSourceImageParamFromUrl,
+  compactMetaItems,
+  createProductSetPreviewSession,
+  createTryOnPreviewSession,
+  isValidSourceImageUrl,
+  readSourceImageFromUrl,
+} from "@/lib/studio-image-preview";
+
+describe("studio image preview data", () => {
+  it("builds try-on sessions from current state without empty meta rows", () => {
+    const session = createTryOnPreviewSession({
+      urls: ["https://example.com/result.png"],
+      clothingUrls: ["https://example.com/coat.png"],
+      referenceUrls: ["https://example.com/ref.png"],
+      modelFaceUrl: "https://example.com/model.png",
+      promptText: "让参考图模特穿上商品图的羽绒服",
+      metaItems: [
+        { label: "比例", value: "3:4" },
+        { label: "空字段", value: "" },
+      ],
+    });
+
+    expect(session.module).toBe("tryon");
+    expect(session.results[0]).toMatchObject({ status: "completed", title: "服装上身结果" });
+    expect(session.references?.map((item) => item.label)).toEqual(["服装", "参考图", "模特"]);
+    expect(session.metaItems).toEqual([{ label: "比例", value: "3:4" }]);
+    expect(session.promptText).toContain("羽绒服");
+  });
+
+  it("omits missing meta values", () => {
+    expect(compactMetaItems([
+      { label: "任务", value: "123" },
+      { label: "空", value: null },
+      { label: "空字符串", value: " " },
+      { label: "数量", value: 2 },
+    ])).toEqual([
+      { label: "任务", value: "123" },
+      { label: "数量", value: 2 },
+    ]);
+  });
+
+  it("marks pending and failed result slots correctly", () => {
+    expect(buildImagePreviewResults({
+      urls: ["https://example.com/one.png"],
+      expectedCount: 3,
+      isGenerating: true,
+      titlePrefix: "结果",
+    }).map((item) => item.status)).toEqual(["completed", "running", "running"]);
+
+    expect(buildImagePreviewResults({
+      urls: [],
+      expectedCount: 2,
+      statusGroup: "failed",
+      titlePrefix: "结果",
+    }).map((item) => item.status)).toEqual(["failed", "failed"]);
+  });
+
+  it("maps product-set module quality and per-slot errors", () => {
+    const session = createProductSetPreviewSession({
+      urls: ["https://example.com/hero.png"],
+      expectedCount: 2,
+      titles: ["首屏海报", "材质细节"],
+      errors: [null, "材质图生成失败"],
+      qualities: [{ score: 0.91, label: "优秀", issues: ["构图稳定"] }],
+    });
+
+    expect(session.results[0]).toMatchObject({
+      title: "首屏海报",
+      quality: { score: 0.91, label: "优秀", issues: ["构图稳定"] },
+    });
+    expect(session.results[1]).toMatchObject({
+      title: "材质细节",
+      status: "failed",
+      error: "材质图生成失败",
+    });
+  });
+});
+
+describe("sourceImage deep links", () => {
+  it("accepts only http URLs", () => {
+    expect(isValidSourceImageUrl("https://example.com/a.png")).toBe(true);
+    expect(isValidSourceImageUrl("http://example.com/a.png")).toBe(true);
+    expect(isValidSourceImageUrl("javascript:alert(1)")).toBe(false);
+    expect(isValidSourceImageUrl("/local.png")).toBe(false);
+  });
+
+  it("builds, reads, and clears sourceImage links", () => {
+    const href = buildSourceImageHref("/pose", "https://example.com/a.png", { mode: "single" });
+    expect(href).toBe("/pose?sourceImage=https%3A%2F%2Fexample.com%2Fa.png&mode=single");
+    expect(readSourceImageFromUrl(`https://local.test${href}`)).toBe("https://example.com/a.png");
+    expect(clearSourceImageParamFromUrl(`https://local.test${href}`)).toBe("/pose?mode=single");
+  });
+});

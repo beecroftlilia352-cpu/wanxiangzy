@@ -29,6 +29,7 @@ import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
 import { useStableFileDrag } from "@/components/studio/useStableFileDrag";
 import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
+import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
 import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
@@ -36,6 +37,7 @@ import { applyRepairPrompt } from "@/lib/generation-repair";
 import { fetchHistoryApplyDetail, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
 import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
 import { showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
+import { createGenericImagePreviewSession, takeSourceImageFromLocation, type ImagePreviewAction } from "@/lib/studio-image-preview";
 import {
   BACKGROUND_PRESETS,
   BACKGROUND_SOURCE_LABELS,
@@ -81,6 +83,17 @@ const BACKGROUND_SOURCE_OPTIONS: BackgroundSourceMode[] = ["preset", "upload", "
 const CARD_ZOOM_BUTTON_CLASS =
   "absolute right-1 top-1 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-white/85 text-slate-600 opacity-0 shadow-sm transition-opacity hover:bg-white hover:text-violet-600 focus:opacity-100 group-hover:opacity-100";
 
+const MODEL_BACKGROUND_PREVIEW_ACTIONS: ImagePreviewAction[] = [
+  { kind: "download", label: "下载图片" },
+  { kind: "copy", label: "复制链接" },
+  { kind: "repair", label: "AI修图" },
+  { kind: "aiVideo", label: "AI视频" },
+  { kind: "pose", label: "姿势裂变" },
+  { kind: "productSet", label: "商品套图" },
+  { kind: "regenerateAll", label: "重新创作" },
+  { kind: "feedback", label: "反馈" },
+];
+
 type UploadTarget = "source" | "model" | "background";
 
 export default function ModelBackgroundPage() {
@@ -124,6 +137,7 @@ export default function ModelBackgroundPage() {
   const [showRules, setShowRules] = useState(false);
   const [rulesPopoverStyle, setRulesPopoverStyle] = useState<{ top: number; left: number; maxHeight: number } | null>(null);
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const sourceDrag = useStableFileDrag<HTMLDivElement>({
     isDragging,
     setDragging: setIsDragging,
@@ -152,6 +166,37 @@ export default function ModelBackgroundPage() {
     hasModelReference,
     hasBackgroundReference,
   }), [promptOverride, mode, backgroundSource, backgroundPresetId, backgroundText, userPrompt, hasModelReference, hasBackgroundReference]);
+  const previewSession = useMemo(
+    () => createGenericImagePreviewSession({
+      module: "modelBackground",
+      title: "模特换背景",
+      urls: resultUrls,
+      expectedCount: isGenerating ? runningExpectedCount || genCount : Math.max(resultUrls.length, 1),
+      isGenerating,
+      statusGroup: isGenerating ? "running" : undefined,
+      references: promptImages.map((item) => ({
+        url: item.url,
+        label: item.imageNumber === 1 ? "原图" : item.imageNumber === 2 && hasModelReference ? "模特参考" : "背景参考",
+        role: item.imageNumber === 1 ? "source" : item.imageNumber === 2 && hasModelReference ? "model" : "background",
+      })),
+      promptText: [
+        mode !== "model_only" && backgroundSource === "text" ? backgroundText : "",
+        userPrompt,
+      ].map((item) => item.trim()).filter(Boolean).join("\n\n"),
+      metaItems: [
+        { label: "模式", value: MODEL_BACKGROUND_MODE_LABELS[mode] },
+        { label: "背景来源", value: mode === "model_only" ? null : BACKGROUND_SOURCE_LABELS[backgroundSource] },
+        { label: "背景模板", value: backgroundSource === "preset" && mode !== "model_only" ? selectedBackgroundPreset.name : null },
+        { label: "模型", value: aiModel },
+        { label: "比例", value: aspectRatio },
+        { label: "分辨率", value: imageSize },
+        { label: "生成数量", value: genCount },
+      ],
+      resultTitlePrefix: "换背景结果",
+      aspectRatio,
+    }),
+    [aiModel, aspectRatio, backgroundSource, backgroundText, genCount, hasModelReference, imageSize, isGenerating, mode, promptImages, resultUrls, runningExpectedCount, selectedBackgroundPreset.name, userPrompt]
+  );
   const imageSizes = getSupportedImageSizes(aiModel, aspectRatio);
   const cost = getCreditCost(aiModel, imageSize, aspectRatio) * genCount;
   const taskQueue = useTaskQueueGeneration({
@@ -177,6 +222,15 @@ export default function ModelBackgroundPage() {
       : backgroundSource === "upload"
         ? backgroundReferenceUrl ? "自定义上传" : "未上传"
         : "文生背景";
+
+  useEffect(() => {
+    const sourceImage = takeSourceImageFromLocation();
+    if (sourceImage) {
+      setSourceUrl(sourceImage);
+      setSourceName("来自结果预览");
+      toast.success("已带入预览图片");
+    }
+  }, []);
 
   useEffect(() => {
     const nextSizes = getSupportedImageSizes(aiModel, aspectRatio);
@@ -854,12 +908,22 @@ export default function ModelBackgroundPage() {
                 inputThumbnails={promptImages.map((item) => item.url)}
                 statusGroup={isGenerating ? "running" : undefined}
                 variant="task"
-                onOpen={setLightboxSrc}
+                onOpen={(_, index) => setPreviewIndex(index)}
               />
             </div>
             <div className="mt-4 flex justify-center">
               <RepairPromptPanel kind="tryon" onRepair={handleRepairGenerate} disabled={isGenerating} className="w-full max-w-3xl" />
             </div>
+            <StudioImagePreviewDialog
+              open={previewIndex !== null}
+              onClose={() => setPreviewIndex(null)}
+              session={previewSession}
+              selectedIndex={previewIndex || 0}
+              onSelectedIndexChange={setPreviewIndex}
+              filenamePrefix="model-background"
+              actions={MODEL_BACKGROUND_PREVIEW_ACTIONS}
+              onRegenerateAll={() => void generate()}
+            />
           </div>
         )}
 

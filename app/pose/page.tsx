@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, ChevronRight, Loader2, PenLine, Sparkles, X, XCircle } from "lucide-react";
 import { toast } from "sonner";
@@ -32,6 +32,7 @@ import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
 import { useStudioAuth } from "@/components/studio/useStudioAuth";
 import type { TaskSelectionSession } from "@/components/studio/useTaskSelectionSession";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
+import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
 import { StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/components/studio/StudioFormControls";
 import { StudioRunBar } from "@/components/studio/StudioRunBar";
 import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
@@ -41,6 +42,7 @@ import { fetchHistoryApplyDetail, takeApplyDetail, type HistoryJobPayload } from
 import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
 import { applyRepairPrompt } from "@/lib/generation-repair";
 import { showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
+import { createGenericImagePreviewSession, takeSourceImageFromLocation, type ImagePreviewAction } from "@/lib/studio-image-preview";
 import {
   DEFAULT_POSE_SERIES_STYLE,
   POSE_SERIES_STYLES,
@@ -62,6 +64,17 @@ const POSE_GENERATION_POLL_FAST_WINDOW_MS = 30 * 1000;
 const POSE_GENERATION_POLL_FAST_MS = 3 * 1000;
 const POSE_GENERATION_POLL_SLOW_MS = 5 * 1000;
 const POSE_ANALYSIS_CLIENT_CACHE_MIN_CONFIDENCE = 0.5;
+
+const POSE_PREVIEW_ACTIONS: ImagePreviewAction[] = [
+  { kind: "download", label: "下载图片" },
+  { kind: "copy", label: "复制链接" },
+  { kind: "repair", label: "AI修图" },
+  { kind: "aiVideo", label: "AI视频" },
+  { kind: "modelBackground", label: "换背景" },
+  { kind: "productSet", label: "商品套图" },
+  { kind: "regenerateAll", label: "重新创作" },
+  { kind: "feedback", label: "反馈" },
+];
 
 type PoseHistoryPayload = Extract<HistoryJobPayload, { kind: "pose" }>;
 type PoseAnalysisSource = "vision" | "cache" | "fallback" | "history";
@@ -194,6 +207,7 @@ export default function PosePage() {
   const [runningExpectedCount, setRunningExpectedCount] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const [showPoseRules, setShowPoseRules] = useState(false);
   const [rulesPopoverStyle, setRulesPopoverStyle] = useState<{ top: number; left: number; maxHeight: number } | null>(null);
   const mainImageDrag = useStableFileDrag<HTMLDivElement>({
@@ -230,6 +244,33 @@ export default function PosePage() {
           : credits !== null && credits < cost
             ? `灵点不足，生成需要 ${cost} 灵点`
             : undefined;
+  const poseStyleLabel = POSE_SERIES_STYLES.find((item) => item.value === poseStyle)?.label || poseStyle;
+  const previewSession = useMemo(
+    () => createGenericImagePreviewSession({
+      module: "pose",
+      title: "姿势裂变",
+      urls: resultUrls,
+      expectedCount: isGenerating ? runningExpectedCount || poseExpectedCount : Math.max(resultUrls.length, 1),
+      isGenerating,
+      statusGroup: isGenerating ? "running" : undefined,
+      references: mainImage ? [{ url: mainImage, label: "主图", role: "source" as const }] : [],
+      promptText: [
+        poseStyle === "user_custom" ? customPosePrompt : "",
+        supplementPrompt.trim() ? `补充要求：${supplementPrompt.trim()}` : "",
+      ].map((item) => item.trim()).filter(Boolean).join("\n\n"),
+      metaItems: [
+        { label: "输出方式", value: outputMode === "separate" ? "每姿势一张" : "四宫格" },
+        { label: "姿势风格", value: poseStyleLabel },
+        { label: "规划方式", value: posePlanMode === "ai" ? POSE_PLAN_SOURCE_LABELS[posePlanSource || "vision_plan"] : "预设计划" },
+        { label: "模型", value: aiModel },
+        { label: "分辨率", value: imageSize },
+        { label: "结果数量", value: poseExpectedCount },
+      ],
+      resultTitlePrefix: outputMode === "separate" ? "姿势结果" : "姿势四宫格",
+      aspectRatio: "3:4",
+    }),
+    [aiModel, customPosePrompt, imageSize, isGenerating, mainImage, outputMode, poseExpectedCount, posePlanMode, posePlanSource, poseStyle, poseStyleLabel, resultUrls, runningExpectedCount, supplementPrompt]
+  );
   const cancelRulesHide = () => {
     if (rulesHideTimerRef.current) {
       clearTimeout(rulesHideTimerRef.current);
@@ -414,6 +455,14 @@ export default function PosePage() {
   }
 
   useEffect(() => {
+    const sourceImage = takeSourceImageFromLocation();
+    if (sourceImage) {
+      setMainImage(sourceImage);
+      toast.success("已带入预览图片");
+    }
+  }, []);
+
+  useEffect(() => {
     return () => cancelRulesHide();
   }, []);
 
@@ -484,7 +533,7 @@ export default function PosePage() {
             if (poseAnalysisInflightRef.current.get(analysisKey) === nextRequest) {
               poseAnalysisInflightRef.current.delete(analysisKey);
             }
-          });
+          }).catch(() => undefined);
           request = nextRequest;
         }
 
@@ -606,7 +655,7 @@ export default function PosePage() {
             if (posePlanInflightRef.current.get(planKey) === nextRequest) {
               posePlanInflightRef.current.delete(planKey);
             }
-          });
+          }).catch(() => undefined);
           request = nextRequest;
         }
 
@@ -1471,7 +1520,7 @@ export default function PosePage() {
                 urls={resultUrls}
                 filenamePrefix="pose"
                 extension="jpg"
-                onOpen={setLightboxSrc}
+                onOpen={(_, index) => setPreviewIndex(index)}
                 expectedCount={isGenerating ? runningExpectedCount || poseExpectedCount : undefined}
                 isGenerating={isGenerating}
                 inputThumbnails={mainImage ? [mainImage] : []}
@@ -1487,6 +1536,17 @@ export default function PosePage() {
                 className="w-full max-w-3xl"
               />
             </div>
+            <StudioImagePreviewDialog
+              open={previewIndex !== null}
+              onClose={() => setPreviewIndex(null)}
+              session={previewSession}
+              selectedIndex={previewIndex || 0}
+              onSelectedIndexChange={setPreviewIndex}
+              filenamePrefix="pose"
+              extension="jpg"
+              actions={POSE_PREVIEW_ACTIONS}
+              onRegenerateAll={() => void generate()}
+            />
           </div>
         )}
 

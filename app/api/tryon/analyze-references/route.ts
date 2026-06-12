@@ -104,7 +104,7 @@ export async function POST(request: Request) {
       if (referenceAnalysisInflight.get(cacheKey) === nextRequest) {
         referenceAnalysisInflight.delete(cacheKey);
       }
-    });
+    }).catch(() => undefined);
     inflightRequest = nextRequest;
   }
 

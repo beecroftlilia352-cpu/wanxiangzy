@@ -1,8 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
-import { Download, Loader2, XCircle } from "lucide-react";
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
+import { Clapperboard, Download, Eye, Loader2, WandSparkles, XCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { getImageVariantUrl } from "@/lib/image-variants";
+import { buildSourceImageHref } from "@/lib/studio-image-preview";
 import { downloadImage, generateDownloadFilename } from "@/lib/utils";
 import type { TaskStatusGroup } from "@/lib/task-queue";
 
@@ -178,59 +182,107 @@ function ResultCard({
   failureLabel?: string;
   failureDetail?: string;
 }) {
+  const router = useRouter();
+  const openPreview = () => {
+    if (url) onOpen(url, index);
+  };
+  const downloadResult = () => {
+    if (!url) return;
+    downloadImage(url, generateDownloadFilename(filenamePrefix, index, extension));
+  };
+  const openImageRepair = () => {
+    if (!url) return;
+    router.push(buildSourceImageHref("/general-image/image-to-image", url));
+  };
+  const openAiVideo = () => {
+    if (!url) return;
+    router.push(buildSourceImageHref("/video", url));
+  };
+
   return (
-    <div
-      role={url ? "button" : undefined}
-      tabIndex={url ? 0 : undefined}
-      aria-label={url ? `预览${imageAltPrefix} ${index + 1}` : undefined}
-      title={url ? `预览${imageAltPrefix} ${index + 1}` : undefined}
-      className={`studio-result-card group relative min-w-0 overflow-hidden bg-white transition-transform duration-200 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 ${
-        url ? "cursor-zoom-in" : ""
-      } ${isSingle ? "mx-auto max-w-full" : ""}`}
-      onClick={() => {
-        if (url) onOpen(url, index);
-      }}
-      onKeyDown={(event) => {
-        if (!url || (event.key !== "Enter" && event.key !== " ")) return;
-        event.preventDefault();
-        onOpen(url, index);
-      }}
-    >
-      <div className="flex items-center justify-center" style={getTileStyle()}>
-        {url ? (
-          <StableResultImage
-            src={getImageVariantUrl(url, count <= 1 ? "preview" : "card")}
-            alt={`${imageAltPrefix} ${index + 1}`}
-          />
-        ) : (
-          <PendingResultSlot
-            failed={failed}
-            running={running}
-            index={index}
-            failureLabel={failureLabel}
-            failureDetail={failureDetail}
-          />
+    <TooltipProvider>
+      <div
+        role={url ? "button" : undefined}
+        tabIndex={url ? 0 : undefined}
+        aria-label={url ? `预览${imageAltPrefix} ${index + 1}` : undefined}
+        title={url ? `预览${imageAltPrefix} ${index + 1}` : undefined}
+        className={`studio-result-card group relative min-w-0 overflow-hidden bg-white transition-transform duration-200 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 ${
+          url ? "cursor-zoom-in" : ""
+        } ${isSingle ? "mx-auto max-w-full" : ""}`}
+        onClick={openPreview}
+        onKeyDown={(event) => {
+          if (!url || (event.key !== "Enter" && event.key !== " ")) return;
+          event.preventDefault();
+          openPreview();
+        }}
+      >
+        <div className="flex items-center justify-center" style={getTileStyle()}>
+          {url ? (
+            <StableResultImage
+              src={getImageVariantUrl(url, count <= 1 ? "preview" : "card")}
+              alt={`${imageAltPrefix} ${index + 1}`}
+            />
+          ) : (
+            <PendingResultSlot
+              failed={failed}
+              running={running}
+              index={index}
+              failureLabel={failureLabel}
+              failureDetail={failureDetail}
+            />
+          )}
+        </div>
+
+        {url && (
+          <div className="studio-result-focus-layer" aria-hidden={false}>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="studio-result-focus-view"
+              onClick={(event) => {
+                event.stopPropagation();
+                openPreview();
+              }}
+              onKeyDown={(event) => event.stopPropagation()}
+            >
+              <Eye className="h-4 w-4" />
+              查看
+            </Button>
+            <div className="studio-result-focus-actions">
+              <ResultFocusAction label="AI修图" onClick={openImageRepair} icon={<WandSparkles className="h-3.5 w-3.5" />} />
+              <ResultFocusAction label="AI视频" onClick={openAiVideo} icon={<Clapperboard className="h-3.5 w-3.5" />} />
+              <ResultFocusAction label="下载" onClick={downloadResult} icon={<Download className="h-3.5 w-3.5" />} />
+            </div>
+          </div>
         )}
       </div>
+    </TooltipProvider>
+  );
+}
 
-      {url && (
-        <button
+function ResultFocusAction({ label, icon, onClick }: { label: string; icon: ReactNode; onClick: () => void }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
           type="button"
+          variant="ghost"
+          size="sm"
+          className="studio-result-focus-action"
           onClick={(event) => {
             event.stopPropagation();
-            downloadImage(url, generateDownloadFilename(filenamePrefix, index, extension));
+            onClick();
           }}
-          onKeyDown={(event) => {
-            event.stopPropagation();
-          }}
-          className="absolute right-3 top-3 z-[3] flex h-9 w-9 items-center justify-center rounded-full bg-white/92 text-slate-700 opacity-100 shadow-lg ring-1 ring-slate-200/70 backdrop-blur transition-all hover:bg-white hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
-          aria-label={`下载${imageAltPrefix} ${index + 1}`}
-          title={`下载${imageAltPrefix} ${index + 1}`}
+          onKeyDown={(event) => event.stopPropagation()}
+          aria-label={label}
         >
-          <Download className="h-4 w-4" />
-        </button>
-      )}
-    </div>
+          {icon}
+          <span>{label}</span>
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="top">{label}</TooltipContent>
+    </Tooltip>
   );
 }
 

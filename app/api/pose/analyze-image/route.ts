@@ -78,7 +78,7 @@ export async function POST(request: Request) {
       if (poseAnalysisInflight.get(cacheKey) === nextRequest) {
         poseAnalysisInflight.delete(cacheKey);
       }
-    });
+    }).catch(() => undefined);
     inflightRequest = nextRequest;
   }
 

@@ -19,6 +19,7 @@ import { ClientPortal } from "@/components/ClientPortal";
 import { ModuleHeader } from "@/components/ModuleHeader";
 import { PreviewGuide } from "@/components/PreviewGuide";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
+import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
 import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
 import { useStudioAuth } from "@/components/studio/useStudioAuth";
 import type { TaskSelectionSession } from "@/components/studio/useTaskSelectionSession";
@@ -54,6 +55,7 @@ import { showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
 import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { fetchHistoryApplyDetail, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
 import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
+import { createFaceSwapPreviewSession, type ImagePreviewAction } from "@/lib/studio-image-preview";
 
 const MODELS: Array<{ value: LingyaModel; label: string; desc: string; icon: string; badge?: string }> = [
   { value: "nano-banana-2", label: "Nano-Banana-2", desc: "最高4K", icon: "/model-icons/gemini.png", badge: "默认" },
@@ -73,6 +75,19 @@ const ASPECT_RATIOS: Array<{ value: AspectRatio; label: string }> = [
   { value: "5:4", label: "5:4" },
   { value: "21:9", label: "21:9" },
   { value: "auto", label: "自动/原图" },
+];
+
+const FACE_SWAP_PREVIEW_ACTIONS: ImagePreviewAction[] = [
+  { kind: "download", label: "下载图片" },
+  { kind: "copy", label: "复制链接" },
+  { kind: "useAsSource", label: "设为原图" },
+  { kind: "useAsFace", label: "设为脸图" },
+  { kind: "aiVideo", label: "AI视频" },
+  { kind: "modelBackground", label: "换背景" },
+  { kind: "pose", label: "姿势裂变" },
+  { kind: "productSet", label: "商品套图" },
+  { kind: "regenerateAll", label: "再来一组" },
+  { kind: "feedback", label: "反馈" },
 ];
 
 type GenerationStatus = "idle" | "running" | "completed" | "failed";
@@ -737,7 +752,13 @@ export default function FaceSwapPage() {
               expectedCount={faceSwapExpectedCount}
               task={activeQueueTask}
               inputThumbnails={faceSwapInputThumbnails}
-              onOpen={(url) => openLightbox(url, "换脸结果预览")}
+              sourceUrl={sourceUrl}
+              faceUrl={faceUrl}
+              prompt={prompt}
+              aiModel={aiModel}
+              aspectRatio={aspectRatio}
+              imageSize={imageSizeValue}
+              textureEnhance={textureEnhance}
               onUseAsSource={(url) => {
                 setSourceUrl(url);
                 resetGenerationForInputChange();
@@ -747,10 +768,6 @@ export default function FaceSwapPage() {
                 setFaceUrl(url);
                 resetGenerationForInputChange();
                 toast.success("已设为目标脸图");
-              }}
-              onCopyUrl={async (url) => {
-                await navigator.clipboard.writeText(url);
-                toast.success("图片链接已复制");
               }}
               onRegenerate={generate}
             />
@@ -887,27 +904,60 @@ function ResultsPanel({
   urls,
   expectedCount,
   isGenerating,
-  onOpen,
   onUseAsSource,
   onUseAsFace,
-  onCopyUrl,
   onRegenerate,
   task,
   inputThumbnails,
+  sourceUrl,
+  faceUrl,
+  prompt,
+  aiModel,
+  aspectRatio,
+  imageSize,
+  textureEnhance,
 }: {
   urls: string[];
   expectedCount?: number;
   isGenerating: boolean;
   task?: TaskQueueItem | null;
   inputThumbnails: string[];
-  onOpen: (url: string) => void;
+  sourceUrl: string;
+  faceUrl: string;
+  prompt: string;
+  aiModel: LingyaModel;
+  aspectRatio: AspectRatio;
+  imageSize: ImageSize;
+  textureEnhance: boolean;
   onUseAsSource: (url: string) => void;
   onUseAsFace: (url: string) => void;
-  onCopyUrl: (url: string) => void;
   onRegenerate: () => void;
 }) {
   const count = Math.max(urls.length, expectedCount || 0, 1);
   const failed = task?.statusGroup === "failed";
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
+  const session = createFaceSwapPreviewSession({
+    urls,
+    expectedCount: count,
+    isGenerating,
+    statusGroup: failed ? "failed" : isGenerating ? "running" : task?.statusGroup,
+    taskId: task?.id,
+    createdAt: task?.createdAt,
+    sourceUrl,
+    faceUrl,
+    promptText: prompt,
+    metaItems: [
+      { label: "模型", value: aiModel },
+      { label: "比例", value: aspectRatio },
+      { label: "分辨率", value: imageSize },
+      { label: "纹理增强", value: textureEnhance ? "开启" : "关闭" },
+      { label: "生成数量", value: count },
+    ],
+  });
+  const copyResultUrl = async (url: string) => {
+    await navigator.clipboard.writeText(url);
+    toast.success("已复制图片链接");
+  };
 
   return (
     <div className="studio-result-stage h-full overflow-y-auto p-4 pb-28 sm:p-6 sm:pb-32">
@@ -922,7 +972,7 @@ function ResultsPanel({
           statusGroup={failed ? "failed" : isGenerating ? "running" : task?.statusGroup}
           imageAltPrefix="换脸结果"
           variant="task"
-          onOpen={(url) => onOpen(url)}
+          onOpen={(_, index) => setPreviewIndex(index)}
         />
 
         {urls.length > 0 && (
@@ -932,7 +982,7 @@ function ResultsPanel({
             </button>
             {urls.slice(0, 1).map((url) => (
               <span key={url} className="flex flex-wrap justify-center gap-2">
-                <button type="button" onClick={() => onCopyUrl(url)} className="studio-button studio-button-compact">
+                <button type="button" onClick={() => void copyResultUrl(url)} className="studio-button studio-button-compact">
                   <Copy className="h-3.5 w-3.5" /> 复制链接
                 </button>
                 <button type="button" onClick={() => onUseAsSource(url)} className="studio-button studio-button-compact">
@@ -946,6 +996,18 @@ function ResultsPanel({
           </div>
         )}
       </div>
+      <StudioImagePreviewDialog
+        open={previewIndex !== null}
+        onClose={() => setPreviewIndex(null)}
+        session={session}
+        selectedIndex={previewIndex || 0}
+        onSelectedIndexChange={setPreviewIndex}
+        filenamePrefix="face-swap"
+        actions={FACE_SWAP_PREVIEW_ACTIONS}
+        onUseAsSource={onUseAsSource}
+        onUseAsFace={onUseAsFace}
+        onRegenerateAll={onRegenerate}
+      />
     </div>
   );
 }

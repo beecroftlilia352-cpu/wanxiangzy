@@ -36,6 +36,7 @@ import { StudioGenerationCountSelector } from "@/components/studio/StudioFormCon
 import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
 import { useStableFileDrag } from "@/components/studio/useStableFileDrag";
 import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
+import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
 import { ClientPortal } from "@/components/ClientPortal";
 import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { fetchHistoryApplyDetail, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
@@ -44,6 +45,7 @@ import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@
 import { downloadImage, generateDownloadFilename, MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
 import { showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
+import { createProductSetPreviewSession, takeSourceImageFromLocation, type ImagePreviewAction, type ImagePreviewResultStatus } from "@/lib/studio-image-preview";
 import {
   PRODUCT_SET_COUNTRIES,
   PRODUCT_SET_EXAMPLE_GROUPS,
@@ -103,6 +105,15 @@ const PLAN_SOURCE_TABS: { value: ProductSetPlanSourceTab; label: string; descrip
   { value: "preset", label: "系统预设", description: "项目模板" },
   { value: "upload", label: "上传模板", description: "自定义参考" },
   { value: "favorites", label: "我的收藏", description: "账号复用" },
+];
+const PRODUCT_SET_PREVIEW_ACTIONS: ImagePreviewAction[] = [
+  { kind: "download", label: "下载图片" },
+  { kind: "copy", label: "复制链接" },
+  { kind: "regenerateOne", label: "重生本张" },
+  { kind: "aiVideo", label: "AI视频" },
+  { kind: "modelBackground", label: "换背景" },
+  { kind: "pose", label: "姿势裂变" },
+  { kind: "feedback", label: "反馈" },
 ];
 const COUNT_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8];
 const FAVORITE_PRODUCT_SET_PLAN_LIMIT = 24;
@@ -295,6 +306,7 @@ export default function ProductSetPage() {
   const [resultPlan, setResultPlan] = useState<ProductSetResolvedTemplate[]>([]);
   const [error, setError] = useState("");
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const [activeQueueTask, setActiveQueueTask] = useState<TaskQueueItem | null>(null);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showTemplateModal, setShowTemplateModal] = useState(false);
@@ -383,6 +395,13 @@ export default function ProductSetPage() {
     defaultExpectedCount: Math.max(1, outputCount || genCount),
     applyPath: "/product-set",
   });
+  useEffect(() => {
+    const sourceImage = takeSourceImageFromLocation();
+    if (sourceImage) {
+      setProductImages([{ url: sourceImage, name: "来自结果预览" }]);
+      toast.success("已带入预览图片");
+    }
+  }, []);
   const requiresProductConfirmation = productImages.length > 0 && !isAnalyzing && mode === "smart" && !hasAnalyzedProduct;
   const canGenerate = !isGenerating && !isUploading && !isAnalyzing && canResolvePlan && productImages.length > 0 && Boolean(productInfo.trim()) && outputCount > 0;
   const canAnalyzeProduct = !isAnalyzing && !isUploading && productImages.length > 0;
@@ -1472,6 +1491,46 @@ export default function ProductSetPage() {
     };
   });
   const visibleResultCount = resultSlots.filter((item) => item.url).length;
+  const productSetPreviewSession = useMemo(
+    () => createProductSetPreviewSession({
+      module: "productSet",
+      urls: resultSlots.map((slot) => slot.url || ""),
+      expectedCount: Math.max(resultSlotCount, 1),
+      isGenerating,
+      statusGroup: activeQueueTask?.statusGroup || (isGenerating ? "running" : undefined),
+      taskId: activeQueueTask?.id,
+      createdAt: activeQueueTask?.createdAt,
+      references: (safeTaskQueueUrls(activeQueueTask?.inputThumbnails).length ? safeTaskQueueUrls(activeQueueTask?.inputThumbnails) : productImages.map((item) => item.url)).map((url, index) => ({
+        url,
+        label: productImages[index]?.name || `商品图 ${index + 1}`,
+        role: "product" as const,
+      })),
+      promptText: [productInfo, referenceStyleBrief].filter(Boolean).join("\n\n"),
+      metaItems: [
+        { label: "生成模式", value: mode === "smart" ? "智能套图" : "自定义套图" },
+        { label: "图片类型", value: imageType === "main" ? "主图辅图" : "详情页" },
+        { label: "平台", value: settings.platform },
+        { label: "语言", value: settings.language },
+        { label: "风格", value: selectedStylePack.name },
+        { label: "质检", value: qualityMode === "advanced" ? "高级模式" : "标准模式" },
+        { label: "生成数量", value: resultSlotCount },
+      ],
+      titles: resultSlots.map((slot, index) => slot.template?.name || slot.module?.name || `商品套图 ${index + 1}`),
+      subtitles: resultSlots.map((slot) => `${slot.template?.imageType === "details" ? "详情页模块" : "主图/辅图"} · ${slot.template?.aspectRatio || slot.module?.aspectRatio || aspectRatio}`),
+      statuses: resultSlots.map((slot) => (slot.url ? "completed" : slot.module?.status || (isGenerating ? "running" : "queued")) as ImagePreviewResultStatus),
+      errors: resultSlots.map((slot) => slot.module?.error || null),
+      qualities: resultSlots.map((slot) => {
+        if (slot.module?.qualityScore === undefined && !slot.module?.qualitySummary && !slot.module?.qualityIssues?.length) return null;
+        return {
+          score: slot.module.qualityScore,
+          label: getProductSetModuleQualityLabel(slot.module.qualityScore).label,
+          summary: slot.module.qualitySummary,
+          issues: slot.module.qualityIssues || [],
+        };
+      }),
+    }),
+    [activeQueueTask, aspectRatio, imageType, isGenerating, mode, productImages, productInfo, qualityMode, referenceStyleBrief, resultSlotCount, resultSlots, selectedStylePack.name, settings.language, settings.platform]
+  );
 
   return (
     <div className="studio-workbench studio-product-set-workbench min-h-[calc(100dvh-64px)] lg:h-[calc(100vh-64px)] flex flex-col lg:flex-row">
@@ -1974,7 +2033,7 @@ export default function ProductSetPage() {
                   return (
                     <article key={`${url || template?.id || "pending"}-${index}`} className="flex h-full flex-col overflow-hidden rounded-[24px] border border-white/80 bg-white shadow-[0_18px_50px_rgba(15,23,42,0.08)]">
                       {url ? (
-                        <button type="button" onClick={() => setLightboxSrc(url)} className="group relative aspect-[3/4] w-full overflow-hidden bg-slate-100">
+                        <button type="button" onClick={() => setPreviewIndex(index)} className="group relative aspect-[3/4] w-full overflow-hidden bg-slate-100">
                           <img src={getImageVariantUrl(url, "card")} alt={template?.name || `商品套图${index + 1}`} className="h-full w-full object-contain transition duration-300 group-hover:scale-[1.02]" />
                           <span className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-black/45 text-white opacity-0 transition group-hover:opacity-100">
                             <ZoomIn className="h-4 w-4" />
@@ -2029,6 +2088,16 @@ export default function ProductSetPage() {
                   );
                 })}
               </div>
+              <StudioImagePreviewDialog
+                open={previewIndex !== null}
+                onClose={() => setPreviewIndex(null)}
+                session={productSetPreviewSession}
+                selectedIndex={previewIndex || 0}
+                onSelectedIndexChange={setPreviewIndex}
+                filenamePrefix="product-set"
+                actions={PRODUCT_SET_PREVIEW_ACTIONS}
+                onRegenerateOne={(_, index) => void regenerateResult(index)}
+              />
             </section>
           )}
         </div>

@@ -5,7 +5,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { 
   Upload, UserRound, Image, Sparkles,
-  RefreshCw, X, Camera, ChevronRight, Wand, Loader2, ZoomIn,
+  X, Camera, ChevronRight, Wand, Loader2, ZoomIn,
   FolderOpen, CheckCircle2, XCircle,
 } from "lucide-react";
 import { useTryOnStore } from "@/lib/store/tryon-store";
@@ -13,12 +13,12 @@ import { createLocalImagePreview, isLikelyImageFile, MAX_FILE_SIZE, MAX_FILE_SIZ
 import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { getCreditCost, getSupportedImageSizes, buildTryOnPrompt, isNanoBananaModel, type LingyaModel, type ImageSize, type AspectRatio } from "@/lib/api/lingya";
 import { toast } from "sonner";
-import { RepairPromptPanel } from "@/components/RepairPromptPanel";
 import { ClientPortal } from "@/components/ClientPortal";
 import { ModuleHeader } from "@/components/ModuleHeader";
 import { LoadingStage } from "@/components/studio/LoadingStage";
 import { ErrorStage } from "@/components/studio/ErrorStage";
-import { ResultImageGrid, type ResultInputReference } from "@/components/ResultImageGrid";
+import { ResultImageGrid } from "@/components/ResultImageGrid";
+import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
 import { ImgSkeleton } from "@/components/studio/ImgSkeleton";
 import { StudioControlPanel } from "@/components/studio/StudioControlPanel";
 import { StudioEmptyState } from "@/components/studio/StudioEmptyState";
@@ -90,6 +90,8 @@ import {
 import { useTryOnSourceLibrary } from "@/components/tryon/useTryOnSourceLibrary";
 import type { TryOnSourceLibraryItem } from "@/lib/tryon-source-library";
 import { buildTryOnInputReferences } from "@/lib/tryon-input-references";
+import type { TryOnInputReference } from "@/lib/tryon-input-references";
+import { createGenericImagePreviewSession, type ImagePreviewAction } from "@/lib/studio-image-preview";
 import type { ReferenceImage } from "@/types";
 
 type FavoriteReference = {
@@ -147,6 +149,18 @@ type ReferenceAnalysisCacheEntry = {
 
 const CLOTHING_ANALYSIS_CLIENT_CACHE_MIN_CONFIDENCE = 0.5;
 const REFERENCE_ANALYSIS_CLIENT_CACHE_MIN_CONFIDENCE = 0.5;
+
+const TRYON_PREVIEW_ACTIONS: ImagePreviewAction[] = [
+  { kind: "download", label: "下载图片" },
+  { kind: "copy", label: "复制链接" },
+  { kind: "repair", label: "AI修图" },
+  { kind: "aiVideo", label: "AI视频" },
+  { kind: "modelBackground", label: "换背景" },
+  { kind: "pose", label: "姿势裂变" },
+  { kind: "productSet", label: "商品套图" },
+  { kind: "regenerateAll", label: "重新创作" },
+  { kind: "feedback", label: "反馈" },
+];
 
 type SystemReferenceApiItem = {
   id?: string;
@@ -564,7 +578,7 @@ export default function CreatePage() {
   const [isDraggingRef, setIsDraggingRef] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeQueueTask, setActiveQueueTask] = useState<TaskQueueItem | null>(null);
-  const [activeTaskReferences, setActiveTaskReferences] = useState<ResultInputReference[]>([]);
+  const [activeTaskReferences, setActiveTaskReferences] = useState<TryOnInputReference[]>([]);
   const taskQueue = useTaskQueueGeneration({
     module: "tryon",
     title: "服装上身",
@@ -631,6 +645,7 @@ export default function CreatePage() {
 
   // 大图预览
   const [lightboxImage, setLightboxImage] = useState<{ src: string; alt: string } | null>(null);
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
 
   const aspects = aiModel === "gpt-image-2" ? GPT_ASPECTS : BANANA_ASPECTS;
   const imageSizes = getSupportedImageSizes(aiModel, aspectRatio);
@@ -1052,7 +1067,7 @@ export default function CreatePage() {
             if (clothingAnalysisInflightRef.current.get(analysisKey) === nextRequest) {
               clothingAnalysisInflightRef.current.delete(analysisKey);
             }
-          });
+          }).catch(() => undefined);
           request = nextRequest;
         }
 
@@ -1182,7 +1197,7 @@ export default function CreatePage() {
             if (referenceAnalysisInflightRef.current.get(analysisKey) === nextRequest) {
               referenceAnalysisInflightRef.current.delete(analysisKey);
             }
-          });
+          }).catch(() => undefined);
           request = nextRequest;
         }
 
@@ -2355,6 +2370,62 @@ export default function CreatePage() {
     activeQueueTask?.statusGroup === "completed"
     && activeResultExpectedCount > displayedResultUrls.length
   );
+  const tryonPreviewReferences = useMemo(() => {
+    const references = activeTaskReferences.length
+      ? activeTaskReferences
+      : buildTryOnInputReferences({
+          clothingUrls: uploadedClothingUrls,
+          clothingMode,
+          clothingRoles,
+          referenceUrls: effectiveReferenceUrls,
+          modelFaceUrl: store.selectedModel?.image_url,
+        });
+    return references.map((item) => ({
+      url: item.url,
+      label: item.label,
+      role: item.label.includes("服装") || item.label.includes("上装") || item.label.includes("下装") || item.label.includes("连体")
+        ? "clothing" as const
+        : item.label.includes("模特")
+          ? "model" as const
+          : "reference" as const,
+    }));
+  }, [activeTaskReferences, clothingMode, clothingRoles, effectiveReferenceUrls, store.selectedModel?.image_url, uploadedClothingUrls]);
+  const tryonPreviewErrors = useMemo(
+    () => Array.from({ length: activeResultExpectedCount }, (_, index) => (
+      hasCompletedPartialResults && !displayedResultUrls[index]
+        ? "本张生成失败，成功图片可正常使用，失败张数已按任务结算处理。"
+        : null
+    )),
+    [activeResultExpectedCount, displayedResultUrls, hasCompletedPartialResults]
+  );
+  const tryonPreviewSession = useMemo(
+    () => createGenericImagePreviewSession({
+      module: "tryon",
+      title: "服装上身",
+      taskId: activeQueueTask?.id,
+      createdAt: activeQueueTask?.createdAt,
+      statusGroup: activeQueueTask?.statusGroup || (store.isGenerating ? "running" : undefined),
+      urls: store.resultUrls,
+      expectedCount: activeResultExpectedCount,
+      isGenerating: store.isGenerating,
+      references: tryonPreviewReferences,
+      promptText: customStyle,
+      errors: tryonPreviewErrors,
+      metaItems: [
+        { label: "服装模式", value: TRYON_CLOTHING_MODE_LABELS[clothingMode] },
+        { label: "场景模式", value: SCENE_MODE_LABELS[sceneMode] },
+        { label: "人群", value: TRYON_GARMENT_AUDIENCE_LABELS[garmentAudience] },
+        { label: "年龄", value: TRYON_AGE_GROUP_LABELS[ageGroup] },
+        { label: "模型", value: aiModel },
+        { label: "比例", value: aspectRatio },
+        { label: "分辨率", value: imageSize },
+        { label: "生成数量", value: activeResultExpectedCount },
+      ],
+      resultTitlePrefix: "服装上身结果",
+      aspectRatio,
+    }),
+    [activeQueueTask, activeResultExpectedCount, ageGroup, aiModel, aspectRatio, clothingMode, customStyle, garmentAudience, imageSize, sceneMode, store.isGenerating, store.resultUrls, tryonPreviewErrors, tryonPreviewReferences]
+  );
   const resultStatus: StudioResultStatus = store.error
       ? "error"
       : store.isGenerating || store.resultUrls.length > 0
@@ -3429,12 +3500,12 @@ export default function CreatePage() {
             ) : null}
             results={(
               <div className="relative min-h-[320px] sm:min-h-[420px] lg:h-full">
-                <div className="studio-result-stage min-h-[320px] overflow-y-auto overflow-x-hidden p-4 pb-32 sm:min-h-[420px] sm:p-6 sm:pb-32 lg:h-full">
+                <div className="studio-result-stage min-h-[320px] overflow-y-auto overflow-x-hidden p-4 sm:min-h-[420px] sm:p-6 lg:h-full">
                   <div className="flex min-h-full items-start justify-start">
                     <ResultImageGrid
                       urls={store.resultUrls}
                       filenamePrefix="tryon"
-                      onOpen={(url, index) => openLightbox(url, `服装上身结果 ${index + 1}`)}
+                      onOpen={(_, index) => setPreviewIndex(index)}
                       imageAltPrefix="服装上身结果"
                       expectedCount={activeResultExpectedCount}
                       isGenerating={store.isGenerating}
@@ -3451,27 +3522,16 @@ export default function CreatePage() {
                   </div>
                 </div>
 
-                <div className="absolute bottom-0 left-0 right-0 flex flex-col gap-2 border-t border-white/70 bg-white/86 px-4 py-3 shadow-[0_-18px_45px_rgba(15,23,42,0.08)] backdrop-blur-2xl sm:flex-row sm:items-center sm:justify-between sm:px-6">
-                  <span className="text-xs text-slate-500">服装上身结果</span>
-                  <div className="flex flex-wrap gap-2">
-                    <RepairPromptPanel
-                      kind="tryon"
-                      onRepair={handleRepairGenerate}
-                      disabled={store.isGenerating}
-                      className="max-w-xl flex-1"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleContinueCreate}
-                      className="inline-flex items-center gap-1.5 rounded-full border px-4 py-1.5 text-xs font-medium transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
-                    >
-                      <RefreshCw className="h-3 w-3" /> 重新创作
-                    </button>
-                    <a href="/history" className="inline-flex items-center gap-1.5 rounded-full bg-violet-600 px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-violet-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2">
-                      历史记录 <ChevronRight className="h-3 w-3" />
-                    </a>
-                  </div>
-                </div>
+                <StudioImagePreviewDialog
+                  open={previewIndex !== null}
+                  onClose={() => setPreviewIndex(null)}
+                  session={tryonPreviewSession}
+                  selectedIndex={previewIndex || 0}
+                  onSelectedIndexChange={setPreviewIndex}
+                  filenamePrefix="tryon"
+                  actions={TRYON_PREVIEW_ACTIONS}
+                  onRegenerateAll={handleContinueCreate}
+                />
               </div>
             )}
           />

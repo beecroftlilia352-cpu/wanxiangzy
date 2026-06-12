@@ -20,6 +20,7 @@ import { StudioUploadSection } from "@/components/studio/StudioUploadSection";
 import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
 import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
+import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
 import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
@@ -28,6 +29,7 @@ import { applyRepairPrompt } from "@/lib/generation-repair";
 import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
 import { GARMENT_TYPE_OPTIONS, type GarmentType } from "@/lib/garment-types";
 import { showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
+import { createGenericImagePreviewSession, type ImagePreviewAction } from "@/lib/studio-image-preview";
 import {
   DEFAULT_GARMENT_3D_DISPLAY_STYLE,
   GARMENT_3D_DISPLAY_STYLES,
@@ -51,6 +53,18 @@ const MODELS: { value: LingyaModel; label: string; desc: string; badge?: string;
 ];
 
 const SITE_ASSET_BASE = "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original";
+
+const GARMENT_3D_PREVIEW_ACTIONS: ImagePreviewAction[] = [
+  { kind: "download", label: "下载图片" },
+  { kind: "copy", label: "复制链接" },
+  { kind: "repair", label: "AI修图" },
+  { kind: "aiVideo", label: "AI视频" },
+  { kind: "modelBackground", label: "换背景" },
+  { kind: "pose", label: "姿势裂变" },
+  { kind: "productSet", label: "商品套图" },
+  { kind: "regenerateAll", label: "重新创作" },
+  { kind: "feedback", label: "反馈" },
+];
 
 const REFERENCE_PRESETS = [
   { id: "r1", label: "灰色连帽", url: `${SITE_ASSET_BASE}/references/garment-3d/ref-01.webp` },
@@ -106,6 +120,7 @@ export default function Garment3dPage() {
   const [runningExpectedCount, setRunningExpectedCount] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const [showGarmentRules, setShowGarmentRules] = useState(false);
   const [rulesPopoverStyle, setRulesPopoverStyle] = useState<{ top: number; left: number; maxHeight: number } | null>(null);
 
@@ -135,6 +150,34 @@ export default function Garment3dPage() {
     });
   }, [activeReferenceUrl, customGarmentType, displayStyle, garmentType, outputMode, prompt]);
   const finalPrompt = promptOverride ?? builtPrompt;
+  const displayStyleLabel = GARMENT_3D_DISPLAY_STYLES.find((item) => item.value === displayStyle)?.label || displayStyle;
+  const previewSession = useMemo(
+    () => createGenericImagePreviewSession({
+      module: "garment3d",
+      title: "服装 3D",
+      urls: resultUrls,
+      expectedCount: isGenerating ? runningExpectedCount || genCount : Math.max(resultUrls.length, 1),
+      isGenerating,
+      statusGroup: isGenerating ? "running" : undefined,
+      references: [
+        ...(garmentUrl ? [{ url: garmentUrl, label: "服装图", role: "garment" as const }] : []),
+        ...(outputMode === "reference" && activeReferenceUrl ? [{ url: activeReferenceUrl, label: customReferenceUrl ? "自定义立体参考" : selectedReference.label, role: "reference" as const }] : []),
+      ],
+      promptText: prompt,
+      metaItems: [
+        { label: "服装类型", value: garmentType === "其他" ? customGarmentType : garmentType },
+        { label: "输出方式", value: outputMode === "reference" ? "参考图控制" : "提示词控制" },
+        { label: "展示风格", value: displayStyleLabel },
+        { label: "模型", value: aiModel },
+        { label: "比例", value: aspectRatio },
+        { label: "分辨率", value: imageSize },
+        { label: "生成数量", value: genCount },
+      ],
+      resultTitlePrefix: "服装 3D 结果",
+      aspectRatio,
+    }),
+    [activeReferenceUrl, aiModel, aspectRatio, customGarmentType, customReferenceUrl, displayStyleLabel, garmentType, garmentUrl, genCount, imageSize, isGenerating, outputMode, prompt, resultUrls, runningExpectedCount, selectedReference.label]
+  );
   const runDisabledReason = !garmentUrl
     ? "请先上传服装图"
     : credits !== null && credits < totalCost
@@ -865,7 +908,7 @@ export default function Garment3dPage() {
                 inputThumbnails={taskInputThumbnails}
                 statusGroup={isGenerating ? "running" : undefined}
                 variant="task"
-                onOpen={setLightboxSrc}
+                onOpen={(_, index) => setPreviewIndex(index)}
               />
             </div>
             <div className="absolute bottom-0 left-0 right-0 border-t border-white/70 bg-white/78 backdrop-blur-2xl px-4 sm:px-6 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-[0_-18px_45px_rgba(15,23,42,0.08)]">
@@ -880,6 +923,16 @@ export default function Garment3dPage() {
                 重新创作 <ChevronRight className="inline w-3 h-3" />
               </button>
             </div>
+            <StudioImagePreviewDialog
+              open={previewIndex !== null}
+              onClose={() => setPreviewIndex(null)}
+              session={previewSession}
+              selectedIndex={previewIndex || 0}
+              onSelectedIndexChange={setPreviewIndex}
+              filenamePrefix="garment-3d"
+              actions={GARMENT_3D_PREVIEW_ACTIONS}
+              onRegenerateAll={() => { setResultUrls([]); setProgress(0); }}
+            />
           </div>
         )}
 
