@@ -121,6 +121,27 @@ export function createImagePreviewSession(input: ImagePreviewSession): ImagePrev
   };
 }
 
+export function getPreviewCanvasInputReferences(
+  session: Pick<ImagePreviewSession, "module" | "references">
+): ImagePreviewReference[] {
+  const references = session.references || [];
+  if (!references.length) return [];
+
+  if (session.module === "model") {
+    return references;
+  }
+
+  if (session.module !== "tryon") {
+    return [references[0]];
+  }
+
+  const clothingReferences = references.filter((reference) => {
+    if (reference.role === "clothing" || reference.role === "garment" || reference.role === "product") return true;
+    return /上装|下装|服装|连体|商品/.test(reference.label);
+  });
+  return clothingReferences.length ? clothingReferences : [references[0]];
+}
+
 export function buildImagePreviewResults(input: {
   urls?: Array<string | null | undefined>;
   expectedCount?: number;

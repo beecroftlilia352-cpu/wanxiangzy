@@ -1491,6 +1491,10 @@ export default function ProductSetPage() {
     };
   });
   const visibleResultCount = resultSlots.filter((item) => item.url).length;
+  const productSetPreviewPromptText = [
+    settings.extraDescription,
+    ...moduleOverrides.map((item) => item.extraDescription),
+  ].map((item) => item?.trim() || "").filter(Boolean).join("\n\n");
   const productSetPreviewSession = useMemo(
     () => createProductSetPreviewSession({
       module: "productSet",
@@ -1505,7 +1509,7 @@ export default function ProductSetPage() {
         label: productImages[index]?.name || `商品图 ${index + 1}`,
         role: "product" as const,
       })),
-      promptText: [productInfo, referenceStyleBrief].filter(Boolean).join("\n\n"),
+      promptText: productSetPreviewPromptText,
       metaItems: [
         { label: "生成模式", value: mode === "smart" ? "智能套图" : "自定义套图" },
         { label: "图片类型", value: imageType === "main" ? "主图辅图" : "详情页" },
@@ -1529,7 +1533,7 @@ export default function ProductSetPage() {
         };
       }),
     }),
-    [activeQueueTask, aspectRatio, imageType, isGenerating, mode, productImages, productInfo, qualityMode, referenceStyleBrief, resultSlotCount, resultSlots, selectedStylePack.name, settings.language, settings.platform]
+    [activeQueueTask, aspectRatio, imageType, isGenerating, mode, productImages, productSetPreviewPromptText, qualityMode, resultSlotCount, resultSlots, selectedStylePack.name, settings.language, settings.platform]
   );
 
   return (

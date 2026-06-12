@@ -163,7 +163,7 @@ export default function Garment3dPage() {
         ...(garmentUrl ? [{ url: garmentUrl, label: "服装图", role: "garment" as const }] : []),
         ...(outputMode === "reference" && activeReferenceUrl ? [{ url: activeReferenceUrl, label: customReferenceUrl ? "自定义立体参考" : selectedReference.label, role: "reference" as const }] : []),
       ],
-      promptText: prompt,
+      promptText: prompt.trim() && prompt.trim() !== DEFAULT_PROMPT ? prompt : "",
       metaItems: [
         { label: "服装类型", value: garmentType === "其他" ? customGarmentType : garmentType },
         { label: "输出方式", value: outputMode === "reference" ? "参考图控制" : "提示词控制" },

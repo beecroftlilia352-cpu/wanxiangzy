@@ -6,6 +6,7 @@ import {
   compactMetaItems,
   createProductSetPreviewSession,
   createTryOnPreviewSession,
+  getPreviewCanvasInputReferences,
   isValidSourceImageUrl,
   readSourceImageFromUrl,
 } from "@/lib/studio-image-preview";
@@ -77,6 +78,34 @@ describe("studio image preview data", () => {
       status: "failed",
       error: "材质图生成失败",
     });
+  });
+
+  it("selects canvas input references by module rules", () => {
+    const references = [
+      { url: "https://example.com/a.png", label: "参考图1", role: "reference" as const },
+      { url: "https://example.com/b.png", label: "参考图2", role: "reference" as const },
+      { url: "https://example.com/c.png", label: "模特", role: "model" as const },
+    ];
+
+    expect(getPreviewCanvasInputReferences({ module: "grass", references }).map((item) => item.url)).toEqual([
+      "https://example.com/a.png",
+    ]);
+    expect(getPreviewCanvasInputReferences({ module: "model", references }).map((item) => item.url)).toEqual([
+      "https://example.com/a.png",
+      "https://example.com/b.png",
+      "https://example.com/c.png",
+    ]);
+    expect(getPreviewCanvasInputReferences({
+      module: "tryon",
+      references: [
+        { url: "https://example.com/top.png", label: "上装", role: "clothing" as const },
+        { url: "https://example.com/bottom.png", label: "下装", role: "clothing" as const },
+        { url: "https://example.com/ref.png", label: "参考图", role: "reference" as const },
+      ],
+    }).map((item) => item.url)).toEqual([
+      "https://example.com/top.png",
+      "https://example.com/bottom.png",
+    ]);
   });
 });
 

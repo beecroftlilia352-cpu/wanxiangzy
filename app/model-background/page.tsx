@@ -180,7 +180,9 @@ export default function ModelBackgroundPage() {
         role: item.imageNumber === 1 ? "source" : item.imageNumber === 2 && hasModelReference ? "model" : "background",
       })),
       promptText: [
-        mode !== "model_only" && backgroundSource === "text" ? backgroundText : "",
+        mode !== "model_only" && backgroundSource === "text" && backgroundText.trim() !== DEFAULT_BACKGROUND_TEXT
+          ? `背景描述：${backgroundText}`
+          : "",
         userPrompt,
       ].map((item) => item.trim()).filter(Boolean).join("\n\n"),
       metaItems: [

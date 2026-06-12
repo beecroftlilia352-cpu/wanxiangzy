@@ -316,7 +316,7 @@ export default function AllCategoryProductImagePage() {
         label: image.name || `商品图 ${index + 1}`,
         role: "product" as const,
       })),
-      promptText: [productInfo || userBrief, designSpec].filter(Boolean).join("\n\n"),
+      promptText: userBrief,
       metaItems: [
         { label: "图片类型", value: imageType === "main" ? "主图辅图" : "详情页" },
         { label: "平台", value: platform },
@@ -339,7 +339,7 @@ export default function AllCategoryProductImagePage() {
         };
       }),
     }),
-    [activeStep, aiModel, defaultAspect, designSpec, imageSize, imageType, isGenerating, language, modules.length, platform, productImages, productInfo, resultSlots, userBrief]
+    [activeStep, aiModel, defaultAspect, imageSize, imageType, isGenerating, language, modules.length, platform, productImages, resultSlots, userBrief]
   );
 
   useEffect(() => {

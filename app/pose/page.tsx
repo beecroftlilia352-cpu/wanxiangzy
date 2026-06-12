@@ -245,6 +245,11 @@ export default function PosePage() {
             ? `灵点不足，生成需要 ${cost} 灵点`
             : undefined;
   const poseStyleLabel = POSE_SERIES_STYLES.find((item) => item.value === poseStyle)?.label || poseStyle;
+  const previewPosePlan = getActivePosePlan();
+  const previewPosePlanText = [
+    ...getPosePlanSummary(previewPosePlan).map((item) => `${item.title}：${item.detail}`),
+    supplementPrompt.trim() ? `补充要求：${supplementPrompt.trim()}` : "",
+  ].map((item) => item.trim()).filter(Boolean).join("\n");
   const previewSession = useMemo(
     () => createGenericImagePreviewSession({
       module: "pose",
@@ -254,10 +259,7 @@ export default function PosePage() {
       isGenerating,
       statusGroup: isGenerating ? "running" : undefined,
       references: mainImage ? [{ url: mainImage, label: "主图", role: "source" as const }] : [],
-      promptText: [
-        poseStyle === "user_custom" ? customPosePrompt : "",
-        supplementPrompt.trim() ? `补充要求：${supplementPrompt.trim()}` : "",
-      ].map((item) => item.trim()).filter(Boolean).join("\n\n"),
+      promptText: previewPosePlanText,
       metaItems: [
         { label: "输出方式", value: outputMode === "separate" ? "每姿势一张" : "四宫格" },
         { label: "姿势风格", value: poseStyleLabel },
@@ -269,7 +271,7 @@ export default function PosePage() {
       resultTitlePrefix: outputMode === "separate" ? "姿势结果" : "姿势四宫格",
       aspectRatio: "3:4",
     }),
-    [aiModel, customPosePrompt, imageSize, isGenerating, mainImage, outputMode, poseExpectedCount, posePlanMode, posePlanSource, poseStyle, poseStyleLabel, resultUrls, runningExpectedCount, supplementPrompt]
+    [aiModel, imageSize, isGenerating, mainImage, outputMode, poseExpectedCount, posePlanMode, posePlanSource, poseStyleLabel, previewPosePlanText, resultUrls, runningExpectedCount]
   );
   const cancelRulesHide = () => {
     if (rulesHideTimerRef.current) {

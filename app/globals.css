@@ -5409,6 +5409,16 @@ header .animate-spin {
   transition: transform 160ms ease;
 }
 
+.studio-image-preview-input-stack:not(.studio-image-preview-input-stack-multi) {
+  padding: 0;
+}
+
+.studio-image-preview-input-stack:not(.studio-image-preview-input-stack-multi) .studio-image-preview-input-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .studio-image-preview-input-image span {
   position: absolute;
   left: 8px;

@@ -162,7 +162,7 @@ export default function ModelPage() {
       statusGroup: isGenerating ? "running" : undefined,
       createdAt: activeResultMeta?.createdAt,
       references: previewReferences,
-      promptText: prompt,
+      promptText: userExtraPrompt,
       metaItems: [
         { label: "性别", value: gender === "female" ? "女模特" : "男模特" },
         { label: "拍摄风格", value: modelStyle },
@@ -174,7 +174,7 @@ export default function ModelPage() {
       resultTitlePrefix: "专属模特结果",
       aspectRatio,
     }),
-    [activeResultMeta, aiModel, aspectRatio, gender, genCount, imageSize, isGenerating, modelStyle, previewReferences, prompt, resultUrls, runningExpectedCount]
+    [activeResultMeta, aiModel, aspectRatio, gender, genCount, imageSize, isGenerating, modelStyle, previewReferences, resultUrls, runningExpectedCount, userExtraPrompt]
   );
   const taskQueue = useTaskQueueGeneration({
     module: "model",

@@ -35,6 +35,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { getImageVariantUrl } from "@/lib/image-variants";
 import {
   buildSourceImageHref,
+  getPreviewCanvasInputReferences,
   getSelectedPreviewResult,
   IMAGE_PREVIEW_MODULE_LABELS,
   type ImagePreviewAction,
@@ -117,7 +118,7 @@ export function StudioImagePreviewWorkspace({
   const activeIndex = clampIndex(selectedIndex ?? internalIndex, session.results.length);
   const activeResult = session.results[activeIndex] || getSelectedPreviewResult(session);
   const activeUrl = activeResult?.url || "";
-  const inputReferences = useMemo(() => getCanvasInputReferences(session), [session]);
+  const inputReferences = useMemo(() => getPreviewCanvasInputReferences(session), [session]);
   const aspectConfig = useMemo(() => getPreviewAspectConfig(activeResult?.aspectRatio), [activeResult?.aspectRatio]);
   const usableActions = useMemo(() => filterUsableActions(actions, {
     hasUrl: Boolean(activeUrl),
@@ -971,18 +972,6 @@ function filterUsableActions(
   });
 }
 
-function getCanvasInputReferences(session: ImagePreviewSession): ImagePreviewReference[] {
-  const references = session.references || [];
-  if (!references.length) return [];
-  if (session.module !== "tryon") return references.slice(0, 4);
-
-  const clothingReferences = references.filter((reference) => {
-    if (reference.role === "clothing" || reference.role === "garment" || reference.role === "product") return true;
-    return /上装|下装|服装|连体|商品/.test(reference.label);
-  });
-  return (clothingReferences.length ? clothingReferences : references.slice(0, 1)).slice(0, 3);
-}
-
 function getInspectorReferenceGroups(session: ImagePreviewSession): Array<{ title: string; references: ImagePreviewReference[] }> {
   const references = session.references || [];
   if (!references.length) return [];
@@ -995,14 +984,16 @@ function getInspectorReferenceGroups(session: ImagePreviewSession): Array<{ titl
     || reference.role === "product"
     || /上装|下装|服装|连体|全身|商品/.test(reference.label)
   );
-  const modelReferences = references.filter(isModel).slice(0, 1);
-  const sceneReferences = references.filter((reference) => !isModel(reference) && !isClothing(reference)).slice(0, 1);
+  const clothingReferences = references.filter(isClothing);
+  const modelReferences = references.filter(isModel);
+  const sceneReferences = references.filter((reference) => !isModel(reference) && !isClothing(reference));
   const groups = [
+    clothingReferences.length ? { title: "服装", references: clothingReferences } : null,
     modelReferences.length ? { title: "模特", references: modelReferences } : null,
     sceneReferences.length ? { title: "参考图", references: sceneReferences } : null,
   ].filter(Boolean) as Array<{ title: string; references: ImagePreviewReference[] }>;
 
-  return groups.length ? groups : [{ title: "输入参考", references: references.slice(0, 2) }];
+  return groups.length ? groups : [{ title: "输入参考", references }];
 }
 
 function actionIcon(kind: ImagePreviewActionKind) {
