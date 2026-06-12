@@ -128,7 +128,7 @@ export function normalizeSceneMode(value: unknown): TryOnSceneMode {
   ) {
     return value;
   }
-  return "auto_design";
+  return "system_reference";
 }
 
 export function normalizeAutoDesignSettings(value: unknown): AutoDesignSettings {

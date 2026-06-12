@@ -66,6 +66,5 @@ export const AGE_GROUP_OPTIONS: TryOnAgeGroup[] = ["adult", "teen", "big_child",
 export const SCENE_MODE_TABS: Array<{ value: TryOnSceneMode; label: string }> = [
   { value: "system_reference", label: "系统生成参考图" },
   { value: "upload_reference", label: "上传参考图" },
-  { value: "auto_design", label: "自动设计" },
   { value: "favorites", label: "我的收藏" },
 ];

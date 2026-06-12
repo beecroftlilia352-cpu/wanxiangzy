@@ -8,12 +8,12 @@ import {
 } from "../tryon-scene";
 
 describe("try-on scene mode", () => {
-  it("defaults unknown scene modes to auto_design", () => {
-    expect(normalizeSceneMode(undefined)).toBe("auto_design");
-    expect(normalizeSceneMode(null)).toBe("auto_design");
-    expect(normalizeSceneMode("")).toBe("auto_design");
-    expect(normalizeSceneMode("system")).toBe("auto_design");
-    expect(normalizeSceneMode({ mode: "upload_reference" })).toBe("auto_design");
+  it("defaults unknown scene modes to system_reference", () => {
+    expect(normalizeSceneMode(undefined)).toBe("system_reference");
+    expect(normalizeSceneMode(null)).toBe("system_reference");
+    expect(normalizeSceneMode("")).toBe("system_reference");
+    expect(normalizeSceneMode("system")).toBe("system_reference");
+    expect(normalizeSceneMode({ mode: "upload_reference" })).toBe("system_reference");
   });
 
   it("keeps supported scene modes unchanged", () => {
