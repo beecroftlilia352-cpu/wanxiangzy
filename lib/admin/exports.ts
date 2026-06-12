@@ -14,6 +14,7 @@ import {
   listAdminTasks,
   listAdminUsers,
 } from "@/lib/admin/data";
+import { isRecord } from "@/lib/utils";
 
 export const ADMIN_EXPORT_TYPES = [
   "users",
@@ -467,10 +468,6 @@ function csvCell(value: string) {
   const normalized = value.replace(/\r?\n/g, " ");
   const safeValue = /^[=+\-@\t]/.test(normalized) ? `'${normalized}` : normalized;
   return /[",\n]/.test(safeValue) ? `"${safeValue.replace(/"/g, '""')}"` : safeValue;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 function stringValue(value: unknown) {

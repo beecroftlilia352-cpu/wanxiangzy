@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { CheckCircle2, Clock3, ImageIcon, Loader2, RefreshCw, XCircle } from "lucide-react";
-import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { DropdownMenu } from "radix-ui";
 import type { TaskQueueItem, TaskQueuePayload } from "@/lib/task-queue";
 import { isTaskFinished, isTaskRunning } from "@/lib/task-queue";
 

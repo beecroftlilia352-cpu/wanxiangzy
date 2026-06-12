@@ -1,3 +1,4 @@
+import { isRecord, withTimeout, toLogMessage } from "@/lib/utils";
 import { NextResponse } from "next/server";
 import { API_RATE_LIMITS, enforceApiRateLimit } from "@/lib/api/rate-limit";
 import { createServerSupabase } from "@/lib/supabase/server";
@@ -152,7 +153,14 @@ export async function GET(request: Request) {
     const hasMore = fetchedRows.length > pageSize;
     const nextCursor = hasMore ? rows[rows.length - 1]?.created_at || null : null;
 
-    return NextResponse.json({ rows, hasMore, nextCursor });
+    return NextResponse.json(
+      { rows, hasMore, nextCursor },
+      {
+        headers: {
+          "Cache-Control": "private, max-age=5, stale-while-revalidate=10",
+        },
+      }
+    );
   } catch (err: unknown) {
     console.error("[history] error:", toLogMessage(err));
     return NextResponse.json({ error: "历史记录加载失败" }, { status: 500 });
@@ -199,21 +207,4 @@ function normalizeHistoryRow<T extends HistoryListRow>(row: T): T {
 function isHiddenByAdmin(row: HistoryListRow) {
   const moderation = isRecord(row.job_payload?.adminModeration) ? row.job_payload.adminModeration : null;
   return moderation?.action === "hide";
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
-
-function withTimeout<T>(promise: PromiseLike<T>, ms: number, message: string): Promise<T> {
-  return Promise.race([
-    Promise.resolve(promise),
-    new Promise<never>((_, reject) => setTimeout(() => reject(new Error(message)), ms)),
-  ]);
-}
-
-function toLogMessage(error: unknown) {
-  if (error instanceof Error) return error.message;
-  if (typeof error === "string") return error;
-  return "unknown error";
 }

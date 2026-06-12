@@ -1,3 +1,4 @@
+import { isRecord } from "@/lib/utils";
 import { getChatCompletionsUrl, getLlmFallbackConfigs } from "@/lib/api/llm-provider";
 import { getPlannerToolCatalog } from "@/lib/agent/workflow/tools";
 import type {
@@ -749,10 +750,6 @@ function isPlannerToolType(value: string): value is WorkflowToolType {
     "image_to_video",
     "image_to_3d_asset",
   ].includes(value);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
 }
 
 function isImageRole(value: string): value is ImageRoleResolution["role"] {

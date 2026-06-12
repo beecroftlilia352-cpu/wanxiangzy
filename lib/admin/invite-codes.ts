@@ -1,4 +1,5 @@
 import { getAdminClient } from "@/lib/supabase/admin";
+import { withTimeout, isRecord } from "@/lib/utils";
 
 const QUERY_TIMEOUT_MS = 10_000;
 const INVITE_CODE_COLUMNS = "id,code,campaign,note,status,max_uses,used_count,starts_at,expires_at,created_by,created_by_email,created_at,updated_at";
@@ -192,13 +193,6 @@ function matchesUsageSearch(row: AdminInviteCodeUsage, q: string) {
   return [row.code, row.email, row.userId || "", row.reason || ""].some((value) => value.toLowerCase().includes(q));
 }
 
-function withTimeout<T>(promise: PromiseLike<T>, ms: number, message: string): Promise<T> {
-  return Promise.race([
-    Promise.resolve(promise),
-    new Promise<never>((_, reject) => setTimeout(() => reject(new Error(message)), ms)),
-  ]);
-}
-
 function clampInteger(value: unknown, min: number, max: number, fallback: number) {
   const parsed = Number(value);
   if (!Number.isInteger(parsed)) return fallback;
@@ -231,10 +225,6 @@ function uniqueStrings(values: string[]) {
     seen.add(clean);
     return true;
   });
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 function isMissingTableError(error: { code?: string; message?: string }) {

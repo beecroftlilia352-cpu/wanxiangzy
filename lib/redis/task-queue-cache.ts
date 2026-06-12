@@ -52,13 +52,13 @@ export async function getCachedTaskQueue(
   }
   try {
     const key = moduleZsetKey(userId, module);
-    const ids = await (redis as any).zrange(key, 0, Math.max(0, limit - 1), { rev: true });
+    const ids = await redis.zrange(key, 0, Math.max(0, limit - 1), { rev: true });
     const taskIds = Array.isArray(ids) ? ids.filter((id): id is string => typeof id === "string") : [];
     if (taskIds.length === 0) {
       return { hit: false, value: [], reason: "empty" };
     }
 
-    const values = await (redis as any).mget(...taskIds.map((id) => itemKey(userId, id)));
+    const values = await redis.mget(...taskIds.map((id) => itemKey(userId, id)));
     const items = (Array.isArray(values) ? values : [])
       .map(parseCachedTaskQueueItem)
       .filter((item): item is TaskQueueItem => Boolean(item))
@@ -80,8 +80,8 @@ export async function writeTaskQueueItem(userId: string, item: TaskQueueItem): P
     const key = itemKey(userId, item.id);
     const moduleKey = moduleZsetKey(userId, item.module);
 
-    await (redis as any).set(key, item, { ex: TASK_QUEUE_ITEM_TTL_SECONDS });
-    await (redis as any).zadd(moduleKey, { score, member: item.id });
+    await redis.set(key, item, { ex: TASK_QUEUE_ITEM_TTL_SECONDS });
+    await redis.zadd(moduleKey, { score, member: item.id });
     if (shouldTrimModuleZset(moduleKey)) {
       await trimModuleZset(redis, moduleKey);
     }
@@ -102,8 +102,8 @@ export async function warmTaskQueueCache(userId: string, module: string, items: 
     for (const rawItem of items.slice(0, TASK_QUEUE_MODULE_CACHE_LIMIT)) {
       const item = applyStaleRunningFallback(rawItem);
       const score = Date.parse(item.createdAt || "") || Date.now();
-      await (redis as any).set(itemKey(userId, item.id), item, { ex: TASK_QUEUE_ITEM_TTL_SECONDS });
-      await (redis as any).zadd(moduleKey, { score, member: item.id });
+      await redis.set(itemKey(userId, item.id), item, { ex: TASK_QUEUE_ITEM_TTL_SECONDS });
+      await redis.zadd(moduleKey, { score, member: item.id });
     }
     if (shouldTrimModuleZset(moduleKey)) {
       await trimModuleZset(redis, moduleKey);
@@ -119,7 +119,7 @@ export async function getCachedTaskSummary(userId: string): Promise<CacheReadRes
     return { hit: false, value: emptyTaskQueueSummary(), reason: "redis_unconfigured" };
   }
   try {
-    const value = await (redis as any).hgetall(summaryKey(userId));
+    const value = await redis.hgetall(summaryKey(userId));
     if (!value || typeof value !== "object" || Object.keys(value).length === 0) {
       return { hit: false, value: emptyTaskQueueSummary(), reason: "empty" };
     }
@@ -137,8 +137,8 @@ export async function writeCachedTaskSummary(userId: string, summary: TaskQueueS
   }
   try {
     const key = summaryKey(userId);
-    await (redis as any).hset(key, summary);
-    await (redis as any).expire(key, TASK_QUEUE_SUMMARY_TTL_SECONDS);
+    await redis.hset(key, summary);
+    await redis.expire(key, TASK_QUEUE_SUMMARY_TTL_SECONDS);
   } catch (error) {
     console.warn("[task-queue-cache] write summary unavailable:", error);
   }
@@ -150,14 +150,14 @@ export async function invalidateCachedTaskSummary(userId: string): Promise<void>
     return;
   }
   try {
-    await (redis as any).del(summaryKey(userId));
+    await redis.del(summaryKey(userId));
   } catch (error) {
     console.warn("[task-queue-cache] invalidate summary unavailable:", error);
   }
 }
 
 async function trimModuleZset(redis: Redis, key: string) {
-  await (redis as any).zremrangebyrank(key, 0, -TASK_QUEUE_MODULE_CACHE_LIMIT - 1);
+  await redis.zremrangebyrank(key, 0, -TASK_QUEUE_MODULE_CACHE_LIMIT - 1);
 }
 
 function shouldTrimModuleZset(key: string) {

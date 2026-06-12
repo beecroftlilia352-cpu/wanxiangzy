@@ -1,5 +1,6 @@
 import { createHmac, randomUUID } from "node:crypto";
 import { getBase64Payload, isStableStoredImageUrl, type ImageStorageClass } from "@/lib/api/image-storage";
+import { isRemoteUrl } from "@/lib/utils";
 
 const DEFAULT_MEDIA_UPLOAD_TIMEOUT_MS = 120_000;
 const MAX_MEDIA_STORAGE_BYTES = 120 * 1024 * 1024;
@@ -163,15 +164,6 @@ function getStorageClassPrefixEnv(storageClass: ImageStorageClass) {
 
 function buildPublicObjectUrl(baseUrl: string, objectKey: string) {
   return `${normalizeBaseUrl(baseUrl)}/${encodeObjectKey(objectKey)}`;
-}
-
-function isRemoteUrl(value: string) {
-  try {
-    const protocol = new URL(value).protocol;
-    return protocol === "http:" || protocol === "https:";
-  } catch {
-    return false;
-  }
 }
 
 function cleanObjectPath(value: string) {

@@ -6,6 +6,7 @@ import {
   mapInviteCodeError,
   normalizeInviteCode,
 } from "@/lib/invite-codes";
+import { checkRateLimit, API_RATE_LIMITS } from "@/lib/api/rate-limit";
 
 const SIGNUP_TIMEOUT_MS = 12_000;
 
@@ -32,6 +33,19 @@ export async function POST(request: Request) {
     }
     if (!inviteCode) {
       return NextResponse.json({ error: "请输入邀请码" }, { status: 400 });
+    }
+
+    const rateLimitKey = `auth-signup:${email}`;
+    const rateLimit = await checkRateLimit(
+      rateLimitKey,
+      API_RATE_LIMITS.authSignup.limit,
+      API_RATE_LIMITS.authSignup.windowMs
+    );
+    if (!rateLimit.ok) {
+      return NextResponse.json(
+        { error: `注册请求过于频繁，请 ${rateLimit.retryAfterSeconds} 秒后再试。` },
+        { status: 429, headers: { "Retry-After": String(rateLimit.retryAfterSeconds) } }
+      );
     }
 
     const admin = getAdminClient();

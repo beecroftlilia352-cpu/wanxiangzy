@@ -1,4 +1,5 @@
 import { createHmac, randomUUID } from "node:crypto";
+import { isRemoteUrl } from "@/lib/utils";
 
 const IMGBB_API_URL = "https://api.imgbb.com/1/upload";
 const DEFAULT_IMAGE_UPLOAD_TIMEOUT_MS = 45_000;
@@ -446,15 +447,6 @@ function assertUploadSize(bytes: Buffer) {
 
 function bufferToArrayBuffer(bytes: Buffer) {
   return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
-}
-
-function isRemoteUrl(value: string) {
-  try {
-    const protocol = new URL(value).protocol;
-    return protocol === "http:" || protocol === "https:";
-  } catch {
-    return false;
-  }
 }
 
 function buildAliyunObjectKey(input: StoreImageInput, extension: string) {

@@ -134,7 +134,7 @@ function saveMessage(convId: string, msg: { id?: string; role: string; content: 
       params: msg.params || {},
       mode: msg.mode || "agent",
     }),
-  }).catch(() => {});
+  }).catch((err) => console.error("[agent-store] saveMessage failed:", err));
 }
 
 /** 更新消息的 generation 状态 */
@@ -145,7 +145,7 @@ function updateMessageGeneration(convId: string, messageId: string, generation: 
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ messageId, generation: clean }),
-  }).catch(() => {});
+  }).catch((err) => console.error("[agent-store] updateMessageGeneration failed:", err));
 }
 
 function updateMessageParams(convId: string, messageId: string, params: Record<string, unknown>) {
@@ -153,7 +153,7 @@ function updateMessageParams(convId: string, messageId: string, params: Record<s
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ messageId, params }),
-  }).catch(() => {});
+  }).catch((err) => console.error("[agent-store] updateMessageParams failed:", err));
 }
 
 function updateMessageImages(convId: string, messageId: string, images: ChatImage[]) {
@@ -161,7 +161,7 @@ function updateMessageImages(convId: string, messageId: string, images: ChatImag
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ messageId, images }),
-  }).catch(() => {});
+  }).catch((err) => console.error("[agent-store] updateMessageImages failed:", err));
 }
 
 function patchConversationList(
@@ -268,7 +268,7 @@ export const useAgentStore = create<Store>((set, get) => ({
   },
 
   deleteConversation: (id: string) => {
-    fetch(`/api/conversations/${id}`, { method: "DELETE" }).catch(() => {});
+    fetch(`/api/conversations/${id}`, { method: "DELETE" }).catch((err) => console.error("[agent-store] deleteConversation failed:", err));
     set((s) => {
       const convs = s.conversations.filter((c) => c.id !== id);
       if (s.activeId !== id) return { conversations: convs };
@@ -332,7 +332,7 @@ export const useAgentStore = create<Store>((set, get) => ({
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ images: persisted }),
-      }).catch(() => {});
+      }).catch((err) => console.error("[agent-store] persistImages failed:", err));
     }
   },
 
@@ -350,7 +350,7 @@ export const useAgentStore = create<Store>((set, get) => ({
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ images: nextImages }),
-      }).catch(() => {});
+      }).catch((err) => console.error("[agent-store] removeImage persist failed:", err));
     }
   },
 
@@ -363,7 +363,7 @@ export const useAgentStore = create<Store>((set, get) => ({
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ images: [] }),
-      }).catch(() => {});
+      }).catch((err) => console.error("[agent-store] clearImages persist failed:", err));
     }
   },
 
@@ -378,7 +378,7 @@ export const useAgentStore = create<Store>((set, get) => ({
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ images: persisted }),
-      }).catch(() => {});
+      }).catch((err) => console.error("[agent-store] setImageRole persist failed:", err));
     }
   },
 
@@ -460,10 +460,10 @@ export const useAgentStore = create<Store>((set, get) => ({
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ images: currentImages }),
-      }).catch(() => {});
+      }).catch((err) => console.error("[agent-store] sendMessage persistImages failed:", err));
     }
 
-    // 更新对话标题：新建后发送时必须用最新 store 快照，避免侧边栏一直显示“新对话”
+    // 更新对话标题：新建后发送时必须用最新 store 快照，避免侧边栏一直显示"新对话"
     const conv = get().conversations.find((c) => c.id === convId);
     if (!conv || isDefaultConversationTitle(conv.title)) {
       const title = deriveConversationTitle(trimmed, currentImages);
@@ -472,7 +472,7 @@ export const useAgentStore = create<Store>((set, get) => ({
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title }),
-      }).catch(() => {});
+      }).catch((err) => console.error("[agent-store] sendMessage updateTitle failed:", err));
     }
     set((s) => ({
       conversations: patchConversationList(s.conversations, convId, conversationPatch),
@@ -851,7 +851,7 @@ export const useAgentStore = create<Store>((set, get) => ({
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ images: nextTrayImages }),
-      }).catch(() => {});
+      }).catch((err) => console.error("[agent-store] confirmGeneration persistImages failed:", err));
     }
   },
 

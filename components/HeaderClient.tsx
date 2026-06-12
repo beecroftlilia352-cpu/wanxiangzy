@@ -336,122 +336,17 @@ function MarketingMobileMenu() {
 }
 
 function AppHeader({ pathname }: { pathname: string }) {
-  const supabase = useMemo(() => createClient(), []);
   const [locationSearch, setLocationSearch] = useState("");
   const activeModule =
     pathname === "/agent" && new URLSearchParams(locationSearch).get("intent") === "video"
       ? "aiVideo"
       : getActiveTopModule(pathname);
   const isLoginPage = pathname === "/login";
-  const [email, setEmail] = useState<string | null>(null);
-  const [credits, setCredits] = useState<number | null>(null);
-  const [authReady, setAuthReady] = useState(false);
-  const [creditsReady, setCreditsReady] = useState(false);
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const loadedCreditsForUserRef = useRef<string | null>(null);
+  const { authReady, creditsReady, credits, email, isLoggingOut, onLogout } = useHeaderAccount();
 
   useEffect(() => {
     setLocationSearch(window.location.search);
   }, [pathname]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadProfileFromApi() {
-      const payload = await getCachedProfile();
-      if (cancelled || !payload?.user?.id) return false;
-
-      loadedCreditsForUserRef.current = payload.user.id;
-      setEmail(payload.user.email ?? null);
-      setCredits(payload.credits ?? 0);
-      setCachedProfileCredits(payload.user.id, payload.credits ?? 0);
-      setAuthReady(true);
-      setCreditsReady(true);
-      return true;
-    }
-
-    async function loadUserCredits(user: { id: string; email?: string | null }) {
-      setEmail(user.email ?? null);
-      setAuthReady(true);
-      setCreditsReady(false);
-      loadedCreditsForUserRef.current = user.id;
-
-      const apiLoaded = await loadProfileFromApi();
-      if (apiLoaded) return;
-
-      const profileCredits = await getCachedProfileCredits(user.id);
-      if (!cancelled && loadedCreditsForUserRef.current === user.id) {
-        setCredits(profileCredits);
-        setCreditsReady(true);
-      }
-    }
-
-    loadProfileFromApi()
-      .then((loaded) => {
-        if (loaded || cancelled) return undefined;
-        return supabase.auth.getUser();
-      })
-      .then((result) => {
-        if (!result || cancelled) return;
-        const { data } = result;
-        if (data.user) {
-          loadUserCredits(data.user);
-        } else {
-          setAuthReady(true);
-          setCreditsReady(true);
-        }
-      })
-      .catch(() => {
-        setAuthReady(true);
-        setCreditsReady(true);
-      });
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (session?.user) {
-        await loadUserCredits(session.user);
-      } else {
-        clearCachedProfile();
-        clearCachedProfileCredits();
-        loadedCreditsForUserRef.current = null;
-        setEmail(null);
-        setCredits(null);
-        setAuthReady(true);
-        setCreditsReady(true);
-      }
-    });
-
-    const unsubscribeCredits = subscribeToProfileCredits(({ userId, credits: nextCredits }) => {
-      if (loadedCreditsForUserRef.current === userId) {
-        setCredits(nextCredits);
-        setCreditsReady(true);
-      }
-    });
-
-    return () => {
-      cancelled = true;
-      unsubscribeCredits();
-      subscription.unsubscribe();
-    };
-  }, [supabase]);
-
-  const handleLogout = async () => {
-    setIsLoggingOut(true);
-    clearCachedProfile();
-    clearCachedProfileCredits();
-    setEmail(null);
-    setCredits(null);
-    setCreditsReady(false);
-
-    const controller = new AbortController();
-    const timeout = window.setTimeout(() => controller.abort(), 2000);
-    await fetch("/api/logout", { method: "POST", cache: "no-store", signal: controller.signal }).catch(() => {});
-    window.clearTimeout(timeout);
-    await supabase.auth.signOut({ scope: "local" }).catch(() => {});
-    clearSupabaseLocalStorage();
-    window.location.replace("/login");
-  };
 
   return (
     <header className="studio-app-header mac-toolbar sticky top-0 z-50">
@@ -472,7 +367,7 @@ function AppHeader({ pathname }: { pathname: string }) {
             email={email}
             isLoginPage={isLoginPage}
             isLoggingOut={isLoggingOut}
-            onLogout={handleLogout}
+            onLogout={onLogout}
           />
         </div>
       </div>

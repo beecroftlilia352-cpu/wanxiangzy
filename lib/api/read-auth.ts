@@ -1,3 +1,5 @@
+import { withTimeout, toLogMessage } from "@/lib/utils";
+
 type SupabaseReadAuthClient = {
   auth: {
     getClaims: () => Promise<{
@@ -79,15 +81,4 @@ export async function getReadAuthenticatedUser(
     email: user.email ?? null,
     source: "user",
   };
-}
-
-function withTimeout<T>(promise: PromiseLike<T>, ms: number, message: string): Promise<T> {
-  return Promise.race([
-    Promise.resolve(promise),
-    new Promise<never>((_, reject) => setTimeout(() => reject(new Error(message)), ms)),
-  ]);
-}
-
-function toLogMessage(error: unknown) {
-  return error instanceof Error ? error.message : String(error);
 }

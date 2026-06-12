@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase/server";
+import { checkRateLimit, API_RATE_LIMITS } from "@/lib/api/rate-limit";
 
 const LOGIN_TIMEOUT_MS = 10_000;
 
@@ -11,6 +12,19 @@ export async function POST(request: Request) {
 
     if (!email || !password) {
       return NextResponse.json({ error: "请输入邮箱和密码" }, { status: 400 });
+    }
+
+    const rateLimitKey = `auth-login:${email.toLowerCase()}`;
+    const rateLimit = await checkRateLimit(
+      rateLimitKey,
+      API_RATE_LIMITS.authLogin.limit,
+      API_RATE_LIMITS.authLogin.windowMs
+    );
+    if (!rateLimit.ok) {
+      return NextResponse.json(
+        { error: `登录请求过于频繁，请 ${rateLimit.retryAfterSeconds} 秒后再试。` },
+        { status: 429, headers: { "Retry-After": String(rateLimit.retryAfterSeconds) } }
+      );
     }
 
     const controller = new AbortController();

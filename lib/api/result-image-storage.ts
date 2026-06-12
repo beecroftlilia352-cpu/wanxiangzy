@@ -1,18 +1,27 @@
 import { getBase64Payload, isStableStoredImageUrl, storeImage } from "@/lib/api/image-storage";
+import { isRemoteUrl } from "@/lib/utils";
 
 export async function persistGeneratedImageUrls(
   urls: string[],
   generationId: string,
   options: { forceServerDownload?: boolean; startIndex?: number } = {}
 ) {
-  const persistedUrls: string[] = [];
-
-  for (let index = 0; index < urls.length; index++) {
-    const url = urls[index];
-    persistedUrls.push(await persistGeneratedImageUrl(url, `${generationId}-${(options.startIndex || 0) + index + 1}`, options));
+  const concurrency = 4;
+  const results: string[] = new Array(urls.length);
+  
+  for (let i = 0; i < urls.length; i += concurrency) {
+    const batch = urls.slice(i, i + concurrency);
+    const batchResults = await Promise.all(
+      batch.map((url, batchIndex) => 
+        persistGeneratedImageUrl(url, `${generationId}-${(options.startIndex || 0) + i + batchIndex + 1}`, options)
+      )
+    );
+    for (let j = 0; j < batchResults.length; j++) {
+      results[i + j] = batchResults[j];
+    }
   }
 
-  return persistedUrls;
+  return results;
 }
 
 async function persistGeneratedImageUrl(
@@ -48,13 +57,4 @@ async function storeGeneratedImage(
 ) {
   const stored = await storeImage({ image, name, namePrefix: "generated-", storageClass: "generated" }, options);
   return stored.url;
-}
-
-function isRemoteUrl(value: string) {
-  try {
-    const protocol = new URL(value).protocol;
-    return protocol === "http:" || protocol === "https:";
-  } catch {
-    return false;
-  }
 }

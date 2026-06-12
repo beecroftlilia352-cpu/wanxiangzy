@@ -1,3 +1,4 @@
+import { isRecord, withTimeout, toLogMessage } from "@/lib/utils";
 import { NextResponse } from "next/server";
 import { API_RATE_LIMITS, enforceApiRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 import { getReadAuthenticatedUser } from "@/lib/api/read-auth";
@@ -720,10 +721,6 @@ function isHiddenByAdmin(row: QueueRow) {
   return moderation?.action === "hide";
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
-
 function normalizeQueueRow(row: QueueRow): TaskQueueItem {
   const payload = row.job_payload && typeof row.job_payload === "object" ? row.job_payload : {};
   const kind = typeof payload.kind === "string" ? payload.kind : inferGenerationModule(row, payload);
@@ -974,21 +971,8 @@ function isQueueItemRunning(row: TaskQueueItem) {
   return row.statusGroup === "running" || row.statusGroup === "queued";
 }
 
-function withTimeout<T>(promise: PromiseLike<T>, ms: number, message: string): Promise<T> {
-  return Promise.race([
-    Promise.resolve(promise),
-    new Promise<never>((_, reject) => setTimeout(() => reject(new Error(message)), ms)),
-  ]);
-}
-
 function logTaskQueueWarning(label: string, detail: unknown) {
   console.warn(`[task-queue] ${label}:`, toLogMessage(detail));
-}
-
-function toLogMessage(error: unknown) {
-  if (error instanceof Error) return error.message;
-  if (typeof error === "string") return error;
-  return "unknown error";
 }
 
 function clampNumber(value: string | null, min: number, max: number, fallback: number) {

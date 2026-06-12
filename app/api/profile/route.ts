@@ -1,3 +1,4 @@
+import { withTimeout } from "@/lib/utils";
 import { NextResponse } from "next/server";
 import { getReadAuthenticatedUser } from "@/lib/api/read-auth";
 import { createServerSupabase } from "@/lib/supabase/server";
@@ -78,11 +79,4 @@ async function getProfileUser(supabase: Awaited<ReturnType<typeof createServerSu
     claimsTimeoutMs: AUTH_CLAIMS_TIMEOUT_MS,
     userFallbackTimeoutMs: AUTH_USER_FALLBACK_TIMEOUT_MS,
   });
-}
-
-function withTimeout<T>(promise: PromiseLike<T>, ms: number, message: string): Promise<T> {
-  return Promise.race([
-    Promise.resolve(promise),
-    new Promise<never>((_, reject) => setTimeout(() => reject(new Error(message)), ms)),
-  ]);
 }

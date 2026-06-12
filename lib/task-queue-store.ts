@@ -16,6 +16,7 @@ import {
   normalizeWorkflowTaskQueueItem,
   taskQueueItemToIndexWrite,
 } from "@/lib/task-queue-index";
+import { toLogMessage } from "@/lib/utils";
 
 export const TASK_QUEUE_INDEX_COLUMNS = [
   "id",
@@ -88,7 +89,7 @@ export async function loadTaskQueueItemsFromIndex(
   try {
     const module = params.module ? normalizeModule(params.module) : "";
     const queryLimit = params.searchQuery ? Math.min(Math.max(params.limit * 4, params.limit + 1), 100) : params.limit + 1;
-    let query = (supabase as any)
+    let query = supabase
       .from("task_queue_items")
       .select(TASK_QUEUE_INDEX_COLUMNS)
       .eq("user_id", params.userId)
@@ -107,7 +108,7 @@ export async function loadTaskQueueItemsFromIndex(
       return { ok: false, error: error.message || "task_queue_items query failed" };
     }
 
-    const rawRows = (Array.isArray(data) ? data : []) as TaskQueueIndexRow[];
+    const rawRows = (Array.isArray(data) ? data : []) as unknown as TaskQueueIndexRow[];
     let items = rawRows.map(indexRowToTaskQueueItem);
     if (params.searchQuery) {
       const search = params.searchQuery.trim().toLowerCase();
@@ -133,19 +134,19 @@ export async function loadTaskQueueSummaryFromIndex(
   try {
     const [totalTaskNum, failedTaskNum, runningRowsResult] = await Promise.all([
       countIndexRows(
-        (supabase as any)
+        supabase
           .from("task_queue_items")
           .select("id", { count: "planned", head: true })
           .eq("user_id", userId),
       ),
       countIndexRows(
-        (supabase as any)
+        supabase
           .from("task_queue_items")
           .select("id", { count: "planned", head: true })
           .eq("user_id", userId)
           .eq("status_group", "failed"),
       ),
-      (supabase as any)
+      supabase
         .from("task_queue_items")
         .select("source_id,module,title,status,status_group,progress,expected_count,result_count,input_thumbnails,result_thumbnails,error_message,apply_url,created_at,updated_at,completed_at,user_id,source_type")
         .eq("user_id", userId)
@@ -181,7 +182,7 @@ export async function loadTaskQueueSummaryFromIndex(
 
 export async function syncGenerationTaskQueueById(generationId: string): Promise<void> {
   const supabase = getAdminClient();
-  const { data, error } = await (supabase as any)
+  const { data, error } = await supabase
     .from("generations")
     .select(GENERATION_INDEX_SOURCE_COLUMNS)
     .eq("id", generationId)
@@ -192,7 +193,7 @@ export async function syncGenerationTaskQueueById(generationId: string): Promise
     return;
   }
 
-  const row = data as TaskQueueGenerationSourceRow;
+  const row = data as unknown as TaskQueueGenerationSourceRow;
   const item = normalizeGenerationTaskQueueItem(row);
   await upsertTaskQueueIndexItem(
     taskQueueItemToIndexWrite(item, { userId: row.user_id, sourceType: "generation", sourceId: row.id }),
@@ -201,7 +202,7 @@ export async function syncGenerationTaskQueueById(generationId: string): Promise
 
 export async function syncWorkflowTaskQueueById(workflowId: string): Promise<void> {
   const supabase = getAdminClient();
-  const { data, error } = await (supabase as any)
+  const { data, error } = await supabase
     .from("agent_workflows")
     .select(WORKFLOW_INDEX_SOURCE_COLUMNS)
     .eq("id", workflowId)
@@ -212,7 +213,7 @@ export async function syncWorkflowTaskQueueById(workflowId: string): Promise<voi
     return;
   }
 
-  const row = data as TaskQueueWorkflowSourceRow;
+  const row = data as unknown as TaskQueueWorkflowSourceRow;
   const item = normalizeWorkflowTaskQueueItem(row);
   await upsertTaskQueueIndexItem(
     taskQueueItemToIndexWrite(item, { userId: row.user_id, sourceType: "workflow", sourceId: row.id }),
@@ -221,7 +222,7 @@ export async function syncWorkflowTaskQueueById(workflowId: string): Promise<voi
 
 export async function upsertTaskQueueIndexItem(item: TaskQueueIndexWrite): Promise<void> {
   const supabase = getAdminClient();
-  const { error } = await (supabase as any)
+  const { error } = await supabase
     .from("task_queue_items")
     .upsert(item, { onConflict: "source_type,source_id" });
 
@@ -256,10 +257,4 @@ function matchesTaskSearch(item: TaskQueueItem, search: string) {
     item.title.toLowerCase().includes(search) ||
     item.status.toLowerCase().includes(search)
   );
-}
-
-function toLogMessage(error: unknown) {
-  if (error instanceof Error) return error.message;
-  if (typeof error === "string") return error;
-  return "unknown error";
 }

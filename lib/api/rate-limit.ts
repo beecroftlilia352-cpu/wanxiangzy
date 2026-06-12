@@ -12,6 +12,8 @@ export type ApiRateLimitPolicy = {
 };
 
 export const API_RATE_LIMITS = {
+  authLogin: { bucket: "auth-login", limit: 5, windowMs: ONE_MINUTE_MS, label: "登录" },
+  authSignup: { bucket: "auth-signup", limit: 3, windowMs: ONE_MINUTE_MS, label: "注册" },
   tryonGenerate: { bucket: "tryon", limit: 20, windowMs: ONE_MINUTE_MS, label: "换装生成" },
   tryonClothingAnalyze: { bucket: "tryon-clothing-analyze", limit: 30, windowMs: ONE_MINUTE_MS, label: "服装分析" },
   tryonReferenceAnalyze: { bucket: "tryon-reference-analyze", limit: 60, windowMs: ONE_MINUTE_MS, label: "参考图分析" },

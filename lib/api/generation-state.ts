@@ -1,3 +1,4 @@
+import { isRecord } from "@/lib/utils";
 import { normalizeProductSetModuleResults } from "@/lib/product-set";
 import {
   GENERATION_COMPLETED_STATUS_FILTERS,
@@ -196,8 +197,4 @@ function clampProgress(value: unknown, max = 99) {
 
 function stringArray(value: unknown) {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string" && item.trim().length > 0) : [];
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
 }

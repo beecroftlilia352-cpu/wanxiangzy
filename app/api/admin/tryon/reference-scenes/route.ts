@@ -1,3 +1,4 @@
+import { isRecord } from "@/lib/utils";
 import { NextResponse } from "next/server";
 import { requireAdminApi } from "@/lib/admin/auth";
 import { writeAdminAuditLog } from "@/lib/admin/audit";
@@ -257,8 +258,4 @@ function readString(value: unknown) {
 function readNullableString(value: unknown) {
   const text = readString(value);
   return text || null;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }

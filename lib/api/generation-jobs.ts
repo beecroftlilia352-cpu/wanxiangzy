@@ -1,3 +1,4 @@
+import { isRecord } from "@/lib/utils";
 import { logger } from "@/lib/logger";
 import {
   batchTryOn,
@@ -2160,10 +2161,6 @@ function uniqueStrings(values: Array<string | null | undefined>) {
     unique.push(normalized);
   }
   return unique;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
 }
 
 function getFirstRow(data: unknown): ClaimedJob | null {

@@ -41,7 +41,7 @@ const nextConfig: NextConfig = {
               "img-src 'self' data: blob: https://*.supabase.co https://replicate.delivery https://*.fashn.ai https://*.sssai.vip https://i.ibb.co https://*.ibb.co https://t.filesystem.site https://*.oss-cn-hongkong.aliyuncs.com https://*.oss-cn-hangzhou.aliyuncs.com https://*.oss-cn-shanghai.aliyuncs.com https://vastweargen-images.cn-hongkong.thepacificxxs.com https://images.vastweargen.com https://webstatic.aiproxy.vip https://oss.filenest.top https://yunwu.ai",
               "media-src 'self' data: blob: https://*.oss-cn-hongkong.aliyuncs.com https://*.oss-cn-hangzhou.aliyuncs.com https://*.oss-cn-shanghai.aliyuncs.com https://vastweargen-images.cn-hongkong.thepacificxxs.com https://images.vastweargen.com",
               "font-src 'self'",
-              "connect-src 'self' https://*.supabase.co https://api.lingyaai.cn https://api.bltcy.ai https://api.xiaomimimo.com https://api.imgbb.com https://value.apiqik.online https://yunwu.ai",
+              "connect-src 'self' https://*.supabase.co https://api.lingyaai.cn https://api.bltcy.ai https://api.xiaomimimo.com https://api.imgbb.com https://value.apiqik.online https://yunwu.ai https://api.laozhang.ai https://*.ibb.co https://helping-bug-126905.upstash.io",
               "frame-ancestors 'none'",
             ].join("; "),
           },

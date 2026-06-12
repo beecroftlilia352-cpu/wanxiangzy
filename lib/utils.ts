@@ -309,3 +309,43 @@ export async function uploadAudio(file: File): Promise<UploadResult> {
 
   return res.json();
 }
+
+// ===== 通用工具函数（消除重复代码） =====
+
+/**
+ * 带超时的 Promise 包装器
+ */
+export function withTimeout<T>(promise: PromiseLike<T>, ms: number, message: string): Promise<T> {
+  return Promise.race([
+    Promise.resolve(promise),
+    new Promise<never>((_, reject) => setTimeout(() => reject(new Error(message)), ms)),
+  ]);
+}
+
+/**
+ * 将错误转换为日志消息
+ */
+export function toLogMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "string") return error;
+  return "unknown error";
+}
+
+/**
+ * 检查值是否为远程 URL
+ */
+export function isRemoteUrl(value: string): boolean {
+  try {
+    const protocol = new URL(value).protocol;
+    return protocol === "http:" || protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * 类型守卫：检查值是否为普通对象
+ */
+export function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}

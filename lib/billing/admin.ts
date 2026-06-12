@@ -2,6 +2,7 @@ import { getAdminClient } from "@/lib/supabase/admin";
 import { getStripe, isStripeConfigured, isStripeWebhookConfigured } from "@/lib/billing/stripe";
 import { applyRefundToOrder } from "@/lib/billing/refunds";
 import { findOrderById } from "@/lib/billing/repository";
+import { isRecord } from "@/lib/utils";
 
 export type AdminBillingOverview = {
   metrics: {
@@ -222,10 +223,6 @@ async function safeSelect<T extends Record<string, unknown>>(
     warnings.push(`${label}: ${error instanceof Error ? error.message : "unavailable"}`);
     return [];
   }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
 
 function stringValue(value: unknown) {

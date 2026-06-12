@@ -1,3 +1,4 @@
+import { isRecord } from "@/lib/utils";
 import { NextResponse } from "next/server";
 import { requireAdminApi } from "@/lib/admin/auth";
 import { writeAdminAuditLog } from "@/lib/admin/audit";
@@ -57,8 +58,4 @@ export async function POST(request: Request) {
   });
 
   return NextResponse.json({ ok: true, config: data }, { headers: { "Cache-Control": "no-store" } });
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }

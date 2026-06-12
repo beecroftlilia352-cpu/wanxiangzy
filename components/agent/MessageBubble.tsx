@@ -292,10 +292,15 @@ export function MessageBubble({ message, prevMessage, sessionImages, onOpenImage
               credits={generation.creditsUsed || generation._confirmData.creditsCost}
             />
             <button
-              onClick={() => !hasConfirmRoleErrors(generation._confirmData!.module, generation._confirmData!.params, confirmImages) && onConfirm?.(message.id)}
-              disabled={hasConfirmRoleErrors(generation._confirmData!.module, generation._confirmData!.params, confirmImages)}
+              onClick={() => {
+                if (!generation._confirmData) return;
+                if (!hasConfirmRoleErrors(generation._confirmData.module, generation._confirmData.params, confirmImages)) {
+                  onConfirm?.(message.id);
+                }
+              }}
+              disabled={!generation._confirmData || hasConfirmRoleErrors(generation._confirmData.module, generation._confirmData.params, confirmImages)}
               className={`sticky bottom-2 z-10 flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-bold text-white shadow-lg transition-opacity ${
-                hasConfirmRoleErrors(generation._confirmData!.module, generation._confirmData!.params, confirmImages)
+                !generation._confirmData || hasConfirmRoleErrors(generation._confirmData.module, generation._confirmData.params, confirmImages)
                   ? "cursor-not-allowed bg-slate-300 shadow-none"
                   : "bg-gradient-to-r from-slate-700 to-slate-950 shadow-slate-300/40 hover:opacity-90"
               }`}

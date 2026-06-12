@@ -1,3 +1,4 @@
+import { isRecord } from "@/lib/utils";
 import { NextResponse } from "next/server";
 import { requireAdminApi } from "@/lib/admin/auth";
 import { writeAdminAuditLog } from "@/lib/admin/audit";
@@ -131,10 +132,6 @@ async function markFailed(id: string, error: string, context: { userId: string; 
       result: { error },
     })
     .eq("id", id);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 function isUuid(value: string) {

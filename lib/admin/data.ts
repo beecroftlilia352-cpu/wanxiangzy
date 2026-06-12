@@ -4,6 +4,7 @@ import { getConfiguredProcessorSecrets } from "@/lib/env";
 import { getAdminClient } from "@/lib/supabase/admin";
 import type { TaskStatusGroup } from "@/lib/task-queue";
 import { normalizeModule } from "@/lib/task-queue-index";
+import { withTimeout, isRecord } from "@/lib/utils";
 
 export type AdminMetric = {
   label: string;
@@ -4705,13 +4706,6 @@ async function runQuery<T>(
   }
 }
 
-function withTimeout<T>(promise: PromiseLike<T>, ms: number, message: string): Promise<T> {
-  return Promise.race([
-    Promise.resolve(promise),
-    new Promise<never>((_, reject) => setTimeout(() => reject(new Error(message)), ms)),
-  ]);
-}
-
 function normalizeStatusFilter(value?: string): TaskStatusGroup | "" {
   const normalized = (value || "").trim().toLowerCase();
   if (normalized === "queued" || normalized === "running" || normalized === "completed" || normalized === "failed") {
@@ -4924,10 +4918,6 @@ function uniqueStrings(values: Array<string | null | undefined>) {
     result.push(value);
   }
   return result;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 function isUrl(value: string) {
