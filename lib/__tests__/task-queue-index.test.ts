@@ -58,7 +58,7 @@ describe("task queue index", () => {
 
     expect(Object.keys(row)).not.toContain("job_payload");
     expect(Object.keys(row)).not.toContain("result_urls");
-    expect(row.result_thumbnails).toHaveLength(2);
+    expect(row.result_thumbnails).toHaveLength(3);
     expect(indexRowToTaskQueueItem(row).resultCount).toBe(3);
   });
 
