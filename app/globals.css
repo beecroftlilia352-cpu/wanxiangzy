@@ -4561,6 +4561,10 @@ header .animate-spin {
     transition-duration: 0.01ms !important;
   }
 
+  .animate-spin {
+    animation: spin 1s linear infinite !important;
+  }
+
   .studio-loading-stage .animate-spin,
   .studio-task-rail .animate-spin,
   .studio-upload-tile .animate-spin,
