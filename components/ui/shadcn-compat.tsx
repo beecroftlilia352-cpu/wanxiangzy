@@ -972,7 +972,7 @@ export function Segmented({ value, options, onChange }: { value?: PrimitiveValue
 
 export const List = Object.assign(
   function List<T>({ dataSource, renderItem }: { dataSource?: T[]; renderItem?: (item: T, index: number) => ReactNode }) {
-    return <div className="divide-y divide-border rounded-md border border-border">{(dataSource || []).map((item, index) => renderItem?.(item, index))}</div>;
+    return <div className="divide-y divide-border rounded-md border border-border">{(dataSource || []).map((item, index) => renderItem?.(item, index) ?? null)}</div>;
   },
   {
     Item: Object.assign(
