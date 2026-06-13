@@ -1055,7 +1055,7 @@ function OutfitFusionTaskCard({
       className="animate-slide-up rounded-[8px] bg-white p-3 shadow-sm ring-1 ring-slate-100 transition duration-300 hover:shadow-[0_14px_34px_rgba(15,23,42,0.09)] motion-reduce:animate-none sm:p-4"
       style={{ animationDelay: `${Math.min(index * 40, 160)}ms` }}
     >
-      <div className="flex items-start gap-3 sm:gap-4">
+      <div className="flex items-start gap-2">
         <TaskInputReuseStack assets={task.inputAssets} onReuse={onReuseInputs} />
         <div className="min-w-0 flex-1">
           <div className="flex items-start gap-2">
@@ -1192,24 +1192,24 @@ function TaskInputReuseStack({ assets, onReuse }: { assets: OutfitFusionAsset[];
   const hasHiddenAssets = hiddenCount > 0;
 
   return (
-    <div className="hidden w-[96px] shrink-0 sm:block">
+    <div className="hidden w-[82px] shrink-0 sm:block">
       <TooltipProvider delayDuration={120}>
         <Tooltip>
           <TooltipTrigger asChild>
             <button
               type="button"
               onClick={onReuse}
-              className="group/reuse relative h-[60px] w-[96px] rounded-[6px] outline-none transition focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.45)] focus-visible:ring-offset-2"
+              className="group/reuse relative h-[60px] w-[82px] rounded-[6px] outline-none transition focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.45)] focus-visible:ring-offset-2"
               aria-label="再次使用图片"
             >
               {displayAssets.map((asset, index) => (
                 <span
                   key={asset.id}
                   className={cn(
-                    "absolute top-1 h-12 w-10 overflow-hidden rounded-[4px] border border-white bg-white shadow-sm transition duration-300 group-hover/reuse:-translate-y-1 group-hover/reuse:shadow-md group-focus-visible/reuse:-translate-y-1 group-focus-visible/reuse:shadow-md",
+                    "absolute top-1 h-12 w-9 overflow-hidden rounded-[4px] border border-white bg-white shadow-sm transition duration-300 group-hover/reuse:-translate-y-1 group-hover/reuse:shadow-md group-focus-visible/reuse:-translate-y-1 group-focus-visible/reuse:shadow-md",
                     index === 0 && "left-0 -rotate-6",
-                    index === 1 && (hasHiddenAssets ? "left-5 rotate-1" : "left-6 rotate-2"),
-                    index === 2 && (hasHiddenAssets ? "left-10 rotate-3" : "left-12 rotate-6")
+                    index === 1 && (hasHiddenAssets ? "left-4 rotate-1" : "left-5 rotate-2"),
+                    index === 2 && (hasHiddenAssets ? "left-8 rotate-3" : "left-10 rotate-6")
                   )}
                 >
                   <span className="absolute left-0 top-0 z-[1] max-w-full truncate rounded-br-[4px] bg-slate-950/72 px-1 py-0.5 text-[9px] font-semibold leading-none text-white">
@@ -1219,7 +1219,7 @@ function TaskInputReuseStack({ assets, onReuse }: { assets: OutfitFusionAsset[];
                 </span>
               ))}
               {hasHiddenAssets ? (
-                <span className="absolute right-0 top-1 z-[4] flex h-12 w-10 rotate-6 items-center justify-center overflow-hidden rounded-[4px] border border-white bg-[linear-gradient(135deg,rgba(31,41,55,0.92),rgba(100,116,139,0.78))] text-[12px] font-bold leading-none text-white shadow-[0_6px_14px_rgba(15,23,42,0.20)] transition duration-300 group-hover/reuse:-translate-y-1 group-hover/reuse:shadow-md group-focus-visible/reuse:-translate-y-1 group-focus-visible/reuse:shadow-md">
+                <span className="absolute right-0 top-1 z-[4] flex h-12 w-9 rotate-6 items-center justify-center overflow-hidden rounded-[4px] border border-white bg-[linear-gradient(135deg,rgba(31,41,55,0.92),rgba(100,116,139,0.78))] text-[12px] font-bold leading-none text-white shadow-[0_6px_14px_rgba(15,23,42,0.20)] transition duration-300 group-hover/reuse:-translate-y-1 group-hover/reuse:shadow-md group-focus-visible/reuse:-translate-y-1 group-focus-visible/reuse:shadow-md">
                   +{hiddenCount}
                 </span>
               ) : null}
