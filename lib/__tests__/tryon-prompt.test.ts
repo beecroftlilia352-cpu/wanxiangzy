@@ -124,7 +124,6 @@ describe("try-on prompt face integration", () => {
     expect(prompt).toContain("do not copy its original expression style, expression intensity, skin tone, makeup");
     expect(prompt).toContain("image 3 controls final facial identity and feature proportions");
     expect(prompt).toContain("it must not control final facial identity");
-    expect(prompt).toContain("subtle human micro-adjustments");
     expect(prompt).toContain("Limit adaptation to expression muscles, gaze, skin relighting, makeup matching, pores, shadows, and edge blending");
     expect(prompt).toContain("do not alter image 3's face outline, eye shape, eye spacing, brow shape, nose structure, mouth anatomy, feature proportions, or recognizable likeness");
     expect(prompt).not.toContain("facial expression exactly");
@@ -257,11 +256,12 @@ describe("try-on prompt face integration", () => {
     expect(prompt).toContain("image 2 is a lower-body-only target frame with no visible head or face");
     expect(prompt).toContain("ignore image 3 completely for this no-head crop");
     expect(prompt).toContain("A result with any visible face or newly added head is invalid");
-    expect(prompt).toContain("does not provide a visible head/face target");
-    expect(prompt).toContain("Do not zoom out, add a head, add a face");
-    expect(prompt).toContain("Preserving the reference crop is higher priority than showing face identity");
+    expect(prompt).toContain("preserve_reference_face mode");
+    expect(prompt).toContain("do not synthesize a new face");
+    expect(prompt).toContain("do not introduce image 3's identity outside the original crop");
     expect(prompt).not.toContain("Reconstruct the final face");
     expect(prompt).not.toContain("Every generated candidate must use image 3's identity");
+    expect(prompt).not.toContain("mandatory final face identity reference only");
   });
 
   it("keeps lower-body no-head references faceless even without a model face upload", () => {

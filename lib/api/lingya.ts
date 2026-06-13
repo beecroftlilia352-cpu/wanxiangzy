@@ -426,31 +426,11 @@ export function applyTryOnRequestPrompt(prompt: string, input: TryOnRequestPromp
   lines.push(buildTryOnPhotoFinishDirective(input));
   const cropDirective = buildTryOnRequestCropDirective(input);
   if (cropDirective) lines.push(cropDirective);
-  lines.push(buildTryOnFaceModeDirective(input));
   const candidateDirective = buildTryOnCandidateDirective(input);
   if (candidateDirective) lines.push(candidateDirective);
   const garmentDetailDirective = buildGarmentDetailReferencePrompt(input.garmentDetailCount || 0);
   if (garmentDetailDirective) lines.push(garmentDetailDirective);
   return lines.filter(Boolean).join("\n");
-}
-
-function buildTryOnFaceModeDirective(input: TryOnRequestPromptOptions): string {
-  if (!input.modelFaceUrl) return "";
-  if (!input.referenceUrl) return "";
-  const faceMode = decideTryOnFaceMode({
-    hasModelFace: Boolean(input.modelFaceUrl),
-    referenceAnalysis: input.referenceAnalysis ?? null,
-  });
-  if (faceMode === "must_use_model_face") {
-    return [
-      "脸部来源硬规则（must_use_model_face）：模特脸图是最终脸部身份的唯一来源。",
-      "必须保留模特脸图的脸型、五官、骨相、肤色、年龄感、辨识度，参考图原脸必须被替换掉。",
-      "如果生成结果的脸看起来仍像参考图原人物，则输出无效。",
-    ].join("");
-  }
-  return [
-    "脸部来源规则（preserve_reference_face）：保留参考图的脸部身份、表情、肤色，模特脸图本次任务不使用。",
-  ].join("");
 }
 
 function buildTryOnPhotoFinishDirective(input: TryOnRequestPromptOptions) {
@@ -1655,6 +1635,7 @@ function buildFixedBaseTryOnPrompt(params: {
   ageGroup?: TryOnAgeGroup;
   garmentCategory?: TryOnGarmentCategory;
   aspectRatio?: AspectRatio;
+  hasModelFace: boolean;
   targetRef: string;
   faceRef: string;
   clothingSource: string;
@@ -1664,60 +1645,63 @@ function buildFixedBaseTryOnPrompt(params: {
   style?: string;
 }) {
   const targetImageNumber = Number(params.targetRef.replace(/\D/g, "")) || 2;
-  const shouldUseFaceIdentity = shouldApplyFaceIdentityToReference(params.referenceAnalysis);
-  const faceSetupLines = shouldUseFaceIdentity
+  const faceMode = decideTryOnFaceMode({
+    hasModelFace: params.hasModelFace,
+    referenceAnalysis: params.referenceAnalysis ?? null,
+  });
+  const mustUseModelFace = faceMode === "must_use_model_face";
+  const faceSetupLines = mustUseModelFace
     ? [
         `Reconstruct the final face from ${params.faceRef}'s recognizable identity, face outline, eye/brow/nose/mouth anatomy, feature spacing, and facial proportions, while naturally performing ${params.targetRef}'s expression, skin tone, makeup, head angle, lighting, and camera perspective.`,
         `Do not preserve ${params.targetRef}'s original facial identity, face shape, eyes, nose, mouth, or recognizable person. Every generated candidate must use ${params.faceRef}'s identity.`,
       ]
     : [
-        `${params.targetRef} does not provide a visible head/face target. Do not zoom out, add a head, add a face, or convert the crop into a full-body portrait just to use ${params.faceRef}.`,
-        `For this crop, ${params.faceRef} is inactive unless a face is already visible inside ${params.targetRef}'s original crop. Preserving the reference crop is higher priority than showing face identity.`,
+        `preserve_reference_face mode: ${params.targetRef}'s detected crop does not host a face swap. Preserve ${params.targetRef}'s original face identity, expression, and skin tone; do not synthesize a new face and do not introduce ${params.faceRef}'s identity outside the original crop.`,
       ];
-  const faceRuleLines = shouldUseFaceIdentity
+  const faceRuleLines = mustUseModelFace
     ? [
-        "Face identity rule:",
-        "This is identity reconstruction, not a hard face swap.",
-        `Use ${params.faceRef} only for recognizable facial identity: face shape, eyes, brows, nose, mouth anatomy, and feature proportions.`,
+        "Face identity rule (must_use_model_face mode):",
+        "This is identity reconstruction. Use the model face image as the final face source.",
+        `Use ${params.faceRef} for recognizable facial identity: face shape, eyes, brows, nose, mouth anatomy, and feature proportions.`,
         `Use ${params.targetRef}'s original face only as an expression/pose/lighting carrier; do not keep its face outline, eye shape, nose shape, mouth anatomy, or recognizable identity.`,
         `Do not copy ${params.faceRef}'s original expression style, expression intensity, skin tone, makeup, lighting, pose, body, head size, or background.`,
-        `Adapt ${params.faceRef}'s identity to ${params.targetRef}'s natural expression performance: visible expression category, intensity, emotional direction, gaze behavior, facial tension, and natural asymmetry. Allow subtle human micro-adjustments so the final face feels like ${params.faceRef}'s real person making that expression, not a mask or ID-photo overlay. Limit adaptation to expression muscles, gaze, skin relighting, makeup matching, pores, shadows, and edge blending; do not alter ${params.faceRef}'s face outline, eye shape, eye spacing, brow shape, nose structure, mouth anatomy, feature proportions, or recognizable likeness.`,
+        `Adapt ${params.faceRef}'s identity to ${params.targetRef}'s natural expression performance: visible expression category, intensity, emotional direction, gaze behavior, facial tension, and natural asymmetry. Limit adaptation to expression muscles, gaze, skin relighting, makeup matching, pores, shadows, and edge blending; do not alter ${params.faceRef}'s face outline, eye shape, eye spacing, brow shape, nose structure, mouth anatomy, feature proportions, or recognizable likeness.`,
         `The final face must be recognizable as ${params.faceRef}'s person but naturally integrated, not pasted or ID-photo-like.`,
         "Face integration:",
         `Match ${params.targetRef}'s visible skin tone, undertone, brightness, makeup style, pores, subtle redness, reflected light, shadows, and scene lighting.`,
         `Blend continuously with ${params.targetRef}'s neck, chest, arms, and hands when those body areas are visible, with no mask edge or separate lighting.`,
       ]
     : [
-        "Face identity rule:",
-        `No final face should be generated when ${params.targetRef}'s detected crop has no visible head/face. Do not create a new identity outside the original frame.`,
+        "Face identity rule (preserve_reference_face mode):",
+        `Reference image's face is the source of identity. Do not generate a new identity; do not use ${params.faceRef} to add a face/head outside ${params.targetRef}'s original crop.`,
       ];
-  const priorityLines = shouldUseFaceIdentity
+  const priorityLines = mustUseModelFace
     ? [
-        `1. ${params.faceRef} controls final facial identity and feature proportions where a face is visible in the target crop; likeness to ${params.faceRef} is mandatory and must be stronger than preserving ${params.targetRef}'s original face.`,
+        `1. ${params.faceRef} controls final facial identity and feature proportions where a face is visible in the target crop; likeness to ${params.faceRef} is mandatory and stronger than preserving ${params.targetRef}'s original face.`,
         `2. ${params.clothingSource} controls only the sourced clothing.`,
         `3. ${params.targetRef} controls the final face's natural expression direction and strength, plus visible body proportions, pose family, skin tone, makeup, lighting, scene, camera style, crop boundary, non-sourced outfit areas, and final mood; it must not control final facial identity.`,
       ]
     : [
-        `1. ${params.targetRef} controls visible body range, crop boundary, pose family, lighting, scene, camera style, non-sourced outfit areas, and final mood.`,
+        `1. ${params.targetRef} controls face identity, expression, skin tone, visible body range, crop boundary, pose family, lighting, scene, camera style, non-sourced outfit areas, and final mood.`,
         `2. ${params.clothingSource} controls only the sourced clothing.`,
         `3. ${params.faceRef} must not expand the crop or introduce a new visible face/head.`,
       ];
   const lines: string[] = [
-    shouldUseFaceIdentity
+    mustUseModelFace
       ? `Use ${params.targetRef} as the body/composition/lighting base try-on photo, but replace its facial identity with ${params.faceRef}. Perform a realistic fashion edit, not a full photo regeneration.`
-      : `Use ${params.targetRef} as the base try-on photo. Perform a realistic fashion edit, not a full photo regeneration.`,
+      : `Use ${params.targetRef} as the base try-on photo (face identity preserved, no swap). Perform a realistic fashion edit, not a full photo regeneration.`,
     "Image roles:",
-    ...buildFixedBaseRoleBullets(params),
+    ...buildFixedBaseRoleBullets(params, mustUseModelFace),
     "Task:",
     `Edit ${params.targetRef} into a believable try-on photo.`,
     buildFixedBaseReplacementTask(params),
-    ...buildFixedBaseFaceIdentityLockLines(params, shouldUseFaceIdentity),
+    ...buildFixedBaseFaceIdentityLockLines(params, mustUseModelFace),
     ...buildReferenceNoHeadFaceLockLines({
       referenceAnalysis: params.referenceAnalysis,
       targetRef: params.targetRef,
       faceRef: params.faceRef,
     }),
-    ...buildFixedBaseExpressionLockLines(params, shouldUseFaceIdentity),
+    ...buildFixedBaseExpressionLockLines(params, mustUseModelFace),
     buildTryOnReferenceAnalysisRule(params.referenceAnalysis, targetImageNumber),
     ...faceSetupLines,
     `Keep natural adult proportions for the body parts visible in ${params.targetRef}; preserve its detected body scale, crop boundary, and camera distance. If head or full body is not visible, do not invent it. Avoid oversized head, tiny body, long neck, short legs, distorted shoulders, or changed body type.`,
@@ -1732,12 +1716,9 @@ function buildFixedBaseTryOnPrompt(params: {
     "Priority:",
     ...priorityLines,
     "Important:",
-    shouldUseFaceIdentity
-      ? `Do not keep ${params.targetRef}'s original facial identity.`
-      : `Do not add a visible face/head that is outside ${params.targetRef}'s original crop.`,
-    shouldUseFaceIdentity
-      ? `Do not leave the face unchanged. The identity change to ${params.faceRef} is mandatory in every output.`
-      : `Do not treat the absence of a visible face as an error; preserve the partial-body target crop.`,
+    mustUseModelFace
+      ? `Do not keep ${params.targetRef}'s original facial identity. The identity change to ${params.faceRef} is mandatory in every output.`
+      : `Do not add a visible face/head outside ${params.targetRef}'s original crop. Do not treat the absence of a visible face as an error; preserve the partial-body target crop.`,
     `Do not create a new model, unrelated scene, generic catalog face, or mismatched head/body composite.`,
     `Quality: realistic edited photo, natural fabric drape, realistic contact shadows, natural skin texture, accurate visible hands and feet when present in the crop. ${buildConciseAudienceRule(params.garmentAudience, params.ageGroup)} No extra people, no watermark, no added text, no AI-render look, no stock-model expression, no pasted head, no face-swap seam, no oversized head, no long neck, no ID-photo face, no unrelated outfit changes.`,
   ];
@@ -1763,7 +1744,7 @@ function buildFixedBaseRoleBullets(params: {
   targetRef: string;
   faceRef: string;
   referenceAnalysis?: TryOnReferenceAnalysis | null;
-}) {
+}, mustUseModelFace: boolean) {
   const clothing = params.clothingRefs.map((ref, index) => {
     const imageRef = toEnglishImageRef(ref);
     if (params.clothingMode === "multi") {
@@ -1775,12 +1756,12 @@ function buildFixedBaseRoleBullets(params: {
     return `- ${imageRef} = complete clothing source only.`;
   });
 
-  const faceRole = shouldApplyFaceIdentityToReference(params.referenceAnalysis)
+  const faceRole = mustUseModelFace
     ? `- ${params.faceRef} = mandatory final face identity reference only: facial structure, feature anatomy, face outline, eye/brow/nose/mouth geometry, and recognizable likeness; do not copy its original expression style, expression intensity, skin tone, makeup, head pose, head scale, lighting, body, clothing, background, or scene.`
-    : `- ${params.faceRef} = conditional face identity reference only; do not use it to add a head/face outside ${params.targetRef}'s original crop.`;
-  const targetRole = shouldApplyFaceIdentityToReference(params.referenceAnalysis)
+    : `- ${params.faceRef} = inactive for this try-on (no face swap); do not use it to add a head/face outside ${params.targetRef}'s original crop.`;
+  const targetRole = mustUseModelFace
     ? `- ${params.targetRef} = target expression and try-on reference: visible expression category, intensity, emotional direction, gaze behavior, facial tension, natural asymmetry, visible skin tone, makeup style, head pose, head size, visible body range, crop boundary, pose family, background, lighting, camera style, framing style, non-sourced outfit areas, and final photo mood. Its original facial identity, face outline, eyes, nose, and mouth anatomy must not be preserved as the final person.`
-    : `- ${params.targetRef} = target try-on reference: visible body range, crop boundary, pose family, visible expression/skin/makeup when present, background, lighting, camera style, framing style, non-sourced outfit areas, and final photo mood. Its original facial identity must not be preserved only when a face is visible in the target crop.`;
+    : `- ${params.targetRef} = target try-on reference including original face identity: visible body range, crop boundary, pose family, visible expression/skin/makeup when present, background, lighting, camera style, framing style, non-sourced outfit areas, and final photo mood. Original face identity is preserved.`;
 
   return [
     ...clothing,
