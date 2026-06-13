@@ -50,6 +50,7 @@ const MODELS: { value: LingyaModel; label: string; desc: string; badge?: string;
 type ModelHistoryPayload = Extract<HistoryJobPayload, { kind: "model" }>;
 
 const ASPECTS: { value: AspectRatio; label: string }[] = [
+  { value: "auto", label: "智能" },
   { value: "3:4", label: "3:4 竖版" },
   { value: "1:1", label: "1:1 头像" },
   { value: "4:3", label: "4:3 横版" },
@@ -115,7 +116,7 @@ export default function ModelPage() {
   const [hairReferenceUrl, setHairReferenceUrl] = useState<string | null>(null);
   const [hairColorReferenceUrl, setHairColorReferenceUrl] = useState<string | null>(null);
   const [aiModel, setAiModel] = useState<LingyaModel>("nano-banana-2");
-  const [aspectRatio, setAspectRatio] = useState<AspectRatio>("3:4");
+  const [aspectRatio, setAspectRatio] = useState<AspectRatio>("auto");
   const [imageSize, setImageSize] = useState<ImageSize>("1K");
   const [genCount, setGenCount] = useState(1);
   const [prompt, setPrompt] = useState("");
@@ -602,7 +603,7 @@ export default function ModelPage() {
     setHairReferenceUrl(null);
     setHairColorReferenceUrl(null);
     setAiModel("nano-banana-2");
-    setAspectRatio("3:4");
+    setAspectRatio("auto");
     setImageSize("1K");
     setGenCount(1);
     setPrompt("");

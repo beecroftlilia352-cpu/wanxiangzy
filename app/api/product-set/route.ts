@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
     if (productImageUrls.length > 3) return NextResponse.json({ error: "商品图最多上传 3 张" }, { status: 400 });
 
     const model: LingyaModel = normalizeLingyaModel(body.ai_model);
-    const aspectRatio = normalizeAspectRatio(body.aspect_ratio || "3:4");
+    const aspectRatio = normalizeAspectRatio(body.aspect_ratio || "auto");
     const imageSize: ImageSize = normalizeImageSize(model, (typeof body.image_size === "string" ? body.image_size : "1K") as ImageSize, aspectRatio);
     const mode = normalizeProductSetCreationMode(body.mode);
     const imageType = normalizeProductSetImageType(body.image_type);

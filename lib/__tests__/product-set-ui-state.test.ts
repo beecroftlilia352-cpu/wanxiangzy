@@ -69,7 +69,7 @@ describe("product set UI state helpers", () => {
       genCount: 8,
       selectedTemplateIds: [101, 105],
       aiModel: "nano-banana-2",
-      aspectRatio: "3:4",
+      aspectRatio: "auto",
       imageSize: "1K",
       qualityMode: "advanced",
     });

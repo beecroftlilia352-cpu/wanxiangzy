@@ -43,7 +43,7 @@ export const AI_VIDEO_MODEL_MODE_OPTIONS: Array<{ value: AiVideoModelMode; label
 ];
 
 export const AI_VIDEO_ASPECT_RATIO_OPTIONS: Array<{ value: AiVideoAspectRatio; label: string; description: string }> = [
-  { value: "auto", label: "自动", description: "跟随上传图" },
+  { value: "auto", label: "智能", description: "跟随上传图" },
   { value: "3:4", label: "3:4", description: "女装常用" },
   { value: "9:16", label: "9:16", description: "手机竖屏" },
   { value: "1:1", label: "1:1", description: "方图" },

@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
     if (!prompt?.trim()) return NextResponse.json({ error: "缺少提示词" }, { status: 400 });
 
     const model: LingyaModel = normalizeLingyaModel(ai_model);
-    const aspectRatio: AspectRatio = normalizeAspectRatio(aspect_ratio);
+    const aspectRatio: AspectRatio = normalizeAspectRatio(aspect_ratio, "auto");
     const size: ImageSize = normalizeImageSize(model, image_size || "1K", aspectRatio);
     const genCount = Math.min(Math.max(Number(gen_count) || 1, 1), 4);
     const costPerImage = getCreditCost(model, size, aspectRatio);

@@ -23,7 +23,7 @@ export type OutfitFusionTemplate = {
 export type OutfitFusionQuality = "standard" | "hd" | "ultra";
 
 export type OutfitFusionConfig = {
-  aspectRatio: Extract<AspectRatio, "1:1" | "3:4">;
+  aspectRatio: Extract<AspectRatio, "auto" | "1:1" | "3:4">;
   genCount: number;
   imageSize: ImageSize;
   aiModel: LingyaModel;
@@ -43,7 +43,7 @@ export const OUTFIT_FUSION_QUALITY_OPTIONS: Array<{ value: OutfitFusionQuality; 
 ];
 
 export const DEFAULT_OUTFIT_FUSION_CONFIG: OutfitFusionConfig = {
-  aspectRatio: "3:4",
+  aspectRatio: "auto",
   genCount: 4,
   imageSize: "1K",
   aiModel: "nano-banana-2",

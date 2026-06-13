@@ -57,7 +57,7 @@ const ASPECT_OPTIONS = [
   { value: "4:5", label: "4:5" },
   { value: "5:4", label: "5:4" },
   { value: "21:9", label: "21:9" },
-  { value: "auto", label: "自动" },
+  { value: "auto", label: "智能" },
 ];
 
 const IMAGE_SIZE_OPTIONS = ["1K", "2K", "4K"] as const;

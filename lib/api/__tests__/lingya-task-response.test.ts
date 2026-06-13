@@ -141,8 +141,8 @@ describe("lingya async task response parsing", () => {
     expect(body).toMatchObject({
       model: "gpt-image-2",
       prompt: "compiled prompt",
-      size: "1024x1536",
-      quality: "auto",
+      size: "864x1536",
+      quality: "high",
     });
     expect(body).not.toHaveProperty("image");
     expect(body).not.toHaveProperty("response_format");
@@ -157,7 +157,7 @@ describe("lingya async task response parsing", () => {
         model: "gpt-image-2",
         prompt: "make it premium",
         size: "2048x2048",
-        quality: "auto",
+        quality: "high",
       },
       imageUrls: ["data:image/png;base64,aGVsbG8="],
     });
@@ -178,7 +178,7 @@ describe("lingya async task response parsing", () => {
         model: "gpt-image-2",
         prompt: "make it premium",
         size: "2048x2048",
-        quality: "auto",
+        quality: "high",
       },
       imageUrls: Array.from({ length: 16 }, () => "data:image/png;base64,aGVsbG8="),
     })).rejects.toThrow("fewer than 16");
@@ -186,13 +186,17 @@ describe("lingya async task response parsing", () => {
 
   it("maps gpt-image-2 selected resolution into the documented size field", () => {
     expect(resolveGptImage2Size("1K", "1:1")).toBe("1024x1024");
-    expect(resolveGptImage2Size("1K", "16:9")).toBe("1536x1024");
-    expect(resolveGptImage2Size("1K", "9:16")).toBe("1024x1536");
+    expect(resolveGptImage2Size("1K", "16:9")).toBe("1536x864");
+    expect(resolveGptImage2Size("1K", "9:16")).toBe("864x1536");
+    expect(resolveGptImage2Size("1K", "3:4")).toBe("1152x1536");
+    expect(resolveGptImage2Size("1K", "4:5")).toBe("1216x1520");
     expect(resolveGptImage2Size("2K", "1:1")).toBe("2048x2048");
     expect(resolveGptImage2Size("2K", "16:9")).toBe("2048x1152");
     expect(resolveGptImage2Size("2K", "9:16")).toBe("1152x2048");
+    expect(resolveGptImage2Size("2K", "3:4")).toBe("1536x2048");
     expect(resolveGptImage2Size("4K", "16:9")).toBe("3840x2160");
     expect(resolveGptImage2Size("4K", "9:16")).toBe("2160x3840");
+    expect(resolveGptImage2Size("4K", "3:4")).toBe("2448x3264");
     expect(resolveGptImage2Size("4K", "1:1")).toBe("2880x2880");
     expect(resolveGptImage2Size("2K", "auto")).toBe("2048x2048");
     expect(resolveGptImage2Size("4K", "auto")).toBe("3840x2160");
@@ -207,7 +211,7 @@ describe("lingya async task response parsing", () => {
       image_size: "1024x1024" as never,
     }, "compiled prompt");
 
-    expect(body).toMatchObject({ model: "gpt-image-2", size: "1536x1024", quality: "auto" });
+    expect(body).toMatchObject({ model: "gpt-image-2", size: "1536x864", quality: "high" });
   });
 
   it("preserves gpt-image-2 2K and 4K selections in request bodies", () => {
@@ -226,8 +230,8 @@ describe("lingya async task response parsing", () => {
       image_size: "4K",
     }, "compiled prompt");
 
-    expect(twoK).toMatchObject({ model: "gpt-image-2", size: "2048x1152", quality: "auto" });
-    expect(fourK).toMatchObject({ model: "gpt-image-2", size: "3840x2160", quality: "auto" });
+    expect(twoK).toMatchObject({ model: "gpt-image-2", size: "2048x1152", quality: "high" });
+    expect(fourK).toMatchObject({ model: "gpt-image-2", size: "3840x2160", quality: "high" });
     expect(twoK).not.toHaveProperty("image_size");
     expect(fourK).not.toHaveProperty("image_size");
   });
@@ -241,7 +245,7 @@ describe("lingya async task response parsing", () => {
       image_size: "4K",
     }, "compiled prompt");
 
-    expect(body).toMatchObject({ model: "gpt-image-2", size: "3840x2160", quality: "auto" });
+    expect(body).toMatchObject({ model: "gpt-image-2", size: "3840x2160", quality: "high" });
   });
 
   it("keeps nano banana reference image requests on the existing JSON shape", () => {

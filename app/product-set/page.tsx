@@ -98,7 +98,7 @@ const MODELS: { value: LingyaModel; label: string; desc: string; badge?: string;
   { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "最高4K", badge: "推荐", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
 ];
 
-const CUSTOM_ASPECTS: AspectRatio[] = ["3:4", "4:5", "1:1", "4:3", "9:16", "16:9", "3:2", "2:3", "21:9"];
+const CUSTOM_ASPECTS: AspectRatio[] = ["auto", "3:4", "4:5", "1:1", "4:3", "9:16", "16:9", "3:2", "2:3", "21:9"];
 
 const PLAN_SOURCE_TABS: { value: ProductSetPlanSourceTab; label: string; description: string }[] = [
   { value: "smart", label: "智能模式", description: "视觉分析" },
@@ -239,7 +239,7 @@ const DEFAULT_DRAFT: CustomDraft = {
   layoutRules: "",
   textRules: "",
   avoidRules: "",
-  aspectRatio: "3:4",
+  aspectRatio: "auto",
   referenceImageUrls: [],
   modelReferenceImageUrls: [],
   otherReferenceImageUrls: [],
@@ -290,7 +290,7 @@ export default function ProductSetPage() {
   const [editingModuleIndex, setEditingModuleIndex] = useState<number | null>(null);
   const [customDraft, setCustomDraft] = useState<CustomDraft>(DEFAULT_DRAFT);
   const [aiModel, setAiModel] = useState<LingyaModel>("nano-banana-2");
-  const [aspectRatio, setAspectRatio] = useState<AspectRatio>("3:4");
+  const [aspectRatio, setAspectRatio] = useState<AspectRatio>("auto");
   const [imageSize, setImageSize] = useState<ImageSize>("2K");
   const [genCount, setGenCount] = useState(0);
   const [qualityMode, setQualityMode] = useState<"standard" | "advanced">("standard");
@@ -539,7 +539,7 @@ export default function ProductSetPage() {
     setEditingModuleIndex(null);
     setCustomDraft({ ...DEFAULT_DRAFT });
     setAiModel("nano-banana-2");
-    setAspectRatio("3:4");
+    setAspectRatio("auto");
     setImageSize("2K");
     setGenCount(0);
     setQualityMode("standard");
@@ -1067,7 +1067,7 @@ export default function ProductSetPage() {
     setMode("smart");
     setPlanSourceTab("preset");
     setImageType(plan.imageType);
-    setAspectRatio(plan.imageType === "details" ? "3:4" : "1:1");
+    setAspectRatio("auto");
     if (plan.id === "amazon-listing") {
       setSettings((prev) => ({ ...prev, country: "美国", language: "英语", platform: "亚马逊" }));
     } else if (plan.scenario === "womenswear") {
@@ -1079,7 +1079,7 @@ export default function ProductSetPage() {
   }
 
   function changeImageType(value: ProductSetImageType) {
-    const nextAspect = value === "details" ? "3:4" : "1:1";
+    const nextAspect: AspectRatio = "auto";
     const nextSizes = getSupportedImageSizes(aiModel, nextAspect);
     const nextSelectedTemplateIds = getSelectedTemplateIdsForImageType(selectedTemplateIds, value);
     setImageType(value);
@@ -1520,7 +1520,7 @@ export default function ProductSetPage() {
         { label: "生成数量", value: resultSlotCount },
       ],
       titles: resultSlots.map((slot, index) => slot.template?.name || slot.module?.name || `商品套图 ${index + 1}`),
-      subtitles: resultSlots.map((slot) => `${slot.template?.imageType === "details" ? "详情页模块" : "主图/辅图"} · ${slot.template?.aspectRatio || slot.module?.aspectRatio || aspectRatio}`),
+      subtitles: resultSlots.map((slot) => `${slot.template?.imageType === "details" ? "详情页模块" : "主图/辅图"} · ${getAspectRatioLabel(slot.template?.aspectRatio || slot.module?.aspectRatio || aspectRatio)}`),
       statuses: resultSlots.map((slot) => (slot.url ? "completed" : slot.module?.status || (isGenerating ? "running" : "queued")) as ImagePreviewResultStatus),
       errors: resultSlots.map((slot) => slot.module?.error || null),
       qualities: resultSlots.map((slot) => {
@@ -2064,7 +2064,7 @@ export default function ProductSetPage() {
                         <div className="flex w-full items-start justify-between gap-2">
                           <div className="min-w-0">
                             <h3 className="truncate text-sm font-black text-slate-900">{template?.name || `结果 ${index + 1}`}</h3>
-                            <p className="mt-1 text-[11px] font-bold text-slate-400">{url ? "已生成" : "生成中"} · {template?.imageType === "details" ? "详情页模块" : "主图/辅图"} · {template?.aspectRatio || aspectRatio}</p>
+                            <p className="mt-1 text-[11px] font-bold text-slate-400">{url ? "已生成" : "生成中"} · {template?.imageType === "details" ? "详情页模块" : "主图/辅图"} · {getAspectRatioLabel(template?.aspectRatio || aspectRatio)}</p>
                             {module?.qualityScore !== undefined && (
                               <div className="mt-2 flex flex-wrap items-center gap-1.5">
                                 <QualityBadge score={module.qualityScore} />
@@ -2844,7 +2844,7 @@ function ModuleEditModal({
             <div className="grid grid-cols-4 items-stretch gap-2">
               {CUSTOM_ASPECTS.map((value) => (
                 <button key={value} type="button" onClick={() => setDraft((prev) => ({ ...prev, aspectRatio: value }))} className={`h-10 rounded-xl border text-xs font-black transition ${draft.aspectRatio === value ? "border-[rgba(91,124,255,0.22)] bg-[rgba(91,124,255,0.1)] text-[var(--codex-accent)]" : "border-slate-200 bg-slate-50 text-slate-500"}`}>
-                  {value}
+                  {getAspectRatioLabel(value)}
                 </button>
               ))}
             </div>
@@ -3131,7 +3131,7 @@ function ReferenceQuickStart({
             <p className="mb-2 text-[11px] font-black text-slate-500">画面比例</p>
             <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-7">
               {CUSTOM_ASPECTS.map((value) => (
-                <button key={value} type="button" onClick={() => onCustomDraftChange((prev) => ({ ...prev, aspectRatio: value }))} className={`h-8 rounded-lg border px-2 text-[11px] ${customDraft.aspectRatio === value ? "border-[rgba(91,124,255,0.22)] bg-[rgba(91,124,255,0.1)] text-[var(--codex-accent)]" : "border-slate-200 bg-white text-slate-500"}`}>{value}</button>
+                <button key={value} type="button" onClick={() => onCustomDraftChange((prev) => ({ ...prev, aspectRatio: value }))} className={`h-8 rounded-lg border px-2 text-[11px] ${customDraft.aspectRatio === value ? "border-[rgba(91,124,255,0.22)] bg-[rgba(91,124,255,0.1)] text-[var(--codex-accent)]" : "border-slate-200 bg-white text-slate-500"}`}>{getAspectRatioLabel(value)}</button>
               ))}
             </div>
           </div>
@@ -3321,7 +3321,7 @@ function PlanList({
           <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white text-xs font-black text-[var(--codex-accent)] shadow-sm">{index + 1}</span>
           <div className="min-w-0 flex-1">
             <p className="truncate text-xs font-black text-slate-800">{template.name}</p>
-            <p className="truncate text-[11px] text-slate-400">{template.imageType === "details" ? "详情页" : "主图/辅图"} · {template.aspectRatio} · {template.moduleRole}</p>
+            <p className="truncate text-[11px] text-slate-400">{template.imageType === "details" ? "详情页" : "主图/辅图"} · {getAspectRatioLabel(template.aspectRatio)} · {template.moduleRole}</p>
             <p className="mt-1 line-clamp-1 text-[10px] text-slate-400">{getProductSetModuleReason(template, productProfile)}</p>
           </div>
           {shouldUseModelForTemplate(template, productProfile) && (
@@ -3722,6 +3722,10 @@ function TemplateLibraryModal({
   );
 }
 
+function getAspectRatioLabel(value: string) {
+  return value === "auto" ? "智能" : value;
+}
+
 function TemplateCard({ template, selected, onToggle }: { template: ProductSetTemplate; selected: boolean; onToggle: () => void }) {
   return (
     <button
@@ -3734,7 +3738,7 @@ function TemplateCard({ template, selected, onToggle }: { template: ProductSetTe
       <div className="relative aspect-[4/3] shrink-0 bg-slate-100">
         <img src={getImageVariantUrl(template.coverImage, "card")} alt={template.name} className="h-full w-full object-cover" />
         <span className="absolute left-3 top-3 rounded-full bg-white/90 px-2 py-1 text-[10px] font-black text-slate-600 shadow-sm">
-          {template.aspectRatio}
+          {getAspectRatioLabel(template.aspectRatio)}
         </span>
         <span className={`absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-full shadow-sm ${selected ? "bg-[rgba(91,124,255,0.1)] text-white" : "bg-white/90 text-slate-400"}`}>
           {selected ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}

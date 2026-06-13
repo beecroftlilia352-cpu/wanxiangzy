@@ -168,7 +168,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
   const effectiveAspectRatio = aspectRatio === "auto"
     ? detectedAspectRatio || AI_VIDEO_DEFAULT_FIXED_ASPECT_RATIO
     : normalizeAiVideoFixedAspectRatio(aspectRatio);
-  const aspectRatioSummary = aspectRatio === "auto" ? `自动(${effectiveAspectRatio})` : effectiveAspectRatio;
+  const aspectRatioSummary = aspectRatio === "auto" ? `智能(${effectiveAspectRatio})` : effectiveAspectRatio;
   const resolutionOptions = useMemo(
     () => getAiVideoResolutionOptions(effectiveModelMode),
     [effectiveModelMode]

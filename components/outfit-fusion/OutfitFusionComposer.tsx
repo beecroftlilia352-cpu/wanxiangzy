@@ -610,7 +610,7 @@ function OutfitFusionConfigPopover({
         <Button type="button" variant="secondary" className="h-9 w-auto max-w-[calc(100vw-48px)] justify-between gap-1.5 rounded-[6px] bg-slate-100 px-2.5 text-slate-700 transition hover:bg-slate-200 sm:max-w-[340px]">
           <Settings2 className="h-3.5 w-3.5 shrink-0" />
           <span className="min-w-0 max-w-[260px] truncate text-center text-[13px] font-medium leading-5 tracking-normal">
-            {config.aspectRatio} · {config.imageSize} · 生成{config.genCount}张 · {modelLabel}
+            {getOutfitFusionAspectRatioLabel(config.aspectRatio)} · {config.imageSize} · 生成{config.genCount}张 · {modelLabel}
           </span>
           <ChevronDown className="h-3.5 w-3.5 shrink-0" />
         </Button>
@@ -628,6 +628,7 @@ function OutfitFusionConfigPopover({
               ariaLabel="生成比例"
               value={config.aspectRatio}
               options={[
+                { value: "auto", label: "智能" },
                 { value: "3:4", label: "3:4" },
                 { value: "1:1", label: "1:1" },
               ]}
@@ -666,6 +667,10 @@ function OutfitFusionConfigPopover({
       </PopoverContent>
     </Popover>
   );
+}
+
+function getOutfitFusionAspectRatioLabel(value: OutfitFusionConfig["aspectRatio"]) {
+  return value === "auto" ? "智能" : value;
 }
 
 function ControlGroup({ label, children }: { label: string; children: ReactNode }) {

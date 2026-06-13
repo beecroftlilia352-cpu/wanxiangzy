@@ -248,7 +248,7 @@ export async function POST(request: NextRequest) {
           : buildGeneralGenerationPrompt(userText, null);
       const generalLabel = taskPlan?.label || "\u901a\u7528\u751f\u56fe";
       const model = normalizeLingyaModel(userParams?.model || followupTask?.params.model || followupTask?.params.ai_model);
-      const aspectRatio = normalizeAspectRatio(userParams?.aspectRatio || followupTask?.params.aspectRatio || followupTask?.params.aspect_ratio || taskPlan?.preferredAspectRatio || "3:4");
+      const aspectRatio = normalizeAspectRatio(userParams?.aspectRatio || followupTask?.params.aspectRatio || followupTask?.params.aspect_ratio || taskPlan?.preferredAspectRatio || "auto");
       const imageSize = normalizeImageSize(model, (userParams?.imageSize as ImageSize) || (followupTask?.params.imageSize as ImageSize) || (followupTask?.params.image_size as ImageSize) || "1K", aspectRatio);
       const count = Math.min(Math.max(Number(userParams?.count || followupTask?.params.count || followupTask?.params.gen_count) || 1, 1), 4);
       const cost = getCreditCost(model, imageSize, aspectRatio) * count;
@@ -296,7 +296,7 @@ export async function POST(request: NextRequest) {
     if (!user) return NextResponse.json({ reply: "请先登录。", action: "chat" });
 
     const model: LingyaModel = normalizeLingyaModel(userParams?.model);
-    const aspectRatio: AspectRatio = normalizeAspectRatio(userParams?.aspectRatio || "3:4");
+    const aspectRatio: AspectRatio = normalizeAspectRatio(userParams?.aspectRatio || "auto");
     const imageSize: ImageSize = normalizeImageSize(model, (userParams?.imageSize as ImageSize) || "1K", aspectRatio);
     const count = Math.min(Math.max(Number(userParams?.count) || 1, 1), 4);
     const costPerImage = getCreditCost(model, imageSize, aspectRatio);

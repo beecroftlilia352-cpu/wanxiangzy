@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
     if (!prompt?.trim() && !final_prompt?.trim()) return NextResponse.json({ error: "缺少提示词" }, { status: 400 });
 
     const model: LingyaModel = normalizeLingyaModel(ai_model);
-    const aspectRatio: AspectRatio = aspect_ratio === "1:1" ? "1:1" : "3:4";
+    const aspectRatio: AspectRatio = aspect_ratio === "auto" || aspect_ratio === "1:1" ? aspect_ratio : "3:4";
     const size: ImageSize = normalizeImageSize(model, image_size || "1K", aspectRatio);
     const genCount = Math.min(Math.max(Number(gen_count) || 1, 1), 4);
     const costPerImage = getCreditCost(model, size, aspectRatio);

@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
     if (!garmentUrl) return NextResponse.json({ error: "请先上传高清服装图" }, { status: 400 });
 
     const model: LingyaModel = normalizeLingyaModel(body.ai_model);
-    const aspectRatio = normalizeAspectRatio(body.aspect_ratio || "3:4", "3:4");
+    const aspectRatio = normalizeAspectRatio(body.aspect_ratio || "auto", "auto");
     const size: ImageSize = normalizeImageSize(model, (typeof body.image_size === "string" ? body.image_size : "1K") as ImageSize, aspectRatio);
     const genCount = Math.min(Math.max(Number(body.gen_count) || 1, 1), 4);
     const garmentType = resolveGarmentTypeLabel(normalizeGarmentType(body.garment_type), body.custom_garment_type);

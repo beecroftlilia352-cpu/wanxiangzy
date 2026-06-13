@@ -134,8 +134,8 @@ const MODELS: Array<{ value: LingyaModel; label: string; badge?: string }> = [
   { value: "nano-banana-pro", label: "Nano Banana Pro", badge: "质感" },
 ];
 
-const MAIN_ASPECTS: AspectRatio[] = ["1:1", "3:4", "4:3"];
-const DETAILS_ASPECTS: AspectRatio[] = ["3:4", "4:5", "4:3", "1:1"];
+const MAIN_ASPECTS: AspectRatio[] = ["auto", "1:1", "3:4", "4:3"];
+const DETAILS_ASPECTS: AspectRatio[] = ["auto", "3:4", "4:5", "4:3", "1:1"];
 const ANALYZE_PROGRESS_MESSAGES = ["正在识别商品主体...", "正在分析材质与卖点...", "正在生成视觉规划..."];
 const GENERATE_PROGRESS_MESSAGES = [
   "正在模拟物理级光影分布...",
@@ -173,8 +173,8 @@ function getDefaultCount(imageType: ProductSetImageType) {
   return imageType === "main" ? 1 : 1;
 }
 
-function getDefaultAspect(imageType: ProductSetImageType) {
-  return imageType === "main" ? "1:1" : "3:4";
+function getDefaultAspect(_imageType: ProductSetImageType): AspectRatio {
+  return "auto";
 }
 
 function createPlanningModules(imageType: ProductSetImageType, count = getDefaultCount(imageType)): PlanningModule[] {
@@ -326,7 +326,7 @@ export default function AllCategoryProductImagePage() {
         { label: "生成数量", value: modules.length },
       ],
       titles: resultSlots.map((slot, index) => slot.module.title || `商品图 ${index + 1}`),
-      subtitles: resultSlots.map((slot) => `${slot.module.description} · ${slot.module.aspectRatio || defaultAspect}`),
+      subtitles: resultSlots.map((slot) => `${slot.module.description} · ${getAspectRatioLabel(slot.module.aspectRatio || defaultAspect)}`),
       statuses: resultSlots.map((slot) => (slot.url ? "completed" : slot.status || (isGenerating ? "running" : "queued")) as ImagePreviewResultStatus),
       errors: resultSlots.map((slot) => slot.error || null),
       qualities: resultSlots.map((slot) => {
@@ -1012,12 +1012,16 @@ function SelectField({
       >
         {options.map((option) => (
           <option key={option} value={option}>
-            {labels?.[option] || option}
+            {labels?.[option] || getAspectRatioLabel(option)}
           </option>
         ))}
       </select>
     </label>
   );
+}
+
+function getAspectRatioLabel(value: string) {
+  return value === "auto" ? "智能" : value;
 }
 
 function EmptyState({ title, description }: { title: string; description: string }) {
@@ -1202,7 +1206,7 @@ function ResultGrid({
             </div>
             <div className="p-3">
               <h4 className="truncate text-sm font-black text-slate-950">{slot.module.title}</h4>
-              <p className="mt-1 text-xs font-semibold text-slate-500">{slot.url ? "已生成" : slot.status === "failed" ? "失败" : "生成中"} · {slot.module.aspectRatio}</p>
+              <p className="mt-1 text-xs font-semibold text-slate-500">{slot.url ? "已生成" : slot.status === "failed" ? "失败" : "生成中"} · {getAspectRatioLabel(slot.module.aspectRatio)}</p>
             </div>
           </article>
         ))}

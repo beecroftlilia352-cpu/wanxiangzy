@@ -74,7 +74,7 @@ export default function MaterialEnhancementPage() {
   const [userPrompt, setUserPrompt] = useState("");
 
   const [aiModel, setAiModel] = useState<LingyaModel>("nano-banana-2");
-  const [aspectRatio, setAspectRatio] = useState<Extract<AspectRatio, "3:4" | "4:5" | "1:1">>("3:4");
+  const [aspectRatio, setAspectRatio] = useState<Extract<AspectRatio, "auto" | "3:4" | "4:5" | "1:1">>("auto");
   const [imageSize, setImageSize] = useState<ImageSize>("1K");
   const [genCount, setGenCount] = useState(1);
 
@@ -176,7 +176,7 @@ export default function MaterialEnhancementPage() {
     setEnhancementLevel(normalizeMaterialEnhancementLevel(payload.enhancementLevel));
     setUserPrompt(payload.userPrompt || "");
     setAiModel(payload.aiModel);
-    setAspectRatio(payload.aspectRatio === "1:1" || payload.aspectRatio === "4:5" ? payload.aspectRatio : "3:4");
+    setAspectRatio(payload.aspectRatio === "auto" || payload.aspectRatio === "1:1" || payload.aspectRatio === "4:5" ? payload.aspectRatio : "3:4");
     setImageSize(payload.imageSize);
     setGenCount(payload.genCount);
     setRunningExpectedCount(null);
@@ -419,7 +419,7 @@ export default function MaterialEnhancementPage() {
     setEnhancementLevel(DEFAULT_MATERIAL_ENHANCEMENT_LEVEL);
     setUserPrompt("");
     setAiModel("nano-banana-2");
-    setAspectRatio("3:4");
+    setAspectRatio("auto");
     setImageSize("1K");
     setGenCount(1);
     setIsGenerating(false);
@@ -565,6 +565,7 @@ export default function MaterialEnhancementPage() {
             <h3 className="font-bold text-sm mb-3">图片比例</h3>
             <StudioOptionGrid
               options={[
+                { value: "auto", label: "智能" },
                 { value: "3:4", label: "3:4 竖版" },
                 { value: "4:5", label: "4:5 商品图" },
                 { value: "1:1", label: "1:1 方图" },

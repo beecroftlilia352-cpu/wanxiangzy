@@ -19,7 +19,7 @@ const SUPPORTED_MODELS: LingyaModel[] = [
   "nano-banana-pro",
 ];
 
-const SUPPORTED_ASPECTS: AspectRatio[] = ["4:3", "3:4", "9:16", "16:9", "1:1", "3:2", "2:3", "21:9"];
+const SUPPORTED_ASPECTS: AspectRatio[] = ["auto", "4:3", "3:4", "9:16", "16:9", "1:1", "3:2", "2:3", "21:9"];
 
 export type SavedProductSetPlanModule = {
   name: string;
@@ -142,7 +142,7 @@ export function normalizeFavoriteProductSetPlan(
   const imageType: ProductSetImageType = item.imageType === "details" ? "details" : "main";
   const mode: ProductSetCreationMode = item.mode === "custom" ? "custom" : "smart";
   const aiModel = isLingyaModel(item.aiModel) ? item.aiModel : "nano-banana-2";
-  const aspectRatio = isAspectRatio(item.aspectRatio) ? item.aspectRatio : imageType === "details" ? "3:4" : "1:1";
+  const aspectRatio = isAspectRatio(item.aspectRatio) ? item.aspectRatio : "auto";
   const imageSize = isImageSize(item.imageSize) ? item.imageSize : "1K";
   const qualityMode = item.qualityMode === "advanced" ? "advanced" : "standard";
   const updatedAt = typeof item.updatedAt === "string" ? item.updatedAt : new Date().toISOString();
@@ -205,7 +205,7 @@ export function buildFavoritePlanApplyState(
     defaultGenCount?: number;
   }
 ): FavoritePlanApplyState {
-  const nextAspect = plan.aspectRatio || (plan.imageType === "details" ? "3:4" : "1:1");
+  const nextAspect = plan.aspectRatio || "auto";
   const nextSizes = getSupportedImageSizes(plan.aiModel, nextAspect);
   const selectedTemplateIds = [...plan.selectedTemplateIds];
   return {

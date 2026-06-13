@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
     }
 
     const model: LingyaModel = normalizeLingyaModel(rawModel);
-    const aspectRatio: AspectRatio = normalizeAspectRatio(rawRatio || "3:4");
+    const aspectRatio: AspectRatio = normalizeAspectRatio(rawRatio || "auto");
     const imageSize: ImageSize = normalizeImageSize(model, (rawSize as ImageSize) || "1K", aspectRatio);
     const count = Math.min(Math.max(Number(rawCount) || 1, 1), 4);
     const costPerImage = getCreditCost(model, imageSize, aspectRatio);

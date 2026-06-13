@@ -107,7 +107,7 @@ export default function Garment3dPage() {
   const [promptOverride, setPromptOverride] = useState<string | null>(null);
 
   const [aiModel, setAiModel] = useState<LingyaModel>("nano-banana-2");
-  const [aspectRatio, setAspectRatio] = useState<Extract<AspectRatio, "1:1" | "3:4">>("1:1");
+  const [aspectRatio, setAspectRatio] = useState<Extract<AspectRatio, "auto" | "1:1" | "3:4">>("auto");
   const [imageSize, setImageSize] = useState<ImageSize>("1K");
   const [genCount, setGenCount] = useState(1);
 
@@ -240,7 +240,7 @@ export default function Garment3dPage() {
     setDisplayStyle(normalizeGarment3dDisplayStyle(payload.displayStyle));
     setCustomReferenceUrl(payload.referenceUrl || "");
     setAiModel(payload.aiModel);
-    setAspectRatio(payload.aspectRatio === "1:1" ? "1:1" : "3:4");
+    setAspectRatio(payload.aspectRatio === "auto" || payload.aspectRatio === "1:1" ? payload.aspectRatio : "3:4");
     setImageSize(payload.imageSize);
     setGenCount(payload.genCount);
     setPrompt(payload.userPrompt || payload.prompt);
@@ -595,7 +595,7 @@ export default function Garment3dPage() {
     setPrompt("");
     setPromptOverride(null);
     setAiModel("nano-banana-2");
-    setAspectRatio("1:1");
+    setAspectRatio("auto");
     setImageSize("1K");
     setGenCount(1);
     setIsGenerating(false);
@@ -836,6 +836,7 @@ export default function Garment3dPage() {
             <h3 className="font-bold text-sm mb-3">图片比例</h3>
             <StudioOptionGrid
               options={[
+                { value: "auto", label: "智能" },
                 { value: "1:1", label: "1:1 方图" },
                 { value: "3:4", label: "3:4 竖版" },
               ] as const}

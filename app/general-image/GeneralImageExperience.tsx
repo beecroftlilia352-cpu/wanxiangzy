@@ -65,7 +65,7 @@ const ASPECTS: { value: AspectRatio; label: string }[] = [
   { value: "9:16", label: "9:16 手机" },
   { value: "16:9", label: "16:9 宽屏" },
   { value: "4:5", label: "4:5 电商" },
-  { value: "auto", label: "自动" },
+  { value: "auto", label: "智能" },
 ];
 
 const IMAGE_PROMPT_PLACEHOLDER =
@@ -100,7 +100,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     refreshAuth,
   } = useStudioAuth();
   const [aiModel, setAiModel] = useState<LingyaModel>("nano-banana-2");
-  const [aspectRatio, setAspectRatio] = useState<AspectRatio>("3:4");
+  const [aspectRatio, setAspectRatio] = useState<AspectRatio>("auto");
   const [imageSize, setImageSize] = useState<ImageSize>("1K");
   const [genCount, setGenCount] = useState(1);
   const [isDragging, setIsDragging] = useState(false);
@@ -278,7 +278,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     setPrompt("");
     setReferenceImages([]);
     setAiModel("nano-banana-2");
-    setAspectRatio("3:4");
+    setAspectRatio("auto");
     setImageSize("1K");
     setGenCount(1);
     setIsDragging(false);
@@ -713,7 +713,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
           <section>
             <h3 className="mb-3 font-bold text-sm">图片比例</h3>
             <StudioOptionGrid
-              options={ASPECTS.filter((item) => item.value !== "auto").map((item) => ({
+              options={ASPECTS.map((item) => ({
                 value: item.value,
                 label: item.label,
               }))}

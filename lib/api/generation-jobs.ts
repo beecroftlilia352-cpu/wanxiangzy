@@ -1182,6 +1182,7 @@ async function executePayload(
           prompt_kind: "model",
           aspect_ratio: payload.aspectRatio,
           image: imageInputs.clothingUrls,
+          smart_aspect_image: references[0],
           image_size: payload.imageSize,
           onProgress: onTaskProgress,
         });
@@ -1213,6 +1214,7 @@ async function executePayload(
           prompt_kind: "grass",
           aspect_ratio: payload.aspectRatio,
           image: imageInputs.clothingUrls,
+          smart_aspect_image: payload.referenceUrl || payload.garmentUrl,
           image_size: payload.imageSize,
           onProgress: onTaskProgress,
         });
@@ -1244,6 +1246,7 @@ async function executePayload(
           prompt_kind: "modelBackground",
           aspect_ratio: payload.aspectRatio,
           image: imageInputs.clothingUrls,
+          smart_aspect_image: payload.sourceUrl,
           image_size: payload.imageSize,
           onProgress: onTaskProgress,
         });
@@ -1272,6 +1275,7 @@ async function executePayload(
           prompt_kind: "materialEnhancement",
           aspect_ratio: payload.aspectRatio,
           image: imageInputs.clothingUrls,
+          smart_aspect_image: payload.sourceUrl,
           image_size: payload.imageSize,
           onProgress: onTaskProgress,
         });
@@ -1299,6 +1303,7 @@ async function executePayload(
           prompt: payload.prompt,
           aspect_ratio: payload.aspectRatio,
           image: imageInputs.clothingUrls,
+          smart_aspect_image: payload.referenceUrls[0],
           image_size: payload.imageSize,
           onProgress: onTaskProgress,
         });
@@ -1397,6 +1402,7 @@ async function executePayload(
           prompt_kind: "faceSwap",
           aspect_ratio: payload.aspectRatio,
           image: imageInputs.clothingUrls,
+          smart_aspect_image: payload.sourceUrl,
           image_size: payload.imageSize,
           onProgress: onTaskProgress,
         });
@@ -1542,6 +1548,7 @@ async function executePayload(
             prompt_kind: "productSet",
             aspect_ratio: outputAspectRatio,
             image: imageInputs.clothingUrls,
+            smart_aspect_image: styleReferenceUrls[0] || payload.productImageUrls[0],
             image_size: payload.imageSize,
             onProgress: async (progress) => {
               updateModule(moduleKey, {
@@ -1633,6 +1640,7 @@ async function executePayload(
         prompt_kind: "garment3d",
         aspect_ratio: payload.aspectRatio,
         image: imageInputs.clothingUrls,
+        smart_aspect_image: payload.referenceUrl || payload.garmentUrl,
         image_size: payload.imageSize,
         onProgress: onTaskProgress,
       });

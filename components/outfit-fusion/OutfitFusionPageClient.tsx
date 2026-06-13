@@ -281,10 +281,10 @@ export function OutfitFusionPageClient() {
       promptText: previewTask.prompt,
       selectedIndex: preview?.index || 0,
       resultTitlePrefix: "生成图",
-      aspectRatio: previewTask.config.aspectRatio,
+      aspectRatio: getOutfitFusionAspectRatioLabel(previewTask.config.aspectRatio),
       metaItems: [
         { label: "来源", value: "搭配融图生成" },
-        { label: "比例", value: previewTask.config.aspectRatio },
+        { label: "比例", value: getOutfitFusionAspectRatioLabel(previewTask.config.aspectRatio) },
         { label: "分辨率", value: previewTask.config.imageSize },
         { label: "模型", value: previewTask.config.aiModel },
         { label: "任务 ID", value: previewTask.remoteId || previewTask.taskNo },
@@ -345,7 +345,7 @@ export function OutfitFusionPageClient() {
     setConfig((current) => ({
       ...current,
       genCount: clampOutfitFusionCount(template.outputCount || current.genCount),
-      aspectRatio: "3:4",
+      aspectRatio: "auto",
     }));
     setComposerCollapsed(false);
   }
@@ -767,7 +767,7 @@ export function OutfitFusionPageClient() {
     const restoredAssets = restoreOutfitFusionAssetsFromPayload(payload, item.id);
     const restoredConfig: OutfitFusionConfig = {
       aiModel: payload.aiModel,
-      aspectRatio: payload.aspectRatio === "1:1" ? "1:1" : "3:4",
+      aspectRatio: payload.aspectRatio === "auto" || payload.aspectRatio === "1:1" ? payload.aspectRatio : "3:4",
       imageSize: payload.imageSize,
       quality: DEFAULT_OUTFIT_FUSION_CONFIG.quality,
       genCount: clampOutfitFusionCount(payload.genCount),
@@ -1299,6 +1299,10 @@ function getOutfitFusionPayloadAssetUrls(payload: OutfitFusionHistoryPayload) {
     : [];
   if (assetUrls.length) return assetUrls;
   return payload.referenceUrls.filter((url) => typeof url === "string" && url.trim().length > 0);
+}
+
+function getOutfitFusionAspectRatioLabel(value: OutfitFusionConfig["aspectRatio"]) {
+  return value === "auto" ? "智能" : value;
 }
 
 function normalizeOutfitFusionAssetRole(value: unknown): OutfitFusionAssetRole | null {

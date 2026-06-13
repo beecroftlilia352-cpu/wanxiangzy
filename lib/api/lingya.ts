@@ -4,6 +4,7 @@
  */
 
 import { normalizeOpenAiCompatibleBaseUrl } from "@/lib/api/url-utils";
+import { resolveExactAspectPixelSize, resolveSmartImageAspectRatio } from "@/lib/api/image-size";
 import {
   TRYON_CLOTHING_IMAGE_ROLE_RULE,
   TRYON_FIT_RULE,
@@ -121,6 +122,7 @@ interface GenerateInput {
   prompt_kind?: ImagePromptKind;
   aspect_ratio?: AspectRatio;
   image?: string[];
+  smart_aspect_image?: string;
   image_size?: ImageSize;
   search?: boolean;
   onProgress?: (update: ImageTaskProgress) => Promise<void> | void;
@@ -175,20 +177,21 @@ type TryOnRequestPromptOptions = {
 };
 
 export async function generateImage(input: GenerateInput, retries = 2): Promise<GenerateResult> {
-  const provider = getImageProvider(input.model);
+  const requestInput = await resolveGenerateInputAspectRatio(input);
+  const provider = getImageProvider(requestInput.model);
   const apiKey = provider.apiKey;
   if (!apiKey) throw new Error(`${provider.name} API Key 未配置`);
   const apiBase = provider.apiBase;
   const compiledPrompt = compileImagePromptForModel({
-    kind: input.prompt_kind,
-    model: input.model,
-    prompt: input.prompt,
+    kind: requestInput.prompt_kind,
+    model: requestInput.model,
+    prompt: requestInput.prompt,
   });
 
-  const useLaozhangNativeEndpoint = shouldUseLaozhangNativeEndpoint(input, provider);
-  const useImageEditEndpoint = !useLaozhangNativeEndpoint && shouldUseImageEditEndpoint(input, provider);
-  const body = buildGenerateRequestBody(input, compiledPrompt);
-  body.model = resolveProviderImageModel(input.model, provider);
+  const useLaozhangNativeEndpoint = shouldUseLaozhangNativeEndpoint(requestInput, provider);
+  const useImageEditEndpoint = !useLaozhangNativeEndpoint && shouldUseImageEditEndpoint(requestInput, provider);
+  const body = buildGenerateRequestBody(requestInput, compiledPrompt);
+  body.model = resolveProviderImageModel(requestInput.model, provider);
 
   // 日志（不含完整 base64、不含完整 prompt 内容）
   const logBody: Record<string, unknown> = {
@@ -197,7 +200,7 @@ export async function generateImage(input: GenerateInput, retries = 2): Promise<
     aspect_ratio: body.aspect_ratio,
     image_size: body.image_size || body.size,
     quality: body.quality,
-    image_count: Array.isArray(input.image) ? input.image.length : 0,
+    image_count: Array.isArray(requestInput.image) ? requestInput.image.length : 0,
     prompt_length: typeof body.prompt === "string" ? body.prompt.length : 0,
   };
   console.log(`[api:${provider.name}] 请求:`, JSON.stringify(logBody));
@@ -205,10 +208,10 @@ export async function generateImage(input: GenerateInput, retries = 2): Promise<
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
       const isAsyncSubmit = !useLaozhangNativeEndpoint && !useImageEditEndpoint && shouldRequestAsyncImageTask(provider);
-      await input.onProgress?.({ status: "queued", providerStatus: "REQUEST_QUEUED", progress: 1 });
+      await requestInput.onProgress?.({ status: "queued", providerStatus: "REQUEST_QUEUED", progress: 1 });
       let res: Response;
       let resText: string;
-      const stopRequestHeartbeat = startImageRequestProgressHeartbeat(input.onProgress, {
+      const stopRequestHeartbeat = startImageRequestProgressHeartbeat(requestInput.onProgress, {
         maxProgress: isAsyncSubmit ? ASYNC_IMAGE_SUBMIT_PROGRESS_MAX : SYNC_IMAGE_REQUEST_PROGRESS_MAX,
         providerStatus: isAsyncSubmit ? "SUBMITTING" : "GENERATING",
       });
@@ -219,12 +222,12 @@ export async function generateImage(input: GenerateInput, retries = 2): Promise<
               apiKey,
               model: String(body.model),
               prompt: compiledPrompt,
-              imageUrls: input.image || [],
-              aspectRatio: input.aspect_ratio,
-              imageSize: input.image_size,
+              imageUrls: requestInput.image || [],
+              aspectRatio: requestInput.aspect_ratio,
+              imageSize: requestInput.image_size,
             })
           : useImageEditEndpoint
-            ? await buildImageEditRequest({ apiBase, apiKey, body, imageUrls: input.image || [] })
+            ? await buildImageEditRequest({ apiBase, apiKey, body, imageUrls: requestInput.image || [] })
             : buildImageGenerationRequest({ apiBase, apiKey, provider, body });
         res = await fetch(request.url, request.init);
 
@@ -249,7 +252,7 @@ export async function generateImage(input: GenerateInput, retries = 2): Promise<
 
       if (!taskId) {
         if (immediateResult.urls.length || immediateResult.b64Json) {
-          await input.onProgress?.({
+          await requestInput.onProgress?.({
             status: "completed",
             providerStatus: "SYNC_COMPLETED",
             progress: 100,
@@ -258,7 +261,7 @@ export async function generateImage(input: GenerateInput, retries = 2): Promise<
           return {
             url: immediateResult.urls[0],
             b64_json: normalizeB64Image(immediateResult.b64Json),
-            prompt: input.prompt,
+            prompt: requestInput.prompt,
             compiledPrompt,
           };
         }
@@ -266,19 +269,19 @@ export async function generateImage(input: GenerateInput, retries = 2): Promise<
         throw new Error(`图片生成接口未返回任务 ID 或图片结果，响应字段: ${describeResponseKeys(json)}`);
       }
 
-      await input.onProgress?.({ taskId, status: "queued", providerStatus: "SUBMITTED", progress: 1 });
+      await requestInput.onProgress?.({ taskId, status: "queued", providerStatus: "SUBMITTED", progress: 1 });
       const completed = await pollImageTask({
         provider,
         apiBase,
         apiKey,
         taskId,
-        onProgress: input.onProgress,
+        onProgress: requestInput.onProgress,
       });
 
       return {
         url: completed.urls[0],
         b64_json: normalizeB64Image(completed.b64Json),
-        prompt: input.prompt,
+        prompt: requestInput.prompt,
         compiledPrompt,
         taskId,
       };
@@ -294,6 +297,18 @@ export async function generateImage(input: GenerateInput, retries = 2): Promise<
   }
 
   throw new Error("API 多次重试后失败");
+}
+
+async function resolveGenerateInputAspectRatio(input: GenerateInput): Promise<GenerateInput> {
+  if (input.aspect_ratio !== "auto") return input;
+
+  const aspectRatio = await resolveSmartImageAspectRatio({
+    aspectRatio: input.aspect_ratio,
+    image: input.smart_aspect_image || input.image?.[0],
+    fallback: "3:4",
+  });
+
+  return { ...input, aspect_ratio: normalizeAspectRatio(aspectRatio, "3:4") };
 }
 
 function startImageRequestProgressHeartbeat(
@@ -349,6 +364,11 @@ export async function batchTryOn(input: BatchTryOnInput): Promise<{ resultUrls: 
   if (!input.clothingUrls.length) {
     throw new Error("缺少服装图片");
   }
+  const aspectRatio = normalizeAspectRatio(await resolveSmartImageAspectRatio({
+    aspectRatio: input.aspect_ratio || "3:4",
+    image: input.referenceUrl || input.modelFaceUrl || input.clothingUrls[0],
+    fallback: "3:4",
+  }), "3:4");
 
   const { prompt } = buildTryOnPrompt({
     clothingCount: input.clothingUrls.length,
@@ -358,7 +378,7 @@ export async function batchTryOn(input: BatchTryOnInput): Promise<{ resultUrls: 
     garmentAudience: input.garmentAudience,
     ageGroup: input.ageGroup,
     garmentCategory: input.garmentCategory,
-    aspectRatio: input.aspect_ratio,
+    aspectRatio,
     hasModelFace: !!input.modelFaceUrl,
     hasReference: !!input.referenceUrl,
     referenceAnalysis: input.referenceAnalysis,
@@ -379,8 +399,9 @@ export async function batchTryOn(input: BatchTryOnInput): Promise<{ resultUrls: 
     model: input.model,
     prompt: finalPrompt,
     prompt_kind: "tryon",
-    aspect_ratio: input.aspect_ratio || "3:4",
+    aspect_ratio: aspectRatio,
     image: imageInputs,
+    smart_aspect_image: input.referenceUrl || input.modelFaceUrl || input.clothingUrls[0],
     image_size: input.image_size,
     onProgress: input.onProgress,
   });
@@ -493,7 +514,7 @@ function buildGenerateRequestBody(input: GenerateInput, compiledPrompt: string):
   if (input.model === "gpt-image-2") {
     // gpt-image-2 /images/edits uses the documented size field, not image_size.
     body.size = input.image_size ? resolveGptImage2Size(input.image_size, input.aspect_ratio || "auto") : "auto";
-    body.quality = "auto";
+    body.quality = "high";
   }
   if (input.image_size && isSeedreamModel(input.model)) {
     body.size = normalizeImageSize(input.model, input.image_size, input.aspect_ratio);
@@ -1165,95 +1186,11 @@ function isDeprecatedGptImage2ProviderBase(apiBase: string) {
 
 function resolveGptImage2Size(imageSize: ImageSize | undefined, aspectRatio: AspectRatio): string {
   const normalizedImageSize = isImageSizeValue(imageSize) ? imageSize : "1K";
-  if (aspectRatio === "auto") return getDefaultGptImage2Size(normalizedImageSize);
-
-  const ratio = getAspectRatioValue(aspectRatio);
-  if (normalizedImageSize === "1K") {
-    if (isSquareRatio(ratio)) return "1024x1024";
-    return ratio > 1 ? "1536x1024" : "1024x1536";
-  }
-
-  if (normalizedImageSize === "2K") {
-    return resolveLongEdgePixelSize(ratio, 2048);
-  }
-
-  return resolveConstrainedPixelSize(ratio, 3840 * 2160);
+  return resolveExactAspectPixelSize(normalizedImageSize, aspectRatio);
 }
 
 function isImageSizeValue(value: unknown): value is ImageSize {
   return value === "1K" || value === "2K" || value === "4K";
-}
-
-function getDefaultGptImage2Size(imageSize: ImageSize): string {
-  if (imageSize === "1K") return "1024x1024";
-  if (imageSize === "2K") return "2048x2048";
-  return "3840x2160";
-}
-
-function isSquareRatio(ratio: number): boolean {
-  return Math.abs(ratio - 1) < 0.01;
-}
-
-function resolveLongEdgePixelSize(ratio: number, longEdge: number): string {
-  const safeRatio = Math.min(Math.max(ratio, 1 / 3), 3);
-  const width = safeRatio >= 1 ? longEdge : longEdge * safeRatio;
-  const height = safeRatio >= 1 ? longEdge / safeRatio : longEdge;
-  return `${roundToMultipleOf16(width)}x${roundToMultipleOf16(height)}`;
-}
-
-function roundToMultipleOf16(value: number): number {
-  return Math.max(16, Math.round(value / 16) * 16);
-}
-
-function resolvePixelSize(imageSize: ImageSize, aspectRatio: AspectRatio): string {
-  if (aspectRatio === "auto") return "auto";
-
-  const ratio = getAspectRatioValue(aspectRatio);
-  const targetPixels: Record<ImageSize, number> = {
-    "1K": 1024 * 1024,
-    "2K": 2048 * 2048,
-    "4K": 3840 * 2160,
-  };
-
-  return resolveConstrainedPixelSize(ratio, targetPixels[imageSize]);
-}
-
-function getAspectRatioValue(aspectRatio: AspectRatio): number {
-  const [width, height] = aspectRatio.split(":").map(Number);
-  if (!width || !height) return 3 / 4;
-  return width / height;
-}
-
-function resolveConstrainedPixelSize(ratio: number, targetPixels: number): string {
-  const maxEdge = 3840;
-  const minPixels = 655_360;
-  const maxPixels = 8_294_400;
-  const safeRatio = Math.min(Math.max(ratio, 1 / 3), 3);
-  const clampedTarget = Math.min(Math.max(targetPixels, minPixels), maxPixels);
-
-  let width = Math.sqrt(clampedTarget * safeRatio);
-  let height = width / safeRatio;
-  const scale = Math.min(maxEdge / width, maxEdge / height, 1);
-  width *= scale;
-  height *= scale;
-
-  let roundedWidth = Math.max(16, Math.floor(width / 16) * 16);
-  let roundedHeight = Math.max(16, Math.floor(height / 16) * 16);
-
-  while (roundedWidth * roundedHeight > maxPixels || roundedWidth > maxEdge || roundedHeight > maxEdge) {
-    roundedWidth = Math.max(16, roundedWidth - 16);
-    roundedHeight = Math.max(16, Math.round((roundedWidth / safeRatio) / 16) * 16);
-  }
-
-  while (roundedWidth * roundedHeight < minPixels && roundedWidth < maxEdge && roundedHeight < maxEdge) {
-    const nextWidth = Math.min(maxEdge, roundedWidth + 16);
-    const nextHeight = Math.min(maxEdge, Math.round((nextWidth / safeRatio) / 16) * 16);
-    if (nextWidth === roundedWidth && nextHeight === roundedHeight) break;
-    roundedWidth = nextWidth;
-    roundedHeight = nextHeight;
-  }
-
-  return `${roundedWidth}x${roundedHeight}`;
 }
 
 function normalizeB64Image(value?: string): string | undefined {

@@ -52,6 +52,7 @@ const MODELS: { value: LingyaModel; label: string; desc: string; badge?: string;
 type GrassHistoryPayload = Extract<HistoryJobPayload, { kind: "grass" }>;
 
 const ASPECTS: { value: AspectRatio; label: string }[] = [
+  { value: "auto", label: "智能" },
   { value: "4:5", label: "4:5 种草" },
   { value: "3:4", label: "3:4 竖版" },
   { value: "1:1", label: "1:1 方图" },
@@ -108,7 +109,7 @@ export default function GrassPage() {
   const [userPrompt, setUserPrompt] = useState("");
   const [supplementPrompt, setSupplementPrompt] = useState("");
   const [aiModel, setAiModel] = useState<LingyaModel>("nano-banana-2");
-  const [aspectRatio, setAspectRatio] = useState<AspectRatio>("4:5");
+  const [aspectRatio, setAspectRatio] = useState<AspectRatio>("auto");
   const [imageSize, setImageSize] = useState<ImageSize>("1K");
   const [genCount, setGenCount] = useState(1);
   const [promptOverride, setPromptOverride] = useState<string | null>(null);
@@ -533,7 +534,7 @@ export default function GrassPage() {
     setUserPrompt("");
     setSupplementPrompt("");
     setAiModel("nano-banana-2");
-    setAspectRatio("4:5");
+    setAspectRatio("auto");
     setImageSize("1K");
     setGenCount(1);
     setPromptOverride(null);

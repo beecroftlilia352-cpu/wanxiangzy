@@ -39,7 +39,7 @@ export const GPT_ASPECTS: { value: AspectRatio; label: string }[] = [
   { value: "9:16", label: "9:16 手机" }, { value: "2:3", label: "2:3" },
   { value: "3:2", label: "3:2" }, { value: "4:5", label: "4:5" },
   { value: "5:4", label: "5:4" }, { value: "21:9", label: "21:9" },
-  { value: "auto", label: "自动" },
+  { value: "auto", label: "智能" },
 ];
 
 export const BANANA_ASPECTS: { value: AspectRatio; label: string }[] = [
@@ -48,7 +48,7 @@ export const BANANA_ASPECTS: { value: AspectRatio; label: string }[] = [
   { value: "9:16", label: "9:16" }, { value: "2:3", label: "2:3" },
   { value: "3:2", label: "3:2" }, { value: "4:5", label: "4:5" },
   { value: "5:4", label: "5:4" }, { value: "21:9", label: "21:9" },
-  { value: "auto", label: "自动" },
+  { value: "auto", label: "智能" },
 ];
 
 export const STYLE_PRESETS = [

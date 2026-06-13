@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
     }
 
     const model: LingyaModel = normalizeLingyaModel(body.ai_model);
-    const aspectRatio = normalizeAspectRatio(body.aspect_ratio || "3:4");
+    const aspectRatio = normalizeAspectRatio(body.aspect_ratio || "auto");
     const size: ImageSize = normalizeImageSize(model, (typeof body.image_size === "string" ? body.image_size : "1K") as ImageSize, aspectRatio);
     const genCount = Math.min(Math.max(Number(body.gen_count) || 1, 1), 4);
     const templateId = normalizeBackgroundPreset(body.template_id);

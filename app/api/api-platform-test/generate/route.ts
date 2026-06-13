@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { API_RATE_LIMITS, enforceApiRateLimit } from "@/lib/api/rate-limit";
+import { resolveExactAspectPixelSize } from "@/lib/api/image-size";
 import { createServerSupabase } from "@/lib/supabase/server";
 
 const REQUEST_TIMEOUT_MS = 300000;
@@ -316,60 +317,7 @@ function extensionForContentType(contentType: string) {
 }
 
 function resolvePixelSize(imageSize: ImageSize, aspectRatio: string) {
-  if (aspectRatio === "auto") return getDefaultPixelSize(imageSize);
-
-  const ratio = getAspectRatioValue(aspectRatio);
-  const targetPixels: Record<ImageSize, number> = {
-    "1K": 1024 * 1024,
-    "2K": 2048 * 2048,
-    "4K": 3840 * 2160,
-  };
-
-  return resolveConstrainedPixelSize(ratio, targetPixels[imageSize]);
-}
-
-function getDefaultPixelSize(imageSize: ImageSize) {
-  if (imageSize === "1K") return "1024x1024";
-  if (imageSize === "2K") return "2048x2048";
-  return "3840x2160";
-}
-
-function getAspectRatioValue(aspectRatio: string): number {
-  const [width, height] = aspectRatio.split(":").map(Number);
-  if (!width || !height) return 3 / 4;
-  return width / height;
-}
-
-function resolveConstrainedPixelSize(ratio: number, targetPixels: number): string {
-  const maxEdge = 3840;
-  const minPixels = 655_360;
-  const maxPixels = 8_294_400;
-  const safeRatio = Math.min(Math.max(ratio, 1 / 3), 3);
-  const clampedTarget = Math.min(Math.max(targetPixels, minPixels), maxPixels);
-
-  let width = Math.sqrt(clampedTarget * safeRatio);
-  let height = width / safeRatio;
-  const scale = Math.min(maxEdge / width, maxEdge / height, 1);
-  width *= scale;
-  height *= scale;
-
-  let roundedWidth = Math.max(16, Math.floor(width / 16) * 16);
-  let roundedHeight = Math.max(16, Math.floor(height / 16) * 16);
-
-  while (roundedWidth * roundedHeight > maxPixels || roundedWidth > maxEdge || roundedHeight > maxEdge) {
-    roundedWidth = Math.max(16, roundedWidth - 16);
-    roundedHeight = Math.max(16, Math.round((roundedWidth / safeRatio) / 16) * 16);
-  }
-
-  while (roundedWidth * roundedHeight < minPixels && roundedWidth < maxEdge && roundedHeight < maxEdge) {
-    const nextWidth = Math.min(maxEdge, roundedWidth + 16);
-    const nextHeight = Math.min(maxEdge, Math.round((nextWidth / safeRatio) / 16) * 16);
-    if (nextWidth === roundedWidth && nextHeight === roundedHeight) break;
-    roundedWidth = nextWidth;
-    roundedHeight = nextHeight;
-  }
-
-  return `${roundedWidth}x${roundedHeight}`;
+  return resolveExactAspectPixelSize(imageSize, aspectRatio);
 }
 
 function extractImageUrls(json: Record<string, unknown>): string[] {

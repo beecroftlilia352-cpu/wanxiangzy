@@ -74,7 +74,7 @@ const ASPECT_RATIOS: Array<{ value: AspectRatio; label: string }> = [
   { value: "4:5", label: "4:5" },
   { value: "5:4", label: "5:4" },
   { value: "21:9", label: "21:9" },
-  { value: "auto", label: "自动/原图" },
+  { value: "auto", label: "智能" },
 ];
 
 const FACE_SWAP_PREVIEW_ACTIONS: ImagePreviewAction[] = [

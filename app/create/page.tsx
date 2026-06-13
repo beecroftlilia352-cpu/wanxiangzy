@@ -551,7 +551,7 @@ export default function CreatePage() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadingClothingRoles, setUploadingClothingRoles] = useState<TryOnClothingRole[]>([]);
   const [aiModel, setAiModel] = useState<LingyaModel>("gpt-image-2");
-  const [aspectRatio, setAspectRatio] = useState<AspectRatio>("3:4");
+  const [aspectRatio, setAspectRatio] = useState<AspectRatio>("auto");
   const [imageSize, setImageSize] = useState<ImageSize>("1K");
   const [customStyle, setCustomStyle] = useState("");
   const [optimizing, setOptimizing] = useState(false);
@@ -1228,7 +1228,7 @@ export default function CreatePage() {
   }, [activeReferenceAnalysisKey, effectiveReferenceUrls, clothingMode, clothingRoles, garmentAudience, ageGroup]);
 
   useEffect(() => {
-    if (!aspects.find(a => a.value === aspectRatio)) setAspectRatio("3:4");
+    if (!aspects.find(a => a.value === aspectRatio)) setAspectRatio("auto");
     const nextImageSizes = getSupportedImageSizes(aiModel, aspectRatio);
     if (!nextImageSizes.includes(imageSize)) setImageSize(nextImageSizes[0]);
   }, [aiModel, aspectRatio, imageSize]);
