@@ -37,6 +37,12 @@ describe("outfit fusion templates", () => {
     });
 
     expect(prompt).toContain("核心任务");
+    expect(prompt).toContain("HARD 硬规则 · 搭配融图脸部身份");
+    expect(prompt).toContain("最终脸部身份唯一来源");
+    expect(prompt).toContain("如果最终脸仍像");
+    expect(prompt).toContain("不得保留其原脸身份");
+    expect(prompt).toContain("脸部身份冲突时以");
+    expect(prompt).toContain("不要随机脸、不要网红模板脸、不要参考图原脸残留");
     expect(prompt).toContain("图片关系");
     expect(prompt).toContain("商品准确性");
     expect(prompt).toContain("不要多余肢体");

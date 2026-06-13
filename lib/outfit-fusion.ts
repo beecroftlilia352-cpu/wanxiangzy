@@ -272,25 +272,62 @@ export function buildOutfitFusionPrompt(input: {
   customPrompt?: string;
   config: OutfitFusionConfig;
 }) {
-  const roleLines = input.assets.map((asset, index) => {
-    const label = asset.name || getOutfitFusionAssetLabel(asset, index);
-    if (asset.role === "reference") return `【${label}】只作为人物姿态、构图、背景光影和穿搭关系参考`;
-    if (asset.role === "model") return `【${label}】只作为最终模特身份、脸型、发型和气质参考`;
+  const labeledAssets = input.assets.map((asset, index) => ({
+    ...asset,
+    label: asset.name || getOutfitFusionAssetLabel(asset, index),
+  }));
+  const referenceLabels = labeledAssets.filter((asset) => asset.role === "reference").map((asset) => asset.label);
+  const modelLabels = labeledAssets.filter((asset) => asset.role === "model").map((asset) => asset.label);
+  const primaryModelLabel = modelLabels[0];
+  const faceIdentityRule = buildOutfitFusionFaceIdentityRule(referenceLabels, modelLabels);
+
+  const roleLines = labeledAssets.map((asset) => {
+    const label = asset.label;
+    if (asset.role === "reference") {
+      return primaryModelLabel
+        ? `【${label}】只作为目标身体、姿态、构图、背景光影、头部位置/大小、表情方向、肤色明暗和穿搭关系参考；不得作为最终脸部身份`
+        : `【${label}】只作为人物身份、姿态、构图、背景光影和穿搭关系参考`;
+    }
+    if (asset.role === "model") {
+      return `【${label}】是最终脸部身份来源，控制脸型轮廓、五官结构、眼形眼距、眉形、鼻梁/鼻尖/鼻翼、嘴形、骨相和可识别相似度；不提供服装、身体、姿势、背景或光照`;
+    }
     return `【${label}】只提取服装、鞋包、配饰、颜色、材质、版型、图案、Logo 和正确穿戴位置，不复制拍摄背景`;
   });
   const templatePrompt = input.templatePrompt?.trim() || "让模特穿着所有搭配图中的服装、鞋包和配饰，生成一张真实自然的模特穿搭图。";
   const customPrompt = input.customPrompt?.trim();
+  const priorityRule = primaryModelLabel
+    ? `优先级：模特脸身份和商品准确性均为硬约束；脸部身份冲突时以【${primaryModelLabel}】为准，服装、鞋包和配饰冲突时以对应搭配图为准，身体姿态、头部空间、构图、背景和光影以参考图为准。`
+    : "优先级：商品准确性 > 模特身份与身形 > 参考图姿态构图 > 背景氛围。若参考图、搭配图和模特图发生冲突，按此优先级处理。";
 
   return [
+    faceIdentityRule,
     `核心任务：${templatePrompt}`,
     `固定生成规则：最终只生成一张完整的单人商业摄影穿搭照片，输出比例 ${input.config.aspectRatio}，分辨率 ${input.config.imageSize}；不要把参考图、商品图、步骤图或多个候选结果拼到同一张画面里。`,
     `图片关系：${roleLines.join("；")}。`,
     "商品保真：保持所有服装、鞋包、帽子、围巾和配饰的颜色、轮廓、材质、图案、Logo、层叠关系和穿戴位置准确；不要凭空新增未提供的核心商品。",
-    "优先级：商品准确性 > 模特身份与身形 > 参考图姿态构图 > 背景氛围。若参考图、搭配图和模特图发生冲突，按此优先级处理。",
+    priorityRule,
     "画面质量：真实自然商业摄影质感，人物比例自然，肢体连接合理，面部和手部干净，布料褶皱、阴影、接触关系和透视一致。",
     customPrompt ? `补充要求: ${customPrompt}` : "",
-    "负面约束：不要多余肢体、错误手指、变形脸、错穿层级、错色、丢失图案、硬贴图、塑料质感、水印、边框、海报文字、电商模板排版、拼图、四宫格、2x2 网格、分屏、contact sheet、before/after 对比图、商品陈列页或多张照片合集。",
+    "负面约束：不要随机脸、不要网红模板脸、不要参考图原脸残留、不要混合新脸、不要证件照贴脸、不要面具边缘、不要头脸比例漂移、不要肤色断层、不要多余肢体、不要错误手指、不要变形脸、不要错穿层级、不要错色、不要丢失图案、不要硬贴图、不要塑料质感、不要水印、不要边框、不要海报文字、不要电商模板排版、不要拼图、四宫格、2x2 网格、分屏、contact sheet、before/after 对比图、商品陈列页或多张照片合集。",
   ].filter(Boolean).join(" ");
+}
+
+function buildOutfitFusionFaceIdentityRule(referenceLabels: string[], modelLabels: string[]) {
+  const primaryModelLabel = modelLabels[0];
+  if (!primaryModelLabel) return "";
+
+  const model = `【${primaryModelLabel}】`;
+  const reference = referenceLabels[0] ? `【${referenceLabels[0]}】` : "参考图/目标画面";
+  const extraModels = modelLabels.slice(1).map((label) => `【${label}】`).join("、");
+
+  return [
+    `【HARD 硬规则 · 搭配融图脸部身份】${model} 是最终脸部身份唯一来源。最终脸必须一眼像 ${model} 本人；如果最终脸仍像 ${reference} 原人物、随机陌生人或通用网红脸，即使服装正确也判定失败。`,
+    `${reference} 只提供目标身体、姿势、头部位置、头部大小、颈肩衔接、表情方向、肤色明暗、妆容、构图、背景和光影；如果 ${reference} 中有人脸，不得保留其原脸身份、脸型、眼鼻嘴或可识别特征。`,
+    `必须把 ${reference} 的自然表情、头部姿态、场景光照和肤色连续性迁移到 ${model} 的身份上，而不是为了贴合参考图而弱化 ${model} 的相似度。`,
+    `自然融合只允许调整表情肌肉、视线、肤色重打光、妆容匹配、毛孔、阴影和边缘融合；不得改变 ${model} 的脸型轮廓、眼形眼距、眉形、鼻梁/鼻尖/鼻翼、嘴形、五官比例、骨相和可识别度。`,
+    `不要复制 ${model} 原图的服装、身体、姿势、背景、原始表情强度、原始光照或不匹配的肤色；${model} 只控制身份和五官结构。`,
+    extraModels ? `多个模特图时，以 ${model} 为最终身份，其它模特图 ${extraModels} 只能辅助发型和气质，不得混合成新脸。` : "",
+  ].filter(Boolean).join("");
 }
 
 export function buildOutfitFusionComposerText(template: OutfitFusionTemplate) {
