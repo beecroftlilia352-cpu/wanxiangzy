@@ -19,6 +19,8 @@ import {
   type VideoGenerationResult,
   type VideoTaskProgress,
 } from "@/lib/api/happyhorse-video";
+import type { OutfitFusionHistoryAsset } from "@/lib/history-apply";
+import { getOutfitFusionDisplayPrompt } from "@/lib/outfit-fusion";
 import { syncGenerationTaskQueueById } from "@/lib/task-queue-store";
 import {
   applyQualityRepairToPrompt,
@@ -147,6 +149,18 @@ export type GenerationJobPayload = GenerationJobPayloadBase & (
       aiModel: LingyaModel;
       aspectRatio: AspectRatio;
       imageSize: ImageSize;
+      prompt: string;
+      genCount: number;
+    }
+  | {
+      kind: "outfitFusion";
+      mode: "text-to-image" | "image-to-image";
+      referenceUrls: string[];
+      assets?: OutfitFusionHistoryAsset[];
+      aiModel: LingyaModel;
+      aspectRatio: AspectRatio;
+      imageSize: ImageSize;
+      userPrompt?: string;
       prompt: string;
       genCount: number;
     }
@@ -1271,7 +1285,7 @@ async function executePayload(
     });
   }
 
-  if (payload.kind === "generalImage") {
+  if (payload.kind === "generalImage" || payload.kind === "outfitFusion") {
     const imageInputs = payload.mode === "image-to-image"
       ? await resolvePayloadImageInputs({ clothingUrls: payload.referenceUrls })
       : { clothingUrls: [] };
@@ -1872,6 +1886,7 @@ function isAutoRegenerationEnabled() {
 function repairPayloadPrompt(payload: GenerationJobPayload, quality: VisualQualityEvaluation): GenerationJobPayload {
   const prompt = applyQualityRepairToPrompt(getPayloadPrompt(payload), quality);
   if (payload.kind === "tryon") return { ...payload, rawPrompt: prompt };
+  if (payload.kind === "outfitFusion") return { ...payload, userPrompt: prompt };
   if (payload.kind === "garment3d") return { ...payload, prompt, userPrompt: prompt };
   if (payload.kind === "materialEnhancement") return { ...payload, prompt, userPrompt: prompt };
   return { ...payload, prompt } as GenerationJobPayload;
@@ -1879,6 +1894,7 @@ function repairPayloadPrompt(payload: GenerationJobPayload, quality: VisualQuali
 
 function getPayloadPrompt(payload: GenerationJobPayload) {
   if (payload.kind === "tryon") return payload.rawPrompt || payload.style || "人物换装生成";
+  if (payload.kind === "outfitFusion") return getOutfitFusionDisplayPrompt(payload.userPrompt || payload.prompt, "搭配融图任务");
   if (payload.kind === "garment3d") return payload.userPrompt || payload.prompt;
   if (payload.kind === "materialEnhancement") return payload.userPrompt || payload.prompt;
   if (payload.kind === "videoMotion") return payload.prompt || "动作模仿视频生成";
@@ -1910,7 +1926,7 @@ function getPayloadReferenceImages(payload: GenerationJobPayload) {
   if (payload.kind === "grass") return [payload.garmentUrl, payload.referenceUrl].filter((url): url is string => typeof url === "string" && url.length > 0);
   if (payload.kind === "modelBackground") return [payload.sourceUrl, payload.modelReferenceUrl, payload.backgroundReferenceUrl].filter((url): url is string => typeof url === "string" && url.length > 0);
   if (payload.kind === "materialEnhancement") return [payload.sourceUrl, payload.garmentUrl];
-  if (payload.kind === "generalImage") return payload.referenceUrls;
+  if (payload.kind === "generalImage" || payload.kind === "outfitFusion") return payload.referenceUrls;
   if (payload.kind === "pose") return [payload.mainImageUrl];
   if (payload.kind === "videoImageToVideo") return [payload.imageUrl];
   if (payload.kind === "videoMotion") return [payload.modelImageUrl];
@@ -2015,7 +2031,7 @@ function isJobPayload(value: unknown): value is GenerationJobPayload {
       typeof value.genCount === "number";
   }
 
-  if (value.kind === "generalImage") {
+  if (value.kind === "generalImage" || value.kind === "outfitFusion") {
     return (value.mode === "text-to-image" || value.mode === "image-to-image") &&
       hasStringArray(value.referenceUrls) &&
       typeof value.aiModel === "string" &&

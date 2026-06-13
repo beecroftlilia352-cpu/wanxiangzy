@@ -8,6 +8,7 @@ export type HistoryModuleFilter =
   | "modelBackground"
   | "materialEnhancement"
   | "generalImage"
+  | "outfitFusion"
   | "pose"
   | "model"
   | "garment3d"
@@ -47,6 +48,7 @@ const MODULE_FILTER_LABELS: Record<HistoryModuleFilter, string> = {
   modelBackground: "模特换背景",
   materialEnhancement: "材质增强",
   generalImage: "通用生图",
+  outfitFusion: "搭配融图",
   pose: "姿势裂变",
   model: "专属模特",
   garment3d: "服装 3D",

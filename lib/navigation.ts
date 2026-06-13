@@ -25,6 +25,7 @@ export type FeatureKey =
   | "home"
   | "agent"
   | "tryon"
+  | "outfitFusion"
   | "faceSwap"
   | "grass"
   | "productSet"
@@ -93,6 +94,15 @@ export const FEATURE_ITEMS: FeatureNavItem[] = [
     shortLabel: "上身",
     description: "服装上身与模特试穿",
     icon: Shirt,
+  },
+  {
+    key: "outfitFusion",
+    module: "aiShoots",
+    href: "/outfit-fusion",
+    label: "搭配融图",
+    shortLabel: "搭配",
+    description: "多张服饰、配件和模特参考融合成套搭配图",
+    icon: Sparkles,
   },
   {
     key: "model",

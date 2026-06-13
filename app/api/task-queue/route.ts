@@ -723,7 +723,7 @@ function isHiddenByAdmin(row: QueueRow) {
 
 function normalizeQueueRow(row: QueueRow): TaskQueueItem {
   const payload = row.job_payload && typeof row.job_payload === "object" ? row.job_payload : {};
-  const kind = typeof payload.kind === "string" ? payload.kind : inferGenerationModule(row, payload);
+  const kind = normalizeModule(typeof payload.kind === "string" ? payload.kind : inferGenerationModule(row, payload));
   const state = normalizeGenerationState({
     status: row.status,
     resultUrls: row.result_urls,
@@ -865,6 +865,7 @@ function moduleLabel(kind: string) {
   if (kind === "garment3d") return "平铺转3D";
   if (kind === "productSet") return "商品套图";
   if (kind === "generalImage") return "创意生图";
+  if (kind === "outfitFusion") return "搭配融图";
   return "AI任务";
 }
 
@@ -938,6 +939,7 @@ function getModulePath(kind: string) {
   if (kind === "modelBackground") return "/model-background";
   if (kind === "materialEnhancement") return "/material-enhancement";
   if (kind === "generalImage") return "/general-image";
+  if (kind === "outfitFusion") return "/outfit-fusion";
   if (kind === "productSet") return "/product-set";
   if (kind === "garment3d") return "/garment-3d";
   if (kind === "faceSwap") return "/face-swap";

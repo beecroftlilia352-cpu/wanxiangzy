@@ -262,6 +262,7 @@ export function StudioImagePreviewWorkspace({
               style={aspectConfig.style}
             >
               <InputPreviewPanel
+                module={session.module}
                 references={inputReferences}
                 zoom={inputZoom}
                 onZoomChange={setInputZoom}
@@ -357,11 +358,13 @@ function ResultRail({
 }
 
 function InputPreviewPanel({
+  module,
   references,
   zoom,
   onZoomChange,
   onFocus,
 }: {
+  module: ImagePreviewSession["module"];
   references: ImagePreviewReference[];
   zoom: number;
   onZoomChange: (zoom: number) => void;
@@ -374,7 +377,11 @@ function InputPreviewPanel({
       <span className="studio-image-preview-panel-badge">原图</span>
       {hasReferences ? (
         <>
-          <div className={cn("studio-image-preview-input-stack", references.length > 1 && "studio-image-preview-input-stack-multi")}>
+          <div className={cn(
+            "studio-image-preview-input-stack",
+            references.length > 1 && "studio-image-preview-input-stack-multi",
+            module === "outfitFusion" && references.length > 1 && "studio-image-preview-input-stack-collage"
+          )}>
             {references.map((reference, index) => (
               <button
                 key={`${reference.url}-${index}`}
@@ -975,6 +982,22 @@ function filterUsableActions(
 function getInspectorReferenceGroups(session: ImagePreviewSession): Array<{ title: string; references: ImagePreviewReference[] }> {
   const references = session.references || [];
   if (!references.length) return [];
+  if (session.module === "outfitFusion") {
+    const outfitReferences = references.filter((reference) => (
+      reference.role === "clothing"
+      || reference.role === "garment"
+      || reference.role === "product"
+      || /搭配图|服装|鞋|包|配饰/.test(reference.label)
+    ));
+    const referenceImages = references.filter((reference) => reference.role === "reference" || /参考图/.test(reference.label));
+    const modelReferences = references.filter((reference) => reference.role === "model" || /模特/.test(reference.label));
+    const groups = [
+      outfitReferences.length ? { title: "搭配图", references: outfitReferences } : null,
+      referenceImages.length ? { title: "参考图", references: referenceImages } : null,
+      modelReferences.length ? { title: "模特", references: modelReferences } : null,
+    ].filter(Boolean) as Array<{ title: string; references: ImagePreviewReference[] }>;
+    return groups.length ? groups : [{ title: "输入参考", references }];
+  }
   if (session.module !== "tryon") return [{ title: "输入参考", references }];
 
   const isModel = (reference: ImagePreviewReference) => reference.role === "model" || /模特/.test(reference.label);

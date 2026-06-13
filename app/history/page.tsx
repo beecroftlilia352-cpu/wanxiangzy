@@ -31,6 +31,7 @@ import {
 } from "@/lib/module-style-presets";
 import { BACKGROUND_SOURCE_LABELS, MODEL_BACKGROUND_MODE_LABELS } from "@/lib/model-background";
 import { getMaterialEnhancementLevelLabel } from "@/lib/material-enhancement";
+import { getOutfitFusionDisplayPrompt } from "@/lib/outfit-fusion";
 
 const HISTORY_PAGE_SIZE = 12;
 
@@ -42,6 +43,7 @@ const MODULE_FILTERS: { value: HistoryModuleFilter; label: string }[] = [
   { value: "modelBackground", label: "模特换背景" },
   { value: "materialEnhancement", label: "材质增强" },
   { value: "generalImage", label: "通用生图" },
+  { value: "outfitFusion", label: "搭配融图" },
   { value: "pose", label: "姿势裂变" },
   { value: "model", label: "专属模特" },
   { value: "garment3d", label: "服装 3D" },
@@ -1241,6 +1243,7 @@ function formatKind(kind?: HistoryJobPayload["kind"]) {
   if (kind === "modelBackground") return "模特换背景";
   if (kind === "materialEnhancement") return "材质增强";
   if (kind === "generalImage") return "通用生图";
+  if (kind === "outfitFusion") return "搭配融图";
   if (kind === "garment3d") return "服装转3D";
   if (kind === "faceSwap") return "换脸";
   if (kind === "model") return "专属模特";
@@ -1336,7 +1339,7 @@ function getRowPayload(row: HistoryRow) {
   if (!payload || typeof payload !== "object") return undefined;
 
   const kind = (payload as { kind?: unknown }).kind;
-  if (kind === "tryon" || kind === "grass" || kind === "productSet" || kind === "modelBackground" || kind === "materialEnhancement" || kind === "generalImage" || kind === "garment3d" || kind === "model" || kind === "pose" || kind === "faceSwap" || kind === "videoImageToVideo" || kind === "videoMotion" || kind === "videoFirstLastFrame") {
+  if (kind === "tryon" || kind === "grass" || kind === "productSet" || kind === "modelBackground" || kind === "materialEnhancement" || kind === "generalImage" || kind === "outfitFusion" || kind === "garment3d" || kind === "model" || kind === "pose" || kind === "faceSwap" || kind === "videoImageToVideo" || kind === "videoMotion" || kind === "videoFirstLastFrame") {
     return payload as HistoryJobPayload;
   }
 
@@ -1361,6 +1364,9 @@ function getPromptText(payload: HistoryJobPayload) {
   }
   if (payload.kind === "productSet") {
     return payload.productInfo?.trim() || payload.prompt || "";
+  }
+  if (payload.kind === "outfitFusion") {
+    return getOutfitFusionDisplayPrompt(payload.userPrompt || payload.prompt);
   }
   if (payload.kind === "videoMotion") {
     return payload.prompt || "";
@@ -1396,8 +1402,8 @@ function getHistoryInputSummary(payload?: HistoryJobPayload) {
   if (payload.kind === "materialEnhancement") {
     return `原图 + 高清服装图 · ${payload.garmentType || "服装"} · ${getMaterialEnhancementLevelLabel(payload.enhancementLevel)}`;
   }
-  if (payload.kind === "generalImage") {
-    return `${payload.mode === "text-to-image" ? "文生图" : "图生图"} · ${payload.referenceUrls.length} 张参考图`;
+  if (payload.kind === "generalImage" || payload.kind === "outfitFusion") {
+    return `${payload.kind === "outfitFusion" ? "搭配融图" : payload.mode === "text-to-image" ? "文生图" : "图生图"} · ${payload.referenceUrls.length} 张参考图`;
   }
   if (payload.kind === "model") {
     return `${payload.gender === "male" ? "男模" : "女模"} · ${payload.referenceUrls.length} 张人物参考 · ${getModelShootStyleLabel(payload.modelStyle)}`;
@@ -1506,8 +1512,9 @@ function getInputImages(payload: HistoryJobPayload) {
       { label: "高清服装图", url: payload.garmentUrl },
     ];
   }
-  if (payload.kind === "generalImage") {
-    return payload.referenceUrls.map((url, index) => ({ label: `参考图${index + 1}`, url }));
+  if (payload.kind === "generalImage" || payload.kind === "outfitFusion") {
+    const labelPrefix = payload.kind === "outfitFusion" ? "输入图" : "参考图";
+    return payload.referenceUrls.map((url, index) => ({ label: `${labelPrefix}${index + 1}`, url }));
   }
   if (payload.kind === "model") {
     return [
@@ -1641,13 +1648,13 @@ function getParameterItems(row: HistoryRow) {
       { label: "高清服装图", value: payload.garmentUrl ? "已使用" : "未使用" },
     ];
   }
-  if (payload.kind === "generalImage") {
+  if (payload.kind === "generalImage" || payload.kind === "outfitFusion") {
     return [
       ...common,
-      { label: "模式", value: payload.mode === "text-to-image" ? "文生图" : "图生图" },
+      { label: "模式", value: payload.kind === "outfitFusion" ? "搭配融图" : payload.mode === "text-to-image" ? "文生图" : "图生图" },
       { label: "比例", value: payload.aspectRatio },
       { label: "生成张数", value: String(payload.genCount) },
-      { label: "参考图", value: `${payload.referenceUrls.length} 张` },
+      { label: payload.kind === "outfitFusion" ? "输入素材" : "参考图", value: `${payload.referenceUrls.length} 张` },
     ];
   }
   if (payload.kind === "pose") {

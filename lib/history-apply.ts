@@ -21,6 +21,13 @@ import type {
 } from "@/lib/product-set";
 import type { AiVideoAspectRatio, AiVideoAudioMode, AiVideoDuration, AiVideoModelMode, AiVideoResolution } from "@/lib/ai-video";
 
+export type OutfitFusionHistoryAsset = {
+  id?: string;
+  role: "outfit" | "reference" | "model";
+  url: string;
+  name?: string;
+};
+
 export type HistoryJobPayload =
   | {
       kind: "tryon";
@@ -68,6 +75,18 @@ export type HistoryJobPayload =
       aiModel: LingyaModel;
       aspectRatio: AspectRatio;
       imageSize: ImageSize;
+      prompt: string;
+      genCount: number;
+    }
+  | {
+      kind: "outfitFusion";
+      mode: "text-to-image" | "image-to-image";
+      referenceUrls: string[];
+      assets?: OutfitFusionHistoryAsset[];
+      aiModel: LingyaModel;
+      aspectRatio: AspectRatio;
+      imageSize: ImageSize;
+      userPrompt?: string;
       prompt: string;
       genCount: number;
     }
@@ -292,6 +311,7 @@ function getModulePath(kind: HistoryJobPayload["kind"]) {
   if (kind === "modelBackground") return "/model-background";
   if (kind === "materialEnhancement") return "/material-enhancement";
   if (kind === "generalImage") return "/general-image";
+  if (kind === "outfitFusion") return "/outfit-fusion";
   if (kind === "productSet") return "/product-set";
   if (kind === "garment3d") return "/garment-3d";
   if (kind === "faceSwap") return "/face-swap";

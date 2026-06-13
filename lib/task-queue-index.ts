@@ -77,6 +77,7 @@ const MODULE_LABELS: Record<string, string> = {
   modelBackground: "换背景",
   garment3d: "服装 3D",
   generalImage: "创意生图",
+  outfitFusion: "搭配融图",
   background: "换背景",
   pose: "姿势裂变",
   "3d": "服装 3D",
@@ -98,6 +99,7 @@ const MODULE_PATHS: Record<string, string> = {
   modelBackground: "/model-background",
   garment3d: "/garment-3d",
   generalImage: "/general-image",
+  outfitFusion: "/outfit-fusion",
   background: "/background",
   pose: "/pose",
   "3d": "/garment-3d",
@@ -228,6 +230,9 @@ export function normalizeModule(module: string): string {
   }
   if (lower === "general-image" || lower === "general_image" || lower === "generalimage") {
     return "generalImage";
+  }
+  if (lower === "outfit-fusion" || lower === "outfit_fusion" || lower === "outfitfusion" || lower === "image-fusion" || lower === "image_fusion") {
+    return "outfitFusion";
   }
   if (lower === "video-image-to-video" || lower === "video_image_to_video" || lower === "videoimagetovideo" || lower === "image-to-video-video") {
     return "videoImageToVideo";

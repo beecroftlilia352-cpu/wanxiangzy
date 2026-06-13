@@ -40,6 +40,7 @@ const HISTORY_MODULE_FILTERS = new Set([
   "productSet",
   "modelBackground",
   "generalImage",
+  "outfitFusion",
   "pose",
   "model",
   "garment3d",

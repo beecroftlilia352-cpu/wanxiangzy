@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getApplyPath, takeApplyPayload, type HistoryJobPayload } from "@/lib/history-apply";
+import { getApplyPath, takeApplyDetail, takeApplyPayload, type HistoryJobPayload } from "@/lib/history-apply";
 
 function mockWindow(href: string) {
   const replaceState = vi.fn();
@@ -33,6 +33,46 @@ describe("history apply deep links", () => {
   it("builds apply URLs with the encoded generation id", () => {
     expect(getApplyPath("tryon", "job id/1")).toBe("/create?apply=job%20id%2F1");
     expect(getApplyPath("garment3d", "abc123")).toBe("/garment-3d?apply=abc123");
+    expect(getApplyPath("outfitFusion", "fusion id/1")).toBe("/outfit-fusion?apply=fusion%20id%2F1");
+  });
+
+  it("loads outfit fusion apply details with result URLs", async () => {
+    const payload = {
+      kind: "outfitFusion",
+      mode: "image-to-image",
+      referenceUrls: ["https://example.com/look.png"],
+      aiModel: "nano-banana-2" as never,
+      aspectRatio: "3:4" as never,
+      imageSize: "1K" as never,
+      prompt: "让模特穿搭配图商品",
+      genCount: 4,
+    } satisfies Extract<HistoryJobPayload, { kind: "outfitFusion" }>;
+    const replaceState = vi.fn();
+
+    vi.stubGlobal("window", {
+      location: { href: "https://example.com/outfit-fusion?apply=fusion%201" },
+      history: {
+        state: null,
+        replaceState,
+      },
+    });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue({
+        row: {
+          id: "fusion 1",
+          job_payload: payload,
+          result_urls: ["https://example.com/result.png"],
+        },
+      }),
+    } as unknown as Response));
+
+    await expect(takeApplyDetail("outfitFusion")).resolves.toMatchObject({
+      payload,
+      resultUrls: ["https://example.com/result.png"],
+      row: { id: "fusion 1" },
+    });
+    expect(replaceState).toHaveBeenCalledWith(null, "", "/outfit-fusion");
   });
 
   it("loads the job payload from /api/history and clears the consumed apply parameter", async () => {

@@ -81,6 +81,7 @@ function SelectContent({
       >
         <SelectScrollUpButton />
         <SelectPrimitive.Viewport
+          data-slot="select-viewport"
           data-position={position}
           className={cn(
             "data-[position=popper]:h-[var(--radix-select-trigger-height)] data-[position=popper]:w-[var(--radix-select-trigger-width)] data-[position=popper]:min-w-[var(--radix-select-trigger-width)]",

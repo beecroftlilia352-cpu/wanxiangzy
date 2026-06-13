@@ -7,6 +7,7 @@ export type ImagePreviewModule =
   | "grass"
   | "productSet"
   | "allCategoryProductImage"
+  | "outfitFusion"
   | "modelBackground"
   | "materialEnhancement"
   | "pose"
@@ -99,6 +100,7 @@ export const IMAGE_PREVIEW_MODULE_LABELS: Record<ImagePreviewModule, string> = {
   grass: "种草图",
   productSet: "商品套图",
   allCategoryProductImage: "全品类商品图",
+  outfitFusion: "搭配融图",
   modelBackground: "模特换背景",
   materialEnhancement: "材质增强",
   pose: "姿势裂变",
@@ -127,7 +129,7 @@ export function getPreviewCanvasInputReferences(
   const references = session.references || [];
   if (!references.length) return [];
 
-  if (session.module === "model") {
+  if (session.module === "model" || session.module === "outfitFusion") {
     return references;
   }
 
