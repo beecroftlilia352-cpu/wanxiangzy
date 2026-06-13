@@ -292,7 +292,7 @@ function UploadSlot({
       {...dragHandlers}
     >
       {uploading ? <Loader2 className="h-5 w-5 animate-spin text-[var(--codex-accent)]" /> : <Plus className="h-5 w-5 stroke-[1.6] transition duration-200 group-hover:scale-105" />}
-      <span className="max-w-[84px] truncate text-center text-[12px] font-normal leading-[17px] tracking-normal text-slate-500">{isDragging ? "释放上传" : label}</span>
+      <span className="max-w-[72px] truncate text-center text-[12px] font-normal leading-[17px] tracking-normal text-slate-500">{isDragging ? "释放上传" : label}</span>
     </button>
   );
 }

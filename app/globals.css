@@ -772,6 +772,11 @@
 }
 
 @media (min-width: 1024px) {
+  html:has(.outfit-fusion-workbench),
+  body:has(.outfit-fusion-workbench) {
+    overflow: hidden;
+  }
+
   .studio-workbench {
     height: calc(100dvh - 64px);
     min-height: 0 !important;
@@ -779,10 +784,52 @@
   }
 
   .outfit-fusion-workbench {
-    height: auto;
-    min-height: calc(100dvh - 64px) !important;
-    overflow-x: hidden;
-    overflow-y: visible;
+    display: grid;
+    height: calc(100dvh - 64px);
+    min-height: 0 !important;
+    overflow: hidden;
+    overscroll-behavior: contain;
+    grid-template-columns: var(--studio-nav-rail-width) var(--studio-task-rail-width) minmax(0, 1fr);
+    grid-template-areas: "nav tasks canvas";
+  }
+
+  .outfit-fusion-workbench:has(.studio-shell-task-rail > .studio-task-rail-expanded) {
+    grid-template-columns: var(--studio-nav-rail-width) 340px minmax(0, 1fr);
+  }
+
+  .outfit-fusion-workbench:has(> .studio-task-rail-expanded) {
+    grid-template-columns: var(--studio-nav-rail-width) 340px minmax(0, 1fr);
+  }
+
+  .outfit-fusion-workbench > .studio-task-rail {
+    height: 100%;
+    min-height: 0;
+  }
+
+  .outfit-fusion-workbench > main {
+    grid-area: canvas;
+    height: 100%;
+    min-height: 0;
+    overflow: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: none;
+  }
+
+  .outfit-fusion-workbench > main::-webkit-scrollbar {
+    display: none;
+  }
+
+  .outfit-fusion-workbench > div.pointer-events-none.fixed {
+    left: calc(var(--studio-nav-rail-width) + var(--studio-task-rail-width)) !important;
+    right: 0 !important;
+  }
+
+  .outfit-fusion-workbench:has(.studio-shell-task-rail > .studio-task-rail-expanded) > div.pointer-events-none.fixed {
+    left: calc(var(--studio-nav-rail-width) + 340px) !important;
+  }
+
+  .outfit-fusion-workbench:has(> .studio-task-rail-expanded) > div.pointer-events-none.fixed {
+    left: calc(var(--studio-nav-rail-width) + 340px) !important;
   }
 
   .history-workbench {
@@ -5241,6 +5288,50 @@ header .animate-spin {
 
 .studio-image-preview-dialog-workspace .studio-image-preview-canvas {
   min-height: 0;
+}
+
+.studio-image-preview-dialog-content--asset {
+  width: min(1320px, calc(100vw - 92px));
+  max-width: min(1320px, calc(100vw - 92px)) !important;
+  height: min(940px, calc(100dvh - 62px));
+  max-height: min(940px, calc(100dvh - 62px));
+}
+
+.studio-image-preview-dialog-content--asset .studio-image-preview-workspace {
+  grid-template-columns: minmax(0, 1fr) 220px;
+}
+
+.studio-image-preview-dialog-content--asset .studio-image-preview-stage-shell {
+  grid-template-columns: minmax(0, 1fr);
+  padding: 18px;
+}
+
+.studio-image-preview-dialog-content--asset .studio-image-preview-result-rail,
+.studio-image-preview-dialog-content--asset .studio-image-preview-input-panel,
+.studio-image-preview-dialog-content--asset .studio-image-preview-actions {
+  display: none;
+}
+
+.studio-image-preview-dialog-content--asset .studio-image-preview-comparison {
+  width: 100%;
+  height: 100%;
+  aspect-ratio: auto;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.studio-image-preview-dialog-content--asset .studio-image-preview-output-panel {
+  border-radius: 8px;
+}
+
+.studio-image-preview-dialog-content--asset .studio-image-preview-output-image img {
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
 }
 
 @media (max-width: 767px) {

@@ -49,6 +49,7 @@ export type ImagePreviewQuality = {
 export type ImagePreviewResult = {
   url?: string | null;
   title: string;
+  badgeLabel?: string;
   subtitle?: string;
   status?: ImagePreviewResultStatus;
   aspectRatio?: string;

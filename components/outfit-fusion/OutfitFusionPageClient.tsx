@@ -44,7 +44,7 @@ import {
   type OutfitFusionConfig,
   type OutfitFusionTemplate,
 } from "@/lib/outfit-fusion";
-import { createGenericImagePreviewSession, type ImagePreviewAction } from "@/lib/studio-image-preview";
+import { createGenericImagePreviewSession, createImagePreviewSession, type ImagePreviewAction } from "@/lib/studio-image-preview";
 
 type OutfitFusionTask = {
   id: string;
@@ -147,14 +147,16 @@ export function OutfitFusionPageClient() {
   }, []);
 
   useEffect(() => {
-    lastScrollYRef.current = window.scrollY;
+    const scrollContainer = mainRef.current;
+    const getScrollTop = () => scrollContainer ? scrollContainer.scrollTop : window.scrollY;
+    lastScrollYRef.current = getScrollTop();
     scrollIntentRef.current = { direction: null, distance: 0 };
-    if (window.scrollY > 180) {
+    if (getScrollTop() > 180) {
       setComposerCollapsed(true);
     }
     const restoreChecks = [120, 360, 760].map((delay) =>
       window.setTimeout(() => {
-        const scrollTop = window.scrollY;
+        const scrollTop = getScrollTop();
         lastScrollYRef.current = scrollTop;
         if (scrollTop > 180) {
           setComposerCollapsed(true);
@@ -208,26 +210,26 @@ export function OutfitFusionPageClient() {
     function handleWheel(event: WheelEvent) {
       const target = event.target;
       if (target instanceof Element && composerWrapRef.current?.contains(target)) return;
-      const projectedScrollTop = Math.max(0, window.scrollY + event.deltaY);
+      const projectedScrollTop = Math.max(0, getScrollTop() + event.deltaY);
       applyScrollIntent(event.deltaY, projectedScrollTop);
     }
+    const handleWheelEvent: EventListener = (event) => {
+      if (event instanceof WheelEvent) handleWheel(event);
+    };
     const scrollPoll = window.setInterval(() => {
-      const scrollTop = window.scrollY;
+      const scrollTop = getScrollTop();
       const delta = scrollTop - lastScrollYRef.current;
       if (Math.abs(delta) < 3) return;
       lastScrollYRef.current = scrollTop;
       applyScrollIntent(delta, scrollTop);
     }, 120);
 
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    document.addEventListener("scroll", handleScroll, { passive: true });
-    document.body?.addEventListener("scroll", handleScroll, { passive: true });
-    window.addEventListener("wheel", handleWheel, { passive: true });
+    const scrollTarget: Window | HTMLElement = scrollContainer || window;
+    scrollTarget.addEventListener("scroll", handleScroll, { passive: true });
+    scrollTarget.addEventListener("wheel", handleWheelEvent, { passive: true });
     return () => {
-      window.removeEventListener("scroll", handleScroll);
-      document.removeEventListener("scroll", handleScroll);
-      document.body?.removeEventListener("scroll", handleScroll);
-      window.removeEventListener("wheel", handleWheel);
+      scrollTarget.removeEventListener("scroll", handleScroll);
+      scrollTarget.removeEventListener("wheel", handleWheelEvent);
       window.clearInterval(scrollPoll);
       restoreChecks.forEach((timer) => window.clearTimeout(timer));
       if (scrollFrameRef.current !== null) {
@@ -305,6 +307,26 @@ export function OutfitFusionPageClient() {
       roleLabel: getOutfitFusionRoleLabel(asset.role),
     };
   }, [assetPreviewIndex, assets]);
+
+  const assetPreviewSession = useMemo(() => {
+    if (!assetPreview) return null;
+    return createImagePreviewSession({
+      module: "outfitFusion",
+      title: assetPreview.label,
+      statusGroup: "completed",
+      selectedIndex: 0,
+      metaItems: [
+        { label: "图片类型", value: assetPreview.roleLabel },
+        { label: "图片编号", value: assetPreview.label },
+      ],
+      results: [{
+        url: assetPreview.asset.url,
+        title: assetPreview.label,
+        badgeLabel: assetPreview.roleLabel,
+        status: "completed",
+      }],
+    });
+  }, [assetPreview]);
 
   useEffect(() => {
     if (assetPreviewId && !assets.some((asset) => asset.id === assetPreviewId)) {
@@ -434,12 +456,12 @@ export function OutfitFusionPageClient() {
 
   function handleJumpToBottom() {
     setComposerCollapsed(false);
-    scrollNodeIntoView(bottomRef.current, "end", 30);
+    scrollContainerToBottom(mainRef.current, 30);
   }
 
   function scrollTaskListToTop(delay = 0) {
-    scrollNodeToViewportTop(taskListRef.current, 84, delay);
-    scrollNodeToViewportTop(taskListRef.current, 84, delay + 240);
+    scrollNodeToContainerTop(mainRef.current, taskListRef.current, 24, delay);
+    scrollNodeToContainerTop(mainRef.current, taskListRef.current, 24, delay + 240);
   }
 
   function handleExpandComposer() {
@@ -815,13 +837,23 @@ export function OutfitFusionPageClient() {
   }
 
   function upsertTaskFromQueueItem(item: TaskQueueItem, patch: Partial<OutfitFusionTask> = {}) {
-    const inputAssets = patch.inputAssets || safeTaskQueueUrls(item.inputThumbnails).map((url, index) => ({
+    const existingTask = tasks.find((task) => task.remoteId === item.id || task.id === item.id || task.id === `queue-${item.id}`);
+    const inputAssets = patch.inputAssets || existingTask?.inputAssets || safeTaskQueueUrls(item.inputThumbnails).map((url, index) => ({
       id: `queue-${item.id}-${index}`,
       role: "outfit" as const,
       url,
       name: getIndexedAssetLabel({ role: "outfit" }, index),
     }));
     const resultUrls = patch.resultUrls || safeTaskQueueUrls(item.resultThumbnails);
+    const queueTitle = item.title?.trim() || "";
+    const titleLooksGeneric = !queueTitle || queueTitle === "搭配融图" || queueTitle === "搭配融图任务";
+    const fallbackPrompt = titleLooksGeneric ? prompt.trim() || buildPromptDraft(inputAssets, "outfit") : queueTitle;
+    const restoredPrompt = patch.prompt || existingTask?.prompt || fallbackPrompt;
+    const preservedTaskPatch = {
+      prompt: restoredPrompt,
+      requestPrompt: patch.requestPrompt || existingTask?.requestPrompt || restoredPrompt,
+      config: patch.config || existingTask?.config || DEFAULT_OUTFIT_FUSION_CONFIG,
+    };
     const restoredTask: OutfitFusionTask = {
       id: `queue-${item.id}`,
       remoteId: item.id,
@@ -830,14 +862,12 @@ export function OutfitFusionPageClient() {
       createdAt: item.createdAt,
       statusGroup: item.statusGroup,
       progress: item.progress,
-      prompt: item.title || "搭配融图任务",
-      requestPrompt: item.title || "搭配融图任务",
       inputAssets,
-      config: DEFAULT_OUTFIT_FUSION_CONFIG,
-      expectedCount: Math.max(1, item.expectedCount || resultUrls.length || DEFAULT_OUTFIT_FUSION_CONFIG.genCount),
+      expectedCount: Math.max(1, patch.expectedCount || item.expectedCount || resultUrls.length || existingTask?.expectedCount || preservedTaskPatch.config.genCount || DEFAULT_OUTFIT_FUSION_CONFIG.genCount),
       resultUrls,
       error: item.error || null,
       ...patch,
+      ...preservedTaskPatch,
     };
     setTasks([restoredTask]);
   }
@@ -978,46 +1008,17 @@ export function OutfitFusionPageClient() {
           }}
         />
       ) : null}
-      {assetPreview ? (
-        <PlainAssetPreviewDialog
-          url={assetPreview.asset.url}
-          label={assetPreview.label}
-          roleLabel={assetPreview.roleLabel}
+      {assetPreviewSession ? (
+        <StudioImagePreviewDialog
+          open
           onClose={() => setAssetPreviewId(null)}
+          session={assetPreviewSession}
+          filenamePrefix="outfit-fusion-asset"
+          selectedIndex={0}
+          actions={[]}
+          className="studio-image-preview-dialog-content--asset"
         />
       ) : null}
-    </div>
-  );
-}
-
-function PlainAssetPreviewDialog({
-  url,
-  label,
-  roleLabel,
-  onClose,
-}: {
-  url: string;
-  label: string;
-  roleLabel: string;
-  onClose: () => void;
-}) {
-  return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/62 p-4" role="dialog" aria-modal="true" aria-label={`${label}预览`}>
-      <button type="button" className="absolute inset-0 cursor-zoom-out" aria-label="关闭预览" onClick={onClose} />
-      <div className="relative z-[1] max-h-[88vh] max-w-[88vw]">
-        <button
-          type="button"
-          onClick={onClose}
-          className="absolute -right-3 -top-3 z-[2] flex size-8 items-center justify-center rounded-full bg-white text-slate-700 shadow-lg transition hover:bg-slate-50"
-          aria-label="关闭预览"
-        >
-          <X className="h-4 w-4" />
-        </button>
-        <img src={url} alt={label} className="max-h-[88vh] max-w-[88vw] rounded-[8px] bg-white object-contain shadow-2xl" />
-        <div className="absolute left-3 top-3 rounded-[5px] bg-black/62 px-2 py-1 text-xs font-semibold text-white shadow-sm">
-          {label} · {roleLabel}
-        </div>
-      </div>
     </div>
   );
 }
@@ -1044,9 +1045,8 @@ function OutfitFusionTaskCard({
   const running = task.statusGroup === "running" || task.statusGroup === "queued";
   const failed = task.statusGroup === "failed";
   const slots = Math.max(task.expectedCount, task.resultUrls.length, 1);
-  const hasPendingSlot = running && task.resultUrls.length < slots;
-  const displaySlots = running ? Math.max(task.resultUrls.length + (hasPendingSlot ? 1 : 0), 1) : slots;
-  const compactRunning = running && task.resultUrls.length === 0;
+  const displaySlots = slots;
+  const compactRunning = running && task.resultUrls.length === 0 && slots === 1;
   const [promptExpanded, setPromptExpanded] = useState(false);
   const canExpandPrompt = task.prompt.length > 64;
 
@@ -1055,10 +1055,10 @@ function OutfitFusionTaskCard({
       className="animate-slide-up rounded-[8px] bg-white p-3 shadow-sm ring-1 ring-slate-100 transition duration-300 hover:shadow-[0_14px_34px_rgba(15,23,42,0.09)] motion-reduce:animate-none sm:p-4"
       style={{ animationDelay: `${Math.min(index * 40, 160)}ms` }}
     >
-      <div className="flex items-start gap-2">
+      <div className="flex items-start gap-1.5">
         <TaskInputReuseStack assets={task.inputAssets} onReuse={onReuseInputs} />
         <div className="min-w-0 flex-1">
-          <div className="flex items-start gap-2">
+          <div className="flex items-start gap-1.5">
             <p className={cn("min-w-0 flex-1 whitespace-pre-wrap break-words text-[14px] leading-[23px] tracking-normal text-slate-900", !promptExpanded && "line-clamp-2")}>{task.prompt}</p>
             {canExpandPrompt ? (
               <button
@@ -1192,24 +1192,24 @@ function TaskInputReuseStack({ assets, onReuse }: { assets: OutfitFusionAsset[];
   const hasHiddenAssets = hiddenCount > 0;
 
   return (
-    <div className="hidden w-[82px] shrink-0 sm:block">
+    <div className="hidden w-[68px] shrink-0 sm:block">
       <TooltipProvider delayDuration={120}>
         <Tooltip>
           <TooltipTrigger asChild>
             <button
               type="button"
               onClick={onReuse}
-              className="group/reuse relative h-[60px] w-[82px] rounded-[6px] outline-none transition focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.45)] focus-visible:ring-offset-2"
+              className="group/reuse relative h-[54px] w-[68px] rounded-[6px] outline-none transition focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.45)] focus-visible:ring-offset-2"
               aria-label="再次使用图片"
             >
               {displayAssets.map((asset, index) => (
                 <span
                   key={asset.id}
                   className={cn(
-                    "absolute top-1 h-12 w-9 overflow-hidden rounded-[4px] border border-white bg-white shadow-sm transition duration-300 group-hover/reuse:-translate-y-1 group-hover/reuse:shadow-md group-focus-visible/reuse:-translate-y-1 group-focus-visible/reuse:shadow-md",
+                    "absolute top-1 h-11 w-8 overflow-hidden rounded-[4px] border border-white bg-white shadow-sm transition duration-300 group-hover/reuse:-translate-y-1 group-hover/reuse:shadow-md group-focus-visible/reuse:-translate-y-1 group-focus-visible/reuse:shadow-md",
                     index === 0 && "left-0 -rotate-6",
-                    index === 1 && (hasHiddenAssets ? "left-4 rotate-1" : "left-5 rotate-2"),
-                    index === 2 && (hasHiddenAssets ? "left-8 rotate-3" : "left-10 rotate-6")
+                    index === 1 && (hasHiddenAssets ? "left-3.5 rotate-1" : "left-4 rotate-2"),
+                    index === 2 && (hasHiddenAssets ? "left-7 rotate-3" : "left-8 rotate-6")
                   )}
                 >
                   <span className="absolute left-0 top-0 z-[1] max-w-full truncate rounded-br-[4px] bg-slate-950/72 px-1 py-0.5 text-[9px] font-semibold leading-none text-white">
@@ -1219,7 +1219,7 @@ function TaskInputReuseStack({ assets, onReuse }: { assets: OutfitFusionAsset[];
                 </span>
               ))}
               {hasHiddenAssets ? (
-                <span className="absolute right-0 top-1 z-[4] flex h-12 w-9 rotate-6 items-center justify-center overflow-hidden rounded-[4px] border border-white bg-[linear-gradient(135deg,rgba(31,41,55,0.92),rgba(100,116,139,0.78))] text-[12px] font-bold leading-none text-white shadow-[0_6px_14px_rgba(15,23,42,0.20)] transition duration-300 group-hover/reuse:-translate-y-1 group-hover/reuse:shadow-md group-focus-visible/reuse:-translate-y-1 group-focus-visible/reuse:shadow-md">
+                <span className="absolute right-0 top-1 z-[4] flex h-11 w-8 rotate-6 items-center justify-center overflow-hidden rounded-[4px] border border-white bg-[linear-gradient(135deg,rgba(31,41,55,0.92),rgba(100,116,139,0.78))] text-[11px] font-bold leading-none text-white shadow-[0_6px_14px_rgba(15,23,42,0.20)] transition duration-300 group-hover/reuse:-translate-y-1 group-hover/reuse:shadow-md group-focus-visible/reuse:-translate-y-1 group-focus-visible/reuse:shadow-md">
                   +{hiddenCount}
                 </span>
               ) : null}
@@ -1351,16 +1351,24 @@ function formatTaskTime(value: string) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
 }
 
-function scrollNodeIntoView(node: HTMLElement | null, block: ScrollLogicalPosition, delay = 0) {
+function scrollContainerToBottom(container: HTMLElement | null, delay = 0) {
   window.setTimeout(() => {
-    node?.scrollIntoView({ behavior: prefersReducedMotion() ? "auto" : "smooth", block });
+    const target = container || (document.scrollingElement as HTMLElement | null);
+    target?.scrollTo({ top: target.scrollHeight, behavior: prefersReducedMotion() ? "auto" : "smooth" });
   }, delay);
 }
 
-function scrollNodeToViewportTop(node: HTMLElement | null, offset = 0, delay = 0) {
+function scrollNodeToContainerTop(container: HTMLElement | null, node: HTMLElement | null, offset = 0, delay = 0) {
   if (!node) return;
   window.setTimeout(() => {
     window.requestAnimationFrame(() => {
+      if (container) {
+        const containerRect = container.getBoundingClientRect();
+        const nodeRect = node.getBoundingClientRect();
+        const top = Math.max(0, container.scrollTop + nodeRect.top - containerRect.top - offset);
+        container.scrollTo({ top, behavior: prefersReducedMotion() ? "auto" : "smooth" });
+        return;
+      }
       const top = Math.max(0, window.scrollY + node.getBoundingClientRect().top - offset);
       window.scrollTo({ top, behavior: prefersReducedMotion() ? "auto" : "smooth" });
     });

@@ -430,7 +430,7 @@ function OutputPreviewPanel({
 }) {
   return (
     <section className="studio-image-preview-panel studio-image-preview-output-panel" data-aspect-ratio={result.aspectRatio || undefined} aria-label="输出图片区域">
-      <span className="studio-image-preview-panel-badge">生成图</span>
+      <span className="studio-image-preview-panel-badge">{result.badgeLabel || "生成图"}</span>
       {result.url ? (
         <>
           <button
