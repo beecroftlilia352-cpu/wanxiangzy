@@ -105,8 +105,8 @@ REPLICATE_API_TOKEN=
 - `supabase/schema.sql`
 - `supabase/credits-update.sql`
 - `supabase/atomic-credit-rpc.sql`
-- `supabase/agent-workflows.sql`
-- `supabase/agent-brain-traces.sql`
+
+> 注：`supabase/agent-workflows.sql` 和 `supabase/agent-brain-traces.sql` 是智能 Agent 模块的数据库初始化脚本，当前模块已临时下线，需要恢复时再运行。
 
 当前上传和生成结果默认通过 `lib/api/image-storage.ts` 的存储适配器保存。默认值为 ImgBB；生产环境可切换到阿里云 OSS：
 
@@ -155,25 +155,9 @@ curl -H "Authorization: Bearer $JOB_PROCESSOR_SECRET" \
 
 生产环境建议配置定时任务每 1 分钟请求一次 `/api/jobs/process-generations`，使用强随机的 `JOB_PROCESSOR_SECRET` 或 `CRON_SECRET` 作为 Bearer Token。
 
-智能 Agent 的多步骤视觉工作流使用独立处理器：
+> 智能 Agent 模块当前临时下线，对应的 `/api/jobs/process-agent-workflows` 和 `/api/jobs/run-agent-evals` 路由返回 no-op（含 `disabled: "agent module disabled"`），保留鉴权和路径以便恢复时不破坏 cron 配置。模块完整代码在 `refactor/extract-agent-module` 分支，恢复时合并该分支即可。
 
-```bash
-curl -H "Authorization: Bearer $JOB_PROCESSOR_SECRET" \
-  http://localhost:3000/api/jobs/process-agent-workflows
-```
-
-生产环境建议同样每 1 分钟请求一次 `/api/jobs/process-agent-workflows`。如需隔离权限，可为该 route 单独设置 `AGENT_WORKFLOW_PROCESSOR_SECRET`。这个处理器负责执行文生图、图生图、换装、姿势裂变、3D 展示、电商详情页等 workflow step，并处理积分预占后的结算或释放。
-
-Agent 质量闭环还提供两个生产处理器：
-
-```bash
-curl -H "Authorization: Bearer $JOB_PROCESSOR_SECRET" \
-  http://localhost:3000/api/jobs/run-agent-evals
-```
-
-建议每天或每小时请求一次 `/api/jobs/run-agent-evals`。如需隔离权限，可为该 route 单独设置 `AGENT_EVAL_PROCESSOR_SECRET`。它会对近期使用过 Agent 的用户运行内置 eval + 用户差评沉淀 case，写入 `agent_eval_runs` 和 `agent_eval_results`，用于上线后回归评分。
-
-生成 worker 内置视觉质量评估与一次自动修复重生策略：结果完成后会用视觉评估器检查数量、可访问性、任务一致性、人物/服装/版式风险；低于阈值时会自动追加修复提示词重生一次。可用 `AGENT_VISUAL_AUTO_REGENERATE_ENABLED=false` 关闭。
+生成 worker 当前不调用智能体视觉评估，结果完成后不再做自动重生修复提示词。如未来重新引入智能体评估，可用 `AGENT_VISUAL_AUTO_REGENERATE_ENABLED=false` 控制。
 
 ### 6. AWS Tag 自动部署
 
