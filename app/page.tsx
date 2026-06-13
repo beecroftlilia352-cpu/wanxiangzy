@@ -11,7 +11,6 @@ import {
   PanelTop,
   Quote,
   Sparkles,
-  WandSparkles,
 } from "lucide-react";
 import { HeroGradientMotion } from "@/components/home/HeroGradientMotion";
 import { codexTheme } from "@/lib/design/codex-theme";
@@ -58,7 +57,7 @@ const sceneCards = [
     image: "/home-showcase/pose-grid-black-outfit.png",
     href: "/agent",
   },
-];
+].filter((card) => card.href !== "/agent");
 
 const quickTools = [
   {
@@ -67,13 +66,6 @@ const quickTools = [
     href: "/create",
     icon: PanelTop,
     image: "/home-showcase/model-white-top-denim-shorts.jpg",
-  },
-  {
-    title: "前往工作流助理",
-    action: "打开 AI 助理",
-    href: "/agent",
-    icon: WandSparkles,
-    image: "/home-showcase/background-male-jacket.webp",
   },
   {
     title: "在素材工具中继续操作",
@@ -176,9 +168,6 @@ export default function HomePage() {
               立即进入工作台
               <ArrowRight className="h-4 w-4" />
             </Link>
-            <Link href="/agent" className="home-button home-button-soft">
-              Explore workflows
-            </Link>
           </div>
 
           <p className="mt-7 text-[13px] font-semibold text-[#29354d]/58">
@@ -204,10 +193,6 @@ export default function HomePage() {
             <p className="mt-5 text-[16px] leading-8 text-white/70">
               在多个页面和环境中使用 VastWearGen，并通过你的团队素材库实现统一连接。
             </p>
-            <Link href="/agent" className="home-button home-button-light mt-8">
-              详情请参阅工作流文档
-              <ArrowRight className="h-4 w-4" />
-            </Link>
           </div>
 
           <div className="mt-16 grid gap-5 lg:grid-cols-3">
@@ -494,7 +479,7 @@ function Footer() {
           <div key={group.title}>
             <h3 className="text-[13px] font-semibold text-[#dbe8ff]/54">{group.title}</h3>
             <ul className="mt-5 space-y-3">
-              {group.links.map(([label, href]) => (
+              {group.links.filter(([, href]) => href !== "/agent").map(([label, href]) => (
                 <li key={label}>
                   <Link href={href} className="inline-flex items-center gap-1 text-[14px] font-semibold text-[#dbe8ff] transition hover:text-white">
                     {label}

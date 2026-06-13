@@ -6,7 +6,7 @@ import { CheckCircle2, ChevronRight, Loader2, PenLine, Sparkles, X, XCircle } fr
 import { toast } from "sonner";
 import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
-import { getCreditCost, getSupportedImageSizes, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
+import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
 import { FeatureTabs } from "@/components/FeatureTabs";
 import { RepairPromptPanel } from "@/components/RepairPromptPanel";
 import { ClientPortal } from "@/components/ClientPortal";
@@ -76,6 +76,15 @@ const POSE_PREVIEW_ACTIONS: ImagePreviewAction[] = [
   { kind: "feedback", label: "反馈" },
 ];
 
+const ASPECTS: { value: AspectRatio; label: string; description?: string }[] = [
+  { value: "auto", label: "智能", description: "按主图匹配" },
+  { value: "3:4", label: "3:4", description: "竖版" },
+  { value: "4:5", label: "4:5", description: "商品图" },
+  { value: "1:1", label: "1:1", description: "方图" },
+  { value: "9:16", label: "9:16", description: "手机竖屏" },
+  { value: "16:9", label: "16:9", description: "横屏" },
+];
+
 type PoseHistoryPayload = Extract<HistoryJobPayload, { kind: "pose" }>;
 type PoseAnalysisSource = "vision" | "cache" | "fallback" | "history";
 type PoseAnalysisEntry = {
@@ -118,7 +127,11 @@ Negative: no outfit change, no face change, no extra person, no collage, no text
 姿势4：轻微迈步或自然转身方向，不要静态扶腰；头部方向与肩膀、躯干和身体转向保持一致，不要单独回头看镜头；AI 可自由选择步态、手臂运动、身体转向、视线和镜头语言，服装运动褶皱和垂坠必须清楚。`;
 
 function resolvePoseOutputModeFromPayload(payload: PoseHistoryPayload): PoseOutputMode {
-  return payload.outputMode === "separate" || Number(payload.genCount || 0) > 1 ? "separate" : "grid";
+  return payload.outputMode === "grid" ? "grid" : "separate";
+}
+
+function resolvePoseAspectRatioFromPayload(payload: PoseHistoryPayload): AspectRatio {
+  return payload.aspectRatio || "auto";
 }
 
 function resolvePosePlanModeFromPayload(payload: PoseHistoryPayload): PosePlanMode {
@@ -175,11 +188,12 @@ export default function PosePage() {
     refreshAuth,
   } = useStudioAuth();
   const [aiModel, setAiModel] = useState<LingyaModel>("nano-banana-2");
+  const [aspectRatio, setAspectRatio] = useState<AspectRatio>("auto");
   const [imageSize, setImageSize] = useState<ImageSize>("1K");
   const [mainImage, setMainImage] = useState<string>("");
   const [prompt, setPrompt] = useState(DEFAULT_POSE_PROMPT);
   const [supplementPrompt, setSupplementPrompt] = useState("");
-  const [outputMode, setOutputMode] = useState<PoseOutputMode>("grid");
+  const [outputMode, setOutputMode] = useState<PoseOutputMode>("separate");
   const [poseStyle, setPoseStyle] = useState<PoseSeriesStyle>(DEFAULT_POSE_SERIES_STYLE);
   const [customPosePrompt, setCustomPosePrompt] = useState(USER_CUSTOM_POSE_DEFAULT.prompt);
   const [customCamera, setCustomCamera] = useState(USER_CUSTOM_POSE_DEFAULT.camera);
@@ -217,8 +231,8 @@ export default function PosePage() {
     onFiles: (files) => handleFile(files[0]),
   });
 
-  const imageSizes = getSupportedImageSizes(aiModel, "3:4");
-  const unitCost = getCreditCost(aiModel, imageSize, "3:4");
+  const imageSizes = getSupportedImageSizes(aiModel, aspectRatio);
+  const unitCost = getCreditCost(aiModel, imageSize, aspectRatio);
   const poseExpectedCount = outputMode === "separate" ? 4 : 1;
   const cost = unitCost * poseExpectedCount;
   const taskQueue = useTaskQueueGeneration({
@@ -262,6 +276,7 @@ export default function PosePage() {
       promptText: previewPosePlanText,
       metaItems: [
         { label: "输出方式", value: outputMode === "separate" ? "每姿势一张" : "四宫格" },
+        { label: "画布比例", value: aspectRatio === "auto" ? "智能" : aspectRatio },
         { label: "姿势风格", value: poseStyleLabel },
         { label: "规划方式", value: posePlanMode === "ai" ? POSE_PLAN_SOURCE_LABELS[posePlanSource || "vision_plan"] : "预设计划" },
         { label: "模型", value: aiModel },
@@ -269,9 +284,9 @@ export default function PosePage() {
         { label: "结果数量", value: poseExpectedCount },
       ],
       resultTitlePrefix: outputMode === "separate" ? "姿势结果" : "姿势四宫格",
-      aspectRatio: "3:4",
+      aspectRatio: aspectRatio === "auto" ? undefined : aspectRatio,
     }),
-    [aiModel, imageSize, isGenerating, mainImage, outputMode, poseExpectedCount, posePlanMode, posePlanSource, poseStyleLabel, previewPosePlanText, resultUrls, runningExpectedCount]
+    [aiModel, aspectRatio, imageSize, isGenerating, mainImage, outputMode, poseExpectedCount, posePlanMode, posePlanSource, poseStyleLabel, previewPosePlanText, resultUrls, runningExpectedCount]
   );
   const cancelRulesHide = () => {
     if (rulesHideTimerRef.current) {
@@ -469,9 +484,9 @@ export default function PosePage() {
   }, []);
 
   useEffect(() => {
-    const nextSizes = getSupportedImageSizes(aiModel, "3:4");
+    const nextSizes = getSupportedImageSizes(aiModel, aspectRatio);
     if (!nextSizes.includes(imageSize)) setImageSize(nextSizes[0]);
-  }, [aiModel, imageSize]);
+  }, [aiModel, aspectRatio, imageSize]);
 
   useEffect(() => {
     setPrompt((prev) => stripLegacyRuleDemoText(prev));
@@ -712,6 +727,7 @@ export default function PosePage() {
     applyPoseAnalysisSnapshot(payload.mainImageUrl, payload.poseAnalysis);
     applyPosePlanSnapshot(payload);
     setAiModel(payload.aiModel);
+    setAspectRatio(resolvePoseAspectRatioFromPayload(payload));
     setImageSize(payload.imageSize);
     setPrompt(payload.prompt);
     setSupplementPrompt("");
@@ -872,6 +888,7 @@ export default function PosePage() {
         body: JSON.stringify({
           main_image_url: mainImage,
           ai_model: aiModel,
+          aspect_ratio: aspectRatio,
           image_size: imageSize,
           prompt: stripLegacyRuleDemoText([
             typeof promptForRun === "string"
@@ -1048,6 +1065,7 @@ export default function PosePage() {
   function handleContinueCreate() {
     generationRunRef.current += 1;
     setAiModel("nano-banana-2");
+    setAspectRatio("auto");
     setImageSize("1K");
     setMainImage("");
     lastPoseAnalysisKeyRef.current = "";
@@ -1060,7 +1078,7 @@ export default function PosePage() {
     setShowPosePlanEditor(false);
     setPrompt(DEFAULT_POSE_PROMPT);
     setSupplementPrompt("");
-    setOutputMode("grid");
+    setOutputMode("separate");
     setPoseStyle(DEFAULT_POSE_SERIES_STYLE);
     setCustomPosePrompt(USER_CUSTOM_POSE_DEFAULT.prompt);
     setCustomCamera(USER_CUSTOM_POSE_DEFAULT.camera);
@@ -1222,7 +1240,7 @@ export default function PosePage() {
               value={aiModel}
               onChange={setAiModel}
               ariaLabel="生成模型"
-              getMeta={(model) => `${model.desc} · 单张${getCreditCost(model.value, imageSize, "3:4")}灵点`}
+              getMeta={(model) => `${model.desc} · 单张${getCreditCost(model.value, imageSize, aspectRatio)}灵点`}
             />
           </section>
 
@@ -1230,8 +1248,8 @@ export default function PosePage() {
             <h3 className="font-bold text-sm mb-3">输出方式</h3>
             <StudioOptionGrid
               options={[
-                { value: "grid" as const, label: "四宫格拼图", description: "1 张 2x2 pose sheet" },
-                { value: "separate" as const, label: "每姿势一张", description: "4 张独立图片" },
+                { value: "separate" as const, label: "单张", description: "每个姿势独立出图" },
+                { value: "grid" as const, label: "四宫格", description: "1 张 2x2 pose sheet" },
               ]}
               value={outputMode}
               onChange={setOutputMode}
@@ -1242,9 +1260,15 @@ export default function PosePage() {
 
           <section>
             <h3 className="font-bold text-sm mb-3">画布比例</h3>
-            <div className="studio-option-control studio-option-control-selected flex items-center justify-center text-xs font-medium">固定 3:4 竖版</div>
+            <StudioOptionGrid
+              options={ASPECTS}
+              value={aspectRatio}
+              onChange={setAspectRatio}
+              columns={3}
+              ariaLabel="画布比例"
+            />
             <div className="mt-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-[11px] leading-relaxed text-slate-500">
-              人物比例按图1保护：头身比、肩宽、腰胯、腿长、脚部大小和服装穿着尺度不变；镜头、画幅、构图未指定时由 AI 按风格自然决定。
+              选择智能时会按主图比例自动匹配最接近的画布；选择固定比例时按你的选择生成。人物头身比、服装穿着尺度和身体比例仍按图1保护。
             </div>
           </section>
 
@@ -1254,7 +1278,7 @@ export default function PosePage() {
               <StudioOptionGrid
                 options={imageSizes.map((size) => ({
                   value: size,
-                  label: `${size} · 单张${getCreditCost(aiModel, size, "3:4")}灵点`,
+                  label: `${size} · 单张${getCreditCost(aiModel, size, aspectRatio)}灵点`,
                 }))}
                 value={imageSize}
                 onChange={setImageSize}

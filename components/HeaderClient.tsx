@@ -35,7 +35,7 @@ import {
   setCachedProfileCredits,
   subscribeToProfileCredits,
 } from "@/lib/supabase/client";
-import { TOP_MODULES, getActiveTopModule } from "@/lib/navigation";
+import { VISIBLE_TOP_MODULES, getActiveTopModule } from "@/lib/navigation";
 import { codexTheme } from "@/lib/design/codex-theme";
 
 type HeaderAccountState = {
@@ -54,7 +54,7 @@ const marketingNav = [
   { label: "价格", href: "/pricing" },
   { label: "案例", href: "/history" },
   { label: "资源", href: "/general-image" },
-];
+].filter((item) => item.href !== "/agent");
 
 export function HeaderClient() {
   const pathname = usePathname();
@@ -404,7 +404,7 @@ function BrandMark() {
 function DesktopTopNav({ activeModule }: { activeModule: string }) {
   return (
     <nav className="studio-surface-toolbar hidden items-center gap-1 p-1 lg:flex" aria-label="主导航">
-      {TOP_MODULES.map((item) => {
+      {VISIBLE_TOP_MODULES.map((item) => {
         const active = activeModule === item.key;
         const Icon = item.icon;
         const className = `relative inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-sm font-black transition ${
@@ -699,7 +699,7 @@ function maskAccountLabel(value: string) {
 }
 
 function MobileModuleMenu({ activeModule }: { activeModule: string }) {
-  const active = TOP_MODULES.find((item) => item.key === activeModule) || TOP_MODULES[0];
+  const active = VISIBLE_TOP_MODULES.find((item) => item.key === activeModule) || VISIBLE_TOP_MODULES[0];
   const ActiveIcon = active.icon;
 
   return (
@@ -720,7 +720,7 @@ function MobileModuleMenu({ activeModule }: { activeModule: string }) {
         sideOffset={8}
         className="mac-surface z-[80] min-w-[190px] overflow-hidden rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl shadow-slate-200/50"
       >
-        {TOP_MODULES.map((item) => {
+        {VISIBLE_TOP_MODULES.map((item) => {
           const Icon = item.icon;
           const isActive = item.key === activeModule;
 

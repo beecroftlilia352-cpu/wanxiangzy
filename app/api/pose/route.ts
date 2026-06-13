@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase/server";
-import { getCreditCost, normalizeImageSize, normalizeLingyaModel, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
+import { getCreditCost, normalizeAspectRatio, normalizeImageSize, normalizeLingyaModel, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
 import {
   createDebitedGeneration,
   errorToResponsePayload,
@@ -16,8 +16,6 @@ import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 
 export const maxDuration = 60;
 
-const POSE_ASPECT_RATIO = "3:4" as const;
-
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createServerSupabase();
@@ -32,14 +30,16 @@ export async function POST(request: NextRequest) {
     try { body = await request.json(); }
     catch { return NextResponse.json({ error: "请求格式无效" }, { status: 400 }); }
     const { main_image_url, ai_model, image_size, prompt, pose_style } = body;
-    const outputMode: PoseOutputMode = body.output_mode === "separate" ? "separate" : "grid";
+    const requestedOutputMode = body.output_mode ?? body.outputMode;
+    const outputMode: PoseOutputMode = requestedOutputMode === "grid" ? "grid" : "separate";
     const genCount = outputMode === "separate" ? normalizePoseCount(body.gen_count ?? body.count ?? 4) : 1;
     if (!main_image_url || typeof main_image_url !== "string") return NextResponse.json({ error: "缺少主图" }, { status: 400 });
     if (!prompt?.trim()) return NextResponse.json({ error: "缺少提示词" }, { status: 400 });
 
     const model: LingyaModel = normalizeLingyaModel(ai_model);
-    const size: ImageSize = normalizeImageSize(model, image_size || "1K", POSE_ASPECT_RATIO);
-    const unitCost = getCreditCost(model, size, POSE_ASPECT_RATIO);
+    const aspectRatio: AspectRatio = normalizeAspectRatio(body.aspect_ratio || body.aspectRatio || "auto", "auto");
+    const size: ImageSize = normalizeImageSize(model, image_size || "1K", aspectRatio);
+    const unitCost = getCreditCost(model, size, aspectRatio);
     const totalCost = unitCost * genCount;
     const poseStyle = normalizePoseSeriesStyle(pose_style);
     const posePlanMode = body.pose_plan_mode === "ai" || body.posePlanMode === "ai" ? "ai" : "preset";
@@ -57,6 +57,7 @@ export async function POST(request: NextRequest) {
       publicBaseUrl: getPublicBaseUrlFromRequest(request),
       mainImageUrl: main_image_url,
       aiModel: model,
+      aspectRatio,
       imageSize: size,
       prompt: String(prompt).trim(),
       poseStyle,

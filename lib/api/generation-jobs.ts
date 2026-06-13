@@ -168,6 +168,7 @@ export type GenerationJobPayload = GenerationJobPayloadBase & (
       kind: "pose";
       mainImageUrl: string;
       aiModel: LingyaModel;
+      aspectRatio?: AspectRatio;
       imageSize: ImageSize;
       prompt: string;
       poseStyle?: PoseSeriesStyle;
@@ -1337,6 +1338,7 @@ async function executePayload(
 
     if (outputMode === "separate") {
       const generationCount = getPoseGenerationCount(payload);
+      const aspectRatio = payload.aspectRatio || "auto";
       return executeParallelImageBatch({
         count: generationCount,
         concurrency: 2,
@@ -1348,8 +1350,9 @@ async function executePayload(
             model: payload.aiModel,
             prompt: posePrompt,
             prompt_kind: "pose",
-            aspect_ratio: "3:4",
+            aspect_ratio: aspectRatio,
             image: imageInputs.clothingUrls,
+            smart_aspect_image: payload.mainImageUrl,
             image_size: payload.imageSize,
             onProgress: onTaskProgress,
           });
@@ -1367,8 +1370,9 @@ async function executePayload(
       model: payload.aiModel,
       prompt,
       prompt_kind: "pose",
-      aspect_ratio: "3:4",
+      aspect_ratio: payload.aspectRatio || "auto",
       image: imageInputs.clothingUrls,
+      smart_aspect_image: payload.mainImageUrl,
       image_size: payload.imageSize,
       onProgress: (progress) => onProgress?.(mapImageTaskProgress(progress, [], [], 0, 1)),
     });
@@ -2142,7 +2146,7 @@ async function writeGenerationProgress(
 }
 
 function normalizePoseOutputMode(value: unknown): PoseOutputMode {
-  return value === "separate" ? "separate" : "grid";
+  return value === "grid" ? "grid" : "separate";
 }
 
 function getPoseGenerationCount(payload: Extract<GenerationJobPayload, { kind: "pose" }>) {

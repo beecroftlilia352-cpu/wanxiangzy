@@ -77,6 +77,8 @@ export const TOP_MODULES: TopModuleNavItem[] = [
   { key: "works", href: "/history", label: "作品库", icon: GalleryHorizontalEnd },
 ];
 
+export const VISIBLE_TOP_MODULES: TopModuleNavItem[] = TOP_MODULES.filter((item) => item.key !== "assistant");
+
 export const FEATURE_ITEMS: FeatureNavItem[] = [
   {
     key: "home",
@@ -221,6 +223,7 @@ export const FEATURE_ITEMS: FeatureNavItem[] = [
     shortLabel: "助手",
     description: "聊天、分析与工作流执行",
     icon: Bot,
+    hiddenFromNav: true,
   },
   {
     key: "textToImage",

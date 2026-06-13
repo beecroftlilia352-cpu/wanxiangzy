@@ -94,6 +94,7 @@ export type HistoryJobPayload =
       kind: "pose";
       mainImageUrl: string;
       aiModel: LingyaModel;
+      aspectRatio?: AspectRatio;
       imageSize: ImageSize;
       prompt: string;
       poseStyle?: PoseSeriesStyle;
