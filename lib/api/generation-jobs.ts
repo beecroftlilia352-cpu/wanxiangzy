@@ -20,7 +20,7 @@ import {
   type VideoTaskProgress,
 } from "@/lib/api/happyhorse-video";
 import type { OutfitFusionHistoryAsset } from "@/lib/history-apply";
-import { getOutfitFusionDisplayPrompt } from "@/lib/outfit-fusion";
+import { getOutfitFusionDisplayPrompt, resolveOutfitFusionSmartAspectImage } from "@/lib/outfit-fusion";
 import { syncGenerationTaskQueueById } from "@/lib/task-queue-store";
 // Agent module is temporarily disabled; the visual quality evaluator
 // (applyQualityRepairToPrompt / evaluateGeneratedImages) is stubbed locally.
@@ -1353,17 +1353,25 @@ async function executePayload(
     const imageInputs = payload.mode === "image-to-image"
       ? await resolvePayloadImageInputs({ clothingUrls: payload.referenceUrls })
       : { clothingUrls: [] };
+    const smartAspectImage = payload.kind === "outfitFusion"
+      ? resolveOutfitFusionSmartAspectImage({
+          assets: payload.assets,
+          referenceUrls: payload.referenceUrls,
+          resolvedReferenceUrls: imageInputs.clothingUrls,
+        })
+      : payload.referenceUrls[0];
 
     return executeParallelImageBatch({
       count: payload.genCount,
-      promptKind: payload.mode,
+      promptKind: payload.kind === "outfitFusion" ? "outfitFusion" : payload.mode,
       run: async (_index, onTaskProgress) => {
         const result = await generateImage({
           model: payload.aiModel,
           prompt: payload.prompt,
+          prompt_kind: payload.kind === "outfitFusion" ? "outfitFusion" : undefined,
           aspect_ratio: payload.aspectRatio,
           image: imageInputs.clothingUrls,
-          smart_aspect_image: payload.referenceUrls[0],
+          smart_aspect_image: smartAspectImage,
           image_size: payload.imageSize,
           onProgress: onTaskProgress,
         });

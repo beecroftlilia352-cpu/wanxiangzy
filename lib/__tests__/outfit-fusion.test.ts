@@ -7,6 +7,7 @@ import {
   normalizeOutfitFusionAssistantPrompt,
   outfitFusionReferencesFromAssets,
   OUTFIT_FUSION_TEMPLATES,
+  resolveOutfitFusionSmartAspectImage,
 } from "@/lib/outfit-fusion";
 import { createGenericImagePreviewSession, getPreviewCanvasInputReferences } from "@/lib/studio-image-preview";
 
@@ -38,16 +39,24 @@ describe("outfit fusion templates", () => {
 
     expect(prompt).toContain("核心任务");
     expect(prompt).toContain("HARD 硬规则 · 搭配融图脸部身份");
+    expect(prompt).toContain("身份替换任务");
     expect(prompt).toContain("最终脸部身份唯一来源");
+    expect(prompt).toContain("执行关系校准");
+    expect(prompt).toContain("AI分析或用户输入只控制最终图片关系");
     expect(prompt).toContain("如果最终脸仍像");
     expect(prompt).toContain("不得保留其原脸身份");
     expect(prompt).toContain("脸部身份冲突时以");
     expect(prompt).toContain("不要随机脸、不要网红模板脸、不要参考图原脸残留");
+    expect(prompt).toContain("输出比例 参考图比例");
     expect(prompt).toContain("图片关系");
     expect(prompt).toContain("商品准确性");
     expect(prompt).toContain("搭配图来源隔离");
     expect(prompt).toContain("只提供服装、鞋包、帽子、围巾或配饰商品素材");
     expect(prompt).toContain("不是人物、姿势、脸部身份、肤色、光照、背景或场景参考");
+    expect(prompt).toContain("多商品穿戴层级");
+    expect(prompt).toContain("必须分别穿戴到正确身体部位和配饰位置");
+    expect(prompt).toContain("不能平均合成一件");
+    expect(prompt).toContain("不借用其他搭配图的颜色、材质、图案、logo或文字");
     expect(prompt).toContain("材质类型、面料纹理、织法、光泽、厚薄、透明度");
     expect(prompt).toContain("不要简化或重设计商品细节");
     expect(prompt).not.toContain("服装细节图");
@@ -55,6 +64,24 @@ describe("outfit fusion templates", () => {
     expect(prompt).toContain("不要多余肢体");
     expect(prompt).toContain("保持电商商拍质感");
     expect(prompt).not.toContain("\n");
+  });
+
+  it("normalizes stale model labels in the relationship prompt to the actual uploaded model", () => {
+    const prompt = buildOutfitFusionPrompt({
+      templatePrompt: "让【参考图8】的模特穿着【搭配图1】的银色高跟鞋，把模特换成【模特图7】的模特。",
+      assets: [
+        { id: "outfit-1", role: "outfit", name: "搭配图1", url: "https://example.com/shoes.png" },
+        { id: "reference-8", role: "reference", name: "参考图8", url: "https://example.com/reference.png" },
+        { id: "model-1", role: "model", name: "模特图1", url: "https://example.com/model.png" },
+      ],
+      config: DEFAULT_OUTFIT_FUSION_CONFIG,
+    });
+
+    expect(prompt).toContain("核心任务：让【参考图8】的模特穿着【搭配图1】的银色高跟鞋，把模特换成【模特图1】的模特。");
+    expect(prompt).not.toContain("【模特图7】");
+    expect(prompt).toContain("历史模板残留编号");
+    expect(prompt).toContain("有模特图时必须执行换脸/身份替换");
+    expect(prompt).toContain("核心任务里任何“换成模特图/换脸”都必须解释为换成【模特图1】的脸");
   });
 
   it("keeps multi-image count out of the single-image generation prompt", () => {
@@ -92,6 +119,54 @@ describe("outfit fusion templates", () => {
     });
 
     expect(getPreviewCanvasInputReferences(session)).toHaveLength(references.length);
+  });
+
+  it("uses the target reference image for smart aspect ratio", () => {
+    expect(resolveOutfitFusionSmartAspectImage({
+      assets: [
+        { role: "outfit", url: "https://example.com/outfit-square.png" },
+        { role: "reference", url: "https://example.com/reference-portrait.png" },
+        { role: "model", url: "https://example.com/model.png" },
+      ],
+      referenceUrls: [
+        "https://example.com/outfit-square.png",
+        "https://example.com/reference-portrait.png",
+        "https://example.com/model.png",
+      ],
+      resolvedReferenceUrls: [
+        "resolved-outfit-square",
+        "resolved-reference-portrait",
+        "resolved-model",
+      ],
+    })).toBe("resolved-reference-portrait");
+  });
+
+  it("does not use outfit product images for smart aspect ratio when no reference is provided", () => {
+    expect(resolveOutfitFusionSmartAspectImage({
+      assets: [
+        { role: "outfit", url: "https://example.com/outfit-square.png" },
+        { role: "model", url: "https://example.com/model.png" },
+      ],
+      referenceUrls: [
+        "https://example.com/outfit-square.png",
+        "https://example.com/model.png",
+      ],
+      resolvedReferenceUrls: [
+        "resolved-outfit-square",
+        "resolved-model",
+      ],
+    })).toBeUndefined();
+
+    const prompt = buildOutfitFusionPrompt({
+      templatePrompt: "让模特穿着搭配图商品。",
+      assets: [
+        { id: "outfit", role: "outfit", url: "https://example.com/outfit-square.png" },
+        { id: "model", role: "model", url: "https://example.com/model.png" },
+      ],
+      config: DEFAULT_OUTFIT_FUSION_CONFIG,
+    });
+
+    expect(prompt).toContain("输出比例 3:4");
   });
 
   it("normalizes AI write output to a single user-visible sentence", () => {

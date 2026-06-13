@@ -2,11 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/api/auth";
 import { getChatCompletionsUrl, getLlmConfig } from "@/lib/api/llm-provider";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
+import { GARMENT_3D_QUALITY } from "@/lib/garment-3d-prompt";
 import { buildGarment3dDisplayStylePrompt, getGarment3dDisplayStyleLabel, normalizeGarment3dDisplayStyle } from "@/lib/module-style-presets";
 
 const ANALYZE_TIMEOUT_MS = Number(process.env.LINGYA_ANALYZE_TIMEOUT_MS || 30000);
-const GARMENT_3D_QUALITY =
-  "photorealistic, 8K ultra-detailed, RAW photo quality, high contrast, commercial e-commerce catalog quality, sharp fabric details";
 
 export async function POST(request: NextRequest) {
   try {

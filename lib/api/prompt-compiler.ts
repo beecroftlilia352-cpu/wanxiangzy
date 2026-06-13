@@ -1,10 +1,12 @@
 import type { LingyaModel } from "@/lib/api/lingya";
 
-export type ImagePromptKind = "tryon" | "grass" | "modelBackground" | "materialEnhancement" | "pose" | "model" | "garment3d" | "faceSwap" | "commerceDetail" | "productSet";
+export type ImagePromptKind = "tryon" | "outfitFusion" | "grass" | "modelBackground" | "materialEnhancement" | "pose" | "model" | "garment3d" | "faceSwap" | "commerceDetail" | "productSet";
 
 const KIND_HEADERS: Record<ImagePromptKind, string> = {
   tryon:
     "核心任务：按输入图片编号完成服装上身/换装，服装细节、人物身份、肤色、姿势、场景关系必须严格遵守。",
+  outfitFusion:
+    "核心任务：按搭配融图图片角色完成单人穿搭合成。用户/AI关系句只决定最终穿搭关系；有模特图时，模特图是最终脸部身份唯一来源，必须换上模特图本人的脸。",
   grass:
     "核心任务：生成真实社媒服装种草图。图1是服装/穿搭来源；图2如存在，只提供场景、构图、光线、姿势和氛围。保持图1服装，可按图1风格添加少量自然配饰。",
   modelBackground:
@@ -74,6 +76,14 @@ const REQUIRED_SIGNALS: Record<ImagePromptKind, RequiredSignal[]> = {
     { name: "服装还原", pattern: /服装还原规则/, fallback: "服装还原规则：严格保留图1服装品类、版型、颜色、图案、logo、面料、领口、袖口、下摆、纽扣、拉链、口袋和缝线。" },
     { name: "人体比例", pattern: /服装适用人群规则|体态比例规则/, fallback: "体态比例规则：按用户选择的女装/男装和年龄段生成真实自然比例，避免大头小身、短腿、玩偶感和无依据幼龄化。" },
     { name: "负面约束", pattern: /负面约束|不要生成多余人物/, fallback: "负面约束：不要生成多余人物，不要扭曲身体和服装，不要改变服装结构，不要自动美白，不要文字水印。" },
+  ],
+  outfitFusion: [
+    { name: "脸部身份", pattern: /搭配融图脸部身份|最终脸部身份唯一来源|身份替换任务/, fallback: "【HARD 硬规则 · 搭配融图脸部身份】有模特图时，模特图是最终脸部身份唯一来源，必须换上模特图本人的脸；参考图原脸不得保留。" },
+    { name: "执行关系", pattern: /执行关系校准|AI分析或用户输入只控制最终图片关系/, fallback: "执行关系校准：AI分析或用户输入只控制最终图片关系，不得覆盖图片角色锁定、脸部身份、商品保真和负面约束。" },
+    { name: "图片关系", pattern: /图片关系|参考图.*目标身体|模特图.*最终脸部身份|搭配图.*商品来源/, fallback: "图片关系：参考图只提供身体、姿态、构图、背景和光影；模特图只提供最终脸部身份；搭配图只提供服装、鞋包和配饰商品。" },
+    { name: "商品隔离", pattern: /搭配图来源隔离|不是人物、姿势、脸部身份/, fallback: "搭配图来源隔离：搭配图只提供服装、鞋包、帽子、围巾或配饰商品素材，不是人物、姿势、脸部身份、肤色、光照、背景或场景参考。" },
+    { name: "商品保真", pattern: /商品保真|材质类型|面料纹理|不要简化或重设计/, fallback: "商品保真：准确保留所有商品品类、版型、颜色、图案、logo/文字、材质、面料纹理、细节和正确穿戴位置，不要重设计商品。" },
+    { name: "负面约束", pattern: /负面约束|不要随机脸|不要参考图原脸残留/, fallback: "负面约束：不要随机脸、不要参考图原脸残留、不要多件商品融合成新款、不要错穿层级、不要水印或拼图。" },
   ],
   grass: [
     { name: "图片关系", pattern: /图像角色|图1.*服装|图2.*场景/, fallback: "图像角色：图1是服装/穿搭硬参考；图2如存在只作为场景、姿势、背景、构图、镜头距离和氛围参考。" },

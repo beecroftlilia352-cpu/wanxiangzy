@@ -38,8 +38,12 @@ describe("garment angle references", () => {
     expect(prompt).toContain("image 2 = 上装背面角度参考");
     expect(prompt).toContain("image 3 = 下装侧面角度参考");
     expect(prompt).toContain("不得影响其他服装区域");
+    expect(prompt).toContain("图1可见正面外观优先");
+    expect(prompt).toContain("正面姿势不要把背面结构强行放到正面");
+    expect(prompt).toContain("只有当新姿势真实露出背面、侧面");
     expect(prompt).toContain("上装角度只影响上装");
     expect(prompt).toContain("下装角度只影响下装");
+    expect(prompt).toContain("整套/连体角度用于保持连衣裙、连体裤、套装的整体结构连续性");
     expect(prompt).not.toContain("局部细节补充");
   });
 });

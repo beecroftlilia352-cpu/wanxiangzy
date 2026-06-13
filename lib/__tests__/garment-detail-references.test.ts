@@ -83,6 +83,9 @@ describe("garment detail references", () => {
 
     expect(prompt).toContain("服装的多角度参考");
     expect(prompt).toContain("正面、背面、侧面");
+    expect(prompt).toContain("转身可见面");
+    expect(prompt).toContain("不得作为新服装、材质增强、人物、姿势、脸、背景或光线参考");
+    expect(prompt).toContain("不要无故改成通用棚拍背景");
     expect(prompt).not.toContain("局部细节补充");
   });
 });

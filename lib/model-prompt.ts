@@ -1,5 +1,5 @@
 const MODEL_QUALITY =
-  "photorealistic, 8K ultra-detailed, commercial portrait quality, cinematic color grade, sharp facial details, sharp hair details, RAW photo quality";
+  "photorealistic commercial model card portrait, natural camera texture, sharp but realistic facial details, clean hair details, natural skin pores, soft commercial studio light, no plastic skin, no over-retouching";
 const MODEL_PROMPT_MARKER = "专属模特生成协议 v2";
 
 export const MODEL_FACE_STYLE_RULE =
@@ -40,8 +40,8 @@ export function buildModelIdentityRoleStatement(params: {
   ].filter(Boolean);
 
   const faceRole = referenceCount > 1
-    ? `${refs} 是同等权重的人脸、气质、妆感和审美融合参考；每张都必须留下可感知贡献，禁止把图${referenceCount}或任意单张直接当最终脸复制`
-    : "图1 是唯一人脸身份参考，必须保留其脸型骨相、五官比例、肤色、年龄感和真实质感";
+    ? `${refs} 是同等权重的人脸、气质、妆感和审美融合参考；每张都必须留下可感知贡献，禁止把图${referenceCount}、最清晰图或任意单张直接当最终脸复制，也禁止平均成无记忆点的新脸`
+    : "图1 是唯一人脸身份参考，必须保留其脸型骨相、五官比例、肤色、年龄感、气质和真实质感";
 
   return `图像角色：${faceRole}${extraRoles.length ? `；${extraRoles.join("；")}` : ""}。`;
 }
@@ -72,6 +72,11 @@ export function enforceModelPromptRequirements(params: {
     roleStatement,
     buildModelCoreTask(params.gender),
     buildModelFusionMethod(referenceCount),
+    buildModelIdentityWeightRule(referenceCount),
+    buildModelReferenceIsolationRule({
+      hairReferenceIndex: params.hairReferenceIndex,
+      hairColorReferenceIndex: params.hairColorReferenceIndex,
+    }),
     buildModelHairRule({
       hairStyle: params.hairStyle,
       hairColor: params.hairColor,
@@ -79,10 +84,11 @@ export function enforceModelPromptRequirements(params: {
       hairColorReferenceIndex: params.hairColorReferenceIndex,
     }),
     "商业输出：单人半身头像/模特卡照片，白色基础上衣，干净浅灰或白色棚拍背景，柔和商业摄影布光；皮肤保留自然纹理、毛孔和轻微瑕疵，发丝边缘清晰真实。",
+    buildModelFailureRule(referenceCount),
     fragments.styleLine,
     fragments.userIntent ? `用户补充/视觉分析：${fragments.userIntent}` : "",
     `图像质量：${MODEL_QUALITY}`,
-    "负面审美约束：不要多个人，不要随机陌生脸，不要只像单张参考图，不要让最后一张参考图主导，不要默认美白、雪白皮或冷白皮，不要标准鹅蛋脸、小V脸、尖下巴、大眼高鼻网红审美，不要忽略发型/发色硬约束，不要过度磨皮、塑料皮肤、蜡像感、畸形五官、文字水印。",
+    "负面审美约束：不要多个人，不要随机陌生脸，不要只像单张参考图，不要让最后一张参考图主导，不要平均糊脸，不要默认美白、雪白皮或冷白皮，不要标准鹅蛋脸、小V脸、尖下巴、大眼高鼻网红审美，不要忽略发型/发色硬约束，不要过度磨皮、塑料皮肤、蜡像感、畸形五官、文字水印。",
   ].filter(Boolean).join("\n");
 }
 
@@ -102,11 +108,44 @@ function buildModelCoreTask(gender?: string | null) {
 
 function buildModelFusionMethod(referenceCount: number) {
   if (referenceCount <= 1) {
-    return "融合方法：以图1为身份基准，保留脸长宽比例、颧骨/下颌/下巴、眼型眼距、鼻翼鼻头、唇形厚薄、肤色冷暖、妆感和年龄质感；允许自然商业化美化，但不得换成模板脸。";
+    return "融合方法：以图1为身份基准，保留脸长宽比例、颧骨/下颌/下巴、眼型眼距、眉眼关系、鼻梁鼻翼鼻头、唇形厚薄、肤色冷暖、妆感和年龄质感；允许自然商业化美化，但不得换成模板脸。";
   }
 
   const refs = buildReferenceList(referenceCount);
-  return `融合方法：先分别提取${refs}的脸型骨相、五官比例、眼神气质、肤色冷暖、妆感、年龄感和真实皮肤质感，再重组为一个新长相；${refs}权重均衡，图${referenceCount}即使更清晰也不能成为主脸，只能贡献部分特征。`;
+  return `融合方法：先分别提取${refs}的脸型骨相、五官比例、眼神气质、肤色冷暖、妆感、年龄感和真实皮肤质感，把每张图最稳定、最有辨识度的特征作为身份锚点，再重组为一个自然真人新长相；${refs}权重均衡，图${referenceCount}即使更清晰也不能成为主脸，只能贡献部分特征。`;
+}
+
+function buildModelIdentityWeightRule(referenceCount: number) {
+  if (referenceCount <= 1) {
+    return "身份权重规则：图1权重为100%，最终脸必须一眼能看出图1的脸型骨相和五官比例来源；自然美化不能削弱身份相似度。";
+  }
+
+  const refs = buildReferenceList(referenceCount);
+  return `身份权重规则：${refs}都要贡献可识别锚点，例如脸型轮廓、眉眼距离、鼻部结构、唇形、肤色气质、年龄感或妆感；最终不是简单五官平均，也不是只像最后上传图、最清晰图或最漂亮的一张。`;
+}
+
+function buildModelReferenceIsolationRule(params: {
+  hairReferenceIndex?: number | null;
+  hairColorReferenceIndex?: number | null;
+}) {
+  const hairRefs = [
+    params.hairReferenceIndex ? `图${params.hairReferenceIndex}` : "",
+    params.hairColorReferenceIndex ? `图${params.hairColorReferenceIndex}` : "",
+  ].filter(Boolean).join("、");
+
+  const hairLine = hairRefs
+    ? `${hairRefs}只控制发型/发色，不参与脸型、五官、肤色或年龄身份。`
+    : "若没有独立发型/发色参考，头发只按融合后身份自然适配，不随机抢占脸部身份。";
+
+  return `参考隔离规则：人脸参考只控制身份、气质、妆感和肤质，不继承参考图衣服、身体、背景、姿势或光照；${hairLine}`;
+}
+
+function buildModelFailureRule(referenceCount: number) {
+  const multiFailure = referenceCount > 1
+    ? `、只像图${referenceCount}、只像某一张参考图、所有参考图贡献不可见、融合成普通陌生脸`
+    : "、不像图1本人、图1身份被商业化美化覆盖";
+
+  return `失败判定：如果最终模特出现随机网红模板脸${multiFailure}、肤色被默认美白、年龄感被明显少女化、发型/发色硬约束未执行，即使画面精致也判定失败。`;
 }
 
 function buildModelHairRule(params: {
@@ -174,8 +213,11 @@ const MODEL_SYSTEM_LINE_PATTERNS = [
   /^核心任务[:：]/,
   /^任务[:：]融合/,
   /^融合方法[:：]/,
+  /^身份权重规则[:：]/,
+  /^参考隔离规则[:：]/,
   /^发型发色硬约束[:：]/,
   /^商业输出[:：]/,
+  /^失败判定[:：]/,
   /^图像质量[:：]/,
   /^负面/,
   /^生成规则[:：]/,

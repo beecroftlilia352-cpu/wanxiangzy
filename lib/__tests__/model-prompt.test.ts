@@ -19,10 +19,17 @@ describe("model prompt handling", () => {
     expect(prompt).toContain("专属模特生成协议 v2");
     expect(prompt).toContain("图1、图2、图3 是同等权重");
     expect(prompt).toContain("图3即使更清晰也不能成为主脸");
+    expect(prompt).toContain("身份权重规则");
+    expect(prompt).toContain("都要贡献可识别锚点");
+    expect(prompt).toContain("参考隔离规则");
+    expect(prompt).toContain("失败判定");
+    expect(prompt).toContain("融合成普通陌生脸");
     expect(prompt).toContain("发型必须采用「齐肩短波波头，空气刘海，发尾内扣」");
     expect(prompt).toContain("发色必须采用「深棕色」");
     expect(prompt).toContain("专属模特拍摄风格档位：融合原生感");
     expect(prompt).toContain("用户希望眼神更温柔");
+    expect(prompt).toContain("natural skin pores");
+    expect(prompt).toContain("不要平均糊脸");
     expect(prompt).not.toContain("旧的长规则");
   });
 
@@ -40,6 +47,7 @@ describe("model prompt handling", () => {
     expect(prompt).toContain("发型必须优先跟随图4");
     expect(prompt).toContain("发色必须优先跟随图5");
     expect(prompt).toContain("不参与人脸身份");
+    expect(prompt).toContain("图4、图5只控制发型/发色");
   });
 
   it("is idempotent instead of appending more rules on every pass", () => {

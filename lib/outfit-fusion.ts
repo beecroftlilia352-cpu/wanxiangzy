@@ -260,10 +260,44 @@ export function outfitFusionReferencesFromAssets(assets: OutfitFusionAsset[]): I
   }));
 }
 
+export function resolveOutfitFusionSmartAspectImage(input: {
+  assets?: Array<{ role?: string | null; url?: string | null }> | null;
+  referenceUrls?: string[] | null;
+  resolvedReferenceUrls?: string[] | null;
+}) {
+  const assets = Array.isArray(input.assets) ? input.assets : [];
+  const referenceUrls = normalizeOutfitFusionAspectSourceUrls(input.referenceUrls);
+  const resolvedReferenceUrls = normalizeOutfitFusionAspectSourceUrls(input.resolvedReferenceUrls);
+  const referenceAssetIndex = assets.findIndex((asset) => asset.role === "reference" && cleanOutfitFusionAspectSourceUrl(asset.url));
+
+  if (referenceAssetIndex < 0) return undefined;
+
+  const referenceAssetUrl = cleanOutfitFusionAspectSourceUrl(assets[referenceAssetIndex]?.url);
+  const matchedIndex = referenceAssetUrl ? referenceUrls.findIndex((url) => url === referenceAssetUrl) : -1;
+  const sourceIndex = matchedIndex >= 0 ? matchedIndex : referenceAssetIndex;
+
+  return (
+    resolvedReferenceUrls[sourceIndex] ||
+    referenceUrls[sourceIndex] ||
+    referenceAssetUrl
+  );
+}
+
 export function clampOutfitFusionCount(value: unknown) {
   const numeric = Number(value);
   const count = Number.isFinite(numeric) ? Math.round(numeric) : DEFAULT_OUTFIT_FUSION_CONFIG.genCount;
   return Math.min(Math.max(count, 1), 4);
+}
+
+function normalizeOutfitFusionAspectSourceUrls(value?: string[] | null) {
+  return Array.isArray(value)
+    ? value.map(cleanOutfitFusionAspectSourceUrl).filter((url): url is string => Boolean(url))
+    : [];
+}
+
+function cleanOutfitFusionAspectSourceUrl(value?: string | null) {
+  const url = typeof value === "string" ? value.trim() : "";
+  return url || undefined;
 }
 
 export function buildOutfitFusionPrompt(input: {
@@ -278,38 +312,50 @@ export function buildOutfitFusionPrompt(input: {
   }));
   const referenceLabels = labeledAssets.filter((asset) => asset.role === "reference").map((asset) => asset.label);
   const modelLabels = labeledAssets.filter((asset) => asset.role === "model").map((asset) => asset.label);
+  const outfitLabels = labeledAssets.filter((asset) => asset.role === "outfit").map((asset) => asset.label);
   const primaryModelLabel = modelLabels[0];
+  const primaryReferenceLabel = referenceLabels[0];
   const faceIdentityRule = buildOutfitFusionFaceIdentityRule(referenceLabels, modelLabels);
+  const aspectRatioText = input.config.aspectRatio === "auto"
+    ? referenceLabels.length ? "参考图比例" : "3:4"
+    : input.config.aspectRatio;
 
-  const roleLines = labeledAssets.map((asset) => {
-    const label = asset.label;
-    if (asset.role === "reference") {
-      return primaryModelLabel
-        ? `【${label}】只作为目标身体、姿态、构图、背景光影、头部位置/大小、表情方向、肤色明暗和穿搭关系参考；不得作为最终脸部身份`
-        : `【${label}】只作为人物身份、姿态、构图、背景光影和穿搭关系参考`;
-    }
-    if (asset.role === "model") {
-      return `【${label}】是最终脸部身份来源，控制脸型轮廓、五官结构、眼形眼距、眉形、鼻梁/鼻尖/鼻翼、嘴形、骨相和可识别相似度；不提供服装、身体、姿势、背景或光照`;
-    }
-    return `【${label}】只作为服装/鞋包/配饰商品来源，不是人物参考。只提取商品本身的品类、款式、廓形、颜色、图案、Logo/文字、材质、面料纹理和正确穿戴位置；不要复制其中的模特、身体、脸、姿势、肤色、光照、背景、场景或拍摄构图`;
+  const roleLines = [
+    primaryReferenceLabel
+      ? primaryModelLabel
+        ? `【${primaryReferenceLabel}】只作为目标身体、姿态、构图、背景光影、头部位置/大小、表情方向、肤色明暗和穿搭关系参考；不得作为最终脸部身份`
+        : `【${primaryReferenceLabel}】只作为人物身份、姿态、构图、背景光影和穿搭关系参考`
+      : "",
+    primaryModelLabel
+      ? `【${primaryModelLabel}】是最终脸部身份唯一来源，控制脸型轮廓、五官结构、眼形眼距、眉形、鼻梁/鼻尖/鼻翼、嘴形、骨相和可识别相似度；不提供服装、身体、姿势、背景或光照`
+      : "",
+    outfitLabels.length
+      ? `${outfitLabels.map((label) => `【${label}】`).join("、")}只作为服装/鞋包/配饰商品来源，不是人物参考。只提取商品本身的品类、款式、廓形、颜色、图案、Logo/文字、材质、面料纹理、正确身体部位和穿戴层级；不要复制其中的模特、身体、脸、姿势、肤色、光照、背景、场景或拍摄构图`
+      : "",
+  ].filter(Boolean);
+  const rawTemplatePrompt = input.templatePrompt?.trim() || "让模特穿着所有搭配图中的服装、鞋包和配饰，生成一张真实自然的模特穿搭图。";
+  const templatePrompt = normalizeOutfitFusionRelationshipPrompt(rawTemplatePrompt, {
+    primaryModelLabel,
+    primaryReferenceLabel,
   });
-  const templatePrompt = input.templatePrompt?.trim() || "让模特穿着所有搭配图中的服装、鞋包和配饰，生成一张真实自然的模特穿搭图。";
   const customPrompt = input.customPrompt?.trim();
   const priorityRule = primaryModelLabel
-    ? `优先级：模特脸身份和商品准确性均为硬约束；脸部身份冲突时以【${primaryModelLabel}】为准，服装、鞋包和配饰冲突时以对应搭配图为准，身体姿态、头部空间、构图、背景和光影以参考图为准。`
+    ? `优先级：模特脸身份和商品准确性均为硬约束；脸部身份冲突时以【${primaryModelLabel}】为准，核心任务里任何“换成模特图/换脸”都必须解释为换成【${primaryModelLabel}】的脸，服装、鞋包和配饰冲突时以对应搭配图为准，身体姿态、头部空间、构图、背景和光影以参考图为准。`
     : "优先级：商品准确性 > 模特身份与身形 > 参考图姿态构图 > 背景氛围。若参考图、搭配图和模特图发生冲突，按此优先级处理。";
 
   return [
     faceIdentityRule,
     `核心任务：${templatePrompt}`,
-    `固定生成规则：最终只生成一张完整的单人商业摄影穿搭照片，输出比例 ${input.config.aspectRatio}，分辨率 ${input.config.imageSize}；不要把参考图、商品图、步骤图或多个候选结果拼到同一张画面里。`,
+    buildOutfitFusionRelationshipControlRule({ primaryModelLabel, primaryReferenceLabel }),
+    `固定生成规则：最终只生成一张完整的单人商业摄影穿搭照片，输出比例 ${aspectRatioText}，分辨率 ${input.config.imageSize}；不要把参考图、商品图、步骤图或多个候选结果拼到同一张画面里。`,
     `图片关系：${roleLines.join("；")}。`,
     buildOutfitFusionSourceIsolationRule(labeledAssets),
+    buildOutfitFusionLayeringRule(labeledAssets),
     "商品保真：准确保留所有服装、鞋包、帽子、围巾和配饰的品类/款式、版型/廓形、颜色、印花/图案、Logo/文字、材质类型、面料纹理、织法、光泽、厚薄、透明度、领口、肩线、袖型、袖口、腰线、下摆、口袋、纽扣、拉链、缝线、拼接、褶皱、层次、长度、开衩、装饰件、穿戴位置和相互层叠关系；不要把材质改成别的布料，不要简化或重设计商品细节，不要凭空新增未提供的核心商品。",
     priorityRule,
     "画面质量：真实自然商业摄影质感，人物比例自然，肢体连接合理，面部和手部干净，布料褶皱、阴影、接触关系和透视一致。",
     customPrompt ? `补充要求: ${customPrompt}` : "",
-    "负面约束：不要随机脸、不要网红模板脸、不要参考图原脸残留、不要混合新脸、不要证件照贴脸、不要面具边缘、不要头脸比例漂移、不要肤色断层、不要多余肢体、不要错误手指、不要变形脸、不要错穿层级、不要错色、不要丢失图案、不要硬贴图、不要塑料质感、不要水印、不要边框、不要海报文字、不要电商模板排版、不要拼图、四宫格、2x2 网格、分屏、contact sheet、before/after 对比图、商品陈列页或多张照片合集。",
+    "负面约束：不要随机脸、不要网红模板脸、不要参考图原脸残留、不要混合新脸、不要证件照贴脸、不要面具边缘、不要头脸比例漂移、不要肤色断层、不要多余肢体、不要错误手指、不要变形脸、不要错穿层级、不要把鞋变成包、不要把围巾变成衣摆、不要把帽子变成发型、不要多件商品融合成一件新款、不要错色、不要丢失图案、不要硬贴图、不要塑料质感、不要水印、不要边框、不要海报文字、不要电商模板排版、不要拼图、四宫格、2x2 网格、分屏、contact sheet、before/after 对比图、商品陈列页或多张照片合集。",
   ].filter(Boolean).join(" ");
 }
 
@@ -324,6 +370,37 @@ function buildOutfitFusionSourceIsolationRule(assets: Array<OutfitFusionAsset & 
   ].join("");
 }
 
+function buildOutfitFusionLayeringRule(assets: Array<OutfitFusionAsset & { label: string }>) {
+  const outfitLabels = assets.filter((asset) => asset.role === "outfit").map((asset) => `【${asset.label}】`);
+  if (!outfitLabels.length) return "";
+
+  return [
+    "多商品穿戴层级：",
+    `${outfitLabels.join("、")} 必须分别穿戴到正确身体部位和配饰位置。`,
+    "鞋只在脚部，包只做手持/肩背/斜挎/腋下包，帽子只在头部，围巾只在颈部/肩部/手持披挂，腰带只在腰线，首饰只在对应佩戴部位。",
+    "多件上装、外套、马甲、衬衫或内搭按真实穿搭层级叠穿：内层在内，外层在外，开襟、领口、袖口和下摆露出关系自然。",
+    "上下装、连衣裙、连体裤、套装、鞋包和配饰不得互相串色、串材质、串logo或融合成新商品。",
+    "商品冲突处理：同一身体区域出现多件来源商品时，以用户核心任务明确描述和对应搭配图为准；无法同时穿戴时选择最合理的真实穿搭方式，不能平均合成一件。",
+    "缺失补全：某个商品角度、背面或遮挡区域不完整时，只按该商品已知结构自然补全，不借用其他搭配图的颜色、材质、图案、logo或文字。"
+  ].join("");
+}
+
+function buildOutfitFusionRelationshipControlRule(params: {
+  primaryModelLabel?: string;
+  primaryReferenceLabel?: string;
+}) {
+  const base = "执行关系校准：AI分析或用户输入只控制最终图片关系，例如谁提供身体姿态构图、哪些搭配图商品穿到人物身上、是否换成模特图；不得覆盖下面的图片角色锁定、脸部身份、商品保真和负面约束。";
+  if (!params.primaryModelLabel) return base;
+
+  const referenceText = params.primaryReferenceLabel ? `即使【${params.primaryReferenceLabel}】里有人脸，也只能保留其头部角度、表情方向、光影和肤色明暗，不得保留原脸身份。` : "";
+  return [
+    base,
+    `如果核心任务、AI分析或用户输入中出现不存在的模特图编号、历史模板残留编号，或写成“把模特换成其它模特图”，一律以当前真实上传的【${params.primaryModelLabel}】作为最终脸部身份来源。`,
+    `有模特图时必须执行换脸/身份替换：最终人物的脸必须是【${params.primaryModelLabel}】本人，不是参考图原人物，不是两张脸融合折中，不是只换发型妆容。`,
+    referenceText
+  ].filter(Boolean).join("");
+}
+
 function buildOutfitFusionFaceIdentityRule(referenceLabels: string[], modelLabels: string[]) {
   const primaryModelLabel = modelLabels[0];
   if (!primaryModelLabel) return "";
@@ -333,13 +410,33 @@ function buildOutfitFusionFaceIdentityRule(referenceLabels: string[], modelLabel
   const extraModels = modelLabels.slice(1).map((label) => `【${label}】`).join("、");
 
   return [
-    `【HARD 硬规则 · 搭配融图脸部身份】${model} 是最终脸部身份唯一来源。最终脸必须一眼像 ${model} 本人；如果最终脸仍像 ${reference} 原人物、随机陌生人或通用网红脸，即使服装正确也判定失败。`,
+    `【HARD 硬规则 · 搭配融图脸部身份】${model} 是最终脸部身份唯一来源。本任务是身份替换任务：在 ${reference} 的身体、姿态、构图和场景上重建 ${model} 的脸。最终脸必须一眼像 ${model} 本人；如果最终脸仍像 ${reference} 原人物、随机陌生人或通用网红脸，即使服装正确也判定失败。`,
     `${reference} 只提供目标身体、姿势、头部位置、头部大小、颈肩衔接、表情方向、肤色明暗、妆容、构图、背景和光影；如果 ${reference} 中有人脸，不得保留其原脸身份、脸型、眼鼻嘴或可识别特征。`,
     `必须把 ${reference} 的自然表情、头部姿态、场景光照和肤色连续性迁移到 ${model} 的身份上，而不是为了贴合参考图而弱化 ${model} 的相似度。`,
-    `自然融合只允许调整表情肌肉、视线、肤色重打光、妆容匹配、毛孔、阴影和边缘融合；不得改变 ${model} 的脸型轮廓、眼形眼距、眉形、鼻梁/鼻尖/鼻翼、嘴形、五官比例、骨相和可识别度。`,
+    `自然融合只允许调整表情肌肉、视线、肤色重打光、妆容匹配、毛孔、阴影和边缘融合；不得改变 ${model} 的脸型轮廓、眼形眼距、眉形、鼻梁/鼻尖/鼻翼、嘴形、五官比例、骨相和可识别度。禁止把 ${model} 和 ${reference} 的脸平均融合，禁止只保留 ${model} 的发型或妆感但不保留五官身份。`,
     `不要复制 ${model} 原图的服装、身体、姿势、背景、原始表情强度、原始光照或不匹配的肤色；${model} 只控制身份和五官结构。`,
     extraModels ? `多个模特图时，以 ${model} 为最终身份，其它模特图 ${extraModels} 只能辅助发型和气质，不得混合成新脸。` : "",
   ].filter(Boolean).join("");
+}
+
+function normalizeOutfitFusionRelationshipPrompt(prompt: string, params: {
+  primaryModelLabel?: string;
+  primaryReferenceLabel?: string;
+}) {
+  let next = prompt.replace(/\s+/g, " ").trim();
+  if (params.primaryModelLabel) {
+    next = replaceOutfitFusionRoleReferences(next, "模特图", params.primaryModelLabel);
+  }
+  if (params.primaryReferenceLabel) {
+    next = replaceOutfitFusionRoleReferences(next, "参考图", params.primaryReferenceLabel);
+  }
+  return next;
+}
+
+function replaceOutfitFusionRoleReferences(text: string, roleName: "模特图" | "参考图", targetLabel: string) {
+  return text
+    .replace(new RegExp(`【\\s*${roleName}\\s*\\d+\\s*】`, "g"), `【${targetLabel}】`)
+    .replace(new RegExp(`${roleName}\\s*\\d+`, "g"), targetLabel);
 }
 
 export function buildOutfitFusionComposerText(template: OutfitFusionTemplate) {

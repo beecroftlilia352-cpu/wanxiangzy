@@ -17,12 +17,10 @@ import { handleGenerationStatusGet } from "@/lib/api/generation-status";
 import { getPublicBaseUrlFromRequest } from "@/lib/api/image-inputs.server";
 import { applyGarment3dDisplayStylePrompt, normalizeGarment3dDisplayStyle } from "@/lib/module-style-presets";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
+import { buildGarment3dPrompt, type Garment3dOutputMode } from "@/lib/garment-3d-prompt";
 
 type GarmentType = "上装" | "下装" | "连体衣" | "其他";
-type OutputMode = "reference" | "prompt";
-
-const GARMENT_3D_QUALITY =
-  "photorealistic, 8K ultra-detailed, RAW photo quality, high contrast, commercial e-commerce catalog quality, sharp fabric details";
+type OutputMode = Garment3dOutputMode;
 
 export const maxDuration = 60;
 
@@ -70,7 +68,7 @@ export async function POST(request: NextRequest) {
       : garment_type || "服装";
     const mode: OutputMode = output_mode === "reference" ? "reference" : "prompt";
     const displayStyle = normalizeGarment3dDisplayStyle(display_style);
-    const finalPrompt = applyGarment3dDisplayStylePrompt(final_prompt?.trim() || buildServerPrompt({
+    const finalPrompt = applyGarment3dDisplayStylePrompt(final_prompt?.trim() || buildGarment3dPrompt({
       garmentType: finalGarmentType,
       outputMode: mode,
       hasReference: !!reference_url && mode === "reference",
@@ -121,26 +119,4 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   return handleGenerationStatusGet(request.nextUrl.searchParams.get("generation_id"));
-}
-
-function buildServerPrompt(params: {
-  garmentType: string;
-  outputMode: OutputMode;
-  hasReference: boolean;
-  userPrompt: string;
-}) {
-  const roles = params.hasReference
-    ? "图像角色：图1是用户上传的服装图，图2是3D立体服装参考图。"
-    : "图像角色：图1是用户上传的服装图。";
-  const referenceLine = params.hasReference
-    ? "参考图2只用于学习服装立体感、袖身厚度、支撑形态、阴影结构、空间角度和棚拍光影，不参考图2的背景元素、颜色、图案、文字或具体款式。"
-    : "根据用户提示生成类似穿在人身上的立体效果，使用干净白色背景。";
-  const backgroundLine = "背景使用干净白色或浅灰棚拍背景，主体居中，边缘干净，真实商业棚拍质感。";
-  const userRequirement = params.userPrompt.trim()
-    ? `用户补充要求：${params.userPrompt.trim()}`
-    : params.hasReference
-      ? "用户补充要求：无，优先按照图2的立体感、厚度、支撑形态、空间角度和棚拍光影生成。"
-      : "用户要求：衣服变为类似穿在人身上的立体效果，微微向左旋转，保留原始版型、面料厚度、纹理和所有细节。";
-
-  return `${roles} 任务：将图1的${params.garmentType}从平面图或人台图转换为无真人、无头部、无脸、无手的3D立体服装展示图。${referenceLine} 严格保留图1服装的版型、颜色、材质、纹理、图案、纽扣、拉链、口袋、帽绳、袖口、裤腰、裤脚等细节。${backgroundLine} ${userRequirement} 图像质量：${GARMENT_3D_QUALITY}。负面约束：不要生成真人身体、不要生成模特脸、不要多件衣服、不要改变衣服品类、不要扭曲文字和 logo、不要改变主要颜色。`;
 }

@@ -52,6 +52,30 @@ describe("compileImagePromptForModel", () => {
     expect(result.length).toBeLessThanOrEqual(2300);
   });
 
+  it("keeps outfit fusion face identity rules in concise prompts", () => {
+    const result = compileImagePromptForModel({
+      kind: "outfitFusion",
+      model: "nano-banana-2",
+      prompt: [
+        "【HARD 硬规则 · 搭配融图脸部身份】【模特图1】 是最终脸部身份唯一来源。本任务是身份替换任务：在【参考图8】的身体、姿态、构图和场景上重建【模特图1】的脸。",
+        "核心任务：让【参考图8】的模特穿着【搭配图1】的银色高跟鞋，把模特换成【模特图1】的模特。",
+        "执行关系校准：AI分析或用户输入只控制最终图片关系，不得覆盖下面的图片角色锁定、脸部身份、商品保真和负面约束。",
+        "图片关系：【参考图8】只作为目标身体、姿态、构图、背景光影参考；【模特图1】是最终脸部身份来源；【搭配图1】只作为服装/鞋包/配饰商品来源。",
+        "搭配图来源隔离：【搭配图1】只提供服装、鞋包、帽子、围巾或配饰商品素材，不是人物、姿势、脸部身份、肤色、光照、背景或场景参考。",
+        "商品保真：准确保留所有商品材质类型、面料纹理，不要简化或重设计商品细节。",
+        "负面约束：不要随机脸、不要参考图原脸残留。",
+      ].join(" "),
+    });
+
+    expect(result).toContain("搭配融图");
+    expect(result).toContain("模特图是最终脸部身份唯一来源");
+    expect(result).toContain("【模特图1】 是最终脸部身份唯一来源");
+    expect(result).toContain("身份替换任务");
+    expect(result).toContain("执行关系校准");
+    expect(result).toContain("不要参考图原脸残留");
+    expect(result.length).toBeLessThanOrEqual(2300);
+  });
+
   it("preserves material enhancement edit boundaries in concise prompts", () => {
     const result = compileImagePromptForModel({
       kind: "materialEnhancement",
