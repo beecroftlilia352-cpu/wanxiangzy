@@ -1,7 +1,7 @@
 export const MAX_GARMENT_DETAIL_IMAGES = 5;
 
 export const GARMENT_DETAIL_SWITCH_DESCRIPTION =
-  "用来补充服装的局部细节，比如面料、领口、口袋、纽扣。开启后最多 5 张，不会改动人物、姿势、背景和整体色调。";
+  "用来补充服装的局部细节，比如面料、领口、口袋、纽扣，或者背面、侧面。开启后最多 5 张，不会改动人物、姿势、背景和整体色调。";
 
 export const GARMENT_DETAIL_UPLOAD_FOOTNOTE =
   "拍得越清晰、越近距离越好。每张只拍一个部位就够了，比如只拍领口、或只拍袖口。";
