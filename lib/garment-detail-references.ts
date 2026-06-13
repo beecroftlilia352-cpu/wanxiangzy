@@ -1,10 +1,10 @@
 export const MAX_GARMENT_DETAIL_IMAGES = 5;
 
 export const GARMENT_DETAIL_SWITCH_DESCRIPTION =
-  "默认关闭；仅在面料、领口、口袋、背面/侧面等细节需要保真时开启。开启后最多上传 5 张细节图，只用于补充服装局部材质与做工，不改变人物、姿势、背景、曝光、对比度、白平衡、服装款式和主色，也不强化细密条纹或裤纹。";
+  "用来补充服装的局部细节，比如面料、领口、口袋、纽扣。开启后最多 5 张，不会改动人物、姿势、背景和整体色调。";
 
 export const GARMENT_DETAIL_UPLOAD_FOOTNOTE =
-  "最佳实践：优先传清晰、近距离、无滤镜的原商品细节图；每张只表达一个部位。图片会追加在数组尾部，仅作服装局部细节参考，不参与现有图1/图2编号。";
+  "拍得越清晰、越近距离越好。每张只拍一个部位就够了，比如只拍领口、或只拍袖口。";
 
 export function normalizeGarmentDetailUrls(value: unknown, max = MAX_GARMENT_DETAIL_IMAGES): string[] {
   if (!Array.isArray(value)) return [];
