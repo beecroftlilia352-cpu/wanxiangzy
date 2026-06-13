@@ -175,7 +175,7 @@ export function OutfitFusionComposer({
             const label = asset.name || getOutfitFusionAssetLabel(asset, index);
             return (
                 <div key={asset.id} className="group relative w-[78px] overflow-hidden rounded-[6px] border border-slate-200 bg-white shadow-sm ring-1 ring-transparent transition duration-200 hover:border-[rgba(91,124,255,0.28)] hover:ring-[rgba(91,124,255,0.22)] hover:shadow-md">
-                  <span className={cn("pointer-events-none absolute left-1.5 top-1.5 z-[1] max-w-[70px] truncate rounded-[4px] border px-1.5 py-0.5 text-[10px] font-bold leading-3 shadow-sm", prompt.includes(`【${label}】`) ? "border-[var(--codex-accent)] bg-[var(--codex-accent)] text-white" : "border-[rgba(91,124,255,0.22)] bg-[#eef4ff] text-[#4f6ff4]")}>
+                  <span className={cn("pointer-events-none absolute left-1.5 top-1.5 z-[1] max-w-[70px] truncate rounded-[4px] border px-1.5 py-0.5 text-[10px] font-bold leading-3 shadow-sm", getAssetLabelTone(asset.role, prompt.includes(`【${label}】`)))}>
                     {label}
                   </span>
                   <button
@@ -516,7 +516,7 @@ function HighlightedPromptTextarea({
                 key={option.asset.id}
                 type="button"
                 onClick={() => insertMention(option)}
-                className="inline-flex items-center gap-1 rounded-[5px] bg-[rgba(91,124,255,0.10)] px-1.5 py-0.5 font-semibold text-[var(--codex-accent)] ring-1 ring-[rgba(91,124,255,0.18)] transition hover:bg-[rgba(91,124,255,0.16)]"
+                className={cn("inline-flex items-center gap-1 rounded-[5px] px-1.5 py-0.5 font-semibold ring-1 transition", getAssetReferenceTone(option.asset.role))}
                 title={`再次插入 ${option.label}`}
               >
                 <img src={option.asset.url} alt="" className="size-4 rounded object-cover" />
@@ -567,6 +567,22 @@ function getPromptLabelTone(token: string) {
   if (token.includes("参考图")) return "bg-rose-50 text-rose-500";
   if (token.includes("模特图")) return "bg-amber-50 text-amber-500";
   return "bg-blue-50 text-[#4f6ff4]";
+}
+
+function getAssetLabelTone(role: OutfitFusionAssetRole, active: boolean) {
+  if (role === "reference") {
+    return active ? "border-rose-500 bg-rose-500 text-white" : "border-rose-100 bg-rose-50 text-rose-500";
+  }
+  if (role === "model") {
+    return active ? "border-amber-500 bg-amber-500 text-white" : "border-amber-100 bg-amber-50 text-amber-500";
+  }
+  return active ? "border-[#5b7cff] bg-[#5b7cff] text-white" : "border-blue-100 bg-blue-50 text-[#4f6ff4]";
+}
+
+function getAssetReferenceTone(role: OutfitFusionAssetRole) {
+  if (role === "reference") return "bg-rose-50 text-rose-500 ring-rose-100 hover:bg-rose-100";
+  if (role === "model") return "bg-amber-50 text-amber-500 ring-amber-100 hover:bg-amber-100";
+  return "bg-blue-50 text-[#4f6ff4] ring-blue-100 hover:bg-blue-100";
 }
 
 function OutfitFusionConfigPopover({
