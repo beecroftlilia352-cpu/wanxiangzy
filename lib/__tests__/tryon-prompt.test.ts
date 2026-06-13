@@ -110,6 +110,9 @@ describe("try-on prompt face integration", () => {
 
     expect(prompt).toContain("Expression transfer:");
     expect(prompt).toContain("Use image 2 as the body/composition/lighting base try-on photo, but replace its facial identity with image 3");
+    expect(prompt).toContain("【HARD 硬规则");
+    expect(prompt).toContain("must_use_model_face");
+    expect(prompt).toContain("禁止生成与 image 3 无关的新脸");
     expect(prompt).toContain("Face identity lock - HARD:");
     expect(prompt).toContain("image 3 is the final person identity");
     expect(prompt).toContain("image 2's face is only an expression, head-pose, skin-tone, makeup, lighting, and scale carrier");
@@ -122,10 +125,10 @@ describe("try-on prompt face integration", () => {
     expect(prompt).toContain("image 2 = target expression and try-on reference: visible expression category");
     expect(prompt).toContain("image 3 = mandatory final face identity reference only");
     expect(prompt).toContain("do not copy its original expression style, expression intensity, skin tone, makeup");
-    expect(prompt).toContain("image 3 controls final facial identity and feature proportions");
-    expect(prompt).toContain("it must not control final facial identity");
-    expect(prompt).toContain("Limit adaptation to expression muscles, gaze, skin relighting, makeup matching, pores, shadows, and edge blending");
-    expect(prompt).toContain("do not alter image 3's face outline, eye shape, eye spacing, brow shape, nose structure, mouth anatomy, feature proportions, or recognizable likeness");
+    expect(prompt).toContain("控制最终脸部身份和五官比例");
+    expect(prompt).toContain("不能控制最终脸部身份");
+    expect(prompt).toContain("表情肌肉、视线、肤色重新打光、妆容匹配、毛孔、阴影、边缘融合");
+    expect(prompt).toContain("不要改变 image 3 的脸型、眉形、眼距、鼻结构、嘴形、五官比例和可识别度");
     expect(prompt).not.toContain("facial expression exactly");
     expect(prompt).not.toContain("exact expression geometry");
     expect(prompt).not.toContain("visible expression/skin/makeup when present");
@@ -256,9 +259,10 @@ describe("try-on prompt face integration", () => {
     expect(prompt).toContain("image 2 is a lower-body-only target frame with no visible head or face");
     expect(prompt).toContain("ignore image 3 completely for this no-head crop");
     expect(prompt).toContain("A result with any visible face or newly added head is invalid");
-    expect(prompt).toContain("preserve_reference_face mode");
-    expect(prompt).toContain("do not synthesize a new face");
-    expect(prompt).toContain("do not introduce image 3's identity outside the original crop");
+    expect(prompt).toContain("【HARD 硬规则");
+    expect(prompt).toContain("preserve_reference_face");
+    expect(prompt).toContain("不要合成新脸");
+    expect(prompt).toContain("不要把 image 3 的身份引入裁切之外的区域");
     expect(prompt).not.toContain("Reconstruct the final face");
     expect(prompt).not.toContain("Every generated candidate must use image 3's identity");
     expect(prompt).not.toContain("mandatory final face identity reference only");

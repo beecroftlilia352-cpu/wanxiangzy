@@ -1652,41 +1652,45 @@ function buildFixedBaseTryOnPrompt(params: {
   const mustUseModelFace = faceMode === "must_use_model_face";
   const faceSetupLines = mustUseModelFace
     ? [
-        `Reconstruct the final face from ${params.faceRef}'s recognizable identity, face outline, eye/brow/nose/mouth anatomy, feature spacing, and facial proportions, while naturally performing ${params.targetRef}'s expression, skin tone, makeup, head angle, lighting, and camera perspective.`,
-        `Do not preserve ${params.targetRef}'s original facial identity, face shape, eyes, nose, mouth, or recognizable person. Every generated candidate must use ${params.faceRef}'s identity.`,
+        `从 ${params.faceRef}（模特脸图）重建最终脸部身份：保留其脸型、五官、骨相、肤色、年龄感、辨识度；同时适配 ${params.targetRef}（参考图）的自然表情、肤色明暗、妆容、头部角度、光照和镜头视角。`,
+        `禁止保留 ${params.targetRef} 的原脸身份、脸型、眼鼻嘴和可识别特征。每张生成图都必须使用 ${params.faceRef} 的身份。`,
+        `禁止生成与 ${params.faceRef} 无关的新脸；最终图中的脸部只能来源于 ${params.faceRef}，不允许出现合成脸、模板脸或随机脸。`,
       ]
     : [
-        `preserve_reference_face mode: ${params.targetRef}'s detected crop does not host a face swap. Preserve ${params.targetRef}'s original face identity, expression, and skin tone; do not synthesize a new face and do not introduce ${params.faceRef}'s identity outside the original crop.`,
+        `preserve_reference_face mode：${params.targetRef} 当前裁切不承载换脸。保留 ${params.targetRef} 的原脸身份、表情和肤色；不要合成新脸，也不要把 ${params.faceRef} 的身份引入裁切之外的区域。`,
       ];
   const faceRuleLines = mustUseModelFace
     ? [
-        "Face identity rule (must_use_model_face mode):",
-        "This is identity reconstruction. Use the model face image as the final face source.",
-        `Use ${params.faceRef} for recognizable facial identity: face shape, eyes, brows, nose, mouth anatomy, and feature proportions.`,
-        `Use ${params.targetRef}'s original face only as an expression/pose/lighting carrier; do not keep its face outline, eye shape, nose shape, mouth anatomy, or recognizable identity.`,
-        `Do not copy ${params.faceRef}'s original expression style, expression intensity, skin tone, makeup, lighting, pose, body, head size, or background.`,
-        `Adapt ${params.faceRef}'s identity to ${params.targetRef}'s natural expression performance: visible expression category, intensity, emotional direction, gaze behavior, facial tension, and natural asymmetry. Limit adaptation to expression muscles, gaze, skin relighting, makeup matching, pores, shadows, and edge blending; do not alter ${params.faceRef}'s face outline, eye shape, eye spacing, brow shape, nose structure, mouth anatomy, feature proportions, or recognizable likeness.`,
-        `The final face must be recognizable as ${params.faceRef}'s person but naturally integrated, not pasted or ID-photo-like.`,
-        "Face integration:",
-        `Match ${params.targetRef}'s visible skin tone, undertone, brightness, makeup style, pores, subtle redness, reflected light, shadows, and scene lighting.`,
-        `Blend continuously with ${params.targetRef}'s neck, chest, arms, and hands when those body areas are visible, with no mask edge or separate lighting.`,
+        "脸部身份规则（must_use_model_face 模式）：",
+        "这是身份重建，不是贴脸。模特脸图是最终脸部来源。",
+        `用 ${params.faceRef} 的脸型、五官、骨相、眉眼鼻嘴比例作为最终脸部身份。`,
+        `${params.targetRef} 的原脸仅作为表情/姿态/光照载体；不要保留其脸型、眉眼鼻嘴、可识别身份。`,
+        `不要照搬 ${params.faceRef} 原图的表情强度、肤色、妆容、光照、姿态、身体比例和背景。`,
+        `让 ${params.faceRef} 的身份自然适配 ${params.targetRef} 的可见表情：表情类别、强度、情绪方向、视线、面部张力和自然不对称。只在表情肌肉、视线、肤色重新打光、妆容匹配、毛孔、阴影、边缘融合上做适配；不要改变 ${params.faceRef} 的脸型、眉形、眼距、鼻结构、嘴形、五官比例和可识别度。`,
+        `最终脸部必须能被识别为 ${params.faceRef} 本人，且与场景自然融合，不能像贴上去或证件照。`,
+        "肤色融合：",
+        `匹配 ${params.targetRef} 可见区域的肤色、色调、明度、妆容风格、毛孔、轻微红润、反射光、阴影和场景光照。`,
+        `当颈、胸、手臂、手可见时，与 ${params.targetRef} 这些部位自然衔接，无蒙版边缘或独立打光。`,
       ]
     : [
-        "Face identity rule (preserve_reference_face mode):",
-        `Reference image's face is the source of identity. Do not generate a new identity; do not use ${params.faceRef} to add a face/head outside ${params.targetRef}'s original crop.`,
+        "脸部身份规则（preserve_reference_face 模式）：",
+        `参考图的脸部是身份来源。不要生成新身份；不要用 ${params.faceRef} 在 ${params.targetRef} 裁切外添加脸部或头部。`,
       ];
   const priorityLines = mustUseModelFace
     ? [
-        `1. ${params.faceRef} controls final facial identity and feature proportions where a face is visible in the target crop; likeness to ${params.faceRef} is mandatory and stronger than preserving ${params.targetRef}'s original face.`,
-        `2. ${params.clothingSource} controls only the sourced clothing.`,
-        `3. ${params.targetRef} controls the final face's natural expression direction and strength, plus visible body proportions, pose family, skin tone, makeup, lighting, scene, camera style, crop boundary, non-sourced outfit areas, and final mood; it must not control final facial identity.`,
+        `1. ${params.faceRef} 控制最终脸部身份和五官比例；目标与 ${params.faceRef} 的相似度必须强于保留 ${params.targetRef} 的原脸。`,
+        `2. ${params.clothingSource} 仅控制来源服装。`,
+        `3. ${params.targetRef} 控制表情方向与强度、身体比例、姿势族、肤色、妆容、光照、场景、镜头、构图、裁切边界、非服装区、最终氛围；它不能控制最终脸部身份。`,
       ]
     : [
-        `1. ${params.targetRef} controls face identity, expression, skin tone, visible body range, crop boundary, pose family, lighting, scene, camera style, non-sourced outfit areas, and final mood.`,
-        `2. ${params.clothingSource} controls only the sourced clothing.`,
-        `3. ${params.faceRef} must not expand the crop or introduce a new visible face/head.`,
+        `1. ${params.targetRef} 控制脸部身份、表情、肤色、可见身体范围、裁切边界、姿势族、光照、场景、镜头、非服装区、最终氛围。`,
+        `2. ${params.clothingSource} 仅控制来源服装。`,
+        `3. ${params.faceRef} 不能扩展裁切或引入新的可见脸部/头部。`,
       ];
   const lines: string[] = [
+    mustUseModelFace
+      ? `【HARD 硬规则 · 脸部模式 must_use_model_face】模特脸图（${params.faceRef}）是最终脸部身份的唯一来源。本任务禁止出现以下任何一种情况：(a) 最终脸仍像 ${params.targetRef} 原人物；(b) 生成一张与 ${params.faceRef} 无关的新脸、模板脸或合成脸；(c) 跳过换脸或弱化换脸。最终脸必须是 ${params.faceRef} 本人，自然适配 ${params.targetRef} 的表情与场景。`
+      : `【HARD 硬规则 · 脸部模式 preserve_reference_face】参考图（${params.targetRef}）的脸部是最终身份来源。本任务禁止生成新脸，也禁止把 ${params.faceRef} 的身份引入裁切之外的区域。`,
     mustUseModelFace
       ? `Use ${params.targetRef} as the body/composition/lighting base try-on photo, but replace its facial identity with ${params.faceRef}. Perform a realistic fashion edit, not a full photo regeneration.`
       : `Use ${params.targetRef} as the base try-on photo (face identity preserved, no swap). Perform a realistic fashion edit, not a full photo regeneration.`,
