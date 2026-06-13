@@ -812,8 +812,11 @@
     min-height: 0;
     overflow: auto;
     overscroll-behavior: contain;
-    scrollbar-width: thin;
-    scrollbar-color: rgba(91, 124, 255, 0.26) transparent;
+    scrollbar-width: none;
+  }
+
+  .outfit-fusion-workbench > main::-webkit-scrollbar {
+    display: none;
   }
 
   .outfit-fusion-workbench > div.pointer-events-none.fixed {
