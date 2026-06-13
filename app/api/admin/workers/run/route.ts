@@ -1,6 +1,9 @@
+// Agent module is temporarily disabled. The agent-workflows and agent-evals
+// targets here are no-ops; only `generations` runs the real worker.
+// The full agent worker implementation lives on the
+// `refactor/extract-agent-module` branch.
+
 import { NextResponse } from "next/server";
-import { runScheduledBrainEvals } from "@/lib/agent/brain/eval-runner";
-import { runNextAgentWorkflows } from "@/lib/agent/workflow/runtime";
 import { requireAdminApi } from "@/lib/admin/auth";
 import { writeAdminAuditLog } from "@/lib/admin/audit";
 import { runNextGenerationJobs } from "@/lib/api/generation-jobs";
@@ -61,10 +64,9 @@ async function runWorker(target: WorkerTarget, limit: number) {
   if (target === "generations") {
     return runNextGenerationJobs(limit);
   }
-  if (target === "agent-workflows") {
-    return runNextAgentWorkflows(limit);
-  }
-  return runScheduledBrainEvals({ maxUsers: limit, includeFeedbackCases: true });
+  // agent-workflows and agent-evals are disabled while the agent module
+  // is archived on `refactor/extract-agent-module`.
+  return { disabled: "agent module disabled", processed: 0, succeeded: 0, failed: 0, skipped: 0 };
 }
 
 function normalizeTarget(value: unknown): WorkerTarget | null {

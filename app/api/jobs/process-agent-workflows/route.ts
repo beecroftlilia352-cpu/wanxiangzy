@@ -1,10 +1,13 @@
+// Agent module is temporarily disabled. This route is a no-op.
+// The full implementation lives on the `refactor/extract-agent-module` branch.
+// To restore, see `lib/agent/workflow/runtime.ts` there.
+
 import { NextRequest, NextResponse } from "next/server";
-import { runNextAgentWorkflows } from "@/lib/agent/workflow/runtime";
 import { getConfiguredProcessorSecrets } from "@/lib/env";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 300;
+export const maxDuration = 60;
 
 export async function GET(request: NextRequest) {
   return handleProcessRequest(request);
@@ -17,17 +20,14 @@ export async function POST(request: NextRequest) {
 async function handleProcessRequest(request: NextRequest) {
   const authError = validateProcessorAuth(request);
   if (authError) return authError;
-
-  try {
-    const result = await runNextAgentWorkflows(getBatchLimit(request));
-    return NextResponse.json({ ok: true, ...result });
-  } catch (err) {
-    console.error("[jobs] process-agent-workflows failed:", err);
-    return NextResponse.json(
-      { ok: false, error: err instanceof Error ? err.message : "Agent workflow processing failed" },
-      { status: 500 }
-    );
-  }
+  return NextResponse.json({
+    ok: true,
+    processed: 0,
+    succeeded: 0,
+    failed: 0,
+    skipped: 0,
+    disabled: "agent module disabled",
+  });
 }
 
 function validateProcessorAuth(request: NextRequest) {
@@ -48,11 +48,4 @@ function validateProcessorAuth(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   return null;
-}
-
-function getBatchLimit(request: NextRequest) {
-  const rawLimit = request.nextUrl.searchParams.get("limit") || process.env.AGENT_WORKFLOW_BATCH_SIZE;
-  const parsed = Number(rawLimit || 2);
-  if (!Number.isFinite(parsed)) return 2;
-  return Math.min(Math.max(Math.floor(parsed), 1), 10);
 }
