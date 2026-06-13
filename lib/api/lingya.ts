@@ -34,6 +34,7 @@ import { TRYON_CATEGORY_BY_CODE, type TryOnClothingAnalysis } from "@/lib/tryon-
 import {
   buildTryOnReferenceCropLockRule,
   buildTryOnReferenceAnalysisRule,
+  decideTryOnFaceMode,
   type TryOnReferenceAnalysis,
 } from "@/lib/tryon-reference-analysis";
 import {
@@ -425,11 +426,31 @@ export function applyTryOnRequestPrompt(prompt: string, input: TryOnRequestPromp
   lines.push(buildTryOnPhotoFinishDirective(input));
   const cropDirective = buildTryOnRequestCropDirective(input);
   if (cropDirective) lines.push(cropDirective);
+  lines.push(buildTryOnFaceModeDirective(input));
   const candidateDirective = buildTryOnCandidateDirective(input);
   if (candidateDirective) lines.push(candidateDirective);
   const garmentDetailDirective = buildGarmentDetailReferencePrompt(input.garmentDetailCount || 0);
   if (garmentDetailDirective) lines.push(garmentDetailDirective);
   return lines.filter(Boolean).join("\n");
+}
+
+function buildTryOnFaceModeDirective(input: TryOnRequestPromptOptions): string {
+  if (!input.modelFaceUrl) return "";
+  if (!input.referenceUrl) return "";
+  const faceMode = decideTryOnFaceMode({
+    hasModelFace: Boolean(input.modelFaceUrl),
+    referenceAnalysis: input.referenceAnalysis ?? null,
+  });
+  if (faceMode === "must_use_model_face") {
+    return [
+      "脸部来源硬规则（must_use_model_face）：模特脸图是最终脸部身份的唯一来源。",
+      "必须保留模特脸图的脸型、五官、骨相、肤色、年龄感、辨识度，参考图原脸必须被替换掉。",
+      "如果生成结果的脸看起来仍像参考图原人物，则输出无效。",
+    ].join("");
+  }
+  return [
+    "脸部来源规则（preserve_reference_face）：保留参考图的脸部身份、表情、肤色，模特脸图本次任务不使用。",
+  ].join("");
 }
 
 function buildTryOnPhotoFinishDirective(input: TryOnRequestPromptOptions) {

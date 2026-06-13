@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { alignTryOnReferenceAnalyses, buildTryOnReferenceAnalysisRule } from "@/lib/tryon-reference-analysis";
+import { alignTryOnReferenceAnalyses, buildTryOnReferenceAnalysisRule, decideTryOnFaceMode } from "@/lib/tryon-reference-analysis";
 
 describe("try-on reference analysis alignment", () => {
   it("reorders unique explicit indexes and fills missing references", () => {
@@ -86,5 +86,63 @@ describe("try-on reference analysis alignment", () => {
     expect(rule).toContain("do not convert it into a full-body portrait");
     expect(rule).toContain("do not add a head, face, shoulders, or full torso");
     expect(rule).toContain("Do not invent or reveal missing head, face, upper torso");
+  });
+});
+
+describe("decideTryOnFaceMode", () => {
+  const fullBody = {
+    index: 1,
+    bodyCrop: "full_body" as const,
+    personVisible: true,
+    faceVisible: true,
+    headVisible: true,
+    upperBodyVisible: true,
+    lowerBodyVisible: true,
+    handsVisible: true,
+    feetVisible: true,
+    detailFocus: ["outfit"],
+    promptNotes: "Full body.",
+    confidence: 0.9,
+  };
+
+  it("returns must_use_model_face when model face is uploaded and reference is full_body", () => {
+    expect(decideTryOnFaceMode({ hasModelFace: true, referenceAnalysis: fullBody }))
+      .toBe("must_use_model_face");
+  });
+
+  it("returns must_use_model_face when reference is partial_unknown (recognition failed)", () => {
+    expect(decideTryOnFaceMode({ hasModelFace: true, referenceAnalysis: null }))
+      .toBe("must_use_model_face");
+  });
+
+  it("returns preserve_reference_face when model face is not uploaded", () => {
+    expect(decideTryOnFaceMode({ hasModelFace: false, referenceAnalysis: fullBody }))
+      .toBe("preserve_reference_face");
+  });
+
+  it("returns preserve_reference_face when reference is lower_body", () => {
+    expect(decideTryOnFaceMode({
+      hasModelFace: true,
+      referenceAnalysis: { ...fullBody, bodyCrop: "lower_body" },
+    })).toBe("preserve_reference_face");
+  });
+
+  it("returns preserve_reference_face when reference is scene_only", () => {
+    expect(decideTryOnFaceMode({
+      hasModelFace: true,
+      referenceAnalysis: { ...fullBody, bodyCrop: "scene_only" },
+    })).toBe("preserve_reference_face");
+  });
+
+  it("returns preserve_reference_face for closeup without head/face", () => {
+    expect(decideTryOnFaceMode({
+      hasModelFace: true,
+      referenceAnalysis: {
+        ...fullBody,
+        bodyCrop: "closeup",
+        faceVisible: false,
+        headVisible: false,
+      },
+    })).toBe("preserve_reference_face");
   });
 });

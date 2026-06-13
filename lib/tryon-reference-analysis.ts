@@ -241,3 +241,33 @@ function toRecord(value: unknown): Record<string, unknown> {
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
+
+// ---- Face mode decision ----
+// Pure helper for try-on prompts. Decides whether the uploaded model-face image
+// should be treated as the final face source, or whether the reference image's
+// original face should be preserved.
+//
+// Returns:
+// - "must_use_model_face"  -> reference plausibly has a head AND model face is uploaded
+// - "preserve_reference_face" -> no model face uploaded, OR reference is headless
+//   (lower_body / scene_only / closeup-without-head-and-face), OR analysis missing
+//
+// This centralizes the decision in code so the prompt stays single-branch.
+export type TryOnFaceMode = "must_use_model_face" | "preserve_reference_face";
+
+export function decideTryOnFaceMode(params: {
+  hasModelFace: boolean;
+  referenceAnalysis?: TryOnReferenceAnalysis | null;
+}): TryOnFaceMode {
+  if (!params.hasModelFace) return "preserve_reference_face";
+  if (isReferenceHeadless(params.referenceAnalysis)) return "preserve_reference_face";
+  return "must_use_model_face";
+}
+
+function isReferenceHeadless(analysis?: TryOnReferenceAnalysis | null): boolean {
+  if (!analysis) return false; // missing analysis -> assume there may be a head
+  if (analysis.bodyCrop === "lower_body") return true;
+  if (analysis.bodyCrop === "scene_only") return true;
+  if (analysis.bodyCrop === "closeup" && !analysis.headVisible && !analysis.faceVisible) return true;
+  return false;
+}
