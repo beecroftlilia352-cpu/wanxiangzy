@@ -289,8 +289,8 @@ function UploadSlot({
       onClick={() => onClick(role)}
       disabled={uploading}
       className={cn(
-        "group flex h-[88px] w-[88px] shrink-0 flex-col items-center justify-center gap-2 rounded-[6px] border border-dashed border-slate-300 bg-white text-slate-400 transition duration-200 hover:border-slate-400 hover:bg-slate-50 hover:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.20)] focus-visible:ring-offset-1 disabled:cursor-wait disabled:opacity-60",
-        isDragging && "border-[var(--codex-accent)] bg-[rgba(91,124,255,0.10)] text-[var(--codex-accent)] ring-2 ring-[rgba(91,124,255,0.22)]"
+        "group flex h-[88px] w-[88px] shrink-0 flex-col items-center justify-center gap-2 rounded-[6px] border border-dashed border-slate-300 bg-white text-slate-400 transition duration-200 hover:border-slate-400 hover:bg-slate-50 hover:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:ring-offset-1 disabled:cursor-wait disabled:opacity-60",
+        isDragging && "border-blue-500 bg-blue-50 text-blue-500 ring-2 ring-blue-500/20"
       )}
       {...dragHandlers}
     >
