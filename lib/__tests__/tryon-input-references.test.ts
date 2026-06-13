@@ -79,4 +79,46 @@ describe("tryon input reference snapshots", () => {
       { url: "pocket.png", label: "服装细节2" },
     ]);
   });
+
+  it("labels grouped garment detail references by their clothing owner", () => {
+    const references = buildTryOnInputReferences({
+      clothingUrls: ["upper.png", "lower.png"],
+      clothingMode: "multi",
+      clothingRoles: ["upper", "lower"],
+      referenceUrl: "scene.png",
+      modelFaceUrl: "model.png",
+      garmentDetailGroups: [
+        { clothingIndex: 0, urls: ["upper-collar.png"] },
+        { clothingIndex: 1, urls: ["lower-fabric.png", "lower-zipper.png"] },
+      ],
+    });
+
+    expect(references).toEqual([
+      { url: "upper.png", label: "上装" },
+      { url: "lower.png", label: "下装" },
+      { url: "scene.png", label: "参考图" },
+      { url: "model.png", label: "模特" },
+      { url: "upper-collar.png", label: "上装细节1" },
+      { url: "lower-fabric.png", label: "下装细节1" },
+      { url: "lower-zipper.png", label: "下装细节2" },
+    ]);
+  });
+
+  it("keeps grouped detail references compatible with one-piece try-on", () => {
+    const references = buildTryOnInputReferences({
+      clothingUrls: ["dress.png"],
+      clothingMode: "single",
+      clothingRoles: ["single"],
+      referenceUrl: "scene.png",
+      garmentDetailGroups: [
+        { clothingIndex: 0, urls: ["dress-fabric.png"] },
+      ],
+    });
+
+    expect(references).toEqual([
+      { url: "dress.png", label: "连体/全身" },
+      { url: "scene.png", label: "参考图" },
+      { url: "dress-fabric.png", label: "连体/全身细节1" },
+    ]);
+  });
 });

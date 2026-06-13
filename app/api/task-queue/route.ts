@@ -887,6 +887,7 @@ function getInputThumbnails(row: QueueRow, payload: Record<string, unknown>) {
       referenceUrls: stringArray(payload.referenceUrls),
       modelFaceUrl: stringValue(payload.modelFaceUrl) || row.model_face_url,
       garmentDetailUrls: stringArray(payload.garmentDetailUrls),
+      garmentDetailGroups: Array.isArray(payload.garmentDetailGroups) ? payload.garmentDetailGroups : undefined,
     }).slice(0, TRYON_INPUT_REFERENCE_LIMIT);
   }
   return Array.from(new Set([
@@ -896,6 +897,7 @@ function getInputThumbnails(row: QueueRow, payload: Record<string, unknown>) {
     stringValue(payload.sourceUrl),
     stringValue(payload.faceUrl),
     stringValue(payload.mainImageUrl),
+    ...garmentAngleReferenceUrls(payload.garmentAngleReferences),
     ...stringArray(payload.garmentDetailUrls),
     stringValue(payload.garmentUrl),
     stringValue(payload.referenceUrl),
@@ -987,6 +989,15 @@ function clampNumber(value: string | null, min: number, max: number, fallback: n
 
 function stringArray(value: unknown) {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string" && item.trim().length > 0) : [];
+}
+
+function garmentAngleReferenceUrls(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => item && typeof item === "object" && !Array.isArray(item)
+      ? (item as { url?: unknown }).url
+      : item)
+    .filter((item): item is string => typeof item === "string" && item.trim().length > 0);
 }
 
 function stringValue(value: unknown) {

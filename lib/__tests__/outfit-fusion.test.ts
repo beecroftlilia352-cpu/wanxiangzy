@@ -45,6 +45,13 @@ describe("outfit fusion templates", () => {
     expect(prompt).toContain("不要随机脸、不要网红模板脸、不要参考图原脸残留");
     expect(prompt).toContain("图片关系");
     expect(prompt).toContain("商品准确性");
+    expect(prompt).toContain("搭配图来源隔离");
+    expect(prompt).toContain("只提供服装、鞋包、帽子、围巾或配饰商品素材");
+    expect(prompt).toContain("不是人物、姿势、脸部身份、肤色、光照、背景或场景参考");
+    expect(prompt).toContain("材质类型、面料纹理、织法、光泽、厚薄、透明度");
+    expect(prompt).toContain("不要简化或重设计商品细节");
+    expect(prompt).not.toContain("服装细节图");
+    expect(prompt).not.toContain("garmentDetail");
     expect(prompt).toContain("不要多余肢体");
     expect(prompt).toContain("保持电商商拍质感");
     expect(prompt).not.toContain("\n");

@@ -291,7 +291,7 @@ export function buildOutfitFusionPrompt(input: {
     if (asset.role === "model") {
       return `【${label}】是最终脸部身份来源，控制脸型轮廓、五官结构、眼形眼距、眉形、鼻梁/鼻尖/鼻翼、嘴形、骨相和可识别相似度；不提供服装、身体、姿势、背景或光照`;
     }
-    return `【${label}】只提取服装、鞋包、配饰、颜色、材质、版型、图案、Logo 和正确穿戴位置，不复制拍摄背景`;
+    return `【${label}】只作为服装/鞋包/配饰商品来源，不是人物参考。只提取商品本身的品类、款式、廓形、颜色、图案、Logo/文字、材质、面料纹理和正确穿戴位置；不要复制其中的模特、身体、脸、姿势、肤色、光照、背景、场景或拍摄构图`;
   });
   const templatePrompt = input.templatePrompt?.trim() || "让模特穿着所有搭配图中的服装、鞋包和配饰，生成一张真实自然的模特穿搭图。";
   const customPrompt = input.customPrompt?.trim();
@@ -304,12 +304,24 @@ export function buildOutfitFusionPrompt(input: {
     `核心任务：${templatePrompt}`,
     `固定生成规则：最终只生成一张完整的单人商业摄影穿搭照片，输出比例 ${input.config.aspectRatio}，分辨率 ${input.config.imageSize}；不要把参考图、商品图、步骤图或多个候选结果拼到同一张画面里。`,
     `图片关系：${roleLines.join("；")}。`,
-    "商品保真：保持所有服装、鞋包、帽子、围巾和配饰的颜色、轮廓、材质、图案、Logo、层叠关系和穿戴位置准确；不要凭空新增未提供的核心商品。",
+    buildOutfitFusionSourceIsolationRule(labeledAssets),
+    "商品保真：准确保留所有服装、鞋包、帽子、围巾和配饰的品类/款式、版型/廓形、颜色、印花/图案、Logo/文字、材质类型、面料纹理、织法、光泽、厚薄、透明度、领口、肩线、袖型、袖口、腰线、下摆、口袋、纽扣、拉链、缝线、拼接、褶皱、层次、长度、开衩、装饰件、穿戴位置和相互层叠关系；不要把材质改成别的布料，不要简化或重设计商品细节，不要凭空新增未提供的核心商品。",
     priorityRule,
     "画面质量：真实自然商业摄影质感，人物比例自然，肢体连接合理，面部和手部干净，布料褶皱、阴影、接触关系和透视一致。",
     customPrompt ? `补充要求: ${customPrompt}` : "",
     "负面约束：不要随机脸、不要网红模板脸、不要参考图原脸残留、不要混合新脸、不要证件照贴脸、不要面具边缘、不要头脸比例漂移、不要肤色断层、不要多余肢体、不要错误手指、不要变形脸、不要错穿层级、不要错色、不要丢失图案、不要硬贴图、不要塑料质感、不要水印、不要边框、不要海报文字、不要电商模板排版、不要拼图、四宫格、2x2 网格、分屏、contact sheet、before/after 对比图、商品陈列页或多张照片合集。",
   ].filter(Boolean).join(" ");
+}
+
+function buildOutfitFusionSourceIsolationRule(assets: Array<OutfitFusionAsset & { label: string }>) {
+  const outfitLabels = assets.filter((asset) => asset.role === "outfit").map((asset) => `【${asset.label}】`);
+  if (!outfitLabels.length) return "";
+
+  return [
+    "搭配图来源隔离：",
+    `${outfitLabels.join("、")} 只提供服装、鞋包、帽子、围巾或配饰商品素材，不是人物、姿势、脸部身份、肤色、光照、背景或场景参考。`,
+    "如果搭配图里出现模特、假人、手、脚、店铺背景、拍摄布景或商品摆拍光影，只提取商品本体；不得把这些非商品信息带入最终人物。"
+  ].join("");
 }
 
 function buildOutfitFusionFaceIdentityRule(referenceLabels: string[], modelLabels: string[]) {

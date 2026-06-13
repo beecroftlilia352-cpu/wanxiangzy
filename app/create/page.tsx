@@ -96,7 +96,11 @@ import {
   GARMENT_DETAIL_SWITCH_DESCRIPTION,
   GARMENT_DETAIL_UPLOAD_FOOTNOTE,
   MAX_GARMENT_DETAIL_IMAGES,
+  countGarmentDetailImages,
+  flattenGarmentDetailGroups,
+  normalizeGarmentDetailGroups,
   normalizeGarmentDetailUrls,
+  type GarmentDetailReferenceGroup,
 } from "@/lib/garment-detail-references";
 import { createGenericImagePreviewSession, type ImagePreviewAction } from "@/lib/studio-image-preview";
 import type { ReferenceImage } from "@/types";
@@ -586,6 +590,7 @@ export default function CreatePage() {
   const [isDraggingGarmentDetails, setIsDraggingGarmentDetails] = useState(false);
   const [garmentDetailEnabled, setGarmentDetailEnabled] = useState(false);
   const [garmentDetailUrls, setGarmentDetailUrls] = useState<string[]>([]);
+  const [garmentDetailGroups, setGarmentDetailGroups] = useState<GarmentDetailReferenceGroup[]>([]);
   const [isUploadingGarmentDetails, setIsUploadingGarmentDetails] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeQueueTask, setActiveQueueTask] = useState<TaskQueueItem | null>(null);
@@ -613,6 +618,7 @@ export default function CreatePage() {
   const customRefInputRef = useRef<HTMLInputElement>(null);
   const customModelInputRef = useRef<HTMLInputElement>(null);
   const garmentDetailInputRef = useRef<HTMLInputElement>(null);
+  const garmentDetailTargetIndexRef = useRef(0);
   const customRefUploadSeqRef = useRef(0);
   const customModelUploadSeqRef = useRef(0);
   const referenceSelectionTouchedRef = useRef(false);
@@ -676,9 +682,20 @@ export default function CreatePage() {
     return buildReferenceAnalysisKey({ urls: effectiveReferenceUrls, clothingMode, clothingRoles, garmentAudience, ageGroup });
   }, [effectiveReferenceUrls, sceneMode, clothingMode, clothingRoles, garmentAudience, ageGroup]);
   const effectiveReferenceUrl = effectiveReferenceUrls[0] || null;
-  const activeGarmentDetailUrls = useMemo(
+  const activeGarmentDetailGroups = useMemo(
+    () => garmentDetailEnabled ? normalizeGarmentDetailGroups(garmentDetailGroups, uploadedClothingUrls.length) : [],
+    [garmentDetailEnabled, garmentDetailGroups, uploadedClothingUrls.length]
+  );
+  const activeUnassignedGarmentDetailUrls = useMemo(
     () => garmentDetailEnabled ? normalizeGarmentDetailUrls(garmentDetailUrls) : [],
     [garmentDetailEnabled, garmentDetailUrls]
+  );
+  const activeGarmentDetailUrls = useMemo(
+    () => normalizeGarmentDetailUrls([
+      ...flattenGarmentDetailGroups(activeGarmentDetailGroups),
+      ...activeUnassignedGarmentDetailUrls,
+    ]),
+    [activeGarmentDetailGroups, activeUnassignedGarmentDetailUrls]
   );
   const referenceMultiplier = sceneMode === "auto_design" ? 1 : effectiveReferenceUrls.length;
   const expectedOutputCount = genCount * referenceMultiplier;
@@ -712,6 +729,13 @@ export default function CreatePage() {
   const upperClothing = clothingItems.find((item) => item.role === "upper");
   const lowerClothing = clothingItems.find((item) => item.role === "lower");
   const singleClothing = clothingItems[0] || null;
+  const activeGarmentDetailTotal = activeGarmentDetailUrls.length;
+  const getGarmentDetailUrlsForClothing = (clothingIndex: number) => (
+    activeGarmentDetailGroups.find((group) => group.clothingIndex === clothingIndex)?.urls || []
+  );
+  const getGarmentDetailOwnerLabel = (role: TryOnClothingRole, index: number) => (
+    TRYON_CLOTHING_ROLE_LABELS[role] || `服装${index + 1}`
+  );
   const openLightbox = (src: string, alt: string) => {
     setLightboxImage({ src, alt });
   };
@@ -1266,9 +1290,11 @@ export default function CreatePage() {
     );
     store.setClothing(files, payload.clothingUrls);
     setUploadedClothingUrls(payload.clothingUrls);
-    const historyGarmentDetailUrls = normalizeGarmentDetailUrls(payload.garmentDetailUrls);
+    const historyGarmentDetailGroups = normalizeGarmentDetailGroups(payload.garmentDetailGroups, payload.clothingUrls.length);
+    const historyGarmentDetailUrls = historyGarmentDetailGroups.length ? [] : normalizeGarmentDetailUrls(payload.garmentDetailUrls);
+    setGarmentDetailGroups(historyGarmentDetailGroups);
     setGarmentDetailUrls(historyGarmentDetailUrls);
-    setGarmentDetailEnabled(historyGarmentDetailUrls.length > 0);
+    setGarmentDetailEnabled(countGarmentDetailImages(historyGarmentDetailGroups, historyGarmentDetailUrls) > 0);
     const nextClothingMode = normalizeTryOnClothingMode(payload.clothingMode || (payload.clothingUrls.length > 1 ? "multi" : "single"));
     setClothingMode(nextClothingMode);
     const nextClothingRoles = payload.clothingUrls.map((_, index) => normalizeTryOnClothingRole(
@@ -1377,6 +1403,7 @@ export default function CreatePage() {
       referenceUrls: appliedSceneMode === "auto_design" ? [] : historyReferenceUrls,
       modelFaceUrl: payload.modelFaceUrl,
       garmentDetailUrls: historyGarmentDetailUrls,
+      garmentDetailGroups: historyGarmentDetailGroups,
     }));
     toast.success("已套用历史参数");
     })();
@@ -1418,10 +1445,20 @@ export default function CreatePage() {
   };
 
   const applyClothingItems = (items: ClothingItemState[]) => {
+    const previousItems = getCurrentClothingItemStates();
+    const previousDetailGroups = normalizeGarmentDetailGroups(garmentDetailGroups, uploadedClothingUrls.length);
     const sortedItems = [...items].sort((a, b) => CLOTHING_ROLE_ORDER[a.role] - CLOTHING_ROLE_ORDER[b.role]);
+    const nextDetailGroups = sortedItems.flatMap((item, nextIndex) => {
+      const previousIndex = previousItems.findIndex((current) => current.url === item.url && current.role === item.role);
+      if (previousIndex < 0) return [];
+      const urls = previousDetailGroups.find((group) => group.clothingIndex === previousIndex)?.urls || [];
+      return urls.length ? [{ clothingIndex: nextIndex, urls }] : [];
+    });
     store.setClothing(sortedItems.map((item) => item.file), sortedItems.map((item) => item.preview));
     setUploadedClothingUrls(sortedItems.map((item) => item.url));
     setClothingRoles(sortedItems.map((item) => item.role));
+    setGarmentDetailGroups(nextDetailGroups);
+    setGarmentDetailUrls([]);
     setPromptOverride(null);
     store.setPromptUsed("");
   };
@@ -1605,6 +1642,13 @@ export default function CreatePage() {
     store.removeClothing(index);
     setUploadedClothingUrls(prev => prev.filter((_, i) => i !== index));
     setClothingRoles(prev => prev.filter((_, i) => i !== index));
+    setGarmentDetailGroups(prev => normalizeGarmentDetailGroups(prev, uploadedClothingUrls.length)
+      .filter((group) => group.clothingIndex !== index)
+      .map((group) => ({
+        ...group,
+        clothingIndex: group.clothingIndex > index ? group.clothingIndex - 1 : group.clothingIndex,
+      })));
+    setGarmentDetailUrls([]);
     setPromptOverride(null);
     store.setPromptUsed("");
   };
@@ -1615,14 +1659,22 @@ export default function CreatePage() {
     store.setPromptUsed("");
   };
 
-  const handleGarmentDetailFiles = async (files?: FileList | File[]) => {
+  const handleGarmentDetailFiles = async (files?: FileList | File[], clothingIndex = garmentDetailTargetIndexRef.current) => {
     if (isUploadingGarmentDetails) {
       toast.info("服装细节图上传中，请稍候");
       return;
     }
+    if (!uploadedClothingUrls[clothingIndex]) {
+      toast.info("请先上传对应的服装主图");
+      return;
+    }
     const arr = Array.from(files || []);
     if (!arr.length) return;
-    const remaining = MAX_GARMENT_DETAIL_IMAGES - garmentDetailUrls.length;
+    const currentTotal = countGarmentDetailImages(
+      normalizeGarmentDetailGroups(garmentDetailGroups, uploadedClothingUrls.length),
+      garmentDetailUrls
+    );
+    const remaining = MAX_GARMENT_DETAIL_IMAGES - currentTotal;
     if (remaining <= 0) {
       toast.info(`服装细节图最多 ${MAX_GARMENT_DETAIL_IMAGES} 张`);
       return;
@@ -1653,18 +1705,35 @@ export default function CreatePage() {
         }
       });
       if (uploadedUrls.length) {
-        setGarmentDetailUrls((prev) => normalizeGarmentDetailUrls([...prev, ...uploadedUrls]));
+        setGarmentDetailGroups((prev) => {
+          const groups = normalizeGarmentDetailGroups(prev, uploadedClothingUrls.length);
+          const next = new Map(groups.map((group) => [group.clothingIndex, [...group.urls]]));
+          next.set(clothingIndex, normalizeGarmentDetailUrls([...(next.get(clothingIndex) || []), ...uploadedUrls], MAX_GARMENT_DETAIL_IMAGES));
+          return Array.from(next.entries())
+            .sort(([a], [b]) => a - b)
+            .map(([groupIndex, urls]) => ({ clothingIndex: groupIndex, urls }));
+        });
+        setGarmentDetailUrls([]);
         setPromptOverride(null);
         store.setPromptUsed("");
-        toast.success(`已添加 ${uploadedUrls.length} 张服装细节图`);
+        const role = clothingRoles[clothingIndex] || (clothingMode === "multi" ? clothingIndex === 0 ? "upper" : clothingIndex === 1 ? "lower" : "extra" : "single");
+        toast.success(`已为${getGarmentDetailOwnerLabel(role, clothingIndex)}添加 ${uploadedUrls.length} 张细节图`);
       }
     } finally {
       setIsUploadingGarmentDetails(false);
     }
   };
 
-  const removeGarmentDetail = (url: string) => {
-    setGarmentDetailUrls((prev) => prev.filter((item) => item !== url));
+  const removeGarmentDetail = (url: string, clothingIndex?: number) => {
+    if (typeof clothingIndex === "number") {
+      setGarmentDetailGroups((prev) => normalizeGarmentDetailGroups(prev, uploadedClothingUrls.length)
+        .map((group) => group.clothingIndex === clothingIndex
+          ? { ...group, urls: group.urls.filter((item) => item !== url) }
+          : group)
+        .filter((group) => group.urls.length));
+    } else {
+      setGarmentDetailUrls((prev) => prev.filter((item) => item !== url));
+    }
     setPromptOverride(null);
     store.setPromptUsed("");
   };
@@ -2018,6 +2087,9 @@ export default function CreatePage() {
     setActiveTaskReferences([]);
     setSceneMode("upload_reference");
     setAutoDesign(DEFAULT_AUTO_DESIGN);
+    setGarmentDetailGroups([]);
+    setGarmentDetailUrls([]);
+    setGarmentDetailEnabled(false);
     if (garmentDetailInputRef.current) garmentDetailInputRef.current.value = "";
     store.reset();
   }, [cancelTaskSelection, removeTaskQueueItem, store]);
@@ -2036,9 +2108,11 @@ export default function CreatePage() {
     );
     store.setClothing(files, payload.clothingUrls);
     setUploadedClothingUrls(payload.clothingUrls);
-    const historyGarmentDetailUrls = normalizeGarmentDetailUrls(payload.garmentDetailUrls);
+    const historyGarmentDetailGroups = normalizeGarmentDetailGroups(payload.garmentDetailGroups, payload.clothingUrls.length);
+    const historyGarmentDetailUrls = historyGarmentDetailGroups.length ? [] : normalizeGarmentDetailUrls(payload.garmentDetailUrls);
+    setGarmentDetailGroups(historyGarmentDetailGroups);
     setGarmentDetailUrls(historyGarmentDetailUrls);
-    setGarmentDetailEnabled(historyGarmentDetailUrls.length > 0);
+    setGarmentDetailEnabled(countGarmentDetailImages(historyGarmentDetailGroups, historyGarmentDetailUrls) > 0);
 
     const nextClothingMode = normalizeTryOnClothingMode(
       payload.clothingMode || (payload.clothingUrls.length > 1 ? "multi" : "single")
@@ -2153,6 +2227,7 @@ export default function CreatePage() {
       referenceUrls: appliedSceneMode === "auto_design" ? [] : historyReferenceUrls,
       modelFaceUrl: payload.modelFaceUrl,
       garmentDetailUrls: historyGarmentDetailUrls,
+      garmentDetailGroups: historyGarmentDetailGroups,
     }));
     store.setResult(options?.resultUrls || []);
     store.setError(options?.errorMessage || null);
@@ -2301,7 +2376,8 @@ export default function CreatePage() {
       clothingRoles,
       referenceUrls: effectiveReferenceUrls,
       modelFaceUrl: store.selectedModel?.image_url,
-      garmentDetailUrls: activeGarmentDetailUrls,
+      garmentDetailUrls: activeUnassignedGarmentDetailUrls,
+      garmentDetailGroups: activeGarmentDetailGroups,
     });
     const taskInputThumbnails = taskInputReferences.map((item) => item.url);
     setActiveTaskReferences(taskInputReferences);
@@ -2352,7 +2428,8 @@ export default function CreatePage() {
           clothing_mode: clothingMode,
           clothing_roles: clothingRoles,
           clothing_analysis: clothingAnalysis,
-          garment_detail_urls: activeGarmentDetailUrls,
+          garment_detail_urls: activeUnassignedGarmentDetailUrls,
+          garment_detail_groups: activeGarmentDetailGroups,
           garment_audience: garmentAudience,
           age_group: ageGroup,
           garment_category: isIntimateGarment ? "intimate" : "regular",
@@ -2470,7 +2547,8 @@ export default function CreatePage() {
           clothingRoles,
           referenceUrls: effectiveReferenceUrls,
           modelFaceUrl: store.selectedModel?.image_url,
-          garmentDetailUrls: activeGarmentDetailUrls,
+          garmentDetailUrls: activeUnassignedGarmentDetailUrls,
+          garmentDetailGroups: activeGarmentDetailGroups,
         });
     return references.map((item) => ({
       url: item.url,
@@ -2481,7 +2559,7 @@ export default function CreatePage() {
           ? "model" as const
           : "reference" as const,
     }));
-  }, [activeGarmentDetailUrls, activeTaskReferences, clothingMode, clothingRoles, effectiveReferenceUrls, store.selectedModel?.image_url, uploadedClothingUrls]);
+  }, [activeGarmentDetailGroups, activeTaskReferences, activeUnassignedGarmentDetailUrls, clothingMode, clothingRoles, effectiveReferenceUrls, store.selectedModel?.image_url, uploadedClothingUrls]);
   const tryonPreviewErrors = useMemo(
     () => Array.from({ length: activeResultExpectedCount }, (_, index) => (
       hasCompletedPartialResults && !displayedResultUrls[index]
@@ -2806,7 +2884,7 @@ export default function CreatePage() {
                 onClick={toggleGarmentDetails}
                 className={`flex w-full items-center justify-between rounded-2xl border p-3 text-left transition-all ${
                   garmentDetailEnabled
-                    ? "border-emerald-300 bg-emerald-50 text-emerald-800"
+                    ? "border-blue-300 bg-blue-50 text-blue-800"
                     : "border-neutral-200 bg-white text-neutral-700 hover:border-neutral-300"
                 }`}
               >
@@ -2816,7 +2894,7 @@ export default function CreatePage() {
                     {GARMENT_DETAIL_SWITCH_DESCRIPTION}
                   </span>
                 </span>
-                <span className={`ml-3 flex h-7 w-12 shrink-0 items-center rounded-full p-1 transition ${garmentDetailEnabled ? "bg-emerald-600" : "bg-neutral-200"}`}>
+                <span className={`ml-3 flex h-7 w-12 shrink-0 items-center rounded-full p-1 transition ${garmentDetailEnabled ? "bg-[var(--codex-accent)]" : "bg-neutral-200"}`}>
                   <span className={`h-5 w-5 rounded-full bg-white shadow transition ${garmentDetailEnabled ? "translate-x-5" : "translate-x-0"}`} />
                 </span>
               </button>
@@ -2825,79 +2903,172 @@ export default function CreatePage() {
                 <StudioUploadSection
                   title={(
                     <span className="flex items-center gap-2">
-                      服装细节图
-                      <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-600">
-                        {garmentDetailUrls.length}/{MAX_GARMENT_DETAIL_IMAGES}
+                      给每件服装补细节
+                      <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-600">
+                        {activeGarmentDetailTotal}/{MAX_GARMENT_DETAIL_IMAGES}
                       </span>
                     </span>
                   )}
                   inputRef={garmentDetailInputRef}
-                  onFiles={handleGarmentDetailFiles}
+                  onFiles={(files) => handleGarmentDetailFiles(files)}
                   multiple
                   isDragging={isDraggingGarmentDetails}
                   setDragging={setIsDraggingGarmentDetails}
-                  className="rounded-2xl border border-emerald-100 bg-emerald-50/35 p-3"
+                  className="rounded-2xl border border-blue-100 bg-blue-50/35 p-3"
                 >
-                  {(openFileDialog) => (
-                    garmentDetailUrls.length === 0 ? (
-                      <StudioUploadTile
-                        title="上传 / 拖拽服装细节"
-                        description="面料、领口、口袋、背面、侧面、袖口、拉链、纽扣、logo 或局部特写。"
-                        imageAlt="服装细节图"
-                        isDragging={isDraggingGarmentDetails}
-                        disabled={isUploadingGarmentDetails}
-                        loading={isUploadingGarmentDetails}
-                        supportBadge={`最多 ${MAX_GARMENT_DETAIL_IMAGES} 张`}
-                        onUploadClick={openFileDialog}
-                        uploadLabel="上传细节图"
-                        loadingLabel="上传细节图..."
-                        footnote={GARMENT_DETAIL_UPLOAD_FOOTNOTE}
-                      />
-                    ) : (
+                  {(openFileDialog) => {
+                    const detailSlots = clothingItems
+                      .map((item) => ({
+                        item,
+                        clothingIndex: uploadedClothingUrls.findIndex((url) => url === item.url),
+                      }))
+                      .filter((entry) => entry.clothingIndex >= 0);
+                    const remainingDetailCount = MAX_GARMENT_DETAIL_IMAGES - activeGarmentDetailTotal;
+                    const canAddDetail = remainingDetailCount > 0 && !isUploadingGarmentDetails;
+                    const openDetailDialog = (clothingIndex: number) => {
+                      garmentDetailTargetIndexRef.current = clothingIndex;
+                      openFileDialog();
+                    };
+
+                    return (
                       <div className="space-y-3">
-                        <div className="grid grid-cols-3 gap-2">
-                          {garmentDetailUrls.map((url, index) => (
-                            <div key={url} className="group relative overflow-hidden rounded-lg border-2 border-emerald-300 bg-white shadow-sm">
-                              <button
-                                type="button"
-                                onClick={() => openLightbox(url, `服装细节图${index + 1}`)}
-                                className="block w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
-                                aria-label={`预览服装细节图${index + 1}`}
-                              >
-                                <img src={url} alt={`服装细节图${index + 1}`} className="aspect-[3/4] w-full object-cover" />
-                                <span className="absolute bottom-1 left-1 rounded-full bg-white/90 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700">
-                                  细节{index + 1}
-                                </span>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => removeGarmentDetail(url)}
-                                className="absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/88 text-slate-500 shadow-sm transition hover:text-red-500"
-                                aria-label={`移除服装细节图${index + 1}`}
-                              >
-                                <X className="h-3.5 w-3.5" />
-                              </button>
+                        {detailSlots.length === 0 ? (
+                          <button
+                            type="button"
+                            onClick={() => openClothingPicker(clothingMode === "multi" ? "upper" : "single")}
+                            className="flex w-full items-center gap-3 rounded-xl border border-dashed border-blue-200 bg-white/85 p-3 text-left text-blue-700 transition hover:border-blue-300 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                          >
+                            <Upload className="h-5 w-5 shrink-0" />
+                            <span className="min-w-0">
+                              <span className="block text-xs font-bold">先上传服装主图</span>
+                              <span className="mt-0.5 block text-[11px] leading-4 text-blue-700/75">
+                                上传后可以在对应服装下补充领口、面料、logo、背面或侧面细节。
+                              </span>
+                            </span>
+                          </button>
+                        ) : (
+                          <div className="grid gap-3">
+                            {detailSlots.map(({ item, clothingIndex }) => {
+                              const details = getGarmentDetailUrlsForClothing(clothingIndex);
+                              const roleLabel = getGarmentDetailOwnerLabel(item.role, clothingIndex);
+                              return (
+                                <div
+                                  key={`${item.url}-${clothingIndex}`}
+                                  onPointerEnter={() => { garmentDetailTargetIndexRef.current = clothingIndex; }}
+                                  className="rounded-xl border border-blue-100 bg-white/90 p-2.5 shadow-sm"
+                                >
+                                  <div className="flex gap-3">
+                                    <button
+                                      type="button"
+                                      onClick={() => openLightbox(item.preview, `${roleLabel}主图`)}
+                                      className="relative h-24 w-[72px] shrink-0 overflow-hidden rounded-lg border border-slate-100 bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                                      aria-label={`预览${roleLabel}主图`}
+                                    >
+                                      <img src={item.preview} alt={`${roleLabel}主图`} className="h-full w-full object-cover" />
+                                      <span className="absolute bottom-1 left-1 rounded-md bg-white/90 px-1.5 py-0.5 text-[10px] font-bold text-slate-700">
+                                        {roleLabel}
+                                      </span>
+                                    </button>
+
+                                    <div className="min-w-0 flex-1">
+                                      <div className="flex items-start justify-between gap-2">
+                                        <div className="min-w-0">
+                                          <p className="truncate text-xs font-black text-slate-900">{roleLabel}细节</p>
+                                          <p className="mt-0.5 text-[11px] leading-4 text-slate-500">
+                                            只放这一件的材质、结构或局部特写。
+                                          </p>
+                                        </div>
+                                        <span className="shrink-0 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-600">
+                                          {details.length} 张
+                                        </span>
+                                      </div>
+
+                                      <div className="mt-2 grid grid-cols-4 gap-2">
+                                        {details.map((url, index) => (
+                                          <div key={url} className="group relative overflow-hidden rounded-lg border border-blue-200 bg-white">
+                                            <button
+                                              type="button"
+                                              onClick={() => openLightbox(url, `${roleLabel}细节${index + 1}`)}
+                                              className="block w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                                              aria-label={`预览${roleLabel}细节${index + 1}`}
+                                            >
+                                              <img src={url} alt={`${roleLabel}细节${index + 1}`} className="aspect-square w-full object-cover" />
+                                              <span className="absolute bottom-1 left-1 rounded-md bg-white/90 px-1.5 py-0.5 text-[10px] font-bold text-blue-700">
+                                                {index + 1}
+                                              </span>
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => removeGarmentDetail(url, clothingIndex)}
+                                              className="absolute right-1 top-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/90 text-slate-500 shadow-sm transition hover:text-red-500"
+                                              aria-label={`移除${roleLabel}细节${index + 1}`}
+                                            >
+                                              <X className="h-3 w-3" />
+                                            </button>
+                                          </div>
+                                        ))}
+                                        <button
+                                          type="button"
+                                          onClick={() => openDetailDialog(clothingIndex)}
+                                          disabled={!canAddDetail}
+                                          className={`flex aspect-square flex-col items-center justify-center rounded-lg border border-dashed bg-white text-blue-500 transition hover:border-blue-400 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50 ${isDraggingGarmentDetails ? "border-blue-400 bg-blue-50" : "border-blue-200"}`}
+                                          aria-label={`添加${roleLabel}细节图`}
+                                          title={remainingDetailCount <= 0 ? `最多 ${MAX_GARMENT_DETAIL_IMAGES} 张细节图` : `添加${roleLabel}细节图`}
+                                        >
+                                          {isUploadingGarmentDetails ? <Loader2 className="mb-1 h-4 w-4 animate-spin" /> : <Upload className="mb-1 h-4 w-4" />}
+                                          <span className="text-[11px] font-semibold">添加</span>
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+
+                        {activeUnassignedGarmentDetailUrls.length > 0 && (
+                          <div className="rounded-xl border border-amber-100 bg-amber-50/70 p-2.5">
+                            <div className="mb-2 flex items-center justify-between gap-2">
+                              <p className="text-xs font-bold text-amber-800">历史未归属细节</p>
+                              <span className="text-[10px] font-semibold text-amber-700">
+                                {activeUnassignedGarmentDetailUrls.length} 张
+                              </span>
                             </div>
-                          ))}
-                          {garmentDetailUrls.length < MAX_GARMENT_DETAIL_IMAGES && (
-                            <button
-                              type="button"
-                              onClick={openFileDialog}
-                              disabled={isUploadingGarmentDetails}
-                              className={`flex aspect-[3/4] flex-col items-center justify-center rounded-lg border-2 border-dashed bg-white text-emerald-500 transition hover:border-emerald-400 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50 ${isDraggingGarmentDetails ? "border-emerald-400 bg-emerald-50" : "border-emerald-200"}`}
-                              aria-label="添加服装细节图"
-                            >
-                              {isUploadingGarmentDetails ? <Loader2 className="mb-1 h-5 w-5 animate-spin" /> : <Upload className="mb-1 h-5 w-5" />}
-                              <span className="text-xs font-semibold">添加</span>
-                            </button>
-                          )}
-                        </div>
-                        <p className="text-[11px] leading-relaxed text-emerald-700/85">
+                            <div className="grid grid-cols-5 gap-2">
+                              {activeUnassignedGarmentDetailUrls.map((url, index) => (
+                                <div key={url} className="relative overflow-hidden rounded-lg border border-amber-200 bg-white">
+                                  <button
+                                    type="button"
+                                    onClick={() => openLightbox(url, `未归属细节${index + 1}`)}
+                                    className="block w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+                                    aria-label={`预览未归属细节${index + 1}`}
+                                  >
+                                    <img src={url} alt={`未归属细节${index + 1}`} className="aspect-square w-full object-cover" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => removeGarmentDetail(url)}
+                                    className="absolute right-1 top-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/90 text-slate-500 shadow-sm transition hover:text-red-500"
+                                    aria-label={`移除未归属细节${index + 1}`}
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                            <p className="mt-2 text-[11px] leading-4 text-amber-700">
+                              旧任务带来的细节图没有服装归属，生成时只会在明显匹配时轻量使用。
+                            </p>
+                          </div>
+                        )}
+
+                        <p className="rounded-lg bg-blue-50/70 px-2.5 py-2 text-[11px] leading-relaxed text-blue-800">
                           {GARMENT_DETAIL_UPLOAD_FOOTNOTE}
                         </p>
                       </div>
-                    )
-                  )}
+                    );
+                  }}
                 </StudioUploadSection>
               )}
             </div>
@@ -3678,7 +3849,15 @@ export default function CreatePage() {
                   { label: clothingMode === "multi" ? "上装/下装参考" : "连体服装参考", url: store.clothingPreviews[0] },
                   { label: "模特参考", url: store.selectedModel?.image_url },
                   ...selectedReferenceImages.map((item, index) => ({ label: `姿势/场景参考${selectedReferenceImages.length > 1 ? index + 1 : ""}`, url: item.url })),
-                  ...activeGarmentDetailUrls.map((url, index) => ({ label: `服装细节${index + 1}`, url })),
+                  ...activeGarmentDetailGroups.flatMap((group) => {
+                    const role = clothingRoles[group.clothingIndex]
+                      || (clothingMode === "multi"
+                        ? group.clothingIndex === 0 ? "upper" : group.clothingIndex === 1 ? "lower" : "extra"
+                        : "single");
+                    const roleLabel = getGarmentDetailOwnerLabel(role, group.clothingIndex);
+                    return group.urls.map((url, index) => ({ label: `${roleLabel}细节${index + 1}`, url }));
+                  }),
+                  ...activeUnassignedGarmentDetailUrls.map((url, index) => ({ label: `未归属细节${index + 1}`, url })),
                 ]}
                 metaItems={[aspectRatio, imageSize, sceneMode === "auto_design" ? "自动设计" : `${selectedReferenceCount} 张参考`, activeGarmentDetailUrls.length ? `${activeGarmentDetailUrls.length} 张细节` : ""].filter(Boolean)}
               />

@@ -5,9 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   Check,
   ChevronRight,
-  CirclePlus,
   Copy,
-  Loader2,
   RotateCcw,
   Activity,
   UserRoundCheck,
@@ -26,6 +24,7 @@ import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
 import { useStudioAuth } from "@/components/studio/useStudioAuth";
 import type { TaskSelectionSession } from "@/components/studio/useTaskSelectionSession";
 import { StudioResultViewport, type StudioResultStatus } from "@/components/studio/StudioResultViewport";
+import { StudioMultiImageUpload } from "@/components/studio/StudioMultiImageUpload";
 import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
 import { StudioGenerationCountSelector, StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/components/studio/StudioFormControls";
 import { StudioRunBar } from "@/components/studio/StudioRunBar";
@@ -54,7 +53,6 @@ import {
   MAX_FILE_SIZE_MB,
   uploadImage,
 } from "@/lib/utils";
-import { getImageVariantUrl } from "@/lib/image-variants";
 import { showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
 import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { fetchHistoryApplyDetail, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
@@ -137,6 +135,7 @@ export default function FaceSwapPage() {
   const [genderFilter, setGenderFilter] = useState<GenderFilter>("female");
   const [isUploadingOriginal, setIsUploadingOriginal] = useState(false);
   const [isUploadingFace, setIsUploadingFace] = useState(false);
+  const [isOriginalDragging, setIsOriginalDragging] = useState(false);
   const [status, setStatus] = useState<GenerationStatus>("idle");
   const [progress, setProgress] = useState(0);
   const [generationId, setGenerationId] = useState("");
@@ -593,108 +592,46 @@ export default function FaceSwapPage() {
             title="原始模特图"
             inputRef={originalInputRef}
             multiple
+            isDragging={isOriginalDragging}
+            setDragging={setIsOriginalDragging}
             onFiles={(files) => handleUpload(files, "source")}
           >
-            {(openFileDialog, dragContext) => (
-              <>
-                {sourceUrls.length === 0 ? (
-                  <StudioUploadTile
-                    title="上传需要处理的原图"
-                    description="图1作为身体、服装和构图基础，建议主体完整、画面清晰。"
-                    imageUrl={null}
-                    imageAlt="已上传的原始模特图"
-                    loading={isUploadingOriginal}
-                    onUploadClick={openFileDialog}
-                    onLibraryClick={() => toast.info("作品库选择即将接入")}
-                    onDropFile={(file) => file && handleUpload([file], "source")}
-                    dragContext={dragContext}
-                    uploadLabel="从本地上传"
-                    libraryLabel="从作品选择"
-                    footnote={`支持同时上传多张原图（最多 ${MAX_FACE_SWAP_SOURCE_IMAGES} 张），每张原图×生成数量。主体完整、脸部清晰时最稳。`}
-                    examples={{
-                      label: "试一试",
-                      images: FACE_SWAP_SAMPLE_IMAGES.map((sample) => ({ url: sample.url, title: `示例图 ${sample.id}` })),
-                      onSelect: (image) => {
-                        setSourceUrls([image.url]);
-                        resetGenerationForInputChange();
-                      },
-                    }}
-                  />
-                ) : (
-                  <div className="studio-upload-tile" {...(dragContext ? {
-                    onDragEnter: (e: React.DragEvent) => { e.preventDefault(); },
-                    onDragOver: (e: React.DragEvent) => { e.preventDefault(); },
-                    onDrop: (e: React.DragEvent) => {
-                      e.preventDefault();
-                      const file = e.dataTransfer.files?.[0];
-                      if (file) handleUpload([file], "source");
-                    },
-                  } : {})}>
-                    <div className="studio-upload-tile-panel">
-                      <div className="grid grid-cols-2 gap-2 p-2 sm:grid-cols-3">
-                        {sourceUrls.map((url, index) => (
-                          <div key={url} className="group relative aspect-square overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50">
-                            <img src={getImageVariantUrl(url, "card")} alt={`原图 ${index + 1}`} className="h-full w-full object-contain" />
-                            <div className="absolute inset-x-0 bottom-0 flex items-center justify-between bg-gradient-to-t from-black/60 to-transparent p-1.5 pt-4">
-                              <span className="text-xs font-bold text-white">图{index + 1}</span>
-                              <div className="flex gap-1">
-                                <button
-                                  type="button"
-                                  onClick={() => openLightbox(url, `原始模特图 ${index + 1}`)}
-                                  className="flex h-5 w-5 items-center justify-center rounded-full bg-white/80 text-slate-700 hover:bg-white"
-                                  title="预览"
-                                >
-                                  <ZoomIn className="h-3 w-3" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setSourceUrls((prev) => prev.filter((_, i) => i !== index));
-                                    resetGenerationForInputChange();
-                                  }}
-                                  className="flex h-5 w-5 items-center justify-center rounded-full bg-white/80 text-red-600 hover:bg-white"
-                                  title="移除"
-                                >
-                                  <X className="h-3 w-3" />
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                        {sourceUrls.length < MAX_FACE_SWAP_SOURCE_IMAGES && (
-                          <button
-                            type="button"
-                            onClick={openFileDialog}
-                            disabled={isUploadingOriginal}
-                            className="flex aspect-square flex-col items-center justify-center rounded-xl border-2 border-dashed border-neutral-300 bg-neutral-50 text-neutral-400 transition hover:border-[var(--codex-accent)] hover:text-[var(--codex-accent)]"
-                          >
-                            {isUploadingOriginal ? (
-                              <Loader2 className="h-5 w-5 animate-spin" />
-                            ) : (
-                              <>
-                                <CirclePlus className="h-5 w-5" />
-                                <span className="mt-1 text-xs font-bold">添加</span>
-                              </>
-                            )}
-                          </button>
-                        )}
-                      </div>
-                      <div className="flex items-center justify-between border-t border-neutral-100 px-3 py-2">
-                        <span className="text-xs text-slate-500">
-                          {sourceUrls.length}/{MAX_FACE_SWAP_SOURCE_IMAGES} 张原图 · 共生成 {sourceUrls.length * normalizeFaceSwapCount(genCount)} 张
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => { setSourceUrls([]); resetGenerationForInputChange(); }}
-                          className="text-xs font-bold text-slate-500 hover:text-red-600"
-                        >
-                          清空
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </>
+            {(openFileDialog) => (
+              <StudioMultiImageUpload
+                urls={sourceUrls}
+                maxCount={MAX_FACE_SWAP_SOURCE_IMAGES}
+                title="已上传原始模特图"
+                emptyTitle="上传需要处理的原图"
+                description="图1作为身体、服装和构图基础，可继续补充多张原图批量换脸。"
+                emptyDescription="图1作为身体、服装和构图基础，建议主体完整、画面清晰。"
+                itemLabelPrefix="图"
+                loading={isUploadingOriginal}
+                isDragging={isOriginalDragging}
+                uploadLabel="从本地上传"
+                libraryLabel="从作品选择"
+                summary={sourceUrls.length ? `共生成 ${sourceUrls.length * normalizeFaceSwapCount(genCount)} 张` : undefined}
+                footnote={`支持同时上传多张原图（最多 ${MAX_FACE_SWAP_SOURCE_IMAGES} 张），每张原图 × 生成数量。主体完整、脸部清晰时最稳。`}
+                onUploadClick={openFileDialog}
+                onLibraryClick={() => toast.info("作品库选择即将接入")}
+                onPreview={(url, index) => openLightbox(url, `原始模特图 ${index + 1}`)}
+                onRemove={(_, index) => {
+                  setSourceUrls((prev) => prev.filter((__, i) => i !== index));
+                  resetGenerationForInputChange();
+                }}
+                onClear={() => {
+                  setSourceUrls([]);
+                  resetGenerationForInputChange();
+                }}
+                examples={{
+                  label: "试一试",
+                  images: FACE_SWAP_SAMPLE_IMAGES.map((sample) => ({ url: sample.url, title: `示例图 ${sample.id}` })),
+                  disabled: isUploadingOriginal,
+                  onSelect: (image) => {
+                    setSourceUrls([image.url]);
+                    resetGenerationForInputChange();
+                  },
+                }}
+              />
             )}
           </StudioUploadSection>
 

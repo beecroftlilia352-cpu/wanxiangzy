@@ -63,7 +63,19 @@ import {
   type CommerceDetailSectionSpec,
 } from "@/lib/commerce-detail-sections";
 import { enforceModelPromptRequirements } from "@/lib/model-prompt";
-import { buildGarmentDetailReferencePrompt, buildPoseRoleBasedPrompt, normalizeGarmentDetailUrls } from "@/lib/garment-detail-references";
+import {
+  buildPoseRoleBasedPrompt,
+  flattenGarmentDetailGroups,
+  normalizeGarmentDetailGroups,
+  normalizeGarmentDetailUrls,
+  type GarmentDetailReferenceGroup,
+} from "@/lib/garment-detail-references";
+import {
+  buildPoseGarmentAngleReferencePrompt,
+  flattenGarmentAngleReferences,
+  normalizeGarmentAngleReferences,
+  type GarmentAngleReference,
+} from "@/lib/garment-angle-references";
 import { buildSeparatePosePrompt, enforcePosePromptRequirements, type PoseOutputMode } from "@/lib/pose-prompt";
 import {
   applyGarment3dDisplayStylePrompt,
@@ -137,6 +149,7 @@ export type GenerationJobPayload = GenerationJobPayloadBase & (
       clothingRoles?: TryOnClothingRole[];
       clothingAnalysis?: TryOnClothingAnalysis | null;
       garmentDetailUrls?: string[];
+      garmentDetailGroups?: GarmentDetailReferenceGroup[];
       garmentAudience?: TryOnGarmentAudience;
       ageGroup?: TryOnAgeGroup;
       garmentCategory?: TryOnGarmentCategory;
@@ -207,6 +220,7 @@ export type GenerationJobPayload = GenerationJobPayloadBase & (
       poseAnalysis?: PoseVisualAnalysis | null;
       posePlan?: PosePlan | null;
       garmentDetailUrls?: string[];
+      garmentAngleReferences?: GarmentAngleReference[];
     }
   | {
       kind: "garment3d";
@@ -1136,7 +1150,12 @@ async function executePayload(
 
   if (payload.kind === "tryon") {
     const referenceUrls = getTryOnPayloadReferenceUrls(payload);
-    const garmentDetailUrls = normalizeGarmentDetailUrls(payload.garmentDetailUrls);
+    const garmentDetailGroups = normalizeGarmentDetailGroups(payload.garmentDetailGroups, payload.clothingUrls.length);
+    const groupedGarmentDetailUrls = flattenGarmentDetailGroups(garmentDetailGroups);
+    const legacyGarmentDetailUrls = garmentDetailGroups.length
+      ? []
+      : normalizeGarmentDetailUrls(payload.garmentDetailUrls);
+    const garmentDetailUrls = garmentDetailGroups.length ? groupedGarmentDetailUrls : legacyGarmentDetailUrls;
     const imageInputs = await resolvePayloadImageInputs({
       clothingUrls: payload.clothingUrls,
       modelFaceUrl: payload.modelFaceUrl || undefined,
@@ -1145,6 +1164,9 @@ async function executePayload(
     const garmentDetailInputs = garmentDetailUrls.length
       ? await resolvePayloadImageInputs({ clothingUrls: garmentDetailUrls })
       : { clothingUrls: [] as string[] };
+    const resolvedGarmentDetailGroups = garmentDetailGroups.length
+      ? rehydrateGarmentDetailGroups(garmentDetailGroups, garmentDetailInputs.clothingUrls)
+      : [];
     const resolvedReferenceUrls = imageInputs.referenceUrls?.length ? imageInputs.referenceUrls : [];
     const referenceAnalyses = alignTryOnReferenceAnalyses(payload.referenceAnalyses, resolvedReferenceUrls.length);
     const referenceBatchSize = Math.max(1, resolvedReferenceUrls.length);
@@ -1166,7 +1188,8 @@ async function executePayload(
           clothingMode: payload.clothingMode,
           clothingRoles: payload.clothingRoles,
           clothingAnalysis: payload.clothingAnalysis,
-          garmentDetailUrls: garmentDetailInputs.clothingUrls,
+          garmentDetailUrls: legacyGarmentDetailUrls.length ? garmentDetailInputs.clothingUrls : [],
+          garmentDetailGroups: resolvedGarmentDetailGroups,
           garmentAudience: payload.garmentAudience,
           ageGroup: payload.ageGroup,
           garmentCategory: payload.garmentCategory,
@@ -1355,8 +1378,14 @@ async function executePayload(
   }
 
   if (payload.kind === "pose") {
-    const garmentDetailUrls = normalizeGarmentDetailUrls(payload.garmentDetailUrls);
-    const imageInputs = await resolvePayloadImageInputs({ clothingUrls: [payload.mainImageUrl, ...garmentDetailUrls] });
+    const garmentAngleReferences = normalizeGarmentAngleReferences(payload.garmentAngleReferences);
+    const legacyGarmentAngleReferences = normalizeGarmentAngleReferences(
+      normalizeGarmentDetailUrls(payload.garmentDetailUrls).map((url) => ({ url, target: "outfit" as const, view: "other" as const }))
+    );
+    const activeGarmentAngleReferences = garmentAngleReferences.length ? garmentAngleReferences : legacyGarmentAngleReferences;
+    const garmentAngleUrls = flattenGarmentAngleReferences(activeGarmentAngleReferences);
+    const imageInputs = await resolvePayloadImageInputs({ clothingUrls: [payload.mainImageUrl, ...garmentAngleUrls] });
+    const resolvedGarmentAngleReferences = rehydrateGarmentAngleReferences(activeGarmentAngleReferences, imageInputs.clothingUrls.slice(1));
     const poseStyle = normalizePoseSeriesStyle(payload.poseStyle);
     const outputMode = normalizePoseOutputMode(payload.outputMode);
     const poseAnalysis = normalizePoseVisualAnalysis(payload.poseAnalysis);
@@ -1366,10 +1395,10 @@ async function executePayload(
       outputMode,
       prompt: payload.prompt,
     });
-    const detailCount = Math.max(0, imageInputs.clothingUrls.length - 1);
+    const angleCount = Math.max(0, imageInputs.clothingUrls.length - 1);
     const roleBasedPrompt = buildPoseRoleBasedPrompt({
       outputMode,
-      detailCount,
+      detailCount: angleCount,
       poseCount: getPoseGenerationCount(payload),
     });
     const fallbackPrompt = enforcePosePromptRequirements(applyPoseSeriesStylePrompt(payload.prompt, poseStyle), {
@@ -1378,7 +1407,10 @@ async function executePayload(
       poseAnalysis,
       posePlan,
     });
-    const garmentDetailDirective = buildGarmentDetailReferencePrompt(detailCount);
+    const garmentAngleDirective = buildPoseGarmentAngleReferencePrompt({
+      references: resolvedGarmentAngleReferences,
+      startImageNumber: 2,
+    });
     const userIntent = (payload.prompt || "").trim();
 
     if (outputMode === "separate") {
@@ -1394,7 +1426,7 @@ async function executePayload(
             roleBasedPrompt,
             userIntent ? `用户补充：${userIntent}` : "",
             buildSeparatePosePrompt(fallbackPrompt, index + 1, poseStyle, payload.prompt, poseAnalysis, posePlan),
-            garmentDetailDirective,
+            garmentAngleDirective,
           ].filter(Boolean).join("\n");
           const result = await generateImage({
             model: payload.aiModel,
@@ -1420,7 +1452,7 @@ async function executePayload(
       roleBasedPrompt,
       userIntent ? `用户补充：${userIntent}` : "",
       fallbackPrompt,
-      garmentDetailDirective,
+      garmentAngleDirective,
     ].filter(Boolean).join("\n");
     const result = await generateImage({
       model: payload.aiModel,
@@ -1994,7 +2026,7 @@ function getPayloadReferenceImages(payload: GenerationJobPayload) {
     ...payload.clothingUrls,
     ...getTryOnPayloadReferenceUrls(payload),
     payload.modelFaceUrl,
-    ...(Array.isArray(payload.garmentDetailUrls) ? payload.garmentDetailUrls : []),
+    ...getTryOnPayloadGarmentDetailUrls(payload),
   ].filter((url): url is string => typeof url === "string" && url.length > 0);
   if (payload.kind === "model") return [
     ...payload.referenceUrls,
@@ -2005,7 +2037,7 @@ function getPayloadReferenceImages(payload: GenerationJobPayload) {
   if (payload.kind === "modelBackground") return [payload.sourceUrl, payload.modelReferenceUrl, payload.backgroundReferenceUrl].filter((url): url is string => typeof url === "string" && url.length > 0);
   if (payload.kind === "materialEnhancement") return [payload.sourceUrl, payload.garmentUrl];
   if (payload.kind === "generalImage" || payload.kind === "outfitFusion") return payload.referenceUrls;
-  if (payload.kind === "pose") return [payload.mainImageUrl, ...(Array.isArray(payload.garmentDetailUrls) ? payload.garmentDetailUrls : [])];
+  if (payload.kind === "pose") return [payload.mainImageUrl, ...getPosePayloadGarmentAngleUrls(payload)];
   if (payload.kind === "videoImageToVideo") return [payload.imageUrl];
   if (payload.kind === "videoMotion") return [payload.modelImageUrl];
   if (payload.kind === "videoFirstLastFrame") return [payload.firstFrameUrl, payload.lastFrameUrl];
@@ -2040,6 +2072,34 @@ function getTryOnPayloadReferenceUrls(payload: Extract<GenerationJobPayload, { k
     ...(Array.isArray(payload.referenceUrls) ? payload.referenceUrls : []),
     payload.referenceUrl,
   ]).slice(0, 8);
+}
+
+function getTryOnPayloadGarmentDetailUrls(payload: Extract<GenerationJobPayload, { kind: "tryon" }>) {
+  const groups = normalizeGarmentDetailGroups(payload.garmentDetailGroups, payload.clothingUrls.length);
+  if (groups.length) return flattenGarmentDetailGroups(groups);
+  return normalizeGarmentDetailUrls(payload.garmentDetailUrls);
+}
+
+function getPosePayloadGarmentAngleUrls(payload: Extract<GenerationJobPayload, { kind: "pose" }>) {
+  const angleReferences = normalizeGarmentAngleReferences(payload.garmentAngleReferences);
+  if (angleReferences.length) return flattenGarmentAngleReferences(angleReferences);
+  return normalizeGarmentDetailUrls(payload.garmentDetailUrls);
+}
+
+function rehydrateGarmentDetailGroups(groups: GarmentDetailReferenceGroup[], resolvedUrls: string[]) {
+  let offset = 0;
+  return groups.map((group) => {
+    const urls = resolvedUrls.slice(offset, offset + group.urls.length);
+    offset += group.urls.length;
+    return { clothingIndex: group.clothingIndex, urls };
+  }).filter((group) => group.urls.length);
+}
+
+function rehydrateGarmentAngleReferences(references: GarmentAngleReference[], resolvedUrls: string[]) {
+  return references.map((ref, index) => ({
+    ...ref,
+    url: resolvedUrls[index],
+  })).filter((ref) => typeof ref.url === "string" && ref.url.length > 0);
 }
 
 function limitStoredPrompt(prompt: string) {

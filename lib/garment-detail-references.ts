@@ -4,7 +4,18 @@ export const GARMENT_DETAIL_SWITCH_DESCRIPTION =
   "用来补充服装的局部细节，比如面料、领口、口袋、纽扣，或者背面、侧面。开启后最多 5 张，不会改动人物、姿势、背景和整体色调。";
 
 export const GARMENT_DETAIL_UPLOAD_FOOTNOTE =
-  "拍得越清晰、越近距离越好。每张只拍一个部位就够了，比如只拍领口、或只拍袖口。";
+  "拍得越清晰、越近距离越好。多件服装时，请把细节图放到对应服装下面，避免上装和下装串味。";
+
+export type GarmentDetailReferenceGroup = {
+  clothingIndex: number;
+  urls: string[];
+};
+
+export type GarmentDetailPromptGroup = GarmentDetailReferenceGroup & {
+  clothingImageNumber?: number;
+  clothingLabel?: string;
+  detailImageNumbers?: number[];
+};
 
 export function normalizeGarmentDetailUrls(value: unknown, max = MAX_GARMENT_DETAIL_IMAGES): string[] {
   if (!Array.isArray(value)) return [];
@@ -23,14 +34,116 @@ export function normalizeGarmentDetailUrls(value: unknown, max = MAX_GARMENT_DET
   return urls;
 }
 
-export function buildGarmentDetailReferencePrompt(count: number) {
-  const safeCount = Math.min(Math.max(Math.floor(Number(count) || 0), 0), MAX_GARMENT_DETAIL_IMAGES);
+export function normalizeGarmentDetailGroups(
+  value: unknown,
+  clothingCount: number,
+  max = MAX_GARMENT_DETAIL_IMAGES
+): GarmentDetailReferenceGroup[] {
+  const safeClothingCount = Math.max(0, Math.floor(Number(clothingCount) || 0));
+  if (!safeClothingCount || !Array.isArray(value)) return [];
+
+  const grouped = new Map<number, string[]>();
+  const seen = new Set<string>();
+  let remaining = Math.max(0, Math.floor(Number(max) || 0));
+
+  for (let index = 0; index < value.length && remaining > 0; index++) {
+    const item = value[index];
+    let clothingIndex = index;
+    let urlsInput: unknown = item;
+
+    if (item && typeof item === "object" && !Array.isArray(item)) {
+      const record = item as Record<string, unknown>;
+      clothingIndex = normalizeClothingIndex(record.clothingIndex ?? record.clothing_index, index);
+      urlsInput = record.urls ?? record.detailUrls ?? record.detail_urls ?? record.garmentDetailUrls ?? record.garment_detail_urls;
+    }
+
+    if (clothingIndex < 0 || clothingIndex >= safeClothingCount) continue;
+    const urls = normalizeGarmentDetailUrls(urlsInput, remaining);
+    if (!urls.length) continue;
+    const target = grouped.get(clothingIndex) || [];
+    for (const url of urls) {
+      if (seen.has(url) || remaining <= 0) continue;
+      seen.add(url);
+      target.push(url);
+      remaining -= 1;
+    }
+    if (target.length) grouped.set(clothingIndex, target);
+  }
+
+  return Array.from(grouped.entries())
+    .sort(([a], [b]) => a - b)
+    .map(([clothingIndex, urls]) => ({ clothingIndex, urls }));
+}
+
+export function flattenGarmentDetailGroups(groups: GarmentDetailReferenceGroup[] | null | undefined) {
+  return normalizeGarmentDetailUrls((groups || []).flatMap((group) => group.urls));
+}
+
+export function countGarmentDetailImages(groups: GarmentDetailReferenceGroup[] | null | undefined, unassignedUrls?: unknown) {
+  return flattenGarmentDetailGroups(groups).length + normalizeGarmentDetailUrls(unassignedUrls).length;
+}
+
+export function buildGarmentDetailReferencePrompt(input: number | {
+  groups?: GarmentDetailPromptGroup[];
+  unassignedUrls?: string[];
+  unassignedImageNumbers?: number[];
+  startImageNumber?: number;
+}) {
+  if (typeof input === "object" && input) {
+    const groupedLines = buildGroupedGarmentDetailPrompt(input.groups || []);
+    const unassignedLines = buildUnassignedGarmentDetailPrompt(input.unassignedUrls || [], input.unassignedImageNumbers, input.startImageNumber);
+    const lines = [...groupedLines, ...unassignedLines];
+    if (!lines.length) return "";
+    return [
+      "服装细节归属规则：",
+      ...lines,
+      "所有细节图都不是新服装，也不是人物/姿势/背景参考；只做局部真实感恢复。冲突时以对应主服装图为准，不强化、不跨件迁移、不凭空新增纹理、条纹或结构。",
+    ].join("\n");
+  }
+
+  const safeCount = Math.min(Math.max(Math.floor(Number(input) || 0), 0), MAX_GARMENT_DETAIL_IMAGES);
   if (!safeCount) return "";
 
   return [
     `服装细节：附加的 ${safeCount} 张图只用于补充当前服装的局部细节（领口、袖口、口袋、纽扣、拉链、背面、侧面等）。`,
     `冲突时以主图为准，只做轻量、局部的真实感恢复，不强化任何纹理、条纹或织法。`,
   ].join("");
+}
+
+function buildGroupedGarmentDetailPrompt(groups: GarmentDetailPromptGroup[]) {
+  return groups
+    .map((group) => {
+      const detailRefs = formatImageRefs(group.detailImageNumbers);
+      if (!detailRefs) return "";
+      const clothingRef = `image ${group.clothingImageNumber || group.clothingIndex + 1}`;
+      const label = group.clothingLabel ? `（${group.clothingLabel}）` : "";
+      return `${detailRefs} 只补充 ${clothingRef}${label} 的局部细节（面料、领口、袖口、口袋、纽扣、拉链、logo、背面、侧面等），不得用于其他主服装图。`;
+    })
+    .filter(Boolean);
+}
+
+function buildUnassignedGarmentDetailPrompt(urls: string[], imageNumbers?: number[], startImageNumber?: number) {
+  const normalized = normalizeGarmentDetailUrls(urls);
+  if (!normalized.length) return [];
+  const detailRefs = formatImageRefs(imageNumbers) || formatImageRefs(normalized.map((_, index) => (startImageNumber || 1) + index));
+  if (!detailRefs) return [];
+  return [
+    `${detailRefs} 是未归属细节图：仅当它与某一张主服装图的颜色、材质、结构明显对应时，才可轻量补充那一件服装；无法判断归属时直接忽略。`,
+  ];
+}
+
+function formatImageRefs(numbers?: number[]) {
+  const refs = (numbers || [])
+    .map((value) => Math.floor(Number(value) || 0))
+    .filter((value) => value > 0)
+    .map((value) => `image ${value}`);
+  if (!refs.length) return "";
+  return refs.join("、");
+}
+
+function normalizeClothingIndex(value: unknown, fallback: number) {
+  const number = Math.floor(Number(value));
+  return Number.isFinite(number) ? number : fallback;
 }
 
 /**
@@ -60,7 +173,7 @@ export function buildTryOnRoleBasedPrompt(params: {
 
 /**
  * 友商风格主任务模板：姿势裂变（pose）。
- * 图 1 = 参考人物（保留人物身份），图 2+ = 服装细节补充（可选）。
+ * 图 1 = 参考人物（保留人物身份），图 2+ = 服装角度参考（可选）。
  * outputMode: grid（2x2 四宫格） / separate（每张独立）。
  */
 export function buildPoseRoleBasedPrompt(params: {
@@ -73,7 +186,7 @@ export function buildPoseRoleBasedPrompt(params: {
     : `最终输出${params.poseCount}张独立的单人换姿势图，每张只展示一个姿势。`;
 
   const detailPart = params.detailCount > 0
-    ? `图 2 及之后共 ${params.detailCount} 张为图 1 服装的局部细节补充（领口、口袋、纽扣、背面、侧面等），精准还原局部特征，不放大任何纹理。`
+    ? `图 2 及之后共 ${params.detailCount} 张为图 1 服装的多角度参考（正面、背面、侧面、平铺/悬挂等），只用于校准同一服装的版型、隐藏面和正背侧结构关系。`
     : "";
 
   return [

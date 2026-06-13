@@ -13,7 +13,8 @@ import { normalizePoseVisualAnalysis } from "@/lib/pose-analysis";
 import { normalizePosePlan } from "@/lib/pose-plan";
 import { normalizePoseSeriesStyle } from "@/lib/module-style-presets";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
-import { MAX_GARMENT_DETAIL_IMAGES, normalizeGarmentDetailUrls } from "@/lib/garment-detail-references";
+import { normalizeGarmentDetailUrls } from "@/lib/garment-detail-references";
+import { MAX_GARMENT_ANGLE_IMAGES, flattenGarmentAngleReferences, normalizeGarmentAngleReferences } from "@/lib/garment-angle-references";
 
 export const maxDuration = 60;
 
@@ -31,6 +32,7 @@ export async function POST(request: NextRequest) {
     try { body = await request.json(); }
     catch { return NextResponse.json({ error: "请求格式无效" }, { status: 400 }); }
     const { main_image_url, ai_model, image_size, prompt, pose_style } = body;
+    const garmentAngleInput = body.garment_angle_references ?? body.garmentAngleReferences;
     const garmentDetailInput = body.garment_detail_urls ?? body.garmentDetailUrls;
     const requestedOutputMode = body.output_mode ?? body.outputMode;
     const outputMode: PoseOutputMode = requestedOutputMode === "grid" ? "grid" : "separate";
@@ -41,13 +43,25 @@ export async function POST(request: NextRequest) {
       garmentDetailInput !== undefined &&
       (
         !Array.isArray(garmentDetailInput) ||
-        garmentDetailInput.length > MAX_GARMENT_DETAIL_IMAGES ||
+        garmentDetailInput.length > MAX_GARMENT_ANGLE_IMAGES ||
         garmentDetailInput.some((url) => typeof url !== "string")
       )
     ) {
-      return NextResponse.json({ error: `服装细节图最多 ${MAX_GARMENT_DETAIL_IMAGES} 张` }, { status: 400 });
+      return NextResponse.json({ error: `服装角度参考最多 ${MAX_GARMENT_ANGLE_IMAGES} 张` }, { status: 400 });
     }
-    const garmentDetailUrls = normalizeGarmentDetailUrls(garmentDetailInput);
+    if (
+      garmentAngleInput !== undefined &&
+      (!Array.isArray(garmentAngleInput) || garmentAngleInput.length > MAX_GARMENT_ANGLE_IMAGES)
+    ) {
+      return NextResponse.json({ error: `服装角度参考最多 ${MAX_GARMENT_ANGLE_IMAGES} 张` }, { status: 400 });
+    }
+    const legacyGarmentAngleReferences = normalizeGarmentAngleReferences(
+      normalizeGarmentDetailUrls(garmentDetailInput, MAX_GARMENT_ANGLE_IMAGES)
+        .map((url) => ({ url, target: "outfit" as const, view: "other" as const }))
+    );
+    const garmentAngleReferences = normalizeGarmentAngleReferences(garmentAngleInput);
+    const activeGarmentAngleReferences = garmentAngleReferences.length ? garmentAngleReferences : legacyGarmentAngleReferences;
+    const garmentAngleUrls = flattenGarmentAngleReferences(activeGarmentAngleReferences);
 
     const model: LingyaModel = normalizeLingyaModel(ai_model);
     const aspectRatio: AspectRatio = normalizeAspectRatio(body.aspect_ratio || body.aspectRatio || "auto", "auto");
@@ -79,18 +93,19 @@ export async function POST(request: NextRequest) {
       genCount,
       poseAnalysis,
       posePlan,
-      garmentDetailUrls,
+      garmentAngleReferences: activeGarmentAngleReferences,
+      garmentDetailUrls: garmentAngleReferences.length ? [] : normalizeGarmentDetailUrls(garmentDetailInput),
     };
 
     const debit = await createDebitedGeneration(supabase, {
       userId: user.id,
-      clothingUrls: [main_image_url, ...garmentDetailUrls],
+      clothingUrls: [main_image_url, ...garmentAngleUrls],
       modelFaceUrl: null,
       referenceUrl: null,
       creditsCost: totalCost,
       aiModel: model,
       imageSize: size,
-      reason: `姿势裂变${outputMode === "separate" ? " · 每姿势一张" : ""}${garmentDetailUrls.length ? ` · ${garmentDetailUrls.length} 张服装细节` : ""} (${model}, ${size})`,
+      reason: `姿势裂变${outputMode === "separate" ? " · 每姿势一张" : ""}${garmentAngleUrls.length ? ` · ${garmentAngleUrls.length} 张服装角度` : ""} (${model}, ${size})`,
       jobPayload,
     });
 

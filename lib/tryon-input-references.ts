@@ -5,6 +5,7 @@ import {
   type TryOnClothingMode,
   type TryOnClothingRole,
 } from "@/lib/tryon-upload-rules";
+import { normalizeGarmentDetailGroups, normalizeGarmentDetailUrls } from "@/lib/garment-detail-references";
 
 export type TryOnInputReference = {
   url: string;
@@ -21,6 +22,7 @@ type TryOnInputReferenceParams = {
   referenceUrls?: unknown;
   modelFaceUrl?: unknown;
   garmentDetailUrls?: unknown;
+  garmentDetailGroups?: unknown;
 };
 
 export function buildTryOnInputReferences(params: TryOnInputReferenceParams): TryOnInputReference[] {
@@ -50,9 +52,21 @@ export function buildTryOnInputReferences(params: TryOnInputReferenceParams): Tr
     references.push({ url: modelFaceUrl, label: "模特" });
   }
 
-  stringArray(params.garmentDetailUrls).forEach((url, index) => {
-    references.push({ url, label: `服装细节${index + 1}` });
-  });
+  const garmentDetailGroups = normalizeGarmentDetailGroups(params.garmentDetailGroups, clothingUrls.length);
+  if (garmentDetailGroups.length) {
+    garmentDetailGroups.forEach((group) => {
+      const fallback = getFallbackClothingRole(clothingMode, group.clothingIndex);
+      const role = normalizeTryOnClothingRole(clothingRoles[group.clothingIndex], fallback);
+      const roleLabel = TRYON_CLOTHING_ROLE_LABELS[role] || `服装${group.clothingIndex + 1}`;
+      group.urls.forEach((url, index) => {
+        references.push({ url, label: `${roleLabel}细节${index + 1}` });
+      });
+    });
+  } else {
+    normalizeGarmentDetailUrls(params.garmentDetailUrls).forEach((url, index) => {
+      references.push({ url, label: `服装细节${index + 1}` });
+    });
+  }
 
   return uniqueReferences(references).slice(0, TRYON_INPUT_REFERENCE_LIMIT);
 }

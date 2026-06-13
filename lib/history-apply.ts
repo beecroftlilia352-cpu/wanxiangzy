@@ -8,6 +8,8 @@ import type { TryOnClothingAnalysis } from "@/lib/tryon-reference-config";
 import type { TryOnReferenceAnalysis } from "@/lib/tryon-reference-analysis";
 import type { TryOnAgeGroup, TryOnGarmentAudience } from "@/lib/tryon-prompt";
 import type { TryOnClothingMode, TryOnClothingRole } from "@/lib/tryon-upload-rules";
+import type { GarmentDetailReferenceGroup } from "@/lib/garment-detail-references";
+import type { GarmentAngleReference } from "@/lib/garment-angle-references";
 import type { GrassPayloadBase } from "@/lib/grass-planting";
 import type { ModelBackgroundPayloadBase } from "@/lib/model-background";
 import type { MaterialEnhancementPayloadBase } from "@/lib/material-enhancement";
@@ -36,6 +38,7 @@ export type HistoryJobPayload =
       clothingRoles?: TryOnClothingRole[];
       clothingAnalysis?: TryOnClothingAnalysis | null;
       garmentDetailUrls?: string[];
+      garmentDetailGroups?: GarmentDetailReferenceGroup[];
       garmentAudience?: TryOnGarmentAudience;
       ageGroup?: TryOnAgeGroup;
       modelFaceUrl?: string | null;
@@ -105,6 +108,7 @@ export type HistoryJobPayload =
       poseAnalysis?: PoseVisualAnalysis | null;
       posePlan?: PosePlan | null;
       garmentDetailUrls?: string[];
+      garmentAngleReferences?: GarmentAngleReference[];
     }
   | {
       kind: "garment3d";
