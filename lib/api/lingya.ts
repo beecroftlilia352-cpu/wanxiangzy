@@ -435,30 +435,24 @@ export function applyTryOnRequestPrompt(prompt: string, input: TryOnRequestPromp
 function buildTryOnPhotoFinishDirective(input: TryOnRequestPromptOptions) {
   if (input.referenceUrl) {
     return [
-      "Reference-based photo finish:",
-      "Use the target reference as the photography style source.",
-      "Replicate its shadow design: cast-shadow direction, shadow length, edge softness, density, wall/floor shadow geometry, body shadow placement, and contact-shadow intensity.",
-      "Inherit its light direction, light hardness, color temperature, contrast curve, shadow shape, highlight rolloff, exposure, white balance, lens perspective, depth of field, texture/noise level, and filter/color mood.",
-      "Make the reference filter/color mood visibly present in the final image while preserving true garment color; you may subtly polish clarity and shadow depth, but do not apply a new generic fashion filter or a different color grade.",
-      input.modelFaceUrl ? "Before applying the global color mood, make the final face skin match the target reference's neck, chest, arms, and hands in undertone, brightness, shadow falloff, pores, and reflected light." : "",
-      "Keep garment colors, logos/text, fabric texture, visible identity cues, visible skin tone continuity, and visible body proportions accurate; no heavy beauty filter, no poster layout, no added text, no washed-out skin, no color-shifted clothing.",
-    ].filter(Boolean).join(" ");
+      "摄影风格：跟随参考图的影调（光线方向、色温、曝光、白平衡、景深、相机质感、滤镜氛围）。",
+      "服装固有色、图案、logo、面料纹理、人物身份、肤色连续性和身体比例保持准确；不要厚重美颜滤镜、不要海报版式、不要添加文字、不要漂白衣服颜色。",
+      input.modelFaceUrl ? "在套用全局色调前，让最终脸部肤色与参考图的颈、胸、手臂、手在色相、亮度、阴影过渡、毛孔和反射光上自然衔接。" : "",
+    ].filter(Boolean).join("");
   }
 
   return [
-    "Photo finish:",
-    "Use a clean natural fashion-photo finish with believable light, accurate white balance, real camera lens perspective, and subtle texture.",
-    "Keep garment colors, logos/text, fabric texture, face identity, skin tone continuity, and body proportions accurate; no heavy beauty filter, no poster layout, no added text, no washed-out skin, no color-shifted clothing.",
-  ].join(" ");
+    "摄影风格：干净自然的商业时装摄影调性，光线可信，白平衡准确，真实相机透视，纹理克制。",
+    "服装固有色、图案、logo、面料纹理、人物身份、肤色连续性和身体比例保持准确；不要厚重美颜滤镜、不要海报版式、不要添加文字、不要漂白衣服颜色。",
+  ].join("");
 }
 
 function buildTryOnRequestCropDirective(input: TryOnRequestPromptOptions) {
   if (!input.referenceAnalysis || !input.referenceUrl) return "";
   return [
-    "Reference crop lock:",
-    buildTryOnReferenceCropLockRule(input.referenceAnalysis, input.referenceImageNumber || 2),
-    "Generate the best pose only inside the reference's detected visible range. Do not solve ambiguity by zooming out, adding a full person, or revealing body parts outside the target crop.",
-  ].join(" ");
+    "裁切锁定：" + buildTryOnReferenceCropLockRule(input.referenceAnalysis, input.referenceImageNumber || 2),
+    "只在参考图检测到的可见范围内生成最佳姿势，不要为了补全人物而拉远镜头、添加完整人体或显示参考裁切之外的部位。",
+  ].join("");
 }
 
 function buildTryOnCandidateDirective(input: TryOnRequestPromptOptions) {
@@ -467,43 +461,41 @@ function buildTryOnCandidateDirective(input: TryOnRequestPromptOptions) {
 
   const index = Math.max(0, Math.floor(Number(input.candidateIndex || 0))) % count;
   const variants = [
-    "balanced clean fit with natural front drape",
-    "slightly relaxed fit with deeper sleeve and waist folds",
-    "more structured fit with cleaner seams and sharper collar/hem edges",
-    "subtle live-model variation with tiny hand or shoulder relaxation and different hem/contact shadows",
+    "自然前垂的合身版型",
+    "略宽松、袖口和腰部有自然褶皱",
+    "更结构化的版型，缝线和领口/下摆更利落",
+    "微动态的真人变化：手部、肩部、下摆和接触阴影有微小调整",
   ];
   const variant = variants[index % variants.length];
   const shouldKeepFaceFixed = Boolean(input.referenceUrl && input.modelFaceUrl && shouldApplyFaceIdentityToReference(input.referenceAnalysis));
   const gptExpression = input.model === "gpt-image-2" && !shouldKeepFaceFixed
-    ? " For GPT candidate variation, keep any visible face naturally consistent; do not create a stock expression or beauty-retouched face."
-    : "";
+    ? " GPT 多候选变化时，脸部保持自然一致，不要做成表情僵硬的网红模板脸。" : "";
   const cropVariation = buildCandidateCropVariationRule(input.referenceAnalysis);
 
   const faceVariationLock = shouldKeepFaceFixed
-    ? " Do not vary the face, facial expression, gaze, head pose, head scale, makeup, or face lighting between candidates; candidate diversity must come from garment fit, folds, hem, contact shadows, and tiny non-face body relaxation only."
-    : "";
+    ? " 候选之间不要改变脸部、表情、视线、头部姿态、头部大小、妆容或脸部光线；候选差异只能来自服装版型、褶皱、下摆、接触阴影和非脸部身体的微小放松。" : "";
 
-  return `Candidate ${index + 1}/${count}: create a distinct but consistent try-on variation, not a near-duplicate. Keep the same visible identity cues, natural visible-skin integration, target visible-body proportions, target pose family, exact camera/framing/crop boundary, background, non-sourced outfit areas, sourced garment design, and reference-derived photography mood; vary garment fit, folds, hem, contact shadows, and small natural relaxation only within the visible crop as ${variant}. ${cropVariation}${faceVariationLock}${gptExpression}`;
+  return `候选 ${index + 1}/${count}：在保持可见身份、肤色衔接、身体比例、姿势族、镜头/裁切边界、背景、非服装来源区、来源服装版型和参考图摄影氛围的前提下，给出有差异但连贯的换装变化；变化只来自服装版型、褶皱、下摆、接触阴影和可见范围内的微小自然放松，版型倾向：${variant}。${cropVariation}${faceVariationLock}${gptExpression}`;
 }
 
 function buildCandidateCropVariationRule(analysis?: TryOnReferenceAnalysis | null) {
-  if (!analysis) return "Do not change the target crop type while creating variation.";
+  if (!analysis) return "不要在变化时改变目标裁切类型。";
   if (analysis.bodyCrop === "lower_body") {
-    return "Variation is limited to lower-body stance tension, pant folds, hem shape, shoes/floor contact when visible, and shadows; never add head, face, shoulders, or full torso.";
+    return "变化只限于下半身站姿张力、裤褶、下摆、可见的鞋/地接触和阴影；不要添加头、脸、肩或完整躯干。";
   }
   if (analysis.bodyCrop === "upper_body") {
-    return "Variation is limited to upper-body posture, shoulder/arm/hand relaxation when visible, garment folds, and shadows; never zoom out to add legs or feet.";
+    return "变化只限于上半身姿态、可见时的肩/臂/手放松、服装褶皱和阴影；不要拉远镜头去补腿或脚。";
   }
   if (analysis.bodyCrop === "closeup") {
-    return "Variation is limited to the same close-up/detail area, fabric fit, contact shadows, and local pose cues; never zoom out to a half-body or full-body photo.";
+    return "变化只限于同样的近景/细节区域、面料贴合、接触阴影和局部姿态线索；不要拉远到半身或全身。";
   }
   if (analysis.bodyCrop === "scene_only") {
-    return "Variation is limited to clothing fit and scene-consistent lighting; do not infer a person crop or full-body pose from the scene-only reference.";
+    return "变化只限于服装贴合和与场景一致的光线；不要从纯场景参考推断人物裁切或全身姿势。";
   }
   if (analysis.bodyCrop === "three_quarter") {
-    return "Variation must keep the same three-quarter body range and camera distance; never force a head-to-toe expansion.";
+    return "变化必须保持同样的三分之二身体范围和镜头距离；不要强行扩展到从头到脚。";
   }
-  return "Variation must preserve the detected visible body range and crop boundaries; do not reveal body parts outside the reference crop.";
+  return "变化必须保持检测到的可见身体范围和裁切边界；不要显示参考裁切之外的部位。";
 }
 
 function buildGenerateRequestBody(input: GenerateInput, compiledPrompt: string): Record<string, any> {

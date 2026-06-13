@@ -26,14 +26,34 @@ export function normalizeGarmentDetailUrls(value: unknown, max = MAX_GARMENT_DET
 export function buildGarmentDetailReferencePrompt(count: number) {
   const safeCount = Math.min(Math.max(Math.floor(Number(count) || 0), 0), MAX_GARMENT_DETAIL_IMAGES);
   if (!safeCount) return "";
-  const imageWord = safeCount === 1 ? "image" : "images";
 
   return [
-    `Garment detail references: the final ${safeCount} appended input ${imageWord} are optional detail references for the existing garment only.`,
-    "Use them only to recover local clothing details such as fabric weave, collar, cuffs, pockets, zipper/buttons, logo/text, back view, side view, lining, stitching, seams, and close-up construction.",
-    "They are appended after all existing task images and must not change the existing image-reference numbering or the main source/target relationship.",
-    "If any detail reference conflicts with the main garment/source image, the main garment/source image wins.",
-    "Do not change the person, pose, face, body proportions, background, camera framing, exposure, contrast, white balance, overall color grade, garment silhouette, main color, pattern placement, or logo placement.",
-    "Do not sharpen or invent dense stripes, trouser texture, moire, fake weave, or noisy fibers; apply only light, local, realistic garment-detail recovery.",
-  ].join(" ");
+    `服装细节：附加的 ${safeCount} 张图只用于补充当前服装的局部细节（领口、袖口、口袋、纽扣、拉链、背面、侧面等）。`,
+    `冲突时以主图为准，只做轻量、局部的真实感恢复，不强化任何纹理、条纹或织法。`,
+  ].join("");
+}
+
+/**
+ * 友商风格主任务模板：把"图编号 ↔ 角色"映射成一句话动作链，模型直接照做。
+ * 适用于服装上身（tryon）：图 1 = 参考原图，图 2 = 服装，图 3 = 模特脸，图 4+ = 细节补充。
+ */
+export function buildTryOnRoleBasedPrompt(params: {
+  hasModelFace: boolean;
+  detailCount: number;
+}) {
+  const detailPart = params.detailCount > 0
+    ? `图 4 及之后共 ${params.detailCount} 张为图 2 服装的局部细节补充（领口、口袋、纽扣、背面、侧面等），精准还原这些局部特征，不放大任何纹理或条纹。`
+    : "";
+
+  const facePart = params.hasModelFace
+    ? `2. 把图 3 的面部五官、脸型、骨相、肤色、发型完整移植到图 1。`
+    : "";
+
+  return [
+    `服装上身：图 1 是参考原图（保留姿势、构图、背景、整体色调不变）。在此基础上完成精准替换：`,
+    `1. 把图 2 的服装（版型、长度、颜色、图案、材质）完整替换到图 1 的人物身上；`,
+    facePart,
+    detailPart,
+    `最终输出一张真实自然的融合图：服装是图 2 的${params.hasModelFace ? "，脸是图 3 的" : ""}，姿势和场景是图 1 的。`,
+  ].filter(Boolean).join("");
 }
