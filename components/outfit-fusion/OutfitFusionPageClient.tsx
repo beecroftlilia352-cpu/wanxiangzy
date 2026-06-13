@@ -74,11 +74,6 @@ const PREVIEW_ACTIONS: ImagePreviewAction[] = [
   { kind: "feedback", label: "反馈" },
 ];
 
-const INPUT_ASSET_PREVIEW_ACTIONS: ImagePreviewAction[] = [
-  { kind: "download", label: "下载图片" },
-  { kind: "copy", label: "复制链接" },
-];
-
 export function OutfitFusionPageClient() {
   const router = useRouter();
   const [assets, setAssets] = useState<OutfitFusionAsset[]>([]);
@@ -300,38 +295,22 @@ export function OutfitFusionPageClient() {
     return assets.findIndex((asset) => asset.id === assetPreviewId);
   }, [assetPreviewId, assets]);
 
-  const assetPreviewSession = useMemo(() => {
+  const assetPreview = useMemo(() => {
     if (assetPreviewIndex < 0) return null;
-    const selectedAsset = assets[assetPreviewIndex];
-    if (!selectedAsset) return null;
-    const label = selectedAsset.name || getIndexedAssetLabel(selectedAsset, assetPreviewIndex);
-    return createGenericImagePreviewSession({
-      module: "outfitFusion",
-      title: "输入素材预览",
-      urls: assets.map((asset) => asset.url),
-      expectedCount: assets.length,
-      statusGroup: "completed",
-      references: outfitFusionReferencesFromAssets(assets),
-      promptText: prompt,
-      selectedIndex: assetPreviewIndex,
-      resultTitlePrefix: "输入素材",
-      aspectRatio: config.aspectRatio,
-      metaItems: [
-        { label: "素材类型", value: getOutfitFusionRoleLabel(selectedAsset.role) },
-        { label: "素材编号", value: label },
-        { label: "比例", value: config.aspectRatio },
-      ],
-    });
-  }, [assetPreviewIndex, assets, config.aspectRatio, prompt]);
+    const asset = assets[assetPreviewIndex];
+    if (!asset) return null;
+    return {
+      asset,
+      label: asset.name || getIndexedAssetLabel(asset, assetPreviewIndex),
+      roleLabel: getOutfitFusionRoleLabel(asset.role),
+    };
+  }, [assetPreviewIndex, assets]);
 
   useEffect(() => {
     if (assetPreviewId && !assets.some((asset) => asset.id === assetPreviewId)) {
       setAssetPreviewId(null);
     }
   }, [assetPreviewId, assets]);
-
-  const activePreviewSession = assetPreviewSession || previewSession;
-  const activePreviewIndex = assetPreviewSession ? assetPreviewIndex : preview?.index || 0;
 
   function applyTemplate(template: OutfitFusionTemplate) {
     const namedAssets = template.assets.map((asset, index) => ({
@@ -981,33 +960,64 @@ export function OutfitFusionPageClient() {
         onChange={(event) => void handleFiles(event.target.files)}
       />
 
-      {activePreviewSession ? (
+      {previewSession ? (
         <StudioImagePreviewDialog
           open
           onClose={() => {
-            if (assetPreviewSession) {
-              setAssetPreviewId(null);
-            } else {
-              setPreview(null);
-            }
+            setPreview(null);
           }}
-          session={activePreviewSession}
+          session={previewSession}
           filenamePrefix="outfit-fusion"
-          selectedIndex={activePreviewIndex}
+          selectedIndex={preview?.index || 0}
           onSelectedIndexChange={(index) => {
-            if (assetPreviewSession) {
-              const nextAsset = assets[index];
-              if (nextAsset) setAssetPreviewId(nextAsset.id);
-              return;
-            }
             if (preview) setPreview({ taskId: preview.taskId, index });
           }}
-          actions={assetPreviewSession ? INPUT_ASSET_PREVIEW_ACTIONS : PREVIEW_ACTIONS}
-          onRegenerateAll={assetPreviewSession || !previewTask ? undefined : () => {
+          actions={PREVIEW_ACTIONS}
+          onRegenerateAll={!previewTask ? undefined : () => {
             void handleRegenerate(previewTask);
           }}
         />
       ) : null}
+      {assetPreview ? (
+        <PlainAssetPreviewDialog
+          url={assetPreview.asset.url}
+          label={assetPreview.label}
+          roleLabel={assetPreview.roleLabel}
+          onClose={() => setAssetPreviewId(null)}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function PlainAssetPreviewDialog({
+  url,
+  label,
+  roleLabel,
+  onClose,
+}: {
+  url: string;
+  label: string;
+  roleLabel: string;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/62 p-4" role="dialog" aria-modal="true" aria-label={`${label}预览`}>
+      <button type="button" className="absolute inset-0 cursor-zoom-out" aria-label="关闭预览" onClick={onClose} />
+      <div className="relative z-[1] max-h-[88vh] max-w-[88vw]">
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute -right-3 -top-3 z-[2] flex size-8 items-center justify-center rounded-full bg-white text-slate-700 shadow-lg transition hover:bg-slate-50"
+          aria-label="关闭预览"
+        >
+          <X className="h-4 w-4" />
+        </button>
+        <img src={url} alt={label} className="max-h-[88vh] max-w-[88vw] rounded-[8px] bg-white object-contain shadow-2xl" />
+        <div className="absolute left-3 top-3 rounded-[5px] bg-black/62 px-2 py-1 text-xs font-semibold text-white shadow-sm">
+          {label} · {roleLabel}
+        </div>
+      </div>
     </div>
   );
 }
