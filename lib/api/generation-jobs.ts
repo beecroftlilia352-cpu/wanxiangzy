@@ -22,11 +22,34 @@ import {
 import type { OutfitFusionHistoryAsset } from "@/lib/history-apply";
 import { getOutfitFusionDisplayPrompt } from "@/lib/outfit-fusion";
 import { syncGenerationTaskQueueById } from "@/lib/task-queue-store";
-import {
-  applyQualityRepairToPrompt,
-  evaluateGeneratedImages,
-  type VisualQualityEvaluation,
-} from "@/lib/agent/brain/visual-quality";
+// Agent module is temporarily disabled; the visual quality evaluator
+// (applyQualityRepairToPrompt / evaluateGeneratedImages) is stubbed locally.
+// Restore the import from "@/lib/agent/brain/visual-quality" once the
+// agent module is brought back from `refactor/extract-agent-module`.
+type VisualQualityEvaluation = {
+  shouldRegenerate: boolean;
+  score: number;
+  reasons: string[];
+  annotations: string[];
+  skipped: boolean;
+};
+const applyQualityRepairToPrompt = (
+  prompt: string,
+  _quality: VisualQualityEvaluation,
+): string => prompt;
+const evaluateGeneratedImages = async (_args: {
+  userPrompt: string;
+  module: string;
+  resultUrls: string[];
+  expectedCount: number;
+  referenceImageUrls: string[];
+}): Promise<VisualQualityEvaluation> => ({
+  shouldRegenerate: false,
+  score: 1,
+  reasons: [],
+  annotations: [],
+  skipped: true,
+});
 import {
   buildCommerceDetailSectionPrompt,
   buildCommerceDetailSections,

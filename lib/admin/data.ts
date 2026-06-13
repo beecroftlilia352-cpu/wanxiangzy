@@ -1,5 +1,9 @@
 import { CREDIT_COSTS, DEFAULT_LINGYA_MODEL, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
-import { BRAIN_EVAL_CASES, type BrainEvalCase } from "@/lib/agent/brain/eval-cases";
+// Agent module is temporarily disabled; eval cases are stubbed as empty.
+// Restore the import from "@/lib/agent/brain/eval-cases" once the agent
+// module is brought back from `refactor/extract-agent-module`.
+type BrainEvalCase = never;
+const BRAIN_EVAL_CASES: BrainEvalCase[] = [];
 import { getConfiguredProcessorSecrets } from "@/lib/env";
 import { getAdminClient } from "@/lib/supabase/admin";
 import type { TaskStatusGroup } from "@/lib/task-queue";
@@ -4292,18 +4296,15 @@ function mapAgentEvalResult(row: Record<string, unknown>, emails: Map<string, st
 }
 
 function mapBrainEvalCase(testCase: BrainEvalCase): AdminAgentEvalCase {
-  const expected = [
-    testCase.expect.action ? `action=${testCase.expect.action}` : "",
-    "module" in testCase.expect ? `module=${testCase.expect.module || "none"}` : "",
-    testCase.expect.visualTaskType ? `visualTask=${testCase.expect.visualTaskType}` : "",
-    testCase.expect.mustClarify ? "clarify=true" : "",
-  ].filter(Boolean);
-
+  // Agent module disabled: BRAIN_EVAL_CASES is an empty stub, so this
+  // function is unreachable at runtime. Restore the typed implementation
+  // when bringing back the agent module from `refactor/extract-agent-module`.
+  void testCase;
   return {
-    id: testCase.id,
-    title: testCase.title,
-    expected,
-    imageCount: testCase.request.images?.length || 0,
+    id: "",
+    title: "",
+    expected: [],
+    imageCount: 0,
   };
 }
 
