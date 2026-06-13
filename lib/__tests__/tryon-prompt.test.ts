@@ -155,9 +155,9 @@ describe("try-on prompt face integration", () => {
       },
     });
 
-    expect(prompt).toContain("Do not vary the face, facial expression, gaze, head pose, head scale");
-    expect(prompt).toContain("candidate diversity must come from garment fit");
-    expect(prompt).toContain("Before applying the global color mood");
+    expect(prompt).toContain("候选之间不要改变脸部");
+    expect(prompt).toContain("候选差异只能来自服装版型");
+    expect(prompt).toContain("套用全局色调前");
     expect(prompt).not.toContain("avoid identical facial expressions");
     expect(prompt).not.toContain("micro-expression");
   });

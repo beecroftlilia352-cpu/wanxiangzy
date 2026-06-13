@@ -26,8 +26,7 @@ describe("garment detail references", () => {
   it("describes detail references as appended non-numbering inputs", () => {
     const prompt = buildGarmentDetailReferencePrompt(2);
 
-    expect(prompt).toContain("final 2 appended input images");
-    expect(prompt).toContain("must not change the existing image-reference numbering");
-    expect(prompt).toContain("main garment/source image wins");
+    expect(prompt).toContain("附加的 2 张图");
+    expect(prompt).toContain("冲突时以主图为准");
   });
 });
