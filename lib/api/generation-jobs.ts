@@ -27,11 +27,14 @@ import { syncGenerationTaskQueueById } from "@/lib/task-queue-store";
 // Restore the import from "@/lib/agent/brain/visual-quality" once the
 // agent module is brought back from `refactor/extract-agent-module`.
 type VisualQualityEvaluation = {
-  shouldRegenerate: boolean;
+  ok: boolean;
   score: number;
-  reasons: string[];
-  annotations: string[];
-  skipped: boolean;
+  shouldRegenerate: boolean;
+  summary: string;
+  issues: string[];
+  repairPrompt?: string;
+  source: "vision_llm" | "deterministic";
+  trace?: { id: string };
 };
 const applyQualityRepairToPrompt = (
   prompt: string,
@@ -42,13 +45,14 @@ const evaluateGeneratedImages = async (_args: {
   module: string;
   resultUrls: string[];
   expectedCount: number;
-  referenceImageUrls: string[];
+  referenceImageUrls?: string[];
 }): Promise<VisualQualityEvaluation> => ({
-  shouldRegenerate: false,
+  ok: true,
   score: 1,
-  reasons: [],
-  annotations: [],
-  skipped: true,
+  shouldRegenerate: false,
+  summary: "智能视觉评估已下线，已跳过自动重生。",
+  issues: [],
+  source: "deterministic",
 });
 import {
   buildCommerceDetailSectionPrompt,
