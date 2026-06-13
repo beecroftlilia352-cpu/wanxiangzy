@@ -205,7 +205,7 @@ export function OutfitFusionComposer({
               key={slot.role}
               role={slot.role}
               label={slot.label}
-              optionalLabel={slot.optional ? "（选填）" : undefined}
+              optionalLabel={slot.optional ? "(选填)" : undefined}
               uploading={uploading}
               onClick={onUploadClick}
               onFiles={onUploadFiles}
