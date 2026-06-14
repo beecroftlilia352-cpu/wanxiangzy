@@ -57,17 +57,18 @@ export async function POST(request: Request) {
 
     const startedAt = Date.now();
     const imageSize = resolveModelImageSize(model, requestedImageSize);
+    const upstreamModel = resolveUpstreamImageModel(model);
     const size = resolvePixelSize(imageSize, aspectRatio);
     const upstreamRequest = useImageEditEndpoint
       ? await buildEditsRequest({
-          model,
+          model: upstreamModel,
           prompt,
           images,
           size,
           quality,
         })
       : buildGenerationsRequest({
-          model,
+          model: upstreamModel,
           prompt,
           images,
           size,
@@ -88,10 +89,12 @@ export async function POST(request: Request) {
 
     const responseText = await response.text();
     if (!response.ok) {
+      const raw = safeJsonOrText(responseText);
+      const upstreamError = extractUpstreamError(raw);
       return NextResponse.json({
-        error: `上游接口失败: ${response.status}`,
+        error: upstreamError ? `上游接口失败 ${response.status}: ${upstreamError}` : `上游接口失败: ${response.status}`,
         status: response.status,
-        raw: safeJsonOrText(responseText),
+        raw,
         request_body: redactLargeFields(upstreamRequest.preview),
       }, { status: 502 });
     }
@@ -103,7 +106,8 @@ export async function POST(request: Request) {
     return NextResponse.json({
       ok: true,
       elapsed_ms: Date.now() - startedAt,
-      model: json.model || model,
+      model: json.model || upstreamModel,
+      selected_model: model,
       request_body: redactLargeFields(upstreamRequest.preview),
       image_urls: imageUrls,
       b64_images: b64Images,
@@ -201,6 +205,12 @@ function resolveModelImageSize(model: string, fallback: ImageSize): ImageSize {
   if (normalized.endsWith("-4k")) return "4K";
   if (normalized.endsWith("-2k")) return "2K";
   return fallback;
+}
+
+function resolveUpstreamImageModel(model: string) {
+  const normalized = model.toLowerCase();
+  if (normalized.startsWith("gpt-image-2")) return "gpt-image-2";
+  return model;
 }
 
 function shouldUseImageEditEndpoint(model: string | undefined, images: string[]) {
@@ -385,5 +395,33 @@ function safeJsonOrText(text: string) {
     return JSON.parse(text);
   } catch {
     return text.slice(0, 2000);
+  }
+}
+
+function extractUpstreamError(value: unknown): string {
+  if (!value) return "";
+  if (typeof value === "string") return value.trim().slice(0, 500);
+  if (typeof value !== "object") return String(value).slice(0, 500);
+
+  const record = value as Record<string, unknown>;
+  const direct = [
+    record.message,
+    record.msg,
+    record.detail,
+    record.error_description,
+  ].find((item) => typeof item === "string" && item.trim());
+  if (typeof direct === "string") return direct.trim().slice(0, 500);
+
+  const nested = record.error;
+  if (typeof nested === "string") return nested.trim().slice(0, 500);
+  if (nested && typeof nested === "object") {
+    const nestedMessage = extractUpstreamError(nested);
+    if (nestedMessage) return nestedMessage;
+  }
+
+  try {
+    return JSON.stringify(value).slice(0, 500);
+  } catch {
+    return "";
   }
 }

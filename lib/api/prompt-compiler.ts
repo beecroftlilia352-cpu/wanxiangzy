@@ -136,23 +136,24 @@ const REQUIRED_SIGNALS: Record<ImagePromptKind, RequiredSignal[]> = {
 };
 
 export function compileImagePromptForModel(params: {
-  kind?: ImagePromptKind;
+  kind?: ImagePromptKind | string;
   model: LingyaModel;
   prompt: string;
 }) {
+  const kind = isImagePromptKind(params.kind) ? params.kind : undefined;
   const normalized = sanitizeSourceImagePrompt(
-    params.kind,
-    appendSourceImageSafetyGuards(params.kind, normalizePrompt(params.prompt))
+    kind,
+    appendSourceImageSafetyGuards(kind, normalizePrompt(params.prompt))
   );
-  if (!params.kind) return normalized;
-  if (params.kind === "tryon") return normalized;
-  if (params.kind === "outfitFusion") return normalized;
+  if (!kind) return normalized;
+  if (kind === "tryon") return normalized;
+  if (kind === "outfitFusion") return normalized;
 
-  if (params.kind === "model") {
-    return compileConcisePrompt(params.kind, normalized, params.model === "gpt-image-2" ? 3400 : 2300, "专属模特执行提示：图片角色、均衡融合、发型发色硬约束和负面审美约束优先。");
+  if (kind === "model") {
+    return compileConcisePrompt(kind, normalized, params.model === "gpt-image-2" ? 3400 : 2300, "专属模特执行提示：图片角色、均衡融合、发型发色硬约束和负面审美约束优先。");
   }
 
-  if (params.kind === "pose" && isSeparatePosePrompt(normalized)) {
+  if (kind === "pose" && isSeparatePosePrompt(normalized)) {
     return compileSeparatePosePrompt(
       normalized,
       params.model === "gpt-image-2" ? 2400 : 2200
@@ -164,10 +165,14 @@ export function compileImagePromptForModel(params: {
   }
 
   if (params.model === "nano-banana-2" || params.model === "nano-banana-pro") {
-    return compileConcisePrompt(params.kind, normalized, 2300, "短版执行提示：优先服从图片编号、硬性保留项和负面约束。");
+    return compileConcisePrompt(kind, normalized, 2300, "短版执行提示：优先服从图片编号、硬性保留项和负面约束。");
   }
 
-  return compileConcisePrompt(params.kind, normalized, 1900, "Seedream 执行提示：主体和参考图关系优先，避免过长描述稀释重点。");
+  return compileConcisePrompt(kind, normalized, 1900, "Seedream 执行提示：主体和参考图关系优先，避免过长描述稀释重点。");
+}
+
+function isImagePromptKind(value: unknown): value is ImagePromptKind {
+  return typeof value === "string" && Object.prototype.hasOwnProperty.call(KIND_HEADERS, value);
 }
 
 function compileConcisePrompt(kind: ImagePromptKind, prompt: string, maxChars: number, modelLine: string) {
@@ -245,8 +250,15 @@ function compileSeparatePosePrompt(prompt: string, maxChars: number) {
 
   if (isProductionSeparatePosePrompt(lines)) {
     const compiled = limitPrompt(prompt, maxChars);
-    validateSeparatePoseCompiledPrompt(compiled, slotIndex);
-    return compiled;
+    try {
+      validateSeparatePoseCompiledPrompt(compiled, slotIndex);
+      return compiled;
+    } catch (error) {
+      if (!isRecoverableSeparatePoseValidationError(error)) throw error;
+      // Fall through to the priority compiler below. Full job prompts can place
+      // role/user context before the slot block, and naive truncation may drop
+      // the target pose even though it exists later in the prompt.
+    }
   }
 
   const targetPoseLines = extractTargetPoseLines(lines, slotIndex);
@@ -375,6 +387,11 @@ function validateSeparatePoseCompiledPrompt(compiledPrompt: string, slotIndex?: 
   if (!hasRequiredKeyword && !hasCustomPoseLine) {
     throw new Error(`Pose slot ${slotIndex}: compiledPrompt missing unique pose keywords`);
   }
+}
+
+function isRecoverableSeparatePoseValidationError(error: unknown) {
+  return error instanceof Error
+    && /compiledPrompt missing (?:Target pose|unique pose keywords)/.test(error.message);
 }
 
 function getKindHeader(kind: ImagePromptKind, prompt: string) {

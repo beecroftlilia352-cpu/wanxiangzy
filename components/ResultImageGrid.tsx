@@ -30,6 +30,8 @@ type ResultImageGridProps = {
   markMissingAsFailed?: boolean;
   missingFailureLabel?: string;
   missingFailureDetail?: string;
+  failureLabel?: string;
+  failureDetail?: string;
 };
 
 export type ResultInputReference = {
@@ -65,6 +67,8 @@ export function ResultImageGrid({
   markMissingAsFailed = false,
   missingFailureLabel,
   missingFailureDetail,
+  failureLabel,
+  failureDetail,
 }: ResultImageGridProps) {
   const fallbackCreatedAt = useMemo(() => new Date().toISOString(), []);
   const count = Math.max(urls.length, expectedCount || 0, 1);
@@ -97,22 +101,25 @@ export function ResultImageGrid({
           )}
 
           <div className={`grid min-w-0 flex-1 gap-3 ${getGridClass(count)}`}>
-            {slots.map((url, index) => (
-              <ResultCard
-                key={`${renderKey}-${index}`}
-                url={url}
-                index={index}
-                count={count}
-                failed={failed || (markMissingAsFailed && !url && !running)}
-                running={running}
-                filenamePrefix={filenamePrefix}
-                extension={extension}
-                imageAltPrefix={imageAltPrefix}
-                onOpen={onOpen}
-                failureLabel={markMissingAsFailed && !url && !running ? missingFailureLabel : undefined}
-                failureDetail={markMissingAsFailed && !url && !running ? missingFailureDetail : undefined}
-              />
-            ))}
+            {slots.map((url, index) => {
+              const missingFailed = markMissingAsFailed && !url && !running;
+              return (
+                <ResultCard
+                  key={`${renderKey}-${index}`}
+                  url={url}
+                  index={index}
+                  count={count}
+                  failed={failed || missingFailed}
+                  running={running}
+                  filenamePrefix={filenamePrefix}
+                  extension={extension}
+                  imageAltPrefix={imageAltPrefix}
+                  onOpen={onOpen}
+                  failureLabel={failed ? failureLabel : missingFailed ? missingFailureLabel : undefined}
+                  failureDetail={failed ? failureDetail : missingFailed ? missingFailureDetail : undefined}
+                />
+              );
+            })}
           </div>
         </div>
       </div>
@@ -350,7 +357,7 @@ function PendingResultSlot({
         {failed ? failureLabel || "生成失败，可套用参数重试" : running ? "生成中，请稍候" : "等待生成"}
       </p>
       {failed && failureDetail && (
-        <p className="relative z-[1] max-w-[76%] text-center text-[11px] font-medium leading-4 text-white/48">
+        <p className="relative z-[1] max-h-20 max-w-[82%] overflow-auto rounded-lg bg-black/10 px-2 py-1 text-left text-[11px] font-medium leading-4 text-white/58">
           {failureDetail}
         </p>
       )}

@@ -91,6 +91,7 @@ type TestResult = {
   raw_preview?: string;
   error?: string;
   raw?: unknown;
+  status?: number;
 };
 
 export default function ApiPlatformTestPage() {
@@ -196,13 +197,16 @@ export default function ApiPlatformTestPage() {
         }),
       });
       const data = await res.json();
-      setResult(data);
       if (!res.ok) {
-        toast.error(data.error || "测试失败");
+        const message = formatTestError(data);
+        setResult({ ...data, error: message });
+        toast.error(message);
       } else if ((data.image_urls?.length || 0) + (data.b64_images?.length || 0) > 0) {
+        setResult(data);
         setProgress(100);
         toast.success("生成成功");
       } else {
+        setResult(data);
         toast.warning("请求成功，但没有解析到图片 URL");
       }
     } catch (err: unknown) {
@@ -415,9 +419,12 @@ export default function ApiPlatformTestPage() {
             )}
 
             {!isLoading && result?.error && (
-              <pre className="max-h-[520px] overflow-auto rounded-xl border border-red-100 bg-red-50 p-3 text-xs text-red-700">
-                {JSON.stringify({ error: result.error, raw: result.raw, request_body: result.request_body }, null, 2)}
-              </pre>
+              <div className="rounded-xl border border-red-100 bg-red-50 p-3 text-xs text-red-700">
+                <p className="mb-2 font-bold">请求失败：{result.error}</p>
+                <pre className="max-h-[480px] overflow-auto whitespace-pre-wrap">
+                  {JSON.stringify({ status: result.status, raw: result.raw, request_body: result.request_body }, null, 2)}
+                </pre>
+              </div>
             )}
 
             {!isLoading && result && !result.error && outputImages.length === 0 && (
@@ -462,4 +469,41 @@ function readImageFile(file: File): Promise<InputImage> {
 
 function GenerationLoading({ progress, model }: { progress: number; model: string }) {
   return <LoadingStage genCount={1} progress={progress} moduleName={model} />;
+}
+
+function formatTestError(result: TestResult) {
+  const parts = [
+    typeof result.status === "number" ? `HTTP ${result.status}` : "",
+    result.error || "",
+    extractErrorMessage(result.raw),
+  ].filter(Boolean);
+  return Array.from(new Set(parts)).join(" · ") || "测试失败";
+}
+
+function extractErrorMessage(value: unknown): string {
+  if (!value) return "";
+  if (typeof value === "string") return value.trim().slice(0, 500);
+  if (typeof value !== "object") return String(value).slice(0, 500);
+
+  const record = value as Record<string, unknown>;
+  const direct = [
+    record.message,
+    record.msg,
+    record.detail,
+    record.error_description,
+  ].find((item) => typeof item === "string" && item.trim());
+  if (typeof direct === "string") return direct.trim().slice(0, 500);
+
+  const nested = record.error;
+  if (typeof nested === "string") return nested.trim().slice(0, 500);
+  if (nested && typeof nested === "object") {
+    const nestedMessage = extractErrorMessage(nested);
+    if (nestedMessage) return nestedMessage;
+  }
+
+  try {
+    return JSON.stringify(value).slice(0, 500);
+  } catch {
+    return "";
+  }
 }

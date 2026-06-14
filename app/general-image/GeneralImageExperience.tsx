@@ -802,6 +802,8 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
                 createdAt={activeQueueTask?.createdAt}
                 statusGroup={activeQueueTask?.statusGroup || (isGenerating ? "running" : undefined)}
                 variant="task"
+                failureLabel="生成失败"
+                failureDetail={activeQueueTask?.statusGroup === "failed" ? activeQueueTask.error || error || undefined : undefined}
                 onOpen={(_, index) => setPreviewIndex(index)}
               />
             </div>

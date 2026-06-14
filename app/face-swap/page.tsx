@@ -1004,6 +1004,8 @@ function ResultsPanel({
           statusGroup={failed ? "failed" : isGenerating ? "running" : task?.statusGroup}
           imageAltPrefix="换脸结果"
           variant="task"
+          failureLabel="生成失败"
+          failureDetail={failed ? task?.error || undefined : undefined}
           onOpen={(_, index) => setPreviewIndex(index)}
         />
 

@@ -2538,6 +2538,10 @@ export default function CreatePage() {
     activeQueueTask?.statusGroup === "completed"
     && activeResultExpectedCount > displayedResultUrls.length
   );
+  const activeFailureMessage = activeQueueTask?.statusGroup === "failed"
+    ? (activeQueueTask.error || store.error || "生成失败")
+    : "";
+  const partialFailureMessage = activeQueueTask?.error || "成功图片可正常使用，失败张数已按任务结算处理。";
   const tryonPreviewReferences = useMemo(() => {
     const references = activeTaskReferences.length
       ? activeTaskReferences
@@ -3892,7 +3896,9 @@ export default function CreatePage() {
                       renderKey={activeQueueTask?.id || "tryon-create"}
                       markMissingAsFailed={hasCompletedPartialResults}
                       missingFailureLabel="本张生成失败"
-                      missingFailureDetail="成功图片可正常使用，失败张数已按任务结算处理。"
+                      missingFailureDetail={partialFailureMessage}
+                      failureLabel="生成失败"
+                      failureDetail={activeFailureMessage || undefined}
                     />
                   </div>
                 </div>

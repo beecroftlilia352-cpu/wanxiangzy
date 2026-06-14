@@ -16,6 +16,17 @@ describe("compileImagePromptForModel", () => {
     expect(result).toBe(shortPrompt);
   });
 
+  it("passes unknown prompt kinds through without concise required-signal compilation", () => {
+    const prompt = "Generate a clean red cup product photo.";
+    const result = compileImagePromptForModel({
+      kind: "general",
+      model: "nano-banana-2",
+      prompt,
+    });
+
+    expect(result).toBe(prompt);
+  });
+
   it("returns tryon prompt without obsolete 8K/RAW quality terms", () => {
     const result = compileImagePromptForModel({
       kind: "tryon",
@@ -172,6 +183,24 @@ describe("compileImagePromptForModel", () => {
     expect(result).toContain("Confident natural gaze");
     expect(result).not.toContain("HARD TARGET POSE SLOT");
     expect(result).not.toContain("图像质量：");
+    expect(result.length).toBeLessThanOrEqual(2400);
+  });
+
+  it("keeps target pose when full job context appears before the slot prompt", () => {
+    const posePrompt = [
+      "Long role context before the actual slot prompt. ".repeat(120),
+      "User supplement before slot: keep fabric texture and background. ".repeat(60),
+      buildSeparatePosePrompt("", 1),
+    ].join("\n");
+    const result = compileImagePromptForModel({
+      kind: "pose",
+      model: "gpt-image-2",
+      prompt: posePrompt,
+    });
+
+    expect(result).toContain("Target pose:");
+    expect(result).toContain("Relaxed front-view outfit read");
+    expect(result).toContain("Keep the front silhouette clear");
     expect(result.length).toBeLessThanOrEqual(2400);
   });
 
