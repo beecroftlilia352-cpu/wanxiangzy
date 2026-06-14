@@ -1,4 +1,5 @@
 const fs = require("fs");
+const Module = require("module");
 const path = require("path");
 const ts = require("typescript");
 
@@ -9,6 +10,7 @@ function loadTsModule(relativePath) {
   const filename = path.join(root, relativePath);
   if (moduleCache.has(filename)) return moduleCache.get(filename);
   const source = fs.readFileSync(filename, "utf8");
+  const nativeRequire = Module.createRequire(filename);
   const output = ts.transpileModule(source, {
     compilerOptions: {
       esModuleInterop: true,
@@ -23,7 +25,19 @@ function loadTsModule(relativePath) {
     if (id.startsWith("@/")) {
       return loadTsModule(`${id.slice(2)}.ts`);
     }
-    throw new Error(`Unexpected runtime require "${id}" while loading ${relativePath}`);
+    if (id.startsWith(".")) {
+      const resolved = path.resolve(path.dirname(filename), id);
+      const candidates = [
+        resolved,
+        `${resolved}.ts`,
+        `${resolved}.tsx`,
+        path.join(resolved, "index.ts"),
+        path.join(resolved, "index.tsx"),
+      ];
+      const tsFile = candidates.find((candidate) => candidate.startsWith(root) && fs.existsSync(candidate));
+      if (tsFile) return loadTsModule(path.relative(root, tsFile));
+    }
+    return nativeRequire(id);
   };
 
   moduleCache.set(filename, mod.exports);

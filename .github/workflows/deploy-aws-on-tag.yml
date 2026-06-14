@@ -34,19 +34,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run tests
-        run: npm run test
-
-      - name: Check prompt regressions
-        run: npm run check:prompts
-
-      - name: Build production output from clean .next
-        run: npm run build
-
-      - name: Check SSR bundle size risk
-        env:
-          SSR_SIZE_FAIL_ON_RISK: "1"
-        run: npm run check:ssr-size
+      - name: Run release checks
+        run: npm run check:release
 
       - name: Create deployment archive
         run: |

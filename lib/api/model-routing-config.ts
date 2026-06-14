@@ -1,4 +1,3 @@
-import { isRecord } from "@/lib/utils";
 import type { LingyaModel } from "@/lib/api/lingya";
 
 export const MODEL_ROUTING_CONFIG_KEY = "model.routing";
@@ -80,6 +79,10 @@ function getConfiguredModelProvider(value: Record<string, unknown>, model: Lingy
   if (!isRecord(value.models)) return undefined;
   const modelConfig = value.models[model];
   return isRecord(modelConfig) ? modelConfig.provider : undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function normalizeProviderToken(value: unknown) {

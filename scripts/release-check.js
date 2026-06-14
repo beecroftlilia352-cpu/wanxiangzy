@@ -37,6 +37,12 @@ const checks = [
     "Run `npm run check:prompts` locally, update the affected prompt behavior or fixture expectations, then rerun `npm run check:release`."
   ),
   npmCheck(
+    "typecheck",
+    "typecheck",
+    "TypeScript type check failed.",
+    "Run `npm run typecheck` locally, fix the first compiler error, then rerun `npm run check:release`."
+  ),
+  npmCheck(
     "build",
     "build",
     "Production build failed.",
@@ -57,8 +63,9 @@ function printHelp() {
 Runs release gates in order:
   1. npm run test
   2. npm run check:prompts
-  3. npm run build
-  4. SSR_SIZE_FAIL_ON_RISK=1 npm run check:ssr-size
+  3. npm run typecheck
+  4. npm run build
+  5. SSR_SIZE_FAIL_ON_RISK=1 npm run check:ssr-size
 
 The first failing step stops the release check and returns its exit code.
 
