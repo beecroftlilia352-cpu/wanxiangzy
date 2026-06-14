@@ -53,9 +53,9 @@ const FEATURE_REQUIRED_ENV: EnvContractEntry[] = [
     description: "Required for Lingya image generation and Lingya-backed prompt analysis.",
   },
   {
-    name: "PLATO_API_KEY",
+    name: "CATROUTER_API_KEY",
     category: "feature-required",
-    description: "Required for GPT-Image-2 through Plato; falls back to LINGYA_API_KEY when empty.",
+    description: "Required for the default GPT-Image-2 CatRouter channel and optional CatRouter Banana channel.",
   },
   {
     name: "HAPPYHORSE_API_KEY or YUNWU_API_KEY",
@@ -119,8 +119,16 @@ const ALIYUN_OSS_REQUIRED_ENV: EnvContractEntry[] = [
 
 const OPTIONAL_ENV: EnvContractEntry[] = [
   { name: "LINGYA_BASE_URL", category: "optional", description: "Lingya API base URL override." },
+  { name: "GPT_IMAGE_PROVIDER", category: "optional", description: "GPT-Image-2 provider: catrouter (default) or plato." },
+  { name: "CATROUTER_BASE_URL", category: "optional", description: "CatRouter API base URL, default https://api.catrouter.net." },
+  { name: "CATROUTER_API_KEY", category: "optional", description: "CatRouter API key for GPT-Image-2 and optional Banana native routing." },
+  { name: "CATROUTER_GPT_IMAGE_MODEL", category: "optional", description: "CatRouter provider model id for gpt-image-2." },
+  { name: "CATROUTER_NANO_BANANA_MODEL", category: "optional", description: "CatRouter provider model id for nano-banana-2." },
+  { name: "CATROUTER_NANO_BANANA_PRO_MODEL", category: "optional", description: "CatRouter provider model id for nano-banana-pro." },
   { name: "PLATO_BASE_URL", category: "optional", description: "Plato API base URL override." },
-  { name: "NANO_BANANA_PROVIDER", category: "optional", description: "Nano Banana native image provider: yunwu (default) or laozhang." },
+  { name: "PLATO_API_KEY", category: "optional", description: "Plato GPT-Image-2 API key fallback." },
+  { name: "PLATO_GPT_IMAGE_MODEL", category: "optional", description: "Plato provider model id for gpt-image-2." },
+  { name: "NANO_BANANA_PROVIDER", category: "optional", description: "Nano Banana native image provider: yunwu (default), catrouter, or laozhang." },
   { name: "YUNWU_NATIVE_BASE_URL", category: "optional", description: "Yunwu Gemini native generateContent base URL, default https://yunwu.ai." },
   { name: "YUNWU_NATIVE_API_KEY", category: "optional", description: "Yunwu Gemini native generateContent API key; falls back to YUNWU_API_KEY." },
   { name: "YUNWU_NANO_BANANA_MODEL", category: "optional", description: "Yunwu provider model id for nano-banana-2." },
@@ -207,6 +215,7 @@ export function validateEnv(options: { log?: boolean; nodeEnv?: string } = {}): 
 
   for (const entry of FEATURE_REQUIRED_ENV) {
     if (entry.name.includes(" or ")) continue;
+    if (entry.name === "CATROUTER_API_KEY") continue;
     if (entry.name === "IMGBB_API_KEY" && imageStorageProvider === "aliyun-oss") continue;
     if (!process.env[entry.name]) {
       issues.push({
@@ -216,6 +225,24 @@ export function validateEnv(options: { log?: boolean; nodeEnv?: string } = {}): 
         message: `${entry.name} is not set; related features will fail when used.`,
       });
     }
+  }
+
+  const gptImageProvider = normalizeGptImageProvider(process.env.GPT_IMAGE_PROVIDER);
+  if (gptImageProvider === "catrouter" && !process.env.CATROUTER_API_KEY) {
+    issues.push({
+      name: "CATROUTER_API_KEY",
+      category: "feature-required",
+      severity: "warning",
+      message: "CATROUTER_API_KEY is not set; GPT-Image-2 generation will fail while GPT_IMAGE_PROVIDER=catrouter.",
+    });
+  }
+  if (gptImageProvider === "plato" && !process.env.PLATO_API_KEY && !process.env.LINGYA_API_KEY) {
+    issues.push({
+      name: "PLATO_API_KEY or LINGYA_API_KEY",
+      category: "feature-required",
+      severity: "warning",
+      message: "PLATO_API_KEY or LINGYA_API_KEY is not set; GPT-Image-2 generation will fail while GPT_IMAGE_PROVIDER=plato.",
+    });
   }
 
   if (!process.env.HAPPYHORSE_API_KEY && !process.env.YUNWU_HAPPYHORSE_API_KEY && !process.env.YUNWU_API_KEY) {
@@ -234,6 +261,14 @@ export function validateEnv(options: { log?: boolean; nodeEnv?: string } = {}): 
       category: "feature-required",
       severity: "warning",
       message: "LAOZHANG_API_KEY is not set; Nano Banana image generation will fail while NANO_BANANA_PROVIDER=laozhang.",
+    });
+  }
+  if (nanoBananaProvider === "catrouter" && !process.env.CATROUTER_API_KEY) {
+    issues.push({
+      name: "CATROUTER_API_KEY",
+      category: "feature-required",
+      severity: "warning",
+      message: "CATROUTER_API_KEY is not set; Nano Banana image generation will fail while NANO_BANANA_PROVIDER=catrouter.",
     });
   }
   if (nanoBananaProvider === "yunwu" && !process.env.YUNWU_NATIVE_API_KEY && !process.env.YUNWU_API_KEY) {
@@ -262,8 +297,15 @@ export function validateEnv(options: { log?: boolean; nodeEnv?: string } = {}): 
   return issues;
 }
 
-function normalizeNanoBananaProvider(value: unknown): "yunwu" | "laozhang" {
+function normalizeGptImageProvider(value: unknown): "catrouter" | "plato" {
   const normalized = typeof value === "string" ? value.trim().toLowerCase() : "";
+  if (normalized === "plato" || normalized === "yunwu" || normalized === "yunwu-openai") return "plato";
+  return "catrouter";
+}
+
+function normalizeNanoBananaProvider(value: unknown): "yunwu" | "laozhang" | "catrouter" {
+  const normalized = typeof value === "string" ? value.trim().toLowerCase() : "";
+  if (normalized === "catrouter" || normalized === "cat-router" || normalized === "cat_router") return "catrouter";
   if (normalized === "laozhang" || normalized === "lao-zhang" || normalized === "lao_zhang") return "laozhang";
   return "yunwu";
 }

@@ -93,6 +93,7 @@ describe("lingya async task response parsing", () => {
 
   it("uses synchronous image generation for Plato and async tasks for Lingya", () => {
     expect(shouldRequestAsyncImageTask({ name: "plato" })).toBe(false);
+    expect(shouldRequestAsyncImageTask({ name: "catrouter" })).toBe(false);
     expect(shouldRequestAsyncImageTask({ name: "laozhang" })).toBe(false);
     expect(shouldRequestAsyncImageTask({ name: "yunwu-native" })).toBe(false);
     expect(shouldRequestAsyncImageTask({ name: "lingya" })).toBe(true);
@@ -140,6 +141,8 @@ describe("lingya async task response parsing", () => {
     }, "compiled prompt");
 
     expect(shouldUseImageEditEndpoint({ model: "gpt-image-2", image: ["https://example.com/source.png"] }, { name: "plato" }))
+      .toBe(true);
+    expect(shouldUseImageEditEndpoint({ model: "gpt-image-2", image: ["https://example.com/source.png"] }, { name: "catrouter" }))
       .toBe(true);
     expect(getImageEditUrl("https://yunwu.ai/v1")).toBe("https://yunwu.ai/v1/images/edits");
     expect(body).toMatchObject({
@@ -218,28 +221,71 @@ describe("lingya async task response parsing", () => {
     expect(body).toMatchObject({ model: "gpt-image-2", size: "1536x864", quality: "high" });
   });
 
-  it("uses Yunwu native as the default Nano Banana provider and can switch to LaoZhang", () => {
+  it("uses CatRouter as the default GPT provider and can switch to Plato", async () => {
+    const previousProvider = process.env.GPT_IMAGE_PROVIDER;
+    const previousCatrouterKey = process.env.CATROUTER_API_KEY;
+    const previousCatrouterBase = process.env.CATROUTER_BASE_URL;
+    const previousPlatoKey = process.env.PLATO_API_KEY;
+
+    delete process.env.GPT_IMAGE_PROVIDER;
+    delete process.env.CATROUTER_BASE_URL;
+    process.env.CATROUTER_API_KEY = "catrouter-key";
+    process.env.PLATO_API_KEY = "plato-key";
+
+    await expect(getImageProvider("gpt-image-2")).resolves.toMatchObject({
+      name: "catrouter",
+      apiBase: "https://api.catrouter.net/v1",
+      apiKey: "catrouter-key",
+    });
+
+    process.env.GPT_IMAGE_PROVIDER = "plato";
+    await expect(getImageProvider("gpt-image-2")).resolves.toMatchObject({
+      name: "plato",
+      apiBase: "https://yunwu.ai/v1",
+      apiKey: "plato-key",
+    });
+
+    if (previousProvider === undefined) delete process.env.GPT_IMAGE_PROVIDER;
+    else process.env.GPT_IMAGE_PROVIDER = previousProvider;
+    if (previousCatrouterKey === undefined) delete process.env.CATROUTER_API_KEY;
+    else process.env.CATROUTER_API_KEY = previousCatrouterKey;
+    if (previousCatrouterBase === undefined) delete process.env.CATROUTER_BASE_URL;
+    else process.env.CATROUTER_BASE_URL = previousCatrouterBase;
+    if (previousPlatoKey === undefined) delete process.env.PLATO_API_KEY;
+    else process.env.PLATO_API_KEY = previousPlatoKey;
+  });
+
+  it("uses Yunwu native as the default Nano Banana provider and can switch to LaoZhang or CatRouter", async () => {
     const previousProvider = process.env.NANO_BANANA_PROVIDER;
     const previousYunwuKey = process.env.YUNWU_NATIVE_API_KEY;
     const previousYunwuSharedKey = process.env.YUNWU_API_KEY;
     const previousLaozhangKey = process.env.LAOZHANG_API_KEY;
+    const previousCatrouterKey = process.env.CATROUTER_API_KEY;
 
     delete process.env.NANO_BANANA_PROVIDER;
     delete process.env.YUNWU_API_KEY;
     process.env.YUNWU_NATIVE_API_KEY = "yunwu-native-key";
     process.env.LAOZHANG_API_KEY = "laozhang-key";
+    process.env.CATROUTER_API_KEY = "catrouter-key";
 
-    expect(getImageProvider("nano-banana-2")).toMatchObject({
+    await expect(getImageProvider("nano-banana-2")).resolves.toMatchObject({
       name: "yunwu-native",
       apiBase: "https://yunwu.ai",
       apiKey: "yunwu-native-key",
     });
 
     process.env.NANO_BANANA_PROVIDER = "laozhang";
-    expect(getImageProvider("nano-banana-2")).toMatchObject({
+    await expect(getImageProvider("nano-banana-2")).resolves.toMatchObject({
       name: "laozhang",
       apiBase: "https://api.laozhang.ai",
       apiKey: "laozhang-key",
+    });
+
+    process.env.NANO_BANANA_PROVIDER = "catrouter";
+    await expect(getImageProvider("nano-banana-2")).resolves.toMatchObject({
+      name: "catrouter",
+      apiBase: "https://api.catrouter.net",
+      apiKey: "catrouter-key",
     });
 
     if (previousProvider === undefined) delete process.env.NANO_BANANA_PROVIDER;
@@ -250,6 +296,8 @@ describe("lingya async task response parsing", () => {
     else process.env.YUNWU_API_KEY = previousYunwuSharedKey;
     if (previousLaozhangKey === undefined) delete process.env.LAOZHANG_API_KEY;
     else process.env.LAOZHANG_API_KEY = previousLaozhangKey;
+    if (previousCatrouterKey === undefined) delete process.env.CATROUTER_API_KEY;
+    else process.env.CATROUTER_API_KEY = previousCatrouterKey;
   });
 
   it("preserves gpt-image-2 2K and 4K selections in request bodies", () => {
@@ -315,7 +363,10 @@ describe("lingya async task response parsing", () => {
     process.env.PLATO_GPT_IMAGE_MODEL = "gpt-image-2-custom";
 
     expect(resolveProviderImageModel("gpt-image-2", { name: "plato" })).toBe("gpt-image-2");
+    expect(resolveProviderImageModel("gpt-image-2", { name: "catrouter" })).toBe("gpt-image-2");
     expect(resolveProviderImageModel("gpt-image-2", { name: "lingya" })).toBe("gpt-image-2");
+    expect(resolveProviderImageModel("nano-banana-2", { name: "catrouter" })).toBe("gemini-3.1-flash-image-preview");
+    expect(resolveProviderImageModel("nano-banana-pro", { name: "catrouter" })).toBe("gemini-3-pro-image-preview");
     expect(resolveProviderImageModel("nano-banana-2", { name: "yunwu-native" })).toBe("gemini-3.1-flash-image-preview");
     expect(resolveProviderImageModel("nano-banana-pro", { name: "yunwu-native" })).toBe("gemini-3-pro-image-preview");
     expect(resolveProviderImageModel("nano-banana-2", { name: "laozhang" })).toBe("gemini-3.1-flash-image-preview");

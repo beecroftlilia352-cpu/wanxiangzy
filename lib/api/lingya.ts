@@ -4,6 +4,13 @@
  */
 
 import { normalizeOpenAiCompatibleBaseUrl } from "@/lib/api/url-utils";
+import {
+  getEnvModelRoutingConfig,
+  getProviderForModel,
+  normalizeGptImageProvider,
+  normalizeNanoBananaProvider,
+  type ModelRoutingConfig,
+} from "@/lib/api/model-routing-config";
 import { resolveExactAspectPixelSize, resolveSmartImageAspectRatio } from "@/lib/api/image-size";
 import {
   TRYON_CLOTHING_IMAGE_ROLE_RULE,
@@ -56,6 +63,7 @@ const DEFAULT_API_BASE = "https://api.lingyaai.cn/v1";
 const DEFAULT_PLATO_API_BASE = "https://yunwu.ai/v1";
 const DEFAULT_YUNWU_NATIVE_API_BASE = "https://yunwu.ai";
 const DEFAULT_LAOZHANG_API_BASE = "https://api.laozhang.ai";
+const DEFAULT_CATROUTER_API_BASE = "https://api.catrouter.net";
 const DEFAULT_GPT_IMAGE_2_PROVIDER_MODEL = "gpt-image-2";
 const DEFAULT_NANO_BANANA_PROVIDER_MODEL = "gemini-3.1-flash-image-preview";
 const DEFAULT_NANO_BANANA_PRO_PROVIDER_MODEL = "gemini-3-pro-image-preview";
@@ -155,9 +163,8 @@ export type ImageTaskProgress = {
   error?: string;
 };
 
-type ImageProviderName = "lingya" | "plato" | "yunwu-native" | "laozhang";
+type ImageProviderName = "lingya" | "plato" | "yunwu-native" | "laozhang" | "catrouter";
 type ImageProvider = { name: ImageProviderName; apiBase: string; apiKey?: string };
-type NanoBananaProviderName = "yunwu" | "laozhang";
 
 interface BatchTryOnInput {
   model: LingyaModel;
@@ -198,7 +205,7 @@ type TryOnRequestPromptOptions = {
 
 export async function generateImage(input: GenerateInput, retries = 2): Promise<GenerateResult> {
   const requestInput = await resolveGenerateInputAspectRatio(input);
-  const provider = getImageProvider(requestInput.model);
+  const provider = await getImageProvider(requestInput.model);
   const apiKey = provider.apiKey;
   if (!apiKey) throw new Error(`${provider.name} API Key 未配置`);
   const apiBase = provider.apiBase;
@@ -569,11 +576,11 @@ function buildGenerateRequestBody(input: GenerateInput, compiledPrompt: string):
 }
 
 function shouldUseImageEditEndpoint(input: Pick<GenerateInput, "model" | "image">, provider: { name: string }): boolean {
-  return provider.name === "plato" && input.model === "gpt-image-2" && Boolean(input.image?.length);
+  return (provider.name === "plato" || provider.name === "catrouter") && input.model === "gpt-image-2" && Boolean(input.image?.length);
 }
 
 function shouldUseLaozhangNativeEndpoint(input: Pick<GenerateInput, "model">, provider: { name: string }): boolean {
-  return (provider.name === "laozhang" || provider.name === "yunwu-native") && isNanoBananaModel(input.model);
+  return (provider.name === "laozhang" || provider.name === "yunwu-native" || provider.name === "catrouter") && isNanoBananaModel(input.model);
 }
 
 function buildImageGenerationRequest(params: {
@@ -1160,6 +1167,14 @@ function getLaozhangApiBaseUrl(): string {
   return normalizeGeminiNativeApiBaseUrl(process.env.LAOZHANG_BASE_URL, DEFAULT_LAOZHANG_API_BASE);
 }
 
+function getCatrouterOpenAiApiBaseUrl(): string {
+  return normalizeOpenAiCompatibleBaseUrl(process.env.CATROUTER_BASE_URL || DEFAULT_CATROUTER_API_BASE);
+}
+
+function getCatrouterNativeApiBaseUrl(): string {
+  return normalizeGeminiNativeApiBaseUrl(process.env.CATROUTER_BASE_URL, DEFAULT_CATROUTER_API_BASE);
+}
+
 function getYunwuNativeApiBaseUrl(): string {
   return normalizeGeminiNativeApiBaseUrl(
     process.env.YUNWU_NATIVE_BASE_URL || process.env.YUNWU_API_BASE_URL,
@@ -1172,22 +1187,33 @@ function normalizeGeminiNativeApiBaseUrl(value: string | undefined, fallback: st
   return raw.replace(/\/v1beta$/i, "").replace(/\/v1$/i, "");
 }
 
-function normalizeNanoBananaProvider(value: unknown): NanoBananaProviderName {
-  const normalized = typeof value === "string" ? value.trim().toLowerCase() : "";
-  if (normalized === "laozhang" || normalized === "lao-zhang" || normalized === "lao_zhang") return "laozhang";
-  return "yunwu";
-}
-
-function getImageProvider(model: LingyaModel): ImageProvider {
+async function getImageProvider(model: LingyaModel): Promise<ImageProvider> {
+  const routing = await resolveActiveModelRoutingConfig();
   if (model === "gpt-image-2") {
+    const provider = normalizeGptImageProvider(getProviderForModel(routing, model));
+    if (provider === "catrouter") {
+      return {
+        name: "catrouter",
+        apiBase: getCatrouterOpenAiApiBaseUrl(),
+        apiKey: process.env.CATROUTER_API_KEY?.trim(),
+      };
+    }
+
     return {
       name: "plato",
       apiBase: getPlatoApiBaseUrl(),
-      apiKey: process.env.PLATO_API_KEY || process.env.LINGYA_API_KEY,
+      apiKey: process.env.PLATO_API_KEY?.trim() || process.env.LINGYA_API_KEY?.trim(),
     };
   }
   if (isNanoBananaModel(model)) {
-    const provider = normalizeNanoBananaProvider(process.env.NANO_BANANA_PROVIDER);
+    const provider = normalizeNanoBananaProvider(getProviderForModel(routing, model));
+    if (provider === "catrouter") {
+      return {
+        name: "catrouter",
+        apiBase: getCatrouterNativeApiBaseUrl(),
+        apiKey: process.env.CATROUTER_API_KEY?.trim(),
+      };
+    }
     if (provider === "laozhang") {
       return {
         name: "laozhang",
@@ -1210,6 +1236,16 @@ function getImageProvider(model: LingyaModel): ImageProvider {
   };
 }
 
+async function resolveActiveModelRoutingConfig(): Promise<ModelRoutingConfig> {
+  if (typeof window !== "undefined") return getEnvModelRoutingConfig();
+  try {
+    const { getActiveModelRoutingConfig } = await import("@/lib/api/model-routing-config.server");
+    return await getActiveModelRoutingConfig();
+  } catch {
+    return getEnvModelRoutingConfig();
+  }
+}
+
 function getImageGenerationUrl(apiBase: string, provider: { name: string }): string {
   const endpoint = `${apiBase}/images/generations`;
   return shouldRequestAsyncImageTask(provider) ? `${endpoint}?async=true` : endpoint;
@@ -1224,10 +1260,19 @@ function getLaozhangGenerateContentUrl(apiBase: string, model: string): string {
 }
 
 function shouldRequestAsyncImageTask(provider: { name: string }): boolean {
-  return provider.name !== "plato" && provider.name !== "laozhang" && provider.name !== "yunwu-native";
+  return provider.name !== "plato" && provider.name !== "laozhang" && provider.name !== "yunwu-native" && provider.name !== "catrouter";
 }
 
 function resolveProviderImageModel(model: LingyaModel, provider: { name: string }): string {
+  if (provider.name === "catrouter" && model === "gpt-image-2") {
+    return process.env.CATROUTER_GPT_IMAGE_MODEL?.trim() || DEFAULT_GPT_IMAGE_2_PROVIDER_MODEL;
+  }
+  if (provider.name === "catrouter" && model === "nano-banana-2") {
+    return process.env.CATROUTER_NANO_BANANA_MODEL?.trim() || DEFAULT_NANO_BANANA_PROVIDER_MODEL;
+  }
+  if (provider.name === "catrouter" && model === "nano-banana-pro") {
+    return process.env.CATROUTER_NANO_BANANA_PRO_MODEL?.trim() || DEFAULT_NANO_BANANA_PRO_PROVIDER_MODEL;
+  }
   if (provider.name === "plato" && model === "gpt-image-2") {
     return DEFAULT_GPT_IMAGE_2_PROVIDER_MODEL;
   }

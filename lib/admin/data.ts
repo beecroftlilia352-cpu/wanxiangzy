@@ -1,4 +1,10 @@
 import { CREDIT_COSTS, DEFAULT_LINGYA_MODEL, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
+import {
+  type GptImageProviderName,
+  type ModelRoutingConfig,
+  type NanoBananaProviderName,
+} from "@/lib/api/model-routing-config";
+import { getActiveModelRoutingConfig } from "@/lib/api/model-routing-config.server";
 // Agent module is temporarily disabled; eval cases are stubbed as empty.
 // Restore the import from "@/lib/agent/brain/eval-cases" once the agent
 // module is brought back from `refactor/extract-agent-module`.
@@ -151,6 +157,14 @@ export type AdminAuditList = {
 
 export type AdminProviderCatalog = {
   defaultModel: LingyaModel;
+  routing: {
+    source: ModelRoutingConfig["source"];
+    configKey: string;
+    versionId?: string;
+    publishedAt?: string | null;
+    gptImageProvider: GptImageProviderName;
+    nanoBananaProvider: NanoBananaProviderName;
+  };
   models: Array<{
     model: LingyaModel;
     provider: string;
@@ -1299,7 +1313,7 @@ export async function getAdminDiagnostics(): Promise<AdminDiagnosticsReport> {
     listAdminOperationRequests({ status: "pending", limit: 40 }),
     listAdminTasks({ status: "failed", limit: 50 }),
   ]);
-  const providerCatalog = getAdminProviderCatalog();
+  const providerCatalog = await getAdminProviderCatalog();
   const items: AdminDiagnosticItem[] = [];
 
   pushDiagnostic(items, {
@@ -2899,27 +2913,52 @@ export async function getAdminAgentEvalOverview(args: { q?: string; limit?: numb
   };
 }
 
-function getAdminNanoBananaProviderLabel() {
-  const provider = process.env.NANO_BANANA_PROVIDER?.trim().toLowerCase();
-  return provider === "laozhang" || provider === "lao-zhang" || provider === "lao_zhang"
-    ? "LaoZhang"
-    : "Yunwu";
+function getAdminNanoBananaProviderLabel(provider: NanoBananaProviderName) {
+  if (provider === "catrouter") return "CatRouter";
+  if (provider === "laozhang") return "LaoZhang";
+  return "Yunwu";
 }
 
-export function getAdminProviderCatalog(): AdminProviderCatalog {
-  const nanoBananaProvider = getAdminNanoBananaProviderLabel();
-  const nanoBananaConfigured = nanoBananaProvider === "LaoZhang"
-    ? Boolean(process.env.LAOZHANG_API_KEY?.trim())
-    : Boolean(process.env.YUNWU_NATIVE_API_KEY?.trim() || process.env.YUNWU_API_KEY?.trim());
-  const nanoBananaEnvKeys = nanoBananaProvider === "LaoZhang"
-    ? ["NANO_BANANA_PROVIDER", "LAOZHANG_API_KEY", "LAOZHANG_BASE_URL", "LAOZHANG_NANO_BANANA_MODEL"]
-    : ["NANO_BANANA_PROVIDER", "YUNWU_NATIVE_API_KEY", "YUNWU_NATIVE_BASE_URL", "YUNWU_NANO_BANANA_MODEL"];
-  const nanoBananaProEnvKeys = nanoBananaProvider === "LaoZhang"
-    ? ["NANO_BANANA_PROVIDER", "LAOZHANG_API_KEY", "LAOZHANG_BASE_URL", "LAOZHANG_NANO_BANANA_PRO_MODEL"]
-    : ["NANO_BANANA_PROVIDER", "YUNWU_NATIVE_API_KEY", "YUNWU_NATIVE_BASE_URL", "YUNWU_NANO_BANANA_PRO_MODEL"];
+function getAdminGptImageProviderLabel(provider: GptImageProviderName) {
+  return provider === "catrouter" ? "CatRouter" : "Plato";
+}
+
+export async function getAdminProviderCatalog(): Promise<AdminProviderCatalog> {
+  const routing = await getActiveModelRoutingConfig();
+  const nanoBananaProvider = getAdminNanoBananaProviderLabel(routing.nanoBananaProvider);
+  const gptImageProvider = getAdminGptImageProviderLabel(routing.gptImageProvider);
+  const nanoBananaConfigured = routing.nanoBananaProvider === "catrouter"
+    ? Boolean(process.env.CATROUTER_API_KEY?.trim())
+    : routing.nanoBananaProvider === "laozhang"
+      ? Boolean(process.env.LAOZHANG_API_KEY?.trim())
+      : Boolean(process.env.YUNWU_NATIVE_API_KEY?.trim() || process.env.YUNWU_API_KEY?.trim());
+  const gptImageConfigured = routing.gptImageProvider === "catrouter"
+    ? Boolean(process.env.CATROUTER_API_KEY?.trim())
+    : Boolean(process.env.PLATO_API_KEY?.trim() || process.env.LINGYA_API_KEY?.trim());
+  const nanoBananaEnvKeys = routing.nanoBananaProvider === "catrouter"
+    ? ["NANO_BANANA_PROVIDER", "CATROUTER_API_KEY", "CATROUTER_BASE_URL", "CATROUTER_NANO_BANANA_MODEL"]
+    : routing.nanoBananaProvider === "laozhang"
+      ? ["NANO_BANANA_PROVIDER", "LAOZHANG_API_KEY", "LAOZHANG_BASE_URL", "LAOZHANG_NANO_BANANA_MODEL"]
+      : ["NANO_BANANA_PROVIDER", "YUNWU_NATIVE_API_KEY", "YUNWU_NATIVE_BASE_URL", "YUNWU_NANO_BANANA_MODEL"];
+  const nanoBananaProEnvKeys = routing.nanoBananaProvider === "catrouter"
+    ? ["NANO_BANANA_PROVIDER", "CATROUTER_API_KEY", "CATROUTER_BASE_URL", "CATROUTER_NANO_BANANA_PRO_MODEL"]
+    : routing.nanoBananaProvider === "laozhang"
+      ? ["NANO_BANANA_PROVIDER", "LAOZHANG_API_KEY", "LAOZHANG_BASE_URL", "LAOZHANG_NANO_BANANA_PRO_MODEL"]
+      : ["NANO_BANANA_PROVIDER", "YUNWU_NATIVE_API_KEY", "YUNWU_NATIVE_BASE_URL", "YUNWU_NANO_BANANA_PRO_MODEL"];
+  const gptImageEnvKeys = routing.gptImageProvider === "catrouter"
+    ? ["GPT_IMAGE_PROVIDER", "CATROUTER_API_KEY", "CATROUTER_BASE_URL", "CATROUTER_GPT_IMAGE_MODEL"]
+    : ["GPT_IMAGE_PROVIDER", "PLATO_API_KEY", "PLATO_BASE_URL", "PLATO_GPT_IMAGE_MODEL"];
 
   return {
     defaultModel: DEFAULT_LINGYA_MODEL,
+    routing: {
+      source: routing.source,
+      configKey: routing.configKey,
+      versionId: routing.versionId,
+      publishedAt: routing.publishedAt,
+      gptImageProvider: routing.gptImageProvider,
+      nanoBananaProvider: routing.nanoBananaProvider,
+    },
     models: [
       {
         model: "nano-banana-2",
@@ -2941,10 +2980,10 @@ export function getAdminProviderCatalog(): AdminProviderCatalog {
       },
       {
         model: "gpt-image-2",
-        provider: "Plato",
+        provider: gptImageProvider,
         endpointKind: "OpenAI-compatible image",
-        configured: Boolean(process.env.PLATO_API_KEY || process.env.LINGYA_API_KEY),
-        envKeys: ["PLATO_API_KEY", "PLATO_BASE_URL"],
+        configured: gptImageConfigured,
+        envKeys: gptImageEnvKeys,
         costs: CREDIT_COSTS["gpt-image-2"],
         notes: "适合稳定编辑类任务，Plato 未配置时回退 LINGYA_API_KEY。",
       },

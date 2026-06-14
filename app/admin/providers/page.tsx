@@ -7,26 +7,31 @@ import {
   formatNumber,
 } from "@/components/admin/AdminPrimitives";
 import { AdminConfigForm } from "@/components/admin/AdminConfigForm";
+import { AdminModelRoutingForm } from "@/components/admin/AdminModelRoutingForm";
 import { getAdminProviderCatalog } from "@/lib/admin/data";
 
 export const dynamic = "force-dynamic";
 
-export default function AdminProvidersPage() {
-  const catalog = getAdminProviderCatalog();
+export default async function AdminProvidersPage() {
+  const catalog = await getAdminProviderCatalog();
 
   return (
     <div className="space-y-5">
       <AdminPageHeader
         eyebrow="Providers"
         title="模型与供应商"
-        description="集中查看模型路由、环境变量配置、灵点成本和各业务模块接入边界。后续可扩展为模型开关、灰度、限流和成本策略。"
+        description="集中查看模型路由、环境变量配置、灵点成本和业务模块接入边界；可快速切换 GPT-Image-2 与 Banana 的默认通道。"
       />
 
       <AdminNotice tone="info">
-        默认模型为 {catalog.defaultModel}。当前页面只读，不会泄露 API Key 明文。
+        默认模型为 {catalog.defaultModel}。当前页面只显示配置状态，不会泄露 API Key 明文。
       </AdminNotice>
 
-      <AdminSection title="模型路由" description="成本来自 lib/api/lingya.ts 的 CREDIT_COSTS，配置状态来自服务端环境变量。">
+      <AdminSection title="模型通道快速切换" description="保存后会发布 model.routing，新生成任务立即按这里的 GPT 与 Banana 通道走；环境变量仍作为兜底。">
+        <AdminModelRoutingForm routing={catalog.routing} />
+      </AdminSection>
+
+      <AdminSection title="模型路由" description="成本来自 lib/api/lingya.ts 的 CREDIT_COSTS；配置状态来自服务端环境变量和已发布的 model.routing。">
         <AdminTable<(typeof catalog.models)[number]>
           rows={catalog.models}
           rowKey={(row) => row.model}
@@ -86,7 +91,7 @@ export default function AdminProvidersPage() {
         />
       </AdminSection>
 
-      <AdminSection title="模块接入矩阵" description="用于确保每条生产链路都有后台管理入口。">
+      <AdminSection title="模块接入矩阵" description="用于确认每条生产链路都有后台管理入口。">
         <AdminTable<(typeof catalog.modules)[number]>
           rows={catalog.modules}
           rowKey={(row) => row.key}
@@ -114,11 +119,12 @@ export default function AdminProvidersPage() {
         <AdminConfigForm
           defaultConfigKey="model.routing"
           defaultValue={`{
-  "defaultModel": "${catalog.defaultModel}",
+  "gptImageProvider": "${catalog.routing.gptImageProvider}",
+  "nanoBananaProvider": "${catalog.routing.nanoBananaProvider}",
   "models": {
-    "nano-banana-2": { "enabled": true, "provider": "laozhang" },
-    "nano-banana-pro": { "enabled": true, "provider": "laozhang" },
-    "gpt-image-2": { "enabled": true, "provider": "plato" }
+    "gpt-image-2": { "enabled": true, "provider": "${catalog.routing.gptImageProvider}" },
+    "nano-banana-2": { "enabled": true, "provider": "${catalog.routing.nanoBananaProvider}" },
+    "nano-banana-pro": { "enabled": true, "provider": "${catalog.routing.nanoBananaProvider}" }
   },
   "degrade": {
     "disable4k": false,

@@ -6,5 +6,5 @@ export async function GET() {
   const auth = await requireAdminApi("providers:read");
   if (!auth.ok) return auth.response;
 
-  return NextResponse.json(getAdminProviderCatalog(), { headers: { "Cache-Control": "no-store" } });
+  return NextResponse.json(await getAdminProviderCatalog(), { headers: { "Cache-Control": "no-store" } });
 }

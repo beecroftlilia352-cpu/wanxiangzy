@@ -17,6 +17,8 @@ describe("environment contract", () => {
     delete process.env.SITE_URL;
     delete process.env.APP_URL;
     delete process.env.URL;
+    delete process.env.GPT_IMAGE_PROVIDER;
+    delete process.env.CATROUTER_API_KEY;
     delete process.env.NANO_BANANA_PROVIDER;
     delete process.env.YUNWU_NATIVE_API_KEY;
     delete process.env.LAOZHANG_API_KEY;
@@ -143,6 +145,29 @@ describe("environment contract", () => {
     expect(validateEnv({ nodeEnv: "development" })).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ name: "LAOZHANG_API_KEY" }),
+      ])
+    );
+  });
+
+  it("checks the selected GPT-Image-2 provider key", () => {
+    expect(validateEnv({ nodeEnv: "development" })).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: "CATROUTER_API_KEY" }),
+      ])
+    );
+
+    process.env.CATROUTER_API_KEY = "catrouter-key";
+    expect(validateEnv({ nodeEnv: "development" })).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: "CATROUTER_API_KEY" }),
+      ])
+    );
+
+    delete process.env.CATROUTER_API_KEY;
+    process.env.GPT_IMAGE_PROVIDER = "plato";
+    expect(validateEnv({ nodeEnv: "development" })).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: "PLATO_API_KEY or LINGYA_API_KEY" }),
       ])
     );
   });
