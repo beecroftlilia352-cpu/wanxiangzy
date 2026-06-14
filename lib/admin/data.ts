@@ -2899,25 +2899,43 @@ export async function getAdminAgentEvalOverview(args: { q?: string; limit?: numb
   };
 }
 
+function getAdminNanoBananaProviderLabel() {
+  const provider = process.env.NANO_BANANA_PROVIDER?.trim().toLowerCase();
+  return provider === "laozhang" || provider === "lao-zhang" || provider === "lao_zhang"
+    ? "LaoZhang"
+    : "Yunwu";
+}
+
 export function getAdminProviderCatalog(): AdminProviderCatalog {
+  const nanoBananaProvider = getAdminNanoBananaProviderLabel();
+  const nanoBananaConfigured = nanoBananaProvider === "LaoZhang"
+    ? Boolean(process.env.LAOZHANG_API_KEY?.trim())
+    : Boolean(process.env.YUNWU_NATIVE_API_KEY?.trim() || process.env.YUNWU_API_KEY?.trim());
+  const nanoBananaEnvKeys = nanoBananaProvider === "LaoZhang"
+    ? ["NANO_BANANA_PROVIDER", "LAOZHANG_API_KEY", "LAOZHANG_BASE_URL", "LAOZHANG_NANO_BANANA_MODEL"]
+    : ["NANO_BANANA_PROVIDER", "YUNWU_NATIVE_API_KEY", "YUNWU_NATIVE_BASE_URL", "YUNWU_NANO_BANANA_MODEL"];
+  const nanoBananaProEnvKeys = nanoBananaProvider === "LaoZhang"
+    ? ["NANO_BANANA_PROVIDER", "LAOZHANG_API_KEY", "LAOZHANG_BASE_URL", "LAOZHANG_NANO_BANANA_PRO_MODEL"]
+    : ["NANO_BANANA_PROVIDER", "YUNWU_NATIVE_API_KEY", "YUNWU_NATIVE_BASE_URL", "YUNWU_NANO_BANANA_PRO_MODEL"];
+
   return {
     defaultModel: DEFAULT_LINGYA_MODEL,
     models: [
       {
         model: "nano-banana-2",
-        provider: "LaoZhang",
+        provider: nanoBananaProvider,
         endpointKind: "Gemini native image",
-        configured: Boolean(process.env.LAOZHANG_API_KEY?.trim()),
-        envKeys: ["LAOZHANG_API_KEY", "LAOZHANG_BASE_URL", "LAOZHANG_NANO_BANANA_MODEL"],
+        configured: nanoBananaConfigured,
+        envKeys: nanoBananaEnvKeys,
         costs: CREDIT_COSTS["nano-banana-2"],
         notes: "默认低成本主力模型，适合批量生产和姿势裂变。",
       },
       {
         model: "nano-banana-pro",
-        provider: "LaoZhang",
+        provider: nanoBananaProvider,
         endpointKind: "Gemini native image",
-        configured: Boolean(process.env.LAOZHANG_API_KEY?.trim()),
-        envKeys: ["LAOZHANG_API_KEY", "LAOZHANG_BASE_URL", "LAOZHANG_NANO_BANANA_PRO_MODEL"],
+        configured: nanoBananaConfigured,
+        envKeys: nanoBananaProEnvKeys,
         costs: CREDIT_COSTS["nano-banana-pro"],
         notes: "高质量模型，适合品牌大片和复杂参考图。",
       },

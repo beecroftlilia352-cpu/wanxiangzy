@@ -120,6 +120,15 @@ const ALIYUN_OSS_REQUIRED_ENV: EnvContractEntry[] = [
 const OPTIONAL_ENV: EnvContractEntry[] = [
   { name: "LINGYA_BASE_URL", category: "optional", description: "Lingya API base URL override." },
   { name: "PLATO_BASE_URL", category: "optional", description: "Plato API base URL override." },
+  { name: "NANO_BANANA_PROVIDER", category: "optional", description: "Nano Banana native image provider: yunwu (default) or laozhang." },
+  { name: "YUNWU_NATIVE_BASE_URL", category: "optional", description: "Yunwu Gemini native generateContent base URL, default https://yunwu.ai." },
+  { name: "YUNWU_NATIVE_API_KEY", category: "optional", description: "Yunwu Gemini native generateContent API key; falls back to YUNWU_API_KEY." },
+  { name: "YUNWU_NANO_BANANA_MODEL", category: "optional", description: "Yunwu provider model id for nano-banana-2." },
+  { name: "YUNWU_NANO_BANANA_PRO_MODEL", category: "optional", description: "Yunwu provider model id for nano-banana-pro." },
+  { name: "LAOZHANG_BASE_URL", category: "optional", description: "LaoZhang Gemini native generateContent base URL fallback." },
+  { name: "LAOZHANG_API_KEY", category: "optional", description: "LaoZhang Gemini native generateContent API key fallback." },
+  { name: "LAOZHANG_NANO_BANANA_MODEL", category: "optional", description: "LaoZhang provider model id for nano-banana-2." },
+  { name: "LAOZHANG_NANO_BANANA_PRO_MODEL", category: "optional", description: "LaoZhang provider model id for nano-banana-pro." },
   { name: "HAPPYHORSE_BASE_URL", category: "optional", description: "HappyHorse API base URL, default https://yunwu.ai. Values ending in /v1 are normalized to the documented root path." },
   { name: "YUNWU_API_KEY", category: "optional", description: "Shared Yunwu API key fallback for HappyHorse video generation." },
   { name: "YUNWU_API_BASE_URL", category: "optional", description: "Shared Yunwu API base URL fallback for HappyHorse video generation." },
@@ -218,6 +227,24 @@ export function validateEnv(options: { log?: boolean; nodeEnv?: string } = {}): 
     });
   }
 
+  const nanoBananaProvider = normalizeNanoBananaProvider(process.env.NANO_BANANA_PROVIDER);
+  if (nanoBananaProvider === "laozhang" && !process.env.LAOZHANG_API_KEY) {
+    issues.push({
+      name: "LAOZHANG_API_KEY",
+      category: "feature-required",
+      severity: "warning",
+      message: "LAOZHANG_API_KEY is not set; Nano Banana image generation will fail while NANO_BANANA_PROVIDER=laozhang.",
+    });
+  }
+  if (nanoBananaProvider === "yunwu" && !process.env.YUNWU_NATIVE_API_KEY && !process.env.YUNWU_API_KEY) {
+    issues.push({
+      name: "YUNWU_NATIVE_API_KEY or YUNWU_API_KEY",
+      category: "feature-required",
+      severity: "warning",
+      message: "YUNWU_NATIVE_API_KEY or YUNWU_API_KEY is not set; Nano Banana image generation will fail while NANO_BANANA_PROVIDER=yunwu.",
+    });
+  }
+
   if (imageStorageProvider === "aliyun-oss") {
     for (const entry of ALIYUN_OSS_REQUIRED_ENV) {
       if (!process.env[entry.name]) {
@@ -233,6 +260,12 @@ export function validateEnv(options: { log?: boolean; nodeEnv?: string } = {}): 
 
   if (options.log) logEnvIssues(issues);
   return issues;
+}
+
+function normalizeNanoBananaProvider(value: unknown): "yunwu" | "laozhang" {
+  const normalized = typeof value === "string" ? value.trim().toLowerCase() : "";
+  if (normalized === "laozhang" || normalized === "lao-zhang" || normalized === "lao_zhang") return "laozhang";
+  return "yunwu";
 }
 
 export function validateEnvOnce(): EnvValidationIssue[] {

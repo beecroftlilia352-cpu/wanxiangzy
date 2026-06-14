@@ -16,6 +16,7 @@ tsconfig.tsbuildinfo
 Thumbs.db
 
 .tools/
+.codex-logs/
 .verification/
 .ui-check/
 .claude/

@@ -54,6 +54,7 @@ import {
 
 const DEFAULT_API_BASE = "https://api.lingyaai.cn/v1";
 const DEFAULT_PLATO_API_BASE = "https://yunwu.ai/v1";
+const DEFAULT_YUNWU_NATIVE_API_BASE = "https://yunwu.ai";
 const DEFAULT_LAOZHANG_API_BASE = "https://api.laozhang.ai";
 const DEFAULT_GPT_IMAGE_2_PROVIDER_MODEL = "gpt-image-2";
 const DEFAULT_NANO_BANANA_PROVIDER_MODEL = "gemini-3.1-flash-image-preview";
@@ -153,6 +154,10 @@ export type ImageTaskProgress = {
   urls?: string[];
   error?: string;
 };
+
+type ImageProviderName = "lingya" | "plato" | "yunwu-native" | "laozhang";
+type ImageProvider = { name: ImageProviderName; apiBase: string; apiKey?: string };
+type NanoBananaProviderName = "yunwu" | "laozhang";
 
 interface BatchTryOnInput {
   model: LingyaModel;
@@ -568,7 +573,7 @@ function shouldUseImageEditEndpoint(input: Pick<GenerateInput, "model" | "image"
 }
 
 function shouldUseLaozhangNativeEndpoint(input: Pick<GenerateInput, "model">, provider: { name: string }): boolean {
-  return provider.name === "laozhang" && isNanoBananaModel(input.model);
+  return (provider.name === "laozhang" || provider.name === "yunwu-native") && isNanoBananaModel(input.model);
 }
 
 function buildImageGenerationRequest(params: {
@@ -1152,11 +1157,28 @@ function getPlatoApiBaseUrl(): string {
 }
 
 function getLaozhangApiBaseUrl(): string {
-  const raw = (process.env.LAOZHANG_BASE_URL || DEFAULT_LAOZHANG_API_BASE).trim().replace(/\/+$/, "");
+  return normalizeGeminiNativeApiBaseUrl(process.env.LAOZHANG_BASE_URL, DEFAULT_LAOZHANG_API_BASE);
+}
+
+function getYunwuNativeApiBaseUrl(): string {
+  return normalizeGeminiNativeApiBaseUrl(
+    process.env.YUNWU_NATIVE_BASE_URL || process.env.YUNWU_API_BASE_URL,
+    DEFAULT_YUNWU_NATIVE_API_BASE
+  );
+}
+
+function normalizeGeminiNativeApiBaseUrl(value: string | undefined, fallback: string): string {
+  const raw = (value || fallback).trim().replace(/\/+$/, "");
   return raw.replace(/\/v1beta$/i, "").replace(/\/v1$/i, "");
 }
 
-function getImageProvider(model: LingyaModel): { name: string; apiBase: string; apiKey?: string } {
+function normalizeNanoBananaProvider(value: unknown): NanoBananaProviderName {
+  const normalized = typeof value === "string" ? value.trim().toLowerCase() : "";
+  if (normalized === "laozhang" || normalized === "lao-zhang" || normalized === "lao_zhang") return "laozhang";
+  return "yunwu";
+}
+
+function getImageProvider(model: LingyaModel): ImageProvider {
   if (model === "gpt-image-2") {
     return {
       name: "plato",
@@ -1165,10 +1187,19 @@ function getImageProvider(model: LingyaModel): { name: string; apiBase: string; 
     };
   }
   if (isNanoBananaModel(model)) {
+    const provider = normalizeNanoBananaProvider(process.env.NANO_BANANA_PROVIDER);
+    if (provider === "laozhang") {
+      return {
+        name: "laozhang",
+        apiBase: getLaozhangApiBaseUrl(),
+        apiKey: process.env.LAOZHANG_API_KEY?.trim(),
+      };
+    }
+
     return {
-      name: "laozhang",
-      apiBase: getLaozhangApiBaseUrl(),
-      apiKey: process.env.LAOZHANG_API_KEY?.trim(),
+      name: "yunwu-native",
+      apiBase: getYunwuNativeApiBaseUrl(),
+      apiKey: process.env.YUNWU_NATIVE_API_KEY?.trim() || process.env.YUNWU_API_KEY?.trim(),
     };
   }
 
@@ -1193,12 +1224,18 @@ function getLaozhangGenerateContentUrl(apiBase: string, model: string): string {
 }
 
 function shouldRequestAsyncImageTask(provider: { name: string }): boolean {
-  return provider.name !== "plato" && provider.name !== "laozhang";
+  return provider.name !== "plato" && provider.name !== "laozhang" && provider.name !== "yunwu-native";
 }
 
 function resolveProviderImageModel(model: LingyaModel, provider: { name: string }): string {
   if (provider.name === "plato" && model === "gpt-image-2") {
     return DEFAULT_GPT_IMAGE_2_PROVIDER_MODEL;
+  }
+  if (provider.name === "yunwu-native" && model === "nano-banana-2") {
+    return process.env.YUNWU_NANO_BANANA_MODEL?.trim() || DEFAULT_NANO_BANANA_PROVIDER_MODEL;
+  }
+  if (provider.name === "yunwu-native" && model === "nano-banana-pro") {
+    return process.env.YUNWU_NANO_BANANA_PRO_MODEL?.trim() || DEFAULT_NANO_BANANA_PRO_PROVIDER_MODEL;
   }
   if (provider.name === "laozhang" && model === "nano-banana-2") {
     return process.env.LAOZHANG_NANO_BANANA_MODEL?.trim() || DEFAULT_NANO_BANANA_PROVIDER_MODEL;
@@ -2194,6 +2231,7 @@ export const __lingyaTaskResponseTestUtils = {
   extractGeneratedImages,
   getImageEditUrl,
   getImageGenerationUrl,
+  getImageProvider,
   getLaozhangGenerateContentUrl,
   getPlatoApiBaseUrl,
   normalizeImageTaskResponse,

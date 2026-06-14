@@ -17,6 +17,8 @@ describe("environment contract", () => {
     delete process.env.SITE_URL;
     delete process.env.APP_URL;
     delete process.env.URL;
+    delete process.env.NANO_BANANA_PROVIDER;
+    delete process.env.YUNWU_NATIVE_API_KEY;
     delete process.env.LAOZHANG_API_KEY;
     delete process.env.HAPPYHORSE_API_KEY;
     delete process.env.YUNWU_HAPPYHORSE_API_KEY;
@@ -118,6 +120,29 @@ describe("environment contract", () => {
     expect(validateEnv({ nodeEnv: "development" })).not.toEqual(
       expect.arrayContaining([
         expect.objectContaining({ name: "HAPPYHORSE_API_KEY or YUNWU_API_KEY" }),
+      ])
+    );
+  });
+
+  it("checks the selected Nano Banana native provider key", () => {
+    expect(validateEnv({ nodeEnv: "development" })).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: "YUNWU_NATIVE_API_KEY or YUNWU_API_KEY" }),
+      ])
+    );
+
+    process.env.YUNWU_NATIVE_API_KEY = "yunwu-native-key";
+    expect(validateEnv({ nodeEnv: "development" })).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: "YUNWU_NATIVE_API_KEY or YUNWU_API_KEY" }),
+      ])
+    );
+
+    delete process.env.YUNWU_NATIVE_API_KEY;
+    process.env.NANO_BANANA_PROVIDER = "laozhang";
+    expect(validateEnv({ nodeEnv: "development" })).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: "LAOZHANG_API_KEY" }),
       ])
     );
   });

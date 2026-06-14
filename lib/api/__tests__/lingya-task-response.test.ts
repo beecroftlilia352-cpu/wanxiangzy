@@ -9,6 +9,7 @@ const {
   extractGeneratedImages,
   getImageEditUrl,
   getImageGenerationUrl,
+  getImageProvider,
   getLaozhangGenerateContentUrl,
   getPlatoApiBaseUrl,
   normalizeImageTaskResponse,
@@ -93,6 +94,7 @@ describe("lingya async task response parsing", () => {
   it("uses synchronous image generation for Plato and async tasks for Lingya", () => {
     expect(shouldRequestAsyncImageTask({ name: "plato" })).toBe(false);
     expect(shouldRequestAsyncImageTask({ name: "laozhang" })).toBe(false);
+    expect(shouldRequestAsyncImageTask({ name: "yunwu-native" })).toBe(false);
     expect(shouldRequestAsyncImageTask({ name: "lingya" })).toBe(true);
     expect(getImageGenerationUrl("https://api.bltcy.ai/v1", { name: "plato" }))
       .toBe("https://api.bltcy.ai/v1/images/generations");
@@ -112,6 +114,8 @@ describe("lingya async task response parsing", () => {
     });
 
     expect(shouldUseLaozhangNativeEndpoint({ model: "nano-banana-2" }, { name: "laozhang" }))
+      .toBe(true);
+    expect(shouldUseLaozhangNativeEndpoint({ model: "nano-banana-2" }, { name: "yunwu-native" }))
       .toBe(true);
     expect(getLaozhangGenerateContentUrl("https://api.laozhang.ai", "gemini-3.1-flash-image-preview"))
       .toBe("https://api.laozhang.ai/v1beta/models/gemini-3.1-flash-image-preview:generateContent");
@@ -214,6 +218,40 @@ describe("lingya async task response parsing", () => {
     expect(body).toMatchObject({ model: "gpt-image-2", size: "1536x864", quality: "high" });
   });
 
+  it("uses Yunwu native as the default Nano Banana provider and can switch to LaoZhang", () => {
+    const previousProvider = process.env.NANO_BANANA_PROVIDER;
+    const previousYunwuKey = process.env.YUNWU_NATIVE_API_KEY;
+    const previousYunwuSharedKey = process.env.YUNWU_API_KEY;
+    const previousLaozhangKey = process.env.LAOZHANG_API_KEY;
+
+    delete process.env.NANO_BANANA_PROVIDER;
+    delete process.env.YUNWU_API_KEY;
+    process.env.YUNWU_NATIVE_API_KEY = "yunwu-native-key";
+    process.env.LAOZHANG_API_KEY = "laozhang-key";
+
+    expect(getImageProvider("nano-banana-2")).toMatchObject({
+      name: "yunwu-native",
+      apiBase: "https://yunwu.ai",
+      apiKey: "yunwu-native-key",
+    });
+
+    process.env.NANO_BANANA_PROVIDER = "laozhang";
+    expect(getImageProvider("nano-banana-2")).toMatchObject({
+      name: "laozhang",
+      apiBase: "https://api.laozhang.ai",
+      apiKey: "laozhang-key",
+    });
+
+    if (previousProvider === undefined) delete process.env.NANO_BANANA_PROVIDER;
+    else process.env.NANO_BANANA_PROVIDER = previousProvider;
+    if (previousYunwuKey === undefined) delete process.env.YUNWU_NATIVE_API_KEY;
+    else process.env.YUNWU_NATIVE_API_KEY = previousYunwuKey;
+    if (previousYunwuSharedKey === undefined) delete process.env.YUNWU_API_KEY;
+    else process.env.YUNWU_API_KEY = previousYunwuSharedKey;
+    if (previousLaozhangKey === undefined) delete process.env.LAOZHANG_API_KEY;
+    else process.env.LAOZHANG_API_KEY = previousLaozhangKey;
+  });
+
   it("preserves gpt-image-2 2K and 4K selections in request bodies", () => {
     const twoK = buildGenerateRequestBody({
       model: "gpt-image-2",
@@ -278,6 +316,8 @@ describe("lingya async task response parsing", () => {
 
     expect(resolveProviderImageModel("gpt-image-2", { name: "plato" })).toBe("gpt-image-2");
     expect(resolveProviderImageModel("gpt-image-2", { name: "lingya" })).toBe("gpt-image-2");
+    expect(resolveProviderImageModel("nano-banana-2", { name: "yunwu-native" })).toBe("gemini-3.1-flash-image-preview");
+    expect(resolveProviderImageModel("nano-banana-pro", { name: "yunwu-native" })).toBe("gemini-3-pro-image-preview");
     expect(resolveProviderImageModel("nano-banana-2", { name: "laozhang" })).toBe("gemini-3.1-flash-image-preview");
     expect(resolveProviderImageModel("nano-banana-pro", { name: "laozhang" })).toBe("gemini-3-pro-image-preview");
 

@@ -227,7 +227,7 @@ const TRYON_STATUS_FETCH_TIMEOUT_MS = 8_000;
 const TRYON_STATUS_HIDDEN_POLL_MS = 30_000;
 const TRYON_STATUS_QUEUE_REFRESH_MS = 20_000;
 const activeTryOnStatusWatchers = new Map<string, AbortController>();
-const TRYON_FACE_MODEL_BANANA_NOTICE = "已选择模特脸时，Banana 暂不可用。建议用 GPT-Image-2 直接融合；如果想用 Banana 的换装效果，先不选模特图完成换装，再到换脸模块处理脸部。";
+const TRYON_FACE_MODEL_BANANA_NOTICE = "已选择模特脸时，Banana 的“参考图 + 模特脸”融合效果可能不好。当前推荐用 GPT-Image-2；如果想保留 Banana 的换装质感，先取消模特脸完成换装，再到换脸模块替换脸部。";
 const MAX_TRYON_REFERENCE_IMAGES = 8;
 const MAX_TRYON_OUTPUT_IMAGES = 32;
 const TRYON_REFERENCE_UPLOAD_CONCURRENCY = 2;
@@ -706,11 +706,7 @@ export default function CreatePage() {
   const isReferenceUploadBusy = isUploadingCustomRef || isReferenceUploadPending;
   const isModelUploadBusy = isUploadingCustomModel || isModelUploadPending;
   const hasModelFace = Boolean(store.selectedModel?.image_url);
-  const isBananaDisabledByModelFace = hasModelFace;
-  const selectableModels = MODELS.map((model) => ({
-    ...model,
-    disabled: isBananaDisabledByModelFace && isNanoBananaModel(model.value),
-  }));
+  const selectableModels = MODELS;
   const selectedReferenceCount = selectedReferenceImages.length;
   const visibleCustomRefUploads = customRefUploads.filter((item) => item.status === "uploading" || item.status === "error");
   const showUploadReferenceEmptyTile = sceneMode === "upload_reference" && selectedReferenceCount === 0 && visibleCustomRefUploads.length === 0;
@@ -1272,12 +1268,6 @@ export default function CreatePage() {
     const nextImageSizes = getSupportedImageSizes(aiModel, aspectRatio);
     if (!nextImageSizes.includes(imageSize)) setImageSize(nextImageSizes[0]);
   }, [aiModel, aspectRatio, imageSize]);
-
-  useEffect(() => {
-    if (!hasModelFace || !isNanoBananaModel(aiModel)) return;
-    setAiModel("gpt-image-2");
-    toast.info(TRYON_FACE_MODEL_BANANA_NOTICE);
-  }, [aiModel, hasModelFace]);
 
   useEffect(() => {
     let cancelled = false;
@@ -3717,20 +3707,19 @@ export default function CreatePage() {
               onChange={(value) => {
                 if (hasModelFace && isNanoBananaModel(value)) {
                   toast.info(TRYON_FACE_MODEL_BANANA_NOTICE);
-                  return;
                 }
                 setAiModel(value);
               }}
               ariaLabel="生成模型"
               getMeta={(model) => (
                 hasModelFace && isNanoBananaModel(model.value)
-                  ? "带模特脸时暂不可用"
+                  ? "模特脸融合效果可能不好"
                   : `${model.desc} · 当前${getCreditCost(model.value, imageSize, aspectRatio)}分`
               )}
             />
             {hasModelFace && (
               <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-5 text-amber-800">
-                已选择模特脸，Banana 会临时关闭。当前推荐用 GPT-Image-2 做“参考图 + 模特脸”融合；如果想保留 Banana 的换装质感，先取消模特脸完成换装，再去
+                已选择模特脸，Banana 的“参考图 + 模特脸”融合效果可能不好。当前推荐用 GPT-Image-2；如果想保留 Banana 的换装质感，先取消模特脸完成换装，再去
                 <a href="/face-swap" className="mx-1 font-bold text-amber-900 underline decoration-amber-400 underline-offset-2">换脸模块</a>
                 替换脸部。
               </div>
