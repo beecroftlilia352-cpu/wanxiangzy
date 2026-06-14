@@ -17,8 +17,10 @@ describe("environment contract", () => {
     delete process.env.SITE_URL;
     delete process.env.APP_URL;
     delete process.env.URL;
+    delete process.env.LINGYA_API_KEY;
     delete process.env.GPT_IMAGE_PROVIDER;
     delete process.env.CATROUTER_API_KEY;
+    delete process.env.PLATO_API_KEY;
     delete process.env.NANO_BANANA_PROVIDER;
     delete process.env.YUNWU_NATIVE_API_KEY;
     delete process.env.LAOZHANG_API_KEY;
