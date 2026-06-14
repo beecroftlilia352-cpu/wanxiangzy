@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   buildOutfitFusionDemoResults,
   buildOutfitFusionPrompt,
+  buildOutfitFusionVisibleFaceText,
+  buildOutfitFusionVisionPromptRequest,
   clampOutfitFusionCount,
   DEFAULT_OUTFIT_FUSION_CONFIG,
   normalizeOutfitFusionAssistantPrompt,
@@ -42,12 +44,26 @@ describe("outfit fusion templates", () => {
     expect(template.prompt).not.toContain("最终脸必须一眼像");
 
     expect(prompt).toContain(template.prompt);
-    expect(prompt).toContain("【后台隐藏脸部约束，仅用于生成执行，不要写进用户输入框】");
-    expect(prompt).toContain("图6是最终脸部身份唯一来源");
+    expect(prompt).toMatch(/^脸部身份规则：图6是最终脸部身份唯一来源/);
     expect(prompt).toContain("最终脸必须一眼像图6本人");
-    expect(prompt).toContain("图1只提供身体、姿态、头部位置");
+    expect(prompt).toContain("图1只提供身体、姿态、构图");
+    expect(prompt).toContain("核心任务：");
+    expect(prompt).toContain("固定生成规则：最终只生成一张完整的单人商业摄影穿搭照片");
+    expect(prompt).toContain("不要拼图、四宫格、2x2 网格、分屏");
     expect(prompt).not.toContain("生成 4 张候选图");
     expect(prompt).not.toContain("GPT-Image-2");
+  });
+
+  it("keeps every model-face example template on the visible face sentence", () => {
+    for (const template of OUTFIT_FUSION_TEMPLATES) {
+      const modelIndex = template.assets.findIndex((asset) => asset.role === "model");
+      if (modelIndex < 0) continue;
+
+      const modelLabel = `图${modelIndex + 1}`;
+      expect(template.prompt).toContain(buildOutfitFusionVisibleFaceText(modelLabel));
+      expect(template.prompt).not.toContain("脸部身份规则");
+      expect(template.prompt).not.toContain("最终脸部身份唯一来源");
+    }
   });
 
   it("keeps canonical image numbers as the only prompt references", () => {
@@ -66,8 +82,9 @@ describe("outfit fusion templates", () => {
     expect(prompt).not.toMatch(/【(?:参考图|搭配图|模特图)\d+】/);
     expect(prompt).not.toMatch(/图\d+\s*=/);
     expect(prompt).not.toContain("最终脸=");
-    expect(prompt).not.toContain("身体/姿态/构图/光影");
     expect(prompt).toContain("图3是最终脸部身份唯一来源");
+    expect(prompt).toContain("一律以当前真实上传的图3作为最终脸部身份来源");
+    expect(prompt).toContain("图1只作为服装、鞋包、帽子、围巾或配饰商品来源");
   });
 
   it("does not inject generation count or model metadata into the prompt", () => {
@@ -79,9 +96,9 @@ describe("outfit fusion templates", () => {
     });
 
     expect(prompt).toContain(template.prompt);
-    expect(prompt).not.toContain("最终只生成一张完整的单人商业摄影穿搭照片");
-    expect(prompt).not.toContain("多个候选结果");
-    expect(prompt).not.toContain("拼图、四宫格");
+    expect(prompt).toContain("最终只生成一张完整的单人商业摄影穿搭照片");
+    expect(prompt).toContain("不要把参考图、商品图、步骤图或多个候选结果拼到同一张画面里");
+    expect(prompt).toContain("不要拼图、四宫格");
     expect(prompt).not.toContain("生成 4 张候选图");
     expect(prompt).not.toContain("GPT-Image-2");
   });
@@ -170,6 +187,21 @@ describe("outfit fusion templates", () => {
     expect(normalized).toContain("把模特换成图8的模特，保留图8模特的面部五官、脸部轮廓、骨相、皮肤颜色、发色及发型");
     expect(normalized).not.toContain("最终人物脸部身份以图8为准");
     expect(normalized).not.toContain("不要追加后台固定规则");
+  });
+
+  it("asks AI writing to return the same visible relationship sentence only", () => {
+    const request = buildOutfitFusionVisionPromptRequest([
+      { id: "outfit-1", role: "outfit", url: "https://example.com/dress.png" },
+      { id: "reference", role: "reference", url: "https://example.com/reference.png" },
+      { id: "model", role: "model", url: "https://example.com/model.png" },
+    ], "让图2的人物姿态、构图和场景氛围作为画面基础，身穿图1商品，把模特换成图3的模特。");
+
+    expect(request).toContain("输出必须是用户输入框可见的一句话");
+    expect(request).toContain(buildOutfitFusionVisibleFaceText("图M"));
+    expect(request).toContain("不要把后台脸部完整约束、优先级、负面规则写进输入框");
+    expect(request).toContain("图2只提供人物身体、姿态、头部位置、构图、场景氛围、光影和背景");
+    expect(request).toContain("图3只提供最终模特脸部身份");
+    expect(request).not.toMatch(/【(?:参考图|搭配图|模特图)\d+】/);
   });
 
   it("normalizes AI write output to the natural outfit relationship template", () => {

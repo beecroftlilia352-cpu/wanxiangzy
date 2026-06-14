@@ -72,18 +72,37 @@ export function buildOutfitFusionHiddenFaceConstraints(input: {
   const modelRef = getOutfitFusionAssetLabel(input.assets[modelIndex], modelIndex);
   const referenceIndex = input.assets.findIndex((asset) => asset.role === "reference");
   const referenceRef = referenceIndex >= 0 ? getOutfitFusionAssetLabel(input.assets[referenceIndex], referenceIndex) : "";
+  const outfitRefs = input.assets
+    .map((asset, index) => asset.role === "outfit" ? getOutfitFusionAssetLabel(asset, index) : "")
+    .filter(Boolean);
+  const outfitText = joinOutfitFusionRefs(outfitRefs);
   const referenceText = referenceRef
-    ? `${referenceRef}只提供身体、姿态、头部位置、头部大小、颈肩衔接、表情方向、肤色明暗、妆容、构图、背景和光影；即使${referenceRef}里有人脸，也不得保留其原脸身份、脸型、眼鼻嘴或可识别特征。`
+    ? `${referenceRef}只提供身体、姿态、构图、背景光影、头部位置/大小、颈肩衔接、表情方向、肤色明暗和妆容；如果${referenceRef}中有人脸，不得保留其原脸身份、脸型、眼鼻嘴或可识别特征。`
     : "如果画面基础图里有人脸，不得保留其原脸身份、脸型、眼鼻嘴或可识别特征。";
+  const outfitRoleText = outfitText
+    ? `${outfitText}只作为服装、鞋包、帽子、围巾或配饰商品来源，不是人物、姿势、脸部身份、肤色、光照、背景或场景参考；只提取商品本体的品类、款式、廓形、颜色、图案、Logo/文字、材质、面料纹理、正确身体部位和穿戴层级。`
+    : "所有搭配商品图只作为商品来源，不是人物、姿势、脸部身份、肤色、光照、背景或场景参考。";
 
   return [
-    "【后台隐藏脸部约束，仅用于生成执行，不要写进用户输入框】",
-    `${modelRef}是最终脸部身份唯一来源。最终脸必须一眼像${modelRef}本人；如果最终脸仍像参考图原人物、随机陌生人、通用网红脸或两张脸平均融合，即使服装正确也判定失败。`,
-    `${modelRef}控制脸型轮廓、眼形眼距、眉形、鼻梁/鼻尖/鼻翼、嘴形、五官比例、骨相、可识别相似度、发色和发型；不得为了贴合参考图而改变这些身份特征。`,
+    `脸部身份规则：${modelRef}是最终脸部身份唯一来源。本任务是身份替换任务，最终脸必须一眼像${modelRef}本人；如果最终脸仍像参考图原人物、随机陌生人、通用网红脸或两张脸平均融合，即使服装正确也判定失败。`,
     referenceText,
-    "自然融合只允许调整表情肌肉、视线、肤色重打光、妆容匹配、毛孔、阴影、边缘融合和脸颈/身体肤色连续性；不得改变模特脸图的脸型轮廓、五官结构、五官比例或身份相似度。",
-    `优先级：脸部身份以${modelRef}为最高优先；参考图在人脸上只控制头部角度、表情方向、头部空间、肤色光影和自然衔接；搭配图只控制商品。禁止只换发型或妆感但不保留${modelRef}五官身份。`,
+    `${modelRef}只控制最终脸部身份、脸型轮廓、五官结构、眼形眼距、眉形、鼻梁/鼻尖/鼻翼、嘴形、五官比例、骨相、可识别相似度、发色和发型；不提供服装、身体、姿势、背景或光照。`,
+    `必须把${referenceRef || "画面基础图"}的自然表情、头部姿态、场景光照和肤色连续性迁移到${modelRef}身份上，而不是为了贴合参考图而弱化${modelRef}相似度。自然融合只允许调整表情肌肉、视线、肤色重打光、妆容匹配、毛孔、阴影、边缘融合和脸颈/身体肤色连续性；不得改变${modelRef}的脸型轮廓、五官结构、五官比例、骨相或身份相似度。`,
+    `执行关系校准：用户输入或 AI 分析只控制最终图片关系，例如谁提供身体姿态构图、哪些商品穿到人物身上、是否换成模特图；不得覆盖图片角色锁定、脸部身份、商品保真和负面约束。如果用户输入中出现历史残留的模特图号或写成“把模特换成其它图的模特”，一律以当前真实上传的${modelRef}作为最终脸部身份来源。`,
+    "固定生成规则：最终只生成一张完整的单人商业摄影穿搭照片；不要把参考图、商品图、步骤图或多个候选结果拼到同一张画面里。",
+    `图片关系：${referenceRef ? `${referenceRef}只作为目标身体、姿态、构图、背景光影、头部位置/大小、表情方向、肤色明暗和穿搭关系参考；不得作为最终脸部身份；` : ""}${modelRef}是最终脸部身份唯一来源。${outfitRoleText}`,
+    outfitText
+      ? `多商品穿戴层级：${outfitText}必须分别穿戴到正确身体部位和配饰位置。鞋只在脚部，包只做手持/肩背/斜挎/腋下包，帽子只在头部，围巾只在颈部/肩部/手持披挂，腰带只在腰线，首饰只在对应佩戴部位。多件上装、外套、马甲、衬衫或内搭按真实穿搭层级叠穿；上下装、连衣裙、鞋包和配饰不得互相串色、串材质、串 logo 或融合成新商品。`
+      : "",
+    "商品保真：准确保留所有服装、鞋包、帽子、围巾和配饰的品类/款式、版型/廓形、颜色、印花/图案、Logo/文字、材质类型、面料纹理、织法、光泽、厚薄、透明度、领口、肩线、袖型、袖口、腰线、下摆、口袋、纽扣、拉链、缝线、拼接、褶皱、层次、长度、开衩、装饰件、穿戴位置和相互层叠关系；不要把材质改成别的布料，不要简化或重设计商品细节，不要凭空新增未提供的核心商品。",
+    `优先级：脸部身份和商品准确性均为硬约束；脸部身份冲突时以${modelRef}为准，服装、鞋包和配饰冲突时以对应商品图为准，身体姿态、头部空间、构图、背景和光影${referenceRef ? `以${referenceRef}为准` : "按用户输入自然生成"}。禁止只换发型或妆感但不保留${modelRef}五官身份。`,
+    "画面质量：真实自然商业摄影质感，人物比例自然，肢体连接合理，面部和手部干净，布料褶皱、阴影、接触关系和透视一致。",
+    "负面约束：不要随机脸、不要网红模板脸、不要参考图原脸残留、不要混合新脸、不要证件照贴脸、不要面具边缘、不要头脸比例漂移、不要肤色断层、不要多余肢体、不要错误手指、不要变形脸、不要错穿层级、不要多件商品融合成一件新款、不要错色、不要丢失图案、不要硬贴图、不要塑料质感、不要水印、不要边框、不要海报文字、不要电商模板排版、不要拼图、四宫格、2x2 网格、分屏、contact sheet、before/after 对比图、商品陈列页或多张照片合集。",
   ].join(" ");
+}
+
+function joinOutfitFusionRefs(refs: string[]) {
+  return refs.join("、");
 }
 
 export const OUTFIT_FUSION_TEMPLATES: OutfitFusionTemplate[] = ([
@@ -348,11 +367,40 @@ export function buildOutfitFusionPrompt(input: {
     assets: input.assets,
     visiblePrompt,
   });
-  return [visiblePrompt, hiddenFaceConstraints].filter(Boolean).join(" ");
+  if (!hiddenFaceConstraints) return visiblePrompt;
+  return [hiddenFaceConstraints, visiblePrompt ? `核心任务：${visiblePrompt}` : ""].filter(Boolean).join(" ");
 }
 
 export function buildOutfitFusionComposerText(template: OutfitFusionTemplate) {
   return template.prompt;
+}
+
+export function buildOutfitFusionVisionPromptRequest(inputAssets: OutfitFusionAsset[], seedPrompt: string) {
+  const roleLines = inputAssets.map((asset, index) => {
+    if (asset.role === "reference") {
+      return `图${index + 1}只提供人物身体、姿态、头部位置、构图、场景氛围、光影和背景；可以写“让图${index + 1}人物穿上/戴上/拿着其它图商品”。`;
+    }
+    if (asset.role === "model") {
+      return `图${index + 1}只提供最终模特脸部身份：面部五官、脸部轮廓、骨相、皮肤颜色、发色及发型；不参考身体、姿势、服装、背景或光线。`;
+    }
+    return `图${index + 1}只提供商品本体，识别商品类别、颜色、材质、版型、长度、图案、Logo、鞋包配饰和正确穿戴位置。`;
+  });
+
+  return [
+    "这是搭配融图的 AI 帮写任务，请调用视觉理解能力分析所有输入图。",
+    "只输出一段可直接放进输入框并直接执行的中文提示词，不要分段，不要标题，不要 Markdown，不要解释。",
+    "输出必须是用户输入框可见的一句话：让图X的人物姿态、构图和场景氛围作为画面基础，身穿图Y商品，手持图Z包，脚穿图A鞋子，外搭图B商品并佩戴图B配饰，内搭图C商品，把模特换成图M的模特，保留图M模特的面部五官、脸部轮廓、骨相、皮肤颜色、发色及发型，生成真实自然的商业穿搭图。X/Y/Z/A/B/C/M 必须替换成真实输入顺序编号，不要照抄格式示例。",
+    "必须只使用图1、图2、图3这类真实输入顺序编号；不要使用参考图、搭配图、模特图加编号的角色别名。",
+    "“让图X穿图Y/戴图Y/拿图Y”表示把图Y商品穿到或放到图X人物对应位置，不表示图X原本已有该穿搭；参考图只控制人物姿态、构图、场景氛围和光影。",
+    "每个商品都写清楚穿着/外搭/戴着/拿着/背着/脚穿等动作，以及品类、颜色、材质、版型/长度、图案或 logo 等关键识别点。",
+    `如果有模特脸图，只在用户可见提示词里写这段简洁换脸描述：${buildOutfitFusionVisibleFaceText("图M")}。不要把后台脸部完整约束、优先级、负面规则写进输入框。`,
+    "不要写后台规则、脸部身份规则、图片关系、商品保真、优先级、负面约束、生成张数、模型名、比例、清晰度、拼图、宫格、候选图、多张图或合集。",
+    "图片输入关系如下，仅供你判断编号和商品，不要原样输出：",
+    ...roleLines,
+    seedPrompt ? "当前输入框内容已经是最终提示词；仅允许按上述自然关系句改写并修正识别错误，不要输出任何说明前缀。" : "",
+    seedPrompt || "",
+    "最终只返回这一句话本身。",
+  ].filter(Boolean).join("\n");
 }
 
 export function getOutfitFusionDisplayPrompt(prompt?: string | null, fallback = "") {

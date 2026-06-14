@@ -108,23 +108,27 @@ describe("try-on prompt face integration", () => {
       aspectRatio: "3:4",
     });
 
-    expect(prompt).toContain("固定底图编辑：以 image 2 作为身体、姿势、构图、光照和场景底图，只把最终脸部身份替换为 image 3");
+    expect(prompt).toContain("Expression transfer:");
+    expect(prompt).toContain("Use image 2 as the body/composition/lighting base try-on photo, but replace its facial identity with image 3");
     expect(prompt).toContain("【HARD 硬规则");
-    expect(prompt).toContain("必须使用模特脸");
-    expect(prompt).toContain("生成一张与 image 3 无关的新脸");
-    expect(prompt).toContain("表情类别、强度、情绪方向、视线、面部张力");
-    expect(prompt).toContain("image 2 = 底图与表情 only");
-    expect(prompt).toContain("image 3 = 最终脸部身份 only");
-    expect(prompt).toContain("不提供表情、肤色、妆容、姿态、身体、服装、光照或背景");
-    expect(prompt).toContain("脸部身份规则：");
+    expect(prompt).toContain("must_use_model_face");
+    expect(prompt).toContain("禁止生成与 image 3 无关的新脸");
+    expect(prompt).toContain("Face identity lock - HARD:");
+    expect(prompt).toContain("image 3 is the final person identity");
+    expect(prompt).toContain("image 2's face is only an expression, head-pose, skin-tone, makeup, lighting, and scale carrier");
+    expect(prompt).toContain("A result that still looks like image 2's original face is invalid");
+    expect(prompt).toContain("image 2 is the expression performance source");
+    expect(prompt).toContain("image 3 is not an expression source");
+    expect(prompt).toContain("visible expression category, intensity, emotional direction");
+    expect(prompt).toContain("one coherent performance");
+    expect(prompt).toContain("not flatten or remove a natural expression that is visibly present in image 2");
+    expect(prompt).toContain("image 2 = target expression and try-on reference: visible expression category");
+    expect(prompt).toContain("image 3 = mandatory final face identity reference only");
+    expect(prompt).toContain("do not copy its original expression style, expression intensity, skin tone, makeup");
     expect(prompt).toContain("控制最终脸部身份和五官比例");
     expect(prompt).toContain("不能控制最终脸部身份");
-    expect(prompt).toContain("表情肌肉、视线、肤色重新打光、妆容匹配、毛孔、阴影和边缘过渡");
+    expect(prompt).toContain("表情肌肉、视线、肤色重新打光、妆容匹配、毛孔、阴影、边缘融合");
     expect(prompt).toContain("不要改变 image 3 的脸型、眉形、眼距、鼻结构、嘴形、五官比例和可识别度");
-    expect(prompt).not.toContain("Face identity lock - HARD:");
-    expect(prompt).not.toContain("Expression transfer:");
-    expect(prompt).not.toContain("must_use_model_face");
-    expect(prompt).not.toContain("preserve_reference_face");
     expect(prompt).not.toContain("facial expression exactly");
     expect(prompt).not.toContain("exact expression geometry");
     expect(prompt).not.toContain("visible expression/skin/makeup when present");
@@ -256,15 +260,12 @@ describe("try-on prompt face integration", () => {
     expect(prompt).toContain("ignore image 3 completely for this no-head crop");
     expect(prompt).toContain("A result with any visible face or newly added head is invalid");
     expect(prompt).toContain("【HARD 硬规则");
-    expect(prompt).toContain("保留参考图原脸");
-    expect(prompt).toContain("脸部保留规则：");
-    expect(prompt).toContain("禁止生成新脸");
-    expect(prompt).toContain("禁止把 image 3 的身份引入裁切之外的区域");
+    expect(prompt).toContain("preserve_reference_face");
+    expect(prompt).toContain("不要合成新脸");
+    expect(prompt).toContain("不要把 image 3 的身份引入裁切之外的区域");
     expect(prompt).not.toContain("Reconstruct the final face");
     expect(prompt).not.toContain("Every generated candidate must use image 3's identity");
-    expect(prompt).not.toContain("最终脸部身份 only");
-    expect(prompt).not.toContain("must_use_model_face");
-    expect(prompt).not.toContain("preserve_reference_face");
+    expect(prompt).not.toContain("mandatory final face identity reference only");
   });
 
   it("keeps lower-body no-head references faceless even without a model face upload", () => {

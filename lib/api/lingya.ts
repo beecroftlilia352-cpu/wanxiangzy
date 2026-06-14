@@ -485,7 +485,7 @@ function buildTryOnRequestCropDirective(input: TryOnRequestPromptOptions) {
   return [
     "裁切锁定：" + buildTryOnReferenceCropLockRule(input.referenceAnalysis, input.referenceImageNumber || 2),
     "只在参考图检测到的可见范围内生成最佳姿势，不要为了补全人物而拉远镜头、添加完整人体或显示参考裁切之外的部位。",
-  ].join("\n");
+  ].join("");
 }
 
 function buildTryOnCandidateDirective(input: TryOnRequestPromptOptions) {
@@ -1682,66 +1682,81 @@ function buildFixedBaseTryOnPrompt(params: {
     referenceAnalysis: params.referenceAnalysis ?? null,
   });
   const mustUseModelFace = faceMode === "must_use_model_face";
-  const localizedClothingSource = formatChineseImageRefList(params.clothingRefs);
-  const faceRuleLines = mustUseModelFace
+  const faceSetupLines = mustUseModelFace
     ? [
-        "脸部身份规则：",
-        `最终脸部身份必须来自 ${params.faceRef}：脸型、五官、骨相、眉眼鼻嘴比例和可识别度都以 ${params.faceRef} 为准。`,
-        `${params.targetRef} 只提供表情类别、强度、情绪方向、视线、面部张力、肤色明暗、妆容、头部角度、光照和镜头尺度；不能保留 ${params.targetRef} 原脸身份。`,
-        `不要照搬 ${params.faceRef} 原图的表情强度、肤色、妆容、光照、姿态、身体比例和背景。`,
-        `融合只允许发生在表情肌肉、视线、肤色重新打光、妆容匹配、毛孔、阴影和边缘过渡；不要改变 ${params.faceRef} 的脸型、眉形、眼距、鼻结构、嘴形、五官比例和可识别度。`,
-        `最终脸部必须像 ${params.faceRef} 本人，并自然衔接 ${params.targetRef} 的颈部、胸口、手臂或手部肤色；禁止贴脸感、证件照感、蒙版边缘和独立打光。`,
+        `从 ${params.faceRef}（模特脸图）重建最终脸部身份：保留其脸型、五官、骨相、肤色、年龄感、辨识度；同时适配 ${params.targetRef}（参考图）的自然表情、肤色明暗、妆容、头部角度、光照和镜头视角。`,
+        `禁止保留 ${params.targetRef} 的原脸身份、脸型、眼鼻嘴和可识别特征。每张生成图都必须使用 ${params.faceRef} 的身份。`,
+        `禁止生成与 ${params.faceRef} 无关的新脸；最终图中的脸部只能来源于 ${params.faceRef}，不允许出现合成脸、模板脸或随机脸。`,
       ]
     : [
-        "脸部保留规则：",
+        `preserve_reference_face mode：${params.targetRef} 当前裁切不承载换脸。保留 ${params.targetRef} 的原脸身份、表情和肤色；不要合成新脸，也不要把 ${params.faceRef} 的身份引入裁切之外的区域。`,
+      ];
+  const faceRuleLines = mustUseModelFace
+    ? [
+        "脸部身份规则（must_use_model_face 模式）：",
+        "这是身份重建，不是贴脸。模特脸图是最终脸部来源。",
+        `用 ${params.faceRef} 的脸型、五官、骨相、眉眼鼻嘴比例作为最终脸部身份。`,
+        `${params.targetRef} 的原脸仅作为表情/姿态/光照载体；不要保留其脸型、眉眼鼻嘴、可识别身份。`,
+        `不要照搬 ${params.faceRef} 原图的表情强度、肤色、妆容、光照、姿态、身体比例和背景。`,
+        `让 ${params.faceRef} 的身份自然适配 ${params.targetRef} 的可见表情：表情类别、强度、情绪方向、视线、面部张力和自然不对称。只在表情肌肉、视线、肤色重新打光、妆容匹配、毛孔、阴影、边缘融合上做适配；不要改变 ${params.faceRef} 的脸型、眉形、眼距、鼻结构、嘴形、五官比例和可识别度。`,
+        `最终脸部必须能被识别为 ${params.faceRef} 本人，且与场景自然融合，不能像贴上去或证件照。`,
+        "肤色融合：",
+        `匹配 ${params.targetRef} 可见区域的肤色、色调、明度、妆容风格、毛孔、轻微红润、反射光、阴影和场景光照。`,
+        `当颈、胸、手臂、手可见时，与 ${params.targetRef} 这些部位自然衔接，无蒙版边缘或独立打光。`,
+      ]
+    : [
+        "脸部身份规则（preserve_reference_face 模式）：",
         `参考图的脸部是身份来源。不要生成新身份；不要用 ${params.faceRef} 在 ${params.targetRef} 裁切外添加脸部或头部。`,
       ];
   const priorityLines = mustUseModelFace
     ? [
         `1. ${params.faceRef} 控制最终脸部身份和五官比例；目标与 ${params.faceRef} 的相似度必须强于保留 ${params.targetRef} 的原脸。`,
-        `2. ${localizedClothingSource} 仅控制来源服装。`,
+        `2. ${params.clothingSource} 仅控制来源服装。`,
         `3. ${params.targetRef} 控制表情方向与强度、身体比例、姿势族、肤色、妆容、光照、场景、镜头、构图、裁切边界、非服装区、最终氛围；它不能控制最终脸部身份。`,
       ]
     : [
         `1. ${params.targetRef} 控制脸部身份、表情、肤色、可见身体范围、裁切边界、姿势族、光照、场景、镜头、非服装区、最终氛围。`,
-        `2. ${localizedClothingSource} 仅控制来源服装。`,
+        `2. ${params.clothingSource} 仅控制来源服装。`,
         `3. ${params.faceRef} 不能扩展裁切或引入新的可见脸部/头部。`,
       ];
   const lines: string[] = [
     mustUseModelFace
-      ? `【HARD 硬规则 · 必须使用模特脸】模特脸图（${params.faceRef}）是最终脸部身份的唯一来源。本任务禁止出现以下任何一种情况：(a) 最终脸仍像 ${params.targetRef} 原人物；(b) 生成一张与 ${params.faceRef} 无关的新脸、模板脸或合成脸；(c) 跳过换脸或弱化换脸。最终脸必须是 ${params.faceRef} 本人，自然适配 ${params.targetRef} 的表情与场景。`
-      : `【HARD 硬规则 · 保留参考图原脸】参考图（${params.targetRef}）的脸部是最终身份来源。本任务禁止生成新脸，也禁止把 ${params.faceRef} 的身份引入裁切之外的区域。`,
+      ? `【HARD 硬规则 · 脸部模式 must_use_model_face】模特脸图（${params.faceRef}）是最终脸部身份的唯一来源。本任务禁止出现以下任何一种情况：(a) 最终脸仍像 ${params.targetRef} 原人物；(b) 生成一张与 ${params.faceRef} 无关的新脸、模板脸或合成脸；(c) 跳过换脸或弱化换脸。最终脸必须是 ${params.faceRef} 本人，自然适配 ${params.targetRef} 的表情与场景。`
+      : `【HARD 硬规则 · 脸部模式 preserve_reference_face】参考图（${params.targetRef}）的脸部是最终身份来源。本任务禁止生成新脸，也禁止把 ${params.faceRef} 的身份引入裁切之外的区域。`,
     mustUseModelFace
-      ? `固定底图编辑：以 ${params.targetRef} 作为身体、姿势、构图、光照和场景底图，只把最终脸部身份替换为 ${params.faceRef}；这是真实服装上身编辑，不是整张重画。`
-      : `固定底图编辑：以 ${params.targetRef} 作为身体、姿势、构图、光照、场景和脸部身份底图；这是真实服装上身编辑，不是整张重画。`,
-    "图片角色：",
+      ? `Use ${params.targetRef} as the body/composition/lighting base try-on photo, but replace its facial identity with ${params.faceRef}. Perform a realistic fashion edit, not a full photo regeneration.`
+      : `Use ${params.targetRef} as the base try-on photo (face identity preserved, no swap). Perform a realistic fashion edit, not a full photo regeneration.`,
+    "Image roles:",
     ...buildFixedBaseRoleBullets(params, mustUseModelFace),
-    "编辑任务：",
-    buildFixedBaseReplacementTask({
-      ...params,
-      clothingSource: localizedClothingSource,
-    }),
+    "Task:",
+    `Edit ${params.targetRef} into a believable try-on photo.`,
+    buildFixedBaseReplacementTask(params),
+    ...buildFixedBaseFaceIdentityLockLines(params, mustUseModelFace),
     ...buildReferenceNoHeadFaceLockLines({
       referenceAnalysis: params.referenceAnalysis,
       targetRef: params.targetRef,
       faceRef: params.faceRef,
     }),
+    ...buildFixedBaseExpressionLockLines(params, mustUseModelFace),
     buildTryOnReferenceAnalysisRule(params.referenceAnalysis, targetImageNumber),
-    `构图和身体：保持 ${params.targetRef} 已检测到的可见身体范围、身体比例、裁切边界、镜头距离、背景、地面和非服装区域；头部或全身不可见时不要补画。避免大头、小身体、长脖子、短腿、肩膀变形或体型改变。`,
-    `允许自然变化：服装贴合、褶皱、下摆、接触阴影、面料垂坠、手部/身体微调；不允许改变 ${params.targetRef} 的整体机位、画幅和场景。`,
-    "服装主图规则：",
-    `${localizedClothingSource} 是服装主图，只提供要上身的服装本身；即使图中有人、假人、背景或摆拍场景，也不要复制其中的人物、身体、脸、姿势、肤色、光照、背景或场景。`,
+    ...faceSetupLines,
+    `Keep natural adult proportions for the body parts visible in ${params.targetRef}; preserve its detected body scale, crop boundary, and camera distance. If head or full body is not visible, do not invent it. Avoid oversized head, tiny body, long neck, short legs, distorted shoulders, or changed body type.`,
+    `Keep the overall camera distance, framing style, background, floor, and non-sourced outfit areas close to ${params.targetRef}, while allowing natural variation in garment fit, folds, hem shape, contact shadows, fabric drape, and small body/hand relaxation.`,
+    "Clothing rule:",
+    `${params.clothingSource} ${params.clothingRefs.length === 1 ? "is" : "are"} not a person reference. Do not copy any model, body, face, pose, skin, lighting, background, or scene from ${params.clothingSource}. Extract only the sourced garment material.`,
     buildTryOnClothingAnalysisRule(params.clothingAnalysis, params.clothingRoles, params.clothingMode),
-    "准确保留来源服装：品类/款式、版型/廓形、颜色、印花/图案、logo/文字、材质类型、面料纹理、织法、光泽、厚薄、透明度、领口、肩线、袖型、袖口、腰线、下摆、口袋、纽扣、拉链、缝线、拼接、褶皱、层次、长度、开衩、装饰件和其他可见结构细节；不要把材质改成别的布料，也不要简化或重设计服装细节。",
+    "Preserve source clothing accurately: garment type, silhouette, color, pattern, logo/text, fabric texture, neckline, sleeves, hem, pockets, buttons, zippers, seams, layers, length, and visible construction details.",
     ...buildFixedBaseLayeringRules(params),
     buildFixedBaseAreaRule(params),
     ...faceRuleLines,
-    "优先级：",
+    "Priority:",
     ...priorityLines,
+    "Important:",
     mustUseModelFace
-      ? `身份替换在每张输出中都必须生效；不能保留 ${params.targetRef} 原脸身份。`
-      : `不要在 ${params.targetRef} 原裁切外添加可见脸部/头部；没有脸不是错误，必须保留局部身体裁切。`,
-    `质量禁区：真实相机服装编辑，自然面料垂坠、接触阴影、皮肤纹理、可见手脚准确。${buildConciseAudienceRule(params.garmentAudience, params.ageGroup)} 禁止额外人物、水印、文字、AI 渲染感、库存模特表情、贴头、换脸边缘、大头、长脖子、证件照脸、无关换装、头身不匹配或新场景。`,
+      ? `Do not keep ${params.targetRef}'s original facial identity. The identity change to ${params.faceRef} is mandatory in every output.`
+      : `Do not add a visible face/head outside ${params.targetRef}'s original crop. Do not treat the absence of a visible face as an error; preserve the partial-body target crop.`,
+    `Do not create a new model, unrelated scene, generic catalog face, or mismatched head/body composite.`,
+    `Quality: realistic edited photo, natural fabric drape, realistic contact shadows, natural skin texture, accurate visible hands and feet when present in the crop. ${buildConciseAudienceRule(params.garmentAudience, params.ageGroup)} No extra people, no watermark, no added text, no AI-render look, no stock-model expression, no pasted head, no face-swap seam, no oversized head, no long neck, no ID-photo face, no unrelated outfit changes.`,
   ];
 
   if (params.garmentCategory === "intimate") {
@@ -1770,24 +1785,56 @@ function buildFixedBaseRoleBullets(params: {
     const imageRef = toEnglishImageRef(ref);
     if (params.clothingMode === "multi") {
       const role = params.clothingRoles[index];
-      if (role === "upper") return `- ${imageRef} = 上装来源 only。`;
-      if (role === "lower") return `- ${imageRef} = 下装来源 only。`;
-      return `- ${imageRef} = 额外服装来源 only。`;
+      if (role === "upper") return `- ${imageRef} = upper-body clothing source only.`;
+      if (role === "lower") return `- ${imageRef} = lower-body clothing source only.`;
+      return `- ${imageRef} = extra clothing source only.`;
     }
-    return `- ${imageRef} = 完整服装来源 only。`;
+    return `- ${imageRef} = complete clothing source only.`;
   });
 
   const faceRole = mustUseModelFace
-    ? `- ${params.faceRef} = 最终脸部身份 only：脸型、五官结构、眉眼鼻嘴比例和可识别度；不提供表情、肤色、妆容、姿态、身体、服装、光照或背景。`
-    : `- ${params.faceRef} = 本次不换脸；不要用它在 ${params.targetRef} 原裁切外补头或补脸。`;
+    ? `- ${params.faceRef} = mandatory final face identity reference only: facial structure, feature anatomy, face outline, eye/brow/nose/mouth geometry, and recognizable likeness; do not copy its original expression style, expression intensity, skin tone, makeup, head pose, head scale, lighting, body, clothing, background, or scene.`
+    : `- ${params.faceRef} = inactive for this try-on (no face swap); do not use it to add a head/face outside ${params.targetRef}'s original crop.`;
   const targetRole = mustUseModelFace
-    ? `- ${params.targetRef} = 底图与表情 only：表情类别/强度/情绪/视线/面部张力、肤色明暗、妆容、头部角度、身体范围、裁切、姿势族、背景、光照、镜头和氛围；不提供最终脸部身份。`
-    : `- ${params.targetRef} = 底图与原脸身份：可见身体范围、裁切、姿势族、表情/肤色/妆容、背景、光照、镜头、非服装区和氛围。`;
+    ? `- ${params.targetRef} = target expression and try-on reference: visible expression category, intensity, emotional direction, gaze behavior, facial tension, natural asymmetry, visible skin tone, makeup style, head pose, head size, visible body range, crop boundary, pose family, background, lighting, camera style, framing style, non-sourced outfit areas, and final photo mood. Its original facial identity, face outline, eyes, nose, and mouth anatomy must not be preserved as the final person.`
+    : `- ${params.targetRef} = target try-on reference including original face identity: visible body range, crop boundary, pose family, visible expression/skin/makeup when present, background, lighting, camera style, framing style, non-sourced outfit areas, and final photo mood. Original face identity is preserved.`;
 
   return [
     ...clothing,
     targetRole,
     faceRole,
+  ];
+}
+
+function buildFixedBaseFaceIdentityLockLines(
+  params: {
+    targetRef: string;
+    faceRef: string;
+  },
+  shouldUseFaceIdentity: boolean
+) {
+  if (!shouldUseFaceIdentity) return [];
+  return [
+    "Face identity lock - HARD:",
+    `${params.faceRef} is the final person identity. The final face must be clearly recognizable as ${params.faceRef}'s person, not ${params.targetRef}'s original person.`,
+    `${params.targetRef}'s face is only an expression, head-pose, skin-tone, makeup, lighting, and scale carrier; do not keep its face outline, eye shape, brow shape, nose shape, mouth anatomy, facial proportions, or recognizable identity.`,
+    `If preserving ${params.targetRef}'s original facial identity conflicts with matching ${params.faceRef}'s likeness, ${params.faceRef}'s likeness wins. A result that still looks like ${params.targetRef}'s original face is invalid.`,
+  ];
+}
+
+function buildFixedBaseExpressionLockLines(
+  params: {
+    targetRef: string;
+    faceRef: string;
+  },
+  shouldUseFaceIdentity: boolean
+) {
+  if (!shouldUseFaceIdentity) return [];
+  return [
+    "Expression transfer:",
+    `${params.targetRef} is the expression performance source. Preserve its visible expression category, intensity, emotional direction, gaze behavior, facial tension, and natural asymmetry as one coherent performance, not as rigid geometry.`,
+    `${params.faceRef} is not an expression source. Retarget ${params.targetRef}'s expression performance onto ${params.faceRef}'s identity without copying ${params.faceRef}'s original expression or neutralizing ${params.targetRef}'s expression.`,
+    `Anti-stock-expression constraints only prohibit generic fake expressions; they must not flatten or remove a natural expression that is visibly present in ${params.targetRef}.`,
   ];
 }
 
@@ -1838,18 +1885,18 @@ function buildFixedBaseReplacementTask(params: {
     const hasUpper = params.clothingRoles.includes("upper");
     const hasLower = params.clothingRoles.includes("lower");
     if (hasUpper && !hasLower) {
-      return `只把 ${params.targetRef} 人物的上装替换为 ${params.clothingSource} 的上装。`;
+      return `Replace only the upper-body clothing on the person in ${params.targetRef} with the upper-body garment from ${params.clothingSource}.`;
     }
     if (hasLower && !hasUpper) {
-      return `只把 ${params.targetRef} 人物的下装替换为 ${params.clothingSource} 的下装。`;
+      return `Replace only the lower-body clothing on the person in ${params.targetRef} with the lower-body garment from ${params.clothingSource}.`;
     }
     if (hasUpper && hasLower) {
-      return `只把 ${params.targetRef} 人物中对应的上装和下装替换为 ${params.clothingSource} 的服装。`;
+      return `Replace only the sourced upper- and lower-body clothing on the person in ${params.targetRef} with the garments from ${params.clothingSource}.`;
     }
-    return `只把 ${params.targetRef} 人物中对应的服装区域替换为 ${params.clothingSource} 的服装。`;
+    return `Replace only the sourced clothing areas on the person in ${params.targetRef} with the garments from ${params.clothingSource}.`;
   }
 
-  return `只替换 ${params.targetRef} 人物身上会被 ${params.clothingSource} 自然覆盖的服装区域。`;
+  return `Replace only the outfit area naturally covered by the clothing from ${params.clothingSource} on the person in ${params.targetRef}.`;
 }
 
 function buildFixedBaseLayeringRules(params: {
@@ -1858,7 +1905,7 @@ function buildFixedBaseLayeringRules(params: {
   clothingRoles: TryOnClothingRole[];
 }) {
   if (params.clothingMode !== "multi") {
-    return ["如果来源服装天然包含多层，保留原有层次；如果只有一件，不要凭空增加新单品。"];
+    return ["If the source contains multiple naturally layered clothing items, preserve their natural layering; if it contains only one garment, do not invent extra garments."];
   }
 
   return params.clothingRefs.flatMap((ref, index) => {
@@ -1866,17 +1913,17 @@ function buildFixedBaseLayeringRules(params: {
     const role = params.clothingRoles[index];
     if (role === "upper") {
       return [
-        `如果 ${imageRef} 包含多件上装，保留自然叠穿层次。`,
-        `如果 ${imageRef} 只有一件上装，不要增加额外上装。`,
+        `If ${imageRef} contains multiple upper-body items, preserve their natural layering.`,
+        `If ${imageRef} contains only one garment, do not invent extra upper-body garments.`,
       ];
     }
     if (role === "lower") {
       return [
-        `如果 ${imageRef} 包含多件下装，保留自然叠穿层次。`,
-        `如果 ${imageRef} 只有一件下装，不要增加额外下装。`,
+        `If ${imageRef} contains multiple lower-body items, preserve their natural layering.`,
+        `If ${imageRef} contains only one garment, do not invent extra lower-body garments.`,
       ];
     }
-    return [`如果 ${imageRef} 只有一件服装，不要增加额外单品。`];
+    return [`If ${imageRef} contains only one item, do not invent extra garments.`];
   });
 }
 
@@ -1889,17 +1936,17 @@ function buildFixedBaseAreaRule(params: {
     const hasUpper = params.clothingRoles.includes("upper");
     const hasLower = params.clothingRoles.includes("lower");
     if (hasUpper && !hasLower) {
-      return `上装范围：只替换冲突上装；保留 ${params.targetRef} 可见下装、鞋、腿、手、配饰、背景和场景，除非被新上装自然遮挡；不要扩展原裁切。`;
+      return `Upper-body-only rule: Replace only the conflicting upper-body outfit. Keep ${params.targetRef}'s visible lower-body clothing, shoes, legs, hands, accessories, background, and scene close to the reference unless naturally covered by the new upper garment. Do not reveal lower-body areas outside the original crop.`;
     }
     if (hasLower && !hasUpper) {
-      return `下装范围：只替换冲突下装；保留 ${params.targetRef} 可见上装、手、配饰、背景和场景，除非被新下装自然遮挡；不要在原裁切外补上半身、头或脸。`;
+      return `Lower-body-only rule: Replace only the conflicting lower-body outfit. Keep ${params.targetRef}'s visible upper-body clothing, hands, accessories, background, and scene close to the reference unless naturally covered by the new lower garment. Do not reveal upper-body areas, head, or face outside the original crop.`;
     }
     if (hasUpper && hasLower) {
-      return `上装+下装范围：只替换冲突服装区；保留 ${params.targetRef} 可见手、鞋、配饰、背景和场景，除非被新服装自然遮挡；不要扩展原裁切。`;
+      return `Sourced-outfit-area rule: Replace only the conflicting upper- and lower-body outfit areas. Keep ${params.targetRef}'s visible hands, shoes, accessories, background, and scene close to the reference unless naturally covered by the new garments. Do not reveal body areas outside the original crop.`;
     }
   }
 
-  return `服装范围：只替换来源服装自然覆盖的区域；保留 ${params.targetRef} 可见鞋、手、配饰、背景和场景，除非被新服装自然遮挡；不要扩展原裁切。`;
+  return `Outfit-area rule: Replace only the clothing area naturally covered by the source garment. Keep ${params.targetRef}'s visible shoes, hands, accessories, background, and scene close to the reference unless naturally covered by the new garment. Do not reveal body areas outside the original crop.`;
 }
 
 function buildConciseRoleLockRule(params: {
@@ -2118,12 +2165,6 @@ function buildConciseAudienceRule(garmentAudience?: TryOnGarmentAudience, ageGro
 function toEnglishImageRef(value: string) {
   const match = value.match(/\d+/);
   return `image ${match?.[0] || "1"}`;
-}
-
-function formatChineseImageRefList(values: string[]) {
-  const refs = values.map(toEnglishImageRef);
-  if (refs.length <= 1) return refs[0] || "image 1";
-  return `${refs.slice(0, -1).join("、")} 和 ${refs[refs.length - 1]}`;
 }
 
 function buildGarmentDetailPromptGroups(params: {

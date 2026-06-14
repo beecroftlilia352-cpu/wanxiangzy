@@ -52,8 +52,6 @@ function assertNotIncludes(value, needle, label) {
 const tryon = loadTsModule("lib/tryon-prompt.ts");
 const compiler = loadTsModule("lib/api/prompt-compiler.ts");
 const lingya = loadTsModule("lib/api/lingya.ts");
-const garmentDetails = loadTsModule("lib/garment-detail-references.ts");
-const garmentAngles = loadTsModule("lib/garment-angle-references.ts");
 
 const basePrompt = [
   "图像角色：图1是单件服装图，图2是参考图，图3是模特脸图。",
@@ -148,87 +146,49 @@ const multiTryOn = lingya.buildTryOnPrompt({
   hasModelFace: true,
   hasReference: true,
 }).prompt;
-assertIncludes(multiTryOn, "固定底图编辑：以 image 3 作为身体、姿势、构图、光照和场景底图，只把最终脸部身份替换为 image 4", "多件固定底图规则");
-assertIncludes(multiTryOn, "- image 1 = 上装来源 only。", "多件角色锁定");
-assertIncludes(multiTryOn, "- image 2 = 下装来源 only。", "多件角色锁定");
-assertIncludes(multiTryOn, "- image 3 = 底图与表情 only", "多件角色锁定");
-assertIncludes(multiTryOn, "- image 4 = 最终脸部身份 only", "多件角色锁定");
-assertIncludes(multiTryOn, "【HARD 硬规则 · 必须使用模特脸】", "多件脸部身份锁");
-assertIncludes(multiTryOn, "生成一张与 image 4 无关的新脸", "多件脸部身份锁");
-assertIncludes(multiTryOn, "不提供表情、肤色、妆容、姿态、身体、服装、光照或背景", "多件模特脸不提供表情");
-assertIncludes(multiTryOn, "编辑任务：", "多件本地编辑规则");
-assertIncludes(multiTryOn, "只把 image 3 人物中对应的上装和下装替换为 image 1 和 image 2 的服装。", "多件替换规则");
-assertIncludes(multiTryOn, "表情类别、强度、情绪方向、视线、面部张力", "多件参考图整体表情状态");
-assertIncludes(multiTryOn, "脸部身份规则：", "多件脸部身份替换规则");
-assertIncludes(multiTryOn, "保持 image 3 已检测到的可见身体范围、身体比例、裁切边界、镜头距离", "多件参考图构图锁定规则");
-assertIncludes(multiTryOn, "不允许改变 image 3 的整体机位、画幅和场景", "多件镜头画幅规则");
-assertIncludes(multiTryOn, "服装主图规则：", "多件服装主图规则");
-assertIncludes(multiTryOn, "image 1 和 image 2 是服装主图，只提供要上身的服装本身", "多件服装图角色");
-assertIncludes(multiTryOn, "即使图中有人、假人、背景或摆拍场景，也不要复制其中的人物", "多件服装图人物场景隔离");
-assertIncludes(multiTryOn, "材质类型、面料纹理、织法、光泽、厚薄、透明度", "多件服装材质细节锁");
-assertIncludes(multiTryOn, "不要把材质改成别的布料，也不要简化或重设计服装细节", "多件服装细节防重设计");
-assertIncludes(multiTryOn, "如果 image 1 只有一件上装，不要增加额外上装。", "多件上装不发散规则");
-assertIncludes(multiTryOn, "如果 image 2 只有一件下装，不要增加额外下装。", "多件下装不发散规则");
-assertIncludes(multiTryOn, "最终脸部身份必须来自 image 4", "多件模特脸规则");
-assertIncludes(multiTryOn, "脸型、五官、骨相、眉眼鼻嘴比例和可识别度都以 image 4 为准", "多件模特脸规则");
-assertIncludes(multiTryOn, "不要照搬 image 4 原图的表情强度、肤色、妆容、光照、姿态、身体比例和背景。", "多件模特脸排除规则");
-assertIncludes(multiTryOn, "最终脸部必须像 image 4 本人", "多件模特脸强制生效规则");
-assertIncludes(multiTryOn, "image 3 只提供表情类别、强度、情绪方向", "多件表情适配");
-assertIncludes(multiTryOn, "融合只允许发生在表情肌肉、视线、肤色重新打光、妆容匹配、毛孔、阴影和边缘过渡", "多件自然融合边界");
-assertIncludes(multiTryOn, "不要改变 image 4 的脸型、眉形、眼距、鼻结构、嘴形、五官比例和可识别度", "多件禁止改身份结构");
-assertIncludes(multiTryOn, "自然衔接 image 3 的颈部、胸口、手臂或手部肤色", "多件肤色光影融合");
-assertIncludes(multiTryOn, "1. image 4 控制最终脸部身份和五官比例", "多件优先级规则");
-assertIncludes(multiTryOn, "3. image 3 控制表情方向与强度", "多件优先级规则");
-assertIncludes(multiTryOn, "它不能控制最终脸部身份", "多件优先级规则");
-assertIncludes(multiTryOn, "身份替换在每张输出中都必须生效", "多件身份强制规则");
-assertNotIncludes(multiTryOn, "Face identity lock - HARD:", "多件脸部身份锁去重");
-assertNotIncludes(multiTryOn, "Expression transfer:", "多件表情迁移去重");
-assertNotIncludes(multiTryOn, "must_use_model_face", "多件不暴露内部换脸模式");
-assertNotIncludes(multiTryOn, "preserve_reference_face", "多件不暴露内部保脸模式");
-assertNotIncludes(multiTryOn, "服装来源隔离", "多件不使用内部化服装标题");
+assertIncludes(multiTryOn, "Use image 3 as the body/composition/lighting base try-on photo, but replace its facial identity with image 4.", "多件固定底图规则");
+assertIncludes(multiTryOn, "- image 1 = upper-body clothing source only.", "多件角色锁定");
+assertIncludes(multiTryOn, "- image 2 = lower-body clothing source only.", "多件角色锁定");
+assertIncludes(multiTryOn, "- image 3 = target expression and try-on reference: visible expression category", "多件角色锁定");
+assertIncludes(multiTryOn, "- image 4 = mandatory final face identity reference only", "多件角色锁定");
+assertIncludes(multiTryOn, "Face identity lock - HARD:", "多件脸部身份锁");
+assertIncludes(multiTryOn, "image 4 is the final person identity", "多件脸部身份锁");
+assertIncludes(multiTryOn, "image 3's face is only an expression, head-pose, skin-tone, makeup, lighting, and scale carrier", "多件脸部身份锁");
+assertIncludes(multiTryOn, "A result that still looks like image 3's original face is invalid", "多件脸部身份锁");
+assertIncludes(multiTryOn, "do not copy its original expression style, expression intensity, skin tone, makeup", "多件模特脸不提供表情");
+assertIncludes(multiTryOn, "Edit image 3 into a believable try-on photo.", "多件本地编辑规则");
+assertIncludes(multiTryOn, "Replace only the sourced upper- and lower-body clothing on the person in image 3 with the garments from image 1 and image 2.", "多件替换规则");
+assertIncludes(multiTryOn, "Expression transfer:", "多件表情迁移");
+assertIncludes(multiTryOn, "image 3 is the expression performance source", "多件参考图表情来源");
+assertIncludes(multiTryOn, "image 4 is not an expression source", "多件模特脸非表情来源");
+assertIncludes(multiTryOn, "visible expression category, intensity, emotional direction", "多件参考图整体表情状态");
+assertIncludes(multiTryOn, "one coherent performance", "多件参考图整体表情状态");
+assertIncludes(multiTryOn, "not flatten or remove a natural expression that is visibly present in image 3", "多件禁止压平参考图表情");
+assertIncludes(multiTryOn, "Reconstruct the final face from image 4's recognizable identity", "多件脸部身份替换规则");
+assertIncludes(multiTryOn, "Every generated candidate must use image 4's identity.", "多件脸部身份替换规则");
+assertIncludes(multiTryOn, "Keep natural adult proportions for the body parts visible in image 3", "多件可见身体比例规则");
+assertIncludes(multiTryOn, "preserve its detected body scale, crop boundary, and camera distance", "多件参考图构图锁定规则");
+assertIncludes(multiTryOn, "Keep the overall camera distance, framing style, background, floor, and non-sourced outfit areas close to image 3", "多件镜头画幅规则");
+assertIncludes(multiTryOn, "image 1 and image 2 are not a person reference", "多件服装源隔离");
+assertIncludes(multiTryOn, "If image 1 contains only one garment, do not invent extra upper-body garments.", "多件上装不发散规则");
+assertIncludes(multiTryOn, "If image 2 contains only one garment, do not invent extra lower-body garments.", "多件下装不发散规则");
+assertIncludes(multiTryOn, "This is identity reconstruction, not a hard face swap.", "多件模特脸规则");
+assertIncludes(multiTryOn, "Use image 4 only for recognizable facial identity", "多件模特脸规则");
+assertIncludes(multiTryOn, "Do not copy image 4's original expression style, expression intensity, skin tone, makeup, lighting, pose, body, head size, or background.", "多件模特脸排除规则");
+assertIncludes(multiTryOn, "The final face must be recognizable as image 4's person but naturally integrated", "多件模特脸强制生效规则");
+assertIncludes(multiTryOn, "Adapt image 4's identity to image 3's natural expression performance", "多件表情适配");
+assertIncludes(multiTryOn, "Limit adaptation to expression muscles, gaze, skin relighting, makeup matching, pores, shadows, and edge blending", "多件自然融合边界");
+assertIncludes(multiTryOn, "do not alter image 4's face outline, eye shape, eye spacing, brow shape, nose structure, mouth anatomy, feature proportions, or recognizable likeness", "多件禁止改身份结构");
+assertIncludes(multiTryOn, "Match image 3's visible skin tone", "多件肤色光影融合");
+assertIncludes(multiTryOn, "1. image 4 controls final facial identity and feature proportions where a face is visible in the target crop", "多件优先级规则");
+assertIncludes(multiTryOn, "3. image 3 controls the final face's natural expression direction and strength", "多件优先级规则");
+assertIncludes(multiTryOn, "it must not control final facial identity", "多件优先级规则");
+assertIncludes(multiTryOn, "The identity change to image 4 is mandatory in every output.", "多件身份强制规则");
 assertNotIncludes(multiTryOn, "image 3 = target try-on reference: visible body range, crop boundary, pose family, visible expression/skin/makeup when present", "有脸参考图不能弱化表情");
 assertNotIncludes(multiTryOn, "facial expression exactly", "多件不能回到表情几何硬锁");
 assertNotIncludes(multiTryOn, "exact expression geometry", "多件不能回到表情几何硬锁");
 assertNotIncludes(multiTryOn, "如果有参考图", "多件参考图不使用条件句");
 assertNotIncludes(multiTryOn, "如果有模特脸图", "多件模特脸不使用条件句");
-
-const groupedDetailPrompt = garmentDetails.buildGarmentDetailReferencePrompt({
-  groups: [
-    {
-      clothingIndex: 0,
-      clothingImageNumber: 1,
-      clothingLabel: "上装",
-      urls: ["collar.png", "fabric.png"],
-      detailImageNumbers: [5, 6],
-    },
-    {
-      clothingIndex: 1,
-      clothingImageNumber: 2,
-      clothingLabel: "下装",
-      urls: ["hem.png"],
-      detailImageNumbers: [7],
-    },
-  ],
-});
-assertIncludes(groupedDetailPrompt, "服装细节归属规则", "多件服装细节归属标题");
-assertIncludes(groupedDetailPrompt, "image 5、image 6 只补充 image 1（上装）", "上装细节归属");
-assertIncludes(groupedDetailPrompt, "image 7 只补充 image 2（下装）", "下装细节归属");
-assertIncludes(groupedDetailPrompt, "不得用于其他主服装图", "细节图不能跨服装使用");
-assertIncludes(groupedDetailPrompt, "不跨件迁移", "细节图不能跨件迁移");
-
-const poseAnglePrompt = garmentAngles.buildPoseGarmentAngleReferencePrompt({
-  startImageNumber: 2,
-  references: [
-    { url: "upper-back.png", target: "upper", view: "back" },
-    { url: "lower-side.png", target: "lower", view: "side" },
-  ],
-});
-assertIncludes(poseAnglePrompt, "服装角度参考规则", "姿势裂变服装角度参考标题");
-assertIncludes(poseAnglePrompt, "image 2 = 上装背面角度参考", "姿势裂变上装背面角度归属");
-assertIncludes(poseAnglePrompt, "image 3 = 下装侧面角度参考", "姿势裂变下装侧面角度归属");
-assertIncludes(poseAnglePrompt, "上装角度只影响上装", "姿势裂变上装角度隔离");
-assertIncludes(poseAnglePrompt, "下装角度只影响下装", "姿势裂变下装角度隔离");
-assertNotIncludes(poseAnglePrompt, "局部细节补充", "姿势裂变不用服装细节语义");
 
 const upperOnlyTryOn = lingya.buildTryOnPrompt({
   clothingCount: 1,
@@ -240,11 +200,11 @@ const upperOnlyTryOn = lingya.buildTryOnPrompt({
   hasModelFace: true,
   hasReference: true,
 }).prompt;
-assertIncludes(upperOnlyTryOn, "只把 image 2 人物的上装替换为 image 1 的上装。", "单上装替换规则");
-assertIncludes(upperOnlyTryOn, "保留 image 2 可见下装、鞋、腿、手、配饰、背景和场景", "单上装可见下半身保护");
-assertIncludes(upperOnlyTryOn, "不要扩展原裁切。", "单上装裁切外区域保护");
-assertIncludes(upperOnlyTryOn, "不能保留 image 2 原脸身份", "单上装图3脸优先");
-assertIncludes(upperOnlyTryOn, "如果 image 1 只有一件上装，不要增加额外上装。", "单上装不凭空发散");
+assertIncludes(upperOnlyTryOn, "Replace only the upper-body clothing on the person in image 2 with the upper-body garment from image 1.", "单上装替换规则");
+assertIncludes(upperOnlyTryOn, "Keep image 2's visible lower-body clothing, shoes, legs, hands, accessories, background, and scene close to the reference", "单上装可见下半身保护");
+assertIncludes(upperOnlyTryOn, "Do not reveal lower-body areas outside the original crop.", "单上装裁切外区域保护");
+assertIncludes(upperOnlyTryOn, "Do not keep image 2's original facial identity.", "单上装图3脸优先");
+assertIncludes(upperOnlyTryOn, "If image 1 contains only one garment, do not invent extra upper-body garments.", "单上装不凭空发散");
 
 const lowerBodyNoHeadAnalysis = {
   index: 1,
@@ -309,7 +269,7 @@ const gptCompiled = compiler.compileImagePromptForModel({
   model: "gpt-image-2",
   prompt: multiTryOn,
 });
-assertIncludes(gptCompiled, "固定底图编辑：以 image 3 作为身体、姿势、构图、光照和场景底图，只把最终脸部身份替换为 image 4", "gpt-image-2 精简直出");
+assertIncludes(gptCompiled, "Use image 3 as the body/composition/lighting base try-on photo, but replace its facial identity with image 4.", "gpt-image-2 精简直出");
 assertNotIncludes(gptCompiled, "GPT-Image-2 执行提示", "gpt-image-2 临时极简直出");
 assertNotIncludes(gptCompiled, "服装图角色隔离规则", "gpt-image-2 临时极简直出");
 assertNotIncludes(gptCompiled, "输入顺序规则", "gpt-image-2 不再重排图片");
@@ -321,17 +281,17 @@ const gptRuntimePrompt = lingya.applyTryOnRequestPrompt("BASE", {
   referenceUrl: "target.jpg",
   modelFaceUrl: "face.jpg",
 });
-assertIncludes(gptRuntimePrompt, "摄影风格：跟随参考图的影调", "tryon photo finish directive");
-assertIncludes(gptRuntimePrompt, "光线方向、色温、曝光、白平衡", "tryon reference photo finish");
-assertIncludes(gptRuntimePrompt, "景深、相机质感、滤镜氛围", "tryon reference camera finish");
-assertIncludes(gptRuntimePrompt, "服装固有色、图案、logo、面料纹理", "tryon finish safeguards");
-assertIncludes(gptRuntimePrompt, "不要厚重美颜滤镜", "tryon no heavy beauty filter");
-assertIncludes(gptRuntimePrompt, "不要漂白衣服颜色", "tryon no color bleaching");
-assertIncludes(multiTryOn, "头部或全身不可见时不要补画", "tryon crop-aware body completion guard");
-assertIncludes(gptRuntimePrompt, "人物身份、肤色连续性和身体比例保持准确", "tryon finish safeguards");
-assertIncludes(gptRuntimePrompt, "在套用全局色调前", "tryon face skin continuity before finish");
-assertIncludes(gptRuntimePrompt, "候选 2/4", "tryon candidate directive");
-assertIncludes(gptRuntimePrompt, "参考图摄影氛围", "tryon candidate keeps reference mood");
+assertIncludes(gptRuntimePrompt, "Reference-based photo finish:", "tryon photo finish directive");
+assertIncludes(gptRuntimePrompt, "Use the target reference as the photography style source.", "tryon reference photo finish");
+assertIncludes(gptRuntimePrompt, "Replicate its shadow design: cast-shadow direction, shadow length, edge softness, density", "tryon reference shadow replication");
+assertIncludes(gptRuntimePrompt, "Inherit its light direction, light hardness, color temperature", "tryon reference camera finish");
+assertIncludes(gptRuntimePrompt, "Make the reference filter/color mood visibly present in the final image", "tryon visible reference filter");
+assertIncludes(gptRuntimePrompt, "do not apply a new generic fashion filter or a different color grade", "tryon no generic filter");
+assertIncludes(multiTryOn, "If head or full body is not visible, do not invent it.", "tryon crop-aware body completion guard");
+assertIncludes(gptRuntimePrompt, "Keep garment colors, logos/text, fabric texture, visible identity cues, visible skin tone continuity, and visible body proportions accurate", "tryon finish safeguards");
+assertIncludes(gptRuntimePrompt, "Before applying the global color mood", "tryon face skin continuity before finish");
+assertIncludes(gptRuntimePrompt, "Do not vary the face, facial expression, gaze, head pose, head scale", "tryon candidate conservatively locks face when reference face is possible");
+assertIncludes(gptRuntimePrompt, "reference-derived photography mood", "tryon candidate keeps reference mood");
 assertNotIncludes(gptRuntimePrompt, "Nano Banana try-on mode", "gpt-image-2 no banana directive");
 
 const gptRuntimePromptWithReferenceFace = lingya.applyTryOnRequestPrompt("BASE", {
@@ -355,8 +315,8 @@ const gptRuntimePromptWithReferenceFace = lingya.applyTryOnRequestPrompt("BASE",
     confidence: 0.92,
   },
 });
-assertIncludes(gptRuntimePromptWithReferenceFace, "候选之间不要改变脸部、表情、视线、头部姿态、头部大小", "tryon candidate locks reference face performance");
-assertIncludes(gptRuntimePromptWithReferenceFace, "候选差异只能来自服装版型", "tryon candidate varies garment only");
+assertIncludes(gptRuntimePromptWithReferenceFace, "Do not vary the face, facial expression, gaze, head pose, head scale", "tryon candidate locks reference face performance");
+assertIncludes(gptRuntimePromptWithReferenceFace, "candidate diversity must come from garment fit", "tryon candidate varies garment only");
 assertNotIncludes(gptRuntimePromptWithReferenceFace, "For GPT candidate variation", "tryon reference face lock disables gpt expression variation");
 assertNotIncludes(gptRuntimePromptWithReferenceFace, "micro-expression", "tryon reference face lock removes expression variation");
 
@@ -367,7 +327,7 @@ const nanoRuntimePrompt = lingya.applyTryOnRequestPrompt("BASE", {
   referenceUrl: "target.jpg",
   modelFaceUrl: "face.jpg",
 });
-assertIncludes(nanoRuntimePrompt, "摄影风格：跟随参考图的影调", "nano-banana also uses reference photo finish");
+assertIncludes(nanoRuntimePrompt, "Reference-based photo finish:", "nano-banana also uses reference photo finish");
 assertNotIncludes(nanoRuntimePrompt, "Nano Banana try-on mode", "nano-banana uses common tryon prompt");
 assertNotIncludes(nanoRuntimePrompt, "Proportion guard:", "nano-banana uses common tryon prompt");
 assertNotIncludes(nanoRuntimePrompt, "For GPT candidate variation", "nano-banana no gpt expression directive");

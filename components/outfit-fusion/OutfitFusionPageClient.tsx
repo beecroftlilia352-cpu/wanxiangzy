@@ -33,6 +33,7 @@ import {
   buildOutfitFusionComposerText,
   buildOutfitFusionPrompt,
   buildOutfitFusionVisibleFaceText,
+  buildOutfitFusionVisionPromptRequest,
   clampOutfitFusionCount,
   DEFAULT_OUTFIT_FUSION_CONFIG,
   getOutfitFusionRoleLabel,
@@ -435,7 +436,7 @@ export function OutfitFusionPageClient() {
         body: JSON.stringify({
           mode: "image-to-image",
           reference_urls: assets.map((asset) => asset.url),
-          prompt: buildVisionPromptRequest(assets, seedPrompt),
+          prompt: buildOutfitFusionVisionPromptRequest(assets, seedPrompt),
         }),
       });
       const data = await response.json().catch(() => ({})) as { prompt?: unknown; source?: unknown; error?: unknown };
@@ -873,34 +874,6 @@ export function OutfitFusionPageClient() {
       ...preservedTaskPatch,
     };
     setTasks([restoredTask]);
-  }
-
-  function buildVisionPromptRequest(inputAssets: OutfitFusionAsset[], seedPrompt: string) {
-    const roleLines = inputAssets.map((asset, index) => {
-      if (asset.role === "reference") {
-        return `图${index + 1}只提供人物身体、姿态、头部位置、构图、场景氛围、光影和背景；可以写“让图${index + 1}人物穿上/戴上/拿着其它图商品”。`;
-      }
-      if (asset.role === "model") {
-        return `图${index + 1}只提供最终模特脸部身份：面部五官、脸部轮廓、骨相、皮肤颜色、发色及发型；不参考身体、姿势、服装、背景或光线。`;
-      }
-      return `图${index + 1}只提供商品本体，识别商品类别、颜色、材质、版型、长度、图案、Logo、鞋包配饰和正确穿戴位置。`;
-    });
-
-    return [
-      "这是搭配融图的 AI 帮写任务，请调用视觉理解能力分析所有输入图。",
-      "只输出一段可直接放进输入框并直接执行的中文提示词，不要分段，不要标题，不要 Markdown，不要解释。",
-      "输出使用自然关系句：让图X的人物姿态、构图和场景氛围作为画面基础，身穿图Y商品，手持图Z包，脚穿图A鞋子，外搭图B商品并佩戴图B配饰，内搭图C商品，把模特换成图M的模特，保留图M模特的面部五官、脸部轮廓、骨相、皮肤颜色、发色及发型，生成真实自然的商业穿搭图。X/Y/Z/A/B/C/M 必须替换成真实输入顺序编号，不要照抄格式示例。",
-      "必须只使用图1、图2、图3这类真实输入顺序编号；不要使用参考图、搭配图、模特图加编号的角色别名。",
-      "“让图X穿图Y/戴图Y/拿图Y”表示把图Y商品穿到或放到图X人物对应位置，不表示图X原本已有该穿搭；参考图只控制人物姿态、构图、场景氛围和光影。",
-      "每个商品都写清楚穿着/外搭/戴着/拿着/背着/脚穿等动作，以及品类、颜色、材质、版型/长度、图案或logo等关键识别点。",
-      `如果有模特脸图，只在用户可见提示词里写这段简洁换脸描述：${buildOutfitFusionVisibleFaceText("图M")}。不要把后台脸部完整约束、优先级、负面规则写进输入框。`,
-      "不要写后台规则、负面约束、生成张数、模型名、比例、清晰度、拼图、宫格、候选图、多张图或合集。",
-      "图片输入关系如下，仅供你判断编号和商品，不要原样输出：",
-      ...roleLines,
-      seedPrompt ? "当前输入框内容已经是最终提示词；仅允许按上述自然关系句改写并修正识别错误，不要输出任何说明前缀。" : "",
-      seedPrompt || "",
-      "最终只返回这一句话本身。",
-    ].filter(Boolean).join("\n");
   }
 
   return (
