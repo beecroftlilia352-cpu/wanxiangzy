@@ -42,14 +42,18 @@ export function OutfitFusionExampleGallery({
             />
             <div className="pointer-events-none absolute inset-x-0 bottom-0 flex translate-y-1.5 items-end gap-2 bg-gradient-to-t from-black/80 via-black/30 to-transparent p-2 opacity-0 transition-[transform,opacity] duration-[360ms] ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:translate-y-0 group-focus-within:opacity-100">
               <div className="flex min-w-0 gap-1">
-                {template.assets.slice(0, 3).map((asset, assetIndex) => (
-                  <div key={asset.id} className="w-12 overflow-hidden rounded-[4px] border border-white/70 bg-white shadow-sm transition duration-200 group-hover:shadow-md">
-                    <div className="truncate bg-black/55 px-1 py-0.5 text-[10px] leading-none text-white">
-                      {getOutfitFusionRoleLabel(asset.role)}
+                {template.assets.slice(0, 3).map((asset, assetIndex) => {
+                  const label = getOutfitFusionAssetLabel(asset, assetIndex);
+                  const roleLabel = getOutfitFusionRoleLabel(asset.role);
+                  return (
+                    <div key={asset.id} className="w-12 overflow-hidden rounded-[4px] border border-white/70 bg-white shadow-sm transition duration-200 group-hover:shadow-md" title={`${label} · ${roleLabel}`}>
+                      <div className="truncate bg-black/55 px-1 py-0.5 text-[10px] leading-none text-white">
+                        {label}
+                      </div>
+                      <img src={asset.url} alt={`${label}${roleLabel}`} className="aspect-square w-full object-cover" />
                     </div>
-                    <img src={asset.url} alt={getOutfitFusionAssetLabel(asset, assetIndex)} className="aspect-square w-full object-cover" />
-                  </div>
-                ))}
+                  );
+                })}
               </div>
               <button
                 type="button"

@@ -98,7 +98,7 @@ import type { TryOnClothingMode, TryOnClothingRole } from "@/lib/tryon-upload-ru
 import type { GrassPayloadBase } from "@/lib/grass-planting";
 import type { ModelBackgroundPayloadBase } from "@/lib/model-background";
 import type { MaterialEnhancementPayloadBase } from "@/lib/material-enhancement";
-import { enforceFaceSwapPromptRequirements, normalizeFaceSwapSourceUrls } from "@/lib/face-swap";
+import { buildFaceSwapPrompt, enforceFaceSwapPromptRequirements, normalizeFaceSwapSourceUrls } from "@/lib/face-swap";
 import {
   buildProductSetPrompt,
   createProductSetModuleResult,
@@ -198,6 +198,9 @@ export type GenerationJobPayload = GenerationJobPayloadBase & (
       kind: "outfitFusion";
       mode: "text-to-image" | "image-to-image";
       referenceUrls: string[];
+      clothingUrls?: string[];
+      modelFaceUrl?: string | null;
+      referenceUrl?: string | null;
       assets?: OutfitFusionHistoryAsset[];
       aiModel: LingyaModel;
       aspectRatio: AspectRatio;
@@ -1353,6 +1356,10 @@ async function executePayload(
     const imageInputs = payload.mode === "image-to-image"
       ? await resolvePayloadImageInputs({ clothingUrls: payload.referenceUrls })
       : { clothingUrls: [] };
+    const faceInputs = payload.kind === "outfitFusion" && payload.modelFaceUrl
+      ? await resolvePayloadImageInputs({ clothingUrls: [payload.modelFaceUrl] })
+      : { clothingUrls: [] as string[] };
+    const faceInputUrl = faceInputs.clothingUrls[0] || (payload.kind === "outfitFusion" ? payload.modelFaceUrl || "" : "");
     const smartAspectImage = payload.kind === "outfitFusion"
       ? resolveOutfitFusionSmartAspectImage({
           assets: payload.assets,
@@ -1375,8 +1382,40 @@ async function executePayload(
           image_size: payload.imageSize,
           onProgress: onTaskProgress,
         });
+        const firstPassResultUrl = getResultUrl(result);
+        if (payload.kind === "outfitFusion" && isUsableImageReference(firstPassResultUrl) && isUsableImageReference(faceInputUrl)) {
+          try {
+            await onTaskProgress?.({ status: "running", providerStatus: "FACE_IDENTITY_REFINING", progress: 82 });
+            const faceRefinePrompt = buildOutfitFusionFaceRefinePrompt(payload.prompt);
+            const faceResult = await generateImage({
+              model: payload.aiModel,
+              prompt: faceRefinePrompt,
+              prompt_kind: "faceSwap",
+              aspect_ratio: payload.aspectRatio,
+              image: [firstPassResultUrl, faceInputUrl],
+              smart_aspect_image: firstPassResultUrl,
+              image_size: payload.imageSize,
+              onProgress: onTaskProgress,
+            });
+            const refinedResultUrl = getResultUrl(faceResult);
+            return {
+              resultUrl: refinedResultUrl,
+              prompt: payload.prompt,
+              compiledPrompt: [
+                result.compiledPrompt || payload.prompt,
+                "Face identity refinement:",
+                faceResult.compiledPrompt || faceRefinePrompt,
+              ].join("\n\n"),
+              taskId: faceResult.taskId || result.taskId,
+            };
+          } catch (err: unknown) {
+            logger.warn("outfit fusion face refinement failed; using first-pass result", {
+              error: err instanceof Error ? err.message : String(err),
+            });
+          }
+        }
         return {
-          resultUrl: getResultUrl(result),
+          resultUrl: firstPassResultUrl,
           prompt: payload.prompt,
           compiledPrompt: result.compiledPrompt || payload.prompt,
           taskId: result.taskId,
@@ -2080,6 +2119,21 @@ function getTryOnPayloadReferenceUrls(payload: Extract<GenerationJobPayload, { k
     ...(Array.isArray(payload.referenceUrls) ? payload.referenceUrls : []),
     payload.referenceUrl,
   ]).slice(0, 8);
+}
+
+function buildOutfitFusionFaceRefinePrompt(userPrompt: string) {
+  return enforceFaceSwapPromptRequirements(buildFaceSwapPrompt([
+    "This is the final face refinement step for an outfit-fusion result.",
+    "Image 1 is the already generated outfit-fusion photo and must remain the fixed target canvas.",
+    "Image 2 is the uploaded model face identity reference.",
+    "Keep image 1 clothing, accessories, body, pose, background, camera framing, lighting, exposure, fabric details, bag, shoes, hat, scarf, hands, and scene unchanged.",
+    "Replace only the final person's facial identity so the face clearly reads as image 2's person, while preserving image 1 head pose, expression direction, gaze, skin-tone continuity, and scene lighting.",
+    userPrompt ? `Visible user prompt for context: ${userPrompt}` : "",
+  ].filter(Boolean).join(" "), false));
+}
+
+function isUsableImageReference(value?: string | null) {
+  return typeof value === "string" && (/^https?:\/\//i.test(value) || /^data:image\//i.test(value));
 }
 
 function getTryOnPayloadGarmentDetailUrls(payload: Extract<GenerationJobPayload, { kind: "tryon" }>) {

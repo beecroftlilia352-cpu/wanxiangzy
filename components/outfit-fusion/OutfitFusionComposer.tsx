@@ -9,7 +9,6 @@ import { useStableFileDrag } from "@/components/studio/useStableFileDrag";
 import { cn } from "@/lib/utils";
 import {
   DEFAULT_OUTFIT_FUSION_CONFIG,
-  getOutfitFusionAssetLabel,
   getOutfitFusionRoleLabel,
   OUTFIT_FUSION_MODELS,
   type OutfitFusionAsset,
@@ -172,28 +171,31 @@ export function OutfitFusionComposer({
 
         <div className="mt-4 flex flex-wrap gap-2">
           {assets.map((asset, index) => {
-            const label = asset.name || getOutfitFusionAssetLabel(asset, index);
+            const label = getCanonicalAssetLabel(index);
+            const roleLabel = getOutfitFusionRoleLabel(asset.role);
+            const active = hasPromptAssetReference(prompt, index);
             return (
                 <div key={asset.id} className="group relative w-[78px] overflow-hidden rounded-[6px] border border-slate-200 bg-white shadow-sm ring-1 ring-transparent transition duration-200 hover:border-[rgba(91,124,255,0.28)] hover:ring-[rgba(91,124,255,0.22)] hover:shadow-md">
-                  <span className={cn("pointer-events-none absolute left-1.5 top-1.5 z-[1] max-w-[70px] truncate rounded-[4px] border px-1.5 py-0.5 text-[10px] font-bold leading-3 shadow-sm", getAssetLabelTone(asset.role, prompt.includes(`【${label}】`)))}>
+                  <span className={cn("pointer-events-none absolute left-1.5 top-1.5 z-[1] max-w-[70px] truncate rounded-[4px] border px-1.5 py-0.5 text-[10px] font-bold leading-3 shadow-sm", getAssetLabelTone(asset.role, active))}>
                     {label}
                   </span>
                   <button
                     type="button"
                     onClick={() => onPreviewAsset?.(asset.id)}
                     className="block w-full cursor-zoom-in text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.38)]"
-                    aria-label={`预览${label}`}
+                    aria-label={`预览${label}${roleLabel}`}
+                    title={`${label} · ${roleLabel}`}
                   >
-                    <img src={asset.url} alt={label} className="aspect-square w-full object-cover transition duration-300 group-hover:scale-[1.035]" />
+                    <img src={asset.url} alt={`${label}${roleLabel}`} className="aspect-square w-full object-cover transition duration-300 group-hover:scale-[1.035]" />
                     <div className="truncate border-t border-slate-100 px-1.5 py-1 text-center text-[11px] font-medium leading-4 text-slate-500">
-                      {getOutfitFusionRoleLabel(asset.role)}
+                      {roleLabel}
                     </div>
                   </button>
                   <button
                     type="button"
                     onClick={() => onRemoveAsset(asset.id)}
                     className="absolute right-1 top-1 flex size-5 items-center justify-center rounded-full bg-black/60 text-white opacity-0 shadow-sm transition group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
-                    aria-label={`移除${label}`}
+                    aria-label={`移除${label}${roleLabel}`}
                   >
                     <X className="h-3 w-3" />
                   </button>
@@ -326,16 +328,17 @@ function HighlightedPromptTextarea({
   const assetOptions = useMemo(
     () =>
       assets.map((asset, index) => {
-        const label = asset.name || getOutfitFusionAssetLabel(asset, index);
+        const label = getCanonicalAssetLabel(index);
         return {
           asset,
+          index,
           label,
           roleLabel: getOutfitFusionRoleLabel(asset.role),
         };
       }),
     [assets]
   );
-  const referencedOptions = assetOptions.filter((option) => value.includes(`【${option.label}】`));
+  const referencedOptions = assetOptions.filter((option) => hasPromptAssetReference(value, option.index));
   const filteredOptions = mention
     ? assetOptions.filter((option) => {
         const query = mention.query.trim().toLowerCase();
@@ -373,7 +376,7 @@ function HighlightedPromptTextarea({
     const textarea = textareaRef.current;
     const caret = textarea?.selectionStart ?? value.length;
     const start = mention?.start ?? caret;
-    const token = `【${option.label}】`;
+    const token = option.label;
     const nextValue = `${value.slice(0, start)}${token}${value.slice(caret)}`.slice(0, 800);
     const nextCaret = Math.min(start + token.length, nextValue.length);
 
@@ -437,7 +440,7 @@ function HighlightedPromptTextarea({
               compact && "text-slate-500"
             )}
           >
-            {renderHighlightedPrompt(value)}
+            {renderHighlightedPrompt(value, assets)}
           </div>
         ) : null}
         <textarea
@@ -508,7 +511,7 @@ function HighlightedPromptTextarea({
                 <img src={option.asset.url} alt="" className="size-9 rounded-[5px] object-cover ring-1 ring-slate-200" />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-semibold leading-5">{option.label}</span>
-                  <span className="block text-xs leading-4 text-slate-500">{option.roleLabel}</span>
+                  <span className="block truncate text-xs leading-4 text-slate-500">{option.roleLabel}</span>
                 </span>
               </button>
             ))
@@ -542,9 +545,27 @@ function HighlightedPromptTextarea({
   );
 }
 
-const PROMPT_LABEL_PATTERN = /【(?:参考图|搭配图|模特图)\d+】/g;
+const PROMPT_LABEL_PATTERN = /图\d+/g;
 
-function renderHighlightedPrompt(value: string): ReactNode[] {
+function getCanonicalAssetLabel(index: number) {
+  return `图${index + 1}`;
+}
+
+function hasPromptAssetReference(value: string, index: number) {
+  const canonicalLabel = getCanonicalAssetLabel(index);
+  return hasPromptToken(value, canonicalLabel);
+}
+
+function hasPromptToken(value: string, token: string) {
+  if (!value || !token) return false;
+  return new RegExp(`(^|[^0-9搭配参考模特])${escapeRegExp(token)}(?!\\d)`).test(value);
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function renderHighlightedPrompt(value: string, assets: OutfitFusionAsset[]): ReactNode[] {
   const parts: ReactNode[] = [];
   let lastIndex = 0;
 
@@ -558,7 +579,7 @@ function renderHighlightedPrompt(value: string): ReactNode[] {
     parts.push(
       <span
         key={`${token}-${index}`}
-        className={cn("rounded-[3px] px-0 py-0 font-normal", getPromptLabelTone(token))}
+        className={cn("rounded-[3px] px-0 py-0 font-normal", getPromptLabelTone(token, assets))}
       >
         {token}
       </span>
@@ -573,10 +594,17 @@ function renderHighlightedPrompt(value: string): ReactNode[] {
   return parts;
 }
 
-function getPromptLabelTone(token: string) {
-  if (token.includes("参考图")) return "bg-rose-50 text-rose-500";
-  if (token.includes("模特图")) return "bg-amber-50 text-amber-500";
+function getPromptLabelTone(token: string, assets: OutfitFusionAsset[]) {
+  const role = getPromptTokenRole(token, assets);
+  if (role === "reference") return "bg-rose-50 text-rose-500";
+  if (role === "model") return "bg-amber-50 text-amber-500";
   return "bg-blue-50 text-[#4f6ff4]";
+}
+
+function getPromptTokenRole(token: string, assets: OutfitFusionAsset[]): OutfitFusionAssetRole {
+  const match = token.match(/^图(\d+)$/);
+  const assetIndex = match ? Number(match[1]) - 1 : -1;
+  return assets[assetIndex]?.role || "outfit";
 }
 
 function getAssetLabelTone(role: OutfitFusionAssetRole, active: boolean) {

@@ -57,6 +57,9 @@ export async function POST(request: NextRequest) {
     const totalCost = getCreditCost(model, size, aspectRatio) * genCount;
     const moduleKind = normalizeModuleKind(body.module_kind || body.module);
     const outfitFusionAssets = moduleKind === "outfitFusion" ? normalizeOutfitFusionAssets(body.input_assets, referenceUrls) : undefined;
+    const outfitFusionModelFaceUrl = outfitFusionAssets?.find((asset) => asset.role === "model")?.url || null;
+    const outfitFusionReferenceUrl = outfitFusionAssets?.find((asset) => asset.role === "reference")?.url || referenceUrls[0] || null;
+    const outfitFusionClothingUrls = outfitFusionAssets?.filter((asset) => asset.role === "outfit").map((asset) => asset.url) || [];
     const moduleLabel = moduleKind === "outfitFusion" ? "搭配融图" : "通用生图";
 
     const payloadBase = {
@@ -70,14 +73,22 @@ export async function POST(request: NextRequest) {
       genCount,
     };
     const jobPayload: GenerationJobPayload = moduleKind === "outfitFusion"
-      ? { kind: "outfitFusion", ...payloadBase, userPrompt, assets: outfitFusionAssets }
+      ? {
+          kind: "outfitFusion",
+          ...payloadBase,
+          userPrompt,
+          assets: outfitFusionAssets,
+          clothingUrls: outfitFusionClothingUrls,
+          modelFaceUrl: outfitFusionModelFaceUrl,
+          referenceUrl: outfitFusionReferenceUrl,
+        }
       : { kind: "generalImage", ...payloadBase };
 
     const debit = await createDebitedGeneration(supabase, {
       userId: user.id,
       clothingUrls: payloadBase.referenceUrls,
-      modelFaceUrl: null,
-      referenceUrl: payloadBase.referenceUrls[0] || null,
+      modelFaceUrl: moduleKind === "outfitFusion" ? outfitFusionModelFaceUrl : null,
+      referenceUrl: moduleKind === "outfitFusion" ? outfitFusionReferenceUrl : payloadBase.referenceUrls[0] || null,
       creditsCost: totalCost,
       aiModel: model,
       imageSize: size,

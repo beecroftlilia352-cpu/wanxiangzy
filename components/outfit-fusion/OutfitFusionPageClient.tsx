@@ -32,6 +32,7 @@ import { fetchHistoryApplyDetail, takeApplyDetail, type HistoryApplyDetail, type
 import {
   buildOutfitFusionComposerText,
   buildOutfitFusionPrompt,
+  buildOutfitFusionVisibleFaceText,
   clampOutfitFusionCount,
   DEFAULT_OUTFIT_FUSION_CONFIG,
   getOutfitFusionRoleLabel,
@@ -301,24 +302,26 @@ export function OutfitFusionPageClient() {
     if (assetPreviewIndex < 0) return null;
     const asset = assets[assetPreviewIndex];
     if (!asset) return null;
+    const label = getCanonicalInputImageLabel(assetPreviewIndex);
     return {
       asset,
-      label: asset.name || getIndexedAssetLabel(asset, assetPreviewIndex),
+      label,
       roleLabel: getOutfitFusionRoleLabel(asset.role),
     };
   }, [assetPreviewIndex, assets]);
 
   const assetPreviewSession = useMemo(() => {
     if (!assetPreview) return null;
+    const metaItems = [
+      { label: "图片类型", value: assetPreview.roleLabel },
+      { label: "图片编号", value: assetPreview.label },
+    ];
     return createImagePreviewSession({
       module: "outfitFusion",
-      title: assetPreview.label,
+      title: `${assetPreview.label} · ${assetPreview.roleLabel}`,
       statusGroup: "completed",
       selectedIndex: 0,
-      metaItems: [
-        { label: "图片类型", value: assetPreview.roleLabel },
-        { label: "图片编号", value: assetPreview.label },
-      ],
+      metaItems,
       results: [{
         url: assetPreview.asset.url,
         title: assetPreview.label,
@@ -536,7 +539,7 @@ export function OutfitFusionPageClient() {
     const requestPrompt = buildOutfitFusionPrompt({
       templatePrompt: inputPrompt,
       assets: inputAssets,
-      config: inputConfig,
+      config: { ...inputConfig, genCount: expectedCount },
     });
     const task: OutfitFusionTask = {
       id: taskId,
@@ -874,29 +877,29 @@ export function OutfitFusionPageClient() {
 
   function buildVisionPromptRequest(inputAssets: OutfitFusionAsset[], seedPrompt: string) {
     const roleLines = inputAssets.map((asset, index) => {
-      const label = getPromptAssetLabel(asset, index);
       if (asset.role === "reference") {
-        return `图${index + 1}对应【${label}】：只参考人物姿态、构图、场景、光影和穿搭关系，不复制无关商品。`;
+        return `图${index + 1}只提供人物身体、姿态、头部位置、构图、场景氛围、光影和背景；可以写“让图${index + 1}人物穿上/戴上/拿着其它图商品”。`;
       }
       if (asset.role === "model") {
-        return `图${index + 1}对应【${label}】：只参考最终模特脸部身份，包括脸型、五官、骨相、发型、年龄气质和可识别特征；不参考身体、姿势、服装、背景或光线。`;
+        return `图${index + 1}只提供最终模特脸部身份：面部五官、脸部轮廓、骨相、皮肤颜色、发色及发型；不参考身体、姿势、服装、背景或光线。`;
       }
-      return `图${index + 1}对应【${label}】：识别商品类别、颜色、材质、版型、图案、Logo、鞋包配饰和正确穿戴位置。`;
+      return `图${index + 1}只提供商品本体，识别商品类别、颜色、材质、版型、长度、图案、Logo、鞋包配饰和正确穿戴位置。`;
     });
 
     return [
       "这是搭配融图的 AI 帮写任务，请调用视觉理解能力分析所有输入图。",
-      "只输出一段可直接放进输入框的中文自然语言提示词，长度 60-180 字，不要分段，不要标题，不要列表，不要 Markdown，不要解释。",
-      "输出格式：让【参考图X】的模特穿着【搭配图Y】的商品，戴着【搭配图Z】的配饰，拿着【搭配图N】的包，把模特换成【模特图M】的模特。X/Y/Z/N/M 必须替换成真实素材编号，不要照抄格式示例。",
-      "必须保留并使用【参考图1】、【搭配图2】、【模特图6】这类完整编号标记；不要只写“图1”“参考图”或“第一张图”。",
-      "如果有参考图，用“让【参考图X】的模特...”开头；如果没有参考图，用“让模特...”开头；如果有模特图，用“把模特换成【模特图X】的模特”结尾，且【模特图X】必须是当前输入关系里真实存在的模特图编号。",
-      "如果当前输入框内容或模板示例里出现旧的、不存在的模特图编号，必须改成当前真实存在的模特图编号；不要保留历史模板编号。",
-      "搭配图只写商品关系：穿着、戴着、拿着、背着、佩戴等动作，以及品类、颜色、材质、图案、款式；不要写素材规则、负面约束、生成张数、模型名、比例、清晰度、拼图、宫格、模板、候选图、多张图或合集。",
+      "只输出一段可直接放进输入框并直接执行的中文提示词，不要分段，不要标题，不要 Markdown，不要解释。",
+      "输出使用自然关系句：让图X的人物姿态、构图和场景氛围作为画面基础，身穿图Y商品，手持图Z包，脚穿图A鞋子，外搭图B商品并佩戴图B配饰，内搭图C商品，把模特换成图M的模特，保留图M模特的面部五官、脸部轮廓、骨相、皮肤颜色、发色及发型，生成真实自然的商业穿搭图。X/Y/Z/A/B/C/M 必须替换成真实输入顺序编号，不要照抄格式示例。",
+      "必须只使用图1、图2、图3这类真实输入顺序编号；不要使用参考图、搭配图、模特图加编号的角色别名。",
+      "“让图X穿图Y/戴图Y/拿图Y”表示把图Y商品穿到或放到图X人物对应位置，不表示图X原本已有该穿搭；参考图只控制人物姿态、构图、场景氛围和光影。",
+      "每个商品都写清楚穿着/外搭/戴着/拿着/背着/脚穿等动作，以及品类、颜色、材质、版型/长度、图案或logo等关键识别点。",
+      `如果有模特脸图，只在用户可见提示词里写这段简洁换脸描述：${buildOutfitFusionVisibleFaceText("图M")}。不要把后台脸部完整约束、优先级、负面规则写进输入框。`,
+      "不要写后台规则、负面约束、生成张数、模型名、比例、清晰度、拼图、宫格、候选图、多张图或合集。",
       "图片输入关系如下，仅供你判断编号和商品，不要原样输出：",
       ...roleLines,
-      seedPrompt ? "当前输入框内容已经是最终图片关系句；仅允许修正识别错误或补充缺失商品，不要输出任何说明前缀。" : "",
+      seedPrompt ? "当前输入框内容已经是最终提示词；仅允许按上述自然关系句改写并修正识别错误，不要输出任何说明前缀。" : "",
       seedPrompt || "",
-      "最终只返回这一句话本身，不要追加“真实自然商业摄影质感”等后台固定规则。",
+      "最终只返回这一句话本身。",
     ].filter(Boolean).join("\n");
   }
 
@@ -1203,22 +1206,26 @@ function TaskInputReuseStack({ assets, onReuse }: { assets: OutfitFusionAsset[];
               className="group/reuse relative h-[54px] w-[68px] rounded-[6px] outline-none transition focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.45)] focus-visible:ring-offset-2"
               aria-label="再次使用图片"
             >
-              {displayAssets.map((asset, index) => (
-                <span
-                  key={asset.id}
-                  className={cn(
-                    "absolute top-1 h-11 w-8 overflow-hidden rounded-[4px] border border-white bg-white shadow-sm transition duration-300 group-hover/reuse:-translate-y-1 group-hover/reuse:shadow-md group-focus-visible/reuse:-translate-y-1 group-focus-visible/reuse:shadow-md",
-                    index === 0 && "left-0 -rotate-6",
-                    index === 1 && (hasHiddenAssets ? "left-3.5 rotate-1" : "left-4 rotate-2"),
-                    index === 2 && (hasHiddenAssets ? "left-7 rotate-3" : "left-8 rotate-6")
-                  )}
-                >
-                  <span className="absolute left-0 top-0 z-[1] max-w-full truncate rounded-br-[4px] bg-slate-950/72 px-1 py-0.5 text-[9px] font-semibold leading-none text-white">
-                    {getOutfitFusionRoleLabel(asset.role)}
+              {displayAssets.map((asset, index) => {
+                const label = getCanonicalInputImageLabel(index);
+                return (
+                  <span
+                    key={asset.id}
+                    className={cn(
+                      "absolute top-1 h-11 w-8 overflow-hidden rounded-[4px] border border-white bg-white shadow-sm transition duration-300 group-hover/reuse:-translate-y-1 group-hover/reuse:shadow-md group-focus-visible/reuse:-translate-y-1 group-focus-visible/reuse:shadow-md",
+                      index === 0 && "left-0 -rotate-6",
+                      index === 1 && (hasHiddenAssets ? "left-3.5 rotate-1" : "left-4 rotate-2"),
+                      index === 2 && (hasHiddenAssets ? "left-7 rotate-3" : "left-8 rotate-6")
+                    )}
+                    title={`${label} · ${getOutfitFusionRoleLabel(asset.role)}`}
+                  >
+                    <span className="absolute left-0 top-0 z-[1] max-w-full truncate rounded-br-[4px] bg-slate-950/72 px-1 py-0.5 text-[9px] font-semibold leading-none text-white">
+                      {label}
+                    </span>
+                    <img src={asset.url} alt={`${label}${getOutfitFusionRoleLabel(asset.role)}`} className="h-full w-full object-cover" />
                   </span>
-                  <img src={asset.url} alt={asset.name || `输入${index + 1}`} className="h-full w-full object-cover" />
-                </span>
-              ))}
+                );
+              })}
               {hasHiddenAssets ? (
                 <span className="absolute right-0 top-1 z-[4] flex h-11 w-8 rotate-6 items-center justify-center overflow-hidden rounded-[4px] border border-white bg-[linear-gradient(135deg,rgba(31,41,55,0.92),rgba(100,116,139,0.78))] text-[11px] font-bold leading-none text-white shadow-[0_6px_14px_rgba(15,23,42,0.20)] transition duration-300 group-hover/reuse:-translate-y-1 group-hover/reuse:shadow-md group-focus-visible/reuse:-translate-y-1 group-focus-visible/reuse:shadow-md">
                   +{hiddenCount}
@@ -1311,10 +1318,7 @@ function normalizeOutfitFusionAssetRole(value: unknown): OutfitFusionAssetRole |
   return null;
 }
 
-function inferOutfitFusionRoleFromPrompt(prompt: string, index: number): OutfitFusionAssetRole {
-  const oneBasedIndex = index + 1;
-  if (prompt.includes(`【参考图${oneBasedIndex}】`)) return "reference";
-  if (prompt.includes(`【模特图${oneBasedIndex}】`)) return "model";
+function inferOutfitFusionRoleFromPrompt(_prompt: string, _index: number): OutfitFusionAssetRole {
   return "outfit";
 }
 
@@ -1324,10 +1328,8 @@ function getUploadedAssetName(role: OutfitFusionAssetRole, existing: OutfitFusio
   return `${getOutfitFusionRoleLabel(role)}${index}`;
 }
 
-function getPromptAssetLabel(asset: OutfitFusionAsset, index: number) {
-  const name = asset.name?.trim();
-  if (name) return name.replace(/^模特(\d+)$/, "模特图$1");
-  return getIndexedAssetLabel(asset, index);
+function getCanonicalInputImageLabel(index: number) {
+  return `图${index + 1}`;
 }
 
 function getIndexedAssetLabel(asset: Pick<OutfitFusionAsset, "role">, index: number) {
@@ -1339,14 +1341,16 @@ function getIndexedAssetLabel(asset: Pick<OutfitFusionAsset, "role">, index: num
 function buildPromptDraft(inputAssets: OutfitFusionAsset[], fallbackRole: OutfitFusionAssetRole) {
   const assets = inputAssets.length ? inputAssets : [{ role: fallbackRole } as OutfitFusionAsset];
   const outfitCount = assets.filter((asset) => asset.role === "outfit").length;
-  const hasReference = assets.some((asset) => asset.role === "reference");
-  const hasModel = assets.some((asset) => asset.role === "model");
-  return [
-    hasReference ? "让参考图中的人物姿态、构图和场景氛围作为画面基础，" : "",
-    `融合${outfitCount || 1}张搭配图中的服装、鞋包和配饰，`,
-    hasModel ? "把最终人物替换为模特图中的面部、发型和气质，" : "",
-    "生成真实自然、细节准确、适合电商展示的模特穿搭图。",
-  ].join("");
+  const referenceIndex = assets.findIndex((asset) => asset.role === "reference");
+  const modelIndex = assets.findIndex((asset) => asset.role === "model");
+  const base = referenceIndex >= 0
+    ? `让图${referenceIndex + 1}的人物姿态、构图和场景氛围作为画面基础`
+    : "让自然商业模特";
+  const outfitText = `穿上、佩戴或手持${outfitCount || 1}张搭配图中的服装、鞋包和配饰`;
+  const faceText = modelIndex >= 0
+    ? `，${buildOutfitFusionVisibleFaceText(`图${modelIndex + 1}`)}`
+    : "";
+  return `${base}，${outfitText}${faceText}，生成真实自然、细节准确、适合电商展示的模特穿搭图。`;
 }
 
 function formatTaskTime(value: string) {
