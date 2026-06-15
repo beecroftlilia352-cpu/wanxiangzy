@@ -58,6 +58,7 @@ import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { fetchHistoryApplyDetail, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
 import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
 import { createFaceSwapPreviewSession, type ImagePreviewAction } from "@/lib/studio-image-preview";
+import { FAILED_RETRY_NOTICE, buildFailedTaskDetail, buildPartialFailureDetail, summarizeGenerationError } from "@/lib/studio-generation-feedback";
 
 const MODELS: Array<{ value: LingyaModel; label: string; desc: string; icon: string; badge?: string }> = [
   { value: "nano-banana-2", label: "Nano-Banana-2", desc: "最高4K", icon: "/model-icons/gemini.png", badge: "默认" },
@@ -103,8 +104,19 @@ type ActiveFaceSwapJob = {
   resultUrls: string[];
   progress: number;
   status: GenerationStatus;
+  genCount?: number;
   userPrompt?: string;
   textureEnhance?: boolean;
+};
+type FaceSwapGenerateOptions = {
+  sourceUrlsOverride?: string[];
+  genCountOverride?: number;
+  expectedCountOverride?: number;
+  toastMessage?: string;
+};
+type FaceSwapPollContext = {
+  expectedCount: number;
+  inputThumbnails: string[];
 };
 
 export default function FaceSwapPage() {
@@ -122,6 +134,7 @@ export default function FaceSwapPage() {
     credits,
     setCredits,
     refreshAuth,
+    refreshCredits,
   } = useStudioAuth();
   const [sourceUrls, setSourceUrls] = useState<string[]>([]);
   const [faceUrl, setFaceUrl] = useState("");
@@ -149,7 +162,8 @@ export default function FaceSwapPage() {
   const imageSizeValue = normalizeImageSize(aiModel, imageSize, aspectRatio);
   const unitCost = getCreditCost(aiModel, imageSizeValue, aspectRatio);
   const requestedFaceSwapCount = normalizeFaceSwapCount(genCount);
-  const totalCost = unitCost * requestedFaceSwapCount * Math.max(sourceUrls.length, 1);
+  const requestedFaceSwapResultCount = requestedFaceSwapCount * Math.max(sourceUrls.length, 1);
+  const totalCost = unitCost * requestedFaceSwapResultCount;
   const faceLibrary = FACE_SWAP_LIBRARY.filter((item) => item.gender === genderFilter);
   const validationHint = sourceUrls.length === 0
     ? "请先上传或选择原始模特图"
@@ -165,7 +179,7 @@ export default function FaceSwapPage() {
   const taskQueue = useTaskQueueGeneration({
     module: "faceSwap",
     title: "换脸",
-    defaultExpectedCount: requestedFaceSwapCount,
+    defaultExpectedCount: requestedFaceSwapResultCount,
     applyPath: "/face-swap",
   });
 
@@ -256,8 +270,10 @@ export default function FaceSwapPage() {
     if (!options?.silent) toast.success("已套用历史换脸参数");
   }, [clearPolling]);
 
-  const pollGeneration = useCallback(async (id: string, immediate = false) => {
+  const pollGeneration = useCallback(async (id: string, immediate = false, context?: FaceSwapPollContext) => {
     clearPolling();
+    const expectedCount = context?.expectedCount ?? requestedFaceSwapResultCount;
+    const inputThumbnails = context?.inputThumbnails ?? [...sourceUrls, faceUrl].filter(Boolean);
     const run = async () => {
       try {
         const res = await fetch(`/api/face-swap?generation_id=${encodeURIComponent(id)}`);
@@ -268,62 +284,77 @@ export default function FaceSwapPage() {
         const nextUrls = Array.isArray(data.result_urls) ? data.result_urls : [];
         const nextResultCount = nextUrls.filter(Boolean).length;
         const roundedProgress = Math.min(Math.max(Math.round(nextProgress), 0), 100);
-        const inputThumbnails = [...sourceUrls, faceUrl].filter(Boolean);
         setProgress(roundedProgress);
         if (nextUrls.length) setResultUrls(nextUrls);
 
         if (data.status === "completed") {
+          const partialFailure = data.partial_failure && typeof data.partial_failure === "object"
+            ? data.partial_failure as { message?: unknown }
+            : null;
+          const completedErrorSource = data.error || partialFailure?.message || "";
+          const completedError = completedErrorSource ? summarizeGenerationError(completedErrorSource) : "";
           setStatus("completed");
           setProgress(100);
           setResultUrls(nextUrls);
           const completedTask = taskQueue.markCompleted(id, {
-            expectedCount: requestedFaceSwapCount,
+            expectedCount,
             inputThumbnails,
             resultThumbnails: nextUrls,
             resultCount: nextResultCount,
+            error: completedError,
           });
           setActiveQueueTask(completedTask);
-          toast.success("换脸完成");
+          if (nextResultCount < expectedCount || completedError) {
+            await refreshCredits();
+            toast.warning(buildPartialFailureDetail({
+              message: completedError || completedErrorSource,
+              failedCount: expectedCount - nextResultCount || 1,
+            }));
+          } else {
+            toast.success("换脸完成");
+          }
           return;
         }
 
         if (data.status === "failed") {
           setStatus("failed");
-          const message = data.error || "换脸生成失败";
+          const message = summarizeGenerationError(data.error || "换脸生成失败");
           setError(message);
           const failedTask = taskQueue.markFailed(id, message, {
-            expectedCount: requestedFaceSwapCount,
+            expectedCount,
             inputThumbnails,
             resultThumbnails: nextUrls,
           });
           setActiveQueueTask(failedTask);
+          await refreshCredits();
           return;
         }
 
         setStatus("running");
         const runningTask = taskQueue.markRunning(id, {
-          expectedCount: requestedFaceSwapCount,
+          expectedCount,
           inputThumbnails,
           resultThumbnails: nextUrls,
           progress: roundedProgress,
           status: data.status,
         });
         setActiveQueueTask(runningTask);
-        pollTimerRef.current = setTimeout(() => pollGeneration(id), 2200);
+        pollTimerRef.current = setTimeout(() => pollGeneration(id, false, context), 2200);
       } catch (err) {
-        const message = err instanceof Error ? err.message : "查询生成进度失败";
+        const message = summarizeGenerationError(err instanceof Error ? err.message : "查询生成进度失败");
         setStatus("failed");
         setError(message);
         const failedTask = taskQueue.markFailed(id, message, {
-          expectedCount: requestedFaceSwapCount,
-          inputThumbnails: [...sourceUrls, faceUrl].filter(Boolean),
+          expectedCount,
+          inputThumbnails,
         });
         setActiveQueueTask(failedTask);
+        await refreshCredits();
       }
     };
     if (immediate) void run();
     else pollTimerRef.current = setTimeout(run, 2200);
-  }, [clearPolling, faceUrl, progress, requestedFaceSwapCount, sourceUrls, taskQueue, textureEnhance]);
+  }, [clearPolling, faceUrl, progress, refreshCredits, requestedFaceSwapResultCount, sourceUrls, taskQueue]);
 
   useEffect(() => {
     if (!isAuthenticated || status !== "idle" || generationId || sourceUrls.length > 0 || faceUrl) return;
@@ -355,10 +386,14 @@ export default function FaceSwapPage() {
         setFaceUrl(job.faceUrl);
         setResultUrls(job.resultUrls || []);
         setProgress(job.progress || 0);
+        setGenCount(normalizeFaceSwapCount(job.genCount));
         setTextureEnhance(Boolean(job.textureEnhance));
         setPrompt(getFaceSwapUserPromptFromPayload(job));
         setStatus("running");
-        pollGeneration(job.generationId, true);
+        pollGeneration(job.generationId, true, {
+          expectedCount: Math.max(1, jobSourceUrls.length * normalizeFaceSwapCount(job.genCount)),
+          inputThumbnails: [...jobSourceUrls, job.faceUrl].filter(Boolean),
+        });
       } catch {
         // 恢复进行中任务失败不阻断正常使用。
       }
@@ -407,13 +442,17 @@ export default function FaceSwapPage() {
     }
   }
 
-  async function generate() {
+  async function generate(options: FaceSwapGenerateOptions = {}) {
+    const runSourceUrls = options.sourceUrlsOverride?.length ? options.sourceUrlsOverride : sourceUrls;
+    const runGenCount = normalizeFaceSwapCount(options.genCountOverride ?? genCount);
+    const runExpectedCount = Math.max(1, options.expectedCountOverride ?? runSourceUrls.length * runGenCount);
+    const runTotalCost = unitCost * runExpectedCount;
     if (!isAuthenticated && !(await refreshAuth())) {
       toast.error("请先登录");
       router.push("/login");
       return;
     }
-    if (sourceUrls.length === 0) {
+    if (runSourceUrls.length === 0) {
       toast.error("请先上传或选择原始模特图");
       return;
     }
@@ -421,15 +460,16 @@ export default function FaceSwapPage() {
       toast.error("请先选择目标模特脸");
       return;
     }
-    if (sourceUrls.includes(faceUrl)) {
+    if (runSourceUrls.includes(faceUrl)) {
       toast.error("原始模特图和目标脸图不能是同一张");
       return;
     }
-    if (credits !== null && credits < totalCost) {
-      showInsufficientCreditsToast({ required: totalCost, balance: credits, onRecharge: () => router.push("/pricing") });
+    if (credits !== null && credits < runTotalCost) {
+      showInsufficientCreditsToast({ required: runTotalCost, balance: credits, onRecharge: () => router.push("/pricing") });
       return;
     }
 
+    if (options.toastMessage) toast.info(options.toastMessage);
     clearPolling();
     skipActiveRestoreRef.current = false;
     setActiveQueueTask(null);
@@ -437,9 +477,9 @@ export default function FaceSwapPage() {
     setProgress(1);
     setResultUrls([]);
     setError("");
-    const taskInputThumbnails = [...sourceUrls, faceUrl].filter(Boolean);
+    const taskInputThumbnails = [...runSourceUrls, faceUrl].filter(Boolean);
     const provisionalTask = taskQueue.startTask({
-      expectedCount: requestedFaceSwapCount,
+      expectedCount: runExpectedCount,
       inputThumbnails: taskInputThumbnails,
       progress: 1,
     });
@@ -451,12 +491,12 @@ export default function FaceSwapPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          source_urls: sourceUrls,
+          source_urls: runSourceUrls,
           face_url: faceUrl,
           ai_model: aiModel,
           aspect_ratio: aspectRatio,
           image_size: imageSizeValue,
-          gen_count: normalizeFaceSwapCount(genCount),
+          gen_count: runGenCount,
           prompt,
           texture_enhance: textureEnhance,
         }),
@@ -482,7 +522,7 @@ export default function FaceSwapPage() {
       if (typeof data.generation_id === "string" && data.generation_id) {
         const serverTask = taskQueue.replaceWithServerTask(activeTaskId, {
           id: data.generation_id,
-          expectedCount: requestedFaceSwapCount,
+          expectedCount: runExpectedCount,
           inputThumbnails: taskInputThumbnails,
           status: data.status || "processing_tryon",
           progress: 5,
@@ -494,16 +534,20 @@ export default function FaceSwapPage() {
         setCredits(data.credits_remaining);
         if (userId) setCachedProfileCredits(userId, data.credits_remaining);
       }
-      pollGeneration(data.generation_id, true);
+      pollGeneration(data.generation_id, true, {
+        expectedCount: runExpectedCount,
+        inputThumbnails: taskInputThumbnails,
+      });
     } catch (err) {
-      const message = err instanceof Error ? err.message : "提交换脸任务失败";
+      const message = summarizeGenerationError(err instanceof Error ? err.message : "提交换脸任务失败");
       setStatus("failed");
       setError(message);
       const failedTask = taskQueue.markFailed(activeTaskId, message, {
-        expectedCount: requestedFaceSwapCount,
+        expectedCount: runExpectedCount,
         inputThumbnails: taskInputThumbnails,
       });
       setActiveQueueTask(failedTask);
+      await refreshCredits();
       toast.error(message);
     }
   }
@@ -527,14 +571,18 @@ export default function FaceSwapPage() {
     setActiveQueueTask(item);
     const urls = safeTaskQueueUrls(item.resultThumbnails);
     const nextProgress = Number.isFinite(Number(item.progress)) ? Number(item.progress) : 8;
-    setGenCount(normalizeFaceSwapCount(clampTaskExpectedCount(item, 1, 4)));
+    const expectedCount = clampTaskExpectedCount(item, 1, MAX_FACE_SWAP_SOURCE_IMAGES * 4);
+    setGenCount(normalizeFaceSwapCount(Math.min(4, expectedCount)));
     clearPolling();
     setGenerationId(item.id);
     setStatus("running");
     setProgress(Math.min(Math.max(Math.round(nextProgress), 1), 99));
     setResultUrls(urls);
     setError("");
-    pollGeneration(item.id, true);
+    pollGeneration(item.id, true, {
+      expectedCount,
+      inputThumbnails: safeTaskQueueUrls(item.inputThumbnails),
+    });
   }
 
   async function handleCompletedTask(item: TaskQueueItem, session: TaskSelectionSession) {
@@ -559,15 +607,32 @@ export default function FaceSwapPage() {
       : error
         ? "error"
         : "empty";
+  const retryDisabled = status === "running";
+  function handleRetryFailedResult(index: number) {
+    if (retryDisabled) return;
+    const perSourceCount = Math.max(1, normalizeFaceSwapCount(genCount));
+    const sourceIndex = Math.min(Math.max(0, Math.floor(index / perSourceCount)), Math.max(sourceUrls.length - 1, 0));
+    const retrySourceUrl = sourceUrls[sourceIndex] || sourceUrls[0];
+    if (!retrySourceUrl) {
+      toast.error("未找到要重试的原始模特图");
+      return;
+    }
+    void generate({
+      sourceUrlsOverride: [retrySourceUrl],
+      genCountOverride: 1,
+      expectedCountOverride: 1,
+      toastMessage: `正在重试第 ${index + 1} 张，失败图已退款，本次按 1 张重新生成...`,
+    });
+  }
   const faceSwapInputThumbnails = (
     safeTaskQueueUrls(activeQueueTask?.inputThumbnails).length
       ? safeTaskQueueUrls(activeQueueTask?.inputThumbnails)
       : [...sourceUrls, faceUrl]
   ).filter(Boolean);
   const faceSwapExpectedCount = activeQueueTask
-    ? clampTaskExpectedCount(activeQueueTask, 1, 4, genCount)
+    ? clampTaskExpectedCount(activeQueueTask, 1, MAX_FACE_SWAP_SOURCE_IMAGES * 4, requestedFaceSwapResultCount)
     : status === "running"
-      ? normalizeFaceSwapCount(genCount)
+      ? requestedFaceSwapResultCount
       : undefined;
 
   return (
@@ -764,7 +829,7 @@ export default function FaceSwapPage() {
           disabledReason={validationHint}
           primaryLabel={status === "running" ? "生成中" : authIsAnonymous ? "登录后生成" : "开始换脸"}
           isLoading={status === "running"}
-          onPrimaryAction={generate}
+          onPrimaryAction={() => void generate()}
           secondaryActions={(
             <button type="button" onClick={clearAll} className="studio-button studio-tone-neutral studio-button-compact">
               清空
@@ -801,7 +866,8 @@ export default function FaceSwapPage() {
                 resetGenerationForInputChange();
                 toast.success("已设为目标脸图");
               }}
-              onRegenerate={generate}
+              onRegenerate={() => void generate()}
+              onRetryMissing={handleRetryFailedResult}
             />
           )}
           errorState={(
@@ -811,8 +877,11 @@ export default function FaceSwapPage() {
                   <X className="h-6 w-6" />
                 </div>
                 <h2 className="mt-4 text-lg font-black text-slate-950">生成失败</h2>
-                <p className="mt-2 text-sm leading-relaxed text-slate-500">{error}</p>
-                <button type="button" onClick={generate} className="gradient-brand mt-5 inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold text-white hover:opacity-95">
+                <p className="mt-2 text-sm leading-relaxed text-slate-500">{summarizeGenerationError(error)}</p>
+                <p className="mx-auto mt-3 max-w-sm rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-left text-xs font-semibold leading-5 text-amber-700">
+                  {FAILED_RETRY_NOTICE}
+                </p>
+                <button type="button" onClick={() => void generate()} className="gradient-brand mt-5 inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold text-white hover:opacity-95">
                   <RotateCcw className="h-4 w-4" /> 重新生成
                 </button>
               </div>
@@ -939,6 +1008,7 @@ function ResultsPanel({
   onUseAsSource,
   onUseAsFace,
   onRegenerate,
+  onRetryMissing,
   task,
   inputThumbnails,
   sourceUrls,
@@ -964,9 +1034,15 @@ function ResultsPanel({
   onUseAsSource: (url: string) => void;
   onUseAsFace: (url: string) => void;
   onRegenerate: () => void;
+  onRetryMissing: (index: number) => void;
 }) {
   const count = Math.max(urls.length, expectedCount || 0, 1);
   const failed = task?.statusGroup === "failed";
+  const completedPartial = Boolean(task?.statusGroup === "completed" && urls.filter(Boolean).length < count);
+  const partialFailureMessage = buildPartialFailureDetail({
+    message: task?.error || undefined,
+    failedCount: count - urls.filter(Boolean).length || 1,
+  });
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const session = createFaceSwapPreviewSession({
     urls,
@@ -1005,7 +1081,12 @@ function ResultsPanel({
           imageAltPrefix="换脸结果"
           variant="task"
           failureLabel="生成失败"
-          failureDetail={failed ? task?.error || undefined : undefined}
+          failureDetail={failed ? buildFailedTaskDetail(task?.error || undefined) : undefined}
+          markMissingAsFailed={completedPartial}
+          missingFailureLabel="本张生成失败"
+          missingFailureDetail={partialFailureMessage}
+          missingFailureActionLabel="重试本张"
+          onMissingFailureAction={onRetryMissing}
           onOpen={(_, index) => setPreviewIndex(index)}
         />
 

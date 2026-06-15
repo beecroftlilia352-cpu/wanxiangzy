@@ -91,6 +91,20 @@ export function useStudioAuth() {
     if (userId && typeof nextCredits === "number") setCachedProfileCredits(userId, nextCredits);
   }, [userId]);
 
+  const refreshCredits = useCallback(async () => {
+    const currentUserId = userIdRef.current;
+    if (!currentUserId) return null;
+    try {
+      const profile = await getCachedProfile({ force: true });
+      if (profile?.user?.id !== currentUserId || typeof profile.credits !== "number") return null;
+      setCreditsState(profile.credits);
+      setCachedProfileCredits(currentUserId, profile.credits);
+      return profile.credits;
+    } catch {
+      return null;
+    }
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -121,6 +135,7 @@ export function useStudioAuth() {
     userId,
     credits,
     setCredits,
+    refreshCredits,
     refreshAuth,
   };
 }

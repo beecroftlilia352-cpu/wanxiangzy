@@ -39,6 +39,7 @@ import { fetchHistoryApplyDetail, takeApplyPayload, type HistoryJobPayload } fro
 import { applyRepairPrompt } from "@/lib/generation-repair";
 import { clampTaskExpectedCount, isTaskRunning, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
 import { showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
+import { FAILED_RETRY_NOTICE, buildFailedTaskDetail, buildPartialFailureDetail, summarizeGenerationError } from "@/lib/studio-generation-feedback";
 import {
   AUTO_DESIGN_BACKGROUNDS,
   AUTO_DESIGN_FRAMINGS,
@@ -542,35 +543,6 @@ function getTryOnHistoryExpectedCount(payload: TryOnHistoryPayload) {
   return Math.min(MAX_TRYON_OUTPUT_IMAGES, Math.max(1, payload.genCount * referenceCount));
 }
 
-function summarizeGenerationError(message?: unknown) {
-  const raw = typeof message === "string" ? message.trim() : "";
-  if (!raw) return "上游生成服务返回异常，本张已按失败结算。";
-  const lower = raw.toLowerCase();
-  if (raw.includes("429") || lower.includes("rate limit") || lower.includes("upstream load") || lower.includes("upstream")) {
-    return "上游模型繁忙或限流，本张已按失败结算。";
-  }
-  const nestedMessage = readNestedErrorMessage(raw);
-  if (nestedMessage && nestedMessage !== raw) return summarizeGenerationError(nestedMessage);
-  return raw.length > 96 ? `${raw.slice(0, 96)}...` : raw;
-}
-
-function readNestedErrorMessage(raw: string) {
-  const match = raw.match(/\{[\s\S]*\}/);
-  if (!match) return "";
-  try {
-    const parsed = JSON.parse(match[0]) as {
-      error?: { message?: unknown } | string;
-      message?: unknown;
-    };
-    if (typeof parsed.error === "object" && typeof parsed.error?.message === "string") return parsed.error.message;
-    if (typeof parsed.error === "string") return parsed.error;
-    if (typeof parsed.message === "string") return parsed.message;
-  } catch {
-    return "";
-  }
-  return "";
-}
-
 export default function CreatePage() {
   const router = useRouter();
   const store = useTryOnStore();
@@ -594,22 +566,9 @@ export default function CreatePage() {
     userId,
     credits,
     setCredits,
+    refreshCredits,
     refreshAuth,
   } = useStudioAuth();
-  const refreshCreditsFromProfile = useCallback(async () => {
-    if (!userId) return;
-    try {
-      const res = await fetch("/api/profile", { cache: "no-store" });
-      if (!res.ok) return;
-      const data = await res.json().catch(() => ({})) as { credits?: unknown };
-      if (typeof data.credits === "number") {
-        setCredits(data.credits);
-        setCachedProfileCredits(userId, data.credits);
-      }
-    } catch {
-      // Balance refresh is best-effort; generation state remains authoritative.
-    }
-  }, [setCredits, userId]);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadingClothingRoles, setUploadingClothingRoles] = useState<TryOnClothingRole[]>([]);
   const [aiModel, setAiModel] = useState<LingyaModel>("gpt-image-2");
@@ -2028,7 +1987,7 @@ export default function CreatePage() {
               store.setResult(resultUrls);
               toast.success("生成完成");
             }
-            if (completedError) void refreshCreditsFromProfile();
+            if (completedError) void refreshCredits();
             updateActiveTask({
               status: "completed",
               statusGroup: "completed",
@@ -2050,7 +2009,7 @@ export default function CreatePage() {
               store.setError(message);
               toast.error(message);
             }
-            void refreshCreditsFromProfile();
+            void refreshCredits();
             updateActiveTask({
               status: "failed",
               statusGroup: "failed",
@@ -2086,7 +2045,7 @@ export default function CreatePage() {
         activeTryOnStatusWatchers.delete(generationId);
       }
     }
-  }, [refreshCreditsFromProfile, refreshTaskQueue, store, taskQueue]);
+  }, [refreshCredits, refreshTaskQueue, store, taskQueue]);
 
   const handleContinueCreate = useCallback(() => {
     cancelTaskSelection();
@@ -2592,15 +2551,13 @@ export default function CreatePage() {
   );
   const retryDisabled = store.isGenerating || Boolean(applyingTaskId);
   const activeFailureMessage = activeQueueTask?.statusGroup === "failed"
-    ? `${summarizeGenerationError(activeQueueTask.error || store.error || "生成失败")} 本次失败已自动退回对应灵点；重新生成会按新任务扣费。`
+    ? buildFailedTaskDetail(activeQueueTask.error || store.error || "生成失败")
     : "";
   const partialFailureCount = Math.max(0, activeResultExpectedCount - displayedResultUrls.length);
-  const partialFailureReason = activeQueueTask?.error ? summarizeGenerationError(activeQueueTask.error) : "";
-  const partialFailureMessage = [
-    partialFailureReason,
-    `成功图片可正常使用，失败 ${partialFailureCount || 1} 张已自动退回对应灵点。`,
-    "点“重试本张”会创建 1 张新任务并重新扣费。",
-  ].filter(Boolean).join(" ");
+  const partialFailureMessage = buildPartialFailureDetail({
+    message: activeQueueTask?.error,
+    failedCount: partialFailureCount || 1,
+  });
   const handleRetryFailedResult = (index: number) => {
     if (retryDisabled) return;
     const referenceIndex = sceneMode === "auto_design" ? -1 : Math.floor(index / Math.max(1, genCount));
@@ -3948,7 +3905,7 @@ export default function CreatePage() {
                 isGenerating={store.isGenerating}
                 retryDisabled={retryDisabled}
                 retryLabel={applyingTaskId ? "正在套用..." : "重新生成"}
-                notice="失败任务会自动退回对应灵点；重新生成会按新的生成任务再次扣费。"
+                notice={FAILED_RETRY_NOTICE}
                 repairKind="tryon"
               />
             ) : null}

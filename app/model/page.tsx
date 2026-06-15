@@ -29,6 +29,7 @@ import { applyRepairPrompt } from "@/lib/generation-repair";
 import { enforceModelPromptRequirements } from "@/lib/model-prompt";
 import { showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
 import { createGenericImagePreviewSession, referencesFromUrls, type ImagePreviewAction } from "@/lib/studio-image-preview";
+import { FAILED_RETRY_NOTICE, buildPartialFailureDetail, summarizeGenerationError } from "@/lib/studio-generation-feedback";
 import {
   DEFAULT_MODEL_SHOOT_STYLE,
   MODEL_SHOOT_STYLES,
@@ -40,6 +41,11 @@ import {
 import { MODEL_UPLOAD_RULE, type ModelRuleDemo } from "@/lib/model-upload-rules";
 
 type Gender = "female" | "male";
+type ModelGenerateOptions = {
+  genCountOverride?: number;
+  expectedCountOverride?: number;
+  toastMessage?: string;
+};
 
 const MODELS: { value: LingyaModel; label: string; desc: string; badge?: string; icon: string }[] = [
   { value: "nano-banana-2", label: "Nano-Banana-2", desc: "最高4K", badge: "推荐", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
@@ -104,6 +110,7 @@ export default function ModelPage() {
     userId,
     credits,
     setCredits,
+    refreshCredits,
     refreshAuth,
   } = useStudioAuth();
   const [referenceUrls, setReferenceUrls] = useState<string[]>([]);
@@ -154,12 +161,33 @@ export default function ModelPage() {
     () => referencesFromUrls(activeResultMeta?.inputThumbnails.length ? activeResultMeta.inputThumbnails : taskInputThumbnails, "reference", "参考图"),
     [activeResultMeta, taskInputThumbnails]
   );
+  const activeResultExpectedCount = isGenerating
+    ? runningExpectedCount || genCount
+    : runningExpectedCount || Math.max(resultUrls.length, 1);
+  const displayedResultUrls = resultUrls.filter(Boolean);
+  const hasCompletedPartialResults = Boolean(
+    !isGenerating
+    && activeResultExpectedCount > displayedResultUrls.length
+    && displayedResultUrls.length > 0
+  );
+  const partialFailureMessage = buildPartialFailureDetail({
+    failedCount: activeResultExpectedCount - displayedResultUrls.length,
+  });
+  const retryDisabled = isGenerating;
+  function handleRetryFailedResult() {
+    if (retryDisabled) return;
+    void generate(undefined, {
+      genCountOverride: 1,
+      expectedCountOverride: 1,
+      toastMessage: "正在重试失败图片，失败图已退款，本次按 1 张重新生成...",
+    });
+  }
   const previewSession = useMemo(
     () => createGenericImagePreviewSession({
       module: "model",
       title: "专属模特",
       urls: resultUrls,
-      expectedCount: isGenerating ? runningExpectedCount || genCount : Math.max(resultUrls.length, 1),
+      expectedCount: activeResultExpectedCount,
       isGenerating,
       statusGroup: isGenerating ? "running" : undefined,
       createdAt: activeResultMeta?.createdAt,
@@ -176,7 +204,7 @@ export default function ModelPage() {
       resultTitlePrefix: "专属模特结果",
       aspectRatio,
     }),
-    [activeResultMeta, aiModel, aspectRatio, gender, genCount, imageSize, isGenerating, modelStyle, previewReferences, resultUrls, runningExpectedCount, userExtraPrompt]
+    [activeResultExpectedCount, activeResultMeta, aiModel, aspectRatio, gender, genCount, imageSize, isGenerating, modelStyle, previewReferences, resultUrls, runningExpectedCount, userExtraPrompt]
   );
   const referencePreviewSession = useMemo(
     () => createGenericImagePreviewSession({
@@ -396,7 +424,7 @@ export default function ModelPage() {
     }
   }
 
-  async function generate(promptForRun?: string) {
+  async function generate(promptForRun?: string, options: ModelGenerateOptions = {}) {
     if (!isAuthenticated && !(await refreshAuth())) {
       toast.error("请先登录");
       router.push("/login");
@@ -406,22 +434,26 @@ export default function ModelPage() {
       toast.error("请上传至少 1 张参考图");
       return;
     }
-    if (credits !== null && credits < totalCost) {
-      showInsufficientCreditsToast({ required: totalCost, balance: credits, onRecharge: () => router.push("/pricing") });
+    const runGenCount = Math.min(Math.max(Math.round(Number(options.genCountOverride ?? genCount) || 1), 1), 4);
+    const runExpectedCount = Math.max(1, Math.round(Number(options.expectedCountOverride ?? runGenCount) || runGenCount));
+    const runTotalCost = cost * runExpectedCount;
+    if (credits !== null && credits < runTotalCost) {
+      showInsufficientCreditsToast({ required: runTotalCost, balance: credits, onRecharge: () => router.push("/pricing") });
       return;
     }
 
     setIsGenerating(true);
-    setRunningExpectedCount(genCount);
+    setRunningExpectedCount(runExpectedCount);
     setProgress(10);
     setError("");
     setResultUrls([]);
+    if (options.toastMessage) toast.info(options.toastMessage);
     setActiveResultMeta({
       createdAt: new Date().toISOString(),
       inputThumbnails: taskInputThumbnails,
     });
     const provisionalTask = taskQueue.startTask({
-      expectedCount: genCount,
+      expectedCount: runExpectedCount,
       inputThumbnails: taskInputThumbnails,
       progress: 10,
     });
@@ -437,7 +469,7 @@ export default function ModelPage() {
           ai_model: aiModel,
           aspect_ratio: aspectRatio,
           image_size: imageSize,
-          gen_count: genCount,
+          gen_count: runGenCount,
           hair_reference_url: hairReferenceUrl,
           hair_color_reference_url: hairColorReferenceUrl,
           gender,
@@ -475,7 +507,7 @@ export default function ModelPage() {
       if (typeof data.generation_id === "string" && data.generation_id) {
         const serverTask = taskQueue.replaceWithServerTask(activeTaskId, {
           id: data.generation_id,
-          expectedCount: genCount,
+          expectedCount: runExpectedCount,
           inputThumbnails: taskInputThumbnails,
           status: data.status || "processing_tryon",
           progress: 25,
@@ -501,7 +533,7 @@ export default function ModelPage() {
             : Math.min(25 + attempts * 1.5, 90);
           setProgress(runningProgress);
           taskQueue.markRunning(activeTaskId, {
-            expectedCount: genCount,
+            expectedCount: runExpectedCount,
             inputThumbnails: taskInputThumbnails,
             resultThumbnails: Array.isArray(state.result_urls) ? state.result_urls : [],
             progress: runningProgress,
@@ -510,16 +542,27 @@ export default function ModelPage() {
         } else if (state.status === "completed") {
           const finalUrls = Array.isArray(state.result_urls) ? state.result_urls : [];
           latestTaskResultUrls = finalUrls;
+          const finalResultCount = finalUrls.filter(Boolean).length;
+          const partialFailure = state.partial_failure && typeof state.partial_failure === "object"
+            ? state.partial_failure as { message?: unknown }
+            : null;
+          const completedError = state.error || partialFailure?.message || "";
           setProgress(100);
           setResultUrls(finalUrls);
           setIsGenerating(false);
           taskQueue.markCompleted(activeTaskId, {
-            expectedCount: genCount,
+            expectedCount: runExpectedCount,
             inputThumbnails: taskInputThumbnails,
             resultThumbnails: finalUrls,
-            resultCount: finalUrls.filter(Boolean).length,
+            resultCount: finalResultCount,
+            error: completedError ? summarizeGenerationError(completedError) : "",
           });
-          toast.success("专属模特生成完成");
+          if (completedError || finalResultCount < runExpectedCount) {
+            void refreshCredits();
+            toast.warning(`专属模特部分完成：已生成 ${finalResultCount}/${runExpectedCount} 张，失败图片灵点会自动退回`);
+          } else {
+            toast.success("专属模特生成完成");
+          }
           return;
         } else if (state.status === "failed") {
           throw new Error(state.error || "生成失败");
@@ -527,15 +570,16 @@ export default function ModelPage() {
       }
       throw new Error("生成超时");
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "生成失败";
+      const message = summarizeGenerationError(err instanceof Error ? err.message : "生成失败");
       setError(message);
       setIsGenerating(false);
       taskQueue.markFailed(activeTaskId, message, {
-        expectedCount: genCount,
+        expectedCount: runExpectedCount,
         inputThumbnails: taskInputThumbnails,
         resultThumbnails: latestTaskResultUrls,
       });
       toast.error(message);
+      void refreshCredits();
     }
   }
 
@@ -978,12 +1022,18 @@ export default function ModelPage() {
                 urls={resultUrls}
                 filenamePrefix="model"
                 extension="jpg"
-                expectedCount={isGenerating ? runningExpectedCount || genCount : undefined}
+                expectedCount={activeResultExpectedCount}
                 isGenerating={isGenerating}
                 inputThumbnails={activeResultMeta?.inputThumbnails.length ? activeResultMeta.inputThumbnails : taskInputThumbnails}
                 createdAt={activeResultMeta?.createdAt}
                 statusGroup={isGenerating ? "running" : undefined}
                 variant="task"
+                markMissingAsFailed={hasCompletedPartialResults}
+                missingFailureLabel="本张生成失败"
+                missingFailureDetail={partialFailureMessage}
+                missingFailureActionLabel="重试本张"
+                onMissingFailureAction={handleRetryFailedResult}
+                missingFailureActionDisabled={retryDisabled}
                 onOpen={(_, index) => setPreviewIndex(index)}
               />
             </div>
@@ -1011,10 +1061,13 @@ export default function ModelPage() {
 
         {error && (
           <ErrorStage
-            error={error}
-            onRetry={() => setError("")}
+            error={summarizeGenerationError(error)}
+            onRetry={() => { setError(""); void generate(); }}
             onRepair={handleRepairGenerate}
             isGenerating={isGenerating}
+            retryDisabled={retryDisabled}
+            retryLabel="重新生成"
+            notice={FAILED_RETRY_NOTICE}
             repairKind="model"
           />
         )}

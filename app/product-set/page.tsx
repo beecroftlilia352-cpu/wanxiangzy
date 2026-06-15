@@ -45,6 +45,7 @@ import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@
 import { downloadImage, generateDownloadFilename, MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
 import { showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
+import { FAILED_RETRY_NOTICE, buildPartialFailureDetail, summarizeGenerationError } from "@/lib/studio-generation-feedback";
 import { createProductSetPreviewSession, takeSourceImageFromLocation, type ImagePreviewAction, type ImagePreviewResultStatus } from "@/lib/studio-image-preview";
 import {
   PRODUCT_SET_COUNTRIES,
@@ -270,6 +271,7 @@ export default function ProductSetPage() {
     credits,
     setCredits,
     refreshAuth,
+    refreshCredits,
   } = useStudioAuth();
   const [productImages, setProductImages] = useState<ProductImage[]>([]);
   const [productInfo, setProductInfo] = useState("");
@@ -1289,32 +1291,59 @@ export default function ProductSetPage() {
         if (state.status === "completed") {
           if (!hasAllResults) continue;
           setProgress(100);
+          const partialFailure = state.partial_failure && typeof state.partial_failure === "object"
+            ? state.partial_failure as { message?: unknown }
+            : null;
+          const failedModuleCount = nextModules.filter((item) => item.status === "failed").length;
+          const completedErrorSource = nextModules.find((item) => item.error)?.error || state.error || partialFailure?.message || "";
+          const completedError = completedErrorSource ? summarizeGenerationError(completedErrorSource) : "";
           if (nextModules.length) {
             setModuleResults(nextModules);
             const moduleUrls = urlsFromModules(nextModules, currentPlan);
             const finalUrls = moduleUrls.length ? moduleUrls : nextUrls;
+            const finalResultCount = finalUrls.filter(Boolean).length;
             latestUrls = finalUrls;
             setResultUrls(finalUrls);
             const completedTask = taskQueue.markCompleted(activeTaskId, {
               expectedCount: expectedResultCount,
               inputThumbnails: taskInputThumbnails,
               resultThumbnails: finalUrls,
-              resultCount: finalUrls.length,
+              resultCount: finalResultCount,
+              error: completedError,
             });
             setActiveQueueTask(completedTask);
+            if (failedModuleCount > 0 || finalResultCount < expectedResultCount || completedError) {
+              await refreshCredits();
+              toast.warning(buildPartialFailureDetail({
+                message: completedError || completedErrorSource,
+                failedCount: failedModuleCount || expectedResultCount - finalResultCount || 1,
+              }));
+            } else {
+              toast.success("商品套图生成完成");
+            }
           } else {
             latestUrls = nextUrls;
             setResultUrls(nextUrls);
+            const finalResultCount = nextUrls.filter(Boolean).length;
             const completedTask = taskQueue.markCompleted(activeTaskId, {
               expectedCount: expectedResultCount,
               inputThumbnails: taskInputThumbnails,
               resultThumbnails: nextUrls,
-              resultCount: nextUrls.length,
+              resultCount: finalResultCount,
+              error: completedError,
             });
             setActiveQueueTask(completedTask);
+            if (finalResultCount < expectedResultCount || completedError) {
+              await refreshCredits();
+              toast.warning(buildPartialFailureDetail({
+                message: completedError || completedErrorSource,
+                failedCount: expectedResultCount - finalResultCount || 1,
+              }));
+            } else {
+              toast.success("商品套图生成完成");
+            }
           }
           setIsGenerating(false);
-          toast.success("商品套图生成完成");
           return;
         }
         if (state.status === "failed") throw new Error(state.error || "生成失败");
@@ -1334,7 +1363,7 @@ export default function ProductSetPage() {
       }
       throw new Error("生成超时");
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "生成失败";
+      const message = summarizeGenerationError(err instanceof Error ? err.message : "生成失败");
       setError(message);
       const failedTask = taskQueue.markFailed(activeTaskId, message, {
         expectedCount: expectedResultCount,
@@ -1342,6 +1371,7 @@ export default function ProductSetPage() {
         resultThumbnails: latestUrls,
       });
       setActiveQueueTask(failedTask);
+      await refreshCredits();
       toast.error(message);
       setIsGenerating(false);
     }
@@ -1417,6 +1447,10 @@ export default function ProductSetPage() {
           setModuleResults((prev) => mergeModuleResults(prev.length ? prev : createClientModuleResults(currentPlan), nextModules));
         }
         const moduleUrl = nextModules.find((item) => item.resultUrl)?.resultUrl;
+        const failedModule = nextModules.find((item) => item.status === "failed");
+        if (state.status === "completed" && failedModule && !moduleUrl && !nextUrl) {
+          throw new Error(failedModule.error || "单张重生失败");
+        }
         if (moduleUrl || nextUrl) {
           const finalUrl = (moduleUrl || nextUrl) as string;
           setResultPlan((prev) => prev.length ? prev : currentPlan);
@@ -1434,7 +1468,8 @@ export default function ProductSetPage() {
       }
       toast.info("单张仍在后台生成，可稍后在历史记录查看");
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "单张重生失败";
+      const message = summarizeGenerationError(err instanceof Error ? err.message : "单张重生失败");
+      await refreshCredits();
       toast.error(message);
     } finally {
       setRegeneratingIndex(null);
@@ -1477,10 +1512,13 @@ export default function ProductSetPage() {
 
   const displayedResultPlan = resultPlan.length ? resultPlan : planTemplates;
   const moduleResultUrls = urlsFromModules(moduleResults, displayedResultPlan);
+  const taskExpectedResultCount = activeQueueTask
+    ? clampTaskExpectedCount(activeQueueTask, 1, imageType === "details" ? 8 : 6, displayedResultPlan.length || outputCount || 1)
+    : 0;
+  const resultSlotCount = Math.max(displayedResultPlan.length, resultUrls.length, moduleResults.length, taskExpectedResultCount);
   const hasVisibleResults = resultUrls.length > 0 || moduleResultUrls.length > 0;
-  const hasResultStage = hasVisibleResults || (!isGenerating && moduleResults.length > 0);
-  const shouldShowTaskPanel = Boolean(activeQueueTask) && !hasVisibleResults && moduleResults.length === 0;
-  const resultSlotCount = Math.max(displayedResultPlan.length, resultUrls.length, moduleResults.length);
+  const hasResultStage = hasVisibleResults || (!isGenerating && moduleResults.length > 0) || (activeQueueTask?.statusGroup === "completed" && resultSlotCount > 0);
+  const shouldShowTaskPanel = Boolean(activeQueueTask) && activeQueueTask?.statusGroup !== "completed" && !hasVisibleResults && moduleResults.length === 0;
   const resultSlots = Array.from({ length: resultSlotCount }, (_, index) => {
     const template = displayedResultPlan[index];
     const module = findModuleResultForTemplate(moduleResults, template, index);
@@ -1491,6 +1529,11 @@ export default function ProductSetPage() {
     };
   });
   const visibleResultCount = resultSlots.filter((item) => item.url).length;
+  const hasCompletedPartialResults = Boolean(activeQueueTask?.statusGroup === "completed" && visibleResultCount < resultSlotCount);
+  const partialFailureMessage = buildPartialFailureDetail({
+    message: activeQueueTask?.error || error || undefined,
+    failedCount: resultSlotCount - visibleResultCount || 1,
+  });
   const productSetPreviewPromptText = [
     settings.extraDescription,
     ...moduleOverrides.map((item) => item.extraDescription),
@@ -1521,8 +1564,8 @@ export default function ProductSetPage() {
       ],
       titles: resultSlots.map((slot, index) => slot.template?.name || slot.module?.name || `商品套图 ${index + 1}`),
       subtitles: resultSlots.map((slot) => `${slot.template?.imageType === "details" ? "详情页模块" : "主图/辅图"} · ${getAspectRatioLabel(slot.template?.aspectRatio || slot.module?.aspectRatio || aspectRatio)}`),
-      statuses: resultSlots.map((slot) => (slot.url ? "completed" : slot.module?.status || (isGenerating ? "running" : "queued")) as ImagePreviewResultStatus),
-      errors: resultSlots.map((slot) => slot.module?.error || null),
+      statuses: resultSlots.map((slot) => (slot.url ? "completed" : slot.module?.status || (hasCompletedPartialResults ? "failed" : isGenerating ? "running" : "queued")) as ImagePreviewResultStatus),
+      errors: resultSlots.map((slot) => slot.module?.error || (!slot.url && hasCompletedPartialResults ? partialFailureMessage : null)),
       qualities: resultSlots.map((slot) => {
         if (slot.module?.qualityScore === undefined && !slot.module?.qualitySummary && !slot.module?.qualityIssues?.length) return null;
         return {
@@ -1533,7 +1576,7 @@ export default function ProductSetPage() {
         };
       }),
     }),
-    [activeQueueTask, aspectRatio, imageType, isGenerating, mode, productImages, productSetPreviewPromptText, qualityMode, resultSlotCount, resultSlots, selectedStylePack.name, settings.language, settings.platform]
+    [activeQueueTask, aspectRatio, hasCompletedPartialResults, imageType, isGenerating, mode, partialFailureMessage, productImages, productSetPreviewPromptText, qualityMode, resultSlotCount, resultSlots, selectedStylePack.name, settings.language, settings.platform]
   );
 
   return (
@@ -2001,7 +2044,10 @@ export default function ProductSetPage() {
                   <X className="h-7 w-7 text-red-400" />
                 </div>
                 <h2 className="text-base font-black text-slate-950">商品套图生成失败</h2>
-                <p className="mt-2 text-sm leading-6 text-red-500">{error}</p>
+                <p className="mt-2 text-sm leading-6 text-red-500">{summarizeGenerationError(error)}</p>
+                <p className="mx-auto mt-3 max-w-sm rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-left text-xs font-semibold leading-5 text-amber-700">
+                  {FAILED_RETRY_NOTICE}
+                </p>
                 <div className="mt-5 flex justify-center gap-2">
                   <button type="button" onClick={generate} className="h-10 rounded-full bg-slate-950 px-5 text-sm font-bold text-white">重试</button>
                   <button type="button" onClick={() => { setError(""); setProgress(0); }} className="h-10 rounded-full border border-slate-200 bg-white px-5 text-sm font-bold text-slate-600">清空</button>
@@ -2034,6 +2080,10 @@ export default function ProductSetPage() {
               </div>
               <div className="grid auto-rows-fr gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
                 {resultSlots.map(({ url, template, module }, index) => {
+                  const slotFailed = module?.status === "failed" || (!url && hasCompletedPartialResults);
+                  const slotFailureDetail = module?.error
+                    ? buildPartialFailureDetail({ message: module.error, failedCount: 1 })
+                    : partialFailureMessage;
                   return (
                     <article key={`${url || template?.id || "pending"}-${index}`} className="flex h-full flex-col overflow-hidden rounded-[24px] border border-white/80 bg-white shadow-[0_18px_50px_rgba(15,23,42,0.08)]">
                       {url ? (
@@ -2043,11 +2093,11 @@ export default function ProductSetPage() {
                             <ZoomIn className="h-4 w-4" />
                           </span>
                         </button>
-                      ) : module?.status === "failed" ? (
+                      ) : slotFailed ? (
                         <div className="flex aspect-[3/4] w-full flex-col items-center justify-center bg-red-50 px-5 text-center">
                           <X className="h-7 w-7 text-red-400" />
                           <p className="mt-3 text-xs font-black text-red-500">该模块生成失败</p>
-                          <p className="mt-1 max-w-48 text-[11px] leading-4 text-red-400">{module.error || "可单独重生这一张"}</p>
+                          <p className="mt-1 max-w-56 text-[11px] leading-4 text-red-400">{slotFailureDetail}</p>
                           <button type="button" onClick={() => regenerateResult(index)} disabled={regeneratingIndex !== null || isGenerating} className="mt-4 inline-flex h-9 items-center gap-1.5 rounded-full bg-white px-3 text-xs font-black text-red-500 shadow-sm disabled:opacity-50">
                             {regeneratingIndex === index ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
                             重生本张
@@ -2064,7 +2114,7 @@ export default function ProductSetPage() {
                         <div className="flex w-full items-start justify-between gap-2">
                           <div className="min-w-0">
                             <h3 className="truncate text-sm font-black text-slate-900">{template?.name || `结果 ${index + 1}`}</h3>
-                            <p className="mt-1 text-[11px] font-bold text-slate-400">{url ? "已生成" : "生成中"} · {template?.imageType === "details" ? "详情页模块" : "主图/辅图"} · {getAspectRatioLabel(template?.aspectRatio || aspectRatio)}</p>
+                            <p className="mt-1 text-[11px] font-bold text-slate-400">{url ? "已生成" : slotFailed ? "生成失败" : "生成中"} · {template?.imageType === "details" ? "详情页模块" : "主图/辅图"} · {getAspectRatioLabel(template?.aspectRatio || aspectRatio)}</p>
                             {module?.qualityScore !== undefined && (
                               <div className="mt-2 flex flex-wrap items-center gap-1.5">
                                 <QualityBadge score={module.qualityScore} />

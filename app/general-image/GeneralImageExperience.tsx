@@ -16,6 +16,7 @@ import { FeatureTabs } from "@/components/FeatureTabs";
 import { ModuleHeader } from "@/components/ModuleHeader";
 import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
 import type { TaskSelectionSession } from "@/components/studio/useTaskSelectionSession";
+import { ErrorStage } from "@/components/studio/ErrorStage";
 import { LoadingStage } from "@/components/studio/LoadingStage";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
 import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
@@ -34,6 +35,7 @@ import { fetchHistoryApplyDetail, takeApplyDetail, type HistoryJobPayload } from
 import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
 import { showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
 import { createGenericImagePreviewSession, takeSourceImageFromLocation, type ImagePreviewAction } from "@/lib/studio-image-preview";
+import { FAILED_RETRY_NOTICE, buildFailedTaskDetail, buildPartialFailureDetail, summarizeGenerationError } from "@/lib/studio-generation-feedback";
 
 type GeneralImageMode = "text-to-image" | "image-to-image";
 
@@ -51,6 +53,11 @@ type ImagePromptImage = {
 };
 
 type GeneralImageHistoryPayload = Extract<HistoryJobPayload, { kind: "generalImage" }>;
+type GeneralImageGenerateOptions = {
+  genCountOverride?: number;
+  expectedCountOverride?: number;
+  toastMessage?: string;
+};
 
 const MODELS: { value: LingyaModel; label: string; desc: string; badge?: string; icon: string }[] = [
   { value: "nano-banana-2", label: "Nano-Banana-2", desc: "最高4K", badge: "默认", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
@@ -97,6 +104,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     userId,
     credits,
     setCredits,
+    refreshCredits,
     refreshAuth,
   } = useStudioAuth();
   const [aiModel, setAiModel] = useState<LingyaModel>("nano-banana-2");
@@ -155,12 +163,35 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
   const previewReferenceUrls = safeTaskQueueUrls(activeQueueTask?.inputThumbnails).length
     ? safeTaskQueueUrls(activeQueueTask?.inputThumbnails)
     : referenceImages.map((item) => item.preview || item.url).filter(Boolean);
+  const activeResultExpectedCount = activeQueueTask
+    ? clampTaskExpectedCount(activeQueueTask, 1, 4, genCount)
+    : isGenerating
+      ? genCount
+      : Math.max(resultUrls.length, 1);
+  const displayedResultUrls = resultUrls.filter(Boolean);
+  const hasCompletedPartialResults = Boolean(
+    activeQueueTask?.statusGroup === "completed"
+    && activeResultExpectedCount > displayedResultUrls.length
+  );
+  const partialFailureMessage = buildPartialFailureDetail({
+    message: activeQueueTask?.error,
+    failedCount: activeResultExpectedCount - displayedResultUrls.length,
+  });
+  const retryDisabled = isGenerating;
+  function handleRetryFailedResult() {
+    if (retryDisabled) return;
+    void generate({
+      genCountOverride: 1,
+      expectedCountOverride: 1,
+      toastMessage: "正在重试失败图片，失败图已退款，本次按 1 张重新生成...",
+    });
+  }
   const previewSession = useMemo(
     () => createGenericImagePreviewSession({
       module: "generalImage",
       title: modeMeta.title,
       urls: resultUrls,
-      expectedCount: activeQueueTask ? clampTaskExpectedCount(activeQueueTask, 1, 4, genCount) : isGenerating ? genCount : Math.max(resultUrls.length, 1),
+      expectedCount: activeResultExpectedCount,
       isGenerating,
       statusGroup: activeQueueTask?.statusGroup || (isGenerating ? "running" : undefined),
       createdAt: activeQueueTask?.createdAt,
@@ -180,7 +211,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
       resultTitlePrefix: `${modeMeta.title}结果`,
       aspectRatio,
     }),
-    [activeQueueTask, aiModel, aspectRatio, genCount, imageSize, isGenerating, modeMeta.title, previewReferenceUrls, prompt, resultUrls]
+    [activeQueueTask, activeResultExpectedCount, aiModel, aspectRatio, genCount, imageSize, isGenerating, modeMeta.title, previewReferenceUrls, prompt, resultUrls]
   );
   const canGenerate = !isGenerating && !isUploading && prompt.trim().length > 0 && (!isImageMode || referenceImages.length > 0);
   const runDisabledReason = !prompt.trim()
@@ -438,7 +469,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     toast.success("已应用到文本描述");
   }
 
-  async function generate() {
+  async function generate(options: GeneralImageGenerateOptions = {}) {
     if (!isAuthenticated && !(await refreshAuth())) {
       toast.error("请先登录");
       router.push("/login");
@@ -446,8 +477,11 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     }
     if (!prompt.trim()) return toast.error("请输入提示词");
     if (isImageMode && !referenceImages.length) return toast.error("请先上传参考图");
-    if (credits !== null && credits < totalCost) {
-      showInsufficientCreditsToast({ required: totalCost, balance: credits, onRecharge: () => router.push("/pricing") });
+    const runGenCount = Math.min(Math.max(Math.round(Number(options.genCountOverride ?? genCount) || 1), 1), 4);
+    const runExpectedCount = Math.max(1, Math.round(Number(options.expectedCountOverride ?? runGenCount) || runGenCount));
+    const runTotalCost = costPerImage * runExpectedCount;
+    if (credits !== null && credits < runTotalCost) {
+      showInsufficientCreditsToast({ required: runTotalCost, balance: credits, onRecharge: () => router.push("/pricing") });
       return;
     }
 
@@ -456,8 +490,9 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     setProgress(8);
     setError("");
     setResultUrls([]);
+    if (options.toastMessage) toast.info(options.toastMessage);
     const provisionalTask = taskQueue.startTask({
-      expectedCount: genCount,
+      expectedCount: runExpectedCount,
       inputThumbnails: taskInputThumbnails,
       progress: 8,
     });
@@ -475,7 +510,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
           ai_model: aiModel,
           aspect_ratio: aspectRatio,
           image_size: imageSize,
-          gen_count: genCount,
+          gen_count: runGenCount,
         }),
       });
       const data = await res.json();
@@ -503,7 +538,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
       if (typeof data.generation_id === "string" && data.generation_id) {
         const serverTask = taskQueue.replaceWithServerTask(activeTaskId, {
           id: data.generation_id,
-          expectedCount: genCount,
+          expectedCount: runExpectedCount,
           inputThumbnails: taskInputThumbnails,
           status: data.status || "processing",
           progress: 12,
@@ -525,7 +560,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
           setResultUrls(latestTaskResultUrls);
         }
         const runningTask = taskQueue.markRunning(activeTaskId, {
-          expectedCount: genCount,
+          expectedCount: runExpectedCount,
           inputThumbnails: taskInputThumbnails,
           resultThumbnails: latestTaskResultUrls,
           resultCount: latestTaskResultUrls.filter(Boolean).length,
@@ -536,33 +571,45 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
         if (state.status === "completed") {
           const finalUrls = Array.isArray(state.result_urls) ? state.result_urls : [];
           latestTaskResultUrls = finalUrls;
+          const finalResultCount = finalUrls.filter(Boolean).length;
+          const partialFailure = state.partial_failure && typeof state.partial_failure === "object"
+            ? state.partial_failure as { message?: unknown }
+            : null;
+          const completedError = state.error || partialFailure?.message || "";
           setProgress(100);
           setResultUrls(finalUrls);
           const completedTask = taskQueue.markCompleted(activeTaskId, {
-            expectedCount: genCount,
+            expectedCount: runExpectedCount,
             inputThumbnails: taskInputThumbnails,
             resultThumbnails: finalUrls,
-            resultCount: finalUrls.filter(Boolean).length,
+            resultCount: finalResultCount,
+            error: completedError ? summarizeGenerationError(completedError) : "",
           });
           setActiveQueueTask(completedTask);
           setIsGenerating(false);
-          toast.success(`${modeMeta.title}生成完成`);
+          if (completedError || finalResultCount < runExpectedCount) {
+            void refreshCredits();
+            toast.warning(`${modeMeta.title}部分完成：已生成 ${finalResultCount}/${runExpectedCount} 张，失败图片灵点会自动退回`);
+          } else {
+            toast.success(`${modeMeta.title}生成完成`);
+          }
           return;
         }
         if (state.status === "failed") throw new Error(state.error || "生成失败");
       }
       throw new Error("生成超时");
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "生成失败";
+      const message = summarizeGenerationError(err instanceof Error ? err.message : "生成失败");
       setError(message);
       const failedTask = taskQueue.markFailed(activeTaskId, message, {
-        expectedCount: genCount,
+        expectedCount: runExpectedCount,
         inputThumbnails: taskInputThumbnails,
         resultThumbnails: latestTaskResultUrls,
         resultCount: latestTaskResultUrls.filter(Boolean).length,
       });
       setActiveQueueTask(failedTask);
       toast.error(message);
+      void refreshCredits();
       setIsGenerating(false);
     }
   }
@@ -796,14 +843,20 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
               <ResultImageGrid
                 urls={resultUrls}
                 filenamePrefix={isImageMode ? "image-to-image" : "text-to-image"}
-                expectedCount={activeQueueTask ? clampTaskExpectedCount(activeQueueTask, 1, 4, genCount) : isGenerating ? genCount : undefined}
+                expectedCount={activeResultExpectedCount}
                 isGenerating={isGenerating}
                 inputThumbnails={safeTaskQueueUrls(activeQueueTask?.inputThumbnails).length ? safeTaskQueueUrls(activeQueueTask?.inputThumbnails) : referenceImages.map((item) => item.preview || item.url)}
                 createdAt={activeQueueTask?.createdAt}
                 statusGroup={activeQueueTask?.statusGroup || (isGenerating ? "running" : undefined)}
                 variant="task"
                 failureLabel="生成失败"
-                failureDetail={activeQueueTask?.statusGroup === "failed" ? activeQueueTask.error || error || undefined : undefined}
+                failureDetail={activeQueueTask?.statusGroup === "failed" ? buildFailedTaskDetail(activeQueueTask.error || error || undefined) : undefined}
+                markMissingAsFailed={hasCompletedPartialResults}
+                missingFailureLabel="本张生成失败"
+                missingFailureDetail={partialFailureMessage}
+                missingFailureActionLabel="重试本张"
+                onMissingFailureAction={handleRetryFailedResult}
+                missingFailureActionDisabled={retryDisabled}
                 onOpen={(_, index) => setPreviewIndex(index)}
               />
             </div>
@@ -830,24 +883,17 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
           </div>
         )}
 
-        {error && (
-          <div className="studio-result-stage flex min-h-[260px] items-center justify-center px-4 sm:min-h-[360px] lg:h-full">
-            <div className="max-w-md text-center">
-              <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-red-100 text-red-400">
-                <X className="h-8 w-8" />
-              </div>
-              <p className="mb-1 font-bold text-red-500">生成失败</p>
-              <p className="mb-4 text-sm text-slate-400">{error}</p>
-              <button
-                type="button"
-                onClick={generate}
-                disabled={isGenerating}
-                className="rounded-full border px-5 py-2 text-sm font-medium hover:bg-white disabled:opacity-50"
-              >
-                重试
-              </button>
-            </div>
-          </div>
+        {error && !activeQueueTask && (
+          <ErrorStage
+            error={summarizeGenerationError(error)}
+            onRetry={() => generate()}
+            onRepair={() => generate()}
+            isGenerating={isGenerating}
+            retryDisabled={retryDisabled}
+            retryLabel="重新生成"
+            notice={FAILED_RETRY_NOTICE}
+            repairKind="general"
+          />
         )}
       </div>
 

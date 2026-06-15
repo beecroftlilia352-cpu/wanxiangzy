@@ -161,6 +161,7 @@ async function handleActiveFaceSwapGet() {
         sourceUrl: typeof payload?.sourceUrl === "string" ? payload.sourceUrl : "",
         sourceUrls: normalizeFaceSwapSourceUrls(payload?.sourceUrls, payload?.sourceUrl),
         faceUrl: typeof payload?.faceUrl === "string" ? payload.faceUrl : "",
+        genCount: normalizeFaceSwapCount(payload?.genCount),
         userPrompt: getFaceSwapUserPromptFromPayload(payload || {}),
         textureEnhance: payload?.textureEnhance === true,
       },

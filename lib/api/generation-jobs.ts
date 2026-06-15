@@ -220,6 +220,7 @@ export type GenerationJobPayload = GenerationJobPayloadBase & (
       posePlanMode?: "preset" | "ai";
       outputMode?: PoseOutputMode;
       genCount?: number;
+      poseStartIndex?: number;
       poseAnalysis?: PoseVisualAnalysis | null;
       posePlan?: PosePlan | null;
       garmentDetailUrls?: string[];
@@ -1463,6 +1464,7 @@ async function executePayload(
 
     if (outputMode === "separate") {
       const generationCount = getPoseGenerationCount(payload);
+      const poseStartIndex = normalizePoseStartIndex(payload.poseStartIndex);
       const aspectRatio = payload.aspectRatio || "auto";
       return executeParallelImageBatch({
         count: generationCount,
@@ -1472,8 +1474,9 @@ async function executePayload(
         run: async (index, onTaskProgress) => {
           // Separate mode is already split into one API call per pose slot.
           // Keep group-level "4 poses / user raw plan" wording out of each call.
+          const poseSlotIndex = Math.min(4, poseStartIndex + index);
           const posePrompt = [
-            buildSeparatePosePrompt(fallbackPrompt, index + 1, poseStyle, payload.prompt, poseAnalysis, posePlan),
+            buildSeparatePosePrompt(fallbackPrompt, poseSlotIndex, poseStyle, payload.prompt, poseAnalysis, posePlan),
             garmentAngleDirective,
           ].filter(Boolean).join("\n");
           const result = await generateImage({
@@ -2342,6 +2345,12 @@ function getPoseGenerationCount(payload: Extract<GenerationJobPayload, { kind: "
   if (normalizePoseOutputMode(payload.outputMode) !== "separate") return 1;
   const num = Number(payload.genCount || 4);
   if (!Number.isFinite(num)) return 4;
+  return Math.min(Math.max(Math.floor(num), 1), 4);
+}
+
+function normalizePoseStartIndex(value: unknown) {
+  const num = Number(value || 1);
+  if (!Number.isFinite(num)) return 1;
   return Math.min(Math.max(Math.floor(num), 1), 4);
 }
 

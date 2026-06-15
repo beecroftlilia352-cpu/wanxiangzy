@@ -36,8 +36,14 @@ import {
 } from "@/lib/material-enhancement";
 import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
 import { createGenericImagePreviewSession, type ImagePreviewAction } from "@/lib/studio-image-preview";
+import { FAILED_RETRY_NOTICE, buildPartialFailureDetail, summarizeGenerationError } from "@/lib/studio-generation-feedback";
 
 type MaterialEnhancementHistoryPayload = Extract<HistoryJobPayload, { kind: "materialEnhancement" }>;
+type MaterialEnhancementGenerateOptions = {
+  genCountOverride?: number;
+  expectedCountOverride?: number;
+  toastMessage?: string;
+};
 
 const MODELS: { value: LingyaModel; label: string; desc: string; badge?: string; icon: string }[] = [
   { value: "nano-banana-2", label: "Nano-Banana-2", desc: "最高4K", badge: "推荐", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
@@ -62,7 +68,7 @@ export default function MaterialEnhancementPage() {
   const sourceInputRef = useRef<HTMLInputElement>(null);
   const garmentInputRef = useRef<HTMLInputElement>(null);
 
-  const { authChecked, isAuthenticated, userId, credits, setCredits, refreshAuth } = useStudioAuth();
+  const { authChecked, isAuthenticated, userId, credits, setCredits, refreshCredits, refreshAuth } = useStudioAuth();
 
   const [sourceUrl, setSourceUrl] = useState("");
   const [sourceName, setSourceName] = useState("");
@@ -112,12 +118,33 @@ export default function MaterialEnhancementPage() {
     () => MATERIAL_ENHANCEMENT_LEVELS.find((item) => item.value === enhancementLevel)?.label || enhancementLevel,
     [enhancementLevel]
   );
+  const activeResultExpectedCount = isGenerating
+    ? runningExpectedCount || genCount
+    : runningExpectedCount || Math.max(resultUrls.length, 1);
+  const displayedResultUrls = resultUrls.filter(Boolean);
+  const hasCompletedPartialResults = Boolean(
+    !isGenerating
+    && activeResultExpectedCount > displayedResultUrls.length
+    && displayedResultUrls.length > 0
+  );
+  const partialFailureMessage = buildPartialFailureDetail({
+    failedCount: activeResultExpectedCount - displayedResultUrls.length,
+  });
+  const retryDisabled = isGenerating;
+  function handleRetryFailedResult() {
+    if (retryDisabled) return;
+    void generate(undefined, {
+      genCountOverride: 1,
+      expectedCountOverride: 1,
+      toastMessage: "正在重试失败图片，失败图已退款，本次按 1 张重新生成...",
+    });
+  }
   const previewSession = useMemo(
     () => createGenericImagePreviewSession({
       module: "materialEnhancement",
       title: "材质增强",
       urls: resultUrls,
-      expectedCount: isGenerating ? runningExpectedCount || genCount : Math.max(resultUrls.length, 1),
+      expectedCount: activeResultExpectedCount,
       isGenerating,
       statusGroup: isGenerating ? "running" : undefined,
       references: [
@@ -136,7 +163,7 @@ export default function MaterialEnhancementPage() {
       resultTitlePrefix: "材质增强结果",
       aspectRatio,
     }),
-    [aiModel, aspectRatio, customGarmentType, enhancementLevelLabel, garmentType, garmentUrl, genCount, imageSize, isGenerating, resultUrls, runningExpectedCount, sourceUrl, userPrompt]
+    [activeResultExpectedCount, aiModel, aspectRatio, customGarmentType, enhancementLevelLabel, garmentType, garmentUrl, genCount, imageSize, isGenerating, resultUrls, runningExpectedCount, sourceUrl, userPrompt]
   );
 
   const runDisabledReason = !sourceUrl
@@ -229,29 +256,39 @@ export default function MaterialEnhancementPage() {
     }
   }
 
-  async function generate(finalPromptForRun?: string) {
+  async function generate(finalPromptForRun?: string, options: MaterialEnhancementGenerateOptions = {}) {
     if (!isAuthenticated && !(await refreshAuth())) {
       toast.error("请先登录");
       router.push("/login");
       return;
     }
+    const runGenCount = Math.min(Math.max(Math.round(Number(options.genCountOverride ?? genCount) || 1), 1), 4);
+    const runExpectedCount = Math.max(1, Math.round(Number(options.expectedCountOverride ?? runGenCount) || runGenCount));
+    const runTotalCost = costPerImage * runExpectedCount;
     if (runDisabledReason) {
-      if (runDisabledReason.startsWith("灵点不足")) {
-        showInsufficientCreditsToast({ required: totalCost, balance: credits, onRecharge: () => router.push("/pricing") });
-      } else {
-        toast.error(runDisabledReason);
+      if (runDisabledReason.includes("灵点不足") && (credits === null || credits < runTotalCost)) {
+        showInsufficientCreditsToast({ required: runTotalCost, balance: credits, onRecharge: () => router.push("/pricing") });
+        return;
       }
+      if (!runDisabledReason.includes("灵点不足")) {
+        toast.error(runDisabledReason);
+        return;
+      }
+    }
+    if (credits !== null && credits < runTotalCost) {
+      showInsufficientCreditsToast({ required: runTotalCost, balance: credits, onRecharge: () => router.push("/pricing") });
       return;
     }
 
     setIsGenerating(true);
-    setRunningExpectedCount(genCount);
+    setRunningExpectedCount(runExpectedCount);
     setProgress(12);
     setResultUrls([]);
     setError(null);
+    if (options.toastMessage) toast.info(options.toastMessage);
 
     const provisionalTask = taskQueue.startTask({
-      expectedCount: genCount,
+      expectedCount: runExpectedCount,
       inputThumbnails: taskInputThumbnails,
       progress: 12,
     });
@@ -273,7 +310,7 @@ export default function MaterialEnhancementPage() {
           aspect_ratio: aspectRatio,
           image_size: imageSize,
           prompt: finalPromptForRun || finalPrompt,
-          gen_count: genCount,
+          gen_count: runGenCount,
         }),
       });
       const data = await res.json();
@@ -301,7 +338,7 @@ export default function MaterialEnhancementPage() {
       if (typeof data.generation_id === "string" && data.generation_id) {
         const serverTask = taskQueue.replaceWithServerTask(activeTaskId, {
           id: data.generation_id,
-          expectedCount: genCount,
+          expectedCount: runExpectedCount,
           inputThumbnails: taskInputThumbnails,
           status: data.status || "processing",
           progress: data.status === "completed" ? 100 : 25,
@@ -332,7 +369,7 @@ export default function MaterialEnhancementPage() {
           setProgress(runningProgress);
         }
         taskQueue.markRunning(activeTaskId, {
-          expectedCount: genCount,
+          expectedCount: runExpectedCount,
           inputThumbnails: taskInputThumbnails,
           resultThumbnails: latestTaskResultUrls,
           resultCount: latestTaskResultUrls.filter(Boolean).length,
@@ -343,15 +380,26 @@ export default function MaterialEnhancementPage() {
         if (pollData.status === "completed") {
           const finalUrls = Array.isArray(pollData.result_urls) ? pollData.result_urls : [];
           latestTaskResultUrls = finalUrls;
+          const finalResultCount = finalUrls.filter(Boolean).length;
+          const partialFailure = pollData.partial_failure && typeof pollData.partial_failure === "object"
+            ? pollData.partial_failure as { message?: unknown }
+            : null;
+          const completedError = pollData.error || partialFailure?.message || "";
           setProgress(100);
           setResultUrls(finalUrls);
           taskQueue.markCompleted(activeTaskId, {
-            expectedCount: genCount,
+            expectedCount: runExpectedCount,
             inputThumbnails: taskInputThumbnails,
             resultThumbnails: finalUrls,
-            resultCount: finalUrls.filter(Boolean).length,
+            resultCount: finalResultCount,
+            error: completedError ? summarizeGenerationError(completedError) : "",
           });
-          toast.success("材质增强完成");
+          if (completedError || finalResultCount < runExpectedCount) {
+            void refreshCredits();
+            toast.warning(`材质增强部分完成：已生成 ${finalResultCount}/${runExpectedCount} 张，失败图片灵点会自动退回`);
+          } else {
+            toast.success("材质增强完成");
+          }
           return;
         }
         if (pollData.status === "failed") {
@@ -360,19 +408,20 @@ export default function MaterialEnhancementPage() {
       }
       throw new Error("生成超时");
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "操作失败";
+      const message = summarizeGenerationError(err instanceof Error ? err.message : "操作失败");
       setError(message);
       taskQueue.markFailed(activeTaskId, message, {
-        expectedCount: genCount,
+        expectedCount: runExpectedCount,
         inputThumbnails: taskInputThumbnails,
         resultThumbnails: latestTaskResultUrls,
         resultCount: latestTaskResultUrls.filter(Boolean).length,
       });
       if (message.includes("灵点不足")) {
-        showInsufficientCreditsToast({ required: totalCost, balance: credits, onRecharge: () => router.push("/pricing") });
+        showInsufficientCreditsToast({ required: runTotalCost, balance: credits, onRecharge: () => router.push("/pricing") });
       } else {
         toast.error(message);
       }
+      void refreshCredits();
     } finally {
       setIsGenerating(false);
     }
@@ -631,11 +680,17 @@ export default function MaterialEnhancementPage() {
               <ResultImageGrid
                 urls={resultUrls}
                 filenamePrefix="material-enhancement"
-                expectedCount={isGenerating ? runningExpectedCount || genCount : undefined}
+                expectedCount={activeResultExpectedCount}
                 isGenerating={isGenerating}
                 inputThumbnails={taskInputThumbnails}
                 statusGroup={isGenerating ? "running" : undefined}
                 variant="task"
+                markMissingAsFailed={hasCompletedPartialResults}
+                missingFailureLabel="本张生成失败"
+                missingFailureDetail={partialFailureMessage}
+                missingFailureActionLabel="重试本张"
+                onMissingFailureAction={handleRetryFailedResult}
+                missingFailureActionDisabled={retryDisabled}
                 onOpen={(_, index) => setPreviewIndex(index)}
               />
             </div>
@@ -666,10 +721,13 @@ export default function MaterialEnhancementPage() {
 
         {error && (
           <ErrorStage
-            error={error}
+            error={summarizeGenerationError(error)}
             onRetry={() => generate()}
             onRepair={handleRepairGenerate}
             isGenerating={isGenerating}
+            retryDisabled={retryDisabled}
+            retryLabel="重新生成"
+            notice={FAILED_RETRY_NOTICE}
             repairKind="materialEnhancement"
           />
         )}

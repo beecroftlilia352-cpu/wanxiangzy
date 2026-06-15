@@ -44,6 +44,7 @@ import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@
 import { applyRepairPrompt } from "@/lib/generation-repair";
 import { showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
 import { createGenericImagePreviewSession, takeSourceImageFromLocation, type ImagePreviewAction } from "@/lib/studio-image-preview";
+import { FAILED_RETRY_NOTICE, buildPartialFailureDetail, summarizeGenerationError } from "@/lib/studio-generation-feedback";
 import {
   DEFAULT_POSE_SERIES_STYLE,
   POSE_SERIES_STYLES,
@@ -100,6 +101,12 @@ const ASPECTS: { value: AspectRatio; label: string; description?: string }[] = [
 ];
 
 type PoseHistoryPayload = Extract<HistoryJobPayload, { kind: "pose" }>;
+type PoseGenerateOptions = {
+  genCountOverride?: number;
+  expectedCountOverride?: number;
+  poseStartIndex?: number;
+  toastMessage?: string;
+};
 type PoseAnalysisSource = "vision" | "cache" | "fallback" | "history";
 type PoseAnalysisEntry = {
   analysis: PoseVisualAnalysis;
@@ -200,6 +207,7 @@ export default function PosePage() {
     userId,
     credits,
     setCredits,
+    refreshCredits,
     refreshAuth,
   } = useStudioAuth();
   const [aiModel, setAiModel] = useState<LingyaModel>("nano-banana-2");
@@ -298,12 +306,34 @@ export default function PosePage() {
     ...getPosePlanSummary(previewPosePlan).map((item) => `${item.title}：${item.detail}`),
     supplementPrompt.trim() ? `补充要求：${supplementPrompt.trim()}` : "",
   ].map((item) => item.trim()).filter(Boolean).join("\n");
+  const activeResultExpectedCount = isGenerating
+    ? runningExpectedCount || poseExpectedCount
+    : runningExpectedCount || Math.max(resultUrls.length, 1);
+  const displayedResultUrls = resultUrls.filter(Boolean);
+  const hasCompletedPartialResults = Boolean(
+    !isGenerating
+    && activeResultExpectedCount > displayedResultUrls.length
+    && displayedResultUrls.length > 0
+  );
+  const partialFailureMessage = buildPartialFailureDetail({
+    failedCount: activeResultExpectedCount - displayedResultUrls.length,
+  });
+  const retryDisabled = isSubmitting || isGenerating;
+  function handleRetryFailedResult(index: number) {
+    if (retryDisabled) return;
+    void generate(undefined, {
+      genCountOverride: 1,
+      expectedCountOverride: 1,
+      poseStartIndex: index + 1,
+      toastMessage: `正在重试姿势 ${index + 1}，失败图已退款，本次按 1 张重新生成...`,
+    });
+  }
   const previewSession = useMemo(
     () => createGenericImagePreviewSession({
       module: "pose",
       title: "姿势裂变",
       urls: resultUrls,
-      expectedCount: isGenerating ? runningExpectedCount || poseExpectedCount : Math.max(resultUrls.length, 1),
+      expectedCount: activeResultExpectedCount,
       isGenerating,
       statusGroup: isGenerating ? "running" : undefined,
       references: [
@@ -323,7 +353,7 @@ export default function PosePage() {
       resultTitlePrefix: outputMode === "separate" ? "姿势结果" : "姿势四宫格",
       aspectRatio: aspectRatio === "auto" ? undefined : aspectRatio,
     }),
-    [activeGarmentAngleReferences, aiModel, aspectRatio, imageSize, isGenerating, mainImage, outputMode, poseExpectedCount, posePlanMode, posePlanSource, poseStyleLabel, previewPosePlanText, resultUrls, runningExpectedCount]
+    [activeGarmentAngleReferences, activeResultExpectedCount, aiModel, aspectRatio, imageSize, isGenerating, mainImage, outputMode, poseExpectedCount, posePlanMode, posePlanSource, poseStyleLabel, previewPosePlanText, resultUrls, runningExpectedCount]
   );
   const cancelRulesHide = () => {
     if (rulesHideTimerRef.current) {
@@ -938,7 +968,7 @@ export default function PosePage() {
     toast.success("已套用示例图");
   }
 
-  async function generate(promptForRun?: string) {
+  async function generate(promptForRun?: string, options: PoseGenerateOptions = {}) {
     if (isSubmitting) return;
     if (!isAuthenticated && !(await refreshAuth())) {
       toast.error("请先登录");
@@ -960,8 +990,11 @@ export default function PosePage() {
       toast.info("主图视觉识别中，完成后再生成");
       return;
     }
-    if (credits !== null && credits < cost) {
-      showInsufficientCreditsToast({ required: cost, balance: credits, onRecharge: () => router.push("/pricing") });
+    const runExpectedCount = Math.max(1, Math.round(Number(options.expectedCountOverride ?? options.genCountOverride ?? poseExpectedCount) || poseExpectedCount));
+    const runGenCount = Math.min(Math.max(Math.round(Number(options.genCountOverride ?? runExpectedCount) || 1), 1), 4);
+    const runTotalCost = unitCost * runExpectedCount;
+    if (credits !== null && credits < runTotalCost) {
+      showInsufficientCreditsToast({ required: runTotalCost, balance: credits, onRecharge: () => router.push("/pricing") });
       return;
     }
 
@@ -970,14 +1003,15 @@ export default function PosePage() {
     const isCurrentRun = () => generationRunRef.current === runId;
     setIsSubmitting(true);
     setIsGenerating(true);
-    setRunningExpectedCount(poseExpectedCount);
+    setRunningExpectedCount(runExpectedCount);
     setProgress(10);
     setError("");
     setResultUrls([]);
+    if (options.toastMessage) toast.info(options.toastMessage);
     const taskInputThumbnails = mainImage ? [mainImage, ...activeGarmentAngleUrls] : [];
     const activePosePlan = getActivePosePlan();
     const provisionalTask = taskQueue.startTask({
-      expectedCount: poseExpectedCount,
+      expectedCount: runExpectedCount,
       inputThumbnails: taskInputThumbnails,
       progress: 10,
     });
@@ -1004,7 +1038,8 @@ export default function PosePage() {
           pose_style: poseStyle,
           pose_plan_mode: posePlanMode,
           output_mode: outputMode,
-          gen_count: poseExpectedCount,
+          gen_count: runGenCount,
+          pose_start_index: options.poseStartIndex,
           pose_analysis: activePoseAnalysis,
           pose_plan: activePosePlan,
           garment_angle_references: activeGarmentAngleReferences,
@@ -1037,7 +1072,7 @@ export default function PosePage() {
       if (typeof data.generation_id === "string" && data.generation_id) {
         const serverTask = taskQueue.replaceWithServerTask(activeTaskId, {
           id: data.generation_id,
-          expectedCount: poseExpectedCount,
+          expectedCount: runExpectedCount,
           inputThumbnails: taskInputThumbnails,
           status: data.status || "processing_tryon",
           progress: 25,
@@ -1065,7 +1100,7 @@ export default function PosePage() {
           const runningProgress = Math.min(25 + (elapsedMs / POSE_GENERATION_POLL_TIMEOUT_MS) * 65, 90);
           if (isCurrentRun()) setProgress(runningProgress);
           taskQueue.markRunning(activeTaskId, {
-            expectedCount: poseExpectedCount,
+            expectedCount: runExpectedCount,
             inputThumbnails: taskInputThumbnails,
             resultThumbnails: latestTaskResultUrls,
             progress: runningProgress,
@@ -1074,7 +1109,11 @@ export default function PosePage() {
         } else if (state.status === "completed") {
           const finalUrls = Array.isArray(state.result_urls) ? state.result_urls : latestTaskResultUrls;
           const finalResultCount = finalUrls.filter(Boolean).length;
-          const expectedResultCount = Math.max(Number(state.expected_count) || poseExpectedCount, poseExpectedCount);
+          const expectedResultCount = Math.max(Number(state.expected_count) || runExpectedCount, runExpectedCount);
+          const partialFailure = state.partial_failure && typeof state.partial_failure === "object"
+            ? state.partial_failure as { message?: unknown }
+            : null;
+          const completedError = state.error || partialFailure?.message || "";
           if (isCurrentRun()) {
             setProgress(100);
             setResultUrls(finalUrls);
@@ -1084,9 +1123,11 @@ export default function PosePage() {
             inputThumbnails: taskInputThumbnails,
             resultThumbnails: finalUrls,
             resultCount: finalResultCount,
+            error: completedError ? summarizeGenerationError(completedError) : "",
           });
           if (isCurrentRun()) {
-            if (finalResultCount < expectedResultCount) {
+            if (completedError || finalResultCount < expectedResultCount) {
+              void refreshCredits();
               toast.warning(`姿势裂变部分完成：已生成 ${finalResultCount}/${expectedResultCount} 张，失败图片灵点会自动退回`);
             } else {
               toast.success("姿势裂变完成");
@@ -1100,10 +1141,10 @@ export default function PosePage() {
       }
       throw new PoseGenerationPollTimeoutError();
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "生成失败";
+      const message = summarizeGenerationError(err instanceof Error ? err.message : "生成失败");
       if (err instanceof PoseGenerationPollTimeoutError) {
         taskQueue.markRunning(activeTaskId, {
-          expectedCount: poseExpectedCount,
+          expectedCount: runExpectedCount,
           inputThumbnails: taskInputThumbnails,
           resultThumbnails: latestTaskResultUrls,
           progress: 90,
@@ -1119,13 +1160,14 @@ export default function PosePage() {
         return;
       }
       taskQueue.markFailed(activeTaskId, message, {
-        expectedCount: poseExpectedCount,
+        expectedCount: runExpectedCount,
         inputThumbnails: taskInputThumbnails,
         resultThumbnails: latestTaskResultUrls,
       });
       if (isCurrentRun()) {
         setError(message);
         toast.error(message);
+        void refreshCredits();
         setIsSubmitting(false);
         setIsGenerating(false);
       }
@@ -1830,11 +1872,17 @@ export default function PosePage() {
                 filenamePrefix="pose"
                 extension="jpg"
                 onOpen={(_, index) => setPreviewIndex(index)}
-                expectedCount={isGenerating ? runningExpectedCount || poseExpectedCount : undefined}
+                expectedCount={activeResultExpectedCount}
                 isGenerating={isGenerating}
                 inputThumbnails={mainImage ? [mainImage, ...activeGarmentAngleUrls] : []}
                 statusGroup={isGenerating ? "running" : undefined}
                 variant="task"
+                markMissingAsFailed={hasCompletedPartialResults}
+                missingFailureLabel="本张生成失败"
+                missingFailureDetail={partialFailureMessage}
+                missingFailureActionLabel="重试本张"
+                onMissingFailureAction={handleRetryFailedResult}
+                missingFailureActionDisabled={retryDisabled}
               />
             </div>
             <div className="mt-4 flex justify-center">
@@ -1861,10 +1909,13 @@ export default function PosePage() {
 
         {error && (
           <ErrorStage
-            error={error}
-            onRetry={() => setError("")}
+            error={summarizeGenerationError(error)}
+            onRetry={() => { setError(""); void generate(); }}
             onRepair={handleRepairGenerate}
             isGenerating={isGenerating}
+            retryDisabled={retryDisabled}
+            retryLabel="重新生成"
+            notice={FAILED_RETRY_NOTICE}
             repairKind="pose"
           />
         )}

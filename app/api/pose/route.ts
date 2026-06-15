@@ -37,6 +37,7 @@ export async function POST(request: NextRequest) {
     const requestedOutputMode = body.output_mode ?? body.outputMode;
     const outputMode: PoseOutputMode = requestedOutputMode === "grid" ? "grid" : "separate";
     const genCount = outputMode === "separate" ? normalizePoseCount(body.gen_count ?? body.count ?? 4) : 1;
+    const poseStartIndex = normalizePoseStartIndex(body.pose_start_index ?? body.poseStartIndex ?? body.retry_pose_index);
     if (!main_image_url || typeof main_image_url !== "string") return NextResponse.json({ error: "缺少主图" }, { status: 400 });
     if (!prompt?.trim()) return NextResponse.json({ error: "缺少提示词" }, { status: 400 });
     if (
@@ -91,6 +92,7 @@ export async function POST(request: NextRequest) {
       posePlanMode,
       outputMode,
       genCount,
+      poseStartIndex,
       poseAnalysis,
       posePlan,
       garmentAngleReferences: activeGarmentAngleReferences,
@@ -127,6 +129,12 @@ export async function POST(request: NextRequest) {
 function normalizePoseCount(value: unknown) {
   const num = Number(value || 4);
   if (!Number.isFinite(num)) return 4;
+  return Math.min(Math.max(Math.floor(num), 1), 4);
+}
+
+function normalizePoseStartIndex(value: unknown) {
+  const num = Number(value || 1);
+  if (!Number.isFinite(num)) return 1;
   return Math.min(Math.max(Math.floor(num), 1), 4);
 }
 
