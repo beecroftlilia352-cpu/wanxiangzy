@@ -1124,6 +1124,37 @@
 .studio-result-stage,
 .studio-result-viewport {
   min-width: 0;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(91, 124, 255, 0.28) transparent;
+}
+
+.studio-result-stage::-webkit-scrollbar,
+.studio-result-viewport::-webkit-scrollbar,
+.studio-result-failure-detail::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+.studio-result-stage::-webkit-scrollbar-track,
+.studio-result-viewport::-webkit-scrollbar-track,
+.studio-result-failure-detail::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.studio-result-stage::-webkit-scrollbar-thumb,
+.studio-result-viewport::-webkit-scrollbar-thumb,
+.studio-result-failure-detail::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: rgba(91, 124, 255, 0.28);
+  background-clip: padding-box;
+}
+
+.studio-result-stage::-webkit-scrollbar-thumb:hover,
+.studio-result-viewport::-webkit-scrollbar-thumb:hover,
+.studio-result-failure-detail::-webkit-scrollbar-thumb:hover {
+  background: rgba(91, 124, 255, 0.42);
+  background-clip: padding-box;
 }
 
 .studio-result-stage img,
@@ -3733,6 +3764,52 @@
   background:
     radial-gradient(circle at 18% 12%, rgba(209, 59, 53, 0.32), transparent 34%),
     linear-gradient(180deg, #2a1519 0%, #12090b 100%) !important;
+}
+
+.studio-result-failure-detail {
+  max-width: min(84%, 320px);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.72);
+  overflow-wrap: anywhere;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.34) transparent;
+}
+
+.studio-result-failure-detail::-webkit-scrollbar-thumb,
+.studio-result-failure-detail::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.34);
+  background-clip: padding-box;
+}
+
+.studio-result-failure-action {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  padding: 0 12px;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.14);
+  transition: background 160ms ease, border-color 160ms ease, transform 160ms ease;
+}
+
+.studio-result-failure-action:hover {
+  border-color: rgba(255, 255, 255, 0.44);
+  background: rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+.studio-result-failure-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
+  transform: none;
 }
 
 .gen-card {

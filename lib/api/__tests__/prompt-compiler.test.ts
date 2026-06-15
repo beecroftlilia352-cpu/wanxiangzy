@@ -204,6 +204,34 @@ describe("compileImagePromptForModel", () => {
     expect(result.length).toBeLessThanOrEqual(2400);
   });
 
+  it("recovers Chinese pose plan targets when naive truncation leaves only the Target pose heading", () => {
+    const nearLimitContext = [
+      "Use the source image only to preserve: same person, same gender expression, face, hair, body proportions, outfit, fabric/color/pattern, background, lighting and skin tone.",
+      "Generate one standalone source-matched pose variation photo, not a beautified or regraded fashion editorial.",
+      "Keep the outfit readable: neckline, shoulder line, sleeves, waistline, hem, lower garment and shoes if visible.",
+      "视觉识别约束：成人女；保持同一服装、场景、光线、肤色和人物比例。".repeat(26),
+      "Target pose:",
+      "侧身或三分之二侧身展示方向；AI 可自由选择头发/衣领/袖口/衣摆手势、腿部节奏、视线和镜头语言，侧面轮廓和肩线必须清楚。",
+      "一只手可整理领口、袖口或自然靠近腰侧。",
+      "Camera:",
+      "以图1全身比例为参考，可按姿势自然变化，不要固定同一镜头距离。",
+      "Negative: no outfit change, no face change, no grid.",
+    ].join("\n");
+
+    const result = compileImagePromptForModel({
+      kind: "pose",
+      model: "nano-banana-2",
+      prompt: nearLimitContext,
+    });
+
+    expect(result).toContain("Target pose:");
+    expect(result).toContain("侧身或三分之二侧身展示方向");
+    expect(result).toContain("侧面轮廓和肩线必须清楚");
+    expect(result).toContain("Camera:");
+    expect(result).not.toMatch(/Target pose:\s*(?:Camera:|Negative:|$)/i);
+    expect(result.length).toBeLessThanOrEqual(2200);
+  });
+
   it("preserves each separate pose target in the final compiled prompt", () => {
     const slotAssertions = [
       { slot: 1, keywords: ["Target pose:", "front-view", "front silhouette", "Source-matched full-body product-readable framing"] },

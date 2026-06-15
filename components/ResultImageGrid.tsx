@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { Clapperboard, Download, Eye, Loader2, WandSparkles, XCircle } from "lucide-react";
+import { Clapperboard, Download, Eye, Loader2, RotateCcw, WandSparkles, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { getImageVariantUrl } from "@/lib/image-variants";
@@ -30,6 +30,9 @@ type ResultImageGridProps = {
   markMissingAsFailed?: boolean;
   missingFailureLabel?: string;
   missingFailureDetail?: string;
+  missingFailureActionLabel?: string;
+  onMissingFailureAction?: (index: number) => void;
+  missingFailureActionDisabled?: boolean;
   failureLabel?: string;
   failureDetail?: string;
 };
@@ -67,6 +70,9 @@ export function ResultImageGrid({
   markMissingAsFailed = false,
   missingFailureLabel,
   missingFailureDetail,
+  missingFailureActionLabel,
+  onMissingFailureAction,
+  missingFailureActionDisabled = false,
   failureLabel,
   failureDetail,
 }: ResultImageGridProps) {
@@ -117,6 +123,9 @@ export function ResultImageGrid({
                   onOpen={onOpen}
                   failureLabel={failed ? failureLabel : missingFailed ? missingFailureLabel : undefined}
                   failureDetail={failed ? failureDetail : missingFailed ? missingFailureDetail : undefined}
+                  failureActionLabel={missingFailed ? missingFailureActionLabel : undefined}
+                  onFailureAction={missingFailed && onMissingFailureAction ? () => onMissingFailureAction(index) : undefined}
+                  failureActionDisabled={missingFailureActionDisabled}
                 />
               );
             })}
@@ -143,6 +152,9 @@ export function ResultImageGrid({
           isSingle={isSingle}
           failureLabel={markMissingAsFailed && !url && !isGenerating ? missingFailureLabel : undefined}
           failureDetail={markMissingAsFailed && !url && !isGenerating ? missingFailureDetail : undefined}
+          failureActionLabel={markMissingAsFailed && !url && !isGenerating ? missingFailureActionLabel : undefined}
+          onFailureAction={markMissingAsFailed && !url && !isGenerating && onMissingFailureAction ? () => onMissingFailureAction(index) : undefined}
+          failureActionDisabled={missingFailureActionDisabled}
         />
       ))}
     </div>
@@ -175,6 +187,9 @@ function ResultCard({
   isSingle,
   failureLabel,
   failureDetail,
+  failureActionLabel,
+  onFailureAction,
+  failureActionDisabled,
 }: {
   url: string | null;
   index: number;
@@ -188,6 +203,9 @@ function ResultCard({
   isSingle?: boolean;
   failureLabel?: string;
   failureDetail?: string;
+  failureActionLabel?: string;
+  onFailureAction?: () => void;
+  failureActionDisabled?: boolean;
 }) {
   const router = useRouter();
   const openPreview = () => {
@@ -236,6 +254,9 @@ function ResultCard({
               index={index}
               failureLabel={failureLabel}
               failureDetail={failureDetail}
+              failureActionLabel={failureActionLabel}
+              onFailureAction={onFailureAction}
+              failureActionDisabled={failureActionDisabled}
             />
           )}
         </div>
@@ -338,12 +359,18 @@ function PendingResultSlot({
   index,
   failureLabel,
   failureDetail,
+  failureActionLabel,
+  onFailureAction,
+  failureActionDisabled,
 }: {
   failed?: boolean;
   running?: boolean;
   index: number;
   failureLabel?: string;
   failureDetail?: string;
+  failureActionLabel?: string;
+  onFailureAction?: () => void;
+  failureActionDisabled?: boolean;
 }) {
   return (
     <div className={`gen-card studio-result-pending-card flex h-full w-full flex-col items-center justify-center gap-2 ${failed ? "studio-result-pending-card-failed" : ""}`}>
@@ -357,9 +384,23 @@ function PendingResultSlot({
         {failed ? failureLabel || "生成失败，可套用参数重试" : running ? "生成中，请稍候" : "等待生成"}
       </p>
       {failed && failureDetail && (
-        <p className="relative z-[1] max-h-20 max-w-[82%] overflow-auto rounded-lg bg-black/10 px-2 py-1 text-left text-[11px] font-medium leading-4 text-white/58">
+        <p className="studio-result-failure-detail relative z-[1] max-h-24 max-w-[82%] overflow-auto rounded-lg px-2.5 py-2 text-left text-[11px] font-medium leading-4">
           {failureDetail}
         </p>
+      )}
+      {failed && onFailureAction && (
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onFailureAction();
+          }}
+          disabled={failureActionDisabled}
+          className="studio-result-failure-action relative z-[1]"
+        >
+          <RotateCcw className="h-3.5 w-3.5" />
+          <span>{failureActionLabel || "重试本张"}</span>
+        </button>
       )}
       {!failed && running && (
         <p className="relative z-[1] text-[11px] font-medium text-white/42">第 {index + 1} 张生成中</p>

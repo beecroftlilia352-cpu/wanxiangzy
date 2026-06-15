@@ -375,23 +375,33 @@ function inferSeparatePoseSlotIndex(prompt: string) {
 }
 
 function validateSeparatePoseCompiledPrompt(compiledPrompt: string, slotIndex?: number) {
-  if (!slotIndex) return;
   if (!/Target pose:/i.test(compiledPrompt)) {
-    throw new Error(`Pose slot ${slotIndex}: compiledPrompt missing Target pose`);
+    throw new Error(`Pose slot ${slotIndex || "unknown"}: compiledPrompt missing Target pose`);
+  }
+
+  const targetPoseLines = extractTargetPoseLines(splitPromptIntoSignalLines(compiledPrompt), slotIndex);
+  const targetPoseBody = targetPoseLines.slice(1).join(" ").trim();
+  if (targetPoseBody.length < 8) {
+    throw new Error(`Pose slot ${slotIndex || "unknown"}: compiledPrompt missing Target pose content`);
+  }
+
+  if (!slotIndex) {
+    return;
   }
 
   const keywords = SEPARATE_POSE_REQUIRED_KEYWORDS[slotIndex] || [];
   const lower = compiledPrompt.toLowerCase();
   const hasRequiredKeyword = keywords.some((keyword) => lower.includes(keyword.toLowerCase()));
   const hasCustomPoseLine = new RegExp(`姿势\\s*${slotIndex}[：:]`).test(compiledPrompt);
-  if (!hasRequiredKeyword && !hasCustomPoseLine) {
+  const hasSubstantiveTargetPose = targetPoseBody.length >= 16;
+  if (!hasRequiredKeyword && !hasCustomPoseLine && !hasSubstantiveTargetPose) {
     throw new Error(`Pose slot ${slotIndex}: compiledPrompt missing unique pose keywords`);
   }
 }
 
 function isRecoverableSeparatePoseValidationError(error: unknown) {
   return error instanceof Error
-    && /compiledPrompt missing (?:Target pose|unique pose keywords)/.test(error.message);
+    && /compiledPrompt missing (?:Target pose|Target pose content|unique pose keywords)/.test(error.message);
 }
 
 function getKindHeader(kind: ImagePromptKind, prompt: string) {

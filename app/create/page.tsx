@@ -129,6 +129,14 @@ type SelectedReferenceImage = ReferenceImage & {
   styleTags?: string[];
 };
 
+type TryOnGenerateOptions = {
+  genCountOverride?: number;
+  referenceUrlsOverride?: string[];
+  referenceAnalysesOverride?: TryOnReferenceAnalysis[];
+  expectedCountOverride?: number;
+  toastMessage?: string;
+};
+
 type ReferenceTemplate = {
   id: string;
   name: string;
@@ -534,6 +542,35 @@ function getTryOnHistoryExpectedCount(payload: TryOnHistoryPayload) {
   return Math.min(MAX_TRYON_OUTPUT_IMAGES, Math.max(1, payload.genCount * referenceCount));
 }
 
+function summarizeGenerationError(message?: unknown) {
+  const raw = typeof message === "string" ? message.trim() : "";
+  if (!raw) return "上游生成服务返回异常，本张已按失败结算。";
+  const lower = raw.toLowerCase();
+  if (raw.includes("429") || lower.includes("rate limit") || lower.includes("upstream load") || lower.includes("upstream")) {
+    return "上游模型繁忙或限流，本张已按失败结算。";
+  }
+  const nestedMessage = readNestedErrorMessage(raw);
+  if (nestedMessage && nestedMessage !== raw) return summarizeGenerationError(nestedMessage);
+  return raw.length > 96 ? `${raw.slice(0, 96)}...` : raw;
+}
+
+function readNestedErrorMessage(raw: string) {
+  const match = raw.match(/\{[\s\S]*\}/);
+  if (!match) return "";
+  try {
+    const parsed = JSON.parse(match[0]) as {
+      error?: { message?: unknown } | string;
+      message?: unknown;
+    };
+    if (typeof parsed.error === "object" && typeof parsed.error?.message === "string") return parsed.error.message;
+    if (typeof parsed.error === "string") return parsed.error;
+    if (typeof parsed.message === "string") return parsed.message;
+  } catch {
+    return "";
+  }
+  return "";
+}
+
 export default function CreatePage() {
   const router = useRouter();
   const store = useTryOnStore();
@@ -559,6 +596,20 @@ export default function CreatePage() {
     setCredits,
     refreshAuth,
   } = useStudioAuth();
+  const refreshCreditsFromProfile = useCallback(async () => {
+    if (!userId) return;
+    try {
+      const res = await fetch("/api/profile", { cache: "no-store" });
+      if (!res.ok) return;
+      const data = await res.json().catch(() => ({})) as { credits?: unknown };
+      if (typeof data.credits === "number") {
+        setCredits(data.credits);
+        setCachedProfileCredits(userId, data.credits);
+      }
+    } catch {
+      // Balance refresh is best-effort; generation state remains authoritative.
+    }
+  }, [setCredits, userId]);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadingClothingRoles, setUploadingClothingRoles] = useState<TryOnClothingRole[]>([]);
   const [aiModel, setAiModel] = useState<LingyaModel>("gpt-image-2");
@@ -681,7 +732,6 @@ export default function CreatePage() {
     if (sceneMode === "auto_design" || !effectiveReferenceUrls.length) return "";
     return buildReferenceAnalysisKey({ urls: effectiveReferenceUrls, clothingMode, clothingRoles, garmentAudience, ageGroup });
   }, [effectiveReferenceUrls, sceneMode, clothingMode, clothingRoles, garmentAudience, ageGroup]);
-  const effectiveReferenceUrl = effectiveReferenceUrls[0] || null;
   const activeGarmentDetailGroups = useMemo(
     () => garmentDetailEnabled ? normalizeGarmentDetailGroups(garmentDetailGroups, uploadedClothingUrls.length) : [],
     [garmentDetailEnabled, garmentDetailGroups, uploadedClothingUrls.length]
@@ -1971,12 +2021,14 @@ export default function CreatePage() {
             const partialFailure = pollData.partial_failure && typeof pollData.partial_failure === "object"
               ? pollData.partial_failure as { message?: unknown }
               : null;
-            const completedError = String(pollData.error || partialFailure?.message || "");
+            const rawCompletedError = String(pollData.error || partialFailure?.message || "");
+            const completedError = rawCompletedError ? summarizeGenerationError(rawCompletedError) : "";
             if (isActive) {
               store.updateProgress(100);
               store.setResult(resultUrls);
               toast.success("生成完成");
             }
+            if (completedError) void refreshCreditsFromProfile();
             updateActiveTask({
               status: "completed",
               statusGroup: "completed",
@@ -1993,11 +2045,12 @@ export default function CreatePage() {
           }
 
           if (pollData.status === "failed") {
-            const message = pollData.error || "生成失败";
+            const message = summarizeGenerationError(pollData.error || "生成失败");
             if (isActive) {
               store.setError(message);
               toast.error(message);
             }
+            void refreshCreditsFromProfile();
             updateActiveTask({
               status: "failed",
               statusGroup: "failed",
@@ -2033,7 +2086,7 @@ export default function CreatePage() {
         activeTryOnStatusWatchers.delete(generationId);
       }
     }
-  }, [refreshTaskQueue, store, taskQueue]);
+  }, [refreshCreditsFromProfile, refreshTaskQueue, store, taskQueue]);
 
   const handleContinueCreate = useCallback(() => {
     cancelTaskSelection();
@@ -2312,13 +2365,20 @@ export default function CreatePage() {
     }
   }, [applyTryOnHistoryPayload, beginTaskSelection, router, store, watchGeneration]);
 
-  const handleGenerate = async (promptForRun?: string) => {
+  const handleGenerate = async (promptForRun?: string, options: TryOnGenerateOptions = {}) => {
     if (isSubmitting || generationSubmitRef.current) return;
     if (!isAuthenticated && !(await refreshAuth())) {
       toast.error("请先登录");
       router.push("/login");
       return;
     }
+    const runGenCount = Math.min(Math.max(Number(options.genCountOverride ?? genCount) || 1, 1), 4);
+    const runReferenceUrls = sceneMode === "auto_design"
+      ? []
+      : Array.from(new Set((options.referenceUrlsOverride ?? effectiveReferenceUrls).filter((url): url is string => typeof url === "string" && url.trim().length > 0)));
+    const runReferenceAnalyses = options.referenceAnalysesOverride ?? referenceAnalyses;
+    const runExpectedCount = Math.max(1, options.expectedCountOverride ?? (runGenCount * (sceneMode === "auto_design" ? 1 : runReferenceUrls.length || 1)));
+    const runTotalCost = costPerImage * runExpectedCount;
     if (isUploading) {
       toast.info("服装图正在上传，请稍候");
       return;
@@ -2329,12 +2389,13 @@ export default function CreatePage() {
       toast.info(`${pendingLabel}正在上传，请稍候`);
       return;
     }
-    if (sceneMode !== "auto_design" && !effectiveReferenceUrls.length) {
+    if (sceneMode !== "auto_design" && !runReferenceUrls.length) {
       toast.error("请选择至少 1 张参考图");
       return;
     }
     if (
       sceneMode !== "auto_design"
+      && !options.referenceUrlsOverride
       && (
         referenceAnalysisKey !== activeReferenceAnalysisKey
         || referenceAnalyses.length !== effectiveReferenceUrls.length
@@ -2347,8 +2408,8 @@ export default function CreatePage() {
       toast.error("内衣/泳衣类服装仅支持成人模特生成");
       return;
     }
-    if (credits !== null && credits < totalCost) {
-      showInsufficientCreditsToast({ required: totalCost, balance: credits, onRecharge: () => router.push("/pricing") });
+    if (credits !== null && credits < runTotalCost) {
+      showInsufficientCreditsToast({ required: runTotalCost, balance: credits, onRecharge: () => router.push("/pricing") });
       return;
     }
 
@@ -2364,7 +2425,7 @@ export default function CreatePage() {
       clothingUrls: uploadedClothingUrls,
       clothingMode,
       clothingRoles,
-      referenceUrls: effectiveReferenceUrls,
+      referenceUrls: runReferenceUrls,
       modelFaceUrl: store.selectedModel?.image_url,
       garmentDetailUrls: activeUnassignedGarmentDetailUrls,
       garmentDetailGroups: activeGarmentDetailGroups,
@@ -2381,7 +2442,7 @@ export default function CreatePage() {
       completedAt: null,
       error: "",
       progress: 5,
-        expectedCount: expectedOutputCount,
+      expectedCount: runExpectedCount,
       resultCount: 0,
       inputThumbnails: taskInputThumbnails,
       resultThumbnails: [],
@@ -2406,7 +2467,7 @@ export default function CreatePage() {
       console.log("[generate] 跳过自动图片分析，使用当前提示词");
 
       store.updateProgress(15);
-      toast.info("正在提交生成任务...");
+      toast.info(options.toastMessage || "正在提交生成任务...");
 
       // ---- Step 2: 调用生成 API ----
       const res = await fetch("/api/tryon", {
@@ -2425,15 +2486,15 @@ export default function CreatePage() {
           garment_category: isIntimateGarment ? "intimate" : "regular",
           is_intimate_garment: isIntimateGarment,
           model_face_url: store.selectedModel?.image_url,
-          reference_url: effectiveReferenceUrl,
-          reference_urls: effectiveReferenceUrls,
-          reference_analyses: alignTryOnReferenceAnalyses(referenceAnalyses, effectiveReferenceUrls.length),
+          reference_url: runReferenceUrls[0] || null,
+          reference_urls: runReferenceUrls,
+          reference_analyses: alignTryOnReferenceAnalyses(runReferenceAnalyses, runReferenceUrls.length),
           ai_model: aiModel,
           aspect_ratio: aspectRatio,
           image_size: imageSize,
           style: usedAiPrompt ? undefined : finalStyle,
           raw_prompt: usedAiPrompt ? finalStyle : undefined,
-          gen_count: genCount,
+          gen_count: runGenCount,
           scene_mode: sceneMode,
           auto_design: sceneMode === "auto_design" ? resolvedAutoDesign : undefined,
         }),
@@ -2484,7 +2545,7 @@ export default function CreatePage() {
         completedAt: null,
         error: "",
         progress: 25,
-      expectedCount: expectedOutputCount,
+        expectedCount: runExpectedCount,
         resultCount: 0,
         inputThumbnails: taskInputThumbnails,
         resultThumbnails: [],
@@ -2499,14 +2560,15 @@ export default function CreatePage() {
       toast.success("任务已提交，可继续创建");
       setIsSubmitting(false);
       generationSubmitRef.current = null;
-      void watchGeneration(generation_id, expectedOutputCount);
+      void watchGeneration(generation_id, runExpectedCount);
       return;
     } catch (err: any) {
       if (err?.name === "AbortError" || !isCurrentSubmit()) return;
-      store.setError(err.message);
+      const message = summarizeGenerationError(err?.message || "生成失败");
+      store.setError(message);
       setActiveQueueTask((prev) => prev?.id === provisionalTaskId ? null : prev);
       removeTaskQueueItem(provisionalTaskId);
-      toast.error(err.message);
+      toast.error(message);
       setIsSubmitting(false);
       generationSubmitRef.current = null;
     }
@@ -2528,10 +2590,34 @@ export default function CreatePage() {
     activeQueueTask?.statusGroup === "completed"
     && activeResultExpectedCount > displayedResultUrls.length
   );
+  const retryDisabled = store.isGenerating || Boolean(applyingTaskId);
   const activeFailureMessage = activeQueueTask?.statusGroup === "failed"
-    ? (activeQueueTask.error || store.error || "生成失败")
+    ? `${summarizeGenerationError(activeQueueTask.error || store.error || "生成失败")} 本次失败已自动退回对应灵点；重新生成会按新任务扣费。`
     : "";
-  const partialFailureMessage = activeQueueTask?.error || "成功图片可正常使用，失败张数已按任务结算处理。";
+  const partialFailureCount = Math.max(0, activeResultExpectedCount - displayedResultUrls.length);
+  const partialFailureReason = activeQueueTask?.error ? summarizeGenerationError(activeQueueTask.error) : "";
+  const partialFailureMessage = [
+    partialFailureReason,
+    `成功图片可正常使用，失败 ${partialFailureCount || 1} 张已自动退回对应灵点。`,
+    "点“重试本张”会创建 1 张新任务并重新扣费。",
+  ].filter(Boolean).join(" ");
+  const handleRetryFailedResult = (index: number) => {
+    if (retryDisabled) return;
+    const referenceIndex = sceneMode === "auto_design" ? -1 : Math.floor(index / Math.max(1, genCount));
+    const referenceUrl = referenceIndex >= 0 ? effectiveReferenceUrls[referenceIndex] : "";
+    const referenceAnalysis = referenceIndex >= 0 ? referenceAnalyses[referenceIndex] : undefined;
+    if (sceneMode !== "auto_design" && !referenceUrl) {
+      toast.error("未找到这张失败图对应的参考图，请从左侧任务套用参数后重试");
+      return;
+    }
+    void handleGenerate(undefined, {
+      genCountOverride: 1,
+      referenceUrlsOverride: referenceUrl ? [referenceUrl] : [],
+      referenceAnalysesOverride: referenceAnalysis ? [referenceAnalysis] : [],
+      expectedCountOverride: 1,
+      toastMessage: `正在重试第 ${index + 1} 张，失败图已退款，本次按 1 张重新生成...`,
+    });
+  };
   const tryonPreviewReferences = useMemo(() => {
     const references = activeTaskReferences.length
       ? activeTaskReferences
@@ -2557,10 +2643,10 @@ export default function CreatePage() {
   const tryonPreviewErrors = useMemo(
     () => Array.from({ length: activeResultExpectedCount }, (_, index) => (
       hasCompletedPartialResults && !displayedResultUrls[index]
-        ? "本张生成失败，成功图片可正常使用，失败张数已按任务结算处理。"
+        ? partialFailureMessage
         : null
     )),
-    [activeResultExpectedCount, displayedResultUrls, hasCompletedPartialResults]
+    [activeResultExpectedCount, displayedResultUrls, hasCompletedPartialResults, partialFailureMessage]
   );
   const tryonPreviewSession = useMemo(
     () => createGenericImagePreviewSession({
@@ -2595,7 +2681,6 @@ export default function CreatePage() {
       : store.isGenerating || store.resultUrls.length > 0
         ? "results"
         : "empty";
-  const retryDisabled = store.isGenerating || Boolean(applyingTaskId);
   const isVisualAnalysisPending = isAnalyzingClothing || (sceneMode !== "auto_design" && isAnalyzingReferences);
   const isReferenceAnalysisReady = sceneMode === "auto_design"
     || !effectiveReferenceUrls.length
@@ -3857,12 +3942,13 @@ export default function CreatePage() {
             )}
             errorState={store.error ? (
               <ErrorStage
-                error={store.error}
+                error={summarizeGenerationError(store.error)}
                 onRetry={() => { store.setError(null); handleGenerate(); }}
                 onRepair={handleRepairGenerate}
                 isGenerating={store.isGenerating}
                 retryDisabled={retryDisabled}
-                retryLabel={applyingTaskId ? "正在套用..." : undefined}
+                retryLabel={applyingTaskId ? "正在套用..." : "重新生成"}
+                notice="失败任务会自动退回对应灵点；重新生成会按新的生成任务再次扣费。"
                 repairKind="tryon"
               />
             ) : null}
@@ -3886,6 +3972,9 @@ export default function CreatePage() {
                       markMissingAsFailed={hasCompletedPartialResults}
                       missingFailureLabel="本张生成失败"
                       missingFailureDetail={partialFailureMessage}
+                      missingFailureActionLabel="重试本张"
+                      onMissingFailureAction={handleRetryFailedResult}
+                      missingFailureActionDisabled={retryDisabled}
                       failureLabel="生成失败"
                       failureDetail={activeFailureMessage || undefined}
                     />
