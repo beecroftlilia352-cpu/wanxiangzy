@@ -34,6 +34,7 @@ import { useStudioAuth } from "@/components/studio/useStudioAuth";
 import { useTaskSelectionSession, type TaskSelectionSession } from "@/components/studio/useTaskSelectionSession";
 import { useStableFileDrag } from "@/components/studio/useStableFileDrag";
 import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
+import { useTaskQueueStore } from "@/lib/task-queue-client-store";
 import { StudioGenerationCountSelector, StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/components/studio/StudioFormControls";
 import { fetchHistoryApplyDetail, takeApplyPayload, type HistoryJobPayload } from "@/lib/history-apply";
 import { applyRepairPrompt } from "@/lib/generation-repair";
@@ -611,6 +612,16 @@ export default function CreatePage() {
     defaultExpectedCount: genCount,
     applyPath: "/create",
   });
+  const syncedActiveQueueTask = useTaskQueueStore(
+    useCallback(
+      (state) => {
+        const taskId = activeQueueTask?.id;
+        if (!taskId) return null;
+        return state.modules.tryon?.rows.find((item) => item.id === taskId) ?? null;
+      },
+      [activeQueueTask?.id]
+    )
+  );
   const referenceDrag = useStableFileDrag<HTMLElement>({
     isDragging: isDraggingRef,
     setDragging: setIsDraggingRef,
@@ -2046,6 +2057,49 @@ export default function CreatePage() {
       }
     }
   }, [refreshCredits, refreshTaskQueue, store, taskQueue]);
+
+  useEffect(() => {
+    if (!syncedActiveQueueTask || syncedActiveQueueTask.id !== activeQueueTask?.id) return;
+
+    setActiveQueueTask((prev) => {
+      if (!prev || prev.id !== syncedActiveQueueTask.id) return prev;
+      if (getTaskPreviewSyncSignature(prev) === getTaskPreviewSyncSignature(syncedActiveQueueTask)) return prev;
+      return syncedActiveQueueTask;
+    });
+
+    const queueResultUrls = safeTaskQueueUrls(syncedActiveQueueTask.resultThumbnails);
+    const currentResultUrls = safeTaskQueueUrls(store.resultUrls);
+    const resultsChanged = !areOrderedUrlsEqual(queueResultUrls, currentResultUrls);
+    const completedWithResults = syncedActiveQueueTask.statusGroup === "completed" && queueResultUrls.length > 0;
+
+    if (completedWithResults && (store.isGenerating || resultsChanged)) {
+      store.setResult(queueResultUrls);
+    } else if (
+      queueResultUrls.length > 0 &&
+      resultsChanged &&
+      (syncedActiveQueueTask.statusGroup === "running" || syncedActiveQueueTask.statusGroup === "queued")
+    ) {
+      store.setPartialResult(queueResultUrls);
+    }
+
+    if (completedWithResults || syncedActiveQueueTask.statusGroup === "failed") {
+      if (activeGenerationRef.current === syncedActiveQueueTask.id) {
+        activeGenerationRef.current = null;
+      }
+      const controller = statusWatcherControllersRef.current.get(syncedActiveQueueTask.id);
+      controller?.abort();
+    }
+
+    if (syncedActiveQueueTask.statusGroup === "failed" && store.isGenerating) {
+      store.setError(syncedActiveQueueTask.error || "任务失败，可重新生成");
+    }
+  }, [
+    activeQueueTask?.id,
+    store,
+    store.isGenerating,
+    store.resultUrls,
+    syncedActiveQueueTask,
+  ]);
 
   const handleContinueCreate = useCallback(() => {
     cancelTaskSelection();
@@ -4161,4 +4215,26 @@ function isAbortLikeError(error: unknown) {
     (error instanceof DOMException && error.name === "AbortError") ||
     (error instanceof Error && error.name === "AbortError")
   );
+}
+
+function areOrderedUrlsEqual(left: string[], right: string[]) {
+  return left.length === right.length && left.every((url, index) => url === right[index]);
+}
+
+function getTaskPreviewSyncSignature(task: TaskQueueItem | null) {
+  if (!task) return "";
+  return [
+    task.id,
+    task.status,
+    task.statusGroup,
+    task.progress,
+    task.expectedCount,
+    task.resultCount,
+    task.error || "",
+    task.updatedAt || "",
+    task.completedAt || "",
+    safeTaskQueueUrls(task.inputThumbnails).join("|"),
+    safeTaskQueueUrls(task.resultThumbnails).join("|"),
+    safeTaskQueueUrls(task.thumbnails).join("|"),
+  ].join("::");
 }
