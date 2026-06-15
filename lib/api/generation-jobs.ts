@@ -1177,6 +1177,7 @@ async function executePayload(
     return executeParallelImageBatch({
       count: perReferenceCount * referenceBatchSize,
       concurrency: 4,
+      maxAttemptsPerSlot: 3,
       promptKind: (index) => resolvedReferenceUrls.length
         ? `tryon:reference-${Math.floor(index / perReferenceCount) + 1}`
         : "tryon",
@@ -1469,9 +1470,9 @@ async function executePayload(
         maxAttemptsPerSlot: 3,
         promptKind: "pose",
         run: async (index, onTaskProgress) => {
+          // Separate mode is already split into one API call per pose slot.
+          // Keep group-level "4 poses / user raw plan" wording out of each call.
           const posePrompt = [
-            roleBasedPrompt,
-            userIntent ? `用户补充：${userIntent}` : "",
             buildSeparatePosePrompt(fallbackPrompt, index + 1, poseStyle, payload.prompt, poseAnalysis, posePlan),
             garmentAngleDirective,
           ].filter(Boolean).join("\n");

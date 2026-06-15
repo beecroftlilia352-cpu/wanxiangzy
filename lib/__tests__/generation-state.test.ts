@@ -42,6 +42,68 @@ describe("generation-state", () => {
     expect(state.expectedCount).toBe(2);
   });
 
+  it("keeps multi-reference try-on running until every reference result is present", () => {
+    const state = normalizeGenerationState({
+      status: "processing_tryon",
+      resultUrls: ["https://example.com/1.png"],
+      payload: {
+        kind: "tryon",
+        genCount: 1,
+        referenceUrls: [
+          "https://example.com/ref-1.png",
+          "https://example.com/ref-2.png",
+        ],
+      },
+    });
+
+    expect(state.status).toBe("processing");
+    expect(state.statusGroup).toBe("running");
+    expect(state.progress).toBe(50);
+    expect(state.resultCount).toBe(1);
+    expect(state.expectedCount).toBe(2);
+  });
+
+  it("completes multi-reference try-on only after all reference results are present", () => {
+    const state = normalizeGenerationState({
+      status: "processing_tryon",
+      resultUrls: ["https://example.com/1.png", "https://example.com/2.png"],
+      payload: {
+        kind: "tryon",
+        genCount: 1,
+        referenceUrls: [
+          "https://example.com/ref-1.png",
+          "https://example.com/ref-2.png",
+        ],
+      },
+    });
+
+    expect(state.status).toBe("completed");
+    expect(state.statusGroup).toBe("finished");
+    expect(state.progress).toBe(100);
+    expect(state.resultCount).toBe(2);
+    expect(state.expectedCount).toBe(2);
+  });
+
+  it("multiplies face-swap expected count by source image count", () => {
+    const state = normalizeGenerationState({
+      status: "processing_face_swap",
+      resultUrls: ["https://example.com/1.png"],
+      payload: {
+        kind: "faceSwap",
+        genCount: 1,
+        sourceUrls: [
+          "https://example.com/source-1.png",
+          "https://example.com/source-2.png",
+        ],
+      },
+    });
+
+    expect(state.status).toBe("processing");
+    expect(state.statusGroup).toBe("running");
+    expect(state.resultCount).toBe(1);
+    expect(state.expectedCount).toBe(2);
+  });
+
   it("keeps explicit failed status finished without promoting partial results", () => {
     const state = normalizeGenerationState({
       status: "error",

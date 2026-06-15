@@ -86,6 +86,10 @@ describe("garment detail references", () => {
     expect(prompt).toContain("转身可见面");
     expect(prompt).toContain("不得作为新服装、材质增强、人物、姿势、脸、背景或光线参考");
     expect(prompt).toContain("不要无故改成通用棚拍背景");
+    expect(prompt).toContain("本次调用只输出 1 张独立");
+    expect(prompt).toContain("不要在本张里合成多图");
+    expect(prompt).not.toContain("最终输出4张");
+    expect(prompt).not.toContain("指定的 N 个新姿势");
     expect(prompt).not.toContain("局部细节补充");
   });
 });

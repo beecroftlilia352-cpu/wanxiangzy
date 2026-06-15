@@ -101,14 +101,32 @@ function isFailedStatus(status: string) {
 }
 
 function readExpectedCount(payload: Record<string, unknown>, resultCount: number) {
+  if (payload.kind === "tryon") {
+    const referenceCount = payload.sceneMode === "auto_design"
+      ? 1
+      : Math.max(1, uniqueStrings([...stringArray(payload.referenceUrls), stringValue(payload.referenceUrl)]).length);
+    const perReferenceCount = firstFiniteNumber([payload.genCount, payload.gen_count, payload.outputCount, payload.count]) || 1;
+    return clampExpectedCount(perReferenceCount * referenceCount);
+  }
+
+  if (payload.kind === "faceSwap") {
+    const sourceCount = Math.max(1, uniqueStrings([...stringArray(payload.sourceUrls), stringValue(payload.sourceUrl)]).length);
+    const perSourceCount = firstFiniteNumber([payload.genCount, payload.gen_count, payload.outputCount, payload.count]) || 1;
+    return clampExpectedCount(perSourceCount * sourceCount);
+  }
+
   const direct = firstFiniteNumber([
     payload.genCount,
     payload.gen_count,
     payload.outputCount,
     payload.count,
   ]);
-  if (direct) return Math.max(1, Math.min(Math.round(direct), 24));
+  if (direct) return clampExpectedCount(direct);
   return Math.max(1, resultCount || 1);
+}
+
+function clampExpectedCount(value: number) {
+  return Math.max(1, Math.min(Math.round(value), 24));
 }
 
 function readRunningProgress(params: { asyncProgress?: unknown; resultCount: number; expectedCount: number }) {
@@ -197,4 +215,20 @@ function clampProgress(value: unknown, max = 99) {
 
 function stringArray(value: unknown) {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string" && item.trim().length > 0) : [];
+}
+
+function stringValue(value: unknown) {
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : "";
+}
+
+function uniqueStrings(values: string[]) {
+  const seen = new Set<string>();
+  const unique: string[] = [];
+  for (const value of values) {
+    const normalized = value.trim();
+    if (!normalized || seen.has(normalized)) continue;
+    seen.add(normalized);
+    unique.push(normalized);
+  }
+  return unique;
 }
