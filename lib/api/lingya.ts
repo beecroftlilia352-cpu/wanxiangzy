@@ -462,10 +462,11 @@ export async function batchTryOn(input: BatchTryOnInput): Promise<{ resultUrls: 
 }
 
 export function applyTryOnRequestPrompt(prompt: string, input: TryOnRequestPromptOptions) {
-  const lines = [prompt.trim()];
+  const basePrompt = prompt.trim();
+  const lines = [basePrompt];
   lines.push(buildTryOnPhotoFinishDirective(input));
   const cropDirective = buildTryOnRequestCropDirective(input);
-  if (cropDirective) lines.push(cropDirective);
+  if (cropDirective && shouldAppendTryOnRequestCropDirective(basePrompt)) lines.push(cropDirective);
   const candidateDirective = buildTryOnCandidateDirective(input);
   if (candidateDirective) lines.push(candidateDirective);
   const garmentDetailDirective = buildGarmentDetailReferencePrompt({
@@ -475,6 +476,10 @@ export function applyTryOnRequestPrompt(prompt: string, input: TryOnRequestPromp
   }) || buildGarmentDetailReferencePrompt(input.garmentDetailCount || 0);
   if (garmentDetailDirective) lines.push(garmentDetailDirective);
   return lines.filter(Boolean).join("\n");
+}
+
+function shouldAppendTryOnRequestCropDirective(prompt: string) {
+  return !/Reference visual analysis|Crop lock - HARD|裁切锁定/i.test(prompt);
 }
 
 function buildTryOnPhotoFinishDirective(input: TryOnRequestPromptOptions) {

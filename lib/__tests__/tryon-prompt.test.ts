@@ -164,6 +164,42 @@ describe("try-on prompt face integration", () => {
     expect(prompt).not.toContain("micro-expression");
   });
 
+  it("does not duplicate runtime crop lock when the base prompt already has reference analysis", () => {
+    const referenceAnalysis = {
+      index: 1,
+      bodyCrop: "upper_body" as const,
+      personVisible: true,
+      faceVisible: true,
+      headVisible: true,
+      upperBodyVisible: true,
+      lowerBodyVisible: false,
+      handsVisible: true,
+      feetVisible: false,
+      detailFocus: ["face", "upper body"],
+      promptNotes: "Use the visible face and upper-body crop.",
+      confidence: 0.92,
+    };
+    const runtimeOptions = {
+      model: "gpt-image-2" as const,
+      candidateIndex: 0,
+      candidateCount: 1,
+      referenceUrl: "https://example.com/reference.jpg",
+      modelFaceUrl: "https://example.com/face.jpg",
+      referenceAnalysis,
+      referenceImageNumber: 2,
+    };
+
+    const rawPrompt = applyTryOnRequestPrompt("BASE", runtimeOptions);
+    const lockedPrompt = applyTryOnRequestPrompt(
+      "BASE\nReference visual analysis: image 2 body crop=upper_body. Crop lock - HARD: keep image 2 as an upper-body target frame.",
+      runtimeOptions
+    );
+
+    expect(rawPrompt).toContain("裁切锁定：Crop lock - HARD");
+    expect(lockedPrompt).not.toContain("裁切锁定：");
+    expect(lockedPrompt.match(/Crop lock - HARD/g) || []).toHaveLength(1);
+  });
+
   it("structures repeated user instructions without amplifying raw duplicate text", () => {
     const { prompt } = buildTryOnPrompt({
       clothingCount: 1,
