@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildOutfitFusionDemoResults,
   buildOutfitFusionPrompt,
+  buildOutfitFusionRuntimePlan,
   buildOutfitFusionVisibleFaceText,
   buildOutfitFusionVisionPromptRequest,
   clampOutfitFusionCount,
@@ -44,9 +45,11 @@ describe("outfit fusion templates", () => {
     expect(template.prompt).not.toContain("最终脸必须一眼像");
 
     expect(prompt).toContain(template.prompt);
-    expect(prompt).toMatch(/^脸部身份规则：图6是最终脸部身份唯一来源/);
+    expect(prompt).toMatch(/^图像角色锁定：图1=target\/base canvas/);
+    expect(prompt).toContain("脸部身份规则：图6是最终脸部身份唯一来源");
     expect(prompt).toContain("最终脸必须一眼像图6本人");
     expect(prompt).toContain("图1只提供身体、姿态、构图");
+    expect(prompt).toContain("核心编辑任务：以图1作为最终画面的唯一底图/构图基础");
     expect(prompt).toContain("核心任务：");
     expect(prompt).toContain("固定生成规则：最终只生成一张完整的单人商业摄影穿搭照片");
     expect(prompt).toContain("不要拼图、四宫格、2x2 网格、分屏");
@@ -80,11 +83,65 @@ describe("outfit fusion templates", () => {
 
     expect(prompt).toContain(userPrompt);
     expect(prompt).not.toMatch(/【(?:参考图|搭配图|模特图)\d+】/);
-    expect(prompt).not.toMatch(/图\d+\s*=/);
+    expect(prompt).toContain("图像角色锁定：");
     expect(prompt).not.toContain("最终脸=");
     expect(prompt).toContain("图3是最终脸部身份唯一来源");
     expect(prompt).toContain("一律以当前真实上传的图3作为最终脸部身份来源");
     expect(prompt).toContain("图1只作为服装、鞋包、帽子、围巾或配饰商品来源");
+  });
+
+  it("builds a reference-first runtime plan and remaps prompt image numbers", () => {
+    const plan = buildOutfitFusionRuntimePlan({
+      assets: [
+        { id: "shirt", role: "outfit", url: "https://example.com/shirt.png" },
+        { id: "face", role: "model", url: "https://example.com/face.png" },
+        { id: "reference", role: "reference", url: "https://example.com/reference.png" },
+        { id: "bag", role: "outfit", url: "https://example.com/bag.png" },
+      ],
+      userPrompt: "让图3的人物姿态、构图和场景氛围作为画面基础，身穿图1的衬衫，手持图4的包，把模特换成图2的模特。",
+      config: DEFAULT_OUTFIT_FUSION_CONFIG,
+    });
+
+    expect(plan.assets.map((asset) => asset.id)).toEqual(["reference", "shirt", "bag", "face"]);
+    expect(plan.referenceUrls).toEqual([
+      "https://example.com/reference.png",
+      "https://example.com/shirt.png",
+      "https://example.com/bag.png",
+      "https://example.com/face.png",
+    ]);
+    expect(plan.referenceUrl).toBe("https://example.com/reference.png");
+    expect(plan.clothingUrls).toEqual(["https://example.com/shirt.png", "https://example.com/bag.png"]);
+    expect(plan.modelFaceUrl).toBe("https://example.com/face.png");
+    expect(plan.imageNumberMap).toEqual([
+      { originalImageNumber: 3, runtimeImageNumber: 1, role: "reference", url: "https://example.com/reference.png" },
+      { originalImageNumber: 1, runtimeImageNumber: 2, role: "outfit", url: "https://example.com/shirt.png" },
+      { originalImageNumber: 4, runtimeImageNumber: 3, role: "outfit", url: "https://example.com/bag.png" },
+      { originalImageNumber: 2, runtimeImageNumber: 4, role: "model", url: "https://example.com/face.png" },
+    ]);
+    expect(plan.prompt).toContain("图像角色锁定：图1=target/base canvas");
+    expect(plan.prompt).toContain("图4=model face identity 模特脸图");
+    expect(plan.prompt).toContain("核心任务：让图1的人物姿态、构图和场景氛围作为画面基础，身穿图2的衬衫，手持图3的包，把模特换成图4的模特。");
+    expect(plan.prompt).not.toContain("身穿图1的衬衫");
+    expect(plan.prompt).not.toContain("换成图2的模特");
+  });
+
+  it("keeps no-reference runtime plans outfit-first without inventing a base canvas", () => {
+    const plan = buildOutfitFusionRuntimePlan({
+      assets: [
+        { id: "face", role: "model", url: "https://example.com/face.png" },
+        { id: "dress", role: "outfit", url: "https://example.com/dress.png" },
+      ],
+      userPrompt: "让自然商业模特穿图2的连衣裙，把模特换成图1的模特。",
+      config: DEFAULT_OUTFIT_FUSION_CONFIG,
+    });
+
+    expect(plan.assets.map((asset) => asset.id)).toEqual(["dress", "face"]);
+    expect(plan.referenceUrl).toBeNull();
+    expect(plan.modelFaceUrl).toBe("https://example.com/face.png");
+    expect(plan.prompt).toContain("本次没有上传 target/base canvas 目标底图");
+    expect(plan.prompt).toContain("核心生成任务：生成一张新的单人商业穿搭照片");
+    expect(plan.prompt).toContain("核心任务：让自然商业模特穿图1的连衣裙，把模特换成图2的模特。");
+    expect(plan.prompt).not.toContain("图1=target/base canvas");
   });
 
   it("does not inject generation count or model metadata into the prompt", () => {

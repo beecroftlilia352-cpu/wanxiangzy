@@ -30,6 +30,23 @@ export type OutfitFusionConfig = {
   quality: OutfitFusionQuality;
 };
 
+export type OutfitFusionRuntimeImageMapItem = {
+  originalImageNumber: number;
+  runtimeImageNumber: number;
+  role: OutfitFusionAssetRole;
+  url: string;
+};
+
+export type OutfitFusionRuntimePlan = {
+  assets: OutfitFusionAsset[];
+  referenceUrls: string[];
+  clothingUrls: string[];
+  modelFaceUrl: string | null;
+  referenceUrl: string | null;
+  prompt: string;
+  imageNumberMap: OutfitFusionRuntimeImageMapItem[];
+};
+
 export const OUTFIT_FUSION_MODELS: Array<{ value: LingyaModel; label: string; desc: string }> = [
   { value: "nano-banana-2", label: "Nano-Banana-2", desc: "高性价比，适合批量出图" },
   { value: "gpt-image-2", label: "GPT-Image-2", desc: "细节稳定，适合复杂多物件" },
@@ -82,8 +99,20 @@ export function buildOutfitFusionHiddenFaceConstraints(input: {
   const outfitRoleText = outfitText
     ? `${outfitText}只作为服装、鞋包、帽子、围巾或配饰商品来源，不是人物、姿势、脸部身份、肤色、光照、背景或场景参考；只提取商品本体的品类、款式、廓形、颜色、图案、Logo/文字、材质、面料纹理、正确身体部位和穿戴层级。`
     : "所有搭配商品图只作为商品来源，不是人物、姿势、脸部身份、肤色、光照、背景或场景参考。";
+  const roleLockText = [
+    referenceRef
+      ? `图像角色锁定：${referenceRef}=target/base canvas 目标底图，只控制最终画面的身体、姿态、构图、背景、镜头、光影、头部位置/大小、表情方向和肤色明暗。`
+      : "图像角色锁定：本次没有上传 target/base canvas 目标底图；需要根据用户关系描述生成新的单人商业穿搭图，不得把任一商品图当成人物底图。",
+    outfitText ? `${outfitText}=商品来源，只控制对应服装、鞋包和配饰本体。` : "",
+    `${modelRef}=model face identity 模特脸图，只控制最终人物脸部身份、脸型、五官、骨相、可识别相似度、发色和发型。`,
+  ].filter(Boolean).join(" ");
+  const taskLockText = referenceRef
+    ? `核心编辑任务：以${referenceRef}作为最终画面的唯一底图/构图基础，把${outfitText || "商品图"}中的商品穿戴到${referenceRef}人物对应位置，并把最终人物脸部身份替换为${modelRef}。`
+    : `核心生成任务：生成一张新的单人商业穿搭照片，把${outfitText || "商品图"}中的商品穿戴到人物对应位置，并把最终人物脸部身份设定为${modelRef}；不得从商品图复制人物、姿势、背景或脸。`;
 
   return [
+    roleLockText,
+    taskLockText,
     `脸部身份规则：${modelRef}是最终脸部身份唯一来源。本任务是身份替换任务，最终脸必须一眼像${modelRef}本人；如果最终脸仍像参考图原人物、随机陌生人、通用网红脸或两张脸平均融合，即使服装正确也判定失败。`,
     referenceText,
     `${modelRef}只控制最终脸部身份、脸型轮廓、五官结构、眼形眼距、眉形、鼻梁/鼻尖/鼻翼、嘴形、五官比例、骨相、可识别相似度、发色和发型；不提供服装、身体、姿势、背景或光照。`,
@@ -306,6 +335,62 @@ export function getOutfitFusionPreviewRole(role: OutfitFusionAssetRole): ImagePr
   if (role === "reference") return "reference";
   if (role === "model") return "model";
   return "clothing";
+}
+
+export function buildOutfitFusionRuntimePlan(input: {
+  assets: OutfitFusionAsset[];
+  prompt?: string | null;
+  userPrompt?: string | null;
+  config: OutfitFusionConfig;
+}): OutfitFusionRuntimePlan {
+  const runtime = buildOutfitFusionRuntimeImageOrder(input.assets);
+  const visiblePrompt = getOutfitFusionDisplayPrompt(input.userPrompt || input.prompt, input.userPrompt || input.prompt || "");
+  const remappedVisiblePrompt = remapOutfitFusionPromptImageNumbers(visiblePrompt, runtime.imageNumberMap);
+  const prompt = buildOutfitFusionPrompt({
+    templatePrompt: remappedVisiblePrompt,
+    assets: runtime.assets,
+    config: input.config,
+  });
+  const referenceAsset = runtime.assets.find((asset) => asset.role === "reference") || null;
+  const modelAsset = runtime.assets.find((asset) => asset.role === "model") || null;
+  return {
+    assets: runtime.assets,
+    referenceUrls: runtime.assets.map((asset) => asset.url),
+    clothingUrls: runtime.assets.filter((asset) => asset.role === "outfit").map((asset) => asset.url),
+    modelFaceUrl: modelAsset?.url || null,
+    referenceUrl: referenceAsset?.url || null,
+    prompt,
+    imageNumberMap: runtime.imageNumberMap,
+  };
+}
+
+export function buildOutfitFusionRuntimeImageOrder(assets: OutfitFusionAsset[]) {
+  const entries = assets.map((asset, originalIndex) => ({ asset, originalIndex }));
+  const orderedEntries = [
+    ...entries.filter((entry) => entry.asset.role === "reference"),
+    ...entries.filter((entry) => entry.asset.role === "outfit"),
+    ...entries.filter((entry) => entry.asset.role === "model"),
+  ];
+  const runtimeAssets = orderedEntries.map((entry) => ({ ...entry.asset }));
+  return {
+    assets: runtimeAssets,
+    imageNumberMap: orderedEntries.map((entry, runtimeIndex) => ({
+      originalImageNumber: entry.originalIndex + 1,
+      runtimeImageNumber: runtimeIndex + 1,
+      role: entry.asset.role,
+      url: entry.asset.url,
+    })),
+  };
+}
+
+export function remapOutfitFusionPromptImageNumbers(prompt: string, imageNumberMap: OutfitFusionRuntimeImageMapItem[]) {
+  const trimmed = prompt.trim();
+  if (!trimmed || imageNumberMap.length === 0) return trimmed;
+  const numberMap = new Map(imageNumberMap.map((item) => [item.originalImageNumber, item.runtimeImageNumber]));
+  return trimmed.replace(/图\s*([1-9]\d*)/g, (match, rawNumber: string) => {
+    const nextNumber = numberMap.get(Number(rawNumber));
+    return nextNumber ? `图${nextNumber}` : match;
+  });
 }
 
 export function outfitFusionReferencesFromAssets(assets: OutfitFusionAsset[]): ImagePreviewReference[] {

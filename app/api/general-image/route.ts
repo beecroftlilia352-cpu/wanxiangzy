@@ -13,7 +13,7 @@ import { startGenerationJob, type GenerationJobPayload } from "@/lib/api/generat
 import { handleGenerationStatusGet } from "@/lib/api/generation-status";
 import { getPublicBaseUrlFromRequest } from "@/lib/api/image-inputs.server";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
-import type { OutfitFusionHistoryAsset } from "@/lib/history-apply";
+import { buildOutfitFusionRuntimePlan, type OutfitFusionAsset, type OutfitFusionConfig } from "@/lib/outfit-fusion";
 
 export const maxDuration = 60;
 
@@ -57,19 +57,38 @@ export async function POST(request: NextRequest) {
     const totalCost = getCreditCost(model, size, aspectRatio) * genCount;
     const moduleKind = normalizeModuleKind(body.module_kind || body.module);
     const outfitFusionAssets = moduleKind === "outfitFusion" ? normalizeOutfitFusionAssets(body.input_assets, referenceUrls) : undefined;
-    const outfitFusionModelFaceUrl = outfitFusionAssets?.find((asset) => asset.role === "model")?.url || null;
-    const outfitFusionReferenceUrl = outfitFusionAssets?.find((asset) => asset.role === "reference")?.url || referenceUrls[0] || null;
-    const outfitFusionClothingUrls = outfitFusionAssets?.filter((asset) => asset.role === "outfit").map((asset) => asset.url) || [];
+    const outfitFusionAspectRatio: OutfitFusionConfig["aspectRatio"] = aspectRatio === "1:1" || aspectRatio === "3:4" ? aspectRatio : "auto";
+    const outfitFusionRuntimePlan = moduleKind === "outfitFusion" && outfitFusionAssets
+      ? buildOutfitFusionRuntimePlan({
+          assets: outfitFusionAssets,
+          prompt,
+          userPrompt,
+          config: {
+            aspectRatio: outfitFusionAspectRatio,
+            genCount,
+            imageSize: size,
+            aiModel: model,
+            quality: "hd",
+          },
+        })
+      : null;
+    const outfitFusionModelFaceUrl = outfitFusionRuntimePlan?.modelFaceUrl || null;
+    const outfitFusionReferenceUrl = outfitFusionRuntimePlan?.referenceUrl || referenceUrls[0] || null;
+    const outfitFusionClothingUrls = outfitFusionRuntimePlan?.clothingUrls || [];
     const moduleLabel = moduleKind === "outfitFusion" ? "搭配融图" : "通用生图";
 
     const payloadBase = {
       publicBaseUrl: getPublicBaseUrlFromRequest(request),
       mode,
-      referenceUrls: mode === "image-to-image" ? referenceUrls : [],
+      referenceUrls: mode === "image-to-image"
+        ? moduleKind === "outfitFusion"
+          ? outfitFusionRuntimePlan?.referenceUrls || referenceUrls
+          : referenceUrls
+        : [],
       aiModel: model,
       aspectRatio,
       imageSize: size,
-      prompt,
+      prompt: moduleKind === "outfitFusion" ? outfitFusionRuntimePlan?.prompt || prompt : prompt,
       genCount,
     };
     const jobPayload: GenerationJobPayload = moduleKind === "outfitFusion"
@@ -77,7 +96,7 @@ export async function POST(request: NextRequest) {
           kind: "outfitFusion",
           ...payloadBase,
           userPrompt,
-          assets: outfitFusionAssets,
+          assets: outfitFusionRuntimePlan?.assets || outfitFusionAssets,
           clothingUrls: outfitFusionClothingUrls,
           modelFaceUrl: outfitFusionModelFaceUrl,
           referenceUrl: outfitFusionReferenceUrl,
@@ -135,7 +154,7 @@ function normalizeReferenceUrls(value: unknown) {
     .slice(0, 8);
 }
 
-function normalizeOutfitFusionAssets(value: unknown, fallbackUrls: string[]): OutfitFusionHistoryAsset[] {
+function normalizeOutfitFusionAssets(value: unknown, fallbackUrls: string[]): OutfitFusionAsset[] {
   const fallback = fallbackUrls.map((url, index) => ({
     id: `input-${index}`,
     role: "outfit" as const,
@@ -148,7 +167,7 @@ function normalizeOutfitFusionAssets(value: unknown, fallbackUrls: string[]): Ou
     const record = item as Record<string, unknown>;
     const url = typeof record.url === "string" ? record.url.trim() : "";
     if (!(/^https?:\/\//i.test(url) || /^data:image\//i.test(url))) return [];
-    const role: OutfitFusionHistoryAsset["role"] = record.role === "reference" || record.role === "model" || record.role === "outfit" ? record.role : "outfit";
+    const role: OutfitFusionAsset["role"] = record.role === "reference" || record.role === "model" || record.role === "outfit" ? record.role : "outfit";
     const name = typeof record.name === "string" && record.name.trim() ? record.name.trim().slice(0, 32) : undefined;
     const id = typeof record.id === "string" && record.id.trim() ? record.id.trim().slice(0, 80) : `input-${index}`;
     return [{ id, role, url, name }];
