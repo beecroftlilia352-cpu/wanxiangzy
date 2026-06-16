@@ -7,7 +7,6 @@ import {
   CheckCircle2,
   ChevronRight,
   Images,
-  Loader2,
   Sparkles,
   UserRound,
   X,
@@ -26,6 +25,7 @@ import type { TaskSelectionSession } from "@/components/studio/useTaskSelectionS
 import { StudioGenerationCountSelector, StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/components/studio/StudioFormControls";
 import { StudioRunBar } from "@/components/studio/StudioRunBar";
 import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
+import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { useStableFileDrag } from "@/components/studio/useStableFileDrag";
 import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
@@ -226,7 +226,7 @@ export default function ModelBackgroundPage() {
       resultTitlePrefix: "换背景结果",
       aspectRatio,
     }),
-    [activeResultExpectedCount, aiModel, aspectRatio, backgroundSource, backgroundText, genCount, hasModelReference, imageSize, isGenerating, mode, promptImages, resultUrls, runningExpectedCount, selectedBackgroundPreset.name, userPrompt]
+    [activeResultExpectedCount, aiModel, aspectRatio, backgroundSource, backgroundText, genCount, hasModelReference, imageSize, isGenerating, mode, promptImages, resultUrls, selectedBackgroundPreset.name, userPrompt]
   );
   const imageSizes = getSupportedImageSizes(aiModel, aspectRatio);
   const unitCost = getCreditCost(aiModel, imageSize, aspectRatio);
@@ -247,14 +247,6 @@ export default function ModelBackgroundPage() {
         : credits !== null && credits < cost
           ? `灵点不足，生成需要 ${cost} 灵点`
           : undefined;
-  const backgroundReferenceLabel = mode === "model_only"
-    ? "未使用"
-    : backgroundSource === "preset"
-      ? selectedBackgroundPreset.name
-      : backgroundSource === "upload"
-        ? backgroundReferenceUrl ? "自定义上传" : "未上传"
-        : "文生背景";
-
   useEffect(() => {
     const sourceImage = takeSourceImageFromLocation();
     if (sourceImage) {
@@ -717,7 +709,7 @@ export default function ModelBackgroundPage() {
                       }}
                       className="block w-full"
                     >
-                      <img src={model.imageUrl} alt={model.name} className="aspect-square w-full object-cover" />
+                      <RawPreviewImage src={model.imageUrl} alt={model.name} className="aspect-square w-full object-cover" />
                       <div className="p-1 text-center"><span className="text-[10px] font-medium">{model.name}</span></div>
                     </button>
                     <button
@@ -734,7 +726,7 @@ export default function ModelBackgroundPage() {
                 <div className={`group relative overflow-hidden rounded-lg border-2 border-dashed transition-all ${modelReferenceUrl && !PRESET_BACKGROUND_MODELS.some((item) => item.imageUrl === modelReferenceUrl) ? "border-purple-400 bg-purple-50" : "border-gray-200 hover:border-purple-300"}`}>
                   <button type="button" onClick={() => modelInputRef.current?.click()} className="flex aspect-square w-full flex-col items-center justify-center">
                     {modelReferenceUrl && !PRESET_BACKGROUND_MODELS.some((item) => item.imageUrl === modelReferenceUrl)
-                      ? <img src={modelReferenceUrl} alt={modelReferenceName || "自定义模特"} className="h-full w-full rounded-lg object-contain p-1" />
+                      ? <RawPreviewImage src={modelReferenceUrl} alt={modelReferenceName || "自定义模特"} className="h-full w-full rounded-lg object-contain p-1" />
                       : <><Camera className="w-5 h-5 text-gray-300" /><span className="mt-1 text-[10px] text-gray-400">点击上传</span></>
                     }
                   </button>
@@ -808,7 +800,7 @@ export default function ModelBackgroundPage() {
                           className="block w-full"
                         >
                           <div className="relative aspect-[3/4] overflow-hidden bg-slate-100">
-                            <img src={item.imageUrl} alt={item.name} className="h-full w-full object-cover transition group-hover:scale-105" />
+                            <RawPreviewImage src={item.imageUrl} alt={item.name} className="h-full w-full object-cover transition group-hover:scale-105" />
                           </div>
                           <p className="truncate px-1.5 py-1.5 text-[11px] font-bold text-slate-800">{item.name}</p>
                         </button>
@@ -829,7 +821,7 @@ export default function ModelBackgroundPage() {
                 <button type="button" onClick={() => backgroundInputRef.current?.click()} className="group studio-upload-dropzone studio-fixed-upload-slot flex w-full flex-col items-center justify-center overflow-hidden rounded-2xl border border-dashed border-slate-200 p-3 text-center transition hover:border-purple-300" style={{ "--studio-fixed-upload-height": "328px" } as CSSProperties}>
                   {backgroundReferenceUrl ? (
                     <div className="studio-fixed-upload-preview studio-checkerboard relative mb-2 overflow-hidden rounded-xl" style={{ "--studio-fixed-preview-height": "220px" } as CSSProperties}>
-                      <img src={backgroundReferenceUrl} alt="背景参考" className="h-full w-full object-contain p-2" />
+                      <RawPreviewImage src={backgroundReferenceUrl} alt="背景参考" className="h-full w-full object-contain p-2" />
                       <span
                         role="button"
                         tabIndex={0}
@@ -1015,7 +1007,7 @@ export default function ModelBackgroundPage() {
                 {MODEL_BACKGROUND_UPLOAD_RULE.demos.map((demo) => (
                   <div key={demo.imageUrl} className="rounded-2xl border border-slate-100 bg-slate-50/70 p-2">
                     <div className="relative overflow-hidden rounded-xl bg-white">
-                      <img src={demo.imageUrl} alt={demo.title} className="aspect-[3/4] w-full object-cover" />
+                      <RawPreviewImage src={demo.imageUrl} alt={demo.title} className="aspect-[3/4] w-full object-cover" />
                       <CheckCircle2 className="absolute right-2 top-2 h-5 w-5 rounded-full bg-white text-emerald-500" />
                     </div>
                     <p className="mt-2 text-center text-xs font-semibold text-slate-700">{demo.title}</p>
@@ -1028,7 +1020,7 @@ export default function ModelBackgroundPage() {
                 {MODEL_BACKGROUND_UPLOAD_RULE.badExamples.map((bad) => (
                   <div key={bad.imageUrl} className="rounded-2xl border border-red-100 bg-red-50/50 p-2">
                     <div className="relative overflow-hidden rounded-xl bg-white">
-                      <img src={bad.imageUrl} alt={bad.title} className="aspect-[3/4] w-full object-cover" />
+                      <RawPreviewImage src={bad.imageUrl} alt={bad.title} className="aspect-[3/4] w-full object-cover" />
                       <X className="absolute right-2 top-2 h-5 w-5 rounded-full bg-red-500 p-0.5 text-white" />
                     </div>
                     <p className="mt-2 text-center text-xs font-semibold text-slate-700">{bad.title}</p>
@@ -1043,7 +1035,7 @@ export default function ModelBackgroundPage() {
       {lightboxSrc ? (
         <ClientPortal>
           <div className="fixed inset-0 z-[180] flex cursor-zoom-out items-center justify-center bg-slate-950/66 p-4 backdrop-blur-xl sm:p-8" onClick={() => setLightboxSrc(null)}>
-            <img src={lightboxSrc} alt="预览" className="max-h-full max-w-full rounded-2xl object-contain shadow-[0_32px_120px_rgba(0,0,0,0.45)]" />
+            <RawPreviewImage src={lightboxSrc} alt="预览" className="max-h-full max-w-full rounded-2xl object-contain shadow-[0_32px_120px_rgba(0,0,0,0.45)]" />
             <button type="button" onClick={() => setLightboxSrc(null)} className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full border border-white/85 bg-white/90 text-slate-700 shadow-[0_12px_34px_rgba(15,23,42,0.22)] backdrop-blur transition-colors hover:bg-white hover:text-slate-950 sm:right-6 sm:top-6">
               <X className="h-5 w-5" />
             </button>

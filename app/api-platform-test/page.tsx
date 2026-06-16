@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { FeatureTabs } from "@/components/FeatureTabs";
 import { ModuleHeader } from "@/components/ModuleHeader";
 import { LoadingStage } from "@/components/studio/LoadingStage";
+import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 
 const DEFAULT_API_URL = "https://yunwu.ai";
@@ -336,7 +337,7 @@ export default function ApiPlatformTestPage() {
                   <div className="mt-3 grid grid-cols-3 gap-2">
                     {inputImages.map((image) => (
                       <div key={image.id} className="relative overflow-hidden rounded-lg border bg-gray-50">
-                        <img src={image.dataUrl} className="h-24 w-full object-cover" alt={image.name} />
+                        <RawPreviewImage src={image.dataUrl} className="h-24 w-full object-cover" alt={image.name} />
                         <div className={`absolute left-1 top-1 rounded-full px-1.5 py-0.5 text-[10px] font-bold shadow-sm ${
                           image.status === "uploaded"
                             ? "bg-emerald-50 text-emerald-600"
@@ -411,7 +412,7 @@ export default function ApiPlatformTestPage() {
               <div className="grid gap-4 md:grid-cols-2">
                 {outputImages.map((url, index) => (
                   <a key={index} href={url} target="_blank" rel="noreferrer" className="group block overflow-hidden rounded-[22px] border border-white/70 bg-white/75 shadow-xl shadow-slate-200/60 transition hover:-translate-y-0.5 hover:shadow-2xl">
-                    <img src={url} className="h-[420px] w-full object-contain" alt={`生成结果 ${index + 1}`} />
+                    <RawPreviewImage src={url} className="h-[420px] w-full object-contain" alt={`生成结果 ${index + 1}`} />
                     <div className="border-t bg-white/85 px-3 py-2 text-xs font-medium text-gray-500 group-hover:text-[var(--codex-accent)]">打开原图</div>
                   </a>
                 ))}

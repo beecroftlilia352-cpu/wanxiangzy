@@ -19,13 +19,14 @@ import { FeatureTabs } from "@/components/FeatureTabs";
 import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
 import { OutfitFusionComposer } from "@/components/outfit-fusion/OutfitFusionComposer";
 import { OutfitFusionExampleGallery } from "@/components/outfit-fusion/OutfitFusionExampleGallery";
+import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { TaskSelectionSession } from "@/components/studio/useTaskSelectionSession";
 import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
 import { useStudioAuth } from "@/components/studio/useStudioAuth";
 import { cn, MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
-import { isTaskRunning, safeTaskQueueUrls, type TaskQueueItem, type TaskStatusGroup } from "@/lib/task-queue";
+import { safeTaskQueueUrls, type TaskQueueItem, type TaskStatusGroup } from "@/lib/task-queue";
 import { getCreditCost } from "@/lib/api/lingya";
 import { showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
 import { fetchHistoryApplyDetail, takeApplyDetail, type HistoryApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
@@ -101,6 +102,7 @@ export function OutfitFusionPageClient() {
   const scrollFrameRef = useRef<number | null>(null);
   const scrollIntentRef = useRef<{ direction: "up" | "down" | null; distance: number }>({ direction: null, distance: 0 });
   const lastComposerToggleAtRef = useRef(0);
+  const applyOutfitFusionApplyDetailRef = useRef(applyOutfitFusionApplyDetail);
   const {
     authChecked,
     isAuthenticated,
@@ -118,11 +120,15 @@ export function OutfitFusionPageClient() {
   });
 
   useEffect(() => {
+    applyOutfitFusionApplyDetailRef.current = applyOutfitFusionApplyDetail;
+  });
+
+  useEffect(() => {
     let cancelled = false;
     void (async () => {
       const detail = await takeApplyDetail("outfitFusion");
       if (cancelled || !detail) return;
-      applyOutfitFusionApplyDetail(detail);
+      applyOutfitFusionApplyDetailRef.current(detail);
     })();
     return () => {
       cancelled = true;
@@ -137,7 +143,7 @@ export function OutfitFusionPageClient() {
       void (async () => {
         try {
           const historyDetail = await fetchHistoryApplyDetail(generationId, "outfitFusion");
-          applyOutfitFusionApplyDetail(historyDetail);
+          applyOutfitFusionApplyDetailRef.current(historyDetail);
         } catch (error) {
           toast.error(error instanceof Error ? error.message : "作品库参数加载失败");
         }
@@ -754,7 +760,7 @@ export function OutfitFusionPageClient() {
         silent: session.reason === "restore",
       });
       return true;
-    } catch (error) {
+    } catch {
       if (session.signal.aborted || !session.isCurrent()) return true;
       upsertTaskFromQueueItem(item);
       if (item.statusGroup === "failed") toast.error(item.error || "历史任务加载失败");
@@ -1195,7 +1201,7 @@ function TaskInputReuseStack({ assets, onReuse }: { assets: OutfitFusionAsset[];
                     <span className="absolute left-0 top-0 z-[1] max-w-full truncate rounded-br-[4px] bg-slate-950/72 px-1 py-0.5 text-[9px] font-semibold leading-none text-white">
                       {label}
                     </span>
-                    <img src={asset.url} alt={`${label}${getOutfitFusionRoleLabel(asset.role)}`} className="h-full w-full object-cover" />
+                    <RawPreviewImage src={asset.url} alt={`${label}${getOutfitFusionRoleLabel(asset.role)}`} className="h-full w-full object-cover" />
                   </span>
                 );
               })}
@@ -1226,7 +1232,7 @@ function LoadableResultImage({ src, alt }: { src: string; alt: string }) {
           <span className="studio-loading-card-sheen" />
         </>
       ) : null}
-      <img
+      <RawPreviewImage
         src={src}
         alt={alt}
         loading="lazy"
@@ -1291,7 +1297,9 @@ function normalizeOutfitFusionAssetRole(value: unknown): OutfitFusionAssetRole |
   return null;
 }
 
-function inferOutfitFusionRoleFromPrompt(_prompt: string, _index: number): OutfitFusionAssetRole {
+function inferOutfitFusionRoleFromPrompt(prompt: string, index: number): OutfitFusionAssetRole {
+  void prompt;
+  void index;
   return "outfit";
 }
 

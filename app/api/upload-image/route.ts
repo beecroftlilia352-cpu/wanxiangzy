@@ -3,6 +3,7 @@ import { Buffer } from "node:buffer";
 import { requireApiUser } from "@/lib/api/auth";
 import { storeImage } from "@/lib/api/image-storage";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
+import { RemoteImageFetchError } from "@/lib/api/remote-image-fetch";
 
 export const maxDuration = 60;
 
@@ -102,7 +103,7 @@ export async function POST(request: Request) {
         name: typeof name === "string" && name.trim() ? name.trim() : "upload",
         storageClass: "upload",
       },
-      { timeoutMs: IMAGE_UPLOAD_TIMEOUT_MS }
+      { maxRemoteBytes: MAX_UPLOAD_BYTES, timeoutMs: IMAGE_UPLOAD_TIMEOUT_MS }
     );
 
     return NextResponse.json({
@@ -115,6 +116,18 @@ export async function POST(request: Request) {
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("[upload-image] error:", { message, userId, ...uploadDebug });
+    if (err instanceof RemoteImageFetchError) {
+      if (err.code === "timeout") {
+        return NextResponse.json({ error: "远程图片下载超时，请稍后重试" }, { status: 504 });
+      }
+      if (err.code === "too-large") {
+        return NextResponse.json({ error: `图片不能超过 ${MAX_UPLOAD_MB}MB` }, { status: 413 });
+      }
+      if (err.code === "bad-status") {
+        return NextResponse.json({ error: "远程图片下载失败" }, { status: 502 });
+      }
+      return NextResponse.json({ error: "远程图片地址不被允许" }, { status: 400 });
+    }
     if (message.includes("图片上传服务未配置") || message.includes("图床上传服务未配置") || message.includes("IMGBB_API_KEY") || message.includes("ALIYUN_OSS")) {
       return NextResponse.json({ error: "图片上传服务未配置" }, { status: 500 });
     }

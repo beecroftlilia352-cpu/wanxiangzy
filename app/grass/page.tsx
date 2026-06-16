@@ -17,6 +17,7 @@ import { StudioGenerationCountSelector, StudioModelSelector, StudioOptionGrid, S
 import { StudioRunBar } from "@/components/studio/StudioRunBar";
 import { StudioUploadSection } from "@/components/studio/StudioUploadSection";
 import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
+import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { useStableFileDrag } from "@/components/studio/useStableFileDrag";
 import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
@@ -125,7 +126,7 @@ export default function GrassPage() {
   const [isUploadingGarment, setIsUploadingGarment] = useState(false);
   const [isUploadingReference, setIsUploadingReference] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [progress, setProgress] = useState(0);
+  const [, setProgress] = useState(0);
   const [resultUrls, setResultUrls] = useState<string[]>([]);
   const [runningExpectedCount, setRunningExpectedCount] = useState<number | null>(null);
   const [error, setError] = useState("");
@@ -227,7 +228,7 @@ export default function GrassPage() {
       resultTitlePrefix: "种草图结果",
       aspectRatio,
     }),
-    [activePrompt, activeResultExpectedCount, aiModel, aspectRatio, effectiveReferenceName, genCount, imageSize, isGenerating, promptImages, resultUrls, runningExpectedCount, sceneBackgroundMode, sceneMode, selectedTemplate.name]
+    [activePrompt, activeResultExpectedCount, aiModel, aspectRatio, effectiveReferenceName, genCount, imageSize, isGenerating, promptImages, resultUrls, sceneBackgroundMode, sceneMode, selectedTemplate.name]
   );
   const imageSizes = getSupportedImageSizes(aiModel, aspectRatio);
   const costPerImage = getCreditCost(aiModel, imageSize, aspectRatio);
@@ -688,7 +689,7 @@ export default function GrassPage() {
                         className="block w-full text-center"
                       >
                         <div className="relative aspect-[3/4] overflow-hidden bg-slate-100">
-                          <img src={tpl.imageUrl} alt={tpl.name} className="h-full w-full object-cover transition group-hover:scale-105" />
+                          <RawPreviewImage src={tpl.imageUrl} alt={tpl.name} className="h-full w-full object-cover transition group-hover:scale-105" />
                         </div>
                         <p className="truncate px-1.5 py-1.5 text-[11px] font-bold text-slate-800">{tpl.name}</p>
                       </button>
@@ -728,7 +729,7 @@ export default function GrassPage() {
                 />
                 {uploadedReferenceUrl ? (
                   <div className="group studio-fixed-upload-preview relative overflow-hidden rounded-xl bg-slate-100" style={{ "--studio-fixed-preview-height": "208px" } as CSSProperties}>
-                    <img src={uploadedReferenceUrl} alt="种草参考图" className="h-full w-full object-contain p-2" />
+                    <RawPreviewImage src={uploadedReferenceUrl} alt="种草参考图" className="h-full w-full object-contain p-2" />
                     <div className="absolute inset-x-2 top-2 flex items-center justify-between gap-2">
                       <span className="truncate rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-medium text-slate-600 shadow-sm">{uploadedReferenceName || "已上传参考图"}</span>
                       <span className="flex gap-1">
@@ -966,9 +967,9 @@ export default function GrassPage() {
           <div className="fixed z-[240] w-[min(720px,calc(100vw-32px))] overflow-hidden rounded-[24px] border border-white/80 bg-white/[0.96] shadow-[0_28px_90px_rgba(15,23,42,0.18)] backdrop-blur-2xl animate-fade-in" style={{ top: rulesPopoverStyle.top, left: rulesPopoverStyle.left, maxHeight: rulesPopoverStyle.maxHeight }} onMouseEnter={cancelRulesHide} onMouseLeave={scheduleRulesHide}>
             <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4"><div><h3 className="text-base font-black text-slate-950">{GRASS_UPLOAD_RULE.title}</h3><p className="mt-1 text-xs text-slate-400">{GRASS_UPLOAD_RULE.uploadSpecText}</p></div><button type="button" onClick={() => setShowRules(false)} className="rounded-full p-1.5 hover:bg-slate-100"><X className="h-4 w-4" /></button></div>
             <div className="max-h-[inherit] overflow-y-auto p-5">
-              <div className="grid grid-cols-5 gap-3">{GRASS_UPLOAD_RULE.demos.map((demo) => <div key={demo.imageUrl} className="rounded-2xl border border-slate-100 bg-slate-50/70 p-2"><div className="relative overflow-hidden rounded-xl bg-white"><img src={demo.imageUrl} alt={demo.title} className="aspect-[3/4] w-full object-cover" /><CheckCircle2 className="absolute right-2 top-2 h-5 w-5 rounded-full bg-white text-emerald-500" /></div><p className="mt-2 text-center text-xs text-slate-600">{demo.title}</p><button type="button" onClick={() => applyDemo(demo)} className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 hover:border-violet-200 hover:text-violet-600">试一试</button></div>)}</div>
+              <div className="grid grid-cols-5 gap-3">{GRASS_UPLOAD_RULE.demos.map((demo) => <div key={demo.imageUrl} className="rounded-2xl border border-slate-100 bg-slate-50/70 p-2"><div className="relative overflow-hidden rounded-xl bg-white"><RawPreviewImage src={demo.imageUrl} alt={demo.title} className="aspect-[3/4] w-full object-cover" /><CheckCircle2 className="absolute right-2 top-2 h-5 w-5 rounded-full bg-white text-emerald-500" /></div><p className="mt-2 text-center text-xs text-slate-600">{demo.title}</p><button type="button" onClick={() => applyDemo(demo)} className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 hover:border-violet-200 hover:text-violet-600">试一试</button></div>)}</div>
               <p className="my-4 text-center text-xs font-medium text-slate-500">请勿上传以下错误图片，会极大影响生成效果</p>
-              <div className="mx-auto grid max-w-md grid-cols-3 gap-3">{GRASS_UPLOAD_RULE.badExamples.map((image) => <div key={image.title} className="rounded-2xl border border-red-100 bg-white/70 p-2 text-center"><div className="relative overflow-hidden rounded-xl bg-white"><img src={image.imageUrl} alt={image.title} className="aspect-square w-full object-cover" /><XCircle className="absolute right-2 top-2 h-5 w-5 rounded-full bg-white text-red-500" /></div><p className="mt-1 text-xs text-slate-500">{image.title}</p></div>)}</div>
+              <div className="mx-auto grid max-w-md grid-cols-3 gap-3">{GRASS_UPLOAD_RULE.badExamples.map((image) => <div key={image.title} className="rounded-2xl border border-red-100 bg-white/70 p-2 text-center"><div className="relative overflow-hidden rounded-xl bg-white"><RawPreviewImage src={image.imageUrl} alt={image.title} className="aspect-square w-full object-cover" /><XCircle className="absolute right-2 top-2 h-5 w-5 rounded-full bg-white text-red-500" /></div><p className="mt-1 text-xs text-slate-500">{image.title}</p></div>)}</div>
             </div>
           </div>
         </ClientPortal>
@@ -977,7 +978,7 @@ export default function GrassPage() {
       {lightboxSrc && (
         <ClientPortal>
           <div className="fixed inset-0 z-[180] flex cursor-zoom-out items-center justify-center bg-slate-950/66 p-4 backdrop-blur-xl sm:p-8" onClick={() => setLightboxSrc(null)}>
-            <img src={lightboxSrc} className="max-h-full max-w-full rounded-2xl object-contain shadow-[0_32px_120px_rgba(0,0,0,0.45)]" alt="输入图预览" />
+            <RawPreviewImage src={lightboxSrc} className="max-h-full max-w-full rounded-2xl object-contain shadow-[0_32px_120px_rgba(0,0,0,0.45)]" alt="输入图预览" />
             <button onClick={() => setLightboxSrc(null)} className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full border border-white/85 bg-white/90 text-slate-700 shadow-[0_12px_34px_rgba(15,23,42,0.22)] backdrop-blur transition-colors hover:bg-white hover:text-slate-950 sm:right-6 sm:top-6" aria-label="关闭预览">
               <X className="w-5 h-5" />
             </button>

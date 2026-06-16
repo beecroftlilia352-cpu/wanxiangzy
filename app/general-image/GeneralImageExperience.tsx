@@ -27,6 +27,7 @@ import { useStudioAuth } from "@/components/studio/useStudioAuth";
 import { StudioRunBar } from "@/components/studio/StudioRunBar";
 import { StudioUploadSection } from "@/components/studio/StudioUploadSection";
 import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
+import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
 import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
@@ -692,7 +693,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
                       <div className="grid grid-cols-4 gap-2 sm:grid-cols-5">
                         {referenceImages.map((item, index) => (
                           <div key={item.id} className="studio-checkerboard group relative aspect-square overflow-hidden rounded-xl border border-white shadow-sm">
-                            <img src={item.preview} alt={item.name} className="h-full w-full object-contain p-1" />
+                            <RawPreviewImage src={item.preview} alt={item.name} className="h-full w-full object-contain p-1" />
                             <span className="absolute left-1 top-1 rounded bg-white/92 px-1.5 py-0.5 text-[10px] font-black text-slate-500">图{index + 1}</span>
                             <button
                               type="button"
@@ -941,7 +942,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
                     }`}
                   >
                     {imagePromptImage ? (
-                      <img src={imagePromptImage.preview} alt={imagePromptImage.name} className="h-full w-full object-contain p-1" />
+                      <RawPreviewImage src={imagePromptImage.preview} alt={imagePromptImage.name} className="h-full w-full object-contain p-1" />
                     ) : (
                       <span className="flex flex-col items-center gap-2 text-xs font-bold">
                         {isImagePromptUploading ? <Loader2 className="h-6 w-6 animate-spin text-[var(--codex-accent)]" /> : <ImagePlus className="h-6 w-6 text-[var(--codex-accent)]" />}
@@ -1006,7 +1007,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
             className="fixed inset-0 z-[180] flex cursor-zoom-out items-center justify-center bg-slate-950/66 p-4 backdrop-blur-xl sm:p-8"
             onClick={() => setLightboxSrc(null)}
           >
-            <img src={lightboxSrc} className="max-h-full max-w-full rounded-2xl object-contain shadow-[0_32px_120px_rgba(0,0,0,0.45)]" alt={`${modeMeta.title}结果预览`} />
+            <RawPreviewImage src={lightboxSrc} className="max-h-full max-w-full rounded-2xl object-contain shadow-[0_32px_120px_rgba(0,0,0,0.45)]" alt={`${modeMeta.title}结果预览`} />
             <button
               onClick={() => setLightboxSrc(null)}
               className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full border border-white/85 bg-white/90 text-slate-700 shadow-[0_12px_34px_rgba(15,23,42,0.22)] backdrop-blur transition-colors hover:bg-white hover:text-slate-950 sm:right-6 sm:top-6"

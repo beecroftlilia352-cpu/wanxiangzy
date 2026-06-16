@@ -6,11 +6,8 @@ import {
   Bot,
   Check,
   ChevronDown,
-  ChevronRight,
   Download,
   Edit3,
-  Eye,
-  FileText,
   ImagePlus,
   Languages,
   Loader2,
@@ -28,6 +25,7 @@ import { ClientPortal } from "@/components/ClientPortal";
 import { FeatureTabs } from "@/components/FeatureTabs";
 import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
 import { StudioGenerationCountSelector } from "@/components/studio/StudioFormControls";
+import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import {
   ALL_CATEGORY_PRODUCT_IMAGE_LANGUAGES,
   ALL_CATEGORY_PRODUCT_IMAGE_PLATFORMS,
@@ -173,7 +171,7 @@ function getDefaultCount(imageType: ProductSetImageType) {
   return imageType === "main" ? 1 : 1;
 }
 
-function getDefaultAspect(_imageType: ProductSetImageType): AspectRatio {
+function getDefaultAspect(): AspectRatio {
   return "auto";
 }
 
@@ -296,7 +294,7 @@ export default function AllCategoryProductImagePage() {
   const [previewImage, setPreviewImage] = useState<{ url: string; title: string } | null>(null);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
 
-  const defaultAspect = getDefaultAspect(imageType);
+  const defaultAspect = getDefaultAspect();
   const supportedSizes = useMemo(() => getSupportedImageSizes(aiModel, defaultAspect), [aiModel, defaultAspect]);
   const countOptions = useMemo(() => imageType === "main" ? [1, 2, 3, 4] : [1, 2, 3, 4, 5, 6, 7, 8], [imageType]);
   const resultSlots = useMemo(() => buildResultSlots(modules, moduleResults, resultUrls), [moduleResults, modules, resultUrls]);
@@ -710,7 +708,7 @@ export default function AllCategoryProductImagePage() {
                   <div className="mt-5 grid grid-cols-3 gap-2">
                     {productImages.map((item, index) => (
                       <div key={`${item.url}-${index}`} className="studio-checkerboard group relative aspect-square overflow-hidden rounded-lg border border-slate-200">
-                        <img src={getImageVariantUrl(item.url, "thumb")} alt={item.name} className="h-full w-full object-contain p-1" />
+                        <RawPreviewImage src={getImageVariantUrl(item.url, "thumb")} alt={item.name} className="h-full w-full object-contain p-1" />
                         <span className="absolute bottom-1 left-1 rounded bg-slate-950/65 px-1.5 py-0.5 text-[10px] font-semibold text-white">{index + 1}</span>
                         <button
                           type="button"
@@ -951,7 +949,7 @@ export default function AllCategoryProductImagePage() {
               <X className="h-5 w-5" />
             </button>
             <div className="relative max-h-[92vh] max-w-[94vw] overflow-hidden rounded-lg bg-white shadow-2xl" onClick={(event) => event.stopPropagation()}>
-              <img src={previewImage.url} alt={previewImage.title} className="max-h-[92vh] max-w-[94vw] object-contain" />
+              <RawPreviewImage src={previewImage.url} alt={previewImage.title} className="max-h-[92vh] max-w-[94vw] object-contain" />
               <span className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-slate-950/65 px-3 py-1 text-xs font-semibold text-white">{previewImage.title}</span>
             </div>
           </div>
@@ -1183,7 +1181,7 @@ function ResultGrid({
           <article key={`${slot.module.id}-${index}`} className="overflow-hidden rounded-lg border border-slate-200 bg-white">
             <div className="relative aspect-[3/4] bg-slate-50">
               {slot.url ? (
-                <img src={getImageVariantUrl(slot.url, "card")} alt={slot.module.title} className="h-full w-full object-contain" />
+                <RawPreviewImage src={getImageVariantUrl(slot.url, "card")} alt={slot.module.title} className="h-full w-full object-contain" />
               ) : slot.status === "failed" ? (
                 <div className="flex h-full flex-col items-center justify-center px-6 text-center text-red-500">
                   <X className="h-7 w-7" />

@@ -18,6 +18,7 @@ import { StudioGenerationCountSelector, StudioModelSelector, StudioOptionGrid, S
 import { StudioRunBar } from "@/components/studio/StudioRunBar";
 import { StudioUploadSection } from "@/components/studio/StudioUploadSection";
 import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
+import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
 import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
@@ -122,7 +123,7 @@ export default function Garment3dPage() {
   const [isUploadingGarment, setIsUploadingGarment] = useState(false);
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [progress, setProgress] = useState(0);
+  const [, setProgress] = useState(0);
   const [resultUrls, setResultUrls] = useState<string[]>([]);
   const [runningExpectedCount, setRunningExpectedCount] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -204,7 +205,7 @@ export default function Garment3dPage() {
       resultTitlePrefix: "服装 3D 结果",
       aspectRatio,
     }),
-    [activeReferenceUrl, activeResultExpectedCount, aiModel, aspectRatio, customGarmentType, customReferenceUrl, displayStyleLabel, garmentType, garmentUrl, genCount, imageSize, isGenerating, outputMode, prompt, resultUrls, runningExpectedCount, selectedReference.label]
+    [activeReferenceUrl, activeResultExpectedCount, aiModel, aspectRatio, customGarmentType, customReferenceUrl, displayStyleLabel, garmentType, garmentUrl, genCount, imageSize, isGenerating, outputMode, prompt, resultUrls, selectedReference.label]
   );
   const runDisabledReason = !garmentUrl
     ? "请先上传服装图"
@@ -786,7 +787,7 @@ export default function Garment3dPage() {
                       }`}
                       title={ref.label}
                     >
-                      <img src={ref.url} alt={ref.label} className="w-full h-full object-cover" />
+                      <RawPreviewImage src={ref.url} alt={ref.label} className="w-full h-full object-cover" />
                       <span
                         role="button"
                         tabIndex={0}
@@ -1035,7 +1036,7 @@ export default function Garment3dPage() {
                 {GARMENT_3D_UPLOAD_RULE.demos.map((demo) => (
                   <div key={demo.imageUrl} className="rounded-2xl border border-slate-100 bg-slate-50/70 p-2">
                     <div className="relative overflow-hidden rounded-xl bg-white">
-                      <img src={demo.imageUrl} alt={demo.title} className="aspect-square w-full object-cover" />
+                      <RawPreviewImage src={demo.imageUrl} alt={demo.title} className="aspect-square w-full object-cover" />
                       <CheckCircle2 className="absolute right-2 top-2 h-5 w-5 rounded-full bg-white text-emerald-500" />
                     </div>
                     <p className="mt-2 truncate text-xs font-medium text-slate-700">{demo.title}</p>
@@ -1057,7 +1058,7 @@ export default function Garment3dPage() {
                   {GARMENT_3D_UPLOAD_RULE.deprecatedImages.map((image) => (
                     <div key={image.title} className="rounded-2xl border border-red-100 bg-white/70 p-2 text-center">
                       <div className="relative overflow-hidden rounded-xl bg-white">
-                        <img src={image.url} alt={image.title} className="aspect-square w-full object-cover" />
+                        <RawPreviewImage src={image.url} alt={image.title} className="aspect-square w-full object-cover" />
                         <XCircle className="absolute right-2 top-2 h-5 w-5 rounded-full bg-white text-red-500" />
                       </div>
                       <p className="mt-2 text-xs font-medium text-slate-600">{image.title}</p>
@@ -1073,7 +1074,7 @@ export default function Garment3dPage() {
       {lightboxSrc && (
         <ClientPortal>
           <div className="fixed inset-0 z-[180] flex cursor-zoom-out items-center justify-center bg-slate-950/66 p-4 backdrop-blur-xl sm:p-8" onClick={() => setLightboxSrc(null)}>
-            <img src={lightboxSrc} className="max-h-full max-w-full rounded-2xl object-contain shadow-[0_32px_120px_rgba(0,0,0,0.45)]" />
+            <RawPreviewImage src={lightboxSrc} alt="服装 3D 预览" className="max-h-full max-w-full rounded-2xl object-contain shadow-[0_32px_120px_rgba(0,0,0,0.45)]" />
             <button onClick={() => setLightboxSrc(null)} className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full border border-white/85 bg-white/90 text-slate-700 shadow-[0_12px_34px_rgba(15,23,42,0.22)] backdrop-blur transition-colors hover:bg-white hover:text-slate-950 sm:right-6 sm:top-6">
               <X className="w-5 h-5" />
             </button>

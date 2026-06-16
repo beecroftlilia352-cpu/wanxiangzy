@@ -18,6 +18,16 @@ import {
   ThumbnailStrip,
   formatDateTime,
 } from "@/components/admin/AdminPrimitives";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export type TryOnAdminCategoryRow = {
   id?: string;
@@ -97,6 +107,14 @@ type ImportError = {
   error: string;
 };
 
+type ConfirmRequest = {
+  title: string;
+  description: string;
+  confirmLabel: string;
+  destructive?: boolean;
+  action: () => Promise<void>;
+};
+
 type Props = {
   initialCategories: TryOnAdminCategoryRow[];
   initialScenes: TryOnAdminSceneRow[];
@@ -169,6 +187,8 @@ export function AdminTryOnReferenceConsole({
   const [previewAge, setPreviewAge] = useState("adult");
   const [previewIncludeDraft, setPreviewIncludeDraft] = useState(false);
   const [previewScenes, setPreviewScenes] = useState<PreviewScene[]>([]);
+  const [confirmRequest, setConfirmRequest] = useState<ConfirmRequest | null>(null);
+  const [confirmRunning, setConfirmRunning] = useState(false);
 
   const categoryByCode = useMemo(() => new Map(categories.map((category) => [category.code, category])), [categories]);
   const enabledCategories = categories.filter((category) => category.enabled);
@@ -212,6 +232,23 @@ export function AdminTryOnReferenceConsole({
     startTransition(async () => {
       await action();
     });
+  }
+
+  function requestConfirm(request: ConfirmRequest) {
+    setConfirmRequest(request);
+  }
+
+  async function runConfirm(event: React.MouseEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    const request = confirmRequest;
+    if (!request) return;
+    setConfirmRunning(true);
+    try {
+      await request.action();
+      setConfirmRequest(null);
+    } finally {
+      setConfirmRunning(false);
+    }
   }
 
   async function seedCategories() {
@@ -262,14 +299,21 @@ export function AdminTryOnReferenceConsole({
   }
 
   async function disableCategory(code: string) {
-    if (!window.confirm(`确认停用类目 ${code}？关联场景发布前会被校验。`)) return;
-    try {
-      const payload = await fetch(`/api/admin/tryon/categories?code=${encodeURIComponent(code)}`, { method: "DELETE" }).then(parseResponse);
-      setCategories(upsertBy(categories, payload.category, "code"));
-      setMessage({ tone: "success", text: `已停用 ${code}。` });
-    } catch (error) {
-      setMessage({ tone: "error", text: toMessage(error) });
-    }
+    requestConfirm({
+      title: `停用类目 ${code}`,
+      description: "停用后关联场景发布前会被校验，请确认没有线上推荐依赖该类目。",
+      confirmLabel: "停用",
+      destructive: true,
+      action: async () => {
+        try {
+          const payload = await fetch(`/api/admin/tryon/categories?code=${encodeURIComponent(code)}`, { method: "DELETE" }).then(parseResponse);
+          setCategories(upsertBy(categories, payload.category, "code"));
+          setMessage({ tone: "success", text: `已停用 ${code}。` });
+        } catch (error) {
+          setMessage({ tone: "error", text: toMessage(error) });
+        }
+      },
+    });
   }
 
   async function saveScene(event: React.FormEvent<HTMLFormElement>) {
@@ -314,14 +358,21 @@ export function AdminTryOnReferenceConsole({
   }
 
   async function archiveScene(sceneKey: string) {
-    if (!window.confirm(`确认归档场景 ${sceneKey}？`)) return;
-    try {
-      const payload = await fetch(`/api/admin/tryon/reference-scenes?scene_key=${encodeURIComponent(sceneKey)}`, { method: "DELETE" }).then(parseResponse);
-      setScenes(upsertBy(scenes, payload.scene, "scene_key"));
-      setMessage({ tone: "success", text: `已归档 ${sceneKey}。` });
-    } catch (error) {
-      setMessage({ tone: "error", text: toMessage(error) });
-    }
+    requestConfirm({
+      title: `归档场景 ${sceneKey}`,
+      description: "归档后该场景不会再作为 active 推荐候选，发布配置后前台才会读取最新版本。",
+      confirmLabel: "归档",
+      destructive: true,
+      action: async () => {
+        try {
+          const payload = await fetch(`/api/admin/tryon/reference-scenes?scene_key=${encodeURIComponent(sceneKey)}`, { method: "DELETE" }).then(parseResponse);
+          setScenes(upsertBy(scenes, payload.scene, "scene_key"));
+          setMessage({ tone: "success", text: `已归档 ${sceneKey}。` });
+        } catch (error) {
+          setMessage({ tone: "error", text: toMessage(error) });
+        }
+      },
+    });
   }
 
   async function updateSceneStatus(sceneKey: string, status: "draft" | "active" | "archived") {
@@ -355,17 +406,23 @@ export function AdminTryOnReferenceConsole({
   }
 
   async function publishConfig() {
-    if (!window.confirm("发布后前台推荐将读取新的 active 场景配置。确认发布？")) return;
-    try {
-      const payload = await writeJson("/api/admin/tryon/config-versions", { action: "publish" });
-      setValidationIssues([]);
-      setVersions(upsertBy(versions.map((item) => item.status === "published" ? { ...item, status: "archived" } : item), payload.config, "id"));
-      setMessage({ tone: "success", text: "试衣参考图配置已发布，前台推荐接口会使用最新版本标记。" });
-      router.refresh();
-    } catch (error) {
-      setMessage({ tone: "error", text: toMessage(error) });
-      setValidationIssues(extractIssues(error));
-    }
+    requestConfirm({
+      title: "发布试衣参考图配置",
+      description: "发布后前台推荐将读取新的 active 场景配置，请先确认校验和预览结果符合预期。",
+      confirmLabel: "发布",
+      action: async () => {
+        try {
+          const payload = await writeJson("/api/admin/tryon/config-versions", { action: "publish" });
+          setValidationIssues([]);
+          setVersions(upsertBy(versions.map((item) => item.status === "published" ? { ...item, status: "archived" } : item), payload.config, "id"));
+          setMessage({ tone: "success", text: "试衣参考图配置已发布，前台推荐接口会使用最新版本标记。" });
+          router.refresh();
+        } catch (error) {
+          setMessage({ tone: "error", text: toMessage(error) });
+          setValidationIssues(extractIssues(error));
+        }
+      },
+    });
   }
 
   async function validateConfig() {
@@ -384,14 +441,21 @@ export function AdminTryOnReferenceConsole({
   }
 
   async function rollbackVersion(versionId: string) {
-    if (!window.confirm("确认回滚到这个配置快照？回滚后请重新发布。")) return;
-    try {
-      await writeJson("/api/admin/tryon/config-versions", { action: "rollback", versionId });
-      setMessage({ tone: "success", text: "已回滚快照，请检查预览后重新发布。" });
-      await refresh();
-    } catch (error) {
-      setMessage({ tone: "error", text: toMessage(error) });
-    }
+    requestConfirm({
+      title: "回滚配置快照",
+      description: "回滚后请重新校验、预览并发布，避免前台推荐读取到未确认配置。",
+      confirmLabel: "回滚",
+      destructive: true,
+      action: async () => {
+        try {
+          await writeJson("/api/admin/tryon/config-versions", { action: "rollback", versionId });
+          setMessage({ tone: "success", text: "已回滚快照，请检查预览后重新发布。" });
+          await refresh();
+        } catch (error) {
+          setMessage({ tone: "error", text: toMessage(error) });
+        }
+      },
+    });
   }
 
   async function previewRecommendations(event?: React.FormEvent<HTMLFormElement>) {
@@ -411,6 +475,7 @@ export function AdminTryOnReferenceConsole({
   }
 
   return (
+    <>
     <div className="space-y-5">
       {warnings.length > 0 && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-bold text-amber-800">
@@ -571,6 +636,25 @@ export function AdminTryOnReferenceConsole({
         />
       )}
     </div>
+    <AlertDialog open={Boolean(confirmRequest)} onOpenChange={(open) => !open && setConfirmRequest(null)}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{confirmRequest?.title || "确认操作"}</AlertDialogTitle>
+          <AlertDialogDescription>{confirmRequest?.description}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={confirmRunning}>取消</AlertDialogCancel>
+          <AlertDialogAction
+            variant={confirmRequest?.destructive ? "destructive" : "default"}
+            disabled={confirmRunning}
+            onClick={runConfirm}
+          >
+            {confirmRequest?.confirmLabel || "确认"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
 

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState, type ComponentType } from "react";
+import { useEffect, useMemo, useRef, useState, type ComponentType } from "react";
 import {
   Alert,
   Avatar,
@@ -14,7 +14,6 @@ import {
   Form,
   Input,
   Select,
-  Space,
   Statistic,
   Table,
   Tag,
@@ -30,7 +29,6 @@ import {
   Coins,
   CreditCard,
   KeyRound,
-  LifeBuoy,
   Mail,
   MessageSquare,
   RefreshCw,
@@ -275,6 +273,13 @@ export function AccountCenterClient() {
   const [feedback, setFeedback] = useState<FeedbackForm>({ category: "billing", title: "", description: "", contact: "" });
   const [feedbackStatus, setFeedbackStatus] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
+  const loadCreditLogsRef = useRef(loadCreditLogs);
+  const loadOrdersRef = useRef(loadOrders);
+
+  useEffect(() => {
+    loadCreditLogsRef.current = loadCreditLogs;
+    loadOrdersRef.current = loadOrders;
+  });
 
   useEffect(() => {
     const tab = searchParams.get("tab");
@@ -286,11 +291,11 @@ export function AccountCenterClient() {
   }, []);
 
   useEffect(() => {
-    void loadCreditLogs();
+    void loadCreditLogsRef.current();
   }, [creditFilters, creditPage, creditPageSize]);
 
   useEffect(() => {
-    void loadOrders();
+    void loadOrdersRef.current();
   }, [orderFilters, orderPage, orderPageSize]);
 
   const displayName = profile.profile?.displayName || profile.user?.email?.split("@")[0] || "VastWearGen用户";
@@ -465,7 +470,6 @@ export function AccountCenterClient() {
                 maskedAccount={maskedAccount}
                 userId={userId}
                 email={profile.user?.email || ""}
-                createdAt={profile.profile?.createdAt || ""}
                 credits={latestBalance}
                 totalUsed={totalUsed}
                 paidOrders={paidOrders}
@@ -597,7 +601,6 @@ function AccountInfoPanel({
   maskedAccount,
   userId,
   email,
-  createdAt,
   credits,
   totalUsed,
   paidOrders,
@@ -608,7 +611,6 @@ function AccountInfoPanel({
   maskedAccount: string;
   userId: string;
   email: string;
-  createdAt: string;
   credits: number;
   totalUsed: number;
   paidOrders: number;

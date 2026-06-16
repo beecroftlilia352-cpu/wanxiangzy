@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/api/auth";
 import { createAliyunOssDownloadUrl } from "@/lib/api/image-storage";
 import { rateLimitResponse } from "@/lib/api/rate-limit";
+import { fetchRemoteImageBuffer, RemoteImageFetchError } from "@/lib/api/remote-image-fetch";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -68,51 +69,27 @@ export async function GET(request: NextRequest) {
     return redirect;
   }
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), DOWNLOAD_TIMEOUT_MS);
-  let response: Response;
+  let download: Awaited<ReturnType<typeof fetchRemoteImageBuffer>>;
   try {
-    response = await fetch(parsedUrl.toString(), {
-      cache: "no-store",
-      signal: controller.signal,
+    download = await fetchRemoteImageBuffer(parsedUrl.toString(), {
+      allowHttp: true,
+      allowedHosts: getAllowedHosts(),
+      maxBytes: MAX_DOWNLOAD_BYTES,
+      timeoutMs: DOWNLOAD_TIMEOUT_MS,
     });
   } catch (err: unknown) {
-    const isTimeout = err instanceof Error && err.name === "AbortError";
-    return NextResponse.json(
-      { error: isTimeout ? "Image download timed out" : "Image download failed" },
-      { status: isTimeout ? 504 : 502 }
-    );
-  } finally {
-    clearTimeout(timeout);
-  }
-
-  if (!response.ok) {
-    return NextResponse.json({ error: `Image download failed: ${response.status}` }, { status: 502 });
-  }
-
-  const contentType = response.headers.get("content-type") || "image/jpeg";
-  if (!contentType.toLowerCase().startsWith("image/")) {
-    return NextResponse.json({ error: "Remote resource is not an image" }, { status: 400 });
-  }
-
-  const contentLength = Number(response.headers.get("content-length") || 0);
-  if (contentLength > MAX_DOWNLOAD_BYTES) {
-    return NextResponse.json({ error: "Image is too large" }, { status: 413 });
-  }
-
-  if (!response.body) {
-    return NextResponse.json({ error: "Image response body is empty" }, { status: 502 });
+    return remoteImageErrorResponse(err);
   }
 
   const headers = new Headers({
-    "Content-Type": contentType,
+    "Content-Type": download.contentType,
     "Content-Disposition": getContentDisposition(filename),
     "Cache-Control": "no-store",
     "X-Accel-Buffering": "no",
+    "Content-Length": String(download.bytes.length),
   });
-  if (contentLength > 0) headers.set("Content-Length", String(contentLength));
 
-  return new NextResponse(limitDownloadStream(response.body, MAX_DOWNLOAD_BYTES), { headers });
+  return new NextResponse(bufferToArrayBuffer(download.bytes), { headers });
 }
 
 function sanitizeFilename(value: string): string {
@@ -128,20 +105,6 @@ function encodeRFC5987ValueChars(value: string) {
   return encodeURIComponent(value)
     .replace(/['()]/g, (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`)
     .replace(/\*/g, "%2A");
-}
-
-function limitDownloadStream(body: ReadableStream<Uint8Array>, maxBytes: number) {
-  let totalBytes = 0;
-  return body.pipeThrough(new TransformStream<Uint8Array, Uint8Array>({
-    transform(chunk, controller) {
-      totalBytes += chunk.byteLength;
-      if (totalBytes > maxBytes) {
-        controller.error(new Error("Image is too large"));
-        return;
-      }
-      controller.enqueue(chunk);
-    },
-  }));
 }
 
 function checkDownloadRateLimit(request: NextRequest) {
@@ -236,4 +199,35 @@ function getHostname(value?: string): string | null {
   } catch {
     return null;
   }
+}
+
+function remoteImageErrorResponse(err: unknown) {
+  if (err instanceof RemoteImageFetchError) {
+    if (err.code === "timeout") {
+      return NextResponse.json({ error: "Image download timed out" }, { status: 504 });
+    }
+    if (err.code === "too-large") {
+      return NextResponse.json({ error: "Image is too large" }, { status: 413 });
+    }
+    if (err.code === "bad-status") {
+      return NextResponse.json({ error: `Image download failed: ${err.status || "unknown"}` }, { status: 502 });
+    }
+    const clientErrorCodes = new Set([
+      "blocked-address",
+      "blocked-host",
+      "invalid-url",
+      "non-image",
+      "redirect-limit",
+      "unsupported-protocol",
+    ]);
+    if (clientErrorCodes.has(err.code)) {
+      return NextResponse.json({ error: err.message }, { status: 400 });
+    }
+  }
+
+  return NextResponse.json({ error: "Image download failed" }, { status: 502 });
+}
+
+function bufferToArrayBuffer(bytes: Buffer) {
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
 }

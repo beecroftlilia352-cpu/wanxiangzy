@@ -1,5 +1,6 @@
 import { createHmac, randomUUID } from "node:crypto";
 import { getBase64Payload, isStableStoredImageUrl, type ImageStorageClass } from "@/lib/api/image-storage";
+import { fetchRemoteMediaBuffer } from "@/lib/api/remote-image-fetch";
 import { isRemoteUrl } from "@/lib/utils";
 
 const DEFAULT_MEDIA_UPLOAD_TIMEOUT_MS = 120_000;
@@ -21,6 +22,7 @@ export interface StoreMediaInput {
 }
 
 export interface StoreMediaOptions {
+  maxRemoteBytes?: number;
   suppressErrorLog?: boolean;
   timeoutMs?: number;
 }
@@ -55,7 +57,7 @@ export async function storeMedia(input: StoreMediaInput, options: StoreMediaOpti
 
   const response = await fetch(uploadUrl, {
     method: "PUT",
-    body: upload.bytes,
+    body: bufferToArrayBuffer(upload.bytes),
     headers,
     signal: AbortSignal.timeout(options.timeoutMs || DEFAULT_MEDIA_UPLOAD_TIMEOUT_MS),
   });
@@ -73,13 +75,13 @@ export async function storeMedia(input: StoreMediaInput, options: StoreMediaOpti
 
 async function resolveMediaPayload(media: string, name: string, options: StoreMediaOptions) {
   if (isRemoteUrl(media)) {
-    const response = await fetch(media, {
-      signal: AbortSignal.timeout(options.timeoutMs || DEFAULT_MEDIA_UPLOAD_TIMEOUT_MS),
+    const remote = await fetchRemoteMediaBuffer(media, {
+      maxBytes: options.maxRemoteBytes || MAX_MEDIA_STORAGE_BYTES,
+      timeoutMs: options.timeoutMs || DEFAULT_MEDIA_UPLOAD_TIMEOUT_MS,
     });
-    if (!response.ok) throw new Error(`媒体上传失败: remote media HTTP ${response.status}`);
-    const bytes = Buffer.from(await response.arrayBuffer());
+    const bytes = remote.bytes;
     assertMediaSize(bytes);
-    const contentType = normalizeMediaContentType(response.headers.get("content-type")) || inferMediaContentType(bytes, name);
+    const contentType = normalizeMediaContentType(remote.contentType) || inferMediaContentType(bytes, name);
     return { bytes, contentType, extension: extensionFromContentType(contentType) };
   }
 
@@ -93,6 +95,10 @@ async function resolveMediaPayload(media: string, name: string, options: StoreMe
 function assertMediaSize(bytes: Buffer) {
   if (!bytes.length) throw new Error("媒体内容为空");
   if (bytes.length > MAX_MEDIA_STORAGE_BYTES) throw new Error("媒体文件过大，无法上传");
+}
+
+function bufferToArrayBuffer(bytes: Buffer) {
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
 }
 
 function getAliyunOssConfig() {

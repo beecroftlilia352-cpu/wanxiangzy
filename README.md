@@ -104,9 +104,11 @@ REPLICATE_API_TOKEN=
 在 Supabase Dashboard → SQL Editor 中依次运行：
 - `supabase/schema.sql`
 - `supabase/credits-update.sql`
+- `supabase/set-signup-credits-50.sql`
 - `supabase/atomic-credit-rpc.sql`
+- 其余功能脚本按 [Supabase SQL 执行顺序](docs/supabase-migration-order.md) 继续执行
 
-> 注：`supabase/agent-workflows.sql` 和 `supabase/agent-brain-traces.sql` 是智能 Agent 模块的数据库初始化脚本，当前模块已临时下线，需要恢复时再运行。
+> 注：`supabase/agent-workflows.sql` 虽然属于智能 Agent 模块基础表，但当前任务轨道 `task-queue-items.sql` 依赖 `public.agent_workflows`，新环境仍需先执行它。`supabase/agent-conversations.sql` 和 `supabase/agent-brain-traces.sql` 只有恢复 Agent 功能时再运行。
 
 当前上传和生成结果默认通过 `lib/api/image-storage.ts` 的存储适配器保存。默认值为 ImgBB；生产环境可切换到阿里云 OSS：
 
@@ -265,3 +267,12 @@ ai-tryon/
 - 用户自定义上传模特/参考图
 - 视频换装 (FASHN Video Try-On)
 - 社交分享功能
+
+## 生产运维文档
+
+- [生产可用性审计](docs/production-readiness-audit-2026-06-16.md)
+- [生产可用性整改说明](docs/production-readiness-remediation-notes-2026-06-16.md)
+- [AWS EC2 发布检查表](docs/release-checklist.md)
+- [备份与恢复 Runbook](docs/backup-restore.md)
+- [后台管理员引导](docs/admin-bootstrap.md)
+- [Supabase SQL 执行顺序](docs/supabase-migration-order.md)

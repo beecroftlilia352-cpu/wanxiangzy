@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Check, ChevronDown, ChevronsDown, ImagePlus, Loader2, Plus, Settings2, Sparkles, Trash2, WandSparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { useStableFileDrag } from "@/components/studio/useStableFileDrag";
 import { cn } from "@/lib/utils";
 import {
@@ -186,7 +187,7 @@ export function OutfitFusionComposer({
                     aria-label={`预览${label}${roleLabel}`}
                     title={`${label} · ${roleLabel}`}
                   >
-                    <img src={asset.url} alt={`${label}${roleLabel}`} className="aspect-square w-full object-cover transition duration-300 group-hover:scale-[1.035]" />
+                    <RawPreviewImage src={asset.url} alt={`${label}${roleLabel}`} className="aspect-square w-full object-cover transition duration-300 group-hover:scale-[1.035]" />
                     <div className="truncate border-t border-slate-100 px-1.5 py-1 text-center text-[11px] font-medium leading-4 text-slate-500">
                       {roleLabel}
                     </div>
@@ -474,7 +475,6 @@ function HighlightedPromptTextarea({
           rows={compact ? 1 : 3}
           spellCheck={false}
           aria-label="搭配描述"
-          aria-expanded={Boolean(mention)}
           aria-controls="outfit-fusion-mention-list"
           style={showHighlightLayer ? { WebkitTextFillColor: "transparent" } : undefined}
           className={cn(
@@ -508,7 +508,7 @@ function HighlightedPromptTextarea({
                     : "text-slate-700 hover:bg-slate-50"
                 )}
               >
-                <img src={option.asset.url} alt="" className="size-9 rounded-[5px] object-cover ring-1 ring-slate-200" />
+                <RawPreviewImage src={option.asset.url} alt="" className="size-9 rounded-[5px] object-cover ring-1 ring-slate-200" />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-semibold leading-5">{option.label}</span>
                   <span className="block truncate text-xs leading-4 text-slate-500">{option.roleLabel}</span>
@@ -532,7 +532,7 @@ function HighlightedPromptTextarea({
                 className={cn("inline-flex items-center gap-1 rounded-[5px] px-1.5 py-0.5 font-semibold ring-1 transition", getAssetReferenceTone(option.asset.role))}
                 title={`再次插入 ${option.label}`}
               >
-                <img src={option.asset.url} alt="" className="size-4 rounded object-cover" />
+                <RawPreviewImage src={option.asset.url} alt="" className="size-4 rounded object-cover" />
                 {option.label}
               </button>
             ))}

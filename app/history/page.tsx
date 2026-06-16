@@ -32,6 +32,7 @@ import {
 import { BACKGROUND_SOURCE_LABELS, MODEL_BACKGROUND_MODE_LABELS } from "@/lib/model-background";
 import { getMaterialEnhancementLevelLabel } from "@/lib/material-enhancement";
 import { getOutfitFusionDisplayPrompt } from "@/lib/outfit-fusion";
+import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 
 const HISTORY_PAGE_SIZE = 12;
 
@@ -228,6 +229,9 @@ export default function HistoryPage() {
   const detailPrompt = detailPayload ? getPromptText(detailPayload) : "";
   const detailImages = detailPayload ? getInputImages(detailPayload) : [];
   const detailResults = detailRow?.result_urls || [];
+  const detailRowId = detailRow?.id || "";
+  const detailRowStatus = detailRow?.status || "";
+  const detailResultCount = detailResults.length;
   const selectedResultIndex = detailResults.length ? Math.min(detailResultIndex, detailResults.length - 1) : 0;
   const selectedResultUrl = detailResults[selectedResultIndex];
   const detailFailureCopy = detailRow ? getHistoryFailureRecoveryCopy({
@@ -321,14 +325,14 @@ export default function HistoryPage() {
   };
 
   useEffect(() => {
-    if (!detailRow) return;
-    const running = isRunningStatus(detailRow.status);
+    if (!detailRowId) return;
+    const running = isRunningStatus(detailRowStatus);
     if (!running) return;
 
     let cancelled = false;
     const pollDetail = async () => {
       try {
-        const res = await fetch(`/api/history?id=${encodeURIComponent(detailRow.id)}`, {
+        const res = await fetch(`/api/history?id=${encodeURIComponent(detailRowId)}`, {
           method: "GET",
           cache: "no-store",
         });
@@ -336,7 +340,7 @@ export default function HistoryPage() {
         if (!res.ok || !payload.row || cancelled) return;
         const nextRow: HistoryRow = payload.row;
 
-        const previousCount = detailRow.result_urls?.length || 0;
+        const previousCount = detailResultCount;
         const nextCount = nextRow.result_urls?.length || 0;
         if (nextCount > previousCount && selectedResultIndex >= Math.max(previousCount - 1, 0)) {
           setDetailResultIndex(nextCount - 1);
@@ -358,7 +362,7 @@ export default function HistoryPage() {
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [detailRow?.id, detailRow?.status, detailRow?.result_urls?.length, selectedResultIndex]);
+  }, [detailRowId, detailRowStatus, detailResultCount, selectedResultIndex]);
 
   const applyHistoryRow = async (row: HistoryRow) => {
     setDetailLoading(true);
@@ -1175,7 +1179,7 @@ function HistoryMediaPreview({
     );
   }
 
-  return <img src={getImageVariantUrl(url, variant)} className={mediaClass} style={style} alt={alt} />;
+  return <RawPreviewImage src={getImageVariantUrl(url, variant)} className={mediaClass} style={style} alt={alt} />;
 }
 
 function HistorySkeletonStyles() {

@@ -26,6 +26,7 @@ import type { TaskSelectionSession } from "@/components/studio/useTaskSelectionS
 import { StudioResultViewport, type StudioResultStatus } from "@/components/studio/StudioResultViewport";
 import { StudioMultiImageUpload } from "@/components/studio/StudioMultiImageUpload";
 import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
+import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { StudioGenerationCountSelector, StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/components/studio/StudioFormControls";
 import { StudioRunBar } from "@/components/studio/StudioRunBar";
 import { StudioUploadSection } from "@/components/studio/StudioUploadSection";
@@ -949,7 +950,7 @@ export default function FaceSwapPage() {
                       aria-label={`选择${label}`}
                     >
                       <span className="face-swap-face-library-image">
-                        <img src={item.url} alt={label} />
+                        <RawPreviewImage src={item.url} alt={label} />
                       </span>
                       <span className="face-swap-face-library-name">{label}</span>
                     </button>
@@ -979,7 +980,7 @@ export default function FaceSwapPage() {
         <ClientPortal>
           <div className="fixed inset-0 z-[240] flex cursor-zoom-out items-center justify-center bg-slate-950/70 p-6 backdrop-blur-xl" onClick={closeLightbox}>
             <div className="flex max-h-full max-w-full flex-col items-center gap-3">
-              <img src={lightboxSrc} alt={lightboxCaption || "result preview"} className="max-h-[calc(100dvh-120px)] max-w-full rounded-3xl object-contain shadow-[0_32px_120px_rgba(0,0,0,0.5)]" />
+              <RawPreviewImage src={lightboxSrc} alt={lightboxCaption || "result preview"} className="max-h-[calc(100dvh-120px)] max-w-full rounded-3xl object-contain shadow-[0_32px_120px_rgba(0,0,0,0.5)]" />
               {lightboxCaption && (
                 <div className="max-w-[min(680px,90vw)] rounded-full bg-white/92 px-4 py-2 text-center text-xs font-bold text-slate-700 shadow-lg">
                   {lightboxCaption}

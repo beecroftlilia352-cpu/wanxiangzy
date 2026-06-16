@@ -9,7 +9,7 @@
     "build": "node scripts/next-build.js",
     "postbuild": "node scripts/clean-next-output.js",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
     "check:release": "node scripts/release-check.js",
     "typecheck": "tsc --noEmit --pretty false",
     "check:ssr-size": "node scripts/check-next-ssr-size.js",

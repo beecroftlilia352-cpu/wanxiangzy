@@ -1,5 +1,6 @@
 "use client";
 
+import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { cn } from "@/lib/utils";
 import {
   getOutfitFusionAssetLabel,
@@ -34,7 +35,7 @@ export function OutfitFusionExampleGallery({
             )}
             style={{ animationDelay: `${Math.min(index * 28, 180)}ms` }}
           >
-            <img
+            <RawPreviewImage
               src={template.coverUrl}
               alt={template.title}
               loading={index < 6 ? "eager" : "lazy"}
@@ -50,7 +51,7 @@ export function OutfitFusionExampleGallery({
                       <div className="truncate bg-black/55 px-1 py-0.5 text-[10px] leading-none text-white">
                         {label}
                       </div>
-                      <img src={asset.url} alt={`${label}${roleLabel}`} className="aspect-square w-full object-cover" />
+                      <RawPreviewImage src={asset.url} alt={`${label}${roleLabel}`} className="aspect-square w-full object-cover" />
                     </div>
                   );
                 })}

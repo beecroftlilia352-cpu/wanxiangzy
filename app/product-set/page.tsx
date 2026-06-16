@@ -34,19 +34,20 @@ import type { TaskSelectionSession } from "@/components/studio/useTaskSelectionS
 import { LoadingStage } from "@/components/studio/LoadingStage";
 import { StudioGenerationCountSelector } from "@/components/studio/StudioFormControls";
 import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
+import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { useStableFileDrag } from "@/components/studio/useStableFileDrag";
 import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
 import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
 import { ClientPortal } from "@/components/ClientPortal";
 import { setCachedProfileCredits } from "@/lib/supabase/client";
-import { fetchHistoryApplyDetail, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
+import { fetchHistoryApplyDetail, takeApplyDetail } from "@/lib/history-apply";
 import { getImageVariantUrl } from "@/lib/image-variants";
 import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
 import { downloadImage, generateDownloadFilename, MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
 import { showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
 import { FAILED_RETRY_NOTICE, buildPartialFailureDetail, summarizeGenerationError } from "@/lib/studio-generation-feedback";
-import { createProductSetPreviewSession, takeSourceImageFromLocation, type ImagePreviewAction, type ImagePreviewResultStatus } from "@/lib/studio-image-preview";
+import { createProductSetPreviewSession, takeSourceImageFromLocation, type ImagePreviewResultStatus } from "@/lib/studio-image-preview";
 import {
   PRODUCT_SET_COUNTRIES,
   PRODUCT_SET_EXAMPLE_GROUPS,
@@ -92,170 +93,37 @@ import {
   type ProductSetPlanSourceTab,
   type SavedProductSetPlan,
 } from "@/lib/product-set-ui-state";
-
-const MODELS: { value: LingyaModel; label: string; desc: string; badge?: string; icon: string }[] = [
-  { value: "nano-banana-2", label: "Nano-Banana-2", desc: "最高4K", badge: "默认", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
-  { value: "gpt-image-2", label: "GPT-Image-2", desc: "最高4K", badge: "高质感", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/openai.svg" },
-  { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "最高4K", badge: "推荐", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
-];
-
-const CUSTOM_ASPECTS: AspectRatio[] = ["auto", "3:4", "4:5", "1:1", "4:3", "9:16", "16:9", "3:2", "2:3", "21:9"];
-
-const PLAN_SOURCE_TABS: { value: ProductSetPlanSourceTab; label: string; description: string }[] = [
-  { value: "smart", label: "智能模式", description: "视觉分析" },
-  { value: "preset", label: "系统预设", description: "项目模板" },
-  { value: "upload", label: "上传模板", description: "自定义参考" },
-  { value: "favorites", label: "我的收藏", description: "账号复用" },
-];
-const PRODUCT_SET_PREVIEW_ACTIONS: ImagePreviewAction[] = [
-  { kind: "download", label: "下载图片" },
-  { kind: "copy", label: "复制链接" },
-  { kind: "regenerateOne", label: "重生本张" },
-  { kind: "aiVideo", label: "AI视频" },
-  { kind: "modelBackground", label: "换背景" },
-  { kind: "pose", label: "姿势裂变" },
-  { kind: "feedback", label: "反馈" },
-];
-const COUNT_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8];
-const FAVORITE_PRODUCT_SET_PLAN_LIMIT = 24;
-const DEFAULT_REFERENCE_STYLE_BRIEF = `**目标平台：** 未明确
-
-**风格名称：** 方案A：摩登都市奢华风
-
-## 视觉风格
-极简高级感，通过大面积留白与硬朗线条展现品牌调性。
-
-## 整组图统一场景
-高端艺术画廊或现代建筑中庭，光影错落，营造静谧的奢华感。
-
-## 产品信息
-**产品名称：** 老花印花高腰阔腿牛仔裤
-
-**核心卖点：** 经典满印老花工艺，彰显品牌身份，修饰腿型的高腰阔腿剪裁。
-
-## 用户痛点
-- [痛点1：普通牛仔裤缺乏设计感，难以在社交场合脱颖而出]
-- [痛点2：腿部线条不够完美，需要阔腿版型遮盖缺点]
-- [痛点3：大牌质感难以通过图片直观感受]
-
-**适用人群：** 追求时尚品质的都市名媛、职场精英。
-
-## 产品参数
-材质：高品质丹宁面料；尺寸：未明确；颜色：经典牛仔蓝配白色印花；功能：修身显瘦、百搭时尚。
-
-## 设计风格
-高级/简约/电商质感
-
-## 主题配色
-- **主色调：** 纯净白 #FFFFFF（用于背景/大面积色块）
-- **辅助色：** 丹宁蓝 #4682B4（用于文字/装饰/图标）
-- **点缀色：** 香槟金 #D4AF37（用于高光/强调元素）
-
-## 用户需求原文
-无`;
-
-type ProductImage = {
-  url: string;
-  name: string;
-};
-type ProductSetHistoryPayload = Extract<HistoryJobPayload, { kind: "productSet" }>;
-
-type CustomDraft = {
-  name: string;
-  typeDescription: string;
-  moduleRole: string;
-  contentScope: string;
-  layoutRules: string;
-  textRules: string;
-  avoidRules: string;
-  aspectRatio: AspectRatio;
-  referenceImageUrls: string[];
-  modelReferenceImageUrls: string[];
-  otherReferenceImageUrls: string[];
-  extraDescription: string;
-  subjectConsistency: boolean;
-  modelConsistency: boolean;
-  intelligentCopy: boolean;
-  copyDensity: ProductSetCopyDensity;
-};
-
-type TemplateFilter = "all" | "selected" | "womenswear";
-type ProductAnalysisSource = "idle" | "running" | "ai" | "fallback" | "manual" | "history" | "failed";
-type ProductSetAnalysisDetail = {
-  image_role?: string;
-  category?: { primary?: string; secondary?: string; category_confidence?: number };
-  product?: {
-    name_guess?: string;
-    colors?: string[];
-    style_tags?: string[];
-    visible_details?: string[];
-    possible_selling_points?: string[];
-    usage_scenarios?: string[];
-  };
-  image_quality?: { quality_score?: number; can_generate?: boolean };
-  generation_fit?: { recommended_style?: string; recommended_style_reason?: string; recommended_output_set?: string[] };
-  visual_director?: {
-    strategy_name?: string;
-    style_strategy?: string;
-    global_strategy?: {
-      core_palette?: string;
-      primary_color?: string;
-      secondary_colors?: string[];
-      accent_color?: string;
-      color_temperature?: string;
-      lighting?: string;
-      typography?: string;
-      texture_mood?: string;
-    };
-    main_plan?: Array<{ module_key?: string; purpose?: string; layout?: string; copy_rule?: string }>;
-    details_plan?: Array<{ module_key?: string; purpose?: string; layout?: string; copy_rule?: string }>;
-    main_scripts?: Array<{ screen_no?: number; module_key?: string; title?: string; global_tone?: string; scene_design?: string; visual_composition?: string; copy_content?: string; layout_rules?: string; constraints?: string }>;
-    details_scripts?: Array<{ screen_no?: number; module_key?: string; title?: string; global_tone?: string; scene_design?: string; visual_composition?: string; copy_content?: string; layout_rules?: string; constraints?: string }>;
-    layout_principles?: string[];
-    copy_strategy?: string;
-    negative_layouts?: string[];
-  };
-  missing_info?: string[];
-  next_step?: { message_to_user?: string; can_continue_without_more_info?: boolean };
-  prompt_summary?: string;
-};
-
-const DEFAULT_SETTINGS: ProductSetSettings = {
-  country: "中国",
-  language: "中文",
-  platform: "淘宝",
-  themeMode: "auto",
-  themeColor: "智能主题色",
-  fontStyle: "auto",
-  stylePackId: "auto",
-  extraDescription: "",
-  visualDirectorScript: "",
-};
-
-const DEFAULT_DRAFT: CustomDraft = {
-  name: "自定义样式",
-  typeDescription: "",
-  moduleRole: "",
-  contentScope: "",
-  layoutRules: "",
-  textRules: "",
-  avoidRules: "",
-  aspectRatio: "auto",
-  referenceImageUrls: [],
-  modelReferenceImageUrls: [],
-  otherReferenceImageUrls: [],
-  extraDescription: "",
-  subjectConsistency: true,
-  modelConsistency: false,
-  intelligentCopy: true,
-  copyDensity: "standard",
-};
-
-function buildReferenceStyleBrief(plan: typeof PRODUCT_SET_PRESET_PLANS[number]) {
-  return DEFAULT_REFERENCE_STYLE_BRIEF
-    .replace("方案A：摩登都市奢华风", `方案A：${plan.name}参考风格`)
-    .replace("无", `选择参考：${plan.name}。${plan.description}`);
-}
+import {
+  formatMissingInfo,
+  getAnalysisFallbackMessage,
+  getDefaultGenerationCount,
+  getProductAnalysisStatus,
+  isPlaceholderProductName,
+  parseProductInfo,
+  resolveAnalysisSource,
+  splitBriefText,
+  type ProductAnalysisSource,
+  type ProductInfoFields,
+} from "@/features/product-set/create/product-info";
+import {
+  COUNT_OPTIONS,
+  CUSTOM_ASPECTS,
+  DEFAULT_DRAFT,
+  DEFAULT_REFERENCE_STYLE_BRIEF,
+  DEFAULT_SETTINGS,
+  FAVORITE_PRODUCT_SET_PLAN_LIMIT,
+  MODELS,
+  PLAN_SOURCE_TABS,
+  PRODUCT_SET_PREVIEW_ACTIONS,
+  buildReferenceStyleBrief,
+} from "@/features/product-set/create/config";
+import type {
+  CustomDraft,
+  ProductImage,
+  ProductSetAnalysisDetail,
+  ProductSetHistoryPayload,
+  TemplateFilter,
+} from "@/features/product-set/create/types";
 
 export default function ProductSetPage() {
   const router = useRouter();
@@ -314,7 +182,6 @@ export default function ProductSetPage() {
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [showCustomBuilder, setShowCustomBuilder] = useState(false);
   const [showAnalysisDetails, setShowAnalysisDetails] = useState(false);
-  const [showAdvancedPlanSource, setShowAdvancedPlanSource] = useState(false);
   const [showFullPlan, setShowFullPlan] = useState(false);
   const [showGenerationSettings, setShowGenerationSettings] = useState(false);
   const [showReferenceStyleModal, setShowReferenceStyleModal] = useState(false);
@@ -324,7 +191,6 @@ export default function ProductSetPage() {
   const [templateQuery, setTemplateQuery] = useState("");
   const [favoritePlans, setFavoritePlans] = useState<SavedProductSetPlan[]>([]);
   const [favoritePlanName, setFavoritePlanName] = useState("");
-  const [showFavoritePlans, setShowFavoritePlans] = useState(false);
   const [isLoadingFavoritePlans, setIsLoadingFavoritePlans] = useState(false);
   const [isSavingFavoritePlan, setIsSavingFavoritePlan] = useState(false);
   const productImageDrag = useStableFileDrag<HTMLElement>({
@@ -412,10 +278,6 @@ export default function ProductSetPage() {
   const settingsSummary = `${settings.country} · ${settings.language} · ${settings.platform} · ${selectedStylePack.name} · ${PRODUCT_SET_FONT_STYLE_LABELS[settings.fontStyle]}`;
   const countOptions = COUNT_OPTIONS;
   const outputUnit = imageType === "main" ? "张主图" : "屏详情页";
-  const modeTitle = imageType === "main" ? "商品主图生成" : "详情页方案生成";
-  const modeDescription = imageType === "main"
-    ? "适合上架和投放，先选张数，系统再按数量生成主图结构。"
-    : "先选屏数，系统再拆解首屏、卖点、细节和转化模块。";
   const detailsResolutionWarning = imageType === "details" && imageSize === "1K";
   const visiblePresetPlans = useMemo(
     () => PRODUCT_SET_PRESET_PLANS.filter((plan) => plan.id === "smart" || plan.imageType === imageType),
@@ -550,12 +412,10 @@ export default function ProductSetPage() {
     setTemplateFilter("all");
     setTemplateQuery("");
     setFavoritePlanName("");
-    setShowFavoritePlans(false);
     setShowSettingsModal(false);
     setShowTemplateModal(false);
     setShowCustomBuilder(false);
     setShowAnalysisDetails(false);
-    setShowAdvancedPlanSource(false);
     setShowFullPlan(false);
     setShowGenerationSettings(false);
     setShowReferenceStyleModal(false);
@@ -624,7 +484,6 @@ export default function ProductSetPage() {
     setSettings((prev) => ({ ...prev, visualDirectorScript: "", visualDirectorPlan: undefined }));
     setModuleOverrides([]);
     setShowAnalysisDetails(false);
-    setShowAdvancedPlanSource(false);
     setShowFullPlan(false);
     setShowGenerationSettings(false);
     resetOutput();
@@ -763,7 +622,6 @@ export default function ProductSetPage() {
         }
         setShowProductInfoEditor(false);
         setShowAnalysisDetails(false);
-        setShowAdvancedPlanSource(false);
         setShowFullPlan(false);
         setShowGenerationSettings(false);
         if (!options.silent) {
@@ -934,7 +792,6 @@ export default function ProductSetPage() {
       setFavoritePlans((prev) => [savedPlan, ...prev.filter((plan) => plan.id !== savedPlan.id && plan.name !== savedPlan.name)]
         .slice(0, FAVORITE_PRODUCT_SET_PLAN_LIMIT));
       setFavoritePlanName("");
-      setShowFavoritePlans(true);
       toast.success(existing ? "已更新收藏方案" : "已收藏当前方案，下次可直接套用");
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "收藏方案保存失败");
@@ -1521,10 +1378,10 @@ export default function ProductSetPage() {
   const shouldShowTaskPanel = Boolean(activeQueueTask) && activeQueueTask?.statusGroup !== "completed" && !hasVisibleResults && moduleResults.length === 0;
   const resultSlots = Array.from({ length: resultSlotCount }, (_, index) => {
     const template = displayedResultPlan[index];
-    const module = findModuleResultForTemplate(moduleResults, template, index);
+    const moduleResult = findModuleResultForTemplate(moduleResults, template, index);
     return {
-      module,
-      url: getModuleResultUrl(module) || resultUrls[index],
+      module: moduleResult,
+      url: getModuleResultUrl(moduleResult) || resultUrls[index],
       template,
     };
   });
@@ -1647,7 +1504,7 @@ export default function ProductSetPage() {
               <div className="mt-3 grid grid-cols-3 gap-2">
                 {productImages.map((item, index) => (
                   <div key={`${item.url}-${index}`} className="studio-checkerboard group relative aspect-square overflow-hidden rounded-xl border border-white bg-white shadow-sm">
-                    <img src={getImageVariantUrl(item.url, "thumb")} alt={item.name} className="h-full w-full object-contain p-1.5" />
+                    <RawPreviewImage src={getImageVariantUrl(item.url, "thumb")} alt={item.name} className="h-full w-full object-contain p-1.5" />
                     <span className="absolute left-1 top-1 rounded bg-white/90 px-1.5 py-0.5 text-[10px] font-bold text-slate-500">图{index + 1}</span>
                     <button type="button" onClick={() => removeProductImage(index)} className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-slate-800/80 text-white opacity-0 transition group-hover:opacity-100">
                       <X className="h-3 w-3" />
@@ -1897,7 +1754,6 @@ export default function ProductSetPage() {
                     onSave={saveCurrentPlanAsFavorite}
                     onApply={applyFavoritePlan}
                     onDelete={removeFavoritePlan}
-                    onToggleList={() => setShowFavoritePlans((value) => !value)}
                   />
                 )}
 
@@ -2088,7 +1944,7 @@ export default function ProductSetPage() {
                     <article key={`${url || template?.id || "pending"}-${index}`} className="flex h-full flex-col overflow-hidden rounded-[24px] border border-white/80 bg-white shadow-[0_18px_50px_rgba(15,23,42,0.08)]">
                       {url ? (
                         <button type="button" onClick={() => setPreviewIndex(index)} className="group relative aspect-[3/4] w-full overflow-hidden bg-slate-100">
-                          <img src={getImageVariantUrl(url, "card")} alt={template?.name || `商品套图${index + 1}`} className="h-full w-full object-contain transition duration-300 group-hover:scale-[1.02]" />
+                          <RawPreviewImage src={getImageVariantUrl(url, "card")} alt={template?.name || `商品套图${index + 1}`} className="h-full w-full object-contain transition duration-300 group-hover:scale-[1.02]" />
                           <span className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-black/45 text-white opacity-0 transition group-hover:opacity-100">
                             <ZoomIn className="h-4 w-4" />
                           </span>
@@ -2240,7 +2096,7 @@ export default function ProductSetPage() {
             <button type="button" onClick={() => setLightboxSrc(null)} className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20">
               <X className="h-5 w-5" />
             </button>
-            <img src={lightboxSrc} alt="商品套图预览" className="max-h-[92vh] max-w-[94vw] rounded-2xl object-contain shadow-2xl" />
+            <RawPreviewImage src={lightboxSrc} alt="商品套图预览" className="max-h-[92vh] max-w-[94vw] rounded-2xl object-contain shadow-2xl" />
           </div>
         )}
       </ClientPortal>
@@ -2285,8 +2141,6 @@ function ProductModeTabs({ imageType, onChange }: { imageType: ProductSetImageTy
     </div>
   );
 }
-
-type ProductInfoFields = ReturnType<typeof parseProductInfo>;
 
 function WorkflowStepper({ currentStep }: { currentStep: number }) {
   const steps = [
@@ -2567,15 +2421,6 @@ function ProductVisualStrategyCard({
   );
 }
 
-function InfoField({ title, value, compact = false }: { title: string; value: string; compact?: boolean }) {
-  return (
-    <div className={`rounded-2xl bg-slate-50 px-3 py-2 ${compact ? "min-h-[62px]" : "min-h-[86px]"}`}>
-      <p className="text-[11px] font-black text-slate-400">{title}</p>
-      <p className={`mt-1 text-xs leading-5 text-slate-700 ${compact ? "line-clamp-1" : "line-clamp-3"}`}>{value || "待补充"}</p>
-    </div>
-  );
-}
-
 function ProductAnalysisNotice({ status }: { status: ReturnType<typeof getProductAnalysisStatus> }) {
   if (status.tone === "quiet") return null;
   const className = status.tone === "running"
@@ -2591,16 +2436,6 @@ function ProductAnalysisNotice({ status }: { status: ReturnType<typeof getProduc
         <p className="font-black">{status.title}</p>
         <p className="mt-0.5 opacity-80">{status.message}</p>
       </div>
-    </div>
-  );
-}
-
-function DashboardMetric({ label, value, hint }: { label: string; value: string; hint: string }) {
-  return (
-    <div className="flex h-full min-h-[112px] flex-col justify-center rounded-3xl border border-slate-100 bg-slate-50 p-4">
-      <p className="text-[11px] font-bold text-slate-400">{label}</p>
-      <p className="mt-2 text-lg font-black text-slate-950">{value}</p>
-      <p className="mt-1 truncate text-xs text-slate-500">{hint}</p>
     </div>
   );
 }
@@ -2638,19 +2473,19 @@ function ModuleProgressList({
   return (
     <div className={`mt-4 grid gap-2 ${compact ? "sm:grid-cols-2 xl:grid-cols-3" : ""}`}>
       {templates.map((template, index) => {
-        const module = moduleResults.find((item) => item.moduleKey === getProductSetModuleKey(template, index))
+        const moduleResult = moduleResults.find((item) => item.moduleKey === getProductSetModuleKey(template, index))
           || moduleResults.find((item) => Number(item.index) === index + 1)
           || moduleResults[index];
-        const moduleUrl = typeof module?.resultUrl === "string" && module.resultUrl.length > 0 ? module.resultUrl : "";
-        const done = module?.status === "completed" || Boolean(moduleUrl || resultUrls[index]);
-        const failed = module?.status === "failed";
-        const current = module?.status === "running" || (isGenerating && !done && resultUrls.filter(Boolean).length === index);
-        const statusText = failed ? "失败" : done ? "已完成" : current ? `${module?.progress || "生成"}%` : "排队";
+        const moduleUrl = typeof moduleResult?.resultUrl === "string" && moduleResult.resultUrl.length > 0 ? moduleResult.resultUrl : "";
+        const done = moduleResult?.status === "completed" || Boolean(moduleUrl || resultUrls[index]);
+        const failed = moduleResult?.status === "failed";
+        const current = moduleResult?.status === "running" || (isGenerating && !done && resultUrls.filter(Boolean).length === index);
+        const statusText = failed ? "失败" : done ? "已完成" : current ? `${moduleResult?.progress || "生成"}%` : "排队";
         return (
           <div key={`${template.source}-${template.id}-${index}`} className={`flex min-h-11 items-center gap-2 rounded-2xl border px-3 py-2 text-xs ${failed ? "border-red-100 bg-red-50 text-red-600" : done ? "border-emerald-100 bg-emerald-50 text-emerald-700" : current ? "border-[rgba(91,124,255,0.22)] bg-[rgba(91,124,255,0.1)] text-[var(--codex-accent)]" : "border-slate-100 bg-slate-50 text-slate-500"}`}>
             <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white text-[10px] font-black shadow-sm">{done ? <Check className="h-3.5 w-3.5" /> : current ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : index + 1}</span>
             <span className="min-w-0 flex-1 truncate font-black">{template.name}</span>
-            {done && module?.qualityScore !== undefined && <QualityBadge score={module.qualityScore} />}
+            {done && moduleResult?.qualityScore !== undefined && <QualityBadge score={moduleResult.qualityScore} />}
             <span className="shrink-0 text-[10px] font-bold">{statusText}</span>
           </div>
         );
@@ -3239,7 +3074,7 @@ function FavoritePlanPanel({
   onSave: () => void;
   onApply: (plan: SavedProductSetPlan) => void;
   onDelete: (id: string) => void;
-  onToggleList: () => void;
+  onToggleList?: () => void;
 }) {
   const shouldShowList = embedded || showList;
   return (
@@ -3253,7 +3088,7 @@ function FavoritePlanPanel({
             收藏当前视觉方案或自定义模板，下次换商品后直接套用。
           </p>
         </div>
-        {!embedded && (
+        {!embedded && onToggleList && (
           <button
             type="button"
             onClick={onToggleList}
@@ -3471,7 +3306,7 @@ function ModelConfigPanel({
               }`}
             >
               <div className="flex min-w-0 items-center gap-1.5">
-                <img src={model.icon} alt="" className="h-4 w-4 shrink-0 object-contain" />
+                <RawPreviewImage src={model.icon} alt="" className="h-4 w-4 shrink-0 object-contain" />
                 <span className="min-w-0 truncate text-[11px] font-black">{model.label}</span>
                 {model.badge && (
                   <span className="shrink-0 rounded-full bg-[rgba(91,124,255,0.1)] px-1.5 py-0.5 text-[9px] font-black text-[var(--codex-accent)]">
@@ -3786,7 +3621,7 @@ function TemplateCard({ template, selected, onToggle }: { template: ProductSetTe
       }`}
     >
       <div className="relative aspect-[4/3] shrink-0 bg-slate-100">
-        <img src={getImageVariantUrl(template.coverImage, "card")} alt={template.name} className="h-full w-full object-cover" />
+        <RawPreviewImage src={getImageVariantUrl(template.coverImage, "card")} alt={template.name} className="h-full w-full object-cover" />
         <span className="absolute left-3 top-3 rounded-full bg-white/90 px-2 py-1 text-[10px] font-black text-slate-600 shadow-sm">
           {getAspectRatioLabel(template.aspectRatio)}
         </span>
@@ -3832,7 +3667,7 @@ function ReferenceUploadButton({ label, hint, url, loading, onClick }: { label: 
   return (
     <button type="button" onClick={onClick} className="flex min-h-[60px] w-full items-center gap-2 rounded-xl border border-slate-100 bg-slate-50 px-2 py-2 text-left text-xs font-bold text-slate-600 hover:border-[rgba(91,124,255,0.3)] hover:bg-[rgba(91,124,255,0.12)]">
       <span className={`flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg ${url ? "studio-checkerboard" : "bg-white"}`}>
-        {url ? <img src={getImageVariantUrl(url, "thumb")} alt={label} className="h-full w-full object-contain p-0.5" /> : loading ? <Loader2 className="h-4 w-4 animate-spin text-[var(--codex-accent)]" /> : <Upload className="h-4 w-4 text-slate-400" />}
+        {url ? <RawPreviewImage src={getImageVariantUrl(url, "thumb")} alt={label} className="h-full w-full object-contain p-0.5" /> : loading ? <Loader2 className="h-4 w-4 animate-spin text-[var(--codex-accent)]" /> : <Upload className="h-4 w-4 text-slate-400" />}
       </span>
       <span className="min-w-0 flex-1">
         <span className="block truncate">{label}</span>
@@ -3876,179 +3711,4 @@ function formatSavedPlanTime(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "刚刚";
   return `${date.getMonth() + 1}/${date.getDate()} ${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
-}
-
-function parseProductInfo(text: string) {
-  return {
-    name: extractProductField(text, ["产品名称", "商品名称", "品名"]),
-    description: extractProductField(text, ["视觉风格", "整组图统一场景", "核心卖点", "商品描述"]),
-    audience: extractProductField(text, ["适用人群", "目标受众", "目标人群"]),
-    sellingPoints: extractProductField(text, ["核心卖点", "商品卖点", "用户痛点"]),
-  };
-}
-
-function splitBriefText(value: string) {
-  return value
-    .replace(/^\[|\]$/g, "")
-    .split(/[,，、;；\n]+/)
-    .map((item) => item.replace(/^[-*\s]+/, "").replace(/^\[?痛点\d+[：:]/, "").replace(/^\d+[.)、]?\s*/, "").replace(/\]?$/, "").trim())
-    .filter((item) => item && item.length <= 24);
-}
-
-function resolveAnalysisSource(data: unknown, productInfo: string): ProductAnalysisSource {
-  const source = typeof data === "object" && data && (data as { source?: unknown }).source === "ai" ? "ai" : "fallback";
-  if (source !== "ai") return "fallback";
-  const name = parseProductInfo(productInfo).name;
-  return isPlaceholderProductName(name) ? "fallback" : "ai";
-}
-
-function isPlaceholderProductName(name: string) {
-  const normalized = name.trim();
-  return !normalized || /待分析|待确认|待识别|未识别/.test(normalized);
-}
-
-function getAnalysisFallbackMessage(reason: unknown) {
-  const value = typeof reason === "string" ? reason : "";
-  if (value === "missing_api_key" || value === "missing_base_url") return "视觉分析服务没有配置完成，当前展示的是基础模板信息。";
-  if (value.startsWith("api_")) return `视觉分析接口返回 ${value.replace("api_", "")}，当前展示的是基础模板信息。`;
-  if (value.startsWith("all_failed:")) return "视觉分析没有拿到可用结果，已暂停生成。请重试分析或手动确认商品名称与类目。";
-  return "没有拿到可靠的视觉分析结果，已暂停生成。请重试或手动补充商品名称与类目。";
-}
-
-function getProductAnalysisStatus(params: { source: ProductAnalysisSource; hasProductInfo: boolean; message: string }) {
-  if (params.source === "running") {
-    return {
-      tone: "running" as const,
-      title: "正在分析商品图",
-      description: "正在识别商品名称、类目、卖点和适合的套图计划。",
-      message: "分析完成前已禁用生成按钮，避免用不完整信息提交。",
-      metric: "分析中",
-    };
-  }
-  if (params.source === "fallback") {
-    return {
-      tone: "warning" as const,
-      title: "未完成视觉分析",
-      description: "已填入基础商品信息，但还没有识别出具体商品。",
-      message: params.message || "当前不是完整识别结果，生成按钮已暂停；请重新分析或手动补充商品名称。",
-      metric: "待确认",
-    };
-  }
-  if (params.source === "failed") {
-    return {
-      tone: "error" as const,
-      title: "分析失败",
-      description: "商品分析失败，可重新分析或手动填写。",
-      message: params.message || "分析接口没有返回可用结果。",
-      metric: "失败",
-    };
-  }
-  if (params.source === "ai") {
-    return {
-      tone: "quiet" as const,
-      title: "分析已完成",
-      description: "已生成结构化商品信息，可继续编辑。",
-      message: "",
-      metric: "已完成",
-    };
-  }
-  if (params.source === "manual") {
-    return {
-      tone: "quiet" as const,
-      title: "手动信息",
-      description: "已使用手动填写的商品信息。",
-      message: "",
-      metric: "手动",
-    };
-  }
-  if (params.source === "history") {
-    return {
-      tone: "quiet" as const,
-      title: "历史参数",
-      description: "已套用历史商品信息，可继续编辑。",
-      message: "",
-      metric: "历史",
-    };
-  }
-  return {
-    tone: "quiet" as const,
-    title: "待分析",
-    description: params.hasProductInfo ? "已填写商品信息，点击帮我写可继续优化规划。" : "可以先写一句需求，也可以上传商品图后点帮我写。",
-    message: "",
-    metric: params.hasProductInfo ? "已填写" : "未填写",
-  };
-}
-
-function getSmartPlanDescription(profile: ProductSetProductProfile, imageType: ProductSetImageType) {
-  if (profile.isApparel) {
-    return imageType === "details"
-      ? "按服装详情页自动加入首屏、模特上身、面料版型、尺码试穿、种草和卖点模块。"
-      : "按服装主图自动加入白底、模特上身、穿搭场景、街拍/搭配和细节模块。";
-  }
-  return imageType === "details"
-    ? "按通用商品详情页自动组合首屏、卖点、细节、尺寸、材质和场景模块。"
-    : "按通用商品主图自动组合白底、场景、细节、多角度和卖点模块。";
-}
-
-function getDefaultGenerationCount(imageType: ProductSetImageType, profile?: ProductSetProductProfile) {
-  if (imageType === "main") return 3;
-  if (!profile) return 5;
-  if (profile.kind === "electronics" || profile.kind === "home") return 7;
-  if (profile.apparelType === "intimate" || profile.apparelType === "swimwear") return 5;
-  if (profile.apparelType === "outerwear" || profile.apparelType === "sportswear") return 5;
-  return 5;
-}
-
-function formatMissingInfo(value: string) {
-  const map: Record<string, string> = {
-    brand_name: "品牌名",
-    product_name: "商品名",
-    selling_points: "核心卖点",
-    product_size: "尺码/尺寸",
-    target_audience: "目标人群",
-    model_image: "模特图",
-    face_reference: "人脸参考",
-    background_reference: "背景参考",
-    logo: "Logo",
-  };
-  return map[value] || value;
-}
-
-function extractProductField(text: string, labels: string[] | string) {
-  const candidates = Array.isArray(labels) ? labels : [labels];
-  const allLabels = [
-    "目标平台",
-    "风格名称",
-    "视觉风格",
-    "整组图统一场景",
-    "产品信息",
-    "产品名称",
-    "商品名称",
-    "品名",
-    "核心卖点",
-    "用户痛点",
-    "适用人群",
-    "目标受众",
-    "目标人群",
-    "产品参数",
-    "商品描述",
-    "商品卖点",
-    "设计风格",
-    "主题配色",
-    "用户需求原文",
-  ];
-  const escapedNextLabels = allLabels.map(escapeRegExp).join("|");
-  for (const label of candidates) {
-    const escapedLabel = escapeRegExp(label);
-    const inlineMatch = text.match(new RegExp(`(?:\\*\\*)?${escapedLabel}\\s*[:：](?:\\*\\*)?\\s*([^\\n]+)`));
-    if (inlineMatch?.[1]?.trim()) return inlineMatch[1].trim();
-    const blockMatch = text.match(new RegExp(`(?:^|\\n)#{1,3}\\s*${escapedLabel}\\s*\\n([\\s\\S]*?)(?=\\n#{1,3}\\s*(?:${escapedNextLabels})\\s*\\n|\\n(?:\\*\\*)?(?:${escapedNextLabels})(?:\\*\\*)?\\s*[:：]|$)`));
-    const value = blockMatch?.[1]?.trim();
-    if (value) return value;
-  }
-  return "";
-}
-
-function escapeRegExp(value: string) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

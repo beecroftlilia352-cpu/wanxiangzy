@@ -24,6 +24,7 @@ import { ModuleHeader } from "@/components/ModuleHeader";
 import { PreviewGuide } from "@/components/PreviewGuide";
 import { ResultVideoGrid } from "@/components/ResultVideoGrid";
 import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
+import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { StudioGenerationCountSelector, StudioOptionGrid, StudioPromptTextarea, StudioToggleRow } from "@/components/studio/StudioFormControls";
 import { StudioRunBar } from "@/components/studio/StudioRunBar";
 import { StudioSideDrawer } from "@/components/studio/StudioSideDrawer";
@@ -1178,7 +1179,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
             className="fixed inset-0 z-[180] flex cursor-zoom-out items-center justify-center bg-slate-950/66 p-4 backdrop-blur-xl sm:p-8"
             onClick={() => setLightboxImage(null)}
           >
-            <img
+            <RawPreviewImage
               src={lightboxImage}
               alt="上传图片预览"
               className="max-h-full max-w-full cursor-default rounded-[16px] bg-white object-contain shadow-[0_32px_120px_rgba(0,0,0,0.45)]"
@@ -1222,7 +1223,7 @@ function TemplateStrip({ selectedId, onSelect }: { selectedId: number | null; on
     <div className="relative" onMouseLeave={() => setPreviewTemplate(null)}>
       {previewTemplate && (
         <div className="pointer-events-none absolute bottom-[94px] left-0 z-30 aspect-[4/5] w-[232px] overflow-hidden rounded-[18px] border border-white/90 bg-slate-950 shadow-[0_28px_70px_rgba(15,23,42,0.22)] ring-1 ring-blue-200/80">
-          <img src={previewTemplate.previewImage} alt="" className="absolute inset-0 h-full w-full object-cover" />
+          <RawPreviewImage src={previewTemplate.previewImage} alt="" className="absolute inset-0 h-full w-full object-cover" />
           <video
             ref={previewVideoRef}
             key={previewTemplate.id}
@@ -1262,7 +1263,7 @@ function TemplateStrip({ selectedId, onSelect }: { selectedId: number | null; on
               }`}
               title={template.title}
             >
-              <img src={template.previewImage} alt={template.title} className="h-full w-full object-cover transition duration-200 group-hover:scale-[1.04]" />
+              <RawPreviewImage src={template.previewImage} alt={template.title} className="h-full w-full object-cover transition duration-200 group-hover:scale-[1.04]" />
               <span className={`absolute inset-0 transition ${previewing ? "bg-blue-500/10" : "bg-transparent"}`} />
               {(selected || previewing) && <span className="absolute inset-x-2 bottom-1 h-1 rounded-full bg-blue-500" />}
               {previewing && (
@@ -1349,7 +1350,7 @@ function FrameStep({ image, label, placeholder, isResult }: { image: string; lab
     <div className="min-w-0">
       <div className="relative mx-auto aspect-[3/4] w-[150px] overflow-hidden rounded-[12px] border border-slate-100 bg-white shadow-sm sm:w-[170px] lg:w-[190px]">
         {image ? (
-          <img src={image} alt={label} className="h-full w-full object-contain p-2" />
+          <RawPreviewImage src={image} alt={label} className="h-full w-full object-contain p-2" />
         ) : (
           <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-white text-codex-faint">
             <ImagePlus className="h-7 w-7 text-blue-500" />
@@ -1447,7 +1448,7 @@ function TemplateCard({
       onBlur={() => setActive(false)}
     >
       <div className="relative aspect-[4/5] overflow-hidden bg-slate-100">
-        <img src={template.previewImage} alt={template.title} className={`h-full w-full object-cover transition ${active ? "opacity-0" : "opacity-100"}`} />
+        <RawPreviewImage src={template.previewImage} alt={template.title} className={`h-full w-full object-cover transition ${active ? "opacity-0" : "opacity-100"}`} />
         <video
           ref={videoRef}
           src={template.previewVideo}
@@ -1586,7 +1587,7 @@ function MotionStep({ image, label }: { image: string; label: string }) {
   return (
     <div className="min-w-0">
       <div className="mx-auto aspect-[3/4] w-full max-w-[180px] overflow-hidden rounded-[16px] border border-slate-100 bg-slate-50 shadow-sm">
-        <img src={image} alt={label} className="h-full w-full object-cover" />
+        <RawPreviewImage src={image} alt={label} className="h-full w-full object-cover" />
       </div>
       <p className="mt-4 text-base font-black text-slate-600">{label}</p>
     </div>

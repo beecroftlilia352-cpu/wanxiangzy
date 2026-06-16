@@ -1,4 +1,5 @@
 import { createHmac, randomUUID } from "node:crypto";
+import { fetchRemoteImageBuffer } from "@/lib/api/remote-image-fetch";
 import { isRemoteUrl } from "@/lib/utils";
 
 const IMGBB_API_URL = "https://api.imgbb.com/1/upload";
@@ -33,6 +34,7 @@ export interface StoreImageInput {
 }
 
 export interface StoreImageOptions {
+  maxRemoteBytes?: number;
   suppressErrorLog?: boolean;
   timeoutMs?: number;
 }
@@ -357,13 +359,13 @@ async function resolveUploadPayload(input: StoreImageInput, options: StoreImageO
   if (!input.image) throw new Error("图片内容为空");
 
   if (isRemoteUrl(input.image)) {
-    const response = await fetch(input.image, {
-      signal: AbortSignal.timeout(options.timeoutMs || DEFAULT_IMAGE_UPLOAD_TIMEOUT_MS),
+    const remote = await fetchRemoteImageBuffer(input.image, {
+      maxBytes: options.maxRemoteBytes || MAX_IMAGE_STORAGE_BYTES,
+      timeoutMs: options.timeoutMs || DEFAULT_IMAGE_UPLOAD_TIMEOUT_MS,
     });
-    if (!response.ok) throw new Error(`图片上传失败: remote image HTTP ${response.status}`);
-    const bytes = Buffer.from(await response.arrayBuffer());
+    const bytes = remote.bytes;
     assertUploadSize(bytes);
-    const contentType = resolveContentType(bytes, name, response.headers.get("content-type"));
+    const contentType = resolveContentType(bytes, name, remote.contentType);
     return normalizeUploadPayloadForStableAiInput(bytes, contentType);
   }
 

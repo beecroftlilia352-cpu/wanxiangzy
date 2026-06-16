@@ -37,6 +37,7 @@ import { StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/c
 import { StudioRunBar } from "@/components/studio/StudioRunBar";
 import { StudioUploadSection } from "@/components/studio/StudioUploadSection";
 import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
+import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { useStableFileDrag } from "@/components/studio/useStableFileDrag";
 import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
 import { fetchHistoryApplyDetail, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
@@ -184,6 +185,37 @@ class PoseGenerationPollTimeoutError extends Error {
   }
 }
 
+function isCacheablePoseAnalysisEntry(entry: PoseAnalysisEntry) {
+  return entry.source !== "fallback"
+    && entry.analysis.confidence >= POSE_ANALYSIS_CLIENT_CACHE_MIN_CONFIDENCE
+    && hasMeaningfulPoseAnalysis(entry.analysis);
+}
+
+function hasMeaningfulPoseAnalysis(analysis: PoseVisualAnalysis) {
+  if (analysis.genderExpression !== "unknown") return true;
+  if (analysis.ageRange !== "unknown") return true;
+  if (analysis.bodyCrop !== "partial_unknown") return true;
+  if (typeof analysis.headVisible === "boolean" || typeof analysis.faceVisible === "boolean") return true;
+  return Boolean(
+    analysis.poseBaseline
+    || analysis.cameraFraming
+    || analysis.outfitDescription
+    || analysis.background
+    || analysis.lighting
+    || analysis.promptNotes
+  );
+}
+
+function buildCustomPosePromptText(customPosePrompt: string, customCamera: string, customPoses: string[]) {
+  return [
+    customPosePrompt,
+    "",
+    customCamera,
+    "",
+    ...customPoses,
+  ].join("\n");
+}
+
 export default function PosePage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -200,6 +232,7 @@ export default function PosePage() {
   const lastPosePlanKeyRef = useRef("");
   const posePlanSeqRef = useRef(0);
   const posePlanBypassCacheRef = useRef(false);
+  const applyPoseHistoryPayloadRef = useRef<((payload: PoseHistoryPayload, historyResultUrls?: string[], options?: { silent?: boolean }) => void) | null>(null);
 
   const {
     authChecked,
@@ -242,10 +275,8 @@ export default function PosePage() {
   const [posePlanError, setPosePlanError] = useState<string | null>(null);
   const [posePlanRetryCount, setPosePlanRetryCount] = useState(0);
   const [showPosePlanEditor, setShowPosePlanEditor] = useState(false);
-  const [isOptimizing, setIsOptimizing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [progress, setProgress] = useState(0);
   const [resultUrls, setResultUrls] = useState<string[]>([]);
   const [runningExpectedCount, setRunningExpectedCount] = useState<number | null>(null);
   const [error, setError] = useState("");
@@ -353,7 +384,7 @@ export default function PosePage() {
       resultTitlePrefix: outputMode === "separate" ? "姿势结果" : "姿势四宫格",
       aspectRatio: aspectRatio === "auto" ? undefined : aspectRatio,
     }),
-    [activeGarmentAngleReferences, activeResultExpectedCount, aiModel, aspectRatio, imageSize, isGenerating, mainImage, outputMode, poseExpectedCount, posePlanMode, posePlanSource, poseStyleLabel, previewPosePlanText, resultUrls, runningExpectedCount]
+    [activeGarmentAngleReferences, activeResultExpectedCount, aiModel, aspectRatio, imageSize, isGenerating, mainImage, outputMode, poseExpectedCount, posePlanMode, posePlanSource, poseStyleLabel, previewPosePlanText, resultUrls]
   );
   const cancelRulesHide = () => {
     if (rulesHideTimerRef.current) {
@@ -448,27 +479,6 @@ export default function PosePage() {
   function getActivePoseAnalysisError() {
     if (!mainImage || !poseAnalysisError) return null;
     return poseAnalysisEntryKey === buildPoseVisualAnalysisKey(mainImage) ? poseAnalysisError : null;
-  }
-
-  function isCacheablePoseAnalysisEntry(entry: PoseAnalysisEntry) {
-    return entry.source !== "fallback"
-      && entry.analysis.confidence >= POSE_ANALYSIS_CLIENT_CACHE_MIN_CONFIDENCE
-      && hasMeaningfulPoseAnalysis(entry.analysis);
-  }
-
-  function hasMeaningfulPoseAnalysis(analysis: PoseVisualAnalysis) {
-    if (analysis.genderExpression !== "unknown") return true;
-    if (analysis.ageRange !== "unknown") return true;
-    if (analysis.bodyCrop !== "partial_unknown") return true;
-    if (typeof analysis.headVisible === "boolean" || typeof analysis.faceVisible === "boolean") return true;
-    return Boolean(
-      analysis.poseBaseline
-      || analysis.cameraFraming
-      || analysis.outfitDescription
-      || analysis.background
-      || analysis.lighting
-      || analysis.promptNotes
-    );
   }
 
   function buildPlanPromptSource() {
@@ -629,12 +639,12 @@ export default function PosePage() {
         }
         if (poseAnalysisSeqRef.current !== seq) return;
         setPoseAnalysisEntry(nextEntry, analysisKey);
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (poseAnalysisSeqRef.current !== seq) return;
         setPoseAnalysisEntryKey(analysisKey);
         setPoseAnalysis(null);
         setPoseAnalysisSource(null);
-        setPoseAnalysisError(err?.message || "主图识别失败，已按默认规则继续");
+        setPoseAnalysisError(err instanceof Error ? err.message : "主图识别失败，已按默认规则继续");
       } finally {
         if (poseAnalysisSeqRef.current === seq) setIsAnalyzingPose(false);
       }
@@ -652,10 +662,22 @@ export default function PosePage() {
       return;
     }
 
-    const activeAnalysis = getActivePoseAnalysis();
-    const activeAnalysisError = getActivePoseAnalysisError();
-    const planPrompt = buildPlanPromptSource();
-    const planKey = buildPosePlanKey(imageUrl, activeAnalysis, poseStyle, outputMode, planPrompt);
+    const imageAnalysisKey = buildPoseVisualAnalysisKey(imageUrl);
+    const activeAnalysis = poseAnalysisEntryKey === imageAnalysisKey ? poseAnalysis : null;
+    const activeAnalysisError = poseAnalysisEntryKey === imageAnalysisKey ? poseAnalysisError : null;
+    const customPromptText = buildCustomPosePromptText(customPosePrompt, customCamera, customPoses);
+    const planPrompt = stripLegacyRuleDemoText([
+      poseStyle === "user_custom" ? customPromptText : prompt,
+      supplementPrompt.trim() ? `补充要求：${supplementPrompt.trim()}` : "",
+    ].filter(Boolean).join("\n\n"));
+    const basePlanKey = buildPosePlanCacheKey({
+      mainImageUrl: imageUrl,
+      poseAnalysis: activeAnalysis,
+      poseStyle,
+      outputMode,
+      prompt: planPrompt,
+    });
+    const planKey = `${basePlanKey}|mode:${poseStyle === "user_custom" ? "custom" : posePlanMode}`;
     if (lastPosePlanKeyRef.current === planKey) return;
     lastPosePlanKeyRef.current = planKey;
     const seq = posePlanSeqRef.current + 1;
@@ -747,7 +769,7 @@ export default function PosePage() {
         posePlanCacheRef.current.set(planKey, nextEntry);
         if (posePlanSeqRef.current !== seq) return;
         setPosePlanEntry(nextEntry);
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (posePlanSeqRef.current !== seq) return;
         const fallback = normalizePosePlan(null, {
           poseAnalysis: activeAnalysis,
@@ -758,7 +780,7 @@ export default function PosePage() {
         setPosePlanEntry({
           plan: fallback,
           source: "fallback",
-          error: err?.message || "姿势规划失败，已使用保守方案",
+          error: err instanceof Error ? err.message : "姿势规划失败，已使用保守方案",
         });
       } finally {
         if (posePlanSeqRef.current === seq) {
@@ -809,10 +831,11 @@ export default function PosePage() {
     setResultUrls(historyResultUrls);
     setIsSubmitting(false);
     setIsGenerating(false);
-    setProgress(historyResultUrls.length ? 100 : 0);
     setError("");
     if (!options?.silent) toast.success("已套用历史参数");
   }
+
+  applyPoseHistoryPayloadRef.current = applyPoseHistoryPayload;
 
   useEffect(() => {
     let cancelled = false;
@@ -821,7 +844,7 @@ export default function PosePage() {
     const payload = detail?.payload;
     if (cancelled || !payload) return;
 
-    applyPoseHistoryPayload(payload, detail?.resultUrls || []);
+    applyPoseHistoryPayloadRef.current?.(payload, detail?.resultUrls || []);
     })();
     return () => {
       cancelled = true;
@@ -912,32 +935,6 @@ export default function PosePage() {
     setGarmentAngleReferences((prev) => prev.filter((item) => item.url !== url));
   }
 
-  async function optimizePrompt() {
-    if (!mainImage) {
-      toast.error("请先上传主图");
-      return;
-    }
-    setIsOptimizing(true);
-    try {
-      const res = await fetch("/api/pose/analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ main_image_url: mainImage, prompt: stripLegacyRuleDemoText(prompt), pose_style: poseStyle }),
-      });
-      const data = await res.json();
-      if (data.prompt) {
-        setPrompt(data.prompt);
-        toast.success("视觉分析已优化提示词");
-      } else {
-        toast.error("视觉优化失败，已保留当前提示词");
-      }
-    } catch {
-      toast.error("视觉优化失败");
-    } finally {
-      setIsOptimizing(false);
-    }
-  }
-
   function selectPoseStyle(nextStyle: PoseSeriesStyle) {
     setPoseStyle(nextStyle);
     if (nextStyle === "user_custom") {
@@ -949,13 +946,7 @@ export default function PosePage() {
   }
 
   function buildCustomPosePrompt(): string {
-    return [
-      customPosePrompt,
-      "",
-      customCamera,
-      "",
-      ...customPoses,
-    ].join("\n");
+    return buildCustomPosePromptText(customPosePrompt, customCamera, customPoses);
   }
 
   function applyRuleDemo(demo: PoseRuleDemo) {
@@ -1004,7 +995,6 @@ export default function PosePage() {
     setIsSubmitting(true);
     setIsGenerating(true);
     setRunningExpectedCount(runExpectedCount);
-    setProgress(10);
     setError("");
     setResultUrls([]);
     if (options.toastMessage) toast.info(options.toastMessage);
@@ -1068,7 +1058,6 @@ export default function PosePage() {
         setCredits(data.credits_remaining);
         if (userId) setCachedProfileCredits(userId, data.credits_remaining);
       }
-      if (isCurrentRun()) setProgress(25);
       if (typeof data.generation_id === "string" && data.generation_id) {
         const serverTask = taskQueue.replaceWithServerTask(activeTaskId, {
           id: data.generation_id,
@@ -1098,7 +1087,6 @@ export default function PosePage() {
             if (isCurrentRun()) setResultUrls(state.result_urls);
           }
           const runningProgress = Math.min(25 + (elapsedMs / POSE_GENERATION_POLL_TIMEOUT_MS) * 65, 90);
-          if (isCurrentRun()) setProgress(runningProgress);
           taskQueue.markRunning(activeTaskId, {
             expectedCount: runExpectedCount,
             inputThumbnails: taskInputThumbnails,
@@ -1115,7 +1103,6 @@ export default function PosePage() {
             : null;
           const completedError = state.error || partialFailure?.message || "";
           if (isCurrentRun()) {
-            setProgress(100);
             setResultUrls(finalUrls);
           }
           taskQueue.markCompleted(activeTaskId, {
@@ -1187,7 +1174,6 @@ export default function PosePage() {
     setRunningExpectedCount(expectedCount);
     setIsSubmitting(false);
     setIsGenerating(true);
-    setProgress(Math.min(Math.max(Math.round(Number(item.progress) || 12), 1), 99));
     setError("");
     setResultUrls(safeTaskQueueUrls(item.resultThumbnails));
   }
@@ -1238,7 +1224,6 @@ export default function PosePage() {
     setRunningExpectedCount(null);
     setIsSubmitting(false);
     setIsGenerating(false);
-    setProgress(0);
     setResultUrls([]);
     setError("");
     setLightboxSrc(null);
@@ -1527,7 +1512,7 @@ export default function PosePage() {
                                   className="block w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
                                   aria-label={`预览${label}`}
                                 >
-                                  <img src={ref.url} alt={label} className="aspect-[3/4] w-full object-cover" />
+                                  <RawPreviewImage src={ref.url} alt={label} className="aspect-[3/4] w-full object-cover" />
                                   <span className="absolute bottom-1 left-1 max-w-[calc(100%-8px)] truncate rounded-full bg-white/90 px-1.5 py-0.5 text-[10px] font-bold text-blue-700">
                                     {label}
                                   </span>
@@ -1947,7 +1932,7 @@ export default function PosePage() {
                 {POSE_UPLOAD_RULE.demos.map((demo) => (
                   <div key={demo.imageUrl} className="rounded-2xl border border-slate-100 bg-slate-50/70 p-2">
                     <div className="relative overflow-hidden rounded-xl bg-white">
-                      <img src={demo.imageUrl} alt={demo.title} className="aspect-[3/4] w-full object-cover" />
+                      <RawPreviewImage src={demo.imageUrl} alt={demo.title} className="aspect-[3/4] w-full object-cover" />
                       <CheckCircle2 className="absolute right-2 top-2 h-5 w-5 rounded-full bg-white text-emerald-500" />
                     </div>
                     <p className="mt-2 truncate text-center text-xs font-medium text-slate-700">{demo.title}</p>
@@ -1968,7 +1953,7 @@ export default function PosePage() {
                   {POSE_UPLOAD_RULE.deprecatedImages.map((image) => (
                     <div key={image.title} className="rounded-2xl border border-red-100 bg-white/70 p-2 text-center">
                       <div className="relative overflow-hidden rounded-xl bg-white">
-                        <img src={image.url} alt={image.title} className="aspect-square w-full object-cover" />
+                        <RawPreviewImage src={image.url} alt={image.title} className="aspect-square w-full object-cover" />
                         <XCircle className="absolute right-2 top-2 h-5 w-5 rounded-full bg-white text-red-500" />
                       </div>
                       <p className="mt-2 text-xs font-medium text-slate-600">{image.title}</p>
@@ -1985,7 +1970,7 @@ export default function PosePage() {
         <ClientPortal>
           <div className="fixed inset-0 z-[180] flex cursor-zoom-out items-center justify-center bg-slate-950/66 p-4 backdrop-blur-xl sm:p-8"
             onClick={() => setLightboxSrc(null)}>
-            <img src={lightboxSrc} className="max-h-full max-w-full rounded-2xl object-contain shadow-[0_32px_120px_rgba(0,0,0,0.45)]" />
+            <RawPreviewImage src={lightboxSrc} alt="姿势参考预览" className="max-h-full max-w-full rounded-2xl object-contain shadow-[0_32px_120px_rgba(0,0,0,0.45)]" />
             <button onClick={() => setLightboxSrc(null)}
               className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full border border-white/85 bg-white/90 text-slate-700 shadow-[0_12px_34px_rgba(15,23,42,0.22)] backdrop-blur transition-colors hover:bg-white hover:text-slate-950 sm:right-6 sm:top-6">
               <X className="w-5 h-5" />

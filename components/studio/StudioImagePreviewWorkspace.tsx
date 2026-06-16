@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
@@ -128,11 +129,11 @@ export function StudioImagePreviewWorkspace({
     onUseAsFace: Boolean(onUseAsFace),
   }), [actions, activeUrl, onRegenerateOne, onRegenerateAll, onUseAsFace, onUseAsSource]);
 
-  const setActiveIndex = (index: number) => {
+  const setActiveIndex = useCallback((index: number) => {
     const next = clampIndex(index, session.results.length);
     setInternalIndex(next);
     onSelectedIndexChange?.(next);
-  };
+  }, [onSelectedIndexChange, session.results.length]);
 
   useEffect(() => {
     setInternalIndex(clampIndex(session.selectedIndex || 0, session.results.length));
@@ -158,7 +159,7 @@ export function StudioImagePreviewWorkspace({
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [activeIndex, feedbackOpen, focusImage, session.results.length]);
+  }, [activeIndex, feedbackOpen, focusImage, setActiveIndex]);
 
   const openFocusImage = (url: string, title: string) => {
     if (!url) return;
@@ -346,7 +347,7 @@ function ResultRail({
           aria-current={index === activeIndex}
         >
           {result.url ? (
-            <img src={getImageVariantUrl(result.url, "thumb")} alt={result.title} />
+            <RawPreviewImage src={getImageVariantUrl(result.url, "thumb")} alt={result.title} />
           ) : (
             <PendingThumb result={result} />
           )}
@@ -390,7 +391,7 @@ function InputPreviewPanel({
                 onClick={() => onFocus(reference.url, reference.label)}
                 aria-label={`聚焦查看${reference.label}`}
               >
-                <img
+                <RawPreviewImage
                   src={getImageVariantUrl(reference.url, "preview")}
                   alt={reference.label}
                   style={{ transform: `scale(${zoom / 100})` }}
@@ -439,7 +440,7 @@ function OutputPreviewPanel({
             onClick={() => onFocus(result.url || "", result.title)}
             aria-label={`聚焦查看${result.title}`}
           >
-            <img
+            <RawPreviewImage
               src={getImageVariantUrl(result.url, "preview")}
               alt={result.title}
               style={{ transform: `scale(${zoom / 100})` }}
@@ -551,7 +552,7 @@ function PreviewInspector({
                 title={`聚焦查看${reference.label}`}
                 onClick={() => onReferenceFocus(reference.url, reference.label)}
               >
-                <img src={getImageVariantUrl(reference.url, "thumb")} alt={reference.label} />
+                <RawPreviewImage src={getImageVariantUrl(reference.url, "thumb")} alt={reference.label} />
                 <span>{reference.label}</span>
                 <i aria-hidden="true">
                   <Maximize2 className="h-3 w-3" />
@@ -761,12 +762,12 @@ function PreviewExamplePopover({
       <PopoverContent className="studio-image-preview-example-popover" side="top" align="center">
         <p>{title}</p>
         <div className={cn("studio-image-preview-example", isSet && "studio-image-preview-example-set")}>
-          <img src={getImageVariantUrl(activeUrl, "thumb")} alt={resultTitle} />
+          <RawPreviewImage src={getImageVariantUrl(activeUrl, "thumb")} alt={resultTitle} />
           <span aria-hidden="true">→</span>
           <div>
-            <img src={getImageVariantUrl(activeUrl, "thumb")} alt={`${resultTitle}预览`} />
-            {isSet && <img src={getImageVariantUrl(activeUrl, "thumb")} alt={`${resultTitle}套图预览`} />}
-            {isSet && <img src={getImageVariantUrl(activeUrl, "thumb")} alt={`${resultTitle}套图预览`} />}
+            <RawPreviewImage src={getImageVariantUrl(activeUrl, "thumb")} alt={`${resultTitle}预览`} />
+            {isSet && <RawPreviewImage src={getImageVariantUrl(activeUrl, "thumb")} alt={`${resultTitle}套图预览`} />}
+            {isSet && <RawPreviewImage src={getImageVariantUrl(activeUrl, "thumb")} alt={`${resultTitle}套图预览`} />}
           </div>
         </div>
         <Button type="button" size="sm" className="h-8 w-full" onClick={onClick} disabled={action.disabled}>
@@ -857,7 +858,7 @@ function ImageFocusDialog({ image, onClose }: { image: FocusImage; onClose: () =
             if (event.target === event.currentTarget) onClose();
           }}
         >
-          <img
+          <RawPreviewImage
             src={getImageVariantUrl(image.url, "preview")}
             alt={image.title}
             style={{ transform: `scale(${zoom / 100})` }}

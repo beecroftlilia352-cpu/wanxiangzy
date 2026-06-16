@@ -17,6 +17,7 @@ import { StudioGenerationCountSelector, StudioModelSelector, StudioOptionGrid, S
 import { StudioRunBar } from "@/components/studio/StudioRunBar";
 import { StudioMultiImageUpload } from "@/components/studio/StudioMultiImageUpload";
 import { StudioUploadSection } from "@/components/studio/StudioUploadSection";
+import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
 import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
@@ -130,7 +131,7 @@ export default function ModelPage() {
   const [promptTouched, setPromptTouched] = useState(false);
   const [userExtraPrompt, setUserExtraPrompt] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
-  const [progress, setProgress] = useState(0);
+  const [, setProgress] = useState(0);
   const [resultUrls, setResultUrls] = useState<string[]>([]);
   const [runningExpectedCount, setRunningExpectedCount] = useState<number | null>(null);
   const [activeResultMeta, setActiveResultMeta] = useState<{ createdAt: string; inputThumbnails: string[] } | null>(null);
@@ -204,7 +205,7 @@ export default function ModelPage() {
       resultTitlePrefix: "专属模特结果",
       aspectRatio,
     }),
-    [activeResultExpectedCount, activeResultMeta, aiModel, aspectRatio, gender, genCount, imageSize, isGenerating, modelStyle, previewReferences, resultUrls, runningExpectedCount, userExtraPrompt]
+    [activeResultExpectedCount, activeResultMeta, aiModel, aspectRatio, gender, genCount, imageSize, isGenerating, modelStyle, previewReferences, resultUrls, userExtraPrompt]
   );
   const referencePreviewSession = useMemo(
     () => createGenericImagePreviewSession({
@@ -804,7 +805,7 @@ export default function ModelPage() {
                   className={`rounded-lg overflow-hidden border text-left transition-all ${
                     hairStyle === item.value && !hairReferenceUrl ? "border-purple-500 ring-1 ring-purple-200" : "border-gray-100 hover:border-gray-300"
                   }`}>
-                  <img src={item.image} className="w-full aspect-[3/4] object-cover bg-gray-50" />
+                  <RawPreviewImage src={item.image} alt={item.label} className="w-full aspect-[3/4] object-cover bg-gray-50" />
                   <div className="px-1 py-1 text-[10px] text-center font-medium">{item.label}</div>
                 </button>
               ))}
@@ -818,7 +819,7 @@ export default function ModelPage() {
               >
                 {hairReferenceUrl ? (
                   <>
-                    <img src={hairReferenceUrl} className="absolute inset-0 h-full w-full object-contain p-1" alt="上传发型参考" />
+                    <RawPreviewImage src={hairReferenceUrl} className="absolute inset-0 h-full w-full object-contain p-1" alt="上传发型参考" />
                     <span className="absolute inset-0 bg-gradient-to-t from-purple-950/38 via-transparent to-transparent" />
                     <span className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-white text-emerald-500 shadow">
                       <CheckCircle2 className="h-4 w-4" />
@@ -880,7 +881,7 @@ export default function ModelPage() {
                   className={`rounded-lg overflow-hidden border text-left transition-all ${
                     hairColor === item.value && !hairColorReferenceUrl ? "border-purple-500 ring-1 ring-purple-200" : "border-gray-100 hover:border-gray-300"
                   }`}>
-                  <img src={item.image} className="w-full aspect-[3/4] object-cover bg-gray-50" />
+                  <RawPreviewImage src={item.image} alt={item.label} className="w-full aspect-[3/4] object-cover bg-gray-50" />
                   <div className="px-1 py-1 text-[10px] text-center font-medium">{item.label}</div>
                 </button>
               ))}
@@ -894,7 +895,7 @@ export default function ModelPage() {
               >
                 {hairColorReferenceUrl ? (
                   <>
-                    <img src={hairColorReferenceUrl} className="absolute inset-0 h-full w-full object-contain p-1" alt="上传发色参考" />
+                    <RawPreviewImage src={hairColorReferenceUrl} className="absolute inset-0 h-full w-full object-contain p-1" alt="上传发色参考" />
                     <span className="absolute inset-0 bg-gradient-to-t from-purple-950/38 via-transparent to-transparent" />
                     <span className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-white text-emerald-500 shadow">
                       <CheckCircle2 className="h-4 w-4" />
@@ -1111,7 +1112,7 @@ export default function ModelPage() {
                     <div className={`grid h-36 gap-1 ${demo.imageUrls.length === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
                       {demo.imageUrls.slice(0, 4).map((url) => (
                         <div key={url} className="relative flex min-h-0 items-center justify-center overflow-hidden rounded-xl bg-white">
-                          <img src={url} alt={demo.title} className="h-full w-full object-cover object-top" />
+                          <RawPreviewImage src={url} alt={demo.title} className="h-full w-full object-cover object-top" />
                           <CheckCircle2 className="absolute right-2 top-2 h-5 w-5 rounded-full bg-white text-emerald-500" />
                         </div>
                       ))}
@@ -1135,7 +1136,7 @@ export default function ModelPage() {
                   {MODEL_UPLOAD_RULE.deprecatedImages.map((image) => (
                     <div key={image.title} className="rounded-2xl border border-red-100 bg-white/70 p-2 text-center">
                       <div className="relative h-36 overflow-hidden rounded-xl bg-white">
-                        <img src={image.url} alt={image.title} className="h-full w-full object-cover object-top" />
+                        <RawPreviewImage src={image.url} alt={image.title} className="h-full w-full object-cover object-top" />
                         <XCircle className="absolute right-2 top-2 h-5 w-5 rounded-full bg-white text-red-500" />
                       </div>
                       <p className="mt-2 text-xs font-medium text-slate-600">{image.title}</p>

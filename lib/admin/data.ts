@@ -15,13 +15,58 @@ import { getAdminClient } from "@/lib/supabase/admin";
 import type { TaskStatusGroup } from "@/lib/task-queue";
 import { normalizeModule } from "@/lib/task-queue-index";
 import { withTimeout, isRecord } from "@/lib/utils";
+import type {
+  AdminAssetLifecycleAction,
+  AdminAssetLifecycleItem,
+  AdminAssetLifecycleOverview,
+  AdminAssetLifecyclePolicy,
+  AdminAssetLifecycleStage,
+  AdminAssetList,
+  AdminAssetListItem,
+  AdminAssetStorageProvider,
+  AdminModerationCase,
+  AdminModerationList,
+} from "./assets";
+import {
+  BILLING_ORDERS_TABLE,
+  BILLING_PRICES_TABLE,
+  BILLING_PRODUCTS_TABLE,
+  BILLING_SUBSCRIPTIONS_TABLE,
+  BILLING_WEBHOOK_EVENTS_TABLE,
+  type AdminBillingConfigStatus,
+  type AdminBillingOrder,
+  type AdminBillingOverview,
+  type AdminBillingPrice,
+  type AdminBillingProduct,
+  type AdminBillingSubscription,
+  type AdminBillingWebhookEvent,
+} from "./billing";
+import type { AdminCostBreakdownItem, AdminCostDailyItem, AdminCostReport } from "./reports";
+import type { AdminBreakdownItem, AdminMetric } from "./shared";
 
-export type AdminMetric = {
-  label: string;
-  value: number;
-  hint?: string;
-  tone?: "neutral" | "good" | "warning" | "danger";
-};
+export type {
+  AdminAssetLifecycleAction,
+  AdminAssetLifecycleItem,
+  AdminAssetLifecycleOverview,
+  AdminAssetLifecyclePolicy,
+  AdminAssetLifecycleStage,
+  AdminAssetList,
+  AdminAssetListItem,
+  AdminAssetStorageProvider,
+  AdminModerationCase,
+  AdminModerationList,
+} from "./assets";
+export type {
+  AdminBillingConfigStatus,
+  AdminBillingOrder,
+  AdminBillingOverview,
+  AdminBillingPrice,
+  AdminBillingProduct,
+  AdminBillingSubscription,
+  AdminBillingWebhookEvent,
+} from "./billing";
+export type { AdminCostBreakdownItem, AdminCostDailyItem, AdminCostReport } from "./reports";
+export type { AdminBreakdownItem, AdminMetric } from "./shared";
 
 export type AdminOverview = {
   metrics: AdminMetric[];
@@ -50,15 +95,6 @@ export type AdminOverview = {
   modelStats: AdminBreakdownItem[];
   recentTasks: AdminTaskListItem[];
   warnings: string[];
-};
-
-export type AdminBreakdownItem = {
-  key: string;
-  label: string;
-  count: number;
-  failed: number;
-  running: number;
-  credits: number;
 };
 
 export type AdminUserListItem = {
@@ -207,100 +243,6 @@ export type AdminCreditList = {
   warnings: string[];
 };
 
-export type AdminAssetListItem = {
-  id: string;
-  userId: string;
-  sourceType: "generation" | "reference" | "favorite-plan";
-  module: string;
-  moduleLabel: string;
-  title: string;
-  status: string;
-  urls: string[];
-  inputUrls: string[];
-  createdAt: string | null;
-  updatedAt: string | null;
-  detailUrl: string;
-  moderationCase?: AdminModerationCase | null;
-};
-
-export type AdminAssetList = {
-  rows: AdminAssetListItem[];
-  total: number;
-  warnings: string[];
-};
-
-export type AdminAssetStorageProvider = "aliyun-oss" | "imgbb" | "data-url" | "external" | "unknown";
-
-export type AdminAssetLifecycleStage = "protected" | "retained" | "migrate" | "review" | "archive";
-
-export type AdminAssetLifecycleAction =
-  | "retain"
-  | "migrate_to_oss"
-  | "review_temp_inputs"
-  | "archive_generated_result"
-  | "freeze_and_hide";
-
-export type AdminAssetLifecyclePolicy = {
-  id: string;
-  title: string;
-  description: string;
-  stage: AdminAssetLifecycleStage;
-  action: AdminAssetLifecycleAction;
-  threshold: string;
-};
-
-export type AdminAssetLifecycleItem = AdminAssetListItem & {
-  providers: AdminAssetStorageProvider[];
-  urlCount: number;
-  inputCount: number;
-  ageDays: number;
-  stage: AdminAssetLifecycleStage;
-  riskLevel: "low" | "medium" | "high";
-  reasons: string[];
-  recommendedAction: AdminAssetLifecycleAction;
-  moderationAction: string | null;
-};
-
-export type AdminAssetLifecycleOverview = {
-  generatedAt: string;
-  rows: AdminAssetLifecycleItem[];
-  policies: AdminAssetLifecyclePolicy[];
-  metrics: {
-    sampledAssets: number;
-    sampledUrls: number;
-    ossUrls: number;
-    imgbbUrls: number;
-    externalUrls: number;
-    dataUrls: number;
-    unknownUrls: number;
-    migrationCandidates: number;
-    archiveCandidates: number;
-    protectedAssets: number;
-    reviewCandidates: number;
-    hiddenAssets: number;
-  };
-  warnings: string[];
-};
-
-export type AdminModerationCase = {
-  id: string;
-  sourceType: string;
-  sourceId: string;
-  action: string;
-  status: string;
-  reason: string | null;
-  metadata: Record<string, unknown>;
-  createdBy: string | null;
-  createdAt: string | null;
-  resolvedAt: string | null;
-};
-
-export type AdminModerationList = {
-  rows: AdminModerationCase[];
-  available: boolean;
-  warnings: string[];
-};
-
 export type AdminOperationRequest = {
   id: string;
   requestType: string;
@@ -420,155 +362,6 @@ export type AdminExportJob = {
 export type AdminExportJobList = {
   rows: AdminExportJob[];
   available: boolean;
-  warnings: string[];
-};
-
-export type AdminCostBreakdownItem = {
-  key: string;
-  label: string;
-  count: number;
-  completed: number;
-  failed: number;
-  running: number;
-  grossCredits: number;
-  refundCredits: number;
-  netCredits: number;
-  settledCredits: number;
-  inFlightCredits: number;
-  marginCredits: number;
-  averageCredits: number;
-  failureRate: number;
-};
-
-export type AdminCostDailyItem = {
-  date: string;
-  grossCredits: number;
-  refundCredits: number;
-  adjustmentCredits: number;
-  generationSettledCredits: number;
-  workflowSettledCredits: number;
-  marginCredits: number;
-  tasks: number;
-  failed: number;
-};
-
-export type AdminCostReport = {
-  days: number;
-  since: string;
-  until: string;
-  metrics: {
-    grossCredits: number;
-    refundCredits: number;
-    adjustmentCredits: number;
-    netCredits: number;
-    generationReservedCredits: number;
-    generationSettledCredits: number;
-    workflowReservedCredits: number;
-    workflowSettledCredits: number;
-    inFlightCredits: number;
-    failedReservedCredits: number;
-    marginCredits: number;
-    marginRate: number;
-    generationCount: number;
-    workflowCount: number;
-    completedCount: number;
-    failedCount: number;
-    runningCount: number;
-  };
-  modules: AdminCostBreakdownItem[];
-  models: AdminCostBreakdownItem[];
-  daily: AdminCostDailyItem[];
-  assumptions: string[];
-  warnings: string[];
-};
-
-export type AdminBillingProduct = {
-  id: string;
-  stripeProductId: string;
-  name: string;
-  description: string | null;
-  active: boolean;
-  metadata: Record<string, unknown>;
-  createdAt: string | null;
-  updatedAt: string | null;
-};
-
-export type AdminBillingPrice = {
-  id: string;
-  stripePriceId: string;
-  stripeProductId: string;
-  productName: string | null;
-  nickname: string | null;
-  currency: string;
-  unitAmount: number;
-  recurringInterval: string | null;
-  recurringIntervalCount: number;
-  type: string;
-  active: boolean;
-  credits: number;
-  createdAt: string | null;
-};
-
-export type AdminBillingOrder = {
-  id: string;
-  userId: string | null;
-  email: string | null;
-  stripeCustomerId: string | null;
-  stripeCheckoutSessionId: string | null;
-  stripePaymentIntentId: string | null;
-  amountTotal: number;
-  currency: string;
-  status: string;
-  refundedAmount: number;
-  creditsGranted: number;
-  createdAt: string | null;
-  updatedAt: string | null;
-};
-
-export type AdminBillingSubscription = {
-  id: string;
-  userId: string | null;
-  email: string | null;
-  stripeCustomerId: string | null;
-  stripeSubscriptionId: string;
-  stripePriceId: string | null;
-  status: string;
-  currentPeriodStart: string | null;
-  currentPeriodEnd: string | null;
-  cancelAtPeriodEnd: boolean;
-  canceledAt: string | null;
-  createdAt: string | null;
-  updatedAt: string | null;
-};
-
-export type AdminBillingWebhookEvent = {
-  id: string;
-  stripeEventId: string;
-  type: string;
-  status: string;
-  attempts: number;
-  errorMessage: string | null;
-  createdAt: string | null;
-  processedAt: string | null;
-};
-
-export type AdminBillingConfigStatus = {
-  key: string;
-  label: string;
-  configured: boolean;
-  scope: "env" | "table";
-  statusHint: string;
-};
-
-export type AdminBillingOverview = {
-  available: boolean;
-  metrics: AdminMetric[];
-  products: AdminBillingProduct[];
-  prices: AdminBillingPrice[];
-  orders: AdminBillingOrder[];
-  subscriptions: AdminBillingSubscription[];
-  webhookEvents: AdminBillingWebhookEvent[];
-  configStatus: AdminBillingConfigStatus[];
   warnings: string[];
 };
 
@@ -983,11 +776,6 @@ const SAVED_VIEW_COLUMNS = "id,owner_user_id,owner_email,name,resource,visibilit
 const EXPORT_JOB_COLUMNS = "id,export_type,status,requested_by,requested_by_email,requested_by_role,filters,row_count,download_token,expires_at,error_message,created_at";
 const AGENT_EVAL_RUN_COLUMNS = "id,user_id,total,passed,failed,score,latency_ms,summary,created_at";
 const AGENT_EVAL_RESULT_COLUMNS = "id,run_id,user_id,case_id,title,ok,failures,action,module,confidence,trace_id,created_at";
-const BILLING_PRODUCTS_TABLE = "billing_products";
-const BILLING_PRICES_TABLE = "billing_prices";
-const BILLING_ORDERS_TABLE = "payment_orders";
-const BILLING_SUBSCRIPTIONS_TABLE = "stripe_subscriptions";
-const BILLING_WEBHOOK_EVENTS_TABLE = "stripe_webhook_events";
 export const PROMPT_EXPERIMENT_CONFIG_KEY = "prompt.experiments" as const;
 export const DEFAULT_PROMPT_EXPERIMENT_CONFIG = {
   schemaVersion: 1,

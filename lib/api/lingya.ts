@@ -58,6 +58,7 @@ import {
   type TryOnClothingMode,
   type TryOnClothingRole,
 } from "@/lib/tryon-upload-rules";
+import { logger } from "@/lib/logger";
 
 const DEFAULT_API_BASE = "https://api.lingyaai.cn/v1";
 const DEFAULT_PLATO_API_BASE = "https://yunwu.ai/v1";
@@ -230,7 +231,7 @@ export async function generateImage(input: GenerateInput, retries = 2): Promise<
     image_count: Array.isArray(requestInput.image) ? requestInput.image.length : 0,
     prompt_length: typeof body.prompt === "string" ? body.prompt.length : 0,
   };
-  console.log(`[api:${provider.name}] 请求:`, JSON.stringify(logBody));
+  logger.info(`[api:${provider.name}] 请求:`, JSON.stringify(logBody));
 
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
@@ -275,7 +276,7 @@ export async function generateImage(input: GenerateInput, retries = 2): Promise<
       const json = JSON.parse(resText);
       const taskId = extractTaskId(json);
       const immediateResult = extractGeneratedImages(json);
-      console.log(`[api:${provider.name}] 生成响应: ok=${res.ok}, async=${shouldRequestAsyncImageTask(provider)}, hasTask=${Boolean(taskId)}, imageCount=${immediateResult.urls.length + (immediateResult.b64Json ? 1 : 0)}`);
+      logger.info(`[api:${provider.name}] 生成响应: ok=${res.ok}, async=${shouldRequestAsyncImageTask(provider)}, hasTask=${Boolean(taskId)}, imageCount=${immediateResult.urls.length + (immediateResult.b64Json ? 1 : 0)}`);
 
       if (!taskId) {
         if (immediateResult.urls.length || immediateResult.b64Json) {

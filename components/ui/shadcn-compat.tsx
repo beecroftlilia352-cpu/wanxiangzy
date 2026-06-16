@@ -38,6 +38,16 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Skeleton as ShadcnSkeleton } from "@/components/ui/skeleton";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 type PrimitiveValue = string | number | boolean | null | undefined;
 
@@ -96,43 +106,124 @@ export const theme = {
   compactAlgorithm: {},
 };
 
-function useApp() {
-  return {
-    message: {
-      success: (message: ReactNode) => toast.success(textFromNode(message)),
-      error: (message: ReactNode) => toast.error(textFromNode(message)),
-      warning: (message: ReactNode) => toast.warning(textFromNode(message)),
-      info: (message: ReactNode) => toast.info(textFromNode(message)),
-    },
-    modal: {
-      confirm: async ({
-        title,
-        content,
-        onOk,
-      }: {
-        title?: ReactNode;
-        content?: ReactNode;
-        okText?: ReactNode;
-        cancelText?: ReactNode;
-        okButtonProps?: { danger?: boolean; disabled?: boolean };
-        onOk?: () => void | Promise<void>;
-        onCancel?: () => void | Promise<void>;
-      }) => {
-        const message = [textFromNode(title), textFromNode(content)].filter(Boolean).join("\n\n");
-        if (window.confirm(message || "确认操作？")) {
-          try {
-            await onOk?.();
-          } catch (error) {
-            toast.error(error instanceof Error ? error.message : "操作失败");
-          }
-        }
-      },
-    },
+type ConfirmOptions = {
+  title?: ReactNode;
+  content?: ReactNode;
+  okText?: ReactNode;
+  cancelText?: ReactNode;
+  okButtonProps?: { danger?: boolean; disabled?: boolean };
+  onOk?: () => void | Promise<void>;
+  onCancel?: () => void | Promise<void>;
+};
+
+type AppApi = {
+  message: {
+    success: (message: ReactNode) => void;
+    error: (message: ReactNode) => void;
+    warning: (message: ReactNode) => void;
+    info: (message: ReactNode) => void;
   };
+  modal: {
+    confirm: (options: ConfirmOptions) => Promise<void>;
+  };
+};
+
+type ConfirmState = ConfirmOptions & { id: number };
+
+const AppContext = createContext<AppApi | null>(null);
+
+const fallbackAppApi: AppApi = {
+  message: {
+    success: (message: ReactNode) => toast.success(textFromNode(message)),
+    error: (message: ReactNode) => toast.error(textFromNode(message)),
+    warning: (message: ReactNode) => toast.warning(textFromNode(message)),
+    info: (message: ReactNode) => toast.info(textFromNode(message)),
+  },
+  modal: {
+    confirm: async () => {
+      toast.error("确认弹窗未初始化，操作未执行");
+    },
+  },
+};
+
+function useApp() {
+  return useContext(AppContext) || fallbackAppApi;
 }
 
 export const App = Object.assign(function App({ children }: { children: ReactNode }) {
-  return <>{children}</>;
+  const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
+  const [confirmSubmitting, setConfirmSubmitting] = useState(false);
+
+  const appApi = useMemo<AppApi>(() => ({
+    message: fallbackAppApi.message,
+    modal: {
+      confirm: async (options) => {
+        setConfirmState({ ...options, id: Date.now() });
+      },
+    },
+  }), []);
+
+  async function closeConfirm(runCancel: boolean) {
+    const current = confirmState;
+    setConfirmState(null);
+    if (runCancel) {
+      try {
+        await current?.onCancel?.();
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "操作失败");
+      }
+    }
+  }
+
+  async function confirmOk(event: React.MouseEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    const current = confirmState;
+    if (!current || current.okButtonProps?.disabled) return;
+    setConfirmSubmitting(true);
+    try {
+      await current.onOk?.();
+      setConfirmState(null);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "操作失败");
+    } finally {
+      setConfirmSubmitting(false);
+    }
+  }
+
+  return (
+    <AppContext.Provider value={appApi}>
+      {children}
+      <AlertDialog
+        open={Boolean(confirmState)}
+        onOpenChange={(open) => {
+          if (!open) void closeConfirm(true);
+        }}
+      >
+        <AlertDialogContent key={confirmState?.id}>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{confirmState?.title || "确认操作"}</AlertDialogTitle>
+            {confirmState?.content ? (
+              <AlertDialogDescription className="whitespace-pre-line">
+                {confirmState.content}
+              </AlertDialogDescription>
+            ) : null}
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={confirmSubmitting}>
+              {confirmState?.cancelText || "取消"}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              variant={confirmState?.okButtonProps?.danger ? "destructive" : "default"}
+              disabled={confirmSubmitting || confirmState?.okButtonProps?.disabled}
+              onClick={confirmOk}
+            >
+              {confirmState?.okText || "确认"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </AppContext.Provider>
+  );
 }, { useApp });
 
 type ButtonProps = Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, "type"> & {
