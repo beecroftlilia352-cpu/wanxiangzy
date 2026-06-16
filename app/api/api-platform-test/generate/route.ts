@@ -11,7 +11,7 @@ const MAX_EDIT_IMAGE_BYTES = 50 * 1024 * 1024;
 const DEFAULT_ALLOWED_API_HOSTS = ["yunwu.ai", "value.apiqik.online", "hk-api.gptbest.vip", "api.bltcy.ai", "api.whatai.cc"];
 
 type ImageSize = "1K" | "2K" | "4K";
-type ImageQuality = "auto" | "low" | "medium" | "high";
+type ImageQuality = "auto" | "low" | "medium";
 
 type RequestBody = {
   apiUrl?: string;
@@ -260,7 +260,7 @@ function normalizeImageSize(value: unknown): ImageSize {
 }
 
 function normalizeQuality(value: unknown): ImageQuality {
-  return value === "low" || value === "medium" || value === "high" ? value : "auto";
+  return value === "low" || value === "medium" ? value : "auto";
 }
 
 async function fetchImageForFormData(src: string, index: number): Promise<{ blob: Blob; filename: string }> {

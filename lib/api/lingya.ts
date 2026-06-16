@@ -74,6 +74,7 @@ const IMAGE_REQUEST_PROGRESS_INTERVAL_MS = 8000;
 const IMAGE_REQUEST_PROGRESS_CURVE_MS = 90_000;
 const SYNC_IMAGE_REQUEST_PROGRESS_MAX = 92;
 const ASYNC_IMAGE_SUBMIT_PROGRESS_MAX = 8;
+const GPT_IMAGE_2_QUALITY = "auto";
 const IMAGE_EDIT_MAX_IMAGES = 15;
 const IMAGE_EDIT_MAX_IMAGE_BYTES = 50 * 1024 * 1024;
 const IMAGE_EDIT_FETCH_TIMEOUT_MS = 60_000;
@@ -565,7 +566,7 @@ function buildGenerateRequestBody(input: GenerateInput, compiledPrompt: string):
   if (input.model === "gpt-image-2") {
     // gpt-image-2 /images/edits uses the documented size field, not image_size.
     body.size = input.image_size ? resolveGptImage2Size(input.image_size, input.aspect_ratio || "auto") : "auto";
-    body.quality = "high";
+    body.quality = GPT_IMAGE_2_QUALITY;
   }
   if (input.image_size && isSeedreamModel(input.model)) {
     body.size = normalizeImageSize(input.model, input.image_size, input.aspect_ratio);

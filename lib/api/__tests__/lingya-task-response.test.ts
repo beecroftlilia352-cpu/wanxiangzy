@@ -149,7 +149,7 @@ describe("lingya async task response parsing", () => {
       model: "gpt-image-2",
       prompt: "compiled prompt",
       size: "864x1536",
-      quality: "high",
+      quality: "auto",
     });
     expect(body).not.toHaveProperty("image");
     expect(body).not.toHaveProperty("response_format");
@@ -164,7 +164,7 @@ describe("lingya async task response parsing", () => {
         model: "gpt-image-2",
         prompt: "make it premium",
         size: "2048x2048",
-        quality: "high",
+        quality: "auto",
       },
       imageUrls: ["data:image/png;base64,aGVsbG8="],
     });
@@ -185,7 +185,7 @@ describe("lingya async task response parsing", () => {
         model: "gpt-image-2",
         prompt: "make it premium",
         size: "2048x2048",
-        quality: "high",
+        quality: "auto",
       },
       imageUrls: Array.from({ length: 16 }, () => "data:image/png;base64,aGVsbG8="),
     })).rejects.toThrow("fewer than 16");
@@ -218,7 +218,7 @@ describe("lingya async task response parsing", () => {
       image_size: "1024x1024" as never,
     }, "compiled prompt");
 
-    expect(body).toMatchObject({ model: "gpt-image-2", size: "1536x864", quality: "high" });
+    expect(body).toMatchObject({ model: "gpt-image-2", size: "1536x864", quality: "auto" });
   });
 
   it("uses CatRouter as the default GPT provider and can switch to Plato", async () => {
@@ -316,8 +316,8 @@ describe("lingya async task response parsing", () => {
       image_size: "4K",
     }, "compiled prompt");
 
-    expect(twoK).toMatchObject({ model: "gpt-image-2", size: "2048x1152", quality: "high" });
-    expect(fourK).toMatchObject({ model: "gpt-image-2", size: "3840x2160", quality: "high" });
+    expect(twoK).toMatchObject({ model: "gpt-image-2", size: "2048x1152", quality: "auto" });
+    expect(fourK).toMatchObject({ model: "gpt-image-2", size: "3840x2160", quality: "auto" });
     expect(twoK).not.toHaveProperty("image_size");
     expect(fourK).not.toHaveProperty("image_size");
   });
@@ -331,7 +331,7 @@ describe("lingya async task response parsing", () => {
       image_size: "4K",
     }, "compiled prompt");
 
-    expect(body).toMatchObject({ model: "gpt-image-2", size: "3840x2160", quality: "high" });
+    expect(body).toMatchObject({ model: "gpt-image-2", size: "3840x2160", quality: "auto" });
   });
 
   it("keeps nano banana reference image requests on the existing JSON shape", () => {
