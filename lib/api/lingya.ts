@@ -393,6 +393,8 @@ export async function batchTryOn(input: BatchTryOnInput): Promise<{ resultUrls: 
   if (!input.clothingUrls.length) {
     throw new Error("缺少服装图片");
   }
+  const hasReference = Boolean(input.referenceUrl);
+  const clothingImageOffset = hasReference ? 1 : 0;
   const garmentDetailGroups = normalizeGarmentDetailGroups(input.garmentDetailGroups, input.clothingUrls.length);
   const groupedGarmentDetailUrls = flattenGarmentDetailGroups(garmentDetailGroups);
   const unassignedGarmentDetailUrls = garmentDetailGroups.length
@@ -419,30 +421,39 @@ export async function batchTryOn(input: BatchTryOnInput): Promise<{ resultUrls: 
     referenceAnalysis: input.referenceAnalysis,
     style: input.style,
   });
-  const detailStartImageNumber = input.clothingUrls.length
-    + (input.referenceUrl ? 1 : 0)
+  const detailStartImageNumber = clothingImageOffset
+    + input.clothingUrls.length
     + (input.modelFaceUrl ? 1 : 0)
     + 1;
   const garmentDetailPromptGroups = buildGarmentDetailPromptGroups({
     groups: garmentDetailGroups,
     detailStartImageNumber,
     clothingRoles: input.clothingRoles,
+    clothingImageOffset,
   });
-  const finalPrompt = applyTryOnRequestPrompt(input.raw_prompt?.trim() || prompt, {
+  const rawPrompt = input.raw_prompt?.trim();
+  const basePrompt = rawPrompt
+    ? normalizeTryOnRawPromptImageReferences(rawPrompt, {
+      clothingCount: input.clothingUrls.length,
+      hasReference,
+      hasModelFace: Boolean(input.modelFaceUrl),
+    })
+    : prompt;
+  const finalPrompt = applyTryOnRequestPrompt(basePrompt, {
     ...input,
-    referenceImageNumber: input.referenceUrl ? input.clothingUrls.length + 1 : undefined,
+    referenceImageNumber: input.referenceUrl ? 1 : undefined,
     garmentDetailCount: garmentDetailUrls.length,
     garmentDetailPromptGroups,
     unassignedGarmentDetailUrls,
     unassignedGarmentDetailImageNumbers: unassignedGarmentDetailUrls.map((_, index) => detailStartImageNumber + index),
   });
 
-  const imageInputs = [
-    ...input.clothingUrls,
-    ...(input.referenceUrl ? [input.referenceUrl] : []),
-    ...(input.modelFaceUrl ? [input.modelFaceUrl] : []),
-    ...garmentDetailUrls,
-  ];
+  const imageInputs = buildTryOnImageInputsForRequest({
+    clothingUrls: input.clothingUrls,
+    referenceUrl: input.referenceUrl,
+    modelFaceUrl: input.modelFaceUrl,
+    garmentDetailUrls,
+  });
 
   const result = await generateImage({
     model: input.model,
@@ -461,6 +472,31 @@ export async function batchTryOn(input: BatchTryOnInput): Promise<{ resultUrls: 
   }
 
   return { resultUrls: [resultUrl], prompt: finalPrompt, compiledPrompt: result.compiledPrompt || finalPrompt, taskId: result.taskId };
+}
+
+export function buildTryOnImageInputsForRequest(input: {
+  clothingUrls: string[];
+  referenceUrl?: string;
+  modelFaceUrl?: string;
+  garmentDetailUrls?: string[];
+}) {
+  return [
+    ...(input.referenceUrl ? [input.referenceUrl] : []),
+    ...input.clothingUrls,
+    ...(input.modelFaceUrl ? [input.modelFaceUrl] : []),
+    ...(input.garmentDetailUrls || []),
+  ];
+}
+
+export function normalizeTryOnRawPromptImageReferences(value: string | undefined, params: {
+  clothingCount: number;
+  hasReference: boolean;
+  hasModelFace: boolean;
+}) {
+  const trimmed = value?.trim();
+  if (!trimmed) return "";
+  if (!shouldRemapTryOnRawPromptImageReferences(trimmed, params)) return trimmed;
+  return remapTryOnImageReferences(trimmed, buildTryOnInputImageNumberMap(params));
 }
 
 export function applyTryOnRequestPrompt(prompt: string, input: TryOnRequestPromptOptions) {
@@ -1384,7 +1420,7 @@ function isRetryableStatus(status: number): boolean {
   return status === 500 || status === 502 || status === 503 || status === 504;
 }
 
-function buildStructuredTryOnUserInstruction(value?: string) {
+function buildStructuredTryOnUserInstruction(value?: string, options: { imageNumberMap?: Map<number, number> } = {}) {
   const trimmed = value?.trim();
   if (!trimmed) return "";
 
@@ -1409,7 +1445,8 @@ function buildStructuredTryOnUserInstruction(value?: string) {
     other: [] as string[],
   };
 
-  for (const part of source) {
+  for (const rawPart of source) {
+    const part = remapTryOnImageReferences(rawPart, options.imageNumberMap);
     if (/水印|文字|去除|删除|多余|清理/.test(part)) {
       groups.cleanup.push(part);
       continue;
@@ -1448,14 +1485,114 @@ function buildStructuredTryOnUserInstruction(value?: string) {
   ].join("\n");
 }
 
+function buildTryOnInputImageNumberMap(params: {
+  clothingCount: number;
+  hasReference: boolean;
+  hasModelFace: boolean;
+}) {
+  const map = new Map<number, number>();
+  const clothingCount = Math.max(0, Math.floor(Number(params.clothingCount) || 0));
+  if (!params.hasReference) return map;
+
+  for (let index = 0; index < clothingCount; index++) {
+    map.set(index + 1, index + 2);
+  }
+  map.set(clothingCount + 1, 1);
+  if (params.hasModelFace) {
+    map.set(clothingCount + 2, clothingCount + 2);
+  }
+  return map;
+}
+
+function remapTryOnImageReferences(value: string | undefined, imageNumberMap?: Map<number, number>) {
+  if (!value || !imageNumberMap?.size) return value || "";
+
+  const replaceNumber = (raw: string) => {
+    const parsed = parseImageRefNumber(raw);
+    if (!parsed) return raw;
+    return String(imageNumberMap.get(parsed) || parsed);
+  };
+
+  return value
+    .replace(/图\s*([一二三四五六七八九十\d]+)/g, (_match, numberText: string) => `图${replaceNumber(numberText)}`)
+    .replace(/image\s*([1-9]\d*)/gi, (_match, numberText: string) => `image ${replaceNumber(numberText)}`);
+}
+
+function shouldRemapTryOnRawPromptImageReferences(value: string, params: {
+  clothingCount: number;
+  hasReference: boolean;
+}) {
+  if (!params.hasReference) return false;
+
+  const oldTargetNumber = Math.max(1, Math.floor(Number(params.clothingCount) || 0)) + 1;
+  const firstImageRef = buildImageRefRegexSource(1);
+  const oldTargetRef = buildImageRefRegexSource(oldTargetNumber);
+  const textWindow = "[^\\n。；;,.，]{0,80}";
+  const clothingWords = "(?:服装|衣服|衣|上衣|上装|下装|裙|裤|clothing|garment|dress|shirt|top|bottom|skirt|pants)";
+  const targetWords = "(?:参考图|参考|人物|模特|身上|target|reference|base|canvas|body|pose|composition|lighting)";
+  const firstImageLooksClothing = new RegExp(`(?:${firstImageRef})${textWindow}${clothingWords}`, "i")
+    .test(value);
+  if (!firstImageLooksClothing) return false;
+
+  const oldTargetLooksReference = new RegExp(`(?:${oldTargetRef})${textWindow}${targetWords}|${targetWords}${textWindow}(?:${oldTargetRef})`, "i")
+    .test(value);
+  return oldTargetLooksReference || new RegExp(targetWords, "i").test(value);
+}
+
+function buildImageRefRegexSource(imageNumber: number) {
+  const aliases = [String(imageNumber), chineseImageNumber(imageNumber)].filter(Boolean).map(escapeRegExp);
+  return `(?:image\\s*${imageNumber}|图\\s*(?:${aliases.join("|")}))`;
+}
+
+function chineseImageNumber(value: number) {
+  const digits = ["", "一", "二", "三", "四", "五", "六", "七", "八", "九"];
+  const number = Math.floor(value);
+  if (number <= 0 || number > 99) return "";
+  if (number <= 9) return digits[number];
+  if (number === 10) return "十";
+  if (number < 20) return `十${digits[number - 10]}`;
+  const tens = Math.floor(number / 10);
+  const ones = number % 10;
+  return `${digits[tens]}十${digits[ones]}`;
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function parseImageRefNumber(value: string) {
+  const normalized = value.trim();
+  const numeric = Number(normalized);
+  if (Number.isFinite(numeric) && numeric > 0) return Math.floor(numeric);
+
+  const chineseDigits: Record<string, number> = {
+    一: 1,
+    二: 2,
+    三: 3,
+    四: 4,
+    五: 5,
+    六: 6,
+    七: 7,
+    八: 8,
+    九: 9,
+    十: 10,
+  };
+  if (Object.prototype.hasOwnProperty.call(chineseDigits, normalized)) return chineseDigits[normalized];
+  if (/^十[一二三四五六七八九]$/.test(normalized)) return 10 + chineseDigits[normalized[1]];
+  if (/^[一二三四五六七八九]十$/.test(normalized)) return chineseDigits[normalized[0]] * 10;
+  if (/^[一二三四五六七八九]十[一二三四五六七八九]$/.test(normalized)) {
+    return chineseDigits[normalized[0]] * 10 + chineseDigits[normalized[2]];
+  }
+  return 0;
+}
+
 // ============================================================
 // 提示词构建 —— 多图任务必须显式标记每张图的角色
 // ============================================================
 //
 // 图片顺序：
-//   图1..图N：服装图
-//   图N+1：参考图（可选，提供人物/姿势/背景/光影）
-//   图N+2：模特脸（可选，提供最终脸部身份）
+//   有参考图：图1=参考图（人物/姿势/背景/光影/base canvas），图2..图N+1=服装图，之后是模特脸（可选）
+//   无参考图：图1..图N=服装图，之后是模特脸（可选）
 //
 // 核心理念：先定义图像角色，再定义主目标、保留项、替换项和禁止项。
 // 这样可以减少模型把参考图、服装图、脸图混淆的概率。
@@ -1484,14 +1621,20 @@ export function buildTryOnPrompt(params: {
       : "single";
     return normalizeTryOnClothingRole(params.clothingRoles?.[index], fallback);
   });
+  const clothingImageOffset = params.hasReference ? 1 : 0;
+  const imageNumberMap = buildTryOnInputImageNumberMap({
+    clothingCount: params.clothingCount,
+    hasReference: params.hasReference,
+    hasModelFace: params.hasModelFace,
+  });
 
+  if (params.hasReference) imageRoles.push("参考图");
   for (let i = 0; i < params.clothingCount; i++) {
     imageRoles.push(TRYON_CLOTHING_ROLE_LABELS[normalizedRoles[i]] || `服装${i + 1}`);
   }
-  if (params.hasReference) imageRoles.push("参考图");
   if (params.hasModelFace) imageRoles.push("模特脸");
 
-  const clothingRefs = Array.from({ length: params.clothingCount }, (_, i) => `图${i + 1}`);
+  const clothingRefs = Array.from({ length: params.clothingCount }, (_, i) => `图${i + 1 + clothingImageOffset}`);
   const clothingRoleText = clothingRefs
     .map((ref, index) => `${ref}是${TRYON_CLOTHING_ROLE_LABELS[normalizedRoles[index]] || "服装"}图，只提供衣服本身`)
     .join("，");
@@ -1507,8 +1650,8 @@ export function buildTryOnPrompt(params: {
   const outfitAssemblyRule = clothingMode === "multi"
     ? "用户已选择换上下装槽位：每张服装图必须按显式槽位正确穿着，上装只替换上半身衣服，下装只替换下半身衣服；如果只上传一个槽位，只替换该槽位覆盖的服装并保留不冲突穿搭，保持层次关系、遮挡关系、腰线衔接和真实垂坠，不要把不同槽位融合成一件新衣服。"
     : `用户已选择连体/全身槽位：将${mainClothingRef}作为一件完整连体衣、连衣裙、套装或全身服装来处理，替换它覆盖范围内所有冲突的上装和下装，不要把它拆成无关上下装，也不要额外生成${mainClothingRef}以外的新服装；鞋履和不冲突配饰可自然保留。`;
-  const referenceImageNumber = params.clothingCount + 1;
-  const faceImageNumber = params.clothingCount + (params.hasReference ? 2 : 1);
+  const referenceImageNumber = params.hasReference ? 1 : params.clothingCount + 1;
+  const faceImageNumber = params.clothingCount + clothingImageOffset + 1;
 
   if (CONCISE_TRYON_PROMPT_MODE) {
     return {
@@ -1526,6 +1669,7 @@ export function buildTryOnPrompt(params: {
         referenceAnalysis: params.referenceAnalysis,
         referenceImageNumber,
         faceImageNumber,
+        imageNumberMap,
         style: params.style,
       }),
       imageRoles,
@@ -1537,7 +1681,9 @@ export function buildTryOnPrompt(params: {
   const poseLock = `【最重要】${buildTryOnReferencePrompt(referenceImageNumber)}`;
   const garmentRules = [
     TRYON_CLOTHING_IMAGE_ROLE_RULE,
-    buildTryOnClothingAnalysisRule(params.clothingAnalysis, normalizedRoles, clothingMode),
+    buildTryOnClothingAnalysisRule(params.clothingAnalysis, normalizedRoles, clothingMode, {
+      clothingImageNumbers: clothingRefs.map((ref) => Number(ref.replace(/\D/g, "")) || 1),
+    }),
     buildTryOnAudiencePrompt({
       garmentAudience: params.garmentAudience,
       ageGroup: params.ageGroup,
@@ -1625,7 +1771,7 @@ export function buildTryOnPrompt(params: {
   }
 
   // 用户风格补充
-  const userInstruction = buildStructuredTryOnUserInstruction(params.style);
+  const userInstruction = buildStructuredTryOnUserInstruction(params.style, { imageNumberMap });
   if (userInstruction) {
     prompt += `\n${userInstruction}`;
   }
@@ -1647,10 +1793,11 @@ function buildConciseTryOnPrompt(params: {
   referenceAnalysis?: TryOnReferenceAnalysis | null;
   referenceImageNumber: number;
   faceImageNumber: number;
+  imageNumberMap?: Map<number, number>;
   style?: string;
 }) {
   const clothingSource = params.clothingRefs.length === 1
-    ? "image 1"
+    ? toEnglishImageRef(params.clothingRefs[0])
     : `${params.clothingRefs.slice(0, -1).map(toEnglishImageRef).join(", ")} and ${toEnglishImageRef(params.clothingRefs[params.clothingRefs.length - 1])}`;
   const sourceNoun = params.clothingRefs.length === 1 ? "clothing source" : "clothing sources";
   const targetRef = `image ${params.referenceImageNumber}`;
@@ -1683,7 +1830,9 @@ function buildConciseTryOnPrompt(params: {
 
   lines.push(buildConciseSourceIsolationRule(params.clothingRefs));
   lines.push(buildConciseClothingRoleRule(params.clothingRefs, params.clothingRoles, params.clothingMode));
-  const analysisRule = buildTryOnClothingAnalysisRule(params.clothingAnalysis, params.clothingRoles, params.clothingMode);
+  const analysisRule = buildTryOnClothingAnalysisRule(params.clothingAnalysis, params.clothingRoles, params.clothingMode, {
+    clothingImageNumbers: params.clothingRefs.map((ref) => Number(ref.replace(/\D/g, "")) || 1),
+  });
   if (analysisRule) lines.push(analysisRule);
 
   if (params.hasReference) {
@@ -1740,7 +1889,7 @@ function buildConciseTryOnPrompt(params: {
   }
   lines.push(`Photography: real camera fashion photo with believable lighting, natural visible skin texture, realistic fabric contact shadows, and accurate visible body parts within the target crop. ${params.hasReference ? `Preserve ${targetRef}'s original scene, camera distance, and crop boundary; only if ${targetRef} has no clear scene, use a natural commercial fashion setting.` : "Use a natural commercial fashion setting, not an empty gray stock-studio backdrop unless explicitly requested."} No extra people, no watermark, no added text, no plastic skin, no AI-render look, no stock-model expression, no model-face expression leakage, no model-face skin-tone leakage, no model-face makeup leakage, no pasted head, no face-swap seam, no mismatched skin, no oversized head, no long neck, no ID-photo face, no generic catalog face, no unrelated outfit changes.`);
 
-  const userInstruction = buildStructuredTryOnUserInstruction(params.style);
+  const userInstruction = buildStructuredTryOnUserInstruction(params.style, { imageNumberMap: params.imageNumberMap });
   if (userInstruction) {
     lines.push(userInstruction);
   }
@@ -1763,6 +1912,7 @@ function buildFixedBaseTryOnPrompt(params: {
   sourceNoun: string;
   clothingAnalysis?: TryOnClothingAnalysis | null;
   referenceAnalysis?: TryOnReferenceAnalysis | null;
+  imageNumberMap?: Map<number, number>;
   style?: string;
 }) {
   const targetImageNumber = Number(params.targetRef.replace(/\D/g, "")) || 2;
@@ -1833,7 +1983,9 @@ function buildFixedBaseTryOnPrompt(params: {
     `Keep the overall camera distance, framing style, background, floor, and non-sourced outfit areas close to ${params.targetRef}, while allowing natural variation in garment fit, folds, hem shape, contact shadows, fabric drape, and small body/hand relaxation.`,
     "Clothing rule:",
     `${params.clothingSource} ${params.clothingRefs.length === 1 ? "is" : "are"} not a person reference. Do not copy any model, body, face, pose, skin, lighting, background, or scene from ${params.clothingSource}. Extract only the sourced garment material.`,
-    buildTryOnClothingAnalysisRule(params.clothingAnalysis, params.clothingRoles, params.clothingMode),
+    buildTryOnClothingAnalysisRule(params.clothingAnalysis, params.clothingRoles, params.clothingMode, {
+      clothingImageNumbers: params.clothingRefs.map((ref) => Number(ref.replace(/\D/g, "")) || 1),
+    }),
     "Preserve source clothing accurately: garment type, silhouette, color, pattern, logo/text, fabric texture, neckline, sleeves, hem, pockets, buttons, zippers, seams, layers, length, and visible construction details.",
     ...buildFixedBaseLayeringRules(params),
     buildFixedBaseAreaRule(params),
@@ -1854,7 +2006,7 @@ function buildFixedBaseTryOnPrompt(params: {
   if (params.aspectRatio && params.aspectRatio !== "auto") {
     lines.push(`Output aspect ratio: ${params.aspectRatio}.`);
   }
-  const userInstruction = buildStructuredTryOnUserInstruction(params.style);
+  const userInstruction = buildStructuredTryOnUserInstruction(params.style, { imageNumberMap: params.imageNumberMap });
   if (userInstruction) {
     lines.push(userInstruction);
   }
@@ -2156,13 +2308,15 @@ function buildConciseClothingRoleRule(clothingRefs: string[], roles: TryOnClothi
     return `Multi-garment rule: ${roleLines.join("; ")}. Wear each item on its correct body area, keep natural layering, and do not merge them into one new garment. ${roleDetails.join(" ")}`.trim();
   }
 
-  return "Single-garment rule: image 1 was uploaded into the explicit one-piece/full-outfit slot. Treat it as one complete dress, jumpsuit, set, coat, or full-body garment; replace every conflicting target garment it covers, do not split it into unrelated upper/lower pieces, and do not invent extra clothing outside image 1.";
+  const source = toEnglishImageRef(clothingRefs[0] || "图1");
+  return `Single-garment rule: ${source} was uploaded into the explicit one-piece/full-outfit slot. Treat it as one complete dress, jumpsuit, set, coat, or full-body garment; replace every conflicting target garment it covers, do not split it into unrelated upper/lower pieces, and do not invent extra clothing outside ${source}.`;
 }
 
 function buildTryOnClothingAnalysisRule(
   analysis: TryOnClothingAnalysis | null | undefined,
   roles: TryOnClothingRole[],
-  mode: TryOnClothingMode
+  mode: TryOnClothingMode,
+  options: { clothingImageNumbers?: number[] } = {}
 ) {
   if (!analysis) return "";
 
@@ -2178,7 +2332,9 @@ function buildTryOnClothingAnalysisRule(
   const rawType = analysis.clothTypeRaw || categoryLabels[0] || "garment";
   const confidence = analysis.confidence ? ` Confidence: ${Math.round(analysis.confidence * 100)}%.` : "";
   const categoryText = categoryLabels.length ? categoryLabels.join(" / ") : rawType;
-  const explicitRoles = roles.map((role, index) => `image ${index + 1}=${role}`).join(", ");
+  const explicitRoles = roles
+    .map((role, index) => `image ${options.clothingImageNumbers?.[index] || index + 1}=${role}`)
+    .join(", ");
   const explicitScopeNote = explicitScope && analysis.slot && analysis.slot !== explicitScope
     ? ` User explicit upload slot overrides visual classifier slot=${analysis.slot}; use ${explicitScope} as the replacement scope.`
     : "";
@@ -2260,6 +2416,7 @@ function buildGarmentDetailPromptGroups(params: {
   groups: GarmentDetailReferenceGroup[];
   detailStartImageNumber: number;
   clothingRoles?: TryOnClothingRole[];
+  clothingImageOffset?: number;
 }): GarmentDetailPromptGroup[] {
   let offset = 0;
   return params.groups.map((group) => {
@@ -2268,7 +2425,7 @@ function buildGarmentDetailPromptGroups(params: {
     const role = params.clothingRoles?.[group.clothingIndex];
     return {
       ...group,
-      clothingImageNumber: group.clothingIndex + 1,
+      clothingImageNumber: group.clothingIndex + 1 + (params.clothingImageOffset || 0),
       clothingLabel: role ? TRYON_CLOTHING_ROLE_LABELS[role] : undefined,
       detailImageNumbers,
     };

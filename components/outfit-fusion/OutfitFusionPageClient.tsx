@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import {
   ChevronDown,
@@ -21,11 +21,12 @@ import { OutfitFusionComposer } from "@/components/outfit-fusion/OutfitFusionCom
 import { OutfitFusionExampleGallery } from "@/components/outfit-fusion/OutfitFusionExampleGallery";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
+import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { TaskSelectionSession } from "@/components/studio/useTaskSelectionSession";
 import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
 import { useStudioAuth } from "@/components/studio/useStudioAuth";
-import { cn, MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
+import { cn, downloadImage, generateDownloadFilename, MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { safeTaskQueueUrls, type TaskQueueItem, type TaskStatusGroup } from "@/lib/task-queue";
 import { getCreditCost } from "@/lib/api/lingya";
 import { showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
@@ -47,7 +48,7 @@ import {
   type OutfitFusionConfig,
   type OutfitFusionTemplate,
 } from "@/lib/outfit-fusion";
-import { createGenericImagePreviewSession, createImagePreviewSession, type ImagePreviewAction } from "@/lib/studio-image-preview";
+import { buildSourceImageHref, createGenericImagePreviewSession, createImagePreviewSession, type ImagePreviewAction } from "@/lib/studio-image-preview";
 
 type OutfitFusionTask = {
   id: string;
@@ -69,11 +70,12 @@ type OutfitFusionTask = {
 const PREVIEW_ACTIONS: ImagePreviewAction[] = [
   { kind: "download", label: "下载图片" },
   { kind: "copy", label: "复制链接" },
-  { kind: "repair", label: "高清修复" },
-  { kind: "productSet", label: "裂变套图" },
-  { kind: "aiVideo", label: "生成视频" },
-  { kind: "modelBackground", label: "智能改图" },
-  { kind: "regenerateAll", label: "重新生成" },
+  { kind: "repair", label: "AI修图" },
+  { kind: "aiVideo", label: "AI视频" },
+  { kind: "modelBackground", label: "换背景" },
+  { kind: "pose", label: "姿势裂变" },
+  { kind: "productSet", label: "商品套图" },
+  { kind: "regenerateAll", label: "重新创作" },
   { kind: "feedback", label: "反馈" },
 ];
 
@@ -1025,6 +1027,7 @@ function OutfitFusionTaskCard({
   onCopy: () => void;
   onDelete: () => void;
 }) {
+  const router = useRouter();
   const running = task.statusGroup === "running" || task.statusGroup === "queued";
   const failed = task.statusGroup === "failed";
   const slots = Math.max(task.expectedCount, task.resultUrls.length, 1);
@@ -1032,6 +1035,15 @@ function OutfitFusionTaskCard({
   const compactRunning = running && task.resultUrls.length === 0 && slots === 1;
   const [promptExpanded, setPromptExpanded] = useState(false);
   const canExpandPrompt = task.prompt.length > 64;
+  const openImageRepair = (url: string) => {
+    router.push(buildSourceImageHref("/general-image/image-to-image", url));
+  };
+  const openAiVideo = (url: string) => {
+    router.push(buildSourceImageHref("/video", url));
+  };
+  const downloadResult = (url: string, slotIndex: number) => {
+    void downloadImage(url, generateDownloadFilename("outfit-fusion", slotIndex, "png"));
+  };
 
   return (
     <article
@@ -1057,115 +1069,151 @@ function OutfitFusionTaskCard({
           </div>
         </div>
       </div>
-      <div className={cn("mt-3 grid gap-[3px]", compactRunning ? "grid-cols-1 md:max-w-[250px]" : "grid-cols-2 md:grid-cols-4")}>
-            {Array.from({ length: displaySlots }, (_, index) => {
-              const url = task.resultUrls[index];
-              return url ? (
-                <button
-                  key={`${task.id}-${index}`}
-                  type="button"
-                  onClick={() => onPreview(index)}
-                  className="studio-result-card outfit-fusion-result-card group/slot relative aspect-[3/4] cursor-zoom-in overflow-hidden rounded-[4px] bg-[#f4f6fa] text-sm text-slate-400 outline-none transition duration-300 hover:z-[1] hover:shadow-[0_10px_28px_rgba(15,23,42,0.18)] focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.35)] focus-visible:ring-offset-2"
-                >
-                  <LoadableResultImage src={url} alt={`生成图${index + 1}`} />
-                  <span className="pointer-events-none absolute left-2 top-2 rounded-[4px] bg-[var(--codex-accent)] px-1.5 py-0.5 text-[11px] font-semibold leading-4 text-white shadow-sm">
-                    {index + 1}/{slots}
-                  </span>
-                  <span className="studio-result-focus-layer" aria-hidden={false}>
-                    <span className="studio-result-focus-view inline-flex h-8 items-center gap-1.5 px-3">
-                      <Eye className="h-4 w-4" />
-                      查看
-                    </span>
-                    <span className="studio-result-focus-actions">
-                      <span className="studio-result-focus-action inline-flex items-center gap-1.5">
-                        <WandSparkles className="h-3.5 w-3.5" />
-                        <span>AI修图</span>
-                      </span>
-                      <span className="studio-result-focus-action inline-flex items-center gap-1.5">
-                        <Clapperboard className="h-3.5 w-3.5" />
-                        <span>AI视频</span>
-                      </span>
-                      <span className="studio-result-focus-action inline-flex items-center gap-1.5">
-                        <Download className="h-3.5 w-3.5" />
-                        <span>下载</span>
-                      </span>
-                    </span>
-                  </span>
-                </button>
-              ) : (
-                <div
-                  key={`${task.id}-${index}`}
-                  role="status"
-                  aria-live="polite"
-                  className="gen-card relative aspect-[3/4] overflow-hidden rounded-[7px] bg-[#edf4ff] text-sm text-slate-500"
-                >
-                  {!failed ? (
-                    <>
-                      <span className="studio-loading-card-base" />
-                      <span className="studio-loading-card-sheen" />
-                    </>
-                  ) : null}
-                  <div className="relative z-[1] flex h-full flex-col items-center justify-center gap-3">
-                    {failed ? (
-                      <span className="text-amber-600">生成失败</span>
-                    ) : (
-                      <>
-                        <div className="relative flex h-12 w-12 items-center justify-center rounded-full bg-white/82 shadow-[0_12px_28px_rgba(91,124,255,0.22)] backdrop-blur-sm">
-                          <span className="absolute inset-0 rounded-full bg-[rgba(91,124,255,0.18)] animate-ping motion-reduce:animate-none" />
-                          <Loader2 className="relative h-6 w-6 animate-spin text-[var(--codex-accent)]" />
-                        </div>
-                        <span className="rounded-full bg-white/72 px-2 py-1 text-xs font-medium text-[#5065d8] shadow-sm">预计2~3分钟</span>
-                      </>
-                    )}
+      <TooltipProvider delayDuration={120}>
+        <div className={cn("mt-3 grid gap-[3px]", compactRunning ? "grid-cols-1 md:max-w-[250px]" : "grid-cols-2 md:grid-cols-4")}>
+          {Array.from({ length: displaySlots }, (_, index) => {
+            const url = task.resultUrls[index];
+            return url ? (
+              <div
+                key={`${task.id}-${index}`}
+                role="button"
+                tabIndex={0}
+                aria-label={`预览生成图 ${index + 1}`}
+                title={`预览生成图 ${index + 1}`}
+                onClick={() => onPreview(index)}
+                onKeyDown={(event) => {
+                  if (event.key !== "Enter" && event.key !== " ") return;
+                  event.preventDefault();
+                  onPreview(index);
+                }}
+                className="studio-result-card outfit-fusion-result-card group/slot relative aspect-[3/4] cursor-zoom-in overflow-hidden rounded-[4px] bg-[#f4f6fa] text-sm text-slate-400 outline-none transition duration-300 hover:z-[1] hover:shadow-[0_10px_28px_rgba(15,23,42,0.18)] focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.35)] focus-visible:ring-offset-2"
+              >
+                <LoadableResultImage src={url} alt={`生成图${index + 1}`} />
+                <span className="pointer-events-none absolute left-2 top-2 rounded-[4px] bg-[var(--codex-accent)] px-1.5 py-0.5 text-[11px] font-semibold leading-4 text-white shadow-sm">
+                  {index + 1}/{slots}
+                </span>
+                <div className="studio-result-focus-layer" aria-hidden={false}>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="studio-result-focus-view inline-flex h-8 items-center gap-1.5 px-3"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onPreview(index);
+                    }}
+                    onKeyDown={(event) => event.stopPropagation()}
+                  >
+                    <Eye className="h-4 w-4" />
+                    查看
+                  </Button>
+                  <div className="studio-result-focus-actions">
+                    <OutfitFusionFocusAction label="AI修图" onClick={() => openImageRepair(url)} icon={<WandSparkles className="h-3.5 w-3.5" />} />
+                    <OutfitFusionFocusAction label="AI视频" onClick={() => openAiVideo(url)} icon={<Clapperboard className="h-3.5 w-3.5" />} />
+                    <OutfitFusionFocusAction label="下载" onClick={() => downloadResult(url, index)} icon={<Download className="h-3.5 w-3.5" />} />
                   </div>
                 </div>
-              );
-            })}
-          </div>
-          {running ? (
-            <div className="mt-3 h-1 overflow-hidden rounded-full bg-slate-100">
+              </div>
+            ) : (
               <div
-                className="studio-loader-progress h-full rounded-full bg-[linear-gradient(90deg,var(--codex-accent),#8ea2ff)] transition-all duration-500 ease-out"
-                style={{ width: `${Math.min(Math.max(task.progress, 8), 100)}%` }}
-              />
-            </div>
-          ) : null}
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs leading-5 text-slate-400">
-            <div className="flex flex-wrap items-center gap-2">
-              <span>{formatTaskTime(task.createdAt)}</span>
-              <span>|</span>
-              <span>任务: {task.remoteId || task.taskNo}</span>
-              <button
-                type="button"
-                onClick={onCopy}
-                className="rounded-[5px] p-0.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.35)]"
-                aria-label="复制任务编号"
+                key={`${task.id}-${index}`}
+                role="status"
+                aria-live="polite"
+                className="gen-card relative aspect-[3/4] overflow-hidden rounded-[7px] bg-[#edf4ff] text-sm text-slate-500"
               >
-                <Copy className="h-3.5 w-3.5" />
-              </button>
-              {running ? <span className="text-[var(--codex-accent)]">{task.progress}%</span> : null}
-            </div>
-            <div className="flex items-center gap-3">
-              <button type="button" onClick={onReedit} className="inline-flex items-center gap-1 rounded-[5px] px-1 py-0.5 text-slate-700 transition hover:bg-[rgba(91,124,255,0.08)] hover:text-[var(--codex-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.35)]">
-                <PenLine className="h-3.5 w-3.5" />
-                重新编辑
-              </button>
-              <button
-                type="button"
-                onClick={onRegenerate}
-                disabled={running}
-                className="inline-flex items-center gap-1 rounded-[5px] px-1 py-0.5 text-slate-700 transition hover:bg-[rgba(91,124,255,0.08)] hover:text-[var(--codex-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.35)] disabled:text-slate-300"
-              >
-                <RefreshCw className="h-3.5 w-3.5" />
-                重新生成
-              </button>
-              <button type="button" onClick={onDelete} className="inline-flex items-center gap-1 rounded-[5px] px-1 py-0.5 text-slate-500 transition hover:bg-[rgba(91,124,255,0.08)] hover:text-[var(--codex-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.35)]">
-                <Trash2 className="h-3.5 w-3.5" />
-                删除
-              </button>
-            </div>
-          </div>
+                {!failed ? (
+                  <>
+                    <span className="studio-loading-card-base" />
+                    <span className="studio-loading-card-sheen" />
+                  </>
+                ) : null}
+                <div className="relative z-[1] flex h-full flex-col items-center justify-center gap-3">
+                  {failed ? (
+                    <span className="text-amber-600">生成失败</span>
+                  ) : (
+                    <>
+                      <div className="relative flex h-12 w-12 items-center justify-center rounded-full bg-white/82 shadow-[0_12px_28px_rgba(91,124,255,0.22)] backdrop-blur-sm">
+                        <span className="absolute inset-0 rounded-full bg-[rgba(91,124,255,0.18)] animate-ping motion-reduce:animate-none" />
+                        <Loader2 className="relative h-6 w-6 animate-spin text-[var(--codex-accent)]" />
+                      </div>
+                      <span className="rounded-full bg-white/72 px-2 py-1 text-xs font-medium text-[#5065d8] shadow-sm">预计2~3分钟</span>
+                    </>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </TooltipProvider>
+      {running ? (
+        <div className="mt-3 h-1 overflow-hidden rounded-full bg-slate-100">
+          <div
+            className="studio-loader-progress h-full rounded-full bg-[linear-gradient(90deg,var(--codex-accent),#8ea2ff)] transition-all duration-500 ease-out"
+            style={{ width: `${Math.min(Math.max(task.progress, 8), 100)}%` }}
+          />
+        </div>
+      ) : null}
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs leading-5 text-slate-400">
+        <div className="flex flex-wrap items-center gap-2">
+          <span>{formatTaskTime(task.createdAt)}</span>
+          <span>|</span>
+          <span>任务: {task.remoteId || task.taskNo}</span>
+          <button
+            type="button"
+            onClick={onCopy}
+            className="rounded-[5px] p-0.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.35)]"
+            aria-label="复制任务编号"
+          >
+            <Copy className="h-3.5 w-3.5" />
+          </button>
+          {running ? <span className="text-[var(--codex-accent)]">{task.progress}%</span> : null}
+        </div>
+        <div className="flex items-center gap-3">
+          <button type="button" onClick={onReedit} className="inline-flex items-center gap-1 rounded-[5px] px-1 py-0.5 text-slate-700 transition hover:bg-[rgba(91,124,255,0.08)] hover:text-[var(--codex-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.35)]">
+            <PenLine className="h-3.5 w-3.5" />
+            重新编辑
+          </button>
+          <button
+            type="button"
+            onClick={onRegenerate}
+            disabled={running}
+            className="inline-flex items-center gap-1 rounded-[5px] px-1 py-0.5 text-slate-700 transition hover:bg-[rgba(91,124,255,0.08)] hover:text-[var(--codex-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.35)] disabled:text-slate-300"
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            重新生成
+          </button>
+          <button type="button" onClick={onDelete} className="inline-flex items-center gap-1 rounded-[5px] px-1 py-0.5 text-slate-500 transition hover:bg-[rgba(91,124,255,0.08)] hover:text-[var(--codex-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.35)]">
+            <Trash2 className="h-3.5 w-3.5" />
+            删除
+          </button>
+        </div>
+      </div>
     </article>
+  );
+}
+
+function OutfitFusionFocusAction({ label, icon, onClick }: { label: string; icon: ReactNode; onClick: () => void }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="studio-result-focus-action"
+          onClick={(event) => {
+            event.stopPropagation();
+            onClick();
+          }}
+          onKeyDown={(event) => event.stopPropagation()}
+          aria-label={label}
+        >
+          {icon}
+          <span>{label}</span>
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="top">{label}</TooltipContent>
+    </Tooltip>
   );
 }
 

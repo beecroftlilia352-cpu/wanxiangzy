@@ -24,18 +24,71 @@ export function fileToBase64(file: File): Promise<string> {
   });
 }
 
+const DOWNLOAD_PREFIX_ALIASES: Record<string, string> = {
+  tryon: "try",
+  "image-to-image": "img",
+  "text-to-image": "txt",
+  "model-background": "bg",
+  pose: "pose",
+  "product-set": "set",
+  "all-category-product": "cat",
+  "all-category-product-image": "cat",
+  "outfit-fusion": "mix",
+  "outfit-fusion-asset": "mix",
+  "garment-3d": "3d",
+  grass: "grass",
+  "material-enhancement": "mat",
+  "face-swap": "face",
+  model: "model",
+  "model-reference": "model",
+  "first-last-frame-video": "vid",
+  "motion-video": "vid",
+  "image-video": "vid",
+  history: "hist",
+};
+
+function compactDownloadPrefix(prefix: string): string {
+  const normalized = prefix
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+  if (!normalized) return "img";
+  const alias = DOWNLOAD_PREFIX_ALIASES[normalized];
+  if (alias) return alias;
+
+  const initials = normalized
+    .split("-")
+    .filter(Boolean)
+    .map((part) => part[0])
+    .join("");
+
+  return (initials || normalized).slice(0, 6);
+}
+
+function normalizeDownloadExtension(ext: string): string {
+  return ext
+    .trim()
+    .toLowerCase()
+    .replace(/^\.+/, "")
+    .replace(/[^a-z0-9]/g, "")
+    .slice(0, 5) || "png";
+}
+
 /**
- * 生成最佳实践下载文件名
- * 格式: {prefix}-{YYYYMMDD}-{HHmmss}-{序号}.{ext}
- * 示例: vastweargen-tryon-20260502-143022-01.png
+ * 生成短下载文件名
+ * 格式: vwg-{模块短码}-{MMDD}-{HHmm}-{序号}.{ext}
+ * 示例: vwg-try-0502-1430-01.png
  */
 export function generateDownloadFilename(prefix: string, index: number, ext = "png"): string {
   const now = new Date();
   const pad = (n: number) => String(n).padStart(2, "0");
-  const date = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}`;
-  const time = `${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+  const moduleCode = compactDownloadPrefix(prefix);
+  const date = `${pad(now.getMonth() + 1)}${pad(now.getDate())}`;
+  const time = `${pad(now.getHours())}${pad(now.getMinutes())}`;
   const seq = String(index + 1).padStart(2, "0");
-  return `vastweargen-${prefix}-${date}-${time}-${seq}.${ext}`;
+  return `vwg-${moduleCode}-${date}-${time}-${seq}.${normalizeDownloadExtension(ext)}`;
 }
 
 /**
