@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from
 import { useRouter } from "next/navigation";
 import { Clapperboard, Download, Eye, Loader2, RotateCcw, WandSparkles, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { StudioHomeHeroLoadingBackdrop } from "@/components/studio/StudioHomeHeroLoadingBackdrop";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { getImageVariantUrl } from "@/lib/image-variants";
 import { buildSourceImageHref } from "@/lib/studio-image-preview";
@@ -374,6 +375,7 @@ function PendingResultSlot({
 }) {
   return (
     <div className={`gen-card studio-result-pending-card flex h-full w-full flex-col items-center justify-center gap-2 ${failed ? "studio-result-pending-card-failed" : ""}`}>
+      {!failed && <StudioHomeHeroLoadingBackdrop />}
       <div className="relative z-[1] flex h-14 w-14 items-center justify-center">
         <div className="gen-ring absolute inset-0 rounded-full bg-[#aeb8ff]/45" />
         <div className="relative flex h-14 w-14 items-center justify-center rounded-full border border-white/16 bg-white/10 shadow-lg backdrop-blur-md">

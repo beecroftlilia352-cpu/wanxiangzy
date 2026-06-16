@@ -1,40 +1,76 @@
 import Image from "next/image";
 import Link from "next/link";
+import type { ReactNode } from "react";
 import {
   ArrowRight,
-  BadgeCheck,
-  CheckCircle2,
-  ClipboardCheck,
-  Code2,
-  Copy,
   ExternalLink,
-  PanelTop,
-  Quote,
-  Sparkles,
 } from "lucide-react";
-import { HeroGradientMotion } from "@/components/home/HeroGradientMotion";
 import { codexTheme } from "@/lib/design/codex-theme";
 
-const heroStats = ["服装硬参考", "模特参考", "姿势参考", "商品主图"];
+const partnerLogos = [
+  {
+    name: "OpenAI",
+    src: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/partners/openai.svg",
+  },
+  {
+    name: "Google",
+    src: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/partners/google.svg",
+  },
+  {
+    name: "ByteDance",
+    src: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/partners/bytedance.svg",
+  },
+  {
+    name: "Alibaba Cloud",
+    src: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/partners/alibaba-cloud.svg",
+  },
+  {
+    name: "AWS",
+    src: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/partners/aws.svg",
+  },
+];
+
+const showcase = {
+  heroScreen: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/screen-hero-workspace.png",
+  tryonScreen: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/screen-tryon-result.png",
+  fusionScreen: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/screen-fusion-grid-reference.png",
+  poseScreen: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/screen-pose-result-grid.png",
+  yellowDress: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/showcase-yellow-dress-garden-back.jpg",
+  creamTop: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/showcase-cream-top-mini-skirt.png",
+  navyPoseGrid: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/showcase-navy-shirt-pose-grid.jpg",
+  blackDress: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/showcase-black-floral-dress.png",
+  whiteDressSea: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/showcase-white-dress-sea.png",
+  creamBlouse: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/showcase-cream-blouse-skirt.png",
+  blueDress: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/showcase-blue-dress-garden-2.png",
+  blueDressAlt: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/showcase-blue-dress-garden-3.png",
+  blueTop: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/showcase-blue-top-white-pants.png",
+  pinkTop: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/showcase-pink-top-garden.png",
+} as const;
 
 const featureRows = [
   {
     eyebrow: "Feature 01",
-    title: "为真实服装视觉生产而打造",
-    body: "从常规上新图到高要求的品牌大片，VastWearGen 都能把服装、模特、姿势和场景拆成清晰的输入角色，让团队稳定生成可交付的视觉结果。",
-    visual: "composer",
+    title: "服装上身从参考图进入同一工作台",
+    body: "把服装、模特、姿势和背景拆成清晰输入，围绕版型、颜色和人物比例生成可交付的上身图。",
+    visual: "tryon",
   },
   {
     eyebrow: "Feature 02",
-    title: "专为多素材工作流而设计",
-    body: "同一条任务可以同时管理服装图、专属模特、背景参考、姿势参考和历史作品。每个素材都有明确归属，避免反复上传、重复解释和结果不可追溯。",
-    visual: "workspace",
+    title: "AI 视频延展静态商品图的表达",
+    body: "从图片到视频、首尾帧和运动控制都放在同一个视觉工作台里，方便把已生成的服装图继续做成短视频素材。",
+    visual: "video",
   },
   {
     eyebrow: "Feature 03",
-    title: "全面提升团队的出图标准",
-    body: "生成前锁定参考，生成中记录参数，生成后沉淀到作品库。运营、设计和拍摄团队可以用同一套标准复用成功方案，从源头降低返工。",
-    visual: "quality",
+    title: "融图把多张素材合成一组完整视觉",
+    body: "自由搭配服装、参考图、模特和场景，快速得到统一风格的模特图、套图和后续可复用的视觉素材。",
+    visual: "fusion",
+  },
+  {
+    eyebrow: "Feature 04",
+    title: "姿势裂变复用爆款构图",
+    body: "从一张已验证的主图继续扩展坐姿、站姿、半身和细节角度，保持服装一致性并快速补齐投放素材。",
+    visual: "fission",
   },
 ];
 
@@ -42,37 +78,22 @@ const sceneCards = [
   {
     title: "服装上身",
     description: "保留版型、颜色和细节，生成真人模特上身效果。",
-    image: "/home-showcase/model-striped-top-white-skirt.png",
-    href: "/create",
+    image: showcase.yellowDress,
   },
   {
-    title: "商品套图",
-    description: "主图、辅图、详情图按同一视觉体系批量输出。",
-    image: "/home-showcase/model-black-crop-widepants.png",
-    href: "/product-set",
+    title: "AI 视频",
+    description: "把已生成的服装图延展成适合投放和种草的动态短片。",
+    video: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/ai-video-preview.mp4",
   },
   {
-    title: "终端式工作流",
-    description: "用自然语言描述任务，快速串联素材、生成和复用。",
-    image: "/home-showcase/pose-grid-black-outfit.png",
-    href: "/agent",
-  },
-].filter((card) => card.href !== "/agent");
-
-const quickTools = [
-  {
-    title: "在 VastWearGen 应用中开始",
-    action: "进入服装上身",
-    href: "/create",
-    icon: PanelTop,
-    image: "/home-showcase/model-white-top-denim-shorts.jpg",
+    title: "融图",
+    description: "把服装、模特、场景和参考图合成一张统一风格的视觉。",
+    image: showcase.blackDress,
   },
   {
-    title: "在素材工具中继续操作",
-    action: "$ generate /product-set",
-    href: "/general-image",
-    icon: Code2,
-    image: "/home-showcase/garment-blue-hoodie-3d.png",
+    title: "姿势裂变",
+    description: "用同一套服装和模特快速扩展多角度、多姿势素材。",
+    image: showcase.navyPoseGrid,
   },
 ];
 
@@ -80,26 +101,38 @@ const testimonials = [
   {
     quote: "我们把上新前的试拍周期从两天压到半天，最关键的是服装细节能被稳定保留下来。",
     name: "女装品牌运营负责人",
+    initials: "DW",
+    avatar: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/testimonials/daniel-sikorskiy.webp",
   },
   {
     quote: "以前不同设计师做出来的图风格差很多，现在用同一套模特和参数，整个店铺看起来统一多了。",
     name: "独立设计师工作室",
+    initials: "JW",
+    avatar: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/testimonials/joey-wang.webp",
   },
   {
     quote: "商品套图和种草封面可以一起规划，运营同学不用在十几个工具之间来回切。",
     name: "电商内容团队",
+    initials: "TR",
+    avatar: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/testimonials/tess-rosania.webp",
   },
   {
     quote: "历史作品能直接复用参数，这对爆款补图特别有用，返工少了很多。",
     name: "跨境服饰卖家",
+    initials: "KL",
+    avatar: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/testimonials/austin-ray.webp",
   },
   {
     quote: "模特、姿势、背景分得很清楚，新同事也能照着流程把图做对。",
     name: "摄影制片团队",
+    initials: "AM",
+    avatar: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/testimonials/aaron-wang.webp",
   },
   {
     quote: "我们最喜欢的是失败任务可以带着原参数重试，排查问题比以前容易很多。",
     name: "品牌视觉负责人",
+    initials: "SC",
+    avatar: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/testimonials/tres-wong-godfrey.webp",
   },
 ];
 
@@ -145,132 +178,136 @@ const footerGroups = [
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen bg-[#030303] text-white">
-      <section className="relative isolate min-h-[calc(100dvh-64px)] overflow-hidden bg-[#8aa8ff] text-[#050505]">
-        <HeroGradient />
-        <div className="relative mx-auto flex min-h-[calc(100dvh-64px)] max-w-[1440px] flex-col items-center px-5 pb-0 pt-20 text-center sm:px-8 lg:px-10">
+    <div className="min-h-screen bg-white text-[#050505]">
+      <section className="home-landing-hero relative isolate overflow-hidden bg-[#e8e9f7] text-[#050505]">
+        <video className="home-hero-video-bg" autoPlay muted loop playsInline preload="auto" aria-hidden="true">
+          <source src="https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/floral-a.mp4" type="video/mp4" />
+        </video>
+        <div className="home-hero-video-scrim" aria-hidden="true" />
+        <div className="home-hero-frame relative mx-auto flex min-h-[1180px] max-w-[1440px] flex-col items-center px-5 pb-0 pt-[138px] text-center sm:min-h-[1260px] sm:px-8 sm:pt-[158px] lg:min-h-[1320px] lg:px-10 lg:pt-[176px]">
           <div className="home-logo-tile">
             <Image src="/gemini-icon.png" alt="" width={52} height={52} className="h-[52px] w-[52px] object-contain" priority />
           </div>
 
-          <h1 className="mt-7 text-[52px] font-semibold leading-none text-[#07101d] sm:text-[60px] lg:text-[68px]">
+          <h1 className="mt-8 text-[58px] font-semibold leading-[0.95] text-[#050505] sm:text-[72px] lg:text-[88px]">
             {codexTheme.brand.name}
           </h1>
-          <p className="mt-7 max-w-[760px] text-[17px] font-semibold leading-8 text-[#07101d]/82 sm:text-[19px]">
+          <p className="mt-7 max-w-[720px] text-[18px] font-semibold leading-8 text-[#111827]/84 sm:text-[20px]">
             面向服装品牌、电商团队和内容团队的 AI 服装视觉生产智能体。
           </p>
-          <p className="mt-2 max-w-[760px] text-[15px] leading-7 text-[#1d2940]/68">
+          <p className="mt-3 max-w-[760px] text-[15px] leading-7 text-[#1f2937]/68">
             上传服装、模特、姿势和背景参考，一次完成上身图、商品套图、种草封面与可复用的视觉工作流。
           </p>
 
           <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
             <Link href="/create" className="home-button home-button-dark">
-              立即进入工作台
+              进入工作台
               <ArrowRight className="h-4 w-4" />
+            </Link>
+            <Link href="#same-agent" className="home-button home-button-soft">
+              查看案例
             </Link>
           </div>
 
-          <p className="mt-7 text-[13px] font-semibold text-[#29354d]/58">
-            支持服装上身、商品套图、换背景、姿势裂变、专属模特和服装 3D
+          <p className="mt-8 text-[13px] font-semibold text-[#29354d]/58">
+            Available for 服装上身、AI 视频、融图、姿势裂变、商品套图和种草封面
           </p>
 
           <HeroConsole />
         </div>
       </section>
 
-      <main className="bg-[#030303] text-white">
-        <section className="mx-auto max-w-[1440px] px-5 py-24 sm:px-8 lg:px-10">
-          <div className="space-y-40">
+      <main className="bg-white text-[#050505]">
+        <section id="partners" className="home-partner-band" aria-label="合作伙伴">
+          {partnerLogos.map((partner) => (
+            <div key={partner.name} className="home-partner-item" aria-label={partner.name}>
+              <img src={partner.src} alt={partner.name} />
+            </div>
+          ))}
+        </section>
+
+        <section id="features" className="mx-auto max-w-[1440px] px-5 py-24 sm:px-8 lg:px-10">
+          <div className="home-feature-intro">
+            <h2>使用智能体生成服装视觉的最佳方式</h2>
+          </div>
+          <div className="mt-14 space-y-32">
             {featureRows.map((feature, index) => (
-              <FeatureStrip key={feature.title} feature={feature} index={index} />
+              <FeatureStrip key={feature.title} feature={feature} reverse={index % 2 === 1} />
             ))}
           </div>
         </section>
 
-        <section className="mx-auto max-w-[1440px] px-5 pb-24 sm:px-8 lg:px-10">
+        <section id="same-agent" className="mx-auto max-w-[1440px] px-5 pb-24 sm:px-8 lg:px-10">
           <div className="mx-auto max-w-[760px] text-center">
-            <h2 className="text-[40px] font-semibold leading-tight sm:text-[52px]">在每个上新场景中使用同一智能体</h2>
-            <p className="mt-5 text-[16px] leading-8 text-white/70">
+            <h2 className="text-[36px] font-semibold leading-tight sm:text-[46px]">在每个上新场景中使用同一智能体</h2>
+            <p className="mt-5 text-[15px] leading-7 text-[#4b5563]">
               在多个页面和环境中使用 VastWearGen，并通过你的团队素材库实现统一连接。
             </p>
+            <Link href="/create" className="home-button home-button-dark mt-8">
+              进入工作台
+              <ArrowRight className="h-4 w-4" />
+            </Link>
           </div>
 
-          <div className="mt-16 grid gap-5 lg:grid-cols-3">
+          <div className="mt-16 grid gap-8 md:grid-cols-2 lg:grid-cols-4">
             {sceneCards.map((card) => (
-              <Link key={card.title} href={card.href} className="home-scene-card group">
-                <div className="relative aspect-[1.18] overflow-hidden bg-[#171717]">
-                  <Image
-                    src={card.image}
-                    alt={card.title}
-                    fill
-                    sizes="(min-width: 1024px) 33vw, 100vw"
-                    className="object-cover object-top opacity-80 transition duration-500 group-hover:scale-[1.035]"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-b from-[#101010]/6 via-[#101010]/12 to-[#101010]/88" />
+              <Link key={card.title} href="/create" className="home-scene-card group">
+                <div className="relative aspect-[1.16] overflow-hidden bg-[#f4f4f4]">
+                  {"video" in card ? (
+                    <video className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.025]" autoPlay muted loop playsInline preload="auto" aria-hidden="true">
+                      <source src={card.video} type="video/mp4" />
+                    </video>
+                  ) : (
+                    <Image
+                      src={card.image}
+                      alt={card.title}
+                      fill
+                      sizes="(min-width: 1024px) 33vw, 100vw"
+                      className="object-cover object-top transition duration-500 group-hover:scale-[1.025]"
+                    />
+                  )}
                 </div>
                 <div className="p-6">
-                  <h3 className="text-[22px] font-semibold leading-tight">{card.title}</h3>
-                  <p className="mt-3 text-[14px] leading-6 text-white/62">{card.description}</p>
+                  <h3 className="text-[20px] font-semibold leading-tight">{card.title}</h3>
+                  <p className="mt-3 text-[14px] leading-6 text-[#5f6673]">{card.description}</p>
                 </div>
               </Link>
             ))}
           </div>
         </section>
 
-        <section className="mx-auto max-w-[1440px] px-5 pb-28 sm:px-8 lg:px-10">
-          <div className="grid gap-5 lg:grid-cols-3">
-            {quickTools.map((tool) => {
-              const Icon = tool.icon;
-              return (
-                <Link key={tool.title} href={tool.href} className="home-tool-card group">
-                  <div className="relative aspect-[1.22] overflow-hidden bg-[#111]">
-                    <Image
-                      src={tool.image}
-                      alt=""
-                      fill
-                      sizes="(min-width: 1024px) 33vw, 100vw"
-                      className="object-cover object-top opacity-72 transition duration-500 group-hover:scale-[1.035]"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-b from-transparent to-[#202020]" />
-                    <div className="absolute inset-x-5 bottom-5 rounded-lg border border-white/12 bg-[#071b32]/72 p-4 text-left backdrop-blur-md">
-                      <Icon className="h-6 w-6 text-[#dbe8ff]" />
-                      <p className="mt-4 text-[15px] font-semibold text-white/88">{tool.title}</p>
-                    </div>
-                  </div>
-                  <div className="p-5">
-                    <span className="home-button home-button-light w-full">
-                      {tool.action}
-                      {tool.action.startsWith("$") ? <Copy className="h-4 w-4" /> : <ArrowRight className="h-4 w-4" />}
-                    </span>
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
-        </section>
-
-        <section className="mx-auto max-w-[1440px] px-5 pb-28 sm:px-8 lg:px-10">
-          <h2 className="text-center text-[40px] font-semibold leading-tight sm:text-[52px]">用户正在这样分享</h2>
+        <section id="testimonials" className="mx-auto max-w-[1440px] px-5 pb-28 sm:px-8 lg:px-10">
+          <h2 className="text-center text-[42px] font-semibold leading-tight sm:text-[56px]">What fashion teams are saying</h2>
           <div className="mt-14 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
             {testimonials.map((item) => (
               <article key={item.name} className="home-testimonial">
-                <Quote className="h-7 w-7 text-white/38" />
-                <p className="mt-8 text-[18px] font-semibold leading-8 text-white/88">“{item.quote}”</p>
-                <p className="mt-9 text-[13px] font-semibold text-white/48">{item.name}</p>
+                <Image
+                  src={item.avatar}
+                  alt=""
+                  width={64}
+                  height={64}
+                  className="home-testimonial-avatar"
+                  aria-hidden="true"
+                />
+                <p className="mt-12 text-[18px] font-medium leading-8 text-[#111827]">“{item.quote}”</p>
+                <p className="mt-16 text-[14px] font-semibold text-[#6b7280]">{item.name}</p>
               </article>
             ))}
           </div>
         </section>
 
-        <section className="relative isolate overflow-hidden">
-          <HeroGradient compact />
-          <div className="relative mx-auto flex min-h-[520px] max-w-[1440px] flex-col items-center justify-center px-5 py-24 text-center text-[#dbe8ff] sm:px-8 lg:px-10">
-            <h2 className="text-[44px] font-semibold leading-tight sm:text-[60px]">立即试用 VastWearGen</h2>
-            <p className="mt-6 max-w-[720px] text-[17px] font-semibold leading-8 text-[#e8f0ff]/84">
+        <section className="home-final-video-cta relative isolate overflow-hidden">
+          <video className="home-hero-video-bg" autoPlay muted loop playsInline preload="auto" aria-hidden="true">
+            <source src="https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/floral-a.mp4" type="video/mp4" />
+          </video>
+          <div className="home-final-video-scrim" aria-hidden="true" />
+          <div className="relative z-[3] mx-auto flex min-h-[475px] max-w-[1440px] flex-col items-center justify-center px-5 py-20 text-center text-[#050505] sm:px-8 lg:px-10">
+            <h2 className="text-[44px] font-semibold leading-tight sm:text-[65px]">立即试用 VastWearGen</h2>
+            <p className="mt-6 max-w-[660px] text-[16px] font-medium leading-7 text-[#111827]/84">
               把服装视觉生产交给同一个 AI 工作流，从第一张参考图开始，到可复用的上新模板结束。
             </p>
-            <Link href="/create" className="home-button home-button-light mt-9">
-              下载并进入工作台
+            <Link href="/create" className="home-button home-button-dark mt-9">
+              进入工作台
               <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
@@ -282,89 +319,20 @@ export default function HomePage() {
   );
 }
 
-function HeroGradient({ compact = false }: { compact?: boolean }) {
-  return <HeroGradientMotion compact={compact} />;
-}
-
 function HeroConsole() {
   return (
     <div className="home-hero-console">
-      <div className="home-console-shell">
-        <div className="home-console-sidebar">
-          <div className="flex items-center gap-2">
-            <span className="h-2.5 w-2.5 rounded-full bg-[#ff6b6b]" />
-            <span className="h-2.5 w-2.5 rounded-full bg-[#ffd166]" />
-            <span className="h-2.5 w-2.5 rounded-full bg-[#51d88a]" />
-          </div>
-          <div className="mt-7 space-y-2">
-            {["New task", "自动化", "素材库"].map((item) => (
-              <div key={item} className="flex items-center gap-2 text-[12px] font-semibold text-white/64">
-                <Sparkles className="h-3.5 w-3.5" />
-                {item}
-              </div>
-            ))}
-          </div>
-          <p className="mt-8 text-[12px] font-semibold text-white/32">Workflows</p>
-          <div className="mt-3 space-y-2">
-            {["服装上身", "商品套图", "种草封面"].map((item, index) => (
-              <div key={item} className={`home-console-nav ${index === 0 ? "home-console-nav-active" : ""}`}>
-                <span>{item}</span>
-                <span>{index === 0 ? "4h" : "2h"}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="home-console-main">
-          <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
-            <div>
-              <p className="text-[13px] font-semibold text-white/86">Create launch visuals</p>
-              <p className="mt-1 text-[12px] text-white/38">vastweargen / fashion-drop</p>
-            </div>
-            <div className="flex gap-2">
-              <span className="rounded-full border border-white/12 px-3 py-1 text-[12px] font-semibold text-white/70">Open</span>
-              <span className="rounded-full bg-white px-3 py-1 text-[12px] font-semibold text-[#07101d]">Commit</span>
-            </div>
-          </div>
-          <div className="grid min-h-[360px] md:grid-cols-[1fr_0.92fr]">
-            <div className="p-5 text-left">
-              <div className="rounded-lg border border-white/10 bg-white/[0.045] p-4">
-                <p className="text-[14px] font-semibold leading-6 text-white/82">
-                  为“春夏针织套装”生成一组可投放视觉：保留衣服纹理，使用自然光，输出主图、种草封面和详情图。
-                </p>
-                <p className="mt-4 text-[12px] font-semibold text-white/38">Thought 8s</p>
-                <div className="mt-3 space-y-2">
-                  {heroStats.map((item, index) => (
-                    <div key={item} className="home-console-file">
-                      <span>{item}</span>
-                      <span className={index < 2 ? "text-[#71e4a8]" : "text-[#9db8ff]"}>{index < 2 ? "+ ready" : "queued"}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div className="mt-4 rounded-lg border border-white/10 bg-[#061829] p-4">
-                <p className="text-[13px] text-white/44">Ask VastWearGen anything</p>
-                <div className="mt-7 flex items-center justify-between text-[13px] font-semibold text-white/64">
-                  <span>+ GPT-Image workflow</span>
-                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#dbe8ff] text-[#07101d]">
-                    <ArrowRight className="h-4 w-4" />
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="home-console-preview">
-              <div className="home-preview-grid">
-                <Image src="/home-showcase/model-striped-top-white-skirt.png" alt="" fill sizes="420px" className="object-cover object-top" />
-              </div>
-              <div className="home-preview-card">
-                <BadgeCheck className="h-5 w-5 text-[#91ffc2]" />
-                <p className="mt-3 text-[13px] font-semibold text-white/78">4 files generated</p>
-                <p className="mt-1 text-[12px] text-white/42">main image, cover, detail, variant</p>
-              </div>
-            </div>
-          </div>
-        </div>
+      <div className="home-codex-hero-shot home-codex-hero-shot-screenshot">
+        <MacWindowShell className="home-hero-macos-shell">
+          <Image
+            src={showcase.heroScreen}
+            alt="服装上身工作台截图"
+            fill
+            priority
+            sizes="(min-width: 1280px) 1180px, 92vw"
+            className="home-codex-hero-image"
+          />
+        </MacWindowShell>
       </div>
     </div>
   );
@@ -372,116 +340,94 @@ function HeroConsole() {
 
 function FeatureStrip({
   feature,
-  index,
+  reverse = false,
 }: {
   feature: (typeof featureRows)[number];
-  index: number;
+  reverse?: boolean;
 }) {
-  const flipped = index % 2 === 1;
-
   return (
-    <article className={`home-feature-strip ${flipped ? "lg:grid-cols-[1.22fr_0.78fr]" : "lg:grid-cols-[0.78fr_1.22fr]"}`}>
-      <div className={`${flipped ? "lg:order-2" : ""} flex min-h-[520px] items-end bg-[#061829] p-8 sm:p-12`}>
+    <article className={`home-feature-strip ${reverse ? "home-feature-strip-reverse" : ""}`}>
+      <FeatureVisual type={feature.visual} />
+      <div className="home-feature-copy-panel">
         <div className="max-w-[460px]">
-          <p className="text-[13px] font-semibold text-[#9db8ff]">{feature.eyebrow}</p>
-          <h2 className="mt-5 text-[32px] font-semibold leading-tight text-[#dbe8ff] sm:text-[44px]">{feature.title}</h2>
-          <p className="mt-7 text-[16px] font-semibold leading-8 text-[#dbe8ff]/78">{feature.body}</p>
-          <div className="mt-8 flex flex-wrap gap-2">
-            {["可复用参数", "素材角色清晰", "团队协作"].map((item) => (
-              <span key={item} className="rounded-full border border-white/12 bg-white/[0.06] px-3 py-1.5 text-[12px] font-semibold text-white/64">
-                {item}
-              </span>
-            ))}
-          </div>
+          <p className="text-[13px] font-semibold text-[#3f5dff]">{feature.eyebrow}</p>
+          <h2 className="mt-5 text-[30px] font-semibold leading-tight text-[#050505] sm:text-[38px]">{feature.title}</h2>
+          <p className="mt-7 text-[15px] font-medium leading-7 text-[#4b5563]">{feature.body}</p>
         </div>
       </div>
-      <FeatureVisual type={feature.visual} />
     </article>
   );
 }
 
 function FeatureVisual({ type }: { type: string }) {
-  if (type === "workspace") {
-    return (
-      <div className="home-feature-visual">
-        <Image src="/home-showcase/pose-grid.png" alt="" fill sizes="760px" className="object-cover object-top opacity-[0.88]" />
-        <div className="absolute inset-0 bg-gradient-to-r from-[#3f5dff]/20 via-transparent to-[#061829]/38" />
-        <div className="home-floating-panel left-[12%] top-[16%] w-[260px]">
-          <PanelTop className="h-5 w-5 text-[#dbe8ff]" />
-          <p className="mt-4 text-[15px] font-semibold">Threads</p>
-          <div className="mt-4 space-y-2">
-            {["Create SKU hero", "Change background", "Add pose matrix", "Export covers"].map((item, index) => (
-              <div key={item} className={`home-mini-row ${index === 0 ? "bg-white/14" : ""}`}>
-                <span>{item}</span>
-                <span>{index === 0 ? "4h" : `${index + 1}h`}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
+  if (type === "fusion") {
+    return <FeatureScreenshot src={showcase.fusionScreen} alt="融图工作台截图" className="home-feature-screen-fusion" />;
   }
 
-  if (type === "quality") {
+  if (type === "fission") {
+    return <FeatureScreenshot src={showcase.poseScreen} alt="姿势裂变工作台截图" className="home-feature-screen-pose" />;
+  }
+
+  if (type === "video") {
     return (
-      <div className="home-feature-visual">
-        <Image src="/home-showcase/model-black-crop-widepants.png" alt="" fill sizes="760px" className="object-cover object-top opacity-80" />
-        <div className="absolute inset-0 bg-gradient-to-r from-[#07101d]/30 via-[#487bff]/12 to-[#3e55ff]/48" />
-        <div className="home-floating-panel right-[14%] top-[10%] w-[300px]">
-          <ClipboardCheck className="h-5 w-5 text-[#dbe8ff]" />
-          <p className="mt-4 text-[15px] font-semibold">Review output quality</p>
-          <div className="mt-4 space-y-3">
-            {["服装纹理未变形", "模特比例自然", "背景光线一致"].map((item) => (
-              <div key={item} className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.055] px-3 py-2 text-[12px] font-semibold text-white/70">
-                <CheckCircle2 className="h-4 w-4 text-[#91ffc2]" />
-                {item}
-              </div>
-            ))}
-          </div>
-        </div>
+      <div className="home-feature-visual home-feature-screen home-feature-visual-video">
+        <MacWindowShell className="home-feature-macos-shell">
+          <video className="h-full w-full object-cover" autoPlay muted loop playsInline preload="auto" aria-hidden="true">
+            <source src="https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/ai-video-preview.mp4" type="video/mp4" />
+          </video>
+          <div className="absolute inset-0 bg-gradient-to-br from-[#244cff]/20 via-transparent to-white/18" />
+        </MacWindowShell>
       </div>
     );
   }
 
   return (
-    <div className="home-feature-visual">
-      <Image src="/home-showcase/background-male-jacket.webp" alt="" fill sizes="760px" className="object-cover object-center opacity-[0.78]" />
-      <div className="absolute inset-0 bg-gradient-to-r from-[#3156ff]/34 via-[#dbe8ff]/18 to-[#061829]/28" />
-      <div className="home-floating-panel right-[13%] top-[8%] w-[320px]">
-        <p className="rounded-lg bg-white/12 p-3 text-[13px] font-semibold leading-6 text-white/82">
-          Generate a complete launch pack for the linen set, keep fabric texture and natural daylight.
-        </p>
-        <p className="mt-4 text-[12px] font-semibold text-white/42">Explored 3 references</p>
-        <div className="mt-3 space-y-2">
-          {["garment.png", "model.png", "background.webp"].map((item) => (
-            <div key={item} className="home-console-file">
-              <span>{item}</span>
-              <CheckCircle2 className="h-3.5 w-3.5 text-[#91ffc2]" />
-            </div>
-          ))}
-        </div>
+    <FeatureScreenshot src={showcase.tryonScreen} alt="服装上身工作台截图" className="home-feature-screen-tryon" />
+  );
+}
+
+function FeatureScreenshot({ src, alt, className = "" }: { src: string; alt: string; className?: string }) {
+  return (
+    <div className={`home-feature-visual home-feature-screen ${className}`}>
+      <MacWindowShell className="home-feature-macos-shell">
+        <Image src={src} alt={alt} fill sizes="(min-width: 1024px) 58vw, 100vw" className="home-feature-screen-img" />
+      </MacWindowShell>
+      <div className="home-feature-screen-glow" aria-hidden="true" />
+    </div>
+  );
+}
+
+function MacWindowShell({ children, className = "" }: { children: ReactNode; className?: string }) {
+  return (
+    <div className={`home-macos-shell ${className}`}>
+      <div className="home-macos-topbar" aria-hidden="true">
+        <span className="home-macos-dot home-macos-dot-red" />
+        <span className="home-macos-dot home-macos-dot-yellow" />
+        <span className="home-macos-dot home-macos-dot-green" />
+        <span className="home-macos-layout-icon" />
       </div>
+      <div className="home-macos-body">{children}</div>
     </div>
   );
 }
 
 function Footer() {
   return (
-    <footer className="bg-[#061829] text-[#dbe8ff]">
+    <footer className="border-t border-[#ececec] bg-white text-[#050505]">
       <div className="mx-auto grid max-w-[1440px] gap-12 px-5 py-16 sm:px-8 md:grid-cols-[1.1fr_repeat(4,1fr)] lg:px-10">
         <div>
-          <p className="text-[18px] font-semibold text-white">VastWearGen</p>
-          <p className="mt-4 max-w-[260px] text-[14px] leading-7 text-[#dbe8ff]/58">
+          <p className="text-[18px] font-semibold text-[#050505]">VastWearGen</p>
+          <p className="mt-4 max-w-[260px] text-[14px] leading-7 text-[#6b7280]">
             面向服装品牌、电商团队和内容团队的 AI 服装视觉生产工作台。
           </p>
         </div>
         {footerGroups.map((group) => (
           <div key={group.title}>
-            <h3 className="text-[13px] font-semibold text-[#dbe8ff]/54">{group.title}</h3>
+            <h3 className="text-[13px] font-semibold text-[#777]">{group.title}</h3>
             <ul className="mt-5 space-y-3">
               {group.links.filter(([, href]) => href !== "/agent").map(([label, href]) => (
                 <li key={label}>
-                  <Link href={href} className="inline-flex items-center gap-1 text-[14px] font-semibold text-[#dbe8ff] transition hover:text-white">
+                  <Link href={href} className="inline-flex items-center gap-1 text-[14px] font-semibold text-[#111] transition hover:text-[#555]">
                     {label}
                     {href !== "/" && <ExternalLink className="h-3 w-3" />}
                   </Link>

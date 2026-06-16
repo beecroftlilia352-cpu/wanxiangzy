@@ -24,6 +24,7 @@ const ASSET_EXTENSIONS = new Set([
   ".png",
   ".svg",
   ".webp",
+  ".mp4",
 ]);
 
 loadEnv(join(root, ".env.local"));
@@ -419,6 +420,7 @@ function contentTypeForPath(filePath) {
   if (extension === ".png") return "image/png";
   if (extension === ".svg") return "image/svg+xml";
   if (extension === ".webp") return "image/webp";
+  if (extension === ".mp4") return "video/mp4";
   return "application/octet-stream";
 }
 

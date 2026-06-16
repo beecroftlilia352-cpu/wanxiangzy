@@ -664,7 +664,7 @@ export default function MaterialEnhancementPage() {
             <PreviewGuide
               title="商用服装材质增强"
               subtitle="用高清商品图修复上身图中的面料、走线、五金和 logo 细节，保持人物和场景稳定。"
-              imageSrc="/home-showcase/model-white-top-denim-shorts.jpg"
+              imageSrc="https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/model-white-top-denim-shorts.jpg"
               imageAlt="材质增强指引"
               steps={[
                 { title: "上传原图", desc: "原图决定人物、姿势、背景、光线和最终构图。" },

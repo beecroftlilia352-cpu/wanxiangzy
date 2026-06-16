@@ -2,6 +2,7 @@
 
 import { Clock3, ImageIcon, Loader2 } from "lucide-react";
 import { getImageVariantUrl } from "@/lib/image-variants";
+import { StudioHomeHeroLoadingBackdrop } from "@/components/studio/StudioHomeHeroLoadingBackdrop";
 
 export type StudioLoaderReferenceImage = {
   url?: string | null;
@@ -83,8 +84,7 @@ export function StudioGenerationLoader({
         <div className={`mx-auto grid ${gridClass} gap-3 sm:gap-4`}>
           {Array.from({ length: safeCount }).map((_, index) => (
             <div key={index} className="gen-card relative overflow-hidden rounded-[28px]" style={{ aspectRatio }}>
-              <div className="studio-loading-card-base" />
-              <div className="studio-loading-card-sheen" />
+              <StudioHomeHeroLoadingBackdrop />
               <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2">
                 <div className="relative flex h-14 w-14 items-center justify-center">
                   <div className="gen-ring absolute inset-0 rounded-full bg-[#aeb8ff]/40" />

@@ -48,13 +48,12 @@ type HeaderAccountState = {
 };
 
 const marketingNav = [
-  { label: "产品", href: "/create" },
-  { label: "工作流", href: "/agent" },
+  { label: "产品", href: "/#features" },
   { label: "模特库", href: "/model" },
   { label: "价格", href: "/pricing" },
-  { label: "案例", href: "/history" },
+  { label: "案例", href: "/#testimonials" },
   { label: "资源", href: "/general-image" },
-].filter((item) => item.href !== "/agent");
+];
 
 export function HeaderClient() {
   const pathname = usePathname();
@@ -64,7 +63,7 @@ export function HeaderClient() {
   }
 
   if (pathname === "/") {
-    return <MarketingHeaderWithAccount />;
+    return <MarketingHeaderWithAccount overlay />;
   }
 
   if (pathname.startsWith("/pricing")) {
@@ -185,27 +184,48 @@ function useHeaderAccount(): HeaderAccountState {
   return { authReady, creditsReady, credits, email, isLoggingOut, onLogout };
 }
 
-function MarketingHeaderWithAccount() {
+function MarketingHeaderWithAccount({ overlay = false }: { overlay?: boolean }) {
   const account = useHeaderAccount();
 
-  return <MarketingHeader account={account} />;
+  return <MarketingHeader account={account} overlay={overlay} />;
 }
 
-function MarketingHeader({ account }: { account: HeaderAccountState }) {
+function MarketingHeader({ account, overlay }: { account: HeaderAccountState; overlay: boolean }) {
   const [scrolled, setScrolled] = useState(false);
+  const scrolledRef = useRef(false);
+  const frameRef = useRef<number | null>(null);
 
   useEffect(() => {
-    const updateScrolled = () => setScrolled(window.scrollY > 96);
+    const threshold = overlay ? 12 : 96;
+    const updateScrolled = () => {
+      const nextScrolled = window.scrollY > threshold;
+      if (scrolledRef.current === nextScrolled) return;
+      scrolledRef.current = nextScrolled;
+      setScrolled(nextScrolled);
+    };
+    const requestUpdate = () => {
+      if (frameRef.current !== null) return;
+      frameRef.current = window.requestAnimationFrame(() => {
+        frameRef.current = null;
+        updateScrolled();
+      });
+    };
+
     updateScrolled();
-    window.addEventListener("scroll", updateScrolled, { passive: true });
-    return () => window.removeEventListener("scroll", updateScrolled);
-  }, []);
+    window.addEventListener("scroll", requestUpdate, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", requestUpdate);
+      if (frameRef.current !== null) window.cancelAnimationFrame(frameRef.current);
+    };
+  }, [overlay]);
 
   return (
     <header
-      className={`home-marketing-header sticky top-0 z-50 ${scrolled ? "home-marketing-header-scrolled" : ""}`}
+      className={`home-marketing-header z-50 ${overlay ? "home-marketing-header-overlay" : "sticky top-0"} ${
+        scrolled ? "home-marketing-header-scrolled" : ""
+      }`}
     >
-      <div className="mx-auto flex h-16 w-full max-w-[1440px] items-center justify-between gap-6 px-5 sm:px-8 lg:px-10">
+      <div className="flex h-16 w-full items-center justify-between gap-6 px-5 sm:px-8 lg:px-10">
         <Link
           href="/"
           className="home-marketing-logo shrink-0 text-[18px] font-semibold leading-none"
@@ -216,7 +236,7 @@ function MarketingHeader({ account }: { account: HeaderAccountState }) {
 
         <nav className="home-marketing-nav hidden flex-1 items-center gap-8 pl-4 text-[14px] font-semibold leading-none lg:flex" aria-label="主导航">
           {marketingNav.map((item) => (
-            <Link key={item.label} href={item.href} className="transition">
+            <Link key={item.label} href={item.href} prefetch={false} className="transition">
               {item.label}
             </Link>
           ))}
@@ -318,12 +338,13 @@ function MarketingMobileMenu() {
       <DropdownMenuContent
         align="end"
         sideOffset={8}
-        className="mac-surface z-[80] min-w-[220px] overflow-hidden rounded-2xl border border-white/80 bg-white/95 p-1.5 shadow-xl shadow-slate-300/45"
+        className="z-[80] min-w-[220px] overflow-hidden rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl shadow-slate-300/45"
       >
         {marketingNav.map((item) => (
           <DropdownMenuItem key={item.href} asChild>
             <Link
               href={item.href}
+              prefetch={false}
               className="flex items-center rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 outline-none transition hover:bg-slate-50 hover:text-slate-950 focus:bg-slate-50 focus:text-slate-950 data-[highlighted]:bg-slate-50 data-[highlighted]:text-slate-950"
             >
               {item.label}

@@ -20,6 +20,7 @@ import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
 import { OutfitFusionComposer } from "@/components/outfit-fusion/OutfitFusionComposer";
 import { OutfitFusionExampleGallery } from "@/components/outfit-fusion/OutfitFusionExampleGallery";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
+import { StudioHomeHeroLoadingBackdrop } from "@/components/studio/StudioHomeHeroLoadingBackdrop";
 import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -1122,10 +1123,7 @@ function OutfitFusionTaskCard({
                 className="gen-card relative aspect-[3/4] overflow-hidden rounded-[7px] bg-[#edf4ff] text-sm text-slate-500"
               >
                 {!failed ? (
-                  <>
-                    <span className="studio-loading-card-base" />
-                    <span className="studio-loading-card-sheen" />
-                  </>
+                  <StudioHomeHeroLoadingBackdrop />
                 ) : null}
                 <div className="relative z-[1] flex h-full flex-col items-center justify-center gap-3">
                   {failed ? (
@@ -1275,10 +1273,7 @@ function LoadableResultImage({ src, alt }: { src: string; alt: string }) {
   return (
     <>
       {!loaded ? (
-        <>
-          <span className="studio-loading-card-base" />
-          <span className="studio-loading-card-sheen" />
-        </>
+        <StudioHomeHeroLoadingBackdrop />
       ) : null}
       <RawPreviewImage
         src={src}
