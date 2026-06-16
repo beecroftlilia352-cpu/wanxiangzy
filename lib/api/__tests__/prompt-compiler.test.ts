@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { compileImagePromptForModel, type ImagePromptKind } from "@/lib/api/prompt-compiler";
+import { compileImagePromptForModel } from "@/lib/api/prompt-compiler";
 import { buildFaceSwapPrompt } from "@/lib/face-swap";
 import { buildSeparatePosePrompt } from "@/lib/pose-prompt";
 
@@ -37,6 +37,37 @@ describe("compileImagePromptForModel", () => {
     expect(result).toContain("图像质量：photorealistic");
     expect(result).not.toContain("8K ultra-detailed");
     expect(result).not.toContain("RAW photo quality");
+  });
+
+  it("keeps try-on prompts unchanged for banana models because templates are built upstream", () => {
+    const tryOnFacePrompt = [
+      "Use image 1 as the body/composition/lighting base try-on photo, but replace its facial identity with image 3.",
+      "Image roles:",
+      "- image 1 = target expression and try-on reference: body, pose, head size, lighting, and final photo mood.",
+      "- image 2 = complete clothing source only.",
+      "- image 3 = mandatory final face identity reference only.",
+      "Face identity lock - HARD:",
+      "image 3 is the final person identity. The final face must be clearly recognizable as image 3's person.",
+    ].join("\n");
+
+    const gpt = compileImagePromptForModel({
+      kind: "tryon",
+      model: "gpt-image-2",
+      prompt: tryOnFacePrompt,
+    });
+    expect(gpt).toBe(tryOnFacePrompt);
+    expect(gpt).not.toContain("香蕉服装上身脸部校准");
+
+    for (const model of ["nano-banana-2", "nano-banana-pro"] as const) {
+      const result = compileImagePromptForModel({
+        kind: "tryon",
+        model,
+        prompt: tryOnFacePrompt,
+      });
+
+      expect(result).toBe(tryOnFacePrompt);
+      expect(result).not.toContain("香蕉服装上身脸部校准");
+    }
   });
 
   it("truncates long prompt for gpt-image-2 to 6200 chars", () => {

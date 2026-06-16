@@ -301,6 +301,8 @@ describe("product set smart planning", () => {
     expect(prompt).toContain("AI visual analysis module");
     expect(prompt).toContain("adult male styling");
     expect(prompt).toContain("Copy density for this module: light");
+    expect(prompt).toContain("Product classification: menswear jacket; kind=apparel; apparelType=menswear; isApparel=true.");
+    expect(prompt).not.toMatch(/confidence\s*[:=]\s*0\.\d+/i);
   });
 
   it("keeps custom reference images effective through an explicit numbered prompt contract", () => {

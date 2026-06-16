@@ -93,15 +93,18 @@ export function buildOutfitFusionHiddenFaceConstraints(input: {
     .map((asset, index) => asset.role === "outfit" ? getOutfitFusionAssetLabel(asset, index) : "")
     .filter(Boolean);
   const outfitText = joinOutfitFusionRefs(outfitRefs);
+  const outfitVisualRule = buildOutfitFusionVisualProductRule(outfitRefs);
   const referenceText = referenceRef
-    ? `${referenceRef}只提供身体、姿态、构图、背景光影、头部位置/大小、颈肩衔接、表情方向、肤色明暗和妆容；如果${referenceRef}中有人脸，不得保留其原脸身份、脸型、眼鼻嘴或可识别特征。`
+    ? `${referenceRef}只提供身体、姿态、构图、背景光影、身体比例/头身比、头部位置/大小、颈肩衔接、表情方向、肤色明暗和妆容；如果${referenceRef}中有人脸，不得保留其原脸身份、脸型、眼鼻嘴或可识别特征。`
     : "如果画面基础图里有人脸，不得保留其原脸身份、脸型、眼鼻嘴或可识别特征。";
   const outfitRoleText = outfitText
     ? `${outfitText}只作为服装、鞋包、帽子、围巾或配饰商品来源，不是人物、姿势、脸部身份、肤色、光照、背景或场景参考；只提取商品本体的品类、款式、廓形、颜色、图案、Logo/文字、材质、面料纹理、正确身体部位和穿戴层级。`
     : "所有搭配商品图只作为商品来源，不是人物、姿势、脸部身份、肤色、光照、背景或场景参考。";
+  const expressionCarrier = referenceRef || "目标画面";
+  const visibleSkinCarrier = referenceRef ? `${referenceRef}可见的颈、胸、手臂、手` : "最终人物可见的颈、胸、手臂、手";
   const roleLockText = [
     referenceRef
-      ? `图像角色锁定：${referenceRef}=target/base canvas 目标底图，只控制最终画面的身体、姿态、构图、背景、镜头、光影、头部位置/大小、表情方向和肤色明暗。`
+      ? `图像角色锁定：${referenceRef}=target/base canvas 目标底图，只控制最终画面的身体、姿态、构图、背景、镜头、光影、身体比例/头身比、头部位置/大小、表情方向和肤色明暗。`
       : "图像角色锁定：本次没有上传 target/base canvas 目标底图；需要根据用户关系描述生成新的单人商业穿搭图，不得把任一商品图当成人物底图。",
     outfitText ? `${outfitText}=商品来源，只控制对应服装、鞋包和配饰本体。` : "",
     `${modelRef}=model face identity 模特脸图，只控制最终人物脸部身份、脸型、五官、骨相、可识别相似度、发色和发型。`,
@@ -117,16 +120,34 @@ export function buildOutfitFusionHiddenFaceConstraints(input: {
     referenceText,
     `${modelRef}只控制最终脸部身份、脸型轮廓、五官结构、眼形眼距、眉形、鼻梁/鼻尖/鼻翼、嘴形、五官比例、骨相、可识别相似度、发色和发型；不提供服装、身体、姿势、背景或光照。`,
     `必须把${referenceRef || "画面基础图"}的自然表情、头部姿态、场景光照和肤色连续性迁移到${modelRef}身份上，而不是为了贴合参考图而弱化${modelRef}相似度。自然融合只允许调整表情肌肉、视线、肤色重打光、妆容匹配、毛孔、阴影、边缘融合和脸颈/身体肤色连续性；不得改变${modelRef}的脸型轮廓、五官结构、五官比例、骨相或身份相似度。`,
+    `表情迁移细节：保留${expressionCarrier}的可见表情类别、强度、情绪方向、视线、面部张力、眼睑/脸颊/嘴角动态和自然不对称，作为一整套连贯表演迁移到${modelRef}身份上；不要复制${modelRef}原图表情，也不要把${expressionCarrier}的自然表情抹平成中性网红脸或僵硬模板脸。`,
+    `脸部融合细节：在${referenceRef || "目标画面"}原有头部空间和镜头透视中重建脸部，匹配周围肤色底色、明度、轻微红润、妆容浓淡、毛孔、反射光、阴影衰减、发际线/耳朵/脖子接触、下颌到脖子过渡和遮挡边缘；最终脸必须与${visibleSkinCarrier}自然衔接。`,
     `执行关系校准：用户输入或 AI 分析只控制最终图片关系，例如谁提供身体姿态构图、哪些商品穿到人物身上、是否换成模特图；不得覆盖图片角色锁定、脸部身份、商品保真和负面约束。如果用户输入中出现历史残留的模特图号或写成“把模特换成其它图的模特”，一律以当前真实上传的${modelRef}作为最终脸部身份来源。`,
     "固定生成规则：最终只生成一张完整的单人商业摄影穿搭照片；不要把参考图、商品图、步骤图或多个候选结果拼到同一张画面里。",
     `图片关系：${referenceRef ? `${referenceRef}只作为目标身体、姿态、构图、背景光影、头部位置/大小、表情方向、肤色明暗和穿搭关系参考；不得作为最终脸部身份；` : ""}${modelRef}是最终脸部身份唯一来源。${outfitRoleText}`,
+    outfitVisualRule,
     outfitText
       ? `多商品穿戴层级：${outfitText}必须分别穿戴到正确身体部位和配饰位置。鞋只在脚部，包只做手持/肩背/斜挎/腋下包，帽子只在头部，围巾只在颈部/肩部/手持披挂，腰带只在腰线，首饰只在对应佩戴部位。多件上装、外套、马甲、衬衫或内搭按真实穿搭层级叠穿；上下装、连衣裙、鞋包和配饰不得互相串色、串材质、串 logo 或融合成新商品。`
       : "",
     "商品保真：准确保留所有服装、鞋包、帽子、围巾和配饰的品类/款式、版型/廓形、颜色、印花/图案、Logo/文字、材质类型、面料纹理、织法、光泽、厚薄、透明度、领口、肩线、袖型、袖口、腰线、下摆、口袋、纽扣、拉链、缝线、拼接、褶皱、层次、长度、开衩、装饰件、穿戴位置和相互层叠关系；不要把材质改成别的布料，不要简化或重设计商品细节，不要凭空新增未提供的核心商品。",
     `优先级：脸部身份和商品准确性均为硬约束；脸部身份冲突时以${modelRef}为准，服装、鞋包和配饰冲突时以对应商品图为准，身体姿态、头部空间、构图、背景和光影${referenceRef ? `以${referenceRef}为准` : "按用户输入自然生成"}。禁止只换发型或妆感但不保留${modelRef}五官身份。`,
     "画面质量：真实自然商业摄影质感，人物比例自然，肢体连接合理，面部和手部干净，布料褶皱、阴影、接触关系和透视一致。",
-    "负面约束：不要随机脸、不要网红模板脸、不要参考图原脸残留、不要混合新脸、不要证件照贴脸、不要面具边缘、不要头脸比例漂移、不要肤色断层、不要多余肢体、不要错误手指、不要变形脸、不要错穿层级、不要多件商品融合成一件新款、不要错色、不要丢失图案、不要硬贴图、不要塑料质感、不要水印、不要边框、不要海报文字、不要电商模板排版、不要拼图、四宫格、2x2 网格、分屏、contact sheet、before/after 对比图、商品陈列页或多张照片合集。",
+    "负面约束：不要随机脸、不要网红模板脸、不要参考图原脸残留、不要混合新脸、不要证件照贴脸、不要面具边缘、不要头身比漂移、不要大头小身、不要头脸比例漂移、不要肤色断层、不要多余肢体、不要错误手指、不要变形脸、不要错穿层级、不要多件商品融合成一件新款、不要错色、不要丢失图案、不要硬贴图、不要塑料质感、不要水印、不要边框、不要海报文字、不要电商模板排版、不要拼图、四宫格、2x2 网格、分屏、contact sheet、before/after 对比图、商品陈列页或多张照片合集。",
+  ].join(" ");
+}
+
+function buildOutfitFusionVisualProductRule(outfitRefs: string[]) {
+  if (!outfitRefs.length) return "";
+
+  const outfitText = joinOutfitFusionRefs(outfitRefs);
+  const scopeRule = outfitRefs.length === 1
+    ? `单商品穿戴范围：先判断${outfitText}是上衣、下装、外套、连衣裙、连体衣、套装、大衣、鞋包配饰还是局部细节。若是上衣，只替换上半身冲突服装；若是下装，只替换下半身冲突服装；若是连衣裙、连体衣、套装、大衣或完整穿搭，才替换它自然覆盖的冲突区域；若只是鞋、包、帽、围巾、腰带或首饰，只放在对应佩戴/持拿位置。`
+    : `多商品视觉分配：逐张判断${outfitText}各自是上衣、下装、外套、连衣裙、连体衣、套装、鞋、包、帽、围巾、腰带、首饰、玩偶还是局部补充，并按真实身体区域和穿戴动作分配；不得因为某张图是局部、背面或侧面而把它扩大成完整全身穿搭。`;
+
+  return [
+    "商品视觉读取：先根据每张商品图真实画面判断品类、自然覆盖区域、穿戴方式、材质、颜色、结构、图案和可见细节；只使用画面里能看见的商品信息，不要把商品图当成人物、姿势、背景或光线来源。",
+    scopeRule,
+    "局部细节/多角度补充：如果某张商品图只是面料、领口、袖口、口袋、纽扣、拉链、Logo、背面、侧面或半裁切局部，只能补充与主商品颜色、材质、结构明显对应的局部细节；无法判断对应关系时直接忽略，不得作为独立新衣服、新配饰、人物、姿势、脸、背景、光线或跨商品纹理来源。",
   ].join(" ");
 }
 
@@ -468,7 +489,7 @@ export function buildOutfitFusionVisionPromptRequest(inputAssets: OutfitFusionAs
     if (asset.role === "model") {
       return `图${index + 1}只提供最终模特脸部身份：面部五官、脸部轮廓、骨相、皮肤颜色、发色及发型；不参考身体、姿势、服装、背景或光线。`;
     }
-    return `图${index + 1}只提供商品本体，识别商品类别、颜色、材质、版型、长度、图案、Logo、鞋包配饰和正确穿戴位置。`;
+    return `图${index + 1}只提供商品本体，先视觉识别它是主服装、鞋包配饰、连体/套装，还是局部细节、背面、侧面或面料补充；识别商品类别、颜色、材质、版型、长度、图案、Logo、鞋包配饰和正确穿戴位置。主商品写进可见提示词，局部细节只补充对应主商品，无法判断归属则忽略。`;
   });
 
   return [
@@ -478,8 +499,11 @@ export function buildOutfitFusionVisionPromptRequest(inputAssets: OutfitFusionAs
     "必须只使用图1、图2、图3这类真实输入顺序编号；不要使用参考图、搭配图、模特图加编号的角色别名。",
     "“让图X穿图Y/戴图Y/拿图Y”表示把图Y商品穿到或放到图X人物对应位置，不表示图X原本已有该穿搭；参考图只控制人物姿态、构图、场景氛围和光影。",
     "每个商品都写清楚穿着/外搭/戴着/拿着/背着/脚穿等动作，以及品类、颜色、材质、版型/长度、图案或 logo 等关键识别点。",
+    "单件商品不要默认当成完整全身套装：上衣只写上半身穿着，下装只写下半身穿着，鞋包帽围巾首饰只写对应位置；只有连衣裙、连体衣、套装、大衣或确实完整的一套穿搭，才写成覆盖多个身体区域。",
+    "多件商品要按视觉识别分配到正确身体区域和层级：内搭、外套、马甲、衬衫、裤裙、鞋包、帽子、围巾和首饰不能串色、串材质、串 logo，也不能融合成一件新商品。",
+    "如果输入里有局部细节图、背面图、侧面图或面料图，只把它作为对应主商品的局部细节补充；不要把细节图写成新的服装、人物、姿势、背景或光线来源。",
     `如果有模特脸图，只在用户可见提示词里写这段简洁换脸描述：${buildOutfitFusionVisibleFaceText("图M")}。不要把后台脸部完整约束、优先级、负面规则写进输入框。`,
-    "不要写后台规则、脸部身份规则、图片关系、商品保真、优先级、负面约束、生成张数、模型名、比例、清晰度、拼图、宫格、候选图、多张图或合集。",
+    "不要写后台规则、脸部身份规则、图片关系、商品保真、优先级、负面约束、生成张数、模型名、比例、清晰度、视觉分析过程、识别置信度、概率、字段名、拼图、宫格、候选图、多张图或合集。",
     "图片输入关系如下，仅供你判断编号和商品，不要原样输出：",
     ...roleLines,
     seedPrompt ? "当前输入框内容已经是最终提示词；仅允许按上述自然关系句改写并修正识别错误，不要输出任何说明前缀。" : "",
@@ -508,11 +532,11 @@ export function normalizeOutfitFusionAssistantPrompt(prompt?: string | null, fal
   if (!raw) return fallback;
 
   const direct = extractOutfitFusionUserSentence(raw);
-  if (direct) return applyOutfitFusionVisibleFaceText(direct).slice(0, 800);
+  if (direct) return cleanOutfitFusionVisiblePrompt(direct);
 
   const displayPrompt = getOutfitFusionDisplayPrompt(raw, "");
   const displayDirect = extractOutfitFusionUserSentence(displayPrompt);
-  if (displayDirect) return applyOutfitFusionVisibleFaceText(displayDirect).slice(0, 800);
+  if (displayDirect) return cleanOutfitFusionVisiblePrompt(displayDirect);
 
   const blockedLinePattern = /^(?:搭配融图生成任务|搭配配图生成任务|图片角色锁定|图片角色|生成要求|输出要求|负面约束|任务|图像角色)\s*[:：]?$/;
   const blockedContentPattern = /^(?:图\d+对应|参考图\d+\s*[:：]|搭配图\d+\s*[:：]|模特图?\d+\s*[:：]|输出比例|清晰度|模型|生成\s*\d+\s*张|只输出|不要解释|不要\s*Markdown|画面真实自然|photorealistic)/i;
@@ -526,7 +550,19 @@ export function normalizeOutfitFusionAssistantPrompt(prompt?: string | null, fal
     .replace(/(?:拼图|四宫格|2x2\s*网格|分屏|contact sheet|候选图|多张图|合集)[，,。；;\s]*/gi, "")
     .trim();
 
-  return applyOutfitFusionVisibleFaceText(extractOutfitFusionUserSentence(cleaned) || cleaned || fallback).slice(0, 800);
+  return cleanOutfitFusionVisiblePrompt(extractOutfitFusionUserSentence(cleaned) || cleaned || fallback);
+}
+
+function cleanOutfitFusionVisiblePrompt(value: string) {
+  return applyOutfitFusionVisibleFaceText(value)
+    .replace(/\b(?:confidence|conf)\s*[:=]?\s*\d+(?:\.\d+)?%?/gi, "")
+    .replace(/(?:置信度|概率)\s*[:：=]?\s*\d+(?:\.\d+)?%?/g, "")
+    .replace(/(?:raw type|slot|upload mode|explicit slots)\s*=\s*[^，,。；;\s]+/gi, "")
+    .replace(/(?:视觉分析|识别结果|字段名)\s*[:：][^。！？；;]*/g, "")
+    .replace(/\s+/g, " ")
+    .replace(/[，,；;]\s*([。！？]|$)/g, "$1")
+    .trim()
+    .slice(0, 800);
 }
 
 function extractOutfitFusionUserSentence(value: string) {

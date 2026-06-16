@@ -1355,14 +1355,17 @@ function getPromptText(payload: HistoryJobPayload) {
     if (payload.rawPrompt?.trim()) return payload.rawPrompt;
 
     return buildTryOnPrompt({
+      model: payload.aiModel,
       clothingCount: payload.clothingUrls.length || 1,
       clothingMode: payload.clothingMode,
       clothingRoles: payload.clothingRoles,
+      clothingAnalysis: payload.clothingAnalysis,
       garmentAudience: payload.garmentAudience,
       ageGroup: payload.ageGroup,
       aspectRatio: payload.aspectRatio,
       hasModelFace: !!payload.modelFaceUrl,
       hasReference: !!payload.referenceUrl,
+      referenceAnalysis: payload.referenceAnalyses?.[0] || null,
       style: payload.style || undefined,
     }).prompt;
   }

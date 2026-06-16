@@ -169,6 +169,146 @@ describe("try-on prompt face integration", () => {
     expect(prompt).not.toContain("visible expression/skin/makeup when present");
   });
 
+  it("builds standalone nano banana try-on templates with visual analysis, multiple garments, and detail references", () => {
+    for (const model of ["nano-banana-2", "nano-banana-pro"] as const) {
+      const { prompt: basePrompt } = buildTryOnPrompt({
+        model,
+        clothingCount: 2,
+        clothingMode: "multi",
+        clothingRoles: ["upper", "lower"],
+        hasReference: true,
+        hasModelFace: true,
+        clothingAnalysis: {
+          mainCategory: "single_piece_top",
+          subcategories: ["single_fitted_top"],
+          clothTypeRaw: "striped cropped knit top",
+          desc: "dark slim knit top with horizontal chest stripes",
+          genderType: "women",
+          ageRange: "adult",
+          slot: "upper",
+          fit: "fitted",
+          confidence: 0.91,
+        },
+        referenceAnalysis: {
+          index: 1,
+          bodyCrop: "full_body",
+          personVisible: true,
+          faceVisible: true,
+          headVisible: true,
+          upperBodyVisible: true,
+          lowerBodyVisible: true,
+          handsVisible: true,
+          feetVisible: true,
+          detailFocus: ["face", "full body", "pose"],
+          promptNotes: "Preserve the tall full-body crop, relaxed arm pose, and studio lighting.",
+          confidence: 0.93,
+        },
+        aspectRatio: "3:4",
+        style: "视觉分析：参考图头身比更修长，保持参考图身体比例，上衣条纹不要串到裤子",
+      });
+      const finalPrompt = applyTryOnRequestPrompt(basePrompt, {
+        model,
+        referenceUrl: "https://example.com/reference.jpg",
+        modelFaceUrl: "https://example.com/face.jpg",
+        garmentDetailPromptGroups: [
+          {
+            clothingIndex: 0,
+            urls: ["upper-detail.jpg"],
+            clothingImageNumber: 2,
+            clothingLabel: "上装",
+            detailImageNumbers: [5],
+          },
+          {
+            clothingIndex: 1,
+            urls: ["lower-detail.jpg"],
+            clothingImageNumber: 3,
+            clothingLabel: "下装",
+            detailImageNumbers: [6],
+          },
+        ],
+      });
+
+      expect(basePrompt).toContain("Follow the image roles below exactly");
+      expect(basePrompt).not.toContain("Nano Banana");
+      expect(basePrompt).toContain("image 2 = upper clothing source only");
+      expect(basePrompt).toContain("image 3 = lower clothing source only");
+      expect(basePrompt).toContain("image 1 = target/base canvas only");
+      expect(basePrompt).toContain("image 4 = final face identity only");
+      expect(basePrompt).toContain("Reference visual analysis: image 1 body crop=full_body");
+      expect(basePrompt).toContain("Visual garment read:");
+      expect(basePrompt).toContain("Use image 2 as the upper-body source; image 3 as the lower-body source");
+      expect(basePrompt).not.toContain("Confidence:");
+      expect(basePrompt).not.toMatch(/confidence\s*[:=]\s*\d/i);
+      expect(basePrompt).not.toMatch(/raw type=|slot=|upload mode=|explicit slots=/i);
+      expect(basePrompt).toContain("User constraints structured from the original request:");
+      expect(basePrompt).toContain("参考图头身比更修长");
+      expect(basePrompt).toContain("上衣条纹不要串到裤子");
+      expect(basePrompt).toContain("Image 5 and later images, when uploaded, are local detail supplements");
+      expect(basePrompt).not.toContain("final prompt contains");
+      expect(basePrompt).toContain("not a random new face, not a generic influencer/catalog face");
+      expect(basePrompt).toContain("head-to-body ratio");
+      expect(basePrompt).toContain("Expression transfer:");
+      expect(basePrompt).toContain("eyelid/cheek/mouth-corner dynamics");
+      expect(basePrompt).toContain("without copying image 4's original expression");
+      expect(basePrompt).toContain("without flattening image 1's expression into a neutral catalog face");
+      expect(basePrompt).toContain("Face blending:");
+      expect(basePrompt).toContain("jaw-to-neck transition");
+      expect(basePrompt).toContain("visible neck, chest, arms, and hands");
+      expect(basePrompt).not.toContain("香蕉服装上身脸部校准");
+
+      expect(finalPrompt).toContain("服装细节归属规则：");
+      expect(finalPrompt).toContain("image 5 只补充 image 2（上装） 的局部细节");
+      expect(finalPrompt).toContain("image 6 只补充 image 3（下装） 的局部细节");
+      expect(finalPrompt).toContain("不得用于其他主服装图");
+      expect(finalPrompt).toContain("不跨件迁移");
+    }
+  });
+
+  it("keeps banana single-garment role neutral instead of forcing every source into full-body clothing", () => {
+    const { prompt } = buildTryOnPrompt({
+      model: "nano-banana-2",
+      clothingCount: 1,
+      clothingMode: "single",
+      clothingRoles: ["single"],
+      hasReference: true,
+      hasModelFace: false,
+      clothingAnalysis: {
+        mainCategory: "single_piece_top",
+        subcategories: ["single_fitted_top"],
+        clothTypeRaw: "cropped knit top",
+        desc: "cropped fitted top",
+        genderType: "women",
+        ageRange: "adult",
+        slot: "upper",
+        fit: "fitted",
+        confidence: 0.9,
+      },
+      referenceAnalysis: {
+        index: 1,
+        bodyCrop: "full_body",
+        personVisible: true,
+        faceVisible: true,
+        headVisible: true,
+        upperBodyVisible: true,
+        lowerBodyVisible: true,
+        handsVisible: true,
+        feetVisible: true,
+        detailFocus: ["full body"],
+        promptNotes: "Keep the full-body crop.",
+        confidence: 0.9,
+      },
+      aspectRatio: "3:4",
+    });
+
+    expect(prompt).toContain("image 2 = clothing source only: the uploaded garment/outfit itself, its natural body coverage");
+    expect(prompt).toContain("Single-source garment rule: image 2 defines the uploaded garment or outfit and its natural coverage");
+    expect(prompt).toContain("If it is a top, replace upper-body clothing only");
+    expect(prompt).toContain("Use it as an upper/outer garment");
+    expect(prompt).not.toContain("complete clothing source only");
+    expect(prompt).not.toContain("one-piece/full-outfit slot");
+    expect(prompt).not.toMatch(/raw type=|slot=|upload mode=|explicit slots=/i);
+  });
+
   it("keeps candidate variation away from the face when reference and model face are present", () => {
     const prompt = applyTryOnRequestPrompt("BASE", {
       model: "gpt-image-2",

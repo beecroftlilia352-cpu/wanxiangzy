@@ -1016,6 +1016,7 @@ export default function CreatePage() {
   const costPerImage = getCreditCost(aiModel, imageSize, aspectRatio);
   const totalCost = costPerImage * expectedOutputCount;
   const promptPreview = buildTryOnPrompt({
+    model: aiModel,
     clothingCount: store.clothingFiles.length || 1,
     clothingMode,
     clothingRoles,

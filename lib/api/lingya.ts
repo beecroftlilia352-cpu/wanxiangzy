@@ -408,6 +408,7 @@ export async function batchTryOn(input: BatchTryOnInput): Promise<{ resultUrls: 
   }), "3:4");
 
   const { prompt } = buildTryOnPrompt({
+    model: input.model,
     clothingCount: input.clothingUrls.length,
     clothingMode: input.clothingMode,
     clothingRoles: input.clothingRoles,
@@ -557,7 +558,7 @@ function buildTryOnCandidateDirective(input: TryOnRequestPromptOptions) {
   const variant = variants[index % variants.length];
   const shouldKeepFaceFixed = Boolean(input.referenceUrl && input.modelFaceUrl && shouldApplyFaceIdentityToReference(input.referenceAnalysis));
   const gptExpression = input.model === "gpt-image-2" && !shouldKeepFaceFixed
-    ? " GPT 多候选变化时，脸部保持自然一致，不要做成表情僵硬的网红模板脸。" : "";
+    ? " 多候选变化时，脸部保持自然一致，不要做成表情僵硬的网红模板脸。" : "";
   const cropVariation = buildCandidateCropVariationRule(input.referenceAnalysis);
 
   const faceVariationLock = shouldKeepFaceFixed
@@ -1599,6 +1600,7 @@ function parseImageRefNumber(value: string) {
 // ============================================================
 
 export function buildTryOnPrompt(params: {
+  model?: LingyaModel;
   clothingCount: number;
   clothingMode?: TryOnClothingMode;
   clothingRoles?: TryOnClothingRole[];
@@ -1655,7 +1657,25 @@ export function buildTryOnPrompt(params: {
 
   if (CONCISE_TRYON_PROMPT_MODE) {
     return {
-      prompt: buildConciseTryOnPrompt({
+      prompt: isNanoBananaModel(params.model || "gpt-image-2")
+        ? buildNanoBananaTryOnPrompt({
+          clothingRefs,
+          clothingMode,
+          clothingRoles: normalizedRoles,
+          clothingAnalysis: params.clothingAnalysis,
+          garmentAudience: params.garmentAudience,
+          ageGroup: params.ageGroup,
+          garmentCategory: params.garmentCategory,
+          aspectRatio: params.aspectRatio,
+          hasReference: params.hasReference,
+          hasModelFace: params.hasModelFace,
+          referenceAnalysis: params.referenceAnalysis,
+          referenceImageNumber,
+          faceImageNumber,
+          imageNumberMap,
+          style: params.style,
+        })
+        : buildConciseTryOnPrompt({
         clothingRefs,
         clothingMode,
         clothingRoles: normalizedRoles,
@@ -1777,6 +1797,336 @@ export function buildTryOnPrompt(params: {
   }
 
   return { prompt, imageRoles };
+}
+
+function buildNanoBananaTryOnPrompt(params: {
+  clothingRefs: string[];
+  clothingMode: TryOnClothingMode;
+  clothingRoles: TryOnClothingRole[];
+  clothingAnalysis?: TryOnClothingAnalysis | null;
+  garmentAudience?: TryOnGarmentAudience;
+  ageGroup?: TryOnAgeGroup;
+  garmentCategory?: TryOnGarmentCategory;
+  aspectRatio?: AspectRatio;
+  hasReference: boolean;
+  hasModelFace: boolean;
+  referenceAnalysis?: TryOnReferenceAnalysis | null;
+  referenceImageNumber: number;
+  faceImageNumber: number;
+  imageNumberMap?: Map<number, number>;
+  style?: string;
+}) {
+  const clothingSource = params.clothingRefs.length === 1
+    ? toEnglishImageRef(params.clothingRefs[0])
+    : `${params.clothingRefs.slice(0, -1).map(toEnglishImageRef).join(", ")} and ${toEnglishImageRef(params.clothingRefs[params.clothingRefs.length - 1])}`;
+  const sourceNoun = params.clothingRefs.length === 1 ? "clothing source" : "clothing sources";
+  const targetRef = params.hasReference ? `image ${params.referenceImageNumber}` : "";
+  const faceRef = `image ${params.faceImageNumber}`;
+  const faceMode = params.hasReference
+    ? decideTryOnFaceMode({
+      hasModelFace: params.hasModelFace,
+      referenceAnalysis: params.referenceAnalysis ?? null,
+    })
+    : params.hasModelFace ? "must_use_model_face" : "preserve_reference_face";
+  const mustUseModelFace = params.hasModelFace && faceMode === "must_use_model_face";
+  const firstDetailImageNumber = params.clothingRefs.length
+    + (params.hasReference ? 1 : 0)
+    + (params.hasModelFace ? 1 : 0)
+    + 1;
+  const clothingAnalysisRule = buildNanoBananaClothingAnalysisRule(params.clothingAnalysis, params.clothingRoles, params.clothingMode, {
+    clothingImageNumbers: params.clothingRefs.map((ref) => Number(ref.replace(/\D/g, "")) || 1),
+  });
+  const referenceAnalysisRule = params.hasReference
+    ? buildTryOnReferenceAnalysisRule(params.referenceAnalysis, params.referenceImageNumber)
+    : "";
+  const userInstruction = buildStructuredTryOnUserInstruction(params.style, { imageNumberMap: params.imageNumberMap });
+  const lines: string[] = [
+    "Follow the image roles below exactly: each input image has one source role only; do not average identities, garments, poses, or backgrounds across unrelated sources.",
+    "Input image roles:",
+    ...buildNanoBananaTryOnRoleLines(params, {
+      targetRef,
+      faceRef,
+      mustUseModelFace,
+      firstDetailImageNumber,
+    }),
+    "Main task:",
+    buildNanoBananaTryOnTaskLine(params, {
+      clothingSource,
+      sourceNoun,
+      targetRef,
+      faceRef,
+      mustUseModelFace,
+    }),
+    params.hasReference
+      ? `${targetRef} is the base canvas. Keep its body proportions, head-to-body ratio, head size, neck length, shoulder connection, visible-body range, pose family, camera distance, lens perspective, crop boundary, background, lighting direction, exposure, color temperature, shadows, and final photo mood. Only garment fit, folds, contact shadows, sleeve/hem coverage, and natural drape may change.`
+      : "No target/base photo was uploaded. Generate one believable single-person fashion photo with natural body proportions, realistic head size, realistic neck/shoulder connection, and commercial camera perspective.",
+    referenceAnalysisRule,
+    ...buildReferenceNoHeadFaceLockLines({
+      referenceAnalysis: params.referenceAnalysis,
+      targetRef: targetRef || "the target frame",
+      faceRef: params.hasModelFace ? faceRef : undefined,
+    }),
+    "Garment assembly:",
+    buildConciseSourceIsolationRule(params.clothingRefs),
+    buildNanoBananaClothingRoleRule(params.clothingRefs, params.clothingRoles, params.clothingMode),
+    clothingAnalysisRule,
+    params.hasReference
+      ? buildFixedBaseAreaRule({
+        clothingMode: params.clothingMode,
+        clothingRoles: params.clothingRoles,
+        targetRef,
+      })
+      : "When there is no target photo, wear every sourced garment on its correct body area; keep believable layering, waist connection, sleeve/hem placement, fabric tension, and contact shadows. Do not invent extra garments outside the uploaded clothing sources.",
+    ...buildFixedBaseLayeringRules(params),
+    "Preserve source clothing accurately: garment type, silhouette, color, pattern/logo/text, fabric texture, neckline, sleeves, hem, pockets, buttons, zippers, seams, layers, length, and visible construction details.",
+    "Garment detail references:",
+    `Image ${firstDetailImageNumber} and later images, when uploaded, are local detail supplements for the main clothing image assigned in the garment-detail section. Use them only to restore fabric, neckline, cuff, pocket, button, zipper, logo, back-view, or side-view details for that assigned garment; ignore them if their assignment is unclear. Never treat detail images as new garments, people, poses, faces, bodies, backgrounds, lighting, or cross-garment texture sources.`,
+    ...buildNanoBananaTryOnFaceLines(params, {
+      targetRef,
+      faceRef,
+      mustUseModelFace,
+    }),
+    "Priority:",
+    ...buildNanoBananaTryOnPriorityLines(params, {
+      clothingSource,
+      targetRef,
+      faceRef,
+      mustUseModelFace,
+    }),
+    buildConciseAudienceRule(params.garmentAudience, params.ageGroup),
+    params.garmentCategory === "intimate"
+      ? "Sensitive apparel rule: treat the source as adult intimate apparel or swimwear for a neutral commercial catalog/lookbook photo; keep the image non-erotic, non-suggestive, and do not show nudity, nipples, genitals, transparent exposure, sexual acts, bedroom/erotic scenes, minors, or minor-looking people."
+      : "",
+    params.aspectRatio && params.aspectRatio !== "auto" ? `Output aspect ratio: ${params.aspectRatio}.` : "",
+    "Quality and negatives: realistic edited photo, natural skin texture, believable fabric drape, accurate visible hands/feet when present, no extra people, no watermark, no added text, no AI-render look, no pasted head, no face-swap seam, no mismatched skin, no oversized head, no tiny body, no long neck, no changed body type, no generic catalog face, no unrelated outfit redesign.",
+    userInstruction,
+  ];
+
+  return lines.filter(Boolean).join("\n");
+}
+
+function buildNanoBananaTryOnRoleLines(
+  params: {
+    clothingRefs: string[];
+    clothingMode: TryOnClothingMode;
+    clothingRoles: TryOnClothingRole[];
+    hasReference: boolean;
+    hasModelFace: boolean;
+    referenceAnalysis?: TryOnReferenceAnalysis | null;
+  },
+  refs: {
+    targetRef: string;
+    faceRef: string;
+    mustUseModelFace: boolean;
+    firstDetailImageNumber: number;
+  }
+) {
+  const clothing = params.clothingRefs.map((ref, index) => {
+    const imageRef = toEnglishImageRef(ref);
+    if (params.clothingMode === "multi") {
+      const role = params.clothingRoles[index];
+      if (role === "upper") return `- ${imageRef} = upper clothing source only: garment material, color, silhouette, construction, and upper-body placement.`;
+      if (role === "lower") return `- ${imageRef} = lower clothing source only: garment material, color, silhouette, construction, and lower-body placement.`;
+      return `- ${imageRef} = extra clothing source only: use only for the explicitly sourced garment/accessory area.`;
+    }
+    return `- ${imageRef} = clothing source only: the uploaded garment/outfit itself, its natural body coverage, material, color, silhouette, construction, and visible details; not a person, body, pose, face, lighting, or background reference.`;
+  });
+
+  const target = !params.hasReference ? [] : [
+    refs.mustUseModelFace
+      ? `- ${refs.targetRef} = target/base canvas only: body, body proportions, head-to-body ratio, head position/size, expression performance, visible skin tone, makeup style, pose, crop, background, lighting, camera, and final mood; not final facial identity.`
+      : `- ${refs.targetRef} = target/base canvas and preserved visible identity: body, body proportions, visible face/head when present, pose, crop, background, lighting, camera, and final mood.`,
+  ];
+  const face = !params.hasModelFace ? [] : [
+    refs.mustUseModelFace
+      ? `- ${refs.faceRef} = final face identity only: facial structure, feature anatomy, face outline, eye/brow/nose/mouth geometry, hairstyle character, and recognizable likeness; not body, pose, expression source, background, scene, or garment source.`
+      : `- ${refs.faceRef} = inactive because the target crop has no usable face/head swap area; do not add a face or head outside the target crop.`,
+  ];
+
+  return [
+    ...clothing,
+    ...target,
+    ...face,
+    `- image ${refs.firstDetailImageNumber}+ = optional garment detail references only when provided and assigned by "服装细节归属规则"; never use them as a new clothing/person/background reference.`,
+  ];
+}
+
+function buildNanoBananaTryOnTaskLine(
+  params: {
+    hasReference: boolean;
+    hasModelFace: boolean;
+  },
+  refs: {
+    clothingSource: string;
+    sourceNoun: string;
+    targetRef: string;
+    faceRef: string;
+    mustUseModelFace: boolean;
+  }
+) {
+  if (params.hasReference && refs.mustUseModelFace) {
+    return `Use ${refs.targetRef} as the base try-on photo; replace only the sourced outfit areas with ${refs.clothingSource} as ${refs.sourceNoun}; rebuild the final visible face from ${refs.faceRef} while keeping ${refs.targetRef}'s visible expression category, intensity, emotional direction, gaze behavior, head space, body proportions, pose, crop, lighting, and scene.`;
+  }
+  if (params.hasReference) {
+    return `Use ${refs.targetRef} as the base try-on photo; replace only the sourced outfit areas with ${refs.clothingSource} as ${refs.sourceNoun}; preserve the visible face/head identity and the original target crop.`;
+  }
+  if (params.hasModelFace) {
+    return `Create one believable fashion try-on photo wearing ${refs.clothingSource} as ${refs.sourceNoun}; use ${refs.faceRef} as the final recognizable face identity while generating a natural matching body, pose, lighting, and camera view.`;
+  }
+  return `Create one believable single-person fashion try-on photo wearing ${refs.clothingSource} as ${refs.sourceNoun}; no extra person and no unrelated outfit redesign.`;
+}
+
+function buildNanoBananaTryOnFaceLines(
+  params: {
+    hasReference: boolean;
+    hasModelFace: boolean;
+    referenceAnalysis?: TryOnReferenceAnalysis | null;
+  },
+  refs: {
+    targetRef: string;
+    faceRef: string;
+    mustUseModelFace: boolean;
+  }
+) {
+  if (refs.mustUseModelFace && params.hasReference) {
+    return [
+      "Face identity:",
+      `${refs.faceRef} is the only final face identity source. The final face must be immediately recognizable as ${refs.faceRef}, not ${refs.targetRef}'s original person, not a random new face, not a generic influencer/catalog face, and not an average blend of both faces.`,
+      `${refs.targetRef} may guide only expression category/intensity, gaze direction, head placement, head size, skin brightness range, makeup mood, lighting, shadows, and face-to-neck/body continuity. It must not donate final face outline, eyes, nose, mouth, facial proportions, or recognizable identity.`,
+      `Expression transfer: preserve ${refs.targetRef}'s visible expression category, intensity, emotional direction, gaze behavior, facial tension, eyelid/cheek/mouth-corner dynamics, and natural asymmetry as one coherent performance. Retarget that performance onto ${refs.faceRef}'s identity without copying ${refs.faceRef}'s original expression and without flattening ${refs.targetRef}'s expression into a neutral catalog face.`,
+      `Face blending: rebuild the face inside ${refs.targetRef}'s original head space and camera perspective; match surrounding skin undertone, brightness, subtle redness, makeup density, pores, reflected light, shadow falloff, hairline/ear/neck contact, jaw-to-neck transition, and occlusion edges with the visible neck, chest, arms, and hands.`,
+      `Natural integration may adjust expression muscles, gaze, relighting, makeup matching, pores, shadows, edge blending, and skin continuity only. Do not change ${refs.faceRef}'s face outline, feature structure, feature proportions, bone structure, or recognizable likeness.`,
+    ];
+  }
+
+  if (params.hasModelFace) {
+    return [
+      "Face identity:",
+      `${refs.faceRef} is the final face identity source for the generated person. Preserve its recognizable face structure, hairstyle character, and identity impression while adapting lighting, skin texture, head size, and expression naturally to the generated fashion photo.`,
+      `Do not copy any body, clothing, background, lighting, or pose from ${refs.faceRef}; do not turn the result into an ID-photo face pasted onto a body.`,
+    ];
+  }
+
+  if (params.hasReference) {
+    return [
+      "Face identity:",
+      isHeadlessReference(params.referenceAnalysis)
+        ? `${refs.targetRef} has no usable visible face/head for identity. Preserve the crop and do not invent a new face, head, hair, portrait, or full-body expansion.`
+        : `Preserve ${refs.targetRef}'s visible face/head identity, expression, skin tone, hair, and scene continuity. Do not synthesize a new person or beautify into a generic face.`,
+    ];
+  }
+
+  return [
+    "Face identity:",
+    "No face reference was uploaded. Generate one natural, non-generic person with believable facial proportions and no identity copied from clothing images.",
+  ];
+}
+
+function buildNanoBananaTryOnPriorityLines(
+  params: {
+    hasReference: boolean;
+    hasModelFace: boolean;
+  },
+  refs: {
+    clothingSource: string;
+    targetRef: string;
+    faceRef: string;
+    mustUseModelFace: boolean;
+  }
+) {
+  if (params.hasReference && refs.mustUseModelFace) {
+    return [
+      `1. ${refs.faceRef} controls final facial identity, facial anatomy, and likeness.`,
+      `2. ${refs.clothingSource} controls clothing only.`,
+      `3. ${refs.targetRef} controls body proportions, head-to-body ratio, pose, expression performance, crop, scene, lighting, camera, skin-tone continuity, and final photo mood, but not final identity.`,
+    ];
+  }
+  if (params.hasReference) {
+    return [
+      `1. ${refs.targetRef} controls body, visible identity when present, pose, crop, scene, lighting, camera, and final mood.`,
+      `2. ${refs.clothingSource} controls clothing only.`,
+      `3. Any uploaded face image is ignored unless the target crop visibly supports a face swap.`,
+    ];
+  }
+  if (params.hasModelFace) {
+    return [
+      `1. ${refs.faceRef} controls final facial identity.`,
+      `2. ${refs.clothingSource} controls clothing only.`,
+      "3. Generate body, pose, lighting, and background naturally; do not borrow them from clothing images.",
+    ];
+  }
+  return [
+    `1. ${refs.clothingSource} controls clothing only.`,
+    "2. Generate one natural person, pose, lighting, and background without copying any person from clothing/detail images.",
+  ];
+}
+
+function buildNanoBananaClothingRoleRule(clothingRefs: string[], roles: TryOnClothingRole[], mode: TryOnClothingMode) {
+  if (mode === "multi") {
+    const roleLines = clothingRefs.map((ref, index) => {
+      const imageRef = toEnglishImageRef(ref);
+      const role = roles[index];
+      if (role === "upper") return `${imageRef} supplies the upper-body garment only`;
+      if (role === "lower") return `${imageRef} supplies the lower-body garment only`;
+      return `${imageRef} supplies only its visible garment or accessory area`;
+    });
+    const layering: string[] = [];
+    if (roles.includes("upper")) layering.push("upper sources keep their natural inner/outer layering and shoulder/neck/hem placement");
+    if (roles.includes("lower")) layering.push("lower sources keep their waistband, leg/hem shape, drape, and shoe/ground clearance");
+    return `Wear each source on its assigned body area: ${roleLines.join("; ")}. Keep natural layering, waist connection, occlusion, fabric tension, and contact shadows; do not merge multiple sources into a new hybrid garment. ${layering.join("; ")}.`.trim();
+  }
+
+  const source = toEnglishImageRef(clothingRefs[0] || "图1");
+  return `Single-source garment rule: ${source} defines the uploaded garment or outfit and its natural coverage. If it is a top, replace upper-body clothing only; if it is a bottom, replace lower-body clothing only; if it is a dress, jumpsuit, coat, set, or full outfit, replace every conflicting garment area it naturally covers. Do not split it into unrelated pieces and do not invent extra garments outside ${source}.`;
+}
+
+function buildNanoBananaClothingAnalysisRule(
+  analysis: TryOnClothingAnalysis | null | undefined,
+  roles: TryOnClothingRole[],
+  mode: TryOnClothingMode,
+  options: { clothingImageNumbers?: number[] } = {}
+) {
+  if (!analysis) return "";
+
+  const categoryLabels = [
+    ...analysis.subcategories.map((code) => TRYON_CATEGORY_BY_CODE.get(code)?.nameEn || code),
+    analysis.mainCategory ? TRYON_CATEGORY_BY_CODE.get(analysis.mainCategory)?.nameEn || analysis.mainCategory : "",
+  ].filter(Boolean);
+  const explicitScope = mode === "multi" && roles.length === 1 && (roles[0] === "upper" || roles[0] === "lower")
+    ? roles[0]
+    : null;
+  const slot = explicitScope || analysis.slot || null;
+  const fit = analysis.fit || "regular";
+  const rawType = analysis.clothTypeRaw || categoryLabels[0] || "garment";
+  const categoryText = categoryLabels.length ? categoryLabels.join(" / ") : rawType;
+  const visibleTypeText = rawType && rawType !== categoryText ? `${categoryText} (${rawType})` : categoryText;
+  const imageRoles = roles
+    .map((role, index) => {
+      const imageRef = `image ${options.clothingImageNumbers?.[index] || index + 1}`;
+      if (role === "upper") return `${imageRef} as the upper-body source`;
+      if (role === "lower") return `${imageRef} as the lower-body source`;
+      if (role === "extra") return `${imageRef} as the extra garment/accessory source`;
+      return `${imageRef} as the single garment/outfit source`;
+    })
+    .join("; ");
+  const explicitScopeNote = explicitScope && analysis.slot && analysis.slot !== explicitScope
+    ? ` User-selected ${explicitScope} upload area wins over the visual read that looked ${analysis.slot}; replace only the user-selected ${explicitScope} area.`
+    : "";
+
+  const fitText = fit === "fitted"
+    ? "Keep a fitted silhouette without over-tightening."
+    : fit === "loose"
+      ? "Keep a relaxed silhouette with natural extra fabric and folds."
+      : "Keep a regular wearable fit with realistic fabric tension.";
+  const scopeRule = slot === "lower"
+    ? "Use it as a lower-body garment: replace only lower-body clothing and preserve non-conflicting upper-body clothing, hands, face/hair when visible, background, and scene."
+    : slot === "upper" || slot === "outer"
+      ? "Use it as an upper/outer garment: replace only upper or outer clothing and preserve non-conflicting lower-body clothing, shoes, hands, face/hair when visible, background, and scene."
+      : slot === "single" || slot === "intimate" || slot === "functional"
+        ? "Use it as one complete garment/outfit and replace only the body areas it naturally covers."
+        : "Use the user-selected upload roles as the replacement area when the garment type is ambiguous.";
+
+  return `Visual garment read: the source appears to be ${visibleTypeText}. Use ${imageRoles}. ${fitText}${explicitScopeNote} ${scopeRule}`;
 }
 
 function buildConciseTryOnPrompt(params: {
@@ -2330,7 +2680,6 @@ function buildTryOnClothingAnalysisRule(
   const slot = explicitScope || analysis.slot || null;
   const fit = analysis.fit || "regular";
   const rawType = analysis.clothTypeRaw || categoryLabels[0] || "garment";
-  const confidence = analysis.confidence ? ` Confidence: ${Math.round(analysis.confidence * 100)}%.` : "";
   const categoryText = categoryLabels.length ? categoryLabels.join(" / ") : rawType;
   const explicitRoles = roles
     .map((role, index) => `image ${options.clothingImageNumbers?.[index] || index + 1}=${role}`)
@@ -2347,7 +2696,7 @@ function buildTryOnClothingAnalysisRule(
           ? "Treat this as a complete single-piece/full-body garment source and replace only the body areas it naturally covers."
           : "Use the explicit upload slot roles as the replacement scope when classification is uncertain.";
 
-  return `Visual clothing classification: detected ${categoryText}; raw type=${rawType}; slot=${slot || "unknown"}; fit=${fit}; upload mode=${mode}; explicit slots=${explicitRoles}.${confidence}${explicitScopeNote} ${scopeRule}`;
+  return `Visual clothing classification: detected ${categoryText}; raw type=${rawType}; slot=${slot || "unknown"}; fit=${fit}; upload mode=${mode}; explicit slots=${explicitRoles}.${explicitScopeNote} ${scopeRule}`;
 }
 
 function buildConciseTargetCanvasRule(params: {

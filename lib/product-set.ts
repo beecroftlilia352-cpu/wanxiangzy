@@ -1854,7 +1854,7 @@ export function buildProductSetPrompt(input: {
     "Create one finished ecommerce product-set image.",
     `Prompt version: ${PRODUCT_SET_PROMPT_VERSION}.`,
     `Output ${sequenceIndex + 1} of ${totalCount}. Mode: ${mode === "custom" ? "custom selected template" : "smart product set"}.`,
-    `Product classification: ${productProfile.displayName}; kind=${productProfile.kind}; apparelType=${productProfile.apparelType}; isApparel=${productProfile.isApparel}; confidence=${productProfile.confidence}.`,
+    `Product classification: ${productProfile.displayName}; kind=${productProfile.kind}; apparelType=${productProfile.apparelType}; isApparel=${productProfile.isApparel}.`,
     productProfile.planningNotes.length ? `Planning notes: ${productProfile.planningNotes.join(" ")}` : "",
     campaignMap ? `Full product-set architecture. Each output must own a different content module:\n${campaignMap}` : "",
     visualDirectorScript ? `AI visual director execution script from product analysis:\n${visualDirectorScript}\nUse the global strategy for visual consistency, then apply only the current screen/module script that matches this output. Do not copy every screen into this one image.` : "",

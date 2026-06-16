@@ -49,12 +49,40 @@ describe("outfit fusion templates", () => {
     expect(prompt).toContain("脸部身份规则：图6是最终脸部身份唯一来源");
     expect(prompt).toContain("最终脸必须一眼像图6本人");
     expect(prompt).toContain("图1只提供身体、姿态、构图");
+    expect(prompt).toContain("身体比例/头身比");
+    expect(prompt).toContain("不要头身比漂移、不要大头小身");
+    expect(prompt).toContain("表情迁移细节：保留图1的可见表情类别、强度、情绪方向、视线、面部张力、眼睑/脸颊/嘴角动态和自然不对称");
+    expect(prompt).toContain("不要复制图6原图表情");
+    expect(prompt).toContain("不要把图1的自然表情抹平成中性网红脸或僵硬模板脸");
+    expect(prompt).toContain("脸部融合细节：在图1原有头部空间和镜头透视中重建脸部");
+    expect(prompt).toContain("下颌到脖子过渡");
+    expect(prompt).toContain("最终脸必须与图1可见的颈、胸、手臂、手自然衔接");
     expect(prompt).toContain("核心编辑任务：以图1作为最终画面的唯一底图/构图基础");
     expect(prompt).toContain("核心任务：");
     expect(prompt).toContain("固定生成规则：最终只生成一张完整的单人商业摄影穿搭照片");
     expect(prompt).toContain("不要拼图、四宫格、2x2 网格、分屏");
+    expect(prompt).toContain("商品视觉读取：先根据每张商品图真实画面判断品类、自然覆盖区域、穿戴方式");
+    expect(prompt).toContain("多商品视觉分配：逐张判断图2、图3、图4、图5各自是上衣、下装、外套、连衣裙");
+    expect(prompt).toContain("局部细节/多角度补充：如果某张商品图只是面料、领口、袖口、口袋");
+    expect(prompt).toContain("无法判断对应关系时直接忽略");
     expect(prompt).not.toContain("生成 4 张候选图");
     expect(prompt).not.toContain("GPT-Image-2");
+  });
+
+  it("keeps single outfit sources scoped to their natural coverage", () => {
+    const prompt = buildOutfitFusionPrompt({
+      templatePrompt: "让自然商业模特穿图1商品，把模特换成图2的模特。",
+      assets: [
+        { id: "outfit", role: "outfit", url: "https://example.com/top.png" },
+        { id: "model", role: "model", url: "https://example.com/model.png" },
+      ],
+      config: DEFAULT_OUTFIT_FUSION_CONFIG,
+    });
+
+    expect(prompt).toContain("单商品穿戴范围：先判断图1是上衣、下装、外套、连衣裙");
+    expect(prompt).toContain("若是上衣，只替换上半身冲突服装；若是下装，只替换下半身冲突服装");
+    expect(prompt).toContain("若是连衣裙、连体衣、套装、大衣或完整穿搭，才替换它自然覆盖的冲突区域");
+    expect(prompt).toContain("若只是鞋、包、帽、围巾、腰带或首饰，只放在对应佩戴/持拿位置");
   });
 
   it("keeps every model-face example template on the visible face sentence", () => {
@@ -246,6 +274,18 @@ describe("outfit fusion templates", () => {
     expect(normalized).not.toContain("不要追加后台固定规则");
   });
 
+  it("removes vision confidence and field-style analysis from AI writing output", () => {
+    const normalized = normalizeOutfitFusionAssistantPrompt(
+      "视觉分析：图1 upper，slot=upper，confidence=95%。用户已有要求: 让图2的人物姿态作为画面基础，身穿图1的白色衬衫，把模特换成图3的模特。",
+      ""
+    );
+
+    expect(normalized).toContain("让图2的人物姿态作为画面基础");
+    expect(normalized).toContain("身穿图1的白色衬衫");
+    expect(normalized).toContain("把模特换成图3的模特，保留图3模特的面部五官");
+    expect(normalized).not.toMatch(/confidence|置信度|95%|slot=/i);
+  });
+
   it("asks AI writing to return the same visible relationship sentence only", () => {
     const request = buildOutfitFusionVisionPromptRequest([
       { id: "outfit-1", role: "outfit", url: "https://example.com/dress.png" },
@@ -256,6 +296,11 @@ describe("outfit fusion templates", () => {
     expect(request).toContain("输出必须是用户输入框可见的一句话");
     expect(request).toContain(buildOutfitFusionVisibleFaceText("图M"));
     expect(request).toContain("不要把后台脸部完整约束、优先级、负面规则写进输入框");
+    expect(request).toContain("单件商品不要默认当成完整全身套装");
+    expect(request).toContain("多件商品要按视觉识别分配到正确身体区域和层级");
+    expect(request).toContain("如果输入里有局部细节图、背面图、侧面图或面料图");
+    expect(request).toContain("不要写后台规则、脸部身份规则、图片关系、商品保真、优先级、负面约束、生成张数、模型名、比例、清晰度、视觉分析过程、识别置信度、概率、字段名");
+    expect(request).toContain("图1只提供商品本体，先视觉识别它是主服装、鞋包配饰、连体/套装，还是局部细节、背面、侧面或面料补充");
     expect(request).toContain("图2只提供人物身体、姿态、头部位置、构图、场景氛围、光影和背景");
     expect(request).toContain("图3只提供最终模特脸部身份");
     expect(request).not.toMatch(/【(?:参考图|搭配图|模特图)\d+】/);
