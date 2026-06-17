@@ -29,7 +29,7 @@ import {
   getModelShootStyleLabel,
   getPoseSeriesStyleLabel,
 } from "@/lib/module-style-presets";
-import { BACKGROUND_SOURCE_LABELS, MODEL_BACKGROUND_MODE_LABELS } from "@/lib/model-background";
+import { BACKGROUND_SOURCE_LABELS, MODEL_BACKGROUND_MODE_LABELS, normalizeModelBackgroundSourceUrls } from "@/lib/model-background";
 import { getMaterialEnhancementLevelLabel } from "@/lib/material-enhancement";
 import { getOutfitFusionDisplayPrompt } from "@/lib/outfit-fusion";
 import { getFaceSwapModeLabel, getFaceSwapModeNote, normalizeFaceSwapMode } from "@/lib/face-swap";
@@ -1405,7 +1405,8 @@ function getHistoryInputSummary(payload?: HistoryJobPayload) {
     return `${payload.productImageUrls.length} 张商品图 · ${payload.mode === "custom" ? "自定义套图" : "智能套图"}`;
   }
   if (payload.kind === "modelBackground") {
-    return `原图 · ${MODEL_BACKGROUND_MODE_LABELS[payload.mode]} · ${BACKGROUND_SOURCE_LABELS[payload.backgroundSource]}`;
+    const sourceCount = normalizeModelBackgroundSourceUrls(payload.sourceUrls, payload.sourceUrl).length || 1;
+    return `${sourceCount} 张原图 · ${MODEL_BACKGROUND_MODE_LABELS[payload.mode]} · ${BACKGROUND_SOURCE_LABELS[payload.backgroundSource]}`;
   }
   if (payload.kind === "materialEnhancement") {
     return `原图 + 高清服装图 · ${payload.garmentType || "服装"} · ${getMaterialEnhancementLevelLabel(payload.enhancementLevel)}`;
@@ -1538,7 +1539,7 @@ function getInputImages(payload: HistoryJobPayload) {
   }
   if (payload.kind === "modelBackground") {
     return [
-      { label: "原图", url: payload.sourceUrl },
+      ...normalizeModelBackgroundSourceUrls(payload.sourceUrls, payload.sourceUrl).map((url, index) => ({ label: `原图${index + 1}`, url })),
       ...(payload.modelReferenceUrl ? [{ label: "模特参考", url: payload.modelReferenceUrl }] : []),
       ...(payload.backgroundReferenceUrl ? [{ label: "背景参考", url: payload.backgroundReferenceUrl }] : []),
     ];
@@ -1668,10 +1669,12 @@ function getParameterItems(row: HistoryRow) {
     ];
   }
   if (payload.kind === "modelBackground") {
+    const sourceCount = normalizeModelBackgroundSourceUrls(payload.sourceUrls, payload.sourceUrl).length || 1;
     return [
       ...common,
       { label: "比例", value: payload.aspectRatio },
-      { label: "生成张数", value: String(payload.genCount) },
+      { label: "原图数量", value: `${sourceCount} 张` },
+      { label: "生成张数", value: sourceCount > 1 ? `${sourceCount} × ${payload.genCount} = ${sourceCount * payload.genCount}` : String(payload.genCount) },
       { label: "操作模式", value: MODEL_BACKGROUND_MODE_LABELS[payload.mode] },
       { label: "背景来源", value: BACKGROUND_SOURCE_LABELS[payload.backgroundSource] },
       { label: "背景模板", value: payload.templateId },

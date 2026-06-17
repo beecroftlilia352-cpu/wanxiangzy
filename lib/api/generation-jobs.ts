@@ -97,7 +97,7 @@ import { normalizePosePlan, normalizePosePlanCount, type PoseAngleCounts, type P
 import type { TryOnAgeGroup, TryOnGarmentCategory, TryOnGarmentAudience } from "@/lib/tryon-prompt";
 import type { TryOnClothingMode, TryOnClothingRole } from "@/lib/tryon-upload-rules";
 import type { GrassPayloadBase } from "@/lib/grass-planting";
-import type { ModelBackgroundPayloadBase } from "@/lib/model-background";
+import { normalizeModelBackgroundSourceUrls, type ModelBackgroundPayloadBase } from "@/lib/model-background";
 import type { MaterialEnhancementPayloadBase } from "@/lib/material-enhancement";
 import { enforceFaceSwapPromptRequirements, normalizeFaceSwapMode, normalizeFaceSwapSourceUrls, type FaceSwapMode } from "@/lib/face-swap";
 import {
@@ -1301,24 +1301,29 @@ async function executePayload(
   }
 
   if (payload.kind === "modelBackground") {
-    const sourceImages = [
-      payload.sourceUrl,
+    const sourceUrls = normalizeModelBackgroundSourceUrls(payload.sourceUrls, payload.sourceUrl);
+    const sourceInputs = await resolvePayloadImageInputs({ clothingUrls: sourceUrls });
+    const referenceUrls = [
       payload.modelReferenceUrl,
       payload.backgroundReferenceUrl,
     ].filter(Boolean) as string[];
-    const imageInputs = await resolvePayloadImageInputs({ clothingUrls: sourceImages });
+    const referenceInputs = await resolvePayloadImageInputs({ clothingUrls: referenceUrls });
+    const perSourceCount = Math.max(1, Math.floor(Number(payload.genCount || 1)));
 
     return executeParallelImageBatch({
-      count: payload.genCount,
-      promptKind: "modelBackground",
-      run: async (_index, onTaskProgress) => {
+      count: Math.max(1, sourceUrls.length) * perSourceCount,
+      concurrency: 4,
+      promptKind: (index) => `modelBackground:source-${Math.floor(index / perSourceCount) + 1}`,
+      run: async (index, onTaskProgress) => {
+        const sourceIndex = Math.min(Math.floor(index / perSourceCount), sourceInputs.clothingUrls.length - 1);
+        const sourceInputUrl = sourceInputs.clothingUrls[sourceIndex] || sourceInputs.clothingUrls[0] || payload.sourceUrl;
         const result = await generateImage({
           model: payload.aiModel,
           prompt: payload.prompt,
           prompt_kind: "modelBackground",
           aspect_ratio: payload.aspectRatio,
-          image: imageInputs.clothingUrls,
-          smart_aspect_image: payload.sourceUrl,
+          image: [sourceInputUrl, ...referenceInputs.clothingUrls],
+          smart_aspect_image: sourceUrls[sourceIndex] || payload.sourceUrl,
           image_size: payload.imageSize,
           onProgress: onTaskProgress,
         });
@@ -2082,6 +2087,10 @@ function getExpectedResultCount(payload: GenerationJobPayload) {
     const sourceCount = normalizeFaceSwapSourceUrls(payload.sourceUrls, payload.sourceUrl).length || 1;
     return Math.max(1, Number(payload.genCount || 1)) * sourceCount;
   }
+  if (payload.kind === "modelBackground") {
+    const sourceCount = normalizeModelBackgroundSourceUrls(payload.sourceUrls, payload.sourceUrl).length || 1;
+    return Math.max(1, Number(payload.genCount || 1)) * sourceCount;
+  }
   if (payload.kind === "tryon") {
     const referenceCount = getTryOnPayloadReferenceUrls(payload).length || 1;
     return Math.max(1, Number(payload.genCount || 1)) * referenceCount;
@@ -2102,7 +2111,11 @@ function getPayloadReferenceImages(payload: GenerationJobPayload) {
     payload.hairColorReferenceUrl,
   ].filter((url): url is string => typeof url === "string" && url.length > 0);
   if (payload.kind === "grass") return [payload.garmentUrl, payload.referenceUrl].filter((url): url is string => typeof url === "string" && url.length > 0);
-  if (payload.kind === "modelBackground") return [payload.sourceUrl, payload.modelReferenceUrl, payload.backgroundReferenceUrl].filter((url): url is string => typeof url === "string" && url.length > 0);
+  if (payload.kind === "modelBackground") return [
+    ...normalizeModelBackgroundSourceUrls(payload.sourceUrls, payload.sourceUrl),
+    payload.modelReferenceUrl,
+    payload.backgroundReferenceUrl,
+  ].filter((url): url is string => typeof url === "string" && url.length > 0);
   if (payload.kind === "materialEnhancement") return [payload.sourceUrl, payload.garmentUrl];
   if (payload.kind === "generalImage" || payload.kind === "outfitFusion") return payload.referenceUrls;
   if (payload.kind === "pose") return [

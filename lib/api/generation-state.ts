@@ -115,6 +115,12 @@ function readExpectedCount(payload: Record<string, unknown>, resultCount: number
     return clampExpectedCount(perSourceCount * sourceCount);
   }
 
+  if (payload.kind === "modelBackground") {
+    const sourceCount = Math.max(1, uniqueStrings([...stringArray(payload.sourceUrls), stringValue(payload.sourceUrl)]).length);
+    const perSourceCount = firstFiniteNumber([payload.genCount, payload.gen_count, payload.outputCount, payload.count]) || 1;
+    return clampExpectedCount(perSourceCount * sourceCount);
+  }
+
   const direct = firstFiniteNumber([
     payload.genCount,
     payload.gen_count,

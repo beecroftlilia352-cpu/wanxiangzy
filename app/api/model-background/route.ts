@@ -9,9 +9,11 @@ import {
   buildModelBackgroundPrompt,
   DEFAULT_BACKGROUND_TEXT,
   enforceModelBackgroundPromptRequirements,
+  MAX_MODEL_BACKGROUND_SOURCE_IMAGES,
   normalizeBackgroundPreset,
   normalizeBackgroundSourceMode,
   normalizeModelBackgroundMode,
+  normalizeModelBackgroundSourceUrls,
 } from "@/lib/model-background";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 
@@ -31,8 +33,12 @@ export async function POST(request: NextRequest) {
     try { body = await request.json(); }
     catch { return NextResponse.json({ error: "请求格式无效" }, { status: 400 }); }
 
-    const sourceUrl = typeof body.source_url === "string" ? body.source_url : "";
-    if (!sourceUrl) return NextResponse.json({ error: "请先上传原图" }, { status: 400 });
+    const sourceUrl = typeof body.source_url === "string" ? body.source_url.trim() : "";
+    const sourceUrls = normalizeModelBackgroundSourceUrls(body.source_urls, sourceUrl);
+    if (!sourceUrls.length) return NextResponse.json({ error: "请先上传原图" }, { status: 400 });
+    if (Array.isArray(body.source_urls) && body.source_urls.length > MAX_MODEL_BACKGROUND_SOURCE_IMAGES) {
+      return NextResponse.json({ error: `原图最多 ${MAX_MODEL_BACKGROUND_SOURCE_IMAGES} 张` }, { status: 400 });
+    }
 
     const mode = normalizeModelBackgroundMode(body.mode);
     const backgroundSource = normalizeBackgroundSourceMode(body.background_source);
@@ -53,6 +59,7 @@ export async function POST(request: NextRequest) {
     const aspectRatio = normalizeAspectRatio(body.aspect_ratio || "auto");
     const size: ImageSize = normalizeImageSize(model, (typeof body.image_size === "string" ? body.image_size : "1K") as ImageSize, aspectRatio);
     const genCount = Math.min(Math.max(Number(body.gen_count) || 1, 1), 4);
+    const expectedCount = sourceUrls.length * genCount;
     const templateId = normalizeBackgroundPreset(body.template_id);
     const backgroundText = typeof body.background_text === "string" && body.background_text.trim()
       ? body.background_text
@@ -74,12 +81,13 @@ export async function POST(request: NextRequest) {
       hasModelReference: Boolean(modelReferenceUrl),
       hasBackgroundReference: Boolean(backgroundReferenceUrl),
     });
-    const totalCost = getCreditCost(model, size, aspectRatio) * genCount;
+    const totalCost = getCreditCost(model, size, aspectRatio) * expectedCount;
 
     const jobPayload: GenerationJobPayload = {
       kind: "modelBackground",
       publicBaseUrl: getPublicBaseUrlFromRequest(request),
-      sourceUrl,
+      sourceUrl: sourceUrls[0] || "",
+      sourceUrls,
       modelReferenceUrl,
       backgroundReferenceUrl,
       mode,
@@ -94,7 +102,7 @@ export async function POST(request: NextRequest) {
       genCount,
     };
 
-    const inputUrls = [sourceUrl, modelReferenceUrl, backgroundReferenceUrl].filter(Boolean) as string[];
+    const inputUrls = [...sourceUrls, modelReferenceUrl, backgroundReferenceUrl].filter(Boolean) as string[];
     const debit = await createDebitedGeneration(supabase, {
       userId: user.id,
       clothingUrls: inputUrls,
@@ -103,7 +111,7 @@ export async function POST(request: NextRequest) {
       creditsCost: totalCost,
       aiModel: model,
       imageSize: size,
-      reason: `换背景 ${genCount} 张 (${model}, ${size})`,
+      reason: `换背景 ${sourceUrls.length} 张原图 × ${genCount} (${model}, ${size})`,
       jobPayload,
     });
 
@@ -112,6 +120,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       generation_id: debit.generationId,
       credits_cost: totalCost,
+      expected_count: expectedCount,
       credits_remaining: debit.creditsRemaining,
       status: "processing_tryon",
     });

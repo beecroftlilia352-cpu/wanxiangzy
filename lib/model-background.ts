@@ -34,6 +34,8 @@ export type BackgroundPreset = {
   prompt: string;
 };
 
+export const MAX_MODEL_BACKGROUND_SOURCE_IMAGES = 8;
+
 export const MODEL_BACKGROUND_MODE_LABELS: Record<ModelBackgroundMode, string> = {
   model_background: "换模特换背景",
   background_only: "只换背景",
@@ -176,9 +178,29 @@ export function getBackgroundPreset(presetId: BackgroundPresetId) {
   return BACKGROUND_PRESETS.find((item) => item.id === presetId) || BACKGROUND_PRESETS[0];
 }
 
+export function normalizeModelBackgroundSourceUrls(value: unknown, fallback?: unknown) {
+  const values = Array.isArray(value) ? value : [];
+  const allValues = values.length ? values : fallback !== undefined ? [fallback] : [];
+  const seen = new Set<string>();
+  const urls: string[] = [];
+
+  for (const item of allValues) {
+    if (typeof item !== "string") continue;
+    const url = item.trim();
+    if (!url || seen.has(url)) continue;
+    seen.add(url);
+    urls.push(url);
+    if (urls.length >= MAX_MODEL_BACKGROUND_SOURCE_IMAGES) break;
+  }
+
+  return urls;
+}
+
 const MODEL_BACKGROUND_HARD_RULE_MARK = "【换景硬规则】";
 const MODEL_BACKGROUND_PRODUCT_FIDELITY_RULE =
   "服装产品保真：图1服装按商品资产处理，锁定品类、版型、固有色、图案/logo、面料表面、穿着层次和清洁度；换背景/换模特只允许调整环境光、投影、接触阴影和边缘融合，不重新设计布料、不套风格滤镜。";
+const MODEL_BACKGROUND_CROP_LOCK_RULE =
+  "画幅与裁切锁定：最终输出必须严格保持图1的原始画幅比例、镜头距离、景别、主体大小、人物在画面中的位置和可见身体范围。图1是半身就保持半身，是七分身就保持七分身，是全身才允许全身；不要缩小人物、不要拉远镜头、不要扩图成全身、不要补出图1裁切外的头发/手臂/腿/脚/鞋，也不要裁掉图1已经可见的身体、服装或配饰。";
 
 function buildModelBackgroundHardRule(params: {
   mode: ModelBackgroundMode;
@@ -191,6 +213,7 @@ function buildModelBackgroundHardRule(params: {
   if (params.mode === "background_only") {
     return `${MODEL_BACKGROUND_HARD_RULE_MARK}
 只换背景。图1是唯一人物和唯一服装来源，保留同一张脸、发型、肤色、身材比例、衣服、穿搭和主体姿态。
+${MODEL_BACKGROUND_CROP_LOCK_RULE}
 ${MODEL_BACKGROUND_PRODUCT_FIDELITY_RULE}
 ${params.hasBackgroundReference ? `${backgroundIndex} 只提供无人环境参考：场景、空间透视、光线、色彩、景深、墙面、地面、建筑、绿植等。忽略 ${backgroundIndex} 里的人物、脸、衣服、包、配饰和姿势。` : "没有背景参考图时，只根据文字描述更换背景。"}
 必须把图1人物真实放进新环境，不要像抠图贴上去：根据新背景重新匹配光线方向、色温、曝光、对比度、景深、镜头距离、地面透视和人物尺度；在脚下、腿部、衣摆、鞋子与地面接触处生成自然接触阴影和环境反射；人物边缘、发丝、袖口、裙摆和鞋底边界要自然融合，没有白边、硬切边、漂浮感或贴纸感。
@@ -200,6 +223,7 @@ ${params.hasBackgroundReference ? `${backgroundIndex} 只提供无人环境参�
   if (params.mode === "model_background") {
     return `${MODEL_BACKGROUND_HARD_RULE_MARK}
 换模特换背景。图1是唯一服装/穿搭来源，不能被任何参考图替换。
+${MODEL_BACKGROUND_CROP_LOCK_RULE}
 ${MODEL_BACKGROUND_PRODUCT_FIDELITY_RULE}
 ${modelIndex} 是必选模特参考图，只参考脸型气质、五官比例、肤色、发型和身材比例，不复制服装或背景。
 ${params.hasBackgroundReference ? `${backgroundIndex} 只参考背景场景、光线、色彩和空间氛围；忽略其中人物、衣服、包、配饰和姿势。` : "没有背景参考图时，根据文字或预设设计背景。"}
@@ -207,7 +231,9 @@ ${params.hasBackgroundReference ? `${backgroundIndex} 只参考背景场景、�
   }
 
   return `${MODEL_BACKGROUND_HARD_RULE_MARK}
-只换模特脸部。图1是唯一身体、服装、发型、姿势、构图、背景、头部位置、头部大小、颈肩衔接和光影来源；只把图1脸部身份/五官替换为${modelIndex}的脸部特征。最终脸部肤色、曝光、色温、阴影、噪点和清晰度必须匹配图1的颈部、身体和整体摄影质感，不要出现贴上去的头、面具边缘、不同图层光影或头部比例变化。`;
+只换模特脸部。图1是唯一身体、服装、发型、姿势、构图、背景、头部位置、头部大小、颈肩衔接和光影来源；只把图1脸部身份/五官替换为${modelIndex}的脸部特征。
+${MODEL_BACKGROUND_CROP_LOCK_RULE}
+最终脸部肤色、曝光、色温、阴影、噪点和清晰度必须匹配图1的颈部、身体和整体摄影质感，不要出现贴上去的头、面具边缘、不同图层光影或头部比例变化。`;
 }
 
 export function enforceModelBackgroundPromptRequirements(prompt: string, params: {
@@ -242,10 +268,10 @@ export function buildModelBackgroundPrompt(params: {
   });
 
   const modeRule = params.mode === "background_only"
-    ? "只替换背景和拍摄场景，图1人物与服装保持不变。"
+    ? "只替换背景和拍摄场景，图1人物、服装、姿势、景别、画幅和裁切保持不变。"
     : params.mode === "model_only"
-      ? "只替换图1的脸部身份/五官，保留图1身体、发型、服装、姿势、构图、光线和背景。"
-      : "同时替换模特和背景，模特参考图必选，但图1服装与穿搭必须保持一致。";
+      ? "只替换图1的脸部身份/五官，保留图1身体、发型、服装、姿势、构图、光线、背景、景别、画幅和裁切。"
+      : "同时替换模特和背景，模特参考图必选，但图1服装、穿搭、主体构图、景别和可见身体范围必须保持一致。";
 
   const modelRule = params.mode !== "background_only"
     ? params.hasModelReference
@@ -288,6 +314,7 @@ export function buildModelBackgroundPrompt(params: {
 背景：${backgroundRule}
 ${integrationRule}
 ${MODEL_BACKGROUND_PRODUCT_FIDELITY_RULE}
+裁切：${MODEL_BACKGROUND_CROP_LOCK_RULE}
 服装：保持图1服装的品类、版型、颜色、图案/logo、面料纹理、穿着层次和搭配关系；允许自然贴合身体产生真实褶皱和阴影，不改款、不换色。
 摄影：自然光影，白平衡准确，肤色真实不过白，人物比例稳定，手指和肢体自然。
 用户补充：${userPromptText || "无，按以上模式和硬规则执行。"}
@@ -298,6 +325,7 @@ ${MODEL_BACKGROUND_PRODUCT_FIDELITY_RULE}
 
 export type ModelBackgroundPayloadBase = {
   sourceUrl: string;
+  sourceUrls?: string[];
   modelReferenceUrl?: string | null;
   backgroundReferenceUrl?: string | null;
   mode: ModelBackgroundMode;

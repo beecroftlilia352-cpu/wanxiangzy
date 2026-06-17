@@ -892,6 +892,7 @@ function getInputThumbnails(row: QueueRow, payload: Record<string, unknown>) {
   }
   return Array.from(new Set([
     ...stringArray(payload.clothingUrls),
+    ...stringArray(payload.sourceUrls),
     ...stringArray(payload.referenceUrls),
     ...stringArray(payload.productImageUrls),
     stringValue(payload.sourceUrl),

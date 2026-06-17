@@ -24,6 +24,9 @@ describe("model background prompt handling", () => {
     expect(prompt).toContain("对比度");
     expect(prompt).toContain("reference-matched exposure/contrast");
     expect(prompt).toContain("true-to-source garment rendering");
+    expect(prompt).toContain("画幅与裁切锁定");
+    expect(prompt).toContain("图1是半身就保持半身");
+    expect(prompt).toContain("不要扩图成全身");
     expect(prompt).not.toContain("8K ultra-detailed");
     expect(prompt).not.toContain("RAW photo quality");
     expect(prompt).not.toContain("realistic color grade");
@@ -42,5 +45,6 @@ describe("model background prompt handling", () => {
     expect(prompt).toContain("图1是唯一服装/穿搭来源");
     expect(prompt).toContain("服装产品保真");
     expect(prompt).toContain("不重新设计布料");
+    expect(prompt).toContain("画幅与裁切锁定");
   });
 });
