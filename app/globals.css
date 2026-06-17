@@ -4149,6 +4149,62 @@
   content: none !important;
 }
 
+.outfit-fusion-pending-card:not(.studio-result-pending-card-failed) {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.36) 0%, rgba(255, 255, 255, 0.12) 26%, transparent 58%),
+    radial-gradient(ellipse at 44% 24%, rgba(240, 250, 255, 0.92) 0 13%, rgba(166, 213, 255, 0.32) 34%, transparent 64%),
+    radial-gradient(ellipse at 0% 36%, rgba(57, 140, 255, 0.86) 0 24%, rgba(77, 153, 255, 0.34) 46%, transparent 74%),
+    radial-gradient(ellipse at 98% 112%, rgba(25, 37, 213, 0.98) 0 26%, rgba(78, 99, 244, 0.74) 44%, rgba(137, 152, 255, 0.24) 64%, transparent 82%),
+    linear-gradient(128deg, #4f9fff 0%, #9bd2ff 34%, #dceeff 54%, #747bff 76%, #1f36df 100%) !important;
+  background-size: 100% 100%, 190% 160%, 230% 165%, 240% 150%, 280% 280%;
+  animation: outfit-fusion-liquid-field 12s ease-in-out infinite;
+}
+
+.outfit-fusion-pending-card:not(.studio-result-pending-card-failed)::before {
+  content: "";
+  position: absolute;
+  left: -26%;
+  right: -26%;
+  bottom: -22%;
+  top: auto;
+  z-index: 0;
+  height: 48%;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 18% 74%, rgba(4, 39, 176, 0.82) 0 19%, rgba(42, 104, 236, 0.46) 42%, transparent 70%),
+    radial-gradient(ellipse at 54% 34%, rgba(204, 235, 255, 0.88) 0 12%, rgba(94, 167, 255, 0.34) 34%, transparent 66%),
+    radial-gradient(ellipse at 86% 80%, rgba(35, 42, 214, 0.86) 0 23%, rgba(96, 116, 255, 0.42) 45%, transparent 72%),
+    linear-gradient(96deg, rgba(21, 72, 204, 0.66), rgba(147, 202, 255, 0.42), rgba(42, 52, 220, 0.7));
+  background-size: 180% 126%, 166% 118%, 176% 132%, 240% 100%;
+  filter: blur(24px) saturate(1.28) contrast(0.98);
+  mix-blend-mode: multiply;
+  opacity: 0.98;
+  transform-origin: 50% 100%;
+  animation: outfit-fusion-bottom-current 9.6s ease-in-out infinite;
+}
+
+.outfit-fusion-pending-card:not(.studio-result-pending-card-failed)::after {
+  content: "";
+  position: absolute;
+  left: -20%;
+  right: -20%;
+  bottom: -12%;
+  top: auto;
+  z-index: 0;
+  height: 38%;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 20% 78%, rgba(255, 255, 255, 0.52) 0 12%, rgba(132, 198, 255, 0.28) 32%, transparent 64%),
+    radial-gradient(ellipse at 70% 64%, rgba(73, 93, 235, 0.42) 0 22%, transparent 66%),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.04), rgba(195, 229, 255, 0.5), rgba(78, 96, 228, 0.28), rgba(255, 255, 255, 0.08));
+  background-size: 164% 118%, 178% 120%, 220% 100%;
+  filter: blur(18px) saturate(1.08);
+  mix-blend-mode: screen;
+  opacity: 0.86;
+  transform-origin: 50% 100%;
+  animation: outfit-fusion-surface-tide 7.8s ease-in-out infinite;
+}
+
 .studio-result-failure-detail {
   max-width: min(84%, 320px);
   border: 1px solid rgba(255, 255, 255, 0.16);
@@ -6348,6 +6404,62 @@ header .animate-spin {
   100% {
     transform: translate3d(-22%, -14%, 0) rotate(-8deg) scale(1.04);
     opacity: 0.5;
+  }
+}
+
+@keyframes outfit-fusion-liquid-field {
+  0% {
+    background-position: 0 0, 42% 28%, 0% 38%, 94% 110%, 8% 50%;
+  }
+  42% {
+    background-position: 0 0, 56% 36%, 24% 44%, 72% 92%, 58% 52%;
+  }
+  70% {
+    background-position: 0 0, 48% 32%, 36% 40%, 48% 104%, 92% 50%;
+  }
+  100% {
+    background-position: 0 0, 42% 28%, 0% 38%, 94% 110%, 8% 50%;
+  }
+}
+
+@keyframes outfit-fusion-bottom-current {
+  0% {
+    transform: translate3d(-8%, 8%, 0) rotate(-2deg) scale(1.08, 0.96);
+    background-position: 10% 78%, 70% 42%, 88% 82%, 0% 50%;
+    opacity: 0.76;
+  }
+  35% {
+    transform: translate3d(5%, -3%, 0) rotate(2deg) scale(1.14, 1.1);
+    background-position: 38% 68%, 38% 34%, 58% 70%, 48% 50%;
+    opacity: 0.98;
+  }
+  68% {
+    transform: translate3d(11%, 5%, 0) rotate(-1deg) scale(1.12, 1.04);
+    background-position: 78% 80%, 18% 50%, 28% 84%, 100% 50%;
+    opacity: 0.84;
+  }
+  100% {
+    transform: translate3d(-8%, 8%, 0) rotate(-2deg) scale(1.08, 0.96);
+    background-position: 10% 78%, 70% 42%, 88% 82%, 0% 50%;
+    opacity: 0.76;
+  }
+}
+
+@keyframes outfit-fusion-surface-tide {
+  0% {
+    transform: translate3d(-7%, 7%, 0) rotate(1deg) scale(1.04, 0.92);
+    background-position: 0% 70%, 86% 62%, 0% 50%;
+    opacity: 0.72;
+  }
+  48% {
+    transform: translate3d(6%, -4%, 0) rotate(-1deg) scale(1.1, 1.06);
+    background-position: 58% 60%, 42% 70%, 68% 50%;
+    opacity: 0.92;
+  }
+  100% {
+    transform: translate3d(-7%, 7%, 0) rotate(1deg) scale(1.04, 0.92);
+    background-position: 0% 70%, 86% 62%, 0% 50%;
+    opacity: 0.72;
   }
 }
 

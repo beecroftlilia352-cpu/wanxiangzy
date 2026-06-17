@@ -1009,6 +1009,13 @@ export function OutfitFusionPageClient() {
   );
 }
 
+function getOutfitFusionTaskGridClass(count: number) {
+  if (count <= 1) return "max-w-[min(340px,100%)] grid-cols-1";
+  if (count === 2) return "max-w-[min(700px,100%)] grid-cols-1 sm:grid-cols-2";
+  if (count === 3) return "max-w-[min(1048px,100%)] grid-cols-1 sm:grid-cols-3";
+  return "max-w-[min(1396px,100%)] grid-cols-1 sm:grid-cols-2 lg:grid-cols-4";
+}
+
 function OutfitFusionTaskCard({
   task,
   index,
@@ -1033,7 +1040,6 @@ function OutfitFusionTaskCard({
   const failed = task.statusGroup === "failed";
   const slots = Math.max(task.expectedCount, task.resultUrls.length, 1);
   const displaySlots = slots;
-  const compactRunning = running && task.resultUrls.length === 0 && slots === 1;
   const [promptExpanded, setPromptExpanded] = useState(false);
   const canExpandPrompt = task.prompt.length > 64;
   const openImageRepair = (url: string) => {
@@ -1071,7 +1077,7 @@ function OutfitFusionTaskCard({
         </div>
       </div>
       <TooltipProvider delayDuration={120}>
-        <div className={cn("mt-3 grid gap-[3px]", compactRunning ? "grid-cols-1 md:max-w-[250px]" : "grid-cols-2 md:grid-cols-4")}>
+        <div className={cn("mt-3 grid w-full gap-3 sm:gap-4", getOutfitFusionTaskGridClass(displaySlots))}>
           {Array.from({ length: displaySlots }, (_, index) => {
             const url = task.resultUrls[index];
             return url ? (
@@ -1120,21 +1126,21 @@ function OutfitFusionTaskCard({
                 key={`${task.id}-${index}`}
                 role="status"
                 aria-live="polite"
-                className="gen-card relative aspect-[3/4] overflow-hidden rounded-[7px] bg-[#edf4ff] text-sm text-slate-500"
+                className="studio-result-card group/slot relative aspect-[3/4] overflow-hidden bg-white text-sm text-white"
               >
-                {!failed ? (
-                  <StudioHomeHeroLoadingBackdrop />
-                ) : null}
-                <div className="relative z-[1] flex h-full flex-col items-center justify-center gap-3">
+                <div className={cn("gen-card studio-result-pending-card outfit-fusion-pending-card relative z-[1] flex h-full w-full flex-col items-center justify-center gap-2", failed && "studio-result-pending-card-failed")}>
                   {failed ? (
-                    <span className="text-amber-600">生成失败</span>
+                    <span className="text-xs font-semibold text-red-100">生成失败</span>
                   ) : (
                     <>
-                      <div className="relative flex h-12 w-12 items-center justify-center rounded-full bg-white/82 shadow-[0_12px_28px_rgba(91,124,255,0.22)] backdrop-blur-sm">
-                        <span className="absolute inset-0 rounded-full bg-[rgba(91,124,255,0.18)] animate-ping motion-reduce:animate-none" />
-                        <Loader2 className="relative h-6 w-6 animate-spin text-[var(--codex-accent)]" />
+                      <div className="relative flex h-14 w-14 items-center justify-center">
+                        <span className="gen-ring absolute inset-0 rounded-full bg-[#aeb8ff]/45" />
+                        <div className="relative flex h-14 w-14 items-center justify-center rounded-full border border-white/16 bg-white/10 shadow-lg backdrop-blur-md">
+                          <Loader2 className="h-6 w-6 animate-spin text-white" />
+                        </div>
                       </div>
-                      <span className="rounded-full bg-white/72 px-2 py-1 text-xs font-medium text-[#5065d8] shadow-sm">预计2~3分钟</span>
+                      <p className="relative z-[1] text-xs font-semibold text-white/72">生成中，请稍候</p>
+                      <p className="relative z-[1] text-[11px] font-medium text-white/42">第 {index + 1} 张生成中</p>
                     </>
                   )}
                 </div>
@@ -1143,14 +1149,6 @@ function OutfitFusionTaskCard({
           })}
         </div>
       </TooltipProvider>
-      {running ? (
-        <div className="mt-3 h-1 overflow-hidden rounded-full bg-slate-100">
-          <div
-            className="studio-loader-progress h-full rounded-full bg-[linear-gradient(90deg,var(--codex-accent),#8ea2ff)] transition-all duration-500 ease-out"
-            style={{ width: `${Math.min(Math.max(task.progress, 8), 100)}%` }}
-          />
-        </div>
-      ) : null}
       <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs leading-5 text-slate-400">
         <div className="flex flex-wrap items-center gap-2">
           <span>{formatTaskTime(task.createdAt)}</span>
