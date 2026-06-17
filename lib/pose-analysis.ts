@@ -185,19 +185,18 @@ export function getPoseVisualAnalysisDetailItems(analysis: PoseVisualAnalysis | 
   if (!analysis) return [];
   const details: PoseVisualAnalysisDetailItem[] = [];
   const outfit = summarizeOutfitForDisplay(analysis.outfitDescription);
-  if (outfit) details.push({ label: "服装", value: outfit, title: analysis.outfitDescription });
+  if (outfit) details.push({ label: "服装", value: outfit, title: getReadableDisplayTitle(analysis.outfitDescription, outfit) });
   const camera = summarizeCameraForDisplay(analysis.cameraFraming);
-  if (camera) details.push({ label: "构图", value: camera, title: analysis.cameraFraming });
+  if (camera) details.push({ label: "构图", value: camera, title: getReadableDisplayTitle(analysis.cameraFraming, camera) });
   const lighting = summarizeLightingForDisplay(analysis.lighting);
-  if (lighting) details.push({ label: "光线", value: lighting, title: analysis.lighting });
+  if (lighting) details.push({ label: "光线", value: lighting, title: getReadableDisplayTitle(analysis.lighting, lighting) });
   const visibility = summarizeVisibilityForDisplay(analysis);
   if (visibility) details.push({ label: "可见性", value: visibility });
   const risks = analysis.generationRisks
     .slice(0, 2)
     .map((risk) => toPoseDisplayPhrase(risk) || summarizeFactForDisplay(risk))
     .filter(Boolean);
-  if (risks.length) details.push({ label: "风险", value: risks.join("、"), title: analysis.generationRisks.join("、") });
-  details.push({ label: "置信", value: `${Math.round(analysis.confidence * 100)}%` });
+  if (risks.length) details.push({ label: "风险", value: risks.join("、"), title: getReadableDisplayTitle(analysis.generationRisks.join("、"), risks.join("、")) });
   return details;
 }
 
@@ -394,6 +393,12 @@ function summarizeFactForDisplay(value: string) {
   const mapped = toPoseDisplayPhrase(text);
   if (mapped) return mapped;
   return "";
+}
+
+function getReadableDisplayTitle(value: string, summary: string) {
+  const text = value.trim();
+  if (!text || text === summary || !isChineseDisplayText(text)) return undefined;
+  return clampText(text, 46);
 }
 
 function summarizeVisibilityForDisplay(analysis: PoseVisualAnalysis) {

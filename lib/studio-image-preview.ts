@@ -156,11 +156,13 @@ export function buildImagePreviewResults(input: {
   errors?: Array<string | null | undefined>;
   qualities?: Array<ImagePreviewQuality | null | undefined>;
 }): ImagePreviewResult[] {
-  const urls = (input.urls || []).filter((url): url is string => typeof url === "string" && url.trim().length > 0);
-  const expectedCount = Math.max(1, Math.round(Number(input.expectedCount) || urls.length || 1));
-  const count = Math.max(expectedCount, urls.length, 1);
-  const running = Boolean(input.isGenerating || input.statusGroup === "running" || input.statusGroup === "queued");
+  const urls = (input.urls || []).map((url) => typeof url === "string" && url.trim().length > 0 ? url.trim() : null);
+  const completedCount = urls.filter(Boolean).length;
+  const expectedCount = Math.max(1, Math.round(Number(input.expectedCount) || urls.length || completedCount || 1));
+  const count = Math.max(expectedCount, urls.length, completedCount, 1);
+  const running = isPreviewSessionRunning(input.statusGroup, input.isGenerating, completedCount >= count);
   const failed = input.statusGroup === "failed";
+  const completed = input.statusGroup === "completed";
   const titlePrefix = input.titlePrefix || "结果";
 
   return Array.from({ length: count }, (_, index) => {
@@ -168,7 +170,7 @@ export function buildImagePreviewResults(input: {
     const error = input.errors?.[index] || null;
     const status: ImagePreviewResultStatus = url
       ? "completed"
-      : failed || error
+      : failed || completed || error
         ? "failed"
         : running
           ? "running"
@@ -327,6 +329,7 @@ export function createProductSetPreviewSession(input: {
   const urls = input.urls || [];
   const completedCount = urls.filter(Boolean).length;
   const expectedCount = Math.max(1, input.expectedCount || input.titles?.length || urls.length || completedCount || 1);
+  const running = isPreviewSessionRunning(input.statusGroup, input.isGenerating, completedCount >= expectedCount);
   return createImagePreviewSession({
     module,
     title: IMAGE_PREVIEW_MODULE_LABELS[module],
@@ -344,7 +347,13 @@ export function createProductSetPreviewSession(input: {
         url,
         title: input.titles?.[index] || `${IMAGE_PREVIEW_MODULE_LABELS[module]} ${index + 1}`,
         subtitle: input.subtitles?.[index],
-        status: input.statuses?.[index] || (url ? "completed" : error ? "failed" : input.isGenerating ? "running" : input.statusGroup === "failed" ? "failed" : "queued"),
+        status: input.statuses?.[index] || (url
+          ? "completed"
+          : error || input.statusGroup === "failed" || input.statusGroup === "completed"
+            ? "failed"
+            : running
+              ? "running"
+              : "queued"),
         error,
         quality: input.qualities?.[index] || undefined,
       });
@@ -452,6 +461,12 @@ function normalizePreviewResult(result: ImagePreviewResult): ImagePreviewResult 
         }
       : undefined,
   };
+}
+
+function isPreviewSessionRunning(statusGroup: TaskStatusGroup | undefined, isGenerating: boolean | undefined, allExpectedResultsReady: boolean) {
+  if (allExpectedResultsReady || statusGroup === "completed" || statusGroup === "failed") return false;
+  if (statusGroup === "running" || statusGroup === "queued") return true;
+  return Boolean(isGenerating);
 }
 
 function normalizePromptText(value: string | null | undefined) {

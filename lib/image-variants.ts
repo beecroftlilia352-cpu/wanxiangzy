@@ -1,9 +1,10 @@
-export type ImageVariant = "thumb" | "card" | "preview";
+export type ImageVariant = "thumb" | "card" | "preview" | "detail";
 
 const OSS_IMAGE_VARIANTS: Record<ImageVariant, string> = {
   thumb: "image/resize,m_lfit,w_320/format,webp/quality,q_82",
   card: "image/resize,m_lfit,w_640/format,webp/quality,q_84",
   preview: "image/resize,m_lfit,w_1280/format,webp/quality,q_86",
+  detail: "image/resize,m_lfit,w_2560/format,webp/quality,q_94",
 };
 
 const CONFIGURED_OSS_IMAGE_HOSTS = (process.env.NEXT_PUBLIC_ALIYUN_OSS_IMAGE_HOSTS || "")
@@ -18,6 +19,19 @@ export function getImageVariantUrl(url: string | null | undefined, variant: Imag
   try {
     const parsed = new URL(url);
     parsed.searchParams.set("x-oss-process", OSS_IMAGE_VARIANTS[variant]);
+    return parsed.toString();
+  } catch {
+    return url;
+  }
+}
+
+export function getOriginalImageUrl(url: string | null | undefined) {
+  if (!url) return "";
+  if (!isAliyunOssImageUrl(url)) return url;
+
+  try {
+    const parsed = new URL(url);
+    parsed.searchParams.delete("x-oss-process");
     return parsed.toString();
   } catch {
     return url;

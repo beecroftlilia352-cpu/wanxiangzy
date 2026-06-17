@@ -2,12 +2,11 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronRight, Sparkles, X } from "lucide-react";
+import { Sparkles, X } from "lucide-react";
 import { toast } from "sonner";
 import { FeatureTabs } from "@/components/FeatureTabs";
 import { ModuleHeader } from "@/components/ModuleHeader";
 import { PreviewGuide } from "@/components/PreviewGuide";
-import { RepairPromptPanel } from "@/components/RepairPromptPanel";
 import { ClientPortal } from "@/components/ClientPortal";
 import { ErrorStage } from "@/components/studio/ErrorStage";
 import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
@@ -38,11 +37,18 @@ import {
 import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
 import { createGenericImagePreviewSession, type ImagePreviewAction } from "@/lib/studio-image-preview";
 import { FAILED_RETRY_NOTICE, buildPartialFailureDetail, summarizeGenerationError } from "@/lib/studio-generation-feedback";
+import {
+  buildRetryPendingResultUrls,
+  getRetryDisplayExpectedCount,
+  mergeRetryResultUrls,
+  normalizeRetryResultIndex,
+} from "@/lib/result-slot-retry";
 
 type MaterialEnhancementHistoryPayload = Extract<HistoryJobPayload, { kind: "materialEnhancement" }>;
 type MaterialEnhancementGenerateOptions = {
   genCountOverride?: number;
   expectedCountOverride?: number;
+  retryResultIndex?: number;
   toastMessage?: string;
 };
 
@@ -132,12 +138,13 @@ export default function MaterialEnhancementPage() {
     failedCount: activeResultExpectedCount - displayedResultUrls.length,
   });
   const retryDisabled = isGenerating;
-  function handleRetryFailedResult() {
+  function handleRetryFailedResult(index: number) {
     if (retryDisabled) return;
     void generate(undefined, {
       genCountOverride: 1,
       expectedCountOverride: 1,
-      toastMessage: "正在重试失败图片，失败图已退款，本次按 1 张重新生成...",
+      retryResultIndex: index,
+      toastMessage: `正在补位重试第 ${index + 1} 张，失败图已退款，完成后会回填到当前结果中...`,
     });
   }
   const previewSession = useMemo(
@@ -227,8 +234,6 @@ export default function MaterialEnhancementPage() {
       return;
     }
 
-    setResultUrls([]);
-    setError(null);
     if (kind === "source") {
       setSourceName(file.name);
       setIsUploadingSource(true);
@@ -265,6 +270,14 @@ export default function MaterialEnhancementPage() {
     }
     const runGenCount = Math.min(Math.max(Math.round(Number(options.genCountOverride ?? genCount) || 1), 1), 4);
     const runExpectedCount = Math.max(1, Math.round(Number(options.expectedCountOverride ?? runGenCount) || runGenCount));
+    const retryResultIndex = normalizeRetryResultIndex(options.retryResultIndex);
+    const retryPreviousResultUrls = retryResultIndex !== null ? resultUrls : [];
+    const displayExpectedCount = getRetryDisplayExpectedCount({
+      retryIndex: retryResultIndex,
+      currentExpectedCount: activeResultExpectedCount,
+      previousUrls: retryPreviousResultUrls,
+      fallbackExpectedCount: runExpectedCount,
+    });
     const runTotalCost = costPerImage * runExpectedCount;
     if (runDisabledReason) {
       if (runDisabledReason.includes("灵点不足") && (credits === null || credits < runTotalCost)) {
@@ -282,14 +295,14 @@ export default function MaterialEnhancementPage() {
     }
 
     setIsGenerating(true);
-    setRunningExpectedCount(runExpectedCount);
+    setRunningExpectedCount(displayExpectedCount);
     setProgress(12);
-    setResultUrls([]);
+    setResultUrls(buildRetryPendingResultUrls(retryPreviousResultUrls, retryResultIndex, displayExpectedCount));
     setError(null);
     if (options.toastMessage) toast.info(options.toastMessage);
 
     const provisionalTask = taskQueue.startTask({
-      expectedCount: runExpectedCount,
+      expectedCount: displayExpectedCount,
       inputThumbnails: taskInputThumbnails,
       progress: 12,
     });
@@ -337,14 +350,20 @@ export default function MaterialEnhancementPage() {
       }
 
       if (typeof data.generation_id === "string" && data.generation_id) {
+        const initialResultUrls = mergeRetryResultUrls(
+          retryPreviousResultUrls,
+          retryResultIndex,
+          Array.isArray(data.result_urls) ? data.result_urls : [],
+          displayExpectedCount
+        );
         const serverTask = taskQueue.replaceWithServerTask(activeTaskId, {
           id: data.generation_id,
-          expectedCount: runExpectedCount,
+          expectedCount: displayExpectedCount,
           inputThumbnails: taskInputThumbnails,
           status: data.status || "processing",
           progress: data.status === "completed" ? 100 : 25,
-          resultThumbnails: Array.isArray(data.result_urls) ? data.result_urls : [],
-          resultCount: Array.isArray(data.result_urls) ? data.result_urls.filter(Boolean).length : 0,
+          resultThumbnails: initialResultUrls,
+          resultCount: initialResultUrls.filter(Boolean).length,
         });
         activeTaskId = serverTask.id;
       }
@@ -361,7 +380,7 @@ export default function MaterialEnhancementPage() {
         if (!poll.ok) continue;
         const pollData = await poll.json();
         if (Array.isArray(pollData.result_urls) && pollData.result_urls.length) {
-          latestTaskResultUrls = pollData.result_urls;
+          latestTaskResultUrls = mergeRetryResultUrls(retryPreviousResultUrls, retryResultIndex, pollData.result_urls, displayExpectedCount);
           setResultUrls(latestTaskResultUrls);
         }
         const nextProgress = Number(pollData.progress);
@@ -370,7 +389,7 @@ export default function MaterialEnhancementPage() {
           setProgress(runningProgress);
         }
         taskQueue.markRunning(activeTaskId, {
-          expectedCount: runExpectedCount,
+          expectedCount: displayExpectedCount,
           inputThumbnails: taskInputThumbnails,
           resultThumbnails: latestTaskResultUrls,
           resultCount: latestTaskResultUrls.filter(Boolean).length,
@@ -379,7 +398,12 @@ export default function MaterialEnhancementPage() {
         });
 
         if (pollData.status === "completed") {
-          const finalUrls = Array.isArray(pollData.result_urls) ? pollData.result_urls : [];
+          const finalUrls = mergeRetryResultUrls(
+            retryPreviousResultUrls,
+            retryResultIndex,
+            Array.isArray(pollData.result_urls) ? pollData.result_urls : latestTaskResultUrls,
+            displayExpectedCount
+          );
           latestTaskResultUrls = finalUrls;
           const finalResultCount = finalUrls.filter(Boolean).length;
           const partialFailure = pollData.partial_failure && typeof pollData.partial_failure === "object"
@@ -389,15 +413,15 @@ export default function MaterialEnhancementPage() {
           setProgress(100);
           setResultUrls(finalUrls);
           taskQueue.markCompleted(activeTaskId, {
-            expectedCount: runExpectedCount,
+            expectedCount: displayExpectedCount,
             inputThumbnails: taskInputThumbnails,
             resultThumbnails: finalUrls,
             resultCount: finalResultCount,
             error: completedError ? summarizeGenerationError(completedError) : "",
           });
-          if (completedError || finalResultCount < runExpectedCount) {
+          if (completedError || finalResultCount < displayExpectedCount) {
             void refreshCredits();
-            toast.warning(`材质增强部分完成：已生成 ${finalResultCount}/${runExpectedCount} 张，失败图片灵点会自动退回`);
+            toast.warning(`材质增强部分完成：已生成 ${finalResultCount}/${displayExpectedCount} 张，失败图片灵点会自动退回`);
           } else {
             toast.success("材质增强完成");
           }
@@ -412,7 +436,7 @@ export default function MaterialEnhancementPage() {
       const message = summarizeGenerationError(err instanceof Error ? err.message : "操作失败");
       setError(message);
       taskQueue.markFailed(activeTaskId, message, {
-        expectedCount: runExpectedCount,
+        expectedCount: displayExpectedCount,
         inputThumbnails: taskInputThumbnails,
         resultThumbnails: latestTaskResultUrls,
         resultCount: latestTaskResultUrls.filter(Boolean).length,
@@ -676,7 +700,7 @@ export default function MaterialEnhancementPage() {
         )}
 
         {(isGenerating || resultUrls.length > 0) && (
-          <div className="studio-result-stage min-h-[260px] sm:min-h-[360px] overflow-y-auto overflow-x-hidden p-4 pb-28 sm:p-6 sm:pb-28 lg:h-full animate-fade-in">
+          <div className="studio-result-stage min-h-[260px] sm:min-h-[360px] overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:h-full animate-fade-in">
             <div className="flex min-h-full items-start justify-start">
               <ResultImageGrid
                 urls={resultUrls}
@@ -694,18 +718,6 @@ export default function MaterialEnhancementPage() {
                 missingFailureActionDisabled={retryDisabled}
                 onOpen={(_, index) => setPreviewIndex(index)}
               />
-            </div>
-            <div className="absolute bottom-0 left-0 right-0 border-t border-white/70 bg-white/78 backdrop-blur-2xl px-4 sm:px-6 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-[0_-18px_45px_rgba(15,23,42,0.08)]">
-              <span className="text-xs text-gray-400">材质增强结果</span>
-              <RepairPromptPanel
-                kind="materialEnhancement"
-                onRepair={handleRepairGenerate}
-                disabled={isGenerating}
-                className="max-w-2xl flex-1"
-              />
-              <button onClick={() => { setResultUrls([]); setProgress(0); }} className="px-4 py-1.5 rounded-full border text-xs font-medium hover:bg-gray-50">
-                重新创作 <ChevronRight className="inline h-3 w-3" />
-              </button>
             </div>
             <StudioImagePreviewDialog
               open={previewIndex !== null}

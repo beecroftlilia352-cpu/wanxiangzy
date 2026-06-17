@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { Camera, CheckCircle2, ChevronRight, Sparkles, UserRound, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { FeatureTabs } from "@/components/FeatureTabs";
-import { RepairPromptPanel } from "@/components/RepairPromptPanel";
 import { ClientPortal } from "@/components/ClientPortal";
 import { ModuleHeader } from "@/components/ModuleHeader";
 import { PreviewGuide } from "@/components/PreviewGuide";
@@ -32,6 +31,12 @@ import { showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
 import { createGenericImagePreviewSession, referencesFromUrls, type ImagePreviewAction } from "@/lib/studio-image-preview";
 import { FAILED_RETRY_NOTICE, buildPartialFailureDetail, summarizeGenerationError } from "@/lib/studio-generation-feedback";
 import {
+  buildRetryPendingResultUrls,
+  getRetryDisplayExpectedCount,
+  mergeRetryResultUrls,
+  normalizeRetryResultIndex,
+} from "@/lib/result-slot-retry";
+import {
   DEFAULT_MODEL_SHOOT_STYLE,
   MODEL_SHOOT_STYLES,
   applyModelShootStylePrompt,
@@ -45,6 +50,7 @@ type Gender = "female" | "male";
 type ModelGenerateOptions = {
   genCountOverride?: number;
   expectedCountOverride?: number;
+  retryResultIndex?: number;
   toastMessage?: string;
 };
 
@@ -175,12 +181,13 @@ export default function ModelPage() {
     failedCount: activeResultExpectedCount - displayedResultUrls.length,
   });
   const retryDisabled = isGenerating;
-  function handleRetryFailedResult() {
+  function handleRetryFailedResult(index: number) {
     if (retryDisabled) return;
     void generate(undefined, {
       genCountOverride: 1,
       expectedCountOverride: 1,
-      toastMessage: "正在重试失败图片，失败图已退款，本次按 1 张重新生成...",
+      retryResultIndex: index,
+      toastMessage: `正在补位重试第 ${index + 1} 张，失败图已退款，完成后会回填到当前结果中...`,
     });
   }
   const previewSession = useMemo(
@@ -352,8 +359,6 @@ export default function ModelPage() {
       }
       if (next.length) {
         setReferenceUrls((prev) => [...prev, ...next].slice(0, 3));
-        setResultUrls([]);
-        setError("");
         toast.success(`已添加 ${next.length} 张参考图`);
       }
     } finally {
@@ -385,8 +390,6 @@ export default function ModelPage() {
       return;
     }
     setHairStyle(null);
-    setResultUrls([]);
-    setError("");
 
     toast.info("正在上传发型参考图...");
     try {
@@ -411,8 +414,6 @@ export default function ModelPage() {
       return;
     }
     setHairColor(null);
-    setResultUrls([]);
-    setError("");
 
     toast.info("正在上传发色参考图...");
     try {
@@ -437,6 +438,14 @@ export default function ModelPage() {
     }
     const runGenCount = Math.min(Math.max(Math.round(Number(options.genCountOverride ?? genCount) || 1), 1), 4);
     const runExpectedCount = Math.max(1, Math.round(Number(options.expectedCountOverride ?? runGenCount) || runGenCount));
+    const retryResultIndex = normalizeRetryResultIndex(options.retryResultIndex);
+    const retryPreviousResultUrls = retryResultIndex !== null ? resultUrls : [];
+    const displayExpectedCount = getRetryDisplayExpectedCount({
+      retryIndex: retryResultIndex,
+      currentExpectedCount: activeResultExpectedCount,
+      previousUrls: retryPreviousResultUrls,
+      fallbackExpectedCount: runExpectedCount,
+    });
     const runTotalCost = cost * runExpectedCount;
     if (credits !== null && credits < runTotalCost) {
       showInsufficientCreditsToast({ required: runTotalCost, balance: credits, onRecharge: () => router.push("/pricing") });
@@ -444,17 +453,17 @@ export default function ModelPage() {
     }
 
     setIsGenerating(true);
-    setRunningExpectedCount(runExpectedCount);
+    setRunningExpectedCount(displayExpectedCount);
     setProgress(10);
     setError("");
-    setResultUrls([]);
+    setResultUrls(buildRetryPendingResultUrls(retryPreviousResultUrls, retryResultIndex, displayExpectedCount));
     if (options.toastMessage) toast.info(options.toastMessage);
     setActiveResultMeta({
       createdAt: new Date().toISOString(),
       inputThumbnails: taskInputThumbnails,
     });
     const provisionalTask = taskQueue.startTask({
-      expectedCount: runExpectedCount,
+      expectedCount: displayExpectedCount,
       inputThumbnails: taskInputThumbnails,
       progress: 10,
     });
@@ -508,7 +517,7 @@ export default function ModelPage() {
       if (typeof data.generation_id === "string" && data.generation_id) {
         const serverTask = taskQueue.replaceWithServerTask(activeTaskId, {
           id: data.generation_id,
-          expectedCount: runExpectedCount,
+          expectedCount: displayExpectedCount,
           inputThumbnails: taskInputThumbnails,
           status: data.status || "processing_tryon",
           progress: 25,
@@ -525,8 +534,9 @@ export default function ModelPage() {
         const state = await poll.json();
         if (state.status === "processing_tryon" || state.status === "processing" || state.status === "pending") {
           if (Array.isArray(state.result_urls) && state.result_urls.length) {
-            latestTaskResultUrls = state.result_urls;
-            setResultUrls(state.result_urls);
+            const nextResultUrls = mergeRetryResultUrls(retryPreviousResultUrls, retryResultIndex, state.result_urls, displayExpectedCount);
+            latestTaskResultUrls = nextResultUrls;
+            setResultUrls(nextResultUrls);
           }
           const nextProgress = Number(state.progress);
           const runningProgress = Number.isFinite(nextProgress)
@@ -534,14 +544,15 @@ export default function ModelPage() {
             : Math.min(25 + attempts * 1.5, 90);
           setProgress(runningProgress);
           taskQueue.markRunning(activeTaskId, {
-            expectedCount: runExpectedCount,
+            expectedCount: displayExpectedCount,
             inputThumbnails: taskInputThumbnails,
-            resultThumbnails: Array.isArray(state.result_urls) ? state.result_urls : [],
+            resultThumbnails: latestTaskResultUrls,
             progress: runningProgress,
             status: state.status,
           });
         } else if (state.status === "completed") {
-          const finalUrls = Array.isArray(state.result_urls) ? state.result_urls : [];
+          const rawFinalUrls = Array.isArray(state.result_urls) ? state.result_urls : [];
+          const finalUrls = mergeRetryResultUrls(retryPreviousResultUrls, retryResultIndex, rawFinalUrls, displayExpectedCount);
           latestTaskResultUrls = finalUrls;
           const finalResultCount = finalUrls.filter(Boolean).length;
           const partialFailure = state.partial_failure && typeof state.partial_failure === "object"
@@ -552,15 +563,15 @@ export default function ModelPage() {
           setResultUrls(finalUrls);
           setIsGenerating(false);
           taskQueue.markCompleted(activeTaskId, {
-            expectedCount: runExpectedCount,
+            expectedCount: displayExpectedCount,
             inputThumbnails: taskInputThumbnails,
             resultThumbnails: finalUrls,
             resultCount: finalResultCount,
             error: completedError ? summarizeGenerationError(completedError) : "",
           });
-          if (completedError || finalResultCount < runExpectedCount) {
+          if (completedError || finalResultCount < displayExpectedCount) {
             void refreshCredits();
-            toast.warning(`专属模特部分完成：已生成 ${finalResultCount}/${runExpectedCount} 张，失败图片灵点会自动退回`);
+            toast.warning(`专属模特部分完成：已生成 ${finalResultCount}/${displayExpectedCount} 张，失败图片灵点会自动退回`);
           } else {
             toast.success("专属模特生成完成");
           }
@@ -575,7 +586,7 @@ export default function ModelPage() {
       setError(message);
       setIsGenerating(false);
       taskQueue.markFailed(activeTaskId, message, {
-        expectedCount: runExpectedCount,
+        expectedCount: displayExpectedCount,
         inputThumbnails: taskInputThumbnails,
         resultThumbnails: latestTaskResultUrls,
       });
@@ -595,8 +606,6 @@ export default function ModelPage() {
   function applyRuleDemo(demo: ModelRuleDemo) {
     setReferenceUrls(demo.imageUrls.slice(0, 3));
     setPromptTouched(false);
-    setResultUrls([]);
-    setError("");
     setShowModelRules(false);
     setRulesPopoverStyle(null);
     toast.success(`已套用${demo.title}`);
@@ -717,14 +726,10 @@ export default function ModelPage() {
                     if (current === index) return Math.max(0, Math.min(index, referenceUrls.length - 2));
                     return current > index ? current - 1 : current;
                   });
-                  setResultUrls([]);
-                  setError("");
                 }}
                 onClear={() => {
                   setReferenceUrls([]);
                   setReferencePreviewIndex(null);
-                  setResultUrls([]);
-                  setError("");
                 }}
                 examples={{
                   label: "试一试",
@@ -1036,14 +1041,6 @@ export default function ModelPage() {
                 onMissingFailureAction={handleRetryFailedResult}
                 missingFailureActionDisabled={retryDisabled}
                 onOpen={(_, index) => setPreviewIndex(index)}
-              />
-            </div>
-            <div className="mt-4 flex justify-center">
-              <RepairPromptPanel
-                kind="model"
-                onRepair={handleRepairGenerate}
-                disabled={isGenerating}
-                className="w-full max-w-3xl"
               />
             </div>
             <StudioImagePreviewDialog

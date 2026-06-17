@@ -42,6 +42,7 @@ describe("pose visual analysis display", () => {
     expect(items.find((item) => item.label === "构图")?.value).toBe("全身棚拍");
     expect(items.find((item) => item.label === "光线")?.value).toBe("柔和棚拍光");
     expect(items.find((item) => item.label === "风险")?.value).toBe("性别漂移、手部风险");
+    expect(items.find((item) => item.label === "服装")?.title).toBeUndefined();
   });
 
   it("normalizes confidence labels returned by vision models", () => {

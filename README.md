@@ -68,6 +68,8 @@ LINGYA_BASE_URL=https://api.lingyaai.cn
 LINGYA_API_KEY=your-lingya-api-key
 PLATO_BASE_URL=https://yunwu.ai
 PLATO_API_KEY=your-plato-api-key
+# Optional rollback: gpt-image-2 try-on prompt template, banana by default; set legacy to restore old GPT prompt
+GPT_TRYON_PROMPT_TEMPLATE=banana
 
 # Feature required: prompt analysis / prompt optimization
 ANALYZE_LLM_PROVIDER=xiaomi
@@ -95,7 +97,7 @@ REPLICATE_API_TOKEN=
 
 - Production required: `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`。生产环境必须设置 `NEXT_PUBLIC_APP_URL`，服务端生成公开图片 URL 时不会信任 forwarded host/proto 作为替代。
 - Feature required: 对应功能实际被调用时必须设置，例如 `LINGYA_API_KEY` / `PLATO_API_KEY` 用于图像生成，`XIAOMI_MIMO_API_KEY` 用于小米提示词分析，`IMGBB_API_KEY` 或阿里云 OSS 环境变量用于上传，`JOB_PROCESSOR_SECRET` 或 `CRON_SECRET` 用于后台任务处理器。
-- Optional: base URL、模型名、批处理大小、allowlist、legacy provider token 等可按部署需要覆盖。模块导入只会提示缺失项；具体运行路径需要某个值时才会报错。
+- Optional: base URL、模型名、批处理大小、allowlist、legacy provider token 等可按部署需要覆盖。`GPT_TRYON_PROMPT_TEMPLATE=legacy` 可将服装上身的 GPT 提示词回滚到旧模板；默认 `banana`。模块导入只会提示缺失项；具体运行路径需要某个值时才会报错。
 
 生产环境的任务处理器密钥必须使用至少 32 个随机字符，不能使用 `change-me`、`secret`、`password` 等默认或弱值。`AGENT_WORKFLOW_PROCESSOR_SECRET` 和 `AGENT_EVAL_PROCESSOR_SECRET` 可作为 route-specific 覆盖；未设置时会回退到 `JOB_PROCESSOR_SECRET` 或 `CRON_SECRET`。
 

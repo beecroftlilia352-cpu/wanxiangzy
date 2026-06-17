@@ -35,6 +35,7 @@ import { LoadingStage } from "@/components/studio/LoadingStage";
 import { StudioGenerationCountSelector } from "@/components/studio/StudioFormControls";
 import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
+import { VisualAnalysisStatusCard } from "@/components/studio/VisualAnalysisStatus";
 import { useStableFileDrag } from "@/components/studio/useStableFileDrag";
 import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
 import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
@@ -1352,7 +1353,6 @@ export default function ProductSetPage() {
   }
 
   async function handleCompletedTask(item: TaskQueueItem, session: TaskSelectionSession) {
-    setActiveQueueTask(item);
     try {
       const detail = await fetchHistoryApplyDetail(item.id, "productSet", session.signal);
       if (!session.isCurrent()) return true;
@@ -2292,7 +2292,7 @@ function AnalysisSummaryCard({
 
       <div className="mt-3 grid grid-cols-2 gap-2">
         <button type="button" onClick={onEditProfile} className="flex min-h-10 items-center justify-center gap-1.5 rounded-xl bg-white px-2 text-[11px] font-black text-slate-600 shadow-sm hover:bg-[rgba(91,124,255,0.12)] hover:text-[var(--codex-accent)]">
-          <Edit3 className="h-3.5 w-3.5" /> 修改识别
+          <Edit3 className="h-3.5 w-3.5" /> 修改信息
         </button>
         <button type="button" onClick={onAdjust} className="flex min-h-10 items-center justify-center gap-1.5 rounded-xl bg-white px-2 text-[11px] font-black text-slate-600 shadow-sm hover:bg-[rgba(91,124,255,0.12)] hover:text-[var(--codex-accent)]">
           <Palette className="h-3.5 w-3.5" /> 调整风格
@@ -2315,14 +2315,14 @@ function AnalysisSummaryCard({
 
 function ProductProfileCard({ profile, analysisSource, onEdit }: { profile: ProductSetProductProfile; analysisSource: ProductAnalysisSource; onEdit: () => void }) {
   const sourceLabel = analysisSource === "ai"
-    ? "图片识别"
+    ? "图片信息"
     : analysisSource === "fallback"
-      ? "基础识别"
+      ? "基础信息"
       : analysisSource === "running"
-        ? "识别中"
+        ? "读取中"
         : analysisSource === "manual"
           ? "手动信息"
-          : "智能识别";
+          : "待确认";
 
   return (
     <div className="mt-3 rounded-2xl border border-[rgba(91,124,255,0.22)] bg-[rgba(91,124,255,0.1)] px-3 py-3">
@@ -2423,20 +2423,18 @@ function ProductVisualStrategyCard({
 
 function ProductAnalysisNotice({ status }: { status: ReturnType<typeof getProductAnalysisStatus> }) {
   if (status.tone === "quiet") return null;
-  const className = status.tone === "running"
-    ? "border-[rgba(91,124,255,0.22)] bg-[rgba(91,124,255,0.1)] text-[var(--codex-accent)]"
+  const tone = status.tone === "running" ? "loading" : "warning";
+  const title = status.tone === "running"
+    ? "正在读取商品图"
     : status.tone === "warning"
-      ? "border-amber-100 bg-amber-50 text-amber-700"
-      : "border-red-100 bg-red-50 text-red-600";
+      ? "商品信息需确认"
+      : "商品读取未完成";
 
   return (
-    <div className={`mb-3 flex items-start gap-2 rounded-2xl border px-3 py-3 text-xs leading-5 ${className}`}>
-      {status.tone === "running" ? <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin" /> : <Brush className="mt-0.5 h-4 w-4 shrink-0" />}
-      <div className="min-w-0 flex-1">
-        <p className="font-black">{status.title}</p>
-        <p className="mt-0.5 opacity-80">{status.message}</p>
-      </div>
-    </div>
+    <VisualAnalysisStatusCard
+      status={{ tone, text: title, description: status.message || status.description }}
+      className="mb-3"
+    />
   );
 }
 

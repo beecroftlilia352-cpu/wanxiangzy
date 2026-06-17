@@ -426,6 +426,7 @@ function extractGenerationInputThumbnails(row: TaskQueueGenerationSourceRow): st
     ...arrayOfStrings(payload.referenceUrls),
     ...arrayOfStrings(payload.garmentDetailUrls),
     ...arrayOfStrings(payload.referenceImageUrls),
+    ...arrayOfStrings(payload.poseReferenceUrls),
     ...arrayOfStrings(payload.sceneImages),
     ...arrayOfStrings(payload.inputUrls),
     stringValue(payload.clothingUrl),

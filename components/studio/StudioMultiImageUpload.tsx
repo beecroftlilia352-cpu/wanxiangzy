@@ -3,7 +3,8 @@
 import { CirclePlus, FolderOpen, Images, Loader2, Trash2, Upload, X, ZoomIn } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getImageVariantUrl } from "@/lib/image-variants";
-import type { StudioUploadTileExample } from "@/components/studio/StudioUploadTile";
+import { StudioUploadExamples, type StudioUploadTileExample } from "@/components/studio/StudioUploadExamples";
+import { StudioUploadTips, buildStudioUploadTips, type StudioUploadTip } from "@/components/studio/StudioUploadTips";
 
 export type StudioMultiImageUploadProps = {
   urls: string[];
@@ -20,6 +21,8 @@ export type StudioMultiImageUploadProps = {
   libraryLabel?: string;
   summary?: string;
   footnote?: string;
+  imageRequirement?: string;
+  tips?: StudioUploadTip[];
   className?: string;
   imageFit?: "contain" | "cover";
   onUploadClick: () => void;
@@ -50,6 +53,8 @@ export function StudioMultiImageUpload({
   libraryLabel = "从作品选择",
   summary,
   footnote,
+  imageRequirement,
+  tips,
   className,
   imageFit = "contain",
   onUploadClick,
@@ -63,6 +68,14 @@ export function StudioMultiImageUpload({
   const hasImages = count > 0;
   const remaining = Math.max(maxCount - count, 0);
   const canAdd = remaining > 0 && !disabled && !loading;
+  const uploadTips = tips?.length
+    ? tips
+    : buildStudioUploadTips({
+      title: hasImages ? title : emptyTitle,
+      description: hasImages ? description : emptyDescription || description,
+      footnote,
+      imageRequirement,
+    });
   const exampleLabel = examples?.label || "试一试";
 
   return (
@@ -85,7 +98,15 @@ export function StudioMultiImageUpload({
                 {hasImages ? description : emptyDescription || description}
               </p>
             </div>
-            <span className="studio-multi-image-count">{count}/{maxCount} 张</span>
+            <div className="studio-multi-image-header-actions">
+              {hasImages && onClear && (
+                <button type="button" onClick={onClear} disabled={disabled || loading} className="studio-multi-image-clear" aria-label={`清空${title}`}>
+                  <Trash2 className="h-3.5 w-3.5" />
+                  清空
+                </button>
+              )}
+              <span className="studio-multi-image-count">{count}/{maxCount} 张</span>
+            </div>
           </div>
 
           {hasImages ? (
@@ -158,52 +179,23 @@ export function StudioMultiImageUpload({
                   {libraryLabel}
                 </button>
               )}
-              {hasImages && onClear && (
-                <button type="button" onClick={onClear} disabled={disabled || loading} className="studio-multi-image-clear">
-                  <Trash2 className="h-3.5 w-3.5" />
-                  清空
-                </button>
-              )}
             </div>
             {summary && <span className="studio-multi-image-summary">{summary}</span>}
           </div>
 
           {examples?.images.length ? (
-            <div className="studio-upload-tile-examples studio-multi-image-examples">
-              <span className="studio-upload-tile-example-label">{exampleLabel}</span>
-              <div className="studio-upload-tile-example-list studio-scrollbar-hide">
-                {examples.images.map((image) => {
-                  const previewUrls = image.previewUrls?.length ? image.previewUrls : [image.url];
-                  return (
-                    <button
-                      key={`${image.title}-${image.url}`}
-                      type="button"
-                      onClick={() => examples.onSelect(image)}
-                      disabled={disabled || loading || examples.disabled}
-                      className={cn("studio-upload-tile-example-thumb", previewUrls.length > 1 && "studio-upload-tile-example-thumb-multi")}
-                      title={image.title}
-                      aria-label={`套用${image.title}`}
-                    >
-                      {previewUrls.slice(0, 4).map((previewUrl, index) => (
-                        <span key={`${previewUrl}-${index}`} className="studio-upload-tile-example-cell">
-                          <img src={getImageVariantUrl(previewUrl, "thumb")} alt={previewUrls.length > 1 ? `${image.title}${index + 1}` : image.title} />
-                        </span>
-                      ))}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+            <StudioUploadExamples
+              label={exampleLabel}
+              images={examples.images}
+              disabled={disabled || loading || examples.disabled}
+              className="studio-multi-image-examples"
+              onSelect={examples.onSelect}
+            />
           ) : null}
         </div>
       </div>
 
-      {footnote && (
-        <div className="studio-upload-tile-tips">
-          <span className="studio-upload-tile-tips-label">提示</span>
-          <span className="studio-upload-tile-tips-text" title={footnote}>{footnote}</span>
-        </div>
-      )}
+      <StudioUploadTips tips={uploadTips} />
 
       {loading && (
         <div className="pointer-events-none absolute inset-0 z-[5] flex items-center justify-center rounded-[inherit] bg-white/62 backdrop-blur-[2px]">

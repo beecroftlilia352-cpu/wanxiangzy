@@ -13,6 +13,7 @@ import {
   buildPosePlanPoseLines,
   buildPoseSlotPlanDirective,
   normalizePosePlan,
+  normalizePosePlanCount,
   type PosePlan,
 } from "@/lib/pose-plan";
 
@@ -25,19 +26,19 @@ const POSE_SEPARATE_QUALITY =
   "Image quality: source-matched natural camera photo; no HDR, no extra sharpening, no moire or wavy fabric artifacts.";
 
 export const POSE_LAYOUT_REQUIREMENT =
-  "必须生成单张图片中的 2x2 四宫格 / four-panel pose variation / contact sheet，四个分格分别展示姿势1、姿势2、姿势3、姿势4；不要只生成单人单姿势，不要只生成一张普通照片，不要把四个姿势拆成多张独立图片。";
+  "必须生成单张图片中的多姿势自动布局 / pose variation contact sheet；按当前姿势计划展示姿势1到最后一个姿势。不要只生成单人单姿势，不要只生成一张普通照片，不要把姿势拆成多张独立图片，不要少格、漏格或重复同一姿势。";
 
 export const POSE_SEPARATE_LAYOUT_REQUIREMENT =
   "输出方式：当前请求只生成一张 3:4 单人完整图片；不要四宫格、拼图、分屏、边框、编号文字或 contact sheet。";
 
 export const POSE_CONSISTENCY_REQUIREMENT =
-  "四个分格必须保持图1同一个人物身份、同一性别表达、同一年龄感、同一身体骨架、同一张脸、同一脸型骨相、同一自然肤色、同一发型、同一身体比例、同一套服装、同一面料纹理、同一颜色图案、同一背景场景、同一光线、同一色调和同一摄影质量。";
+  "所有姿势画面必须保持图1同一个人物身份、同一性别表达、同一年龄感、同一身体骨架、同一张脸、同一脸型骨相、同一自然肤色、同一发型、同一身体比例、同一套服装、同一面料纹理、同一颜色图案、同一背景场景、同一光线、同一色调和同一摄影质量。";
 
 export const POSE_SOURCE_ROLE_REQUIREMENT =
   "图1角色：唯一的人物、性别表达、年龄感、身体骨架、服装、比例、场景和光线参考；文字只改变姿势、可选镜头和构图。";
 
 export const POSE_CAMERA_REQUIREMENT =
-  "镜头构图规则：四个分格保持同一商业摄影风格、真实透视和稳定人物比例，但不要机械复制图1画幅或固定同一相机距离；可按姿势在全身、近全身、七分身或偏半身商业构图之间自然变化，关键服装结构必须清楚。避免 extreme close-up、无关特写、大广角、俯拍、仰拍或夸张透视。";
+  "镜头构图规则：所有姿势画面保持同一商业摄影风格、真实透视和稳定人物比例，但不要机械复制图1画幅或固定同一相机距离；可按姿势在全身、近全身、七分身或偏半身商业构图之间自然变化，关键服装结构必须清楚。避免 extreme close-up、无关特写、大广角、俯拍、仰拍或夸张透视。";
 
 export const POSE_PROPORTION_LOCK_RULE =
   "比例锁定：保持图1头身比、头部大小、肩宽、腰胯、四肢长度、脚部大小、腰线和服装穿着尺度；不要拉高拉瘦、长腿化或变体型。";
@@ -46,10 +47,10 @@ export const POSE_GENDER_IDENTITY_LOCK_RULE =
   "性别身份锁定：必须保持图1人物的性别表达、年龄感、身体骨架、肩宽、胸腰胯比例、肌肉/脂肪分布、发型气质和整体身份气质；如果图1是男性，最终必须仍是同一个男性人物，不要把男性变成女性、不要女性化、不要变成女模、不要生成女性胸型、女性腰胯比例、女性妆容、女性发型或女性化站姿；如果图1是女性，也不要男性化或改变原本性别气质。";
 
 export const POSE_SERIES_RULE =
-  "时装大片连贯性规则：四个分格必须像同一套商业时装大片的连续 pose sheet，而不是四张不同照片拼贴；保持统一构图、统一背景、统一光线、统一肤色质感、统一色彩管理和统一服装展示尺度。";
+  "时装大片连贯性规则：所有姿势必须像同一套商业时装大片的连续 pose sheet，而不是风格割裂的照片拼贴；保持统一构图、统一背景、统一光线、统一肤色质感、统一色彩管理和统一服装展示尺度。";
 
 export const POSE_CLOTHING_RULE =
-  "服装展示规则：四个姿势都要清楚展示同一套服装的版型、腰线、肩线、袖长、下摆、面料垂坠、纹理和图案；允许动作造成自然褶皱、遮挡和张力变化，但绝不能改变服装结构、颜色、图案、长度、开口位置或搭配关系。";
+  "服装展示规则：所有姿势都要清楚展示同一套服装的版型、腰线、肩线、袖长、下摆、面料垂坠、纹理和图案；允许动作造成自然褶皱、遮挡和张力变化，但绝不能改变服装结构、颜色、图案、长度、开口位置或搭配关系。";
 
 export const POSE_GARMENT_PRODUCT_FIDELITY_RULE =
   "服装产品保真规则：把图1服装当作受保护的商品资产；锁定版型、固有色、图案/logo、面料表面和清洁度。姿势变化只改变人体动作、受力褶皱、垂坠和真实阴影，不重新设计布料、不套风格滤镜。";
@@ -64,16 +65,16 @@ export const POSE_BODY_RULE =
   "身体动作规则：动作变化要自然、可信、符合真人关节运动，保留图1或自然商业模特的真实头身比例、肩宽、腰胯比例、四肢长度和体态；头部、颈部、肩膀和躯干转向必须协调一致，避免头部单独回望、过度扭颈、肩颈错位、夸张扭腰、断手、错位手指、肢体拉长、腿被拉长、头被缩小、身体比例漂移或过度瘦身。";
 
 export const POSE_SKIN_COLOR_RULE =
-  "肤色和色彩规则：四个分格必须保留图1人物的自然肤色、肤色明暗、冷暖调、局部红润、阴影层次和真实皮肤质感；保持准确白平衡和真实曝光，不要自动美白、不要雪白皮、不要冷白皮、不要过度提亮肤色，不要把画面统一调成过曝白亮或粉白滤镜。";
+  "肤色和色彩规则：所有姿势画面必须保留图1人物的自然肤色、肤色明暗、冷暖调、局部红润、阴影层次和真实皮肤质感；保持准确白平衡和真实曝光，不要自动美白、不要雪白皮、不要冷白皮、不要过度提亮肤色，不要把画面统一调成过曝白亮或粉白滤镜。";
 
 export const POSE_FACE_SHAPE_RULE =
-  "脸型五官规则：四个分格必须保持图1人物的脸型骨相、脸长宽比例、颧骨、下颌线、下巴形状、眼型、眼距、鼻翼宽度、唇形和真实五官辨识度；不要自动变成标准鹅蛋脸、小V脸、尖下巴、大眼高鼻的网红脸。";
+  "脸型五官规则：所有姿势画面必须保持图1人物的脸型骨相、脸长宽比例、颧骨、下颌线、下巴形状、眼型、眼距、鼻翼宽度、唇形和真实五官辨识度；不要自动变成标准鹅蛋脸、小V脸、尖下巴、大眼高鼻的网红脸。";
 
 export const POSE_CREATIVE_VARIATION_RULE =
   "姿势：未逐条指定时，由 AI 按风格自由设计自然、不同、适合展示服装的姿势；不要套模板。";
 
 export const POSE_EXPRESSION_VARIATION_REQUIREMENT =
-  "表情规则：保持同一个人、同一张脸、同一年龄感，不要换脸；四个姿势必须有轻微自然但可察觉的眼神和表情差异，例如轻松直视、轻微微笑、沉静侧视、自信轻抬下巴等，避免复制粘贴脸或僵硬同脸。不要夸张表情，不要改变五官身份。";
+  "表情规则：保持同一个人、同一张脸、同一年龄感，不要换脸；各个姿势需要有轻微自然但可察觉的眼神和表情差异，例如轻松直视、轻微微笑、沉静侧视、自信轻抬下巴等，避免复制粘贴脸或僵硬同脸。不要夸张表情，不要改变五官身份。";
 
 export const POSE_EXPRESSION_CONSISTENT_REQUIREMENT =
   POSE_EXPRESSION_VARIATION_REQUIREMENT;
@@ -106,9 +107,6 @@ const POSE_HEADLESS_SINGLE_IMAGE_CAMERA_REQUIREMENT =
 
 const POSE_SINGLE_EXPRESSION_VARIATION_REQUIREMENT =
   "表情规则：保持图1同一个人、同一张脸和同一年龄感；当前姿势必须匹配动作产生轻微自然但可察觉的眼神或表情变化，不要照搬图1原表情。不要夸张表情，不要改变五官身份，不要复制成僵硬表情。";
-
-const POSE_SINGLE_EXPRESSION_CONSISTENT_REQUIREMENT =
-  POSE_SINGLE_EXPRESSION_VARIATION_REQUIREMENT;
 
 const POSE_SEPARATE_BASE_PROMPT = [
   "Use the source image only to preserve: same person, same gender expression, face, hair, body proportions, outfit, fabric/color/pattern, background, lighting and skin tone.",
@@ -148,6 +146,35 @@ const DEFAULT_POSE_LINES = [
 const NEGATIVE_POSE_REQUIREMENT =
   "负面约束：不要换脸，不要换衣服，不要改变性别表达，不要把男性变成女性，不要女性化男性身体骨架或妆发，不要改变场景，不要改变服装结构，不要重绘服装材质或改变服装固有色，不要改变原图曝光/对比度/白平衡，不要额外锐化，不要摩尔纹、波纹、水波纹、频闪条纹、振荡线或假纤维，不要生成多余人物，不要扭曲手指和肢体，不要身体比例漂移，不要自动美白，不要雪白皮或冷白皮，不要标准鹅蛋脸或小V脸，不要塑料皮肤，不要AI渲染感，不要文字水印。";
 
+function getPosePlanSlotCount(plan: PosePlan | null | undefined) {
+  return normalizePosePlanCount(plan?.slots.length || 4);
+}
+
+function buildPoseGridLayoutRequirement(count: number) {
+  const safeCount = normalizePosePlanCount(count);
+  const layoutText = safeCount === 1
+    ? "单张完整姿势图"
+    : safeCount === 2
+      ? "左右两格或上下两格的双姿势版式"
+      : safeCount === 3
+        ? "三格均衡版式"
+        : safeCount === 4
+          ? "2x2 四宫格"
+          : safeCount <= 6
+            ? "均衡的多格 contact sheet"
+            : "紧凑但清晰的多格 pose sheet";
+  return `必须生成单张图片中的 ${safeCount} 个姿势自动布局 / ${layoutText}；每个分格分别展示姿势1到姿势${safeCount}，保持同一人物、同一服装、同一背景和同一摄影质量。不要只生成单人单姿势，不要把姿势拆成多张独立图片，不要少格、漏格、重复同一姿势或生成无关排版文字。`;
+}
+
+function toPoseCountRule(rule: string, count: number) {
+  const countText = `${normalizePosePlanCount(count)}个`;
+  return rule
+    .replace(/四个分格/g, `${countText}分格`)
+    .replace(/四个姿势/g, `${countText}姿势`)
+    .replace(/四格/g, `${countText}分格`)
+    .replace(/四张/g, `${countText}张`);
+}
+
 export function enforcePosePromptRequirements(
   prompt: string,
   options: { poseStyle?: PoseSeriesStyle; outputMode?: PoseOutputMode; poseAnalysis?: PoseVisualAnalysis | null; posePlan?: PosePlan | null } = {}
@@ -182,14 +209,20 @@ export function enforcePosePromptRequirements(
         prompt,
       })
     : null;
+  const poseSlotCount = getPosePlanSlotCount(activePosePlan);
 
   if (options.outputMode === "separate") {
     nextPrompt = normalizeSeparatePromptScope(removeGridLayoutWording(nextPrompt));
     if (!/当前请求只生成一张|不要四宫格|不要生成四宫格/.test(nextPrompt)) {
       nextPrompt = `${POSE_SEPARATE_LAYOUT_REQUIREMENT}\n${nextPrompt}`;
     }
-  } else if (!/(四宫格|2x2|four-panel|4-panel|contact sheet)/i.test(nextPrompt)) {
-    nextPrompt = `${POSE_LAYOUT_REQUIREMENT}\n${nextPrompt}`;
+  } else {
+    if (activePosePlan) {
+      nextPrompt = removeGridLayoutWording(nextPrompt);
+      nextPrompt = `${buildPoseGridLayoutRequirement(poseSlotCount)}\n${nextPrompt}`;
+    } else if (!/(四宫格|2x2|four-panel|4-panel|contact sheet)/i.test(nextPrompt)) {
+      nextPrompt = `${POSE_LAYOUT_REQUIREMENT}\n${nextPrompt}`;
+    }
   }
 
   if (!/same face identity|同一张脸|人物身份/.test(nextPrompt)) {
@@ -197,7 +230,7 @@ export function enforcePosePromptRequirements(
       ? POSE_HEADLESS_SINGLE_IMAGE_CONSISTENCY_REQUIREMENT
       : options.outputMode === "separate"
         ? POSE_SINGLE_IMAGE_CONSISTENCY_REQUIREMENT
-        : POSE_CONSISTENCY_REQUIREMENT;
+        : toPoseCountRule(POSE_CONSISTENCY_REQUIREMENT, poseSlotCount);
     nextPrompt = `${consistencyRule}\n${nextPrompt}`;
   }
 
@@ -224,7 +257,7 @@ export function enforcePosePromptRequirements(
   } else {
     const expressionRule = options.outputMode === "separate"
       ? POSE_SINGLE_EXPRESSION_VARIATION_REQUIREMENT
-      : POSE_EXPRESSION_VARIATION_REQUIREMENT;
+      : toPoseCountRule(POSE_EXPRESSION_VARIATION_REQUIREMENT, poseSlotCount);
     nextPrompt = `${nextPrompt}\n${expressionRule}`;
   }
 
@@ -233,7 +266,7 @@ export function enforcePosePromptRequirements(
       ? POSE_HEADLESS_SINGLE_IMAGE_CAMERA_REQUIREMENT
       : options.outputMode === "separate"
         ? POSE_SINGLE_IMAGE_CAMERA_REQUIREMENT
-        : POSE_CAMERA_REQUIREMENT;
+        : toPoseCountRule(POSE_CAMERA_REQUIREMENT, poseSlotCount);
     nextPrompt = `${nextPrompt}\n${cameraRule}`;
   }
 
@@ -266,9 +299,9 @@ export function enforcePosePromptRequirements(
 }
 
 export function buildSeparatePoseSlotDirective(poseIndex: number, poseStyle?: PoseSeriesStyle) {
-  const safeIndex = Math.min(Math.max(Math.floor(Number(poseIndex) || 1), 1), 4);
+  const safeIndex = Math.max(Math.floor(Number(poseIndex) || 1), 1);
   const directives = getSeparatePoseSlotDirectives(poseStyle);
-  return directives[safeIndex - 1];
+  return directives[(safeIndex - 1) % directives.length];
 }
 
 export function buildSeparatePosePrompt(
@@ -287,7 +320,7 @@ export function buildSeparatePosePrompt(
     ? normalizePosePlan(posePlan, { poseAnalysis, poseStyle, outputMode: "separate", prompt })
     : null;
   const planSlotDirective = normalizedPosePlan
-    ? buildPoseSlotPlanDirective(normalizedPosePlan.slots[Math.min(Math.max(poseIndex, 1), 4) - 1])
+    ? buildPoseSlotPlanDirective(normalizedPosePlan.slots[Math.max(Math.floor(Number(poseIndex) || 1), 1) - 1])
     : "";
   const slotDirective = planSlotDirective || buildSeparatePoseSlotDirective(poseIndex, poseStyle);
   const targetPose = planSlotDirective
@@ -354,7 +387,7 @@ function extractCustomSeparateStyleDirection(prompt: string) {
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean)
-    .filter((line) => !/^姿势\s*[1-4][：:]/.test(line))
+    .filter((line) => !/^姿势\s*\d+[：:]/.test(line))
     .filter((line) => !/^补充要求[：:]/.test(line))
     .filter((line) => !line.includes("姿势裂变拍摄风格档位"))
     .join("\n")
@@ -366,13 +399,13 @@ function extractExplicitPoseLines(prompt: string) {
   return prompt
     .split("\n")
     .map((line) => line.trim())
-    .filter((line) => /^姿势\s*[1-4][：:]/.test(line));
+    .filter((line) => /^姿势\s*\d+[：:]/.test(line));
 }
 
 function removePosePlanLines(prompt: string) {
   return prompt
     .split("\n")
-    .filter((line) => !/^\s*姿势\s*[1-4][：:]/.test(line.trim()))
+    .filter((line) => !/^\s*姿势\s*\d+[：:]/.test(line.trim()))
     .join("\n")
     .trim();
 }
@@ -389,7 +422,7 @@ function buildCustomSeparatePoseSlotPrompt(targetPose: string) {
 }
 
 function buildHeadlessSeparatePoseSlotPrompt(poseIndex: number, fallbackTargetPose: string) {
-  const safeIndex = Math.min(Math.max(Math.floor(Number(poseIndex) || 1), 1), 4);
+  const safeIndex = Math.max(Math.floor(Number(poseIndex) || 1), 1);
   const lowerBodyTargets = [
     "Lower-body front outfit read. Keep waist, hips, legs, hem and shoes readable inside the same headless crop.",
     "Lower-body three-quarter or side-angle outfit read. Show side seam, fabric thickness, leg line and hem profile without expanding upward.",
@@ -398,7 +431,7 @@ function buildHeadlessSeparatePoseSlotPrompt(poseIndex: number, fallbackTargetPo
   ];
   return [
     "Target pose:",
-    lowerBodyTargets[safeIndex - 1] || lowerBodyTargets[0],
+    lowerBodyTargets[(safeIndex - 1) % lowerBodyTargets.length] || lowerBodyTargets[0],
     "Do not use any target pose instruction that requires gaze, expression, head direction, hair movement, portrait framing, or looking at camera.",
     fallbackTargetPose ? `Original slot intent, body-only interpretation: ${stripHeadlessUnsafeText(fallbackTargetPose)}` : "",
     "",
@@ -526,10 +559,10 @@ function normalizeSeparatePromptScope(prompt: string) {
     .map((line) => line.trim())
     .filter(Boolean)
     .filter((line) => {
-      if (/^姿势\s*[1-4][：:]/.test(line)) return true;
+      if (/^姿势\s*\d+[：:]/.test(line)) return true;
       return !/(单图裂变规则|单张生产线分镜|本组四张|生产线四槽计划|用户自定义四槽计划|全组差异校验|其它槽位|其他槽位|同组四张|四张独立图|四张独立图片)/.test(line);
     })
-    .map((line) => /^姿势\s*[1-4][：:]/.test(line) ? line : toSinglePoseRule(line))
+    .map((line) => /^姿势\s*\d+[：:]/.test(line) ? line : toSinglePoseRule(line))
     .map(removeSeparateCameraLockWording)
     .join("\n")
     .trim();

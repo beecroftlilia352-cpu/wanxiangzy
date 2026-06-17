@@ -34,6 +34,7 @@ export type TryOnGenerateOptions = {
   referenceUrlsOverride?: string[];
   referenceAnalysesOverride?: TryOnReferenceAnalysis[];
   expectedCountOverride?: number;
+  retryResultIndex?: number;
   toastMessage?: string;
 };
 

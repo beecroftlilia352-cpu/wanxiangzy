@@ -32,6 +32,7 @@ import {
 import { BACKGROUND_SOURCE_LABELS, MODEL_BACKGROUND_MODE_LABELS } from "@/lib/model-background";
 import { getMaterialEnhancementLevelLabel } from "@/lib/material-enhancement";
 import { getOutfitFusionDisplayPrompt } from "@/lib/outfit-fusion";
+import { getFaceSwapModeLabel, getFaceSwapModeNote, normalizeFaceSwapMode } from "@/lib/face-swap";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 
 const HISTORY_PAGE_SIZE = 12;
@@ -1416,7 +1417,10 @@ function getHistoryInputSummary(payload?: HistoryJobPayload) {
     return `${payload.gender === "male" ? "男模" : "女模"} · ${payload.referenceUrls.length} 张人物参考 · ${getModelShootStyleLabel(payload.modelStyle)}`;
   }
   if (payload.kind === "pose") {
-    return `主图 · ${getPoseSeriesStyleLabel(payload.poseStyle)}`;
+    const referenceCount = getPoseReferenceUrls(payload).length;
+    return referenceCount
+      ? `主图 · 参考图模式 · ${referenceCount} 张姿势参考`
+      : `主图 · ${getPoseSeriesStyleLabel(payload.poseStyle)}`;
   }
   if (payload.kind === "videoImageToVideo") {
     return `输入图 · ${payload.templateTitle || "自定义动作"} · ${getVideoModeLabel(payload.modelMode)} · ${payload.resolution} · ${payload.aspectRatio || "9:16"} · ${payload.duration || 5}秒 · ${getVideoAudioLabel(payload)}`;
@@ -1431,7 +1435,7 @@ function getHistoryInputSummary(payload?: HistoryJobPayload) {
     return `服装图 · ${payload.outputMode === "reference" ? "参考图模式" : "提示词模式"} · ${getGarment3dDisplayStyleLabel(payload.displayStyle)}`;
   }
   if (payload.kind === "faceSwap") {
-    return "原始模特图 · 目标脸图 · 仅替换面部";
+    return `原始模特图 · 目标脸图 · ${getFaceSwapModeLabel(payload.faceSwapMode)}`;
   }
   return "已保存输入参数";
 }
@@ -1443,6 +1447,32 @@ function getTryonReferenceUrls(payload: Extract<HistoryJobPayload, { kind: "tryo
     if (typeof value !== "string" || !value.trim() || seen.has(value.trim())) continue;
     seen.add(value.trim());
     urls.push(value.trim());
+  }
+  return urls;
+}
+
+function getPoseReferenceUrls(payload: Extract<HistoryJobPayload, { kind: "pose" }>) {
+  return uniqueUrlList(payload.poseReferenceUrls);
+}
+
+function getPoseGarmentAngleUrls(payload: Extract<HistoryJobPayload, { kind: "pose" }>) {
+  const angleUrls = Array.isArray(payload.garmentAngleReferences)
+    ? payload.garmentAngleReferences
+        .map((item) => item && typeof item === "object" ? item.url : "")
+        .filter((url): url is string => typeof url === "string" && url.trim().length > 0)
+    : [];
+  return uniqueUrlList(angleUrls.length ? angleUrls : payload.garmentDetailUrls);
+}
+
+function uniqueUrlList(value: unknown) {
+  const seen = new Set<string>();
+  const urls: string[] = [];
+  if (!Array.isArray(value)) return urls;
+  for (const item of value) {
+    const url = typeof item === "string" ? item.trim() : "";
+    if (!url || seen.has(url)) continue;
+    seen.add(url);
+    urls.push(url);
   }
   return urls;
 }
@@ -1531,7 +1561,11 @@ function getInputImages(payload: HistoryJobPayload) {
     ];
   }
   if (payload.kind === "pose") {
-    return [{ label: "主图", url: payload.mainImageUrl }];
+    return [
+      { label: "主图", url: payload.mainImageUrl },
+      ...getPoseReferenceUrls(payload).map((url, index) => ({ label: `姿势参考图${index + 1}`, url })),
+      ...getPoseGarmentAngleUrls(payload).map((url, index) => ({ label: `服装角度图${index + 1}`, url })),
+    ];
   }
   if (payload.kind === "videoImageToVideo") {
     return [{ label: "输入图", url: payload.imageUrl }];
@@ -1665,10 +1699,18 @@ function getParameterItems(row: HistoryRow) {
     ];
   }
   if (payload.kind === "pose") {
+    const referenceCount = getPoseReferenceUrls(payload).length;
+    const referenceCopies = Math.max(1, Math.floor(Number(payload.poseReferenceCopies || 1)));
+    const poseCount = payload.genCount || payload.poseCount || (referenceCount ? referenceCount * referenceCopies : 1);
     return [
       ...common,
-      { label: "比例", value: "3:4" },
-      { label: "生成张数", value: "1" },
+      { label: "比例", value: payload.aspectRatio || "智能" },
+      { label: "生成张数", value: String(poseCount) },
+      { label: "创作模式", value: referenceCount ? "参考图模式" : "自由模式" },
+      ...(referenceCount ? [
+        { label: "姿势参考", value: `${referenceCount} 张` },
+        { label: "每张数量", value: String(referenceCopies) },
+      ] : []),
       { label: "拍摄风格", value: getPoseSeriesStyleLabel(payload.poseStyle) },
     ];
   }
@@ -1715,13 +1757,15 @@ function getParameterItems(row: HistoryRow) {
     ];
   }
   if (payload.kind === "faceSwap") {
+    const faceSwapMode = normalizeFaceSwapMode(payload.faceSwapMode);
     return [
       ...common,
       { label: "比例", value: payload.aspectRatio },
       { label: "生成张数", value: String(payload.genCount) },
+      { label: "换脸范围", value: getFaceSwapModeLabel(faceSwapMode) },
       { label: "原始模特图", value: payload.sourceUrl ? "已使用" : "未使用" },
       { label: "目标脸图", value: payload.faceUrl ? "已使用" : "未使用" },
-      { label: "规则", value: "只替换面部五官，不改变肤色、发型、身体、服装和场景" },
+      { label: "规则", value: getFaceSwapModeNote(faceSwapMode) },
     ];
   }
   return common;

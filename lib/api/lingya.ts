@@ -1413,6 +1413,20 @@ export function isNanoBananaModel(model: LingyaModel): boolean {
   return model === "nano-banana-2" || model === "nano-banana-pro";
 }
 
+type GptTryOnPromptTemplate = "banana" | "legacy";
+
+function getGptTryOnPromptTemplate(): GptTryOnPromptTemplate {
+  return process.env.GPT_TRYON_PROMPT_TEMPLATE?.trim().toLowerCase() === "legacy"
+    ? "legacy"
+    : "banana";
+}
+
+function shouldUseNanoBananaTryOnTemplate(model: LingyaModel): boolean {
+  if (isNanoBananaModel(model)) return true;
+  if (model !== "gpt-image-2") return false;
+  return getGptTryOnPromptTemplate() === "banana";
+}
+
 function isSeedreamModel(model: LingyaModel): boolean {
   return model.startsWith("doubao-seedream-");
 }
@@ -1657,8 +1671,9 @@ export function buildTryOnPrompt(params: {
 
   if (CONCISE_TRYON_PROMPT_MODE) {
     return {
-      prompt: isNanoBananaModel(params.model || "gpt-image-2")
+      prompt: shouldUseNanoBananaTryOnTemplate(params.model || "gpt-image-2")
         ? buildNanoBananaTryOnPrompt({
+          model: params.model || "gpt-image-2",
           clothingRefs,
           clothingMode,
           clothingRoles: normalizedRoles,
@@ -1800,6 +1815,7 @@ export function buildTryOnPrompt(params: {
 }
 
 function buildNanoBananaTryOnPrompt(params: {
+  model?: LingyaModel;
   clothingRefs: string[];
   clothingMode: TryOnClothingMode;
   clothingRoles: TryOnClothingRole[];
@@ -1894,6 +1910,7 @@ function buildNanoBananaTryOnPrompt(params: {
       mustUseModelFace,
     }),
     buildConciseAudienceRule(params.garmentAudience, params.ageGroup),
+    buildVisualAudienceHintRule(params.clothingAnalysis, params.garmentAudience, params.ageGroup),
     params.garmentCategory === "intimate"
       ? "Sensitive apparel rule: treat the source as adult intimate apparel or swimwear for a neutral commercial catalog/lookbook photo; keep the image non-erotic, non-suggestive, and do not show nudity, nipples, genitals, transparent exposure, sexual acts, bedroom/erotic scenes, minors, or minor-looking people."
       : "",
@@ -1978,6 +1995,7 @@ function buildNanoBananaTryOnTaskLine(
 
 function buildNanoBananaTryOnFaceLines(
   params: {
+    model?: LingyaModel;
     hasReference: boolean;
     hasModelFace: boolean;
     referenceAnalysis?: TryOnReferenceAnalysis | null;
@@ -1989,13 +2007,25 @@ function buildNanoBananaTryOnFaceLines(
   }
 ) {
   if (refs.mustUseModelFace && params.hasReference) {
+    const similarFaceClause = params.model === "gpt-image-2"
+      ? ` When ${refs.targetRef} and ${refs.faceRef} look similar, hair color, skin tone, makeup, or beauty styling alone is not identity transfer; do not settle for an averaged face, and keep ${refs.faceRef}'s face outline, eye spacing/shape, brow-eye relation, nose bridge/tip/nostrils, mouth shape, jaw/chin, cheekbone balance, hairline, ear placement, and recognizable likeness stronger than ${refs.targetRef}.`
+      : "";
     return [
       "Face identity:",
-      `${refs.faceRef} is the only final face identity source. The final face must be immediately recognizable as ${refs.faceRef}, not ${refs.targetRef}'s original person, not a random new face, not a generic influencer/catalog face, and not an average blend of both faces.`,
+      `${refs.faceRef} is the only final face identity source. The final face must be immediately recognizable as ${refs.faceRef}, not ${refs.targetRef}'s original person, not a random new face, not a generic influencer/catalog face, and not an average blend of both faces.${similarFaceClause}`,
       `${refs.targetRef} may guide only expression category/intensity, gaze direction, head placement, head size, skin brightness range, makeup mood, lighting, shadows, and face-to-neck/body continuity. It must not donate final face outline, eyes, nose, mouth, facial proportions, or recognizable identity.`,
       `Expression transfer: preserve ${refs.targetRef}'s visible expression category, intensity, emotional direction, gaze behavior, facial tension, eyelid/cheek/mouth-corner dynamics, and natural asymmetry as one coherent performance. Retarget that performance onto ${refs.faceRef}'s identity without copying ${refs.faceRef}'s original expression and without flattening ${refs.targetRef}'s expression into a neutral catalog face.`,
-      `Face blending: rebuild the face inside ${refs.targetRef}'s original head space and camera perspective; match surrounding skin undertone, brightness, subtle redness, makeup density, pores, reflected light, shadow falloff, hairline/ear/neck contact, jaw-to-neck transition, and occlusion edges with the visible neck, chest, arms, and hands.`,
+      `Face blending: rebuild the visible head-and-face area from ${refs.faceRef}'s identity inside ${refs.targetRef}'s original head space, head bounding box, head-to-body ratio, camera perspective, and lighting direction. Fit ${refs.faceRef}'s identity geometry into ${refs.targetRef}'s head scale, including face size, skull volume, hair volume, neck length, shoulder distance, jaw-to-neck contact, hairline, ears, and occlusion edges; do not enlarge the head/face, create a doll-like oversized head, stretch the neck, thicken the hair mass, or leave a mask edge. Match surrounding skin undertone, brightness, subtle redness, makeup density, pores, reflected light, shadow falloff, and face-to-neck/body continuity with the visible neck, chest, arms, and hands.`,
       `Natural integration may adjust expression muscles, gaze, relighting, makeup matching, pores, shadows, edge blending, and skin continuity only. Do not change ${refs.faceRef}'s face outline, feature structure, feature proportions, bone structure, or recognizable likeness.`,
+    ];
+  }
+
+  if (params.hasReference && params.hasModelFace && !refs.mustUseModelFace) {
+    return [
+      "Face identity:",
+      isHeadlessReference(params.referenceAnalysis)
+        ? `${refs.targetRef} has no usable visible face/head for identity. Preserve the crop and ignore ${refs.faceRef}; do not invent a new face, head, hair, portrait, or full-body expansion.`
+        : `Preserve ${refs.targetRef}'s visible face/head identity, expression, skin tone, hair, and scene continuity. Ignore ${refs.faceRef} unless the target crop visibly supports a face swap; do not synthesize a new person or beautify into a generic face.`,
     ];
   }
 
@@ -2129,6 +2159,42 @@ function buildNanoBananaClothingAnalysisRule(
   return `Visual garment read: the source appears to be ${visibleTypeText}. Use ${imageRoles}. ${fitText}${explicitScopeNote} ${scopeRule}`;
 }
 
+function buildVisualAudienceHintRule(
+  analysis: TryOnClothingAnalysis | null | undefined,
+  garmentAudience?: TryOnGarmentAudience,
+  ageGroup?: TryOnAgeGroup
+) {
+  if (!analysis || analysis.confidence < 0.86) return "";
+
+  const visualAudience = analysis.genderType === "men"
+    ? "male"
+    : analysis.genderType === "women"
+      ? "female"
+      : analysis.genderType === "unisex"
+        ? "unisex"
+        : "";
+  const visualAgeLabels: Partial<Record<TryOnAgeGroup | "all", string>> = {
+    adult: "adult",
+    teen: "teen",
+    big_child: "older-child",
+    middle_child: "middle-child",
+    small_child: "young-child",
+    toddler: "toddler",
+    all: "all-age",
+  };
+  const visualAge = analysis.ageRange ? visualAgeLabels[analysis.ageRange] : "";
+  const selectedAudience = garmentAudience === "men" ? "male" : "female";
+  const selectedAge = visualAgeLabels[ageGroup || "adult"] || "adult";
+
+  if ((!visualAudience || visualAudience === selectedAudience || visualAudience === "unisex")
+    && (!visualAge || visualAge === selectedAge || visualAge === "all-age")) {
+    return "";
+  }
+
+  const visualParts = [visualAudience, visualAge].filter(Boolean).join(" ");
+  return `Visual audience hint: the clothing source itself reads as ${visualParts}. Use this only as garment-fit/body-context evidence; keep the current user audience setting (${selectedAge} ${selectedAudience}) when it is an explicit choice. Never copy any person, face, pose, body, background, or lighting from the clothing image.`;
+}
+
 function buildConciseTryOnPrompt(params: {
   clothingRefs: string[];
   clothingMode: TryOnClothingMode;
@@ -2231,6 +2297,8 @@ function buildConciseTryOnPrompt(params: {
   }));
   lines.push("Preserve source clothing type, silhouette, color, pattern/logo/text, fabric texture, neckline, sleeves, hem, pockets, buttons, zippers, seams, layers, length, and visible construction details.");
   lines.push(buildConciseAudienceRule(params.garmentAudience, params.ageGroup));
+  const visualAudienceRule = buildVisualAudienceHintRule(params.clothingAnalysis, params.garmentAudience, params.ageGroup);
+  if (visualAudienceRule) lines.push(visualAudienceRule);
   if (params.garmentCategory === "intimate") {
     lines.push("Sensitive apparel rule: treat the source as adult intimate apparel or swimwear for a neutral commercial catalog/lookbook photo; keep the image non-erotic, non-suggestive, and do not show nudity, nipples, genitals, transparent exposure, sexual acts, bedroom/erotic scenes, minors, or minor-looking people.");
   }
@@ -2347,7 +2415,7 @@ function buildFixedBaseTryOnPrompt(params: {
       ? `Do not keep ${params.targetRef}'s original facial identity. The identity change to ${params.faceRef} is mandatory in every output.`
       : `Do not add a visible face/head outside ${params.targetRef}'s original crop. Do not treat the absence of a visible face as an error; preserve the partial-body target crop.`,
     `Do not create a new model, unrelated scene, generic catalog face, or mismatched head/body composite.`,
-    `Quality: realistic edited photo, natural fabric drape, realistic contact shadows, natural skin texture, accurate visible hands and feet when present in the crop. ${buildConciseAudienceRule(params.garmentAudience, params.ageGroup)} No extra people, no watermark, no added text, no AI-render look, no stock-model expression, no pasted head, no face-swap seam, no oversized head, no long neck, no ID-photo face, no unrelated outfit changes.`,
+    `Quality: realistic edited photo, natural fabric drape, realistic contact shadows, natural skin texture, accurate visible hands and feet when present in the crop. ${buildConciseAudienceRule(params.garmentAudience, params.ageGroup)} ${buildVisualAudienceHintRule(params.clothingAnalysis, params.garmentAudience, params.ageGroup)} No extra people, no watermark, no added text, no AI-render look, no stock-model expression, no pasted head, no face-swap seam, no oversized head, no long neck, no ID-photo face, no unrelated outfit changes.`,
   ];
 
   if (params.garmentCategory === "intimate") {

@@ -5,9 +5,7 @@ import { useRouter } from "next/navigation";
 import { CheckCircle2, ChevronRight, Loader2, Plus, Wand, X, XCircle, ZoomIn } from "lucide-react";
 import { toast } from "sonner";
 import { FeatureTabs } from "@/components/FeatureTabs";
-import { RepairPromptPanel } from "@/components/RepairPromptPanel";
 import { ClientPortal } from "@/components/ClientPortal";
-import { StyleChoiceGrid } from "@/components/StyleChoiceGrid";
 import { ModuleHeader } from "@/components/ModuleHeader";
 import { PreviewGuide } from "@/components/PreviewGuide";
 import { ErrorStage } from "@/components/studio/ErrorStage";
@@ -33,6 +31,12 @@ import { showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
 import { createGenericImagePreviewSession, type ImagePreviewAction } from "@/lib/studio-image-preview";
 import { FAILED_RETRY_NOTICE, buildPartialFailureDetail, summarizeGenerationError } from "@/lib/studio-generation-feedback";
 import {
+  buildRetryPendingResultUrls,
+  getRetryDisplayExpectedCount,
+  mergeRetryResultUrls,
+  normalizeRetryResultIndex,
+} from "@/lib/result-slot-retry";
+import {
   DEFAULT_GARMENT_3D_DISPLAY_STYLE,
   GARMENT_3D_DISPLAY_STYLES,
   buildGarment3dDisplayStylePrompt,
@@ -46,6 +50,7 @@ type Garment3dHistoryPayload = Extract<HistoryJobPayload, { kind: "garment3d" }>
 type Garment3dGenerateOptions = {
   genCountOverride?: number;
   expectedCountOverride?: number;
+  retryResultIndex?: number;
   toastMessage?: string;
 };
 
@@ -172,12 +177,13 @@ export default function Garment3dPage() {
     failedCount: activeResultExpectedCount - displayedResultUrls.length,
   });
   const retryDisabled = isGenerating;
-  function handleRetryFailedResult() {
+  function handleRetryFailedResult(index: number) {
     if (retryDisabled) return;
     void generate(undefined, {
       genCountOverride: 1,
       expectedCountOverride: 1,
-      toastMessage: "正在重试失败图片，失败图已退款，本次按 1 张重新生成...",
+      retryResultIndex: index,
+      toastMessage: `正在补位重试第 ${index + 1} 张，失败图已退款，完成后会回填到当前结果中...`,
     });
   }
   const previewSession = useMemo(
@@ -307,8 +313,6 @@ export default function Garment3dPage() {
     }
 
     setGarmentName(file.name);
-    setResultUrls([]);
-    setError(null);
 
     toast.info("正在上传服装图...");
     setIsUploadingGarment(true);
@@ -417,6 +421,14 @@ export default function Garment3dPage() {
     }
     const runGenCount = Math.min(Math.max(Math.round(Number(options.genCountOverride ?? genCount) || 1), 1), 4);
     const runExpectedCount = Math.max(1, Math.round(Number(options.expectedCountOverride ?? runGenCount) || runGenCount));
+    const retryResultIndex = normalizeRetryResultIndex(options.retryResultIndex);
+    const retryPreviousResultUrls = retryResultIndex !== null ? resultUrls : [];
+    const displayExpectedCount = getRetryDisplayExpectedCount({
+      retryIndex: retryResultIndex,
+      currentExpectedCount: activeResultExpectedCount,
+      previousUrls: retryPreviousResultUrls,
+      fallbackExpectedCount: runExpectedCount,
+    });
     const runTotalCost = costPerImage * runExpectedCount;
     if (credits !== null && credits < runTotalCost) {
       showInsufficientCreditsToast({ required: runTotalCost, balance: credits, onRecharge: () => router.push("/pricing") });
@@ -424,14 +436,14 @@ export default function Garment3dPage() {
     }
 
     setIsGenerating(true);
-    setRunningExpectedCount(runExpectedCount);
+    setRunningExpectedCount(displayExpectedCount);
     setProgress(12);
-    setResultUrls([]);
+    setResultUrls(buildRetryPendingResultUrls(retryPreviousResultUrls, retryResultIndex, displayExpectedCount));
     setError(null);
     if (options.toastMessage) toast.info(options.toastMessage);
 
     const provisionalTask = taskQueue.startTask({
-      expectedCount: runExpectedCount,
+      expectedCount: displayExpectedCount,
       inputThumbnails: taskInputThumbnails,
       progress: 12,
     });
@@ -482,35 +494,46 @@ export default function Garment3dPage() {
       }
 
       if (typeof data.generation_id === "string" && data.generation_id) {
+        const initialResultUrls = mergeRetryResultUrls(
+          retryPreviousResultUrls,
+          retryResultIndex,
+          Array.isArray(data.result_urls) ? data.result_urls : [],
+          displayExpectedCount
+        );
         const serverTask = taskQueue.replaceWithServerTask(activeTaskId, {
           id: data.generation_id,
-          expectedCount: runExpectedCount,
+          expectedCount: displayExpectedCount,
           inputThumbnails: taskInputThumbnails,
           status: data.status || "processing",
           progress: data.status === "completed" ? 100 : 25,
-          resultThumbnails: Array.isArray(data.result_urls) ? data.result_urls : [],
-          resultCount: Array.isArray(data.result_urls) ? data.result_urls.filter(Boolean).length : 0,
+          resultThumbnails: initialResultUrls,
+          resultCount: initialResultUrls.filter(Boolean).length,
         });
         activeTaskId = serverTask.id;
       }
 
       if (data.status === "completed") {
-        const finalUrls = Array.isArray(data.result_urls) ? data.result_urls : [];
+        const finalUrls = mergeRetryResultUrls(
+          retryPreviousResultUrls,
+          retryResultIndex,
+          Array.isArray(data.result_urls) ? data.result_urls : [],
+          displayExpectedCount
+        );
         latestTaskResultUrls = finalUrls;
         const finalResultCount = finalUrls.filter(Boolean).length;
         const completedError = data.error || "";
         setProgress(100);
         setResultUrls(finalUrls);
         taskQueue.markCompleted(activeTaskId, {
-          expectedCount: runExpectedCount,
+          expectedCount: displayExpectedCount,
           inputThumbnails: taskInputThumbnails,
           resultThumbnails: finalUrls,
           resultCount: finalResultCount,
           error: completedError ? summarizeGenerationError(completedError) : "",
         });
-        if (completedError || finalResultCount < runExpectedCount) {
+        if (completedError || finalResultCount < displayExpectedCount) {
           void refreshCredits();
-          toast.warning(`服装 3D 部分完成：已生成 ${finalResultCount}/${runExpectedCount} 张，失败图片灵点会自动退回`);
+          toast.warning(`服装 3D 部分完成：已生成 ${finalResultCount}/${displayExpectedCount} 张，失败图片灵点会自动退回`);
         } else {
           toast.success("服装转3D完成");
         }
@@ -529,7 +552,7 @@ export default function Garment3dPage() {
         if (!poll.ok) continue;
         const pollData = await poll.json();
         if (Array.isArray(pollData.result_urls) && pollData.result_urls.length) {
-          latestTaskResultUrls = pollData.result_urls;
+          latestTaskResultUrls = mergeRetryResultUrls(retryPreviousResultUrls, retryResultIndex, pollData.result_urls, displayExpectedCount);
           setResultUrls(latestTaskResultUrls);
         }
         const nextProgress = Number(pollData.progress);
@@ -538,7 +561,7 @@ export default function Garment3dPage() {
           setProgress(runningProgress);
         }
         taskQueue.markRunning(activeTaskId, {
-          expectedCount: runExpectedCount,
+          expectedCount: displayExpectedCount,
           inputThumbnails: taskInputThumbnails,
           resultThumbnails: latestTaskResultUrls,
           resultCount: latestTaskResultUrls.filter(Boolean).length,
@@ -547,7 +570,12 @@ export default function Garment3dPage() {
         });
 
         if (pollData.status === "completed") {
-          const finalUrls = Array.isArray(pollData.result_urls) ? pollData.result_urls : [];
+          const finalUrls = mergeRetryResultUrls(
+            retryPreviousResultUrls,
+            retryResultIndex,
+            Array.isArray(pollData.result_urls) ? pollData.result_urls : latestTaskResultUrls,
+            displayExpectedCount
+          );
           latestTaskResultUrls = finalUrls;
           const finalResultCount = finalUrls.filter(Boolean).length;
           const partialFailure = pollData.partial_failure && typeof pollData.partial_failure === "object"
@@ -557,15 +585,15 @@ export default function Garment3dPage() {
           setProgress(100);
           setResultUrls(finalUrls);
           taskQueue.markCompleted(activeTaskId, {
-            expectedCount: runExpectedCount,
+            expectedCount: displayExpectedCount,
             inputThumbnails: taskInputThumbnails,
             resultThumbnails: finalUrls,
             resultCount: finalResultCount,
             error: completedError ? summarizeGenerationError(completedError) : "",
           });
-          if (completedError || finalResultCount < runExpectedCount) {
+          if (completedError || finalResultCount < displayExpectedCount) {
             void refreshCredits();
-            toast.warning(`服装 3D 部分完成：已生成 ${finalResultCount}/${runExpectedCount} 张，失败图片灵点会自动退回`);
+            toast.warning(`服装 3D 部分完成：已生成 ${finalResultCount}/${displayExpectedCount} 张，失败图片灵点会自动退回`);
           } else {
             toast.success("服装转3D完成");
           }
@@ -580,7 +608,7 @@ export default function Garment3dPage() {
       const message = summarizeGenerationError(err instanceof Error ? err.message : "操作失败");
       setError(message);
       taskQueue.markFailed(activeTaskId, message, {
-        expectedCount: runExpectedCount,
+        expectedCount: displayExpectedCount,
         inputThumbnails: taskInputThumbnails,
         resultThumbnails: latestTaskResultUrls,
         resultCount: latestTaskResultUrls.filter(Boolean).length,
@@ -604,8 +632,6 @@ export default function Garment3dPage() {
     setGarmentName(demo.title);
     setGarmentType(demo.garmentType);
     setPromptOverride(null);
-    setResultUrls([]);
-    setError(null);
     setShowGarmentRules(false);
     setRulesPopoverStyle(null);
     toast.success(`已套用${demo.title}`);
@@ -834,13 +860,19 @@ export default function Garment3dPage() {
 
             <div className="mt-3">
               <h3 className="font-bold text-sm mb-3">展示质感</h3>
-              <StyleChoiceGrid
-                options={GARMENT_3D_DISPLAY_STYLES}
+              <StudioOptionGrid
+                options={GARMENT_3D_DISPLAY_STYLES.map((style) => ({
+                  value: style.value,
+                  label: style.label,
+                  description: style.desc,
+                }))}
                 value={displayStyle}
                 onChange={(nextStyle) => {
                   setDisplayStyle(nextStyle);
                   setPromptOverride(null);
                 }}
+                columns={2}
+                ariaLabel="展示质感"
               />
               <p className="mt-2 text-[11px] leading-relaxed text-gray-400">
                 质感档位只控制棚拍、体积和材质表现；图1服装款式、颜色、logo 和细节必须优先保留。
@@ -952,7 +984,7 @@ export default function Garment3dPage() {
         )}
 
         {(isGenerating || resultUrls.length > 0) && (
-          <div className="studio-result-stage min-h-[260px] sm:min-h-[360px] overflow-y-auto overflow-x-hidden p-4 pb-28 sm:p-6 sm:pb-28 lg:h-full animate-fade-in">
+          <div className="studio-result-stage min-h-[260px] sm:min-h-[360px] overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:h-full animate-fade-in">
             <div className="flex min-h-full items-start justify-start">
               <ResultImageGrid
                 urls={resultUrls}
@@ -970,18 +1002,6 @@ export default function Garment3dPage() {
                 missingFailureActionDisabled={retryDisabled}
                 onOpen={(_, index) => setPreviewIndex(index)}
               />
-            </div>
-            <div className="absolute bottom-0 left-0 right-0 border-t border-white/70 bg-white/78 backdrop-blur-2xl px-4 sm:px-6 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-[0_-18px_45px_rgba(15,23,42,0.08)]">
-              <span className="text-xs text-gray-400">服装转3D结果</span>
-              <RepairPromptPanel
-                kind="garment3d"
-                onRepair={handleRepairGenerate}
-                disabled={isGenerating}
-                className="max-w-2xl flex-1"
-              />
-              <button onClick={() => { setResultUrls([]); setProgress(0); }} className="px-4 py-1.5 rounded-full border text-xs font-medium hover:bg-gray-50">
-                重新创作 <ChevronRight className="inline w-3 h-3" />
-              </button>
             </div>
             <StudioImagePreviewDialog
               open={previewIndex !== null}

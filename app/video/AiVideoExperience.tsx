@@ -3,18 +3,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  ArrowRight,
   ChevronRight,
   Clapperboard,
-  FolderOpen,
   ImagePlus,
-  Loader2,
   Maximize2,
   Play,
   Sparkles,
-  Upload,
   Volume2,
-  Video,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -29,6 +24,7 @@ import { StudioGenerationCountSelector, StudioOptionGrid, StudioPromptTextarea, 
 import { StudioRunBar } from "@/components/studio/StudioRunBar";
 import { StudioSideDrawer } from "@/components/studio/StudioSideDrawer";
 import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
+import { StudioVideoUploadTile } from "@/components/studio/StudioVideoUploadTile";
 import { useStableFileDrag } from "@/components/studio/useStableFileDrag";
 import { useStudioAuth } from "@/components/studio/useStudioAuth";
 import type { TaskSelectionSession } from "@/components/studio/useTaskSelectionSession";
@@ -763,6 +759,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
                   <StudioUploadTile
                     title="上传首帧图片"
                     description="点击或拖拽图片至此"
+                    imageRequirement="主体清晰，比例和画面风格建议与尾帧一致。"
                     imageUrl={firstFrameUrl || null}
                     imageAlt="首帧图片"
                     isDragging={isDraggingFirstFrame}
@@ -794,6 +791,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
                   <StudioUploadTile
                     title="上传尾帧图片"
                     description="点击或拖拽图片至此"
+                    imageRequirement="主体清晰，比例和画面风格建议与首帧一致。"
                     imageUrl={lastFrameUrl || null}
                     imageAlt="尾帧图片"
                     isDragging={isDraggingLastFrame}
@@ -829,6 +827,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
             <StudioUploadTile
               title="上传图片"
               description="PNG、JPG 或 WebP，建议主体清晰、人物或服装完整。"
+              imageRequirement="主体完整、边缘清楚，人物或服装不要被遮挡。"
               imageUrl={imageUrl || null}
               imageAlt="图生视频输入图"
               isDragging={isDraggingImage}
@@ -863,6 +862,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
               <StudioUploadTile
                 title="上传模特图"
                 description="PNG、JPG 或 WebP，人物正面或半身更稳定。"
+                imageRequirement="人物主体完整，脸和服装清晰，单人画面最稳。"
                 imageUrl={modelImageUrl || null}
                 imageAlt="动作模仿模特图"
                 isDragging={isDraggingModelImage}
@@ -891,7 +891,9 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
                   });
                 }}
               />
-              <VideoUploadTile
+              <StudioVideoUploadTile
+                title="上传参考视频"
+                description="单镜头动作更稳，参考视频只作为动作来源。"
                 videoUrl={referenceVideoUrl}
                 isDragging={isDraggingVideo}
                 loading={isUploadingVideo}
@@ -899,6 +901,13 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
                 onLibraryClick={() => toast.info("作品库选择即将接入")}
                 onRemove={referenceVideoUrl ? removeReferenceVideo : undefined}
                 sourceLabel={selectedTemplate ? `示例参考视频 · ${selectedTemplate.title}` : undefined}
+                uploadLabel="点击上传"
+                libraryLabel="从作品库选择"
+                videoRequirement="MP4、MOV，最大100MB；避免剪辑、转场和多人同框。"
+                tips={[
+                  { label: "说明", text: "参考视频只提供动作节奏。" },
+                  { label: "视频要求", text: "单镜头、动作清楚、少转场。" },
+                ]}
               />
             </section>
           </>
@@ -923,7 +932,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
             <button
               type="button"
               onClick={applyFirstLastPromptSuggestion}
-              className="inline-flex h-8 items-center gap-1.5 rounded-full border border-blue-100 bg-blue-50 px-3 text-xs font-black text-blue-600 transition hover:bg-blue-100"
+              className="gradient-brand inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-xs font-black text-white shadow-[0_10px_24px_rgba(91,124,255,0.22)] transition hover:opacity-95"
             >
               <Sparkles className="h-3.5 w-3.5" />
               AI帮写
@@ -938,7 +947,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
               <button
                 type="button"
                 onClick={() => setTemplatePanelOpen(true)}
-                className="inline-flex items-center gap-1 text-xs font-black text-codex-faint transition hover:text-codex-ink"
+                className="inline-flex h-7 items-center gap-1 rounded-full border border-blue-100 bg-blue-50 px-2.5 text-xs font-black text-blue-600 transition hover:border-blue-200 hover:bg-blue-100"
               >
                 更多 <ChevronRight className="h-3.5 w-3.5" />
               </button>
@@ -1258,14 +1267,19 @@ function TemplateStrip({ selectedId, onSelect }: { selectedId: number | null; on
               aria-pressed={selected}
               className={`group relative h-[78px] w-[68px] shrink-0 overflow-hidden rounded-[12px] border bg-slate-100 transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 ${
                 selected || previewing
-                  ? "border-blue-500 shadow-[0_12px_28px_rgba(59,130,246,0.18)] ring-2 ring-blue-100"
+                  ? "border-blue-500 shadow-[0_12px_28px_rgba(59,130,246,0.2)] ring-2 ring-blue-100"
                   : "border-slate-200 hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-[0_10px_22px_rgba(15,23,42,0.10)]"
               }`}
               title={template.title}
             >
               <RawPreviewImage src={template.previewImage} alt={template.title} className="h-full w-full object-cover transition duration-200 group-hover:scale-[1.04]" />
               <span className={`absolute inset-0 transition ${previewing ? "bg-blue-500/10" : "bg-transparent"}`} />
-              {(selected || previewing) && <span className="absolute inset-x-2 bottom-1 h-1 rounded-full bg-blue-500" />}
+              {selected && (
+                <span className="absolute left-1.5 top-1.5 rounded-full bg-blue-600 px-1.5 py-0.5 text-[10px] font-black leading-none text-white shadow-sm">
+                  已选
+                </span>
+              )}
+              {(selected || previewing) && <span className="absolute inset-x-2 bottom-1 h-1.5 rounded-full bg-blue-500 shadow-[0_0_0_1px_rgba(255,255,255,0.8)]" />}
               {previewing && (
                 <span className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-white/92 text-blue-600 shadow-sm">
                   <Play className="ml-0.5 h-3 w-3 fill-current" />
@@ -1317,55 +1331,37 @@ function FirstLastFrameCanvas({ firstFrameUrl, lastFrameUrl }: { firstFrameUrl: 
   const generatedPreview = AI_VIDEO_ACTION_TEMPLATES[6]?.previewImage || AI_VIDEO_ACTION_TEMPLATES[0]?.previewImage || "";
 
   return (
-    <div className="flex h-full min-h-[520px] items-center justify-center bg-[#f6f7fb] px-5 py-10">
-      <div className="w-full max-w-5xl text-center">
-        <h2 className="text-2xl font-black tracking-normal text-slate-950 sm:text-3xl">
-          上传首帧和尾帧，生成过渡视频
-        </h2>
-        <p className="mx-auto mt-3 max-w-2xl text-sm font-semibold leading-6 text-slate-500">
-          首尾两张图决定开始和结束画面，描述控制中间动作、镜头和转场节奏。
-        </p>
-        <div className="mx-auto mt-10 flex max-w-4xl flex-col items-center justify-center gap-4 sm:flex-row sm:gap-5">
-          <FrameStep image={firstFrameUrl} label="首帧画面" placeholder="等待上传首帧" />
-          <FlowArrow />
-          <FrameStep image={lastFrameUrl} label="尾帧画面" placeholder="等待上传尾帧" />
-          <FlowArrow />
-          <FrameStep image={generatedPreview} label="生成视频" placeholder="生成结果" isResult />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function FlowArrow() {
-  return (
-    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--codex-accent)] text-white shadow-[0_14px_34px_rgba(91,124,255,0.32)] sm:h-11 sm:w-11">
-      <ArrowRight className="h-5 w-5 rotate-90 sm:rotate-0" />
-    </div>
-  );
-}
-
-function FrameStep({ image, label, placeholder, isResult }: { image: string; label: string; placeholder: string; isResult?: boolean }) {
-  return (
-    <div className="min-w-0">
-      <div className="relative mx-auto aspect-[3/4] w-[150px] overflow-hidden rounded-[12px] border border-slate-100 bg-white shadow-sm sm:w-[170px] lg:w-[190px]">
-        {image ? (
-          <RawPreviewImage src={image} alt={label} className="h-full w-full object-contain p-2" />
-        ) : (
-          <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-white text-codex-faint">
-            <ImagePlus className="h-7 w-7 text-blue-500" />
-            <span className="px-3 text-center text-xs font-black">{placeholder}</span>
-          </div>
-        )}
-        {isResult && (
-          <span className="absolute inset-0 flex items-center justify-center bg-slate-950/8">
-            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white/92 text-blue-600 shadow-[0_12px_28px_rgba(15,23,42,0.18)]">
-              <Play className="ml-0.5 h-5 w-5 fill-current" />
-            </span>
-          </span>
-        )}
-      </div>
-      <p className="mt-3 text-sm font-black text-slate-600">{label}</p>
+    <div className="studio-empty-stage flex h-full min-h-[520px] items-center justify-center px-4 py-8">
+      <PreviewGuide
+        title="上传首帧和尾帧，生成过渡视频"
+        subtitle="首尾两张图决定开始和结束画面，描述控制中间动作、镜头和转场节奏。"
+        icon={<ImagePlus className="h-9 w-9" />}
+        steps={[
+          {
+            title: "首帧画面",
+            desc: firstFrameUrl ? "已锁定开始画面。" : "先上传开始画面。",
+            imageSrc: firstFrameUrl || undefined,
+            imageAlt: "首帧画面",
+            imageFit: firstFrameUrl ? "contain" : undefined,
+            badge: "首帧",
+          },
+          {
+            title: "尾帧画面",
+            desc: lastFrameUrl ? "已锁定结束画面。" : "再上传结束画面。",
+            imageSrc: lastFrameUrl || undefined,
+            imageAlt: "尾帧画面",
+            imageFit: lastFrameUrl ? "contain" : undefined,
+            badge: "尾帧",
+          },
+          {
+            title: "生成视频",
+            desc: "按描述补齐中间动作。",
+            imageSrc: generatedPreview,
+            imageAlt: "生成视频预览",
+            badge: "生成视频",
+          },
+        ]}
+      />
     </div>
   );
 }
@@ -1482,114 +1478,37 @@ function TemplateCard({
   );
 }
 
-function VideoUploadTile({
-  videoUrl,
-  isDragging,
-  loading,
-  onUploadClick,
-  onLibraryClick,
-  onRemove,
-  sourceLabel,
-}: {
-  videoUrl: string;
-  isDragging: boolean;
-  loading: boolean;
-  onUploadClick: () => void;
-  onLibraryClick: () => void;
-  onRemove?: () => void;
-  sourceLabel?: string;
-}) {
-  return (
-    <div className={`studio-upload-tile ${isDragging ? "studio-upload-tile-dragging" : ""}`} aria-busy={loading ? "true" : undefined}>
-      <div className="studio-upload-tile-panel">
-        {videoUrl ? (
-          <div className="studio-upload-tile-main relative bg-black">
-            <video src={videoUrl} controls playsInline preload="metadata" className="h-full w-full object-contain" />
-            {sourceLabel && (
-              <span className="absolute left-3 top-3 rounded-full bg-black/70 px-2.5 py-1 text-[11px] font-black text-white shadow-sm">
-                {sourceLabel}
-              </span>
-            )}
-          </div>
-        ) : (
-          <div className="studio-upload-tile-empty" aria-label="上传参考视频">
-            <button type="button" onClick={onUploadClick} disabled={loading} className="studio-upload-tile-heading">
-              <span className="studio-upload-tile-icon">
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Video className="h-4 w-4" />}
-              </span>
-              <span className="studio-upload-tile-title">上传参考视频</span>
-            </button>
-            <span className="studio-upload-tile-description text-center">
-              点击上传或拖拽视频到这里
-            </span>
-            <p className="max-w-[310px] text-center text-xs font-bold leading-6 text-rose-500">
-              参考视频中如果有转场或剪切，可能导致生成失败。
-            </p>
-            <p className="max-w-[330px] text-center text-[12px] font-semibold leading-6 text-codex-faint">
-              支持 MP4、MOV，最大 100MB，宽高建议在 340px 到 3850px 之间。
-            </p>
-            <span className="studio-upload-tile-action-row">
-              <button type="button" onClick={onUploadClick} disabled={loading} className="studio-upload-tile-primary">
-                {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
-                {loading ? "上传中..." : "点击上传"}
-              </button>
-              <button type="button" onClick={onLibraryClick} disabled={loading} className="studio-upload-tile-secondary">
-                <FolderOpen className="h-3.5 w-3.5" />
-                从作品库选择
-              </button>
-            </span>
-          </div>
-        )}
-      </div>
-      {videoUrl && (
-        <div className="studio-upload-tile-actions">
-          {onRemove && (
-            <button type="button" onClick={onRemove} disabled={loading} className="studio-icon-button studio-icon-button-danger" aria-label="删除参考视频" title="删除参考视频">
-              <X className="h-3.5 w-3.5" />
-            </button>
-          )}
-        </div>
-      )}
-      {loading && (
-        <div className="pointer-events-none absolute inset-0 z-[5] flex items-center justify-center rounded-[inherit] bg-white/72 backdrop-blur-[2px]">
-          <div className="flex items-center gap-2 rounded-full border border-white/80 bg-white/95 px-3.5 py-2 text-xs font-black text-slate-700 shadow-[0_14px_36px_rgba(15,23,42,0.16)]">
-            <Loader2 className="h-4 w-4 animate-spin text-[var(--codex-accent)]" />
-            <span>上传中...</span>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
 function MotionControlCanvas() {
   return (
-    <div className="flex h-full items-center justify-center bg-[#f6f6ff] px-6 py-10">
-      <div className="w-full max-w-5xl text-center">
-        <h2 className="text-4xl font-black tracking-normal text-slate-950 sm:text-5xl">动作模仿</h2>
-        <p className="mt-5 text-lg font-semibold text-slate-500">上传模特图和参考视频，生成同款动作的视频结果。</p>
-        <div className="mx-auto mt-14 rounded-[28px] bg-white px-8 py-9 shadow-[0_28px_90px_rgba(91,124,255,0.16)]">
-          <div className="grid grid-cols-[1fr_1fr_auto_1fr] items-center gap-6">
-            <MotionStep image={AI_VIDEO_ACTION_TEMPLATES[0]?.previewImage || ""} label="模特图" />
-            <MotionStep image={AI_VIDEO_ACTION_TEMPLATES[8]?.previewImage || ""} label="参考视频" />
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[var(--codex-accent)] text-white shadow-[0_18px_48px_rgba(91,124,255,0.34)]">
-              <ArrowRight className="h-8 w-8" />
-            </div>
-            <MotionStep image={AI_VIDEO_ACTION_TEMPLATES[6]?.previewImage || ""} label="生成视频" />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function MotionStep({ image, label }: { image: string; label: string }) {
-  return (
-    <div className="min-w-0">
-      <div className="mx-auto aspect-[3/4] w-full max-w-[180px] overflow-hidden rounded-[16px] border border-slate-100 bg-slate-50 shadow-sm">
-        <RawPreviewImage src={image} alt={label} className="h-full w-full object-cover" />
-      </div>
-      <p className="mt-4 text-base font-black text-slate-600">{label}</p>
+    <div className="studio-empty-stage flex h-full min-h-[520px] items-center justify-center px-4 py-8">
+      <PreviewGuide
+        title="动作模仿"
+        subtitle="上传模特图和参考视频，复刻参考视频的动作节奏，生成同款动作结果。"
+        icon={<Clapperboard className="h-9 w-9" />}
+        steps={[
+          {
+            title: "上传模特图",
+            desc: "人物和服装作为硬参考。",
+            imageSrc: AI_VIDEO_ACTION_TEMPLATES[0]?.previewImage || "",
+            imageAlt: "动作模仿模特图",
+            badge: "模特图",
+          },
+          {
+            title: "上传参考视频",
+            desc: "参考动作节奏和镜头方向。",
+            imageSrc: AI_VIDEO_ACTION_TEMPLATES[8]?.previewImage || "",
+            imageAlt: "动作参考视频",
+            badge: "参考视频",
+          },
+          {
+            title: "生成视频",
+            desc: "输出同款动作成片。",
+            imageSrc: AI_VIDEO_ACTION_TEMPLATES[6]?.previewImage || "",
+            imageAlt: "生成视频",
+            badge: "生成视频",
+          },
+        ]}
+      />
     </div>
   );
 }

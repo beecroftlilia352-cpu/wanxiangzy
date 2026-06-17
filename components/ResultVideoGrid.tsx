@@ -33,7 +33,8 @@ export function ResultVideoGrid({
 }: ResultVideoGridProps) {
   const count = Math.max(urls.length, expectedCount || 0, 1);
   const slots = Array.from({ length: count }, (_, index) => urls[index] || null);
-  const running = isGenerating || statusGroup === "running" || statusGroup === "queued";
+  const completedSlotCount = slots.filter(Boolean).length;
+  const running = getVideoGridRunningState(statusGroup, isGenerating, completedSlotCount >= count);
   const gridClassName = getVideoGridClass(count);
 
   return (
@@ -79,6 +80,16 @@ function getVideoGridClass(count: number) {
   if (count <= 1) return "max-w-[min(520px,100%)] grid-cols-1";
   if (count === 2) return "max-w-[min(760px,100%)] grid-cols-1 sm:grid-cols-2";
   return "max-w-[min(1040px,100%)] grid-cols-1 sm:grid-cols-2 xl:grid-cols-3";
+}
+
+function getVideoGridRunningState(
+  statusGroup: TaskStatusGroup | undefined,
+  isGenerating: boolean | undefined,
+  allExpectedResultsReady: boolean
+) {
+  if (allExpectedResultsReady || statusGroup === "completed" || statusGroup === "failed") return false;
+  if (statusGroup === "running" || statusGroup === "queued") return true;
+  return Boolean(isGenerating);
 }
 
 function VideoResultCard({

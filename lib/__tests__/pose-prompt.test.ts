@@ -315,9 +315,26 @@ describe("pose prompt handling", () => {
       posePlan,
     });
 
-    expect(enforced).toContain("姿势1：正面服装展示方向");
-    expect(enforced).toContain("姿势2：侧身或三分之二侧身展示方向");
+    expect(enforced).toContain("姿势1：正面站定，肩颈放松，重心轻微偏向一侧");
+    expect(enforced).toContain("姿势2：身体转为三分之二侧身");
+    expect(enforced).toContain("保持商业模特的干净亲和感");
     expect(enforced).not.toContain("姿势1：旧姿势。");
+  });
+
+  it("uses dynamic grid layout wording for more than four planned poses", () => {
+    const posePlan = buildFallbackPosePlan({
+      outputMode: "grid",
+      angleCounts: { front: 2, side: 2, back: 1, detail: 1 },
+    });
+
+    const enforced = enforcePosePromptRequirements("保持图1人物和服装，生成姿势变化。", {
+      posePlan,
+      outputMode: "grid",
+    });
+
+    expect(enforced).toContain("6 个姿势自动布局");
+    expect(enforced).toContain("姿势1到姿势6");
+    expect(enforced).not.toContain("2x2 四宫格");
   });
 
   it("uses only the current pose plan slot for separate prompts", () => {

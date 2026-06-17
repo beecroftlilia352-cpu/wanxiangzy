@@ -1,15 +1,11 @@
 "use client";
 
-import { CirclePlus, Eye, FolderOpen, Loader2, Upload, X, ZoomIn } from "lucide-react";
+import { CirclePlus, FolderOpen, Loader2, Upload, X, ZoomIn } from "lucide-react";
 import { useRef, useState, type DragEvent, type ReactNode } from "react";
 import { getImageVariantUrl } from "@/lib/image-variants";
 import type { StableFileDragContext } from "@/components/studio/useStableFileDrag";
-
-export type StudioUploadTileExample = {
-  url: string;
-  title: string;
-  previewUrls?: ReadonlyArray<string>;
-};
+import { StudioUploadExamples, type StudioUploadTileExample } from "@/components/studio/StudioUploadExamples";
+import { StudioUploadTips, buildStudioUploadTips, type StudioUploadTip } from "@/components/studio/StudioUploadTips";
 
 export type StudioUploadTileProps = {
   title: string;
@@ -30,6 +26,8 @@ export type StudioUploadTileProps = {
   loadingLabel?: string;
   supportBadge?: string;
   footnote?: string;
+  imageRequirement?: string;
+  tips?: StudioUploadTip[];
   examples?: {
     label?: string;
     images: StudioUploadTileExample[];
@@ -63,17 +61,20 @@ export function StudioUploadTile({
   loadingLabel = "上传中...",
   supportBadge,
   footnote,
+  imageRequirement,
+  tips,
   examples,
   tipsAction,
   actions,
 }: StudioUploadTileProps) {
   const activate = imageUrl && onPreview ? onPreview : onUploadClick;
   const hasExamples = Boolean(examples?.images.length);
-  const [examplesHidden, setExamplesHidden] = useState(false);
   const [isFileOver, setIsFileOver] = useState(false);
   const dragDepthRef = useRef(0);
-  const exampleLabel = examples?.label || "试一试";
   const tileDragging = isDragging || isFileOver;
+  const uploadTips = tips?.length
+    ? tips
+    : buildStudioUploadTips({ title, description, footnote, imageRequirement });
 
   const finishTileDrag = () => {
     dragDepthRef.current = 0;
@@ -177,73 +178,19 @@ export function StudioUploadTile({
               )}
             </span>
 
-            {hasExamples && examplesHidden && (
-              <button
-                type="button"
-                className="studio-upload-tile-examples-toggle"
-                onClick={() => setExamplesHidden(false)}
+            {hasExamples && (
+              <StudioUploadExamples
+                label={examples?.label}
+                images={examples?.images || []}
                 disabled={disabled || loading || examples?.disabled}
-                aria-label="查看推荐示例"
-              >
-                <Eye className="h-3.5 w-3.5" />
-                查看推荐示例
-              </button>
-            )}
-
-            {hasExamples && !examplesHidden && (
-              <div className="studio-upload-tile-examples">
-                <span className="studio-upload-tile-example-meta">
-                  <span className="studio-upload-tile-example-label">{exampleLabel}</span>
-                  <button
-                    type="button"
-                    className="studio-upload-tile-example-eye"
-                    onClick={() => setExamplesHidden(true)}
-                    disabled={disabled || loading || examples?.disabled}
-                    aria-label={`隐藏${exampleLabel}`}
-                    title={`隐藏${exampleLabel}`}
-                  >
-                    <Eye className="h-3 w-3" />
-                  </button>
-                </span>
-                <div className="studio-upload-tile-example-list studio-scrollbar-hide">
-                  {examples?.images.map((image) => {
-                    const previewUrls = image.previewUrls?.length ? image.previewUrls : [image.url];
-                    return (
-                      <button
-                        key={`${image.title}-${image.url}`}
-                        type="button"
-                        disabled={disabled || loading || examples.disabled}
-                        onClick={() => examples.onSelect(image)}
-                        className={`studio-upload-tile-example-thumb ${previewUrls.length > 1 ? "studio-upload-tile-example-thumb-multi" : ""}`}
-                        title={image.title}
-                        aria-label={`套用${image.title}`}
-                      >
-                        {previewUrls.slice(0, 4).map((url, index) => (
-                          <span key={`${url}-${index}`} className="studio-upload-tile-example-cell">
-                            <img src={getImageVariantUrl(url, "thumb")} alt={previewUrls.length > 1 ? `${image.title}${index + 1}` : image.title} />
-                          </span>
-                        ))}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+                onSelect={(image) => examples?.onSelect(image)}
+              />
             )}
           </div>
         )}
       </div>
 
-      {footnote && (
-        <div className="studio-upload-tile-tips">
-          <span className="studio-upload-tile-tips-label">提示</span>
-          <span className="studio-upload-tile-tips-text" title={footnote}>{footnote}</span>
-          {tipsAction && (
-            <span className="studio-upload-tile-tips-action">
-              {tipsAction}
-            </span>
-          )}
-        </div>
-      )}
+      <StudioUploadTips tips={uploadTips} action={tipsAction} />
 
       {imageUrl && (
         <div className="studio-upload-tile-actions">

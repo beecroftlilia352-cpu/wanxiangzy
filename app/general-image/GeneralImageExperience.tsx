@@ -37,6 +37,12 @@ import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@
 import { showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
 import { createGenericImagePreviewSession, takeSourceImageFromLocation, type ImagePreviewAction } from "@/lib/studio-image-preview";
 import { FAILED_RETRY_NOTICE, buildFailedTaskDetail, buildPartialFailureDetail, summarizeGenerationError } from "@/lib/studio-generation-feedback";
+import {
+  buildRetryPendingResultUrls,
+  getRetryDisplayExpectedCount,
+  mergeRetryResultUrls,
+  normalizeRetryResultIndex,
+} from "@/lib/result-slot-retry";
 
 type GeneralImageMode = "text-to-image" | "image-to-image";
 
@@ -57,6 +63,7 @@ type GeneralImageHistoryPayload = Extract<HistoryJobPayload, { kind: "generalIma
 type GeneralImageGenerateOptions = {
   genCountOverride?: number;
   expectedCountOverride?: number;
+  retryResultIndex?: number;
   toastMessage?: string;
 };
 
@@ -179,12 +186,13 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     failedCount: activeResultExpectedCount - displayedResultUrls.length,
   });
   const retryDisabled = isGenerating;
-  function handleRetryFailedResult() {
+  function handleRetryFailedResult(index: number) {
     if (retryDisabled) return;
     void generate({
       genCountOverride: 1,
       expectedCountOverride: 1,
-      toastMessage: "正在重试失败图片，失败图已退款，本次按 1 张重新生成...",
+      retryResultIndex: index,
+      toastMessage: `正在补位重试第 ${index + 1} 张，失败图已退款，完成后会回填到当前结果中...`,
     });
   }
   const previewSession = useMemo(
@@ -340,7 +348,6 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     if (selected.length > limited.length) toast.info("已自动保留前 8 张参考图");
 
     setIsUploading(true);
-    resetOutput();
     toast.info(`正在上传 ${limited.length} 张参考图...`);
     try {
       const results = await Promise.allSettled(limited.map((file) => uploadImage(file)));
@@ -466,7 +473,6 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     if (!imagePromptText.trim()) return toast.error("请先生成提示词");
     setPrompt(imagePromptText.trim().slice(0, 4000));
     setShowImagePromptModal(false);
-    resetOutput();
     toast.success("已应用到文本描述");
   }
 
@@ -480,6 +486,14 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     if (isImageMode && !referenceImages.length) return toast.error("请先上传参考图");
     const runGenCount = Math.min(Math.max(Math.round(Number(options.genCountOverride ?? genCount) || 1), 1), 4);
     const runExpectedCount = Math.max(1, Math.round(Number(options.expectedCountOverride ?? runGenCount) || runGenCount));
+    const retryResultIndex = normalizeRetryResultIndex(options.retryResultIndex);
+    const retryPreviousResultUrls = retryResultIndex !== null ? resultUrls : [];
+    const displayExpectedCount = getRetryDisplayExpectedCount({
+      retryIndex: retryResultIndex,
+      currentExpectedCount: activeResultExpectedCount,
+      previousUrls: retryPreviousResultUrls,
+      fallbackExpectedCount: runExpectedCount,
+    });
     const runTotalCost = costPerImage * runExpectedCount;
     if (credits !== null && credits < runTotalCost) {
       showInsufficientCreditsToast({ required: runTotalCost, balance: credits, onRecharge: () => router.push("/pricing") });
@@ -490,10 +504,10 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     setIsGenerating(true);
     setProgress(8);
     setError("");
-    setResultUrls([]);
+    setResultUrls(buildRetryPendingResultUrls(retryPreviousResultUrls, retryResultIndex, displayExpectedCount));
     if (options.toastMessage) toast.info(options.toastMessage);
     const provisionalTask = taskQueue.startTask({
-      expectedCount: runExpectedCount,
+      expectedCount: displayExpectedCount,
       inputThumbnails: taskInputThumbnails,
       progress: 8,
     });
@@ -539,7 +553,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
       if (typeof data.generation_id === "string" && data.generation_id) {
         const serverTask = taskQueue.replaceWithServerTask(activeTaskId, {
           id: data.generation_id,
-          expectedCount: runExpectedCount,
+          expectedCount: displayExpectedCount,
           inputThumbnails: taskInputThumbnails,
           status: data.status || "processing",
           progress: 12,
@@ -557,11 +571,11 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
         const runningProgress = Number.isFinite(nextProgress) ? Math.min(Math.max(Math.round(nextProgress), 0), 99) : 25;
         if (Number.isFinite(nextProgress)) setProgress(runningProgress);
         if (Array.isArray(state.result_urls) && state.result_urls.length) {
-          latestTaskResultUrls = state.result_urls;
+          latestTaskResultUrls = mergeRetryResultUrls(retryPreviousResultUrls, retryResultIndex, state.result_urls, displayExpectedCount);
           setResultUrls(latestTaskResultUrls);
         }
         const runningTask = taskQueue.markRunning(activeTaskId, {
-          expectedCount: runExpectedCount,
+          expectedCount: displayExpectedCount,
           inputThumbnails: taskInputThumbnails,
           resultThumbnails: latestTaskResultUrls,
           resultCount: latestTaskResultUrls.filter(Boolean).length,
@@ -570,7 +584,12 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
         });
         setActiveQueueTask(runningTask);
         if (state.status === "completed") {
-          const finalUrls = Array.isArray(state.result_urls) ? state.result_urls : [];
+          const finalUrls = mergeRetryResultUrls(
+            retryPreviousResultUrls,
+            retryResultIndex,
+            Array.isArray(state.result_urls) ? state.result_urls : latestTaskResultUrls,
+            displayExpectedCount
+          );
           latestTaskResultUrls = finalUrls;
           const finalResultCount = finalUrls.filter(Boolean).length;
           const partialFailure = state.partial_failure && typeof state.partial_failure === "object"
@@ -580,7 +599,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
           setProgress(100);
           setResultUrls(finalUrls);
           const completedTask = taskQueue.markCompleted(activeTaskId, {
-            expectedCount: runExpectedCount,
+            expectedCount: displayExpectedCount,
             inputThumbnails: taskInputThumbnails,
             resultThumbnails: finalUrls,
             resultCount: finalResultCount,
@@ -588,9 +607,9 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
           });
           setActiveQueueTask(completedTask);
           setIsGenerating(false);
-          if (completedError || finalResultCount < runExpectedCount) {
+          if (completedError || finalResultCount < displayExpectedCount) {
             void refreshCredits();
-            toast.warning(`${modeMeta.title}部分完成：已生成 ${finalResultCount}/${runExpectedCount} 张，失败图片灵点会自动退回`);
+            toast.warning(`${modeMeta.title}部分完成：已生成 ${finalResultCount}/${displayExpectedCount} 张，失败图片灵点会自动退回`);
           } else {
             toast.success(`${modeMeta.title}生成完成`);
           }
@@ -603,7 +622,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
       const message = summarizeGenerationError(err instanceof Error ? err.message : "生成失败");
       setError(message);
       const failedTask = taskQueue.markFailed(activeTaskId, message, {
-        expectedCount: runExpectedCount,
+        expectedCount: displayExpectedCount,
         inputThumbnails: taskInputThumbnails,
         resultThumbnails: latestTaskResultUrls,
         resultCount: latestTaskResultUrls.filter(Boolean).length,
@@ -624,7 +643,6 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
   }
 
   async function handleCompletedTask(item: TaskQueueItem, session: TaskSelectionSession) {
-    setActiveQueueTask(item);
     try {
       const detail = await fetchHistoryApplyDetail(item.id, "generalImage", session.signal);
       if (!session.isCurrent()) return true;
@@ -686,7 +704,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
                     <div className="mt-3">
                       <div className="mb-2 flex items-center justify-between text-xs">
                         <span className="font-medium text-slate-500">上传顺序会标记为图1、图2、图3</span>
-                        <button type="button" onClick={() => { setReferenceImages([]); resetOutput(); }} className="inline-flex items-center gap-1 text-slate-400 hover:text-red-500">
+                        <button type="button" onClick={() => { setReferenceImages([]); }} className="inline-flex items-center gap-1 text-slate-400 hover:text-red-500">
                           <Trash2 className="h-3.5 w-3.5" /> 清空
                         </button>
                       </div>
@@ -697,7 +715,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
                             <span className="absolute left-1 top-1 rounded bg-white/92 px-1.5 py-0.5 text-[10px] font-black text-slate-500">图{index + 1}</span>
                             <button
                               type="button"
-                              onClick={() => { setReferenceImages((prev) => prev.filter((image) => image.id !== item.id)); resetOutput(); }}
+                              onClick={() => { setReferenceImages((prev) => prev.filter((image) => image.id !== item.id)); }}
                               className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-slate-900/80 text-white opacity-0 transition group-hover:opacity-100"
                               aria-label={`移除图${index + 1}`}
                             >
@@ -717,7 +735,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
             <StudioPromptTextarea
               title="文本描述"
               value={prompt}
-              onChange={(event) => { setPrompt(event.target.value.slice(0, 4000)); resetOutput(); }}
+              onChange={(event) => { setPrompt(event.target.value.slice(0, 4000)); }}
               placeholder={isImageMode ? IMAGE_PROMPT_PLACEHOLDER : "输入文本描述内容，如：1个中国女性模特身着丝绸质感粉色连衣裙，妆容柔和高级，背景为玫瑰金纯色，整体氛围浪漫而精致"}
               rows={6}
               className="studio-prompt-textarea-compact"
@@ -860,16 +878,6 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
                 missingFailureActionDisabled={retryDisabled}
                 onOpen={(_, index) => setPreviewIndex(index)}
               />
-            </div>
-            <div className="mt-4 flex justify-center gap-2">
-              <button
-                type="button"
-                onClick={resetOutput}
-                className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-600 hover:border-[rgba(91,124,255,0.3)] hover:text-[var(--codex-accent)]"
-              >
-                <RefreshCw className="h-3.5 w-3.5" />
-                重新创作
-              </button>
             </div>
             <StudioImagePreviewDialog
               open={previewIndex !== null}

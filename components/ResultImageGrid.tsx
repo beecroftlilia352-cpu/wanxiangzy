@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { Clapperboard, Download, Eye, Loader2, RotateCcw, WandSparkles, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -54,6 +54,16 @@ function getTileStyle(): CSSProperties {
   return { aspectRatio: "3 / 4" };
 }
 
+function getResultGridRunningState(
+  statusGroup: TaskStatusGroup | undefined,
+  isGenerating: boolean | undefined,
+  allExpectedResultsReady: boolean
+) {
+  if (allExpectedResultsReady || statusGroup === "completed" || statusGroup === "failed") return false;
+  if (statusGroup === "running" || statusGroup === "queued") return true;
+  return Boolean(isGenerating);
+}
+
 export function ResultImageGrid({
   urls,
   filenamePrefix,
@@ -81,11 +91,48 @@ export function ResultImageGrid({
   const count = Math.max(urls.length, expectedCount || 0, 1);
   const isSingle = count <= 1;
   const slots = Array.from({ length: count }, (_, index) => urls[index] || null);
+  const completedSlotCount = slots.filter(Boolean).length;
+  const allExpectedResultsReady = completedSlotCount >= count;
+  const incomingReferenceItems = useMemo(
+    () => buildReferenceItems(inputReferences, inputThumbnails),
+    [inputReferences, inputThumbnails]
+  );
+  const activeTaskSet = variant === "task" && (Boolean(isGenerating) || urls.length > 0 || Boolean(statusGroup));
+  const referenceSnapshotKey = useMemo(
+    () => [
+      createdAt || "",
+      renderKey,
+      urls.filter(Boolean).join("|"),
+      expectedCount || "",
+      statusGroup || "",
+    ].join("::"),
+    [createdAt, expectedCount, renderKey, statusGroup, urls]
+  );
+  const previousGeneratingRef = useRef(false);
+  const [referenceSnapshot, setReferenceSnapshot] = useState<{ key: string; items: ResultInputReference[] } | null>(null);
+
+  useEffect(() => {
+    const startedRun = Boolean(isGenerating && !previousGeneratingRef.current);
+    previousGeneratingRef.current = Boolean(isGenerating);
+
+    if (!activeTaskSet) {
+      setReferenceSnapshot(null);
+      return;
+    }
+
+    setReferenceSnapshot((current) => {
+      if (startedRun || !current || (!isGenerating && current.key !== referenceSnapshotKey)) {
+        return { key: referenceSnapshotKey, items: incomingReferenceItems };
+      }
+      return current;
+    });
+  }, [activeTaskSet, incomingReferenceItems, isGenerating, referenceSnapshotKey]);
 
   if (variant === "task") {
-    const running = isGenerating || statusGroup === "running" || statusGroup === "queued";
+    const running = getResultGridRunningState(statusGroup, isGenerating, allExpectedResultsReady);
     const failed = statusGroup === "failed";
-    const referenceItems = buildReferenceItems(inputReferences, inputThumbnails).slice(0, 4);
+    const calmPendingMotion = running && count >= 6;
+    const referenceItems = (referenceSnapshot?.items.length ? referenceSnapshot.items : incomingReferenceItems).slice(0, 4);
     const timestamp = formatTaskTimestamp(createdAt) || formatTaskTimestamp(fallbackCreatedAt);
 
     return (
@@ -109,7 +156,7 @@ export function ResultImageGrid({
 
           <div className={`grid min-w-0 flex-1 gap-3 ${getGridClass(count)}`}>
             {slots.map((url, index) => {
-              const missingFailed = markMissingAsFailed && !url && !running;
+              const missingFailed = (markMissingAsFailed || statusGroup === "completed") && !url && !running;
               return (
                 <ResultCard
                   key={`${renderKey}-${index}`}
@@ -118,6 +165,7 @@ export function ResultImageGrid({
                   count={count}
                   failed={failed || missingFailed}
                   running={running}
+                  calmPendingMotion={calmPendingMotion}
                   filenamePrefix={filenamePrefix}
                   extension={extension}
                   imageAltPrefix={imageAltPrefix}
@@ -136,28 +184,34 @@ export function ResultImageGrid({
     );
   }
 
+  const running = getResultGridRunningState(statusGroup, isGenerating, allExpectedResultsReady);
+
   return (
     <div className={`studio-result-card-grid mx-auto grid w-full gap-3 sm:gap-4 ${getGridClass(count)}`}>
-      {slots.map((url, index) => (
-        <ResultCard
-          key={`${renderKey}-${index}`}
-          url={url}
-          index={index}
-          count={count}
-          failed={markMissingAsFailed && !url && !isGenerating}
-          running={Boolean(isGenerating)}
-          filenamePrefix={filenamePrefix}
-          extension={extension}
-          imageAltPrefix={imageAltPrefix}
-          onOpen={onOpen}
-          isSingle={isSingle}
-          failureLabel={markMissingAsFailed && !url && !isGenerating ? missingFailureLabel : undefined}
-          failureDetail={markMissingAsFailed && !url && !isGenerating ? missingFailureDetail : undefined}
-          failureActionLabel={markMissingAsFailed && !url && !isGenerating ? missingFailureActionLabel : undefined}
-          onFailureAction={markMissingAsFailed && !url && !isGenerating && onMissingFailureAction ? () => onMissingFailureAction(index) : undefined}
-          failureActionDisabled={missingFailureActionDisabled}
-        />
-      ))}
+      {slots.map((url, index) => {
+        const missingFailed = (markMissingAsFailed || statusGroup === "completed") && !url && !running;
+        return (
+          <ResultCard
+            key={`${renderKey}-${index}`}
+            url={url}
+            index={index}
+            count={count}
+            failed={statusGroup === "failed" || missingFailed}
+            running={running}
+            calmPendingMotion={Boolean(running && count >= 6)}
+            filenamePrefix={filenamePrefix}
+            extension={extension}
+            imageAltPrefix={imageAltPrefix}
+            onOpen={onOpen}
+            isSingle={isSingle}
+            failureLabel={statusGroup === "failed" ? failureLabel : missingFailed ? missingFailureLabel : undefined}
+            failureDetail={statusGroup === "failed" ? failureDetail : missingFailed ? missingFailureDetail : undefined}
+            failureActionLabel={missingFailed ? missingFailureActionLabel : undefined}
+            onFailureAction={missingFailed && onMissingFailureAction ? () => onMissingFailureAction(index) : undefined}
+            failureActionDisabled={missingFailureActionDisabled}
+          />
+        );
+      })}
     </div>
   );
 }
@@ -175,28 +229,13 @@ function buildReferenceItems(inputReferences: ResultInputReference[], inputThumb
     .map((url, index) => ({ url, label: `参考图${index + 1}` }));
 }
 
-function ResultCard({
-  url,
-  index,
-  count,
-  failed,
-  running,
-  filenamePrefix,
-  extension,
-  imageAltPrefix,
-  onOpen,
-  isSingle,
-  failureLabel,
-  failureDetail,
-  failureActionLabel,
-  onFailureAction,
-  failureActionDisabled,
-}: {
+type ResultCardProps = {
   url: string | null;
   index: number;
   count: number;
   failed: boolean;
   running: boolean;
+  calmPendingMotion?: boolean;
   filenamePrefix: string;
   extension: string;
   imageAltPrefix: string;
@@ -207,7 +246,26 @@ function ResultCard({
   failureActionLabel?: string;
   onFailureAction?: () => void;
   failureActionDisabled?: boolean;
-}) {
+};
+
+const ResultCard = memo(function ResultCard({
+  url,
+  index,
+  count,
+  failed,
+  running,
+  calmPendingMotion,
+  filenamePrefix,
+  extension,
+  imageAltPrefix,
+  onOpen,
+  isSingle,
+  failureLabel,
+  failureDetail,
+  failureActionLabel,
+  onFailureAction,
+  failureActionDisabled,
+}: ResultCardProps) {
   const router = useRouter();
   const openPreview = () => {
     if (url) onOpen(url, index);
@@ -245,13 +303,14 @@ function ResultCard({
         <div className="flex items-center justify-center" style={getTileStyle()}>
           {url ? (
             <StableResultImage
-              src={getImageVariantUrl(url, count <= 1 ? "preview" : "card")}
+              src={getImageVariantUrl(url, count <= 1 ? "detail" : "card")}
               alt={`${imageAltPrefix} ${index + 1}`}
             />
           ) : (
             <PendingResultSlot
               failed={failed}
               running={running}
+              calmMotion={calmPendingMotion}
               index={index}
               failureLabel={failureLabel}
               failureDetail={failureDetail}
@@ -287,6 +346,27 @@ function ResultCard({
         )}
       </div>
     </TooltipProvider>
+  );
+}, areResultCardPropsEqual);
+
+function areResultCardPropsEqual(prev: ResultCardProps, next: ResultCardProps) {
+  return (
+    prev.url === next.url &&
+    prev.index === next.index &&
+    prev.count === next.count &&
+    prev.failed === next.failed &&
+    prev.running === next.running &&
+    prev.calmPendingMotion === next.calmPendingMotion &&
+    prev.filenamePrefix === next.filenamePrefix &&
+    prev.extension === next.extension &&
+    prev.imageAltPrefix === next.imageAltPrefix &&
+    prev.onOpen === next.onOpen &&
+    prev.isSingle === next.isSingle &&
+    prev.failureLabel === next.failureLabel &&
+    prev.failureDetail === next.failureDetail &&
+    prev.failureActionLabel === next.failureActionLabel &&
+    prev.onFailureAction === next.onFailureAction &&
+    prev.failureActionDisabled === next.failureActionDisabled
   );
 }
 
@@ -357,6 +437,7 @@ function StableResultImage({ src, alt }: { src: string; alt: string }) {
 function PendingResultSlot({
   failed = false,
   running = false,
+  calmMotion = false,
   index,
   failureLabel,
   failureDetail,
@@ -366,6 +447,7 @@ function PendingResultSlot({
 }: {
   failed?: boolean;
   running?: boolean;
+  calmMotion?: boolean;
   index: number;
   failureLabel?: string;
   failureDetail?: string;
@@ -374,8 +456,8 @@ function PendingResultSlot({
   failureActionDisabled?: boolean;
 }) {
   return (
-    <div className={`gen-card studio-result-pending-card flex h-full w-full flex-col items-center justify-center gap-2 ${failed ? "studio-result-pending-card-failed" : ""}`}>
-      {!failed && <StudioHomeHeroLoadingBackdrop />}
+    <div className={`gen-card studio-result-pending-card flex h-full w-full flex-col items-center justify-center gap-2 ${failed ? "studio-result-pending-card-failed" : ""} ${calmMotion ? "studio-result-pending-card-calm" : ""}`}>
+      {!failed && !calmMotion && <StudioHomeHeroLoadingBackdrop />}
       <div className="relative z-[1] flex h-14 w-14 items-center justify-center">
         <div className="gen-ring absolute inset-0 rounded-full bg-[#aeb8ff]/45" />
         <div className="relative flex h-14 w-14 items-center justify-center rounded-full border border-white/16 bg-white/10 shadow-lg backdrop-blur-md">

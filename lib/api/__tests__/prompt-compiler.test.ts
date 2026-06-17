@@ -159,7 +159,7 @@ describe("compileImagePromptForModel", () => {
       model: "nano-banana-pro",
       prompt: shortPrompt,
     });
-    expect(result).toContain("四宫格");
+    expect(result).toContain("姿势裂变");
     expect(result).toContain("photorealistic");
     expect(result.length).toBeLessThanOrEqual(1900);
   });
@@ -367,11 +367,28 @@ describe("compileImagePromptForModel", () => {
 
     expect(result).toContain("服装轻量细节恢复");
     expect(result).toContain("材质");
-    expect(result).toContain("细密纹理安全");
+    expect(result).toMatch(/细密纹理安全|Fine textile safety/);
     expect(result).toContain("不要磨皮");
     expect(result).not.toContain("8K ultra-detailed");
     expect(result).not.toContain("RAW photo quality");
     expect(result).not.toContain("high-frequency garment texture");
+    expect(result.length).toBeLessThanOrEqual(2300);
+  });
+
+  it("keeps face-swap hair and skin mode plus anti-westernization signal when prompts are compressed", () => {
+    const result = compileImagePromptForModel({
+      kind: "faceSwap",
+      model: "nano-banana-2",
+      prompt: buildFaceSwapPrompt("目标脸不要被欧美化，服装和背景不变", false, "featuresHairSkin"),
+    });
+
+    expect(result).toContain("facial identity + hairstyle + skin tone");
+    expect(result).toContain("westernize");
+    expect(result).toContain("ethnicity-specific facial geometry");
+    expect(result).toContain("换脸范围");
+    expect(result).toContain("图1身体、姿势、服装、背景");
+    expect(result).not.toContain("8K ultra-detailed");
+    expect(result).not.toContain("RAW photo quality");
     expect(result.length).toBeLessThanOrEqual(2300);
   });
 

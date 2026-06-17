@@ -151,8 +151,6 @@ async function runClothingAnalysis(input: {
       rawResponse = result.raw;
       analysis = applyUserRoleToClothingAnalysis(normalizeTryOnClothingAnalysis({
         ...result.parsed,
-        genderType: result.parsed.genderType || input.garmentAudience,
-        ageRange: result.parsed.ageRange || input.ageGroup,
         raw: result.raw,
       }), input.clothingRoles, input.clothingUrls.length);
       source = "yunwu";
@@ -222,6 +220,9 @@ async function requestYunwuClothingAnalysis(input: {
               "字段：cloth_type, desc, mainCategory, subcategories, genderType, ageRange, slot, fit, confidence。",
               "subcategories 必须尽量使用系统 code：single_fitted_top, single_loose_top, fitted_top, loose_top, long_pants, shorts, aline_skirt, dress, swimsuit 等。",
               "slot 只能是 upper/lower/single/outer/intimate/functional；fit 只能是 loose/fitted/regular。",
+              "genderType 只能是 women/men/unisex/null；ageRange 只能是 adult/teen/big_child/middle_child/small_child/toddler/all/null。",
+              "genderType 和 ageRange 只能来自服装本身的目标人群线索，不要复读输入参数，不要根据图片里的模特脸、身体、姿势、背景或拍摄风格判断。",
+              "如果服装本身没有明确男装/女装/童装线索，genderType 用 unisex 或 null，ageRange 用 all 或 null；confidence 用 0-1 小数，不要写百分比。",
             ].join("\n"),
           },
           {
@@ -234,6 +235,7 @@ async function requestYunwuClothingAnalysis(input: {
                   buildClothingRoleAnalysisInstruction(input.clothingRoles),
                   "用户上传槽位是强约束：如果图片里同时有人、脸、上衣、下装或背景，只识别槽位对应的服装区域，不要因为画面中脸/上身更显眼而改判槽位。",
                   "如果用户槽位与视觉主体冲突，slot 必须优先沿用用户槽位；desc 可以说明实际观察到的对应区域细节。",
+                  "garment_audience 和 age_group 是用户当前控件值，只能作为弱先验；当服装图本身明显是男装/童装/青少年/成人款时，按图像证据输出 genderType/ageRange；证据不足时不要把控件默认值当识别结果。",
                   "如果是条纹背心、吊带、修身上衣且用户槽位不是 lower，优先 single_fitted_top，并兼容 fitted_top。",
                 ].filter(Boolean).join("\n"),
               },

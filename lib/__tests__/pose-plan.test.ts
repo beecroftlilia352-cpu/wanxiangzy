@@ -118,7 +118,7 @@ describe("pose plan", () => {
     expect(JSON.stringify(plan).toLowerCase()).not.toContain("womenswear");
   });
 
-  it("uses the legacy stable four-pose logic for full-body fallback", () => {
+  it("uses the default angle-count pose logic for full-body fallback", () => {
     const plan = buildFallbackPosePlan({
       poseStyle: "korean_clean",
       poseAnalysis: {
@@ -148,13 +148,45 @@ describe("pose plan", () => {
     });
 
     expect(plan.slots.map((slot) => slot.poseName)).toEqual([
-      "正面服装展示",
-      "侧身或三分之二侧身展示",
-      "站定造型",
-      "轻微迈步或自然转身",
+      "自然正面站姿",
+      "三分之二侧身",
+      "领口肩线近景",
+      "侧身整理领口",
     ]);
-    expect(plan.slots[0].bodyAction).toContain("AI 可自由选择自然手势、重心、视线、表情和镜头语言");
-    expect(plan.slots[3].bodyAction).toContain("不要静态扶腰");
+    expect(plan.slots[0].bodyAction).toContain("重心轻微偏向");
+    expect(plan.slots[3].handAction).toContain("领口");
+  });
+
+  it("uses distinct commercial templates when one angle repeats", () => {
+    const plan = buildFallbackPosePlan({
+      poseStyle: "ecommerce_clean",
+      angleCounts: { front: 5, side: 0, back: 0, detail: 0 },
+    });
+
+    expect(plan.slots).toHaveLength(5);
+    expect(plan.slots.map((slot) => slot.poseName)).toEqual([
+      "自然正面站姿",
+      "双手轻扶腰",
+      "单手插袋重心",
+      "轻整理衣摆",
+      "交叉重心站姿",
+    ]);
+    expect(new Set(plan.slots.map((slot) => slot.bodyAction)).size).toBe(5);
+    const actionText = plan.slots.map((slot) => [slot.bodyAction, slot.handAction].join(" ")).join(" ");
+    expect(actionText).toContain("双手轻扶腰侧");
+    expect(actionText).toContain("一只手自然插袋");
+    expect(actionText).toContain("轻拉衣摆");
+  });
+
+  it("builds dynamic pose plans from angle counts", () => {
+    const plan = buildFallbackPosePlan({
+      poseStyle: "fashion_editorial",
+      angleCounts: { front: 2, side: 2, back: 1, detail: 1 },
+    });
+
+    expect(plan.slots).toHaveLength(6);
+    expect(plan.angleCounts).toEqual({ front: 2, side: 2, back: 1, detail: 1 });
+    expect(plan.slots.map((slot) => slot.angle).sort()).toEqual(["back", "detail", "front", "front", "side", "side"]);
   });
 
   it("turns user custom poses into an edited pose plan", () => {
@@ -237,12 +269,12 @@ describe("pose plan", () => {
     });
 
     const summary = getPosePlanSummary(plan);
-    expect(summary[0].title).toBe("姿势1：正面服装展示");
-    expect(summary[0].detail).toContain("正面自然站立");
-    expect(summary[1].title).toBe("姿势2：侧身角度展示");
-    expect(summary[1].detail).toContain("身体轻微侧转");
-    expect(summary[2].detail).toContain("站定跨步造型");
-    expect(summary[3].detail).toContain("挺拔开放站姿");
+    expect(summary[0].title).toBe("姿势1 · 正面：正面服装展示");
+    expect(summary[0].detail).toContain("正面轮廓");
+    expect(summary[1].title).toBe("姿势2 · 侧面：侧身角度展示");
+    expect(summary[1].detail).toContain("三分之二角度");
+    expect(summary[2].detail).toContain("领口");
+    expect(summary[3].detail).toContain("身体线条");
     const visibleText = summary.map((item) => `${item.title}${item.detail}`).join("");
     expect(visibleText).not.toMatch(/[A-Za-z]{4,}/);
   });

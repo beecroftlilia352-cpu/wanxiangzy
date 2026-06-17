@@ -897,6 +897,7 @@ function getInputThumbnails(row: QueueRow, payload: Record<string, unknown>) {
     stringValue(payload.sourceUrl),
     stringValue(payload.faceUrl),
     stringValue(payload.mainImageUrl),
+    ...stringArray(payload.poseReferenceUrls),
     ...garmentAngleReferenceUrls(payload.garmentAngleReferences),
     ...stringArray(payload.garmentDetailUrls),
     stringValue(payload.garmentUrl),

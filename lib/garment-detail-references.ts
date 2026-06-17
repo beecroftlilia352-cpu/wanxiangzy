@@ -174,16 +174,17 @@ export function buildTryOnRoleBasedPrompt(params: {
 /**
  * 友商风格主任务模板：姿势裂变（pose）。
  * 图 1 = 参考人物（保留人物身份），图 2+ = 服装角度参考（可选）。
- * outputMode: grid（2x2 四宫格） / separate（每张独立）。
+ * outputMode: grid（自动宫格） / separate（每张独立）。
  */
 export function buildPoseRoleBasedPrompt(params: {
   outputMode: "grid" | "separate";
   detailCount: number;
   poseCount: number;
 }) {
+  const safePoseCount = Math.min(Math.max(Math.floor(Number(params.poseCount) || 4), 1), 8);
   const layoutPart = params.outputMode === "grid"
-    ? `最终输出一张 2x2 四宫格，每个分格展示一个姿势；不要拆成多张独立图片，不要拼贴成普通单人照。`
-    : `本次调用只输出 1 张独立的单人换姿势图，只展示当前目标姿势；整组任务共 ${params.poseCount} 张，由系统分别调用生成，不要在本张里合成多图。`;
+    ? `最终输出一张包含 ${safePoseCount} 个姿势的自动宫格/pose sheet，每个分格展示一个姿势；不要拆成多张独立图片，不要少格、漏格或拼贴成普通单人照。`
+    : `本次调用只输出 1 张独立的单人换姿势图，只展示当前目标姿势；整组任务共 ${safePoseCount} 张，由系统分别调用生成，不要在本张里合成多图。`;
 
   const detailPart = params.detailCount > 0
     ? `图 2 及之后共 ${params.detailCount} 张为图 1 服装的多角度参考（正面、背面、侧面、平铺/悬挂等），只用于校准同一服装的版型、隐藏面、转身可见面和正背侧结构关系；不得作为新服装、材质增强、人物、姿势、脸、背景或光线参考。`

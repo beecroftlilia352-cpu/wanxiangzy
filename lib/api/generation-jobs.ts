@@ -76,6 +76,7 @@ import {
   normalizeGarmentAngleReferences,
   type GarmentAngleReference,
 } from "@/lib/garment-angle-references";
+import { buildPoseReferenceImagePrompt, normalizePoseReferenceCopies, normalizePoseReferenceUrls } from "@/lib/pose-reference";
 import { buildSeparatePosePrompt, enforcePosePromptRequirements, type PoseOutputMode } from "@/lib/pose-prompt";
 import {
   applyGarment3dDisplayStylePrompt,
@@ -92,13 +93,13 @@ import type { AutoDesignSettings, TryOnSceneMode } from "@/lib/tryon-scene";
 import type { TryOnClothingAnalysis } from "@/lib/tryon-reference-config";
 import { alignTryOnReferenceAnalyses, type TryOnReferenceAnalysis } from "@/lib/tryon-reference-analysis";
 import { normalizePoseVisualAnalysis, type PoseVisualAnalysis } from "@/lib/pose-analysis";
-import { normalizePosePlan, type PosePlan } from "@/lib/pose-plan";
+import { normalizePosePlan, normalizePosePlanCount, type PoseAngleCounts, type PosePlan } from "@/lib/pose-plan";
 import type { TryOnAgeGroup, TryOnGarmentCategory, TryOnGarmentAudience } from "@/lib/tryon-prompt";
 import type { TryOnClothingMode, TryOnClothingRole } from "@/lib/tryon-upload-rules";
 import type { GrassPayloadBase } from "@/lib/grass-planting";
 import type { ModelBackgroundPayloadBase } from "@/lib/model-background";
 import type { MaterialEnhancementPayloadBase } from "@/lib/material-enhancement";
-import { enforceFaceSwapPromptRequirements, normalizeFaceSwapSourceUrls } from "@/lib/face-swap";
+import { enforceFaceSwapPromptRequirements, normalizeFaceSwapMode, normalizeFaceSwapSourceUrls, type FaceSwapMode } from "@/lib/face-swap";
 import {
   buildProductSetPrompt,
   createProductSetModuleResult,
@@ -217,12 +218,17 @@ export type GenerationJobPayload = GenerationJobPayloadBase & (
       imageSize: ImageSize;
       prompt: string;
       poseStyle?: PoseSeriesStyle;
+      poseCreationMode?: "free" | "reference";
+      poseReferenceCopies?: number;
       posePlanMode?: "preset" | "ai";
       outputMode?: PoseOutputMode;
+      poseCount?: number;
+      angleCounts?: PoseAngleCounts;
       genCount?: number;
       poseStartIndex?: number;
       poseAnalysis?: PoseVisualAnalysis | null;
       posePlan?: PosePlan | null;
+      poseReferenceUrls?: string[];
       garmentDetailUrls?: string[];
       garmentAngleReferences?: GarmentAngleReference[];
     }
@@ -252,6 +258,7 @@ export type GenerationJobPayload = GenerationJobPayloadBase & (
       prompt: string;
       genCount: number;
       textureEnhance?: boolean;
+      faceSwapMode?: FaceSwapMode;
     }
   | {
       kind: "commerceDetail";
@@ -1397,32 +1404,43 @@ async function executePayload(
     );
     const activeGarmentAngleReferences = garmentAngleReferences.length ? garmentAngleReferences : legacyGarmentAngleReferences;
     const garmentAngleUrls = flattenGarmentAngleReferences(activeGarmentAngleReferences);
-    const imageInputs = await resolvePayloadImageInputs({ clothingUrls: [payload.mainImageUrl, ...garmentAngleUrls] });
+    const poseReferenceUrls = normalizePoseReferenceUrls(payload.poseReferenceUrls);
+    const imageInputs = await resolvePayloadImageInputs({
+      clothingUrls: [payload.mainImageUrl, ...garmentAngleUrls],
+      referenceUrls: poseReferenceUrls,
+    });
+    const resolvedPoseReferenceUrls = imageInputs.referenceUrls || [];
     const resolvedGarmentAngleReferences = rehydrateGarmentAngleReferences(activeGarmentAngleReferences, imageInputs.clothingUrls.slice(1));
     const poseStyle = normalizePoseSeriesStyle(payload.poseStyle);
-    const outputMode = normalizePoseOutputMode(payload.outputMode);
+    const isPoseReferenceMode = payload.poseCreationMode === "reference" && resolvedPoseReferenceUrls.length > 0;
+    const poseReferenceCopies = normalizePoseReferenceCopies(payload.poseReferenceCopies, Math.max(resolvedPoseReferenceUrls.length, 1));
+    const poseReferenceOutputCount = Math.max(1, resolvedPoseReferenceUrls.length * poseReferenceCopies);
+    const outputMode = isPoseReferenceMode ? "separate" : normalizePoseOutputMode(payload.outputMode);
     const poseAnalysis = normalizePoseVisualAnalysis(payload.poseAnalysis);
-    const posePlan = normalizePosePlan(payload.posePlan, {
-      poseAnalysis,
-      poseStyle,
-      outputMode,
-      prompt: payload.prompt,
-    });
-    const angleCount = Math.max(0, imageInputs.clothingUrls.length - 1);
+    const targetPoseCount = isPoseReferenceMode
+      ? poseReferenceOutputCount
+      : normalizePosePlanCount(payload.poseCount ?? payload.posePlan?.slots.length ?? payload.genCount ?? 4);
+    const posePlan = isPoseReferenceMode
+      ? null
+      : normalizePosePlan(payload.posePlan, {
+          poseAnalysis,
+          poseStyle,
+          outputMode,
+          prompt: payload.prompt,
+          poseCount: targetPoseCount,
+          angleCounts: payload.angleCounts,
+        });
+    const angleCount = resolvedGarmentAngleReferences.length;
     const roleBasedPrompt = buildPoseRoleBasedPrompt({
       outputMode,
       detailCount: angleCount,
-      poseCount: getPoseGenerationCount(payload),
+      poseCount: outputMode === "grid" ? posePlan?.slots.length || targetPoseCount : getPoseGenerationCount(payload),
     });
     const fallbackPrompt = enforcePosePromptRequirements(applyPoseSeriesStylePrompt(payload.prompt, poseStyle), {
-      poseStyle,
+      poseStyle: isPoseReferenceMode ? "user_custom" : poseStyle,
       outputMode,
       poseAnalysis,
       posePlan,
-    });
-    const garmentAngleDirective = buildPoseGarmentAngleReferencePrompt({
-      references: resolvedGarmentAngleReferences,
-      startImageNumber: 2,
     });
     const userIntent = (payload.prompt || "").trim();
 
@@ -1438,9 +1456,32 @@ async function executePayload(
         run: async (index, onTaskProgress) => {
           // Separate mode is already split into one API call per pose slot.
           // Keep group-level "4 poses / user raw plan" wording out of each call.
-          const poseSlotIndex = Math.min(4, poseStartIndex + index);
+          const poseSlotIndex = poseStartIndex + index;
+          const poseReferenceIndex = resolvedPoseReferenceUrls.length
+            ? Math.floor((poseSlotIndex - 1) / poseReferenceCopies) % resolvedPoseReferenceUrls.length
+            : 0;
+          const currentPoseReferenceUrl = resolvedPoseReferenceUrls.length
+            ? resolvedPoseReferenceUrls[poseReferenceIndex]
+            : "";
+          const slotPoseReferenceUrls = currentPoseReferenceUrl ? [currentPoseReferenceUrl] : [];
+          const poseReferenceDirective = buildPoseReferenceImagePrompt({
+            referenceCount: slotPoseReferenceUrls.length,
+            startImageNumber: 2,
+            outputMode: "separate",
+            poseIndex: poseSlotIndex,
+            poseCount: targetPoseCount,
+            copiesPerReference: poseReferenceCopies,
+          });
+          const garmentAngleDirective = buildPoseGarmentAngleReferencePrompt({
+            references: resolvedGarmentAngleReferences,
+            startImageNumber: 2 + slotPoseReferenceUrls.length,
+          });
           const posePrompt = [
-            buildSeparatePosePrompt(fallbackPrompt, poseSlotIndex, poseStyle, payload.prompt, poseAnalysis, posePlan),
+            isPoseReferenceMode
+              ? "Reference mode: do not create or invent a pose plan. Generate this output by directly following the current pose reference image for body action, while preserving the source image identity, outfit, background, lighting and tone."
+              : buildSeparatePosePrompt(fallbackPrompt, poseSlotIndex, poseStyle, payload.prompt, poseAnalysis, posePlan),
+            isPoseReferenceMode ? fallbackPrompt : "",
+            poseReferenceDirective,
             garmentAngleDirective,
           ].filter(Boolean).join("\n");
           const result = await generateImage({
@@ -1448,7 +1489,7 @@ async function executePayload(
             prompt: posePrompt,
             prompt_kind: "pose",
             aspect_ratio: aspectRatio,
-            image: imageInputs.clothingUrls,
+            image: [imageInputs.clothingUrls[0], ...slotPoseReferenceUrls, ...imageInputs.clothingUrls.slice(1)],
             smart_aspect_image: payload.mainImageUrl,
             image_size: payload.imageSize,
             onProgress: onTaskProgress,
@@ -1463,10 +1504,21 @@ async function executePayload(
       });
     }
 
+    const poseReferenceDirective = buildPoseReferenceImagePrompt({
+      referenceCount: resolvedPoseReferenceUrls.length,
+      startImageNumber: 2,
+      outputMode: "grid",
+      poseCount: posePlan?.slots.length || targetPoseCount,
+    });
+    const garmentAngleDirective = buildPoseGarmentAngleReferencePrompt({
+      references: resolvedGarmentAngleReferences,
+      startImageNumber: 2 + resolvedPoseReferenceUrls.length,
+    });
     const posePrompt = [
       roleBasedPrompt,
       userIntent ? `用户补充：${userIntent}` : "",
       fallbackPrompt,
+      poseReferenceDirective,
       garmentAngleDirective,
     ].filter(Boolean).join("\n");
     const result = await generateImage({
@@ -1474,7 +1526,7 @@ async function executePayload(
       prompt: posePrompt,
       prompt_kind: "pose",
       aspect_ratio: payload.aspectRatio || "auto",
-      image: imageInputs.clothingUrls,
+      image: [imageInputs.clothingUrls[0], ...resolvedPoseReferenceUrls, ...imageInputs.clothingUrls.slice(1)],
       smart_aspect_image: payload.mainImageUrl,
       image_size: payload.imageSize,
       onProgress: (progress) => onProgress?.(mapImageTaskProgress(progress, [], [], 0, 1)),
@@ -1498,7 +1550,8 @@ async function executePayload(
     const sourceInputs = await resolvePayloadImageInputs({ clothingUrls: sourceUrls });
     const faceInputs = await resolvePayloadImageInputs({ clothingUrls: [payload.faceUrl] });
     const faceInputUrl = faceInputs.clothingUrls[0] || payload.faceUrl;
-    const prompt = enforceFaceSwapPromptRequirements(payload.prompt);
+    const faceSwapMode = normalizeFaceSwapMode(payload.faceSwapMode);
+    const prompt = enforceFaceSwapPromptRequirements(payload.prompt, faceSwapMode);
     const perSourceCount = Math.max(1, Math.floor(Number(payload.genCount || 1)));
 
     return executeParallelImageBatch({
@@ -2052,7 +2105,11 @@ function getPayloadReferenceImages(payload: GenerationJobPayload) {
   if (payload.kind === "modelBackground") return [payload.sourceUrl, payload.modelReferenceUrl, payload.backgroundReferenceUrl].filter((url): url is string => typeof url === "string" && url.length > 0);
   if (payload.kind === "materialEnhancement") return [payload.sourceUrl, payload.garmentUrl];
   if (payload.kind === "generalImage" || payload.kind === "outfitFusion") return payload.referenceUrls;
-  if (payload.kind === "pose") return [payload.mainImageUrl, ...getPosePayloadGarmentAngleUrls(payload)];
+  if (payload.kind === "pose") return [
+    payload.mainImageUrl,
+    ...getPosePayloadReferenceUrls(payload),
+    ...getPosePayloadGarmentAngleUrls(payload),
+  ];
   if (payload.kind === "videoImageToVideo") return [payload.imageUrl];
   if (payload.kind === "videoMotion") return [payload.modelImageUrl];
   if (payload.kind === "videoFirstLastFrame") return [payload.firstFrameUrl, payload.lastFrameUrl];
@@ -2099,6 +2156,10 @@ function getPosePayloadGarmentAngleUrls(payload: Extract<GenerationJobPayload, {
   const angleReferences = normalizeGarmentAngleReferences(payload.garmentAngleReferences);
   if (angleReferences.length) return flattenGarmentAngleReferences(angleReferences);
   return normalizeGarmentDetailUrls(payload.garmentDetailUrls);
+}
+
+function getPosePayloadReferenceUrls(payload: Extract<GenerationJobPayload, { kind: "pose" }>) {
+  return normalizePoseReferenceUrls(payload.poseReferenceUrls);
 }
 
 function rehydrateGarmentDetailGroups(groups: GarmentDetailReferenceGroup[], resolvedUrls: string[]) {
@@ -2291,16 +2352,27 @@ function normalizePoseOutputMode(value: unknown): PoseOutputMode {
 }
 
 function getPoseGenerationCount(payload: Extract<GenerationJobPayload, { kind: "pose" }>) {
+  if (payload.poseCreationMode === "reference") {
+    const referenceCount = normalizePoseReferenceUrls(payload.poseReferenceUrls).length || 1;
+    const copies = normalizePoseReferenceCopies(payload.poseReferenceCopies, referenceCount);
+    return normalizePositiveGenerationCount(payload.genCount, referenceCount * copies);
+  }
   if (normalizePoseOutputMode(payload.outputMode) !== "separate") return 1;
-  const num = Number(payload.genCount || 4);
-  if (!Number.isFinite(num)) return 4;
-  return Math.min(Math.max(Math.floor(num), 1), 4);
+  const num = Number(payload.genCount || payload.poseCount || 4);
+  if (!Number.isFinite(num)) return normalizePosePlanCount(payload.poseCount || 4);
+  return normalizePosePlanCount(num);
 }
 
 function normalizePoseStartIndex(value: unknown) {
   const num = Number(value || 1);
   if (!Number.isFinite(num)) return 1;
-  return Math.min(Math.max(Math.floor(num), 1), 4);
+  return Math.max(Math.floor(num), 1);
+}
+
+function normalizePositiveGenerationCount(value: unknown, fallback = 1) {
+  const num = Number(value ?? fallback);
+  if (!Number.isFinite(num)) return Math.max(1, Math.floor(Number(fallback) || 1));
+  return Math.max(1, Math.floor(num));
 }
 
 function normalizeCommerceDetailSections(

@@ -5,11 +5,8 @@ import { useRouter } from "next/navigation";
 import {
   Check,
   ChevronRight,
-  Copy,
   RotateCcw,
   Activity,
-  UserRoundCheck,
-  Brush,
   ZoomIn,
   X,
 } from "lucide-react";
@@ -33,13 +30,18 @@ import { StudioUploadSection } from "@/components/studio/StudioUploadSection";
 import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
 import {
   FACE_SWAP_LIBRARY,
-  FACE_SWAP_NOTE,
+  FACE_SWAP_MODE_OPTIONS,
   FACE_SWAP_SAMPLE_IMAGES,
+  DEFAULT_FACE_SWAP_MODE,
   DEFAULT_FACE_SWAP_TEXTURE_ENHANCE,
   MAX_FACE_SWAP_SOURCE_IMAGES,
+  getFaceSwapModeLabel,
+  getFaceSwapModeNote,
   getFaceSwapUserPromptFromPayload,
   normalizeFaceSwapCount,
+  normalizeFaceSwapMode,
   normalizeFaceSwapTextureEnhance,
+  type FaceSwapMode,
 } from "@/lib/face-swap";
 import {
   getCreditCost,
@@ -60,6 +62,12 @@ import { fetchHistoryApplyDetail, takeApplyDetail, type HistoryJobPayload } from
 import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
 import { createFaceSwapPreviewSession, type ImagePreviewAction } from "@/lib/studio-image-preview";
 import { FAILED_RETRY_NOTICE, buildFailedTaskDetail, buildPartialFailureDetail, summarizeGenerationError } from "@/lib/studio-generation-feedback";
+import {
+  buildRetryPendingResultUrls,
+  getRetryDisplayExpectedCount,
+  mergeRetryResultUrls,
+  normalizeRetryResultIndex,
+} from "@/lib/result-slot-retry";
 
 const MODELS: Array<{ value: LingyaModel; label: string; desc: string; icon: string; badge?: string }> = [
   { value: "nano-banana-2", label: "Nano-Banana-2", desc: "最高4K", icon: "/model-icons/gemini.png", badge: "默认" },
@@ -108,16 +116,20 @@ type ActiveFaceSwapJob = {
   genCount?: number;
   userPrompt?: string;
   textureEnhance?: boolean;
+  faceSwapMode?: FaceSwapMode;
 };
 type FaceSwapGenerateOptions = {
   sourceUrlsOverride?: string[];
   genCountOverride?: number;
   expectedCountOverride?: number;
+  retryResultIndex?: number;
   toastMessage?: string;
 };
 type FaceSwapPollContext = {
   expectedCount: number;
   inputThumbnails: string[];
+  retryResultIndex?: number | null;
+  previousResultUrls?: string[];
 };
 
 export default function FaceSwapPage() {
@@ -145,6 +157,7 @@ export default function FaceSwapPage() {
   const [genCount, setGenCount] = useState(1);
   const [prompt, setPrompt] = useState("");
   const [textureEnhance, setTextureEnhance] = useState(DEFAULT_FACE_SWAP_TEXTURE_ENHANCE);
+  const [faceSwapMode, setFaceSwapMode] = useState<FaceSwapMode>(DEFAULT_FACE_SWAP_MODE);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [genderFilter, setGenderFilter] = useState<GenderFilter>("female");
   const [isUploadingOriginal, setIsUploadingOriginal] = useState(false);
@@ -166,6 +179,8 @@ export default function FaceSwapPage() {
   const requestedFaceSwapResultCount = requestedFaceSwapCount * Math.max(sourceUrls.length, 1);
   const totalCost = unitCost * requestedFaceSwapResultCount;
   const faceLibrary = FACE_SWAP_LIBRARY.filter((item) => item.gender === genderFilter);
+  const faceSwapModeLabel = getFaceSwapModeLabel(faceSwapMode);
+  const faceSwapModeNote = getFaceSwapModeNote(faceSwapMode);
   const validationHint = sourceUrls.length === 0
     ? "请先上传或选择原始模特图"
     : !faceUrl
@@ -216,6 +231,7 @@ export default function FaceSwapPage() {
       setPrompt(getFaceSwapUserPromptFromPayload(payload));
       setGenCount(normalizeFaceSwapCount(payload.genCount));
       setTextureEnhance(normalizeFaceSwapTextureEnhance(payload.textureEnhance));
+      setFaceSwapMode(normalizeFaceSwapMode(payload.faceSwapMode));
       setActiveQueueTask(null);
       setResultUrls(detail.resultUrls);
       setProgress(detail.resultUrls.length ? 100 : 0);
@@ -238,14 +254,7 @@ export default function FaceSwapPage() {
 
   const resetGenerationForInputChange = useCallback(() => {
     skipActiveRestoreRef.current = true;
-    clearPolling();
-    setActiveQueueTask(null);
-    setResultUrls([]);
-    setProgress(0);
-    setStatus("idle");
-    setGenerationId("");
-    setError("");
-  }, [clearPolling]);
+  }, []);
 
   const applyFaceSwapHistoryPayload = useCallback((payload: FaceSwapHistoryPayload, historyResultUrls: string[] = [], options?: { silent?: boolean }) => {
     clearPolling();
@@ -262,6 +271,7 @@ export default function FaceSwapPage() {
     setPrompt(getFaceSwapUserPromptFromPayload(payload));
     setGenCount(normalizeFaceSwapCount(payload.genCount));
     setTextureEnhance(normalizeFaceSwapTextureEnhance(payload.textureEnhance));
+    setFaceSwapMode(normalizeFaceSwapMode(payload.faceSwapMode));
     setActiveQueueTask(null);
     setResultUrls(historyResultUrls);
     setProgress(historyResultUrls.length ? 100 : 0);
@@ -275,6 +285,8 @@ export default function FaceSwapPage() {
     clearPolling();
     const expectedCount = context?.expectedCount ?? requestedFaceSwapResultCount;
     const inputThumbnails = context?.inputThumbnails ?? [...sourceUrls, faceUrl].filter(Boolean);
+    const retryResultIndex = normalizeRetryResultIndex(context?.retryResultIndex);
+    const retryPreviousResultUrls = retryResultIndex !== null ? context?.previousResultUrls || [] : [];
     const run = async () => {
       try {
         const res = await fetch(`/api/face-swap?generation_id=${encodeURIComponent(id)}`);
@@ -282,7 +294,8 @@ export default function FaceSwapPage() {
         if (!res.ok) throw new Error(data.error || "查询生成进度失败");
 
         const nextProgress = Number.isFinite(Number(data.progress)) ? Number(data.progress) : progress;
-        const nextUrls = Array.isArray(data.result_urls) ? data.result_urls : [];
+        const rawNextUrls = Array.isArray(data.result_urls) ? data.result_urls : [];
+        const nextUrls = mergeRetryResultUrls(retryPreviousResultUrls, retryResultIndex, rawNextUrls, expectedCount);
         const nextResultCount = nextUrls.filter(Boolean).length;
         const roundedProgress = Math.min(Math.max(Math.round(nextProgress), 0), 100);
         setProgress(roundedProgress);
@@ -389,6 +402,7 @@ export default function FaceSwapPage() {
         setProgress(job.progress || 0);
         setGenCount(normalizeFaceSwapCount(job.genCount));
         setTextureEnhance(Boolean(job.textureEnhance));
+        setFaceSwapMode(normalizeFaceSwapMode(job.faceSwapMode));
         setPrompt(getFaceSwapUserPromptFromPayload(job));
         setStatus("running");
         pollGeneration(job.generationId, true, {
@@ -447,6 +461,14 @@ export default function FaceSwapPage() {
     const runSourceUrls = options.sourceUrlsOverride?.length ? options.sourceUrlsOverride : sourceUrls;
     const runGenCount = normalizeFaceSwapCount(options.genCountOverride ?? genCount);
     const runExpectedCount = Math.max(1, options.expectedCountOverride ?? runSourceUrls.length * runGenCount);
+    const retryResultIndex = normalizeRetryResultIndex(options.retryResultIndex);
+    const retryPreviousResultUrls = retryResultIndex !== null ? resultUrls : [];
+    const displayExpectedCount = getRetryDisplayExpectedCount({
+      retryIndex: retryResultIndex,
+      currentExpectedCount: faceSwapExpectedCount || requestedFaceSwapResultCount,
+      previousUrls: retryPreviousResultUrls,
+      fallbackExpectedCount: runExpectedCount,
+    });
     const runTotalCost = unitCost * runExpectedCount;
     if (!isAuthenticated && !(await refreshAuth())) {
       toast.error("请先登录");
@@ -476,11 +498,11 @@ export default function FaceSwapPage() {
     setActiveQueueTask(null);
     setStatus("running");
     setProgress(1);
-    setResultUrls([]);
+    setResultUrls(buildRetryPendingResultUrls(retryPreviousResultUrls, retryResultIndex, displayExpectedCount));
     setError("");
     const taskInputThumbnails = [...runSourceUrls, faceUrl].filter(Boolean);
     const provisionalTask = taskQueue.startTask({
-      expectedCount: runExpectedCount,
+      expectedCount: displayExpectedCount,
       inputThumbnails: taskInputThumbnails,
       progress: 1,
     });
@@ -500,6 +522,7 @@ export default function FaceSwapPage() {
           gen_count: runGenCount,
           prompt,
           texture_enhance: textureEnhance,
+          face_swap_mode: faceSwapMode,
         }),
       });
       const data = await res.json();
@@ -523,7 +546,7 @@ export default function FaceSwapPage() {
       if (typeof data.generation_id === "string" && data.generation_id) {
         const serverTask = taskQueue.replaceWithServerTask(activeTaskId, {
           id: data.generation_id,
-          expectedCount: runExpectedCount,
+          expectedCount: displayExpectedCount,
           inputThumbnails: taskInputThumbnails,
           status: data.status || "processing_tryon",
           progress: 5,
@@ -536,15 +559,17 @@ export default function FaceSwapPage() {
         if (userId) setCachedProfileCredits(userId, data.credits_remaining);
       }
       pollGeneration(data.generation_id, true, {
-        expectedCount: runExpectedCount,
+        expectedCount: displayExpectedCount,
         inputThumbnails: taskInputThumbnails,
+        retryResultIndex,
+        previousResultUrls: retryPreviousResultUrls,
       });
     } catch (err) {
       const message = summarizeGenerationError(err instanceof Error ? err.message : "提交换脸任务失败");
       setStatus("failed");
       setError(message);
       const failedTask = taskQueue.markFailed(activeTaskId, message, {
-        expectedCount: runExpectedCount,
+        expectedCount: displayExpectedCount,
         inputThumbnails: taskInputThumbnails,
       });
       setActiveQueueTask(failedTask);
@@ -560,6 +585,7 @@ export default function FaceSwapPage() {
     setFaceUrl("");
     setPrompt("");
     setTextureEnhance(DEFAULT_FACE_SWAP_TEXTURE_ENHANCE);
+    setFaceSwapMode(DEFAULT_FACE_SWAP_MODE);
     setResultUrls([]);
     setProgress(0);
     setStatus("idle");
@@ -587,7 +613,6 @@ export default function FaceSwapPage() {
   }
 
   async function handleCompletedTask(item: TaskQueueItem, session: TaskSelectionSession) {
-    setActiveQueueTask(item);
     try {
       const detail = await fetchHistoryApplyDetail(item.id, "faceSwap", session.signal);
       if (!session.isCurrent()) return true;
@@ -622,7 +647,8 @@ export default function FaceSwapPage() {
       sourceUrlsOverride: [retrySourceUrl],
       genCountOverride: 1,
       expectedCountOverride: 1,
-      toastMessage: `正在重试第 ${index + 1} 张，失败图已退款，本次按 1 张重新生成...`,
+      retryResultIndex: index,
+      toastMessage: `正在补位重试第 ${index + 1} 张，失败图已退款，完成后会回填到当前结果中...`,
     });
   }
   const faceSwapInputThumbnails = (
@@ -651,7 +677,7 @@ export default function FaceSwapPage() {
         <div className="studio-parameters-scroll flex-1 overflow-visible p-3 sm:p-5 lg:overflow-y-auto">
           <ModuleHeader
             title="换脸"
-            tooltip="上传原始模特图与目标脸图，只迁移五官身份，保留原图肤色、发型、服装、姿势和场景。"
+            tooltip="上传原始模特图与目标脸图，可选择仅换五官，或同步目标脸发型肤色；原图服装、姿势和场景保持不变。"
           />
 
           <StudioUploadSection
@@ -705,7 +731,7 @@ export default function FaceSwapPage() {
             title={(
               <span className="face-swap-target-title">
                 <span>目标脸图</span>
-                <span>建议选择与原图肤色相近、正脸清晰的人脸</span>
+                <span>{faceSwapMode === "featuresHairSkin" ? "将同步发型、肤色和五官身份" : "建议选择与原图肤色相近、正脸清晰的人脸"}</span>
               </span>
             )}
             inputRef={faceInputRef}
@@ -719,13 +745,13 @@ export default function FaceSwapPage() {
             {(openFileDialog, dragContext) => (
               <StudioUploadTile
                 title="上传目标脸图"
-                description={faceUrl ? "已选择目标脸图，可更换、预览或删除。" : FACE_SWAP_NOTE}
+                description={faceUrl ? "已选择目标脸图，可更换、预览或删除。" : faceSwapModeNote}
                 imageUrl={faceUrl || null}
                 imageAlt="已上传的目标脸图"
                 loading={isUploadingFace}
                 onUploadClick={openFileDialog}
                 onLibraryClick={() => setDrawerOpen(true)}
-                onPreview={faceUrl ? () => openLightbox(faceUrl, "目标脸图：只迁移五官身份，不带入发型、肤色和穿搭") : undefined}
+                onPreview={faceUrl ? () => openLightbox(faceUrl, `目标脸图：${faceSwapModeNote}`) : undefined}
                 onRemove={faceUrl ? () => {
                   setFaceUrl("");
                   resetGenerationForInputChange();
@@ -734,7 +760,7 @@ export default function FaceSwapPage() {
                 dragContext={dragContext}
                 uploadLabel="上传脸图"
                 libraryLabel="选择官方脸"
-                footnote="目标脸尽量正脸清晰；仅迁移五官身份，不带入发型、肤色和穿搭。"
+                footnote={faceSwapMode === "featuresHairSkin" ? "目标脸尽量正脸清晰；会同步五官、发型、发色、肤色和妆感，不改变原图服装和场景。" : "目标脸尽量正脸清晰；仅迁移五官身份，不带入发型、肤色和穿搭。"}
                 examples={{
                   label: "试一试",
                   images: FACE_SWAP_LIBRARY.slice(0, 5).map((face) => ({ url: face.url, title: `脸图 ${face.id}` })),
@@ -746,6 +772,20 @@ export default function FaceSwapPage() {
               />
             )}
           </StudioUploadSection>
+
+          <section>
+            <PanelTitle title="换脸范围" />
+            <StudioOptionGrid
+              options={FACE_SWAP_MODE_OPTIONS}
+              value={faceSwapMode}
+              columns={2}
+              ariaLabel="换脸范围"
+              onChange={(value) => setFaceSwapMode(normalizeFaceSwapMode(value))}
+            />
+            <p className="mt-2 text-xs font-semibold leading-relaxed text-slate-500">
+              {faceSwapModeNote}
+            </p>
+          </section>
 
           <section>
             <h3 className="mb-3 flex items-center gap-2 text-sm font-black text-slate-950">
@@ -818,13 +858,15 @@ export default function FaceSwapPage() {
             value={prompt}
             onChange={(event) => setPrompt(event.target.value)}
             rows={4}
-            placeholder="可选：补充保留眼镜、雀斑、配饰、冷感表情等细节。默认模板已锁定只换五官身份，不换肤色、发型、表情和配饰。"
+            placeholder={faceSwapMode === "featuresHairSkin"
+              ? "可选：补充保留眼镜、雀斑、冷感表情等细节。当前模式会同步目标脸五官、发型、肤色和妆感。"
+              : "可选：补充保留眼镜、雀斑、配饰、冷感表情等细节。默认模板已锁定只换五官身份，不换肤色、发型、表情和配饰。"}
             description="补充说明会附加到系统提示词中，影响最终生成效果。"
           />
         </div>
 
         <StudioRunBar
-          summary={sourceUrls.length > 1 ? `${sourceUrls.length} 张原图 × ${genCount} · ${imageSizeValue} · ${aspectRatio}` : `${genCount} 张 · ${imageSizeValue} · ${aspectRatio}`}
+          summary={sourceUrls.length > 1 ? `${sourceUrls.length} 张原图 × ${genCount} · ${faceSwapModeLabel} · ${imageSizeValue}` : `${genCount} 张 · ${faceSwapModeLabel} · ${imageSizeValue}`}
           costLabel={authIsAnonymous ? "登录后查看灵点" : `消耗 ${totalCost} · 余额 ${credits ?? "-"}`}
           disabled={!canGenerate}
           disabledReason={validationHint}
@@ -857,6 +899,7 @@ export default function FaceSwapPage() {
               aspectRatio={aspectRatio}
               imageSize={imageSizeValue}
               textureEnhance={textureEnhance}
+              faceSwapMode={faceSwapMode}
               onUseAsSource={(url) => {
                 setSourceUrls((prev) => [url, ...prev.filter((u) => u !== url)].slice(0, MAX_FACE_SWAP_SOURCE_IMAGES));
                 resetGenerationForInputChange();
@@ -891,14 +934,30 @@ export default function FaceSwapPage() {
           emptyState={(
             <div className="studio-empty-stage flex min-h-[260px] items-center justify-center px-4 py-6 sm:min-h-[360px] lg:h-full">
               <PreviewGuide
-                title="开始制作换脸图"
-                subtitle="先上传原始模特图，再选择目标脸图；输出会保留原图的身体、服装、背景、光线和构图。"
-                imageSrc={FACE_SWAP_SAMPLE_IMAGES[0]?.url || FACE_SWAP_LIBRARY[0]?.url}
-                imageAlt="换脸图指引"
+                title="上传原图和脸图，生成换脸结果"
+                subtitle="保留原图穿搭和场景，只替换脸部身份。"
                 steps={[
-                  { title: "上传原始模特图", desc: "图1决定身体、服装、背景、光线和最终构图。" },
-                  { title: "选择目标脸图", desc: "只提供五官身份，不带走发型、肤色、身体或配饰。" },
-                  { title: "生成换脸成片", desc: "保持商品与场景稳定，快速得到新模特成片。" },
+                  {
+                    title: "上传原图",
+                    desc: "",
+                    imageSrc: "/tutorial-guides/face-swap-source.webp",
+                    imageAlt: "换脸原图",
+                    badge: "原图",
+                  },
+                  {
+                    title: "选择脸图",
+                    desc: "",
+                    imageSrc: "/tutorial-guides/face-swap-face.webp",
+                    imageAlt: "换脸脸图",
+                    badge: "脸图",
+                  },
+                  {
+                    title: "生成结果",
+                    desc: "",
+                    imageSrc: "/tutorial-guides/face-swap-result.webp",
+                    imageAlt: "换脸结果图",
+                    badge: "结果图",
+                  },
                 ]}
               />
             </div>
@@ -912,7 +971,7 @@ export default function FaceSwapPage() {
             <div className="face-swap-face-library-header">
               <div>
                 <h2 className="text-lg font-black text-slate-950">模特脸库</h2>
-                <p className="mt-1 text-xs text-slate-500">选择一张脸作为身份参考，只替换五官特征，不改变肤色和发型。</p>
+                <p className="mt-1 text-xs text-slate-500">{faceSwapModeNote}</p>
               </div>
               <button type="button" onClick={() => setDrawerOpen(false)} className="rounded-full p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900">
                 <X className="h-5 w-5" />
@@ -956,7 +1015,7 @@ export default function FaceSwapPage() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => openLightbox(item.url, `${label}：仅作为五官身份参考`)}
+                      onClick={() => openLightbox(item.url, `${label}：${faceSwapModeNote}`)}
                       className="face-swap-face-library-zoom"
                       aria-label={`放大预览${label}`}
                       title={`放大预览${label}`}
@@ -1019,6 +1078,7 @@ function ResultsPanel({
   aspectRatio,
   imageSize,
   textureEnhance,
+  faceSwapMode,
 }: {
   urls: string[];
   expectedCount?: number;
@@ -1032,6 +1092,7 @@ function ResultsPanel({
   aspectRatio: AspectRatio;
   imageSize: ImageSize;
   textureEnhance: boolean;
+  faceSwapMode: FaceSwapMode;
   onUseAsSource: (url: string) => void;
   onUseAsFace: (url: string) => void;
   onRegenerate: () => void;
@@ -1059,17 +1120,13 @@ function ResultsPanel({
       { label: "模型", value: aiModel },
       { label: "比例", value: aspectRatio },
       { label: "分辨率", value: imageSize },
+      { label: "换脸范围", value: getFaceSwapModeLabel(faceSwapMode) },
       { label: "纹理增强", value: textureEnhance ? "开启" : "关闭" },
       { label: "生成数量", value: count },
     ],
   });
-  const copyResultUrl = async (url: string) => {
-    await navigator.clipboard.writeText(url);
-    toast.success("已复制图片链接");
-  };
-
   return (
-    <div className="studio-result-stage h-full overflow-y-auto p-4 pb-28 sm:p-6 sm:pb-32">
+    <div className="studio-result-stage h-full overflow-y-auto p-4 sm:p-6">
       <div className="flex min-h-full flex-col gap-4">
         <ResultImageGrid
           urls={urls}
@@ -1090,27 +1147,6 @@ function ResultsPanel({
           onMissingFailureAction={onRetryMissing}
           onOpen={(_, index) => setPreviewIndex(index)}
         />
-
-        {urls.length > 0 && (
-          <div className="studio-result-actions mx-auto flex w-full max-w-[760px] flex-wrap justify-center gap-2">
-            <button type="button" onClick={onRegenerate} disabled={isGenerating} className="studio-button studio-button-compact">
-              <RotateCcw className="h-3.5 w-3.5" /> 再来一组
-            </button>
-            {urls.slice(0, 1).map((url) => (
-              <span key={url} className="flex flex-wrap justify-center gap-2">
-                <button type="button" onClick={() => void copyResultUrl(url)} className="studio-button studio-button-compact">
-                  <Copy className="h-3.5 w-3.5" /> 复制链接
-                </button>
-                <button type="button" onClick={() => onUseAsSource(url)} className="studio-button studio-button-compact">
-                  <Brush className="h-3.5 w-3.5" /> 加为原图
-                </button>
-                <button type="button" onClick={() => onUseAsFace(url)} className="studio-button studio-button-compact">
-                  <UserRoundCheck className="h-3.5 w-3.5" /> 设为脸图
-                </button>
-              </span>
-            ))}
-          </div>
-        )}
       </div>
       <StudioImagePreviewDialog
         open={previewIndex !== null}

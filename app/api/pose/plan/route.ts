@@ -7,12 +7,17 @@ import { normalizeOpenAiCompatibleBaseUrl } from "@/lib/api/url-utils";
 import { normalizePoseSeriesStyle } from "@/lib/module-style-presets";
 import { normalizePoseVisualAnalysis } from "@/lib/pose-analysis";
 import {
+  POSE_PLAN_ANGLE_LABELS,
   POSE_PLAN_VERSION,
   buildFallbackPosePlan,
   buildPosePlanCacheKey,
+  getPoseAngleTotal,
   getPoseStylePolicy,
+  normalizePoseAngleCounts,
   normalizePosePlan,
+  normalizePosePlanCount,
   type PosePlan,
+  type PosePlanAngle,
 } from "@/lib/pose-plan";
 
 const DEFAULT_TIMEOUT_MS = 20_000;
@@ -62,6 +67,10 @@ type PosePlanRequest = {
   output_mode?: unknown;
   outputMode?: unknown;
   prompt?: unknown;
+  pose_count?: unknown;
+  poseCount?: unknown;
+  angle_counts?: unknown;
+  angleCounts?: unknown;
   force?: unknown;
 };
 
@@ -80,10 +89,12 @@ export async function POST(request: Request) {
   const outputMode = body.output_mode === "separate" || body.outputMode === "separate" ? "separate" : "grid";
   const prompt = typeof body.prompt === "string" ? body.prompt : "";
   const poseAnalysis = normalizePoseVisualAnalysis(body.pose_analysis ?? body.poseAnalysis);
+  const angleCounts = normalizePoseAngleCounts(readAngleCountsInput(body.angle_counts ?? body.angleCounts));
+  const poseCount = normalizePosePlanCount(body.pose_count ?? body.poseCount ?? getPoseAngleTotal(angleCounts));
   const force = body.force === true;
 
   if (poseStyle === "user_custom") {
-    const fallback = buildFallbackPosePlan({ poseAnalysis, poseStyle, outputMode, prompt });
+    const fallback = buildFallbackPosePlan({ poseAnalysis, poseStyle, outputMode, prompt, poseCount, angleCounts });
     return NextResponse.json({
       ok: true,
       cached: false,
@@ -100,6 +111,8 @@ export async function POST(request: Request) {
     poseAnalysis,
     poseStyle,
     outputMode,
+    poseCount,
+    angleCounts,
     prompt,
   })).digest("hex");
 
@@ -125,6 +138,8 @@ export async function POST(request: Request) {
       poseAnalysis,
       poseStyle,
       outputMode,
+      poseCount,
+      angleCounts,
       prompt,
     });
     posePlanInflight.set(cacheKey, nextRequest);
@@ -160,6 +175,8 @@ async function runPosePlan(input: {
   poseAnalysis: ReturnType<typeof normalizePoseVisualAnalysis>;
   poseStyle: ReturnType<typeof normalizePoseSeriesStyle>;
   outputMode: "grid" | "separate";
+  poseCount: number;
+  angleCounts: ReturnType<typeof normalizePoseAngleCounts>;
   prompt: string;
 }): Promise<PosePlanResult> {
   const fallback = buildFallbackPosePlan(input);
@@ -185,7 +202,7 @@ async function runPosePlan(input: {
           const result = await requestPosePlan({ ...input, ...config, useJsonMode });
           lastRaw = result.raw;
           const parsedModelPlan = extractModelPosePlan(result.parsed);
-          if (!isModelPosePlanUsable(parsedModelPlan)) {
+          if (!isModelPosePlanUsable(parsedModelPlan, input.poseCount)) {
             lastReason = "invalid_model_response";
             continue;
           }
@@ -225,6 +242,8 @@ async function requestPosePlan(input: {
   poseAnalysis: ReturnType<typeof normalizePoseVisualAnalysis>;
   poseStyle: ReturnType<typeof normalizePoseSeriesStyle>;
   outputMode: "grid" | "separate";
+  poseCount: number;
+  angleCounts: ReturnType<typeof normalizePoseAngleCounts>;
   prompt: string;
 }) {
   const timeoutMs = Number(process.env.POSE_PLAN_TIMEOUT_MS || DEFAULT_TIMEOUT_MS);
@@ -232,6 +251,7 @@ async function requestPosePlan(input: {
   const timer = setTimeout(() => controller.abort(), Number.isFinite(timeoutMs) ? timeoutMs : DEFAULT_TIMEOUT_MS);
   try {
     const policy = getPoseStylePolicy(input.poseStyle);
+    const angleInstruction = formatAngleCounts(input.angleCounts);
     const response = await fetch(getChatCompletionsUrl({
       provider: input.provider,
       apiKey: input.apiKey,
@@ -256,7 +276,8 @@ async function requestPosePlan(input: {
               "你是商业时装姿势规划助手。只返回 JSON，不要输出解释。",
               "你不能写最终生成 prompt，只能输出结构化 posePlan。",
               `返回 { posePlan: { version: \"${POSE_PLAN_VERSION}\", style, outputMode, edited:false, slots:[...] } }。`,
-              "slots 必须正好 4 个，每个字段：index, poseName, bodyAction, handAction, headDirection, cameraFraming, garmentVisibilityRule, avoidRules, confidence。",
+              `slots 必须正好 ${input.poseCount} 个，每个字段：index, angle, poseName, bodyAction, handAction, headDirection, cameraFraming, garmentVisibilityRule, avoidRules, confidence。`,
+              `angle 只能是 front、side、back、detail；角度数量必须符合：${angleInstruction}。`,
               "confidence 必须是 0 到 1 的数字，例如 0.82；不要返回 high、medium、low 或百分比字符串。",
               "所有用户可见字段必须使用简体中文，包括 poseName、bodyAction、handAction、headDirection、cameraFraming、garmentVisibilityRule、avoidRules；不要输出英文姿势名、英文动作句或英文风险词。",
               "poseName 用 4-12 个中文字，bodyAction/handAction/headDirection/cameraFraming/garmentVisibilityRule 用短中文短句。",
@@ -267,7 +288,7 @@ async function requestPosePlan(input: {
               "如果 bodyCrop 是 upper_body，不要规划脚步、鞋履或全身大动作。",
               "如果 bodyCrop 是 lower_body，不要规划头部、脸部、表情、视线、回眸、完整上半身动作或完整人像构图；姿势只围绕腰胯、腿部、膝部、脚步、裤脚/裙摆、可见手臂和包袋变化。",
               "如果 bodyCrop 是 closeup，只规划局部姿态、细节角度和近景构图。",
-              "full_body/three_quarter 人像的 4 个 slot 需要有克制但可见的表情或视线差异，不要四张同一僵硬表情。",
+              `full_body/three_quarter 人像的 ${input.poseCount} 个 slot 需要有克制但可见的表情或视线差异，不要多张同一僵硬表情。`,
             ].join("\n"),
           },
           {
@@ -275,14 +296,16 @@ async function requestPosePlan(input: {
             content: [
               `poseStyle=${input.poseStyle}`,
               `outputMode=${input.outputMode}`,
+              `poseCount=${input.poseCount}`,
+              `angleCounts=${JSON.stringify(input.angleCounts)}`,
               `stylePolicy=${JSON.stringify(policy)}`,
               `poseAnalysis=${JSON.stringify(input.poseAnalysis)}`,
               `userPrompt=${input.prompt.slice(0, 800)}`,
-              "规划 4 个自然可信、彼此不同、适合该风格、服装展示和商业构图变化的时装姿势。",
+              `规划 ${input.poseCount} 个自然可信、彼此不同、适合该风格、服装展示和商业构图变化的时装姿势。`,
             ].join("\n"),
           },
         ],
-        max_tokens: 1200,
+        max_tokens: Math.min(1800, 700 + input.poseCount * 160),
       }),
     });
 
@@ -372,7 +395,7 @@ function extractModelPosePlan(parsed: any) {
   return parsed?.posePlan ?? parsed?.plan ?? parsed?.result ?? parsed?.data ?? parsed;
 }
 
-function isModelPosePlanUsable(plan: any) {
+function isModelPosePlanUsable(plan: any, minSlots = 4) {
   const slots = Array.isArray(plan)
     ? plan
     : Array.isArray(plan?.slots)
@@ -386,7 +409,20 @@ function isModelPosePlanUsable(plan: any) {
             : Array.isArray(plan?.["姿势列表"])
               ? plan["姿势列表"]
               : [];
-  return slots.length >= 4;
+  return slots.length >= minSlots;
+}
+
+function formatAngleCounts(counts: ReturnType<typeof normalizePoseAngleCounts>) {
+  return (Object.keys(POSE_PLAN_ANGLE_LABELS) as PosePlanAngle[])
+    .filter((key) => counts[key] > 0)
+    .map((key) => `${POSE_PLAN_ANGLE_LABELS[key]} ${counts[key]} 个`)
+    .join("、") || "正面 1 个";
+}
+
+function readAngleCountsInput(value: unknown) {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Partial<Record<PosePlanAngle, unknown>>
+    : undefined;
 }
 
 function getAverageConfidence(plan: PosePlan) {

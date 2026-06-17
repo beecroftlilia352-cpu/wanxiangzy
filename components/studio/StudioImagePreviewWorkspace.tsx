@@ -33,7 +33,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { getImageVariantUrl } from "@/lib/image-variants";
+import { getImageVariantUrl, getOriginalImageUrl } from "@/lib/image-variants";
 import {
   buildSourceImageHref,
   getPreviewCanvasInputReferences,
@@ -392,8 +392,10 @@ function InputPreviewPanel({
                 aria-label={`聚焦查看${reference.label}`}
               >
                 <RawPreviewImage
-                  src={getImageVariantUrl(reference.url, "preview")}
+                  src={getImageVariantUrl(reference.url, "detail")}
                   alt={reference.label}
+                  loading="eager"
+                  decoding="async"
                   style={{ transform: `scale(${zoom / 100})` }}
                 />
                 <span>{reference.label}</span>
@@ -441,8 +443,10 @@ function OutputPreviewPanel({
             aria-label={`聚焦查看${result.title}`}
           >
             <RawPreviewImage
-              src={getImageVariantUrl(result.url, "preview")}
+              src={getImageVariantUrl(result.url, "detail")}
               alt={result.title}
+              loading="eager"
+              decoding="async"
               style={{ transform: `scale(${zoom / 100})` }}
             />
           </button>
@@ -859,8 +863,10 @@ function ImageFocusDialog({ image, onClose }: { image: FocusImage; onClose: () =
           }}
         >
           <RawPreviewImage
-            src={getImageVariantUrl(image.url, "preview")}
+            src={getOriginalImageUrl(image.url)}
             alt={image.title}
+            loading="eager"
+            decoding="async"
             style={{ transform: `scale(${zoom / 100})` }}
             onClick={(event) => event.stopPropagation()}
           />

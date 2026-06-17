@@ -21,6 +21,7 @@ import {
   getFaceSwapUserPromptFromPayload,
   MAX_FACE_SWAP_SOURCE_IMAGES,
   normalizeFaceSwapCount,
+  normalizeFaceSwapMode,
   normalizeFaceSwapSourceUrls,
   normalizeFaceSwapTextureEnhance,
 } from "@/lib/face-swap";
@@ -59,11 +60,13 @@ export async function POST(request: NextRequest) {
     const genCount = normalizeFaceSwapCount(body.gen_count);
     const expectedCount = sourceUrls.length * genCount;
     const textureEnhance = normalizeFaceSwapTextureEnhance(body.texture_enhance);
+    const faceSwapMode = normalizeFaceSwapMode(body.face_swap_mode ?? body.faceSwapMode);
     const userPrompt = typeof body.prompt === "string" ? body.prompt.trim() : "";
     const prompt = enforceFaceSwapPromptRequirements(buildFaceSwapPrompt(
       userPrompt,
       textureEnhance,
-    ));
+      faceSwapMode,
+    ), faceSwapMode);
     const costPerImage = getCreditCost(model, imageSize, aspectRatio);
     const totalCost = costPerImage * expectedCount;
 
@@ -80,6 +83,7 @@ export async function POST(request: NextRequest) {
       prompt,
       genCount,
       textureEnhance,
+      faceSwapMode,
     };
 
     const debit = await createDebitedGeneration(supabase, {
@@ -164,6 +168,7 @@ async function handleActiveFaceSwapGet() {
         genCount: normalizeFaceSwapCount(payload?.genCount),
         userPrompt: getFaceSwapUserPromptFromPayload(payload || {}),
         textureEnhance: payload?.textureEnhance === true,
+        faceSwapMode: normalizeFaceSwapMode(payload?.faceSwapMode),
       },
     });
   } catch (err: unknown) {

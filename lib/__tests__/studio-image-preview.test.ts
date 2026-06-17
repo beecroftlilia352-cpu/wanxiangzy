@@ -10,6 +10,7 @@ import {
   isValidSourceImageUrl,
   readSourceImageFromUrl,
 } from "@/lib/studio-image-preview";
+import { mergeRetryResultUrls } from "@/lib/result-slot-retry";
 
 describe("studio image preview data", () => {
   it("builds try-on sessions from current state without empty meta rows", () => {
@@ -60,6 +61,63 @@ describe("studio image preview data", () => {
     }).map((item) => item.status)).toEqual(["failed", "failed"]);
   });
 
+  it("preserves sparse result slots while a retry is filling one image", () => {
+    const results = buildImagePreviewResults({
+      urls: ["https://example.com/one.png", "", "https://example.com/three.png"],
+      expectedCount: 4,
+      isGenerating: true,
+      titlePrefix: "结果",
+    });
+
+    expect(results.map((item) => item.url || "")).toEqual([
+      "https://example.com/one.png",
+      "",
+      "https://example.com/three.png",
+      "",
+    ]);
+    expect(results.map((item) => item.status)).toEqual(["completed", "running", "completed", "running"]);
+  });
+
+  it("does not keep completed preview slots in a loading state", () => {
+    expect(buildImagePreviewResults({
+      urls: ["https://example.com/one.png", "https://example.com/two.png"],
+      expectedCount: 2,
+      isGenerating: true,
+      statusGroup: "completed",
+      titlePrefix: "缁撴灉",
+    }).map((item) => item.status)).toEqual(["completed", "completed"]);
+
+    expect(buildImagePreviewResults({
+      urls: ["https://example.com/one.png"],
+      expectedCount: 2,
+      isGenerating: true,
+      statusGroup: "completed",
+      titlePrefix: "缁撴灉",
+    }).map((item) => item.status)).toEqual(["completed", "failed"]);
+
+    expect(buildImagePreviewResults({
+      urls: ["https://example.com/one.png", "https://example.com/two.png"],
+      expectedCount: 2,
+      isGenerating: true,
+      statusGroup: "running",
+      titlePrefix: "缁撴灉",
+    }).map((item) => item.status)).toEqual(["completed", "completed"]);
+  });
+
+  it("merges a one-image retry back into the failed result slot", () => {
+    expect(mergeRetryResultUrls(
+      ["https://example.com/one.png", "https://example.com/two.png", "", ""],
+      3,
+      ["https://example.com/four.png"],
+      4
+    )).toEqual([
+      "https://example.com/one.png",
+      "https://example.com/two.png",
+      "",
+      "https://example.com/four.png",
+    ]);
+  });
+
   it("maps product-set module quality and per-slot errors", () => {
     const session = createProductSetPreviewSession({
       urls: ["https://example.com/hero.png"],
@@ -78,6 +136,18 @@ describe("studio image preview data", () => {
       status: "failed",
       error: "材质图生成失败",
     });
+  });
+
+  it("marks missing product-set slots failed after completion", () => {
+    const session = createProductSetPreviewSession({
+      urls: ["https://example.com/hero.png"],
+      expectedCount: 2,
+      isGenerating: true,
+      statusGroup: "completed",
+      titles: ["棣栧睆娴锋姤", "鏉愯川缁嗚妭"],
+    });
+
+    expect(session.results.map((item) => item.status)).toEqual(["completed", "failed"]);
   });
 
   it("selects canvas input references by module rules", () => {

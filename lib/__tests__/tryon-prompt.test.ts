@@ -120,6 +120,7 @@ describe("try-on prompt face integration", () => {
 
   it("uses reference facial expression as a natural performance source when both reference and model face are present", () => {
     const { prompt } = buildTryOnPrompt({
+      model: "gpt-image-2",
       clothingCount: 1,
       clothingMode: "single",
       clothingRoles: ["single"],
@@ -142,31 +143,78 @@ describe("try-on prompt face integration", () => {
       aspectRatio: "3:4",
     });
 
+    expect(prompt).toContain("Follow the image roles below exactly");
     expect(prompt).toContain("Expression transfer:");
-    expect(prompt).toContain("Use image 1 as the body/composition/lighting base try-on photo, but replace its facial identity with image 3");
-    expect(prompt).toContain("【HARD 硬规则");
-    expect(prompt).toContain("must_use_model_face");
-    expect(prompt).toContain("禁止生成与 image 3 无关的新脸");
-    expect(prompt).toContain("Face identity lock - HARD:");
-    expect(prompt).toContain("image 3 is the final person identity");
-    expect(prompt).toContain("image 1's face is only an expression, head-pose, skin-tone, makeup, lighting, and scale carrier");
-    expect(prompt).toContain("A result that still looks like image 1's original face is invalid");
-    expect(prompt).toContain("image 1 is the expression performance source");
-    expect(prompt).toContain("image 3 is not an expression source");
+    expect(prompt).toContain("Use image 1 as the base try-on photo; replace only the sourced outfit areas with image 2 as clothing source; rebuild the final visible face from image 3");
+    expect(prompt).toContain("image 3 is the only final face identity source");
+    expect(prompt).toContain("not image 1's original person, not a random new face");
+    expect(prompt).toContain("image 1 may guide only expression category/intensity");
+    expect(prompt).toContain("It must not donate final face outline, eyes, nose, mouth");
     expect(prompt).toContain("visible expression category, intensity, emotional direction");
     expect(prompt).toContain("one coherent performance");
-    expect(prompt).toContain("not flatten or remove a natural expression that is visibly present in image 1");
-    expect(prompt).toContain("image 1 = target expression and try-on reference: visible expression category");
-    expect(prompt).toContain("image 2 = complete clothing source only");
-    expect(prompt).toContain("image 3 = mandatory final face identity reference only");
-    expect(prompt).toContain("do not copy its original expression style, expression intensity, skin tone, makeup");
-    expect(prompt).toContain("控制最终脸部身份和五官比例");
-    expect(prompt).toContain("不能控制最终脸部身份");
-    expect(prompt).toContain("表情肌肉、视线、肤色重新打光、妆容匹配、毛孔、阴影、边缘融合");
-    expect(prompt).toContain("不要改变 image 3 的脸型、眉形、眼距、鼻结构、嘴形、五官比例和可识别度");
+    expect(prompt).toContain("without copying image 3's original expression");
+    expect(prompt).toContain("without flattening image 1's expression into a neutral catalog face");
+    expect(prompt).toContain("Face blending:");
+    expect(prompt).toContain("original head space, head bounding box, head-to-body ratio");
+    expect(prompt).toContain("Fit image 3's identity geometry into image 1's head scale");
+    expect(prompt).toContain("do not enlarge the head/face");
+    expect(prompt).toContain("visible neck, chest, arms, and hands");
+    expect(prompt).toContain("Do not change image 3's face outline, feature structure, feature proportions");
+    expect(prompt).toContain("hair color, skin tone, makeup, or beauty styling alone is not identity transfer");
+    expect(prompt).toContain("do not settle for an averaged face");
+    expect(prompt).toContain("hairline, ear placement, and recognizable likeness stronger than image 1");
+    expect(prompt).not.toContain("Similar-face identity risk:");
+    expect(prompt).not.toContain("Same-hair/same-skin failure check:");
+    expect(prompt).not.toContain("Corrective action:");
+    expect(prompt).not.toContain("Head scale and fusion guard:");
+    expect(prompt).toContain("1. image 3 controls final facial identity");
+    expect(prompt).toContain("3. image 1 controls body proportions, head-to-body ratio, pose, expression performance");
     expect(prompt).not.toContain("facial expression exactly");
     expect(prompt).not.toContain("exact expression geometry");
     expect(prompt).not.toContain("visible expression/skin/makeup when present");
+  });
+
+  it("keeps the legacy GPT try-on template available behind the rollback env", () => {
+    const previousTemplate = process.env.GPT_TRYON_PROMPT_TEMPLATE;
+    process.env.GPT_TRYON_PROMPT_TEMPLATE = "legacy";
+
+    try {
+      const { prompt } = buildTryOnPrompt({
+        model: "gpt-image-2",
+        clothingCount: 1,
+        clothingMode: "single",
+        clothingRoles: ["single"],
+        hasReference: true,
+        hasModelFace: true,
+        referenceAnalysis: {
+          index: 1,
+          bodyCrop: "upper_body",
+          personVisible: true,
+          faceVisible: true,
+          headVisible: true,
+          upperBodyVisible: true,
+          lowerBodyVisible: false,
+          handsVisible: true,
+          feetVisible: false,
+          detailFocus: ["face", "upper body"],
+          promptNotes: "Use the visible face and upper-body crop.",
+          confidence: 0.92,
+        },
+        aspectRatio: "3:4",
+      });
+
+      expect(prompt).toContain("Use image 1 as the body/composition/lighting base try-on photo, but replace its facial identity with image 3");
+      expect(prompt).toContain("Face identity lock - HARD:");
+      expect(prompt).toContain("image 3 is the final person identity");
+      expect(prompt).not.toContain("Follow the image roles below exactly");
+      expect(prompt).not.toContain("Fit image 3's identity geometry into image 1's head scale");
+    } finally {
+      if (previousTemplate === undefined) {
+        delete process.env.GPT_TRYON_PROMPT_TEMPLATE;
+      } else {
+        process.env.GPT_TRYON_PROMPT_TEMPLATE = previousTemplate;
+      }
+    }
   });
 
   it("builds standalone nano banana try-on templates with visual analysis, multiple garments, and detail references", () => {
@@ -252,9 +300,14 @@ describe("try-on prompt face integration", () => {
       expect(basePrompt).toContain("without copying image 4's original expression");
       expect(basePrompt).toContain("without flattening image 1's expression into a neutral catalog face");
       expect(basePrompt).toContain("Face blending:");
-      expect(basePrompt).toContain("jaw-to-neck transition");
+      expect(basePrompt).toContain("original head space, head bounding box, head-to-body ratio");
+      expect(basePrompt).toContain("Fit image 4's identity geometry into image 1's head scale");
+      expect(basePrompt).toContain("do not enlarge the head/face");
       expect(basePrompt).toContain("visible neck, chest, arms, and hands");
       expect(basePrompt).not.toContain("香蕉服装上身脸部校准");
+      expect(basePrompt).not.toContain("Similar-face identity risk:");
+      expect(basePrompt).not.toContain("Same-hair/same-skin failure check:");
+      expect(basePrompt).not.toContain("Head scale and fusion guard:");
 
       expect(finalPrompt).toContain("服装细节归属规则：");
       expect(finalPrompt).toContain("image 5 只补充 image 2（上装） 的局部细节");
@@ -445,15 +498,62 @@ describe("try-on prompt face integration", () => {
       aspectRatio: "3:4",
     });
 
-    expect(prompt).toContain("image 2 = lower clothing source ONLY");
-    expect(prompt).toContain("explicit slots=image 2=lower");
-    expect(prompt).toContain("User explicit upload slot overrides visual classifier slot=upper");
-    expect(prompt).toContain("Treat this as a lower-body garment source");
-    expect(prompt).toContain("Replace only lower-body clothing");
+    expect(prompt).toContain("image 2 = lower clothing source only");
+    expect(prompt).toContain("Use image 2 as the lower-body source");
+    expect(prompt).toContain("User-selected lower upload area wins over the visual read that looked upper");
+    expect(prompt).toContain("Use it as a lower-body garment");
+    expect(prompt).toContain("replace only lower-body clothing");
     expect(prompt).toContain("image 1 is a no-head/no-face target frame");
-    expect(prompt).toContain("do not add a new face, head, or hair outside the original crop");
+    expect(prompt).toContain("Do not generate, reveal, add, infer, or hallucinate any head, face, hair");
+    expect(prompt).toContain("Preserve the crop and do not invent a new face, head, hair");
     expect(prompt).not.toContain("Replace only upper/outer clothing");
+    expect(prompt).not.toMatch(/raw type=|slot=|upload mode=|explicit slots=/i);
     expect(prompt).not.toContain("Preserve image 1's original facial identity");
+  });
+
+  it("uses high-confidence visual audience hints without leaking confidence text", () => {
+    const { prompt } = buildTryOnPrompt({
+      clothingCount: 1,
+      clothingMode: "single",
+      clothingRoles: ["single"],
+      hasReference: true,
+      hasModelFace: false,
+      garmentAudience: "women",
+      ageGroup: "adult",
+      clothingAnalysis: {
+        mainCategory: "single_piece_top",
+        subcategories: ["single_fitted_top"],
+        clothTypeRaw: "boys toddler t-shirt",
+        desc: "A small boys toddler top with playful child sizing.",
+        genderType: "men",
+        ageRange: "toddler",
+        slot: "upper",
+        fit: "regular",
+        confidence: 0.92,
+      },
+      referenceAnalysis: {
+        index: 1,
+        bodyCrop: "full_body",
+        personVisible: true,
+        faceVisible: true,
+        headVisible: true,
+        upperBodyVisible: true,
+        lowerBodyVisible: true,
+        handsVisible: true,
+        feetVisible: true,
+        detailFocus: ["full body"],
+        promptNotes: "Use the visible full-body pose.",
+        confidence: 0.9,
+      },
+      aspectRatio: "3:4",
+    });
+
+    expect(prompt).toContain("Visual audience hint:");
+    expect(prompt).toContain("male toddler");
+    expect(prompt).toContain("garment-fit/body-context evidence");
+    expect(prompt).not.toContain("Confidence:");
+    expect(prompt).not.toMatch(/confidence\s*[:=]\s*\d/i);
+    expect(prompt).not.toMatch(/92%|0\.92/);
   });
 
   it("keeps lower-body no-head references from expanding into full-body outputs", () => {
@@ -471,13 +571,13 @@ describe("try-on prompt face integration", () => {
     expect(prompt).toContain("image 1 is a lower-body-only target frame with no visible head or face");
     expect(prompt).toContain("ignore image 3 completely for this no-head crop");
     expect(prompt).toContain("A result with any visible face or newly added head is invalid");
-    expect(prompt).toContain("【HARD 硬规则");
-    expect(prompt).toContain("preserve_reference_face");
-    expect(prompt).toContain("不要合成新脸");
-    expect(prompt).toContain("不要把 image 3 的身份引入裁切之外的区域");
+    expect(prompt).toContain("image 3 = inactive because the target crop has no usable face/head swap area");
+    expect(prompt).toContain("Preserve the crop and ignore image 3");
+    expect(prompt).toContain("do not invent a new face, head, hair, portrait, or full-body expansion");
     expect(prompt).not.toContain("Reconstruct the final face");
     expect(prompt).not.toContain("Every generated candidate must use image 3's identity");
     expect(prompt).not.toContain("mandatory final face identity reference only");
+    expect(prompt).not.toContain("image 3 is the final face identity source");
   });
 
   it("keeps lower-body no-head references faceless even without a model face upload", () => {

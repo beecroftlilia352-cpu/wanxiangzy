@@ -62,6 +62,9 @@ describe("outfit fusion templates", () => {
     expect(prompt).toContain("固定生成规则：最终只生成一张完整的单人商业摄影穿搭照片");
     expect(prompt).toContain("不要拼图、四宫格、2x2 网格、分屏");
     expect(prompt).toContain("商品视觉读取：先根据每张商品图真实画面判断品类、自然覆盖区域、穿戴方式");
+    expect(prompt).toContain("适用人群只从商品本身的尺码、版型、款式和安全穿着线索判断");
+    expect(prompt).toContain("只用于商品尺码、版型、身体比例和安全穿着语境");
+    expect(prompt).toContain("不要把商品图当成人物、脸、身体、姿势、背景或光线来源");
     expect(prompt).toContain("多商品视觉分配：逐张判断图2、图3、图4、图5各自是上衣、下装、外套、连衣裙");
     expect(prompt).toContain("局部细节/多角度补充：如果某张商品图只是面料、领口、袖口、口袋");
     expect(prompt).toContain("无法判断对应关系时直接忽略");
@@ -276,14 +279,14 @@ describe("outfit fusion templates", () => {
 
   it("removes vision confidence and field-style analysis from AI writing output", () => {
     const normalized = normalizeOutfitFusionAssistantPrompt(
-      "视觉分析：图1 upper，slot=upper，confidence=95%。用户已有要求: 让图2的人物姿态作为画面基础，身穿图1的白色衬衫，把模特换成图3的模特。",
+      "视觉分析：图1 upper，slot=upper，confidence=95%，conference 95%，genderType=men，ageRange=toddler。用户已有要求: 让图2的人物姿态作为画面基础，身穿图1的白色衬衫，把模特换成图3的模特。",
       ""
     );
 
     expect(normalized).toContain("让图2的人物姿态作为画面基础");
     expect(normalized).toContain("身穿图1的白色衬衫");
     expect(normalized).toContain("把模特换成图3的模特，保留图3模特的面部五官");
-    expect(normalized).not.toMatch(/confidence|置信度|95%|slot=/i);
+    expect(normalized).not.toMatch(/confidence|conference|置信度|95%|slot=|genderType|ageRange/i);
   });
 
   it("asks AI writing to return the same visible relationship sentence only", () => {
@@ -297,10 +300,14 @@ describe("outfit fusion templates", () => {
     expect(request).toContain(buildOutfitFusionVisibleFaceText("图M"));
     expect(request).toContain("不要把后台脸部完整约束、优先级、负面规则写进输入框");
     expect(request).toContain("单件商品不要默认当成完整全身套装");
+    expect(request).toContain("如果商品本身明显是男装、童装、青少年或婴幼儿款");
+    expect(request).toContain("不要把商品图中的人物身份、姿势、身体、背景或光线带入最终图");
     expect(request).toContain("多件商品要按视觉识别分配到正确身体区域和层级");
     expect(request).toContain("如果输入里有局部细节图、背面图、侧面图或面料图");
     expect(request).toContain("不要写后台规则、脸部身份规则、图片关系、商品保真、优先级、负面约束、生成张数、模型名、比例、清晰度、视觉分析过程、识别置信度、概率、字段名");
     expect(request).toContain("图1只提供商品本体，先视觉识别它是主服装、鞋包配饰、连体/套装，还是局部细节、背面、侧面或面料补充");
+    expect(request).toContain("目标人群只能从商品尺码、版型和款式判断");
+    expect(request).toContain("不要根据商品图里的模特脸、身体、姿势、背景或拍摄风格判断");
     expect(request).toContain("图2只提供人物身体、姿态、头部位置、构图、场景氛围、光影和背景");
     expect(request).toContain("图3只提供最终模特脸部身份");
     expect(request).not.toMatch(/【(?:参考图|搭配图|模特图)\d+】/);

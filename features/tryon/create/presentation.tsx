@@ -4,6 +4,11 @@ import { ClientPortal } from "@/components/ClientPortal";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { StudioUploadSection } from "@/components/studio/StudioUploadSection";
 import {
+  VisualAnalysisStatusCard,
+  type VisualAnalysisInlineStatus,
+  type VisualAnalysisSummaryItem,
+} from "@/components/studio/VisualAnalysisStatus";
+import {
   GARMENT_DETAIL_SWITCH_DESCRIPTION,
   GARMENT_DETAIL_UPLOAD_FOOTNOTE,
   MAX_GARMENT_DETAIL_IMAGES,
@@ -21,16 +26,9 @@ export type TryOnLightboxImage = {
   alt: string;
 };
 
-export type TryOnInlineStatus = {
-  tone: "loading" | "success" | "warning";
-  text: string;
-};
+export type TryOnInlineStatus = VisualAnalysisInlineStatus;
 
-export type TryOnReferenceAnalysisSummary = {
-  key: string;
-  title: string;
-  detail: string;
-};
+export type TryOnReferenceAnalysisSummary = VisualAnalysisSummaryItem;
 
 export function TryOnAnalysisStatusBadge({
   status,
@@ -41,29 +39,10 @@ export function TryOnAnalysisStatusBadge({
   className?: string;
   children?: ReactNode;
 }) {
-  if (!status) return null;
   return (
-    <div
-      className={`${className} rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold ${
-        status.tone === "loading"
-          ? "border-violet-100 bg-violet-50/70 text-violet-600"
-          : status.tone === "success"
-            ? "border-emerald-100 bg-emerald-50/80 text-emerald-700"
-            : "border-amber-100 bg-amber-50/80 text-amber-700"
-      }`}
-    >
-      <div className="flex items-center gap-2">
-        {status.tone === "loading" ? (
-          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-        ) : status.tone === "success" ? (
-          <CheckCircle2 className="h-3.5 w-3.5" />
-        ) : (
-          <XCircle className="h-3.5 w-3.5" />
-        )}
-        <span className="min-w-0 truncate" title={status.text}>{status.text}</span>
-      </div>
+    <VisualAnalysisStatusCard status={status} className={className}>
       {children}
-    </div>
+    </VisualAnalysisStatusCard>
   );
 }
 
@@ -77,30 +56,12 @@ export function TryOnReferenceAnalysisStatus({
   isAnalyzing: boolean;
 }) {
   return (
-    <TryOnAnalysisStatusBadge status={status} className="mb-2">
-      {!isAnalyzing && summaries.length > 0 && status ? (
-        <div className="mt-1.5 flex flex-wrap gap-1.5 pl-5">
-          {summaries.slice(0, 4).map((item) => (
-            <span
-              key={item.key}
-              className={`inline-block max-w-full truncate rounded-md bg-white/70 px-2 py-1 text-[10px] font-medium leading-4 ${
-                status.tone === "warning" ? "text-amber-800" : "text-emerald-800"
-              }`}
-              title={[item.title, item.detail].filter(Boolean).join(" · ")}
-            >
-              {item.title}{item.detail ? ` · ${item.detail}` : ""}
-            </span>
-          ))}
-          {summaries.length > 4 && (
-            <span className={`rounded-md bg-white/70 px-2 py-1 text-[10px] font-medium leading-4 ${
-              status.tone === "warning" ? "text-amber-700" : "text-emerald-700"
-            }`}>
-              另 {summaries.length - 4} 张
-            </span>
-          )}
-        </div>
-      ) : null}
-    </TryOnAnalysisStatusBadge>
+    <VisualAnalysisStatusCard
+      status={status}
+      summaries={summaries}
+      isAnalyzing={isAnalyzing}
+      className="mb-2"
+    />
   );
 }
 

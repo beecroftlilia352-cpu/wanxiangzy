@@ -2,13 +2,12 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, ChevronRight, Loader2, PenLine, Sparkles, X, XCircle } from "lucide-react";
+import { CheckCircle2, ChevronRight, Loader2, Minus, PenLine, Plus, Sparkles, X, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { isLikelyImageFile, MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
 import { FeatureTabs } from "@/components/FeatureTabs";
-import { RepairPromptPanel } from "@/components/RepairPromptPanel";
 import { ClientPortal } from "@/components/ClientPortal";
 import { type PoseOutputMode } from "@/lib/pose-prompt";
 import {
@@ -16,13 +15,25 @@ import {
   getPoseVisualAnalysisDetailItems,
   getPoseVisualAnalysisSummary,
   normalizePoseVisualAnalysis,
+  shouldSuppressPoseFacePlanning,
   type PoseVisualAnalysis,
 } from "@/lib/pose-analysis";
 import {
+  DEFAULT_POSE_ANGLE_COUNTS,
+  POSE_PLAN_ANGLE_LABELS,
+  POSE_PLAN_MAX_COUNT,
+  POSE_PLAN_MIN_COUNT,
   buildPosePlanCacheKey,
-  buildUserCustomPosePlan,
+  buildDefaultPoseAngleCounts,
+  getCommercialPoseActionPresets,
+  getCommercialPoseExpressionPresets,
+  getPoseAngleTotal,
   getPosePlanSummary,
+  normalizePoseAngleCounts,
   normalizePosePlan,
+  normalizePosePlanCount,
+  type PoseAngleCounts,
+  type PosePlanAngle,
   type PosePlan,
 } from "@/lib/pose-plan";
 import { ModuleHeader } from "@/components/ModuleHeader";
@@ -35,8 +46,10 @@ import { ResultImageGrid } from "@/components/ResultImageGrid";
 import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
 import { StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/components/studio/StudioFormControls";
 import { StudioRunBar } from "@/components/studio/StudioRunBar";
+import { StudioMultiImageUpload } from "@/components/studio/StudioMultiImageUpload";
 import { StudioUploadSection } from "@/components/studio/StudioUploadSection";
 import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
+import { VisualAnalysisStatusCard, type VisualAnalysisSummaryItem } from "@/components/studio/VisualAnalysisStatus";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { useStableFileDrag } from "@/components/studio/useStableFileDrag";
 import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
@@ -48,15 +61,10 @@ import { createGenericImagePreviewSession, takeSourceImageFromLocation, type Ima
 import { FAILED_RETRY_NOTICE, buildPartialFailureDetail, summarizeGenerationError } from "@/lib/studio-generation-feedback";
 import {
   DEFAULT_POSE_SERIES_STYLE,
-  POSE_SERIES_STYLES,
-  USER_CUSTOM_POSE_DEFAULT,
-  applyPoseSeriesStylePrompt,
-  normalizePoseSeriesStyle,
   type PoseSeriesStyle,
 } from "@/lib/module-style-presets";
 import { POSE_UPLOAD_RULE, type PoseRuleDemo } from "@/lib/pose-upload-rules";
 import {
-  GARMENT_ANGLE_SWITCH_DESCRIPTION,
   GARMENT_ANGLE_TARGET_OPTIONS,
   GARMENT_ANGLE_UPLOAD_FOOTNOTE,
   GARMENT_ANGLE_VIEW_OPTIONS,
@@ -68,6 +76,13 @@ import {
   type GarmentAngleTarget,
   type GarmentAngleView,
 } from "@/lib/garment-angle-references";
+import { MAX_POSE_REFERENCE_IMAGES, normalizePoseReferenceCopies, normalizePoseReferenceUrls } from "@/lib/pose-reference";
+import {
+  buildRetryPendingResultUrls,
+  getRetryDisplayExpectedCount,
+  mergeRetryResultUrls,
+  normalizeRetryResultIndex,
+} from "@/lib/result-slot-retry";
 
 const MODELS: { value: LingyaModel; label: string; desc: string; badge?: string; icon: string }[] = [
   { value: "nano-banana-2", label: "Nano-Banana-2", desc: "最高4K", badge: "推荐", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
@@ -101,11 +116,25 @@ const ASPECTS: { value: AspectRatio; label: string; description?: string }[] = [
   { value: "16:9", label: "16:9", description: "横屏" },
 ];
 
+const POSE_REFERENCE_DEMOS = [
+  {
+    title: "蓝裙商业姿势组",
+    imageUrls: [
+      "/pose-reference-demos/vwg-pose-0617-0835-01.jpg",
+      "/pose-reference-demos/vwg-pose-0617-0836-02.jpg",
+      "/pose-reference-demos/vwg-pose-0617-0836-03.jpg",
+      "/pose-reference-demos/vwg-pose-0617-0836-04.jpg",
+    ],
+  },
+];
+
 type PoseHistoryPayload = Extract<HistoryJobPayload, { kind: "pose" }>;
+type PoseCreationMode = "free" | "reference";
 type PoseGenerateOptions = {
   genCountOverride?: number;
   expectedCountOverride?: number;
   poseStartIndex?: number;
+  retryResultIndex?: number;
   toastMessage?: string;
 };
 type PoseAnalysisSource = "vision" | "cache" | "fallback" | "history";
@@ -122,15 +151,8 @@ type PosePlanEntry = {
   error: string | null;
 };
 
-const POSE_ANALYSIS_SOURCE_LABELS: Record<PoseAnalysisSource, string> = {
-  vision: "已识别",
-  cache: "缓存识别",
-  fallback: "保守识别",
-  history: "历史识别",
-};
-
 const POSE_PLAN_SOURCE_LABELS: Record<PosePlanSource, string> = {
-  vision_plan: "AI 规划",
+  vision_plan: "智能优化",
   cache: "缓存规划",
   fallback: "保守规划",
   preset: "预设计划",
@@ -138,18 +160,142 @@ const POSE_PLAN_SOURCE_LABELS: Record<PosePlanSource, string> = {
   user_custom: "已编辑",
 };
 
-const DEFAULT_POSE_PROMPT = `Use 图1 as the only reference for the same person, outfit, background, lighting and overall photography style.
-Main priority: create clearly different body poses while keeping the outfit design, color, pattern, fabric texture, face identity, natural skin tone and realistic body proportions.
-Allow camera framing, body angle and composition to change naturally for each target pose.
-Negative: no outfit change, no face change, no extra person, no collage, no text, no distorted hands, no broken limbs.
+const DEFAULT_POSE_PROMPT = `图1是唯一的人物、服装、背景、光线和整体摄影质感参考。
+目标：基于商业模特拍摄动作库，生成明确不同的姿势变化；同一角度多张也必须在手势、重心、视线、表情和构图上有可察觉差异。
+保持：同一个人、同一张脸、同一身体比例、同一套服装、同一颜色图案、同一面料纹理、同一场景光线和真实商业摄影质感。
+允许：根据每个姿势自然调整身体角度、手部动作、表情视线、镜头距离和构图留白。
+禁止：换脸、换衣服、改变体型比例、额外人物、拼贴、文字水印、畸形手指、断肢、夸张回眸、过度摆拍。`;
 
-姿势1：正面服装展示方向；AI 可自由选择自然手势、重心、视线、表情和镜头语言，服装正面轮廓必须清楚。
-姿势2：侧身或三分之二侧身展示方向；AI 可自由选择头发/衣领/袖口/衣摆手势、腿部节奏、视线和镜头语言，侧面轮廓和肩线必须清楚。
-姿势3：站定造型方向，不要走路；AI 可自由选择扶腰、胯部、肩线、手部造型、视线和镜头语言，腰线、廓形和面料垂坠必须清楚。
-姿势4：轻微迈步或自然转身方向，不要静态扶腰；头部方向与肩膀、躯干和身体转向保持一致，不要单独回头看镜头；AI 可自由选择步态、手臂运动、身体转向、视线和镜头语言，服装运动褶皱和垂坠必须清楚。`;
+const POSE_ANGLE_OPTIONS: Array<{
+  value: PosePlanAngle;
+  label: string;
+  desc: string;
+  hint: string;
+}> = [
+  {
+    value: "front",
+    label: "正面展示",
+    desc: "保留正脸、正面轮廓和完整穿搭。",
+    hint: "适合主图、首图和服装正面卖点。",
+  },
+  {
+    value: "side",
+    label: "侧身变化",
+    desc: "侧身、三分之二侧身和自然转身。",
+    hint: "让版型、肩线、腰线和身体线条更立体。",
+  },
+  {
+    value: "back",
+    label: "背面/侧后",
+    desc: "生成背面、侧后或回身角度。",
+    hint: "建议补一张同款背面图，背后结构会更准。",
+  },
+  {
+    value: "detail",
+    label: "近景细节",
+    desc: "生成领口、袖口、腰线、面料等近景成片。",
+    hint: "这是输出画面类型，不是上传服装细节图。",
+  },
+];
+
+const POSE_ANGLE_PRESETS: Array<{
+  id: string;
+  label: string;
+  countLabel: string;
+  desc: string;
+  counts: PoseAngleCounts;
+}> = [
+  {
+    id: "recommended",
+    label: "推荐组合",
+    countLabel: "4 张",
+    desc: "正面 + 侧身 + 近景",
+    counts: { front: 1, side: 2, back: 0, detail: 1 },
+  },
+  {
+    id: "commerce",
+    label: "电商四视角",
+    countLabel: "4 张",
+    desc: "含背面",
+    counts: { front: 1, side: 1, back: 1, detail: 1 },
+  },
+  {
+    id: "sequence",
+    label: "连拍扩展",
+    countLabel: "8 张",
+    desc: "更多动作变化",
+    counts: { front: 2, side: 3, back: 1, detail: 2 },
+  },
+];
+
+type PosePlanSlot = PosePlan["slots"][number];
+type PosePlanSlotPatch = Partial<Pick<PosePlanSlot, "poseName" | "bodyAction" | "handAction" | "headDirection" | "cameraFraming" | "garmentVisibilityRule">>;
+
+function isSamePoseAngleCounts(left: PoseAngleCounts, right: PoseAngleCounts) {
+  return (Object.keys(POSE_PLAN_ANGLE_LABELS) as PosePlanAngle[])
+    .every((angle) => left[angle] === right[angle]);
+}
+
+function normalizePoseSelectorText(value: string) {
+  return value.replace(/\s+/g, "").toLowerCase();
+}
+
+function getSelectedActionPresetId(slot: PosePlanSlot | null | undefined) {
+  if (!slot) return "current";
+  const source = normalizePoseSelectorText([slot.poseName, slot.bodyAction, slot.handAction].filter(Boolean).join(" "));
+  const poseName = normalizePoseSelectorText(slot.poseName || "");
+  const preset = getCommercialPoseActionPresets(slot.angle).find((item) => {
+    const label = normalizePoseSelectorText(item.label);
+    const body = normalizePoseSelectorText(item.bodyAction);
+    const hand = normalizePoseSelectorText(item.handAction);
+    const keywordMatched = item.matchKeywords?.some((keyword) => source.includes(normalizePoseSelectorText(keyword)));
+    return item.label === slot.poseName
+      || item.bodyAction === slot.bodyAction
+      || source.includes(label)
+      || Boolean(poseName && label.includes(poseName))
+      || Boolean(body.length >= 14 && source.includes(body.slice(0, 14)))
+      || Boolean(hand.length >= 10 && source.includes(hand.slice(0, 10)))
+      || Boolean(keywordMatched);
+  });
+  return preset?.id || "current";
+}
+
+function getSelectedExpressionPresetId(slot: PosePlanSlot | null | undefined) {
+  if (!slot) return "current";
+  const source = normalizePoseSelectorText(slot.headDirection || "");
+  const preset = getCommercialPoseExpressionPresets(slot.angle).find((item) => {
+    const text = normalizePoseSelectorText(item.text);
+    const label = normalizePoseSelectorText(item.label);
+    return item.text === slot.headDirection
+      || source.includes(label)
+      || source.includes(text.slice(0, 10));
+  });
+  return preset?.id || "current";
+}
+
+function getPoseAngleBadgeClass(angle?: PosePlanAngle) {
+  const base = "rounded-full px-1.5 py-0.5 text-[9px] font-black ring-1";
+  if (angle === "front") return `${base} bg-blue-50 text-blue-700 ring-blue-100`;
+  if (angle === "side") return `${base} bg-indigo-50 text-indigo-700 ring-indigo-100`;
+  if (angle === "back") return `${base} bg-amber-50 text-amber-700 ring-amber-100`;
+  if (angle === "detail") return `${base} bg-teal-50 text-teal-700 ring-teal-100`;
+  return `${base} bg-slate-100 text-slate-500 ring-slate-200`;
+}
 
 function resolvePoseOutputModeFromPayload(payload: PoseHistoryPayload): PoseOutputMode {
   return payload.outputMode === "grid" ? "grid" : "separate";
+}
+
+function resolvePoseAngleCountsFromPayload(payload: PoseHistoryPayload): PoseAngleCounts {
+  if (payload.angleCounts) return normalizePoseAngleCounts(payload.angleCounts);
+  if (payload.posePlan?.angleCounts) return normalizePoseAngleCounts(payload.posePlan.angleCounts);
+  const slotCounts = payload.posePlan?.slots?.reduce((counts, slot) => {
+    if (slot.angle) counts[slot.angle] += 1;
+    return counts;
+  }, { front: 0, side: 0, back: 0, detail: 0 } as PoseAngleCounts);
+  if (slotCounts && getPoseAngleTotal(slotCounts) > 0) return normalizePoseAngleCounts(slotCounts);
+  const payloadCount = payload.poseCount || payload.posePlan?.slots?.length || payload.genCount || 4;
+  return buildDefaultPoseAngleCounts(normalizePosePlanCount(payloadCount));
 }
 
 function resolvePoseAspectRatioFromPayload(payload: PoseHistoryPayload): AspectRatio {
@@ -164,6 +310,7 @@ function resolvePosePlanModeFromPayload(payload: PoseHistoryPayload): PosePlanMo
 function stripLegacyRuleDemoText(value: string) {
   return value
     .replace(/\n?人物和姿势气质参考：[^\n]*(?:\n|$)/g, "\n")
+    .replace(/\n?姿势裂变拍摄风格档位：[^\n]*(?:\n|$)/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
@@ -206,19 +353,10 @@ function hasMeaningfulPoseAnalysis(analysis: PoseVisualAnalysis) {
   );
 }
 
-function buildCustomPosePromptText(customPosePrompt: string, customCamera: string, customPoses: string[]) {
-  return [
-    customPosePrompt,
-    "",
-    customCamera,
-    "",
-    ...customPoses,
-  ].join("\n");
-}
-
 export default function PosePage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const poseReferenceInputRef = useRef<HTMLInputElement>(null);
   const garmentDetailInputRef = useRef<HTMLInputElement>(null);
   const rulesButtonRef = useRef<HTMLButtonElement>(null);
   const rulesHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -251,10 +389,13 @@ export default function PosePage() {
   const [supplementPrompt, setSupplementPrompt] = useState("");
   const [outputMode, setOutputMode] = useState<PoseOutputMode>("separate");
   const [poseStyle, setPoseStyle] = useState<PoseSeriesStyle>(DEFAULT_POSE_SERIES_STYLE);
-  const [customPosePrompt, setCustomPosePrompt] = useState(USER_CUSTOM_POSE_DEFAULT.prompt);
-  const [customCamera, setCustomCamera] = useState(USER_CUSTOM_POSE_DEFAULT.camera);
-  const [customPoses, setCustomPoses] = useState([...USER_CUSTOM_POSE_DEFAULT.poses]);
+  const [poseAngleCounts, setPoseAngleCounts] = useState<PoseAngleCounts>({ ...DEFAULT_POSE_ANGLE_COUNTS });
   const [isDragging, setIsDragging] = useState(false);
+  const [isDraggingPoseReferences, setIsDraggingPoseReferences] = useState(false);
+  const [poseCreationMode, setPoseCreationMode] = useState<PoseCreationMode>("free");
+  const [poseReferenceUrls, setPoseReferenceUrls] = useState<string[]>([]);
+  const [poseReferenceCopies, setPoseReferenceCopies] = useState(1);
+  const [isUploadingPoseReferences, setIsUploadingPoseReferences] = useState(false);
   const [isDraggingGarmentDetails, setIsDraggingGarmentDetails] = useState(false);
   const [garmentAngleEnabled, setGarmentAngleEnabled] = useState(false);
   const [garmentAngleReferences, setGarmentAngleReferences] = useState<GarmentAngleReference[]>([]);
@@ -275,6 +416,7 @@ export default function PosePage() {
   const [posePlanError, setPosePlanError] = useState<string | null>(null);
   const [posePlanRetryCount, setPosePlanRetryCount] = useState(0);
   const [showPosePlanEditor, setShowPosePlanEditor] = useState(false);
+  const [selectedPosePlanSlotIndex, setSelectedPosePlanSlotIndex] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [resultUrls, setResultUrls] = useState<string[]>([]);
@@ -293,8 +435,6 @@ export default function PosePage() {
 
   const imageSizes = getSupportedImageSizes(aiModel, aspectRatio);
   const unitCost = getCreditCost(aiModel, imageSize, aspectRatio);
-  const poseExpectedCount = outputMode === "separate" ? 4 : 1;
-  const cost = unitCost * poseExpectedCount;
   const activeGarmentAngleReferences = useMemo(
     () => garmentAngleEnabled ? normalizeGarmentAngleReferences(garmentAngleReferences) : [],
     [garmentAngleEnabled, garmentAngleReferences]
@@ -303,9 +443,35 @@ export default function PosePage() {
     () => flattenGarmentAngleReferences(activeGarmentAngleReferences),
     [activeGarmentAngleReferences]
   );
+  const activePoseReferenceUrls = useMemo(
+    () => poseCreationMode === "reference" ? poseReferenceUrls.slice(0, MAX_POSE_REFERENCE_IMAGES) : [],
+    [poseCreationMode, poseReferenceUrls]
+  );
+  const isPoseReferenceMode = poseCreationMode === "reference";
+  const activePoseReferenceCopies = normalizePoseReferenceCopies(poseReferenceCopies, Math.max(activePoseReferenceUrls.length, 1));
+  const poseReferenceOutputCount = isPoseReferenceMode
+    ? Math.max(activePoseReferenceUrls.length * activePoseReferenceCopies, 1)
+    : 0;
+  const posePlanTargetCount = getPoseAngleTotal(poseAngleCounts);
+  const poseRunTargetCount = isPoseReferenceMode ? poseReferenceOutputCount : posePlanTargetCount;
+  const effectiveOutputMode: PoseOutputMode = isPoseReferenceMode ? "separate" : outputMode;
+  const poseExpectedCount = isPoseReferenceMode
+    ? poseReferenceOutputCount
+    : outputMode === "separate" ? posePlanTargetCount : 1;
+  const poseDeliveryLabel = isPoseReferenceMode
+    ? activePoseReferenceUrls.length
+      ? `${activePoseReferenceUrls.length} 张参考 × 每张 ${activePoseReferenceCopies} 张 = ${poseReferenceOutputCount} 张独立图`
+      : "参考图独立生成"
+    : outputMode === "separate"
+      ? `${posePlanTargetCount} 张独立图`
+      : `${posePlanTargetCount} 姿势自动宫格`;
+  const cost = unitCost * poseExpectedCount;
   const activeGarmentAngleTargetOption = GARMENT_ANGLE_TARGET_OPTIONS.find((item) => item.value === garmentAngleTarget) || GARMENT_ANGLE_TARGET_OPTIONS[0];
   const activeGarmentAngleViewOption = GARMENT_ANGLE_VIEW_OPTIONS.find((item) => item.value === garmentAngleView) || GARMENT_ANGLE_VIEW_OPTIONS[0];
   const activeGarmentAngleMark = `${activeGarmentAngleTargetOption.label} · ${activeGarmentAngleViewOption.label}`;
+  const requestedBackPoseCount = poseAngleCounts.back || 0;
+  const hasBackGarmentReference = activeGarmentAngleReferences.some((ref) => ref.view === "back");
+  const shouldSuggestBackReference = !isPoseReferenceMode && requestedBackPoseCount > 0 && !hasBackGarmentReference;
   const taskQueue = useTaskQueueGeneration({
     module: "pose",
     title: "姿势裂变",
@@ -322,21 +488,31 @@ export default function PosePage() {
     ? "请先上传主图"
     : isUploading
       ? "主图上传中，请稍候"
-      : isUploadingGarmentDetails
-        ? "服装角度参考正在上传，请稍候"
+      : isUploadingPoseReferences
+        ? "姿势参考图正在上传，请稍候"
+        : poseCreationMode === "reference" && activePoseReferenceUrls.length === 0
+          ? "请先上传姿势参考图"
+          : isUploadingGarmentDetails
+        ? "背/侧补充图正在上传，请稍候"
         : isPoseAnalysisPending
           ? "主图正在识别，请稍候。"
-          : posePlanMode === "ai" && isPlanningPose
-            ? "AI 姿势计划生成中，也可切回预设计划立即生成。"
+          : !isPoseReferenceMode && posePlanMode === "ai" && isPlanningPose
+            ? "姿势计划正在整理，请稍候。"
             : credits !== null && credits < cost
               ? `灵点不足，生成需要 ${cost} 灵点`
               : undefined;
-  const poseStyleLabel = POSE_SERIES_STYLES.find((item) => item.value === poseStyle)?.label || poseStyle;
   const previewPosePlan = getActivePosePlan();
-  const previewPosePlanText = [
-    ...getPosePlanSummary(previewPosePlan).map((item) => `${item.title}：${item.detail}`),
-    supplementPrompt.trim() ? `补充要求：${supplementPrompt.trim()}` : "",
-  ].map((item) => item.trim()).filter(Boolean).join("\n");
+  const previewPosePlanText = isPoseReferenceMode
+    ? [
+        activePoseReferenceUrls.length
+          ? `参考图模式：${activePoseReferenceUrls.length} 张姿势参考 × 每张 ${activePoseReferenceCopies} 张 = ${poseReferenceOutputCount} 张独立图。`
+          : "参考图模式：上传姿势参考图后生成独立图。",
+        supplementPrompt.trim() ? `补充要求：${supplementPrompt.trim()}` : "",
+      ].map((item) => item.trim()).filter(Boolean).join("\n")
+    : [
+        ...getPosePlanSummary(previewPosePlan).map((item) => `${item.title}：${item.detail}`),
+        supplementPrompt.trim() ? `补充要求：${supplementPrompt.trim()}` : "",
+      ].map((item) => item.trim()).filter(Boolean).join("\n");
   const activeResultExpectedCount = isGenerating
     ? runningExpectedCount || poseExpectedCount
     : runningExpectedCount || Math.max(resultUrls.length, 1);
@@ -356,7 +532,8 @@ export default function PosePage() {
       genCountOverride: 1,
       expectedCountOverride: 1,
       poseStartIndex: index + 1,
-      toastMessage: `正在重试姿势 ${index + 1}，失败图已退款，本次按 1 张重新生成...`,
+      retryResultIndex: index,
+      toastMessage: `正在补位重试姿势 ${index + 1}，失败图已退款，完成后会回填到当前结果中...`,
     });
   }
   const previewSession = useMemo(
@@ -369,23 +546,29 @@ export default function PosePage() {
       statusGroup: isGenerating ? "running" : undefined,
       references: [
         ...(mainImage ? [{ url: mainImage, label: "主图", role: "source" as const }] : []),
+        ...activePoseReferenceUrls.map((url, index) => ({ url, label: `姿势参考 ${index + 1}`, role: "reference" as const })),
         ...activeGarmentAngleReferences.map((ref, index) => ({ url: ref.url, label: formatGarmentAngleReferenceLabel(ref, index), role: "reference" as const })),
       ],
       promptText: previewPosePlanText,
       metaItems: [
-        { label: "输出方式", value: outputMode === "separate" ? "每姿势一张" : "四宫格" },
+        { label: "交付方式", value: poseDeliveryLabel },
+        { label: "姿势数量", value: poseRunTargetCount },
         { label: "画布比例", value: aspectRatio === "auto" ? "智能" : aspectRatio },
-        { label: "姿势风格", value: poseStyleLabel },
-        { label: "规划方式", value: posePlanMode === "ai" ? POSE_PLAN_SOURCE_LABELS[posePlanSource || "vision_plan"] : "预设计划" },
+        { label: "计划", value: isPoseReferenceMode ? "参考图直出" : posePlanMode === "ai" ? POSE_PLAN_SOURCE_LABELS[posePlanSource || "vision_plan"] : "自动计划" },
         { label: "模型", value: aiModel },
         { label: "分辨率", value: imageSize },
         { label: "结果数量", value: poseExpectedCount },
       ],
-      resultTitlePrefix: outputMode === "separate" ? "姿势结果" : "姿势四宫格",
+      resultTitlePrefix: effectiveOutputMode === "separate" ? "姿势结果" : "姿势宫格",
       aspectRatio: aspectRatio === "auto" ? undefined : aspectRatio,
     }),
-    [activeGarmentAngleReferences, activeResultExpectedCount, aiModel, aspectRatio, imageSize, isGenerating, mainImage, outputMode, poseExpectedCount, posePlanMode, posePlanSource, poseStyleLabel, previewPosePlanText, resultUrls]
+    [activeGarmentAngleReferences, activePoseReferenceUrls, activeResultExpectedCount, aiModel, aspectRatio, effectiveOutputMode, imageSize, isGenerating, isPoseReferenceMode, mainImage, poseDeliveryLabel, poseExpectedCount, posePlanMode, posePlanSource, poseRunTargetCount, previewPosePlanText, resultUrls]
   );
+
+  useEffect(() => {
+    setPoseReferenceCopies((count) => normalizePoseReferenceCopies(count, Math.max(activePoseReferenceUrls.length, 1)));
+  }, [activePoseReferenceUrls.length]);
+
   const cancelRulesHide = () => {
     if (rulesHideTimerRef.current) {
       clearTimeout(rulesHideTimerRef.current);
@@ -449,15 +632,19 @@ export default function PosePage() {
   function applyPosePlanSnapshot(payload: PoseHistoryPayload, source: PosePlanSource = "history") {
     const analysis = normalizePoseVisualAnalysis(payload.poseAnalysis);
     const planMode = resolvePosePlanModeFromPayload(payload);
-    const planKey = buildPosePlanKey(payload.mainImageUrl, analysis, normalizePoseSeriesStyle(payload.poseStyle), resolvePoseOutputModeFromPayload(payload), payload.prompt, planMode);
+    const historyAngleCounts = resolvePoseAngleCountsFromPayload(payload);
+    const historyPoseCount = getPoseAngleTotal(historyAngleCounts);
+    const planKey = buildPosePlanKey(payload.mainImageUrl, analysis, DEFAULT_POSE_SERIES_STYLE, resolvePoseOutputModeFromPayload(payload), payload.prompt, planMode, historyPoseCount, historyAngleCounts);
     posePlanSeqRef.current += 1;
     if (payload.posePlan && planKey) {
       const entry: PosePlanEntry = {
         plan: normalizePosePlan(payload.posePlan, {
           poseAnalysis: analysis,
-          poseStyle: normalizePoseSeriesStyle(payload.poseStyle),
+          poseStyle: DEFAULT_POSE_SERIES_STYLE,
           outputMode: resolvePoseOutputModeFromPayload(payload),
           prompt: payload.prompt,
+          poseCount: historyPoseCount,
+          angleCounts: historyAngleCounts,
         }),
         source,
         error: null,
@@ -483,7 +670,7 @@ export default function PosePage() {
 
   function buildPlanPromptSource() {
     return stripLegacyRuleDemoText([
-      poseStyle === "user_custom" ? buildCustomPosePrompt() : prompt,
+      prompt,
       supplementPrompt.trim() ? `补充要求：${supplementPrompt.trim()}` : "",
     ].filter(Boolean).join("\n\n"));
   }
@@ -494,7 +681,9 @@ export default function PosePage() {
     style = poseStyle,
     mode = outputMode,
     planPrompt = buildPlanPromptSource(),
-    planMode = posePlanMode
+    planMode = posePlanMode,
+    targetCount = posePlanTargetCount,
+    angleCounts = poseAngleCounts
   ) {
     if (!imageUrl) return "";
     const baseKey = buildPosePlanCacheKey({
@@ -502,12 +691,15 @@ export default function PosePage() {
       poseAnalysis: analysis,
       poseStyle: style,
       outputMode: mode,
+      poseCount: targetCount,
+      angleCounts,
       prompt: planPrompt,
     });
-    return `${baseKey}|mode:${style === "user_custom" ? "custom" : planMode}`;
+    return `${baseKey}|mode:${planMode}`;
   }
 
   function getActivePosePlan() {
+    if (poseCreationMode === "reference") return null;
     if (!mainImage || !posePlan) return null;
     return lastPosePlanKeyRef.current === buildPosePlanKey() ? posePlan : null;
   }
@@ -534,19 +726,77 @@ export default function PosePage() {
     setPosePlanRetryCount((count) => count + 1);
   }
 
-  function updatePosePlanSlot(index: number, key: keyof Pick<PosePlan["slots"][number], "bodyAction" | "handAction" | "headDirection" | "cameraFraming" | "garmentVisibilityRule">, value: string) {
+  function usePresetPosePlan() {
+    if (posePlanMode === "preset") return;
+    posePlanBypassCacheRef.current = false;
+    lastPosePlanKeyRef.current = "";
+    posePlanSeqRef.current += 1;
+    setPosePlanMode("preset");
+    setPosePlanEntry(null);
+    setSelectedPosePlanSlotIndex(0);
+  }
+
+  function patchPosePlanSlot(index: number, patch: PosePlanSlotPatch) {
     setPosePlan((prev) => {
       if (!prev) return prev;
       return {
         ...prev,
         edited: true,
         slots: prev.slots.map((slot, slotIndex) => (
-          slotIndex === index ? { ...slot, [key]: value } : slot
+          slotIndex === index ? { ...slot, ...patch } : slot
         )),
       };
     });
     setPosePlanSource("user_custom");
   }
+
+  function updatePosePlanSlot(index: number, key: keyof Pick<PosePlan["slots"][number], "bodyAction" | "handAction" | "headDirection" | "cameraFraming" | "garmentVisibilityRule">, value: string) {
+    patchPosePlanSlot(index, { [key]: value } as PosePlanSlotPatch);
+  }
+
+  function applyPoseActionPreset(index: number, presetId: string) {
+    const slot = getActivePosePlan()?.slots[index];
+    if (!slot || presetId === "current") return;
+    const preset = getCommercialPoseActionPresets(slot.angle).find((item) => item.id === presetId);
+    if (!preset) return;
+    patchPosePlanSlot(index, {
+      poseName: preset.label,
+      bodyAction: preset.bodyAction,
+      handAction: preset.handAction,
+    });
+  }
+
+  function applyPoseExpressionPreset(index: number, presetId: string) {
+    const slot = getActivePosePlan()?.slots[index];
+    if (!slot || presetId === "current") return;
+    const preset = getCommercialPoseExpressionPresets(slot.angle).find((item) => item.id === presetId);
+    if (!preset) return;
+    patchPosePlanSlot(index, { headDirection: preset.text });
+  }
+
+  function updatePoseAngleCount(angle: PosePlanAngle, delta: number) {
+    setPoseAngleCounts((prev) => {
+      const current = normalizePoseAngleCounts(prev);
+      const total = getPoseAngleTotal(current);
+      if (delta > 0 && total >= POSE_PLAN_MAX_COUNT) return current;
+      if (delta < 0 && total <= POSE_PLAN_MIN_COUNT) return current;
+      const nextValue = Math.max(0, current[angle] + delta);
+      if (nextValue === current[angle]) return current;
+      const next = normalizePoseAngleCounts({ ...current, [angle]: nextValue }, current);
+      const nextTotal = getPoseAngleTotal(next);
+      if (nextTotal < POSE_PLAN_MIN_COUNT || nextTotal > POSE_PLAN_MAX_COUNT) return current;
+      return next;
+    });
+  }
+
+  function applyPoseAnglePreset(counts: PoseAngleCounts) {
+    setPoseAngleCounts(normalizePoseAngleCounts(counts));
+    setSelectedPosePlanSlotIndex(0);
+  }
+
+  useEffect(() => {
+    setSelectedPosePlanSlotIndex((index) => Math.max(0, Math.min(index, posePlanTargetCount - 1)));
+  }, [posePlanTargetCount]);
 
   useEffect(() => {
     const sourceImage = takeSourceImageFromLocation();
@@ -570,6 +820,15 @@ export default function PosePage() {
   }, []);
 
   useEffect(() => {
+    if (poseCreationMode === "reference") {
+      lastPosePlanKeyRef.current = "";
+      posePlanSeqRef.current += 1;
+      setPosePlanEntry(null);
+      setShowPosePlanEditor(false);
+      setOutputMode("separate");
+      return;
+    }
+
     const imageUrl = mainImage.trim();
     if (!imageUrl) {
       lastPoseAnalysisKeyRef.current = "";
@@ -651,7 +910,7 @@ export default function PosePage() {
     };
 
     void run();
-  }, [mainImage, poseAnalysisRetryCount]);
+  }, [mainImage, poseAnalysisRetryCount, poseCreationMode]);
 
   useEffect(() => {
     const imageUrl = mainImage.trim();
@@ -665,9 +924,8 @@ export default function PosePage() {
     const imageAnalysisKey = buildPoseVisualAnalysisKey(imageUrl);
     const activeAnalysis = poseAnalysisEntryKey === imageAnalysisKey ? poseAnalysis : null;
     const activeAnalysisError = poseAnalysisEntryKey === imageAnalysisKey ? poseAnalysisError : null;
-    const customPromptText = buildCustomPosePromptText(customPosePrompt, customCamera, customPoses);
     const planPrompt = stripLegacyRuleDemoText([
-      poseStyle === "user_custom" ? customPromptText : prompt,
+      prompt,
       supplementPrompt.trim() ? `补充要求：${supplementPrompt.trim()}` : "",
     ].filter(Boolean).join("\n\n"));
     const basePlanKey = buildPosePlanCacheKey({
@@ -675,29 +933,15 @@ export default function PosePage() {
       poseAnalysis: activeAnalysis,
       poseStyle,
       outputMode,
+      poseCount: posePlanTargetCount,
+      angleCounts: poseAngleCounts,
       prompt: planPrompt,
     });
-    const planKey = `${basePlanKey}|mode:${poseStyle === "user_custom" ? "custom" : posePlanMode}`;
+    const planKey = `${basePlanKey}|mode:${posePlanMode}`;
     if (lastPosePlanKeyRef.current === planKey) return;
     lastPosePlanKeyRef.current = planKey;
     const seq = posePlanSeqRef.current + 1;
     posePlanSeqRef.current = seq;
-
-    if (poseStyle === "user_custom") {
-      const plan = buildUserCustomPosePlan({
-        poseAnalysis: activeAnalysis,
-        poseStyle,
-        outputMode,
-        prompt: planPrompt,
-        customPosePrompt,
-        customCamera,
-        customPoses,
-      });
-      const entry: PosePlanEntry = { plan, source: "user_custom", error: null };
-      posePlanCacheRef.current.set(planKey, entry);
-      setPosePlanEntry(entry);
-      return;
-    }
 
     const cachedPlan = posePlanCacheRef.current.get(planKey);
     if (cachedPlan) {
@@ -711,6 +955,8 @@ export default function PosePage() {
         poseStyle,
         outputMode,
         prompt: planPrompt,
+        poseCount: posePlanTargetCount,
+        angleCounts: poseAngleCounts,
       });
       const entry: PosePlanEntry = { plan, source: "preset", error: null };
       posePlanCacheRef.current.set(planKey, entry);
@@ -735,6 +981,8 @@ export default function PosePage() {
               pose_analysis: activeAnalysis,
               pose_style: poseStyle,
               output_mode: outputMode,
+              pose_count: posePlanTargetCount,
+              angle_counts: poseAngleCounts,
               prompt: planPrompt,
               force: forcePlanRequest,
             }),
@@ -746,6 +994,8 @@ export default function PosePage() {
               poseStyle,
               outputMode,
               prompt: planPrompt,
+              poseCount: posePlanTargetCount,
+              angleCounts: poseAngleCounts,
             });
             const nextSource: PosePlanSource = data.source === "fallback"
               ? "fallback"
@@ -776,6 +1026,8 @@ export default function PosePage() {
           poseStyle,
           outputMode,
           prompt: planPrompt,
+          poseCount: posePlanTargetCount,
+          angleCounts: poseAngleCounts,
         });
         setPosePlanEntry({
           plan: fallback,
@@ -798,13 +1050,13 @@ export default function PosePage() {
     poseAnalysisEntryKey,
     poseAnalysisSource,
     poseStyle,
+    poseCreationMode,
     posePlanMode,
     outputMode,
     prompt,
     supplementPrompt,
-    customPosePrompt,
-    customCamera,
-    customPoses,
+    poseAngleCounts,
+    posePlanTargetCount,
     posePlanRetryCount,
   ]);
 
@@ -816,17 +1068,29 @@ export default function PosePage() {
     const historyGarmentAngleReferences = normalizeGarmentAngleReferences(
       payload.garmentAngleReferences?.length ? payload.garmentAngleReferences : payload.garmentDetailUrls
     );
+    const historyPoseReferenceUrls = normalizePoseReferenceUrls(payload.poseReferenceUrls);
+    const historyPoseReferenceCopies = normalizePoseReferenceCopies(payload.poseReferenceCopies, Math.max(historyPoseReferenceUrls.length, 1));
     setGarmentAngleReferences(historyGarmentAngleReferences);
     setGarmentAngleEnabled(historyGarmentAngleReferences.length > 0);
+    setPoseReferenceUrls(historyPoseReferenceUrls);
+    setPoseReferenceCopies(historyPoseReferenceCopies);
+    const historyCreationMode = historyPoseReferenceUrls.length ? "reference" : "free";
+    setPoseCreationMode(historyCreationMode);
     applyPoseAnalysisSnapshot(payload.mainImageUrl, payload.poseAnalysis);
-    applyPosePlanSnapshot(payload);
+    if (historyCreationMode === "reference") {
+      setPosePlanEntry(null);
+      lastPosePlanKeyRef.current = "";
+    } else {
+      applyPosePlanSnapshot(payload);
+    }
     setAiModel(payload.aiModel);
     setAspectRatio(resolvePoseAspectRatioFromPayload(payload));
     setImageSize(payload.imageSize);
-    setPrompt(payload.prompt);
+    setPrompt(stripLegacyRuleDemoText(payload.prompt || DEFAULT_POSE_PROMPT));
     setSupplementPrompt("");
-    setPoseStyle(normalizePoseSeriesStyle(payload.poseStyle));
-    setOutputMode(resolvePoseOutputModeFromPayload(payload));
+    setPoseStyle(DEFAULT_POSE_SERIES_STYLE);
+    setOutputMode(historyCreationMode === "reference" ? "separate" : resolvePoseOutputModeFromPayload(payload));
+    setPoseAngleCounts(resolvePoseAngleCountsFromPayload(payload));
     setRunningExpectedCount(null);
     setResultUrls(historyResultUrls);
     setIsSubmitting(false);
@@ -861,9 +1125,6 @@ export default function PosePage() {
       toast.error(`图片不能超过 ${MAX_FILE_SIZE_MB}MB`);
       return;
     }
-    setResultUrls([]);
-    setError("");
-
     toast.info("正在上传主图...");
     setIsUploading(true);
     try {
@@ -878,20 +1139,71 @@ export default function PosePage() {
     }
   }
 
+  async function handlePoseReferenceFiles(files?: FileList | File[]) {
+    if (isUploadingPoseReferences) {
+      toast.info("姿势参考图正在上传，请稍候");
+      return;
+    }
+    const arr = Array.from(files || []);
+    if (!arr.length) return;
+    const remaining = MAX_POSE_REFERENCE_IMAGES - poseReferenceUrls.length;
+    if (remaining <= 0) {
+      toast.info(`姿势参考图最多 ${MAX_POSE_REFERENCE_IMAGES} 张`);
+      return;
+    }
+    const limited = arr.slice(0, remaining);
+    if (arr.length > limited.length) {
+      toast.info(`最多还能添加 ${remaining} 张姿势参考图，已自动截取`);
+    }
+    const validFiles: File[] = [];
+    for (const file of limited) {
+      if (!isLikelyImageFile(file)) { toast.error(`${file.name} 不是图片`); continue; }
+      if (file.size > MAX_FILE_SIZE) { toast.error(`${file.name} 超过 ${MAX_FILE_SIZE_MB}MB`); continue; }
+      validFiles.push(file);
+    }
+    if (!validFiles.length) return;
+
+    setIsUploadingPoseReferences(true);
+    toast.info(`正在上传 ${validFiles.length} 张姿势参考图...`);
+    try {
+      const results = await Promise.allSettled(validFiles.map((file) => uploadImage(file)));
+      const uploadedUrls: string[] = [];
+      results.forEach((result, index) => {
+        if (result.status === "fulfilled") {
+          uploadedUrls.push(result.value.url);
+        } else {
+          const message = result.reason instanceof Error ? result.reason.message : "上传失败";
+          toast.error(`${validFiles[index].name} 上传失败：${message}`);
+        }
+      });
+      if (uploadedUrls.length) {
+        setPoseReferenceUrls((prev) => Array.from(new Set([...prev, ...uploadedUrls])).slice(0, MAX_POSE_REFERENCE_IMAGES));
+        setPoseCreationMode("reference");
+        toast.success(`已添加 ${uploadedUrls.length} 张姿势参考图`);
+      }
+    } finally {
+      setIsUploadingPoseReferences(false);
+    }
+  }
+
   function toggleGarmentDetails() {
     setGarmentAngleEnabled((value) => !value);
   }
 
   async function handleGarmentDetailFiles(files?: FileList | File[]) {
     if (isUploadingGarmentDetails) {
-      toast.info("服装角度参考正在上传，请稍候");
+      toast.info("背/侧补充图正在上传，请稍候");
+      return;
+    }
+    if (isPoseReferenceMode && activePoseReferenceUrls.length === 0) {
+      toast.info("请先上传姿势参考图");
       return;
     }
     const arr = Array.from(files || []);
     if (!arr.length) return;
     const remaining = MAX_GARMENT_ANGLE_IMAGES - activeGarmentAngleReferences.length;
     if (remaining <= 0) {
-      toast.info(`服装角度参考最多 ${MAX_GARMENT_ANGLE_IMAGES} 张`);
+      toast.info(`背/侧补充图最多 ${MAX_GARMENT_ANGLE_IMAGES} 张`);
       return;
     }
     const limited = arr.slice(0, remaining);
@@ -907,7 +1219,7 @@ export default function PosePage() {
     if (!validFiles.length) return;
 
     setIsUploadingGarmentDetails(true);
-    toast.info(`正在上传 ${validFiles.length} 张服装角度参考...`);
+    toast.info(`正在上传 ${validFiles.length} 张背/侧补充图...`);
     try {
       const results = await Promise.allSettled(validFiles.map((file) => uploadImage(file)));
       const uploadedUrls: string[] = [];
@@ -924,7 +1236,7 @@ export default function PosePage() {
           ...prev,
           ...uploadedUrls.map((url) => ({ url, target: garmentAngleTarget, view: garmentAngleView })),
         ]));
-        toast.success(`已添加 ${uploadedUrls.length} 张服装角度参考`);
+        toast.success(`已添加 ${uploadedUrls.length} 张背/侧补充图`);
       }
     } finally {
       setIsUploadingGarmentDetails(false);
@@ -935,28 +1247,19 @@ export default function PosePage() {
     setGarmentAngleReferences((prev) => prev.filter((item) => item.url !== url));
   }
 
-  function selectPoseStyle(nextStyle: PoseSeriesStyle) {
-    setPoseStyle(nextStyle);
-    if (nextStyle === "user_custom") {
-      // 自定义风格：用用户编辑的值构建提示词
-      setPrompt(buildCustomPosePrompt());
-    } else {
-      setPrompt((prev) => applyPoseSeriesStylePrompt(prev, nextStyle));
-    }
-  }
-
-  function buildCustomPosePrompt(): string {
-    return buildCustomPosePromptText(customPosePrompt, customCamera, customPoses);
-  }
-
   function applyRuleDemo(demo: PoseRuleDemo) {
     setMainImage(demo.imageUrl);
     setPrompt((prev) => stripLegacyRuleDemoText(prev));
-    setResultUrls([]);
-    setError("");
     setShowPoseRules(false);
     setRulesPopoverStyle(null);
     toast.success("已套用示例图");
+  }
+
+  function applyPoseReferenceDemo(demo: typeof POSE_REFERENCE_DEMOS[number]) {
+    setPoseCreationMode("reference");
+    setPoseReferenceUrls(demo.imageUrls.slice(0, MAX_POSE_REFERENCE_IMAGES));
+    setPoseReferenceCopies(1);
+    toast.success("已套用姿势参考示例");
   }
 
   async function generate(promptForRun?: string, options: PoseGenerateOptions = {}) {
@@ -971,7 +1274,7 @@ export default function PosePage() {
       return;
     }
     if (isUploadingGarmentDetails) {
-      toast.info("服装角度参考正在上传，请稍候");
+      toast.info("背/侧补充图正在上传，请稍候");
       return;
     }
     const activePoseAnalysis = getActivePoseAnalysis();
@@ -981,8 +1284,16 @@ export default function PosePage() {
       toast.info("主图视觉识别中，完成后再生成");
       return;
     }
-    const runExpectedCount = Math.max(1, Math.round(Number(options.expectedCountOverride ?? options.genCountOverride ?? poseExpectedCount) || poseExpectedCount));
-    const runGenCount = Math.min(Math.max(Math.round(Number(options.genCountOverride ?? runExpectedCount) || 1), 1), 4);
+    const runExpectedCount = normalizePosePlanCount(options.expectedCountOverride ?? options.genCountOverride ?? poseExpectedCount, poseExpectedCount);
+    const runGenCount = normalizePosePlanCount(options.genCountOverride ?? runExpectedCount, runExpectedCount);
+    const retryResultIndex = normalizeRetryResultIndex(options.retryResultIndex);
+    const retryPreviousResultUrls = retryResultIndex !== null ? resultUrls : [];
+    const displayExpectedCount = getRetryDisplayExpectedCount({
+      retryIndex: retryResultIndex,
+      currentExpectedCount: activeResultExpectedCount,
+      previousUrls: retryPreviousResultUrls,
+      fallbackExpectedCount: runExpectedCount,
+    });
     const runTotalCost = unitCost * runExpectedCount;
     if (credits !== null && credits < runTotalCost) {
       showInsufficientCreditsToast({ required: runTotalCost, balance: credits, onRecharge: () => router.push("/pricing") });
@@ -994,14 +1305,25 @@ export default function PosePage() {
     const isCurrentRun = () => generationRunRef.current === runId;
     setIsSubmitting(true);
     setIsGenerating(true);
-    setRunningExpectedCount(runExpectedCount);
+    setRunningExpectedCount(displayExpectedCount);
     setError("");
-    setResultUrls([]);
+    setResultUrls(buildRetryPendingResultUrls(retryPreviousResultUrls, retryResultIndex, displayExpectedCount));
     if (options.toastMessage) toast.info(options.toastMessage);
-    const taskInputThumbnails = mainImage ? [mainImage, ...activeGarmentAngleUrls] : [];
-    const activePosePlan = getActivePosePlan();
+    const taskInputThumbnails = mainImage ? [mainImage, ...activePoseReferenceUrls, ...activeGarmentAngleUrls] : [];
+    const activePosePlan = isPoseReferenceMode ? null : getActivePosePlan();
+    const runPrompt = stripLegacyRuleDemoText(
+      isPoseReferenceMode
+        ? [
+            "图1是唯一的人物、服装、背景、光线和整体摄影质感参考。姿势参考图只用于借鉴身体动作、重心、手脚位置、头颈方向、镜头节奏和兼容构图，不复制参考图人物、服装、背景、色调或道具。",
+            supplementPrompt.trim() ? `补充要求：${supplementPrompt.trim()}` : "",
+          ].filter(Boolean).join("\n\n")
+        : [
+            typeof promptForRun === "string" ? promptForRun : prompt,
+            supplementPrompt.trim() ? `补充要求：${supplementPrompt.trim()}` : "",
+          ].filter(Boolean).join("\n\n")
+    );
     const provisionalTask = taskQueue.startTask({
-      expectedCount: runExpectedCount,
+      expectedCount: displayExpectedCount,
       inputThumbnails: taskInputThumbnails,
       progress: 10,
     });
@@ -1017,21 +1339,19 @@ export default function PosePage() {
           ai_model: aiModel,
           aspect_ratio: aspectRatio,
           image_size: imageSize,
-          prompt: stripLegacyRuleDemoText([
-            typeof promptForRun === "string"
-              ? promptForRun
-              : poseStyle === "user_custom"
-                ? buildCustomPosePrompt()
-                : prompt,
-            supplementPrompt.trim() ? `补充要求：${supplementPrompt.trim()}` : "",
-          ].filter(Boolean).join("\n\n")),
+          prompt: runPrompt,
           pose_style: poseStyle,
-          pose_plan_mode: posePlanMode,
-          output_mode: outputMode,
+          pose_creation_mode: isPoseReferenceMode ? "reference" : "free",
+          pose_plan_mode: isPoseReferenceMode ? "preset" : posePlanMode,
+          output_mode: effectiveOutputMode,
+          pose_count: poseRunTargetCount,
+          angle_counts: poseAngleCounts,
           gen_count: runGenCount,
           pose_start_index: options.poseStartIndex,
           pose_analysis: activePoseAnalysis,
           pose_plan: activePosePlan,
+          pose_reference_urls: activePoseReferenceUrls,
+          pose_reference_copies: activePoseReferenceCopies,
           garment_angle_references: activeGarmentAngleReferences,
         }),
       });
@@ -1061,7 +1381,7 @@ export default function PosePage() {
       if (typeof data.generation_id === "string" && data.generation_id) {
         const serverTask = taskQueue.replaceWithServerTask(activeTaskId, {
           id: data.generation_id,
-          expectedCount: runExpectedCount,
+          expectedCount: displayExpectedCount,
           inputThumbnails: taskInputThumbnails,
           status: data.status || "processing_tryon",
           progress: 25,
@@ -1083,21 +1403,25 @@ export default function PosePage() {
         const state = await poll.json();
         if (state.status === "processing_tryon" || state.status === "processing" || state.status === "pending") {
           if (Array.isArray(state.result_urls) && state.result_urls.length) {
-            latestTaskResultUrls = state.result_urls;
-            if (isCurrentRun()) setResultUrls(state.result_urls);
+            const nextResultUrls = mergeRetryResultUrls(retryPreviousResultUrls, retryResultIndex, state.result_urls, displayExpectedCount);
+            latestTaskResultUrls = nextResultUrls;
+            if (isCurrentRun()) setResultUrls(nextResultUrls);
           }
           const runningProgress = Math.min(25 + (elapsedMs / POSE_GENERATION_POLL_TIMEOUT_MS) * 65, 90);
           taskQueue.markRunning(activeTaskId, {
-            expectedCount: runExpectedCount,
+            expectedCount: displayExpectedCount,
             inputThumbnails: taskInputThumbnails,
             resultThumbnails: latestTaskResultUrls,
             progress: runningProgress,
             status: state.status,
           });
         } else if (state.status === "completed") {
-          const finalUrls = Array.isArray(state.result_urls) ? state.result_urls : latestTaskResultUrls;
+          const rawFinalUrls = Array.isArray(state.result_urls) ? state.result_urls : latestTaskResultUrls;
+          const finalUrls = mergeRetryResultUrls(retryPreviousResultUrls, retryResultIndex, rawFinalUrls, displayExpectedCount);
           const finalResultCount = finalUrls.filter(Boolean).length;
-          const expectedResultCount = Math.max(Number(state.expected_count) || runExpectedCount, runExpectedCount);
+          const expectedResultCount = retryResultIndex !== null
+            ? displayExpectedCount
+            : Math.max(Number(state.expected_count) || runExpectedCount, runExpectedCount);
           const partialFailure = state.partial_failure && typeof state.partial_failure === "object"
             ? state.partial_failure as { message?: unknown }
             : null;
@@ -1131,7 +1455,7 @@ export default function PosePage() {
       const message = summarizeGenerationError(err instanceof Error ? err.message : "生成失败");
       if (err instanceof PoseGenerationPollTimeoutError) {
         taskQueue.markRunning(activeTaskId, {
-          expectedCount: runExpectedCount,
+          expectedCount: displayExpectedCount,
           inputThumbnails: taskInputThumbnails,
           resultThumbnails: latestTaskResultUrls,
           progress: 90,
@@ -1147,7 +1471,7 @@ export default function PosePage() {
         return;
       }
       taskQueue.markFailed(activeTaskId, message, {
-        expectedCount: runExpectedCount,
+        expectedCount: displayExpectedCount,
         inputThumbnails: taskInputThumbnails,
         resultThumbnails: latestTaskResultUrls,
       });
@@ -1170,7 +1494,7 @@ export default function PosePage() {
 
   function handleRunningTask(item: TaskQueueItem) {
     generationRunRef.current += 1;
-    const expectedCount = clampTaskExpectedCount(item, 1, 4);
+    const expectedCount = clampTaskExpectedCount(item, 1, POSE_PLAN_MAX_COUNT);
     setRunningExpectedCount(expectedCount);
     setIsSubmitting(false);
     setIsGenerating(true);
@@ -1214,13 +1538,16 @@ export default function PosePage() {
     setPosePlanEntry(null);
     setPosePlanMode("preset");
     setShowPosePlanEditor(false);
+    setSelectedPosePlanSlotIndex(0);
+    setPoseAngleCounts({ ...DEFAULT_POSE_ANGLE_COUNTS });
+    setPoseCreationMode("free");
+    setPoseReferenceUrls([]);
+    setPoseReferenceCopies(1);
+    setIsUploadingPoseReferences(false);
     setPrompt(DEFAULT_POSE_PROMPT);
     setSupplementPrompt("");
     setOutputMode("separate");
     setPoseStyle(DEFAULT_POSE_SERIES_STYLE);
-    setCustomPosePrompt(USER_CUSTOM_POSE_DEFAULT.prompt);
-    setCustomCamera(USER_CUSTOM_POSE_DEFAULT.camera);
-    setCustomPoses([...USER_CUSTOM_POSE_DEFAULT.poses]);
     setRunningExpectedCount(null);
     setIsSubmitting(false);
     setIsGenerating(false);
@@ -1230,6 +1557,7 @@ export default function PosePage() {
     setShowPoseRules(false);
     setRulesPopoverStyle(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
+    if (poseReferenceInputRef.current) poseReferenceInputRef.current.value = "";
     if (garmentDetailInputRef.current) garmentDetailInputRef.current.value = "";
   }
 
@@ -1238,29 +1566,47 @@ export default function PosePage() {
   const activePosePlan = getActivePosePlan();
   const poseAnalysisSummary = getPoseVisualAnalysisSummary(activePoseAnalysis);
   const poseAnalysisDetails = getPoseVisualAnalysisDetailItems(activePoseAnalysis);
+  const poseAnalysisSummaries: VisualAnalysisSummaryItem[] = poseAnalysisDetails.map((item) => ({
+    key: item.label,
+    title: `${item.label} · ${item.value}`,
+    detail: item.title && item.title !== item.value ? item.title : "",
+  }));
   const poseAnalysisStatus = isAnalyzingPose
-    ? { tone: "loading" as const, text: "识别主图中" }
+    ? { tone: "loading" as const, text: "正在读取主图" }
     : activePoseAnalysis
       ? {
           tone: activePoseAnalysisError || poseAnalysisSource === "fallback" || activePoseAnalysis.confidence < 0.45
             ? "warning" as const
             : "success" as const,
-          text: `${POSE_ANALYSIS_SOURCE_LABELS[poseAnalysisSource || "vision"]}：${poseAnalysisSummary || "主图已识别"}`,
+          text: poseAnalysisSource === "fallback" ? "主图已保守处理" : "主图信息已就绪",
+          description: poseAnalysisSummary || "人物与构图已读取",
         }
       : activePoseAnalysisError
-        ? { tone: "warning" as const, text: activePoseAnalysisError }
+        ? { tone: "warning" as const, text: "主图读取未完成", description: activePoseAnalysisError }
         : null;
   const posePlanSummaries = getPosePlanSummary(activePosePlan);
   const posePlanStatus = isPlanningPose
-    ? { tone: "loading" as const, text: "规划姿势中" }
+    ? { tone: "loading" as const, text: "正在整理姿势" }
     : activePosePlan
       ? {
           tone: posePlanError || posePlanSource === "fallback" ? "warning" as const : "success" as const,
-          text: `${activePosePlan.edited ? "已编辑" : POSE_PLAN_SOURCE_LABELS[posePlanSource || "vision_plan"]}：${activePosePlan.slots.length} 个姿势`,
+          text: posePlanError || posePlanSource === "fallback" ? "姿势计划已保守处理" : "姿势计划已就绪",
+          description: `${activePosePlan.edited ? "已编辑" : POSE_PLAN_SOURCE_LABELS[posePlanSource || "vision_plan"]} · ${activePosePlan.slots.length} 个姿势`,
         }
       : posePlanError
-        ? { tone: "warning" as const, text: posePlanError }
+        ? { tone: "warning" as const, text: "姿势计划未完成", description: posePlanError }
         : null;
+  const selectedPosePlanSlot = activePosePlan?.slots[selectedPosePlanSlotIndex] || activePosePlan?.slots[0] || null;
+  const suppressPoseFaceControls = shouldSuppressPoseFacePlanning(activePoseAnalysis);
+  const selectedActionPresets = getCommercialPoseActionPresets(selectedPosePlanSlot?.angle);
+  const selectedExpressionPresets = getCommercialPoseExpressionPresets(selectedPosePlanSlot?.angle, suppressPoseFaceControls);
+  const selectedActionPresetId = getSelectedActionPresetId(selectedPosePlanSlot);
+  const selectedExpressionPresetId = getSelectedExpressionPresetId(selectedPosePlanSlot);
+  const selectedActionPreset = selectedActionPresets.find((preset) => preset.id === selectedActionPresetId) || null;
+  const selectedExpressionPreset = selectedExpressionPresets.find((preset) => preset.id === selectedExpressionPresetId) || null;
+  const normalizedPoseAngleCounts = normalizePoseAngleCounts(poseAngleCounts);
+  const activePoseAnglePreset = POSE_ANGLE_PRESETS.find((preset) => isSamePoseAngleCounts(normalizedPoseAngleCounts, preset.counts)) || null;
+  const poseAnglePlanLabel = activePoseAnglePreset ? activePoseAnglePreset.label : "自定义组合";
 
   return (
     <div className="studio-workbench min-h-[calc(100dvh-64px)] lg:h-[calc(100vh-64px)] flex flex-col lg:flex-row">
@@ -1270,7 +1616,7 @@ export default function PosePage() {
         <div className="studio-parameters-scroll flex-1 overflow-visible lg:overflow-y-auto p-3 sm:p-5 space-y-4 sm:space-y-6">
           <ModuleHeader
             title="姿势裂变"
-            tooltip="基于图1人物、服装、场景和光线，生成同一套视觉里的四宫格姿势变化，适合主图延展、搭配展示和社媒排版。"
+            tooltip="基于图1人物、服装、场景和光线，按选择的角度数量生成同一套视觉里的姿势变化，适合主图延展、搭配展示和社媒排版。"
             actions={(
               <button
                 ref={rulesButtonRef}
@@ -1322,68 +1668,187 @@ export default function PosePage() {
               }}
             />
             {poseAnalysisStatus && (
-              <div
-                className={`mt-2 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold ${
-                  poseAnalysisStatus.tone === "loading"
-                    ? "border-violet-100 bg-violet-50/70 text-violet-600"
-                    : poseAnalysisStatus.tone === "success"
-                      ? "border-emerald-100 bg-emerald-50/80 text-emerald-700"
-                      : "border-amber-100 bg-amber-50/80 text-amber-700"
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  {poseAnalysisStatus.tone === "loading" ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : poseAnalysisStatus.tone === "success" ? (
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                  ) : (
-                    <XCircle className="h-3.5 w-3.5" />
-                  )}
-                  <span className="min-w-0 truncate" title={poseAnalysisStatus.text}>{poseAnalysisStatus.text}</span>
-                  {poseAnalysisStatus.tone === "warning" && mainImage && (
+              <VisualAnalysisStatusCard
+                status={poseAnalysisStatus}
+                summaries={poseAnalysisSummaries}
+                isAnalyzing={isAnalyzingPose}
+                className="mt-2"
+                action={poseAnalysisStatus.tone === "warning" && mainImage ? (
                     <button
                       type="button"
                       onClick={retryPoseAnalysis}
-                      className="ml-auto shrink-0 rounded-md bg-white/70 px-2 py-0.5 text-[10px] font-semibold text-amber-700 transition-colors hover:bg-white"
+                      className="rounded-full border border-current/15 bg-white/75 px-2.5 py-1 text-[10px] font-semibold transition hover:bg-white"
                     >
                       重试
                     </button>
-                  )}
-                </div>
-                {!isAnalyzingPose && activePoseAnalysis && poseAnalysisDetails.length > 0 && (
-                  <div className="mt-1.5 grid grid-cols-1 gap-1.5 pl-5 sm:grid-cols-2">
-                    {poseAnalysisDetails.map((item) => (
-                      <span
-                        key={item.label}
-                        className={`min-w-0 truncate rounded-md bg-white/70 px-2 py-1 text-[10px] font-medium leading-4 ${
-                          poseAnalysisStatus.tone === "warning" ? "text-amber-800" : "text-emerald-800"
-                        }`}
-                        title={item.title || `${item.label}：${item.value}`}
-                      >
-                        <span className="font-bold">{item.label}：</span>{item.value}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
+                  ) : null}
+              />
             )}
           </section>
 
           <section className="space-y-3">
-            <h3 className="font-bold text-sm">服装角度</h3>
+            <div>
+              <h3 className="font-bold text-sm">创作模式</h3>
+              <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
+                自由模式按商业动作库生成；参考图模式只借鉴参考图姿势，不复制人物、服装和背景。
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 rounded-2xl bg-slate-100 p-1">
+              {[
+                { value: "free" as const, label: "自由模式", desc: "默认动作库" },
+                { value: "reference" as const, label: "参考图模式", desc: "按图借姿势" },
+              ].map((item) => {
+                const selected = poseCreationMode === item.value;
+                return (
+                  <button
+                    key={item.value}
+                    type="button"
+                    onClick={() => setPoseCreationMode(item.value)}
+                    className={`rounded-xl px-3 py-2 text-center transition ${
+                      selected
+                        ? "bg-white text-blue-700 shadow-[0_8px_18px_rgba(37,99,235,0.12)]"
+                        : "text-slate-500 hover:text-slate-900"
+                    }`}
+                  >
+                    <span className="block text-xs font-black">{item.label}</span>
+                    <span className="mt-0.5 block text-[10px] font-bold opacity-70">{item.desc}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {poseCreationMode === "reference" && (
+              <>
+              <StudioUploadSection
+                title={(
+                  <span className="flex items-center gap-2">
+                    姿势参考图
+                    <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-600">
+                      {poseReferenceUrls.length}/{MAX_POSE_REFERENCE_IMAGES}
+                    </span>
+                  </span>
+                )}
+                inputRef={poseReferenceInputRef}
+                onFiles={handlePoseReferenceFiles}
+                multiple
+                isDragging={isDraggingPoseReferences}
+                setDragging={setIsDraggingPoseReferences}
+              >
+                {(openFileDialog) => (
+                  <StudioMultiImageUpload
+                    urls={poseReferenceUrls}
+                    maxCount={MAX_POSE_REFERENCE_IMAGES}
+                    title="已上传姿势参考图"
+                    emptyTitle="上传 / 拖拽参考图"
+                    description="已选择的参考图只用于借鉴动作、重心和镜头节奏。"
+                    emptyDescription="参考图只借动作、重心和镜头节奏，不复制人物、服装或背景。"
+                    itemLabelPrefix="图"
+                    loading={isUploadingPoseReferences}
+                    isDragging={isDraggingPoseReferences}
+                    uploadLabel="从本地上传"
+                    libraryLabel="从作品选择"
+                    summary={poseReferenceUrls.length ? `${poseReferenceOutputCount} 张独立图` : undefined}
+                    footnote="建议选择肢体完整、动作清楚、不要多人同框的参考图；人物身份、脸、服装和背景仍以主图为准。"
+                    imageFit="cover"
+                    onUploadClick={openFileDialog}
+                    onLibraryClick={() => toast.info("作品库选择即将接入")}
+                    onPreview={(url) => setLightboxSrc(url)}
+                    onRemove={(_, index) => setPoseReferenceUrls((prev) => prev.filter((__, i) => i !== index))}
+                    onClear={() => setPoseReferenceUrls([])}
+                    examples={!poseReferenceUrls.length ? {
+                      label: "试一试",
+                      images: POSE_REFERENCE_DEMOS.map((demo) => ({
+                        url: demo.imageUrls[0],
+                        title: demo.title,
+                        previewUrls: demo.imageUrls,
+                      })),
+                      disabled: isUploadingPoseReferences,
+                      onSelect: (image) => {
+                        const demo = POSE_REFERENCE_DEMOS.find((item) => item.title === image.title && item.imageUrls[0] === image.url);
+                        if (demo) applyPoseReferenceDemo(demo);
+                      },
+                    } : undefined}
+                  />
+                )}
+              </StudioUploadSection>
+              {activePoseReferenceUrls.length > 0 && (
+                <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-black text-slate-950">生成数量</p>
+                      <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
+                        {activePoseReferenceUrls.length} 张参考图 × 每张 {activePoseReferenceCopies} 张 = {poseReferenceOutputCount} 张独立图
+                      </p>
+                    </div>
+                    <div className="grid h-9 shrink-0 grid-cols-[34px_52px_34px] overflow-hidden rounded-full border border-slate-200 bg-slate-50">
+                      <button
+                        type="button"
+                        onClick={() => setPoseReferenceCopies((count) => normalizePoseReferenceCopies(count - 1, activePoseReferenceUrls.length))}
+                        disabled={activePoseReferenceCopies <= 1}
+                        className="inline-flex items-center justify-center text-slate-500 transition hover:bg-white hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-30"
+                        aria-label="减少每张参考图生成数量"
+                      >
+                        <Minus className="h-3.5 w-3.5" />
+                      </button>
+                      <input
+                        type="number"
+                        min={1}
+                        value={activePoseReferenceCopies}
+                        onChange={(event) => setPoseReferenceCopies(normalizePoseReferenceCopies(event.target.value, activePoseReferenceUrls.length))}
+                        className="w-full border-x border-slate-200 bg-white text-center text-xs font-black text-slate-900 outline-none"
+                        aria-label="每张参考图生成数量"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setPoseReferenceCopies((count) => normalizePoseReferenceCopies(count + 1, activePoseReferenceUrls.length))}
+                        className="inline-flex items-center justify-center text-slate-500 transition hover:bg-white hover:text-blue-700"
+                        aria-label="增加每张参考图生成数量"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+              <div className="rounded-2xl border border-emerald-100 bg-[linear-gradient(180deg,#f7fffb_0%,#ffffff_100%)] px-3 py-3 shadow-sm">
+                <div className="flex items-start gap-2.5">
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                  <div className="min-w-0">
+                    <p className="text-xs font-black text-slate-900">
+                      {activePoseReferenceUrls.length ? `将生成 ${poseReferenceOutputCount} 张独立图` : "上传参考图后独立生成"}
+                    </p>
+                    <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
+                      参考图模式直接按上传图片借姿势，不生成姿势计划，也不输出宫格；人物、服装、背景和光线仍以主图为准。
+                    </p>
+                  </div>
+                </div>
+              </div>
+              </>
+            )}
+          </section>
+
+          <section className="space-y-3">
             <button
               type="button"
               onClick={toggleGarmentDetails}
               className={`flex w-full items-center justify-between rounded-2xl border p-3 text-left transition-all ${
                 garmentAngleEnabled
-                  ? "border-blue-300 bg-blue-50 text-blue-800"
-                  : "border-neutral-200 bg-white text-neutral-700 hover:border-neutral-300"
+                  ? "border-blue-300 bg-blue-50/80 text-blue-800"
+                  : shouldSuggestBackReference
+                    ? "border-amber-200 bg-amber-50/70 text-amber-900 hover:border-amber-300"
+                    : "border-neutral-200 bg-white text-neutral-700 hover:border-neutral-300"
               }`}
             >
               <span className="min-w-0">
-                <span className="block text-sm font-black">服装角度参考</span>
+                <span className="flex flex-wrap items-center gap-2 text-sm font-black">
+                  背面 / 侧面服装补充
+                  <span className="rounded-full bg-white/80 px-2 py-0.5 text-[10px] font-bold text-slate-500">可选</span>
+                </span>
                 <span className="mt-1 block text-xs leading-relaxed text-slate-500">
-                  {GARMENT_ANGLE_SWITCH_DESCRIPTION}
+                  {shouldSuggestBackReference
+                    ? "已选择背面/侧后姿势，最好补一张同款背面图，避免背部结构靠猜。"
+                    : "只补服装隐藏面的结构，不会作为人物、脸、姿势、背景或光线参考。"}
                 </span>
               </span>
               <span className={`ml-3 flex h-7 w-12 shrink-0 items-center rounded-full p-1 transition ${garmentAngleEnabled ? "bg-[var(--codex-accent)]" : "bg-neutral-200"}`}>
@@ -1395,7 +1860,7 @@ export default function PosePage() {
               <StudioUploadSection
                 title={(
                   <span className="flex items-center gap-2">
-                    正面 / 背面 / 侧面参考
+                    上传服装背面、侧面或平铺图
                     <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-600">
                       {activeGarmentAngleReferences.length}/{MAX_GARMENT_ANGLE_IMAGES}
                     </span>
@@ -1413,7 +1878,7 @@ export default function PosePage() {
                     <div className="rounded-xl border border-blue-100 bg-white/92 p-2.5">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <p className="text-[11px] font-bold text-blue-700">本次上传标记</p>
+                          <p className="text-[11px] font-bold text-blue-700">这张补充图属于</p>
                           <p className="mt-0.5 truncate text-sm font-black text-slate-900">{activeGarmentAngleMark}</p>
                           <p className="mt-0.5 truncate text-[11px] text-slate-500" title={activeGarmentAngleTargetOption.description}>
                             {activeGarmentAngleTargetOption.description}
@@ -1426,7 +1891,7 @@ export default function PosePage() {
 
                       <div className="mt-3 space-y-2">
                         <div className="flex items-start gap-2">
-                          <span className="mt-1 w-8 shrink-0 text-[11px] font-bold text-slate-500">归属</span>
+                          <span className="mt-1 w-8 shrink-0 text-[11px] font-bold text-slate-500">衣服</span>
                           <div className="flex flex-wrap gap-1.5">
                             {GARMENT_ANGLE_TARGET_OPTIONS.map((item) => {
                               const selected = item.value === garmentAngleTarget;
@@ -1450,7 +1915,7 @@ export default function PosePage() {
                         </div>
 
                         <div className="flex items-start gap-2">
-                          <span className="mt-1 w-8 shrink-0 text-[11px] font-bold text-slate-500">视角</span>
+                          <span className="mt-1 w-8 shrink-0 text-[11px] font-bold text-slate-500">角度</span>
                           <div className="flex flex-wrap gap-1.5">
                             {GARMENT_ANGLE_VIEW_OPTIONS.map((item) => {
                               const selected = item.value === garmentAngleView;
@@ -1481,7 +1946,7 @@ export default function PosePage() {
                       className={`flex w-full items-center gap-3 rounded-xl border border-dashed bg-white/85 p-3 text-left transition hover:border-blue-300 hover:bg-white disabled:cursor-not-allowed disabled:opacity-55 ${
                         isDraggingGarmentDetails ? "border-blue-400 bg-blue-50" : "border-blue-200"
                       }`}
-                      aria-label={`上传${activeGarmentAngleMark}服装角度参考`}
+                      aria-label={`上传${activeGarmentAngleMark}背/侧补充图`}
                     >
                       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
                         {isUploadingGarmentDetails ? <Loader2 className="h-5 w-5 animate-spin" /> : <Sparkles className="h-5 w-5" />}
@@ -1491,7 +1956,7 @@ export default function PosePage() {
                           上传为 {activeGarmentAngleMark}
                         </span>
                         <span className="mt-0.5 block truncate text-[11px] text-slate-500">
-                          正面、背面、侧面、平铺或悬挂完整角度；不建议上传纯局部特写。
+                          建议上传完整背面、侧面、平铺或悬挂图；不要上传纯局部纹理特写。
                         </span>
                       </span>
                       <span className="shrink-0 rounded-full bg-blue-50 px-2 py-1 text-[10px] font-bold text-blue-700 shadow-sm">
@@ -1554,19 +2019,146 @@ export default function PosePage() {
             />
           </section>
 
-          <section>
-            <h3 className="font-bold text-sm mb-3">输出方式</h3>
-            <StudioOptionGrid
-              options={[
-                { value: "separate" as const, label: "单张", description: "每个姿势独立出图" },
-                { value: "grid" as const, label: "四宫格", description: "1 张 2x2 pose sheet" },
-              ]}
-              value={outputMode}
-              onChange={setOutputMode}
-              columns={2}
-              ariaLabel="输出方式"
-            />
+          {!isPoseReferenceMode && (
+          <section className="space-y-3">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="font-bold text-sm">生成姿势</h3>
+                <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
+                  选择想要的成片方向，系统会自动补动作、表情和构图。
+                </p>
+              </div>
+              <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold ${
+                activePoseAnglePreset ? "bg-blue-50 text-blue-700" : "bg-slate-100 text-slate-600"
+              }`}>
+                {poseAnglePlanLabel} · {posePlanTargetCount} 张
+              </span>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2">
+              {POSE_ANGLE_PRESETS.map((preset) => {
+                const selected = activePoseAnglePreset?.id === preset.id;
+                return (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() => applyPoseAnglePreset(preset.counts)}
+                    aria-pressed={selected}
+                    className={`rounded-2xl border px-3 py-2 text-left transition ${
+                      selected
+                        ? "border-blue-300 bg-blue-50/80 shadow-sm"
+                        : "border-slate-200 bg-white hover:border-blue-200 hover:bg-blue-50/30 hover:text-blue-700"
+                    }`}
+                  >
+                    <span className="flex items-center justify-between gap-1.5">
+                      <span className={`min-w-0 truncate text-xs font-black ${selected ? "text-blue-800" : "text-slate-800"}`}>
+                        {preset.label}
+                      </span>
+                      <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-black ${
+                        selected ? "bg-white text-blue-700" : "bg-slate-100 text-slate-500"
+                      }`}>
+                        {preset.countLabel}
+                      </span>
+                    </span>
+                    <span className={`mt-0.5 block truncate text-[10px] font-semibold ${selected ? "text-blue-600" : "text-slate-500"}`}>
+                      {selected ? "当前方案" : preset.desc}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            {!activePoseAnglePreset ? (
+              <p className="rounded-xl bg-slate-50 px-3 py-2 text-[11px] leading-relaxed text-slate-500">
+                已按你的加减调整为自定义组合；上方方案卡可随时一键套用。
+              </p>
+            ) : null}
+
+            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white/90 shadow-sm">
+              {POSE_ANGLE_OPTIONS.map((item) => {
+                const count = poseAngleCounts[item.value] || 0;
+                const total = posePlanTargetCount;
+                const isBack = item.value === "back";
+                const isDetail = item.value === "detail";
+                return (
+                  <div key={item.value} className="border-b border-slate-100 p-3 last:border-b-0">
+                    <div className="flex items-center gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-sm font-black text-slate-950">{item.label}</p>
+                          {isDetail ? (
+                            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500">输出近景</span>
+                          ) : null}
+                          {isBack && count > 0 ? (
+                            <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700">建议补背面图</span>
+                          ) : null}
+                        </div>
+                        <p className="mt-1 text-[11px] leading-relaxed text-slate-500">{item.desc}</p>
+                        <p className="mt-0.5 text-[10px] leading-relaxed text-slate-400">{item.hint}</p>
+                      </div>
+                      <div className="grid h-9 shrink-0 grid-cols-[34px_34px_34px] overflow-hidden rounded-full border border-slate-200 bg-slate-50">
+                        <button
+                          type="button"
+                          onClick={() => updatePoseAngleCount(item.value, -1)}
+                          disabled={count <= 0 || total <= POSE_PLAN_MIN_COUNT}
+                          className="inline-flex items-center justify-center text-slate-500 transition hover:bg-white hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-30"
+                          aria-label={`减少${item.label}姿势`}
+                        >
+                          <Minus className="h-3.5 w-3.5" />
+                        </button>
+                        <span className="inline-flex items-center justify-center border-x border-slate-200 bg-white text-xs font-black text-slate-900">
+                          {count}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => updatePoseAngleCount(item.value, 1)}
+                          disabled={total >= POSE_PLAN_MAX_COUNT}
+                          className="inline-flex items-center justify-center text-slate-500 transition hover:bg-white hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-30"
+                          aria-label={`增加${item.label}姿势`}
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {shouldSuggestBackReference ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setGarmentAngleEnabled(true);
+                  setGarmentAngleView("back");
+                }}
+                className="flex w-full items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50/80 p-3 text-left transition hover:border-amber-300 hover:bg-amber-50"
+              >
+                <span className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white text-xs font-black text-amber-700">
+                  !
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-xs font-black text-amber-900">要生成背面，建议上传同款背面参考</span>
+                  <span className="mt-0.5 block text-[11px] leading-relaxed text-amber-700">
+                    背后拉链、后袋、裙摆后片、肩背线条会更稳定，不会靠模型猜。
+                  </span>
+                </span>
+              </button>
+            ) : null}
+
+            <div>
+              <StudioOptionGrid
+                options={[
+                  { value: "separate" as const, label: "独立图", description: `每个姿势单独生成，共 ${posePlanTargetCount} 张` },
+                  { value: "grid" as const, label: "自动宫格", description: `${posePlanTargetCount} 个姿势排进 1 张图` },
+                ]}
+                value={outputMode}
+                onChange={setOutputMode}
+                columns={2}
+                ariaLabel="交付方式"
+              />
+            </div>
           </section>
+          )}
 
           <section>
             <h3 className="font-bold text-sm mb-3">画布比例</h3>
@@ -1598,210 +2190,262 @@ export default function PosePage() {
             </section>
           )}
 
-          <section>
-            <h3 className="font-bold text-sm mb-3">拍摄风格</h3>
-            <StudioOptionGrid
-              options={POSE_SERIES_STYLES.map((style) => ({
-                value: style.value,
-                label: style.label,
-                description: style.desc,
-              }))}
-              value={poseStyle}
-              onChange={selectPoseStyle}
-              columns={2}
-              ariaLabel="拍摄风格"
-            />
-            <p className="mt-2 text-[11px] leading-relaxed text-gray-400">
-              预设只给风格方向，AI 会自由设计四个姿势；人物身份、服装结构和身体比例仍然优先。
-            </p>
-
-            {/* 用户自定义姿势编辑器 */}
-            {poseStyle === "user_custom" && (
-              <div className="mt-4 space-y-3 rounded-xl border border-amber-200 bg-amber-50/50 p-4">
-                <div className="flex items-center gap-2 text-sm font-bold text-amber-700">
-                  <PenLine className="h-4 w-4" />
-                  自定义姿势描述
-                </div>
-                <p className="text-[11px] text-amber-600">
-                  编辑下方内容自定义四个姿势；镜头、画幅和构图是可选项，不填则由 AI 自然决定。
-                </p>
-
+          {!mainImage && !isPoseReferenceMode && (
+            <section className="space-y-3">
+              <div className="flex items-start justify-between gap-3">
                 <div>
-                  <label className="mb-1 block text-xs font-bold text-slate-600">整体描述</label>
-                  <StudioPromptTextarea
-                    value={customPosePrompt}
-                    onChange={(e) => setCustomPosePrompt(e.target.value)}
-                    rows={4}
-                    className="custom-scroll studio-prompt-textarea-compact"
-                    placeholder="描述四宫格的整体拍摄方向..."
-                  />
+                  <h3 className="font-bold text-sm flex items-center gap-2">
+                    <PenLine className="w-4 h-4 text-[var(--codex-accent)]" /> 姿势计划
+                  </h3>
+                  <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
+                    自由模式会在上传主图后自动规划姿势。
+                  </p>
                 </div>
-
-                <div>
-                  <label className="mb-1 block text-xs font-bold text-slate-600">镜头/画幅补充（可选）</label>
-                  <StudioPromptTextarea
-                    value={customCamera}
-                    onChange={(e) => setCustomCamera(e.target.value)}
-                    rows={3}
-                    className="custom-scroll"
-                    placeholder="可为空；需要时可写统一镜头，或指定某个姿势的镜头距离、焦段、景别、画幅和构图。"
-                  />
-                </div>
-
-                {customPoses.map((pose, i) => (
-                  <div key={i}>
-                    <label className="mb-1 block text-xs font-bold text-slate-600">姿势 {i + 1}</label>
-                    <StudioPromptTextarea
-                      value={pose}
-                      onChange={(e) => {
-                        const next = [...customPoses];
-                        next[i] = e.target.value;
-                        setCustomPoses(next);
-                      }}
-                      rows={3}
-                      className="custom-scroll"
-                    />
-                  </div>
-                ))}
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCustomPosePrompt(USER_CUSTOM_POSE_DEFAULT.prompt);
-                    setCustomCamera(USER_CUSTOM_POSE_DEFAULT.camera);
-                    setCustomPoses([...USER_CUSTOM_POSE_DEFAULT.poses]);
-                  }}
-                  className="text-[11px] font-medium text-amber-600 hover:text-amber-800"
-                >
-                  恢复默认值
-                </button>
               </div>
-            )}
-          </section>
 
-          {mainImage && (
-            <section>
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <h3 className="font-bold text-sm flex items-center gap-2">
-                  <PenLine className="w-4 h-4 text-[var(--codex-accent)]" /> 姿势计划
-                </h3>
-                <div className="flex shrink-0 items-center gap-2">
-                  {poseStyle !== "user_custom" && posePlanMode === "ai" && (
+              <div className="rounded-2xl border border-emerald-200/80 bg-[linear-gradient(180deg,#ffffff_0%,#f8fffb_100%)] px-3 py-3 shadow-[0_10px_28px_rgba(16,185,129,0.07)]">
+                <div className="flex items-start gap-2.5">
+                  <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 ring-1 ring-emerald-200/80">
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-xs font-black text-emerald-900">上传主图后自动规划</p>
+                    <p className="mt-1 text-[11px] leading-relaxed text-slate-600">
+                      上传主图后，系统会识别人物、服装、背景和光线，再生成姿势计划；未上传前不生成空计划，避免误导。
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </section>
+          )}
+
+          {mainImage && !isPoseReferenceMode && (
+            <section className="space-y-3">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="font-bold text-sm flex items-center gap-2">
+                    <PenLine className="w-4 h-4 text-[var(--codex-accent)]" /> 姿势计划
+                  </h3>
+                  <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
+                    默认使用商业模特动作库；需要更贴合主图时，再点智能优化。
+                  </p>
+                </div>
+                {activePosePlan && showPosePlanEditor ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowPosePlanEditor(false)}
+                    className="shrink-0 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600 transition-colors hover:border-blue-200 hover:text-blue-700"
+                  >
+                    收起编辑
+                  </button>
+                ) : null}
+              </div>
+
+              <div className="rounded-[22px] border border-[#d9e4f2] bg-[linear-gradient(180deg,#ffffff_0%,#f8fbff_100%)] p-3 shadow-[0_14px_34px_rgba(15,23,42,0.06)]">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="inline-flex rounded-full bg-[#edf3fa] p-1 shadow-inner shadow-slate-200/70">
+                    <button
+                      type="button"
+                      onClick={usePresetPosePlan}
+                      className={`rounded-full px-3.5 py-1.5 text-[11px] font-black transition ${
+                        posePlanMode === "preset"
+                          ? "bg-white text-blue-700 shadow-[0_5px_14px_rgba(37,99,235,0.12)]"
+                          : "text-slate-500 hover:text-slate-900"
+                      }`}
+                    >
+                      商业预设
+                    </button>
                     <button
                       type="button"
                       onClick={retryPosePlan}
                       disabled={isPlanningPose || !mainImage}
-                      className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-500 transition-colors hover:border-violet-200 hover:text-violet-600 disabled:cursor-not-allowed disabled:opacity-50"
+                      className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[11px] font-black transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                        posePlanMode === "ai"
+                          ? "bg-white text-blue-700 shadow-[0_5px_14px_rgba(37,99,235,0.12)]"
+                          : "text-slate-500 hover:text-slate-900"
+                      }`}
                     >
-                      重新 AI 规划
+                      {isPlanningPose ? <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-600" /> : null}
+                      智能优化
                     </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => setShowPosePlanEditor((value) => !value)}
-                    disabled={!activePosePlan}
-                    className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600 transition-colors hover:border-violet-200 hover:text-violet-600 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {showPosePlanEditor ? "收起编辑" : "高级编辑"}
-                  </button>
-                </div>
-              </div>
-
-              {poseStyle !== "user_custom" && (
-                <div className="mb-3">
-                  <StudioOptionGrid
-                    options={[
-                      { value: "preset" as const, label: "预设计划", description: "默认 · 立即生成" },
-                      { value: "ai" as const, label: "AI 精修", description: "更贴主图 · 较慢" },
-                    ]}
-                    value={posePlanMode}
-                    onChange={setPosePlanMode}
-                    columns={2}
-                    ariaLabel="姿势计划模式"
-                  />
-                  <p className="mt-2 text-[11px] leading-relaxed text-slate-400">
-                    默认走本地预设计划，不等待 AI 规划；需要更贴合主图气质时再开启 AI 精修。
-                  </p>
-                </div>
-              )}
-
-              {posePlanStatus && (
-                <div
-                  className={`mb-2 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold ${
-                    posePlanStatus.tone === "loading"
-                      ? "border-violet-100 bg-violet-50/70 text-violet-600"
-                      : posePlanStatus.tone === "success"
-                        ? "border-emerald-100 bg-emerald-50/80 text-emerald-700"
-                        : "border-amber-100 bg-amber-50/80 text-amber-700"
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    {posePlanStatus.tone === "loading" ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : posePlanStatus.tone === "success" ? (
-                      <CheckCircle2 className="h-3.5 w-3.5" />
-                    ) : (
-                      <XCircle className="h-3.5 w-3.5" />
-                    )}
-                    <span className="min-w-0 truncate" title={posePlanStatus.text}>{posePlanStatus.text}</span>
                   </div>
-                  {posePlanError && posePlanStatus.tone !== "loading" && (
-                    <p className="mt-1 pl-5 text-[10px] leading-relaxed font-medium opacity-80">
-                      {posePlanError}
-                    </p>
-                  )}
+                  <span className="rounded-full bg-white/85 px-2.5 py-1 text-[11px] font-black text-slate-500 ring-1 ring-slate-200/80">
+                    {activePosePlan ? `${activePosePlan.slots.length} 个姿势` : "待规划"}
+                  </span>
                 </div>
-              )}
 
-              {activePosePlan && (
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  {posePlanSummaries.map((item, index) => (
-                    <div key={item.key} className="rounded-xl border border-slate-200 bg-white/80 p-2.5">
-                      <p className="truncate text-[11px] font-bold text-slate-800" title={item.title}>{item.title}</p>
-                      <p className="mt-1 line-clamp-2 text-[10px] leading-relaxed text-slate-500" title={item.detail}>{item.detail || "姿势规划已就绪"}</p>
-                      {showPosePlanEditor && (
-                        <div className="mt-2 space-y-2 border-t border-slate-100 pt-2">
-                          <StudioPromptTextarea
-                            value={activePosePlan.slots[index]?.bodyAction || ""}
-                            onChange={(event) => updatePosePlanSlot(index, "bodyAction", event.target.value)}
-                            rows={2}
-                            className="custom-scroll"
-                            placeholder="身体动作"
-                          />
-                          <StudioPromptTextarea
-                            value={activePosePlan.slots[index]?.handAction || ""}
-                            onChange={(event) => updatePosePlanSlot(index, "handAction", event.target.value)}
-                            rows={2}
-                            className="custom-scroll"
-                            placeholder="手部动作"
-                          />
-                          <StudioPromptTextarea
-                            value={activePosePlan.slots[index]?.headDirection || ""}
-                            onChange={(event) => updatePosePlanSlot(index, "headDirection", event.target.value)}
-                            rows={2}
-                            className="custom-scroll"
-                            placeholder="头部/视线"
-                          />
-                          <StudioPromptTextarea
-                            value={activePosePlan.slots[index]?.cameraFraming || ""}
-                            onChange={(event) => updatePosePlanSlot(index, "cameraFraming", event.target.value)}
-                            rows={2}
-                            className="custom-scroll"
-                            placeholder="镜头构图"
-                          />
-                          <StudioPromptTextarea
-                            value={activePosePlan.slots[index]?.garmentVisibilityRule || ""}
-                            onChange={(event) => updatePosePlanSlot(index, "garmentVisibilityRule", event.target.value)}
-                            rows={2}
-                            className="custom-scroll"
-                            placeholder="服装展示重点"
-                          />
+                {posePlanStatus && (
+                  <div className="mt-3">
+                    <VisualAnalysisStatusCard status={posePlanStatus} />
+                  </div>
+                )}
+
+                {activePosePlan && (
+                  <div className="mt-3 overflow-hidden rounded-[18px] border border-slate-200/90 bg-white shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
+                    {posePlanSummaries.map((item, index) => {
+                      const slot = activePosePlan.slots[index];
+                      const editing = showPosePlanEditor && index === selectedPosePlanSlotIndex && selectedPosePlanSlot;
+                      return (
+                        <div
+                          key={item.key}
+                          className={`group border-t border-slate-100 first:border-t-0 ${
+                            editing ? "bg-[linear-gradient(90deg,#f5f9ff_0%,#ffffff_74%)]" : "bg-white hover:bg-slate-50/45"
+                          }`}
+                        >
+                          <div className="flex items-start gap-3 px-3.5 py-3.5">
+                            <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-black ${
+                              editing
+                                ? "bg-blue-600 text-white shadow-[0_8px_16px_rgba(37,99,235,0.18)]"
+                                : "bg-slate-100 text-slate-500 ring-1 ring-slate-200/70 group-hover:bg-white group-hover:text-slate-700"
+                            }`}>
+                              {index + 1}
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                                <span className="text-[11px] font-black text-slate-500">
+                                  姿势 {index + 1}
+                                </span>
+                                {slot?.angle ? (
+                                  <span className={getPoseAngleBadgeClass(slot.angle)}>
+                                    {POSE_PLAN_ANGLE_LABELS[slot.angle]}
+                                  </span>
+                                ) : null}
+                                <span className="min-w-0 truncate text-[13px] font-black text-slate-950">
+                                  {slot?.poseName || item.title}
+                                </span>
+                              </div>
+                              <p className="mt-1 line-clamp-2 text-[11px] leading-[1.65] text-slate-500" title={item.detail}>
+                                {item.detail || slot?.bodyAction || "姿势规划已就绪"}
+                              </p>
+                              {slot?.headDirection && !suppressPoseFaceControls ? (
+                                <p className="mt-1 line-clamp-1 text-[11px] leading-relaxed text-slate-400" title={slot.headDirection}>
+                                  表情/视线：{slot.headDirection}
+                                </p>
+                              ) : null}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedPosePlanSlotIndex(index);
+                                setShowPosePlanEditor((current) => !(current && index === selectedPosePlanSlotIndex));
+                              }}
+                              className={`shrink-0 rounded-full border px-3 py-1 text-[11px] font-black transition ${
+                                editing
+                                  ? "border-blue-600 bg-blue-600 text-white shadow-[0_8px_16px_rgba(37,99,235,0.16)]"
+                                  : "border-slate-200 bg-white/90 text-slate-600 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                              }`}
+                            >
+                              {editing ? "收起" : "编辑"}
+                            </button>
+                          </div>
+
+                          {editing ? (
+                            <div className="border-t border-blue-100/80 px-3.5 pb-3.5 pt-3">
+                              <div className="grid gap-3 sm:grid-cols-2">
+                                <label className="block">
+                                  <span className="mb-1.5 block text-[11px] font-black text-slate-700">
+                                    {selectedPosePlanSlot.angle ? `${POSE_PLAN_ANGLE_LABELS[selectedPosePlanSlot.angle]}动作模板` : "动作模板"}
+                                  </span>
+                                  <select
+                                    value={selectedActionPresetId}
+                                    onChange={(event) => applyPoseActionPreset(selectedPosePlanSlotIndex, event.target.value)}
+                                    className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-950 shadow-sm outline-none transition hover:border-blue-200 focus:border-blue-300 focus:ring-2 focus:ring-blue-100"
+                                  >
+                                    <option value="current">{selectedActionPresetId === "current" ? `按计划：${selectedPosePlanSlot.poseName || "原计划"}` : "按计划"}</option>
+                                    {selectedActionPresets.map((preset) => (
+                                      <option key={preset.id} value={preset.id}>{preset.label}</option>
+                                    ))}
+                                  </select>
+                                </label>
+
+                                <label className="block">
+                                  <span className="mb-1.5 block text-[11px] font-black text-slate-700">表情 / 视线</span>
+                                  <select
+                                    value={selectedExpressionPresetId}
+                                    onChange={(event) => applyPoseExpressionPreset(selectedPosePlanSlotIndex, event.target.value)}
+                                    disabled={suppressPoseFaceControls || selectedExpressionPresets.length === 0}
+                                    className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-950 shadow-sm outline-none transition hover:border-blue-200 focus:border-blue-300 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
+                                  >
+                                    <option value="current">{suppressPoseFaceControls ? "主图无清晰脸部" : "按计划表情/视线"}</option>
+                                    {selectedExpressionPresets.map((preset) => (
+                                      <option key={preset.id} value={preset.id}>{preset.label}</option>
+                                    ))}
+                                  </select>
+                                </label>
+                              </div>
+
+                              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                                <div className="rounded-xl bg-white px-3 py-2 shadow-sm ring-1 ring-slate-200/90">
+                                  <p className="text-[10px] font-black text-slate-400">动作说明</p>
+                                  <p className="mt-1 line-clamp-3 text-[11px] leading-relaxed text-slate-600">
+                                    {selectedActionPreset?.bodyAction || selectedPosePlanSlot.bodyAction || selectedPosePlanSlot.poseName}
+                                  </p>
+                                </div>
+                                <div className="rounded-xl bg-white px-3 py-2 shadow-sm ring-1 ring-slate-200/90">
+                                  <p className="text-[10px] font-black text-slate-400">表情说明</p>
+                                  <p className="mt-1 line-clamp-3 text-[11px] leading-relaxed text-slate-600">
+                                    {suppressPoseFaceControls
+                                      ? "主图没有清晰脸部时，系统会自动关闭表情和视线规划。"
+                                      : selectedExpressionPreset?.text || selectedPosePlanSlot.headDirection || "自然表情，视线跟随当前镜头方向。"}
+                                  </p>
+                                </div>
+                              </div>
+
+                              <details className="mt-3 rounded-xl border border-slate-200/90 bg-white px-3 py-2 shadow-sm">
+                                <summary className="cursor-pointer text-[11px] font-bold text-slate-500 transition-colors hover:text-blue-700">高级微调：动作、手部、镜头文字</summary>
+                                <div className="mt-3 grid gap-3">
+                                  <div>
+                                    <label className="mb-1 block text-[10px] font-bold text-slate-500">动作细节</label>
+                                    <StudioPromptTextarea
+                                      value={selectedPosePlanSlot.bodyAction || ""}
+                                      onChange={(event) => updatePosePlanSlot(selectedPosePlanSlotIndex, "bodyAction", event.target.value)}
+                                      rows={3}
+                                      className="custom-scroll"
+                                      placeholder="例如：正面站定，双手轻扶腰侧，肩线自然打开。"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="mb-1 block text-[10px] font-bold text-slate-500">手部动作</label>
+                                    <StudioPromptTextarea
+                                      value={selectedPosePlanSlot.handAction || ""}
+                                      onChange={(event) => updatePosePlanSlot(selectedPosePlanSlotIndex, "handAction", event.target.value)}
+                                      rows={2}
+                                      className="custom-scroll"
+                                      placeholder="例如：一只手轻触衣摆，另一只手自然放松。"
+                                    />
+                                  </div>
+                                  {!suppressPoseFaceControls && (
+                                    <div>
+                                      <label className="mb-1 block text-[10px] font-bold text-slate-500">表情 / 视线细节</label>
+                                      <StudioPromptTextarea
+                                        value={selectedPosePlanSlot.headDirection || ""}
+                                        onChange={(event) => updatePosePlanSlot(selectedPosePlanSlotIndex, "headDirection", event.target.value)}
+                                        rows={2}
+                                        className="custom-scroll"
+                                        placeholder="例如：自然看向镜头，轻微微笑。"
+                                      />
+                                    </div>
+                                  )}
+                                  <div>
+                                    <label className="mb-1 block text-[10px] font-bold text-slate-500">镜头补充</label>
+                                    <StudioPromptTextarea
+                                      value={selectedPosePlanSlot.cameraFraming || ""}
+                                      onChange={(event) => updatePosePlanSlot(selectedPosePlanSlotIndex, "cameraFraming", event.target.value)}
+                                      rows={2}
+                                      className="custom-scroll"
+                                      placeholder="例如：近全身商业构图，保留自然留白。"
+                                    />
+                                  </div>
+                                </div>
+                              </details>
+                            </div>
+                          ) : null}
                         </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </section>
           )}
 
@@ -1811,17 +2455,27 @@ export default function PosePage() {
             value={supplementPrompt}
             onChange={(event) => setSupplementPrompt(event.target.value)}
             rows={4}
-            placeholder="可选：例如希望动作更自然、镜头更干净、服装褶皱保持一致、四张图构图更统一..."
+            placeholder="可选：例如希望动作更自然、镜头更干净、服装褶皱保持一致、整组构图更统一..."
             description="补充说明会附加到系统提示词中，影响最终生成效果。"
           />
         </div>
 
         <StudioRunBar
-          summary={`${outputMode === "separate" ? "每姿势一张 · 4 张结果" : "四宫格 · 单张结果"}${activeGarmentAngleUrls.length ? ` · ${activeGarmentAngleUrls.length} 张服装角度` : ""}`}
+          summary={`${poseDeliveryLabel}${activeGarmentAngleUrls.length ? ` · ${activeGarmentAngleUrls.length} 张服装角度` : ""}`}
           costLabel={authIsAnonymous ? "登录后查看灵点" : `消耗 ${cost} · 余额 ${credits ?? "-"}`}
           disabled={isSubmitting || Boolean(runDisabledReason)}
           disabledReason={runDisabledReason}
-          primaryLabel={authIsAnonymous ? "登录后生成" : isUploading ? "上传中..." : isSubmitting ? "提交中..." : isGenerating ? "继续生成" : outputMode === "separate" ? "生成 4 张独立图" : "生成四宫格"}
+          primaryLabel={authIsAnonymous
+            ? "登录后生成"
+            : isUploading
+              ? "上传中..."
+              : isSubmitting
+                ? "提交中..."
+                : isGenerating
+                  ? "继续生成"
+                  : isPoseReferenceMode
+                    ? `生成 ${activePoseReferenceUrls.length ? poseReferenceOutputCount : 0} 张独立图`
+                    : outputMode === "separate" ? `生成 ${posePlanTargetCount} 张姿势图` : `生成 ${posePlanTargetCount} 姿势宫格`}
           isLoading={isSubmitting}
           onPrimaryAction={() => generate()}
         />
@@ -1831,14 +2485,23 @@ export default function PosePage() {
         {!isGenerating && resultUrls.length === 0 && !error && (
           <div className="studio-empty-stage min-h-[260px] sm:min-h-[360px] lg:h-full flex items-center justify-center px-4">
             <PreviewGuide
-              title="开始姿势裂变"
-              subtitle="用一张主图生成同人物、同服装、同风格的多姿势图片，可输出四宫格或四张独立图。"
-              imageSrc="https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/pose-grid-black-outfit.png"
-              imageAlt="姿势裂变指引"
+              title="一张原图，裂变多姿势"
+              subtitle="保留人物和穿搭，只变化姿势。"
               steps={[
-                { title: "上传主图", desc: "人物身份、服装、背景和镜头关系都会作为硬参考保留。" },
-                { title: "选择姿势风格", desc: "可切换自然站姿、走动感、商拍动作等裂变方向。" },
-                { title: "选择输出方式", desc: "可输出 2x2 四宫格，也可每个姿势单独生成一张图。" },
+                {
+                  title: "上传原图",
+                  desc: "",
+                  imageSrc: "/tutorial-guides/pose-source.webp",
+                  imageAlt: "姿势裂变原图",
+                  badge: "原图",
+                },
+                {
+                  title: "生成结果",
+                  desc: "",
+                  imageSrc: "/tutorial-guides/pose-result.webp",
+                  imageAlt: "姿势裂变结果图",
+                  badge: "结果图",
+                },
               ]}
             />
           </div>
@@ -1859,7 +2522,7 @@ export default function PosePage() {
                 onOpen={(_, index) => setPreviewIndex(index)}
                 expectedCount={activeResultExpectedCount}
                 isGenerating={isGenerating}
-                inputThumbnails={mainImage ? [mainImage, ...activeGarmentAngleUrls] : []}
+                inputThumbnails={mainImage ? [mainImage, ...activePoseReferenceUrls, ...activeGarmentAngleUrls] : []}
                 statusGroup={isGenerating ? "running" : undefined}
                 variant="task"
                 markMissingAsFailed={hasCompletedPartialResults}
@@ -1868,14 +2531,6 @@ export default function PosePage() {
                 missingFailureActionLabel="重试本张"
                 onMissingFailureAction={handleRetryFailedResult}
                 missingFailureActionDisabled={retryDisabled}
-              />
-            </div>
-            <div className="mt-4 flex justify-center">
-              <RepairPromptPanel
-                kind="pose"
-                onRepair={handleRepairGenerate}
-                disabled={isGenerating}
-                className="w-full max-w-3xl"
               />
             </div>
             <StudioImagePreviewDialog

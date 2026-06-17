@@ -217,15 +217,15 @@ export const POSE_SERIES_STYLES: StylePreset<PoseSeriesStyle>[] = [
   {
     value: "user_custom",
     label: "用户自定义",
-    desc: "完全自定义四个姿势描述和镜头规则",
+    desc: "按当前数量自定义姿势描述和镜头规则",
     swatches: ["#fef3c7", "#fbbf24", "#f59e0b"],
     prompt:
-      "按用户填写的四个姿势和可选镜头/画幅补充执行；未填写的镜头、景别和构图由 AI 自然决定。",
+      "按用户填写的姿势和可选镜头/画幅补充执行；未填写的镜头、景别和构图由 AI 自然决定。",
   },
 ];
 
 export const USER_CUSTOM_POSE_DEFAULT = {
-  prompt: "以图1作为同一人物、服装、背景和光线参考；优先让四个姿势明显不同，同时保持服装设计、颜色、图案、面料质感、自然脸部身份、肤色和真实身体比例。",
+  prompt: "以图1作为同一人物、服装、背景和光线参考；优先让每个姿势明显不同，同时保持服装设计、颜色、图案、面料质感、自然脸部身份、肤色和真实身体比例。",
   camera: "可选镜头/画幅补充：只写风格化方向，不要写死同一相机距离、同一焦段或统一构图；不填写则由 AI 根据姿势和风格自然决定。",
   poses: [
     "姿势1：正面服装展示方向；AI 可自由选择自然手势、重心、视线、表情和镜头语言，服装正面轮廓必须清楚。",
@@ -394,7 +394,7 @@ export function getGarment3dDisplayStyleLabel(value: unknown) {
 export function buildPoseSeriesStylePrompt(value: unknown) {
   const style = POSE_SERIES_STYLES.find((item) => item.value === normalizePoseSeriesStyle(value)) || POSE_SERIES_STYLES[0];
   if (style.value === "user_custom") {
-    return `${POSE_STYLE_MARKER}：${style.label}。按用户填写的姿势1-4执行，不用默认姿势覆盖。`;
+    return `${POSE_STYLE_MARKER}：${style.label}。按用户填写的姿势逐条执行，不用默认姿势覆盖。`;
   }
   return `${POSE_STYLE_MARKER}：${style.label}。${style.prompt}`;
 }
@@ -451,7 +451,7 @@ function appendPromptSection(
       if (line.includes(marker)) return false;
       if (marker === POSE_STYLE_MARKER && !options.preservePoseLines) {
         const cleanLine = line.trim();
-        if (/^姿势\s*[1-4][：:]/.test(cleanLine)) return false;
+        if (/^姿势\s*\d+[：:]/.test(cleanLine)) return false;
         if (cleanLine.startsWith("镜头统一规则：")) return false;
       }
       return true;

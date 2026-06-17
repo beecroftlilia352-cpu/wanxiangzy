@@ -17,10 +17,10 @@ import { ModuleHeader } from "@/components/ModuleHeader";
 import { LoadingStage } from "@/components/studio/LoadingStage";
 import { ErrorStage } from "@/components/studio/ErrorStage";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
+import { PreviewGuide } from "@/components/PreviewGuide";
 import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
 import { ImgSkeleton } from "@/components/studio/ImgSkeleton";
 import { StudioControlPanel } from "@/components/studio/StudioControlPanel";
-import { StudioEmptyState } from "@/components/studio/StudioEmptyState";
 import { StudioPageShell } from "@/components/studio/StudioPageShell";
 import { StudioResultViewport, type StudioResultStatus } from "@/components/studio/StudioResultViewport";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
@@ -40,6 +40,12 @@ import { applyRepairPrompt } from "@/lib/generation-repair";
 import { clampTaskExpectedCount, isTaskRunning, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
 import { showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
 import { FAILED_RETRY_NOTICE, buildFailedTaskDetail, buildPartialFailureDetail, summarizeGenerationError } from "@/lib/studio-generation-feedback";
+import {
+  buildRetryPendingResultUrls,
+  getRetryDisplayExpectedCount,
+  mergeRetryResultUrls,
+  normalizeRetryResultIndex,
+} from "@/lib/result-slot-retry";
 import {
   AUTO_DESIGN_BACKGROUNDS,
   AUTO_DESIGN_FRAMINGS,
@@ -180,6 +186,30 @@ import type {
   TryOnHistoryPayload,
 } from "@/features/tryon/create/types";
 
+const VISUAL_AUDIENCE_AUTO_CONFIDENCE = 0.86;
+
+function getVisualAudienceSuggestion(analysis: TryOnClothingAnalysis | null | undefined) {
+  if (!analysis || analysis.confidence < VISUAL_AUDIENCE_AUTO_CONFIDENCE) {
+    return { audience: null, ageGroup: null } as const;
+  }
+
+  return {
+    audience: analysis.genderType === "women" || analysis.genderType === "men" ? analysis.genderType : null,
+    ageGroup: analysis.ageRange && analysis.ageRange !== "all" ? analysis.ageRange : null,
+  } as const;
+}
+
+function canApplyVisualAudienceSuggestion(source: ClothingAnalysisCacheEntry["source"] | null) {
+  return source === "yunwu" || source === "cache";
+}
+
+function formatVisualAudienceSuggestion(audience: TryOnGarmentAudience | null, ageGroup: TryOnAgeGroup | null) {
+  return [
+    audience ? TRYON_GARMENT_AUDIENCE_LABELS[audience] : "",
+    ageGroup ? TRYON_AGE_GROUP_LABELS[ageGroup] : "",
+  ].filter(Boolean).join(" ");
+}
+
 export default function CreatePage() {
   const router = useRouter();
   const store = useTryOnStore();
@@ -285,9 +315,12 @@ export default function CreatePage() {
   const customRefUploadSeqRef = useRef(0);
   const customModelUploadSeqRef = useRef(0);
   const referenceSelectionTouchedRef = useRef(false);
+  const audienceSelectionTouchedRef = useRef(false);
+  const ageSelectionTouchedRef = useRef(false);
   const clothingAnalysisSeqRef = useRef(0);
   const lastClothingAnalysisKeyRef = useRef("");
   const lastAutoAppliedClothingAnalysisKeyRef = useRef("");
+  const lastAutoAppliedAudienceKeyRef = useRef("");
   const referenceAnalysisSeqRef = useRef(0);
   const lastReferenceAnalysisKeyRef = useRef("");
   const clothingAnalysisCacheRef = useRef(new Map<string, ClothingAnalysisCacheEntry>());
@@ -306,7 +339,7 @@ export default function CreatePage() {
   // 已上传的服装 URL 列表（选择后立即上传）
   const [uploadedClothingUrls, setUploadedClothingUrls] = useState<string[]>([]);
   const [clothingAnalysis, setClothingAnalysis] = useState<TryOnClothingAnalysis | null>(null);
-  const [clothingAnalysisSource, setClothingAnalysisSource] = useState<"yunwu" | "cache" | "fallback" | "history" | null>(null);
+  const [, setClothingAnalysisSource] = useState<"yunwu" | "cache" | "fallback" | "history" | null>(null);
   const [isAnalyzingClothing, setIsAnalyzingClothing] = useState(false);
   const [referenceAnalyses, setReferenceAnalyses] = useState<TryOnReferenceAnalysis[]>([]);
   const [referenceAnalysisKey, setReferenceAnalysisKey] = useState("");
@@ -327,6 +360,9 @@ export default function CreatePage() {
   // 大图预览
   const [lightboxImage, setLightboxImage] = useState<{ src: string; alt: string } | null>(null);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
+  const openTryonPreview = useCallback((_: string, index: number) => {
+    setPreviewIndex(index);
+  }, []);
 
   const aspects = aiModel === "gpt-image-2" ? GPT_ASPECTS : BANANA_ASPECTS;
   const imageSizes = getSupportedImageSizes(aiModel, aspectRatio);
@@ -501,12 +537,14 @@ export default function CreatePage() {
   };
 
   const updateGarmentAudience = (value: TryOnGarmentAudience) => {
+    audienceSelectionTouchedRef.current = true;
     setGarmentAudience(value);
     setPromptOverride(null);
     store.setPromptUsed("");
   };
 
   const updateAgeGroup = (value: TryOnAgeGroup) => {
+    ageSelectionTouchedRef.current = true;
     if (value !== "adult" && isIntimateGarment) {
       setIsIntimateGarment(false);
       toast.info("内衣/泳衣类服装仅支持成人模特，已关闭该选项");
@@ -649,6 +687,7 @@ export default function CreatePage() {
     if (!urls.length) {
       lastClothingAnalysisKeyRef.current = "";
       lastAutoAppliedClothingAnalysisKeyRef.current = "";
+      lastAutoAppliedAudienceKeyRef.current = "";
       clothingAnalysisSeqRef.current += 1;
       setClothingAnalysis(null);
       setClothingAnalysisSource(null);
@@ -740,7 +779,45 @@ export default function CreatePage() {
           setClothingRoles([autoRole]);
           toast.info(`已识别为${TRYON_CLOTHING_ROLE_LABELS[autoRole]}，自动切换上传分类`);
         }
-        if (isIntimateAnalysis(nextAnalysis) && !isIntimateGarment) {
+        const audienceSuggestion = getVisualAudienceSuggestion(nextAnalysis);
+        const hasAudienceSuggestion = Boolean(audienceSuggestion.audience || audienceSuggestion.ageGroup);
+        const intimateDetected = isIntimateAnalysis(nextAnalysis);
+        if (hasAudienceSuggestion && canApplyVisualAudienceSuggestion(nextEntry.source)) {
+          const autoAudienceKey = JSON.stringify({
+            urls,
+            audience: audienceSuggestion.audience,
+            ageGroup: audienceSuggestion.ageGroup,
+            source: nextEntry.source,
+          });
+          const shouldSwitchAudience = Boolean(
+            audienceSuggestion.audience &&
+            audienceSuggestion.audience !== garmentAudience &&
+            !audienceSelectionTouchedRef.current
+          );
+          const shouldSwitchAge = Boolean(
+            audienceSuggestion.ageGroup &&
+            audienceSuggestion.ageGroup !== ageGroup &&
+            !ageSelectionTouchedRef.current &&
+            (!intimateDetected || audienceSuggestion.ageGroup === "adult")
+          );
+          const hasConflict = Boolean(
+            (audienceSuggestion.audience && audienceSuggestion.audience !== garmentAudience) ||
+            (audienceSuggestion.ageGroup && audienceSuggestion.ageGroup !== ageGroup)
+          );
+
+          if ((shouldSwitchAudience || shouldSwitchAge || hasConflict) && lastAutoAppliedAudienceKeyRef.current !== autoAudienceKey) {
+            lastAutoAppliedAudienceKeyRef.current = autoAudienceKey;
+            const suggestionLabel = formatVisualAudienceSuggestion(audienceSuggestion.audience, audienceSuggestion.ageGroup);
+            if (shouldSwitchAudience && audienceSuggestion.audience) setGarmentAudience(audienceSuggestion.audience);
+            if (shouldSwitchAge && audienceSuggestion.ageGroup) setAgeGroup(audienceSuggestion.ageGroup);
+            if (shouldSwitchAudience || shouldSwitchAge) {
+              toast.info(`视觉识别更像${suggestionLabel}，已同步人群参数；不符合可手动改回`);
+            } else if (hasConflict) {
+              toast.info(`视觉识别更像${suggestionLabel}，当前保留你的人群选择`);
+            }
+          }
+        }
+        if (intimateDetected && !isIntimateGarment) {
           if (ageGroup !== "adult") {
             setAgeGroup("adult");
             toast.info("识别为内衣/泳衣类服装，已切换为成人安全规则");
@@ -905,6 +982,8 @@ export default function CreatePage() {
     setClothingRoles(nextClothingRoles);
     const nextGarmentAudience = normalizeTryOnGarmentAudience(payload.garmentAudience);
     const nextAgeGroup = normalizeTryOnAgeGroup(payload.ageGroup);
+    audienceSelectionTouchedRef.current = true;
+    ageSelectionTouchedRef.current = true;
     setGarmentAudience(nextGarmentAudience);
     setAgeGroup(nextAgeGroup);
     const historyClothingAnalysis = payload.clothingAnalysis
@@ -1506,7 +1585,11 @@ export default function CreatePage() {
     taskQueue.removeTask(taskId);
   }, [taskQueue]);
 
-  const watchGeneration = useCallback(async (generationId: string, expectedCount: number) => {
+  const watchGeneration = useCallback(async (
+    generationId: string,
+    expectedCount: number,
+    context?: { retryResultIndex?: number | null; previousResultUrls?: string[] }
+  ) => {
     if (watchedGenerationIdsRef.current.has(generationId)) return;
     const globalWatcher = activeTryOnStatusWatchers.get(generationId);
     if (globalWatcher && !globalWatcher.signal.aborted) return;
@@ -1515,6 +1598,8 @@ export default function CreatePage() {
     activeTryOnStatusWatchers.set(generationId, watcherController);
     statusWatcherControllersRef.current.set(generationId, watcherController);
     watchedGenerationIdsRef.current.add(generationId);
+    const retryResultIndex = normalizeRetryResultIndex(context?.retryResultIndex);
+    const retryPreviousResultUrls = retryResultIndex !== null ? context?.previousResultUrls || [] : [];
     let attempts = 0;
     const startedAt = Date.now();
     let lastQueueRefreshAt = Date.now();
@@ -1551,7 +1636,12 @@ export default function CreatePage() {
 
           const pollData = await pollRes.json();
           if (pollData.status === "processing_tryon" || pollData.status === "processing" || pollData.status === "pending") {
-            const partialResultUrls = Array.isArray(pollData.result_urls) ? pollData.result_urls : [];
+            const partialResultUrls = mergeRetryResultUrls(
+              retryPreviousResultUrls,
+              retryResultIndex,
+              Array.isArray(pollData.result_urls) ? pollData.result_urls : [],
+              expectedCount
+            );
             const partialResultCount = partialResultUrls.filter(Boolean).length;
             const elapsedSeconds = Math.max(0, (Date.now() - startedAt) / 1000);
             const progress = Math.min(
@@ -1580,9 +1670,16 @@ export default function CreatePage() {
           }
 
           if (pollData.status === "completed") {
-            const resultUrls = Array.isArray(pollData.result_urls) ? pollData.result_urls : [];
+            const resultUrls = mergeRetryResultUrls(
+              retryPreviousResultUrls,
+              retryResultIndex,
+              Array.isArray(pollData.result_urls) ? pollData.result_urls : [],
+              expectedCount
+            );
             const resultCount = resultUrls.filter(Boolean).length;
-            const expectedResultCount = Math.max(Number(pollData.expected_count) || expectedCount, resultCount || 1);
+            const expectedResultCount = retryResultIndex !== null
+              ? expectedCount
+              : Math.max(Number(pollData.expected_count) || expectedCount, resultCount || 1);
             const partialFailure = pollData.partial_failure && typeof pollData.partial_failure === "object"
               ? pollData.partial_failure as { message?: unknown }
               : null;
@@ -1656,28 +1753,46 @@ export default function CreatePage() {
   useEffect(() => {
     if (!syncedActiveQueueTask || syncedActiveQueueTask.id !== activeQueueTask?.id) return;
 
+    const queueResultUrls = safeTaskQueueUrls(syncedActiveQueueTask.resultThumbnails);
+    const queueExpectedCount = clampTaskExpectedCount(
+      syncedActiveQueueTask,
+      1,
+      MAX_TRYON_OUTPUT_IMAGES,
+      expectedOutputCount || genCount
+    );
+    const queueHasExpectedResults = queueResultUrls.length >= queueExpectedCount;
+    const effectiveSyncedActiveQueueTask = queueHasExpectedResults && isTaskRunning(syncedActiveQueueTask)
+      ? {
+        ...syncedActiveQueueTask,
+        status: "completed",
+        statusGroup: "completed" as const,
+        progress: 100,
+        resultCount: Math.max(syncedActiveQueueTask.resultCount, queueResultUrls.length),
+        completedAt: syncedActiveQueueTask.completedAt || new Date().toISOString(),
+      }
+      : syncedActiveQueueTask;
+
     setActiveQueueTask((prev) => {
       if (!prev || prev.id !== syncedActiveQueueTask.id) return prev;
-      if (getTaskPreviewSyncSignature(prev) === getTaskPreviewSyncSignature(syncedActiveQueueTask)) return prev;
-      return syncedActiveQueueTask;
+      if (getTaskPreviewSyncSignature(prev) === getTaskPreviewSyncSignature(effectiveSyncedActiveQueueTask)) return prev;
+      return effectiveSyncedActiveQueueTask;
     });
 
-    const queueResultUrls = safeTaskQueueUrls(syncedActiveQueueTask.resultThumbnails);
     const currentResultUrls = safeTaskQueueUrls(store.resultUrls);
     const resultsChanged = !areOrderedUrlsEqual(queueResultUrls, currentResultUrls);
-    const completedWithResults = syncedActiveQueueTask.statusGroup === "completed" && queueResultUrls.length > 0;
+    const completedWithResults = effectiveSyncedActiveQueueTask.statusGroup === "completed" && queueResultUrls.length > 0;
 
     if (completedWithResults && (store.isGenerating || resultsChanged)) {
       store.setResult(queueResultUrls);
     } else if (
       queueResultUrls.length > 0 &&
       resultsChanged &&
-      (syncedActiveQueueTask.statusGroup === "running" || syncedActiveQueueTask.statusGroup === "queued")
+      (effectiveSyncedActiveQueueTask.statusGroup === "running" || effectiveSyncedActiveQueueTask.statusGroup === "queued")
     ) {
       store.setPartialResult(queueResultUrls);
     }
 
-    if (completedWithResults || syncedActiveQueueTask.statusGroup === "failed") {
+    if (completedWithResults || effectiveSyncedActiveQueueTask.statusGroup === "failed") {
       if (activeGenerationRef.current === syncedActiveQueueTask.id) {
         activeGenerationRef.current = null;
       }
@@ -1685,11 +1800,13 @@ export default function CreatePage() {
       controller?.abort();
     }
 
-    if (syncedActiveQueueTask.statusGroup === "failed" && store.isGenerating) {
+    if (effectiveSyncedActiveQueueTask.statusGroup === "failed" && store.isGenerating) {
       store.setError(syncedActiveQueueTask.error || "任务失败，可重新生成");
     }
   }, [
     activeQueueTask?.id,
+    expectedOutputCount,
+    genCount,
     store,
     store.isGenerating,
     store.resultUrls,
@@ -1710,7 +1827,10 @@ export default function CreatePage() {
     clothingAnalysisSeqRef.current += 1;
     referenceAnalysisSeqRef.current += 1;
     referenceSelectionTouchedRef.current = false;
+    audienceSelectionTouchedRef.current = false;
+    ageSelectionTouchedRef.current = false;
     lastClothingAnalysisKeyRef.current = "";
+    lastAutoAppliedAudienceKeyRef.current = "";
     lastReferenceAnalysisKeyRef.current = "";
     setActiveQueueTask(null);
     setIsSubmitting(false);
@@ -1776,6 +1896,8 @@ export default function CreatePage() {
     setClothingRoles(nextClothingRoles);
     const nextGarmentAudience = normalizeTryOnGarmentAudience(payload.garmentAudience);
     const nextAgeGroup = normalizeTryOnAgeGroup(payload.ageGroup);
+    audienceSelectionTouchedRef.current = true;
+    ageSelectionTouchedRef.current = true;
     setGarmentAudience(nextGarmentAudience);
     setAgeGroup(nextAgeGroup);
     const historyClothingAnalysis = payload.clothingAnalysis
@@ -1938,13 +2060,10 @@ export default function CreatePage() {
         const thumbnails = safeTaskQueueUrls(item.thumbnails);
         const resultUrls = resultThumbnails.length ? resultThumbnails : isFailedTask ? [] : thumbnails;
         const errorMessage = isFailedTask ? item.error || "任务失败，可重新生成" : null;
-        activeGenerationRef.current = null;
-        setActiveQueueTask(item);
-        store.setResult(resultUrls);
-        store.setError(errorMessage);
         try {
           const detail = await fetchHistoryApplyDetail(item.id, "tryon", selection.signal);
           if (!selection.isCurrent()) return;
+          activeGenerationRef.current = null;
           applyTryOnHistoryPayload(detail.payload, {
             resultUrls: detail.resultUrls.length ? detail.resultUrls : resultUrls,
             selectedTask: item,
@@ -1986,6 +2105,14 @@ export default function CreatePage() {
       : Array.from(new Set((options.referenceUrlsOverride ?? effectiveReferenceUrls).filter((url): url is string => typeof url === "string" && url.trim().length > 0)));
     const runReferenceAnalyses = options.referenceAnalysesOverride ?? referenceAnalyses;
     const runExpectedCount = Math.max(1, options.expectedCountOverride ?? (runGenCount * (sceneMode === "auto_design" ? 1 : runReferenceUrls.length || 1)));
+    const retryResultIndex = normalizeRetryResultIndex(options.retryResultIndex);
+    const retryPreviousResultUrls = retryResultIndex !== null ? store.resultUrls : [];
+    const displayExpectedCount = getRetryDisplayExpectedCount({
+      retryIndex: retryResultIndex,
+      currentExpectedCount: activeResultExpectedCount,
+      previousUrls: retryPreviousResultUrls,
+      fallbackExpectedCount: runExpectedCount,
+    });
     const runTotalCost = costPerImage * runExpectedCount;
     if (isUploading) {
       toast.info("服装图正在上传，请稍候");
@@ -2050,7 +2177,7 @@ export default function CreatePage() {
       completedAt: null,
       error: "",
       progress: 5,
-      expectedCount: runExpectedCount,
+      expectedCount: displayExpectedCount,
       resultCount: 0,
       inputThumbnails: taskInputThumbnails,
       resultThumbnails: [],
@@ -2059,6 +2186,8 @@ export default function CreatePage() {
     });
     setActiveQueueTask(provisionalTask);
     store.startGeneration();
+    const retryPendingResultUrls = buildRetryPendingResultUrls(retryPreviousResultUrls, retryResultIndex, displayExpectedCount);
+    if (retryPendingResultUrls.length) store.setPartialResult(retryPendingResultUrls);
 
     try {
       // ---- Step 1: 构建稳定的编号提示词 ----
@@ -2155,7 +2284,7 @@ export default function CreatePage() {
         completedAt: null,
         error: "",
         progress: 25,
-        expectedCount: runExpectedCount,
+        expectedCount: displayExpectedCount,
         resultCount: 0,
         inputThumbnails: taskInputThumbnails,
         resultThumbnails: [],
@@ -2170,7 +2299,10 @@ export default function CreatePage() {
       toast.success("任务已提交，可继续创建");
       setIsSubmitting(false);
       generationSubmitRef.current = null;
-      void watchGeneration(generation_id, runExpectedCount);
+      void watchGeneration(generation_id, displayExpectedCount, {
+        retryResultIndex,
+        previousResultUrls: retryPreviousResultUrls,
+      });
       return;
     } catch (err: unknown) {
       if (isAbortLikeError(err) || !isCurrentSubmit()) return;
@@ -2223,7 +2355,8 @@ export default function CreatePage() {
       referenceUrlsOverride: referenceUrl ? [referenceUrl] : [],
       referenceAnalysesOverride: referenceAnalysis ? [referenceAnalysis] : [],
       expectedCountOverride: 1,
-      toastMessage: `正在重试第 ${index + 1} 张，失败图已退款，本次按 1 张重新生成...`,
+      retryResultIndex: index,
+      toastMessage: `正在补位重试第 ${index + 1} 张，失败图已退款，完成后会回填到当前结果中...`,
     });
   };
   const tryonPreviewReferences = useMemo(() => {
@@ -2322,20 +2455,21 @@ export default function CreatePage() {
   const clothingAnalysisLabel = getClothingAnalysisLabel(clothingAnalysis);
   const visibleSceneModeTabs = SCENE_MODE_TABS.filter((tab) => tab.value !== "system_reference");
   const clothingAnalysisStatus = isAnalyzingClothing
-    ? { tone: "loading" as const, text: "识别服装中" }
+    ? { tone: "loading" as const, text: "正在读取服装" }
     : clothingAnalysisLabel
-      ? { tone: "success" as const, text: `${clothingAnalysisSource === "history" ? "历史识别" : clothingAnalysisSource === "cache" ? "缓存识别" : "已识别"}：${clothingAnalysisLabel}` }
+      ? { tone: "success" as const, text: "服装信息已就绪", description: clothingAnalysisLabel }
       : clothingAnalysisError
-        ? { tone: "warning" as const, text: clothingAnalysisError }
+        ? { tone: "warning" as const, text: "服装读取未完成", description: clothingAnalysisError }
         : null;
   const referenceAnalysisStatus = isAnalyzingReferences
-    ? { tone: "loading" as const, text: "识别参考图中" }
+    ? { tone: "loading" as const, text: "正在读取参考图" }
     : referenceAnalysisError
-      ? { tone: "warning" as const, text: referenceAnalysisError }
+      ? { tone: "warning" as const, text: "参考图读取未完成", description: referenceAnalysisError }
       : selectedReferenceCount > 0 && referenceAnalyses.length > 0
         ? {
             tone: referenceAnalysisSource === "fallback" ? "warning" as const : "success" as const,
-            text: `${referenceAnalysisSource === "history" ? "历史识别" : referenceAnalysisSource === "cache" ? "缓存识别" : "已识别"} ${Math.min(referenceAnalyses.length, selectedReferenceCount)}/${selectedReferenceCount} 张参考图`,
+            text: referenceAnalysisSource === "fallback" ? "参考图已保守处理" : "参考图信息已就绪",
+            description: `${Math.min(referenceAnalyses.length, selectedReferenceCount)}/${selectedReferenceCount} 张`,
           }
         : null;
   const referenceAnalysisSummaries = selectedReferenceImages
@@ -2345,7 +2479,7 @@ export default function CreatePage() {
       const isFallback = referenceAnalysisSource === "fallback";
       return {
         key: ref.url || `${analysis.index}-${index}`,
-        title: `#${index + 1} ${getReferenceAnalysisSummary(analysis, { fallback: isFallback })}`,
+        title: `图${index + 1} · ${getReferenceAnalysisSummary(analysis, { fallback: isFallback })}`,
         detail: getReferenceAnalysisDetailText(analysis, {
           fallback: isFallback,
           reasonText: referenceAnalysisError,
@@ -2719,7 +2853,7 @@ export default function CreatePage() {
             )}
 
             {sceneMode === "upload_reference" && (
-              <div className={`studio-reference-upload-panel rounded-xl border p-2.5 transition-colors ${isDraggingRef ? "border-[rgba(91,124,255,0.58)] bg-violet-50/50" : "border-[rgba(91,124,255,0.16)] bg-white/80"}`}>
+              <div className={`studio-reference-upload-panel transition-colors ${isDraggingRef ? "rounded-xl ring-2 ring-[rgba(91,124,255,0.36)] ring-offset-2" : ""}`}>
                 <input ref={customRefInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleCustomRef} disabled={selectedReferenceCount >= MAX_TRYON_REFERENCE_IMAGES || isReferenceUploadBusy} />
                 <TryOnReferenceAnalysisStatus
                   status={referenceAnalysisStatus}
@@ -3249,29 +3383,53 @@ export default function CreatePage() {
             status={resultStatus}
             emptyState={(
               <div className="flex min-h-[320px] items-center justify-center p-4 sm:min-h-[420px] lg:h-full">
-                <StudioEmptyState
-                  title="开始制作服装上身图"
-                  description="先选择上装、下装或连体槽位，再选择模特和场景，生成可直接用于商品展示的成片。"
-                  imageSrc="https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/model-striped-top-white-skirt.png"
-                  imageAlt="服装上身指引"
+                <PreviewGuide
+                  title="仅需服装图，生成模特商拍图"
+                  subtitle="上传衣服，选择参考和模特，一键生成上身效果。"
                   steps={[
-                    { title: "选择槽位", description: "换上下装时明确上传上装或下装；换连体时上传整件连体/全身服装。" },
-                    { title: "选择模特 / 场景", description: "可用系统模特、上传模特图；场景参考只控制姿势、背景、构图和镜头。" },
-                    { title: "生成上身图", description: "保持服装款式、颜色、图案和穿搭关系不变，输出真实成片。" },
+                    {
+                      title: "上传服装",
+                      desc: "",
+                      imageSrc: "/tutorial-guides/tryon-garment.webp",
+                      imageAlt: "浅黄色连衣裙服装图",
+                      imageFit: "contain",
+                      badge: "衣服图",
+                    },
+                    {
+                      title: "选择参考",
+                      desc: "",
+                      imageSrc: "/tutorial-guides/tryon-reference.webp",
+                      imageAlt: "模特原图参考",
+                      badge: "原图",
+                    },
+                    {
+                      title: "添加模特图",
+                      desc: "",
+                      imageSrc: "/tutorial-guides/tryon-model.webp",
+                      imageAlt: "模特脸图",
+                      badge: "模特图",
+                    },
+                    {
+                      title: "生成商拍图",
+                      desc: "",
+                      imageSrc: "/tutorial-guides/tryon-result.webp",
+                      imageAlt: "服装上身生成结果",
+                      badge: "结果图",
+                    },
                   ]}
                   actions={(
                     <>
                       <button
                         type="button"
                         onClick={() => openClothingPicker(clothingMode === "multi" ? "upper" : "single")}
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-2 text-xs font-bold text-white shadow-sm transition-colors hover:bg-violet-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+                        className="inline-flex items-center gap-1.5 rounded-full bg-slate-950 px-4 py-2 text-xs font-bold text-white shadow-sm transition-colors hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500 focus-visible:ring-offset-2"
                       >
                         <Upload className="h-3.5 w-3.5" /> 上传服装
                       </button>
                       <button
                         type="button"
                         onClick={() => sourceLibrary.open(clothingMode === "multi" ? "upper" : "single")}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition-colors hover:border-violet-200 hover:text-violet-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+                        className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500 focus-visible:ring-offset-2"
                       >
                         <FolderOpen className="h-3.5 w-3.5" /> 从作品库选择
                       </button>
@@ -3321,7 +3479,7 @@ export default function CreatePage() {
                     <ResultImageGrid
                       urls={store.resultUrls}
                       filenamePrefix="tryon"
-                      onOpen={(_, index) => setPreviewIndex(index)}
+                      onOpen={openTryonPreview}
                       imageAltPrefix="服装上身结果"
                       expectedCount={activeResultExpectedCount}
                       isGenerating={store.isGenerating}

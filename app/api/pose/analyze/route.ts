@@ -10,7 +10,6 @@ import {
   POSE_FACE_SHAPE_RULE,
   POSE_GARMENT_PRODUCT_FIDELITY_RULE,
   POSE_GENDER_IDENTITY_LOCK_RULE,
-  POSE_LAYOUT_REQUIREMENT,
   POSE_QUALITY,
   POSE_SERIES_RULE,
   POSE_SKIN_COLOR_RULE,
@@ -39,7 +38,7 @@ export async function POST(request: NextRequest) {
 图1：主图，分析人物身份、性别表达、年龄感、身体骨架、脸部特征、发型、服装版型、面料纹理、服装结构、场景、构图、镜头、光影和色彩。
 
 硬性输出规则，不能省略，不能改写成普通单人照片：
-1. ${POSE_LAYOUT_REQUIREMENT}
+1. 必须按当前姿势计划生成多姿势自动布局或独立姿势图；不要固定为四宫格，不要只生成单人单姿势，不要少格、漏格或重复同一姿势。
 2. ${POSE_CONSISTENCY_REQUIREMENT}
 3. ${POSE_GENDER_IDENTITY_LOCK_RULE}
 4. 镜头、画幅、景别和构图由当前风格与用户提示词决定；不要强制统一焦段、统一镜头距离或固定 50mm。
@@ -50,16 +49,16 @@ export async function POST(request: NextRequest) {
 9. ${POSE_SKIN_COLOR_RULE}
 10. ${POSE_FACE_SHAPE_RULE}
 11. 只改变人物动作、克制自然但可察觉的表情眼神，以及用户允许的镜头/构图变化；不要改变人物身份、性别表达、身体骨架、身体比例、服装结构、背景光线和色调。
-12. 不要套用固定姿势模板。根据当前风格、图1人物气质和服装版型，自主设计四个自然可信、彼此不同、适合商业展示的姿势。
-13. 如果需要描述镜头，只写风格化方向，不要写死 consistent medium full-body framing、50mm、eye level 等固定参数；图1是全身时也不要强制四格全都全身，可按姿势选择近全身、七分身或偏半身商业构图。
-14. 用中文描述，一段总述加四个姿势行，340-520字。
+12. 不要套用固定姿势模板。根据当前风格、图1人物气质、服装版型和用户选择的角度数量，自主设计自然可信、彼此不同、适合商业展示的姿势。
+13. 如果需要描述镜头，只写风格化方向，不要写死 consistent medium full-body framing、50mm、eye level 等固定参数；图1是全身时也不要强制所有分格都全身，可按姿势选择近全身、七分身或偏半身商业构图。
+14. 用中文描述，一段总述加若干姿势行，按用户当前需要的数量组织，340-520字。
 15. 结尾必须包含：${POSE_QUALITY}
 16. 负面：不要换脸、不要换衣服、不要改变性别表达、不要把男性变成女性或女性化男性身体、不要改变场景、不要改变服装结构或固有色、不要重绘服装材质、不要生成多余人物、不要自动美白、不要雪白皮或冷白皮、不要标准鹅蛋脸或小V脸、不要AI味、不要文字水印。
 
 当前拍摄风格档位：${getPoseSeriesStyleLabel(poseStyle)}
 ${stylePrompt}
 
-用户当前提示词（只用于理解用户想要的风格和动作；必须保留上面的四宫格硬规则）：${prompt || ""}`;
+用户当前提示词（只用于理解用户想要的风格、角度数量和动作；必须保留上面的硬规则）：${prompt || ""}`;
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), ANALYZE_TIMEOUT_MS);

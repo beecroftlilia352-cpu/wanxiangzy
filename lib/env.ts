@@ -120,6 +120,7 @@ const ALIYUN_OSS_REQUIRED_ENV: EnvContractEntry[] = [
 const OPTIONAL_ENV: EnvContractEntry[] = [
   { name: "LINGYA_BASE_URL", category: "optional", description: "Lingya API base URL override." },
   { name: "GPT_IMAGE_PROVIDER", category: "optional", description: "GPT-Image-2 provider: catrouter (default) or plato." },
+  { name: "GPT_TRYON_PROMPT_TEMPLATE", category: "optional", description: "GPT-Image-2 try-on prompt template: banana (default) or legacy rollback." },
   { name: "CATROUTER_BASE_URL", category: "optional", description: "CatRouter API base URL, default https://api.catrouter.net." },
   { name: "CATROUTER_API_KEY", category: "optional", description: "CatRouter API key for GPT-Image-2 and optional Banana native routing." },
   { name: "CATROUTER_GPT_IMAGE_MODEL", category: "optional", description: "CatRouter provider model id for gpt-image-2." },

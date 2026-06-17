@@ -2,7 +2,7 @@ import type { AspectRatio, ImageSize, LingyaModel } from "@/lib/api/lingya";
 import type { Garment3dDisplayStyle, ModelShootStyle, PoseSeriesStyle } from "@/lib/module-style-presets";
 import type { PoseOutputMode } from "@/lib/pose-prompt";
 import type { PoseVisualAnalysis } from "@/lib/pose-analysis";
-import type { PosePlan } from "@/lib/pose-plan";
+import type { PoseAngleCounts, PosePlan } from "@/lib/pose-plan";
 import type { AutoDesignSettings, TryOnSceneMode } from "@/lib/tryon-scene";
 import type { TryOnClothingAnalysis } from "@/lib/tryon-reference-config";
 import type { TryOnReferenceAnalysis } from "@/lib/tryon-reference-analysis";
@@ -13,6 +13,7 @@ import type { GarmentAngleReference } from "@/lib/garment-angle-references";
 import type { GrassPayloadBase } from "@/lib/grass-planting";
 import type { ModelBackgroundPayloadBase } from "@/lib/model-background";
 import type { MaterialEnhancementPayloadBase } from "@/lib/material-enhancement";
+import type { FaceSwapMode } from "@/lib/face-swap";
 import type {
   ProductSetCreationMode,
   ProductSetCustomTemplate,
@@ -102,11 +103,17 @@ export type HistoryJobPayload =
       imageSize: ImageSize;
       prompt: string;
       poseStyle?: PoseSeriesStyle;
+      poseCreationMode?: "free" | "reference";
       posePlanMode?: "preset" | "ai";
       outputMode?: PoseOutputMode;
+      poseCount?: number;
+      angleCounts?: PoseAngleCounts;
       genCount?: number;
+      poseStartIndex?: number;
       poseAnalysis?: PoseVisualAnalysis | null;
       posePlan?: PosePlan | null;
+      poseReferenceUrls?: string[];
+      poseReferenceCopies?: number;
       garmentDetailUrls?: string[];
       garmentAngleReferences?: GarmentAngleReference[];
     }
@@ -154,6 +161,7 @@ export type HistoryJobPayload =
       prompt: string;
       genCount: number;
       textureEnhance?: boolean;
+      faceSwapMode?: FaceSwapMode;
     }
   | {
       kind: "videoImageToVideo";

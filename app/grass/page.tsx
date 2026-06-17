@@ -6,7 +6,6 @@ import { CheckCircle2, ChevronRight, Loader2, Sparkles, Upload, X, XCircle, Zoom
 import { toast } from "sonner";
 import { FeatureTabs } from "@/components/FeatureTabs";
 import { ModuleHeader } from "@/components/ModuleHeader";
-import { RepairPromptPanel } from "@/components/RepairPromptPanel";
 import { ClientPortal } from "@/components/ClientPortal";
 import { PreviewGuide } from "@/components/PreviewGuide";
 import { ErrorStage } from "@/components/studio/ErrorStage";
@@ -44,6 +43,12 @@ import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@
 import { showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
 import { createGenericImagePreviewSession, type ImagePreviewAction } from "@/lib/studio-image-preview";
 import { FAILED_RETRY_NOTICE, buildPartialFailureDetail, summarizeGenerationError } from "@/lib/studio-generation-feedback";
+import {
+  buildRetryPendingResultUrls,
+  getRetryDisplayExpectedCount,
+  mergeRetryResultUrls,
+  normalizeRetryResultIndex,
+} from "@/lib/result-slot-retry";
 
 const MODELS: { value: LingyaModel; label: string; desc: string; badge?: string; icon: string }[] = [
   { value: "nano-banana-2", label: "Nano-Banana-2", desc: "最高4K", badge: "推荐", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
@@ -55,6 +60,7 @@ type GrassHistoryPayload = Extract<HistoryJobPayload, { kind: "grass" }>;
 type GrassGenerateOptions = {
   genCountOverride?: number;
   expectedCountOverride?: number;
+  retryResultIndex?: number;
   toastMessage?: string;
 };
 
@@ -194,12 +200,13 @@ export default function GrassPage() {
     failedCount: activeResultExpectedCount - displayedResultUrls.length,
   });
   const retryDisabled = isGenerating;
-  function handleRetryFailedResult() {
+  function handleRetryFailedResult(index: number) {
     if (retryDisabled) return;
     void generate(undefined, {
       genCountOverride: 1,
       expectedCountOverride: 1,
-      toastMessage: "正在重试失败图片，失败图已退款，本次按 1 张重新生成...",
+      retryResultIndex: index,
+      toastMessage: `正在补位重试第 ${index + 1} 张，失败图已退款，完成后会回填到当前结果中...`,
     });
   }
   const previewSession = useMemo(
@@ -341,8 +348,6 @@ export default function GrassPage() {
     if (!file) return;
     if (!file.type.startsWith("image/")) return toast.error("请上传图片文件");
     if (file.size > MAX_FILE_SIZE) return toast.error(`图片不能超过 ${MAX_FILE_SIZE_MB}MB`);
-    setResultUrls([]);
-    setError("");
     toast.info("正在上传服装图...");
     setIsUploadingGarment(true);
     try {
@@ -383,8 +388,6 @@ export default function GrassPage() {
     setGarmentUrl(demo.imageUrl);
     setGarmentName(demo.title);
     setPromptOverride(null);
-    setResultUrls([]);
-    setError("");
     setShowRules(false);
     toast.success("已套用示例图");
   }
@@ -405,6 +408,14 @@ export default function GrassPage() {
     if (sceneMode === "upload_reference" && !uploadedReferenceUrl) return toast.error("请先上传种草参考图");
     const runGenCount = Math.min(Math.max(Math.round(Number(options.genCountOverride ?? genCount) || 1), 1), 4);
     const runExpectedCount = Math.max(1, Math.round(Number(options.expectedCountOverride ?? runGenCount) || runGenCount));
+    const retryResultIndex = normalizeRetryResultIndex(options.retryResultIndex);
+    const retryPreviousResultUrls = retryResultIndex !== null ? resultUrls : [];
+    const displayExpectedCount = getRetryDisplayExpectedCount({
+      retryIndex: retryResultIndex,
+      currentExpectedCount: activeResultExpectedCount,
+      previousUrls: retryPreviousResultUrls,
+      fallbackExpectedCount: runExpectedCount,
+    });
     const runTotalCost = costPerImage * runExpectedCount;
     if (credits !== null && credits < runTotalCost) {
       showInsufficientCreditsToast({ required: runTotalCost, balance: credits, onRecharge: () => router.push("/pricing") });
@@ -412,13 +423,13 @@ export default function GrassPage() {
     }
 
     setIsGenerating(true);
-    setRunningExpectedCount(runExpectedCount);
+    setRunningExpectedCount(displayExpectedCount);
     setProgress(10);
-    setResultUrls([]);
+    setResultUrls(buildRetryPendingResultUrls(retryPreviousResultUrls, retryResultIndex, displayExpectedCount));
     setError("");
     if (options.toastMessage) toast.info(options.toastMessage);
     const provisionalTask = taskQueue.startTask({
-      expectedCount: runExpectedCount,
+      expectedCount: displayExpectedCount,
       inputThumbnails: taskInputThumbnails,
       progress: 10,
     });
@@ -468,7 +479,7 @@ export default function GrassPage() {
       if (typeof data.generation_id === "string" && data.generation_id) {
         const serverTask = taskQueue.replaceWithServerTask(activeTaskId, {
           id: data.generation_id,
-          expectedCount: runExpectedCount,
+          expectedCount: displayExpectedCount,
           inputThumbnails: taskInputThumbnails,
           status: data.status || "processing_tryon",
           progress: 25,
@@ -481,11 +492,16 @@ export default function GrassPage() {
         if (!poll.ok) continue;
         const state = await poll.json();
         if (Array.isArray(state.result_urls) && state.result_urls.length) {
-          latestTaskResultUrls = state.result_urls;
-          setResultUrls(state.result_urls);
+          latestTaskResultUrls = mergeRetryResultUrls(retryPreviousResultUrls, retryResultIndex, state.result_urls, displayExpectedCount);
+          setResultUrls(latestTaskResultUrls);
         }
         if (state.status === "completed") {
-          const finalUrls = Array.isArray(state.result_urls) ? state.result_urls : latestTaskResultUrls;
+          const finalUrls = mergeRetryResultUrls(
+            retryPreviousResultUrls,
+            retryResultIndex,
+            Array.isArray(state.result_urls) ? state.result_urls : latestTaskResultUrls,
+            displayExpectedCount
+          );
           const finalResultCount = finalUrls.filter(Boolean).length;
           const partialFailure = state.partial_failure && typeof state.partial_failure === "object"
             ? state.partial_failure as { message?: unknown }
@@ -495,15 +511,15 @@ export default function GrassPage() {
           setResultUrls(finalUrls);
           setIsGenerating(false);
           taskQueue.markCompleted(activeTaskId, {
-            expectedCount: runExpectedCount,
+            expectedCount: displayExpectedCount,
             inputThumbnails: taskInputThumbnails,
             resultThumbnails: finalUrls,
             resultCount: finalResultCount,
             error: completedError ? summarizeGenerationError(completedError) : "",
           });
-          if (completedError || finalResultCount < runExpectedCount) {
+          if (completedError || finalResultCount < displayExpectedCount) {
             void refreshCredits();
-            toast.warning(`种草图部分完成：已生成 ${finalResultCount}/${runExpectedCount} 张，失败图片灵点会自动退回`);
+            toast.warning(`种草图部分完成：已生成 ${finalResultCount}/${displayExpectedCount} 张，失败图片灵点会自动退回`);
           } else {
             toast.success("服装种草图生成完成");
           }
@@ -516,7 +532,7 @@ export default function GrassPage() {
           : Math.min(25 + attempts * 1.5, 90);
         setProgress(runningProgress);
         taskQueue.markRunning(activeTaskId, {
-          expectedCount: runExpectedCount,
+          expectedCount: displayExpectedCount,
           inputThumbnails: taskInputThumbnails,
           resultThumbnails: latestTaskResultUrls,
           progress: runningProgress,
@@ -528,7 +544,7 @@ export default function GrassPage() {
       const message = summarizeGenerationError(err instanceof Error ? err.message : "生成失败");
       setError(message);
       taskQueue.markFailed(activeTaskId, message, {
-        expectedCount: runExpectedCount,
+        expectedCount: displayExpectedCount,
         inputThumbnails: taskInputThumbnails,
         resultThumbnails: latestTaskResultUrls,
       });
@@ -931,9 +947,6 @@ export default function GrassPage() {
                 missingFailureActionDisabled={retryDisabled}
                 onOpen={(_, index) => setPreviewIndex(index)}
               />
-            </div>
-            <div className="mt-4 flex justify-center">
-              <RepairPromptPanel kind="grass" onRepair={handleRepairGenerate} disabled={isGenerating} className="w-full max-w-3xl" />
             </div>
             <StudioImagePreviewDialog
               open={previewIndex !== null}

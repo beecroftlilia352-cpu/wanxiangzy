@@ -14,13 +14,13 @@ const KIND_HEADERS: Record<ImagePromptKind, string> = {
   materialEnhancement:
     "核心任务：材质增强。图1是最终画面原图，图2只提供同款/同系列服装材质和细节参考；只增强图1目标服装区域的面料纹理、织纹层次、缝线、压线、纽扣、拉链、五金、刺绣、logo边缘和已有褶皱可见度。人物、脸、皮肤、发型、身体比例、姿势、手脚、服装款式、版型、轮廓、长度、穿着位置、固有颜色、图案位置、logo位置、背景、构图、镜头距离、画幅、透视、光线方向、曝光、阴影和景深必须保持不变。",
   pose:
-    "核心任务：生成单张 2x2 四宫格姿势裂变图，四格保持同一人、同一衣服和同一人物比例；镜头、画幅和构图可按用户每格描述变化。",
+    "核心任务：按当前提示词指定的交付方式生成姿势裂变图；保持同一人、同一衣服和同一人物比例，只改变姿势、可选镜头和构图。",
   model:
     "核心任务：按图像角色均衡融合参考人脸，生成一个真实商业可用的新专属模特身份；发型/发色硬约束优先于人脸参考图原始头发。",
   garment3d:
     "核心任务：把图1服装转换为无真人、无头脸手的 3D 立体商品展示图，只增加体积和棚拍质感，不改变款式颜色细节。",
   faceSwap:
-    "核心任务：AI 换脸。图1是原始模特/主体画面，图2只提供面部五官身份；只替换五官，不改变图1肤色、发型、身体、服装款式、背景、光线、曝光、对比度和构图；如启用细节恢复，只允许轻量恢复图1服装已有细节。",
+    "核心任务：AI 换脸。图1是原始模特/主体画面，图2提供目标脸身份；按提示词里的换脸范围执行：仅换五官，或同步五官、发型、肤色和妆感。图1身体、姿势、服装、背景、光线、曝光、对比度和构图必须保持。",
   commerceDetail:
     "Core task: generate one independent e-commerce detail-page section/module, not a complete detail page. The section must be mobile-first, readable, spacious, and structurally different from other sections.",
   productSet:
@@ -47,7 +47,7 @@ const OBSOLETE_QUALITY_SANITIZED_KINDS = new Set<ImagePromptKind>(["tryon", ...S
 
 const IMPORTANT_PATTERNS = [
   /图像角色|图\d|核心任务|任务|必须|严格|最重要|参考图|服装图|服装图角色隔离|只提供衣服|真人上身|模特脸|发型参考|发色参考/,
-  /姿势\s*[1-4]|槽位\s*[1-4]|HARD TARGET POSE SLOT|standalone 3:4 photo|only that pose line|四宫格|2x2|four-panel|contact sheet|镜头统一规则|framing|lens|eye level/,
+  /姿势\s*\d+|槽位\s*\d+|HARD TARGET POSE SLOT|standalone 3:4 photo|only that pose line|四宫格|2x2|four-panel|contact sheet|自动宫格|镜头统一规则|framing|lens|eye level/,
   /画幅|构图规则|裁切|裁掉|全身|大半身|半身|头像|商品特写|镜头距离|人物占画面|上下留白|脚部|鞋履|下半身|3:4|4:5|9:16|1:1/,
   /服装|版型|颜色|图案|logo|材质|纹理|袖口|下摆|拉链|纽扣|口袋|腰线|廓形|面料/,
   /体态|比例|头身比|头部大小|大头|短腿|儿童化|玩偶|成人|肩颈|腰胯|四肢|脚下接触|身体骨架/,
@@ -98,8 +98,8 @@ const REQUIRED_SIGNALS: Record<ImagePromptKind, RequiredSignal[]> = {
     { name: "负面约束", pattern: /负面约束|不要换脸|不要换服装|不要改/, fallback: "负面约束：不要换脸、换人、改身体、换背景、换服装款式、改服装主色、改图案/logo位置或新增不存在的服装结构。" },
   ],
   pose: [
-    { name: "任务", pattern: /图像角色|核心任务|2x2|四宫格|每个姿势单独生成一张完整图片|本次单图任务|只生成姿势\d|HARD TARGET POSE SLOT|standalone 3:4 photo/, fallback: "核心任务：生成单张2x2四宫格姿势裂变图，四格保持同一人、同一衣服和同一人物比例；镜头、画幅和构图可按用户每格描述变化。" },
-    { name: "服装", pattern: /服装展示规则|不要换衣服/, fallback: "服装展示规则：四个姿势都保持同一套服装的结构、颜色、图案、长度、纹理和搭配关系。" },
+    { name: "任务", pattern: /图像角色|核心任务|2x2|四宫格|自动宫格|每个姿势单独生成一张完整图片|本次单图任务|只生成姿势\d|HARD TARGET POSE SLOT|standalone 3:4 photo/, fallback: "核心任务：按当前提示词指定的交付方式生成姿势裂变图；保持同一人、同一衣服和同一人物比例，只改变姿势、可选镜头和构图。" },
+    { name: "服装", pattern: /服装展示规则|不要换衣服/, fallback: "服装展示规则：所有姿势都保持同一套服装的结构、颜色、图案、长度、纹理和搭配关系。" },
     { name: "人体", pattern: /身体动作规则|身体比例|手指|肢体/, fallback: "身体动作规则：动作自然可信，避免断手、错位手指、肢体拉长、身体比例漂移和过度瘦身。" },
     { name: "负面约束", pattern: /负面约束|不要换脸|不要换衣服/, fallback: "负面约束：不要换脸，不要换衣服，不要改变场景，不要生成多余人物，不要文字水印。" },
   ],
@@ -115,10 +115,13 @@ const REQUIRED_SIGNALS: Record<ImagePromptKind, RequiredSignal[]> = {
     { name: "负面约束", pattern: /负面约束|不要生成真人|不要改变/, fallback: "负面约束：不要生成真人身体、模特脸或多件衣服，不要改变服装类型、主色、文字、logo和结构。" },
   ],
   faceSwap: [
-    { name: "图像角色", pattern: /图1.*原始|图2.*脸|目标脸/, fallback: "图像角色：图1是原始模特/主体画面；图2只提供目标脸的五官身份。" },
-    { name: "只换五官", pattern: /只替换|五官|does not change/, fallback: "换脸规则：Swap Face only changes facial features. It does not change the model's skin tone or hairstyle." },
-    { name: "保留项", pattern: /肤色|发型|身体|服装|背景|光线|构图/, fallback: "保留项：严格保持图1肤色、发型、发色、身体比例、服装、背景、光线、镜头和构图不变。" },
-    { name: "负面约束", pattern: /不要|禁止|负面/, fallback: "负面约束：不要换肤色，不要换发型，不要换衣服，不要改变姿势、场景、画幅，不要生成多余人物或文字水印。" },
+    { name: "图像角色", pattern: /图1.*原始|图2.*脸|目标脸|Image 1 is the original model photo|Image 2 is the target face/i, fallback: "图像角色：图1是原始模特/主体画面；图2提供目标脸身份。" },
+    { name: "换脸范围", pattern: /Scope mode|换脸范围|仅换五官|facial features only|facial identity \+ hairstyle \+ skin tone|发型.*肤色|hair.*skin/i, fallback: "换脸范围：严格按原始提示词模式执行，仅换五官或同步五官发型肤色，不得自行扩大或缩小编辑范围。" },
+    { name: "身份防漂移", pattern: /Anti-identity-drift|westernize|caucasianize|generic|ethnicity|族裔|洋人|欧美|泛化/i, fallback: "身份防漂移：必须精确保留图2可识别身份和族裔相关五官骨相，不要洋人脸、欧美化、网红化或泛化成普通商业脸。" },
+    { name: "原图锁定", pattern: /body|pose|clothing|background|lighting|composition|身体|服装|背景|光线|构图/i, fallback: "原图锁定：图1身体、姿势、服装、背景、光线、镜头和构图不变；肤色/发型只按当前换脸范围执行。" },
+    { name: "细密纹理安全", pattern: /细密纹理安全|moire-prone fabric enhancement|do not create moire/i, fallback: "细密纹理安全：如启用细节恢复，只保守恢复图1服装已有细节；不要摩尔纹、波纹、假纤维、过锐化，也不要磨皮或美白。" },
+    { name: "细节恢复边界", pattern: /texture enhancement is active only|分区控制：|不要磨皮|beauty smoothing/i, fallback: "细节恢复边界：只允许轻量恢复服装局部细节；脸部保持自然皮肤质感，不要磨皮、美白、瓷娃娃皮或全图精修。" },
+    { name: "负面约束", pattern: /不要|禁止|负面|Do not|Hard rule/i, fallback: "负面约束：不要换衣服、不要改变姿势/场景/画幅、不要多余人物或文字水印，不要贴脸边缘、面具感、肤色断层或AI渲染感。" },
   ],
   commerceDetail: [
     { name: "section contract", pattern: /section|module|板块|详情页|detail-page/i, fallback: "Section contract: generate exactly ONE independent detail-page section/module, not a complete detail page." },
@@ -319,7 +322,7 @@ const SEPARATE_POSE_TARGET_STOP_PATTERNS = [
   /^Do NOT generate/i,
   /^Use the uploaded image/i,
   /^Priority:/i,
-  /^[1-4]\.\s/,
+  /^\d+\.\s/,
   /^Keep:/i,
   /^Allow:/i,
   /^Generate one standalone/i,
@@ -358,19 +361,19 @@ function extractTargetPoseLines(lines: string[], slotIndex?: number) {
       return new RegExp(`^Pose\\s*${slotIndex}:`, "i").test(line)
         || new RegExp(`^姿势\\s*${slotIndex}[：:]`).test(line);
     }
-    return /^Pose\s*[1-4]:/i.test(line) || /^姿势\s*[1-4][：:]/.test(line);
+    return /^Pose\s*\d+:/i.test(line) || /^姿势\s*\d+[：:]/.test(line);
   });
   return fallbackPoseLine ? ["Target pose:", fallbackPoseLine] : targetLines;
 }
 
 function inferSeparatePoseSlotIndex(prompt: string) {
-  const slotMatch = prompt.match(/HARD TARGET POSE SLOT\s+([1-4])\/4/i);
+  const slotMatch = prompt.match(/HARD TARGET POSE SLOT\s+(\d+)\/\d+/i);
   if (slotMatch) return Number(slotMatch[1]);
-  const targetMatch = prompt.match(/Target pose:\s*(?:\n|\r\n)?\s*Pose\s*([1-4]):/i);
+  const targetMatch = prompt.match(/Target pose:\s*(?:\n|\r\n)?\s*Pose\s*(\d+):/i);
   if (targetMatch) return Number(targetMatch[1]);
-  const onlyMatch = prompt.match(/只生成姿势\s*([1-4])|pose\s*([1-4])/i);
+  const onlyMatch = prompt.match(/只生成姿势\s*(\d+)|pose\s*(\d+)/i);
   if (onlyMatch) return Number(onlyMatch[1] || onlyMatch[2]);
-  const chinesePoseMatch = prompt.match(/^姿势\s*([1-4])[：:]/m);
+  const chinesePoseMatch = prompt.match(/^姿势\s*(\d+)[：:]/m);
   return chinesePoseMatch ? Number(chinesePoseMatch[1]) : undefined;
 }
 
