@@ -59,7 +59,7 @@ export function buildTryOnReferenceVisionProviderConfigs(defaultBaseUrl: string,
       baseUrl: normalizeProviderBaseUrl(readEnv("TRYON_CLOTHING_ANALYZE_BASE_URL")),
       model: readEnv("TRYON_CLOTHING_ANALYZE_MODEL"),
     },
-    ...getLlmFallbackConfigs("vision").map((config) => ({
+    ...getTryOnXiaomiVisionConfigs().map((config) => ({
       label: config.provider,
       apiKey: config.apiKey,
       baseUrl: normalizeProviderBaseUrl(config.baseUrl),
@@ -70,12 +70,6 @@ export function buildTryOnReferenceVisionProviderConfigs(defaultBaseUrl: string,
       apiKey: readEnv("XIAOMI_MIMO_API_KEY"),
       baseUrl: normalizeProviderBaseUrl("https://api.xiaomimimo.com/v1"),
       model: readEnv("XIAOMI_MIMO_VISION_MODEL") || readEnv("XIAOMI_MIMO_MODEL") || defaultModel,
-    },
-    {
-      label: "lingya-legacy",
-      apiKey: readEnv("LINGYA_API_KEY"),
-      baseUrl: normalizeProviderBaseUrl(readEnv("LINGYA_BASE_URL")),
-      model: readEnv("LINGYA_VISION_MODEL") || defaultModel,
     },
   ], defaultBaseUrl, defaultModel);
 }
@@ -88,7 +82,7 @@ export function buildTryOnClothingVisionProviderConfigs(defaultBaseUrl: string, 
       baseUrl: normalizeProviderBaseUrl(readEnv("TRYON_CLOTHING_ANALYZE_BASE_URL")),
       model: readEnv("TRYON_CLOTHING_ANALYZE_MODEL"),
     },
-    ...getLlmFallbackConfigs("vision").map((config) => ({
+    ...getTryOnXiaomiVisionConfigs().map((config) => ({
       label: config.provider,
       apiKey: config.apiKey,
       baseUrl: normalizeProviderBaseUrl(config.baseUrl),
@@ -100,13 +94,11 @@ export function buildTryOnClothingVisionProviderConfigs(defaultBaseUrl: string, 
       baseUrl: normalizeProviderBaseUrl("https://api.xiaomimimo.com/v1"),
       model: readEnv("XIAOMI_MIMO_VISION_MODEL") || readEnv("XIAOMI_MIMO_MODEL") || defaultModel,
     },
-    {
-      label: "lingya-legacy",
-      apiKey: readEnv("LINGYA_API_KEY"),
-      baseUrl: normalizeProviderBaseUrl(readEnv("LINGYA_BASE_URL")),
-      model: readEnv("LINGYA_VISION_MODEL") || defaultModel,
-    },
   ], defaultBaseUrl, defaultModel);
+}
+
+function getTryOnXiaomiVisionConfigs() {
+  return getLlmFallbackConfigs("vision").filter((config) => config.provider === "xiaomi");
 }
 
 export function toTryOnVisionFallbackReason(error: unknown): TryOnVisionFallbackReason {
