@@ -290,7 +290,7 @@ describe("try-on prompt face integration", () => {
       expect(basePrompt).not.toMatch(/confidence\s*[:=]\s*\d/i);
       expect(basePrompt).not.toMatch(/raw type=|slot=|upload mode=|explicit slots=/i);
       expect(basePrompt).toContain("User constraints structured from the original request:");
-      expect(basePrompt).toContain("参考图头身比更修长");
+      expect(basePrompt).toContain("image 1头身比更修长");
       expect(basePrompt).toContain("上衣条纹不要串到裤子");
       expect(basePrompt).toContain("images 5-6 = garment detail references only");
       expect(basePrompt).toContain("images 5-6 are local detail supplements");
@@ -350,7 +350,7 @@ describe("try-on prompt face integration", () => {
     expect(prompt).not.toContain("image 4+");
     expect(prompt).not.toContain("Image 4 and later images");
     expect(prompt).not.toContain("Garment detail references:");
-    expect(prompt).toContain("图1参考图的影调");
+    expect(prompt).toContain("image 1的影调");
     expect(prompt).toContain("Real human skin texture: preserve visible pores, fine skin texture");
   });
 

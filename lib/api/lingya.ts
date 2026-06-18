@@ -552,14 +552,14 @@ function buildTryOnRequestCropDirective(input: TryOnRequestPromptOptions) {
 }
 
 function buildTryOnReferenceLabel(imageNumber: number) {
-  return `image ${imageNumber} / 图${imageNumber}参考图`;
+  return `image ${imageNumber}`;
 }
 
 function buildTryOnMultiOutputDirective(input: TryOnRequestPromptOptions) {
   const count = Math.max(1, Math.floor(Number(input.candidateCount || 1)));
   if (count <= 1) return "";
   const referenceRef = input.referenceUrl ? buildTryOnReferenceLabel(input.referenceImageNumber || 1) : "当前画面";
-  return `多图输出规则：保持同一身份、脸部、表情、视线、头部姿态、身体比例、姿势族、镜头/裁切边界和${referenceRef}影调；仅允许服装褶皱、下摆、接触阴影和布料自然贴合有轻微差异。`;
+  return `多图输出规则：保持同一身份、脸部、表情、视线、头部姿态、身体比例、姿势族、镜头/裁切边界和${referenceRef}的影调；仅允许服装褶皱、下摆、接触阴影和布料自然贴合有轻微差异。`;
 }
 
 function buildGenerateRequestBody(input: GenerateInput, compiledPrompt: string): Record<string, any> {
@@ -1516,7 +1516,7 @@ function remapTryOnImageReferences(value: string | undefined, imageNumberMap?: M
 
 function normalizeTryOnGenericReferenceText(value: string, referenceImageNumber?: number) {
   if (!value || !referenceImageNumber) return value;
-  const referenceLabel = `图${referenceImageNumber}参考图`;
+  const referenceLabel = `image ${referenceImageNumber}`;
   return value
     .replace(/(?<!图[一二三四五六七八九十\d]\s*)参考图(?!\s*[一二三四五六七八九十\d])/g, referenceLabel)
     .replace(/\breference image\b(?!\s*[1-9]\d*)/gi, `image ${referenceImageNumber}`);

@@ -291,14 +291,14 @@ const gptRuntimePrompt = lingya.applyTryOnRequestPrompt("BASE", {
   referenceUrl: "target.jpg",
   modelFaceUrl: "face.jpg",
 });
-assertIncludes(gptRuntimePrompt, "摄影风格：跟随image 1 / 图1参考图的影调", "tryon photo finish directive");
+assertIncludes(gptRuntimePrompt, "摄影风格：跟随image 1的影调", "tryon photo finish directive");
 assertIncludes(gptRuntimePrompt, "光线方向、色温、曝光、白平衡、景深、相机质感、滤镜氛围", "tryon reference photo finish");
 assertIncludes(gptRuntimePrompt, "服装固有色、图案、logo、面料纹理、人物身份、肤色连续性和身体比例保持准确", "tryon finish safeguards");
 assertIncludes(gptRuntimePrompt, "不要厚重美颜滤镜、不要海报版式、不要添加文字、不要漂白衣服颜色", "tryon no generic filter");
 assertIncludes(gptRuntimePrompt, "真人皮肤质感：保留可见毛孔、细微纹理、自然油光、局部红润、轻微瑕疵", "tryon real human skin finish");
 assertIncludes(gptRuntimePrompt, "不要磨成瓷肌、塑料皮、蜡像皮、过度美颜", "tryon anti over-smoothing finish");
 assertIncludes(lowerNoFaceWithoutModelFace, "Do not zoom out, do not convert it into a full-body portrait, and do not add a head, face, shoulders, or full torso.", "tryon crop-aware body completion guard");
-assertIncludes(gptRuntimePrompt, "在套用全局色调前，让最终脸部肤色与image 1 / 图1参考图的颈、胸、手臂、手", "tryon face skin continuity before finish");
+assertIncludes(gptRuntimePrompt, "在套用全局色调前，让最终脸部肤色与image 1的颈、胸、手臂、手", "tryon face skin continuity before finish");
 assertIncludes(gptRuntimePrompt, "多图输出规则：保持同一身份、脸部、表情、视线、头部姿态", "tryon multi-output short guard");
 assertIncludes(gptRuntimePrompt, "仅允许服装褶皱、下摆、接触阴影和布料自然贴合有轻微差异", "tryon multi-output minimal variation");
 assertNotIncludes(gptRuntimePrompt, "候选 ", "tryon runtime no candidate directive");
@@ -339,7 +339,7 @@ const nanoRuntimePrompt = lingya.applyTryOnRequestPrompt("BASE", {
   referenceUrl: "target.jpg",
   modelFaceUrl: "face.jpg",
 });
-assertIncludes(nanoRuntimePrompt, "摄影风格：跟随image 1 / 图1参考图的影调", "nano-banana also uses reference photo finish");
+assertIncludes(nanoRuntimePrompt, "摄影风格：跟随image 1的影调", "nano-banana also uses reference photo finish");
 assertIncludes(nanoRuntimePrompt, "真人皮肤质感：保留可见毛孔、细微纹理、自然油光、局部红润、轻微瑕疵", "nano-banana real human skin finish");
 assertNotIncludes(nanoRuntimePrompt, "Nano Banana try-on mode", "nano-banana uses common tryon prompt");
 assertNotIncludes(nanoRuntimePrompt, "Proportion guard:", "nano-banana uses common tryon prompt");
