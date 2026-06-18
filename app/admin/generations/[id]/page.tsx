@@ -87,16 +87,24 @@ export default async function AdminTaskDetailPage({ params }: PageProps) {
               </DiagnosticPanel>
             </div>
 
-            <DiagnosticPanel title="执行提示词">
+            <DiagnosticPanel title="最终执行提示词">
               {diagnostics.prompts.length ? (
                 <div className="space-y-3">
                   {diagnostics.prompts.map((prompt, index) => (
-                    <div key={`${prompt.label}-${index}`} className="rounded-lg border border-slate-200 bg-white">
+                    <div key={`${prompt.label}-${index}`} className={`rounded-lg border bg-white ${prompt.isFinal ? "border-slate-200" : "border-amber-200"}`}>
                       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-3 py-2">
-                        <span className="text-xs font-black text-slate-700">{prompt.label}</span>
+                        <span className="text-xs font-black text-slate-700">
+                          {prompt.label}
+                          {!prompt.isFinal ? <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] text-amber-800">未记录最终字段</span> : null}
+                        </span>
                         <span className="font-mono text-[11px] font-bold text-slate-400">{prompt.meta}</span>
                       </div>
-                      <pre className="max-h-[360px] overflow-auto whitespace-pre-wrap break-words p-3 text-xs leading-5 text-slate-800">{prompt.value}</pre>
+                      {!prompt.isFinal ? (
+                        <div className="border-b border-amber-100 bg-amber-50 px-3 py-2 text-xs font-bold leading-5 text-amber-800">
+                          这个任务没有保存 compiledPrompt/finalPrompt，下面只能显示请求侧提示词；新任务应展示最终发给模型的执行提示词。
+                        </div>
+                      ) : null}
+                      <pre className="max-h-[520px] overflow-auto whitespace-pre-wrap break-words p-3 text-xs leading-5 text-slate-800">{prompt.value}</pre>
                       {prompt.original && prompt.original !== prompt.value ? (
                         <details className="border-t border-slate-200 px-3 py-2">
                           <summary className="cursor-pointer text-xs font-black text-slate-500">查看原始提示词</summary>
@@ -107,7 +115,7 @@ export default async function AdminTaskDetailPage({ params }: PageProps) {
                   ))}
                 </div>
               ) : (
-                <p className="text-sm font-semibold text-slate-500">该任务没有记录 promptTrace；可在下方技术排查 JSON 中查看原始 payload。</p>
+                <p className="text-sm font-semibold text-slate-500">该任务没有记录最终执行提示词；可在下方技术排查 JSON 中查看原始 payload。</p>
               )}
             </DiagnosticPanel>
           </div>
@@ -231,54 +239,54 @@ type DiagnosticLine = {
 type PromptDiagnostic = DiagnosticLine & {
   meta: string;
   original: string;
+  isFinal: boolean;
 };
 
 function buildTaskDiagnostics(detail: AdminTaskDetail) {
   const payload = detail.payload;
   const promptTrace = arrayOfRecords(payload.promptTrace);
   const prompts: PromptDiagnostic[] = promptTrace.map((item, index) => {
-    const compiledPrompt = pickString(item, ["compiledPrompt", "compiled_prompt", "finalPrompt", "final_prompt", "prompt"]);
-    const originalPrompt = pickString(item, ["prompt", "userPrompt", "user_prompt"]);
+    const finalPrompt = pickString(item, FINAL_PROMPT_KEYS);
+    const originalPrompt = pickString(item, ORIGINAL_PROMPT_KEYS);
     const promptKind = pickString(item, ["promptKind", "prompt_kind"]) || `prompt ${index + 1}`;
     const model = pickString(item, ["model", "aiModel", "ai_model"]) || "-";
+    const isFinal = Boolean(finalPrompt);
     return {
-      label: `${index + 1}. ${promptKind}`,
-      meta: `model: ${model}`,
-      value: compiledPrompt || originalPrompt || JSON.stringify(item, null, 2),
+      label: `${index + 1}. ${isFinal ? "最终执行" : "请求提示"}：${promptKind}`,
+      meta: `model: ${model} · source: ${isFinal ? "compiledPrompt/finalPrompt" : "prompt/userPrompt fallback"}`,
+      value: finalPrompt || originalPrompt || JSON.stringify(item, null, 2),
       original: originalPrompt,
+      isFinal,
     };
   });
 
   if (!prompts.length) {
-    const fallbackPrompt = pickString(payload, [
-      "compiledPrompt",
-      "compiled_prompt",
-      "finalPrompt",
-      "final_prompt",
-      "prompt",
-      "userPrompt",
-      "user_prompt",
-      "promptText",
-      "prompt_text",
-    ]);
+    const fallbackFinalPrompt = pickString(payload, FINAL_PROMPT_KEYS);
+    const fallbackOriginalPrompt = pickString(payload, ORIGINAL_PROMPT_KEYS);
+    const fallbackPrompt = fallbackFinalPrompt || fallbackOriginalPrompt;
     if (fallbackPrompt) {
       prompts.push({
-        label: "payload prompt",
-        meta: `model: ${pickString(payload, ["aiModel", "ai_model", "model"]) || "-"}`,
+        label: fallbackFinalPrompt ? "payload 最终执行提示词" : "payload 请求提示词",
+        meta: `model: ${pickString(payload, ["aiModel", "ai_model", "model"]) || "-"} · source: ${fallbackFinalPrompt ? "compiledPrompt/finalPrompt" : "prompt/userPrompt fallback"}`,
         value: fallbackPrompt,
-        original: fallbackPrompt,
+        original: fallbackOriginalPrompt,
+        isFinal: Boolean(fallbackFinalPrompt),
       });
     }
   }
 
   for (const step of detail.workflowSteps) {
-    const stepPrompt = firstStringDeep(step, PROMPT_KEYS);
+    const stepFinalPrompt = firstStringDeepByKeys(step, FINAL_PROMPT_KEYS);
+    const stepOriginalPrompt = firstStringDeepByKeys(step, ORIGINAL_PROMPT_KEYS);
+    const stepPrompt = stepFinalPrompt || stepOriginalPrompt;
     if (!stepPrompt) continue;
+    const isFinal = Boolean(stepFinalPrompt);
     prompts.push({
-      label: `工作流步骤：${pickString(step, ["title", "step_key", "type"]) || "未命名步骤"}`,
-      meta: `status: ${pickString(step, ["status"]) || "-"}`,
+      label: `工作流步骤${isFinal ? "最终执行" : "请求提示"}：${pickString(step, ["title", "step_key", "type"]) || "未命名步骤"}`,
+      meta: `status: ${pickString(step, ["status"]) || "-"} · source: ${isFinal ? "compiledPrompt/finalPrompt" : "prompt/userPrompt fallback"}`,
       value: stepPrompt,
-      original: stepPrompt,
+      original: stepOriginalPrompt,
+      isFinal,
     });
   }
 
@@ -363,17 +371,20 @@ function DetailItem({ label, value, mono = false, href }: { label: string; value
   );
 }
 
-const PROMPT_KEYS = new Set([
-  "prompt",
+const FINAL_PROMPT_KEYS = [
   "compiledPrompt",
   "compiled_prompt",
   "finalPrompt",
   "final_prompt",
+];
+
+const ORIGINAL_PROMPT_KEYS = [
+  "prompt",
   "userPrompt",
   "user_prompt",
   "promptText",
   "prompt_text",
-]);
+];
 
 const ERROR_KEYS = new Set([
   "error",
@@ -418,19 +429,23 @@ function diagnosticFromRecord(record: Record<string, unknown>, label: string, ke
   return value ? { label, value } : null;
 }
 
-function firstStringDeep(value: unknown, keys: Set<string>, depth = 0): string {
+function firstStringDeepByKeys(value: unknown, keys: string[], depth = 0): string {
   if (depth > 4) return "";
   if (Array.isArray(value)) {
     for (const item of value) {
-      const match = firstStringDeep(item, keys, depth + 1);
+      const match = firstStringDeepByKeys(item, keys, depth + 1);
       if (match) return match;
     }
     return "";
   }
   if (!isRecord(value)) return "";
-  for (const [key, item] of Object.entries(value)) {
-    if (keys.has(key) && typeof item === "string" && item.trim()) return item.trim();
-    const match = firstStringDeep(item, keys, depth + 1);
+  for (const key of keys) {
+    const item = value[key];
+    if (typeof item === "string" && item.trim()) return item.trim();
+  }
+  for (const item of Object.values(value)) {
+    if (!isRecord(item) && !Array.isArray(item)) continue;
+    const match = firstStringDeepByKeys(item, keys, depth + 1);
     if (match) return match;
   }
   return "";
