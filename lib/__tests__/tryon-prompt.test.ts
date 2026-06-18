@@ -399,7 +399,7 @@ describe("try-on prompt face integration", () => {
     expect(prompt).not.toMatch(/raw type=|slot=|upload mode=|explicit slots=/i);
   });
 
-  it("keeps candidate variation away from the face when reference and model face are present", () => {
+  it("uses a short multi-output rule instead of candidate variation text", () => {
     const prompt = applyTryOnRequestPrompt("BASE", {
       model: "gpt-image-2",
       candidateIndex: 1,
@@ -422,9 +422,12 @@ describe("try-on prompt face integration", () => {
       },
     });
 
-    expect(prompt).toContain("候选之间不要改变脸部");
-    expect(prompt).toContain("候选差异只能来自服装版型");
     expect(prompt).toContain("套用全局色调前");
+    expect(prompt).toContain("多图输出规则：保持同一身份、脸部、表情、视线、头部姿态");
+    expect(prompt).toContain("仅允许服装褶皱、下摆、接触阴影和布料自然贴合有轻微差异");
+    expect(prompt).not.toContain("候选 2/2");
+    expect(prompt).not.toContain("候选之间不要改变脸部");
+    expect(prompt).not.toContain("候选差异只能来自服装版型");
     expect(prompt).not.toContain("avoid identical facial expressions");
     expect(prompt).not.toContain("micro-expression");
   });

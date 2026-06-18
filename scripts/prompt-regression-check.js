@@ -299,8 +299,10 @@ assertIncludes(gptRuntimePrompt, "真人皮肤质感：保留可见毛孔、细�
 assertIncludes(gptRuntimePrompt, "不要磨成瓷肌、塑料皮、蜡像皮、过度美颜", "tryon anti over-smoothing finish");
 assertIncludes(lowerNoFaceWithoutModelFace, "Do not zoom out, do not convert it into a full-body portrait, and do not add a head, face, shoulders, or full torso.", "tryon crop-aware body completion guard");
 assertIncludes(gptRuntimePrompt, "在套用全局色调前，让最终脸部肤色与image 1 / 图1参考图的颈、胸、手臂、手", "tryon face skin continuity before finish");
-assertIncludes(gptRuntimePrompt, "候选之间不要改变脸部、表情、视线、头部姿态、头部大小", "tryon candidate conservatively locks face when reference face is possible");
-assertIncludes(gptRuntimePrompt, "image 1 / 图1参考图摄影氛围", "tryon candidate keeps reference mood");
+assertIncludes(gptRuntimePrompt, "多图输出规则：保持同一身份、脸部、表情、视线、头部姿态", "tryon multi-output short guard");
+assertIncludes(gptRuntimePrompt, "仅允许服装褶皱、下摆、接触阴影和布料自然贴合有轻微差异", "tryon multi-output minimal variation");
+assertNotIncludes(gptRuntimePrompt, "候选 ", "tryon runtime no candidate directive");
+assertNotIncludes(gptRuntimePrompt, "候选之间不要改变脸部", "tryon runtime no candidate face lock");
 assertNotIncludes(gptRuntimePrompt, "Nano Banana try-on mode", "gpt-image-2 no banana directive");
 
 const gptRuntimePromptWithReferenceFace = lingya.applyTryOnRequestPrompt("BASE", {
@@ -324,8 +326,9 @@ const gptRuntimePromptWithReferenceFace = lingya.applyTryOnRequestPrompt("BASE",
     confidence: 0.92,
   },
 });
-assertIncludes(gptRuntimePromptWithReferenceFace, "候选之间不要改变脸部、表情、视线、头部姿态、头部大小", "tryon candidate locks reference face performance");
-assertIncludes(gptRuntimePromptWithReferenceFace, "候选差异只能来自服装版型、褶皱、下摆、接触阴影和非脸部身体的微小放松", "tryon candidate varies garment only");
+assertIncludes(gptRuntimePromptWithReferenceFace, "多图输出规则：保持同一身份、脸部、表情、视线、头部姿态", "tryon reference face short multi-output guard");
+assertNotIncludes(gptRuntimePromptWithReferenceFace, "候选 ", "tryon reference face no candidate directive");
+assertNotIncludes(gptRuntimePromptWithReferenceFace, "候选差异只能来自服装版型", "tryon reference face no candidate variation");
 assertNotIncludes(gptRuntimePromptWithReferenceFace, "For GPT candidate variation", "tryon reference face lock disables gpt expression variation");
 assertNotIncludes(gptRuntimePromptWithReferenceFace, "micro-expression", "tryon reference face lock removes expression variation");
 

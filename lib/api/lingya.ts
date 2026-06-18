@@ -509,8 +509,8 @@ export function applyTryOnRequestPrompt(prompt: string, input: TryOnRequestPromp
   lines.push(buildTryOnPhotoFinishDirective(input));
   const cropDirective = buildTryOnRequestCropDirective(input);
   if (cropDirective && shouldAppendTryOnRequestCropDirective(basePrompt)) lines.push(cropDirective);
-  const candidateDirective = buildTryOnCandidateDirective(input);
-  if (candidateDirective) lines.push(candidateDirective);
+  const multiOutputDirective = buildTryOnMultiOutputDirective(input);
+  if (multiOutputDirective) lines.push(multiOutputDirective);
   const garmentDetailDirective = buildGarmentDetailReferencePrompt({
     groups: input.garmentDetailPromptGroups,
     unassignedUrls: input.unassignedGarmentDetailUrls,
@@ -551,52 +551,15 @@ function buildTryOnRequestCropDirective(input: TryOnRequestPromptOptions) {
   ].join("");
 }
 
-function buildTryOnCandidateDirective(input: TryOnRequestPromptOptions) {
-  const count = Math.max(1, Math.floor(Number(input.candidateCount || 1)));
-  if (count <= 1) return "";
-
-  const index = Math.max(0, Math.floor(Number(input.candidateIndex || 0))) % count;
-  const variants = [
-    "自然前垂的合身版型",
-    "略宽松、袖口和腰部有自然褶皱",
-    "更结构化的版型，缝线和领口/下摆更利落",
-    "微动态的真人变化：手部、肩部、下摆和接触阴影有微小调整",
-  ];
-  const variant = variants[index % variants.length];
-  const shouldKeepFaceFixed = Boolean(input.referenceUrl && input.modelFaceUrl && shouldApplyFaceIdentityToReference(input.referenceAnalysis));
-  const gptExpression = input.model === "gpt-image-2" && !shouldKeepFaceFixed
-    ? " 多候选变化时，脸部保持自然一致，不要做成表情僵硬的网红模板脸。" : "";
-  const cropVariation = buildCandidateCropVariationRule(input.referenceAnalysis);
-
-  const faceVariationLock = shouldKeepFaceFixed
-    ? " 候选之间不要改变脸部、表情、视线、头部姿态、头部大小、妆容或脸部光线；候选差异只能来自服装版型、褶皱、下摆、接触阴影和非脸部身体的微小放松。" : "";
-
-  const referenceRef = input.referenceUrl ? buildTryOnReferenceLabel(input.referenceImageNumber || 1) : "当前生成场景";
-  return `候选 ${index + 1}/${count}：在保持可见身份、肤色衔接、身体比例、姿势族、镜头/裁切边界、背景、非服装来源区、来源服装版型和${referenceRef}摄影氛围的前提下，给出有差异但连贯的换装变化；变化只来自服装版型、褶皱、下摆、接触阴影和可见范围内的微小自然放松，版型倾向：${variant}。${cropVariation}${faceVariationLock}${gptExpression}`;
-}
-
 function buildTryOnReferenceLabel(imageNumber: number) {
   return `image ${imageNumber} / 图${imageNumber}参考图`;
 }
 
-function buildCandidateCropVariationRule(analysis?: TryOnReferenceAnalysis | null) {
-  if (!analysis) return "不要在变化时改变目标裁切类型。";
-  if (analysis.bodyCrop === "lower_body") {
-    return "变化只限于下半身站姿张力、裤褶、下摆、可见的鞋/地接触和阴影；不要添加头、脸、肩或完整躯干。";
-  }
-  if (analysis.bodyCrop === "upper_body") {
-    return "变化只限于上半身姿态、可见时的肩/臂/手放松、服装褶皱和阴影；不要拉远镜头去补腿或脚。";
-  }
-  if (analysis.bodyCrop === "closeup") {
-    return "变化只限于同样的近景/细节区域、面料贴合、接触阴影和局部姿态线索；不要拉远到半身或全身。";
-  }
-  if (analysis.bodyCrop === "scene_only") {
-    return "变化只限于服装贴合和与场景一致的光线；不要从纯场景参考推断人物裁切或全身姿势。";
-  }
-  if (analysis.bodyCrop === "three_quarter") {
-    return "变化必须保持同样的三分之二身体范围和镜头距离；不要强行扩展到从头到脚。";
-  }
-  return "变化必须保持检测到的可见身体范围和裁切边界；不要显示参考裁切之外的部位。";
+function buildTryOnMultiOutputDirective(input: TryOnRequestPromptOptions) {
+  const count = Math.max(1, Math.floor(Number(input.candidateCount || 1)));
+  if (count <= 1) return "";
+  const referenceRef = input.referenceUrl ? buildTryOnReferenceLabel(input.referenceImageNumber || 1) : "当前画面";
+  return `多图输出规则：保持同一身份、脸部、表情、视线、头部姿态、身体比例、姿势族、镜头/裁切边界和${referenceRef}影调；仅允许服装褶皱、下摆、接触阴影和布料自然贴合有轻微差异。`;
 }
 
 function buildGenerateRequestBody(input: GenerateInput, compiledPrompt: string): Record<string, any> {
@@ -2574,13 +2537,6 @@ function buildReferenceNoHeadFaceLockLines(params: {
       : `Do not generate, reveal, add, infer, or hallucinate any head, face, hair, portrait, or full-body expansion outside ${params.targetRef}'s original crop.`,
     `${faceSourceRule} A result with any visible face or newly added head is invalid, even if the clothing looks correct.`,
   ];
-}
-
-function shouldApplyFaceIdentityToReference(analysis?: TryOnReferenceAnalysis | null) {
-  if (!analysis) return true;
-  if (analysis.bodyCrop === "lower_body" || analysis.bodyCrop === "scene_only") return false;
-  if (analysis.bodyCrop === "closeup" && !analysis.faceVisible && !analysis.headVisible) return false;
-  return analysis.faceVisible || analysis.headVisible;
 }
 
 function isHeadlessLowerBodyReference(analysis?: TryOnReferenceAnalysis | null) {
