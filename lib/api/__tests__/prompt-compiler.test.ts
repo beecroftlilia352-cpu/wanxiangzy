@@ -299,8 +299,12 @@ describe("compileImagePromptForModel", () => {
     });
 
     expect(result).toContain("Target pose:");
-    expect(result).toContain("Pose 1: directly follow the current pose reference image");
+    expect(result).toContain("Pose 1: extract only the skeletal body action");
     expect(result).toContain("Reference lock:");
+    expect(result).toContain("image 2 = pose reference only");
+    expect(result).toContain("Do not import the pose reference's camera distance");
+    expect(result).toContain("Pose reference exclusion");
+    expect(result).toContain("handbag, jewelry, accessories, props, background");
     expect(result).not.toMatch(/Target pose:\s*(?:Camera:|Negative:|$)/i);
   });
 

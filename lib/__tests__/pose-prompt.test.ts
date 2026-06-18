@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { applyPoseSeriesStylePrompt } from "@/lib/module-style-presets";
-import { buildSeparatePosePrompt, buildSeparatePoseSlotDirective, enforcePosePromptRequirements } from "@/lib/pose-prompt";
+import { buildPoseReferenceModeSeparatePrompt, buildSeparatePosePrompt, buildSeparatePoseSlotDirective, enforcePosePromptRequirements } from "@/lib/pose-prompt";
 import { normalizePoseVisualAnalysis } from "@/lib/pose-analysis";
 import { buildFallbackPosePlan } from "@/lib/pose-plan";
 
@@ -350,5 +350,17 @@ describe("pose prompt handling", () => {
     expect(slot3).toContain(posePlan.slots[2].bodyAction);
     expect(slot3).not.toContain(posePlan.slots[0].bodyAction);
     expect(slot3).toContain("补充要求：衣摆清晰。");
+  });
+
+  it("treats pose reference images as skeleton-only controls", () => {
+    const prompt = buildPoseReferenceModeSeparatePrompt("保持图1人物、服装、背景和原图色调。", 2);
+
+    expect(prompt).toContain("image 1 = final visual source");
+    expect(prompt).toContain("image 2 = pose reference only");
+    expect(prompt).toContain("extract only the skeletal body action");
+    expect(prompt).toContain("Do not import the pose reference's camera distance");
+    expect(prompt).toContain("Pose reference exclusion");
+    expect(prompt).toContain("handbag, jewelry, accessories, props, background");
+    expect(prompt).toContain("not like image 1's subject was placed inside the reference photo");
   });
 });

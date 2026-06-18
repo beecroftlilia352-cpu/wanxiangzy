@@ -36,7 +36,10 @@ describe("pose reference helpers", () => {
 
     expect(prompt).toContain("image 1 is the only source");
     expect(prompt).toContain("image 2 to image 5 are pose reference images");
-    expect(prompt).toContain("Never copy from pose reference images");
+    expect(prompt).toContain("Use pose reference images only as a skeletal pose control");
+    expect(prompt).toContain("Do not use pose reference images as visual source images");
+    expect(prompt).toContain("handbag, jewelry, accessories");
+    expect(prompt).toContain("camera distance, crop, lens look");
     expect(prompt).toContain("pose 1 -> image 2");
     expect(prompt).toContain("pose 8 -> image 5");
   });

@@ -350,17 +350,25 @@ export function buildPoseReferenceModeSeparatePrompt(prompt: string, poseIndex: 
   const scopedPrompt = normalizeSeparatePromptScope(removeGridLayoutWording(prompt)).slice(0, 900);
 
   return [
-    POSE_SEPARATE_BASE_PROMPT,
+    "Image roles:",
+    "image 1 = final visual source. Preserve its person, face, hair, body proportions, outfit, garment color/pattern/material, background, floor/wall, lighting, exposure, white balance, skin tone, camera feel and crop safety.",
+    "image 2 = pose reference only. It is not a style, scene, identity, outfit, accessory, lighting, color, crop or camera reference.",
+    "If more pose reference images are provided, each has the same pose-only role.",
+    "Output: generate one standalone source-matched pose variation photo, not a beautified or regraded fashion editorial.",
+    "",
     "Target pose:",
-    `Pose ${safeIndex}: directly follow the current pose reference image for body action, limb placement, weight shift, body direction, hand and foot position, head/neck direction and compatible gaze rhythm.`,
-    "Do not create or invent a separate pose plan; adapt the reference pose conservatively when needed for source outfit readability, crop safety and realistic joints.",
+    `Pose ${safeIndex}: extract only the skeletal body action from the current pose reference: limb placement, weight shift, torso direction, hand and foot position, and head/neck direction when it can fit image 1 naturally.`,
+    "Do not create or invent a separate pose plan. Adapt the reference pose conservatively when needed for image 1 outfit readability, crop safety, body proportions and realistic joints.",
     "",
     "Camera:",
-    "Use source-matched commercial model framing; the pose reference may guide action rhythm but must not override source identity, outfit, background, lighting or final photo tone.",
+    "Use image 1's framing logic and source-matched commercial product readability. Do not import the pose reference's camera distance, crop, lens look, background layout or scene composition.",
     "",
     "Reference lock:",
-    "Preserve image 1 as the only source for person identity, face, hair, gender expression, body proportions, outfit design, garment color, pattern, logo, material texture, background, lighting, skin tone and final photo tone.",
+    "Image 1 is the only source for all final visible content except body pose. Preserve its person identity, face, hair, gender expression, body proportions, outfit design, garment color, pattern, logo, material texture, background, floor/wall, lighting, exposure, white balance, skin tone and final photo tone.",
+    "Pose reference exclusion: do not copy its person, face, hair, body shape, age/gender expression, clothes, garment details, colors, patterns, handbag, jewelry, accessories, props, background, floor, wall, furniture, lighting, color grading, skin tone, text, logos or extra people.",
+    "Success criterion: the output should look like image 1 was naturally re-posed into the reference skeleton, not like image 1's subject was placed inside the reference photo.",
     scopedPrompt ? `User/source constraints:\n${scopedPrompt}` : "",
+    POSE_SEPARATE_BASE_PROMPT,
   ].filter(Boolean).join("\n");
 }
 

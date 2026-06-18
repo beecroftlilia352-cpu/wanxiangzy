@@ -65,9 +65,9 @@ export function buildPoseReferenceImagePrompt(params: {
     referenceCount === 1
       ? `image ${startImageNumber} is a pose reference image.`
       : `image ${startImageNumber} to image ${endImageNumber} are pose reference images.`,
-    "Use pose reference images only for commercial model body action, limb placement, weight shift, body direction, hand and foot position, head/neck direction, gaze rhythm when compatible, and camera/framing rhythm.",
-    "Never copy from pose reference images: person identity, face, hair, body shape, gender expression, clothing, garment details, colors, patterns, background, lighting, color grading, skin tone, props, text, logos or extra people.",
+    "Use pose reference images only as a skeletal pose control: body action, limb placement, weight shift, body direction, hand and foot position, and head/neck direction when compatible with image 1.",
+    "Do not use pose reference images as visual source images. They must not donate the final scene, background, set, floor, wall, furniture, props, handbag, jewelry, accessories, clothing, color palette, lighting, exposure, skin tone, face, hair, body shape, gender expression, camera distance, crop, lens look, text, logos or extra people.",
     `Slot mapping: ${mapping}`,
-    "Priority order: source identity/outfit/tone/crop safety > current pose plan slot > pose reference action > user supplement. If a pose reference conflicts with source outfit readability, crop range or realistic joints, adapt the pose conservatively instead of changing source identity or outfit.",
+    "Priority order: image 1 identity/outfit/background/tone/crop safety > current pose plan slot > pose reference skeleton > user supplement. If a pose reference conflicts with image 1 outfit readability, crop range, background continuity or realistic joints, adapt the pose conservatively instead of changing image 1 content.",
   ].join("\n");
 }
