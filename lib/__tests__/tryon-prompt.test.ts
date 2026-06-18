@@ -224,6 +224,7 @@ describe("try-on prompt face integration", () => {
         clothingCount: 2,
         clothingMode: "multi",
         clothingRoles: ["upper", "lower"],
+        garmentDetailCount: 2,
         hasReference: true,
         hasModelFace: true,
         clothingAnalysis: {
@@ -291,7 +292,9 @@ describe("try-on prompt face integration", () => {
       expect(basePrompt).toContain("User constraints structured from the original request:");
       expect(basePrompt).toContain("参考图头身比更修长");
       expect(basePrompt).toContain("上衣条纹不要串到裤子");
-      expect(basePrompt).toContain("Image 5 and later images, when uploaded, are local detail supplements");
+      expect(basePrompt).toContain("images 5-6 = garment detail references only");
+      expect(basePrompt).toContain("images 5-6 are local detail supplements");
+      expect(basePrompt).not.toContain("image 5+");
       expect(basePrompt).not.toContain("final prompt contains");
       expect(basePrompt).toContain("not a random new face, not a generic influencer/catalog face");
       expect(basePrompt).toContain("head-to-body ratio");
@@ -299,6 +302,8 @@ describe("try-on prompt face integration", () => {
       expect(basePrompt).toContain("eyelid/cheek/mouth-corner dynamics");
       expect(basePrompt).toContain("without copying image 4's original expression");
       expect(basePrompt).toContain("without flattening image 1's expression into a neutral catalog face");
+      expect(basePrompt).toContain("Real human skin texture: preserve visible pores, fine skin texture");
+      expect(basePrompt).toContain("no porcelain retouch, plastic/waxy skin, over-smoothing");
       expect(basePrompt).toContain("Face blending:");
       expect(basePrompt).toContain("original head space, head bounding box, head-to-body ratio");
       expect(basePrompt).toContain("Fit image 4's identity geometry into image 1's head scale");
@@ -315,6 +320,38 @@ describe("try-on prompt face integration", () => {
       expect(finalPrompt).toContain("不得用于其他主服装图");
       expect(finalPrompt).toContain("不跨件迁移");
     }
+  });
+
+  it("does not mention garment detail image slots when no detail images are uploaded", () => {
+    const { prompt } = buildTryOnPrompt({
+      model: "nano-banana-2",
+      clothingCount: 1,
+      clothingMode: "single",
+      clothingRoles: ["single"],
+      hasReference: true,
+      hasModelFace: true,
+      referenceAnalysis: {
+        index: 1,
+        bodyCrop: "full_body",
+        personVisible: true,
+        faceVisible: true,
+        headVisible: true,
+        upperBodyVisible: true,
+        lowerBodyVisible: true,
+        handsVisible: true,
+        feetVisible: true,
+        detailFocus: ["full body"],
+        promptNotes: "Keep the outdoor full-body crop.",
+        confidence: 0.93,
+      },
+      style: "摄影风格：跟随参考图的影调，外面的开衫也要",
+    });
+
+    expect(prompt).not.toContain("image 4+");
+    expect(prompt).not.toContain("Image 4 and later images");
+    expect(prompt).not.toContain("Garment detail references:");
+    expect(prompt).toContain("图1参考图的影调");
+    expect(prompt).toContain("Real human skin texture: preserve visible pores, fine skin texture");
   });
 
   it("keeps banana single-garment role neutral instead of forcing every source into full-body clothing", () => {

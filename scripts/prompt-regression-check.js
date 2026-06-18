@@ -291,14 +291,16 @@ const gptRuntimePrompt = lingya.applyTryOnRequestPrompt("BASE", {
   referenceUrl: "target.jpg",
   modelFaceUrl: "face.jpg",
 });
-assertIncludes(gptRuntimePrompt, "摄影风格：跟随参考图的影调", "tryon photo finish directive");
+assertIncludes(gptRuntimePrompt, "摄影风格：跟随image 1 / 图1参考图的影调", "tryon photo finish directive");
 assertIncludes(gptRuntimePrompt, "光线方向、色温、曝光、白平衡、景深、相机质感、滤镜氛围", "tryon reference photo finish");
 assertIncludes(gptRuntimePrompt, "服装固有色、图案、logo、面料纹理、人物身份、肤色连续性和身体比例保持准确", "tryon finish safeguards");
 assertIncludes(gptRuntimePrompt, "不要厚重美颜滤镜、不要海报版式、不要添加文字、不要漂白衣服颜色", "tryon no generic filter");
+assertIncludes(gptRuntimePrompt, "真人皮肤质感：保留可见毛孔、细微纹理、自然油光、局部红润、轻微瑕疵", "tryon real human skin finish");
+assertIncludes(gptRuntimePrompt, "不要磨成瓷肌、塑料皮、蜡像皮、过度美颜", "tryon anti over-smoothing finish");
 assertIncludes(lowerNoFaceWithoutModelFace, "Do not zoom out, do not convert it into a full-body portrait, and do not add a head, face, shoulders, or full torso.", "tryon crop-aware body completion guard");
-assertIncludes(gptRuntimePrompt, "在套用全局色调前，让最终脸部肤色与参考图的颈、胸、手臂、手", "tryon face skin continuity before finish");
+assertIncludes(gptRuntimePrompt, "在套用全局色调前，让最终脸部肤色与image 1 / 图1参考图的颈、胸、手臂、手", "tryon face skin continuity before finish");
 assertIncludes(gptRuntimePrompt, "候选之间不要改变脸部、表情、视线、头部姿态、头部大小", "tryon candidate conservatively locks face when reference face is possible");
-assertIncludes(gptRuntimePrompt, "参考图摄影氛围", "tryon candidate keeps reference mood");
+assertIncludes(gptRuntimePrompt, "image 1 / 图1参考图摄影氛围", "tryon candidate keeps reference mood");
 assertNotIncludes(gptRuntimePrompt, "Nano Banana try-on mode", "gpt-image-2 no banana directive");
 
 const gptRuntimePromptWithReferenceFace = lingya.applyTryOnRequestPrompt("BASE", {
@@ -334,7 +336,8 @@ const nanoRuntimePrompt = lingya.applyTryOnRequestPrompt("BASE", {
   referenceUrl: "target.jpg",
   modelFaceUrl: "face.jpg",
 });
-assertIncludes(nanoRuntimePrompt, "摄影风格：跟随参考图的影调", "nano-banana also uses reference photo finish");
+assertIncludes(nanoRuntimePrompt, "摄影风格：跟随image 1 / 图1参考图的影调", "nano-banana also uses reference photo finish");
+assertIncludes(nanoRuntimePrompt, "真人皮肤质感：保留可见毛孔、细微纹理、自然油光、局部红润、轻微瑕疵", "nano-banana real human skin finish");
 assertNotIncludes(nanoRuntimePrompt, "Nano Banana try-on mode", "nano-banana uses common tryon prompt");
 assertNotIncludes(nanoRuntimePrompt, "Proportion guard:", "nano-banana uses common tryon prompt");
 assertNotIncludes(nanoRuntimePrompt, "For GPT candidate variation", "nano-banana no gpt expression directive");

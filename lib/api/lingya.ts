@@ -78,6 +78,8 @@ const GPT_IMAGE_2_QUALITY = "auto";
 const IMAGE_EDIT_MAX_IMAGES = 15;
 const IMAGE_EDIT_MAX_IMAGE_BYTES = 50 * 1024 * 1024;
 const IMAGE_EDIT_FETCH_TIMEOUT_MS = 60_000;
+const TRYON_REAL_HUMAN_SKIN_RULE = "真人皮肤质感：保留可见毛孔、细微纹理、自然油光、局部红润、轻微瑕疵、法令纹/眼下细纹等真实人像细节；不要磨成瓷肌、塑料皮、蜡像皮、过度美颜、过度锐化或无瑕 AI 网红脸。";
+const TRYON_REAL_HUMAN_SKIN_RULE_EN = "Real human skin texture: preserve visible pores, fine skin texture, natural shine, subtle redness, tiny blemishes, under-eye lines, and believable camera grain; no porcelain retouch, plastic/waxy skin, over-smoothing, over-sharpening, flawless AI influencer skin, or beauty-filter face.";
 
 export type LingyaModel = "gpt-image-2" | "nano-banana-pro" | "nano-banana-2";
 export type AspectRatio = "auto" | "1:1" | "9:16" | "16:9" | "4:3" | "3:4" | "2:3" | "3:2" | "4:5" | "5:4" | "21:9";
@@ -420,6 +422,7 @@ export async function batchTryOn(input: BatchTryOnInput): Promise<{ resultUrls: 
     hasModelFace: !!input.modelFaceUrl,
     hasReference: !!input.referenceUrl,
     referenceAnalysis: input.referenceAnalysis,
+    garmentDetailCount: garmentDetailUrls.length,
     style: input.style,
   });
   const detailStartImageNumber = clothingImageOffset
@@ -523,24 +526,28 @@ function shouldAppendTryOnRequestCropDirective(prompt: string) {
 
 function buildTryOnPhotoFinishDirective(input: TryOnRequestPromptOptions) {
   if (input.referenceUrl) {
+    const referenceRef = buildTryOnReferenceLabel(input.referenceImageNumber || 1);
     return [
-      "摄影风格：跟随参考图的影调（光线方向、色温、曝光、白平衡、景深、相机质感、滤镜氛围）。",
+      `摄影风格：跟随${referenceRef}的影调（光线方向、色温、曝光、白平衡、景深、相机质感、滤镜氛围）。`,
       "服装固有色、图案、logo、面料纹理、人物身份、肤色连续性和身体比例保持准确；不要厚重美颜滤镜、不要海报版式、不要添加文字、不要漂白衣服颜色。",
-      input.modelFaceUrl ? "在套用全局色调前，让最终脸部肤色与参考图的颈、胸、手臂、手在色相、亮度、阴影过渡、毛孔和反射光上自然衔接。" : "",
+      TRYON_REAL_HUMAN_SKIN_RULE,
+      input.modelFaceUrl ? `在套用全局色调前，让最终脸部肤色与${referenceRef}的颈、胸、手臂、手在色相、亮度、阴影过渡、毛孔和反射光上自然衔接。` : "",
     ].filter(Boolean).join("");
   }
 
   return [
     "摄影风格：干净自然的商业时装摄影调性，光线可信，白平衡准确，真实相机透视，纹理克制。",
     "服装固有色、图案、logo、面料纹理、人物身份、肤色连续性和身体比例保持准确；不要厚重美颜滤镜、不要海报版式、不要添加文字、不要漂白衣服颜色。",
+    TRYON_REAL_HUMAN_SKIN_RULE,
   ].join("");
 }
 
 function buildTryOnRequestCropDirective(input: TryOnRequestPromptOptions) {
   if (!input.referenceAnalysis || !input.referenceUrl) return "";
+  const referenceRef = buildTryOnReferenceLabel(input.referenceImageNumber || 2);
   return [
     "裁切锁定：" + buildTryOnReferenceCropLockRule(input.referenceAnalysis, input.referenceImageNumber || 2),
-    "只在参考图检测到的可见范围内生成最佳姿势，不要为了补全人物而拉远镜头、添加完整人体或显示参考裁切之外的部位。",
+    `只在${referenceRef}检测到的可见范围内生成最佳姿势，不要为了补全人物而拉远镜头、添加完整人体或显示${referenceRef}裁切之外的部位。`,
   ].join("");
 }
 
@@ -564,7 +571,12 @@ function buildTryOnCandidateDirective(input: TryOnRequestPromptOptions) {
   const faceVariationLock = shouldKeepFaceFixed
     ? " 候选之间不要改变脸部、表情、视线、头部姿态、头部大小、妆容或脸部光线；候选差异只能来自服装版型、褶皱、下摆、接触阴影和非脸部身体的微小放松。" : "";
 
-  return `候选 ${index + 1}/${count}：在保持可见身份、肤色衔接、身体比例、姿势族、镜头/裁切边界、背景、非服装来源区、来源服装版型和参考图摄影氛围的前提下，给出有差异但连贯的换装变化；变化只来自服装版型、褶皱、下摆、接触阴影和可见范围内的微小自然放松，版型倾向：${variant}。${cropVariation}${faceVariationLock}${gptExpression}`;
+  const referenceRef = input.referenceUrl ? buildTryOnReferenceLabel(input.referenceImageNumber || 1) : "当前生成场景";
+  return `候选 ${index + 1}/${count}：在保持可见身份、肤色衔接、身体比例、姿势族、镜头/裁切边界、背景、非服装来源区、来源服装版型和${referenceRef}摄影氛围的前提下，给出有差异但连贯的换装变化；变化只来自服装版型、褶皱、下摆、接触阴影和可见范围内的微小自然放松，版型倾向：${variant}。${cropVariation}${faceVariationLock}${gptExpression}`;
+}
+
+function buildTryOnReferenceLabel(imageNumber: number) {
+  return `image ${imageNumber} / 图${imageNumber}参考图`;
 }
 
 function buildCandidateCropVariationRule(analysis?: TryOnReferenceAnalysis | null) {
@@ -1435,7 +1447,10 @@ function isRetryableStatus(status: number): boolean {
   return status === 500 || status === 502 || status === 503 || status === 504;
 }
 
-function buildStructuredTryOnUserInstruction(value?: string, options: { imageNumberMap?: Map<number, number> } = {}) {
+function buildStructuredTryOnUserInstruction(value?: string, options: {
+  imageNumberMap?: Map<number, number>;
+  referenceImageNumber?: number;
+} = {}) {
   const trimmed = value?.trim();
   if (!trimmed) return "";
 
@@ -1461,7 +1476,10 @@ function buildStructuredTryOnUserInstruction(value?: string, options: { imageNum
   };
 
   for (const rawPart of source) {
-    const part = remapTryOnImageReferences(rawPart, options.imageNumberMap);
+    const part = normalizeTryOnGenericReferenceText(
+      remapTryOnImageReferences(rawPart, options.imageNumberMap),
+      options.referenceImageNumber
+    );
     if (/水印|文字|去除|删除|多余|清理/.test(part)) {
       groups.cleanup.push(part);
       continue;
@@ -1531,6 +1549,14 @@ function remapTryOnImageReferences(value: string | undefined, imageNumberMap?: M
   return value
     .replace(/图\s*([一二三四五六七八九十\d]+)/g, (_match, numberText: string) => `图${replaceNumber(numberText)}`)
     .replace(/image\s*([1-9]\d*)/gi, (_match, numberText: string) => `image ${replaceNumber(numberText)}`);
+}
+
+function normalizeTryOnGenericReferenceText(value: string, referenceImageNumber?: number) {
+  if (!value || !referenceImageNumber) return value;
+  const referenceLabel = `图${referenceImageNumber}参考图`;
+  return value
+    .replace(/(?<!图[一二三四五六七八九十\d]\s*)参考图(?!\s*[一二三四五六七八九十\d])/g, referenceLabel)
+    .replace(/\breference image\b(?!\s*[1-9]\d*)/gi, `image ${referenceImageNumber}`);
 }
 
 function shouldRemapTryOnRawPromptImageReferences(value: string, params: {
@@ -1619,6 +1645,7 @@ export function buildTryOnPrompt(params: {
   clothingMode?: TryOnClothingMode;
   clothingRoles?: TryOnClothingRole[];
   clothingAnalysis?: TryOnClothingAnalysis | null;
+  garmentDetailCount?: number;
   garmentAudience?: TryOnGarmentAudience;
   ageGroup?: TryOnAgeGroup;
   garmentCategory?: TryOnGarmentCategory;
@@ -1678,6 +1705,7 @@ export function buildTryOnPrompt(params: {
           clothingMode,
           clothingRoles: normalizedRoles,
           clothingAnalysis: params.clothingAnalysis,
+          garmentDetailCount: params.garmentDetailCount,
           garmentAudience: params.garmentAudience,
           ageGroup: params.ageGroup,
           garmentCategory: params.garmentCategory,
@@ -1695,6 +1723,7 @@ export function buildTryOnPrompt(params: {
         clothingMode,
         clothingRoles: normalizedRoles,
         clothingAnalysis: params.clothingAnalysis,
+        garmentDetailCount: params.garmentDetailCount,
         garmentAudience: params.garmentAudience,
         ageGroup: params.ageGroup,
         garmentCategory: params.garmentCategory,
@@ -1712,7 +1741,7 @@ export function buildTryOnPrompt(params: {
   }
 
   // ---- 核心提示词（显式编号 + 保留/替换约束） ----
-  const skinAndQuality = `真实皮肤质感，可见毛孔、自然纹理和轻微瑕疵，不过度磨皮。${TRYON_QUALITY}。`;
+  const skinAndQuality = `${TRYON_REAL_HUMAN_SKIN_RULE}${TRYON_QUALITY}。`;
   const poseLock = `【最重要】${buildTryOnReferencePrompt(referenceImageNumber)}`;
   const garmentRules = [
     TRYON_CLOTHING_IMAGE_ROLE_RULE,
@@ -1806,7 +1835,10 @@ export function buildTryOnPrompt(params: {
   }
 
   // 用户风格补充
-  const userInstruction = buildStructuredTryOnUserInstruction(params.style, { imageNumberMap });
+  const userInstruction = buildStructuredTryOnUserInstruction(params.style, {
+    imageNumberMap,
+    referenceImageNumber: params.hasReference ? referenceImageNumber : undefined,
+  });
   if (userInstruction) {
     prompt += `\n${userInstruction}`;
   }
@@ -1820,6 +1852,7 @@ function buildNanoBananaTryOnPrompt(params: {
   clothingMode: TryOnClothingMode;
   clothingRoles: TryOnClothingRole[];
   clothingAnalysis?: TryOnClothingAnalysis | null;
+  garmentDetailCount?: number;
   garmentAudience?: TryOnGarmentAudience;
   ageGroup?: TryOnAgeGroup;
   garmentCategory?: TryOnGarmentCategory;
@@ -1845,6 +1878,7 @@ function buildNanoBananaTryOnPrompt(params: {
     })
     : params.hasModelFace ? "must_use_model_face" : "preserve_reference_face";
   const mustUseModelFace = params.hasModelFace && faceMode === "must_use_model_face";
+  const garmentDetailCount = Math.max(0, Math.floor(Number(params.garmentDetailCount || 0)));
   const firstDetailImageNumber = params.clothingRefs.length
     + (params.hasReference ? 1 : 0)
     + (params.hasModelFace ? 1 : 0)
@@ -1855,7 +1889,10 @@ function buildNanoBananaTryOnPrompt(params: {
   const referenceAnalysisRule = params.hasReference
     ? buildTryOnReferenceAnalysisRule(params.referenceAnalysis, params.referenceImageNumber)
     : "";
-  const userInstruction = buildStructuredTryOnUserInstruction(params.style, { imageNumberMap: params.imageNumberMap });
+  const userInstruction = buildStructuredTryOnUserInstruction(params.style, {
+    imageNumberMap: params.imageNumberMap,
+    referenceImageNumber: params.hasReference ? params.referenceImageNumber : undefined,
+  });
   const lines: string[] = [
     "Follow the image roles below exactly: each input image has one source role only; do not average identities, garments, poses, or backgrounds across unrelated sources.",
     "Input image roles:",
@@ -1864,6 +1901,7 @@ function buildNanoBananaTryOnPrompt(params: {
       faceRef,
       mustUseModelFace,
       firstDetailImageNumber,
+      garmentDetailCount,
     }),
     "Main task:",
     buildNanoBananaTryOnTaskLine(params, {
@@ -1895,8 +1933,10 @@ function buildNanoBananaTryOnPrompt(params: {
       : "When there is no target photo, wear every sourced garment on its correct body area; keep believable layering, waist connection, sleeve/hem placement, fabric tension, and contact shadows. Do not invent extra garments outside the uploaded clothing sources.",
     ...buildFixedBaseLayeringRules(params),
     "Preserve source clothing accurately: garment type, silhouette, color, pattern/logo/text, fabric texture, neckline, sleeves, hem, pockets, buttons, zippers, seams, layers, length, and visible construction details.",
-    "Garment detail references:",
-    `Image ${firstDetailImageNumber} and later images, when uploaded, are local detail supplements for the main clothing image assigned in the garment-detail section. Use them only to restore fabric, neckline, cuff, pocket, button, zipper, logo, back-view, or side-view details for that assigned garment; ignore them if their assignment is unclear. Never treat detail images as new garments, people, poses, faces, bodies, backgrounds, lighting, or cross-garment texture sources.`,
+    ...(garmentDetailCount > 0 ? [
+      "Garment detail references:",
+      `${formatEnglishImageRange(firstDetailImageNumber, garmentDetailCount)} are local detail supplements for the main clothing image assigned in the garment-detail section. Use them only to restore fabric, neckline, cuff, pocket, button, zipper, logo, back-view, or side-view details for that assigned garment. Never treat detail images as new garments, people, poses, faces, bodies, backgrounds, lighting, or cross-garment texture sources.`,
+    ] : []),
     ...buildNanoBananaTryOnFaceLines(params, {
       targetRef,
       faceRef,
@@ -1915,7 +1955,7 @@ function buildNanoBananaTryOnPrompt(params: {
       ? "Sensitive apparel rule: treat the source as adult intimate apparel or swimwear for a neutral commercial catalog/lookbook photo; keep the image non-erotic, non-suggestive, and do not show nudity, nipples, genitals, transparent exposure, sexual acts, bedroom/erotic scenes, minors, or minor-looking people."
       : "",
     params.aspectRatio && params.aspectRatio !== "auto" ? `Output aspect ratio: ${params.aspectRatio}.` : "",
-    "Quality and negatives: realistic edited photo, natural skin texture, believable fabric drape, accurate visible hands/feet when present, no extra people, no watermark, no added text, no AI-render look, no pasted head, no face-swap seam, no mismatched skin, no oversized head, no tiny body, no long neck, no changed body type, no generic catalog face, no unrelated outfit redesign.",
+    `Quality and negatives: realistic edited photo, ${TRYON_REAL_HUMAN_SKIN_RULE_EN} Believable fabric drape, accurate visible hands/feet when present, no extra people, no watermark, no added text, no AI-render look, no pasted head, no face-swap seam, no mismatched skin, no oversized head, no tiny body, no long neck, no changed body type, no generic catalog face, no unrelated outfit redesign.`,
     userInstruction,
   ];
 
@@ -1936,6 +1976,7 @@ function buildNanoBananaTryOnRoleLines(
     faceRef: string;
     mustUseModelFace: boolean;
     firstDetailImageNumber: number;
+    garmentDetailCount: number;
   }
 ) {
   const clothing = params.clothingRefs.map((ref, index) => {
@@ -1964,8 +2005,17 @@ function buildNanoBananaTryOnRoleLines(
     ...clothing,
     ...target,
     ...face,
-    `- image ${refs.firstDetailImageNumber}+ = optional garment detail references only when provided and assigned by "服装细节归属规则"; never use them as a new clothing/person/background reference.`,
+    ...(refs.garmentDetailCount > 0
+      ? [`- ${formatEnglishImageRange(refs.firstDetailImageNumber, refs.garmentDetailCount)} = garment detail references only, assigned by "服装细节归属规则"; never use them as new clothing/person/background references.`]
+      : []),
   ];
+}
+
+function formatEnglishImageRange(firstImageNumber: number, count: number) {
+  const safeFirst = Math.max(1, Math.floor(Number(firstImageNumber) || 1));
+  const safeCount = Math.max(0, Math.floor(Number(count) || 0));
+  if (safeCount <= 1) return `image ${safeFirst}`;
+  return `images ${safeFirst}-${safeFirst + safeCount - 1}`;
 }
 
 function buildNanoBananaTryOnTaskLine(
@@ -2200,6 +2250,7 @@ function buildConciseTryOnPrompt(params: {
   clothingMode: TryOnClothingMode;
   clothingRoles: TryOnClothingRole[];
   clothingAnalysis?: TryOnClothingAnalysis | null;
+  garmentDetailCount?: number;
   garmentAudience?: TryOnGarmentAudience;
   ageGroup?: TryOnAgeGroup;
   garmentCategory?: TryOnGarmentCategory;
@@ -2305,9 +2356,12 @@ function buildConciseTryOnPrompt(params: {
   if (params.aspectRatio && params.aspectRatio !== "auto") {
     lines.push(`Output aspect ratio: ${params.aspectRatio}.`);
   }
-  lines.push(`Photography: real camera fashion photo with believable lighting, natural visible skin texture, realistic fabric contact shadows, and accurate visible body parts within the target crop. ${params.hasReference ? `Preserve ${targetRef}'s original scene, camera distance, and crop boundary; only if ${targetRef} has no clear scene, use a natural commercial fashion setting.` : "Use a natural commercial fashion setting, not an empty gray stock-studio backdrop unless explicitly requested."} No extra people, no watermark, no added text, no plastic skin, no AI-render look, no stock-model expression, no model-face expression leakage, no model-face skin-tone leakage, no model-face makeup leakage, no pasted head, no face-swap seam, no mismatched skin, no oversized head, no long neck, no ID-photo face, no generic catalog face, no unrelated outfit changes.`);
+  lines.push(`Photography: real camera fashion photo with believable lighting, ${TRYON_REAL_HUMAN_SKIN_RULE_EN} Realistic fabric contact shadows and accurate visible body parts within the target crop. ${params.hasReference ? `Preserve ${targetRef}'s original scene, camera distance, and crop boundary; only if ${targetRef} has no clear scene, use a natural commercial fashion setting.` : "Use a natural commercial fashion setting, not an empty gray stock-studio backdrop unless explicitly requested."} No extra people, no watermark, no added text, no plastic skin, no waxy skin, no porcelain retouch, no AI-render look, no stock-model expression, no model-face expression leakage, no model-face skin-tone leakage, no model-face makeup leakage, no pasted head, no face-swap seam, no mismatched skin, no oversized head, no long neck, no ID-photo face, no generic catalog face, no unrelated outfit changes.`);
 
-  const userInstruction = buildStructuredTryOnUserInstruction(params.style, { imageNumberMap: params.imageNumberMap });
+  const userInstruction = buildStructuredTryOnUserInstruction(params.style, {
+    imageNumberMap: params.imageNumberMap,
+    referenceImageNumber: params.hasReference ? params.referenceImageNumber : undefined,
+  });
   if (userInstruction) {
     lines.push(userInstruction);
   }
@@ -2358,7 +2412,7 @@ function buildFixedBaseTryOnPrompt(params: {
         `让 ${params.faceRef} 的身份自然适配 ${params.targetRef} 的可见表情：表情类别、强度、情绪方向、视线、面部张力和自然不对称。只在表情肌肉、视线、肤色重新打光、妆容匹配、毛孔、阴影、边缘融合上做适配；不要改变 ${params.faceRef} 的脸型、眉形、眼距、鼻结构、嘴形、五官比例和可识别度。`,
         `最终脸部必须能被识别为 ${params.faceRef} 本人，且与场景自然融合，不能像贴上去或证件照。`,
         "肤色融合：",
-        `匹配 ${params.targetRef} 可见区域的肤色、色调、明度、妆容风格、毛孔、轻微红润、反射光、阴影和场景光照。`,
+        `匹配 ${params.targetRef} 可见区域的肤色、色调、明度、妆容风格、毛孔、细微纹理、自然油光、轻微红润、真实瑕疵、反射光、阴影和场景光照；不要为了融合而磨成瓷肌、塑料皮或无瑕 AI 脸。`,
         `当颈、胸、手臂、手可见时，与 ${params.targetRef} 这些部位自然衔接，无蒙版边缘或独立打光。`,
       ]
     : [
@@ -2415,7 +2469,7 @@ function buildFixedBaseTryOnPrompt(params: {
       ? `Do not keep ${params.targetRef}'s original facial identity. The identity change to ${params.faceRef} is mandatory in every output.`
       : `Do not add a visible face/head outside ${params.targetRef}'s original crop. Do not treat the absence of a visible face as an error; preserve the partial-body target crop.`,
     `Do not create a new model, unrelated scene, generic catalog face, or mismatched head/body composite.`,
-    `Quality: realistic edited photo, natural fabric drape, realistic contact shadows, natural skin texture, accurate visible hands and feet when present in the crop. ${buildConciseAudienceRule(params.garmentAudience, params.ageGroup)} ${buildVisualAudienceHintRule(params.clothingAnalysis, params.garmentAudience, params.ageGroup)} No extra people, no watermark, no added text, no AI-render look, no stock-model expression, no pasted head, no face-swap seam, no oversized head, no long neck, no ID-photo face, no unrelated outfit changes.`,
+    `Quality: realistic edited photo, natural fabric drape, realistic contact shadows. ${TRYON_REAL_HUMAN_SKIN_RULE} Accurate visible hands and feet when present in the crop. ${buildConciseAudienceRule(params.garmentAudience, params.ageGroup)} ${buildVisualAudienceHintRule(params.clothingAnalysis, params.garmentAudience, params.ageGroup)} No extra people, no watermark, no added text, no AI-render look, no stock-model expression, no pasted head, no face-swap seam, no oversized head, no long neck, no ID-photo face, no unrelated outfit changes.`,
   ];
 
   if (params.garmentCategory === "intimate") {
@@ -2424,7 +2478,10 @@ function buildFixedBaseTryOnPrompt(params: {
   if (params.aspectRatio && params.aspectRatio !== "auto") {
     lines.push(`Output aspect ratio: ${params.aspectRatio}.`);
   }
-  const userInstruction = buildStructuredTryOnUserInstruction(params.style, { imageNumberMap: params.imageNumberMap });
+  const userInstruction = buildStructuredTryOnUserInstruction(params.style, {
+    imageNumberMap: params.imageNumberMap,
+    referenceImageNumber: targetImageNumber,
+  });
   if (userInstruction) {
     lines.push(userInstruction);
   }
