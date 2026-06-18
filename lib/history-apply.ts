@@ -218,6 +218,7 @@ export type HistoryJobPayload =
 export type HistoryApplyRow = {
   id?: string | null;
   status?: string | null;
+  error_message?: string | null;
   result_urls?: string[] | null;
   job_payload?: HistoryJobPayload | Record<string, unknown> | null;
 };
@@ -232,6 +233,16 @@ export function getApplyPath(kind: HistoryJobPayload["kind"], generationId?: str
   const path = getModulePath(kind);
   if (!generationId) return path;
   return `${path}?apply=${encodeURIComponent(generationId)}`;
+}
+
+export function isHistoryApplyRowFailed(row?: HistoryApplyRow | null) {
+  const status = String(row?.status || "").toLowerCase();
+  return Boolean(status && (status.includes("fail") || status.includes("error") || status.includes("cancel")));
+}
+
+export function getHistoryApplyFailureMessage(row?: HistoryApplyRow | null, fallback = "生成失败") {
+  const message = typeof row?.error_message === "string" ? row.error_message.trim() : "";
+  return message || fallback;
 }
 
 export async function fetchHistoryApplyDetail<K extends HistoryJobPayload["kind"]>(

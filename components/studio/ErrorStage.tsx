@@ -1,29 +1,22 @@
 "use client";
 
 import { Info, RotateCcw, X } from "lucide-react";
-import { RepairPromptPanel } from "@/components/RepairPromptPanel";
-import type { RepairKind } from "@/lib/generation-repair";
 
 type ErrorStageProps = {
   error: string;
   onRetry: () => void;
-  onRepair: (repairValue: string) => void;
   isGenerating: boolean;
   retryDisabled?: boolean;
   retryLabel?: string;
   notice?: string;
-  repairKind: RepairKind;
 };
 
 export function ErrorStage({
   error,
   onRetry,
-  onRepair,
-  isGenerating,
   retryDisabled = false,
   retryLabel = "重试",
   notice,
-  repairKind,
 }: ErrorStageProps) {
   return (
     <div className="studio-result-stage min-h-[260px] sm:min-h-[360px] lg:h-full flex items-center justify-center animate-fade-in px-4">
@@ -39,7 +32,6 @@ export function ErrorStage({
             <span>{notice}</span>
           </p>
         )}
-        <RepairPromptPanel kind={repairKind} onRepair={onRepair} disabled={isGenerating} className="mb-3 max-w-md mx-auto" />
         <button
           type="button"
           onClick={onRetry}

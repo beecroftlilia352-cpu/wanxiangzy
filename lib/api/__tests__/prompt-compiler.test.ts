@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { compileImagePromptForModel } from "@/lib/api/prompt-compiler";
 import { buildFaceSwapPrompt } from "@/lib/face-swap";
-import { buildSeparatePosePrompt } from "@/lib/pose-prompt";
+import { buildPoseReferenceModeSeparatePrompt, buildSeparatePosePrompt } from "@/lib/pose-prompt";
 
 describe("compileImagePromptForModel", () => {
   const shortPrompt =
@@ -283,6 +283,25 @@ describe("compileImagePromptForModel", () => {
       expect(result).not.toContain("核心任务：");
       keywords.forEach((keyword) => expect(result.toLowerCase()).toContain(keyword.toLowerCase()));
     });
+  });
+
+  it("preserves target pose for pose-reference separate prompts", () => {
+    const result = compileImagePromptForModel({
+      kind: "pose",
+      model: "gpt-image-2",
+      prompt: buildPoseReferenceModeSeparatePrompt(
+        [
+          "保持图1人物、服装、背景、光线和原图色调。",
+          "输出方式：当前请求只生成一张 3:4 单人完整图片；不要四宫格、拼图、分屏、边框、编号文字或 contact sheet。",
+        ].join("\n"),
+        1
+      ),
+    });
+
+    expect(result).toContain("Target pose:");
+    expect(result).toContain("Pose 1: directly follow the current pose reference image");
+    expect(result).toContain("Reference lock:");
+    expect(result).not.toMatch(/Target pose:\s*(?:Camera:|Negative:|$)/i);
   });
 
   it("throws before model call when a separate pose compiled prompt would lose target pose", () => {

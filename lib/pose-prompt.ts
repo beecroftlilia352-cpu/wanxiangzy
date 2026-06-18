@@ -345,6 +345,25 @@ export function buildSeparatePosePrompt(
   ].filter(Boolean).join("\n");
 }
 
+export function buildPoseReferenceModeSeparatePrompt(prompt: string, poseIndex: number) {
+  const safeIndex = Math.max(Math.floor(Number(poseIndex) || 1), 1);
+  const scopedPrompt = normalizeSeparatePromptScope(removeGridLayoutWording(prompt)).slice(0, 900);
+
+  return [
+    POSE_SEPARATE_BASE_PROMPT,
+    "Target pose:",
+    `Pose ${safeIndex}: directly follow the current pose reference image for body action, limb placement, weight shift, body direction, hand and foot position, head/neck direction and compatible gaze rhythm.`,
+    "Do not create or invent a separate pose plan; adapt the reference pose conservatively when needed for source outfit readability, crop safety and realistic joints.",
+    "",
+    "Camera:",
+    "Use source-matched commercial model framing; the pose reference may guide action rhythm but must not override source identity, outfit, background, lighting or final photo tone.",
+    "",
+    "Reference lock:",
+    "Preserve image 1 as the only source for person identity, face, hair, gender expression, body proportions, outfit design, garment color, pattern, logo, material texture, background, lighting, skin tone and final photo tone.",
+    scopedPrompt ? `User/source constraints:\n${scopedPrompt}` : "",
+  ].filter(Boolean).join("\n");
+}
+
 function compactSeparateStylePrompt(prompt: string) {
   const lines = prompt
     .split("\n")

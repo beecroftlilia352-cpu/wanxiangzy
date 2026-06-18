@@ -31,7 +31,7 @@ import { cn, downloadImage, generateDownloadFilename, MAX_FILE_SIZE, MAX_FILE_SI
 import { safeTaskQueueUrls, type TaskQueueItem, type TaskStatusGroup } from "@/lib/task-queue";
 import { getCreditCost } from "@/lib/api/lingya";
 import { showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
-import { fetchHistoryApplyDetail, takeApplyDetail, type HistoryApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
+import { fetchHistoryApplyDetail, getHistoryApplyFailureMessage, isHistoryApplyRowFailed, takeApplyDetail, type HistoryApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
 import {
   buildOutfitFusionComposerText,
   buildOutfitFusionPrompt,
@@ -824,7 +824,7 @@ export function OutfitFusionPageClient() {
     const inputThumbnails = getOutfitFusionPayloadAssetUrls(detail.payload);
     const statusGroup: TaskStatusGroup = resultUrls.length
       ? "completed"
-      : String(detail.row.status || "").toLowerCase().includes("fail")
+      : isHistoryApplyRowFailed(detail.row)
         ? "failed"
         : "running";
     const now = new Date().toISOString();
@@ -838,7 +838,7 @@ export function OutfitFusionPageClient() {
       createdAt: now,
       updatedAt: now,
       completedAt: statusGroup === "completed" ? now : null,
-      error: "",
+      error: getHistoryApplyFailureMessage(detail.row, ""),
       progress: statusGroup === "completed" ? 100 : statusGroup === "failed" ? 0 : 30,
       expectedCount: clampOutfitFusionCount(detail.payload.genCount),
       resultCount: resultUrls.length,

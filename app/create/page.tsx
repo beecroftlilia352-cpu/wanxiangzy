@@ -11,7 +11,7 @@ import {
 import { useTryOnStore } from "@/lib/store/tryon-store";
 import { createLocalImagePreview, isLikelyImageFile, MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { setCachedProfileCredits } from "@/lib/supabase/client";
-import { getCreditCost, getSupportedImageSizes, buildTryOnPrompt, isNanoBananaModel, type LingyaModel, type ImageSize, type AspectRatio } from "@/lib/api/lingya";
+import { getCreditCost, getSupportedImageSizes, isNanoBananaModel, type LingyaModel, type ImageSize, type AspectRatio } from "@/lib/api/lingya";
 import { toast } from "sonner";
 import { ModuleHeader } from "@/components/ModuleHeader";
 import { LoadingStage } from "@/components/studio/LoadingStage";
@@ -35,8 +35,7 @@ import { useStableFileDrag } from "@/components/studio/useStableFileDrag";
 import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
 import { useTaskQueueStore } from "@/lib/task-queue-client-store";
 import { StudioGenerationCountSelector, StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/components/studio/StudioFormControls";
-import { fetchHistoryApplyDetail, takeApplyPayload } from "@/lib/history-apply";
-import { applyRepairPrompt } from "@/lib/generation-repair";
+import { fetchHistoryApplyDetail, getHistoryApplyFailureMessage, isHistoryApplyRowFailed, takeApplyDetail } from "@/lib/history-apply";
 import { clampTaskExpectedCount, isTaskRunning, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
 import { showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
 import { FAILED_RETRY_NOTICE, buildFailedTaskDetail, buildPartialFailureDetail, summarizeGenerationError } from "@/lib/studio-generation-feedback";
@@ -218,6 +217,8 @@ export default function CreatePage() {
     setPromptUsed: setStorePromptUsed,
     setReferenceImages: setStoreReferenceImages,
     setSelectedModel: setStoreSelectedModel,
+    setResult: setStoreResult,
+    setError: setStoreError,
   } = store;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const rulesButtonRef = useRef<HTMLButtonElement>(null);
@@ -960,7 +961,8 @@ export default function CreatePage() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-    const payload = await takeApplyPayload("tryon");
+    const detail = await takeApplyDetail("tryon");
+    const payload = detail?.payload;
     if (cancelled || !payload) return;
 
     const files = payload.clothingUrls.map((_, index) =>
@@ -1085,31 +1087,20 @@ export default function CreatePage() {
       garmentDetailUrls: historyGarmentDetailUrls,
       garmentDetailGroups: historyGarmentDetailGroups,
     }));
+    if (detail.resultUrls.length) {
+      setStoreResult(detail.resultUrls);
+    } else if (isHistoryApplyRowFailed(detail.row)) {
+      setStoreError(getHistoryApplyFailureMessage(detail.row));
+    }
     toast.success("已套用历史参数");
     })();
     return () => {
       cancelled = true;
     };
-  }, [setStoreClothing, setStorePromptUsed, setStoreReferenceImages, setStoreSelectedModel]);
+  }, [setStoreClothing, setStoreError, setStorePromptUsed, setStoreReferenceImages, setStoreResult, setStoreSelectedModel]);
 
   const costPerImage = getCreditCost(aiModel, imageSize, aspectRatio);
   const totalCost = costPerImage * expectedOutputCount;
-  const promptPreview = buildTryOnPrompt({
-    model: aiModel,
-    clothingCount: store.clothingFiles.length || 1,
-    clothingMode,
-    clothingRoles,
-    clothingAnalysis,
-    garmentAudience,
-    ageGroup,
-    aspectRatio,
-    hasModelFace: !!store.selectedModel,
-    hasReference: effectiveReferenceUrls.length > 0,
-    referenceAnalysis: referenceAnalyses[0] || null,
-    style: stylePrompt || undefined,
-  });
-  const finalPrompt = promptOverride ?? (store.promptUsed || promptPreview.prompt);
-
   // ---- 智能优化提示词 ----
   const handleOptimizePrompt = async () => {
     if (!customStyle.trim()) { toast.error("请先输入风格描述"); return; }
@@ -2067,7 +2058,9 @@ export default function CreatePage() {
           applyTryOnHistoryPayload(detail.payload, {
             resultUrls: detail.resultUrls.length ? detail.resultUrls : resultUrls,
             selectedTask: item,
-            errorMessage,
+            errorMessage: isHistoryApplyRowFailed(detail.row)
+              ? getHistoryApplyFailureMessage(detail.row, errorMessage || "任务失败，可重新生成")
+              : errorMessage,
             silent: selection.reason === "restore",
           });
         } catch (err: unknown) {
@@ -2314,14 +2307,6 @@ export default function CreatePage() {
       setIsSubmitting(false);
       generationSubmitRef.current = null;
     }
-  };
-
-  const handleRepairGenerate = (repairValue: string) => {
-    const repairedPrompt = applyRepairPrompt(finalPrompt, "tryon", repairValue);
-    setPromptOverride(repairedPrompt);
-    store.setPromptUsed(repairedPrompt);
-    toast.info("已加入修复指令，正在重新生成...");
-    handleGenerate(repairedPrompt);
   };
 
   const displayedResultUrls = store.resultUrls.filter(Boolean);
@@ -3464,12 +3449,10 @@ export default function CreatePage() {
               <ErrorStage
                 error={summarizeGenerationError(store.error)}
                 onRetry={() => { store.setError(null); handleGenerate(); }}
-                onRepair={handleRepairGenerate}
                 isGenerating={store.isGenerating}
                 retryDisabled={retryDisabled}
                 retryLabel={applyingTaskId ? "正在套用..." : "重新生成"}
                 notice={FAILED_RETRY_NOTICE}
-                repairKind="tryon"
               />
             ) : null}
             results={(

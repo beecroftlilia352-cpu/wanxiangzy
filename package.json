@@ -11,7 +11,7 @@
     "start": "next start",
     "lint": "eslint .",
     "check:release": "node scripts/release-check.js",
-    "typecheck": "tsc --noEmit --pretty false",
+    "typecheck": "tsc --noEmit --pretty false --incremental false",
     "check:ssr-size": "node scripts/check-next-ssr-size.js",
     "check:prompts": "node scripts/prompt-regression-check.js",
     "oss:upload-site-assets": "node scripts/upload-site-assets-to-oss.mjs",

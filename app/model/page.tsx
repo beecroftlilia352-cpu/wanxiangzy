@@ -23,9 +23,8 @@ import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreview
 import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
-import { fetchHistoryApplyDetail, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
+import { fetchHistoryApplyDetail, getHistoryApplyFailureMessage, isHistoryApplyRowFailed, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
 import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
-import { applyRepairPrompt } from "@/lib/generation-repair";
 import { enforceModelPromptRequirements } from "@/lib/model-prompt";
 import { showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
 import { createGenericImagePreviewSession, referencesFromUrls, type ImagePreviewAction } from "@/lib/studio-image-preview";
@@ -324,7 +323,7 @@ export default function ModelPage() {
     setResultUrls(detail?.resultUrls || []);
     setIsGenerating(false);
     setProgress(detail?.resultUrls.length ? 100 : 0);
-    setError("");
+    setError(isHistoryApplyRowFailed(detail.row) ? getHistoryApplyFailureMessage(detail.row) : "");
     toast.success("已套用历史参数");
     })();
     return () => {
@@ -595,14 +594,6 @@ export default function ModelPage() {
     }
   }
 
-  function handleRepairGenerate(repairValue: string) {
-    const repairedPrompt = applyRepairPrompt(prompt, "model", repairValue);
-    setPromptTouched(true);
-    setPrompt(repairedPrompt);
-    toast.info("已加入修复指令，正在重新生成...");
-    generate(repairedPrompt);
-  }
-
   function applyRuleDemo(demo: ModelRuleDemo) {
     setReferenceUrls(demo.imageUrls.slice(0, 3));
     setPromptTouched(false);
@@ -630,6 +621,9 @@ export default function ModelPage() {
       applyModelHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : safeTaskQueueUrls(item.resultThumbnails), {
         silent: session.reason === "restore",
       });
+      if (item.statusGroup === "failed" || isHistoryApplyRowFailed(detail.row)) {
+        setError(getHistoryApplyFailureMessage(detail.row, item.error || "生成失败"));
+      }
       return true;
     } catch (err) {
       if (session.signal.aborted || !session.isCurrent()) return true;
@@ -1061,12 +1055,10 @@ export default function ModelPage() {
           <ErrorStage
             error={summarizeGenerationError(error)}
             onRetry={() => { setError(""); void generate(); }}
-            onRepair={handleRepairGenerate}
             isGenerating={isGenerating}
             retryDisabled={retryDisabled}
             retryLabel="重新生成"
             notice={FAILED_RETRY_NOTICE}
-            repairKind="model"
           />
         )}
 

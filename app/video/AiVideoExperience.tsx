@@ -60,7 +60,7 @@ import {
   type AiVideoModelMode,
   type AiVideoResolution,
 } from "@/lib/ai-video";
-import { fetchHistoryApplyDetail, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
+import { fetchHistoryApplyDetail, getHistoryApplyFailureMessage, isHistoryApplyRowFailed, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
 import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
 import { takeSourceImageFromLocation } from "@/lib/studio-image-preview";
@@ -284,6 +284,9 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
       const detail = await takeApplyDetail(generationKind);
       if (cancelled || !detail?.payload) return;
       applyHistoryPayload(detail.payload, detail.resultUrls, { silent: true });
+      if (isHistoryApplyRowFailed(detail.row)) {
+        setError(getHistoryApplyFailureMessage(detail.row));
+      }
     })();
     return () => {
       cancelled = true;
@@ -623,6 +626,9 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
       applyHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : safeTaskQueueUrls(item.resultThumbnails), {
         silent: session.reason === "restore",
       });
+      if (item.statusGroup === "failed" || isHistoryApplyRowFailed(detail.row)) {
+        setError(getHistoryApplyFailureMessage(detail.row, item.error || "生成失败"));
+      }
       return true;
     } catch (err) {
       if (session.signal.aborted || !session.isCurrent()) return true;

@@ -1,6 +1,12 @@
 import type { Metadata } from "next";
 import { Toaster } from "sonner";
 import "./globals.css";
+import "./styles/shared-components.css";
+import "./styles/admin.css";
+import "./styles/studio-primitives.css";
+import "./styles/studio.css";
+import "./styles/home.css";
+import "./styles/studio-overrides.css";
 import { HeaderClient } from "@/components/HeaderClient";
 import "@/lib/env";
 import { Geist } from "next/font/google";

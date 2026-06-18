@@ -28,6 +28,7 @@ outputs/
 .qwen-edits-test-results.json
 old-references-contact.jpg
 tmp-module-code.txt
+tmp-*.json
 laozhang-*.jpg
 yunwu-image-test.png
 wanxiangzy/

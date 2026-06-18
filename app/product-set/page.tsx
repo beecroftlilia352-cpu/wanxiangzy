@@ -41,7 +41,7 @@ import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGenerati
 import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
 import { ClientPortal } from "@/components/ClientPortal";
 import { setCachedProfileCredits } from "@/lib/supabase/client";
-import { fetchHistoryApplyDetail, takeApplyDetail } from "@/lib/history-apply";
+import { fetchHistoryApplyDetail, getHistoryApplyFailureMessage, isHistoryApplyRowFailed, takeApplyDetail } from "@/lib/history-apply";
 import { getImageVariantUrl } from "@/lib/image-variants";
 import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
 import { downloadImage, generateDownloadFilename, MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
@@ -358,7 +358,7 @@ export default function ProductSetPage() {
     setResultUrls(detail.resultUrls);
     setModuleResults([]);
     setResultPlan([]);
-    setError("");
+    setError(isHistoryApplyRowFailed(detail.row) ? getHistoryApplyFailureMessage(detail.row) : "");
     setProgress(detail.resultUrls.length ? 100 : 0);
     setIsGenerating(false);
     toast.success("已套用历史商品套图参数");
@@ -1359,6 +1359,9 @@ export default function ProductSetPage() {
       applyProductSetHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : safeTaskQueueUrls(item.resultThumbnails), {
         silent: session.reason === "restore",
       });
+      if (item.statusGroup === "failed" || isHistoryApplyRowFailed(detail.row)) {
+        setError(getHistoryApplyFailureMessage(detail.row, item.error || "生成失败"));
+      }
       return true;
     } catch (err) {
       if (session.signal.aborted || !session.isCurrent()) return true;

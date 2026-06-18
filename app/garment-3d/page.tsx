@@ -23,8 +23,7 @@ import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreview
 import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
-import { fetchHistoryApplyDetail, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
-import { applyRepairPrompt } from "@/lib/generation-repair";
+import { fetchHistoryApplyDetail, getHistoryApplyFailureMessage, isHistoryApplyRowFailed, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
 import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
 import { GARMENT_TYPE_OPTIONS, type GarmentType } from "@/lib/garment-types";
 import { showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
@@ -294,6 +293,9 @@ export default function Garment3dPage() {
       const detail = await takeApplyDetail("garment3d");
       if (cancelled || !detail) return;
       applyGarment3dHistoryPayload(detail.payload, detail.resultUrls);
+      if (isHistoryApplyRowFailed(detail.row)) {
+        setError(getHistoryApplyFailureMessage(detail.row));
+      }
     })();
     return () => {
       cancelled = true;
@@ -620,13 +622,6 @@ export default function Garment3dPage() {
     }
   }
 
-  function handleRepairGenerate(repairValue: string) {
-    const repairedPrompt = applyRepairPrompt(finalPrompt, "garment3d", repairValue);
-    setPromptOverride(repairedPrompt);
-    toast.info("已加入修复指令，正在重新生成...");
-    generate(repairedPrompt);
-  }
-
   function applyRuleDemo(demo: Garment3dRuleDemo) {
     setGarmentUrl(demo.imageUrl);
     setGarmentName(demo.title);
@@ -654,6 +649,9 @@ export default function Garment3dPage() {
       applyGarment3dHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : safeTaskQueueUrls(item.resultThumbnails), {
         silent: session.reason === "restore",
       });
+      if (item.statusGroup === "failed" || isHistoryApplyRowFailed(detail.row)) {
+        setError(getHistoryApplyFailureMessage(detail.row, item.error || "生成失败"));
+      }
       return true;
     } catch (err) {
       if (session.signal.aborted || !session.isCurrent()) return true;
@@ -1020,12 +1018,10 @@ export default function Garment3dPage() {
           <ErrorStage
             error={summarizeGenerationError(error)}
             onRetry={() => generate()}
-            onRepair={handleRepairGenerate}
             isGenerating={isGenerating}
             retryDisabled={retryDisabled}
             retryLabel="重新生成"
             notice={FAILED_RETRY_NOTICE}
-            repairKind="garment3d"
           />
         )}
       </div>

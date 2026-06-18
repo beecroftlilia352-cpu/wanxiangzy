@@ -12,6 +12,7 @@ import { ClientPortal } from "@/components/ClientPortal";
 import { type PoseOutputMode } from "@/lib/pose-prompt";
 import {
   buildPoseVisualAnalysisKey,
+  fallbackPoseVisualAnalysis,
   getPoseVisualAnalysisDetailItems,
   getPoseVisualAnalysisSummary,
   normalizePoseVisualAnalysis,
@@ -53,9 +54,8 @@ import { VisualAnalysisStatusCard, type VisualAnalysisSummaryItem } from "@/comp
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { useStableFileDrag } from "@/components/studio/useStableFileDrag";
 import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
-import { fetchHistoryApplyDetail, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
+import { fetchHistoryApplyDetail, getHistoryApplyFailureMessage, isHistoryApplyRowFailed, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
 import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
-import { applyRepairPrompt } from "@/lib/generation-repair";
 import { showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
 import { createGenericImagePreviewSession, takeSourceImageFromLocation, type ImagePreviewAction } from "@/lib/studio-image-preview";
 import { FAILED_RETRY_NOTICE, buildPartialFailureDetail, summarizeGenerationError } from "@/lib/studio-generation-feedback";
@@ -820,15 +820,15 @@ export default function PosePage() {
   }, []);
 
   useEffect(() => {
-    if (poseCreationMode === "reference") {
-      lastPosePlanKeyRef.current = "";
-      posePlanSeqRef.current += 1;
-      setPosePlanEntry(null);
-      setShowPosePlanEditor(false);
-      setOutputMode("separate");
-      return;
-    }
+    if (poseCreationMode !== "reference") return;
+    lastPosePlanKeyRef.current = "";
+    posePlanSeqRef.current += 1;
+    setPosePlanEntry(null);
+    setShowPosePlanEditor(false);
+    setOutputMode("separate");
+  }, [poseCreationMode]);
 
+  useEffect(() => {
     const imageUrl = mainImage.trim();
     if (!imageUrl) {
       lastPoseAnalysisKeyRef.current = "";
@@ -900,17 +900,18 @@ export default function PosePage() {
         setPoseAnalysisEntry(nextEntry, analysisKey);
       } catch (err: unknown) {
         if (poseAnalysisSeqRef.current !== seq) return;
-        setPoseAnalysisEntryKey(analysisKey);
-        setPoseAnalysis(null);
-        setPoseAnalysisSource(null);
-        setPoseAnalysisError(err instanceof Error ? err.message : "主图识别失败，已按默认规则继续");
+        setPoseAnalysisEntry({
+          analysis: fallbackPoseVisualAnalysis(),
+          source: "fallback",
+          error: err instanceof Error ? err.message : "主图识别失败，已按保守规则继续",
+        }, analysisKey);
       } finally {
         if (poseAnalysisSeqRef.current === seq) setIsAnalyzingPose(false);
       }
     };
 
     void run();
-  }, [mainImage, poseAnalysisRetryCount, poseCreationMode]);
+  }, [mainImage, poseAnalysisRetryCount]);
 
   useEffect(() => {
     const imageUrl = mainImage.trim();
@@ -1109,6 +1110,9 @@ export default function PosePage() {
     if (cancelled || !payload) return;
 
     applyPoseHistoryPayloadRef.current?.(payload, detail?.resultUrls || []);
+    if (isHistoryApplyRowFailed(detail.row)) {
+      setError(getHistoryApplyFailureMessage(detail.row));
+    }
     })();
     return () => {
       cancelled = true;
@@ -1485,13 +1489,6 @@ export default function PosePage() {
     }
   }
 
-  function handleRepairGenerate(repairValue: string) {
-    const repairedPrompt = applyRepairPrompt(prompt, "pose", repairValue);
-    setPrompt(repairedPrompt);
-    toast.info("已加入修复指令，正在重新生成...");
-    generate(repairedPrompt);
-  }
-
   function handleRunningTask(item: TaskQueueItem) {
     generationRunRef.current += 1;
     const expectedCount = clampTaskExpectedCount(item, 1, POSE_PLAN_MAX_COUNT);
@@ -1510,6 +1507,9 @@ export default function PosePage() {
       applyPoseHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : safeTaskQueueUrls(item.resultThumbnails), {
         silent: session.reason === "restore",
       });
+      if (item.statusGroup === "failed" || isHistoryApplyRowFailed(detail.row)) {
+        setError(getHistoryApplyFailureMessage(detail.row, item.error || "生成失败"));
+      }
       return true;
     } catch (err) {
       if (session.signal.aborted || !session.isCurrent()) return true;
@@ -2551,12 +2551,10 @@ export default function PosePage() {
           <ErrorStage
             error={summarizeGenerationError(error)}
             onRetry={() => { setError(""); void generate(); }}
-            onRepair={handleRepairGenerate}
             isGenerating={isGenerating}
             retryDisabled={retryDisabled}
             retryLabel="重新生成"
             notice={FAILED_RETRY_NOTICE}
-            repairKind="pose"
           />
         )}
       </div>

@@ -77,7 +77,7 @@ import {
   type GarmentAngleReference,
 } from "@/lib/garment-angle-references";
 import { buildPoseReferenceImagePrompt, normalizePoseReferenceCopies, normalizePoseReferenceUrls } from "@/lib/pose-reference";
-import { buildSeparatePosePrompt, enforcePosePromptRequirements, type PoseOutputMode } from "@/lib/pose-prompt";
+import { buildPoseReferenceModeSeparatePrompt, buildSeparatePosePrompt, enforcePosePromptRequirements, type PoseOutputMode } from "@/lib/pose-prompt";
 import {
   applyGarment3dDisplayStylePrompt,
   applyModelShootStylePrompt,
@@ -1483,9 +1483,8 @@ async function executePayload(
           });
           const posePrompt = [
             isPoseReferenceMode
-              ? "Reference mode: do not create or invent a pose plan. Generate this output by directly following the current pose reference image for body action, while preserving the source image identity, outfit, background, lighting and tone."
+              ? buildPoseReferenceModeSeparatePrompt(fallbackPrompt, poseSlotIndex)
               : buildSeparatePosePrompt(fallbackPrompt, poseSlotIndex, poseStyle, payload.prompt, poseAnalysis, posePlan),
-            isPoseReferenceMode ? fallbackPrompt : "",
             poseReferenceDirective,
             garmentAngleDirective,
           ].filter(Boolean).join("\n");

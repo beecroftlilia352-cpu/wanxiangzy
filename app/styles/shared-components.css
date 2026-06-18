@@ -1,0 +1,35 @@
+.gradient-brand,
+  .studio-primary-action,
+  .studio-upload-tile-primary,
+  .mac-button.mac-tone-accent,
+  .codex-primary-action {
+    border: 1px solid rgba(255, 255, 255, 0.18) !important;
+    background: var(--codex-gradient-primary) !important;
+    color: #fff !important;
+    box-shadow: 0 18px 44px rgba(7, 8, 13, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.18) !important;
+  }
+
+  .gradient-brand:hover,
+  .studio-primary-action:hover:not(:disabled),
+  .studio-upload-tile-primary:hover:not(:disabled),
+  .mac-button.mac-tone-accent:hover:not(:disabled),
+  .codex-primary-action:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 24px 58px rgba(7, 8, 13, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+  }
+
+  .gradient-brand-text {
+    background: linear-gradient(90deg, var(--codex-accent), #7e92ff 48%, var(--codex-ink));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .card-hover {
+    transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+  }
+
+  .card-hover:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--codex-shadow-md);
+  }

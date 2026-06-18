@@ -58,7 +58,7 @@ import {
 } from "@/lib/utils";
 import { showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
 import { setCachedProfileCredits } from "@/lib/supabase/client";
-import { fetchHistoryApplyDetail, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
+import { fetchHistoryApplyDetail, getHistoryApplyFailureMessage, isHistoryApplyRowFailed, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
 import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
 import { createFaceSwapPreviewSession, type ImagePreviewAction } from "@/lib/studio-image-preview";
 import { FAILED_RETRY_NOTICE, buildFailedTaskDetail, buildPartialFailureDetail, summarizeGenerationError } from "@/lib/studio-generation-feedback";
@@ -232,12 +232,30 @@ export default function FaceSwapPage() {
       setGenCount(normalizeFaceSwapCount(payload.genCount));
       setTextureEnhance(normalizeFaceSwapTextureEnhance(payload.textureEnhance));
       setFaceSwapMode(normalizeFaceSwapMode(payload.faceSwapMode));
-      setActiveQueueTask(null);
+      const failedHistory = isHistoryApplyRowFailed(detail.row);
+      const historyError = getHistoryApplyFailureMessage(detail.row, "换脸生成失败");
+      setActiveQueueTask(failedHistory ? {
+        id: detail.row.id || `history-face-swap-${Date.now()}`,
+        module: "faceSwap",
+        title: "AI 换脸",
+        status: detail.row.status || "failed",
+        statusGroup: "failed",
+        time: "0:00",
+        createdAt: new Date().toISOString(),
+        progress: 100,
+        expectedCount: normalizeFaceSwapCount(payload.genCount),
+        resultCount: detail.resultUrls.length,
+        inputThumbnails: detailSourceUrls.concat(payload.faceUrl).filter(Boolean),
+        resultThumbnails: detail.resultUrls,
+        thumbnails: detail.resultUrls,
+        error: historyError,
+        applyUrl: "",
+      } : null);
       setResultUrls(detail.resultUrls);
       setProgress(detail.resultUrls.length ? 100 : 0);
-      setStatus(detail.resultUrls.length ? "completed" : "idle");
+      setStatus(failedHistory ? "failed" : detail.resultUrls.length ? "completed" : "idle");
       setGenerationId("");
-      setError("");
+      setError(failedHistory ? historyError : "");
       toast.success("已套用历史换脸参数");
     })();
     return () => {
@@ -619,6 +637,12 @@ export default function FaceSwapPage() {
       applyFaceSwapHistoryPayload(detail.payload, detail.resultUrls.length ? detail.resultUrls : safeTaskQueueUrls(item.resultThumbnails), {
         silent: session.reason === "restore",
       });
+      if (item.statusGroup === "failed" || isHistoryApplyRowFailed(detail.row)) {
+        const message = getHistoryApplyFailureMessage(detail.row, item.error || "换脸生成失败");
+        setStatus("failed");
+        setError(message);
+        setActiveQueueTask({ ...item, statusGroup: "failed", error: message });
+      }
       return true;
     } catch (err) {
       if (session.signal.aborted || !session.isCurrent()) return true;
