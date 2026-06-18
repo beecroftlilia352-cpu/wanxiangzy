@@ -304,21 +304,24 @@ describe("compileImagePromptForModel", () => {
     expect(result).not.toMatch(/Target pose:\s*(?:Camera:|Negative:|$)/i);
   });
 
-  it("throws before model call when a separate pose compiled prompt would lose target pose", () => {
-    expect(() =>
-      compileImagePromptForModel({
-        kind: "pose",
-        model: "gpt-image-2",
-        prompt: [
-          "HARD TARGET POSE SLOT 2/4.",
-          "Generate exactly ONE standalone 3:4 photo for pose 2.",
-          "Use the uploaded image as the only reference for the same person, outfit, background and lighting.",
-          "Keep: same outfit and identity.",
-          "Allow: clear pose change.",
-          "Negative: no grid.",
-        ].join("\n"),
-      })
-    ).toThrow("compiledPrompt missing Target pose");
+  it("recovers a missing target pose for inferred separate pose slots", () => {
+    const result = compileImagePromptForModel({
+      kind: "pose",
+      model: "gpt-image-2",
+      prompt: [
+        "HARD TARGET POSE SLOT 2/4.",
+        "Generate exactly ONE standalone 3:4 photo for pose 2.",
+        "Use the uploaded image as the only reference for the same person, outfit, background and lighting.",
+        "Keep: same outfit and identity.",
+        "Allow: clear pose change.",
+        "Negative: no grid.",
+      ].join("\n"),
+    });
+
+    expect(result).toContain("Target pose:");
+    expect(result).toContain("Strong three-quarter or side-angle outfit read");
+    expect(result).toContain("side silhouette");
+    expect(result).not.toMatch(/Target pose:\s*(?:Camera:|Negative:|$)/i);
   });
 
   it("normalizes line breaks and excess whitespace", () => {

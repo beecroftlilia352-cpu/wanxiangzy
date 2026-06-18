@@ -265,7 +265,10 @@ function compileSeparatePosePrompt(prompt: string, maxChars: number) {
     }
   }
 
-  const targetPoseLines = extractTargetPoseLines(lines, slotIndex);
+  const targetPoseLines = ensureSeparatePoseTargetLines(
+    extractTargetPoseLines(lines, slotIndex),
+    slotIndex
+  );
   const posePriorityLine = findFirstLine(lines, /^Priority:/i) || findFirstLine(lines, /^Pose priority:/i)
     || "Priority: execute this pose direction clearly; do not copy the source pose.";
   const creativeFreedomLine = findFirstLine(lines, /^Freedom:/i) || findFirstLine(lines, /^Creative freedom:/i)
@@ -293,6 +296,42 @@ function compileSeparatePosePrompt(prompt: string, maxChars: number) {
   const compiled = limitPrompt(selected.join("\n"), maxChars);
   validateSeparatePoseCompiledPrompt(compiled, slotIndex);
   return compiled;
+}
+
+function ensureSeparatePoseTargetLines(targetPoseLines: string[], slotIndex?: number) {
+  const targetPoseBody = targetPoseLines.slice(1).join(" ").trim();
+  if (targetPoseBody.length >= 8) return targetPoseLines;
+  return buildFallbackSeparatePoseTargetLines(slotIndex);
+}
+
+function buildFallbackSeparatePoseTargetLines(slotIndex?: number) {
+  const fallbackTargets: Record<number, string[]> = {
+    1: [
+      "Target pose:",
+      "Relaxed front-view outfit read.",
+      "Keep the front silhouette clear and preserve source outfit readability.",
+    ],
+    2: [
+      "Target pose:",
+      "Strong three-quarter or side-angle outfit read.",
+      "Show side silhouette, shoulder line, sleeve shape, waist thickness, fabric drape and hem profile.",
+    ],
+    3: [
+      "Target pose:",
+      "Stationary confident shape pose.",
+      "Feet stay planted; emphasize natural shoulder line, waistline, body proportion and outfit structure.",
+    ],
+    4: [
+      "Target pose:",
+      "Light movement or natural aligned turning pose.",
+      "Keep head, neck, shoulders and torso aligned in the same natural direction with controlled fabric drape.",
+    ],
+  };
+
+  return fallbackTargets[slotIndex || 0] || [
+    "Target pose:",
+    "Create one source-matched natural pose variation with a clear body action and readable outfit structure.",
+  ];
 }
 
 function isProductionSeparatePosePrompt(lines: string[]) {
