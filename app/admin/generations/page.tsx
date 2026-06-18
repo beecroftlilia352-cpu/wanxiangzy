@@ -3,7 +3,7 @@ import { listAdminTasks } from "@/lib/admin/data";
 import { parseAdminListQuery } from "@/lib/admin/query";
 
 export const dynamic = "force-dynamic";
-const TASK_PAGE_SIZE_OPTIONS = [20, 50, 100] as const;
+const TASK_PAGE_SIZE_OPTIONS = [20, 50] as const;
 
 type PageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -26,6 +26,7 @@ export default async function AdminGenerationsPage({ searchParams }: PageProps) 
     stale,
     page: query.page,
     pageSize: query.pageSize,
+    hydratePreviews: false,
   });
 
   return (

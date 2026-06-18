@@ -42,8 +42,8 @@ const moduleOptions = [
 export default async function AdminAssetLifecyclePage({ searchParams }: PageProps) {
   const params = (await searchParams) || {};
   const q = getSearchParam(params.q);
-  const module = getSearchParam(params.module);
-  const overview = await getAdminAssetLifecycleOverview({ q, module, limit: 120 });
+  const moduleFilter = getSearchParam(params.module);
+  const overview = await getAdminAssetLifecycleOverview({ q, module: moduleFilter, limit: q || moduleFilter ? 120 : 70 });
 
   return (
     <div className="space-y-5">
@@ -88,7 +88,7 @@ export default async function AdminAssetLifecyclePage({ searchParams }: PageProp
                 className="h-9 w-56 rounded-lg border border-slate-200 bg-white pl-8 pr-3 text-sm font-semibold outline-none focus:border-slate-400"
               />
             </div>
-            <select name="module" defaultValue={module} className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs font-bold text-slate-700">
+            <select name="module" defaultValue={moduleFilter} className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs font-bold text-slate-700">
               {moduleOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
             </select>
             <button className="h-9 rounded-lg bg-slate-950 px-3 text-xs font-black text-white" type="submit">
@@ -110,7 +110,7 @@ export default async function AdminAssetLifecyclePage({ searchParams }: PageProp
         title="创建生命周期计划"
         description="当前只写审计计划，不会立即改动存储对象；后续可以把相同 action 接入队列 worker。"
       >
-        <AdminAssetLifecyclePlanForm q={q} module={module} limit={120} />
+        <AdminAssetLifecyclePlanForm q={q} module={moduleFilter} limit={120} />
       </AdminSection>
 
       <AdminSection title="生命周期策略" description="策略来自后台规则，后续可升级为配置版本和审批发布。">

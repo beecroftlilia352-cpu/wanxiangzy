@@ -20,7 +20,7 @@ type PageProps = {
 export default async function AdminModerationPage({ searchParams }: PageProps) {
   const params = (await searchParams) || {};
   const q = getSearchParam(params.q);
-  const cases = await listAdminModerationCases({ q, limit: 80 });
+  const cases = await listAdminModerationCases({ q, limit: q ? 80 : 50 });
 
   return (
     <div className="space-y-5">

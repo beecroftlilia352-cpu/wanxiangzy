@@ -10,10 +10,10 @@ type PageProps = {
 export default async function AdminAssetsPage({ searchParams }: PageProps) {
   const params = (await searchParams) || {};
   const q = getSearchParam(params.q);
-  const module = getSearchParam(params.module);
-  const assets = await listAdminAssets({ q, module, limit: 80 });
+  const moduleFilter = getSearchParam(params.module);
+  const assets = await listAdminAssets({ q, module: moduleFilter, limit: q || moduleFilter ? 60 : 40 });
 
-  return <AdminAssetsClient assets={assets} q={q} module={module} />;
+  return <AdminAssetsClient assets={assets} q={q} module={moduleFilter} />;
 }
 
 function getSearchParam(value: string | string[] | undefined) {

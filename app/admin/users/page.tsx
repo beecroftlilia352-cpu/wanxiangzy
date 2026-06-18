@@ -10,7 +10,7 @@ type PageProps = {
 export default async function AdminUsersPage({ searchParams }: PageProps) {
   const params = (await searchParams) || {};
   const q = getSearchParam(params.q);
-  const users = await listAdminUsers({ q, limit: 50 });
+  const users = await listAdminUsers({ q, limit: q ? 50 : 30 });
 
   return <AdminUsersClient users={users} q={q} />;
 }

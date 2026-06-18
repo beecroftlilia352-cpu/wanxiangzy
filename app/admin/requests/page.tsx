@@ -32,7 +32,7 @@ export default async function AdminRequestsPage({ searchParams }: PageProps) {
   const params = (await searchParams) || {};
   const q = getSearchParam(params.q);
   const status = getSearchParam(params.status);
-  const requests = await listAdminOperationRequests({ q, status, limit: 100 });
+  const requests = await listAdminOperationRequests({ q, status, limit: q || status ? 100 : 60 });
 
   return (
     <div className="space-y-5">

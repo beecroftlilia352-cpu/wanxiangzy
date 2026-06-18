@@ -54,7 +54,7 @@ export default async function AdminSupportPage({ searchParams }: PageProps) {
   const status = getSearchParam(params.status);
   const priority = getSearchParam(params.priority);
   const category = getSearchParam(params.category);
-  const tickets = await listAdminSupportTickets({ q, status, priority, category, limit: 100 });
+  const tickets = await listAdminSupportTickets({ q, status, priority, category, limit: q || status || priority || category ? 100 : 60 });
 
   return (
     <div className="space-y-5">

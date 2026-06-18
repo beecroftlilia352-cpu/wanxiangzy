@@ -468,6 +468,8 @@ export type AdminTaskDetail = {
   sourceType: "generation" | "workflow";
   task: AdminTaskListItem | null;
   payload: Record<string, unknown>;
+  resultUrls: string[];
+  errorMessage: string | null;
   queueItem: AdminTaskListItem | null;
   creditLogs: AdminCreditLogItem[];
   workflowSteps: Array<Record<string, unknown>>;
@@ -1823,6 +1825,7 @@ export async function listAdminTasks(args: {
   page?: number;
   pageSize?: number;
   limit?: number;
+  hydratePreviews?: boolean;
 } = {}): Promise<AdminTaskList> {
   const admin = getAdminClient();
   const warnings: string[] = [];
@@ -1830,7 +1833,7 @@ export async function listAdminTasks(args: {
   const pageSize = clampLimit(args.pageSize ?? args.limit, 10, 200, 40);
   const offset = (page - 1) * pageSize;
   const status = normalizeStatusFilter(args.status);
-  const module = normalizeModuleFilter(args.module);
+  const moduleFilter = normalizeModuleFilter(args.module);
   const sourceType = args.sourceType && args.sourceType !== "all" ? args.sourceType : "";
   const q = (args.q || "").trim().toLowerCase();
   const needsClientFilter = Boolean(q || args.stale);
@@ -1841,13 +1844,16 @@ export async function listAdminTasks(args: {
     .select(TASK_QUEUE_COLUMNS, { count: "exact" })
     .order("created_at", { ascending: false });
   if (status) query = query.eq("status_group", status);
-  if (module) query = query.eq("module", module);
+  if (moduleFilter) query = query.eq("module", moduleFilter);
   if (sourceType) query = query.eq("source_type", sourceType);
   query = needsClientFilter ? query.limit(clientFilterLimit) : query.range(offset, offset + pageSize - 1);
 
   const indexed = await runQuery<Record<string, unknown>[]>(query, "task queue list", warnings, true);
   if (indexed.data) {
-    let rows = await hydrateTaskPreviewThumbnails(indexed.data.map(mapTaskQueueRow), warnings);
+    let rows = indexed.data.map(mapTaskQueueRow);
+    if (args.hydratePreviews !== false) {
+      rows = await hydrateTaskPreviewThumbnails(rows, warnings);
+    }
     if (q) rows = rows.filter((row) => matchesTaskSearch(row, q));
     if (args.stale) rows = rows.filter((row) => row.isStale);
     return {
@@ -1858,7 +1864,7 @@ export async function listAdminTasks(args: {
     };
   }
 
-  const fallback = await loadFallbackTasks({ page, pageSize, status, module, sourceType, q, stale: Boolean(args.stale) }, warnings);
+  const fallback = await loadFallbackTasks({ page, pageSize, status, module: moduleFilter, sourceType, q, stale: Boolean(args.stale) }, warnings);
   return {
     rows: fallback.rows,
     total: fallback.total,
@@ -2070,29 +2076,33 @@ export async function listAdminAssets(args: { q?: string; module?: string; limit
   const warnings: string[] = [];
   const limit = clampLimit(args.limit, 12, 120, 60);
   const q = (args.q || "").trim().toLowerCase();
-  const module = normalizeModuleFilter(args.module);
+  const moduleFilter = normalizeModuleFilter(args.module);
 
   let generationQuery = getAdminClient()
     .from("generations")
     .select(GENERATION_COLUMNS, { count: "exact" })
     .order("created_at", { ascending: false })
-    .limit(q || module ? Math.min(limit * 4, 300) : limit);
-  if (module) generationQuery = generationQuery.eq("job_payload->>kind", module);
+    .limit(q || moduleFilter ? Math.min(limit * 4, 300) : limit);
+  if (moduleFilter) generationQuery = generationQuery.eq("job_payload->>kind", moduleFilter);
 
-  const generationResult = await runQuery<Record<string, unknown>[]>(
-    generationQuery,
-    "asset generations",
-    warnings,
-    true,
-  );
+  const [generationResult, referenceAssets, favoritePlanAssets] = await Promise.all([
+    runQuery<Record<string, unknown>[]>(
+      generationQuery,
+      "asset generations",
+      warnings,
+      true,
+    ),
+    moduleFilter ? Promise.resolve([]) : loadReferenceAssets(Math.min(20, limit), warnings),
+    moduleFilter ? Promise.resolve([]) : loadFavoritePlanAssets(Math.min(20, limit), warnings),
+  ]);
 
   let rows = (generationResult.data || [])
     .map(mapGenerationAssetRow)
     .filter((row) => row.urls.length > 0 || row.inputUrls.length > 0);
 
-  if (!module) {
-    rows.push(...await loadReferenceAssets(Math.min(30, limit), warnings));
-    rows.push(...await loadFavoritePlanAssets(Math.min(30, limit), warnings));
+  if (!moduleFilter) {
+    rows.push(...referenceAssets);
+    rows.push(...favoritePlanAssets);
   }
 
   if (q) rows = rows.filter((row) => matchesAssetSearch(row, q));
@@ -2503,6 +2513,8 @@ export async function getAdminTaskDetail(id: string): Promise<AdminTaskDetail> {
       sourceType: "generation",
       task,
       payload: isRecord(generation.row.job_payload) ? generation.row.job_payload : {},
+      resultUrls: arrayOfStrings(generation.row.result_urls),
+      errorMessage: nullableString(generation.row.error_message),
       queueItem,
       creditLogs,
       workflowSteps: [],
@@ -2524,6 +2536,8 @@ export async function getAdminTaskDetail(id: string): Promise<AdminTaskDetail> {
       sourceType: "workflow",
       task,
       payload: workflow.row,
+      resultUrls: extractUrls(workflow.row.final_outputs),
+      errorMessage: nullableString(workflow.row.error_message),
       queueItem,
       creditLogs: [],
       workflowSteps: steps,
@@ -2538,6 +2552,8 @@ export async function getAdminTaskDetail(id: string): Promise<AdminTaskDetail> {
     sourceType: queueItem?.sourceType || "generation",
     task: queueItem,
     payload: {},
+    resultUrls: queueItem?.resultThumbnails || [],
+    errorMessage: queueItem?.errorMessage || null,
     queueItem,
     creditLogs: [],
     workflowSteps: [],
@@ -3688,7 +3704,7 @@ async function loadUserGenerationStats(userIds: string[], warnings: string[]) {
       .select("user_id,created_at")
       .in("user_id", userIds)
       .order("created_at", { ascending: false })
-      .limit(2000),
+      .limit(Math.min(Math.max(userIds.length * 80, 240), 1200)),
     "user generation stats",
     warnings,
     true,
@@ -3718,7 +3734,7 @@ async function loadUserWorkflowStats(userIds: string[], warnings: string[]) {
       .from("agent_workflows")
       .select("user_id")
       .in("user_id", userIds)
-      .limit(2000),
+      .limit(Math.min(Math.max(userIds.length * 40, 120), 800)),
     "user workflow stats",
     warnings,
     true,

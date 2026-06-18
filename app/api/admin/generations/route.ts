@@ -3,7 +3,7 @@ import { requireAdminApi } from "@/lib/admin/auth";
 import { listAdminTasks } from "@/lib/admin/data";
 import { parseAdminListQuery } from "@/lib/admin/query";
 
-const TASK_PAGE_SIZE_OPTIONS = [20, 50, 100] as const;
+const TASK_PAGE_SIZE_OPTIONS = [20, 50] as const;
 
 export async function GET(request: Request) {
   const auth = await requireAdminApi("tasks:read");
@@ -25,6 +25,7 @@ export async function GET(request: Request) {
     stale: params.get("stale") === "1" || params.get("stale") === "true",
     page: query.page,
     pageSize: query.pageSize,
+    hydratePreviews: false,
   });
 
   return NextResponse.json({ ...tasks, query }, { headers: { "Cache-Control": "no-store" } });

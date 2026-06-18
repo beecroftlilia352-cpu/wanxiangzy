@@ -21,7 +21,7 @@ type PageProps = {
 export default async function AdminCreditsPage({ searchParams }: PageProps) {
   const params = (await searchParams) || {};
   const q = getSearchParam(params.q);
-  const credits = await listAdminCreditLogs({ q, limit: 100 });
+  const credits = await listAdminCreditLogs({ q, limit: q ? 100 : 60 });
 
   return (
     <div className="space-y-5">
