@@ -5,7 +5,7 @@ import { Cpu } from "lucide-react";
 
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { modelOptionLabel, modelOptionName, selectableModelsByCapability, type AiConfig, type ModelCapability } from "@/stores/use-config-store";
+import { modelMatchesCapability, modelOptionLabel, modelOptionName, selectableModelsByCapability, type AiConfig, type ModelCapability } from "@/stores/use-config-store";
 
 type ModelPickerProps = {
     config: AiConfig;
@@ -21,8 +21,11 @@ type ModelPickerProps = {
 export function ModelPicker({ config, value, onChange, capability, className, fullWidth = false, placeholder = "选择模型", onMissingConfig }: ModelPickerProps) {
     const pickerId = useId();
     const [open, setOpen] = useState(false);
-    const options = useMemo(() => Array.from(new Set([...(config.channelMode === "local" && !capability ? [value] : []), ...selectableModelsByCapability(config, capability)].filter((model): model is string => Boolean(model)))), [capability, config, value]);
-    const current = value || "";
+    const options = useMemo(() => {
+        const candidates = Array.from(new Set([...(config.channelMode === "local" && !capability ? [value] : []), ...selectableModelsByCapability(config, capability)].filter((model): model is string => Boolean(model))));
+        return dedupeModelOptions(candidates, value);
+    }, [capability, config, value]);
+    const current = resolveCurrentModel(config, options, value, capability);
 
     useEffect(() => {
         const closeOtherPicker = (event: Event) => {
@@ -32,12 +35,21 @@ export function ModelPicker({ config, value, onChange, capability, className, fu
         return () => window.removeEventListener("model-picker-open", closeOtherPicker);
     }, [pickerId]);
 
+    useEffect(() => {
+        if (!current || current === value) return;
+        onChange(current);
+    }, [current, onChange, value]);
+
     return (
         <Select
             open={open}
             value={current}
             onOpenChange={(nextOpen) => {
-                if (nextOpen && !options.length && config.channelMode === "local") onMissingConfig?.();
+                if (nextOpen && !options.length) {
+                    if (config.channelMode === "local") onMissingConfig?.();
+                    setOpen(false);
+                    return;
+                }
                 if (nextOpen) window.dispatchEvent(new CustomEvent("model-picker-open", { detail: pickerId }));
                 setOpen(nextOpen);
             }}
@@ -45,9 +57,9 @@ export function ModelPicker({ config, value, onChange, capability, className, fu
         >
             <SelectTrigger
                 className={cn(
-                    "canvas-composer-model-picker h-8 w-fit max-w-full gap-2 rounded-full border border-input bg-transparent px-3 text-sm font-normal shadow-sm transition-colors",
+                    "canvas-composer-model-picker h-8 w-fit max-w-full gap-2 rounded-full border border-stone-500/70 bg-stone-900/10 px-3 text-sm font-normal shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)] transition-colors hover:border-stone-400/80",
                     fullWidth ? "w-full min-w-0 justify-start" : "min-w-[9rem] justify-start",
-                    "data-[state=open]:border-ring data-[state=open]:ring-2 data-[state=open]:ring-ring/20",
+                    "data-[state=open]:border-stone-400 data-[state=open]:bg-stone-800/40 data-[state=open]:ring-2 data-[state=open]:ring-stone-500/45",
                     className,
                 )}
                 onMouseDown={(event) => event.stopPropagation()}
@@ -59,39 +71,60 @@ export function ModelPicker({ config, value, onChange, capability, className, fu
             </SelectTrigger>
             <SelectContent
                 data-canvas-no-zoom
-                className="z-[1200] w-80 max-w-[calc(100vw-24px)] rounded-xl border border-border/70 bg-popover p-1 shadow-xl"
+                className="z-[1200] w-[min(360px,calc(100vw-24px))] rounded-2xl border border-stone-700/80 bg-[#1f1f1f] p-2 text-stone-100 shadow-[0_14px_34px_rgba(0,0,0,0.34),inset_0_0_0_1px_rgba(255,255,255,0.04)] [&_[data-slot=select-viewport]]:!h-auto [&_[data-slot=select-viewport]]:!min-w-0 [&_[data-slot=select-viewport]]:!w-full"
                 position="popper"
                 align="start"
                 side="bottom"
-                sideOffset={6}
+                sideOffset={8}
                 onPointerDown={(event) => event.stopPropagation()}
                 onMouseDown={(event) => event.stopPropagation()}
             >
-                {options.length ? (
-                    options.map((model) => (
-                        <SelectItem key={model} value={model} textValue={modelOptionLabel(config, model)}>
-                            <ModelLabel config={config} model={model} />
-                        </SelectItem>
-                    ))
-                ) : (
-                    <SelectItem value="__empty__" disabled>
-                        {emptyModelLabel(config, capability)}
+                {options.map((model) => (
+                    <SelectItem
+                        key={model}
+                        value={model}
+                        textValue={modelOptionLabel(config, model)}
+                        className="canvas-model-picker-item h-12 rounded-xl py-0 pl-3 pr-10 text-base text-stone-100 data-[highlighted]:bg-[#292929] data-[highlighted]:text-stone-50 data-[state=checked]:bg-[#262626] data-[state=checked]:text-stone-50 [&>span:first-child]:right-3 [&_svg]:text-stone-50"
+                    >
+                        <ModelLabel config={config} model={model} />
                     </SelectItem>
-                )}
+                ))}
             </SelectContent>
         </Select>
     );
 }
 
-function emptyModelLabel(config: AiConfig, capability?: ModelCapability) {
-    const label = capability === "image" ? "生图" : capability === "video" ? "视频" : capability === "text" ? "文本" : capability === "audio" ? "音频" : "";
-    if (capability && config.models.length) return "请先在上方配置可选模型";
-    return config.models.length ? `暂无匹配的${label}模型` : "请先到配置里添加渠道和模型";
+function resolveCurrentModel(config: AiConfig, options: string[], value?: string, capability?: ModelCapability) {
+    const candidate = value || defaultModelForCapability(config, capability);
+    if (candidate && options.includes(candidate) && modelMatchesCapability(candidate, capability)) return candidate;
+    const fallback = defaultModelForCapability(config, capability);
+    if (fallback && options.includes(fallback)) return fallback;
+    return options[0] || "";
+}
+
+function dedupeModelOptions(options: string[], current?: string) {
+    const byName = new Map<string, string>();
+    options.forEach((option) => {
+        const key = modelOptionName(option).toLowerCase();
+        const existing = byName.get(key);
+        if (!existing || option === current || (!existing.includes("platform::") && option.includes("platform::"))) {
+            byName.set(key, option);
+        }
+    });
+    return Array.from(byName.values());
+}
+
+function defaultModelForCapability(config: AiConfig, capability?: ModelCapability) {
+    if (capability === "image") return config.imageModel || config.model;
+    if (capability === "video") return config.videoModel || config.model;
+    if (capability === "audio") return config.audioModel || config.model;
+    if (capability === "text") return config.textModel || config.model;
+    return config.model;
 }
 
 function ModelLabel({ config, model }: { config: AiConfig; model: string }) {
     return (
-        <span className="flex min-w-0 items-center gap-2">
+        <span className="flex min-w-0 items-center gap-2.5">
             <ModelIcon model={model} />
             <span className="truncate">{modelOptionLabel(config, model)}</span>
         </span>

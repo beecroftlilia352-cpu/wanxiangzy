@@ -72,7 +72,7 @@ async function referenceImageToUrl(image: ReferenceImage) {
 }
 
 function resolveModelMode(config: AiConfig) {
-  const model = modelOptionName(config.model || config.videoModel).toLowerCase();
+  const model = modelOptionName(config.videoModel || config.model).toLowerCase();
   return model.includes("fast") ? "fast" : "pro";
 }
 

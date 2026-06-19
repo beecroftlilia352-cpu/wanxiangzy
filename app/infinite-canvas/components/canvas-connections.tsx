@@ -68,6 +68,8 @@ function ConnectionPathBase({
                 stroke={active ? theme.node.activeStroke : theme.node.muted}
                 strokeWidth={strokeWidth}
                 strokeOpacity={active ? 1 : 0.82}
+                strokeLinecap="round"
+                strokeLinejoin="round"
                 fill="none"
                 style={{ filter: active ? `drop-shadow(0 0 8px ${theme.node.activeStroke}66)` : undefined, pointerEvents: "none" }}
             />

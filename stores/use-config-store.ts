@@ -128,7 +128,7 @@ type ConfigStore = {
 
 function isVideoModelName(model: string) {
     const value = modelOptionName(model).toLowerCase();
-    return value.includes("seedance") || value.includes("video") || value.includes("sora") || value.includes("veo") || value.includes("kling") || value.includes("wan") || value.includes("hailuo");
+    return value.includes("seedance") || value.includes("happyhorse") || value.includes("i2v") || value.includes("t2v") || value.includes("r2v") || value.includes("video") || value.includes("sora") || value.includes("veo") || value.includes("kling") || value.includes("wan") || value.includes("hailuo");
 }
 
 function isImageModelName(model: string) {
@@ -159,7 +159,9 @@ export function filterModelsByCapability(models: string[], capability?: ModelCap
 
 export function selectableModelsByCapability(config: AiConfig, capability?: ModelCapability) {
     if (!capability) return config.models;
-    return config[modelListKey(capability)];
+    const selectedModels = config[modelListKey(capability)];
+    if (selectedModels.length) return selectedModels;
+    return filterModelsByCapability(config.models, capability);
 }
 
 function modelListKey(capability: ModelCapability) {

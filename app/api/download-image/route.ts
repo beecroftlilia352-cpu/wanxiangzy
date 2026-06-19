@@ -42,6 +42,7 @@ export async function GET(request: NextRequest) {
 
   const imageUrl = request.nextUrl.searchParams.get("url");
   const filename = request.nextUrl.searchParams.get("filename") || "tryon-result.jpg";
+  const forceProxy = request.nextUrl.searchParams.get("proxy") === "1";
 
   if (!imageUrl) {
     return NextResponse.json({ error: "Missing url" }, { status: 400 });
@@ -63,15 +64,16 @@ export async function GET(request: NextRequest) {
   }
 
   const aliyunOssDownloadUrl = createAliyunOssDownloadUrl(parsedUrl.toString(), filename);
-  if (aliyunOssDownloadUrl) {
+  if (aliyunOssDownloadUrl && !forceProxy) {
     const redirect = NextResponse.redirect(aliyunOssDownloadUrl, 302);
     redirect.headers.set("Cache-Control", "no-store");
     return redirect;
   }
+  const upstreamUrl = aliyunOssDownloadUrl || parsedUrl.toString();
 
   let download: Awaited<ReturnType<typeof fetchRemoteImageBuffer>>;
   try {
-    download = await fetchRemoteImageBuffer(parsedUrl.toString(), {
+    download = await fetchRemoteImageBuffer(upstreamUrl, {
       allowHttp: true,
       allowedHosts: getAllowedHosts(),
       maxBytes: MAX_DOWNLOAD_BYTES,

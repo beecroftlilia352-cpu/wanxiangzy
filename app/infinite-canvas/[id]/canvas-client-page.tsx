@@ -1838,27 +1838,31 @@ function InfiniteCanvasPage() {
     const upscaleImageNode = useCallback(async (node: CanvasNodeData, params: CanvasImageUpscaleParams) => {
         if (!node.metadata?.content) return;
         setUpscaleNodeId(null);
-        const upscaled = await upscaleDataUrl(node.metadata.content, params);
-        const image = await uploadImage(upscaled);
-        const size = fitNodeSize(image.width, image.height);
-        const childId = nanoid();
-        const child: CanvasNodeData = {
-            id: childId,
-            type: CanvasNodeType.Image,
-            title: "Upscaled Image",
-            position: { x: node.position.x + node.width + 96, y: node.position.y },
-            width: size.width,
-            height: size.height,
-            metadata: {
-                ...imageMetadata(image),
-                prompt: node.metadata?.prompt,
-            },
-        };
-        setNodes((prev) => [...prev, child]);
-        setConnections((prev) => [...prev, { id: nanoid(), fromNodeId: node.id, toNodeId: childId }]);
-        setSelectedNodeIds(new Set([childId]));
-        setDialogNodeId(childId);
-    }, []);
+        try {
+            const upscaled = await upscaleDataUrl(node.metadata.content, params);
+            const image = await uploadImage(upscaled);
+            const size = fitNodeSize(image.width, image.height);
+            const childId = nanoid();
+            const child: CanvasNodeData = {
+                id: childId,
+                type: CanvasNodeType.Image,
+                title: "Upscaled Image",
+                position: { x: node.position.x + node.width + 96, y: node.position.y },
+                width: size.width,
+                height: size.height,
+                metadata: {
+                    ...imageMetadata(image),
+                    prompt: node.metadata?.prompt,
+                },
+            };
+            setNodes((prev) => [...prev, child]);
+            setConnections((prev) => [...prev, { id: nanoid(), fromNodeId: node.id, toNodeId: childId }]);
+            setSelectedNodeIds(new Set([childId]));
+            setDialogNodeId(childId);
+        } catch (error) {
+            message.error(error instanceof Error ? error.message : "图片放大失败");
+        }
+    }, [message]);
 
     const generateAngleNode = useCallback(
         async (node: CanvasNodeData, params: CanvasImageAngleParams) => {
@@ -2649,6 +2653,20 @@ function InfiniteCanvasPage() {
                                     />
                                 );
                             })}
+                            {connectingParams ? (
+                                <path
+                                    data-canvas-active-connection="true"
+                                    ref={activeConnectionPathRef}
+                                    stroke={theme.node.activeStroke}
+                                    strokeWidth="3"
+                                    strokeOpacity="0.92"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    fill="none"
+                                    strokeDasharray="6 10"
+                                    style={{ filter: `drop-shadow(0 0 5px ${theme.node.activeStroke}55)` }}
+                                />
+                            ) : null}
                         </svg>
                     }
                 >
@@ -2752,16 +2770,6 @@ function InfiniteCanvasPage() {
                     ) : null}
                     {pendingConnectionCreate ? <ConnectionCreateMenu pending={pendingConnectionCreate} onCreate={(type) => createConnectedNode(type, pendingConnectionCreate)} onClose={cancelPendingConnectionCreate} /> : null}
                 </InfiniteCanvas>
-
-                {connectingParams && !pendingConnectionCreate ? (
-                    <svg
-                        data-canvas-active-connection="true"
-                        className="pointer-events-none absolute inset-0 z-20 h-full w-full overflow-visible"
-                        style={{ contain: "layout paint style", maxWidth: "none", transform: "translateZ(0)", willChange: "contents" }}
-                    >
-                        <path ref={activeConnectionPathRef} stroke={theme.node.activeStroke} strokeWidth="2" fill="none" strokeDasharray="5,5" />
-                    </svg>
-                ) : null}
 
                 <CanvasNodeHoverToolbar
                     node={isNodeDragging || nodeImageSettingsOpen ? null : toolbarNode}
@@ -3179,7 +3187,7 @@ function audioExtension(mimeType?: string) {
 }
 
 function imageMetadata(image: UploadedImage): CanvasNodeMetadata {
-    return { content: image.url, storageKey: image.storageKey, status: "success", naturalWidth: image.width, naturalHeight: image.height, bytes: image.bytes, mimeType: image.mimeType };
+    return { content: image.url, ...(image.storageKey ? { storageKey: image.storageKey } : {}), status: "success", naturalWidth: image.width, naturalHeight: image.height, bytes: image.bytes, mimeType: image.mimeType };
 }
 
 function videoMetadata(video: UploadedFile): CanvasNodeMetadata {
