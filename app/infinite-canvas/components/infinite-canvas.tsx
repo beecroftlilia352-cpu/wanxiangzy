@@ -10,7 +10,6 @@ type InfiniteCanvasProps = {
     containerRef: React.RefObject<HTMLDivElement | null>;
     viewport: ViewportTransform;
     backgroundMode?: CanvasBackgroundMode;
-    screenOverlay?: React.ReactNode;
     onViewportChange: (viewport: ViewportTransform) => void;
     onCanvasMouseDown?: (event: React.PointerEvent<HTMLDivElement>) => void;
     onCanvasDeselect?: () => void;
@@ -19,7 +18,7 @@ type InfiniteCanvasProps = {
     children: React.ReactNode;
 };
 
-export function InfiniteCanvas({ containerRef, viewport, backgroundMode = "lines", screenOverlay, onViewportChange, onCanvasMouseDown, onCanvasDeselect, onContextMenu, onDrop, children }: InfiniteCanvasProps) {
+export function InfiniteCanvas({ containerRef, viewport, backgroundMode = "lines", onViewportChange, onCanvasMouseDown, onCanvasDeselect, onContextMenu, onDrop, children }: InfiniteCanvasProps) {
     const theme = canvasThemes[useThemeStore((state) => state.theme)];
     const panState = useRef({
         isPanning: false,
@@ -180,7 +179,6 @@ export function InfiniteCanvas({ containerRef, viewport, backgroundMode = "lines
             onDrop={onDrop}
         >
             <CanvasGrid viewport={viewport} mode={backgroundMode} />
-            {screenOverlay}
             <div
                 className="absolute origin-top-left"
                 style={{
