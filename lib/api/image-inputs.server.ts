@@ -3,6 +3,7 @@ import {
   normalizePublicBaseUrl,
   requirePublicBaseUrlForRuntime,
 } from "@/lib/env";
+import { assertRemoteImageUrlAllowed } from "@/lib/api/remote-image-fetch";
 
 const MAX_DATA_URL_LENGTH = 21 * 1024 * 1024;
 
@@ -61,7 +62,19 @@ async function resolveImageInput(src: string, publicBaseUrl?: string): Promise<s
     return src;
   }
 
-  if (!src.startsWith("/")) return src;
+  if (!src.startsWith("/")) {
+    // Reject http/https URLs that resolve to private/loopback/link-local/cloud
+    // metadata addresses. Without this guard an authenticated user could
+    // submit `http://169.254.169.254/...` to exfiltrate cloud metadata, or
+    // `http://127.0.0.1:5432/...` to probe internal services. The DNS check
+    // is applied here, before the URL is forwarded to the upstream
+    // image-gen API (which itself calls `fetch` server-side). Local
+    // filesystem paths are not affected.
+    if (/^https?:\/\//i.test(src)) {
+      await assertRemoteImageUrlAllowed(new URL(src));
+    }
+    return src;
+  }
 
   return resolvePublicImageUrl(src, publicBaseUrl);
 }

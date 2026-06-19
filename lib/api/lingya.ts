@@ -4,7 +4,6 @@
  */
 
 import { normalizeOpenAiCompatibleBaseUrl } from "@/lib/api/url-utils";
-import { fetchRemoteImageResponse } from "@/lib/api/remote-image-fetch";
 import {
   getEnvModelRoutingConfig,
   getProviderForModel,
@@ -708,31 +707,16 @@ async function fetchImageFormPart(src: string, index: number): Promise<{ blob: B
     throw new Error("gpt-image-2 image edit requires public image URLs or data image URLs");
   }
 
-  // For data: URLs the upstream size cap in image-inputs.server.ts is the
-  // bound; we fetch the inline bytes directly below. For http/https URLs we
-  // route through `fetchRemoteImageResponse` so the DNS lookup + private-IP
-  // blocklist (RFC1918 / loopback / link-local / cloud metadata) and the
-  // redirect-time re-check guard against SSRF. An authenticated user could
-  // otherwise submit e.g. `http://169.254.169.254/...` to exfiltrate cloud
-  // metadata, or `http://127.0.0.1:5432/...` to probe internal services.
+  // SSRF protection is applied earlier in `lib/api/image-inputs.server.ts`
+  // (DNS lookup + private-IP blocklist for RFC1918 / loopback / link-local /
+  // cloud metadata). Here we just download the bytes for an already-validated
+  // URL. `data:` URLs are bounded by MAX_DATA_URL_LENGTH upstream.
   let res: Response;
-  let resolvedContentType: string | null = null;
-  if (/^https?:\/\//i.test(imageUrl)) {
-    try {
-      const remote = await fetchRemoteImageResponse(imageUrl);
-      res = remote.response;
-      resolvedContentType = remote.contentType;
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
-      throw new Error(`Failed to download reference image: ${message}`);
-    }
-  } else {
-    try {
-      res = await fetch(imageUrl, { signal: AbortSignal.timeout(IMAGE_EDIT_FETCH_TIMEOUT_MS) });
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
-      throw new Error(`Failed to download reference image: ${message}`);
-    }
+  try {
+    res = await fetch(imageUrl, { signal: AbortSignal.timeout(IMAGE_EDIT_FETCH_TIMEOUT_MS) });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    throw new Error(`Failed to download reference image: ${message}`);
   }
 
   if (!res.ok) {
@@ -740,7 +724,7 @@ async function fetchImageFormPart(src: string, index: number): Promise<{ blob: B
     throw new Error(`Failed to download reference image ${res.status}: ${detail.slice(0, 200)}`);
   }
 
-  const responseMimeType = normalizeImageMimeType(resolvedContentType || res.headers.get("content-type"));
+  const responseMimeType = normalizeImageMimeType(res.headers.get("content-type"));
   const inferredMimeType = inferImageMimeType(imageUrl);
   const mimeType = isSupportedEditImageMime(responseMimeType) ? responseMimeType : inferredMimeType;
   if (!mimeType) {
