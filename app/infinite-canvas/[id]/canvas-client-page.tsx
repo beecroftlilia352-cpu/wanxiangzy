@@ -6,7 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import { BookOpen, Bot, Home, ImageIcon, Images, List, Menu, Music2, Plus, Redo2, Settings2, Trash2, Undo2, Upload, Video } from "lucide-react";
 import { saveAs } from "file-saver";
 
-import { requestEdit, requestGeneration, requestImageQuestion } from "@/services/api/image";
+import { requestEdit, requestGeneration, requestImageQuestion, startImageGeneration, IMAGE_GENERATION_BUDGET_EXHAUSTED } from "@/services/api/image";
 import { requestAudioGeneration, storeGeneratedAudio } from "@/services/api/audio";
 import { requestVideoGeneration, storeGeneratedVideo } from "@/services/api/video";
 import { DOCS_URL } from "@/constant/env";
@@ -16,6 +16,14 @@ import { resolveMediaUrl, uploadMediaFile, type UploadedFile } from "@/services/
 import { nanoid } from "nanoid";
 import { getDataUrlByteSize, readImageMeta } from "@/lib/image-utils";
 import { canvasThemes, type CanvasBackgroundMode } from "@/lib/canvas-theme";
+import {
+    StatusWatchers,
+    createAdaptivePollDelay,
+    fetchWithAbortAndTimeout,
+    getTotalPollBudgetMs,
+    isAbortLikeError,
+} from "@/lib/poll/status-poll";
+import { POLL_FETCH_TIMEOUT_MS, POLL_HIDDEN_DELAY_MS } from "@/lib/poll/constants";
 import { UserStatusActions } from "@/components/layout/user-status-actions";
 import { useAssetStore } from "@/stores/use-asset-store";
 import { useThemeStore } from "@/stores/use-theme-store";
@@ -324,6 +332,13 @@ function InfiniteCanvasPage() {
     const agentCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const pendingConnectionCreateRef = useRef(pendingConnectionCreate);
     const generationRequestsRef = useRef(new Map<string, CanvasGenerationRequest>());
+    // Per-page registry of rehydration watchers keyed by node id. Each
+    // watcher polls `/api/generation-status` for an in-flight generation that
+    // was started before a page refresh. Aborted on unmount / project change.
+    const rehydrationWatchersRef = useRef(new StatusWatchers<string>());
+    // Single controller that aborts every rehydration watcher at once when
+    // the page unmounts or the user switches projects.
+    const rehydrationAbortRef = useRef(new AbortController());
 
     const createHistoryEntry = useCallback(
         (): CanvasHistoryEntry => ({
@@ -376,6 +391,14 @@ function InfiniteCanvasPage() {
         );
     }, []);
 
+    // Persist a server-side generation id onto a node as soon as the POST
+    // returns, so a page refresh can reconcile the in-flight generation
+    // instead of marking it failed. Wired into every image-generation call
+    // site via `requestGeneration` / `requestEdit`'s `onGenerationStarted`.
+    const patchNodeGenerationId = useCallback((nodeId: string, generationId: string) => {
+        setNodes((prev) => prev.map((node) => (node.id === nodeId && node.metadata?.generationId !== generationId ? { ...node, metadata: { ...node.metadata, generationId } } : node)));
+    }, []);
+
     const confirmStopGeneration = useCallback(
         (nodeId: string) => {
             modal.confirm({
@@ -400,7 +423,18 @@ function InfiniteCanvasPage() {
         }
 
         const restore = async () => {
-            const restoredNodes = await hydrateCanvasImages(resetInterruptedGeneration(project.nodes));
+            // Reconcile any in-flight generation with the server before the
+            // canvas paints. Replaces the old behavior of flipping every
+            // loading node to error on refresh.
+            const reconciledNodes = await rehydrateInterruptedGenerations(project.nodes, {
+                abort: rehydrationAbortRef.current.signal,
+                watchers: rehydrationWatchersRef.current,
+                patchNode: (nodeId, patch) => {
+                    setNodes((prev) => prev.map((node) => (node.id === nodeId ? { ...node, metadata: { ...node.metadata, ...patch } } : node)));
+                },
+                message,
+            });
+            const restoredNodes = await hydrateCanvasImages(reconciledNodes);
             const restoredSessions = await hydrateAssistantImages(project.chatSessions || []);
             setNodes(restoredNodes);
             setConnections(project.connections);
@@ -426,7 +460,18 @@ function InfiniteCanvasPage() {
             setProjectLoaded(true);
         };
         void restore();
-    }, [hydrated, openProject, projectId, router]);
+    }, [hydrated, openProject, projectId, router, message]);
+
+    // Abort every rehydration watcher when the page unmounts or the user
+    // navigates to a different project. Without this, an orphaned watcher
+    // would keep polling for hours and patch ghost nodes into the store.
+    useEffect(() => {
+        return () => {
+            rehydrationAbortRef.current.abort();
+            rehydrationWatchersRef.current.abort();
+            rehydrationAbortRef.current = new AbortController();
+        };
+    }, [projectId]);
 
     useEffect(() => {
         if (!projectLoaded || applyingHistoryRef.current || historyPausedRef.current) return;
@@ -1735,7 +1780,7 @@ function InfiniteCanvasPage() {
             setDialogNodeId(childId);
             const controller = startGenerationRequest(childId, node.id, childId);
             try {
-                const image = await requestEdit(generationConfig, prompt, [source], { id: `${node.id}-mask`, name: "mask.png", type: "image/png", dataUrl: payload.maskDataUrl }, { signal: controller.signal }).then((items) => items[0]);
+                const image = await requestEdit(generationConfig, prompt, [source], { id: `${node.id}-mask`, name: "mask.png", type: "image/png", dataUrl: payload.maskDataUrl }, { signal: controller.signal, onGenerationStarted: (generationId) => patchNodeGenerationId(childId, generationId) }).then((items) => items[0]);
                 const uploaded = await uploadImage(image.dataUrl);
                 const size = fitNodeSize(uploaded.width, uploaded.height, node.width, node.height);
                 setNodes((prev) => prev.map((item) => (item.id === childId ? { ...item, width: size.width, height: size.height, metadata: { ...item.metadata, ...imageMetadata(uploaded), prompt, ...generationMetadata } } : item)));
@@ -1815,7 +1860,7 @@ function InfiniteCanvasPage() {
             setDialogNodeId(childId);
             const controller = startGenerationRequest(childId, node.id, childId);
             try {
-                const image = await requestEdit(generationConfig, prompt, [{ id: node.id, name: `${node.title || node.id}.png`, type: node.metadata.mimeType || "image/png", dataUrl: node.metadata.content, storageKey: node.metadata.storageKey }], undefined, { signal: controller.signal }).then(
+                const image = await requestEdit(generationConfig, prompt, [{ id: node.id, name: `${node.title || node.id}.png`, type: node.metadata.mimeType || "image/png", dataUrl: node.metadata.content, storageKey: node.metadata.storageKey }], undefined, { signal: controller.signal, onGenerationStarted: (generationId) => patchNodeGenerationId(childId, generationId) }).then(
                     (items) => items[0],
                 );
                 const uploaded = await uploadImage(image.dataUrl);
@@ -2097,8 +2142,8 @@ function InfiniteCanvasPage() {
                         targetIds.map(async (targetId) => {
                             try {
                                 const image = referenceImages.length
-                                    ? await requestEdit({ ...generationConfig, count: "1" }, effectivePrompt, referenceImages, undefined, { signal: controller.signal }).then((items) => items[0])
-                                    : await requestGeneration({ ...generationConfig, count: "1" }, effectivePrompt, { signal: controller.signal }).then((items) => items[0]);
+                                    ? await requestEdit({ ...generationConfig, count: "1" }, effectivePrompt, referenceImages, undefined, { signal: controller.signal, onGenerationStarted: (generationId) => patchNodeGenerationId(targetId, generationId) }).then((items) => items[0])
+                                    : await requestGeneration({ ...generationConfig, count: "1" }, effectivePrompt, { signal: controller.signal, onGenerationStarted: (generationId) => patchNodeGenerationId(targetId, generationId) }).then((items) => items[0]);
                                 const uploaded = await uploadImage(image.dataUrl);
                                 const imageSize = fitNodeSize(uploaded.width, uploaded.height, imageConfig.width, imageConfig.height);
                                 setNodes((prev) => {
@@ -2349,7 +2394,7 @@ function InfiniteCanvasPage() {
                     return;
                 }
 
-                const image = useReferenceImages ? await requestEdit(generationConfig, prompt, retryImages, undefined, { signal: controller.signal }).then((items) => items[0]) : await requestGeneration(generationConfig, prompt, { signal: controller.signal }).then((items) => items[0]);
+                const image = useReferenceImages ? await requestEdit(generationConfig, prompt, retryImages, undefined, { signal: controller.signal, onGenerationStarted: (generationId) => patchNodeGenerationId(node.id, generationId) }).then((items) => items[0]) : await requestGeneration(generationConfig, prompt, { signal: controller.signal, onGenerationStarted: (generationId) => patchNodeGenerationId(node.id, generationId) }).then((items) => items[0]);
                 const uploadedImage = await uploadImage(image.dataUrl);
                 const imageConfig = NODE_DEFAULT_SIZE[CanvasNodeType.Image];
                 const imageSize = fitNodeSize(uploadedImage.width, uploadedImage.height, imageConfig.width, imageConfig.height);
@@ -3243,8 +3288,174 @@ function buildGenerationConfig(config: AiConfig, node: CanvasNodeData | undefine
     };
 }
 
-function resetInterruptedGeneration(nodes: CanvasNodeData[]) {
-    return nodes.map((node) => (node.metadata?.status === "loading" ? { ...node, metadata: { ...node.metadata, status: "error" as const, errorDetails: "页面刷新后生成已中断，请重新生成。" } } : node));
+// Replaces the old `resetInterruptedGeneration`. For every loading node:
+//   1. If it has a `metadata.generationId`, reconcile with the server.
+//      - completed → patch to success + upload result URLs.
+//      - failed    → patch to error with the server's error message.
+//      - pending / processing / running / network blip → keep status as
+//        loading, register a watcher that keeps polling on the adaptive
+//        schedule until the server reports a terminal state or the wall
+//        budget is exhausted.
+//   2. Otherwise (legacy data with no persisted id) → fall back to the old
+//      error rewrite so the canvas isn't stuck on a phantom loading node.
+// Returns the patched node list synchronously; the reconciliation work for
+// still-pending nodes continues in the background via `watchers`.
+async function rehydrateInterruptedGenerations(
+    nodes: CanvasNodeData[],
+    options: {
+        abort: AbortSignal;
+        watchers: StatusWatchers<string>;
+        patchNode: (nodeId: string, patch: Partial<CanvasNodeMetadata>) => void;
+        message: ReturnType<typeof App.useApp>["message"];
+    },
+) {
+    const { abort, watchers, patchNode, message } = options;
+    const now = Date.now();
+    const pending: CanvasNodeData[] = [];
+    const next: CanvasNodeData[] = nodes.map((node) => {
+        if (node.metadata?.status !== "loading") return node;
+        const generationId = node.metadata.generationId;
+        if (!generationId) {
+            // Legacy loading node from before generationId persistence shipped.
+            return { ...node, metadata: { ...node.metadata, status: "error" as const, errorDetails: "页面刷新后生成已中断，请重新生成。" } };
+        }
+        pending.push(node);
+        return node;
+    });
+
+    if (!pending.length) return next;
+
+    const wait = createAdaptivePollDelay();
+    const budgetMs = getTotalPollBudgetMs(pending.length);
+    const deadline = now + budgetMs;
+
+    pending.forEach((node) => {
+        const controller = new AbortController();
+        // Forward the page-level abort so unmount/project-change kills us.
+        const relayAbort = () => controller.abort();
+        if (abort.aborted) controller.abort();
+        else abort.addEventListener("abort", relayAbort, { once: true });
+        watchers.set(node.id, controller);
+        // Detach the relay when this watcher finishes so the page-level
+        // signal stays usable for future watchers.
+        controller.signal.addEventListener("abort", () => abort.removeEventListener("abort", relayAbort), { once: true });
+        void runRehydrationWatcher(node, controller.signal);
+    });
+
+    async function runRehydrationWatcher(node: CanvasNodeData, signal: AbortSignal) {
+        const generationId = node.metadata?.generationId;
+        if (!generationId) return;
+        const startedAt = Date.now();
+        let attempt = 0;
+        while (Date.now() < deadline) {
+            if (signal.aborted) return;
+            const status = await fetchStatusForRehydration(generationId, signal);
+            if (status === null) {
+                // Aborted: bail without touching the node.
+                return;
+            }
+            if (status === undefined) {
+                // Network blip: keep waiting within budget.
+                attempt += 1;
+                try {
+                    await wait(attempt, signal);
+                } catch (error) {
+                    if (isAbortLikeError(error)) return;
+                    throw error;
+                }
+                continue;
+            }
+            const group = status.status_group || status.status || "";
+            const urls = collectStatusResultUrls(status);
+            if (group === "completed" && urls.length) {
+                await hydrateCompletedNode(node, urls);
+                return;
+            }
+            if (group === "failed") {
+                patchNode(node.id, { status: NODE_STATUS_ERROR, errorDetails: status.error || "图像生成失败" });
+                return;
+            }
+            attempt += 1;
+            try {
+                await wait(attempt, signal);
+            } catch (error) {
+                if (isAbortLikeError(error)) return;
+                throw error;
+            }
+        }
+        if (signal.aborted) return;
+        // Budget exhausted. Surface the same "processing_delayed" UX as the
+        // garment try-on flow: tell the user the work continues in the
+        // background and they can check back later.
+        patchNode(node.id, {
+            status: NODE_STATUS_ERROR,
+            errorDetails: "生成时间过长，请稍后查看结果。节点可能仍在后台处理。",
+        });
+        message.warning("画布生成耗时较长，已停止轮询。生成仍在后台继续，可在历史中查看。");
+        if (typeof console !== "undefined") {
+            console.warn("[canvas-rehydration] budget exhausted", { nodeId: node.id, generationId, startedAt });
+        }
+    }
+
+    // Returns:
+    //   - parsed status payload on success
+    //   - null on abort (caller should bail)
+    //   - undefined on transient network error (caller should retry)
+    async function fetchStatusForRehydration(generationId: string, signal: AbortSignal): Promise<RehydrationStatusPayload | null | undefined> {
+        try {
+            const url = `/api/generation-status?generation_id=${encodeURIComponent(generationId)}`;
+            const response = await fetchWithAbortAndTimeout(url, signal, POLL_FETCH_TIMEOUT_MS);
+            if (!response.ok) throw new Error(`status ${response.status}`);
+            return (await response.json()) as RehydrationStatusPayload;
+        } catch (error) {
+            if (isAbortLikeError(error)) return null;
+            return undefined;
+        }
+    }
+
+    async function hydrateCompletedNode(node: CanvasNodeData, urls: string[]) {
+        try {
+            const first = urls[0];
+            const uploaded = first.startsWith("data:") ? await uploadImage(first) : await rehydrateImageFromStorageUrl(first);
+            patchNode(node.id, { status: NODE_STATUS_SUCCESS, ...imageMetadata(uploaded), errorDetails: undefined });
+        } catch (error) {
+            patchNode(node.id, { status: NODE_STATUS_ERROR, errorDetails: error instanceof Error ? error.message : "生成结果恢复失败" });
+        }
+    }
+
+    return next;
+}
+
+function collectStatusResultUrls(status: {
+    result_urls?: string[];
+    module_results?: Array<{ result_urls?: string[]; urls?: string[]; url?: string }>;
+} | null | undefined) {
+    if (!status) return [];
+    const moduleUrls =
+        status.module_results?.flatMap((item) => {
+            if (Array.isArray(item.result_urls)) return item.result_urls;
+            if (Array.isArray(item.urls)) return item.urls;
+            return item.url ? [item.url] : [];
+        }) || [];
+    return Array.from(new Set([...(status.result_urls || []), ...moduleUrls].filter(Boolean)));
+}
+
+type RehydrationStatusPayload = {
+    status?: string;
+    status_group?: string;
+    result_urls?: string[];
+    module_results?: Array<{ result_urls?: string[]; urls?: string[]; url?: string }>;
+    error?: string | null;
+};
+
+async function rehydrateImageFromStorageUrl(url: string): Promise<UploadedImage> {
+    // The server may have already uploaded the result to storage and returned
+    // the public URL. Resolve it to a data URL then re-upload to normalize
+    // shape with the live success path. (Cheaper than branching the metadata
+    // shape between live and rehydrated nodes.)
+    const dataUrl = await resolveImageUrl(url, url);
+    if (!dataUrl) throw new Error("生成结果链接已失效");
+    return uploadImage(dataUrl);
 }
 
 function isGenerationCanceled(error: unknown) {

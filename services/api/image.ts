@@ -5,6 +5,13 @@ import { nanoid } from "nanoid";
 import { imageToDataUrl } from "@/services/image-storage";
 import { modelOptionName, type AiConfig, type ModelChannel } from "@/stores/use-config-store";
 import type { ReferenceImage } from "@/types/image";
+import {
+    createAdaptivePollDelay,
+    fetchWithAbortAndTimeout,
+    getTotalPollBudgetMs,
+    isAbortLikeError,
+} from "@/lib/poll/status-poll";
+import { POLL_FETCH_TIMEOUT_MS } from "@/lib/poll/constants";
 
 export type AiTextMessage = {
   role: "system" | "user" | "assistant";
@@ -39,7 +46,11 @@ export type ToolResponseResult = {
 };
 
 type ToolChoice = "auto" | "required" | { type: "function"; name: string };
-type RequestOptions = { signal?: AbortSignal };
+// `onGenerationStarted` fires synchronously after the server POST returns and
+// the generation id is known — before the long poll begins. Callers (notably
+// the canvas) use it to persist the id onto a node so a page refresh can
+// reconcile the in-flight generation instead of marking it failed.
+type RequestOptions = { signal?: AbortSignal; onGenerationStarted?: (generationId: string) => void };
 type CanvasImageResult = { id: string; dataUrl: string };
 type GenerationStartResponse = {
   generation_id?: string;
@@ -55,17 +66,32 @@ type GenerationStatusResponse = {
 
 const IMAGE_MODELS = ["nano-banana-2", "nano-banana-pro", "gpt-image-2"];
 const TEXT_MODELS = ["gpt-4o-mini", "gpt-4.1-mini", "deepseek-chat"];
-const POLL_DELAY_MS = 2_000;
-const POLL_ATTEMPTS = 180;
+
+// Raised distinct error so callers (and the canvas rehydration flow) can
+// distinguish "wall-clock budget exhausted" from a generic API failure.
+export const IMAGE_GENERATION_BUDGET_EXHAUSTED = "IMAGE_GENERATION_BUDGET_EXHAUSTED";
+
+/**
+ * A handle to an in-flight image generation. `generationId` is available
+ * synchronously after the server-side POST returns (so callers can persist
+ * it onto a node before the long poll completes), while `resultPromise`
+ * resolves once the worker reports completion or throws on failure.
+ */
+export type GenerationHandle = {
+  generationId: string;
+  resultPromise: Promise<CanvasImageResult[]>;
+};
 
 export async function requestGeneration(config: AiConfig, prompt: string, options?: RequestOptions): Promise<CanvasImageResult[]> {
-  return startAndPollImageGeneration({
+  const handle = await startImageGeneration({
     mode: "text-to-image",
     prompt: withSystemPrompt(config, prompt),
     config,
     referenceUrls: [],
     options,
   });
+  options?.onGenerationStarted?.(handle.generationId);
+  return handle.resultPromise;
 }
 
 export async function requestEdit(config: AiConfig, prompt: string, references: ReferenceImage[], mask?: ReferenceImage, options?: RequestOptions): Promise<CanvasImageResult[]> {
@@ -79,13 +105,15 @@ export async function requestEdit(config: AiConfig, prompt: string, references: 
     ? `${withSystemPrompt(config, prompt)}\n\n请参考最后一张图作为局部编辑蒙版，仅在蒙版指示区域内改变画面，其余主体、构图和质感尽量保持一致。`
     : withSystemPrompt(config, prompt);
 
-  return startAndPollImageGeneration({
+  const handle = await startImageGeneration({
     mode: "image-to-image",
     prompt: requestPrompt,
     config,
     referenceUrls,
     options,
   });
+  options?.onGenerationStarted?.(handle.generationId);
+  return handle.resultPromise;
 }
 
 export async function requestImageQuestion(config: AiConfig, messages: AiTextMessage[], onDelta: (text: string) => void, options?: RequestOptions) {
@@ -119,13 +147,13 @@ export async function fetchChannelModels(channel: ModelChannel) {
   return channel.id === "platform" ? [...IMAGE_MODELS, ...TEXT_MODELS, "happyhorse-1.0-i2v"] : channel.models;
 }
 
-async function startAndPollImageGeneration(input: {
+export async function startImageGeneration(input: {
   mode: "text-to-image" | "image-to-image";
   prompt: string;
   config: AiConfig;
   referenceUrls: string[];
   options?: RequestOptions;
-}) {
+}): Promise<GenerationHandle> {
   assertNotAborted(input.options?.signal);
   const genCount = resolveImageCount(input.config);
   const start = await fetchJson<GenerationStartResponse>(
@@ -147,13 +175,37 @@ async function startAndPollImageGeneration(input: {
   );
 
   if (!start.generation_id) throw new Error(start.error || "图像任务创建失败");
-  return pollImageGeneration(start.generation_id, input.options);
+  // Capture the generation_id synchronously so callers can persist it onto a
+  // node before the long poll completes. The result promise resolves once the
+  // worker reports completion (or throws on failure / budget exhaustion).
+  const generationId = start.generation_id;
+  const resultPromise = pollImageGeneration(generationId, input.options);
+  return { generationId, resultPromise };
 }
 
 async function pollImageGeneration(generationId: string, options?: RequestOptions): Promise<CanvasImageResult[]> {
-  for (let attempt = 0; attempt < POLL_ATTEMPTS; attempt += 1) {
-    assertNotAborted(options?.signal);
-    const status = await fetchJson<GenerationStatusResponse>(`/api/general-image?generation_id=${encodeURIComponent(generationId)}`, { method: "GET" }, options);
+  // Adaptive 5s → 7s → 10s → 15s schedule with hidden-tab override. Budget
+  // scales with the expected number of images so a batch of 4 gets the same
+  // per-image patience without blowing past the platform's cap.
+  const expectedCount = 1;
+  const budgetMs = getTotalPollBudgetMs(expectedCount);
+  const wait = createAdaptivePollDelay();
+  const deadline = Date.now() + budgetMs;
+  let attempt = 0;
+  while (true) {
+    if (options?.signal?.aborted) throw new DOMException("Aborted", "AbortError");
+    if (Date.now() >= deadline) throw new Error(IMAGE_GENERATION_BUDGET_EXHAUSTED);
+    let status: GenerationStatusResponse;
+    try {
+      status = await fetchGenerationStatus(generationId, options);
+    } catch (error) {
+      if (isAbortLikeError(error)) throw error;
+      // Transient network failure: keep waiting within budget. The shared
+      // primitives handle per-request timeouts and the adaptive delay.
+      attempt += 1;
+      await wait(attempt, options?.signal || new AbortController().signal);
+      continue;
+    }
     const urls = collectResultUrls(status);
     if ((status.status_group === "completed" || status.status === "completed") && urls.length) {
       return urls.map((dataUrl) => ({ id: nanoid(), dataUrl }));
@@ -161,9 +213,23 @@ async function pollImageGeneration(generationId: string, options?: RequestOption
     if (status.status_group === "failed" || status.status === "failed") {
       throw new Error(status.error || "图像生成失败");
     }
-    await delay(POLL_DELAY_MS, options?.signal);
+    attempt += 1;
+    await wait(attempt, options?.signal || new AbortController().signal);
   }
-  throw new Error("图像生成超时，请稍后重试");
+}
+
+async function fetchGenerationStatus(generationId: string, options?: RequestOptions): Promise<GenerationStatusResponse> {
+  const url = `/api/generation-status?generation_id=${encodeURIComponent(generationId)}`;
+  // Prefer the shared timeout-aware fetch when we have a parent signal so a
+  // stalled request doesn't burn the whole budget. Fall back to fetchJson for
+  // compatibility (and tests) that don't pass a signal.
+  if (options?.signal) {
+    const response = await fetchWithAbortAndTimeout(url, options.signal, POLL_FETCH_TIMEOUT_MS);
+    const payload = await readJson(response);
+    if (!response.ok) throw new Error(readErrorMessage(payload, response.statusText));
+    return payload as GenerationStatusResponse;
+  }
+  return fetchJson<GenerationStatusResponse>(url, { method: "GET" }, options);
 }
 
 async function requestCanvasText(input: {
@@ -272,20 +338,6 @@ function withSystemPrompt(config: AiConfig, prompt: string) {
 function withSystemMessage<T extends ResponseInputMessage>(config: AiConfig, messages: T[]): ResponseInputMessage[] {
   const systemPrompt = config.systemPrompt.trim();
   return systemPrompt ? [{ role: "system" as const, content: systemPrompt }, ...messages] : messages;
-}
-
-function delay(ms: number, signal?: AbortSignal) {
-  return new Promise<void>((resolve, reject) => {
-    const timeout = window.setTimeout(resolve, ms);
-    signal?.addEventListener(
-      "abort",
-      () => {
-        window.clearTimeout(timeout);
-        reject(new DOMException("Aborted", "AbortError"));
-      },
-      { once: true },
-    );
-  });
 }
 
 function assertNotAborted(signal?: AbortSignal) {

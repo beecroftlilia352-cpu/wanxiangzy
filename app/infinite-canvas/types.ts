@@ -56,6 +56,11 @@ export type CanvasNodeMetadata = {
     mimeType?: string;
     bytes?: number;
     durationMs?: number;
+    // Persisted server-side generation id. Used by rehydration to reconcile a
+    // loading node with the worker after a page refresh; without this we
+    // would lose the in-flight generation on reload (the worker keeps running
+    // and burns credits, but the client never sees the result).
+    generationId?: string;
 };
 
 export type CanvasNodeData = {
