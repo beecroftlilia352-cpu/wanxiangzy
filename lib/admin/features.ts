@@ -38,6 +38,7 @@ const moduleAdminHref: Record<AppModuleKey, string> = {
   aiShoots: "/admin/generations",
   assistant: "/admin/evals",
   tools: "/admin/generations",
+  canvas: "/admin/generations",
   aiVideo: "/admin/generations",
   works: "/admin/assets",
 };
