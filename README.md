@@ -294,3 +294,77 @@ ai-tryon/
 - [备份与恢复 Runbook](docs/backup-restore.md)
 - [后台管理员引导](docs/admin-bootstrap.md)
 - [Supabase SQL 执行顺序](docs/supabase-migration-order.md)
+
+## 运行时要求与 EC2 升级说明
+
+### 当前要求
+
+- **Node.js 22 LTS**（`>= 22, < 23`），由 `.nvmrc` 与 `package.json` 的 `engines.node` 锁死
+- Node 22 内置原生 `WebSocket`，Supabase Realtime 和 Next.js 都不再需要 `ws` polyfill
+- Node 20 LTS 已于 **2026-04-30** 终止支持，CI 已升级到 Node 22，EC2 必须跟进
+
+### ⚠️ 升级 EC2 时的 pm2 systemd 单元陷阱
+
+`pm2 startup` 第一次生成 systemd unit 时，会把**当时激活的 Node 版本路径硬编码**到 unit 的 `Environment=PATH=...` 和 `ExecStart=...` 里。所以即便你在 EC2 上 `nvm install 22 && nvm alias default 22 && node --version` 都正常，只要：
+
+```bash
+sudo systemctl cat pm2-ec2-user | grep -E "ExecStart|Environment|PATH"
+```
+
+里面仍然写着 `v20.20.2`，那么 `pm2 kill` 之后 systemd 用旧 unit 重启 pm2 daemon，**worker 就会继续在 Node 20 上 crash loop 并报**：
+
+```
+[worker] fatal error=Node.js 20 detected without native WebSocket support.
+```
+
+nvm 的 `use` / `alias default` 只影响 shell 自己的 PATH，**改不了 systemd unit**——这就是升级脚本第一版没考虑到 systemd 时踩到的坑。
+
+### 仓库自带的一键升级 / 回滚脚本
+
+`scripts/upgrade-node.sh`（配套 `scripts/rollback-node.sh`）已经把上面这套都做了，包括：
+
+1. 安装 / 激活 Node 22
+2. `rm -rf node_modules && npm ci`（让 sharp 等 native 模块重新编译到 Node 22 ABI）
+3. sharp load test（失败会 abort）
+4. 检测 `/etc/systemd/system/pm2-*.service`，把里面的 `/node/vX.Y.Z` sed 替换成当前 Node 22 安装路径 + `systemctl daemon-reload`
+5. `sudo systemctl restart pm2-*` + `pm2 resurrect` 让 worker 用新 Node 起来
+6. 30 秒内探测 worker 是否 `loop.started`，失败时打印 `pm2 logs` 调试指引
+
+升级用法（脚本是幂等的，跑两遍不会出事）：
+
+```bash
+ssh ec2-user@<host>
+cd ~/apps/wanxiangzy/current
+bash scripts/upgrade-node.sh
+```
+
+回滚用法：
+
+```bash
+bash scripts/rollback-node.sh   # Node 22 → Node 20，对称处理 systemd unit
+```
+
+> 注意：回滚到 Node 20 后，**当前部署的代码因为已经移除 `ws` polyfill 是不能跑的**，worker 会立刻报 `Node.js 20 detected without native WebSocket support`。回滚脚本最后一段会提示你需要同时回滚代码 tag：`git checkout <previous-working-tag> && bash scripts/deploy-aws-release.sh`。
+
+### 验证升级到位
+
+```bash
+node --version                                     # 期待 v22.x.x
+pm2 status                                         # 期待 restart count 不再上涨
+pm2 logs wanxiangzy-worker --lines 30 --nostream --raw
+# 期待：loop.started + heartbeat（rssMB / heapUsedMB）
+# 不能出现：Node.js 20 detected without native WebSocket support
+sudo systemctl cat pm2-ec2-user | grep -E "ExecStart|Environment|PATH"
+# 期待：所有路径指向 v22，没有 v20
+```
+
+### Worker 自适应轮询（Supabase RPC 节流）
+
+`claim_next_generation_jobs` 是 Supabase RPC。如果队列空着还每秒钟打一次，对 RPC quota 不友好。worker 现在用指数退避：
+
+| 配置 | 默认 | 说明 |
+|---|---|---|
+| `WORKER_POLL_INTERVAL_MS` | 1000 | 首次空轮询间隔 |
+| `WORKER_IDLE_BACKOFF_MAX_MS` | 60000 | 退避上限（60s ≈ 60 RPCs/hr idle） |
+
+连续空轮询时 sleep 翻倍（1s → 2s → 4s → … → 60s 封顶），队列里出现任务时立即重置为紧密循环。数据迁移完成后再调小 `WORKER_IDLE_BACKOFF_MAX_MS` 提升响应延迟。

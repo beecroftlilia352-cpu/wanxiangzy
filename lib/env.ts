@@ -178,6 +178,7 @@ const OPTIONAL_ENV: EnvContractEntry[] = [
   { name: "WORKER_ENABLED", category: "optional", description: "Toggle the async generation worker (PM2-managed). Default true." },
   { name: "WORKER_DRY_RUN", category: "optional", description: "Worker logs would-be claims without mutating state. Default false." },
   { name: "WORKER_POLL_INTERVAL_MS", category: "optional", description: "Worker idle poll interval in milliseconds. Default 1000." },
+  { name: "WORKER_IDLE_BACKOFF_MAX_MS", category: "optional", description: "Cap for adaptive exponential backoff when consecutive polls return no jobs, in milliseconds. Default 60000 (60s). Idle worker then issues ~60 RPCs/hr instead of ~3600." },
   { name: "WORKER_ERROR_BACKOFF_MS", category: "optional", description: "Initial backoff after a worker tick error in milliseconds. Default 5000." },
   { name: "WORKER_MAX_ERROR_BACKOFF_MS", category: "optional", description: "Cap for exponential backoff in milliseconds. Default 30000." },
   { name: "WORKER_BATCH_SIZE", category: "optional", description: "Worker claim batch size (1-10). Default 2." },
