@@ -58,7 +58,7 @@ start_app() {
       --name "${APP_NAME}-worker" \
       --max-memory-restart 1500M \
       --time \
-      --run worker
+      -- run worker
   fi
 }
 
