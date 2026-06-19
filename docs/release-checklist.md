@@ -59,7 +59,7 @@
    /history
    /pricing
    /admin
-   /api/jobs/process-generations
+   /api/jobs/process-generations  (手动触发, 非必需)
    ```
 
 ## GitHub Secrets
@@ -119,14 +119,27 @@ PLATO_API_KEY=
 1. 打开线上域名，确认首页和 `/create` 可访问。
 2. 登录普通用户，发起一次低风险生成或测试任务。
 3. 登录后台，确认用户、任务、资产、账单、运营配置页面可加载。
-4. 手动请求一次后台任务处理器：
+4. 确认 PM2 同时拉起了 Next.js server 与 worker 进程 (默认情况下):
+
+   ```bash
+   pm2 status
+   # 应显示 wanxiangzy 与 wanxiangzy-worker 两个 online 进程
+   ```
+
+5. 查看 worker 心跳与最近批次日志 (应有 `event=heartbeat` / `event=batch.complete` 行):
+
+   ```bash
+   pm2 logs wanxiangzy-worker --lines 60 --nostream
+   ```
+
+6. (可选) 手动触发一次 HTTP 任务处理器作为兜底验证 (HTTP 路由仍保留):
 
    ```bash
    curl -i -H "Authorization: Bearer $JOB_PROCESSOR_SECRET" \
      https://your-domain.example/api/jobs/process-generations
    ```
 
-5. 查看 PM2 日志，确认没有启动循环或持续 5xx：
+7. 查看 PM2 日志，确认没有启动循环或持续 5xx：
 
    ```bash
    pm2 logs wanxiangzy --lines 120 --nostream

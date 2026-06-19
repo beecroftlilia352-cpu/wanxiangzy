@@ -150,14 +150,30 @@ npm run dev
 
 ### 5. 后台任务处理
 
-生成接口会先写入 `generations.job_payload`，再由后台处理器认领执行。接口返回后即使运行环境中断，任务也能通过处理器继续恢复：
+生成接口会先写入 `generations.job_payload`，再由后台处理器认领执行。接口返回后即使运行环境中断，任务也能通过处理器继续恢复。
+
+**生产环境**: 由 PM2 拉起的常驻 Node worker 进程 (`${APP_NAME}-worker`，对应 `npm run worker` -> `tsx scripts/worker.ts`) 负责每秒轮询 `claim_next_generation_jobs` 任务队列, 不受 Vercel 函数 5 分钟超时限制. HTTP 路由 `/api/jobs/process-generations` 仍保留, 用于运维手动触发或回退; 不再需要外部 cron 调它.
+
+本地开发时可直接运行 worker:
 
 ```bash
-curl -H "Authorization: Bearer $JOB_PROCESSOR_SECRET" \
-  http://localhost:3000/api/jobs/process-generations
+npm run worker          # 单进程
+npm run worker:dev      # 监听文件变更自动重启
 ```
 
-生产环境建议配置定时任务每 1 分钟请求一次 `/api/jobs/process-generations`，使用强随机的 `JOB_PROCESSOR_SECRET` 或 `CRON_SECRET` 作为 Bearer Token。
+Worker 全部配置通过 `WORKER_*` 环境变量, 详见 `lib/worker/config.ts` 的默认值. 关键不变量: `WORKER_MAX_INFLIGHT_TIMEOUT_MS` 必须严格小于 `WORKER_STALE_MINUTES * 60_000`, 否则长任务会被并发回收.
+
+**运维命令**:
+
+```bash
+pm2 status                                   # 查看 ${APP_NAME} 与 ${APP_NAME}-worker
+pm2 logs ${APP_NAME}-worker --lines 100      # 查看 worker 日志 (心跳每 60s)
+pm2 restart ${APP_NAME}-worker               # 触发热重启 (SIGTERM 优雅退出)
+pm2 stop ${APP_NAME}-worker                  # 临时下线 worker (HTTP 路由仍可手动触发)
+pm2 start npm --name ${APP_NAME}-worker-2 -- run worker  # 启动第二个 worker 进程扩容
+```
+
+需要临时禁用 worker (例如排查问题时) 在 `BASE_DIR/shared/.env.production` 中设置 `WORKER_ENABLED=false` 然后 `pm2 restart ${APP_NAME}-worker`. 干跑 (不修改数据库) 设置 `WORKER_DRY_RUN=true`.
 
 > 智能 Agent 模块当前临时下线，对应的 `/api/jobs/process-agent-workflows` 和 `/api/jobs/run-agent-evals` 路由返回 no-op（含 `disabled: "agent module disabled"`），保留鉴权和路径以便恢复时不破坏 cron 配置。模块完整代码在 `refactor/extract-agent-module` 分支，恢复时合并该分支即可。
 

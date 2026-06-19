@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runNextGenerationJobs } from "@/lib/api/generation-jobs";
 import { getConfiguredProcessorSecrets } from "@/lib/env";
-import { getAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,9 +19,6 @@ async function handleProcessRequest(request: NextRequest) {
   if (authError) return authError;
 
   try {
-    // 清理过期限流记录（异步，不阻塞主流程）
-    cleanupRateLimitBuckets().catch(() => {});
-
     const result = await runNextGenerationJobs(getBatchLimit(request));
     return NextResponse.json({ ok: true, ...result });
   } catch (err) {
@@ -31,15 +27,6 @@ async function handleProcessRequest(request: NextRequest) {
       { ok: false, error: err instanceof Error ? err.message : "任务处理失败" },
       { status: 500 }
     );
-  }
-}
-
-async function cleanupRateLimitBuckets() {
-  try {
-    const supabase = getAdminClient();
-    await supabase.rpc("cleanup_rate_limit_buckets");
-  } catch {
-    // Admin client not configured, skip cleanup
   }
 }
 

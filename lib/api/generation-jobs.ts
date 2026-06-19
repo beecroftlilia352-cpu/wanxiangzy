@@ -410,10 +410,15 @@ export async function runGenerationJobById(generationId: string) {
   return { processed: 1, skipped: 0 };
 }
 
-export async function runNextGenerationJobs(limit = 2) {
+export async function runNextGenerationJobs(
+  limit = 2,
+  options?: { staleAfterMinutes?: number },
+) {
   const supabase = createAdminClient();
+  const staleAfterMinutes = options?.staleAfterMinutes ?? 8;
   const { data, error } = await supabase.rpc("claim_next_generation_jobs", {
     p_limit: limit,
+    p_stale_after: `${staleAfterMinutes} minutes`,
   });
 
   if (error) {

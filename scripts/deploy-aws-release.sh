@@ -41,12 +41,25 @@ PREVIOUS_TARGET="$(readlink -f "$BASE_DIR/current" 2>/dev/null || true)"
 start_app() {
   local app_dir="$1"
 
-  if pm2 describe "$APP_NAME" >/dev/null 2>&1; then
-    pm2 delete "$APP_NAME"
-  fi
+  for proc in "$APP_NAME" "${APP_NAME}-worker"; do
+    if pm2 describe "$proc" >/dev/null 2>&1; then
+      pm2 delete "$proc"
+    fi
+  done
 
   cd "$app_dir"
   pm2 start npm --name "$APP_NAME" -- start
+
+  # 异步任务 worker (PM2 托管, 调用 npm run worker -> tsx scripts/worker.ts).
+  # 通过 WORKER_ENABLED 开关；默认开启。HTTP 路由 /api/jobs/process-generations
+  # 仍保留, 用于运维手动触发或回退. --max-memory-restart 防御内存泄漏.
+  if [ "${WORKER_ENABLED:-true}" = "true" ]; then
+    pm2 start npm \
+      --name "${APP_NAME}-worker" \
+      --max-memory-restart 1500M \
+      --time \
+      --run worker
+  fi
 }
 
 healthcheck_app() {
