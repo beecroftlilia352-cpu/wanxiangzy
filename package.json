@@ -17,8 +17,8 @@
     "oss:upload-site-assets": "node scripts/upload-site-assets-to-oss.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
-    "worker": "tsx scripts/worker.ts",
-    "worker:dev": "tsx watch scripts/worker.ts"
+    "worker": "tsx --require ./scripts/worker-bootstrap.cjs scripts/worker.ts",
+    "worker:dev": "tsx watch --require ./scripts/worker-bootstrap.cjs scripts/worker.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.0",
