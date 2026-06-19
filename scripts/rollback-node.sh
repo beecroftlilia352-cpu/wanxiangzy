@@ -44,9 +44,37 @@ fi
 
 if command -v pm2 >/dev/null 2>&1; then
   echo "==> Restarting PM2"
+
+  # Mirror the systemd unit rewrite from upgrade-node.sh so the respawned
+  # pm2 daemon inherits Node $ROLLBACK_TO_MAJOR's PATH. Without this, the
+  # systemd unit still points at Node 22 and `pm2 kill` would respawn
+  # pm2 under Node 22 — which defeats the whole rollback.
+  PM2_UNIT=""
+  if [ -d /etc/systemd/system ]; then
+    PM2_UNIT="$(sudo find /etc/systemd/system -maxdepth 2 -name 'pm2-*.service' 2>/dev/null | head -1 || true)"
+  fi
+  if [ -n "$PM2_UNIT" ]; then
+    echo "    Found pm2 systemd unit: $PM2_UNIT"
+    CURRENT_NODE_BIN="$(which node)"
+    CURRENT_NODE_DIR="$(dirname "$(dirname "$CURRENT_NODE_BIN")")"
+    if sudo grep -qE "/node/v[0-9]+\.[0-9]+\.[0-9]+" "$PM2_UNIT" 2>/dev/null; then
+      echo "    Rewriting unit to: $CURRENT_NODE_DIR"
+      sudo cp "$PM2_UNIT" "${PM2_UNIT}.bak.$(date +%Y%m%d-%H%M%S)"
+      sudo sed -i -E "s|/node/v[0-9]+\.[0-9]+\.[0-9]+|$CURRENT_NODE_DIR|g" "$PM2_UNIT"
+      sudo systemctl daemon-reload
+    fi
+  fi
+
   pm2 kill || true
   sleep 2
-  pm2 resurrect || true
+
+  if [ -n "$PM2_UNIT" ]; then
+    UNIT_NAME="$(basename "$PM2_UNIT")"
+    sudo systemctl restart "$UNIT_NAME" 2>&1 | sed 's/^/      /' || true
+    sleep 3
+  fi
+
+  pm2 resurrect 2>&1 | sed 's/^/    /' || true
   sleep 3
   pm2 status
 fi

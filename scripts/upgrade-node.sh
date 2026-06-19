@@ -94,17 +94,61 @@ fi
 echo
 
 # ---------------------------------------------------------------------------
-# 6. Restart PM2 so processes pick up the new node binary on PATH.
-#    pm2 resurrect reads ~/.pm2/dump.pm2 which was last `pm2 save`'d
-#    during the most recent tag deploy.
+# 6. Rewrite the pm2 systemd unit (if any) so its Environment/PATH/ExecStart
+#    point at the Node we just installed. `pm2 startup` hardcodes the Node
+#    version that was active when it was first run; without this step,
+#    `pm2 kill` triggers systemd to respawn the daemon with the OLD Node's
+#    PATH and the worker keeps crashing on Node 20 even though
+#    `node --version` shows v22. This is idempotent: after the first run,
+#    the unit already points at the target version and sed becomes a no-op.
 # ---------------------------------------------------------------------------
 if ! command -v pm2 >/dev/null 2>&1; then
   echo "WARN: pm2 not installed; nothing to restart." >&2
 else
-  echo "==> Restarting PM2 processes"
+  echo "==> Looking for pm2 systemd unit"
+  PM2_UNIT=""
+  if [ -d /etc/systemd/system ]; then
+    PM2_UNIT="$(sudo find /etc/systemd/system -maxdepth 2 -name 'pm2-*.service' 2>/dev/null | head -1 || true)"
+  fi
+
+  if [ -n "$PM2_UNIT" ]; then
+    echo "    Found: $PM2_UNIT"
+    CURRENT_NODE_BIN="$(which node)"
+    CURRENT_NODE_DIR="$(dirname "$(dirname "$CURRENT_NODE_BIN")")"
+    if sudo grep -qE "/node/v[0-9]+\.[0-9]+\.[0-9]+" "$PM2_UNIT" 2>/dev/null; then
+      echo "    Unit has hardcoded Node path. Rewriting to: $CURRENT_NODE_DIR"
+      sudo cp "$PM2_UNIT" "${PM2_UNIT}.bak.$(date +%Y%m%d-%H%M%S)"
+      # Use '|' as the sed delimiter because the replacement path contains '/'.
+      sudo sed -i -E "s|/node/v[0-9]+\.[0-9]+\.[0-9]+|$CURRENT_NODE_DIR|g" "$PM2_UNIT"
+      sudo systemctl daemon-reload
+      echo "    Updated. Relevant lines now:"
+      sudo grep -E "ExecStart|Environment|PATH" "$PM2_UNIT" | sed 's/^/      /'
+    else
+      echo "    Unit has no hardcoded Node path; nothing to update"
+    fi
+  else
+    echo "    No pm2 systemd unit found (pm2 is not managed by systemd)"
+  fi
+  echo
+
+  echo "==> Restarting PM2"
   pm2 kill || true
-  sleep 2
-  pm2 resurrect || echo "WARN: pm2 resurrect failed — try 'pm2 start' manually" >&2
+  sleep 3
+
+  # If systemd is managing pm2, restart via systemd so the respawned daemon
+  # picks up the updated unit (with Node 22's PATH). `pm2 kill` alone only
+  # kills the daemon; the systemd unit decides what environment the
+  # respawned daemon inherits.
+  if [ -n "$PM2_UNIT" ]; then
+    UNIT_NAME="$(basename "$PM2_UNIT")"
+    echo "    systemctl restart $UNIT_NAME"
+    sudo systemctl restart "$UNIT_NAME" 2>&1 | sed 's/^/      /' || \
+      echo "    WARN: systemctl restart failed — pm2 may need manual start" >&2
+    sleep 3
+  fi
+
+  pm2 resurrect 2>&1 | sed 's/^/    /' || \
+    echo "    WARN: pm2 resurrect failed — try 'pm2 start' manually" >&2
   sleep 3
   echo
   echo "==> pm2 status:"
