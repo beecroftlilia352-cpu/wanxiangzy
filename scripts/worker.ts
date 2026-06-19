@@ -317,6 +317,8 @@ export async function runLoop(
         windowClaimed: window.claimed,
         windowSucceeded: window.succeeded,
         windowFailed: window.failed,
+        rssMB: Math.round(process.memoryUsage().rss / 1024 / 1024),
+        heapUsedMB: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
       });
       if (hourElapsed) {
         stats.lastHourBatches = { batches: 0, claimed: 0, succeeded: 0, failed: 0, sinceMs: clock.now() };
