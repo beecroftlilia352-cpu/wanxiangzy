@@ -11,7 +11,15 @@ export type ModelUploadRule = {
   demos: ModelRuleDemo[];
   deprecatedTitle: string;
   deprecatedImages: { url: string; title: string }[];
+  // Numeric bounds backing the `uploadSpecText` range so callers can
+  // enforce the same rule the UI shows (prevents 0-byte / sub-20KB
+  // files from being billed for an empty payload).
+  minFileSize: number;
+  maxFileSize: number;
 };
+
+const MODEL_MIN_FILE_SIZE = 20 * 1024; // 20KB — mirrors `uploadSpecText`
+const MODEL_MAX_FILE_SIZE = 15 * 1024 * 1024; // 15MB — mirrors `uploadSpecText`
 
 const MODEL_STORAGE = "https://mtdfvnhphpulhjtnmubw.supabase.co/storage/v1/object/public/models";
 
@@ -51,4 +59,6 @@ export const MODEL_UPLOAD_RULE: ModelUploadRule = {
     { url: `${MODEL_STORAGE}/model-65245-a92f45dd88c9.jpg`, title: "姿态偏侧" },
     { url: `${MODEL_STORAGE}/model-179593-1832ed333c13.jpg`, title: "光线复杂" },
   ],
+  minFileSize: MODEL_MIN_FILE_SIZE,
+  maxFileSize: MODEL_MAX_FILE_SIZE,
 };

@@ -61,6 +61,10 @@ export type CanvasNodeMetadata = {
     // would lose the in-flight generation on reload (the worker keeps running
     // and burns credits, but the client never sees the result).
     generationId?: string;
+    // Optional live-progress signal (0..100). Cleared when the node settles.
+    progress?: number;
+    // Optional partial-result URL list rendered while a generation streams in.
+    partialResultUrls?: string[];
 };
 
 export type CanvasNodeData = {

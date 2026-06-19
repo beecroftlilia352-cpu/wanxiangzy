@@ -6,6 +6,7 @@ import {
   errorToResponsePayload,
 } from "@/lib/api/credits";
 import { startGenerationJob, type GenerationJobPayload } from "@/lib/api/generation-jobs";
+import { failGenerationWithRefund } from "@/lib/api/credits";
 import { handleGenerationStatusGet } from "@/lib/api/generation-status";
 import { getPublicBaseUrlFromRequest } from "@/lib/api/image-inputs.server";
 import { enforceModelPromptRequirements } from "@/lib/model-prompt";
@@ -86,7 +87,28 @@ export async function POST(request: NextRequest) {
       jobPayload,
     });
 
-    startGenerationJob(debit.generationId);
+    // The worker enqueue must run before we tell the client the job is
+    // running. If it throws we refund the debit so the user is never
+    // charged for a generation that never started, and surface a 500 so
+    // the client shows an actionable error instead of polling a phantom
+    // generation id.
+    try {
+      await startGenerationJob(debit.generationId);
+    } catch (enqueueError) {
+      console.error("[model] startGenerationJob failed, refunding:", enqueueError instanceof Error ? enqueueError.message : enqueueError);
+      try {
+        await failGenerationWithRefund(supabase, {
+          userId: user.id,
+          generationId: debit.generationId,
+          amount: totalCost,
+          reason: "专属模特入队失败",
+          errorMessage: enqueueError instanceof Error ? enqueueError.message : "worker enqueue failed",
+        });
+      } catch (refundError) {
+        console.error("[model] refund after enqueue failure also failed:", refundError instanceof Error ? refundError.message : refundError);
+      }
+      return NextResponse.json({ error: "生成服务暂时不可用，积分已退还" }, { status: 503 });
+    }
 
     return NextResponse.json({
       generation_id: debit.generationId,

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { App, Button } from "antd";
-import { BookOpen, FileUp, FolderOpen, Menu, Plus, Trash2 } from "lucide-react";
+import { BookOpen, Download, FileUp, FolderOpen, Menu, Plus, Trash2 } from "lucide-react";
 
 import { readZip } from "@/lib/zip";
 import { setMediaBlob } from "@/services/file-storage";
@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 import { CanvasDeleteProjectsDialog } from "./components/canvas-delete-projects-dialog";
 import { CanvasProjectCard } from "./components/canvas-project-card";
 import { CanvasProjectDetailsPanel } from "./components/canvas-project-details-panel";
-import { CanvasProjectSidebar } from "./components/canvas-project-sidebar";
+import { CanvasProjectSidebar, formatRelativeTime } from "./components/canvas-project-sidebar";
 import type { CanvasExportFile } from "./export-types";
 import { useCanvasStore } from "./stores/use-canvas-store";
 import { useCanvasUiStore } from "./stores/use-canvas-ui-store";
@@ -110,7 +110,7 @@ export default function CanvasPage() {
                         <h1 className="mt-1 text-2xl font-semibold tracking-tight">无限画布</h1>
                         <p className="mt-1 text-sm text-stone-500">
                             {visibleProjects.length === projects.length
-                                ? `${projects.length} 个项目 · ${sortedProjects[0] ? `最近编辑 ${formatRecentTimestamp(sortedProjects[0].updatedAt)}` : "尚无最近活动"}`
+                                ? `${projects.length} 个项目 · ${sortedProjects[0] ? `最近编辑 ${formatRelativeTime(sortedProjects[0].updatedAt)}` : "尚无最近活动"}`
                                 : `${visibleProjects.length} / ${projects.length} 个项目`}
                         </p>
                     </div>
@@ -122,9 +122,18 @@ export default function CanvasPage() {
                             提示词库
                         </Button>
                         {selectedIds.length ? (
-                            <Button disabled={!hydrated} icon={<Trash2 className="size-4" />} onClick={() => setDeleteIds(selectedIds)}>
-                                删除选中 ({selectedIds.length})
-                            </Button>
+                            <>
+                                <Button
+                                    disabled={!hydrated}
+                                    icon={<Download className="size-4" />}
+                                    onClick={() => void exportCanvasProjects(selectedProjects, `无限画布-${selectedIds.length}个项目`)}
+                                >
+                                    导出选中 ({selectedIds.length})
+                                </Button>
+                                <Button disabled={!hydrated} icon={<Trash2 className="size-4" />} onClick={() => setDeleteIds(selectedIds)}>
+                                    删除选中 ({selectedIds.length})
+                                </Button>
+                            </>
                         ) : null}
                         <Button disabled={!hydrated} icon={<FileUp className="size-4" />} onClick={() => inputRef.current?.click()}>
                             导入画布
@@ -204,17 +213,4 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
             </Button>
         </section>
     );
-}
-
-function formatRecentTimestamp(iso: string) {
-    const date = new Date(iso);
-    const diff = Date.now() - date.getTime();
-    const minute = 60_000;
-    const hour = 60 * minute;
-    const day = 24 * hour;
-    if (diff < minute) return "刚刚";
-    if (diff < hour) return `${Math.floor(diff / minute)} 分钟前`;
-    if (diff < day) return `${Math.floor(diff / hour)} 小时前`;
-    if (diff < 7 * day) return `${Math.floor(diff / day)} 天前`;
-    return date.toLocaleDateString("zh-CN", { month: "2-digit", day: "2-digit" });
 }

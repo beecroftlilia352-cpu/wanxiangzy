@@ -10,6 +10,7 @@ import {
     fetchWithAbortAndTimeout,
     getTotalPollBudgetMs,
     isAbortLikeError,
+    waitForAbortableDelay,
 } from "@/lib/poll/status-poll";
 import { POLL_FETCH_TIMEOUT_MS } from "@/lib/poll/constants";
 
@@ -179,31 +180,42 @@ export async function startImageGeneration(input: {
   // node before the long poll completes. The result promise resolves once the
   // worker reports completion (or throws on failure / budget exhaustion).
   const generationId = start.generation_id;
-  const resultPromise = pollImageGeneration(generationId, input.options);
+  const resultPromise = pollImageGeneration(generationId, genCount, input.options);
   return { generationId, resultPromise };
 }
 
-async function pollImageGeneration(generationId: string, options?: RequestOptions): Promise<CanvasImageResult[]> {
+async function pollImageGeneration(generationId: string, expectedCount: number, options?: RequestOptions): Promise<CanvasImageResult[]> {
   // Adaptive 5s → 7s → 10s → 15s schedule with hidden-tab override. Budget
   // scales with the expected number of images so a batch of 4 gets the same
   // per-image patience without blowing past the platform's cap.
-  const expectedCount = 1;
   const budgetMs = getTotalPollBudgetMs(expectedCount);
   const wait = createAdaptivePollDelay();
+  const signal = options?.signal;
   const deadline = Date.now() + budgetMs;
   let attempt = 0;
   while (true) {
-    if (options?.signal?.aborted) throw new DOMException("Aborted", "AbortError");
+    if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
     if (Date.now() >= deadline) throw new Error(IMAGE_GENERATION_BUDGET_EXHAUSTED);
     let status: GenerationStatusResponse;
     try {
-      status = await fetchGenerationStatus(generationId, options);
+      status = await fetchGenerationStatus(generationId, signal);
     } catch (error) {
       if (isAbortLikeError(error)) throw error;
+      if (isPermanentStatusError(error)) throw error;
+      // Server told us to back off for a while (e.g. 429 with Retry-After).
+      // Honour the hint, but clamp to the remaining budget so we don't
+      // overshoot the deadline.
+      if (error instanceof RetryableStatusError) {
+        const remaining = Math.max(0, deadline - Date.now());
+        if (remaining === 0) throw new Error(IMAGE_GENERATION_BUDGET_EXHAUSTED);
+        const sleepMs = Math.min(error.retryAfterMs, remaining);
+        await waitForAbortableDelay(sleepMs, signal || new AbortController().signal);
+        continue;
+      }
       // Transient network failure: keep waiting within budget. The shared
       // primitives handle per-request timeouts and the adaptive delay.
       attempt += 1;
-      await wait(attempt, options?.signal || new AbortController().signal);
+      await wait(attempt, signal || new AbortController().signal);
       continue;
     }
     const urls = collectResultUrls(status);
@@ -214,22 +226,38 @@ async function pollImageGeneration(generationId: string, options?: RequestOption
       throw new Error(status.error || "图像生成失败");
     }
     attempt += 1;
-    await wait(attempt, options?.signal || new AbortController().signal);
+    await wait(attempt, signal || new AbortController().signal);
   }
 }
 
-async function fetchGenerationStatus(generationId: string, options?: RequestOptions): Promise<GenerationStatusResponse> {
+async function fetchGenerationStatus(generationId: string, signal?: AbortSignal): Promise<GenerationStatusResponse> {
   const url = `/api/generation-status?generation_id=${encodeURIComponent(generationId)}`;
-  // Prefer the shared timeout-aware fetch when we have a parent signal so a
-  // stalled request doesn't burn the whole budget. Fall back to fetchJson for
-  // compatibility (and tests) that don't pass a signal.
-  if (options?.signal) {
-    const response = await fetchWithAbortAndTimeout(url, options.signal, POLL_FETCH_TIMEOUT_MS);
-    const payload = await readJson(response);
-    if (!response.ok) throw new Error(readErrorMessage(payload, response.statusText));
-    return payload as GenerationStatusResponse;
+  // Always run through the timeout-aware fetch — even with no parent signal
+  // — so a stalled HTTP connection can't burn the wall-clock budget. We
+  // synthesise a fresh AbortController for the request lifetime and let
+  // fetchWithAbortAndTimeout handle the per-request timeout + cleanup.
+  const controller = new AbortController();
+  const relayAbort = () => controller.abort();
+  if (signal) {
+    if (signal.aborted) controller.abort();
+    else signal.addEventListener("abort", relayAbort, { once: true });
   }
-  return fetchJson<GenerationStatusResponse>(url, { method: "GET" }, options);
+  try {
+    const response = await fetchWithAbortAndTimeout(url, controller.signal, POLL_FETCH_TIMEOUT_MS);
+    const retryAfterMs = parseRetryAfterHeader(response);
+    const payload = await readJson(response);
+    if (!response.ok) {
+      // 429 with a server-supplied Retry-After → throw a typed error the
+      // poll loop knows to honour by waiting that long before retrying.
+      if (response.status === 429 && retryAfterMs !== null) {
+        throw new RetryableStatusError(`status 429`, retryAfterMs);
+      }
+      throw new PermanentStatusError(`status ${response.status}: ${readErrorMessage(payload, response.statusText)}`);
+    }
+    return payload as GenerationStatusResponse;
+  } finally {
+    if (signal) signal.removeEventListener("abort", relayAbort);
+  }
 }
 
 async function requestCanvasText(input: {
@@ -342,4 +370,54 @@ function withSystemMessage<T extends ResponseInputMessage>(config: AiConfig, mes
 
 function assertNotAborted(signal?: AbortSignal) {
   if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
+}
+
+/**
+ * Thrown when the server returns a 4xx/5xx that won't recover by retrying
+ * (e.g. 401 unauthorized, 404 unknown generation_id). The poll loop surfaces
+ * it as a hard failure instead of looping until the wall-clock budget burns.
+ */
+export class PermanentStatusError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "PermanentStatusError";
+  }
+}
+
+/**
+ * Thrown when the server returns a transient failure with a Retry-After
+ * hint (currently only 429). The poll loop reads `.retryAfterMs` and sleeps
+ * that long before the next attempt instead of treating it as fatal.
+ */
+export class RetryableStatusError extends Error {
+  readonly retryAfterMs: number;
+  constructor(message: string, retryAfterMs: number) {
+    super(message);
+    this.name = "RetryableStatusError";
+    this.retryAfterMs = retryAfterMs;
+  }
+}
+
+function isPermanentStatusError(error: unknown): error is PermanentStatusError {
+  return error instanceof PermanentStatusError;
+}
+
+/**
+ * Parse the standard `Retry-After` HTTP header into milliseconds. Accepts
+ * both the delta-seconds form and the HTTP-date form; returns null when the
+ * header is missing or malformed so the caller can fall back to its default
+ * backoff.
+ */
+function parseRetryAfterHeader(response: Response): number | null {
+  const header = response.headers.get("Retry-After");
+  if (!header) return null;
+  const trimmed = header.trim();
+  if (!trimmed) return null;
+  // Delta-seconds form: positive integer → ms.
+  const seconds = Number(trimmed);
+  if (Number.isFinite(seconds) && seconds >= 0) return Math.round(seconds * 1000);
+  // HTTP-date form: parse and convert to a delta from now.
+  const dateMs = Date.parse(trimmed);
+  if (Number.isFinite(dateMs)) return Math.max(0, dateMs - Date.now());
+  return null;
 }

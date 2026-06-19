@@ -3310,7 +3310,6 @@ async function rehydrateInterruptedGenerations(
     },
 ) {
     const { abort, watchers, patchNode, message } = options;
-    const now = Date.now();
     const pending: CanvasNodeData[] = [];
     const next: CanvasNodeData[] = nodes.map((node) => {
         if (node.metadata?.status !== "loading") return node;
@@ -3326,8 +3325,11 @@ async function rehydrateInterruptedGenerations(
     if (!pending.length) return next;
 
     const wait = createAdaptivePollDelay();
-    const budgetMs = getTotalPollBudgetMs(pending.length);
-    const deadline = now + budgetMs;
+    // Give every in-flight node its own wall-clock budget so a slow first
+    // watcher can't burn the deadline for the rest. We use the shared
+    // `getTotalPollBudgetMs(1)` as the per-node budget — same per-image
+    // patience a live poll gets, no shared exhaustion race.
+    const perNodeBudgetMs = getTotalPollBudgetMs(1);
 
     pending.forEach((node) => {
         const controller = new AbortController();
@@ -3346,6 +3348,7 @@ async function rehydrateInterruptedGenerations(
         const generationId = node.metadata?.generationId;
         if (!generationId) return;
         const startedAt = Date.now();
+        const deadline = startedAt + perNodeBudgetMs;
         let attempt = 0;
         while (Date.now() < deadline) {
             if (signal.aborted) return;
@@ -3417,7 +3420,16 @@ async function rehydrateInterruptedGenerations(
         try {
             const first = urls[0];
             const uploaded = first.startsWith("data:") ? await uploadImage(first) : await rehydrateImageFromStorageUrl(first);
-            patchNode(node.id, { status: NODE_STATUS_SUCCESS, ...imageMetadata(uploaded), errorDetails: undefined });
+            // Clear stale partial-progress metadata that was set by the prior
+            // generation flow before the refresh. Without this the node would
+            // render as "success + 42% progress" after reconciliation.
+            patchNode(node.id, {
+                status: NODE_STATUS_SUCCESS,
+                ...imageMetadata(uploaded),
+                errorDetails: undefined,
+                progress: undefined,
+                partialResultUrls: undefined,
+            });
         } catch (error) {
             patchNode(node.id, { status: NODE_STATUS_ERROR, errorDetails: error instanceof Error ? error.message : "生成结果恢复失败" });
         }

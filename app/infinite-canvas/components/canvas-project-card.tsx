@@ -47,7 +47,15 @@ export function CanvasProjectCard({ project }: { project: CanvasProject }) {
         >
             <div className="relative">
                 <CanvasThumbnail storageKey={project.coverStorageKey} title={project.title} rounded="rounded-none" />
-                <div className="absolute left-2 top-2 flex items-center gap-1.5 opacity-0 transition group-hover:opacity-100">
+                <div
+                    className={cn(
+                        // Reveal on hover (desktop), on focus-within
+                        // (keyboard), and always while selected so touch
+                        // users can still find the checkbox / star.
+                        "absolute left-2 top-2 flex items-center gap-1.5 transition",
+                        selected ? "opacity-100" : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-within:opacity-100",
+                    )}
+                >
                     <input
                         type="checkbox"
                         checked={selected}
@@ -72,7 +80,12 @@ export function CanvasProjectCard({ project }: { project: CanvasProject }) {
                         <Star className={cn("size-3.5", project.starred && "fill-current")} />
                     </button>
                 </div>
-                <div className="absolute right-2 top-2 opacity-0 transition group-hover:opacity-100">
+                <div
+                    className={cn(
+                        "absolute right-2 top-2 transition",
+                        "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-within:opacity-100",
+                    )}
+                >
                     <Dropdown
                         trigger={["click"]}
                         menu={{

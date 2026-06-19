@@ -21,7 +21,7 @@ import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGenerati
 import { ResultImageGrid } from "@/components/ResultImageGrid";
 import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
 import { setCachedProfileCredits } from "@/lib/supabase/client";
-import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
+import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, isLikelyImageFile, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
 import { fetchHistoryApplyDetail, getHistoryApplyFailureMessage, isHistoryApplyRowFailed, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
 import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
@@ -278,19 +278,36 @@ export default function ModelPage() {
   }, [aiModel, aspectRatio, imageSize]);
 
   function applyModelHistoryPayload(payload: ModelHistoryPayload, historyResultUrls: string[] = [], options?: { silent?: boolean }) {
+    const normalizedStyle = normalizeModelShootStyle(payload.modelStyle);
     setReferenceUrls(payload.referenceUrls);
     setHairReferenceUrl(payload.hairReferenceUrl || null);
     setHairColorReferenceUrl(payload.hairColorReferenceUrl || null);
     setGender(payload.gender || "female");
-    setModelStyle(normalizeModelShootStyle(payload.modelStyle));
+    setModelStyle(normalizedStyle);
     setHairStyle(payload.hairStyle || null);
     setHairColor(payload.hairColor || null);
     setAiModel(payload.aiModel);
     setAspectRatio(payload.aspectRatio);
     setImageSize(payload.imageSize);
     setGenCount(payload.genCount);
-    setPromptTouched(true);
-    setPrompt(payload.prompt);
+    // Rebuild the default prompt from the freshly-restored inputs rather
+    // than sending the historical (already-styled) prompt raw. The
+    // server's `applyModelShootStylePrompt` only replaces the marker
+    // line — the rest of the historical style's descriptive text would
+    // otherwise leak into `fragments.userIntent` when the user changes
+    // `modelStyle` after applying history.
+    setPromptTouched(false);
+    setPrompt(
+      buildDefaultPrompt(
+        payload.referenceUrls.length || 1,
+        payload.gender || "female",
+        payload.hairStyle || null,
+        payload.hairColor || null,
+        !!payload.hairReferenceUrl,
+        !!payload.hairColorReferenceUrl,
+        normalizedStyle,
+      ),
+    );
     setRunningExpectedCount(null);
     setResultUrls(historyResultUrls);
     setIsGenerating(false);
@@ -306,19 +323,32 @@ export default function ModelPage() {
     const payload = detail?.payload;
     if (cancelled || !payload) return;
 
+    const normalizedStyle = normalizeModelShootStyle(payload.modelStyle);
     setReferenceUrls(payload.referenceUrls);
     setHairReferenceUrl(payload.hairReferenceUrl || null);
     setHairColorReferenceUrl(payload.hairColorReferenceUrl || null);
     setGender(payload.gender || "female");
-    setModelStyle(normalizeModelShootStyle(payload.modelStyle));
+    setModelStyle(normalizedStyle);
     setHairStyle(payload.hairStyle || null);
     setHairColor(payload.hairColor || null);
     setAiModel(payload.aiModel);
     setAspectRatio(payload.aspectRatio);
     setImageSize(payload.imageSize);
     setGenCount(payload.genCount);
-    setPromptTouched(true);
-    setPrompt(payload.prompt);
+    // See applyModelHistoryPayload — rebuild from the restored inputs
+    // so historical style prose doesn't leak into a future re-run.
+    setPromptTouched(false);
+    setPrompt(
+      buildDefaultPrompt(
+        payload.referenceUrls.length || 1,
+        payload.gender || "female",
+        payload.hairStyle || null,
+        payload.hairColor || null,
+        !!payload.hairReferenceUrl,
+        !!payload.hairColorReferenceUrl,
+        normalizedStyle,
+      ),
+    );
     setRunningExpectedCount(null);
     setResultUrls(detail?.resultUrls || []);
     setIsGenerating(false);
@@ -339,22 +369,49 @@ export default function ModelPage() {
       return;
     }
 
+    // Pre-validate every file before kicking off uploads so we surface
+    // every error in one toast instead of partially-uploading and then
+    // complaining about the rest. Bounds come from MODEL_UPLOAD_RULE so
+    // the displayed "20KB-15MB" range and the actual enforcement stay in
+    // sync.
+    const accepted: File[] = [];
+    for (const file of incoming) {
+      if (!isLikelyImageFile(file)) {
+        toast.error(`${file.name} 不是图片文件，已跳过`);
+        continue;
+      }
+      if (file.size < MODEL_UPLOAD_RULE.minFileSize) {
+        toast.error(`${file.name} 小于 ${MODEL_UPLOAD_RULE.minFileSize / 1024}KB，已跳过`);
+        continue;
+      }
+      if (file.size > MODEL_UPLOAD_RULE.maxFileSize) {
+        toast.error(`${file.name} 超过 ${MAX_FILE_SIZE_MB}MB`);
+        continue;
+      }
+      accepted.push(file);
+    }
+    if (!accepted.length) return;
+
     setIsUploadingReference(true);
-    toast.info(`正在上传 ${incoming.length} 张参考图...`);
-    const next: string[] = [];
+    toast.info(`正在上传 ${accepted.length} 张参考图...`);
     try {
-      for (const file of incoming) {
-        if (!file.type.startsWith("image/")) continue;
-        if (file.size > MAX_FILE_SIZE) {
-          toast.error(`${file.name} 超过 ${MAX_FILE_SIZE_MB}MB`);
-          continue;
-        }
-        try {
-          const result = await uploadImage(file);
-          next.push(result.url);
-        } catch {
-          toast.error(`${file.name} 上传失败，请重试`);
-        }
+      // Upload in parallel — each file's network round-trip runs
+      // concurrently, cutting wall-clock time from N*RTT to ~RTT for
+      // the common case of a multi-file drop.
+      const results = await Promise.all(
+        accepted.map(async (file) => {
+          try {
+            const result = await uploadImage(file);
+            return { ok: true as const, name: file.name, url: result.url };
+          } catch {
+            return { ok: false as const, name: file.name };
+          }
+        }),
+      );
+      const next: string[] = [];
+      for (const r of results) {
+        if (r.ok) next.push(r.url);
+        else toast.error(`${r.name} 上传失败，请重试`);
       }
       if (next.length) {
         setReferenceUrls((prev) => [...prev, ...next].slice(0, 3));
@@ -377,55 +434,62 @@ export default function ModelPage() {
     }
   }
 
-  async function uploadHairReference(files?: FileList | File[]) {
+  async function uploadHairVariant(files: FileList | File[] | undefined, options: {
+    label: string; // "发型" | "发色" — used in toasts
+    setUrl: (url: string | null) => void;
+    clearSelection: () => void;
+  }) {
     const file = files?.[0];
     if (!file) return;
-    if (!file.type.startsWith("image/")) {
+    if (!isLikelyImageFile(file)) {
       toast.error("请上传图片文件");
       return;
     }
-    if (file.size > MAX_FILE_SIZE) {
+    if (file.size < MODEL_UPLOAD_RULE.minFileSize) {
+      toast.error(`${file.name} 小于 ${MODEL_UPLOAD_RULE.minFileSize / 1024}KB，已跳过`);
+      return;
+    }
+    if (file.size > MODEL_UPLOAD_RULE.maxFileSize) {
       toast.error(`${file.name} 超过 ${MAX_FILE_SIZE_MB}MB`);
       return;
     }
-    setHairStyle(null);
+    options.clearSelection();
 
-    toast.info("正在上传发型参考图...");
+    toast.info(`正在上传${options.label}参考图...`);
     try {
       const result = await uploadImage(file);
-      setHairReferenceUrl(result.url);
-      toast.success("已上传发型参考图");
+      options.setUrl(result.url);
+      toast.success(`已上传${options.label}参考图`);
     } catch {
-      setHairReferenceUrl(null);
-      toast.error("发型参考图上传失败，请重试");
+      options.setUrl(null);
+      toast.error(`${options.label}参考图上传失败，请重试`);
     }
   }
 
-  async function uploadHairColorReference(files?: FileList | File[]) {
-    const file = files?.[0];
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      toast.error("请上传图片文件");
-      return;
-    }
-    if (file.size > MAX_FILE_SIZE) {
-      toast.error(`${file.name} 超过 ${MAX_FILE_SIZE_MB}MB`);
-      return;
-    }
-    setHairColor(null);
+  function uploadHairReference(files?: FileList | File[]) {
+    return uploadHairVariant(files, {
+      label: "发型",
+      setUrl: setHairReferenceUrl,
+      clearSelection: () => setHairStyle(null),
+    });
+  }
 
-    toast.info("正在上传发色参考图...");
-    try {
-      const result = await uploadImage(file);
-      setHairColorReferenceUrl(result.url);
-      toast.success("已上传发色参考图");
-    } catch {
-      setHairColorReferenceUrl(null);
-      toast.error("发色参考图上传失败，请重试");
-    }
+  function uploadHairColorReference(files?: FileList | File[]) {
+    return uploadHairVariant(files, {
+      label: "发色",
+      setUrl: setHairColorReferenceUrl,
+      clearSelection: () => setHairColor(null),
+    });
   }
 
   async function generate(promptForRun?: string, options: ModelGenerateOptions = {}) {
+    // Concurrent submit guard: a rapid second click (or retry fired
+    // while a previous run is still polling) would otherwise post twice
+    // and double-charge credits. The button is also `disabled` while
+    // `isGenerating`, but that only protects keyboard / screen-reader
+    // paths — direct re-entry from hot-reload or programmatic callers
+    // needs the in-function guard.
+    if (isGenerating) return;
     if (!isAuthenticated && !(await refreshAuth())) {
       toast.error("请先登录");
       router.push("/login");
@@ -513,23 +577,55 @@ export default function ModelPage() {
         if (userId) setCachedProfileCredits(userId, data.credits_remaining);
       }
       setProgress(25);
-      if (typeof data.generation_id === "string" && data.generation_id) {
-        const serverTask = taskQueue.replaceWithServerTask(activeTaskId, {
-          id: data.generation_id,
-          expectedCount: displayExpectedCount,
-          inputThumbnails: taskInputThumbnails,
-          status: data.status || "processing_tryon",
-          progress: 25,
-        });
-        activeTaskId = serverTask.id;
+      if (typeof data.generation_id !== "string" || !data.generation_id) {
+        // Server returned 200 without a generation id (partial deploy,
+        // upstream outage short-circuited into JSON, etc.). Without this
+        // guard the polling loop would happily call
+        // `/api/model?generation_id=undefined` for the full 120-attempt
+        // budget and surface a misleading '生成超时'.
+        throw new Error("生成服务未返回任务标识，请稍后重试");
       }
+      const generationId = data.generation_id;
+      const serverTask = taskQueue.replaceWithServerTask(activeTaskId, {
+        id: generationId,
+        expectedCount: displayExpectedCount,
+        inputThumbnails: taskInputThumbnails,
+        status: data.status || "processing_tryon",
+        progress: 25,
+      });
+      activeTaskId = serverTask.id;
 
       let attempts = 0;
+      // Track consecutive 5xx failures so a persistent server outage
+      // surfaces immediately instead of burning the full 4-minute budget.
+      // 4xx responses (e.g. invalid id, bad auth) are non-recoverable and
+      // bail out on the first occurrence with an actionable error.
+      let consecutiveServerErrors = 0;
+      const MAX_CONSECUTIVE_SERVER_ERRORS = 5;
       while (attempts < 120) {
         await new Promise((r) => setTimeout(r, 2000));
         attempts++;
-        const poll = await fetch(`/api/model?generation_id=${data.generation_id}`);
-        if (!poll.ok) continue;
+        const poll = await fetch(`/api/model?generation_id=${encodeURIComponent(generationId)}`);
+        if (!poll.ok) {
+          if (poll.status >= 400 && poll.status < 500) {
+            // Non-recoverable client error (missing/invalid id, auth,
+            // rate limit). Bail immediately with the server's message.
+            let message = `生成服务返回 ${poll.status}`;
+            try {
+              const errBody = await poll.json();
+              if (errBody && typeof errBody.error === "string") message = errBody.error;
+            } catch {
+              // ignore JSON parse error
+            }
+            throw new Error(message);
+          }
+          consecutiveServerErrors += 1;
+          if (consecutiveServerErrors >= MAX_CONSECUTIVE_SERVER_ERRORS) {
+            throw new Error("生成服务暂时不可用，请稍后重试");
+          }
+          continue;
+        }
+        consecutiveServerErrors = 0;
         const state = await poll.json();
         if (state.status === "processing_tryon" || state.status === "processing" || state.status === "pending") {
           if (Array.isArray(state.result_urls) && state.result_urls.length) {

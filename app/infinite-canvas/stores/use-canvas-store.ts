@@ -4,7 +4,7 @@ import { persist, type PersistStorage, type StorageValue } from "zustand/middlew
 import { nanoid } from "nanoid";
 import { localForageStorage } from "@/lib/localforage-storage";
 import type { CanvasBackgroundMode } from "@/lib/canvas-theme";
-import type { CanvasAssistantSession, CanvasConnection, CanvasNodeData, ViewportTransform } from "../types";
+import { CanvasNodeType, type CanvasAssistantSession, type CanvasConnection, type CanvasNodeData, type ViewportTransform } from "../types";
 
 export type CanvasProject = {
     id: string;
@@ -44,6 +44,23 @@ const CANVAS_STORE_KEY = "infinite-canvas:canvas_store";
 type PersistedCanvasState = Pick<CanvasStore, "projects">;
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 let queuedPersistState: PersistedCanvasState | null = null;
+
+/**
+ * Derive the project's cover thumbnail from its first image node. Used by
+ * every store action that mutates nodes so the cover stays in sync without a
+ * separate migration. Returns null when no image node has a renderable URL.
+ */
+function deriveCoverStorageKey(nodes: CanvasNodeData[] | undefined): string | null {
+    if (!nodes) return null;
+    for (const node of nodes) {
+        if (node.type !== CanvasNodeType.Image) continue;
+        const storageKey = node.metadata?.storageKey;
+        if (storageKey) return storageKey;
+        const content = node.metadata?.content;
+        if (content) return null; // data URL — keep placeholder until first storage write
+    }
+    return null;
+}
 
 const canvasStorage: PersistStorage<CanvasStore> = {
     getItem: async (name) => {
@@ -92,18 +109,20 @@ export const useCanvasStore = create<CanvasStore>()(
             },
             importProject: (source) => {
                 const now = new Date().toISOString();
+                const nodes = source.nodes || [];
                 const project: CanvasProject = {
                     id: nanoid(),
                     title: source.title || "导入画布",
                     createdAt: source.createdAt || now,
                     updatedAt: now,
-                    nodes: source.nodes || [],
+                    nodes,
                     connections: source.connections || [],
                     chatSessions: source.chatSessions || [],
                     activeChatId: source.activeChatId || null,
                     backgroundMode: source.backgroundMode || "lines",
                     showImageInfo: source.showImageInfo || false,
                     viewport: source.viewport || initialViewport,
+                    coverStorageKey: deriveCoverStorageKey(nodes) ?? source.coverStorageKey ?? null,
                 };
                 set((state) => ({ projects: [project, ...state.projects] }));
                 return project.id;
@@ -120,10 +139,27 @@ export const useCanvasStore = create<CanvasStore>()(
                     const projects = state.projects.filter((project) => !ids.includes(project.id));
                     return { projects };
                 }),
-            replaceProjects: (projects) => set({ projects }),
+            replaceProjects: (projects) =>
+                set({
+                    projects: projects.map((project) => ({
+                        ...project,
+                        coverStorageKey: project.coverStorageKey ?? deriveCoverStorageKey(project.nodes),
+                    })),
+                }),
             updateProject: (id, patch) =>
                 set((state) => ({
-                    projects: state.projects.map((project) => (project.id === id ? { ...project, ...patch, updatedAt: new Date().toISOString() } : project)),
+                    projects: state.projects.map((project) => {
+                        if (project.id !== id) return project;
+                        const next = { ...project, ...patch, updatedAt: new Date().toISOString() };
+                        // Re-derive the cover thumbnail whenever the patch
+                        // touches `nodes` so existing projects catch up to
+                        // any image node that has been hydrated since the
+                        // last save.
+                        if (patch.nodes) {
+                            next.coverStorageKey = patch.coverStorageKey ?? deriveCoverStorageKey(patch.nodes);
+                        }
+                        return next;
+                    }),
                 })),
             toggleProjectStarred: (id) =>
                 set((state) => ({
@@ -137,7 +173,18 @@ export const useCanvasStore = create<CanvasStore>()(
                 ({
                     projects: state.projects,
                 }) as StorageValue<CanvasStore>["state"],
-            onRehydrateStorage: () => () => {
+            onRehydrateStorage: () => (state) => {
+                // Backfill the cover thumbnail for projects stored before the
+                // `coverStorageKey` field shipped — existing data still has
+                // the image nodes, just without the cached cover pointer.
+                if (state) {
+                    const backfilled = state.projects.map((project) =>
+                        project.coverStorageKey ? project : { ...project, coverStorageKey: deriveCoverStorageKey(project.nodes) },
+                    );
+                    if (backfilled.some((project, index) => project !== state.projects[index])) {
+                        useCanvasStore.setState({ projects: backfilled });
+                    }
+                }
                 useCanvasStore.setState({ hydrated: true });
             },
         },
