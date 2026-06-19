@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import copyToClipboard from "copy-to-clipboard";
 import { Bot, Copy, Cpu, History, PanelRightClose, Plus, Settings2, Trash2, X } from "lucide-react";
 import { Button, Modal, Segmented, Switch, Tooltip } from "antd";
@@ -26,7 +26,7 @@ import { useThemeStore } from "@/stores/use-theme-store";
 import { useUserStore } from "@/stores/use-user-store";
 import { imageReferenceLabel } from "@/lib/image-reference-prompt";
 import { DiaTextReveal } from "@/components/ui/dia-text-reveal";
-import { Select, SelectContent, SelectItem, SelectLabel, SelectTrigger } from "@/components/ui/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger } from "@/components/ui/select";
 import { CanvasPromptLibrary } from "./canvas-prompt-library";
 import { AgentChatComposer, AgentChatMessage, AgentModeSwitch, AgentPanelTabs, AgentWorkingMessage, type CanvasAgentChatMessage, type CanvasAgentMode } from "./canvas-agent-chat-ui";
 import { CanvasLocalAgentPanel } from "./canvas-local-agent-panel";
@@ -699,7 +699,7 @@ function AgentTextModelPicker({ config, value, onChange }: { config: AiConfig; v
             <SelectContent data-canvas-no-zoom className="z-[1200] w-80 max-w-[calc(100vw-24px)]" position="popper" align="start" side="bottom" sideOffset={6} onPointerDown={(event) => event.stopPropagation()} onMouseDown={(event) => event.stopPropagation()}>
                 {groups.length ? (
                     groups.map((group) => (
-                        <React.Fragment key={group.channelId}>
+                        <SelectGroup key={group.channelId}>
                             <SelectLabel className="px-2 pb-1 pt-2 text-[10px] font-medium uppercase tracking-wide text-stone-500 dark:text-stone-400">
                                 {group.channelName}
                             </SelectLabel>
@@ -711,7 +711,7 @@ function AgentTextModelPicker({ config, value, onChange }: { config: AiConfig; v
                                     </span>
                                 </SelectItem>
                             ))}
-                        </React.Fragment>
+                        </SelectGroup>
                     ))
                 ) : (
                     <SelectItem value="__empty_text_model__" disabled>
