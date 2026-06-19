@@ -23,7 +23,7 @@ import { cropDataUrl, splitDataUrl, upscaleDataUrl } from "../utils/canvas-image
 import { fitNodeSize, nodeSizeFromRatio } from "../utils/canvas-node-size";
 import { App, Button, Dropdown, Modal } from "antd";
 import { NODE_DEFAULT_SIZE, getNodeSpec } from "../constants";
-import { ConnectionPath } from "../components/canvas-connections";
+import { ActiveConnectionPath, ConnectionPath } from "../components/canvas-connections";
 import { CanvasConfigComposer } from "../components/canvas-config-composer";
 import { CanvasConfigNodePanel } from "../components/canvas-config-node-panel";
 import { CANVAS_AGENT_PANEL_MOTION_MS, CanvasAssistantPanel } from "../components/canvas-assistant-panel";
@@ -307,6 +307,7 @@ function InfiniteCanvasPage() {
     const [collapsingBatchIds, setCollapsingBatchIds] = useState<Set<string>>(new Set());
     const [openingBatchIds, setOpeningBatchIds] = useState<Set<string>>(new Set());
     const [isNodeDragging, setIsNodeDragging] = useState(false);
+    const [mouseWorld, setMouseWorld] = useState<Position>({ x: 0, y: 0 });
 
     const nodesRef = useRef(nodes);
     const connectionsRef = useRef(connections);
@@ -317,10 +318,6 @@ function InfiniteCanvasPage() {
     const connectingParamsRef = useRef(connectingParams);
     const connectionTargetNodeIdRef = useRef(connectionTargetNodeId);
     const selectionBoxRef = useRef(selectionBox);
-    const activeConnectionPathRef = useRef<SVGPathElement | null>(null);
-    const activeConnectionFrameRef = useRef<number | null>(null);
-    const activeConnectionPointerRef = useRef<{ clientX: number; clientY: number } | null>(null);
-    const activeConnectionLastHitTestRef = useRef(0);
     const configInputsByIdRef = useRef<Map<string, NodeGenerationInput[]>>(new Map());
     const canvasResourceReferencesRef = useRef<ReturnType<typeof buildCanvasResourceReferences>>([]);
     const mentionReferencesByNodeIdRef = useRef<Map<string, ReturnType<typeof buildNodeMentionReferences>>>(new Map());
@@ -531,14 +528,6 @@ function InfiniteCanvasPage() {
         };
     }, []);
 
-    const canvasToScreenLocal = useCallback((point: Position) => {
-        const currentViewport = viewportRef.current;
-        return {
-            x: point.x * currentViewport.k + currentViewport.x,
-            y: point.y * currentViewport.k + currentViewport.y,
-        };
-    }, []);
-
     const getCanvasCenter = useCallback(() => {
         const rect = containerRef.current?.getBoundingClientRect();
         return screenToCanvas((rect?.left || 0) + (rect?.width || size.width) / 2, (rect?.top || 0) + (rect?.height || size.height) / 2);
@@ -589,84 +578,8 @@ function InfiniteCanvasPage() {
         if (!next) {
             connectionTargetNodeIdRef.current = null;
             setConnectionTargetNodeId(null);
-            activeConnectionPointerRef.current = null;
-            activeConnectionLastHitTestRef.current = 0;
-            activeConnectionPathRef.current?.removeAttribute("d");
         }
     }, []);
-
-    const buildActiveConnectionScreenPath = useCallback(
-        (connection: ConnectionHandle, clientX: number, clientY: number, targetNodeId?: string | null) => {
-            const node = nodesRef.current.find((item) => item.id === connection.nodeId);
-            if (!node) return null;
-
-            const mouse = screenToCanvas(clientX, clientY);
-            const target = targetNodeId ? nodesRef.current.find((item) => item.id === targetNodeId) : undefined;
-            const startX = connection.handleType === "source" ? node.position.x + node.width : mouse.x;
-            const startY = connection.handleType === "source" ? node.position.y + node.height / 2 : mouse.y;
-            const endX = connection.handleType === "source" ? mouse.x : node.position.x;
-            const endY = connection.handleType === "source" ? mouse.y : node.position.y + node.height / 2;
-            const snappedStartX = connection.handleType === "target" && target ? target.position.x + target.width : startX;
-            const snappedStartY = connection.handleType === "target" && target ? target.position.y + target.height / 2 : startY;
-            const snappedEndX = connection.handleType === "source" && target ? target.position.x : endX;
-            const snappedEndY = connection.handleType === "source" && target ? target.position.y + target.height / 2 : endY;
-            const start = canvasToScreenLocal({ x: snappedStartX, y: snappedStartY });
-            const end = canvasToScreenLocal({ x: snappedEndX, y: snappedEndY });
-            const distance = Math.abs(end.x - start.x);
-
-            return `M ${start.x} ${start.y} C ${start.x + distance * 0.5} ${start.y}, ${end.x - distance * 0.5} ${end.y}, ${end.x} ${end.y}`;
-        },
-        [canvasToScreenLocal, screenToCanvas],
-    );
-
-    const updateActiveConnectionPath = useCallback(
-        (clientX: number, clientY: number) => {
-            activeConnectionPointerRef.current = { clientX, clientY };
-            if (activeConnectionFrameRef.current) return;
-
-            activeConnectionFrameRef.current = requestAnimationFrame(() => {
-                activeConnectionFrameRef.current = null;
-                const path = activeConnectionPathRef.current;
-                const connection = connectingParamsRef.current;
-                const pointer = activeConnectionPointerRef.current;
-                if (!path || !connection || !pointer) return;
-
-                const drawPath = (targetNodeId: string | null) => {
-                    const nextPath = buildActiveConnectionScreenPath(connection, pointer.clientX, pointer.clientY, targetNodeId);
-                    if (nextPath) path.setAttribute("d", nextPath);
-                };
-
-                drawPath(connectionTargetNodeIdRef.current);
-
-                if (!pendingConnectionCreateRef.current) {
-                    const now = performance.now();
-                    if (now - activeConnectionLastHitTestRef.current >= 32) {
-                        activeConnectionLastHitTestRef.current = now;
-                        const dropTarget = getConnectionDropTarget(pointer.clientX, pointer.clientY, connection);
-                        if (connectionTargetNodeIdRef.current !== dropTarget.nodeId) {
-                            connectionTargetNodeIdRef.current = dropTarget.nodeId;
-                            setConnectionTargetNodeId(dropTarget.nodeId);
-                            drawPath(dropTarget.nodeId);
-                        }
-                    }
-                }
-            });
-        },
-        [buildActiveConnectionScreenPath, getConnectionDropTarget],
-    );
-
-    useEffect(
-        () => () => {
-            if (activeConnectionFrameRef.current) cancelAnimationFrame(activeConnectionFrameRef.current);
-        },
-        [],
-    );
-
-    useEffect(() => {
-        if (!connectingParams) return;
-        const pointer = activeConnectionPointerRef.current;
-        if (pointer) updateActiveConnectionPath(pointer.clientX, pointer.clientY);
-    }, [connectingParams, updateActiveConnectionPath, viewport]);
 
     const keepNodeToolbar = useCallback(
         (nodeId: string) => {
@@ -1274,10 +1187,15 @@ function InfiniteCanvasPage() {
             }
 
             if (connectingParamsRef.current && !pendingConnectionCreateRef.current) {
-                updateActiveConnectionPath(event.clientX, event.clientY);
+                const dropTarget = getConnectionDropTarget(event.clientX, event.clientY, connectingParamsRef.current);
+                if (connectionTargetNodeIdRef.current !== dropTarget.nodeId) {
+                    connectionTargetNodeIdRef.current = dropTarget.nodeId;
+                    setConnectionTargetNodeId(dropTarget.nodeId);
+                }
+                setMouseWorld(screenToCanvas(event.clientX, event.clientY));
             }
         },
-        [finishNodeDrag, updateActiveConnectionPath],
+        [finishNodeDrag, getConnectionDropTarget, screenToCanvas],
     );
 
     const handleGlobalPointerMove = useCallback(
@@ -1532,7 +1450,6 @@ function InfiniteCanvasPage() {
     const handleConnectStart = useCallback(
         (event: ReactMouseEvent, nodeId: string, handleType: "source" | "target") => {
             event.stopPropagation();
-            activeConnectionPointerRef.current = { clientX: event.clientX, clientY: event.clientY };
             setConnecting({ nodeId, handleType });
             connectionTargetNodeIdRef.current = null;
             setConnectionTargetNodeId(null);
@@ -2621,55 +2538,45 @@ function InfiniteCanvasPage() {
                     onCanvasDeselect={deselectCanvas}
                     onContextMenu={preventCanvasContextMenu}
                     onDrop={handleDrop}
-                    screenOverlay={
-                        <svg
-                            data-canvas-connections="true"
-                            className="canvas-connections pointer-events-none absolute inset-0 h-full w-full overflow-visible"
-                            style={{ contain: "layout paint style", maxWidth: "none", transform: "translateZ(0)", willChange: isNodeDragging ? "contents" : undefined }}
-                        >
-                            {visibleConnections.map((connection) => {
-                                const from = nodeById.get(connection.fromNodeId);
-                                const to = nodeById.get(connection.toNodeId);
-                                if (!from || !to) return null;
-
-                                return (
-                                    <ConnectionPath
-                                        key={connection.id}
-                                        connection={connection}
-                                        from={from}
-                                        to={to}
-                                        viewport={viewport}
-                                        active={selectedConnectionId === connection.id || relatedHighlight.connectionIds.has(connection.id)}
-                                        onSelect={() => {
-                                            setSelectedConnectionId(connection.id);
-                                            setSelectedNodeIds(new Set());
-                                            setContextMenu(null);
-                                        }}
-                                        onContextMenu={(event) => {
-                                            setSelectedConnectionId(connection.id);
-                                            setSelectedNodeIds(new Set());
-                                            setContextMenu({ type: "connection", x: event.clientX, y: event.clientY, connectionId: connection.id });
-                                        }}
-                                    />
-                                );
-                            })}
-                            {connectingParams ? (
-                                <path
-                                    data-canvas-active-connection="true"
-                                    ref={activeConnectionPathRef}
-                                    stroke={theme.node.activeStroke}
-                                    strokeWidth="3"
-                                    strokeOpacity="0.92"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    fill="none"
-                                    strokeDasharray="6 10"
-                                    style={{ filter: `drop-shadow(0 0 5px ${theme.node.activeStroke}55)` }}
-                                />
-                            ) : null}
-                        </svg>
-                    }
                 >
+                    <svg
+                        className="absolute left-0 top-0 h-[10000px] w-[10000px] overflow-visible"
+                        style={{ pointerEvents: "none", transform: "translateZ(0)", zIndex: 0 }}
+                    >
+                        {visibleConnections.map((connection) => {
+                            const from = nodeById.get(connection.fromNodeId);
+                            const to = nodeById.get(connection.toNodeId);
+                            if (!from || !to) return null;
+
+                            return (
+                                <ConnectionPath
+                                    key={connection.id}
+                                    connection={connection}
+                                    from={from}
+                                    to={to}
+                                    active={selectedConnectionId === connection.id || relatedHighlight.connectionIds.has(connection.id)}
+                                    onSelect={() => {
+                                        setSelectedConnectionId(connection.id);
+                                        setSelectedNodeIds(new Set());
+                                        setContextMenu(null);
+                                    }}
+                                    onContextMenu={(event) => {
+                                        setSelectedConnectionId(connection.id);
+                                        setSelectedNodeIds(new Set());
+                                        setContextMenu({ type: "connection", x: event.clientX, y: event.clientY, connectionId: connection.id });
+                                    }}
+                                />
+                            );
+                        })}
+                        {connectingParams ? (
+                            <ActiveConnectionPath
+                                node={nodeById.get(connectingParams.nodeId)}
+                                handle={connectingParams}
+                                mouseWorld={mouseWorld}
+                                target={connectionTargetNodeId ? nodeById.get(connectionTargetNodeId) : undefined}
+                            />
+                        ) : null}
+                    </svg>
                     {visibleNodes.map((node) => (
                         <CanvasNode
                             key={node.id}
