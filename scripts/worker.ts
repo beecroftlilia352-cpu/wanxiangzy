@@ -55,6 +55,7 @@ type LoopStats = {
   succeeded: number;
   failed: number;
   consecutiveErrors: number;
+  consecutiveEmptyPolls: number;
   lastHourBatches: { batches: number; claimed: number; succeeded: number; failed: number; sinceMs: number };
   startedAtMs: number;
 };
@@ -191,6 +192,7 @@ export async function runLoop(
     succeeded: 0,
     failed: 0,
     consecutiveErrors: 0,
+    consecutiveEmptyPolls: 0,
     lastHourBatches: { batches: 0, claimed: 0, succeeded: 0, failed: 0, sinceMs: clock.now() },
     startedAtMs: clock.now(),
   };
@@ -202,6 +204,7 @@ export async function runLoop(
   emit("loop.started", {
     batchSize: config.batchSize,
     pollIntervalMs: config.pollIntervalMs,
+    idleBackoffMaxMs: config.idleBackoffMaxMs,
     staleMinutes: config.staleMinutes,
     heartbeatIntervalMs: config.heartbeatIntervalMs,
     maxInFlightTimeoutMs: config.maxInFlightTimeoutMs,
@@ -242,11 +245,22 @@ export async function runLoop(
         dryRun: result.dryRun,
       });
 
-      // If a batch was processed, loop immediately to drain backlog. Sleep
-      // only on empty polls to avoid hammering the DB when the queue is
-      // idle.
+      // Adaptive polling: when the queue is empty, double the sleep up to
+      // `idleBackoffMaxMs` so we don't burn RPC quota hammering an idle DB.
+      // Any non-empty tick resets the counter and tight-loops to drain
+      // backlog. This brings idle RPC volume (~120/hr when capped) close
+      // to the old cron baseline (~120/hr), while busy-mode latency stays
+      // at the configured `pollIntervalMs`.
       if (result.claimed === 0) {
-        await sleepWithStop(clock, config.pollIntervalMs, signals);
+        stats.consecutiveEmptyPolls += 1;
+        const sleepMs = computeIdleSleepMs(
+          stats.consecutiveEmptyPolls,
+          config.pollIntervalMs,
+          config.idleBackoffMaxMs,
+        );
+        await sleepWithStop(clock, sleepMs, signals);
+      } else {
+        stats.consecutiveEmptyPolls = 0;
       }
     } catch (err) {
       if (watchdog) clearTimeout(watchdog);
@@ -297,6 +311,7 @@ export async function runLoop(
         uptimeMs: clock.now() - stats.startedAtMs,
         batches: stats.batches,
         consecutiveErrors: stats.consecutiveErrors,
+        consecutiveEmptyPolls: stats.consecutiveEmptyPolls,
         windowSinceMs: hourElapsed ? stats.lastHourBatches.sinceMs : stats.startedAtMs,
         windowBatches: window.batches,
         windowClaimed: window.claimed,
@@ -330,6 +345,26 @@ async function sleepWithStop(clock: TickClock, ms: number, signals: LoopSignals)
     if (remaining === 0) return;
     await clock.sleep(remaining);
   }
+}
+
+/**
+ * Adaptive idle backoff. Empty poll #1 sleeps `pollIntervalMs`, #2 doubles,
+ * #3 doubles again, and so on, capped at `idleBackoffMaxMs`. Exported so
+ * tests can verify the curve without spinning up the full loop.
+ */
+export function computeIdleSleepMs(
+  consecutiveEmptyPolls: number,
+  pollIntervalMs: number,
+  idleBackoffMaxMs: number,
+): number {
+  if (consecutiveEmptyPolls <= 0) return 0;
+  const shift = consecutiveEmptyPolls - 1;
+  // Cap the shift to avoid Number overflow when consecutiveEmptyPolls is
+  // very large (e.g. test scenarios that simulate days of idle). 32 is
+  // already ~4.3 billion ms = ~50 days, far past any practical value.
+  const safeShift = Math.min(shift, 32);
+  const candidate = pollIntervalMs * Math.pow(2, safeShift);
+  return Math.min(candidate, idleBackoffMaxMs);
 }
 
 /**
