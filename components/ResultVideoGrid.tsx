@@ -51,7 +51,7 @@ export function ResultVideoGrid({
                 {isVideoUrl(url) ? (
                   <video src={url} muted playsInline preload="metadata" />
                 ) : (
-                  <img src={url} alt={`输入 ${index + 1}`} />
+                  <img src={url} alt={`输入 ${index + 1}`} width={96} height={96} loading="lazy" decoding="async" />
                 )}
                 <span className="studio-result-reference-label">输入{index + 1}</span>
               </div>
@@ -117,7 +117,7 @@ function VideoResultCard({
           <div className="relative z-[1] flex h-14 w-14 items-center justify-center">
             <div className="gen-ring absolute inset-0 rounded-full bg-[#aeb8ff]/45" />
             <div className="relative flex h-14 w-14 items-center justify-center rounded-full border border-white/16 bg-white/10 shadow-lg backdrop-blur-md">
-              {running ? <Loader2 className="h-6 w-6 animate-spin text-white" /> : <XCircle className="h-6 w-6 text-white/70" />}
+              {running ? <Loader2 className="h-6 w-6 animate-spin text-white motion-reduce:animate-none" aria-hidden="true" /> : <XCircle className="h-6 w-6 text-white/70" aria-hidden="true" />}
             </div>
           </div>
           <p className="relative z-[1] text-xs font-semibold text-white/72">
@@ -131,37 +131,44 @@ function VideoResultCard({
 
   return (
     <div className="studio-result-card group relative w-full justify-self-start overflow-hidden bg-black" style={layout}>
-      <button
-        type="button"
-        onClick={() => onOpen(url, index)}
+      <div
+        role="region"
+        aria-label={`生成视频 ${index + 1} 预览`}
         className="relative block w-full bg-black text-left"
         style={{ aspectRatio: "inherit" }}
-        aria-label={`播放生成视频 ${index + 1}`}
       >
+        <button
+          type="button"
+          onClick={() => onOpen(url, index)}
+          className="absolute inset-0 z-[1] cursor-zoom-in"
+          aria-label={`播放生成视频 ${index + 1}`}
+        >
+          <span className="sr-only">播放生成视频 {index + 1}</span>
+        </button>
         <video
           src={url}
           controls
           playsInline
           preload="metadata"
-          className="h-full w-full bg-black object-contain"
-          onClick={(event) => event.stopPropagation()}
+          className="relative h-full w-full bg-black object-contain"
+          aria-label={`生成视频 ${index + 1}`}
         />
-        <span className="pointer-events-none absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-black/66 px-2.5 py-1 text-[11px] font-black text-white shadow-sm backdrop-blur">
-          <Play className="h-3 w-3" />
+        <span className="pointer-events-none absolute left-3 top-3 z-[2] inline-flex items-center gap-1 rounded-full bg-black/66 px-2.5 py-1 text-[11px] font-black text-white shadow-sm backdrop-blur">
+          <Play className="h-3 w-3" aria-hidden="true" />
           结果
         </span>
-      </button>
+      </div>
       <button
         type="button"
         onClick={(event) => {
           event.stopPropagation();
           downloadMedia(url, generateDownloadFilename(filenamePrefix, index, "mp4"));
         }}
-        className="absolute right-3 top-3 z-[3] flex h-9 w-9 items-center justify-center rounded-full bg-white/92 text-slate-700 opacity-100 shadow-lg ring-1 ring-slate-200/70 backdrop-blur transition-all hover:bg-white hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
+        className="absolute right-3 top-3 z-[3] flex h-9 w-9 items-center justify-center rounded-full bg-white/92 text-slate-700 opacity-100 shadow-lg ring-1 ring-slate-200/70 backdrop-blur transition-[background-color,color,opacity] hover:bg-white hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
         aria-label={`下载生成视频 ${index + 1}`}
         title={`下载生成视频 ${index + 1}`}
       >
-        <Download className="h-4 w-4" />
+        <Download className="h-4 w-4" aria-hidden="true" />
       </button>
     </div>
   );

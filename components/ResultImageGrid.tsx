@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Clapperboard, Download, Eye, Loader2, RotateCcw, WandSparkles, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StudioHomeHeroLoadingBackdrop } from "@/components/studio/StudioHomeHeroLoadingBackdrop";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { getImageVariantUrl } from "@/lib/image-variants";
 import { buildSourceImageHref } from "@/lib/studio-image-preview";
 import { downloadImage, generateDownloadFilename } from "@/lib/utils";
@@ -147,7 +147,7 @@ export function ResultImageGrid({
             <div className="studio-result-reference-list">
               {referenceItems.map(({ url: referenceUrl, label }, index) => (
                 <div key={`${referenceUrl}-${label}-${index}`} className="studio-result-reference-thumb">
-                  <img src={getImageVariantUrl(referenceUrl, "thumb")} alt={`${label} ${index + 1}`} />
+                  <img src={getImageVariantUrl(referenceUrl, "thumb")} alt={`${label} ${index + 1}`} width={96} height={96} loading="lazy" decoding="async" />
                   <span className="studio-result-reference-label">{label}</span>
                 </div>
               ))}
@@ -286,20 +286,19 @@ const ResultCard = memo(function ResultCard({
   return (
     <TooltipProvider>
       <div
-        role={url ? "button" : undefined}
-        tabIndex={url ? 0 : undefined}
-        aria-label={url ? `预览${imageAltPrefix} ${index + 1}` : undefined}
-        title={url ? `预览${imageAltPrefix} ${index + 1}` : undefined}
-        className={`studio-result-card group relative min-w-0 overflow-hidden bg-white transition-transform duration-200 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 ${
-          url ? "cursor-zoom-in" : ""
-        } ${isSingle ? "mx-auto max-w-full" : ""}`}
-        onClick={openPreview}
-        onKeyDown={(event) => {
-          if (!url || (event.key !== "Enter" && event.key !== " ")) return;
-          event.preventDefault();
-          openPreview();
-        }}
+        className={`studio-result-card group relative min-w-0 overflow-hidden bg-white transition-transform duration-200 hover:-translate-y-0.5 focus-within:outline-none focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-2 ${isSingle ? "mx-auto max-w-full" : ""}`}
       >
+        {url ? (
+          <button
+            type="button"
+            aria-label={`预览${imageAltPrefix} ${index + 1}`}
+            title={`预览${imageAltPrefix} ${index + 1}`}
+            className="absolute inset-0 z-[1] cursor-zoom-in"
+            onClick={openPreview}
+          >
+            <span className="sr-only">预览{imageAltPrefix} {index + 1}</span>
+          </button>
+        ) : null}
         <div className="flex items-center justify-center" style={getTileStyle()}>
           {url ? (
             <StableResultImage
@@ -334,7 +333,7 @@ const ResultCard = memo(function ResultCard({
               }}
               onKeyDown={(event) => event.stopPropagation()}
             >
-              <Eye className="h-4 w-4" />
+              <Eye className="h-4 w-4" aria-hidden="true" />
               查看
             </Button>
             <div className="studio-result-focus-actions">
@@ -372,26 +371,21 @@ function areResultCardPropsEqual(prev: ResultCardProps, next: ResultCardProps) {
 
 function ResultFocusAction({ label, icon, onClick }: { label: string; icon: ReactNode; onClick: () => void }) {
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="studio-result-focus-action"
-          onClick={(event) => {
-            event.stopPropagation();
-            onClick();
-          }}
-          onKeyDown={(event) => event.stopPropagation()}
-          aria-label={label}
-        >
-          {icon}
-          <span>{label}</span>
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent side="top">{label}</TooltipContent>
-    </Tooltip>
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      className="studio-result-focus-action"
+      onClick={(event) => {
+        event.stopPropagation();
+        onClick();
+      }}
+      onKeyDown={(event) => event.stopPropagation()}
+      aria-label={label}
+    >
+      {icon}
+      <span>{label}</span>
+    </Button>
   );
 }
 
@@ -425,6 +419,10 @@ function StableResultImage({ src, alt }: { src: string; alt: string }) {
     <img
       src={displaySrc}
       alt={alt}
+      width={1200}
+      height={1600}
+      loading="lazy"
+      decoding="async"
       className="h-full w-full object-cover"
       onError={() => {
         setDisplaySrc(FALLBACK_IMAGE);
@@ -461,7 +459,7 @@ function PendingResultSlot({
       <div className="relative z-[1] flex h-14 w-14 items-center justify-center">
         <div className="gen-ring absolute inset-0 rounded-full bg-[#aeb8ff]/45" />
         <div className="relative flex h-14 w-14 items-center justify-center rounded-full border border-white/16 bg-white/10 shadow-lg backdrop-blur-md">
-          {failed ? <XCircle className="h-6 w-6 text-red-200" /> : <Loader2 className="h-6 w-6 animate-spin text-white" />}
+          {failed ? <XCircle className="h-6 w-6 text-red-200" aria-hidden="true" /> : <Loader2 className="h-6 w-6 animate-spin text-white motion-reduce:animate-none" aria-hidden="true" />}
         </div>
       </div>
       <p className="relative z-[1] text-xs font-semibold text-white/72">
@@ -482,7 +480,7 @@ function PendingResultSlot({
           disabled={failureActionDisabled}
           className="studio-result-failure-action relative z-[1]"
         >
-          <RotateCcw className="h-3.5 w-3.5" />
+          <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
           <span>{failureActionLabel || "重试本张"}</span>
         </button>
       )}

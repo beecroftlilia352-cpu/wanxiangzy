@@ -96,7 +96,7 @@ const MODE_OPTIONS: { value: ModelBackgroundMode; desc: string }[] = [
 
 const BACKGROUND_SOURCE_OPTIONS: BackgroundSourceMode[] = ["preset", "upload", "text"];
 const CARD_ZOOM_BUTTON_CLASS =
-  "absolute right-1 top-1 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-white/85 text-slate-600 opacity-0 shadow-sm transition-opacity hover:bg-white hover:text-violet-600 focus:opacity-100 group-hover:opacity-100";
+  "absolute right-1 top-1 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-white/85 text-slate-600 opacity-0 shadow-sm transition-opacity hover:bg-white hover:text-violet-600 focus-visible:opacity-100 group-hover:opacity-100";
 
 const MODEL_BACKGROUND_PREVIEW_ACTIONS: ImagePreviewAction[] = [
   { kind: "download", label: "下载图片" },
@@ -731,6 +731,7 @@ export default function ModelBackgroundPage() {
                 type="file"
                 accept="image/*"
                 className="hidden"
+                aria-label="上传模特参考图"
                 onChange={(event) => {
                   const input = event.currentTarget;
                   void handleUpload(Array.from(input.files || []), "model").finally(() => {
@@ -742,7 +743,7 @@ export default function ModelBackgroundPage() {
                 {PRESET_BACKGROUND_MODELS.map((model) => (
                   <div
                     key={model.id}
-                    className={`group relative overflow-hidden rounded-lg border-2 transition-all ${modelReferenceUrl === model.imageUrl ? "border-purple-500 ring-1 ring-purple-200" : "border-transparent hover:border-gray-300"}`}
+                    className={`group relative overflow-hidden rounded-lg border-2 transition-[border-color,box-shadow] ${modelReferenceUrl === model.imageUrl ? "border-purple-500 ring-1 ring-purple-200" : "border-transparent hover:border-gray-300"}`}
                   >
                     <button
                       type="button"
@@ -767,7 +768,7 @@ export default function ModelBackgroundPage() {
                     {modelReferenceUrl === model.imageUrl ? <CheckCircle2 className="absolute left-1.5 top-1.5 h-4 w-4 rounded-full bg-white text-emerald-500" /> : null}
                   </div>
                 ))}
-                <div className={`group relative overflow-hidden rounded-lg border-2 border-dashed transition-all ${modelReferenceUrl && !PRESET_BACKGROUND_MODELS.some((item) => item.imageUrl === modelReferenceUrl) ? "border-purple-400 bg-purple-50" : "border-gray-200 hover:border-purple-300"}`}>
+                <div className={`group relative overflow-hidden rounded-lg border-2 border-dashed transition-colors ${modelReferenceUrl && !PRESET_BACKGROUND_MODELS.some((item) => item.imageUrl === modelReferenceUrl) ? "border-purple-400 bg-purple-50" : "border-gray-200 hover:border-purple-300"}`}>
                   <button type="button" onClick={() => modelInputRef.current?.click()} className="flex aspect-square w-full flex-col items-center justify-center">
                     {modelReferenceUrl && !PRESET_BACKGROUND_MODELS.some((item) => item.imageUrl === modelReferenceUrl)
                       ? <RawPreviewImage src={modelReferenceUrl} alt={modelReferenceName || "自定义模特"} className="h-full w-full rounded-lg object-contain p-1" />
@@ -821,6 +822,7 @@ export default function ModelBackgroundPage() {
                 type="file"
                 accept="image/*"
                 className="hidden"
+                aria-label="上传背景参考图"
                 onChange={(event) => {
                   const input = event.currentTarget;
                   void handleUpload(Array.from(input.files || []), "background").finally(() => {
@@ -866,22 +868,15 @@ export default function ModelBackgroundPage() {
                   {backgroundReferenceUrl ? (
                     <div className="studio-fixed-upload-preview studio-checkerboard relative mb-2 overflow-hidden rounded-xl" style={{ "--studio-fixed-preview-height": "220px" } as CSSProperties}>
                       <RawPreviewImage src={backgroundReferenceUrl} alt="背景参考" className="h-full w-full object-contain p-2" />
-                      <span
-                        role="button"
-                        tabIndex={0}
+                      <button
+                        type="button"
                         onClick={(e) => { e.stopPropagation(); setLightboxSrc(backgroundReferenceUrl); }}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setLightboxSrc(backgroundReferenceUrl);
-                          }
-                        }}
                         className={CARD_ZOOM_BUTTON_CLASS}
                         title="放大预览"
+                        aria-label="放大预览背景参考"
                       >
-                        <ZoomIn className="h-3.5 w-3.5" />
-                      </span>
+                        <ZoomIn aria-hidden="true" className="h-3.5 w-3.5" />
+                      </button>
                     </div>
                   ) : (
                     <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-sm">
@@ -1055,7 +1050,7 @@ export default function ModelBackgroundPage() {
                 <h3 className="text-base font-black text-slate-950">{MODEL_BACKGROUND_UPLOAD_RULE.title}</h3>
                 <p className="mt-1 text-xs text-slate-400">{MODEL_BACKGROUND_UPLOAD_RULE.uploadSpecText}</p>
               </div>
-              <button type="button" onClick={() => setShowRules(false)} className="rounded-full p-1.5 hover:bg-slate-100"><X className="h-4 w-4" /></button>
+              <button type="button" onClick={() => setShowRules(false)} aria-label="关闭" className="rounded-full p-1.5 hover:bg-slate-100"><X className="h-4 w-4" /></button>
             </div>
             <div className="studio-scrollbar-hide overflow-y-auto px-5 py-4" style={{ maxHeight: rulesPopoverStyle.maxHeight - 88 }}>
               <div className="grid gap-3 md:grid-cols-4">

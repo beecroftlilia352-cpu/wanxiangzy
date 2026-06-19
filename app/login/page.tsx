@@ -188,12 +188,12 @@ export default function LoginPage() {
   return (
     <div className="min-h-[calc(100dvh-64px)] bg-[var(--codex-gradient-page)] px-4 py-8 text-codex-ink sm:px-6 lg:px-8">
       <div className="mx-auto grid min-h-[calc(100dvh-128px)] max-w-6xl items-start gap-8 pt-10 sm:pt-16 lg:grid-cols-[minmax(0,1fr)_440px] lg:items-center lg:pt-0">
-        <section className="hidden lg:block">
+        <section className="hidden lg:block" aria-hidden="true">
           <div className="studio-surface studio-surface-elevated relative overflow-hidden rounded-[34px] p-8">
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_12%,rgba(91,124,255,0.18),transparent_34%),radial-gradient(circle_at_86%_8%,rgba(174,184,255,0.28),transparent_38%)]" />
             <div className="relative z-10">
               <Link href="/" className="studio-button studio-button-compact">
-                <CheckCircle className="h-4 w-4 text-[var(--codex-accent)]" />
+                <CheckCircle aria-hidden="true" className="h-4 w-4 text-[var(--codex-accent)]" />
                 VastWearGen
               </Link>
               <h1 className="mt-10 max-w-xl text-5xl font-black leading-[0.95] tracking-[-0.04em] text-codex-ink">
@@ -203,7 +203,7 @@ export default function LoginPage() {
                 从服装上身到姿势裂变，从专属模特到商品质感图，VastWearGen 帮你把分散的素材变成可持续复用的视觉资产。
               </p>
 
-              <div className="mt-10 grid grid-cols-4 gap-3">
+              <div className="mt-10 grid grid-cols-4 gap-3" aria-hidden="true">
                 {showcaseImages.map((src, index) => (
                   <div
                     key={src}
@@ -220,7 +220,7 @@ export default function LoginPage() {
         <section className="studio-surface studio-surface-elevated mx-0 w-full max-w-[350px] rounded-[28px] p-6 sm:mx-auto sm:max-w-[440px] sm:p-8">
           <div className="mb-8">
             <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-codex-dark shadow-lg shadow-slate-300/70">
-              <CheckCircle className="h-6 w-6 text-white" />
+              <CheckCircle aria-hidden="true" className="h-6 w-6 text-white" />
             </div>
             <h2 className="text-2xl font-black tracking-[-0.02em] text-codex-ink">{copy.title}</h2>
             <p className="mt-2 text-sm leading-6 text-codex-muted">
@@ -233,14 +233,17 @@ export default function LoginPage() {
               <div>
                 <label className="mb-1.5 block text-sm font-bold text-slate-700">邮箱</label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <Mail aria-hidden="true" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                   <input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
+                    autoComplete="email"
+                    inputMode="email"
+                    spellCheck={false}
                     className="w-full rounded-2xl border border-[var(--codex-border)] bg-white px-4 py-3 pl-10 text-sm outline-none transition-all focus:border-[rgba(91,124,255,0.5)] focus:ring-4 focus:ring-[rgba(91,124,255,0.14)]"
-                    placeholder="you@example.com"
+                    placeholder="you@example.com…"
                   />
                 </div>
               </div>
@@ -248,14 +251,15 @@ export default function LoginPage() {
               <div>
                 <label className="mb-1.5 block text-sm font-bold text-slate-700">密码</label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <Lock aria-hidden="true" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                   <input
                     type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
+                    autoComplete="current-password"
                     className="w-full rounded-2xl border border-[var(--codex-border)] bg-white px-4 py-3 pl-10 pr-10 text-sm outline-none transition-all focus:border-[rgba(91,124,255,0.5)] focus:ring-4 focus:ring-[rgba(91,124,255,0.14)]"
-                    placeholder="输入密码"
+                    placeholder="输入密码…"
                   />
                   <button
                     type="button"
@@ -263,14 +267,14 @@ export default function LoginPage() {
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition-colors hover:text-slate-700"
                     aria-label={showPassword ? "隐藏密码" : "显示密码"}
                   >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    {showPassword ? <EyeOff aria-hidden="true" className="h-4 w-4" /> : <Eye aria-hidden="true" className="h-4 w-4" />}
                   </button>
                 </div>
               </div>
 
               {error && (
-                <div className="flex items-start gap-2 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">
-                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                <div aria-live="polite" className="flex items-start gap-2 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">
+                  <AlertCircle aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
                   <span>{error}</span>
                 </div>
               )}
@@ -282,8 +286,8 @@ export default function LoginPage() {
               >
                 {loading ? (
                   <span className="flex items-center justify-center gap-2">
-                    <span className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
-                    登录中...
+                    <span aria-hidden="true" className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                    登录中…
                   </span>
                 ) : (
                   "登录"
@@ -320,14 +324,17 @@ export default function LoginPage() {
               <div>
                 <label className="mb-1.5 block text-sm font-bold text-slate-700">邮箱</label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <Mail aria-hidden="true" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                   <input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
+                    autoComplete="email"
+                    inputMode="email"
+                    spellCheck={false}
                     className="w-full rounded-2xl border border-[var(--codex-border)] bg-white px-4 py-3 pl-10 text-sm outline-none transition-all focus:border-[rgba(91,124,255,0.5)] focus:ring-4 focus:ring-[rgba(91,124,255,0.14)]"
-                    placeholder="you@example.com"
+                    placeholder="you@example.com…"
                   />
                 </div>
               </div>
@@ -335,13 +342,14 @@ export default function LoginPage() {
               <div>
                 <label className="mb-1.5 block text-sm font-bold text-slate-700">邀请码</label>
                 <div className="relative">
-                  <KeyRound className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <KeyRound aria-hidden="true" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                   <input
                     value={inviteCode}
                     onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
                     required
+                    autoComplete="one-time-code"
                     className="w-full rounded-2xl border border-[var(--codex-border)] bg-white px-4 py-3 pl-10 font-mono text-sm font-black uppercase tracking-[0.08em] outline-none transition-all focus:border-[rgba(91,124,255,0.5)] focus:ring-4 focus:ring-[rgba(91,124,255,0.14)]"
-                    placeholder="输入邀请码"
+                    placeholder="输入邀请码…"
                   />
                 </div>
               </div>
@@ -349,15 +357,16 @@ export default function LoginPage() {
               <div>
                 <label className="mb-1.5 block text-sm font-bold text-slate-700">密码</label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <Lock aria-hidden="true" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                   <input
                     type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
                     minLength={6}
+                    autoComplete="new-password"
                     className="w-full rounded-2xl border border-[var(--codex-border)] bg-white px-4 py-3 pl-10 pr-10 text-sm outline-none transition-all focus:border-[rgba(91,124,255,0.5)] focus:ring-4 focus:ring-[rgba(91,124,255,0.14)]"
-                    placeholder="至少 6 位"
+                    placeholder="至少 6 位…"
                   />
                   <button
                     type="button"
@@ -365,15 +374,15 @@ export default function LoginPage() {
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition-colors hover:text-slate-700"
                     aria-label={showPassword ? "隐藏密码" : "显示密码"}
                   >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    {showPassword ? <EyeOff aria-hidden="true" className="h-4 w-4" /> : <Eye aria-hidden="true" className="h-4 w-4" />}
                   </button>
                 </div>
                 <p className="mt-1 text-xs text-slate-400">至少 6 位字符</p>
               </div>
 
               {error && (
-                <div className="flex items-start gap-2 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">
-                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                <div aria-live="polite" className="flex items-start gap-2 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">
+                  <AlertCircle aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
                   <span>{error}</span>
                 </div>
               )}
@@ -383,7 +392,7 @@ export default function LoginPage() {
                 disabled={loading}
                 className="gradient-brand flex h-12 w-full items-center justify-center rounded-2xl text-sm font-black text-white shadow-xl shadow-slate-300/40 transition-opacity hover:opacity-95 disabled:opacity-50"
               >
-                {loading ? "创建中..." : "创建账号"}
+                {loading ? "创建中…" : "创建账号"}
               </button>
 
               <p className="text-center text-sm text-slate-500">
@@ -405,7 +414,7 @@ export default function LoginPage() {
           {view === "check-email" && (
             <div className="space-y-6 text-center">
               <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-[rgba(91,124,255,0.1)]">
-                <Mail className="h-10 w-10 text-[var(--codex-accent)]" />
+                <Mail aria-hidden="true" className="h-10 w-10 text-[var(--codex-accent)]" />
               </div>
 
               <div className="space-y-2">
@@ -450,21 +459,24 @@ export default function LoginPage() {
               <div>
                 <label className="mb-1.5 block text-sm font-bold text-slate-700">注册邮箱</label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <Mail aria-hidden="true" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                   <input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
+                    autoComplete="email"
+                    inputMode="email"
+                    spellCheck={false}
                     className="w-full rounded-2xl border border-[var(--codex-border)] bg-white px-4 py-3 pl-10 text-sm outline-none transition-all focus:border-[rgba(91,124,255,0.5)] focus:ring-4 focus:ring-[rgba(91,124,255,0.14)]"
-                    placeholder="you@example.com"
+                    placeholder="you@example.com…"
                   />
                 </div>
               </div>
 
               {error && (
-                <div className="flex items-start gap-2 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">
-                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                <div aria-live="polite" className="flex items-start gap-2 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">
+                  <AlertCircle aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
                   <span>{error}</span>
                 </div>
               )}
@@ -474,7 +486,7 @@ export default function LoginPage() {
                 disabled={loading}
                 className="gradient-brand flex h-12 w-full items-center justify-center rounded-2xl text-sm font-black text-white shadow-xl shadow-slate-300/40 transition-opacity hover:opacity-95 disabled:opacity-50"
               >
-                {loading ? "发送中..." : "发送重置链接"}
+                {loading ? "发送中…" : "发送重置链接"}
               </button>
 
               <button
@@ -485,7 +497,7 @@ export default function LoginPage() {
                 }}
                 className="flex w-full items-center justify-center gap-1 text-sm font-bold text-slate-500 transition-colors hover:text-slate-800"
               >
-                <ArrowLeft className="h-3.5 w-3.5" />
+                <ArrowLeft aria-hidden="true" className="h-3.5 w-3.5" />
                 返回登录
               </button>
             </form>
@@ -494,7 +506,7 @@ export default function LoginPage() {
           {view === "reset-sent" && (
             <div className="space-y-6 text-center">
               <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-emerald-50">
-                <CheckCircle className="h-10 w-10 text-emerald-500" />
+                <CheckCircle aria-hidden="true" className="h-10 w-10 text-emerald-500" />
               </div>
 
               <div className="space-y-2">

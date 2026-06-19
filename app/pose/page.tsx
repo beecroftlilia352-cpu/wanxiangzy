@@ -1628,19 +1628,20 @@ export default function PosePage() {
                 aria-expanded={showPoseRules}
                 className="studio-upload-rule-button"
               >
-                图片规则 <ChevronRight className="h-3 w-3" />
+                图片规则 <ChevronRight aria-hidden="true" className="h-3 w-3" />
               </button>
             )}
           />
           <section
             {...mainImageDrag.dragHandlers}
-            className={`studio-stable-upload-boundary relative rounded-xl transition-all ${isDragging ? "ring-2 ring-[rgba(91,124,255,0.38)] ring-offset-2" : ""}`}
+            className={`studio-stable-upload-boundary relative rounded-xl transition-[box-shadow] ${isDragging ? "ring-2 ring-[rgba(91,124,255,0.38)] ring-offset-2" : ""}`}
           >
             <input
               ref={fileInputRef}
               type="file"
               accept="image/*"
               className="hidden"
+              aria-label="上传模特图"
               onChange={(event) => {
                 const input = event.currentTarget;
                 void handleFile(input.files?.[0]).finally(() => {
@@ -1949,7 +1950,7 @@ export default function PosePage() {
                       aria-label={`上传${activeGarmentAngleMark}背/侧补充图`}
                     >
                       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-                        {isUploadingGarmentDetails ? <Loader2 className="h-5 w-5 animate-spin" /> : <Sparkles className="h-5 w-5" />}
+                        {isUploadingGarmentDetails ? <Loader2 aria-hidden="true" className="h-5 w-5 animate-spin" /> : <Sparkles aria-hidden="true" className="h-5 w-5" />}
                       </span>
                       <span className="min-w-0 flex-1">
                         <span className="block text-sm font-black text-slate-900">
@@ -2103,7 +2104,7 @@ export default function PosePage() {
                           className="inline-flex items-center justify-center text-slate-500 transition hover:bg-white hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-30"
                           aria-label={`减少${item.label}姿势`}
                         >
-                          <Minus className="h-3.5 w-3.5" />
+                          <Minus aria-hidden="true" className="h-3.5 w-3.5" />
                         </button>
                         <span className="inline-flex items-center justify-center border-x border-slate-200 bg-white text-xs font-black text-slate-900">
                           {count}
@@ -2115,7 +2116,7 @@ export default function PosePage() {
                           className="inline-flex items-center justify-center text-slate-500 transition hover:bg-white hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-30"
                           aria-label={`增加${item.label}姿势`}
                         >
-                          <Plus className="h-3.5 w-3.5" />
+                          <Plus aria-hidden="true" className="h-3.5 w-3.5" />
                         </button>
                       </div>
                     </div>
@@ -2468,9 +2469,9 @@ export default function PosePage() {
           primaryLabel={authIsAnonymous
             ? "登录后生成"
             : isUploading
-              ? "上传中..."
+              ? "上传中…"
               : isSubmitting
-                ? "提交中..."
+                ? "提交中…"
                 : isGenerating
                   ? "继续生成"
                   : isPoseReferenceMode

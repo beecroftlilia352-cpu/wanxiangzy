@@ -41,7 +41,7 @@ export function FeatureTabs({ active }: { active: FeatureKey }) {
               href={item.href}
               prefetch={false}
               aria-current={isActive ? "page" : undefined}
-              className={`studio-nav-item group flex h-14 min-w-[92px] flex-col items-center justify-center gap-1 rounded-2xl px-2 text-[10px] font-black transition-all lg:h-[72px] lg:min-w-0 ${
+              className={`studio-nav-item group flex h-14 min-w-[92px] flex-col items-center justify-center gap-1 rounded-2xl px-2 text-[10px] font-black transition-[background-color,color,box-shadow,border-color] duration-150 lg:h-[72px] lg:min-w-0 ${
                 isActive
                   ? "studio-nav-item-active bg-white/80 text-[var(--codex-accent)] shadow-sm ring-1 ring-[rgba(91,124,255,0.22)]"
                   : "text-codex-muted hover:bg-white/70 hover:text-codex-ink"
@@ -49,7 +49,7 @@ export function FeatureTabs({ active }: { active: FeatureKey }) {
               title={item.description}
             >
               <span className={`relative flex h-6 w-6 items-center justify-center ${isActive ? "text-[var(--codex-accent)]" : "text-codex-faint group-hover:text-codex-ink"}`}>
-                <Icon className="h-5 w-5" />
+                <Icon className="h-5 w-5" aria-hidden="true" />
               </span>
               <span className="max-w-full text-center leading-tight [overflow-wrap:anywhere]">{item.label}</span>
             </Link>

@@ -47,7 +47,7 @@ export function PreviewGuide({
     <div className="relative mx-auto w-full max-w-[1080px] px-1 py-2 text-center sm:px-3">
       <div className="pointer-events-none absolute inset-x-10 top-16 h-40 rounded-full bg-[radial-gradient(circle,rgba(91,124,255,0.16),transparent_68%)] blur-3xl" />
       <div className="relative">
-        <h3 className="text-[24px] font-black tracking-normal text-slate-950 sm:text-[34px]">{title}</h3>
+        <h3 className="text-[24px] font-black tracking-normal text-slate-950 sm:text-[34px]" style={{ textWrap: "balance" }}>{title}</h3>
         <p className="mx-auto mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-500 sm:text-[15px]">{subtitle}</p>
 
         <div className="mt-8 overflow-hidden rounded-[30px] border border-white/80 bg-white/95 px-4 py-7 text-left shadow-[0_28px_90px_rgba(91,124,255,0.12),0_8px_26px_rgba(15,23,42,0.06)] ring-1 ring-slate-950/[0.03] backdrop-blur sm:px-7 sm:py-8">
@@ -58,7 +58,7 @@ export function PreviewGuide({
 
               return (
                 <div key={step.title} className="group relative min-w-0">
-                  <div className="relative overflow-hidden rounded-[22px] bg-gradient-to-br from-white via-slate-100 to-slate-200 p-px shadow-[0_18px_42px_rgba(15,23,42,0.08)] transition duration-300 group-hover:-translate-y-0.5 group-hover:shadow-[0_24px_54px_rgba(91,124,255,0.14)]">
+                  <div className="relative overflow-hidden rounded-[22px] bg-gradient-to-br from-white via-slate-100 to-slate-200 p-px shadow-[0_18px_42px_rgba(15,23,42,0.08)] transition-[transform,box-shadow] duration-300 group-hover:-translate-y-0.5 group-hover:shadow-[0_24px_54px_rgba(91,124,255,0.14)]">
                     <div
                       className={cn(
                         "relative aspect-[4/5] overflow-hidden rounded-[21px]",
@@ -93,7 +93,7 @@ export function PreviewGuide({
                       "pointer-events-none absolute right-[-27px] top-[38%] z-10 hidden h-9 w-9 items-center justify-center rounded-full border-[3px] border-white bg-[var(--codex-accent)] text-white shadow-[0_16px_34px_rgba(91,124,255,0.28)]",
                       connectorVisibilityClass
                     )}>
-                      <ArrowRight className="h-4 w-4" />
+                      <ArrowRight className="h-4 w-4" aria-hidden="true" />
                     </div>
                   ) : null}
                   <div className="mt-3 flex items-center justify-center gap-2 text-center">

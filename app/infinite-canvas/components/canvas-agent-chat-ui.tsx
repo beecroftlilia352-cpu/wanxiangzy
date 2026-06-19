@@ -19,7 +19,7 @@ export type CanvasAgentChatMessage = {
     attachments?: CanvasAgentChatAttachment[];
 };
 
-const WORKING_TEXT = "working...";
+const WORKING_TEXT = "working…";
 
 export function AgentChatMessage({ item, theme, user, onRejectTool, onApproveTool }: { item: CanvasAgentChatMessage; theme: (typeof canvasThemes)[keyof typeof canvasThemes]; user: LocalUser | null; onRejectTool?: (id: string) => void; onApproveTool?: (id: string) => void }) {
     const isUser = item.role === "user";
@@ -66,7 +66,7 @@ export function AgentPendingToolCard({ summary, detail, theme, onReject, onAppro
                     <summary className="cursor-pointer list-none">
                         <div className="flex items-start gap-3">
                             <span className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-lg border" style={{ borderColor: "rgba(217,119,6,.24)", color: "#d97706", background: "rgba(217,119,6,.04)" }}>
-                                <CircleAlert className="size-4" />
+                                <CircleAlert aria-hidden="true" className="size-4" />
                             </span>
                             <div className="min-w-0 flex-1">
                                 <div className="flex flex-wrap items-center gap-2 text-sm font-semibold leading-5">
@@ -86,10 +86,10 @@ export function AgentPendingToolCard({ summary, detail, theme, onReject, onAppro
                 </details>
                 {onReject || onApprove ? (
                     <div className="mt-4 grid grid-cols-2 gap-2">
-                        <Button danger className="!h-9" icon={<XCircle className="size-4" />} onClick={() => onReject?.()}>
+                        <Button danger className="!h-9" icon={<XCircle aria-hidden="true" className="size-4" />} onClick={() => onReject?.()}>
                             拒绝执行
                         </Button>
-                        <Button className="!h-9" icon={<CheckCircle2 className="size-4" />} style={{ borderColor: "rgba(22,163,74,.42)", color: "#16a34a", background: "transparent" }} onClick={() => onApprove?.()}>
+                        <Button className="!h-9" icon={<CheckCircle2 aria-hidden="true" className="size-4" />} style={{ borderColor: "rgba(22,163,74,.42)", color: "#16a34a", background: "transparent" }} onClick={() => onApprove?.()}>
                             批准执行
                         </Button>
                     </div>
@@ -181,8 +181,8 @@ export function AgentChatComposer({
                             <div key={item.id} className="group relative size-14 shrink-0 overflow-hidden rounded-xl border" style={{ borderColor: theme.node.stroke }} title={item.name}>
                                 <img src={item.url} alt={item.name} className="size-full object-cover" />
                                 {onRemoveAttachment ? (
-                                    <button type="button" className="absolute right-1 top-1 grid size-5 place-items-center rounded-full border opacity-0 shadow-sm transition group-hover:opacity-100" style={{ background: theme.toolbar.panel, borderColor: theme.node.stroke, color: theme.node.text }} onClick={() => onRemoveAttachment(item.id)} aria-label="移除图片">
-                                        <X className="size-3" />
+                                    <button type="button" className="absolute right-1 top-1 grid size-5 place-items-center rounded-full border opacity-0 shadow-sm transition-opacity group-hover:opacity-100 motion-safe:group-hover:opacity-100" style={{ background: theme.toolbar.panel, borderColor: theme.node.stroke, color: theme.node.text }} onClick={() => onRemoveAttachment(item.id)} aria-label="移除图片">
+                                        <X aria-hidden="true" className="size-3" />
                                     </button>
                                 ) : null}
                             </div>
@@ -204,9 +204,10 @@ export function AgentChatComposer({
                         event.preventDefault();
                         void onSubmit();
                     }}
-                    className="thin-scrollbar max-h-32 min-h-20 w-full resize-none border-0 bg-transparent px-1 py-1 text-sm leading-5 outline-none placeholder:opacity-45"
+                    className="thin-scrollbar max-h-32 min-h-20 w-full resize-none border-0 bg-transparent px-1 py-1 text-sm leading-5 outline-none focus-visible:ring-2 focus-visible:ring-stone-400 placeholder:opacity-45"
                     style={{ color: theme.node.text }}
                     placeholder={placeholder}
+                    aria-label="Agent 对话输入"
                 />
                 <div className="mt-2 flex items-center justify-between gap-2">
                     <div className="flex min-w-0 items-center gap-1">
@@ -217,13 +218,13 @@ export function AgentChatComposer({
                                     event.target.value = "";
                                 }} />
                                 <Tooltip title="上传图片">
-                                    <Button type="text" shape="circle" className="!h-9 !w-9 !min-w-9" disabled={sending} style={{ color: theme.node.muted }} icon={<ImagePlus className="size-4" />} onClick={() => fileInputRef.current?.click()} />
+                                    <Button type="text" shape="circle" className="!h-9 !w-9 !min-w-9" disabled={sending} style={{ color: theme.node.muted }} icon={<ImagePlus aria-hidden="true" className="size-4" />} onClick={() => fileInputRef.current?.click()} aria-label="上传图片" />
                                 </Tooltip>
                             </>
                         ) : null}
                         {left}
                     </div>
-                    <Button type="primary" shape="circle" className="!h-10 !w-10 !min-w-10" disabled={!canSubmit} icon={sending ? <LoaderCircle className="size-4 animate-spin" /> : <ArrowUp className="size-4" />} onClick={() => void onSubmit()} aria-label="发送" />
+                    <Button type="primary" shape="circle" className="!h-10 !w-10 !min-w-10" disabled={!canSubmit} icon={sending ? <LoaderCircle aria-hidden="true" className="size-4 motion-safe:animate-spin" /> : <ArrowUp aria-hidden="true" className="size-4" />} onClick={() => void onSubmit()} aria-label="发送" />
                 </div>
             </div>
         </div>
@@ -234,7 +235,7 @@ export function AgentModeSwitch({ value, theme, onChange }: { value: CanvasAgent
     return (
         <div className="inline-flex shrink-0 rounded-lg border p-0.5 text-xs" style={{ borderColor: theme.node.stroke }}>
             {(["online", "local"] as const).map((item) => (
-                <button key={item} type="button" className="rounded-md px-2 py-1 transition" style={{ background: value === item ? theme.node.fill : "transparent", color: value === item ? theme.node.text : theme.node.muted }} onClick={() => onChange(item)}>
+                <button key={item} type="button" className="rounded-md px-2 py-1 transition-colors" style={{ background: value === item ? theme.node.fill : "transparent", color: value === item ? theme.node.text : theme.node.muted }} onClick={() => onChange(item)}>
                     {item === "online" ? "网站" : "本机"}
                 </button>
             ))}
@@ -280,7 +281,7 @@ function AgentUserAvatar({ user, theme }: { user: LocalUser | null; theme: (type
     const avatarUrl = user?.avatarUrl?.trim();
     return (
         <span className="grid size-8 shrink-0 place-items-center overflow-hidden rounded-full" style={{ color: theme.node.text }}>
-            {avatarUrl ? <img src={avatarUrl} alt="" className="size-full object-cover" referrerPolicy="no-referrer" /> : <UserRound className="size-4" />}
+            {avatarUrl ? <img src={avatarUrl} alt="" className="size-full object-cover" referrerPolicy="no-referrer" width={32} height={32} loading="lazy" /> : <UserRound aria-hidden="true" className="size-4" />}
         </span>
     );
 }
@@ -289,7 +290,7 @@ function AgentMessageAttachments({ attachments }: { attachments: CanvasAgentChat
     return (
         <div className="mt-2 grid grid-cols-3 gap-1.5">
             {attachments.map((item) => (
-                <img key={item.id} src={item.url} alt={item.name} className="aspect-square w-full rounded-lg object-cover" />
+                <img key={item.id} src={item.url} alt={item.name} className="aspect-square w-full rounded-lg object-cover" width={160} height={160} loading="lazy" />
             ))}
         </div>
     );
@@ -299,11 +300,11 @@ function toolCardState(title: string, text: string, detail?: unknown) {
     const raw = `${title} ${text} ${normalizeText(objectField(detail, "error"))}`;
     const lower = raw.toLowerCase();
     const tool = String(objectField(detail, "name") || objectField(detail, "tool") || "");
-    if (objectField(detail, "status") === "noop" || /未生效|无需|没有找到|没有.*可|已存在/.test(raw)) return { label: "未生效", color: "#d97706", softBorder: "rgba(217,119,6,.22)", softBg: "rgba(217,119,6,.04)", icon: <CircleAlert className="size-4" />, isError: false };
-    if (/拒绝|取消/.test(raw) || lower.includes("rejected")) return { label: "拒绝执行", color: "#dc2626", softBorder: "rgba(220,38,38,.20)", softBg: "rgba(220,38,38,.04)", icon: <XCircle className="size-4" />, isError: true };
-    if (/失败|错误/.test(raw) || lower.includes("failed") || lower.includes("error")) return { label: "执行失败", color: "#dc2626", softBorder: "rgba(220,38,38,.20)", softBg: "rgba(220,38,38,.04)", icon: <XCircle className="size-4" />, isError: true };
-    if (/完成|成功/.test(raw) || lower.includes("completed") || lower.includes("succeeded")) return { label: tool === "canvas_apply_ops" || /画布操作/.test(title) ? "已批准执行" : "执行完成", color: "#16a34a", softBorder: "rgba(22,163,74,.20)", softBg: "rgba(22,163,74,.04)", icon: <CheckCircle2 className="size-4" />, isError: false };
-    return { label: "工具调用", color: "#2563eb", softBorder: "rgba(37,99,235,.20)", softBg: "rgba(37,99,235,.04)", icon: <Wrench className="size-4" />, isError: false };
+    if (objectField(detail, "status") === "noop" || /未生效|无需|没有找到|没有.*可|已存在/.test(raw)) return { label: "未生效", color: "#d97706", softBorder: "rgba(217,119,6,.22)", softBg: "rgba(217,119,6,.04)", icon: <CircleAlert aria-hidden="true" className="size-4" />, isError: false };
+    if (/拒绝|取消/.test(raw) || lower.includes("rejected")) return { label: "拒绝执行", color: "#dc2626", softBorder: "rgba(220,38,38,.20)", softBg: "rgba(220,38,38,.04)", icon: <XCircle aria-hidden="true" className="size-4" />, isError: true };
+    if (/失败|错误/.test(raw) || lower.includes("failed") || lower.includes("error")) return { label: "执行失败", color: "#dc2626", softBorder: "rgba(220,38,38,.20)", softBg: "rgba(220,38,38,.04)", icon: <XCircle aria-hidden="true" className="size-4" />, isError: true };
+    if (/完成|成功/.test(raw) || lower.includes("completed") || lower.includes("succeeded")) return { label: tool === "canvas_apply_ops" || /画布操作/.test(title) ? "已批准执行" : "执行完成", color: "#16a34a", softBorder: "rgba(22,163,74,.20)", softBg: "rgba(22,163,74,.04)", icon: <CheckCircle2 aria-hidden="true" className="size-4" />, isError: false };
+    return { label: "工具调用", color: "#2563eb", softBorder: "rgba(37,99,235,.20)", softBg: "rgba(37,99,235,.04)", icon: <Wrench aria-hidden="true" className="size-4" />, isError: false };
 }
 
 function normalizeText(value: unknown) {

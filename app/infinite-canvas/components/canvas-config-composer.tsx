@@ -120,7 +120,7 @@ export function CanvasConfigComposer({ value, inputs, onChange, onClose }: Canva
                     <div className="shrink-0 text-xs font-semibold">组装提示词</div>
                     <div className="truncate text-[11px] opacity-55">@ 引用已连接素材，发送前按当前连接重新编号</div>
                 </div>
-                <Button size="small" type="text" className="!h-7 !w-7 !min-w-7 !p-0" icon={<X className="size-3.5" />} onClick={onClose} />
+                <Button size="small" type="text" className="!h-7 !w-7 !min-w-7 !p-0" icon={<X aria-hidden="true" className="size-3.5" />} onClick={onClose} aria-label="关闭组装提示词" />
             </div>
             <div className="relative rounded-xl border" style={{ background: theme.node.fill, borderColor: theme.node.stroke }}>
                 {!value.trim() ? <div className="pointer-events-none absolute left-3 top-2 text-sm leading-7" style={{ color: theme.node.placeholder }}>输入提示词，按 @ 引用连接的图片或文本</div> : null}
@@ -128,7 +128,11 @@ export function CanvasConfigComposer({ value, inputs, onChange, onClose }: Canva
                     ref={editorRef}
                     contentEditable
                     suppressContentEditableWarning
-                    className="thin-scrollbar min-h-28 w-full overflow-y-auto whitespace-pre-wrap break-words px-3 py-2 text-sm leading-7 outline-none"
+                    role="textbox"
+                    aria-multiline="true"
+                    aria-label="组装提示词输入"
+                    spellCheck={false}
+                    className="thin-scrollbar min-h-28 w-full overflow-y-auto whitespace-pre-wrap break-words px-3 py-2 text-sm leading-7 outline-none focus-visible:ring-2 focus-visible:ring-stone-400"
                     style={{ color: theme.node.text }}
                     onInput={() => {
                         if (!composingRef.current) syncFromEditor();
@@ -202,7 +206,7 @@ function MentionMenu({ inputs, allInputs, activeIndex, theme, onSelect }: { inpu
                     key={input.nodeId}
                     ref={index === activeIndex ? activeItemRef : undefined}
                     type="button"
-                    className="flex w-full min-w-0 items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs transition"
+                    className="flex w-full min-w-0 items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs transition-colors"
                     style={{ background: index === activeIndex ? theme.toolbar.activeBg : "transparent", color: index === activeIndex ? theme.toolbar.activeText : theme.node.text }}
                     onMouseDown={(event) => {
                         event.preventDefault();
@@ -222,12 +226,12 @@ function MentionMenu({ inputs, allInputs, activeIndex, theme, onSelect }: { inpu
 }
 
 function ResourcePreview({ input }: { input: NodeGenerationInput }) {
-    if (input.type === "image" && input.image) return <img src={input.image.dataUrl} alt="" className="size-9 rounded-md object-cover" />;
+    if (input.type === "image" && input.image) return <img src={input.image.dataUrl} alt="" className="size-9 rounded-md object-cover" width={36} height={36} loading="lazy" />;
     if (input.type === "video" && input.video) return <video src={input.video.url} className="size-9 rounded-md bg-black object-cover" muted preload="metadata" />;
     const Icon = input.type === "audio" ? Music2 : input.type === "video" ? Video : input.type === "image" ? ImageIcon : FileText;
     return (
         <span className="grid size-9 shrink-0 place-items-center rounded-md bg-black/10">
-            <Icon className="size-4" />
+            <Icon aria-hidden="true" className="size-4" />
         </span>
     );
 }

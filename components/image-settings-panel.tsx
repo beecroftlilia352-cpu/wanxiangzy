@@ -88,7 +88,7 @@ export function ImageSettingsPanel({ config, onConfigChange, theme, showTitle = 
                                 16倍数对齐
                             </span>
                             <span title="输入完成后自动向上补成 16 的倍数" onMouseDown={(event) => event.stopPropagation()}>
-                                <Switch size="small" checked={snapDimensionToStep} onChange={setSnapDimensionToStep} />
+                                <Switch size="small" aria-label="16倍数对齐" checked={snapDimensionToStep} onChange={setSnapDimensionToStep} />
                             </span>
                         </div>
                     </div>
@@ -105,7 +105,8 @@ export function ImageSettingsPanel({ config, onConfigChange, theme, showTitle = 
                             <button
                                 key={item.value}
                                 type="button"
-                                className="flex h-[72px] cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl border bg-transparent text-sm transition hover:opacity-80"
+                                aria-pressed={selectedAspect?.value === item.value}
+                                className="flex h-[72px] cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl border bg-transparent text-sm transition-opacity hover:opacity-80"
                                 style={{ borderColor: selectedAspect?.value === item.value ? theme.node.text : theme.node.stroke, background: "transparent", color: theme.node.text }}
                                 onMouseDown={(event) => event.stopPropagation()}
                                 onClick={() => selectAspect(item.value)}
@@ -157,7 +158,8 @@ function OptionPill({ selected, theme, onClick, children }: { selected: boolean;
     return (
         <button
             type="button"
-            className="h-9 cursor-pointer rounded-full border px-2 text-sm transition hover:opacity-80"
+            aria-pressed={selected}
+            className="h-9 cursor-pointer rounded-full border px-2 text-sm transition-opacity hover:opacity-80"
             style={{ background: "transparent", borderColor: selected ? theme.node.text : theme.node.stroke, color: theme.node.text }}
             onMouseDown={(event) => event.stopPropagation()}
             onClick={onClick}
@@ -181,9 +183,12 @@ function DimensionInput({ prefix, value, disabled, theme, alignToStep, onChange 
             </span>
             <input
                 type="number"
+                name={`dimension-${prefix.toLowerCase()}`}
+                aria-label={prefix === "W" ? "宽度" : "高度"}
+                inputMode="numeric"
                 min={1}
                 disabled={disabled}
-                className="min-w-0 flex-1 bg-transparent px-2 outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                className="min-w-0 flex-1 bg-transparent px-2 outline-none focus-visible:ring-2 focus-visible:ring-stone-400 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                 defaultValue={value || ""}
                 key={`${prefix}-${value}`}
                 onBlur={(event) => commit(event.currentTarget)}
@@ -201,9 +206,12 @@ function CountInput({ value, max, theme, onChange }: { value: number; max: numbe
         <label className="col-span-2 flex h-9 overflow-hidden rounded-full border text-sm" style={{ borderColor: theme.node.stroke, color: theme.node.text }}>
             <input
                 type="number"
+                name="count"
+                aria-label="生成张数"
+                inputMode="numeric"
                 min={1}
                 max={max}
-                className="min-w-0 flex-1 bg-transparent px-3 text-center outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                className="min-w-0 flex-1 bg-transparent px-3 text-center outline-none focus-visible:ring-2 focus-visible:ring-stone-400 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                 style={{ color: theme.node.text, WebkitTextFillColor: theme.node.text }}
                 value={value || ""}
                 onChange={(event) => onChange(Number(event.target.value) || null)}

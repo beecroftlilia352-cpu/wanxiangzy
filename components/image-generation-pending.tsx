@@ -30,7 +30,7 @@ export function ImageGenerationPending({ className, label, compact = false }: { 
                 }}
             />
             <div className="absolute left-4 top-4 flex items-center gap-2 text-[15px] font-medium text-stone-500 dark:text-stone-300">
-                <LoaderCircle className="size-4 animate-spin" />
+                <LoaderCircle className="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
                 <span>{label || pendingMessages[index]}</span>
             </div>
             <div className="absolute bottom-4 left-4 right-4">

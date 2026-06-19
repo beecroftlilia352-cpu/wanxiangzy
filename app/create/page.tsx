@@ -2547,6 +2547,7 @@ export default function CreatePage() {
               accept="image/*"
               multiple={clothingMode === "multi"}
               className="hidden"
+              aria-label="上传参考图"
               onChange={(e) => {
                 if (isUploading) {
                   e.currentTarget.value = "";
@@ -2695,6 +2696,7 @@ export default function CreatePage() {
                   key={value}
                   type="button"
                   onClick={() => updateGarmentAudience(value)}
+                  aria-pressed={garmentAudience === value}
                   className={`rounded-lg border px-2 py-1.5 text-[11px] font-medium leading-none transition-all ${
                     garmentAudience === value
                       ? "border-violet-400 bg-violet-50 text-violet-700 shadow-sm"
@@ -2713,6 +2715,7 @@ export default function CreatePage() {
                     key={value}
                     type="button"
                     onClick={() => updateAgeGroup(value)}
+                    aria-pressed={ageGroup === value}
                     className={`rounded-lg border px-1.5 py-1.5 text-[11px] font-medium leading-none transition-all ${
                       ageGroup === value
                         ? "border-violet-400 bg-violet-50 text-violet-700 shadow-sm"
@@ -2839,7 +2842,7 @@ export default function CreatePage() {
 
             {sceneMode === "upload_reference" && (
               <div className={`studio-reference-upload-panel transition-colors ${isDraggingRef ? "rounded-xl ring-2 ring-[rgba(91,124,255,0.36)] ring-offset-2" : ""}`}>
-                <input ref={customRefInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleCustomRef} disabled={selectedReferenceCount >= MAX_TRYON_REFERENCE_IMAGES || isReferenceUploadBusy} />
+                <input ref={customRefInputRef} type="file" accept="image/*" multiple className="hidden" aria-label="上传参考图" onChange={handleCustomRef} disabled={selectedReferenceCount >= MAX_TRYON_REFERENCE_IMAGES || isReferenceUploadBusy} />
                 <TryOnReferenceAnalysisStatus
                   status={referenceAnalysisStatus}
                   summaries={referenceAnalysisSummaries}
@@ -3258,7 +3261,7 @@ export default function CreatePage() {
                   </span>
                 )}
               </div>
-              <input ref={customModelInputRef} type="file" accept="image/*" className="hidden" onChange={handleCustomModel} disabled={isModelUploadBusy} />
+              <input ref={customModelInputRef} type="file" accept="image/*" className="hidden" aria-label="上传模特图" onChange={handleCustomModel} disabled={isModelUploadBusy} />
             </div>
           </section>
 
@@ -3319,6 +3322,7 @@ export default function CreatePage() {
               value={customStyle}
               onChange={(e) => { setCustomStyle(e.target.value); setPromptOverride(null); store.setPromptUsed(""); }}
               placeholder="可选：补充不改变主风格的细节要求，如面料、肤色、光线、商品细节..."
+              aria-label="补充要求"
               rows={4}
               action={(
                 <button
@@ -3335,6 +3339,7 @@ export default function CreatePage() {
             <div className="flex flex-wrap gap-1.5 mt-2">
               {STYLE_PRESETS.map((s, i) => (
                 <button key={i} onClick={() => { setCustomStyle(s); setPromptOverride(null); store.setPromptUsed(""); }}
+                  aria-pressed={customStyle === s}
                   className="px-2 py-0.5 rounded-full bg-gray-50 border text-[10px] text-gray-500 hover:bg-purple-50 hover:text-purple-600 transition-all">{s}</button>
               ))}
             </div>

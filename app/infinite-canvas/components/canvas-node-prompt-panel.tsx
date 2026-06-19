@@ -71,7 +71,7 @@ export function CanvasNodePromptPanel({ node, isRunning, onPromptChange, onConfi
                 references={mentionReferences}
                 onChange={updatePrompt}
                 onSubmit={submit}
-                className="thin-scrollbar h-24 w-full resize-none rounded-xl border px-3 py-2 text-sm leading-5 outline-none"
+                className="thin-scrollbar h-24 w-full resize-none rounded-xl border px-3 py-2 text-sm leading-5 outline-none focus-visible:ring-2 focus-visible:ring-stone-400"
                 style={{ background: theme.node.fill, borderColor: theme.node.stroke, color: theme.node.text }}
                 placeholder={promptPlaceholder(mode, hasImageContent, hasTextContent)}
             />
@@ -112,12 +112,13 @@ export function CanvasNodePromptPanel({ node, isRunning, onPromptChange, onConfi
                     disabled={!isRunning && !prompt.trim()}
                     onClick={() => (isRunning ? onStop(node.id) : submit())}
                     aria-label={isRunning ? "停止生成" : "生成"}
+                    aria-pressed={isRunning}
                 >
                     <span className="flex items-center gap-1.5">
                         {isRunning ? (
                             <>
-                                <LoaderCircle className="size-4 animate-spin" />
-                                <Square className="size-3.5 fill-current" />
+                                <LoaderCircle aria-hidden="true" className="size-4 motion-safe:animate-spin" />
+                                <Square aria-hidden="true" className="size-3.5 fill-current" />
                                 <span className="text-xs font-medium">停止</span>
                             </>
                         ) : (
@@ -126,7 +127,7 @@ export function CanvasNodePromptPanel({ node, isRunning, onPromptChange, onConfi
                                     <CreditSymbol />
                                     {credits.toLocaleString()}
                                 </span>
-                                <ArrowUp className="size-4" />
+                                <ArrowUp aria-hidden="true" className="size-4" />
                             </>
                         )}
                     </span>

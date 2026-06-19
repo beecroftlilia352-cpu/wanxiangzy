@@ -72,7 +72,7 @@ export function AdminDashboardClient({ overview, report, days }: AdminDashboardC
             }}
           />
           <Link href="/admin">
-            <Button icon={<ReloadOutlined />}>刷新</Button>
+            <Button icon={<ReloadOutlined aria-hidden="true" />}>刷新</Button>
           </Link>
         </Space>
       </div>
@@ -85,12 +85,12 @@ export function AdminDashboardClient({ overview, report, days }: AdminDashboardC
       )}
 
       <Row gutter={[12, 12]}>
-        <KpiCard title="生成任务" value={overview.generationHealth.total} suffix={`今日 ${overview.generationHealth.today}`} icon={<BarChartOutlined />} />
-        <KpiCard title="成功率" value={100 - failureRate} precision={1} suffix="%" tone={failureRate > 20 ? "danger" : "good"} icon={<CheckCircleOutlined />} />
-        <KpiCard title="失败率" value={failureRate} precision={1} suffix="%" tone={failureRate > 15 ? "danger" : failureRate > 5 ? "warning" : "good"} icon={<AlertOutlined />} />
-        <KpiCard title="净收入灵点" value={report.metrics.netCredits} tone="good" icon={<DollarOutlined />} />
-        <KpiCard title="退款补偿" value={report.metrics.refundCredits} tone={report.metrics.refundCredits > 0 ? "warning" : "neutral"} icon={<FireOutlined />} />
-        <KpiCard title="履约成本" value={fulfillmentCredits} icon={<ClockCircleOutlined />} />
+        <KpiCard title="生成任务" value={overview.generationHealth.total} suffix={`今日 ${overview.generationHealth.today}`} icon={<BarChartOutlined aria-hidden="true" />} />
+        <KpiCard title="成功率" value={100 - failureRate} precision={1} suffix="%" tone={failureRate > 20 ? "danger" : "good"} icon={<CheckCircleOutlined aria-hidden="true" />} />
+        <KpiCard title="失败率" value={failureRate} precision={1} suffix="%" tone={failureRate > 15 ? "danger" : failureRate > 5 ? "warning" : "good"} icon={<AlertOutlined aria-hidden="true" />} />
+        <KpiCard title="净收入灵点" value={report.metrics.netCredits} tone="good" icon={<DollarOutlined aria-hidden="true" />} />
+        <KpiCard title="退款补偿" value={report.metrics.refundCredits} tone={report.metrics.refundCredits > 0 ? "warning" : "neutral"} icon={<FireOutlined aria-hidden="true" />} />
+        <KpiCard title="履约成本" value={fulfillmentCredits} icon={<ClockCircleOutlined aria-hidden="true" />} />
       </Row>
 
       <Row gutter={[16, 16]}>

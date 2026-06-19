@@ -174,7 +174,7 @@ export function TaskQueueButton() {
           type="button"
           className="mac-button inline-flex h-9 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 shadow-sm transition hover:border-slate-300 hover:text-[var(--mac-accent)]"
         >
-          {isRunning ? <Loader2 className="h-3.5 w-3.5 animate-spin text-[var(--mac-accent)]" /> : <RefreshCw className="h-3.5 w-3.5" />}
+          {isRunning ? <Loader2 className="h-3.5 w-3.5 animate-spin text-[var(--mac-accent)] motion-reduce:animate-none" aria-hidden="true" /> : <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />}
           {buttonLabel}
         </button>
       </DropdownMenu.Trigger>
@@ -204,8 +204,8 @@ export function TaskQueueButton() {
           <div className="mt-3 max-h-[360px] space-y-1 overflow-y-auto">
             {loading && !detailsLoaded ? (
               <div className="flex h-28 items-center justify-center text-xs font-semibold text-slate-400">
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                加载任务中...
+                <Loader2 className="mr-2 h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+                加载任务中…
               </div>
             ) : activeRows.length ? (
               groupedRows.map((group) => (
@@ -232,7 +232,7 @@ export function TaskQueueButton() {
               ))
             ) : (
               <div className="flex h-28 flex-col items-center justify-center text-center text-xs text-slate-400">
-                <Clock3 className="mb-2 h-5 w-5" />
+                <Clock3 className="mb-2 h-5 w-5" aria-hidden="true" />
                 暂无{activeTab === "running" ? "进行中" : "已完成"}任务
               </div>
             )}
@@ -244,7 +244,7 @@ export function TaskQueueButton() {
               onClick={() => void loadQueue(true)}
               className="inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-xs font-bold text-slate-500 hover:bg-slate-50 hover:text-slate-900"
             >
-              <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+              <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin motion-reduce:animate-none" : ""}`} aria-hidden="true" />
               刷新
             </button>
             <DropdownMenu.Item asChild>
@@ -264,7 +264,7 @@ function ThumbnailStack({ urls }: { urls: unknown }) {
   if (!safeUrls.length) {
     return (
       <span className="flex h-10 w-8 items-center justify-center rounded-lg border border-slate-100 bg-slate-50 text-[10px] font-black text-slate-300">
-        <ImageIcon className="h-3.5 w-3.5" />
+        <ImageIcon className="h-3.5 w-3.5" aria-hidden="true" />
       </span>
     );
   }
@@ -275,6 +275,10 @@ function ThumbnailStack({ urls }: { urls: unknown }) {
           key={`${url}-${index}`}
           src={url}
           alt=""
+          width={32}
+          height={40}
+          loading="lazy"
+          decoding="async"
           className="h-10 w-8 rounded-lg border border-white bg-slate-100 object-cover shadow-sm"
         />
       ))}
@@ -296,7 +300,7 @@ function StatusDot({ item }: { item: TaskQueueItem }) {
     const progress = clampProgress(item.progress);
     return (
       <span className="relative flex h-5 w-5 items-center justify-center rounded-full bg-[var(--mac-accent-soft)] text-[var(--mac-accent)]">
-        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        <Loader2 className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
         {progress > 0 && (
           <span className="absolute -right-1 -top-1 rounded-full bg-white px-1 text-[9px] font-black leading-3 text-[var(--mac-accent)] shadow-sm">
             {progress}
@@ -306,9 +310,9 @@ function StatusDot({ item }: { item: TaskQueueItem }) {
     );
   }
   if (item.statusGroup === "failed" || isFailedQueueStatus(item.status)) {
-    return <XCircle className="h-5 w-5 text-red-400" />;
+    return <XCircle className="h-5 w-5 text-red-400" aria-hidden="true" />;
   }
-  return <CheckCircle2 className="h-5 w-5 text-emerald-500" />;
+  return <CheckCircle2 className="h-5 w-5 text-emerald-500" aria-hidden="true" />;
 }
 
 function getQueueMeta(item: TaskQueueItem) {
@@ -384,12 +388,12 @@ function groupQueueRows(items: TaskQueueItem[]) {
 
 function getQueueDateLabel(value: string) {
   const date = new Date(value);
-  if (!Number.isFinite(date.getTime())) return "Earlier";
+  if (!Number.isFinite(date.getTime())) return "更早";
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
   const target = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
   const diffDays = Math.round((today - target) / 86400000);
-  if (diffDays === 0) return "Today";
-  if (diffDays === 1) return "Yesterday";
+  if (diffDays === 0) return "今天";
+  if (diffDays === 1) return "昨天";
   return date.toLocaleDateString("zh-CN", { month: "2-digit", day: "2-digit" });
 }

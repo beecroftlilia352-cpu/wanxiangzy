@@ -14,6 +14,7 @@ import { CanvasDeleteProjectsDialog } from "./components/canvas-delete-projects-
 import { CanvasProjectCard } from "./components/canvas-project-card";
 import { CanvasProjectDetailsPanel } from "./components/canvas-project-details-panel";
 import { CanvasProjectSidebar, formatRelativeTime } from "./components/canvas-project-sidebar";
+import { useFilteredProjects } from "./hooks/use-filtered-projects";
 import type { CanvasExportFile } from "./export-types";
 import { useCanvasStore } from "./stores/use-canvas-store";
 import { useCanvasUiStore } from "./stores/use-canvas-ui-store";
@@ -35,13 +36,7 @@ export default function CanvasPage() {
     const setSelectedProjectId = useCanvasUiStore((state) => state.setSelectedProjectId);
 
     const sortedProjects = useMemo(() => [...projects].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()), [projects]);
-    const visibleProjects = useMemo(() => sortedProjects.filter((project) => {
-        if (starredOnly && !project.starred) return false;
-        if (searchQuery.trim()) {
-            return project.title.toLowerCase().includes(searchQuery.trim().toLowerCase());
-        }
-        return true;
-    }), [sortedProjects, starredOnly, searchQuery]);
+    const visibleProjects = useFilteredProjects(sortedProjects, { searchQuery, starredOnly });
 
     const selectedProjects = useMemo(() => projects.filter((project) => selectedIds.includes(project.id)), [projects, selectedIds]);
     const sidebarProjects = sortedProjects;
@@ -115,30 +110,30 @@ export default function CanvasPage() {
                         </p>
                     </div>
                     <div className="flex flex-wrap items-center justify-end gap-2">
-                        <Button href="/infinite-canvas/assets" icon={<FolderOpen className="size-4" />} className="hidden sm:inline-flex">
+                        <Button href="/infinite-canvas/assets" icon={<FolderOpen aria-hidden="true" className="size-4" />} className="hidden sm:inline-flex">
                             素材库
                         </Button>
-                        <Button href="/infinite-canvas/prompts" icon={<BookOpen className="size-4" />} className="hidden sm:inline-flex">
+                        <Button href="/infinite-canvas/prompts" icon={<BookOpen aria-hidden="true" className="size-4" />} className="hidden sm:inline-flex">
                             提示词库
                         </Button>
                         {selectedIds.length ? (
                             <>
                                 <Button
                                     disabled={!hydrated}
-                                    icon={<Download className="size-4" />}
+                                    icon={<Download aria-hidden="true" className="size-4" />}
                                     onClick={() => void exportCanvasProjects(selectedProjects, `无限画布-${selectedIds.length}个项目`)}
                                 >
                                     导出选中 ({selectedIds.length})
                                 </Button>
-                                <Button disabled={!hydrated} icon={<Trash2 className="size-4" />} onClick={() => setDeleteIds(selectedIds)}>
+                                <Button disabled={!hydrated} icon={<Trash2 aria-hidden="true" className="size-4" />} onClick={() => setDeleteIds(selectedIds)}>
                                     删除选中 ({selectedIds.length})
                                 </Button>
                             </>
                         ) : null}
-                        <Button disabled={!hydrated} icon={<FileUp className="size-4" />} onClick={() => inputRef.current?.click()}>
+                        <Button disabled={!hydrated} icon={<FileUp aria-hidden="true" className="size-4" />} onClick={() => inputRef.current?.click()}>
                             导入画布
                         </Button>
-                        <Button disabled={!hydrated} type="primary" icon={<Plus className="size-4" />} onClick={createAndEnter}>
+                        <Button disabled={!hydrated} type="primary" icon={<Plus aria-hidden="true" className="size-4" />} onClick={createAndEnter}>
                             新建画布
                         </Button>
                     </div>
@@ -146,7 +141,7 @@ export default function CanvasPage() {
 
                 <div className="flex-1 overflow-y-auto px-6 py-6">
                     {!hydrated ? (
-                        <section className="flex min-h-[360px] items-center justify-center text-sm text-stone-500">正在加载画布...</section>
+                        <section className="flex min-h-[360px] items-center justify-center text-sm text-stone-500">正在加载画布…</section>
                     ) : visibleProjects.length ? (
                         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
                             {visibleProjects.map((project) => (
@@ -169,10 +164,10 @@ export default function CanvasPage() {
                 <div className="pointer-events-none fixed inset-x-0 bottom-6 z-40 flex justify-center">
                     <div className="pointer-events-auto flex items-center gap-3 rounded-full border border-stone-200 bg-white px-4 py-2 text-sm shadow-lg">
                         <span className="font-medium">{selectedIds.length} 个项目已选中</span>
-                        <Button size="small" icon={<Trash2 className="size-3.5" />} onClick={() => setDeleteIds(selectedIds)}>
+                        <Button size="small" icon={<Trash2 aria-hidden="true" className="size-3.5" />} onClick={() => setDeleteIds(selectedIds)}>
                             删除
                         </Button>
-                        <Button size="small" onClick={() => void exportCanvasProjects(selectedProjects, `无限画布-${selectedIds.length}个项目`)} icon={<FileUp className="size-3.5" />}>
+                        <Button size="small" onClick={() => void exportCanvasProjects(selectedProjects, `无限画布-${selectedIds.length}个项目`)} icon={<FileUp aria-hidden="true" className="size-3.5" />}>
                             导出
                         </Button>
                     </div>
@@ -188,7 +183,7 @@ function MobileSidebarTrigger({ projects }: { projects: import("./stores/use-can
             <Sheet>
                 <SheetTrigger asChild>
                     <button type="button" aria-label="打开画布库" className="grid size-9 place-items-center rounded-md border border-stone-200 bg-white text-stone-600">
-                        <Menu className="size-4" />
+                        <Menu aria-hidden="true" className="size-4" />
                     </button>
                 </SheetTrigger>
                 <SheetContent side="left" className="w-72 p-0">
@@ -204,11 +199,11 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
     return (
         <section className="flex min-h-[400px] flex-col items-center justify-center rounded-2xl border border-dashed border-stone-200 bg-white/60 text-center">
             <div className="grid size-14 place-items-center rounded-2xl bg-stone-100 text-stone-600">
-                <Plus className="size-6" />
+                <Plus aria-hidden="true" className="size-6" />
             </div>
             <h2 className="mt-5 text-xl font-medium">还没有画布</h2>
             <p className="mt-3 max-w-md text-sm leading-6 text-stone-500">新建一个画布后，就可以把图片、文字、视频和配置节点组织成可复用的创作流。</p>
-            <Button type="primary" className="mt-6" icon={<Plus className="size-4" />} onClick={onCreate}>
+            <Button type="primary" className="mt-6" icon={<Plus aria-hidden="true" className="size-4" />} onClick={onCreate}>
                 新建画布
             </Button>
         </section>

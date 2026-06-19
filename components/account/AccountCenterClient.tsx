@@ -457,7 +457,7 @@ export function AccountCenterClient() {
                 </Title>
                 <Text type="secondary">账户、消费、消息和服务状态集中在这里。</Text>
               </div>
-              <Button icon={<RefreshCw className={cn("h-3.5 w-3.5", refreshing && "animate-spin")} />} onClick={() => void refreshAll()} loading={refreshing}>
+              <Button icon={<RefreshCw className={cn("h-3.5 w-3.5", refreshing && "animate-spin motion-reduce:animate-none")} aria-hidden="true" />} onClick={() => void refreshAll()} loading={refreshing}>
                 刷新
               </Button>
             </div>
@@ -975,16 +975,16 @@ function FeedbackPanel({
           <Select value={feedback.category} options={feedbackCategories} onChange={(category) => onChange({ ...feedback, category })} />
         </FormLine>
         <FormLine required label="标题">
-          <Input value={feedback.title} maxLength={80} placeholder="请输入标题" onChange={(event) => onChange({ ...feedback, title: event.target.value })} />
+          <Input value={feedback.title} name="feedbackTitle" id="feedbackTitle" autoComplete="off" spellCheck={false} maxLength={80} placeholder="请输入标题…" onChange={(event) => onChange({ ...feedback, title: event.target.value })} />
         </FormLine>
         <FormLine required label="建议">
-          <Input.TextArea value={feedback.description} rows={5} maxLength={400} showCount placeholder="请输入" onChange={(event) => onChange({ ...feedback, description: event.target.value })} />
+          <Input.TextArea value={feedback.description} name="feedbackDescription" id="feedbackDescription" autoComplete="off" spellCheck rows={5} maxLength={400} showCount placeholder="请输入…" onChange={(event) => onChange({ ...feedback, description: event.target.value })} />
         </FormLine>
         <FormLine label="联系方式">
-          <Input value={feedback.contact} placeholder="微信 / 手机 / 邮箱" onChange={(event) => onChange({ ...feedback, contact: event.target.value })} />
+          <Input value={feedback.contact} name="feedbackContact" id="feedbackContact" autoComplete="off" spellCheck={false} placeholder="微信 / 手机 / 邮箱…" onChange={(event) => onChange({ ...feedback, contact: event.target.value })} />
         </FormLine>
         <p className="text-sm text-orange-500">若您提出的建议被平台采纳，将会获得平台奖励的灵点</p>
-        <Button type="primary" htmlType="submit" loading={submitting} icon={<Send className="h-3.5 w-3.5" />}>
+        <Button type="primary" htmlType="submit" loading={submitting} icon={<Send className="h-3.5 w-3.5" aria-hidden="true" />}>
           提交
         </Button>
       </form>

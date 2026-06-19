@@ -56,10 +56,13 @@ export function AudioSettingsPanel({ config, onConfigChange, theme, showTitle = 
                     </div>
                     <input
                         type="number"
+                        name="audioSpeed"
+                        aria-label="语速数值"
+                        inputMode="decimal"
                         min={0.25}
                         max={4}
                         step={0.05}
-                        className="h-9 w-full rounded-full border bg-transparent px-3 text-center text-sm outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                        className="h-9 w-full rounded-full border bg-transparent px-3 text-center text-sm outline-none focus-visible:ring-2 focus-visible:ring-stone-400 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                         style={{ borderColor: theme.node.stroke, color: theme.node.text, WebkitTextFillColor: theme.node.text }}
                         value={config.audioSpeed || "1"}
                         onChange={(event) => onConfigChange("audioSpeed", event.target.value)}
@@ -69,9 +72,11 @@ export function AudioSettingsPanel({ config, onConfigChange, theme, showTitle = 
                 </SettingGroup>
                 <SettingGroup title="声音指令" color={theme.node.muted}>
                     <textarea
+                        name="audioInstructions"
+                        aria-label="声音指令"
                         value={config.audioInstructions || ""}
                         placeholder="例如：自然、温暖、适合旁白。"
-                        className="thin-scrollbar h-20 w-full resize-none rounded-xl border bg-transparent px-3 py-2 text-sm leading-5 outline-none"
+                        className="thin-scrollbar h-20 w-full resize-none rounded-xl border bg-transparent px-3 py-2 text-sm leading-5 outline-none focus-visible:ring-2 focus-visible:ring-stone-400"
                         style={{ borderColor: theme.node.stroke, color: theme.node.text }}
                         onChange={(event) => onConfigChange("audioInstructions", event.target.value)}
                         onMouseDown={(event) => event.stopPropagation()}
@@ -84,7 +89,7 @@ export function AudioSettingsPanel({ config, onConfigChange, theme, showTitle = 
 
 function OptionPill({ selected, theme, onClick, children }: { selected: boolean; theme: CanvasTheme; onClick: () => void; children: ReactNode }) {
     return (
-        <button type="button" className="h-9 cursor-pointer rounded-full border px-2 text-sm transition hover:opacity-80" style={{ background: "transparent", borderColor: selected ? theme.node.text : theme.node.stroke, color: theme.node.text }} onMouseDown={(event) => event.stopPropagation()} onClick={onClick}>
+        <button type="button" aria-pressed={selected} className="h-9 cursor-pointer rounded-full border px-2 text-sm transition-opacity hover:opacity-80" style={{ background: "transparent", borderColor: selected ? theme.node.text : theme.node.stroke, color: theme.node.text }} onMouseDown={(event) => event.stopPropagation()} onClick={onClick}>
             {children}
         </button>
     );

@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Toaster } from "sonner";
 import "./globals.css";
 import "./styles/shared-components.css";
@@ -12,7 +12,7 @@ import "@/lib/env";
 import { Geist } from "next/font/google";
 import { cn } from "@/lib/utils";
 
-const geist = Geist({subsets:['latin'],variable:'--font-sans'});
+const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
 
 export const metadata: Metadata = {
   title: "VastWearGen - AI 服装视觉生产工作台",
@@ -23,13 +23,22 @@ export const metadata: Metadata = {
   },
 };
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#fbfbfa" },
+    { media: "(prefers-color-scheme: dark)", color: "#0c0a09" },
+  ],
+};
+
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   return (
-    <html lang="zh-CN" className={cn("font-sans", geist.variable)}>
+    <html lang="zh-CN" className={cn("font-sans", geist.variable)} style={{ colorScheme: "light" }}>
       <body className="min-h-screen text-codex-ink">
         <HeaderClient />
         <main>{children}</main>

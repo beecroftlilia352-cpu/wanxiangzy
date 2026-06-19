@@ -664,10 +664,10 @@ export default function AllCategoryProductImagePage() {
         <div className="mx-auto max-w-[1160px]">
           <header className="text-center">
             <div className="inline-flex h-9 items-center gap-2 rounded-full border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-800 shadow-sm">
-              <PackageCheck className="h-4 w-4" />
+              <PackageCheck aria-hidden="true" className="h-4 w-4" />
               全品类商品图
             </div>
-            <h1 className="mt-6 text-[30px] font-black tracking-normal text-slate-950 sm:text-[34px]">一键生成主图 & 详情图组</h1>
+            <h1 className="mt-6 text-[30px] font-black tracking-normal text-slate-950 sm:text-[34px]" style={{ textWrap: "balance" }}>一键生成主图 & 详情图组</h1>
             <p className="mx-auto mt-3 max-w-3xl text-base leading-7 text-slate-500">
               上传产品图，自动分析产品特征，自动生成电商主图及多角度、多场景的详情图组
             </p>
@@ -686,6 +686,7 @@ export default function AllCategoryProductImagePage() {
                   accept="image/png,image/jpeg,image/webp"
                   multiple
                   className="hidden"
+                  aria-label="上传商品图片"
                   onChange={(event: ChangeEvent<HTMLInputElement>) => {
                     if (event.target.files) void handleFiles(event.target.files);
                     event.target.value = "";
@@ -694,7 +695,7 @@ export default function AllCategoryProductImagePage() {
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex min-w-0 items-start gap-3">
                     <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500">
-                      <ImagePlus className="h-4 w-4" />
+                      <ImagePlus aria-hidden="true" className="h-4 w-4" />
                     </span>
                     <div className="min-w-0">
                       <h2 className="text-sm font-black text-slate-950">产品图</h2>
@@ -713,10 +714,10 @@ export default function AllCategoryProductImagePage() {
                         <button
                           type="button"
                           onClick={() => removeProductImage(index)}
-                          className="absolute right-1 top-1 hidden h-6 w-6 items-center justify-center rounded-full bg-slate-950/65 text-white group-hover:flex"
-                          aria-label="删除图片"
+                          className="absolute right-1 top-1 hidden h-6 w-6 items-center justify-center rounded-full bg-slate-950/65 text-white group-hover:flex group-focus-within:flex focus-visible:flex"
+                          aria-label={`删除图片 ${index + 1}`}
                         >
-                          <X className="h-3.5 w-3.5" />
+                          <X aria-hidden="true" className="h-3.5 w-3.5" />
                         </button>
                       </div>
                     ))}
@@ -726,7 +727,7 @@ export default function AllCategoryProductImagePage() {
                         onClick={() => inputRef.current?.click()}
                         className="flex aspect-square items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50 text-slate-500 hover:border-slate-400 hover:bg-white"
                       >
-                        {isUploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <ImagePlus className="h-6 w-6" />}
+                        {isUploading ? <Loader2 aria-hidden="true" className="h-5 w-5 animate-spin" /> : <ImagePlus aria-hidden="true" className="h-6 w-6" />}
                       </button>
                     )}
                   </div>
@@ -737,7 +738,7 @@ export default function AllCategoryProductImagePage() {
                     className="mt-5 flex h-[132px] w-full flex-col items-center justify-center rounded-[14px] border border-dashed border-slate-300 bg-white text-center transition hover:border-slate-400 hover:bg-slate-50"
                   >
                     <span className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-500">
-                      {isUploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Upload className="h-5 w-5" />}
+                      {isUploading ? <Loader2 aria-hidden="true" className="h-5 w-5 animate-spin" /> : <Upload aria-hidden="true" className="h-5 w-5" />}
                     </span>
                     <span className="mt-4 max-w-[230px] text-xs font-semibold leading-5 text-slate-950">
                       多图上传时建议仅上传必要的视角或sku图，图片不是越多越好
@@ -752,7 +753,7 @@ export default function AllCategoryProductImagePage() {
                       onClick={() => inputRef.current?.click()}
                       className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-lg bg-slate-950 px-3 text-sm font-black text-white hover:bg-slate-800"
                     >
-                      <Upload className="h-4 w-4" />
+                      <Upload aria-hidden="true" className="h-4 w-4" />
                       上传商品图
                     </button>
                     <button
@@ -761,7 +762,7 @@ export default function AllCategoryProductImagePage() {
                       className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 text-slate-500"
                       aria-label="清空图片"
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 aria-hidden="true" className="h-4 w-4" />
                     </button>
                   </div>
                 )}
@@ -777,6 +778,7 @@ export default function AllCategoryProductImagePage() {
                       key={item.value}
                       type="button"
                       onClick={() => changeImageType(item.value as ProductSetImageType)}
+                      aria-pressed={imageType === item.value}
                       className={cn("h-10 rounded-lg border text-sm font-black transition", imageType === item.value ? "border-slate-950 bg-slate-950 text-white shadow-sm" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50")}
                     >
                       {item.label}
@@ -785,14 +787,15 @@ export default function AllCategoryProductImagePage() {
                 </div>
 
                 <div className="mt-5 grid gap-4">
-                  <SelectField icon={<MonitorSmartphone className="h-4 w-4" />} label="目标平台" value={platform} options={ALL_CATEGORY_PRODUCT_IMAGE_PLATFORMS} onChange={(value) => { setPlatform(value as AllCategoryProductImagePlatform); resetOutput(); }} />
+                  <SelectField icon={<MonitorSmartphone aria-hidden="true" className="h-4 w-4" />} label="目标平台" value={platform} options={ALL_CATEGORY_PRODUCT_IMAGE_PLATFORMS} onChange={(value) => { setPlatform(value as AllCategoryProductImagePlatform); resetOutput(); }} />
                   <label className="block">
                     <span className="mb-2 block text-xs font-semibold text-slate-500">{imageType === "main" ? "主图要求" : "详情图要求"}</span>
                     <div className="relative">
                       <textarea
                         value={userBrief}
                         onChange={(event) => { setUserBrief(event.target.value); resetOutput(); }}
-                        placeholder="建议输入：产品名称、卖点、目标人群、目标电商平台、图片风格等"
+                        placeholder="建议输入：产品名称、卖点、目标人群、目标电商平台、图片风格等…"
+                        aria-label={imageType === "main" ? "主图要求说明" : "详情图要求说明"}
                         className="h-[118px] w-full resize-none rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 pr-28 text-sm leading-6 text-slate-800 outline-none transition focus:border-slate-400"
                       />
                       <button
@@ -801,12 +804,12 @@ export default function AllCategoryProductImagePage() {
                         disabled={!productImages.length || isAnalyzing || isGenerating}
                         className="absolute bottom-3 right-3 inline-flex h-8 items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 text-xs font-black text-slate-800 shadow-sm hover:bg-slate-50 disabled:opacity-50"
                       >
-                        <Brush className="h-3.5 w-3.5" />
+                        <Brush aria-hidden="true" className="h-3.5 w-3.5" />
                         AI帮写
                       </button>
                     </div>
                   </label>
-                  <SelectField icon={<Languages className="h-4 w-4" />} label="目标语言" value={language} options={ALL_CATEGORY_PRODUCT_IMAGE_LANGUAGES} onChange={(value) => { setLanguage(value as AllCategoryProductImageLanguage); resetOutput(); }} />
+                  <SelectField icon={<Languages aria-hidden="true" className="h-4 w-4" />} label="目标语言" value={language} options={ALL_CATEGORY_PRODUCT_IMAGE_LANGUAGES} onChange={(value) => { setLanguage(value as AllCategoryProductImageLanguage); resetOutput(); }} />
                   <div className="grid grid-cols-2 gap-3">
                     <SelectField label="模型" value={aiModel} options={MODELS.map((item) => item.value)} labels={Object.fromEntries(MODELS.map((item) => [item.value, item.badge ? `${item.label} · ${item.badge}` : item.label]))} onChange={(value) => { setAiModel(value as LingyaModel); resetOutput(); }} />
                     <SelectField label="尺寸比例" value={defaultAspect} options={[defaultAspect]} onChange={() => undefined} disabled />
@@ -832,8 +835,8 @@ export default function AllCategoryProductImagePage() {
                 disabled={!canAnalyze && !canGenerate}
                 className="flex h-14 w-full items-center justify-center gap-2 rounded-[16px] bg-slate-950 text-base font-black text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-[#929292] disabled:text-white disabled:opacity-100"
               >
-                {isAnalyzing || isGenerating ? <Loader2 className="h-5 w-5 animate-spin" /> : activeStepIndex >= stepIndex("planning") ? <PackageCheck className="h-5 w-5" /> : <Brush className="h-5 w-5" />}
-                {isAnalyzing ? "分析中..." : isGenerating ? "生成中..." : activeStepIndex >= stepIndex("planning") ? `确认生成 ${modules.length} 张图片` : "分析产品"}
+                {isAnalyzing || isGenerating ? <Loader2 aria-hidden="true" className="h-5 w-5 animate-spin" /> : activeStepIndex >= stepIndex("planning") ? <PackageCheck aria-hidden="true" className="h-5 w-5" /> : <Brush aria-hidden="true" className="h-5 w-5" />}
+                {isAnalyzing ? "分析中…" : isGenerating ? "生成中…" : activeStepIndex >= stepIndex("planning") ? `确认生成 ${modules.length} 张图片` : "分析产品"}
               </button>
             </aside>
 
@@ -841,10 +844,10 @@ export default function AllCategoryProductImagePage() {
               <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 <div className="flex min-w-0 items-start gap-3">
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500">
-                      <PackageCheck className="h-4 w-4" />
+                      <PackageCheck aria-hidden="true" className="h-4 w-4" />
                   </span>
                   <div className="min-w-0">
-                    <h2 className="text-sm font-black text-slate-950">{activeStep === "done" ? "生成完成" : activeStep === "generating" ? "生成中..." : activeStep === "analyzing" ? "分析中..." : activeStep === "planning" ? "设计规划预览" : "生成结果"}</h2>
+                    <h2 className="text-sm font-black text-slate-950">{activeStep === "done" ? "生成完成" : activeStep === "generating" ? "生成中…" : activeStep === "analyzing" ? "分析中…" : activeStep === "planning" ? "设计规划预览" : "生成结果"}</h2>
                     <p className="mt-1 text-xs leading-5 text-slate-500">
                       {activeStep === "input" ? "上传产品图并点击分析开始" : activeStep === "planning" ? "请确认设计规范和图片规划" : activeStep === "done" ? "所有图片已生成完成" : getProgressMessage(activeStep, progress)}
                     </p>
@@ -853,11 +856,11 @@ export default function AllCategoryProductImagePage() {
                 {activeStep !== "input" && (
                 <div className="flex flex-wrap gap-2">
                   <button type="button" onClick={() => void openAiWritingPlans()} disabled={!productImages.length || isAnalyzing || isGenerating} className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-black text-slate-700 hover:bg-slate-50 disabled:opacity-50">
-                    <Bot className="h-4 w-4" />
+                    <Bot aria-hidden="true" className="h-4 w-4" />
                     AI帮写
                   </button>
                   <button type="button" onClick={() => void runAnalyze()} disabled={!canAnalyze} className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-black text-slate-700 hover:bg-slate-50 disabled:opacity-50">
-                    <RefreshCw className="h-4 w-4" />
+                    <RefreshCw aria-hidden="true" className="h-4 w-4" />
                     重新分析
                   </button>
                 </div>
@@ -946,7 +949,7 @@ export default function AllCategoryProductImagePage() {
         {previewImage && (
           <div className="fixed inset-0 z-[160] flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm" onClick={() => setPreviewImage(null)}>
             <button type="button" onClick={() => setPreviewImage(null)} className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20" aria-label="关闭预览">
-              <X className="h-5 w-5" />
+              <X aria-hidden="true" className="h-5 w-5" />
             </button>
             <div className="relative max-h-[92vh] max-w-[94vw] overflow-hidden rounded-lg bg-white shadow-2xl" onClick={(event) => event.stopPropagation()}>
               <RawPreviewImage src={previewImage.url} alt={previewImage.title} className="max-h-[92vh] max-w-[94vw] object-contain" />
@@ -1027,7 +1030,7 @@ function EmptyState({ title, description }: { title: string; description: string
     <div className="flex min-h-[680px] items-center justify-center px-6 text-center">
       <div>
         <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 text-slate-500">
-          <PackageCheck className="h-8 w-8" />
+          <PackageCheck aria-hidden="true" className="h-8 w-8" />
         </div>
         <h3 className="mt-5 text-sm font-semibold leading-6 text-slate-600">{title}</h3>
         <p className="mx-auto mt-1 max-w-sm text-sm leading-6 text-slate-500">{description}</p>
@@ -1045,7 +1048,7 @@ function ProgressLine({ value, label }: { value: number; label: string }) {
         <span>{display}%</span>
       </div>
       <div className="mt-3 h-2 overflow-hidden rounded-full bg-white">
-        <div className="h-full rounded-full bg-slate-950 transition-all duration-500" style={{ width: `${Math.max(display, 4)}%` }} />
+        <div className="h-full rounded-full bg-slate-950 transition-[width] duration-500" style={{ width: `${Math.max(display, 4)}%` }} />
       </div>
     </div>
   );
@@ -1080,7 +1083,7 @@ function PlanningPreview({
         <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
           <div className="flex min-w-0 items-center gap-3">
             <span className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-600">
-              <BadgeCheck className="h-4 w-4" />
+              <BadgeCheck aria-hidden="true" className="h-4 w-4" />
             </span>
             <div className="min-w-0">
               <h3 className="text-sm font-black text-slate-950">整体设计规划预览</h3>
@@ -1088,7 +1091,7 @@ function PlanningPreview({
             </div>
           </div>
           <button type="button" onClick={onEditDesignSpec} className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 px-3 text-xs font-black text-slate-600 hover:bg-slate-50">
-            <Edit3 className="h-3.5 w-3.5" />
+            <Edit3 aria-hidden="true" className="h-3.5 w-3.5" />
             {editingDesignSpec ? "预览" : "编辑"}
           </button>
         </div>
@@ -1108,7 +1111,7 @@ function PlanningPreview({
             <p className="mt-1 text-xs text-slate-500">共 {modules.length} 张图片，点击可编辑标题和描述</p>
           </div>
           <button type="button" onClick={onGenerate} disabled={!canGenerate} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-slate-950 px-5 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-50">
-            <PackageCheck className="h-4 w-4" />
+            <PackageCheck aria-hidden="true" className="h-4 w-4" />
             确认生成 {modules.length} 张图片
           </button>
         </div>
@@ -1146,11 +1149,11 @@ function GenerationSkeleton({ title, progress }: { title: string; progress: numb
   return (
     <div className="flex aspect-[3/4] flex-col items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-center">
       <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-slate-500 shadow-sm">
-        <PackageCheck className="h-6 w-6" />
+        <PackageCheck aria-hidden="true" className="h-6 w-6" />
       </div>
       <p className="mt-4 text-sm font-black text-slate-700">{title}</p>
       <p className="mt-1 px-4 text-xs text-slate-500">{getProgressMessage("generating", progress)}</p>
-      <p className="mt-1 text-[11px] font-semibold text-slate-400">{progress ? `${progress}%` : "等待渲染..."}</p>
+      <p className="mt-1 text-[11px] font-semibold text-slate-400">{progress ? `${progress}%` : "等待渲染…"}</p>
     </div>
   );
 }
@@ -1184,21 +1187,21 @@ function ResultGrid({
                 <RawPreviewImage src={getImageVariantUrl(slot.url, "card")} alt={slot.module.title} className="h-full w-full object-contain" />
               ) : slot.status === "failed" ? (
                 <div className="flex h-full flex-col items-center justify-center px-6 text-center text-red-500">
-                  <X className="h-7 w-7" />
+                  <X aria-hidden="true" className="h-7 w-7" />
                   <p className="mt-3 text-sm font-black">生成失败</p>
                   <p className="mt-1 text-xs leading-5">{slot.error || "可尝试单张重生"}</p>
                 </div>
               ) : (
                 <div className="flex h-full flex-col items-center justify-center text-slate-500">
-                  <Loader2 className="h-6 w-6 animate-spin" />
+                  <Loader2 aria-hidden="true" className="h-6 w-6 animate-spin" />
                   <p className="mt-3 text-sm font-black">等待结果</p>
                 </div>
               )}
               {slot.url && (
                 <div className="absolute inset-0 flex items-center justify-center gap-2 bg-slate-950/0 opacity-0 transition hover:bg-slate-950/35 hover:opacity-100">
-                  <IconButton label="预览" onClick={() => onPreview(slot.url!, slot.module.title, index)} icon={<ZoomIn className="h-4 w-4" />} />
-                  <IconButton label="下载" onClick={() => onDownload(slot.url!, index)} icon={<Download className="h-4 w-4" />} />
-                  <IconButton label="重生" onClick={() => onRegenerate(index)} icon={regeneratingIndex === index ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />} />
+                  <IconButton label="预览" onClick={() => onPreview(slot.url!, slot.module.title, index)} icon={<ZoomIn aria-hidden="true" className="h-4 w-4" />} />
+                  <IconButton label="下载" onClick={() => onDownload(slot.url!, index)} icon={<Download aria-hidden="true" className="h-4 w-4" />} />
+                  <IconButton label="重生" onClick={() => onRegenerate(index)} icon={regeneratingIndex === index ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : <RefreshCw aria-hidden="true" className="h-4 w-4" />} />
                 </div>
               )}
             </div>
@@ -1263,7 +1266,7 @@ function AiWritingModal({
             </div>
           </div>
           <button type="button" onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100" aria-label="关闭">
-            <X className="h-5 w-5" />
+            <X aria-hidden="true" className="h-5 w-5" />
           </button>
         </div>
         <div className="border-b border-slate-100 px-5 py-3">
@@ -1285,11 +1288,11 @@ function AiWritingModal({
         </div>
         <div className="flex flex-col gap-2 border-t border-slate-100 px-5 py-4 sm:flex-row sm:justify-between">
           <button type="button" onClick={onRefresh} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 px-4 text-sm font-black text-slate-600 hover:bg-slate-50">
-            <RefreshCw className="h-4 w-4" />
+            <RefreshCw aria-hidden="true" className="h-4 w-4" />
             重新帮写
           </button>
           <button type="button" onClick={onConfirm} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-slate-950 px-6 text-sm font-black text-white">
-            <Check className="h-4 w-4" />
+            <Check aria-hidden="true" className="h-4 w-4" />
             确认选择
           </button>
         </div>

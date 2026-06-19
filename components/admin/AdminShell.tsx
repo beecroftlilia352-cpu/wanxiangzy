@@ -204,13 +204,15 @@ export function AdminShell({ admin, children }: AdminShellProps) {
             <Button
               className="admin-desktop-trigger"
               type="text"
-              icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+              aria-label={collapsed ? "展开侧栏" : "收起侧栏"}
+              icon={collapsed ? <MenuUnfoldOutlined aria-hidden="true" /> : <MenuFoldOutlined aria-hidden="true" />}
               onClick={() => setCollapsed((value) => !value)}
             />
             <Button
               className="admin-mobile-trigger"
               type="text"
-              icon={<MenuOutlined />}
+              aria-label="打开导航菜单"
+              icon={<MenuOutlined aria-hidden="true" />}
               onClick={() => setDrawerOpen(true)}
             />
             <Breadcrumb
@@ -251,7 +253,7 @@ function AdminBrand({ collapsed, compact = false }: { collapsed: boolean; compac
   return (
     <Link href="/admin" className={`admin-brand ${compact ? "admin-brand-compact" : ""}`}>
       <span className="admin-brand-mark">
-        <SafetyCertificateOutlined />
+        <SafetyCertificateOutlined aria-hidden="true" />
       </span>
       {!collapsed && (
         <span className="min-w-0">
@@ -270,7 +272,7 @@ function AdminBrand({ collapsed, compact = false }: { collapsed: boolean; compac
 function AdminAccount({ admin, collapsed }: { admin: AdminShellProps["admin"]; collapsed: boolean }) {
   return (
     <div className="admin-account">
-      <Avatar size={collapsed ? 32 : 36} icon={<UserOutlined />} />
+      <Avatar size={collapsed ? 32 : 36} icon={<UserOutlined aria-hidden="true" />} />
       {!collapsed && (
         <div className="min-w-0">
           <Typography.Text strong className="block truncate">

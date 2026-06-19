@@ -749,11 +749,12 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
                 </p>
               </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
-                <section {...firstFrameDrag.dragHandlers} className={`rounded-xl transition-all ${isDraggingFirstFrame ? "ring-2 ring-[rgba(91,124,255,0.38)] ring-offset-2" : ""}`}>
+                <section {...firstFrameDrag.dragHandlers} className={`rounded-xl transition-[box-shadow] ${isDraggingFirstFrame ? "ring-2 ring-[rgba(91,124,255,0.38)] ring-offset-2" : ""}`}>
                   <input
                     ref={firstFrameInputRef}
                     type="file"
                     accept="image/*"
+                    aria-label="上传首帧图片"
                     className="hidden"
                     onChange={(event) => {
                       const input = event.currentTarget;
@@ -781,11 +782,12 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
                     uploadLabel="上传首帧"
                   />
                 </section>
-                <section {...lastFrameDrag.dragHandlers} className={`rounded-xl transition-all ${isDraggingLastFrame ? "ring-2 ring-[rgba(91,124,255,0.38)] ring-offset-2" : ""}`}>
+                <section {...lastFrameDrag.dragHandlers} className={`rounded-xl transition-[box-shadow] ${isDraggingLastFrame ? "ring-2 ring-[rgba(91,124,255,0.38)] ring-offset-2" : ""}`}>
                   <input
                     ref={lastFrameInputRef}
                     type="file"
                     accept="image/*"
+                    aria-label="上传尾帧图片"
                     className="hidden"
                     onChange={(event) => {
                       const input = event.currentTarget;
@@ -817,11 +819,12 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
             </section>
           </>
         ) : !isMotion ? (
-          <section {...imageDrag.dragHandlers} className={`rounded-xl transition-all ${isDraggingImage ? "ring-2 ring-[rgba(91,124,255,0.38)] ring-offset-2" : ""}`}>
+          <section {...imageDrag.dragHandlers} className={`rounded-xl transition-[box-shadow] ${isDraggingImage ? "ring-2 ring-[rgba(91,124,255,0.38)] ring-offset-2" : ""}`}>
             <input
               ref={imageInputRef}
               type="file"
               accept="image/*"
+              aria-label="上传图片"
               className="hidden"
               onChange={(event) => {
                 const input = event.currentTarget;
@@ -852,11 +855,12 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
           </section>
         ) : (
           <>
-            <section {...modelImageDrag.dragHandlers} className={`rounded-xl transition-all ${isDraggingModelImage ? "ring-2 ring-[rgba(91,124,255,0.38)] ring-offset-2" : ""}`}>
+            <section {...modelImageDrag.dragHandlers} className={`rounded-xl transition-[box-shadow] ${isDraggingModelImage ? "ring-2 ring-[rgba(91,124,255,0.38)] ring-offset-2" : ""}`}>
               <input
                 ref={modelImageInputRef}
                 type="file"
                 accept="image/*"
+                aria-label="上传模特图"
                 className="hidden"
                 onChange={(event) => {
                   const input = event.currentTarget;
@@ -884,7 +888,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
                 uploadLabel="点击或拖拽上传"
               />
             </section>
-            <section {...videoDrag.dragHandlers} className={`rounded-xl transition-all ${isDraggingVideo ? "ring-2 ring-[rgba(91,124,255,0.38)] ring-offset-2" : ""}`}>
+            <section {...videoDrag.dragHandlers} className={`rounded-xl transition-[box-shadow] ${isDraggingVideo ? "ring-2 ring-[rgba(91,124,255,0.38)] ring-offset-2" : ""}`}>
               <input
                 ref={videoInputRef}
                 type="file"
@@ -1181,7 +1185,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
               className="max-h-full max-w-full rounded-[16px] bg-black shadow-[0_32px_120px_rgba(0,0,0,0.45)]"
               onClick={(event) => event.stopPropagation()}
             />
-            <button onClick={() => setLightboxVideo(null)} className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full border border-white/85 bg-white/90 text-slate-700 shadow-[0_12px_34px_rgba(15,23,42,0.22)] backdrop-blur transition-colors hover:bg-white hover:text-slate-950 sm:right-6 sm:top-6">
+            <button onClick={() => setLightboxVideo(null)} aria-label="关闭大图预览" className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full border border-white/85 bg-white/90 text-slate-700 shadow-[0_12px_34px_rgba(15,23,42,0.22)] backdrop-blur transition-colors hover:bg-white hover:text-slate-950 sm:right-6 sm:top-6">
               <X className="h-5 w-5" />
             </button>
           </div>

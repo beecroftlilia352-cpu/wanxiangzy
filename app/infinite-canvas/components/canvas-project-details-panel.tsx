@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { ArrowUpRight, Clock, Download, GitBranch, Layers3, Star, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,6 @@ type Props = {
 };
 
 export function CanvasProjectDetailsPanel({ project }: Props) {
-    const router = useRouter();
     const toggleStarred = useCanvasStore((state) => state.toggleProjectStarred);
     const setDeleteIds = useCanvasUiStore((state) => state.setDeleteProjectIds);
 
@@ -25,7 +24,7 @@ export function CanvasProjectDetailsPanel({ project }: Props) {
             <aside className="hidden w-80 shrink-0 border-l border-stone-200 bg-white lg:block">
                 <div className="flex h-full flex-col items-center justify-center px-6 text-center">
                     <div className="grid size-12 place-items-center rounded-xl bg-stone-100 text-stone-500">
-                        <Layers3 className="size-5" />
+                        <Layers3 className="size-5" aria-hidden="true" />
                     </div>
                     <p className="mt-4 text-sm font-medium text-stone-700">未选中任何画布</p>
                     <p className="mt-1 text-xs text-stone-500">点击左侧文件列表中的画布查看详情。</p>
@@ -52,13 +51,13 @@ export function CanvasProjectDetailsPanel({ project }: Props) {
 
             <div className="flex-1 space-y-5 overflow-y-auto px-5 py-5">
                 <div className="grid grid-cols-2 gap-3">
-                    <Stat label="节点" value={project.nodes.length} icon={<Layers3 className="size-3.5" />} />
-                    <Stat label="连线" value={project.connections.length} icon={<GitBranch className="size-3.5" />} />
+                    <Stat label="节点" value={project.nodes.length} icon={<Layers3 className="size-3.5" aria-hidden="true" />} />
+                    <Stat label="连线" value={project.connections.length} icon={<GitBranch className="size-3.5" aria-hidden="true" />} />
                 </div>
 
                 <dl className="space-y-2 text-sm">
                     <DetailRow label="创建时间" value={new Date(project.createdAt).toLocaleString("zh-CN", { dateStyle: "medium", timeStyle: "short" })} />
-                    <DetailRow label="最近编辑" value={`${formatRelativeTime(project.updatedAt)} (${new Date(project.updatedAt).toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })})`} icon={<Clock className="size-3.5 text-stone-400" />} />
+                    <DetailRow label="最近编辑" value={`${formatRelativeTime(project.updatedAt)} (${new Date(project.updatedAt).toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })})`} icon={<Clock className="size-3.5 text-stone-400" aria-hidden="true" />} />
                     <DetailRow label="画布 ID" value={project.id} mono />
                 </dl>
 
@@ -73,7 +72,7 @@ export function CanvasProjectDetailsPanel({ project }: Props) {
                     <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">版本</p>
                     <Button variant="outline" size="sm" className="w-full justify-between text-stone-600" disabled>
                         查看版本历史
-                        <ArrowUpRight className="size-3.5" />
+                        <ArrowUpRight className="size-3.5" aria-hidden="true" />
                     </Button>
                 </div>
             </div>
@@ -83,24 +82,25 @@ export function CanvasProjectDetailsPanel({ project }: Props) {
                     variant="ghost"
                     size="sm"
                     onClick={() => toggleStarred(project.id)}
+                    aria-pressed={project.starred}
                     className={cn("gap-1.5", project.starred && "text-amber-500 hover:text-amber-600")}
                 >
-                    <Star className={cn("size-3.5", project.starred && "fill-current")} />
+                    <Star className={cn("size-3.5", project.starred && "fill-current")} aria-hidden="true" />
                     {project.starred ? "已收藏" : "收藏"}
                 </Button>
                 <div className="flex items-center gap-1">
                     <Button variant="ghost" size="sm" onClick={handleExport} aria-label="导出" title="导出">
-                        <Download className="size-3.5" />
+                        <Download className="size-3.5" aria-hidden="true" />
                     </Button>
                     <Button variant="ghost" size="sm" onClick={() => setDeleteIds([project.id])} aria-label="删除" title="删除" className="text-stone-500 hover:text-red-600">
-                        <Trash2 className="size-3.5" />
+                        <Trash2 className="size-3.5" aria-hidden="true" />
                     </Button>
                 </div>
             </div>
 
             <div className="border-t border-stone-200 px-5 py-3">
-                <Button className="w-full" onClick={() => router.push(`/infinite-canvas/${project.id}`)}>
-                  打开画布
+                <Button asChild className="w-full">
+                    <Link href={`/infinite-canvas/${project.id}`}>打开画布</Link>
                 </Button>
             </div>
         </aside>

@@ -11,6 +11,7 @@ import {
   Brush,
   X,
 } from "lucide-react";
+import { Modal } from "antd";
 import { toast } from "sonner";
 import { FeatureTabs } from "@/components/FeatureTabs";
 import { ModuleHeader } from "@/components/ModuleHeader";
@@ -313,7 +314,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     setProgress(0);
   }
 
-  function handleContinueCreate() {
+  function performContinueCreate() {
     setMode(initialMode);
     setPrompt("");
     setReferenceImages([]);
@@ -330,6 +331,16 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     resetOutput();
     if (fileInputRef.current) fileInputRef.current.value = "";
     if (imagePromptInputRef.current) imagePromptInputRef.current.value = "";
+  }
+
+  function handleContinueCreate() {
+    Modal.confirm({
+      title: "继续创建",
+      content: "继续创建将清空当前所有内容，确定要继续吗？",
+      okText: "确定",
+      cancelText: "取消",
+      onOk: performContinueCreate,
+    });
   }
 
   async function handleFiles(files?: FileList | File[]) {
@@ -719,7 +730,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
                             <button
                               type="button"
                               onClick={() => { setReferenceImages((prev) => prev.filter((image) => image.id !== item.id)); }}
-                              className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-slate-900/80 text-white opacity-0 transition group-hover:opacity-100"
+                              className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-slate-900/80 text-white opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100"
                               aria-label={`移除图${index + 1}`}
                             >
                               <X className="h-3 w-3" />
@@ -941,6 +952,8 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
                     type="file"
                     accept="image/*"
                     className="hidden"
+                    aria-label="上传图片"
+                    tabIndex={-1}
                     onChange={(event: ChangeEvent<HTMLInputElement>) => uploadImageForPrompt(event.target.files || undefined)}
                   />
                   <button
@@ -979,6 +992,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
                   value={imagePromptText}
                   onChange={(event) => setImagePromptText(event.target.value.slice(0, 4000))}
                   placeholder="上传图片后，系统会在这里生成可用于文生图的内容描述。"
+                  aria-label="图片反推提示词"
                   className="min-h-[260px] w-full resize-y rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm leading-6 text-slate-800 outline-none transition placeholder:text-slate-300 focus:border-[rgba(91,124,255,0.5)] focus:ring-2 focus:ring-[rgba(91,124,255,0.14)] sm:min-h-0"
                 />
               </div>

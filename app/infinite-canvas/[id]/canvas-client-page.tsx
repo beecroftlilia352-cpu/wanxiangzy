@@ -199,11 +199,11 @@ function ConnectionCreateMenu({ pending, onCreate, onClose }: { pending: Pending
                 </button>
             </div>
             <div className="grid gap-1">
-                <ConnectionCreateOption theme={theme} icon={<List className="size-5" />} title="文本生成" description="脚本、广告词、品牌文案" onClick={() => onCreate(CanvasNodeType.Text)} />
-                <ConnectionCreateOption theme={theme} icon={<ImageIcon className="size-5" />} title="图片生成" onClick={() => onCreate(CanvasNodeType.Image)} />
-                <ConnectionCreateOption theme={theme} icon={<Video className="size-5" />} title="视频生成" onClick={() => onCreate(CanvasNodeType.Video)} />
-                <ConnectionCreateOption theme={theme} icon={<Music2 className="size-5" />} title="音频参考" onClick={() => onCreate(CanvasNodeType.Audio)} />
-                <ConnectionCreateOption theme={theme} icon={<Settings2 className="size-5" />} title="配置节点" description="模型、尺寸、数量和输入顺序" onClick={() => onCreate(CanvasNodeType.Config)} />
+                <ConnectionCreateOption theme={theme} icon={<List aria-hidden="true" className="size-5" />} title="文本生成" description="脚本、广告词、品牌文案" onClick={() => onCreate(CanvasNodeType.Text)} />
+                <ConnectionCreateOption theme={theme} icon={<ImageIcon aria-hidden="true" className="size-5" />} title="图片生成" onClick={() => onCreate(CanvasNodeType.Image)} />
+                <ConnectionCreateOption theme={theme} icon={<Video aria-hidden="true" className="size-5" />} title="视频生成" onClick={() => onCreate(CanvasNodeType.Video)} />
+                <ConnectionCreateOption theme={theme} icon={<Music2 aria-hidden="true" className="size-5" />} title="音频参考" onClick={() => onCreate(CanvasNodeType.Audio)} />
+                <ConnectionCreateOption theme={theme} icon={<Settings2 aria-hidden="true" className="size-5" />} title="配置节点" description="模型、尺寸、数量和输入顺序" onClick={() => onCreate(CanvasNodeType.Config)} />
             </div>
         </div>
     );
@@ -2965,7 +2965,7 @@ function CanvasTopBar({
                             aria-expanded={menuOpen}
                             onClick={() => setMenuOpen((open) => !open)}
                         >
-                            <Menu className="size-5" />
+                            <Menu aria-hidden="true" className="size-5" />
                         </button>
                         {menuOpen ? (
                             <div
@@ -2974,17 +2974,17 @@ function CanvasTopBar({
                                 style={{ background: theme.toolbar.panel, borderColor: theme.toolbar.border, color: theme.node.text, boxShadow: "0 18px 48px rgba(28,25,23,.18)" }}
                                 role="menu"
                             >
-                                <CanvasMenuButton icon={<Home className="size-4" />} label="主页" onClick={() => runMenuAction(onHome)} />
-                                <CanvasMenuButton icon={<BookOpen className="size-4" />} label="文档" onClick={() => runMenuAction(() => window.open(DOCS_URL, "_blank", "noopener,noreferrer"))} />
-                                <CanvasMenuButton icon={<Images className="size-4" />} label="我的画布" onClick={() => runMenuAction(onProjects)} />
+                                <CanvasMenuButton icon={<Home aria-hidden="true" className="size-4" />} label="主页" onClick={() => runMenuAction(onHome)} />
+                                <CanvasMenuButton icon={<BookOpen aria-hidden="true" className="size-4" />} label="文档" onClick={() => runMenuAction(() => window.open(DOCS_URL, "_blank", "noopener,noreferrer"))} />
+                                <CanvasMenuButton icon={<Images aria-hidden="true" className="size-4" />} label="我的画布" onClick={() => runMenuAction(onProjects)} />
                                 <CanvasMenuDivider />
-                                <CanvasMenuButton icon={<Plus className="size-4" />} label="新建画布" onClick={() => runMenuAction(onCreateProject)} />
-                                <CanvasMenuButton danger icon={<Trash2 className="size-4" />} label="删除当前画布" onClick={() => runMenuAction(onDeleteProject)} />
+                                <CanvasMenuButton icon={<Plus aria-hidden="true" className="size-4" />} label="新建画布" onClick={() => runMenuAction(onCreateProject)} />
+                                <CanvasMenuButton danger icon={<Trash2 aria-hidden="true" className="size-4" />} label="删除当前画布" onClick={() => runMenuAction(onDeleteProject)} />
                                 <CanvasMenuDivider />
-                                <CanvasMenuButton icon={<Upload className="size-4" />} label="导入素材" onClick={() => runMenuAction(onImportImage)} />
+                                <CanvasMenuButton icon={<Upload aria-hidden="true" className="size-4" />} label="导入素材" onClick={() => runMenuAction(onImportImage)} />
                                 <CanvasMenuDivider />
-                                <CanvasMenuButton disabled={!canUndo} icon={<Undo2 className="size-4" />} label={<MenuLabel text="撤销" shortcut="⌘ Z" />} onClick={() => runMenuAction(onUndo)} />
-                                <CanvasMenuButton disabled={!canRedo} icon={<Redo2 className="size-4" />} label={<MenuLabel text="重做" shortcut="⌘ ⇧ Z / ⌘ Y" />} onClick={() => runMenuAction(onRedo)} />
+                                <CanvasMenuButton disabled={!canUndo} icon={<Undo2 aria-hidden="true" className="size-4" />} label={<MenuLabel text="撤销" shortcut="⌘ Z" />} onClick={() => runMenuAction(onUndo)} />
+                                <CanvasMenuButton disabled={!canRedo} icon={<Redo2 aria-hidden="true" className="size-4" />} label={<MenuLabel text="重做" shortcut="⌘ ⇧ Z / ⌘ Y" />} onClick={() => runMenuAction(onRedo)} />
                             </div>
                         ) : null}
                     </div>
@@ -2992,22 +2992,22 @@ function CanvasTopBar({
                         trigger={["click"]}
                         menu={{
                             items: [
-                                { key: "home", icon: <Home className="size-4" />, label: "主页", onClick: onHome },
-                                { key: "docs", icon: <BookOpen className="size-4" />, label: "文档", onClick: () => window.open(DOCS_URL, "_blank", "noopener,noreferrer") },
-                                { key: "projects", icon: <Images className="size-4" />, label: "我的画布", onClick: onProjects },
+                                { key: "home", icon: <Home aria-hidden="true" className="size-4" />, label: "主页", onClick: onHome },
+                                { key: "docs", icon: <BookOpen aria-hidden="true" className="size-4" />, label: "文档", onClick: () => window.open(DOCS_URL, "_blank", "noopener,noreferrer") },
+                                { key: "projects", icon: <Images aria-hidden="true" className="size-4" />, label: "我的画布", onClick: onProjects },
                                 { type: "divider" },
-                                { key: "new", icon: <Plus className="size-4" />, label: "新建画布", onClick: onCreateProject },
-                                { key: "delete", danger: true, icon: <Trash2 className="size-4" />, label: "删除当前画布", onClick: onDeleteProject },
+                                { key: "new", icon: <Plus aria-hidden="true" className="size-4" />, label: "新建画布", onClick: onCreateProject },
+                                { key: "delete", danger: true, icon: <Trash2 aria-hidden="true" className="size-4" />, label: "删除当前画布", onClick: onDeleteProject },
                                 { type: "divider" },
-                                { key: "import", icon: <Upload className="size-4" />, label: "导入素材", onClick: onImportImage },
+                                { key: "import", icon: <Upload aria-hidden="true" className="size-4" />, label: "导入素材", onClick: onImportImage },
                                 { type: "divider" },
-                                { key: "undo", disabled: !canUndo, icon: <Undo2 className="size-4" />, label: <MenuLabel text="撤销" shortcut="⌘ Z" />, onClick: onUndo },
-                                { key: "redo", disabled: !canRedo, icon: <Redo2 className="size-4" />, label: <MenuLabel text="重做" shortcut="⌘ ⇧ Z / ⌘ Y" />, onClick: onRedo },
+                                { key: "undo", disabled: !canUndo, icon: <Undo2 aria-hidden="true" className="size-4" />, label: <MenuLabel text="撤销" shortcut="⌘ Z" />, onClick: onUndo },
+                                { key: "redo", disabled: !canRedo, icon: <Redo2 aria-hidden="true" className="size-4" />, label: <MenuLabel text="重做" shortcut="⌘ ⇧ Z / ⌘ Y" />, onClick: onRedo },
                             ],
                         }}
                     >
-                        <button type="button" className="grid size-9 place-items-center rounded-full transition hover:bg-black/5 dark:hover:bg-white/10" style={{ color: theme.node.text }} aria-label="打开画布菜单">
-                            <Menu className="size-5" />
+                        <button type="button" className="grid size-9 place-items-center rounded-full transition hover:bg-black/5 motion-safe:transition dark:hover:bg-white/10" style={{ color: theme.node.text }} aria-label="打开画布菜单">
+                            <Menu aria-hidden="true" className="size-5" />
                         </button>
                     </Dropdown>
 
@@ -3048,8 +3048,9 @@ function CanvasTopBar({
                         type="text"
                         className="!h-10 !rounded-xl !px-3 !font-medium"
                         style={{ background: agentOpen ? theme.toolbar.activeBg : theme.toolbar.panel, color: theme.node.text, boxShadow: "0 10px 30px rgba(28,25,23,.10)" }}
-                        icon={<Bot className="size-4" />}
+                        icon={<Bot aria-hidden="true" className="size-4" />}
                         onClick={onToggleAgent}
+                        aria-pressed={agentOpen}
                     >
                         Agent
                     </Button>

@@ -25,6 +25,7 @@ import {
   ZoomIn,
 } from "lucide-react";
 import { toast } from "sonner";
+import { Modal } from "antd";
 import { FeatureTabs } from "@/components/FeatureTabs";
 import { ModuleHeader } from "@/components/ModuleHeader";
 import { PreviewGuide } from "@/components/PreviewGuide";
@@ -426,6 +427,18 @@ export default function ProductSetPage() {
     if (customRefInputRef.current) customRefInputRef.current.value = "";
     if (customModelRefInputRef.current) customModelRefInputRef.current.value = "";
     if (customOtherRefInputRef.current) customOtherRefInputRef.current.value = "";
+  }
+
+  function confirmContinueCreate() {
+    Modal.confirm({
+      title: "继续创建",
+      content: "继续创建将清空当前所有内容，确定要继续吗？",
+      okText: "确定",
+      cancelText: "取消",
+      onOk: () => {
+        handleContinueCreate();
+      },
+    });
   }
 
   function applyProductSetHistoryPayload(applyPayload: ProductSetHistoryPayload, historyResultUrls: string[] = [], options?: { silent?: boolean }) {
@@ -841,6 +854,18 @@ export default function ProductSetPage() {
       setFavoritePlans(previousPlans);
       toast.error(err instanceof Error ? err.message : "删除收藏方案失败");
     }
+  }
+
+  function confirmRemoveFavoritePlan(id: string) {
+    Modal.confirm({
+      title: "删除收藏方案",
+      content: "确定要删除这个收藏方案吗？",
+      okText: "确定",
+      cancelText: "取消",
+      onOk: () => {
+        void removeFavoritePlan(id);
+      },
+    });
   }
 
   function saveProductProfile(profile: ProductSetProductProfile) {
@@ -1445,7 +1470,7 @@ export default function ProductSetPage() {
       <ModuleTaskRail
         module="productSet"
         moduleLabel="商品套图"
-        onContinue={handleContinueCreate}
+        onContinue={confirmContinueCreate}
         onRunningTask={handleRunningTask}
         onCompletedTask={handleCompletedTask}
       />
@@ -1509,7 +1534,7 @@ export default function ProductSetPage() {
                   <div key={`${item.url}-${index}`} className="studio-checkerboard group relative aspect-square overflow-hidden rounded-xl border border-white bg-white shadow-sm">
                     <RawPreviewImage src={getImageVariantUrl(item.url, "thumb")} alt={item.name} className="h-full w-full object-contain p-1.5" />
                     <span className="absolute left-1 top-1 rounded bg-white/90 px-1.5 py-0.5 text-[10px] font-bold text-slate-500">图{index + 1}</span>
-                    <button type="button" onClick={() => removeProductImage(index)} className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-slate-800/80 text-white opacity-0 transition group-hover:opacity-100">
+                    <button type="button" aria-label="移除商品图" onClick={() => removeProductImage(index)} className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-slate-800/80 text-white opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100">
                       <X className="h-3 w-3" />
                     </button>
                   </div>
@@ -1554,6 +1579,7 @@ export default function ProductSetPage() {
                     setProductInfo(nextValue);
                     resetAnalysisPlan(nextValue.trim() ? "manual" : "idle", nextValue.trim() ? "商品信息已修改，请重新分析生成对应方案。" : "");
                   }}
+                  aria-label="商品信息"
                   placeholder={`可选：写一句商品名称、卖点、目标平台或风格要求。
 也可以不填，上传商品图并选择数量后，点击“帮我写”，系统会自动整理成完整商品规划。`}
                   className="min-h-40 w-full resize-none rounded-2xl border border-slate-100 bg-slate-50 px-3 py-3 text-sm leading-6 text-slate-800 outline-none transition focus:border-[rgba(91,124,255,0.5)] focus:bg-white"
@@ -1637,6 +1663,8 @@ export default function ProductSetPage() {
                   <button
                     key={tab.value}
                     type="button"
+                    role="tab"
+                    aria-pressed={active}
                     onClick={() => changePlanMode(tab.value)}
                     className={`min-h-12 rounded-xl px-2 py-1.5 text-center transition ${
                       active ? "bg-white text-[var(--codex-accent)] shadow-sm" : "text-slate-500 hover:bg-white/60"
@@ -1666,6 +1694,8 @@ export default function ProductSetPage() {
                       <button
                         key={tab.value}
                         type="button"
+                        role="tab"
+                        aria-pressed={active}
                         onClick={() => changePlanSourceTab(tab.value)}
                         className={`min-h-11 rounded-xl px-2 py-1.5 text-center transition ${
                           active ? "bg-white text-[var(--codex-accent)] shadow-sm" : "text-slate-500 hover:bg-white/60"
@@ -1756,7 +1786,7 @@ export default function ProductSetPage() {
                     onDraftNameChange={setFavoritePlanName}
                     onSave={saveCurrentPlanAsFavorite}
                     onApply={applyFavoritePlan}
-                    onDelete={removeFavoritePlan}
+                    onDelete={confirmRemoveFavoritePlan}
                   />
                 )}
 
@@ -1932,7 +1962,7 @@ export default function ProductSetPage() {
                 </div>
                 {isGenerating && (
                   <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100">
-                    <div className="h-full rounded-full bg-gradient-to-r from-slate-700 to-slate-950 transition-all" style={{ width: `${Math.min(Math.max(progress, 0), 99)}%` }} />
+                    <div className="h-full rounded-full bg-gradient-to-r from-slate-700 to-slate-950 transition-[width]" style={{ width: `${Math.min(Math.max(progress, 0), 99)}%` }} />
                   </div>
                 )}
                 <ModuleProgressList templates={displayedResultPlan} moduleResults={moduleResults} resultUrls={resultUrls} isGenerating={isGenerating} compact />
@@ -2121,7 +2151,7 @@ function ProductModeTabs({ imageType, onChange }: { imageType: ProductSetImageTy
             key={item.value}
             type="button"
             onClick={() => onChange(item.value)}
-            className={`flex h-14 items-center gap-2.5 rounded-[18px] border px-3 text-left transition-all ${
+            className={`flex h-14 items-center gap-2.5 rounded-[18px] border px-3 text-left transition-[border-color,background-color,color,box-shadow] ${
               imageType === item.value
                 ? "border-[rgba(91,124,255,0.22)] bg-[rgba(91,124,255,0.1)] text-slate-950 shadow-[0_10px_26px_rgba(124,58,237,0.12)]"
                 : "border-transparent bg-white/70 text-slate-600 hover:border-[rgba(91,124,255,0.3)] hover:bg-white hover:text-[var(--codex-accent)]"
@@ -3143,6 +3173,7 @@ function FavoritePlanPanel({
                 </button>
                 <button
                   type="button"
+                  aria-label="删除收藏方案"
                   onClick={() => onDelete(plan.id)}
                   className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 hover:bg-red-50 hover:text-red-500"
                   title="删除收藏方案"
@@ -3300,7 +3331,7 @@ function ModelConfigPanel({
               key={model.value}
               type="button"
               onClick={() => onModelChange(model.value)}
-              className={`min-h-[72px] rounded-2xl border px-3 py-2.5 text-left transition-all ${
+              className={`min-h-[72px] rounded-2xl border px-3 py-2.5 text-left transition-[border-color,background-color,color,box-shadow] ${
                 aiModel === model.value
                   ? "border-[rgba(91,124,255,0.22)]0 bg-[rgba(91,124,255,0.1)] text-slate-950 shadow-[0_10px_26px_rgba(124,58,237,0.12)]"
                   : "border-slate-100 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
@@ -3329,7 +3360,7 @@ function ModelConfigPanel({
               key={size}
               type="button"
               onClick={() => onSizeChange(size)}
-              className={`h-10 rounded-xl border px-2 text-xs font-bold transition-all ${
+              className={`h-10 rounded-xl border px-2 text-xs font-bold transition-colors ${
                 imageSize === size
                   ? "border-[rgba(91,124,255,0.22)]0 bg-[rgba(91,124,255,0.1)] text-[var(--codex-accent)]"
                   : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
@@ -3354,7 +3385,7 @@ function ModelConfigPanel({
               key={value}
               type="button"
               onClick={() => onQualityChange(value)}
-              className={`h-10 rounded-xl border px-3 text-xs font-bold transition-all ${
+              className={`h-10 rounded-xl border px-3 text-xs font-bold transition-colors ${
                 qualityMode === value
                   ? "border-[rgba(91,124,255,0.22)]0 bg-[rgba(91,124,255,0.1)] text-[var(--codex-accent)]"
                   : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"

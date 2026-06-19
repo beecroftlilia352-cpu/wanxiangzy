@@ -399,7 +399,7 @@ function ErrorContent({ node, theme, onRetry }: Pick<NodeContentRendererProps, "
             <div className="text-xs leading-5 text-red-300">{node.metadata?.errorDetails || "生成失败"}</div>
             <button
                 type="button"
-                className="inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-xs font-medium transition hover:scale-[1.02]"
+                className="inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-xs font-medium transition-transform motion-safe:hover:scale-[1.02]"
                 style={{ background: theme.toolbar.panel, borderColor: theme.toolbar.border, color: theme.node.text }}
                 onClick={(event) => {
                     event.stopPropagation();
@@ -407,7 +407,7 @@ function ErrorContent({ node, theme, onRetry }: Pick<NodeContentRendererProps, "
                 }}
                 onMouseDown={(event) => event.stopPropagation()}
             >
-                <RefreshCw className="size-3.5" />
+                <RefreshCw aria-hidden="true" className="size-3.5" />
                 重试
             </button>
         </div>
@@ -430,7 +430,7 @@ function TextContent({ node, theme, isEditingContent, textareaRef, mentionRefere
         <div className="flex h-full w-full flex-col overflow-hidden pt-8">
             <button
                 type="button"
-                className="absolute right-3 top-3 z-20 inline-flex h-8 items-center gap-1 rounded-full border px-2.5 text-xs font-medium opacity-85 backdrop-blur-md transition hover:scale-[1.02] hover:opacity-100"
+                className="absolute right-3 top-3 z-20 inline-flex h-8 items-center gap-1 rounded-full border px-2.5 text-xs font-medium opacity-85 backdrop-blur-md transition-[transform,opacity] motion-safe:hover:scale-[1.02] hover:opacity-100"
                 style={{ background: `${theme.toolbar.panel}dd`, borderColor: theme.node.stroke, color: theme.node.text }}
                 onClick={(event) => {
                     event.stopPropagation();
@@ -441,13 +441,13 @@ function TextContent({ node, theme, isEditingContent, textareaRef, mentionRefere
                 title="用文本生图"
                 aria-label="用文本生图"
             >
-                <ImageIcon className="size-3.5" />
+                <ImageIcon aria-hidden="true" className="size-3.5" />
                 生图
             </button>
             {isEditingContent ? (
                 <CanvasResourceMentionTextarea
                     ref={textareaRef}
-                    className="thin-scrollbar block h-full w-full resize-none overflow-y-auto whitespace-pre-wrap break-words border-none bg-transparent pl-4 pr-14 pt-0 pb-4 m-0 font-mono outline-none select-text appearance-none"
+                    className="thin-scrollbar block h-full w-full resize-none overflow-y-auto whitespace-pre-wrap break-words border-none bg-transparent pl-4 pr-14 pt-0 pb-4 m-0 font-mono outline-none focus-visible:ring-2 focus-visible:ring-stone-400 select-text appearance-none"
                     style={textStyle}
                     value={node.metadata?.content || ""}
                     references={mentionReferences}
@@ -518,7 +518,7 @@ function EmptyImageContent({ theme, isBatchRoot, batchCount, batchExpanded, batc
     const content = (
         <div className="flex h-full w-full flex-col items-center justify-center gap-3" style={{ color: theme.node.placeholder }}>
             <div className="flex size-14 items-center justify-center rounded-2xl" style={{ background: theme.toolbar.activeBg }}>
-                <ImageIcon className="size-6 opacity-30" />
+                <ImageIcon aria-hidden="true" className="size-6 opacity-30" />
             </div>
             <span className="text-[10px] tracking-[0.18em] opacity-50">空图片节点</span>
         </div>
@@ -536,7 +536,7 @@ function VideoNodeContent({ node, theme }: NodeContentRendererProps) {
     if (!node.metadata?.content)
         return (
             <div className="flex h-full w-full flex-col items-center justify-center gap-3" style={{ color: theme.node.placeholder }}>
-                <Video className="size-7 opacity-35" />
+                <Video aria-hidden="true" className="size-7 opacity-35" />
                 <span className="text-sm">空视频节点</span>
             </div>
         );
@@ -547,14 +547,14 @@ function AudioNodeContent({ node, theme }: NodeContentRendererProps) {
     if (!node.metadata?.content)
         return (
             <div className="flex h-full w-full flex-col items-center justify-center gap-2" style={{ color: theme.node.placeholder }}>
-                <Music2 className="size-7 opacity-35" />
+                <Music2 aria-hidden="true" className="size-7 opacity-35" />
                 <span className="text-sm">空音频节点</span>
             </div>
         );
     return (
         <div className="flex h-full w-full flex-col justify-center gap-3 px-4" style={{ background: theme.node.fill, color: theme.node.text }}>
             <div className="flex min-w-0 items-center gap-2 text-sm opacity-70">
-                <Music2 className="size-4 shrink-0" />
+                <Music2 aria-hidden="true" className="size-4 shrink-0" />
                 <span className="truncate">{node.title || "音频"}</span>
             </div>
             <audio src={node.metadata.content} controls className="w-full" data-canvas-no-zoom />
@@ -593,14 +593,18 @@ function ImageContent({
                     draggable={false}
                     onDragStart={(event) => event.preventDefault()}
                     className={`pointer-events-none block h-full w-full select-none ${node.metadata?.freeResize ? "object-fill" : "object-contain"}`}
+                    width={node.metadata?.naturalWidth || node.width}
+                    height={node.metadata?.naturalHeight || node.height}
+                    loading="lazy"
                 />
             </div>
             {isBatchRoot ? (
                 <button
                     type="button"
-                    className="absolute right-2.5 top-2.5 z-30 flex h-8 items-center justify-center gap-1 rounded-full border px-2.5 text-xs font-semibold shadow-[0_6px_18px_rgba(15,23,42,.10)] backdrop-blur-md transition hover:scale-[1.02]"
+                    className="absolute right-2.5 top-2.5 z-30 flex h-8 items-center justify-center gap-1 rounded-full border px-2.5 text-xs font-semibold shadow-[0_6px_18px_rgba(15,23,42,.10)] backdrop-blur-md transition-transform motion-safe:hover:scale-[1.02]"
                     style={{ background: `${theme.toolbar.panel}d9`, borderColor: `${theme.toolbar.border}cc`, color: theme.node.text }}
                     aria-label={batchExpanded ? "图片组已展开" : "图片组已收起"}
+                    aria-expanded={batchExpanded}
                     onClick={(event) => {
                         event.stopPropagation();
                         onToggleBatch?.();
@@ -609,13 +613,13 @@ function ImageContent({
                     onPointerDown={(event) => event.stopPropagation()}
                 >
                     <span className="leading-none text-[#2f80ff]">{batchCount}</span>
-                    <ChevronRight className={`size-3.5 opacity-55 transition-transform ${batchExpanded ? "rotate-90" : ""}`} />
+                    <ChevronRight aria-hidden="true" className={`size-3.5 opacity-55 transition-transform motion-safe:${batchExpanded ? "rotate-90" : ""}`} />
                 </button>
             ) : null}
             {isBatchChild ? (
                 <button
                     type="button"
-                    className="absolute right-3 top-3 z-30 flex h-9 items-center gap-1.5 rounded-xl border px-2.5 text-xs font-medium opacity-0 shadow-[0_8px_20px_rgba(68,64,60,.13)] backdrop-blur-md transition group-hover/batch:opacity-100 hover:scale-[1.02]"
+                    className="absolute right-3 top-3 z-30 flex h-9 items-center gap-1.5 rounded-xl border px-2.5 text-xs font-medium opacity-0 shadow-[0_8px_20px_rgba(68,64,60,.13)] backdrop-blur-md transition-[transform,opacity] group-hover/batch:opacity-100 motion-safe:group-hover/batch:opacity-100 hover:scale-[1.02] motion-safe:hover:scale-[1.02]"
                     style={{ background: theme.toolbar.panel, borderColor: theme.toolbar.border, color: theme.node.text }}
                     onClick={(event) => {
                         event.stopPropagation();
@@ -624,7 +628,7 @@ function ImageContent({
                     onMouseDown={(event) => event.stopPropagation()}
                     onPointerDown={(event) => event.stopPropagation()}
                 >
-                    <Star className="size-3.5 text-[#2f80ff]" />
+                    <Star aria-hidden="true" className="size-3.5 text-[#2f80ff]" />
                     设为主图
                 </button>
             ) : null}
@@ -666,7 +670,7 @@ function BatchFrame({ batchCount, batchExpanded, batchOpening, batchRecovering, 
                     {Array.from({ length: Math.min(batchCount - 1, 5) }).map((_, index) => (
                         <div
                             key={index}
-                            className="absolute rounded-[inherit] border shadow-[0_14px_34px_rgba(68,64,60,.16)] transition-all duration-300 group-hover/batch:translate-x-2"
+                            className="absolute rounded-[inherit] border shadow-[0_14px_34px_rgba(68,64,60,.16)] transition-[transform,box-shadow,border-color] duration-300 group-hover/batch:translate-x-2"
                             style={{
                                 inset: 0,
                                 background: `linear-gradient(135deg, ${theme.node.panel}, ${theme.node.fill})`,
@@ -692,7 +696,7 @@ function ResizeHandle({ corner, onMouseDown }: { corner: ResizeCorner; onMouseDo
         "bottom-right": "-bottom-[14px] -right-[14px] cursor-nwse-resize",
     }[corner];
 
-    return <div className={`absolute z-50 size-7 ${positionClass}`} onMouseDown={(event) => onMouseDown(event, corner)} />;
+    return <div role="separator" aria-orientation="vertical" aria-label={`调整节点尺寸（${corner}）`} className={`absolute z-50 size-7 ${positionClass}`} onMouseDown={(event) => onMouseDown(event, corner)} />;
 }
 
 function ConnectionHandleDot({ side, visible, onMouseDown }: { side: "left" | "right"; visible: boolean; onMouseDown: (event: React.MouseEvent) => void }) {
@@ -704,8 +708,11 @@ function ConnectionHandleDot({ side, visible, onMouseDown }: { side: "left" | "r
                 side === "left" ? "-left-6" : "-right-6"
             } ${visible ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"}`}
             onMouseDown={onMouseDown}
+            role="button"
+            tabIndex={visible ? 0 : -1}
+            aria-label={side === "left" ? "连接到目标节点" : "从此节点拉出连线"}
         >
-            <div className="size-3 rounded-full border-2 transition-all hover:scale-125" style={{ background: theme.node.panel, borderColor: theme.node.muted }} />
+            <div className="size-3 rounded-full border-2 transition-transform motion-safe:hover:scale-125" style={{ background: theme.node.panel, borderColor: theme.node.muted }} />
         </div>
     );
 }

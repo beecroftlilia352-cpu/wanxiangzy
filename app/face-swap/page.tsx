@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { FeatureTabs } from "@/components/FeatureTabs";
+import { Modal } from "antd";
 import { ClientPortal } from "@/components/ClientPortal";
 import { ModuleHeader } from "@/components/ModuleHeader";
 import { PreviewGuide } from "@/components/PreviewGuide";
@@ -612,6 +613,18 @@ export default function FaceSwapPage() {
     setActiveQueueTask(null);
   }
 
+  function confirmClearAll() {
+    Modal.confirm({
+      title: "清空模特脸库",
+      content: "清空后将无法恢复，确定要继续吗？",
+      okText: "确定",
+      cancelText: "取消",
+      onOk: () => {
+        clearAll();
+      },
+    });
+  }
+
   function handleRunningTask(item: TaskQueueItem) {
     setActiveQueueTask(item);
     const urls = safeTaskQueueUrls(item.resultThumbnails);
@@ -862,7 +875,9 @@ export default function FaceSwapPage() {
             <button
               type="button"
               onClick={() => setTextureEnhance((value) => !value)}
-              className={`flex w-full items-center justify-between rounded-2xl border p-3 text-left transition-all ${textureEnhance ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-neutral-200 bg-white text-neutral-700 hover:border-neutral-300"}`}
+              aria-label="画质增强"
+              aria-pressed={textureEnhance}
+              className={`flex w-full items-center justify-between rounded-2xl border p-3 text-left transition-colors ${textureEnhance ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-neutral-200 bg-white text-neutral-700 hover:border-neutral-300"}`}
             >
               <span>
                 <span className="block text-sm font-black">轻量细节恢复</span>
@@ -898,7 +913,7 @@ export default function FaceSwapPage() {
           isLoading={status === "running"}
           onPrimaryAction={() => void generate()}
           secondaryActions={(
-            <button type="button" onClick={clearAll} className="studio-button studio-tone-neutral studio-button-compact">
+            <button type="button" onClick={confirmClearAll} className="studio-button studio-tone-neutral studio-button-compact">
               清空
             </button>
           )}
@@ -991,7 +1006,7 @@ export default function FaceSwapPage() {
 
       {drawerOpen && (
         <ClientPortal>
-          <aside className="face-swap-face-library-panel" aria-label="模特脸库">
+          <aside className="face-swap-face-library-panel" role="dialog" aria-modal="true" aria-label="模特脸库">
             <div className="face-swap-face-library-header">
               <div>
                 <h2 className="text-lg font-black text-slate-950">模特脸库</h2>
@@ -1007,6 +1022,7 @@ export default function FaceSwapPage() {
                   key={gender}
                   type="button"
                   onClick={() => setGenderFilter(gender)}
+                  aria-pressed={genderFilter === gender}
                   className={`face-swap-face-library-tab ${genderFilter === gender ? "face-swap-face-library-tab-active" : ""}`}
                 >
                   {gender === "female" ? "女模特" : "男模特"}
@@ -1070,7 +1086,7 @@ export default function FaceSwapPage() {
                 </div>
               )}
             </div>
-            <button type="button" onClick={closeLightbox} className="absolute right-5 top-5 flex h-10 w-10 items-center justify-center rounded-full bg-white text-slate-700 shadow-lg">
+            <button type="button" onClick={closeLightbox} aria-label="关闭大图预览" className="absolute right-5 top-5 flex h-10 w-10 items-center justify-center rounded-full bg-white text-slate-700 shadow-lg">
               <X className="h-5 w-5" />
             </button>
           </div>

@@ -202,7 +202,7 @@ export default function HomePage() {
           <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
             <Link href="/create" className="home-button home-button-dark">
               进入工作台
-              <ArrowRight className="h-4 w-4" />
+              <ArrowRight aria-hidden="true" className="h-4 w-4" />
             </Link>
             <Link href="#same-agent" className="home-button home-button-soft">
               查看案例
@@ -245,7 +245,7 @@ export default function HomePage() {
             </p>
             <Link href="/create" className="home-button home-button-dark mt-8">
               进入工作台
-              <ArrowRight className="h-4 w-4" />
+              <ArrowRight aria-hidden="true" className="h-4 w-4" />
             </Link>
           </div>
 
@@ -308,7 +308,7 @@ export default function HomePage() {
             </p>
             <Link href="/create" className="home-button home-button-dark mt-9">
               进入工作台
-              <ArrowRight className="h-4 w-4" />
+              <ArrowRight aria-hidden="true" className="h-4 w-4" />
             </Link>
           </div>
         </section>
@@ -429,7 +429,7 @@ function Footer() {
                 <li key={label}>
                   <Link href={href} className="inline-flex items-center gap-1 text-[14px] font-semibold text-[#111] transition hover:text-[#555]">
                     {label}
-                    {href !== "/" && <ExternalLink className="h-3 w-3" />}
+                    {href !== "/" && <ExternalLink aria-hidden="true" className="h-3 w-3" />}
                   </Link>
                 </li>
               ))}

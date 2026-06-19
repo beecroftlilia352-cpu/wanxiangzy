@@ -57,7 +57,15 @@ export function CanvasThumbnail({
     if (url) {
         return (
             <div className={cn("relative aspect-[16/10] w-full overflow-hidden bg-stone-100", rounded, className)}>
-                <img src={url} alt={title} loading="lazy" className="h-full w-full object-cover" />
+                <img
+                    src={url}
+                    alt={title}
+                    width={640}
+                    height={400}
+                    loading="lazy"
+                    decoding="async"
+                    className="h-full w-full object-cover"
+                />
             </div>
         );
     }
@@ -77,7 +85,7 @@ export function CanvasThumbnailPlaceholder({ title, className, rounded = "rounde
             <div className="absolute inset-0 flex items-center justify-center">
                 <div className="flex flex-col items-center gap-2 text-stone-500">
                     <div className="grid size-10 place-items-center rounded-md bg-white/70 shadow-sm backdrop-blur-sm">
-                        <Layers3 className="size-5" />
+                        <Layers3 className="size-5" aria-hidden="true" />
                     </div>
                     <span className="text-sm font-medium tracking-wide text-stone-600">{initials}</span>
                 </div>

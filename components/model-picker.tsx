@@ -145,7 +145,7 @@ function shouldShowChannelSuffix(config: AiConfig, modelName: string): boolean {
 
 function ModelIcon({ model }: { model: string }) {
     const icon = resolveModelIcon(modelOptionName(model));
-    return icon ? <img src={icon} alt="" className="size-4 shrink-0 dark:invert" /> : <Cpu className="size-4 shrink-0 opacity-70" />;
+    return icon ? <img src={icon} alt="" width={16} height={16} loading="lazy" className="size-4 shrink-0 dark:invert" /> : <Cpu className="size-4 shrink-0 opacity-70" aria-hidden="true" />;
 }
 
 function resolveModelIcon(model: string) {

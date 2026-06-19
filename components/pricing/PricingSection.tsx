@@ -108,7 +108,7 @@ function getCreditLine(plan: CreditPlan, mode: PricingMode) {
     <>
       {formatNumber(plan.baseCredits)} 灵点
       <span className="ml-1 inline-flex items-center gap-0.5 text-amber-600">
-        + <Sparkles className="h-3 w-3" /> 赠送{formatNumber(plan.bonusCredits)}灵点
+        + <Sparkles className="h-3 w-3" aria-hidden="true" /> 赠送{formatNumber(plan.bonusCredits)}灵点
       </span>
     </>
   );
@@ -286,7 +286,7 @@ export function PricingSection() {
       <div className="mx-auto max-w-7xl">
         <div className="mb-12 text-center">
           <p className="mb-2 text-xs font-black uppercase tracking-widest text-amber-700">AI 电商视觉灵点</p>
-          <h1 id="pricing-title" className="mb-4 text-4xl font-black tracking-tight text-zinc-900">
+          <h1 id="pricing-title" className="mb-4 text-4xl font-black tracking-tight text-zinc-900" style={{ textWrap: "balance" }}>
             赋能您的电商视觉
           </h1>
           <p className="mx-auto flex max-w-2xl flex-wrap items-center justify-center gap-x-1 text-base font-medium leading-relaxed text-zinc-500">
@@ -302,11 +302,11 @@ export function PricingSection() {
             aria-pressed={mode === "credits"}
             onClick={() => setMode("credits")}
             className={cn(
-              "group order-1 inline-flex items-center justify-center gap-2 rounded-xl text-sm font-bold text-zinc-500 transition-all",
+              "group order-1 inline-flex items-center justify-center gap-2 rounded-xl text-sm font-bold text-zinc-500 transition-[background-color,color,box-shadow] duration-150",
               mode === "credits" && "bg-white text-zinc-900 shadow-sm"
             )}
           >
-            <Zap className="h-4 w-4" />
+            <Zap className="h-4 w-4" aria-hidden="true" />
             <span>购买灵点</span>
             <span
               className={cn(
@@ -323,11 +323,11 @@ export function PricingSection() {
             aria-pressed={mode === "subscription"}
             onClick={() => setMode("subscription")}
             className={cn(
-              "order-2 inline-flex items-center justify-center rounded-xl text-sm font-bold text-zinc-500 transition-all",
+              "order-2 inline-flex items-center justify-center rounded-xl text-sm font-bold text-zinc-500 transition-[background-color,color,box-shadow] duration-150",
               mode === "subscription" && "bg-white text-zinc-900 shadow-sm"
             )}
           >
-            <Crown className="mr-2 h-4 w-4" />
+            <Crown className="mr-2 h-4 w-4" aria-hidden="true" />
             订阅套餐
             <span className="ml-1 text-amber-700">+5%</span>
           </button>
@@ -359,7 +359,7 @@ export function PricingSection() {
                   disabled={portalLoading}
                   className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 text-xs font-black text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {portalLoading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                  {portalLoading && <Loader2 className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />}
                   管理订阅
                 </button>
               </div>
@@ -419,7 +419,7 @@ function PlanCard({
   return (
     <article
       className={cn(
-        "relative flex min-h-[534px] flex-col rounded-2xl border bg-white p-6 transition-all",
+        "relative flex min-h-[534px] flex-col rounded-2xl border bg-white p-6 transition-[box-shadow,border-color,transform] duration-200",
         plan.featured ? "border-zinc-900 shadow-lg ring-1 ring-zinc-900" : "border-zinc-200 shadow-sm"
       )}
     >
@@ -438,7 +438,7 @@ function PlanCard({
             plan.featured ? "bg-zinc-900 text-white" : "bg-zinc-100 text-zinc-600"
           )}
         >
-          <CircleDollarSign className="h-5 w-5" />
+          <CircleDollarSign className="h-5 w-5" aria-hidden="true" />
         </div>
         <h3 className="flex-1 text-xl font-bold text-zinc-900">{plan.title}</h3>
         {plan.savings ? (
@@ -457,7 +457,7 @@ function PlanCard({
       <ul className="mb-8 flex-1 space-y-3">
         {features.map((feature, index) => (
           <li key={index} className="flex items-center gap-2 text-zinc-700">
-            <Check className={cn("h-4 w-4 shrink-0", feature.primary ? "text-zinc-900" : "text-zinc-300")} />
+            <Check className={cn("h-4 w-4 shrink-0", feature.primary ? "text-zinc-900" : "text-zinc-300")} aria-hidden="true" />
             <span className={cn(feature.primary ? "text-sm font-semibold" : "font-medium")}>{feature.content}</span>
           </li>
         ))}
@@ -465,7 +465,7 @@ function PlanCard({
 
       {plan.enterpriseNote ? (
         <div className="mb-4 flex items-center gap-2 rounded-lg border border-amber-100 bg-amber-50/50 px-2 py-1.5 text-amber-700">
-          <Crown className="h-3.5 w-3.5 shrink-0 text-amber-500" />
+          <Crown className="h-3.5 w-3.5 shrink-0 text-amber-500" aria-hidden="true" />
           <span className="text-xs font-bold">{plan.enterpriseNote}</span>
         </div>
       ) : null}
@@ -475,13 +475,13 @@ function PlanCard({
         onClick={onSelect}
         disabled={loading || disabled}
         className={cn(
-          "inline-flex w-full items-center justify-center gap-2 rounded-xl py-4 text-[15px] font-bold transition-all disabled:cursor-not-allowed disabled:opacity-60",
+          "inline-flex w-full items-center justify-center gap-2 rounded-xl py-4 text-[15px] font-bold transition-[background-color,border-color,color,box-shadow] duration-150 disabled:cursor-not-allowed disabled:opacity-60",
           plan.featured
             ? "bg-zinc-900 text-white shadow-md hover:bg-zinc-800"
             : "border-2 border-zinc-100 bg-white text-zinc-900 hover:border-zinc-200 hover:bg-zinc-50"
         )}
       >
-        {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+        {loading && <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />}
         {mode === "subscription" ? "开通订阅" : "立即购买"}
       </button>
     </article>
@@ -491,7 +491,7 @@ function PlanCard({
 function NoticeCard({ notice }: { notice: CheckoutNotice }) {
   return (
     <div className={cn("flex items-start gap-3 rounded-2xl border p-4", noticeToneClass(notice.tone))}>
-      <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+      <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
       <div>
         <p className="text-sm font-black">{notice.title}</p>
         <p className="mt-1 text-xs font-semibold leading-5">{notice.message}</p>

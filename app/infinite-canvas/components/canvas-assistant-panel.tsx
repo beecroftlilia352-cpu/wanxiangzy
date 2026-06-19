@@ -491,9 +491,9 @@ export function CanvasAssistantPanel({ nodes, selectedNodeIds, snapshot, session
                 value={view}
                 theme={theme}
                 items={[
-                    { value: "setup", label: "连接配置", icon: <Settings2 className="size-3.5" /> },
+                    { value: "setup", label: "连接配置", icon: <Settings2 aria-hidden="true" className="size-3.5" /> },
                     { value: "chat", label: "对话" },
-                    { value: "history", label: "历史", icon: <History className="size-3.5" />, count: historySessions.length },
+                    { value: "history", label: "历史", icon: <History aria-hidden="true" className="size-3.5" />, count: historySessions.length },
                     { value: "log", label: "日志", count: onlineLogs.length },
                 ]}
                 onChange={setView}
@@ -501,7 +501,7 @@ export function CanvasAssistantPanel({ nodes, selectedNodeIds, snapshot, session
                     <>
                         {view === "history" ? (
                             <Tooltip title="删除全部">
-                                <Button type="text" shape="circle" className="!h-8 !w-8 !min-w-8" style={iconButtonStyle} icon={<X className="size-4" />} disabled={!historySessions.length} onClick={() => setDeleteChatIds(historySessions.map((session) => session.id))} />
+                                <Button type="text" shape="circle" className="!h-8 !w-8 !min-w-8" style={iconButtonStyle} icon={<X aria-hidden="true" className="size-4" />} disabled={!historySessions.length} onClick={() => setDeleteChatIds(historySessions.map((session) => session.id))} aria-label="删除全部历史" />
                             </Tooltip>
                         ) : null}
                         <Tooltip title="新对话">
@@ -510,16 +510,17 @@ export function CanvasAssistantPanel({ nodes, selectedNodeIds, snapshot, session
                                 shape="circle"
                                 className="!h-8 !w-8 !min-w-8"
                                 style={iconButtonStyle}
-                                icon={<Plus className="size-4" />}
+                                icon={<Plus aria-hidden="true" className="size-4" />}
                                 disabled={!hasMessages}
                                 onClick={() => {
                                     startChatSession();
                                     setView("chat");
                                 }}
+                                aria-label="新对话"
                             />
                         </Tooltip>
                         <Tooltip title="配置">
-                            <Button type="text" shape="circle" className="!h-8 !w-8 !min-w-8" style={iconButtonStyle} icon={<Settings2 className="size-4" />} onClick={() => openConfigDialog(false)} />
+                            <Button type="text" shape="circle" className="!h-8 !w-8 !min-w-8" style={iconButtonStyle} icon={<Settings2 aria-hidden="true" className="size-4" />} onClick={() => openConfigDialog(false)} aria-label="配置" />
                         </Tooltip>
                     </>
                 }
@@ -643,7 +644,7 @@ export function CanvasAssistantPanel({ nodes, selectedNodeIds, snapshot, session
                 <header className="flex h-14 items-center justify-between border-b px-4" style={{ borderColor: theme.node.stroke }}>
                     <div className="flex min-w-0 items-center gap-2">
                         <span className="grid size-8 place-items-center rounded-lg">
-                            <Bot className="size-4" />
+                            <Bot aria-hidden="true" className="size-4" />
                         </span>
                         <div className="min-w-0">
                             <div className="text-base font-semibold leading-5">Agent</div>
@@ -659,7 +660,7 @@ export function CanvasAssistantPanel({ nodes, selectedNodeIds, snapshot, session
                             工具确认
                         </label>
                         <Tooltip title="收起对话">
-                            <Button type="text" shape="circle" className="!h-8 !w-8 !min-w-8" style={iconButtonStyle} icon={<PanelRightClose className="size-4" />} onClick={collapse} />
+                            <Button type="text" shape="circle" className="!h-8 !w-8 !min-w-8" style={iconButtonStyle} icon={<PanelRightClose aria-hidden="true" className="size-4" />} onClick={collapse} aria-label="收起对话" />
                         </Tooltip>
                     </div>
                 </header>
@@ -771,7 +772,7 @@ function buildAgentModelGroups(config: AiConfig, capability: ModelCapability, cu
 
 function AgentModelIcon({ model }: { model: string }) {
     const icon = resolveModelIcon(modelOptionName(model));
-    return icon ? <img src={icon} alt="" className="size-4 shrink-0 dark:invert" /> : <Cpu className="size-4 shrink-0 opacity-70" />;
+    return icon ? <img src={icon} alt="" className="size-4 shrink-0 dark:invert" width={16} height={16} loading="lazy" /> : <Cpu aria-hidden="true" className="size-4 shrink-0 opacity-70" />;
 }
 
 function resolveModelIcon(model: string) {
@@ -805,7 +806,7 @@ function AssistantHistory({
                 {sessions.length ? `${sessions.length} 条历史` : "暂无历史"}
             </div>
             {sessions.map((session) => (
-                <div key={session.id} className="rounded-lg border px-2.5 py-1.5 transition" style={{ borderColor: session.id === activeSession?.id ? theme.node.text : theme.node.stroke, background: "transparent", color: theme.node.text }}>
+                <div key={session.id} className="rounded-lg border px-2.5 py-1.5 transition-colors" style={{ borderColor: session.id === activeSession?.id ? theme.node.text : theme.node.stroke, background: "transparent", color: theme.node.text }}>
                     <div className="flex items-center gap-2">
                         <div className="min-w-0 flex-1">
                             <div className="flex min-w-0 items-center gap-1.5">
@@ -820,7 +821,7 @@ function AssistantHistory({
                                 进入
                             </Button>
                             <Tooltip title="删除记录">
-                                <Button size="small" danger type="text" className="!h-6 !w-6 !min-w-6" icon={<Trash2 className="size-3.5" />} onClick={() => onDelete(session.id)} />
+                                <Button size="small" danger type="text" className="!h-6 !w-6 !min-w-6" icon={<Trash2 aria-hidden="true" className="size-3.5" />} onClick={() => onDelete(session.id)} aria-label="删除对话" />
                             </Tooltip>
                         </div>
                     </div>
@@ -853,7 +854,7 @@ function OnlineAgentSetupView({ theme, activeModel, onOpenConfig }: { theme: (ty
                                 {activeModel || "未配置模型"}
                             </div>
                         </div>
-                        <Button className="!h-8 !px-3" type="primary" icon={<Settings2 className="size-4" />} onClick={onOpenConfig}>
+                        <Button className="!h-8 !px-3" type="primary" icon={<Settings2 aria-hidden="true" className="size-4" />} onClick={onOpenConfig}>
                             配置
                         </Button>
                     </div>
@@ -879,16 +880,17 @@ function OnlineAgentLogView({ logs, theme, context, onClear }: { logs: OnlineAge
                 <Segmented size="small" value={mode} onChange={(value) => setMode(value as "text" | "json")} options={[{ label: "排查日志", value: "text" }, { label: "原始 JSON", value: "json" }]} />
                 <div className="flex items-center gap-2">
                     <span className="text-xs" style={{ color: theme.node.muted }}>{logs.length} 条</span>
-                    <Button size="small" icon={<Copy className="size-3.5" />} disabled={!logs.length} onClick={() => void copy()}>复制</Button>
+                    <Button size="small" icon={<Copy aria-hidden="true" className="size-3.5" />} disabled={!logs.length} onClick={() => void copy()}>复制</Button>
                     <Button size="small" disabled={!lastError} onClick={() => lastError && void copy(formatOnlineLogText([lastError], context))}>最近错误</Button>
-                    <Button size="small" danger type="text" icon={<Trash2 className="size-3.5" />} disabled={!logs.length} onClick={onClear}>清空</Button>
+                    <Button size="small" danger type="text" icon={<Trash2 aria-hidden="true" className="size-3.5" />} disabled={!logs.length} onClick={onClear}>清空</Button>
                 </div>
             </div>
             <textarea
                 ref={textareaRef}
                 readOnly
                 value={content}
-                className="thin-scrollbar min-h-[360px] flex-1 resize-none rounded-lg border bg-transparent p-3 font-mono text-xs leading-5 outline-none"
+                aria-label="Agent 日志"
+                className="thin-scrollbar min-h-[360px] flex-1 resize-none rounded-lg border bg-transparent p-3 font-mono text-xs leading-5 outline-none focus-visible:ring-2 focus-visible:ring-stone-400"
                 style={{ borderColor: theme.node.stroke, color: theme.node.text }}
                 onFocus={(event) => event.currentTarget.select()}
             />
@@ -913,7 +915,7 @@ function AssistantReferenceChip({ item, label, onRemove }: { item: CanvasAssista
         <div className="group/chip relative inline-flex h-8 max-w-[150px] shrink-0 items-center gap-1.5 rounded-lg text-sm" style={{ color: theme.node.text }}>
             {item.dataUrl ? (
                 <span className="relative block size-8 shrink-0">
-                    <img src={item.dataUrl} alt="" className="size-8 rounded-lg object-cover" />
+                    <img src={item.dataUrl} alt="" className="size-8 rounded-lg object-cover" width={32} height={32} loading="lazy" />
                     {label ? <span className="absolute left-0.5 top-0.5 rounded bg-black/60 px-1 py-0.5 text-[8px] font-medium leading-none text-white">{label}</span> : null}
                 </span>
             ) : (
@@ -924,12 +926,12 @@ function AssistantReferenceChip({ item, label, onRemove }: { item: CanvasAssista
             {onRemove ? (
                 <button
                     type="button"
-                    className="absolute -right-1 -top-1 grid size-4 place-items-center rounded-full border opacity-0 shadow-sm transition group-hover/chip:opacity-100"
+                    className="absolute -right-1 -top-1 grid size-4 place-items-center rounded-full border opacity-0 shadow-sm transition-opacity group-hover/chip:opacity-100 motion-safe:group-hover/chip:opacity-100"
                     style={{ background: theme.toolbar.panel, borderColor: theme.node.stroke }}
                     onClick={onRemove}
                     aria-label="移除引用"
                 >
-                    <X className="size-3" />
+                    <X aria-hidden="true" className="size-3" />
                 </button>
             ) : null}
         </div>

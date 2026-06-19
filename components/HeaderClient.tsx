@@ -15,7 +15,6 @@ import {
   LogOut,
   Menu,
   MessageSquare,
-  Search,
   UserRound,
 } from "lucide-react";
 import {
@@ -178,8 +177,19 @@ function useHeaderAccount(): HeaderAccountState {
 
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), 2000);
-    await fetch("/api/logout", { method: "POST", cache: "no-store", signal: controller.signal }).catch(() => {});
-    window.clearTimeout(timeout);
+    try {
+      const response = await fetch("/api/logout", { method: "POST", cache: "no-store", signal: controller.signal });
+      if (!response.ok) {
+        console.warn("Logout endpoint returned non-OK status:", response.status);
+      }
+    } catch (error) {
+      // Logged but not surfaced: the redirect below ensures the user still
+      // reaches the login page, and an interactive toast would flash for
+      // a single frame before the navigation tears the DOM down.
+      console.warn("Logout endpoint request failed:", error);
+    } finally {
+      window.clearTimeout(timeout);
+    }
     await supabase.auth.signOut({ scope: "local" }).catch(() => {});
     clearSupabaseLocalStorage();
     window.location.replace("/login");
@@ -240,13 +250,10 @@ function MarketingHeader({ account, overlay }: { account: HeaderAccountState; ov
 
         <nav className="home-marketing-nav hidden flex-1 items-center gap-8 pl-4 text-[14px] font-semibold leading-none lg:flex" aria-label="主导航">
           {marketingNav.map((item) => (
-            <Link key={item.label} href={item.href} prefetch={false} className="transition">
+            <Link key={item.label} href={item.href} prefetch={false} className="transition-colors">
               {item.label}
             </Link>
           ))}
-          <button type="button" className="inline-flex h-9 w-9 items-center justify-center" aria-label="搜索">
-            <Search className="h-4 w-4" />
-          </button>
         </nav>
 
         <div className="home-marketing-actions flex shrink-0 items-center gap-3 text-[14px] font-semibold leading-none">
