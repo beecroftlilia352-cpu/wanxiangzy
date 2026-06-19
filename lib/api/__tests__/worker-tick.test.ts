@@ -16,6 +16,7 @@ vi.mock("@/lib/supabase/admin", () => ({
 }));
 
 import {
+  computeIdleSleepMs,
   createRealClock,
   loadDotEnvIfPresent,
   runLoop,
@@ -33,6 +34,7 @@ describe("parseWorkerConfig", () => {
     expect(config.enabled).toBe(true);
     expect(config.dryRun).toBe(false);
     expect(config.pollIntervalMs).toBe(1000);
+    expect(config.idleBackoffMaxMs).toBe(60000);
     expect(config.batchSize).toBe(2);
     expect(config.staleMinutes).toBe(8);
     expect(config.maxInFlightTimeoutMs).toBe(420000);
@@ -45,12 +47,14 @@ describe("parseWorkerConfig", () => {
       WORKER_DRY_RUN: "true",
       WORKER_BATCH_SIZE: "5",
       WORKER_STALE_MINUTES: "12",
+      WORKER_IDLE_BACKOFF_MAX_MS: "90000",
       WORKER_LOG_FORMAT: "json",
     } as unknown as NodeJS.ProcessEnv);
     expect(config.enabled).toBe(false);
     expect(config.dryRun).toBe(true);
     expect(config.batchSize).toBe(5);
     expect(config.staleMinutes).toBe(12);
+    expect(config.idleBackoffMaxMs).toBe(90000);
     expect(config.logFormat).toBe("json");
   });
 
@@ -74,6 +78,51 @@ describe("parseWorkerConfig", () => {
   it("rejects non-integer values", () => {
     expect(() => parseWorkerConfig({ WORKER_POLL_INTERVAL_MS: "abc" } as unknown as NodeJS.ProcessEnv)).toThrow(WorkerConfigError);
     expect(() => parseWorkerConfig({ WORKER_POLL_INTERVAL_MS: "1.5" } as unknown as NodeJS.ProcessEnv)).toThrow(WorkerConfigError);
+  });
+
+  it("enforces idleBackoffMaxMs >= pollIntervalMs", () => {
+    expect(() =>
+      parseWorkerConfig({
+        WORKER_POLL_INTERVAL_MS: "5000",
+        WORKER_IDLE_BACKOFF_MAX_MS: "1000",
+      } as unknown as NodeJS.ProcessEnv),
+    ).toThrow(/idleBackoffMaxMs/);
+  });
+});
+
+describe("computeIdleSleepMs", () => {
+  it("returns 0 when there are no consecutive empty polls", () => {
+    expect(computeIdleSleepMs(0, 1000, 60000)).toBe(0);
+    expect(computeIdleSleepMs(-1, 1000, 60000)).toBe(0);
+  });
+
+  it("doubles each empty poll until the cap", () => {
+    // base 1000ms, cap 60000ms → 1000, 2000, 4000, 8000, 16000, 32000, 60000 (cap), 60000
+    expect(computeIdleSleepMs(1, 1000, 60000)).toBe(1000);
+    expect(computeIdleSleepMs(2, 1000, 60000)).toBe(2000);
+    expect(computeIdleSleepMs(3, 1000, 60000)).toBe(4000);
+    expect(computeIdleSleepMs(4, 1000, 60000)).toBe(8000);
+    expect(computeIdleSleepMs(5, 1000, 60000)).toBe(16000);
+    expect(computeIdleSleepMs(6, 1000, 60000)).toBe(32000);
+    expect(computeIdleSleepMs(7, 1000, 60000)).toBe(60000);
+    expect(computeIdleSleepMs(100, 1000, 60000)).toBe(60000);
+  });
+
+  it("respects a non-default cap value", () => {
+    // 2000ms base, 10000ms cap → 2000, 4000, 8000, 10000, 10000
+    expect(computeIdleSleepMs(1, 2000, 10000)).toBe(2000);
+    expect(computeIdleSleepMs(2, 2000, 10000)).toBe(4000);
+    expect(computeIdleSleepMs(3, 2000, 10000)).toBe(8000);
+    expect(computeIdleSleepMs(4, 2000, 10000)).toBe(10000);
+    expect(computeIdleSleepMs(5, 2000, 10000)).toBe(10000);
+  });
+
+  it("does not overflow for very large consecutiveEmptyPolls", () => {
+    // Without the shift guard, 2^64 would exceed Number.MAX_SAFE_INTEGER.
+    // The cap kicks in long before that, but make sure we don't NaN out.
+    const ms = computeIdleSleepMs(1_000_000, 1000, 60000);
+    expect(ms).toBe(60000);
+    expect(Number.isFinite(ms)).toBe(true);
   });
 });
 

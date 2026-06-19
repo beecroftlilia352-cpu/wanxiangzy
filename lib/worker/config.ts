@@ -19,6 +19,7 @@ export type WorkerConfig = {
   enabled: boolean;
   dryRun: boolean;
   pollIntervalMs: number;
+  idleBackoffMaxMs: number;
   errorBackoffMs: number;
   maxErrorBackoffMs: number;
   batchSize: number;
@@ -34,6 +35,7 @@ const DEFAULTS: WorkerConfig = {
   enabled: true,
   dryRun: false,
   pollIntervalMs: 1000,
+  idleBackoffMaxMs: 60000, // 60s — caps the adaptive backoff on empty polls (~60 RPCs/hr idle)
   errorBackoffMs: 5000,
   maxErrorBackoffMs: 30000,
   batchSize: 2,
@@ -107,6 +109,12 @@ export function parseWorkerConfig(env: NodeJS.ProcessEnv = process.env): WorkerC
     enabled: parseBoolean(env.WORKER_ENABLED, DEFAULTS.enabled),
     dryRun: parseBoolean(env.WORKER_DRY_RUN, DEFAULTS.dryRun),
     pollIntervalMs: parsePositiveInt("pollIntervalMs", env.WORKER_POLL_INTERVAL_MS, DEFAULTS.pollIntervalMs, MS_MIN),
+    idleBackoffMaxMs: parsePositiveInt(
+      "idleBackoffMaxMs",
+      env.WORKER_IDLE_BACKOFF_MAX_MS,
+      DEFAULTS.idleBackoffMaxMs,
+      MS_MIN,
+    ),
     errorBackoffMs: parsePositiveInt("errorBackoffMs", env.WORKER_ERROR_BACKOFF_MS, DEFAULTS.errorBackoffMs, MS_MIN),
     maxErrorBackoffMs: parsePositiveInt(
       "maxErrorBackoffMs",
@@ -169,6 +177,12 @@ export function parseWorkerConfig(env: NodeJS.ProcessEnv = process.env): WorkerC
     throw new WorkerConfigError(
       "errorBackoffMs",
       `must be <= maxErrorBackoffMs (${config.maxErrorBackoffMs}); got ${config.errorBackoffMs}`,
+    );
+  }
+  if (config.idleBackoffMaxMs < config.pollIntervalMs) {
+    throw new WorkerConfigError(
+      "idleBackoffMaxMs",
+      `must be >= pollIntervalMs (${config.pollIntervalMs} ms); got ${config.idleBackoffMaxMs}`,
     );
   }
 
