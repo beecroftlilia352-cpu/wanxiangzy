@@ -62,6 +62,7 @@ const CHANNEL_MODEL_SEPARATOR = "::";
 const OPENAI_BASE_URL = "https://api.openai.com";
 const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com";
 const PLATFORM_CHANNEL_ID = "platform";
+export { PLATFORM_CHANNEL_ID };
 const PLATFORM_BASE_URL = "https://yunwu.ai";
 
 export const defaultConfig: AiConfig = {
@@ -76,13 +77,26 @@ export const defaultConfig: AiConfig = {
             baseUrl: PLATFORM_BASE_URL,
             apiKey: "",
             apiFormat: "openai",
-            models: ["nano-banana-2", "nano-banana-pro", "gpt-image-2", "happyhorse-1.0-i2v", "gpt-4o-mini", "gpt-4o-mini-tts"],
+            // NOTE: gemini-3.5-flash was requested but is NOT available on the yunwu
+            // platform channel (yunwu's /v1/models listing has no Gemini text models).
+            // If a Gemini provider is wired in later, add it as a separate channel.
+            models: [
+                "nano-banana-2",
+                "nano-banana-pro",
+                "gpt-image-2",
+                "happyhorse-1.0-i2v",
+                "gpt-4o-mini",
+                "gpt-4o-mini-tts",
+                "MiniMax-M3",
+                "gpt-5.5",
+                "gpt-5.4-mini",
+            ],
         },
     ],
     model: "platform::nano-banana-2",
     imageModel: "platform::nano-banana-2",
     videoModel: "platform::happyhorse-1.0-i2v",
-    textModel: "platform::gpt-4o-mini",
+    textModel: "platform::MiniMax-M3",
     audioModel: "platform::gpt-4o-mini-tts",
     audioVoice: "alloy",
     audioFormat: "mp3",
@@ -93,10 +107,20 @@ export const defaultConfig: AiConfig = {
     videoGenerateAudio: "true",
     videoWatermark: "false",
     systemPrompt: "",
-    models: ["platform::nano-banana-2", "platform::nano-banana-pro", "platform::gpt-image-2", "platform::happyhorse-1.0-i2v", "platform::gpt-4o-mini", "platform::gpt-4o-mini-tts"],
+    models: [
+        "platform::nano-banana-2",
+        "platform::nano-banana-pro",
+        "platform::gpt-image-2",
+        "platform::happyhorse-1.0-i2v",
+        "platform::gpt-4o-mini",
+        "platform::gpt-4o-mini-tts",
+        "platform::MiniMax-M3",
+        "platform::gpt-5.5",
+        "platform::gpt-5.4-mini",
+    ],
     imageModels: ["platform::nano-banana-2", "platform::nano-banana-pro", "platform::gpt-image-2"],
     videoModels: ["platform::happyhorse-1.0-i2v"],
-    textModels: ["platform::gpt-4o-mini"],
+    textModels: ["platform::MiniMax-M3", "platform::gpt-5.5", "platform::gpt-5.4-mini", "platform::gpt-4o-mini"],
     audioModels: ["platform::gpt-4o-mini-tts"],
     quality: "auto",
     size: "1:1",
@@ -233,7 +257,13 @@ export const useConfigStore = create<ConfigStore>()(
                         canvasImageCount: config.canvasImageCount || "3",
                         imageModels: Array.isArray(persistedConfig.imageModels) ? normalizeModelList(config.imageModels, channels) : filterModelsByCapability(models, "image"),
                         videoModels: Array.isArray(persistedConfig.videoModels) ? normalizeModelList(config.videoModels, channels) : filterModelsByCapability(models, "video"),
-                        textModels: Array.isArray(persistedConfig.textModels) ? normalizeModelList(config.textModels, channels) : filterModelsByCapability(models, "text"),
+                        // For text capability we always union in the latest default text models
+                        // (MiniMax-M3 / gpt-5.5 / gpt-5.4-mini) so existing users see newly
+                        // released options without losing their pinned selections. Other
+                        // capabilities follow the strict persisted-or-default behavior.
+                        textModels: Array.isArray(persistedConfig.textModels)
+                            ? unionLatestTextModels(normalizeModelList(config.textModels, channels), channels)
+                            : filterModelsByCapability(models, "text"),
                         audioModels: Array.isArray(persistedConfig.audioModels) ? normalizeModelList(config.audioModels, channels) : filterModelsByCapability(models, "audio"),
                     },
                 };
@@ -247,6 +277,18 @@ function normalizeModelList(models: string[], channels: ModelChannel[]) {
     return Array.from(new Set((models || []).map((model) => model.trim()).filter(Boolean)))
         .map((model) => normalizeModelOptionValue(model, channels))
         .filter((model) => !allModelOptions.length || allModelOptions.includes(model) || !isChannelModelValue(model));
+}
+
+// Union the latest platform-channel text models into a stored textModels list so
+// existing users see newly released models (MiniMax-M3, gpt-5.5, gpt-5.4-mini) in the
+// picker without losing their own custom additions.
+function unionLatestTextModels(storedTextModels: string[], channels: ModelChannel[]) {
+    const platformChannel = channels.find((channel) => channel.id === PLATFORM_CHANNEL_ID);
+    if (!platformChannel) return storedTextModels;
+    const defaults = (defaultConfig.textModels || []).filter((entry) => entry.startsWith(`${PLATFORM_CHANNEL_ID}${CHANNEL_MODEL_SEPARATOR}`));
+    const seen = new Set(storedTextModels);
+    const additions = defaults.filter((entry) => !seen.has(entry) && platformChannel.models.includes(modelOptionName(entry)));
+    return Array.from(new Set([...storedTextModels, ...additions]));
 }
 
 export function useEffectiveConfig() {
@@ -357,6 +399,18 @@ function normalizeChannels(config: AiConfig) {
     const normalized = channels.map((channel) => ({ ...channel, models: uniqueRawModels(channel.models) }));
     if (!normalized.some((channel) => channel.id === PLATFORM_CHANNEL_ID)) {
         normalized.unshift(createPlatformChannel());
+    } else {
+        // Additive merge: union the latest default platform models into any stored
+        // platform channel so existing users receive newly-released models (e.g.
+        // MiniMax-M3, gpt-5.5) without losing their own custom model additions.
+        // Existing users' `textModel` is preserved (they can switch manually);
+        // only new users (via the seed in defaultConfig) get MiniMax-M3 as default.
+        const freshDefaults = createPlatformChannel().models;
+        return normalized.map((channel) =>
+            channel.id === PLATFORM_CHANNEL_ID
+                ? { ...channel, models: uniqueRawModels([...channel.models, ...freshDefaults]) }
+                : channel,
+        );
     }
     return normalized;
 }
@@ -368,7 +422,17 @@ function createPlatformChannel() {
         baseUrl: PLATFORM_BASE_URL,
         apiKey: "",
         apiFormat: "openai",
-        models: ["nano-banana-2", "nano-banana-pro", "gpt-image-2", "happyhorse-1.0-i2v", "gpt-4o-mini", "gpt-4o-mini-tts"],
+        models: [
+            "nano-banana-2",
+            "nano-banana-pro",
+            "gpt-image-2",
+            "happyhorse-1.0-i2v",
+            "gpt-4o-mini",
+            "gpt-4o-mini-tts",
+            "MiniMax-M3",
+            "gpt-5.5",
+            "gpt-5.4-mini",
+        ],
     });
 }
 

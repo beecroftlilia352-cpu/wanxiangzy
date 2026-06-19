@@ -123,12 +123,24 @@ function defaultModelForCapability(config: AiConfig, capability?: ModelCapabilit
 }
 
 function ModelLabel({ config, model }: { config: AiConfig; model: string }) {
+    const name = modelOptionName(model);
+    const showChannel = shouldShowChannelSuffix(config, name);
+    const label = showChannel ? modelOptionLabel(config, model) : name;
     return (
         <span className="flex min-w-0 items-center gap-2.5">
             <ModelIcon model={model} />
-            <span className="truncate">{modelOptionLabel(config, model)}</span>
+            <span className="truncate">{label}</span>
         </span>
     );
+}
+
+// Show the "（channelName）" suffix only when the model name appears in more
+// than one channel. When all matches live in one channel (the common case for
+// yunwu's single platform channel), the suffix is redundant visual noise that
+// forces long model names to truncate.
+function shouldShowChannelSuffix(config: AiConfig, modelName: string): boolean {
+    const matches = config.channels.filter((channel) => channel.models.includes(modelName));
+    return matches.length > 1;
 }
 
 function ModelIcon({ model }: { model: string }) {
@@ -138,6 +150,7 @@ function ModelIcon({ model }: { model: string }) {
 
 function resolveModelIcon(model: string) {
     const name = model.toLowerCase();
+    if (name.includes("MiniMax")) return "/icons/MiniMax.svg";
     if (name.includes("claude") || name.includes("anthropic")) return "/icons/claude.svg";
     if (name.includes("gemini") || name.includes("google")) return "/icons/gemini.svg";
     if (name.includes("gpt") || name.includes("openai")) return "/icons/openai.svg";

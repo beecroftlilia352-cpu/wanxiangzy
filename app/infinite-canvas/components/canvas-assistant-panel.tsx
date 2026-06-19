@@ -1,12 +1,22 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import copyToClipboard from "copy-to-clipboard";
 import { Bot, Copy, Cpu, History, PanelRightClose, Plus, Settings2, Trash2, X } from "lucide-react";
 import { Button, Modal, Segmented, Switch, Tooltip } from "antd";
 import { motion } from "motion/react";
 
-import { modelOptionName, normalizeModelOptionValue, resolveModelChannel, selectableModelsByCapability, useConfigStore, useEffectiveConfig, type AiConfig } from "@/stores/use-config-store";
+import {
+    modelOptionName,
+    normalizeModelOptionValue,
+    PLATFORM_CHANNEL_ID,
+    resolveModelChannel,
+    selectableModelsByCapability,
+    useConfigStore,
+    useEffectiveConfig,
+    type AiConfig,
+    type ModelCapability,
+} from "@/stores/use-config-store";
 import { canvasThemes } from "@/lib/canvas-theme";
 import { nanoid } from "nanoid";
 import { requestToolResponse, type ResponseFunctionTool, type ResponseInputMessage, type ResponseToolCall } from "@/services/api/image";
@@ -16,7 +26,7 @@ import { useThemeStore } from "@/stores/use-theme-store";
 import { useUserStore } from "@/stores/use-user-store";
 import { imageReferenceLabel } from "@/lib/image-reference-prompt";
 import { DiaTextReveal } from "@/components/ui/dia-text-reveal";
-import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectLabel, SelectTrigger } from "@/components/ui/select";
 import { CanvasPromptLibrary } from "./canvas-prompt-library";
 import { AgentChatComposer, AgentChatMessage, AgentModeSwitch, AgentPanelTabs, AgentWorkingMessage, type CanvasAgentChatMessage, type CanvasAgentMode } from "./canvas-agent-chat-ui";
 import { CanvasLocalAgentPanel } from "./canvas-local-agent-panel";
@@ -670,31 +680,38 @@ export function CanvasAssistantPanel({ nodes, selectedNodeIds, snapshot, session
 }
 
 function AgentTextModelPicker({ config, value, onChange }: { config: AiConfig; value: string; onChange: (model: string) => void }) {
-    const options = useMemo(() => Array.from(new Set([value, ...selectableModelsByCapability(config, "text")].filter(Boolean))), [config, value]);
+    const groups = useMemo(() => buildAgentModelGroups(config, "text", value), [config, value]);
     const current = value || "";
+    const currentChannelName = current ? resolveModelChannel(config, current).name : null;
     return (
         <Select value={current} onValueChange={onChange}>
             <SelectTrigger
                 hideChevron
-                className="h-7 min-w-0 max-w-[220px] gap-1.5 border-0 bg-transparent px-1 py-0 text-xs font-normal shadow-none hover:bg-transparent hover:opacity-75 focus-visible:border-transparent focus-visible:ring-0 data-[state=open]:ring-0 dark:bg-transparent dark:hover:bg-transparent"
-                title={current ? `${modelOptionName(current)} · ${resolveModelChannel(config, current).name}` : "选择文本模型"}
+                className="h-7 min-w-0 max-w-[260px] gap-1.5 border-0 bg-transparent px-1 py-0 text-xs font-normal shadow-none hover:bg-transparent hover:opacity-75 focus-visible:border-transparent focus-visible:ring-0 data-[state=open]:ring-0 dark:bg-transparent dark:hover:bg-transparent"
+                title={current ? `${modelOptionName(current)} · ${currentChannelName}` : "选择文本模型"}
                 onMouseDown={(event) => event.stopPropagation()}
                 onPointerDown={(event) => event.stopPropagation()}
             >
                 <AgentModelIcon model={current} />
                 <span className="min-w-0 truncate">{current ? modelOptionName(current) : "选择文本模型"}</span>
-                {current ? <span className="shrink-0 opacity-55">{resolveModelChannel(config, current).name}</span> : null}
+                {currentChannelName ? <span className="shrink-0 opacity-55">· {currentChannelName}</span> : null}
             </SelectTrigger>
-            <SelectContent data-canvas-no-zoom className="z-[1200] w-72 max-w-[calc(100vw-24px)]" position="popper" align="start" side="bottom" sideOffset={6} onPointerDown={(event) => event.stopPropagation()} onMouseDown={(event) => event.stopPropagation()}>
-                {options.length ? (
-                    options.map((model) => (
-                        <SelectItem key={model} value={model} textValue={`${modelOptionName(model)} ${resolveModelChannel(config, model).name}`}>
-                            <span className="flex min-w-0 items-center gap-2">
-                                <AgentModelIcon model={model} />
-                                <span className="min-w-0 flex-1 truncate">{modelOptionName(model)}</span>
-                                <span className="shrink-0 text-xs opacity-55">{resolveModelChannel(config, model).name}</span>
-                            </span>
-                        </SelectItem>
+            <SelectContent data-canvas-no-zoom className="z-[1200] w-80 max-w-[calc(100vw-24px)]" position="popper" align="start" side="bottom" sideOffset={6} onPointerDown={(event) => event.stopPropagation()} onMouseDown={(event) => event.stopPropagation()}>
+                {groups.length ? (
+                    groups.map((group) => (
+                        <React.Fragment key={group.channelId}>
+                            <SelectLabel className="px-2 pb-1 pt-2 text-[10px] font-medium uppercase tracking-wide text-stone-500 dark:text-stone-400">
+                                {group.channelName}
+                            </SelectLabel>
+                            {group.models.map((model) => (
+                                <SelectItem key={model} value={model} textValue={`${modelOptionName(model)} ${group.channelName}`} className="pl-2 pr-3">
+                                    <span className="flex min-w-0 items-center gap-2">
+                                        <AgentModelIcon model={model} />
+                                        <span className="min-w-0 flex-1 truncate">{modelOptionName(model)}</span>
+                                    </span>
+                                </SelectItem>
+                            ))}
+                        </React.Fragment>
                     ))
                 ) : (
                     <SelectItem value="__empty_text_model__" disabled>
@@ -706,6 +723,52 @@ function AgentTextModelPicker({ config, value, onChange }: { config: AiConfig; v
     );
 }
 
+// Group selectable text models by channel and dedupe across channels (prefer
+// the platform channel when a model appears in more than one). This eliminates
+// the duplicated "默认渠道 + 平台聚合 API" rows from older user configs and
+// gives each model row more horizontal space (no per-row channel suffix).
+function buildAgentModelGroups(config: AiConfig, capability: ModelCapability, currentValue: string): Array<{ channelId: string; channelName: string; models: string[] }> {
+    const rawModels = Array.from(new Set([currentValue, ...selectableModelsByCapability(config, capability)].filter(Boolean)));
+    const preferredChannelIds = [PLATFORM_CHANNEL_ID, "default"]; // ordering matters: first wins on dup
+    const channelById = new Map(config.channels.map((channel) => [channel.id, channel]));
+
+    type Bucket = { channelId: string; channelName: string; models: string[]; seen: Set<string> };
+    const buckets: Bucket[] = [];
+    const seenGlobal = new Set<string>();
+
+    for (const channelId of preferredChannelIds) {
+        const channel = channelById.get(channelId);
+        if (!channel) continue;
+        const bucket: Bucket = { channelId, channelName: channel.name, models: [], seen: new Set() };
+        for (const model of rawModels) {
+            if (!channel.models.includes(modelOptionName(model))) continue;
+            const key = modelOptionName(model);
+            if (seenGlobal.has(key)) continue;
+            seenGlobal.add(key);
+            bucket.seen.add(key);
+            bucket.models.push(model);
+        }
+        if (bucket.models.length) buckets.push(bucket);
+    }
+
+    // Any remaining channels (custom user-added) appended at the end.
+    for (const channel of config.channels) {
+        if (preferredChannelIds.includes(channel.id)) continue;
+        const bucket: Bucket = { channelId: channel.id, channelName: channel.name, models: [], seen: new Set() };
+        for (const model of rawModels) {
+            if (!channel.models.includes(modelOptionName(model))) continue;
+            const key = modelOptionName(model);
+            if (seenGlobal.has(key)) continue;
+            seenGlobal.add(key);
+            bucket.seen.add(key);
+            bucket.models.push(model);
+        }
+        if (bucket.models.length) buckets.push(bucket);
+    }
+
+    return buckets.map(({ channelId, channelName, models }) => ({ channelId, channelName, models }));
+}
+
 function AgentModelIcon({ model }: { model: string }) {
     const icon = resolveModelIcon(modelOptionName(model));
     return icon ? <img src={icon} alt="" className="size-4 shrink-0 dark:invert" /> : <Cpu className="size-4 shrink-0 opacity-70" />;
@@ -713,6 +776,7 @@ function AgentModelIcon({ model }: { model: string }) {
 
 function resolveModelIcon(model: string) {
     const name = model.toLowerCase();
+    if (name.includes("MiniMax")) return "/icons/MiniMax.svg";
     if (name.includes("claude") || name.includes("anthropic")) return "/icons/claude.svg";
     if (name.includes("gemini") || name.includes("google")) return "/icons/gemini.svg";
     if (name.includes("gpt") || name.includes("openai")) return "/icons/openai.svg";
