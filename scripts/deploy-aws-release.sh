@@ -53,9 +53,13 @@ start_app() {
   # 异步任务 worker (PM2 托管, 调用 npm run worker -> tsx scripts/worker.ts).
   # 通过 WORKER_ENABLED 开关；默认开启。HTTP 路由 /api/jobs/process-generations
   # 仍保留, 用于运维手动触发或回退. --max-memory-restart 防御内存泄漏.
+  # --cwd 显式指定 cwd：worker's loadDotEnvIfPresent() 用 process.cwd() 找
+  # .env.production，PM2 默认不继承 bash 的 cd，所以必须显式给到 release 目录，
+  # 否则 env 加载失败、worker 死循环重启。
   if [ "${WORKER_ENABLED:-true}" = "true" ]; then
     pm2 start npm \
       --name "${APP_NAME}-worker" \
+      --cwd "$app_dir" \
       --max-memory-restart 1500M \
       --time \
       -- run worker
