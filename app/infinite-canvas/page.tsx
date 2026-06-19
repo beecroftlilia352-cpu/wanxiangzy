@@ -3,237 +3,218 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { App, Button } from "antd";
-import { ArrowRight, BookOpen, Download, FileUp, FolderOpen, Layers3, Plus, Sparkles, Trash2 } from "lucide-react";
+import { BookOpen, FileUp, FolderOpen, Menu, Plus, Trash2 } from "lucide-react";
 
 import { readZip } from "@/lib/zip";
 import { setMediaBlob } from "@/services/file-storage";
 import { setImageBlob } from "@/services/image-storage";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { cn } from "@/lib/utils";
 import { CanvasDeleteProjectsDialog } from "./components/canvas-delete-projects-dialog";
 import { CanvasProjectCard } from "./components/canvas-project-card";
+import { CanvasProjectDetailsPanel } from "./components/canvas-project-details-panel";
+import { CanvasProjectSidebar } from "./components/canvas-project-sidebar";
 import type { CanvasExportFile } from "./export-types";
 import { useCanvasStore } from "./stores/use-canvas-store";
 import { useCanvasUiStore } from "./stores/use-canvas-ui-store";
 import { exportCanvasProjects } from "./utils/canvas-export";
 
-const LANDING_SEEN_KEY = "infinite-canvas:landing-seen";
-
 export default function CanvasPage() {
-  const { message } = App.useApp();
-  const router = useRouter();
-  const inputRef = useRef<HTMLInputElement>(null);
-  const hydrated = useCanvasStore((state) => state.hydrated);
-  const projects = useCanvasStore((state) => state.projects);
-  const createProject = useCanvasStore((state) => state.createProject);
-  const importProject = useCanvasStore((state) => state.importProject);
-  const selectedIds = useCanvasUiStore((state) => state.selectedProjectIds);
-  const setDeleteIds = useCanvasUiStore((state) => state.setDeleteProjectIds);
-  const [landingReady, setLandingReady] = useState(false);
-  const [showLanding, setShowLanding] = useState(false);
+    const { message } = App.useApp();
+    const router = useRouter();
+    const inputRef = useRef<HTMLInputElement>(null);
+    const hydrated = useCanvasStore((state) => state.hydrated);
+    const projects = useCanvasStore((state) => state.projects);
+    const createProject = useCanvasStore((state) => state.createProject);
+    const importProject = useCanvasStore((state) => state.importProject);
+    const selectedIds = useCanvasUiStore((state) => state.selectedProjectIds);
+    const setDeleteIds = useCanvasUiStore((state) => state.setDeleteProjectIds);
+    const searchQuery = useCanvasUiStore((state) => state.searchQuery);
+    const starredOnly = useCanvasUiStore((state) => state.starredOnly);
+    const selectedProjectId = useCanvasUiStore((state) => state.selectedProjectId);
+    const setSelectedProjectId = useCanvasUiStore((state) => state.setSelectedProjectId);
 
-  useEffect(() => {
-    const seen = window.localStorage.getItem(LANDING_SEEN_KEY) === "1";
-    setShowLanding(!seen);
-    setLandingReady(true);
-  }, []);
+    const sortedProjects = useMemo(() => [...projects].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()), [projects]);
+    const visibleProjects = useMemo(() => sortedProjects.filter((project) => {
+        if (starredOnly && !project.starred) return false;
+        if (searchQuery.trim()) {
+            return project.title.toLowerCase().includes(searchQuery.trim().toLowerCase());
+        }
+        return true;
+    }), [sortedProjects, starredOnly, searchQuery]);
 
-  const sortedProjects = useMemo(() => [...projects].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()), [projects]);
-  const selectedProjects = useMemo(() => projects.filter((project) => selectedIds.includes(project.id)), [projects, selectedIds]);
-  const totalNodes = useMemo(() => projects.reduce((sum, project) => sum + project.nodes.length, 0), [projects]);
-  const totalConnections = useMemo(() => projects.reduce((sum, project) => sum + project.connections.length, 0), [projects]);
+    const selectedProjects = useMemo(() => projects.filter((project) => selectedIds.includes(project.id)), [projects, selectedIds]);
+    const sidebarProjects = sortedProjects;
+    const detailsProject = useMemo(() => {
+        if (selectedProjectId) {
+            const match = projects.find((project) => project.id === selectedProjectId);
+            if (match) return match;
+        }
+        return sortedProjects[0] ?? null;
+    }, [projects, selectedProjectId, sortedProjects]);
 
-  const markLandingSeen = () => {
-    window.localStorage.setItem(LANDING_SEEN_KEY, "1");
-    setShowLanding(false);
-  };
+    // Keep the details panel selection in sync with what the user is most
+    // likely browsing — the most recently updated project on first paint,
+    // and explicit selections thereafter. Clearing happens via the user
+    // clicking a card-less area or after deletion (handled in card actions).
+    useEffect(() => {
+        if (!hydrated) return;
+        if (selectedProjectId) return;
+        const latest = sortedProjects[0];
+        if (latest) setSelectedProjectId(latest.id);
+    }, [hydrated, selectedProjectId, sortedProjects, setSelectedProjectId]);
 
-  const enterProject = (id: string) => {
-    router.push(`/infinite-canvas/${id}`);
-  };
+    const enterProject = (id: string) => router.push(`/infinite-canvas/${id}`);
 
-  const createAndEnter = () => {
-    markLandingSeen();
-    enterProject(createProject(`无限画布 ${projects.length + 1}`));
-  };
+    const createAndEnter = () => {
+        const id = createProject(`无限画布 ${projects.length + 1}`);
+        enterProject(id);
+    };
 
-  const openLatestOrCreate = () => {
-    markLandingSeen();
-    const latest = sortedProjects[0];
-    if (latest) {
-      enterProject(latest.id);
-      return;
-    }
-    enterProject(createProject("无限画布 1"));
-  };
+    const importCanvas = async (file?: File) => {
+        if (!file) return;
+        try {
+            const zip = await readZip(file);
+            const projectFile = zip.get("projects.json");
+            if (!projectFile) throw new Error("missing projects.json");
+            const data = JSON.parse(await projectFile.text()) as CanvasExportFile;
+            await Promise.all(
+                data.projects.flatMap((project) =>
+                    project.files.map(async (item) => {
+                        const blob = zip.get(item.path);
+                        if (!blob) return;
+                        const typedBlob = blob.type ? blob : blob.slice(0, blob.size, item.mimeType);
+                        await (item.storageKey.startsWith("image:") ? setImageBlob(item.storageKey, typedBlob) : setMediaBlob(item.storageKey, typedBlob));
+                    }),
+                ),
+            );
+            data.projects.forEach((item) => importProject(item.project));
+            message.success(`已导入 ${data.projects.length} 个画布`);
+        } catch {
+            message.error("导入失败，请选择有效的画布压缩包");
+        } finally {
+            if (inputRef.current) inputRef.current.value = "";
+        }
+    };
 
-  const importCanvas = async (file?: File) => {
-    if (!file) return;
-    try {
-      const zip = await readZip(file);
-      const projectFile = zip.get("projects.json");
-      if (!projectFile) throw new Error("missing projects.json");
-      const data = JSON.parse(await projectFile.text()) as CanvasExportFile;
-      await Promise.all(
-        data.projects.flatMap((project) =>
-          project.files.map(async (item) => {
-            const blob = zip.get(item.path);
-            if (!blob) return;
-            const typedBlob = blob.type ? blob : blob.slice(0, blob.size, item.mimeType);
-            await (item.storageKey.startsWith("image:") ? setImageBlob(item.storageKey, typedBlob) : setMediaBlob(item.storageKey, typedBlob));
-          }),
-        ),
-      );
-      data.projects.forEach((item) => importProject(item.project));
-      markLandingSeen();
-      message.success(`已导入 ${data.projects.length} 个画布`);
-    } catch {
-      message.error("导入失败，请选择有效的画布压缩包");
-    } finally {
-      if (inputRef.current) inputRef.current.value = "";
-    }
-  };
-
-  if (!landingReady) {
     return (
-      <main className="min-h-[calc(100vh-76px)] bg-[#fbfbfa] text-stone-950">
-        <div className="mx-auto flex min-h-[520px] max-w-6xl items-center justify-center px-6 text-sm text-stone-500">正在加载画布...</div>
-      </main>
-    );
-  }
+        <main className="flex min-h-[calc(100vh-76px)] overflow-hidden bg-[#fbfbfa] text-stone-950">
+            <CanvasProjectSidebar projects={sidebarProjects} />
 
-  return (
-    <main className="min-h-[calc(100vh-76px)] overflow-hidden bg-[#fbfbfa] text-stone-950">
-      {showLanding ? (
-        <LandingView hydrated={hydrated} onBegin={markLandingSeen} onOpen={openLatestOrCreate} />
-      ) : (
-        <section className="relative mx-auto flex w-full max-w-6xl flex-col gap-7 px-6 py-10">
-          <div className="pointer-events-none absolute inset-0 -z-10 opacity-55 [background-image:radial-gradient(circle,#d7d7d2_1px,transparent_1px)] [background-size:18px_18px]" />
+            <section className="flex min-w-0 flex-1 flex-col">
+                <MobileSidebarTrigger projects={sidebarProjects} />
 
-          <header className="flex flex-wrap items-end justify-between gap-4 border-b border-stone-200 pb-6">
-            <div>
-              <p className="text-xs font-medium uppercase tracking-[0.18em] text-stone-500">画布库</p>
-              <h1 className="mt-3 text-3xl font-semibold tracking-normal">无限画布</h1>
-              <p className="mt-2 text-sm text-stone-500">管理本地画布项目，导入导出节点、连线与素材引用。</p>
-            </div>
-            <div className="flex flex-wrap items-center justify-end gap-2">
-              <Button href="/infinite-canvas/assets" icon={<FolderOpen className="size-4" />}>
-                素材库
-              </Button>
-              <Button href="/infinite-canvas/prompts" icon={<BookOpen className="size-4" />}>
-                提示词库
-              </Button>
-              {selectedIds.length ? (
-                <>
-                  <Button disabled={!hydrated} icon={<Download className="size-4" />} onClick={() => void exportCanvasProjects(selectedProjects, `无限画布-${selectedIds.length}个项目`)}>
-                    导出选中
-                  </Button>
-                  <Button disabled={!hydrated} icon={<Trash2 className="size-4" />} onClick={() => setDeleteIds(selectedIds)}>
-                    删除选中
-                  </Button>
-                </>
-              ) : null}
-              {projects.length ? (
-                <Button disabled={!hydrated} icon={<Trash2 className="size-4" />} onClick={() => setDeleteIds(projects.map((project) => project.id))}>
-                  删除全部
-                </Button>
-              ) : null}
-              <Button disabled={!hydrated} icon={<FileUp className="size-4" />} onClick={() => inputRef.current?.click()}>
-                导入画布
-              </Button>
-              <Button disabled={!hydrated} type="primary" icon={<Plus className="size-4" />} onClick={createAndEnter}>
-                新建画布
-              </Button>
-            </div>
-          </header>
+                <header className="flex flex-wrap items-end justify-between gap-3 border-b border-stone-200 bg-white/60 px-6 py-5 backdrop-blur-sm">
+                    <div>
+                        <p className="text-xs font-medium uppercase tracking-[0.18em] text-stone-500">最近</p>
+                        <h1 className="mt-1 text-2xl font-semibold tracking-tight">无限画布</h1>
+                        <p className="mt-1 text-sm text-stone-500">
+                            {visibleProjects.length === projects.length
+                                ? `${projects.length} 个项目 · ${sortedProjects[0] ? `最近编辑 ${formatRecentTimestamp(sortedProjects[0].updatedAt)}` : "尚无最近活动"}`
+                                : `${visibleProjects.length} / ${projects.length} 个项目`}
+                        </p>
+                    </div>
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                        <Button href="/infinite-canvas/assets" icon={<FolderOpen className="size-4" />} className="hidden sm:inline-flex">
+                            素材库
+                        </Button>
+                        <Button href="/infinite-canvas/prompts" icon={<BookOpen className="size-4" />} className="hidden sm:inline-flex">
+                            提示词库
+                        </Button>
+                        {selectedIds.length ? (
+                            <Button disabled={!hydrated} icon={<Trash2 className="size-4" />} onClick={() => setDeleteIds(selectedIds)}>
+                                删除选中 ({selectedIds.length})
+                            </Button>
+                        ) : null}
+                        <Button disabled={!hydrated} icon={<FileUp className="size-4" />} onClick={() => inputRef.current?.click()}>
+                            导入画布
+                        </Button>
+                        <Button disabled={!hydrated} type="primary" icon={<Plus className="size-4" />} onClick={createAndEnter}>
+                            新建画布
+                        </Button>
+                    </div>
+                </header>
 
-          <div className="grid gap-3 sm:grid-cols-3">
-            <Stat label="项目" value={projects.length} />
-            <Stat label="节点" value={totalNodes} />
-            <Stat label="连线" value={totalConnections} />
-          </div>
-
-          {!hydrated ? (
-            <section className="flex min-h-[360px] items-center justify-center border-y border-stone-200 text-sm text-stone-500">正在加载画布...</section>
-          ) : sortedProjects.length ? (
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {sortedProjects.map((project) => (
-                <CanvasProjectCard key={project.id} project={project} />
-              ))}
-            </div>
-          ) : (
-            <section className="flex min-h-[360px] flex-col items-center justify-center border-y border-stone-200 text-center">
-              <div className="grid size-12 place-items-center rounded-lg border border-stone-200 bg-white">
-                <Layers3 className="size-5 text-stone-600" />
-              </div>
-              <h2 className="mt-5 text-xl font-medium">还没有画布</h2>
-              <p className="mt-3 max-w-md text-sm leading-6 text-stone-500">新建一个画布后，就可以把图片、文字、视频和配置节点组织成可复用的创作流。</p>
-              <Button type="primary" className="mt-6" icon={<Plus className="size-4" />} onClick={createAndEnter}>
-                新建画布
-              </Button>
+                <div className="flex-1 overflow-y-auto px-6 py-6">
+                    {!hydrated ? (
+                        <section className="flex min-h-[360px] items-center justify-center text-sm text-stone-500">正在加载画布...</section>
+                    ) : visibleProjects.length ? (
+                        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+                            {visibleProjects.map((project) => (
+                                <CanvasProjectCard key={project.id} project={project} />
+                            ))}
+                        </div>
+                    ) : (
+                        <EmptyState onCreate={createAndEnter} />
+                    )}
+                </div>
             </section>
-          )}
-        </section>
-      )}
 
-      <input ref={inputRef} type="file" accept="application/zip,.zip" className="hidden" onChange={(event) => void importCanvas(event.target.files?.[0])} />
-      <CanvasDeleteProjectsDialog />
-    </main>
-  );
+            <CanvasProjectDetailsPanel project={detailsProject} />
+
+            <input ref={inputRef} type="file" accept="application/zip,.zip" className="hidden" onChange={(event) => void importCanvas(event.target.files?.[0])} />
+            <CanvasDeleteProjectsDialog />
+
+            {/* Selection summary toast at the bottom for bulk operations. */}
+            {selectedIds.length > 1 ? (
+                <div className="pointer-events-none fixed inset-x-0 bottom-6 z-40 flex justify-center">
+                    <div className="pointer-events-auto flex items-center gap-3 rounded-full border border-stone-200 bg-white px-4 py-2 text-sm shadow-lg">
+                        <span className="font-medium">{selectedIds.length} 个项目已选中</span>
+                        <Button size="small" icon={<Trash2 className="size-3.5" />} onClick={() => setDeleteIds(selectedIds)}>
+                            删除
+                        </Button>
+                        <Button size="small" onClick={() => void exportCanvasProjects(selectedProjects, `无限画布-${selectedIds.length}个项目`)} icon={<FileUp className="size-3.5" />}>
+                            导出
+                        </Button>
+                    </div>
+                </div>
+            ) : null}
+        </main>
+    );
 }
 
-function LandingView({ hydrated, onBegin, onOpen }: { hydrated: boolean; onBegin: () => void; onOpen: () => void }) {
-  return (
-    <section className="relative flex min-h-[calc(100vh-76px)] flex-col items-center overflow-hidden px-6">
-      <div className="absolute inset-0 opacity-70 [background-image:radial-gradient(circle,#deded9_1px,transparent_1px)] [background-size:18px_18px]" />
-      <div className="pointer-events-none absolute left-[30%] top-16 size-16 rounded-full border border-stone-200" />
+function MobileSidebarTrigger({ projects }: { projects: import("./stores/use-canvas-store").CanvasProject[] }) {
+    return (
+        <div className="flex items-center border-b border-stone-200 px-4 py-2 md:hidden">
+            <Sheet>
+                <SheetTrigger asChild>
+                    <button type="button" aria-label="打开画布库" className="grid size-9 place-items-center rounded-md border border-stone-200 bg-white text-stone-600">
+                        <Menu className="size-4" />
+                    </button>
+                </SheetTrigger>
+                <SheetContent side="left" className="w-72 p-0">
+                    <CanvasProjectSidebar projects={projects} />
+                </SheetContent>
+            </Sheet>
+            <p className="ml-3 text-sm font-medium text-stone-700">画布库</p>
+        </div>
+    );
+}
 
-      <div className="relative z-10 flex w-full max-w-6xl flex-1 flex-col items-center justify-center pb-10 pt-16 text-center">
-        <div className="inline-flex items-center gap-2 rounded-full border border-stone-200 bg-white px-3 py-1 text-xs font-medium text-stone-600 shadow-sm">
-          <Sparkles className="size-3.5" />
-          图片、文字与图形的连续创作画布
-        </div>
-        <h1 className="mt-8 text-6xl font-semibold tracking-normal text-stone-950 md:text-7xl">无限画布</h1>
-        <p className="mt-7 max-w-2xl text-sm leading-7 text-stone-600">在无限画布中生成、连接和重组图片、文字与图形，让创作从单次生成变成连续推演。</p>
-        <div className="mt-8 flex flex-wrap justify-center gap-3">
-          <Button type="primary" size="large" onClick={onBegin}>
-            开始使用 <ArrowRight className="ml-1 inline size-4" />
-          </Button>
-          <Button size="large" disabled={!hydrated} onClick={onOpen}>
-            打开画布
-          </Button>
-        </div>
-      </div>
-
-      <div className="relative z-10 mb-14 w-full max-w-4xl border-t border-stone-200 pt-8">
-        <div className="mb-7 flex items-center justify-between gap-4">
-          <div className="text-left">
-            <h2 className="text-2xl font-semibold">沉淀每一次好结果</h2>
-            <p className="mt-2 text-sm text-stone-500">收藏稳定出图的提示词、参考风格和结果图片，让下一次创作从已有经验开始。</p>
-          </div>
-          <button type="button" className="hidden text-sm font-medium text-stone-700 md:inline-flex" onClick={onBegin}>
-            查看画布库 <ArrowRight className="ml-1 size-4" />
-          </button>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-3">
-          {["生成节点", "连接上下文", "批量导出"].map((item) => (
-            <div key={item} className="rounded-lg border border-stone-200 bg-white p-4 text-left shadow-sm">
-              <div className="grid size-8 place-items-center rounded-md bg-stone-950 text-white">
-                <Sparkles className="size-4" />
-              </div>
-              <h3 className="mt-4 text-base font-semibold">{item}</h3>
-              <p className="mt-2 text-sm leading-6 text-stone-500">把灵感保存成可复用的画布资产。</p>
+function EmptyState({ onCreate }: { onCreate: () => void }) {
+    return (
+        <section className="flex min-h-[400px] flex-col items-center justify-center rounded-2xl border border-dashed border-stone-200 bg-white/60 text-center">
+            <div className="grid size-14 place-items-center rounded-2xl bg-stone-100 text-stone-600">
+                <Plus className="size-6" />
             </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
+            <h2 className="mt-5 text-xl font-medium">还没有画布</h2>
+            <p className="mt-3 max-w-md text-sm leading-6 text-stone-500">新建一个画布后，就可以把图片、文字、视频和配置节点组织成可复用的创作流。</p>
+            <Button type="primary" className="mt-6" icon={<Plus className="size-4" />} onClick={onCreate}>
+                新建画布
+            </Button>
+        </section>
+    );
 }
 
-function Stat({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-lg border border-stone-200 bg-white px-4 py-3 shadow-sm">
-      <p className="text-xs text-stone-500">{label}</p>
-      <p className="mt-1 text-2xl font-semibold">{value}</p>
-    </div>
-  );
+function formatRecentTimestamp(iso: string) {
+    const date = new Date(iso);
+    const diff = Date.now() - date.getTime();
+    const minute = 60_000;
+    const hour = 60 * minute;
+    const day = 24 * hour;
+    if (diff < minute) return "刚刚";
+    if (diff < hour) return `${Math.floor(diff / minute)} 分钟前`;
+    if (diff < day) return `${Math.floor(diff / hour)} 小时前`;
+    if (diff < 7 * day) return `${Math.floor(diff / day)} 天前`;
+    return date.toLocaleDateString("zh-CN", { month: "2-digit", day: "2-digit" });
 }

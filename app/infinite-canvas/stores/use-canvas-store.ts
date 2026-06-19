@@ -18,6 +18,12 @@ export type CanvasProject = {
     backgroundMode: CanvasBackgroundMode;
     showImageInfo: boolean;
     viewport: ViewportTransform;
+    // First image node's storageKey, captured at autosave time so cards can
+    // render a thumbnail without scanning nodes on every paint. Additive —
+    // existing projects without this field fall back to a placeholder.
+    coverStorageKey?: string | null;
+    // User-starred flag, toggleable from the sidebar / card hover actions.
+    starred?: boolean;
 };
 
 type CanvasStore = {
@@ -29,7 +35,8 @@ type CanvasStore = {
     renameProject: (id: string, title: string) => void;
     deleteProjects: (ids: string[]) => void;
     replaceProjects: (projects: CanvasProject[]) => void;
-    updateProject: (id: string, patch: Partial<Pick<CanvasProject, "nodes" | "connections" | "chatSessions" | "activeChatId" | "backgroundMode" | "showImageInfo" | "viewport">>) => void;
+    updateProject: (id: string, patch: Partial<Pick<CanvasProject, "nodes" | "connections" | "chatSessions" | "activeChatId" | "backgroundMode" | "showImageInfo" | "viewport" | "coverStorageKey" | "starred">>) => void;
+    toggleProjectStarred: (id: string) => void;
 };
 
 const initialViewport: ViewportTransform = { x: 0, y: 0, k: 1 };
@@ -117,6 +124,10 @@ export const useCanvasStore = create<CanvasStore>()(
             updateProject: (id, patch) =>
                 set((state) => ({
                     projects: state.projects.map((project) => (project.id === id ? { ...project, ...patch, updatedAt: new Date().toISOString() } : project)),
+                })),
+            toggleProjectStarred: (id) =>
+                set((state) => ({
+                    projects: state.projects.map((project) => (project.id === id ? { ...project, starred: !project.starred } : project)),
                 })),
         }),
         {
