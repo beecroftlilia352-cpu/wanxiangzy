@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Button, Tooltip } from "antd";
 import { ArrowUp, CheckCircle2, CircleAlert, ImagePlus, LoaderCircle, UserRound, Wrench, X, XCircle } from "lucide-react";
+import ReactMarkdown, { type Components } from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 import { canvasThemes } from "@/lib/canvas-theme";
 import type { LocalUser } from "@/stores/use-user-store";
@@ -19,7 +21,7 @@ export type CanvasAgentChatMessage = {
     attachments?: CanvasAgentChatAttachment[];
 };
 
-const WORKING_TEXT = "working…";
+const THINKING_TEXT = "thinking…";
 
 export function AgentChatMessage({ item, theme, user, onRejectTool, onApproveTool }: { item: CanvasAgentChatMessage; theme: (typeof canvasThemes)[keyof typeof canvasThemes]; user: LocalUser | null; onRejectTool?: (id: string) => void; onApproveTool?: (id: string) => void }) {
     const isUser = item.role === "user";
@@ -48,13 +50,90 @@ export function AgentChatMessage({ item, theme, user, onRejectTool, onApproveToo
         <div className={`flex items-start gap-3 ${isUser ? "justify-end" : "justify-start"}`}>
             {!isUser ? <AgentAvatar theme={theme} /> : null}
             <div className={`min-w-0 max-w-[82%] text-sm leading-6 ${isUser ? "text-right" : "text-left"}`} style={{ color }}>
-                <div className="whitespace-pre-wrap break-words text-left">{item.text}</div>
+                <AgentMessageBody text={item.text} isUser={isUser} color={color} />
                 {item.attachments?.length ? <AgentMessageAttachments attachments={item.attachments} /> : null}
                 {item.meta ? <div className="mt-1 text-[11px] opacity-45">{item.meta}</div> : null}
             </div>
             {isUser ? <AgentUserAvatar user={user} theme={theme} /> : null}
         </div>
     );
+}
+
+function AgentMessageBody({ text, isUser, color }: { text: string; isUser: boolean; color: string }) {
+    const components = useMemo<Components>(() => buildAgentMarkdownComponents(color), [color]);
+    if (isUser) {
+        // User messages are sent verbatim — render as plain text to avoid
+        // surprising the user with their own input being re-formatted.
+        return <div className="whitespace-pre-wrap break-words text-left">{text}</div>;
+    }
+    return (
+        <div className="agent-markdown break-words text-left">
+            <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+                {text}
+            </ReactMarkdown>
+        </div>
+    );
+}
+
+function buildAgentMarkdownComponents(color: string): Components {
+    return {
+        h1: ({ children }) => <h1 className="mb-1.5 mt-3 text-[17px] font-semibold leading-6 first:mt-0">{children}</h1>,
+        h2: ({ children }) => <h2 className="mb-1 mt-3 text-[15px] font-semibold leading-6 first:mt-0">{children}</h2>,
+        h3: ({ children }) => <h3 className="mb-1 mt-2 text-[14px] font-semibold leading-6 first:mt-0">{children}</h3>,
+        h4: ({ children }) => <h4 className="mb-0.5 mt-2 text-sm font-semibold leading-6 first:mt-0">{children}</h4>,
+        p: ({ children }) => <p className="my-1.5 leading-6 [&:first-child]:mt-0 [&:last-child]:mb-0">{children}</p>,
+        ul: ({ children }) => <ul className="my-1.5 ml-5 list-disc space-y-0.5 marker:text-current/60">{children}</ul>,
+        ol: ({ children }) => <ol className="my-1.5 ml-5 list-decimal space-y-0.5 marker:text-current/60">{children}</ol>,
+        li: ({ children }) => <li className="leading-6 [&>p]:my-0 [&>ul]:my-0.5 [&>ol]:my-0.5">{children}</li>,
+        hr: () => <hr className="my-3 border-0 border-t border-current/15" />,
+        blockquote: ({ children }) => <blockquote className="my-1.5 border-l-2 border-current/30 pl-3 italic opacity-80 [&>p]:my-0">{children}</blockquote>,
+        strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+        em: ({ children }) => <em className="italic">{children}</em>,
+        del: ({ children }) => <del className="opacity-70 line-through">{children}</del>,
+        a: ({ href, children }) => (
+            <a href={href} target="_blank" rel="noopener noreferrer" className="font-medium underline underline-offset-2 hover:opacity-80" style={{ color }}>
+                {children}
+            </a>
+        ),
+        code: ({ className, children, ...props }) => {
+            const isBlock = typeof className === "string" && className.includes("language-");
+            if (isBlock) {
+                return (
+                    <code className={`${className ?? ""} font-mono text-[12.5px]`} {...props}>
+                        {children}
+                    </code>
+                );
+            }
+            return (
+                <code className="rounded border border-current/15 bg-current/10 px-1 py-px font-mono text-[0.875em]" {...props}>
+                    {children}
+                </code>
+            );
+        },
+        pre: ({ children }) => (
+            <pre className="my-2 overflow-auto rounded-lg border border-current/15 bg-black/30 p-3 font-mono text-[12.5px] leading-5 text-stone-100 [scrollbar-width:thin]">
+                {children}
+            </pre>
+        ),
+        table: ({ children }) => (
+            <div className="my-2 overflow-x-auto">
+                <table className="w-full border-collapse text-[12.5px]">{children}</table>
+            </div>
+        ),
+        thead: ({ children }) => <thead className="border-b border-current/30 text-left">{children}</thead>,
+        tbody: ({ children }) => <tbody>{children}</tbody>,
+        tr: ({ children }) => <tr className="border-b border-current/10 last:border-b-0">{children}</tr>,
+        th: ({ children }) => <th className="px-2 py-1 font-semibold">{children}</th>,
+        td: ({ children }) => <td className="px-2 py-1 align-top">{children}</td>,
+        input: ({ type, checked, disabled }) => {
+            if (type === "checkbox") {
+                return (
+                    <input type="checkbox" checked={!!checked} disabled readOnly className="mr-1.5 align-middle accent-current" />
+                );
+            }
+            return <input type={type} disabled={disabled} />;
+        },
+    };
 }
 
 export function AgentPendingToolCard({ summary, detail, theme, onReject, onApprove }: { summary: string; detail?: unknown; theme: (typeof canvasThemes)[keyof typeof canvasThemes]; onReject?: () => void; onApprove?: () => void }) {
@@ -130,15 +209,16 @@ export function AgentToolCard({ title, text, detail, theme }: { title: string; t
 export function AgentWorkingMessage({ theme }: { theme: (typeof canvasThemes)[keyof typeof canvasThemes] }) {
     const [length, setLength] = useState(1);
     useEffect(() => {
-        const timer = window.setInterval(() => setLength((value) => (value >= WORKING_TEXT.length + 4 ? 1 : value + 1)), 120);
+        const timer = window.setInterval(() => setLength((value) => (value >= THINKING_TEXT.length + 4 ? 1 : value + 1)), 120);
         return () => window.clearInterval(timer);
     }, [setLength]);
     return (
         <div className="flex items-start gap-2.5">
             <AgentAvatar theme={theme} />
             <div className="min-w-0 max-w-[82%]">
-                <div className="font-mono text-sm" style={{ color: theme.node.muted }} aria-label={WORKING_TEXT}>
-                    <span className="inline-block w-[76px]">{WORKING_TEXT.slice(0, Math.min(length, WORKING_TEXT.length))}</span>
+                <div className="flex items-center gap-1.5 text-sm" style={{ color: theme.node.muted }} aria-label={THINKING_TEXT} role="status">
+                    <LoaderCircle aria-hidden="true" className="size-3.5 motion-safe:animate-spin" />
+                    <span className="font-mono inline-block w-[88px]">{THINKING_TEXT.slice(0, Math.min(length, THINKING_TEXT.length))}</span>
                 </div>
             </div>
         </div>
