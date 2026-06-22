@@ -1,5 +1,5 @@
-import { StudioLoadingFallback } from "@/components/ui/studio-loading";
+import { StudioModuleSkeleton } from "@/components/studio/StudioModuleSkeleton";
 
 export default function Loading() {
-  return <StudioLoadingFallback />;
+  return <StudioModuleSkeleton variant="model" />;
 }

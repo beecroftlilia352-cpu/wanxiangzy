@@ -516,9 +516,9 @@ function ContinueCard({ selected, disabled = false, onClick }: { selected: boole
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        "group relative flex h-[68px] w-full items-center justify-center rounded border bg-white px-1 text-center text-[12px] font-medium leading-4 text-slate-600 transition hover:border-blue-300 hover:bg-blue-50/50",
+        "group relative flex h-[68px] w-full items-center justify-center rounded border bg-white px-1 text-center text-[12px] font-medium leading-4 text-slate-600 transition hover:border-blue-300 hover:bg-blue-50/50 dark:border-white/10 dark:bg-white/5 dark:text-stone-300 dark:hover:border-[rgba(91,140,255,0.45)] dark:hover:bg-white/10",
         disabled && "cursor-not-allowed opacity-55",
-        selected ? "border-blue-500 bg-blue-50/60 shadow-[0_0_0_1px_rgba(59,130,246,0.18)]" : "border-slate-100"
+        selected ? "border-blue-500 bg-blue-50/60 shadow-[0_0_0_1px_rgba(59,130,246,0.18)] dark:border-[rgba(91,140,255,0.55)] dark:bg-[rgba(91,140,255,0.18)]" : "border-slate-100 dark:border-white/10"
       )}
     >
       <span className="max-w-[3.5em] whitespace-normal break-keep">继续创建</span>
@@ -813,11 +813,25 @@ function TaskRailSkeleton({ compact }: { compact: boolean }) {
         <div
           key={index}
           className={cn(
-            "overflow-hidden rounded-lg border border-white/70 bg-white/72 shadow-sm",
-            compact ? "h-[68px] p-1" : "h-[88px] p-3"
+            "flex items-center gap-3 overflow-hidden rounded-lg border border-white/70 bg-white/72 p-2 shadow-sm",
+            compact ? "h-[68px]" : "h-[88px]"
           )}
         >
-          <div className={cn("studio-skeleton-shimmer h-full rounded-md", !compact && "max-w-full")} />
+          {/* Left thumb (model image area) — same shape as TaskCard */}
+          <div
+            className={cn(
+              "studio-skeleton-shimmer shrink-0 rounded-md",
+              compact ? "h-12 w-12" : "h-16 w-16"
+            )}
+          />
+          {/* Right text stack */}
+          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+            <div className={cn("studio-skeleton-shimmer rounded", compact ? "h-2.5 w-3/4" : "h-3 w-2/3")} />
+            <div className={cn("studio-skeleton-shimmer rounded", compact ? "h-2 w-1/2" : "h-2.5 w-1/2")} />
+            {!compact && (
+              <div className="studio-skeleton-shimmer mt-0.5 h-2 w-1/3 rounded" />
+            )}
+          </div>
         </div>
       ))}
     </div>

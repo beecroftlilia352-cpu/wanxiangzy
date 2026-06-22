@@ -89,13 +89,17 @@ export function StudioModuleSkeleton({
           </div>
           <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-[#1c1c1e]">
             <Block className="h-3 w-24" />
+            {/* Preset model image grid — mirrors the 4-col horizontal row
+                (自然/甜妹/优雅/...) the user sees in the real UI. */}
             <div className="mt-3 grid grid-cols-4 gap-2">
               {Array.from({ length: 8 }).map((_, i) => (
-                <Block
-                  key={i}
-                  className="aspect-[3/4] w-full"
-                  rounded="rounded-lg"
-                />
+                <div key={i} className="flex flex-col gap-1">
+                  <Block
+                    className="aspect-[3/4] w-full"
+                    rounded="rounded-lg"
+                  />
+                  <Block className="h-2 w-3/4 mx-auto" rounded="rounded" />
+                </div>
               ))}
             </div>
           </div>
