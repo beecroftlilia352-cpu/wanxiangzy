@@ -1,7 +1,7 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import Link from "next/link";
-import { useState } from "react";
 import { Alert, Button, Card, Image, Input, Select, Space, Table, Tag, Typography } from "@/components/ui/shadcn-compat";
 import type { ColumnsType } from "@/components/ui/shadcn-compat";
 import { DatabaseOutlined, SearchOutlined } from "@/components/ui/ant-icons-compat";
@@ -29,6 +29,37 @@ const moduleOptions = [
 export function AdminAssetsClient({ assets, q, module }: AdminAssetsClientProps) {
   const [moduleValue, setModuleValue] = useState(module);
 
+  const columns = useMemo<ColumnsType<AdminAssetListItem>>(() => [
+    { title: "预览", width: 110, render: (_, row) => <Preview urls={row.urls.length ? row.urls : row.inputUrls} /> },
+    {
+      title: "资产",
+      width: 300,
+      render: (_, row) => (
+        <Space orientation="vertical" size={0} className="min-w-0">
+          <Space size={4} wrap><StatusTag status={row.status} /><Tag>{sourceTypeLabel(row.sourceType)}</Tag><Tag>编号 {shortId(row.id)}</Tag></Space>
+          <Typography.Text strong className="block truncate">{row.title}</Typography.Text>
+        </Space>
+      ),
+    },
+    { title: "模块", dataIndex: "moduleLabel", width: 130 },
+    {
+      title: "审核",
+      width: 160,
+      render: (_, row) => row.moderationCase ? (
+        <Space orientation="vertical" size={0} className="min-w-0">
+          <StatusTag status={row.moderationCase.action} />
+          <Typography.Text type="secondary" className="block truncate text-xs" title={row.moderationCase.reason || ""}>
+            {row.moderationCase.reason || "-"}
+          </Typography.Text>
+        </Space>
+      ) : <Tag>未处理</Tag>,
+    },
+    { title: "图片", width: 90, render: (_, row) => <span className="tabular-nums">{`${row.urls.length}/${row.inputUrls.length}`}</span> },
+    { title: "归属", dataIndex: "userId", width: 120, render: (value) => value ? <Tag>用户作品</Tag> : <Tag>系统素材</Tag> },
+    { title: "时间", width: 130, render: (_, row) => formatDateTime(row.updatedAt || row.createdAt) },
+    { title: "操作", width: 250, render: (_, row) => <AdminAssetModerationForm sourceId={row.id} sourceType={row.sourceType} /> },
+  ], []);
+
   return (
     <Space orientation="vertical" size={16} className="w-full">
       <div className="admin-page-hero">
@@ -39,8 +70,12 @@ export function AdminAssetsClient({ assets, q, module }: AdminAssetsClientProps)
             统一查看生成结果、输入图、预设参考图和商品套图收藏方案。
           </Typography.Paragraph>
         </div>
-        <Link href="/admin/assets/lifecycle">
-          <Button icon={<DatabaseOutlined />}>生命周期</Button>
+        <Link
+          href="/admin/assets/lifecycle"
+          className="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2"
+        >
+          <DatabaseOutlined aria-hidden="true" />
+          生命周期
         </Link>
       </div>
 
@@ -51,8 +86,15 @@ export function AdminAssetsClient({ assets, q, module }: AdminAssetsClientProps)
         extra={
           <form action="/admin/assets">
             <Space wrap>
-              <Input name="q" defaultValue={q} allowClear prefix={<SearchOutlined />} placeholder="搜索资产 / 用户 / 状态" />
-              <Select className="!w-36" options={moduleOptions} value={moduleValue} onChange={setModuleValue} popupMatchSelectWidth={false} />
+              <Input
+                name="q"
+                defaultValue={q}
+                allowClear
+                prefix={<SearchOutlined aria-hidden="true" />}
+                placeholder="搜索资产 / 用户 / 状态"
+                aria-label="搜索资产"
+              />
+              <Select className="!w-36" options={moduleOptions} value={moduleValue} onChange={setModuleValue} popupMatchSelectWidth={false} aria-label="按模块筛选" />
               <input type="hidden" name="module" value={moduleValue} />
               <Button htmlType="submit" type="primary">筛选</Button>
             </Space>
@@ -73,43 +115,12 @@ export function AdminAssetsClient({ assets, q, module }: AdminAssetsClientProps)
   );
 }
 
-const columns: ColumnsType<AdminAssetListItem> = [
-  { title: "预览", width: 110, render: (_, row) => <Preview urls={row.urls.length ? row.urls : row.inputUrls} /> },
-  {
-    title: "资产",
-    width: 300,
-    render: (_, row) => (
-      <Space orientation="vertical" size={0}>
-        <Space size={4}><StatusTag status={row.status} /><Tag>{sourceTypeLabel(row.sourceType)}</Tag><Tag>编号 {shortId(row.id)}</Tag></Space>
-        <Typography.Text strong>{row.title}</Typography.Text>
-      </Space>
-    ),
-  },
-  { title: "模块", dataIndex: "moduleLabel", width: 130 },
-  {
-    title: "审核",
-    width: 160,
-    render: (_, row) => row.moderationCase ? (
-      <Space orientation="vertical" size={0}>
-        <StatusTag status={row.moderationCase.action} />
-        <Typography.Text type="secondary" className="text-xs" ellipsis={{ tooltip: row.moderationCase.reason || "-" }}>
-          {row.moderationCase.reason || "-"}
-        </Typography.Text>
-      </Space>
-    ) : <Tag>未处理</Tag>,
-  },
-  { title: "图片", width: 90, render: (_, row) => `${row.urls.length}/${row.inputUrls.length}` },
-  { title: "归属", dataIndex: "userId", width: 120, render: (value) => value ? <Tag>用户作品</Tag> : <Tag>系统素材</Tag> },
-  { title: "时间", width: 130, render: (_, row) => formatDateTime(row.updatedAt || row.createdAt) },
-  { title: "操作", width: 250, render: (_, row) => <AdminAssetModerationForm sourceId={row.id} sourceType={row.sourceType} /> },
-];
-
 function Preview({ urls }: { urls: string[] }) {
   const clean = urls.filter(Boolean);
   if (!clean.length) return <Typography.Text type="secondary">无图片</Typography.Text>;
   return (
     <Image.PreviewGroup items={clean}>
-      <Image width={48} height={48} src={clean[0]} alt="asset preview" style={{ objectFit: "cover", borderRadius: 8 }} />
+      <Image width={48} height={48} src={clean[0]} alt="" style={{ objectFit: "cover", borderRadius: 8 }} />
       {clean.length > 1 && <Tag className="ml-1">+{clean.length - 1}</Tag>}
     </Image.PreviewGroup>
   );

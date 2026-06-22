@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useMemo } from "react";
 import dynamic from "next/dynamic";
 import {
   Alert,
@@ -48,8 +50,44 @@ const LazyDashboardCharts = dynamic(
 );
 
 export function AdminDashboardClient({ overview, report, days }: AdminDashboardClientProps) {
+  const router = useRouter();
   const failureRate = overview.generationHealth.failureRate;
   const fulfillmentCredits = report.metrics.generationSettledCredits + report.metrics.workflowSettledCredits;
+
+  const taskColumns = useMemo<ColumnsType<AdminTaskListItem>>(() => [
+    {
+      title: "任务",
+      dataIndex: "title",
+      width: 260,
+      render: (_, row) => (
+        <Space orientation="vertical" size={0} className="min-w-0">
+          <Space size={6} wrap>
+            <StatusTag status={row.statusGroup} label={row.status} />
+            <Typography.Text type="secondary">{row.sourceType}</Typography.Text>
+          </Space>
+          <Link href={`/admin/generations/${row.sourceId}`} className="font-semibold">
+            {row.title}
+          </Link>
+          <Typography.Text type="secondary" className="block truncate text-xs">
+            任务编号 {row.sourceId.slice(0, 8)}
+          </Typography.Text>
+        </Space>
+      ),
+    },
+    { title: "模块", dataIndex: "moduleLabel", width: 120 },
+    {
+      title: "进度",
+      dataIndex: "progress",
+      width: 130,
+      render: (value: number) => <Progress percent={value} size="small" />,
+    },
+    {
+      title: "时间",
+      dataIndex: "createdAt",
+      width: 140,
+      render: (value: string | null) => formatDate(value),
+    },
+  ], []);
 
   return (
     <Space orientation="vertical" size={16} className="w-full">
@@ -68,11 +106,18 @@ export function AdminDashboardClient({ overview, report, days }: AdminDashboardC
             value={days}
             options={dayOptions}
             onChange={(value) => {
-              window.location.href = value === 7 ? "/admin" : `/admin?days=${value}`;
+              const href = value === 7 ? "/admin" : `/admin?days=${value}`;
+              router.push(href);
             }}
+            aria-label="选择时间窗口"
           />
-          <Link href="/admin">
-            <Button icon={<ReloadOutlined aria-hidden="true" />}>刷新</Button>
+          <Link
+            href="/admin"
+            className="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2"
+            aria-label="刷新运营总览"
+          >
+            <ReloadOutlined aria-hidden="true" />
+            刷新
           </Link>
         </Space>
       </div>
@@ -95,14 +140,13 @@ export function AdminDashboardClient({ overview, report, days }: AdminDashboardC
 
       <Row gutter={[16, 16]}>
         <Col xs={24} xl={16}>
-          <Card title="最近任务" extra={<Link href="/admin/generations">进入任务中心</Link>}>
+          <Card title="最近任务" extra={<Link href="/admin/generations" className="text-sm font-semibold text-slate-700 hover:text-slate-950">进入任务中心</Link>}>
             <Table<AdminTaskListItem>
               size="small"
               rowKey="id"
               columns={taskColumns}
               dataSource={overview.recentTasks}
               pagination={false}
-              scroll={{ x: 920 }}
               locale={{ emptyText: "暂无最近任务" }}
             />
           </Card>
@@ -114,10 +158,10 @@ export function AdminDashboardClient({ overview, report, days }: AdminDashboardC
                 { label: "失败任务", value: overview.taskHealth.failed, href: "/admin/generations?status=failed", tone: "red" },
                 { label: "排队任务", value: overview.taskHealth.queued, href: "/admin/generations?status=queued", tone: "orange" },
                 { label: "运行任务", value: overview.taskHealth.running, href: "/admin/generations?status=running", tone: "blue" },
-                { label: "失败锁定灵点", value: report.metrics.failedReservedCredits, href: "/admin/reports", tone: "volcano" },
+                { label: "失败锁定灵点", value: report.metrics.failedReservedCredits, href: "/admin/reports", tone: "red" },
               ]}
               renderItem={(item) => (
-                <List.Item actions={[<Link key="open" href={item.href}>查看</Link>]}>
+                <List.Item actions={[<Link key="open" href={item.href} aria-label={`查看 ${item.label}`} className="text-sm font-semibold text-slate-700 hover:text-slate-950">查看</Link>]}>
                   <List.Item.Meta
                     avatar={<Tag color={item.tone}>{formatNumber(item.value)}</Tag>}
                     title={item.label}
@@ -167,49 +211,16 @@ function KpiCard({
     <Col xs={24} sm={12} xl={4}>
       <Card className="admin-kpi-card">
         <Space align="start" className="w-full justify-between">
-          <Statistic title={title} value={value} precision={precision} styles={{ content: { color } }} />
-          <span className="admin-kpi-icon">{icon}</span>
+          <span className="tabular-nums">
+            <Statistic title={title} value={value} precision={precision} styles={{ content: { color } }} />
+          </span>
+          <span className="admin-kpi-icon" aria-hidden="true">{icon}</span>
         </Space>
         {suffix && <Typography.Text type="secondary">{suffix}</Typography.Text>}
       </Card>
     </Col>
   );
 }
-
-const taskColumns: ColumnsType<AdminTaskListItem> = [
-  {
-    title: "任务",
-    dataIndex: "title",
-    width: 260,
-    render: (_, row) => (
-      <Space orientation="vertical" size={0}>
-        <Space size={6}>
-          <StatusTag status={row.statusGroup} label={row.status} />
-          <Typography.Text type="secondary">{row.sourceType}</Typography.Text>
-        </Space>
-        <Link href={`/admin/generations/${row.sourceId}`} className="font-semibold">
-          {row.title}
-        </Link>
-        <Typography.Text type="secondary" className="text-xs">
-          任务编号 {row.sourceId.slice(0, 8)}
-        </Typography.Text>
-      </Space>
-    ),
-  },
-  { title: "模块", dataIndex: "moduleLabel", width: 120 },
-  {
-    title: "进度",
-    dataIndex: "progress",
-    width: 130,
-    render: (value: number) => <Progress percent={value} size="small" />,
-  },
-  {
-    title: "时间",
-    dataIndex: "createdAt",
-    width: 140,
-    render: (value: string | null) => formatDate(value),
-  },
-];
 
 function StatusTag({ status, label }: { status: string; label: string }) {
   const color = status === "completed" ? "green" : status === "failed" ? "red" : status === "running" ? "blue" : "orange";

@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import {
   Bar,
   BarChart,
@@ -51,21 +52,30 @@ const modelMarginConfig = {
 } satisfies ChartConfig;
 
 export function AdminDashboardCharts({ overview, report, days }: AdminDashboardChartsProps) {
-  const taskStatusData = [
-    { status: "queued", type: "排队中", value: overview.taskHealth.queued },
-    { status: "running", type: "运行中", value: overview.taskHealth.running },
-    { status: "completed", type: "已完成", value: overview.taskHealth.completed },
-    { status: "failed", type: "失败", value: overview.taskHealth.failed },
-  ].filter((item) => item.value > 0);
-  const trendData = buildTrendData(report.daily);
-  const moduleRank = overview.moduleStats.slice(0, 10).map((item) => ({
-    module: item.label,
-    count: item.count,
-  }));
-  const modelMargin = report.models.slice(0, 10).map((item) => ({
-    model: item.label,
-    margin: Math.round(item.marginCredits * 10) / 10,
-  }));
+  const taskStatusData = useMemo(
+    () => [
+      { status: "queued", type: "排队中", value: overview.taskHealth.queued },
+      { status: "running", type: "运行中", value: overview.taskHealth.running },
+      { status: "completed", type: "已完成", value: overview.taskHealth.completed },
+      { status: "failed", type: "失败", value: overview.taskHealth.failed },
+    ].filter((item) => item.value > 0),
+    [overview.taskHealth],
+  );
+  const trendData = useMemo(() => buildTrendData(report.daily), [report.daily]);
+  const moduleRank = useMemo(
+    () => overview.moduleStats.slice(0, 10).map((item) => ({
+      module: item.label,
+      count: item.count,
+    })),
+    [overview.moduleStats],
+  );
+  const modelMargin = useMemo(
+    () => report.models.slice(0, 10).map((item) => ({
+      model: item.label,
+      margin: Math.round(item.marginCredits * 10) / 10,
+    })),
+    [report.models],
+  );
 
   return (
     <>
@@ -161,6 +171,13 @@ export function AdminDashboardCharts({ overview, report, days }: AdminDashboardC
 }
 
 function BreakdownCard({ title, rows }: { title: string; rows: AdminBreakdownItem[] }) {
+  const columns = useMemo<ColumnsType<AdminBreakdownItem>>(() => [
+    { title: "名称", dataIndex: "label", render: (value: string) => <span className="block truncate">{value}</span> },
+    { title: "数量", dataIndex: "count", render: (value) => <span className="tabular-nums">{formatNumber(value)}</span> },
+    { title: "运行", dataIndex: "running", render: (value) => <Tag color="blue">{formatNumber(value)}</Tag> },
+    { title: "失败", dataIndex: "failed", render: (value) => <Tag color={value ? "red" : "default"}>{formatNumber(value)}</Tag> },
+    { title: "灵点", dataIndex: "credits", render: (value) => <span className="tabular-nums">{formatNumber(value)}</span> },
+  ], []);
   return (
     <Card title={title}>
       <Table<AdminBreakdownItem>
@@ -168,13 +185,7 @@ function BreakdownCard({ title, rows }: { title: string; rows: AdminBreakdownIte
         rowKey="key"
         dataSource={rows}
         pagination={false}
-        columns={[
-          { title: "名称", dataIndex: "label" },
-          { title: "数量", dataIndex: "count", render: formatNumber },
-          { title: "运行", dataIndex: "running", render: (value) => <Tag color="blue">{formatNumber(value)}</Tag> },
-          { title: "失败", dataIndex: "failed", render: (value) => <Tag color={value ? "red" : "default"}>{formatNumber(value)}</Tag> },
-          { title: "灵点", dataIndex: "credits", render: formatNumber },
-        ] as ColumnsType<AdminBreakdownItem>}
+        columns={columns}
         locale={{ emptyText: "暂无统计样本" }}
       />
     </Card>

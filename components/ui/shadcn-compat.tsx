@@ -873,9 +873,12 @@ export function Table<T extends Record<string, any>>({ columns = [], dataSource 
                 <tr key={key} className="border-b border-border last:border-0 hover:bg-slate-50/70">
                   {columns.map((column, columnIndex) => {
                     const value = getValue(row, column.dataIndex);
+                    const isNumeric = typeof value === "number";
                     return (
                       <td key={columnIndex} className={cn("px-3 py-2 align-top", column.align === "center" && "text-center", column.align === "right" && "text-right", column.className)} style={{ width: column.width }}>
-                        {column.render ? column.render(value, row, rowIndex) : value as ReactNode}
+                        <span className={cn("block min-w-0 truncate", isNumeric && "tabular-nums")}>
+                          {column.render ? column.render(value, row, rowIndex) : value as ReactNode}
+                        </span>
                       </td>
                     );
                   })}

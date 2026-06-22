@@ -62,18 +62,18 @@ export function AdminFeaturesClient({ registry }: AdminFeaturesClientProps) {
     [features],
   );
 
-  const columns: ColumnsType<AdminFeatureConfig> = [
+  const columns = useMemo<ColumnsType<AdminFeatureConfig>>(() => [
     {
       title: "功能",
       dataIndex: "label",
       width: 260,
       render: (_, row) => (
-        <Space orientation="vertical" size={0}>
-          <Typography.Text strong>{row.label}</Typography.Text>
+        <Space orientation="vertical" size={0} className="min-w-0">
+          <Typography.Text strong className="block truncate">{row.label}</Typography.Text>
           <Typography.Text type="secondary" className="font-mono text-xs">
             {row.key}
           </Typography.Text>
-          <Typography.Text type="secondary" className="text-xs">
+          <Typography.Text type="secondary" className="block truncate text-xs">
             {row.description || "-"}
           </Typography.Text>
         </Space>
@@ -91,7 +91,7 @@ export function AdminFeaturesClient({ registry }: AdminFeaturesClientProps) {
       title: "路由",
       dataIndex: "href",
       width: 180,
-      render: (value: string) => <Typography.Text className="font-mono text-xs">{value}</Typography.Text>,
+      render: (value: string) => <Typography.Text className="block truncate font-mono text-xs">{value}</Typography.Text>,
     },
     {
       title: "状态",
@@ -111,9 +111,9 @@ export function AdminFeaturesClient({ registry }: AdminFeaturesClientProps) {
       title: "模型/灵点",
       width: 180,
       render: (_, row) => (
-        <Space orientation="vertical" size={0}>
-          <Typography.Text className="text-xs">{row.defaultModel || "未指定模型"}</Typography.Text>
-          <Typography.Text type="secondary" className="text-xs">
+        <Space orientation="vertical" size={0} className="min-w-0">
+          <Typography.Text className="block truncate text-xs">{row.defaultModel || "未指定模型"}</Typography.Text>
+          <Typography.Text type="secondary" className="block truncate text-xs">
             {row.creditPolicy || "未配置灵点策略"}
           </Typography.Text>
         </Space>
@@ -123,7 +123,7 @@ export function AdminFeaturesClient({ registry }: AdminFeaturesClientProps) {
       title: "后台页",
       dataIndex: "adminHref",
       width: 160,
-      render: (value: string) => <Typography.Text className="font-mono text-xs">{value}</Typography.Text>,
+      render: (value: string) => <Typography.Text className="block truncate font-mono text-xs">{value}</Typography.Text>,
     },
     {
       title: "操作",
@@ -132,16 +132,16 @@ export function AdminFeaturesClient({ registry }: AdminFeaturesClientProps) {
       width: 150,
       render: (_, row) => (
         <Space>
-          <Button size="small" icon={<EditOutlined />} onClick={() => startEdit(row)}>
+          <Button size="small" icon={<EditOutlined aria-hidden="true" />} onClick={() => startEdit(row)} aria-label={`编辑 ${row.label}`}>
             编辑
           </Button>
-          <Button size="small" danger icon={<DeleteOutlined />} disabled={row.status === "archived"} onClick={() => archiveFeature(row)}>
+          <Button size="small" danger icon={<DeleteOutlined aria-hidden="true" />} disabled={row.status === "archived"} onClick={() => archiveFeature(row)} aria-label={`归档 ${row.label}`}>
             归档
           </Button>
         </Space>
       ),
     },
-  ];
+  ], []);
 
   function startCreate() {
     setEditing(null);
@@ -240,7 +240,7 @@ export function AdminFeaturesClient({ registry }: AdminFeaturesClientProps) {
             用版本化配置统一管理前端功能展示、模型、灵点策略和后台关联入口。
           </Typography.Paragraph>
         </div>
-        <Button type="primary" icon={<PlusOutlined />} onClick={startCreate}>
+        <Button type="primary" icon={<PlusOutlined aria-hidden="true" />} onClick={startCreate}>
           新增功能配置
         </Button>
       </div>

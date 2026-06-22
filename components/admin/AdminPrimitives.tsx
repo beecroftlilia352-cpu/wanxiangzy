@@ -80,7 +80,7 @@ export function AdminMetricCard({
 export function AdminNotice({ children, tone = "warning" }: { children: ReactNode; tone?: "warning" | "danger" | "info" }) {
   return (
     <div className={`flex items-start gap-2 rounded-lg border px-3 py-2 text-sm leading-6 ${noticeToneClass(tone)}`}>
-      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+      <AlertTriangle aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
       <div>{children}</div>
     </div>
   );
@@ -132,7 +132,7 @@ export function AdminTable<T>({
       <div className="flex min-h-44 items-center justify-center px-4 py-8 text-center">
         <div>
           <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100">
-            <ImageIcon className="h-5 w-5 text-slate-400" />
+            <ImageIcon aria-hidden="true" className="h-5 w-5 text-slate-400" />
           </div>
           <p className="mt-3 text-sm font-bold text-slate-700">{empty || "暂无数据"}</p>
         </div>
@@ -205,7 +205,7 @@ export function AdminExternalLink({ href, children }: { href: string; children: 
   return (
     <Link href={href} className="inline-flex items-center gap-1 text-xs font-black text-slate-600 hover:text-slate-950">
       {children}
-      <ArrowUpRight className="h-3 w-3" />
+      <ArrowUpRight aria-hidden="true" className="h-3 w-3" />
     </Link>
   );
 }

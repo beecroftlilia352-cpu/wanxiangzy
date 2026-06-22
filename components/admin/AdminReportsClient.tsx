@@ -1,5 +1,7 @@
 "use client";
 
+import { useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { Bar, BarChart, CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
 import { Alert, Card, Select, Space, Statistic, Table, Tag, Typography, type ColumnsType } from "@/components/ui/shadcn-compat";
 import {
@@ -35,18 +37,19 @@ const moduleMarginConfig = {
 } satisfies ChartConfig;
 
 export function AdminReportsClient({ report }: AdminReportsClientProps) {
+  const router = useRouter();
   const fulfillmentCredits = report.metrics.generationSettledCredits + report.metrics.workflowSettledCredits;
-  const trendData = report.daily.map((row) => ({
+  const trendData = useMemo(() => report.daily.map((row) => ({
     date: row.date,
     grossCredits: row.grossCredits,
     refundCredits: row.refundCredits,
     settledCredits: row.generationSettledCredits + row.workflowSettledCredits,
     marginCredits: row.marginCredits,
-  }));
-  const moduleChart = report.modules.slice(0, 10).map((row) => ({
+  })), [report.daily]);
+  const moduleChart = useMemo(() => report.modules.slice(0, 10).map((row) => ({
     label: row.label,
     value: Math.round(row.marginCredits * 10) / 10,
-  }));
+  })), [report.modules]);
 
   return (
     <Space orientation="vertical" size={16} className="w-full">
@@ -64,8 +67,9 @@ export function AdminReportsClient({ report }: AdminReportsClientProps) {
             defaultValue={report.days}
             options={dayOptions}
             onChange={(value) => {
-              window.location.href = `/admin/reports?days=${value}`;
+              router.push(`/admin/reports?days=${value}`);
             }}
+            aria-label="选择报表时间窗口"
           />
         </form>
       </div>
@@ -163,32 +167,32 @@ const breakdownColumns: ColumnsType<AdminCostBreakdownItem> = [
     dataIndex: "label",
     width: 190,
     render: (_, row) => (
-      <Space orientation="vertical" size={0}>
-        <Typography.Text strong>{row.label}</Typography.Text>
+      <Space orientation="vertical" size={0} className="min-w-0">
+        <Typography.Text strong className="block truncate">{row.label}</Typography.Text>
         <Typography.Text type="secondary" className="font-mono text-xs">{row.key}</Typography.Text>
       </Space>
     ),
   },
-  { title: "任务", dataIndex: "count", width: 80, sorter: (a, b) => a.count - b.count, render: formatNumber },
+  { title: "任务", dataIndex: "count", width: 80, sorter: (a, b) => a.count - b.count, render: (value) => <span className="tabular-nums">{formatNumber(value)}</span> },
   { title: "净收入", dataIndex: "netCredits", width: 100, sorter: (a, b) => a.netCredits - b.netCredits, render: creditValue },
   { title: "履约", dataIndex: "settledCredits", width: 100, render: creditValue },
-  { title: "退款", dataIndex: "refundCredits", width: 100, render: (value) => <Tag color={value > 0 ? "orange" : "default"}>{formatCredits(value)}</Tag> },
-  { title: "毛利", dataIndex: "marginCredits", width: 100, sorter: (a, b) => a.marginCredits - b.marginCredits, render: (value) => <Tag color={value < 0 ? "red" : "green"}>{formatSignedCredits(value)}</Tag> },
+  { title: "退款", dataIndex: "refundCredits", width: 100, render: (value) => <Tag color={value > 0 ? "orange" : "default"}><span className="tabular-nums">{formatCredits(value)}</span></Tag> },
+  { title: "毛利", dataIndex: "marginCredits", width: 100, sorter: (a, b) => a.marginCredits - b.marginCredits, render: (value) => <Tag color={value < 0 ? "red" : "green"}><span className="tabular-nums">{formatSignedCredits(value)}</span></Tag> },
   { title: "失败率", dataIndex: "failureRate", width: 90, render: formatPercent },
 ];
 
 const dailyColumns: ColumnsType<AdminCostDailyItem> = [
   { title: "日期", dataIndex: "date", width: 120 },
   { title: "扣费", dataIndex: "grossCredits", width: 100, render: creditValue },
-  { title: "退款", dataIndex: "refundCredits", width: 100, render: (value) => <Tag color={value > 0 ? "orange" : "default"}>{formatCredits(value)}</Tag> },
+  { title: "退款", dataIndex: "refundCredits", width: 100, render: (value) => <Tag color={value > 0 ? "orange" : "default"}><span className="tabular-nums">{formatCredits(value)}</span></Tag> },
   { title: "履约", width: 100, render: (_, row) => creditValue(row.generationSettledCredits + row.workflowSettledCredits) },
-  { title: "毛利代理", dataIndex: "marginCredits", width: 110, render: (value) => <Tag color={value < 0 ? "red" : "green"}>{formatSignedCredits(value)}</Tag> },
-  { title: "任务", dataIndex: "tasks", width: 80, render: formatNumber },
-  { title: "失败", dataIndex: "failed", width: 80, render: (value) => <Tag color={value > 0 ? "red" : "default"}>{formatNumber(value)}</Tag> },
+  { title: "毛利代理", dataIndex: "marginCredits", width: 110, render: (value) => <Tag color={value < 0 ? "red" : "green"}><span className="tabular-nums">{formatSignedCredits(value)}</span></Tag> },
+  { title: "任务", dataIndex: "tasks", width: 80, render: (value) => <span className="tabular-nums">{formatNumber(value)}</span> },
+  { title: "失败", dataIndex: "failed", width: 80, render: (value) => <Tag color={value > 0 ? "red" : "default"}><span className="tabular-nums">{formatNumber(value)}</span></Tag> },
 ];
 
 function creditValue(value: number) {
-  return <Typography.Text className="font-mono">{formatCredits(value)}</Typography.Text>;
+  return <Typography.Text className="font-mono tabular-nums">{formatCredits(value)}</Typography.Text>;
 }
 
 function formatCredits(value: number) {

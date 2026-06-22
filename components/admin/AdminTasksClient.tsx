@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { ChevronLeft, ChevronRight, ExternalLink, X } from "lucide-react";
 import { Alert, Button, Card, Checkbox, Input, Progress, Select, Space, Statistic, Table, Tag, Tooltip, Typography } from "@/components/ui/shadcn-compat";
 import type { ColumnsType } from "@/components/ui/shadcn-compat";
@@ -50,6 +50,41 @@ export function AdminTasksClient({ tasks, q, status, module, stale, page, pageSi
   const [moduleValue, setModuleValue] = useState(module);
   const [statusValue, setStatusValue] = useState(status);
   const [staleOnly, setStaleOnly] = useState(stale);
+
+  const columns = useMemo<ColumnsType<AdminTaskListItem>>(() => [
+    {
+      title: "任务",
+      width: 290,
+      render: (_, row) => (
+        <Space orientation="vertical" size={0} className="min-w-0">
+          <Space size={4} wrap>
+            <StatusTag status={row.status} group={row.statusGroup} />
+            <Tag>{sourceTypeLabel(row.sourceType)}</Tag>
+            <Tag>编号 {shortId(row.sourceId)}</Tag>
+          </Space>
+          <Link href={`/admin/generations/${row.sourceId}`} className="font-semibold">
+            {row.title}
+          </Link>
+          {row.errorMessage ? (
+            <div className="max-w-full pt-1">
+              {renderTaskError(row.errorMessage)}
+            </div>
+          ) : null}
+        </Space>
+      ),
+    },
+    { title: "输入", width: 170, render: (_, row) => <TaskThumbnails urls={row.inputThumbnails} label="输入素材" /> },
+    { title: "输出", width: 170, render: (_, row) => <TaskThumbnails urls={row.resultThumbnails} label="输出结果" empty="待生成" /> },
+    { title: "模块", dataIndex: "moduleLabel", width: 130, filters: moduleOptions.filter((item) => item.value).map((item) => ({ text: item.label, value: item.label })), onFilter: (value, row) => row.moduleLabel === value },
+    { title: "进度", dataIndex: "progress", width: 150, sorter: (a, b) => a.progress - b.progress, render: (value: number) => <Progress percent={value} size="small" /> },
+    { title: "结果", width: 90, render: (_, row) => <span className="tabular-nums">{`${row.resultCount}/${row.expectedCount}`}</span> },
+    { title: "模型", dataIndex: "model", width: 150, render: (value) => value || "-" },
+    { title: "灵点", dataIndex: "credits", width: 80, sorter: (a, b) => (a.credits || 0) - (b.credits || 0), render: (value) => <span className="tabular-nums">{value ?? "-"}</span> },
+    { title: "处理状态", dataIndex: "isStale", width: 150, filters: [{ text: "长时间未完成", value: true }], onFilter: (value, row) => row.isStale === value, render: (_, row) => row.isStale ? <Tag color="orange"><span className="tabular-nums">{row.staleMinutes}</span> 分钟无进展</Tag> : "正常" },
+    { title: "创建", dataIndex: "createdAt", width: 130, render: formatDateTime },
+    { title: "操作", width: 270, render: (_, row) => <AdminTaskActions id={row.sourceId} sourceType={row.sourceType} statusGroup={row.statusGroup} isStale={row.isStale} compact /> },
+    { title: "错误", dataIndex: "errorMessage", width: 360, className: "admin-task-error-cell", render: renderTaskError },
+  ], []);
   const taskRows = Array.isArray(tasks.rows) ? tasks.rows : [];
   const taskWarnings = Array.isArray(tasks.warnings) ? tasks.warnings : [];
   const taskTotal = Number.isFinite(tasks.total) ? tasks.total : taskRows.length;
@@ -77,8 +112,12 @@ export function AdminTasksClient({ tasks, q, status, module, stale, page, pageSi
             统一查看生成任务和工作流任务；支持长时间未完成任务重新处理、结束任务和退还灵点。
           </Typography.Paragraph>
         </div>
-        <Link href="/api/jobs/process-generations">
-          <Button icon={<ApiOutlined />}>处理入口</Button>
+        <Link
+          href="/api/jobs/process-generations"
+          className="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2"
+        >
+          <ApiOutlined aria-hidden="true" />
+          处理入口
         </Link>
       </div>
 
@@ -99,7 +138,7 @@ export function AdminTasksClient({ tasks, q, status, module, stale, page, pageSi
         extra={
           <form action="/admin/generations">
             <Space wrap>
-              <Input name="q" defaultValue={q} allowClear prefix={<SearchOutlined />} placeholder="搜索任务 / 用户 / 错误" />
+              <Input name="q" defaultValue={q} allowClear prefix={<SearchOutlined aria-hidden="true" />} placeholder="搜索任务 / 用户 / 错误" aria-label="搜索任务" />
               <Select className="!w-36" options={moduleOptions} value={moduleValue} onChange={setModuleValue} popupMatchSelectWidth={false} />
               <input type="hidden" name="module" value={moduleValue} />
               <Select className="!w-32" options={statusOptions} value={statusValue} onChange={setStatusValue} popupMatchSelectWidth={false} />
@@ -137,38 +176,7 @@ export function AdminTasksClient({ tasks, q, status, module, stale, page, pageSi
   );
 }
 
-const columns: ColumnsType<AdminTaskListItem> = [
-  {
-    title: "任务",
-    width: 290,
-    render: (_, row) => (
-      <Space orientation="vertical" size={0}>
-        <Space size={4}>
-          <StatusTag status={row.status} group={row.statusGroup} />
-          <Tag>{sourceTypeLabel(row.sourceType)}</Tag>
-          <Tag>编号 {shortId(row.sourceId)}</Tag>
-        </Space>
-        <Link href={`/admin/generations/${row.sourceId}`} className="font-semibold">{row.title}</Link>
-        {row.errorMessage ? (
-          <div className="max-w-full pt-1">
-            {renderTaskError(row.errorMessage)}
-          </div>
-        ) : null}
-      </Space>
-    ),
-  },
-  { title: "输入", width: 170, render: (_, row) => <TaskThumbnails urls={row.inputThumbnails} label="输入素材" /> },
-  { title: "输出", width: 170, render: (_, row) => <TaskThumbnails urls={row.resultThumbnails} label="输出结果" empty="待生成" /> },
-  { title: "模块", dataIndex: "moduleLabel", width: 130, filters: moduleOptions.filter((item) => item.value).map((item) => ({ text: item.label, value: item.label })), onFilter: (value, row) => row.moduleLabel === value },
-  { title: "进度", dataIndex: "progress", width: 150, sorter: (a, b) => a.progress - b.progress, render: (value: number) => <Progress percent={value} size="small" /> },
-  { title: "结果", width: 90, render: (_, row) => `${row.resultCount}/${row.expectedCount}` },
-  { title: "模型", dataIndex: "model", width: 150, render: (value) => value || "-" },
-  { title: "灵点", dataIndex: "credits", width: 80, sorter: (a, b) => (a.credits || 0) - (b.credits || 0), render: (value) => value ?? "-" },
-  { title: "处理状态", dataIndex: "isStale", width: 150, filters: [{ text: "长时间未完成", value: true }], onFilter: (value, row) => row.isStale === value, render: (_, row) => row.isStale ? <Tag color="orange">{row.staleMinutes} 分钟无进展</Tag> : "正常" },
-  { title: "创建", dataIndex: "createdAt", width: 130, render: formatDateTime },
-  { title: "操作", width: 270, render: (_, row) => <AdminTaskActions id={row.sourceId} sourceType={row.sourceType} statusGroup={row.statusGroup} isStale={row.isStale} compact /> },
-  { title: "错误", dataIndex: "errorMessage", width: 360, className: "admin-task-error-cell", render: renderTaskError },
-];
+const columns: ColumnsType<AdminTaskListItem> = [];
 
 function Metric({ title, value, tone = "neutral", note }: { title: string; value: number; tone?: "neutral" | "warning" | "danger"; note?: string }) {
   const color = tone === "danger" ? "#dc2626" : tone === "warning" ? "#d97706" : "#0f172a";

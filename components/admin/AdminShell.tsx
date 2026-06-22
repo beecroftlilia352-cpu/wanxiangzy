@@ -52,54 +52,54 @@ const navGroups: Array<{ key: string; label: string; children: AdminNavItem[] }>
     key: "overview",
     label: "总览",
     children: [
-      { href: "/admin", label: "运营总览", icon: <DashboardOutlined /> },
-      { href: "/admin/diagnostics", label: "异常诊断", icon: <AlertOutlined /> },
+      { href: "/admin", label: "运营总览", icon: <DashboardOutlined aria-hidden="true" /> },
+      { href: "/admin/diagnostics", label: "异常诊断", icon: <AlertOutlined aria-hidden="true" /> },
     ],
   },
   {
     key: "operations",
     label: "运营",
     children: [
-      { href: "/admin/features", label: "功能管理", icon: <AppstoreOutlined /> },
-      { href: "/admin/users", label: "用户账户", icon: <TeamOutlined /> },
-      { href: "/admin/invite-codes", label: "邀请码", icon: <KeyOutlined /> },
-      { href: "/admin/generations", label: "任务中心", icon: <ControlOutlined /> },
-      { href: "/admin/support", label: "客服工单", icon: <FileProtectOutlined /> },
-      { href: "/admin/requests", label: "审批中心", icon: <CheckCircleOutlined /> },
+      { href: "/admin/features", label: "功能管理", icon: <AppstoreOutlined aria-hidden="true" /> },
+      { href: "/admin/users", label: "用户账户", icon: <TeamOutlined aria-hidden="true" /> },
+      { href: "/admin/invite-codes", label: "邀请码", icon: <KeyOutlined aria-hidden="true" /> },
+      { href: "/admin/generations", label: "任务中心", icon: <ControlOutlined aria-hidden="true" /> },
+      { href: "/admin/support", label: "客服工单", icon: <FileProtectOutlined aria-hidden="true" /> },
+      { href: "/admin/requests", label: "审批中心", icon: <CheckCircleOutlined aria-hidden="true" /> },
     ],
   },
   {
     key: "content",
     label: "内容",
     children: [
-      { href: "/admin/assets", label: "资产作品", icon: <PictureOutlined /> },
-      { href: "/admin/assets/lifecycle", label: "生命周期", icon: <DatabaseOutlined /> },
-      { href: "/admin/moderation", label: "内容审核", icon: <SafetyCertificateOutlined /> },
-      { href: "/admin/tryon", label: "试衣配置", icon: <AppstoreOutlined /> },
-      { href: "/admin/prompts", label: "Prompt 实验", icon: <ExperimentOutlined /> },
+      { href: "/admin/assets", label: "资产作品", icon: <PictureOutlined aria-hidden="true" /> },
+      { href: "/admin/assets/lifecycle", label: "生命周期", icon: <DatabaseOutlined aria-hidden="true" /> },
+      { href: "/admin/moderation", label: "内容审核", icon: <SafetyCertificateOutlined aria-hidden="true" /> },
+      { href: "/admin/tryon", label: "试衣配置", icon: <AppstoreOutlined aria-hidden="true" /> },
+      { href: "/admin/prompts", label: "Prompt 实验", icon: <ExperimentOutlined aria-hidden="true" /> },
     ],
   },
   {
     key: "finance",
     label: "财务",
     children: [
-      { href: "/admin/credits", label: "灵点流水", icon: <DollarOutlined /> },
-      { href: "/admin/billing", label: "支付账单", icon: <CreditCardOutlined /> },
-      { href: "/admin/reports", label: "成本报表", icon: <BarChartOutlined /> },
-      { href: "/admin/exports", label: "导出视图", icon: <DownloadOutlined /> },
-      { href: "/admin/risk", label: "智能风控", icon: <AlertOutlined /> },
+      { href: "/admin/credits", label: "灵点流水", icon: <DollarOutlined aria-hidden="true" /> },
+      { href: "/admin/billing", label: "支付账单", icon: <CreditCardOutlined aria-hidden="true" /> },
+      { href: "/admin/reports", label: "成本报表", icon: <BarChartOutlined aria-hidden="true" /> },
+      { href: "/admin/exports", label: "导出视图", icon: <DownloadOutlined aria-hidden="true" /> },
+      { href: "/admin/risk", label: "智能风控", icon: <AlertOutlined aria-hidden="true" /> },
     ],
   },
   {
     key: "system",
     label: "系统",
     children: [
-      { href: "/admin/evals", label: "回归评测", icon: <ExperimentOutlined /> },
-      { href: "/admin/providers", label: "模型通道", icon: <ApiOutlined /> },
-      { href: "/admin/workers", label: "任务队列", icon: <ToolOutlined /> },
-      { href: "/admin/members", label: "成员权限", icon: <UserOutlined /> },
-      { href: "/admin/settings", label: "系统配置", icon: <SettingOutlined /> },
-      { href: "/admin/audit", label: "审计日志", icon: <AuditOutlined /> },
+      { href: "/admin/evals", label: "回归评测", icon: <ExperimentOutlined aria-hidden="true" /> },
+      { href: "/admin/providers", label: "模型通道", icon: <ApiOutlined aria-hidden="true" /> },
+      { href: "/admin/workers", label: "任务队列", icon: <ToolOutlined aria-hidden="true" /> },
+      { href: "/admin/members", label: "成员权限", icon: <UserOutlined aria-hidden="true" /> },
+      { href: "/admin/settings", label: "系统配置", icon: <SettingOutlined aria-hidden="true" /> },
+      { href: "/admin/audit", label: "审计日志", icon: <AuditOutlined aria-hidden="true" /> },
     ],
   },
 ];
@@ -171,7 +171,7 @@ export function AdminShell({ admin, children }: AdminShellProps) {
         collapsible
         collapsed={collapsed}
         trigger={null}
-        className={`admin-sider shrink-0 transition-[width] duration-200 ${collapsed ? "w-[76px]" : "w-[252px]"}`}
+        className={`admin-sider shrink-0 motion-safe:transition-[width] motion-safe:duration-200 ${collapsed ? "w-[76px]" : "w-[252px]"}`}
       >
         <AdminBrand collapsed={collapsed} />
         <Menu
@@ -228,7 +228,9 @@ export function AdminShell({ admin, children }: AdminShellProps) {
           </Space>
         </Layout.Header>
         <Layout.Content className="admin-content">
-          {children}
+          <div role="main" className="contents">
+            {children}
+          </div>
         </Layout.Content>
       </Layout>
     </Layout>
