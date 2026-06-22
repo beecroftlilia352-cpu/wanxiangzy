@@ -34,6 +34,7 @@
     "**/*.tsx",
     ".next/types/**/*.ts"
   ],
+  "tsBuildInfoFile": ".tsbuildinfo",
   "exclude": [
     "node_modules",
     "scripts/check-fusion-full.ts",
