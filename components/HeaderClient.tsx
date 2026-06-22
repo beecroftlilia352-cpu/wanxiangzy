@@ -25,6 +25,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import {
   clearCachedProfile,
   clearCachedProfileCredits,
@@ -209,6 +210,23 @@ function MarketingHeader({ account, overlay }: { account: HeaderAccountState; ov
   const scrolledRef = useRef(false);
   const frameRef = useRef<number | null>(null);
 
+  // P5.43: home route is always rendered in light mode. Strip the `dark`
+  // class off <html> while we're on the home page so any third-party widget
+  // or late-mounting component doesn't flip into dark theme.
+  useEffect(() => {
+    const root = document.documentElement;
+    const forceLight = () => {
+      if (root.classList.contains("dark")) {
+        root.classList.remove("dark");
+        root.style.colorScheme = "light";
+      }
+    };
+    forceLight();
+    const observer = new MutationObserver(forceLight);
+    observer.observe(root, { attributes: true, attributeFilter: ["class"] });
+    return () => observer.disconnect();
+  }, []);
+
   useEffect(() => {
     const threshold = overlay ? 12 : 96;
     const updateScrolled = () => {
@@ -257,6 +275,7 @@ function MarketingHeader({ account, overlay }: { account: HeaderAccountState; ov
         </nav>
 
         <div className="home-marketing-actions flex shrink-0 items-center gap-3 text-[14px] font-semibold leading-none">
+          <ThemeToggle className="h-9 w-9" />
           <MarketingAccountActions {...account} />
           <Link href="/create" className="home-trial-pill inline-flex h-10 items-center gap-1.5 rounded-full px-5 transition">
             进入工作台
@@ -306,7 +325,7 @@ function MarketingAccountActions({
       <DropdownMenuContent
         align="end"
         sideOffset={8}
-        className="mac-surface z-[80] min-w-[180px] overflow-hidden rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl shadow-slate-200/50"
+        className="mac-surface z-[80] min-w-[180px] overflow-hidden rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl shadow-slate-200/50 dark:border-stone-700 dark:bg-stone-900 dark:shadow-black/40"
       >
         <AccountMenuHeader email={email} credits={credits} creditsReady={creditsReady} />
         <AccountMenuLink href="/account" icon={UserRound} label="个人中心" />
@@ -315,7 +334,7 @@ function MarketingAccountActions({
         <AccountMenuLink href="/account?tab=help" icon={CircleHelp} label="帮助中心" />
         <AccountMenuLink href="/account?tab=messages" icon={Bell} label="消息中心" />
         <AccountMenuLink href="/account?tab=feedback" icon={MessageSquare} label="客服反馈" />
-        <DropdownMenuSeparator className="my-1 h-px bg-slate-100" />
+        <DropdownMenuSeparator className="my-1 h-px bg-slate-100 dark:bg-stone-800" />
         <AccountMenuLink href="/history" icon={ArrowUpRight} label="我的作品" />
         <AccountMenuLink href="/create" icon={Home} label="进入工作台" />
         <DropdownMenuItem
@@ -324,7 +343,7 @@ function MarketingAccountActions({
             event.preventDefault();
             onLogout();
           }}
-          className="flex cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 outline-none transition hover:bg-slate-50 hover:text-slate-950 focus:bg-slate-50 focus:text-slate-950 data-[highlighted]:bg-slate-50 data-[highlighted]:text-slate-950 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50"
+          className="flex cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 outline-none transition hover:bg-slate-50 hover:text-slate-950 focus:bg-slate-50 focus:text-slate-950 data-[highlighted]:bg-slate-50 data-[highlighted]:text-slate-950 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50 dark:text-stone-200 dark:hover:bg-stone-800 dark:hover:text-white dark:focus:bg-stone-800 dark:focus:text-white dark:data-[highlighted]:bg-stone-800 dark:data-[highlighted]:text-white"
         >
           <LogOut className="h-4 w-4" />
           {isLoggingOut ? "退出中" : "退出登录"}
@@ -349,14 +368,14 @@ function MarketingMobileMenu() {
       <DropdownMenuContent
         align="end"
         sideOffset={8}
-        className="z-[80] min-w-[220px] overflow-hidden rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl shadow-slate-300/45"
+        className="z-[80] min-w-[220px] overflow-hidden rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl shadow-slate-300/45 dark:border-stone-700 dark:bg-stone-900 dark:shadow-black/40"
       >
         {marketingNav.map((item) => (
           <DropdownMenuItem key={item.href} asChild>
             <Link
               href={item.href}
               prefetch={false}
-              className="flex items-center rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 outline-none transition hover:bg-slate-50 hover:text-slate-950 focus:bg-slate-50 focus:text-slate-950 data-[highlighted]:bg-slate-50 data-[highlighted]:text-slate-950"
+              className="flex items-center rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 outline-none transition hover:bg-slate-50 hover:text-slate-950 focus:bg-slate-50 focus:text-slate-950 data-[highlighted]:bg-slate-50 data-[highlighted]:text-slate-950 dark:text-stone-200 dark:hover:bg-stone-800 dark:hover:text-white dark:focus:bg-stone-800 dark:focus:text-white dark:data-[highlighted]:bg-stone-800 dark:data-[highlighted]:text-white"
             >
               {item.label}
             </Link>
@@ -392,6 +411,7 @@ function AppHeader({ pathname }: { pathname: string }) {
           <div className="lg:hidden">
             <MobileModuleMenu activeModule={activeModule} />
           </div>
+          <ThemeToggle className="h-9 w-9" />
           <UserCreditActions
             authReady={authReady}
             creditsReady={creditsReady}
@@ -410,7 +430,7 @@ function AppHeader({ pathname }: { pathname: string }) {
 function BrandMark() {
   return (
     <Link href="/" className="flex min-w-0 items-center gap-3" aria-label="VastWearGen 首页">
-      <span className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/70 bg-white/88 shadow-sm">
+      <span className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/70 bg-white/88 shadow-sm dark:border-stone-700 dark:bg-stone-800/90">
         <Image
           src={codexTheme.brand.logo}
           alt=""
@@ -441,8 +461,8 @@ function DesktopTopNav({ activeModule }: { activeModule: string }) {
         const Icon = item.icon;
         const className = `relative inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-sm font-black transition ${
           active
-            ? "bg-white text-codex-ink shadow-sm ring-1 ring-[rgba(91,124,255,0.22)]"
-            : "text-codex-muted hover:bg-white/72 hover:text-codex-ink"
+            ? "bg-white text-codex-ink shadow-sm ring-1 ring-[rgba(91,124,255,0.22)] dark:bg-stone-800 dark:text-stone-100 dark:ring-[rgba(91,124,255,0.4)]"
+            : "text-codex-muted hover:bg-white/72 hover:text-codex-ink dark:text-stone-400 dark:hover:bg-stone-800/60 dark:hover:text-stone-100"
         }`;
 
         if (item.comingSoon) {
@@ -521,7 +541,7 @@ function UserCreditActions({
     <>
       <Link
         href="/pricing"
-        className="hidden h-8 shrink-0 items-center gap-1.5 rounded-full bg-[#3b2415] px-3 text-xs font-black text-[#ffe5b4] shadow-sm transition hover:-translate-y-0.5 hover:bg-[#2c1a0f] sm:inline-flex"
+        className="hidden h-8 shrink-0 items-center gap-1.5 rounded-full bg-[#3b2415] px-3 text-xs font-black text-[#ffe5b4] shadow-sm transition hover:-translate-y-0.5 hover:bg-[#2c1a0f] dark:bg-[rgba(255,159,10,0.14)] dark:text-[#ffd194] dark:ring-1 dark:ring-[rgba(255,159,10,0.45)] dark:hover:bg-[rgba(255,159,10,0.22)] sm:inline-flex"
         title="充值中心"
       >
         <CreditCard className="h-3.5 w-3.5" />
@@ -529,11 +549,11 @@ function UserCreditActions({
       </Link>
       <Link
         href="/account?tab=credits"
-        className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-[#ffd59c] bg-[#fff0dc] px-3 text-xs font-black text-[#9a5a00] shadow-sm transition hover:-translate-y-0.5 hover:bg-[#ffe7c2]"
+        className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-[#ffd59c] bg-[#fff0dc] px-3 text-xs font-black text-[#9a5a00] shadow-sm transition hover:-translate-y-0.5 hover:bg-[#ffe7c2] dark:border-[rgba(255,159,10,0.45)] dark:bg-[rgba(255,159,10,0.10)] dark:text-[#ffd194] dark:hover:bg-[rgba(255,159,10,0.18)]"
         title="灵点明细"
       >
         <Coins className="h-3.5 w-3.5 text-[#f59e0b]" />
-        {creditsReady ? <span>{credits ?? "--"}</span> : <span className="h-3 w-5 animate-pulse rounded bg-slate-200" />}
+        {creditsReady ? <span>{credits ?? "--"}</span> : <span className="h-3 w-5 animate-pulse rounded bg-slate-200 dark:bg-white/10" />}
       </Link>
       <HeaderHelpDropdown />
       <AccountAvatarDropdown
@@ -586,7 +606,7 @@ function AccountAvatarDropdown({
       <DropdownMenuContent
         align="end"
         sideOffset={12}
-        className="z-[80] w-[272px] overflow-hidden rounded-md border border-slate-100 bg-white shadow-[0_18px_50px_rgba(15,23,42,0.16)]"
+        className="z-[80] w-[272px] overflow-hidden rounded-md border border-slate-100 bg-white shadow-[0_18px_50px_rgba(15,23,42,0.16)] dark:border-white/10 dark:bg-[#1c1c1e] dark:shadow-[0_18px_50px_rgba(0,0,0,0.6)]"
       >
         <AccountMenuHeader email={email} credits={credits} creditsReady={creditsReady} />
         <AccountMenuBanner />
@@ -625,25 +645,25 @@ function AccountMenuHeader({
 }) {
   const masked = email ? maskAccountLabel(email) : "个人账户";
   return (
-    <div className="bg-[#f8fafc] px-3 py-3">
+    <div className="bg-[#f8fafc] px-3 py-3 dark:bg-white/4">
       <div className="flex items-center gap-3">
-        <Avatar size="lg" className="bg-[#c8d7ff] text-white">
-          <AvatarFallback className="bg-[#c8d7ff] text-sm font-black text-white">
+        <Avatar size="lg" className="bg-[#c8d7ff] text-white dark:bg-[#3b4d7a]">
+          <AvatarFallback className="bg-[#c8d7ff] text-sm font-black text-white dark:bg-[#3b4d7a]">
             {getAvatarFallback(email)}
           </AvatarFallback>
         </Avatar>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold text-slate-950">{masked}</p>
-          <p className="mt-0.5 text-xs text-slate-500">个人账户</p>
+          <p className="truncate text-sm font-semibold text-slate-950 dark:text-stone-100">{masked}</p>
+          <p className="mt-0.5 text-xs text-slate-500 dark:text-stone-400">个人账户</p>
         </div>
         <Link
           href="/login"
-          className="shrink-0 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
+          className="shrink-0 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-stone-200 dark:hover:bg-white/10"
         >
           切换账号
         </Link>
       </div>
-      <p className="mt-2 text-xs font-medium text-slate-500">
+      <p className="mt-2 text-xs font-medium text-slate-500 dark:text-stone-400">
         可用灵点 {creditsReady ? credits ?? "--" : "--"}
       </p>
     </div>
@@ -654,7 +674,7 @@ function AccountMenuBanner() {
   return (
     <Link
       href="/pricing"
-      className="mx-3 mb-1 mt-2 flex h-9 items-center justify-between rounded-md bg-gradient-to-r from-[#fff2ff] to-[#edf4ff] px-3 text-xs font-medium text-[#8b4bd8] transition hover:brightness-[0.98]"
+      className="mx-3 mb-1 mt-2 flex h-9 items-center justify-between rounded-md bg-gradient-to-r from-[#fff2ff] to-[#edf4ff] px-3 text-xs font-medium text-[#8b4bd8] transition hover:brightness-[0.98] dark:from-[#2a1d3a] dark:to-[#1d2a3f] dark:text-[#c7b3f0]"
     >
       <span>升级团队版会员，畅享团队协同</span>
       <span className="rounded bg-[#ff8ba7] px-1.5 py-0.5 text-[10px] font-bold text-white">会员</span>
@@ -673,7 +693,7 @@ function AccountMenuLink({
 }) {
   return (
     <DropdownMenuItem asChild>
-      <Link href={href} className="flex h-10 items-center gap-2.5 border-t border-slate-100 px-4 text-sm font-medium text-slate-800 outline-none transition hover:bg-slate-50 hover:text-slate-950 focus:bg-slate-50 focus:text-slate-950 data-[highlighted]:bg-slate-50 data-[highlighted]:text-slate-950">
+      <Link href={href} className="flex h-10 items-center gap-2.5 border-t border-slate-100 px-4 text-sm font-medium text-slate-800 outline-none transition hover:bg-slate-50 hover:text-slate-950 focus:bg-slate-50 focus:text-slate-950 data-[highlighted]:bg-slate-50 data-[highlighted]:text-slate-950 dark:border-white/5 dark:text-stone-200 dark:hover:bg-white/5 dark:hover:text-white dark:focus:bg-white/5 dark:focus:text-white dark:data-[highlighted]:bg-white/5 dark:data-[highlighted]:text-white">
         <Icon className="h-4 w-4" />
         {label}
       </Link>
@@ -702,7 +722,7 @@ function HeaderHelpDropdown() {
       <DropdownMenuContent
         align="end"
         sideOffset={10}
-        className="z-[80] min-w-[112px] overflow-hidden rounded-md border border-slate-100 bg-white p-1 shadow-[0_12px_28px_rgba(15,23,42,0.14)]"
+        className="z-[80] min-w-[112px] overflow-hidden rounded-md border border-slate-100 bg-white p-1 shadow-[0_12px_28px_rgba(15,23,42,0.14)] dark:border-white/10 dark:bg-[#1c1c1e] dark:shadow-[0_12px_28px_rgba(0,0,0,0.5)]"
       >
         {items.map((item) => (
           <DropdownMenuItem key={item.href} asChild>

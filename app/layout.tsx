@@ -39,11 +39,29 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="zh-CN" className={cn("font-sans", geist.variable)} style={{ colorScheme: "light" }}>
-      <body className="min-h-screen text-codex-ink">
+    <html lang="zh-CN" className={cn("font-sans", geist.variable)} style={{ colorScheme: "light dark" }} suppressHydrationWarning>
+      <head>
+        {/* P1.1 dark-mode bootstrap — runs before paint to avoid FOUC.
+            P5.43: home page (/) is always light; never apply `dark` there. */}
+        <script
+          // eslint-disable-next-line react/no-danger
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var p=window.location.pathname;var isHome=p==='/'||p==='/index'||p==='';if(isHome){document.documentElement.classList.remove('dark');document.documentElement.style.colorScheme='light';return;}var s=localStorage.getItem('vwg-theme');var d=s?s==='dark':window.matchMedia('(prefers-color-scheme: dark)').matches;if(d){document.documentElement.classList.add('dark');}else{document.documentElement.classList.remove('dark');}}catch(e){}})();`,
+          }}
+        />
+      </head>
+      <body className="min-h-screen antialiased transition-colors">
+        <a
+          href="#main"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-md focus:bg-codex-ink focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white focus:shadow-lg focus:outline-none focus:ring-2 focus:ring-codex-accent focus:ring-offset-2"
+        >
+          跳到主内容
+        </a>
         <RouteProgress />
         <HeaderClient />
-        <main>{children}</main>
+        <main id="main" tabIndex={-1} className="outline-none">
+          {children}
+        </main>
         <Toaster
           richColors
           closeButton
