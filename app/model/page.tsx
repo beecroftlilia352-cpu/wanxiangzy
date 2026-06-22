@@ -259,7 +259,7 @@ export default function ModelPage() {
     rulesHideTimerRef.current = setTimeout(() => {
       setShowModelRules(false);
       setRulesPopoverStyle(null);
-    }, 120);
+    }, 180);
   };
 
   useEffect(() => {

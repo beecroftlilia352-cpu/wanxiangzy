@@ -344,7 +344,7 @@ export default function GrassPage() {
     rulesHideTimerRef.current = setTimeout(() => {
       setShowRules(false);
       setRulesPopoverStyle(null);
-    }, 120);
+    }, 180);
   };
 
   async function handleFile(file?: File) {
@@ -626,6 +626,8 @@ export default function GrassPage() {
                 onMouseLeave={scheduleRulesHide}
                 onFocus={openRulesPopover}
                 onBlur={scheduleRulesHide}
+                aria-expanded={showRules}
+                aria-controls="grass-rules-popover"
                 className="studio-upload-rule-button"
               >
                 图片规则 <ChevronRight className="h-3 w-3" />
@@ -974,7 +976,7 @@ export default function GrassPage() {
 
       {showRules && rulesPopoverStyle && (
         <ClientPortal>
-          <div className="fixed z-[240] w-[min(720px,calc(100vw-32px))] overflow-hidden rounded-[24px] border border-white/80 bg-white/[0.96] shadow-[0_28px_90px_rgba(15,23,42,0.18)] backdrop-blur-2xl animate-fade-in" style={{ top: rulesPopoverStyle.top, left: rulesPopoverStyle.left, maxHeight: rulesPopoverStyle.maxHeight }} onMouseEnter={cancelRulesHide} onMouseLeave={scheduleRulesHide}>
+          <div id="grass-rules-popover" role="dialog" aria-label="图片规则" className="fixed z-[240] w-[min(720px,calc(100vw-32px))] overflow-hidden rounded-[24px] border border-white/80 bg-white/[0.96] shadow-[0_28px_90px_rgba(15,23,42,0.18)] backdrop-blur-2xl animate-fade-in" style={{ top: rulesPopoverStyle.top, left: rulesPopoverStyle.left, maxHeight: rulesPopoverStyle.maxHeight }} onMouseEnter={cancelRulesHide} onMouseLeave={scheduleRulesHide}>
             <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4"><div><h3 className="text-base font-black text-slate-950">{GRASS_UPLOAD_RULE.title}</h3><p className="mt-1 text-xs text-slate-400">{GRASS_UPLOAD_RULE.uploadSpecText}</p></div><button type="button" onClick={() => setShowRules(false)} className="rounded-full p-1.5 hover:bg-slate-100"><X className="h-4 w-4" /></button></div>
             <div className="max-h-[inherit] overflow-y-auto p-5">
               <div className="grid grid-cols-5 gap-3">{GRASS_UPLOAD_RULE.demos.map((demo) => <div key={demo.imageUrl} className="rounded-2xl border border-slate-100 bg-slate-50/70 p-2"><div className="relative overflow-hidden rounded-xl bg-white"><RawPreviewImage src={demo.imageUrl} alt={demo.title} className="aspect-[3/4] w-full object-cover" /><CheckCircle2 className="absolute right-2 top-2 h-5 w-5 rounded-full bg-white text-emerald-500" /></div><p className="mt-2 text-center text-xs text-slate-600">{demo.title}</p><button type="button" onClick={() => applyDemo(demo)} className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 hover:border-violet-200 hover:text-violet-600">试一试</button></div>)}</div>

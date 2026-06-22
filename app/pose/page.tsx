@@ -596,7 +596,7 @@ export default function PosePage() {
     rulesHideTimerRef.current = setTimeout(() => {
       setShowPoseRules(false);
       setRulesPopoverStyle(null);
-    }, 120);
+    }, 180);
   };
 
   function setPoseAnalysisEntry(entry: PoseAnalysisEntry | null, analysisKey = "") {
