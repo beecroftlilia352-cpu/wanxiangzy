@@ -4538,25 +4538,30 @@ header .animate-spin {
     linear-gradient(180deg, rgba(28, 28, 30, 0.96), rgba(38, 38, 40, 0.7) 58%, rgba(7, 8, 13, 0.4)) !important;
 }
 
-/* P5.49 / P5.51: kill the gen-card bright white outline in dark mode.
-   The default rule sets border: rgba(255,255,255,0.56) AND a second
-   inset 1px white ring via box-shadow, which combine into a visible
-   white stroke around the card. Make both transparent so the card
-   relies on the gradient alone for separation. */
-.dark .gen-card {
+/* P5.49 / P5.51 / P5.52: kill every white outline on the gen-card in dark mode.
+   The default rule stacks TWO white strokes around the card:
+     1. border: 1px solid rgba(255,255,255,0.56)
+     2. box-shadow: inset 0 0 0 1px rgba(255,255,255,0.48)
+   Both must be removed (not just dimmed) for the card to read as a clean
+   gradient on the dark canvas. */
+.dark .gen-card,
+.dark .studio-result-pending-card {
   border-color: transparent !important;
+  outline: none !important;
   box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.04),
+    inset 0 0 0 0 transparent,
     0 24px 72px rgba(0, 0, 0, 0.55) !important;
 }
 
-/* Belt-and-braces: also nuke the white outline on the loading card variant
-   used in .studio-result-pending-card (the actual card the user sees). */
-.dark .studio-result-pending-card {
-  border-color: transparent !important;
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.04),
-    0 24px 72px rgba(0, 0, 0, 0.55) !important;
+/* Belt-and-braces: also wipe the white outline on the inner ::before / ::after
+   decorations that some loading variants add — these were also visible in
+   screenshots as a faint outer ring. */
+.dark .gen-card::before,
+.dark .gen-card::after,
+.dark .studio-result-pending-card::before,
+.dark .studio-result-pending-card::after {
+  box-shadow: none !important;
+  border: none !important;
 }
 
 .dark .studio-result-card,
