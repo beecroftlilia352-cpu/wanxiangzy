@@ -1628,3 +1628,125 @@
 @keyframes studio-progress-glint {
   to { transform: translateX(100%); }
 }
+
+/* ==========================================================================
+   Dark mode adaptations for the marketing chrome.
+   The home page hero remains light (photo-driven, like apple.com) but the
+   header / nav / login pills / cards adapt to dark when `.dark` is set.
+   ========================================================================== */
+.dark .home-marketing-header {
+  color: #f5f5f7;
+}
+
+.dark .home-marketing-header-scrolled {
+  background-color: #0c0a09 !important;
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+  color: #f5f5f7;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.dark .home-login-pill {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.dark .home-marketing-header-scrolled .home-login-pill {
+  background: rgba(255, 255, 255, 0.06);
+  color: #f5f5f7;
+}
+
+.dark .home-menu-pill {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.dark .home-marketing-header-scrolled .home-menu-pill {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.dark .home-trial-pill {
+  background: #f5f5f7;
+  color: #0c0a09;
+}
+
+.dark .home-marketing-header-scrolled .home-trial-pill {
+  background: #f5f5f7;
+  color: #0c0a09;
+}
+
+/* Marketing feature / partner / testimonial cards adapt to dark surface */
+.dark .home-feature-strip,
+.dark .home-feature-copy-panel,
+.dark .home-partner-band {
+  background: #0c0a09;
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.dark .home-partner-band {
+  border-bottom-color: rgba(255, 255, 255, 0.06);
+}
+
+.dark .home-scene-card,
+.dark .home-tool-card,
+.dark .home-testimonial {
+  background: #161618;
+  border-color: rgba(255, 255, 255, 0.08);
+  color: #f5f5f7;
+}
+
+.dark .home-scene-card:hover,
+.dark .home-tool-card:hover {
+  background: #1f1f23;
+}
+
+.dark .home-feature-intro h2 {
+  color: #f5f5f7;
+}
+
+/* ==========================================================================
+   P4.5 Dark mode adaptations for home page components.
+   ========================================================================== */
+.dark .home-macos-body {
+  background:
+    radial-gradient(circle at 12% 8%, rgba(255, 255, 255, 0.06), transparent 34%),
+    linear-gradient(135deg, #14141a, #1c1c1e 52%, #18181c) !important;
+}
+
+.dark .home-hero-macos-shell {
+  background: linear-gradient(180deg, #1c1c1e 0%, #0c0c10 100%) !important;
+}
+
+.dark .home-hero-frame {
+  background: rgba(28, 28, 30, 0.78) !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+  color: #f5f5f7 !important;
+}
+
+.dark .home-landing-hero::after {
+  background: linear-gradient(180deg, transparent 0%, rgba(12, 12, 16, 0.8) 100%) !important;
+}
+
+.dark .home-hero-video-scrim {
+  background: linear-gradient(180deg, rgba(12, 12, 16, 0.4) 0%, rgba(12, 12, 16, 0.7) 100%) !important;
+}
+
+.dark .home-hero-gradient {
+  background: linear-gradient(180deg, #1f2a44 0%, #11162a 54%, #0a0c14 78%, #050608 100%) !important;
+}
+
+.dark .home-shot-body {
+  background: rgba(28, 28, 30, 0.78) !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+  color: #f5f5f7 !important;
+}
+
+.dark .home-marketing-logo,
+.dark .home-marketing-nav a,
+.dark .home-marketing-nav button {
+  color: #f5f5f7 !important;
+}
+
+.dark .home-marketing-nav a:hover,
+.dark .home-marketing-nav button:hover {
+  color: #5b8cff !important;
+}

@@ -586,7 +586,7 @@ export default function MaterialEnhancementPage() {
           </StudioUploadSection>
 
           <section>
-            <h3 className="font-bold text-sm mb-3">服装类型</h3>
+            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">服装类型</h3>
             <StudioOptionGrid
               options={GARMENT_TYPE_OPTIONS.map((type) => ({ value: type, label: type }))}
               value={garmentType}
@@ -605,7 +605,7 @@ export default function MaterialEnhancementPage() {
           </section>
 
           <section>
-            <h3 className="font-bold text-sm mb-3">增强方式</h3>
+            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">增强方式</h3>
             <StudioOptionGrid
               options={MATERIAL_ENHANCEMENT_LEVELS.map((item) => ({
                 value: item.value,
@@ -630,12 +630,12 @@ export default function MaterialEnhancementPage() {
           />
 
           <section>
-            <h3 className="font-bold text-sm mb-3 flex items-center gap-2"><Sparkles className="h-4 w-4 text-[var(--codex-accent)]" />生成模型</h3>
+            <h3 className="font-bold text-sm mb-3 flex items-center gap-2 text-slate-900 dark:text-stone-100"><Sparkles className="h-4 w-4 text-[var(--codex-accent)]" />生成模型</h3>
             <StudioModelSelector models={MODELS} value={aiModel} onChange={setAiModel} ariaLabel="生成模型" />
           </section>
 
           <section>
-            <h3 className="font-bold text-sm mb-3">图片比例</h3>
+            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">图片比例</h3>
             <StudioOptionGrid
               options={[
                 { value: "auto", label: "智能" },
@@ -651,7 +651,7 @@ export default function MaterialEnhancementPage() {
           </section>
 
           <section>
-            <h3 className="font-bold text-sm mb-3">分辨率</h3>
+            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">分辨率</h3>
             <StudioOptionGrid
               options={imageSizes.map((size) => ({
                 value: size,
@@ -665,7 +665,7 @@ export default function MaterialEnhancementPage() {
           </section>
 
           <section>
-            <h3 className="font-bold text-sm mb-3">生成数量</h3>
+            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">生成数量</h3>
             <StudioGenerationCountSelector value={genCount} onChange={setGenCount} ariaLabel="生成数量" />
           </section>
         </div>
@@ -747,7 +747,7 @@ export default function MaterialEnhancementPage() {
         <ClientPortal>
           <div className="fixed inset-0 z-[180] flex cursor-zoom-out items-center justify-center bg-slate-950/66 p-4 backdrop-blur-xl sm:p-8" onClick={() => setLightboxSrc(null)}>
             <RawPreviewImage src={lightboxSrc} alt="预览图" className="max-h-full max-w-full rounded-2xl object-contain shadow-[0_32px_120px_rgba(0,0,0,0.45)]" />
-            <button onClick={() => setLightboxSrc(null)} className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full border border-white/85 bg-white/90 text-slate-700 shadow-[0_12px_34px_rgba(15,23,42,0.22)] backdrop-blur transition-colors hover:bg-white hover:text-slate-950 sm:right-6 sm:top-6">
+            <button onClick={() => setLightboxSrc(null)} className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full border border-white/85 bg-white/90 text-slate-700 shadow-[0_12px_34px_rgba(15,23,42,0.22)] backdrop-blur transition-colors hover:bg-white hover:text-slate-950 dark:text-stone-100 sm:right-6 sm:top-6">
               <X className="h-5 w-5" />
             </button>
           </div>

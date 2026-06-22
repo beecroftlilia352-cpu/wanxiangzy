@@ -825,7 +825,7 @@ export default function FaceSwapPage() {
           </section>
 
           <section>
-            <h3 className="mb-3 flex items-center gap-2 text-sm font-black text-slate-950">
+            <h3 className="mb-3 flex items-center gap-2 text-sm font-black text-slate-950 dark:text-stone-100">
               <Activity className="h-4 w-4 text-[var(--codex-accent)]" />
               生成模型
             </h3>
@@ -877,7 +877,7 @@ export default function FaceSwapPage() {
               onClick={() => setTextureEnhance((value) => !value)}
               aria-label="画质增强"
               aria-pressed={textureEnhance}
-              className={`flex w-full items-center justify-between rounded-2xl border p-3 text-left transition-colors ${textureEnhance ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-neutral-200 bg-white text-neutral-700 hover:border-neutral-300"}`}
+              className={`flex w-full items-center justify-between rounded-2xl border p-3 text-left transition-colors ${textureEnhance ? "border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-[rgba(52,211,153,0.45)] dark:bg-[rgba(52,211,153,0.12)] dark:text-emerald-200" : "border-neutral-200 bg-white text-neutral-700 hover:border-neutral-300 dark:border-white/10 dark:bg-white/5 dark:text-stone-200 dark:hover:border-white/20"}`}
             >
               <span>
                 <span className="block text-sm font-black">轻量细节恢复</span>
@@ -959,7 +959,7 @@ export default function FaceSwapPage() {
                 <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-red-50 text-red-500">
                   <X className="h-6 w-6" />
                 </div>
-                <h2 className="mt-4 text-lg font-black text-slate-950">生成失败</h2>
+                <h2 className="mt-4 text-lg font-black text-slate-950 dark:text-stone-100">生成失败</h2>
                 <p className="mt-2 text-sm leading-relaxed text-slate-500">{summarizeGenerationError(error)}</p>
                 <p className="mx-auto mt-3 max-w-sm rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-left text-xs font-semibold leading-5 text-amber-700">
                   {FAILED_RETRY_NOTICE}
@@ -1009,10 +1009,10 @@ export default function FaceSwapPage() {
           <aside className="face-swap-face-library-panel" role="dialog" aria-modal="true" aria-label="模特脸库">
             <div className="face-swap-face-library-header">
               <div>
-                <h2 className="text-lg font-black text-slate-950">模特脸库</h2>
+                <h2 className="text-lg font-black text-slate-950 dark:text-stone-100">模特脸库</h2>
                 <p className="mt-1 text-xs text-slate-500">{faceSwapModeNote}</p>
               </div>
-              <button type="button" onClick={() => setDrawerOpen(false)} className="rounded-full p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900">
+              <button type="button" onClick={() => setDrawerOpen(false)} className="rounded-full p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-stone-100">
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -1097,7 +1097,7 @@ export default function FaceSwapPage() {
 }
 
 function PanelTitle({ title }: { title: string }) {
-  return <h2 className="mb-3 text-sm font-black text-slate-950">{title}</h2>;
+  return <h2 className="mb-3 text-sm font-black text-slate-950 dark:text-stone-100">{title}</h2>;
 }
 
 

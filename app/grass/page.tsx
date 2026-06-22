@@ -871,17 +871,17 @@ export default function GrassPage() {
           )}
 
           <section>
-            <h3 className="font-bold text-sm mb-3 flex items-center gap-2"><Sparkles className="w-4 h-4 text-purple-500" /> 生成模型</h3>
+            <h3 className="font-bold text-sm mb-3 flex items-center gap-2 text-slate-900 dark:text-stone-100"><Sparkles className="w-4 h-4 text-purple-500" /> 生成模型</h3>
             <StudioModelSelector models={MODELS} value={aiModel} onChange={setAiModel} ariaLabel="生成模型" />
           </section>
 
           <section>
-            <h3 className="font-bold text-sm mb-3">图片比例</h3>
+            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">图片比例</h3>
             <StudioOptionGrid options={ASPECTS} value={aspectRatio} onChange={setAspectRatio} ariaLabel="图片比例" />
           </section>
 
           <section>
-            <h3 className="font-bold text-sm mb-3">分辨率</h3>
+            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">分辨率</h3>
             <StudioOptionGrid
               options={imageSizes.map((s) => ({ value: s, label: `${s} · ${getCreditCost(aiModel, s, aspectRatio)}灵点` }))}
               value={imageSize}
@@ -890,7 +890,7 @@ export default function GrassPage() {
             />
           </section>
           <section>
-            <h3 className="font-bold text-sm mb-3">生成数量</h3>
+            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">生成数量</h3>
             <StudioGenerationCountSelector
               value={genCount}
               onChange={setGenCount}

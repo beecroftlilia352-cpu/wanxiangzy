@@ -485,6 +485,14 @@
   box-shadow: 0 12px 30px rgba(91, 124, 255, 0.12) !important;
 }
 
+.dark .studio-nav-item-active,
+.dark .studio-nav-rail a[aria-current="page"] {
+  color: #e8eaff !important;
+  border-color: rgba(91, 140, 255, 0.45) !important;
+  background: rgba(91, 140, 255, 0.16) !important;
+  box-shadow: 0 12px 30px rgba(91, 140, 255, 0.22) !important;
+}
+
 .studio-nav-item-active::before {
   content: "";
   position: absolute;
@@ -3151,6 +3159,11 @@
   color: rgba(75, 82, 99, 0.56);
 }
 
+.dark .studio-result-disclaimer,
+.dark .studio-result-time {
+  color: rgba(168, 170, 178, 0.6) !important;
+}
+
 .studio-result-reference-list {
   display: flex;
   width: 70px;
@@ -4171,4 +4184,1587 @@ header .animate-spin {
     radial-gradient(circle at 20% 20%, rgba(91, 124, 255, 0.55), transparent 34%),
     radial-gradient(circle at 86% 18%, rgba(174, 184, 255, 0.42), transparent 36%),
     linear-gradient(160deg, #1c2138, #07080d) !important;
+}
+
+/* ==========================================================================
+   Dark mode adaptations for studio chrome (toolbar, workbench, surfaces).
+   ========================================================================== */
+.dark .studio-app-header,
+.dark .mac-toolbar,
+.dark .mac-toolbar-surface {
+  border-bottom-color: rgba(255, 255, 255, 0.08) !important;
+  background: rgba(12, 10, 9, 0.82) !important;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset !important;
+}
+
+.dark .studio-header-actions {
+  border-color: rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.dark .studio-workbench,
+.dark .studio-page-shell {
+  background:
+    radial-gradient(circle at 4% 0%, rgba(91, 124, 255, 0.18), transparent 28%),
+    radial-gradient(circle at 92% 8%, rgba(174, 184, 255, 0.22), transparent 32%),
+    linear-gradient(180deg, #0c0a09, #161618);
+}
+
+.dark .mac-surface {
+  background: rgba(28, 28, 30, 0.78) !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+  color: #f5f5f7 !important;
+}
+
+/* ==========================================================================
+   P4.2 Comprehensive studio dark-mode adaptations.
+   Override every place where a hardcoded `rgba(255,255,255,*)` (paper white)
+   or `rgba(17,24,39,*)` (slate ink) was used in light mode. We map paper-white
+   surfaces to `rgba(38,38,40,*)` (panel) and ink borders to `rgba(255,255,255,0.10)`.
+   ========================================================================== */
+
+/* ---- Task rail (left column) ---- */
+.dark .studio-task-rail,
+.dark .studio-shell-task-rail {
+  background: rgba(28, 28, 30, 0.55) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  color: #f5f5f7 !important;
+}
+
+.dark .studio-task-card {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+  color: #f5f5f7 !important;
+}
+
+.dark .studio-task-card:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(91, 140, 255, 0.36) !important;
+}
+
+.dark .studio-task-card-expanded {
+  background: rgba(91, 140, 255, 0.18) !important;
+  border-color: rgba(91, 140, 255, 0.50) !important;
+}
+
+.dark .studio-task-thumb-frame,
+.dark .studio-task-placeholder-thumb {
+  background: rgba(255, 255, 255, 0.06) !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+}
+
+.dark .studio-task-rail-empty {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border-color: rgba(91, 140, 255, 0.24) !important;
+  color: #a8aab2 !important;
+}
+
+/* ---- Nav rail ---- */
+.dark .studio-nav-rail {
+  background: rgba(28, 28, 30, 0.55) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  color: #f5f5f7 !important;
+}
+
+.dark .studio-nav-rail-item,
+.dark .studio-nav-rail-button {
+  color: #a8aab2 !important;
+}
+
+.dark .studio-nav-rail-item:hover,
+.dark .studio-nav-rail-button:hover {
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: #f5f5f7 !important;
+}
+
+.dark .studio-nav-rail-item.is-active,
+.dark .studio-nav-rail-button.is-active {
+  background: rgba(91, 140, 255, 0.20) !important;
+  color: #5b8cff !important;
+}
+
+/* ---- Sidebar / parameters ---- */
+.dark .studio-shell-sidebar,
+.dark .studio-parameters,
+.dark .studio-control-panel,
+.dark .studio-section,
+.dark .studio-panel,
+.dark .studio-card {
+  background: rgba(38, 38, 40, 0.72) !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+  color: #f5f5f7 !important;
+}
+
+.dark .studio-section-title,
+.dark .studio-section-header h2,
+.dark .studio-section-header h3 {
+  color: #f5f5f7 !important;
+}
+
+.dark .studio-control-panel-label,
+.dark .studio-section-subtitle,
+.dark .studio-section-hint {
+  color: #a8aab2 !important;
+}
+
+.dark .studio-section-divider,
+.dark .studio-divider {
+  background: rgba(255, 255, 255, 0.10) !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+}
+
+/* ---- Tabs (segmented control, etc.) ---- */
+.dark .studio-tabs,
+.dark .studio-tab-bar,
+.dark .studio-tablist,
+.dark .studio-segmented {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+.dark .studio-tab,
+.dark .studio-segmented-item {
+  color: #a8aab2 !important;
+  background: transparent !important;
+}
+
+.dark .studio-tab:hover,
+.dark .studio-segmented-item:hover {
+  color: #f5f5f7 !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+}
+
+.dark .studio-tab.is-active,
+.dark .studio-tab[aria-selected="true"],
+.dark .studio-segmented-item.is-active {
+  background: rgba(255, 255, 255, 0.10) !important;
+  color: #f5f5f7 !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* ---- Upload / dropzone ---- */
+.dark .studio-upload,
+.dark .studio-dropzone,
+.dark .studio-upload-area {
+  background: rgba(255, 255, 255, 0.03) !important;
+  border-color: rgba(91, 140, 255, 0.30) !important;
+  color: #f5f5f7 !important;
+}
+
+.dark .studio-upload:hover,
+.dark .studio-dropzone:hover,
+.dark .studio-upload-area:hover {
+  background: rgba(91, 140, 255, 0.10) !important;
+  border-color: rgba(91, 140, 255, 0.50) !important;
+}
+
+.dark .studio-upload.is-active,
+.dark .studio-dropzone.is-dragging,
+.dark .studio-upload-area.is-dragging {
+  background: rgba(91, 140, 255, 0.18) !important;
+  border-color: rgba(91, 140, 255, 0.70) !important;
+}
+
+/* ---- Image cards / thumbnails ---- */
+.dark .studio-image-card,
+.dark .studio-image-tile,
+.dark .studio-image-frame {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+}
+
+.dark .studio-image-card:hover,
+.dark .studio-image-tile:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(91, 140, 255, 0.36) !important;
+}
+
+.dark .studio-image-card.is-selected,
+.dark .studio-image-tile.is-selected {
+  background: rgba(91, 140, 255, 0.16) !important;
+  border-color: rgba(91, 140, 255, 0.60) !important;
+  box-shadow: 0 0 0 2px rgba(91, 140, 255, 0.30) !important;
+}
+
+.dark .studio-image-placeholder {
+  background: rgba(255, 255, 255, 0.04) !important;
+  color: #a8aab2 !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+}
+
+/* ---- Empty / loading states ---- */
+.dark .studio-empty-state,
+.dark .studio-empty {
+  background: rgba(255, 255, 255, 0.03) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  color: #a8aab2 !important;
+}
+
+.dark .studio-empty-state-title,
+.dark .studio-empty-title {
+  color: #f5f5f7 !important;
+}
+
+.dark .studio-skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.08),
+    transparent
+  ) !important;
+}
+
+.dark .studio-loading {
+  background: rgba(28, 28, 30, 0.72) !important;
+  color: #a8aab2 !important;
+}
+
+/* ---- Alert / error / message ---- */
+.dark .studio-alert,
+.dark .studio-info,
+.dark .studio-warning,
+.dark .studio-error,
+.dark .studio-success {
+  border-color: rgba(255, 255, 255, 0.10) !important;
+  color: #f5f5f7 !important;
+}
+
+.dark .studio-alert {
+  background: rgba(91, 140, 255, 0.12) !important;
+  border-color: rgba(91, 140, 255, 0.30) !important;
+  color: #c4d4ff !important;
+}
+
+.dark .studio-warning {
+  background: rgba(255, 159, 10, 0.14) !important;
+  border-color: rgba(255, 159, 10, 0.36) !important;
+  color: #ffd194 !important;
+}
+
+.dark .studio-error {
+  background: rgba(255, 69, 58, 0.16) !important;
+  border-color: rgba(255, 69, 58, 0.40) !important;
+  color: #ffb1ac !important;
+}
+
+.dark .studio-success {
+  background: rgba(48, 209, 88, 0.14) !important;
+  border-color: rgba(48, 209, 88, 0.36) !important;
+  color: #b0f0bb !important;
+}
+
+/* ---- Buttons (cancel/secondary/tertiary that used white paper) ---- */
+.dark .studio-button,
+.dark .studio-button-secondary,
+.dark .studio-button-tertiary {
+  background: rgba(255, 255, 255, 0.06) !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+  color: #f5f5f7 !important;
+}
+
+.dark .studio-button:hover,
+.dark .studio-button-secondary:hover,
+.dark .studio-button-tertiary:hover {
+  background: rgba(255, 255, 255, 0.12) !important;
+  border-color: rgba(91, 140, 255, 0.36) !important;
+}
+
+.dark .studio-button-ghost {
+  background: transparent !important;
+  color: #a8aab2 !important;
+}
+
+.dark .studio-button-ghost:hover {
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: #f5f5f7 !important;
+}
+
+.dark .studio-button.is-primary,
+.dark .studio-button-primary,
+.dark .codex-primary-action {
+  background: linear-gradient(180deg, #5b8cff 0%, #3a6ce0 100%) !important;
+  color: #ffffff !important;
+  border-color: transparent !important;
+  box-shadow: 0 8px 24px rgba(91, 140, 255, 0.32) !important;
+}
+
+/* ---- Form controls (input/select/textarea in dark) ---- */
+.dark .studio-input,
+.dark .studio-textarea,
+.dark .studio-select {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  color: #f5f5f7 !important;
+}
+
+.dark .studio-input::placeholder,
+.dark .studio-textarea::placeholder {
+  color: #7a7d85 !important;
+}
+
+.dark .studio-input:focus,
+.dark .studio-textarea:focus,
+.dark .studio-select:focus {
+  border-color: rgba(91, 140, 255, 0.60) !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  box-shadow: 0 0 0 3px rgba(91, 140, 255, 0.18) !important;
+}
+
+/* ---- Result / canvas panel ---- */
+.dark .studio-canvas,
+.dark .studio-shell-canvas,
+.dark .studio-result-viewport {
+  background: rgba(12, 12, 16, 0.72) !important;
+  color: #f5f5f7 !important;
+}
+
+/* The hardcoded light gradient on .studio-empty-stage / .studio-result-stage /
+   .studio-loading-stage / .studio-canvas:has(.gen-card) lives in an !important
+   block at line ~3124, so we need to mirror it with the dark equivalent. */
+.dark .studio-empty-stage,
+.dark .studio-result-stage,
+.dark .studio-loading-stage {
+  background:
+    radial-gradient(circle at 16% 12%, rgba(91, 124, 255, 0.10), transparent 30%),
+    radial-gradient(circle at 86% 16%, rgba(174, 184, 255, 0.10), transparent 34%),
+    linear-gradient(180deg, rgba(28, 28, 30, 0.94), rgba(38, 38, 40, 0.92)) !important;
+  color: #f5f5f7 !important;
+}
+
+.dark .studio-canvas:has(.gen-card) {
+  background:
+    radial-gradient(circle at 10% 4%, rgba(91, 124, 255, 0.18), transparent 30%),
+    radial-gradient(circle at 82% 8%, rgba(174, 184, 255, 0.20), transparent 34%),
+    linear-gradient(180deg, rgba(28, 28, 30, 0.96), rgba(38, 38, 40, 0.7) 58%, rgba(7, 8, 13, 0.4)) !important;
+}
+
+.dark .studio-result-card,
+.dark .studio-result-panel {
+  background: rgba(28, 28, 30, 0.78) !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+  color: #f5f5f7 !important;
+}
+
+.dark .studio-result-empty {
+  background: rgba(255, 255, 255, 0.03) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  color: #a8aab2 !important;
+}
+
+/* ---- Bottom runbar / generation bar ---- */
+.dark .studio-runbar {
+  background: rgba(28, 28, 30, 0.86) !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+  color: #f5f5f7 !important;
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.4) !important;
+}
+
+.dark .studio-runbar-status {
+  background: rgba(255, 159, 10, 0.14) !important;
+  border-color: rgba(255, 159, 10, 0.40) !important;
+  color: #ffd194 !important;
+}
+
+.dark .studio-runbar .text-slate-500 {
+  color: #a8aab2 !important;
+}
+
+.dark .studio-runbar .text-amber-600 {
+  color: #ffb74d !important;
+}
+
+.dark .studio-runbar .bg-white\/90 {
+  background: rgba(28, 28, 30, 0.92) !important;
+}
+
+.dark .studio-runbar .border-white\/70 {
+  border-color: rgba(255, 255, 255, 0.10) !important;
+}
+
+.dark .studio-runbar .text-slate-400 {
+  color: #a8aab2 !important;
+}
+
+.dark .studio-runbar .text-slate-600 {
+  color: #d1d5db !important;
+}
+
+.dark .studio-runbar .text-slate-700 {
+  color: #e5e7eb !important;
+}
+
+/* ---- Studio task rail empty state ---- */
+.dark .studio-task-rail-empty {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+  color: #a8aab2 !important;
+}
+
+/* ---- Studio upload tile secondary / rule buttons ---- */
+.dark .studio-upload-tile-secondary,
+.dark .studio-upload-rule-button {
+  background: rgba(255, 255, 255, 0.06) !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+  color: #d1d5db !important;
+}
+
+.dark .studio-upload-tile-secondary:hover,
+.dark .studio-upload-rule-button:hover {
+  background: rgba(255, 255, 255, 0.10) !important;
+  border-color: rgba(91, 140, 255, 0.40) !important;
+}
+
+/* ---- Reference grids / history ---- */
+.dark .studio-result-reference-list,
+.dark .studio-history {
+  background: rgba(28, 28, 30, 0.55) !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+}
+
+.dark .studio-result-reference-thumb {
+  background: rgba(255, 255, 255, 0.06) !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+}
+
+.dark .studio-result-reference-thumb.is-active {
+  background: rgba(91, 140, 255, 0.20) !important;
+  border-color: rgba(91, 140, 255, 0.60) !important;
+}
+
+/* ---- Pills / chips / tags ---- */
+.dark .studio-chip,
+.dark .studio-pill,
+.dark .studio-tag {
+  background: rgba(255, 255, 255, 0.06) !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+  color: #f5f5f7 !important;
+}
+
+.dark .studio-chip.is-active,
+.dark .studio-pill.is-active {
+  background: rgba(91, 140, 255, 0.20) !important;
+  color: #5b8cff !important;
+  border-color: rgba(91, 140, 255, 0.40) !important;
+}
+
+/* ---- Tooltips / popovers ---- */
+.dark .studio-tooltip,
+.dark .studio-popover,
+.dark .studio-popover-content {
+  background: rgba(38, 38, 40, 0.96) !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+  color: #f5f5f7 !important;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6) !important;
+}
+
+/* ---- Selection cards / option grid ---- */
+.dark .studio-option-card,
+.dark .studio-selection-card {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+  color: #f5f5f7 !important;
+}
+
+.dark .studio-option-card:hover,
+.dark .studio-selection-card:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(91, 140, 255, 0.36) !important;
+}
+
+.dark .studio-option-card.is-selected,
+.dark .studio-selection-card.is-selected {
+  background: rgba(91, 140, 255, 0.18) !important;
+  border-color: rgba(91, 140, 255, 0.60) !important;
+  box-shadow: 0 0 0 2px rgba(91, 140, 255, 0.30) !important;
+}
+
+.dark .studio-option-card-title,
+.dark .studio-selection-card-title {
+  color: #f5f5f7 !important;
+}
+
+.dark .studio-option-card-description,
+.dark .studio-selection-card-description {
+  color: #a8aab2 !important;
+}
+
+/* ---- P5.17 Prompt textarea / input ---- */
+.dark .studio-prompt-textarea {
+  background: rgba(28, 28, 30, 0.7) !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+  color: #f5f5f7 !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 1px 2px rgba(0, 0, 0, 0.4) !important;
+}
+
+.dark .studio-prompt-textarea::placeholder {
+  color: #6e7280 !important;
+}
+
+.dark .studio-prompt-field:focus-within .studio-prompt-textarea,
+.dark .studio-prompt-textarea:focus {
+  border-color: rgba(91, 140, 255, 0.60) !important;
+  background: rgba(28, 28, 30, 0.85) !important;
+}
+
+.dark .studio-prompt-icon-action {
+  background: rgba(28, 28, 30, 0.85) !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+  color: #5b8cff !important;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.4) !important;
+}
+
+.dark .studio-prompt-icon-action:hover:not(:disabled) {
+  background: rgba(91, 140, 255, 0.18) !important;
+  border-color: rgba(91, 140, 255, 0.50) !important;
+}
+
+.dark .studio-prompt-icon-action:disabled {
+  color: #6e7280 !important;
+}
+
+/* ---- P5.18 Toggle switch (StudioToggleRow / role=switch buttons) ---- */
+.dark button[role="switch"] {
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+
+.dark button[role="switch"]:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+.dark button[role="switch"] span.rounded-full.bg-slate-300,
+.dark button[role="switch"] span.bg-slate-300 {
+  background: rgba(255, 255, 255, 0.18) !important;
+}
+
+.dark button[role="switch"] span.bg-\[var\(--codex-accent\)\] {
+  background: var(--codex-accent) !important;
+}
+
+.dark button[role="switch"] > span:last-child > span {
+  background: #f5f5f7 !important;
+}
+
+/* Generic toggle in the workbench: bg-slate-300 → dark:bg-white/15 */
+.dark .studio-workbench :is(.bg-slate-300, .bg-slate-400) {
+  background: rgba(255, 255, 255, 0.18) !important;
+}
+
+/* ---- P5.15 Model option (StudioModelSelector) ---- */
+.dark .studio-model-option {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+}
+
+.dark .studio-model-option:hover:not(:disabled) {
+  background: rgba(91, 140, 255, 0.10) !important;
+  border-color: rgba(91, 140, 255, 0.36) !important;
+}
+
+.dark .studio-model-option:disabled {
+  background: rgba(255, 255, 255, 0.02) !important;
+  border-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+.dark .studio-model-option-selected {
+  background: rgba(91, 140, 255, 0.18) !important;
+  border-color: rgba(91, 140, 255, 0.60) !important;
+  box-shadow: 0 0 0 1px rgba(91, 140, 255, 0.30) !important;
+}
+
+.dark .studio-model-option-title {
+  color: #f5f5f7 !important;
+}
+
+.dark .studio-model-option-desc {
+  color: #a8aab2 !important;
+}
+
+.dark .studio-model-option-badge {
+  background: rgba(91, 140, 255, 0.18) !important;
+  color: #5b8cff !important;
+}
+
+/* ---- P5.6 Option-control (StudioOptionGrid / StudioGenerationCountSelector) ---- */
+.dark .studio-option-control {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+  color: #f5f5f7 !important;
+}
+
+.dark .studio-option-control:hover:not(:disabled) {
+  background: rgba(91, 140, 255, 0.10) !important;
+  border-color: rgba(91, 140, 255, 0.36) !important;
+  color: #f5f5f7 !important;
+}
+
+.dark .studio-option-control-selected {
+  background: rgba(91, 140, 255, 0.18) !important;
+  border-color: rgba(91, 140, 255, 0.60) !important;
+  color: #5b8cff !important;
+}
+
+/* ---- P5.10 Sub-section cards (upload tile, multi-image, add-card, empty) ---- */
+.dark .studio-multi-image-card {
+  background:
+    linear-gradient(45deg, rgba(91, 140, 255, 0.04) 25%, transparent 25%),
+    linear-gradient(-45deg, rgba(91, 140, 255, 0.04) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, rgba(91, 140, 255, 0.04) 75%),
+    linear-gradient(-45deg, transparent 75%, rgba(91, 140, 255, 0.04) 75%),
+    rgba(255, 255, 255, 0.04) !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.4) !important;
+}
+
+.dark .studio-multi-image-add-card {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border-color: rgba(91, 140, 255, 0.32) !important;
+  color: #5b8cff !important;
+}
+
+.dark .studio-multi-image-add-card:hover:not(:disabled) {
+  background: rgba(91, 140, 255, 0.10) !important;
+  border-color: rgba(91, 140, 255, 0.58) !important;
+}
+
+.dark .studio-multi-image-empty {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border-color: rgba(91, 140, 255, 0.30) !important;
+}
+
+.dark .studio-multi-image-empty:hover:not(:disabled) {
+  background: rgba(91, 140, 255, 0.08) !important;
+}
+
+.dark .studio-multi-image-empty-icon {
+  background: rgba(91, 140, 255, 0.18) !important;
+  color: #5b8cff !important;
+}
+
+.dark .studio-multi-image-empty-badge,
+.dark .studio-multi-image-count {
+  background: rgba(91, 140, 255, 0.18) !important;
+  color: #5b8cff !important;
+  border-color: rgba(91, 140, 255, 0.32) !important;
+}
+
+/* ---- P5.10 试一试 参考图组 (StudioUploadExamples) ---- */
+.dark .studio-upload-tile-panel {
+  border-color: rgba(91, 140, 255, 0.20) !important;
+  background:
+    radial-gradient(circle at 16% 12%, rgba(91, 140, 255, 0.10), transparent 34%),
+    radial-gradient(circle at 88% 12%, rgba(174, 184, 255, 0.10), transparent 38%),
+    linear-gradient(145deg, rgba(28, 28, 30, 0.96), rgba(38, 38, 40, 0.92) 56%, rgba(28, 28, 30, 0.94)) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+}
+
+.dark .studio-upload-tile-panel::before {
+  background:
+    radial-gradient(ellipse at 28% 24%, rgba(91, 140, 255, 0.08), transparent 42%),
+    radial-gradient(ellipse at 76% 34%, rgba(137, 191, 255, 0.10), transparent 44%),
+    linear-gradient(115deg, transparent 0 42%, rgba(91, 140, 255, 0.10) 52%, transparent 64%) !important;
+  opacity: 0.8 !important;
+}
+
+.dark .studio-upload-tile-dragging .studio-upload-tile-panel {
+  background:
+    radial-gradient(circle at 16% 12%, rgba(91, 140, 255, 0.18), transparent 36%),
+    radial-gradient(circle at 88% 12%, rgba(174, 184, 255, 0.18), transparent 38%),
+    linear-gradient(145deg, rgba(38, 38, 40, 0.96), rgba(48, 48, 50, 0.92)) !important;
+}
+.dark .studio-upload-tile-example-list {
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+
+.dark .studio-upload-tile-example-thumb {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+}
+
+.dark .studio-upload-tile-example-thumb:hover:not(:disabled) {
+  background: rgba(91, 140, 255, 0.10) !important;
+  border-color: rgba(91, 140, 255, 0.42) !important;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4) !important;
+}
+
+.dark .studio-upload-tile-example-cell {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.4) !important;
+}
+
+.dark .studio-upload-tile-example-thumb-multi {
+  background: linear-gradient(180deg, rgba(28, 28, 30, 0.98), rgba(38, 38, 40, 0.92)) !important;
+  border-color: rgba(91, 140, 255, 0.32) !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(91, 140, 255, 0.18),
+    0 8px 18px rgba(0, 0, 0, 0.4) !important;
+}
+
+.dark .studio-upload-tile-examples-toggle {
+  background: rgba(255, 255, 255, 0.06) !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+  color: #a8aab2 !important;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.3) !important;
+}
+
+.dark .studio-upload-tile-examples-toggle:hover:not(:disabled) {
+  background: rgba(91, 140, 255, 0.12) !important;
+  border-color: rgba(91, 140, 255, 0.36) !important;
+  color: #5b8cff !important;
+}
+
+.dark .studio-upload-tile-example-label {
+  color: #a8aab2 !important;
+}
+
+/* ---- Slider / progress ---- */
+.dark .studio-slider-track {
+  background: rgba(255, 255, 255, 0.10) !important;
+}
+
+.dark .studio-slider-range,
+.dark .studio-slider-fill {
+  background: #5b8cff !important;
+}
+
+.dark .studio-slider-thumb {
+  background: #ffffff !important;
+  border-color: #5b8cff !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* ---- Scrollbars in studio panels ---- */
+.dark .studio-task-rail *::-webkit-scrollbar-track,
+.dark .studio-shell-sidebar *::-webkit-scrollbar-track,
+.dark .studio-parameters *::-webkit-scrollbar-track,
+.dark .studio-result-stage::-webkit-scrollbar-track,
+.dark .studio-result-viewport::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+
+.dark .studio-task-rail *::-webkit-scrollbar-thumb,
+.dark .studio-shell-sidebar *::-webkit-scrollbar-thumb,
+.dark .studio-parameters *::-webkit-scrollbar-thumb,
+.dark .studio-result-stage::-webkit-scrollbar-thumb,
+.dark .studio-result-viewport::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18) !important;
+}
+
+.dark .studio-task-rail *::-webkit-scrollbar-thumb:hover,
+.dark .studio-shell-sidebar *::-webkit-scrollbar-thumb:hover,
+.dark .studio-parameters *::-webkit-scrollbar-thumb:hover,
+.dark .studio-result-stage::-webkit-scrollbar-thumb:hover,
+.dark .studio-result-viewport::-webkit-scrollbar-thumb:hover {
+  background: rgba(91, 140, 255, 0.40) !important;
+}
+
+/* ==========================================================================
+   P4.3 Tailwind utility class overrides for dark mode.
+   Map hardcoded `bg-white/70`, `bg-slate-50`, `text-slate-700`, etc. used in
+   shared studio components to their dark equivalents.
+   ========================================================================== */
+
+/* Surfaces — paper-white frosted-glass pills, cards, badges */
+.dark .bg-white\/95,
+.dark .bg-white\/90,
+.dark .bg-white\/82,
+.dark .bg-white\/80,
+.dark .bg-white\/76,
+.dark .bg-white\/72,
+.dark .bg-white\/70,
+.dark .bg-white\/68,
+.dark .bg-white\/62,
+.dark .bg-white\/58,
+.dark .bg-white\/54,
+.dark .bg-white\/45,
+.dark .bg-white\/40,
+.dark .bg-white\/30,
+.dark .bg-white\/20,
+.dark .bg-white\/16,
+.dark .bg-white\/12,
+.dark .bg-white\/10,
+.dark .bg-white\/8,
+.dark .bg-white\/6,
+.dark .bg-white\/4 {
+  background-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+/* P5.38: do NOT blanket-override .bg-white with !important. Doing so would
+   also override dark:bg-[#...] arbitrary-value classes (same specificity,
+   later-loaded rule wins). Instead target the runbar wrapper and other
+   specific classes that need the frosted treatment. */
+.dark .studio-runbar.bg-white,
+.dark [class*="studio-image-preview"]:not([class*="dark:"]).bg-white,
+.dark [data-bg-white-frost="true"] {
+  background-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+.dark .bg-white\/90 { background-color: rgba(255, 255, 255, 0.08) !important; }
+.dark .bg-white\/82,
+.dark .bg-white\/80 { background-color: rgba(255, 255, 255, 0.07) !important; }
+.dark .bg-white\/76,
+.dark .bg-white\/72,
+.dark .bg-white\/70,
+.dark .bg-white\/68,
+.dark .bg-white\/62 { background-color: rgba(255, 255, 255, 0.06) !important; }
+.dark .bg-white\/58,
+.dark .bg-white\/54 { background-color: rgba(255, 255, 255, 0.05) !important; }
+.dark .bg-white\/45,
+.dark .bg-white\/40 { background-color: rgba(255, 255, 255, 0.04) !important; }
+.dark .bg-white\/30,
+.dark .bg-white\/20 { background-color: rgba(255, 255, 255, 0.04) !important; }
+.dark .bg-white\/16 { background-color: rgba(255, 255, 255, 0.04) !important; }
+.dark .bg-white\/12 { background-color: rgba(255, 255, 255, 0.03) !important; }
+.dark .bg-white\/10 { background-color: rgba(255, 255, 255, 0.04) !important; }
+.dark .bg-white\/8 { background-color: rgba(255, 255, 255, 0.03) !important; }
+.dark .bg-white\/6 { background-color: rgba(255, 255, 255, 0.03) !important; }
+.dark .bg-white\/4 { background-color: rgba(255, 255, 255, 0.02) !important; }
+
+/* Slate / stone surfaces */
+.dark .bg-slate-50,
+.dark .bg-stone-50,
+.dark .bg-zinc-50 {
+  background-color: rgba(255, 255, 255, 0.04) !important;
+}
+
+.dark .bg-slate-100,
+.dark .bg-stone-100 {
+  background-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+.dark .bg-slate-50\/90,
+.dark .bg-slate-50\/70,
+.dark .bg-slate-50\/60,
+.dark .bg-slate-50\/40 {
+  background-color: rgba(255, 255, 255, 0.04) !important;
+}
+
+.dark .bg-slate-100\/70 {
+  background-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+/* Borders */
+.dark .border-slate-100,
+.dark .border-slate-200,
+.dark .border-stone-100,
+.dark .border-stone-200,
+.dark .border-zinc-200 {
+  border-color: rgba(255, 255, 255, 0.10) !important;
+}
+
+.dark .border-slate-300,
+.dark .border-stone-300 {
+  border-color: rgba(255, 255, 255, 0.16) !important;
+}
+
+.dark .border-white\/80,
+.dark .border-white\/72,
+.dark .border-white\/70,
+.dark .border-white\/68,
+.dark .border-white\/62,
+.dark .border-white\/40,
+.dark .border-white\/30,
+.dark .border-white\/20,
+.dark .border-white\/16 {
+  border-color: rgba(255, 255, 255, 0.10) !important;
+}
+
+/* Text — slate / stone variants used as muted copy */
+.dark .text-slate-300,
+.dark .text-stone-300 {
+  color: #7a7d85 !important;
+}
+
+.dark .text-slate-400,
+.dark .text-stone-400,
+.dark .text-zinc-400 {
+  color: #8e9098 !important;
+}
+
+.dark .text-slate-500,
+.dark .text-stone-500,
+.dark .text-zinc-500 {
+  color: #a8aab2 !important;
+}
+
+.dark .text-slate-600,
+.dark .text-stone-600,
+.dark .text-zinc-600 {
+  color: #b8babf !important;
+}
+
+.dark .text-slate-700,
+.dark .text-stone-700,
+.dark .text-zinc-700,
+.dark .text-slate-800,
+.dark .text-stone-800,
+.dark .text-zinc-800,
+.dark .text-slate-900,
+.dark .text-stone-900,
+.dark .text-zinc-900 {
+  color: #f5f5f7 !important;
+}
+
+.dark .text-slate-200,
+.dark .text-stone-200 {
+  color: #c8c8cc !important;
+}
+
+.dark .placeholder\:text-slate-300::placeholder,
+.dark .placeholder\:text-stone-300::placeholder,
+.dark .placeholder\:text-slate-400::placeholder {
+  color: #7a7d85 !important;
+}
+
+/* Hover states */
+.dark .hover\:bg-slate-100:hover,
+.dark .hover\:bg-stone-100:hover {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+.dark .hover\:bg-slate-50:hover,
+.dark .hover\:bg-stone-50:hover {
+  background-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+.dark .hover\:bg-slate-50\/90:hover {
+  background-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+.dark .hover\:border-slate-200:hover,
+.dark .hover\:border-stone-200:hover {
+  border-color: rgba(255, 255, 255, 0.16) !important;
+}
+
+.dark .hover\:border-slate-300:hover,
+.dark .hover\:border-stone-300:hover {
+  border-color: rgba(91, 140, 255, 0.36) !important;
+}
+
+.dark .hover\:text-slate-800:hover,
+.dark .hover\:text-slate-900:hover,
+.dark .hover\:text-stone-900:hover {
+  color: #ffffff !important;
+}
+
+/* Warning / amber / yellow soft surfaces */
+.dark .bg-amber-50,
+.dark .bg-yellow-50 {
+  background-color: rgba(255, 159, 10, 0.16) !important;
+}
+
+.dark .bg-amber-100,
+.dark .bg-yellow-100 {
+  background-color: rgba(255, 159, 10, 0.22) !important;
+}
+
+.dark .border-amber-200,
+.dark .border-yellow-200 {
+  border-color: rgba(255, 159, 10, 0.36) !important;
+}
+
+.dark .text-amber-700,
+.dark .text-amber-800,
+.dark .text-yellow-700 {
+  color: #ffd194 !important;
+}
+
+.dark .hover\:bg-amber-100:hover {
+  background-color: rgba(255, 159, 10, 0.28) !important;
+}
+
+/* Error / red soft surfaces */
+.dark .bg-red-50,
+.dark .bg-red-50\/60,
+.dark .bg-red-50\/40 {
+  background-color: rgba(255, 69, 58, 0.16) !important;
+}
+
+.dark .border-red-200,
+.dark .border-red-300 {
+  border-color: rgba(255, 69, 58, 0.40) !important;
+}
+
+.dark .text-red-600,
+.dark .text-red-700,
+.dark .text-red-800 {
+  color: #ffb1ac !important;
+}
+
+.dark .bg-red-50.text-red-600,
+.dark .bg-red-50\/60 {
+  color: #ffb1ac !important;
+  background-color: rgba(255, 69, 58, 0.16) !important;
+}
+
+/* Info / blue soft surfaces */
+.dark .bg-blue-50,
+.dark .bg-blue-50\/50,
+.dark .bg-blue-50\/40,
+.dark .bg-blue-50\/35 {
+  background-color: rgba(91, 140, 255, 0.18) !important;
+}
+
+.dark .border-blue-200,
+.dark .border-blue-300 {
+  border-color: rgba(91, 140, 255, 0.40) !important;
+}
+
+.dark .text-blue-600,
+.dark .text-blue-700 {
+  color: #9eb9ff !important;
+}
+
+.dark .hover\:bg-blue-50\/50:hover,
+.dark .hover\:bg-blue-50\/40:hover,
+.dark .hover\:bg-blue-50\/35:hover {
+  background-color: rgba(91, 140, 255, 0.22) !important;
+}
+
+.dark .hover\:border-blue-200:hover,
+.dark .hover\:border-blue-300:hover {
+  border-color: rgba(91, 140, 255, 0.50) !important;
+}
+
+/* Success / green */
+.dark .bg-green-50 {
+  background-color: rgba(48, 209, 88, 0.16) !important;
+}
+
+.dark .text-green-600,
+.dark .text-green-700 {
+  color: #b0f0bb !important;
+}
+
+/* Studio loader specific */
+.dark .studio-loader-progress {
+  background-color: rgba(255, 255, 255, 0.10) !important;
+}
+
+/* Misc — codex color utilities are auto-handled via --codex-* token overrides */
+.dark [class*="text-codex-faint"] { color: #7a7d85 !important; }
+.dark [class*="text-codex-muted"] { color: #a8aab2 !important; }
+.dark [class*="bg-white\/"][class*="border-white\/"] {
+  background-color: rgba(255, 255, 255, 0.06) !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+}
+
+/* shadcn Switch (used in toggle controls) */
+.dark [data-state="checked"] {
+  background-color: #5b8cff !important;
+}
+
+.dark [data-state="unchecked"] {
+  background-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+/* ==========================================================================
+   Violet / accent (codex accent) variants — used heavily in /create page.
+   ========================================================================== */
+.dark .bg-violet-50,
+.dark .bg-violet-50\/40,
+.dark .bg-violet-50\/30,
+.dark .bg-violet-50\/20 {
+  background-color: rgba(91, 140, 255, 0.18) !important;
+}
+
+.dark .bg-violet-100 {
+  background-color: rgba(91, 140, 255, 0.22) !important;
+}
+
+.dark .border-violet-100,
+.dark .border-violet-200,
+.dark .border-violet-300,
+.dark .border-violet-400 {
+  border-color: rgba(91, 140, 255, 0.36) !important;
+}
+
+.dark .text-violet-500,
+.dark .text-violet-600,
+.dark .text-violet-700 {
+  color: #9eb9ff !important;
+}
+
+.dark .hover\:bg-violet-50\/30:hover,
+.dark .hover\:bg-violet-50\/40:hover {
+  background-color: rgba(91, 140, 255, 0.22) !important;
+}
+
+.dark .hover\:border-violet-200:hover,
+.dark .hover\:border-violet-300:hover {
+  border-color: rgba(91, 140, 255, 0.50) !important;
+}
+
+.dark .hover\:text-violet-600:hover {
+  color: #5b8cff !important;
+}
+
+.dark .ring-violet-500,
+.dark .focus-visible\:ring-violet-500:focus-visible {
+  --tw-ring-color: rgba(91, 140, 255, 0.55) !important;
+}
+
+/* Purple (similar family to violet) */
+.dark .text-purple-500,
+.dark .text-purple-600,
+.dark .text-purple-700 {
+  color: #b8a3ff !important;
+}
+
+.dark .bg-purple-50 {
+  background-color: rgba(168, 130, 255, 0.18) !important;
+}
+
+/* gray-200 (used as dashed border placeholder) */
+.dark .border-gray-200,
+.dark .border-gray-300 {
+  border-color: rgba(255, 255, 255, 0.10) !important;
+}
+
+.dark .text-gray-400,
+.dark .text-gray-500 {
+  color: #8e9098 !important;
+}
+
+.dark .bg-gray-50,
+.dark .bg-gray-100 {
+  background-color: rgba(255, 255, 255, 0.04) !important;
+}
+
+/* codex-faint / codex-muted / codex-ink are now defined in .dark block above
+   so all `text-codex-*` classes auto-adapt — no overrides needed here. */
+
+/* ---- Upload tile tips (slide-in banner) ---- */
+.dark .studio-upload-tile-tips {
+  border-top-color: rgba(255, 255, 255, 0.10) !important;
+  color: #a8aab2 !important;
+}
+
+.dark .studio-upload-tile-tips-label {
+  color: #f5f5f7 !important;
+}
+
+.dark .studio-upload-tile-tips-item {
+  color: #a8aab2 !important;
+}
+
+.dark .studio-upload-tile-tips-item strong {
+  color: #c8c8cc !important;
+}
+
+.dark .studio-upload-tile-tips-action {
+  color: #7a7d85 !important;
+}
+
+/* ---- Visual analysis status card ---- */
+.dark .studio-visual-analysis-status {
+  background: rgba(91, 140, 255, 0.14) !important;
+  border-color: rgba(91, 140, 255, 0.30) !important;
+  color: #c4d4ff !important;
+}
+
+.dark .studio-visual-analysis-status[data-state="success"] {
+  background: rgba(48, 209, 88, 0.14) !important;
+  border-color: rgba(48, 209, 88, 0.36) !important;
+  color: #b0f0bb !important;
+}
+
+.dark .studio-visual-analysis-status[data-state="warning"] {
+  background: rgba(255, 159, 10, 0.14) !important;
+  border-color: rgba(255, 159, 10, 0.36) !important;
+  color: #ffd194 !important;
+}
+
+.dark .studio-visual-analysis-status[data-state="error"] {
+  background: rgba(255, 69, 58, 0.16) !important;
+  border-color: rgba(255, 69, 58, 0.40) !important;
+  color: #ffb1ac !important;
+}
+
+/* ---- Upload rule button (in module header) ---- */
+.dark .studio-upload-rule-button {
+  background: rgba(255, 255, 255, 0.06) !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+  color: #f5f5f7 !important;
+}
+
+.dark .studio-upload-rule-button:hover {
+  background: rgba(255, 255, 255, 0.10) !important;
+  border-color: rgba(91, 140, 255, 0.40) !important;
+}
+
+/* ---- Clothing rule popover ---- */
+.dark .studio-clothing-rule-popover {
+  background: rgba(28, 28, 30, 0.96) !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+  color: #f5f5f7 !important;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6) !important;
+}
+
+.dark .studio-clothing-rule-popover-title {
+  color: #f5f5f7 !important;
+}
+
+.dark .studio-clothing-rule-popover-text {
+  color: #a8aab2 !important;
+}
+
+/* ---- Tip / info card ---- */
+.dark .studio-tip,
+.dark .studio-info-card,
+.dark .studio-helper {
+  background: rgba(91, 140, 255, 0.12) !important;
+  border-color: rgba(91, 140, 255, 0.30) !important;
+  color: #c4d4ff !important;
+}
+
+.dark .studio-tip-title,
+.dark .studio-info-card-title {
+  color: #f5f5f7 !important;
+}
+
+.dark .studio-tip-text,
+.dark .studio-info-card-text {
+  color: #c4d4ff !important;
+}
+
+/* ---- Code block / mono ---- */
+.dark .studio-code,
+.dark code,
+.dark pre {
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: #f5f5f7 !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+}
+
+/* ---- Code block on light bg in card ---- */
+.dark .studio-section code,
+.dark .studio-section pre {
+  background: rgba(0, 0, 0, 0.30) !important;
+  color: #f5f5f7 !important;
+}
+
+/* ---- Studio divider lines ---- */
+.dark hr,
+.dark .studio-hr {
+  border-color: rgba(255, 255, 255, 0.10) !important;
+  background: rgba(255, 255, 255, 0.10) !important;
+}
+
+/* ---- Page background inside studio shell (override gradient) ---- */
+.dark .studio-page-shell,
+.dark .studio-workbench {
+  background:
+    radial-gradient(circle at 4% 0%, rgba(91, 140, 255, 0.14), transparent 28%),
+    radial-gradient(circle at 92% 8%, rgba(174, 184, 255, 0.10), transparent 32%),
+    linear-gradient(180deg, #0c0c10 0%, #14141a 100%) !important;
+}
+
+/* ==========================================================================
+   P5.1-P5.4 Batch dark mode fixes.
+   Target the leftover hardcoded light gradients and white pills from the
+   original paper-white design that still leak through the dark cascade.
+   ========================================================================== */
+
+/* ---- Studio header tab bar (DesktopTopNav's studio-surface-toolbar) ---- */
+.dark .studio-surface-toolbar,
+.dark .studio-header-actions {
+  background: rgba(38, 38, 40, 0.72) !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset !important;
+}
+
+.dark .studio-app-header a,
+.dark .studio-app-header button,
+.dark .studio-header-actions a,
+.dark .studio-header-actions button {
+  /* When inactive they get hover via the .dark:hover rules below */
+}
+
+.dark .studio-app-header a.bg-white,
+.dark .studio-app-header button.bg-white,
+.dark .studio-surface-toolbar a.bg-white,
+.dark .studio-surface-toolbar button.bg-white,
+.dark a.dark\:bg-stone-800,
+.dark button.dark\:bg-stone-800 {
+  background-color: rgba(91, 140, 255, 0.20) !important;
+  color: #5b8cff !important;
+  box-shadow: 0 0 0 1px rgba(91, 140, 255, 0.40) inset !important;
+}
+
+.dark .studio-app-header a:not(.bg-white):not(.dark\:bg-stone-800),
+.dark .studio-app-header button:not(.bg-white):not(.dark\:bg-stone-800),
+.dark .studio-surface-toolbar a:not(.bg-white):not(.dark\:bg-stone-800),
+.dark .studio-surface-toolbar button:not(.bg-white):not(.dark\:bg-stone-800) {
+  color: #a8aab2 !important;
+}
+
+.dark .studio-app-header a:hover,
+.dark .studio-app-header button:hover,
+.dark .studio-surface-toolbar a:hover,
+.dark .studio-surface-toolbar button:hover {
+  background-color: rgba(255, 255, 255, 0.06) !important;
+  color: #f5f5f7 !important;
+}
+
+/* ---- Upload tile (the main paper-white gradient that was leaking) ---- */
+.dark .studio-upload-tile,
+.dark .studio-fixed-upload-slot,
+.dark .studio-fixed-upload-preview,
+.dark .studio-upload-dropzone {
+  border-color: rgba(91, 140, 255, 0.20) !important;
+  background:
+    radial-gradient(circle at 12% 8%, rgba(91, 140, 255, 0.10), transparent 36%),
+    radial-gradient(circle at 90% 10%, rgba(174, 184, 255, 0.10), transparent 38%),
+    linear-gradient(145deg, rgba(28, 28, 30, 0.96), rgba(38, 38, 40, 0.95) 58%, rgba(28, 28, 30, 0.96)) !important;
+  color: #f5f5f7 !important;
+}
+
+.dark .studio-upload-tile-dragging {
+  border-color: rgba(91, 140, 255, 0.60) !important;
+  background:
+    radial-gradient(circle at 18% 16%, rgba(91, 140, 255, 0.18), transparent 34%),
+    radial-gradient(circle at 82% 16%, rgba(174, 184, 255, 0.16), transparent 34%),
+    rgba(28, 28, 30, 0.96) !important;
+  box-shadow: 0 0 0 3px rgba(91, 140, 255, 0.20) !important;
+}
+
+.dark .studio-upload-tile-primary,
+.dark .studio-upload-tile-secondary,
+.dark .studio-upload-rule-button {
+  background: rgba(255, 255, 255, 0.06) !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+  color: #f5f5f7 !important;
+}
+
+.dark .studio-upload-tile-primary:hover,
+.dark .studio-upload-tile-secondary:hover,
+.dark .studio-upload-rule-button:hover {
+  background: rgba(255, 255, 255, 0.10) !important;
+  border-color: rgba(91, 140, 255, 0.40) !important;
+}
+
+.dark .studio-upload-tile-primary:disabled,
+.dark .studio-upload-tile-secondary:disabled {
+  background: rgba(255, 255, 255, 0.03) !important;
+  color: #7a7d85 !important;
+  border-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+/* The primary CTA in upload tile is darker/blue — keep the blue in dark */
+.dark .studio-upload-tile-primary:not(:disabled) {
+  background: linear-gradient(180deg, #5b8cff 0%, #3a6ce0 100%) !important;
+  color: #ffffff !important;
+  border-color: transparent !important;
+  box-shadow: 0 8px 24px rgba(91, 140, 255, 0.32) !important;
+}
+
+/* ---- Left icon rail (StudioNavRail / app sidebar) ---- */
+.dark .studio-nav-rail,
+.dark .studio-app-rail,
+.dark .app-rail,
+.dark .mac-rail {
+  background: rgba(28, 28, 30, 0.55) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  color: #f5f5f7 !important;
+}
+
+.dark .studio-nav-rail-item,
+.dark .studio-app-rail-item,
+.dark .app-rail-item {
+  color: #a8aab2 !important;
+}
+
+.dark .studio-nav-rail-item:hover,
+.dark .studio-app-rail-item:hover,
+.dark .app-rail-item:hover {
+  color: #f5f5f7 !important;
+}
+
+/* Active item — replace the white-pill selection with a dark blue tint */
+.dark .studio-nav-rail-item.is-active,
+.dark .studio-nav-rail-button.is-active,
+.dark .studio-app-rail-item.is-active,
+.dark .app-rail-item.is-active {
+  background: rgba(91, 140, 255, 0.18) !important;
+  color: #5b8cff !important;
+  border: 1px solid rgba(91, 140, 255, 0.30) !important;
+  box-shadow: 0 0 0 1px rgba(91, 140, 255, 0.20) inset !important;
+}
+
+/* ---- Amber warning card (Banana model alert, image rules, etc.) ---- */
+.dark .studio-warning-card,
+.dark .studio-amber-card,
+.dark .studio-alert-warning {
+  background: rgba(255, 159, 10, 0.14) !important;
+  border-color: rgba(255, 159, 10, 0.36) !important;
+  color: #ffd194 !important;
+}
+
+.dark .studio-warning-card-title,
+.dark .studio-amber-card-title {
+  color: #ffd194 !important;
+}
+
+.dark .studio-warning-card-text,
+.dark .studio-amber-card-text {
+  color: #ffd194 !important;
+}
+
+/* ---- Info / helper text inside cards ---- */
+.dark .studio-section-helper,
+.dark .studio-helper-text,
+.dark .studio-footnote {
+  color: #a8aab2 !important;
+}
+
+/* ---- Studio upload section header ---- */
+.dark .studio-upload-section > .studio-upload-header,
+.dark .studio-upload-header {
+  border-color: rgba(255, 255, 255, 0.10) !important;
+  color: #f5f5f7 !important;
+}
+
+.dark .studio-upload-title,
+.dark .studio-upload-header h2,
+.dark .studio-upload-header h3 {
+  color: #f5f5f7 !important;
+}
+
+/* ---- Module badge / support badge on upload tile ---- */
+.dark .studio-support-badge,
+.dark .studio-upload-tile .studio-support-badge {
+  background: rgba(91, 140, 255, 0.18) !important;
+  color: #9eb9ff !important;
+  border-color: rgba(91, 140, 255, 0.30) !important;
+}
+
+/* ---- "试一试" examples row ---- */
+.dark .studio-upload-examples,
+.dark .studio-examples-row {
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+.dark .studio-examples-title,
+.dark .studio-upload-examples-label {
+  color: #7a7d85 !important;
+}
+
+.dark .studio-example-card,
+.dark .studio-example-tile {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+}
+
+.dark .studio-example-card:hover,
+.dark .studio-example-tile:hover {
+  background: rgba(91, 140, 255, 0.18) !important;
+  border-color: rgba(91, 140, 255, 0.40) !important;
+}
+
+.dark .studio-example-card.is-selected,
+.dark .studio-example-tile.is-selected {
+  background: rgba(91, 140, 255, 0.22) !important;
+  border-color: rgba(91, 140, 255, 0.60) !important;
+}
+
+/* ---- Section description (small text under title) ---- */
+.dark .studio-section-description,
+.dark .studio-section-hint {
+  color: #a8aab2 !important;
+}
+
+/* ---- Link / pill / chip variants that use white paper ---- */
+.dark .studio-pill-white,
+.dark .studio-chip-white {
+  background: rgba(255, 255, 255, 0.06) !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+  color: #f5f5f7 !important;
+}
+
+/* ---- Hardcoded white sections that might use raw white in JSX ---- */
+.dark [class*="bg-white/"][class*="text-"]:not([class*="dark:"]) {
+  color: #f5f5f7 !important;
+}
+
+/* ---- Studio control panel / sidebar — already covered above, this catches
+   the very-light cards that aren't tagged with .mac-surface ---- */
+.dark .studio-card-light,
+.dark .studio-card-soft {
+  background: rgba(38, 38, 40, 0.72) !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+  color: #f5f5f7 !important;
+}
+
+/* ---- `home-pill` / `marketing-pill` style backgrounds from the home header.
+   These are used in MarketingHeader (top of /login, /, etc.). ---- */
+.dark .home-marketing-actions .home-trial-pill,
+.dark .home-trial-pill {
+  background: rgba(91, 140, 255, 0.20) !important;
+  color: #5b8cff !important;
+  border-color: rgba(91, 140, 255, 0.30) !important;
+}
+
+.dark .home-login-pill,
+.dark .home-menu-pill {
+  background: rgba(255, 255, 255, 0.06) !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+  color: #f5f5f7 !important;
+}
+
+.dark .home-login-pill:hover,
+.dark .home-menu-pill:hover {
+  background: rgba(255, 255, 255, 0.10) !important;
+}
+
+/* ---- StudioMultiImageUpload, StudioUploadTile — the absolute overlay that
+   was using `bg-white/62 backdrop-blur` for the loading state ---- */
+.dark .studio-upload-tile-loading-overlay,
+.dark .studio-upload-tile-overlay {
+  background: rgba(12, 12, 16, 0.72) !important;
+  color: #f5f5f7 !important;
+}
+
+.dark .studio-upload-tile-loading-badge,
+.dark .studio-upload-tile-pill {
+  background: rgba(28, 28, 30, 0.96) !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+  color: #f5f5f7 !important;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* ---- Pressed / disabled states ---- */
+.dark .studio-button:disabled,
+.dark .studio-primary-action:disabled {
+  background: rgba(255, 255, 255, 0.04) !important;
+  color: #7a7d85 !important;
+  border-color: rgba(255, 255, 255, 0.06) !important;
+  box-shadow: none !important;
+}
+
+/* ---- Segmented control (StudioSegmentedControl) — covers the hardcoded
+   white pill that holds 上装/下装/连体 ---- */
+.dark .mac-segmented-control,
+.dark .studio-segmented-control {
+  background: rgba(38, 38, 40, 0.72) !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+  color: #f5f5f7 !important;
+}
+
+.dark .mac-segmented-option,
+.dark .studio-segmented-option {
+  color: #a8aab2 !important;
+}
+
+.dark .mac-segmented-option:hover,
+.dark .studio-segmented-option:hover {
+  color: #f5f5f7 !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+
+.dark .mac-segmented-option-active,
+.dark .studio-segmented-option-active {
+  background: rgba(91, 140, 255, 0.22) !important;
+  color: #5b8cff !important;
+  box-shadow: 0 0 0 1px rgba(91, 140, 255, 0.30) inset !important;
 }

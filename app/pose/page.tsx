@@ -279,7 +279,7 @@ function getPoseAngleBadgeClass(angle?: PosePlanAngle) {
   if (angle === "side") return `${base} bg-indigo-50 text-indigo-700 ring-indigo-100`;
   if (angle === "back") return `${base} bg-amber-50 text-amber-700 ring-amber-100`;
   if (angle === "detail") return `${base} bg-teal-50 text-teal-700 ring-teal-100`;
-  return `${base} bg-slate-100 text-slate-500 ring-slate-200`;
+  return `${base} bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-stone-400 ring-slate-200`;
 }
 
 function resolvePoseOutputModeFromPayload(payload: PoseHistoryPayload): PoseOutputMode {
@@ -1678,7 +1678,7 @@ export default function PosePage() {
                     <button
                       type="button"
                       onClick={retryPoseAnalysis}
-                      className="rounded-full border border-current/15 bg-white/75 px-2.5 py-1 text-[10px] font-semibold transition hover:bg-white"
+                      className="rounded-full border border-current/15 bg-white/75 dark:bg-white/5 px-2.5 py-1 text-[10px] font-semibold transition hover:bg-white dark:bg-white/5"
                     >
                       重试
                     </button>
@@ -1690,12 +1690,12 @@ export default function PosePage() {
           <section className="space-y-3">
             <div>
               <h3 className="font-bold text-sm">创作模式</h3>
-              <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
+              <p className="mt-1 text-[11px] leading-relaxed text-slate-400 dark:text-stone-500">
                 自由模式按商业动作库生成；参考图模式只借鉴参考图姿势，不复制人物、服装和背景。
               </p>
             </div>
 
-            <div className="grid grid-cols-2 rounded-2xl bg-slate-100 p-1">
+            <div className="grid grid-cols-2 rounded-2xl bg-slate-100 dark:bg-white/5 p-1">
               {[
                 { value: "free" as const, label: "自由模式", desc: "默认动作库" },
                 { value: "reference" as const, label: "参考图模式", desc: "按图借姿势" },
@@ -1708,8 +1708,8 @@ export default function PosePage() {
                     onClick={() => setPoseCreationMode(item.value)}
                     className={`rounded-xl px-3 py-2 text-center transition ${
                       selected
-                        ? "bg-white text-blue-700 shadow-[0_8px_18px_rgba(37,99,235,0.12)]"
-                        : "text-slate-500 hover:text-slate-900"
+                        ? "bg-white dark:bg-white/5 text-blue-700 shadow-[0_8px_18px_rgba(37,99,235,0.12)]"
+                        : "text-slate-500 dark:text-stone-400 hover:text-slate-900 dark:text-stone-100"
                     }`}
                   >
                     <span className="block text-xs font-black">{item.label}</span>
@@ -1774,20 +1774,20 @@ export default function PosePage() {
                 )}
               </StudioUploadSection>
               {activePoseReferenceUrls.length > 0 && (
-                <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+                <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 p-3 shadow-sm">
                   <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="text-sm font-black text-slate-950">生成数量</p>
-                      <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
+                      <p className="text-sm font-black text-slate-950 dark:text-stone-100">生成数量</p>
+                      <p className="mt-1 text-[11px] leading-relaxed text-slate-500 dark:text-stone-400">
                         {activePoseReferenceUrls.length} 张参考图 × 每张 {activePoseReferenceCopies} 张 = {poseReferenceOutputCount} 张独立图
                       </p>
                     </div>
-                    <div className="grid h-9 shrink-0 grid-cols-[34px_52px_34px] overflow-hidden rounded-full border border-slate-200 bg-slate-50">
+                    <div className="grid h-9 shrink-0 grid-cols-[34px_52px_34px] overflow-hidden rounded-full border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/4">
                       <button
                         type="button"
                         onClick={() => setPoseReferenceCopies((count) => normalizePoseReferenceCopies(count - 1, activePoseReferenceUrls.length))}
                         disabled={activePoseReferenceCopies <= 1}
-                        className="inline-flex items-center justify-center text-slate-500 transition hover:bg-white hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-30"
+                        className="inline-flex items-center justify-center text-slate-500 dark:text-stone-400 transition hover:bg-white dark:bg-white/5 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-30"
                         aria-label="减少每张参考图生成数量"
                       >
                         <Minus className="h-3.5 w-3.5" />
@@ -1797,13 +1797,13 @@ export default function PosePage() {
                         min={1}
                         value={activePoseReferenceCopies}
                         onChange={(event) => setPoseReferenceCopies(normalizePoseReferenceCopies(event.target.value, activePoseReferenceUrls.length))}
-                        className="w-full border-x border-slate-200 bg-white text-center text-xs font-black text-slate-900 outline-none"
+                        className="w-full border-x border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-center text-xs font-black text-slate-900 dark:text-stone-100 outline-none"
                         aria-label="每张参考图生成数量"
                       />
                       <button
                         type="button"
                         onClick={() => setPoseReferenceCopies((count) => normalizePoseReferenceCopies(count + 1, activePoseReferenceUrls.length))}
-                        className="inline-flex items-center justify-center text-slate-500 transition hover:bg-white hover:text-blue-700"
+                        className="inline-flex items-center justify-center text-slate-500 dark:text-stone-400 transition hover:bg-white dark:bg-white/5 hover:text-blue-700"
                         aria-label="增加每张参考图生成数量"
                       >
                         <Plus className="h-3.5 w-3.5" />
@@ -1816,10 +1816,10 @@ export default function PosePage() {
                 <div className="flex items-start gap-2.5">
                   <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
                   <div className="min-w-0">
-                    <p className="text-xs font-black text-slate-900">
+                    <p className="text-xs font-black text-slate-900 dark:text-stone-100">
                       {activePoseReferenceUrls.length ? `将生成 ${poseReferenceOutputCount} 张独立图` : "上传参考图后独立生成"}
                     </p>
-                    <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
+                    <p className="mt-1 text-[11px] leading-relaxed text-slate-500 dark:text-stone-400">
                       参考图模式直接按上传图片借姿势，不生成姿势计划，也不输出宫格；人物、服装、背景和光线仍以主图为准。
                     </p>
                   </div>
@@ -1835,25 +1835,25 @@ export default function PosePage() {
               onClick={toggleGarmentDetails}
               className={`flex w-full items-center justify-between rounded-2xl border p-3 text-left transition-all ${
                 garmentAngleEnabled
-                  ? "border-blue-300 bg-blue-50/80 text-blue-800"
+                  ? "border-blue-300 bg-blue-50/80 text-blue-800 dark:border-[rgba(91,140,255,0.55)] dark:bg-[rgba(91,140,255,0.18)] dark:text-[#cfd8ff]"
                   : shouldSuggestBackReference
-                    ? "border-amber-200 bg-amber-50/70 text-amber-900 hover:border-amber-300"
-                    : "border-neutral-200 bg-white text-neutral-700 hover:border-neutral-300"
+                    ? "border-amber-200 bg-amber-50/70 text-amber-900 hover:border-amber-300 dark:border-[rgba(255,159,10,0.45)] dark:bg-[rgba(255,159,10,0.12)] dark:text-[#ffd194]"
+                    : "border-neutral-200 bg-white dark:bg-white/5 text-neutral-700 dark:border-white/10 dark:text-stone-200 hover:border-neutral-300 dark:hover:border-white/20"
               }`}
             >
               <span className="min-w-0">
                 <span className="flex flex-wrap items-center gap-2 text-sm font-black">
                   背面 / 侧面服装补充
-                  <span className="rounded-full bg-white/80 px-2 py-0.5 text-[10px] font-bold text-slate-500">可选</span>
+                  <span className="rounded-full bg-white/80 dark:bg-white/5 px-2 py-0.5 text-[10px] font-bold text-slate-500 dark:text-stone-400">可选</span>
                 </span>
-                <span className="mt-1 block text-xs leading-relaxed text-slate-500">
+                <span className="mt-1 block text-xs leading-relaxed text-slate-500 dark:text-stone-400">
                   {shouldSuggestBackReference
                     ? "已选择背面/侧后姿势，最好补一张同款背面图，避免背部结构靠猜。"
                     : "只补服装隐藏面的结构，不会作为人物、脸、姿势、背景或光线参考。"}
                 </span>
               </span>
-              <span className={`ml-3 flex h-7 w-12 shrink-0 items-center rounded-full p-1 transition ${garmentAngleEnabled ? "bg-[var(--codex-accent)]" : "bg-neutral-200"}`}>
-                <span className={`h-5 w-5 rounded-full bg-white shadow transition ${garmentAngleEnabled ? "translate-x-5" : "translate-x-0"}`} />
+              <span className={`ml-3 flex h-7 w-12 shrink-0 items-center rounded-full p-1 transition ${garmentAngleEnabled ? "bg-[var(--codex-accent)]" : "bg-neutral-200 dark:bg-white/10"}`}>
+                <span className={`h-5 w-5 rounded-full bg-white shadow transition dark:bg-stone-100 ${garmentAngleEnabled ? "translate-x-5" : "translate-x-0"}`} />
               </span>
             </button>
 
@@ -1872,16 +1872,16 @@ export default function PosePage() {
                 multiple
                 isDragging={isDraggingGarmentDetails}
                 setDragging={setIsDraggingGarmentDetails}
-                className="rounded-2xl border border-blue-100 bg-blue-50/35 p-3"
+                className="rounded-2xl border border-blue-100 dark:border-blue-400/30 bg-blue-50/35 p-3"
               >
                 {(openFileDialog) => (
                   <div className="space-y-3">
-                    <div className="rounded-xl border border-blue-100 bg-white/92 p-2.5">
+                    <div className="rounded-xl border border-blue-100 dark:border-blue-400/30 bg-white/92 dark:bg-white/5 p-2.5">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <p className="text-[11px] font-bold text-blue-700">这张补充图属于</p>
-                          <p className="mt-0.5 truncate text-sm font-black text-slate-900">{activeGarmentAngleMark}</p>
-                          <p className="mt-0.5 truncate text-[11px] text-slate-500" title={activeGarmentAngleTargetOption.description}>
+                          <p className="mt-0.5 truncate text-sm font-black text-slate-900 dark:text-stone-100">{activeGarmentAngleMark}</p>
+                          <p className="mt-0.5 truncate text-[11px] text-slate-500 dark:text-stone-400" title={activeGarmentAngleTargetOption.description}>
                             {activeGarmentAngleTargetOption.description}
                           </p>
                         </div>
@@ -1892,7 +1892,7 @@ export default function PosePage() {
 
                       <div className="mt-3 space-y-2">
                         <div className="flex items-start gap-2">
-                          <span className="mt-1 w-8 shrink-0 text-[11px] font-bold text-slate-500">衣服</span>
+                          <span className="mt-1 w-8 shrink-0 text-[11px] font-bold text-slate-500 dark:text-stone-400">衣服</span>
                           <div className="flex flex-wrap gap-1.5">
                             {GARMENT_ANGLE_TARGET_OPTIONS.map((item) => {
                               const selected = item.value === garmentAngleTarget;
@@ -1905,7 +1905,7 @@ export default function PosePage() {
                                   className={`rounded-full border px-2.5 py-1 text-[11px] font-bold transition ${
                                     selected
                                       ? "border-blue-400 bg-blue-50 text-blue-700 shadow-sm"
-                                      : "border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:text-blue-700"
+                                      : "border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-600 dark:text-stone-300 hover:border-blue-200 dark:hover:border-blue-400/40 hover:text-blue-700"
                                   }`}
                                 >
                                   {item.label}
@@ -1916,7 +1916,7 @@ export default function PosePage() {
                         </div>
 
                         <div className="flex items-start gap-2">
-                          <span className="mt-1 w-8 shrink-0 text-[11px] font-bold text-slate-500">角度</span>
+                          <span className="mt-1 w-8 shrink-0 text-[11px] font-bold text-slate-500 dark:text-stone-400">角度</span>
                           <div className="flex flex-wrap gap-1.5">
                             {GARMENT_ANGLE_VIEW_OPTIONS.map((item) => {
                               const selected = item.value === garmentAngleView;
@@ -1928,7 +1928,7 @@ export default function PosePage() {
                                   className={`rounded-full border px-2.5 py-1 text-[11px] font-bold transition ${
                                     selected
                                       ? "border-blue-400 bg-blue-50 text-blue-700 shadow-sm"
-                                      : "border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:text-blue-700"
+                                      : "border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-600 dark:text-stone-300 hover:border-blue-200 dark:hover:border-blue-400/40 hover:text-blue-700"
                                   }`}
                                 >
                                   {item.label}
@@ -1944,7 +1944,7 @@ export default function PosePage() {
                       type="button"
                       onClick={openFileDialog}
                       disabled={isUploadingGarmentDetails || activeGarmentAngleReferences.length >= MAX_GARMENT_ANGLE_IMAGES}
-                      className={`flex w-full items-center gap-3 rounded-xl border border-dashed bg-white/85 p-3 text-left transition hover:border-blue-300 hover:bg-white disabled:cursor-not-allowed disabled:opacity-55 ${
+                      className={`flex w-full items-center gap-3 rounded-xl border border-dashed bg-white/85 dark:bg-white/5 p-3 text-left transition hover:border-blue-300 hover:bg-white dark:bg-white/5 disabled:cursor-not-allowed disabled:opacity-55 ${
                         isDraggingGarmentDetails ? "border-blue-400 bg-blue-50" : "border-blue-200"
                       }`}
                       aria-label={`上传${activeGarmentAngleMark}背/侧补充图`}
@@ -1953,10 +1953,10 @@ export default function PosePage() {
                         {isUploadingGarmentDetails ? <Loader2 aria-hidden="true" className="h-5 w-5 animate-spin" /> : <Sparkles aria-hidden="true" className="h-5 w-5" />}
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className="block text-sm font-black text-slate-900">
+                        <span className="block text-sm font-black text-slate-900 dark:text-stone-100">
                           上传为 {activeGarmentAngleMark}
                         </span>
-                        <span className="mt-0.5 block truncate text-[11px] text-slate-500">
+                        <span className="mt-0.5 block truncate text-[11px] text-slate-500 dark:text-stone-400">
                           建议上传完整背面、侧面、平铺或悬挂图；不要上传纯局部纹理特写。
                         </span>
                       </span>
@@ -1971,7 +1971,7 @@ export default function PosePage() {
                           {activeGarmentAngleReferences.map((ref, index) => {
                             const label = formatGarmentAngleReferenceLabel(ref, index);
                             return (
-                              <div key={ref.url} className="group relative overflow-hidden rounded-lg border border-blue-200 bg-white shadow-sm">
+                              <div key={ref.url} className="group relative overflow-hidden rounded-lg border border-blue-200 bg-white dark:bg-white/5 shadow-sm">
                                 <button
                                   type="button"
                                   onClick={() => setLightboxSrc(ref.url)}
@@ -1979,14 +1979,14 @@ export default function PosePage() {
                                   aria-label={`预览${label}`}
                                 >
                                   <RawPreviewImage src={ref.url} alt={label} className="aspect-[3/4] w-full object-cover" />
-                                  <span className="absolute bottom-1 left-1 max-w-[calc(100%-8px)] truncate rounded-full bg-white/90 px-1.5 py-0.5 text-[10px] font-bold text-blue-700">
+                                  <span className="absolute bottom-1 left-1 max-w-[calc(100%-8px)] truncate rounded-full bg-white/90 dark:bg-white/5 px-1.5 py-0.5 text-[10px] font-bold text-blue-700">
                                     {label}
                                   </span>
                                 </button>
                                 <button
                                   type="button"
                                   onClick={() => removeGarmentDetail(ref.url)}
-                                  className="absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/88 text-slate-500 shadow-sm transition hover:text-red-500"
+                                  className="absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/88 dark:bg-white/5 text-slate-500 dark:text-stone-400 shadow-sm transition hover:text-red-500"
                                   aria-label={`移除${label}`}
                                 >
                                   <X className="h-3.5 w-3.5" />
@@ -1998,7 +1998,7 @@ export default function PosePage() {
                       </div>
                     )}
 
-                    <p className="rounded-lg bg-blue-50/70 px-2.5 py-2 text-[11px] leading-relaxed text-blue-800">
+                    <p className="rounded-lg bg-blue-50/70 px-2.5 py-2 text-[11px] leading-relaxed text-blue-800 dark:bg-[rgba(91,140,255,0.16)] dark:text-[#cfd8ff]">
                       {GARMENT_ANGLE_UPLOAD_FOOTNOTE}
                     </p>
                   </div>
@@ -2008,7 +2008,7 @@ export default function PosePage() {
           </section>
 
           <section>
-            <h3 className="font-bold text-sm mb-3 flex items-center gap-2">
+            <h3 className="font-bold text-sm mb-3 flex items-center gap-2 text-slate-900 dark:text-stone-100">
               <Sparkles className="w-4 h-4 text-[var(--codex-accent)]" /> 生成模型
             </h3>
             <StudioModelSelector
@@ -2025,12 +2025,12 @@ export default function PosePage() {
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h3 className="font-bold text-sm">生成姿势</h3>
-                <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
+                <p className="mt-1 text-[11px] leading-relaxed text-slate-400 dark:text-stone-500">
                   选择想要的成片方向，系统会自动补动作、表情和构图。
                 </p>
               </div>
               <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold ${
-                activePoseAnglePreset ? "bg-blue-50 text-blue-700" : "bg-slate-100 text-slate-600"
+                activePoseAnglePreset ? "bg-blue-50 text-blue-700" : "bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-stone-300"
               }`}>
                 {poseAnglePlanLabel} · {posePlanTargetCount} 张
               </span>
@@ -2048,20 +2048,20 @@ export default function PosePage() {
                     className={`rounded-2xl border px-3 py-2 text-left transition ${
                       selected
                         ? "border-blue-300 bg-blue-50/80 shadow-sm"
-                        : "border-slate-200 bg-white hover:border-blue-200 hover:bg-blue-50/30 hover:text-blue-700"
+                        : "border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 hover:border-blue-200 dark:hover:border-blue-400/40 hover:bg-blue-50/30 hover:text-blue-700"
                     }`}
                   >
                     <span className="flex items-center justify-between gap-1.5">
-                      <span className={`min-w-0 truncate text-xs font-black ${selected ? "text-blue-800" : "text-slate-800"}`}>
+                      <span className={`min-w-0 truncate text-xs font-black ${selected ? "text-blue-800 dark:text-[#cfd8ff]" : "text-slate-800 dark:text-stone-200"}`}>
                         {preset.label}
                       </span>
                       <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-black ${
-                        selected ? "bg-white text-blue-700" : "bg-slate-100 text-slate-500"
+                        selected ? "bg-white dark:bg-white/5 text-blue-700" : "bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-stone-400"
                       }`}>
                         {preset.countLabel}
                       </span>
                     </span>
-                    <span className={`mt-0.5 block truncate text-[10px] font-semibold ${selected ? "text-blue-600" : "text-slate-500"}`}>
+                    <span className={`mt-0.5 block truncate text-[10px] font-semibold ${selected ? "text-blue-600" : "text-slate-500 dark:text-stone-400"}`}>
                       {selected ? "当前方案" : preset.desc}
                     </span>
                   </button>
@@ -2069,51 +2069,51 @@ export default function PosePage() {
               })}
             </div>
             {!activePoseAnglePreset ? (
-              <p className="rounded-xl bg-slate-50 px-3 py-2 text-[11px] leading-relaxed text-slate-500">
+              <p className="rounded-xl bg-slate-50 dark:bg-white/4 px-3 py-2 text-[11px] leading-relaxed text-slate-500 dark:text-stone-400">
                 已按你的加减调整为自定义组合；上方方案卡可随时一键套用。
               </p>
             ) : null}
 
-            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white/90 shadow-sm">
+            <div className="overflow-hidden rounded-2xl border border-slate-200 dark:border-white/10 bg-white/90 dark:bg-white/5 shadow-sm">
               {POSE_ANGLE_OPTIONS.map((item) => {
                 const count = poseAngleCounts[item.value] || 0;
                 const total = posePlanTargetCount;
                 const isBack = item.value === "back";
                 const isDetail = item.value === "detail";
                 return (
-                  <div key={item.value} className="border-b border-slate-100 p-3 last:border-b-0">
+                  <div key={item.value} className="border-b border-slate-100 dark:border-white/5 p-3 last:border-b-0">
                     <div className="flex items-center gap-3">
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
-                          <p className="text-sm font-black text-slate-950">{item.label}</p>
+                          <p className="text-sm font-black text-slate-950 dark:text-stone-100">{item.label}</p>
                           {isDetail ? (
-                            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500">输出近景</span>
+                            <span className="rounded-full bg-slate-100 dark:bg-white/5 px-2 py-0.5 text-[10px] font-bold text-slate-500 dark:text-stone-400">输出近景</span>
                           ) : null}
                           {isBack && count > 0 ? (
                             <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700">建议补背面图</span>
                           ) : null}
                         </div>
-                        <p className="mt-1 text-[11px] leading-relaxed text-slate-500">{item.desc}</p>
-                        <p className="mt-0.5 text-[10px] leading-relaxed text-slate-400">{item.hint}</p>
+                        <p className="mt-1 text-[11px] leading-relaxed text-slate-500 dark:text-stone-400">{item.desc}</p>
+                        <p className="mt-0.5 text-[10px] leading-relaxed text-slate-400 dark:text-stone-500">{item.hint}</p>
                       </div>
-                      <div className="grid h-9 shrink-0 grid-cols-[34px_34px_34px] overflow-hidden rounded-full border border-slate-200 bg-slate-50">
+                      <div className="grid h-9 shrink-0 grid-cols-[34px_34px_34px] overflow-hidden rounded-full border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/4">
                         <button
                           type="button"
                           onClick={() => updatePoseAngleCount(item.value, -1)}
                           disabled={count <= 0 || total <= POSE_PLAN_MIN_COUNT}
-                          className="inline-flex items-center justify-center text-slate-500 transition hover:bg-white hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-30"
+                          className="inline-flex items-center justify-center text-slate-500 dark:text-stone-400 transition hover:bg-white dark:bg-white/5 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-30"
                           aria-label={`减少${item.label}姿势`}
                         >
                           <Minus aria-hidden="true" className="h-3.5 w-3.5" />
                         </button>
-                        <span className="inline-flex items-center justify-center border-x border-slate-200 bg-white text-xs font-black text-slate-900">
+                        <span className="inline-flex items-center justify-center border-x border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-xs font-black text-slate-900 dark:text-stone-100">
                           {count}
                         </span>
                         <button
                           type="button"
                           onClick={() => updatePoseAngleCount(item.value, 1)}
                           disabled={total >= POSE_PLAN_MAX_COUNT}
-                          className="inline-flex items-center justify-center text-slate-500 transition hover:bg-white hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-30"
+                          className="inline-flex items-center justify-center text-slate-500 dark:text-stone-400 transition hover:bg-white dark:bg-white/5 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-30"
                           aria-label={`增加${item.label}姿势`}
                         >
                           <Plus aria-hidden="true" className="h-3.5 w-3.5" />
@@ -2134,7 +2134,7 @@ export default function PosePage() {
                 }}
                 className="flex w-full items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50/80 p-3 text-left transition hover:border-amber-300 hover:bg-amber-50"
               >
-                <span className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white text-xs font-black text-amber-700">
+                <span className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white dark:bg-white/5 text-xs font-black text-amber-700">
                   !
                 </span>
                 <span className="min-w-0">
@@ -2162,7 +2162,7 @@ export default function PosePage() {
           )}
 
           <section>
-            <h3 className="font-bold text-sm mb-3">画布比例</h3>
+            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">画布比例</h3>
             <StudioOptionGrid
               options={ASPECTS}
               value={aspectRatio}
@@ -2170,14 +2170,14 @@ export default function PosePage() {
               columns={3}
               ariaLabel="画布比例"
             />
-            <div className="mt-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-[11px] leading-relaxed text-slate-500">
+            <div className="mt-2 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 py-2 text-[11px] leading-relaxed text-slate-500 dark:text-stone-400">
               选择智能时会按主图比例自动匹配最接近的画布；选择固定比例时按你的选择生成。人物头身比、服装穿着尺度和身体比例仍按图1保护。
             </div>
           </section>
 
           {imageSizes.length > 1 && (
             <section>
-              <h3 className="font-bold text-sm mb-3">分辨率</h3>
+              <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">分辨率</h3>
               <StudioOptionGrid
                 options={imageSizes.map((size) => ({
                   value: size,
@@ -2198,7 +2198,7 @@ export default function PosePage() {
                   <h3 className="font-bold text-sm flex items-center gap-2">
                     <PenLine className="w-4 h-4 text-[var(--codex-accent)]" /> 姿势计划
                   </h3>
-                  <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
+                  <p className="mt-1 text-[11px] leading-relaxed text-slate-400 dark:text-stone-500">
                     自由模式会在上传主图后自动规划姿势。
                   </p>
                 </div>
@@ -2210,8 +2210,8 @@ export default function PosePage() {
                     <CheckCircle2 className="h-3.5 w-3.5" />
                   </span>
                   <div className="min-w-0">
-                    <p className="text-xs font-black text-emerald-900">上传主图后自动规划</p>
-                    <p className="mt-1 text-[11px] leading-relaxed text-slate-600">
+                    <p className="text-xs font-black text-emerald-900 dark:text-emerald-300">上传主图后自动规划</p>
+                    <p className="mt-1 text-[11px] leading-relaxed text-slate-600 dark:text-stone-300">
                       上传主图后，系统会识别人物、服装、背景和光线，再生成姿势计划；未上传前不生成空计划，避免误导。
                     </p>
                   </div>
@@ -2227,7 +2227,7 @@ export default function PosePage() {
                   <h3 className="font-bold text-sm flex items-center gap-2">
                     <PenLine className="w-4 h-4 text-[var(--codex-accent)]" /> 姿势计划
                   </h3>
-                  <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
+                  <p className="mt-1 text-[11px] leading-relaxed text-slate-400 dark:text-stone-500">
                     默认使用商业模特动作库；需要更贴合主图时，再点智能优化。
                   </p>
                 </div>
@@ -2235,7 +2235,7 @@ export default function PosePage() {
                   <button
                     type="button"
                     onClick={() => setShowPosePlanEditor(false)}
-                    className="shrink-0 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600 transition-colors hover:border-blue-200 hover:text-blue-700"
+                    className="shrink-0 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 px-2.5 py-1 text-[11px] font-semibold text-slate-600 dark:text-stone-300 transition-colors hover:border-blue-200 dark:hover:border-blue-400/40 hover:text-blue-700"
                   >
                     收起编辑
                   </button>
@@ -2250,8 +2250,8 @@ export default function PosePage() {
                       onClick={usePresetPosePlan}
                       className={`rounded-full px-3.5 py-1.5 text-[11px] font-black transition ${
                         posePlanMode === "preset"
-                          ? "bg-white text-blue-700 shadow-[0_5px_14px_rgba(37,99,235,0.12)]"
-                          : "text-slate-500 hover:text-slate-900"
+                          ? "bg-white dark:bg-white/5 text-blue-700 shadow-[0_5px_14px_rgba(37,99,235,0.12)]"
+                          : "text-slate-500 dark:text-stone-400 hover:text-slate-900 dark:text-stone-100"
                       }`}
                     >
                       商业预设
@@ -2262,15 +2262,15 @@ export default function PosePage() {
                       disabled={isPlanningPose || !mainImage}
                       className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[11px] font-black transition disabled:cursor-not-allowed disabled:opacity-50 ${
                         posePlanMode === "ai"
-                          ? "bg-white text-blue-700 shadow-[0_5px_14px_rgba(37,99,235,0.12)]"
-                          : "text-slate-500 hover:text-slate-900"
+                          ? "bg-white dark:bg-white/5 text-blue-700 shadow-[0_5px_14px_rgba(37,99,235,0.12)]"
+                          : "text-slate-500 dark:text-stone-400 hover:text-slate-900 dark:text-stone-100"
                       }`}
                     >
                       {isPlanningPose ? <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-600" /> : null}
                       智能优化
                     </button>
                   </div>
-                  <span className="rounded-full bg-white/85 px-2.5 py-1 text-[11px] font-black text-slate-500 ring-1 ring-slate-200/80">
+                  <span className="rounded-full bg-white/85 dark:bg-white/5 px-2.5 py-1 text-[11px] font-black text-slate-500 dark:text-stone-400 ring-1 ring-slate-200/80">
                     {activePosePlan ? `${activePosePlan.slots.length} 个姿势` : "待规划"}
                   </span>
                 </div>
@@ -2282,28 +2282,28 @@ export default function PosePage() {
                 )}
 
                 {activePosePlan && (
-                  <div className="mt-3 overflow-hidden rounded-[18px] border border-slate-200/90 bg-white shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
+                  <div className="mt-3 overflow-hidden rounded-[18px] border border-slate-200 dark:border-white/10/90 bg-white dark:bg-white/5 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
                     {posePlanSummaries.map((item, index) => {
                       const slot = activePosePlan.slots[index];
                       const editing = showPosePlanEditor && index === selectedPosePlanSlotIndex && selectedPosePlanSlot;
                       return (
                         <div
                           key={item.key}
-                          className={`group border-t border-slate-100 first:border-t-0 ${
-                            editing ? "bg-[linear-gradient(90deg,#f5f9ff_0%,#ffffff_74%)]" : "bg-white hover:bg-slate-50/45"
+                          className={`group border-t border-slate-100 dark:border-white/5 first:border-t-0 ${
+                            editing ? "bg-[linear-gradient(90deg,#f5f9ff_0%,#ffffff_74%)]" : "bg-white dark:bg-white/5 hover:bg-slate-50 dark:hover:bg-white/5/45 dark:bg-white/4"
                           }`}
                         >
                           <div className="flex items-start gap-3 px-3.5 py-3.5">
                             <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-black ${
                               editing
                                 ? "bg-blue-600 text-white shadow-[0_8px_16px_rgba(37,99,235,0.18)]"
-                                : "bg-slate-100 text-slate-500 ring-1 ring-slate-200/70 group-hover:bg-white group-hover:text-slate-700"
+                                : "bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-stone-400 ring-1 ring-slate-200/70 group-hover:bg-white dark:bg-white/5 group-hover:text-slate-700 dark:text-stone-300"
                             }`}>
                               {index + 1}
                             </span>
                             <div className="min-w-0 flex-1">
                               <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-                                <span className="text-[11px] font-black text-slate-500">
+                                <span className="text-[11px] font-black text-slate-500 dark:text-stone-400">
                                   姿势 {index + 1}
                                 </span>
                                 {slot?.angle ? (
@@ -2311,15 +2311,15 @@ export default function PosePage() {
                                     {POSE_PLAN_ANGLE_LABELS[slot.angle]}
                                   </span>
                                 ) : null}
-                                <span className="min-w-0 truncate text-[13px] font-black text-slate-950">
+                                <span className="min-w-0 truncate text-[13px] font-black text-slate-950 dark:text-stone-100">
                                   {slot?.poseName || item.title}
                                 </span>
                               </div>
-                              <p className="mt-1 line-clamp-2 text-[11px] leading-[1.65] text-slate-500" title={item.detail}>
+                              <p className="mt-1 line-clamp-2 text-[11px] leading-[1.65] text-slate-500 dark:text-stone-400" title={item.detail}>
                                 {item.detail || slot?.bodyAction || "姿势规划已就绪"}
                               </p>
                               {slot?.headDirection && !suppressPoseFaceControls ? (
-                                <p className="mt-1 line-clamp-1 text-[11px] leading-relaxed text-slate-400" title={slot.headDirection}>
+                                <p className="mt-1 line-clamp-1 text-[11px] leading-relaxed text-slate-400 dark:text-stone-500" title={slot.headDirection}>
                                   表情/视线：{slot.headDirection}
                                 </p>
                               ) : null}
@@ -2333,7 +2333,7 @@ export default function PosePage() {
                               className={`shrink-0 rounded-full border px-3 py-1 text-[11px] font-black transition ${
                                 editing
                                   ? "border-blue-600 bg-blue-600 text-white shadow-[0_8px_16px_rgba(37,99,235,0.16)]"
-                                  : "border-slate-200 bg-white/90 text-slate-600 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                                  : "border-slate-200 dark:border-white/10 bg-white/90 dark:bg-white/5 text-slate-600 dark:text-stone-300 hover:border-blue-200 dark:hover:border-blue-400/40 hover:bg-blue-50 hover:text-blue-700"
                               }`}
                             >
                               {editing ? "收起" : "编辑"}
@@ -2341,16 +2341,16 @@ export default function PosePage() {
                           </div>
 
                           {editing ? (
-                            <div className="border-t border-blue-100/80 px-3.5 pb-3.5 pt-3">
+                            <div className="border-t border-blue-100 dark:border-blue-400/30/80 px-3.5 pb-3.5 pt-3">
                               <div className="grid gap-3 sm:grid-cols-2">
                                 <label className="block">
-                                  <span className="mb-1.5 block text-[11px] font-black text-slate-700">
+                                  <span className="mb-1.5 block text-[11px] font-black text-slate-700 dark:text-stone-300">
                                     {selectedPosePlanSlot.angle ? `${POSE_PLAN_ANGLE_LABELS[selectedPosePlanSlot.angle]}动作模板` : "动作模板"}
                                   </span>
                                   <select
                                     value={selectedActionPresetId}
                                     onChange={(event) => applyPoseActionPreset(selectedPosePlanSlotIndex, event.target.value)}
-                                    className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-950 shadow-sm outline-none transition hover:border-blue-200 focus:border-blue-300 focus:ring-2 focus:ring-blue-100"
+                                    className="h-10 w-full rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 text-xs font-bold text-slate-950 dark:text-stone-100 shadow-sm outline-none transition hover:border-blue-200 dark:hover:border-blue-400/40 focus:border-blue-300 dark:focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-500/40"
                                   >
                                     <option value="current">{selectedActionPresetId === "current" ? `按计划：${selectedPosePlanSlot.poseName || "原计划"}` : "按计划"}</option>
                                     {selectedActionPresets.map((preset) => (
@@ -2360,12 +2360,12 @@ export default function PosePage() {
                                 </label>
 
                                 <label className="block">
-                                  <span className="mb-1.5 block text-[11px] font-black text-slate-700">表情 / 视线</span>
+                                  <span className="mb-1.5 block text-[11px] font-black text-slate-700 dark:text-stone-300">表情 / 视线</span>
                                   <select
                                     value={selectedExpressionPresetId}
                                     onChange={(event) => applyPoseExpressionPreset(selectedPosePlanSlotIndex, event.target.value)}
                                     disabled={suppressPoseFaceControls || selectedExpressionPresets.length === 0}
-                                    className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-950 shadow-sm outline-none transition hover:border-blue-200 focus:border-blue-300 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
+                                    className="h-10 w-full rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 text-xs font-bold text-slate-950 dark:text-stone-100 shadow-sm outline-none transition hover:border-blue-200 dark:hover:border-blue-400/40 focus:border-blue-300 dark:focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-500/40 disabled:cursor-not-allowed disabled:bg-slate-50 dark:disabled:bg-white/4 dark:bg-white/4 disabled:text-slate-400 dark:text-stone-500"
                                   >
                                     <option value="current">{suppressPoseFaceControls ? "主图无清晰脸部" : "按计划表情/视线"}</option>
                                     {selectedExpressionPresets.map((preset) => (
@@ -2376,15 +2376,15 @@ export default function PosePage() {
                               </div>
 
                               <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                                <div className="rounded-xl bg-white px-3 py-2 shadow-sm ring-1 ring-slate-200/90">
-                                  <p className="text-[10px] font-black text-slate-400">动作说明</p>
-                                  <p className="mt-1 line-clamp-3 text-[11px] leading-relaxed text-slate-600">
+                                <div className="rounded-xl bg-white dark:bg-white/5 px-3 py-2 shadow-sm ring-1 ring-slate-200/90">
+                                  <p className="text-[10px] font-black text-slate-400 dark:text-stone-500">动作说明</p>
+                                  <p className="mt-1 line-clamp-3 text-[11px] leading-relaxed text-slate-600 dark:text-stone-300">
                                     {selectedActionPreset?.bodyAction || selectedPosePlanSlot.bodyAction || selectedPosePlanSlot.poseName}
                                   </p>
                                 </div>
-                                <div className="rounded-xl bg-white px-3 py-2 shadow-sm ring-1 ring-slate-200/90">
-                                  <p className="text-[10px] font-black text-slate-400">表情说明</p>
-                                  <p className="mt-1 line-clamp-3 text-[11px] leading-relaxed text-slate-600">
+                                <div className="rounded-xl bg-white dark:bg-white/5 px-3 py-2 shadow-sm ring-1 ring-slate-200/90">
+                                  <p className="text-[10px] font-black text-slate-400 dark:text-stone-500">表情说明</p>
+                                  <p className="mt-1 line-clamp-3 text-[11px] leading-relaxed text-slate-600 dark:text-stone-300">
                                     {suppressPoseFaceControls
                                       ? "主图没有清晰脸部时，系统会自动关闭表情和视线规划。"
                                       : selectedExpressionPreset?.text || selectedPosePlanSlot.headDirection || "自然表情，视线跟随当前镜头方向。"}
@@ -2392,11 +2392,11 @@ export default function PosePage() {
                                 </div>
                               </div>
 
-                              <details className="mt-3 rounded-xl border border-slate-200/90 bg-white px-3 py-2 shadow-sm">
-                                <summary className="cursor-pointer text-[11px] font-bold text-slate-500 transition-colors hover:text-blue-700">高级微调：动作、手部、镜头文字</summary>
+                              <details className="mt-3 rounded-xl border border-slate-200 dark:border-white/10/90 bg-white dark:bg-white/5 px-3 py-2 shadow-sm">
+                                <summary className="cursor-pointer text-[11px] font-bold text-slate-500 dark:text-stone-400 transition-colors hover:text-blue-700">高级微调：动作、手部、镜头文字</summary>
                                 <div className="mt-3 grid gap-3">
                                   <div>
-                                    <label className="mb-1 block text-[10px] font-bold text-slate-500">动作细节</label>
+                                    <label className="mb-1 block text-[10px] font-bold text-slate-500 dark:text-stone-400">动作细节</label>
                                     <StudioPromptTextarea
                                       value={selectedPosePlanSlot.bodyAction || ""}
                                       onChange={(event) => updatePosePlanSlot(selectedPosePlanSlotIndex, "bodyAction", event.target.value)}
@@ -2406,7 +2406,7 @@ export default function PosePage() {
                                     />
                                   </div>
                                   <div>
-                                    <label className="mb-1 block text-[10px] font-bold text-slate-500">手部动作</label>
+                                    <label className="mb-1 block text-[10px] font-bold text-slate-500 dark:text-stone-400">手部动作</label>
                                     <StudioPromptTextarea
                                       value={selectedPosePlanSlot.handAction || ""}
                                       onChange={(event) => updatePosePlanSlot(selectedPosePlanSlotIndex, "handAction", event.target.value)}
@@ -2417,7 +2417,7 @@ export default function PosePage() {
                                   </div>
                                   {!suppressPoseFaceControls && (
                                     <div>
-                                      <label className="mb-1 block text-[10px] font-bold text-slate-500">表情 / 视线细节</label>
+                                      <label className="mb-1 block text-[10px] font-bold text-slate-500 dark:text-stone-400">表情 / 视线细节</label>
                                       <StudioPromptTextarea
                                         value={selectedPosePlanSlot.headDirection || ""}
                                         onChange={(event) => updatePosePlanSlot(selectedPosePlanSlotIndex, "headDirection", event.target.value)}
@@ -2428,7 +2428,7 @@ export default function PosePage() {
                                     </div>
                                   )}
                                   <div>
-                                    <label className="mb-1 block text-[10px] font-bold text-slate-500">镜头补充</label>
+                                    <label className="mb-1 block text-[10px] font-bold text-slate-500 dark:text-stone-400">镜头补充</label>
                                     <StudioPromptTextarea
                                       value={selectedPosePlanSlot.cameraFraming || ""}
                                       onChange={(event) => updatePosePlanSlot(selectedPosePlanSlotIndex, "cameraFraming", event.target.value)}
@@ -2511,7 +2511,7 @@ export default function PosePage() {
         {(isGenerating || resultUrls.length > 0) && (
           <div className="studio-result-stage min-h-[260px] sm:min-h-[360px] overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:h-full flex flex-col animate-fade-in">
             {isGenerating && (
-              <div className="mb-4 rounded-xl border border-purple-100 bg-white/80 px-3 py-2 text-xs font-medium text-purple-600 shadow-sm">
+              <div className="mb-4 rounded-xl border border-purple-100 bg-white/80 dark:bg-white/5 px-3 py-2 text-xs font-medium text-purple-600 shadow-sm">
                 已生成 {resultUrls.length}{` / ${runningExpectedCount || poseExpectedCount}`}，剩余图片生成中...
               </div>
             )}
@@ -2563,7 +2563,7 @@ export default function PosePage() {
       {showPoseRules && rulesPopoverStyle && (
         <ClientPortal>
           <div
-            className="fixed z-[240] w-[min(720px,calc(100vw-32px))] overflow-hidden rounded-[24px] border border-white/80 bg-white/[0.96] shadow-[0_28px_90px_rgba(15,23,42,0.18)] backdrop-blur-2xl animate-fade-in"
+            className="fixed z-[240] w-[min(720px,calc(100vw-32px))] overflow-hidden rounded-[24px] border border-white/80 dark:border-white/10 bg-white/[0.96] dark:bg-stone-900/95 shadow-[0_28px_90px_rgba(15,23,42,0.18)] backdrop-blur-2xl animate-fade-in"
             style={{
               top: rulesPopoverStyle.top,
               left: rulesPopoverStyle.left,
@@ -2572,11 +2572,11 @@ export default function PosePage() {
             onMouseEnter={cancelRulesHide}
             onMouseLeave={scheduleRulesHide}
           >
-            <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4">
+            <div className="flex items-start justify-between gap-4 border-b border-slate-100 dark:border-white/5 px-5 py-4">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-violet-500">{POSE_UPLOAD_RULE.shortTitle}</p>
-                <h3 className="mt-1 text-base font-bold text-slate-950">{POSE_UPLOAD_RULE.title}</h3>
-                <p className="mt-1 text-xs text-slate-500">{POSE_UPLOAD_RULE.uploadSpecText}</p>
+                <h3 className="mt-1 text-base font-bold text-slate-950 dark:text-stone-100">{POSE_UPLOAD_RULE.title}</h3>
+                <p className="mt-1 text-xs text-slate-500 dark:text-stone-400">{POSE_UPLOAD_RULE.uploadSpecText}</p>
               </div>
               <span className="rounded-full bg-violet-50 px-2.5 py-1 text-[11px] font-medium text-violet-600">Hover 预览</span>
             </div>
@@ -2584,16 +2584,16 @@ export default function PosePage() {
             <div className="studio-scrollbar-hide overflow-y-auto px-5 py-4" style={{ maxHeight: rulesPopoverStyle.maxHeight - 88 }}>
               <div className="grid gap-3 md:grid-cols-5">
                 {POSE_UPLOAD_RULE.demos.map((demo) => (
-                  <div key={demo.imageUrl} className="rounded-2xl border border-slate-100 bg-slate-50/70 p-2">
-                    <div className="relative overflow-hidden rounded-xl bg-white">
+                  <div key={demo.imageUrl} className="rounded-2xl border border-slate-100 dark:border-white/5 bg-slate-50/70 dark:bg-white/4 p-2">
+                    <div className="relative overflow-hidden rounded-xl bg-white dark:bg-white/5">
                       <RawPreviewImage src={demo.imageUrl} alt={demo.title} className="aspect-[3/4] w-full object-cover" />
-                      <CheckCircle2 className="absolute right-2 top-2 h-5 w-5 rounded-full bg-white text-emerald-500" />
+                      <CheckCircle2 className="absolute right-2 top-2 h-5 w-5 rounded-full bg-white dark:bg-white/5 text-emerald-500" />
                     </div>
-                    <p className="mt-2 truncate text-center text-xs font-medium text-slate-700">{demo.title}</p>
+                    <p className="mt-2 truncate text-center text-xs font-medium text-slate-700 dark:text-stone-300">{demo.title}</p>
                     <button
                       type="button"
                       onClick={() => applyRuleDemo(demo)}
-                      className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 hover:border-violet-200 hover:text-violet-600"
+                      className="mt-2 w-full rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 px-2.5 py-1 text-[11px] font-medium text-slate-600 dark:text-stone-300 hover:border-violet-200 hover:text-violet-600"
                     >
                       试一试
                     </button>
@@ -2602,15 +2602,15 @@ export default function PosePage() {
               </div>
 
               <div className="mt-5 rounded-2xl bg-red-50/40 p-3">
-                <p className="mb-3 text-center text-xs font-medium text-slate-500">{POSE_UPLOAD_RULE.deprecatedTitle}</p>
+                <p className="mb-3 text-center text-xs font-medium text-slate-500 dark:text-stone-400">{POSE_UPLOAD_RULE.deprecatedTitle}</p>
                 <div className="mx-auto grid max-w-lg grid-cols-3 gap-3">
                   {POSE_UPLOAD_RULE.deprecatedImages.map((image) => (
-                    <div key={image.title} className="rounded-2xl border border-red-100 bg-white/70 p-2 text-center">
-                      <div className="relative overflow-hidden rounded-xl bg-white">
+                    <div key={image.title} className="rounded-2xl border border-red-100 dark:border-red-400/30 bg-white/70 dark:bg-white/5 p-2 text-center">
+                      <div className="relative overflow-hidden rounded-xl bg-white dark:bg-white/5">
                         <RawPreviewImage src={image.url} alt={image.title} className="aspect-square w-full object-cover" />
-                        <XCircle className="absolute right-2 top-2 h-5 w-5 rounded-full bg-white text-red-500" />
+                        <XCircle className="absolute right-2 top-2 h-5 w-5 rounded-full bg-white dark:bg-white/5 text-red-500" />
                       </div>
-                      <p className="mt-2 text-xs font-medium text-slate-600">{image.title}</p>
+                      <p className="mt-2 text-xs font-medium text-slate-600 dark:text-stone-300">{image.title}</p>
                     </div>
                   ))}
                 </div>
@@ -2626,7 +2626,7 @@ export default function PosePage() {
             onClick={() => setLightboxSrc(null)}>
             <RawPreviewImage src={lightboxSrc} alt="姿势参考预览" className="max-h-full max-w-full rounded-2xl object-contain shadow-[0_32px_120px_rgba(0,0,0,0.45)]" />
             <button onClick={() => setLightboxSrc(null)}
-              className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full border border-white/85 bg-white/90 text-slate-700 shadow-[0_12px_34px_rgba(15,23,42,0.22)] backdrop-blur transition-colors hover:bg-white hover:text-slate-950 sm:right-6 sm:top-6">
+              className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full border border-white/85 bg-white/90 dark:bg-white/5 text-slate-700 dark:text-stone-300 shadow-[0_12px_34px_rgba(15,23,42,0.22)] backdrop-blur transition-colors hover:bg-white dark:bg-white/5 hover:text-slate-950 dark:text-stone-100 sm:right-6 sm:top-6">
               <X className="w-5 h-5" />
             </button>
           </div>

@@ -1302,3 +1302,146 @@
     display: inline;
   }
 }
+
+/* ==========================================================================
+   P4.4 Dark mode adaptations for studio-overrides.
+   Override `rgba(255,255,255,*)` paper whites and `var(--codex-*)` in
+   light-mode form to dark-mode equivalents.
+   ========================================================================== */
+.dark .studio-empty-state {
+  background: rgba(38, 38, 40, 0.72) !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+  color: #f5f5f7 !important;
+}
+
+.dark .studio-empty-state-title {
+  color: #f5f5f7 !important;
+}
+
+.dark .studio-empty-state-description,
+.dark .studio-empty-state-step small,
+.dark .studio-empty-state-step p {
+  color: #a8aab2 !important;
+}
+
+.dark .studio-empty-state-step {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+}
+
+.dark .studio-empty-state-step > span:first-child {
+  background: rgba(91, 140, 255, 0.22) !important;
+  color: #9eb9ff !important;
+}
+
+/* The hardcoded #fff backgrounds at lines 561/639/709/717/765 — these are
+   inside studio-image-preview components. Override to dark panel. */
+.dark .studio-image-preview-input-image,
+.dark .studio-image-preview-thumbnail,
+.dark .studio-image-preview-canvas {
+  background: rgba(28, 28, 30, 0.78) !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+}
+
+.dark .studio-image-preview-input-stack,
+.dark .studio-image-preview-input-stack-single,
+.dark .studio-image-preview-input-stack-grid,
+.dark .studio-image-preview-input-stack-collage {
+  background: rgba(28, 28, 30, 0.78) !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+}
+
+.dark .studio-image-preview-canvas-empty,
+.dark .studio-image-preview-placeholder {
+  background: rgba(255, 255, 255, 0.04) !important;
+  color: #a8aab2 !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+}
+
+.dark .studio-image-preview-toolbar,
+.dark .studio-image-preview-footer,
+.dark .studio-image-preview-actions {
+  background: rgba(28, 28, 30, 0.86) !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+  color: #f5f5f7 !important;
+}
+
+.dark .studio-image-preview-action,
+.dark .studio-image-preview-button {
+  background: rgba(255, 255, 255, 0.06) !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+  color: #f5f5f7 !important;
+}
+
+.dark .studio-image-preview-action:hover,
+.dark .studio-image-preview-button:hover {
+  background: rgba(255, 255, 255, 0.10) !important;
+  border-color: rgba(91, 140, 255, 0.40) !important;
+}
+
+.dark .studio-image-preview-action.is-primary,
+.dark .studio-image-preview-button.is-primary {
+  background: linear-gradient(180deg, #5b8cff 0%, #3a6ce0 100%) !important;
+  color: #ffffff !important;
+  border-color: transparent !important;
+}
+
+/* Visual analysis status card colors (slate-700 in light) */
+.dark .studio-visual-analysis {
+  background: rgba(91, 140, 255, 0.14) !important;
+  border-color: rgba(91, 140, 255, 0.30) !important;
+  color: #c4d4ff !important;
+}
+
+.dark .studio-visual-analysis[data-status="success"] {
+  background: rgba(48, 209, 88, 0.14) !important;
+  border-color: rgba(48, 209, 88, 0.36) !important;
+  color: #b0f0bb !important;
+}
+
+.dark .studio-visual-analysis[data-status="warning"] {
+  background: rgba(255, 159, 10, 0.14) !important;
+  border-color: rgba(255, 159, 10, 0.36) !important;
+  color: #ffd194 !important;
+}
+
+.dark .studio-visual-analysis[data-status="error"] {
+  background: rgba(255, 69, 58, 0.16) !important;
+  border-color: rgba(255, 69, 58, 0.40) !important;
+  color: #ffb1ac !important;
+}
+
+/* ---- P5.11 Image preview panels (right canvas reference group) ---- */
+.dark .studio-image-preview-panel,
+.dark .studio-image-preview-output-panel {
+  background: rgba(28, 28, 30, 0.92) !important;
+}
+
+.dark .studio-image-preview-panel-badge {
+  background: rgba(91, 140, 255, 0.32) !important;
+  color: #e8edff !important;
+  border: 1px solid rgba(91, 140, 255, 0.45) !important;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.dark .studio-image-preview-input-stack-collage .studio-image-preview-input-image {
+  border-color: rgba(255, 255, 255, 0.10) !important;
+  background: rgba(28, 28, 30, 0.6) !important;
+}
+
+.dark .studio-image-preview-empty-input {
+  color: rgba(168, 170, 178, 0.72) !important;
+}
+
+/* ---- P5.11 Quantity / count bar in canvas (white card with 123/800, 智能, 生成4张) ---- */
+.dark .mac-segmented-control,
+.dark .studio-quantity-bar,
+.dark .studio-runbar-status,
+.dark .studio-canvas .rounded-2xl.bg-white,
+.dark .studio-canvas .rounded-xl.bg-white {
+  background: rgba(28, 28, 30, 0.88) !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+  color: #f5f5f7 !important;
+}
+

@@ -4,6 +4,7 @@ import defaultTheme from "tailwindcss/defaultTheme";
 const cssVarColor = (name: string) => `hsl(var(${name}) / <alpha-value>)`;
 
 const config: Config = {
+  darkMode: "class",
   content: [
     "./app/**/*.{ts,tsx}",
     "./components/**/*.{ts,tsx}",
@@ -94,6 +95,22 @@ const config: Config = {
       fontFamily: {
         sans: ["var(--font-sans)", ...defaultTheme.fontFamily.sans],
         heading: ["var(--font-heading)", ...defaultTheme.fontFamily.sans],
+      },
+      /* P3.1 Semantic type scale — codex design system.
+         Prefer these over arbitrary `text-[Npx]` so typography stays consistent
+         across feature pages and dark mode swaps cleanly. */
+      fontSize: {
+        "codex-hero": ["56px", { lineHeight: "1.07", letterSpacing: "-0.022em", fontWeight: "600" }],
+        "codex-display": ["40px", { lineHeight: "1.10", letterSpacing: "-0.018em", fontWeight: "600" }],
+        "codex-h1": ["32px", { lineHeight: "1.15", letterSpacing: "-0.014em", fontWeight: "600" }],
+        "codex-h2": ["24px", { lineHeight: "1.25", letterSpacing: "-0.011em", fontWeight: "600" }],
+        "codex-h3": ["20px", { lineHeight: "1.30", letterSpacing: "-0.009em", fontWeight: "600" }],
+        "codex-lead": ["18px", { lineHeight: "1.45", letterSpacing: "-0.006em", fontWeight: "500" }],
+        "codex-body": ["15px", { lineHeight: "1.55", letterSpacing: "-0.003em", fontWeight: "400" }],
+        "codex-body-strong": ["15px", { lineHeight: "1.55", letterSpacing: "-0.003em", fontWeight: "600" }],
+        "codex-caption": ["13px", { lineHeight: "1.45", letterSpacing: "-0.002em", fontWeight: "400" }],
+        "codex-caption-strong": ["13px", { lineHeight: "1.45", letterSpacing: "-0.002em", fontWeight: "600" }],
+        "codex-micro": ["11px", { lineHeight: "1.40", letterSpacing: "0", fontWeight: "500" }],
       },
       animation: {
         "pulse-slow": "pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite",

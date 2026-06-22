@@ -759,7 +759,7 @@ export default function Garment3dPage() {
           </StudioUploadSection>
 
           <section>
-            <h3 className="font-bold text-sm mb-3">上传的服装类型</h3>
+            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">上传的服装类型</h3>
             <StudioOptionGrid
               options={GARMENT_TYPE_OPTIONS.map((type) => ({
                 value: type,
@@ -781,7 +781,7 @@ export default function Garment3dPage() {
           </section>
 
           <section>
-            <h3 className="font-bold text-sm mb-3">出图模式</h3>
+            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">出图模式</h3>
             <StudioOptionGrid
               options={[
                 { value: "reference" as const, label: "选择参考图" },
@@ -806,7 +806,7 @@ export default function Garment3dPage() {
                     <button
                       key={ref.id}
                       onClick={() => { setSelectedReference(ref); setCustomReferenceUrl(""); setPromptOverride(null); }}
-                      className={`group relative aspect-square rounded-lg overflow-hidden border bg-gray-50 ${
+                      className={`group relative aspect-square rounded-lg overflow-hidden border bg-gray-50 dark:bg-white/4 ${
                         !customReferenceUrl && selectedReference.id === ref.id ? "border-purple-500 ring-2 ring-purple-100" : "border-gray-200"
                       }`}
                       title={ref.label}
@@ -823,7 +823,7 @@ export default function Garment3dPage() {
                             setLightboxSrc(ref.url);
                           }
                         }}
-                        className="absolute right-1.5 top-1.5 w-7 h-7 rounded-full bg-white/90 text-gray-700 shadow-sm opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity flex items-center justify-center hover:bg-white"
+                        className="absolute right-1.5 top-1.5 w-7 h-7 rounded-full bg-white/90 dark:bg-white/5 text-gray-700 shadow-sm opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity flex items-center justify-center hover:bg-white dark:bg-white/5"
                         title="放大预览"
                       >
                         <ZoomIn className="w-3.5 h-3.5" />
@@ -837,7 +837,7 @@ export default function Garment3dPage() {
                     }`}
                     title="上传参考图"
                   >
-                    <Plus className="w-5 h-5 text-gray-400" />
+                    <Plus className="w-5 h-5 text-gray-400 dark:text-stone-500" />
                   </button>
                 </div>
                 <input
@@ -852,12 +852,12 @@ export default function Garment3dPage() {
                     });
                   }}
                 />
-                <p className="text-[11px] text-gray-400">参考图用于锁定立体风格和角度，不会替换用户服装的款式和颜色。</p>
+                <p className="text-[11px] text-gray-400 dark:text-stone-500">参考图用于锁定立体风格和角度，不会替换用户服装的款式和颜色。</p>
               </div>
             )}
 
             <div className="mt-3">
-              <h3 className="font-bold text-sm mb-3">展示质感</h3>
+              <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">展示质感</h3>
               <StudioOptionGrid
                 options={GARMENT_3D_DISPLAY_STYLES.map((style) => ({
                   value: style.value,
@@ -872,7 +872,7 @@ export default function Garment3dPage() {
                 columns={2}
                 ariaLabel="展示质感"
               />
-              <p className="mt-2 text-[11px] leading-relaxed text-gray-400">
+              <p className="mt-2 text-[11px] leading-relaxed text-gray-400 dark:text-stone-500">
                 质感档位只控制棚拍、体积和材质表现；图1服装款式、颜色、logo 和细节必须优先保留。
               </p>
             </div>
@@ -906,7 +906,7 @@ export default function Garment3dPage() {
           </section>
 
           <section>
-            <h3 className="font-bold text-sm mb-3">生成模型</h3>
+            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">生成模型</h3>
             <StudioModelSelector
               models={MODELS}
               value={aiModel}
@@ -916,7 +916,7 @@ export default function Garment3dPage() {
           </section>
 
           <section>
-            <h3 className="font-bold text-sm mb-3">图片比例</h3>
+            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">图片比例</h3>
             <StudioOptionGrid
               options={[
                 { value: "auto", label: "智能" },
@@ -931,7 +931,7 @@ export default function Garment3dPage() {
           </section>
 
           <section>
-            <h3 className="font-bold text-sm mb-3">分辨率</h3>
+            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">分辨率</h3>
             <StudioOptionGrid
               options={imageSizes.map((size) => ({
                 value: size,
@@ -944,7 +944,7 @@ export default function Garment3dPage() {
             />
           </section>
           <section>
-            <h3 className="font-bold text-sm mb-3">生成数量</h3>
+            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">生成数量</h3>
             <StudioGenerationCountSelector
               value={genCount}
               onChange={setGenCount}
@@ -1029,7 +1029,7 @@ export default function Garment3dPage() {
       {showGarmentRules && rulesPopoverStyle && (
         <ClientPortal>
           <div
-            className="fixed z-[240] w-[min(760px,calc(100vw-32px))] overflow-hidden rounded-[24px] border border-white/80 bg-white/[0.96] shadow-[0_28px_90px_rgba(15,23,42,0.18)] backdrop-blur-2xl animate-fade-in"
+            className="fixed z-[240] w-[min(760px,calc(100vw-32px))] overflow-hidden rounded-[24px] border border-white/80 dark:border-white/10 bg-white/[0.96] dark:bg-stone-900/95 shadow-[0_28px_90px_rgba(15,23,42,0.18)] backdrop-blur-2xl animate-fade-in"
             style={{
               top: rulesPopoverStyle.top,
               left: rulesPopoverStyle.left,
@@ -1038,11 +1038,11 @@ export default function Garment3dPage() {
             onMouseEnter={cancelRulesHide}
             onMouseLeave={scheduleRulesHide}
           >
-            <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4">
+            <div className="flex items-start justify-between gap-4 border-b border-slate-100 dark:border-white/5 px-5 py-4">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-violet-500">{GARMENT_3D_UPLOAD_RULE.shortTitle}</p>
-                <h3 className="mt-1 text-base font-bold text-slate-950">{GARMENT_3D_UPLOAD_RULE.title}</h3>
-                <p className="mt-1 text-xs text-slate-500">{GARMENT_3D_UPLOAD_RULE.uploadSpecText}</p>
+                <h3 className="mt-1 text-base font-bold text-slate-950 dark:text-stone-100">{GARMENT_3D_UPLOAD_RULE.title}</h3>
+                <p className="mt-1 text-xs text-slate-500 dark:text-stone-400">{GARMENT_3D_UPLOAD_RULE.uploadSpecText}</p>
               </div>
               <span className="rounded-full bg-violet-50 px-2.5 py-1 text-[11px] font-medium text-violet-600">Hover 预览</span>
             </div>
@@ -1050,17 +1050,17 @@ export default function Garment3dPage() {
             <div className="studio-scrollbar-hide overflow-y-auto px-5 py-4" style={{ maxHeight: rulesPopoverStyle.maxHeight - 88 }}>
               <div className="grid gap-3 md:grid-cols-5">
                 {GARMENT_3D_UPLOAD_RULE.demos.map((demo) => (
-                  <div key={demo.imageUrl} className="rounded-2xl border border-slate-100 bg-slate-50/70 p-2">
-                    <div className="relative overflow-hidden rounded-xl bg-white">
+                  <div key={demo.imageUrl} className="rounded-2xl border border-slate-100 dark:border-white/5 bg-slate-50/70 dark:bg-white/4 p-2">
+                    <div className="relative overflow-hidden rounded-xl bg-white dark:bg-white/5">
                       <RawPreviewImage src={demo.imageUrl} alt={demo.title} className="aspect-square w-full object-cover" />
-                      <CheckCircle2 className="absolute right-2 top-2 h-5 w-5 rounded-full bg-white text-emerald-500" />
+                      <CheckCircle2 className="absolute right-2 top-2 h-5 w-5 rounded-full bg-white dark:bg-white/5 text-emerald-500" />
                     </div>
-                    <p className="mt-2 truncate text-xs font-medium text-slate-700">{demo.title}</p>
-                    <p className="mt-0.5 line-clamp-2 text-[10px] leading-snug text-slate-400">{demo.description}</p>
+                    <p className="mt-2 truncate text-xs font-medium text-slate-700 dark:text-stone-300">{demo.title}</p>
+                    <p className="mt-0.5 line-clamp-2 text-[10px] leading-snug text-slate-400 dark:text-stone-500">{demo.description}</p>
                     <button
                       type="button"
                       onClick={() => applyRuleDemo(demo)}
-                      className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 hover:border-violet-200 hover:text-violet-600"
+                      className="mt-2 w-full rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 px-2.5 py-1 text-[11px] font-medium text-slate-600 dark:text-stone-300 hover:border-violet-200 hover:text-violet-600"
                     >
                       试一试
                     </button>
@@ -1069,15 +1069,15 @@ export default function Garment3dPage() {
               </div>
 
               <div className="mt-5 rounded-2xl bg-red-50/40 p-3">
-                <p className="mb-3 text-center text-xs font-medium text-slate-500">{GARMENT_3D_UPLOAD_RULE.deprecatedTitle}</p>
+                <p className="mb-3 text-center text-xs font-medium text-slate-500 dark:text-stone-400">{GARMENT_3D_UPLOAD_RULE.deprecatedTitle}</p>
                 <div className="mx-auto grid max-w-lg grid-cols-3 gap-3">
                   {GARMENT_3D_UPLOAD_RULE.deprecatedImages.map((image) => (
-                    <div key={image.title} className="rounded-2xl border border-red-100 bg-white/70 p-2 text-center">
-                      <div className="relative overflow-hidden rounded-xl bg-white">
+                    <div key={image.title} className="rounded-2xl border border-red-100 dark:border-red-400/30 bg-white/70 dark:bg-white/5 p-2 text-center">
+                      <div className="relative overflow-hidden rounded-xl bg-white dark:bg-white/5">
                         <RawPreviewImage src={image.url} alt={image.title} className="aspect-square w-full object-cover" />
-                        <XCircle className="absolute right-2 top-2 h-5 w-5 rounded-full bg-white text-red-500" />
+                        <XCircle className="absolute right-2 top-2 h-5 w-5 rounded-full bg-white dark:bg-white/5 text-red-500" />
                       </div>
-                      <p className="mt-2 text-xs font-medium text-slate-600">{image.title}</p>
+                      <p className="mt-2 text-xs font-medium text-slate-600 dark:text-stone-300">{image.title}</p>
                     </div>
                   ))}
                 </div>
@@ -1091,7 +1091,7 @@ export default function Garment3dPage() {
         <ClientPortal>
           <div className="fixed inset-0 z-[180] flex cursor-zoom-out items-center justify-center bg-slate-950/66 p-4 backdrop-blur-xl sm:p-8" onClick={() => setLightboxSrc(null)}>
             <RawPreviewImage src={lightboxSrc} alt="服装 3D 预览" className="max-h-full max-w-full rounded-2xl object-contain shadow-[0_32px_120px_rgba(0,0,0,0.45)]" />
-            <button onClick={() => setLightboxSrc(null)} className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full border border-white/85 bg-white/90 text-slate-700 shadow-[0_12px_34px_rgba(15,23,42,0.22)] backdrop-blur transition-colors hover:bg-white hover:text-slate-950 sm:right-6 sm:top-6">
+            <button onClick={() => setLightboxSrc(null)} className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full border border-white/85 bg-white/90 dark:bg-white/5 text-slate-700 dark:text-stone-300 shadow-[0_12px_34px_rgba(15,23,42,0.22)] backdrop-blur transition-colors hover:bg-white dark:bg-white/5 hover:text-slate-950 dark:text-stone-100 sm:right-6 sm:top-6">
               <X className="w-5 h-5" />
             </button>
           </div>

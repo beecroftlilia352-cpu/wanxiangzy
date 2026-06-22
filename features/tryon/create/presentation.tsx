@@ -144,18 +144,18 @@ export function GarmentDetailReferencePanel({
         onClick={onToggle}
         className={`flex w-full items-center justify-between rounded-2xl border p-3 text-left transition-all ${
           enabled
-            ? "border-blue-300 bg-blue-50 text-blue-800"
-            : "border-neutral-200 bg-white text-neutral-700 hover:border-neutral-300"
+            ? "border-blue-300 bg-blue-50 text-blue-800 dark:border-[rgba(91,140,255,0.55)] dark:bg-[rgba(91,140,255,0.18)] dark:text-[#cfd8ff]"
+            : "border-neutral-200 bg-white text-neutral-700 hover:border-neutral-300 dark:border-white/10 dark:bg-[#1c1c1e] dark:text-stone-200 dark:hover:border-white/20"
         }`}
       >
         <span className="min-w-0">
           <span className="block text-sm font-black">服装细节参考</span>
-          <span className="mt-1 block text-xs leading-relaxed text-slate-500">
+          <span className="mt-1 block text-xs leading-relaxed text-slate-500 dark:text-stone-400">
             {GARMENT_DETAIL_SWITCH_DESCRIPTION}
           </span>
         </span>
-        <span className={`ml-3 flex h-7 w-12 shrink-0 items-center rounded-full p-1 transition ${enabled ? "bg-[var(--codex-accent)]" : "bg-neutral-200"}`}>
-          <span className={`h-5 w-5 rounded-full bg-white shadow transition ${enabled ? "translate-x-5" : "translate-x-0"}`} />
+        <span className={`ml-3 flex h-7 w-12 shrink-0 items-center rounded-full p-1 transition ${enabled ? "bg-[var(--codex-accent)]" : "bg-neutral-200 dark:bg-white/10"}`}>
+          <span className={`h-5 w-5 rounded-full bg-white shadow transition dark:bg-stone-100 ${enabled ? "translate-x-5" : "translate-x-0"}`} />
         </span>
       </button>
 

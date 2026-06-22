@@ -902,7 +902,7 @@ export function OutfitFusionPageClient() {
         style={{ paddingBottom: composerBottomReserve }}
       >
         <section className="px-4 pb-8 pt-10 sm:px-6 lg:px-10">
-          <div className="mx-auto mb-5 w-full max-w-[1120px] text-[12px] leading-5 tracking-normal text-slate-400">
+          <div className="mx-auto mb-5 w-full max-w-[1120px] text-[12px] leading-5 tracking-normal text-slate-400 dark:text-stone-500">
             因产品处于持续学习调优阶段，可能有不恰当的信息，请您谨慎甄别。
           </div>
 
@@ -925,7 +925,7 @@ export function OutfitFusionPageClient() {
           </div>
 
           <div className={cn("animate-fade-in motion-reduce:animate-none", tasks.length > 0 && "mt-8")}>
-            <h1 className="mb-6 text-center text-[24px] font-semibold leading-[34px] tracking-normal text-slate-900">自由搭配组合，生成模特图</h1>
+            <h1 className="mb-6 text-center text-[24px] font-semibold leading-[34px] tracking-normal text-slate-900 dark:text-stone-100">自由搭配组合，生成模特图</h1>
             <OutfitFusionExampleGallery
               templates={OUTFIT_FUSION_TEMPLATES}
               activeTemplateId={selectedTemplate?.id || null}
@@ -1054,14 +1054,14 @@ function OutfitFusionTaskCard({
 
   return (
     <article
-      className="animate-slide-up rounded-[8px] bg-white p-3 shadow-sm ring-1 ring-slate-100 transition duration-300 hover:shadow-[0_14px_34px_rgba(15,23,42,0.09)] motion-reduce:animate-none sm:p-4"
+      className="animate-slide-up rounded-[8px] bg-white dark:bg-stone-900 p-3 shadow-sm ring-1 ring-slate-100 transition duration-300 hover:shadow-[0_14px_34px_rgba(15,23,42,0.09)] motion-reduce:animate-none sm:p-4"
       style={{ animationDelay: `${Math.min(index * 40, 160)}ms` }}
     >
       <div className="flex items-start gap-1.5">
         <TaskInputReuseStack assets={task.inputAssets} onReuse={onReuseInputs} />
         <div className="min-w-0 flex-1">
           <div className="flex items-start gap-1.5">
-            <p className={cn("min-w-0 flex-1 whitespace-pre-wrap break-words text-[14px] leading-[23px] tracking-normal text-slate-900", !promptExpanded && "line-clamp-2")}>{task.prompt}</p>
+            <p className={cn("min-w-0 flex-1 whitespace-pre-wrap break-words text-[14px] leading-[23px] tracking-normal text-slate-900 dark:text-stone-100", !promptExpanded && "line-clamp-2")}>{task.prompt}</p>
             {canExpandPrompt ? (
               <button
                 type="button"
@@ -1093,7 +1093,7 @@ function OutfitFusionTaskCard({
                   event.preventDefault();
                   onPreview(index);
                 }}
-                className="studio-result-card outfit-fusion-result-card group/slot relative aspect-[3/4] cursor-zoom-in overflow-hidden rounded-[4px] bg-[#f4f6fa] text-sm text-slate-400 outline-none transition duration-300 hover:z-[1] hover:shadow-[0_10px_28px_rgba(15,23,42,0.18)] focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.35)] focus-visible:ring-offset-2"
+                className="studio-result-card outfit-fusion-result-card group/slot relative aspect-[3/4] cursor-zoom-in overflow-hidden rounded-[4px] bg-[#f4f6fa] text-sm text-slate-400 dark:text-stone-500 outline-none transition duration-300 hover:z-[1] hover:shadow-[0_10px_28px_rgba(15,23,42,0.18)] focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.35)] focus-visible:ring-offset-2"
               >
                 <LoadableResultImage src={url} alt={`生成图${index + 1}`} />
                 <span className="pointer-events-none absolute left-2 top-2 rounded-[4px] bg-[var(--codex-accent)] px-1.5 py-0.5 text-[11px] font-semibold leading-4 text-white shadow-sm">
@@ -1126,7 +1126,7 @@ function OutfitFusionTaskCard({
                 key={`${task.id}-${index}`}
                 role="status"
                 aria-live="polite"
-                className="studio-result-card group/slot relative aspect-[3/4] overflow-hidden bg-white text-sm text-white"
+                className="studio-result-card group/slot relative aspect-[3/4] overflow-hidden bg-white dark:bg-stone-900 text-sm text-white"
               >
                 <div className={cn("gen-card studio-result-pending-card outfit-fusion-pending-card relative z-[1] flex h-full w-full flex-col items-center justify-center gap-2", failed && "studio-result-pending-card-failed")}>
                   {failed ? (
@@ -1149,7 +1149,7 @@ function OutfitFusionTaskCard({
           })}
         </div>
       </TooltipProvider>
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs leading-5 text-slate-400">
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs leading-5 text-slate-400 dark:text-stone-500">
         <div className="flex flex-wrap items-center gap-2">
           <span>{formatTaskTime(task.createdAt)}</span>
           <span>|</span>
@@ -1157,7 +1157,7 @@ function OutfitFusionTaskCard({
           <button
             type="button"
             onClick={onCopy}
-            className="rounded-[5px] p-0.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.35)]"
+            className="rounded-[5px] p-0.5 text-slate-400 dark:text-stone-500 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-white/10 dark:hover:text-stone-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.35)]"
             aria-label="复制任务编号"
           >
             <Copy className="h-3.5 w-3.5" />
@@ -1165,7 +1165,7 @@ function OutfitFusionTaskCard({
           {running ? <span className="text-[var(--codex-accent)]">{task.progress}%</span> : null}
         </div>
         <div className="flex items-center gap-3">
-          <button type="button" onClick={onReedit} className="inline-flex items-center gap-1 rounded-[5px] px-1 py-0.5 text-slate-700 transition hover:bg-[rgba(91,124,255,0.08)] hover:text-[var(--codex-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.35)]">
+          <button type="button" onClick={onReedit} className="inline-flex items-center gap-1 rounded-[5px] px-1 py-0.5 text-slate-700 dark:text-stone-300 transition hover:bg-[rgba(91,124,255,0.08)] hover:text-[var(--codex-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.35)]">
             <PenLine className="h-3.5 w-3.5" />
             重新编辑
           </button>
@@ -1173,12 +1173,12 @@ function OutfitFusionTaskCard({
             type="button"
             onClick={onRegenerate}
             disabled={running}
-            className="inline-flex items-center gap-1 rounded-[5px] px-1 py-0.5 text-slate-700 transition hover:bg-[rgba(91,124,255,0.08)] hover:text-[var(--codex-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.35)] disabled:text-slate-300"
+            className="inline-flex items-center gap-1 rounded-[5px] px-1 py-0.5 text-slate-700 dark:text-stone-300 transition hover:bg-[rgba(91,124,255,0.08)] hover:text-[var(--codex-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.35)] disabled:text-slate-300 dark:text-stone-500"
           >
             <RefreshCw className="h-3.5 w-3.5" />
             重新生成
           </button>
-          <button type="button" onClick={onDelete} className="inline-flex items-center gap-1 rounded-[5px] px-1 py-0.5 text-slate-500 transition hover:bg-[rgba(91,124,255,0.08)] hover:text-[var(--codex-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.35)]">
+          <button type="button" onClick={onDelete} className="inline-flex items-center gap-1 rounded-[5px] px-1 py-0.5 text-slate-500 dark:text-stone-400 transition hover:bg-[rgba(91,124,255,0.08)] hover:text-[var(--codex-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.35)]">
             <Trash2 className="h-3.5 w-3.5" />
             删除
           </button>
@@ -1235,7 +1235,7 @@ function TaskInputReuseStack({ assets, onReuse }: { assets: OutfitFusionAsset[];
                   <span
                     key={asset.id}
                     className={cn(
-                      "absolute top-1 h-11 w-8 overflow-hidden rounded-[4px] border border-white bg-white shadow-sm transition duration-300 group-hover/reuse:-translate-y-1 group-hover/reuse:shadow-md group-focus-visible/reuse:-translate-y-1 group-focus-visible/reuse:shadow-md",
+                      "absolute top-1 h-11 w-8 overflow-hidden rounded-[4px] border border-white bg-white dark:bg-stone-900 shadow-sm transition duration-300 group-hover/reuse:-translate-y-1 group-hover/reuse:shadow-md group-focus-visible/reuse:-translate-y-1 group-focus-visible/reuse:shadow-md",
                       index === 0 && "left-0 -rotate-6",
                       index === 1 && (hasHiddenAssets ? "left-3.5 rotate-1" : "left-4 rotate-2"),
                       index === 2 && (hasHiddenAssets ? "left-7 rotate-3" : "left-8 rotate-6")

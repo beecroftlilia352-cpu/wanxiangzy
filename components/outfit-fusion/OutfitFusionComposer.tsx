@@ -107,14 +107,14 @@ export function OutfitFusionComposer({
           style={{ transformOrigin: "bottom center" }}
           className={cn("pointer-events-auto mx-auto w-full max-w-[760px] will-change-[transform,opacity,filter] motion-reduce:transform-none", className)}
         >
-          <div className="flex min-h-[64px] items-center gap-3 rounded-[8px] bg-white px-3 py-3 shadow-[0_12px_34px_rgba(15,23,42,0.14)] ring-1 ring-slate-200 transition duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 hover:shadow-[0_18px_44px_rgba(15,23,42,0.16)] sm:gap-4 sm:px-4">
+          <div className="flex min-h-[64px] items-center gap-3 rounded-[8px] bg-white dark:bg-stone-900 px-3 py-3 shadow-[0_12px_34px_rgba(15,23,42,0.14)] ring-1 ring-slate-200 dark:ring-white/10 transition duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 hover:shadow-[0_18px_44px_rgba(15,23,42,0.16)] sm:gap-4 sm:px-4">
             <button
               type="button"
               onClick={(event) => {
                 event.stopPropagation();
                 onUploadClick("outfit");
               }}
-              className="flex size-12 shrink-0 items-center justify-center rounded-[6px] border border-dashed border-slate-300 bg-slate-50 text-slate-400 transition duration-[250ms] ease-out hover:border-[var(--codex-accent)] hover:bg-[rgba(91,124,255,0.08)] hover:text-[var(--codex-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.35)]"
+              className="flex size-12 shrink-0 items-center justify-center rounded-[6px] border border-dashed border-slate-300 dark:border-white/15 bg-slate-50 dark:bg-white/5 text-slate-400 dark:text-stone-500 transition duration-[250ms] ease-out hover:border-[var(--codex-accent)] hover:bg-[rgba(91,124,255,0.08)] hover:text-[var(--codex-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.35)]"
               aria-label="上传搭配图"
             >
               <ImagePlus className="h-5 w-5" />
@@ -122,7 +122,7 @@ export function OutfitFusionComposer({
             <button
               type="button"
               onClick={onExpand}
-              className="min-w-0 flex-1 rounded-[6px] px-1 py-2 text-left text-sm leading-5 text-slate-500 transition duration-[250ms] ease-out hover:translate-x-0.5 hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.35)]"
+              className="min-w-0 flex-1 rounded-[6px] px-1 py-2 text-left text-sm leading-5 text-slate-500 dark:text-stone-400 transition duration-[250ms] ease-out hover:translate-x-0.5 hover:text-slate-800 dark:text-stone-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.35)]"
             >
               <span className="line-clamp-1">{prompt.trim() || "上传搭配图，智能识别并生成穿搭推荐描述"}</span>
             </button>
@@ -151,15 +151,15 @@ export function OutfitFusionComposer({
           style={{ transformOrigin: "bottom center" }}
           className={cn("pointer-events-auto mx-auto w-full max-w-[980px] will-change-[transform,opacity,filter] motion-reduce:transform-none", className)}
         >
-          <div className="rounded-[8px] bg-white p-4 shadow-[0_14px_46px_rgba(15,23,42,0.14)] ring-1 ring-slate-200 transition duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:shadow-[0_18px_54px_rgba(15,23,42,0.16)] sm:p-5">
+          <div className="rounded-[8px] bg-white dark:bg-[#1c1c1e] p-4 shadow-[0_14px_46px_rgba(15,23,42,0.14)] ring-1 ring-slate-200 dark:ring-white/10 transition duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:shadow-[0_18px_54px_rgba(15,23,42,0.16)] sm:p-5">
         <div className="flex items-center justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-2 text-[14px] font-semibold leading-5 tracking-normal text-slate-900">
+          <div className="flex min-w-0 items-center gap-2 text-[14px] font-semibold leading-5 tracking-normal text-slate-900 dark:text-stone-100">
             融合多种搭配，得到模特图
             <Sparkles className="h-4 w-4 shrink-0 text-[var(--codex-accent)]" />
           </div>
           <div className="flex items-center gap-1.5">
             {assets.length > 0 ? (
-              <Button type="button" variant="ghost" size="sm" className="rounded-[6px] text-slate-500 transition hover:bg-[rgba(91,124,255,0.08)] hover:text-[var(--codex-accent)]" onClick={onClear}>
+              <Button type="button" variant="ghost" size="sm" className="rounded-[6px] text-slate-500 dark:text-stone-400 transition hover:bg-[rgba(91,124,255,0.08)] hover:text-[var(--codex-accent)]" onClick={onClear}>
                 <Trash2 className="h-3.5 w-3.5" />
                 清空素材
               </Button>
@@ -176,7 +176,7 @@ export function OutfitFusionComposer({
             const roleLabel = getOutfitFusionRoleLabel(asset.role);
             const active = hasPromptAssetReference(prompt, index);
             return (
-                <div key={asset.id} className="group relative w-[78px] overflow-hidden rounded-[6px] border border-slate-200 bg-white shadow-sm ring-1 ring-transparent transition duration-200 hover:border-[rgba(91,124,255,0.28)] hover:ring-[rgba(91,124,255,0.22)] hover:shadow-md">
+                <div key={asset.id} className="group relative w-[78px] overflow-hidden rounded-[6px] border border-slate-200 dark:border-white/10 bg-white dark:bg-[#26262a] shadow-sm ring-1 ring-transparent transition duration-200 hover:border-[rgba(91,124,255,0.28)] hover:ring-[rgba(91,124,255,0.22)] hover:shadow-md">
                   <span className={cn("pointer-events-none absolute left-1.5 top-1.5 z-[1] max-w-[70px] truncate rounded-[4px] border px-1.5 py-0.5 text-[10px] font-bold leading-3 shadow-sm", getAssetLabelTone(asset.role, active))}>
                     {label}
                   </span>
@@ -188,7 +188,7 @@ export function OutfitFusionComposer({
                     title={`${label} · ${roleLabel}`}
                   >
                     <RawPreviewImage src={asset.url} alt={`${label}${roleLabel}`} className="aspect-square w-full object-cover transition duration-300 group-hover:scale-[1.035]" />
-                    <div className="truncate border-t border-slate-100 px-1.5 py-1 text-center text-[11px] font-medium leading-4 text-slate-500">
+                    <div className="truncate border-t border-slate-100 dark:border-white/10 px-1.5 py-1 text-center text-[11px] font-medium leading-4 text-slate-500 dark:text-stone-400">
                       {roleLabel}
                     </div>
                   </button>
@@ -229,7 +229,7 @@ export function OutfitFusionComposer({
             type="button"
             variant="secondary"
             size="sm"
-            className="rounded-[6px] bg-slate-100 text-slate-700 transition hover:bg-slate-200"
+            className="rounded-[6px] bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-stone-300 transition hover:bg-slate-200 dark:hover:bg-white/15"
             onClick={() => void onAutoWrite()}
             disabled={!assets.length || autoWriting}
           >
@@ -238,7 +238,7 @@ export function OutfitFusionComposer({
           </Button>
 
           <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
-            <span className="min-w-14 text-right text-xs text-slate-500">{prompt.length}/800</span>
+            <span className="min-w-14 text-right text-xs text-slate-500 dark:text-stone-400">{prompt.length}/800</span>
             <OutfitFusionConfigPopover config={config} onChange={onConfigChange} modelLabel={modelLabel} />
             <Button
               type="button"
@@ -292,17 +292,17 @@ function UploadSlot({
       onClick={() => onClick(role)}
       disabled={uploading}
       className={cn(
-        "group flex h-[88px] w-[88px] shrink-0 flex-col items-center justify-center gap-2 rounded-[6px] border border-dashed border-slate-300 bg-white text-slate-400 transition duration-200 hover:border-blue-400 hover:bg-blue-50 hover:text-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:ring-offset-1 disabled:cursor-wait disabled:opacity-60",
+        "group flex h-[88px] w-[88px] shrink-0 flex-col items-center justify-center gap-2 rounded-[6px] border border-dashed border-slate-300 dark:border-white/15 bg-white dark:bg-stone-900 text-slate-400 dark:text-stone-500 transition duration-200 hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/20 hover:text-blue-500 dark:hover:text-blue-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:ring-offset-1 disabled:cursor-wait disabled:opacity-60",
         isDragging && "border-blue-500 bg-blue-50 text-blue-500 ring-2 ring-blue-500/20"
       )}
       {...dragHandlers}
     >
       {uploading ? <Loader2 className="h-5 w-5 animate-spin text-[var(--codex-accent)]" /> : <Plus className="h-5 w-5 stroke-[1.6] transition duration-200 group-hover:scale-105" />}
-      <span className="max-w-[72px] truncate text-center text-[12px] font-normal leading-[17px] tracking-normal text-slate-500">
+      <span className="max-w-[72px] truncate text-center text-[12px] font-normal leading-[17px] tracking-normal text-slate-500 dark:text-stone-400">
         {isDragging ? "释放上传" : (
           <>
             {label}
-            {optionalLabel && <span className="ml-0.5 text-slate-300">{optionalLabel}</span>}
+            {optionalLabel && <span className="ml-0.5 text-slate-300 dark:text-stone-500">{optionalLabel}</span>}
           </>
         )}
       </span>
@@ -429,16 +429,16 @@ function HighlightedPromptTextarea({
           "relative",
           compact
             ? ""
-            : "rounded-[8px] bg-[#f5f8ff] ring-1 ring-[rgba(91,124,255,0.10)] transition focus-within:ring-2 focus-within:ring-[rgba(91,124,255,0.28)]"
+            : "rounded-[8px] bg-[#f5f8ff] ring-1 ring-[rgba(91,124,255,0.10)] transition focus-within:ring-2 focus-within:ring-[rgba(91,124,255,0.28)] dark:bg-[#1c1c1e] dark:ring-[rgba(91,140,255,0.30)] dark:focus-within:ring-[rgba(91,140,255,0.55)]"
         )}
       >
         {showHighlightLayer ? (
           <div
             aria-hidden="true"
             className={cn(
-              "pointer-events-none absolute inset-0 z-0 overflow-hidden whitespace-pre-wrap break-words text-[14px] tracking-normal text-slate-900",
+              "pointer-events-none absolute inset-0 z-0 overflow-hidden whitespace-pre-wrap break-words text-[14px] tracking-normal text-slate-900 dark:text-stone-100",
               textMetricsClass,
-              compact && "text-slate-500"
+              compact && "text-slate-500 dark:text-stone-400"
             )}
           >
             {renderHighlightedPrompt(value, assets)}
@@ -478,9 +478,9 @@ function HighlightedPromptTextarea({
           aria-controls="outfit-fusion-mention-list"
           style={showHighlightLayer ? { WebkitTextFillColor: "transparent" } : undefined}
           className={cn(
-            "relative z-10 w-full resize-none border-0 bg-transparent text-[14px] tracking-normal caret-[var(--codex-accent)] outline-none transition placeholder:text-slate-400 selection:bg-[rgba(91,124,255,0.24)]",
+            "relative z-10 w-full resize-none border-0 bg-transparent text-[14px] tracking-normal caret-[var(--codex-accent)] outline-none transition placeholder:text-slate-400 dark:placeholder:text-stone-500 selection:bg-[rgba(91,124,255,0.24)]",
             textMetricsClass,
-            compact ? "overflow-hidden text-slate-500 ring-0 focus:ring-0" : "text-slate-900"
+            compact ? "overflow-hidden text-slate-500 dark:text-stone-300 ring-0 focus:ring-0" : "text-slate-900 dark:text-stone-100"
           )}
         />
       </div>
@@ -488,7 +488,7 @@ function HighlightedPromptTextarea({
         <div
           id="outfit-fusion-mention-list"
           role="listbox"
-          className="absolute bottom-full left-3 z-40 mb-2 w-[min(360px,calc(100%-24px))] overflow-hidden rounded-[8px] border border-slate-200 bg-white p-1 shadow-[0_18px_42px_rgba(15,23,42,0.18)]"
+          className="absolute bottom-full left-3 z-40 mb-2 w-[min(360px,calc(100%-24px))] overflow-hidden rounded-[8px] border border-slate-200 dark:border-white/10 bg-white dark:bg-stone-900 p-1 shadow-[0_18px_42px_rgba(15,23,42,0.18)]"
         >
           {filteredOptions.length ? (
             filteredOptions.map((option, index) => (
@@ -505,25 +505,25 @@ function HighlightedPromptTextarea({
                   "flex w-full items-center gap-2 rounded-[6px] px-2 py-2 text-left text-sm transition",
                   index === mention.activeIndex
                     ? "bg-[rgba(91,124,255,0.10)] text-[var(--codex-accent)]"
-                    : "text-slate-700 hover:bg-slate-50"
+                    : "text-slate-700 dark:text-stone-300 hover:bg-slate-50 dark:bg-white/5"
                 )}
               >
-                <RawPreviewImage src={option.asset.url} alt="" className="size-9 rounded-[5px] object-cover ring-1 ring-slate-200" />
+                <RawPreviewImage src={option.asset.url} alt="" className="size-9 rounded-[5px] object-cover ring-1 ring-slate-200 dark:ring-white/10" />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-semibold leading-5">{option.label}</span>
-                  <span className="block truncate text-xs leading-4 text-slate-500">{option.roleLabel}</span>
+                  <span className="block truncate text-xs leading-4 text-slate-500 dark:text-stone-400">{option.roleLabel}</span>
                 </span>
               </button>
             ))
           ) : (
-            <div className="px-3 py-2 text-sm text-slate-500">{assetOptions.length ? "没有匹配的素材" : "先上传或套用素材后再引用"}</div>
+            <div className="px-3 py-2 text-sm text-slate-500 dark:text-stone-400">{assetOptions.length ? "没有匹配的素材" : "先上传或套用素材后再引用"}</div>
           )}
         </div>
       ) : null}
       {compact ? null : <div className="mt-2 flex min-h-6 flex-wrap items-center gap-1.5 text-xs leading-5">
         {referencedOptions.length ? (
           <>
-            <span className="text-slate-400">已引用</span>
+            <span className="text-slate-400 dark:text-stone-500">已引用</span>
             {referencedOptions.map((option) => (
               <button
                 key={option.asset.id}
@@ -538,7 +538,7 @@ function HighlightedPromptTextarea({
             ))}
           </>
         ) : (
-          <span className="text-slate-400">输入 @ 可快速引用上方素材，生成时会把对应图片作为视觉约束</span>
+          <span className="text-slate-400 dark:text-stone-500">输入 @ 可快速引用上方素材，生成时会把对应图片作为视觉约束</span>
         )}
       </div>}
     </div>
@@ -635,7 +635,7 @@ function OutfitFusionConfigPopover({
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button type="button" variant="secondary" className="h-9 w-auto max-w-[calc(100vw-48px)] justify-between gap-1.5 rounded-[6px] bg-slate-100 px-2.5 text-slate-700 transition hover:bg-slate-200 sm:max-w-[340px]">
+        <Button type="button" variant="secondary" className="h-9 w-auto max-w-[calc(100vw-48px)] justify-between gap-1.5 rounded-[6px] bg-slate-100 dark:bg-white/10 px-2.5 text-slate-700 dark:text-stone-300 transition hover:bg-slate-200 dark:hover:bg-white/15 sm:max-w-[340px]">
           <Settings2 className="h-3.5 w-3.5 shrink-0" />
           <span className="min-w-0 max-w-[260px] truncate text-center text-[13px] font-medium leading-5 tracking-normal">
             {getOutfitFusionAspectRatioLabel(config.aspectRatio)} · {config.imageSize} · 生成{config.genCount}张 · {modelLabel}
@@ -704,7 +704,7 @@ function getOutfitFusionAspectRatioLabel(value: OutfitFusionConfig["aspectRatio"
 function ControlGroup({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="space-y-2">
-      <div className="text-[13px] font-medium leading-5 text-slate-700">{label}</div>
+      <div className="text-[13px] font-medium leading-5 text-slate-700 dark:text-stone-300">{label}</div>
       {children}
     </div>
   );
@@ -737,7 +737,7 @@ function Segmented({
             aria-pressed={active}
             onClick={() => onChange(option.value)}
             className={cn(
-              "h-8 rounded-[6px] bg-slate-100 px-2 text-sm text-slate-700 transition duration-200 hover:bg-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8aa5ff]",
+              "h-8 rounded-[6px] bg-slate-100 dark:bg-white/10 px-2 text-sm text-slate-700 dark:text-stone-300 transition duration-200 hover:bg-slate-200 dark:hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8aa5ff]",
               active && "bg-[#eef4ff] font-semibold text-[#4b6fb3] shadow-sm ring-1 ring-[#cfdcff]"
             )}
           >
@@ -779,15 +779,15 @@ function InlineConfigSelect({
         aria-haspopup="listbox"
         aria-expanded={open}
         onClick={() => setOpen((current) => !current)}
-        className="flex h-9 w-full items-center justify-between gap-2 rounded-[6px] border border-[rgba(91,124,255,0.20)] bg-white px-3 text-left text-[13px] font-medium text-slate-700 shadow-sm outline-none transition hover:border-[rgba(91,124,255,0.34)] focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.26)]"
+        className="flex h-9 w-full items-center justify-between gap-2 rounded-[6px] border border-[rgba(91,124,255,0.20)] bg-white dark:bg-stone-900 px-3 text-left text-[13px] font-medium text-slate-700 dark:text-stone-300 shadow-sm outline-none transition hover:border-[rgba(91,124,255,0.34)] focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.26)]"
       >
         <span className="min-w-0 truncate">{active?.label || value}</span>
-        <ChevronDown className={cn("h-3.5 w-3.5 shrink-0 text-slate-500 transition-transform", open && "rotate-180")} />
+        <ChevronDown className={cn("h-3.5 w-3.5 shrink-0 text-slate-500 dark:text-stone-400 transition-transform", open && "rotate-180")} />
       </button>
       {open ? (
         <div
           role="listbox"
-          className="absolute left-0 top-[calc(100%+4px)] z-[80] w-full rounded-[7px] border border-slate-200 bg-white p-1 shadow-[0_14px_34px_rgba(15,23,42,0.16)]"
+          className="absolute left-0 top-[calc(100%+4px)] z-[80] w-full rounded-[7px] border border-slate-200 dark:border-white/10 bg-white dark:bg-stone-900 p-1 shadow-[0_14px_34px_rgba(15,23,42,0.16)]"
         >
           {options.map((option) => {
             const selected = option.value === value;
@@ -806,7 +806,7 @@ function InlineConfigSelect({
                   "flex h-8 w-full items-center justify-between rounded-[6px] px-2.5 text-left text-[13px] transition",
                   selected
                     ? "bg-[var(--codex-accent)] font-semibold text-white"
-                    : "text-slate-700 hover:bg-[rgba(91,124,255,0.08)] hover:text-[var(--codex-accent)]"
+                    : "text-slate-700 dark:text-stone-300 hover:bg-[rgba(91,124,255,0.08)] hover:text-[var(--codex-accent)]"
                 )}
               >
                 <span className="truncate">{option.label}</span>

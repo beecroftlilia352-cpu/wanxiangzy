@@ -1486,7 +1486,7 @@ export default function ProductSetPage() {
           >
             <div className="mb-3 flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
-                <h3 className="text-sm font-black text-slate-950">商品图</h3>
+                <h3 className="text-sm font-black text-slate-950 dark:text-stone-100">商品图</h3>
                 <p className="mt-1 text-xs text-slate-400">支持正面、侧面、背面或细节图，最多 3 张。</p>
               </div>
               <span className="inline-flex h-7 shrink-0 items-center rounded-full bg-[rgba(91,124,255,0.1)] px-2.5 text-[10px] font-bold text-[var(--codex-accent)]">{productImages.length}/3</span>
@@ -1533,7 +1533,7 @@ export default function ProductSetPage() {
                 {productImages.map((item, index) => (
                   <div key={`${item.url}-${index}`} className="studio-checkerboard group relative aspect-square overflow-hidden rounded-xl border border-white bg-white shadow-sm">
                     <RawPreviewImage src={getImageVariantUrl(item.url, "thumb")} alt={item.name} className="h-full w-full object-contain p-1.5" />
-                    <span className="absolute left-1 top-1 rounded bg-white/90 px-1.5 py-0.5 text-[10px] font-bold text-slate-500">图{index + 1}</span>
+                    <span className="absolute left-1 top-1 rounded bg-white/90 px-1.5 py-0.5 text-[10px] font-bold text-slate-500 dark:bg-white/10 dark:text-stone-300">图{index + 1}</span>
                     <button type="button" aria-label="移除商品图" onClick={() => removeProductImage(index)} className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-slate-800/80 text-white opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100">
                       <X className="h-3 w-3" />
                     </button>
@@ -1549,10 +1549,10 @@ export default function ProductSetPage() {
             )}
           </section>
 
-          <section className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm">
+          <section className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/5">
             <div className="mb-3 flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
-                <h3 className="text-sm font-black text-slate-950">商品信息分析</h3>
+                <h3 className="text-sm font-black text-slate-950 dark:text-stone-100">商品信息分析</h3>
                 <p className="mt-1 text-xs text-slate-400">先把商品信息整理成结构化规划，再生成方案。</p>
               </div>
               <button
@@ -1582,7 +1582,7 @@ export default function ProductSetPage() {
                   aria-label="商品信息"
                   placeholder={`可选：写一句商品名称、卖点、目标平台或风格要求。
 也可以不填，上传商品图并选择数量后，点击“帮我写”，系统会自动整理成完整商品规划。`}
-                  className="min-h-40 w-full resize-none rounded-2xl border border-slate-100 bg-slate-50 px-3 py-3 text-sm leading-6 text-slate-800 outline-none transition focus:border-[rgba(91,124,255,0.5)] focus:bg-white"
+                  className="min-h-40 w-full resize-none rounded-2xl border border-slate-100 bg-slate-50 px-3 py-3 text-sm leading-6 text-slate-800 outline-none transition focus:border-[rgba(91,124,255,0.5)] focus:bg-white dark:border-white/10 dark:bg-white/5 dark:text-stone-200 dark:focus:bg-white/10"
                 />
                 <div className="mt-2 flex items-center justify-between text-[11px] text-slate-400">
                   <span>{productInfo ? "建议保留模板字段，生成文案会更稳定。" : "不想写也可以，点“帮我写”让系统根据商品图整理。"}</span>
@@ -1610,7 +1610,7 @@ export default function ProductSetPage() {
             </button>
 
             {!hasAnalyzedProduct && (
-              <div className="mt-3 rounded-2xl border border-slate-100 bg-slate-50 px-3 py-3 text-xs leading-5 text-slate-500">
+              <div className="mt-3 rounded-2xl border border-slate-100 bg-slate-50 px-3 py-3 text-xs leading-5 text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-stone-400">
                 分析后 系统会把上面的商品信息写入规划：目标平台、风格名称、视觉风格、统一场景、核心卖点、用户痛点、适用人群、产品参数和主题配色，并按你选择的数量生成计划。
               </div>
             )}
@@ -1644,16 +1644,16 @@ export default function ProductSetPage() {
             )}
           </section>
 
-          <section className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm">
+          <section className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/5">
             <div className="mb-3 flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
-                <h3 className="text-sm font-black text-slate-950">方案来源</h3>
+                <h3 className="text-sm font-black text-slate-950 dark:text-stone-100">方案来源</h3>
                 <p className="mt-1 text-xs leading-5 text-slate-400">智能模式需要分析；参考图模式可直接选预设或上传参考图。</p>
               </div>
               {outputCount > 0 && <span className="inline-flex h-8 shrink-0 items-center rounded-full bg-[rgba(91,124,255,0.1)] px-2.5 text-xs font-black text-[var(--codex-accent)]">{outputCount} {imageType === "main" ? "张" : "屏"}</span>}
             </div>
 
-            <div className="grid grid-cols-2 gap-1 rounded-2xl bg-slate-100 p-1">
+            <div className="grid grid-cols-2 gap-1 rounded-2xl bg-slate-100 p-1 dark:bg-white/5">
               {([
                 { value: "smart" as const, label: "智能模式", desc: "需要智能分析" },
                 { value: "reference" as const, label: "参考图模式", desc: "上传 / 预设" },
@@ -1667,7 +1667,7 @@ export default function ProductSetPage() {
                     aria-pressed={active}
                     onClick={() => changePlanMode(tab.value)}
                     className={`min-h-12 rounded-xl px-2 py-1.5 text-center transition ${
-                      active ? "bg-white text-[var(--codex-accent)] shadow-sm" : "text-slate-500 hover:bg-white/60"
+                      active ? "bg-white text-[var(--codex-accent)] shadow-sm dark:bg-white/10 dark:text-[#cfd8ff]" : "text-slate-500 hover:bg-white/60 dark:text-stone-400 dark:hover:bg-white/5"
                     }`}
                   >
                     <span className="block truncate text-xs font-black">{tab.label}</span>
@@ -1678,7 +1678,7 @@ export default function ProductSetPage() {
             </div>
 
             {!isReferenceMode ? (
-              <div className="mt-3 rounded-2xl border border-[rgba(91,124,255,0.22)] bg-[rgba(91,124,255,0.1)] p-3 text-xs leading-5 text-slate-500">
+              <div className="mt-3 rounded-2xl border border-[rgba(91,124,255,0.22)] bg-[rgba(91,124,255,0.1)] p-3 text-xs leading-5 text-slate-500 dark:text-stone-300">
                 {hasAnalyzedProduct ? (
                   <PlanRecommendationCard recommendation={planRecommendation} imageType={imageType} compact />
                 ) : (
@@ -1687,7 +1687,7 @@ export default function ProductSetPage() {
               </div>
             ) : (
               <div className="mt-3 space-y-3">
-                <div className="grid grid-cols-3 gap-1 rounded-2xl bg-slate-100 p-1">
+                <div className="grid grid-cols-3 gap-1 rounded-2xl bg-slate-100 p-1 dark:bg-white/5">
                   {PLAN_SOURCE_TABS.filter((tab) => tab.value !== "smart").map((tab) => {
                     const active = planSourceTab === tab.value;
                     return (
@@ -1698,7 +1698,7 @@ export default function ProductSetPage() {
                         aria-pressed={active}
                         onClick={() => changePlanSourceTab(tab.value)}
                         className={`min-h-11 rounded-xl px-2 py-1.5 text-center transition ${
-                          active ? "bg-white text-[var(--codex-accent)] shadow-sm" : "text-slate-500 hover:bg-white/60"
+                          active ? "bg-white text-[var(--codex-accent)] shadow-sm dark:bg-white/10 dark:text-[#cfd8ff]" : "text-slate-500 hover:bg-white/60 dark:text-stone-400 dark:hover:bg-white/5"
                         }`}
                       >
                         <span className="block truncate text-xs font-black">{tab.value === "preset" ? "预设参考" : tab.value === "upload" ? "上传参考" : "收藏"}</span>
@@ -1718,12 +1718,12 @@ export default function ProductSetPage() {
                         className={`flex min-h-[92px] flex-col rounded-2xl border p-3 text-left transition ${
                           selectedPlanId === plan.id
                             ? "border-[rgba(91,124,255,0.22)] bg-[rgba(91,124,255,0.1)] text-[var(--codex-accent)]"
-                            : "border-slate-100 bg-slate-50 text-slate-600 hover:border-[rgba(91,124,255,0.3)]"
+                            : "border-slate-100 bg-slate-50 text-slate-600 hover:border-[rgba(91,124,255,0.3)] dark:border-white/10 dark:bg-white/5 dark:text-stone-300 dark:hover:border-[rgba(91,140,255,0.45)]"
                         }`}
                       >
                         <span className="flex min-h-5 items-center justify-between gap-2">
                           <span className="min-w-0 truncate text-xs font-black">{plan.name}</span>
-                          {plan.scenario === "womenswear" && <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-black text-slate-600">女装</span>}
+                          {plan.scenario === "womenswear" && <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-black text-slate-600 dark:bg-white/10 dark:text-stone-300">女装</span>}
                         </span>
                         <span className="mt-1 block line-clamp-2 text-[11px] leading-4 opacity-75">{plan.description}</span>
                       </button>
@@ -1741,7 +1741,7 @@ export default function ProductSetPage() {
                               setReferenceStyleDraft(referenceStyleBrief);
                               setShowReferenceStyleModal(true);
                             }}
-                            className="h-8 shrink-0 rounded-full bg-white px-3 text-[11px] font-black text-[var(--codex-accent)] shadow-sm"
+                            className="h-8 shrink-0 rounded-full bg-white px-3 text-[11px] font-black text-[var(--codex-accent)] shadow-sm dark:bg-white/10"
                           >
                             编辑
                           </button>
@@ -1790,7 +1790,7 @@ export default function ProductSetPage() {
                   />
                 )}
 
-                <button type="button" onClick={() => setShowTemplateModal(true)} className="flex h-10 w-full items-center justify-center gap-1.5 rounded-2xl border border-slate-100 bg-white text-xs font-black text-slate-600 hover:border-[rgba(91,124,255,0.3)] hover:bg-[rgba(91,124,255,0.12)]">
+                <button type="button" onClick={() => setShowTemplateModal(true)} className="flex h-10 w-full items-center justify-center gap-1.5 rounded-2xl border border-slate-100 bg-white text-xs font-black text-slate-600 hover:border-[rgba(91,124,255,0.3)] hover:bg-[rgba(91,124,255,0.12)] dark:border-white/10 dark:bg-white/5 dark:text-stone-300 dark:hover:border-[rgba(91,140,255,0.45)] dark:hover:bg-[rgba(91,140,255,0.18)]">
                   <Layers3 className="h-3.5 w-3.5" /> 打开完整模板库
                 </button>
                 {outputCount > 0 ? (
@@ -1804,10 +1804,10 @@ export default function ProductSetPage() {
             )}
           </section>
 
-          {outputCount > 0 && <section className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm">
+          {outputCount > 0 && <section className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/5">
             <div className="mb-3 flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
-                <h3 className="text-sm font-black text-slate-950">生成计划</h3>
+                <h3 className="text-sm font-black text-slate-950 dark:text-stone-100">生成计划</h3>
                 <p className="mt-1 text-xs text-slate-400">{showFullPlan ? "完整模块可逐项编辑或移除。" : "先显示最关键的前 3 项，减少干扰。"}</p>
               </div>
               <button
@@ -1827,7 +1827,7 @@ export default function ProductSetPage() {
               onRemove={removePlanModule}
             />
 
-            <button type="button" onClick={() => setShowSettingsModal(true)} className="mt-3 flex w-full items-center justify-between rounded-2xl border border-slate-100 bg-slate-50 px-3 py-3 text-left text-xs font-bold text-slate-600 hover:border-slate-300 hover:bg-white/75">
+            <button type="button" onClick={() => setShowSettingsModal(true)} className="mt-3 flex w-full items-center justify-between rounded-2xl border border-slate-100 bg-slate-50 px-3 py-3 text-left text-xs font-bold text-slate-600 hover:border-slate-300 hover:bg-white/75 dark:border-white/10 dark:bg-white/5 dark:text-stone-300 dark:hover:border-[rgba(91,140,255,0.45)] dark:hover:bg-white/10">
               <span className="flex min-w-0 items-center gap-2">
                 <Settings2 className="h-4 w-4 shrink-0 text-slate-500" />
                 <span className="truncate">{settingsSummary}</span>
@@ -1932,14 +1932,14 @@ export default function ProductSetPage() {
                 <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-red-50">
                   <X className="h-7 w-7 text-red-400" />
                 </div>
-                <h2 className="text-base font-black text-slate-950">商品套图生成失败</h2>
+                <h2 className="text-base font-black text-slate-950 dark:text-stone-100">商品套图生成失败</h2>
                 <p className="mt-2 text-sm leading-6 text-red-500">{summarizeGenerationError(error)}</p>
                 <p className="mx-auto mt-3 max-w-sm rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-left text-xs font-semibold leading-5 text-amber-700">
                   {FAILED_RETRY_NOTICE}
                 </p>
                 <div className="mt-5 flex justify-center gap-2">
                   <button type="button" onClick={generate} className="h-10 rounded-full bg-slate-950 px-5 text-sm font-bold text-white">重试</button>
-                  <button type="button" onClick={() => { setError(""); setProgress(0); }} className="h-10 rounded-full border border-slate-200 bg-white px-5 text-sm font-bold text-slate-600">清空</button>
+                  <button type="button" onClick={() => { setError(""); setProgress(0); }} className="h-10 rounded-full border border-slate-200 bg-white px-5 text-sm font-bold text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-stone-300">清空</button>
                 </div>
               </div>
             </div>
@@ -1950,7 +1950,7 @@ export default function ProductSetPage() {
               <div className="mb-5 rounded-[28px] border border-white/80 bg-white/82 p-4 shadow-[0_18px_50px_rgba(15,23,42,0.08)] backdrop-blur">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="min-w-0 flex-1">
-                    <h2 className="text-xl font-black text-slate-950">{isGenerating ? "商品套图生成中" : "商品套图结果"}</h2>
+                    <h2 className="text-xl font-black text-slate-950 dark:text-stone-100">{isGenerating ? "商品套图生成中" : "商品套图结果"}</h2>
                     <p className="mt-1 text-xs text-slate-400">
                       {activeQueueTask?.time ? `${activeQueueTask.time} · ` : ""}
                       {mode === "smart" ? "智能套图" : "自定义套图"} · {imageType === "main" ? "主图辅图" : "详情页"} · {settings.platform} · 已出 {visibleResultCount}/{resultSlotCount}
@@ -1961,7 +1961,7 @@ export default function ProductSetPage() {
                   </span>
                 </div>
                 {isGenerating && (
-                  <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100">
+                  <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-white/5">
                     <div className="h-full rounded-full bg-gradient-to-r from-slate-700 to-slate-950 transition-[width]" style={{ width: `${Math.min(Math.max(progress, 0), 99)}%` }} />
                   </div>
                 )}
@@ -1976,7 +1976,7 @@ export default function ProductSetPage() {
                   return (
                     <article key={`${url || template?.id || "pending"}-${index}`} className="flex h-full flex-col overflow-hidden rounded-[24px] border border-white/80 bg-white shadow-[0_18px_50px_rgba(15,23,42,0.08)]">
                       {url ? (
-                        <button type="button" onClick={() => setPreviewIndex(index)} className="group relative aspect-[3/4] w-full overflow-hidden bg-slate-100">
+                        <button type="button" onClick={() => setPreviewIndex(index)} className="group relative aspect-[3/4] w-full overflow-hidden bg-slate-100 dark:bg-white/5">
                           <RawPreviewImage src={getImageVariantUrl(url, "card")} alt={template?.name || `商品套图${index + 1}`} className="h-full w-full object-contain transition duration-300 group-hover:scale-[1.02]" />
                           <span className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-black/45 text-white opacity-0 transition group-hover:opacity-100">
                             <ZoomIn className="h-4 w-4" />
@@ -1993,22 +1993,22 @@ export default function ProductSetPage() {
                           </button>
                         </div>
                       ) : (
-                        <div className="flex aspect-[3/4] w-full flex-col items-center justify-center bg-slate-50 text-center">
+                        <div className="flex aspect-[3/4] w-full flex-col items-center justify-center bg-slate-50 text-center dark:bg-white/5">
                           <Loader2 className="h-6 w-6 animate-spin text-[var(--codex-accent)]" />
-                          <p className="mt-3 text-xs font-black text-slate-500">等待生成</p>
-                          <p className="mt-1 max-w-32 text-[11px] leading-4 text-slate-400">该模块完成后会自动填入预览区</p>
+                          <p className="mt-3 text-xs font-black text-slate-500 dark:text-stone-300">等待生成</p>
+                          <p className="mt-1 max-w-32 text-[11px] leading-4 text-slate-400 dark:text-stone-500">该模块完成后会自动填入预览区</p>
                         </div>
                       )}
                       <div className="flex min-h-[94px] flex-1 p-3">
                         <div className="flex w-full items-start justify-between gap-2">
                           <div className="min-w-0">
-                            <h3 className="truncate text-sm font-black text-slate-900">{template?.name || `结果 ${index + 1}`}</h3>
+                            <h3 className="truncate text-sm font-black text-slate-900 dark:text-stone-100">{template?.name || `结果 ${index + 1}`}</h3>
                             <p className="mt-1 text-[11px] font-bold text-slate-400">{url ? "已生成" : slotFailed ? "生成失败" : "生成中"} · {template?.imageType === "details" ? "详情页模块" : "主图/辅图"} · {getAspectRatioLabel(template?.aspectRatio || aspectRatio)}</p>
                             {module?.qualityScore !== undefined && (
                               <div className="mt-2 flex flex-wrap items-center gap-1.5">
                                 <QualityBadge score={module.qualityScore} />
                                 {module.qualityIssues?.slice(0, 1).map((issue, issueIndex) => (
-                                  <span key={`${module.moduleKey}-issue-${issueIndex}`} className="line-clamp-1 rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-500">
+                                  <span key={`${module.moduleKey}-issue-${issueIndex}`} className="line-clamp-1 rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-500 dark:bg-white/10 dark:text-stone-300">
                                     {issue}
                                   </span>
                                 ))}
@@ -2020,7 +2020,7 @@ export default function ProductSetPage() {
                               <button type="button" onClick={() => regenerateResult(index)} disabled={regeneratingIndex !== null || isGenerating} className="flex h-9 w-9 items-center justify-center rounded-full border border-[rgba(91,124,255,0.22)] text-[var(--codex-accent)] hover:bg-[rgba(91,124,255,0.12)] disabled:cursor-not-allowed disabled:opacity-50" title="重生这一张">
                                 {regeneratingIndex === index ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
                               </button>
-                              <button type="button" onClick={() => downloadResult(url, index)} className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-500 hover:bg-slate-50" title="下载">
+                              <button type="button" onClick={() => downloadResult(url, index)} className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-500 hover:bg-slate-50 dark:border-white/10 dark:text-stone-400 dark:hover:bg-white/5" title="下载">
                                 <Download className="h-4 w-4" />
                               </button>
                             </div>
@@ -2144,7 +2144,7 @@ function ProductModeTabs({ imageType, onChange }: { imageType: ProductSetImageTy
   ];
 
   return (
-    <div className="rounded-[24px] border border-slate-100 bg-slate-50/80 p-1.5 shadow-sm">
+    <div className="rounded-[24px] border border-slate-100 bg-slate-50/80 p-1.5 shadow-sm dark:border-white/10 dark:bg-white/5">
       <div className="grid grid-cols-2 items-stretch gap-1.5">
         {options.map((item) => (
           <button
@@ -2153,20 +2153,20 @@ function ProductModeTabs({ imageType, onChange }: { imageType: ProductSetImageTy
             onClick={() => onChange(item.value)}
             className={`flex h-14 items-center gap-2.5 rounded-[18px] border px-3 text-left transition-[border-color,background-color,color,box-shadow] ${
               imageType === item.value
-                ? "border-[rgba(91,124,255,0.22)] bg-[rgba(91,124,255,0.1)] text-slate-950 shadow-[0_10px_26px_rgba(124,58,237,0.12)]"
-                : "border-transparent bg-white/70 text-slate-600 hover:border-[rgba(91,124,255,0.3)] hover:bg-white hover:text-[var(--codex-accent)]"
+                ? "border-[rgba(91,124,255,0.22)] bg-[rgba(91,124,255,0.1)] text-slate-950 dark:text-stone-100 shadow-[0_10px_26px_rgba(124,58,237,0.12)] dark:border-[rgba(91,140,255,0.45)] dark:bg-[rgba(91,140,255,0.18)]"
+                : "border-transparent bg-white/70 text-slate-600 hover:border-[rgba(91,124,255,0.3)] hover:bg-white hover:text-[var(--codex-accent)] dark:bg-white/5 dark:text-stone-300 dark:hover:border-[rgba(91,140,255,0.45)] dark:hover:bg-white/10"
             }`}
           >
             <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border transition ${
               imageType === item.value
-                ? "border-[rgba(91,124,255,0.22)] bg-white text-[var(--codex-accent)]"
-                : "border-slate-100 bg-white text-slate-400"
+                ? "border-[rgba(91,124,255,0.22)] bg-white text-[var(--codex-accent)] dark:bg-white/10 dark:text-[#cfd8ff]"
+                : "border-slate-100 bg-white text-slate-400 dark:border-white/10 dark:bg-white/5 dark:text-stone-500"
             }`}>
               {item.value === "main" ? <ImagePlus className="h-4 w-4" /> : <Layers3 className="h-4 w-4" />}
             </span>
             <span className="min-w-0 flex-1">
               <span className="block text-sm font-black">{item.title}</span>
-              <span className={`mt-0.5 block truncate text-[11px] ${imageType === item.value ? "text-[var(--codex-accent)]" : "text-slate-400"}`}>{item.desc}</span>
+              <span className={`mt-0.5 block truncate text-[11px] ${imageType === item.value ? "text-[var(--codex-accent)] dark:text-[#cfd8ff]" : "text-slate-400 dark:text-stone-500"}`}>{item.desc}</span>
             </span>
           </button>
         ))}
@@ -2184,7 +2184,7 @@ function WorkflowStepper({ currentStep }: { currentStep: number }) {
   ];
 
   return (
-    <div className="rounded-2xl border border-slate-100 bg-white px-3 py-3 shadow-sm">
+    <div className="rounded-2xl border border-slate-100 bg-white px-3 py-3 shadow-sm dark:border-white/10 dark:bg-white/5">
       <div className="grid grid-cols-4 gap-1.5">
         {steps.map((step) => {
           const active = currentStep === step.value;
@@ -2250,21 +2250,21 @@ function ProductBriefSummary({ fields, onEdit }: { fields: ProductInfoFields; on
   ])).slice(0, 5);
 
   return (
-    <div className="rounded-2xl border border-slate-100 bg-slate-50 px-3 py-3">
+    <div className="rounded-2xl border border-slate-100 bg-slate-50 px-3 py-3 dark:border-white/10 dark:bg-white/5">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <p className="text-[11px] font-black text-slate-400">商品信息</p>
-          <h4 className="mt-1 truncate text-sm font-black text-slate-950">{fields.name || "待补充商品名"}</h4>
+          <h4 className="mt-1 truncate text-sm font-black text-slate-950 dark:text-stone-100">{fields.name || "待补充商品名"}</h4>
           <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-600">{fields.description || "已填写商品信息，点击编辑可继续补充卖点、材质和适用人群。"}</p>
         </div>
-        <button type="button" onClick={onEdit} className="inline-flex h-8 shrink-0 items-center gap-1 rounded-full bg-white px-2.5 text-[11px] font-black text-slate-600 shadow-sm hover:bg-[rgba(91,124,255,0.12)] hover:text-[var(--codex-accent)]">
+        <button type="button" onClick={onEdit} className="inline-flex h-8 shrink-0 items-center gap-1 rounded-full bg-white px-2.5 text-[11px] font-black text-slate-600 shadow-sm hover:bg-[rgba(91,124,255,0.12)] hover:text-[var(--codex-accent)] dark:bg-white/10 dark:text-stone-300 dark:hover:bg-[rgba(91,140,255,0.18)]">
           <Edit3 className="h-3.5 w-3.5" /> 编辑
         </button>
       </div>
       {chips.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1.5">
           {chips.map((chip) => (
-            <span key={chip} className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-slate-500">{chip}</span>
+            <span key={chip} className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-slate-500 dark:bg-white/10 dark:text-stone-300">{chip}</span>
           ))}
         </div>
       )}
@@ -2312,7 +2312,7 @@ function AnalysisSummaryCard({
           <p className="inline-flex items-center gap-1.5 text-[11px] font-black text-[var(--codex-accent)]">
             <Activity className="h-3.5 w-3.5" /> 方案已生成
           </p>
-          <h4 className="mt-1 truncate text-sm font-black text-slate-950">{profile.displayName}</h4>
+          <h4 className="mt-1 truncate text-sm font-black text-slate-950 dark:text-stone-100">{profile.displayName}</h4>
           <p className="mt-1 line-clamp-2 text-[11px] leading-4 text-slate-500">
             {strategyName} · 计划生成 {outputCount} {unit} · 图片质量 {qualityLabel}
           </p>
@@ -2364,7 +2364,7 @@ function ProductProfileCard({ profile, analysisSource, onEdit }: { profile: Prod
           <p className="inline-flex items-center gap-1.5 text-[11px] font-black text-[var(--codex-accent)]">
             <Brush className="h-3.5 w-3.5" /> {sourceLabel}
           </p>
-          <h4 className="mt-1 truncate text-sm font-black text-slate-950">{profile.displayName}</h4>
+          <h4 className="mt-1 truncate text-sm font-black text-slate-950 dark:text-stone-100">{profile.displayName}</h4>
           <p className="mt-1 line-clamp-2 text-[11px] leading-4 text-slate-500">{profile.modelBrief}</p>
         </div>
         <button type="button" onClick={onEdit} className={`inline-flex h-7 shrink-0 items-center rounded-full px-2 text-[10px] font-black transition ${profile.needsModel ? "bg-slate-100 text-slate-700 hover:bg-slate-200" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}>
@@ -2423,7 +2423,7 @@ function ProductVisualStrategyCard({
           <p className="inline-flex items-center gap-1.5 text-[11px] font-black text-indigo-700">
             <Palette className="h-3.5 w-3.5" /> 视觉策略
           </p>
-          <h4 className="mt-1 truncate text-sm font-black text-slate-950">{strategyName} · {stylePack.name}</h4>
+          <h4 className="mt-1 truncate text-sm font-black text-slate-950 dark:text-stone-100">{strategyName} · {stylePack.name}</h4>
           <p className="mt-1 line-clamp-3 text-[11px] leading-4 text-slate-500">{strategyReason}</p>
         </div>
         <button type="button" onClick={onAdjust} className="inline-flex h-7 shrink-0 items-center rounded-full bg-white px-2 text-[10px] font-black text-indigo-600 shadow-sm hover:bg-indigo-100">
@@ -2541,7 +2541,7 @@ function ReferenceStyleModal({
       <div className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-[28px] bg-white shadow-[0_30px_120px_rgba(15,23,42,0.28)]">
         <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4">
           <div className="min-w-0 flex-1">
-            <h2 className="text-lg font-black text-slate-950">参考风格说明</h2>
+            <h2 className="text-lg font-black text-slate-950 dark:text-stone-100">参考风格说明</h2>
             <p className="mt-1 text-xs leading-5 text-slate-400">这里只保存风格方向，不会开始分析模板；点击下方“帮我写商品信息”时会一起传入智能分析。</p>
           </div>
           <button type="button" onClick={onClose} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200">
@@ -2633,7 +2633,7 @@ function ProductProfileEditorModal({
       <div className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-[32px] bg-white shadow-[0_30px_120px_rgba(15,23,42,0.28)]">
         <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4">
           <div className="min-w-0 flex-1">
-            <h2 className="text-lg font-black text-slate-950">修正商品识别</h2>
+            <h2 className="text-lg font-black text-slate-950 dark:text-stone-100">修正商品识别</h2>
             <p className="mt-1 text-xs text-slate-400">识别结果会影响默认模板、是否使用模特和提示词安全边界。</p>
           </div>
           <button type="button" onClick={onClose} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200">
@@ -2734,7 +2734,7 @@ function ModuleEditModal({
         <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4">
           <div className="min-w-0 flex-1">
             <p className="text-[11px] font-black text-[var(--codex-accent)]">第 {index + 1} 张 · {template.imageType === "details" ? "详情页模块" : "主图/辅图模块"}</p>
-            <h2 className="mt-1 text-lg font-black text-slate-950">编辑生成模块</h2>
+            <h2 className="mt-1 text-lg font-black text-slate-950 dark:text-stone-100">编辑生成模块</h2>
           </div>
           <button type="button" onClick={onClose} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200">
             <X className="h-5 w-5" />
@@ -2832,7 +2832,7 @@ function PlanRecommendationCard({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <p className="text-[11px] font-black text-[var(--codex-accent)]">视觉总监方案</p>
-          <h4 className="mt-1 truncate text-sm font-black text-slate-950">{recommendation.title}</h4>
+          <h4 className="mt-1 truncate text-sm font-black text-slate-950 dark:text-stone-100">{recommendation.title}</h4>
           <p className="mt-1 line-clamp-2 text-[11px] leading-4 text-slate-500">{recommendation.summary}</p>
         </div>
         <span className={`shrink-0 rounded-full border px-2 py-1 text-[10px] font-black ${riskClass}`}>
@@ -2844,7 +2844,7 @@ function PlanRecommendationCard({
       </div>
       <div className="mt-2 flex flex-wrap gap-1.5">
         {recommendation.modules.slice(0, compact ? 4 : 6).map((module) => (
-          <span key={module.key} className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-slate-500">
+          <span key={module.key} className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-slate-500 dark:bg-white/10 dark:text-stone-300">
             {module.usesModel ? "模特 · " : ""}{module.name}
           </span>
         ))}
@@ -3286,7 +3286,7 @@ function GenerationSettingsSummary({
           <Activity className="h-4 w-4" />
         </span>
         <span className="min-w-0">
-          <span className="block text-sm font-black text-slate-950">生成设置</span>
+          <span className="block text-sm font-black text-slate-950 dark:text-stone-100">生成设置</span>
           <span className="mt-1 block truncate text-xs font-bold text-slate-400">
             {model?.label || aiModel} · {imageSize} · {qualityMode === "advanced" ? "高级质检" : "标准质检"}
           </span>
@@ -3322,7 +3322,7 @@ function ModelConfigPanel({
   return (
     <section className="space-y-3">
       <div className="rounded-2xl border border-slate-100/80 bg-white/45 p-4">
-        <h3 className="mb-3 flex items-center gap-2 text-sm font-black text-slate-950">
+        <h3 className="mb-3 flex items-center gap-2 text-sm font-black text-slate-950 dark:text-stone-100">
           <Activity className="h-4 w-4 text-[var(--codex-accent)]" /> 生成模型
         </h3>
         <div className="grid grid-cols-2 items-stretch gap-2">
@@ -3333,7 +3333,7 @@ function ModelConfigPanel({
               onClick={() => onModelChange(model.value)}
               className={`min-h-[72px] rounded-2xl border px-3 py-2.5 text-left transition-[border-color,background-color,color,box-shadow] ${
                 aiModel === model.value
-                  ? "border-[rgba(91,124,255,0.22)]0 bg-[rgba(91,124,255,0.1)] text-slate-950 shadow-[0_10px_26px_rgba(124,58,237,0.12)]"
+                  ? "border-[rgba(91,124,255,0.22)]0 bg-[rgba(91,124,255,0.1)] text-slate-950 dark:text-stone-100 shadow-[0_10px_26px_rgba(124,58,237,0.12)]"
                   : "border-slate-100 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
               }`}
             >
@@ -3353,7 +3353,7 @@ function ModelConfigPanel({
       </div>
 
       <div className="rounded-2xl border border-slate-100/80 bg-white/45 p-4">
-        <h3 className="mb-3 text-sm font-black text-slate-950">分辨率</h3>
+        <h3 className="mb-3 text-sm font-black text-slate-950 dark:text-stone-100">分辨率</h3>
         <div className="grid grid-cols-3 gap-2">
           {supportedSizes.map((size) => (
             <button
@@ -3378,7 +3378,7 @@ function ModelConfigPanel({
       </div>
 
       <div className="rounded-2xl border border-slate-100/80 bg-white/45 p-4">
-        <h3 className="mb-3 text-sm font-black text-slate-950">生成档位</h3>
+        <h3 className="mb-3 text-sm font-black text-slate-950 dark:text-stone-100">生成档位</h3>
         <div className="grid grid-cols-2 gap-2">
           {(["standard", "advanced"] as const).map((value) => (
             <button
@@ -3418,7 +3418,7 @@ function SettingsModal({
       <div className="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-[32px] bg-white shadow-[0_30px_120px_rgba(15,23,42,0.28)]">
         <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4">
           <div className="min-w-0 flex-1">
-            <h2 className="text-lg font-black text-slate-950">更多设置</h2>
+            <h2 className="text-lg font-black text-slate-950 dark:text-stone-100">更多设置</h2>
             <p className="mt-1 text-xs text-slate-400">用于控制目标市场、图片文案和视觉风格；模型、比例与清晰度在左侧单独配置。</p>
           </div>
           <button type="button" onClick={onClose} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200">
@@ -3550,7 +3550,7 @@ function TemplateLibraryModal({
       <div className="flex max-h-[92vh] w-full max-w-7xl flex-col overflow-hidden rounded-[32px] bg-white shadow-[0_30px_120px_rgba(15,23,42,0.28)]">
         <div className="flex flex-col gap-3 border-b border-slate-100 px-5 py-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0 flex-1">
-            <h2 className="text-lg font-black text-slate-950">参考模板库</h2>
+            <h2 className="text-lg font-black text-slate-950 dark:text-stone-100">参考模板库</h2>
             <p className="mt-1 text-xs text-slate-400">模板只控制用途、版式和视觉方向，最终商品会以你上传的图片为准。</p>
           </div>
           <div className="flex min-w-0 shrink-0 items-center gap-2">
@@ -3664,7 +3664,7 @@ function TemplateCard({ template, selected, onToggle }: { template: ProductSetTe
       </div>
       <div className="flex min-h-[126px] flex-1 flex-col p-3">
         <div className="flex min-h-6 items-start justify-between gap-2">
-          <h3 className="min-w-0 line-clamp-1 text-sm font-black text-slate-900">{template.name}</h3>
+          <h3 className="min-w-0 line-clamp-1 text-sm font-black text-slate-900 dark:text-stone-100">{template.name}</h3>
           <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500">
             {template.imageType === "main" ? "主图" : "详情"}
           </span>

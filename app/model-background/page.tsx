@@ -703,7 +703,7 @@ export default function ModelBackgroundPage() {
           </StudioUploadSection>
 
           <section>
-            <h3 className="font-bold text-sm mb-3">操作模式</h3>
+            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">操作模式</h3>
             <StudioOptionGrid
               options={MODE_OPTIONS.map((item) => ({
                 value: item.value,
@@ -792,7 +792,7 @@ export default function ModelBackgroundPage() {
 
           {mode !== "model_only" ? (
             <section>
-              <h3 className="mb-1 flex items-center gap-2 text-sm font-bold text-slate-950">
+              <h3 className="mb-1 flex items-center gap-2 text-sm font-bold text-slate-950 dark:text-stone-100">
                 <Images className="h-4 w-4 text-purple-500" /> 参考图 / 场景
               </h3>
               <p className="mb-3 text-[11px] text-slate-400">预设背景、上传背景和文生背景互斥；选择参考图后会优先锁定场景、光线和构图氛围。</p>
@@ -911,7 +911,7 @@ export default function ModelBackgroundPage() {
           />
 
           <section>
-            <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-950"><Sparkles className="h-4 w-4 text-[var(--codex-accent)]" /> 生成模型</h3>
+            <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-950 dark:text-stone-100"><Sparkles className="h-4 w-4 text-[var(--codex-accent)]" /> 生成模型</h3>
             <StudioModelSelector
               models={MODELS}
               value={aiModel}
@@ -922,12 +922,12 @@ export default function ModelBackgroundPage() {
           </section>
 
           <section>
-            <h3 className="mb-3 text-sm font-bold text-slate-950">图片比例</h3>
+            <h3 className="mb-3 text-sm font-bold text-slate-950 dark:text-stone-100">图片比例</h3>
             <StudioOptionGrid options={ASPECTS} value={aspectRatio} onChange={setAspectRatio} columns={3} ariaLabel="图片比例" />
           </section>
 
           <section>
-            <h3 className="mb-3 text-sm font-bold text-slate-950">分辨率</h3>
+            <h3 className="mb-3 text-sm font-bold text-slate-950 dark:text-stone-100">分辨率</h3>
             <StudioOptionGrid
               options={imageSizes.map((size) => ({
                 value: size,
@@ -940,7 +940,7 @@ export default function ModelBackgroundPage() {
             />
           </section>
           <section>
-            <h3 className="mb-3 text-sm font-bold text-slate-950">生成数量</h3>
+            <h3 className="mb-3 text-sm font-bold text-slate-950 dark:text-stone-100">生成数量</h3>
             <StudioGenerationCountSelector
               value={genCount}
               onChange={setGenCount}
@@ -1047,7 +1047,7 @@ export default function ModelBackgroundPage() {
           >
             <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4">
               <div>
-                <h3 className="text-base font-black text-slate-950">{MODEL_BACKGROUND_UPLOAD_RULE.title}</h3>
+                <h3 className="text-base font-black text-slate-950 dark:text-stone-100">{MODEL_BACKGROUND_UPLOAD_RULE.title}</h3>
                 <p className="mt-1 text-xs text-slate-400">{MODEL_BACKGROUND_UPLOAD_RULE.uploadSpecText}</p>
               </div>
               <button type="button" onClick={() => setShowRules(false)} aria-label="关闭" className="rounded-full p-1.5 hover:bg-slate-100"><X className="h-4 w-4" /></button>
@@ -1086,7 +1086,7 @@ export default function ModelBackgroundPage() {
         <ClientPortal>
           <div className="fixed inset-0 z-[180] flex cursor-zoom-out items-center justify-center bg-slate-950/66 p-4 backdrop-blur-xl sm:p-8" onClick={() => setLightboxSrc(null)}>
             <RawPreviewImage src={lightboxSrc} alt="预览" className="max-h-full max-w-full rounded-2xl object-contain shadow-[0_32px_120px_rgba(0,0,0,0.45)]" />
-            <button type="button" onClick={() => setLightboxSrc(null)} className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full border border-white/85 bg-white/90 text-slate-700 shadow-[0_12px_34px_rgba(15,23,42,0.22)] backdrop-blur transition-colors hover:bg-white hover:text-slate-950 sm:right-6 sm:top-6">
+            <button type="button" onClick={() => setLightboxSrc(null)} className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full border border-white/85 bg-white/90 text-slate-700 shadow-[0_12px_34px_rgba(15,23,42,0.22)] backdrop-blur transition-colors hover:bg-white hover:text-slate-950 dark:text-stone-100 sm:right-6 sm:top-6">
               <X className="h-5 w-5" />
             </button>
           </div>

@@ -2,6 +2,56 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ==========================================================================
+   P1.2 prefers-reduced-motion — honor OS-level motion preferences
+   Apple Reduced Motion API / WCAG 2.3.3 / MD motion guidelines.
+   When the user opts out of motion, neutralize transitions, animations,
+   smooth scrolling, and CSS-driven parallax. JS-driven motion (e.g. video
+   autoplay, animated-theme-toggler) should listen to the same media query.
+   ========================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  html {
+    scroll-behavior: auto !important;
+  }
+
+  /* Hero / showcase video: pause and remove autoplay via :autoplay-friendly marker */
+  video[autoplay] {
+    animation: none !important;
+  }
+}
+
+/* ==========================================================================
+   P3.2 Press feedback utility — opt-in via `.btn-press` for non-shadcn
+   interactive elements (custom links, role="button" containers, native
+   <button> outside the shadcn Button primitive). Scale-and-rebound is the
+   Apple HIG / Material state-layer idiom for tappable surfaces.
+   Disabled when reduced-motion is preferred. */
+.btn-press {
+  transition: transform 120ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+
+.btn-press:active:not(:disabled):not([aria-disabled="true"]) {
+  transform: scale(0.97);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-press,
+  .btn-press:active:not(:disabled):not([aria-disabled="true"]) {
+    transition: none;
+    transform: none;
+  }
+}
+
 .hover-scrollbar-hint {
   position: relative;
 }
@@ -349,24 +399,34 @@
   }
 
   html {
-    background: #eef4ff;
+    background-color: #eef4ff;
     scrollbar-gutter: stable;
     text-size-adjust: 100%;
     @apply font-sans;
+  }
+
+  .dark html {
+    background-color: #0c0c10;
   }
 
   body {
     width: 100%;
     min-height: 100dvh;
     overflow-x: hidden;
-    background: var(--codex-gradient-page);
+    background-color: #eef4ff;
+    background-image: var(--codex-gradient-page);
+    background-attachment: fixed;
     color: var(--codex-ink);
     font-family: var(--codex-font);
     font-feature-settings: "rlig" 1, "calt" 1;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
-    @apply bg-background text-foreground;
+  }
+
+  .dark body {
+    background-color: #0c0c10;
+    background-image: var(--codex-gradient-page);
   }
 
   button,
@@ -400,7 +460,7 @@
     --muted-foreground: 224 13% 70%;
     --accent: 230 100% 76%;
     --accent-foreground: 226 18% 12%;
-    --destructive: 2 70% 58%;
+    --destructive: 2 70% 63%;
     --border: 226 18% 28%;
     --input: 226 18% 28%;
     --ring: 230 100% 76%;
@@ -417,5 +477,131 @@
     --sidebar-accent-foreground: 0 0% 98%;
     --sidebar-border: 226 18% 28%;
     --sidebar-ring: 230 100% 76%;
+
+    /* ==========================================================================
+       Codex design system — dark mode overrides.
+       All `text-codex-*`, `bg-codex-*`, `border-codex-*`, and arbitrary
+       `bg-[var(--codex-*)]` / `border-[var(--codex-*)]` classes auto-adapt via
+       these token overrides. Without this block, components keep their light
+       mode paper-white backgrounds and slate-grey text on dark surfaces.
+       ========================================================================== */
+    --codex-ink: #f5f5f7;
+    --codex-muted: #a8aab2;
+    --codex-faint: #7a7d85;
+    --codex-surface: #1c1c1e;
+    --codex-surface-soft: rgba(38, 38, 40, 0.78);
+    --codex-surface-strong: rgba(28, 28, 30, 0.92);
+    --codex-border: rgba(255, 255, 255, 0.12);
+    --codex-border-strong: rgba(255, 255, 255, 0.20);
+    --codex-accent: #5b8cff;
+    --codex-accent-soft: #2a3d6e;
+    --codex-ice: #1f2a44;
+    --codex-dark: #ffffff;
+    --codex-success: #30d158;
+    --codex-warning: #ff9f0a;
+    --codex-danger: #ff453a;
+    --codex-running: #5b8cff;
+    --codex-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+    --codex-shadow-md: 0 18px 50px rgba(0, 0, 0, 0.55);
+    --codex-shadow-lg: 0 40px 120px rgba(0, 0, 0, 0.7);
+    --codex-gradient-page:
+      radial-gradient(circle at 10% 0%, rgba(91, 140, 255, 0.18), transparent 38%),
+      radial-gradient(circle at 88% 4%, rgba(174, 184, 255, 0.12), transparent 40%),
+      linear-gradient(180deg, #14141a 0%, #0c0c10 50%, #0a0a0e 100%);
+    --codex-gradient-hero:
+      radial-gradient(circle at 10% 10%, rgba(91, 140, 255, 0.42), transparent 32%),
+      radial-gradient(circle at 82% 16%, rgba(174, 184, 255, 0.30), transparent 38%),
+      linear-gradient(180deg, #1f2a44 0%, #11162a 54%, #0a0c14 78%, #050608 100%);
+    --codex-gradient-primary:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.10), transparent 38%),
+      linear-gradient(180deg, #2c2c2e 0%, #1c1c1e 100%);
+    --codex-gradient-loader:
+      radial-gradient(circle at 44% 35%, rgba(91, 140, 255, 0.55) 0 10%, transparent 34%),
+      linear-gradient(113deg, #307dff 0%, #89bfff 25%, #d6eaff 45%, #7f7aff 72%, #4a63f6 100%);
+
+    /* Legacy aliases (kept while pages migrate). */
+    --studio-bg: #0c0c10;
+    --studio-panel: var(--codex-surface-soft);
+    --studio-panel-strong: var(--codex-surface-strong);
+    --studio-border: var(--codex-border);
+    --studio-muted: var(--codex-muted);
+    --studio-ink: var(--codex-ink);
+    --studio-accent: var(--codex-accent);
+    --studio-accent-2: var(--codex-accent-soft);
+    --studio-shadow: var(--codex-shadow-md);
+    --mac-bg: #0c0c10;
+    --mac-bg-soft: #1c1c1e;
+    --mac-glass: var(--codex-surface-soft);
+    --mac-glass-strong: var(--codex-surface-strong);
+    --mac-glass-toolbar: rgba(28, 28, 30, 0.86);
+    --mac-border: var(--codex-border);
+    --mac-border-strong: var(--codex-border-strong);
+    --mac-ink: var(--codex-ink);
+    --mac-muted: var(--codex-muted);
+    --mac-faint: var(--codex-faint);
+    --mac-accent: var(--codex-accent);
+    --mac-accent-soft: rgba(91, 140, 255, 0.22);
+    --mac-sage: var(--codex-success);
+    --mac-brass: var(--codex-warning);
+    --mac-success: var(--codex-success);
+    --mac-warning: var(--codex-warning);
+    --mac-danger: var(--codex-danger);
   }
+}
+
+/* ==========================================================================
+   P5.22 Home page always renders in light mode.
+   Marked with data-no-dark="true" or .home-no-dark on the root, this overrides
+   any dark: variant that might otherwise apply when <html class="dark"> is on.
+   ========================================================================== */
+[data-no-dark="true"],
+.home-no-dark {
+  color-scheme: light !important;
+  --codex-ink: #050505;
+  --codex-muted: #6b7280;
+  --codex-faint: #9ca3af;
+  --codex-surface: #ffffff;
+  --codex-surface-2: #f8fafc;
+  --codex-border: rgba(15, 23, 42, 0.08);
+}
+
+/* When dark class is on html, neutralize dark: variants inside marked roots
+   by reverting the common utility colors to their light values. */
+.dark [data-no-dark="true"] *,
+.dark .home-no-dark * {
+  /* Backgrounds */
+  --tw-bg-opacity: 1;
+}
+
+/* Belt-and-braces: revert text-white / bg-*-950 / bg-*-900 / text-stone-* etc.
+   inside the marked home root even when dark mode is on. */
+.dark .home-no-dark .text-white,
+.dark [data-no-dark="true"] .text-white {
+  color: #050505 !important;
+}
+.dark .home-no-dark .bg-black,
+.dark [data-no-dark="true"] .bg-black {
+  background-color: transparent !important;
+}
+.dark .home-no-dark .dark\:bg-white\/5,
+.dark [data-no-dark="true"] .dark\:bg-white\/5,
+.dark .home-no-dark .dark\:bg-white\/10,
+.dark [data-no-dark="true"] .dark\:bg-white\/10 {
+  background-color: rgba(255, 255, 255, 0) !important;
+}
+.dark .home-no-dark .dark\:text-stone-100,
+.dark [data-no-dark="true"] .dark\:text-stone-100,
+.dark .home-no-dark .dark\:text-stone-200,
+.dark [data-no-dark="true"] .dark\:text-stone-200,
+.dark .home-no-dark .dark\:text-stone-300,
+.dark [data-no-dark="true"] .dark\:text-stone-300,
+.dark .home-no-dark .dark\:text-stone-400,
+.dark [data-no-dark="true"] .dark\:text-stone-400 {
+  color: inherit !important;
+}
+.dark .home-no-dark .dark\:border-white\/10,
+.dark [data-no-dark="true"] .dark\:border-white\/10,
+.dark .home-no-dark .dark\:border-white\/5,
+.dark [data-no-dark="true"] .dark\:border-white\/5 {
+  border-color: rgba(15, 23, 42, 0.08) !important;
 }
