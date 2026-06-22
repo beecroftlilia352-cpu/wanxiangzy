@@ -1059,7 +1059,7 @@ export default function Garment3dPage() {
                     <button
                       type="button"
                       onClick={() => applyRuleDemo(demo)}
-                      className="mt-2 w-full rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 px-2.5 py-1 text-[11px] font-medium text-slate-600 dark:text-stone-300 hover:border-violet-200 hover:text-violet-600"
+                      className="mt-2 w-full rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 px-2.5 py-1 text-[11px] font-medium text-slate-600 dark:text-stone-300 hover:text-violet-600"
                     >
                       试一试
                     </button>
