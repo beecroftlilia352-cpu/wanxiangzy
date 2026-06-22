@@ -1279,7 +1279,7 @@ function LoadableResultImage({ src, alt }: { src: string; alt: string }) {
         loading="lazy"
         onLoad={() => setLoaded(true)}
         className={cn(
-          "h-full w-full object-contain transition duration-500 group-hover/slot:scale-[1.012]",
+          "h-full w-full object-contain transition duration-300 group-hover/slot:scale-[1.012]",
           loaded ? "opacity-100" : "opacity-0"
         )}
       />

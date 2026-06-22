@@ -30,7 +30,7 @@ export function OutfitFusionExampleGallery({
             key={template.id}
             aria-label={template.title}
             className={cn(
-              "group relative aspect-[3/4] min-h-[320px] animate-slide-up overflow-hidden bg-slate-100 shadow-sm transition-[transform,box-shadow,filter] duration-[420ms] ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-0.5 hover:shadow-[0_18px_46px_rgba(15,23,42,0.14)] motion-reduce:animate-none sm:min-h-[360px] dark:bg-white/5",
+              "group relative aspect-[3/4] min-h-[320px] animate-slide-up overflow-hidden bg-slate-100 shadow-sm transition-[transform,box-shadow,filter] duration-[300ms] ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-0.5 hover:shadow-[0_18px_46px_rgba(15,23,42,0.14)] motion-reduce:animate-none sm:min-h-[360px] dark:bg-white/5",
               activeTemplateId === template.id && "z-[1] ring-2 ring-[var(--codex-accent)] ring-inset"
             )}
             style={{ animationDelay: `${Math.min(index * 28, 180)}ms` }}
@@ -39,9 +39,9 @@ export function OutfitFusionExampleGallery({
               src={template.coverUrl}
               alt={template.title}
               loading={index < 6 ? "eager" : "lazy"}
-              className="h-full w-full object-cover transition-transform duration-[520ms] ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform group-hover:scale-[1.018] group-focus-within:scale-[1.018]"
+              className="h-full w-full object-cover transition-transform duration-[300ms] ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform group-hover:scale-[1.018] group-focus-within:scale-[1.018]"
             />
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 flex translate-y-1.5 items-end gap-2 bg-gradient-to-t from-black/80 via-black/30 to-transparent p-2 opacity-0 transition-[transform,opacity] duration-[360ms] ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:translate-y-0 group-focus-within:opacity-100">
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 flex translate-y-1.5 items-end gap-2 bg-gradient-to-t from-black/80 via-black/30 to-transparent p-2 opacity-0 transition-[transform,opacity] duration-[300ms] ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:translate-y-0 group-focus-within:opacity-100">
               <div className="flex min-w-0 gap-1">
                 {template.assets.slice(0, 3).map((asset, assetIndex) => {
                   const label = getOutfitFusionAssetLabel(asset, assetIndex);

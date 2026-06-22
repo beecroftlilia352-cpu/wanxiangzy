@@ -74,7 +74,7 @@ export function PreviewGuide({
                           fill
                           sizes="(max-width: 640px) 86vw, (max-width: 1024px) 42vw, 250px"
                           className={cn(
-                            "transition duration-500 group-hover:scale-[1.025]",
+                            "transition duration-300 group-hover:scale-[1.025]",
                             isContain ? "object-contain p-5 sm:p-6" : "object-cover object-top"
                           )}
                         />
