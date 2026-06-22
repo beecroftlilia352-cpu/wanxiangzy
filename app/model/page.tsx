@@ -259,7 +259,7 @@ export default function ModelPage() {
     rulesHideTimerRef.current = setTimeout(() => {
       setShowModelRules(false);
       setRulesPopoverStyle(null);
-    }, 120);
+    }, 180);
   };
 
   useEffect(() => {
@@ -888,7 +888,7 @@ export default function ModelPage() {
             <div className="grid grid-cols-4 gap-2">
               <button
                 onClick={() => { setHairStyle(null); setHairReferenceUrl(null); }}
-                className={`rounded-lg border p-2 text-center transition-all aspect-[3/4] flex flex-col items-center justify-center ${
+                className={`rounded-lg border p-2 text-center transition-colors aspect-[3/4] flex flex-col items-center justify-center ${
                   !hairStyle && !hairReferenceUrl ? "border-purple-500 bg-purple-50 text-purple-600 ring-1 ring-purple-200 dark:bg-purple-500/15 dark:text-purple-300 dark:ring-purple-500/40" : "border-gray-100 dark:border-white/10 bg-white dark:bg-[#26262a] text-gray-500 dark:text-stone-400 hover:border-gray-300 dark:hover:border-white/20"
                 }`}
               >
@@ -897,7 +897,7 @@ export default function ModelPage() {
               </button>
               {HAIR_STYLES[gender].map((item) => (
                 <button key={item.value} onClick={() => { setHairStyle(item.value); setHairReferenceUrl(null); }}
-                  className={`rounded-lg overflow-hidden border text-left transition-all ${
+                  className={`rounded-lg overflow-hidden border text-left transition-colors ${
                     hairStyle === item.value && !hairReferenceUrl ? "border-purple-500 ring-1 ring-purple-200" : "border-gray-100 dark:border-white/10 hover:border-gray-300 dark:hover:border-white/20 bg-white dark:bg-[#26262a] text-slate-700 dark:text-stone-200"
                   }`}>
                   <RawPreviewImage src={item.image} alt={item.label} className="w-full aspect-[3/4] object-cover bg-gray-50 dark:bg-white/4" />
@@ -906,7 +906,7 @@ export default function ModelPage() {
               ))}
               <button
                 onClick={() => hairInputRef.current?.click()}
-                className={`relative rounded-lg border-2 border-dashed p-2 text-center transition-all aspect-[3/4] flex flex-col items-center justify-center overflow-hidden ${
+                className={`relative rounded-lg border-2 border-dashed p-2 text-center transition-[background-color,border-color,box-shadow,color] aspect-[3/4] flex flex-col items-center justify-center overflow-hidden ${
                   hairReferenceUrl
                     ? "studio-checkerboard border-purple-500 text-purple-700 ring-2 ring-purple-200 shadow-[0_14px_34px_rgba(124,58,237,0.18)]"
                     : "border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/4 text-slate-400 dark:text-stone-500 hover:border-purple-300 hover:bg-purple-50/60 hover:text-purple-500"
@@ -964,7 +964,7 @@ export default function ModelPage() {
             <div className="grid grid-cols-4 gap-2">
               <button
                 onClick={() => { setHairColor(null); setHairColorReferenceUrl(null); }}
-                className={`rounded-lg border p-2 text-center transition-all aspect-[3/4] flex flex-col items-center justify-center ${
+                className={`rounded-lg border p-2 text-center transition-colors aspect-[3/4] flex flex-col items-center justify-center ${
                   !hairColor && !hairColorReferenceUrl ? "border-purple-500 bg-purple-50 text-purple-600 ring-1 ring-purple-200 dark:bg-purple-500/15 dark:text-purple-300 dark:ring-purple-500/40" : "border-gray-100 dark:border-white/10 bg-white dark:bg-[#26262a] text-gray-500 dark:text-stone-400 hover:border-gray-300 dark:hover:border-white/20"
                 }`}
               >
@@ -973,7 +973,7 @@ export default function ModelPage() {
               </button>
               {HAIR_COLORS.map((item) => (
                 <button key={item.value} onClick={() => { setHairColor(item.value); setHairColorReferenceUrl(null); }}
-                  className={`rounded-lg overflow-hidden border text-left transition-all ${
+                  className={`rounded-lg overflow-hidden border text-left transition-colors ${
                     hairColor === item.value && !hairColorReferenceUrl ? "border-purple-500 ring-1 ring-purple-200" : "border-gray-100 dark:border-white/10 hover:border-gray-300 dark:hover:border-white/20 bg-white dark:bg-[#26262a] text-slate-700 dark:text-stone-200"
                   }`}>
                   <RawPreviewImage src={item.image} alt={item.label} className="w-full aspect-[3/4] object-cover bg-gray-50 dark:bg-white/4" />
@@ -982,7 +982,7 @@ export default function ModelPage() {
               ))}
               <button
                 onClick={() => hairColorInputRef.current?.click()}
-                className={`relative rounded-lg border-2 border-dashed p-2 text-center transition-all aspect-[3/4] flex flex-col items-center justify-center overflow-hidden ${
+                className={`relative rounded-lg border-2 border-dashed p-2 text-center transition-[background-color,border-color,box-shadow,color] aspect-[3/4] flex flex-col items-center justify-center overflow-hidden ${
                   hairColorReferenceUrl
                     ? "studio-checkerboard border-purple-500 text-purple-700 ring-2 ring-purple-200 shadow-[0_14px_34px_rgba(124,58,237,0.18)]"
                     : "border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/4 text-slate-400 dark:text-stone-500 hover:border-purple-300 hover:bg-purple-50/60 hover:text-purple-500"

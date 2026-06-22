@@ -596,7 +596,7 @@ export default function PosePage() {
     rulesHideTimerRef.current = setTimeout(() => {
       setShowPoseRules(false);
       setRulesPopoverStyle(null);
-    }, 120);
+    }, 180);
   };
 
   function setPoseAnalysisEntry(entry: PoseAnalysisEntry | null, analysisKey = "") {
@@ -1833,7 +1833,7 @@ export default function PosePage() {
             <button
               type="button"
               onClick={toggleGarmentDetails}
-              className={`flex w-full items-center justify-between rounded-2xl border p-3 text-left transition-all ${
+              className={`flex w-full items-center justify-between rounded-2xl border p-3 text-left transition-colors ${
                 garmentAngleEnabled
                   ? "border-blue-300 bg-blue-50/80 text-blue-800 dark:border-[rgba(91,140,255,0.55)] dark:bg-[rgba(91,140,255,0.18)] dark:text-[#cfd8ff]"
                   : shouldSuggestBackReference

@@ -34,7 +34,23 @@
     "**/*.tsx",
     ".next/types/**/*.ts"
   ],
+  "tsBuildInfoFile": ".tsbuildinfo",
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "scripts/check-fusion-full.ts",
+    "scripts/check-fusion.ts",
+    "scripts/check-header.ts",
+    "scripts/check-menu.ts",
+    "scripts/debug-body.ts",
+    "scripts/debug-css.ts",
+    "scripts/debug-faceswap.ts",
+    "scripts/debug-home.ts",
+    "scripts/debug-vars.ts",
+    "scripts/extra-routes.ts",
+    "scripts/extra-routes2.ts",
+    "scripts/inspect-fusion.ts",
+    "scripts/scan-missed-dark.ts",
+    "scripts/validate-dark-mode.ts",
+    "scripts/upload-presets.ts"
   ]
 }

@@ -245,7 +245,7 @@ export default function Garment3dPage() {
     rulesHideTimerRef.current = setTimeout(() => {
       setShowGarmentRules(false);
       setRulesPopoverStyle(null);
-    }, 120);
+    }, 180);
   };
 
   useEffect(() => {
@@ -803,32 +803,31 @@ export default function Garment3dPage() {
               <div className="space-y-3">
                 <div className="grid grid-cols-5 gap-2">
                   {REFERENCE_PRESETS.map((ref) => (
-                    <button
+                    <div
                       key={ref.id}
-                      onClick={() => { setSelectedReference(ref); setCustomReferenceUrl(""); setPromptOverride(null); }}
                       className={`group relative aspect-square rounded-lg overflow-hidden border bg-gray-50 dark:bg-white/4 ${
                         !customReferenceUrl && selectedReference.id === ref.id ? "border-purple-500 ring-2 ring-purple-100" : "border-gray-200"
                       }`}
-                      title={ref.label}
                     >
-                      <RawPreviewImage src={ref.url} alt={ref.label} className="w-full h-full object-cover" />
-                      <span
-                        role="button"
-                        tabIndex={0}
+                      <button
+                        type="button"
+                        onClick={() => { setSelectedReference(ref); setCustomReferenceUrl(""); setPromptOverride(null); }}
+                        aria-label={ref.label}
+                        title={ref.label}
+                        className="absolute inset-0 w-full h-full cursor-pointer"
+                      >
+                        <RawPreviewImage src={ref.url} alt={ref.label} className="w-full h-full object-cover" />
+                      </button>
+                      <button
+                        type="button"
                         onClick={(e) => { e.stopPropagation(); setLightboxSrc(ref.url); }}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setLightboxSrc(ref.url);
-                          }
-                        }}
-                        className="absolute right-1.5 top-1.5 w-7 h-7 rounded-full bg-white/90 dark:bg-white/5 text-gray-700 shadow-sm opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity flex items-center justify-center hover:bg-white dark:bg-white/5"
+                        aria-label="放大预览"
                         title="放大预览"
+                        className="absolute right-1.5 top-1.5 w-7 h-7 rounded-full bg-white/90 dark:bg-white/5 text-gray-700 shadow-sm opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity flex items-center justify-center hover:bg-white"
                       >
                         <ZoomIn className="w-3.5 h-3.5" />
-                      </span>
-                    </button>
+                      </button>
+                    </div>
                   ))}
                   <button
                     onClick={() => referenceInputRef.current?.click()}
@@ -1060,7 +1059,7 @@ export default function Garment3dPage() {
                     <button
                       type="button"
                       onClick={() => applyRuleDemo(demo)}
-                      className="mt-2 w-full rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 px-2.5 py-1 text-[11px] font-medium text-slate-600 dark:text-stone-300 hover:border-violet-200 hover:text-violet-600"
+                      className="mt-2 w-full rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 px-2.5 py-1 text-[11px] font-medium text-slate-600 dark:text-stone-300 hover:text-violet-600"
                     >
                       试一试
                     </button>

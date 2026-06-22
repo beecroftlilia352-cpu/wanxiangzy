@@ -114,8 +114,8 @@ const config: Config = {
       },
       animation: {
         "pulse-slow": "pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite",
-        "fade-in": "fadeIn 0.5s ease-out",
-        "slide-up": "slideUp 0.5s ease-out",
+        "fade-in": "fadeIn 0.25s ease-out",
+        "slide-up": "slideUp 0.25s ease-out",
       },
       keyframes: {
         fadeIn: {

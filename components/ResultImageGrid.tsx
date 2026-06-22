@@ -462,7 +462,7 @@ function PendingResultSlot({
           {failed ? <XCircle className="h-6 w-6 text-red-200" aria-hidden="true" /> : <Loader2 className="h-6 w-6 animate-spin text-white motion-reduce:animate-none" aria-hidden="true" />}
         </div>
       </div>
-      <p className="relative z-[1] text-xs font-semibold text-white/72">
+      <p className="relative z-[1] text-xs font-semibold text-white/90">
         {failed ? failureLabel || "生成失败，可套用参数重试" : running ? "生成中，请稍候" : "等待生成"}
       </p>
       {failed && failureDetail && (
@@ -485,7 +485,7 @@ function PendingResultSlot({
         </button>
       )}
       {!failed && running && (
-        <p className="relative z-[1] text-[11px] font-medium text-white/42">第 {index + 1} 张生成中</p>
+        <p className="relative z-[1] text-[11px] font-medium text-white/80">第 {index + 1} 张生成中</p>
       )}
     </div>
   );

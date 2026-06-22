@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { Suspense } from "react";
 import { Toaster } from "sonner";
 import "./globals.css";
 import "./styles/shared-components.css";
@@ -57,7 +58,9 @@ export default function RootLayout({
         >
           跳到主内容
         </a>
-        <RouteProgress />
+        <Suspense fallback={null}>
+          <RouteProgress />
+        </Suspense>
         <HeaderClient />
         <main id="main" tabIndex={-1} className="outline-none">
           {children}

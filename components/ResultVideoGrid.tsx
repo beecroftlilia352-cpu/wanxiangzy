@@ -120,10 +120,10 @@ function VideoResultCard({
               {running ? <Loader2 className="h-6 w-6 animate-spin text-white motion-reduce:animate-none" aria-hidden="true" /> : <XCircle className="h-6 w-6 text-white/70" aria-hidden="true" />}
             </div>
           </div>
-          <p className="relative z-[1] text-xs font-semibold text-white/72">
+          <p className="relative z-[1] text-xs font-semibold text-white/90">
             {running ? "视频生成中" : "等待生成"}
           </p>
-          <p className="relative z-[1] text-[11px] font-medium text-white/42">预计 2-5 分钟</p>
+          <p className="relative z-[1] text-[11px] font-medium text-white/80">预计 2-5 分钟</p>
         </div>
       </div>
     );
