@@ -1130,7 +1130,7 @@ function OutfitFusionTaskCard({
               >
                 <div className={cn("gen-card studio-result-pending-card outfit-fusion-pending-card relative z-[1] flex h-full w-full flex-col items-center justify-center gap-2", failed && "studio-result-pending-card-failed")}>
                   {failed ? (
-                    <span className="text-xs font-semibold text-red-100">生成失败</span>
+                    <span className="text-xs font-semibold text-red-50">生成失败</span>
                   ) : (
                     <>
                       <div className="relative flex h-14 w-14 items-center justify-center">
@@ -1139,8 +1139,8 @@ function OutfitFusionTaskCard({
                           <Loader2 className="h-6 w-6 animate-spin text-white" />
                         </div>
                       </div>
-                      <p className="relative z-[1] text-xs font-semibold text-white/72">生成中，请稍候</p>
-                      <p className="relative z-[1] text-[11px] font-medium text-white/42">第 {index + 1} 张生成中</p>
+                      <p className="relative z-[1] text-xs font-semibold text-white/90">生成中，请稍候</p>
+                      <p className="relative z-[1] text-[11px] font-medium text-white/80">第 {index + 1} 张生成中</p>
                     </>
                   )}
                 </div>
