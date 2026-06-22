@@ -4538,13 +4538,24 @@ header .animate-spin {
     linear-gradient(180deg, rgba(28, 28, 30, 0.96), rgba(38, 38, 40, 0.7) 58%, rgba(7, 8, 13, 0.4)) !important;
 }
 
-/* P5.49: tone down the gen-card bright white border in dark mode.
-   The default rule sets border: rgba(255,255,255,0.56) + inset 0 0 0 1px
-   rgba(255,255,255,0.48) which pops too much against a dark canvas. */
+/* P5.49 / P5.51: kill the gen-card bright white outline in dark mode.
+   The default rule sets border: rgba(255,255,255,0.56) AND a second
+   inset 1px white ring via box-shadow, which combine into a visible
+   white stroke around the card. Make both transparent so the card
+   relies on the gradient alone for separation. */
 .dark .gen-card {
-  border-color: rgba(255, 255, 255, 0.10) !important;
+  border-color: transparent !important;
   box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04),
+    0 24px 72px rgba(0, 0, 0, 0.55) !important;
+}
+
+/* Belt-and-braces: also nuke the white outline on the loading card variant
+   used in .studio-result-pending-card (the actual card the user sees). */
+.dark .studio-result-pending-card {
+  border-color: transparent !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04),
     0 24px 72px rgba(0, 0, 0, 0.55) !important;
 }
 
