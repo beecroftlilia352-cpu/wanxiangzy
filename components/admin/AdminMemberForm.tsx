@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { App, Button, Form, Input, Select } from "@/components/ui/shadcn-compat";
+import { App, Button, Form, Input, Select, Typography } from "@/components/ui/shadcn-compat";
 import { UserAddOutlined } from "@/components/ui/ant-icons-compat";
 import { AdminUserPicker, type AdminUserOption } from "@/components/admin/AdminUserPicker";
 
@@ -29,24 +29,41 @@ const statusOptions = [
 
 export function AdminMemberForm() {
   const router = useRouter();
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const [form] = Form.useForm<MemberFormValue>();
 
   async function submit(values: MemberFormValue) {
-    try {
-      const res = await fetch("/api/admin/members", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(values),
-      });
-      const payload = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(payload.error || `保存失败 (${res.status})`);
-      message.success("后台成员已保存，审计日志已记录");
-      form.resetFields();
-      router.refresh();
-    } catch (error) {
-      message.error(error instanceof Error ? error.message : "保存失败");
-    }
+    const res = await fetch("/api/admin/members", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(values),
+    });
+    const payload = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(payload.error || `保存失败 (${res.status})`);
+  }
+
+  function handleSubmit(values: MemberFormValue) {
+    const roleLabel = roleOptions.find((r) => r.value === values.role)?.label || values.role;
+    modal.confirm({
+      title: "确认保存后台成员",
+      content: (
+        <Typography.Paragraph className="!mb-0">
+          将为 {values.email} 设置角色：{roleLabel}（{values.status === "active" ? "启用" : "停用"}）。该变更将立即生效并写入审计日志。
+        </Typography.Paragraph>
+      ),
+      okText: "确认保存",
+      okButtonProps: { danger: values.role === "owner" },
+      async onOk() {
+        try {
+          await submit(values);
+          message.success("后台成员已保存，审计日志已记录");
+          form.resetFields();
+          router.refresh();
+        } catch (error) {
+          message.error(error instanceof Error ? error.message : "保存失败");
+        }
+      },
+    });
   }
 
   function handleUserChange(user: AdminUserOption | null) {
@@ -57,7 +74,7 @@ export function AdminMemberForm() {
     <Form<MemberFormValue>
       form={form}
       layout="vertical"
-      onFinish={submit}
+      onFinish={handleSubmit}
       className="p-4"
       initialValues={{ role: "viewer", status: "active" }}
     >
@@ -75,7 +92,7 @@ export function AdminMemberForm() {
           <Select options={statusOptions} />
         </Form.Item>
         <Form.Item label=" " className="!mb-0">
-          <Button type="primary" htmlType="submit" icon={<UserAddOutlined />}>
+          <Button type="primary" htmlType="submit" icon={<UserAddOutlined aria-hidden="true" />}>
             保存成员
           </Button>
         </Form.Item>

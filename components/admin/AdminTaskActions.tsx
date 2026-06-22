@@ -19,24 +19,24 @@ type AdminTaskActionsProps = {
 const actionConfig: Record<AdminTaskAction, { label: string; icon: ReactNode; defaultReason: string; danger?: boolean }> = {
   retry: {
     label: "重新处理",
-    icon: <RollbackOutlined />,
+    icon: <RollbackOutlined aria-hidden="true" />,
     defaultReason: "任务长时间没有完成，运营重新发起处理",
   },
   mark_failed_refund: {
     label: "结束并退灵点",
-    icon: <DollarCircleOutlined />,
+    icon: <DollarCircleOutlined aria-hidden="true" />,
     defaultReason: "任务无法继续完成，运营结束任务并退还灵点",
     danger: true,
   },
   cancel_refund: {
     label: "取消并退灵点",
-    icon: <StopOutlined />,
+    icon: <StopOutlined aria-hidden="true" />,
     defaultReason: "用户或运营取消未完成任务，并退还未结算灵点",
     danger: true,
   },
   mark_failed_no_refund: {
     label: "结束不退款",
-    icon: <CloseCircleOutlined />,
+    icon: <CloseCircleOutlined aria-hidden="true" />,
     defaultReason: "任务已产生履约成本，运营结束任务但不退还灵点",
     danger: true,
   },

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { App, Button, Form, Input, InputNumber } from "@/components/ui/shadcn-compat";
+import { App, Button, Form, Input, InputNumber, Typography } from "@/components/ui/shadcn-compat";
 import { FileAddOutlined, PlusCircleOutlined } from "@/components/ui/ant-icons-compat";
 import { AdminUserPicker } from "@/components/admin/AdminUserPicker";
 
@@ -18,38 +18,77 @@ export function AdminCreditAdjustForm({
   mode?: "adjust" | "request";
 }) {
   const router = useRouter();
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const [form] = Form.useForm<CreditAdjustValue>();
   const isRequest = mode === "request";
 
   async function submit(values: CreditAdjustValue) {
-    try {
-      const res = await fetch(isRequest ? "/api/admin/operation-requests" : "/api/admin/credits/adjust", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          requestType: isRequest ? "credits.adjust" : undefined,
-          userId: values.userId,
-          amount: Number(values.amount),
-          reason: values.reason,
-          generationId: values.generationId || undefined,
-        }),
+    const res = await fetch(isRequest ? "/api/admin/operation-requests" : "/api/admin/credits/adjust", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        requestType: isRequest ? "credits.adjust" : undefined,
+        userId: values.userId,
+        amount: Number(values.amount),
+        reason: values.reason,
+        generationId: values.generationId || undefined,
+      }),
+    });
+    const payload = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(payload.error || `调整失败 (${res.status})`);
+  }
+
+  function handleSubmit(values: CreditAdjustValue) {
+    const summary = `${values.amount > 0 ? "+" : ""}${values.amount} 灵点 · ${values.reason}`;
+    const confirmTitle = isRequest ? "创建补偿审批单" : "确认直接调整灵点";
+    const confirmAction = isRequest ? "创建审批单" : "直接调整";
+    const runSubmit = () =>
+      submit(values)
+        .then(() => {
+          message.success(isRequest ? "补偿审批单已创建" : "灵点已调整，审计日志已记录");
+          form.resetFields();
+          router.refresh();
+        })
+        .catch((error: unknown) => {
+          message.error(error instanceof Error ? error.message : "调整失败");
+        });
+
+    if (isRequest) {
+      modal.confirm({
+        title: confirmTitle,
+        content: (
+          <Typography.Paragraph className="!mb-0">{summary}</Typography.Paragraph>
+        ),
+        okText: confirmAction,
+        async onOk() {
+          await runSubmit();
+        },
       });
-      const payload = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(payload.error || `调整失败 (${res.status})`);
-      message.success(isRequest ? "补偿审批单已创建" : "灵点已调整，审计日志已记录");
-      form.resetFields();
-      router.refresh();
-    } catch (error) {
-      message.error(error instanceof Error ? error.message : "调整失败");
+      return;
     }
+
+    // 直接调整 = destructive — 必须明确确认
+    modal.confirm({
+      title: confirmTitle,
+      content: (
+        <Typography.Paragraph className="!mb-0">
+          将对用户 <Typography.Text strong>{values.userId}</Typography.Text> 直接 {summary}。
+          此操作会立即生效并写入审计日志，无法撤销。
+        </Typography.Paragraph>
+      ),
+      okText: confirmAction,
+      okButtonProps: { danger: true },
+      async onOk() {
+        await runSubmit();
+      },
+    });
   }
 
   return (
     <Form<CreditAdjustValue>
       form={form}
       layout="vertical"
-      onFinish={submit}
+      onFinish={handleSubmit}
       className="p-4"
       initialValues={{ amount: 10 }}
     >
@@ -70,7 +109,7 @@ export function AdminCreditAdjustForm({
           <Button
             type="primary"
             htmlType="submit"
-            icon={isRequest ? <FileAddOutlined /> : <PlusCircleOutlined />}
+            icon={isRequest ? <FileAddOutlined aria-hidden="true" /> : <PlusCircleOutlined aria-hidden="true" />}
           >
             {isRequest ? "创建申请" : "直接调整"}
           </Button>

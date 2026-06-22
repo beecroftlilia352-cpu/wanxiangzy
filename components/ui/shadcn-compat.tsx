@@ -9,6 +9,7 @@ import {
   isValidElement,
   useContext,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -1093,12 +1094,50 @@ export const Layout = Object.assign(
   },
 );
 
-export function Drawer({ open, onClose, title, children, className }: { title?: ReactNode; placement?: string; size?: number; open?: boolean; onClose?: () => void; className?: string; children?: ReactNode }) {
+export function Drawer({ open, onClose, title, children, className, ariaLabel }: { title?: ReactNode; placement?: string; size?: number; open?: boolean; onClose?: () => void; className?: string; children?: ReactNode; ariaLabel?: string }) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  const titleId = useId();
+  useEffect(() => {
+    if (!open) return;
+    const previous = document.activeElement as HTMLElement | null;
+    const panel = panelRef.current;
+    const focusable = panel?.querySelector<HTMLElement>("button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])");
+    focusable?.focus();
+    function handleKey(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onClose?.();
+      }
+    }
+    document.addEventListener("keydown", handleKey);
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", handleKey);
+      document.body.style.overflow = "";
+      previous?.focus?.();
+    };
+  }, [open, onClose]);
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-[5000] bg-black/30" onClick={onClose}>
-      <div className={cn("h-full w-[292px] bg-white p-4 shadow-xl", className)} onClick={(event) => event.stopPropagation()}>
-        <div className="mb-4 flex items-center justify-between">{title}<Button size="small" onClick={onClose}>关闭</Button></div>
+    <div
+      className="fixed inset-0 z-[5000] bg-black/40 motion-safe:transition-opacity"
+      onClick={onClose}
+    >
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        aria-label={ariaLabel}
+        tabIndex={-1}
+        className={cn("h-full w-[292px] overflow-y-auto overscroll-contain bg-white p-4 shadow-xl", className)}
+        style={{ paddingTop: "max(1rem, env(safe-area-inset-top))", paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="mb-4 flex items-center justify-between gap-2">
+          <div id={titleId} className="min-w-0 truncate text-base font-black text-slate-950">{title}</div>
+          <Button size="small" onClick={onClose} aria-label="关闭抽屉">关闭</Button>
+        </div>
         {children}
       </div>
     </div>

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState, useTransition } from "react";
 import {
   AlertOutlined,
   ApiOutlined,
@@ -109,12 +109,14 @@ export function AdminShell({ admin, children }: AdminShellProps) {
   const searchParams = useSearchParams();
   const [collapsed, setCollapsed] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [routeLoading, setRouteLoading] = useState(false);
+  const [formPending, setFormPending] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [isPending, startTransition] = useTransition();
   const activeHref = mounted ? getActiveHref(pathname) : "";
   const selectedKeys = activeHref ? [activeHref] : [];
   const breadcrumbTitle = mounted ? currentTitle(pathname) : "Console";
   const routeKey = `${pathname}?${searchParams.toString()}`;
+  const lastRouteKeyRef = useRef(routeKey);
   const openKeys = useMemo(() => navGroups.filter((group) => group.children.some((item) => item.href === activeHref)).map((group) => group.key), [activeHref]);
   const menuItems = useMemo<MenuProps["items"]>(
     () =>
@@ -126,7 +128,15 @@ export function AdminShell({ admin, children }: AdminShellProps) {
           key: item.href,
           icon: item.icon,
           label: (
-            <Link href={item.href} onClick={() => setDrawerOpen(false)}>
+            <Link
+              href={item.href}
+              onClick={(event) => {
+                // 普通 Link 走 RSC 软导航,无需切换 formPending;
+                // 但若用户用 modifier 键想新开页签,保持默认行为。
+                if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+                setDrawerOpen(false);
+              }}
+            >
               {item.label}
             </Link>
           ),
@@ -140,15 +150,12 @@ export function AdminShell({ admin, children }: AdminShellProps) {
   }, []);
 
   useEffect(() => {
-    setRouteLoading(false);
-    setDrawerOpen(false);
+    if (lastRouteKeyRef.current !== routeKey) {
+      lastRouteKeyRef.current = routeKey;
+      setDrawerOpen(false);
+      setFormPending(false);
+    }
   }, [routeKey]);
-
-  useEffect(() => {
-    if (!routeLoading) return;
-    const timer = window.setTimeout(() => setRouteLoading(false), 12000);
-    return () => window.clearTimeout(timer);
-  }, [routeLoading]);
 
   function handleSubmit(event: React.FormEvent<HTMLElement>) {
     if (event.defaultPrevented) return;
@@ -158,13 +165,18 @@ export function AdminShell({ admin, children }: AdminShellProps) {
     if (method !== "get") return;
     const url = new URL(form.action || window.location.href, window.location.href);
     if (url.origin === window.location.origin && url.pathname.startsWith("/admin")) {
-      setRouteLoading(true);
+      startTransition(() => {
+        setFormPending(true);
+      });
     }
   }
 
+  const routeLoading = isPending || formPending;
+  const loadingId = useId();
+
   return (
     <Layout className="admin-app-shell flex" onSubmit={handleSubmit}>
-      <AdminRouteLoading active={routeLoading} />
+      <AdminRouteLoading active={routeLoading} id={loadingId} />
       <Layout.Sider
         width={252}
         collapsedWidth={76}
@@ -191,6 +203,7 @@ export function AdminShell({ admin, children }: AdminShellProps) {
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
         className="admin-mobile-drawer"
+        ariaLabel="后台导航菜单"
       >
         <Menu mode="inline" selectedKeys={selectedKeys} openKeys={mounted ? openKeys : []} items={menuItems} />
         <div className="mt-4">
@@ -237,17 +250,25 @@ export function AdminShell({ admin, children }: AdminShellProps) {
   );
 }
 
-function AdminRouteLoading({ active }: { active: boolean }) {
-  if (!active) return null;
-
+function AdminRouteLoading({ active, id }: { active: boolean; id?: string }) {
+  if (!active) {
+    // 始终在 DOM 中保留 polite region,屏幕阅读器才能感知到后续状态变化
+    return <span id={id} className="sr-only" role="status" aria-live="polite" />;
+  }
   return (
-    <div className="admin-route-loading" role="status" aria-live="polite" aria-label="页面加载中">
-      <div className="admin-route-loading-bar" />
-      <div className="admin-route-loading-card">
-        <Spin size="small" />
-        <Typography.Text className="!text-xs !font-bold !text-slate-700">页面加载中</Typography.Text>
+    <>
+      <div
+        className="admin-route-loading"
+        aria-hidden="true"
+      >
+        <div className="admin-route-loading-bar motion-safe:animate-pulse" />
+        <div className="admin-route-loading-card">
+          <Spin size="small" />
+          <Typography.Text className="!text-xs !font-bold !text-slate-700">页面加载中…</Typography.Text>
+        </div>
       </div>
-    </div>
+      <span id={id} className="sr-only" role="status" aria-live="polite">页面加载中</span>
+    </>
   );
 }
 
