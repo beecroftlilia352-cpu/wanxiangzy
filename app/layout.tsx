@@ -8,6 +8,7 @@ import "./styles/studio.css";
 import "./styles/home.css";
 import "./styles/studio-overrides.css";
 import { HeaderClient } from "@/components/HeaderClient";
+import { RouteProgress } from "@/components/ui/route-progress";
 import "@/lib/env";
 import { Geist } from "next/font/google";
 import { cn } from "@/lib/utils";
@@ -40,6 +41,7 @@ export default function RootLayout({
   return (
     <html lang="zh-CN" className={cn("font-sans", geist.variable)} style={{ colorScheme: "light" }}>
       <body className="min-h-screen text-codex-ink">
+        <RouteProgress />
         <HeaderClient />
         <main>{children}</main>
         <Toaster
