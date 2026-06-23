@@ -183,7 +183,7 @@ export function AdminShell({ admin, children }: AdminShellProps) {
         collapsible
         collapsed={collapsed}
         trigger={null}
-        className={`admin-sider shrink-0 motion-safe:transition-[width] motion-safe:duration-200 ${collapsed ? "w-[76px]" : "w-[252px]"}`}
+        className={`admin-sider shrink-0 motion-safe:transition-[width] motion-safe:duration-200 motion-reduce:transition-none ${collapsed ? "w-[76px]" : "w-[252px]"}`}
       >
         <AdminBrand collapsed={collapsed} />
         <Menu
