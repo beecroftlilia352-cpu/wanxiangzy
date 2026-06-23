@@ -456,6 +456,23 @@
   line-height: 1.5;
 }
 
+/* Theme toggle in the admin top bar — blend with the chrome rather than the
+   public site chrome (which uses slate-100 hover). */
+.admin-theme-toggle {
+  border: 1px solid var(--admin-border);
+  color: var(--admin-fg);
+  background: var(--admin-surface-soft);
+}
+
+.admin-theme-toggle:hover {
+  background: var(--admin-surface-strong);
+  color: var(--admin-fg);
+}
+
+.admin-theme-toggle:focus-visible {
+  --tw-ring-offset-color: var(--admin-bg);
+}
+
 @media (max-width: 767px) {
   .admin-content {
     padding: 14px;
