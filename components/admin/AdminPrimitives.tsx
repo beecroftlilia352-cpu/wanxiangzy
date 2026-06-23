@@ -4,6 +4,114 @@ import { AlertTriangle, ArrowUpRight, ImageIcon } from "lucide-react";
 import { AdminImagePreview } from "@/components/admin/AdminImagePreview";
 import type { TaskStatusGroup } from "@/lib/task-queue";
 
+/* ----------------------------------------------------------------------------
+ * Token reference
+ * Every color class below resolves to a CSS variable declared in
+ * `app/styles/admin.css`. The variables swap automatically when the user
+ * toggles the theme via the top-bar <ThemeToggle />.
+ * -------------------------------------------------------------------------- */
+const adminTextPrimary = "text-[var(--admin-fg)]";
+const adminTextMuted = "text-[var(--admin-muted)]";
+const adminTextFaint = "text-[var(--admin-faint)]";
+const adminTextLink = "text-[var(--admin-link)]";
+const adminSurface = "bg-[var(--admin-surface)]";
+const adminSurfaceSoft = "bg-[var(--admin-surface-soft)]";
+const adminBorder = "border-[var(--admin-border)]";
+
+/* ----------------------------------------------------------------------------
+ * Tone helpers — keep status / metric / notice styling in one place so a
+ * future tweak only changes these strings.
+ * -------------------------------------------------------------------------- */
+type Tone = "success" | "warning" | "danger" | "info" | "neutral";
+
+function badgeToneClass(tone: Tone) {
+  // Each variant reads from the matching --admin-{tone}-{border|soft|fg} trio
+  // declared in admin.css. Border + bg are pre-mixed rgba so the same class
+  // works on both light surface and dark surface tokens.
+  switch (tone) {
+    case "success":
+      return "border-[var(--admin-success-border)] bg-[var(--admin-success-soft)] text-[var(--admin-success)]";
+    case "warning":
+      return "border-[var(--admin-warning-border)] bg-[var(--admin-warning-soft)] text-[var(--admin-warning)]";
+    case "danger":
+      return "border-[var(--admin-danger-border)] bg-[var(--admin-danger-soft)] text-[var(--admin-danger)]";
+    case "info":
+      return "border-[var(--admin-info-border)] bg-[var(--admin-info-soft)] text-[var(--admin-info)]";
+    default:
+      return "border-[var(--admin-neutral-border)] bg-[var(--admin-neutral-soft)] text-[var(--admin-neutral)]";
+  }
+}
+
+function metricBorderClass(tone: Tone) {
+  switch (tone) {
+    case "success":
+      return "border-[var(--admin-success-border)]";
+    case "warning":
+      return "border-[var(--admin-warning-border)]";
+    case "danger":
+      return "border-[var(--admin-danger-border)]";
+    default:
+      return adminBorder;
+  }
+}
+
+function metricToneFg(tone: Tone): string {
+  switch (tone) {
+    case "success":
+      return "var(--admin-success)";
+    case "warning":
+      return "var(--admin-warning)";
+    case "danger":
+      return "var(--admin-danger)";
+    default:
+      return "var(--admin-fg)";
+  }
+}
+
+/**
+ * Canonical status → tone map. Single source of truth used by both
+ * <AdminStatusBadge /> and any KPI / table cell that needs a status pill.
+ */
+function statusToTone(status: string, group?: TaskStatusGroup): Tone {
+  const normalized = (group || status).toLowerCase();
+  if (
+    normalized === "completed" ||
+    normalized === "success" ||
+    normalized === "published" ||
+    normalized === "pass" ||
+    normalized === "approved" ||
+    normalized === "active"
+  ) {
+    return "success";
+  }
+  if (
+    normalized === "failed" ||
+    normalized === "danger" ||
+    normalized === "hide" ||
+    normalized === "rejected" ||
+    normalized === "suspended"
+  ) {
+    return "danger";
+  }
+  if (normalized === "running" || normalized.startsWith("processing")) {
+    return "info";
+  }
+  if (
+    normalized === "queued" ||
+    normalized === "draft" ||
+    normalized === "escalate" ||
+    normalized === "pending" ||
+    normalized === "restricted"
+  ) {
+    return "warning";
+  }
+  return "neutral";
+}
+
+/* ----------------------------------------------------------------------------
+ * Components
+ * -------------------------------------------------------------------------- */
+
 export function AdminPageHeader({
   eyebrow,
   title,
@@ -18,9 +126,9 @@ export function AdminPageHeader({
   return (
     <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
       <div className="min-w-0">
-        {eyebrow && <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">{eyebrow}</p>}
-        <h1 className="mt-1 text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">{title}</h1>
-        {description && <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">{description}</p>}
+        {eyebrow && <p className={`text-xs font-black uppercase tracking-[0.14em] ${adminTextFaint}`}>{eyebrow}</p>}
+        <h1 className={`mt-1 text-2xl font-black tracking-tight sm:text-3xl ${adminTextPrimary}`}>{title}</h1>
+        {description && <p className={`mt-2 max-w-3xl text-sm leading-6 ${adminTextMuted}`}>{description}</p>}
       </div>
       {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
     </div>
@@ -39,11 +147,11 @@ export function AdminSection({
   actions?: ReactNode;
 }) {
   return (
-    <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
-      <div className="flex flex-col gap-3 border-b border-slate-200 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+    <section className={`rounded-lg border ${adminBorder} ${adminSurface} shadow-sm`}>
+      <div className={`flex flex-col gap-3 border-b ${adminBorder} px-4 py-3 sm:flex-row sm:items-center sm:justify-between`}>
         <div>
-          <h2 className="text-sm font-black text-slate-950">{title}</h2>
-          {description && <p className="mt-1 text-xs leading-5 text-slate-500">{description}</p>}
+          <h2 className={`text-sm font-black ${adminTextPrimary}`}>{title}</h2>
+          {description && <p className={`mt-1 text-xs leading-5 ${adminTextMuted}`}>{description}</p>}
         </div>
         {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
       </div>
@@ -65,21 +173,24 @@ export function AdminMetricCard({
   tone?: "neutral" | "good" | "warning" | "danger";
   suffix?: string;
 }) {
+  const normalized: Tone =
+    tone === "good" ? "success" : tone === "warning" ? "warning" : tone === "danger" ? "danger" : "neutral";
   return (
-    <div className={`rounded-lg border bg-white p-4 shadow-sm ${metricToneClass(tone)}`}>
-      <p className="text-xs font-black uppercase tracking-[0.1em] text-slate-400">{label}</p>
+    <div className={`rounded-lg border ${adminSurface} p-4 shadow-sm ${metricBorderClass(normalized)}`}>
+      <p className={`text-xs font-black uppercase tracking-[0.1em] ${adminTextFaint}`}>{label}</p>
       <div className="mt-3 flex items-baseline gap-1">
-        <span className="text-2xl font-black tabular-nums text-slate-950">{value}</span>
-        {suffix && <span className="text-xs font-bold text-slate-500">{suffix}</span>}
+        <span className={`text-2xl font-black tabular-nums ${adminTextPrimary}`}>{value}</span>
+        {suffix && <span className={`text-xs font-bold ${adminTextMuted}`}>{suffix}</span>}
       </div>
-      {hint && <p className="mt-2 text-xs font-semibold text-slate-500">{hint}</p>}
+      {hint && <p className={`mt-2 text-xs font-semibold ${adminTextMuted}`}>{hint}</p>}
     </div>
   );
 }
 
 export function AdminNotice({ children, tone = "warning" }: { children: ReactNode; tone?: "warning" | "danger" | "info" }) {
+  const normalized: Tone = tone === "danger" ? "danger" : tone === "info" ? "info" : "warning";
   return (
-    <div className={`flex items-start gap-2 rounded-lg border px-3 py-2 text-sm leading-6 ${noticeToneClass(tone)}`}>
+    <div className={`flex items-start gap-2 rounded-lg border px-3 py-2 text-sm leading-6 ${badgeToneClass(normalized)}`}>
       <AlertTriangle aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
       <div>{children}</div>
     </div>
@@ -87,25 +198,9 @@ export function AdminNotice({ children, tone = "warning" }: { children: ReactNod
 }
 
 export function AdminStatusBadge({ status, group }: { status: string; group?: TaskStatusGroup }) {
-  const normalized = (group || status).toLowerCase();
-  const className =
-    normalized === "completed" ||
-    normalized === "success" ||
-    normalized === "published" ||
-    normalized === "pass" ||
-    normalized === "approved" ||
-    normalized === "active"
-      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-      : normalized === "failed" || normalized === "danger" || normalized === "hide" || normalized === "rejected" || normalized === "suspended"
-        ? "border-red-200 bg-red-50 text-red-700"
-      : normalized === "running" || normalized.startsWith("processing")
-        ? "border-blue-200 bg-blue-50 text-blue-700"
-        : normalized === "queued" || normalized === "draft" || normalized === "escalate" || normalized === "pending" || normalized === "restricted"
-            ? "border-amber-200 bg-amber-50 text-amber-700"
-            : "border-slate-200 bg-slate-100 text-slate-600";
-
+  const tone = statusToTone(status, group);
   return (
-    <span className={`inline-flex h-6 items-center rounded-md border px-2 text-[11px] font-black leading-none ${className}`}>
+    <span className={`inline-flex h-6 items-center rounded-md border px-2 text-[11px] font-black leading-none ${badgeToneClass(tone)}`}>
       {formatStatusLabel(status, group)}
     </span>
   );
@@ -131,10 +226,10 @@ export function AdminTable<T>({
     return (
       <div className="flex min-h-44 items-center justify-center px-4 py-8 text-center">
         <div>
-          <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100">
-            <ImageIcon aria-hidden="true" className="h-5 w-5 text-slate-400" />
+          <div className={`mx-auto flex h-10 w-10 items-center justify-center rounded-lg ${adminSurfaceSoft}`}>
+            <ImageIcon aria-hidden="true" className={`h-5 w-5 ${adminTextFaint}`} />
           </div>
-          <p className="mt-3 text-sm font-bold text-slate-700">{empty || "暂无数据"}</p>
+          <p className={`mt-3 text-sm font-bold ${adminTextPrimary}`}>{empty || "暂无数据"}</p>
         </div>
       </div>
     );
@@ -142,23 +237,23 @@ export function AdminTable<T>({
 
   return (
     <div className="overflow-x-auto">
-      <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
-        <thead className="bg-slate-50">
+      <table className={`min-w-full divide-y ${adminBorder} text-left text-sm`}>
+        <thead className={adminSurfaceSoft}>
           <tr>
             {columns.map((column) => (
               <th
                 key={column.key}
                 scope="col"
-                className={`whitespace-nowrap px-4 py-2.5 text-xs font-black uppercase tracking-[0.08em] text-slate-400 ${column.className || ""}`}
+                className={`whitespace-nowrap px-4 py-2.5 text-xs font-black uppercase tracking-[0.08em] ${adminTextFaint} ${column.className || ""}`}
               >
                 {column.label}
               </th>
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100 bg-white">
+        <tbody className={`divide-y ${adminBorder} ${adminSurface}`}>
           {rows.map((row, index) => (
-            <tr key={rowKey(row, index)} className="hover:bg-slate-50/80">
+            <tr key={rowKey(row, index)} className="hover:bg-[var(--admin-surface-soft)]">
               {columns.map((column) => (
                 <td key={column.key} className={`px-4 py-3 align-middle ${column.className || ""}`}>
                   {column.render(row)}
@@ -176,7 +271,7 @@ export function ThumbnailStrip({ urls }: { urls: string[] }) {
   const cleanUrls = urls.map((url) => url.trim()).filter(Boolean);
   const visibleCount = cleanUrls.length > 4 ? 3 : Math.min(cleanUrls.length, 4);
   const visible = cleanUrls.slice(0, visibleCount);
-  if (!visible.length) return <span className="text-xs font-semibold text-slate-400">无图片</span>;
+  if (!visible.length) return <span className={`text-xs font-semibold ${adminTextFaint}`}>无图片</span>;
 
   return (
     <div className="flex items-center -space-x-2">
@@ -194,7 +289,7 @@ export function ThumbnailStrip({ urls }: { urls: string[] }) {
           initialIndex={visible.length}
           label="预览更多图片"
           countLabel={`+${cleanUrls.length - visible.length}`}
-          triggerClassName="flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 bg-white shadow-sm"
+          triggerClassName={`flex h-9 w-9 items-center justify-center rounded-md border ${adminBorder} ${adminSurface} shadow-sm`}
         />
       )}
     </div>
@@ -203,7 +298,7 @@ export function ThumbnailStrip({ urls }: { urls: string[] }) {
 
 export function AdminExternalLink({ href, children }: { href: string; children: ReactNode }) {
   return (
-    <Link href={href} className="inline-flex items-center gap-1 text-xs font-black text-slate-600 hover:text-slate-950">
+    <Link href={href} className={`inline-flex items-center gap-1 text-xs font-black ${adminTextLink} hover:text-[var(--admin-fg)]`}>
       {children}
       <ArrowUpRight aria-hidden="true" className="h-3 w-3" />
     </Link>
@@ -250,17 +345,22 @@ export function operationTypeLabel(value: string | null | undefined) {
   return value || "后台操作";
 }
 
-function metricToneClass(tone: "neutral" | "good" | "warning" | "danger") {
-  if (tone === "good") return "border-emerald-200";
-  if (tone === "warning") return "border-amber-200";
-  if (tone === "danger") return "border-red-200";
-  return "border-slate-200";
+/**
+ * Public helper for any KPI tile / inline value that needs a tone-colored
+ * foreground. Returned as `var(--admin-...)` so it inherits dark-mode.
+ */
+export function adminToneColor(tone: "neutral" | "good" | "warning" | "danger"): string {
+  const normalized: Tone =
+    tone === "good" ? "success" : tone === "warning" ? "warning" : tone === "danger" ? "danger" : "neutral";
+  return metricToneFg(normalized);
 }
 
-function noticeToneClass(tone: "warning" | "danger" | "info") {
-  if (tone === "danger") return "border-red-200 bg-red-50 text-red-700";
-  if (tone === "info") return "border-blue-200 bg-blue-50 text-blue-700";
-  return "border-amber-200 bg-amber-50 text-amber-800";
+/**
+ * Public helper mirroring <Tag color="..."> from shadcn-compat — keeps the
+ * tone vocabulary consistent across the admin area.
+ */
+export function adminToneClass(tone: Tone): string {
+  return badgeToneClass(tone);
 }
 
 function formatStatusLabel(status: string, group?: TaskStatusGroup) {
