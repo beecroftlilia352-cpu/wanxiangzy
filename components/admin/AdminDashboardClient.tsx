@@ -6,7 +6,6 @@ import { useMemo } from "react";
 import dynamic from "next/dynamic";
 import {
   Alert,
-  Button,
   Card,
   Col,
   List,
@@ -29,7 +28,15 @@ import {
   FireOutlined,
   ReloadOutlined,
 } from "@/components/ui/ant-icons-compat";
+import {
+  AdminPageHeader,
+  AdminStatusBadge,
+  adminToneColor,
+  formatDateTime,
+  formatNumber as formatNumberPrimitive,
+} from "@/components/admin/AdminPrimitives";
 import type { AdminCostReport, AdminOverview, AdminTaskListItem } from "@/lib/admin/data";
+import type { TaskStatusGroup } from "@/lib/task-queue";
 
 type AdminDashboardClientProps = {
   overview: AdminOverview;
@@ -62,10 +69,10 @@ export function AdminDashboardClient({ overview, report, days }: AdminDashboardC
       render: (_, row) => (
         <Space orientation="vertical" size={0} className="min-w-0">
           <Space size={6} wrap>
-            <StatusTag status={row.statusGroup} label={row.status} />
+            <AdminStatusBadge status={row.status} group={(row.statusGroup as TaskStatusGroup | undefined) ?? undefined} />
             <Typography.Text type="secondary">{row.sourceType}</Typography.Text>
           </Space>
-          <Link href={`/admin/generations/${row.sourceId}`} className="font-semibold">
+          <Link href={`/admin/generations/${row.sourceId}`} className="font-semibold text-[var(--admin-fg)] hover:text-[var(--admin-fg)]">
             {row.title}
           </Link>
           <Typography.Text type="secondary" className="block truncate text-xs">
@@ -85,42 +92,38 @@ export function AdminDashboardClient({ overview, report, days }: AdminDashboardC
       title: "时间",
       dataIndex: "createdAt",
       width: 140,
-      render: (value: string | null) => formatDate(value),
+      render: (value: string | null) => formatDateTime(value),
     },
   ], []);
 
   return (
     <Space orientation="vertical" size={16} className="w-full">
-      <div className="admin-page-hero">
-        <div>
-          <Typography.Text className="admin-page-eyebrow">Console</Typography.Text>
-          <Typography.Title level={2} className="!mb-1 !mt-1">
-            运营总览
-          </Typography.Title>
-          <Typography.Paragraph className="!mb-0 !text-[var(--admin-muted)]">
-            生成任务、收入灵点、模型成本、队列健康和异常处理统一看板。
-          </Typography.Paragraph>
-        </div>
-        <Space wrap>
-          <Segmented
-            value={days}
-            options={dayOptions}
-            onChange={(value) => {
-              const href = value === 7 ? "/admin" : `/admin?days=${value}`;
-              router.push(href);
-            }}
-            aria-label="选择时间窗口"
-          />
-          <Link
-            href="/admin"
-            className="inline-flex h-9 items-center gap-2 rounded-md border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm font-semibold text-[var(--admin-fg)] shadow-sm transition-colors hover:border-[var(--admin-border-strong)] hover:text-[var(--admin-fg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-fg)] focus-visible:ring-offset-2"
-            aria-label="刷新运营总览"
-          >
-            <ReloadOutlined aria-hidden="true" />
-            刷新
-          </Link>
-        </Space>
-      </div>
+      <AdminPageHeader
+        eyebrow="Console"
+        title="运营总览"
+        description="生成任务、收入灵点、模型成本、队列健康和异常处理统一看板。"
+        actions={
+          <Space wrap>
+            <Segmented
+              value={days}
+              options={dayOptions}
+              onChange={(value) => {
+                const href = value === 7 ? "/admin" : `/admin?days=${value}`;
+                router.push(href);
+              }}
+              aria-label="选择时间窗口"
+            />
+            <Link
+              href="/admin"
+              className="inline-flex h-9 items-center gap-2 rounded-md border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm font-semibold text-[var(--admin-fg)] shadow-sm transition-colors hover:border-[var(--admin-border-strong)] hover:text-[var(--admin-fg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-fg)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--admin-bg)]"
+              aria-label="刷新运营总览"
+            >
+              <ReloadOutlined aria-hidden="true" />
+              刷新
+            </Link>
+          </Space>
+        }
+      />
 
       {overview.warnings.length > 0 && (
         <Alert type="warning" showIcon message="部分数据源暂不可用" description={overview.warnings.slice(0, 3).join("；")} />
@@ -155,15 +158,15 @@ export function AdminDashboardClient({ overview, report, days }: AdminDashboardC
           <Card title="异常入口">
             <List
               dataSource={[
-                { label: "失败任务", value: overview.taskHealth.failed, href: "/admin/generations?status=failed", tone: "red" },
-                { label: "排队任务", value: overview.taskHealth.queued, href: "/admin/generations?status=queued", tone: "orange" },
-                { label: "运行任务", value: overview.taskHealth.running, href: "/admin/generations?status=running", tone: "blue" },
-                { label: "失败锁定灵点", value: report.metrics.failedReservedCredits, href: "/admin/reports", tone: "red" },
+                { label: "失败任务", value: overview.taskHealth.failed, href: "/admin/generations?status=failed", tone: "red" as const },
+                { label: "排队任务", value: overview.taskHealth.queued, href: "/admin/generations?status=queued", tone: "orange" as const },
+                { label: "运行任务", value: overview.taskHealth.running, href: "/admin/generations?status=running", tone: "blue" as const },
+                { label: "失败锁定灵点", value: report.metrics.failedReservedCredits, href: "/admin/reports", tone: "red" as const },
               ]}
               renderItem={(item) => (
                 <List.Item actions={[<Link key="open" href={item.href} aria-label={`查看 ${item.label}`} className="text-sm font-semibold text-[var(--admin-fg)] hover:text-[var(--admin-fg)]">查看</Link>]}>
                   <List.Item.Meta
-                    avatar={<Tag color={item.tone}>{formatNumber(item.value)}</Tag>}
+                    avatar={<Tag color={item.tone}>{formatNumberPrimitive(item.value)}</Tag>}
                     title={item.label}
                     description="点击进入已保留筛选条件的处理队列"
                   />
@@ -174,23 +177,63 @@ export function AdminDashboardClient({ overview, report, days }: AdminDashboardC
         </Col>
       </Row>
 
-      <LazyDashboardCharts overview={overview} report={report} days={days} />
+      <div key={days}>
+        <LazyDashboardCharts overview={overview} report={report} days={days} />
+      </div>
     </Space>
   );
 }
 
+/* ----------------------------------------------------------------------------
+ * Structural chart skeleton — mirrors the 4-card layout of AdminDashboardCharts
+ * so users see the real shape of what's loading, not 4 generic grey boxes.
+ * -------------------------------------------------------------------------- */
 function DashboardChartsSkeleton() {
   return (
-    <div className="grid gap-4 xl:grid-cols-2">
-      {Array.from({ length: 4 }).map((_, index) => (
-        <Card key={index} title="图表加载中">
-          <div className="h-[300px] rounded-md bg-[var(--admin-surface-soft)]" />
-        </Card>
-      ))}
+    <div className="grid gap-4 xl:grid-cols-2" aria-hidden="true">
+      <Card title="每日趋势">
+        <SkeletonBlock height={280} lines={[{ width: "92%", height: 8 }, { width: "78%", height: 8 }, { width: "65%", height: 8 }]} />
+      </Card>
+      <Card title="任务状态分布">
+        <SkeletonBlock height={280} variant="circle-row" />
+      </Card>
+      <Card title="模块排行">
+        <SkeletonBlock height={280} lines={Array.from({ length: 6 }, () => ({ width: `${50 + Math.floor(Math.random() * 40)}%`, height: 14 }))} />
+      </Card>
+      <Card title="模型毛利">
+        <SkeletonBlock height={280} lines={Array.from({ length: 5 }, () => ({ width: `${40 + Math.floor(Math.random() * 50)}%`, height: 12 }))} />
+      </Card>
     </div>
   );
 }
 
+function SkeletonBlock({ height, lines, variant }: { height: number; lines?: Array<{ width: string; height: number }>; variant?: "circle-row" }) {
+  return (
+    <div className="space-y-3 animate-pulse" style={{ minHeight: height }}>
+      {variant === "circle-row"
+        ? (
+          <div className="flex items-center gap-6">
+            <div className="h-32 w-32 rounded-full bg-[var(--admin-surface-soft)]" />
+            <div className="flex-1 space-y-2">
+              {[60, 75, 50, 90, 65].map((w, i) => (
+                <div key={i} className="h-3 rounded-full bg-[var(--admin-surface-soft)]" style={{ width: `${w}%` }} />
+              ))}
+            </div>
+          </div>
+        )
+        : (
+          lines?.map((line, i) => (
+            <div key={i} className="rounded-md bg-[var(--admin-surface-soft)]" style={{ width: line.width, height: line.height }} />
+          ))
+        )}
+    </div>
+  );
+}
+
+/* ----------------------------------------------------------------------------
+ * KPI tile — tone is one of "neutral" | "good" | "warning" | "danger";
+ * resolved through adminToneColor() so the value color inherits dark mode.
+ * -------------------------------------------------------------------------- */
 function KpiCard({
   title,
   value,
@@ -206,7 +249,7 @@ function KpiCard({
   tone?: "neutral" | "good" | "warning" | "danger";
   icon: React.ReactNode;
 }) {
-  const color = tone === "good" ? "#16a34a" : tone === "warning" ? "#d97706" : tone === "danger" ? "#dc2626" : "#0f172a";
+  const color = adminToneColor(tone);
   return (
     <Col xs={24} sm={12} xl={4}>
       <Card className="admin-kpi-card">
@@ -220,23 +263,4 @@ function KpiCard({
       </Card>
     </Col>
   );
-}
-
-function StatusTag({ status, label }: { status: string; label: string }) {
-  const color = status === "completed" ? "green" : status === "failed" ? "red" : status === "running" ? "blue" : "orange";
-  return <Tag color={color}>{label}</Tag>;
-}
-
-function formatNumber(value: number) {
-  return new Intl.NumberFormat("zh-CN").format(Math.round(value * 10) / 10);
-}
-
-function formatDate(value: string | null) {
-  if (!value) return "-";
-  return new Intl.DateTimeFormat("zh-CN", {
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(value));
 }
