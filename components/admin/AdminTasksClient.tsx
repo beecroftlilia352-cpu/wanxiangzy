@@ -108,13 +108,13 @@ export function AdminTasksClient({ tasks, q, status, module, stale, page, pageSi
         <div>
           <Typography.Text className="admin-page-eyebrow">Tasks</Typography.Text>
           <Typography.Title level={2} className="!mb-1 !mt-1">任务中心</Typography.Title>
-          <Typography.Paragraph className="!mb-0 !text-slate-500">
+          <Typography.Paragraph className="!mb-0 !text-[var(--admin-muted)]">
             统一查看生成任务和工作流任务；支持长时间未完成任务重新处理、结束任务和退还灵点。
           </Typography.Paragraph>
         </div>
         <Link
           href="/api/jobs/process-generations"
-          className="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2"
+          className="inline-flex h-9 items-center gap-2 rounded-md border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm font-semibold text-[var(--admin-fg)] shadow-sm transition-colors hover:border-[var(--admin-border-strong)] hover:text-[var(--admin-fg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-fg)] focus-visible:ring-offset-2"
         >
           <ApiOutlined aria-hidden="true" />
           处理入口
@@ -238,7 +238,7 @@ function TaskThumbnails({ urls, label, empty = "无图片" }: { urls?: string[] 
             type="button"
             aria-label={`${label} ${index + 1}/${clean.length}`}
             title={`${label} ${index + 1}/${clean.length}`}
-            className="admin-task-thumb-trigger focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2"
+            className="admin-task-thumb-trigger focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-fg)] focus-visible:ring-offset-2"
             onClick={() => setOpenIndex(index)}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -250,7 +250,7 @@ function TaskThumbnails({ urls, label, empty = "无图片" }: { urls?: string[] 
             type="button"
             aria-label={`预览更多${label}`}
             title={`预览更多${label}`}
-            className="admin-task-thumb-more-trigger focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2"
+            className="admin-task-thumb-more-trigger focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-fg)] focus-visible:ring-offset-2"
             onClick={() => setOpenIndex(visible.length)}
           >
             +{remaining}
@@ -263,10 +263,10 @@ function TaskThumbnails({ urls, label, empty = "无图片" }: { urls?: string[] 
           role="dialog"
           aria-modal="true"
           aria-label={label}
-          className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/90 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-[var(--admin-fg)]/90 p-4 backdrop-blur-sm"
           onClick={() => setOpenIndex(null)}
         >
-          <div className="absolute left-4 top-4 rounded-lg border border-white/10 bg-white/10 px-3 py-2 text-xs font-black tabular-nums text-white/85 shadow-lg backdrop-blur">
+          <div className="absolute left-4 top-4 rounded-lg border border-white/10 bg-[var(--admin-surface)]/10 px-3 py-2 text-xs font-black tabular-nums text-white/85 shadow-lg backdrop-blur">
             {hasMultiple ? `${activeIndex + 1} / ${clean.length}` : label}
           </div>
 
@@ -276,7 +276,7 @@ function TaskThumbnails({ urls, label, empty = "无图片" }: { urls?: string[] 
               target="_blank"
               rel="noreferrer"
               onClick={(event) => event.stopPropagation()}
-              className="inline-flex h-9 items-center gap-2 rounded-lg border border-white/15 bg-white/10 px-3 text-xs font-black text-white hover:bg-white/20"
+              className="inline-flex h-9 items-center gap-2 rounded-lg border border-white/15 bg-[var(--admin-surface)]/10 px-3 text-xs font-black text-white hover:bg-[var(--admin-surface)]/20"
             >
               <ExternalLink className="h-4 w-4" />
               原图
@@ -288,7 +288,7 @@ function TaskThumbnails({ urls, label, empty = "无图片" }: { urls?: string[] 
                 event.stopPropagation();
                 setOpenIndex(null);
               }}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-white/15 bg-white/10 text-white hover:bg-white/20"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-white/15 bg-[var(--admin-surface)]/10 text-white hover:bg-[var(--admin-surface)]/20"
             >
               <X className="h-4 w-4" />
             </button>
@@ -303,7 +303,7 @@ function TaskThumbnails({ urls, label, empty = "无图片" }: { urls?: string[] 
                   event.stopPropagation();
                   move(-1);
                 }}
-                className="absolute left-4 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-lg border border-white/15 bg-white/10 text-white hover:bg-white/20"
+                className="absolute left-4 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-lg border border-white/15 bg-[var(--admin-surface)]/10 text-white hover:bg-[var(--admin-surface)]/20"
               >
                 <ChevronLeft className="h-5 w-5" />
               </button>
@@ -314,7 +314,7 @@ function TaskThumbnails({ urls, label, empty = "无图片" }: { urls?: string[] 
                   event.stopPropagation();
                   move(1);
                 }}
-                className="absolute right-4 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-lg border border-white/15 bg-white/10 text-white hover:bg-white/20"
+                className="absolute right-4 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-lg border border-white/15 bg-[var(--admin-surface)]/10 text-white hover:bg-[var(--admin-surface)]/20"
               >
                 <ChevronRight className="h-5 w-5" />
               </button>

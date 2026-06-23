@@ -38,7 +38,7 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
         title={profile?.email || "用户详情"}
         description="集中查看用户资料、灵点流水、任务历史和资产作品，并提供资料、灵点和生成权限管理。"
         actions={
-          <Link href="/admin/users" className="inline-flex h-9 items-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 shadow-sm hover:bg-slate-50">
+          <Link href="/admin/users" className="inline-flex h-9 items-center rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-xs font-black text-[var(--admin-fg)] shadow-sm hover:bg-[var(--admin-surface-soft)]">
             返回用户列表
           </Link>
         }
@@ -86,11 +86,11 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
           rowKey={(row) => row.id}
           empty="暂无灵点流水"
           columns={[
-            { key: "amount", label: "变动", render: (row) => <span className={`font-mono text-sm font-black ${row.amount >= 0 ? "text-emerald-700" : "text-red-700"}`}>{row.amount > 0 ? "+" : ""}{formatNumber(row.amount)}</span> },
-            { key: "balance", label: "余额", render: (row) => <span className="font-mono text-sm font-bold text-slate-700">{formatNumber(row.balance)}</span> },
-            { key: "reason", label: "原因", render: (row) => <span className="text-sm font-semibold text-slate-700">{row.reason}</span> },
-            { key: "generation", label: "关联任务", render: (row) => row.generationId ? <Link href={`/admin/generations/${row.generationId}`} className="text-xs font-bold text-slate-700 hover:underline">查看任务（{shortAdminCode(row.generationId, "")}）</Link> : <span className="text-xs text-slate-400">-</span> },
-            { key: "time", label: "时间", render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-slate-500">{formatDateTime(row.createdAt)}</span> },
+            { key: "amount", label: "变动", render: (row) => <span className={`font-mono text-sm font-black ${row.amount >= 0 ? "text-[var(--admin-success)]" : "text-[var(--admin-danger)]"}`}>{row.amount > 0 ? "+" : ""}{formatNumber(row.amount)}</span> },
+            { key: "balance", label: "余额", render: (row) => <span className="font-mono text-sm font-bold text-[var(--admin-fg)]">{formatNumber(row.balance)}</span> },
+            { key: "reason", label: "原因", render: (row) => <span className="text-sm font-semibold text-[var(--admin-fg)]">{row.reason}</span> },
+            { key: "generation", label: "关联任务", render: (row) => row.generationId ? <Link href={`/admin/generations/${row.generationId}`} className="text-xs font-bold text-[var(--admin-fg)] hover:underline">查看任务（{shortAdminCode(row.generationId, "")}）</Link> : <span className="text-xs text-[var(--admin-faint)]">-</span> },
+            { key: "time", label: "时间", render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-[var(--admin-muted)]">{formatDateTime(row.createdAt)}</span> },
           ]}
         />
       </AdminSection>
@@ -107,18 +107,18 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
               render: (row) => (
                 <div className="min-w-[240px]">
                   <AdminStatusBadge status={row.status} group={row.statusGroup} />
-                  <Link href={`/admin/generations/${row.sourceId}`} className="mt-1 block truncate text-sm font-black text-slate-950 hover:underline">
+                  <Link href={`/admin/generations/${row.sourceId}`} className="mt-1 block truncate text-sm font-black text-[var(--admin-fg)] hover:underline">
                     {row.title}
                   </Link>
-                  <p className="mt-0.5 truncate text-[11px] font-semibold text-slate-400">{shortAdminCode(row.sourceId, "任务")}</p>
+                  <p className="mt-0.5 truncate text-[11px] font-semibold text-[var(--admin-faint)]">{shortAdminCode(row.sourceId, "任务")}</p>
                 </div>
               ),
             },
             { key: "thumbs", label: "图像", render: (row) => <ThumbnailStrip urls={row.resultThumbnails.length ? row.resultThumbnails : row.inputThumbnails} /> },
-            { key: "module", label: "模块", render: (row) => <span className="text-sm font-bold text-slate-700">{row.moduleLabel}</span> },
-            { key: "stale", label: "处理状态", render: (row) => <span className={`whitespace-nowrap text-xs font-black ${row.isStale ? "text-orange-700" : "text-slate-400"}`}>{row.isStale ? `长时间未完成 ${row.staleMinutes} 分钟` : "正常"}</span> },
+            { key: "module", label: "模块", render: (row) => <span className="text-sm font-bold text-[var(--admin-fg)]">{row.moduleLabel}</span> },
+            { key: "stale", label: "处理状态", render: (row) => <span className={`whitespace-nowrap text-xs font-black ${row.isStale ? "text-orange-700" : "text-[var(--admin-faint)]"}`}>{row.isStale ? `长时间未完成 ${row.staleMinutes} 分钟` : "正常"}</span> },
             { key: "actions", label: "操作", render: (row) => <AdminTaskActions id={row.sourceId} sourceType={row.sourceType} statusGroup={row.statusGroup} isStale={row.isStale} compact /> },
-            { key: "time", label: "时间", render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-slate-500">{formatDateTime(row.createdAt)}</span> },
+            { key: "time", label: "时间", render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-[var(--admin-muted)]">{formatDateTime(row.createdAt)}</span> },
           ]}
         />
       </AdminSection>
@@ -130,9 +130,9 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
           empty="暂无资产"
           columns={[
             { key: "preview", label: "预览", render: (row) => <ThumbnailStrip urls={row.urls.length ? row.urls : row.inputUrls} /> },
-            { key: "title", label: "标题", render: (row) => <span className="text-sm font-black text-slate-950">{row.title}</span> },
-            { key: "module", label: "模块", render: (row) => <span className="text-sm font-bold text-slate-700">{row.moduleLabel}</span> },
-            { key: "time", label: "时间", render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-slate-500">{formatDateTime(row.updatedAt || row.createdAt)}</span> },
+            { key: "title", label: "标题", render: (row) => <span className="text-sm font-black text-[var(--admin-fg)]">{row.title}</span> },
+            { key: "module", label: "模块", render: (row) => <span className="text-sm font-bold text-[var(--admin-fg)]">{row.moduleLabel}</span> },
+            { key: "time", label: "时间", render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-[var(--admin-muted)]">{formatDateTime(row.updatedAt || row.createdAt)}</span> },
           ]}
         />
       </AdminSection>
@@ -143,8 +143,8 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
 function DetailItem({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
   return (
     <div>
-      <dt className="text-xs font-black uppercase tracking-[0.08em] text-slate-400">{label}</dt>
-      <dd className={`mt-1 break-all text-sm font-bold text-slate-800 ${mono ? "font-mono" : ""}`}>{value}</dd>
+      <dt className="text-xs font-black uppercase tracking-[0.08em] text-[var(--admin-faint)]">{label}</dt>
+      <dd className={`mt-1 break-all text-sm font-bold text-[var(--admin-fg)] ${mono ? "font-mono" : ""}`}>{value}</dd>
     </div>
   );
 }

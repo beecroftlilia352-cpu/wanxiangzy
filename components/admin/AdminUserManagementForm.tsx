@@ -171,17 +171,17 @@ export function AdminUserManagementForm({ profile }: AdminUserManagementFormProp
   return (
     <div className="grid gap-4 p-4 xl:grid-cols-3">
       <form onSubmit={submitProfile} className="space-y-3">
-        <div className="flex items-center gap-2 text-sm font-black text-slate-950">
-          <Save aria-hidden="true" className="h-4 w-4 text-slate-500" />
+        <div className="flex items-center gap-2 text-sm font-black text-[var(--admin-fg)]">
+          <Save aria-hidden="true" className="h-4 w-4 text-[var(--admin-muted)]" />
           基础资料
         </div>
         <label className="block space-y-1.5">
-          <span className="text-xs font-black text-slate-500">显示名</span>
+          <span className="text-xs font-black text-[var(--admin-muted)]">显示名</span>
           <input
             name="displayName"
             defaultValue={profile.displayName || ""}
             maxLength={80}
-            className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold outline-none focus:border-slate-400"
+            className="h-10 w-full rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm font-semibold outline-none focus:border-[var(--admin-border-strong)]"
             placeholder="用户昵称"
           />
         </label>
@@ -190,17 +190,17 @@ export function AdminUserManagementForm({ profile }: AdminUserManagementFormProp
       </form>
 
       <form onSubmit={handleControlSubmit} className="space-y-3">
-        <div className="flex items-center gap-2 text-sm font-black text-slate-950">
-          <Ban aria-hidden="true" className="h-4 w-4 text-slate-500" />
+        <div className="flex items-center gap-2 text-sm font-black text-[var(--admin-fg)]">
+          <Ban aria-hidden="true" className="h-4 w-4 text-[var(--admin-muted)]" />
           运营控制
         </div>
         <div className="grid grid-cols-2 gap-2">
           <label className="block space-y-1.5">
-            <span className="text-xs font-black text-slate-500">账号状态</span>
+            <span className="text-xs font-black text-[var(--admin-muted)]">账号状态</span>
             <select
               name="status"
               defaultValue={profile.accountStatus}
-              className="h-10 w-full rounded-lg border border-slate-200 bg-white px-2 text-sm font-bold text-slate-700"
+              className="h-10 w-full rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-2 text-sm font-bold text-[var(--admin-fg)]"
             >
               <option value="active">正常</option>
               <option value="restricted">观察</option>
@@ -208,11 +208,11 @@ export function AdminUserManagementForm({ profile }: AdminUserManagementFormProp
             </select>
           </label>
           <label className="block space-y-1.5">
-            <span className="text-xs font-black text-slate-500">服务等级</span>
+            <span className="text-xs font-black text-[var(--admin-muted)]">服务等级</span>
             <select
               name="supportLevel"
               defaultValue={profile.supportLevel}
-              className="h-10 w-full rounded-lg border border-slate-200 bg-white px-2 text-sm font-bold text-slate-700"
+              className="h-10 w-full rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-2 text-sm font-bold text-[var(--admin-fg)]"
             >
               <option value="standard">标准</option>
               <option value="priority">优先</option>
@@ -220,36 +220,36 @@ export function AdminUserManagementForm({ profile }: AdminUserManagementFormProp
             </select>
           </label>
         </div>
-        <label className="flex min-h-10 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-bold text-slate-700">
+        <label className="flex min-h-10 items-center gap-2 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] px-3 text-sm font-bold text-[var(--admin-fg)]">
           <input name="generateEnabled" type="checkbox" defaultChecked={profile.generateEnabled} className="h-4 w-4 rounded border-slate-300" />
           允许继续生成
         </label>
         <label className="block space-y-1.5">
-          <span className="text-xs font-black text-slate-500">限制到期</span>
+          <span className="text-xs font-black text-[var(--admin-muted)]">限制到期</span>
           <input
             name="expiresAt"
             type="datetime-local"
             defaultValue={toDateTimeLocal(profile.controlExpiresAt)}
-            className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold outline-none focus:border-slate-400"
+            className="h-10 w-full rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm font-semibold outline-none focus:border-[var(--admin-border-strong)]"
           />
         </label>
         <label className="block space-y-1.5">
-          <span className="text-xs font-black text-slate-500">原因</span>
+          <span className="text-xs font-black text-[var(--admin-muted)]">原因</span>
           <input
             name="reason"
             defaultValue={profile.controlReason || ""}
             maxLength={240}
-            className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold outline-none focus:border-slate-400"
+            className="h-10 w-full rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm font-semibold outline-none focus:border-[var(--admin-border-strong)]"
             placeholder="如：连续失败任务异常、人工风控观察"
           />
         </label>
         <label className="block space-y-1.5">
-          <span className="text-xs font-black text-slate-500">内部备注</span>
+          <span className="text-xs font-black text-[var(--admin-muted)]">内部备注</span>
           <textarea
             name="note"
             defaultValue={profile.controlNote || ""}
             maxLength={1000}
-            className="min-h-20 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold outline-none focus:border-slate-400"
+            className="min-h-20 w-full rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 py-2 text-sm font-semibold outline-none focus:border-[var(--admin-border-strong)]"
           />
         </label>
         <SubmitButton loading={controlLoading} icon={<ShieldCheck aria-hidden="true" className="h-4 w-4" />} label="保存控制" />
@@ -257,30 +257,30 @@ export function AdminUserManagementForm({ profile }: AdminUserManagementFormProp
       </form>
 
       <form onSubmit={handleCreditSubmit} className="space-y-3">
-        <div className="flex items-center gap-2 text-sm font-black text-slate-950">
-          <Coins aria-hidden="true" className="h-4 w-4 text-slate-500" />
+        <div className="flex items-center gap-2 text-sm font-black text-[var(--admin-fg)]">
+          <Coins aria-hidden="true" className="h-4 w-4 text-[var(--admin-muted)]" />
           灵点调整
         </div>
         <label className="block space-y-1.5">
-          <span className="text-xs font-black text-slate-500">变动数量</span>
+          <span className="text-xs font-black text-[var(--admin-muted)]">变动数量</span>
           <input
             name="amount"
             type="number"
             min={-10000}
             max={10000}
             required
-            className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 font-mono text-sm font-semibold outline-none focus:border-slate-400 tabular-nums"
+            className="h-10 w-full rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 font-mono text-sm font-semibold outline-none focus:border-[var(--admin-border-strong)] tabular-nums"
             placeholder="+20 / -5"
           />
         </label>
         <label className="block space-y-1.5">
-          <span className="text-xs font-black text-slate-500">调整原因</span>
+          <span className="text-xs font-black text-[var(--admin-muted)]">调整原因</span>
           <textarea
             name="reason"
             minLength={4}
             maxLength={240}
             required
-            className="min-h-28 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold outline-none focus:border-slate-400"
+            className="min-h-28 w-full rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 py-2 text-sm font-semibold outline-none focus:border-[var(--admin-border-strong)]"
             placeholder="如：卡住任务补偿、人工核对后扣回"
           />
         </label>
@@ -296,7 +296,7 @@ function SubmitButton({ loading, icon, label }: { loading: boolean; icon: ReactN
     <button
       type="submit"
       disabled={loading}
-      className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-slate-950 px-4 text-sm font-black text-white transition hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+      className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[var(--admin-fg)] px-4 text-sm font-black text-white transition-colors hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-fg)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
     >
       {loading ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : icon}
       {label}
@@ -308,7 +308,7 @@ function FormMessage({ message }: { message: string }) {
   if (!message) return null;
   const ok = message.includes("已");
   return (
-    <p role="status" aria-live="polite" className={`text-sm font-bold ${ok ? "text-emerald-700" : "text-red-700"}`}>
+    <p role="status" aria-live="polite" className={`text-sm font-bold ${ok ? "text-[var(--admin-success)]" : "text-[var(--admin-danger)]"}`}>
       {message}
     </p>
   );

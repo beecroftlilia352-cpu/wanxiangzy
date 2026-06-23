@@ -30,7 +30,7 @@ export function AdminInviteCodeActions({ id, status }: { id: string; status: "ac
       type="button"
       onClick={submit}
       disabled={loading}
-      className="inline-flex h-8 items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+      className="inline-flex h-8 items-center gap-1 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-xs font-black text-[var(--admin-fg)] hover:bg-[var(--admin-surface-soft)] disabled:opacity-60"
     >
       {loading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
       {status === "active" ? "停用" : "启用"}

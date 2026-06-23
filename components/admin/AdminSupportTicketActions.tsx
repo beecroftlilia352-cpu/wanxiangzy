@@ -62,7 +62,7 @@ export function AdminSupportTicketActions({ id, status }: AdminSupportTicketActi
     }
   }
 
-  if (done) return <span className="text-xs font-semibold text-slate-400">已完结</span>;
+  if (done) return <span className="text-xs font-semibold text-[var(--admin-faint)]">已完结</span>;
 
   return (
     <>
@@ -139,9 +139,9 @@ function ActionButton({
   icon: ReactNode;
 }) {
   const toneClass = {
-    amber: "border-amber-200 bg-amber-50 text-amber-700",
-    emerald: "border-emerald-200 bg-emerald-50 text-emerald-700",
-    red: "border-red-200 bg-red-50 text-red-700",
+    amber: "border-[var(--admin-warning-border)] bg-[var(--admin-warning-soft)] text-[var(--admin-warning)]",
+    emerald: "border-[var(--admin-success-border)] bg-[var(--admin-success-soft)] text-[var(--admin-success)]",
+    red: "border-[var(--admin-danger-border)] bg-[var(--admin-danger-soft)] text-[var(--admin-danger)]",
   }[tone];
   return (
     <button

@@ -60,15 +60,15 @@ export default async function AdminCreditsPage({ searchParams }: PageProps) {
         actions={
           <form action="/admin/credits" className="flex items-center gap-2">
             <div className="relative">
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--admin-faint)]" />
               <input
                 name="q"
                 defaultValue={q}
                 placeholder="搜索邮箱 / 原因 / 任务"
-                className="h-9 w-64 rounded-lg border border-slate-200 bg-white pl-8 pr-3 text-sm font-semibold outline-none focus:border-slate-400"
+                className="h-9 w-64 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] pl-8 pr-3 text-sm font-semibold outline-none focus:border-[var(--admin-border-strong)]"
               />
             </div>
-            <button className="h-9 rounded-lg bg-slate-950 px-3 text-xs font-black text-white" type="submit">
+            <button className="h-9 rounded-lg bg-[var(--admin-fg)] px-3 text-xs font-black text-white" type="submit">
               搜索
             </button>
           </form>
@@ -83,25 +83,25 @@ export default async function AdminCreditsPage({ searchParams }: PageProps) {
               key: "amount",
               label: "变动",
               render: (row) => (
-                <span className={`inline-flex items-center gap-1 font-mono text-sm font-black ${row.amount >= 0 ? "text-emerald-700" : "text-red-700"}`}>
+                <span className={`inline-flex items-center gap-1 font-mono text-sm font-black ${row.amount >= 0 ? "text-[var(--admin-success)]" : "text-[var(--admin-danger)]"}`}>
                   <Coins className="h-3.5 w-3.5" />
                   {row.amount > 0 ? "+" : ""}{formatNumber(row.amount)}
                 </span>
               ),
             },
-            { key: "balance", label: "余额", render: (row) => <span className="font-mono text-sm font-bold text-slate-700">{formatNumber(row.balance)}</span> },
+            { key: "balance", label: "余额", render: (row) => <span className="font-mono text-sm font-bold text-[var(--admin-fg)]">{formatNumber(row.balance)}</span> },
             {
               key: "user",
               label: "用户",
               render: (row) => (
                 <div className="min-w-[240px]">
-                  <p className="truncate text-sm font-bold text-slate-800">{row.email || "-"}</p>
+                  <p className="truncate text-sm font-bold text-[var(--admin-fg)]">{row.email || "-"}</p>
                 </div>
               ),
             },
-            { key: "reason", label: "原因", render: (row) => <span className="text-sm font-semibold text-slate-700">{row.reason}</span> },
-            { key: "generation", label: "关联任务", render: (row) => row.generationId ? <Link href={`/admin/generations/${row.generationId}`} className="text-xs font-bold text-slate-700 hover:underline">查看任务</Link> : <span className="text-xs text-slate-400">-</span> },
-            { key: "time", label: "时间", render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-slate-500">{formatDateTime(row.createdAt)}</span> },
+            { key: "reason", label: "原因", render: (row) => <span className="text-sm font-semibold text-[var(--admin-fg)]">{row.reason}</span> },
+            { key: "generation", label: "关联任务", render: (row) => row.generationId ? <Link href={`/admin/generations/${row.generationId}`} className="text-xs font-bold text-[var(--admin-fg)] hover:underline">查看任务</Link> : <span className="text-xs text-[var(--admin-faint)]">-</span> },
+            { key: "time", label: "时间", render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-[var(--admin-muted)]">{formatDateTime(row.createdAt)}</span> },
           ]}
         />
       </AdminSection>

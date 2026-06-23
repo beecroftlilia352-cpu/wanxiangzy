@@ -97,7 +97,7 @@ export function AdminDashboardClient({ overview, report, days }: AdminDashboardC
           <Typography.Title level={2} className="!mb-1 !mt-1">
             运营总览
           </Typography.Title>
-          <Typography.Paragraph className="!mb-0 !text-slate-500">
+          <Typography.Paragraph className="!mb-0 !text-[var(--admin-muted)]">
             生成任务、收入灵点、模型成本、队列健康和异常处理统一看板。
           </Typography.Paragraph>
         </div>
@@ -113,7 +113,7 @@ export function AdminDashboardClient({ overview, report, days }: AdminDashboardC
           />
           <Link
             href="/admin"
-            className="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2"
+            className="inline-flex h-9 items-center gap-2 rounded-md border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm font-semibold text-[var(--admin-fg)] shadow-sm transition-colors hover:border-[var(--admin-border-strong)] hover:text-[var(--admin-fg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-fg)] focus-visible:ring-offset-2"
             aria-label="刷新运营总览"
           >
             <ReloadOutlined aria-hidden="true" />
@@ -140,7 +140,7 @@ export function AdminDashboardClient({ overview, report, days }: AdminDashboardC
 
       <Row gutter={[16, 16]}>
         <Col xs={24} xl={16}>
-          <Card title="最近任务" extra={<Link href="/admin/generations" className="text-sm font-semibold text-slate-700 hover:text-slate-950">进入任务中心</Link>}>
+          <Card title="最近任务" extra={<Link href="/admin/generations" className="text-sm font-semibold text-[var(--admin-fg)] hover:text-[var(--admin-fg)]">进入任务中心</Link>}>
             <Table<AdminTaskListItem>
               size="small"
               rowKey="id"
@@ -161,7 +161,7 @@ export function AdminDashboardClient({ overview, report, days }: AdminDashboardC
                 { label: "失败锁定灵点", value: report.metrics.failedReservedCredits, href: "/admin/reports", tone: "red" },
               ]}
               renderItem={(item) => (
-                <List.Item actions={[<Link key="open" href={item.href} aria-label={`查看 ${item.label}`} className="text-sm font-semibold text-slate-700 hover:text-slate-950">查看</Link>]}>
+                <List.Item actions={[<Link key="open" href={item.href} aria-label={`查看 ${item.label}`} className="text-sm font-semibold text-[var(--admin-fg)] hover:text-[var(--admin-fg)]">查看</Link>]}>
                   <List.Item.Meta
                     avatar={<Tag color={item.tone}>{formatNumber(item.value)}</Tag>}
                     title={item.label}
@@ -184,7 +184,7 @@ function DashboardChartsSkeleton() {
     <div className="grid gap-4 xl:grid-cols-2">
       {Array.from({ length: 4 }).map((_, index) => (
         <Card key={index} title="图表加载中">
-          <div className="h-[300px] rounded-md bg-slate-100" />
+          <div className="h-[300px] rounded-md bg-[var(--admin-surface-soft)]" />
         </Card>
       ))}
     </div>

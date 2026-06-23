@@ -38,7 +38,7 @@ export default async function AdminTaskDetailPage({ params }: PageProps) {
         title={task?.title || "任务详情"}
         description="集中处理生成任务的状态、图片结果、灵点变动和操作记录，适合排查失败、卡住和补偿问题。"
         actions={
-          <Link href="/admin/generations" className="inline-flex h-9 items-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 shadow-sm hover:bg-slate-50">
+          <Link href="/admin/generations" className="inline-flex h-9 items-center rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-xs font-black text-[var(--admin-fg)] shadow-sm hover:bg-[var(--admin-surface-soft)]">
             返回任务列表
           </Link>
         }
@@ -62,7 +62,7 @@ export default async function AdminTaskDetailPage({ params }: PageProps) {
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm font-semibold text-slate-500">当前任务没有记录错误。</p>
+                  <p className="text-sm font-semibold text-[var(--admin-muted)]">当前任务没有记录错误。</p>
                 )}
               </DiagnosticPanel>
 
@@ -91,31 +91,31 @@ export default async function AdminTaskDetailPage({ params }: PageProps) {
               {diagnostics.prompts.length ? (
                 <div className="space-y-3">
                   {diagnostics.prompts.map((prompt, index) => (
-                    <div key={`${prompt.label}-${index}`} className={`rounded-lg border bg-white ${prompt.isFinal ? "border-slate-200" : "border-amber-200"}`}>
-                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-3 py-2">
-                        <span className="text-xs font-black text-slate-700">
+                    <div key={`${prompt.label}-${index}`} className={`rounded-lg border bg-[var(--admin-surface)] ${prompt.isFinal ? "border-[var(--admin-border)]" : "border-[var(--admin-warning-border)]"}`}>
+                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--admin-border)] px-3 py-2">
+                        <span className="text-xs font-black text-[var(--admin-fg)]">
                           {prompt.label}
                           {!prompt.isFinal ? <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] text-amber-800">未记录最终字段</span> : null}
                         </span>
-                        <span className="font-mono text-[11px] font-bold text-slate-400">{prompt.meta}</span>
+                        <span className="font-mono text-[11px] font-bold text-[var(--admin-faint)]">{prompt.meta}</span>
                       </div>
                       {!prompt.isFinal ? (
-                        <div className="border-b border-amber-100 bg-amber-50 px-3 py-2 text-xs font-bold leading-5 text-amber-800">
+                        <div className="border-b border-amber-100 bg-[var(--admin-warning-soft)] px-3 py-2 text-xs font-bold leading-5 text-amber-800">
                           这个任务没有保存 compiledPrompt/finalPrompt，下面只能显示请求侧提示词；新任务应展示最终发给模型的执行提示词。
                         </div>
                       ) : null}
-                      <pre className="max-h-[520px] overflow-auto whitespace-pre-wrap break-words p-3 text-xs leading-5 text-slate-800">{prompt.value}</pre>
+                      <pre className="max-h-[520px] overflow-auto whitespace-pre-wrap break-words p-3 text-xs leading-5 text-[var(--admin-fg)]">{prompt.value}</pre>
                       {prompt.original && prompt.original !== prompt.value ? (
-                        <details className="border-t border-slate-200 px-3 py-2">
-                          <summary className="cursor-pointer text-xs font-black text-slate-500">查看原始提示词</summary>
-                          <pre className="mt-2 max-h-[260px] overflow-auto whitespace-pre-wrap break-words text-xs leading-5 text-slate-700">{prompt.original}</pre>
+                        <details className="border-t border-[var(--admin-border)] px-3 py-2">
+                          <summary className="cursor-pointer text-xs font-black text-[var(--admin-muted)]">查看原始提示词</summary>
+                          <pre className="mt-2 max-h-[260px] overflow-auto whitespace-pre-wrap break-words text-xs leading-5 text-[var(--admin-fg)]">{prompt.original}</pre>
                         </details>
                       ) : null}
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="text-sm font-semibold text-slate-500">该任务没有记录最终执行提示词；可在下方技术排查 JSON 中查看原始 payload。</p>
+                <p className="text-sm font-semibold text-[var(--admin-muted)]">该任务没有记录最终执行提示词；可在下方技术排查 JSON 中查看原始 payload。</p>
               )}
             </DiagnosticPanel>
           </div>
@@ -130,7 +130,7 @@ export default async function AdminTaskDetailPage({ params }: PageProps) {
             <DetailItem label="模块" value={task.moduleLabel} />
             <DetailItem label="处理状态" value={task.isStale ? `长时间未完成 ${task.staleMinutes} 分钟` : "正常推进"} />
             <div>
-              <dt className="text-xs font-black uppercase tracking-[0.08em] text-slate-400">状态</dt>
+              <dt className="text-xs font-black uppercase tracking-[0.08em] text-[var(--admin-faint)]">状态</dt>
               <dd className="mt-1"><AdminStatusBadge status={task.status} group={task.statusGroup} /></dd>
             </div>
             <DetailItem label="时间" value={formatDateTime(task.createdAt)} />
@@ -158,11 +158,11 @@ export default async function AdminTaskDetailPage({ params }: PageProps) {
         <AdminSection title="输入与结果">
           <div className="grid gap-6 p-4 lg:grid-cols-2">
             <div>
-              <p className="mb-2 text-xs font-black uppercase tracking-[0.08em] text-slate-400">输入</p>
+              <p className="mb-2 text-xs font-black uppercase tracking-[0.08em] text-[var(--admin-faint)]">输入</p>
               <ThumbnailStrip urls={task.inputThumbnails} />
             </div>
             <div>
-              <p className="mb-2 text-xs font-black uppercase tracking-[0.08em] text-slate-400">结果</p>
+              <p className="mb-2 text-xs font-black uppercase tracking-[0.08em] text-[var(--admin-faint)]">结果</p>
               <ThumbnailStrip urls={task.resultThumbnails} />
             </div>
           </div>
@@ -170,7 +170,7 @@ export default async function AdminTaskDetailPage({ params }: PageProps) {
       )}
 
       <AdminSection title="技术排查信息" description="运营日常处理通常不需要查看；只有排查参数异常或对接问题时再展开核对。">
-        <pre className="max-h-[520px] overflow-auto p-4 text-xs leading-5 text-slate-700">
+        <pre className="max-h-[520px] overflow-auto p-4 text-xs leading-5 text-[var(--admin-fg)]">
           {JSON.stringify(detail.payload, null, 2)}
         </pre>
       </AdminSection>
@@ -181,10 +181,10 @@ export default async function AdminTaskDetailPage({ params }: PageProps) {
           rowKey={(row) => row.id}
           empty="暂无关联灵点流水"
           columns={[
-            { key: "amount", label: "变动", render: (row) => <span className={`font-mono text-sm font-black ${row.amount >= 0 ? "text-emerald-700" : "text-red-700"}`}>{row.amount > 0 ? "+" : ""}{formatNumber(row.amount)}</span> },
-            { key: "balance", label: "余额", render: (row) => <span className="font-mono text-sm font-bold text-slate-700">{formatNumber(row.balance)}</span> },
-            { key: "reason", label: "原因", render: (row) => <span className="text-sm font-semibold text-slate-700">{row.reason}</span> },
-            { key: "time", label: "时间", render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-slate-500">{formatDateTime(row.createdAt)}</span> },
+            { key: "amount", label: "变动", render: (row) => <span className={`font-mono text-sm font-black ${row.amount >= 0 ? "text-[var(--admin-success)]" : "text-[var(--admin-danger)]"}`}>{row.amount > 0 ? "+" : ""}{formatNumber(row.amount)}</span> },
+            { key: "balance", label: "余额", render: (row) => <span className="font-mono text-sm font-bold text-[var(--admin-fg)]">{formatNumber(row.balance)}</span> },
+            { key: "reason", label: "原因", render: (row) => <span className="text-sm font-semibold text-[var(--admin-fg)]">{row.reason}</span> },
+            { key: "time", label: "时间", render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-[var(--admin-muted)]">{formatDateTime(row.createdAt)}</span> },
           ]}
         />
       </AdminSection>
@@ -202,10 +202,10 @@ export default async function AdminTaskDetailPage({ params }: PageProps) {
           rowKey={(row) => row.id}
           empty="暂无关联审计记录"
           columns={[
-            { key: "action", label: "动作", render: (row) => <span className="font-mono text-sm font-black text-slate-950">{row.action}</span> },
-            { key: "actor", label: "操作者", render: (row) => <span className="text-sm font-semibold text-slate-700">{row.actorEmail || "-"}</span> },
-            { key: "reason", label: "原因", render: (row) => <span className="text-sm font-semibold text-slate-700">{row.reason || "-"}</span> },
-            { key: "time", label: "时间", render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-slate-500">{formatDateTime(row.createdAt)}</span> },
+            { key: "action", label: "动作", render: (row) => <span className="font-mono text-sm font-black text-[var(--admin-fg)]">{row.action}</span> },
+            { key: "actor", label: "操作者", render: (row) => <span className="text-sm font-semibold text-[var(--admin-fg)]">{row.actorEmail || "-"}</span> },
+            { key: "reason", label: "原因", render: (row) => <span className="text-sm font-semibold text-[var(--admin-fg)]">{row.reason || "-"}</span> },
+            { key: "time", label: "时间", render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-[var(--admin-muted)]">{formatDateTime(row.createdAt)}</span> },
           ]}
         />
       </AdminSection>
@@ -219,13 +219,13 @@ function JsonRows({ title, rows, empty }: { title: string; rows: Array<Record<st
       {rows.length ? (
         <div className="max-h-[420px] space-y-2 overflow-auto p-4">
           {rows.map((row, index) => (
-            <pre key={`${title}-${index}`} className="rounded-lg bg-slate-50 p-3 text-xs leading-5 text-slate-700">
+            <pre key={`${title}-${index}`} className="rounded-lg bg-[var(--admin-surface-soft)] p-3 text-xs leading-5 text-[var(--admin-fg)]">
               {JSON.stringify(row, null, 2)}
             </pre>
           ))}
         </div>
       ) : (
-        <p className="p-4 text-sm font-bold text-slate-500">{empty}</p>
+        <p className="p-4 text-sm font-bold text-[var(--admin-muted)]">{empty}</p>
       )}
     </AdminSection>
   );
@@ -325,9 +325,9 @@ function buildTaskDiagnostics(detail: AdminTaskDetail) {
 
 function DiagnosticPanel({ title, tone = "neutral", children }: { title: string; tone?: "neutral" | "danger"; children: ReactNode }) {
   return (
-    <div className={`rounded-lg border ${tone === "danger" ? "border-red-200 bg-red-50/70" : "border-slate-200 bg-slate-50/70"}`}>
-      <div className={`border-b px-3 py-2 ${tone === "danger" ? "border-red-200" : "border-slate-200"}`}>
-        <h3 className={`text-sm font-black ${tone === "danger" ? "text-red-800" : "text-slate-800"}`}>{title}</h3>
+    <div className={`rounded-lg border ${tone === "danger" ? "border-[var(--admin-danger-border)] bg-[var(--admin-danger-soft)]/70" : "border-[var(--admin-border)] bg-[var(--admin-surface-soft)]/70"}`}>
+      <div className={`border-b px-3 py-2 ${tone === "danger" ? "border-[var(--admin-danger-border)]" : "border-[var(--admin-border)]"}`}>
+        <h3 className={`text-sm font-black ${tone === "danger" ? "text-red-800" : "text-[var(--admin-fg)]"}`}>{title}</h3>
       </div>
       <div className="p-3">{children}</div>
     </div>
@@ -336,21 +336,21 @@ function DiagnosticPanel({ title, tone = "neutral", children }: { title: string;
 
 function ReadableBlock({ label, value, tone = "neutral" }: { label: string; value: string; tone?: "neutral" | "danger" }) {
   return (
-    <div className={`rounded-lg border bg-white ${tone === "danger" ? "border-red-200" : "border-slate-200"}`}>
-      <div className={`border-b px-3 py-2 text-xs font-black ${tone === "danger" ? "border-red-100 text-red-700" : "border-slate-100 text-slate-600"}`}>{label}</div>
-      <pre className={`max-h-[260px] overflow-auto whitespace-pre-wrap break-words p-3 text-xs leading-5 ${tone === "danger" ? "text-red-800" : "text-slate-800"}`}>{value}</pre>
+    <div className={`rounded-lg border bg-[var(--admin-surface)] ${tone === "danger" ? "border-[var(--admin-danger-border)]" : "border-[var(--admin-border)]"}`}>
+      <div className={`border-b px-3 py-2 text-xs font-black ${tone === "danger" ? "border-red-100 text-[var(--admin-danger)]" : "border-[var(--admin-border)] text-[var(--admin-fg)]"}`}>{label}</div>
+      <pre className={`max-h-[260px] overflow-auto whitespace-pre-wrap break-words p-3 text-xs leading-5 ${tone === "danger" ? "text-red-800" : "text-[var(--admin-fg)]"}`}>{value}</pre>
     </div>
   );
 }
 
 function ResultUrlList({ urls }: { urls: string[] }) {
-  if (!urls.length) return <p className="text-sm font-semibold text-slate-500">暂无返回图片 URL。</p>;
+  if (!urls.length) return <p className="text-sm font-semibold text-[var(--admin-muted)]">暂无返回图片 URL。</p>;
   return (
     <div className="space-y-2">
       {urls.map((url, index) => (
-        <div key={`${url}-${index}`} className="rounded-lg border border-slate-200 bg-white px-3 py-2">
-          <div className="mb-1 text-xs font-black text-slate-500">结果 {index + 1}</div>
-          <a href={url} target="_blank" rel="noreferrer" className="break-all font-mono text-xs font-semibold text-blue-700 hover:underline">
+        <div key={`${url}-${index}`} className="rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 py-2">
+          <div className="mb-1 text-xs font-black text-[var(--admin-muted)]">结果 {index + 1}</div>
+          <a href={url} target="_blank" rel="noreferrer" className="break-all font-mono text-xs font-semibold text-[var(--admin-info)] hover:underline">
             {url}
           </a>
         </div>
@@ -365,8 +365,8 @@ function DetailItem({ label, value, mono = false, href }: { label: string; value
   ) : value;
   return (
     <div>
-      <dt className="text-xs font-black uppercase tracking-[0.08em] text-slate-400">{label}</dt>
-      <dd className={`mt-1 break-all text-sm font-bold text-slate-800 ${mono ? "font-mono" : ""}`}>{content}</dd>
+      <dt className="text-xs font-black uppercase tracking-[0.08em] text-[var(--admin-faint)]">{label}</dt>
+      <dd className={`mt-1 break-all text-sm font-bold text-[var(--admin-fg)] ${mono ? "font-mono" : ""}`}>{content}</dd>
     </div>
   );
 }

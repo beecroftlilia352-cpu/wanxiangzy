@@ -68,9 +68,9 @@ export default async function AdminBillingPage() {
 
       <AdminSection title="商品 / 价格" description="商品与价格来自本地 Billing 镜像表，便于和 Stripe 后台对账。">
         <AdminBillingCatalogForms products={billing.products.map((product) => ({ id: product.id, name: product.name }))} />
-        <div className="border-b border-slate-100">
+        <div className="border-b border-[var(--admin-border)]">
           <div className="px-4 py-3">
-            <h3 className="text-xs font-black uppercase tracking-[0.1em] text-slate-400">Products</h3>
+            <h3 className="text-xs font-black uppercase tracking-[0.1em] text-[var(--admin-faint)]">Products</h3>
           </div>
           <AdminTable<AdminBillingProduct>
             rows={billing.products}
@@ -82,8 +82,8 @@ export default async function AdminBillingPage() {
                 label: "商品",
                 render: (row) => (
                   <div className="min-w-[220px]">
-                    <p className="text-sm font-black text-slate-950">{row.name}</p>
-                    <p className="mt-0.5 truncate text-xs font-semibold text-slate-500">{row.description || "无描述"}</p>
+                    <p className="text-sm font-black text-[var(--admin-fg)]">{row.name}</p>
+                    <p className="mt-0.5 truncate text-xs font-semibold text-[var(--admin-muted)]">{row.description || "无描述"}</p>
                   </div>
                 ),
               },
@@ -96,7 +96,7 @@ export default async function AdminBillingPage() {
 
         <div>
           <div className="px-4 py-3">
-            <h3 className="text-xs font-black uppercase tracking-[0.1em] text-slate-400">Prices</h3>
+            <h3 className="text-xs font-black uppercase tracking-[0.1em] text-[var(--admin-faint)]">Prices</h3>
           </div>
           <AdminTable<AdminBillingPrice>
             rows={billing.prices}
@@ -108,14 +108,14 @@ export default async function AdminBillingPage() {
                 label: "价格",
                 render: (row) => (
                   <div className="min-w-[220px]">
-                    <p className="font-mono text-sm font-black text-slate-950">{formatMoney(row.unitAmount, row.currency)}</p>
-                    <p className="mt-0.5 text-xs font-semibold text-slate-500">{formatPriceCadence(row)}</p>
+                    <p className="font-mono text-sm font-black text-[var(--admin-fg)]">{formatMoney(row.unitAmount, row.currency)}</p>
+                    <p className="mt-0.5 text-xs font-semibold text-[var(--admin-muted)]">{formatPriceCadence(row)}</p>
                   </div>
                 ),
               },
-              { key: "product", label: "商品", render: (row) => <span className="text-sm font-bold text-slate-700">{row.productName || row.stripeProductId || "-"}</span> },
+              { key: "product", label: "商品", render: (row) => <span className="text-sm font-bold text-[var(--admin-fg)]">{row.productName || row.stripeProductId || "-"}</span> },
               { key: "stripe", label: "Stripe ID", render: (row) => <CodeText value={row.stripePriceId} /> },
-              { key: "credits", label: "灵点", render: (row) => <span className="font-mono text-sm font-black text-slate-700">{formatNumber(row.credits)}</span> },
+              { key: "credits", label: "灵点", render: (row) => <span className="font-mono text-sm font-black text-[var(--admin-fg)]">{formatNumber(row.credits)}</span> },
               { key: "status", label: "状态", render: (row) => <AdminStatusBadge status={row.active ? "active" : "inactive"} /> },
             ]}
           />
@@ -134,7 +134,7 @@ export default async function AdminBillingPage() {
               render: (row) => (
                 <div className="min-w-[240px]">
                   <CodeText value={row.id} />
-                  <p className="mt-1 truncate text-[11px] font-semibold text-slate-400">{row.stripeCheckoutSessionId || row.stripePaymentIntentId || "-"}</p>
+                  <p className="mt-1 truncate text-[11px] font-semibold text-[var(--admin-faint)]">{row.stripeCheckoutSessionId || row.stripePaymentIntentId || "-"}</p>
                 </div>
               ),
             },
@@ -142,7 +142,7 @@ export default async function AdminBillingPage() {
             { key: "status", label: "状态", render: (row) => <AdminStatusBadge status={row.status} /> },
             { key: "amount", label: "金额", render: (row) => <MoneyCell amount={row.amountTotal} currency={row.currency} /> },
             { key: "refund", label: "已退", render: (row) => <MoneyCell amount={row.refundedAmount} currency={row.currency} muted /> },
-            { key: "credits", label: "灵点", render: (row) => <span className="font-mono text-sm font-black text-slate-700">{formatNumber(row.creditsGranted)}</span> },
+            { key: "credits", label: "灵点", render: (row) => <span className="font-mono text-sm font-black text-[var(--admin-fg)]">{formatNumber(row.creditsGranted)}</span> },
             { key: "time", label: "时间", render: (row) => <MutedText value={formatDateTime(row.createdAt)} /> },
             {
               key: "actions",
@@ -165,7 +165,7 @@ export default async function AdminBillingPage() {
               render: (row) => (
                 <div className="min-w-[240px]">
                   <CodeText value={row.stripeSubscriptionId} />
-                  <p className="mt-1 truncate text-[11px] font-semibold text-slate-400">{row.stripeCustomerId || "-"}</p>
+                  <p className="mt-1 truncate text-[11px] font-semibold text-[var(--admin-faint)]">{row.stripeCustomerId || "-"}</p>
                 </div>
               ),
             },
@@ -200,14 +200,14 @@ export default async function AdminBillingPage() {
               label: "事件",
               render: (row) => (
                 <div className="min-w-[260px]">
-                  <p className="text-sm font-black text-slate-950">{row.type}</p>
+                  <p className="text-sm font-black text-[var(--admin-fg)]">{row.type}</p>
                   <CodeText value={row.stripeEventId} />
                 </div>
               ),
             },
             { key: "status", label: "状态", render: (row) => <AdminStatusBadge status={row.status} /> },
-            { key: "attempts", label: "次数", render: (row) => <span className="font-mono text-sm font-black text-slate-700">{formatNumber(row.attempts)}</span> },
-            { key: "error", label: "错误", render: (row) => <span className="line-clamp-2 max-w-[360px] text-xs font-semibold text-red-700">{row.errorMessage || "-"}</span> },
+            { key: "attempts", label: "次数", render: (row) => <span className="font-mono text-sm font-black text-[var(--admin-fg)]">{formatNumber(row.attempts)}</span> },
+            { key: "error", label: "错误", render: (row) => <span className="line-clamp-2 max-w-[360px] text-xs font-semibold text-[var(--admin-danger)]">{row.errorMessage || "-"}</span> },
             { key: "received", label: "接收", render: (row) => <MutedText value={formatDateTime(row.createdAt)} /> },
             { key: "processed", label: "处理", render: (row) => <MutedText value={formatDateTime(row.processedAt)} /> },
             {
@@ -224,16 +224,16 @@ export default async function AdminBillingPage() {
 
 function ConfigStatusTile({ item }: { item: AdminBillingConfigStatus }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-3">
+    <div className="rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] p-3">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate text-sm font-black text-slate-950">{item.label}</p>
-          <p className="mt-1 truncate font-mono text-[11px] text-slate-400">{item.key}</p>
+          <p className="truncate text-sm font-black text-[var(--admin-fg)]">{item.label}</p>
+          <p className="mt-1 truncate font-mono text-[11px] text-[var(--admin-faint)]">{item.key}</p>
         </div>
         <AdminStatusBadge status={item.configured ? "completed" : "failed"} group={item.configured ? "completed" : "failed"} />
       </div>
-      <div className="mt-3 flex items-center gap-2 text-xs font-bold text-slate-500">
-        <CreditCard className="h-3.5 w-3.5 text-slate-400" />
+      <div className="mt-3 flex items-center gap-2 text-xs font-bold text-[var(--admin-muted)]">
+        <CreditCard className="h-3.5 w-3.5 text-[var(--admin-faint)]" />
         <span className="uppercase tracking-[0.08em]">{item.scope}</span>
         <span className="truncate">{item.statusHint}</span>
       </div>
@@ -244,22 +244,22 @@ function ConfigStatusTile({ item }: { item: AdminBillingConfigStatus }) {
 function UserCell({ email, userId }: { email: string | null; userId: string | null }) {
   return (
     <div className="min-w-[220px]">
-      <p className="truncate text-sm font-bold text-slate-800">{email || "-"}</p>
-      <p className="mt-0.5 truncate font-mono text-[11px] text-slate-400">{userId || "-"}</p>
+      <p className="truncate text-sm font-bold text-[var(--admin-fg)]">{email || "-"}</p>
+      <p className="mt-0.5 truncate font-mono text-[11px] text-[var(--admin-faint)]">{userId || "-"}</p>
     </div>
   );
 }
 
 function MoneyCell({ amount, currency, muted }: { amount: number; currency: string; muted?: boolean }) {
-  return <span className={`font-mono text-sm font-black ${muted ? "text-slate-500" : "text-slate-800"}`}>{formatMoney(amount, currency)}</span>;
+  return <span className={`font-mono text-sm font-black ${muted ? "text-[var(--admin-muted)]" : "text-[var(--admin-fg)]"}`}>{formatMoney(amount, currency)}</span>;
 }
 
 function CodeText({ value }: { value: string }) {
-  return <code className="break-all font-mono text-xs font-bold text-slate-600">{value || "-"}</code>;
+  return <code className="break-all font-mono text-xs font-bold text-[var(--admin-fg)]">{value || "-"}</code>;
 }
 
 function MutedText({ value }: { value: string }) {
-  return <span className="whitespace-nowrap text-xs font-semibold text-slate-500">{value}</span>;
+  return <span className="whitespace-nowrap text-xs font-semibold text-[var(--admin-muted)]">{value}</span>;
 }
 
 function formatMoney(amount: number, currency: string) {

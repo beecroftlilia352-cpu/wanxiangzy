@@ -46,42 +46,42 @@ export function AdminPromptExperimentForm({ defaultValue }: { defaultValue: stri
   return (
     <form onSubmit={submit} className="grid gap-3 p-4 lg:grid-cols-[160px_minmax(360px,1fr)_minmax(260px,0.6fr)_auto]">
       <label className="space-y-1.5">
-        <span className="text-xs font-black text-slate-500">状态</span>
+        <span className="text-xs font-black text-[var(--admin-muted)]">状态</span>
         <select
           value={status}
           onChange={(event) => setStatus(event.target.value)}
-          className="h-10 w-full rounded-lg border border-slate-200 bg-white px-2 text-sm font-bold text-slate-700"
+          className="h-10 w-full rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-2 text-sm font-bold text-[var(--admin-fg)]"
         >
           <option value="draft">draft</option>
           <option value="published">published</option>
         </select>
       </label>
       <label className="space-y-1.5">
-        <span className="text-xs font-black text-slate-500">prompt.experiments JSON</span>
+        <span className="text-xs font-black text-[var(--admin-muted)]">prompt.experiments JSON</span>
         <textarea
           value={value}
           onChange={(event) => setValue(event.target.value)}
-          className="min-h-56 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 font-mono text-xs leading-5 outline-none focus:border-slate-400"
+          className="min-h-56 w-full rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 py-2 font-mono text-xs leading-5 outline-none focus:border-[var(--admin-border-strong)]"
           required
         />
       </label>
       <label className="space-y-1.5">
-        <span className="text-xs font-black text-slate-500">原因</span>
+        <span className="text-xs font-black text-[var(--admin-muted)]">原因</span>
         <textarea
           value={reason}
           onChange={(event) => setReason(event.target.value)}
-          className="min-h-24 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold outline-none focus:border-slate-400"
+          className="min-h-24 w-full rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 py-2 text-sm font-semibold outline-none focus:border-[var(--admin-border-strong)]"
           placeholder="发布时必填，例如：姿势裂变 prompt V2 灰度 10%"
         />
       </label>
       <div className="flex items-end">
-        <button type="submit" disabled={loading} className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-slate-950 px-4 text-sm font-black text-white disabled:opacity-60 lg:w-auto">
+        <button type="submit" disabled={loading} className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[var(--admin-fg)] px-4 text-sm font-black text-white disabled:opacity-60 lg:w-auto">
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FilePlus2 className="h-4 w-4" />}
           创建
         </button>
       </div>
       {message && (
-        <p className={`text-sm font-bold lg:col-span-4 ${message.includes("已创建") ? "text-emerald-700" : "text-red-700"}`}>
+        <p className={`text-sm font-bold lg:col-span-4 ${message.includes("已创建") ? "text-[var(--admin-success)]" : "text-[var(--admin-danger)]"}`}>
           {message}
         </p>
       )}

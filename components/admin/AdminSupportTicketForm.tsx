@@ -66,11 +66,11 @@ export function AdminSupportTicketForm() {
   return (
     <form onSubmit={submit} className="grid gap-3 p-4 xl:grid-cols-[minmax(260px,1fr)_160px_130px_minmax(220px,0.8fr)_minmax(220px,0.8fr)]">
       <label className="space-y-1.5 xl:col-span-2">
-        <span className="text-xs font-black text-slate-500">标题</span>
+        <span className="text-xs font-black text-[var(--admin-muted)]">标题</span>
         <input
           value={title}
           onChange={(event) => setTitle(event.target.value)}
-          className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold outline-none focus:border-slate-400"
+          className="h-10 w-full rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm font-semibold outline-none focus:border-[var(--admin-border-strong)]"
           placeholder="例如：姿势裂变结果重复，用户要求补偿"
           required
           minLength={4}
@@ -78,67 +78,67 @@ export function AdminSupportTicketForm() {
         />
       </label>
       <label className="space-y-1.5">
-        <span className="text-xs font-black text-slate-500">分类</span>
+        <span className="text-xs font-black text-[var(--admin-muted)]">分类</span>
         <select
           value={category}
           onChange={(event) => setCategory(event.target.value as AdminSupportTicketCategory)}
-          className="h-10 w-full rounded-lg border border-slate-200 bg-white px-2 text-sm font-bold text-slate-700"
+          className="h-10 w-full rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-2 text-sm font-bold text-[var(--admin-fg)]"
         >
           {categories.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
         </select>
       </label>
       <label className="space-y-1.5">
-        <span className="text-xs font-black text-slate-500">优先级</span>
+        <span className="text-xs font-black text-[var(--admin-muted)]">优先级</span>
         <select
           value={priority}
           onChange={(event) => setPriority(event.target.value as AdminSupportTicketPriority)}
-          className="h-10 w-full rounded-lg border border-slate-200 bg-white px-2 text-sm font-bold text-slate-700"
+          className="h-10 w-full rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-2 text-sm font-bold text-[var(--admin-fg)]"
         >
           {priorities.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
         </select>
       </label>
       <label className="space-y-1.5">
-        <span className="text-xs font-black text-slate-500">用户邮箱</span>
+        <span className="text-xs font-black text-[var(--admin-muted)]">用户邮箱</span>
         <input
           value={userEmail}
           onChange={(event) => setUserEmail(event.target.value)}
-          className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold outline-none focus:border-slate-400"
+          className="h-10 w-full rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm font-semibold outline-none focus:border-[var(--admin-border-strong)]"
           placeholder="user@example.com"
         />
       </label>
       <label className="space-y-1.5">
-        <span className="text-xs font-black text-slate-500">用户 ID</span>
+        <span className="text-xs font-black text-[var(--admin-muted)]">用户 ID</span>
         <input
           value={userId}
           onChange={(event) => setUserId(event.target.value)}
-          className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 font-mono text-xs font-semibold outline-none focus:border-slate-400"
+          className="h-10 w-full rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 font-mono text-xs font-semibold outline-none focus:border-[var(--admin-border-strong)]"
           placeholder="UUID"
         />
       </label>
       <label className="space-y-1.5">
-        <span className="text-xs font-black text-slate-500">Generation ID</span>
+        <span className="text-xs font-black text-[var(--admin-muted)]">Generation ID</span>
         <input
           value={generationId}
           onChange={(event) => setGenerationId(event.target.value)}
-          className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 font-mono text-xs font-semibold outline-none focus:border-slate-400"
+          className="h-10 w-full rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 font-mono text-xs font-semibold outline-none focus:border-[var(--admin-border-strong)]"
           placeholder="UUID"
         />
       </label>
       <label className="space-y-1.5">
-        <span className="text-xs font-black text-slate-500">标签</span>
+        <span className="text-xs font-black text-[var(--admin-muted)]">标签</span>
         <input
           value={tags}
           onChange={(event) => setTags(event.target.value)}
-          className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold outline-none focus:border-slate-400"
+          className="h-10 w-full rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm font-semibold outline-none focus:border-[var(--admin-border-strong)]"
           placeholder="pose, refund"
         />
       </label>
       <label className="space-y-1.5 xl:col-span-4">
-        <span className="text-xs font-black text-slate-500">问题描述</span>
+        <span className="text-xs font-black text-[var(--admin-muted)]">问题描述</span>
         <textarea
           value={description}
           onChange={(event) => setDescription(event.target.value)}
-          className="min-h-24 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold leading-5 outline-none focus:border-slate-400"
+          className="min-h-24 w-full rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 py-2 text-sm font-semibold leading-5 outline-none focus:border-[var(--admin-border-strong)]"
           placeholder="记录用户诉求、关联证据、已尝试动作和下一步建议。"
           required
           minLength={8}
@@ -146,13 +146,13 @@ export function AdminSupportTicketForm() {
         />
       </label>
       <div className="flex items-end">
-        <button type="submit" disabled={loading} className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-slate-950 px-4 text-sm font-black text-white disabled:opacity-60 xl:w-auto">
+        <button type="submit" disabled={loading} className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[var(--admin-fg)] px-4 text-sm font-black text-white disabled:opacity-60 xl:w-auto">
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlusCircle className="h-4 w-4" />}
           创建工单
         </button>
       </div>
       {message && (
-        <p className={`text-sm font-bold xl:col-span-5 ${message.includes("已创建") ? "text-emerald-700" : "text-red-700"}`}>
+        <p className={`text-sm font-bold xl:col-span-5 ${message.includes("已创建") ? "text-[var(--admin-success)]" : "text-[var(--admin-danger)]"}`}>
           {message}
         </p>
       )}

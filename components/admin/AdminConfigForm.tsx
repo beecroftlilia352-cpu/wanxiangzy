@@ -63,41 +63,41 @@ export function AdminConfigForm({
 
   return (
     <form onSubmit={submit} className="grid gap-3 p-4 lg:grid-cols-[minmax(240px,0.8fr)_160px_minmax(360px,1.4fr)_auto]">
-      <FormField label="配置键" labelClassName="text-xs font-black text-slate-500" className="space-y-1.5">
+      <FormField label="配置键" labelClassName="text-xs font-black text-[var(--admin-muted)]" className="space-y-1.5">
         <Input
           value={configKey}
           onChange={(event) => setConfigKey(event.target.value)}
-          className="h-10 border-slate-200 bg-white px-3 text-sm font-semibold focus-visible:border-slate-400 focus-visible:ring-0"
+          className="h-10 border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm font-semibold focus-visible:border-[var(--admin-border-strong)] focus-visible:ring-0"
           placeholder="model.routing"
           required
         />
       </FormField>
-      <FormField label="状态" labelClassName="text-xs font-black text-slate-500" className="space-y-1.5">
+      <FormField label="状态" labelClassName="text-xs font-black text-[var(--admin-muted)]" className="space-y-1.5">
         <NativeSelect
           value={status}
           onChange={(event) => setStatus(event.target.value)}
-          className="h-10 border-slate-200 bg-white px-2 text-sm font-bold text-slate-700 focus-visible:border-slate-400 focus-visible:ring-0"
+          className="h-10 border-[var(--admin-border)] bg-[var(--admin-surface)] px-2 text-sm font-bold text-[var(--admin-fg)] focus-visible:border-[var(--admin-border-strong)] focus-visible:ring-0"
         >
           <option value="draft">draft</option>
           <option value="published">published</option>
         </NativeSelect>
       </FormField>
-      <FormField label="JSON 内容" labelClassName="text-xs font-black text-slate-500" className="space-y-1.5">
+      <FormField label="JSON 内容" labelClassName="text-xs font-black text-[var(--admin-muted)]" className="space-y-1.5">
         <Textarea
           value={value}
           onChange={(event) => setValue(event.target.value)}
-          className="min-h-28 border-slate-200 bg-white px-3 py-2 font-mono text-xs leading-5 focus-visible:border-slate-400 focus-visible:ring-0"
+          className="min-h-28 border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 py-2 font-mono text-xs leading-5 focus-visible:border-[var(--admin-border-strong)] focus-visible:ring-0"
           required
         />
       </FormField>
       <div className="flex items-end">
-        <Button type="submit" disabled={loading} className="h-10 w-full bg-slate-950 px-4 text-sm font-black text-white disabled:opacity-60 lg:w-auto">
+        <Button type="submit" disabled={loading} className="h-10 w-full bg-[var(--admin-fg)] px-4 text-sm font-black text-white disabled:opacity-60 lg:w-auto">
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FilePlus2 className="h-4 w-4" />}
           创建
         </Button>
       </div>
       {message && (
-        <p className={`lg:col-span-4 text-sm font-bold ${message.includes("已创建") ? "text-emerald-700" : "text-red-700"}`}>
+        <p className={`lg:col-span-4 text-sm font-bold ${message.includes("已创建") ? "text-[var(--admin-success)]" : "text-[var(--admin-danger)]"}`}>
           {message}
         </p>
       )}

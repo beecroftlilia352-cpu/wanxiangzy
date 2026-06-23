@@ -26,7 +26,7 @@ export default async function AdminDiagnosticsPage() {
         actions={
           <Link
             href="/admin/diagnostics"
-            className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 shadow-sm hover:bg-slate-50"
+            className="inline-flex h-9 items-center gap-2 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-xs font-black text-[var(--admin-fg)] shadow-sm hover:bg-[var(--admin-surface-soft)]"
           >
             <RefreshCw className="h-3.5 w-3.5" />
             刷新
@@ -61,10 +61,10 @@ export default async function AdminDiagnosticsPage() {
       </AdminSection>
 
       {report.items.length === 0 ? (
-        <section className="rounded-lg border border-emerald-200 bg-emerald-50 p-8 text-center">
-          <CheckCircle2 className="mx-auto h-9 w-9 text-emerald-700" />
+        <section className="rounded-lg border border-[var(--admin-success-border)] bg-[var(--admin-success-soft)] p-8 text-center">
+          <CheckCircle2 className="mx-auto h-9 w-9 text-[var(--admin-success)]" />
           <h2 className="mt-3 text-lg font-black text-emerald-900">当前没有需要处理的异常</h2>
-          <p className="mt-2 text-sm font-semibold text-emerald-700">队列、处理服务、审核、审批和近 7 天财务信号没有触发诊断规则。</p>
+          <p className="mt-2 text-sm font-semibold text-[var(--admin-success)]">队列、处理服务、审核、审批和近 7 天财务信号没有触发诊断规则。</p>
         </section>
       ) : (
         <div className="grid gap-4 xl:grid-cols-2">
@@ -90,14 +90,14 @@ export default async function AdminDiagnosticsPage() {
               label: "诊断项",
               render: (row) => (
                 <div className="min-w-[240px]">
-                  <p className="text-sm font-black text-slate-950">{row.title}</p>
-                  <p className="mt-1 text-xs font-semibold text-slate-500">{row.summary}</p>
+                  <p className="text-sm font-black text-[var(--admin-fg)]">{row.title}</p>
+                  <p className="mt-1 text-xs font-semibold text-[var(--admin-muted)]">{row.summary}</p>
                 </div>
               ),
             },
-            { key: "category", label: "分类", render: (row) => <span className="text-xs font-black text-slate-600">{categoryLabel(row.category)}</span> },
-            { key: "impact", label: "影响", render: (row) => <p className="max-w-[320px] text-xs leading-5 text-slate-500">{row.impact}</p> },
-            { key: "recommendation", label: "建议", render: (row) => <p className="max-w-[360px] text-xs leading-5 text-slate-600">{row.recommendation}</p> },
+            { key: "category", label: "分类", render: (row) => <span className="text-xs font-black text-[var(--admin-fg)]">{categoryLabel(row.category)}</span> },
+            { key: "impact", label: "影响", render: (row) => <p className="max-w-[320px] text-xs leading-5 text-[var(--admin-muted)]">{row.impact}</p> },
+            { key: "recommendation", label: "建议", render: (row) => <p className="max-w-[360px] text-xs leading-5 text-[var(--admin-fg)]">{row.recommendation}</p> },
           ]}
         />
       </AdminSection>
@@ -107,37 +107,37 @@ export default async function AdminDiagnosticsPage() {
 
 function DiagnosticCard({ item }: { item: AdminDiagnosticItem }) {
   return (
-    <section className={`rounded-lg border bg-white p-4 shadow-sm ${severityBorder(item.severity)}`}>
+    <section className={`rounded-lg border bg-[var(--admin-surface)] p-4 shadow-sm ${severityBorder(item.severity)}`}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <SeverityBadge severity={item.severity} />
-            <span className="rounded-md bg-slate-100 px-2 py-1 text-[11px] font-black text-slate-600">
+            <span className="rounded-md bg-[var(--admin-surface-soft)] px-2 py-1 text-[11px] font-black text-[var(--admin-fg)]">
               {categoryLabel(item.category)}
             </span>
           </div>
-          <h2 className="mt-3 text-base font-black text-slate-950">{item.title}</h2>
-          <p className="mt-1 text-sm leading-6 text-slate-600">{item.summary}</p>
+          <h2 className="mt-3 text-base font-black text-[var(--admin-fg)]">{item.title}</h2>
+          <p className="mt-1 text-sm leading-6 text-[var(--admin-fg)]">{item.summary}</p>
         </div>
-        {item.severity === "info" ? <Info className="h-5 w-5 shrink-0 text-blue-600" /> : <AlertTriangle className="h-5 w-5 shrink-0 text-amber-600" />}
+        {item.severity === "info" ? <Info className="h-5 w-5 shrink-0 text-[var(--admin-info)]" /> : <AlertTriangle className="h-5 w-5 shrink-0 text-[var(--admin-warning)]" />}
       </div>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
-        <div className="rounded-lg bg-slate-50 p-3">
-          <p className="text-xs font-black text-slate-500">影响</p>
-          <p className="mt-1 text-xs leading-5 text-slate-700">{item.impact}</p>
+        <div className="rounded-lg bg-[var(--admin-surface-soft)] p-3">
+          <p className="text-xs font-black text-[var(--admin-muted)]">影响</p>
+          <p className="mt-1 text-xs leading-5 text-[var(--admin-fg)]">{item.impact}</p>
         </div>
-        <div className="rounded-lg bg-slate-50 p-3">
-          <p className="text-xs font-black text-slate-500">建议</p>
-          <p className="mt-1 text-xs leading-5 text-slate-700">{item.recommendation}</p>
+        <div className="rounded-lg bg-[var(--admin-surface-soft)] p-3">
+          <p className="text-xs font-black text-[var(--admin-muted)]">建议</p>
+          <p className="mt-1 text-xs leading-5 text-[var(--admin-fg)]">{item.recommendation}</p>
         </div>
       </div>
 
       {item.evidence.length > 0 && (
         <div className="mt-4 flex flex-wrap gap-2">
           {item.evidence.slice(0, 8).map((entry) => (
-            <span key={`${item.id}-${entry.label}`} className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-bold text-slate-600">
-              {entry.label}: <span className="font-mono text-slate-950">{String(entry.value)}</span>
+            <span key={`${item.id}-${entry.label}`} className="rounded-md border border-[var(--admin-border)] bg-[var(--admin-surface)] px-2 py-1 text-xs font-bold text-[var(--admin-fg)]">
+              {entry.label}: <span className="font-mono text-[var(--admin-fg)]">{String(entry.value)}</span>
             </span>
           ))}
         </div>
@@ -148,7 +148,7 @@ function DiagnosticCard({ item }: { item: AdminDiagnosticItem }) {
           <Link
             key={`${item.id}-${link.href}`}
             href={link.href}
-            className="inline-flex h-8 items-center rounded-lg border border-slate-200 bg-white px-2 text-xs font-black text-slate-700 hover:bg-slate-50"
+            className="inline-flex h-8 items-center rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-2 text-xs font-black text-[var(--admin-fg)] hover:bg-[var(--admin-surface-soft)]"
           >
             {link.label}
           </Link>
@@ -227,10 +227,10 @@ function maxStatus(items: Array<AdminDiagnosticItem | undefined>): LaunchCheck["
 
 function LaunchCheckCard({ check }: { check: LaunchCheck }) {
   const className = {
-    pass: "border-emerald-200 bg-emerald-50",
-    attention: "border-amber-200 bg-amber-50",
-    blocked: "border-red-200 bg-red-50",
-    deferred: "border-slate-200 bg-slate-50",
+    pass: "border-[var(--admin-success-border)] bg-[var(--admin-success-soft)]",
+    attention: "border-[var(--admin-warning-border)] bg-[var(--admin-warning-soft)]",
+    blocked: "border-[var(--admin-danger-border)] bg-[var(--admin-danger-soft)]",
+    deferred: "border-[var(--admin-border)] bg-[var(--admin-surface-soft)]",
   }[check.status];
   const label = {
     pass: "可上线",
@@ -239,25 +239,25 @@ function LaunchCheckCard({ check }: { check: LaunchCheck }) {
     deferred: "暂缓",
   }[check.status];
   const labelClassName = {
-    pass: "border-emerald-200 bg-white text-emerald-700",
-    attention: "border-amber-200 bg-white text-amber-700",
-    blocked: "border-red-200 bg-white text-red-700",
-    deferred: "border-slate-200 bg-white text-slate-600",
+    pass: "border-[var(--admin-success-border)] bg-[var(--admin-surface)] text-[var(--admin-success)]",
+    attention: "border-[var(--admin-warning-border)] bg-[var(--admin-surface)] text-[var(--admin-warning)]",
+    blocked: "border-[var(--admin-danger-border)] bg-[var(--admin-surface)] text-[var(--admin-danger)]",
+    deferred: "border-[var(--admin-border)] bg-[var(--admin-surface)] text-[var(--admin-fg)]",
   }[check.status];
 
   return (
     <section className={`rounded-lg border p-4 ${className}`}>
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-sm font-black text-slate-950">{check.title}</h2>
+        <h2 className="text-sm font-black text-[var(--admin-fg)]">{check.title}</h2>
         <span className={`inline-flex h-6 items-center rounded-md border px-2 text-[11px] font-black ${labelClassName}`}>{label}</span>
       </div>
-      <p className="mt-2 min-h-10 text-xs leading-5 text-slate-600">{check.description}</p>
+      <p className="mt-2 min-h-10 text-xs leading-5 text-[var(--admin-fg)]">{check.description}</p>
       {check.href ? (
-        <Link href={check.href} className="mt-3 inline-flex h-8 items-center rounded-lg border border-slate-200 bg-white px-2 text-xs font-black text-slate-700 hover:bg-slate-50">
+        <Link href={check.href} className="mt-3 inline-flex h-8 items-center rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-2 text-xs font-black text-[var(--admin-fg)] hover:bg-[var(--admin-surface-soft)]">
           {check.action}
         </Link>
       ) : (
-        <p className="mt-3 text-xs font-black text-slate-600">{check.action}</p>
+        <p className="mt-3 text-xs font-black text-[var(--admin-fg)]">{check.action}</p>
       )}
     </section>
   );
@@ -276,9 +276,9 @@ function categoryLabel(category: string) {
 
 function SeverityBadge({ severity }: { severity: AdminDiagnosticSeverity }) {
   const className = {
-    critical: "border-red-200 bg-red-50 text-red-700",
-    warning: "border-amber-200 bg-amber-50 text-amber-700",
-    info: "border-blue-200 bg-blue-50 text-blue-700",
+    critical: "border-[var(--admin-danger-border)] bg-[var(--admin-danger-soft)] text-[var(--admin-danger)]",
+    warning: "border-[var(--admin-warning-border)] bg-[var(--admin-warning-soft)] text-[var(--admin-warning)]",
+    info: "border-[var(--admin-info-border)] bg-[var(--admin-info-soft)] text-[var(--admin-info)]",
   }[severity];
   const label = severity === "critical" ? "严重" : severity === "warning" ? "预警" : "提示";
 
@@ -290,7 +290,7 @@ function SeverityBadge({ severity }: { severity: AdminDiagnosticSeverity }) {
 }
 
 function severityBorder(severity: AdminDiagnosticSeverity) {
-  if (severity === "critical") return "border-red-200";
-  if (severity === "warning") return "border-amber-200";
-  return "border-blue-200";
+  if (severity === "critical") return "border-[var(--admin-danger-border)]";
+  if (severity === "warning") return "border-[var(--admin-warning-border)]";
+  return "border-[var(--admin-info-border)]";
 }

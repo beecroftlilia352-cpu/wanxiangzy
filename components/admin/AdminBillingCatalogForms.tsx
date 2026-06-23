@@ -82,11 +82,11 @@ export function AdminBillingCatalogForms({ products }: { products: BillingProduc
   }
 
   return (
-    <div className="grid gap-4 border-b border-slate-100 p-4 xl:grid-cols-2">
+    <div className="grid gap-4 border-b border-[var(--admin-border)] p-4 xl:grid-cols-2">
       <form onSubmit={submitProduct} className="space-y-3">
         <div>
-          <h3 className="text-xs font-black uppercase tracking-[0.1em] text-slate-400">Product Management</h3>
-          <p className="mt-1 text-xs leading-5 text-slate-500">维护本地商品镜像，可重复提交同一 ID 更新商品。</p>
+          <h3 className="text-xs font-black uppercase tracking-[0.1em] text-[var(--admin-faint)]">Product Management</h3>
+          <p className="mt-1 text-xs leading-5 text-[var(--admin-muted)]">维护本地商品镜像，可重复提交同一 ID 更新商品。</p>
         </div>
         <div className="grid gap-2 sm:grid-cols-2">
           <Field name="tierKey" label="tier key" placeholder="starter" required />
@@ -101,7 +101,7 @@ export function AdminBillingCatalogForms({ products }: { products: BillingProduc
         <TextArea name="description" label="描述" placeholder="适合稳定日常生产。" />
         <TextArea name="features" label="权益" placeholder={"1,000 灵点 + 赠送 200\n适合多模块连续生成"} />
         <div className="flex items-center justify-between gap-3">
-          <label className="inline-flex items-center gap-2 text-xs font-bold text-slate-600">
+          <label className="inline-flex items-center gap-2 text-xs font-bold text-[var(--admin-fg)]">
             <input name="active" type="checkbox" defaultChecked className="h-4 w-4 rounded border-slate-300" />
             启用商品
           </label>
@@ -111,16 +111,16 @@ export function AdminBillingCatalogForms({ products }: { products: BillingProduc
 
       <form onSubmit={submitPrice} className="space-y-3">
         <div>
-          <h3 className="text-xs font-black uppercase tracking-[0.1em] text-slate-400">Price Management</h3>
-          <p className="mt-1 text-xs leading-5 text-slate-500">创建本地价格；Stripe Price 由同步操作生成，避免客户端伪造金额。</p>
+          <h3 className="text-xs font-black uppercase tracking-[0.1em] text-[var(--admin-faint)]">Price Management</h3>
+          <p className="mt-1 text-xs leading-5 text-[var(--admin-muted)]">创建本地价格；Stripe Price 由同步操作生成，避免客户端伪造金额。</p>
         </div>
         <div className="grid gap-2 sm:grid-cols-2">
           <label className="space-y-1">
-            <span className="text-[11px] font-black uppercase tracking-[0.08em] text-slate-400">商品</span>
+            <span className="text-[11px] font-black uppercase tracking-[0.08em] text-[var(--admin-faint)]">商品</span>
             <select
               name="productId"
               required
-              className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-sm font-semibold text-slate-700 outline-none focus:border-slate-400"
+              className="h-9 w-full rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-2 text-sm font-semibold text-[var(--admin-fg)] outline-none focus:border-[var(--admin-border-strong)]"
             >
               <option value="">选择商品</option>
               {products.map((product) => (
@@ -131,11 +131,11 @@ export function AdminBillingCatalogForms({ products }: { products: BillingProduc
             </select>
           </label>
           <label className="space-y-1">
-            <span className="text-[11px] font-black uppercase tracking-[0.08em] text-slate-400">模式</span>
+            <span className="text-[11px] font-black uppercase tracking-[0.08em] text-[var(--admin-faint)]">模式</span>
             <select
               name="mode"
               defaultValue="payment"
-              className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-sm font-semibold text-slate-700 outline-none focus:border-slate-400"
+              className="h-9 w-full rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-2 text-sm font-semibold text-[var(--admin-fg)] outline-none focus:border-[var(--admin-border-strong)]"
             >
               <option value="payment">一次性购买</option>
               <option value="subscription">月订阅</option>
@@ -149,11 +149,11 @@ export function AdminBillingCatalogForms({ products }: { products: BillingProduc
         </div>
         <div className="flex items-center justify-between gap-3 pt-9">
           <div className="flex flex-col gap-2">
-            <label className="inline-flex items-center gap-2 text-xs font-bold text-slate-600">
+            <label className="inline-flex items-center gap-2 text-xs font-bold text-[var(--admin-fg)]">
               <input name="walletEnabled" type="checkbox" defaultChecked className="h-4 w-4 rounded border-slate-300" />
               一次性钱包支付
             </label>
-            <label className="inline-flex items-center gap-2 text-xs font-bold text-slate-600">
+            <label className="inline-flex items-center gap-2 text-xs font-bold text-[var(--admin-fg)]">
               <input name="active" type="checkbox" defaultChecked className="h-4 w-4 rounded border-slate-300" />
               启用价格
             </label>
@@ -161,7 +161,7 @@ export function AdminBillingCatalogForms({ products }: { products: BillingProduc
           <SubmitButton pending={pricePending} icon={Plus} label="创建价格" />
         </div>
       </form>
-      {message && <p className="xl:col-span-2 rounded-lg bg-slate-50 px-3 py-2 text-xs font-bold text-slate-600">{message}</p>}
+      {message && <p className="xl:col-span-2 rounded-lg bg-[var(--admin-surface-soft)] px-3 py-2 text-xs font-bold text-[var(--admin-fg)]">{message}</p>}
     </div>
   );
 }
@@ -181,13 +181,13 @@ function Field({
 }) {
   return (
     <label className="space-y-1">
-      <span className="text-[11px] font-black uppercase tracking-[0.08em] text-slate-400">{label}</span>
+      <span className="text-[11px] font-black uppercase tracking-[0.08em] text-[var(--admin-faint)]">{label}</span>
       <input
         name={name}
         type={type}
         required={required}
         placeholder={placeholder}
-        className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-sm font-semibold text-slate-700 outline-none placeholder:text-slate-300 focus:border-slate-400"
+        className="h-9 w-full rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-2 text-sm font-semibold text-[var(--admin-fg)] outline-none placeholder:text-slate-300 focus:border-[var(--admin-border-strong)]"
       />
     </label>
   );
@@ -196,12 +196,12 @@ function Field({
 function TextArea({ name, label, placeholder }: { name: string; label: string; placeholder?: string }) {
   return (
     <label className="block space-y-1">
-      <span className="text-[11px] font-black uppercase tracking-[0.08em] text-slate-400">{label}</span>
+      <span className="text-[11px] font-black uppercase tracking-[0.08em] text-[var(--admin-faint)]">{label}</span>
       <textarea
         name={name}
         rows={2}
         placeholder={placeholder}
-        className="w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm font-semibold text-slate-700 outline-none placeholder:text-slate-300 focus:border-slate-400"
+        className="w-full rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-2 py-2 text-sm font-semibold text-[var(--admin-fg)] outline-none placeholder:text-slate-300 focus:border-[var(--admin-border-strong)]"
       />
     </label>
   );
@@ -212,7 +212,7 @@ function SubmitButton({ pending, icon: Icon, label }: { pending: boolean; icon: 
     <button
       type="submit"
       disabled={pending}
-      className="inline-flex h-9 items-center gap-2 rounded-lg bg-slate-950 px-3 text-xs font-black text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+      className="inline-flex h-9 items-center gap-2 rounded-lg bg-[var(--admin-fg)] px-3 text-xs font-black text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
     >
       {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Icon className="h-3.5 w-3.5" />}
       {label}

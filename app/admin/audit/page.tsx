@@ -40,8 +40,8 @@ export default async function AdminAuditPage() {
               label: "动作",
               render: (row) => (
                 <div className="min-w-[180px]">
-                  <p className="font-mono text-sm font-black text-slate-950">{row.action}</p>
-                  <p className="mt-1 text-xs font-semibold text-slate-500">{resourceTypeLabel(row.resourceType)}</p>
+                  <p className="font-mono text-sm font-black text-[var(--admin-fg)]">{row.action}</p>
+                  <p className="mt-1 text-xs font-semibold text-[var(--admin-muted)]">{resourceTypeLabel(row.resourceType)}</p>
                 </div>
               ),
             },
@@ -50,25 +50,25 @@ export default async function AdminAuditPage() {
               label: "操作者",
               render: (row) => (
                 <div className="min-w-[220px]">
-                  <p className="truncate text-sm font-bold text-slate-800">{row.actorEmail || "-"}</p>
-                  <p className="mt-0.5 text-[11px] font-semibold text-slate-400">{shortAdminCode(row.actorUserId, "用户")}</p>
+                  <p className="truncate text-sm font-bold text-[var(--admin-fg)]">{row.actorEmail || "-"}</p>
+                  <p className="mt-0.5 text-[11px] font-semibold text-[var(--admin-faint)]">{shortAdminCode(row.actorUserId, "用户")}</p>
                 </div>
               ),
             },
             {
               key: "resource",
               label: "处理对象",
-              render: (row) => <span className="text-xs font-semibold text-slate-600">{shortAdminCode(row.resourceId, "编号")}</span>,
+              render: (row) => <span className="text-xs font-semibold text-[var(--admin-fg)]">{shortAdminCode(row.resourceId, "编号")}</span>,
             },
             {
               key: "reason",
               label: "原因",
-              render: (row) => <span className="text-xs font-semibold text-slate-600">{row.reason || "-"}</span>,
+              render: (row) => <span className="text-xs font-semibold text-[var(--admin-fg)]">{row.reason || "-"}</span>,
             },
             {
               key: "time",
               label: "时间",
-              render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-slate-500">{formatDateTime(row.createdAt)}</span>,
+              render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-[var(--admin-muted)]">{formatDateTime(row.createdAt)}</span>,
             },
           ]}
         />

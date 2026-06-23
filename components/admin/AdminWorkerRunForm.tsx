@@ -62,9 +62,9 @@ export function AdminWorkerRunForm({
 
   return (
     <form onSubmit={submit} className="grid gap-3 p-4 lg:grid-cols-[220px_120px_minmax(320px,1fr)_auto]">
-      <FormField label="处理类型" labelClassName="text-xs font-black text-slate-500" className="space-y-1.5">
+      <FormField label="处理类型" labelClassName="text-xs font-black text-[var(--admin-muted)]" className="space-y-1.5">
         {lockTarget ? (
-          <div className="flex h-10 w-full items-center rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-bold text-slate-700">
+          <div className="flex h-10 w-full items-center rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] px-3 text-sm font-bold text-[var(--admin-fg)]">
             {WORKER_OPTIONS.find((option) => option.value === target)?.label || target}
           </div>
         ) : (
@@ -75,7 +75,7 @@ export function AdminWorkerRunForm({
               setTarget(nextTarget);
               setLimit(nextTarget === "agent-evals" ? 20 : 2);
             }}
-            className="h-10 border-slate-200 bg-white px-2 text-sm font-bold text-slate-700 focus-visible:border-slate-400 focus-visible:ring-0"
+            className="h-10 border-[var(--admin-border)] bg-[var(--admin-surface)] px-2 text-sm font-bold text-[var(--admin-fg)] focus-visible:border-[var(--admin-border-strong)] focus-visible:ring-0"
           >
             {WORKER_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>{option.label}</option>
@@ -83,34 +83,34 @@ export function AdminWorkerRunForm({
           </NativeSelect>
         )}
       </FormField>
-      <FormField label="批量" labelClassName="text-xs font-black text-slate-500" className="space-y-1.5">
+      <FormField label="批量" labelClassName="text-xs font-black text-[var(--admin-muted)]" className="space-y-1.5">
         <Input
           type="number"
           min={1}
           max={maxLimit}
           value={limit}
           onChange={(event) => setLimit(Number(event.target.value))}
-          className="h-10 border-slate-200 bg-white px-3 text-sm font-semibold focus-visible:border-slate-400 focus-visible:ring-0"
+          className="h-10 border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm font-semibold focus-visible:border-[var(--admin-border-strong)] focus-visible:ring-0"
         />
       </FormField>
-      <FormField label="触发原因" labelClassName="text-xs font-black text-slate-500" className="space-y-1.5">
+      <FormField label="触发原因" labelClassName="text-xs font-black text-[var(--admin-muted)]" className="space-y-1.5">
         <Input
           value={reason}
           onChange={(event) => setReason(event.target.value)}
-          className="h-10 border-slate-200 bg-white px-3 text-sm font-semibold focus-visible:border-slate-400 focus-visible:ring-0"
+          className="h-10 border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm font-semibold focus-visible:border-[var(--admin-border-strong)] focus-visible:ring-0"
           placeholder="例如：处理积压队列 / 验证修复后的处理服务"
           required
           minLength={6}
         />
       </FormField>
       <div className="flex items-end">
-        <Button type="submit" disabled={loading} className="h-10 w-full bg-slate-950 px-4 text-sm font-black text-white disabled:opacity-60 lg:w-auto">
+        <Button type="submit" disabled={loading} className="h-10 w-full bg-[var(--admin-fg)] px-4 text-sm font-black text-white disabled:opacity-60 lg:w-auto">
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
           触发
         </Button>
       </div>
       {message && (
-        <p className={`text-sm font-bold lg:col-span-4 ${message.startsWith("已触发") ? "text-emerald-700" : "text-red-700"}`}>
+        <p className={`text-sm font-bold lg:col-span-4 ${message.startsWith("已触发") ? "text-[var(--admin-success)]" : "text-[var(--admin-danger)]"}`}>
           {message}
         </p>
       )}

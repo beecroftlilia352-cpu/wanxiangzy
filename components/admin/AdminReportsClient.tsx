@@ -57,7 +57,7 @@ export function AdminReportsClient({ report }: AdminReportsClientProps) {
         <div>
           <Typography.Text className="admin-page-eyebrow">Reports</Typography.Text>
           <Typography.Title level={2} className="!mb-1 !mt-1">成本利润报表</Typography.Title>
-          <Typography.Paragraph className="!mb-0 !text-slate-500">
+          <Typography.Paragraph className="!mb-0 !text-[var(--admin-muted)]">
             按灵点流水、生成任务和 Agent 工作流汇总收入代理、退款、履约成本、毛利代理和失败损耗。
           </Typography.Paragraph>
         </div>

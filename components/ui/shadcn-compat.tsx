@@ -250,9 +250,9 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
         "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50",
         size === "small" ? "h-8 px-2.5 text-xs" : size === "large" ? "h-11 px-5" : "h-9 px-4",
         type === "primary" && !danger && "border-primary bg-primary text-primary-foreground hover:bg-primary/90",
-        danger && "border-red-200 bg-red-50 text-red-700 hover:bg-red-100",
-        type === "default" && !danger && "border-border bg-white text-slate-900 hover:bg-slate-50",
-        type === "text" && "border-transparent bg-transparent hover:bg-slate-100",
+        danger && "border-destructive/30 bg-destructive/10 text-destructive hover:bg-destructive/15",
+        type === "default" && !danger && "border-border bg-card text-foreground hover:bg-muted",
+        type === "text" && "border-transparent bg-transparent hover:bg-muted",
         type === "link" && "h-auto border-transparent bg-transparent p-0 text-primary underline-offset-4 hover:underline",
         block && "w-full",
         className,
@@ -277,7 +277,7 @@ export function Card({ title, extra, loading, className, styles, children, ...pr
     <section className={cn("rounded-lg border border-border bg-card text-card-foreground shadow-sm", className)} {...props}>
       {(title || extra) && (
         <div className="flex min-h-12 items-center justify-between gap-3 border-b border-border px-4 py-3" style={styles?.header}>
-          <div className="min-w-0 text-sm font-semibold text-slate-950">{title}</div>
+          <div className="min-w-0 text-sm font-semibold text-card-foreground">{title}</div>
           {extra ? <div className="shrink-0">{extra}</div> : null}
         </div>
       )}
@@ -316,9 +316,9 @@ type InputProps = Omit<InputHTMLAttributes<HTMLInputElement>, "prefix"> & {
 const BaseInput = forwardRef<HTMLInputElement, InputProps>(function BaseInput({ className, prefix, allowClear, ...props }, ref) {
   if (prefix) {
     return (
-      <span className={cn("flex h-9 items-center gap-2 rounded-md border border-input bg-white px-3 text-sm shadow-sm focus-within:ring-2 focus-within:ring-ring", className)}>
-        <span className="text-slate-400">{prefix}</span>
-        <input ref={ref} className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-slate-400" {...props} />
+      <span className={cn("flex h-9 items-center gap-2 rounded-md border border-input bg-card px-3 text-sm shadow-sm focus-within:ring-2 focus-within:ring-ring", className)}>
+        <span className="text-muted-foreground">{prefix}</span>
+        <input ref={ref} className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-muted-foreground" {...props} />
       </span>
     );
   }
@@ -326,7 +326,7 @@ const BaseInput = forwardRef<HTMLInputElement, InputProps>(function BaseInput({ 
   return (
     <input
       ref={ref}
-      className={cn("h-9 w-full rounded-md border border-input bg-white px-3 py-1 text-sm shadow-sm outline-none transition-colors placeholder:text-slate-400 focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50", className)}
+      className={cn("h-9 w-full rounded-md border border-input bg-card px-3 py-1 text-sm shadow-sm outline-none transition-colors placeholder:text-muted-foreground focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50", className)}
       {...props}
     />
   );
@@ -337,12 +337,12 @@ function TextArea({ className, showCount, maxLength, value, ...props }: Textarea
   return (
     <span className="block">
       <textarea
-        className={cn("min-h-20 w-full rounded-md border border-input bg-white px-3 py-2 text-sm shadow-sm outline-none transition-colors placeholder:text-slate-400 focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50", className)}
+        className={cn("min-h-20 w-full rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm outline-none transition-colors placeholder:text-muted-foreground focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50", className)}
         maxLength={maxLength}
         value={value}
         {...props}
       />
-      {showCount && maxLength ? <span className="mt-1 block text-right text-xs text-slate-400">{length} / {maxLength}</span> : null}
+      {showCount && maxLength ? <span className="mt-1 block text-right text-xs text-muted-foreground">{length} / {maxLength}</span> : null}
     </span>
   );
 }
@@ -450,19 +450,19 @@ export function Select({
               aria-haspopup="listbox"
               aria-expanded={open}
               aria-label={placeholder}
-              className="flex h-10 w-full min-w-0 items-center justify-between gap-2 rounded-md border border-input bg-white px-3 text-left text-sm shadow-sm outline-none transition-colors hover:bg-slate-50 focus:border-ring focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex h-10 w-full min-w-0 items-center justify-between gap-2 rounded-md border border-input bg-card px-3 text-left text-sm shadow-sm outline-none transition-colors hover:bg-muted focus:border-ring focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <span className={cn("min-w-0 flex-1 truncate", !selected && "text-slate-400")}>
+              <span className={cn("min-w-0 flex-1 truncate", !selected && "text-muted-foreground")}>
                 {selected?.label ?? placeholder ?? ""}
               </span>
-              {loading ? <Loader2 className="h-4 w-4 shrink-0 animate-spin text-slate-400" /> : <ChevronDown className="h-4 w-4 shrink-0 text-slate-500" />}
+              {loading ? <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" /> : <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />}
             </button>
           </PopoverTrigger>
           <PopoverContent
             align="start"
             sideOffset={4}
             role="listbox"
-            className="z-[5000] max-h-[min(320px,var(--radix-popover-content-available-height))] w-[var(--radix-popover-trigger-width)] min-w-[var(--radix-popover-trigger-width)] gap-0 overflow-y-auto rounded-md border border-slate-200 bg-white p-1 shadow-lg"
+            className="z-[5000] max-h-[min(320px,var(--radix-popover-content-available-height))] w-[var(--radix-popover-trigger-width)] min-w-[var(--radix-popover-trigger-width)] gap-0 overflow-y-auto rounded-md border border-border bg-card p-1 shadow-lg"
           >
             {options.map((option) => (
               <SelectOptionButton
@@ -473,7 +473,7 @@ export function Select({
                 optionRender={optionRender}
               />
             ))}
-            {!options.length ? <div className="px-3 py-2 text-sm text-slate-500">{notFoundContent ?? "暂无数据"}</div> : null}
+            {!options.length ? <div className="px-3 py-2 text-sm text-muted-foreground">{notFoundContent ?? "暂无数据"}</div> : null}
           </PopoverContent>
         </Popover>
       </span>
@@ -482,13 +482,13 @@ export function Select({
 
   return (
     <div className={cn("relative w-full", className)} style={style}>
-      <div className="flex h-10 items-center rounded-md border border-input bg-white px-3 shadow-sm focus-within:ring-2 focus-within:ring-ring">
+      <div className="flex h-10 items-center rounded-md border border-input bg-card px-3 shadow-sm focus-within:ring-2 focus-within:ring-ring">
         <input
           name={name}
           disabled={disabled}
           value={open ? query : textFromNode(selected?.label) || ""}
           placeholder={placeholder}
-          className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-slate-400"
+          className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
           onFocus={() => setOpen(true)}
           onChange={(event) => {
             setQuery(event.target.value);
@@ -496,24 +496,24 @@ export function Select({
             onSearch?.(event.target.value);
           }}
         />
-        {loading ? <Loader2 className="h-4 w-4 animate-spin text-slate-400" /> : null}
+        {loading ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /> : null}
         {allowClear && currentValue ? (
-          <button type="button" className="ml-1 text-slate-400 hover:text-slate-700" onClick={() => { commit(undefined); onClear?.(); }}>
+          <button type="button" className="ml-1 text-muted-foreground hover:text-foreground" onClick={() => { commit(undefined); onClear?.(); }}>
             <X className="h-4 w-4" />
           </button>
         ) : null}
-        <button type="button" className="ml-1 text-slate-400" onClick={() => setOpen((next) => !next)}>
+        <button type="button" className="ml-1 text-muted-foreground" onClick={() => setOpen((next) => !next)}>
           <ChevronDown className="h-4 w-4" />
         </button>
       </div>
       {open ? (
-        <div className="absolute left-0 top-[calc(100%+4px)] z-[5000] max-h-64 w-full overflow-auto rounded-md border border-border bg-white p-1 text-sm shadow-xl">
+        <div className="absolute left-0 top-[calc(100%+4px)] z-[5000] max-h-64 w-full overflow-auto rounded-md border border-border bg-card p-1 text-sm shadow-xl">
           {visibleOptions.length ? visibleOptions.map((option) => (
             <button
               key={String(option.value)}
               type="button"
               disabled={option.disabled}
-              className="flex w-full items-start justify-between gap-3 rounded-sm px-2 py-2 text-left hover:bg-slate-100 disabled:opacity-50"
+              className="flex w-full items-start justify-between gap-3 rounded-sm px-2 py-2 text-left hover:bg-muted disabled:opacity-50"
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => commit(option)}
             >
@@ -521,7 +521,7 @@ export function Select({
               {String(option.value) === String(currentValue) ? <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" /> : null}
             </button>
           )) : (
-            <div className="px-2 py-3 text-center text-slate-500">{notFoundContent || "暂无数据"}</div>
+            <div className="px-2 py-3 text-center text-muted-foreground">{notFoundContent || "暂无数据"}</div>
           )}
         </div>
       ) : null}
@@ -549,7 +549,7 @@ function SelectOptionButton({
       onClick={() => onSelect(option)}
       className={cn(
         "relative flex min-h-8 w-full items-center rounded-sm px-3 py-1.5 pr-8 text-left text-sm outline-none transition-colors disabled:pointer-events-none disabled:opacity-50",
-        selected ? "bg-[#5b6fff] text-white" : "text-slate-900 hover:bg-slate-50 focus:bg-slate-50"
+        selected ? "bg-[#5b6fff] text-white" : "text-foreground hover:bg-muted focus:bg-muted"
       )}
     >
       <span className="min-w-0 flex-1 truncate">{optionRender ? optionRender({ data: option }) : option.label}</span>
@@ -671,9 +671,9 @@ function FormItem({
 
   return (
     <label className={cn("mb-3 block", className)}>
-      {label ? <span className="mb-1.5 block text-sm font-medium text-slate-700">{label}</span> : null}
+      {label ? <span className="mb-1.5 block text-sm font-medium text-foreground">{label}</span> : null}
       {injected}
-      {extra ? <span className="mt-1 block text-xs text-slate-500">{extra}</span> : null}
+      {extra ? <span className="mt-1 block text-xs text-muted-foreground">{extra}</span> : null}
     </label>
   );
 }
@@ -688,7 +688,7 @@ export const Form = Object.assign(FormRoot, { Item: FormItem, useForm });
 
 function RadioItem({ value, children, checked, onChange }: { value: string; children?: ReactNode; checked?: boolean; onChange?: (event: any) => void }) {
   return (
-    <label className="flex cursor-pointer items-start gap-2 rounded-md border border-border bg-white px-3 py-2 text-sm hover:bg-slate-50">
+    <label className="flex cursor-pointer items-start gap-2 rounded-md border border-border bg-card px-3 py-2 text-sm hover:bg-muted">
       <input type="radio" className="mt-1" value={value} checked={checked} onChange={onChange} />
       <span>{children}</span>
     </label>
@@ -734,9 +734,9 @@ export function Switch({ checked, onChange, checkedChildren, unCheckedChildren }
       type="button"
       aria-pressed={Boolean(checked)}
       onClick={() => onChange?.(!checked)}
-      className={cn("inline-flex h-7 min-w-14 items-center rounded-full border px-1 text-xs font-medium transition", checked ? "border-primary bg-primary text-white" : "border-border bg-slate-100 text-slate-500")}
+      className={cn("inline-flex h-7 min-w-14 items-center rounded-full border px-1 text-xs font-medium transition", checked ? "border-primary bg-primary text-white" : "border-border bg-muted text-muted-foreground")}
     >
-      <span className={cn("h-5 w-5 rounded-full bg-white shadow transition", checked ? "translate-x-7" : "translate-x-0")} />
+      <span className={cn("h-5 w-5 rounded-full bg-card shadow transition", checked ? "translate-x-7" : "translate-x-0")} />
       <span className="ml-2 mr-1">{checked ? checkedChildren : unCheckedChildren}</span>
     </button>
   );
@@ -746,10 +746,10 @@ export function Modal({ title, open, onCancel, onOk, okText = "确认", confirmL
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-[6000] flex items-center justify-center bg-black/35 p-4">
-      <div className="w-full max-w-lg rounded-lg border border-border bg-white shadow-2xl" style={width ? { maxWidth: width } : undefined}>
+      <div className="w-full max-w-lg rounded-lg border border-border bg-card shadow-2xl" style={width ? { maxWidth: width } : undefined}>
         <div className="flex items-center justify-between border-b border-border px-5 py-4">
           <h2 className="text-base font-semibold">{title}</h2>
-          <button type="button" onClick={onCancel} className="rounded p-1 text-slate-500 hover:bg-slate-100"><X className="h-4 w-4" /></button>
+          <button type="button" onClick={onCancel} className="rounded p-1 text-muted-foreground hover:bg-muted"><X className="h-4 w-4" /></button>
         </div>
         <div className="p-5">{children}</div>
         <div className="flex justify-end gap-2 border-t border-border px-5 py-4">
@@ -772,14 +772,14 @@ export function Alert({ type = "info", message, description, className }: { type
 
 export function Tag({ color, className, children }: { color?: string; className?: string; children?: ReactNode }) {
   const tone = color === "red" || color === "volcano"
-    ? "border-red-200 bg-red-50 text-red-700"
+    ? "border-destructive/30 bg-destructive/10 text-destructive"
     : color === "green"
-      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+      ? "border-[var(--admin-success-border)] bg-[var(--admin-success-soft)] text-[var(--admin-success)]"
       : color === "orange" || color === "gold"
-        ? "border-amber-200 bg-amber-50 text-amber-700"
+        ? "border-[var(--admin-warning-border)] bg-[var(--admin-warning-soft)] text-[var(--admin-warning)]"
         : color === "blue"
-          ? "border-blue-200 bg-blue-50 text-blue-700"
-          : "border-slate-200 bg-slate-50 text-slate-700";
+          ? "border-[var(--admin-info-border)] bg-[var(--admin-info-soft)] text-[var(--admin-info)]"
+          : "border-[var(--admin-neutral-border)] bg-[var(--admin-neutral-soft)] text-[var(--admin-neutral)]";
   return <span className={cn("inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium", tone, className)}>{children}</span>;
 }
 
@@ -788,7 +788,7 @@ export function Badge(props: Parameters<typeof Tag>[0]) {
 }
 
 export function Empty({ description }: { image?: ReactNode; description?: ReactNode }) {
-  return <div className="flex min-h-24 items-center justify-center rounded-md border border-dashed border-border bg-slate-50 p-6 text-sm text-slate-500">{description || "暂无数据"}</div>;
+  return <div className="flex min-h-24 items-center justify-center rounded-md border border-dashed border-border bg-muted p-6 text-sm text-muted-foreground">{description || "暂无数据"}</div>;
 }
 Empty.PRESENTED_IMAGE_SIMPLE = null;
 
@@ -796,10 +796,10 @@ export function Progress({ percent = 0 }: { percent?: number; size?: "small" | "
   const value = Math.max(0, Math.min(100, percent));
   return (
     <div className="flex items-center gap-2">
-      <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-100">
+      <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
         <div className="h-full rounded-full bg-primary" style={{ width: `${value}%` }} />
       </div>
-      <span className="w-10 text-right text-xs text-slate-500">{value}%</span>
+      <span className="w-10 text-right text-xs text-muted-foreground">{value}%</span>
     </div>
   );
 }
@@ -808,8 +808,8 @@ export function Statistic({ title, value, suffix, precision, styles }: { title?:
   const display = typeof value === "number" && precision != null ? value.toFixed(precision) : value;
   return (
     <div>
-      {title ? <div className="text-xs font-medium text-slate-500">{title}</div> : null}
-      <div className="mt-1 text-2xl font-semibold text-slate-950" style={styles?.content}>{display}{suffix}</div>
+      {title ? <div className="text-xs font-medium text-muted-foreground">{title}</div> : null}
+      <div className="mt-1 text-2xl font-semibold text-foreground" style={styles?.content}>{display}{suffix}</div>
     </div>
   );
 }
@@ -843,10 +843,10 @@ export function Table<T extends Record<string, any>>({ columns = [], dataSource 
     <div className={cn("space-y-3", className)}>
       <div className="overflow-auto rounded-md border border-border" style={{ maxWidth: "100%" }}>
         <table className="w-full caption-bottom text-sm" style={{ minWidth: scroll?.x }}>
-          <thead className="bg-slate-50">
+          <thead className="bg-muted">
             <tr>
               {columns.map((column, index) => (
-                <th key={index} className={cn("border-b border-border px-3 py-2 text-left font-semibold text-slate-700", column.align === "center" && "text-center", column.align === "right" && "text-right")} style={{ width: column.width }}>
+                <th key={index} className={cn("border-b border-border px-3 py-2 text-left font-semibold text-foreground", column.align === "center" && "text-center", column.align === "right" && "text-right")} style={{ width: column.width }}>
                   {column.title}
                 </th>
               ))}
@@ -871,7 +871,7 @@ export function Table<T extends Record<string, any>>({ columns = [], dataSource 
             ) : dataSource.length ? dataSource.map((row, rowIndex) => {
               const key = typeof rowKey === "function" ? rowKey(row) : rowKey ? String(row[rowKey]) : String(rowIndex);
               return (
-                <tr key={key} className="border-b border-border last:border-0 hover:bg-slate-50/70">
+                <tr key={key} className="border-b border-border last:border-0 hover:bg-muted/70">
                   {columns.map((column, columnIndex) => {
                     const value = getValue(row, column.dataIndex);
                     const isNumeric = typeof value === "number";
@@ -886,7 +886,7 @@ export function Table<T extends Record<string, any>>({ columns = [], dataSource 
                 </tr>
               );
             }) : (
-              <tr><td colSpan={columns.length || 1} className="px-3 py-8 text-center text-slate-500">{locale?.emptyText || "暂无数据"}</td></tr>
+              <tr><td colSpan={columns.length || 1} className="px-3 py-8 text-center text-muted-foreground">{locale?.emptyText || "暂无数据"}</td></tr>
             )}
           </tbody>
         </table>
@@ -996,7 +996,7 @@ export const Image = Object.assign(ImageRoot, { PreviewGroup: ({ children }: { i
 
 export function Avatar({ src, size = 32, icon, className }: { src?: string; size?: number; icon?: ReactNode; className?: string }) {
   return (
-    <span className={cn("inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-100 text-slate-500", className)} style={{ width: size, height: size }}>
+    <span className={cn("inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted text-muted-foreground", className)} style={{ width: size, height: size }}>
       {src ? <img src={src} alt="" className="h-full w-full object-cover" /> : icon}
     </span>
   );
@@ -1020,7 +1020,7 @@ function Text({
     <span
       className={cn(
         strong && "font-semibold",
-        type === "secondary" && "text-slate-500",
+        type === "secondary" && "text-muted-foreground",
         type === "danger" && "text-red-600",
         ellipsis && "inline-block max-w-full truncate align-bottom",
         className,
@@ -1035,11 +1035,11 @@ function Text({
 
 function Title({ level = 1, className, children }: { level?: 1 | 2 | 3 | 4 | 5; className?: string; children?: ReactNode }) {
   const TagName = `h${level}` as "h1" | "h2" | "h3" | "h4" | "h5";
-  return <TagName className={cn("font-semibold tracking-normal text-slate-950", level === 1 && "text-3xl", level === 2 && "text-2xl", level === 3 && "text-xl", level >= 4 && "text-base", className)}>{children}</TagName>;
+  return <TagName className={cn("font-semibold tracking-normal text-foreground", level === 1 && "text-3xl", level === 2 && "text-2xl", level === 3 && "text-xl", level >= 4 && "text-base", className)}>{children}</TagName>;
 }
 
 function Paragraph({ type, className, children }: HTMLAttributes<HTMLParagraphElement> & { type?: "secondary" }) {
-  return <p className={cn(type === "secondary" && "text-slate-500", className)}>{children}</p>;
+  return <p className={cn(type === "secondary" && "text-muted-foreground", className)}>{children}</p>;
 }
 
 export const Typography = { Text, Title, Paragraph };
@@ -1057,9 +1057,9 @@ export function Col({ xs = 24, sm, xl, className, children }: { xs?: number; sm?
 
 export function Segmented({ value, options, onChange }: { value?: PrimitiveValue; options: Option[]; onChange?: (value: any) => void }) {
   return (
-    <div className="inline-flex rounded-md border border-border bg-slate-100 p-1">
+    <div className="inline-flex rounded-md border border-border bg-muted p-1">
       {options.map((option) => (
-        <button key={String(option.value)} type="button" onClick={() => onChange?.(option.value)} className={cn("rounded px-3 py-1.5 text-sm", String(value) === String(option.value) ? "bg-white text-slate-950 shadow-sm" : "text-slate-500 hover:text-slate-950")}>{option.label}</button>
+        <button key={String(option.value)} type="button" onClick={() => onChange?.(option.value)} className={cn("rounded px-3 py-1.5 text-sm", String(value) === String(option.value) ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>{option.label}</button>
       ))}
     </div>
   );
@@ -1076,7 +1076,7 @@ export const List = Object.assign(
       },
       {
         Meta({ avatar, title, description }: { avatar?: ReactNode; title?: ReactNode; description?: ReactNode }) {
-          return <div className="flex min-w-0 items-start gap-3">{avatar}<div className="min-w-0"><div className="font-medium">{title}</div><div className="mt-1 text-sm text-slate-500">{description}</div></div></div>;
+          return <div className="flex min-w-0 items-start gap-3">{avatar}<div className="min-w-0"><div className="font-medium">{title}</div><div className="mt-1 text-sm text-muted-foreground">{description}</div></div></div>;
         },
       },
     ),
@@ -1130,12 +1130,12 @@ export function Drawer({ open, onClose, title, children, className, ariaLabel }:
         aria-labelledby={titleId}
         aria-label={ariaLabel}
         tabIndex={-1}
-        className={cn("h-full w-[292px] overflow-y-auto overscroll-contain bg-white p-4 shadow-xl", className)}
+        className={cn("h-full w-[292px] overflow-y-auto overscroll-contain bg-card p-4 shadow-xl", className)}
         style={{ paddingTop: "max(1rem, env(safe-area-inset-top))", paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
         onClick={(event) => event.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between gap-2">
-          <div id={titleId} className="min-w-0 truncate text-base font-black text-slate-950">{title}</div>
+          <div id={titleId} className="min-w-0 truncate text-base font-black text-foreground">{title}</div>
           <Button size="small" onClick={onClose} aria-label="关闭抽屉">关闭</Button>
         </div>
         {children}
@@ -1149,10 +1149,10 @@ export function Menu({ items, selectedKeys }: { mode?: string; selectedKeys?: st
     <nav className="space-y-4">
       {(items || []).map((group) => (
         <div key={group.key}>
-          <div className="px-3 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">{group.label}</div>
+          <div className="px-3 pb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{group.label}</div>
           <div className="space-y-1">
             {(group.children || []).map((item: any) => (
-              <div key={item.key} className={cn("flex items-center gap-2 rounded-md px-3 py-2 text-sm text-slate-700 hover:bg-slate-100", selectedKeys?.includes(item.key) && "bg-blue-50 text-blue-700")}>
+              <div key={item.key} className={cn("flex items-center gap-2 rounded-md px-3 py-2 text-sm text-foreground hover:bg-muted", selectedKeys?.includes(item.key) && "bg-blue-50 text-blue-700")}>
                 <span>{item.icon}</span>
                 {item.label}
               </div>
@@ -1167,7 +1167,7 @@ export function Menu({ items, selectedKeys }: { mode?: string; selectedKeys?: st
 export type MenuProps = { items?: any[] };
 
 export function Breadcrumb({ items }: { items?: Array<{ title: ReactNode }> }) {
-  return <div className="flex items-center gap-2 text-sm text-slate-500">{items?.map((item, index) => <span key={index}>{item.title}</span>)}</div>;
+  return <div className="flex items-center gap-2 text-sm text-muted-foreground">{items?.map((item, index) => <span key={index}>{item.title}</span>)}</div>;
 }
 
 export function Spin({ size = "default" }: { size?: "small" | "default" | "large" }) {
@@ -1266,12 +1266,12 @@ export const DatePicker = {
             <button
               type="button"
               aria-label="选择日期范围"
-              className="flex h-10 w-full min-w-0 items-center rounded-md border border-input bg-white px-3 pr-16 text-sm shadow-sm transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="flex h-10 w-full min-w-0 items-center rounded-md border border-input bg-card px-3 pr-16 text-sm shadow-sm transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <span className="flex min-w-0 items-center gap-2 overflow-hidden">
-                <span className={cn("truncate", !displayStart && "text-slate-400")}>{displayStart || placeholder?.[0] || "开始日期"}</span>
-                <ArrowRight className="h-3.5 w-3.5 shrink-0 text-slate-400" />
-                <span className={cn("truncate", !displayEnd && "text-slate-400")}>{displayEnd || placeholder?.[1] || "结束日期"}</span>
+                <span className={cn("truncate", !displayStart && "text-muted-foreground")}>{displayStart || placeholder?.[0] || "开始日期"}</span>
+                <ArrowRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                <span className={cn("truncate", !displayEnd && "text-muted-foreground")}>{displayEnd || placeholder?.[1] || "结束日期"}</span>
               </span>
             </button>
           </PopoverTrigger>
@@ -1279,33 +1279,33 @@ export const DatePicker = {
             <button
               type="button"
               aria-label="清空日期范围"
-              className="absolute right-9 top-1/2 inline-flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-sm text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="absolute right-9 top-1/2 inline-flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               onClick={clearRange}
             >
               <X className="h-3.5 w-3.5" />
             </button>
           ) : null}
-          <CalendarDays className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <CalendarDays className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         </span>
-        <PopoverContent align="start" sideOffset={6} className="z-[5000] w-[min(720px,calc(100vw-2rem))] gap-0 overflow-hidden rounded-lg border border-border bg-white p-0 shadow-xl ring-1 ring-slate-950/10">
+        <PopoverContent align="start" sideOffset={6} className="z-[5000] w-[min(720px,calc(100vw-2rem))] gap-0 overflow-hidden rounded-lg border border-border bg-card p-0 shadow-xl ring-1 ring-slate-950/10">
           <div className="grid md:grid-cols-[120px_1fr]">
             <div className="flex gap-1 border-b border-border p-2 md:block md:border-b-0 md:border-r">
-              <button type="button" className="h-9 rounded-md px-3 text-left text-sm hover:bg-slate-100 md:w-full" onClick={() => applyQuickRange(7)}>
+              <button type="button" className="h-9 rounded-md px-3 text-left text-sm hover:bg-muted md:w-full" onClick={() => applyQuickRange(7)}>
                 最近一周
               </button>
-              <button type="button" className="h-9 rounded-md px-3 text-left text-sm hover:bg-slate-100 md:w-full" onClick={() => applyQuickRange(30)}>
+              <button type="button" className="h-9 rounded-md px-3 text-left text-sm hover:bg-muted md:w-full" onClick={() => applyQuickRange(30)}>
                 最近一月
               </button>
             </div>
             <div className="min-w-0 p-3">
               <div className="mb-3 flex items-center justify-between">
-                <button type="button" className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-900" onClick={() => setViewMonth((current) => addMonths(current, -1))} aria-label="上个月">
+                <button type="button" className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground" onClick={() => setViewMonth((current) => addMonths(current, -1))} aria-label="上个月">
                   <ChevronLeft className="h-4 w-4" />
                 </button>
-                <div className="text-sm font-semibold text-slate-900">
+                <div className="text-sm font-semibold text-foreground">
                   {formatMonthTitle(viewMonth)} - {formatMonthTitle(addMonths(viewMonth, 1))}
                 </div>
-                <button type="button" className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-900" onClick={() => setViewMonth((current) => addMonths(current, 1))} aria-label="下个月">
+                <button type="button" className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground" onClick={() => setViewMonth((current) => addMonths(current, 1))} aria-label="下个月">
                   <ChevronRight className="h-4 w-4" />
                 </button>
               </div>
@@ -1344,8 +1344,8 @@ function RangeCalendarMonth({
   const cells = getMonthCells(month);
   return (
     <div className="min-w-0">
-      <div className="mb-2 text-center text-sm font-semibold text-slate-900">{formatMonthTitle(month)}</div>
-      <div className="grid grid-cols-7 text-center text-xs font-medium text-slate-500">
+      <div className="mb-2 text-center text-sm font-semibold text-foreground">{formatMonthTitle(month)}</div>
+      <div className="grid grid-cols-7 text-center text-xs font-medium text-muted-foreground">
         {weekdays.map((day) => (
           <span key={day} className="py-1">{day}</span>
         ))}
@@ -1367,7 +1367,7 @@ function RangeCalendarMonth({
                 !inMonth && "text-slate-300",
                 inRange && !selected && "bg-primary/10 text-primary",
                 selected && "bg-primary text-primary-foreground hover:bg-primary",
-                !selected && !inRange && "hover:bg-slate-100",
+                !selected && !inRange && "hover:bg-muted",
               )}
               onClick={() => onSelect(date)}
             >

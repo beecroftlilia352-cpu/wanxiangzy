@@ -54,7 +54,7 @@ export default async function AdminAssetLifecyclePage({ searchParams }: PageProp
         actions={
           <Link
             href="/admin/assets"
-            className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 shadow-sm hover:bg-slate-50"
+            className="inline-flex h-9 items-center gap-2 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-xs font-black text-[var(--admin-fg)] shadow-sm hover:bg-[var(--admin-surface-soft)]"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
             返回资产
@@ -80,24 +80,24 @@ export default async function AdminAssetLifecyclePage({ searchParams }: PageProp
         actions={
           <form action="/admin/assets/lifecycle" className="flex flex-wrap items-center gap-2">
             <div className="relative">
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--admin-faint)]" />
               <input
                 name="q"
                 defaultValue={q}
                 placeholder="搜索资产 / 用户 / 状态"
-                className="h-9 w-56 rounded-lg border border-slate-200 bg-white pl-8 pr-3 text-sm font-semibold outline-none focus:border-slate-400"
+                className="h-9 w-56 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] pl-8 pr-3 text-sm font-semibold outline-none focus:border-[var(--admin-border-strong)]"
               />
             </div>
-            <select name="module" defaultValue={moduleFilter} className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs font-bold text-slate-700">
+            <select name="module" defaultValue={moduleFilter} className="h-9 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-2 text-xs font-bold text-[var(--admin-fg)]">
               {moduleOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
             </select>
-            <button className="h-9 rounded-lg bg-slate-950 px-3 text-xs font-black text-white" type="submit">
+            <button className="h-9 rounded-lg bg-[var(--admin-fg)] px-3 text-xs font-black text-white" type="submit">
               筛选
             </button>
           </form>
         }
       >
-        <div className="grid gap-3 p-4 text-xs font-semibold text-slate-600 md:grid-cols-5">
+        <div className="grid gap-3 p-4 text-xs font-semibold text-[var(--admin-fg)] md:grid-cols-5">
           <StorageCount label="OSS URL" value={overview.metrics.ossUrls} />
           <StorageCount label="ImgBB URL" value={overview.metrics.imgbbUrls} />
           <StorageCount label="外部 URL" value={overview.metrics.externalUrls} />
@@ -125,13 +125,13 @@ export default async function AdminAssetLifecyclePage({ searchParams }: PageProp
               render: (row) => (
                 <div className="min-w-[260px]">
                   <AdminStatusBadge status={row.stage} />
-                  <p className="mt-1 text-sm font-black text-slate-950">{row.title}</p>
-                  <p className="mt-0.5 text-xs leading-5 text-slate-500">{row.description}</p>
+                  <p className="mt-1 text-sm font-black text-[var(--admin-fg)]">{row.title}</p>
+                  <p className="mt-0.5 text-xs leading-5 text-[var(--admin-muted)]">{row.description}</p>
                 </div>
               ),
             },
-            { key: "threshold", label: "阈值", render: (row) => <code className="text-xs text-slate-500">{row.threshold}</code> },
-            { key: "action", label: "建议动作", render: (row) => <span className="text-xs font-black text-slate-700">{lifecycleActionLabel(row.action)}</span> },
+            { key: "threshold", label: "阈值", render: (row) => <code className="text-xs text-[var(--admin-muted)]">{row.threshold}</code> },
+            { key: "action", label: "建议动作", render: (row) => <span className="text-xs font-black text-[var(--admin-fg)]">{lifecycleActionLabel(row.action)}</span> },
           ]}
         />
       </AdminSection>
@@ -154,40 +154,40 @@ export default async function AdminAssetLifecyclePage({ searchParams }: PageProp
                 <div className="min-w-[260px]">
                   <div className="flex items-center gap-2">
                     <AdminStatusBadge status={row.stage} group={stageGroup(row.stage, row.riskLevel)} />
-                    <span className="rounded-md bg-slate-100 px-1.5 py-1 text-[10px] font-black text-slate-500">{resourceTypeLabel(row.sourceType)}</span>
+                    <span className="rounded-md bg-[var(--admin-surface-soft)] px-1.5 py-1 text-[10px] font-black text-[var(--admin-muted)]">{resourceTypeLabel(row.sourceType)}</span>
                   </div>
-                  <p className="mt-1 truncate text-sm font-black text-slate-950">{row.title}</p>
-                  <p className="mt-0.5 truncate text-[11px] font-semibold text-slate-400">{shortAdminCode(row.id, "资产")}</p>
+                  <p className="mt-1 truncate text-sm font-black text-[var(--admin-fg)]">{row.title}</p>
+                  <p className="mt-0.5 truncate text-[11px] font-semibold text-[var(--admin-faint)]">{shortAdminCode(row.id, "资产")}</p>
                 </div>
               ),
             },
-            { key: "module", label: "模块", render: (row) => <span className="whitespace-nowrap text-sm font-bold text-slate-700">{row.moduleLabel}</span> },
+            { key: "module", label: "模块", render: (row) => <span className="whitespace-nowrap text-sm font-bold text-[var(--admin-fg)]">{row.moduleLabel}</span> },
             {
               key: "storage",
               label: "存储",
               render: (row) => (
                 <div className="flex min-w-[170px] flex-wrap gap-1.5">
                   {row.providers.map((provider) => (
-                    <span key={provider} className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 font-mono text-[11px] font-black text-slate-600">
+                    <span key={provider} className="rounded-md border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] px-2 py-1 font-mono text-[11px] font-black text-[var(--admin-fg)]">
                       {provider}
                     </span>
                   ))}
                 </div>
               ),
             },
-            { key: "count", label: "图片", render: (row) => <span className="font-mono text-sm font-bold text-slate-700">{row.urlCount}/{row.inputCount}</span> },
-            { key: "age", label: "保存时长", render: (row) => <span className="text-sm font-bold text-slate-700">{row.ageDays} 天</span> },
+            { key: "count", label: "图片", render: (row) => <span className="font-mono text-sm font-bold text-[var(--admin-fg)]">{row.urlCount}/{row.inputCount}</span> },
+            { key: "age", label: "保存时长", render: (row) => <span className="text-sm font-bold text-[var(--admin-fg)]">{row.ageDays} 天</span> },
             {
               key: "action",
               label: "建议",
               render: (row) => (
                 <div className="min-w-[240px]">
-                  <p className="text-xs font-black text-slate-700">{lifecycleActionLabel(row.recommendedAction)}</p>
-                  <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-500">{row.reasons.join("；")}</p>
+                  <p className="text-xs font-black text-[var(--admin-fg)]">{lifecycleActionLabel(row.recommendedAction)}</p>
+                  <p className="mt-1 line-clamp-2 text-xs leading-5 text-[var(--admin-muted)]">{row.reasons.join("；")}</p>
                 </div>
               ),
             },
-            { key: "time", label: "时间", render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-slate-500">{formatDateTime(row.updatedAt || row.createdAt)}</span> },
+            { key: "time", label: "时间", render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-[var(--admin-muted)]">{formatDateTime(row.updatedAt || row.createdAt)}</span> },
           ]}
         />
       </AdminSection>
@@ -197,9 +197,9 @@ export default async function AdminAssetLifecyclePage({ searchParams }: PageProp
 
 function StorageCount({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-      <span className="text-slate-500">{label}</span>
-      <span className="ml-2 font-mono font-black text-slate-950">{formatNumber(value)}</span>
+    <div className="rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] px-3 py-2">
+      <span className="text-[var(--admin-muted)]">{label}</span>
+      <span className="ml-2 font-mono font-black text-[var(--admin-fg)]">{formatNumber(value)}</span>
     </div>
   );
 }

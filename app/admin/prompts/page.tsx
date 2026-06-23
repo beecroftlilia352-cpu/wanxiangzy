@@ -36,7 +36,7 @@ export default async function AdminPromptsPage() {
         actions={
           <Link
             href="/admin/prompts"
-            className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 shadow-sm hover:bg-slate-50"
+            className="inline-flex h-9 items-center gap-2 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-xs font-black text-[var(--admin-fg)] shadow-sm hover:bg-[var(--admin-surface-soft)]"
           >
             <RefreshCw className="h-3.5 w-3.5" />
             刷新
@@ -76,8 +76,8 @@ export default async function AdminPromptsPage() {
         <AdminSection title="上线门禁" description="发布前建议先确认回归评测和关键指标。">
           <div className="space-y-2 p-4">
             {["回归评测分数 >= 90", "失败用例 = 0", "实验流量 <= 30%", "变体权重合计 = 100", "可一键归档回滚"].map((item) => (
-              <div key={item} className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-700">
-                <ShieldCheck className="h-4 w-4 text-emerald-600" />
+              <div key={item} className="flex items-center gap-2 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] px-3 py-2 text-sm font-bold text-[var(--admin-fg)]">
+                <ShieldCheck className="h-4 w-4 text-[var(--admin-success)]" />
                 {item}
               </div>
             ))}
@@ -102,18 +102,18 @@ export default async function AdminPromptsPage() {
                 <div className="min-w-[260px]">
                   <div className="flex items-center gap-2">
                     <AdminStatusBadge status={row.status} />
-                    <span className="font-mono text-[11px] font-bold text-slate-400">{row.id}</span>
+                    <span className="font-mono text-[11px] font-bold text-[var(--admin-faint)]">{row.id}</span>
                   </div>
-                  <p className="mt-1 text-sm font-black text-slate-950">{row.name}</p>
-                  <p className="mt-0.5 text-xs font-semibold text-slate-500">{row.notes || "无备注"}</p>
+                  <p className="mt-1 text-sm font-black text-[var(--admin-fg)]">{row.name}</p>
+                  <p className="mt-0.5 text-xs font-semibold text-[var(--admin-muted)]">{row.notes || "无备注"}</p>
                 </div>
               ),
             },
-            { key: "module", label: "模块", render: (row) => <span className="whitespace-nowrap text-sm font-black text-slate-700">{row.moduleLabel}</span> },
-            { key: "traffic", label: "流量", render: (row) => <span className="font-mono text-sm font-black text-slate-950">{row.traffic}%</span> },
-            { key: "metric", label: "主指标", render: (row) => <span className="font-mono text-xs font-bold text-slate-600">{row.primaryMetric}</span> },
+            { key: "module", label: "模块", render: (row) => <span className="whitespace-nowrap text-sm font-black text-[var(--admin-fg)]">{row.moduleLabel}</span> },
+            { key: "traffic", label: "流量", render: (row) => <span className="font-mono text-sm font-black text-[var(--admin-fg)]">{row.traffic}%</span> },
+            { key: "metric", label: "主指标", render: (row) => <span className="font-mono text-xs font-bold text-[var(--admin-fg)]">{row.primaryMetric}</span> },
             { key: "variants", label: "变体", render: (row) => <VariantSummary variants={row.variants} /> },
-            { key: "guardrails", label: "门禁", render: (row) => <p className="max-w-[300px] text-xs leading-5 text-slate-600">{row.guardrails.join("；") || "-"}</p> },
+            { key: "guardrails", label: "门禁", render: (row) => <p className="max-w-[300px] text-xs leading-5 text-[var(--admin-fg)]">{row.guardrails.join("；") || "-"}</p> },
           ]}
         />
       </AdminSection>
@@ -125,10 +125,10 @@ export default async function AdminPromptsPage() {
           empty="暂无 prompt 配置版本"
           columns={[
             { key: "status", label: "状态", render: (row) => <AdminStatusBadge status={row.status} /> },
-            { key: "id", label: "版本", render: (row) => <code className="text-xs font-black text-slate-700">{row.id}</code> },
-            { key: "value", label: "内容", render: (row) => <code className="line-clamp-2 max-w-[520px] text-xs text-slate-600">{JSON.stringify(row.value)}</code> },
-            { key: "published", label: "发布", render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-slate-500">{formatDateTime(row.publishedAt)}</span> },
-            { key: "created", label: "创建", render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-slate-500">{formatDateTime(row.createdAt)}</span> },
+            { key: "id", label: "版本", render: (row) => <code className="text-xs font-black text-[var(--admin-fg)]">{row.id}</code> },
+            { key: "value", label: "内容", render: (row) => <code className="line-clamp-2 max-w-[520px] text-xs text-[var(--admin-fg)]">{JSON.stringify(row.value)}</code> },
+            { key: "published", label: "发布", render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-[var(--admin-muted)]">{formatDateTime(row.publishedAt)}</span> },
+            { key: "created", label: "创建", render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-[var(--admin-muted)]">{formatDateTime(row.createdAt)}</span> },
             { key: "actions", label: "操作", render: (row) => <AdminConfigActions id={row.id} status={row.status} endpointBase="/api/admin/prompts/configs" /> },
           ]}
         />
@@ -144,9 +144,9 @@ export default async function AdminPromptsPage() {
 
 function InfoTile({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-      <p className="text-xs font-black text-slate-500">{label}</p>
-      <p className={`mt-2 break-all text-sm font-black text-slate-950 ${mono ? "font-mono" : ""}`}>{value}</p>
+    <div className="rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-3">
+      <p className="text-xs font-black text-[var(--admin-muted)]">{label}</p>
+      <p className={`mt-2 break-all text-sm font-black text-[var(--admin-fg)] ${mono ? "font-mono" : ""}`}>{value}</p>
     </div>
   );
 }
@@ -155,7 +155,7 @@ function VariantSummary({ variants }: { variants: AdminPromptExperimentVariant[]
   return (
     <div className="flex max-w-[360px] flex-wrap gap-1">
       {variants.map((variant) => (
-        <span key={variant.key} className="rounded-md bg-slate-100 px-2 py-1 text-xs font-black text-slate-700">
+        <span key={variant.key} className="rounded-md bg-[var(--admin-surface-soft)] px-2 py-1 text-xs font-black text-[var(--admin-fg)]">
           {variant.label}: {variant.weight}%
         </span>
       ))}
@@ -165,7 +165,7 @@ function VariantSummary({ variants }: { variants: AdminPromptExperimentVariant[]
 
 function GuidanceCard({ icon, title, text }: { icon: ReactNode; title: string; text: string }) {
   return (
-    <section className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-blue-800">
+    <section className="rounded-lg border border-[var(--admin-info-border)] bg-[var(--admin-info-soft)] p-4 text-blue-800">
       <div className="flex items-center gap-2 text-sm font-black">
         {icon}
         {title}

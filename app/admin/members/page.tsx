@@ -44,20 +44,20 @@ export default async function AdminMembersPage() {
               label: "成员",
               render: (row) => (
                 <div className="min-w-[260px]">
-                  <p className="truncate text-sm font-black text-slate-950">{row.email || row.displayName || "-"}</p>
+                  <p className="truncate text-sm font-black text-[var(--admin-fg)]">{row.email || row.displayName || "-"}</p>
                 </div>
               ),
             },
-            { key: "role", label: "角色", render: (row) => <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-black text-slate-700">{roleLabel(row.role)}</span> },
+            { key: "role", label: "角色", render: (row) => <span className="rounded-md bg-[var(--admin-surface-soft)] px-2 py-1 text-xs font-black text-[var(--admin-fg)]">{roleLabel(row.role)}</span> },
             { key: "status", label: "状态", render: (row) => <AdminStatusBadge status={row.enabled && row.status === "active" ? "completed" : "failed"} /> },
-            { key: "created", label: "创建", render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-slate-500">{formatDateTime(row.createdAt)}</span> },
-            { key: "updated", label: "更新", render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-slate-500">{formatDateTime(row.updatedAt)}</span> },
+            { key: "created", label: "创建", render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-[var(--admin-muted)]">{formatDateTime(row.createdAt)}</span> },
+            { key: "updated", label: "更新", render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-[var(--admin-muted)]">{formatDateTime(row.updatedAt)}</span> },
           ]}
         />
       </AdminSection>
 
       <AdminSection title="操作提示" description="如果搜索不到成员，请让对方先正常登录一次产品，再回到这里搜索邮箱添加。">
-        <div className="p-4 text-sm font-semibold leading-6 text-slate-600">
+        <div className="p-4 text-sm font-semibold leading-6 text-[var(--admin-fg)]">
           角色建议：日常运营选择“运营”，审核同学选择“审核”，财务同学选择“财务”，只需要看数据的人选择“只读”。
         </div>
       </AdminSection>
