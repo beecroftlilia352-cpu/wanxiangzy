@@ -28,7 +28,7 @@ export default async function AdminWorkersPage() {
         actions={
           <Link
             href="/admin/workers"
-            className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 shadow-sm hover:bg-slate-50"
+            className="inline-flex h-9 items-center gap-2 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-xs font-black text-[var(--admin-fg)] shadow-sm hover:bg-[var(--admin-surface-soft)]"
           >
             <RefreshCw className="h-3.5 w-3.5" />
             刷新
@@ -60,20 +60,20 @@ export default async function AdminWorkersPage() {
           rows={overview.processors}
           rowKey={(row) => row.key}
           columns={[
-            { key: "label", label: "处理服务", render: (row) => <span className="font-black text-slate-950">{row.label}</span> },
-            { key: "endpoint", label: "入口", render: (row) => <code className="text-xs font-bold text-slate-600">{row.endpoint}</code> },
+            { key: "label", label: "处理服务", render: (row) => <span className="font-black text-[var(--admin-fg)]">{row.label}</span> },
+            { key: "endpoint", label: "入口", render: (row) => <code className="text-xs font-bold text-[var(--admin-fg)]">{row.endpoint}</code> },
             { key: "configured", label: "配置状态", render: (row) => <AdminStatusBadge status={row.configured ? "completed" : "failed"} group={row.configured ? "completed" : "failed"} /> },
-            { key: "batch", label: "批量", render: (row) => <span className="font-mono text-sm font-black text-slate-700">{row.batchSize}</span> },
+            { key: "batch", label: "批量", render: (row) => <span className="font-mono text-sm font-black text-[var(--admin-fg)]">{row.batchSize}</span> },
             {
               key: "secretNames",
               label: "候选变量",
               render: (row) => (
                 <div className="flex max-w-[360px] flex-wrap gap-1">
-                  {row.secretNames.map((name) => <code key={name} className="rounded bg-slate-100 px-1.5 py-1 text-[11px] font-bold text-slate-600">{name}</code>)}
+                  {row.secretNames.map((name) => <code key={name} className="rounded bg-[var(--admin-surface-soft)] px-1.5 py-1 text-[11px] font-bold text-[var(--admin-fg)]">{name}</code>)}
                 </div>
               ),
             },
-            { key: "hint", label: "状态", render: (row) => <p className="max-w-[320px] text-xs leading-5 text-slate-500">{row.statusHint}</p> },
+            { key: "hint", label: "状态", render: (row) => <p className="max-w-[320px] text-xs leading-5 text-[var(--admin-muted)]">{row.statusHint}</p> },
           ]}
         />
       </AdminSection>
@@ -90,16 +90,16 @@ export default async function AdminWorkersPage() {
               render: (row) => (
                 <div className="min-w-[240px]">
                   <AdminStatusBadge status={row.status} group={row.statusGroup} />
-                  <Link href={`/admin/generations/${row.sourceId}`} className="mt-1 block truncate text-sm font-black text-slate-950 hover:underline">
+                  <Link href={`/admin/generations/${row.sourceId}`} className="mt-1 block truncate text-sm font-black text-[var(--admin-fg)] hover:underline">
                     {row.title}
                   </Link>
-                  <p className="mt-0.5 truncate text-[11px] font-semibold text-slate-400">{shortAdminCode(row.sourceId, "任务")}</p>
+                  <p className="mt-0.5 truncate text-[11px] font-semibold text-[var(--admin-faint)]">{shortAdminCode(row.sourceId, "任务")}</p>
                 </div>
               ),
             },
-            { key: "module", label: "模块", render: (row) => <span className="whitespace-nowrap text-sm font-bold text-slate-700">{row.moduleLabel}</span> },
-            { key: "progress", label: "进度", render: (row) => <span className="font-mono text-sm font-black text-slate-700">{row.progress}%</span> },
-            { key: "updated", label: "更新时间", render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-slate-500">{formatDateTime(row.updatedAt)}</span> },
+            { key: "module", label: "模块", render: (row) => <span className="whitespace-nowrap text-sm font-bold text-[var(--admin-fg)]">{row.moduleLabel}</span> },
+            { key: "progress", label: "进度", render: (row) => <span className="font-mono text-sm font-black text-[var(--admin-fg)]">{row.progress}%</span> },
+            { key: "updated", label: "更新时间", render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-[var(--admin-muted)]">{formatDateTime(row.updatedAt)}</span> },
           ]}
         />
       </AdminSection>
@@ -110,10 +110,10 @@ export default async function AdminWorkersPage() {
           rowKey={(row) => row.id}
           empty="暂无手动触发记录"
           columns={[
-            { key: "time", label: "时间", render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-slate-500">{formatDateTime(row.createdAt)}</span> },
-            { key: "action", label: "动作", render: (row) => <span className="font-mono text-xs font-black text-slate-700">{row.action}</span> },
-            { key: "actor", label: "操作人", render: (row) => <span className="text-xs font-bold text-slate-600">{row.actorEmail || row.actorUserId || "-"}</span> },
-            { key: "reason", label: "原因", render: (row) => <span className="text-xs text-slate-500">{row.reason || "-"}</span> },
+            { key: "time", label: "时间", render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-[var(--admin-muted)]">{formatDateTime(row.createdAt)}</span> },
+            { key: "action", label: "动作", render: (row) => <span className="font-mono text-xs font-black text-[var(--admin-fg)]">{row.action}</span> },
+            { key: "actor", label: "操作人", render: (row) => <span className="text-xs font-bold text-[var(--admin-fg)]">{row.actorEmail || row.actorUserId || "-"}</span> },
+            { key: "reason", label: "原因", render: (row) => <span className="text-xs text-[var(--admin-muted)]">{row.reason || "-"}</span> },
           ]}
         />
       </AdminSection>

@@ -41,15 +41,15 @@ export default async function AdminProvidersPage() {
               label: "模型",
               render: (row) => (
                 <div className="min-w-[220px]">
-                  <p className="font-mono text-sm font-black text-slate-950">{row.model}</p>
-                  <p className="mt-1 text-xs font-semibold text-slate-500">{row.endpointKind}</p>
+                  <p className="font-mono text-sm font-black text-[var(--admin-fg)]">{row.model}</p>
+                  <p className="mt-1 text-xs font-semibold text-[var(--admin-muted)]">{row.endpointKind}</p>
                 </div>
               ),
             },
             {
               key: "provider",
               label: "供应商",
-              render: (row) => <span className="text-sm font-black text-slate-800">{row.provider}</span>,
+              render: (row) => <span className="text-sm font-black text-[var(--admin-fg)]">{row.provider}</span>,
             },
             {
               key: "configured",
@@ -62,7 +62,7 @@ export default async function AdminProvidersPage() {
               render: (row) => (
                 <div className="flex flex-wrap gap-1.5">
                   {Object.entries(row.costs).map(([size, cost]) => (
-                    <span key={size} className="rounded-md bg-slate-100 px-2 py-1 text-xs font-black text-slate-700">
+                    <span key={size} className="rounded-md bg-[var(--admin-surface-soft)] px-2 py-1 text-xs font-black text-[var(--admin-fg)]">
                       {size}: {formatNumber(cost)}
                     </span>
                   ))}
@@ -75,7 +75,7 @@ export default async function AdminProvidersPage() {
               render: (row) => (
                 <div className="flex max-w-[360px] flex-wrap gap-1">
                   {row.envKeys.map((key) => (
-                    <code key={key} className="rounded bg-slate-100 px-1.5 py-1 text-[11px] font-bold text-slate-600">
+                    <code key={key} className="rounded bg-[var(--admin-surface-soft)] px-1.5 py-1 text-[11px] font-bold text-[var(--admin-fg)]">
                       {key}
                     </code>
                   ))}
@@ -85,7 +85,7 @@ export default async function AdminProvidersPage() {
             {
               key: "notes",
               label: "说明",
-              render: (row) => <p className="max-w-[280px] text-xs leading-5 text-slate-500">{row.notes}</p>,
+              render: (row) => <p className="max-w-[280px] text-xs leading-5 text-[var(--admin-muted)]">{row.notes}</p>,
             },
           ]}
         />
@@ -96,21 +96,21 @@ export default async function AdminProvidersPage() {
           rows={catalog.modules}
           rowKey={(row) => row.key}
           columns={[
-            { key: "label", label: "模块", render: (row) => <span className="font-black text-slate-950">{row.label}</span> },
-            { key: "route", label: "用户端入口", render: (row) => <code className="text-xs font-bold text-slate-600">{row.route}</code> },
-            { key: "readModel", label: "后台数据源", render: (row) => <span className="text-xs font-semibold text-slate-600">{row.readModel}</span> },
+            { key: "label", label: "模块", render: (row) => <span className="font-black text-[var(--admin-fg)]">{row.label}</span> },
+            { key: "route", label: "用户端入口", render: (row) => <code className="text-xs font-bold text-[var(--admin-fg)]">{row.route}</code> },
+            { key: "readModel", label: "后台数据源", render: (row) => <span className="text-xs font-semibold text-[var(--admin-fg)]">{row.readModel}</span> },
             {
               key: "risk",
               label: "操作风险",
               render: (row) => (
                 <span className={`rounded-md px-2 py-1 text-xs font-black ${
-                  row.risk === "high" ? "bg-red-50 text-red-700" : row.risk === "medium" ? "bg-amber-50 text-amber-700" : "bg-emerald-50 text-emerald-700"
+                  row.risk === "high" ? "bg-[var(--admin-danger-soft)] text-[var(--admin-danger)]" : row.risk === "medium" ? "bg-[var(--admin-warning-soft)] text-[var(--admin-warning)]" : "bg-[var(--admin-success-soft)] text-[var(--admin-success)]"
                 }`}>
                   {row.risk}
                 </span>
               ),
             },
-            { key: "adminV1", label: "V1 范围", render: (row) => <span className="text-xs font-bold text-slate-700">{row.adminV1}</span> },
+            { key: "adminV1", label: "V1 范围", render: (row) => <span className="text-xs font-bold text-[var(--admin-fg)]">{row.adminV1}</span> },
           ]}
         />
       </AdminSection>

@@ -1,60 +1,27 @@
-﻿"use client";
+"use client";
 
-import { App, ConfigProvider, theme, zhCN } from "@/components/ui/shadcn-compat";
+import { App } from "@/components/ui/shadcn-compat";
 import type { ReactNode } from "react";
 
+/**
+ * Admin area provider.
+ *
+ * NOTE: `@/components/ui/shadcn-compat` exposes a hand-rolled shadcn-style
+ * component layer, NOT real Ant Design. Its `ConfigProvider` and `theme`
+ * exports are no-op stubs, so any `algorithm` / `token` / `components` config
+ * we hand to them is silently dropped at render time. Admin styling therefore
+ * flows through (1) `app/styles/admin.css` (CSS variables + `.dark` overrides)
+ * and (2) Tailwind utility classes on individual elements.
+ *
+ * For dark mode: `<ThemeToggle />` (placed in the admin top bar) flips the
+ * `dark` class on `<html>`. `admin.css` reads that class and swaps every
+ * `--admin-*` token. Component-level Tailwind utilities are migrated to
+ * `var(--admin-*)` or admin palette utilities in subsequent commits.
+ *
+ * We keep the `<App>` wrapper here because it owns the `modal.confirm` flow
+ * via shadcn-compat's AlertDialog — that's the only behavior that actually
+ * renders at runtime.
+ */
 export function AdminUIProvider({ children }: { children: ReactNode }) {
-  return (
-    <ConfigProvider
-      locale={zhCN}
-      getPopupContainer={(triggerNode) => triggerNode?.parentElement || document.body}
-      theme={{
-        algorithm: theme.compactAlgorithm,
-        token: {
-          colorPrimary: "#1677ff",
-          colorInfo: "#1677ff",
-          colorSuccess: "#16a34a",
-          colorWarning: "#d97706",
-          colorError: "#dc2626",
-          colorTextBase: "#0f172a",
-          colorBgLayout: "#f6f8fb",
-          borderRadius: 8,
-          borderRadiusLG: 8,
-          fontFamily:
-            'Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif',
-          fontSize: 13,
-          motion: false,
-          wireframe: false,
-        },
-        components: {
-          Layout: {
-            bodyBg: "#f6f8fb",
-            headerBg: "rgba(255,255,255,0.92)",
-            siderBg: "#ffffff",
-          },
-          Menu: {
-            itemBorderRadius: 8,
-            itemHeight: 38,
-            iconSize: 15,
-          },
-          Card: {
-            borderRadiusLG: 8,
-            headerBg: "#ffffff",
-          },
-          Table: {
-            headerBg: "#f8fafc",
-            rowHoverBg: "#f8fafc",
-            cellPaddingBlockSM: 8,
-            cellPaddingInlineSM: 12,
-          },
-          Button: {
-            borderRadius: 8,
-            controlHeight: 34,
-          },
-        },
-      }}
-    >
-      <App>{children}</App>
-    </ConfigProvider>
-  );
+  return <App>{children}</App>;
 }

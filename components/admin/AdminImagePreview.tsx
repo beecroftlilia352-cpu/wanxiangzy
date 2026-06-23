@@ -18,7 +18,7 @@ export function AdminImagePreview({
   urls,
   initialIndex = 0,
   label = "预览图片",
-  triggerClassName = "relative h-9 w-9 overflow-hidden rounded-md border border-white bg-slate-100 shadow-sm",
+  triggerClassName = "relative h-9 w-9 overflow-hidden rounded-md border border-white bg-[var(--admin-surface-soft)] shadow-sm",
   imageClassName = "h-full w-full object-cover",
   countLabel,
 }: AdminImagePreviewProps) {
@@ -72,10 +72,10 @@ export function AdminImagePreview({
           setIndex(safeInitialIndex);
           setOpen(true);
         }}
-        className={`${triggerClassName} focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2`}
+        className={`${triggerClassName} focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-fg)] focus-visible:ring-offset-2`}
       >
         {countLabel ? (
-          <span className="flex h-full w-full items-center justify-center text-[11px] font-black text-slate-500">{countLabel}</span>
+          <span className="flex h-full w-full items-center justify-center text-[11px] font-black text-[var(--admin-muted)]">{countLabel}</span>
         ) : (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={images[safeInitialIndex]} alt="" className={imageClassName} loading="lazy" />
@@ -87,10 +87,10 @@ export function AdminImagePreview({
           role="dialog"
           aria-modal="true"
           aria-label={label}
-          className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/90 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-[var(--admin-fg)]/90 p-4 backdrop-blur-sm"
           onClick={() => setOpen(false)}
         >
-          <div className="absolute left-4 top-4 rounded-lg border border-white/10 bg-white/10 px-3 py-2 text-xs font-black tabular-nums text-white/85 shadow-lg backdrop-blur">
+          <div className="absolute left-4 top-4 rounded-lg border border-white/10 bg-[var(--admin-surface)]/10 px-3 py-2 text-xs font-black tabular-nums text-white/85 shadow-lg backdrop-blur">
             {images.length > 1 ? `${index + 1} / ${images.length}` : label}
           </div>
 
@@ -100,7 +100,7 @@ export function AdminImagePreview({
               target="_blank"
               rel="noreferrer"
               onClick={(event) => event.stopPropagation()}
-              className="inline-flex h-9 items-center gap-2 rounded-lg border border-white/15 bg-white/10 px-3 text-xs font-black text-white hover:bg-white/20"
+              className="inline-flex h-9 items-center gap-2 rounded-lg border border-white/15 bg-[var(--admin-surface)]/10 px-3 text-xs font-black text-white hover:bg-[var(--admin-surface)]/20"
             >
               <ExternalLink className="h-4 w-4" />
               原图
@@ -112,7 +112,7 @@ export function AdminImagePreview({
                 event.stopPropagation();
                 setOpen(false);
               }}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-white/15 bg-white/10 text-white hover:bg-white/20"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-white/15 bg-[var(--admin-surface)]/10 text-white hover:bg-[var(--admin-surface)]/20"
             >
               <X className="h-4 w-4" />
             </button>
@@ -127,7 +127,7 @@ export function AdminImagePreview({
                   event.stopPropagation();
                   move(-1);
                 }}
-                className="absolute left-4 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-lg border border-white/15 bg-white/10 text-white hover:bg-white/20"
+                className="absolute left-4 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-lg border border-white/15 bg-[var(--admin-surface)]/10 text-white hover:bg-[var(--admin-surface)]/20"
               >
                 <ChevronLeft className="h-5 w-5" />
               </button>
@@ -138,7 +138,7 @@ export function AdminImagePreview({
                   event.stopPropagation();
                   move(1);
                 }}
-                className="absolute right-4 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-lg border border-white/15 bg-white/10 text-white hover:bg-white/20"
+                className="absolute right-4 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-lg border border-white/15 bg-[var(--admin-surface)]/10 text-white hover:bg-[var(--admin-surface)]/20"
               >
                 <ChevronRight className="h-5 w-5" />
               </button>
@@ -152,7 +152,7 @@ export function AdminImagePreview({
 
           {hasMultiple && (
             <div
-              className="absolute bottom-4 left-1/2 flex max-w-[min(92vw,760px)] -translate-x-1/2 gap-2 overflow-x-auto rounded-xl border border-white/10 bg-white/10 p-2 shadow-2xl backdrop-blur"
+              className="absolute bottom-4 left-1/2 flex max-w-[min(92vw,760px)] -translate-x-1/2 gap-2 overflow-x-auto rounded-xl border border-white/10 bg-[var(--admin-surface)]/10 p-2 shadow-2xl backdrop-blur"
               onClick={(event) => event.stopPropagation()}
             >
               {images.map((url, itemIndex) => (
@@ -162,7 +162,7 @@ export function AdminImagePreview({
                   aria-label={`切换到第 ${itemIndex + 1} 张`}
                   aria-current={itemIndex === index ? "true" : undefined}
                   onClick={() => setIndex(itemIndex)}
-                  className={`h-12 w-12 shrink-0 overflow-hidden rounded-md border transition ${
+                  className={`h-12 w-12 shrink-0 overflow-hidden rounded-md border transition-colors ${
                     itemIndex === index ? "border-white ring-2 ring-white/70" : "border-white/20 opacity-70 hover:opacity-100"
                   }`}
                 >

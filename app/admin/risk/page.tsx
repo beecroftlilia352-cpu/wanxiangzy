@@ -66,27 +66,27 @@ export default async function AdminRiskPage({ searchParams }: PageProps) {
         actions={
           <form action="/admin/risk" className="flex flex-wrap items-center gap-2">
             <div className="relative">
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--admin-faint)]" />
               <input
                 name="q"
                 defaultValue={q}
                 placeholder="搜索用户 / 邮箱 / 信号"
-                className="h-9 w-60 rounded-lg border border-slate-200 bg-white pl-8 pr-3 text-sm font-semibold outline-none focus:border-slate-400"
+                className="h-9 w-60 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] pl-8 pr-3 text-sm font-semibold outline-none focus:border-[var(--admin-border-strong)]"
               />
             </div>
-            <select name="level" defaultValue={level} className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs font-bold text-slate-700">
+            <select name="level" defaultValue={level} className="h-9 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-2 text-xs font-bold text-[var(--admin-fg)]">
               {levelOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
             </select>
-            <select name="days" defaultValue={String(risk.days)} className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs font-bold text-slate-700">
+            <select name="days" defaultValue={String(risk.days)} className="h-9 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-2 text-xs font-bold text-[var(--admin-fg)]">
               {dayOptions.map((item) => <option key={item} value={item}>近 {item} 天</option>)}
             </select>
-            <button className="h-9 rounded-lg bg-slate-950 px-3 text-xs font-black text-white" type="submit">
+            <button className="h-9 rounded-lg bg-[var(--admin-fg)] px-3 text-xs font-black text-white" type="submit">
               筛选
             </button>
           </form>
         }
       >
-        <div className="grid gap-3 p-4 text-xs font-semibold text-slate-600 md:grid-cols-4">
+        <div className="grid gap-3 p-4 text-xs font-semibold text-[var(--admin-fg)] md:grid-cols-4">
           <RiskCounter label="失败任务" value={risk.metrics.failedGenerations} />
           <RiskCounter label="审核命中" value={risk.metrics.moderationHits} />
           <RiskCounter label="紧急工单" value={risk.metrics.urgentSupportTickets} />
@@ -106,12 +106,12 @@ export default async function AdminRiskPage({ searchParams }: PageProps) {
               render: (row) => (
                 <div className="min-w-[280px]">
                   <RiskBadge level={row.level} />
-                  <p className="mt-1 text-sm font-black text-slate-950">{row.title}</p>
-                  <p className="mt-0.5 text-xs leading-5 text-slate-500">{row.description}</p>
+                  <p className="mt-1 text-sm font-black text-[var(--admin-fg)]">{row.title}</p>
+                  <p className="mt-0.5 text-xs leading-5 text-[var(--admin-muted)]">{row.description}</p>
                 </div>
               ),
             },
-            { key: "score", label: "分值", render: (row) => <span className="font-mono text-sm font-black text-slate-700">+{row.score}</span> },
+            { key: "score", label: "分值", render: (row) => <span className="font-mono text-sm font-black text-[var(--admin-fg)]">+{row.score}</span> },
           ]}
         />
       </AdminSection>
@@ -129,12 +129,12 @@ export default async function AdminRiskPage({ searchParams }: PageProps) {
                 <div className="min-w-[260px]">
                   <div className="flex items-center gap-2">
                     <RiskBadge level={row.level} />
-                    <span className="rounded-md bg-slate-100 px-1.5 py-1 font-mono text-[10px] font-black text-slate-500">{row.score}/100</span>
+                    <span className="rounded-md bg-[var(--admin-surface-soft)] px-1.5 py-1 font-mono text-[10px] font-black text-[var(--admin-muted)]">{row.score}/100</span>
                   </div>
-                  <Link href={row.detailUrl} className="mt-1 block truncate text-sm font-black text-slate-950 hover:text-slate-700">
+                  <Link href={row.detailUrl} className="mt-1 block truncate text-sm font-black text-[var(--admin-fg)] hover:text-[var(--admin-fg)]">
                     {row.email || row.displayName || shortAdminCode(row.userId, "用户")}
                   </Link>
-                  <p className="mt-0.5 truncate text-[11px] font-semibold text-slate-400">{shortAdminCode(row.userId, "用户")}</p>
+                  <p className="mt-0.5 truncate text-[11px] font-semibold text-[var(--admin-faint)]">{shortAdminCode(row.userId, "用户")}</p>
                 </div>
               ),
             },
@@ -144,10 +144,10 @@ export default async function AdminRiskPage({ searchParams }: PageProps) {
               render: (row) => (
                 <div className="min-w-[260px] space-y-1">
                   {row.signals.length ? row.signals.slice(0, 3).map((signal) => (
-                    <p key={signal.key} className="text-xs font-semibold leading-5 text-slate-600">
-                      <span className="font-black text-slate-950">+{signal.score}</span> {signal.label}
+                    <p key={signal.key} className="text-xs font-semibold leading-5 text-[var(--admin-fg)]">
+                      <span className="font-black text-[var(--admin-fg)]">+{signal.score}</span> {signal.label}
                     </p>
-                  )) : <span className="text-xs font-semibold text-slate-400">无命中信号</span>}
+                  )) : <span className="text-xs font-semibold text-[var(--admin-faint)]">无命中信号</span>}
                 </div>
               ),
             },
@@ -155,7 +155,7 @@ export default async function AdminRiskPage({ searchParams }: PageProps) {
               key: "stats",
               label: "近况",
               render: (row) => (
-                <div className="grid min-w-[240px] grid-cols-2 gap-1 text-xs font-bold text-slate-600">
+                <div className="grid min-w-[240px] grid-cols-2 gap-1 text-xs font-bold text-[var(--admin-fg)]">
                   <span>生成 {formatNumber(row.generationCount)}</span>
                   <span>失败 {formatNumber(row.failedGenerations)}</span>
                   <span>补偿 {formatNumber(row.refundCredits)}</span>
@@ -163,10 +163,10 @@ export default async function AdminRiskPage({ searchParams }: PageProps) {
                 </div>
               ),
             },
-            { key: "credits", label: "灵点", render: (row) => <span className="text-sm font-black text-slate-700">{formatNumber(row.credits)}</span> },
-            { key: "support", label: "工单", render: (row) => <span className="text-sm font-bold text-slate-700">{formatNumber(row.supportTickets)} 个，紧急 {formatNumber(row.urgentSupportTickets)} 个</span> },
-            { key: "action", label: "建议", render: (row) => <p className="max-w-[280px] text-xs leading-5 text-slate-600">{row.recommendedAction}</p> },
-            { key: "time", label: "最后活动", render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-slate-500">{formatDateTime(row.latestActivityAt)}</span> },
+            { key: "credits", label: "灵点", render: (row) => <span className="text-sm font-black text-[var(--admin-fg)]">{formatNumber(row.credits)}</span> },
+            { key: "support", label: "工单", render: (row) => <span className="text-sm font-bold text-[var(--admin-fg)]">{formatNumber(row.supportTickets)} 个，紧急 {formatNumber(row.urgentSupportTickets)} 个</span> },
+            { key: "action", label: "建议", render: (row) => <p className="max-w-[280px] text-xs leading-5 text-[var(--admin-fg)]">{row.recommendedAction}</p> },
+            { key: "time", label: "最后活动", render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-[var(--admin-muted)]">{formatDateTime(row.latestActivityAt)}</span> },
           ]}
         />
       </AdminSection>
@@ -176,21 +176,21 @@ export default async function AdminRiskPage({ searchParams }: PageProps) {
 
 function RiskCounter({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-      <span className="text-slate-500">{label}</span>
-      <span className="ml-2 font-mono font-black text-slate-950">{formatNumber(value)}</span>
+    <div className="rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] px-3 py-2">
+      <span className="text-[var(--admin-muted)]">{label}</span>
+      <span className="ml-2 font-mono font-black text-[var(--admin-fg)]">{formatNumber(value)}</span>
     </div>
   );
 }
 
 function RiskBadge({ level }: { level: AdminRiskLevel }) {
   const className = level === "critical"
-    ? "border-red-200 bg-red-50 text-red-700"
+    ? "border-[var(--admin-danger-border)] bg-[var(--admin-danger-soft)] text-[var(--admin-danger)]"
     : level === "high"
-      ? "border-amber-200 bg-amber-50 text-amber-700"
+      ? "border-[var(--admin-warning-border)] bg-[var(--admin-warning-soft)] text-[var(--admin-warning)]"
       : level === "medium"
-        ? "border-blue-200 bg-blue-50 text-blue-700"
-        : "border-emerald-200 bg-emerald-50 text-emerald-700";
+        ? "border-[var(--admin-info-border)] bg-[var(--admin-info-soft)] text-[var(--admin-info)]"
+        : "border-[var(--admin-success-border)] bg-[var(--admin-success-soft)] text-[var(--admin-success)]";
   const label = level === "critical" ? "严重" : level === "high" ? "高" : level === "medium" ? "中" : "低";
   return <span className={`inline-flex h-6 items-center rounded-md border px-2 text-[11px] font-black ${className}`}>{label}</span>;
 }

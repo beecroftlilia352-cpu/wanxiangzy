@@ -38,19 +38,19 @@ export default async function AdminInviteCodesPage({ searchParams }: PageProps) 
             <input
               name="q"
               defaultValue={q}
-              className="h-9 w-56 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold outline-none focus:border-slate-400"
+              className="h-9 w-56 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm font-semibold outline-none focus:border-[var(--admin-border-strong)]"
               placeholder="搜索 code / 邮箱 / 备注"
             />
             <select
               name="status"
               defaultValue={status}
-              className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-sm font-bold text-slate-700"
+              className="h-9 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-2 text-sm font-bold text-[var(--admin-fg)]"
             >
               <option value="">全部状态</option>
               <option value="active">启用</option>
               <option value="disabled">停用</option>
             </select>
-            <button type="submit" className="h-9 rounded-lg bg-slate-950 px-4 text-sm font-black text-white">
+            <button type="submit" className="h-9 rounded-lg bg-[var(--admin-fg)] px-4 text-sm font-black text-white">
               筛选
             </button>
           </form>
@@ -85,7 +85,7 @@ export default async function AdminInviteCodesPage({ searchParams }: PageProps) 
             {
               key: "code",
               label: "邀请码",
-              render: (row) => <code className="font-mono text-sm font-black text-slate-950">{row.code}</code>,
+              render: (row) => <code className="font-mono text-sm font-black text-[var(--admin-fg)]">{row.code}</code>,
             },
             {
               key: "status",
@@ -95,18 +95,18 @@ export default async function AdminInviteCodesPage({ searchParams }: PageProps) 
             {
               key: "usage",
               label: "额度",
-              render: (row) => <span className="font-mono text-sm font-black text-slate-700">{row.usedCount}/{row.maxUses}</span>,
+              render: (row) => <span className="font-mono text-sm font-black text-[var(--admin-fg)]">{row.usedCount}/{row.maxUses}</span>,
             },
             {
               key: "campaign",
               label: "批次/渠道",
-              render: (row) => <span className="min-w-[160px] text-sm font-black text-slate-700">{row.campaign || "-"}</span>,
+              render: (row) => <span className="min-w-[160px] text-sm font-black text-[var(--admin-fg)]">{row.campaign || "-"}</span>,
             },
             {
               key: "validity",
               label: "有效期",
               render: (row) => (
-                <div className="min-w-[140px] text-xs font-semibold text-slate-500">
+                <div className="min-w-[140px] text-xs font-semibold text-[var(--admin-muted)]">
                   <p>起 {formatDateTime(row.startsAt)}</p>
                   <p className="mt-1">止 {formatDateTime(row.expiresAt)}</p>
                 </div>
@@ -115,13 +115,13 @@ export default async function AdminInviteCodesPage({ searchParams }: PageProps) 
             {
               key: "note",
               label: "备注",
-              render: (row) => <span className="line-clamp-2 min-w-[220px] text-sm font-semibold text-slate-600">{row.note || "-"}</span>,
+              render: (row) => <span className="line-clamp-2 min-w-[220px] text-sm font-semibold text-[var(--admin-fg)]">{row.note || "-"}</span>,
             },
             {
               key: "created",
               label: "创建",
               render: (row) => (
-                <div className="min-w-[140px] text-xs font-semibold text-slate-500">
+                <div className="min-w-[140px] text-xs font-semibold text-[var(--admin-muted)]">
                   <p>{formatDateTime(row.createdAt)}</p>
                   <p className="mt-1 truncate">{row.createdByEmail || "-"}</p>
                 </div>
@@ -145,12 +145,12 @@ export default async function AdminInviteCodesPage({ searchParams }: PageProps) 
             {
               key: "code",
               label: "邀请码",
-              render: (row) => <code className="font-mono text-sm font-black text-slate-950">{row.code}</code>,
+              render: (row) => <code className="font-mono text-sm font-black text-[var(--admin-fg)]">{row.code}</code>,
             },
             {
               key: "email",
               label: "注册邮箱",
-              render: (row) => <span className="min-w-[220px] text-sm font-black text-slate-950">{row.email}</span>,
+              render: (row) => <span className="min-w-[220px] text-sm font-black text-[var(--admin-fg)]">{row.email}</span>,
             },
             {
               key: "status",
@@ -160,18 +160,18 @@ export default async function AdminInviteCodesPage({ searchParams }: PageProps) 
             {
               key: "user",
               label: "用户",
-              render: (row) => <span className="font-mono text-xs font-semibold text-slate-500">{row.userId ? row.userId.slice(0, 8) : "-"}</span>,
+              render: (row) => <span className="font-mono text-xs font-semibold text-[var(--admin-muted)]">{row.userId ? row.userId.slice(0, 8) : "-"}</span>,
             },
             {
               key: "reason",
               label: "说明",
-              render: (row) => <span className="text-sm font-semibold text-slate-600">{row.reason || "-"}</span>,
+              render: (row) => <span className="text-sm font-semibold text-[var(--admin-fg)]">{row.reason || "-"}</span>,
             },
             {
               key: "created",
               label: "时间",
               render: (row) => (
-                <div className="min-w-[140px] text-xs font-semibold text-slate-500">
+                <div className="min-w-[140px] text-xs font-semibold text-[var(--admin-muted)]">
                   <p>{formatDateTime(row.createdAt)}</p>
                   {row.releasedAt && <p className="mt-1">释放 {formatDateTime(row.releasedAt)}</p>}
                 </div>

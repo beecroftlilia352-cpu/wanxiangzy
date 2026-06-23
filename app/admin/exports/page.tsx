@@ -68,26 +68,26 @@ export default async function AdminExportsPage() {
               render: (row) => (
                 <div className="min-w-[220px]">
                   <AdminStatusBadge status={row.status} />
-                  <p className="mt-1 font-mono text-xs font-black text-slate-700">{row.exportType}</p>
-                  <p className="mt-0.5 truncate font-mono text-[11px] text-slate-400">{row.id}</p>
+                  <p className="mt-1 font-mono text-xs font-black text-[var(--admin-fg)]">{row.exportType}</p>
+                  <p className="mt-0.5 truncate font-mono text-[11px] text-[var(--admin-faint)]">{row.id}</p>
                 </div>
               ),
             },
-            { key: "rows", label: "行数", render: (row) => <span className="font-mono text-sm font-black text-slate-700">{formatNumber(row.rowCount)}</span> },
-            { key: "actor", label: "操作者", render: (row) => <span className="text-xs font-bold text-slate-600">{row.requestedByEmail || row.requestedBy || "-"}</span> },
-            { key: "created", label: "创建", render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-slate-500">{formatDateTime(row.createdAt)}</span> },
-            { key: "expires", label: "过期", render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-slate-500">{formatDateTime(row.expiresAt)}</span> },
+            { key: "rows", label: "行数", render: (row) => <span className="font-mono text-sm font-black text-[var(--admin-fg)]">{formatNumber(row.rowCount)}</span> },
+            { key: "actor", label: "操作者", render: (row) => <span className="text-xs font-bold text-[var(--admin-fg)]">{row.requestedByEmail || row.requestedBy || "-"}</span> },
+            { key: "created", label: "创建", render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-[var(--admin-muted)]">{formatDateTime(row.createdAt)}</span> },
+            { key: "expires", label: "过期", render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-[var(--admin-muted)]">{formatDateTime(row.expiresAt)}</span> },
             {
               key: "download",
               label: "下载",
               render: (row) => row.status === "ready" ? (
                 <a
                   href={`/api/admin/exports/${row.id}/download?token=${encodeURIComponent(row.downloadToken)}`}
-                  className="inline-flex h-8 items-center rounded-lg border border-slate-200 bg-white px-2 text-xs font-black text-slate-700 hover:bg-slate-50"
+                  className="inline-flex h-8 items-center rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-2 text-xs font-black text-[var(--admin-fg)] hover:bg-[var(--admin-surface-soft)]"
                 >
                   CSV
                 </a>
-              ) : <span className="text-xs font-semibold text-slate-400">不可用</span>,
+              ) : <span className="text-xs font-semibold text-[var(--admin-faint)]">不可用</span>,
             },
           ]}
         />
@@ -104,16 +104,16 @@ export default async function AdminExportsPage() {
               label: "视图",
               render: (row) => (
                 <div className="min-w-[220px]">
-                  <p className="text-sm font-black text-slate-950">{row.name}</p>
-                  <p className="mt-0.5 font-mono text-[11px] text-slate-400">{row.id}</p>
+                  <p className="text-sm font-black text-[var(--admin-fg)]">{row.name}</p>
+                  <p className="mt-0.5 font-mono text-[11px] text-[var(--admin-faint)]">{row.id}</p>
                 </div>
               ),
             },
-            { key: "resource", label: "资源", render: (row) => <span className="font-mono text-xs font-black text-slate-700">{row.resource}</span> },
-            { key: "visibility", label: "可见性", render: (row) => <span className="text-xs font-bold text-slate-600">{row.visibility}</span> },
-            { key: "owner", label: "创建人", render: (row) => <span className="text-xs font-bold text-slate-600">{row.ownerEmail || row.ownerUserId || "-"}</span> },
-            { key: "filters", label: "筛选", render: (row) => <code className="line-clamp-2 max-w-[360px] text-xs text-slate-500">{JSON.stringify(row.filters)}</code> },
-            { key: "created", label: "创建", render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-slate-500">{formatDateTime(row.createdAt)}</span> },
+            { key: "resource", label: "资源", render: (row) => <span className="font-mono text-xs font-black text-[var(--admin-fg)]">{row.resource}</span> },
+            { key: "visibility", label: "可见性", render: (row) => <span className="text-xs font-bold text-[var(--admin-fg)]">{row.visibility}</span> },
+            { key: "owner", label: "创建人", render: (row) => <span className="text-xs font-bold text-[var(--admin-fg)]">{row.ownerEmail || row.ownerUserId || "-"}</span> },
+            { key: "filters", label: "筛选", render: (row) => <code className="line-clamp-2 max-w-[360px] text-xs text-[var(--admin-muted)]">{JSON.stringify(row.filters)}</code> },
+            { key: "created", label: "创建", render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-[var(--admin-muted)]">{formatDateTime(row.createdAt)}</span> },
           ]}
         />
       </AdminSection>

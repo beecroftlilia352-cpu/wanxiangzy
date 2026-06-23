@@ -52,22 +52,22 @@ export function AdminAssetLifecyclePlanForm({ q, module, limit }: AdminAssetLife
   return (
     <form onSubmit={submit} className="grid gap-3 p-4 lg:grid-cols-[220px_minmax(280px,1fr)_auto]">
       <label className="space-y-1.5">
-        <span className="text-xs font-black text-slate-500">计划动作</span>
+        <span className="text-xs font-black text-[var(--admin-muted)]">计划动作</span>
         <select
           value={action}
           onChange={(event) => setAction(event.target.value as AdminAssetLifecycleAction)}
-          className="h-10 w-full rounded-lg border border-slate-200 bg-white px-2 text-sm font-bold text-slate-700 outline-none focus:border-slate-400"
+          className="h-10 w-full rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-2 text-sm font-bold text-[var(--admin-fg)] outline-none focus:border-[var(--admin-border-strong)]"
         >
           {actions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
         </select>
-        <p className="text-xs leading-5 text-slate-500">{selectedAction.hint}</p>
+        <p className="text-xs leading-5 text-[var(--admin-muted)]">{selectedAction.hint}</p>
       </label>
       <label className="space-y-1.5">
-        <span className="text-xs font-black text-slate-500">原因</span>
+        <span className="text-xs font-black text-[var(--admin-muted)]">原因</span>
         <textarea
           value={reason}
           onChange={(event) => setReason(event.target.value)}
-          className="min-h-20 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold leading-5 outline-none focus:border-slate-400"
+          className="min-h-20 w-full rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 py-2 text-sm font-semibold leading-5 outline-none focus:border-[var(--admin-border-strong)]"
           placeholder="例如：统一迁移外部图床，降低失效风险；本次仅创建审计计划，不会直接删除或迁移文件。"
           required
           minLength={6}
@@ -78,14 +78,14 @@ export function AdminAssetLifecyclePlanForm({ q, module, limit }: AdminAssetLife
         <button
           type="submit"
           disabled={loading}
-          className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-slate-950 px-4 text-sm font-black text-white disabled:opacity-60 lg:w-auto"
+          className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[var(--admin-fg)] px-4 text-sm font-black text-white disabled:opacity-60 lg:w-auto"
         >
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArchiveRestore className="h-4 w-4" />}
           创建计划
         </button>
       </div>
       {message && (
-        <p className={`text-sm font-bold lg:col-span-3 ${message.includes("已记录") ? "text-emerald-700" : "text-red-700"}`}>
+        <p className={`text-sm font-bold lg:col-span-3 ${message.includes("已记录") ? "text-[var(--admin-success)]" : "text-[var(--admin-danger)]"}`}>
           {message}
         </p>
       )}

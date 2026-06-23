@@ -40,14 +40,14 @@ export default async function AdminEvalsPage({ searchParams }: PageProps) {
           <>
             <Link
               href="/admin/evals"
-              className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 shadow-sm hover:bg-slate-50"
+              className="inline-flex h-9 items-center gap-2 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-xs font-black text-[var(--admin-fg)] shadow-sm hover:bg-[var(--admin-surface-soft)]"
             >
               <RefreshCw className="h-3.5 w-3.5" />
               刷新
             </Link>
             <Link
               href="/admin/workers"
-              className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 shadow-sm hover:bg-slate-50"
+              className="inline-flex h-9 items-center gap-2 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-xs font-black text-[var(--admin-fg)] shadow-sm hover:bg-[var(--admin-surface-soft)]"
             >
               <Settings2 className="h-3.5 w-3.5" />
               任务队列
@@ -84,15 +84,15 @@ export default async function AdminEvalsPage({ searchParams }: PageProps) {
       <AdminSection title="筛选" description="按运行编号、用户、邮箱、状态、用例标题或失败原因快速定位回归问题。">
         <form action="/admin/evals" className="grid gap-3 p-4 sm:grid-cols-[minmax(260px,1fr)_auto]">
           <label className="relative block">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--admin-faint)]" />
             <input
               name="q"
               defaultValue={q}
-              className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm font-semibold outline-none focus:border-slate-400"
+              className="h-10 w-full rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] pl-9 pr-3 text-sm font-semibold outline-none focus:border-[var(--admin-border-strong)]"
               placeholder="搜索运行编号 / 用户 / 用例 / 失败原因"
             />
           </label>
-          <button className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-slate-950 px-4 text-sm font-black text-white">
+          <button className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[var(--admin-fg)] px-4 text-sm font-black text-white">
             <Search className="h-4 w-4" />
             查询
           </button>
@@ -105,23 +105,23 @@ export default async function AdminEvalsPage({ searchParams }: PageProps) {
 
       <AdminSection title="处理服务配置" description="只展示配置是否可用和候选配置名，不展示明文密钥。">
         <div className="grid gap-3 p-4 md:grid-cols-4">
-          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-            <p className="text-xs font-black text-slate-500">触发入口</p>
-            <code className="mt-2 block break-all text-xs font-bold text-slate-700">{overview.processor.endpoint}</code>
+          <div className="rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-3">
+            <p className="text-xs font-black text-[var(--admin-muted)]">触发入口</p>
+            <code className="mt-2 block break-all text-xs font-bold text-[var(--admin-fg)]">{overview.processor.endpoint}</code>
           </div>
-          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-            <p className="text-xs font-black text-slate-500">默认批量</p>
-            <p className="mt-2 font-mono text-xl font-black text-slate-950">{overview.processor.batchSize}</p>
+          <div className="rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-3">
+            <p className="text-xs font-black text-[var(--admin-muted)]">默认批量</p>
+            <p className="mt-2 font-mono text-xl font-black text-[var(--admin-fg)]">{overview.processor.batchSize}</p>
           </div>
-          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-            <p className="text-xs font-black text-slate-500">配置状态</p>
+          <div className="rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-3">
+            <p className="text-xs font-black text-[var(--admin-muted)]">配置状态</p>
             <div className="mt-2"><AdminStatusBadge status={overview.processor.configured ? "pass" : "failed"} /></div>
           </div>
-          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-            <p className="text-xs font-black text-slate-500">候选变量</p>
+          <div className="rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-3">
+            <p className="text-xs font-black text-[var(--admin-muted)]">候选变量</p>
             <div className="mt-2 flex flex-wrap gap-1">
               {overview.processor.secretNames.map((name) => (
-                <code key={name} className="rounded bg-white px-1.5 py-1 text-[11px] font-bold text-slate-600">{name}</code>
+                <code key={name} className="rounded bg-[var(--admin-surface)] px-1.5 py-1 text-[11px] font-bold text-[var(--admin-fg)]">{name}</code>
               ))}
             </div>
           </div>
@@ -140,8 +140,8 @@ export default async function AdminEvalsPage({ searchParams }: PageProps) {
               label: "运行",
               render: (row) => (
                 <div className="min-w-[220px]">
-                  <p className="font-mono text-xs font-black text-slate-700">{row.id}</p>
-                  <p className="mt-1 text-xs font-semibold text-slate-500">{formatDateTime(row.createdAt)}</p>
+                  <p className="font-mono text-xs font-black text-[var(--admin-fg)]">{row.id}</p>
+                  <p className="mt-1 text-xs font-semibold text-[var(--admin-muted)]">{formatDateTime(row.createdAt)}</p>
                 </div>
               ),
             },
@@ -150,15 +150,15 @@ export default async function AdminEvalsPage({ searchParams }: PageProps) {
               label: "用户",
               render: (row) => (
                 <div className="min-w-[180px]">
-                  <p className="truncate text-xs font-bold text-slate-700">{row.email || shortAdminCode(row.userId, "用户")}</p>
-                  <p className="mt-0.5 truncate text-[11px] font-semibold text-slate-400">{shortAdminCode(row.userId, "用户")}</p>
+                  <p className="truncate text-xs font-bold text-[var(--admin-fg)]">{row.email || shortAdminCode(row.userId, "用户")}</p>
+                  <p className="mt-0.5 truncate text-[11px] font-semibold text-[var(--admin-faint)]">{shortAdminCode(row.userId, "用户")}</p>
                 </div>
               ),
             },
-            { key: "score", label: "分数", render: (row) => <span className="font-mono text-sm font-black text-slate-950">{row.score}</span> },
-            { key: "cases", label: "用例", render: (row) => <span className="font-mono text-xs font-bold text-slate-600">{row.passed}/{row.total}</span> },
-            { key: "failed", label: "失败", render: (row) => <span className="font-mono text-xs font-bold text-red-600">{row.failed}</span> },
-            { key: "latency", label: "耗时", render: (row) => <span className="font-mono text-xs font-bold text-slate-600">{formatLatency(row.latencyMs)}</span> },
+            { key: "score", label: "分数", render: (row) => <span className="font-mono text-sm font-black text-[var(--admin-fg)]">{row.score}</span> },
+            { key: "cases", label: "用例", render: (row) => <span className="font-mono text-xs font-bold text-[var(--admin-fg)]">{row.passed}/{row.total}</span> },
+            { key: "failed", label: "失败", render: (row) => <span className="font-mono text-xs font-bold text-[var(--admin-danger)]">{row.failed}</span> },
+            { key: "latency", label: "耗时", render: (row) => <span className="font-mono text-xs font-bold text-[var(--admin-fg)]">{formatLatency(row.latencyMs)}</span> },
           ]}
         />
       </AdminSection>
@@ -174,16 +174,16 @@ export default async function AdminEvalsPage({ searchParams }: PageProps) {
               label: "用例",
               render: (row) => (
                 <div className="min-w-[260px]">
-                  <p className="text-sm font-black text-slate-950">{row.title || row.caseId}</p>
-                  <p className="mt-0.5 font-mono text-[11px] text-slate-400">{row.caseId}</p>
+                  <p className="text-sm font-black text-[var(--admin-fg)]">{row.title || row.caseId}</p>
+                  <p className="mt-0.5 font-mono text-[11px] text-[var(--admin-faint)]">{row.caseId}</p>
                 </div>
               ),
             },
-            { key: "actual", label: "实际结果", render: (row) => <span className="whitespace-nowrap text-xs font-bold text-slate-700">{row.action || "-"} / {row.module || "无模块"}</span> },
-            { key: "confidence", label: "置信度", render: (row) => <span className="font-mono text-xs font-bold text-slate-600">{Math.round(row.confidence * 100)}%</span> },
-            { key: "failure", label: "失败原因", render: (row) => <p className="max-w-[420px] text-xs leading-5 text-slate-600">{row.failures.slice(0, 3).join("；") || "-"}</p> },
-            { key: "trace", label: "追踪", render: (row) => <span className="text-[11px] font-bold text-slate-500">{shortAdminCode(row.traceId, "记录")}</span> },
-            { key: "time", label: "时间", render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-slate-500">{formatDateTime(row.createdAt)}</span> },
+            { key: "actual", label: "实际结果", render: (row) => <span className="whitespace-nowrap text-xs font-bold text-[var(--admin-fg)]">{row.action || "-"} / {row.module || "无模块"}</span> },
+            { key: "confidence", label: "置信度", render: (row) => <span className="font-mono text-xs font-bold text-[var(--admin-fg)]">{Math.round(row.confidence * 100)}%</span> },
+            { key: "failure", label: "失败原因", render: (row) => <p className="max-w-[420px] text-xs leading-5 text-[var(--admin-fg)]">{row.failures.slice(0, 3).join("；") || "-"}</p> },
+            { key: "trace", label: "追踪", render: (row) => <span className="text-[11px] font-bold text-[var(--admin-muted)]">{shortAdminCode(row.traceId, "记录")}</span> },
+            { key: "time", label: "时间", render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-[var(--admin-muted)]">{formatDateTime(row.createdAt)}</span> },
           ]}
         />
       </AdminSection>
@@ -199,18 +199,18 @@ export default async function AdminEvalsPage({ searchParams }: PageProps) {
               label: "用例",
               render: (row) => (
                 <div className="min-w-[260px]">
-                  <p className="text-sm font-black text-slate-950">{row.title}</p>
-                  <p className="mt-0.5 font-mono text-[11px] text-slate-400">{row.id}</p>
+                  <p className="text-sm font-black text-[var(--admin-fg)]">{row.title}</p>
+                  <p className="mt-0.5 font-mono text-[11px] text-[var(--admin-faint)]">{row.id}</p>
                 </div>
               ),
             },
-            { key: "expected", label: "期望", render: (row) => <p className="max-w-[420px] text-xs font-semibold text-slate-600">{row.expected.join("；") || "-"}</p> },
-            { key: "images", label: "图片", render: (row) => <span className="font-mono text-xs font-black text-slate-600">{row.imageCount}</span> },
+            { key: "expected", label: "期望", render: (row) => <p className="max-w-[420px] text-xs font-semibold text-[var(--admin-fg)]">{row.expected.join("；") || "-"}</p> },
+            { key: "images", label: "图片", render: (row) => <span className="font-mono text-xs font-black text-[var(--admin-fg)]">{row.imageCount}</span> },
           ]}
         />
       </AdminSection>
 
-      <div className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm leading-6 text-blue-700">
+      <div className="flex items-start gap-2 rounded-lg border border-[var(--admin-info-border)] bg-[var(--admin-info-soft)] px-3 py-2 text-sm leading-6 text-[var(--admin-info)]">
         <FlaskConical className="mt-0.5 h-4 w-4 shrink-0" />
         <p>
           上线建议：提示词、智能助手决策或安全策略改动后先在此页触发回归；若失败用例非 0，完成追踪和坏反馈沉淀后再发布生产版本。

@@ -236,7 +236,7 @@ export function AdminFeaturesClient({ registry }: AdminFeaturesClientProps) {
           <Typography.Title level={2} className="!mb-1 !mt-1">
             功能管理
           </Typography.Title>
-          <Typography.Paragraph className="!mb-0 !text-slate-500">
+          <Typography.Paragraph className="!mb-0 !text-[var(--admin-muted)]">
             用版本化配置统一管理前端功能展示、模型、灵点策略和后台关联入口。
           </Typography.Paragraph>
         </div>

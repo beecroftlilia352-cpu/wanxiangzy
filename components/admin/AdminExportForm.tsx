@@ -87,57 +87,57 @@ export function AdminExportForm() {
   return (
     <form onSubmit={submit} className="grid gap-3 p-4 xl:grid-cols-[180px_minmax(180px,1fr)_150px_150px_120px_120px_minmax(220px,1fr)_auto]">
       <label className="space-y-1.5">
-        <span className="text-xs font-black text-slate-500">数据集</span>
+        <span className="text-xs font-black text-[var(--admin-muted)]">数据集</span>
         <select
           value={exportType}
           onChange={(event) => setExportType(event.target.value)}
-          className="h-10 w-full rounded-lg border border-slate-200 bg-white px-2 text-sm font-bold text-slate-700"
+          className="h-10 w-full rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-2 text-sm font-bold text-[var(--admin-fg)]"
         >
           {exportTypes.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
         </select>
       </label>
       <label className="space-y-1.5">
-        <span className="text-xs font-black text-slate-500">搜索</span>
+        <span className="text-xs font-black text-[var(--admin-muted)]">搜索</span>
         <input
           value={q}
           onChange={(event) => setQ(event.target.value)}
-          className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold outline-none focus:border-slate-400"
+          className="h-10 w-full rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm font-semibold outline-none focus:border-[var(--admin-border-strong)]"
           placeholder="用户 / 任务 / 原因"
         />
       </label>
       <label className="space-y-1.5">
-        <span className="text-xs font-black text-slate-500">状态</span>
+        <span className="text-xs font-black text-[var(--admin-muted)]">状态</span>
         <select
           value={status}
           onChange={(event) => setStatus(event.target.value)}
-          className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold outline-none focus:border-slate-400"
+          className="h-10 w-full rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm font-semibold outline-none focus:border-[var(--admin-border-strong)]"
         >
           {statusOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
         </select>
       </label>
       <label className="space-y-1.5">
-        <span className="text-xs font-black text-slate-500">模块</span>
+        <span className="text-xs font-black text-[var(--admin-muted)]">模块</span>
         <select
           value={module}
           onChange={(event) => setModule(event.target.value)}
-          className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold outline-none focus:border-slate-400"
+          className="h-10 w-full rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm font-semibold outline-none focus:border-[var(--admin-border-strong)]"
         >
           {moduleOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
         </select>
       </label>
       <label className="space-y-1.5">
-        <span className="text-xs font-black text-slate-500">上限</span>
+        <span className="text-xs font-black text-[var(--admin-muted)]">上限</span>
         <input
           type="number"
           min={1}
           max={500}
           value={limit}
           onChange={(event) => setLimit(Number(event.target.value))}
-          className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold outline-none focus:border-slate-400"
+          className="h-10 w-full rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm font-semibold outline-none focus:border-[var(--admin-border-strong)]"
         />
       </label>
       <label className="flex items-end">
-        <span className="inline-flex h-10 w-full items-center gap-2 rounded-lg border border-slate-200 bg-white px-2 text-xs font-black text-slate-700">
+        <span className="inline-flex h-10 w-full items-center gap-2 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-2 text-xs font-black text-[var(--admin-fg)]">
           <input
             type="checkbox"
             checked={stale}
@@ -148,24 +148,24 @@ export function AdminExportForm() {
         </span>
       </label>
       <label className="space-y-1.5">
-        <span className="text-xs font-black text-slate-500">导出原因</span>
+        <span className="text-xs font-black text-[var(--admin-muted)]">导出原因</span>
         <input
           value={reason}
           onChange={(event) => setReason(event.target.value)}
-          className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold outline-none focus:border-slate-400"
+          className="h-10 w-full rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm font-semibold outline-none focus:border-[var(--admin-border-strong)]"
           placeholder="例如：财务核对 / 审计抽查"
           required
           minLength={4}
         />
       </label>
       <div className="flex items-end">
-        <button type="submit" disabled={loading} className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-slate-950 px-4 text-sm font-black text-white disabled:opacity-60 xl:w-auto">
+        <button type="submit" disabled={loading} className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[var(--admin-fg)] px-4 text-sm font-black text-white disabled:opacity-60 xl:w-auto">
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
           创建
         </button>
       </div>
       {message && (
-        <p className={`xl:col-span-8 text-sm font-bold ${message.includes("已创建") ? "text-emerald-700" : "text-red-700"}`}>
+        <p className={`xl:col-span-8 text-sm font-bold ${message.includes("已创建") ? "text-[var(--admin-success)]" : "text-[var(--admin-danger)]"}`}>
           {message}
         </p>
       )}

@@ -66,13 +66,13 @@ export function AdminAssetsClient({ assets, q, module }: AdminAssetsClientProps)
         <div>
           <Typography.Text className="admin-page-eyebrow">Assets</Typography.Text>
           <Typography.Title level={2} className="!mb-1 !mt-1">资产与作品</Typography.Title>
-          <Typography.Paragraph className="!mb-0 !text-slate-500">
+          <Typography.Paragraph className="!mb-0 !text-[var(--admin-muted)]">
             统一查看生成结果、输入图、预设参考图和商品套图收藏方案。
           </Typography.Paragraph>
         </div>
         <Link
           href="/admin/assets/lifecycle"
-          className="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2"
+          className="inline-flex h-9 items-center gap-2 rounded-md border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm font-semibold text-[var(--admin-fg)] shadow-sm transition-colors hover:border-[var(--admin-border-strong)] hover:text-[var(--admin-fg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-fg)] focus-visible:ring-offset-2"
         >
           <DatabaseOutlined aria-hidden="true" />
           生命周期

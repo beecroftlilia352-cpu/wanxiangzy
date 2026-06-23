@@ -42,12 +42,12 @@ export default async function AdminModerationPage({ searchParams }: PageProps) {
         description="最新记录在前，可按处理对象、动作、状态和原因搜索。"
         actions={
           <form action="/admin/moderation" className="relative">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--admin-faint)]" />
             <input
               name="q"
               defaultValue={q}
               placeholder="搜索对象 / 动作 / 原因"
-              className="h-9 w-64 rounded-lg border border-slate-200 bg-white pl-8 pr-3 text-sm font-semibold outline-none focus:border-slate-400"
+              className="h-9 w-64 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] pl-8 pr-3 text-sm font-semibold outline-none focus:border-[var(--admin-border-strong)]"
             />
           </form>
         }
@@ -63,15 +63,15 @@ export default async function AdminModerationPage({ searchParams }: PageProps) {
               render: (row) => (
                 <div className="min-w-[220px]">
                   <AdminStatusBadge status={row.action} group={row.action === "hide" ? "failed" : row.action === "pass" ? "completed" : "queued"} />
-                  <p className="mt-1 truncate text-[11px] font-semibold text-slate-400">{shortAdminCode(row.id, "案件")}</p>
+                  <p className="mt-1 truncate text-[11px] font-semibold text-[var(--admin-faint)]">{shortAdminCode(row.id, "案件")}</p>
                 </div>
               ),
             },
-            { key: "source", label: "处理对象", render: (row) => <span className="text-xs font-bold text-slate-600">{resourceTypeLabel(row.sourceType)}（{shortAdminCode(row.sourceId, "")}）</span> },
+            { key: "source", label: "处理对象", render: (row) => <span className="text-xs font-bold text-[var(--admin-fg)]">{resourceTypeLabel(row.sourceType)}（{shortAdminCode(row.sourceId, "")}）</span> },
             { key: "status", label: "处理状态", render: (row) => <AdminStatusBadge status={row.status} /> },
-            { key: "reason", label: "原因", render: (row) => <p className="max-w-[360px] text-xs leading-5 text-slate-500">{row.reason || "-"}</p> },
-            { key: "created", label: "创建", render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-slate-500">{formatDateTime(row.createdAt)}</span> },
-            { key: "resolved", label: "解决", render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-slate-500">{formatDateTime(row.resolvedAt)}</span> },
+            { key: "reason", label: "原因", render: (row) => <p className="max-w-[360px] text-xs leading-5 text-[var(--admin-muted)]">{row.reason || "-"}</p> },
+            { key: "created", label: "创建", render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-[var(--admin-muted)]">{formatDateTime(row.createdAt)}</span> },
+            { key: "resolved", label: "解决", render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-[var(--admin-muted)]">{formatDateTime(row.resolvedAt)}</span> },
           ]}
         />
       </AdminSection>

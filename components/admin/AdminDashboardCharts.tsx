@@ -81,7 +81,7 @@ export function AdminDashboardCharts({ overview, report, days }: AdminDashboardC
     <>
       <Row gutter={[16, 16]}>
         <Col xs={24} xl={15}>
-          <Card title="每日趋势" extra={<span className="text-sm text-slate-500">近 {days} 天</span>}>
+          <Card title="每日趋势" extra={<span className="text-sm text-[var(--admin-muted)]">近 {days} 天</span>}>
             {trendData.length ? (
               <ChartContainer config={dashboardTrendConfig} className="h-[300px] w-full">
                 <LineChart accessibilityLayer data={trendData} margin={{ left: 8, right: 16, top: 8 }}>

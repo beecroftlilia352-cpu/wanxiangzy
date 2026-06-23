@@ -30,6 +30,7 @@ import {
   UserOutlined,
 } from "@/components/ui/ant-icons-compat";
 import { Avatar, Breadcrumb, Button, Drawer, Layout, Menu, Space, Spin, Tag, Typography, type MenuProps } from "@/components/ui/shadcn-compat";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import type { AdminRole } from "@/lib/admin/permissions";
 
 type AdminShellProps = {
@@ -183,7 +184,7 @@ export function AdminShell({ admin, children }: AdminShellProps) {
         collapsible
         collapsed={collapsed}
         trigger={null}
-        className={`admin-sider shrink-0 motion-safe:transition-[width] motion-safe:duration-200 ${collapsed ? "w-[76px]" : "w-[252px]"}`}
+        className={`admin-sider shrink-0 motion-safe:transition-[width] motion-safe:duration-200 motion-reduce:transition-none ${collapsed ? "w-[76px]" : "w-[252px]"}`}
       >
         <AdminBrand collapsed={collapsed} />
         <Menu
@@ -238,6 +239,7 @@ export function AdminShell({ admin, children }: AdminShellProps) {
           <Space size={8}>
             {admin.source === "bootstrap-env" && <Tag color="gold">Bootstrap</Tag>}
             <Tag color="blue">{admin.role}</Tag>
+            <ThemeToggle className="admin-theme-toggle" />
           </Space>
         </Layout.Header>
         <Layout.Content className="admin-content">

@@ -33,15 +33,15 @@ export default async function AdminSettingsPage() {
       <AdminSection title="运行时环境" description="只显示是否配置，不显示密钥内容。">
         <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-3">
           {settings.runtime.map((item) => (
-            <div key={item.key} className="rounded-lg border border-slate-200 bg-white p-3">
+            <div key={item.key} className="rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] p-3">
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-black text-slate-950">{item.label}</p>
-                  <p className="mt-1 truncate font-mono text-[11px] text-slate-400">{item.key}</p>
+                  <p className="truncate text-sm font-black text-[var(--admin-fg)]">{item.label}</p>
+                  <p className="mt-1 truncate font-mono text-[11px] text-[var(--admin-faint)]">{item.key}</p>
                 </div>
                 <AdminStatusBadge status={item.configured ? "completed" : "failed"} group={item.configured ? "completed" : "failed"} />
               </div>
-              <p className="mt-2 text-xs font-bold uppercase tracking-[0.08em] text-slate-400">{item.scope}</p>
+              <p className="mt-2 text-xs font-bold uppercase tracking-[0.08em] text-[var(--admin-faint)]">{item.scope}</p>
             </div>
           ))}
         </div>
@@ -57,11 +57,11 @@ export default async function AdminSettingsPage() {
           rowKey={(row) => row.id}
           empty="暂无配置版本"
           columns={[
-            { key: "key", label: "配置键", render: (row) => <span className="font-mono text-sm font-black text-slate-950">{row.configKey}</span> },
+            { key: "key", label: "配置键", render: (row) => <span className="font-mono text-sm font-black text-[var(--admin-fg)]">{row.configKey}</span> },
             { key: "status", label: "状态", render: (row) => <AdminStatusBadge status={row.status} /> },
-            { key: "value", label: "内容", render: (row) => <code className="line-clamp-2 max-w-[420px] text-xs text-slate-600">{JSON.stringify(row.value)}</code> },
-            { key: "published", label: "发布时间", render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-slate-500">{formatDateTime(row.publishedAt)}</span> },
-            { key: "created", label: "创建", render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-slate-500">{formatDateTime(row.createdAt)}</span> },
+            { key: "value", label: "内容", render: (row) => <code className="line-clamp-2 max-w-[420px] text-xs text-[var(--admin-fg)]">{JSON.stringify(row.value)}</code> },
+            { key: "published", label: "发布时间", render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-[var(--admin-muted)]">{formatDateTime(row.publishedAt)}</span> },
+            { key: "created", label: "创建", render: (row) => <span className="whitespace-nowrap text-xs font-semibold text-[var(--admin-muted)]">{formatDateTime(row.createdAt)}</span> },
             { key: "actions", label: "操作", render: (row) => <AdminConfigActions id={row.id} status={row.status} /> },
           ]}
         />

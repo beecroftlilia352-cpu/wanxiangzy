@@ -72,7 +72,7 @@ export function AdminConfigActions({
             type="button"
             onClick={() => openAction("publish")}
             disabled={Boolean(loadingAction)}
-            className="inline-flex h-8 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 text-xs font-black text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+            className="inline-flex h-8 items-center gap-1 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-2 text-xs font-black text-[var(--admin-fg)] hover:bg-[var(--admin-surface-soft)] disabled:opacity-60"
           >
             {loadingAction === "publish" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Rocket className="h-3.5 w-3.5" />}
             发布
@@ -83,7 +83,7 @@ export function AdminConfigActions({
             type="button"
             onClick={() => openAction("archive")}
             disabled={Boolean(loadingAction)}
-            className="inline-flex h-8 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 text-xs font-black text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+            className="inline-flex h-8 items-center gap-1 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-2 text-xs font-black text-[var(--admin-fg)] hover:bg-[var(--admin-surface-soft)] disabled:opacity-60"
           >
             {loadingAction === "archive" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Archive className="h-3.5 w-3.5" />}
             归档
