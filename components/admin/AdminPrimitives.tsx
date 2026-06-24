@@ -150,7 +150,7 @@ export function AdminSection({
     <section className={`rounded-lg border ${adminBorder} ${adminSurface} shadow-sm`}>
       <div className={`flex flex-col gap-3 border-b ${adminBorder} px-4 py-3 sm:flex-row sm:items-center sm:justify-between`}>
         <div>
-          <h2 className={`text-sm font-black ${adminTextPrimary}`}>{title}</h2>
+          <h2 className={`admin-section-title text-sm font-black ${adminTextPrimary}`}>{title}</h2>
           {description && <p className={`mt-1 text-xs leading-5 ${adminTextMuted}`}>{description}</p>}
         </div>
         {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}

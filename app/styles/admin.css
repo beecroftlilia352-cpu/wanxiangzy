@@ -359,6 +359,16 @@
   gap: 16px;
 }
 
+.admin-page-hero h1,
+.admin-section-title {
+  text-wrap: balance;
+}
+
+.admin-skip-link:focus {
+  outline: 2px solid var(--admin-accent);
+  outline-offset: 2px;
+}
+
 .admin-page-eyebrow {
   display: block;
   color: var(--admin-muted);

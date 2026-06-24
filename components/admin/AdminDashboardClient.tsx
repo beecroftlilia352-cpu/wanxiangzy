@@ -170,6 +170,9 @@ export function AdminDashboardClient({ overview, report, days }: AdminDashboardC
         description="生成任务、收入灵点、模型成本、队列健康和异常处理统一看板。"
         actions={
           <div className="flex flex-wrap items-center gap-2">
+            <span id="dashboard-days-help" className="sr-only">
+              改变下方所有图表和 KPI 趋势线的时间窗口
+            </span>
             <Segmented
               value={days}
               options={dayOptions}
@@ -178,6 +181,7 @@ export function AdminDashboardClient({ overview, report, days }: AdminDashboardC
                 router.push(href);
               }}
               aria-label="选择时间窗口"
+              aria-describedby="dashboard-days-help"
             />
             <Button
               type="button"
