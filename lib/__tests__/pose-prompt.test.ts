@@ -317,7 +317,9 @@ describe("pose prompt handling", () => {
 
     expect(enforced).toContain("姿势1：正面站定，肩颈放松，重心轻微偏向一侧");
     expect(enforced).toContain("姿势2：身体转为三分之二侧身");
-    expect(enforced).toContain("保持商业模特的干净亲和感");
+    // New default expression for front angle is cool-editorial (高冷大片感)
+    expect(enforced).toContain("Cool editorial expression, no smile, lips closed and relaxed, sharp jaw");
+    expect(enforced).toContain("high-fashion commercial mood");
     expect(enforced).not.toContain("姿势1：旧姿势。");
   });
 

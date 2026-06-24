@@ -266,9 +266,11 @@ function getSelectedExpressionPresetId(slot: PosePlanSlot | null | undefined) {
   const preset = getCommercialPoseExpressionPresets(slot.angle).find((item) => {
     const text = normalizePoseSelectorText(item.text);
     const label = normalizePoseSelectorText(item.label);
+    const keywordMatched = item.matchKeywords?.some((keyword) => source.includes(normalizePoseSelectorText(keyword)));
     return item.text === slot.headDirection
       || source.includes(label)
-      || source.includes(text.slice(0, 10));
+      || source.includes(text.slice(0, 10))
+      || Boolean(keywordMatched);
   });
   return preset?.id || "current";
 }
