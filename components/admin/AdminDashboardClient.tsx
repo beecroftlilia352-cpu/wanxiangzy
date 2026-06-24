@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useMemo } from "react";
 import {
   Activity,
   AlertTriangle,
@@ -99,6 +100,8 @@ export function AdminDashboardClient({ overview, report, days }: AdminDashboardC
       icon: <Flame aria-hidden="true" className="h-4 w-4" />,
     },
   ];
+
+  const dailySeries = useMemo(() => buildDailySeries(report.daily), [report.daily]);
 
   const recentTaskColumns = [
     {
@@ -208,32 +211,38 @@ export function AdminDashboardClient({ overview, report, days }: AdminDashboardC
           label="生成任务"
           value={formatNumberPrimitive(overview.generationHealth.total)}
           hint={`今日 ${formatNumberPrimitive(overview.generationHealth.today)}`}
+          trend={dailySeries.tasks}
         />
         <AdminMetricCard
           label="成功率"
           value={formatNumberPrimitive(100 - failureRate)}
           suffix="%"
           tone={failureRate > 20 ? "danger" : "good"}
+          trend={dailySeries.successRate}
         />
         <AdminMetricCard
           label="失败率"
           value={formatNumberPrimitive(failureRate)}
           suffix="%"
           tone={failureRate > 15 ? "danger" : failureRate > 5 ? "warning" : "good"}
+          trend={dailySeries.failureRate}
         />
         <AdminMetricCard
           label="净收入灵点"
           value={formatNumberPrimitive(report.metrics.netCredits)}
           tone="good"
+          trend={dailySeries.marginCredits}
         />
         <AdminMetricCard
           label="退款补偿"
           value={formatNumberPrimitive(report.metrics.refundCredits)}
           tone={report.metrics.refundCredits > 0 ? "warning" : "neutral"}
+          trend={dailySeries.refundCredits}
         />
         <AdminMetricCard
           label="履约成本"
           value={formatNumberPrimitive(fulfillmentCredits)}
+          trend={dailySeries.settledCredits}
         />
       </section>
 
@@ -309,4 +318,23 @@ export function AdminDashboardClient({ overview, report, days }: AdminDashboardC
       </div>
     </div>
   );
+}
+
+type DailySeries = {
+  tasks: number[];
+  successRate: number[];
+  failureRate: number[];
+  marginCredits: number[];
+  refundCredits: number[];
+  settledCredits: number[];
+};
+
+function buildDailySeries(rows: AdminCostReport["daily"]): DailySeries {
+  const tasks = rows.map((row) => row.tasks);
+  const failureRate = rows.map((row) => (row.tasks > 0 ? (row.failed / row.tasks) * 100 : 0));
+  const successRate = rows.map((row) => (row.tasks > 0 ? ((row.tasks - row.failed) / row.tasks) * 100 : 0));
+  const marginCredits = rows.map((row) => row.marginCredits);
+  const refundCredits = rows.map((row) => row.refundCredits);
+  const settledCredits = rows.map((row) => row.generationSettledCredits + row.workflowSettledCredits);
+  return { tasks, successRate, failureRate, marginCredits, refundCredits, settledCredits };
 }
