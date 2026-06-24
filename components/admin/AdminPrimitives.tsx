@@ -150,7 +150,7 @@ export function AdminSection({
     <section className={`rounded-lg border ${adminBorder} ${adminSurface} shadow-sm`}>
       <div className={`flex flex-col gap-3 border-b ${adminBorder} px-4 py-3 sm:flex-row sm:items-center sm:justify-between`}>
         <div>
-          <h2 className={`text-sm font-black ${adminTextPrimary}`}>{title}</h2>
+          <h2 className={`admin-section-title text-sm font-black ${adminTextPrimary}`}>{title}</h2>
           {description && <p className={`mt-1 text-xs leading-5 ${adminTextMuted}`}>{description}</p>}
         </div>
         {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
@@ -166,24 +166,91 @@ export function AdminMetricCard({
   hint,
   tone = "neutral",
   suffix,
+  trend,
 }: {
   label: string;
   value: string | number;
   hint?: string;
   tone?: "neutral" | "good" | "warning" | "danger";
   suffix?: string;
+  trend?: number[];
 }) {
   const normalized: Tone =
     tone === "good" ? "success" : tone === "warning" ? "warning" : tone === "danger" ? "danger" : "neutral";
   return (
-    <div className={`rounded-lg border ${adminSurface} p-4 shadow-sm ${metricBorderClass(normalized)}`}>
-      <p className={`text-xs font-black uppercase tracking-[0.1em] ${adminTextFaint}`}>{label}</p>
-      <div className="mt-3 flex items-baseline gap-1">
+    <div className={`relative flex h-full flex-col gap-2 rounded-lg border ${adminSurface} p-4 shadow-sm ${metricBorderClass(normalized)}`}>
+      <div className="flex items-start justify-between gap-2">
+        <p className={`min-w-0 text-xs font-black uppercase tracking-[0.1em] ${adminTextFaint}`}>{label}</p>
+        {trend && trend.length > 1 && (
+          <AdminSparkline data={trend} tone={tone} className="shrink-0" />
+        )}
+      </div>
+      <div className="mt-1 flex items-baseline gap-1">
         <span className={`text-2xl font-black tabular-nums ${adminTextPrimary}`}>{value}</span>
         {suffix && <span className={`text-xs font-bold ${adminTextMuted}`}>{suffix}</span>}
       </div>
-      {hint && <p className={`mt-2 text-xs font-semibold ${adminTextMuted}`}>{hint}</p>}
+      {hint && <p className={`mt-auto text-xs font-semibold ${adminTextMuted}`}>{hint}</p>}
     </div>
+  );
+}
+
+/**
+ * Tiny inline SVG sparkline for KPI tiles. Pure render — no recharts dep.
+ * Renders nothing for fewer than 2 data points.
+ */
+export function AdminSparkline({
+  data,
+  tone = "neutral",
+  width = 88,
+  height = 28,
+  className,
+}: {
+  data: number[];
+  tone?: "neutral" | "good" | "warning" | "danger";
+  width?: number;
+  height?: number;
+  className?: string;
+}) {
+  if (data.length < 2) return null;
+  const stroke = adminToneColor(tone);
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const range = max - min || 1;
+  const stepX = width / (data.length - 1);
+  const pad = 3;
+  const innerHeight = height - pad * 2;
+  const points = data
+    .map((value, index) => {
+      const x = index * stepX;
+      const y = pad + innerHeight - ((value - min) / range) * innerHeight;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(" ");
+  const areaPoints = `0,${height} ${points} ${width},${height}`;
+  return (
+    <svg
+      aria-hidden="true"
+      width={width}
+      height={height}
+      viewBox={`0 0 ${width} ${height}`}
+      preserveAspectRatio="none"
+      className={className}
+    >
+      <polygon
+        points={areaPoints}
+        fill={stroke}
+        fillOpacity={0.12}
+        stroke="none"
+      />
+      <polyline
+        points={points}
+        fill="none"
+        stroke={stroke}
+        strokeWidth={1.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
 

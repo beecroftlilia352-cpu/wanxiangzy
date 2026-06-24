@@ -177,6 +177,12 @@ export function AdminShell({ admin, children }: AdminShellProps) {
 
   return (
     <Layout className="admin-app-shell flex" onSubmit={handleSubmit}>
+      <a
+        href="#admin-main-content"
+        className="admin-skip-link sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:border focus:border-[var(--admin-border-strong)] focus:bg-[var(--admin-surface)] focus:px-3 focus:py-2 focus:text-sm focus:font-black focus:text-[var(--admin-fg)] focus:shadow-lg"
+      >
+        跳到主内容
+      </a>
       <AdminRouteLoading active={routeLoading} id={loadingId} />
       <Layout.Sider
         width={252}
@@ -243,7 +249,7 @@ export function AdminShell({ admin, children }: AdminShellProps) {
           </Space>
         </Layout.Header>
         <Layout.Content className="admin-content">
-          <div role="main" className="contents">
+          <div role="main" id="admin-main-content" className="contents">
             {children}
           </div>
         </Layout.Content>
