@@ -860,10 +860,24 @@ export async function getAdminOverview(): Promise<AdminOverview> {
     countRows(admin.from("agent_workflows").select("id", { count: "planned", head: true }).in("status", ["failed", "cancelled", "canceled"]), "workflow failed", warnings, true),
     loadCreditHealth(sevenDaysIso, warnings),
     loadRecentGenerationRows(warnings),
-    listAdminTasks({ limit: 8 }),
+    listAdminTasks({ limit: 8, diversifyBy: "module" }),
   ]);
 
   const aggregate = aggregateGenerations(recentGenerationRows);
+  // Phase 0 fallback: if generations aggregation returned fewer than 2 distinct
+  // modules (likely RLS / parsing miss), source moduleStats from task_queue_items
+  // which has a direct `module` column.
+  let moduleStats = aggregate.moduleStats;
+  let modelStats = aggregate.modelStats;
+  if (moduleStats.length < 2) {
+    const fallback = await loadTaskQueueModuleStats(warnings);
+    if (fallback && fallback.moduleStats.length) {
+      moduleStats = fallback.moduleStats;
+      if (!modelStats.length && fallback.modelStats.length) {
+        modelStats = fallback.modelStats;
+      }
+    }
+  }
   const taskHealth = {
     queued: taskQueued || generationQueued,
     running: taskRunning || generationRunning + workflowRunning,
@@ -891,8 +905,8 @@ export async function getAdminOverview(): Promise<AdminOverview> {
       failureRate,
     },
     creditHealth,
-    moduleStats: aggregate.moduleStats,
-    modelStats: aggregate.modelStats,
+    moduleStats,
+    modelStats,
     recentTasks: recentTasks.rows,
     warnings: uniqueStrings([...warnings, ...recentTasks.warnings]),
   };
@@ -1826,6 +1840,7 @@ export async function listAdminTasks(args: {
   pageSize?: number;
   limit?: number;
   hydratePreviews?: boolean;
+  diversifyBy?: "module" | "none";
 } = {}): Promise<AdminTaskList> {
   const admin = getAdminClient();
   const warnings: string[] = [];
@@ -1856,6 +1871,9 @@ export async function listAdminTasks(args: {
     }
     if (q) rows = rows.filter((row) => matchesTaskSearch(row, q));
     if (args.stale) rows = rows.filter((row) => row.isStale);
+    if (args.diversifyBy === "module") {
+      rows = diversifyRowsByModule(rows, pageSize);
+    }
     return {
       rows: needsClientFilter ? rows.slice(offset, offset + pageSize) : rows,
       total: needsClientFilter ? rows.length : indexed.count ?? rows.length,
@@ -3692,6 +3710,88 @@ async function loadRecentGenerationRows(warnings: string[]) {
     true,
   );
   return result.data || [];
+}
+
+/**
+ * Round-robin picker: takes the input rows already ordered by `created_at DESC`
+ * and yields one row per distinct `module` until the requested limit is met.
+ * This keeps the dashboard's "recent tasks" preview varied instead of being
+ * dominated by a single high-volume module (e.g. 服装上身).
+ */
+function diversifyRowsByModule<T extends { module: string }>(rows: T[], limit: number): T[] {
+  if (!rows.length || limit <= 0) return [];
+  const buckets = new Map<string, T[]>();
+  for (const row of rows) {
+    const key = row.module || "unknown";
+    const bucket = buckets.get(key);
+    if (bucket) bucket.push(row);
+    else buckets.set(key, [row]);
+  }
+  // Round-robin: pick index 0 from each bucket, then index 1, etc.
+  const picked: T[] = [];
+  const iterators = Array.from(buckets.values()).map((bucket) => bucket[Symbol.iterator]());
+  while (picked.length < limit) {
+    let progressed = false;
+    for (const it of iterators) {
+      const next = it.next();
+      if (next.done) continue;
+      picked.push(next.value);
+      progressed = true;
+      if (picked.length >= limit) break;
+    }
+    if (!progressed) break;
+  }
+  return picked;
+}
+
+/**
+ * Defensive fallback for moduleStats / modelStats: when the primary
+ * `generations.job_payload.kind` aggregator returns 0 rows (RLS, parsing
+ * miss, or genuinely empty data window), surface the same shape from
+ * `task_queue_items.module` so the dashboard never shows a hard "暂无模块统计"
+ * empty state. Returns null when the fallback also has no data, so callers
+ * can keep the original empty state if both sources are empty.
+ */
+async function loadTaskQueueModuleStats(
+  warnings: string[],
+  options: { sinceIso?: string; limit?: number } = {}
+): Promise<{
+  moduleStats: AdminBreakdownItem[];
+  modelStats: AdminBreakdownItem[];
+} | null> {
+  const sinceIso = options.sinceIso || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const limit = options.limit ?? 1500;
+  const result = await runQuery<Record<string, unknown>[]>(
+    getAdminClient()
+      .from("task_queue_items")
+      .select("module,status_group,source_type")
+      .gte("created_at", sinceIso)
+      .order("created_at", { ascending: false })
+      .limit(limit),
+    "task queue module fallback",
+    warnings,
+    true,
+  );
+  const rows = result.data || [];
+  if (!rows.length) return null;
+
+  const moduleMap = new Map<string, AdminBreakdownItem>();
+  for (const row of rows) {
+    const moduleKey = stringValue(row.module) || "unknown";
+    const statusGroup = normalizeTaskStatusGroup(stringValue(row.status_group));
+    const sourceType = stringValue(row.source_type);
+    if (sourceType === "workflow") continue; // workflow is tracked separately; moduleStats is for content modules
+    bumpBreakdown(moduleMap, moduleKey, moduleLabel(moduleKey), statusGroup, 0);
+  }
+
+  const moduleStats = Array.from(moduleMap.values())
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 8);
+
+  if (!moduleStats.length) return null;
+  // task_queue_items doesn't carry model info; leave modelStats empty so the
+  // primary `report.models` (from generations + credit_logs) is the only source.
+  return { moduleStats, modelStats: [] };
 }
 
 async function loadUserGenerationStats(userIds: string[], warnings: string[]) {

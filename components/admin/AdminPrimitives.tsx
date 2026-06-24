@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { AlertTriangle, ArrowUpRight, ImageIcon } from "lucide-react";
+import { AlertTriangle, ArrowUpRight, ImageIcon, Minus, TrendingDown, TrendingUp } from "lucide-react";
 import { AdminImagePreview } from "@/components/admin/AdminImagePreview";
 import type { TaskStatusGroup } from "@/lib/task-queue";
 
@@ -167,6 +167,8 @@ export function AdminMetricCard({
   tone = "neutral",
   suffix,
   trend,
+  icon,
+  delta,
 }: {
   label: string;
   value: string | number;
@@ -174,16 +176,42 @@ export function AdminMetricCard({
   tone?: "neutral" | "good" | "warning" | "danger";
   suffix?: string;
   trend?: number[];
+  icon?: ReactNode;
+  delta?: {
+    value: number;
+    suffix?: string;
+    hint?: string;
+    tone?: "good" | "warning" | "danger" | "neutral";
+  };
 }) {
   const normalized: Tone =
     tone === "good" ? "success" : tone === "warning" ? "warning" : tone === "danger" ? "danger" : "neutral";
+  const toneSoftClass: Record<Tone, string> = {
+    success: "border-[var(--admin-success-border)] bg-[var(--admin-success-soft)] text-[var(--admin-success)]",
+    warning: "border-[var(--admin-warning-border)] bg-[var(--admin-warning-soft)] text-[var(--admin-warning)]",
+    danger: "border-[var(--admin-danger-border)] bg-[var(--admin-danger-soft)] text-[var(--admin-danger)]",
+    info: "border-[var(--admin-info-border)] bg-[var(--admin-info-soft)] text-[var(--admin-info)]",
+    neutral: "border-[var(--admin-neutral-border)] bg-[var(--admin-neutral-soft)] text-[var(--admin-neutral)]",
+  };
   return (
     <div className={`relative flex h-full flex-col gap-2 rounded-lg border ${adminSurface} p-4 shadow-sm ${metricBorderClass(normalized)}`}>
       <div className="flex items-start justify-between gap-2">
-        <p className={`min-w-0 text-xs font-black uppercase tracking-[0.1em] ${adminTextFaint}`}>{label}</p>
-        {trend && trend.length > 1 && (
+        <div className="flex min-w-0 items-center gap-2">
+          {icon && (
+            <span
+              aria-hidden="true"
+              className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border ${toneSoftClass[normalized]}`}
+            >
+              {icon}
+            </span>
+          )}
+          <p className={`min-w-0 text-xs font-black uppercase tracking-[0.1em] ${adminTextFaint}`}>{label}</p>
+        </div>
+        {delta ? (
+          <AdminDeltaIndicator {...delta} className="shrink-0" />
+        ) : trend && trend.length > 1 ? (
           <AdminSparkline data={trend} tone={tone} className="shrink-0" />
-        )}
+        ) : null}
       </div>
       <div className="mt-1 flex items-baseline gap-1">
         <span className={`text-2xl font-black tabular-nums ${adminTextPrimary}`}>{value}</span>
@@ -191,6 +219,49 @@ export function AdminMetricCard({
       </div>
       {hint && <p className={`mt-auto text-xs font-semibold ${adminTextMuted}`}>{hint}</p>}
     </div>
+  );
+}
+
+/**
+ * Vercel-style "vs prior period" delta pill. Replaces sparklines on KPI tiles.
+ * Auto-tones: positive → good, negative → danger, zero → neutral. Caller can
+ * override via `tone`.
+ */
+export function AdminDeltaIndicator({
+  value,
+  suffix = "%",
+  tone,
+  hint,
+  className,
+}: {
+  value: number;
+  suffix?: string;
+  tone?: "good" | "warning" | "danger" | "neutral";
+  hint?: string;
+  className?: string;
+}) {
+  const safeValue = Number.isFinite(value) ? value : 0;
+  const resolvedTone: "good" | "warning" | "danger" | "neutral" = tone
+    ?? (safeValue > 0 ? "good" : safeValue < 0 ? "danger" : "neutral");
+  const toneClass: Record<typeof resolvedTone, string> = {
+    good: "border-[var(--admin-success-border)] bg-[var(--admin-success-soft)] text-[var(--admin-success)]",
+    warning: "border-[var(--admin-warning-border)] bg-[var(--admin-warning-soft)] text-[var(--admin-warning)]",
+    danger: "border-[var(--admin-danger-border)] bg-[var(--admin-danger-soft)] text-[var(--admin-danger)]",
+    neutral: "border-[var(--admin-neutral-border)] bg-[var(--admin-neutral-soft)] text-[var(--admin-neutral)]",
+  };
+  const Icon = safeValue > 0 ? TrendingUp : safeValue < 0 ? TrendingDown : Minus;
+  const sign = safeValue > 0 ? "+" : "";
+  const display = `${sign}${Math.abs(safeValue).toFixed(1)}${suffix}`;
+  const ariaLabel = hint ? `${display} ${hint}` : display;
+  return (
+    <span
+      role="status"
+      aria-label={ariaLabel}
+      className={`inline-flex h-6 items-center gap-1 rounded-md border px-2 text-[11px] font-black tabular-nums leading-none ${toneClass[resolvedTone]} ${className ?? ""}`}
+    >
+      <Icon aria-hidden="true" className="h-3 w-3" />
+      {display}
+    </span>
   );
 }
 
@@ -215,10 +286,37 @@ export function AdminSparkline({
   const stroke = adminToneColor(tone);
   const min = Math.min(...data);
   const max = Math.max(...data);
-  const range = max - min || 1;
+  const range = max - min;
   const stepX = width / (data.length - 1);
   const pad = 3;
   const innerHeight = height - pad * 2;
+  // Flat-data fallback: when all values are equal, draw a dashed line at 50%
+  // height so the card still reads as "no variation" instead of a flat
+  // bottom-of-svg line that looks broken.
+  if (range <= 0) {
+    const midY = height / 2;
+    return (
+      <svg
+        aria-hidden="true"
+        width={width}
+        height={height}
+        viewBox={`0 0 ${width} ${height}`}
+        preserveAspectRatio="none"
+        className={className}
+      >
+        <line
+          x1={0}
+          y1={midY}
+          x2={width}
+          y2={midY}
+          stroke="var(--admin-faint)"
+          strokeWidth={1}
+          strokeDasharray="3 3"
+          strokeLinecap="round"
+        />
+      </svg>
+    );
+  }
   const points = data
     .map((value, index) => {
       const x = index * stepX;

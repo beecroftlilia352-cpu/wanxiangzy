@@ -8,8 +8,13 @@ import {
   AlertTriangle,
   ArrowUpRight,
   Clock3,
+  Coins,
   Flame,
   RefreshCw,
+  ShieldCheck,
+  Sparkles,
+  TrendingDown,
+  TrendingUp,
 } from "lucide-react";
 import { Segmented } from "@/components/ui/shadcn-compat";
 import { Button } from "@/components/ui/button";
@@ -102,6 +107,7 @@ export function AdminDashboardClient({ overview, report, days }: AdminDashboardC
   ];
 
   const dailySeries = useMemo(() => buildDailySeries(report.daily), [report.daily]);
+  const deltas = useMemo(() => computeKpiDeltas(dailySeries), [dailySeries]);
 
   const recentTaskColumns = [
     {
@@ -215,107 +221,105 @@ export function AdminDashboardClient({ overview, report, days }: AdminDashboardC
           label="生成任务"
           value={formatNumberPrimitive(overview.generationHealth.total)}
           hint={`今日 ${formatNumberPrimitive(overview.generationHealth.today)}`}
-          trend={dailySeries.tasks}
+          icon={<Sparkles aria-hidden="true" className="h-4 w-4" />}
+          delta={deltas.tasks}
         />
         <AdminMetricCard
           label="成功率"
           value={formatNumberPrimitive(100 - failureRate)}
           suffix="%"
           tone={failureRate > 20 ? "danger" : "good"}
-          trend={dailySeries.successRate}
+          icon={<ShieldCheck aria-hidden="true" className="h-4 w-4" />}
+          delta={deltas.successRate}
         />
         <AdminMetricCard
           label="失败率"
           value={formatNumberPrimitive(failureRate)}
           suffix="%"
           tone={failureRate > 15 ? "danger" : failureRate > 5 ? "warning" : "good"}
-          trend={dailySeries.failureRate}
+          icon={<AlertTriangle aria-hidden="true" className="h-4 w-4" />}
+          delta={deltas.failureRate}
         />
         <AdminMetricCard
           label="净收入灵点"
           value={formatNumberPrimitive(report.metrics.netCredits)}
           tone="good"
-          trend={dailySeries.marginCredits}
+          icon={<Coins aria-hidden="true" className="h-4 w-4" />}
+          delta={deltas.marginCredits}
         />
         <AdminMetricCard
           label="退款补偿"
           value={formatNumberPrimitive(report.metrics.refundCredits)}
           tone={report.metrics.refundCredits > 0 ? "warning" : "neutral"}
-          trend={dailySeries.refundCredits}
+          icon={<TrendingDown aria-hidden="true" className="h-4 w-4" />}
+          delta={deltas.refundCredits}
         />
         <AdminMetricCard
           label="履约成本"
           value={formatNumberPrimitive(fulfillmentCredits)}
-          trend={dailySeries.settledCredits}
+          icon={<TrendingUp aria-hidden="true" className="h-4 w-4" />}
+          delta={deltas.settledCredits}
         />
       </section>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.55fr)_minmax(320px,1fr)]">
-        <AdminSection
-          title="最近任务"
-          description="生成和工作流任务的最新进度"
-          actions={
-            <Link
-              href="/admin/generations"
-              className="inline-flex items-center gap-1 text-xs font-black text-[var(--admin-link)] hover:text-[var(--admin-fg)]"
+      <section aria-label="异常入口" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {exceptionEntries.map((entry) => (
+          <Link
+            key={entry.label}
+            href={entry.href}
+            aria-label={`查看 ${entry.label}（${formatNumberPrimitive(entry.value)}）`}
+            className={`group flex min-w-0 items-center gap-3 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] p-3 motion-safe:transition-colors hover:bg-[var(--admin-surface-soft)] ${exceptionSurfaceHover[entry.tone]}`}
+          >
+            <span
+              aria-hidden="true"
+              className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border ${exceptionToneClass[entry.tone]}`}
             >
-              进入任务中心
-              <ArrowUpRight aria-hidden="true" className="h-3 w-3" />
-            </Link>
-          }
-        >
-          <AdminTable<AdminTaskListItem>
-            rows={overview.recentTasks}
-            columns={recentTaskColumns}
-            rowKey={(row) => row.id}
-            empty={
-              <EmptyState
-                title="暂无最近任务"
-                description="近 24 小时内没有新的生成或工作流任务记录。"
-              />
-            }
-          />
-        </AdminSection>
+              {entry.icon}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-xs font-black uppercase tracking-[0.08em] text-[var(--admin-faint)]">
+                {entry.label}
+              </span>
+              <span
+                className="mt-1 block text-xl font-black tabular-nums leading-none"
+                style={{ color: adminToneColor(entry.tone === "good" ? "good" : entry.tone === "warning" ? "warning" : entry.tone === "info" ? "neutral" : "danger") }}
+              >
+                {formatNumberPrimitive(entry.value)}
+              </span>
+            </span>
+            <ArrowUpRight
+              aria-hidden="true"
+              className="h-4 w-4 shrink-0 text-[var(--admin-faint)] motion-safe:transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-[var(--admin-fg)]"
+            />
+          </Link>
+        ))}
+      </section>
 
-        <AdminSection
-          title="异常入口"
-          description="点击进入已保留筛选条件的处理队列"
-        >
-          <ul className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-1">
-            {exceptionEntries.map((entry) => (
-              <li key={entry.label} className="min-w-0">
-                <Link
-                  href={entry.href}
-                  aria-label={`查看 ${entry.label}`}
-                  className={`group flex min-w-0 items-center gap-3 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] p-3 transition-colors hover:bg-[var(--admin-surface-soft)] ${exceptionSurfaceHover[entry.tone]}`}
-                >
-                  <span
-                    aria-hidden="true"
-                    className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border ${exceptionToneClass[entry.tone]}`}
-                  >
-                    {entry.icon}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-xs font-black uppercase tracking-[0.08em] text-[var(--admin-faint)]">
-                      {entry.label}
-                    </span>
-                    <span
-                      className="mt-1 block text-lg font-black tabular-nums leading-none"
-                      style={{ color: adminToneColor(entry.tone === "good" ? "good" : entry.tone === "warning" ? "warning" : entry.tone === "info" ? "neutral" : "danger") }}
-                    >
-                      {formatNumberPrimitive(entry.value)}
-                    </span>
-                  </span>
-                  <ArrowUpRight
-                    aria-hidden="true"
-                    className="h-4 w-4 shrink-0 text-[var(--admin-faint)] transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-[var(--admin-fg)]"
-                  />
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </AdminSection>
-      </div>
+      <AdminSection
+        title="最近任务"
+        description="生成和工作流任务的最新进度 · 按模块轮换展示"
+        actions={
+          <Link
+            href="/admin/generations"
+            className="inline-flex items-center gap-1 text-xs font-black text-[var(--admin-link)] hover:text-[var(--admin-fg)]"
+          >
+            进入任务中心
+            <ArrowUpRight aria-hidden="true" className="h-3 w-3" />
+          </Link>
+        }
+      >
+        <AdminTable<AdminTaskListItem>
+          rows={overview.recentTasks}
+          columns={recentTaskColumns}
+          rowKey={(row) => row.id}
+          empty={
+            <EmptyState
+              title="暂无最近任务"
+              description="近 24 小时内没有新的生成或工作流任务记录。"
+            />
+          }
+        />
+      </AdminSection>
 
       <div key={days} aria-busy="false">
         <AdminDashboardCharts overview={overview} report={report} days={days} />
@@ -341,4 +345,49 @@ function buildDailySeries(rows: AdminCostReport["daily"]): DailySeries {
   const refundCredits = rows.map((row) => row.refundCredits);
   const settledCredits = rows.map((row) => row.generationSettledCredits + row.workflowSettledCredits);
   return { tasks, successRate, failureRate, marginCredits, refundCredits, settledCredits };
+}
+
+/**
+ * Per-KPI delta vs prior period. Compares the latest value in each series
+ * against the mean of the prior values. When there are fewer than 2 prior
+ * data points, returns `null` so the AdminDeltaIndicator is omitted (no fake
+ * delta against a single point).
+ *
+ * Direction note: for `successRate` / `marginCredits` an upward delta is
+ * "good" (default tone); for `failureRate` / `refundCredits` an upward delta
+ * is "bad" — we negate the value so the indicator reads consistently.
+ */
+function computeKpiDeltas(series: DailySeries) {
+  const tasksDelta = deltaFor(series.tasks, "positiveIsGood");
+  const successRateDelta = deltaFor(series.successRate, "positiveIsGood");
+  const failureRateDelta = deltaFor(series.failureRate, "positiveIsBad");
+  const marginDelta = deltaFor(series.marginCredits, "positiveIsGood");
+  const refundDelta = deltaFor(series.refundCredits, "positiveIsBad");
+  const settledDelta = deltaFor(series.settledCredits, "positiveIsGood");
+  return {
+    tasks: tasksDelta,
+    successRate: successRateDelta,
+    failureRate: failureRateDelta,
+    marginCredits: marginDelta,
+    refundCredits: refundDelta,
+    settledCredits: settledDelta,
+  };
+}
+
+function deltaFor(
+  values: number[],
+  direction: "positiveIsGood" | "positiveIsBad"
+): { value: number; hint: string } | undefined {
+  if (values.length < 2) return undefined;
+  const latest = values[values.length - 1];
+  const prior = values.slice(0, -1);
+  const priorAvg = prior.reduce((sum, v) => sum + v, 0) / prior.length;
+  if (!Number.isFinite(priorAvg) || priorAvg === 0) {
+    if (latest === 0) return { value: 0, hint: "vs 此前平均" };
+    // Use absolute growth as a proxy when prior avg is 0
+    return { value: latest > 0 ? 100 : -100, hint: "vs 此前平均" };
+  }
+  const raw = ((latest - priorAvg) / Math.abs(priorAvg)) * 100;
+  const signed = direction === "positiveIsBad" ? -raw : raw;
+  return { value: Math.round(signed * 10) / 10, hint: "vs 此前平均" };
 }
