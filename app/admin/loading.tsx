@@ -5,6 +5,7 @@ import {
   AdminMetricSkeleton,
   AdminTableSkeleton,
 } from "@/components/ui/admin-skeletons";
+import { AdminTopListSkeleton } from "@/components/admin/AdminTopList";
 
 export default function AdminLoading() {
   return (
@@ -27,19 +28,51 @@ export default function AdminLoading() {
         ))}
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-[minmax(0,1.55fr)_minmax(320px,1fr)]">
-        <AdminTableSkeleton rows={6} columns={4} showFooter={false} />
-        <AdminListSkeleton rows={4} />
+      {/* 4-up exception strip — matches the new entry grid */}
+      <section
+        aria-label="异常入口"
+        className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"
+      >
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div
+            key={index}
+            className="flex min-w-0 items-center gap-3 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] p-3"
+          >
+            <Skeleton className="h-10 w-10 shrink-0 rounded-md" />
+            <div className="min-w-0 flex-1 space-y-2">
+              <Skeleton className="h-2.5 w-20" />
+              <Skeleton className="h-5 w-16" />
+            </div>
+            <Skeleton className="h-4 w-4 shrink-0" />
+          </div>
+        ))}
       </section>
 
+      {/* Recent tasks — full-width admin table */}
+      <AdminTableSkeleton rows={6} columns={4} showFooter={false} />
+
+      {/* Main chart row: area + donut */}
       <section className="grid gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(360px,1fr)]">
         <AdminChartSkeleton variant="line" />
         <AdminChartSkeleton variant="donut" />
       </section>
 
+      {/* Breakdown row: two TopList skeletons */}
       <section className="grid gap-4 xl:grid-cols-2">
-        <AdminChartSkeleton variant="bar" />
-        <AdminChartSkeleton variant="bar" />
+        <div className="flex flex-col gap-2 rounded-xl border border-[var(--admin-border)] bg-[var(--admin-surface)] p-2">
+          <div className="flex items-center justify-between px-2 py-1">
+            <Skeleton className="h-4 w-20" />
+            <Skeleton className="h-3 w-32" />
+          </div>
+          <AdminTopListSkeleton rows={6} />
+        </div>
+        <div className="flex flex-col gap-2 rounded-xl border border-[var(--admin-border)] bg-[var(--admin-surface)] p-2">
+          <div className="flex items-center justify-between px-2 py-1">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-3 w-32" />
+          </div>
+          <AdminTopListSkeleton rows={6} />
+        </div>
       </section>
     </div>
   );
