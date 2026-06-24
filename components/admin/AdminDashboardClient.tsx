@@ -2,39 +2,30 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo } from "react";
-import dynamic from "next/dynamic";
 import {
-  Alert,
-  Card,
-  Col,
-  List,
-  Progress,
-  Row,
-  Segmented,
-  Space,
-  Statistic,
-  Table,
-  Tag,
-  Typography,
-  type ColumnsType,
-} from "@/components/ui/shadcn-compat";
-import {
-  AlertOutlined,
-  BarChartOutlined,
-  CheckCircleOutlined,
-  ClockCircleOutlined,
-  DollarOutlined,
-  FireOutlined,
-  ReloadOutlined,
-} from "@/components/ui/ant-icons-compat";
+  Activity,
+  AlertTriangle,
+  ArrowUpRight,
+  Clock3,
+  Flame,
+  RefreshCw,
+} from "lucide-react";
+import { Segmented } from "@/components/ui/shadcn-compat";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { EmptyState } from "@/components/ui/empty-state";
+import { ErrorState } from "@/components/ui/error-state";
 import {
   AdminPageHeader,
+  AdminSection,
+  AdminMetricCard,
+  AdminTable,
   AdminStatusBadge,
   adminToneColor,
   formatDateTime,
   formatNumber as formatNumberPrimitive,
 } from "@/components/admin/AdminPrimitives";
+import { AdminDashboardCharts } from "@/components/admin/AdminDashboardCharts";
 import type { AdminCostReport, AdminOverview, AdminTaskListItem } from "@/lib/admin/data";
 import type { TaskStatusGroup } from "@/lib/task-queue";
 
@@ -51,59 +42,131 @@ const dayOptions = [
   { label: "近 30 天", value: 30 },
 ];
 
-const LazyDashboardCharts = dynamic(
-  () => import("@/components/admin/AdminDashboardCharts").then((mod) => mod.AdminDashboardCharts),
-  { loading: DashboardChartsSkeleton },
-);
+type ExceptionEntry = {
+  label: string;
+  value: number;
+  href: string;
+  tone: "good" | "warning" | "danger" | "info";
+  icon: React.ReactNode;
+};
+
+const exceptionToneClass: Record<ExceptionEntry["tone"], string> = {
+  good: "border-[var(--admin-success-border)] bg-[var(--admin-success-soft)] text-[var(--admin-success)]",
+  warning: "border-[var(--admin-warning-border)] bg-[var(--admin-warning-soft)] text-[var(--admin-warning)]",
+  danger: "border-[var(--admin-danger-border)] bg-[var(--admin-danger-soft)] text-[var(--admin-danger)]",
+  info: "border-[var(--admin-info-border)] bg-[var(--admin-info-soft)] text-[var(--admin-info)]",
+};
+
+const exceptionSurfaceHover: Record<ExceptionEntry["tone"], string> = {
+  good: "hover:border-[var(--admin-success-border)]",
+  warning: "hover:border-[var(--admin-warning-border)]",
+  danger: "hover:border-[var(--admin-danger-border)]",
+  info: "hover:border-[var(--admin-info-border)]",
+};
 
 export function AdminDashboardClient({ overview, report, days }: AdminDashboardClientProps) {
   const router = useRouter();
   const failureRate = overview.generationHealth.failureRate;
   const fulfillmentCredits = report.metrics.generationSettledCredits + report.metrics.workflowSettledCredits;
 
-  const taskColumns = useMemo<ColumnsType<AdminTaskListItem>>(() => [
+  const exceptionEntries: ExceptionEntry[] = [
     {
-      title: "任务",
-      dataIndex: "title",
-      width: 260,
-      render: (_, row) => (
-        <Space orientation="vertical" size={0} className="min-w-0">
-          <Space size={6} wrap>
-            <AdminStatusBadge status={row.status} group={(row.statusGroup as TaskStatusGroup | undefined) ?? undefined} />
-            <Typography.Text type="secondary">{row.sourceType}</Typography.Text>
-          </Space>
-          <Link href={`/admin/generations/${row.sourceId}`} className="font-semibold text-[var(--admin-fg)] hover:text-[var(--admin-fg)]">
+      label: "失败任务",
+      value: overview.taskHealth.failed,
+      href: "/admin/generations?status=failed",
+      tone: "danger",
+      icon: <AlertTriangle aria-hidden="true" className="h-4 w-4" />,
+    },
+    {
+      label: "排队任务",
+      value: overview.taskHealth.queued,
+      href: "/admin/generations?status=queued",
+      tone: "warning",
+      icon: <Clock3 aria-hidden="true" className="h-4 w-4" />,
+    },
+    {
+      label: "运行任务",
+      value: overview.taskHealth.running,
+      href: "/admin/generations?status=running",
+      tone: "info",
+      icon: <Activity aria-hidden="true" className="h-4 w-4" />,
+    },
+    {
+      label: "失败锁定灵点",
+      value: report.metrics.failedReservedCredits,
+      href: "/admin/reports",
+      tone: "danger",
+      icon: <Flame aria-hidden="true" className="h-4 w-4" />,
+    },
+  ];
+
+  const recentTaskColumns = [
+    {
+      key: "title",
+      label: "任务",
+      className: "max-w-[320px]",
+      render: (row: AdminTaskListItem) => (
+        <div className="flex min-w-0 flex-col gap-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <AdminStatusBadge
+              status={row.status}
+              group={(row.statusGroup as TaskStatusGroup | undefined) ?? undefined}
+            />
+            <span className="text-xs font-semibold text-[var(--admin-muted)]">
+              {row.sourceType}
+            </span>
+          </div>
+          <Link
+            href={`/admin/generations/${row.sourceId}`}
+            className="truncate text-sm font-semibold text-[var(--admin-fg)] hover:text-[var(--admin-fg)]"
+          >
             {row.title}
           </Link>
-          <Typography.Text type="secondary" className="block truncate text-xs">
+          <span className="truncate text-xs text-[var(--admin-muted)]">
             任务编号 {row.sourceId.slice(0, 8)}
-          </Typography.Text>
-        </Space>
+          </span>
+        </div>
       ),
     },
-    { title: "模块", dataIndex: "moduleLabel", width: 120 },
     {
-      title: "进度",
-      dataIndex: "progress",
-      width: 130,
-      render: (value: number) => <Progress percent={value} size="small" />,
+      key: "module",
+      label: "模块",
+      className: "whitespace-nowrap",
+      render: (row: AdminTaskListItem) => (
+        <span className="text-xs font-semibold text-[var(--admin-fg)]">
+          {row.moduleLabel}
+        </span>
+      ),
     },
     {
-      title: "时间",
-      dataIndex: "createdAt",
-      width: 140,
-      render: (value: string | null) => formatDateTime(value),
+      key: "progress",
+      label: "进度",
+      className: "w-32",
+      render: (row: AdminTaskListItem) => (
+        <div className="flex items-center gap-2">
+          <Progress value={Math.min(100, Math.max(0, row.progress))} aria-label="任务进度" />
+          <span className="w-9 text-right text-xs font-semibold tabular-nums text-[var(--admin-muted)]">
+            {Math.round(row.progress)}%
+          </span>
+        </div>
+      ),
     },
-  ], []);
+    {
+      key: "createdAt",
+      label: "时间",
+      className: "whitespace-nowrap text-right text-xs font-semibold tabular-nums text-[var(--admin-muted)]",
+      render: (row: AdminTaskListItem) => formatDateTime(row.createdAt),
+    },
+  ];
 
   return (
-    <Space orientation="vertical" size={16} className="w-full">
+    <div className="flex w-full flex-col gap-5">
       <AdminPageHeader
         eyebrow="Console"
         title="运营总览"
         description="生成任务、收入灵点、模型成本、队列健康和异常处理统一看板。"
         actions={
-          <Space wrap>
+          <div className="flex flex-wrap items-center gap-2">
             <Segmented
               value={days}
               options={dayOptions}
@@ -113,154 +176,137 @@ export function AdminDashboardClient({ overview, report, days }: AdminDashboardC
               }}
               aria-label="选择时间窗口"
             />
-            <Link
-              href="/admin"
-              className="inline-flex h-9 items-center gap-2 rounded-md border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm font-semibold text-[var(--admin-fg)] shadow-sm transition-colors hover:border-[var(--admin-border-strong)] hover:text-[var(--admin-fg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-fg)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--admin-bg)]"
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => router.push(`/admin?days=${days}`)}
               aria-label="刷新运营总览"
             >
-              <ReloadOutlined aria-hidden="true" />
+              <RefreshCw aria-hidden="true" className="h-3.5 w-3.5" />
               刷新
-            </Link>
-          </Space>
+            </Button>
+          </div>
         }
       />
 
       {overview.warnings.length > 0 && (
-        <Alert type="warning" showIcon message="部分数据源暂不可用" description={overview.warnings.slice(0, 3).join("；")} />
+        <ErrorState
+          title="部分数据源暂不可用"
+          description={overview.warnings.slice(0, 3).join("；")}
+        />
       )}
       {report.warnings.length > 0 && (
-        <Alert type="info" showIcon message="报表数据源提示" description={report.warnings.slice(0, 3).join("；")} />
+        <ErrorState
+          title="报表数据源提示"
+          description={report.warnings.slice(0, 3).join("；")}
+        />
       )}
 
-      <Row gutter={[12, 12]}>
-        <KpiCard title="生成任务" value={overview.generationHealth.total} suffix={`今日 ${overview.generationHealth.today}`} icon={<BarChartOutlined aria-hidden="true" />} />
-        <KpiCard title="成功率" value={100 - failureRate} precision={1} suffix="%" tone={failureRate > 20 ? "danger" : "good"} icon={<CheckCircleOutlined aria-hidden="true" />} />
-        <KpiCard title="失败率" value={failureRate} precision={1} suffix="%" tone={failureRate > 15 ? "danger" : failureRate > 5 ? "warning" : "good"} icon={<AlertOutlined aria-hidden="true" />} />
-        <KpiCard title="净收入灵点" value={report.metrics.netCredits} tone="good" icon={<DollarOutlined aria-hidden="true" />} />
-        <KpiCard title="退款补偿" value={report.metrics.refundCredits} tone={report.metrics.refundCredits > 0 ? "warning" : "neutral"} icon={<FireOutlined aria-hidden="true" />} />
-        <KpiCard title="履约成本" value={fulfillmentCredits} icon={<ClockCircleOutlined aria-hidden="true" />} />
-      </Row>
+      <section aria-label="关键指标" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        <AdminMetricCard
+          label="生成任务"
+          value={formatNumberPrimitive(overview.generationHealth.total)}
+          hint={`今日 ${formatNumberPrimitive(overview.generationHealth.today)}`}
+        />
+        <AdminMetricCard
+          label="成功率"
+          value={formatNumberPrimitive(100 - failureRate)}
+          suffix="%"
+          tone={failureRate > 20 ? "danger" : "good"}
+        />
+        <AdminMetricCard
+          label="失败率"
+          value={formatNumberPrimitive(failureRate)}
+          suffix="%"
+          tone={failureRate > 15 ? "danger" : failureRate > 5 ? "warning" : "good"}
+        />
+        <AdminMetricCard
+          label="净收入灵点"
+          value={formatNumberPrimitive(report.metrics.netCredits)}
+          tone="good"
+        />
+        <AdminMetricCard
+          label="退款补偿"
+          value={formatNumberPrimitive(report.metrics.refundCredits)}
+          tone={report.metrics.refundCredits > 0 ? "warning" : "neutral"}
+        />
+        <AdminMetricCard
+          label="履约成本"
+          value={formatNumberPrimitive(fulfillmentCredits)}
+        />
+      </section>
 
-      <Row gutter={[16, 16]}>
-        <Col xs={24} xl={16}>
-          <Card title="最近任务" extra={<Link href="/admin/generations" className="text-sm font-semibold text-[var(--admin-fg)] hover:text-[var(--admin-fg)]">进入任务中心</Link>}>
-            <Table<AdminTaskListItem>
-              size="small"
-              rowKey="id"
-              columns={taskColumns}
-              dataSource={overview.recentTasks}
-              pagination={false}
-              locale={{ emptyText: "暂无最近任务" }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} xl={8}>
-          <Card title="异常入口">
-            <List
-              dataSource={[
-                { label: "失败任务", value: overview.taskHealth.failed, href: "/admin/generations?status=failed", tone: "red" as const },
-                { label: "排队任务", value: overview.taskHealth.queued, href: "/admin/generations?status=queued", tone: "orange" as const },
-                { label: "运行任务", value: overview.taskHealth.running, href: "/admin/generations?status=running", tone: "blue" as const },
-                { label: "失败锁定灵点", value: report.metrics.failedReservedCredits, href: "/admin/reports", tone: "red" as const },
-              ]}
-              renderItem={(item) => (
-                <List.Item actions={[<Link key="open" href={item.href} aria-label={`查看 ${item.label}`} className="text-sm font-semibold text-[var(--admin-fg)] hover:text-[var(--admin-fg)]">查看</Link>]}>
-                  <List.Item.Meta
-                    avatar={<Tag color={item.tone}>{formatNumberPrimitive(item.value)}</Tag>}
-                    title={item.label}
-                    description="点击进入已保留筛选条件的处理队列"
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.55fr)_minmax(320px,1fr)]">
+        <AdminSection
+          title="最近任务"
+          description="生成和工作流任务的最新进度"
+          actions={
+            <Link
+              href="/admin/generations"
+              className="inline-flex items-center gap-1 text-xs font-black text-[var(--admin-link)] hover:text-[var(--admin-fg)]"
+            >
+              进入任务中心
+              <ArrowUpRight aria-hidden="true" className="h-3 w-3" />
+            </Link>
+          }
+        >
+          <AdminTable<AdminTaskListItem>
+            rows={overview.recentTasks}
+            columns={recentTaskColumns}
+            rowKey={(row) => row.id}
+            empty={
+              <EmptyState
+                title="暂无最近任务"
+                description="近 24 小时内没有新的生成或工作流任务记录。"
+              />
+            }
+          />
+        </AdminSection>
+
+        <AdminSection
+          title="异常入口"
+          description="点击进入已保留筛选条件的处理队列"
+        >
+          <ul className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-1">
+            {exceptionEntries.map((entry) => (
+              <li key={entry.label} className="min-w-0">
+                <Link
+                  href={entry.href}
+                  aria-label={`查看 ${entry.label}`}
+                  className={`group flex min-w-0 items-center gap-3 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] p-3 transition-colors hover:bg-[var(--admin-surface-soft)] ${exceptionSurfaceHover[entry.tone]}`}
+                >
+                  <span
+                    aria-hidden="true"
+                    className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border ${exceptionToneClass[entry.tone]}`}
+                  >
+                    {entry.icon}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-xs font-black uppercase tracking-[0.08em] text-[var(--admin-faint)]">
+                      {entry.label}
+                    </span>
+                    <span
+                      className="mt-1 block text-lg font-black tabular-nums leading-none"
+                      style={{ color: adminToneColor(entry.tone === "good" ? "good" : entry.tone === "warning" ? "warning" : entry.tone === "info" ? "neutral" : "danger") }}
+                    >
+                      {formatNumberPrimitive(entry.value)}
+                    </span>
+                  </span>
+                  <ArrowUpRight
+                    aria-hidden="true"
+                    className="h-4 w-4 shrink-0 text-[var(--admin-faint)] transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-[var(--admin-fg)]"
                   />
-                </List.Item>
-              )}
-            />
-          </Card>
-        </Col>
-      </Row>
-
-      <div key={days}>
-        <LazyDashboardCharts overview={overview} report={report} days={days} />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </AdminSection>
       </div>
-    </Space>
-  );
-}
 
-/* ----------------------------------------------------------------------------
- * Structural chart skeleton — mirrors the 4-card layout of AdminDashboardCharts
- * so users see the real shape of what's loading, not 4 generic grey boxes.
- * -------------------------------------------------------------------------- */
-function DashboardChartsSkeleton() {
-  return (
-    <div className="grid gap-4 xl:grid-cols-2" aria-hidden="true">
-      <Card title="每日趋势">
-        <SkeletonBlock height={280} lines={[{ width: "92%", height: 8 }, { width: "78%", height: 8 }, { width: "65%", height: 8 }]} />
-      </Card>
-      <Card title="任务状态分布">
-        <SkeletonBlock height={280} variant="circle-row" />
-      </Card>
-      <Card title="模块排行">
-        <SkeletonBlock height={280} lines={Array.from({ length: 6 }, () => ({ width: `${50 + Math.floor(Math.random() * 40)}%`, height: 14 }))} />
-      </Card>
-      <Card title="模型毛利">
-        <SkeletonBlock height={280} lines={Array.from({ length: 5 }, () => ({ width: `${40 + Math.floor(Math.random() * 50)}%`, height: 12 }))} />
-      </Card>
+      <div key={days} aria-busy="false">
+        <AdminDashboardCharts overview={overview} report={report} days={days} />
+      </div>
     </div>
-  );
-}
-
-function SkeletonBlock({ height, lines, variant }: { height: number; lines?: Array<{ width: string; height: number }>; variant?: "circle-row" }) {
-  return (
-    <div className="space-y-3 animate-pulse" style={{ minHeight: height }}>
-      {variant === "circle-row"
-        ? (
-          <div className="flex items-center gap-6">
-            <div className="h-32 w-32 rounded-full bg-[var(--admin-surface-soft)]" />
-            <div className="flex-1 space-y-2">
-              {[60, 75, 50, 90, 65].map((w, i) => (
-                <div key={i} className="h-3 rounded-full bg-[var(--admin-surface-soft)]" style={{ width: `${w}%` }} />
-              ))}
-            </div>
-          </div>
-        )
-        : (
-          lines?.map((line, i) => (
-            <div key={i} className="rounded-md bg-[var(--admin-surface-soft)]" style={{ width: line.width, height: line.height }} />
-          ))
-        )}
-    </div>
-  );
-}
-
-/* ----------------------------------------------------------------------------
- * KPI tile — tone is one of "neutral" | "good" | "warning" | "danger";
- * resolved through adminToneColor() so the value color inherits dark mode.
- * -------------------------------------------------------------------------- */
-function KpiCard({
-  title,
-  value,
-  suffix,
-  precision,
-  tone = "neutral",
-  icon,
-}: {
-  title: string;
-  value: number;
-  suffix?: string;
-  precision?: number;
-  tone?: "neutral" | "good" | "warning" | "danger";
-  icon: React.ReactNode;
-}) {
-  const color = adminToneColor(tone);
-  return (
-    <Col xs={24} sm={12} xl={4}>
-      <Card className="admin-kpi-card">
-        <Space align="start" className="w-full justify-between">
-          <span className="tabular-nums">
-            <Statistic title={title} value={value} precision={precision} styles={{ content: { color } }} />
-          </span>
-          <span className="admin-kpi-icon" aria-hidden="true">{icon}</span>
-        </Space>
-        {suffix && <Typography.Text type="secondary">{suffix}</Typography.Text>}
-      </Card>
-    </Col>
   );
 }
