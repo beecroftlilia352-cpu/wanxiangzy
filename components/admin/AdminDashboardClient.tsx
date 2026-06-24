@@ -295,6 +295,10 @@ export function AdminDashboardClient({ overview, report, days }: AdminDashboardC
         ))}
       </section>
 
+      <div key={days} aria-busy="false">
+        <AdminDashboardCharts overview={overview} report={report} days={days} />
+      </div>
+
       <AdminSection
         title="最近任务"
         description="生成和工作流任务的最新进度 · 按模块轮换展示"
@@ -320,10 +324,6 @@ export function AdminDashboardClient({ overview, report, days }: AdminDashboardC
           }
         />
       </AdminSection>
-
-      <div key={days} aria-busy="false">
-        <AdminDashboardCharts overview={overview} report={report} days={days} />
-      </div>
     </div>
   );
 }

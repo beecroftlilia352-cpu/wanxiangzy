@@ -818,11 +818,22 @@ export const DEFAULT_PROMPT_EXPERIMENT_CONFIG = {
   ],
 };
 
-export async function getAdminOverview(): Promise<AdminOverview> {
+export async function getAdminOverview(args: { days?: number } = {}): Promise<AdminOverview> {
   const admin = getAdminClient();
   const warnings: string[] = [];
   const now = Date.now();
   const todayIso = new Date(now - 24 * 60 * 60 * 1000).toISOString();
+  // The dashboard's "key metric" KPIs (success / failure rate, net credits,
+  // refund, settled) come from `report.daily` which is windowed by `days`.
+  // The module / model TopList also reads from the same window so they all
+  // line up. We still default to 7 days so other callers (diagnostics,
+  // mobile shell) keep the previous behavior.
+  const days = clampLimit(args.days, 1, 90, 7);
+  const windowStart = new Date(now - days * 24 * 60 * 60 * 1000);
+  windowStart.setUTCHours(0, 0, 0, 0);
+  const windowStartIso = windowStart.toISOString();
+  // Some signals (task queue health) remain un-windowed counts — operators
+  // need to see today's backlog regardless of the chart window.
   const sevenDaysIso = new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString();
 
   const [
@@ -859,7 +870,7 @@ export async function getAdminOverview(): Promise<AdminOverview> {
     countRows(admin.from("agent_workflows").select("id", { count: "planned", head: true }).in("status", ["queued", "running"]), "workflow running", warnings, true),
     countRows(admin.from("agent_workflows").select("id", { count: "planned", head: true }).in("status", ["failed", "cancelled", "canceled"]), "workflow failed", warnings, true),
     loadCreditHealth(sevenDaysIso, warnings),
-    loadRecentGenerationRows(warnings),
+    loadRecentGenerationRows(warnings, { sinceIso: windowStartIso }),
     listAdminTasks({ limit: 8, diversifyBy: "module" }),
   ]);
 
@@ -870,12 +881,22 @@ export async function getAdminOverview(): Promise<AdminOverview> {
   let moduleStats = aggregate.moduleStats;
   let modelStats = aggregate.modelStats;
   if (moduleStats.length < 2) {
-    const fallback = await loadTaskQueueModuleStats(warnings);
+    const fallback = await loadTaskQueueModuleStats(warnings, { sinceIso: windowStartIso });
     if (fallback && fallback.moduleStats.length) {
       moduleStats = fallback.moduleStats;
       if (!modelStats.length && fallback.modelStats.length) {
         modelStats = fallback.modelStats;
       }
+    }
+  }
+  // If the user picked a short window (1d / 7d) and both sources are sparse,
+  // widen to 30 days as a last-ditch effort so the TopList surfaces *some*
+  // data. We always prefer the windowed result when it has any rows.
+  if (moduleStats.length === 0 && days <= 7) {
+    const wideSinceIso = new Date(now - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const wideFallback = await loadTaskQueueModuleStats(warnings, { sinceIso: wideSinceIso });
+    if (wideFallback && wideFallback.moduleStats.length) {
+      moduleStats = wideFallback.moduleStats;
     }
   }
   const taskHealth = {
@@ -3698,13 +3719,19 @@ async function loadCreditHealth(sinceIso: string, warnings: string[]) {
   };
 }
 
-async function loadRecentGenerationRows(warnings: string[]) {
+async function loadRecentGenerationRows(
+  warnings: string[],
+  options: { sinceIso?: string; limit?: number } = {}
+) {
+  const sinceIso = options.sinceIso || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const limit = options.limit ?? 500;
   const result = await runQuery<Record<string, unknown>[]>(
     getAdminClient()
       .from("generations")
       .select("status,result_urls,job_payload,credits_used,credits_cost,ai_model,image_size,created_at")
+      .gte("created_at", sinceIso)
       .order("created_at", { ascending: false })
-      .limit(500),
+      .limit(limit),
     "recent generations aggregate",
     warnings,
     true,

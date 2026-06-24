@@ -33,46 +33,45 @@ type AdminDashboardChartsProps = {
 
 /* ----------------------------------------------------------------------------
  * Chart configs — every key uses the `theme: { light, dark }` shape so
- * <ChartContainer> auto-injects per-theme CSS variables. Codex palette
- * matches the rest of the admin area (badges, status pills, KPI tiles).
+ * <ChartContainer> auto-injects per-theme CSS variables.
  *
- * IMPORTANT: recharts passes `stroke` / `fill` to SVG as presentation
- * attributes, where `var()` does NOT resolve. The actual <Area stroke> /
- * <Cell fill> values therefore use the literal `hsl(var(--codex-X))` form,
- * NOT the `var(--color-X)` shortcut from the config below. The config is
- * kept for tooltip / legend label lookups only.
+ * IMPORTANT: the codex tokens (`--codex-accent`, etc.) are HEX strings, not
+ * HSL components, so wrapping them as `hsl(var(--codex-X))` produces invalid
+ * CSS and renders black. We pass the resolved hex values directly to the
+ * config; the SVG then references them as `var(--color-X)`, which DOES
+ * resolve in modern browsers (the injected value is a valid hex color).
  * -------------------------------------------------------------------------- */
 const trendConfig = {
   tasks: {
     label: "任务数",
-    theme: { light: "hsl(var(--codex-accent))", dark: "hsl(var(--codex-accent))" },
+    theme: { light: "#5b7cff", dark: "#5b8cff" },
   },
   failureRate: {
     label: "失败率",
-    theme: { light: "hsl(var(--codex-danger))", dark: "hsl(var(--codex-danger))" },
+    theme: { light: "#d13b35", dark: "#ff453a" },
   },
 } satisfies ChartConfig;
 
 const taskStatusConfig = {
   queued: {
     label: "排队中",
-    theme: { light: "hsl(var(--codex-warning))", dark: "hsl(var(--codex-warning))" },
+    theme: { light: "#a66a00", dark: "#ff9f0a" },
   },
   running: {
     label: "运行中",
-    theme: { light: "hsl(var(--codex-running))", dark: "hsl(var(--codex-running))" },
+    theme: { light: "#5b7cff", dark: "#5b8cff" },
   },
   completed: {
     label: "已完成",
-    theme: { light: "hsl(var(--codex-success))", dark: "hsl(var(--codex-success))" },
+    theme: { light: "#22885f", dark: "#30d158" },
   },
   failed: {
     label: "失败",
-    theme: { light: "hsl(var(--codex-danger))", dark: "hsl(var(--codex-danger))" },
+    theme: { light: "#d13b35", dark: "#ff453a" },
   },
   other: {
     label: "其他",
-    theme: { light: "hsl(var(--codex-faint))", dark: "hsl(var(--codex-faint))" },
+    theme: { light: "#7b8498", dark: "#7a7d85" },
   },
 } satisfies ChartConfig;
 
@@ -127,8 +126,8 @@ export function AdminDashboardCharts({ overview, report, days }: AdminDashboardC
                 <AreaChart accessibilityLayer data={trendData} margin={{ top: 8, left: 8, right: 16, bottom: 0 }}>
                   <defs>
                     <linearGradient id="trend-tasks-fill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="hsl(var(--codex-accent))" stopOpacity={0.32} />
-                      <stop offset="100%" stopColor="hsl(var(--codex-accent))" stopOpacity={0} />
+                      <stop offset="0%" stopColor="var(--color-tasks)" stopOpacity={0.32} />
+                      <stop offset="100%" stopColor="var(--color-tasks)" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--admin-border)" vertical={false} />
@@ -167,32 +166,32 @@ export function AdminDashboardCharts({ overview, report, days }: AdminDashboardC
                     type="monotone"
                     dataKey="tasks"
                     name="任务数"
-                    stroke="hsl(var(--codex-accent))"
+                    stroke="var(--color-tasks)"
                     strokeWidth={2}
                     fill="url(#trend-tasks-fill)"
-                    activeDot={{ r: 4, strokeWidth: 0, fill: "hsl(var(--codex-accent))" }}
+                    activeDot={{ r: 4, strokeWidth: 0, fill: "var(--color-tasks)" }}
                   />
                   <Area
                     yAxisId="right"
                     type="monotone"
                     dataKey="failureRate"
                     name="失败率"
-                    stroke="hsl(var(--codex-danger))"
+                    stroke="var(--color-failureRate)"
                     strokeWidth={1.5}
                     strokeOpacity={0.85}
                     fill="transparent"
                     dot={false}
-                    activeDot={{ r: 3, strokeWidth: 0, fill: "hsl(var(--codex-danger))" }}
+                    activeDot={{ r: 3, strokeWidth: 0, fill: "var(--color-failureRate)" }}
                   />
                 </AreaChart>
               </ChartContainer>
               <div className="mt-3 flex flex-wrap items-center gap-3 px-2 text-[11px] font-black text-[var(--admin-muted)]">
                 <span className="inline-flex items-center gap-1.5">
-                  <span aria-hidden="true" className="h-1.5 w-3 rounded-full bg-[hsl(var(--codex-accent))]" />
+                  <span aria-hidden="true" className="h-1.5 w-3 rounded-full bg-[var(--color-tasks)]" />
                   任务数（左轴）
                 </span>
                 <span className="inline-flex items-center gap-1.5">
-                  <span aria-hidden="true" className="h-1.5 w-3 rounded-full bg-[hsl(var(--codex-danger))]" />
+                  <span aria-hidden="true" className="h-1.5 w-3 rounded-full bg-[var(--color-failureRate)]" />
                   失败率（右轴）
                 </span>
               </div>
@@ -236,14 +235,14 @@ export function AdminDashboardCharts({ overview, report, days }: AdminDashboardC
                           key={item.status}
                           fill={
                             item.status === "completed"
-                              ? "hsl(var(--codex-success))"
+                              ? "var(--color-completed)"
                               : item.status === "failed"
-                                ? "hsl(var(--codex-danger))"
+                                ? "var(--color-failed)"
                                 : item.status === "running"
-                                  ? "hsl(var(--codex-running))"
+                                  ? "var(--color-running)"
                                   : item.status === "other"
-                                    ? "hsl(var(--codex-faint))"
-                                    : "hsl(var(--codex-warning))"
+                                    ? "var(--color-other)"
+                                    : "var(--color-queued)"
                           }
                         />
                       ))}
@@ -278,14 +277,14 @@ export function AdminDashboardCharts({ overview, report, days }: AdminDashboardC
                           style={{
                             backgroundColor:
                               item.status === "completed"
-                                ? "hsl(var(--codex-success))"
+                                ? "var(--color-completed)"
                                 : item.status === "failed"
-                                  ? "hsl(var(--codex-danger))"
+                                  ? "var(--color-failed)"
                                   : item.status === "running"
-                                    ? "hsl(var(--codex-running))"
+                                    ? "var(--color-running)"
                                     : item.status === "other"
-                                      ? "hsl(var(--codex-faint))"
-                                      : "hsl(var(--codex-warning))",
+                                      ? "var(--color-other)"
+                                      : "var(--color-queued)",
                           }}
                         />
                         <span className="min-w-0 flex-1 truncate text-xs font-semibold text-[var(--admin-fg)]">
@@ -319,7 +318,7 @@ export function AdminDashboardCharts({ overview, report, days }: AdminDashboardC
       <div className="grid gap-4 xl:grid-cols-2">
         <AdminSection
           title="模块排行"
-          description="近窗口内按任务数排序"
+          description={`近 ${days} 天内按任务数排序`}
           actions={
             <Link
               href="/admin/generations"
@@ -332,8 +331,8 @@ export function AdminDashboardCharts({ overview, report, days }: AdminDashboardC
         >
           <AdminTopList
             items={moduleRankItems}
-            emptyTitle="等待任务数据"
-            emptyDescription="生成任务后会按模块自动归类"
+            emptyTitle={`近 ${days} 天暂无模块任务`}
+            emptyDescription="扩大时间窗口（30 天）或前往任务中心查看历史数据"
             tone="accent"
             valueFormatter={(value) => formatNumber(value)}
           />
@@ -341,7 +340,7 @@ export function AdminDashboardCharts({ overview, report, days }: AdminDashboardC
 
         <AdminSection
           title="模型毛利代理"
-          description="按净收入灵点排名的模型"
+          description={`近 ${days} 天按净收入灵点排名的模型`}
           actions={
             <Link
               href="/admin/reports"
@@ -354,8 +353,8 @@ export function AdminDashboardCharts({ overview, report, days }: AdminDashboardC
         >
           <AdminTopList
             items={modelRankItems}
-            emptyTitle="等待模型结算"
-            emptyDescription="任务结算后会自动按模型汇总毛利"
+            emptyTitle={`近 ${days} 天等待模型结算`}
+            emptyDescription="任务结算并写入灵点流水后会自动按模型汇总毛利"
             tone="success"
             valueFormatter={(value) => `${formatNumber(Math.round(value * 10) / 10)}`}
           />

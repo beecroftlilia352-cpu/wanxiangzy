@@ -13,7 +13,7 @@ export default async function AdminDashboardPage({ searchParams }: PageProps) {
   const params = (await searchParams) || {};
   const days = normalizeDays(getSearchParam(params.days));
   const [overview, report] = await Promise.all([
-    getAdminOverview(),
+    getAdminOverview({ days }),
     getAdminCostReport({ days }),
   ]);
 
