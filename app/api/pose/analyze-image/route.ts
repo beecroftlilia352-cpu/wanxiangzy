@@ -1,9 +1,16 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/api/auth";
-import { getChatCompletionsUrl, getLlmConfig } from "@/lib/api/llm-provider";
+import { getChatCompletionsUrl } from "@/lib/api/llm-provider";
 import { API_RATE_LIMITS, enforceApiRateLimit } from "@/lib/api/rate-limit";
-import { normalizeOpenAiCompatibleBaseUrl } from "@/lib/api/url-utils";
+import {
+  TryOnVisionProviderError,
+  buildTryOnClothingVisionProviderConfigs,
+  getTryOnVisionFallbackReasonText,
+  toTryOnVisionFallbackReason,
+  type TryOnVisionFallbackReason,
+  type TryOnVisionProviderConfig,
+} from "@/lib/api/tryon-vision-provider";
 import {
   POSE_VISUAL_ANALYSIS_VERSION,
   fallbackPoseVisualAnalysis,
@@ -22,6 +29,9 @@ type PoseAnalysisResult = {
   source: PoseAnalysisSource;
   analysis: PoseVisualAnalysis;
   rawResponse: unknown;
+  providerLabel: string | null;
+  providerModel: string | null;
+  fallbackReason: TryOnVisionFallbackReason | null;
 };
 
 const poseAnalysisCache = new Map<string, {
@@ -47,12 +57,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "请先上传主图" }, { status: 400 });
   }
 
-  const llm = getLlmConfig("vision");
-  const config = {
-    apiKey: process.env.POSE_ANALYZE_IMAGE_API_KEY || llm.apiKey,
-    baseUrl: normalizeOpenAiCompatibleBaseUrl(process.env.POSE_ANALYZE_IMAGE_BASE_URL || llm.baseUrl),
-    model: process.env.POSE_ANALYZE_IMAGE_MODEL || llm.model,
-  };
+  const traceId = randomUUID();
+  const providerConfigs = buildTryOnClothingVisionProviderConfigs(
+    "https://yunwu.ai/v1",
+    "gpt-5-nano",
+  );
   const cacheKey = buildPoseAnalysisCacheKey(mainImageUrl);
   const cached = readPoseAnalysisMemoryCache(cacheKey);
   if (cached) {
@@ -62,16 +71,20 @@ export async function POST(request: Request) {
       source: cached.source,
       analysis: cached.analysis,
       raw: null,
+      fallbackReason: cached.fallbackReason,
+      reasonText: getTryOnVisionFallbackReasonText(cached.fallbackReason),
+      providerLabel: cached.providerLabel,
+      providerModel: cached.providerModel,
+      traceId,
     }, { headers: { "Cache-Control": "no-store" } });
   }
 
   let inflightRequest = poseAnalysisInflight.get(cacheKey);
   if (!inflightRequest) {
     const nextRequest = runPoseVisualAnalysis({
-      apiKey: config.apiKey,
-      baseUrl: config.baseUrl,
-      model: config.model,
+      providerConfigs,
       mainImageUrl,
+      traceId,
     });
     poseAnalysisInflight.set(cacheKey, nextRequest);
     void nextRequest.finally(() => {
@@ -93,49 +106,86 @@ export async function POST(request: Request) {
     source: result.source,
     analysis: result.analysis,
     raw: result.rawResponse,
+    fallbackReason: result.fallbackReason,
+    reasonText: getTryOnVisionFallbackReasonText(result.fallbackReason),
+    providerLabel: result.providerLabel,
+    providerModel: result.providerModel,
+    traceId,
   }, { headers: { "Cache-Control": "no-store" } });
 }
 
 async function runPoseVisualAnalysis(input: {
-  apiKey: string;
-  baseUrl: string;
-  model: string;
+  providerConfigs: TryOnVisionProviderConfig[];
   mainImageUrl: string;
+  traceId: string;
 }): Promise<PoseAnalysisResult> {
-  if (!input.apiKey || !input.baseUrl || !input.model) {
+  if (!input.providerConfigs.length) {
+    console.warn("[pose/analyze-image] provider fallback:", {
+      traceId: input.traceId,
+      reason: "missing_api_key" as TryOnVisionFallbackReason,
+      message: "no vision provider configured",
+    });
     return {
       source: "fallback",
       analysis: fallbackPoseVisualAnalysis(),
       rawResponse: null,
+      providerLabel: null,
+      providerModel: null,
+      fallbackReason: "missing_api_key",
     };
   }
 
-  try {
-    const result = await requestPoseVisualAnalysis(input);
-    const parsedRecord = result.parsed && typeof result.parsed === "object" && !Array.isArray(result.parsed)
-      ? result.parsed as Record<string, unknown>
-      : undefined;
-    const analysis = normalizePoseVisualAnalysis(parsedRecord?.analysis ?? result.parsed)
-      || fallbackPoseVisualAnalysis();
-    return {
-      source: "vision",
-      analysis,
-      rawResponse: result.raw,
-    };
-  } catch (error) {
-    console.warn("[pose/analyze-image] provider fallback:", error);
-    return {
-      source: "fallback",
-      analysis: fallbackPoseVisualAnalysis(),
-      rawResponse: null,
-    };
+  let lastError: unknown = null;
+  for (const provider of input.providerConfigs) {
+    try {
+      const result = await requestPoseVisualAnalysis({
+        provider,
+        mainImageUrl: input.mainImageUrl,
+      });
+      const parsedRecord = result.parsed && typeof result.parsed === "object" && !Array.isArray(result.parsed)
+        ? result.parsed as Record<string, unknown>
+        : undefined;
+      const analysis = normalizePoseVisualAnalysis(parsedRecord?.analysis ?? result.parsed)
+        || fallbackPoseVisualAnalysis();
+      const source: PoseAnalysisSource = analysis.confidence > 0 ? "vision" : "fallback";
+      return {
+        source,
+        analysis,
+        rawResponse: result.raw,
+        providerLabel: provider.label,
+        providerModel: provider.model,
+        fallbackReason: source === "fallback" ? "provider_parse_error" : null,
+      };
+    } catch (error) {
+      lastError = error;
+      const reason = toTryOnVisionFallbackReason(error);
+      console.warn("[pose/analyze-image] provider failed:", {
+        traceId: input.traceId,
+        provider: provider.label,
+        baseUrl: redactProviderUrl(provider.baseUrl),
+        model: provider.model,
+        reason,
+        status: error instanceof TryOnVisionProviderError ? error.status : undefined,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
+
+  void lastError;
+  return {
+    source: "fallback",
+    analysis: fallbackPoseVisualAnalysis(),
+    rawResponse: null,
+    providerLabel: input.providerConfigs.at(-1)?.label || null,
+    providerModel: input.providerConfigs.at(-1)?.model || null,
+    fallbackReason: lastError
+      ? toTryOnVisionFallbackReason(lastError)
+      : "provider_error",
+  };
 }
 
 async function requestPoseVisualAnalysis(input: {
-  apiKey: string;
-  baseUrl: string;
-  model: string;
+  provider: TryOnVisionProviderConfig;
   mainImageUrl: string;
 }) {
   const timeoutMs = Number(process.env.POSE_ANALYZE_IMAGE_TIMEOUT_MS || DEFAULT_TIMEOUT_MS);
@@ -143,20 +193,20 @@ async function requestPoseVisualAnalysis(input: {
   const timer = setTimeout(() => controller.abort(), Number.isFinite(timeoutMs) ? timeoutMs : DEFAULT_TIMEOUT_MS);
   try {
     const response = await fetch(getChatCompletionsUrl({
-      provider: "lingya",
-      apiKey: input.apiKey,
-      baseUrl: input.baseUrl,
-      model: input.model,
+      provider: "yunwu",
+      apiKey: input.provider.apiKey,
+      baseUrl: input.provider.baseUrl,
+      model: input.provider.model,
     }), {
       method: "POST",
       signal: controller.signal,
       headers: {
         "Content-Type": "application/json",
         Accept: "application/json",
-        Authorization: `Bearer ${input.apiKey}`,
+        Authorization: `Bearer ${input.provider.apiKey}`,
       },
       body: JSON.stringify({
-        model: input.model,
+        model: input.provider.model,
         temperature: 0,
         response_format: { type: "json_object" },
         messages: [
@@ -201,10 +251,17 @@ async function requestPoseVisualAnalysis(input: {
       }),
     });
 
-    const raw = await response.json().catch(() => ({}));
     if (!response.ok) {
-      throw new Error(typeof raw?.error?.message === "string" ? raw.error.message : `vision ${response.status}`);
+      const errorText = await response.text().catch(() => "");
+      const reason: TryOnVisionFallbackReason =
+        response.status === 401 ? "provider_http_401"
+        : response.status === 403 ? "provider_http_403"
+        : response.status === 429 ? "provider_http_429"
+        : "provider_http_error";
+      throw new TryOnVisionProviderError(reason, `vision HTTP ${response.status}: ${errorText.slice(0, 240)}`, response.status);
     }
+
+    const raw = await response.json().catch(() => ({}));
     const content = extractMessageContent(raw);
     return {
       raw,
@@ -305,8 +362,15 @@ function parseJsonObject(content: string): unknown {
 }
 
 function stripJsonCodeFence(value: string) {
-  return value
-    .replace(/^```(?:json)?\s*/i, "")
-    .replace(/\s*```$/i, "")
-    .trim();
+  const fenceMatch = value.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+  return fenceMatch ? fenceMatch[1] : value;
+}
+
+function redactProviderUrl(baseUrl: string) {
+  try {
+    const parsed = new URL(baseUrl);
+    return `${parsed.protocol}//${parsed.host}`;
+  } catch {
+    return baseUrl;
+  }
 }

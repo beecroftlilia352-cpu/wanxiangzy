@@ -2,14 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  ChevronDown,
-  CircleDollarSign,
+import {CircleDollarSign,
   ImageIcon,
   Square,
   SunMedium,
-  WandSparkles,
-} from "lucide-react";
+  WandSparkles,} from "lucide-react";
 import { toast } from "sonner";
 import { ModuleHeader } from "@/components/ModuleHeader";
 import { PreviewGuide } from "@/components/PreviewGuide";
@@ -24,6 +21,7 @@ import {
   StudioPromptTextarea,
 } from "@/components/studio/StudioFormControls";
 import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
+import { StudioMediaLightbox } from "@/components/studio/StudioMediaLightbox";
 import { StudioMultiImageUpload } from "@/components/studio/StudioMultiImageUpload";
 import { StudioPageShell } from "@/components/studio/StudioPageShell";
 import { StudioResultViewport, type StudioResultStatus } from "@/components/studio/StudioResultViewport";
@@ -35,7 +33,6 @@ import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGenerati
 import type { TaskSelectionSession } from "@/components/studio/useTaskSelectionSession";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
-import { NativeSelect } from "@/components/ui/native-select";
 import {
   ProductRetouchBatchToolbar,
   type ProductRetouchFilter,
@@ -53,16 +50,13 @@ import {
   type ImageSize,
   type LingyaModel,
 } from "@/lib/api/lingya";
-import {
-  PRODUCT_RETOUCH_CATEGORY_OPTIONS,
-  PRODUCT_RETOUCH_EXAMPLE_IMAGES,
+import {PRODUCT_RETOUCH_EXAMPLE_IMAGES,
   PRODUCT_RETOUCH_MAX_SOURCES,
   PRODUCT_RETOUCH_MODE_OPTIONS,
   type ProductRetouchBatch,
   type ProductRetouchMode,
   type ProductRetouchOutput,
-  type ProductRetouchSource,
-} from "@/lib/product-retouch";
+  type ProductRetouchSource,} from "@/lib/product-retouch";
 import {
   createGenericImagePreviewSession,
   type ImagePreviewSession,
@@ -141,10 +135,10 @@ export function ProductRetouchExperience() {
   const submissionRef = useRef<{ fingerprint: string; requestId: string } | null>(null);
   const [sources, setSources] = useState<ProductRetouchSource[]>([]);
   const [mode, setMode] = useState<ProductRetouchMode>("faithful-retouch");
-  const [category, setCategory] = useState("auto");
+  const [category] = useState("auto");
   const [variantsPerSource, setVariantsPerSource] = useState(1);
   const [model, setModel] = useState<LingyaModel>("gpt-image-2");
-  const [aspectRatio, setAspectRatio] = useState<AspectRatio>("auto");
+  const [aspectRatio, setAspectRatio] = useState<AspectRatio>("1:1");
   const [imageSize, setImageSize] = useState<ImageSize>("2K");
   const [userInstruction, setUserInstruction] = useState("");
   const [isDragging, setIsDragging] = useState(false);
@@ -154,6 +148,7 @@ export function ProductRetouchExperience() {
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<ProductRetouchFilter>("all");
   const [preview, setPreview] = useState<PreviewState | null>(null);
+  const [sourceLightboxSrc, setSourceLightboxSrc] = useState<string | null>(null);
   const [retryingOutputId, setRetryingOutputId] = useState<string | null>(null);
   const [downloadingAll, setDownloadingAll] = useState(false);
   const [downloadingSourceIndex, setDownloadingSourceIndex] = useState<number | null>(null);
@@ -175,9 +170,6 @@ export function ProductRetouchExperience() {
   const expectedCount = Math.max(1, sources.length * variantsPerSource);
   const unitCreditCost = getCreditCost(model, imageSize, aspectRatio);
   const totalCost = sources.length * variantsPerSource * unitCreditCost;
-  const selectedCategoryLabel = PRODUCT_RETOUCH_CATEGORY_OPTIONS.find(
-    (option) => option.value === category
-  )?.label || "自动识别";
   const terminalCount = (batch?.completedCount || 0) + (batch?.failedCount || 0);
   const batchProgress = batch?.expectedCount
     ? Math.round((terminalCount / batch.expectedCount) * 100)
@@ -539,21 +531,9 @@ export function ProductRetouchExperience() {
     }
   }, [batch, downloadingSourceIndex]);
 
-  const openSourcePreview = useCallback((url: string, index: number) => {
-    const source = sources[index];
-    setPreview({
-      selectedIndex: 0,
-      session: createGenericImagePreviewSession({
-        module: "productRetouch",
-        title: "商品原图",
-        urls: [url],
-        expectedCount: 1,
-        statusGroup: "completed",
-        references: [{ url, label: source?.filename || `商品 ${index + 1}`, role: "source" }],
-        resultTitlePrefix: source?.filename || "商品原图",
-      }),
-    });
-  }, [sources]);
+  const openSourcePreview = useCallback((url: string) => {
+    setSourceLightboxSrc(url);
+  }, []);
 
   const openOutputPreview = useCallback((output: ProductRetouchOutput, selectedIndex: number) => {
     if (!batch) return;
@@ -642,6 +622,15 @@ export function ProductRetouchExperience() {
               setBatch(null);
               setError(null);
               setIsGenerating(false);
+              setSources([]);
+              setMode("faithful-retouch");
+              setVariantsPerSource(1);
+              setModel("gpt-image-2");
+              setAspectRatio("1:1");
+              setImageSize("2K");
+              setUserInstruction("");
+              setFilter("all");
+              setPreview(null);
             }}
             onRunningTask={handleRunningTask}
             onCompletedTask={handleCompletedTask}
@@ -725,40 +714,6 @@ export function ProductRetouchExperience() {
                   descriptionMode="wrap"
                   ariaLabel="商品精修模式"
                 />
-                <details className="group mt-4 rounded-xl border border-slate-200/80 bg-white/45 dark:border-white/10 dark:bg-white/5">
-                  <summary
-                    className="flex min-h-11 touch-manipulation cursor-pointer list-none items-center justify-between gap-3 rounded-xl px-3 py-2 text-left transition-colors hover:bg-white/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2 dark:hover:bg-white/10 [&::-webkit-details-marker]:hidden"
-                  >
-                    <span className="min-w-0">
-                      <span className="block text-xs font-bold text-codex-ink">商品类型</span>
-                      <span className="mt-0.5 block truncate text-[11px] font-semibold text-codex-faint">
-                        {category === "auto" ? "自动识别（推荐）" : `已选择：${selectedCategoryLabel}`}
-                      </span>
-                    </span>
-                    <ChevronDown
-                      aria-hidden="true"
-                      className="h-4 w-4 shrink-0 text-codex-faint transition-transform duration-200 group-open:rotate-180 motion-reduce:transition-none"
-                    />
-                  </summary>
-                  <div className="space-y-2 border-t border-slate-200/70 px-3 pb-3 pt-3 dark:border-white/10">
-                    <Label htmlFor="product-retouch-category">识别不准确时手动选择</Label>
-                    <NativeSelect
-                      id="product-retouch-category"
-                      name="product-retouch-category"
-                      autoComplete="off"
-                      value={category}
-                      onChange={(event) => setCategory(event.target.value)}
-                      disabled={isGenerating}
-                    >
-                      {PRODUCT_RETOUCH_CATEGORY_OPTIONS.map((option) => (
-                        <option key={option.value} value={option.value}>{option.label}</option>
-                      ))}
-                    </NativeSelect>
-                    <p className="text-[11px] font-medium leading-4 text-codex-faint">
-                      通常保持自动识别即可；商品类型只用于匹配材质和细节保护规则。
-                    </p>
-                  </div>
-                </details>
               </StudioSection>
 
               <StudioSection
@@ -929,6 +884,12 @@ export function ProductRetouchExperience() {
           onSelectedIndexChange={(selectedIndex) => setPreview((current) => current ? { ...current, selectedIndex } : null)}
         />
       ) : null}
+
+      <StudioMediaLightbox
+        src={sourceLightboxSrc}
+        alt="商品原图预览"
+        onClose={() => setSourceLightboxSrc(null)}
+      />
     </>
   );
 }

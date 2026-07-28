@@ -1,11 +1,13 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/api/auth";
 import { API_RATE_LIMITS, enforceApiRateLimit } from "@/lib/api/rate-limit";
 import {
   TryOnVisionProviderError,
   buildTryOnClothingVisionProviderConfigs,
+  getTryOnVisionFallbackReasonText,
   toTryOnVisionFallbackReason,
+  type TryOnVisionFallbackReason,
   type TryOnVisionProviderConfig,
 } from "@/lib/api/tryon-vision-provider";
 import { getAdminClient } from "@/lib/supabase/admin";
@@ -32,6 +34,8 @@ type ClothingAnalysisResult = {
   analysis: TryOnClothingAnalysis;
   rawResponse: unknown;
   providerModel: string;
+  providerLabel: string | null;
+  fallbackReason: TryOnVisionFallbackReason | null;
 };
 
 const clothingAnalysisInflight = new Map<string, Promise<ClothingAnalysisResult>>();
@@ -68,6 +72,7 @@ export async function POST(request: Request) {
   const garmentAudience = normalizeTryOnGarmentAudience(typeof body.garment_audience === "string" ? body.garment_audience : undefined);
   const ageGroup = normalizeTryOnAgeGroup(typeof body.age_group === "string" ? body.age_group : undefined);
   const cacheKey = buildAnalysisCacheKey({ clothingUrls, clothingMode, clothingRoles, garmentAudience, ageGroup });
+  const traceId = randomUUID();
 
   const cached = await readCachedAnalysis(cacheKey);
   if (cached) {
@@ -76,6 +81,11 @@ export async function POST(request: Request) {
       cached: true,
       source: "cache",
       analysis: cached,
+      fallbackReason: null,
+      reasonText: null,
+      providerLabel: null,
+      providerModel: null,
+      traceId,
     }, { headers: { "Cache-Control": "no-store" } });
   }
 
@@ -90,6 +100,7 @@ export async function POST(request: Request) {
       clothingRoles,
       garmentAudience,
       ageGroup,
+      traceId,
     });
     clothingAnalysisInflight.set(cacheKey, nextRequest);
     void nextRequest.finally(() => {
@@ -122,6 +133,11 @@ export async function POST(request: Request) {
     cached: false,
     source: result.source,
     analysis: result.analysis,
+    fallbackReason: result.fallbackReason,
+    reasonText: getTryOnVisionFallbackReasonText(result.fallbackReason),
+    providerLabel: result.providerLabel,
+    providerModel: result.providerModel,
+    traceId,
   }, { headers: { "Cache-Control": "no-store" } });
 }
 
@@ -132,11 +148,15 @@ async function runClothingAnalysis(input: {
   clothingRoles: TryOnClothingRole[];
   garmentAudience: string;
   ageGroup: string;
+  traceId: string;
 }): Promise<ClothingAnalysisResult> {
   let analysis: TryOnClothingAnalysis;
   let source: "yunwu" | "fallback" = "fallback";
   let rawResponse: unknown = null;
   let providerModel = input.providerConfigs[0]?.model || DEFAULT_MODEL;
+  let providerLabel: string | null = null;
+  let fallbackReason: TryOnVisionFallbackReason | null =
+    input.providerConfigs.length ? null : "missing_api_key";
 
   for (const provider of input.providerConfigs) {
     try {
@@ -155,18 +175,24 @@ async function runClothingAnalysis(input: {
       }), input.clothingRoles, input.clothingUrls.length);
       source = "yunwu";
       providerModel = provider.model;
+      providerLabel = provider.label;
+      fallbackReason = null;
       return {
         source,
         analysis,
         rawResponse,
         providerModel,
+        providerLabel,
+        fallbackReason,
       };
     } catch (error) {
+      fallbackReason = toTryOnVisionFallbackReason(error);
       console.warn("[tryon/analyze-clothing] provider failed:", {
+        traceId: input.traceId,
         provider: provider.label,
         baseUrl: redactBaseUrl(provider.baseUrl),
         model: provider.model,
-        reason: toTryOnVisionFallbackReason(error),
+        reason: fallbackReason,
         status: error instanceof TryOnVisionProviderError ? error.status : undefined,
         message: error instanceof Error ? error.message : String(error),
       });
@@ -185,6 +211,8 @@ async function runClothingAnalysis(input: {
     analysis,
     rawResponse,
     providerModel,
+    providerLabel,
+    fallbackReason,
   };
 }
 

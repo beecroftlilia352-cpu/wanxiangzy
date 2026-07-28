@@ -179,6 +179,7 @@ export const FEATURE_ITEMS: FeatureNavItem[] = [
     shortLabel: "全品类",
     description: "上传 SKU 图，生成主图与详情图规划和成图",
     icon: PackageSearch,
+    hiddenFromNav: true,
   },
   {
     key: "modelBackground",

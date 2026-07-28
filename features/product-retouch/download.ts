@@ -1,7 +1,9 @@
 import { createZip } from "@/lib/zip";
+import { generateDownloadFilename } from "@/lib/utils";
 import type { ProductRetouchOutput } from "@/lib/product-retouch";
 
 const MAX_ZIP_BYTES = 500 * 1024 * 1024;
+const PREFIX = "product-retouch";
 
 export async function downloadProductRetouchZip(input: {
   batchId: string;
@@ -16,26 +18,37 @@ export async function downloadProductRetouchZip(input: {
 
   let totalBytes = 0;
   const files: Array<{ name: string; data: Blob }> = [];
-  for (const output of completed) {
+  for (const [index, output] of completed.entries()) {
     const extension = getOutputExtension(output);
-    const filename = `${sanitizeBaseName(output.sourceFilename)}-精修-${output.variantIndex}.${extension}`;
+    // Match the standard `vwg-ret-{MMDD}-{HHmm}-{seq}.{ext}` filename format used
+    // by every other studio module (see lib/utils.ts generateDownloadFilename).
+    const filename = generateDownloadFilename(PREFIX, index, extension);
+    // Drop the legacy `proxy=1` flag: /api/download-image already redirects to a
+    // signed OSS URL when possible and only falls back to a server-side fetch when
+    // the upstream host is non-OSS (e.g. yunwu CDN). Forcing proxy always broke
+    // the signed-redirect fast path and surfaced host-allow-list errors as
+    // opaque "下载失败" toasts.
     const response = await fetch(
-      `/api/download-image?url=${encodeURIComponent(output.resultUrl)}&filename=${encodeURIComponent(filename)}&proxy=1`,
+      `/api/download-image?url=${encodeURIComponent(output.resultUrl)}&filename=${encodeURIComponent(filename)}`,
       { cache: "no-store" },
     );
-    if (!response.ok) throw new Error(`${output.sourceFilename} 下载失败`);
+    if (!response.ok) {
+      throw new Error(
+        `${output.sourceFilename || `商品 ${index + 1}`} 下载失败 (${response.status})`,
+      );
+    }
     const blob = await response.blob();
     totalBytes += blob.size;
     if (totalBytes > MAX_ZIP_BYTES) {
       throw new Error("批次文件超过 500MB，请按商品分组下载");
     }
-    files.push({ name: uniqueFilename(filename, files), data: blob });
+    files.push({ name: filename, data: blob });
   }
 
   const zip = await createZip(files);
   saveBlob(
     zip,
-    `商品精修-${input.scopeLabel ? `${sanitizeBaseName(input.scopeLabel)}-` : ""}${input.batchId.slice(0, 8)}.zip`,
+    buildZipFilename(input.batchId, input.scopeLabel, completed.length),
   );
 }
 
@@ -48,25 +61,17 @@ function getOutputExtension(output: ProductRetouchOutput) {
   return match[1].toLowerCase().replace("jpeg", "jpg");
 }
 
+function buildZipFilename(batchId: string, scopeLabel: string | undefined, count: number) {
+  const scope = scopeLabel ? `-${sanitizeBaseName(scopeLabel)}` : "";
+  return `商品精修${scope}-${batchId.slice(0, 8)}-${count}pkg.zip`;
+}
+
 function sanitizeBaseName(value: string) {
   return value
     .replace(/\.[^.]+$/, "")
     .replace(/[\\/:*?"<>|\u0000-\u001f]+/g, "-")
     .trim()
     .slice(0, 80) || "商品";
-}
-
-function uniqueFilename(
-  filename: string,
-  files: Array<{ name: string }>,
-) {
-  if (!files.some((file) => file.name === filename)) return filename;
-  const dot = filename.lastIndexOf(".");
-  const base = dot >= 0 ? filename.slice(0, dot) : filename;
-  const extension = dot >= 0 ? filename.slice(dot) : "";
-  let suffix = 2;
-  while (files.some((file) => file.name === `${base}-${suffix}${extension}`)) suffix += 1;
-  return `${base}-${suffix}${extension}`;
 }
 
 function saveBlob(blob: Blob, filename: string) {
@@ -78,5 +83,5 @@ function saveBlob(blob: Blob, filename: string) {
   document.body.appendChild(anchor);
   anchor.click();
   anchor.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
 }

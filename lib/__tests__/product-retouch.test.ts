@@ -20,7 +20,6 @@ describe("product retouch contract", () => {
     expect(items.map((item) => item.key)).toEqual([
       "productRetouch",
       "productSet",
-      "allCategoryProductImage",
     ]);
     expect(getActiveTopModule("/product-retouch")).toBe("productImages");
     expect(getActiveTopModule("/product-set")).toBe("productImages");
