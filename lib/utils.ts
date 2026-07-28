@@ -31,6 +31,7 @@ const DOWNLOAD_PREFIX_ALIASES: Record<string, string> = {
   "model-background": "bg",
   pose: "pose",
   "product-set": "set",
+  "product-retouch": "ret",
   "all-category-product": "cat",
   "all-category-product-image": "cat",
   "outfit-fusion": "mix",
