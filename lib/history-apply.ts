@@ -23,6 +23,7 @@ import type {
   ProductSetSettings,
 } from "@/lib/product-set";
 import type { AiVideoAspectRatio, AiVideoAudioMode, AiVideoDuration, AiVideoModelMode, AiVideoResolution } from "@/lib/ai-video";
+import type { ProductRetouchMode } from "@/lib/product-retouch";
 
 export type OutfitFusionHistoryAsset = {
   id?: string;
@@ -148,6 +149,25 @@ export type HistoryJobPayload =
       imageSize: ImageSize;
       prompt: string;
       genCount: number;
+    }
+  | {
+      kind: "productRetouch";
+      batchId: string;
+      requestId: string;
+      mode: ProductRetouchMode;
+      category: string;
+      variantsPerSource: number;
+      expectedCount: number;
+      genCount: number;
+      aiModel: LingyaModel;
+      aspectRatio: AspectRatio;
+      imageSize: ImageSize;
+      userInstruction?: string;
+      skillVersion: string;
+      skillContentHash: string;
+      batchStatus?: string;
+      completedCount?: number;
+      failedCount?: number;
     }
   | {
       kind: "faceSwap";
@@ -339,6 +359,7 @@ function getModulePath(kind: HistoryJobPayload["kind"]) {
   if (kind === "materialEnhancement") return "/material-enhancement";
   if (kind === "generalImage") return "/general-image";
   if (kind === "outfitFusion") return "/outfit-fusion";
+  if (kind === "productRetouch") return "/product-retouch";
   if (kind === "productSet") return "/product-set";
   if (kind === "garment3d") return "/garment-3d";
   if (kind === "faceSwap") return "/face-swap";

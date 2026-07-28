@@ -1,5 +1,5 @@
 export const GENERATION_PENDING_STATUS_FILTERS = ["pending", "queued"] as const;
-export const GENERATION_PROCESSING_STATUS_FILTERS = ["processing", "processing_tryon", "processing_face_swap", "running", "generating"] as const;
+export const GENERATION_PROCESSING_STATUS_FILTERS = ["processing", "processing_tryon", "processing_face_swap", "processing_batch", "running", "generating"] as const;
 export const GENERATION_RUNNING_STATUS_FILTERS = [
   ...GENERATION_PENDING_STATUS_FILTERS,
   ...GENERATION_PROCESSING_STATUS_FILTERS,

@@ -9,11 +9,6 @@ import {
   setCachedProfileCredits,
 } from "@/lib/supabase/client";
 
-type StudioAuthProfile = {
-  user?: { id?: string | null; email?: string | null } | null;
-  credits?: number | null;
-};
-
 export function useStudioAuth() {
   const supabase = useMemo(() => createClient(), []);
   const requestSeqRef = useRef(0);

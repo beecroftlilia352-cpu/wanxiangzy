@@ -29,6 +29,7 @@ import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
 import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
+import { StudioMediaLightbox } from "@/components/studio/StudioMediaLightbox";
 import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
@@ -1082,16 +1083,11 @@ export default function ModelBackgroundPage() {
         </ClientPortal>
       ) : null}
 
-      {lightboxSrc ? (
-        <ClientPortal>
-          <div className="fixed inset-0 z-[180] flex cursor-zoom-out items-center justify-center bg-slate-950/66 p-4 backdrop-blur-xl sm:p-8" onClick={() => setLightboxSrc(null)}>
-            <RawPreviewImage src={lightboxSrc} alt="预览" className="max-h-full max-w-full rounded-2xl object-contain shadow-[0_32px_120px_rgba(0,0,0,0.45)]" />
-            <button type="button" onClick={() => setLightboxSrc(null)} className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full border border-white/85 bg-white/90 text-slate-700 shadow-[0_12px_34px_rgba(15,23,42,0.22)] backdrop-blur transition-colors hover:bg-white hover:text-slate-950 dark:text-stone-100 sm:right-6 sm:top-6">
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-        </ClientPortal>
-      ) : null}
+      <StudioMediaLightbox
+        src={lightboxSrc}
+        alt="模特换背景预览"
+        onClose={() => setLightboxSrc(null)}
+      />
     </div>
   );
 }

@@ -223,7 +223,7 @@ export default function HomePage() {
         <section id="partners" className="home-partner-band" aria-label="合作伙伴">
           {partnerLogos.map((partner) => (
             <div key={partner.name} className="home-partner-item" aria-label={partner.name}>
-              <img src={partner.src} alt={partner.name} />
+              <Image src={partner.src} alt={partner.name} width={170} height={38} unoptimized />
             </div>
           ))}
         </section>

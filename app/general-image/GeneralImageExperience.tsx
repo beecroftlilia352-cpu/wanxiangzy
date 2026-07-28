@@ -1,12 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Copy,
   ImagePlus,
   Loader2,
-  RefreshCw,
   Trash2,
   Brush,
   X,
@@ -21,7 +19,6 @@ import { ErrorStage } from "@/components/studio/ErrorStage";
 import { LoadingStage } from "@/components/studio/LoadingStage";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
 import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
-import { ClientPortal } from "@/components/ClientPortal";
 import { PreviewGuide } from "@/components/PreviewGuide";
 import { StudioGenerationCountSelector, StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/components/studio/StudioFormControls";
 import { useStudioAuth } from "@/components/studio/useStudioAuth";
@@ -44,17 +41,12 @@ import {
   mergeRetryResultUrls,
   normalizeRetryResultIndex,
 } from "@/lib/result-slot-retry";
+import { ImagePromptDialog, type ImagePromptSource } from "@/features/general-image/image-prompt-dialog";
 
 type GeneralImageMode = "text-to-image" | "image-to-image";
 
 type ReferenceImage = {
   id: string;
-  name: string;
-  url: string;
-  preview: string;
-};
-
-type ImagePromptImage = {
   name: string;
   url: string;
   preview: string;
@@ -103,6 +95,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imagePromptInputRef = useRef<HTMLInputElement>(null);
+  const imagePromptTriggerRef = useRef<HTMLButtonElement>(null);
 
   const [mode, setMode] = useState<GeneralImageMode>(initialMode);
   const [prompt, setPrompt] = useState("");
@@ -127,10 +120,9 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
   const [progress, setProgress] = useState(0);
   const [resultUrls, setResultUrls] = useState<string[]>([]);
   const [error, setError] = useState("");
-  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const [showImagePromptModal, setShowImagePromptModal] = useState(false);
-  const [imagePromptImage, setImagePromptImage] = useState<ImagePromptImage | null>(null);
+  const [imagePromptImage, setImagePromptImage] = useState<ImagePromptSource | null>(null);
   const [imagePromptText, setImagePromptText] = useState("");
   const [isImagePromptUploading, setIsImagePromptUploading] = useState(false);
   const [isImagePromptGenerating, setIsImagePromptGenerating] = useState(false);
@@ -327,7 +319,6 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     setImagePromptImage(null);
     setImagePromptText("");
     setIsImagePromptGenerating(false);
-    setLightboxSrc(null);
     resetOutput();
     if (fileInputRef.current) fileInputRef.current.value = "";
     if (imagePromptInputRef.current) imagePromptInputRef.current.value = "";
@@ -758,6 +749,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
               <div className="flex flex-wrap gap-2">
                 {!isImageMode && (
                   <button
+                    ref={imagePromptTriggerRef}
                     type="button"
                     onClick={() => setShowImagePromptModal(true)}
                     className="studio-button studio-button-compact"
@@ -918,129 +910,21 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
         )}
       </div>
 
-      {showImagePromptModal && (
-        <ClientPortal>
-          <div
-            className="fixed inset-0 z-[220] flex min-h-dvh w-dvw items-center justify-center bg-slate-950/38 p-4 backdrop-blur-xl sm:p-6"
-            onClick={() => setShowImagePromptModal(false)}
-          >
-            <div
-              className="w-full max-w-2xl overflow-hidden rounded-[22px] border border-[rgba(91,124,255,0.22)] bg-white shadow-[0_28px_90px_rgba(15,23,42,0.28)] ring-1 ring-[rgba(91,124,255,0.18)]"
-              onClick={(event) => event.stopPropagation()}
-            >
-              <div className="flex items-start justify-between gap-4 px-5 py-4">
-                <div>
-                  <h3 className="text-base font-black text-slate-950">图片转提示词</h3>
-                  <p className="mt-2 text-sm leading-5 text-slate-500">
-                    上传图片，使用 自动反推图片内容描述，用于生成相似内容图片
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setShowImagePromptModal(false)}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900"
-                  aria-label="关闭图片转提示词"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
+      <ImagePromptDialog
+        open={showImagePromptModal}
+        onOpenChange={setShowImagePromptModal}
+        fileInputRef={imagePromptInputRef}
+        returnFocusRef={imagePromptTriggerRef}
+        image={imagePromptImage}
+        text={imagePromptText}
+        isUploading={isImagePromptUploading}
+        isGenerating={isImagePromptGenerating}
+        onUpload={uploadImageForPrompt}
+        onGenerate={() => void generateImagePrompt()}
+        onTextChange={setImagePromptText}
+        onApply={applyImagePromptToDescription}
+      />
 
-              <div className="grid gap-4 px-5 pb-5 sm:grid-cols-[120px_minmax(0,1fr)]">
-                <div className="space-y-3">
-                  <input
-                    ref={imagePromptInputRef}
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    aria-label="上传图片"
-                    tabIndex={-1}
-                    onChange={(event: ChangeEvent<HTMLInputElement>) => uploadImageForPrompt(event.target.files || undefined)}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => imagePromptInputRef.current?.click()}
-                    className={`group relative flex aspect-[3/4] w-full min-w-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 text-slate-400 transition hover:border-[rgba(91,124,255,0.3)] ${
-                      imagePromptImage ? "studio-checkerboard" : "bg-slate-50 hover:bg-[rgba(91,124,255,0.12)]"
-                    }`}
-                  >
-                    {imagePromptImage ? (
-                      <RawPreviewImage src={imagePromptImage.preview} alt={imagePromptImage.name} className="h-full w-full object-contain p-1" />
-                    ) : (
-                      <span className="flex flex-col items-center gap-2 text-xs font-bold">
-                        {isImagePromptUploading ? <Loader2 className="h-6 w-6 animate-spin text-[var(--codex-accent)]" /> : <ImagePlus className="h-6 w-6 text-[var(--codex-accent)]" />}
-                        上传图片
-                      </span>
-                    )}
-                    {imagePromptImage && (
-                      <span className="absolute bottom-2 right-2 flex h-7 w-7 items-center justify-center rounded-lg border border-white/80 bg-white/90 text-slate-600 shadow-sm group-hover:text-[var(--codex-accent)]">
-                        <ImagePlus className="h-3.5 w-3.5" />
-                      </span>
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => generateImagePrompt()}
-                    disabled={!imagePromptImage || isImagePromptUploading || isImagePromptGenerating}
-                    className="flex h-9 w-full items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-600 transition hover:border-[rgba(91,124,255,0.3)] hover:text-[var(--codex-accent)] disabled:cursor-not-allowed disabled:opacity-45"
-                  >
-                    {isImagePromptGenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-                    重新生成
-                  </button>
-                </div>
-
-                <textarea
-                  value={imagePromptText}
-                  onChange={(event) => setImagePromptText(event.target.value.slice(0, 4000))}
-                  placeholder="上传图片后，系统会在这里生成可用于文生图的内容描述。"
-                  aria-label="图片反推提示词"
-                  className="min-h-[260px] w-full resize-y rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm leading-6 text-slate-800 outline-none transition placeholder:text-slate-300 focus:border-[rgba(91,124,255,0.5)] focus:ring-2 focus:ring-[rgba(91,124,255,0.14)] sm:min-h-0"
-                />
-              </div>
-
-              <div className="flex flex-col-reverse gap-2 border-t border-slate-100 bg-slate-50/70 px-5 py-4 sm:flex-row sm:justify-end">
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!imagePromptText.trim()) return toast.error("暂无可复制内容");
-                    navigator.clipboard.writeText(imagePromptText);
-                    toast.success("已复制");
-                  }}
-                  className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-5 text-sm font-bold text-slate-600 transition hover:text-[var(--codex-accent)]"
-                >
-                  <Copy className="h-3.5 w-3.5" />
-                  复制
-                </button>
-                <button
-                  type="button"
-                  onClick={applyImagePromptToDescription}
-                  disabled={!imagePromptText.trim()}
-                  className="gradient-brand inline-flex h-9 items-center justify-center rounded-lg px-5 text-sm font-black text-white shadow-lg shadow-slate-300/40 disabled:cursor-not-allowed disabled:opacity-45"
-                >
-                  应用到描述
-                </button>
-              </div>
-            </div>
-          </div>
-        </ClientPortal>
-      )}
-
-      {lightboxSrc && (
-        <ClientPortal>
-          <div
-            className="fixed inset-0 z-[180] flex cursor-zoom-out items-center justify-center bg-slate-950/66 p-4 backdrop-blur-xl sm:p-8"
-            onClick={() => setLightboxSrc(null)}
-          >
-            <RawPreviewImage src={lightboxSrc} className="max-h-full max-w-full rounded-2xl object-contain shadow-[0_32px_120px_rgba(0,0,0,0.45)]" alt={`${modeMeta.title}结果预览`} />
-            <button
-              onClick={() => setLightboxSrc(null)}
-              className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full border border-white/85 bg-white/90 text-slate-700 shadow-[0_12px_34px_rgba(15,23,42,0.22)] backdrop-blur transition-colors hover:bg-white hover:text-slate-950 sm:right-6 sm:top-6"
-              aria-label="关闭大图预览"
-            >
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-        </ClientPortal>
-      )}
     </div>
   );
 }

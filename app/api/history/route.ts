@@ -37,6 +37,7 @@ const READ_RATE_LIMIT_TIMEOUT_MS = 1_500;
 const HISTORY_MODULE_FILTERS = new Set([
   "tryon",
   "grass",
+  "productRetouch",
   "productSet",
   "modelBackground",
   "generalImage",
@@ -122,6 +123,7 @@ export async function GET(request: Request) {
       .from("generations")
       .select(HISTORY_LIST_COLUMNS)
       .eq("user_id", user.id)
+      .is("job_payload->>internalTask", null)
       .order("created_at", { ascending: false })
       .limit(pageSize + 1);
 
@@ -206,6 +208,7 @@ function normalizeHistoryRow<T extends HistoryListRow>(row: T): T {
 }
 
 function isHiddenByAdmin(row: HistoryListRow) {
+  if (row.job_payload?.internalTask === true) return true;
   const moderation = isRecord(row.job_payload?.adminModeration) ? row.job_payload.adminModeration : null;
   return moderation?.action === "hide";
 }

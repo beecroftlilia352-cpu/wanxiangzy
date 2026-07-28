@@ -7,6 +7,7 @@ import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 import { canvasThemes } from "@/lib/canvas-theme";
+import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import type { LocalUser } from "@/stores/use-user-store";
 
 export type CanvasAgentChatAttachment = { id: string; name: string; url: string };
@@ -259,7 +260,7 @@ export function AgentChatComposer({
                     <div className="thin-scrollbar mb-2 flex gap-2 overflow-x-auto pb-1">
                         {attachments.map((item) => (
                             <div key={item.id} className="group relative size-14 shrink-0 overflow-hidden rounded-xl border" style={{ borderColor: theme.node.stroke }} title={item.name}>
-                                <img src={item.url} alt={item.name} className="size-full object-cover" />
+                                <RawPreviewImage src={item.url} alt={item.name} className="size-full object-cover" />
                                 {onRemoveAttachment ? (
                                     <button type="button" className="absolute right-1 top-1 grid size-5 place-items-center rounded-full border opacity-0 shadow-sm transition-opacity group-hover:opacity-100 motion-safe:group-hover:opacity-100" style={{ background: theme.toolbar.panel, borderColor: theme.node.stroke, color: theme.node.text }} onClick={() => onRemoveAttachment(item.id)} aria-label="移除图片">
                                         <X aria-hidden="true" className="size-3" />
@@ -361,7 +362,7 @@ function AgentUserAvatar({ user, theme }: { user: LocalUser | null; theme: (type
     const avatarUrl = user?.avatarUrl?.trim();
     return (
         <span className="grid size-8 shrink-0 place-items-center overflow-hidden rounded-full" style={{ color: theme.node.text }}>
-            {avatarUrl ? <img src={avatarUrl} alt="" className="size-full object-cover" referrerPolicy="no-referrer" width={32} height={32} loading="lazy" /> : <UserRound aria-hidden="true" className="size-4" />}
+            {avatarUrl ? <RawPreviewImage src={avatarUrl} alt="" className="size-full object-cover" referrerPolicy="no-referrer" width={32} height={32} loading="lazy" /> : <UserRound aria-hidden="true" className="size-4" />}
         </span>
     );
 }
@@ -370,7 +371,7 @@ function AgentMessageAttachments({ attachments }: { attachments: CanvasAgentChat
     return (
         <div className="mt-2 grid grid-cols-3 gap-1.5">
             {attachments.map((item) => (
-                <img key={item.id} src={item.url} alt={item.name} className="aspect-square w-full rounded-lg object-cover" width={160} height={160} loading="lazy" />
+                <RawPreviewImage key={item.id} src={item.url} alt={item.name} className="aspect-square w-full rounded-lg object-cover" width={160} height={160} loading="lazy" />
             ))}
         </div>
     );

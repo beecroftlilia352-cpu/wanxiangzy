@@ -5,6 +5,7 @@ import { Button, Modal, Segmented } from "antd";
 import { ImagePlus } from "lucide-react";
 
 import { readImageMeta } from "@/lib/image-utils";
+import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { MAX_UPSCALE_LONG_EDGE, resolveUpscaleSize, type ImageUpscaleAlgorithm, type ImageUpscaleParams } from "../utils/canvas-image-data";
 
 export type CanvasImageUpscaleParams = ImageUpscaleParams;
@@ -60,7 +61,7 @@ export function CanvasNodeUpscaleDialog({ dataUrl, open, onClose, onConfirm }: {
                 <div className="grid gap-6 md:grid-cols-[minmax(260px,1fr)_360px]">
                     <div className="rounded-xl border p-4">
                         <div className="grid min-h-[280px] place-items-center rounded-lg bg-black/5">
-                            <img src={dataUrl} alt="" className="max-h-[320px] max-w-full rounded-lg object-contain shadow-xl" draggable={false} />
+                            <RawPreviewImage src={dataUrl} alt="" className="max-h-[320px] max-w-full rounded-lg object-contain shadow-xl" draggable={false} />
                         </div>
                         <div className="mt-3 flex items-center justify-between text-sm">
                             <span className="opacity-60">源图</span>

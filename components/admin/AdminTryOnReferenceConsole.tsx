@@ -1237,7 +1237,7 @@ function splitCsv(value: string) {
   return Array.from(new Set(value.split(/[,\n|]+/).map((item) => item.trim()).filter(Boolean)));
 }
 
-function upsertBy<T extends Record<string, any>>(rows: T[], row: T, key: keyof T) {
+function upsertBy<T extends object>(rows: T[], row: T, key: keyof T) {
   if (!row) return rows;
   const exists = rows.some((item) => item[key] === row[key]);
   return exists ? rows.map((item) => item[key] === row[key] ? row : item) : [row, ...rows];

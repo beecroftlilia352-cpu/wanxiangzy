@@ -6,7 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import { BookOpen, Bot, Home, ImageIcon, Images, List, Menu, Music2, Plus, Redo2, Settings2, Trash2, Undo2, Upload, Video } from "lucide-react";
 import { saveAs } from "file-saver";
 
-import { requestEdit, requestGeneration, requestImageQuestion, startImageGeneration, IMAGE_GENERATION_BUDGET_EXHAUSTED } from "@/services/api/image";
+import { requestEdit, requestGeneration, requestImageQuestion } from "@/services/api/image";
 import { requestAudioGeneration, storeGeneratedAudio } from "@/services/api/audio";
 import { requestVideoGeneration, storeGeneratedVideo } from "@/services/api/video";
 import { DOCS_URL } from "@/constant/env";
@@ -23,8 +23,9 @@ import {
     getTotalPollBudgetMs,
     isAbortLikeError,
 } from "@/lib/poll/status-poll";
-import { POLL_FETCH_TIMEOUT_MS, POLL_HIDDEN_DELAY_MS } from "@/lib/poll/constants";
+import { POLL_FETCH_TIMEOUT_MS } from "@/lib/poll/constants";
 import { UserStatusActions } from "@/components/layout/user-status-actions";
+import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { useAssetStore } from "@/stores/use-asset-store";
 import { useThemeStore } from "@/stores/use-theme-store";
 import { cropDataUrl, splitDataUrl, upscaleDataUrl } from "../utils/canvas-image-data";
@@ -69,7 +70,6 @@ import {
     type ViewportTransform,
 } from "../types";
 import type { ReferenceImage } from "@/types/image";
-import type { ReferenceAudio } from "@/types/media";
 
 type CanvasClipboard = {
     nodes: CanvasNodeData[];
@@ -256,7 +256,6 @@ function InfiniteCanvasPage() {
         initialSelectedNodes: [],
     });
 
-    const config = useConfigStore((state) => state.config);
     const effectiveConfig = useEffectiveConfig();
     const isAiConfigReady = useConfigStore((state) => state.isAiConfigReady);
     const openConfigDialog = useConfigStore((state) => state.openConfigDialog);
@@ -466,9 +465,10 @@ function InfiniteCanvasPage() {
     // navigates to a different project. Without this, an orphaned watcher
     // would keep polling for hours and patch ghost nodes into the store.
     useEffect(() => {
+        const rehydrationWatchers = rehydrationWatchersRef.current;
         return () => {
             rehydrationAbortRef.current.abort();
-            rehydrationWatchersRef.current.abort();
+            rehydrationWatchers.abort();
             rehydrationAbortRef.current = new AbortController();
         };
     }, [projectId]);
@@ -1240,7 +1240,7 @@ function InfiniteCanvasPage() {
                 setMouseWorld(screenToCanvas(event.clientX, event.clientY));
             }
         },
-        [finishNodeDrag, getConnectionDropTarget, screenToCanvas],
+        [getConnectionDropTarget, screenToCanvas],
     );
 
     const handleGlobalPointerMove = useCallback(
@@ -1794,7 +1794,7 @@ function InfiniteCanvasPage() {
                 setRunningNodeId(null);
             }
         },
-        [effectiveConfig, finishGenerationRequest, isAiConfigReady, message, openConfigDialog, startGenerationRequest],
+        [effectiveConfig, finishGenerationRequest, isAiConfigReady, message, openConfigDialog, patchNodeGenerationId, startGenerationRequest],
     );
 
     const upscaleImageNode = useCallback(async (node: CanvasNodeData, params: CanvasImageUpscaleParams) => {
@@ -1875,7 +1875,7 @@ function InfiniteCanvasPage() {
                 setRunningNodeId(null);
             }
         },
-        [effectiveConfig, finishGenerationRequest, openConfigDialog, startGenerationRequest],
+        [effectiveConfig, finishGenerationRequest, isAiConfigReady, openConfigDialog, patchNodeGenerationId, startGenerationRequest],
     );
 
     const handleFontSizeChange = useCallback((nodeId: string, fontSize: number) => {
@@ -2323,7 +2323,7 @@ function InfiniteCanvasPage() {
                 setRunningNodeId(null);
             }
         },
-        [effectiveConfig, finishGenerationRequest, isAiConfigReady, message, openConfigDialog, startGenerationRequest],
+        [effectiveConfig, finishGenerationRequest, isAiConfigReady, message, openConfigDialog, patchNodeGenerationId, startGenerationRequest],
     );
     useEffect(() => {
         generateNodeRef.current = handleGenerateNode;
@@ -2424,7 +2424,7 @@ function InfiniteCanvasPage() {
                 setRunningNodeId(null);
             }
         },
-        [effectiveConfig, finishGenerationRequest, isAiConfigReady, message, openConfigDialog, startGenerationRequest],
+        [effectiveConfig, finishGenerationRequest, isAiConfigReady, message, openConfigDialog, patchNodeGenerationId, startGenerationRequest],
     );
 
     const generateImageFromTextNode = useCallback(
@@ -2826,7 +2826,7 @@ function InfiniteCanvasPage() {
                     styles={{ body: { padding: 0, display: "flex", justifyContent: "center", alignItems: "center", maxHeight: "80vh" } }}
                 >
                     {previewNode?.metadata?.content ? (
-                        <img
+                        <RawPreviewImage
                             src={previewNode.metadata.content}
                             alt={previewNode.title || "图片"}
                             style={{ maxWidth: "100%", maxHeight: "80vh", objectFit: "contain" }}

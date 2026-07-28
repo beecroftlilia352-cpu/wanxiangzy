@@ -59,7 +59,7 @@ export function buildTryOnReferenceVisionProviderConfigs(defaultBaseUrl: string,
       baseUrl: normalizeProviderBaseUrl(readEnv("TRYON_CLOTHING_ANALYZE_BASE_URL")),
       model: readEnv("TRYON_CLOTHING_ANALYZE_MODEL"),
     },
-    ...getTryOnXiaomiVisionConfigs().map((config) => ({
+    ...getTryOnVisionFallbackConfigs().map((config) => ({
       label: config.provider,
       apiKey: config.apiKey,
       baseUrl: normalizeProviderBaseUrl(config.baseUrl),
@@ -82,7 +82,7 @@ export function buildTryOnClothingVisionProviderConfigs(defaultBaseUrl: string, 
       baseUrl: normalizeProviderBaseUrl(readEnv("TRYON_CLOTHING_ANALYZE_BASE_URL")),
       model: readEnv("TRYON_CLOTHING_ANALYZE_MODEL"),
     },
-    ...getTryOnXiaomiVisionConfigs().map((config) => ({
+    ...getTryOnVisionFallbackConfigs().map((config) => ({
       label: config.provider,
       apiKey: config.apiKey,
       baseUrl: normalizeProviderBaseUrl(config.baseUrl),
@@ -97,8 +97,8 @@ export function buildTryOnClothingVisionProviderConfigs(defaultBaseUrl: string, 
   ], defaultBaseUrl, defaultModel);
 }
 
-function getTryOnXiaomiVisionConfigs() {
-  return getLlmFallbackConfigs("vision").filter((config) => config.provider === "xiaomi");
+function getTryOnVisionFallbackConfigs() {
+  return getLlmFallbackConfigs("vision").filter((config) => config.provider !== "lingya");
 }
 
 export function toTryOnVisionFallbackReason(error: unknown): TryOnVisionFallbackReason {

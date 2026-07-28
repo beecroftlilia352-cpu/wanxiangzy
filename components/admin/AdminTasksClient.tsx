@@ -3,11 +3,11 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
-import { ChevronLeft, ChevronRight, ExternalLink, X } from "lucide-react";
 import { Alert, Button, Card, Checkbox, Input, Progress, Select, Space, Statistic, Table, Tag, Tooltip, Typography } from "@/components/ui/shadcn-compat";
 import type { ColumnsType } from "@/components/ui/shadcn-compat";
 import { ApiOutlined, SearchOutlined } from "@/components/ui/ant-icons-compat";
 import { AdminTaskActions } from "@/components/admin/AdminTaskActions";
+import { AdminImagePreview } from "@/components/admin/AdminImagePreview";
 import type { AdminTaskList, AdminTaskListItem } from "@/lib/admin/data";
 import type { TaskStatusGroup } from "@/lib/task-queue";
 
@@ -176,8 +176,6 @@ export function AdminTasksClient({ tasks, q, status, module, stale, page, pageSi
   );
 }
 
-const columns: ColumnsType<AdminTaskListItem> = [];
-
 function Metric({ title, value, tone = "neutral", note }: { title: string; value: number; tone?: "neutral" | "warning" | "danger"; note?: string }) {
   const color = tone === "danger" ? "#dc2626" : tone === "warning" ? "#d97706" : "#0f172a";
   return (
@@ -216,118 +214,34 @@ function shortId(value: string) {
 }
 
 function TaskThumbnails({ urls, label, empty = "无图片" }: { urls?: string[] | null; label: string; empty?: string }) {
-  const [openIndex, setOpenIndex] = useState<number | null>(null);
   const clean = Array.isArray(urls) ? urls.filter(Boolean) : [];
   if (!clean.length) return <Typography.Text type="secondary" className="text-xs">{empty}</Typography.Text>;
   const visibleCount = clean.length > 4 ? 3 : Math.min(clean.length, 4);
   const visible = clean.slice(0, visibleCount);
   const remaining = clean.length - visible.length;
-  const activeIndex = openIndex ?? 0;
-  const activeUrl = clean[activeIndex] || "";
-  const hasMultiple = clean.length > 1;
-  const move = (direction: -1 | 1) => {
-    setOpenIndex((value) => ((value ?? 0) + direction + clean.length) % clean.length);
-  };
 
   return (
-    <>
-      <div className="admin-task-thumb-strip" aria-label={`${label} ${clean.length} 张`}>
-        {visible.map((url, index) => (
-          <button
-            key={`${url}-${index}`}
-            type="button"
-            aria-label={`${label} ${index + 1}/${clean.length}`}
-            title={`${label} ${index + 1}/${clean.length}`}
-            className="admin-task-thumb-trigger focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-fg)] focus-visible:ring-offset-2"
-            onClick={() => setOpenIndex(index)}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={url} alt="" className="h-full w-full object-cover" loading="lazy" />
-          </button>
-        ))}
-        {remaining > 0 ? (
-          <button
-            type="button"
-            aria-label={`预览更多${label}`}
-            title={`预览更多${label}`}
-            className="admin-task-thumb-more-trigger focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-fg)] focus-visible:ring-offset-2"
-            onClick={() => setOpenIndex(visible.length)}
-          >
-            +{remaining}
-          </button>
-        ) : null}
-      </div>
-
-      {openIndex !== null ? (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label={label}
-          className="fixed inset-0 z-[80] flex items-center justify-center bg-[var(--admin-fg)]/90 p-4 backdrop-blur-sm"
-          onClick={() => setOpenIndex(null)}
-        >
-          <div className="absolute left-4 top-4 rounded-lg border border-white/10 bg-[var(--admin-surface)]/10 px-3 py-2 text-xs font-black tabular-nums text-white/85 shadow-lg backdrop-blur">
-            {hasMultiple ? `${activeIndex + 1} / ${clean.length}` : label}
-          </div>
-
-          <div className="absolute right-4 top-4 flex items-center gap-2">
-            <a
-              href={activeUrl}
-              target="_blank"
-              rel="noreferrer"
-              onClick={(event) => event.stopPropagation()}
-              className="inline-flex h-9 items-center gap-2 rounded-lg border border-white/15 bg-[var(--admin-surface)]/10 px-3 text-xs font-black text-white hover:bg-[var(--admin-surface)]/20"
-            >
-              <ExternalLink className="h-4 w-4" />
-              原图
-            </a>
-            <button
-              type="button"
-              aria-label="关闭预览"
-              onClick={(event) => {
-                event.stopPropagation();
-                setOpenIndex(null);
-              }}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-white/15 bg-[var(--admin-surface)]/10 text-white hover:bg-[var(--admin-surface)]/20"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-
-          {hasMultiple ? (
-            <>
-              <button
-                type="button"
-                aria-label="上一张"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  move(-1);
-                }}
-                className="absolute left-4 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-lg border border-white/15 bg-[var(--admin-surface)]/10 text-white hover:bg-[var(--admin-surface)]/20"
-              >
-                <ChevronLeft className="h-5 w-5" />
-              </button>
-              <button
-                type="button"
-                aria-label="下一张"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  move(1);
-                }}
-                className="absolute right-4 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-lg border border-white/15 bg-[var(--admin-surface)]/10 text-white hover:bg-[var(--admin-surface)]/20"
-              >
-                <ChevronRight className="h-5 w-5" />
-              </button>
-            </>
-          ) : null}
-
-          <div className="max-h-[82vh] max-w-[92vw]" onClick={(event) => event.stopPropagation()}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={activeUrl} alt={label} className="max-h-[82vh] max-w-[92vw] rounded-lg object-contain shadow-2xl" />
-          </div>
-        </div>
+    <div className="admin-task-thumb-strip" aria-label={`${label} ${clean.length} 张`}>
+      {visible.map((url, index) => (
+        <AdminImagePreview
+          key={`${url}-${index}`}
+          urls={clean}
+          initialIndex={index}
+          label={`${label} ${index + 1}/${clean.length}`}
+          triggerClassName="admin-task-thumb-trigger"
+          imageClassName="h-full w-full object-cover"
+        />
+      ))}
+      {remaining > 0 ? (
+        <AdminImagePreview
+          urls={clean}
+          initialIndex={visible.length}
+          label={`预览更多${label}`}
+          triggerClassName="admin-task-thumb-more-trigger"
+          countLabel={`+${remaining}`}
+        />
       ) : null}
-    </>
+    </div>
   );
 }
 

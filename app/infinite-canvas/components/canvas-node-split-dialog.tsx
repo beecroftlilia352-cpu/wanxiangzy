@@ -5,6 +5,7 @@ import { Button, InputNumber, Modal } from "antd";
 import { Grid2x2 } from "lucide-react";
 
 import { readImageMeta } from "@/lib/image-utils";
+import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import type { ImageSplitParams } from "../utils/canvas-image-data";
 
 export type CanvasImageSplitParams = ImageSplitParams;
@@ -44,7 +45,7 @@ export function CanvasNodeSplitDialog({ dataUrl, open, onClose, onConfirm }: { d
                     <div className="rounded-xl border p-4">
                         <div className="grid min-h-[300px] place-items-center rounded-lg bg-black/5">
                             <div className="relative inline-block max-w-full overflow-hidden rounded-lg bg-black shadow-xl">
-                                <img src={dataUrl} alt="" className="block max-h-[340px] max-w-full object-contain opacity-95" draggable={false} />
+                                <RawPreviewImage src={dataUrl} alt="" className="block max-h-[340px] max-w-full object-contain opacity-95" draggable={false} />
                                 <SplitGrid rows={params.rows} columns={params.columns} />
                             </div>
                         </div>

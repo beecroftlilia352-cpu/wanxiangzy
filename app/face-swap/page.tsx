@@ -13,11 +13,12 @@ import {
 import { toast } from "sonner";
 import { FeatureTabs } from "@/components/FeatureTabs";
 import { Modal } from "antd";
-import { ClientPortal } from "@/components/ClientPortal";
 import { ModuleHeader } from "@/components/ModuleHeader";
 import { PreviewGuide } from "@/components/PreviewGuide";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
 import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
+import { StudioMediaLightbox } from "@/components/studio/StudioMediaLightbox";
+import { StudioSideDrawer } from "@/components/studio/StudioSideDrawer";
 import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
 import { useStudioAuth } from "@/components/studio/useStudioAuth";
 import type { TaskSelectionSession } from "@/components/studio/useTaskSelectionSession";
@@ -1004,18 +1005,14 @@ export default function FaceSwapPage() {
         />
       </main>
 
-      {drawerOpen && (
-        <ClientPortal>
-          <aside className="face-swap-face-library-panel" role="dialog" aria-modal="true" aria-label="模特脸库">
-            <div className="face-swap-face-library-header">
-              <div>
-                <h2 className="text-lg font-black text-slate-950 dark:text-stone-100">模特脸库</h2>
-                <p className="mt-1 text-xs text-slate-500">{faceSwapModeNote}</p>
-              </div>
-              <button type="button" onClick={() => setDrawerOpen(false)} className="rounded-full p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-stone-100">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
+      <StudioSideDrawer
+        open={drawerOpen}
+        title="模特脸库"
+        description={faceSwapModeNote}
+        side="left"
+        size="md"
+        onClose={() => setDrawerOpen(false)}
+      >
             <div className="face-swap-face-library-tabs">
               {(["female", "male"] as GenderFilter[]).map((gender) => (
                 <button
@@ -1071,27 +1068,15 @@ export default function FaceSwapPage() {
                 );
               })}
             </div>
-          </aside>
-        </ClientPortal>
-      )}
+      </StudioSideDrawer>
 
-      {lightboxSrc && (
-        <ClientPortal>
-          <div className="fixed inset-0 z-[240] flex cursor-zoom-out items-center justify-center bg-slate-950/70 p-6 backdrop-blur-xl" onClick={closeLightbox}>
-            <div className="flex max-h-full max-w-full flex-col items-center gap-3">
-              <RawPreviewImage src={lightboxSrc} alt={lightboxCaption || "result preview"} className="max-h-[calc(100dvh-120px)] max-w-full rounded-3xl object-contain shadow-[0_32px_120px_rgba(0,0,0,0.5)]" />
-              {lightboxCaption && (
-                <div className="max-w-[min(680px,90vw)] rounded-full bg-white/92 px-4 py-2 text-center text-xs font-bold text-slate-700 shadow-lg">
-                  {lightboxCaption}
-                </div>
-              )}
-            </div>
-            <button type="button" onClick={closeLightbox} aria-label="关闭大图预览" className="absolute right-5 top-5 flex h-10 w-10 items-center justify-center rounded-full bg-white text-slate-700 shadow-lg">
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-        </ClientPortal>
-      )}
+      <StudioMediaLightbox
+        src={lightboxSrc}
+        alt={lightboxCaption || "换脸结果预览"}
+        caption={lightboxCaption || undefined}
+        mediaClassName="rounded-3xl"
+        onClose={closeLightbox}
+      />
     </div>
   );
 }

@@ -2,7 +2,7 @@
 
 import { cn } from "@/lib/utils";
 
-type ChartDatum = Record<string, any>;
+type ChartDatum = Record<string, unknown>;
 
 type ChartProps = {
   data?: ChartDatum[];
@@ -34,7 +34,7 @@ export function Column({ data = [], xField = "label", yField = "value", height =
         return (
           <div key={`${row[xField]}-${index}`} className="flex min-w-0 flex-1 flex-col items-center gap-2">
             <div className="w-full rounded-t bg-primary" style={{ height: `${Math.max(4, (value / max) * (height - 92))}px`, backgroundColor: colors[index % colors.length] }} title={`${row[xField]}: ${value}`} />
-            <span className="max-w-full truncate text-[11px] text-slate-500">{row[xField]}</span>
+            <span className="max-w-full truncate text-[11px] text-slate-500">{String(row[xField] ?? "")}</span>
           </div>
         );
       })}
@@ -50,7 +50,7 @@ export function Bar({ data = [], xField = "value", yField = "label", height = 28
         const value = numberValue(row[xField]);
         return (
           <div key={`${row[yField]}-${index}`} className="grid grid-cols-[minmax(80px,160px)_1fr_56px] items-center gap-3 text-xs">
-            <span className="truncate text-slate-600">{row[yField]}</span>
+            <span className="truncate text-slate-600">{String(row[yField] ?? "")}</span>
             <span className="h-3 overflow-hidden rounded-full bg-slate-200">
               <span className="block h-full rounded-full" style={{ width: `${(value / max) * 100}%`, backgroundColor: colors[index % colors.length] }} />
             </span>
@@ -111,7 +111,7 @@ export function Pie({ data = [], angleField = "value", colorField = "type", heig
           <div key={`${row[colorField]}-${index}`} className="flex items-center justify-between gap-3">
             <span className="inline-flex min-w-0 items-center gap-2 truncate text-slate-600">
               <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: colors[index % colors.length] }} />
-              {row[colorField]}
+              {String(row[colorField] ?? "")}
             </span>
             <span className="font-medium">{numberValue(row[angleField])}</span>
           </div>

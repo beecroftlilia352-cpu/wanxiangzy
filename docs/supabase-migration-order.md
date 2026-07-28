@@ -21,6 +21,7 @@
 14. supabase/tryon-reference-favorites.sql
 15. supabase/tryon-reference-templates.sql
 16. supabase/product-set-favorite-plans.sql
+17. supabase/product-retouch.sql
 ```
 
 关键依赖：
@@ -34,6 +35,7 @@ rls-and-ratelimit-update.sql 创建 rate_limit_buckets，fix-rate-limit-rls.sql 
 task-queue-items.sql 依赖 generations 和 agent_workflows。
 stripe-billing.sql 文件头已标明需要在 schema、credits-update、admin-console 后执行。
 admin-console.sql 的积分调整函数依赖 profiles 和 credit_logs。
+product-retouch.sql 依赖 generations、credit_logs、admin_config_versions 和 task_queue_items。
 ```
 
 注意：Agent 模块的 API 当前是 no-op，但 `task-queue-items.sql` 里的 workflow read model 会引用 `public.agent_workflows`。因此如果要启用任务轨道和后台队列视图，仍需先运行 `agent-workflows.sql` 建表。不要跳过第 7 步后直接运行第 8 步。
@@ -95,6 +97,7 @@ psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/tryon-reference-config.sq
 psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/tryon-reference-favorites.sql
 psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/tryon-reference-templates.sql
 psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/product-set-favorite-plans.sql
+psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/product-retouch.sql
 ```
 
 ## 执行后验证
@@ -108,7 +111,9 @@ SELECT
   to_regclass('public.agent_workflows') AS agent_workflows,
   to_regclass('public.admin_members') AS admin_members,
   to_regclass('public.billing_products') AS billing_products,
-  to_regclass('public.tryon_reference_scenes') AS tryon_reference_scenes;
+  to_regclass('public.tryon_reference_scenes') AS tryon_reference_scenes,
+  to_regclass('public.product_retouch_batches') AS product_retouch_batches,
+  to_regclass('public.product_retouch_outputs') AS product_retouch_outputs;
 ```
 
 ```sql
@@ -121,7 +126,10 @@ WHERE pronamespace = 'public'::regnamespace
     'claim_next_generation_jobs',
     'task_queue_upsert_generation',
     'admin_adjust_user_credits',
-    'grant_billing_order_credits'
+    'grant_billing_order_credits',
+    'create_product_retouch_batch',
+    'retry_product_retouch_output',
+    'publish_product_retouch_skill_version'
   )
 ORDER BY proname;
 ```
@@ -134,4 +142,6 @@ ORDER BY proname;
 /api/task-queue 能返回 task_queue_items。
 /admin 能加载成员、账单、任务、资产页面。
 /pricing 能读取 billing_products 和 billing_prices。
+/product-retouch 能创建父批次，并隐藏内部子任务。
+失败槽位退款、单项重试扣费和批次恢复均正常。
 ```

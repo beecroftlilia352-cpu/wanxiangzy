@@ -62,7 +62,7 @@ export function AdminFeaturesClient({ registry }: AdminFeaturesClientProps) {
     [features],
   );
 
-  const columns = useMemo<ColumnsType<AdminFeatureConfig>>(() => [
+  const columns: ColumnsType<AdminFeatureConfig> = [
     {
       title: "功能",
       dataIndex: "label",
@@ -141,7 +141,7 @@ export function AdminFeaturesClient({ registry }: AdminFeaturesClientProps) {
         </Space>
       ),
     },
-  ], []);
+  ];
 
   function startCreate() {
     setEditing(null);

@@ -5,6 +5,7 @@ import { Layers3 } from "lucide-react";
 
 import { resolveImageUrl } from "@/services/image-storage";
 import { cn } from "@/lib/utils";
+import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 
 // Resolves a project's coverStorageKey to a displayable URL. Returns the
 // resolved URL synchronously when given a fully-qualified data: URL or
@@ -57,7 +58,7 @@ export function CanvasThumbnail({
     if (url) {
         return (
             <div className={cn("relative aspect-[16/10] w-full overflow-hidden bg-stone-100", rounded, className)}>
-                <img
+                <RawPreviewImage
                     src={url}
                     alt={title}
                     width={640}

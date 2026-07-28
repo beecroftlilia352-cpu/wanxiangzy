@@ -1,11 +1,13 @@
 import type { ChangeEvent, ComponentType, ReactNode, TextareaHTMLAttributes } from "react";
 import { ImageIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 
 export type StudioChoiceOption<T extends string = string> = {
   value: T;
   label: ReactNode;
   description?: ReactNode;
+  icon?: ComponentType<{ className?: string }>;
   disabled?: boolean;
 };
 
@@ -16,13 +18,17 @@ export function StudioOptionGrid<T extends string>({
   columns = "auto",
   ariaLabel,
   className,
+  textAlign = "center",
+  descriptionMode = "truncate",
 }: {
   options: readonly StudioChoiceOption<T>[];
   value: T;
   onChange: (value: T) => void;
-  columns?: 2 | 3 | 4 | "auto";
+  columns?: 1 | 2 | 3 | 4 | "auto";
   ariaLabel: string;
   className?: string;
+  textAlign?: "center" | "start";
+  descriptionMode?: "truncate" | "wrap";
 }) {
   return (
     <div
@@ -36,6 +42,7 @@ export function StudioOptionGrid<T extends string>({
     >
       {options.map((option) => {
         const selected = value === option.value;
+        const Icon = option.icon;
         return (
           <button
             key={option.value}
@@ -44,15 +51,36 @@ export function StudioOptionGrid<T extends string>({
             aria-checked={selected}
             disabled={option.disabled}
             onClick={() => onChange(option.value)}
-            className={cn("studio-option-control", selected && "studio-option-control-selected")}
+            className={cn(
+              "studio-option-control",
+              textAlign === "start" && "studio-option-control-start",
+              selected && "studio-option-control-selected"
+            )}
           >
-            <span className="min-w-0">
-              <span className="block truncate">{option.label}</span>
-              {option.description && (
-                <span className="mt-0.5 block truncate text-[10px] font-semibold opacity-65">
-                  {option.description}
+            <span className={cn("min-w-0", Icon && "flex items-start gap-2.5")}>
+              {Icon && (
+                <span
+                  aria-hidden="true"
+                  className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-[rgba(91,124,255,0.1)] text-[var(--codex-accent)]"
+                >
+                  <Icon className="h-3.5 w-3.5" />
                 </span>
               )}
+              <span className="min-w-0">
+                <span className="block truncate">{option.label}</span>
+                {option.description && (
+                  <span
+                    className={cn(
+                      "mt-0.5 block text-[10px] font-semibold opacity-65",
+                      descriptionMode === "wrap"
+                        ? "whitespace-normal break-words leading-4"
+                        : "truncate"
+                    )}
+                  >
+                    {option.description}
+                  </span>
+                )}
+              </span>
             </span>
           </button>
         );
@@ -100,7 +128,7 @@ export function StudioModelSelector<T extends string>({
             className={cn("studio-model-option", selected && "studio-model-option-selected")}
           >
             <span className="studio-model-option-icon">
-              {model.icon ? <img src={model.icon} alt="" /> : <ImageIcon className="h-4 w-4" />}
+              {model.icon ? <RawPreviewImage src={model.icon} alt="" /> : <ImageIcon className="h-4 w-4" />}
             </span>
             <span className="min-w-0 flex-1">
               <span className="studio-model-option-title">

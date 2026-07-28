@@ -18,10 +18,10 @@ import { toast } from "sonner";
 import { getImageVariantUrl } from "@/lib/image-variants";
 import { isLikelyVideoUrl } from "@/lib/media";
 import { cn } from "@/lib/utils";
+import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import type { TaskDisplayMode, TaskQueueItem, TaskQueuePayload, TaskQueueSummary } from "@/lib/task-queue";
 import { isTaskRunning, TASK_DISPLAY_MODE_KEY } from "@/lib/task-queue";
 import {
-  EMPTY_TASK_QUEUE_SUMMARY,
   TASK_QUEUE_CONTINUE_ID,
   TASK_QUEUE_PAGE_SIZE,
   TASK_QUEUE_RECENT_LIMIT,
@@ -678,7 +678,7 @@ function TaskThumb({
             className="relative z-[1] h-full w-full object-cover"
           />
         ) : (
-          <img
+          <RawPreviewImage
             src={displayUrl}
             alt=""
             loading="lazy"
@@ -779,7 +779,7 @@ function TaskStripImage({ url }: { url: string }) {
   }
 
   return (
-    <img
+    <RawPreviewImage
       src={getImageVariantUrl(url, "thumb")}
       alt=""
       loading="lazy"

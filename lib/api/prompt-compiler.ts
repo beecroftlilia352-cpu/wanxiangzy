@@ -1,6 +1,6 @@
 import type { LingyaModel } from "@/lib/api/lingya";
 
-export type ImagePromptKind = "tryon" | "outfitFusion" | "grass" | "modelBackground" | "materialEnhancement" | "pose" | "model" | "garment3d" | "faceSwap" | "commerceDetail" | "productSet";
+export type ImagePromptKind = "tryon" | "outfitFusion" | "grass" | "modelBackground" | "materialEnhancement" | "productRetouch" | "pose" | "model" | "garment3d" | "faceSwap" | "commerceDetail" | "productSet";
 
 const KIND_HEADERS: Record<ImagePromptKind, string> = {
   tryon:
@@ -13,6 +13,8 @@ const KIND_HEADERS: Record<ImagePromptKind, string> = {
     "核心任务：完成换背景/换模特。图1是原始人物/服装/穿搭来源；只换背景时只替换背景，图1人物、脸、发型、服装、姿势和构图保持不变；只换模特时只替换图1脸部，其它不变；背景参考图只提供场景、光线、色彩和空间氛围。人物必须自然融入新背景，匹配光线、色温、曝光、景深、透视、人物尺度、接触阴影和边缘过渡，避免贴纸感。",
   materialEnhancement:
     "核心任务：材质增强。图1是最终画面原图，图2只提供同款/同系列服装材质和细节参考；只增强图1目标服装区域的面料纹理、织纹层次、缝线、压线、纽扣、拉链、五金、刺绣、logo边缘和已有褶皱可见度。人物、脸、皮肤、发型、身体比例、姿势、手脚、服装款式、版型、轮廓、长度、穿着位置、固有颜色、图案位置、logo位置、背景、构图、镜头距离、画幅、透视、光线方向、曝光、阴影和景深必须保持不变。",
+  productRetouch:
+    "核心任务：工业级商品精修。图1是唯一商品事实来源；严格保持商品结构、数量、比例、颜色、材质、品牌、Logo、文字和包装信息，仅按任务模式优化瑕疵、背景、布光与商业摄影完成度。",
   pose:
     "核心任务：按当前提示词指定的交付方式生成姿势裂变图；保持同一人、同一衣服和同一人物比例，只改变姿势、可选镜头和构图。",
   model:
@@ -97,6 +99,11 @@ const REQUIRED_SIGNALS: Record<ImagePromptKind, RequiredSignal[]> = {
     { name: "只改细节", pattern: /硬性保图规则|唯一允许改变|必须完全不变|原图其他内容必须保持不变/, fallback: "硬性保图规则：只允许改变图1可见目标服装区域的材质细节表现；原图其他内容必须完全不变。唯一允许改变面料纹理清晰度、织纹层次、缝线/压线、纽扣/拉链/五金、刺绣、logo边缘和已有真实褶皱可见度。" },
     { name: "服装保真", pattern: /服装保真|图1决定.*版型|图2只用于.*面料|材质表现/, fallback: "服装保真：图1决定穿着版型、轮廓、褶皱、垂坠、遮挡和阴影；图2只用于补足面料织法、纹理方向、缝线、压线、纽扣、拉链、刺绣、logo、五金和边缘细节。" },
     { name: "负面约束", pattern: /负面约束|不要换脸|不要换服装|不要改/, fallback: "负面约束：不要换脸、换人、改身体、换背景、换服装款式、改服装主色、改图案/logo位置或新增不存在的服装结构。" },
+  ],
+  productRetouch: [
+    { name: "商品事实", pattern: /商品事实|唯一商品事实来源|商品结构/, fallback: "商品事实保护：图1是唯一商品事实来源，保持结构、数量、比例、颜色、材质、品牌、Logo、文字和包装信息准确。" },
+    { name: "编辑边界", pattern: /只编辑|不得改变|不改变商品/, fallback: "编辑边界：只优化拍摄瑕疵、背景、布光和商业摄影完成度，不新增、删除、替换或重构商品部件。" },
+    { name: "负面约束", pattern: /不得|不要|禁止/, fallback: "负面约束：不得虚构不可见细节，不添加水印、边框、价格、促销文案或无关道具。" },
   ],
   pose: [
     { name: "任务", pattern: /图像角色|核心任务|2x2|四宫格|自动宫格|每个姿势单独生成一张完整图片|本次单图任务|只生成姿势\d|HARD TARGET POSE SLOT|standalone 3:4 photo/, fallback: "核心任务：按当前提示词指定的交付方式生成姿势裂变图；保持同一人、同一衣服和同一人物比例，只改变姿势、可选镜头和构图。" },

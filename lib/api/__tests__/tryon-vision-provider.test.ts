@@ -52,4 +52,23 @@ describe("try-on vision provider config", () => {
     expect(configs.some((config) => config.baseUrl.includes("lingyaai.cn"))).toBe(false);
     expect(configs.some((config) => config.model === "gpt-4o-mini")).toBe(false);
   });
+
+  it("inherits Yunwu vision config when try-on overrides are not set", () => {
+    delete process.env.TRYON_CLOTHING_ANALYZE_API_KEY;
+    delete process.env.TRYON_CLOTHING_ANALYZE_BASE_URL;
+    delete process.env.TRYON_CLOTHING_ANALYZE_MODEL;
+    delete process.env.XIAOMI_MIMO_API_KEY;
+    process.env.ANALYZE_LLM_PROVIDER = "yunwu";
+    process.env.YUNWU_API_KEY = "yunwu-key";
+    process.env.YUNWU_API_BASE_URL = "https://yunwu.ai";
+    process.env.YUNWU_VISION_MODEL = "gpt-5.4-nano";
+
+    const configs = buildTryOnClothingVisionProviderConfigs("https://yunwu.ai/v1", "gpt-5-nano");
+
+    expect(configs).toEqual([expect.objectContaining({
+      label: "yunwu",
+      baseUrl: "https://yunwu.ai/v1",
+      model: "gpt-5.4-nano",
+    })]);
+  });
 });

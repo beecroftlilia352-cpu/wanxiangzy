@@ -45,6 +45,7 @@ import { useStudioAuth } from "@/components/studio/useStudioAuth";
 import type { TaskSelectionSession } from "@/components/studio/useTaskSelectionSession";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
 import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
+import { StudioMediaLightbox } from "@/components/studio/StudioMediaLightbox";
 import { StudioModelSelector, StudioOptionGrid, StudioPromptTextarea } from "@/components/studio/StudioFormControls";
 import { StudioRunBar } from "@/components/studio/StudioRunBar";
 import { StudioMultiImageUpload } from "@/components/studio/StudioMultiImageUpload";
@@ -2622,18 +2623,11 @@ export default function PosePage() {
         </ClientPortal>
       )}
 
-      {lightboxSrc && (
-        <ClientPortal>
-          <div className="fixed inset-0 z-[180] flex cursor-zoom-out items-center justify-center bg-slate-950/66 p-4 backdrop-blur-xl sm:p-8"
-            onClick={() => setLightboxSrc(null)}>
-            <RawPreviewImage src={lightboxSrc} alt="姿势参考预览" className="max-h-full max-w-full rounded-2xl object-contain shadow-[0_32px_120px_rgba(0,0,0,0.45)]" />
-            <button onClick={() => setLightboxSrc(null)}
-              className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full border border-white/85 bg-white/90 dark:bg-white/5 text-slate-700 dark:text-stone-300 shadow-[0_12px_34px_rgba(15,23,42,0.22)] backdrop-blur transition-colors hover:bg-white dark:bg-white/5 hover:text-slate-950 dark:text-stone-100 sm:right-6 sm:top-6">
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-        </ClientPortal>
-      )}
+      <StudioMediaLightbox
+        src={lightboxSrc}
+        alt="姿势参考预览"
+        onClose={() => setLightboxSrc(null)}
+      />
     </div>
   );
 }

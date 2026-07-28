@@ -408,7 +408,7 @@ function AppHeader({ pathname }: { pathname: string }) {
         </div>
 
         <div className="studio-header-actions flex shrink-0 items-center gap-1.5">
-          <div className="lg:hidden">
+          <div className="xl:hidden">
             <MobileModuleMenu activeModule={activeModule} />
           </div>
           <ThemeToggle className="h-9 w-9" />
@@ -455,7 +455,7 @@ function BrandMark() {
 
 function DesktopTopNav({ activeModule }: { activeModule: string }) {
   return (
-    <nav className="studio-surface-toolbar hidden items-center gap-1 p-1 lg:flex" aria-label="主导航">
+    <nav className="studio-surface-toolbar hidden items-center gap-1 p-1 xl:flex" aria-label="主导航">
       {VISIBLE_TOP_MODULES.map((item) => {
         const active = activeModule === item.key;
         const Icon = item.icon;

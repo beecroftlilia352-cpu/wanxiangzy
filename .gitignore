@@ -21,6 +21,9 @@ Thumbs.db
 .verification/
 .ui-check/
 .claude/
+.agents/skills/*
+!.agents/skills/product-retouch/
+!.agents/skills/product-retouch/**
 .api-platform-test-results*.json
 .output/
 output/

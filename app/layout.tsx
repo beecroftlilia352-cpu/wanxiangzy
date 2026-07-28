@@ -45,7 +45,6 @@ export default function RootLayout({
         {/* P1.1 dark-mode bootstrap — runs before paint to avoid FOUC.
             P5.43: home page (/) is always light; never apply `dark` there. */}
         <script
-          // eslint-disable-next-line react/no-danger
           dangerouslySetInnerHTML={{
             __html: `(function(){try{var p=window.location.pathname;var isHome=p==='/'||p==='/index'||p==='';if(isHome){document.documentElement.classList.remove('dark');document.documentElement.style.colorScheme='light';return;}var s=localStorage.getItem('vwg-theme');var d=s?s==='dark':window.matchMedia('(prefers-color-scheme: dark)').matches;if(d){document.documentElement.classList.add('dark');}else{document.documentElement.classList.remove('dark');}}catch(e){}})();`,
           }}

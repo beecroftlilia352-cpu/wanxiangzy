@@ -112,7 +112,10 @@ async function runPoseVisualAnalysis(input: {
 
   try {
     const result = await requestPoseVisualAnalysis(input);
-    const analysis = normalizePoseVisualAnalysis(result.parsed?.analysis ?? result.parsed)
+    const parsedRecord = result.parsed && typeof result.parsed === "object" && !Array.isArray(result.parsed)
+      ? result.parsed as Record<string, unknown>
+      : undefined;
+    const analysis = normalizePoseVisualAnalysis(parsedRecord?.analysis ?? result.parsed)
       || fallbackPoseVisualAnalysis();
     return {
       source: "vision",
@@ -270,16 +273,20 @@ function normalizeCacheUrl(value: string) {
   }
 }
 
-function extractMessageContent(raw: any) {
-  const content = raw?.choices?.[0]?.message?.content;
+function extractMessageContent(raw: unknown) {
+  const content = (raw as { choices?: Array<{ message?: { content?: unknown } }> } | null)?.choices?.[0]?.message?.content;
   if (typeof content === "string") return content;
   if (Array.isArray(content)) {
-    return content.map((item) => typeof item?.text === "string" ? item.text : "").join("\n");
+    return content.map(readContentPartText).join("\n");
   }
   return "";
 }
 
-function parseJsonObject(content: string): any {
+function readContentPartText(item: unknown) {
+  return item && typeof item === "object" && "text" in item && typeof item.text === "string" ? item.text : "";
+}
+
+function parseJsonObject(content: string): unknown {
   const trimmed = stripJsonCodeFence(content.trim());
   if (!trimmed) return {};
   try {

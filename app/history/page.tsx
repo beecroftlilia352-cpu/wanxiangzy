@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Download, Clock, XCircle, Loader2, Coins, X, RotateCcw, Copy, Maximize2, Eye, ImageIcon, ZoomIn, ZoomOut, Plus, Play } from "lucide-react";
@@ -9,7 +9,8 @@ import { getImageVariantUrl } from "@/lib/image-variants";
 import { getApplyPath, type HistoryJobPayload } from "@/lib/history-apply";
 import { inferMediaExtension, isLikelyVideoUrl } from "@/lib/media";
 import { buildTryOnPrompt } from "@/lib/api/lingya";
-import { ClientPortal } from "@/components/ClientPortal";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { StudioMediaLightbox } from "@/components/studio/StudioMediaLightbox";
 import {
   buildHistoryFilterUrl,
   buildHistoryDetailUrl,
@@ -33,6 +34,11 @@ import { BACKGROUND_SOURCE_LABELS, MODEL_BACKGROUND_MODE_LABELS, normalizeModelB
 import { getMaterialEnhancementLevelLabel } from "@/lib/material-enhancement";
 import { getOutfitFusionDisplayPrompt } from "@/lib/outfit-fusion";
 import { getFaceSwapModeLabel, getFaceSwapModeNote, normalizeFaceSwapMode } from "@/lib/face-swap";
+import {
+  PRODUCT_RETOUCH_CATEGORY_OPTIONS,
+  PRODUCT_RETOUCH_MODE_OPTIONS,
+  type ProductRetouchMode,
+} from "@/lib/product-retouch";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 
 const HISTORY_PAGE_SIZE = 12;
@@ -41,6 +47,7 @@ const MODULE_FILTERS: { value: HistoryModuleFilter; label: string }[] = [
   { value: "all", label: "全部模块" },
   { value: "tryon", label: "服装上身" },
   { value: "grass", label: "服装种草" },
+  { value: "productRetouch", label: "商品精修" },
   { value: "productSet", label: "商品套图" },
   { value: "modelBackground", label: "模特换背景" },
   { value: "materialEnhancement", label: "材质增强" },
@@ -128,6 +135,8 @@ async function requestHistoryDetail(id: string) {
 
 export default function HistoryPage() {
   const router = useRouter();
+  const detailReturnFocusRef = useRef<HTMLElement | null>(null);
+  const lightboxReturnFocusRef = useRef<HTMLElement | null>(null);
   const [state, setState] = useState<"loading" | "noauth" | "error" | "empty" | "ready">("loading");
   const [rows, setRows] = useState<HistoryRow[]>([]);
   const [errMsg, setErrMsg] = useState("");
@@ -228,7 +237,7 @@ export default function HistoryPage() {
   const getPayload = (row: HistoryRow) => getRowPayload(row);
   const detailPayload = detailRow ? getPayload(detailRow) : undefined;
   const detailPrompt = detailPayload ? getPromptText(detailPayload) : "";
-  const detailImages = detailPayload ? getInputImages(detailPayload) : [];
+  const detailImages = detailPayload ? getInputImages(detailPayload, detailRow) : [];
   const detailResults = detailRow?.result_urls || [];
   const detailRowId = detailRow?.id || "";
   const detailRowStatus = detailRow?.status || "";
@@ -306,6 +315,9 @@ export default function HistoryPage() {
   }, [pendingDetailId, state]);
 
   const openDetail = async (row: HistoryRow, initialResultIndex = 0) => {
+    detailReturnFocusRef.current = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
     replaceHistoryDetailUrl(row.id);
     setDetailLoading(true);
     try {
@@ -323,6 +335,13 @@ export default function HistoryPage() {
   const closeDetail = () => {
     setDetailRow(null);
     replaceHistoryDetailUrl(null);
+  };
+
+  const openLightbox = (url: string) => {
+    lightboxReturnFocusRef.current = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
+    setLightboxSrc(url);
   };
 
   useEffect(() => {
@@ -705,30 +724,32 @@ export default function HistoryPage() {
           <p className="text-xs text-gray-400">已加载全部历史作品</p>
         )}
       </div>
-      {detailLoading && (
-        <ClientPortal>
-          <DetailLoadingSkeleton />
-        </ClientPortal>
-      )}
-      {detailRow && (
-        <ClientPortal>
-          <div
-            className="fixed inset-0 z-[140] flex items-center justify-center bg-slate-950/30 p-3 backdrop-blur-xl sm:p-6"
-            onClick={closeDetail}
-          >
-          <div
-            className="flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-[28px] border border-white/70 bg-white/85 shadow-[0_28px_90px_rgba(15,23,42,0.28)] backdrop-blur-2xl"
-            onClick={(e) => e.stopPropagation()}
+      <DetailLoadingSkeleton open={detailLoading} />
+      <Dialog
+        open={Boolean(detailRow)}
+        onOpenChange={(open) => {
+          if (!open) closeDetail();
+        }}
+      >
+        {detailRow && (
+          <DialogContent
+            showCloseButton={false}
+            returnFocusRef={detailReturnFocusRef}
+            overlayClassName="z-[139] bg-slate-950/30 backdrop-blur-xl"
+            className="z-[140] flex max-h-[calc(100dvh-1.5rem)] w-[calc(100%-1.5rem)] max-w-6xl flex-col gap-0 overflow-hidden rounded-[28px] border border-white/70 bg-white/85 p-0 shadow-[0_28px_90px_rgba(15,23,42,0.28)] backdrop-blur-2xl sm:max-h-[calc(100dvh-3rem)] sm:max-w-6xl"
           >
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/70 bg-white/70 px-4 py-3 backdrop-blur-xl sm:px-5">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="font-bold text-sm">{formatKind(detailPayload?.kind)}</h3>
+                  <DialogTitle className="text-sm font-bold leading-5">{formatKind(detailPayload?.kind)}</DialogTitle>
                   <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] text-gray-500">{formatStatus(detailRow.status)}</span>
                 </div>
                 <p className="text-[11px] text-gray-400 mt-0.5">{fmt(detailRow.created_at)}</p>
+                <DialogDescription className="sr-only">
+                  查看生成结果、输入素材、生成参数，并复用当前历史作品。
+                </DialogDescription>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => {
@@ -762,8 +783,8 @@ export default function HistoryPage() {
                     {detailFailureCopy?.applyLabel || getHistoryReuseLabel(detailPayload)}
                   </button>
                 )}
-                <button type="button" onClick={closeDetail} className="rounded-full p-1.5 hover:bg-white/80" aria-label="关闭">
-                  <X className="w-4 h-4" />
+                <button type="button" onClick={closeDetail} className="rounded-full p-1.5 outline-none transition-[background-color,box-shadow] hover:bg-white/80 focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2" aria-label="关闭历史作品详情">
+                  <X aria-hidden="true" className="h-4 w-4" />
                 </button>
               </div>
             </div>
@@ -774,7 +795,7 @@ export default function HistoryPage() {
                   {selectedResultUrl ? (
                     <button
                       type="button"
-                      onClick={() => setLightboxSrc(selectedResultUrl)}
+                      onClick={() => openLightbox(selectedResultUrl)}
                       className="group flex h-full w-full items-center justify-center p-2 sm:p-4"
                     >
                       <HistoryMediaPreview
@@ -916,7 +937,7 @@ export default function HistoryPage() {
                         <button
                           type="button"
                           key={`${image.label}-${index}`}
-                          onClick={() => setLightboxSrc(image.url)}
+                          onClick={() => openLightbox(image.url)}
                           className="group min-w-0 rounded-xl text-left outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
                         >
                           <div className="relative h-24 overflow-hidden rounded-xl border border-gray-200 bg-gray-50 shadow-sm transition duration-200 group-hover:-translate-y-0.5 group-hover:shadow-md">
@@ -974,36 +995,17 @@ export default function HistoryPage() {
                 )}
               </aside>
             </div>
-          </div>
-          </div>
-        </ClientPortal>
-      )}
-      {lightboxSrc && (
-        <ClientPortal>
-          <div
-            className="fixed inset-0 z-[180] flex cursor-zoom-out items-center justify-center bg-slate-950/35 p-5 backdrop-blur-xl"
-            onClick={() => setLightboxSrc(null)}
-          >
-          <div className="flex max-h-full max-w-full items-center justify-center rounded-[28px] border border-white/70 bg-white/75 p-4 shadow-[0_28px_90px_rgba(15,23,42,0.32)] backdrop-blur-2xl">
-            <HistoryMediaPreview
-              url={lightboxSrc}
-              variant="preview"
-              className="max-h-[86vh] max-w-full rounded-[20px] object-contain shadow-2xl"
-              alt="历史记录大图预览"
-              controls
-            />
-          </div>
-          <button
-            type="button"
-            onClick={() => setLightboxSrc(null)}
-            className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full border border-white/85 bg-white/90 text-slate-700 shadow-[0_12px_34px_rgba(15,23,42,0.22)] backdrop-blur transition-colors hover:bg-white hover:text-slate-950 sm:right-6 sm:top-6"
-            aria-label="关闭历史记录大图预览"
-          >
-            <X className="w-5 h-5" />
-          </button>
-          </div>
-        </ClientPortal>
-      )}
+          </DialogContent>
+        )}
+      </Dialog>
+      <StudioMediaLightbox
+        src={lightboxSrc}
+        alt="历史记录大图预览"
+        kind={lightboxSrc && isLikelyVideoUrl(lightboxSrc) ? "video" : "image"}
+        mediaClassName="max-h-[calc(100dvh-3rem)] max-w-full rounded-[20px] object-contain shadow-2xl"
+        returnFocusRef={lightboxReturnFocusRef}
+        onClose={() => setLightboxSrc(null)}
+      />
     </div>
   );
 }
@@ -1067,10 +1069,19 @@ function HistoryCardSkeleton() {
   );
 }
 
-function DetailLoadingSkeleton() {
+function DetailLoadingSkeleton({ open }: { open: boolean }) {
   return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/25 p-3 backdrop-blur-xl sm:p-6">
-      <div className="grid max-h-[86vh] w-full max-w-5xl overflow-hidden rounded-[28px] border border-white/75 bg-white/85 shadow-[0_28px_90px_rgba(15,23,42,0.28)] backdrop-blur-2xl lg:grid-cols-[minmax(0,1.2fr)_340px]">
+    <Dialog open={open}>
+      <DialogContent
+        showCloseButton={false}
+        overlayClassName="z-[119] bg-slate-950/25 backdrop-blur-xl"
+        className="z-[120] grid max-h-[calc(100dvh-1.5rem)] w-[calc(100%-1.5rem)] max-w-5xl gap-0 overflow-y-auto rounded-[28px] border border-white/75 bg-white/85 p-0 shadow-[0_28px_90px_rgba(15,23,42,0.28)] backdrop-blur-2xl [overscroll-behavior:contain] sm:max-w-5xl lg:grid-cols-[minmax(0,1.2fr)_340px] lg:overflow-hidden"
+        onEscapeKeyDown={(event) => event.preventDefault()}
+        onInteractOutside={(event) => event.preventDefault()}
+        aria-busy="true"
+      >
+        <DialogTitle className="sr-only">正在加载历史作品</DialogTitle>
+        <DialogDescription className="sr-only">正在读取作品结果、输入素材和生成参数。</DialogDescription>
         <div className="bg-[#eef0f3] p-5">
           <div className="mb-4 flex items-center justify-between">
             <SkeletonBlock className="h-4 w-20 rounded-full" />
@@ -1104,8 +1115,8 @@ function DetailLoadingSkeleton() {
           </div>
           <SkeletonBlock className="h-32 rounded-xl" />
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -1244,6 +1255,7 @@ function HistorySkeletonStyles() {
 function formatKind(kind?: HistoryJobPayload["kind"]) {
   if (kind === "tryon") return "服装上身";
   if (kind === "grass") return "服装种草图";
+  if (kind === "productRetouch") return "商品精修";
   if (kind === "productSet") return "商品套图";
   if (kind === "modelBackground") return "模特换背景";
   if (kind === "materialEnhancement") return "材质增强";
@@ -1279,6 +1291,14 @@ function formatGrassSceneBackgroundMode(mode?: string) {
   if (mode === "similar_style") return "AI 重构相似场景";
   if (mode === "reference_scene" || !mode) return "沿用参考场景";
   return "-";
+}
+
+function getProductRetouchModeLabel(mode?: ProductRetouchMode) {
+  return PRODUCT_RETOUCH_MODE_OPTIONS.find((item) => item.value === mode)?.label || "商品精修";
+}
+
+function getProductRetouchCategoryLabel(category?: string) {
+  return PRODUCT_RETOUCH_CATEGORY_OPTIONS.find((item) => item.value === category)?.label || category || "自动识别";
 }
 
 function getStatusClasses(status: string) {
@@ -1344,7 +1364,7 @@ function getRowPayload(row: HistoryRow) {
   if (!payload || typeof payload !== "object") return undefined;
 
   const kind = (payload as { kind?: unknown }).kind;
-  if (kind === "tryon" || kind === "grass" || kind === "productSet" || kind === "modelBackground" || kind === "materialEnhancement" || kind === "generalImage" || kind === "outfitFusion" || kind === "garment3d" || kind === "model" || kind === "pose" || kind === "faceSwap" || kind === "videoImageToVideo" || kind === "videoMotion" || kind === "videoFirstLastFrame") {
+  if (kind === "tryon" || kind === "grass" || kind === "productRetouch" || kind === "productSet" || kind === "modelBackground" || kind === "materialEnhancement" || kind === "generalImage" || kind === "outfitFusion" || kind === "garment3d" || kind === "model" || kind === "pose" || kind === "faceSwap" || kind === "videoImageToVideo" || kind === "videoMotion" || kind === "videoFirstLastFrame") {
     return payload as HistoryJobPayload;
   }
 
@@ -1372,6 +1392,9 @@ function getPromptText(payload: HistoryJobPayload) {
   }
   if (payload.kind === "productSet") {
     return payload.productInfo?.trim() || payload.prompt || "";
+  }
+  if (payload.kind === "productRetouch") {
+    return payload.userInstruction?.trim() || "";
   }
   if (payload.kind === "outfitFusion") {
     return getOutfitFusionDisplayPrompt(payload.userPrompt || payload.prompt);
@@ -1403,6 +1426,10 @@ function getHistoryInputSummary(payload?: HistoryJobPayload) {
   }
   if (payload.kind === "productSet") {
     return `${payload.productImageUrls.length} 张商品图 · ${payload.mode === "custom" ? "自定义套图" : "智能套图"}`;
+  }
+  if (payload.kind === "productRetouch") {
+    const sourceCount = Math.ceil(payload.expectedCount / Math.max(1, payload.variantsPerSource));
+    return `${sourceCount} 张商品原图 · 每张 ${payload.variantsPerSource} 个结果 · ${getProductRetouchModeLabel(payload.mode)}`;
   }
   if (payload.kind === "modelBackground") {
     const sourceCount = normalizeModelBackgroundSourceUrls(payload.sourceUrls, payload.sourceUrl).length || 1;
@@ -1510,7 +1537,7 @@ function getHistoryReuseLabel(payload?: HistoryJobPayload) {
   return `复用到${formatKind(payload.kind)}`;
 }
 
-function getInputImages(payload: HistoryJobPayload) {
+function getInputImages(payload: HistoryJobPayload, row?: HistoryRow | null) {
   if (payload.kind === "tryon") {
     const referenceUrls = getTryonReferenceUrls(payload);
     return [
@@ -1536,6 +1563,9 @@ function getInputImages(payload: HistoryJobPayload) {
   }
   if (payload.kind === "productSet") {
     return payload.productImageUrls.map((url, index) => ({ label: `商品图${index + 1}`, url }));
+  }
+  if (payload.kind === "productRetouch") {
+    return uniqueUrlList(row?.clothing_urls).map((url, index) => ({ label: `商品原图${index + 1}`, url }));
   }
   if (payload.kind === "modelBackground") {
     return [
@@ -1666,6 +1696,19 @@ function getParameterItems(row: HistoryRow) {
       { label: "目标地区", value: payload.settings?.country || "-" },
       { label: "文案语言", value: payload.settings?.language || "-" },
       { label: "模板数量", value: String(payload.selectedTemplateIds?.length || payload.customTemplates?.length || payload.genCount) },
+    ];
+  }
+  if (payload.kind === "productRetouch") {
+    const sourceCount = Math.ceil(payload.expectedCount / Math.max(1, payload.variantsPerSource));
+    return [
+      ...common,
+      { label: "比例", value: payload.aspectRatio },
+      { label: "精修模式", value: getProductRetouchModeLabel(payload.mode) },
+      { label: "品类", value: getProductRetouchCategoryLabel(payload.category) },
+      { label: "商品原图", value: `${sourceCount} 张` },
+      { label: "每张结果", value: `${payload.variantsPerSource} 张` },
+      { label: "预计结果", value: `${payload.expectedCount} 张` },
+      { label: "Skill 版本", value: payload.skillVersion || "-" },
     ];
   }
   if (payload.kind === "modelBackground") {

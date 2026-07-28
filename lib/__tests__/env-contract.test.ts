@@ -27,6 +27,8 @@ describe("environment contract", () => {
     delete process.env.HAPPYHORSE_API_KEY;
     delete process.env.YUNWU_HAPPYHORSE_API_KEY;
     delete process.env.YUNWU_API_KEY;
+    delete process.env.XIAOMI_MIMO_API_KEY;
+    delete process.env.ANALYZE_LLM_PROVIDER;
   });
 
   afterEach(() => {
@@ -126,6 +128,23 @@ describe("environment contract", () => {
         expect.objectContaining({ name: "HAPPYHORSE_API_KEY or YUNWU_API_KEY" }),
       ])
     );
+  });
+
+  it("validates the selected analysis provider instead of always requiring Xiaomi", () => {
+    process.env.ANALYZE_LLM_PROVIDER = "yunwu";
+
+    const missingYunwu = validateEnv({ nodeEnv: "development" });
+    expect(missingYunwu).toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: "YUNWU_API_KEY or YUNWU_NATIVE_API_KEY" }),
+    ]));
+    expect(missingYunwu).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: "XIAOMI_MIMO_API_KEY" }),
+    ]));
+
+    process.env.YUNWU_API_KEY = "yunwu-key";
+    expect(validateEnv({ nodeEnv: "development" })).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: "YUNWU_API_KEY or YUNWU_NATIVE_API_KEY" }),
+    ]));
   });
 
   it("checks the selected Nano Banana native provider key", () => {

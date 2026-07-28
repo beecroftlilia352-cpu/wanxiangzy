@@ -13,7 +13,6 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
-import { ClientPortal } from "@/components/ClientPortal";
 import { FeatureTabs } from "@/components/FeatureTabs";
 import { ModuleHeader } from "@/components/ModuleHeader";
 import { PreviewGuide } from "@/components/PreviewGuide";
@@ -23,6 +22,7 @@ import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { StudioGenerationCountSelector, StudioOptionGrid, StudioPromptTextarea, StudioToggleRow } from "@/components/studio/StudioFormControls";
 import { StudioRunBar } from "@/components/studio/StudioRunBar";
 import { StudioSideDrawer } from "@/components/studio/StudioSideDrawer";
+import { StudioMediaLightbox } from "@/components/studio/StudioMediaLightbox";
 import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
 import { StudioVideoUploadTile } from "@/components/studio/StudioVideoUploadTile";
 import { useStableFileDrag } from "@/components/studio/useStableFileDrag";
@@ -1174,48 +1174,20 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
         </StudioSideDrawer>
       )}
 
-      {lightboxVideo && (
-        <ClientPortal>
-          <div className="fixed inset-0 z-[180] flex cursor-zoom-out items-center justify-center bg-slate-950/66 p-4 backdrop-blur-xl sm:p-8" onClick={() => setLightboxVideo(null)}>
-            <video
-              src={lightboxVideo}
-              controls
-              autoPlay
-              playsInline
-              className="max-h-full max-w-full rounded-[16px] bg-black shadow-[0_32px_120px_rgba(0,0,0,0.45)]"
-              onClick={(event) => event.stopPropagation()}
-            />
-            <button onClick={() => setLightboxVideo(null)} aria-label="关闭大图预览" className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full border border-white/85 bg-white/90 text-slate-700 shadow-[0_12px_34px_rgba(15,23,42,0.22)] backdrop-blur transition-colors hover:bg-white hover:text-slate-950 sm:right-6 sm:top-6">
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-        </ClientPortal>
-      )}
+      <StudioMediaLightbox
+        src={lightboxVideo}
+        alt="视频结果预览"
+        kind="video"
+        mediaClassName="rounded-2xl"
+        onClose={() => setLightboxVideo(null)}
+      />
 
-      {lightboxImage && (
-        <ClientPortal>
-          <div
-            className="fixed inset-0 z-[180] flex cursor-zoom-out items-center justify-center bg-slate-950/66 p-4 backdrop-blur-xl sm:p-8"
-            onClick={() => setLightboxImage(null)}
-          >
-            <RawPreviewImage
-              src={lightboxImage}
-              alt="上传图片预览"
-              className="max-h-full max-w-full cursor-default rounded-[16px] bg-white object-contain shadow-[0_32px_120px_rgba(0,0,0,0.45)]"
-              onClick={(event) => event.stopPropagation()}
-            />
-            <button
-              type="button"
-              onClick={() => setLightboxImage(null)}
-              className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full border border-white/85 bg-white/90 text-slate-700 shadow-[0_12px_34px_rgba(15,23,42,0.22)] backdrop-blur transition-colors hover:bg-white hover:text-slate-950 sm:right-6 sm:top-6"
-              aria-label="关闭图片预览"
-              title="关闭图片预览"
-            >
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-        </ClientPortal>
-      )}
+      <StudioMediaLightbox
+        src={lightboxImage}
+        alt="上传图片预览"
+        mediaClassName="rounded-2xl bg-white"
+        onClose={() => setLightboxImage(null)}
+      />
     </div>
   );
 }

@@ -8,7 +8,20 @@
       "Bash(git commit -m ' *)",
       "Bash(npm install *)",
       "Bash(git checkout *)",
-      "Bash(git commit *)"
+      "Bash(git commit *)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:platform.minimaxi.com)",
+      "Bash(awk NR>=113 && NR<=124 {printf \"L%d \\(len=%d\\): %s\\\\n\", NR, length\\($0\\), $0} *)",
+      "Bash(command -v tomlq)",
+      "Bash(tomlq . /Users/jingmeng.gan/.codex/config.toml)",
+      "Bash(python3 -c \"import tomllib; d=tomllib.loads\\(open\\('/Users/jingmeng.gan/.codex/config.toml'\\).read\\(\\)\\); print\\('PARSED OK'\\); print\\('model =', d.get\\('model'\\)\\); print\\('provider =', d.get\\('model_provider'\\)\\)\")",
+      "Bash(python3 *)",
+      "Bash(grep -oE '\"model_provider\"[^,}]{0,80}')",
+      "Bash(grep -oE '\"\\(display_name|model_provider|slug|shell_type|visibility|priority|input_modalities|default_reasoning_level|supports_reasoning_summaries|supports_parallel_tool_calls|truncation_policy\\)\":[^,}]{0,40}')",
+      "Bash(grep -oE 'supported_reasoning_levels[^}]{0,200}')",
+      "Bash(command -v npx)",
+      "Bash(npx --yes @electron/asar extract /Applications/Codex.app/Contents/Resources/app.asar /tmp/codex-extracted)",
+      "Bash(grep -rEo 'display_name:\\\\s*\"[^\"]{1,60}\"' /tmp/codex-extracted/webview/assets/)"
     ]
   }
 }

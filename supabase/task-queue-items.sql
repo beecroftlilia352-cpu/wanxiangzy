@@ -106,6 +106,7 @@ AS $$
 DECLARE
   v TEXT := lower(trim(coalesce(p_value, '')));
 BEGIN
+  IF v IN ('productretouch', 'product-retouch', 'product_retouch') THEN RETURN 'productRetouch'; END IF;
   IF v IN ('productset', 'product-set', 'product_set') THEN RETURN 'productSet'; END IF;
   IF v IN ('face-swap', 'faceswap', 'face') OR v LIKE '%face%' THEN RETURN 'faceSwap'; END IF;
   IF v IN ('try-on', 'try_on', 'tryon', 'garment-tryon') OR v LIKE '%tryon%' THEN RETURN 'tryon'; END IF;
@@ -126,6 +127,7 @@ IMMUTABLE
 AS $$
 BEGIN
   CASE p_module
+    WHEN 'productRetouch' THEN RETURN U&'\5546\54C1\7CBE\4FEE';
     WHEN 'tryon' THEN RETURN U&'\670D\88C5\4E0A\8EAB';
     WHEN 'model' THEN RETURN U&'\4E13\5C5E\6A21\7279';
     WHEN 'faceSwap' THEN RETURN U&'\6362\8138';
@@ -148,6 +150,7 @@ IMMUTABLE
 AS $$
 BEGIN
   CASE p_module
+    WHEN 'productRetouch' THEN RETURN '/product-retouch';
     WHEN 'tryon' THEN RETURN '/create';
     WHEN 'model' THEN RETURN '/model';
     WHEN 'faceSwap' THEN RETURN '/face-swap';

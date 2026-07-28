@@ -6,6 +6,7 @@ export type ImagePreviewModule =
   | "faceSwap"
   | "grass"
   | "productSet"
+  | "productRetouch"
   | "allCategoryProductImage"
   | "outfitFusion"
   | "modelBackground"
@@ -100,6 +101,7 @@ export const IMAGE_PREVIEW_MODULE_LABELS: Record<ImagePreviewModule, string> = {
   faceSwap: "AI换脸",
   grass: "种草图",
   productSet: "商品套图",
+  productRetouch: "商品精修",
   allCategoryProductImage: "全品类商品图",
   outfitFusion: "搭配融图",
   modelBackground: "模特换背景",

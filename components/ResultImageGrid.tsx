@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Clapperboard, Download, Eye, Loader2, RotateCcw, WandSparkles, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StudioHomeHeroLoadingBackdrop } from "@/components/studio/StudioHomeHeroLoadingBackdrop";
+import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { getImageVariantUrl } from "@/lib/image-variants";
 import { buildSourceImageHref } from "@/lib/studio-image-preview";
@@ -147,7 +148,7 @@ export function ResultImageGrid({
             <div className="studio-result-reference-list">
               {referenceItems.map(({ url: referenceUrl, label }, index) => (
                 <div key={`${referenceUrl}-${label}-${index}`} className="studio-result-reference-thumb">
-                  <img src={getImageVariantUrl(referenceUrl, "thumb")} alt={`${label} ${index + 1}`} width={96} height={96} loading="lazy" decoding="async" />
+                  <RawPreviewImage src={getImageVariantUrl(referenceUrl, "thumb")} alt={`${label} ${index + 1}`} width={96} height={96} loading="lazy" decoding="async" />
                   <span className="studio-result-reference-label">{label}</span>
                 </div>
               ))}
@@ -416,7 +417,7 @@ function StableResultImage({ src, alt }: { src: string; alt: string }) {
   }, [displaySrc, failedSrc, src]);
 
   return (
-    <img
+    <RawPreviewImage
       src={displaySrc}
       alt={alt}
       width={1200}

@@ -26,6 +26,7 @@ import { useThemeStore } from "@/stores/use-theme-store";
 import { useUserStore } from "@/stores/use-user-store";
 import { imageReferenceLabel } from "@/lib/image-reference-prompt";
 import { DiaTextReveal } from "@/components/ui/dia-text-reveal";
+import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger } from "@/components/ui/select";
 import { CanvasPromptLibrary } from "./canvas-prompt-library";
 import { AgentChatComposer, AgentChatMessage, AgentModeSwitch, AgentPanelTabs, AgentWorkingMessage, type CanvasAgentChatMessage, type CanvasAgentMode } from "./canvas-agent-chat-ui";
@@ -188,7 +189,10 @@ export function CanvasAssistantPanel({ nodes, selectedNodeIds, snapshot, session
         onSessionsChange(localSessions, localActiveSessionId);
     }, [localActiveSessionId, localSessions, onSessionsChange]);
 
-    const safeSessions = localSessions.length ? localSessions : [createSession()];
+    const safeSessions = useMemo(
+        () => (localSessions.length ? localSessions : [createSession()]),
+        [localSessions],
+    );
     const activeSession = useMemo(() => safeSessions.find((session) => session.id === localActiveSessionId) || safeSessions[0] || null, [localActiveSessionId, safeSessions]);
     const historySessions = safeSessions.filter((session) => session.messages.length > 0);
     const messages = activeSession?.messages || [];
@@ -611,7 +615,11 @@ export function CanvasAssistantPanel({ nodes, selectedNodeIds, snapshot, session
                             danger
                             type="primary"
                             onClick={() => {
-                                deleteChatIds.length === historySessions.length ? clearSessions() : removeSessions(deleteChatIds);
+                                if (deleteChatIds.length === historySessions.length) {
+                                    clearSessions();
+                                } else {
+                                    removeSessions(deleteChatIds);
+                                }
                                 setDeleteChatIds([]);
                             }}
                         >
@@ -772,7 +780,7 @@ function buildAgentModelGroups(config: AiConfig, capability: ModelCapability, cu
 
 function AgentModelIcon({ model }: { model: string }) {
     const icon = resolveModelIcon(modelOptionName(model));
-    return icon ? <img src={icon} alt="" className="size-4 shrink-0 dark:invert" width={16} height={16} loading="lazy" /> : <Cpu aria-hidden="true" className="size-4 shrink-0 opacity-70" />;
+    return icon ? <RawPreviewImage src={icon} alt="" className="size-4 shrink-0 dark:invert" width={16} height={16} loading="lazy" /> : <Cpu aria-hidden="true" className="size-4 shrink-0 opacity-70" />;
 }
 
 function resolveModelIcon(model: string) {
@@ -915,7 +923,7 @@ function AssistantReferenceChip({ item, label, onRemove }: { item: CanvasAssista
         <div className="group/chip relative inline-flex h-8 max-w-[150px] shrink-0 items-center gap-1.5 rounded-lg text-sm" style={{ color: theme.node.text }}>
             {item.dataUrl ? (
                 <span className="relative block size-8 shrink-0">
-                    <img src={item.dataUrl} alt="" className="size-8 rounded-lg object-cover" width={32} height={32} loading="lazy" />
+                    <RawPreviewImage src={item.dataUrl} alt="" className="size-8 rounded-lg object-cover" width={32} height={32} loading="lazy" />
                     {label ? <span className="absolute left-0.5 top-0.5 rounded bg-black/60 px-1 py-0.5 text-[8px] font-medium leading-none text-white">{label}</span> : null}
                 </span>
             ) : (

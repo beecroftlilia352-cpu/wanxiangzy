@@ -1,7 +1,7 @@
 import { normalizeOpenAiCompatibleBaseUrl } from "@/lib/api/url-utils";
 
 type LlmKind = "text" | "vision";
-type LlmProvider = "xiaomi" | "lingya";
+type LlmProvider = "xiaomi" | "yunwu" | "lingya";
 
 interface LlmConfig {
   provider: LlmProvider;
@@ -12,16 +12,20 @@ interface LlmConfig {
 
 const XIAOMI_DEFAULT_BASE_URL = "https://api.xiaomimimo.com/v1";
 const XIAOMI_DEFAULT_MODEL = "mimo-v2.5-pro";
+const YUNWU_DEFAULT_BASE_URL = "https://yunwu.ai";
+const YUNWU_DEFAULT_MODEL = "gpt-5.4-nano";
 const LINGYA_DEFAULT_MODEL = "gpt-4o-mini";
 
 export function getLlmConfig(kind: LlmKind): LlmConfig {
   const provider = getLlmProvider();
-  return provider === "lingya" ? getLingyaConfig(kind) : getXiaomiConfig(kind);
+  if (provider === "yunwu") return getYunwuConfig(kind);
+  if (provider === "lingya") return getLingyaConfig(kind);
+  return getXiaomiConfig(kind);
 }
 
 export function getLlmFallbackConfigs(kind: LlmKind): LlmConfig[] {
   const primary = getLlmConfig(kind);
-  const fallback = primary.provider === "xiaomi" ? getLingyaConfig(kind) : getXiaomiConfig(kind);
+  const fallback = primary.provider === "xiaomi" ? getYunwuConfig(kind) : getXiaomiConfig(kind);
   const configs = [primary, fallback].filter((config) => config.apiKey && config.baseUrl && config.model);
   const seen = new Set<string>();
 
@@ -34,9 +38,10 @@ export function getLlmFallbackConfigs(kind: LlmKind): LlmConfig[] {
 }
 
 export function getLlmProvider(): LlmProvider {
-  return process.env.ANALYZE_LLM_PROVIDER?.toLowerCase() === "lingya"
-    ? "lingya"
-    : "xiaomi";
+  const provider = process.env.ANALYZE_LLM_PROVIDER?.trim().toLowerCase();
+  if (provider === "yunwu") return "yunwu";
+  if (provider === "lingya") return "lingya";
+  return "xiaomi";
 }
 
 export function getChatCompletionsUrl(config: LlmConfig): string {
@@ -55,6 +60,20 @@ function getXiaomiConfig(kind: LlmKind): LlmConfig {
         : process.env.XIAOMI_MIMO_TEXT_MODEL) ||
       process.env.XIAOMI_MIMO_MODEL ||
       XIAOMI_DEFAULT_MODEL,
+  };
+}
+
+function getYunwuConfig(kind: LlmKind): LlmConfig {
+  const envBase = process.env.YUNWU_API_BASE_URL || process.env.YUNWU_NATIVE_BASE_URL;
+  return {
+    provider: "yunwu",
+    apiKey: process.env.YUNWU_API_KEY || process.env.YUNWU_NATIVE_API_KEY || "",
+    baseUrl: normalizeOpenAiCompatibleBaseUrl(envBase || YUNWU_DEFAULT_BASE_URL),
+    model:
+      (kind === "vision"
+        ? process.env.YUNWU_VISION_MODEL || process.env.LINGYA_VISION_MODEL
+        : process.env.YUNWU_TEXT_MODEL || process.env.LINGYA_TEXT_MODEL) ||
+      YUNWU_DEFAULT_MODEL,
   };
 }
 

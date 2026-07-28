@@ -47,8 +47,3 @@ function validateProcessorAuth(request: NextRequest) {
   }
   return null;
 }
-
-function getMaxUsers(_request: NextRequest) {
-  // Kept for backward compatibility with the previous query-string contract.
-  return 20;
-}

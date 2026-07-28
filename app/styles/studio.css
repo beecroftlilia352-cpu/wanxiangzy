@@ -1112,6 +1112,7 @@
   gap: 8px;
 }
 
+.studio-option-grid-1 { grid-template-columns: minmax(0, 1fr); }
 .studio-option-grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .studio-option-grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .studio-option-grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
@@ -1146,6 +1147,10 @@
   font-weight: 500;
   box-shadow: none;
   transition: border-color 140ms ease, background 140ms ease, color 140ms ease;
+}
+
+.studio-option-control-start {
+  text-align: left;
 }
 
 .studio-option-control:hover:not(:disabled) {
@@ -3057,6 +3062,13 @@
   box-shadow: 0 28px 90px rgba(15, 23, 42, 0.18);
 }
 
+.studio-side-drawer-sheet-panel {
+  position: fixed;
+  top: 64px !important;
+  bottom: 0 !important;
+  height: auto !important;
+}
+
 .studio-side-drawer-panel-left {
   left: 0;
   border-left: 0;
@@ -3072,11 +3084,11 @@
 }
 
 .studio-side-drawer-panel-md {
-  width: min(560px, calc(100% - 16px));
+  width: min(560px, calc(100% - 16px)) !important;
 }
 
 .studio-side-drawer-panel-lg {
-  width: min(760px, calc(100% - 16px));
+  width: min(760px, calc(100% - 16px)) !important;
 }
 
 .studio-side-drawer-header {
@@ -3119,12 +3131,27 @@
   }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .studio-side-drawer-panel-left,
+  .studio-side-drawer-panel-right {
+    animation: none;
+  }
+}
+
 @media (min-width: 1024px) {
   .studio-side-drawer-overlay {
     left: calc(var(--studio-nav-rail-width) + var(--studio-task-rail-width) + var(--studio-sidebar-width));
   }
 
   body:has(.studio-task-rail-expanded) .studio-side-drawer-overlay {
+    left: calc(var(--studio-nav-rail-width) + 340px + var(--studio-sidebar-width));
+  }
+
+  .studio-side-drawer-sheet-panel.studio-side-drawer-panel-left {
+    left: calc(var(--studio-nav-rail-width) + var(--studio-task-rail-width) + var(--studio-sidebar-width));
+  }
+
+  body:has(.studio-task-rail-expanded) .studio-side-drawer-sheet-panel.studio-side-drawer-panel-left {
     left: calc(var(--studio-nav-rail-width) + 340px + var(--studio-sidebar-width));
   }
 }

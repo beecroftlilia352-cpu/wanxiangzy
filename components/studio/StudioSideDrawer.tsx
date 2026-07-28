@@ -1,8 +1,7 @@
 "use client";
 
-import { X } from "lucide-react";
 import type { ReactNode } from "react";
-import { ClientPortal } from "@/components/ClientPortal";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 
 type StudioSideDrawerProps = {
@@ -28,44 +27,26 @@ export function StudioSideDrawer({
   onClose,
   className,
 }: StudioSideDrawerProps) {
-  if (!open) return null;
-
   return (
-    <ClientPortal>
-      <div
-        className="studio-side-drawer-overlay"
-        role="dialog"
-        aria-modal="true"
-        aria-label={ariaLabel || title}
-        onClick={onClose}
+    <Sheet open={open} onOpenChange={(nextOpen) => { if (!nextOpen) onClose(); }}>
+      <SheetContent
+        side={side}
+        overlayClassName="studio-side-drawer-overlay z-[230]"
+        className={cn(
+          "studio-side-drawer-panel studio-side-drawer-sheet-panel z-[231] gap-0 p-0 sm:max-w-none",
+          side === "left" ? "studio-side-drawer-panel-left" : "studio-side-drawer-panel-right",
+          size === "md" ? "studio-side-drawer-panel-md" : "studio-side-drawer-panel-lg",
+          className
+        )}
       >
-        <aside
-          className={cn(
-            "studio-side-drawer-panel",
-            side === "left" ? "studio-side-drawer-panel-left" : "studio-side-drawer-panel-right",
-            size === "md" ? "studio-side-drawer-panel-md" : "studio-side-drawer-panel-lg",
-            className
-          )}
-          onClick={(event) => event.stopPropagation()}
-        >
-          <header className="studio-side-drawer-header">
-            <div className="min-w-0">
-              <h2 className="truncate text-lg font-black text-slate-950">{title}</h2>
-              {description && <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">{description}</p>}
-            </div>
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-100 text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"
-              aria-label={`关闭${title}`}
-              title={`关闭${title}`}
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </header>
-          <div className="studio-side-drawer-content">{children}</div>
-        </aside>
-      </div>
-    </ClientPortal>
+        <SheetHeader className="studio-side-drawer-header pr-14 text-left">
+          <SheetTitle className="truncate text-lg font-black text-slate-950">{title}</SheetTitle>
+          <SheetDescription className={cn("text-xs font-semibold leading-5 text-slate-500", !description && "sr-only")}>
+            {description || ariaLabel || `${title}侧边栏`}
+          </SheetDescription>
+        </SheetHeader>
+        <div className="studio-side-drawer-content">{children}</div>
+      </SheetContent>
+    </Sheet>
   );
 }

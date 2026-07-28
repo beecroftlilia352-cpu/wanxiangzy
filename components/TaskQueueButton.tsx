@@ -6,6 +6,7 @@ import { CheckCircle2, Clock3, ImageIcon, Loader2, RefreshCw, XCircle } from "lu
 import { DropdownMenu } from "radix-ui";
 import type { TaskQueueItem, TaskQueuePayload } from "@/lib/task-queue";
 import { isTaskFinished, isTaskRunning } from "@/lib/task-queue";
+import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 
 type QueueSummary = {
   totalTaskNum: number;
@@ -271,7 +272,7 @@ function ThumbnailStack({ urls }: { urls: unknown }) {
   return (
     <span className="flex -space-x-2">
       {safeUrls.map((url, index) => (
-        <img
+        <RawPreviewImage
           key={`${url}-${index}`}
           src={url}
           alt=""

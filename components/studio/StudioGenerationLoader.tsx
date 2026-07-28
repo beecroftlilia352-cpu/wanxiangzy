@@ -3,6 +3,7 @@
 import { Clock3, ImageIcon, Loader2 } from "lucide-react";
 import { getImageVariantUrl } from "@/lib/image-variants";
 import { StudioHomeHeroLoadingBackdrop } from "@/components/studio/StudioHomeHeroLoadingBackdrop";
+import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 
 export type StudioLoaderReferenceImage = {
   url?: string | null;
@@ -67,7 +68,7 @@ export function StudioGenerationLoader({
             {visibleRefs.map((item) => (
               <span key={`${item.label}-${item.url}`} className="flex h-16 min-w-[132px] items-center gap-2 rounded-2xl border border-white/68 bg-white/62 p-2 shadow-sm backdrop-blur">
                 <span className="flex h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-white">
-                  <img src={getImageVariantUrl(item.url || "", "thumb")} alt="" className="h-full w-full object-cover" />
+                  <RawPreviewImage src={getImageVariantUrl(item.url || "", "thumb")} alt="" className="h-full w-full object-cover" />
                 </span>
                 <span className="min-w-0">
                   <span className="block truncate text-[11px] font-black text-codex-ink">{item.label}</span>
@@ -103,7 +104,7 @@ export function StudioGenerationLoader({
           <span className="shrink-0 text-[11px] font-bold text-codex-muted">{moduleName}</span>
           <div className="studio-loader-progress h-1.5 flex-1 overflow-hidden rounded-full bg-white/45">
             <div
-              className="h-full rounded-full bg-gradient-to-r from-[#5b7cff] via-[#aeb8ff] to-[#dbe8ff] transition-all duration-700"
+              className="h-full rounded-full bg-gradient-to-r from-[#5b7cff] via-[#aeb8ff] to-[#dbe8ff] transition-[width] duration-700"
               style={{ width: `${Math.max(displayProgress, 5)}%` }}
             />
           </div>

@@ -1,0 +1,4 @@
+interface:
+  display_name: "商品精修"
+  short_description: "维护商品精修模式、约束、批处理、质检和发布流程"
+  default_prompt: "Use $product-retouch to implement or review the industrial product retouching workflow."

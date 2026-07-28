@@ -1,6 +1,6 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- This isolated Ant Design compatibility boundary preserves dynamic callback and form signatures used by legacy consumers. */
 "use client";
 
-import Link from "next/link";
 import {
   Children,
   cloneElement,
@@ -9,7 +9,7 @@ import {
   isValidElement,
   useContext,
   useEffect,
-  useId,
+  useImperativeHandle,
   useMemo,
   useRef,
   useState,
@@ -22,8 +22,9 @@ import {
   type TextareaHTMLAttributes,
 } from "react";
 import { toast } from "sonner";
-import { ArrowRight, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Loader2, Search, X } from "lucide-react";
+import { ArrowRight, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Loader2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import {
   Pagination,
   PaginationContent,
@@ -49,6 +50,20 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 
 type PrimitiveValue = string | number | boolean | null | undefined;
 
@@ -313,23 +328,64 @@ type InputProps = Omit<InputHTMLAttributes<HTMLInputElement>, "prefix"> & {
   prefix?: ReactNode;
 };
 
-const BaseInput = forwardRef<HTMLInputElement, InputProps>(function BaseInput({ className, prefix, allowClear, ...props }, ref) {
-  if (prefix) {
+const BaseInput = forwardRef<HTMLInputElement, InputProps>(function BaseInput(
+  { className, prefix, allowClear, value, defaultValue, onChange, disabled, ...props },
+  forwardedRef,
+) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [uncontrolledValue, setUncontrolledValue] = useState(() => String(defaultValue ?? ""));
+  const currentValue = value === undefined ? uncontrolledValue : String(value ?? "");
+
+  useImperativeHandle(forwardedRef, () => inputRef.current as HTMLInputElement);
+
+  const input = (
+    <input
+      ref={inputRef}
+      value={value}
+      defaultValue={defaultValue}
+      disabled={disabled}
+      onChange={(event) => {
+        setUncontrolledValue(event.target.value);
+        onChange?.(event);
+      }}
+      className={cn(
+        prefix || allowClear
+          ? "min-w-0 flex-1 bg-transparent outline-none placeholder:text-muted-foreground"
+          : "h-9 w-full rounded-md border border-input bg-card px-3 py-1 text-sm shadow-sm outline-none transition-colors placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
+        !prefix && !allowClear && className,
+      )}
+      {...props}
+    />
+  );
+
+  if (prefix || allowClear) {
     return (
-      <span className={cn("flex h-9 items-center gap-2 rounded-md border border-input bg-card px-3 text-sm shadow-sm focus-within:ring-2 focus-within:ring-ring", className)}>
-        <span className="text-muted-foreground">{prefix}</span>
-        <input ref={ref} className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-muted-foreground" {...props} />
+      <span className={cn("flex h-9 items-center gap-2 rounded-md border border-input bg-card px-3 text-sm shadow-sm focus-within:ring-2 focus-within:ring-ring", disabled && "cursor-not-allowed opacity-50", className)}>
+        {prefix ? <span className="text-muted-foreground">{prefix}</span> : null}
+        {input}
+        {allowClear && currentValue && !disabled ? (
+          <button
+            type="button"
+            className="-mr-1 grid size-6 shrink-0 place-items-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            aria-label="清空输入"
+            onClick={() => {
+              const element = inputRef.current;
+              if (!element) return;
+              const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+              valueSetter?.call(element, "");
+              element.dispatchEvent(new Event("input", { bubbles: true }));
+              setUncontrolledValue("");
+              element.focus();
+            }}
+          >
+            <X aria-hidden="true" className="size-3.5" />
+          </button>
+        ) : null}
       </span>
     );
   }
 
-  return (
-    <input
-      ref={ref}
-      className={cn("h-9 w-full rounded-md border border-input bg-card px-3 py-1 text-sm shadow-sm outline-none transition-colors placeholder:text-muted-foreground focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50", className)}
-      {...props}
-    />
-  );
+  return input;
 });
 
 function TextArea({ className, showCount, maxLength, value, ...props }: TextareaHTMLAttributes<HTMLTextAreaElement> & { showCount?: boolean }) {
@@ -742,22 +798,67 @@ export function Switch({ checked, onChange, checkedChildren, unCheckedChildren }
   );
 }
 
-export function Modal({ title, open, onCancel, onOk, okText = "确认", confirmLoading, okButtonProps, width, children }: { title?: ReactNode; open?: boolean; onCancel?: () => void; onOk?: () => void; okText?: ReactNode; confirmLoading?: boolean; okButtonProps?: { danger?: boolean }; width?: number | string; destroyOnHidden?: boolean; children?: ReactNode }) {
-  if (!open) return null;
+type ModalProps = {
+  title?: ReactNode;
+  open?: boolean;
+  onCancel?: () => void;
+  onOk?: () => void;
+  okText?: ReactNode;
+  cancelText?: ReactNode;
+  confirmLoading?: boolean;
+  okButtonProps?: { danger?: boolean };
+  width?: number | string;
+  destroyOnHidden?: boolean;
+  children?: ReactNode;
+};
+
+export function Modal({
+  title,
+  open,
+  onCancel,
+  onOk,
+  okText = "确认",
+  cancelText = "取消",
+  confirmLoading,
+  okButtonProps,
+  width,
+  children,
+}: ModalProps) {
   return (
-    <div className="fixed inset-0 z-[6000] flex items-center justify-center bg-black/35 p-4">
-      <div className="w-full max-w-lg rounded-lg border border-border bg-card shadow-2xl" style={width ? { maxWidth: width } : undefined}>
-        <div className="flex items-center justify-between border-b border-border px-5 py-4">
-          <h2 className="text-base font-semibold">{title}</h2>
-          <button type="button" onClick={onCancel} className="rounded p-1 text-muted-foreground hover:bg-muted"><X className="h-4 w-4" /></button>
+    <Dialog
+      open={Boolean(open)}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) onCancel?.();
+      }}
+    >
+      <DialogContent
+        overlayClassName="z-[6000]"
+        className="z-[6001] gap-0 overflow-hidden p-0 sm:max-w-lg"
+        style={width ? { maxWidth: width } : undefined}
+      >
+        <DialogHeader className="border-b border-border px-5 py-4 pr-14">
+          <DialogTitle className={cn(!title && "sr-only")}>
+            {title || "对话框"}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="max-h-[min(72vh,720px)] overflow-y-auto p-5 [overscroll-behavior:contain]">
+          {children}
         </div>
-        <div className="p-5">{children}</div>
-        <div className="flex justify-end gap-2 border-t border-border px-5 py-4">
-          <Button onClick={onCancel}>取消</Button>
-          <Button type="primary" danger={okButtonProps?.danger} loading={confirmLoading} onClick={onOk}>{okText}</Button>
-        </div>
-      </div>
-    </div>
+        {onOk ? (
+          <DialogFooter className="mx-0 mb-0 rounded-none px-5 py-4">
+            <Button onClick={onCancel}>{cancelText}</Button>
+            <Button
+              type="primary"
+              danger={okButtonProps?.danger}
+              loading={confirmLoading}
+              onClick={onOk}
+            >
+              {okText}
+            </Button>
+          </DialogFooter>
+        ) : null}
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -989,7 +1090,7 @@ export function Tooltip({ title, children }: { title?: ReactNode; placement?: st
 
 function ImageRoot({ src, alt = "", width, height, className, style }: { src?: string; alt?: string; width?: number; height?: number; className?: string; style?: CSSProperties; preview?: unknown }) {
   if (!src) return null;
-  return <img src={src} alt={alt} width={width} height={height} className={className} style={style} />;
+  return <RawPreviewImage src={src} alt={alt} width={width} height={height} className={className} style={style} />;
 }
 
 export const Image = Object.assign(ImageRoot, { PreviewGroup: ({ children }: { items?: string[]; children?: ReactNode }) => <>{children}</> });
@@ -997,7 +1098,7 @@ export const Image = Object.assign(ImageRoot, { PreviewGroup: ({ children }: { i
 export function Avatar({ src, size = 32, icon, className }: { src?: string; size?: number; icon?: ReactNode; className?: string }) {
   return (
     <span className={cn("inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted text-muted-foreground", className)} style={{ width: size, height: size }}>
-      {src ? <img src={src} alt="" className="h-full w-full object-cover" /> : icon}
+      {src ? <RawPreviewImage src={src} alt="" className="h-full w-full object-cover" /> : icon}
     </span>
   );
 }
@@ -1094,53 +1195,40 @@ export const Layout = Object.assign(
   },
 );
 
-export function Drawer({ open, onClose, title, children, className, ariaLabel }: { title?: ReactNode; placement?: string; size?: number; open?: boolean; onClose?: () => void; className?: string; children?: ReactNode; ariaLabel?: string }) {
-  const panelRef = useRef<HTMLDivElement>(null);
-  const titleId = useId();
-  useEffect(() => {
-    if (!open) return;
-    const previous = document.activeElement as HTMLElement | null;
-    const panel = panelRef.current;
-    const focusable = panel?.querySelector<HTMLElement>("button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])");
-    focusable?.focus();
-    function handleKey(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        onClose?.();
-      }
-    }
-    document.addEventListener("keydown", handleKey);
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", handleKey);
-      document.body.style.overflow = "";
-      previous?.focus?.();
-    };
-  }, [open, onClose]);
-  if (!open) return null;
+type DrawerProps = {
+  title?: ReactNode;
+  placement?: "top" | "right" | "bottom" | "left";
+  size?: number | "default" | "large";
+  open?: boolean;
+  onClose?: () => void;
+  className?: string;
+  children?: ReactNode;
+  ariaLabel?: string;
+};
+
+export function Drawer({ open, onClose, title, placement = "right", size = "default", children, className, ariaLabel }: DrawerProps) {
+  const resolvedSize = typeof size === "number" ? size : size === "large" ? 736 : 378;
+  const dimensionStyle = placement === "left" || placement === "right"
+    ? { width: resolvedSize, maxWidth: "calc(100vw - 1rem)" }
+    : { height: resolvedSize, maxHeight: "calc(100dvh - 1rem)" };
+
   return (
-    <div
-      className="fixed inset-0 z-[5000] bg-black/40 motion-safe:transition-opacity"
-      onClick={onClose}
-    >
-      <div
-        ref={panelRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        aria-label={ariaLabel}
-        tabIndex={-1}
-        className={cn("h-full w-[292px] overflow-y-auto overscroll-contain bg-card p-4 shadow-xl", className)}
-        style={{ paddingTop: "max(1rem, env(safe-area-inset-top))", paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
-        onClick={(event) => event.stopPropagation()}
+    <Sheet open={Boolean(open)} onOpenChange={(nextOpen) => { if (!nextOpen) onClose?.(); }}>
+      <SheetContent
+        side={placement}
+        overlayClassName="z-[5000] bg-black/40"
+        className={cn("z-[5001] gap-0 overflow-hidden p-0 sm:max-w-none", className)}
+        style={dimensionStyle}
       >
-        <div className="mb-4 flex items-center justify-between gap-2">
-          <div id={titleId} className="min-w-0 truncate text-base font-black text-foreground">{title}</div>
-          <Button size="small" onClick={onClose} aria-label="关闭抽屉">关闭</Button>
+        <SheetHeader className="border-b border-border px-4 pb-4 pt-[max(1rem,env(safe-area-inset-top))] pr-14 text-left">
+          <SheetTitle className={cn("truncate text-base font-black", !title && "sr-only")}>{title || ariaLabel || "抽屉"}</SheetTitle>
+          <SheetDescription className="sr-only">{ariaLabel || "侧边抽屉"}</SheetDescription>
+        </SheetHeader>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+          {children}
         </div>
-        {children}
-      </div>
-    </div>
+      </SheetContent>
+    </Sheet>
   );
 }
 

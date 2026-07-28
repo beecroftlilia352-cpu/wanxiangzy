@@ -1,4 +1,5 @@
 import { getImageVariantUrl, type ImageVariant } from "@/lib/image-variants";
+import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 
 type ImgSkeletonProps = {
   src: string;
@@ -12,7 +13,7 @@ export function ImgSkeleton({ src, alt, className, variant = "thumb" }: ImgSkele
 
   return (
     <div className={`${className} bg-gray-100`}>
-      <img
+      <RawPreviewImage
         src={displaySrc}
         alt={alt || ""}
         loading="lazy"

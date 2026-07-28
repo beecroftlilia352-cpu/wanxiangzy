@@ -9,17 +9,6 @@ type Theme = "light" | "dark";
 
 const STORAGE_KEY = "vwg-theme";
 
-function readInitialTheme(): Theme {
-  if (typeof window === "undefined") return "light";
-  try {
-    const stored = window.localStorage.getItem(STORAGE_KEY);
-    if (stored === "light" || stored === "dark") return stored;
-  } catch {
-    // localStorage may be blocked; fall back to OS preference.
-  }
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-}
-
 function applyTheme(next: Theme) {
   const root = document.documentElement;
   if (next === "dark") {
@@ -127,8 +116,8 @@ export function ThemeToggle({ className, onToggle, onClick, ...props }: ThemeTog
       )}
       {...props}
     >
-      <Sun aria-hidden="true" className={cn("h-4 w-4 transition-all", isDark ? "rotate-90 scale-0 opacity-0" : "rotate-0 scale-100 opacity-100")} />
-      <Moon aria-hidden="true" className={cn("-ml-4 h-4 w-4 transition-all", isDark ? "rotate-0 scale-100 opacity-100" : "-rotate-90 scale-0 opacity-0")} />
+      <Sun aria-hidden="true" className={cn("h-4 w-4 transition-[transform,opacity]", isDark ? "rotate-90 scale-0 opacity-0" : "rotate-0 scale-100 opacity-100")} />
+      <Moon aria-hidden="true" className={cn("-ml-4 h-4 w-4 transition-[transform,opacity]", isDark ? "rotate-0 scale-100 opacity-100" : "-rotate-90 scale-0 opacity-0")} />
     </button>
   );
 }

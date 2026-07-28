@@ -99,6 +99,12 @@ import type { TryOnClothingMode, TryOnClothingRole } from "@/lib/tryon-upload-ru
 import type { GrassPayloadBase } from "@/lib/grass-planting";
 import { normalizeModelBackgroundSourceUrls, type ModelBackgroundPayloadBase } from "@/lib/model-background";
 import type { MaterialEnhancementPayloadBase } from "@/lib/material-enhancement";
+import type {
+  ProductRetouchHardValidationPolicy,
+  ProductRetouchHardValidationResult,
+  ProductRetouchMode,
+} from "@/lib/product-retouch";
+import { validateGeneratedProductImage } from "@/lib/api/product-retouch-validation";
 import { enforceFaceSwapPromptRequirements, normalizeFaceSwapMode, normalizeFaceSwapSourceUrls, type FaceSwapMode } from "@/lib/face-swap";
 import {
   buildProductSetPrompt,
@@ -185,6 +191,28 @@ export type GenerationJobPayload = GenerationJobPayloadBase & (
   | ({ kind: "grass" } & GrassPayloadBase)
   | ({ kind: "modelBackground" } & ModelBackgroundPayloadBase)
   | ({ kind: "materialEnhancement" } & MaterialEnhancementPayloadBase)
+  | {
+      kind: "productRetouch";
+      internalTask: true;
+      batchId: string;
+      outputId: string;
+      sourceClientId: string;
+      sourceIndex: number;
+      variantIndex: number;
+      sourceUrl: string;
+      sourceFilename: string;
+      mode: ProductRetouchMode;
+      category: string;
+      userInstruction?: string;
+      skillVersion: string;
+      skillContentHash: string;
+      hardValidationPolicy: ProductRetouchHardValidationPolicy;
+      aiModel: LingyaModel;
+      aspectRatio: AspectRatio;
+      imageSize: ImageSize;
+      prompt: string;
+      genCount: 1;
+    }
   | {
       kind: "generalImage";
       mode: "text-to-image" | "image-to-image";
@@ -357,6 +385,8 @@ interface ExhaustedJob {
   id: string;
   user_id: string;
   credits_cost: number | null;
+  job_attempts: number | null;
+  job_payload: unknown;
   processing_started_at: string | null;
   error_message: string | null;
 }
@@ -382,6 +412,7 @@ type GenerationExecutionResult = {
   providerDetails?: Record<string, unknown>;
   failedCount?: number;
   partialError?: string;
+  hardValidation?: ProductRetouchHardValidationResult;
 };
 
 type GenerationProgressUpdate = GenerationExecutionResult;
@@ -449,9 +480,11 @@ async function runClaimedJob(
   supabase: ReturnType<typeof createAdminClient>,
   job: ClaimedJob
 ) {
+  let parsedPayload: GenerationJobPayload | null = null;
   try {
     await syncGenerationQueueIndex(job.id, "claim");
     const payload = parseJobPayload(job.job_payload);
+    parsedPayload = payload;
     const partialResultUrls: string[] = [];
     const partialPromptTrace: PromptTraceItem[] = [];
     let partialModuleResults: ProductSetModuleResult[] = [];
@@ -556,6 +589,9 @@ async function runClaimedJob(
         providerDetails: update.providerDetails,
       });
     });
+    if (payload.kind === "productRetouch" && execution.hardValidation) {
+      await assertProductRetouchResultUnique(supabase, payload, execution.hardValidation);
+    }
     const finalModuleResults = execution.moduleResults?.length
       ? await persistModuleResults(execution.moduleResults)
       : undefined;
@@ -603,7 +639,10 @@ async function runClaimedJob(
     const refundAmount = calculatePartialRefund(Number(job.credits_cost || 0), finalUrls.length, expectedCount);
     const settlementError = execution.partialError || moduleFailureSummary;
     const finalPayload = appendGenerationSettlementMetadata(appendProductSetModuleResults(
-      appendPromptTrace(appendQualityMetadata(repaired?.payload || payload, finalQuality, Boolean(repaired)), finalPromptTrace),
+      appendProductRetouchHardValidation(
+        appendPromptTrace(appendQualityMetadata(repaired?.payload || payload, finalQuality, Boolean(repaired)), finalPromptTrace),
+        execution.hardValidation,
+      ),
       finalModulePayload
     ), {
       expectedCount,
@@ -619,6 +658,10 @@ async function runClaimedJob(
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "生成失败";
+    if (parsedPayload?.kind === "productRetouch" && Number(job.credits_cost || 0) === 0) {
+      await failZeroCostProductRetouchChild(supabase, job, parsedPayload, message);
+      throw err;
+    }
     const settled = await settleFailedGenerationFromProgress(supabase, job, message);
     if (!settled) {
       await failGenerationWithRefund(supabase, {
@@ -632,6 +675,36 @@ async function runClaimedJob(
     }
     throw err;
   }
+}
+
+async function failZeroCostProductRetouchChild(
+  supabase: ReturnType<typeof createAdminClient>,
+  job: ClaimedJob,
+  payload: Extract<GenerationJobPayload, { kind: "productRetouch" }>,
+  errorMessage: string,
+) {
+  const failedPayload = appendGenerationSettlementMetadata(payload, {
+    expectedCount: 1,
+    resultCount: 0,
+    failedCount: 1,
+    refundAmount: 0,
+    errorMessage,
+  });
+  const { error } = await supabase
+    .from("generations")
+    .update({
+      status: "failed",
+      job_payload: failedPayload,
+      error_message: errorMessage,
+      processing_started_at: null,
+      completed_at: new Date().toISOString(),
+      credits_used: 0,
+    })
+    .eq("id", job.id)
+    .eq("user_id", job.user_id)
+    .neq("status", "completed");
+  if (error) throw new Error(`更新商品精修子任务失败: ${error.message}`);
+  await syncGenerationQueueIndex(job.id, "product-retouch-fail");
 }
 
 async function completeGenerationRecord(
@@ -676,12 +749,35 @@ async function completeGenerationRecord(
     .select("id")
     .maybeSingle();
 
-  if (error) throw new Error(`更新任务结果失败: ${error.message}`);
+  if (error) {
+    if (error.code === "23505" && error.message.includes("product_retouch_outputs_batch_hash_unique_idx")) {
+      throw new Error("结果与批次内已有图片重复");
+    }
+    throw new Error(`更新任务结果失败: ${error.message}`);
+  }
   if (!data) {
     logger.warn(`[jobs] generation ${job.id} was no longer completable; skipped completion write`);
   } else {
     await syncGenerationQueueIndex(job.id, "complete-fallback");
   }
+}
+
+async function assertProductRetouchResultUnique(
+  supabase: ReturnType<typeof createAdminClient>,
+  payload: Extract<GenerationJobPayload, { kind: "productRetouch" }>,
+  validation: ProductRetouchHardValidationResult,
+) {
+  if (!payload.hardValidationPolicy.rejectDuplicateContent) return;
+  const { data, error } = await supabase
+    .from("product_retouch_outputs")
+    .select("id")
+    .eq("batch_id", payload.batchId)
+    .neq("id", payload.outputId)
+    .eq("status", "completed")
+    .eq("content_sha256", validation.sha256)
+    .limit(1);
+  if (error) throw new Error(`商品精修重复结果校验失败: ${error.message}`);
+  if (data?.length) throw new Error("结果与批次内已有图片重复");
 }
 
 async function settleFailedGenerationFromProgress(
@@ -1371,6 +1467,59 @@ async function executePayload(
     });
   }
 
+  if (payload.kind === "productRetouch") {
+    const imageInputs = await resolvePayloadImageInputs({
+      clothingUrls: [payload.sourceUrl],
+    });
+    const sourceInputUrl = imageInputs.clothingUrls[0] || payload.sourceUrl;
+    const result = await generateImage({
+      model: payload.aiModel,
+      prompt: payload.prompt,
+      prompt_kind: "productRetouch",
+      aspect_ratio: payload.aspectRatio,
+      image: [sourceInputUrl],
+      smart_aspect_image: payload.sourceUrl,
+      image_size: payload.imageSize,
+      onProgress: async (progress) => {
+        await onProgress?.({
+          resultUrls: [],
+          promptTrace: [],
+          progress: Math.min(99, Math.max(1, Math.round(progress.progress))),
+          externalTaskId: progress.taskId,
+          externalStatus: progress.providerStatus || progress.status,
+        });
+      },
+    });
+    const resultUrl = getResultUrl(result);
+    const hardValidation = payload.hardValidationPolicy.enabled
+      ? await validateGeneratedProductImage(resultUrl, payload.hardValidationPolicy)
+      : undefined;
+    const trace = createPromptTraceItem({
+      index: 1,
+      kind: payload.kind,
+      model: payload.aiModel,
+      promptKind: `productRetouch:${payload.mode}`,
+      prompt: payload.prompt,
+      compiledPrompt: result.compiledPrompt || payload.prompt,
+    });
+    await onProgress?.({
+      resultUrls: [resultUrl],
+      promptTrace: [trace],
+      progress: 99,
+      externalTaskId: result.taskId,
+      externalStatus: "SUCCEEDED",
+      hardValidation,
+    });
+    return {
+      resultUrls: [resultUrl],
+      promptTrace: [trace],
+      progress: 100,
+      externalTaskId: result.taskId,
+      externalStatus: "SUCCEEDED",
+      hardValidation,
+    };
+  }
+
   if (payload.kind === "generalImage" || payload.kind === "outfitFusion") {
     const imageInputs = payload.mode === "image-to-image"
       ? await resolvePayloadImageInputs({ clothingUrls: payload.referenceUrls })
@@ -1928,6 +2077,17 @@ function appendProductSetModuleResults(payload: GenerationJobPayload, moduleResu
   } as GenerationJobPayload;
 }
 
+function appendProductRetouchHardValidation(
+  payload: GenerationJobPayload,
+  hardValidation?: ProductRetouchHardValidationResult,
+) {
+  if (payload.kind !== "productRetouch" || !hardValidation) return payload;
+  return {
+    ...payload,
+    hardValidation,
+  } as GenerationJobPayload;
+}
+
 function appendAsyncProgress(payload: GenerationJobPayload, update: GenerationProgressUpdate): GenerationJobPayload {
   if (
     typeof update.progress !== "number" &&
@@ -2040,7 +2200,7 @@ function shouldAutoRegenerate(payload: GenerationJobPayload, job: ClaimedJob) {
 }
 
 function shouldSkipVisualQualityEvaluation(payload: GenerationJobPayload) {
-  if (payload.kind === "tryon" || payload.kind === "pose" || isVideoPayload(payload)) return true;
+  if (payload.kind === "tryon" || payload.kind === "pose" || payload.kind === "productRetouch" || isVideoPayload(payload)) return true;
   return false;
 }
 
@@ -2079,6 +2239,7 @@ function getPayloadPrompt(payload: GenerationJobPayload) {
   if (payload.kind === "outfitFusion") return getOutfitFusionDisplayPrompt(payload.userPrompt || payload.prompt, "搭配融图任务");
   if (payload.kind === "garment3d") return payload.userPrompt || payload.prompt;
   if (payload.kind === "materialEnhancement") return payload.userPrompt || payload.prompt;
+  if (payload.kind === "productRetouch") return payload.userInstruction || payload.prompt;
   if (payload.kind === "videoMotion") return payload.prompt || "动作模仿视频生成";
   if (payload.kind === "videoFirstLastFrame") return payload.prompt || "首尾帧视频生成";
   return payload.prompt;
@@ -2121,6 +2282,7 @@ function getPayloadReferenceImages(payload: GenerationJobPayload) {
     payload.backgroundReferenceUrl,
   ].filter((url): url is string => typeof url === "string" && url.length > 0);
   if (payload.kind === "materialEnhancement") return [payload.sourceUrl, payload.garmentUrl];
+  if (payload.kind === "productRetouch") return [payload.sourceUrl];
   if (payload.kind === "generalImage" || payload.kind === "outfitFusion") return payload.referenceUrls;
   if (payload.kind === "pose") return [
     payload.mainImageUrl,
@@ -2260,6 +2422,22 @@ function isJobPayload(value: unknown): value is GenerationJobPayload {
       typeof value.imageSize === "string" &&
       typeof value.prompt === "string" &&
       typeof value.genCount === "number";
+  }
+
+  if (value.kind === "productRetouch") {
+    return value.internalTask === true &&
+      typeof value.batchId === "string" &&
+      typeof value.outputId === "string" &&
+      typeof value.sourceUrl === "string" &&
+      typeof value.sourceFilename === "string" &&
+      typeof value.mode === "string" &&
+      typeof value.category === "string" &&
+      typeof value.aiModel === "string" &&
+      typeof value.aspectRatio === "string" &&
+      typeof value.imageSize === "string" &&
+      typeof value.prompt === "string" &&
+      value.genCount === 1 &&
+      isRecord(value.hardValidationPolicy);
   }
 
   if (value.kind === "generalImage" || value.kind === "outfitFusion") {
@@ -2443,7 +2621,7 @@ async function refundExhaustedJobs(supabase: ReturnType<typeof createAdminClient
   const cutoffMs = Date.now() - getStaleMinutes() * 60 * 1000;
   const { data, error } = await supabase
     .from("generations")
-    .select("id,user_id,credits_cost,processing_started_at,error_message")
+    .select("id,user_id,credits_cost,job_attempts,job_payload,processing_started_at,error_message")
     .eq("status", "processing_tryon")
     .gte("job_attempts", 3)
     .order("created_at", { ascending: true })
@@ -2461,6 +2639,28 @@ async function refundExhaustedJobs(supabase: ReturnType<typeof createAdminClient
   });
 
   for (const job of staleJobs) {
+    const rawPayload = isRecord(job.job_payload) ? job.job_payload : null;
+    if (rawPayload?.kind === "productRetouch"
+      && rawPayload.internalTask === true
+      && Number(job.credits_cost || 0) === 0) {
+      const payload = parseJobPayload(rawPayload);
+      if (payload.kind !== "productRetouch") {
+        throw new Error(`商品精修子任务载荷类型不匹配: ${job.id}`);
+      }
+      await failZeroCostProductRetouchChild(
+        supabase,
+        {
+          id: job.id,
+          user_id: job.user_id,
+          job_payload: job.job_payload,
+          credits_cost: 0,
+          job_attempts: Number(job.job_attempts || 3),
+        },
+        payload,
+        job.error_message || "任务多次重试后仍未完成",
+      );
+      continue;
+    }
     await failGenerationWithRefund(supabase, {
       userId: job.user_id,
       generationId: job.id,

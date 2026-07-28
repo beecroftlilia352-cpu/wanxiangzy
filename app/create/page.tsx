@@ -2539,7 +2539,7 @@ export default function CreatePage() {
             title="上传服装"
             description={currentUploadRule.uploadSpecText}
             badge={isUploading ? <Loader2 className="h-3.5 w-3.5 animate-spin text-violet-500" /> : null}
-            className="studio-clothing-upload-section studio-stable-upload-boundary relative rounded-xl transition-all"
+            className="studio-clothing-upload-section studio-stable-upload-boundary relative rounded-xl transition-[box-shadow]"
           >
             <input
               ref={fileInputRef}
@@ -2697,7 +2697,7 @@ export default function CreatePage() {
                   type="button"
                   onClick={() => updateGarmentAudience(value)}
                   aria-pressed={garmentAudience === value}
-                  className={`rounded-lg border px-2 py-1.5 text-[11px] font-medium leading-none transition-all ${
+                  className={`rounded-lg border px-2 py-1.5 text-[11px] font-medium leading-none transition-[color,background-color,border-color,box-shadow] ${
                     garmentAudience === value
                       ? "border-violet-400 bg-violet-50 text-violet-700 shadow-sm dark:border-[rgba(167,139,250,0.6)] dark:bg-[rgba(167,139,250,0.18)] dark:text-purple-200"
                       : "border-slate-200 bg-white text-slate-500 hover:border-violet-200 hover:text-violet-600 dark:border-white/10 dark:bg-[#26262a] dark:text-stone-300 dark:hover:border-[rgba(167,139,250,0.45)] dark:hover:text-purple-300"
@@ -2716,7 +2716,7 @@ export default function CreatePage() {
                     type="button"
                     onClick={() => updateAgeGroup(value)}
                     aria-pressed={ageGroup === value}
-                    className={`rounded-lg border px-1.5 py-1.5 text-[11px] font-medium leading-none transition-all ${
+                    className={`rounded-lg border px-1.5 py-1.5 text-[11px] font-medium leading-none transition-[color,background-color,border-color,box-shadow] ${
                       ageGroup === value
                         ? "border-violet-400 bg-violet-50 text-violet-700 shadow-sm dark:border-[rgba(167,139,250,0.6)] dark:bg-[rgba(167,139,250,0.18)] dark:text-purple-200"
                         : "border-slate-200 bg-white text-slate-500 hover:border-violet-200 hover:text-violet-600 dark:border-white/10 dark:bg-[#26262a] dark:text-stone-300 dark:hover:border-[rgba(167,139,250,0.45)] dark:hover:text-purple-300"
@@ -2732,7 +2732,7 @@ export default function CreatePage() {
           {/* ---- 参考图（整个区域可拖拽） ---- */}
           <section
             {...referenceDrag.dragHandlers}
-            className={`studio-stable-upload-boundary relative rounded-xl transition-all ${isDraggingRef ? "ring-2 ring-[rgba(91,124,255,0.38)] ring-offset-2" : ""}`}
+            className={`studio-stable-upload-boundary relative rounded-xl transition-[box-shadow] ${isDraggingRef ? "ring-2 ring-[rgba(91,124,255,0.38)] ring-offset-2" : ""}`}
           >
             {isDraggingRef && (
               <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-xl border-2 border-dashed border-[rgba(91,124,255,0.58)] bg-[rgba(91,124,255,0.12)]">
@@ -2925,7 +2925,7 @@ export default function CreatePage() {
                       type="button"
                       onClick={() => customRefInputRef.current?.click()}
                       disabled={selectedReferenceCount >= MAX_TRYON_REFERENCE_IMAGES || isReferenceUploadBusy}
-                      className={`flex aspect-[3/4] flex-col items-center justify-center overflow-hidden rounded-lg border-2 border-dashed bg-white text-slate-400 transition-all hover:border-[var(--codex-accent)] hover:bg-violet-50/40 hover:text-[var(--codex-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white/5 dark:text-stone-500 dark:hover:bg-violet-500/15 dark:hover:text-violet-300 ${isDraggingRef ? "border-[var(--codex-accent)] bg-violet-50 text-[var(--codex-accent)] dark:bg-violet-500/20" : "border-gray-200 dark:border-white/10"}`}
+                      className={`flex aspect-[3/4] flex-col items-center justify-center overflow-hidden rounded-lg border-2 border-dashed bg-white text-slate-400 transition-[color,background-color,border-color,box-shadow] hover:border-[var(--codex-accent)] hover:bg-violet-50/40 hover:text-[var(--codex-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white/5 dark:text-stone-500 dark:hover:bg-violet-500/15 dark:hover:text-violet-300 ${isDraggingRef ? "border-[var(--codex-accent)] bg-violet-50 text-[var(--codex-accent)] dark:bg-violet-500/20" : "border-gray-200 dark:border-white/10"}`}
                       aria-label="上传参考图"
                     >
                       <ChevronRight className="mb-1 h-6 w-6" />
@@ -3047,7 +3047,7 @@ export default function CreatePage() {
                           if (!switchSceneMode("favorites")) return;
                           toggleReferenceImage(toFavoriteReference(ref));
                         })}
-                        className={`group relative rounded-lg overflow-hidden border-2 bg-white transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 ${
+                        className={`group relative cursor-pointer overflow-hidden rounded-lg border-2 bg-white transition-[color,background-color,border-color,box-shadow,transform] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 ${
                           selected ? "border-[var(--codex-accent)] ring-1 ring-blue-200" : "border-transparent hover:border-gray-300"
                         }`}>
                         <ImgSkeleton src={ref.url} alt={`收藏参考图：${ref.label}`} className="w-full aspect-[3/4] object-cover" />
@@ -3092,7 +3092,7 @@ export default function CreatePage() {
           {/* ---- 模特（整个区域可拖拽·可选） ---- */}
           <section
             {...modelDrag.dragHandlers}
-            className={`studio-stable-upload-boundary relative rounded-xl transition-all ${isDraggingModel ? "ring-2 ring-[rgba(91,124,255,0.38)] ring-offset-2" : ""}`}
+            className={`studio-stable-upload-boundary relative rounded-xl transition-[box-shadow] ${isDraggingModel ? "ring-2 ring-[rgba(91,124,255,0.38)] ring-offset-2" : ""}`}
           >
             {isDraggingModel && (
               <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl border-2 border-dashed border-[rgba(91,124,255,0.48)] bg-[rgba(91,124,255,0.10)] pointer-events-none">
@@ -3128,7 +3128,7 @@ export default function CreatePage() {
                   toast.success("已设为不替换脸部");
                 }}
                 disabled={isModelUploadBusy}
-                className={`group relative overflow-hidden rounded-xl border bg-white dark:bg-[#1c1c1e] text-center transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 ${
+                className={`group relative overflow-hidden rounded-xl border bg-white text-center transition-[color,background-color,border-color,box-shadow,transform] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-[#1c1c1e] ${
                   !store.selectedModel
                     ? "border-[var(--codex-accent)] bg-[rgba(91,124,255,0.10)] dark:bg-[rgba(91,124,255,0.18)] shadow-sm ring-1 ring-blue-100 dark:ring-[rgba(91,140,255,0.45)]"
                     : "border-slate-200 dark:border-white/10 hover:border-[rgba(91,124,255,0.34)] hover:bg-violet-50/30 dark:hover:bg-[rgba(91,140,255,0.10)]"
@@ -3170,7 +3170,7 @@ export default function CreatePage() {
                     store.setSelectedModel({ ...m, is_preset: true, user_id: null });
                     setPromptOverride(null);
                   })}
-                  className={`group relative overflow-hidden rounded-xl border bg-white dark:bg-[#1c1c1e] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 ${
+                  className={`group relative overflow-hidden rounded-xl border bg-white transition-[color,background-color,border-color,box-shadow,transform] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 dark:bg-[#1c1c1e] ${
                     isModelUploadBusy ? "cursor-not-allowed opacity-60" : "cursor-pointer"
                   } ${
                     store.selectedModel?.id === m.id
@@ -3183,7 +3183,7 @@ export default function CreatePage() {
                       <CheckCircle2 className="h-4 w-4" />
                     </span>
                   )}
-                  <div className="absolute inset-0 pointer-events-none flex items-end justify-end bg-violet-950/0 p-2 opacity-100 transition-all sm:opacity-0 sm:group-hover:bg-violet-950/10 sm:group-hover:opacity-100 sm:group-focus-within:bg-violet-950/10 sm:group-focus-within:opacity-100">
+                  <div className="pointer-events-none absolute inset-0 flex items-end justify-end bg-violet-950/0 p-2 opacity-100 transition-[background-color,opacity] sm:opacity-0 sm:group-hover:bg-violet-950/10 sm:group-hover:opacity-100 sm:group-focus-within:bg-violet-950/10 sm:group-focus-within:opacity-100">
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); openLightbox(m.image_url, `模特：${m.name}`); }}
@@ -3205,7 +3205,7 @@ export default function CreatePage() {
                 tabIndex={0}
                 onClick={() => customModelInputRef.current?.click()}
                 onKeyDown={(event) => handlePreviewKeyDown(event, () => customModelInputRef.current?.click())}
-                className={`group relative overflow-hidden rounded-xl border bg-white dark:bg-[#1c1c1e] text-center transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 ${
+                className={`group relative overflow-hidden rounded-xl border bg-white text-center transition-[color,background-color,border-color,box-shadow,transform] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 dark:bg-[#1c1c1e] ${
                   isModelUploadBusy ? "cursor-not-allowed opacity-80" : "cursor-pointer"
                 } ${
                   isCustomModelSelected
@@ -3233,7 +3233,7 @@ export default function CreatePage() {
                   </span>
                 )}
                 {customModelImageUrl && (
-                  <div className="absolute inset-0 pointer-events-none flex items-end justify-end bg-violet-950/0 p-2 opacity-100 transition-all sm:opacity-0 sm:group-hover:bg-violet-950/10 sm:group-hover:opacity-100 sm:group-focus-within:bg-violet-950/10 sm:group-focus-within:opacity-100">
+                  <div className="pointer-events-none absolute inset-0 flex items-end justify-end bg-violet-950/0 p-2 opacity-100 transition-[background-color,opacity] sm:opacity-0 sm:group-hover:bg-violet-950/10 sm:group-hover:opacity-100 sm:group-focus-within:bg-violet-950/10 sm:group-focus-within:opacity-100">
                     <button
                       type="button"
                       onClick={(event) => {
@@ -3340,7 +3340,7 @@ export default function CreatePage() {
               {STYLE_PRESETS.map((s, i) => (
                 <button key={i} onClick={() => { setCustomStyle(s); setPromptOverride(null); store.setPromptUsed(""); }}
                   aria-pressed={customStyle === s}
-                  className="px-2 py-0.5 rounded-full bg-gray-50 border text-[10px] text-gray-500 transition-all hover:bg-purple-50 hover:text-purple-600 dark:border-white/10 dark:bg-white/5 dark:text-stone-400 dark:hover:bg-violet-500/15 dark:hover:text-violet-300">{s}</button>
+                  className="rounded-full border bg-gray-50 px-2 py-0.5 text-[10px] text-gray-500 transition-colors hover:bg-purple-50 hover:text-purple-600 dark:border-white/10 dark:bg-white/5 dark:text-stone-400 dark:hover:bg-violet-500/15 dark:hover:text-violet-300">{s}</button>
               ))}
             </div>
 

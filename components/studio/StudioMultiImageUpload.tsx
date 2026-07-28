@@ -1,10 +1,11 @@
 "use client";
 
-import { CirclePlus, FolderOpen, Images, Loader2, Trash2, Upload, X, ZoomIn } from "lucide-react";
+import { ArrowLeft, ArrowRight, CirclePlus, FolderOpen, Images, Loader2, Trash2, Upload, X, ZoomIn } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getImageVariantUrl } from "@/lib/image-variants";
 import { StudioUploadExamples, type StudioUploadTileExample } from "@/components/studio/StudioUploadExamples";
 import { StudioUploadTips, buildStudioUploadTips, type StudioUploadTip } from "@/components/studio/StudioUploadTips";
+import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 
 export type StudioMultiImageUploadProps = {
   urls: string[];
@@ -29,6 +30,7 @@ export type StudioMultiImageUploadProps = {
   onLibraryClick?: () => void;
   onPreview?: (url: string, index: number) => void;
   onRemove: (url: string, index: number) => void;
+  onMove?: (fromIndex: number, toIndex: number) => void;
   onClear?: () => void;
   examples?: {
     label?: string;
@@ -61,6 +63,7 @@ export function StudioMultiImageUpload({
   onLibraryClick,
   onPreview,
   onRemove,
+  onMove,
   onClear,
   examples,
 }: StudioMultiImageUploadProps) {
@@ -120,7 +123,7 @@ export function StudioMultiImageUpload({
                     disabled={disabled || !onPreview}
                     aria-label={`预览${itemLabelPrefix}${index + 1}`}
                   >
-                    <img
+                    <RawPreviewImage
                       src={getImageVariantUrl(url, "card")}
                       alt={`${itemLabelPrefix}${index + 1}`}
                       className={cn("studio-multi-image-img", imageFit === "cover" ? "object-cover" : "object-contain p-1.5")}
@@ -128,6 +131,30 @@ export function StudioMultiImageUpload({
                   </button>
                   <span className="studio-multi-image-index">{itemLabelPrefix}{index + 1}</span>
                   <div className="studio-multi-image-actions">
+                    {onMove && index > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => onMove(index, index - 1)}
+                        disabled={disabled || loading}
+                        className="studio-icon-button"
+                        aria-label={`将${itemLabelPrefix}${index + 1}前移`}
+                        title="前移"
+                      >
+                        <ArrowLeft className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                    {onMove && index < urls.length - 1 && (
+                      <button
+                        type="button"
+                        onClick={() => onMove(index, index + 1)}
+                        disabled={disabled || loading}
+                        className="studio-icon-button"
+                        aria-label={`将${itemLabelPrefix}${index + 1}后移`}
+                        title="后移"
+                      >
+                        <ArrowRight className="h-3.5 w-3.5" />
+                      </button>
+                    )}
                     {onPreview && (
                       <button type="button" onClick={() => onPreview(url, index)} className="studio-icon-button" aria-label={`放大${itemLabelPrefix}${index + 1}`} title="预览">
                         <ZoomIn className="h-3.5 w-3.5" />

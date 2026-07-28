@@ -3,13 +3,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { App, Button, Input, Segmented, Tooltip } from "antd";
 import copyToClipboard from "copy-to-clipboard";
-import { Copy, FolderOpen, History, KeyRound, Link2, LoaderCircle, PlugZap, Plus, RefreshCw, RotateCcw, Terminal, Trash2 } from "lucide-react";
+import { Copy, FolderOpen, History, KeyRound, Link2, PlugZap, Plus, RefreshCw, RotateCcw, Terminal, Trash2 } from "lucide-react";
 import { motion } from "motion/react";
 
 import { canvasThemes } from "@/lib/canvas-theme";
 import { useThemeStore } from "@/stores/use-theme-store";
 import { useUserStore } from "@/stores/use-user-store";
-import { useCanvasAgentStore, type AgentAttachment, type AgentChatItem, type AgentEventLog, type AgentPanelTab, type AgentPendingToolCall, type AgentThreadSummary } from "../stores/use-canvas-agent-store";
+import { useCanvasAgentStore, type AgentAttachment, type AgentChatItem, type AgentEventLog, type AgentPendingToolCall, type AgentThreadSummary } from "../stores/use-canvas-agent-store";
 import { summarizeCanvasAgentOps, type CanvasAgentOp, type CanvasAgentSnapshot } from "../utils/canvas-agent-ops";
 import { AgentChatComposer, AgentChatMessage, AgentPanelTabs, AgentPendingToolCard, AgentWorkingMessage, type CanvasAgentChatAttachment } from "./canvas-agent-chat-ui";
 
@@ -39,6 +39,14 @@ type AgentWorkspace = { canvasId: string; workspacePath: string; activeThreadId?
 type AgentThreadsResponse = { ok?: boolean; workspace?: AgentWorkspace; data?: AgentThreadSummary[] };
 type AgentThreadResponse = { ok?: boolean; workspace?: AgentWorkspace; thread?: AgentThreadSummary; messages?: AgentChatItem[] };
 
+function useStableEventCallback<Args extends unknown[]>(callback: (...args: Args) => void) {
+    const callbackRef = useRef(callback);
+    useEffect(() => {
+        callbackRef.current = callback;
+    }, [callback]);
+    return useCallback((...args: Args) => callbackRef.current(...args), []);
+}
+
 export function CanvasLocalAgentPanel({ snapshot, canUndoOps, collapsed, embedded, onApplyOps, onUndoOps }: { snapshot: CanvasAgentSnapshot; canUndoOps: boolean; collapsed?: boolean; embedded?: boolean; onApplyOps: (ops: CanvasAgentOp[]) => unknown; onUndoOps: () => CanvasAgentSnapshot | null }) {
     const theme = canvasThemes[useThemeStore((state) => state.theme)];
     const user = useUserStore((state) => state.user);
@@ -55,6 +63,9 @@ export function CanvasLocalAgentPanel({ snapshot, canUndoOps, collapsed, embedde
     const attachmentUrlsRef = useRef(new Set<string>());
     const clientIdRef = useRef(typeof crypto === "undefined" ? `${Date.now()}` : crypto.randomUUID());
     const endpoint = useMemo(() => url.trim().replace(/\/$/, ""), [url]);
+    const addEventLog = useCallback((title: string, text: unknown, raw?: unknown) => {
+        pushEventLog({ id: `${Date.now()}-${Math.random()}`, time: new Date().toLocaleTimeString(), title, text: normalizeText(text) || title, raw });
+    }, [pushEventLog]);
     const loadThreads = useCallback(async () => {
         const projectId = snapshotRef.current.projectId;
         if ((!connectedRef.current && !useCanvasAgentStore.getState().connected) || !projectId) return;
@@ -77,7 +88,20 @@ export function CanvasLocalAgentPanel({ snapshot, canUndoOps, collapsed, embedde
         } finally {
             setAgentState({ loadingThreads: false });
         }
-    }, [endpoint, setAgentState, token]);
+    }, [addEventLog, endpoint, setAgentState, token]);
+
+    const dispatchToolCall = useStableEventCallback((sourceEndpoint: string, sourceToken: string, data: AgentPendingToolCall) => {
+        void handleToolCall(sourceEndpoint, sourceToken, data);
+    });
+    const dispatchAgentEvent = useStableEventCallback((data: AgentEventPayload) => {
+        handleAgentEvent(data);
+    });
+    const appendAgentMessage = useStableEventCallback((item: Omit<AgentChatItem, "id">) => {
+        addMessage(item);
+    });
+    const resetAgentSession = useStableEventCallback((patch: Parameters<typeof setAgentState>[0]) => {
+        clearAgentSession(patch);
+    });
 
     useEffect(() => {
         snapshotRef.current = snapshot;
@@ -111,11 +135,11 @@ export function CanvasLocalAgentPanel({ snapshot, canUndoOps, collapsed, embedde
         });
         source.addEventListener("tool_call", (event) => {
             const data = parseEventData<AgentPendingToolCall>(event);
-            if (data) void handleToolCall(endpoint, token, data);
+            if (data) dispatchToolCall(endpoint, token, data);
         });
         source.addEventListener("agent_event", (event) => {
             const data = parseEventData<AgentEventPayload>(event);
-            if (data) handleAgentEvent(data);
+            if (data) dispatchAgentEvent(data);
         });
         source.addEventListener("agent_log", (event) => {
             const text = parseEventData<{ text?: unknown }>(event)?.text;
@@ -124,7 +148,7 @@ export function CanvasLocalAgentPanel({ snapshot, canUndoOps, collapsed, embedde
         source.addEventListener("agent_error", (event) => {
             const message = parseEventData<{ message?: unknown }>(event)?.message;
             setAgentState({ activity: "出错", waiting: false });
-            addMessage({ role: "error", title: "错误", text: normalizeText(message) });
+            appendAgentMessage({ role: "error", title: "错误", text: normalizeText(message) });
             addEventLog("错误", message, message);
         });
         source.addEventListener("agent_done", () => {
@@ -140,7 +164,7 @@ export function CanvasLocalAgentPanel({ snapshot, canUndoOps, collapsed, embedde
             }
             errorLoggedRef.current = true;
             connectedRef.current = false;
-            clearAgentSession({ activity: wasConnected ? "连接断开" : "连接失败", connected: false, connectError: text });
+            resetAgentSession({ activity: wasConnected ? "连接断开" : "连接失败", connected: false, connectError: text });
             if (!wasConnected) {
                 source.close();
                 setAgentState({ enabled: false });
@@ -151,7 +175,7 @@ export function CanvasLocalAgentPanel({ snapshot, canUndoOps, collapsed, embedde
             connectedRef.current = false;
             setAgentState({ connected: false });
         };
-    }, [enabled, endpoint, loadThreads, message, setAgentState, token]);
+    }, [addEventLog, appendAgentMessage, dispatchAgentEvent, dispatchToolCall, enabled, endpoint, loadThreads, message, resetAgentSession, setAgentState, token]);
 
     useEffect(() => {
         if (connected) void loadThreads();
@@ -438,10 +462,6 @@ export function CanvasLocalAgentPanel({ snapshot, canUndoOps, collapsed, embedde
             return;
         }
         pushMessage(next);
-    };
-
-    const addEventLog = (title: string, text: unknown, raw?: unknown) => {
-        pushEventLog({ id: `${Date.now()}-${Math.random()}`, time: new Date().toLocaleTimeString(), title, text: normalizeText(text) || title, raw });
     };
 
     const handleAgentEvent = (event: AgentEventPayload) => {

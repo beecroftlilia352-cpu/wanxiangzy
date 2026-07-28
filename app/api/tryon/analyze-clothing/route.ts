@@ -475,13 +475,17 @@ function normalizeUrlArray(value: unknown) {
     : [];
 }
 
-function extractMessageContent(raw: any) {
-  const content = raw?.choices?.[0]?.message?.content;
+function extractMessageContent(raw: unknown) {
+  const content = (raw as { choices?: Array<{ message?: { content?: unknown } }> } | null)?.choices?.[0]?.message?.content;
   if (typeof content === "string") return content;
   if (Array.isArray(content)) {
-    return content.map((item) => typeof item?.text === "string" ? item.text : "").join("\n");
+    return content.map(readContentPartText).join("\n");
   }
   return "";
+}
+
+function readContentPartText(item: unknown) {
+  return item && typeof item === "object" && "text" in item && typeof item.text === "string" ? item.text : "";
 }
 
 function parseJsonObject(content: string) {

@@ -83,7 +83,7 @@ export async function POST(request: Request) {
   await writeAdminAuditLog(auth.context, {
     action: "tryon.reference_scene.upsert",
     resourceType: "tryon_reference_scene",
-    resourceId: String((data as any)?.id || normalized.value.scene_key),
+    resourceId: String((data as { id?: unknown } | null)?.id || normalized.value.scene_key),
     reason: `Upsert try-on reference scene ${normalized.value.scene_key}`,
     metadata: { sceneKey: normalized.value.scene_key, status: normalized.value.status },
   });
@@ -126,9 +126,9 @@ export async function PATCH(request: Request) {
   await writeAdminAuditLog(auth.context, {
     action: "tryon.reference_scene.patch",
     resourceType: "tryon_reference_scene",
-    resourceId: String((data as any)?.id || sceneKey || id),
+    resourceId: String((data as { id?: unknown } | null)?.id || sceneKey || id),
     reason: "Patch try-on reference scene",
-    metadata: { sceneKey: (data as any)?.scene_key || sceneKey, id, update },
+    metadata: { sceneKey: (data as { scene_key?: unknown } | null)?.scene_key || sceneKey, id, update },
   });
 
   return NextResponse.json({ ok: true, scene: data }, { headers: { "Cache-Control": "no-store" } });

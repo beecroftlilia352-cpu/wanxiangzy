@@ -236,6 +236,7 @@ export default function LoginPage() {
                   <Mail aria-hidden="true" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
                   <input
                     id="login-email"
+                    name="email"
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -245,7 +246,7 @@ export default function LoginPage() {
                     spellCheck={false}
                     aria-invalid={error ? "true" : undefined}
                     aria-describedby={error ? "login-error" : undefined}
-                    className="w-full rounded-2xl border border-[var(--codex-border)] bg-white px-4 py-3 pl-10 text-sm text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-[rgba(91,124,255,0.5)] focus:ring-4 focus:ring-[rgba(91,124,255,0.14)] dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100 dark:placeholder:text-stone-500 dark:focus:border-[rgba(91,124,255,0.6)] dark:focus:ring-[rgba(91,124,255,0.18)]"
+                    className="w-full rounded-2xl border border-[var(--codex-border)] bg-white px-4 py-3 pl-10 text-sm text-slate-900 outline-none transition-[color,background-color,border-color,box-shadow] placeholder:text-slate-400 focus-visible:border-[rgba(91,124,255,0.5)] focus-visible:ring-4 focus-visible:ring-[rgba(91,124,255,0.14)] dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100 dark:placeholder:text-stone-500 dark:focus-visible:border-[rgba(91,124,255,0.6)] dark:focus-visible:ring-[rgba(91,124,255,0.18)]"
                     placeholder="you@example.com…"
                   />
                 </div>
@@ -257,6 +258,7 @@ export default function LoginPage() {
                   <Lock aria-hidden="true" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
                   <input
                     id="login-password"
+                    name="password"
                     type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -264,7 +266,7 @@ export default function LoginPage() {
                     autoComplete="current-password"
                     aria-invalid={error ? "true" : undefined}
                     aria-describedby={error ? "login-error" : undefined}
-                    className="w-full rounded-2xl border border-[var(--codex-border)] bg-white px-4 py-3 pl-10 pr-10 text-sm text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-[rgba(91,124,255,0.5)] focus:ring-4 focus:ring-[rgba(91,124,255,0.14)] dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100 dark:placeholder:text-stone-500 dark:focus:border-[rgba(91,124,255,0.6)] dark:focus:ring-[rgba(91,124,255,0.18)]"
+                    className="w-full rounded-2xl border border-[var(--codex-border)] bg-white px-4 py-3 pl-10 pr-10 text-sm text-slate-900 outline-none transition-[color,background-color,border-color,box-shadow] placeholder:text-slate-400 focus-visible:border-[rgba(91,124,255,0.5)] focus-visible:ring-4 focus-visible:ring-[rgba(91,124,255,0.14)] dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100 dark:placeholder:text-stone-500 dark:focus-visible:border-[rgba(91,124,255,0.6)] dark:focus-visible:ring-[rgba(91,124,255,0.18)]"
                     placeholder="输入密码…"
                   />
                   <button
@@ -333,6 +335,7 @@ export default function LoginPage() {
                   <Mail aria-hidden="true" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
                   <input
                     id="signup-email"
+                    name="email"
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -340,7 +343,7 @@ export default function LoginPage() {
                     autoComplete="email"
                     inputMode="email"
                     spellCheck={false}
-                    className="w-full rounded-2xl border border-[var(--codex-border)] bg-white px-4 py-3 pl-10 text-sm text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-[rgba(91,124,255,0.5)] focus:ring-4 focus:ring-[rgba(91,124,255,0.14)] dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100 dark:placeholder:text-stone-500"
+                    className="w-full rounded-2xl border border-[var(--codex-border)] bg-white px-4 py-3 pl-10 text-sm text-slate-900 outline-none transition-[color,background-color,border-color,box-shadow] placeholder:text-slate-400 focus-visible:border-[rgba(91,124,255,0.5)] focus-visible:ring-4 focus-visible:ring-[rgba(91,124,255,0.14)] dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100 dark:placeholder:text-stone-500"
                     placeholder="you@example.com…"
                   />
                 </div>
@@ -352,11 +355,12 @@ export default function LoginPage() {
                   <KeyRound aria-hidden="true" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
                   <input
                     id="signup-invite"
+                    name="inviteCode"
                     value={inviteCode}
                     onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
                     required
                     autoComplete="one-time-code"
-                    className="w-full rounded-2xl border border-[var(--codex-border)] bg-white px-4 py-3 pl-10 font-mono text-sm font-black uppercase tracking-[0.08em] text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-[rgba(91,124,255,0.5)] focus:ring-4 focus:ring-[rgba(91,124,255,0.14)] dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100 dark:placeholder:text-stone-500"
+                    className="w-full rounded-2xl border border-[var(--codex-border)] bg-white px-4 py-3 pl-10 font-mono text-sm font-black uppercase tracking-[0.08em] text-slate-900 outline-none transition-[color,background-color,border-color,box-shadow] placeholder:text-slate-400 focus-visible:border-[rgba(91,124,255,0.5)] focus-visible:ring-4 focus-visible:ring-[rgba(91,124,255,0.14)] dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100 dark:placeholder:text-stone-500"
                     placeholder="输入邀请码…"
                   />
                 </div>
@@ -368,13 +372,14 @@ export default function LoginPage() {
                   <Lock aria-hidden="true" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
                   <input
                     id="signup-password"
+                    name="newPassword"
                     type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
                     minLength={6}
                     autoComplete="new-password"
-                    className="w-full rounded-2xl border border-[var(--codex-border)] bg-white px-4 py-3 pl-10 pr-10 text-sm text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-[rgba(91,124,255,0.5)] focus:ring-4 focus:ring-[rgba(91,124,255,0.14)] dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100 dark:placeholder:text-stone-500"
+                    className="w-full rounded-2xl border border-[var(--codex-border)] bg-white px-4 py-3 pl-10 pr-10 text-sm text-slate-900 outline-none transition-[color,background-color,border-color,box-shadow] placeholder:text-slate-400 focus-visible:border-[rgba(91,124,255,0.5)] focus-visible:ring-4 focus-visible:ring-[rgba(91,124,255,0.14)] dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100 dark:placeholder:text-stone-500"
                     placeholder="至少 6 位…"
                   />
                   <button
@@ -471,6 +476,7 @@ export default function LoginPage() {
                   <Mail aria-hidden="true" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
                   <input
                     id="forgot-email"
+                    name="email"
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -478,7 +484,7 @@ export default function LoginPage() {
                     autoComplete="email"
                     inputMode="email"
                     spellCheck={false}
-                    className="w-full rounded-2xl border border-[var(--codex-border)] bg-white px-4 py-3 pl-10 text-sm text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-[rgba(91,124,255,0.5)] focus:ring-4 focus:ring-[rgba(91,124,255,0.14)] dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100 dark:placeholder:text-stone-500"
+                    className="w-full rounded-2xl border border-[var(--codex-border)] bg-white px-4 py-3 pl-10 text-sm text-slate-900 outline-none transition-[color,background-color,border-color,box-shadow] placeholder:text-slate-400 focus-visible:border-[rgba(91,124,255,0.5)] focus-visible:ring-4 focus-visible:ring-[rgba(91,124,255,0.14)] dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100 dark:placeholder:text-stone-500"
                     placeholder="you@example.com…"
                   />
                 </div>

@@ -23,9 +23,16 @@ type RequiredTaskQueueGenerationConfig = TaskQueueGenerationConfig & {
 };
 
 export function useTaskQueueGeneration(config: TaskQueueGenerationConfig) {
+  const { applyPath, buildApplyUrl, defaultExpectedCount, module, title } = config;
   const resolvedConfig = useMemo(
-    () => normalizeTaskQueueGenerationConfig(config),
-    [config.applyPath, config.buildApplyUrl, config.defaultExpectedCount, config.module, config.title]
+    () => normalizeTaskQueueGenerationConfig({
+      applyPath,
+      buildApplyUrl,
+      defaultExpectedCount,
+      module,
+      title,
+    }),
+    [applyPath, buildApplyUrl, defaultExpectedCount, module, title]
   );
   const createOptimisticTask = useTaskQueueStore((state) => state.createOptimisticTask);
   const replaceStoreTask = useTaskQueueStore((state) => state.replaceTask);

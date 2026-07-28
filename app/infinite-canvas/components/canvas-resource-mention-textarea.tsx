@@ -6,6 +6,7 @@ import { createPortal } from "react-dom";
 import { FileText, Image as ImageIcon, Music2, Video } from "lucide-react";
 
 import { canvasThemes } from "@/lib/canvas-theme";
+import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { useThemeStore } from "@/stores/use-theme-store";
 import type { CanvasResourceReference } from "../utils/canvas-resource-references";
 
@@ -256,7 +257,7 @@ function MentionMenu({ textarea, references, activeIndex, theme, onSelect }: { t
 }
 
 function ReferencePreview({ reference }: { reference: CanvasResourceReference }) {
-    if (reference.kind === "image" && reference.previewUrl) return <img src={reference.previewUrl} alt="" className="size-9 rounded-md object-cover" width={36} height={36} loading="lazy" />;
+    if (reference.kind === "image" && reference.previewUrl) return <RawPreviewImage src={reference.previewUrl} alt="" className="size-9 rounded-md object-cover" width={36} height={36} loading="lazy" />;
     if (reference.kind === "video" && reference.previewUrl) return <video src={reference.previewUrl} className="size-9 rounded-md bg-black object-cover" muted preload="metadata" />;
     const Icon = reference.kind === "audio" ? Music2 : reference.kind === "video" ? Video : reference.kind === "image" ? ImageIcon : FileText;
     return (

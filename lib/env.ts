@@ -139,14 +139,16 @@ const OPTIONAL_ENV: EnvContractEntry[] = [
   { name: "LAOZHANG_NANO_BANANA_MODEL", category: "optional", description: "LaoZhang provider model id for nano-banana-2." },
   { name: "LAOZHANG_NANO_BANANA_PRO_MODEL", category: "optional", description: "LaoZhang provider model id for nano-banana-pro." },
   { name: "HAPPYHORSE_BASE_URL", category: "optional", description: "HappyHorse API base URL, default https://yunwu.ai. Values ending in /v1 are normalized to the documented root path." },
-  { name: "YUNWU_API_KEY", category: "optional", description: "Shared Yunwu API key fallback for HappyHorse video generation." },
-  { name: "YUNWU_API_BASE_URL", category: "optional", description: "Shared Yunwu API base URL fallback for HappyHorse video generation." },
+  { name: "YUNWU_API_KEY", category: "optional", description: "Shared Yunwu API key for image recognition, prompt analysis, image generation, and video generation." },
+  { name: "YUNWU_API_BASE_URL", category: "optional", description: "Shared Yunwu OpenAI-compatible API base URL." },
+  { name: "YUNWU_TEXT_MODEL", category: "optional", description: "Yunwu text analysis model override." },
+  { name: "YUNWU_VISION_MODEL", category: "optional", description: "Yunwu vision-capable image recognition model override." },
   { name: "TRYON_CLOTHING_ANALYZE_API_KEY", category: "optional", description: "Yunwu/OpenAI-compatible API key for try-on clothing recognition; falls back to LINGYA_API_KEY." },
   { name: "TRYON_CLOTHING_ANALYZE_BASE_URL", category: "optional", description: "Yunwu/OpenAI-compatible base URL for try-on clothing recognition." },
   { name: "TRYON_CLOTHING_ANALYZE_MODEL", category: "optional", description: "Vision-capable model for try-on clothing recognition, default gpt-5-nano." },
   { name: "TRYON_CLOTHING_ANALYZE_TIMEOUT_MS", category: "optional", description: "Timeout for try-on clothing recognition requests." },
   { name: "TRYON_REFERENCE_IMAGE_ALLOWED_HOSTS", category: "optional", description: "Comma-separated extra hosts allowed for managed try-on reference scene images." },
-  { name: "ANALYZE_LLM_PROVIDER", category: "optional", description: "Prompt analysis provider: xiaomi or lingya." },
+  { name: "ANALYZE_LLM_PROVIDER", category: "optional", description: "Prompt and image analysis provider: yunwu, xiaomi, or legacy lingya." },
   { name: "LINGYA_TEXT_MODEL", category: "optional", description: "Lingya text model override." },
   { name: "LINGYA_VISION_MODEL", category: "optional", description: "Lingya vision model override." },
   { name: "XIAOMI_MIMO_BASE_URL", category: "optional", description: "Xiaomi OpenAI-compatible base URL override." },
@@ -212,6 +214,7 @@ export function validateEnv(options: { log?: boolean; nodeEnv?: string } = {}): 
   const nodeEnv = options.nodeEnv || process.env.NODE_ENV;
   const isProduction = nodeEnv === "production";
   const imageStorageProvider = (process.env.IMAGE_STORAGE_PROVIDER || "imgbb").trim().toLowerCase();
+  const analyzeProvider = (process.env.ANALYZE_LLM_PROVIDER || "xiaomi").trim().toLowerCase();
   const issues: EnvValidationIssue[] = [];
 
   for (const entry of PRODUCTION_REQUIRED_ENV) {
@@ -231,6 +234,7 @@ export function validateEnv(options: { log?: boolean; nodeEnv?: string } = {}): 
     if (entry.name.includes(" or ")) continue;
     if (entry.name === "CATROUTER_API_KEY") continue;
     if (entry.name === "IMGBB_API_KEY" && imageStorageProvider === "aliyun-oss") continue;
+    if (entry.name === "XIAOMI_MIMO_API_KEY" && analyzeProvider !== "xiaomi") continue;
     if (!process.env[entry.name]) {
       issues.push({
         name: entry.name,
@@ -239,6 +243,15 @@ export function validateEnv(options: { log?: boolean; nodeEnv?: string } = {}): 
         message: `${entry.name} is not set; related features will fail when used.`,
       });
     }
+  }
+
+  if (analyzeProvider === "yunwu" && !process.env.YUNWU_API_KEY && !process.env.YUNWU_NATIVE_API_KEY) {
+    issues.push({
+      name: "YUNWU_API_KEY or YUNWU_NATIVE_API_KEY",
+      category: "feature-required",
+      severity: "warning",
+      message: "YUNWU_API_KEY or YUNWU_NATIVE_API_KEY is not set; prompt and image analysis will fail while ANALYZE_LLM_PROVIDER=yunwu.",
+    });
   }
 
   const gptImageProvider = normalizeGptImageProvider(process.env.GPT_IMAGE_PROVIDER);

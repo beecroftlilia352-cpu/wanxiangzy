@@ -3,44 +3,27 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Bookmark,
-  Check,
   ChevronRight,
-  Download,
-  Edit3,
-  ImagePlus,
   Layers3,
   Loader2,
-  Palette,
-  Plus,
   RefreshCw,
-  Save,
-  Search,
   Settings2,
   Activity,
   Trash2,
-  Upload,
-  Brush,
   X,
-  ZoomIn,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Modal } from "antd";
 import { FeatureTabs } from "@/components/FeatureTabs";
 import { ModuleHeader } from "@/components/ModuleHeader";
-import { PreviewGuide } from "@/components/PreviewGuide";
 import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
 import { useStudioAuth } from "@/components/studio/useStudioAuth";
 import type { TaskSelectionSession } from "@/components/studio/useTaskSelectionSession";
-import { LoadingStage } from "@/components/studio/LoadingStage";
-import { StudioGenerationCountSelector } from "@/components/studio/StudioFormControls";
 import { StudioUploadTile } from "@/components/studio/StudioUploadTile";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
-import { VisualAnalysisStatusCard } from "@/components/studio/VisualAnalysisStatus";
 import { useStableFileDrag } from "@/components/studio/useStableFileDrag";
 import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
-import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
-import { ClientPortal } from "@/components/ClientPortal";
+import { StudioMediaLightbox } from "@/components/studio/StudioMediaLightbox";
 import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { fetchHistoryApplyDetail, getHistoryApplyFailureMessage, isHistoryApplyRowFailed, takeApplyDetail } from "@/lib/history-apply";
 import { getImageVariantUrl } from "@/lib/image-variants";
@@ -48,42 +31,29 @@ import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@
 import { downloadImage, generateDownloadFilename, MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
 import { showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
-import { FAILED_RETRY_NOTICE, buildPartialFailureDetail, summarizeGenerationError } from "@/lib/studio-generation-feedback";
+import { buildPartialFailureDetail, summarizeGenerationError } from "@/lib/studio-generation-feedback";
 import { createProductSetPreviewSession, takeSourceImageFromLocation, type ImagePreviewResultStatus } from "@/lib/studio-image-preview";
 import {
-  PRODUCT_SET_COUNTRIES,
   PRODUCT_SET_EXAMPLE_GROUPS,
   PRODUCT_SET_FONT_STYLE_LABELS,
-  PRODUCT_SET_LANGUAGES,
-  PRODUCT_SET_PLATFORMS,
   PRODUCT_SET_PRESET_PLANS,
   PRODUCT_SET_PROMPT_VERSION,
   PRODUCT_SET_STYLE_PACKS,
   buildProductSetPlanRecommendation,
   getProductSetModuleQualityLabel,
   getProductSetModuleKey,
-  getProductSetModuleReason,
   getProductSetTemplates,
   getProductSetVisualDirectorPlanCount,
   normalizeProductSetProductProfile,
   resolveProductSetTemplates,
-  shouldUseModelForTemplate,
-  type ProductSetCopyDensity,
   type ProductSetCreationMode,
   type ProductSetCustomTemplate,
-  type ProductSetFontStyle,
   type ProductSetImageType,
-  type ProductSetApparelType,
   type ProductSetModuleOverride,
   type ProductSetModuleResult,
-  type ProductSetModelStrategy,
-  type ProductSetProductKind,
   type ProductSetProductProfile,
   type ProductSetResolvedTemplate,
   type ProductSetSettings,
-  type ProductSetStylePack,
-  type ProductSetTemplate,
-  type ProductSetThemeMode,
 } from "@/lib/product-set";
 import {
   buildDefaultFavoritePlanName,
@@ -96,28 +66,23 @@ import {
   type SavedProductSetPlan,
 } from "@/lib/product-set-ui-state";
 import {
-  formatMissingInfo,
   getAnalysisFallbackMessage,
   getDefaultGenerationCount,
   getProductAnalysisStatus,
   isPlaceholderProductName,
   parseProductInfo,
   resolveAnalysisSource,
-  splitBriefText,
   type ProductAnalysisSource,
-  type ProductInfoFields,
 } from "@/features/product-set/create/product-info";
 import {
   COUNT_OPTIONS,
-  CUSTOM_ASPECTS,
   DEFAULT_DRAFT,
   DEFAULT_REFERENCE_STYLE_BRIEF,
   DEFAULT_SETTINGS,
   FAVORITE_PRODUCT_SET_PLAN_LIMIT,
-  MODELS,
   PLAN_SOURCE_TABS,
-  PRODUCT_SET_PREVIEW_ACTIONS,
   buildReferenceStyleBrief,
+  getAspectRatioLabel,
 } from "@/features/product-set/create/config";
 import type {
   CustomDraft,
@@ -126,6 +91,32 @@ import type {
   ProductSetHistoryPayload,
   TemplateFilter,
 } from "@/features/product-set/create/types";
+import {
+  CountSelector,
+  ProductModeTabs,
+  WorkflowStepper,
+} from "@/features/product-set/create/controls";
+import {
+  AnalysisSummaryCard,
+  ProductAnalysisNotice,
+  ProductBriefSummary,
+  ProductProfileCard,
+  ProductVisualStrategyCard,
+} from "@/features/product-set/create/analysis-sections";
+import {
+  ModuleEditModal,
+  ProductProfileEditorModal,
+  ReferenceStyleModal,
+  SettingsModal,
+} from "@/features/product-set/create/edit-dialogs";
+import { CustomTemplateSourcePanel } from "@/features/product-set/create/custom-template-source-panel";
+import { FavoritePlanPanel } from "@/features/product-set/create/favorite-plan-panel";
+import { GenerationSettingsSummary } from "@/features/product-set/create/generation-settings-summary";
+import { ModelConfigPanel } from "@/features/product-set/create/model-config-panel";
+import { PlanList } from "@/features/product-set/create/plan-list";
+import { PlanRecommendationCard } from "@/features/product-set/create/plan-recommendation-card";
+import { ResultsCanvas } from "@/features/product-set/create/results-canvas";
+import { TemplateLibraryDialog } from "@/features/product-set/create/template-library-dialog";
 
 export default function ProductSetPage() {
   const router = useRouter();
@@ -1482,7 +1473,7 @@ export default function ProductSetPage() {
 
           <section
             {...productImageDrag.dragHandlers}
-            className={`studio-stable-upload-boundary rounded-3xl border bg-white p-4 shadow-sm transition ${isDragging ? "border-[rgba(91,124,255,0.22)] ring-4 ring-[rgba(91,124,255,0.18)]" : "border-slate-100"}`}
+            className={`studio-stable-upload-boundary rounded-3xl border bg-white p-4 shadow-sm transition-[border-color,box-shadow] ${isDragging ? "border-[rgba(91,124,255,0.22)] ring-4 ring-[rgba(91,124,255,0.18)]" : "border-slate-100"}`}
           >
             <div className="mb-3 flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
@@ -1493,6 +1484,8 @@ export default function ProductSetPage() {
             </div>
             <input
               ref={productInputRef}
+              aria-hidden="true"
+              tabIndex={-1}
               type="file"
               accept="image/*"
               multiple
@@ -1534,15 +1527,15 @@ export default function ProductSetPage() {
                   <div key={`${item.url}-${index}`} className="studio-checkerboard group relative aspect-square overflow-hidden rounded-xl border border-white bg-white shadow-sm">
                     <RawPreviewImage src={getImageVariantUrl(item.url, "thumb")} alt={item.name} className="h-full w-full object-contain p-1.5" />
                     <span className="absolute left-1 top-1 rounded bg-white/90 px-1.5 py-0.5 text-[10px] font-bold text-slate-500 dark:bg-white/10 dark:text-stone-300">图{index + 1}</span>
-                    <button type="button" aria-label="移除商品图" onClick={() => removeProductImage(index)} className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-slate-800/80 text-white opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100">
-                      <X className="h-3 w-3" />
+                    <button type="button" aria-label={`移除${item.name}`} onClick={() => removeProductImage(index)} className="absolute right-1 top-1 flex h-5 w-5 touch-manipulation items-center justify-center rounded-full bg-slate-800/80 text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2">
+                      <X aria-hidden="true" className="h-3 w-3" />
                     </button>
                   </div>
                 ))}
               </div>
                 <div className="mt-2 flex justify-end">
-                  <button type="button" onClick={() => { setProductImages([]); setProductInfo(""); resetAnalysisPlan("idle"); }} className="inline-flex h-8 shrink-0 items-center gap-1 rounded-full px-2 text-xs font-bold text-slate-400 hover:bg-red-50 hover:text-red-500">
-                    <Trash2 className="h-3.5 w-3.5" /> 清空
+                  <button type="button" onClick={() => { setProductImages([]); setProductInfo(""); resetAnalysisPlan("idle"); }} className="inline-flex h-8 shrink-0 touch-manipulation items-center gap-1 rounded-full px-2 text-xs font-bold text-slate-400 transition-colors hover:bg-red-50 hover:text-red-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2">
+                    <Trash2 aria-hidden="true" className="h-3.5 w-3.5" /> 清空
                   </button>
                 </div>
               </>
@@ -1559,10 +1552,10 @@ export default function ProductSetPage() {
                 type="button"
                 onClick={() => analyzeProductInfo()}
                 disabled={!canAnalyzeProduct}
-                className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-[rgba(91,124,255,0.22)] bg-[rgba(91,124,255,0.1)] px-3 text-xs font-black text-[var(--codex-accent)] disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex h-9 shrink-0 touch-manipulation items-center gap-1.5 rounded-full border border-[rgba(91,124,255,0.22)] bg-[rgba(91,124,255,0.1)] px-3 text-xs font-black text-[var(--codex-accent)] transition-colors hover:bg-[rgba(91,124,255,0.16)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {isAnalyzing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-                {isAnalyzing ? "正在分析" : hasAnalyzedProduct ? "重新帮我写" : "帮我写"}
+                {isAnalyzing ? <Loader2 aria-hidden="true" className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" /> : <RefreshCw aria-hidden="true" className="h-3.5 w-3.5" />}
+                {isAnalyzing ? "正在分析…" : hasAnalyzedProduct ? "重新帮我写" : "帮我写"}
               </button>
             </div>
 
@@ -1573,16 +1566,19 @@ export default function ProductSetPage() {
             ) : (
               <div>
                 <textarea
+                  name="product-information"
+                  autoComplete="off"
                   value={productInfo}
+                  maxLength={2000}
                   onChange={(event) => {
-                    const nextValue = event.target.value.slice(0, 2000);
+                    const nextValue = event.target.value;
                     setProductInfo(nextValue);
                     resetAnalysisPlan(nextValue.trim() ? "manual" : "idle", nextValue.trim() ? "商品信息已修改，请重新分析生成对应方案。" : "");
                   }}
                   aria-label="商品信息"
                   placeholder={`可选：写一句商品名称、卖点、目标平台或风格要求。
-也可以不填，上传商品图并选择数量后，点击“帮我写”，系统会自动整理成完整商品规划。`}
-                  className="min-h-40 w-full resize-none rounded-2xl border border-slate-100 bg-slate-50 px-3 py-3 text-sm leading-6 text-slate-800 outline-none transition focus:border-[rgba(91,124,255,0.5)] focus:bg-white dark:border-white/10 dark:bg-white/5 dark:text-stone-200 dark:focus:bg-white/10"
+也可以不填，上传商品图并选择数量后，点击“帮我写”，系统会自动整理成完整商品规划…`}
+                  className="min-h-40 w-full resize-none rounded-2xl border border-slate-100 bg-slate-50 px-3 py-3 text-sm leading-6 text-slate-800 transition-colors focus-visible:border-[rgba(91,124,255,0.5)] focus-visible:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2 dark:border-white/10 dark:bg-white/5 dark:text-stone-200 dark:focus-visible:bg-white/10"
                 />
                 <div className="mt-2 flex items-center justify-between text-[11px] text-slate-400">
                   <span>{productInfo ? "建议保留模板字段，生成文案会更稳定。" : "不想写也可以，点“帮我写”让系统根据商品图整理。"}</span>
@@ -1603,15 +1599,15 @@ export default function ProductSetPage() {
               type="button"
               onClick={() => analyzeProductInfo()}
               disabled={!canAnalyzeProduct}
-              className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-full bg-slate-950 text-sm font-black text-white shadow-lg shadow-slate-200 disabled:cursor-not-allowed disabled:opacity-50"
+              className="mt-3 flex h-11 w-full touch-manipulation items-center justify-center gap-2 rounded-full bg-slate-950 text-sm font-black text-white shadow-lg shadow-slate-200 transition-colors hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {isAnalyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Activity className="h-4 w-4" />}
-              {isAnalyzing ? "正在分析商品" : hasAnalyzedProduct ? "重新帮我写商品信息" : "帮我写商品信息"}
+              {isAnalyzing ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none" /> : <Activity aria-hidden="true" className="h-4 w-4" />}
+              {isAnalyzing ? "正在分析商品…" : hasAnalyzedProduct ? "重新帮我写商品信息" : "帮我写商品信息"}
             </button>
 
             {!hasAnalyzedProduct && (
               <div className="mt-3 rounded-2xl border border-slate-100 bg-slate-50 px-3 py-3 text-xs leading-5 text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-stone-400">
-                分析后 系统会把上面的商品信息写入规划：目标平台、风格名称、视觉风格、统一场景、核心卖点、用户痛点、适用人群、产品参数和主题配色，并按你选择的数量生成计划。
+                分析后系统会把上面的商品信息写入规划：目标平台、风格名称、视觉风格、统一场景、核心卖点、用户痛点、适用人群、产品参数和主题配色，并按你选择的数量生成计划。
               </div>
             )}
 
@@ -1663,10 +1659,9 @@ export default function ProductSetPage() {
                   <button
                     key={tab.value}
                     type="button"
-                    role="tab"
                     aria-pressed={active}
                     onClick={() => changePlanMode(tab.value)}
-                    className={`min-h-12 rounded-xl px-2 py-1.5 text-center transition ${
+                    className={`min-h-12 touch-manipulation rounded-xl px-2 py-1.5 text-center transition-[background-color,color,box-shadow] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2 ${
                       active ? "bg-white text-[var(--codex-accent)] shadow-sm dark:bg-white/10 dark:text-[#cfd8ff]" : "text-slate-500 hover:bg-white/60 dark:text-stone-400 dark:hover:bg-white/5"
                     }`}
                   >
@@ -1694,10 +1689,9 @@ export default function ProductSetPage() {
                       <button
                         key={tab.value}
                         type="button"
-                        role="tab"
                         aria-pressed={active}
                         onClick={() => changePlanSourceTab(tab.value)}
-                        className={`min-h-11 rounded-xl px-2 py-1.5 text-center transition ${
+                        className={`min-h-11 touch-manipulation rounded-xl px-2 py-1.5 text-center transition-[background-color,color,box-shadow] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2 ${
                           active ? "bg-white text-[var(--codex-accent)] shadow-sm dark:bg-white/10 dark:text-[#cfd8ff]" : "text-slate-500 hover:bg-white/60 dark:text-stone-400 dark:hover:bg-white/5"
                         }`}
                       >
@@ -1714,8 +1708,9 @@ export default function ProductSetPage() {
                       <button
                         key={plan.id}
                         type="button"
+                        aria-pressed={selectedPlanId === plan.id}
                         onClick={() => applyPresetPlan(plan.id)}
-                        className={`flex min-h-[92px] flex-col rounded-2xl border p-3 text-left transition ${
+                        className={`flex min-h-[92px] touch-manipulation flex-col rounded-2xl border p-3 text-left transition-[border-color,background-color,color] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2 ${
                           selectedPlanId === plan.id
                             ? "border-[rgba(91,124,255,0.22)] bg-[rgba(91,124,255,0.1)] text-[var(--codex-accent)]"
                             : "border-slate-100 bg-slate-50 text-slate-600 hover:border-[rgba(91,124,255,0.3)] dark:border-white/10 dark:bg-white/5 dark:text-stone-300 dark:hover:border-[rgba(91,140,255,0.45)]"
@@ -1741,7 +1736,7 @@ export default function ProductSetPage() {
                               setReferenceStyleDraft(referenceStyleBrief);
                               setShowReferenceStyleModal(true);
                             }}
-                            className="h-8 shrink-0 rounded-full bg-white px-3 text-[11px] font-black text-[var(--codex-accent)] shadow-sm dark:bg-white/10"
+                            className="h-8 shrink-0 touch-manipulation rounded-full bg-white px-3 text-[11px] font-black text-[var(--codex-accent)] shadow-sm transition-colors hover:bg-[rgba(91,124,255,0.12)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2 dark:bg-white/10"
                           >
                             编辑
                           </button>
@@ -1790,8 +1785,8 @@ export default function ProductSetPage() {
                   />
                 )}
 
-                <button type="button" onClick={() => setShowTemplateModal(true)} className="flex h-10 w-full items-center justify-center gap-1.5 rounded-2xl border border-slate-100 bg-white text-xs font-black text-slate-600 hover:border-[rgba(91,124,255,0.3)] hover:bg-[rgba(91,124,255,0.12)] dark:border-white/10 dark:bg-white/5 dark:text-stone-300 dark:hover:border-[rgba(91,140,255,0.45)] dark:hover:bg-[rgba(91,140,255,0.18)]">
-                  <Layers3 className="h-3.5 w-3.5" /> 打开完整模板库
+                <button type="button" onClick={() => setShowTemplateModal(true)} className="flex h-10 w-full touch-manipulation items-center justify-center gap-1.5 rounded-2xl border border-slate-100 bg-white text-xs font-black text-slate-600 transition-colors hover:border-[rgba(91,124,255,0.3)] hover:bg-[rgba(91,124,255,0.12)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2 dark:border-white/10 dark:bg-white/5 dark:text-stone-300 dark:hover:border-[rgba(91,140,255,0.45)] dark:hover:bg-[rgba(91,140,255,0.18)]">
+                  <Layers3 aria-hidden="true" className="h-3.5 w-3.5" /> 打开完整模板库
                 </button>
                 {outputCount > 0 ? (
                   <PlanRecommendationCard recommendation={planRecommendation} imageType={imageType} compact />
@@ -1812,8 +1807,9 @@ export default function ProductSetPage() {
               </div>
               <button
                 type="button"
+                aria-expanded={showFullPlan}
                 onClick={() => setShowFullPlan((value) => !value)}
-                className="inline-flex h-8 shrink-0 items-center gap-1 rounded-full bg-[rgba(91,124,255,0.1)] px-2.5 text-xs font-black text-[var(--codex-accent)] hover:bg-[rgba(91,124,255,0.12)]"
+                className="inline-flex h-8 shrink-0 touch-manipulation items-center gap-1 rounded-full bg-[rgba(91,124,255,0.1)] px-2.5 text-xs font-black text-[var(--codex-accent)] transition-colors hover:bg-[rgba(91,124,255,0.12)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2"
               >
                 {outputCount || 0} {imageType === "main" ? "张" : "屏"} · {showFullPlan ? "收起" : "查看全部"}
               </button>
@@ -1827,12 +1823,12 @@ export default function ProductSetPage() {
               onRemove={removePlanModule}
             />
 
-            <button type="button" onClick={() => setShowSettingsModal(true)} className="mt-3 flex w-full items-center justify-between rounded-2xl border border-slate-100 bg-slate-50 px-3 py-3 text-left text-xs font-bold text-slate-600 hover:border-slate-300 hover:bg-white/75 dark:border-white/10 dark:bg-white/5 dark:text-stone-300 dark:hover:border-[rgba(91,140,255,0.45)] dark:hover:bg-white/10">
+            <button type="button" onClick={() => setShowSettingsModal(true)} className="mt-3 flex w-full touch-manipulation items-center justify-between rounded-2xl border border-slate-100 bg-slate-50 px-3 py-3 text-left text-xs font-bold text-slate-600 transition-colors hover:border-slate-300 hover:bg-white/75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2 dark:border-white/10 dark:bg-white/5 dark:text-stone-300 dark:hover:border-[rgba(91,140,255,0.45)] dark:hover:bg-white/10">
               <span className="flex min-w-0 items-center gap-2">
-                <Settings2 className="h-4 w-4 shrink-0 text-slate-500" />
+                <Settings2 aria-hidden="true" className="h-4 w-4 shrink-0 text-slate-500" />
                 <span className="truncate">{settingsSummary}</span>
               </span>
-              <ChevronRight className="h-4 w-4 shrink-0 text-slate-400" />
+              <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-slate-400" />
             </button>
           </section>}
 
@@ -1866,10 +1862,10 @@ export default function ProductSetPage() {
             type="button"
             onClick={generate}
             disabled={!canGenerate}
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-slate-950 text-sm font-black text-white shadow-[0_16px_36px_rgba(15,23,42,0.18)] transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex h-12 w-full touch-manipulation items-center justify-center gap-2 rounded-full bg-slate-950 text-sm font-black text-white shadow-[0_16px_36px_rgba(15,23,42,0.18)] transition-colors hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--codex-accent)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Activity className="h-4 w-4" />}
-            {outputCount > 0 ? `生成 ${Math.max(outputCount, 1)} ${outputUnit}` : mode === "smart" ? "请先分析生成方案" : "请先选择参考图方案"}
+            {isGenerating ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none" /> : <Activity aria-hidden="true" className="h-4 w-4" />}
+            {isGenerating ? "生成中…" : outputCount > 0 ? `生成 ${Math.max(outputCount, 1)} ${outputUnit}` : mode === "smart" ? "请先分析生成方案" : "请先选择参考图方案"}
             {outputCount > 0 && <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs">{cost} 灵点</span>}
           </button>
           {requiresProductConfirmation && (
@@ -1890,163 +1886,42 @@ export default function ProductSetPage() {
         </div>
       </aside>
 
-      <main className="studio-canvas relative min-h-[70dvh] flex-1 overflow-visible lg:overflow-hidden">
-        <div className="relative overflow-y-visible p-4 pb-24 sm:p-6 lg:absolute lg:inset-0 lg:overflow-y-auto lg:p-8">
-          {!isGenerating && !error && !hasResultStage && !shouldShowTaskPanel && (
-            <div className="mx-auto flex min-h-[calc(100dvh-160px)] max-w-3xl items-center justify-center">
-              <PreviewGuide
-                imageSrc={getImageVariantUrl(productImages[0]?.url || PRODUCT_SET_EXAMPLE_GROUPS[0].images[0], "card")}
-                imageAlt="商品套图示例"
-                title="开始制作商品套图"
-                subtitle="先分析商品信息，再按你选择的数量生成主图/详情页计划。"
-                steps={[
-                  { title: "上传商品图", desc: "最多 3 张，建议包含正面、侧面、背面或细节，方便 系统判断结构与卖点。" },
-                  { title: "分析商品信息", desc: "系统会整理目标平台、风格、统一场景、卖点、痛点、人群、参数和配色。" },
-                  { title: "生成套图计划", desc: `按 ${genCount || "选择的"} ${imageType === "main" ? "张主图" : "屏详情页"} 输出中文方案，再开始生成。` },
-                ]}
-              />
-            </div>
-          )}
+      <ResultsCanvas
+        productImages={productImages}
+        fallbackImage={PRODUCT_SET_EXAMPLE_GROUPS[0].images[0]}
+        genCount={genCount}
+        outputCount={outputCount}
+        imageType={imageType}
+        imageSize={imageSize}
+        mode={mode}
+        platform={settings.platform}
+        isGenerating={isGenerating}
+        error={error}
+        hasResultStage={hasResultStage}
+        shouldShowTaskPanel={shouldShowTaskPanel}
+        hasVisibleResults={hasVisibleResults}
+        progress={progress}
+        moduleResults={moduleResults}
+        resultUrls={resultUrls}
+        activeQueueTask={activeQueueTask}
+        displayedResultPlan={displayedResultPlan}
+        resultSlots={resultSlots}
+        visibleResultCount={visibleResultCount}
+        resultSlotCount={resultSlotCount}
+        hasCompletedPartialResults={hasCompletedPartialResults}
+        partialFailureMessage={partialFailureMessage}
+        regeneratingIndex={regeneratingIndex}
+        aspectRatio={aspectRatio}
+        previewIndex={previewIndex}
+        previewSession={productSetPreviewSession}
+        onGenerate={generate}
+        onClearError={() => { setError(""); setProgress(0); }}
+        onPreviewIndexChange={setPreviewIndex}
+        onRegenerate={(index) => { void regenerateResult(index); }}
+        onDownload={(url, index) => { void downloadResult(url, index); }}
+      />
 
-          {(isGenerating || shouldShowTaskPanel) && !hasVisibleResults && moduleResults.length === 0 && (
-            <div className="mx-auto max-w-3xl space-y-4">
-              <LoadingStage
-                genCount={activeQueueTask ? clampTaskExpectedCount(activeQueueTask, 1, imageType === "details" ? 8 : 6) : Math.max(outputCount, 1)}
-                progress={activeQueueTask?.progress || progress}
-                moduleName="商品套图"
-                referenceImages={(safeTaskQueueUrls(activeQueueTask?.inputThumbnails).length ? safeTaskQueueUrls(activeQueueTask?.inputThumbnails) : productImages.map((item) => item.url)).map((url, index) => ({
-                  label: `商品参考 ${index + 1}`,
-                  url,
-                }))}
-                metaItems={[imageType === "main" ? "主图辅图" : "详情页", settings.platform, imageSize]}
-              />
-              {displayedResultPlan.length > 0 && (
-                <ModuleProgressList templates={displayedResultPlan} moduleResults={moduleResults} resultUrls={resultUrls} isGenerating={isGenerating} />
-              )}
-            </div>
-          )}
-
-          {error && (
-            <div className="studio-result-stage flex min-h-[360px] items-center justify-center px-4">
-              <div className="max-w-md rounded-[28px] border border-red-100 bg-white p-6 text-center shadow-[0_18px_70px_rgba(15,23,42,0.08)]">
-                <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-red-50">
-                  <X className="h-7 w-7 text-red-400" />
-                </div>
-                <h2 className="text-base font-black text-slate-950 dark:text-stone-100">商品套图生成失败</h2>
-                <p className="mt-2 text-sm leading-6 text-red-500">{summarizeGenerationError(error)}</p>
-                <p className="mx-auto mt-3 max-w-sm rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-left text-xs font-semibold leading-5 text-amber-700">
-                  {FAILED_RETRY_NOTICE}
-                </p>
-                <div className="mt-5 flex justify-center gap-2">
-                  <button type="button" onClick={generate} className="h-10 rounded-full bg-slate-950 px-5 text-sm font-bold text-white">重试</button>
-                  <button type="button" onClick={() => { setError(""); setProgress(0); }} className="h-10 rounded-full border border-slate-200 bg-white px-5 text-sm font-bold text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-stone-300">清空</button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {hasResultStage && !error && (
-            <section className="studio-result-stage animate-fade-in">
-              <div className="mb-5 rounded-[28px] border border-white/80 bg-white/82 p-4 shadow-[0_18px_50px_rgba(15,23,42,0.08)] backdrop-blur">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="min-w-0 flex-1">
-                    <h2 className="text-xl font-black text-slate-950 dark:text-stone-100">{isGenerating ? "商品套图生成中" : "商品套图结果"}</h2>
-                    <p className="mt-1 text-xs text-slate-400">
-                      {activeQueueTask?.time ? `${activeQueueTask.time} · ` : ""}
-                      {mode === "smart" ? "智能套图" : "自定义套图"} · {imageType === "main" ? "主图辅图" : "详情页"} · {settings.platform} · 已出 {visibleResultCount}/{resultSlotCount}
-                    </p>
-                  </div>
-                  <span className="inline-flex h-9 shrink-0 items-center justify-center rounded-full bg-[rgba(91,124,255,0.1)] px-3 text-xs font-black text-[var(--codex-accent)]">
-                    {isGenerating ? `${progress}% 继续生成` : "已完成"}
-                  </span>
-                </div>
-                {isGenerating && (
-                  <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-white/5">
-                    <div className="h-full rounded-full bg-gradient-to-r from-slate-700 to-slate-950 transition-[width]" style={{ width: `${Math.min(Math.max(progress, 0), 99)}%` }} />
-                  </div>
-                )}
-                <ModuleProgressList templates={displayedResultPlan} moduleResults={moduleResults} resultUrls={resultUrls} isGenerating={isGenerating} compact />
-              </div>
-              <div className="grid auto-rows-fr gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-                {resultSlots.map(({ url, template, module }, index) => {
-                  const slotFailed = module?.status === "failed" || (!url && hasCompletedPartialResults);
-                  const slotFailureDetail = module?.error
-                    ? buildPartialFailureDetail({ message: module.error, failedCount: 1 })
-                    : partialFailureMessage;
-                  return (
-                    <article key={`${url || template?.id || "pending"}-${index}`} className="flex h-full flex-col overflow-hidden rounded-[24px] border border-white/80 bg-white shadow-[0_18px_50px_rgba(15,23,42,0.08)]">
-                      {url ? (
-                        <button type="button" onClick={() => setPreviewIndex(index)} className="group relative aspect-[3/4] w-full overflow-hidden bg-slate-100 dark:bg-white/5">
-                          <RawPreviewImage src={getImageVariantUrl(url, "card")} alt={template?.name || `商品套图${index + 1}`} className="h-full w-full object-contain transition duration-300 group-hover:scale-[1.02]" />
-                          <span className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-black/45 text-white opacity-0 transition group-hover:opacity-100">
-                            <ZoomIn className="h-4 w-4" />
-                          </span>
-                        </button>
-                      ) : slotFailed ? (
-                        <div className="flex aspect-[3/4] w-full flex-col items-center justify-center bg-red-50 px-5 text-center">
-                          <X className="h-7 w-7 text-red-400" />
-                          <p className="mt-3 text-xs font-black text-red-500">该模块生成失败</p>
-                          <p className="mt-1 max-w-56 text-[11px] leading-4 text-red-400">{slotFailureDetail}</p>
-                          <button type="button" onClick={() => regenerateResult(index)} disabled={regeneratingIndex !== null || isGenerating} className="mt-4 inline-flex h-9 items-center gap-1.5 rounded-full bg-white px-3 text-xs font-black text-red-500 shadow-sm disabled:opacity-50">
-                            {regeneratingIndex === index ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-                            重生本张
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="flex aspect-[3/4] w-full flex-col items-center justify-center bg-slate-50 text-center dark:bg-white/5">
-                          <Loader2 className="h-6 w-6 animate-spin text-[var(--codex-accent)]" />
-                          <p className="mt-3 text-xs font-black text-slate-500 dark:text-stone-300">等待生成</p>
-                          <p className="mt-1 max-w-32 text-[11px] leading-4 text-slate-400 dark:text-stone-500">该模块完成后会自动填入预览区</p>
-                        </div>
-                      )}
-                      <div className="flex min-h-[94px] flex-1 p-3">
-                        <div className="flex w-full items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <h3 className="truncate text-sm font-black text-slate-900 dark:text-stone-100">{template?.name || `结果 ${index + 1}`}</h3>
-                            <p className="mt-1 text-[11px] font-bold text-slate-400">{url ? "已生成" : slotFailed ? "生成失败" : "生成中"} · {template?.imageType === "details" ? "详情页模块" : "主图/辅图"} · {getAspectRatioLabel(template?.aspectRatio || aspectRatio)}</p>
-                            {module?.qualityScore !== undefined && (
-                              <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                                <QualityBadge score={module.qualityScore} />
-                                {module.qualityIssues?.slice(0, 1).map((issue, issueIndex) => (
-                                  <span key={`${module.moduleKey}-issue-${issueIndex}`} className="line-clamp-1 rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-500 dark:bg-white/10 dark:text-stone-300">
-                                    {issue}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                          {url && (
-                            <div className="flex shrink-0 items-center gap-1">
-                              <button type="button" onClick={() => regenerateResult(index)} disabled={regeneratingIndex !== null || isGenerating} className="flex h-9 w-9 items-center justify-center rounded-full border border-[rgba(91,124,255,0.22)] text-[var(--codex-accent)] hover:bg-[rgba(91,124,255,0.12)] disabled:cursor-not-allowed disabled:opacity-50" title="重生这一张">
-                                {regeneratingIndex === index ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                              </button>
-                              <button type="button" onClick={() => downloadResult(url, index)} className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-500 hover:bg-slate-50 dark:border-white/10 dark:text-stone-400 dark:hover:bg-white/5" title="下载">
-                                <Download className="h-4 w-4" />
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
-              <StudioImagePreviewDialog
-                open={previewIndex !== null}
-                onClose={() => setPreviewIndex(null)}
-                session={productSetPreviewSession}
-                selectedIndex={previewIndex || 0}
-                onSelectedIndexChange={setPreviewIndex}
-                filenamePrefix="product-set"
-                actions={PRODUCT_SET_PREVIEW_ACTIONS}
-                onRegenerateOne={(_, index) => void regenerateResult(index)}
-              />
-            </section>
-          )}
-        </div>
-      </main>
-
-      <ClientPortal>
+      <>
         {showSettingsModal && (
           <SettingsModal
             settings={settings}
@@ -2094,13 +1969,12 @@ export default function ProductSetPage() {
         )}
 
         {showTemplateModal && (
-          <TemplateLibraryModal
+          <TemplateLibraryDialog
             imageType={imageType}
             genCount={genCount}
             templates={templates}
             selectedTemplateIds={activeSelectedTemplateIds}
             activeCustomTemplates={activeCustomTemplates}
-            mode={mode}
             filter={templateFilter}
             query={templateQuery}
             customDraft={customDraft}
@@ -2124,1623 +1998,12 @@ export default function ProductSetPage() {
           />
         )}
 
-        {lightboxSrc && (
-          <div className="fixed inset-0 z-[140] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm" onClick={() => setLightboxSrc(null)}>
-            <button type="button" onClick={() => setLightboxSrc(null)} className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20">
-              <X className="h-5 w-5" />
-            </button>
-            <RawPreviewImage src={lightboxSrc} alt="商品套图预览" className="max-h-[92vh] max-w-[94vw] rounded-2xl object-contain shadow-2xl" />
-          </div>
-        )}
-      </ClientPortal>
-    </div>
-  );
-}
-
-function ProductModeTabs({ imageType, onChange }: { imageType: ProductSetImageType; onChange: (value: ProductSetImageType) => void }) {
-  const options: Array<{ value: ProductSetImageType; title: string; desc: string }> = [
-    { value: "main", title: "商品主图", desc: "先选张数，再分析" },
-    { value: "details", title: "详情页", desc: "先选屏数，再分析" },
-  ];
-
-  return (
-    <div className="rounded-[24px] border border-slate-100 bg-slate-50/80 p-1.5 shadow-sm dark:border-white/10 dark:bg-white/5">
-      <div className="grid grid-cols-2 items-stretch gap-1.5">
-        {options.map((item) => (
-          <button
-            key={item.value}
-            type="button"
-            onClick={() => onChange(item.value)}
-            className={`flex h-14 items-center gap-2.5 rounded-[18px] border px-3 text-left transition-[border-color,background-color,color,box-shadow] ${
-              imageType === item.value
-                ? "border-[rgba(91,124,255,0.22)] bg-[rgba(91,124,255,0.1)] text-slate-950 dark:text-stone-100 shadow-[0_10px_26px_rgba(124,58,237,0.12)] dark:border-[rgba(91,140,255,0.45)] dark:bg-[rgba(91,140,255,0.18)]"
-                : "border-transparent bg-white/70 text-slate-600 hover:border-[rgba(91,124,255,0.3)] hover:bg-white hover:text-[var(--codex-accent)] dark:bg-white/5 dark:text-stone-300 dark:hover:border-[rgba(91,140,255,0.45)] dark:hover:bg-white/10"
-            }`}
-          >
-            <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border transition ${
-              imageType === item.value
-                ? "border-[rgba(91,124,255,0.22)] bg-white text-[var(--codex-accent)] dark:bg-white/10 dark:text-[#cfd8ff]"
-                : "border-slate-100 bg-white text-slate-400 dark:border-white/10 dark:bg-white/5 dark:text-stone-500"
-            }`}>
-              {item.value === "main" ? <ImagePlus className="h-4 w-4" /> : <Layers3 className="h-4 w-4" />}
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-sm font-black">{item.title}</span>
-              <span className={`mt-0.5 block truncate text-[11px] ${imageType === item.value ? "text-[var(--codex-accent)] dark:text-[#cfd8ff]" : "text-slate-400 dark:text-stone-500"}`}>{item.desc}</span>
-            </span>
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function WorkflowStepper({ currentStep }: { currentStep: number }) {
-  const steps = [
-    { value: 1, title: "商品图", desc: "上传" },
-    { value: 2, title: "信息", desc: "数量" },
-    { value: 3, title: "分析", desc: "方案" },
-    { value: 4, title: "生成", desc: "出图" },
-  ];
-
-  return (
-    <div className="rounded-2xl border border-slate-100 bg-white px-3 py-3 shadow-sm dark:border-white/10 dark:bg-white/5">
-      <div className="grid grid-cols-4 gap-1.5">
-        {steps.map((step) => {
-          const active = currentStep === step.value;
-          const done = currentStep > step.value;
-          return (
-            <div
-              key={step.value}
-              className={`min-h-14 rounded-xl px-2 py-2 text-center transition ${
-                active ? "bg-[rgba(91,124,255,0.1)] text-[var(--codex-accent)]" : done ? "bg-emerald-50 text-emerald-700" : "bg-slate-50 text-slate-400"
-              }`}
-            >
-              <span className={`mx-auto flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-black ${
-                active ? "bg-[rgba(91,124,255,0.1)] text-white" : done ? "bg-emerald-500 text-white" : "bg-white text-slate-400"
-              }`}>
-                {done ? <Check className="h-3 w-3" /> : step.value}
-              </span>
-              <span className="mt-1 block truncate text-[11px] font-black">{step.title}</span>
-              <span className="block truncate text-[10px] font-bold opacity-70">{step.desc}</span>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function CountSelector({
-  imageType,
-  value,
-  options,
-  onChange,
-  helper,
-}: {
-  imageType: ProductSetImageType;
-  value: number;
-  options: number[];
-  onChange: (value: number) => void;
-  helper?: string;
-}) {
-  const unit = imageType === "main" ? "张" : "屏";
-  return (
-    <div className="mt-3 rounded-2xl border border-slate-100 bg-slate-50 p-3">
-      <div className="mb-2 flex items-center justify-between text-xs">
-        <span className="font-bold text-slate-700">{imageType === "main" ? "生成张数" : "详情页屏数"}</span>
-        <span className="font-black text-[var(--codex-accent)]">{value > 0 ? `${value} ${unit}` : "未选择"}</span>
-      </div>
-      <StudioGenerationCountSelector
-        value={value}
-        onChange={onChange}
-        counts={options}
-        unit={unit}
-        ariaLabel={imageType === "main" ? "生成张数" : "详情页屏数"}
-      />
-      {helper && <p className="mt-2 text-[11px] leading-5 text-slate-400">{helper}</p>}
-    </div>
-  );
-}
-
-function ProductBriefSummary({ fields, onEdit }: { fields: ProductInfoFields; onEdit: () => void }) {
-  const chips = Array.from(new Set([
-    ...splitBriefText(fields.audience),
-    ...splitBriefText(fields.sellingPoints),
-  ])).slice(0, 5);
-
-  return (
-    <div className="rounded-2xl border border-slate-100 bg-slate-50 px-3 py-3 dark:border-white/10 dark:bg-white/5">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-black text-slate-400">商品信息</p>
-          <h4 className="mt-1 truncate text-sm font-black text-slate-950 dark:text-stone-100">{fields.name || "待补充商品名"}</h4>
-          <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-600">{fields.description || "已填写商品信息，点击编辑可继续补充卖点、材质和适用人群。"}</p>
-        </div>
-        <button type="button" onClick={onEdit} className="inline-flex h-8 shrink-0 items-center gap-1 rounded-full bg-white px-2.5 text-[11px] font-black text-slate-600 shadow-sm hover:bg-[rgba(91,124,255,0.12)] hover:text-[var(--codex-accent)] dark:bg-white/10 dark:text-stone-300 dark:hover:bg-[rgba(91,140,255,0.18)]">
-          <Edit3 className="h-3.5 w-3.5" /> 编辑
-        </button>
-      </div>
-      {chips.length > 0 && (
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          {chips.map((chip) => (
-            <span key={chip} className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-slate-500 dark:bg-white/10 dark:text-stone-300">{chip}</span>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function AnalysisSummaryCard({
-  profile,
-  analysis,
-  stylePack,
-  imageType,
-  outputCount,
-  expanded,
-  onToggleExpanded,
-  onEditProfile,
-  onAdjust,
-}: {
-  profile: ProductSetProductProfile;
-  analysis: ProductSetAnalysisDetail | null;
-  stylePack: ProductSetStylePack;
-  imageType: ProductSetImageType;
-  outputCount: number;
-  expanded: boolean;
-  onToggleExpanded: () => void;
-  onEditProfile: () => void;
-  onAdjust: () => void;
-}) {
-  const qualityScore = analysis?.image_quality?.quality_score;
-  const qualityLabel = typeof qualityScore === "number" && qualityScore > 0 ? `${qualityScore.toFixed(1)} / 10` : "已准备";
-  const strategyName = analysis?.visual_director?.strategy_name || analysis?.generation_fit?.recommended_style || stylePack.name;
-  const unit = imageType === "main" ? "张主图" : "屏详情页";
-  const keywords = Array.from(new Set([
-    profile.kind,
-    profile.apparelType,
-    ...profile.visualKeywords,
-    ...(analysis?.product?.style_tags || []),
-  ].filter(Boolean))).slice(0, 5);
-  const missing = (analysis?.missing_info || []).filter((item) => item !== "no_missing").slice(0, 3);
-
-  return (
-    <div className="mt-3 rounded-2xl border border-[rgba(91,124,255,0.22)] bg-[rgba(91,124,255,0.1)] px-3 py-3">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <p className="inline-flex items-center gap-1.5 text-[11px] font-black text-[var(--codex-accent)]">
-            <Activity className="h-3.5 w-3.5" /> 方案已生成
-          </p>
-          <h4 className="mt-1 truncate text-sm font-black text-slate-950 dark:text-stone-100">{profile.displayName}</h4>
-          <p className="mt-1 line-clamp-2 text-[11px] leading-4 text-slate-500">
-            {strategyName} · 计划生成 {outputCount} {unit} · 图片质量 {qualityLabel}
-          </p>
-        </div>
-        <button type="button" onClick={onToggleExpanded} className="inline-flex h-8 shrink-0 items-center gap-1 rounded-full bg-white px-2.5 text-[11px] font-black text-[var(--codex-accent)] shadow-sm hover:bg-[rgba(91,124,255,0.12)]">
-          {expanded ? "收起细节" : "查看细节"}
-          <ChevronRight className={`h-3.5 w-3.5 transition ${expanded ? "rotate-90" : ""}`} />
-        </button>
-      </div>
-
-      <div className="mt-3 grid grid-cols-2 gap-2">
-        <button type="button" onClick={onEditProfile} className="flex min-h-10 items-center justify-center gap-1.5 rounded-xl bg-white px-2 text-[11px] font-black text-slate-600 shadow-sm hover:bg-[rgba(91,124,255,0.12)] hover:text-[var(--codex-accent)]">
-          <Edit3 className="h-3.5 w-3.5" /> 修改信息
-        </button>
-        <button type="button" onClick={onAdjust} className="flex min-h-10 items-center justify-center gap-1.5 rounded-xl bg-white px-2 text-[11px] font-black text-slate-600 shadow-sm hover:bg-[rgba(91,124,255,0.12)] hover:text-[var(--codex-accent)]">
-          <Palette className="h-3.5 w-3.5" /> 调整风格
-        </button>
-      </div>
-
-      {keywords.length > 0 && (
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          {keywords.map((item) => (
-            <span key={item} className="rounded-full bg-white/80 px-2 py-0.5 text-[10px] font-bold text-slate-500">{item}</span>
-          ))}
-        </div>
-      )}
-      {missing.length > 0 && (
-        <p className="mt-2 text-[11px] font-bold leading-4 text-amber-600">建议补充：{missing.map(formatMissingInfo).join("、")}</p>
-      )}
-    </div>
-  );
-}
-
-function ProductProfileCard({ profile, analysisSource, onEdit }: { profile: ProductSetProductProfile; analysisSource: ProductAnalysisSource; onEdit: () => void }) {
-  const sourceLabel = analysisSource === "ai"
-    ? "图片信息"
-    : analysisSource === "fallback"
-      ? "基础信息"
-      : analysisSource === "running"
-        ? "读取中"
-        : analysisSource === "manual"
-          ? "手动信息"
-          : "待确认";
-
-  return (
-    <div className="mt-3 rounded-2xl border border-[rgba(91,124,255,0.22)] bg-[rgba(91,124,255,0.1)] px-3 py-3">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <p className="inline-flex items-center gap-1.5 text-[11px] font-black text-[var(--codex-accent)]">
-            <Brush className="h-3.5 w-3.5" /> {sourceLabel}
-          </p>
-          <h4 className="mt-1 truncate text-sm font-black text-slate-950 dark:text-stone-100">{profile.displayName}</h4>
-          <p className="mt-1 line-clamp-2 text-[11px] leading-4 text-slate-500">{profile.modelBrief}</p>
-        </div>
-        <button type="button" onClick={onEdit} className={`inline-flex h-7 shrink-0 items-center rounded-full px-2 text-[10px] font-black transition ${profile.needsModel ? "bg-slate-100 text-slate-700 hover:bg-slate-200" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}>
-          {profile.needsModel ? "建议模特" : "无需模特"} · 修改
-        </button>
-      </div>
-      <div className="mt-2 flex flex-wrap gap-1.5">
-        {Array.from(new Set([profile.kind, profile.apparelType, ...profile.visualKeywords.slice(0, 3)].filter(Boolean))).map((item, index) => (
-          <span key={`${item}-${index}`} className="rounded-full bg-white/80 px-2 py-0.5 text-[10px] font-bold text-slate-500">{item}</span>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function ProductVisualStrategyCard({
-  profile,
-  analysis,
-  stylePack,
-  imageType,
-  onAdjust,
-}: {
-  profile: ProductSetProductProfile;
-  analysis: ProductSetAnalysisDetail | null;
-  stylePack: ProductSetStylePack;
-  imageType: ProductSetImageType;
-  onAdjust: () => void;
-}) {
-  const qualityScore = analysis?.image_quality?.quality_score;
-  const qualityText = typeof qualityScore === "number" && qualityScore > 0 ? `${qualityScore.toFixed(1)} / 10` : "待评估";
-  const strategyName = analysis?.visual_director?.strategy_name || "视觉策略";
-  const globalStrategy = analysis?.visual_director?.global_strategy;
-  const globalSummary = globalStrategy ? [
-    globalStrategy.primary_color,
-    globalStrategy.accent_color,
-    globalStrategy.color_temperature,
-    globalStrategy.typography,
-  ].filter(Boolean).join(" · ") : "";
-  const strategyReason = analysis?.visual_director?.style_strategy || globalSummary || analysis?.generation_fit?.recommended_style_reason || stylePack.description;
-  const directorPlan = imageType === "main" ? analysis?.visual_director?.main_plan : analysis?.visual_director?.details_plan;
-  const directorScripts = imageType === "main" ? analysis?.visual_director?.main_scripts : analysis?.visual_director?.details_scripts;
-  const directions = [
-    ...(directorScripts?.map((item) => item.title || item.module_key || "") || []),
-    ...(directorPlan?.map((item) => item.purpose || item.module_key || "") || []),
-    ...(analysis?.visual_director?.layout_principles || []),
-    ...(analysis?.generation_fit?.recommended_output_set || []),
-    ...(analysis?.product?.style_tags || []),
-    ...(analysis?.product?.visible_details || []),
-  ].filter(Boolean).slice(0, 5);
-  const missing = (analysis?.missing_info || []).filter((item) => item !== "no_missing").slice(0, 4);
-
-  return (
-    <div className="mt-3 rounded-2xl border border-indigo-100 bg-indigo-50/60 px-3 py-3">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <p className="inline-flex items-center gap-1.5 text-[11px] font-black text-indigo-700">
-            <Palette className="h-3.5 w-3.5" /> 视觉策略
-          </p>
-          <h4 className="mt-1 truncate text-sm font-black text-slate-950 dark:text-stone-100">{strategyName} · {stylePack.name}</h4>
-          <p className="mt-1 line-clamp-3 text-[11px] leading-4 text-slate-500">{strategyReason}</p>
-        </div>
-        <button type="button" onClick={onAdjust} className="inline-flex h-7 shrink-0 items-center rounded-full bg-white px-2 text-[10px] font-black text-indigo-600 shadow-sm hover:bg-indigo-100">
-          调整风格
-        </button>
-      </div>
-      <div className="mt-3 grid grid-cols-2 items-stretch gap-2">
-        <div className="min-h-[58px] rounded-xl bg-white/75 px-2 py-2">
-          <p className="text-[10px] font-black text-slate-400">图片质量</p>
-          <p className="mt-1 text-xs font-black text-slate-800">{qualityText}</p>
-        </div>
-        <div className="min-h-[58px] rounded-xl bg-white/75 px-2 py-2">
-          <p className="text-[10px] font-black text-slate-400">当前模式</p>
-          <p className="mt-1 text-xs font-black text-slate-800">{imageType === "main" ? "商品主图" : "详情页"}</p>
-        </div>
-      </div>
-      <div className="mt-2 flex flex-wrap gap-1.5">
-        {(directions.length ? directions : [profile.displayName, profile.modelStrategy, "智能匹配"]).map((item, index) => (
-          <span key={`${item}-${index}`} className="rounded-full bg-white/80 px-2 py-0.5 text-[10px] font-bold text-slate-500">{item}</span>
-        ))}
-      </div>
-      {missing.length > 0 && (
-        <p className="mt-2 text-[11px] font-bold leading-4 text-amber-600">
-          建议补充：{missing.map(formatMissingInfo).join("、")}
-        </p>
-      )}
-    </div>
-  );
-}
-
-function ProductAnalysisNotice({ status }: { status: ReturnType<typeof getProductAnalysisStatus> }) {
-  if (status.tone === "quiet") return null;
-  const tone = status.tone === "running" ? "loading" : "warning";
-  const title = status.tone === "running"
-    ? "正在读取商品图"
-    : status.tone === "warning"
-      ? "商品信息需确认"
-      : "商品读取未完成";
-
-  return (
-    <VisualAnalysisStatusCard
-      status={{ tone, text: title, description: status.message || status.description }}
-      className="mb-3"
-    />
-  );
-}
-
-function QualityBadge({ score }: { score?: number }) {
-  const quality = getProductSetModuleQualityLabel(score);
-  const className = quality.tone === "good"
-    ? "bg-emerald-50 text-emerald-600"
-    : quality.tone === "ok"
-      ? "bg-sky-50 text-sky-600"
-      : quality.tone === "warn"
-        ? "bg-amber-50 text-amber-600"
-        : "bg-slate-100 text-slate-400";
-  return (
-    <span className={`inline-flex h-6 items-center rounded-full px-2 text-[10px] font-black ${className}`}>
-      {quality.label}{typeof score === "number" ? ` ${Math.round(score * 100)}` : ""}
-    </span>
-  );
-}
-
-function ModuleProgressList({
-  templates,
-  moduleResults,
-  resultUrls,
-  isGenerating,
-  compact = false,
-}: {
-  templates: ProductSetResolvedTemplate[];
-  moduleResults: ProductSetModuleResult[];
-  resultUrls: string[];
-  isGenerating: boolean;
-  compact?: boolean;
-}) {
-  if (!templates.length) return null;
-  return (
-    <div className={`mt-4 grid gap-2 ${compact ? "sm:grid-cols-2 xl:grid-cols-3" : ""}`}>
-      {templates.map((template, index) => {
-        const moduleResult = moduleResults.find((item) => item.moduleKey === getProductSetModuleKey(template, index))
-          || moduleResults.find((item) => Number(item.index) === index + 1)
-          || moduleResults[index];
-        const moduleUrl = typeof moduleResult?.resultUrl === "string" && moduleResult.resultUrl.length > 0 ? moduleResult.resultUrl : "";
-        const done = moduleResult?.status === "completed" || Boolean(moduleUrl || resultUrls[index]);
-        const failed = moduleResult?.status === "failed";
-        const current = moduleResult?.status === "running" || (isGenerating && !done && resultUrls.filter(Boolean).length === index);
-        const statusText = failed ? "失败" : done ? "已完成" : current ? `${moduleResult?.progress || "生成"}%` : "排队";
-        return (
-          <div key={`${template.source}-${template.id}-${index}`} className={`flex min-h-11 items-center gap-2 rounded-2xl border px-3 py-2 text-xs ${failed ? "border-red-100 bg-red-50 text-red-600" : done ? "border-emerald-100 bg-emerald-50 text-emerald-700" : current ? "border-[rgba(91,124,255,0.22)] bg-[rgba(91,124,255,0.1)] text-[var(--codex-accent)]" : "border-slate-100 bg-slate-50 text-slate-500"}`}>
-            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white text-[10px] font-black shadow-sm">{done ? <Check className="h-3.5 w-3.5" /> : current ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : index + 1}</span>
-            <span className="min-w-0 flex-1 truncate font-black">{template.name}</span>
-            {done && moduleResult?.qualityScore !== undefined && <QualityBadge score={moduleResult.qualityScore} />}
-            <span className="shrink-0 text-[10px] font-bold">{statusText}</span>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function ReferenceStyleModal({
-  value,
-  onChange,
-  onClose,
-  onSave,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  onClose: () => void;
-  onSave: () => void;
-}) {
-  return (
-    <div className="fixed inset-0 z-[135] flex items-center justify-center bg-slate-950/35 p-3 backdrop-blur-xl">
-      <div className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-[28px] bg-white shadow-[0_30px_120px_rgba(15,23,42,0.28)]">
-        <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4">
-          <div className="min-w-0 flex-1">
-            <h2 className="text-lg font-black text-slate-950 dark:text-stone-100">参考风格说明</h2>
-            <p className="mt-1 text-xs leading-5 text-slate-400">这里只保存风格方向，不会开始分析模板；点击下方“帮我写商品信息”时会一起传入智能分析。</p>
-          </div>
-          <button type="button" onClick={onClose} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200">
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-        <div className="flex-1 overflow-y-auto p-5">
-          <textarea
-            value={value}
-            onChange={(event) => onChange(event.target.value.slice(0, 2000))}
-            className="min-h-[40vh] w-full resize-none rounded-2xl border border-slate-100 bg-slate-50 px-4 py-4 text-sm leading-6 text-slate-800 outline-none focus:border-[rgba(91,124,255,0.5)] focus:bg-white sm:min-h-[520px]"
-            placeholder="写入参考风格、目标平台、视觉风格、统一场景、配色和用户要求。"
-          />
-          <div className="mt-2 flex items-center justify-between text-[11px] text-slate-400">
-            <span>这段内容会作为风格参考传入分析，不会直接当作模板生成。</span>
-            <span>{value.length} / 2000</span>
-          </div>
-        </div>
-        <div className="flex flex-col items-stretch gap-3 border-t border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-          <button type="button" onClick={() => onChange(DEFAULT_REFERENCE_STYLE_BRIEF)} className="h-10 w-full rounded-full border border-slate-200 px-4 text-xs font-black text-slate-500 hover:bg-slate-50 sm:w-auto">
-            恢复示例
-          </button>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <button type="button" onClick={onClose} className="h-10 w-full rounded-full border border-slate-200 px-5 text-xs font-black text-slate-500 hover:bg-slate-50 sm:w-auto">
-              取消
-            </button>
-            <button type="button" onClick={onSave} className="h-10 w-full rounded-full bg-slate-950 px-6 text-xs font-black text-white hover:bg-slate-800 sm:w-auto">
-              保存参考风格
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ProductProfileEditorModal({
-  profile,
-  onSave,
-  onClose,
-}: {
-  profile: ProductSetProductProfile;
-  onSave: (profile: ProductSetProductProfile) => void;
-  onClose: () => void;
-}) {
-  const [draft, setDraft] = useState<ProductSetProductProfile>(profile);
-  const kindOptions: { value: ProductSetProductKind; label: string }[] = [
-    { value: "apparel", label: "服装" },
-    { value: "footwear", label: "鞋靴" },
-    { value: "bag", label: "箱包" },
-    { value: "accessory", label: "配饰" },
-    { value: "beauty", label: "美妆" },
-    { value: "electronics", label: "数码电器" },
-    { value: "home", label: "家居" },
-    { value: "toy", label: "玩具" },
-    { value: "food", label: "食品" },
-    { value: "general", label: "通用商品" },
-  ];
-  const apparelOptions: { value: ProductSetApparelType; label: string }[] = [
-    { value: "womenswear", label: "女装" },
-    { value: "menswear", label: "男装" },
-    { value: "kidswear", label: "童装" },
-    { value: "outerwear", label: "外套/户外" },
-    { value: "sportswear", label: "运动服" },
-    { value: "intimate", label: "内衣" },
-    { value: "swimwear", label: "泳装" },
-    { value: "general", label: "通用服装" },
-  ];
-  const modelOptions: { value: ProductSetModelStrategy; label: string }[] = [
-    { value: "none", label: "不用模特" },
-    { value: "optional", label: "可选模特" },
-    { value: "recommended", label: "建议模特" },
-    { value: "required", label: "必须模特" },
-  ];
-
-  function setKind(kind: ProductSetProductKind) {
-    const isApparel = kind === "apparel" || kind === "footwear";
-    setDraft((prev) => ({
-      ...prev,
-      kind,
-      isApparel,
-      needsModel: isApparel ? prev.needsModel || prev.modelStrategy !== "none" : false,
-      modelStrategy: isApparel ? (prev.modelStrategy === "none" ? "recommended" : prev.modelStrategy) : "none",
-    }));
-  }
-
-  return (
-    <div className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-950/35 p-3 backdrop-blur-xl">
-      <div className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-[32px] bg-white shadow-[0_30px_120px_rgba(15,23,42,0.28)]">
-        <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4">
-          <div className="min-w-0 flex-1">
-            <h2 className="text-lg font-black text-slate-950 dark:text-stone-100">修正商品识别</h2>
-            <p className="mt-1 text-xs text-slate-400">识别结果会影响默认模板、是否使用模特和提示词安全边界。</p>
-          </div>
-          <button type="button" onClick={onClose} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200">
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-        <div className="flex-1 space-y-5 overflow-y-auto p-5">
-          <div>
-            <p className="mb-2 text-xs font-black text-slate-700">商品类型</p>
-            <div className="grid grid-cols-2 items-stretch gap-2 sm:grid-cols-5">
-              {kindOptions.map((item) => (
-                <button key={item.value} type="button" onClick={() => setKind(item.value)} className={`h-10 truncate rounded-xl border px-2 text-xs font-black transition ${draft.kind === item.value ? "border-[rgba(91,124,255,0.22)] bg-[rgba(91,124,255,0.1)] text-[var(--codex-accent)]" : "border-slate-200 bg-slate-50 text-slate-500"}`}>
-                  {item.label}
-                </button>
-              ))}
-            </div>
-          </div>
-          {(draft.kind === "apparel" || draft.kind === "footwear" || draft.isApparel) && (
-            <div>
-              <p className="mb-2 text-xs font-black text-slate-700">服装细分</p>
-              <div className="grid grid-cols-2 items-stretch gap-2 sm:grid-cols-4">
-                {apparelOptions.map((item) => (
-                  <button key={item.value} type="button" onClick={() => setDraft((prev) => ({ ...prev, apparelType: item.value, isApparel: true }))} className={`h-10 truncate rounded-xl border px-2 text-xs font-black transition ${draft.apparelType === item.value ? "border-[rgba(91,124,255,0.22)] bg-[rgba(91,124,255,0.1)] text-[var(--codex-accent)]" : "border-slate-200 bg-slate-50 text-slate-500"}`}>
-                    {item.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-          <div>
-            <p className="mb-2 text-xs font-black text-slate-700">模特策略</p>
-            <div className="grid grid-cols-2 items-stretch gap-2 sm:grid-cols-4">
-              {modelOptions.map((item) => (
-                <button
-                  key={item.value}
-                  type="button"
-                  onClick={() => setDraft((prev) => ({ ...prev, modelStrategy: item.value, needsModel: item.value === "recommended" || item.value === "required" }))}
-                  className={`h-10 truncate rounded-xl border px-2 text-xs font-black transition ${draft.modelStrategy === item.value ? "border-[rgba(91,124,255,0.22)] bg-[rgba(91,124,255,0.1)] text-[var(--codex-accent)]" : "border-slate-200 bg-slate-50 text-slate-500"}`}
-                >
-                  {item.label}
-                </button>
-              ))}
-            </div>
-          </div>
-          <textarea
-            value={draft.modelBrief}
-            onChange={(event) => setDraft((prev) => ({ ...prev, modelBrief: event.target.value.slice(0, 220) }))}
-            className="min-h-28 w-full resize-none rounded-2xl border border-slate-100 bg-slate-50 px-3 py-3 text-sm leading-6 outline-none focus:border-[rgba(91,124,255,0.5)]"
-            placeholder="例如：成年女性模特，法式通勤场景，姿势自然，突出版型和垂感，不要夸张摆拍。"
-          />
-        </div>
-        <div className="flex justify-end gap-2 border-t border-slate-100 px-5 py-4">
-          <button type="button" onClick={onClose} className="h-11 rounded-full bg-slate-100 px-8 text-sm font-black text-slate-600">取消</button>
-          <button type="button" onClick={() => onSave(draft)} className="h-11 rounded-full bg-slate-950 px-8 text-sm font-black text-white">确认</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ModuleEditModal({
-  template,
-  index,
-  override,
-  productProfile,
-  onSave,
-  onRemove,
-  onClose,
-}: {
-  template: ProductSetResolvedTemplate;
-  index: number;
-  override?: ProductSetModuleOverride;
-  productProfile: ProductSetProductProfile;
-  onSave: (patch: Partial<ProductSetModuleOverride>) => void;
-  onRemove: () => void;
-  onClose: () => void;
-}) {
-  const [draft, setDraft] = useState({
-    name: override?.name || template.name,
-    moduleRole: override?.moduleRole || template.moduleRole,
-    contentScope: override?.contentScope || template.contentScope,
-    layoutRules: override?.layoutRules || template.layoutRules,
-    textRules: override?.textRules || template.textRules,
-    avoidRules: override?.avoidRules || template.avoidRules,
-    typeDescription: override?.typeDescription || template.typeDescriptionV2 || template.typeDescription,
-    extraDescription: override?.extraDescription || "",
-    aspectRatio: override?.aspectRatio || template.aspectRatio,
-    subjectConsistency: override?.subjectConsistency ?? template.subjectConsistency,
-    modelConsistency: override?.modelConsistency ?? Boolean(template.modelConsistency),
-    intelligentCopy: override?.intelligentCopy ?? template.intelligentCopy,
-    copyDensity: (override?.copyDensity || template.copyDensity || "standard") as ProductSetCopyDensity,
-  });
-  const usesModel = shouldUseModelForTemplate({ ...template, ...draft }, productProfile);
-
-  return (
-    <div className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-950/35 p-3 backdrop-blur-xl">
-      <div className="flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-[32px] bg-white shadow-[0_30px_120px_rgba(15,23,42,0.28)]">
-        <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4">
-          <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-black text-[var(--codex-accent)]">第 {index + 1} 张 · {template.imageType === "details" ? "详情页模块" : "主图/辅图模块"}</p>
-            <h2 className="mt-1 text-lg font-black text-slate-950 dark:text-stone-100">编辑生成模块</h2>
-          </div>
-          <button type="button" onClick={onClose} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200">
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-        <div className="flex-1 space-y-4 overflow-y-auto p-5">
-          <div className="rounded-2xl border border-[rgba(91,124,255,0.22)] bg-[rgba(91,124,255,0.1)] px-3 py-3 text-xs leading-5 text-[var(--codex-accent)]">
-            {getProductSetModuleReason(template, productProfile)}
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <FieldInput label="模块名称" value={draft.name} maxLength={40} onChange={(value) => setDraft((prev) => ({ ...prev, name: value }))} />
-            <FieldInput label="模块职责" value={draft.moduleRole} maxLength={160} onChange={(value) => setDraft((prev) => ({ ...prev, moduleRole: value }))} />
-          </div>
-          <FieldTextarea label="内容范围" value={draft.contentScope} maxLength={320} onChange={(value) => setDraft((prev) => ({ ...prev, contentScope: value }))} placeholder="例如：只讲面料与版型，不重复整套卖点；或只展示模特上身与搭配氛围。" />
-          <div className="grid gap-3 sm:grid-cols-3">
-            <FieldTextarea label="版式规则" value={draft.layoutRules} maxLength={320} onChange={(value) => setDraft((prev) => ({ ...prev, layoutRules: value }))} placeholder="例如：左文右图、细节宫格、单人半身海报。" />
-            <FieldTextarea label="文字规则" value={draft.textRules} maxLength={260} onChange={(value) => setDraft((prev) => ({ ...prev, textRules: value }))} placeholder="例如：只保留 1 个标题和 3 个短标签。" />
-            <FieldTextarea label="禁忌规则" value={draft.avoidRules} maxLength={320} onChange={(value) => setDraft((prev) => ({ ...prev, avoidRules: value }))} placeholder="例如：不要重复尺码图，不要堆满卖点。" />
-          </div>
-          <FieldTextarea label="模板描述" value={draft.typeDescription} maxLength={700} onChange={(value) => setDraft((prev) => ({ ...prev, typeDescription: value }))} placeholder="说明这张图最终要解决什么转化问题。" />
-          <div>
-            <p className="mb-2 text-xs font-black text-slate-700">生图比例</p>
-            <div className="grid grid-cols-4 items-stretch gap-2">
-              {CUSTOM_ASPECTS.map((value) => (
-                <button key={value} type="button" onClick={() => setDraft((prev) => ({ ...prev, aspectRatio: value }))} className={`h-10 rounded-xl border text-xs font-black transition ${draft.aspectRatio === value ? "border-[rgba(91,124,255,0.22)] bg-[rgba(91,124,255,0.1)] text-[var(--codex-accent)]" : "border-slate-200 bg-slate-50 text-slate-500"}`}>
-                  {getAspectRatioLabel(value)}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="grid gap-2 sm:grid-cols-4">
-            <ToggleButton active={draft.subjectConsistency} label="商品一致" onClick={() => setDraft((prev) => ({ ...prev, subjectConsistency: !prev.subjectConsistency }))} />
-            <ToggleButton active={draft.modelConsistency} label="模特一致" onClick={() => setDraft((prev) => ({ ...prev, modelConsistency: !prev.modelConsistency }))} />
-            <ToggleButton active={draft.intelligentCopy} label="智能文案" onClick={() => setDraft((prev) => ({ ...prev, intelligentCopy: !prev.intelligentCopy }))} />
-            <select value={draft.copyDensity} onChange={(event) => setDraft((prev) => ({ ...prev, copyDensity: event.target.value as ProductSetCopyDensity }))} className="h-10 rounded-xl border border-slate-100 bg-slate-50 px-2 text-xs font-bold text-slate-600 outline-none">
-              <option value="none">无文案</option>
-              <option value="light">轻文案</option>
-              <option value="standard">标准文案</option>
-              <option value="rich">信息丰富</option>
-            </select>
-          </div>
-          <div className={`rounded-2xl px-3 py-3 text-xs leading-5 ${usesModel ? "bg-slate-100 text-slate-700" : "bg-slate-50 text-slate-500"}`}>
-            {usesModel ? "该模块会优先使用模特/上身场景。若不希望出现模特，可把模块职责改为白底、细节、尺码或关闭模特一致性。" : "该模块默认不使用模特，更适合白底、细节、尺寸、材质、包装或参数说明。"}
-          </div>
-          <FieldTextarea label="额外描述" value={draft.extraDescription} maxLength={700} onChange={(value) => setDraft((prev) => ({ ...prev, extraDescription: value }))} placeholder="只写这张图的特殊要求，例如：女装首屏海报不要底部缩略图；细节图只展示连帽、袖口、口袋三个局部。" />
-        </div>
-        <div className="flex flex-col gap-3 border-t border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-          <button type="button" onClick={onRemove} className="h-11 shrink-0 rounded-full border border-red-100 bg-red-50 px-5 text-sm font-black text-red-500">移除本模块</button>
-          <div className="flex justify-end gap-2">
-            <button type="button" onClick={onClose} className="h-11 rounded-full bg-slate-100 px-8 text-sm font-black text-slate-600">取消</button>
-            <button type="button" onClick={() => onSave(draft)} className="h-11 rounded-full bg-slate-950 px-8 text-sm font-black text-white">保存</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function FieldInput({ label, value, maxLength, onChange }: { label: string; value: string; maxLength: number; onChange: (value: string) => void }) {
-  return (
-    <label className="block">
-      <span className="mb-1 block text-[11px] font-black text-slate-500">{label}</span>
-      <input value={value} onChange={(event) => onChange(event.target.value.slice(0, maxLength))} className="h-10 w-full rounded-xl border border-slate-100 bg-slate-50 px-3 text-xs outline-none focus:border-[rgba(91,124,255,0.5)]" />
-    </label>
-  );
-}
-
-function FieldTextarea({ label, value, maxLength, onChange, placeholder }: { label: string; value: string; maxLength: number; onChange: (value: string) => void; placeholder?: string }) {
-  return (
-    <label className="block">
-      <span className="mb-1 block text-[11px] font-black text-slate-500">{label}</span>
-      <textarea value={value} onChange={(event) => onChange(event.target.value.slice(0, maxLength))} placeholder={placeholder} className="min-h-24 w-full resize-none rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 text-xs leading-5 outline-none focus:border-[rgba(91,124,255,0.5)]" />
-    </label>
-  );
-}
-
-function PlanRecommendationCard({
-  recommendation,
-  imageType,
-  compact = false,
-}: {
-  recommendation: ReturnType<typeof buildProductSetPlanRecommendation>;
-  imageType: ProductSetImageType;
-  compact?: boolean;
-}) {
-  const riskClass = recommendation.riskLevel === "high"
-    ? "border-amber-100 bg-amber-50 text-amber-700"
-    : recommendation.riskLevel === "medium"
-      ? "border-amber-100 bg-amber-50 text-amber-700"
-      : "border-emerald-100 bg-emerald-50 text-emerald-700";
-  const unit = imageType === "main" ? "张主图" : "屏详情页";
-
-  return (
-    <div className={`${compact ? "" : "mb-3"} rounded-2xl border border-[rgba(91,124,255,0.22)] bg-[rgba(91,124,255,0.1)] p-3`}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-black text-[var(--codex-accent)]">视觉总监方案</p>
-          <h4 className="mt-1 truncate text-sm font-black text-slate-950 dark:text-stone-100">{recommendation.title}</h4>
-          <p className="mt-1 line-clamp-2 text-[11px] leading-4 text-slate-500">{recommendation.summary}</p>
-        </div>
-        <span className={`shrink-0 rounded-full border px-2 py-1 text-[10px] font-black ${riskClass}`}>
-          {recommendation.riskLevel === "high" ? "安全模板" : recommendation.riskLevel === "medium" ? "含模特" : "低风险"}
-        </span>
-      </div>
-      <div className="mt-2 inline-flex rounded-full bg-white px-2.5 py-1 text-[10px] font-black text-[var(--codex-accent)]">
-        推荐生成 {recommendation.suggestedCount} {unit}
-      </div>
-      <div className="mt-2 flex flex-wrap gap-1.5">
-        {recommendation.modules.slice(0, compact ? 4 : 6).map((module) => (
-          <span key={module.key} className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-slate-500 dark:bg-white/10 dark:text-stone-300">
-            {module.usesModel ? "模特 · " : ""}{module.name}
-          </span>
-        ))}
-        {compact && recommendation.modules.length > 4 && (
-          <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-slate-400">+{recommendation.modules.length - 4}</span>
-        )}
-      </div>
-    </div>
-  );
-}
-
-type ReferenceIntentOption = {
-  label: string;
-  role: string;
-  description: string;
-  scope: string;
-};
-
-const REFERENCE_INTENT_OPTIONS: Record<ProductSetImageType, ReferenceIntentOption[]> = {
-  main: [
-    { label: "自动识别", role: "主图参考风格", description: "参考图模式：自动识别参考图的构图、光影、场景和视觉风格，生成适合上架或投放的商品图。", scope: "" },
-    { label: "上身展示", role: "模特上身展示", description: "参考模特姿态、镜头距离和上身效果，突出商品穿着表现。", scope: "突出商品上身效果、版型和穿搭氛围。" },
-    { label: "卖点海报", role: "卖点海报", description: "参考海报式构图和视觉层级，生成更适合点击和投放的商品主图。", scope: "突出核心卖点、第一眼吸引力和商品辨识度。" },
-    { label: "场景氛围", role: "场景氛围图", description: "参考场景、光影和情绪氛围，让商品图更有生活感。", scope: "突出使用场景、穿搭情绪和品牌调性。" },
-  ],
-  details: [
-    { label: "自动拆屏", role: "详情页参考风格", description: "参考图模式：自动识别参考图的版式、信息层级和视觉风格，按所选屏数拆成详情页方案。", scope: "" },
-    { label: "首屏海报", role: "详情页首屏海报", description: "参考首屏海报的构图、标题层级和氛围，生成详情页开场屏。", scope: "用于详情页开头，突出风格、商品定位和第一眼吸引力。" },
-    { label: "卖点说明", role: "核心卖点说明", description: "参考信息展示方式，把商品卖点拆成清晰易懂的详情页模块。", scope: "用于展示核心卖点、功能利益点和购买理由。" },
-    { label: "细节材质", role: "细节材质展示", description: "参考局部特写和细节排版，生成面料、工艺或结构说明屏。", scope: "用于展示面料质感、细节工艺、版型或功能结构。" },
-  ],
-};
-
-function CustomTemplateSourcePanel({
-  imageType,
-  genCount,
-  customDraft,
-  activeCustomTemplates,
-  isUploadingCustomRef,
-  customRefInputRef,
-  customModelRefInputRef,
-  customOtherRefInputRef,
-  onCustomDraftChange,
-  onUploadCustomReference,
-  onAddCustomTemplate,
-  onRemoveCustomTemplate,
-  onOpenLibrary,
-}: {
-  imageType: ProductSetImageType;
-  genCount: number;
-  customDraft: CustomDraft;
-  activeCustomTemplates: ProductSetCustomTemplate[];
-  isUploadingCustomRef: boolean;
-  customRefInputRef: React.RefObject<HTMLInputElement | null>;
-  customModelRefInputRef: React.RefObject<HTMLInputElement | null>;
-  customOtherRefInputRef: React.RefObject<HTMLInputElement | null>;
-  onCustomDraftChange: (updater: (value: CustomDraft) => CustomDraft) => void;
-  onUploadCustomReference: (kind: "style" | "model" | "other", file?: File) => void;
-  onAddCustomTemplate: () => void;
-  onRemoveCustomTemplate: (id: string) => void;
-  onOpenLibrary: () => void;
-}) {
-  const countLabel = genCount > 0
-    ? `${genCount} ${imageType === "main" ? "张主图" : "屏详情页"}`
-    : imageType === "main" ? "所选张数" : "所选屏数";
-  return (
-    <div className="space-y-3 rounded-2xl border border-slate-100 bg-slate-50 p-3">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <p className="inline-flex items-center gap-1.5 text-xs font-black text-slate-800">
-            <Upload className="h-3.5 w-3.5 text-[var(--codex-accent)]" /> 上传参考图
-          </p>
-          <p className="mt-1 line-clamp-2 text-[11px] leading-4 text-slate-400">
-            上传 1 张主参考图即可，系统会自动理解版式和风格，再按{countLabel}拆成方案。
-          </p>
-        </div>
-        <button type="button" onClick={onOpenLibrary} className="inline-flex h-8 shrink-0 items-center gap-1 rounded-full bg-white px-2.5 text-[11px] font-black text-[var(--codex-accent)] hover:bg-[rgba(91,124,255,0.12)]">
-          模板库
-          <ChevronRight className="h-3.5 w-3.5" />
-        </button>
-      </div>
-
-      <ReferenceQuickStart
-        imageType={imageType}
-        genCount={genCount}
-        customDraft={customDraft}
-        isUploadingCustomRef={isUploadingCustomRef}
-        customRefInputRef={customRefInputRef}
-        customModelRefInputRef={customModelRefInputRef}
-        customOtherRefInputRef={customOtherRefInputRef}
-        onCustomDraftChange={onCustomDraftChange}
-        onUploadCustomReference={onUploadCustomReference}
-        onAddCustomTemplate={onAddCustomTemplate}
-      />
-
-      <div>
-        <h4 className="text-xs font-black text-slate-700">已添加参考</h4>
-        {activeCustomTemplates.length ? (
-          <div className="mt-2 grid gap-2 sm:grid-cols-2">
-            {activeCustomTemplates.map((template) => (
-              <div key={template.id} className="flex min-h-12 items-center justify-between gap-2 rounded-2xl bg-white px-3 py-2 text-xs">
-                <div className="min-w-0">
-                  <p className="truncate font-black text-slate-700">{template.name}</p>
-                  <p className="mt-0.5 truncate text-[10px] font-bold text-slate-400">{template.moduleRole || template.typeDescription}</p>
-                </div>
-                <button type="button" onClick={() => onRemoveCustomTemplate(template.id)} className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-slate-400 hover:bg-red-50 hover:text-red-500"><X className="h-3.5 w-3.5" /></button>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="mt-2 rounded-2xl bg-white px-3 py-4 text-xs leading-5 text-slate-400">还没有添加参考。上传主参考图后点添加，参考图会随商品图一起发送，只影响风格、版式、模特或氛围。</p>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function ReferenceQuickStart({
-  imageType,
-  genCount,
-  customDraft,
-  isUploadingCustomRef,
-  customRefInputRef,
-  customModelRefInputRef,
-  customOtherRefInputRef,
-  onCustomDraftChange,
-  onUploadCustomReference,
-  onAddCustomTemplate,
-}: {
-  imageType: ProductSetImageType;
-  genCount: number;
-  customDraft: CustomDraft;
-  isUploadingCustomRef: boolean;
-  customRefInputRef: React.RefObject<HTMLInputElement | null>;
-  customModelRefInputRef: React.RefObject<HTMLInputElement | null>;
-  customOtherRefInputRef: React.RefObject<HTMLInputElement | null>;
-  onCustomDraftChange: (updater: (value: CustomDraft) => CustomDraft) => void;
-  onUploadCustomReference: (kind: "style" | "model" | "other", file?: File) => void;
-  onAddCustomTemplate: () => void;
-}) {
-  const unit = imageType === "main" ? "张" : "屏";
-  const intentOptions = REFERENCE_INTENT_OPTIONS[imageType];
-  const activeIntent = intentOptions.find((option) => option.role === customDraft.moduleRole) || intentOptions[0];
-  const referenceCount = customDraft.referenceImageUrls.length + customDraft.modelReferenceImageUrls.length + customDraft.otherReferenceImageUrls.length;
-  const hasReferenceImage = referenceCount > 0;
-  const hasCount = genCount > 0;
-  const canAddReference = hasReferenceImage && hasCount;
-
-  function chooseIntent(option: ReferenceIntentOption) {
-    onCustomDraftChange((prev) => ({
-      ...prev,
-      moduleRole: option.role,
-      typeDescription: option.description,
-      contentScope: option.scope,
-      name: prev.name && prev.name !== DEFAULT_DRAFT.name ? prev.name : (imageType === "details" ? "参考图详情方案" : "参考图主图方案"),
-    }));
-  }
-
-  return (
-    <div className="space-y-3">
-      <input ref={customRefInputRef} type="file" accept="image/*" className="hidden" onChange={(event) => onUploadCustomReference("style", event.target.files?.[0])} />
-      <input ref={customModelRefInputRef} type="file" accept="image/*" className="hidden" onChange={(event) => onUploadCustomReference("model", event.target.files?.[0])} />
-      <input ref={customOtherRefInputRef} type="file" accept="image/*" className="hidden" onChange={(event) => onUploadCustomReference("other", event.target.files?.[0])} />
-
-      <div className="rounded-2xl bg-white p-2 shadow-sm">
-        <ReferenceUploadButton label="主参考图" hint="风格 / 版式" url={customDraft.referenceImageUrls[0]} loading={isUploadingCustomRef} onClick={() => customRefInputRef.current?.click()} />
-      </div>
-
-      <div className="grid gap-2 sm:grid-cols-2">
-        <ReferenceUploadButton label="模特参考" hint="可选" url={customDraft.modelReferenceImageUrls[0]} loading={isUploadingCustomRef} onClick={() => customModelRefInputRef.current?.click()} />
-        <ReferenceUploadButton label={`补充参考 ${customDraft.otherReferenceImageUrls.length}/3`} hint="可选" url={customDraft.otherReferenceImageUrls[0]} loading={isUploadingCustomRef} onClick={() => customOtherRefInputRef.current?.click()} />
-      </div>
-
-      <div className="rounded-2xl bg-white px-3 py-3">
-        <div className="mb-2 flex items-center justify-between gap-2">
-          <p className="text-[11px] font-black text-slate-500">参考重点</p>
-          <span className="rounded-full bg-[rgba(91,124,255,0.1)] px-2 py-0.5 text-[10px] font-black text-[var(--codex-accent)]">{activeIntent.label}</span>
-        </div>
-        <div className="grid grid-cols-2 gap-1.5">
-          {intentOptions.map((option) => (
-            <button
-              key={option.role}
-              type="button"
-              onClick={() => chooseIntent(option)}
-              className={`h-9 rounded-xl border px-2 text-[11px] font-black transition ${activeIntent.role === option.role ? "border-[rgba(91,124,255,0.22)] bg-[rgba(91,124,255,0.1)] text-[var(--codex-accent)]" : "border-slate-100 bg-slate-50 text-slate-500 hover:border-[rgba(91,124,255,0.3)] hover:bg-[rgba(91,124,255,0.12)]"}`}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <details className="group rounded-2xl border border-slate-100 bg-white px-3 py-2">
-        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 text-xs font-black text-slate-600">
-          <span className="inline-flex items-center gap-1.5"><Settings2 className="h-3.5 w-3.5 text-[var(--codex-accent)]" /> 高级设置</span>
-          <ChevronRight className="h-3.5 w-3.5 transition group-open:rotate-90" />
-        </summary>
-        <div className="mt-3 space-y-3">
-          <div>
-            <p className="mb-2 text-[11px] font-black text-slate-500">画面比例</p>
-            <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-7">
-              {CUSTOM_ASPECTS.map((value) => (
-                <button key={value} type="button" onClick={() => onCustomDraftChange((prev) => ({ ...prev, aspectRatio: value }))} className={`h-8 rounded-lg border px-2 text-[11px] ${customDraft.aspectRatio === value ? "border-[rgba(91,124,255,0.22)] bg-[rgba(91,124,255,0.1)] text-[var(--codex-accent)]" : "border-slate-200 bg-white text-slate-500"}`}>{getAspectRatioLabel(value)}</button>
-              ))}
-            </div>
-          </div>
-          <div className="grid grid-cols-2 items-stretch gap-2">
-            <ToggleButton active={customDraft.subjectConsistency} label="商品一致" onClick={() => onCustomDraftChange((prev) => ({ ...prev, subjectConsistency: !prev.subjectConsistency }))} />
-            <ToggleButton active={customDraft.modelConsistency} label="模特一致" onClick={() => onCustomDraftChange((prev) => ({ ...prev, modelConsistency: !prev.modelConsistency }))} />
-            <ToggleButton active={customDraft.intelligentCopy} label="智能文案" onClick={() => onCustomDraftChange((prev) => ({ ...prev, intelligentCopy: !prev.intelligentCopy }))} />
-            <select value={customDraft.copyDensity} onChange={(event) => onCustomDraftChange((prev) => ({ ...prev, copyDensity: event.target.value as ProductSetCopyDensity }))} className="h-10 rounded-xl border border-slate-100 bg-slate-50 px-2 text-xs font-bold text-slate-600 outline-none">
-              <option value="none">无文案</option>
-              <option value="light">轻文案</option>
-              <option value="standard">标准文案</option>
-              <option value="rich">信息丰富</option>
-            </select>
-          </div>
-          <textarea value={customDraft.extraDescription} onChange={(event) => onCustomDraftChange((prev) => ({ ...prev, extraDescription: event.target.value.slice(0, 600) }))} className="min-h-16 w-full resize-none rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 text-xs leading-5 outline-none focus:border-[rgba(91,124,255,0.5)]" placeholder="特殊要求（可选），例如不要文字、不要模特露脸、突出细节。" />
-        </div>
-      </details>
-
-      <button
-        type="button"
-        onClick={onAddCustomTemplate}
-        disabled={!canAddReference}
-        className={`h-11 w-full rounded-xl text-xs font-black transition ${canAddReference ? "bg-slate-950 text-white hover:bg-[rgba(91,124,255,0.12)]" : "cursor-not-allowed bg-slate-200 text-slate-400"}`}
-      >
-        {!hasReferenceImage ? "请先上传主参考图" : !hasCount ? `请先选择${imageType === "main" ? "张数" : "屏数"}` : `添加参考图并生成 ${genCount} ${unit}方案`}
-      </button>
-    </div>
-  );
-}
-
-function FavoritePlanPanel({
-  embedded = false,
-  plans,
-  draftName,
-  defaultName,
-  currentPlanCount,
-  showList,
-  isLoading,
-  isSaving,
-  onDraftNameChange,
-  onSave,
-  onApply,
-  onDelete,
-  onToggleList,
-}: {
-  embedded?: boolean;
-  plans: SavedProductSetPlan[];
-  draftName: string;
-  defaultName: string;
-  currentPlanCount: number;
-  showList: boolean;
-  isLoading: boolean;
-  isSaving: boolean;
-  onDraftNameChange: (value: string) => void;
-  onSave: () => void;
-  onApply: (plan: SavedProductSetPlan) => void;
-  onDelete: (id: string) => void;
-  onToggleList?: () => void;
-}) {
-  const shouldShowList = embedded || showList;
-  return (
-    <div className={`${embedded ? "" : "mt-3"} rounded-2xl border border-slate-100 bg-slate-50 p-3`}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <p className="inline-flex items-center gap-1.5 text-xs font-black text-slate-800">
-            <Bookmark className="h-3.5 w-3.5 text-[var(--codex-accent)]" /> 我的收藏模板
-          </p>
-          <p className="mt-1 line-clamp-2 text-[11px] leading-4 text-slate-400">
-            收藏当前视觉方案或自定义模板，下次换商品后直接套用。
-          </p>
-        </div>
-        {!embedded && onToggleList && (
-          <button
-            type="button"
-            onClick={onToggleList}
-            className="inline-flex h-8 shrink-0 items-center gap-1 rounded-full bg-white px-2.5 text-[11px] font-black text-[var(--codex-accent)] hover:bg-[rgba(91,124,255,0.12)]"
-          >
-            {plans.length} 套
-            <ChevronRight className={`h-3.5 w-3.5 transition ${showList ? "rotate-90" : ""}`} />
-          </button>
-        )}
-      </div>
-
-      <div className="mt-3 flex gap-2">
-        <input
-          value={draftName}
-          onChange={(event) => onDraftNameChange(event.target.value.slice(0, 40))}
-          placeholder={defaultName}
-          className="h-10 min-w-0 flex-1 rounded-xl border border-slate-100 bg-white px-3 text-xs font-bold text-slate-700 outline-none transition focus:border-[rgba(91,124,255,0.5)]"
+        <StudioMediaLightbox
+          src={lightboxSrc}
+          alt="商品套图预览"
+          onClose={() => setLightboxSrc(null)}
         />
-        <button
-          type="button"
-          onClick={onSave}
-          disabled={currentPlanCount <= 0 || isSaving}
-          className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-xl bg-slate-950 px-3 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-          收藏
-        </button>
-      </div>
-
-      {shouldShowList && (
-        <div className="mt-3 space-y-2">
-          {isLoading ? (
-            <p className="rounded-2xl bg-white px-3 py-4 text-center text-xs text-slate-400">
-              正在加载账号收藏方案...
-            </p>
-          ) : plans.length ? plans.map((plan) => (
-            <div key={plan.id} className="rounded-2xl border border-white bg-white px-3 py-3 shadow-sm">
-              <div className="flex items-start gap-2">
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-xs font-black text-slate-800">{plan.name}</p>
-                  <p className="mt-0.5 truncate text-[11px] font-bold text-slate-400">
-                    {formatSavedPlanMeta(plan)} · {formatSavedPlanTime(plan.updatedAt)}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => onApply(plan)}
-                  className="h-8 shrink-0 rounded-full bg-[rgba(91,124,255,0.1)] px-3 text-[11px] font-black text-[var(--codex-accent)] hover:bg-[rgba(91,124,255,0.12)]"
-                >
-                  套用
-                </button>
-                <button
-                  type="button"
-                  aria-label="删除收藏方案"
-                  onClick={() => onDelete(plan.id)}
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 hover:bg-red-50 hover:text-red-500"
-                  title="删除收藏方案"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              </div>
-              {plan.planPreview.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {plan.planPreview.slice(0, 4).map((module, index) => (
-                    <span key={`${plan.id}-${module.name}-${index}`} className="rounded-full bg-slate-50 px-2 py-0.5 text-[10px] font-bold text-slate-500">
-                      {module.usesModel ? "模特 · " : ""}{module.name}
-                    </span>
-                  ))}
-                  {plan.planPreview.length > 4 && (
-                    <span className="rounded-full bg-slate-50 px-2 py-0.5 text-[10px] font-bold text-slate-400">
-                      +{plan.planPreview.length - 4}
-                    </span>
-                  )}
-                </div>
-              )}
-            </div>
-          )) : (
-            <p className="rounded-2xl bg-white px-3 py-4 text-center text-xs text-slate-400">
-              暂无账号收藏方案。先调整好当前生成计划，再点收藏。
-            </p>
-          )}
-        </div>
-      )}
+      </>
     </div>
   );
-}
-
-function PlanList({
-  templates,
-  productProfile,
-  limit,
-  onEdit,
-  onRemove,
-}: {
-  templates: ProductSetResolvedTemplate[];
-  productProfile: ProductSetProductProfile;
-  limit?: number;
-  onEdit: (index: number) => void;
-  onRemove: (index: number) => void;
-}) {
-  if (!templates.length) {
-    return (
-      <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-3 py-5 text-center text-xs text-slate-400">
-        还没有选择模板，打开模板库添加。
-      </div>
-    );
-  }
-
-  const visibleTemplates = typeof limit === "number" ? templates.slice(0, limit) : templates;
-  const hiddenCount = templates.length - visibleTemplates.length;
-
-  return (
-    <div className="space-y-2">
-      {visibleTemplates.map((template, index) => (
-        <div key={`${template.source}-${template.id}-${index}`} className="flex min-h-[76px] items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50 p-2">
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white text-xs font-black text-[var(--codex-accent)] shadow-sm">{index + 1}</span>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-xs font-black text-slate-800">{template.name}</p>
-            <p className="truncate text-[11px] text-slate-400">{template.imageType === "details" ? "详情页" : "主图/辅图"} · {getAspectRatioLabel(template.aspectRatio)} · {template.moduleRole}</p>
-            <p className="mt-1 line-clamp-1 text-[10px] text-slate-400">{getProductSetModuleReason(template, productProfile)}</p>
-          </div>
-          {shouldUseModelForTemplate(template, productProfile) && (
-            <span className="shrink-0 rounded-full bg-slate-100 px-2 py-1 text-[10px] font-black text-slate-600">模特</span>
-          )}
-          <button type="button" onClick={() => onEdit(index)} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 hover:bg-[rgba(91,124,255,0.12)] hover:text-[var(--codex-accent)]" title="编辑模块">
-            <Edit3 className="h-3.5 w-3.5" />
-          </button>
-          <button type="button" onClick={() => onRemove(index)} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 hover:bg-red-50 hover:text-red-500" title="移除模块">
-            <X className="h-3.5 w-3.5" />
-          </button>
-        </div>
-      ))}
-      {hiddenCount > 0 && (
-        <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-3 py-2 text-center text-[11px] font-bold text-slate-400">
-          已折叠 {hiddenCount} 个后续模块，点击右上角查看全部。
-        </div>
-      )}
-    </div>
-  );
-}
-
-function GenerationSettingsSummary({
-  aiModel,
-  imageSize,
-  qualityMode,
-  expanded,
-  onToggle,
-}: {
-  aiModel: LingyaModel;
-  imageSize: ImageSize;
-  qualityMode: "standard" | "advanced";
-  expanded: boolean;
-  onToggle: () => void;
-}) {
-  const model = MODELS.find((item) => item.value === aiModel);
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      className="flex w-full items-center justify-between gap-3 rounded-3xl border border-slate-100 bg-white p-4 text-left shadow-sm hover:border-[rgba(91,124,255,0.3)] hover:bg-[rgba(91,124,255,0.12)]"
-    >
-      <span className="flex min-w-0 items-center gap-3">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-slate-50 text-[var(--codex-accent)]">
-          <Activity className="h-4 w-4" />
-        </span>
-        <span className="min-w-0">
-          <span className="block text-sm font-black text-slate-950 dark:text-stone-100">生成设置</span>
-          <span className="mt-1 block truncate text-xs font-bold text-slate-400">
-            {model?.label || aiModel} · {imageSize} · {qualityMode === "advanced" ? "高级质检" : "标准质检"}
-          </span>
-        </span>
-      </span>
-      <span className="inline-flex h-8 shrink-0 items-center gap-1 rounded-full bg-slate-50 px-2.5 text-[11px] font-black text-slate-500">
-        {expanded ? "收起" : "调整"}
-        <ChevronRight className={`h-3.5 w-3.5 transition ${expanded ? "rotate-90" : ""}`} />
-      </span>
-    </button>
-  );
-}
-
-function ModelConfigPanel({
-  aiModel,
-  imageType,
-  imageSize,
-  qualityMode,
-  supportedSizes,
-  onModelChange,
-  onSizeChange,
-  onQualityChange,
-}: {
-  aiModel: LingyaModel;
-  imageType: ProductSetImageType;
-  imageSize: ImageSize;
-  qualityMode: "standard" | "advanced";
-  supportedSizes: ImageSize[];
-  onModelChange: (value: LingyaModel) => void;
-  onSizeChange: (value: ImageSize) => void;
-  onQualityChange: (value: "standard" | "advanced") => void;
-}) {
-  return (
-    <section className="space-y-3">
-      <div className="rounded-2xl border border-slate-100/80 bg-white/45 p-4">
-        <h3 className="mb-3 flex items-center gap-2 text-sm font-black text-slate-950 dark:text-stone-100">
-          <Activity className="h-4 w-4 text-[var(--codex-accent)]" /> 生成模型
-        </h3>
-        <div className="grid grid-cols-2 items-stretch gap-2">
-          {MODELS.map((model) => (
-            <button
-              key={model.value}
-              type="button"
-              onClick={() => onModelChange(model.value)}
-              className={`min-h-[72px] rounded-2xl border px-3 py-2.5 text-left transition-[border-color,background-color,color,box-shadow] ${
-                aiModel === model.value
-                  ? "border-[rgba(91,124,255,0.22)]0 bg-[rgba(91,124,255,0.1)] text-slate-950 dark:text-stone-100 shadow-[0_10px_26px_rgba(124,58,237,0.12)]"
-                  : "border-slate-100 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
-              }`}
-            >
-              <div className="flex min-w-0 items-center gap-1.5">
-                <RawPreviewImage src={model.icon} alt="" className="h-4 w-4 shrink-0 object-contain" />
-                <span className="min-w-0 truncate text-[11px] font-black">{model.label}</span>
-                {model.badge && (
-                  <span className="shrink-0 rounded-full bg-[rgba(91,124,255,0.1)] px-1.5 py-0.5 text-[9px] font-black text-[var(--codex-accent)]">
-                    {model.badge}
-                  </span>
-                )}
-              </div>
-              <p className="mt-1 line-clamp-2 pl-5 text-[11px] font-semibold leading-tight text-slate-400" title={model.desc}>{model.desc}</p>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="rounded-2xl border border-slate-100/80 bg-white/45 p-4">
-        <h3 className="mb-3 text-sm font-black text-slate-950 dark:text-stone-100">分辨率</h3>
-        <div className="grid grid-cols-3 gap-2">
-          {supportedSizes.map((size) => (
-            <button
-              key={size}
-              type="button"
-              onClick={() => onSizeChange(size)}
-              className={`h-10 rounded-xl border px-2 text-xs font-bold transition-colors ${
-                imageSize === size
-                  ? "border-[rgba(91,124,255,0.22)]0 bg-[rgba(91,124,255,0.1)] text-[var(--codex-accent)]"
-                  : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
-              }`}
-            >
-              {size} · {getCreditCost(aiModel, size, "3:4")}灵点
-            </button>
-          ))}
-        </div>
-        {imageType === "details" && imageSize === "1K" && (
-          <div className="mt-3 rounded-2xl border border-amber-100 bg-amber-50 px-3 py-2 text-[11px] font-bold leading-4 text-amber-700">
-            详情页有标题、标签和局部细节，1K 容易小字糊；推荐 2K 起步，质检和可读性会明显更好。
-          </div>
-        )}
-      </div>
-
-      <div className="rounded-2xl border border-slate-100/80 bg-white/45 p-4">
-        <h3 className="mb-3 text-sm font-black text-slate-950 dark:text-stone-100">生成档位</h3>
-        <div className="grid grid-cols-2 gap-2">
-          {(["standard", "advanced"] as const).map((value) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => onQualityChange(value)}
-              className={`h-10 rounded-xl border px-3 text-xs font-bold transition-colors ${
-                qualityMode === value
-                  ? "border-[rgba(91,124,255,0.22)]0 bg-[rgba(91,124,255,0.1)] text-[var(--codex-accent)]"
-                  : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
-              }`}
-            >
-              {value === "standard" ? "标准模式" : "高级模式"}
-            </button>
-          ))}
-        </div>
-        <div className="mt-3 rounded-2xl border border-[rgba(91,124,255,0.22)] bg-[rgba(91,124,255,0.1)] px-3 py-3">
-          <p className="text-xs font-black text-[var(--codex-accent)]">比例按模板自动</p>
-          <p className="mt-1 text-[11px] leading-4 text-[var(--codex-accent)]">首屏海报、细节图、白底主图会分别使用各自模板比例，避免整套图被一个比例误导。</p>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function SettingsModal({
-  settings,
-  onSettingChange,
-  onClose,
-}: {
-  settings: ProductSetSettings;
-  onSettingChange: <K extends keyof ProductSetSettings>(key: K, value: ProductSetSettings[K]) => void;
-  onClose: () => void;
-}) {
-  return (
-    <div className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-950/35 p-3 backdrop-blur-xl">
-      <div className="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-[32px] bg-white shadow-[0_30px_120px_rgba(15,23,42,0.28)]">
-        <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4">
-          <div className="min-w-0 flex-1">
-            <h2 className="text-lg font-black text-slate-950 dark:text-stone-100">更多设置</h2>
-            <p className="mt-1 text-xs text-slate-400">用于控制目标市场、图片文案和视觉风格；模型、比例与清晰度在左侧单独配置。</p>
-          </div>
-          <button type="button" onClick={onClose} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200">
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-        <div className="flex-1 overflow-y-auto p-5">
-          <div className="space-y-6">
-            <OptionGrid title="目标销售国家/地区" options={PRODUCT_SET_COUNTRIES} value={settings.country} onChange={(value) => onSettingChange("country", value)} />
-            <OptionGrid title="图片文案语言" options={PRODUCT_SET_LANGUAGES} value={settings.language} onChange={(value) => onSettingChange("language", value)} />
-            <OptionGrid title="目标平台" options={PRODUCT_SET_PLATFORMS} value={settings.platform} onChange={(value) => onSettingChange("platform", value)} />
-            <div>
-              <p className="mb-2 text-xs font-bold text-slate-700">主题色</p>
-              <div className="grid grid-cols-2 items-stretch gap-2">
-                {([
-                  ["auto", "智能主题色"],
-                  ["custom", "自定义颜色"],
-                ] as [ProductSetThemeMode, string][]).map(([value, label]) => (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => onSettingChange("themeMode", value)}
-                    className={`flex h-11 items-center justify-center gap-2 rounded-xl border px-3 text-xs font-black transition ${settings.themeMode === value ? "border-[rgba(91,124,255,0.22)] bg-[rgba(91,124,255,0.1)] text-[var(--codex-accent)]" : "border-slate-200 bg-slate-50 text-slate-500"}`}
-                  >
-                    <Palette className="h-4 w-4" /> {label}
-                  </button>
-                ))}
-              </div>
-              {settings.themeMode === "custom" && (
-                <input
-                  value={settings.themeColor}
-                  onChange={(event) => onSettingChange("themeColor", event.target.value.slice(0, 80))}
-                  placeholder="例如：奶油白 + 牛仔蓝 + 玫瑰粉"
-                  className="mt-2 h-10 w-full rounded-xl border border-slate-100 bg-slate-50 px-3 text-xs outline-none focus:border-[rgba(91,124,255,0.5)]"
-                />
-              )}
-            </div>
-            <div>
-              <p className="mb-2 text-xs font-bold text-slate-700">字体风格</p>
-              <div className="grid grid-cols-2 items-stretch gap-2 md:grid-cols-3">
-                {(Object.keys(PRODUCT_SET_FONT_STYLE_LABELS) as ProductSetFontStyle[]).map((value) => (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => onSettingChange("fontStyle", value)}
-                    className={`h-10 rounded-xl border px-3 text-xs font-bold transition ${settings.fontStyle === value ? "border-[rgba(91,124,255,0.22)] bg-[rgba(91,124,255,0.1)] text-[var(--codex-accent)]" : "border-slate-200 bg-slate-50 text-slate-500"}`}
-                  >
-                    {PRODUCT_SET_FONT_STYLE_LABELS[value]}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <textarea
-              value={settings.extraDescription || ""}
-              onChange={(event) => onSettingChange("extraDescription", event.target.value.slice(0, 600))}
-              placeholder="额外描述：例如女装要偏法式通勤、不要夸张姿势、文案短句风格等。"
-              className="min-h-28 w-full resize-none rounded-2xl border border-slate-100 bg-slate-50 px-3 py-3 text-sm leading-6 outline-none focus:border-[rgba(91,124,255,0.5)]"
-            />
-          </div>
-        </div>
-        <div className="flex justify-end border-t border-slate-100 px-5 py-4">
-          <button type="button" onClick={onClose} className="h-11 rounded-full bg-slate-950 px-8 text-sm font-black text-white">确认</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function TemplateLibraryModal({
-  imageType,
-  genCount,
-  templates,
-  selectedTemplateIds,
-  activeCustomTemplates,
-  filter,
-  query,
-  customDraft,
-  showCustomBuilder,
-  isUploadingCustomRef,
-  customRefInputRef,
-  customModelRefInputRef,
-  customOtherRefInputRef,
-  onFilterChange,
-  onQueryChange,
-  onToggleTemplate,
-  onClose,
-  onShowCustomBuilder,
-  onCustomDraftChange,
-  onUploadCustomReference,
-  onAddCustomTemplate,
-  onRemoveCustomTemplate,
-}: {
-  imageType: ProductSetImageType;
-  genCount: number;
-  templates: ProductSetTemplate[];
-  selectedTemplateIds: number[];
-  activeCustomTemplates: ProductSetCustomTemplate[];
-  mode: ProductSetCreationMode;
-  filter: TemplateFilter;
-  query: string;
-  customDraft: CustomDraft;
-  showCustomBuilder: boolean;
-  isUploadingCustomRef: boolean;
-  customRefInputRef: React.RefObject<HTMLInputElement | null>;
-  customModelRefInputRef: React.RefObject<HTMLInputElement | null>;
-  customOtherRefInputRef: React.RefObject<HTMLInputElement | null>;
-  onFilterChange: (value: TemplateFilter) => void;
-  onQueryChange: (value: string) => void;
-  onToggleTemplate: (id: number) => void;
-  onClose: () => void;
-  onShowCustomBuilder: (value: boolean) => void;
-  onCustomDraftChange: (updater: (value: CustomDraft) => CustomDraft) => void;
-  onUploadCustomReference: (kind: "style" | "model" | "other", file?: File) => void;
-  onAddCustomTemplate: () => void;
-  onRemoveCustomTemplate: (id: string) => void;
-}) {
-  const visibleTemplates = templates.filter((template) => {
-    if (filter === "selected" && !selectedTemplateIds.includes(template.id)) return false;
-    if (filter === "womenswear" && template.scenario !== "womenswear") return false;
-    if (query.trim()) {
-      const keyword = query.trim().toLowerCase();
-      return `${template.name} ${template.typeDescriptionV2}`.toLowerCase().includes(keyword);
-    }
-    return true;
-  });
-
-  return (
-    <div className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-950/35 p-3 backdrop-blur-xl">
-      <div className="flex max-h-[92vh] w-full max-w-7xl flex-col overflow-hidden rounded-[32px] bg-white shadow-[0_30px_120px_rgba(15,23,42,0.28)]">
-        <div className="flex flex-col gap-3 border-b border-slate-100 px-5 py-4 lg:flex-row lg:items-start lg:justify-between">
-          <div className="min-w-0 flex-1">
-            <h2 className="text-lg font-black text-slate-950 dark:text-stone-100">参考模板库</h2>
-            <p className="mt-1 text-xs text-slate-400">模板只控制用途、版式和视觉方向，最终商品会以你上传的图片为准。</p>
-          </div>
-          <div className="flex min-w-0 shrink-0 items-center gap-2">
-            <div className="relative min-w-0">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-300" />
-              <input value={query} onChange={(event) => onQueryChange(event.target.value)} placeholder="搜索模板" className="h-10 w-40 rounded-full border border-slate-200 bg-slate-50 pl-9 pr-3 text-xs outline-none focus:border-[rgba(91,124,255,0.5)] sm:w-52" />
-            </div>
-            <button type="button" onClick={onClose} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200">
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-        </div>
-        <div className="grid min-h-0 flex-1 lg:grid-cols-[minmax(0,1fr)_340px]">
-          <div className="min-h-0 overflow-y-auto p-5">
-            <div className="mb-4 flex flex-wrap gap-2">
-              {([
-                ["all", imageType === "details" ? "全部详情页模板" : "全部主图模板"],
-                ["womenswear", "女装场景"],
-                ["selected", `已选 ${selectedTemplateIds.length}`],
-              ] as [TemplateFilter, string][]).map(([value, label]) => (
-                <button key={value} type="button" onClick={() => onFilterChange(value)} className={`h-9 rounded-full px-3 text-xs font-black transition ${filter === value ? "bg-slate-950 text-white" : "border border-slate-200 bg-white text-slate-500 hover:bg-slate-50"}`}>
-                  {label}
-                </button>
-              ))}
-            </div>
-            <div className="grid auto-rows-fr grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {visibleTemplates.map((template) => (
-                <TemplateCard
-                  key={template.id}
-                  template={template}
-                  selected={selectedTemplateIds.includes(template.id)}
-                  onToggle={() => onToggleTemplate(template.id)}
-                />
-              ))}
-            </div>
-          </div>
-          <aside className="min-h-0 overflow-y-auto border-t border-slate-100 bg-slate-50 p-5 lg:border-l lg:border-t-0">
-            <button
-              type="button"
-              onClick={() => onShowCustomBuilder(!showCustomBuilder)}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-[rgba(91,124,255,0.22)] bg-white px-3 py-3 text-xs font-black text-[var(--codex-accent)] hover:bg-[rgba(91,124,255,0.12)]"
-            >
-              <Plus className="h-4 w-4" /> 上传参考图
-            </button>
-
-            {showCustomBuilder && (
-              <div className="mt-3 space-y-3 rounded-2xl border border-slate-100 bg-white p-3">
-                <div>
-                  <p className="text-xs font-black text-slate-800">上传自己的参考</p>
-                  <p className="mt-1 text-[11px] leading-4 text-slate-400">不需要写复杂规则，上传参考图后选择参考重点即可。</p>
-                </div>
-                <ReferenceQuickStart
-                  imageType={imageType}
-                  genCount={genCount}
-                  customDraft={customDraft}
-                  isUploadingCustomRef={isUploadingCustomRef}
-                  customRefInputRef={customRefInputRef}
-                  customModelRefInputRef={customModelRefInputRef}
-                  customOtherRefInputRef={customOtherRefInputRef}
-                  onCustomDraftChange={onCustomDraftChange}
-                  onUploadCustomReference={onUploadCustomReference}
-                  onAddCustomTemplate={onAddCustomTemplate}
-                />
-              </div>
-            )}
-
-            <div className="mt-5">
-              <h3 className="text-xs font-black text-slate-700">自定义样式</h3>
-              {activeCustomTemplates.length ? (
-                <div className="mt-2 space-y-2">
-                  {activeCustomTemplates.map((template) => (
-                    <div key={template.id} className="flex min-h-10 items-center justify-between gap-2 rounded-2xl bg-white px-3 py-2 text-xs">
-                      <span className="min-w-0 truncate font-bold text-slate-700">{template.name}</span>
-                      <button type="button" onClick={() => onRemoveCustomTemplate(template.id)} className="text-slate-400 hover:text-red-500"><X className="h-3.5 w-3.5" /></button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="mt-2 rounded-2xl bg-white px-3 py-4 text-xs leading-5 text-slate-400">可上传自己的参考模板图，配合文字描述生成专属套图风格。</p>
-              )}
-            </div>
-          </aside>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function getAspectRatioLabel(value: string) {
-  return value === "auto" ? "智能" : value;
-}
-
-function TemplateCard({ template, selected, onToggle }: { template: ProductSetTemplate; selected: boolean; onToggle: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      className={`group flex h-full flex-col overflow-hidden rounded-3xl border bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-xl ${
-        selected ? "border-[rgba(91,124,255,0.22)] ring-2 ring-[rgba(91,124,255,0.18)]" : "border-slate-100"
-      }`}
-    >
-      <div className="relative aspect-[4/3] shrink-0 bg-slate-100">
-        <RawPreviewImage src={getImageVariantUrl(template.coverImage, "card")} alt={template.name} className="h-full w-full object-cover" />
-        <span className="absolute left-3 top-3 rounded-full bg-white/90 px-2 py-1 text-[10px] font-black text-slate-600 shadow-sm">
-          {getAspectRatioLabel(template.aspectRatio)}
-        </span>
-        <span className={`absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-full shadow-sm ${selected ? "bg-[rgba(91,124,255,0.1)] text-white" : "bg-white/90 text-slate-400"}`}>
-          {selected ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-        </span>
-        {template.scenario === "womenswear" && <span className="absolute bottom-3 left-3 rounded-full bg-slate-100 px-2 py-1 text-[10px] font-black text-slate-600">女装</span>}
-      </div>
-      <div className="flex min-h-[126px] flex-1 flex-col p-3">
-        <div className="flex min-h-6 items-start justify-between gap-2">
-          <h3 className="min-w-0 line-clamp-1 text-sm font-black text-slate-900 dark:text-stone-100">{template.name}</h3>
-          <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500">
-            {template.imageType === "main" ? "主图" : "详情"}
-          </span>
-        </div>
-        <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-500">{template.typeDescriptionV2}</p>
-        <div className="mt-auto flex items-center gap-2 pt-3 text-[10px] font-bold text-slate-400">
-          <Layers3 className="h-3.5 w-3.5" />
-          {template.subjectConsistency ? "主体一致" : "版式独立"}
-          <ChevronRight className="ml-auto h-3.5 w-3.5" />
-        </div>
-      </div>
-    </button>
-  );
-}
-
-function ToggleButton({ active, label, onClick }: { active: boolean; label: string; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`flex h-10 items-center justify-between rounded-xl border px-3 text-xs font-black transition ${active ? "border-[rgba(91,124,255,0.22)] bg-[rgba(91,124,255,0.1)] text-[var(--codex-accent)]" : "border-slate-100 bg-slate-50 text-slate-500"}`}
-    >
-      <span className="min-w-0 truncate pr-2">{label}</span>
-      <span className={`h-4 w-7 shrink-0 rounded-full p-0.5 transition ${active ? "bg-[rgba(91,124,255,0.1)]" : "bg-slate-300"}`}>
-        <span className={`block h-3 w-3 rounded-full bg-white transition ${active ? "translate-x-3" : ""}`} />
-      </span>
-    </button>
-  );
-}
-
-function ReferenceUploadButton({ label, hint, url, loading, onClick }: { label: string; hint?: string; url?: string; loading: boolean; onClick: () => void }) {
-  return (
-    <button type="button" onClick={onClick} className="flex min-h-[60px] w-full items-center gap-2 rounded-xl border border-slate-100 bg-slate-50 px-2 py-2 text-left text-xs font-bold text-slate-600 hover:border-[rgba(91,124,255,0.3)] hover:bg-[rgba(91,124,255,0.12)]">
-      <span className={`flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg ${url ? "studio-checkerboard" : "bg-white"}`}>
-        {url ? <RawPreviewImage src={getImageVariantUrl(url, "thumb")} alt={label} className="h-full w-full object-contain p-0.5" /> : loading ? <Loader2 className="h-4 w-4 animate-spin text-[var(--codex-accent)]" /> : <Upload className="h-4 w-4 text-slate-400" />}
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block truncate">{label}</span>
-        <span className="mt-0.5 block text-[10px] font-semibold text-slate-400">{url ? "已上传，可替换" : (hint || "上传 / 拖拽图片")}</span>
-      </span>
-    </button>
-  );
-}
-
-function OptionGrid({ title, options, value, onChange }: { title: string; options: string[]; value: string; onChange: (value: string) => void }) {
-  return (
-    <div>
-      <p className="mb-2 text-xs font-bold text-slate-700">{title}</p>
-      <div className="grid grid-cols-2 items-stretch gap-2 md:grid-cols-4">
-        {options.map((item) => (
-          <button
-            key={item}
-            type="button"
-            onClick={() => onChange(item)}
-            className={`h-10 truncate rounded-xl border px-3 text-xs font-bold transition ${
-              value === item ? "border-[rgba(91,124,255,0.22)] bg-[rgba(91,124,255,0.1)] text-[var(--codex-accent)]" : "border-slate-200 bg-slate-50 text-slate-500 hover:border-[rgba(91,124,255,0.3)]"
-            }`}
-          >
-            {item}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function formatSavedPlanMeta(plan: SavedProductSetPlan) {
-  const modeLabel = plan.mode === "custom" ? "自定义方案" : "视觉方案";
-  const imageTypeLabel = plan.imageType === "details" ? "详情页" : "主图";
-  const unit = plan.imageType === "details" ? "屏" : "张";
-  const count = plan.planPreview.length || plan.genCount;
-  return `${modeLabel} · ${imageTypeLabel} · ${count}${unit}`;
-}
-
-function formatSavedPlanTime(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "刚刚";
-  return `${date.getMonth() + 1}/${date.getDate()} ${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
 }

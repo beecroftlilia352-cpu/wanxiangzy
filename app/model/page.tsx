@@ -21,7 +21,7 @@ import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGenerati
 import { ResultImageGrid } from "@/components/ResultImageGrid";
 import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
 import { setCachedProfileCredits } from "@/lib/supabase/client";
-import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, isLikelyImageFile, uploadImage } from "@/lib/utils";
+import { MAX_FILE_SIZE_MB, isLikelyImageFile, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
 import { fetchHistoryApplyDetail, getHistoryApplyFailureMessage, isHistoryApplyRowFailed, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
 import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";

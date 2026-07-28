@@ -1,6 +1,7 @@
 import type { ComponentType, InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from "react";
 import { Check, ImageIcon, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 
 type SurfaceVariant = "surface" | "elevated" | "floating" | "toolbar";
 type Tone = "neutral" | "accent" | "success" | "warning" | "danger";
@@ -222,7 +223,7 @@ export function MacAssetCard({
   return (
     <article className={cn("mac-asset-card", selected && "mac-asset-card-selected")}>
       <button type="button" onClick={onClick} className="mac-asset-card-preview" disabled={!onClick}>
-        {imageUrl ? <img src={imageUrl} alt="" /> : <ImageIcon className="h-6 w-6 text-slate-400" />}
+        {imageUrl ? <RawPreviewImage src={imageUrl} alt="" /> : <ImageIcon className="h-6 w-6 text-slate-400" />}
         {selected && (
           <span className="mac-asset-selected-mark">
             <Check className="h-3.5 w-3.5" />

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { animate, motion, useInView, useMotionValue, useReducedMotion, useTransform, type HTMLMotionProps } from "motion/react";
 
 import { cn } from "@/lib/utils";
@@ -111,7 +111,7 @@ export interface DiaTextRevealProps extends Omit<HTMLMotionProps<"span">, "ref" 
 }
 
 export function DiaTextReveal({ text, colors = DEFAULT_COLORS, textColor = "var(--foreground)", duration = 1.5, delay = 0, repeat = false, repeatDelay = 0.5, startOnView = true, once = true, className, fixedWidth = false, ...props }: DiaTextRevealProps) {
-    const texts = Array.isArray(text) ? text : [text];
+    const texts = useMemo(() => (Array.isArray(text) ? text : [text]), [text]);
     const isMulti = texts.length > 1;
     const prefersReducedMotion = useReducedMotion();
 
@@ -154,7 +154,7 @@ export function DiaTextReveal({ text, colors = DEFAULT_COLORS, textColor = "var(
         const el = spanRef.current;
         if (!el || !isMulti) return;
         setMeasuredWidths(measureWidths(el, texts));
-    }, [Array.isArray(text) ? text.join("\0") : text]);
+    }, [isMulti, texts]);
 
     playRef.current = () => {
         const { duration, delay, repeat, repeatDelay, texts } = optsRef.current;

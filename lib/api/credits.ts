@@ -106,7 +106,7 @@ export async function failGenerationWithRefund(
   );
 }
 
-async function assertUserCanGenerate(userId: string) {
+export async function assertUserCanGenerate(userId: string) {
   try {
     const { data, error } = await getAdminClient()
       .from("admin_user_controls")

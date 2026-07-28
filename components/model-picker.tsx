@@ -4,6 +4,7 @@ import { useEffect, useId, useMemo, useState } from "react";
 import { Cpu } from "lucide-react";
 
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
+import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { cn } from "@/lib/utils";
 import { modelMatchesCapability, modelOptionLabel, modelOptionName, selectableModelsByCapability, type AiConfig, type ModelCapability } from "@/stores/use-config-store";
 
@@ -145,7 +146,7 @@ function shouldShowChannelSuffix(config: AiConfig, modelName: string): boolean {
 
 function ModelIcon({ model }: { model: string }) {
     const icon = resolveModelIcon(modelOptionName(model));
-    return icon ? <img src={icon} alt="" width={16} height={16} loading="lazy" className="size-4 shrink-0 dark:invert" /> : <Cpu className="size-4 shrink-0 opacity-70" aria-hidden="true" />;
+    return icon ? <RawPreviewImage src={icon} alt="" width={16} height={16} loading="lazy" className="size-4 shrink-0 dark:invert" /> : <Cpu className="size-4 shrink-0 opacity-70" aria-hidden="true" />;
 }
 
 function resolveModelIcon(model: string) {

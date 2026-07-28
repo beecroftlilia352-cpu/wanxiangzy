@@ -90,11 +90,6 @@ function formatPercent(value: number) {
   return `${percentNumber.format(value)}%`;
 }
 
-function shortLabel(value: string, max = 10) {
-  if (value.length <= max) return value;
-  return `${value.slice(0, max - 1)}…`;
-}
-
 export function AdminDashboardCharts({ overview, report, days }: AdminDashboardChartsProps) {
   const trendData = useMemo(() => buildTrendData(report.daily), [report.daily]);
   const taskStatusData = useMemo(() => buildTaskStatusData(overview), [overview]);

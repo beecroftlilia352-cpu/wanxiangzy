@@ -2,6 +2,7 @@ import type { CSSProperties, ReactNode, RefObject } from "react";
 import { CheckCircle2, Loader2, Upload, X, XCircle } from "lucide-react";
 import { ClientPortal } from "@/components/ClientPortal";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
+import { StudioMediaLightbox } from "@/components/studio/StudioMediaLightbox";
 import { StudioUploadSection } from "@/components/studio/StudioUploadSection";
 import {
   VisualAnalysisStatusCard,
@@ -142,7 +143,7 @@ export function GarmentDetailReferencePanel({
       <button
         type="button"
         onClick={onToggle}
-        className={`flex w-full items-center justify-between rounded-2xl border p-3 text-left transition-all ${
+        className={`flex w-full items-center justify-between rounded-2xl border p-3 text-left transition-[color,background-color,border-color,box-shadow] ${
           enabled
             ? "border-blue-300 bg-blue-50 text-blue-800 dark:border-[rgba(91,140,255,0.55)] dark:bg-[rgba(91,140,255,0.18)] dark:text-[#cfd8ff]"
             : "border-neutral-200 bg-white text-neutral-700 hover:border-neutral-300 dark:border-white/10 dark:bg-[#1c1c1e] dark:text-stone-200 dark:hover:border-white/20"
@@ -423,31 +424,11 @@ export function TryOnLightbox({
   image: TryOnLightboxImage | null;
   onClose: () => void;
 }) {
-  if (!image) return null;
   return (
-    <ClientPortal>
-      <div
-        className="fixed inset-0 z-[180] flex cursor-zoom-out items-center justify-center bg-slate-950/66 p-4 backdrop-blur-xl sm:p-8"
-        role="dialog"
-        aria-modal="true"
-        aria-label={image.alt}
-        onClick={onClose}
-      >
-        <RawPreviewImage
-          src={image.src}
-          alt={image.alt}
-          className="max-h-full max-w-full rounded-2xl object-contain shadow-[0_32px_120px_rgba(0,0,0,0.45)]"
-        />
-        <button
-          type="button"
-          onClick={onClose}
-          className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full border border-white/85 bg-white/90 text-slate-700 shadow-[0_12px_34px_rgba(15,23,42,0.22)] backdrop-blur transition-colors hover:bg-white hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 sm:right-6 sm:top-6"
-          aria-label="关闭图片预览"
-          title="关闭图片预览"
-        >
-          <X className="w-5 h-5" />
-        </button>
-      </div>
-    </ClientPortal>
+    <StudioMediaLightbox
+      src={image?.src || null}
+      alt={image?.alt || "试穿图片预览"}
+      onClose={onClose}
+    />
   );
 }

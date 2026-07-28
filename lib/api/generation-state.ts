@@ -101,6 +101,17 @@ function isFailedStatus(status: string) {
 }
 
 function readExpectedCount(payload: Record<string, unknown>, resultCount: number) {
+  if (payload.kind === "productRetouch") {
+    const count = firstFiniteNumber([
+      payload.expectedCount,
+      payload.genCount,
+      payload.gen_count,
+      payload.outputCount,
+      payload.count,
+    ]) || 1;
+    return clampExpectedCount(count, 120);
+  }
+
   if (payload.kind === "tryon") {
     const referenceCount = payload.sceneMode === "auto_design"
       ? 1
@@ -131,8 +142,8 @@ function readExpectedCount(payload: Record<string, unknown>, resultCount: number
   return Math.max(1, resultCount || 1);
 }
 
-function clampExpectedCount(value: number) {
-  return Math.max(1, Math.min(Math.round(value), 24));
+function clampExpectedCount(value: number, max = 24) {
+  return Math.max(1, Math.min(Math.round(value), max));
 }
 
 function readRunningProgress(params: { asyncProgress?: unknown; resultCount: number; expectedCount: number }) {

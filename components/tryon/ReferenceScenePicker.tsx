@@ -1,7 +1,8 @@
 "use client";
 
 import { CheckCircle2, ChevronLeft, ChevronRight, Search, Sparkles, X } from "lucide-react";
-import { ClientPortal } from "@/components/ClientPortal";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { cn } from "@/lib/utils";
 
 export type ReferenceScenePickerTab = "recommended" | "exclusive" | "all";
@@ -99,21 +100,20 @@ export function ReferenceScenePicker<TItem extends ReferenceScenePickerItem = Re
   };
 
   return (
-    <ClientPortal>
-      <div
+    <Dialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen) onClose(); }}>
+      <DialogContent
+        showCloseButton={false}
+        overlayClassName="z-[210] bg-slate-950/34 backdrop-blur-sm lg:left-[calc(var(--studio-nav-rail-width)+var(--studio-task-rail-width)+var(--studio-sidebar-width))] lg:bg-transparent lg:backdrop-blur-0"
         className={cn(
-          "fixed inset-0 z-[210] bg-slate-950/34 p-3 backdrop-blur-sm lg:bottom-3 lg:left-[calc(var(--studio-nav-rail-width)+var(--studio-task-rail-width)+var(--studio-sidebar-width)+20px)] lg:right-5 lg:top-6 lg:bg-transparent lg:p-0 lg:backdrop-blur-0",
+          "z-[211] !bottom-3 !left-3 !right-3 !top-3 !h-auto !w-auto !max-w-none !translate-x-0 !translate-y-0 gap-0 overflow-hidden bg-transparent p-0 ring-0 shadow-none lg:!bottom-3 lg:!left-[calc(var(--studio-nav-rail-width)+var(--studio-task-rail-width)+var(--studio-sidebar-width)+20px)] lg:!right-5 lg:!top-6",
           className
         )}
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
       >
         <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_28px_90px_rgba(15,23,42,0.22)]">
           <header className="relative flex h-16 shrink-0 items-center justify-center border-b border-slate-100 px-12">
             <div className="min-w-0 text-center">
-              <h3 className="truncate text-[13px] font-bold text-slate-950">{title}</h3>
-              <p className="hidden truncate text-[10px] text-slate-400 sm:block">{description}</p>
+              <DialogTitle className="truncate text-[13px] font-bold leading-normal text-slate-950">{title}</DialogTitle>
+              <DialogDescription className="hidden truncate text-[10px] text-slate-400 sm:block">{description}</DialogDescription>
             </div>
             <button
               type="button"
@@ -249,7 +249,7 @@ export function ReferenceScenePicker<TItem extends ReferenceScenePickerItem = Re
                           : "border-slate-200 hover:border-slate-300"
                       )}
                     >
-                      <img src={ref.url} alt={ref.label || "主场景"} className="aspect-[3/4] w-full object-cover" />
+                      <RawPreviewImage src={ref.url} alt={ref.label || "主场景"} className="aspect-[3/4] w-full object-cover" />
                       <p className="line-clamp-2 px-2 py-1.5 text-center text-[11px] font-medium text-slate-700">{ref.label}</p>
                     </button>
                   ))}
@@ -310,8 +310,8 @@ export function ReferenceScenePicker<TItem extends ReferenceScenePickerItem = Re
             </div>
           </footer>
         </div>
-      </div>
-    </ClientPortal>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -347,7 +347,7 @@ function ScenePreviewPane({
               className="block h-full w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
               aria-label={`预览场景：${activeReference.label}`}
             >
-              <img src={activeReference.url} alt={activeReference.label || "主场景"} className="h-full min-h-[320px] w-full object-cover lg:min-h-0" />
+              <RawPreviewImage src={activeReference.url} alt={activeReference.label || "主场景"} className="h-full min-h-[320px] w-full object-cover lg:min-h-0" />
             </button>
             <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 bg-gradient-to-t from-slate-950/68 to-transparent p-3 text-white">
               <div className="min-w-0">
@@ -430,7 +430,7 @@ function SceneMainCard({
       )}
       aria-label={`选择风格场景：${item.label}`}
     >
-      <img src={item.url} alt={item.label || "风格场景"} className="aspect-[3/4] w-full object-cover transition-transform group-hover:scale-[1.02]" />
+      <RawPreviewImage src={item.url} alt={item.label || "风格场景"} className="aspect-[3/4] w-full object-cover transition-transform group-hover:scale-[1.02]" />
       <span className={cn(
         "absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full border-2 bg-white/92 shadow-sm",
         selected ? "border-[var(--codex-accent)] bg-[var(--codex-accent)]" : "border-white"
@@ -461,7 +461,7 @@ function SceneChildCard({
       )}
       aria-label={`选择场景姿势图：${item.label}`}
     >
-      <img src={item.url} alt={item.label || "场景姿势图"} className="aspect-[3/4] w-full object-cover transition-transform group-hover:scale-[1.02]" />
+      <RawPreviewImage src={item.url} alt={item.label || "场景姿势图"} className="aspect-[3/4] w-full object-cover transition-transform group-hover:scale-[1.02]" />
       <span className={cn(
         "absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full border-2 bg-white/90 shadow-sm",
         selected ? "border-[var(--codex-accent)] bg-[var(--codex-accent)]" : "border-white"

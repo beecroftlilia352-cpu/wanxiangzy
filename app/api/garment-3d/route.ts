@@ -19,7 +19,6 @@ import { applyGarment3dDisplayStylePrompt, normalizeGarment3dDisplayStyle } from
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 import { buildGarment3dPrompt, type Garment3dOutputMode } from "@/lib/garment-3d-prompt";
 
-type GarmentType = "上装" | "下装" | "连体衣" | "其他";
 type OutputMode = Garment3dOutputMode;
 
 export const maxDuration = 60;

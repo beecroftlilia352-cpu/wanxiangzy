@@ -102,6 +102,10 @@ export const DEFAULT_DRAFT: CustomDraft = {
   copyDensity: "standard",
 };
 
+export function getAspectRatioLabel(value: string) {
+  return value === "auto" ? "智能" : value;
+}
+
 export function buildReferenceStyleBrief(plan: typeof PRODUCT_SET_PRESET_PLANS[number]) {
   return DEFAULT_REFERENCE_STYLE_BRIEF
     .replace("方案A：摩登都市奢华风", `方案A：${plan.name}参考风格`)

@@ -121,7 +121,7 @@ async function validateCurrentConfig(context: Parameters<typeof writeAdminAuditL
     issues: sceneValidation.issues,
     summary: {
       categoryCount: categories.length,
-      enabledCategoryCount: categories.filter((category: any) => category.enabled !== false).length,
+      enabledCategoryCount: categories.filter((category: { enabled?: boolean }) => category.enabled !== false).length,
       sceneCount: scenes.length,
       activeSceneCount,
     },
@@ -198,6 +198,9 @@ async function rollbackVersion(context: Parameters<typeof writeAdminAuditLog>[0]
 
 function stripSnapshotIdentity(value: unknown) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return value;
-  const { id, created_at, updated_at, ...rest } = value as Record<string, unknown>;
-  return rest;
+  const snapshot = { ...(value as Record<string, unknown>) };
+  delete snapshot.id;
+  delete snapshot.created_at;
+  delete snapshot.updated_at;
+  return snapshot;
 }

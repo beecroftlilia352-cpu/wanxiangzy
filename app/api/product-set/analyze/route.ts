@@ -1329,22 +1329,3 @@ function inferFreeTextProductName(text: string) {
     .trim();
   return cleaned.length > 28 ? `${cleaned.slice(0, 28)}...` : cleaned;
 }
-
-function buildFallbackProductInfo(count: number) {
-  return `商品名称: 待分析商品
-商品描述: 用户上传了 ${count} 张同一商品的多视角图片。请在生成时以图片中的商品品类、颜色、结构、材质、图案、logo/文字位置和可见细节为准，保持商品外观一致；如商品存在正面、侧面、背面或局部细节，请综合用于后续主图、辅图和详情页设计。
-目标受众: 面向该商品品类的电商目标用户，具体年龄、性别、使用场景与消费动机需结合图片内容和目标平台进一步判断。
-商品卖点: [1. 多视角素材有助于完整展示商品外观与结构；2. 可突出商品材质纹理、工艺细节和核心功能；3. 适合生成白底主图、场景图、细节图与卖点解析图；4. 根据目标平台生成更适合转化的视觉层级；5. 保持商品主体一致，提升整套商品视觉的专业度。]`;
-}
-
-function buildFallbackProductProfile() {
-  return {
-    ...inferProductSetProductProfile(""),
-    displayName: "待识别商品",
-    confidence: 0.2,
-    modelStrategy: "optional" as const,
-    modelBrief: "视觉分析未完成，暂不判断是否需要模特；如果是服装，请重新分析或手动改为服装/女装/外套类目。",
-    planningNotes: ["视觉分析未完成，当前不能可靠判断商品品类。", "请重新分析或手动确认类目后再生成套图。"],
-    visualKeywords: ["needs visual analysis", "category pending"],
-  };
-}

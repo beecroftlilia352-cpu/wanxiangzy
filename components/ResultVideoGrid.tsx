@@ -3,6 +3,7 @@
 import type { CSSProperties } from "react";
 import { Download, Loader2, Play, XCircle } from "lucide-react";
 import { StudioHomeHeroLoadingBackdrop } from "@/components/studio/StudioHomeHeroLoadingBackdrop";
+import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { downloadMedia, generateDownloadFilename } from "@/lib/utils";
 import type { TaskStatusGroup } from "@/lib/task-queue";
 
@@ -51,7 +52,7 @@ export function ResultVideoGrid({
                 {isVideoUrl(url) ? (
                   <video src={url} muted playsInline preload="metadata" />
                 ) : (
-                  <img src={url} alt={`输入 ${index + 1}`} width={96} height={96} loading="lazy" decoding="async" />
+                  <RawPreviewImage src={url} alt={`输入 ${index + 1}`} width={96} height={96} loading="lazy" decoding="async" />
                 )}
                 <span className="studio-result-reference-label">输入{index + 1}</span>
               </div>

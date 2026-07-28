@@ -6,6 +6,7 @@ import { getImageVariantUrl } from "@/lib/image-variants";
 import type { StableFileDragContext } from "@/components/studio/useStableFileDrag";
 import { StudioUploadExamples, type StudioUploadTileExample } from "@/components/studio/StudioUploadExamples";
 import { StudioUploadTips, buildStudioUploadTips, type StudioUploadTip } from "@/components/studio/StudioUploadTips";
+import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 
 export type StudioUploadTileProps = {
   title: string;
@@ -135,7 +136,7 @@ export function StudioUploadTile({
             className="studio-upload-tile-main"
             aria-label={`预览${title}`}
           >
-            <img src={getImageVariantUrl(imageUrl, "card")} alt={imageAlt} className="h-full w-full object-contain p-3" />
+            <RawPreviewImage src={getImageVariantUrl(imageUrl, "card")} alt={imageAlt} className="h-full w-full object-contain p-3" />
           </button>
         ) : (
           <div className="studio-upload-tile-empty" aria-label={`上传${title}`}>

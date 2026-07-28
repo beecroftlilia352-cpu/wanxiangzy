@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, ChevronRight, Loader2, Plus, Wand, X, XCircle, ZoomIn } from "lucide-react";
+import { CheckCircle2, ChevronRight, Loader2, Plus, Wand, XCircle, ZoomIn } from "lucide-react";
 import { toast } from "sonner";
 import { FeatureTabs } from "@/components/FeatureTabs";
 import { ClientPortal } from "@/components/ClientPortal";
@@ -20,6 +20,7 @@ import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
 import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
+import { StudioMediaLightbox } from "@/components/studio/StudioMediaLightbox";
 import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
@@ -1086,16 +1087,11 @@ export default function Garment3dPage() {
         </ClientPortal>
       )}
 
-      {lightboxSrc && (
-        <ClientPortal>
-          <div className="fixed inset-0 z-[180] flex cursor-zoom-out items-center justify-center bg-slate-950/66 p-4 backdrop-blur-xl sm:p-8" onClick={() => setLightboxSrc(null)}>
-            <RawPreviewImage src={lightboxSrc} alt="服装 3D 预览" className="max-h-full max-w-full rounded-2xl object-contain shadow-[0_32px_120px_rgba(0,0,0,0.45)]" />
-            <button onClick={() => setLightboxSrc(null)} className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full border border-white/85 bg-white/90 dark:bg-white/5 text-slate-700 dark:text-stone-300 shadow-[0_12px_34px_rgba(15,23,42,0.22)] backdrop-blur transition-colors hover:bg-white dark:bg-white/5 hover:text-slate-950 dark:text-stone-100 sm:right-6 sm:top-6">
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-        </ClientPortal>
-      )}
+      <StudioMediaLightbox
+        src={lightboxSrc}
+        alt="服装 3D 预览"
+        onClose={() => setLightboxSrc(null)}
+      />
     </div>
   );
 }

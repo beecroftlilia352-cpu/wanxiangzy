@@ -1,7 +1,6 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   AdminChartSkeleton,
-  AdminListSkeleton,
   AdminMetricSkeleton,
   AdminTableSkeleton,
 } from "@/components/ui/admin-skeletons";

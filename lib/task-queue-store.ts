@@ -194,6 +194,14 @@ export async function syncGenerationTaskQueueById(generationId: string): Promise
   }
 
   const row = data as unknown as TaskQueueGenerationSourceRow;
+  if (row.job_payload?.internalTask === true) {
+    await supabase
+      .from("task_queue_items")
+      .delete()
+      .eq("source_type", "generation")
+      .eq("source_id", row.id);
+    return;
+  }
   const item = normalizeGenerationTaskQueueItem(row);
   await upsertTaskQueueIndexItem(
     taskQueueItemToIndexWrite(item, { userId: row.user_id, sourceType: "generation", sourceId: row.id }),

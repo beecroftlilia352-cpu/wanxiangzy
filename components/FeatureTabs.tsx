@@ -9,8 +9,8 @@ export function FeatureTabs({ active }: { active: FeatureKey }) {
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const activeItem = getFeatureItem(active);
   const visibleItems = useMemo(() => {
-    const module = activeItem?.module || "aiShoots";
-    return getFeatureItemsForModule(module);
+    const moduleKey = activeItem?.module || "aiShoots";
+    return getFeatureItemsForModule(moduleKey);
   }, [activeItem?.module]);
 
   useEffect(() => {

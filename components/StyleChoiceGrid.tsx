@@ -1,6 +1,7 @@
 "use client";
 
 import { Check } from "lucide-react";
+import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 
 type StyleChoice<T extends string> = {
   value: T;
@@ -42,7 +43,7 @@ export function StyleChoiceGrid<T extends string>({ options, value, onChange }: 
             <div className="relative flex h-full items-stretch gap-2">
               {style.imageUrl ? (
                 <span className="relative flex h-[64px] w-[52px] shrink-0 overflow-hidden rounded-2xl border border-white bg-slate-100 shadow-sm">
-                  <img src={style.imageUrl} alt={style.label} className="h-full w-full object-cover" loading="lazy" />
+                  <RawPreviewImage src={style.imageUrl} alt={style.label} className="h-full w-full object-cover" loading="lazy" />
                   <span className="absolute inset-0 bg-gradient-to-t from-slate-950/24 via-transparent to-white/8" />
                   <span className="absolute bottom-1.5 left-1.5 right-1.5 flex gap-0.5">
                     {swatches.slice(0, 3).map((swatch, swatchIndex) => (

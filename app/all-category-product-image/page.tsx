@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode, type RefObject } from "react";
 import {
   BadgeCheck,
   Bot,
@@ -21,11 +21,11 @@ import {
   ZoomIn,
 } from "lucide-react";
 import { toast } from "sonner";
-import { ClientPortal } from "@/components/ClientPortal";
 import { FeatureTabs } from "@/components/FeatureTabs";
 import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
 import { StudioGenerationCountSelector } from "@/components/studio/StudioFormControls";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import {
   ALL_CATEGORY_PRODUCT_IMAGE_LANGUAGES,
   ALL_CATEGORY_PRODUCT_IMAGE_PLATFORMS,
@@ -264,6 +264,7 @@ function getProgressMessage(step: StepKey, progress: number) {
 
 export default function AllCategoryProductImagePage() {
   const inputRef = useRef<HTMLInputElement>(null);
+  const aiPlansReturnFocusRef = useRef<HTMLElement | null>(null);
   const [activeStep, setActiveStep] = useState<StepKey>("input");
   const [imageType, setImageType] = useState<ProductSetImageType>("details");
   const [platform, setPlatform] = useState(DEFAULT_ALL_CATEGORY_PRODUCT_IMAGE_PLATFORM);
@@ -291,7 +292,6 @@ export default function AllCategoryProductImagePage() {
   const [error, setError] = useState("");
   const [showAiPlans, setShowAiPlans] = useState(false);
   const [editingDesignSpec, setEditingDesignSpec] = useState(false);
-  const [previewImage, setPreviewImage] = useState<{ url: string; title: string } | null>(null);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
 
   const defaultAspect = getDefaultAspect();
@@ -506,6 +506,9 @@ export default function AllCategoryProductImagePage() {
   }
 
   async function openAiWritingPlans() {
+    aiPlansReturnFocusRef.current = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
     if (!productImages.length) {
       toast.error("请先上传商品 SKU 图");
       return;
@@ -934,30 +937,17 @@ export default function AllCategoryProductImagePage() {
         </div>
       </main>
 
-      <ClientPortal>
-        {showAiPlans && (
-          <AiWritingModal
-            plans={aiWritingPlans}
-            selectedIndex={selectedPlanIndex}
-            onSelect={setSelectedPlanIndex}
-            onConfirm={applyAiWritingPlan}
-            onRefresh={() => void runAnalyze({ openPlans: true })}
-            onClose={() => setShowAiPlans(false)}
-          />
-        )}
+      <AiWritingModal
+        open={showAiPlans}
+        returnFocusRef={aiPlansReturnFocusRef}
+        plans={aiWritingPlans}
+        selectedIndex={selectedPlanIndex}
+        onSelect={setSelectedPlanIndex}
+        onConfirm={applyAiWritingPlan}
+        onRefresh={() => void runAnalyze({ openPlans: true })}
+        onClose={() => setShowAiPlans(false)}
+      />
 
-        {previewImage && (
-          <div className="fixed inset-0 z-[160] flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm" onClick={() => setPreviewImage(null)}>
-            <button type="button" onClick={() => setPreviewImage(null)} className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20" aria-label="关闭预览">
-              <X aria-hidden="true" className="h-5 w-5" />
-            </button>
-            <div className="relative max-h-[92vh] max-w-[94vw] overflow-hidden rounded-lg bg-white shadow-2xl" onClick={(event) => event.stopPropagation()}>
-              <RawPreviewImage src={previewImage.url} alt={previewImage.title} className="max-h-[92vh] max-w-[94vw] object-contain" />
-              <span className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-slate-950/65 px-3 py-1 text-xs font-semibold text-white">{previewImage.title}</span>
-            </div>
-          </div>
-        )}
-      </ClientPortal>
     </div>
   );
 }
@@ -1238,6 +1228,8 @@ function EditField({ label, value, onChange, textarea }: { label: string; value:
 }
 
 function AiWritingModal({
+  open,
+  returnFocusRef,
   plans,
   selectedIndex,
   onSelect,
@@ -1245,6 +1237,8 @@ function AiWritingModal({
   onRefresh,
   onClose,
 }: {
+  open: boolean;
+  returnFocusRef: RefObject<HTMLElement | null>;
   plans: string[];
   selectedIndex: number;
   onSelect: (index: number) => void;
@@ -1253,50 +1247,57 @@ function AiWritingModal({
   onClose: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-[150] flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
-      <div className="flex max-h-[88vh] w-full max-w-3xl flex-col overflow-hidden rounded-lg bg-white shadow-2xl">
-        <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4">
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) onClose();
+      }}
+    >
+      <DialogContent
+        returnFocusRef={returnFocusRef}
+        overlayClassName="z-[149] bg-slate-950/45"
+        className="z-[150] flex max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-3xl flex-col gap-0 overflow-hidden rounded-lg bg-white p-0 shadow-2xl sm:max-w-3xl"
+      >
+        <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4 pr-14">
           <div className="flex min-w-0 items-center gap-3">
             <span className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100">
-              <Brush className="h-5 w-5 text-slate-700" />
+              <Brush aria-hidden="true" className="h-5 w-5 text-slate-700" />
             </span>
             <div>
-              <h2 className="text-base font-black text-slate-950">AI帮写方案选择</h2>
-              <p className="mt-1 text-xs text-slate-500">选择方案后可自由编辑，确认即可使用。</p>
+              <DialogTitle className="text-base font-black leading-6 text-slate-950">AI帮写方案选择</DialogTitle>
+              <DialogDescription className="mt-1 text-xs text-slate-500">选择方案后可自由编辑，确认即可使用。</DialogDescription>
             </div>
           </div>
-          <button type="button" onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100" aria-label="关闭">
-            <X aria-hidden="true" className="h-5 w-5" />
-          </button>
         </div>
-        <div className="border-b border-slate-100 px-5 py-3">
-          <div className="flex gap-2">
+        <div className="border-b border-slate-100 px-5 py-3" role="group" aria-label="AI 帮写方案">
+          <div className="flex gap-2 overflow-x-auto pb-1">
             {plans.map((_, index) => (
               <button
                 key={index}
                 type="button"
+                aria-pressed={selectedIndex === index}
                 onClick={() => onSelect(index)}
-                className={cn("h-9 rounded-full border px-4 text-sm font-black", selectedIndex === index ? "border-slate-950 bg-slate-950 text-white" : "border-slate-200 bg-white text-slate-600")}
+                className={cn("h-9 shrink-0 rounded-full border px-4 text-sm font-black outline-none transition-[color,background-color,border-color,box-shadow] focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2", selectedIndex === index ? "border-slate-950 bg-slate-950 text-white" : "border-slate-200 bg-white text-slate-600 hover:border-slate-400")}
               >
                 方案{index + 1}
               </button>
             ))}
           </div>
         </div>
-        <div className="flex-1 overflow-y-auto bg-slate-50 p-5">
-          <pre className="min-h-[360px] whitespace-pre-wrap rounded-lg bg-white p-4 text-sm leading-7 text-slate-800 shadow-sm">{plans[selectedIndex] || "暂无方案"}</pre>
+        <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50 p-5 [overscroll-behavior:contain]">
+          <pre className="min-h-64 whitespace-pre-wrap rounded-lg bg-white p-4 text-sm leading-7 text-slate-800 shadow-sm sm:min-h-[360px]">{plans[selectedIndex] || "暂无方案"}</pre>
         </div>
         <div className="flex flex-col gap-2 border-t border-slate-100 px-5 py-4 sm:flex-row sm:justify-between">
-          <button type="button" onClick={onRefresh} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 px-4 text-sm font-black text-slate-600 hover:bg-slate-50">
+          <button type="button" onClick={onRefresh} className="inline-flex h-11 touch-manipulation items-center justify-center gap-2 rounded-lg border border-slate-200 px-4 text-sm font-black text-slate-600 outline-none transition-[color,background-color,border-color,box-shadow] hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2">
             <RefreshCw aria-hidden="true" className="h-4 w-4" />
             重新帮写
           </button>
-          <button type="button" onClick={onConfirm} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-slate-950 px-6 text-sm font-black text-white">
+          <button type="button" onClick={onConfirm} className="inline-flex h-11 touch-manipulation items-center justify-center gap-2 rounded-lg bg-slate-950 px-6 text-sm font-black text-white outline-none transition-[background-color,box-shadow] hover:bg-slate-800 focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2">
             <Check aria-hidden="true" className="h-4 w-4" />
             确认选择
           </button>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

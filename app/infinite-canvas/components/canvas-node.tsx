@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { ChevronRight, Image as ImageIcon, Music2, RefreshCw, Star, Video } from "lucide-react";
 
 import { canvasThemes } from "@/lib/canvas-theme";
+import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { getImageVariantUrl } from "@/lib/image-variants";
 import { formatBytes } from "@/lib/image-utils";
 import { useThemeStore } from "@/stores/use-theme-store";
@@ -587,7 +588,7 @@ function ImageContent({
     return (
         <BatchFrame batchCount={isBatchRoot ? batchCount : 0} batchExpanded={batchExpanded} batchOpening={batchOpening} batchRecovering={batchRecovering} onToggleBatch={onToggleBatch}>
             <div className="h-full w-full overflow-hidden rounded-3xl">
-                <img
+                <RawPreviewImage
                     src={getImageVariantUrl(node.metadata!.content!, "preview")}
                     alt={node.title}
                     draggable={false}

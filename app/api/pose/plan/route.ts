@@ -167,7 +167,7 @@ export async function POST(request: Request) {
 
 async function runPosePlan(input: {
   configs: Array<{
-    provider: "xiaomi" | "lingya";
+    provider: "xiaomi" | "yunwu" | "lingya";
     apiKey: string;
     baseUrl: string;
     model: string;
@@ -234,7 +234,7 @@ async function runPosePlan(input: {
 }
 
 async function requestPosePlan(input: {
-  provider: "xiaomi" | "lingya";
+  provider: "xiaomi" | "yunwu" | "lingya";
   apiKey: string;
   baseUrl: string;
   model: string;
@@ -390,24 +390,29 @@ function buildFallbackResult(
   };
 }
 
-function extractModelPosePlan(parsed: any) {
+function extractModelPosePlan(parsed: unknown) {
   if (Array.isArray(parsed)) return parsed;
-  return parsed?.posePlan ?? parsed?.plan ?? parsed?.result ?? parsed?.data ?? parsed;
+  if (!parsed || typeof parsed !== "object") return parsed;
+  const record = parsed as Record<string, unknown>;
+  return record.posePlan ?? record.plan ?? record.result ?? record.data ?? parsed;
 }
 
-function isModelPosePlanUsable(plan: any, minSlots = 4) {
+function isModelPosePlanUsable(plan: unknown, minSlots = 4) {
+  const record = plan && typeof plan === "object" && !Array.isArray(plan)
+    ? plan as Record<string, unknown>
+    : undefined;
   const slots = Array.isArray(plan)
     ? plan
-    : Array.isArray(plan?.slots)
-      ? plan.slots
-      : Array.isArray(plan?.items)
-        ? plan.items
-        : Array.isArray(plan?.poses)
-          ? plan.poses
-          : Array.isArray(plan?.poseSlots)
-            ? plan.poseSlots
-            : Array.isArray(plan?.["姿势列表"])
-              ? plan["姿势列表"]
+    : Array.isArray(record?.slots)
+      ? record.slots
+      : Array.isArray(record?.items)
+        ? record.items
+        : Array.isArray(record?.poses)
+          ? record.poses
+          : Array.isArray(record?.poseSlots)
+            ? record.poseSlots
+            : Array.isArray(record?.["姿势列表"])
+              ? record["姿势列表"]
               : [];
   return slots.length >= minSlots;
 }
@@ -429,16 +434,20 @@ function getAverageConfidence(plan: PosePlan) {
   return plan.slots.reduce((sum, slot) => sum + slot.confidence, 0) / Math.max(plan.slots.length, 1);
 }
 
-function extractMessageContent(raw: any) {
-  const content = raw?.choices?.[0]?.message?.content;
+function extractMessageContent(raw: unknown) {
+  const content = (raw as { choices?: Array<{ message?: { content?: unknown } }> } | null)?.choices?.[0]?.message?.content;
   if (typeof content === "string") return content;
   if (Array.isArray(content)) {
-    return content.map((item) => typeof item?.text === "string" ? item.text : "").join("\n");
+    return content.map(readContentPartText).join("\n");
   }
   return "";
 }
 
-function parseJsonObject(content: string): any {
+function readContentPartText(item: unknown) {
+  return item && typeof item === "object" && "text" in item && typeof item.text === "string" ? item.text : "";
+}
+
+function parseJsonObject(content: string): unknown {
   const trimmed = stripJsonCodeFence(content.trim());
   if (!trimmed) return {};
   try {

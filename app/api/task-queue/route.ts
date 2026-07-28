@@ -162,6 +162,7 @@ export async function GET(request: Request) {
       .from("generations")
       .select(QUEUE_COLUMNS)
       .eq("user_id", user.id)
+      .is("job_payload->>internalTask", null)
       .order("created_at", { ascending: false });
 
     if (moduleFilter) generationsQuery = generationsQuery.eq("job_payload->>kind", moduleFilter);
@@ -382,7 +383,8 @@ async function loadQueueSummary(supabase: Awaited<ReturnType<typeof createServer
       supabase
         .from("generations")
         .select("id", { count: "planned", head: true })
-        .eq("user_id", userId),
+        .eq("user_id", userId)
+        .is("job_payload->>internalTask", null),
       "generations total"
     ),
     countRows(
@@ -390,6 +392,7 @@ async function loadQueueSummary(supabase: Awaited<ReturnType<typeof createServer
         .from("generations")
         .select("id", { count: "planned", head: true })
         .eq("user_id", userId)
+        .is("job_payload->>internalTask", null)
         .in("status", [...GENERATION_FAILED_STATUS_FILTERS]),
       "generations failed"
     ),
@@ -399,8 +402,7 @@ async function loadQueueSummary(supabase: Awaited<ReturnType<typeof createServer
         .from("agent_workflows")
         .select("id", { count: "planned", head: true })
         .eq("user_id", userId),
-      "workflows total",
-      true
+      "workflows total"
     ),
     countRows(
       supabase
@@ -408,8 +410,7 @@ async function loadQueueSummary(supabase: Awaited<ReturnType<typeof createServer
         .select("id", { count: "planned", head: true })
         .eq("user_id", userId)
         .in("status", FAILED_WORKFLOW_STATUSES),
-      "workflows failed",
-      true
+      "workflows failed"
     ),
     loadRunningWorkflowBuckets(supabase, userId),
   ]);
@@ -435,6 +436,7 @@ async function loadRunningGenerationBuckets(supabase: Awaited<ReturnType<typeof 
         .from("generations")
         .select(SUMMARY_GENERATION_COLUMNS)
         .eq("user_id", userId)
+        .is("job_payload->>internalTask", null)
         .in("status", [...GENERATION_RUNNING_STATUS_FILTERS])
         .order("created_at", { ascending: false })
         .limit(RUNNING_QUEUE_PIN_LIMIT),
@@ -501,8 +503,7 @@ async function loadRunningWorkflowBuckets(supabase: Awaited<ReturnType<typeof cr
 
 async function countRows(
   query: PromiseLike<{ count: number | null; error: { message?: string } | null }>,
-  label: string,
-  optional = false
+  label: string
 ) {
   try {
     const { count, error } = await withTimeout(query, SUMMARY_QUERY_TIMEOUT_MS, `${label} timeout`);
@@ -554,6 +555,7 @@ async function loadLightweightModuleQueue(
     .from("generations")
     .select(QUEUE_COLUMNS)
     .eq("user_id", userId)
+    .is("job_payload->>internalTask", null)
     .eq("job_payload->>kind", moduleFilter)
     .order("created_at", { ascending: false })
     .limit(limit + 1);
@@ -594,6 +596,7 @@ async function loadLightweightInferredModuleQueue(
     .from("generations")
     .select(QUEUE_COLUMNS)
     .eq("user_id", userId)
+    .is("job_payload->>internalTask", null)
     .order("created_at", { ascending: false })
     .limit(scanLimit);
 
@@ -657,6 +660,7 @@ async function loadRunningGenerationRows(
       .from("generations")
       .select(QUEUE_COLUMNS)
       .eq("user_id", userId)
+      .is("job_payload->>internalTask", null)
       .in("status", [...GENERATION_RUNNING_STATUS_FILTERS])
       .order("created_at", { ascending: false })
       .limit(RUNNING_QUEUE_PIN_LIMIT);
@@ -717,6 +721,7 @@ async function loadRunningWorkflowRows(
 
 function isHiddenByAdmin(row: QueueRow) {
   const payload = row.job_payload && typeof row.job_payload === "object" ? row.job_payload : {};
+  if (payload.internalTask === true) return true;
   const moderation = isRecord(payload.adminModeration) ? payload.adminModeration : null;
   return moderation?.action === "hide";
 }
@@ -855,6 +860,7 @@ function getRunningTaskStaleMs() {
 }
 
 function moduleLabel(kind: string) {
+  if (kind === "productRetouch") return "商品精修";
   if (kind === "tryon") return "服装上身";
   if (kind === "faceSwap") return "换脸";
   if (kind === "model") return "模特生成";
@@ -940,6 +946,7 @@ function getApplyUrl(kind: string, generationId: string) {
 }
 
 function getModulePath(kind: string) {
+  if (kind === "productRetouch") return "/product-retouch";
   if (kind === "tryon") return "/create";
   if (kind === "grass") return "/grass";
   if (kind === "modelBackground") return "/model-background";

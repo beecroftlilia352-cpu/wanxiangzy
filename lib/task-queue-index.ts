@@ -72,6 +72,7 @@ const MODULE_LABELS: Record<string, string> = {
   face: "换脸",
   seeding: "种草图",
   productSet: "商品套图",
+  productRetouch: "商品精修",
   faceSwap: "换脸",
   grass: "种草图",
   modelBackground: "换背景",
@@ -94,6 +95,7 @@ const MODULE_PATHS: Record<string, string> = {
   face: "/face-swap",
   seeding: "/seeding",
   productSet: "/product-set",
+  productRetouch: "/product-retouch",
   faceSwap: "/face-swap",
   grass: "/grass",
   modelBackground: "/model-background",
@@ -212,6 +214,9 @@ export function normalizeModule(module: string): string {
   const lower = value.toLowerCase();
   if (lower === "productset" || lower === "product-set" || lower === "product_set") {
     return "productSet";
+  }
+  if (lower === "productretouch" || lower === "product-retouch" || lower === "product_retouch") {
+    return "productRetouch";
   }
   if (lower === "face-swap" || lower === "faceswap") {
     return "faceSwap";

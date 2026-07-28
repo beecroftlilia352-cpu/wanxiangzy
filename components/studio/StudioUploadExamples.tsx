@@ -4,6 +4,7 @@ import { Eye } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { getImageVariantUrl } from "@/lib/image-variants";
+import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 
 export type StudioUploadTileExample = {
   url: string;
@@ -77,13 +78,13 @@ export function StudioUploadExamples({
                 <>
                   {previewUrls.slice(0, 6).map((previewUrl, index) => (
                     <span key={`${previewUrl}-${index}`} className="studio-upload-tile-example-cell">
-                      <img src={getImageVariantUrl(previewUrl, "thumb")} alt={`${image.title}${index + 1}`} />
+                      <RawPreviewImage src={getImageVariantUrl(previewUrl, "thumb")} alt={`${image.title}${index + 1}`} />
                     </span>
                   ))}
                   <span className="studio-upload-tile-example-group-label">组合</span>
                 </>
               ) : (
-                <img src={getImageVariantUrl(previewUrls[0], "thumb")} alt={image.title} />
+                <RawPreviewImage src={getImageVariantUrl(previewUrls[0], "thumb")} alt={image.title} />
               )}
             </button>
           );

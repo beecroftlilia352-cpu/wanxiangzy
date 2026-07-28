@@ -87,7 +87,7 @@ export async function POST(request: Request) {
   await writeAdminAuditLog(auth.context, {
     action: "tryon.category.upsert",
     resourceType: "tryon_clothing_category",
-    resourceId: String((data as any)?.id || category.value.code),
+    resourceId: String((data as { id?: unknown } | null)?.id || category.value.code),
     reason: `Upsert try-on clothing category ${category.value.code}`,
     metadata: { code: category.value.code, parentCode: category.value.parent_code },
   });
@@ -119,7 +119,7 @@ export async function DELETE(request: Request) {
   await writeAdminAuditLog(auth.context, {
     action: "tryon.category.disable",
     resourceType: "tryon_clothing_category",
-    resourceId: String((data as any)?.id || code),
+    resourceId: String((data as { id?: unknown } | null)?.id || code),
     reason: `Disable try-on clothing category ${code}`,
     metadata: { code },
   });

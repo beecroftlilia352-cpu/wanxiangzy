@@ -36,6 +36,7 @@ type StoredFeatureRegistry = {
 const moduleAdminHref: Record<AppModuleKey, string> = {
   home: "/admin",
   aiShoots: "/admin/generations",
+  productImages: "/admin/generations",
   assistant: "/admin/evals",
   tools: "/admin/generations",
   canvas: "/admin/generations",

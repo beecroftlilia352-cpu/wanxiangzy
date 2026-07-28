@@ -9,6 +9,7 @@ import {
   Home,
   Images,
   ImagePlus,
+  PackageOpen,
   PackageSearch,
   PencilRuler,
   PersonStanding,
@@ -20,7 +21,15 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-export type AppModuleKey = "home" | "aiShoots" | "assistant" | "tools" | "canvas" | "aiVideo" | "works";
+export type AppModuleKey =
+  | "home"
+  | "aiShoots"
+  | "productImages"
+  | "assistant"
+  | "tools"
+  | "canvas"
+  | "aiVideo"
+  | "works";
 
 export type FeatureKey =
   | "home"
@@ -29,6 +38,7 @@ export type FeatureKey =
   | "outfitFusion"
   | "faceSwap"
   | "grass"
+  | "productRetouch"
   | "productSet"
   | "allCategoryProductImage"
   | "modelBackground"
@@ -73,6 +83,13 @@ const SHOW_INTERNAL_NAV =
 export const TOP_MODULES: TopModuleNavItem[] = [
   { key: "home", href: "/", label: "首页", icon: Home },
   { key: "aiShoots", href: "/create", label: "模特图", icon: Camera },
+  {
+    key: "productImages",
+    href: "/product-retouch",
+    label: "商品图",
+    icon: PackageOpen,
+    badge: "NEW",
+  },
   { key: "assistant", href: "/agent", label: "工作流助手", icon: Bot },
   { key: "tools", href: "/general-image", label: "素材生成", icon: Images },
   { key: "canvas", href: "/infinite-canvas", label: "无限画布", icon: PencilRuler, badge: "NEW" },
@@ -137,8 +154,17 @@ export const FEATURE_ITEMS: FeatureNavItem[] = [
     icon: Heart,
   },
   {
+    key: "productRetouch",
+    module: "productImages",
+    href: "/product-retouch",
+    label: "商品精修",
+    shortLabel: "精修",
+    description: "批量完成标准精修、白底精修与影棚精修",
+    icon: Sparkles,
+  },
+  {
     key: "productSet",
-    module: "aiShoots",
+    module: "productImages",
     href: "/product-set",
     label: "商品套图",
     shortLabel: "套图",
@@ -147,13 +173,12 @@ export const FEATURE_ITEMS: FeatureNavItem[] = [
   },
   {
     key: "allCategoryProductImage",
-    module: "aiShoots",
+    module: "productImages",
     href: "/all-category-product-image",
     label: "全品类商品图",
     shortLabel: "全品类",
     description: "上传 SKU 图，生成主图与详情图规划和成图",
     icon: PackageSearch,
-    hiddenFromNav: true,
   },
   {
     key: "modelBackground",
