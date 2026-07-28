@@ -77,6 +77,7 @@ const navGroups: Array<{ key: string; label: string; children: AdminNavItem[] }>
       { href: "/admin/assets/lifecycle", label: "生命周期", icon: <DatabaseOutlined aria-hidden="true" /> },
       { href: "/admin/moderation", label: "内容审核", icon: <SafetyCertificateOutlined aria-hidden="true" /> },
       { href: "/admin/tryon", label: "试衣配置", icon: <AppstoreOutlined aria-hidden="true" /> },
+      { href: "/admin/product-retouch-skill", label: "商品精修", icon: <ExperimentOutlined aria-hidden="true" /> },
       { href: "/admin/prompts", label: "Prompt 实验", icon: <ExperimentOutlined aria-hidden="true" /> },
     ],
   },

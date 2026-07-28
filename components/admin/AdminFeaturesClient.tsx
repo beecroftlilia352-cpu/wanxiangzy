@@ -32,6 +32,7 @@ type FeatureFormValue = Omit<AdminFeatureConfig, "updatedAt"> & {
 const moduleOptions = [
   { label: "首页", value: "home" },
   { label: "模特图", value: "aiShoots" },
+  { label: "商品图", value: "productImages" },
   { label: "工作流助手", value: "assistant" },
   { label: "素材生成", value: "tools" },
   { label: "AI 视频", value: "aiVideo" },

@@ -4726,6 +4726,7 @@ export function moduleLabel(module: string) {
     faceSwap: "换脸",
     grass: "种草图",
     productSet: "商品套图",
+    productRetouch: "商品精修",
     modelBackground: "模特换背景",
     garment3d: "服装 3D",
     generalImage: "通用生图",
@@ -4745,6 +4746,7 @@ export function moduleRoute(module: string) {
     faceSwap: "/face-swap",
     grass: "/grass",
     productSet: "/product-set",
+    productRetouch: "/product-retouch",
     modelBackground: "/model-background",
     garment3d: "/garment-3d",
     generalImage: "/general-image",
@@ -4757,6 +4759,7 @@ export function moduleRoute(module: string) {
 function inferModuleFromPayload(payload: Record<string, unknown>) {
   if (payload.poseMode || payload.mainImageUrl || payload.poseReferenceUrls) return "pose";
   if (payload.productImageUrls || payload.productSetMode) return "productSet";
+  if (payload.productRetouchSources || payload.productRetouchMode || payload.batchId) return "productRetouch";
   if (payload.backgroundMode || payload.backgroundReferenceUrl) return "modelBackground";
   if (payload.garmentUrl && (payload.templateId || payload.changeModel)) return "grass";
   if (payload.garmentUrl) return "garment3d";
