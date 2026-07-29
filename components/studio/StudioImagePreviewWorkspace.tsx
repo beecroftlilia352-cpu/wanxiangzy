@@ -1068,7 +1068,7 @@ function getPreviewAspectConfig(value?: string | null): {
   fitMode: "height" | "width";
   style: CSSProperties;
 } {
-  const fallback = { width: 3, height: 4, label: "3:4" };
+  const fallback = { width: 1, height: 1, label: "1:1" };
   const normalized = String(value || "").trim();
   const match = normalized.match(/^(\d+(?:\.\d+)?)\s*[:/]\s*(\d+(?:\.\d+)?)$/);
   const parsedWidth = match ? Number(match[1]) : fallback.width;

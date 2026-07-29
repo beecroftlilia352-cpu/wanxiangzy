@@ -336,6 +336,7 @@ export default function AllCategoryProductImagePage() {
           issues: slot.result.qualityIssues || [],
         };
       }),
+      aspectRatio: defaultAspect,
     }),
     [activeStep, aiModel, defaultAspect, imageSize, imageType, isGenerating, language, modules.length, platform, productImages, resultSlots, userBrief]
   );

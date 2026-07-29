@@ -36,7 +36,12 @@ export function mergeRetryResultUrls(
   expectedCount?: number
 ) {
   const completedRetryUrl = retryUrls.find((url): url is string => typeof url === "string" && url.trim().length > 0)?.trim();
-  if (retryIndex === null) return retryUrls.filter((url): url is string => typeof url === "string" && url.trim().length > 0);
+  if (retryIndex === null) {
+    // 保留空槽位以维持 positional slot 对应关系。
+    // 过滤掉会使数组塌缩，导致：多张原图且后端异步产出时，
+    // 图2 的结果先到却被挤到图1 的槽位。
+    return retryUrls.map((url) => (typeof url === "string" && url.trim().length > 0 ? url.trim() : ""));
+  }
 
   const next = previousUrls.slice();
   const targetLength = Math.max(1, expectedCount || 0, retryIndex + 1, next.length);

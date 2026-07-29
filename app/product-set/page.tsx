@@ -1451,6 +1451,7 @@ export default function ProductSetPage() {
           issues: slot.module.qualityIssues || [],
         };
       }),
+      aspectRatio,
     }),
     [activeQueueTask, aspectRatio, hasCompletedPartialResults, imageType, isGenerating, mode, partialFailureMessage, productImages, productSetPreviewPromptText, qualityMode, resultSlotCount, resultSlots, selectedStylePack.name, settings.language, settings.platform]
   );

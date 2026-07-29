@@ -578,6 +578,7 @@ export function ProductRetouchExperience() {
           { label: "Skill", value: batch.skillVersion },
         ],
         errors: group.map((item) => item.error),
+        aspectRatio: batch.aspectRatio,
       }),
     });
   }, [batch]);

@@ -380,6 +380,12 @@ export default function ImageTranslationPage() {
   }
 
 
+  const perSourceCount = languages.length * Math.max(1, Math.min(genCount || 1, 4));
+  const activeSourceIdx = previewIndex !== null
+    ? Math.min(sourceUrls.length - 1, Math.max(0, Math.floor(previewIndex / Math.max(1, perSourceCount))))
+    : 0;
+  const activeSourceUrl = sourceUrls[activeSourceIdx] || "";
+
   const previewSession = useMemo(
     () =>
       createGenericImagePreviewSession({
@@ -389,11 +395,9 @@ export default function ImageTranslationPage() {
         expectedCount: activeResultExpectedCount,
         isGenerating,
         statusGroup: isGenerating ? "running" : undefined,
-        references: sourceUrls.map((url, index) => ({
-          url,
-          label: sourceUrls.length > 1 ? `原图 ${index + 1}` : "原图",
-          role: "source",
-        })),
+        references: activeSourceUrl
+          ? [{ url: activeSourceUrl, label: sourceUrls.length > 1 ? `原图 ${activeSourceIdx + 1}` : "原图", role: "source" }]
+          : [],
         promptText: userPrompt || undefined,
         metaItems: [
           { label: "源图数量", value: sourceUrls.length },
@@ -404,7 +408,7 @@ export default function ImageTranslationPage() {
         ],
         resultTitlePrefix: "翻译结果",
       }),
-    [activeResultExpectedCount, aiModel, genCount, imageSize, isGenerating, languageLabels, languages, resultUrls, sourceUrls, userPrompt]
+    [activeResultExpectedCount, aiModel, genCount, imageSize, isGenerating, languageLabels, languages, resultUrls, sourceUrls, userPrompt, activeSourceUrl, activeSourceIdx]
   );
 
   function handleRunningTask(item: TaskQueueItem) {

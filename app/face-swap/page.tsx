@@ -1180,6 +1180,7 @@ function ResultsPanel({
       { label: "纹理增强", value: textureEnhance ? "开启" : "关闭" },
       { label: "生成数量", value: count },
     ],
+    aspectRatio,
   });
   // 每张原图 = 一个分组，组内复用 ResultImageGrid 的视觉：左侧小缩略图栈（主源 + 目标脸），右侧大结果卡。
   const groupedSources = sourceUrls.length > 0 ? sourceUrls : faceUrl ? [faceUrl] : [];

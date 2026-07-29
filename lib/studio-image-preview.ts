@@ -247,6 +247,7 @@ export function createTryOnPreviewSession(input: {
   promptText?: string | null;
   metaItems?: ImagePreviewMetaItem[];
   selectedIndex?: number;
+  aspectRatio?: string;
 }): ImagePreviewSession {
   const references: ImagePreviewReference[] = [
     ...(input.clothingUrls || []).map((url, index) => ({
@@ -273,6 +274,7 @@ export function createTryOnPreviewSession(input: {
     promptText: input.promptText,
     metaItems: input.metaItems,
     selectedIndex: input.selectedIndex,
+    aspectRatio: input.aspectRatio,
     resultTitlePrefix: "服装上身结果",
   });
 }
@@ -289,6 +291,7 @@ export function createFaceSwapPreviewSession(input: {
   promptText?: string | null;
   metaItems?: ImagePreviewMetaItem[];
   selectedIndex?: number;
+  aspectRatio?: string;
 }): ImagePreviewSession {
   const references: ImagePreviewReference[] = [
     ...(input.sourceUrl ? [{ url: input.sourceUrl, label: "原始图", role: "source" as const }] : []),
@@ -306,6 +309,7 @@ export function createFaceSwapPreviewSession(input: {
     promptText: input.promptText,
     metaItems: input.metaItems,
     selectedIndex: input.selectedIndex,
+    aspectRatio: input.aspectRatio,
     resultTitlePrefix: "换脸结果",
   });
 }
@@ -328,6 +332,7 @@ export function createProductSetPreviewSession(input: {
   statuses?: ImagePreviewResultStatus[];
   errors?: Array<string | null | undefined>;
   qualities?: Array<ImagePreviewQuality | null | undefined>;
+  aspectRatio?: string;
 }): ImagePreviewSession {
   const module = input.module || "productSet";
   const urls = input.urls || [];
@@ -360,6 +365,7 @@ export function createProductSetPreviewSession(input: {
               : "queued"),
         error,
         quality: input.qualities?.[index] || undefined,
+        aspectRatio: input.aspectRatio,
       });
     }),
   });

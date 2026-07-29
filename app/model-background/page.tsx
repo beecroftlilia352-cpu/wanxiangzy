@@ -214,6 +214,11 @@ export default function ModelBackgroundPage() {
       toastMessage: `正在补位重试第 ${index + 1} 张，失败图已退款，完成后会回填到当前结果中...`,
     });
   }
+  const activeSourceIdx = previewIndex !== null
+    ? Math.min(sourceUrls.length - 1, Math.max(0, Math.floor(previewIndex / Math.max(1, perSourceCount))))
+    : 0;
+  const activeSourceUrl = sourceUrls[activeSourceIdx] || "";
+
   const previewSession = useMemo(
     () => createGenericImagePreviewSession({
       module: "modelBackground",
@@ -222,11 +227,11 @@ export default function ModelBackgroundPage() {
       expectedCount: activeResultExpectedCount,
       isGenerating,
       statusGroup: isGenerating ? "running" : undefined,
-      references: promptImages.map((item) => ({
-        url: item.url,
-        label: item.imageNumber === 1 ? "原图" : item.imageNumber === 2 && hasModelReference ? "模特参考" : "背景参考",
-        role: item.imageNumber === 1 ? "source" : item.imageNumber === 2 && hasModelReference ? "model" : "background",
-      })),
+      references: [
+        ...(activeSourceUrl ? [{ url: activeSourceUrl, label: sourceUrls.length > 1 ? `原图 ${activeSourceIdx + 1}` : "原图", role: "source" as const }] : []),
+        ...(hasModelReference && modelReferenceUrl ? [{ url: modelReferenceUrl, label: "模特参考", role: "model" as const }] : []),
+        ...(hasBackgroundReference && backgroundReferenceUrl ? [{ url: backgroundReferenceUrl, label: "背景参考", role: "background" as const }] : []),
+      ],
       promptText: [
         mode !== "model_only" && backgroundSource === "text" && backgroundText.trim() !== DEFAULT_BACKGROUND_TEXT
           ? `背景描述：${backgroundText}`
@@ -245,7 +250,7 @@ export default function ModelBackgroundPage() {
       resultTitlePrefix: "换背景结果",
       aspectRatio,
     }),
-    [activeResultExpectedCount, aiModel, aspectRatio, backgroundSource, backgroundText, genCount, hasModelReference, imageSize, isGenerating, mode, promptImages, resultUrls, selectedBackgroundPreset.name, userPrompt]
+    [activeResultExpectedCount, aiModel, aspectRatio, backgroundSource, backgroundText, genCount, hasModelReference, imageSize, isGenerating, mode, resultUrls, selectedBackgroundPreset.name, userPrompt, activeSourceUrl, activeSourceIdx]
   );
   const imageSizes = getSupportedImageSizes(aiModel, aspectRatio);
   const unitCost = getCreditCost(aiModel, imageSize, aspectRatio);
