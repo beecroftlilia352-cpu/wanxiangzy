@@ -98,6 +98,12 @@ import type { TryOnAgeGroup, TryOnGarmentCategory, TryOnGarmentAudience } from "
 import type { TryOnClothingMode, TryOnClothingRole } from "@/lib/tryon-upload-rules";
 import type { GrassPayloadBase } from "@/lib/grass-planting";
 import { normalizeModelBackgroundSourceUrls, type ModelBackgroundPayloadBase } from "@/lib/model-background";
+import {
+  buildImageTranslationPerCallPrompt,
+  enforceImageTranslationPromptRequirements,
+  normalizeImageTranslationSourceUrls,
+  type ImageTranslationPayloadBase,
+} from "@/lib/image-translation";
 import type { MaterialEnhancementPayloadBase } from "@/lib/material-enhancement";
 import type {
   ProductRetouchHardValidationPolicy,
@@ -191,6 +197,7 @@ export type GenerationJobPayload = GenerationJobPayloadBase & (
   | ({ kind: "grass" } & GrassPayloadBase)
   | ({ kind: "modelBackground" } & ModelBackgroundPayloadBase)
   | ({ kind: "materialEnhancement" } & MaterialEnhancementPayloadBase)
+  | ({ kind: "imageTranslation" } & ImageTranslationPayloadBase)
   | {
       kind: "productRetouch";
       internalTask: true;
@@ -1026,6 +1033,17 @@ async function executePayload(
     compiledPrompt: string;
     taskId?: string;
   };
+  function isRetryableSlotError(message: string): boolean {
+    if (!message) return false;
+    const lower = message.toLowerCase();
+    if (lower.includes("429") || lower.includes("rate limit") || lower.includes("too many requests")) return true;
+    if (lower.includes("timeout") || lower.includes("timed out") || lower.includes("aborted")) return true;
+    if (/\b(502|503|504)\b/.test(lower)) return true;
+    if (lower.includes("bad gateway") || lower.includes("service unavailable") || lower.includes("gateway timeout")) return true;
+    if (lower.includes("upstream") || lower.includes("connection reset") || lower.includes("econnreset") || lower.includes("enotfound") || lower.includes("eai_again")) return true;
+    return false;
+  }
+
   const executeParallelImageBatch = async (params: {
     count: number;
     concurrency?: number;
@@ -1091,8 +1109,12 @@ async function executePayload(
           ));
           return;
         } catch (error) {
-          lastMessage = error instanceof Error ? error.message : "image task failed";
-          if (attempt < maxAttemptsPerSlot) {
+          const rawMessage = error instanceof Error ? error.message : "image task failed";
+          lastMessage = rawMessage;
+          const retryable = isRetryableSlotError(rawMessage);
+          if (attempt < maxAttemptsPerSlot && retryable) {
+            const backoffMs = Math.min(2000 * attempt, 5000);
+            await new Promise((resolve) => setTimeout(resolve, backoffMs));
             taskProgress[index] = Math.max(taskProgress[index] || 0, 5);
             await emitProgress({
               resultUrls: getSlottedResultUrls(),
@@ -1101,6 +1123,9 @@ async function executePayload(
               externalStatus: `RETRYING_${attempt + 1}`,
             });
             continue;
+          }
+          if (attempt >= maxAttemptsPerSlot && retryable) {
+            lastMessage = `${rawMessage}（已重试 ${maxAttemptsPerSlot - 1} 次）`;
           }
         }
       }
@@ -1438,6 +1463,64 @@ async function executePayload(
     });
   }
 
+  if (payload.kind === "imageTranslation") {
+    const sourceUrls = normalizeImageTranslationSourceUrls(payload.sourceUrls, payload.sourceUrl);
+    const sourceInputs = await resolvePayloadImageInputs({ clothingUrls: sourceUrls });
+    const languages = Array.isArray(payload.languages) ? payload.languages.filter((value: unknown): value is string => typeof value === "string" && value.length > 0) : [];
+    const languageLabels = Array.isArray(payload.languageLabels) ? payload.languageLabels.filter((value: unknown): value is string => typeof value === "string" && value.length > 0) : [];
+    const languageCount = Math.max(1, languages.length);
+    const perLanguageCount = Math.max(1, Math.floor(Number(payload.genCount || 1)));
+    const perSourceCount = perLanguageCount * languageCount;
+    const totalCount = Math.max(1, sourceInputs.clothingUrls.length) * perSourceCount;
+
+    return executeParallelImageBatch({
+      count: totalCount,
+      concurrency: Math.min(totalCount, 3),
+      maxAttemptsPerSlot: 2,
+      promptKind: (index) => {
+        const sourceIndex = Math.min(Math.floor(index / perSourceCount), sourceInputs.clothingUrls.length - 1);
+        const languageIndex = Math.max(0, Math.floor((index % perSourceCount) / perLanguageCount));
+        const language = languages[languageIndex] || `lang-${languageIndex + 1}`;
+        return `imageTranslation:source-${sourceIndex + 1}:lang-${languageIndex + 1}:${String(language).replace(/[^\w-]+/g, "-").slice(0, 24)}`;
+      },
+      run: async (index, onTaskProgress) => {
+        const sourceIndex = Math.min(Math.floor(index / perSourceCount), sourceInputs.clothingUrls.length - 1);
+        const languageIndex = Math.max(0, Math.floor((index % perSourceCount) / perLanguageCount));
+        const languageCode = languages[languageIndex] || `lang-${languageIndex + 1}`;
+        const languageLabel = languageLabels[languageIndex] || languageCode;
+        const sourceInputUrl = sourceInputs.clothingUrls[sourceIndex] || sourceInputs.clothingUrls[0] || payload.sourceUrl;
+        const perCallPrompt = enforceImageTranslationPromptRequirements(
+          buildImageTranslationPerCallPrompt({
+            sourceIndex,
+            sourceCount: sourceInputs.clothingUrls.length,
+            language: languageCode,
+            languageLabel,
+            userPrompt: typeof payload.userPrompt === "string" ? payload.userPrompt : "",
+            aiModel: payload.aiModel,
+            imageSize: payload.imageSize,
+          }),
+          { sourceCount: 1, languages: [languageCode], languageLabels: [languageLabel] }
+        );
+        const result = await generateImage({
+          model: payload.aiModel,
+          prompt: perCallPrompt,
+          prompt_kind: "imageTranslation",
+          aspect_ratio: payload.aspectRatio,
+          image: [sourceInputUrl],
+          smart_aspect_image: sourceUrls[sourceIndex] || payload.sourceUrl,
+          image_size: payload.imageSize,
+          onProgress: onTaskProgress,
+        });
+        return {
+          resultUrl: getResultUrl(result),
+          prompt: perCallPrompt,
+          compiledPrompt: result.compiledPrompt || perCallPrompt,
+          taskId: result.taskId,
+        };
+      },
+    });
+  }
+
   if (payload.kind === "materialEnhancement") {
     const imageInputs = await resolvePayloadImageInputs({
       clothingUrls: [payload.sourceUrl, payload.garmentUrl],
@@ -1532,8 +1615,11 @@ async function executePayload(
         })
       : payload.referenceUrls[0];
 
+    const totalCount = Math.max(1, Number(payload.genCount) || 1);
     return executeParallelImageBatch({
-      count: payload.genCount,
+      count: totalCount,
+      concurrency: Math.min(totalCount, 3),
+      maxAttemptsPerSlot: 2,
       promptKind: payload.kind === "outfitFusion" ? "outfitFusion" : payload.mode,
       run: async (_index, onTaskProgress) => {
         const result = await generateImage({
@@ -2256,6 +2342,11 @@ function getExpectedResultCount(payload: GenerationJobPayload) {
     const sourceCount = normalizeModelBackgroundSourceUrls(payload.sourceUrls, payload.sourceUrl).length || 1;
     return Math.max(1, Number(payload.genCount || 1)) * sourceCount;
   }
+  if (payload.kind === "imageTranslation") {
+    const sourceCount = normalizeImageTranslationSourceUrls(payload.sourceUrls, payload.sourceUrl).length || 1;
+    const languageCount = Math.max(1, Array.isArray(payload.languages) ? payload.languages.length : 0);
+    return Math.max(1, Number(payload.genCount || 1)) * sourceCount * languageCount;
+  }
   if (payload.kind === "tryon") {
     const referenceCount = getTryOnPayloadReferenceUrls(payload).length || 1;
     return Math.max(1, Number(payload.genCount || 1)) * referenceCount;
@@ -2281,6 +2372,7 @@ function getPayloadReferenceImages(payload: GenerationJobPayload) {
     payload.modelReferenceUrl,
     payload.backgroundReferenceUrl,
   ].filter((url): url is string => typeof url === "string" && url.length > 0);
+  if (payload.kind === "imageTranslation") return normalizeImageTranslationSourceUrls(payload.sourceUrls, payload.sourceUrl).filter((url): url is string => typeof url === "string" && url.length > 0);
   if (payload.kind === "materialEnhancement") return [payload.sourceUrl, payload.garmentUrl];
   if (payload.kind === "productRetouch") return [payload.sourceUrl];
   if (payload.kind === "generalImage" || payload.kind === "outfitFusion") return payload.referenceUrls;
@@ -2407,6 +2499,16 @@ function isJobPayload(value: unknown): value is GenerationJobPayload {
 
   if (value.kind === "modelBackground") {
     return typeof value.sourceUrl === "string" &&
+      typeof value.aiModel === "string" &&
+      typeof value.aspectRatio === "string" &&
+      typeof value.imageSize === "string" &&
+      typeof value.prompt === "string" &&
+      typeof value.genCount === "number";
+  }
+  if (value.kind === "imageTranslation") {
+    return typeof value.sourceUrl === "string" &&
+      hasStringArray(value.sourceUrls) &&
+      hasStringArray(value.languages) &&
       typeof value.aiModel === "string" &&
       typeof value.aspectRatio === "string" &&
       typeof value.imageSize === "string" &&

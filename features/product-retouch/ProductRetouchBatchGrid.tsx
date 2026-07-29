@@ -2,36 +2,30 @@
 
 import { StudioEmptyState } from "@/components/studio/StudioEmptyState";
 import type { ProductRetouchBatch, ProductRetouchOutput } from "@/lib/product-retouch";
-import type { ProductRetouchFilter } from "@/features/product-retouch/ProductRetouchBatchToolbar";
 import { ProductRetouchSourceGroup } from "@/features/product-retouch/ProductRetouchSourceGroup";
 
 type ProductRetouchBatchGridProps = {
   batch: ProductRetouchBatch;
-  filter: ProductRetouchFilter;
   onPreview: (output: ProductRetouchOutput, outputIndex: number) => void;
   onRetry: (output: ProductRetouchOutput) => void;
-  onDownloadGroup: (sourceIndex: number, outputs: ProductRetouchOutput[]) => void;
   retryingOutputId?: string | null;
   downloadingSourceIndex?: number | null;
 };
 
 export function ProductRetouchBatchGrid({
   batch,
-  filter,
   onPreview,
   onRetry,
-  onDownloadGroup,
   retryingOutputId,
   downloadingSourceIndex,
 }: ProductRetouchBatchGridProps) {
-  const groups = groupOutputs(batch.outputs)
-    .filter(([, outputs]) => matchesFilter(outputs, filter));
+  const groups = groupOutputs(batch.outputs);
 
   if (!groups.length) {
     return (
       <StudioEmptyState
-        title="没有符合筛选条件的商品"
-        description="切换上方状态筛选，查看其他商品的生产结果。"
+        title="暂无商品结果"
+        description="上传商品图后会自动显示每个商品的结果。"
       />
     );
   }
@@ -45,7 +39,6 @@ export function ProductRetouchBatchGrid({
           outputs={outputs}
           onPreview={onPreview}
           onRetry={onRetry}
-          onDownload={() => onDownloadGroup(sourceIndex, outputs)}
           retryingOutputId={retryingOutputId}
           downloading={downloadingSourceIndex === sourceIndex}
         />
@@ -64,13 +57,3 @@ function groupOutputs(outputs: ProductRetouchOutput[]) {
   return [...grouped.entries()].sort(([a], [b]) => a - b);
 }
 
-function matchesFilter(
-  outputs: ProductRetouchOutput[],
-  filter: ProductRetouchFilter,
-) {
-  if (filter === "all") return true;
-  if (filter === "running") {
-    return outputs.some((output) => output.status === "queued" || output.status === "processing");
-  }
-  return outputs.some((output) => output.status === filter);
-}

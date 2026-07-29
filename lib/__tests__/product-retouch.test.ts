@@ -19,6 +19,7 @@ describe("product retouch contract", () => {
     const items = getFeatureItemsForModule("productImages");
     expect(items.map((item) => item.key)).toEqual([
       "productRetouch",
+      "imageTranslation",
       "productSet",
     ]);
     expect(getActiveTopModule("/product-retouch")).toBe("productImages");
@@ -120,5 +121,77 @@ describe("product retouch contract", () => {
         enabled: false,
       },
     })).toBeNull();
+  });
+});
+
+describe("100-grade product retouch prompts", () => {
+  it("all 3 modes have a senior commercial photographer role", () => {
+    for (const mode of ["faithful-retouch", "marketplace-white", "studio-polish"] as const) {
+      const prompt = BUILTIN_PRODUCT_RETOUCH_SKILL.promptTemplates[mode];
+      expect(prompt, `${mode} should declare photographer role`).toMatch(/15\+|资深|商业商品摄影/);
+      expect(prompt.length, `${mode} should be production-grade length`).toBeGreaterThan(200);
+    }
+  });
+
+  it("faithful-retouch covers cleaning, color, sharpness, noise, light", () => {
+    const prompt = BUILTIN_PRODUCT_RETOUCH_SKILL.promptTemplates["faithful-retouch"];
+    expect(prompt).toMatch(/瑕疵清理|灰尘|指纹|划痕/);
+    expect(prompt).toMatch(/白平衡|5500K|色彩/);
+    expect(prompt).toMatch(/清晰度|锐化/);
+    expect(prompt).toMatch(/噪点/);
+    expect(prompt).toMatch(/光线|阴影/);
+  });
+
+  it("marketplace-white covers background, composition, edge, standard", () => {
+    const prompt = BUILTIN_PRODUCT_RETOUCH_SKILL.promptTemplates["marketplace-white"];
+    expect(prompt).toMatch(/RGB\(255, 255, 255\)|纯白/);
+    expect(prompt).toMatch(/居中|构图|留白/);
+    expect(prompt).toMatch(/边缘|抠图/);
+    expect(prompt).toMatch(/淘宝|京东|亚马逊|1688/);
+  });
+
+  it("studio-polish covers three-light setup, materials, post-processing", () => {
+    const prompt = BUILTIN_PRODUCT_RETOUCH_SKILL.promptTemplates["studio-polish"];
+    expect(prompt).toMatch(/主光|辅光|轮廓光|key light/);
+    expect(prompt).toMatch(/金属|玻璃|织物|皮革/);
+    expect(prompt).toMatch(/分频|锐化|颜色分级/);
+  });
+
+  it("every mode has explicit ban list with no add / remove / modify", () => {
+    for (const mode of ["faithful-retouch", "marketplace-white", "studio-polish"] as const) {
+      const prompt = BUILTIN_PRODUCT_RETOUCH_SKILL.promptTemplates[mode];
+      expect(prompt, `${mode} should ban watermarks`).toMatch(/水印/);
+      expect(prompt, `${mode} should ban logo modifications`).toMatch(/Logo/);
+      expect(prompt, `${mode} should ban product modifications`).toMatch(/(?:添加|删除|改变).*(?:产品|文字|文字|结构)/);
+      expect(prompt, `${mode} should require product fact preservation`).toMatch(/商品事实/);
+    }
+  });
+
+  it("every mode has acceptance / verification criteria", () => {
+    for (const mode of ["faithful-retouch", "marketplace-white", "studio-polish"] as const) {
+      const prompt = BUILTIN_PRODUCT_RETOUCH_SKILL.promptTemplates[mode];
+      expect(prompt, `${mode} should define acceptance criteria`).toMatch(/验收标准/);
+      expect(prompt, `${mode} should mention sRGB output`).toMatch(/sRGB|RGB 色彩空间/);
+    }
+  });
+
+  it("category profiles are detailed (each > 40 chars) and contain category-specific details", () => {
+    for (const [key, profile] of Object.entries(BUILTIN_PRODUCT_RETOUCH_SKILL.categoryProfiles)) {
+      expect(profile.prompt.length, `${key} prompt too short`).toBeGreaterThan(40);
+    }
+    expect(BUILTIN_PRODUCT_RETOUCH_SKILL.categoryProfiles.apparel.prompt).toMatch(/面料|版型/);
+    expect(BUILTIN_PRODUCT_RETOUCH_SKILL.categoryProfiles.electronics.prompt).toMatch(/接口|按键/);
+    expect(BUILTIN_PRODUCT_RETOUCH_SKILL.categoryProfiles.beauty.prompt).toMatch(/成分|净含量/);
+    expect(BUILTIN_PRODUCT_RETOUCH_SKILL.categoryProfiles.jewelry.prompt).toMatch(/宝石|镶嵌/);
+  });
+
+  it("covers 6 new categories: toys, sports, books, plants, automotive, pet", () => {
+    for (const key of ["toys", "sports", "books", "plants", "automotive", "pet"]) {
+      expect(BUILTIN_PRODUCT_RETOUCH_SKILL.categoryProfiles, `${key} missing`).toHaveProperty(key);
+    }
+  });
+
+  it("skill version bumped to 1.1.0", () => {
+    expect(BUILTIN_PRODUCT_RETOUCH_SKILL.version).toBe("1.1.0");
   });
 });

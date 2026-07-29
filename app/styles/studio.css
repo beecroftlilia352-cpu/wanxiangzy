@@ -3209,6 +3209,20 @@
   box-shadow: 0 10px 24px rgba(91, 124, 255, 0.12);
 }
 
+.studio-row-header {
+  height: auto !important;
+  min-height: 86px;
+}
+
+.studio-row-header-img {
+  position: absolute !important;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+}
+
+
 .studio-result-reference-thumb img {
   height: 100%;
   width: 100%;
@@ -3241,6 +3255,82 @@
   border-radius: 14px;
   box-shadow: 0 18px 48px rgba(91, 124, 255, 0.12);
 }
+
+
+.grouped-row-thumb-img {
+  position: absolute !important;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+}
+
+.grouped-cell-download {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 4;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  color: rgb(71, 85, 105);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.14);
+  opacity: 0;
+  transition: opacity 140ms ease, color 140ms ease, background-color 140ms ease;
+}
+
+.group:hover .grouped-cell-download,
+.group:focus-within .grouped-cell-download {
+  opacity: 1;
+}
+
+.grouped-cell-download:hover {
+  background: rgb(91, 124, 255);
+  color: #fff;
+}
+
+.dark .grouped-cell-download {
+  background: rgba(15, 23, 42, 0.78);
+  color: rgb(226, 232, 240);
+}
+
+.studio-result-card-download {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 4;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  color: rgb(71, 85, 105);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.14);
+  opacity: 0;
+  transition: opacity 140ms ease, color 140ms ease, background-color 140ms ease;
+}
+
+.studio-result-card:hover .studio-result-card-download,
+.studio-result-card:focus-within .studio-result-card-download {
+  opacity: 1;
+}
+
+.studio-result-card-download:hover {
+  background: rgb(91, 124, 255);
+  color: #fff;
+}
+
+.dark .studio-result-card-download {
+  background: rgba(15, 23, 42, 0.78);
+  color: rgb(226, 232, 240);
+}
+
 
 .studio-result-card:has(.studio-result-pending-card) {
   border-color: rgba(255, 255, 255, 0.78);

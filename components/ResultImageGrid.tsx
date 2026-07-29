@@ -37,6 +37,14 @@ type ResultImageGridProps = {
   missingFailureActionDisabled?: boolean;
   failureLabel?: string;
   failureDetail?: string;
+  /** 启用后：当服务端已标记 status=completed 但 !url 的槽位（partial-failure 元数据为空时），
+"
+   * ResultCard 渲染为"已完成但缺图"placeholder，不渲染失败标、不渲染 spinner 也不渲染等待生成，
+"
+   * 与"partial-failure 缺图（failed + 重试）"区分开。 */
+  markMissingAsCompleted?: boolean;
+  /** 每张结果卡片上叠加的小标签（如目标语种、分辨率等），长度为 N 时与 urls 一一对应；超长/缺失自动截断。 */
+  cellLabels?: string[];
 };
 
 export type ResultInputReference = {
@@ -87,6 +95,8 @@ export function ResultImageGrid({
   missingFailureActionDisabled = false,
   failureLabel,
   failureDetail,
+  markMissingAsCompleted = false,
+  cellLabels,
 }: ResultImageGridProps) {
   const fallbackCreatedAt = useMemo(() => new Date().toISOString(), []);
   const count = Math.max(urls.length, expectedCount || 0, 1);
@@ -157,13 +167,15 @@ export function ResultImageGrid({
 
           <div className={`grid min-w-0 flex-1 gap-3 ${getGridClass(count)}`}>
             {slots.map((url, index) => {
-              const missingFailed = (markMissingAsFailed || statusGroup === "completed") && !url && !running;
+              const completedMissing = markMissingAsCompleted && statusGroup === "completed" && !url && !running;
+              const missingFailed = !completedMissing && (markMissingAsFailed || statusGroup === "completed") && !url && !running;
               return (
                 <ResultCard
                   key={`${renderKey}-${index}`}
                   url={url}
                   index={index}
                   count={count}
+                  completedMissing={completedMissing}
                   failed={failed || missingFailed}
                   running={running}
                   calmPendingMotion={calmPendingMotion}
@@ -176,6 +188,7 @@ export function ResultImageGrid({
                   failureActionLabel={missingFailed ? missingFailureActionLabel : undefined}
                   onFailureAction={missingFailed && onMissingFailureAction ? () => onMissingFailureAction(index) : undefined}
                   failureActionDisabled={missingFailureActionDisabled}
+                  cellLabel={cellLabels?.[index]}
                 />
               );
             })}
@@ -190,13 +203,15 @@ export function ResultImageGrid({
   return (
     <div className={`studio-result-card-grid mx-auto grid w-full gap-3 sm:gap-4 ${getGridClass(count)}`}>
       {slots.map((url, index) => {
-        const missingFailed = (markMissingAsFailed || statusGroup === "completed") && !url && !running;
+        const completedMissing = markMissingAsCompleted && statusGroup === "completed" && !url && !running;
+        const missingFailed = !completedMissing && (markMissingAsFailed || statusGroup === "completed") && !url && !running;
         return (
           <ResultCard
             key={`${renderKey}-${index}`}
             url={url}
             index={index}
             count={count}
+            completedMissing={completedMissing}
             failed={statusGroup === "failed" || missingFailed}
             running={running}
             calmPendingMotion={Boolean(running && count >= 6)}
@@ -236,6 +251,7 @@ type ResultCardProps = {
   count: number;
   failed: boolean;
   running: boolean;
+  completedMissing?: boolean;
   calmPendingMotion?: boolean;
   filenamePrefix: string;
   extension: string;
@@ -247,6 +263,7 @@ type ResultCardProps = {
   failureActionLabel?: string;
   onFailureAction?: () => void;
   failureActionDisabled?: boolean;
+  cellLabel?: string;
 };
 
 const ResultCard = memo(function ResultCard({
@@ -255,6 +272,7 @@ const ResultCard = memo(function ResultCard({
   count,
   failed,
   running,
+  completedMissing = false,
   calmPendingMotion,
   filenamePrefix,
   extension,
@@ -266,6 +284,7 @@ const ResultCard = memo(function ResultCard({
   failureActionLabel,
   onFailureAction,
   failureActionDisabled,
+  cellLabel,
 }: ResultCardProps) {
   const router = useRouter();
   const openPreview = () => {
@@ -300,12 +319,25 @@ const ResultCard = memo(function ResultCard({
             <span className="sr-only">预览{imageAltPrefix} {index + 1}</span>
           </button>
         ) : null}
+        {cellLabel ? (
+          <span
+            className="pointer-events-none absolute left-1.5 top-1.5 z-[2] inline-flex max-w-[calc(100%-12px)] items-center gap-1 rounded-full bg-slate-900/82 px-2 py-0.5 text-[10px] font-black tracking-wide text-white shadow-sm backdrop-blur"
+            title={cellLabel}
+          >
+            <span className="truncate">{cellLabel}</span>
+          </span>
+        ) : null}
         <div className="flex items-center justify-center" style={getTileStyle()}>
           {url ? (
             <StableResultImage
               src={getImageVariantUrl(url, count <= 1 ? "detail" : "card")}
               alt={`${imageAltPrefix} ${index + 1}`}
             />
+          ) : completedMissing ? (
+            <div className="studio-result-pending-card flex h-full w-full flex-col items-center justify-center gap-1 bg-slate-100/70 text-slate-500 dark:bg-slate-800/40 dark:text-slate-300">
+              <p className="text-xs font-semibold">已完成，缺图</p>
+              <p className="px-4 text-center text-[11px] leading-4 text-slate-400 dark:text-slate-500">服务端已结算，无图片结果</p>
+            </div>
           ) : (
             <PendingResultSlot
               failed={failed}
@@ -322,27 +354,41 @@ const ResultCard = memo(function ResultCard({
         </div>
 
         {url && (
-          <div className="studio-result-focus-layer" aria-hidden={false}>
-            <Button
+          <>
+            <button
               type="button"
-              variant="ghost"
-              size="sm"
-              className="studio-result-focus-view"
+              aria-label={`下载${imageAltPrefix} ${index + 1}`}
+              title="下载"
               onClick={(event) => {
                 event.stopPropagation();
-                openPreview();
+                downloadResult();
               }}
-              onKeyDown={(event) => event.stopPropagation()}
+              className="studio-result-card-download"
             >
-              <Eye className="h-4 w-4" aria-hidden="true" />
-              查看
-            </Button>
+              <Download className="h-3.5 w-3.5" aria-hidden="true" />
+            </button>
+            <div className="studio-result-focus-layer" aria-hidden={false}>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="studio-result-focus-view"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  openPreview();
+                }}
+                onKeyDown={(event) => event.stopPropagation()}
+              >
+                <Eye className="h-4 w-4" aria-hidden="true" />
+                查看
+              </Button>
             <div className="studio-result-focus-actions">
               <ResultFocusAction label="AI修图" onClick={openImageRepair} icon={<WandSparkles className="h-3.5 w-3.5" />} />
               <ResultFocusAction label="AI视频" onClick={openAiVideo} icon={<Clapperboard className="h-3.5 w-3.5" />} />
               <ResultFocusAction label="下载" onClick={downloadResult} icon={<Download className="h-3.5 w-3.5" />} />
             </div>
           </div>
+          </>
         )}
       </div>
     </TooltipProvider>
@@ -366,7 +412,9 @@ function areResultCardPropsEqual(prev: ResultCardProps, next: ResultCardProps) {
     prev.failureDetail === next.failureDetail &&
     prev.failureActionLabel === next.failureActionLabel &&
     prev.onFailureAction === next.onFailureAction &&
-    prev.failureActionDisabled === next.failureActionDisabled
+    prev.failureActionDisabled === next.failureActionDisabled &&
+    prev.cellLabel === next.cellLabel &&
+    prev.completedMissing === next.completedMissing
   );
 }
 

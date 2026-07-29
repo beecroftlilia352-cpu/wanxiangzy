@@ -9,6 +9,7 @@ import {
   Home,
   Images,
   ImagePlus,
+  Languages,
   PackageOpen,
   PackageSearch,
   PencilRuler,
@@ -46,6 +47,7 @@ export type FeatureKey =
   | "pose"
   | "model"
   | "garment3d"
+  | "imageTranslation"
   | "videoImageToVideo"
   | "videoMotion"
   | "videoFirstLastFrame"
@@ -73,6 +75,7 @@ export type FeatureNavItem = {
   shortLabel?: string;
   description: string;
   icon: LucideIcon;
+  badge?: "NEW";
   comingSoon?: boolean;
   hiddenFromNav?: boolean;
 };
@@ -161,6 +164,16 @@ export const FEATURE_ITEMS: FeatureNavItem[] = [
     shortLabel: "精修",
     description: "批量完成标准精修、白底精修与影棚精修",
     icon: Sparkles,
+  },
+  {
+    key: "imageTranslation",
+    module: "productImages",
+    href: "/image-translation",
+    label: "图片翻译",
+    shortLabel: "翻译",
+    description: "批量翻译商品图文字，保留品牌、Logo、产品和参数原样",
+    icon: Languages,
+    badge: "NEW",
   },
   {
     key: "productSet",

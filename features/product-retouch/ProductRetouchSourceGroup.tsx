@@ -1,18 +1,8 @@
 "use client";
 
-import { Download, RotateCcw } from "lucide-react";
+import { RotateCcw } from "lucide-react";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
-import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import type { ProductRetouchOutput } from "@/lib/product-retouch";
 import type { TaskStatusGroup } from "@/lib/task-queue";
 
@@ -21,7 +11,6 @@ type ProductRetouchSourceGroupProps = {
   outputs: ProductRetouchOutput[];
   onPreview: (output: ProductRetouchOutput, outputIndex: number) => void;
   onRetry: (output: ProductRetouchOutput) => void;
-  onDownload: () => void;
   retryingOutputId?: string | null;
   downloading?: boolean;
 };
@@ -31,9 +20,7 @@ export function ProductRetouchSourceGroup({
   outputs,
   onPreview,
   onRetry,
-  onDownload,
   retryingOutputId,
-  downloading,
 }: ProductRetouchSourceGroupProps) {
   const ordered = [...outputs].sort((a, b) => a.variantIndex - b.variantIndex);
   const source = ordered[0];
@@ -42,6 +29,7 @@ export function ProductRetouchSourceGroup({
   const completedCount = ordered.filter((output) => output.status === "completed").length;
   const failedCount = ordered.filter((output) => output.status === "failed").length;
   const terminal = completedCount + failedCount === ordered.length;
+  const terminalCompletedAllOk = terminal && failedCount === 0;
   const statusGroup: TaskStatusGroup = terminal
     ? completedCount > 0 ? "completed" : "failed"
     : ordered.some((output) => output.status === "processing")
@@ -50,41 +38,7 @@ export function ProductRetouchSourceGroup({
   const firstFailure = ordered.find((output) => output.status === "failed");
 
   return (
-    <Card size="sm" className="bg-card/96 shadow-sm">
-      <CardHeader className="border-b">
-        <div className="flex min-w-0 items-center gap-3">
-          <div className="relative size-12 shrink-0 overflow-hidden rounded-lg bg-muted ring-1 ring-border">
-            <RawPreviewImage
-              src={source.sourceUrl}
-              alt={source.sourceFilename}
-              className="h-full w-full object-contain"
-            />
-          </div>
-          <div className="min-w-0">
-            <CardTitle className="truncate">
-              {String(sourceIndex + 1).padStart(2, "0")} · {source.sourceFilename}
-            </CardTitle>
-            <CardDescription className="mt-1 flex flex-wrap items-center gap-1.5">
-              <span>{ordered.length} 个结果槽位</span>
-              <Badge variant="outline">{completedCount} 完成</Badge>
-              {failedCount > 0 ? <Badge variant="destructive">{failedCount} 失败</Badge> : null}
-            </CardDescription>
-          </div>
-        </div>
-        <CardAction>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onDownload}
-            disabled={completedCount === 0 || downloading}
-          >
-            <Download />
-            下载本组
-          </Button>
-        </CardAction>
-      </CardHeader>
-
-      <CardContent>
+    <div>
         <ResultImageGrid
           urls={ordered.map((output) => output.resultUrl || "")}
           filenamePrefix={`product-retouch-${sourceIndex + 1}`}
@@ -95,7 +49,8 @@ export function ProductRetouchSourceGroup({
           variant="task"
           renderKey={`product-retouch-${source.sourceClientId}-${ordered.map((item) => `${item.id}:${item.status}`).join("|")}`}
           imageAltPrefix={`${source.sourceFilename} 精修结果`}
-          markMissingAsFailed={terminal}
+          markMissingAsFailed={terminal && !terminalCompletedAllOk}
+          markMissingAsCompleted={terminal && terminalCompletedAllOk}
           missingFailureLabel="该结果生成失败"
           missingFailureDetail={firstFailure?.error || "可单独重试该结果，不影响本组其他成图。"}
           missingFailureActionLabel="单独重试"
@@ -126,7 +81,6 @@ export function ProductRetouchSourceGroup({
             </Button>
           </div>
         ) : null}
-      </CardContent>
-    </Card>
+  </div>
   );
 }

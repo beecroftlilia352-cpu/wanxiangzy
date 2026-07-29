@@ -160,6 +160,9 @@ async function handleActiveFaceSwapGet() {
         generationId: data.id,
         status: state.status === "completed" ? "completed" : state.status === "failed" ? "failed" : "running",
         resultUrls,
+        resultCount: state.resultCount,
+        expectedCount: state.expectedCount,
+        partialFailure: readPartialFailure(data.job_payload),
         progress: state.progress,
         error: data.error_message,
         sourceUrl: typeof payload?.sourceUrl === "string" ? payload.sourceUrl : "",
@@ -175,4 +178,10 @@ async function handleActiveFaceSwapGet() {
     const message = err instanceof Error ? err.message : "查询进行中任务失败";
     return NextResponse.json({ error: message }, { status: 500 });
   }
+}
+
+function readPartialFailure(payload: unknown) {
+  if (!payload || typeof payload !== "object") return null;
+  const value = (payload as Record<string, unknown>).partialFailure;
+  return value && typeof value === "object" ? value : null;
 }

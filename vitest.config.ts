@@ -10,7 +10,7 @@ export default defineConfig({
     },
   },
   test: {
-    environment: "node",
-    include: ["lib/**/__tests__/**/*.test.ts", "app/**/__tests__/**/*.test.ts"],
+    environment: "jsdom",
+    include: ["lib/**/__tests__/**/*.test.{ts,tsx}", "app/**/__tests__/**/*.test.{ts,tsx}"],
   },
 });

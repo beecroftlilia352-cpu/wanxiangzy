@@ -28,13 +28,14 @@ import { StudioUploadSection } from "@/components/studio/StudioUploadSection";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
+
 import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
 import { StudioMediaLightbox } from "@/components/studio/StudioMediaLightbox";
 import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
 import { fetchHistoryApplyDetail, getHistoryApplyFailureMessage, isHistoryApplyRowFailed, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
-import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
+import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem, type TaskStatusGroup } from "@/lib/task-queue";
 import { showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
 import { createGenericImagePreviewSession, takeSourceImageFromLocation, type ImagePreviewAction } from "@/lib/studio-image-preview";
 import { FAILED_RETRY_NOTICE, buildPartialFailureDetail, summarizeGenerationError } from "@/lib/studio-generation-feedback";
@@ -173,9 +174,19 @@ export default function ModelBackgroundPage() {
     hasBackgroundReference,
   }), [promptOverride, mode, backgroundSource, backgroundPresetId, backgroundText, userPrompt, hasModelReference, hasBackgroundReference]);
   const requestedResultCount = genCount * Math.max(sourceUrls.length, 1);
+  const perSourceCount = Math.max(
+    1,
+    Math.min(Math.round(requestedResultCount / Math.max(sourceUrls.length || 1, 1)), 4)
+  );
   const activeResultExpectedCount = isGenerating
     ? runningExpectedCount || requestedResultCount
     : runningExpectedCount || Math.max(resultUrls.length, 1);
+
+  const statusGroup: TaskStatusGroup | undefined = isGenerating
+    ? "running"
+    : resultUrls.length > 0
+      ? "completed"
+      : undefined;
   const displayedResultUrls = resultUrls.filter(Boolean);
   const hasCompletedPartialResults = Boolean(
     !isGenerating
@@ -525,9 +536,30 @@ export default function ModelBackgroundPage() {
           );
           const finalResultCount = finalUrls.filter(Boolean).length;
           const partialFailure = state.partial_failure && typeof state.partial_failure === "object"
-            ? state.partial_failure as { message?: unknown }
+            ? state.partial_failure as { message?: unknown; expectedCount?: number; resultCount?: number; failedCount?: number }
             : null;
           const completedError = state.error || partialFailure?.message || "";
+          // 同 face-swap：只有服务端给出 partialFailure / error_message 时才把空槽标失败；
+          // 否则保持 running，让后台继续投递的 url 能填进去。
+          const serverReportedPartialFailure = Boolean(
+            completedError
+            || (partialFailure && (partialFailure.failedCount || 0) > 0)
+          );
+          if (!serverReportedPartialFailure && finalResultCount < displayExpectedCount) {
+            latestTaskResultUrls = finalUrls;
+            setResultUrls(finalUrls);
+            const runningProgress = Math.min(99, 25 + attempts * 1.5);
+            setProgress(runningProgress);
+            taskQueue.markRunning(activeTaskId, {
+              expectedCount: displayExpectedCount,
+              inputThumbnails: runTaskInputThumbnails,
+              resultThumbnails: finalUrls,
+              resultCount: finalResultCount,
+              progress: runningProgress,
+              status: "processing",
+            });
+            continue;
+          }
           setProgress(100);
           setResultUrls(finalUrls);
           setIsGenerating(false);
@@ -995,23 +1027,56 @@ export default function ModelBackgroundPage() {
 
         {(isGenerating || resultUrls.length > 0) && (
           <div className="studio-result-stage min-h-[260px] sm:min-h-[360px] overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:h-full flex flex-col animate-fade-in">
-            <div className="flex min-h-0 flex-1 items-start justify-start">
-              <ResultImageGrid
-                urls={resultUrls}
-                filenamePrefix="model-background"
-                expectedCount={activeResultExpectedCount}
-                isGenerating={isGenerating}
-                inputThumbnails={promptImages.map((item) => item.url)}
-                statusGroup={isGenerating ? "running" : undefined}
-                variant="task"
-                markMissingAsFailed={hasCompletedPartialResults}
-                missingFailureLabel="本张生成失败"
-                missingFailureDetail={partialFailureMessage}
-                missingFailureActionLabel="重试本张"
-                onMissingFailureAction={handleRetryFailedResult}
-                missingFailureActionDisabled={retryDisabled}
-                onOpen={(_, index) => setPreviewIndex(index)}
-              />
+            <div className="flex min-h-0 flex-1 flex-col gap-6">
+              {sourceUrls.length === 0 ? (
+                <ResultImageGrid
+                  urls={resultUrls}
+                  filenamePrefix="model-background"
+                  expectedCount={activeResultExpectedCount}
+                  isGenerating={isGenerating}
+                  statusGroup={statusGroup}
+                  variant="task"
+                  inputReferences={[
+                    ...(hasModelReference && modelReferenceUrl ? [{ url: modelReferenceUrl, label: "模特参考" }] : []),
+                    ...(hasBackgroundReference && backgroundReferenceUrl ? [{ url: backgroundReferenceUrl, label: "背景参考" }] : []),
+                  ]}
+                  markMissingAsFailed={hasCompletedPartialResults}
+                    markMissingAsCompleted={statusGroup === "completed" && !hasCompletedPartialResults}
+                  missingFailureLabel="本张生成失败"
+                  missingFailureDetail={partialFailureMessage}
+                  missingFailureActionLabel="重试本张"
+                  onMissingFailureAction={handleRetryFailedResult}
+                  missingFailureActionDisabled={retryDisabled}
+                  onOpen={(_, index) => setPreviewIndex(index)}
+                />
+              ) : null}
+              {sourceUrls.map((sourceUrl, sIndex) => {
+                const start = sIndex * perSourceCount;
+                return (
+                  <ResultImageGrid
+                    key={`model-bg-group-${sIndex}-${sourceUrl}`}
+                    urls={Array.from({ length: perSourceCount }, (_, tIndex) => resultUrls[start + tIndex] || "")}
+                    filenamePrefix={`model-background-s${sIndex + 1}`}
+                    expectedCount={perSourceCount}
+                    isGenerating={isGenerating}
+                    statusGroup={statusGroup}
+                    variant="task"
+                    inputReferences={[
+                      { url: sourceUrl, label: `原图 ${sIndex + 1}` },
+                      ...(hasModelReference && modelReferenceUrl ? [{ url: modelReferenceUrl, label: "模特参考" }] : []),
+                      ...(hasBackgroundReference && backgroundReferenceUrl ? [{ url: backgroundReferenceUrl, label: "背景参考" }] : []),
+                    ]}
+                    markMissingAsFailed={hasCompletedPartialResults}
+                      markMissingAsCompleted={statusGroup === "completed" && !hasCompletedPartialResults}
+                    missingFailureLabel="本张生成失败"
+                    missingFailureDetail={partialFailureMessage}
+                    missingFailureActionLabel="重试本张"
+                    onMissingFailureAction={(idx) => handleRetryFailedResult(start + idx)}
+                    missingFailureActionDisabled={retryDisabled}
+                    onOpen={(_, index) => setPreviewIndex(start + index)}
+                  />
+                );
+              })}
             </div>
             <StudioImagePreviewDialog
               open={previewIndex !== null}

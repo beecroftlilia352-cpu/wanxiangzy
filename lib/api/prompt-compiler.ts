@@ -1,6 +1,6 @@
 import type { LingyaModel } from "@/lib/api/lingya";
 
-export type ImagePromptKind = "tryon" | "outfitFusion" | "grass" | "modelBackground" | "materialEnhancement" | "productRetouch" | "pose" | "model" | "garment3d" | "faceSwap" | "commerceDetail" | "productSet";
+export type ImagePromptKind = "tryon" | "outfitFusion" | "grass" | "modelBackground" | "materialEnhancement" | "productRetouch" | "pose" | "model" | "garment3d" | "faceSwap" | "commerceDetail" | "productSet" | "imageTranslation";
 
 const KIND_HEADERS: Record<ImagePromptKind, string> = {
   tryon:
@@ -27,6 +27,8 @@ const KIND_HEADERS: Record<ImagePromptKind, string> = {
     "Core task: generate one independent e-commerce detail-page section/module, not a complete detail page. The section must be mobile-first, readable, spacious, and structurally different from other sections.",
   productSet:
     "核心任务：生成一张独立商品套图素材。商品图是唯一商品硬参考；样式参考只提供版式和氛围；不要生成整套拼图、网页截图或编辑器界面。",
+  imageTranslation:
+    "核心任务：完成商品图可读文字的本地化翻译。图1是唯一商品图事实来源，仅识别并替换图1中可直接读出的标题、标签、参数、说明、按钮、徽章和口号；品牌、商标、Logo、产品名、型号、SKU、参数值、专利号、认证标识、成分表、价格、链接、二维码、条形码和序列号必须原样保留；人物、产品外形、配色、构图、视角、景别、光线方向、阴影、背景、相机质感和裁切范围必须与图1一致；输出语言使用目标地区本地化写法（美式/英式英文、简繁中文、阿拉伯字形、印地语天城文等），禁止拼音或罗马化替代；保持原文字号、字距、颜色、对齐方式、图层位置和叠层关系，不允许把所有文字塞到底部；替换后不留原文残影或擦除白边。",
 };
 
 const SOURCE_MATCHED_QUALITY_LINE =
@@ -143,6 +145,13 @@ const REQUIRED_SIGNALS: Record<ImagePromptKind, RequiredSignal[]> = {
     { name: "product preservation", pattern: /严格保留.*商品|商品硬规则|不能创造不存在/i, fallback: "商品硬规则：严格保留商品品类、颜色、材质、结构、廓形、比例、纹理、图案、logo/文字位置和可见细节，不创造不存在的新款式。" },
     { name: "commerce copy", pattern: /文案|文字排版|目标平台|目标国家|语言/i, fallback: "电商文案：文案必须短、清晰、可读，适配目标语言和平台，不虚构认证、价格、销量、医学功效或具体尺寸。" },
     { name: "negative", pattern: /负面约束|不要改变商品|不要生成无关商品/i, fallback: "负面约束：不要改变商品颜色和结构，不要生成无关商品，不要文字乱码、水印、平台截图、界面按钮或编辑器边框。" },
+  ],
+  imageTranslation: [
+    { name: "image roles", pattern: /图像角色|图1是唯一商品图事实来源|图片翻译/, fallback: "图像角色：图1是唯一商品图事实来源，仅识别并替换图1中可直接读出的标题、标签、参数、说明、按钮、徽章和口号。" },
+    { name: "preservation", pattern: /品牌.*Logo|参数值|价格|链接|二维码|条形码/, fallback: "不可改写：品牌、商标、Logo、产品名、型号、SKU、参数值、专利号、认证标识、成分表、价格、链接、二维码、条形码和序列号必须原样保留。" },
+    { name: "localization", pattern: /地区本地化|本地化写法|美式|英式|阿拉伯字形|天城文/, fallback: "地区本地化：输出语言使用目标地区本地化写法（美式/英式英文、简繁中文、阿拉伯字形、印地语天城文等），禁止拼音或罗马化替代。" },
+    { name: "layout", pattern: /字号|字距|图层位置|叠层关系|擦除白边|原文残影/, fallback: "布局：保持原文字号、字距、颜色、对齐方式、图层位置和叠层关系，不允许把所有文字塞到底部或拉伸铺满画面；替换后不留原文残影或擦除白边。" },
+    { name: "negative", pattern: /负面约束|禁止|不要/, fallback: "负面约束：禁止改写品牌名/Logo/参数/价格/链接，禁止修改人物、产品外形、构图、视角、光线和背景，禁止出现翻译水印、AI 水印、附加文字或虚构认证。" },
   ],
 };
 

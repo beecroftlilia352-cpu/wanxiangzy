@@ -11,7 +11,6 @@ import { toast } from "sonner";
 import { ModuleHeader } from "@/components/ModuleHeader";
 import { PreviewGuide } from "@/components/PreviewGuide";
 import { ErrorStage } from "@/components/studio/ErrorStage";
-import { LoadingStage } from "@/components/studio/LoadingStage";
 import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
 import { StudioControlPanel } from "@/components/studio/StudioControlPanel";
 import {
@@ -33,12 +32,7 @@ import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGenerati
 import type { TaskSelectionSession } from "@/components/studio/useTaskSelectionSession";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
-import {
-  ProductRetouchBatchToolbar,
-  type ProductRetouchFilter,
-} from "@/features/product-retouch/ProductRetouchBatchToolbar";
 import { ProductRetouchBatchGrid } from "@/features/product-retouch/ProductRetouchBatchGrid";
-import { downloadProductRetouchZip } from "@/features/product-retouch/download";
 import {
   isTerminalBatch,
   useProductRetouchBatch,
@@ -46,6 +40,9 @@ import {
 import {
   getCreditCost,
   getSupportedImageSizes,
+  normalizeAspectRatio,
+  normalizeImageSize,
+  normalizeLingyaModel,
   type AspectRatio,
   type ImageSize,
   type LingyaModel,
@@ -53,6 +50,10 @@ import {
 import {PRODUCT_RETOUCH_EXAMPLE_IMAGES,
   PRODUCT_RETOUCH_MAX_SOURCES,
   PRODUCT_RETOUCH_MODE_OPTIONS,
+  normalizeProductRetouchInstruction,
+  normalizeProductRetouchMode,
+  normalizeProductRetouchSources,
+  normalizeProductRetouchVariants,
   type ProductRetouchBatch,
   type ProductRetouchMode,
   type ProductRetouchOutput,
@@ -61,6 +62,10 @@ import {
   createGenericImagePreviewSession,
   type ImagePreviewSession,
 } from "@/lib/studio-image-preview";
+import {
+  fetchHistoryApplyDetail,
+  takeApplyDetail,
+} from "@/lib/history-apply";
 import { isTaskRunning, type TaskQueueItem } from "@/lib/task-queue";
 import { showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
 import {
@@ -146,12 +151,9 @@ export function ProductRetouchExperience() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [batch, setBatch] = useState<ProductRetouchBatch | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<ProductRetouchFilter>("all");
   const [preview, setPreview] = useState<PreviewState | null>(null);
   const [sourceLightboxSrc, setSourceLightboxSrc] = useState<string | null>(null);
   const [retryingOutputId, setRetryingOutputId] = useState<string | null>(null);
-  const [downloadingAll, setDownloadingAll] = useState(false);
-  const [downloadingSourceIndex, setDownloadingSourceIndex] = useState<number | null>(null);
   const {
     authChecked,
     isAuthenticated,
@@ -246,29 +248,81 @@ export function ProductRetouchExperience() {
     return loaded;
   }, [applyBatchUpdate, loadBatch, watchBatch]);
 
+  // 历史套用：从 payload 复原参数 + sources，再叠加可用的 URL / 事件渠道。
+  // 应用于 /history 跳过来的 ?apply=<id> 以及 wanxiang:history-apply 事件，两条路径最后都走同一个 restoreBatch。
+  const applyHistoryPayload = useCallback((payload: Extract<import("@/lib/history-apply").HistoryJobPayload, { kind: "productRetouch" }>) => {
+    setMode(normalizeProductRetouchMode(payload.mode));
+    setVariantsPerSource(normalizeProductRetouchVariants(payload.variantsPerSource));
+    setModel(normalizeLingyaModel(payload.aiModel));
+    setAspectRatio(normalizeAspectRatio(payload.aspectRatio, "1:1"));
+    setImageSize(normalizeImageSize(payload.aiModel, payload.imageSize, normalizeAspectRatio(payload.aspectRatio, "1:1")));
+    setUserInstruction(normalizeProductRetouchInstruction(payload.userInstruction));
+    toast.success("已套用历史参数设置");
+  }, []);
+
+  // 复原 sources：batch.outputs 上同一 sourceIndex 的 clientId/url/filename 是一致的；
+  // 从已加载的 batch 里抽出每组第一行作为该 source 的复原记录（按 sourceIndex 升序）。
+  const sourcesFromBatch = useCallback((batchOutputs: ProductRetouchOutput[] | undefined) => {
+    if (!Array.isArray(batchOutputs) || !batchOutputs.length) return null;
+    const seen = new Map<number, ProductRetouchSource>();
+    for (const output of batchOutputs) {
+      if (seen.has(output.sourceIndex)) continue;
+      seen.set(output.sourceIndex, {
+        clientId: output.sourceClientId,
+        url: output.sourceUrl,
+        filename: output.sourceFilename,
+      });
+    }
+    const ordered = Array.from(seen.entries())
+      .sort(([a], [b]) => a - b)
+      .map(([, source]) => source);
+    return normalizeProductRetouchSources(ordered);
+  }, []);
+
   useEffect(() => {
-    const restoreFromLocation = () => {
+    const restoreFromLocation = async () => {
       const params = new URLSearchParams(window.location.search);
       const id = params.get("apply") || params.get("task");
       if (!id || restoredIdRef.current === id) return;
       restoredIdRef.current = id;
-      void restoreBatch(id).catch((restoreError) => {
+      try {
+        const cached = await takeApplyDetail("productRetouch");
+        if (cached?.payload?.kind === "productRetouch") {
+          applyHistoryPayload(cached.payload);
+        } else {
+          const fetched = await fetchHistoryApplyDetail(id, "productRetouch");
+          if (fetched?.payload?.kind === "productRetouch") {
+            applyHistoryPayload(fetched.payload);
+          }
+        }
+        const loaded = await restoreBatch(id);
+        const restored = sourcesFromBatch(loaded.outputs);
+        if (restored && restored.length) setSources(restored);
+      } catch (restoreError) {
         setError(restoreError instanceof Error ? restoreError.message : "历史批次恢复失败");
-      });
+      }
     };
-    const onHistoryApply = (event: Event) => {
+    const onHistoryApply = async (event: Event) => {
       const detail = (event as CustomEvent<{ id?: string }>).detail;
       const id = detail?.id;
       if (!id) return;
       restoredIdRef.current = id;
-      void restoreBatch(id).catch((restoreError) => {
+      try {
+        const fetched = await fetchHistoryApplyDetail(id, "productRetouch");
+        if (fetched?.payload?.kind === "productRetouch") {
+          applyHistoryPayload(fetched.payload);
+        }
+        const loaded = await restoreBatch(id);
+        const restored = sourcesFromBatch(loaded.outputs);
+        if (restored && restored.length) setSources(restored);
+      } catch (restoreError) {
         setError(restoreError instanceof Error ? restoreError.message : "历史批次恢复失败");
-      });
+      }
     };
     restoreFromLocation();
     window.addEventListener("wanxiang:history-apply", onHistoryApply);
     return () => window.removeEventListener("wanxiang:history-apply", onHistoryApply);
-  }, [restoreBatch]);
+  }, [applyHistoryPayload, restoreBatch, sourcesFromBatch]);
 
   const handleFiles = useCallback(async (incomingFiles: File[]) => {
     if (isUploading) return;
@@ -365,7 +419,6 @@ export function ProductRetouchExperience() {
     setIsGenerating(true);
     setError(null);
     setBatch(null);
-    setFilter("all");
     const optimistic = taskQueue.startTask({
       expectedCount,
       inputThumbnails: sources.slice(0, 8).map((source) => source.url),
@@ -495,42 +548,6 @@ export function ProductRetouchExperience() {
     }
   }, [applyBatchUpdate, batch, retryingOutputId, setCredits, watchBatch]);
 
-  const handleDownloadAll = useCallback(async () => {
-    if (!batch || downloadingAll) return;
-    setDownloadingAll(true);
-    try {
-      await downloadProductRetouchZip({
-        batchId: batch.id,
-        outputs: batch.outputs,
-      });
-      toast.success("批次 ZIP 已开始下载");
-    } catch (downloadError) {
-      toast.error(downloadError instanceof Error ? downloadError.message : "批次下载失败");
-    } finally {
-      setDownloadingAll(false);
-    }
-  }, [batch, downloadingAll]);
-
-  const handleDownloadGroup = useCallback(async (
-    sourceIndex: number,
-    outputs: ProductRetouchOutput[],
-  ) => {
-    if (!batch || downloadingSourceIndex !== null) return;
-    setDownloadingSourceIndex(sourceIndex);
-    try {
-      await downloadProductRetouchZip({
-        batchId: batch.id,
-        outputs,
-        scopeLabel: outputs[0]?.sourceFilename || `商品-${sourceIndex + 1}`,
-      });
-      toast.success("本组 ZIP 已开始下载");
-    } catch (downloadError) {
-      toast.error(downloadError instanceof Error ? downloadError.message : "本组下载失败");
-    } finally {
-      setDownloadingSourceIndex(null);
-    }
-  }, [batch, downloadingSourceIndex]);
-
   const openSourcePreview = useCallback((url: string) => {
     setSourceLightboxSrc(url);
   }, []);
@@ -602,11 +619,11 @@ export function ProductRetouchExperience() {
         ? `灵点不足，需要 ${totalCost} 灵点`
         : undefined;
   const resultStatus: StudioResultStatus = batch
-    ? batch.outputs.length ? "results" : "loading"
+    ? "results"
     : error
       ? "error"
       : isGenerating
-        ? "loading"
+        ? "results"
         : "empty";
 
   return (
@@ -629,8 +646,7 @@ export function ProductRetouchExperience() {
               setAspectRatio("1:1");
               setImageSize("2K");
               setUserInstruction("");
-              setFilter("all");
-              setPreview(null);
+                      setPreview(null);
             }}
             onRunningTask={handleRunningTask}
             onCompletedTask={handleCompletedTask}
@@ -801,6 +817,7 @@ export function ProductRetouchExperience() {
         canvas={(
           <StudioResultViewport
             status={resultStatus}
+            loadingState={null}
             emptyState={(
               <div className="studio-empty-stage flex min-h-[260px] items-center justify-center px-4 py-6 sm:min-h-[360px] lg:h-full">
                 <PreviewGuide
@@ -824,21 +841,6 @@ export function ProductRetouchExperience() {
                 />
               </div>
             )}
-            loadingState={(
-              <LoadingStage
-                genCount={Math.min(expectedCount, 8)}
-                progress={batchProgress}
-                moduleName="商品精修"
-                statusText="正在拆分批次并分配生产槽位"
-                aspectRatio={aspectRatio}
-                referenceImages={sources.slice(0, 4).map((source) => ({
-                  url: source.url,
-                  label: source.filename,
-                }))}
-                estimatedTime="大批次会在后台持续生产，可从任务栏恢复"
-                metaItems={[`批次共 ${expectedCount} 个结果`, `${model} · ${imageSize}`]}
-              />
-            )}
             errorState={(
               <ErrorStage
                 error={error || "商品精修批次创建失败"}
@@ -850,24 +852,12 @@ export function ProductRetouchExperience() {
             )}
             results={batch ? (
               <div className="h-full overflow-y-auto p-3 sm:p-4">
-                <ProductRetouchBatchToolbar
+                <ProductRetouchBatchGrid
                   batch={batch}
-                  filter={filter}
-                  onFilterChange={setFilter}
-                  onDownloadAll={handleDownloadAll}
-                  downloading={downloadingAll}
+                  onPreview={openOutputPreview}
+                  onRetry={handleRetryOutput}
+                  retryingOutputId={retryingOutputId}
                 />
-                <div className="mt-4">
-                  <ProductRetouchBatchGrid
-                    batch={batch}
-                    filter={filter}
-                    onPreview={openOutputPreview}
-                    onRetry={handleRetryOutput}
-                    onDownloadGroup={handleDownloadGroup}
-                    retryingOutputId={retryingOutputId}
-                    downloadingSourceIndex={downloadingSourceIndex}
-                  />
-                </div>
               </div>
             ) : null}
           />

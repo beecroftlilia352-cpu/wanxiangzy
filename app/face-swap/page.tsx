@@ -16,6 +16,7 @@ import { Modal } from "antd";
 import { ModuleHeader } from "@/components/ModuleHeader";
 import { PreviewGuide } from "@/components/PreviewGuide";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
+
 import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
 import { StudioMediaLightbox } from "@/components/studio/StudioMediaLightbox";
 import { StudioSideDrawer } from "@/components/studio/StudioSideDrawer";
@@ -129,9 +130,9 @@ type FaceSwapGenerateOptions = {
 };
 type FaceSwapPollContext = {
   expectedCount: number;
-  inputThumbnails: string[];
   retryResultIndex?: number | null;
   previousResultUrls?: string[];
+  inputThumbnails?: string[];
 };
 
 export default function FaceSwapPage() {
@@ -323,10 +324,20 @@ export default function FaceSwapPage() {
 
         if (data.status === "completed") {
           const partialFailure = data.partial_failure && typeof data.partial_failure === "object"
-            ? data.partial_failure as { message?: unknown }
+            ? data.partial_failure as { message?: unknown; expectedCount?: number; resultCount?: number; failedCount?: number }
             : null;
           const completedErrorSource = data.error || partialFailure?.message || "";
           const completedError = completedErrorSource ? summarizeGenerationError(completedErrorSource) : "";
+          // status='completed' 服务端已落地（worker 全部 worker 都跑完 / 出错都结算）。
+          // 缺的槽位区分两种：
+          //  - partialFailure / error 非空：服务端明确告诉你这一批里有失败，给重试入口；
+          //  - 否则：服务端没报元数据但 result_urls 长度不足。face-swap worker 在 partial completion
+          //    的写法是 "写缩 result_urls + 不写 partialFailure metadata"，这里落成「完成但缺图」，
+          //    不再去后台轮询，避免 UI 永远卡在 loading 骨架、不再轮到 late-arrived URL 也无所谓。
+          const serverReportedPartialFailure = Boolean(
+            completedError
+            || (partialFailure && (partialFailure.failedCount || 0) > 0)
+          );
           setStatus("completed");
           setProgress(100);
           setResultUrls(nextUrls);
@@ -338,12 +349,20 @@ export default function FaceSwapPage() {
             error: completedError,
           });
           setActiveQueueTask(completedTask);
-          if (nextResultCount < expectedCount || completedError) {
+          if (serverReportedPartialFailure && nextResultCount < expectedCount) {
+            // 服务器确实标记了部分失败：给完整 partial-failure 提示 + 让用户重试这一张。
             await refreshCredits();
             toast.warning(buildPartialFailureDetail({
               message: completedError || completedErrorSource,
               failedCount: expectedCount - nextResultCount || 1,
             }));
+          } else if (completedError) {
+            toast.warning(buildPartialFailureDetail({
+              message: completedError || completedErrorSource,
+              failedCount: expectedCount - nextResultCount || 1,
+            }));
+          } else if (nextResultCount < expectedCount) {
+            toast.info(`已完成 ${nextResultCount}/${expectedCount} 张，剩余槽位由服务端结算为空，可点击重试重新发起。`);
           } else {
             toast.success("换脸完成");
           }
@@ -929,9 +948,9 @@ export default function FaceSwapPage() {
             <ResultsPanel
               urls={resultUrls}
               isGenerating={status === "running"}
+              inputThumbnails={faceSwapInputThumbnails}
               expectedCount={faceSwapExpectedCount}
               task={activeQueueTask}
-              inputThumbnails={faceSwapInputThumbnails}
               sourceUrls={sourceUrls}
               faceUrl={faceUrl}
               prompt={prompt}
@@ -1095,6 +1114,7 @@ function ResultsPanel({
   onRegenerate,
   onRetryMissing,
   task,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   inputThumbnails,
   sourceUrls,
   faceUrl,
@@ -1131,6 +1151,17 @@ function ResultsPanel({
     failedCount: count - urls.filter(Boolean).length || 1,
   });
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
+  // preview 出来的「原图」要跟点中的那张原图对应，否则多源时原图/结果图错位。
+  // 由于 groupedSources + perSourceCount 在当前组件内后置定义，这里复用同一组计算。
+  const safeGroupedSources = sourceUrls.length > 0 ? sourceUrls : faceUrl ? [faceUrl] : [];
+  const safePerSourceCount = Math.max(
+    1,
+    Math.min(4, Math.round(count / Math.max(safeGroupedSources.length || 1, 1))),
+  );
+  const activeSourceUrl =
+    previewIndex !== null && safeGroupedSources.length > 0
+      ? safeGroupedSources[Math.min(safeGroupedSources.length - 1, Math.floor(previewIndex / safePerSourceCount))] || ""
+      : safeGroupedSources[0] || "";
   const session = createFaceSwapPreviewSession({
     urls,
     expectedCount: count,
@@ -1138,7 +1169,7 @@ function ResultsPanel({
     statusGroup: failed ? "failed" : isGenerating ? "running" : task?.statusGroup,
     taskId: task?.id,
     createdAt: task?.createdAt,
-    sourceUrl: sourceUrls[0] || "",
+    sourceUrl: activeSourceUrl,
     faceUrl,
     promptText: prompt,
     metaItems: [
@@ -1150,28 +1181,71 @@ function ResultsPanel({
       { label: "生成数量", value: count },
     ],
   });
+  // 每张原图 = 一个分组，组内复用 ResultImageGrid 的视觉：左侧小缩略图栈（主源 + 目标脸），右侧大结果卡。
+  const groupedSources = sourceUrls.length > 0 ? sourceUrls : faceUrl ? [faceUrl] : [];
+  const perSourceCount = Math.max(
+    1,
+    Math.min(4, Math.round(count / Math.max(groupedSources.length || 1, 1)))
+  );
+  const urlsForSource = (sIndex: number): string[] =>
+    Array.from({ length: perSourceCount }, (_, tIndex) => urls[sIndex * perSourceCount + tIndex] || "");
+
   return (
     <div className="studio-result-stage h-full overflow-y-auto p-4 sm:p-6">
-      <div className="flex min-h-full flex-col gap-4">
-        <ResultImageGrid
-          urls={urls}
-          filenamePrefix="face-swap"
-          expectedCount={count}
-          isGenerating={isGenerating}
-          inputThumbnails={inputThumbnails}
-          createdAt={task?.createdAt}
-          statusGroup={failed ? "failed" : isGenerating ? "running" : task?.statusGroup}
-          imageAltPrefix="换脸结果"
-          variant="task"
-          failureLabel="生成失败"
-          failureDetail={failed ? buildFailedTaskDetail(task?.error || undefined) : undefined}
-          markMissingAsFailed={completedPartial}
-          missingFailureLabel="本张生成失败"
-          missingFailureDetail={partialFailureMessage}
-          missingFailureActionLabel="重试本张"
-          onMissingFailureAction={onRetryMissing}
-          onOpen={(_, index) => setPreviewIndex(index)}
-        />
+      <div className="flex min-h-full flex-col gap-6">
+        {groupedSources.length === 0 ? (
+          <ResultImageGrid
+            urls={urls}
+            filenamePrefix="face-swap"
+            expectedCount={count}
+            isGenerating={isGenerating}
+            createdAt={task?.createdAt}
+            statusGroup={failed ? "failed" : isGenerating ? "running" : task?.statusGroup}
+            imageAltPrefix="换脸结果"
+            variant="task"
+            inputReferences={[
+              ...sourceUrls.map((url, index) => ({ url, label: `原图 ${index + 1}` })),
+              ...(faceUrl ? [{ url: faceUrl, label: "目标脸" }] : []),
+            ]}
+            failureLabel="生成失败"
+            failureDetail={failed ? buildFailedTaskDetail(task?.error || undefined) : undefined}
+            markMissingAsFailed={completedPartial}
+            markMissingAsCompleted={Boolean(task?.statusGroup === "completed") && !completedPartial}
+            missingFailureLabel="本张生成失败"
+            missingFailureDetail={partialFailureMessage}
+            missingFailureActionLabel="重试本张"
+            onMissingFailureAction={onRetryMissing}
+            onOpen={(_, index) => setPreviewIndex(index)}
+          />
+        ) : null}
+        {groupedSources.map((sourceUrl, sIndex) => (
+          <ResultImageGrid
+            key={`face-swap-group-${sIndex}-${sourceUrl}`}
+            urls={urlsForSource(sIndex)}
+            filenamePrefix={`face-swap-s${sIndex + 1}`}
+            expectedCount={perSourceCount}
+            isGenerating={isGenerating}
+            createdAt={task?.createdAt}
+            statusGroup={failed ? "failed" : isGenerating ? "running" : task?.statusGroup}
+            imageAltPrefix={`换脸结果 ${sIndex + 1}`}
+            variant="task"
+            inputReferences={[
+              { url: sourceUrl, label: `原图 ${sIndex + 1}` },
+              ...(faceUrl ? [{ url: faceUrl, label: "目标脸" }] : []),
+            ]}
+            failureLabel="生成失败"
+            failureDetail={failed ? buildFailedTaskDetail(task?.error || undefined) : undefined}
+            markMissingAsFailed={completedPartial}
+            markMissingAsCompleted={Boolean(task?.statusGroup === "completed") && !completedPartial}
+            missingFailureLabel="本张生成失败"
+            missingFailureDetail={partialFailureMessage}
+            missingFailureActionLabel="重试本张"
+            onMissingFailureAction={(idx) => {
+              if (onRetryMissing) onRetryMissing(sIndex * perSourceCount + idx);
+            }}
+            onOpen={(_, index) => setPreviewIndex(sIndex * perSourceCount + index)}
+          />
+        ))}
       </div>
       <StudioImagePreviewDialog
         open={previewIndex !== null}

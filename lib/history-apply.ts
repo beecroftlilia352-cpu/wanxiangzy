@@ -12,6 +12,7 @@ import type { GarmentDetailReferenceGroup } from "@/lib/garment-detail-reference
 import type { GarmentAngleReference } from "@/lib/garment-angle-references";
 import type { GrassPayloadBase } from "@/lib/grass-planting";
 import type { ModelBackgroundPayloadBase } from "@/lib/model-background";
+import type { ImageTranslationPayloadBase } from "@/lib/image-translation";
 import type { MaterialEnhancementPayloadBase } from "@/lib/material-enhancement";
 import type { FaceSwapMode } from "@/lib/face-swap";
 import type {
@@ -74,6 +75,7 @@ export type HistoryJobPayload =
   | ({ kind: "grass" } & GrassPayloadBase)
   | ({ kind: "modelBackground" } & ModelBackgroundPayloadBase)
   | ({ kind: "materialEnhancement" } & MaterialEnhancementPayloadBase)
+  | ({ kind: "imageTranslation" } & ImageTranslationPayloadBase)
   | {
       kind: "generalImage";
       mode: "text-to-image" | "image-to-image";
@@ -356,6 +358,7 @@ function getModulePath(kind: HistoryJobPayload["kind"]) {
   if (kind === "tryon") return "/create";
   if (kind === "grass") return "/grass";
   if (kind === "modelBackground") return "/model-background";
+  if (kind === "imageTranslation") return "/image-translation";
   if (kind === "materialEnhancement") return "/material-enhancement";
   if (kind === "generalImage") return "/general-image";
   if (kind === "outfitFusion") return "/outfit-fusion";

@@ -13,7 +13,8 @@ export type ImagePreviewModule =
   | "materialEnhancement"
   | "pose"
   | "garment3d"
-  | "generalImage";
+  | "generalImage"
+  | "imageTranslation";
 
 export type ImagePreviewReferenceRole =
   | "clothing"
@@ -109,6 +110,7 @@ export const IMAGE_PREVIEW_MODULE_LABELS: Record<ImagePreviewModule, string> = {
   pose: "姿势裂变",
   garment3d: "服装 3D",
   generalImage: "通用生图",
+  imageTranslation: "图片翻译",
 };
 
 export function createImagePreviewSession(input: ImagePreviewSession): ImagePreviewSession {
