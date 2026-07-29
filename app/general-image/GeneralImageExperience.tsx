@@ -144,7 +144,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
     module: "generalImage",
     title: "创意生图",
     defaultExpectedCount: genCount,
-    applyPath: "/general-image",
+    applyPath: isImageMode ? "/general-image/image-to-image" : "/general-image",
   });
   const modeMeta = isImageMode
     ? {
