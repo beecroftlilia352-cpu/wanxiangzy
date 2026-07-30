@@ -284,11 +284,13 @@
 .studio-skeleton-shimmer {
   position: relative;
   overflow: hidden;
+  will-change: background-position;
+  transform: translateZ(0);
   background:
-    linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.7), transparent),
-    linear-gradient(135deg, rgba(219, 232, 255, 0.8), rgba(255, 255, 255, 0.88));
-  background-size: 220% 100%, 100% 100%;
-  animation: studio-skeleton-shimmer 1.35s ease-in-out infinite;
+    linear-gradient(105deg, transparent 36%, rgba(255,255,255,0.78) 46%, transparent 56%),
+    linear-gradient(180deg, #e6ecf5 0%, #eef2f9 50%, #e6ecf5 100%);
+  background-size: 260% 100%, 100% 100%;
+  animation: studio-skeleton-shimmer 1.05s ease-in-out infinite;
 }
 
 @keyframes studio-rail-enter {
@@ -314,8 +316,17 @@
 }
 
 @keyframes studio-skeleton-shimmer {
-  0% { background-position: -220% 0, 0 0; }
-  100% { background-position: 220% 0, 0 0; }
+  0% { background-position: -260% 0, 0 0; }
+  100% { background-position: 260% 0, 0 0; }
+}
+
+@keyframes studio-skeleton-fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.studio-loading-fallback {
+  animation: studio-skeleton-fade-in 0.25s ease-out both;
 }
 
 .studio-shell-sidebar,
@@ -4523,12 +4534,10 @@ header .animate-spin {
 }
 
 .dark .studio-skeleton-shimmer {
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgba(255, 255, 255, 0.08),
-    transparent
-  ) !important;
+  background:
+    linear-gradient(105deg, transparent 36%, rgba(255,255,255,0.1) 46%, transparent 56%),
+    linear-gradient(180deg, #1e1e22 0%, #252528 50%, #1e1e22 100%) !important;
+  background-size: 260% 100%, 100% 100% !important;
 }
 
 .dark .studio-loading {

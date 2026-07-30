@@ -14,7 +14,13 @@ import "@/lib/env";
 import { Geist } from "next/font/google";
 import { cn } from "@/lib/utils";
 
-const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
+const geist = Geist({
+  subsets: ["latin"],
+  variable: "--font-sans",
+  display: "swap",
+  preload: true,
+  fallback: ["system-ui", "arial"],
+});
 
 export const metadata: Metadata = {
   title: "VastWearGen - AI 服装视觉生产工作台",
@@ -49,6 +55,16 @@ export default function RootLayout({
             __html: `(function(){try{var p=window.location.pathname;var isHome=p==='/'||p==='/index'||p==='';if(isHome){document.documentElement.classList.remove('dark');document.documentElement.style.colorScheme='light';return;}var s=localStorage.getItem('vwg-theme');var d=s?s==='dark':window.matchMedia('(prefers-color-scheme: dark)').matches;if(d){document.documentElement.classList.add('dark');}else{document.documentElement.classList.remove('dark');}}catch(e){}})();`,
           }}
         />
+        {/* Preconnect CDN origins for faster image/font/API loading */}
+        <link rel="preconnect" href="https://vastweargen-images.oss-cn-hongkong.aliyuncs.com" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="https://vastweargen-images.oss-cn-hongkong.aliyuncs.com" />
+        <link rel="preconnect" href="https://webstatic.aiproxy.vip" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="https://webstatic.aiproxy.vip" />
+        <link rel="preconnect" href="https://oss.filenest.top" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="https://oss.filenest.top" />
+        <link rel="preconnect" href="https://api.lingyaai.cn" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="https://api.lingyaai.cn" />
+        <link rel="dns-prefetch" href="https://yunwu.ai" />
       </head>
       <body className="min-h-screen antialiased transition-colors">
         <a
