@@ -19,6 +19,7 @@ type AdminTasksClientProps = {
   stale: boolean;
   page: number;
   pageSize: number;
+  fetchError?: string | null;
 };
 
 const statusOptions = [
@@ -39,12 +40,19 @@ const moduleOptions = [
   { value: "productSet", label: "商品套图" },
   { value: "garment3d", label: "服装 3D" },
   { value: "faceSwap", label: "换脸" },
+  { value: "imageTranslation", label: "图片翻译" },
+  { value: "materialEnhancement", label: "材质增强" },
+  { value: "productRetouch", label: "商品精修" },
+  { value: "generalImage", label: "通用生图" },
+  { value: "allCategoryProductImage", label: "全品类商品图" },
+  { value: "outfitFusion", label: "搭配融图" },
+  { value: "video", label: "AI 视频" },
   { value: "workflow", label: "Agent 工作流" },
 ];
 
 const TASK_PAGE_SIZE_OPTIONS = [20, 50] as const;
 
-export function AdminTasksClient({ tasks, q, status, module, stale, page, pageSize }: AdminTasksClientProps) {
+export function AdminTasksClient({ tasks, q, status, module, stale, page, pageSize, fetchError }: AdminTasksClientProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [moduleValue, setModuleValue] = useState(module);
@@ -104,6 +112,12 @@ export function AdminTasksClient({ tasks, q, status, module, stale, page, pageSi
 
   return (
     <Space orientation="vertical" size={16} className="w-full">
+      {fetchError ? (
+        <div className="rounded-lg border border-[var(--admin-danger-border)] bg-[var(--admin-danger-soft)] px-4 py-2.5 text-sm font-semibold text-[var(--admin-danger)]">
+          {"任务数据加载失败："}{fetchError}
+          <button type="button" onClick={() => window.location.reload()} className="ml-3 underline hover:no-underline">重试</button>
+        </div>
+      ) : null}
       <div className="admin-page-hero">
         <div>
           <Typography.Text className="admin-page-eyebrow">Tasks</Typography.Text>

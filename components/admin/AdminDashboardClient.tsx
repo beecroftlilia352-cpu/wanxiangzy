@@ -39,6 +39,7 @@ type AdminDashboardClientProps = {
   overview: AdminOverview;
   report: AdminCostReport;
   days: number;
+  fetchError?: string | null;
 };
 
 const dayOptions = [
@@ -70,7 +71,7 @@ const exceptionSurfaceHover: Record<ExceptionEntry["tone"], string> = {
   info: "hover:border-[var(--admin-info-border)]",
 };
 
-export function AdminDashboardClient({ overview, report, days }: AdminDashboardClientProps) {
+export function AdminDashboardClient({ overview, report, days, fetchError }: AdminDashboardClientProps) {
   const router = useRouter();
   const failureRate = overview.generationHealth.failureRate;
   const fulfillmentCredits = report.metrics.generationSettledCredits + report.metrics.workflowSettledCredits;
@@ -170,6 +171,12 @@ export function AdminDashboardClient({ overview, report, days }: AdminDashboardC
 
   return (
     <div className="flex w-full flex-col gap-5">
+      {fetchError ? (
+        <div className="rounded-lg border border-[var(--admin-danger-border)] bg-[var(--admin-danger-soft)] px-4 py-2.5 text-sm font-semibold text-[var(--admin-danger)]">
+          部分数据加载失败：{fetchError}
+          <button type="button" onClick={() => window.location.reload()} className="ml-3 underline hover:no-underline">重试</button>
+        </div>
+      ) : null}
       <AdminPageHeader
         eyebrow="Console"
         title="运营总览"

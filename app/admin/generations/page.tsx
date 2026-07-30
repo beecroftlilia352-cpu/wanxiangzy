@@ -1,9 +1,18 @@
 import { AdminTasksClient } from "@/components/admin/AdminTasksClient";
 import { listAdminTasks } from "@/lib/admin/data";
 import { parseAdminListQuery } from "@/lib/admin/query";
+import type { AdminTaskList } from "@/lib/admin/data";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 15;
 const TASK_PAGE_SIZE_OPTIONS = [20, 50] as const;
+
+const EMPTY_TASKS: AdminTaskList = {
+  rows: [],
+  total: 0,
+  source: "task_queue_items",
+  warnings: ["数据加载失败，请刷新重试"],
+};
 
 type PageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -18,16 +27,25 @@ export default async function AdminGenerationsPage({ searchParams }: PageProps) 
     allowedPageSizes: TASK_PAGE_SIZE_OPTIONS,
     allowedSorts: ["createdAt", "updatedAt", "status", "module"],
   });
-  const stale = getSearchParam(params.stale) === "1";
-  const tasks = await listAdminTasks({
-    q: query.q,
-    status: query.status,
-    module: query.module,
-    stale,
-    page: query.page,
-    pageSize: query.pageSize,
-    hydratePreviews: false,
-  });
+  const staleVal = getSearchParam(params.stale) === "1";
+
+  let tasks: AdminTaskList = EMPTY_TASKS;
+  let fetchError: string | null = null;
+
+  try {
+    tasks = await listAdminTasks({
+      q: query.q,
+      status: query.status,
+      module: query.module,
+      stale: staleVal,
+      page: query.page,
+      pageSize: query.pageSize,
+      hydratePreviews: false,
+    });
+  } catch (err) {
+    fetchError = err instanceof Error ? err.message : "任务列表加载失败";
+    console.error("[admin generations] fetch failed:", err);
+  }
 
   return (
     <AdminTasksClient
@@ -35,9 +53,10 @@ export default async function AdminGenerationsPage({ searchParams }: PageProps) 
       q={query.q}
       status={query.status}
       module={query.module}
-      stale={stale}
+      stale={staleVal}
       page={query.page}
       pageSize={query.pageSize}
+      fetchError={fetchError}
     />
   );
 }

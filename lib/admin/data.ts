@@ -4731,6 +4731,11 @@ export function moduleLabel(module: string) {
     garment3d: "服装 3D",
     generalImage: "通用生图",
     pose: "姿势裂变",
+    imageTranslation: "图片翻译",
+    materialEnhancement: "材质增强",
+    allCategoryProductImage: "全品类商品图",
+    outfitFusion: "搭配融图",
+    video: "AI 视频",
     workflow: "Agent 工作流",
     image: "图生图",
     unknown: "未知任务",
@@ -4751,6 +4756,11 @@ export function moduleRoute(module: string) {
     garment3d: "/garment-3d",
     generalImage: "/general-image",
     pose: "/pose",
+    imageTranslation: "/image-translation",
+    materialEnhancement: "/material-enhancement",
+    allCategoryProductImage: "/all-category-product-image",
+    outfitFusion: "/outfit-fusion",
+    video: "/video",
     workflow: "/agent",
   };
   return routes[module] || "/history";
