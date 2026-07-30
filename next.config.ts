@@ -36,6 +36,21 @@ const nextConfig: NextConfig = {
   },
   async headers() {
     return [
+      // Static assets: aggressive caching (immutable content hashes in filenames)
+      {
+        source: "/_next/static/(.*)",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
+        ],
+      },
+      // Public assets (images, fonts)
+      {
+        source: "/assets/(.*)\.(svg|png|jpg|jpeg|gif|webp|avif|ico|woff2?)",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=604800, stale-while-revalidate=86400" },
+        ],
+      },
+      // Security headers (all routes)
       {
         source: "/(.*)",
         headers: [
