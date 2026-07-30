@@ -10,15 +10,18 @@
  * override.
  *
  * 详见 https://supabase.com/docs/guides/troubleshooting/javascript-uncaught-error
+ *
+ * getAdminClient() creates a new client on every call — no singleton cache.
+ * A cached module-scope singleton can survive a bad initialisation window
+ * (EC2 reboot / DNS not ready / Node 22 undici fetch race) and permanently
+ * poison every subsequent call. Dropping the cache means each call gets a
+ * fresh HTTP client that will pick up real network state.
+ * createClient() is cheap enough that the per-call overhead is negligible.
  */
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-let adminClient: SupabaseClient | null = null;
-
 export function getAdminClient(): SupabaseClient {
-  if (adminClient) return adminClient;
-
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -28,9 +31,7 @@ export function getAdminClient(): SupabaseClient {
     );
   }
 
-  adminClient = createClient(url, key, {
+  return createClient(url, key, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
-
-  return adminClient;
 }
