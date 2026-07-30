@@ -125,17 +125,28 @@ jobs:
             "$AWS_USER_NORM@$AWS_HOST_NORM:$ENV_PATH" .env.production
 
           echo "File: $(wc -c < .env.production) bytes, $(wc -l < .env.production) lines"
-          echo "--- first 5 lines ---"
-          head -5 .env.production
-          echo "---"
 
-          # Also load into GITHUB_ENV so subsequent steps get the vars
-          while IFS='=' read -r key value; do
-            key="$(echo "$key" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
-            if [[ -z "$key" || "$key" =~ ^# ]]; then continue; fi
-            echo "$key=$value" >> "$GITHUB_ENV"
+          # Verify required keys exist
+          missing=0
+          for key in NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY NEXT_PUBLIC_APP_URL; do
+            if grep -q "^${key}=" .env.production; then
+              echo "  ✓ $key"
+            else
+              echo "::error::Missing required key in .env.production: $key"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then exit 1; fi
+
+          # Export to GITHUB_ENV: read full lines without splitting on =
+          exported=0
+          while IFS= read -r line; do
+            [[ -z "$line" ]] && continue
+            [[ "$line" =~ ^[[:space:]]*# ]] && continue
+            printf '%s\n' "$line" >> "$GITHUB_ENV"
+            exported=$((exported + 1))
           done < .env.production
-          echo "Env vars exported to GITHUB_ENV"
+          echo "Exported $exported vars to GITHUB_ENV"
 
       - name: Install dependencies
         run: npm ci
