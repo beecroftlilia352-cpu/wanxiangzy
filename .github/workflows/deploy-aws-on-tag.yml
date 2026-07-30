@@ -14,14 +14,6 @@ jobs:
     name: Deploy to EC2
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    env:
-      NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL || 'https://example.com' }}
-      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://example.supabase.co' }}
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'ci-anon-key' }}
-      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || 'ci-service-role-key' }}
-      LINGYA_API_KEY: ${{ secrets.LINGYA_API_KEY || 'ci-lingya-key' }}
-      ANALYZE_LLM_PROVIDER: ${{ vars.ANALYZE_LLM_PROVIDER || 'xiaomi' }}
-      PRODUCT_RETOUCH_RUNTIME_SKILL_ENABLED: ${{ secrets.PRODUCT_RETOUCH_RUNTIME_SKILL_ENABLED || 'true' }}
 
     steps:
       - name: Checkout tagged source
@@ -42,32 +34,6 @@ jobs:
           key: ${{ runner.os }}-nextjs-${{ hashFiles('package-lock.json', 'next.config.ts') }}
           restore-keys: |
             ${{ runner.os }}-nextjs-
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Run release checks
-        run: npm run check:release
-
-      - name: Create deployment archive
-        run: |
-          set -euo pipefail
-          mkdir -p .deploy
-          tar \
-            --exclude='./.git' \
-            --exclude='./.github' \
-            --exclude='./.next/cache' \
-            --exclude='./.deploy' \
-            --exclude='./.ui-check' \
-            --exclude='./node_modules' \
-            --exclude='./.env.local' \
-            --exclude='./.env.production' \
-            --exclude='./.api-platform-test-results*.json' \
-            --exclude='./.qwen-edits-test-results.json' \
-            --exclude='./old-references-contact.jpg' \
-            --exclude='./tmp-module-code.txt' \
-            --exclude='./*.log' \
-            -czf .deploy/app.tar.gz .
 
       - name: Normalize SSH target
         env:
@@ -142,6 +108,47 @@ jobs:
           done
 
           echo "::warning::ssh-keyscan failed; continuing with StrictHostKeyChecking=accept-new"
+
+      - name: Fetch .env.production from EC2
+        env:
+          AWS_APP_DIR: ${{ secrets.AWS_APP_DIR }}
+        run: |
+          set -euo pipefail
+          BASE_DIR="${AWS_APP_DIR:-$HOME/apps/wanxiangzy}"
+          ENV_PATH="$BASE_DIR/shared/.env.production"
+          echo "Fetching $ENV_PATH from EC2..."
+          scp -P "$AWS_PORT_NORM" -i ~/.ssh/aws_deploy_key \
+            -o StrictHostKeyChecking=accept-new \
+            -o UserKnownHostsFile=~/.ssh/known_hosts \
+            -o ConnectTimeout=60 \
+            "$AWS_USER_NORM@$AWS_HOST_NORM:$ENV_PATH" .env.production
+          echo ".env.production loaded (${$(wc -l < .env.production)} lines)"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run release checks
+        run: npm run check:release
+
+      - name: Create deployment archive
+        run: |
+          set -euo pipefail
+          mkdir -p .deploy
+          tar \
+            --exclude='./.git' \
+            --exclude='./.github' \
+            --exclude='./.next/cache' \
+            --exclude='./.deploy' \
+            --exclude='./.ui-check' \
+            --exclude='./node_modules' \
+            --exclude='./.env.local' \
+            --exclude='./.env.production' \
+            --exclude='./.api-platform-test-results*.json' \
+            --exclude='./.qwen-edits-test-results.json' \
+            --exclude='./old-references-contact.jpg' \
+            --exclude='./tmp-module-code.txt' \
+            --exclude='./*.log' \
+            -czf .deploy/app.tar.gz .
 
       - name: Upload deployment archive
         run: |
