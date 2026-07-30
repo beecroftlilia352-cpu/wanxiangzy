@@ -360,7 +360,6 @@ cd "$RELEASE_DIR"
 configure_build_environment
 ensure_build_swap
 install_dependencies
-npm run build
 
 ln -sfn "$RELEASE_DIR" "$BASE_DIR/current"
 start_app "$BASE_DIR/current"

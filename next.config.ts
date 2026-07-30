@@ -13,6 +13,7 @@ const nextConfig: NextConfig = {
       "lucide-react",
       "@radix-ui/react-icons",
     ],
+    webpackBuildWorker: true,
   },
   images: {
     remotePatterns: [
