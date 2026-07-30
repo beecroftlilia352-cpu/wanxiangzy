@@ -110,21 +110,17 @@ jobs:
           echo "::warning::ssh-keyscan failed; continuing with StrictHostKeyChecking=accept-new"
 
       - name: Fetch .env.production from EC2
-        env:
-          AWS_APP_DIR: ${{ secrets.AWS_APP_DIR }}
         run: |
           set -euo pipefail
-          # Use ~ so it expands on the EC2 side to the ec2-user home directory
-          # If AWS_APP_DIR is set, use it directly (it should be an absolute EC2 path)
-          BASE_DIR="${AWS_APP_DIR:-~/apps/wanxiangzy}"
-          ENV_PATH="$BASE_DIR/shared/.env.production"
-          echo "Fetching $ENV_PATH from EC2..."
+          # Hardcode ~/apps/wanxiangzy — ~ expands on the EC2 side to /home/ec2-user
+          # NOT using AWS_APP_DIR secret because it points to a different directory
+          echo "Fetching ~/apps/wanxiangzy/shared/.env.production from EC2..."
 
           scp -P "$AWS_PORT_NORM" -i ~/.ssh/aws_deploy_key \
             -o StrictHostKeyChecking=accept-new \
             -o UserKnownHostsFile=~/.ssh/known_hosts \
             -o ConnectTimeout=60 \
-            "$AWS_USER_NORM@$AWS_HOST_NORM:$ENV_PATH" .env.production
+            "$AWS_USER_NORM@$AWS_HOST_NORM:~/apps/wanxiangzy/shared/.env.production" .env.production
 
           echo "File: $(wc -c < .env.production) bytes, $(wc -l < .env.production) lines"
 
