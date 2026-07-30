@@ -2535,7 +2535,9 @@ export default function PosePage() {
                 missingFailureActionLabel="重试本张"
                 onMissingFailureAction={handleRetryFailedResult}
                 missingFailureActionDisabled={retryDisabled}
-              />
+              
+                  tileAspectRatio={aspectRatio}
+                />
             </div>
             <StudioImagePreviewDialog
               open={previewIndex !== null}

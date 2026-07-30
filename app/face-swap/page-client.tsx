@@ -1218,7 +1218,9 @@ function ResultsPanel({
             missingFailureActionLabel="重试本张"
             onMissingFailureAction={onRetryMissing}
             onOpen={(_, index) => setPreviewIndex(index)}
-          />
+          
+                  tileAspectRatio={aspectRatio}
+                />
         ) : null}
         {groupedSources.map((sourceUrl, sIndex) => (
           <ResultImageGrid
@@ -1246,7 +1248,9 @@ function ResultsPanel({
               if (onRetryMissing) onRetryMissing(sIndex * perSourceCount + idx);
             }}
             onOpen={(_, index) => setPreviewIndex(sIndex * perSourceCount + index)}
-          />
+          
+                  tileAspectRatio={aspectRatio}
+                />
         ))}
       </div>
       <StudioImagePreviewDialog

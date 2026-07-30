@@ -63,6 +63,8 @@ export function ProductRetouchSourceGroup({
             const output = ordered[index];
             if (output?.resultUrl) onPreview(output, index);
           }}
+        
+          tileAspectRatio={batch?.aspectRatio || "1/1"}
         />
 
         {firstFailure && terminal ? (

@@ -1053,6 +1053,8 @@ export default function ModelBackgroundPage() {
                   onMissingFailureAction={handleRetryFailedResult}
                   missingFailureActionDisabled={retryDisabled}
                   onOpen={(_, index) => setPreviewIndex(index)}
+                
+                  tileAspectRatio={aspectRatio}
                 />
               ) : null}
               {sourceUrls.map((sourceUrl, sIndex) => {
@@ -1079,7 +1081,9 @@ export default function ModelBackgroundPage() {
                     onMissingFailureAction={(idx) => handleRetryFailedResult(start + idx)}
                     missingFailureActionDisabled={retryDisabled}
                     onOpen={(_, index) => setPreviewIndex(start + index)}
-                  />
+                  
+                  tileAspectRatio={aspectRatio}
+                />
                 );
               })}
             </div>

@@ -884,7 +884,9 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
                 onMissingFailureAction={handleRetryFailedResult}
                 missingFailureActionDisabled={retryDisabled}
                 onOpen={(_, index) => setPreviewIndex(index)}
-              />
+              
+                  tileAspectRatio={aspectRatio}
+                />
             </div>
             <StudioImagePreviewDialog
               open={previewIndex !== null}

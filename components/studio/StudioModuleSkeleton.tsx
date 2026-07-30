@@ -123,7 +123,7 @@ export function StudioModuleSkeleton({
       <div className="studio-canvas relative flex min-h-[360px] flex-1 items-center justify-center overflow-hidden p-4 sm:p-6 lg:min-h-0">
         <div className="grid w-full max-w-5xl grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           {Array.from({ length: variant === "default" ? 4 : 6 }).map((_, i) => (
-            <Block key={i} className="aspect-[3/4] w-full" rounded="rounded-xl" />
+            <Block key={i} className="aspect-square w-full" rounded="rounded-xl" />
           ))}
         </div>
       </div>

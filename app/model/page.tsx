@@ -1131,7 +1131,9 @@ export default function ModelPage() {
                 onMissingFailureAction={handleRetryFailedResult}
                 missingFailureActionDisabled={retryDisabled}
                 onOpen={(_, index) => setPreviewIndex(index)}
-              />
+              
+                  tileAspectRatio={aspectRatio}
+                />
             </div>
             <StudioImagePreviewDialog
               open={previewIndex !== null}

@@ -59,8 +59,8 @@ function getGridClass(count: number) {
   return "max-w-[min(1396px,100%)] grid-cols-1 sm:grid-cols-2 lg:grid-cols-4";
 }
 
-function getTileStyle(): CSSProperties {
-  return { aspectRatio: "3 / 4" };
+function getTileStyle(aspectRatio?: string): CSSProperties {
+  return { aspectRatio: aspectRatio && /^\d+\s*\/\s*\d+$/.test(aspectRatio.trim()) ? aspectRatio.trim() : "3 / 4" };
 }
 
 function getResultGridRunningState(
@@ -97,6 +97,7 @@ export function ResultImageGrid({
   failureDetail,
   markMissingAsCompleted = false,
   cellLabels,
+  tileAspectRatio,
 }: ResultImageGridProps) {
   const fallbackCreatedAt = useMemo(() => new Date().toISOString(), []);
   const count = Math.max(urls.length, expectedCount || 0, 1);
@@ -327,7 +328,7 @@ const ResultCard = memo(function ResultCard({
             <span className="truncate">{cellLabel}</span>
           </span>
         ) : null}
-        <div className="flex items-center justify-center" style={getTileStyle()}>
+        <div className="flex items-center justify-center" style={getTileStyle(tileAspectRatio)}>
           {url ? (
             <StableResultImage
               src={getImageVariantUrl(url, count <= 1 ? "detail" : "card")}

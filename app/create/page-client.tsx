@@ -3485,7 +3485,9 @@ export default function CreatePage() {
                       missingFailureActionDisabled={retryDisabled}
                       failureLabel="生成失败"
                       failureDetail={activeFailureMessage || undefined}
-                    />
+                    
+                tileAspectRatio={aspectRatio}
+              />
                   </div>
                 </div>
 

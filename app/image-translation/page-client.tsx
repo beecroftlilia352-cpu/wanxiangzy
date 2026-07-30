@@ -926,6 +926,8 @@ export default function ImageTranslationPage() {
                   onMissingFailureAction={(idx) => handleRetryFailedResult(start + idx)}
                   missingFailureActionDisabled={retryDisabled}
                   onOpen={(_, idx) => setPreviewIndex(start + idx)}
+                
+                  tileAspectRatio={aspectRatio}
                 />
               );
             })}

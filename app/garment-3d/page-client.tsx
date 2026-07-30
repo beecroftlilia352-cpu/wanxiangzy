@@ -999,7 +999,9 @@ export default function Garment3dPage() {
                 onMissingFailureAction={handleRetryFailedResult}
                 missingFailureActionDisabled={retryDisabled}
                 onOpen={(_, index) => setPreviewIndex(index)}
-              />
+              
+                  tileAspectRatio={aspectRatio}
+                />
             </div>
             <StudioImagePreviewDialog
               open={previewIndex !== null}
