@@ -1,4 +1,5 @@
-﻿import { AdminUIProvider } from "@/components/admin/AdminUIProvider";
+﻿import "@/app/styles/admin.css";
+import { AdminUIProvider } from "@/components/admin/AdminUIProvider";
 import { AdminShell } from "@/components/admin/AdminShell";
 import { requireAdmin } from "@/lib/admin/auth";
 
