@@ -142,9 +142,15 @@ ensure_build_swap() {
   mem_total_mb="$(awk '/MemTotal/ { print int($2 / 1024) }' /proc/meminfo 2>/dev/null || printf '0')"
   swap_total_mb="$(awk '/SwapTotal/ { print int($2 / 1024) }' /proc/meminfo 2>/dev/null || printf '0')"
 
-  echo "Build memory: ${mem_total_mb:-0} MB RAM, ${swap_total_mb:-0} MB swap"
+  local target_swap_mb="${BUILD_TARGET_SWAP_MB:-4096}"
 
-  if [ "${mem_total_mb:-0}" -ge 3500 ] || [ "${swap_total_mb:-0}" -ge 1024 ]; then
+  echo "Build memory: ${mem_total_mb:-0} MB RAM, ${swap_total_mb:-0} MB swap (target ${target_swap_mb} MB)"
+
+  # Always top up the build swapfile on RAM-constrained hosts, even if some
+  # swap is already present. The pre-existing 2 GB swapfile left over from an
+  # earlier deploy is no longer enough for the Next.js 15 webpack optimize
+  # phase on this app, so the script must grow it instead of bailing out.
+  if [ "${mem_total_mb:-0}" -ge 3500 ]; then
     return 0
   fi
 
@@ -154,10 +160,35 @@ ensure_build_swap() {
   fi
 
   local swapfile="$SHARED_DIR/build.swap"
+  local swap_active=""
+  swap_active="$(swapon --show=NAME 2>/dev/null | grep -Fx "$swapfile" || true)"
+  local swap_size_mb=0
+  if [ -f "$swapfile" ]; then
+    swap_size_mb="$(($(stat -c %s "$swapfile" 2>/dev/null || echo 0) / 1024 / 1024))"
+  fi
+
+  # If the existing build swapfile is already active and at least the target
+  # size, nothing to do.
+  if [ -n "$swap_active" ] && [ "$swap_size_mb" -ge "$target_swap_mb" ]; then
+    echo "Build swap already enabled at $swapfile (${swap_size_mb} MB)"
+    return 0
+  fi
+
+  # Otherwise tear down any undersized active swap and remove the file so we
+  # can recreate it at the target size.
+  if [ -n "$swap_active" ]; then
+    echo "Existing build swap is ${swap_size_mb} MB (< target ${target_swap_mb} MB); upgrading"
+    sudo swapoff "$swapfile" 2>/dev/null || true
+  fi
+  if [ -f "$swapfile" ] && [ "$swap_size_mb" -lt "$target_swap_mb" ]; then
+    sudo rm -f "$swapfile"
+    swap_size_mb=0
+  fi
+
   if ! swapon --show=NAME 2>/dev/null | grep -qx "$swapfile"; then
     if [ ! -f "$swapfile" ]; then
-      echo "Creating temporary build swap at $swapfile"
-      sudo fallocate -l 2G "$swapfile" 2>/dev/null || sudo dd if=/dev/zero of="$swapfile" bs=1M count=2048 status=none
+      echo "Creating ${target_swap_mb} MB temporary build swap at $swapfile"
+      sudo fallocate -l "${target_swap_mb}M" "$swapfile" 2>/dev/null || sudo dd if=/dev/zero of="$swapfile" bs=1M count=$((target_swap_mb)) status=none
       sudo chmod 600 "$swapfile"
       sudo mkswap "$swapfile" >/dev/null
     fi
@@ -166,7 +197,7 @@ ensure_build_swap() {
     if ! sudo swapon "$swapfile" 2>/dev/null; then
       echo "Existing build swap could not be enabled; recreating it." >&2
       sudo rm -f "$swapfile"
-      sudo fallocate -l 2G "$swapfile" 2>/dev/null || sudo dd if=/dev/zero of="$swapfile" bs=1M count=2048 status=none
+      sudo fallocate -l "${target_swap_mb}M" "$swapfile" 2>/dev/null || sudo dd if=/dev/zero of="$swapfile" bs=1M count=$((target_swap_mb)) status=none
       sudo chmod 600 "$swapfile"
       sudo mkswap "$swapfile" >/dev/null
       sudo swapon "$swapfile" 2>/dev/null || echo "Unable to enable build swap; continuing without it." >&2
