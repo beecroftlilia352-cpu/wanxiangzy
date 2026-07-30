@@ -928,7 +928,7 @@ export function Space({ orientation, direction, size = 8, wrap, align, className
   );
 }
 
-export function Table<T extends Record<string, any>>({ columns = [], dataSource = [], rowKey, loading, scroll, pagination, locale, className }: { size?: "small" | "middle"; rowKey?: keyof T | ((row: T) => string); columns?: ColumnsType<T>; dataSource?: T[]; loading?: boolean; tableLayout?: CSSProperties["tableLayout"]; scroll?: { x?: number | string }; pagination?: false | { current?: number; pageSize?: number; total?: number; pageSizeOptions?: Array<number | string>; showSizeChanger?: boolean; showTotal?: (total: number, range: [number, number]) => ReactNode; onChange?: (page: number, pageSize: number) => void }; locale?: { emptyText?: ReactNode }; className?: string }) {
+export function Table<T extends Record<string, any>>({ columns = [], dataSource = [], rowKey, rowClassName, loading, scroll, pagination, locale, className }: { size?: "small" | "middle"; rowKey?: keyof T | ((row: T) => string); rowClassName?: string | ((row: T, index: number) => string); columns?: ColumnsType<T>; dataSource?: T[]; loading?: boolean; tableLayout?: CSSProperties["tableLayout"]; scroll?: { x?: number | string }; pagination?: false | { current?: number; pageSize?: number; total?: number; pageSizeOptions?: Array<number | string>; showSizeChanger?: boolean; showTotal?: (total: number, range: [number, number]) => ReactNode; onChange?: (page: number, pageSize: number) => void }; locale?: { emptyText?: ReactNode }; className?: string }) {
   const paging = pagination === false ? undefined : pagination;
   const total = paging ? paging.total ?? dataSource.length : dataSource.length;
   const page = paging ? paging.current ?? 1 : 1;
@@ -972,7 +972,7 @@ export function Table<T extends Record<string, any>>({ columns = [], dataSource 
             ) : dataSource.length ? dataSource.map((row, rowIndex) => {
               const key = typeof rowKey === "function" ? rowKey(row) : rowKey ? String(row[rowKey]) : String(rowIndex);
               return (
-                <tr key={key} className="border-b border-border last:border-0 hover:bg-muted/70">
+                <tr key={key} className={cn("border-b border-border last:border-0 hover:bg-muted/70", typeof rowClassName === "function" ? rowClassName(row, rowIndex) : rowClassName)}>
                   {columns.map((column, columnIndex) => {
                     const value = getValue(row, column.dataIndex);
                     const isNumeric = typeof value === "number";

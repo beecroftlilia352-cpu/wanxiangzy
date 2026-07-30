@@ -36,6 +36,7 @@ export function ProductRetouchBatchGrid({
         <ProductRetouchSourceGroup
           key={sourceIndex}
           sourceIndex={sourceIndex}
+          aspectRatio={batch.aspectRatio}
           outputs={outputs}
           onPreview={onPreview}
           onRetry={onRetry}
@@ -56,4 +57,3 @@ function groupOutputs(outputs: ProductRetouchOutput[]) {
   }
   return [...grouped.entries()].sort(([a], [b]) => a - b);
 }
-

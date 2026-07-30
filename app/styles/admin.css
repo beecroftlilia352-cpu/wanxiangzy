@@ -399,6 +399,11 @@
   max-width: 360px;
 }
 
+.admin-task-row {
+  content-visibility: auto;
+  contain-intrinsic-block-size: 76px;
+}
+
 .admin-task-thumb-strip {
   display: inline-flex;
   align-items: center;

@@ -8,6 +8,7 @@ import type { TaskStatusGroup } from "@/lib/task-queue";
 
 type ProductRetouchSourceGroupProps = {
   sourceIndex: number;
+  aspectRatio: string;
   outputs: ProductRetouchOutput[];
   onPreview: (output: ProductRetouchOutput, outputIndex: number) => void;
   onRetry: (output: ProductRetouchOutput) => void;
@@ -17,6 +18,7 @@ type ProductRetouchSourceGroupProps = {
 
 export function ProductRetouchSourceGroup({
   sourceIndex,
+  aspectRatio,
   outputs,
   onPreview,
   onRetry,
@@ -64,7 +66,7 @@ export function ProductRetouchSourceGroup({
             if (output?.resultUrl) onPreview(output, index);
           }}
         
-          tileAspectRatio={batch?.aspectRatio || "1/1"}
+          tileAspectRatio={aspectRatio || "1/1"}
         />
 
         {firstFailure && terminal ? (

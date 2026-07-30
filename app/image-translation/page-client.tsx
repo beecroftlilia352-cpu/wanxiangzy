@@ -567,7 +567,8 @@ export default function ImageTranslationPage() {
             state.result_urls,
             displayExpectedCount
           );
-          setResultUrls(latestTaskResultUrls);
+          const nextResultUrls = [...latestTaskResultUrls];
+          setResultUrls((current) => sameResultSlots(current, nextResultUrls) ? current : nextResultUrls);
         }
         // 处理中如果状态短暂显示 failed 但已有部分结果 → 当作部分完成处理，不要 throw
         const transientFailed = state.status === "failed";
@@ -583,7 +584,7 @@ export default function ImageTranslationPage() {
           });
           continue;
         }
-        if (state.status === "completed" || state.partial_failure || (state.status === "failed" && hasResultsSoFar)) {
+        if (state.status === "completed" || (state.status === "failed" && hasResultsSoFar)) {
           const finalUrls = mergeRetryResultUrls(
             retryPreviousResultUrls,
             retryResultIndex,
@@ -642,6 +643,10 @@ export default function ImageTranslationPage() {
       void refreshCredits();
       setIsGenerating(false);
     }
+  }
+
+  function sameResultSlots(current: string[], next: string[]) {
+    return current.length === next.length && current.every((url, index) => url === next[index]);
   }
 
   const examplesForUpload = useMemo(() => {
@@ -918,6 +923,7 @@ export default function ImageTranslationPage() {
                   variant="task"
                   inputReferences={[{ url: sourceUrl, label: `原图 ${sIndex + 1}` }]}
                   cellLabels={labelsForSource}
+                  reducePendingMotion
                   markMissingAsFailed={hasCompletedPartialResults}
                   markMissingAsCompleted={statusGroup === "completed" && !hasCompletedPartialResults}
                   missingFailureLabel="本张翻译失败"

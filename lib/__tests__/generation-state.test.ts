@@ -104,6 +104,27 @@ describe("generation-state", () => {
     expect(state.expectedCount).toBe(2);
   });
 
+  it("multiplies image-translation count by sources, languages, and per-language outputs", () => {
+    const state = normalizeGenerationState({
+      status: "processing_tryon",
+      resultUrls: ["https://example.com/translated-1.png"],
+      payload: {
+        kind: "imageTranslation",
+        sourceUrls: [
+          "https://example.com/source-1.png",
+          "https://example.com/source-2.png",
+        ],
+        languages: ["es", "en"],
+        genCount: 2,
+      },
+    });
+
+    expect(state.status).toBe("processing");
+    expect(state.statusGroup).toBe("running");
+    expect(state.resultCount).toBe(1);
+    expect(state.expectedCount).toBe(8);
+  });
+
   it("keeps explicit failed status finished without promoting partial results", () => {
     const state = normalizeGenerationState({
       status: "error",

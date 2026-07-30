@@ -287,10 +287,10 @@
   will-change: background-position;
   transform: translateZ(0);
   background:
-    linear-gradient(105deg, transparent 36%, rgba(255,255,255,0.78) 46%, transparent 56%),
+    linear-gradient(105deg, transparent 38%, rgba(255,255,255,0.5) 48%, transparent 58%),
     linear-gradient(180deg, #e6ecf5 0%, #eef2f9 50%, #e6ecf5 100%);
-  background-size: 260% 100%, 100% 100%;
-  animation: studio-skeleton-shimmer 1.05s ease-in-out infinite;
+  background-size: 220% 100%, 100% 100%;
+  animation: studio-skeleton-shimmer 1.8s ease-in-out infinite;
 }
 
 @keyframes studio-rail-enter {
@@ -316,8 +316,8 @@
 }
 
 @keyframes studio-skeleton-shimmer {
-  0% { background-position: -260% 0, 0 0; }
-  100% { background-position: 260% 0, 0 0; }
+  0% { background-position: -180% 0, 0 0; }
+  100% { background-position: 180% 0, 0 0; }
 }
 
 @keyframes studio-skeleton-fade-in {

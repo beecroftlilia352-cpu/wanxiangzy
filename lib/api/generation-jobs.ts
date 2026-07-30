@@ -38,22 +38,28 @@ type VisualQualityEvaluation = {
 };
 const applyQualityRepairToPrompt = (
   prompt: string,
-  _quality: VisualQualityEvaluation,
-): string => prompt;
-const evaluateGeneratedImages = async (_args: {
+  quality: VisualQualityEvaluation,
+): string => {
+  void quality;
+  return prompt;
+};
+const evaluateGeneratedImages = async (args: {
   userPrompt: string;
   module: string;
   resultUrls: string[];
   expectedCount: number;
   referenceImageUrls?: string[];
-}): Promise<VisualQualityEvaluation> => ({
-  ok: true,
-  score: 1,
-  shouldRegenerate: false,
-  summary: "智能视觉评估已下线，已跳过自动重生。",
-  issues: [],
-  source: "deterministic",
-});
+}): Promise<VisualQualityEvaluation> => {
+  void args;
+  return {
+    ok: true,
+    score: 1,
+    shouldRegenerate: false,
+    summary: "智能视觉评估已下线，已跳过自动重生。",
+    issues: [],
+    source: "deterministic",
+  };
+};
 import {
   buildCommerceDetailSectionPrompt,
   buildCommerceDetailSections,
@@ -132,7 +138,6 @@ import {
   type ProductSetModuleOverride,
   type ProductSetModuleResult,
   type ProductSetProductProfile,
-  type ProductSetResolvedTemplate,
   type ProductSetSettings,
 } from "@/lib/product-set";
 import {
@@ -557,7 +562,7 @@ async function runClaimedJob(
         partialPromptTrace.splice(0, partialPromptTrace.length, ...update.promptTrace);
         lastProgress = Math.max(lastProgress, nextProgress);
         await writeGenerationProgress(supabase, job, payload, {
-          resultUrls: compactResultUrls(partialResultUrls),
+          resultUrls: [...partialResultUrls],
           promptTrace: partialPromptTrace,
           moduleResults: persistedModules,
           progress: lastProgress,
@@ -586,7 +591,7 @@ async function runClaimedJob(
       lastExternalStatus = update.externalStatus || lastExternalStatus;
 
       await writeGenerationProgress(supabase, job, payload, {
-        resultUrls: compactResultUrls(partialResultUrls),
+        resultUrls: [...partialResultUrls],
         promptTrace: partialPromptTrace,
         moduleResults: partialModuleResults,
         progress: lastProgress,

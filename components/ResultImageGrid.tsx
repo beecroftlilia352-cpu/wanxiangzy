@@ -45,6 +45,8 @@ type ResultImageGridProps = {
   markMissingAsCompleted?: boolean;
   /** 每张结果卡片上叠加的小标签（如目标语种、分辨率等），长度为 N 时与 urls 一一对应；超长/缺失自动截断。 */
   cellLabels?: string[];
+  tileAspectRatio?: string;
+  reducePendingMotion?: boolean;
 };
 
 export type ResultInputReference = {
@@ -98,6 +100,7 @@ export function ResultImageGrid({
   markMissingAsCompleted = false,
   cellLabels,
   tileAspectRatio,
+  reducePendingMotion = false,
 }: ResultImageGridProps) {
   const fallbackCreatedAt = useMemo(() => new Date().toISOString(), []);
   const count = Math.max(urls.length, expectedCount || 0, 1);
@@ -143,7 +146,7 @@ export function ResultImageGrid({
   if (variant === "task") {
     const running = getResultGridRunningState(statusGroup, isGenerating, allExpectedResultsReady);
     const failed = statusGroup === "failed";
-    const calmPendingMotion = running && count >= 6;
+    const calmPendingMotion = running && (reducePendingMotion || count >= 6);
     const referenceItems = (referenceSnapshot?.items.length ? referenceSnapshot.items : incomingReferenceItems).slice(0, 4);
     const timestamp = formatTaskTimestamp(createdAt) || formatTaskTimestamp(fallbackCreatedAt);
 
@@ -190,6 +193,7 @@ export function ResultImageGrid({
                   onFailureAction={missingFailed && onMissingFailureAction ? () => onMissingFailureAction(index) : undefined}
                   failureActionDisabled={missingFailureActionDisabled}
                   cellLabel={cellLabels?.[index]}
+                  tileAspectRatio={tileAspectRatio}
                 />
               );
             })}
@@ -215,7 +219,7 @@ export function ResultImageGrid({
             completedMissing={completedMissing}
             failed={statusGroup === "failed" || missingFailed}
             running={running}
-            calmPendingMotion={Boolean(running && count >= 6)}
+            calmPendingMotion={Boolean(running && (reducePendingMotion || count >= 6))}
             filenamePrefix={filenamePrefix}
             extension={extension}
             imageAltPrefix={imageAltPrefix}
@@ -226,6 +230,7 @@ export function ResultImageGrid({
             failureActionLabel={missingFailed ? missingFailureActionLabel : undefined}
             onFailureAction={missingFailed && onMissingFailureAction ? () => onMissingFailureAction(index) : undefined}
             failureActionDisabled={missingFailureActionDisabled}
+            tileAspectRatio={tileAspectRatio}
           />
         );
       })}
@@ -265,6 +270,7 @@ type ResultCardProps = {
   onFailureAction?: () => void;
   failureActionDisabled?: boolean;
   cellLabel?: string;
+  tileAspectRatio?: string;
 };
 
 const ResultCard = memo(function ResultCard({
@@ -286,6 +292,7 @@ const ResultCard = memo(function ResultCard({
   onFailureAction,
   failureActionDisabled,
   cellLabel,
+  tileAspectRatio,
 }: ResultCardProps) {
   const router = useRouter();
   const openPreview = () => {

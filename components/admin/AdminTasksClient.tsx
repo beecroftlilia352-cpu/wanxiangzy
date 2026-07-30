@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { memo, useMemo, useState, useTransition } from "react";
 import { Alert, Button, Card, Checkbox, Input, Progress, Select, Space, Statistic, Table, Tag, Tooltip, Typography } from "@/components/ui/shadcn-compat";
 import type { ColumnsType } from "@/components/ui/shadcn-compat";
 import { ApiOutlined, SearchOutlined } from "@/components/ui/ant-icons-compat";
@@ -171,6 +171,7 @@ export function AdminTasksClient({ tasks, q, status, module, stale, page, pageSi
           rowKey={(row) => `${row.sourceType}:${row.sourceId}`}
           columns={columns}
           dataSource={taskRows}
+          rowClassName="admin-task-row"
           loading={isPending}
           tableLayout="fixed"
           scroll={{ x: 2200 }}
@@ -227,37 +228,11 @@ function shortId(value: string) {
   return value ? value.slice(0, 8) : "-";
 }
 
-function TaskThumbnails({ urls, label, empty = "无图片" }: { urls?: string[] | null; label: string; empty?: string }) {
-  const clean = Array.isArray(urls) ? urls.filter(Boolean) : [];
+const TaskThumbnails = memo(function TaskThumbnails({ urls, label, empty = "无图片" }: { urls?: string[] | null; label: string; empty?: string }) {
+  const clean = Array.isArray(urls) ? urls : [];
   if (!clean.length) return <Typography.Text type="secondary" className="text-xs">{empty}</Typography.Text>;
-  const visibleCount = clean.length > 4 ? 3 : Math.min(clean.length, 4);
-  const visible = clean.slice(0, visibleCount);
-  const remaining = clean.length - visible.length;
-
-  return (
-    <div className="admin-task-thumb-strip" aria-label={`${label} ${clean.length} 张`}>
-      {visible.map((url, index) => (
-        <AdminImagePreview
-          key={`${url}-${index}`}
-          urls={clean}
-          initialIndex={index}
-          label={`${label} ${index + 1}/${clean.length}`}
-          triggerClassName="admin-task-thumb-trigger"
-          imageClassName="h-full w-full object-cover"
-        />
-      ))}
-      {remaining > 0 ? (
-        <AdminImagePreview
-          urls={clean}
-          initialIndex={visible.length}
-          label={`预览更多${label}`}
-          triggerClassName="admin-task-thumb-more-trigger"
-          countLabel={`+${remaining}`}
-        />
-      ) : null}
-    </div>
-  );
-}
+  return <AdminImagePreview urls={clean} label={label} imageClassName="h-full w-full object-cover" strip />;
+});
 
 function renderTaskError(value: string | null | undefined) {
   if (!value) return <Typography.Text type="secondary">-</Typography.Text>;
@@ -279,7 +254,7 @@ function summarizeTaskError(value: string) {
   const apiPrefix = trimmed.match(/#?\d*:\s*API\s*错误\s*\d+/)?.[0] || trimmed.match(/API\s*错误\s*\d+/)?.[0] || "";
   const message = extractJsonMessage(trimmed) || trimmed.replace(/^#?\d*:\s*/, "");
   const summary = apiPrefix ? `${apiPrefix}：${message}` : message;
-  return summary.length > 140 ? `${summary.slice(0, 140)}...` : summary;
+  return summary.length > 140 ? `${summary.slice(0, 140)}…` : summary;
 }
 
 function extractJsonMessage(value: string) {

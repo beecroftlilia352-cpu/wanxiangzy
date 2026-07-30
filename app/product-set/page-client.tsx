@@ -2005,8 +2005,8 @@ export default function ProductSetPage() {
           alt="商品套图预览"
           onClose={() => setLightboxSrc(null)}
         />
+        {confirmDialog}
       </>
     </div>
-      {confirmDialog}
   );
 }

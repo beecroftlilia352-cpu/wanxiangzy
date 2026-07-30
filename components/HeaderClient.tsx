@@ -401,8 +401,8 @@ function AppHeader({ pathname }: { pathname: string }) {
 
   return (
     <header className="studio-app-header mac-toolbar sticky top-0 z-50">
-      <div className="flex min-h-16 w-full items-center justify-between gap-4 px-4 sm:px-6">
-        <div className="flex min-w-0 items-center gap-5">
+      <div className="studio-app-header-inner flex min-h-16 w-full items-center justify-between gap-4 px-4 sm:px-6">
+        <div className="studio-app-header-leading flex min-w-0 items-center gap-5">
           <BrandMark />
           <DesktopTopNav activeModule={activeModule} />
         </div>
@@ -429,8 +429,8 @@ function AppHeader({ pathname }: { pathname: string }) {
 
 function BrandMark() {
   return (
-    <Link href="/" className="flex min-w-0 items-center gap-3" aria-label="VastWearGen 首页">
-      <span className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/70 bg-white/88 shadow-sm dark:border-stone-700 dark:bg-stone-800/90">
+    <Link href="/" className="studio-brand-mark flex min-w-0 items-center gap-3" aria-label="VastWearGen 首页">
+      <span className="studio-brand-logo relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/70 bg-white/88 shadow-sm dark:border-stone-700 dark:bg-stone-800/90">
         <Image
           src={codexTheme.brand.logo}
           alt=""
@@ -441,11 +441,11 @@ function BrandMark() {
           aria-hidden="true"
         />
       </span>
-      <span className="hidden min-w-0 sm:block">
+      <span className="studio-brand-copy hidden min-w-0 sm:block">
         <span className="block truncate text-sm font-black text-codex-ink sm:text-[15px]">
           {codexTheme.brand.name}
         </span>
-        <span className="block truncate text-[11px] font-semibold text-codex-muted">
+        <span className="studio-brand-subtitle block truncate text-[11px] font-semibold text-codex-muted">
           {codexTheme.brand.subtitle}
         </span>
       </span>

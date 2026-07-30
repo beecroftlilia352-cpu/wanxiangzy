@@ -1097,6 +1097,7 @@ export default function FaceSwapPage() {
         mediaClassName="rounded-3xl"
         onClose={closeLightbox}
       />
+      {confirmDialog}
     </div>
   );
 }
@@ -1273,6 +1274,5 @@ function isLegacyRemoteAssetUrl(url?: string) {
   return typeof url === "string" && (
     url.includes("zhiyi-image.oss-cn-hangzhou.aliyuncs.com") ||
     url.includes("aliyuncs.com/devops/comfyui")
-      {confirmDialog}
   );
 }

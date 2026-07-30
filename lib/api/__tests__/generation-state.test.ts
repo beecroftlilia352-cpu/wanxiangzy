@@ -49,6 +49,25 @@ describe("normalizeGenerationState", () => {
     expect(state.progress).toBe(100);
   });
 
+  it("keeps multi-source multi-language translation running after the first result", () => {
+    const state = normalizeGenerationState({
+      status: "processing_tryon",
+      resultUrls: ["https://example.com/translated-1.png"],
+      payload: {
+        kind: "imageTranslation",
+        sourceUrls: ["https://example.com/source-1.png", "https://example.com/source-2.png"],
+        languages: ["es", "en"],
+        genCount: 1,
+      },
+    });
+
+    expect(state.status).toBe("processing");
+    expect(state.statusGroup).toBe("running");
+    expect(state.resultCount).toBe(1);
+    expect(state.expectedCount).toBe(4);
+    expect(state.progress).toBe(25);
+  });
+
   it("trusts an explicit completed database status", () => {
     const state = normalizeGenerationState({
       status: "completed",

@@ -23,9 +23,32 @@ const EMPTY_OVERVIEW: AdminOverview = {
 };
 
 const EMPTY_REPORT: AdminCostReport = {
+  days: 7,
+  since: "",
+  until: "",
+  metrics: {
+    grossCredits: 0,
+    refundCredits: 0,
+    adjustmentCredits: 0,
+    netCredits: 0,
+    generationReservedCredits: 0,
+    generationSettledCredits: 0,
+    workflowReservedCredits: 0,
+    workflowSettledCredits: 0,
+    inFlightCredits: 0,
+    failedReservedCredits: 0,
+    marginCredits: 0,
+    marginRate: 0,
+    generationCount: 0,
+    workflowCount: 0,
+    completedCount: 0,
+    failedCount: 0,
+    runningCount: 0,
+  },
+  modules: [],
+  models: [],
   daily: [],
-  breakdown: [],
-  totals: { totalCost: 0, totalCount: 0 },
+  assumptions: [],
   warnings: [],
 };
 

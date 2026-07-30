@@ -927,8 +927,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
         onTextChange={setImagePromptText}
         onApply={applyImagePromptToDescription}
       />
-
-    </div>
       {confirmDialog}
+    </div>
   );
 }

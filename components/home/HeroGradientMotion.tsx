@@ -4,11 +4,13 @@ import { motion } from "framer-motion";
 
 type HeroGradientMotionProps = {
   compact?: boolean;
+  pace?: "default" | "calm";
 };
 
 const slowEase = [0.42, 0, 0.2, 1] as const;
 
-export function HeroGradientMotion({ compact = false }: HeroGradientMotionProps) {
+export function HeroGradientMotion({ compact = false, pace = "default" }: HeroGradientMotionProps) {
+  const duration = (value: number) => value * (pace === "calm" ? 1.55 : 1);
   const moving = {
     animate: {
       x: ["-14%", "10%", "-5%", "-14%"],
@@ -17,7 +19,7 @@ export function HeroGradientMotion({ compact = false }: HeroGradientMotionProps)
       scale: [1.02, 1.18, 1.08, 1.02],
     },
     transition: {
-      duration: compact ? 8 : 9.5,
+      duration: duration(compact ? 8 : 9.5),
       ease: slowEase,
       repeat: Infinity,
     },
@@ -31,7 +33,7 @@ export function HeroGradientMotion({ compact = false }: HeroGradientMotionProps)
       scale: [1.04, 1.22, 1.1, 1.04],
     },
     transition: {
-      duration: compact ? 10 : 12,
+      duration: duration(compact ? 10 : 12),
       ease: slowEase,
       repeat: Infinity,
     },
@@ -44,7 +46,7 @@ export function HeroGradientMotion({ compact = false }: HeroGradientMotionProps)
       scale: [1, 1.2, 1.08, 1],
     },
     transition: {
-      duration: compact ? 8.5 : 10.5,
+      duration: duration(compact ? 8.5 : 10.5),
       ease: slowEase,
       repeat: Infinity,
     },
@@ -57,7 +59,7 @@ export function HeroGradientMotion({ compact = false }: HeroGradientMotionProps)
       opacity: [0.5, 0.88, 0.62, 0.5],
     },
     transition: {
-      duration: compact ? 6.5 : 7.5,
+      duration: duration(compact ? 6.5 : 7.5),
       ease: slowEase,
       repeat: Infinity,
     },
@@ -71,7 +73,7 @@ export function HeroGradientMotion({ compact = false }: HeroGradientMotionProps)
       opacity: [0.52, 0.92, 0.64, 0.52],
     },
     transition: {
-      duration: compact ? 4.8 : 5.6,
+      duration: duration(compact ? 4.8 : 5.6),
       ease: slowEase,
       repeat: Infinity,
     },

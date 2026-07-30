@@ -3,8 +3,6 @@ import { normalizeProductSetModuleResults } from "@/lib/product-set";
 import {
   GENERATION_COMPLETED_STATUS_FILTERS,
   GENERATION_FAILED_STATUS_FILTERS,
-  GENERATION_PENDING_STATUS_FILTERS,
-  GENERATION_PROCESSING_STATUS_FILTERS,
   isRunningStatus,
   normalizeGenerationStatus,
 } from "@/lib/generation-status";
@@ -87,11 +85,6 @@ export function normalizeGenerationState(input: NormalizeGenerationStateInput): 
   };
 }
 
-function isProcessingStatus(status: string) {
-  return GENERATION_PROCESSING_STATUS_FILTERS.includes(status as typeof GENERATION_PROCESSING_STATUS_FILTERS[number]) ||
-    status.startsWith("processing_");
-}
-
 function isCompletedStatus(status: string) {
   return GENERATION_COMPLETED_STATUS_FILTERS.includes(status as typeof GENERATION_COMPLETED_STATUS_FILTERS[number]);
 }
@@ -130,6 +123,13 @@ function readExpectedCount(payload: Record<string, unknown>, resultCount: number
     const sourceCount = Math.max(1, uniqueStrings([...stringArray(payload.sourceUrls), stringValue(payload.sourceUrl)]).length);
     const perSourceCount = firstFiniteNumber([payload.genCount, payload.gen_count, payload.outputCount, payload.count]) || 1;
     return clampExpectedCount(perSourceCount * sourceCount);
+  }
+
+  if (payload.kind === "imageTranslation") {
+    const sourceCount = Math.max(1, uniqueStrings([...stringArray(payload.sourceUrls), stringValue(payload.sourceUrl)]).length);
+    const languageCount = Math.max(1, uniqueStrings(stringArray(payload.languages)).length);
+    const perLanguageCount = firstFiniteNumber([payload.genCount, payload.gen_count, payload.outputCount, payload.count]) || 1;
+    return clampExpectedCount(sourceCount * languageCount * perLanguageCount, 120);
   }
 
   const direct = firstFiniteNumber([

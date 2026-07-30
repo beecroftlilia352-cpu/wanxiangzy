@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
-  ChevronLeft,
   ChevronRight,
   Clock3,
+  Check,
+  ChevronDown,
   Grid2X2,
   History,
   ImageIcon,
@@ -18,6 +19,7 @@ import { toast } from "sonner";
 import { getImageVariantUrl } from "@/lib/image-variants";
 import { isLikelyVideoUrl } from "@/lib/media";
 import { cn } from "@/lib/utils";
+import { Progress } from "@/components/ui/progress";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import type { TaskDisplayMode, TaskQueueItem, TaskQueuePayload, TaskQueueSummary } from "@/lib/task-queue";
 import { isTaskRunning, TASK_DISPLAY_MODE_KEY } from "@/lib/task-queue";
@@ -68,7 +70,7 @@ export function StudioTaskRail({
   const [moduleOnly, setModuleOnly] = useState(true);
   const [displayMode, setDisplayMode] = useState<TaskDisplayMode>("flat");
   const [query, setQuery] = useState("");
-  const [page, setPage] = useState(1);
+  const [displayLimit, setDisplayLimit] = useState(TASK_QUEUE_PAGE_SIZE);
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -79,6 +81,11 @@ export function StudioTaskRail({
   const localSelectionRef = useRef<string | null>(null);
   const initialSelectionSettledRef = useRef(false);
   const handledRefreshVersionRef = useRef(0);
+  const loadMoreSentinelRef = useRef<HTMLDivElement | null>(null);
+  const autoLoadQueuedRef = useRef(false);
+  const [autoLoadStarted, setAutoLoadStarted] = useState(false);
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const hasScrolledRef = useRef(false);
   const {
     pendingId: applyingId,
     begin: beginSelection,
@@ -189,7 +196,7 @@ export function StudioTaskRail({
   }, [displayMode]);
 
   useEffect(() => {
-    setPage(1);
+    setDisplayLimit(TASK_QUEUE_PAGE_SIZE);
     setHasMore(false);
     queueSnapshotRef.current = { ...queueSnapshotRef.current, nextCursor: null };
     setNextCursor(null);
@@ -241,20 +248,41 @@ export function StudioTaskRail({
     };
   }, [loadQueue]);
 
+  useEffect(() => {
+    if (!expanded) return;
+    const sentinel = loadMoreSentinelRef.current;
+    const root = scrollContainerRef.current;
+    if (!sentinel || !root) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (
+          entry?.isIntersecting &&
+          canLoadMore &&
+          !loading &&
+          !autoLoadQueuedRef.current &&
+          hasScrolledRef.current
+        ) {
+          void handleLoadMore();
+        }
+      },
+      { root, rootMargin: "240px 0px" }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [canLoadMore, expanded, handleLoadMore, loading]);
   const recentRows = useMemo(
     () => rows.filter((item) => item.module === module).slice(0, TASK_QUEUE_RECENT_LIMIT),
     [rows, module]
   );
 
-  const expandedRows = useMemo(() => rows.slice(), [rows]);
-  const totalPages = Math.max(1, Math.ceil(expandedRows.length / TASK_QUEUE_PAGE_SIZE));
-  const pagedRows = expandedRows.slice((page - 1) * TASK_QUEUE_PAGE_SIZE, page * TASK_QUEUE_PAGE_SIZE);
-  const visibleRows = expanded ? pagedRows : recentRows;
+  const visibleRows = expanded ? rows.slice(0, displayLimit) : recentRows;
+  const totalLoaded = rows.length;
+  const totalAvailable = summary.totalTaskNum;
+  const canLoadMore = Boolean(nextCursor) || totalLoaded < totalAvailable;
+  const loadProgress =
+    totalAvailable > 0 ? Math.min(100, Math.round((totalLoaded / totalAvailable) * 100)) : 0;
   const initialLoading = !hasLoaded && rows.length === 0;
-  const loadedCount = expandedRows.length;
-  const canGoPreviousPage = page > 1;
-  const canGoNextLoadedPage = page < totalPages;
-  const canGoNextPage = canGoNextLoadedPage || hasMore;
 
   useEffect(() => {
     if (initialSelectionSettledRef.current) return;
@@ -331,17 +359,21 @@ export function StudioTaskRail({
     onContinue?.();
   };
 
-  const handleNextPage = async () => {
-    if (canGoNextLoadedPage) {
-      setPage((value) => Math.min(totalPages, value + 1));
-      return;
+  const handleLoadMore = useCallback(async () => {
+    if (loading || autoLoadQueuedRef.current) return;
+    if (!canLoadMore) return;
+    autoLoadQueuedRef.current = true;
+    setAutoLoadStarted(true);
+    try {
+      const result = await loadQueue({ append: true, force: true });
+      if (result?.rowCount) {
+        setDisplayLimit((limit) => limit + TASK_QUEUE_PAGE_SIZE);
+      }
+    } finally {
+      autoLoadQueuedRef.current = false;
+      setAutoLoadStarted(false);
     }
-    if (!hasMore || loading) return;
-    const result = await loadQueue({ append: true, force: true });
-    if (result?.rowCount) {
-      setPage((value) => value + 1);
-    }
-  };
+  }, [canLoadMore, loadQueue, loading]);
 
   return (
     <aside
@@ -415,7 +447,13 @@ export function StudioTaskRail({
           </div>
         ) : null}
 
-        <div className={cn("min-h-0 flex-1 overflow-y-auto custom-scroll", expanded ? "space-y-2 px-3 py-3" : "space-y-2 px-2 py-2")}>
+        <div
+          ref={scrollContainerRef}
+          onScroll={() => {
+            hasScrolledRef.current = true;
+          }}
+          className={cn("min-h-0 flex-1 overflow-y-auto custom-scroll", expanded ? "space-y-2 px-3 py-3" : "space-y-2 px-2 py-2")}
+        >
           {initialLoading ? (
             <>
               {!expanded && <ContinueCard selected={selectedId === TASK_QUEUE_CONTINUE_ID} onClick={handleContinue} />}
@@ -435,6 +473,24 @@ export function StudioTaskRail({
                   onClick={() => handleSelect(item)}
                 />
               ))}
+              {expanded && canLoadMore ? (
+                <div
+                  ref={loadMoreSentinelRef}
+                  className="flex items-center justify-center pt-1"
+                  aria-hidden={!autoLoadStarted}
+                >
+                  {autoLoadStarted ? (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-slate-400">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      正在加载
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-300">
+                      滚动到底部自动加载
+                    </span>
+                  )}
+                </div>
+              ) : null}
             </>
           ) : (
             <>
@@ -446,51 +502,58 @@ export function StudioTaskRail({
 
         <div className="border-t border-slate-100 px-3 py-3">
           {expanded ? (
-            <div className="flex items-center justify-between gap-2">
-              <button
-                type="button"
-                onClick={() => void loadQueue({ force: true })}
-                className="inline-flex h-8 items-center gap-1.5 rounded-lg px-2 text-xs font-bold text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
-                刷新
-              </button>
-              {totalPages > 1 || hasMore ? (
-                <div className="flex min-w-0 items-center gap-1">
-                  <button
-                    type="button"
-                    disabled={!canGoPreviousPage}
-                    onClick={() => setPage((value) => Math.max(1, value - 1))}
-                    className="inline-flex h-8 items-center justify-center gap-1 rounded-lg px-2 text-[11px] font-black text-slate-500 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-30"
-                    aria-label="上一页"
-                    title="上一页"
-                  >
-                    <ChevronLeft className="h-3.5 w-3.5" />
-                    上一页
-                  </button>
-                  <span className="min-w-14 text-center text-[11px] font-black text-slate-600">
-                    {page}/{totalPages}{hasMore ? "+" : ""}
+            <div className="space-y-2">
+              <Progress
+                value={loadProgress}
+                className="h-1 bg-slate-100"
+                aria-label={`已加载 ${totalLoaded}/${totalAvailable}`}
+              />
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex min-w-0 items-center gap-1.5">
+                  {canLoadMore ? (
+                    <span className="inline-flex h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" aria-hidden="true" />
+                  ) : (
+                    <Check className="h-3 w-3 shrink-0 text-emerald-500" aria-hidden="true" />
+                  )}
+                  <span className="truncate text-[11px] font-black text-slate-600">
+                    {totalAvailable > 0
+                      ? `已加载 ${totalLoaded} / ${totalAvailable} · ${loadProgress}%`
+                      : `已加载 ${totalLoaded} 条`}
                   </span>
-                  <button
-                    type="button"
-                    disabled={loading || !canGoNextPage}
-                    onClick={handleNextPage}
-                    className="inline-flex h-8 items-center justify-center gap-1 rounded-lg px-2 text-[11px] font-black text-slate-500 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-30"
-                    aria-label={canGoNextLoadedPage ? "下一页" : "加载更多"}
-                    title={canGoNextLoadedPage ? "下一页" : "加载更多"}
-                  >
-                    {loading && !canGoNextLoadedPage ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <>
-                        {canGoNextLoadedPage ? "下一页" : "加载更多"}
-                        <ChevronRight className="h-3.5 w-3.5" />
-                      </>
-                    )}
-                  </button>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => void loadQueue({ force: true })}
+                  className="inline-flex h-8 items-center gap-1.5 rounded-lg px-2 text-xs font-bold text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
+                  刷新
+                </button>
+              </div>
+              {canLoadMore ? (
+                <button
+                  type="button"
+                  disabled={loading}
+                  onClick={() => void handleLoadMore()}
+                  className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 text-xs font-black text-blue-600 transition hover:border-blue-300 hover:bg-blue-100 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      加载中…
+                    </>
+                  ) : (
+                    <>
+                      加载更多
+                      <ChevronDown className="h-3.5 w-3.5" />
+                    </>
+                  )}
+                </button>
               ) : (
-                <span className="truncate text-xs font-black text-slate-500">已加载 {loadedCount} 条</span>
+                <div className="flex items-center justify-center gap-1 rounded-lg border border-emerald-100 bg-emerald-50/80 py-2 text-[11px] font-black text-emerald-700">
+                  <Check className="h-3 w-3" />
+                  已加载全部
+                </div>
               )}
             </div>
           ) : (
