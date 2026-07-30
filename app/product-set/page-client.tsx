@@ -13,7 +13,7 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
-import { Modal } from "antd";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { FeatureTabs } from "@/components/FeatureTabs";
 import { ModuleHeader } from "@/components/ModuleHeader";
 import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
@@ -121,6 +121,7 @@ import { TemplateLibraryDialog } from "@/features/product-set/create/template-li
 export default function ProductSetPage() {
   const router = useRouter();
   const productInputRef = useRef<HTMLInputElement>(null);
+  const { confirm, confirmDialog } = useConfirm();
   const customRefInputRef = useRef<HTMLInputElement>(null);
   const customModelRefInputRef = useRef<HTMLInputElement>(null);
   const customOtherRefInputRef = useRef<HTMLInputElement>(null);
@@ -421,7 +422,7 @@ export default function ProductSetPage() {
   }
 
   function confirmContinueCreate() {
-    Modal.confirm({
+    confirm({
       title: "继续创建",
       content: "继续创建将清空当前所有内容，确定要继续吗？",
       okText: "确定",
@@ -848,7 +849,7 @@ export default function ProductSetPage() {
   }
 
   function confirmRemoveFavoritePlan(id: string) {
-    Modal.confirm({
+    confirm({
       title: "删除收藏方案",
       content: "确定要删除这个收藏方案吗？",
       okText: "确定",
@@ -2006,5 +2007,6 @@ export default function ProductSetPage() {
         />
       </>
     </div>
+      {confirmDialog}
   );
 }

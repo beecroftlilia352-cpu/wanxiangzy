@@ -18,6 +18,7 @@ const geist = Geist({
   display: "swap",
   preload: true,
   fallback: ["system-ui", "arial"],
+  adjustFontFallback: false,
 });
 
 export const metadata: Metadata = {
@@ -44,7 +45,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="zh-CN" className={cn("font-sans", geist.variable)} style={{ colorScheme: "light dark" }} suppressHydrationWarning>
+    <html lang="zh-CN" className={cn("font-sans", geist.variable)} style={{ colorScheme: "light dark", fontSynthesis: "none" }} suppressHydrationWarning>
       <head>
         {/* P1.1 dark-mode bootstrap — runs before paint to avoid FOUC.
             P5.43: home page (/) is always light; never apply `dark` there. */}

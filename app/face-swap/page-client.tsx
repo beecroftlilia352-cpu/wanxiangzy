@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { FeatureTabs } from "@/components/FeatureTabs";
-import { Modal } from "antd";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { ModuleHeader } from "@/components/ModuleHeader";
 import { PreviewGuide } from "@/components/PreviewGuide";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
@@ -138,6 +138,7 @@ type FaceSwapPollContext = {
 export default function FaceSwapPage() {
   const router = useRouter();
   const originalInputRef = useRef<HTMLInputElement>(null);
+  const { confirm, confirmDialog } = useConfirm();
   const faceInputRef = useRef<HTMLInputElement>(null);
   const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const skipActiveRestoreRef = useRef(false);
@@ -634,7 +635,7 @@ export default function FaceSwapPage() {
   }
 
   function confirmClearAll() {
-    Modal.confirm({
+    confirm({
       title: "清空模特脸库",
       content: "清空后将无法恢复，确定要继续吗？",
       okText: "确定",
@@ -1268,5 +1269,6 @@ function isLegacyRemoteAssetUrl(url?: string) {
   return typeof url === "string" && (
     url.includes("zhiyi-image.oss-cn-hangzhou.aliyuncs.com") ||
     url.includes("aliyuncs.com/devops/comfyui")
+      {confirmDialog}
   );
 }

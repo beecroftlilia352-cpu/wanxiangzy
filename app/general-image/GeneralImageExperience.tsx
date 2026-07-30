@@ -9,7 +9,7 @@ import {
   Brush,
   X,
 } from "lucide-react";
-import { Modal } from "antd";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { toast } from "sonner";
 import { FeatureTabs } from "@/components/FeatureTabs";
 import { ModuleHeader } from "@/components/ModuleHeader";
@@ -93,6 +93,7 @@ const GENERAL_IMAGE_PREVIEW_ACTIONS: ImagePreviewAction[] = [
 
 export function GeneralImageExperience({ initialMode = "text-to-image" }: { initialMode?: GeneralImageMode }) {
   const router = useRouter();
+  const { confirm, confirmDialog } = useConfirm();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imagePromptInputRef = useRef<HTMLInputElement>(null);
   const imagePromptTriggerRef = useRef<HTMLButtonElement>(null);
@@ -325,7 +326,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
   }
 
   function handleContinueCreate() {
-    Modal.confirm({
+    confirm({
       title: "继续创建",
       content: "继续创建将清空当前所有内容，确定要继续吗？",
       okText: "确定",
@@ -926,5 +927,6 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
       />
 
     </div>
+      {confirmDialog}
   );
 }
