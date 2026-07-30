@@ -114,7 +114,9 @@ jobs:
           AWS_APP_DIR: ${{ secrets.AWS_APP_DIR }}
         run: |
           set -euo pipefail
-          BASE_DIR="${AWS_APP_DIR:-$HOME/apps/wanxiangzy}"
+          # Use ~ so it expands on the EC2 side to the ec2-user home directory
+          # If AWS_APP_DIR is set, use it directly (it should be an absolute EC2 path)
+          BASE_DIR="${AWS_APP_DIR:-~/apps/wanxiangzy}"
           ENV_PATH="$BASE_DIR/shared/.env.production"
           echo "Fetching $ENV_PATH from EC2..."
 
@@ -126,7 +128,7 @@ jobs:
 
           echo "File: $(wc -c < .env.production) bytes, $(wc -l < .env.production) lines"
 
-          # Verify required keys exist
+          # Verify required keys exist (Next.js auto-loads .env.production at build time)
           missing=0
           for key in NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY NEXT_PUBLIC_APP_URL; do
             if grep -q "^${key}=" .env.production; then
@@ -138,15 +140,7 @@ jobs:
           done
           if [ "$missing" -ne 0 ]; then exit 1; fi
 
-          # Export to GITHUB_ENV: read full lines without splitting on =
-          exported=0
-          while IFS= read -r line; do
-            [[ -z "$line" ]] && continue
-            [[ "$line" =~ ^[[:space:]]*# ]] && continue
-            printf '%s\n' "$line" >> "$GITHUB_ENV"
-            exported=$((exported + 1))
-          done < .env.production
-          echo "Exported $exported vars to GITHUB_ENV"
+          echo "✓ .env.production ready — Next.js will auto-load it during build"
 
       - name: Install dependencies
         run: npm ci
