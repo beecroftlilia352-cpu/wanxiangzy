@@ -248,29 +248,6 @@ export function StudioTaskRail({
     };
   }, [loadQueue]);
 
-  useEffect(() => {
-    if (!expanded) return;
-    const sentinel = loadMoreSentinelRef.current;
-    const root = scrollContainerRef.current;
-    if (!sentinel || !root) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const entry = entries[0];
-        if (
-          entry?.isIntersecting &&
-          canLoadMore &&
-          !loading &&
-          !autoLoadQueuedRef.current &&
-          hasScrolledRef.current
-        ) {
-          void handleLoadMore();
-        }
-      },
-      { root, rootMargin: "240px 0px" }
-    );
-    observer.observe(sentinel);
-    return () => observer.disconnect();
-  }, [canLoadMore, expanded, handleLoadMore, loading]);
   const recentRows = useMemo(
     () => rows.filter((item) => item.module === module).slice(0, TASK_QUEUE_RECENT_LIMIT),
     [rows, module]
@@ -374,6 +351,30 @@ export function StudioTaskRail({
       setAutoLoadStarted(false);
     }
   }, [canLoadMore, loadQueue, loading]);
+
+  useEffect(() => {
+    if (!expanded) return;
+    const sentinel = loadMoreSentinelRef.current;
+    const root = scrollContainerRef.current;
+    if (!sentinel || !root) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (
+          entry?.isIntersecting &&
+          canLoadMore &&
+          !loading &&
+          !autoLoadQueuedRef.current &&
+          hasScrolledRef.current
+        ) {
+          void handleLoadMore();
+        }
+      },
+      { root, rootMargin: "240px 0px" }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [canLoadMore, expanded, handleLoadMore, loading]);
 
   return (
     <aside
