@@ -117,13 +117,25 @@ jobs:
           BASE_DIR="${AWS_APP_DIR:-$HOME/apps/wanxiangzy}"
           ENV_PATH="$BASE_DIR/shared/.env.production"
           echo "Fetching $ENV_PATH from EC2..."
+
           scp -P "$AWS_PORT_NORM" -i ~/.ssh/aws_deploy_key \
             -o StrictHostKeyChecking=accept-new \
             -o UserKnownHostsFile=~/.ssh/known_hosts \
             -o ConnectTimeout=60 \
             "$AWS_USER_NORM@$AWS_HOST_NORM:$ENV_PATH" .env.production
-          ENV_LINES=$(wc -l < .env.production)
-          echo ".env.production loaded (${ENV_LINES} lines)"
+
+          echo "File: $(wc -c < .env.production) bytes, $(wc -l < .env.production) lines"
+          echo "--- first 5 lines ---"
+          head -5 .env.production
+          echo "---"
+
+          # Also load into GITHUB_ENV so subsequent steps get the vars
+          while IFS='=' read -r key value; do
+            key="$(echo "$key" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+            if [[ -z "$key" || "$key" =~ ^# ]]; then continue; fi
+            echo "$key=$value" >> "$GITHUB_ENV"
+          done < .env.production
+          echo "Env vars exported to GITHUB_ENV"
 
       - name: Install dependencies
         run: npm ci
