@@ -47,7 +47,10 @@ export async function checkRateLimit(
   windowMs: number
 ): Promise<{ ok: true } | { ok: false; retryAfterSeconds: number }> {
   const supabase = getRateLimitClient();
-  if (!supabase) return { ok: false, retryAfterSeconds: 30 };
+  if (!supabase) {
+    console.error("[rate-limit] admin client unavailable, failing open");
+    return { ok: true };
+  }
 
   const now = Date.now();
   const windowStart = now - windowMs;
@@ -62,8 +65,12 @@ export async function checkRateLimit(
     });
 
     if (error) {
-      console.error("[rate-limit] rpc error:", error.message);
-      return { ok: false, retryAfterSeconds: 30 };
+      console.error(
+        "[rate-limit] rpc error, failing open:",
+        error.message,
+        (error as { cause?: unknown }).cause ?? ""
+      );
+      return { ok: true };
     }
 
     const row = Array.isArray(data) ? data[0] : data;
@@ -74,14 +81,15 @@ export async function checkRateLimit(
       retryAfterSeconds: Math.max(1, Math.ceil((row?.retry_after_ms ?? windowMs) / 1000)),
     };
   } catch (err) {
-    console.error("[rate-limit] error:", err);
-    return { ok: false, retryAfterSeconds: 30 };
+    console.error("[rate-limit] unexpected error, failing open:", err);
+    return { ok: true };
   }
 }
 
 export async function enforceApiRateLimit(userId: string, policy: ApiRateLimitPolicy) {
   const limit = await checkRateLimit(`${policy.bucket}:${userId}`, policy.limit, policy.windowMs);
-  return limit.ok ? null : rateLimitResponse(limit.retryAfterSeconds, policy);
+  if (limit.ok) return null;
+  return rateLimitResponse(limit.retryAfterSeconds, policy);
 }
 
 export function rateLimitResponse(
