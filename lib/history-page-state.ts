@@ -185,10 +185,10 @@ export function getHistoryFailureRecoveryCopy({
   return {
     title: "生成失败",
     reasonLabel: "失败原因",
-    reason: trimmedError || "没有返回明确原因。建议先检查输入图片、提示词或尺寸后再试。",
+    reason: trimmedError || "没有返回明确原因。建议先检查输入素材和生成参数后再试。",
     recoveryLabel: "下一步",
     recoveryHint: hasApplyParams
-      ? `点击“${applyLabel}”会带回原参数，调整图片或提示词后重新生成。`
+      ? `点击“${applyLabel}”会带回原参数，调整输入素材或生成参数后重新生成。`
       : "这条记录缺少可套用参数，建议回到创作页重新选择图片和参数。",
     applyLabel,
   };

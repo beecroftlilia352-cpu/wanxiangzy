@@ -74,6 +74,15 @@
   opacity: 1;
 }
 
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
 .canvas-control-select.ant-select .ant-select-selector,
 .canvas-control-number.ant-input-number {
   border-color: rgba(120, 113, 108, 0.32) !important;

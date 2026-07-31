@@ -87,7 +87,7 @@ describe("getHistoryFailureRecoveryCopy", () => {
       reasonLabel: "失败原因",
       reason: "图片无法识别",
       recoveryLabel: "下一步",
-      recoveryHint: "点击“套用参数重试”会带回原参数，调整图片或提示词后重新生成。",
+      recoveryHint: "点击“套用参数重试”会带回原参数，调整输入素材或生成参数后重新生成。",
       applyLabel: "套用参数重试",
     });
   });
