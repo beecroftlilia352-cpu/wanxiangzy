@@ -101,15 +101,15 @@ const EMPTY_SUMMARY: QueueSummaryData = {
 const RUNNING_WORKFLOW_STATUSES = ["queued", "running"];
 const FAILED_WORKFLOW_STATUSES = ["failed", "cancelled", "canceled"];
 const RUNNING_TASK_STALE_MS = getRunningTaskStaleMs();
-const AUTH_CLAIMS_TIMEOUT_MS = 1_500;
-const AUTH_USER_FALLBACK_TIMEOUT_MS = 3_000;
+const AUTH_CLAIMS_TIMEOUT_MS = 2_500;
+const AUTH_USER_FALLBACK_TIMEOUT_MS = 5_000;
 const READ_RATE_LIMIT_TIMEOUT_MS = 1_500;
 const SUMMARY_QUERY_TIMEOUT_MS = 8_000;
 const QUEUE_QUERY_TIMEOUT_MS = 15_000;
 const INDEX_QUEUE_QUERY_TIMEOUT_MS = 1_500;
 const INDEX_SUMMARY_QUERY_TIMEOUT_MS = 1_000;
-const LIGHTWEIGHT_MODULE_PRIMARY_TIMEOUT_MS = 2_500;
-const LIGHTWEIGHT_MODULE_FALLBACK_TIMEOUT_MS = 2_500;
+const LIGHTWEIGHT_MODULE_PRIMARY_TIMEOUT_MS = 4_000;
+const LIGHTWEIGHT_MODULE_FALLBACK_TIMEOUT_MS = 4_000;
 const LIGHTWEIGHT_QUEUE_RATE_LIMIT = 240;
 const LIGHTWEIGHT_QUEUE_RATE_WINDOW_MS = 60_000;
 const RUNNING_QUEUE_PIN_LIMIT = 80;
@@ -128,7 +128,12 @@ export async function GET(request: Request) {
     const lightweightModuleQueue = !includeSummary && Boolean(moduleFilter) && !cursor && !searchQuery;
     const supabase = await createServerSupabase({ readonlyCookies: true });
     const user = await getQueueUser(supabase);
-    if (!user) return queueJson(summaryOnly ? summaryPayload(EMPTY_SUMMARY) : detailPayload([], EMPTY_SUMMARY));
+    if (!user) {
+      return queueJson(
+        { error: "请先登录", ...(summaryOnly ? summaryPayload(EMPTY_SUMMARY) : detailPayload([], EMPTY_SUMMARY)) },
+        401,
+      );
+    }
     const rateLimit = lightweightModuleQueue
       ? checkLightweightQueueRateLimit(user.id)
       : await safeEnforceReadRateLimit(user.id);
@@ -177,7 +182,7 @@ export async function GET(request: Request) {
 
     if (error) {
       logTaskQueueWarning("generations list unavailable", error.message);
-      return queueJson(detailPayload([], summary));
+      return queueJson({ error: "任务记录查询失败", ...detailPayload([], summary) }, 503);
     }
 
     const rawRows = (Array.isArray(data) ? data : []) as unknown as QueueRow[];
@@ -203,10 +208,10 @@ export async function GET(request: Request) {
     return queueJson(detailPayload(rows, summary, hasMore, hasMore ? nextCursor : null));
   } catch (error) {
     console.error("[task-queue] error:", toLogMessage(error));
-    if (isLightweightModuleQueueRequest(request)) {
-      return queueJson(detailPayload([], EMPTY_SUMMARY));
-    }
-    return NextResponse.json({ error: "任务队列加载失败" }, { status: 500 });
+    return queueJson(
+      { error: "任务队列加载失败", ...detailPayload([], EMPTY_SUMMARY) },
+      isLightweightModuleQueueRequest(request) ? 503 : 500,
+    );
   }
 }
 
@@ -293,7 +298,10 @@ async function loadIndexedTaskQueueResponse(args: {
   if (args.includeSummary) {
     if (args.cacheMode === "redis") {
       const cachedSummary = await getCachedTaskSummary(args.userId);
-      if (cachedSummary.hit) {
+      // Never trust a cached zero as authoritative. A zero can be written while
+      // auth/index/database reads are degraded and then hide real tasks for the
+      // full cache TTL.
+      if (cachedSummary.hit && cachedSummary.value.totalTaskNum > 0) {
         summary = cachedSummary.value;
         summaryLoaded = true;
       }
@@ -317,6 +325,16 @@ async function loadIndexedTaskQueueResponse(args: {
         await writeCachedTaskSummary(args.userId, summary);
       }
     }
+  }
+
+  // A successful zero from the read model is not enough to prove that the user
+  // has no history: deployments can briefly have an empty/stale Redis summary
+  // or an index that has not been backfilled for this user yet. Let the legacy
+  // generations/agent_workflows path verify zero instead of returning fake
+  // empty history.
+  if (args.includeSummary && summary.totalTaskNum === 0) {
+    logTaskQueueWarning("empty indexed summary; verifying source tables", args.userId);
+    return null;
   }
 
   if (args.summaryOnly) {
@@ -354,6 +372,10 @@ async function loadIndexedTaskQueueResponse(args: {
     logTaskQueueWarning("task queue index list unavailable", loadedRows.error);
     return null;
   }
+  if (!args.includeSummary && loadedRows.rows.length === 0 && !args.cursor) {
+    logTaskQueueWarning("empty indexed queue; verifying source tables", args.userId);
+    return null;
+  }
 
   if (args.cacheMode === "redis" && moduleFilter && !args.cursor && !args.searchQuery) {
     await warmTaskQueueCache(args.userId, moduleFilter, loadedRows.rows);
@@ -379,7 +401,7 @@ async function loadQueueSummary(supabase: Awaited<ReturnType<typeof createServer
     workflowFailed,
     workflowRunningBuckets,
   ] = await Promise.all([
-    countRows(
+    countRowsStrict(
       supabase
         .from("generations")
         .select("id", { count: "planned", head: true })
@@ -518,6 +540,17 @@ async function countRows(
   }
 }
 
+async function countRowsStrict(
+  query: PromiseLike<{ count: number | null; error: { message?: string } | null }>,
+  label: string,
+) {
+  const { count, error } = await withTimeout(query, SUMMARY_QUERY_TIMEOUT_MS, `${label} timeout`);
+  if (error) {
+    throw new Error(error.message || `${label} unavailable`);
+  }
+  return count || 0;
+}
+
 function summaryPayload(summary: QueueSummaryData) {
   return {
     data: summary,
@@ -537,8 +570,9 @@ function detailPayload(rows: TaskQueueItem[], summary: QueueSummaryData, hasMore
   };
 }
 
-function queueJson(body: unknown) {
+function queueJson(body: unknown, status = 200) {
   return NextResponse.json(body, {
+    status,
     headers: {
       "Cache-Control": "no-store",
     },
@@ -604,8 +638,11 @@ async function loadLightweightInferredModuleQueue(
     recentQuery,
     LIGHTWEIGHT_MODULE_FALLBACK_TIMEOUT_MS,
     "module queue inferred recent timeout"
-  ).catch((error) => ({ data: [], error: { message: toLogMessage(error) } }));
-  if (recentResult.error) logTaskQueueWarning("module queue inferred recent unavailable", recentResult.error.message);
+  ).catch((error) => ({ data: null, error: { message: toLogMessage(error) } }));
+  if (recentResult.error) {
+    logTaskQueueWarning("module queue inferred recent unavailable", recentResult.error.message);
+    throw new Error("module queue source unavailable");
+  }
 
   const recentRows = (Array.isArray(recentResult.data) ? recentResult.data : []) as unknown as QueueRow[];
   return mergeQueueRows([

@@ -1,6 +1,7 @@
 import { isRecord, withTimeout, toLogMessage } from "@/lib/utils";
 import { NextResponse } from "next/server";
 import { API_RATE_LIMITS, enforceApiRateLimit } from "@/lib/api/rate-limit";
+import { getReadAuthenticatedUser } from "@/lib/api/read-auth";
 import { createServerSupabase } from "@/lib/supabase/server";
 import {
   GENERATION_COMPLETED_STATUS_FILTERS,
@@ -34,12 +35,15 @@ const HISTORY_DETAIL_COLUMNS = [
 const DEFAULT_PAGE_SIZE = 12;
 const MAX_PAGE_SIZE = 24;
 const READ_RATE_LIMIT_TIMEOUT_MS = 1_500;
+const AUTH_CLAIMS_TIMEOUT_MS = 2_500;
+const AUTH_USER_FALLBACK_TIMEOUT_MS = 5_000;
 const HISTORY_MODULE_FILTERS = new Set([
   "tryon",
   "grass",
   "productRetouch",
   "productSet",
   "modelBackground",
+  "materialEnhancement",
   "generalImage",
   "outfitFusion",
   "pose",
@@ -71,12 +75,7 @@ export async function GET(request: Request) {
     const searchParams = new URL(request.url).searchParams;
     const id = searchParams.get("id");
     const supabase = await createServerSupabase({ readonlyCookies: true });
-    const userResult = await withTimeout(
-      supabase.auth.getUser(),
-      10000,
-      "认证服务响应超时"
-    );
-    const user = userResult.data.user;
+    const user = await getHistoryUser(supabase);
 
     if (!user) {
       return NextResponse.json({ error: "请先登录" }, { status: 401 });
@@ -181,6 +180,16 @@ async function safeEnforceReadRateLimit(userId: string) {
     console.warn("[history] rate limit unavailable:", toLogMessage(error));
     return null;
   }
+}
+
+async function getHistoryUser(supabase: Awaited<ReturnType<typeof createServerSupabase>>) {
+  return getReadAuthenticatedUser(supabase, {
+    claimsTimeoutMs: AUTH_CLAIMS_TIMEOUT_MS,
+    userFallbackTimeoutMs: AUTH_USER_FALLBACK_TIMEOUT_MS,
+    onWarning(label, message) {
+      console.warn(`[history] ${label}:`, message);
+    },
+  });
 }
 
 function normalizeModuleFilter(value: string | null) {

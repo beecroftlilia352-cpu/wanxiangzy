@@ -45,7 +45,7 @@ type TaskQueueLoadResult = {
   hasMore: boolean;
 } | null;
 
-const TASK_QUEUE_FETCH_TIMEOUT_MS = 12_000;
+const TASK_QUEUE_FETCH_TIMEOUT_MS = 18_000;
 const TASK_RAIL_RUNNING_POLL_MS = 20_000;
 const TASK_RAIL_IDLE_POLL_MS = 180_000;
 const TASK_RAIL_IDLE_CACHE_GRACE_MS = 120_000;
