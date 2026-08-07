@@ -9,6 +9,7 @@ import {
   AI_VIDEO_DURATION_OPTIONS,
   getClosestAiVideoAspectRatio,
   getAiVideoAudioCreditCost,
+  getAiVideoCreditCost,
   normalizeAiVideoAudioMode,
   normalizeAiVideoDuration,
   normalizeAiVideoGenerateAudio,
@@ -39,5 +40,15 @@ describe("ai-video defaults", () => {
     expect(getAiVideoAudioCreditCost({ duration: 5, audioMode: "generated" })).toBe(0);
     expect(getAiVideoAudioCreditCost({ duration: 5, audioMode: "custom" })).toBe(0);
     expect(getAiVideoAudioCreditCost({ duration: 5, generateAudio: true })).toBe(0);
+  });
+
+  it("prices video by mode, resolution, duration, and generation count", () => {
+    expect(getAiVideoCreditCost({ modelMode: "fast", resolution: "720p", duration: 5 })).toBe(15);
+    expect(getAiVideoCreditCost({ modelMode: "fast", resolution: "720p", duration: 15 })).toBe(45);
+    expect(getAiVideoCreditCost({ modelMode: "pro", resolution: "720p", duration: 5 })).toBe(25);
+    expect(getAiVideoCreditCost({ modelMode: "pro", resolution: "720p", duration: 15 })).toBe(60);
+    expect(getAiVideoCreditCost({ modelMode: "pro", resolution: "1080p", duration: 5 })).toBe(40);
+    expect(getAiVideoCreditCost({ modelMode: "pro", resolution: "1080p", duration: 15 })).toBe(90);
+    expect(getAiVideoCreditCost({ modelMode: "pro", resolution: "1080p", duration: 5, genCount: 3 })).toBe(120);
   });
 });

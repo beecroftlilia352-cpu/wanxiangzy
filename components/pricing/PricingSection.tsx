@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertCircle, Check, CircleDollarSign, Crown, Loader2, Sparkles, Zap } from "lucide-react";
+import { getImageCreditCostRange, IMAGE_CREDIT_COSTS, VIDEO_CREDIT_RATES } from "@/lib/model-pricing";
 import { cn } from "@/lib/utils";
 
 type PricingMode = "credits" | "subscription";
@@ -72,18 +73,23 @@ type CheckoutNotice = {
 };
 
 const CREDIT_COSTS = {
-  nanoBanana: 3,
-  nanoBanana2: 4,
-  nanoBananaPro: 5,
-  gptImage2: 4,
-  detailSet: 30,
+  nanoBanana2: IMAGE_CREDIT_COSTS["nano-banana-2"]["1K"],
+  gptImage2: IMAGE_CREDIT_COSTS["gpt-image-2"]["1K"],
+  nanoBananaPro: IMAGE_CREDIT_COSTS["nano-banana-pro"]["1K"],
+  fastVideo: VIDEO_CREDIT_RATES.fast["720p"].minimum,
+  pro1080Video: VIDEO_CREDIT_RATES.pro["1080p"].minimum,
 };
 
+const nanoBanana2Range = getImageCreditCostRange("nano-banana-2");
+const gptImage2Range = getImageCreditCostRange("gpt-image-2");
+const nanoBananaProRange = getImageCreditCostRange("nano-banana-pro");
+
 const usageRules = [
-  { value: "3 灵点/张", label: "Nano Banana 图片" },
-  { value: "4 灵点/张", label: "Nano Banana 2 / GPT Image 2 图片" },
-  { value: "5 灵点/张", label: "Nano Banana Pro 图片" },
-  { value: "30 灵点/套", label: "详情页生成" },
+  { value: `${nanoBanana2Range.minimum}–${nanoBanana2Range.maximum} 灵点/张`, label: "Nano Banana 2（1K–4K）" },
+  { value: `${gptImage2Range.minimum}–${gptImage2Range.maximum} 灵点/张`, label: "GPT Image 2（1K–4K）" },
+  { value: `${nanoBananaProRange.minimum}–${nanoBananaProRange.maximum} 灵点/张`, label: "Nano Banana Pro（1K–4K）" },
+  { value: `${CREDIT_COSTS.fastVideo} 灵点起/条`, label: "快速视频（720p，按时长）" },
+  { value: `${VIDEO_CREDIT_RATES.pro["720p"].minimum}/${CREDIT_COSTS.pro1080Video} 灵点起/条`, label: "高清视频（720p/1080p，按时长）" },
 ];
 
 function formatNumber(value: number) {
@@ -119,11 +125,11 @@ function buildFeatures(plan: CreditPlan, mode: PricingMode) {
 
   return [
     { primary: true, content: getCreditLine(plan, mode) },
-    { content: `${formatNumber(credits / CREDIT_COSTS.nanoBanana2)} 张 Nano Banana 2 图片` },
-    { content: `${formatNumber(credits / CREDIT_COSTS.nanoBananaPro)} 张 Nano Banana Pro 图片` },
-    { content: `${formatNumber(credits / CREDIT_COSTS.gptImage2)} 张 GPT Image 2 图片` },
-    { content: `${formatNumber(credits / CREDIT_COSTS.nanoBanana)} 张 Nano Banana 图片` },
-    { content: `${formatNumber(credits / CREDIT_COSTS.detailSet)} 套详情页` },
+    { content: `约 ${formatNumber(credits / CREDIT_COSTS.nanoBanana2)} 张 Nano Banana 2 1K 图片` },
+    { content: `约 ${formatNumber(credits / CREDIT_COSTS.gptImage2)} 张 GPT Image 2 1K 图片` },
+    { content: `约 ${formatNumber(credits / CREDIT_COSTS.nanoBananaPro)} 张 Nano Banana Pro 1K 图片` },
+    { content: `约 ${formatNumber(credits / CREDIT_COSTS.fastVideo)} 条 5 秒快速视频` },
+    { content: `约 ${formatNumber(credits / CREDIT_COSTS.pro1080Video)} 条 5 秒 1080p 高清视频` },
     { content: mode === "subscription" ? "每月自动到账，随时使用" : "不过期，随时使用" },
     { content: mode === "subscription" ? "支持随时取消订阅" : "一次购买，长期有效" },
   ];

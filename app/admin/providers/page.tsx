@@ -31,7 +31,7 @@ export default async function AdminProvidersPage() {
         <AdminModelRoutingForm routing={catalog.routing} />
       </AdminSection>
 
-      <AdminSection title="模型路由" description="成本来自 lib/api/lingya.ts 的 CREDIT_COSTS；配置状态来自服务端环境变量和已发布的 model.routing。">
+      <AdminSection title="模型路由" description="价格来自 lib/model-pricing.ts 的统一配置；配置状态来自服务端环境变量和已发布的 model.routing。">
         <AdminTable<(typeof catalog.models)[number]>
           rows={catalog.models}
           rowKey={(row) => row.model}

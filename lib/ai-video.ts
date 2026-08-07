@@ -1,3 +1,5 @@
+import { VIDEO_CREDIT_RATES } from "@/lib/model-pricing";
+
 export type AiVideoResolution = "720p" | "1080p";
 export type AiVideoDuration = 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15;
 export type AiVideoFixedAspectRatio = "3:4" | "9:16" | "1:1" | "4:3" | "16:9";
@@ -226,11 +228,10 @@ export function getAiVideoCreditCost(input: {
     audioMode: input.audioMode,
     generateAudio: input.generateAudio,
   });
-  const perVideoCost = modelMode === "fast"
-    ? Math.max(6, duration)
-    : resolution === "1080p"
-      ? Math.max(12, Math.ceil(duration * 2))
-      : Math.max(8, Math.ceil(duration * 1.3));
+  const rate = modelMode === "fast"
+    ? VIDEO_CREDIT_RATES.fast["720p"]
+    : VIDEO_CREDIT_RATES.pro[resolution];
+  const perVideoCost = Math.max(rate.minimum, Math.ceil(duration * rate.perSecond));
   return (perVideoCost + audioCost) * genCount;
 }
 

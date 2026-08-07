@@ -2813,15 +2813,6 @@ export async function getAdminProviderCatalog(): Promise<AdminProviderCatalog> {
         notes: "默认低成本主力模型，适合批量生产和姿势裂变。",
       },
       {
-        model: "nano-banana-pro",
-        provider: nanoBananaProvider,
-        endpointKind: "Gemini native image",
-        configured: nanoBananaConfigured,
-        envKeys: nanoBananaProEnvKeys,
-        costs: CREDIT_COSTS["nano-banana-pro"],
-        notes: "高质量模型，适合品牌大片和复杂参考图。",
-      },
-      {
         model: "gpt-image-2",
         provider: gptImageProvider,
         endpointKind: "OpenAI-compatible image",
@@ -2829,6 +2820,15 @@ export async function getAdminProviderCatalog(): Promise<AdminProviderCatalog> {
         envKeys: gptImageEnvKeys,
         costs: CREDIT_COSTS["gpt-image-2"],
         notes: "适合稳定编辑类任务，Plato 未配置时回退 LINGYA_API_KEY。",
+      },
+      {
+        model: "nano-banana-pro",
+        provider: nanoBananaProvider,
+        endpointKind: "Gemini native image",
+        configured: nanoBananaConfigured,
+        envKeys: nanoBananaProEnvKeys,
+        costs: CREDIT_COSTS["nano-banana-pro"],
+        notes: "高价格高质量模型，仅建议用于品牌大片和复杂参考图。",
       },
     ],
     modules: [

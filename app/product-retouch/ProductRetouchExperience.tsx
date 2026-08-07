@@ -82,6 +82,12 @@ const MODEL_OPTIONS: ReadonlyArray<{
   badge?: string;
 }> = [
   {
+    value: "nano-banana-2",
+    label: "Nano Banana 2",
+    desc: "速度优先的批量生产",
+    icon: "/model-icons/gemini.png",
+  },
+  {
     value: "gpt-image-2",
     label: "GPT Image 2",
     desc: "商品一致性与精修细节优先",
@@ -92,12 +98,6 @@ const MODEL_OPTIONS: ReadonlyArray<{
     value: "nano-banana-pro",
     label: "Nano Banana Pro",
     desc: "复杂材质与商业布光",
-    icon: "/model-icons/gemini.png",
-  },
-  {
-    value: "nano-banana-2",
-    label: "Nano Banana 2",
-    desc: "速度优先的批量生产",
     icon: "/model-icons/gemini.png",
   },
 ] as const;

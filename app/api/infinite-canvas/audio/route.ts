@@ -6,11 +6,11 @@ import { storeMedia } from "@/lib/api/media-storage";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 import { normalizeOpenAiCompatibleBaseUrl } from "@/lib/api/url-utils";
 import { audioMimeType, normalizeAudioFormatValue, normalizeAudioSpeedValue, normalizeAudioVoiceValue } from "@/lib/audio-generation";
+import { AUDIO_CREDIT_COST } from "@/lib/model-pricing";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
 
-const AUDIO_CREDIT_COST = 1;
 const DEFAULT_TTS_MODEL = "gpt-4o-mini-tts";
 
 export async function POST(request: NextRequest) {

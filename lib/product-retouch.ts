@@ -481,7 +481,7 @@ export const BUILTIN_PRODUCT_RETOUCH_SKILL: ProductRetouchSkillDefinition = {
 - 无水印、无文字、无装饰元素`,
   },
   modelPolicy: {
-    allowedModels: ["gpt-image-2", "nano-banana-pro", "nano-banana-2"],
+    allowedModels: ["nano-banana-2", "gpt-image-2", "nano-banana-pro"],
     defaultModel: "gpt-image-2",
   },
   limits: {

@@ -59,6 +59,13 @@ import {
   type TryOnClothingRole,
 } from "@/lib/tryon-upload-rules";
 import { logger } from "@/lib/logger";
+import {
+  getImageCreditCost,
+  IMAGE_CREDIT_COSTS,
+  IMAGE_MODEL_DISPLAY_ORDER,
+  type PricedImageModel,
+  type PricedImageSize,
+} from "@/lib/model-pricing";
 
 const DEFAULT_API_BASE = "https://api.lingyaai.cn/v1";
 const DEFAULT_PLATO_API_BASE = "https://yunwu.ai/v1";
@@ -81,16 +88,12 @@ const IMAGE_EDIT_FETCH_TIMEOUT_MS = 60_000;
 const TRYON_REAL_HUMAN_SKIN_RULE = "真人皮肤质感：保留可见毛孔、细微纹理、自然油光、局部红润、轻微瑕疵、法令纹/眼下细纹等真实人像细节；不要磨成瓷肌、塑料皮、蜡像皮、过度美颜、过度锐化或无瑕 AI 网红脸。";
 const TRYON_REAL_HUMAN_SKIN_RULE_EN = "Real human skin texture: preserve visible pores, fine skin texture, natural shine, subtle redness, tiny blemishes, under-eye lines, and believable camera grain; no porcelain retouch, plastic/waxy skin, over-smoothing, over-sharpening, flawless AI influencer skin, or beauty-filter face.";
 
-export type LingyaModel = "gpt-image-2" | "nano-banana-pro" | "nano-banana-2";
+export type LingyaModel = PricedImageModel;
 export type AspectRatio = "auto" | "1:1" | "9:16" | "16:9" | "4:3" | "3:4" | "2:3" | "3:2" | "4:5" | "5:4" | "21:9";
-export type ImageSize = "1K" | "2K" | "4K";
+export type ImageSize = PricedImageSize;
 export const DEFAULT_LINGYA_MODEL: LingyaModel = "nano-banana-2";
 
-const LINGYA_MODELS: LingyaModel[] = [
-  "nano-banana-2",
-  "gpt-image-2",
-  "nano-banana-pro",
-];
+const LINGYA_MODELS: LingyaModel[] = [...IMAGE_MODEL_DISPLAY_ORDER];
 
 const ASPECT_RATIOS: AspectRatio[] = [
   "auto",
@@ -106,11 +109,7 @@ const ASPECT_RATIOS: AspectRatio[] = [
   "21:9",
 ];
 
-export const CREDIT_COSTS: Record<LingyaModel, Record<ImageSize, number>> = {
-  "gpt-image-2":      { "1K": 2, "2K": 3, "4K": 4 },
-  "nano-banana-pro":   { "1K": 2, "2K": 3, "4K": 4 },
-  "nano-banana-2":     { "1K": 1, "2K": 2, "4K": 3 },
-};
+export const CREDIT_COSTS = IMAGE_CREDIT_COSTS;
 
 export function normalizeLingyaModel(value: unknown): LingyaModel {
   return typeof value === "string" && LINGYA_MODELS.includes(value as LingyaModel)
@@ -125,7 +124,7 @@ export function normalizeAspectRatio(value: unknown, fallback: AspectRatio = "3:
 }
 
 export function getCreditCost(model: LingyaModel, size: ImageSize = "1K", aspectRatio?: AspectRatio): number {
-  return CREDIT_COSTS[model]?.[normalizeImageSize(model, size, aspectRatio)] ?? 1;
+  return getImageCreditCost(model, normalizeImageSize(model, size, aspectRatio));
 }
 
 export function getSupportedImageSizes(model: LingyaModel, aspectRatio?: AspectRatio): ImageSize[] {
