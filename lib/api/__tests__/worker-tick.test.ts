@@ -157,7 +157,7 @@ describe("tickOnce", () => {
     expect(result.succeeded).toBe(1);
     expect(result.failed).toBe(1);
     expect(result.dryRun).toBe(false);
-    expect(runNextGenerationJobsMock).toHaveBeenCalledWith(2, { staleAfterMinutes: 8 });
+    expect(runNextGenerationJobsMock).toHaveBeenCalledWith(2, { staleAfterMinutes: 8, concurrency: 2 });
   });
 
   it("passes configured staleMinutes to runNextGenerationJobs", async () => {
@@ -166,7 +166,7 @@ describe("tickOnce", () => {
     const clock = createRealClock();
     const supabase = { rpc: supabaseRpcMock } as unknown as ReturnType<typeof supabaseMock.getAdminClient>;
     await tickOnce(supabase, config, clock);
-    expect(runNextGenerationJobsMock).toHaveBeenCalledWith(3, { staleAfterMinutes: 12 });
+    expect(runNextGenerationJobsMock).toHaveBeenCalledWith(3, { staleAfterMinutes: 12, concurrency: 2 });
   });
 
   it("treats an empty result list as a no-op", async () => {

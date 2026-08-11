@@ -109,6 +109,7 @@ export async function tickOnce(
 
   const result = await runNextGenerationJobs(config.batchSize, {
     staleAfterMinutes: config.staleMinutes,
+    concurrency: config.concurrency,
   });
 
   const claimed = Array.isArray(result.results) ? result.results.length : 0;
@@ -203,6 +204,7 @@ export async function runLoop(
 
   emit("loop.started", {
     batchSize: config.batchSize,
+    concurrency: config.concurrency,
     pollIntervalMs: config.pollIntervalMs,
     idleBackoffMaxMs: config.idleBackoffMaxMs,
     staleMinutes: config.staleMinutes,

@@ -23,6 +23,7 @@ export type WorkerConfig = {
   errorBackoffMs: number;
   maxErrorBackoffMs: number;
   batchSize: number;
+  concurrency: number;
   staleMinutes: number;
   shutdownTimeoutMs: number;
   heartbeatIntervalMs: number;
@@ -39,6 +40,7 @@ const DEFAULTS: WorkerConfig = {
   errorBackoffMs: 5000,
   maxErrorBackoffMs: 30000,
   batchSize: 2,
+  concurrency: 2,
   staleMinutes: 8,
   shutdownTimeoutMs: 30000,
   heartbeatIntervalMs: 60000,
@@ -49,6 +51,8 @@ const DEFAULTS: WorkerConfig = {
 
 const BATCH_SIZE_MIN = 1;
 const BATCH_SIZE_MAX = 10;
+const CONCURRENCY_MIN = 1;
+const CONCURRENCY_MAX = 8;
 const STALE_MINUTES_MIN = 1;
 const STALE_MINUTES_MAX = 60;
 const MS_MIN = 100;
@@ -128,6 +132,13 @@ export function parseWorkerConfig(env: NodeJS.ProcessEnv = process.env): WorkerC
       DEFAULTS.batchSize,
       BATCH_SIZE_MIN,
       BATCH_SIZE_MAX,
+    ),
+    concurrency: parsePositiveInt(
+      "concurrency",
+      env.WORKER_CONCURRENCY,
+      DEFAULTS.concurrency,
+      CONCURRENCY_MIN,
+      CONCURRENCY_MAX,
     ),
     staleMinutes: parsePositiveInt(
       "staleMinutes",

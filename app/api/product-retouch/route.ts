@@ -10,6 +10,7 @@ import {
 import { assertUserCanGenerate, CreditError } from "@/lib/api/credits";
 import { getPublicBaseUrlFromRequest } from "@/lib/api/image-inputs.server";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
+import { startGenerationJob } from "@/lib/api/generation-jobs";
 import {
   buildProductRetouchPrompt,
   isSupportedProductRetouchModel,
@@ -122,6 +123,12 @@ export async function POST(request: NextRequest) {
       throw new Error("商品精修批次事务返回异常");
     }
 
+    // Fire-and-forget all child generation jobs so they start immediately
+    // instead of waiting for the worker poll cycle. Each startGenerationJob
+    // call runs runGenerationJobById → claim_generation_job →
+    // runClaimedJob concurrently. The worker is the safety net.
+    dispatchProductRetouchChildJobs(row.batch_id);
+
     return NextResponse.json({
       batch_id: row.batch_id,
       generation_id: row.parent_generation_id,
@@ -179,4 +186,22 @@ function normalizeProductRetouchRpcError(message: string, required: number) {
     return new Error("数据库缺少商品精修批次函数，请先运行 supabase/product-retouch.sql");
   }
   return new Error(message || "商品精修批次创建失败");
+}
+
+async function dispatchProductRetouchChildJobs(batchId: string) {
+  try {
+    const adminClient = getAdminClient();
+    const { data: outputs } = await adminClient
+      .from("product_retouch_outputs")
+      .select("generation_id")
+      .eq("batch_id", batchId);
+    if (!Array.isArray(outputs)) return;
+    for (const output of outputs) {
+      const genId = isRecord(output) ? output.generation_id : undefined;
+      if (typeof genId === "string") startGenerationJob(genId);
+    }
+  } catch (err) {
+    // Best-effort; worker picks up any missed jobs on next poll.
+    console.warn("[product-retouch] first-chance job dispatch failed:", err);
+  }
 }

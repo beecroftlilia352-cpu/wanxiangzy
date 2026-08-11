@@ -455,10 +455,11 @@ export async function runGenerationJobById(generationId: string) {
 
 export async function runNextGenerationJobs(
   limit = 2,
-  options?: { staleAfterMinutes?: number },
+  options?: { staleAfterMinutes?: number; concurrency?: number },
 ) {
   const supabase = createAdminClient();
   const staleAfterMinutes = options?.staleAfterMinutes ?? 8;
+  const concurrency = Math.min(Math.max(Math.floor(options?.concurrency ?? 2), 1), 8);
   const { data, error } = await supabase.rpc("claim_next_generation_jobs", {
     p_limit: limit,
     p_stale_after: `${staleAfterMinutes} minutes`,
@@ -471,21 +472,32 @@ export async function runNextGenerationJobs(
   const jobs = Array.isArray(data) ? (data as ClaimedJob[]) : [];
   const results: Array<{ id: string; ok: boolean; error?: string }> = [];
 
-  for (const job of jobs) {
-    try {
-      await runClaimedJob(supabase, job);
-      results.push({ id: job.id, ok: true });
-    } catch (err) {
-      results.push({
-        id: job.id,
-        ok: false,
-        error: err instanceof Error ? err.message : "任务失败",
-      });
+  // Concurrent execution with bounded worker pool (same pattern as
+  // executeParallelImageBatch). Each job operates on its own DB row
+  // claimed via FOR UPDATE SKIP LOCKED, so concurrent execution is safe.
+  // This is critical for productRetouch child tasks where each job
+  // generates only one image — without concurrency they run fully serial.
+  let nextJobIndex = 0;
+  await Promise.all(Array.from({ length: Math.min(concurrency, jobs.length || 1) }, async () => {
+    while (nextJobIndex < jobs.length) {
+      const index = nextJobIndex++;
+      const job = jobs[index];
+      try {
+        await runClaimedJob(supabase, job);
+        results[index] = { id: job.id, ok: true };
+      } catch (err) {
+        results[index] = {
+          id: job.id,
+          ok: false,
+          error: err instanceof Error ? err.message : "任务失败",
+        };
+      }
     }
-  }
+  }));
+  const compacted = results.filter((r): r is { id: string; ok: boolean; error?: string } => Boolean(r));
 
   const exhaustedRefunded = await refundExhaustedJobs(supabase);
-  return { claimed: jobs.length, exhausted_refunded: exhaustedRefunded, results };
+  return { claimed: jobs.length, exhausted_refunded: exhaustedRefunded, results: compacted };
 }
 
 async function runClaimedJob(

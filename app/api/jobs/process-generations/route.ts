@@ -19,7 +19,9 @@ async function handleProcessRequest(request: NextRequest) {
   if (authError) return authError;
 
   try {
-    const result = await runNextGenerationJobs(getBatchLimit(request));
+    const result = await runNextGenerationJobs(getBatchLimit(request), {
+      concurrency: getConcurrency(request),
+    });
     return NextResponse.json({ ok: true, ...result });
   } catch (err) {
     console.error("[jobs] process-generations failed:", err);
@@ -63,4 +65,12 @@ function getBatchLimit(request: NextRequest) {
   const parsed = Number(rawLimit || 2);
   if (!Number.isFinite(parsed)) return 2;
   return Math.min(Math.max(Math.floor(parsed), 1), 10);
+}
+
+function getConcurrency(request: NextRequest) {
+  const raw = request.nextUrl.searchParams.get("concurrency")
+    || process.env.GENERATION_JOB_CONCURRENCY;
+  const parsed = Number(raw || 2);
+  if (!Number.isFinite(parsed)) return 2;
+  return Math.min(Math.max(Math.floor(parsed), 1), 8);
 }
