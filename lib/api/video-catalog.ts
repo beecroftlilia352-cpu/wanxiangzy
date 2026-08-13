@@ -229,8 +229,9 @@ export function getVideoCreditCost(params: {
   audioMode?: AiVideoAudioMode;
   generateAudio?: boolean;
 }): number {
-  const { provider, modelMode, resolution, genCount = 1, audioMode } = params;
-  const price = getVideoModelPrice(provider, modelMode, resolution);
+  const { provider, genCount = 1, audioMode } = params;
+  const selection = resolveVideoSelection(provider, params.modelMode, params.resolution);
+  const price = getVideoModelPrice(provider, selection.mode, selection.resolution);
   const duration = clampVideoDuration(provider, params.duration);
   const perVideoCost = Math.max(price.minimum, Math.ceil(duration * price.perSecond));
   const audioCost = getVideoAudioCreditCost(audioMode);

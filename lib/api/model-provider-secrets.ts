@@ -1,4 +1,4 @@
-import crypto from "node:crypto";
+import crypto from "crypto";
 
 const ENCRYPTION_KEY_ENV = "ADMIN_SECRETS_ENCRYPTION_KEY";
 const ENCRYPTED_PREFIX = "enc:v1:";
