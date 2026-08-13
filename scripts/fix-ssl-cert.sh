@@ -9,11 +9,10 @@ set -euo pipefail
 #
 # What it does:
 #   1. Backs up nginx site configs that mention the old domain.
-#   2. Rewrites server_name / certificate file references from the old domain
-#      to the new domain.
+#   2. Rewrites ONLY the server_name directive to the new domain.
 #   3. Installs certbot + the nginx plugin if missing.
-#   4. Issues a Let's Encrypt cert for the new domain (+ www) and lets certbot
-#      update the nginx server block.
+#   4. Issues a Let's Encrypt cert for the new domain (+ www); certbot itself
+#      updates the ssl_certificate paths.
 #   5. Tests and reloads nginx.
 #
 # Dry run:  DRY_RUN=1 sudo bash fix-ssl-cert.sh
@@ -37,7 +36,6 @@ if [ "$(id -u)" -ne 0 ]; then
   exit 1
 fi
 
-
 command -v nginx >/dev/null 2>&1 || { echo "nginx not found" >&2; exit 1; }
 
 NGINX_ETC="${NGINX_ETC:-/etc/nginx}"
@@ -54,20 +52,13 @@ if [ "${#TARGET_FILES[@]}" -eq 0 ]; then
 fi
 
 for f in "${TARGET_FILES[@]}"; do
-  rel="${f#$NGINX_ETC/}"
   cp -a "$f" "$BACKUP_DIR/$(basename "$f").bak"
   echo "Backed up $f -> $BACKUP_DIR/"
 
-  # Rewrite domain names in server_name directives.
-  run sed -i.bak \
-    -e "s/${OLD_DOMAIN//./\\.}/${DOMAIN}/g" \
-    -e "s/www\.${OLD_DOMAIN//./\\.}/${WWW_DOMAIN}/g" \
-    "$f"
-
-  # Rewrite certificate key references if they carry the old domain path.
-  run sed -i.bak \
-    -e "s|${OLD_DOMAIN//./\\.}|${DOMAIN}|g" \
-    "$f"
+  # Rewrite ONLY the server_name directive. Do NOT touch ssl_certificate paths:
+  # certbot's nginx plugin rewrites those after issuing the new cert. Rewriting
+  # them first breaks `nginx -t` (the new cert path does not exist yet).
+  run sed -i.bak -E "/server_name/ s/${OLD_DOMAIN//./\\.}/${DOMAIN}/g" "$f"
 done
 
 # Install certbot if missing.
