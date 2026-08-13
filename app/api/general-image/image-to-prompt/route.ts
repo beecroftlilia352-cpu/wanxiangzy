@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "请先上传图片" }, { status: 400 });
     }
 
-    const llm = getLlmConfig("vision");
+    const llm = await getLlmConfig("vision");
     if (!llm.apiKey || !llm.baseUrl) {
       return NextResponse.json({ error: "图片理解服务未配置，请稍后重试" }, { status: 503 });
     }

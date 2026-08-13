@@ -24,10 +24,10 @@ describe("image variants", () => {
   });
 
   it("uses configured custom OSS image hosts", async () => {
-    process.env.NEXT_PUBLIC_ALIYUN_OSS_IMAGE_HOSTS = "images.vastweargen.com";
+    process.env.NEXT_PUBLIC_ALIYUN_OSS_IMAGE_HOSTS = "vasthk.cn-hongkong.thepacificgls.com";
     const { getImageVariantUrl } = await loadImageVariants();
 
-    const url = getImageVariantUrl("https://images.vastweargen.com/site-assets/original/banner.jpg", "card");
+    const url = getImageVariantUrl("https://vasthk.cn-hongkong.thepacificgls.com/site-assets/original/banner.jpg", "card");
 
     expect(decodeURIComponent(url)).toContain("image/resize,m_lfit,w_640");
   });

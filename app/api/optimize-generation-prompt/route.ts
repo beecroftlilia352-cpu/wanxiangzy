@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "缺少 base_prompt" }, { status: 400 });
     }
 
-    const llm = getLlmConfig(images.length ? "vision" : "text");
+    const llm = await getLlmConfig(images.length ? "vision" : "text");
     if (!llm.apiKey || !llm.baseUrl) {
       return NextResponse.json({ prompt: basePrompt, source: "fallback", reason: "missing_llm_config" });
     }

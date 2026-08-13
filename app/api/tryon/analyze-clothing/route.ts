@@ -89,7 +89,7 @@ export async function POST(request: Request) {
     }, { headers: { "Cache-Control": "no-store" } });
   }
 
-  const providerConfigs = buildTryOnClothingVisionProviderConfigs(DEFAULT_BASE_URL, DEFAULT_MODEL);
+  const providerConfigs = await buildTryOnClothingVisionProviderConfigs(DEFAULT_BASE_URL, DEFAULT_MODEL);
 
   let inflightRequest = clothingAnalysisInflight.get(cacheKey);
   if (!inflightRequest) {

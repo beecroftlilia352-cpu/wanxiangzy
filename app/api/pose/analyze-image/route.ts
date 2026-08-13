@@ -58,7 +58,7 @@ export async function POST(request: Request) {
   }
 
   const traceId = randomUUID();
-  const providerConfigs = buildTryOnClothingVisionProviderConfigs(
+  const providerConfigs = await buildTryOnClothingVisionProviderConfigs(
     "https://yunwu.ai/v1",
     "gpt-5-nano",
   );

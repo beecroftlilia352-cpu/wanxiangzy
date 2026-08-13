@@ -1,4 +1,6 @@
+import { useEffect, useMemo } from "react";
 import type { ChangeEvent, ComponentType, ReactNode, TextareaHTMLAttributes } from "react";
+import { useVisibleImageModels } from "@/lib/use-visible-image-models";
 import { ImageIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
@@ -113,9 +115,22 @@ export function StudioModelSelector<T extends string>({
   columns?: 1 | 2;
   ariaLabel?: string;
 }) {
+  const { visibleModels, isReady } = useVisibleImageModels();
+  const visibleOptions = useMemo(() => {
+    if (!isReady || !visibleModels) return models;
+    return models.filter((model) => visibleModels.has(model.value));
+  }, [isReady, models, visibleModels]);
+
+  useEffect(() => {
+    if (!isReady || visibleOptions.length === 0) return;
+    if (!visibleOptions.some((model) => model.value === value)) {
+      onChange(visibleOptions[0].value);
+    }
+  }, [isReady, onChange, value, visibleOptions]);
+
   return (
     <div className={cn("studio-model-selector", columns === 1 && "studio-model-selector-1")} role="radiogroup" aria-label={ariaLabel}>
-      {models.map((model) => {
+      {visibleOptions.map((model) => {
         const selected = value === model.value;
         return (
           <button

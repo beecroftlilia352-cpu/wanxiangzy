@@ -45,7 +45,7 @@ export class TryOnVisionProviderError extends Error {
   }
 }
 
-export function buildTryOnReferenceVisionProviderConfigs(defaultBaseUrl: string, defaultModel: string): TryOnVisionProviderConfig[] {
+export async function buildTryOnReferenceVisionProviderConfigs(defaultBaseUrl: string, defaultModel: string): Promise<TryOnVisionProviderConfig[]> {
   return uniqueProviderConfigs([
     {
       label: "tryon-reference",
@@ -59,7 +59,7 @@ export function buildTryOnReferenceVisionProviderConfigs(defaultBaseUrl: string,
       baseUrl: normalizeProviderBaseUrl(readEnv("TRYON_CLOTHING_ANALYZE_BASE_URL")),
       model: readEnv("TRYON_CLOTHING_ANALYZE_MODEL"),
     },
-    ...getTryOnVisionFallbackConfigs().map((config) => ({
+    ...(await getTryOnVisionFallbackConfigs()).map((config) => ({
       label: config.provider,
       apiKey: config.apiKey,
       baseUrl: normalizeProviderBaseUrl(config.baseUrl),
@@ -74,7 +74,7 @@ export function buildTryOnReferenceVisionProviderConfigs(defaultBaseUrl: string,
   ], defaultBaseUrl, defaultModel);
 }
 
-export function buildTryOnClothingVisionProviderConfigs(defaultBaseUrl: string, defaultModel: string): TryOnVisionProviderConfig[] {
+export async function buildTryOnClothingVisionProviderConfigs(defaultBaseUrl: string, defaultModel: string): Promise<TryOnVisionProviderConfig[]> {
   return uniqueProviderConfigs([
     {
       label: "tryon-clothing",
@@ -82,7 +82,7 @@ export function buildTryOnClothingVisionProviderConfigs(defaultBaseUrl: string, 
       baseUrl: normalizeProviderBaseUrl(readEnv("TRYON_CLOTHING_ANALYZE_BASE_URL")),
       model: readEnv("TRYON_CLOTHING_ANALYZE_MODEL"),
     },
-    ...getTryOnVisionFallbackConfigs().map((config) => ({
+    ...(await getTryOnVisionFallbackConfigs()).map((config) => ({
       label: config.provider,
       apiKey: config.apiKey,
       baseUrl: normalizeProviderBaseUrl(config.baseUrl),
@@ -97,8 +97,8 @@ export function buildTryOnClothingVisionProviderConfigs(defaultBaseUrl: string, 
   ], defaultBaseUrl, defaultModel);
 }
 
-function getTryOnVisionFallbackConfigs() {
-  return getLlmFallbackConfigs("vision").filter((config) => config.provider !== "lingya");
+async function getTryOnVisionFallbackConfigs() {
+  return (await getLlmFallbackConfigs("vision")).filter((config) => config.provider !== "lingya");
 }
 
 export function toTryOnVisionFallbackReason(error: unknown): TryOnVisionFallbackReason {

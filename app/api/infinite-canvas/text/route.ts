@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
   if (!messages.length) return NextResponse.json({ error: "缺少消息内容" }, { status: 400 });
 
   const hasImage = JSON.stringify(messages).includes('"image_url"');
-  const config = getLlmConfig(hasImage ? "vision" : "text");
+  const config = await getLlmConfig(hasImage ? "vision" : "text");
   if (!config.apiKey || !config.baseUrl || !config.model) {
     return NextResponse.json({ error: "无限画布文本模型未配置" }, { status: 503 });
   }

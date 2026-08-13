@@ -4,13 +4,7 @@
  */
 
 import { normalizeOpenAiCompatibleBaseUrl } from "@/lib/api/url-utils";
-import {
-  getEnvModelRoutingConfig,
-  getProviderForModel,
-  normalizeGptImageProvider,
-  normalizeNanoBananaProvider,
-  type ModelRoutingConfig,
-} from "@/lib/api/model-routing-config";
+import { getEnvModelProviderOverride, type ModelProviderOverride } from "@/lib/api/model-provider-registry";
 import { resolveExactAspectPixelSize, resolveSmartImageAspectRatio } from "@/lib/api/image-size";
 import {
   TRYON_CLOTHING_IMAGE_ROLE_RULE,
@@ -166,8 +160,15 @@ export type ImageTaskProgress = {
   error?: string;
 };
 
-type ImageProviderName = "lingya" | "plato" | "yunwu-native" | "laozhang" | "catrouter";
-type ImageProvider = { name: ImageProviderName; apiBase: string; apiKey?: string };
+type ImageProviderName = "lingya" | "plato" | "yunwu-native" | "laozhang" | "catrouter" | "admin";
+type ImageProvider = {
+  name: ImageProviderName;
+  apiBase: string;
+  apiKey?: string;
+  upstreamModel?: string;
+  responseType?: ModelProviderOverride["responseType"];
+  enabled?: boolean;
+};
 
 interface BatchTryOnInput {
   model: LingyaModel;
@@ -209,6 +210,9 @@ type TryOnRequestPromptOptions = {
 export async function generateImage(input: GenerateInput, retries = 2): Promise<GenerateResult> {
   const requestInput = await resolveGenerateInputAspectRatio(input);
   const provider = await getImageProvider(requestInput.model);
+  if (provider.enabled === false) {
+    throw new Error(`模型 ${requestInput.model} 已在后台关闭，暂不可用`);
+  }
   const apiKey = provider.apiKey;
   if (!apiKey) throw new Error(`${provider.name} API Key 未配置`);
   const apiBase = provider.apiBase;
@@ -593,18 +597,22 @@ function buildGenerateRequestBody(input: GenerateInput, compiledPrompt: string):
   return body;
 }
 
-function shouldUseImageEditEndpoint(input: Pick<GenerateInput, "model" | "image">, provider: { name: string }): boolean {
+function shouldUseImageEditEndpoint(input: Pick<GenerateInput, "model" | "image">, provider: Pick<ImageProvider, "name" | "responseType">): boolean {
+  if (provider.responseType === "openai-image") return input.model === "gpt-image-2" && Boolean(input.image?.length);
+  if (provider.responseType === "gemini-native") return false;
   return (provider.name === "plato" || provider.name === "catrouter") && input.model === "gpt-image-2" && Boolean(input.image?.length);
 }
 
-function shouldUseLaozhangNativeEndpoint(input: Pick<GenerateInput, "model">, provider: { name: string }): boolean {
+function shouldUseLaozhangNativeEndpoint(input: Pick<GenerateInput, "model">, provider: Pick<ImageProvider, "name" | "responseType">): boolean {
+  if (provider.responseType === "gemini-native") return true;
+  if (provider.responseType === "openai-image") return false;
   return (provider.name === "laozhang" || provider.name === "yunwu-native" || provider.name === "catrouter") && isNanoBananaModel(input.model);
 }
 
 function buildImageGenerationRequest(params: {
   apiBase: string;
   apiKey: string;
-  provider: { name: string };
+  provider: Pick<ImageProvider, "name">;
   body: Record<string, any>;
 }): { url: string; init: RequestInit } {
   return {
@@ -1210,65 +1218,53 @@ function normalizeGeminiNativeApiBaseUrl(value: string | undefined, fallback: st
 }
 
 async function getImageProvider(model: LingyaModel): Promise<ImageProvider> {
-  const routing = await resolveActiveModelRoutingConfig();
-  if (model === "gpt-image-2") {
-    const provider = normalizeGptImageProvider(getProviderForModel(routing, model));
-    if (provider === "catrouter") {
-      return {
-        name: "catrouter",
-        apiBase: getCatrouterOpenAiApiBaseUrl(),
-        apiKey: process.env.CATROUTER_API_KEY?.trim(),
-      };
-    }
-
+  const adminOverride = await resolveAdminModelProviderOverride(model);
+  if (adminOverride) {
     return {
-      name: "plato",
-      apiBase: getPlatoApiBaseUrl(),
-      apiKey: process.env.PLATO_API_KEY?.trim() || process.env.LINGYA_API_KEY?.trim(),
-    };
-  }
-  if (isNanoBananaModel(model)) {
-    const provider = normalizeNanoBananaProvider(getProviderForModel(routing, model));
-    if (provider === "catrouter") {
-      return {
-        name: "catrouter",
-        apiBase: getCatrouterNativeApiBaseUrl(),
-        apiKey: process.env.CATROUTER_API_KEY?.trim(),
-      };
-    }
-    if (provider === "laozhang") {
-      return {
-        name: "laozhang",
-        apiBase: getLaozhangApiBaseUrl(),
-        apiKey: process.env.LAOZHANG_API_KEY?.trim(),
-      };
-    }
-
-    return {
-      name: "yunwu-native",
-      apiBase: getYunwuNativeApiBaseUrl(),
-      apiKey: process.env.YUNWU_NATIVE_API_KEY?.trim() || process.env.YUNWU_API_KEY?.trim(),
+      name: "admin",
+      apiBase: adminOverride.baseUrl,
+      apiKey: adminOverride.apiKey,
+      upstreamModel: adminOverride.upstreamModel,
+      responseType: adminOverride.responseType,
+      enabled: adminOverride.enabled,
     };
   }
 
-  return {
-    name: "lingya",
-    apiBase: getImageApiBaseUrl(),
-    apiKey: process.env.LINGYA_API_KEY,
-  };
+  if (process.env.NODE_ENV === "test") {
+    const env = getEnvModelProviderOverride(model);
+    return {
+      name: inferTestProviderName(model, env),
+      apiBase: env.baseUrl,
+      apiKey: env.apiKey,
+      upstreamModel: env.upstreamModel,
+      responseType: env.responseType,
+      enabled: env.enabled,
+    };
+  }
+
+  throw new Error(`模型 ${model} 的供应商配置未在后台发布，请先到 /admin/providers 完成配置`);
 }
 
-async function resolveActiveModelRoutingConfig(): Promise<ModelRoutingConfig> {
-  if (typeof window !== "undefined") return getEnvModelRoutingConfig();
+async function resolveAdminModelProviderOverride(model: LingyaModel): Promise<ModelProviderOverride | null> {
+  if (typeof window !== "undefined") return null;
   try {
-    const { getActiveModelRoutingConfig } = await import("@/lib/api/model-routing-config.server");
-    return await getActiveModelRoutingConfig();
+    const { getAdminModelProviderOverride } = await import("@/lib/api/model-provider-registry.server");
+    return await getAdminModelProviderOverride(model);
   } catch {
-    return getEnvModelRoutingConfig();
+    return null;
   }
 }
 
-function getImageGenerationUrl(apiBase: string, provider: { name: string }): string {
+function inferTestProviderName(model: LingyaModel, env: ModelProviderOverride): ImageProviderName {
+  if (model === "gpt-image-2") {
+    return env.baseUrl.includes("catrouter") ? "catrouter" : "plato";
+  }
+  if (env.baseUrl.includes("catrouter")) return "catrouter";
+  if (env.baseUrl.includes("laozhang")) return "laozhang";
+  return "yunwu-native";
+}
+
+function getImageGenerationUrl(apiBase: string, provider: Pick<ImageProvider, "name">): string {
   const endpoint = `${apiBase}/images/generations`;
   return shouldRequestAsyncImageTask(provider) ? `${endpoint}?async=true` : endpoint;
 }
@@ -1281,11 +1277,13 @@ function getLaozhangGenerateContentUrl(apiBase: string, model: string): string {
   return `${apiBase}/v1beta/models/${encodeURIComponent(model)}:generateContent`;
 }
 
-function shouldRequestAsyncImageTask(provider: { name: string }): boolean {
+function shouldRequestAsyncImageTask(provider: Pick<ImageProvider, "name">): boolean {
+  if (provider.name === "admin") return false;
   return provider.name !== "plato" && provider.name !== "laozhang" && provider.name !== "yunwu-native" && provider.name !== "catrouter";
 }
 
-function resolveProviderImageModel(model: LingyaModel, provider: { name: string }): string {
+function resolveProviderImageModel(model: LingyaModel, provider: Pick<ImageProvider, "name" | "upstreamModel">): string {
+  if (provider.upstreamModel?.trim()) return provider.upstreamModel.trim();
   if (provider.name === "catrouter" && model === "gpt-image-2") {
     return process.env.CATROUTER_GPT_IMAGE_MODEL?.trim() || DEFAULT_GPT_IMAGE_2_PROVIDER_MODEL;
   }

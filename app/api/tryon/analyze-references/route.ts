@@ -68,7 +68,7 @@ export async function POST(request: Request) {
   const garmentAudience = normalizeTryOnGarmentAudience(typeof body.garment_audience === "string" ? body.garment_audience : undefined);
   const ageGroup = normalizeTryOnAgeGroup(typeof body.age_group === "string" ? body.age_group : undefined);
 
-  const providerConfigs = buildTryOnReferenceVisionProviderConfigs(DEFAULT_BASE_URL, DEFAULT_MODEL);
+  const providerConfigs = await buildTryOnReferenceVisionProviderConfigs(DEFAULT_BASE_URL, DEFAULT_MODEL);
   const cacheKey = buildReferenceAnalysisCacheKey({
     referenceUrls,
     clothingMode,

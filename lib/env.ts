@@ -68,6 +68,11 @@ const FEATURE_REQUIRED_ENV: EnvContractEntry[] = [
     description: "Required when ANALYZE_LLM_PROVIDER=xiaomi.",
   },
   {
+    name: "MINIMAX_API_KEY",
+    category: "feature-required",
+    description: "Required when ANALYZE_LLM_PROVIDER=minimax.",
+  },
+  {
     name: "IMGBB_API_KEY",
     category: "feature-required",
     description: "Required when IMAGE_STORAGE_PROVIDER=imgbb for user uploads and durable external result-image storage.",
@@ -121,6 +126,7 @@ const OPTIONAL_ENV: EnvContractEntry[] = [
   { name: "LINGYA_BASE_URL", category: "optional", description: "Lingya API base URL override." },
   { name: "GPT_IMAGE_PROVIDER", category: "optional", description: "GPT-Image-2 provider: catrouter (default) or plato." },
   { name: "GPT_TRYON_PROMPT_TEMPLATE", category: "optional", description: "GPT-Image-2 try-on prompt template: banana (default) or legacy rollback." },
+  { name: "ADMIN_SECRETS_ENCRYPTION_KEY", category: "optional", description: "AES-256-GCM key used to encrypt admin-configured provider API keys at rest." },
   { name: "CATROUTER_BASE_URL", category: "optional", description: "CatRouter API base URL, default https://api.catrouter.net." },
   { name: "CATROUTER_API_KEY", category: "optional", description: "CatRouter API key for GPT-Image-2 and optional Banana native routing." },
   { name: "CATROUTER_GPT_IMAGE_MODEL", category: "optional", description: "CatRouter provider model id for gpt-image-2." },
@@ -148,7 +154,11 @@ const OPTIONAL_ENV: EnvContractEntry[] = [
   { name: "TRYON_CLOTHING_ANALYZE_MODEL", category: "optional", description: "Vision-capable model for try-on clothing recognition, default gpt-5-nano." },
   { name: "TRYON_CLOTHING_ANALYZE_TIMEOUT_MS", category: "optional", description: "Timeout for try-on clothing recognition requests." },
   { name: "TRYON_REFERENCE_IMAGE_ALLOWED_HOSTS", category: "optional", description: "Comma-separated extra hosts allowed for managed try-on reference scene images." },
-  { name: "ANALYZE_LLM_PROVIDER", category: "optional", description: "Prompt and image analysis provider: yunwu, xiaomi, or legacy lingya." },
+  { name: "ANALYZE_LLM_PROVIDER", category: "optional", description: "Prompt and image analysis provider: minimax, yunwu, xiaomi, or legacy lingya." },
+  { name: "MINIMAX_BASE_URL", category: "optional", description: "MiniMax OpenAI-compatible base URL, default https://api.minimaxi.com." },
+  { name: "MINIMAX_MODEL", category: "optional", description: "Default MiniMax model override." },
+  { name: "MINIMAX_VISION_MODEL", category: "optional", description: "MiniMax vision model override, default MiniMax-M3." },
+  { name: "MINIMAX_TEXT_MODEL", category: "optional", description: "MiniMax text model override, default MiniMax-M3." },
   { name: "LINGYA_TEXT_MODEL", category: "optional", description: "Lingya text model override." },
   { name: "LINGYA_VISION_MODEL", category: "optional", description: "Lingya vision model override." },
   { name: "XIAOMI_MIMO_BASE_URL", category: "optional", description: "Xiaomi OpenAI-compatible base URL override." },
@@ -235,6 +245,7 @@ export function validateEnv(options: { log?: boolean; nodeEnv?: string } = {}): 
     if (entry.name === "CATROUTER_API_KEY") continue;
     if (entry.name === "IMGBB_API_KEY" && imageStorageProvider === "aliyun-oss") continue;
     if (entry.name === "XIAOMI_MIMO_API_KEY" && analyzeProvider !== "xiaomi") continue;
+    if (entry.name === "MINIMAX_API_KEY" && analyzeProvider !== "minimax") continue;
     if (!process.env[entry.name]) {
       issues.push({
         name: entry.name,

@@ -40,6 +40,7 @@ import {
   type AllCategoryProductImagePlatform,
 } from "@/lib/all-category-product-image";
 import { getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
+import { useVisibleImageModels } from "@/lib/use-visible-image-models";
 import { getImageVariantUrl } from "@/lib/image-variants";
 import type {
   ProductSetCustomTemplate,
@@ -293,6 +294,11 @@ export default function AllCategoryProductImagePage() {
   const [showAiPlans, setShowAiPlans] = useState(false);
   const [editingDesignSpec, setEditingDesignSpec] = useState(false);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
+  const { visibleModels } = useVisibleImageModels();
+  const visibleModelEntries = useMemo(
+    () => MODELS.filter((model) => !visibleModels || visibleModels.has(model.value)),
+    [visibleModels],
+  );
 
   const defaultAspect = getDefaultAspect();
   const supportedSizes = useMemo(() => getSupportedImageSizes(aiModel, defaultAspect), [aiModel, defaultAspect]);
@@ -815,7 +821,7 @@ export default function AllCategoryProductImagePage() {
                   </label>
                   <SelectField icon={<Languages aria-hidden="true" className="h-4 w-4" />} label="目标语言" value={language} options={ALL_CATEGORY_PRODUCT_IMAGE_LANGUAGES} onChange={(value) => { setLanguage(value as AllCategoryProductImageLanguage); resetOutput(); }} />
                   <div className="grid grid-cols-2 gap-3">
-                    <SelectField label="模型" value={aiModel} options={MODELS.map((item) => item.value)} labels={Object.fromEntries(MODELS.map((item) => [item.value, item.badge ? `${item.label} · ${item.badge}` : item.label]))} onChange={(value) => { setAiModel(value as LingyaModel); resetOutput(); }} />
+                    <SelectField label="模型" value={aiModel} options={visibleModelEntries.map((item) => item.value)} labels={Object.fromEntries(visibleModelEntries.map((item) => [item.value, item.badge ? `${item.label} · ${item.badge}` : item.label]))} onChange={(value) => { setAiModel(value as LingyaModel); resetOutput(); }} />
                     <SelectField label="尺寸比例" value={defaultAspect} options={[defaultAspect]} onChange={() => undefined} disabled />
                   </div>
                   <div className="grid grid-cols-2 gap-3">

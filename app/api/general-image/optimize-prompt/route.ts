@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: mode === "image-to-image" ? "请先输入基本想法或上传参考图" : "请先输入基本想法" }, { status: 400 });
     }
 
-    const llm = getLlmConfig(referenceUrls.length ? "vision" : "text");
+    const llm = await getLlmConfig(referenceUrls.length ? "vision" : "text");
     if (!llm.apiKey || !llm.baseUrl) {
       return NextResponse.json({
         prompt: buildFallbackPrompt({ mode, userPrompt, referenceUrls }),

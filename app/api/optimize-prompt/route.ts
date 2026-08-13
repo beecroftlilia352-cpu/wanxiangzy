@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "缺少 style 参数" }, { status: 400 });
     }
 
-    const llm = getLlmConfig("text");
+    const llm = await getLlmConfig("text");
     if (!llm.apiKey) {
       return NextResponse.json({ error: "API Key 未配置" }, { status: 500 });
     }

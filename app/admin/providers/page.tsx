@@ -8,6 +8,8 @@ import {
 } from "@/components/admin/AdminPrimitives";
 import { AdminConfigForm } from "@/components/admin/AdminConfigForm";
 import { AdminModelRoutingForm } from "@/components/admin/AdminModelRoutingForm";
+import { AdminModelProviderConfigForm } from "@/components/admin/AdminModelProviderConfigForm";
+import { AdminLlmProviderConfigForm } from "@/components/admin/AdminLlmProviderConfigForm";
 import { getAdminProviderCatalog } from "@/lib/admin/data";
 
 export const dynamic = "force-dynamic";
@@ -29,6 +31,14 @@ export default async function AdminProvidersPage() {
 
       <AdminSection title="模型通道快速切换" description="保存后会发布 model.routing，新生成任务立即按这里的 GPT 与 Banana 通道走；环境变量仍作为兜底。">
         <AdminModelRoutingForm routing={catalog.routing} />
+      </AdminSection>
+
+      <AdminSection title="生图供应商配置（最佳实践）" description="按模型配置可见性、Base URL、API Key、上游模型名和响应类型。这里发布的 model.providers 是生图模型唯一配置来源；API Key 加密落库，页面只显示脱敏值。">
+        <AdminModelProviderConfigForm />
+      </AdminSection>
+
+      <AdminSection title="视觉/文本识别供应商配置" description="配置视觉图片识别和文本提示词模型。这里发布的 llm.providers 是视觉/文本识别的唯一配置来源；API Key 加密落库，页面只显示脱敏值。">
+        <AdminLlmProviderConfigForm />
       </AdminSection>
 
       <AdminSection title="模型路由" description="价格来自 lib/model-pricing.ts 的统一配置；配置状态来自服务端环境变量和已发布的 model.routing。">

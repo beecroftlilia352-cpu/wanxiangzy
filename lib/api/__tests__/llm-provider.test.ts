@@ -8,7 +8,7 @@ afterEach(() => {
 });
 
 describe("llm provider fallback config", () => {
-  it("uses xiaomi first and Yunwu as fallback when both are configured", () => {
+  it("uses xiaomi first and Yunwu as fallback when both are configured", async () => {
     process.env.ANALYZE_LLM_PROVIDER = "xiaomi";
     process.env.XIAOMI_MIMO_API_KEY = "xiaomi-key";
     process.env.XIAOMI_MIMO_BASE_URL = "https://token-plan-sgp.xiaomimimo.com";
@@ -17,7 +17,7 @@ describe("llm provider fallback config", () => {
     process.env.YUNWU_API_BASE_URL = "https://yunwu.ai";
     process.env.YUNWU_TEXT_MODEL = "gpt-5.4-nano";
 
-    const configs = getLlmFallbackConfigs("text");
+    const configs = await getLlmFallbackConfigs("text");
 
     expect(configs.map((config) => config.provider)).toEqual(["xiaomi", "yunwu"]);
     expect(configs.map((config) => config.baseUrl)).toEqual([
@@ -26,7 +26,7 @@ describe("llm provider fallback config", () => {
     ]);
   });
 
-  it("uses Yunwu first and xiaomi as fallback when Yunwu is selected", () => {
+  it("uses Yunwu first and xiaomi as fallback when Yunwu is selected", async () => {
     process.env.ANALYZE_LLM_PROVIDER = "yunwu";
     process.env.XIAOMI_MIMO_API_KEY = "xiaomi-key";
     process.env.XIAOMI_MIMO_BASE_URL = "https://token-plan-sgp.xiaomimimo.com";
@@ -35,18 +35,36 @@ describe("llm provider fallback config", () => {
     process.env.YUNWU_API_BASE_URL = "https://yunwu.ai";
     process.env.YUNWU_TEXT_MODEL = "gpt-5.4-nano";
 
-    const configs = getLlmFallbackConfigs("text");
+    const configs = await getLlmFallbackConfigs("text");
 
     expect(configs.map((config) => config.provider)).toEqual(["yunwu", "xiaomi"]);
   });
 
-  it("keeps the legacy Lingya provider available when explicitly selected", () => {
+
+  it("uses MiniMax M3 first and Xiaomi as fallback when minimax is selected", async () => {
+    process.env.ANALYZE_LLM_PROVIDER = "minimax";
+    process.env.MINIMAX_API_KEY = "minimax-key";
+    process.env.MINIMAX_BASE_URL = "https://api.minimaxi.com";
+    process.env.MINIMAX_VISION_MODEL = "MiniMax-M3";
+    process.env.XIAOMI_MIMO_API_KEY = "xiaomi-key";
+    process.env.XIAOMI_MIMO_BASE_URL = "https://api.xiaomimimo.com";
+    process.env.XIAOMI_MIMO_VISION_MODEL = "mimo-v2.5";
+
+    const configs = await getLlmFallbackConfigs("vision");
+
+    expect(configs.map((config) => config.provider)).toEqual(["minimax", "xiaomi"]);
+    expect(configs[0]).toMatchObject({
+      baseUrl: "https://api.minimaxi.com/v1",
+      model: "MiniMax-M3",
+    });
+  });
+  it("keeps the legacy Lingya provider available when explicitly selected", async () => {
     process.env.ANALYZE_LLM_PROVIDER = "lingya";
     process.env.LINGYA_API_KEY = "lingya-key";
     process.env.LINGYA_BASE_URL = "https://api.lingyaai.cn";
     process.env.LINGYA_VISION_MODEL = "gpt-4o-mini";
 
-    const configs = getLlmFallbackConfigs("vision");
+    const configs = await getLlmFallbackConfigs("vision");
 
     expect(configs[0]).toMatchObject({
       provider: "lingya",

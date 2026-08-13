@@ -156,7 +156,7 @@ ${userStyle || "无"}
       aspectRatio,
     });
 
-    const llm = getLlmConfig("vision");
+    const llm = await getLlmConfig("vision");
     if (!llm.apiKey) {
       return NextResponse.json({ prompt: fallbackPrompt, source: "fallback", reason: "missing_api_key" });
     }

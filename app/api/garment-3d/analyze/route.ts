@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
     const limit = await checkRateLimit(`garment-3d-analyze:${auth.user.id}`, 20, 60_000);
     if (!limit.ok) return rateLimitResponse(limit.retryAfterSeconds);
 
-    const llm = getLlmConfig("vision");
+    const llm = await getLlmConfig("vision");
     if (!llm.apiKey) return NextResponse.json({ prompt: "" });
 
     const { garment_url, garment_type, custom_garment_type, display_style, prompt } = await request.json();

@@ -26,7 +26,7 @@ const DEFAULT_ALLOWED_HOSTS = [
   "*.oss-cn-hangzhou.aliyuncs.com",
   "*.oss-cn-shanghai.aliyuncs.com",
   "vastweargen-images.cn-hongkong.thepacificxxs.com",
-  "images.vastweargen.com",
+  "vasthk.cn-hongkong.thepacificgls.com",
   "webstatic.aiproxy.vip",
   "oss.filenest.top",
   "yunwu.ai",

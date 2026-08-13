@@ -475,9 +475,9 @@ ${referenceStyleInstruction}
     const templateContext = { targetPlatform, originalText: [userProductInfo, referenceStyleInfo].filter(Boolean).join("\n\n"), imageCount: productImageUrls.length };
     const fallback = ensureProductInfoTemplate(localizeUserFacingText(userProductInfo), templateContext);
     const fallbackProfile = normalizeProductSetProductProfile(undefined, fallback);
-    const configs = getLlmFallbackConfigs("vision");
+    const configs = await getLlmFallbackConfigs("vision");
     if (!configs.length) {
-      const primary = getLlmConfig("vision");
+      const primary = await getLlmConfig("vision");
       return NextResponse.json({
         product_info: fallback,
         product_profile: fallbackProfile,

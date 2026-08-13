@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
     const limit = await checkRateLimit(`model-analyze:${auth.user.id}`, 20, 60_000);
     if (!limit.ok) return rateLimitResponse(limit.retryAfterSeconds);
 
-    const llm = getLlmConfig("vision");
+    const llm = await getLlmConfig("vision");
     if (!llm.apiKey || !llm.baseUrl) return NextResponse.json({ prompt: "" });
 
     const {

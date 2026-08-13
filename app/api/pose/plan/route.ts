@@ -129,7 +129,7 @@ export async function POST(request: Request) {
     }, { headers: { "Cache-Control": "no-store" } });
   }
 
-  const configs = getPosePlanLlmConfigs();
+  const configs = await getPosePlanLlmConfigs();
 
   let inflightRequest = posePlanInflight.get(cacheKey);
   if (!inflightRequest || force) {
@@ -167,7 +167,7 @@ export async function POST(request: Request) {
 
 async function runPosePlan(input: {
   configs: Array<{
-    provider: "xiaomi" | "yunwu" | "lingya";
+    provider: "xiaomi" | "yunwu" | "lingya" | "minimax";
     apiKey: string;
     baseUrl: string;
     model: string;
@@ -234,7 +234,7 @@ async function runPosePlan(input: {
 }
 
 async function requestPosePlan(input: {
-  provider: "xiaomi" | "yunwu" | "lingya";
+  provider: "xiaomi" | "yunwu" | "lingya" | "minimax";
   apiKey: string;
   baseUrl: string;
   model: string;
@@ -343,8 +343,8 @@ function writePosePlanMemoryCache(cacheKey: string, result: PosePlanResult) {
   });
 }
 
-function getPosePlanLlmConfigs() {
-  const primary = getLlmConfig("text");
+async function getPosePlanLlmConfigs() {
+  const primary = await getLlmConfig("text");
   const hasOverride = Boolean(process.env.POSE_PLAN_API_KEY || process.env.POSE_PLAN_BASE_URL || process.env.POSE_PLAN_MODEL);
   if (hasOverride) {
     return [{
@@ -355,12 +355,12 @@ function getPosePlanLlmConfigs() {
     }];
   }
   const configs = [
-    ...getLlmFallbackConfigs("text"),
+    ...(await getLlmFallbackConfigs("text")),
     // Pose planning is a text-only task, but many deployed vision/chat models
     // are also fully chat-compatible. Including the vision config prevents a
     // valid main-image analysis setup from falling back only because the text
     // model env is missing, unsupported, or temporarily unhealthy.
-    ...getLlmFallbackConfigs("vision"),
+    ...(await getLlmFallbackConfigs("vision")),
   ].map((config) => ({
     provider: config.provider,
     apiKey: config.apiKey,

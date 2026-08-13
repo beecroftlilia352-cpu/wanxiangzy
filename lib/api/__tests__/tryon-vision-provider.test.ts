@@ -11,7 +11,7 @@ afterEach(() => {
 });
 
 describe("try-on vision provider config", () => {
-  it("does not add Lingya or gpt-4o-mini as automatic fallback for clothing analysis", () => {
+  it("does not add Lingya or gpt-4o-mini as automatic fallback for clothing analysis", async () => {
     process.env.ANALYZE_LLM_PROVIDER = "lingya";
     process.env.TRYON_CLOTHING_ANALYZE_API_KEY = "tryon-key";
     process.env.TRYON_CLOTHING_ANALYZE_BASE_URL = "https://yunwu.ai";
@@ -23,7 +23,7 @@ describe("try-on vision provider config", () => {
     process.env.LINGYA_BASE_URL = "https://api.lingyaai.cn";
     process.env.LINGYA_VISION_MODEL = "gpt-4o-mini";
 
-    const configs = buildTryOnClothingVisionProviderConfigs("https://yunwu.ai/v1", "gpt-5-nano");
+    const configs = await buildTryOnClothingVisionProviderConfigs("https://yunwu.ai/v1", "gpt-5-nano");
 
     expect(configs.map((config) => config.label)).toEqual(["tryon-clothing", "xiaomi"]);
     expect(configs.map((config) => config.model)).toEqual(["gpt-5-nano", "mimo-v2.5"]);
@@ -31,7 +31,7 @@ describe("try-on vision provider config", () => {
     expect(configs.some((config) => config.model === "gpt-4o-mini")).toBe(false);
   });
 
-  it("keeps reference analysis on explicit try-on providers plus Xiaomi only", () => {
+  it("keeps reference analysis on explicit try-on providers plus Xiaomi only", async () => {
     process.env.TRYON_REFERENCE_ANALYZE_API_KEY = "reference-key";
     process.env.TRYON_REFERENCE_ANALYZE_BASE_URL = "https://yunwu.ai";
     process.env.TRYON_REFERENCE_ANALYZE_MODEL = "gpt-5-nano";
@@ -45,7 +45,7 @@ describe("try-on vision provider config", () => {
     process.env.LINGYA_BASE_URL = "https://api.lingyaai.cn";
     process.env.LINGYA_VISION_MODEL = "gpt-4o-mini";
 
-    const configs = buildTryOnReferenceVisionProviderConfigs("https://yunwu.ai/v1", "gpt-5-nano");
+    const configs = await buildTryOnReferenceVisionProviderConfigs("https://yunwu.ai/v1", "gpt-5-nano");
 
     expect(configs.map((config) => config.label)).toEqual(["tryon-reference", "tryon-clothing", "xiaomi"]);
     expect(configs.map((config) => config.model)).toEqual(["gpt-5-nano", "mimo-v2.5", "mimo-v2.5"]);
@@ -53,7 +53,7 @@ describe("try-on vision provider config", () => {
     expect(configs.some((config) => config.model === "gpt-4o-mini")).toBe(false);
   });
 
-  it("inherits Yunwu vision config when try-on overrides are not set", () => {
+  it("inherits Yunwu vision config when try-on overrides are not set", async () => {
     delete process.env.TRYON_CLOTHING_ANALYZE_API_KEY;
     delete process.env.TRYON_CLOTHING_ANALYZE_BASE_URL;
     delete process.env.TRYON_CLOTHING_ANALYZE_MODEL;
@@ -63,7 +63,7 @@ describe("try-on vision provider config", () => {
     process.env.YUNWU_API_BASE_URL = "https://yunwu.ai";
     process.env.YUNWU_VISION_MODEL = "gpt-5.4-nano";
 
-    const configs = buildTryOnClothingVisionProviderConfigs("https://yunwu.ai/v1", "gpt-5-nano");
+    const configs = await buildTryOnClothingVisionProviderConfigs("https://yunwu.ai/v1", "gpt-5-nano");
 
     expect(configs).toEqual([expect.objectContaining({
       label: "yunwu",
