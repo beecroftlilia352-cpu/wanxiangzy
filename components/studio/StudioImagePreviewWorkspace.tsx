@@ -947,7 +947,7 @@ function FeedbackDialog({
           value={value}
           onChange={(event) => setValue(event.target.value)}
           maxLength={500}
-          placeholder="例如：人物脸不像、服装细节丢失、背景不符合要求..."
+          placeholder="例如：人物脸不像、服装细节丢失、背景不符合要求…"
           className="min-h-32 resize-none"
         />
         <DialogFooter>

@@ -59,7 +59,7 @@ export function StudioUploadTile({
   dragContext,
   uploadLabel = "从本地上传",
   libraryLabel = "从作品库选择",
-  loadingLabel = "上传中...",
+  loadingLabel = "上传中…",
   supportBadge,
   footnote,
   imageRequirement,

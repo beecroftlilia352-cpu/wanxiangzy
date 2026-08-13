@@ -151,7 +151,7 @@ export default function ApiPlatformTestPage() {
     const nextImages = await Promise.all(limited.map((file) => readImageFile(file)));
     setInputImages((prev) => [...prev, ...nextImages]);
     setIsUploading(true);
-    toast.info(`正在上传 ${nextImages.length} 张参考图...`);
+    toast.info(`正在上传 ${nextImages.length} 张参考图…`);
 
     const uploadResults = await Promise.allSettled(limited.map((file) => uploadImage(file)));
     setInputImages((prev) => prev.map((image) => {
@@ -253,7 +253,7 @@ export default function ApiPlatformTestPage() {
                   onChange={(e) => setApiKey(e.target.value)}
                   type="password"
                   className="w-full rounded-lg border px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-[rgba(91,124,255,0.14)]"
-                  placeholder="sk-..."
+                  placeholder="sk-…"
                 />
               </label>
 
@@ -369,7 +369,7 @@ export default function ApiPlatformTestPage() {
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-slate-700 to-slate-950 py-3 text-sm font-bold text-white shadow-lg shadow-slate-300/40 disabled:opacity-50"
               >
                 {isLoading || isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                {isUploading ? "上传参考图..." : isLoading ? "测试中..." : "开始测试"}
+                {isUploading ? "上传参考图…" : isLoading ? "测试中…" : "开始测试"}
               </button>
             </div>
           </section>

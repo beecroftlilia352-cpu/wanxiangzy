@@ -697,7 +697,7 @@ export default function HistoryPage() {
             className="inline-flex items-center gap-2 rounded-full border bg-white px-5 py-2.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {loadingMore ? <Loader2 className="h-4 w-4 animate-spin" /> : <Clock className="h-4 w-4" />}
-            {loadingMore ? "加载中..." : "加载更多"}
+            {loadingMore ? "加载中…" : "加载更多"}
           </button>
         ) : (
           <p className="text-xs text-gray-400">已加载全部历史作品</p>

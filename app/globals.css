@@ -52,6 +52,24 @@
   }
 }
 
+/* ==========================================================================
+   P4.1 Touch interaction — remove the 300ms double-tap zoom delay on all
+   tappable controls, and disable the default gray tap flash for custom-styled
+   buttons/links that already carry hover/active/focus states.
+   ========================================================================== */
+button,
+a,
+[role="button"],
+select {
+  touch-action: manipulation;
+}
+
+button,
+a,
+[role="button"] {
+  -webkit-tap-highlight-color: transparent;
+}
+
 .hover-scrollbar-hint {
   position: relative;
 }

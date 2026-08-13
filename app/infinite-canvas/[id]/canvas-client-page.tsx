@@ -3022,7 +3022,7 @@ function CanvasTopBar({
                                     if (event.key === "Enter") onFinishTitleEditing();
                                     if (event.key === "Escape") onCancelTitleEditing();
                                 }}
-                                className="max-w-[280px] bg-transparent p-0 text-left text-lg font-semibold tracking-normal outline-none"
+                                className="max-w-[280px] rounded-sm bg-transparent p-0 text-left text-lg font-semibold tracking-normal outline-none focus-visible:ring-2 focus-visible:ring-current"
                                 style={{ color: theme.node.text }}
                             />
                         ) : (

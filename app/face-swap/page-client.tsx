@@ -706,7 +706,7 @@ export default function FaceSwapPage() {
       genCountOverride: 1,
       expectedCountOverride: 1,
       retryResultIndex: index,
-      toastMessage: `正在补位重试第 ${index + 1} 张，失败图已退款，完成后会回填到当前结果中...`,
+      toastMessage: `正在补位重试第 ${index + 1} 张，失败图已退款，完成后会回填到当前结果中…`,
     });
   }
   const faceSwapInputThumbnails = (

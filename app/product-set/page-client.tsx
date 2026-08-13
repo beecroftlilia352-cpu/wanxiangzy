@@ -523,7 +523,7 @@ export default function ProductSetPage() {
     setSettings((prev) => ({ ...prev, visualDirectorScript: "", visualDirectorPlan: undefined }));
     setModuleOverrides([]);
     resetOutput();
-    toast.info(`正在上传 ${filesToUpload.length} 张商品图...`);
+    toast.info(`正在上传 ${filesToUpload.length} 张商品图…`);
     try {
       const results = await Promise.allSettled(filesToUpload.map((file) => uploadImage(file)));
       const next: ProductImage[] = [];
@@ -579,7 +579,7 @@ export default function ProductSetPage() {
     setIsAnalyzing(true);
     setAnalysisSource("running");
     setAnalysisMessage("");
-    if (!options.silent) toast.info(productInfo.trim() ? "正在优化商品信息和生成规划..." : "正在根据商品图帮你写商品信息...");
+    if (!options.silent) toast.info(productInfo.trim() ? "正在优化商品信息和生成规划…" : "正在根据商品图帮你写商品信息…");
     try {
       const res = await fetch("/api/product-set/analyze", {
         method: "POST",

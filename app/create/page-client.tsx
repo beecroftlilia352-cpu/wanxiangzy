@@ -1277,7 +1277,7 @@ export default function CreatePage() {
     }
 
     if (validItems.length > 0) {
-      toast.info(`正在上传 ${validItems.length} 张图片到图床...`);
+      toast.info(`正在上传 ${validItems.length} 张图片到图床…`);
       const uploadResults = await Promise.allSettled(validItems.map((item) => uploadImage(item.file)));
       const uploadedItems: ClothingItemState[] = [];
 
@@ -1363,7 +1363,7 @@ export default function CreatePage() {
     if (!validFiles.length) return;
 
     setIsUploadingGarmentDetails(true);
-    toast.info(`正在上传 ${validFiles.length} 张服装细节图...`);
+    toast.info(`正在上传 ${validFiles.length} 张服装细节图…`);
     try {
       const results = await Promise.allSettled(validFiles.map((file) => uploadImage(file)));
       const uploadedUrls: string[] = [];
@@ -1420,7 +1420,7 @@ export default function CreatePage() {
     store.setSelectedModel(null);
     setCustomModelPreview(null);
     setPromptOverride(null);
-    toast.info("正在上传模特图...");
+    toast.info("正在上传模特图…");
     try {
       if (customModelUploadSeqRef.current !== uploadSeq) return;
       setCustomModelPreview(createLocalImagePreview(file));
@@ -1496,7 +1496,7 @@ export default function CreatePage() {
         status: "uploading" as const,
       })),
     ]);
-    toast.info(`正在上传 ${uploadItems.length} 张参考图，系统会分批处理以提高成功率...`);
+    toast.info(`正在上传 ${uploadItems.length} 张参考图，系统会分批处理以提高成功率…`);
 
     const results = await mapWithConcurrency(
       uploadItems,
@@ -2199,7 +2199,7 @@ export default function CreatePage() {
       }
 
       store.updateProgress(15);
-      toast.info(options.toastMessage || "正在提交生成任务...");
+      toast.info(options.toastMessage || "正在提交生成任务…");
 
       // ---- Step 2: 调用生成 API ----
       const res = await fetch("/api/tryon", {
@@ -2341,7 +2341,7 @@ export default function CreatePage() {
       referenceAnalysesOverride: referenceAnalysis ? [referenceAnalysis] : [],
       expectedCountOverride: 1,
       retryResultIndex: index,
-      toastMessage: `正在补位重试第 ${index + 1} 张，失败图已退款，完成后会回填到当前结果中...`,
+      toastMessage: `正在补位重试第 ${index + 1} 张，失败图已退款，完成后会回填到当前结果中…`,
     });
   };
   const tryonPreviewReferences = useMemo(() => {
@@ -2859,7 +2859,7 @@ export default function CreatePage() {
                     supportBadge={`最多 ${MAX_TRYON_REFERENCE_IMAGES} 张`}
                     onUploadClick={() => customRefInputRef.current?.click()}
                     uploadLabel="从本地上传"
-                    loadingLabel="上传参考图..."
+                    loadingLabel="上传参考图…"
                     footnote="拖拽图片到此区域也可以上传；参考图会作为人物姿势、场景、构图和光影来源。"
                     examples={{
                       label: "试一试",
@@ -3321,7 +3321,7 @@ export default function CreatePage() {
               badge="可选"
               value={customStyle}
               onChange={(e) => { setCustomStyle(e.target.value); setPromptOverride(null); store.setPromptUsed(""); }}
-              placeholder="可选：补充不改变主风格的细节要求，如面料、肤色、光线、商品细节..."
+              placeholder="可选：补充不改变主风格的细节要求，如面料、肤色、光线、商品细节…"
               aria-label="补充要求"
               rows={4}
               action={(
@@ -3362,7 +3362,7 @@ export default function CreatePage() {
             costLabel={authIsAnonymous ? "登录后查看灵点" : `消耗 ${totalCost} · 余额 ${credits ?? "—"}`}
             disabled={runDisabled}
             disabledReason={runDisabledReason}
-            primaryLabel={authIsAnonymous ? "登录后生成" : isSubmitting ? "提交中..." : `生成 ${expectedOutputCount} 张`}
+            primaryLabel={authIsAnonymous ? "登录后生成" : isSubmitting ? "提交中…" : `生成 ${expectedOutputCount} 张`}
             isLoading={isSubmitting}
             onPrimaryAction={() => handleGenerate()}
           />
@@ -3456,7 +3456,7 @@ export default function CreatePage() {
                 onRetry={() => { store.setError(null); handleGenerate(); }}
                 isGenerating={store.isGenerating}
                 retryDisabled={retryDisabled}
-                retryLabel={applyingTaskId ? "正在套用..." : "重新生成"}
+                retryLabel={applyingTaskId ? "正在套用…" : "重新生成"}
                 notice={FAILED_RETRY_NOTICE}
               />
             ) : null}

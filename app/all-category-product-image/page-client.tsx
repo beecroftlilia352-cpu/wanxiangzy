@@ -134,14 +134,14 @@ const MODELS: Array<{ value: LingyaModel; label: string; badge?: string }> = [
 
 const MAIN_ASPECTS: AspectRatio[] = ["auto", "1:1", "3:4", "4:3"];
 const DETAILS_ASPECTS: AspectRatio[] = ["auto", "3:4", "4:5", "4:3", "1:1"];
-const ANALYZE_PROGRESS_MESSAGES = ["正在识别商品主体...", "正在分析材质与卖点...", "正在生成视觉规划..."];
+const ANALYZE_PROGRESS_MESSAGES = ["正在识别商品主体…", "正在分析材质与卖点…", "正在生成视觉规划…"];
 const GENERATE_PROGRESS_MESSAGES = [
-  "正在模拟物理级光影分布...",
-  "正在深度解析设计特征...",
-  "正在构建创意构图与排版...",
-  "正在进行高保真像素渲染...",
-  "正在优化图像纹理与细节...",
-  "即将完成，正在进行最后润色...",
+  "正在模拟物理级光影分布…",
+  "正在深度解析设计特征…",
+  "正在构建创意构图与排版…",
+  "正在进行高保真像素渲染…",
+  "正在优化图像纹理与细节…",
+  "即将完成，正在进行最后润色…",
 ];
 
 const ALL_CATEGORY_PREVIEW_ACTIONS: ImagePreviewAction[] = [

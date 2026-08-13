@@ -536,7 +536,7 @@ export default function PosePage() {
       expectedCountOverride: 1,
       poseStartIndex: index + 1,
       retryResultIndex: index,
-      toastMessage: `正在补位重试姿势 ${index + 1}，失败图已退款，完成后会回填到当前结果中...`,
+      toastMessage: `正在补位重试姿势 ${index + 1}，失败图已退款，完成后会回填到当前结果中…`,
     });
   }
   const previewSession = useMemo(
@@ -1132,7 +1132,7 @@ export default function PosePage() {
       toast.error(`图片不能超过 ${MAX_FILE_SIZE_MB}MB`);
       return;
     }
-    toast.info("正在上传主图...");
+    toast.info("正在上传主图…");
     setIsUploading(true);
     try {
       const result = await uploadImage(file);
@@ -1171,7 +1171,7 @@ export default function PosePage() {
     if (!validFiles.length) return;
 
     setIsUploadingPoseReferences(true);
-    toast.info(`正在上传 ${validFiles.length} 张姿势参考图...`);
+    toast.info(`正在上传 ${validFiles.length} 张姿势参考图…`);
     try {
       const results = await Promise.allSettled(validFiles.map((file) => uploadImage(file)));
       const uploadedUrls: string[] = [];
@@ -1226,7 +1226,7 @@ export default function PosePage() {
     if (!validFiles.length) return;
 
     setIsUploadingGarmentDetails(true);
-    toast.info(`正在上传 ${validFiles.length} 张背/侧补充图...`);
+    toast.info(`正在上传 ${validFiles.length} 张背/侧补充图…`);
     try {
       const results = await Promise.allSettled(validFiles.map((file) => uploadImage(file)));
       const uploadedUrls: string[] = [];
@@ -2459,7 +2459,7 @@ export default function PosePage() {
             value={supplementPrompt}
             onChange={(event) => setSupplementPrompt(event.target.value)}
             rows={4}
-            placeholder="可选：例如希望动作更自然、镜头更干净、服装褶皱保持一致、整组构图更统一..."
+            placeholder="可选：例如希望动作更自然、镜头更干净、服装褶皱保持一致、整组构图更统一…"
             description="补充说明会附加到系统提示词中，影响最终生成效果。"
           />
         </div>

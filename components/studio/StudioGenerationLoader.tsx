@@ -22,10 +22,10 @@ export type StudioGenerationLoaderProps = {
 };
 
 function getProgressLabel(progress: number): string {
-  if (progress < 15) return "准备素材关系...";
-  if (progress < 50) return "渲染服装视觉...";
-  if (progress < 90) return "整理生成结果...";
-  return "即将完成...";
+  if (progress < 15) return "准备素材关系…";
+  if (progress < 50) return "渲染服装视觉…";
+  if (progress < 90) return "整理生成结果…";
+  return "即将完成…";
 }
 
 export function StudioGenerationLoader({

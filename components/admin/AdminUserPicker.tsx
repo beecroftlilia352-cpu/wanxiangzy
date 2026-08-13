@@ -71,7 +71,7 @@ export function AdminUserPicker({ value, onChange, onUserChange, placeholder = "
         options={selectOptions}
         loading={fetching}
         placeholder={placeholder}
-        notFoundContent={fetching ? "搜索中..." : "输入至少 2 个字搜索用户"}
+        notFoundContent={fetching ? "搜索中…" : "输入至少 2 个字搜索用户"}
         optionRender={(option) => {
           const user = option.data.user;
           return (

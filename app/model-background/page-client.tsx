@@ -211,7 +211,7 @@ export default function ModelBackgroundPage() {
       genCountOverride: 1,
       expectedCountOverride: 1,
       retryResultIndex: index,
-      toastMessage: `正在补位重试第 ${index + 1} 张，失败图已退款，完成后会回填到当前结果中...`,
+      toastMessage: `正在补位重试第 ${index + 1} 张，失败图已退款，完成后会回填到当前结果中…`,
     });
   }
   const activeSourceIdx = previewIndex !== null
@@ -389,7 +389,7 @@ export default function ModelBackgroundPage() {
       toast.error(`原图最多 ${MAX_MODEL_BACKGROUND_SOURCE_IMAGES} 张`);
       return;
     }
-    toast.info(`正在上传${label}...`);
+    toast.info(`正在上传${label}…`);
     setUploadingTarget(target);
     try {
       const remaining = Math.max(MAX_MODEL_BACKGROUND_SOURCE_IMAGES - sourceUrls.length, 0);
@@ -926,7 +926,7 @@ export default function ModelBackgroundPage() {
                 </button>
               ) : (
                 <div className="space-y-3">
-                <StudioPromptTextarea value={backgroundText} onChange={(e) => { setBackgroundText(e.target.value); setPromptOverride(null); }} rows={4} className="studio-prompt-textarea-compact" placeholder="描述你想要的背景..." />
+                <StudioPromptTextarea value={backgroundText} onChange={(e) => { setBackgroundText(e.target.value); setPromptOverride(null); }} rows={4} className="studio-prompt-textarea-compact" placeholder="描述你想要的背景…" />
                   <div className="flex flex-wrap gap-2">
                     {BACKGROUND_TEXT_PRESETS.map((preset) => (
                       <button key={preset} type="button" onClick={() => { setBackgroundText(preset); setPromptOverride(null); }} className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] text-slate-600 hover:text-purple-600">

@@ -1327,5 +1327,5 @@ function inferFreeTextProductName(text: string) {
     .replace(/^(商品|产品|品名|名称)\s*[:：]\s*/i, "")
     .split(/[，。；;,.]/)[0]
     .trim();
-  return cleaned.length > 28 ? `${cleaned.slice(0, 28)}...` : cleaned;
+  return cleaned.length > 28 ? `${cleaned.slice(0, 28)}…` : cleaned;
 }

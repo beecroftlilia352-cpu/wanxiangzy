@@ -186,7 +186,7 @@ export default function ModelPage() {
       genCountOverride: 1,
       expectedCountOverride: 1,
       retryResultIndex: index,
-      toastMessage: `正在补位重试第 ${index + 1} 张，失败图已退款，完成后会回填到当前结果中...`,
+      toastMessage: `正在补位重试第 ${index + 1} 张，失败图已退款，完成后会回填到当前结果中…`,
     });
   }
   const previewSession = useMemo(
@@ -393,7 +393,7 @@ export default function ModelPage() {
     if (!accepted.length) return;
 
     setIsUploadingReference(true);
-    toast.info(`正在上传 ${accepted.length} 张参考图...`);
+    toast.info(`正在上传 ${accepted.length} 张参考图…`);
     try {
       // Upload in parallel — each file's network round-trip runs
       // concurrently, cutting wall-clock time from N*RTT to ~RTT for
@@ -455,7 +455,7 @@ export default function ModelPage() {
     }
     options.clearSelection();
 
-    toast.info(`正在上传${options.label}参考图...`);
+    toast.info(`正在上传${options.label}参考图…`);
     try {
       const result = await uploadImage(file);
       options.setUrl(result.url);
@@ -1067,7 +1067,7 @@ export default function ModelPage() {
               badge="可选"
               value={userExtraPrompt}
               onChange={(event) => setUserExtraPrompt(event.target.value)}
-              placeholder="可选：例如希望模特表情更自然、背景偏暖色调、妆容淡雅..."
+              placeholder="可选：例如希望模特表情更自然、背景偏暖色调、妆容淡雅…"
               rows={4}
               description="补充说明会附加到系统提示词中，影响最终生成效果。"
             />
@@ -1088,7 +1088,7 @@ export default function ModelPage() {
           costLabel={authIsAnonymous ? "登录后查看灵点" : `消耗 ${totalCost} · 余额 ${credits ?? "-"}`}
           disabled={isGenerating || Boolean(runDisabledReason)}
           disabledReason={runDisabledReason}
-          primaryLabel={authIsAnonymous ? "登录后生成" : isGenerating ? "生成中..." : `生成 ${genCount} 张`}
+          primaryLabel={authIsAnonymous ? "登录后生成" : isGenerating ? "生成中…" : `生成 ${genCount} 张`}
           isLoading={isGenerating}
           onPrimaryAction={() => generate()}
         />

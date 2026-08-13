@@ -325,7 +325,7 @@ export default function ImageTranslationPage() {
         return;
       }
       const slice = valid.slice(0, remaining);
-      toast.info(`正在上传 ${slice.length} 张原图...`);
+      toast.info(`正在上传 ${slice.length} 张原图…`);
       setIsUploadingSource(true);
       try {
         const uploads = await Promise.all(slice.map((file) => uploadImage(file)));
@@ -375,7 +375,7 @@ export default function ImageTranslationPage() {
       genCountOverride: 1,
       expectedCountOverride: languages.length || 1,
       retryResultIndex: index,
-      toastMessage: `正在补位重试第 ${index + 1} 张，失败图已退款，完成后会回填到当前结果中...`,
+      toastMessage: `正在补位重试第 ${index + 1} 张，失败图已退款，完成后会回填到当前结果中…`,
     });
   }
 
@@ -972,7 +972,7 @@ export default function ImageTranslationPage() {
         selected={languages}
         onChange={handleLanguageConfirm}
         title="全部语言"
-        description={languageConfigLoading ? "正在加载语言分组..." : "支持 180+ 国家与地区语言，本地化写法保留变音符号、简繁与字符集。"}
+        description={languageConfigLoading ? "正在加载语言分组…" : "支持 180+ 国家与地区语言，本地化写法保留变音符号、简繁与字符集。"}
         maxCount={MAX_IMAGE_TRANSLATION_LANGUAGES}
       />
 

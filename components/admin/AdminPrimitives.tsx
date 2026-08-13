@@ -521,7 +521,7 @@ export function adminToneColor(tone: "neutral" | "good" | "warning" | "danger"):
 }
 
 /**
- * Public helper mirroring <Tag color="..."> from shadcn-compat — keeps the
+ * Public helper mirroring <Tag color="…"> from shadcn-compat — keeps the
  * tone vocabulary consistent across the admin area.
  */
 export function adminToneClass(tone: Tone): string {

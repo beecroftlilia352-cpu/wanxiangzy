@@ -142,7 +142,7 @@ export default function MaterialEnhancementPage() {
       genCountOverride: 1,
       expectedCountOverride: 1,
       retryResultIndex: index,
-      toastMessage: `正在补位重试第 ${index + 1} 张，失败图已退款，完成后会回填到当前结果中...`,
+      toastMessage: `正在补位重试第 ${index + 1} 张，失败图已退款，完成后会回填到当前结果中…`,
     });
   }
   const previewSession = useMemo(
@@ -243,7 +243,7 @@ export default function MaterialEnhancementPage() {
       setIsUploadingGarment(true);
     }
 
-    toast.info(kind === "source" ? "正在上传原图..." : "正在上传高清服装图...");
+    toast.info(kind === "source" ? "正在上传原图…" : "正在上传高清服装图…");
     try {
       const result = await uploadImage(file);
       if (kind === "source") {
@@ -674,7 +674,7 @@ export default function MaterialEnhancementPage() {
           costLabel={authIsAnonymous ? "登录后查看灵点" : `消耗 ${totalCost} · 余额 ${credits ?? "-"}`}
           disabled={isGenerating || Boolean(runDisabledReason)}
           disabledReason={runDisabledReason}
-          primaryLabel={authIsAnonymous ? "登录后生成" : isGenerating ? "生成中..." : `生成 ${genCount} 张`}
+          primaryLabel={authIsAnonymous ? "登录后生成" : isGenerating ? "生成中…" : `生成 ${genCount} 张`}
           isLoading={isGenerating}
           onPrimaryAction={() => generate()}
         />

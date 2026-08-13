@@ -420,12 +420,12 @@ export function StudioTaskRail({
 
         {expanded ? (
           <div className="space-y-3 border-b border-slate-100 px-3 py-3">
-            <label className="flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-500">
+            <label className="flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-500 transition focus-within:border-violet-300 focus-within:ring-2 focus-within:ring-violet-100 dark:border-white/10 dark:bg-white/5 dark:text-stone-400 dark:focus-within:border-[rgba(91,140,255,0.55)] dark:focus-within:ring-[rgba(91,140,255,0.18)]">
               <Search className="h-3.5 w-3.5" />
               <input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                className="min-w-0 flex-1 bg-transparent font-semibold text-slate-700 outline-none placeholder:text-slate-300"
+                className="min-w-0 flex-1 bg-transparent font-semibold text-slate-700 outline-none placeholder:text-slate-300 dark:text-stone-200 dark:placeholder:text-stone-500"
                 placeholder="搜索任务号"
               />
             </label>

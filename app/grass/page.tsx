@@ -206,7 +206,7 @@ export default function GrassPage() {
       genCountOverride: 1,
       expectedCountOverride: 1,
       retryResultIndex: index,
-      toastMessage: `正在补位重试第 ${index + 1} 张，失败图已退款，完成后会回填到当前结果中...`,
+      toastMessage: `正在补位重试第 ${index + 1} 张，失败图已退款，完成后会回填到当前结果中…`,
     });
   }
   const previewSession = useMemo(
@@ -352,7 +352,7 @@ export default function GrassPage() {
     if (!file) return;
     if (!file.type.startsWith("image/")) return toast.error("请上传图片文件");
     if (file.size > MAX_FILE_SIZE) return toast.error(`图片不能超过 ${MAX_FILE_SIZE_MB}MB`);
-    toast.info("正在上传服装图...");
+    toast.info("正在上传服装图…");
     setIsUploadingGarment(true);
     try {
       const result = await uploadImage(file);
@@ -371,7 +371,7 @@ export default function GrassPage() {
     if (!file) return;
     if (!file.type.startsWith("image/")) return toast.error("请上传图片文件");
     if (file.size > MAX_FILE_SIZE) return toast.error(`图片不能超过 ${MAX_FILE_SIZE_MB}MB`);
-    toast.info("正在上传种草参考图...");
+    toast.info("正在上传种草参考图…");
     setIsUploadingReference(true);
     try {
       const result = await uploadImage(file);
@@ -782,7 +782,7 @@ export default function GrassPage() {
                     ) : (
                       <Upload className="mb-3 h-7 w-7 text-violet-400" />
                     )}
-                    <span className="text-sm font-semibold text-slate-800">{isUploadingReference ? "上传中..." : "上传种草参考图"}</span>
+                    <span className="text-sm font-semibold text-slate-800">{isUploadingReference ? "上传中…" : "上传种草参考图"}</span>
                     <span className="mt-1 text-[11px] text-slate-400">姿势、场景、构图会作为图2进入提示词</span>
                   </button>
                 )}
@@ -907,7 +907,7 @@ export default function GrassPage() {
           costLabel={authIsAnonymous ? "登录后查看灵点" : `消耗 ${cost} · 余额 ${credits ?? "-"}`}
           disabled={isGenerating || Boolean(runDisabledReason)}
           disabledReason={runDisabledReason}
-          primaryLabel={authIsAnonymous ? "登录后生成" : isGenerating ? "生成中..." : `生成 ${genCount} 张`}
+          primaryLabel={authIsAnonymous ? "登录后生成" : isGenerating ? "生成中…" : `生成 ${genCount} 张`}
           isLoading={isGenerating}
           onPrimaryAction={() => generate()}
         />

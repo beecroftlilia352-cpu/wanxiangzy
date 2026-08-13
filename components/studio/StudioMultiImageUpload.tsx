@@ -197,7 +197,7 @@ export function StudioMultiImageUpload({
               {remaining > 0 && (
                 <button type="button" onClick={onUploadClick} disabled={!canAdd} className="studio-upload-tile-primary">
                   {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
-                  {loading ? "上传中..." : uploadLabel}
+                  {loading ? "上传中…" : uploadLabel}
                 </button>
               )}
               {onLibraryClick && (

@@ -314,7 +314,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
           ? setIsUploadingLastFrame
           : setIsUploadingImage;
     setUploading(true);
-    toast.info("正在上传图片...");
+    toast.info("正在上传图片…");
     try {
       const result = await uploadImage(file);
       const nextRatio = getClosestAiVideoAspectRatio(result.width, result.height);
@@ -360,7 +360,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
     setError("");
     setResultUrls([]);
     setIsUploadingVideo(true);
-    toast.info("正在上传参考视频...");
+    toast.info("正在上传参考视频…");
     try {
       const result = await uploadVideo(file);
       setReferenceVideoUrl(result.url);
@@ -1102,7 +1102,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
           costLabel={authIsAnonymous ? "登录后查看灵点" : `消耗 ${cost} · 余额 ${credits ?? "-"}`}
           disabled={isSubmitting || Boolean(runDisabledReason)}
           disabledReason={runDisabledReason}
-          primaryLabel={authIsAnonymous ? "登录后生成" : isSubmitting ? "提交中..." : "生成视频"}
+          primaryLabel={authIsAnonymous ? "登录后生成" : isSubmitting ? "提交中…" : "生成视频"}
           isLoading={isSubmitting}
           onPrimaryAction={generate}
         />

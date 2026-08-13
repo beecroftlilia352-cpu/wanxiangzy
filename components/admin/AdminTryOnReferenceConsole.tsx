@@ -211,7 +211,7 @@ export function AdminTryOnReferenceConsole({
   });
 
   async function refresh() {
-    setMessage({ tone: "info", text: "正在刷新配置..." });
+    setMessage({ tone: "info", text: "正在刷新配置…" });
     try {
       const [categoryPayload, scenePayload, versionPayload] = await Promise.all([
         readJson("/api/admin/tryon/categories"),
