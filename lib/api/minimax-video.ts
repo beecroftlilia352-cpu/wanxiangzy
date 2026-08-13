@@ -54,12 +54,16 @@ export async function generateMinimaxMotionControl(
   provider: MiniMaxVideoProviderConfig,
 ): Promise<VideoGenerationResult> {
   const prompt = buildMiniMaxPrompt(buildMotionControlPrompt(input.prompt), input);
+  // new.bi's MiniMax H3 channel only forwards `reference_image` for reference-to-video;
+  // `reference_video` / `reference_video_url` / `reference_videos` are silently dropped by
+  // the gateway, and `video` / `video_url` are forwarded but rejected by the upstream model.
+  // We therefore send the model image as the subject reference and drive motion via the
+  // text prompt. The caller still validates/receives referenceVideoUrl for future gateways.
   const body = buildMiniMaxTaskBody({
     model: resolveMiniMaxModel(provider.model, input.modelMode, input.resolution),
     prompt,
-    image: input.modelImageUrl,
+    referenceImage: input.modelImageUrl,
     duration: toMiniMaxDuration(input.duration),
-    metadata: { reference_video_url: input.referenceVideoUrl },
   });
 
   const completed = await runMiniMaxTask(provider, body, input.onProgress);
@@ -74,9 +78,9 @@ export async function generateMinimaxFirstLastFrame(
   const body = buildMiniMaxTaskBody({
     model: resolveMiniMaxModel(provider.model, input.modelMode, input.resolution),
     prompt,
-    image: input.firstFrameUrl,
+    firstFrameImage: input.firstFrameUrl,
+    lastFrameImage: input.lastFrameUrl,
     duration: toMiniMaxDuration(input.duration),
-    metadata: { image_tail: input.lastFrameUrl },
   });
 
   const completed = await runMiniMaxTask(provider, body, input.onProgress);
@@ -100,8 +104,10 @@ function buildMiniMaxTaskBody(params: {
   model: string;
   prompt: string;
   image?: string;
+  firstFrameImage?: string;
+  lastFrameImage?: string;
+  referenceImage?: string;
   duration: number;
-  metadata?: Record<string, unknown>;
 }) {
   const body: Record<string, unknown> = {
     model: params.model,
@@ -109,7 +115,9 @@ function buildMiniMaxTaskBody(params: {
     duration: params.duration,
   };
   if (params.image) body.image = params.image;
-  if (params.metadata && Object.keys(params.metadata).length) body.metadata = params.metadata;
+  if (params.firstFrameImage) body.first_frame_image = params.firstFrameImage;
+  if (params.lastFrameImage) body.last_frame_image = params.lastFrameImage;
+  if (params.referenceImage) body.reference_image = params.referenceImage;
   return body;
 }
 

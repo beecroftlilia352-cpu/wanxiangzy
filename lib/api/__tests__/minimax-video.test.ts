@@ -108,13 +108,13 @@ describe("minimax video adapter (new-api gateway)", () => {
     await pending;
 
     const post = (fetchMock.mock.calls[0]?.[1] as RequestInit);
-    const body = JSON.parse(String(post.body)) as { model: string; image: string; metadata: Record<string, unknown> };
+    const body = JSON.parse(String(post.body)) as { model: string; reference_image: string };
     expect(body.model).toBe("minimax-h3-768p");
-    expect(body.image).toBe("https://cdn.example.com/model.png");
-    expect(body.metadata.reference_video_url).toBe("https://cdn.example.com/reference.mp4");
+    expect(body.reference_image).toBe("https://cdn.example.com/model.png");
+    expect(body).not.toHaveProperty("metadata");
   });
 
-  it("passes the last frame through metadata.image_tail", async () => {
+  it("passes the first and last frames as top-level fields", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const method = (init?.method || "GET").toUpperCase();
       if (method === "POST") {
@@ -140,9 +140,11 @@ describe("minimax video adapter (new-api gateway)", () => {
     await pending;
 
     const post = (fetchMock.mock.calls[0]?.[1] as RequestInit);
-    const body = JSON.parse(String(post.body)) as { model: string; image: string; metadata: Record<string, unknown>; duration: number };
-    expect(body.image).toBe("https://cdn.example.com/first.png");
-    expect(body.metadata.image_tail).toBe("https://cdn.example.com/last.png");
+    const body = JSON.parse(String(post.body)) as { model: string; first_frame_image: string; last_frame_image: string; duration: number };
+    expect(body.first_frame_image).toBe("https://cdn.example.com/first.png");
+    expect(body.last_frame_image).toBe("https://cdn.example.com/last.png");
+    expect(body).not.toHaveProperty("image");
+    expect(body).not.toHaveProperty("metadata");
     expect(body.duration).toBe(5);
   });
 });
