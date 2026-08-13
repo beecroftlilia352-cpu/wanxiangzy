@@ -90,9 +90,9 @@ async function main() {
       video: {
         enabled: true,
         provider: "minimax",
-        baseUrl: "https://api.minimaxi.com",
+        baseUrl: "https://api.new.bi",
         apiKey: encryptProviderSecret(minimaxVideoKey),
-        upstreamModel: "MiniMax-H3",
+        upstreamModel: "minimax-h3",
         responseType: "minimax-video",
       },
     },

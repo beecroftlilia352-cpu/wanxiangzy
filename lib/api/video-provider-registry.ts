@@ -14,10 +14,10 @@ export type VideoProviderOverride = {
   responseType: VideoProviderResponseType;
 };
 
-export const DEFAULT_MINIMAX_VIDEO_MODEL = "MiniMax-H3";
+export const DEFAULT_MINIMAX_VIDEO_MODEL = "minimax-h3";
 export const DEFAULT_HAPPYHORSE_VIDEO_MODEL = "happyhorse-1.0-i2v";
 
-export const DEFAULT_MINIMAX_VIDEO_BASE_URL = "https://api.minimaxi.com";
+export const DEFAULT_MINIMAX_VIDEO_BASE_URL = "https://api.new.bi";
 export const DEFAULT_HAPPYHORSE_VIDEO_BASE_URL = "https://yunwu.ai";
 
 export const VIDEO_RESPONSE_TYPES: ReadonlyArray<VideoProviderResponseType> = [

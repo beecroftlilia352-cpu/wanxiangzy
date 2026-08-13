@@ -33,7 +33,7 @@ const PROVIDER_OPTIONS = [
 ] as const;
 
 const PROVIDER_DEFAULTS: Record<VideoProviderName, { baseUrl: string; model: string }> = {
-  minimax: { baseUrl: "https://api.minimaxi.com", model: "MiniMax-H3" },
+  minimax: { baseUrl: "https://api.new.bi", model: "minimax-h3" },
   happyhorse: { baseUrl: "https://yunwu.ai", model: "happyhorse-1.0-i2v" },
 };
 
@@ -165,7 +165,7 @@ export function AdminVideoProviderConfigForm() {
           <input
             value={entry.baseUrl}
             onChange={(event) => update({ baseUrl: event.target.value })}
-            placeholder="https://api.minimaxi.com"
+            placeholder="https://api.new.bi"
             className="h-9 w-full rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-2 font-mono text-xs font-semibold text-[var(--admin-fg)]"
           />
         </label>
@@ -175,7 +175,7 @@ export function AdminVideoProviderConfigForm() {
           <input
             value={entry.upstreamModel}
             onChange={(event) => update({ upstreamModel: event.target.value })}
-            placeholder="MiniMax-H3"
+            placeholder="minimax-h3"
             className="h-9 w-full rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-2 font-mono text-xs font-semibold text-[var(--admin-fg)]"
           />
         </label>

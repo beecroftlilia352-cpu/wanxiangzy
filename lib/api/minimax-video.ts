@@ -17,8 +17,12 @@ import type {
   VideoTaskProgress,
 } from "@/lib/api/happyhorse-video";
 
-const MINIMAX_SUBMIT_PATH = "/v2/video_generation";
-const MINIMAX_QUERY_PATH = "/v2/query/video_generation";
+// MiniMax H3 delivered through the new-api gateway (e.g. https://api.new.bi).
+// Endpoints follow the NewAPI "openai-video" convention:
+//   POST /v1/video/generations
+//   GET  /v1/video/generations/{task_id}
+const MINIMAX_SUBMIT_PATH = "/v1/video/generations";
+const MINIMAX_QUERY_PATH = "/v1/video/generations";
 const VIDEO_SUBMIT_PROGRESS_MAX = 10;
 const VIDEO_POLL_INTERVAL_MS = 10_000;
 const VIDEO_POLL_TIMEOUT_MS = 20 * 60 * 1000;
@@ -29,46 +33,20 @@ export type MiniMaxVideoProviderConfig = {
   model: string;
 };
 
-type MiniMaxContentItem =
-  | { type: "text"; text: string }
-  | { type: "image_url"; image_url: { url: string }; role: "first_frame" | "last_frame" | "reference_image" }
-  | { type: "video_url"; video_url: { url: string }; role: "reference_video" }
-  | { type: "audio_url"; audio_url: { url: string }; role: "reference_audio" };
-
-type MiniMaxTask = {
-  id?: string;
-  status?: string;
-  content?: { url?: string } | null;
-  error?: unknown;
-};
-
 export async function generateMinimaxImageToVideo(
   input: HappyHorseImageToVideoInput,
   provider: MiniMaxVideoProviderConfig,
 ): Promise<VideoGenerationResult> {
   const prompt = buildMiniMaxPrompt(buildImageToVideoPrompt(input.prompt, input.aspectRatio), input);
-  const body = buildMiniMaxTaskBody(provider.model, {
-    content: [
-      { type: "text", text: prompt },
-      { type: "image_url", image_url: { url: input.imageUrl }, role: "first_frame" },
-      ...buildMiniMaxAudioContent(input),
-    ],
+  const body = buildMiniMaxTaskBody({
+    model: resolveMiniMaxModel(provider.model, input.modelMode, input.resolution),
+    prompt,
+    image: input.imageUrl,
     duration: toMiniMaxDuration(input.duration),
-    resolution: toMiniMaxResolution(input.modelMode, input.resolution),
   });
 
   const completed = await runMiniMaxTask(provider, body, input.onProgress);
-
-  return {
-    url: completed.urls[0],
-    urls: completed.urls,
-    taskId: completed.taskId,
-    requestId: completed.requestId,
-    providerStatus: completed.providerStatus,
-    prompt,
-    compiledPrompt: JSON.stringify(body),
-    providerDetails: completed.providerDetails,
-  };
+  return toVideoResult(completed, prompt, body);
 }
 
 export async function generateMinimaxMotionControl(
@@ -76,29 +54,16 @@ export async function generateMinimaxMotionControl(
   provider: MiniMaxVideoProviderConfig,
 ): Promise<VideoGenerationResult> {
   const prompt = buildMiniMaxPrompt(buildMotionControlPrompt(input.prompt), input);
-  const body = buildMiniMaxTaskBody(provider.model, {
-    content: [
-      { type: "text", text: prompt },
-      { type: "video_url", video_url: { url: input.referenceVideoUrl }, role: "reference_video" },
-      { type: "image_url", image_url: { url: input.modelImageUrl }, role: "reference_image" },
-      ...buildMiniMaxAudioContent(input),
-    ],
+  const body = buildMiniMaxTaskBody({
+    model: resolveMiniMaxModel(provider.model, input.modelMode, input.resolution),
+    prompt,
+    image: input.modelImageUrl,
     duration: toMiniMaxDuration(input.duration),
-    resolution: toMiniMaxResolution(input.modelMode, input.resolution),
+    metadata: { reference_video_url: input.referenceVideoUrl },
   });
 
   const completed = await runMiniMaxTask(provider, body, input.onProgress);
-
-  return {
-    url: completed.urls[0],
-    urls: completed.urls,
-    taskId: completed.taskId,
-    requestId: completed.requestId,
-    providerStatus: completed.providerStatus,
-    prompt,
-    compiledPrompt: JSON.stringify(body),
-    providerDetails: completed.providerDetails,
-  };
+  return toVideoResult(completed, prompt, body);
 }
 
 export async function generateMinimaxFirstLastFrame(
@@ -106,19 +71,19 @@ export async function generateMinimaxFirstLastFrame(
   provider: MiniMaxVideoProviderConfig,
 ): Promise<VideoGenerationResult> {
   const prompt = buildMiniMaxPrompt(buildFirstLastFramePrompt(input.prompt, input.aspectRatio), input);
-  const body = buildMiniMaxTaskBody(provider.model, {
-    content: [
-      { type: "text", text: prompt },
-      { type: "image_url", image_url: { url: input.firstFrameUrl }, role: "first_frame" },
-      { type: "image_url", image_url: { url: input.lastFrameUrl }, role: "last_frame" },
-      ...buildMiniMaxAudioContent(input),
-    ],
+  const body = buildMiniMaxTaskBody({
+    model: resolveMiniMaxModel(provider.model, input.modelMode, input.resolution),
+    prompt,
+    image: input.firstFrameUrl,
     duration: toMiniMaxDuration(input.duration),
-    resolution: toMiniMaxResolution(input.modelMode, input.resolution),
+    metadata: { image_tail: input.lastFrameUrl },
   });
 
   const completed = await runMiniMaxTask(provider, body, input.onProgress);
+  return toVideoResult(completed, prompt, body);
+}
 
+function toVideoResult(completed: MiniMaxPollState, prompt: string, body: Record<string, unknown>): VideoGenerationResult {
   return {
     url: completed.urls[0],
     urls: completed.urls,
@@ -131,22 +96,21 @@ export async function generateMinimaxFirstLastFrame(
   };
 }
 
-function buildMiniMaxTaskBody(model: string, params: { content: MiniMaxContentItem[]; duration: number; resolution: string }) {
+function buildMiniMaxTaskBody(params: {
+  model: string;
+  prompt: string;
+  image?: string;
+  duration: number;
+  metadata?: Record<string, unknown>;
+}) {
   const body: Record<string, unknown> = {
-    model,
-    content: params.content,
+    model: params.model,
+    prompt: params.prompt,
     duration: params.duration,
-    resolution: params.resolution,
   };
+  if (params.image) body.image = params.image;
+  if (params.metadata && Object.keys(params.metadata).length) body.metadata = params.metadata;
   return body;
-}
-
-function buildMiniMaxAudioContent(input: { audioMode: AiVideoAudioMode; audioUrl?: string | null }): MiniMaxContentItem[] {
-  const audioMode = normalizeAiVideoAudioMode(input.audioMode);
-  if (audioMode === "custom" && input.audioUrl?.trim()) {
-    return [{ type: "audio_url", audio_url: { url: input.audioUrl.trim() }, role: "reference_audio" }];
-  }
-  return [];
 }
 
 function buildMiniMaxPrompt(prompt: string, input: { audioMode: AiVideoAudioMode; audioPrompt?: string | null; generateAudio?: boolean }) {
@@ -203,14 +167,17 @@ function buildAspectRatioPrompt(aspectRatio: AiVideoAspectRatio) {
   return `输出画面必须保持 ${fixed} 比例，主体铺满画面，不添加黑边、白边、留白边框或画中画式缩放。`;
 }
 
-function toMiniMaxResolution(modelMode: AiVideoModelMode, resolution: AiVideoResolution) {
-  if (modelMode === "fast") return "768P";
-  return resolution === "1080p" ? "2K" : "768P";
+function resolveMiniMaxModel(baseModel: string, modelMode: AiVideoModelMode, resolution: AiVideoResolution) {
+  const model = baseModel.trim() || "minimax-h3";
+  if (model === "minimax-h3") {
+    return resolution === "1080p" ? "minimax-h3" : "minimax-h3-768p";
+  }
+  return model;
 }
 
 function toMiniMaxDuration(duration?: AiVideoDuration) {
   const numeric = Math.round(duration ?? AI_VIDEO_DEFAULT_DURATION);
-  return Math.min(15, Math.max(4, Number.isFinite(numeric) ? numeric : AI_VIDEO_DEFAULT_DURATION));
+  return Math.min(15, Math.max(5, Number.isFinite(numeric) ? numeric : AI_VIDEO_DEFAULT_DURATION));
 }
 
 type MiniMaxPollState = {
@@ -237,11 +204,12 @@ async function runMiniMaxTask(
   });
 
   const submitted = await submitJson(`${provider.apiBase}${MINIMAX_SUBMIT_PATH}`, provider.apiKey, body);
-  const taskId = extractMiniMaxTaskId(submitted);
+  const video = extractMiniMaxVideoObject(submitted) || {};
+  const taskId = typeof video.task_id === "string" && video.task_id ? video.task_id : extractMiniMaxTaskId(submitted);
   if (!taskId) throw new Error(`MiniMax 视频接口未返回 task_id，响应字段: ${describeResponseKeys(submitted)}`);
 
   const requestId = extractMiniMaxRequestId(submitted);
-  const providerStatus = "Pending";
+  const providerStatus = typeof video.status === "string" && video.status ? video.status : "queued";
   await onProgress?.({
     taskId,
     requestId,
@@ -288,7 +256,7 @@ async function runMiniMaxTask(
       continue;
     }
 
-    const state = normalizeMiniMaxPollState(json, taskId, requestId, providerStatus);
+    const state = normalizeMiniMaxPollState(json, taskId, requestId);
     lastState = {
       ...state,
       progress: state.status === "completed"
@@ -320,49 +288,68 @@ function normalizeMiniMaxPollState(
   json: unknown,
   fallbackTaskId: string,
   fallbackRequestId: string | undefined,
-  fallbackProviderStatus: string,
 ): MiniMaxPollState {
-  const task = extractMiniMaxTask(json);
-  const status = String(task?.status ?? "").toLowerCase();
-  const succeeded = status === "succeeded" || status === "success";
-  const failed = status === "failed" || status === "cancelled" || status === "canceled";
-  const url = typeof task?.content?.url === "string" ? task.content.url : extractMiniMaxVideoUrl(json);
+  const video = extractMiniMaxVideoObject(json);
+  const outerStatus = extractMiniMaxOuterStatus(json);
+  const status = normalizeMiniMaxStatus(video?.status ?? outerStatus);
+  const urls = extractMiniMaxVideoUrls(video) || extractMiniMaxVideoUrls(json);
 
   return {
-    taskId: task?.id || fallbackTaskId,
+    taskId: typeof video?.task_id === "string" && video.task_id ? video.task_id : fallbackTaskId,
     requestId: extractMiniMaxRequestId(json) || fallbackRequestId,
-    providerStatus: task?.status || fallbackProviderStatus,
-    status: succeeded ? "completed" : failed ? "failed" : "running",
-    progress: succeeded ? 100 : 0,
-    urls: url ? [url] : [],
-    error: failed ? extractMiniMaxErrorMessage(json) : undefined,
-    providerDetails: buildMiniMaxProviderDetails({ latestResponse: json, taskId: task?.id || fallbackTaskId }),
+    providerStatus: (typeof video?.status === "string" && video.status) || outerStatus || "processing",
+    status: status === "completed" ? "completed" : status === "failed" ? "failed" : "running",
+    progress: typeof video?.progress === "number" ? video.progress : 0,
+    urls,
+    error: status === "failed" ? extractMiniMaxErrorMessage(json) : undefined,
+    providerDetails: buildMiniMaxProviderDetails({ latestResponse: json, taskId: fallbackTaskId }),
   };
+}
+
+function normalizeMiniMaxStatus(value: unknown): "completed" | "failed" | "running" {
+  const status = String(value ?? "").toLowerCase();
+  if (["completed", "succeeded", "success", "successful", "done"].includes(status)) return "completed";
+  if (["failed", "fail", "cancelled", "canceled", "error"].includes(status)) return "failed";
+  return "running";
+}
+
+function extractMiniMaxOuterStatus(value: unknown): string {
+  if (!value || typeof value !== "object") return "";
+  if (Array.isArray(value)) return "";
+  const record = value as Record<string, unknown>;
+  const data = record.data;
+  if (data && typeof data === "object" && !Array.isArray(data)) {
+    const outer = data as Record<string, unknown>;
+    if (typeof outer.status === "string") return outer.status;
+    if (typeof outer.progress === "string") return outer.progress;
+  }
+  return "";
+}
+
+function extractMiniMaxVideoObject(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object") return null;
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = extractMiniMaxVideoObject(item);
+      if (found) return found;
+    }
+    return null;
+  }
+  const record = value as Record<string, unknown>;
+  if (record.object === "video") return record;
+  for (const entryValue of Object.values(record)) {
+    const found = extractMiniMaxVideoObject(entryValue);
+    if (found) return found;
+  }
+  return null;
 }
 
 function extractMiniMaxTaskId(value: unknown): string {
   const candidates = findMiniMaxValuesByKey(value, ["task_id", "id"]);
   for (const candidate of candidates) {
     if (typeof candidate === "string" && candidate.trim()) return candidate.trim();
-    if (typeof candidate === "number" && Number.isFinite(candidate)) return String(candidate);
   }
   return "";
-}
-
-function extractMiniMaxTask(value: unknown): MiniMaxTask | null {
-  if (!value || typeof value !== "object") return null;
-  if (Array.isArray(value)) {
-    for (const item of value) {
-      const task = extractMiniMaxTask(item);
-      if (task) return task;
-    }
-    return null;
-  }
-  const record = value as Record<string, unknown>;
-  if (record.task && typeof record.task === "object" && !Array.isArray(record.task)) {
-    return record.task as MiniMaxTask;
-  }
-  return null;
 }
 
 function extractMiniMaxRequestId(value: unknown): string | undefined {
@@ -373,18 +360,35 @@ function extractMiniMaxRequestId(value: unknown): string | undefined {
   return undefined;
 }
 
-function extractMiniMaxVideoUrl(value: unknown): string {
-  const candidates = findMiniMaxValuesByKey(value, ["video_url", "url", "file_url", "download_url"]);
-  for (const candidate of candidates) {
-    if (typeof candidate === "string" && /^https?:\/\//i.test(candidate.trim())) return candidate.trim();
+function extractMiniMaxVideoUrls(value: unknown): string[] {
+  if (!value || typeof value !== "object") return [];
+  const record = value as Record<string, unknown>;
+  const direct = typeof record.video_url === "string" ? record.video_url : "";
+  const output = record.output;
+  const urls = new Set<string>();
+  if (direct && /^https?:\/\//i.test(direct)) urls.add(direct);
+  if (typeof output === "string" && /^https?:\/\//i.test(output)) urls.add(output);
+  if (Array.isArray(output)) {
+    for (const item of output) {
+      if (typeof item === "string" && /^https?:\/\//i.test(item)) urls.add(item);
+    }
   }
-  return "";
+  // Fallback: any http(s) URL that looks like a video file.
+  walkMiniMax(value, (entry, key) => {
+    if (typeof entry !== "string" || !/^https?:\/\//i.test(entry)) return;
+    const keyLooksVideo = /video|result_url|download_url|file_url/i.test(key || "");
+    const valueLooksVideo = /\.(mp4|mov|webm|m4v)(?:$|[?#])/i.test(entry);
+    if (keyLooksVideo || valueLooksVideo) urls.add(entry);
+  });
+  return [...urls];
 }
 
 function extractMiniMaxErrorMessage(value: unknown): string {
-  const candidates = findMiniMaxValuesByKey(value, ["message", "error_message", "msg", "fail_reason"]);
+  const candidates = findMiniMaxValuesByKey(value, ["fail_reason", "error", "error_message", "message", "msg"]);
   for (const candidate of candidates) {
-    if (typeof candidate === "string" && candidate.trim()) return candidate.trim();
+    if (typeof candidate === "string" && candidate.trim() && !/^success$/i.test(candidate.trim())) {
+      return candidate.trim();
+    }
     if (candidate && typeof candidate === "object") {
       const nested = extractMiniMaxErrorMessage(candidate);
       if (nested) return nested;
@@ -426,7 +430,7 @@ function buildMiniMaxProviderDetails(input: {
   taskId?: string;
   requestId?: string;
 }) {
-  const out: Record<string, unknown> = { platform: "minimax" };
+  const out: Record<string, unknown> = { platform: "newapi-minimax" };
   if (input.taskId) out.taskId = input.taskId;
   if (input.requestId) out.requestId = input.requestId;
   if (input.requestBody !== undefined) out.request = input.requestBody;

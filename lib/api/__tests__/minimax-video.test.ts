@@ -16,9 +16,9 @@ function jsonResponse(body: unknown, status = 200) {
 }
 
 const provider = {
-  apiBase: "https://api.minimaxi.com",
+  apiBase: "https://api.new.bi",
   apiKey: "test-minimax-video-key",
-  model: "MiniMax-H3",
+  model: "minimax-h3",
 };
 
 function minimaxInput() {
@@ -34,7 +34,7 @@ function minimaxInput() {
   };
 }
 
-describe("minimax video adapter", () => {
+describe("minimax video adapter (new-api gateway)", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     process.env = { ...ORIGINAL_ENV };
@@ -46,7 +46,7 @@ describe("minimax video adapter", () => {
     process.env = { ...ORIGINAL_ENV };
   });
 
-  it("submits image-to-video with first_frame role and polls /v2/query/video_generation", async () => {
+  it("submits image-to-video to /v1/video/generations and polls until completed", async () => {
     const requests: Array<{ method: string; url: string; body?: Record<string, unknown> }> = [];
     let pollCount = 0;
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -56,19 +56,13 @@ describe("minimax video adapter", () => {
       requests.push({ method, url, body: rawBody });
 
       if (method === "POST") {
-        return jsonResponse({ task_id: "424010985738629" });
+        return jsonResponse({ id: "task_1", task_id: "task_1", object: "video", model: "minimax-h3", status: "queued", progress: 0 });
       }
       pollCount += 1;
       if (pollCount === 1) {
-        return jsonResponse({ task: { id: "424010985738629", status: "Processing" } });
+        return jsonResponse({ code: "success", data: { status: "IN_PROGRESS", progress: "40%", data: { data: { data: { object: "video", status: "in_progress", progress: 40, video_url: null } } } } });
       }
-      return jsonResponse({
-        task: {
-          id: "424010985738629",
-          status: "succeeded",
-          content: { url: "https://cdn.example.com/result.mp4" },
-        },
-      });
+      return jsonResponse({ code: "success", data: { status: "SUCCESS", progress: "100%", data: { data: { data: { object: "video", status: "completed", progress: 100, video_url: "https://cdn.example.com/result.mp4" } } } } });
     });
     vi.stubGlobal("fetch", fetchMock);
 
@@ -80,33 +74,21 @@ describe("minimax video adapter", () => {
     const post = requests.find((item) => item.method === "POST");
     const gets = requests.filter((item) => item.method === "GET");
 
-    expect(post?.url).toBe("https://api.minimaxi.com/v2/video_generation");
-    expect(post?.body).toMatchObject({
-      model: "MiniMax-H3",
-      duration: 5,
-      resolution: "2K",
-    });
-    expect(post?.body?.content).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ type: "image_url", role: "first_frame" }),
-      ])
-    );
-    expect(gets[0]?.url).toBe("https://api.minimaxi.com/v2/query/video_generation/424010985738629");
-    expect(result).toMatchObject({
-      taskId: "424010985738629",
-      url: "https://cdn.example.com/result.mp4",
-      providerStatus: "succeeded",
-    });
+    expect(post?.url).toBe("https://api.new.bi/v1/video/generations");
+    expect(post?.body).toMatchObject({ model: "minimax-h3", duration: 5 });
+    expect(post?.body?.image).toBe("https://cdn.example.com/model.png");
+    expect(gets[0]?.url).toBe("https://api.new.bi/v1/video/generations/task_1");
+    expect(result).toMatchObject({ taskId: "task_1", url: "https://cdn.example.com/result.mp4", providerStatus: "completed" });
     expect(onProgress).toHaveBeenCalledWith(expect.objectContaining({ status: "running" }));
   });
 
-  it("maps motion control to reference_video + reference_image roles", async () => {
+  it("selects the 768p model for 720p resolution", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const method = (init?.method || "GET").toUpperCase();
       if (method === "POST") {
-        return jsonResponse({ task_id: "motion-1" });
+        return jsonResponse({ id: "task_2", task_id: "task_2", object: "video", model: "minimax-h3-768p", status: "queued" });
       }
-      return jsonResponse({ task: { id: "motion-1", status: "succeeded", content: { url: "https://cdn.example.com/motion.mp4" } } });
+      return jsonResponse({ code: "success", data: { status: "SUCCESS", progress: "100%", data: { data: { data: { object: "video", status: "completed", progress: 100, video_url: "https://cdn.example.com/r.mp4" } } } } });
     });
     vi.stubGlobal("fetch", fetchMock);
 
@@ -126,23 +108,19 @@ describe("minimax video adapter", () => {
     await pending;
 
     const post = (fetchMock.mock.calls[0]?.[1] as RequestInit);
-    const body = JSON.parse(String(post.body)) as { content: Array<{ type: string; role?: string }>; duration: number; resolution: string };
-    expect(body.content).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ type: "video_url", role: "reference_video" }),
-        expect.objectContaining({ type: "image_url", role: "reference_image" }),
-      ])
-    );
-    expect(body.resolution).toBe("768P");
+    const body = JSON.parse(String(post.body)) as { model: string; image: string; metadata: Record<string, unknown> };
+    expect(body.model).toBe("minimax-h3-768p");
+    expect(body.image).toBe("https://cdn.example.com/model.png");
+    expect(body.metadata.reference_video_url).toBe("https://cdn.example.com/reference.mp4");
   });
 
-  it("maps first-last-frame to first_frame + last_frame roles", async () => {
+  it("passes the last frame through metadata.image_tail", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const method = (init?.method || "GET").toUpperCase();
       if (method === "POST") {
-        return jsonResponse({ task_id: "frame-1" });
+        return jsonResponse({ id: "task_3", task_id: "task_3", object: "video", model: "minimax-h3", status: "queued" });
       }
-      return jsonResponse({ task: { id: "frame-1", status: "succeeded", content: { url: "https://cdn.example.com/frame.mp4" } } });
+      return jsonResponse({ code: "success", data: { status: "SUCCESS", progress: "100%", data: { data: { data: { object: "video", status: "completed", progress: 100, video_url: "https://cdn.example.com/frame.mp4" } } } } });
     });
     vi.stubGlobal("fetch", fetchMock);
 
@@ -162,14 +140,9 @@ describe("minimax video adapter", () => {
     await pending;
 
     const post = (fetchMock.mock.calls[0]?.[1] as RequestInit);
-    const body = JSON.parse(String(post.body)) as { content: Array<{ type: string; role?: string }>; duration: number; resolution: string };
-    expect(body.content).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ type: "image_url", role: "first_frame" }),
-        expect.objectContaining({ type: "image_url", role: "last_frame" }),
-      ])
-    );
-    expect(body.resolution).toBe("768P");
-    expect(body.duration).toBe(4);
+    const body = JSON.parse(String(post.body)) as { model: string; image: string; metadata: Record<string, unknown>; duration: number };
+    expect(body.image).toBe("https://cdn.example.com/first.png");
+    expect(body.metadata.image_tail).toBe("https://cdn.example.com/last.png");
+    expect(body.duration).toBe(5);
   });
 });

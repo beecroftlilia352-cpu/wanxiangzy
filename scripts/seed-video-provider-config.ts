@@ -4,8 +4,8 @@ import { encryptProviderSecret } from "../lib/api/model-provider-secrets";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const minimaxVideoKey = process.env.MINIMAX_VIDEO_API_KEY ?? "";
-const baseUrl = process.env.MINIMAX_VIDEO_BASE_URL || "https://api.minimaxi.com";
-const model = process.env.MINIMAX_VIDEO_MODEL || "MiniMax-H3";
+const baseUrl = process.env.MINIMAX_VIDEO_BASE_URL || "https://api.new.bi";
+const model = process.env.MINIMAX_VIDEO_MODEL || "minimax-h3";
 
 if (!supabaseUrl || !serviceRoleKey) {
   throw new Error("NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required");
