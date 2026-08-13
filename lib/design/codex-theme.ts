@@ -4,7 +4,7 @@ export const codexTheme = {
     subtitle: "AI 服装视觉生产工作台",
     tagline: "面向服装品牌和电商团队的 AI 服装视觉生产工作台。",
     description: "上传服装、模特和参考图，生成上身图、商品套图、种草封面和场景版本。",
-    logo: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/gemini-icon.png",
+    logo: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/gemini-icon.png",
   },
   colors: {
     ink: "#050505",

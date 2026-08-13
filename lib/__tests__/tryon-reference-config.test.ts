@@ -12,7 +12,7 @@ function scene(overrides: Partial<TryOnReferenceScene>): TryOnReferenceScene {
   return {
     sceneKey: "scene",
     name: "Scene",
-    imageUrl: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/test.jpg",
+    imageUrl: "https://vasthk.oss-cn-hongkong.aliyuncs.com/test.jpg",
     status: "active",
     priority: 0,
     sortOrder: 0,

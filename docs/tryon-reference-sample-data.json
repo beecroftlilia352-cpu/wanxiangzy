@@ -119,11 +119,11 @@
           "configKey": "SCENE",
           "status": "PROD",
           "order": 1,
-          "showImage": "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/reference-scenes/107237-cover.jpg",
+          "showImage": "https://vasthk.oss-cn-hongkong.aliyuncs.com/reference-scenes/107237-cover.jpg",
           "type": ["style scene", "front view", "whole body", "Female", "adult"],
           "tags": ["cafe", "street", "commute"],
           "extInfo": {
-            "showImgs": "[\"https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/reference-scenes/107237-preview-1.jpg\"]"
+            "showImgs": "[\"https://vasthk.oss-cn-hongkong.aliyuncs.com/reference-scenes/107237-preview-1.jpg\"]"
           }
         },
         {
@@ -132,11 +132,11 @@
           "configKey": "SCENE",
           "status": "PROD",
           "order": 2,
-          "showImage": "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/reference-scenes/107238-cover.jpg",
+          "showImage": "https://vasthk.oss-cn-hongkong.aliyuncs.com/reference-scenes/107238-cover.jpg",
           "type": ["style scene", "front view", "whole body", "Female", "adult"],
           "tags": ["studio", "minimal"],
           "extInfo": {
-            "showImgs": "[\"https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/reference-scenes/107238-preview-1.jpg\"]"
+            "showImgs": "[\"https://vasthk.oss-cn-hongkong.aliyuncs.com/reference-scenes/107238-preview-1.jpg\"]"
           }
         }
       ]
@@ -152,14 +152,14 @@
             "parentId": 107237,
             "name": "咖啡馆正面全身",
             "order": 1,
-            "showImage": "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/reference-scenes/107237-child-1.jpg",
+            "showImage": "https://vasthk.oss-cn-hongkong.aliyuncs.com/reference-scenes/107237-child-1.jpg",
             "type": ["style scene", "front view", "whole body", "Female", "adult"],
             "tags": ["cafe", "street", "commute"],
             "extInfo": {
               "clothCategory": ["wrap_skirt", "single_fitted_top"],
               "lens": "front view whole body",
               "posture": "standing natural pose",
-              "showImage": "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/reference-scenes/107237-child-1.jpg"
+              "showImage": "https://vasthk.oss-cn-hongkong.aliyuncs.com/reference-scenes/107237-child-1.jpg"
             }
           },
           {
@@ -167,14 +167,14 @@
             "parentId": 107237,
             "name": "咖啡馆背面全身",
             "order": 2,
-            "showImage": "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/reference-scenes/107237-child-2.jpg",
+            "showImage": "https://vasthk.oss-cn-hongkong.aliyuncs.com/reference-scenes/107237-child-2.jpg",
             "type": ["style scene", "back view", "whole body", "Female", "adult"],
             "tags": ["cafe", "street", "commute"],
             "extInfo": {
               "clothCategory": ["wrap_skirt", "single_fitted_top"],
               "lens": "back view whole body",
               "posture": "standing natural pose",
-              "showImage": "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/reference-scenes/107237-child-2.jpg"
+              "showImage": "https://vasthk.oss-cn-hongkong.aliyuncs.com/reference-scenes/107237-child-2.jpg"
             }
           }
         ]
@@ -186,14 +186,14 @@
             "parentId": 107238,
             "name": "棚拍正面全身",
             "order": 1,
-            "showImage": "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/reference-scenes/107238-child-1.jpg",
+            "showImage": "https://vasthk.oss-cn-hongkong.aliyuncs.com/reference-scenes/107238-child-1.jpg",
             "type": ["style scene", "front view", "whole body", "Female", "adult"],
             "tags": ["studio", "minimal"],
             "extInfo": {
               "clothCategory": ["wrap_dress", "aline_dress", "single_fitted_top"],
               "lens": "front view whole body",
               "posture": "standing clean pose",
-              "showImage": "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/reference-scenes/107238-child-1.jpg"
+              "showImage": "https://vasthk.oss-cn-hongkong.aliyuncs.com/reference-scenes/107238-child-1.jpg"
             }
           }
         ]
@@ -207,7 +207,7 @@
   },
   "analysisExample": {
     "clothing_urls": [
-      "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/uploads/sample-striped-top.png"
+      "https://vasthk.oss-cn-hongkong.aliyuncs.com/uploads/sample-striped-top.png"
     ],
     "clothing_mode": "single",
     "garment_audience": "women",
@@ -244,7 +244,7 @@
     "scene_key": "scene_107237_cafe_wrap_skirt",
     "external_scene_id": "107237",
     "name": "熟女-裹身裙咖啡馆街拍",
-    "image_url": "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/reference-scenes/107237-cover.jpg",
+    "image_url": "https://vasthk.oss-cn-hongkong.aliyuncs.com/reference-scenes/107237-cover.jpg",
     "status": "draft",
     "priority": 10,
     "sort_order": 1,
@@ -264,7 +264,7 @@
         {
           "id": "20723701",
           "name": "咖啡馆正面全身",
-          "showImage": "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/reference-scenes/107237-child-1.jpg"
+          "showImage": "https://vasthk.oss-cn-hongkong.aliyuncs.com/reference-scenes/107237-child-1.jpg"
         }
       ]
     }

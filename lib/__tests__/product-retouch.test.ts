@@ -47,7 +47,7 @@ describe("product retouch contract", () => {
       filename: example.filename,
     }));
     expect(examples.every((example) => example.url.startsWith(
-      "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/product-retouch-examples/",
+      "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/product-retouch-examples/",
     ))).toBe(true);
     expect(normalizeProductRetouchSources(examples)).toHaveLength(
       PRODUCT_RETOUCH_EXAMPLE_IMAGES.length,

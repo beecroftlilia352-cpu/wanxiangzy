@@ -37,32 +37,32 @@ export type TryOnUploadRule = {
 };
 
 const BAD_EXAMPLES = [
-  { url: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/i.ibb.co/My7fD9sD/tryon-rule-bad-occluded-04c6624a07.webp", title: "商品被遮挡" },
-  { url: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/i.ibb.co/sJzF3yxY/tryon-rule-bad-outfit-baa7169987.webp", title: "套装商品" },
-  { url: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/i.ibb.co/wZK4pJ73/tryon-rule-bad-blurry-6207ec006b.webp", title: "商品不清晰" },
+  { url: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/i.ibb.co/My7fD9sD/tryon-rule-bad-occluded-04c6624a07.webp", title: "商品被遮挡" },
+  { url: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/i.ibb.co/sJzF3yxY/tryon-rule-bad-outfit-baa7169987.webp", title: "套装商品" },
+  { url: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/i.ibb.co/wZK4pJ73/tryon-rule-bad-blurry-6207ec006b.webp", title: "商品不清晰" },
 ];
 
 export const TRYON_UPLOAD_SLOT_EXAMPLES: Record<TryOnUploadExampleSlot, TryOnRuleImage[]> = {
   upper: [
-    { url: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/metac-open.oss-cn-hangzhou.aliyuncs.com/marketing/prod/2.8.4.0/dictionary/image/model_tryon/upper/1-b799382ff9.png", title: "上装示例 1", role: "upper" },
-    { url: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/metac-open.oss-cn-hangzhou.aliyuncs.com/marketing/prod/2.8.4.0/dictionary/image/model_tryon/upper/2-1855a74954.png", title: "上装示例 2", role: "upper" },
-    { url: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/metac-open.oss-cn-hangzhou.aliyuncs.com/marketing/prod/2.8.4.0/dictionary/image/model_tryon/upper/3-e9afee6f76.png", title: "上装示例 3", role: "upper" },
-    { url: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/metac-open.oss-cn-hangzhou.aliyuncs.com/marketing/prod/2.8.4.0/dictionary/image/model_tryon/upper/4-a273a98092.png", title: "上装示例 4", role: "upper" },
-    { url: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/metac-open.oss-cn-hangzhou.aliyuncs.com/marketing/prod/2.8.4.0/dictionary/image/model_tryon/upper/5-336d73e233.png", title: "上装示例 5", role: "upper" },
+    { url: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/metac-open.oss-cn-hangzhou.aliyuncs.com/marketing/prod/2.8.4.0/dictionary/image/model_tryon/upper/1-b799382ff9.png", title: "上装示例 1", role: "upper" },
+    { url: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/metac-open.oss-cn-hangzhou.aliyuncs.com/marketing/prod/2.8.4.0/dictionary/image/model_tryon/upper/2-1855a74954.png", title: "上装示例 2", role: "upper" },
+    { url: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/metac-open.oss-cn-hangzhou.aliyuncs.com/marketing/prod/2.8.4.0/dictionary/image/model_tryon/upper/3-e9afee6f76.png", title: "上装示例 3", role: "upper" },
+    { url: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/metac-open.oss-cn-hangzhou.aliyuncs.com/marketing/prod/2.8.4.0/dictionary/image/model_tryon/upper/4-a273a98092.png", title: "上装示例 4", role: "upper" },
+    { url: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/metac-open.oss-cn-hangzhou.aliyuncs.com/marketing/prod/2.8.4.0/dictionary/image/model_tryon/upper/5-336d73e233.png", title: "上装示例 5", role: "upper" },
   ],
   lower: [
-    { url: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/metac-open.oss-cn-hangzhou.aliyuncs.com/marketing/prod/2.8.4.0/dictionary/image/model_tryon/lower/1-819b002ff2.png", title: "下装示例 1", role: "lower" },
-    { url: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/metac-open.oss-cn-hangzhou.aliyuncs.com/marketing/prod/2.8.4.0/dictionary/image/model_tryon/lower/2-0c4610360c.png", title: "下装示例 2", role: "lower" },
-    { url: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/metac-open.oss-cn-hangzhou.aliyuncs.com/marketing/prod/2.8.4.0/dictionary/image/model_tryon/lower/3-b0ec0885be.png", title: "下装示例 3", role: "lower" },
-    { url: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/metac-open.oss-cn-hangzhou.aliyuncs.com/marketing/prod/2.8.4.0/dictionary/image/model_tryon/lower/4-25a338e383.png", title: "下装示例 4", role: "lower" },
-    { url: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/metac-open.oss-cn-hangzhou.aliyuncs.com/marketing/prod/2.8.4.0/dictionary/image/model_tryon/lower/5-3c8f9d2cc7.png", title: "下装示例 5", role: "lower" },
+    { url: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/metac-open.oss-cn-hangzhou.aliyuncs.com/marketing/prod/2.8.4.0/dictionary/image/model_tryon/lower/1-819b002ff2.png", title: "下装示例 1", role: "lower" },
+    { url: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/metac-open.oss-cn-hangzhou.aliyuncs.com/marketing/prod/2.8.4.0/dictionary/image/model_tryon/lower/2-0c4610360c.png", title: "下装示例 2", role: "lower" },
+    { url: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/metac-open.oss-cn-hangzhou.aliyuncs.com/marketing/prod/2.8.4.0/dictionary/image/model_tryon/lower/3-b0ec0885be.png", title: "下装示例 3", role: "lower" },
+    { url: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/metac-open.oss-cn-hangzhou.aliyuncs.com/marketing/prod/2.8.4.0/dictionary/image/model_tryon/lower/4-25a338e383.png", title: "下装示例 4", role: "lower" },
+    { url: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/metac-open.oss-cn-hangzhou.aliyuncs.com/marketing/prod/2.8.4.0/dictionary/image/model_tryon/lower/5-3c8f9d2cc7.png", title: "下装示例 5", role: "lower" },
   ],
   overall: [
-    { url: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/metac-open.oss-cn-hangzhou.aliyuncs.com/marketing/prod/2.8.4.0/dictionary/image/model_tryon/overall/1-853f46aa99.png", title: "连体示例 1", role: "single" },
-    { url: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/metac-open.oss-cn-hangzhou.aliyuncs.com/marketing/prod/2.8.4.0/dictionary/image/model_tryon/overall/2-183f0bc34e.png", title: "连体示例 2", role: "single" },
-    { url: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/metac-open.oss-cn-hangzhou.aliyuncs.com/marketing/prod/2.8.4.0/dictionary/image/model_tryon/overall/3-20d0c6bace.png", title: "连体示例 3", role: "single" },
-    { url: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/metac-open.oss-cn-hangzhou.aliyuncs.com/marketing/prod/2.8.4.0/dictionary/image/model_tryon/overall/4-de642994ad.png", title: "连体示例 4", role: "single" },
-    { url: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/metac-open.oss-cn-hangzhou.aliyuncs.com/marketing/prod/2.8.4.0/dictionary/image/model_tryon/overall/5-291721e018.png", title: "连体示例 5", role: "single" },
+    { url: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/metac-open.oss-cn-hangzhou.aliyuncs.com/marketing/prod/2.8.4.0/dictionary/image/model_tryon/overall/1-853f46aa99.png", title: "连体示例 1", role: "single" },
+    { url: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/metac-open.oss-cn-hangzhou.aliyuncs.com/marketing/prod/2.8.4.0/dictionary/image/model_tryon/overall/2-183f0bc34e.png", title: "连体示例 2", role: "single" },
+    { url: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/metac-open.oss-cn-hangzhou.aliyuncs.com/marketing/prod/2.8.4.0/dictionary/image/model_tryon/overall/3-20d0c6bace.png", title: "连体示例 3", role: "single" },
+    { url: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/metac-open.oss-cn-hangzhou.aliyuncs.com/marketing/prod/2.8.4.0/dictionary/image/model_tryon/overall/4-de642994ad.png", title: "连体示例 4", role: "single" },
+    { url: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/metac-open.oss-cn-hangzhou.aliyuncs.com/marketing/prod/2.8.4.0/dictionary/image/model_tryon/overall/5-291721e018.png", title: "连体示例 5", role: "single" },
   ],
 };
 

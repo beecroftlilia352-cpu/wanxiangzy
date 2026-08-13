@@ -182,7 +182,7 @@ export const PRODUCT_RETOUCH_CATEGORY_OPTIONS = [
 ] as const;
 
 const PRODUCT_RETOUCH_EXAMPLE_ASSET_BASE_URL =
-  "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/product-retouch-examples";
+  "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/product-retouch-examples";
 
 export const PRODUCT_RETOUCH_EXAMPLE_IMAGES = [
   {

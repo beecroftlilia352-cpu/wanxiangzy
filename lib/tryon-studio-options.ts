@@ -2,7 +2,7 @@ import type { AspectRatio, LingyaModel } from "@/lib/api/lingya";
 import type { TryOnSceneMode } from "@/lib/tryon-scene";
 import type { TryOnAgeGroup, TryOnGarmentAudience } from "@/lib/tryon-prompt";
 
-const SITE_ASSET_BASE = "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original";
+const SITE_ASSET_BASE = "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original";
 
 export const PRESET_MODELS = [
   { id: "m0", name: "自然", image_url: `${SITE_ASSET_BASE}/models/preset-model-soft-wind-20260518.png`, gender: "female" as const },
@@ -28,9 +28,9 @@ export const PRESET_REFERENCES = [
 ];
 
 export const MODELS: { value: LingyaModel; label: string; desc: string; badge?: string; icon: string }[] = [
-  { value: "gpt-image-2", label: "GPT-Image-2", desc: "最高4K", badge: "默认稳图", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/openai.svg" },
-  { value: "nano-banana-2", label: "Nano-Banana-2", desc: "最高4K", badge: "省灵点", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
-  { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "最高4K", badge: "高质感", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
+  { value: "gpt-image-2", label: "GPT-Image-2", desc: "最高4K", badge: "默认稳图", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/openai.svg" },
+  { value: "nano-banana-2", label: "Nano-Banana-2", desc: "最高4K", badge: "省灵点", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
+  { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "最高4K", badge: "高质感", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
 ];
 
 export const GPT_ASPECTS: { value: AspectRatio; label: string }[] = [

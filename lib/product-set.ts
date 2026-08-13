@@ -265,18 +265,18 @@ export const PRODUCT_SET_EXAMPLE_GROUPS = [
     id: "jacket",
     name: "冲锋夹克三视角",
     images: [
-      "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/metac-open.oss-cn-hangzhou.aliyuncs.com/marketing/prod/2.9.6/image/dictionary/product_set_examples/2/1-67e18c0652.jpg",
-      "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/metac-open.oss-cn-hangzhou.aliyuncs.com/marketing/prod/2.9.6/image/dictionary/product_set_examples/2/2-f4ac6c264a.jpg",
-      "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/metac-open.oss-cn-hangzhou.aliyuncs.com/marketing/prod/2.9.6/image/dictionary/product_set_examples/2/3-2a845917da.jpg",
+      "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/metac-open.oss-cn-hangzhou.aliyuncs.com/marketing/prod/2.9.6/image/dictionary/product_set_examples/2/1-67e18c0652.jpg",
+      "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/metac-open.oss-cn-hangzhou.aliyuncs.com/marketing/prod/2.9.6/image/dictionary/product_set_examples/2/2-f4ac6c264a.jpg",
+      "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/metac-open.oss-cn-hangzhou.aliyuncs.com/marketing/prod/2.9.6/image/dictionary/product_set_examples/2/3-2a845917da.jpg",
     ],
   },
   {
     id: "toy",
     name: "玩具多视角",
     images: [
-      "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/metac-open.oss-cn-hangzhou.aliyuncs.com/marketing/prod/2.9.6/image/dictionary/product_set_examples/1/1-38b1911b3f.png",
-      "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/metac-open.oss-cn-hangzhou.aliyuncs.com/marketing/prod/2.9.6/image/dictionary/product_set_examples/1/2-7e069ac990.jpg",
-      "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/metac-open.oss-cn-hangzhou.aliyuncs.com/marketing/prod/2.9.6/image/dictionary/product_set_examples/1/3-c467350f85.jpg",
+      "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/metac-open.oss-cn-hangzhou.aliyuncs.com/marketing/prod/2.9.6/image/dictionary/product_set_examples/1/1-38b1911b3f.png",
+      "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/metac-open.oss-cn-hangzhou.aliyuncs.com/marketing/prod/2.9.6/image/dictionary/product_set_examples/1/2-7e069ac990.jpg",
+      "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/metac-open.oss-cn-hangzhou.aliyuncs.com/marketing/prod/2.9.6/image/dictionary/product_set_examples/1/3-c467350f85.jpg",
     ],
   },
 ] as const;

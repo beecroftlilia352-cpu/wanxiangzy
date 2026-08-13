@@ -57,8 +57,8 @@ TRYON_CLOTHING_ANALYZE_API_KEY=
 TRYON_CLOTHING_ANALYZE_MODEL=gpt-5-nano
 TRYON_CLOTHING_ANALYZE_TIMEOUT_MS=15000
 
-TRYON_REFERENCE_IMAGE_ALLOWED_HOSTS=vastweargen-images.oss-cn-hongkong.aliyuncs.com
-NEXT_PUBLIC_ALIYUN_OSS_IMAGE_HOSTS=vastweargen-images.oss-cn-hongkong.aliyuncs.com
+TRYON_REFERENCE_IMAGE_ALLOWED_HOSTS=vasthk.oss-cn-hongkong.aliyuncs.com
+NEXT_PUBLIC_ALIYUN_OSS_IMAGE_HOSTS=vasthk.oss-cn-hongkong.aliyuncs.com
 ```
 
 说明：
@@ -242,10 +242,10 @@ group by status;
         "configKey": "SCENE",
         "status": "PROD",
         "order": 1,
-        "showImage": "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/reference-scenes/107237-cover.jpg",
+        "showImage": "https://vasthk.oss-cn-hongkong.aliyuncs.com/reference-scenes/107237-cover.jpg",
         "type": ["style scene", "front view", "whole body", "Female", "adult"],
         "extInfo": {
-          "showImgs": "[\"https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/reference-scenes/107237-preview-1.jpg\"]"
+          "showImgs": "[\"https://vasthk.oss-cn-hongkong.aliyuncs.com/reference-scenes/107237-preview-1.jpg\"]"
         }
       }
     ]
@@ -266,13 +266,13 @@ group by status;
           "parentId": 107237,
           "name": "咖啡馆正面全身",
           "order": 1,
-          "showImage": "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/reference-scenes/107237-child-1.jpg",
+          "showImage": "https://vasthk.oss-cn-hongkong.aliyuncs.com/reference-scenes/107237-child-1.jpg",
           "type": ["style scene", "front view", "whole body", "Female", "adult"],
           "extInfo": {
             "clothCategory": ["wrap_skirt", "single_fitted_top"],
             "lens": "front view whole body",
             "posture": "standing natural pose",
-            "showImage": "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/reference-scenes/107237-child-1.jpg"
+            "showImage": "https://vasthk.oss-cn-hongkong.aliyuncs.com/reference-scenes/107237-child-1.jpg"
           }
         }
       ]

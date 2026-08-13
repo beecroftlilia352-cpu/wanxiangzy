@@ -30,7 +30,7 @@ export const AI_VIDEO_MAX_GENERATION_COUNT = 4;
 export const AI_VIDEO_HAPPYHORSE_I2V_MODEL = "happyhorse-1.0-i2v";
 export const AI_VIDEO_HAPPYHORSE_R2V_MODEL = "happyhorse-1.0-r2v";
 export const AI_VIDEO_HAPPYHORSE_VIDEO_EDIT_MODEL = "happyhorse-1.0-video-edit";
-const AI_VIDEO_TEMPLATE_ASSET_BASE = "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/video-templates";
+const AI_VIDEO_TEMPLATE_ASSET_BASE = "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/video-templates";
 
 export const AI_VIDEO_RESOLUTION_OPTIONS: Array<{ value: AiVideoResolution; label: string; description: string }> = [
   { value: "720p", label: "720p", description: "快速生成" },

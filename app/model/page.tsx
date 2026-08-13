@@ -54,9 +54,9 @@ type ModelGenerateOptions = {
 };
 
 const MODELS: { value: LingyaModel; label: string; desc: string; badge?: string; icon: string }[] = [
-  { value: "nano-banana-2", label: "Nano-Banana-2", desc: "最高4K", badge: "推荐", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
-  { value: "gpt-image-2", label: "GPT-Image-2", desc: "最高4K", badge: "最新", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/openai.svg" },
-  { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "最高4K", badge: "高质精修", icon: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
+  { value: "nano-banana-2", label: "Nano-Banana-2", desc: "最高4K", badge: "推荐", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
+  { value: "gpt-image-2", label: "GPT-Image-2", desc: "最高4K", badge: "最新", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/openai.svg" },
+  { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "最高4K", badge: "高质精修", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
 ];
 
 type ModelHistoryPayload = Extract<HistoryJobPayload, { kind: "model" }>;
@@ -82,25 +82,25 @@ const MODEL_PREVIEW_ACTIONS: ImagePreviewAction[] = [
 
 const HAIR_STYLES = {
   female: [
-    { value: "自然黑长直发，偏分，发丝顺滑垂落", label: "黑长直", image: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/female-black-long-side.png" },
-    { value: "齐肩短波波头，空气刘海，发尾内扣", label: "短波波", image: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/female-short-bob.png" },
-    { value: "高丸子头，干净利落，露出脸部轮廓", label: "丸子头", image: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/female-high-bun.png" },
-    { value: "侧边低马尾，柔和自然，发束垂在肩侧", label: "侧马尾", image: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/female-side-ponytail.png" },
-    { value: "长卷发，大波浪，发丝蓬松有层次", label: "大波浪", image: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/female-black-wavy.png" },
+    { value: "自然黑长直发，偏分，发丝顺滑垂落", label: "黑长直", image: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/female-black-long-side.png" },
+    { value: "齐肩短波波头，空气刘海，发尾内扣", label: "短波波", image: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/female-short-bob.png" },
+    { value: "高丸子头，干净利落，露出脸部轮廓", label: "丸子头", image: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/female-high-bun.png" },
+    { value: "侧边低马尾，柔和自然，发束垂在肩侧", label: "侧马尾", image: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/female-side-ponytail.png" },
+    { value: "长卷发，大波浪，发丝蓬松有层次", label: "大波浪", image: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/female-black-wavy.png" },
   ],
   male: [
-    { value: "短寸头，清爽硬朗，发际线自然", label: "寸头", image: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/male-buzz-cut.png" },
-    { value: "短碎发，顶部自然蓬松，干净少年感", label: "短碎发", image: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/male-short-textured.png" },
-    { value: "蓬松微卷短发，前额自然碎刘海", label: "微卷发", image: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/male-wavy-volume.png" },
+    { value: "短寸头，清爽硬朗，发际线自然", label: "寸头", image: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/male-buzz-cut.png" },
+    { value: "短碎发，顶部自然蓬松，干净少年感", label: "短碎发", image: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/male-short-textured.png" },
+    { value: "蓬松微卷短发，前额自然碎刘海", label: "微卷发", image: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/male-wavy-volume.png" },
   ],
 };
 
 const HAIR_COLORS = [
-  { value: "自然黑色", label: "黑色", image: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/female-black-long-side.png" },
-  { value: "深棕色", label: "深棕", image: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/female-brown-straight.png" },
-  { value: "冷灰色", label: "灰色", image: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/female-gray-long.png" },
-  { value: "铂金白色", label: "白金", image: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/female-platinum-long.png" },
-  { value: "柔粉色", label: "粉色", image: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/female-pink-long.png" },
+  { value: "自然黑色", label: "黑色", image: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/female-black-long-side.png" },
+  { value: "深棕色", label: "深棕", image: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/female-brown-straight.png" },
+  { value: "冷灰色", label: "灰色", image: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/female-gray-long.png" },
+  { value: "铂金白色", label: "白金", image: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/female-platinum-long.png" },
+  { value: "柔粉色", label: "粉色", image: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/exclusive-model/female-pink-long.png" },
 ];
 export default function ModelPage() {
   const router = useRouter();
@@ -1100,7 +1100,7 @@ export default function ModelPage() {
             <PreviewGuide
               title="创建专属模特"
               subtitle="从人像参考中提取稳定身份，再用风格和外观设置生成可复用的品牌模特。"
-              imageSrc="https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/exclusive-model-02.png"
+              imageSrc="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/exclusive-model-02.png"
               imageAlt="专属模特指引"
               steps={[
                 { title: "上传参考人像", desc: "上传 1-3 张清晰人像，用于锁定脸型、五官和人物气质。" },

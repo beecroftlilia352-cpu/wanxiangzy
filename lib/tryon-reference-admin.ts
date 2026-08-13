@@ -18,7 +18,7 @@ export function isAllowedTryOnReferenceImageUrl(value: string) {
     const allowedHosts = [
       ...(process.env.TRYON_REFERENCE_IMAGE_ALLOWED_HOSTS || "").split(","),
       ...(process.env.NEXT_PUBLIC_ALIYUN_OSS_IMAGE_HOSTS || "").split(","),
-      "vastweargen-images.oss-cn-hongkong.aliyuncs.com",
+      "vasthk.oss-cn-hongkong.aliyuncs.com",
     ].map((item) => item.trim().toLowerCase()).filter(Boolean);
     return allowedHosts.includes(host)
       || host.includes(".oss-")

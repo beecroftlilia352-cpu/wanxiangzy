@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const DEFAULT_SOURCE_ROOTS = ["app", "components", "lib"];
 const DEFAULT_LOCAL_ROOT = "public";
-const DEFAULT_BUCKET = "vastweargen-images";
+const DEFAULT_BUCKET = "vasthk";
 const DEFAULT_REGION = "oss-cn-hongkong";
 const DEFAULT_SITE_ASSET_PREFIX = "site-assets/original";
 const DEFAULT_MANIFEST = ".oss-site-assets-manifest.json";

@@ -10,41 +10,41 @@ import { codexTheme } from "@/lib/design/codex-theme";
 const partnerLogos = [
   {
     name: "OpenAI",
-    src: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/partners/openai.svg",
+    src: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/partners/openai.svg",
   },
   {
     name: "Google",
-    src: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/partners/google.svg",
+    src: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/partners/google.svg",
   },
   {
     name: "ByteDance",
-    src: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/partners/bytedance.svg",
+    src: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/partners/bytedance.svg",
   },
   {
     name: "Alibaba Cloud",
-    src: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/partners/alibaba-cloud.svg",
+    src: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/partners/alibaba-cloud.svg",
   },
   {
     name: "AWS",
-    src: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/partners/aws.svg",
+    src: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/partners/aws.svg",
   },
 ];
 
 const showcase = {
-  heroScreen: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/screen-hero-workspace.png",
-  tryonScreen: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/screen-tryon-result.png",
-  fusionScreen: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/screen-fusion-grid-reference.png",
-  poseScreen: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/screen-pose-result-grid.png",
-  yellowDress: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/showcase-yellow-dress-garden-back.jpg",
-  creamTop: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/showcase-cream-top-mini-skirt.png",
-  navyPoseGrid: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/showcase-navy-shirt-pose-grid.jpg",
-  blackDress: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/showcase-black-floral-dress.png",
-  whiteDressSea: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/showcase-white-dress-sea.png",
-  creamBlouse: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/showcase-cream-blouse-skirt.png",
-  blueDress: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/showcase-blue-dress-garden-2.png",
-  blueDressAlt: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/showcase-blue-dress-garden-3.png",
-  blueTop: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/showcase-blue-top-white-pants.png",
-  pinkTop: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/showcase-pink-top-garden.png",
+  heroScreen: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/screen-hero-workspace.png",
+  tryonScreen: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/screen-tryon-result.png",
+  fusionScreen: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/screen-fusion-grid-reference.png",
+  poseScreen: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/screen-pose-result-grid.png",
+  yellowDress: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/showcase-yellow-dress-garden-back.jpg",
+  creamTop: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/showcase-cream-top-mini-skirt.png",
+  navyPoseGrid: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/showcase-navy-shirt-pose-grid.jpg",
+  blackDress: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/showcase-black-floral-dress.png",
+  whiteDressSea: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/showcase-white-dress-sea.png",
+  creamBlouse: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/showcase-cream-blouse-skirt.png",
+  blueDress: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/showcase-blue-dress-garden-2.png",
+  blueDressAlt: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/showcase-blue-dress-garden-3.png",
+  blueTop: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/showcase-blue-top-white-pants.png",
+  pinkTop: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/showcase-pink-top-garden.png",
 } as const;
 
 const featureRows = [
@@ -83,7 +83,7 @@ const sceneCards = [
   {
     title: "AI 视频",
     description: "把已生成的服装图延展成适合投放和种草的动态短片。",
-    video: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/ai-video-preview.mp4",
+    video: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/ai-video-preview.mp4",
   },
   {
     title: "融图",
@@ -102,37 +102,37 @@ const testimonials = [
     quote: "我们把上新前的试拍周期从两天压到半天，最关键的是服装细节能被稳定保留下来。",
     name: "女装品牌运营负责人",
     initials: "DW",
-    avatar: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/testimonials/daniel-sikorskiy.webp",
+    avatar: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/testimonials/daniel-sikorskiy.webp",
   },
   {
     quote: "以前不同设计师做出来的图风格差很多，现在用同一套模特和参数，整个店铺看起来统一多了。",
     name: "独立设计师工作室",
     initials: "JW",
-    avatar: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/testimonials/joey-wang.webp",
+    avatar: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/testimonials/joey-wang.webp",
   },
   {
     quote: "商品套图和种草封面可以一起规划，运营同学不用在十几个工具之间来回切。",
     name: "电商内容团队",
     initials: "TR",
-    avatar: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/testimonials/tess-rosania.webp",
+    avatar: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/testimonials/tess-rosania.webp",
   },
   {
     quote: "历史作品能直接复用参数，这对爆款补图特别有用，返工少了很多。",
     name: "跨境服饰卖家",
     initials: "KL",
-    avatar: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/testimonials/austin-ray.webp",
+    avatar: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/testimonials/austin-ray.webp",
   },
   {
     quote: "模特、姿势、背景分得很清楚，新同事也能照着流程把图做对。",
     name: "摄影制片团队",
     initials: "AM",
-    avatar: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/testimonials/aaron-wang.webp",
+    avatar: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/testimonials/aaron-wang.webp",
   },
   {
     quote: "我们最喜欢的是失败任务可以带着原参数重试，排查问题比以前容易很多。",
     name: "品牌视觉负责人",
     initials: "SC",
-    avatar: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/testimonials/tres-wong-godfrey.webp",
+    avatar: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/testimonials/tres-wong-godfrey.webp",
   },
 ];
 
@@ -182,8 +182,8 @@ export default function HomePage() {
       <section className="home-landing-hero relative isolate overflow-hidden bg-[#e8e9f7] text-[#050505]">
         {/* P2.1 hero video: preload=metadata saves bandwidth, hidden on mobile,
             poster fallback so reduced-motion / mobile users see a still frame. */}
-        <video className="home-hero-video-bg hidden md:block" autoPlay muted loop playsInline preload="metadata" poster="https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/floral-a-poster.jpg" aria-hidden="true">
-          <source src="https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/floral-a.mp4" type="video/mp4" />
+        <video className="home-hero-video-bg hidden md:block" autoPlay muted loop playsInline preload="metadata" poster="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/floral-a-poster.jpg" aria-hidden="true">
+          <source src="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/floral-a.mp4" type="video/mp4" />
         </video>
         <div className="home-hero-video-scrim" aria-hidden="true" />
         <div className="home-hero-frame relative mx-auto flex min-h-[640px] max-w-[1440px] flex-col items-center px-5 pb-0 pt-[88px] text-center sm:min-h-[760px] sm:px-8 sm:pt-[108px] md:min-h-[960px] md:pt-[138px] lg:min-h-[1100px] lg:px-10 lg:pt-[156px] xl:min-h-[1240px] xl:pt-[176px]">
@@ -300,7 +300,7 @@ export default function HomePage() {
 
         <section className="home-final-video-cta relative isolate overflow-hidden">
           <video className="home-hero-video-bg" autoPlay muted loop playsInline preload="auto" aria-hidden="true">
-            <source src="https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/floral-a.mp4" type="video/mp4" />
+            <source src="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/floral-a.mp4" type="video/mp4" />
           </video>
           <div className="home-final-video-scrim" aria-hidden="true" />
           <div className="relative z-[3] mx-auto flex min-h-[475px] max-w-[1440px] flex-col items-center justify-center px-5 py-20 text-center text-[#050505] sm:px-8 lg:px-10">
@@ -375,7 +375,7 @@ function FeatureVisual({ type }: { type: string }) {
       <div className="home-feature-visual home-feature-screen home-feature-visual-video">
         <MacWindowShell className="home-feature-macos-shell">
           <video className="h-full w-full object-cover" autoPlay muted loop playsInline preload="auto" aria-hidden="true">
-            <source src="https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/ai-video-preview.mp4" type="video/mp4" />
+            <source src="https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/ai-video-preview.mp4" type="video/mp4" />
           </video>
           <div className="absolute inset-0 bg-gradient-to-br from-[#244cff]/20 via-transparent to-white/18" />
         </MacWindowShell>

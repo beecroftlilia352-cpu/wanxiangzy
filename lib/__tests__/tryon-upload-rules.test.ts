@@ -18,7 +18,7 @@ describe("tryon upload rules", () => {
 
     expect(urls).toHaveLength(15);
     for (const url of urls) {
-      expect(url).toMatch(/^https:\/\/vastweargen-images\.oss-cn-hongkong\.aliyuncs\.com\//);
+      expect(url).toMatch(/^https:\/\/vasthk\.oss-cn-hongkong\.aliyuncs\.com\//);
       expect(url).toContain("/site-assets/original/");
     }
   });

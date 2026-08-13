@@ -32,24 +32,24 @@ export const MODEL_UPLOAD_RULE: ModelUploadRule = {
       title: "单图参考",
       description: "单人清晰正脸，适合快速建立干净自然的基础模特",
       imageUrls: [
-        "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/i.ibb.co/1t3zJ4KZ/model-rule-fusion-1-2312b398df.png",
+        "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/i.ibb.co/1t3zJ4KZ/model-rule-fusion-1-2312b398df.png",
       ],
     },
     {
       title: "双图融合",
       description: "融合脸型、肤色和温柔气质，不复制某一张脸",
       imageUrls: [
-        "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/i.ibb.co/1t3zJ4KZ/model-rule-fusion-1-2312b398df.png",
-        "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/i.ibb.co/0jD58PgS/fa230972-f679-4189-9764-cdb5773d7a3d-4f95b1ebe4.png",
+        "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/i.ibb.co/1t3zJ4KZ/model-rule-fusion-1-2312b398df.png",
+        "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/i.ibb.co/0jD58PgS/fa230972-f679-4189-9764-cdb5773d7a3d-4f95b1ebe4.png",
       ],
     },
     {
       title: "三图融合",
       description: "三图融合脸型骨相、五官比例、妆感和整体氛围",
       imageUrls: [
-        "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/i.ibb.co/1t3zJ4KZ/model-rule-fusion-1-2312b398df.png",
-        "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/i.ibb.co/0jD58PgS/fa230972-f679-4189-9764-cdb5773d7a3d-4f95b1ebe4.png",
-        "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/i.ibb.co/spXm4d0B/model-rule-fusion-3-4481902e2a.png",
+        "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/i.ibb.co/1t3zJ4KZ/model-rule-fusion-1-2312b398df.png",
+        "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/i.ibb.co/0jD58PgS/fa230972-f679-4189-9764-cdb5773d7a3d-4f95b1ebe4.png",
+        "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/remote/i.ibb.co/spXm4d0B/model-rule-fusion-3-4481902e2a.png",
       ],
     },
   ],

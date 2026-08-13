@@ -25,8 +25,8 @@ export const metadata: Metadata = {
   title: "VastWearGen - AI 服装视觉生产工作台",
   description: "面向服装品牌、电商团队和内容创作者的 AI 服装视觉生产工作台。",
   icons: {
-    icon: [{ url: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/gemini-icon.png", type: "image/png" }],
-    apple: [{ url: "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/site-assets/original/gemini-icon.png", type: "image/png" }],
+    icon: [{ url: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/gemini-icon.png", type: "image/png" }],
+    apple: [{ url: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/gemini-icon.png", type: "image/png" }],
   },
 };
 
@@ -55,8 +55,8 @@ export default function RootLayout({
           }}
         />
         {/* Preconnect CDN origins for faster image/font/API loading */}
-        <link rel="preconnect" href="https://vastweargen-images.oss-cn-hongkong.aliyuncs.com" crossOrigin="anonymous" />
-        <link rel="dns-prefetch" href="https://vastweargen-images.oss-cn-hongkong.aliyuncs.com" />
+        <link rel="preconnect" href="https://vasthk.oss-cn-hongkong.aliyuncs.com" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="https://vasthk.oss-cn-hongkong.aliyuncs.com" />
         <link rel="preconnect" href="https://webstatic.aiproxy.vip" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="https://webstatic.aiproxy.vip" />
         <link rel="preconnect" href="https://oss.filenest.top" crossOrigin="anonymous" />

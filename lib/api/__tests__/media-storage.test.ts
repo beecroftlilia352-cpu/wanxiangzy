@@ -17,9 +17,9 @@ describe("media storage", () => {
     process.env.IMAGE_STORAGE_PROVIDER = "aliyun-oss";
     process.env.ALIYUN_OSS_ACCESS_KEY_ID = "test-access-key-id";
     process.env.ALIYUN_OSS_ACCESS_KEY_SECRET = "test-access-key-secret";
-    process.env.ALIYUN_OSS_BUCKET = "vastweargen-images";
+    process.env.ALIYUN_OSS_BUCKET = "vasthk";
     process.env.ALIYUN_OSS_REGION = "oss-cn-hongkong";
-    process.env.ALIYUN_OSS_PUBLIC_BASE_URL = "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com";
+    process.env.ALIYUN_OSS_PUBLIC_BASE_URL = "https://vasthk.oss-cn-hongkong.aliyuncs.com";
     process.env.ALIYUN_OSS_PREFIX = "ai-tryon";
   });
 
@@ -59,7 +59,7 @@ describe("media storage", () => {
     expect(calls).toHaveLength(2);
     expect(calls[0].url).toBe("https://93.184.216.34/generated-video.mp4");
     expect(calls[0].init?.redirect).toBe("manual");
-    expect(calls[1].url).toContain("https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/");
+    expect(calls[1].url).toContain("https://vasthk.oss-cn-hongkong.aliyuncs.com/");
     expect((calls[1].init?.headers as Record<string, string>)["Content-Type"]).toBe("video/mp4");
   });
 

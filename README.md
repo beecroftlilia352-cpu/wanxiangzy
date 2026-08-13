@@ -105,9 +105,9 @@ REPLICATE_API_TOKEN=
 ```env
 IMAGE_STORAGE_PROVIDER=aliyun-oss
 ALIYUN_OSS_REGION=oss-cn-hongkong
-ALIYUN_OSS_BUCKET=vastweargen-images
-ALIYUN_OSS_PUBLIC_BASE_URL=https://vastweargen-images.oss-cn-hongkong.aliyuncs.com
-NEXT_PUBLIC_ALIYUN_OSS_IMAGE_HOSTS=vastweargen-images.oss-cn-hongkong.aliyuncs.com
+ALIYUN_OSS_BUCKET=vasthk
+ALIYUN_OSS_PUBLIC_BASE_URL=https://vasthk.oss-cn-hongkong.aliyuncs.com
+NEXT_PUBLIC_ALIYUN_OSS_IMAGE_HOSTS=vasthk.oss-cn-hongkong.aliyuncs.com
 ALIYUN_OSS_ACCESS_KEY_ID=your-ram-access-key-id
 ALIYUN_OSS_ACCESS_KEY_SECRET=your-ram-access-key-secret
 ALIYUN_OSS_SITE_ASSET_PREFIX=site-assets/original

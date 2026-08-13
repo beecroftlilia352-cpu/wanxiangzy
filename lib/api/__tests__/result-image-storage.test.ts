@@ -117,9 +117,9 @@ describe("result image storage", () => {
     process.env.IMAGE_STORAGE_PROVIDER = "aliyun-oss";
     process.env.ALIYUN_OSS_ACCESS_KEY_ID = "test-access-key-id";
     process.env.ALIYUN_OSS_ACCESS_KEY_SECRET = "test-access-key-secret";
-    process.env.ALIYUN_OSS_BUCKET = "vastweargen-images";
+    process.env.ALIYUN_OSS_BUCKET = "vasthk";
     process.env.ALIYUN_OSS_REGION = "oss-cn-hongkong";
-    process.env.ALIYUN_OSS_PUBLIC_BASE_URL = "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com";
+    process.env.ALIYUN_OSS_PUBLIC_BASE_URL = "https://vasthk.oss-cn-hongkong.aliyuncs.com";
     process.env.ALIYUN_OSS_PREFIX = "ai-tryon";
     process.env.ALIYUN_OSS_GENERATED_PREFIX = "generated-results/original";
 
@@ -133,9 +133,9 @@ describe("result image storage", () => {
 
     const [url] = await persistGeneratedImageUrls([`data:image/png;base64,${pngBase64}`], "gen-oss");
 
-    expect(url).toMatch(/^https:\/\/vastweargen-images\.oss-cn-hongkong\.aliyuncs\.com\/generated-results\/original\/\d{4}\/\d{2}\/\d{2}\//);
+    expect(url).toMatch(/^https:\/\/vasthk\.oss-cn-hongkong\.aliyuncs\.com\/generated-results\/original\/\d{4}\/\d{2}\/\d{2}\//);
     expect(putCalls).toHaveLength(1);
-    expect(putCalls[0].url).toContain("https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/generated-results/original/");
+    expect(putCalls[0].url).toContain("https://vasthk.oss-cn-hongkong.aliyuncs.com/generated-results/original/");
     expect((putCalls[0].init?.headers as Record<string, string>).Authorization).toMatch(/^OSS test-access-key-id:/);
     expect((putCalls[0].init?.headers as Record<string, string>)["Content-Type"]).toBe("image/png");
   });
@@ -144,9 +144,9 @@ describe("result image storage", () => {
     process.env.IMAGE_STORAGE_PROVIDER = "aliyun-oss";
     process.env.ALIYUN_OSS_ACCESS_KEY_ID = "test-access-key-id";
     process.env.ALIYUN_OSS_ACCESS_KEY_SECRET = "test-access-key-secret";
-    process.env.ALIYUN_OSS_BUCKET = "vastweargen-images";
+    process.env.ALIYUN_OSS_BUCKET = "vasthk";
     process.env.ALIYUN_OSS_REGION = "oss-cn-hongkong";
-    process.env.ALIYUN_OSS_PUBLIC_BASE_URL = "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com";
+    process.env.ALIYUN_OSS_PUBLIC_BASE_URL = "https://vasthk.oss-cn-hongkong.aliyuncs.com";
     process.env.ALIYUN_OSS_PREFIX = "ai-tryon";
 
     const putCalls: Array<{ url: string; init?: RequestInit }> = [];
@@ -173,9 +173,9 @@ describe("result image storage", () => {
     process.env.IMAGE_STORAGE_PROVIDER = "aliyun-oss";
     process.env.ALIYUN_OSS_ACCESS_KEY_ID = "test-access-key-id";
     process.env.ALIYUN_OSS_ACCESS_KEY_SECRET = "test-access-key-secret";
-    process.env.ALIYUN_OSS_BUCKET = "vastweargen-images";
+    process.env.ALIYUN_OSS_BUCKET = "vasthk";
     process.env.ALIYUN_OSS_REGION = "oss-cn-hongkong";
-    process.env.ALIYUN_OSS_PUBLIC_BASE_URL = "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com";
+    process.env.ALIYUN_OSS_PUBLIC_BASE_URL = "https://vasthk.oss-cn-hongkong.aliyuncs.com";
     process.env.ALIYUN_OSS_PREFIX = "ai-tryon";
 
     const jpegBytes = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0xff, 0xd9]);
@@ -204,9 +204,9 @@ describe("result image storage", () => {
     process.env.IMAGE_STORAGE_PROVIDER = "aliyun-oss";
     process.env.ALIYUN_OSS_ACCESS_KEY_ID = "test-access-key-id";
     process.env.ALIYUN_OSS_ACCESS_KEY_SECRET = "test-access-key-secret";
-    process.env.ALIYUN_OSS_BUCKET = "vastweargen-images";
+    process.env.ALIYUN_OSS_BUCKET = "vasthk";
     process.env.ALIYUN_OSS_REGION = "oss-cn-hongkong";
-    process.env.ALIYUN_OSS_PUBLIC_BASE_URL = "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com";
+    process.env.ALIYUN_OSS_PUBLIC_BASE_URL = "https://vasthk.oss-cn-hongkong.aliyuncs.com";
     process.env.ALIYUN_OSS_PREFIX = "ai-tryon";
 
     const putCalls: Array<{ url: string; init?: RequestInit }> = [];

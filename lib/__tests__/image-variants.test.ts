@@ -15,7 +15,7 @@ describe("image variants", () => {
   it("adds OSS image processing to Aliyun image URLs", async () => {
     const { getImageVariantUrl } = await loadImageVariants();
     const url = getImageVariantUrl(
-      "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/generated-results/original/image.png",
+      "https://vasthk.oss-cn-hongkong.aliyuncs.com/generated-results/original/image.png",
       "thumb"
     );
 
