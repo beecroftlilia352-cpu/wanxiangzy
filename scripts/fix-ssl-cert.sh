@@ -5,7 +5,7 @@ set -euo pipefail
 # (vastweargen.com) to the new domain (pixel-diffusion.com) on the EC2 host.
 #
 # Run directly on the EC2 server, e.g.:
-#   sudo SSL_EMAIL=you@example.com bash fix-ssl-cert.sh
+#   sudo bash fix-ssl-cert.sh
 #
 # What it does:
 #   1. Backs up nginx site configs that mention the old domain.
@@ -37,11 +37,6 @@ if [ "$(id -u)" -ne 0 ]; then
   exit 1
 fi
 
-if [ -z "$EMAIL" ]; then
-  echo "SSL_EMAIL is required (Let's Encrypt expiry notices)." >&2
-  echo "Example: sudo SSL_EMAIL=you@example.com bash $0" >&2
-  exit 1
-fi
 
 command -v nginx >/dev/null 2>&1 || { echo "nginx not found" >&2; exit 1; }
 
@@ -90,13 +85,16 @@ if ! command -v certbot >/dev/null 2>&1; then
 fi
 
 # Issue the cert and let certbot configure nginx for the new domain.
-run certbot --nginx \
-  --non-interactive \
-  --agree-tos \
-  --no-eff-email \
-  --redirect \
-  -m "$EMAIL" \
-  -d "$DOMAIN" -d "$WWW_DOMAIN"
+# Email is optional; without it we register unsafely (no expiry notices).
+CERTBOT_ARGS=(--nginx --non-interactive --agree-tos --no-eff-email --redirect)
+if [ -n "$EMAIL" ]; then
+  CERTBOT_ARGS+=(-m "$EMAIL")
+else
+  CERTBOT_ARGS+=(--register-unsafely-without-email)
+fi
+CERTBOT_ARGS+=(-d "$DOMAIN" -d "$WWW_DOMAIN")
+
+run certbot "${CERTBOT_ARGS[@]}"
 
 run nginx -t
 run nginx -s reload
