@@ -19,7 +19,8 @@ import {
   resolveUpstreamVideoModel,
   resolveVideoSelection,
 } from "@/lib/api/video-catalog";
-import { getVideoProviderConfig } from "@/lib/api/video-provider";
+import { getEnabledVideoProviders } from "@/lib/api/video-provider";
+import { normalizeVideoProviderName } from "@/lib/api/video-provider-registry";
 
 export const maxDuration = 60;
 
@@ -53,14 +54,18 @@ export async function POST(request: NextRequest) {
     if (!prompt) return NextResponse.json({ error: "请描述首尾帧之间的动态衔接过程" }, { status: 400 });
     if (audioMode === "custom" && !audioUrl) return NextResponse.json({ error: "请先上传音频或切换为智能音效" }, { status: 400 });
 
-    const providerConfig = await getVideoProviderConfig();
-    const selection = resolveVideoSelection(providerConfig.provider, requestedMode, requestedResolution);
+    const provider = normalizeVideoProviderName(body.provider);
+    const enabledProviders = await getEnabledVideoProviders();
+    if (!enabledProviders.includes(provider)) {
+      return NextResponse.json({ error: "该视频模型未启用，请到后台 /admin/providers 配置" }, { status: 400 });
+    }
+    const selection = resolveVideoSelection(provider, requestedMode, requestedResolution);
     const modelMode = selection.mode;
     const resolution = selection.resolution;
-    const effectiveDuration = clampVideoDuration(providerConfig.provider, duration) as typeof duration;
-    const aiModel = resolveUpstreamVideoModel(providerConfig.provider, modelMode, resolution);
+    const effectiveDuration = clampVideoDuration(provider, duration) as typeof duration;
+    const aiModel = resolveUpstreamVideoModel(provider, modelMode, resolution);
     const totalCost = getVideoCreditCost({
-      provider: providerConfig.provider,
+      provider,
       modelMode,
       resolution,
       duration: effectiveDuration,
@@ -70,6 +75,7 @@ export async function POST(request: NextRequest) {
     const jobPayload: GenerationJobPayload = {
       kind: "videoFirstLastFrame",
       publicBaseUrl: getPublicBaseUrlFromRequest(request),
+      provider,
       firstFrameUrl,
       lastFrameUrl,
       prompt,

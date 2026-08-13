@@ -5,6 +5,7 @@ import type {
   AiVideoModelMode,
   AiVideoResolution,
 } from "@/lib/ai-video";
+import type { VideoProviderName } from "@/lib/api/video-catalog";
 
 export type VideoTaskProgress = {
   taskId?: string;
@@ -29,6 +30,7 @@ export type VideoGenerationResult = {
 };
 
 export type VideoImageToVideoInput = {
+  provider: VideoProviderName;
   imageUrl: string;
   prompt: string;
   modelMode: AiVideoModelMode;
@@ -43,6 +45,7 @@ export type VideoImageToVideoInput = {
 };
 
 export type VideoMotionControlInput = {
+  provider: VideoProviderName;
   modelImageUrl: string;
   referenceVideoUrl: string;
   prompt?: string;
@@ -58,6 +61,7 @@ export type VideoMotionControlInput = {
 };
 
 export type VideoFirstLastFrameInput = {
+  provider: VideoProviderName;
   firstFrameUrl: string;
   lastFrameUrl: string;
   prompt: string;

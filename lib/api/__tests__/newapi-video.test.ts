@@ -22,6 +22,7 @@ const minimaxProvider = {
 
 function minimaxInput() {
   return {
+    provider: "minimax" as const,
     imageUrl: "https://cdn.example.com/model.png",
     prompt: "模特自然走动展示服装。",
     modelMode: "pro" as const,
@@ -115,6 +116,7 @@ describe("newapi video adapter (new.bi gateway)", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const pending = generateNewApiFirstLastFrame({
+      provider: "minimax",
       firstFrameUrl: "https://cdn.example.com/first.png",
       lastFrameUrl: "https://cdn.example.com/last.png",
       prompt: "自然过渡",

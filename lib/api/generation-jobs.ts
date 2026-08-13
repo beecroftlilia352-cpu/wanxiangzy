@@ -18,6 +18,7 @@ import {
   generateVideoMotionControl,
 } from "@/lib/api/video-provider";
 import type { VideoGenerationResult, VideoTaskProgress } from "@/lib/api/video-types";
+import type { VideoProviderName } from "@/lib/api/video-catalog";
 import type { OutfitFusionHistoryAsset } from "@/lib/history-apply";
 import { getOutfitFusionDisplayPrompt, resolveOutfitFusionSmartAspectImage } from "@/lib/outfit-fusion";
 import { syncGenerationTaskQueueById } from "@/lib/task-queue-store";
@@ -333,6 +334,7 @@ export type GenerationJobPayload = GenerationJobPayloadBase & (
     }
   | {
       kind: "videoImageToVideo";
+      provider: VideoProviderName;
       imageUrl: string;
       prompt: string;
       templateId?: number;
@@ -350,6 +352,7 @@ export type GenerationJobPayload = GenerationJobPayloadBase & (
     }
   | {
       kind: "videoMotion";
+      provider: VideoProviderName;
       modelImageUrl: string;
       referenceVideoUrl: string;
       prompt?: string;
@@ -368,6 +371,7 @@ export type GenerationJobPayload = GenerationJobPayloadBase & (
     }
   | {
       kind: "videoFirstLastFrame";
+      provider: VideoProviderName;
       firstFrameUrl: string;
       lastFrameUrl: string;
       prompt: string;
@@ -1249,6 +1253,7 @@ async function executePayload(
     const modelMode = normalizeAiVideoModelMode(payload.modelMode, payload.kind);
     const audioMode = resolvePayloadAiVideoAudioMode(payload);
     return runVideoBatch("video:image-to-video", (_index, onVideoProgress) => generateVideoImageToVideo({
+      provider: payload.provider,
       imageUrl: payload.imageUrl,
       prompt: payload.prompt,
       modelMode,
@@ -1267,6 +1272,7 @@ async function executePayload(
     const modelMode = normalizeAiVideoModelMode(payload.modelMode, payload.kind);
     const audioMode = resolvePayloadAiVideoAudioMode(payload);
     return runVideoBatch("video:motion-control", (_index, onVideoProgress) => generateVideoMotionControl({
+      provider: payload.provider,
       modelImageUrl: payload.modelImageUrl,
       referenceVideoUrl: payload.referenceVideoUrl,
       prompt: payload.prompt,
@@ -1286,6 +1292,7 @@ async function executePayload(
     const modelMode = normalizeAiVideoModelMode(payload.modelMode, payload.kind);
     const audioMode = resolvePayloadAiVideoAudioMode(payload);
     return runVideoBatch("video:first-last-frame", (_index, onVideoProgress) => generateVideoFirstLastFrame({
+      provider: payload.provider,
       firstFrameUrl: payload.firstFrameUrl,
       lastFrameUrl: payload.lastFrameUrl,
       prompt: payload.prompt,

@@ -4,10 +4,9 @@ import { writeAdminAuditLog } from "@/lib/admin/audit";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { isRecord } from "@/lib/utils";
 import {
+  ALL_VIDEO_PROVIDERS,
   VIDEO_PROVIDERS_CONFIG_KEY,
   normalizeVideoProviderBaseUrl,
-  normalizeVideoProviderName,
-  normalizeVideoProviderResponseType,
 } from "@/lib/api/video-provider-registry";
 import {
   getAdminVideoProviderSnapshot,
@@ -37,35 +36,42 @@ export async function POST(request: Request) {
   }
 
   const existing = await getPublishedVideoProviderRawValue();
-  const existingModels = isRecord(existing?.models) ? existing.models : {};
+  const existingVideo = isRecord(existing?.models) ? existing.models.video : undefined;
+  const existingProviders = isRecord(existingVideo) && isRecord(existingVideo.providers) ? existingVideo.providers : undefined;
 
   const rawVideo = (body.models as Record<string, unknown>).video;
   const input = isRecord(rawVideo) ? rawVideo as Record<string, unknown> : {};
-  const provider = normalizeVideoProviderName(input.provider);
-  const baseUrl = normalizeVideoProviderBaseUrl(
-    typeof input.baseUrl === "string" ? input.baseUrl.trim() : "",
-    provider,
-  );
-  const upstreamModel = typeof input.upstreamModel === "string" ? input.upstreamModel.trim() : "";
-  const responseType = normalizeVideoProviderResponseType(input.responseType) ?? "newapi-video";
+  const providersInput = isRecord(input.providers) ? input.providers : input;
 
-  let apiKey = typeof input.apiKey === "string" ? input.apiKey.trim() : "";
-  if (apiKey && !isEncryptedProviderSecret(apiKey) && !isEnvProviderSecret(apiKey)) {
-    apiKey = encryptProviderSecret(apiKey);
-  }
-  if (!apiKey) {
-    const existingVideo = isRecord(existingModels.video) ? existingModels.video as Record<string, unknown> : {};
-    apiKey = typeof existingVideo.apiKey === "string" ? existingVideo.apiKey : "";
+  const providers: Record<string, unknown> = {};
+  for (const provider of ALL_VIDEO_PROVIDERS) {
+    const raw = providersInput[provider];
+    const providerInput = isRecord(raw) ? raw as Record<string, unknown> : {};
+    const baseUrl = normalizeVideoProviderBaseUrl(
+      typeof providerInput.baseUrl === "string" ? providerInput.baseUrl.trim() : "",
+      provider,
+    );
+
+    let apiKey = typeof providerInput.apiKey === "string" ? providerInput.apiKey.trim() : "";
+    if (apiKey && !isEncryptedProviderSecret(apiKey) && !isEnvProviderSecret(apiKey)) {
+      apiKey = encryptProviderSecret(apiKey);
+    }
+    if (!apiKey) {
+      const existingProvider = isRecord(existingProviders) && isRecord(existingProviders[provider])
+        ? existingProviders[provider] as Record<string, unknown>
+        : {};
+      apiKey = typeof existingProvider.apiKey === "string" ? existingProvider.apiKey : "";
+    }
+
+    providers[provider] = {
+      enabled: providerInput.enabled !== false,
+      baseUrl,
+      apiKey,
+      responseType: "newapi-video",
+    };
   }
 
-  const nextVideo = {
-    enabled: input.enabled !== false,
-    provider,
-    baseUrl,
-    apiKey,
-    upstreamModel,
-    responseType,
-  };
+  const nextVideo = { providers };
 
   const admin = getAdminClient();
   await admin
@@ -99,7 +105,7 @@ export async function POST(request: Request) {
     resourceType: "admin_config_version",
     resourceId: String(data?.id || ""),
     reason: `Publish ${VIDEO_PROVIDERS_CONFIG_KEY} video provider config`,
-    metadata: { configKey: VIDEO_PROVIDERS_CONFIG_KEY, provider },
+    metadata: { configKey: VIDEO_PROVIDERS_CONFIG_KEY },
   });
 
   return NextResponse.json({ ok: true, config: data }, { headers: { "Cache-Control": "no-store" } });

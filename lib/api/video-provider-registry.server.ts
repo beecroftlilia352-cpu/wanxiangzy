@@ -1,10 +1,12 @@
 import { getAdminClient } from "@/lib/supabase/admin";
 import { isRecord } from "@/lib/utils";
 import {
+  ALL_VIDEO_PROVIDERS,
   VIDEO_PROVIDERS_CONFIG_KEY,
-  getEnvVideoProviderOverride,
-  parseVideoProviderOverride,
+  getEnvVideoProviderOverrides,
+  parseVideoProviderOverrides,
   type VideoProviderOverride,
+  type VideoProviderOverrides,
 } from "@/lib/api/video-provider-registry";
 import { decryptProviderSecret, maskProviderSecret } from "@/lib/api/model-provider-secrets";
 
@@ -45,21 +47,32 @@ export async function getPublishedVideoProviderRawValue(): Promise<Record<string
   return row?.value ?? null;
 }
 
-export async function getAdminVideoProviderOverride(): Promise<VideoProviderOverride | null> {
+export async function getAdminVideoProviderOverrides(): Promise<VideoProviderOverrides> {
   const raw = await getPublishedVideoProviderRawValue();
-  if (!raw) return null;
+  if (!raw) return {};
 
-  const override = parseVideoProviderOverride(raw);
-  if (!override) return null;
+  const overrides = parseVideoProviderOverrides(raw);
+  const out: VideoProviderOverrides = {};
+  for (const provider of ALL_VIDEO_PROVIDERS) {
+    const override = overrides[provider];
+    if (!override) continue;
+    out[provider] = {
+      ...override,
+      apiKey: override.apiKey ? decryptProviderSecret(override.apiKey) : undefined,
+    };
+  }
+  return out;
+}
 
-  return {
-    ...override,
-    apiKey: decryptProviderSecret(override.apiKey),
-  };
+export async function getEnabledVideoProviderOverrides(): Promise<VideoProviderOverride[]> {
+  const overrides = await getAdminVideoProviderOverrides();
+  return ALL_VIDEO_PROVIDERS
+    .map((provider) => overrides[provider])
+    .filter((override): override is VideoProviderOverride => Boolean(override?.enabled && override.apiKey?.trim()));
 }
 
 export type AdminVideoProviderSnapshotEntry = {
-  key: "video";
+  key: VideoProviderOverride["provider"];
   enabled: boolean;
   provider: VideoProviderOverride["provider"];
   baseUrl: string;
@@ -75,25 +88,29 @@ export async function getAdminVideoProviderSnapshot(): Promise<{
   models: AdminVideoProviderSnapshotEntry[];
 }> {
   const row = await getPublishedVideoProviderRow();
-  const parsed = row ? parseVideoProviderOverride(row.value) : null;
-  const env = getEnvVideoProviderOverride();
-  const active = parsed || env;
-  const source: "admin" | "env" = parsed ? "admin" : "env";
+  const parsed = row ? parseVideoProviderOverrides(row.value) : null;
+  const env = getEnvVideoProviderOverrides();
+  const source: "admin" | "env" = parsed && Object.keys(parsed).length ? "admin" : "env";
+
+  const models: AdminVideoProviderSnapshotEntry[] = ALL_VIDEO_PROVIDERS.map((provider) => {
+    const active = parsed?.[provider] ?? env[provider];
+    const enabled = Boolean(active?.enabled);
+    const apiKey = active?.apiKey;
+    return {
+      key: provider,
+      enabled,
+      provider,
+      baseUrl: active?.baseUrl || "https://api.new.bi",
+      apiKeyConfigured: Boolean(apiKey),
+      apiKeyMasked: apiKey ? maskProviderSecret(apiKey) : "",
+      source,
+    };
+  });
 
   return {
     configKey: VIDEO_PROVIDERS_CONFIG_KEY,
     versionId: row?.id,
     publishedAt: row?.publishedAt ?? null,
-    models: [
-      {
-        key: "video",
-        enabled: active.enabled,
-        provider: active.provider,
-        baseUrl: active.baseUrl,
-        apiKeyConfigured: Boolean(active.apiKey),
-        apiKeyMasked: active.apiKey ? maskProviderSecret(active.apiKey) : "",
-        source,
-      },
-    ],
+    models,
   };
 }

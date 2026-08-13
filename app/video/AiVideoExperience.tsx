@@ -124,11 +124,12 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
         const res = await fetch("/api/video/options", { cache: "no-store" });
         const data = await res.json().catch(() => ({}));
         if (cancelled) return;
-        if (data?.enabled && (data.provider === "minimax" || data.provider === "seedance")) {
-          const provider = data.provider as VideoProviderName;
-          setVideoProvider(provider);
-          setModelMode(getVideoDefaultMode(provider));
-          setResolution(getVideoDefaultResolution(provider, getVideoDefaultMode(provider)));
+        const providers = Array.isArray(data?.providers)
+          ? (data.providers as Array<{ provider: VideoProviderName }>).map((item) => item.provider).filter((item) => item === "minimax" || item === "seedance")
+          : [];
+        if (providers.length) {
+          setAvailableProviders(providers);
+          setVideoProvider((current) => current && providers.includes(current) ? current : providers[0]);
         }
       } catch {
         // keep defaults when options are unavailable
@@ -150,6 +151,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
   const [modelMode, setModelMode] = useState<AiVideoModelMode>("pro");
   const [resolution, setResolution] = useState<AiVideoResolution>("720p");
   const [videoProvider, setVideoProvider] = useState<VideoProviderName | null>(null);
+  const [availableProviders, setAvailableProviders] = useState<VideoProviderName[]>([]);
   const [aspectRatio, setAspectRatio] = useState<AiVideoAspectRatio>("auto");
   const [duration, setDuration] = useState<AiVideoDuration>(AI_VIDEO_DEFAULT_DURATION);
   const [audioMode, setAudioMode] = useState<AiVideoAudioMode>(AI_VIDEO_DEFAULT_AUDIO_MODE);
@@ -483,6 +485,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
             audioPrompt: audioPrompt.trim(),
             generateAudio,
             genCount,
+            provider: providerKey,
           }
         : isMotion
           ? {
@@ -498,6 +501,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
               audioPrompt: audioPrompt.trim(),
               generateAudio,
               genCount,
+              provider: providerKey,
             }
           : {
               imageUrl,
@@ -511,6 +515,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
               audioPrompt: audioPrompt.trim(),
               generateAudio,
               genCount,
+              provider: providerKey,
             };
       const res = await fetch(apiPath, {
         method: "POST",
@@ -996,6 +1001,30 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
               </button>
             </div>
             <TemplateStrip selectedId={selectedTemplateId} onSelect={applyTemplate} />
+          </section>
+        )}
+
+        {availableProviders.length > 1 && (
+          <section>
+            <h3 className="mb-3 text-sm font-black text-codex-ink">视频模型</h3>
+            <StudioOptionGrid
+              options={availableProviders.map((provider) => ({
+                value: provider,
+                label: provider === "minimax" ? "MiniMax H3" : "Seedance 2.0",
+                description: provider === "minimax" ? "768p / 2K" : "mini / fast / 标准",
+              }))}
+              value={providerKey}
+              onChange={(value) => {
+                const provider = value as VideoProviderName;
+                setVideoProvider(provider);
+                const defaultMode = getVideoDefaultMode(provider);
+                setModelMode(defaultMode);
+                setResolution(getVideoDefaultResolution(provider, defaultMode));
+                setDuration(AI_VIDEO_DEFAULT_DURATION);
+              }}
+              columns={2}
+              ariaLabel="视频模型"
+            />
           </section>
         )}
 

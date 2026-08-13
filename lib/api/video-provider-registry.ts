@@ -9,15 +9,14 @@ export type VideoProviderOverride = {
   provider: VideoProviderName;
   baseUrl: string;
   apiKey?: string;
-  upstreamModel: string;
   responseType: VideoProviderResponseType;
 };
 
+export type VideoProviderOverrides = Partial<Record<VideoProviderName, VideoProviderOverride>>;
+
+export const ALL_VIDEO_PROVIDERS: readonly VideoProviderName[] = ["minimax", "seedance"];
+
 export const DEFAULT_VIDEO_BASE_URL = "https://api.new.bi";
-
-export const VIDEO_RESPONSE_TYPES: ReadonlyArray<VideoProviderResponseType> = ["newapi-video"];
-
-export const VIDEO_PROVIDER_NAMES: ReadonlyArray<VideoProviderName> = ["minimax", "seedance"];
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -26,7 +25,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export function normalizeVideoProviderName(value: unknown): VideoProviderName {
   const token = typeof value === "string" ? value.trim().toLowerCase() : "";
   if (token === "seedance" || token === "doubao" || token === "doubao-seedance") return "seedance";
-  if (token === "minimax" || token === "hailuo" || token === "minimax-h3" || token === "") return "minimax";
   return "minimax";
 }
 
@@ -43,9 +41,19 @@ export function normalizeVideoProviderBaseUrl(value: string | undefined, provide
   return base.replace(/\/v2$/i, "") || fallback;
 }
 
-export function getEnvVideoProviderOverride(): VideoProviderOverride {
-  const provider = normalizeVideoProviderName(process.env.VIDEO_PROVIDER);
+function buildProviderOverride(provider: VideoProviderName, raw: Record<string, unknown>): VideoProviderOverride {
   return {
+    enabled: raw.enabled !== false,
+    provider,
+    baseUrl: normalizeVideoProviderBaseUrl(typeof raw.baseUrl === "string" ? raw.baseUrl : undefined, provider),
+    apiKey: typeof raw.apiKey === "string" ? raw.apiKey.trim() : undefined,
+    responseType: normalizeVideoProviderResponseType(raw.responseType) ?? "newapi-video",
+  };
+}
+
+export function getEnvVideoProviderOverrides(): VideoProviderOverrides {
+  const provider = normalizeVideoProviderName(process.env.VIDEO_PROVIDER);
+  const override: VideoProviderOverride = {
     enabled: true,
     provider,
     baseUrl: normalizeVideoProviderBaseUrl(
@@ -53,30 +61,28 @@ export function getEnvVideoProviderOverride(): VideoProviderOverride {
       provider,
     ),
     apiKey: process.env.VIDEO_API_KEY?.trim() || process.env.MINIMAX_VIDEO_API_KEY?.trim() || process.env.MINIMAX_API_KEY?.trim(),
-    upstreamModel: "",
     responseType: "newapi-video",
   };
+  return { [provider]: override };
 }
 
-export function parseVideoProviderOverride(value: unknown): VideoProviderOverride | null {
-  if (!isRecord(value)) return null;
+export function parseVideoProviderOverrides(value: unknown): VideoProviderOverrides {
+  if (!isRecord(value)) return {};
   const container = isRecord(value.models) ? value.models : value;
-  const raw = isRecord(container.video) ? container.video : container;
+  const rawVideo = isRecord(container.video) ? container.video : container;
 
-  const fallback = getEnvVideoProviderOverride();
-  const provider = normalizeVideoProviderName(raw.provider ?? fallback.provider);
-  const responseType = normalizeVideoProviderResponseType(raw.responseType) ?? "newapi-video";
-  const baseUrl =
-    typeof raw.baseUrl === "string" && raw.baseUrl.trim()
-      ? normalizeVideoProviderBaseUrl(raw.baseUrl, provider)
-      : fallback.baseUrl;
+  // New multi-provider shape: { video: { providers: { minimax: {...}, seedance: {...} } } }
+  if (isRecord(rawVideo.providers)) {
+    const providersRaw = rawVideo.providers;
+    const out: VideoProviderOverrides = {};
+    for (const provider of ALL_VIDEO_PROVIDERS) {
+      const raw = providersRaw[provider];
+      if (isRecord(raw)) out[provider] = buildProviderOverride(provider, raw);
+    }
+    return out;
+  }
 
-  return {
-    enabled: raw.enabled !== false,
-    provider,
-    baseUrl,
-    apiKey: typeof raw.apiKey === "string" && raw.apiKey.trim() ? raw.apiKey.trim() : fallback.apiKey,
-    upstreamModel: typeof raw.upstreamModel === "string" ? raw.upstreamModel.trim() : "",
-    responseType,
-  };
+  // Legacy single-provider shape: { video: { provider, baseUrl, apiKey, ... } }
+  const provider = normalizeVideoProviderName(rawVideo.provider);
+  return { [provider]: buildProviderOverride(provider, rawVideo) };
 }
