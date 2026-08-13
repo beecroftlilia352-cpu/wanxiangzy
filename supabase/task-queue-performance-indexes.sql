@@ -14,5 +14,3 @@ CREATE INDEX IF NOT EXISTS generations_user_visible_created_idx
   ON public.generations (user_id, created_at DESC)
   WHERE (job_payload->>'internalTask') IS NULL;
 
-CREATE INDEX IF NOT EXISTS agent_workflows_user_status_created_idx
-  ON public.agent_workflows (user_id, status, created_at DESC);

@@ -14,39 +14,6 @@ import {
 } from "@/lib/poll/status-poll";
 import { POLL_FETCH_TIMEOUT_MS } from "@/lib/poll/constants";
 
-export type AiTextMessage = {
-  role: "system" | "user" | "assistant";
-  content: string | Array<{ type: "text"; text: string } | { type: "image_url"; image_url: { url: string } }>;
-};
-
-export type ResponseToolCall = {
-  id: string;
-  type: "function";
-  function: { name: string; arguments: string };
-  thoughtSignature?: string;
-};
-
-export type ResponseInputMessage =
-  | AiTextMessage
-  | { type: "function_call"; call_id: string; name: string; arguments: string; thoughtSignature?: string }
-  | { role: "tool"; tool_call_id: string; content: string };
-
-export type ResponseFunctionTool = {
-  type: "function";
-  function: {
-    name: string;
-    description?: string;
-    parameters: Record<string, unknown>;
-    strict?: boolean;
-  };
-};
-
-export type ToolResponseResult = {
-  content: string;
-  toolCalls: ResponseToolCall[];
-};
-
-type ToolChoice = "auto" | "required" | { type: "function"; name: string };
 // `onGenerationStarted` fires synchronously after the server POST returns and
 // the generation id is known — before the long poll begins. Callers (notably
 // the canvas) use it to persist the id onto a node so a page refresh can
@@ -115,29 +82,6 @@ export async function requestEdit(config: AiConfig, prompt: string, references: 
   });
   options?.onGenerationStarted?.(handle.generationId);
   return handle.resultPromise;
-}
-
-export async function requestImageQuestion(config: AiConfig, messages: AiTextMessage[], onDelta: (text: string) => void, options?: RequestOptions) {
-  const result = await requestCanvasText({
-    messages: withSystemMessage(config, messages),
-    maxTokens: 1400,
-    options,
-  });
-  const content = result.content || "没有返回内容";
-  onDelta(content);
-  return content;
-}
-
-export async function requestToolResponse(config: AiConfig, messages: ResponseInputMessage[], tools: ResponseFunctionTool[], toolChoice: ToolChoice = "auto", onDelta?: (text: string) => void, options?: RequestOptions): Promise<ToolResponseResult> {
-  const result = await requestCanvasText({
-    messages: withSystemMessage(config, messages),
-    tools,
-    toolChoice,
-    maxTokens: 1800,
-    options,
-  });
-  if (result.content) onDelta?.(result.content);
-  return result;
 }
 
 export async function fetchImageModels(_config: Pick<AiConfig, "baseUrl" | "apiKey" | "apiFormat">) {
@@ -260,28 +204,6 @@ async function fetchGenerationStatus(generationId: string, signal?: AbortSignal)
   }
 }
 
-async function requestCanvasText(input: {
-  messages: ResponseInputMessage[];
-  tools?: ResponseFunctionTool[];
-  toolChoice?: ToolChoice;
-  maxTokens?: number;
-  options?: RequestOptions;
-}): Promise<ToolResponseResult> {
-  return fetchJson<ToolResponseResult>(
-    "/api/infinite-canvas/text",
-    {
-      method: "POST",
-      body: {
-        messages: input.messages,
-        tools: input.tools,
-        toolChoice: input.toolChoice,
-        maxTokens: input.maxTokens,
-      },
-    },
-    input.options,
-  );
-}
-
 async function fetchJson<T>(url: string, init: { method: "GET" | "POST"; body?: unknown }, options?: RequestOptions): Promise<T> {
   const response = await fetch(url, {
     method: init.method,
@@ -355,17 +277,12 @@ function resolveAspectRatio(config: AiConfig) {
 }
 
 function resolveImageCount(config: AiConfig) {
-  return Math.max(1, Math.min(4, Math.floor(Math.abs(Number(config.canvasImageCount || config.count)) || 1)));
+  return Math.max(1, Math.min(4, Math.floor(Math.abs(Number(config.count)) || 1)));
 }
 
 function withSystemPrompt(config: AiConfig, prompt: string) {
   const systemPrompt = config.systemPrompt.trim();
   return systemPrompt ? `${systemPrompt}\n\n${prompt}` : prompt;
-}
-
-function withSystemMessage<T extends ResponseInputMessage>(config: AiConfig, messages: T[]): ResponseInputMessage[] {
-  const systemPrompt = config.systemPrompt.trim();
-  return systemPrompt ? [{ role: "system" as const, content: systemPrompt }, ...messages] : messages;
 }
 
 function assertNotAborted(signal?: AbortSignal) {

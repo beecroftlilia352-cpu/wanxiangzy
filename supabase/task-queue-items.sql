@@ -1,6 +1,6 @@
 -- ============================================================
 -- Lightweight task queue read model
--- Run after schema.sql, atomic-credit-rpc.sql, and agent-workflows.sql.
+-- Run after schema.sql and atomic-credit-rpc.sql.
 -- ============================================================
 
 -- Ensure generation rows have a reliable "last changed" timestamp.
@@ -335,80 +335,6 @@ BEGIN
 END;
 $$;
 
-CREATE OR REPLACE FUNCTION public.task_queue_upsert_workflow(p_item public.agent_workflows)
-RETURNS VOID
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-DECLARE
-  v_result_thumbnails TEXT[];
-  v_input_thumbnails TEXT[];
-  v_result_count INTEGER;
-  v_status_group TEXT;
-  v_module TEXT := public.task_queue_normalize_module(coalesce(p_item.intent, 'workflow'));
-BEGIN
-  SELECT coalesce(array_agg(DISTINCT url), '{}')
-    INTO v_input_thumbnails
-  FROM (
-    SELECT value ->> 'url' AS url
-    FROM jsonb_array_elements(coalesce(p_item.input_images, '[]'::jsonb)) AS t(value)
-  ) AS urls
-  WHERE url IS NOT NULL AND btrim(url) <> ''
-  LIMIT 8;
-
-  SELECT coalesce(array_agg(DISTINCT url), '{}')
-    INTO v_result_thumbnails
-  FROM (
-    SELECT value AS url FROM jsonb_array_elements_text(
-      CASE WHEN jsonb_typeof(p_item.final_outputs -> 'imageUrls') = 'array' THEN p_item.final_outputs -> 'imageUrls' ELSE '[]'::jsonb END
-    ) AS t(value)
-    UNION ALL
-    SELECT value AS url FROM jsonb_array_elements_text(
-      CASE WHEN jsonb_typeof(p_item.final_outputs -> 'resultUrls') = 'array' THEN p_item.final_outputs -> 'resultUrls' ELSE '[]'::jsonb END
-    ) AS t(value)
-    UNION ALL SELECT p_item.final_outputs ->> 'selectedImageUrl'
-    UNION ALL SELECT p_item.final_outputs ->> 'imageUrl'
-  ) AS urls
-  WHERE url IS NOT NULL AND btrim(url) <> ''
-  LIMIT 2;
-
-  v_result_count := coalesce(array_length(v_result_thumbnails, 1), 0);
-  v_status_group := public.task_queue_status_group(p_item.status, v_result_count);
-
-  INSERT INTO public.task_queue_items (
-    user_id, source_type, source_id, module, title, status, status_group, progress,
-    expected_count, result_count, input_thumbnails, result_thumbnails, error_message,
-    apply_url, created_at, updated_at, completed_at
-  )
-  VALUES (
-    p_item.user_id, 'workflow', p_item.id, v_module, coalesce(p_item.summary, public.task_queue_module_title(v_module)),
-    coalesce(p_item.status, 'queued'), v_status_group,
-    CASE WHEN v_status_group = 'completed' THEN 100 WHEN v_status_group = 'failed' THEN 0 ELSE 30 END,
-    greatest(1, v_result_count), v_result_count, v_input_thumbnails, v_result_thumbnails,
-    p_item.error_message, '/history?detail=' || p_item.id::TEXT,
-    p_item.created_at, p_item.updated_at,
-    CASE WHEN v_status_group IN ('completed', 'failed') THEN p_item.updated_at ELSE NULL END
-  )
-  ON CONFLICT (source_type, source_id) DO UPDATE SET
-    user_id = EXCLUDED.user_id,
-    module = EXCLUDED.module,
-    title = EXCLUDED.title,
-    status = EXCLUDED.status,
-    status_group = EXCLUDED.status_group,
-    progress = EXCLUDED.progress,
-    expected_count = EXCLUDED.expected_count,
-    result_count = EXCLUDED.result_count,
-    input_thumbnails = EXCLUDED.input_thumbnails,
-    result_thumbnails = EXCLUDED.result_thumbnails,
-    error_message = EXCLUDED.error_message,
-    apply_url = EXCLUDED.apply_url,
-    created_at = EXCLUDED.created_at,
-    updated_at = EXCLUDED.updated_at,
-    completed_at = EXCLUDED.completed_at;
-END;
-$$;
-
 CREATE OR REPLACE FUNCTION public.task_queue_sync_generation_trigger()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -421,31 +347,12 @@ BEGIN
 END;
 $$;
 
-CREATE OR REPLACE FUNCTION public.task_queue_sync_workflow_trigger()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-BEGIN
-  PERFORM public.task_queue_upsert_workflow(NEW);
-  RETURN NEW;
-END;
-$$;
-
 DROP TRIGGER IF EXISTS generations_task_queue_items_sync ON public.generations;
 CREATE TRIGGER generations_task_queue_items_sync
   AFTER INSERT OR UPDATE ON public.generations
   FOR EACH ROW EXECUTE FUNCTION public.task_queue_sync_generation_trigger();
 
-DROP TRIGGER IF EXISTS agent_workflows_task_queue_items_sync ON public.agent_workflows;
-CREATE TRIGGER agent_workflows_task_queue_items_sync
-  AFTER INSERT OR UPDATE ON public.agent_workflows
-  FOR EACH ROW EXECUTE FUNCTION public.task_queue_sync_workflow_trigger();
-
 -- Backfill is idempotent. Re-run safely after deploying this migration.
 SELECT public.task_queue_upsert_generation(g)
 FROM public.generations AS g;
 
-SELECT public.task_queue_upsert_workflow(w)
-FROM public.agent_workflows AS w;

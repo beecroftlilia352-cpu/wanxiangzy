@@ -44,7 +44,6 @@ export type AiConfig = {
     quality: string;
     size: string;
     count: string;
-    canvasImageCount: string;
 };
 
 export type WebdavSyncConfig = {
@@ -125,7 +124,6 @@ export const defaultConfig: AiConfig = {
     quality: "auto",
     size: "1:1",
     count: "1",
-    canvasImageCount: "3",
 };
 
 export const defaultWebdavSyncConfig: WebdavSyncConfig = {
@@ -133,7 +131,7 @@ export const defaultWebdavSyncConfig: WebdavSyncConfig = {
     url: "",
     username: "",
     password: "",
-    directory: "infinite-canvas",
+    directory: "wanxiangzy",
     lastSyncedAt: "",
 };
 
@@ -254,7 +252,6 @@ export const useConfigStore = create<ConfigStore>()(
                         vquality: config.vquality || "720",
                         videoGenerateAudio: config.videoGenerateAudio || "true",
                         videoWatermark: config.videoWatermark || "false",
-                        canvasImageCount: config.canvasImageCount || "3",
                         imageModels: Array.isArray(persistedConfig.imageModels) ? normalizeModelList(config.imageModels, channels) : filterModelsByCapability(models, "image"),
                         videoModels: Array.isArray(persistedConfig.videoModels) ? normalizeModelList(config.videoModels, channels) : filterModelsByCapability(models, "video"),
                         // For text capability we always union in the latest default text models
