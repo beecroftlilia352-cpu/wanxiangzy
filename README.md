@@ -63,20 +63,11 @@ NEXT_PUBLIC_SUPABASE_URL=https://xxxxx.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 
-# Feature required: image generation
-LINGYA_BASE_URL=https://api.lingyaai.cn
-LINGYA_API_KEY=your-lingya-api-key
-PLATO_BASE_URL=https://yunwu.ai
-PLATO_API_KEY=your-plato-api-key
-# Optional rollback: gpt-image-2 try-on prompt template, banana by default; set legacy to restore old GPT prompt
-GPT_TRYON_PROMPT_TEMPLATE=banana
-
-# Feature required: prompt analysis / prompt optimization
-ANALYZE_LLM_PROVIDER=yunwu
-YUNWU_API_KEY=your-yunwu-api-key
-YUNWU_API_BASE_URL=https://yunwu.ai
-YUNWU_TEXT_MODEL=gpt-5.4-nano
-YUNWU_VISION_MODEL=gpt-5.4-nano
+# AI providers (image / vision / text / video) are managed in the admin portal
+# and stored in Supabase (model.providers / llm.providers / video.providers).
+# Bootstrap them via /admin/providers, or one-time seed scripts:
+#   npx tsx --env-file-if-exists=.env.local scripts/seed-provider-configs.ts
+#   npx tsx --env-file-if-exists=.env.local scripts/seed-video-provider-config.ts
 
 # Feature required: uploads and background processors
 IMAGE_STORAGE_PROVIDER=imgbb
@@ -93,7 +84,7 @@ REPLICATE_API_TOKEN=
 环境变量按三类处理：
 
 - Production required: `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`。生产环境必须设置 `NEXT_PUBLIC_APP_URL`，服务端生成公开图片 URL 时不会信任 forwarded host/proto 作为替代。
-- Feature required: 对应功能实际被调用时必须设置，例如 `LINGYA_API_KEY` / `PLATO_API_KEY` 用于图像生成，`YUNWU_API_KEY` 用于 Yunwu 提示词与图片识别，`IMGBB_API_KEY` 或阿里云 OSS 环境变量用于上传，`JOB_PROCESSOR_SECRET` 或 `CRON_SECRET` 用于后台任务处理器。
+- Feature required: 对应功能实际被调用时必须设置，例如 `IMGBB_API_KEY` 或阿里云 OSS 环境变量用于上传，`JOB_PROCESSOR_SECRET` 或 `CRON_SECRET` 用于后台任务处理器。生图 / 视觉识别 / 文本 / 视频供应商不再依赖环境变量，统一在 `/admin/providers` 配置并加密入库。
 - Optional: base URL、模型名、批处理大小、allowlist、legacy provider token 等可按部署需要覆盖。`GPT_TRYON_PROMPT_TEMPLATE=legacy` 可将服装上身的 GPT 提示词回滚到旧模板；默认 `banana`。模块导入只会提示缺失项；具体运行路径需要某个值时才会报错。
 
 生产环境的任务处理器密钥必须使用至少 32 个随机字符，不能使用 `change-me`、`secret`、`password` 等默认或弱值。`AGENT_WORKFLOW_PROCESSOR_SECRET` 和 `AGENT_EVAL_PROCESSOR_SECRET` 可作为 route-specific 覆盖；未设置时会回退到 `JOB_PROCESSOR_SECRET` 或 `CRON_SECRET`。
@@ -197,6 +188,14 @@ AWS_APP_NAME=wanxiangzy
 mkdir -p ~/apps/wanxiangzy/shared
 nano ~/apps/wanxiangzy/shared/.env.production
 ```
+
+之后如果想用本地 `.env.local` 快速覆盖 EC2 的生产环境文件（保证两者一致），在本机执行：
+
+```bash
+SYNC_ENV_HOST=你的EC2公网IP SYNC_ENV_KEY=~/.ssh/你的私钥.pem ./scripts/sync-production-env.sh
+```
+
+脚本会先备份远程旧文件，再原子替换并做 sha256 校验，确保最终 `.env.production` 与本地 `.env.local` 完全一致。
 
 `.env.production` 至少需要包含 Production required 变量和部署启用功能对应的 Feature required 变量。特别注意：`NEXT_PUBLIC_APP_URL` 必须是线上公开域名，例如 `https://example.com`；后台处理器密钥必须是强随机值，不能沿用 `.env.local.example` 的占位值。
 

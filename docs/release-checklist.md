@@ -39,7 +39,7 @@
    ~/apps/wanxiangzy/shared/.env.production
    ```
 
-   必需项包括 `NEXT_PUBLIC_APP_URL`、`NEXT_PUBLIC_SUPABASE_URL`、`NEXT_PUBLIC_SUPABASE_ANON_KEY`、`SUPABASE_SERVICE_ROLE_KEY`、`LINGYA_API_KEY`、`PLATO_API_KEY`、`YUNWU_API_KEY`、`JOB_PROCESSOR_SECRET`、阿里云 OSS 与 Upstash Redis 凭据（若启用对应模块）。商品精修无开关，发布后直接可用。
+   必需项包括 `NEXT_PUBLIC_APP_URL`、`NEXT_PUBLIC_SUPABASE_URL`、`NEXT_PUBLIC_SUPABASE_ANON_KEY`、`SUPABASE_SERVICE_ROLE_KEY`、`JOB_PROCESSOR_SECRET`、阿里云 OSS 与 Upstash Redis 凭据（若启用对应模块）。生图 / 视觉识别 / 文本 / 视频供应商在 `/admin/providers` 配置并加密入库，不写入 `.env.production`。商品精修无开关，发布后直接可用。
 
 5. 确认后台处理器密钥是强随机值，长度不少于 32 个字符。不要使用 `change-me`、`secret`、`password` 或示例值。
 
@@ -74,17 +74,10 @@ AWS_SSH_PRIVATE_KEY=
 AWS_PORT=22
 AWS_APP_DIR=/home/ec2-user/apps/wanxiangzy
 AWS_APP_NAME=wanxiangzy
-NEXT_PUBLIC_APP_URL=
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_ROLE_KEY=
-LINGYA_API_KEY=
-PLATO_API_KEY=
-YUNWU_API_KEY=
 PRODUCT_RETOUCH_RUNTIME_SKILL_ENABLED=true
 ```
 
-工作流会把 GPT-Image-2 与 Yunwu 识别配置写入 EC2 的共享 `.env.production`。商品精修无开关，发布后直接可用。
+生图 / 视觉识别 / 文本 / 视频供应商统一在后台 `/admin/providers` 配置并加密存储到 Supabase，不再通过环境变量兜底。EC2 的 `.env.production` 以本地 `.env.local` 为准，可用 `scripts/sync-production-env.sh` 快速覆盖并校验一致。
 
 ## 发布
 

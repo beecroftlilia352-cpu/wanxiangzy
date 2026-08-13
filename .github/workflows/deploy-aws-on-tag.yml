@@ -185,29 +185,15 @@ jobs:
           echo "::error::Could not upload deployment archive over SSH"
           exit 1
 
-      - name: Update production AI provider env
+      - name: Update production rollout flags
         env:
           AWS_APP_DIR: ${{ secrets.AWS_APP_DIR }}
-          PLATO_BASE_URL: https://yunwu.ai
-          PLATO_API_KEY: ${{ secrets.PLATO_API_KEY }}
-          PLATO_GPT_IMAGE_MODEL: gpt-image-2
-          ANALYZE_LLM_PROVIDER: ${{ vars.ANALYZE_LLM_PROVIDER || 'xiaomi' }}
-          YUNWU_API_KEY: ${{ secrets.YUNWU_API_KEY || 'ci-yunwu-key' }}
-          YUNWU_API_BASE_URL: https://yunwu.ai
           PRODUCT_RETOUCH_RUNTIME_SKILL_ENABLED: ${{ secrets.PRODUCT_RETOUCH_RUNTIME_SKILL_ENABLED || 'true' }}
         run: |
           set -euo pipefail
-          if [[ -z "${PLATO_API_KEY:-}" ]]; then
-            echo "::error::PLATO_API_KEY secret is empty"
-            exit 1
-          fi
-          if [[ -z "${YUNWU_API_KEY:-}" ]]; then
-            echo "::error::YUNWU_API_KEY secret is empty"
-            exit 1
-          fi
 
           quote() { printf '%q' "$1"; }
-          REMOTE_ENV="AWS_APP_DIR=$(quote "${AWS_APP_DIR:-}") PLATO_BASE_URL=$(quote "$PLATO_BASE_URL") PLATO_API_KEY=$(quote "$PLATO_API_KEY") PLATO_GPT_IMAGE_MODEL=$(quote "$PLATO_GPT_IMAGE_MODEL") ANALYZE_LLM_PROVIDER=$(quote "$ANALYZE_LLM_PROVIDER") YUNWU_API_KEY=$(quote "$YUNWU_API_KEY") YUNWU_API_BASE_URL=$(quote "$YUNWU_API_BASE_URL") PRODUCT_RETOUCH_RUNTIME_SKILL_ENABLED=$(quote "$PRODUCT_RETOUCH_RUNTIME_SKILL_ENABLED")"
+          REMOTE_ENV="AWS_APP_DIR=$(quote "${AWS_APP_DIR:-}") PRODUCT_RETOUCH_RUNTIME_SKILL_ENABLED=$(quote "$PRODUCT_RETOUCH_RUNTIME_SKILL_ENABLED")"
 
           ssh -p "$AWS_PORT_NORM" -i ~/.ssh/aws_deploy_key \
             -o StrictHostKeyChecking=accept-new \
@@ -242,17 +228,8 @@ jobs:
             fi
           }
 
-          set_env_var PLATO_BASE_URL "$PLATO_BASE_URL"
-          set_env_var PLATO_API_KEY "$PLATO_API_KEY"
-          set_env_var PLATO_GPT_IMAGE_MODEL "$PLATO_GPT_IMAGE_MODEL"
-          set_env_var ANALYZE_LLM_PROVIDER "$ANALYZE_LLM_PROVIDER"
-          set_env_var YUNWU_API_KEY "$YUNWU_API_KEY"
-          set_env_var YUNWU_API_BASE_URL "$YUNWU_API_BASE_URL"
-          set_env_var YUNWU_VISION_MODEL "${YUNWU_VISION_MODEL:-gpt-5.4-nano}"
-          set_env_var TRYON_CLOTHING_ANALYZE_BASE_URL "$YUNWU_API_BASE_URL"
-          set_env_var TRYON_CLOTHING_ANALYZE_API_KEY "$YUNWU_API_KEY"
           set_env_var PRODUCT_RETOUCH_RUNTIME_SKILL_ENABLED "$PRODUCT_RETOUCH_RUNTIME_SKILL_ENABLED"
-          echo "Updated image generation, Yunwu analysis, and product-retouch rollout settings in $ENV_FILE"
+          echo "Updated product-retouch rollout flag in $ENV_FILE"
           REMOTE
 
       - name: Deploy on EC2
