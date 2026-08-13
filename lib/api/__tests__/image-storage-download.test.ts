@@ -20,10 +20,10 @@ describe("Aliyun OSS download URL", () => {
     vi.setSystemTime(new Date("2026-01-01T00:00:00.000Z"));
     process.env.ALIYUN_OSS_ACCESS_KEY_ID = "test-access-key-id";
     process.env.ALIYUN_OSS_ACCESS_KEY_SECRET = "test-access-key-secret";
-    process.env.ALIYUN_OSS_BUCKET = "vastweargen-images";
+    process.env.ALIYUN_OSS_BUCKET = "vasthk";
     process.env.ALIYUN_OSS_REGION = "oss-cn-hongkong";
-    process.env.ALIYUN_OSS_PUBLIC_BASE_URL = "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com";
-    process.env.NEXT_PUBLIC_ALIYUN_OSS_IMAGE_HOSTS = "vastweargen-images.cn-hongkong.thepacificxxs.com";
+    process.env.ALIYUN_OSS_PUBLIC_BASE_URL = "https://vasthk.oss-cn-hongkong.aliyuncs.com";
+    process.env.NEXT_PUBLIC_ALIYUN_OSS_IMAGE_HOSTS = "vasthk.cn-hongkong.thepacificgls.com";
     delete process.env.ALIYUN_OSS_DOWNLOAD_BASE_URL;
     delete process.env.ALIYUN_OSS_ENDPOINT;
     delete process.env.ALIYUN_OSS_SECURITY_TOKEN;
@@ -44,7 +44,7 @@ describe("Aliyun OSS download URL", () => {
 
   it("generates a short-lived signed attachment URL for configured OSS hosts", () => {
     const signedUrl = createAliyunOssDownloadUrl(
-      "https://vastweargen-images.cn-hongkong.thepacificxxs.com/ai-tryon/generated/test-file.jpg",
+      "https://vasthk.cn-hongkong.thepacificgls.com/ai-tryon/generated/test-file.jpg",
       "tryon-result.jpg"
     );
 
@@ -58,11 +58,11 @@ describe("Aliyun OSS download URL", () => {
         "",
         "",
         expectedExpires,
-        `/vastweargen-images/ai-tryon/generated/test-file.jpg?response-content-disposition=${expectedDisposition}`,
+        `/vasthk/ai-tryon/generated/test-file.jpg?response-content-disposition=${expectedDisposition}`,
       ].join("\n"))
       .digest("base64");
 
-    expect(parsedUrl.hostname).toBe("vastweargen-images.oss-cn-hongkong.aliyuncs.com");
+    expect(parsedUrl.hostname).toBe("vasthk.oss-cn-hongkong.aliyuncs.com");
     expect(parsedUrl.pathname).toBe("/ai-tryon/generated/test-file.jpg");
     expect(parsedUrl.searchParams.get("OSSAccessKeyId")).toBe("test-access-key-id");
     expect(parsedUrl.searchParams.get("Expires")).toBe(expectedExpires);
@@ -78,7 +78,7 @@ describe("Aliyun OSS download URL", () => {
     process.env.ALIYUN_OSS_DOWNLOAD_BASE_URL = "https://cdn.example.com/assets";
 
     const signedUrl = createAliyunOssDownloadUrl(
-      "https://vastweargen-images.oss-cn-hongkong.aliyuncs.com/ai-tryon/generated/test-file.jpg",
+      "https://vasthk.oss-cn-hongkong.aliyuncs.com/ai-tryon/generated/test-file.jpg",
       "tryon-result.jpg"
     );
 
