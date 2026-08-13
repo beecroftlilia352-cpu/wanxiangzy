@@ -13,12 +13,11 @@ import { resolveImageInputs } from "@/lib/api/image-inputs.server";
 import { persistGeneratedImageUrls } from "@/lib/api/result-image-storage";
 import { persistGeneratedMediaUrls } from "@/lib/api/result-media-storage";
 import {
-  generateHappyHorseFirstLastFrame,
-  generateHappyHorseImageToVideo,
-  generateHappyHorseMotionControl,
-  type VideoGenerationResult,
-  type VideoTaskProgress,
-} from "@/lib/api/happyhorse-video";
+  generateVideoFirstLastFrame,
+  generateVideoImageToVideo,
+  generateVideoMotionControl,
+} from "@/lib/api/video-provider";
+import type { VideoGenerationResult, VideoTaskProgress } from "@/lib/api/happyhorse-video";
 import type { OutfitFusionHistoryAsset } from "@/lib/history-apply";
 import { getOutfitFusionDisplayPrompt, resolveOutfitFusionSmartAspectImage } from "@/lib/outfit-fusion";
 import { syncGenerationTaskQueueById } from "@/lib/task-queue-store";
@@ -1249,7 +1248,7 @@ async function executePayload(
   if (payload.kind === "videoImageToVideo") {
     const modelMode = normalizeAiVideoModelMode(payload.modelMode, payload.kind);
     const audioMode = resolvePayloadAiVideoAudioMode(payload);
-    return runVideoBatch("video:image-to-video", (_index, onVideoProgress) => generateHappyHorseImageToVideo({
+    return runVideoBatch("video:image-to-video", (_index, onVideoProgress) => generateVideoImageToVideo({
       imageUrl: payload.imageUrl,
       prompt: payload.prompt,
       modelMode,
@@ -1267,7 +1266,7 @@ async function executePayload(
   if (payload.kind === "videoMotion") {
     const modelMode = normalizeAiVideoModelMode(payload.modelMode, payload.kind);
     const audioMode = resolvePayloadAiVideoAudioMode(payload);
-    return runVideoBatch("video:motion-control", (_index, onVideoProgress) => generateHappyHorseMotionControl({
+    return runVideoBatch("video:motion-control", (_index, onVideoProgress) => generateVideoMotionControl({
       modelImageUrl: payload.modelImageUrl,
       referenceVideoUrl: payload.referenceVideoUrl,
       prompt: payload.prompt,
@@ -1286,7 +1285,7 @@ async function executePayload(
   if (payload.kind === "videoFirstLastFrame") {
     const modelMode = normalizeAiVideoModelMode(payload.modelMode, payload.kind);
     const audioMode = resolvePayloadAiVideoAudioMode(payload);
-    return runVideoBatch("video:first-last-frame", (_index, onVideoProgress) => generateHappyHorseFirstLastFrame({
+    return runVideoBatch("video:first-last-frame", (_index, onVideoProgress) => generateVideoFirstLastFrame({
       firstFrameUrl: payload.firstFrameUrl,
       lastFrameUrl: payload.lastFrameUrl,
       prompt: payload.prompt,

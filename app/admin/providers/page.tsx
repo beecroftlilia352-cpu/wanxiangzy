@@ -10,6 +10,7 @@ import { AdminConfigForm } from "@/components/admin/AdminConfigForm";
 import { AdminModelRoutingForm } from "@/components/admin/AdminModelRoutingForm";
 import { AdminModelProviderConfigForm } from "@/components/admin/AdminModelProviderConfigForm";
 import { AdminLlmProviderConfigForm } from "@/components/admin/AdminLlmProviderConfigForm";
+import { AdminVideoProviderConfigForm } from "@/components/admin/AdminVideoProviderConfigForm";
 import { getAdminProviderCatalog } from "@/lib/admin/data";
 
 export const dynamic = "force-dynamic";
@@ -39,6 +40,10 @@ export default async function AdminProvidersPage() {
 
       <AdminSection title="视觉/文本识别供应商配置" description="配置视觉图片识别和文本提示词模型。这里发布的 llm.providers 是视觉/文本识别的唯一配置来源；API Key 加密落库，页面只显示脱敏值。">
         <AdminLlmProviderConfigForm />
+      </AdminSection>
+
+      <AdminSection title="视频生成供应商配置" description="配置 AI 视频生成模型（MiniMax H3 或 HappyHorse）。这里发布的 video.providers 是视频生成的唯一配置来源；API Key 加密落库，页面只显示脱敏值。">
+        <AdminVideoProviderConfigForm />
       </AdminSection>
 
       <AdminSection title="模型路由" description="价格来自 lib/model-pricing.ts 的统一配置；配置状态来自服务端环境变量和已发布的 model.routing。">

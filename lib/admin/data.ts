@@ -3428,7 +3428,7 @@ function getRuntimeSettingHealth(): AdminSettingsOverview["runtime"] {
     { key: "IMAGE_STORAGE_PROVIDER", label: "Image storage provider", configured: Boolean(process.env.IMAGE_STORAGE_PROVIDER), scope: "storage" },
     { key: "ALIYUN_OSS_BUCKET", label: "Aliyun OSS bucket", configured: Boolean(process.env.ALIYUN_OSS_BUCKET), scope: "storage" },
     { key: "LAOZHANG_API_KEY", label: "LaoZhang API", configured: Boolean(process.env.LAOZHANG_API_KEY), scope: "provider" },
-    { key: "HAPPYHORSE_API_KEY", label: "HappyHorse Video API", configured: Boolean(process.env.HAPPYHORSE_API_KEY || process.env.YUNWU_HAPPYHORSE_API_KEY || process.env.YUNWU_API_KEY), scope: "provider" },
+    { key: "MINIMAX_VIDEO_API_KEY", label: "MiniMax H3 Video API (seed)", configured: Boolean(process.env.MINIMAX_VIDEO_API_KEY), scope: "provider" },
     { key: "PLATO_API_KEY", label: "Plato API", configured: Boolean(process.env.PLATO_API_KEY), scope: "provider" },
     { key: "LINGYA_API_KEY", label: "Lingya API", configured: Boolean(process.env.LINGYA_API_KEY), scope: "provider" },
   ];

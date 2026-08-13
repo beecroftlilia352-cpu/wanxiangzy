@@ -84,7 +84,7 @@ export type HappyHorseFirstLastFrameInput = {
   onProgress?: (update: VideoTaskProgress) => Promise<void> | void;
 };
 
-type ProviderConfig = {
+export type ProviderConfig = {
   apiBase: string;
   apiKey: string;
 };
@@ -110,8 +110,11 @@ type HappyHorseMediaItem =
   | { type: "reference_image"; url: string }
   | { type: "video"; url: string };
 
-export async function generateHappyHorseImageToVideo(input: HappyHorseImageToVideoInput): Promise<VideoGenerationResult> {
-  const provider = getHappyHorseVideoProvider();
+export async function generateHappyHorseImageToVideo(
+  input: HappyHorseImageToVideoInput,
+  providerOverride?: ProviderConfig,
+): Promise<VideoGenerationResult> {
+  const provider = providerOverride || getHappyHorseVideoProvider();
   const prompt = appendAudioPrompt(buildImageToVideoPrompt(input.prompt, input.aspectRatio), input);
   const body = buildHappyHorseTaskBody(getAiVideoHappyHorseModel(input.modelMode, "videoImageToVideo"), {
     prompt,
@@ -137,8 +140,11 @@ export async function generateHappyHorseImageToVideo(input: HappyHorseImageToVid
   };
 }
 
-export async function generateHappyHorseMotionControl(input: HappyHorseMotionControlInput): Promise<VideoGenerationResult> {
-  const provider = getHappyHorseVideoProvider();
+export async function generateHappyHorseMotionControl(
+  input: HappyHorseMotionControlInput,
+  providerOverride?: ProviderConfig,
+): Promise<VideoGenerationResult> {
+  const provider = providerOverride || getHappyHorseVideoProvider();
   const prompt = appendAudioPrompt(buildMotionControlPrompt(input.prompt), input);
   const body = buildHappyHorseTaskBody(getAiVideoHappyHorseModel(input.modelMode, "videoMotion"), {
     prompt,
@@ -167,8 +173,11 @@ export async function generateHappyHorseMotionControl(input: HappyHorseMotionCon
   };
 }
 
-export async function generateHappyHorseFirstLastFrame(input: HappyHorseFirstLastFrameInput): Promise<VideoGenerationResult> {
-  const provider = getHappyHorseVideoProvider();
+export async function generateHappyHorseFirstLastFrame(
+  input: HappyHorseFirstLastFrameInput,
+  providerOverride?: ProviderConfig,
+): Promise<VideoGenerationResult> {
+  const provider = providerOverride || getHappyHorseVideoProvider();
   const prompt = appendAudioPrompt(buildFirstLastFramePrompt(input.prompt, input.aspectRatio), input);
   const body = buildHappyHorseTaskBody(getAiVideoHappyHorseModel(input.modelMode, "videoFirstLastFrame"), {
     prompt,

@@ -58,11 +58,6 @@ const FEATURE_REQUIRED_ENV: EnvContractEntry[] = [
     description: "Required for the default GPT-Image-2 CatRouter channel and optional CatRouter Banana channel.",
   },
   {
-    name: "HAPPYHORSE_API_KEY or YUNWU_API_KEY",
-    category: "feature-required",
-    description: "Required for AI video generation through Yunwu HappyHorse.",
-  },
-  {
     name: "XIAOMI_MIMO_API_KEY",
     category: "feature-required",
     description: "Required when ANALYZE_LLM_PROVIDER=xiaomi.",
@@ -144,9 +139,9 @@ const OPTIONAL_ENV: EnvContractEntry[] = [
   { name: "LAOZHANG_API_KEY", category: "optional", description: "LaoZhang Gemini native generateContent API key fallback." },
   { name: "LAOZHANG_NANO_BANANA_MODEL", category: "optional", description: "LaoZhang provider model id for nano-banana-2." },
   { name: "LAOZHANG_NANO_BANANA_PRO_MODEL", category: "optional", description: "LaoZhang provider model id for nano-banana-pro." },
-  { name: "HAPPYHORSE_BASE_URL", category: "optional", description: "HappyHorse API base URL, default https://yunwu.ai. Values ending in /v1 are normalized to the documented root path." },
-  { name: "YUNWU_API_KEY", category: "optional", description: "Shared Yunwu API key for image recognition, prompt analysis, image generation, and video generation." },
-  { name: "YUNWU_API_BASE_URL", category: "optional", description: "Shared Yunwu OpenAI-compatible API base URL." },
+  { name: "HAPPYHORSE_BASE_URL", category: "optional", description: "Legacy HappyHorse video base URL; only used as a test/local fallback now that video generation is admin-configured (video.providers)." },
+  { name: "YUNWU_API_KEY", category: "optional", description: "Shared Yunwu API key for image recognition and prompt analysis; legacy HappyHorse video fallback only." },
+  { name: "YUNWU_API_BASE_URL", category: "optional", description: "Shared Yunwu OpenAI-compatible API base URL; legacy HappyHorse video fallback only." },
   { name: "YUNWU_TEXT_MODEL", category: "optional", description: "Yunwu text analysis model override." },
   { name: "YUNWU_VISION_MODEL", category: "optional", description: "Yunwu vision-capable image recognition model override." },
   { name: "TRYON_CLOTHING_ANALYZE_API_KEY", category: "optional", description: "Yunwu/OpenAI-compatible API key for try-on clothing recognition; falls back to LINGYA_API_KEY." },
@@ -159,6 +154,9 @@ const OPTIONAL_ENV: EnvContractEntry[] = [
   { name: "MINIMAX_MODEL", category: "optional", description: "Default MiniMax model override." },
   { name: "MINIMAX_VISION_MODEL", category: "optional", description: "MiniMax vision model override, default MiniMax-M3." },
   { name: "MINIMAX_TEXT_MODEL", category: "optional", description: "MiniMax text model override, default MiniMax-M3." },
+  { name: "MINIMAX_VIDEO_API_KEY", category: "optional", description: "MiniMax H3 video API key; used by scripts/seed-provider-configs to seed video.providers and as a local test fallback." },
+  { name: "MINIMAX_VIDEO_BASE_URL", category: "optional", description: "MiniMax H3 video base URL, default https://api.minimaxi.com." },
+  { name: "MINIMAX_VIDEO_MODEL", category: "optional", description: "MiniMax H3 upstream model, default MiniMax-H3." },
   { name: "LINGYA_TEXT_MODEL", category: "optional", description: "Lingya text model override." },
   { name: "LINGYA_VISION_MODEL", category: "optional", description: "Lingya vision model override." },
   { name: "XIAOMI_MIMO_BASE_URL", category: "optional", description: "Xiaomi OpenAI-compatible base URL override." },
@@ -280,15 +278,6 @@ export function validateEnv(options: { log?: boolean; nodeEnv?: string } = {}): 
       category: "feature-required",
       severity: "warning",
       message: "PLATO_API_KEY or LINGYA_API_KEY is not set; GPT-Image-2 generation will fail while GPT_IMAGE_PROVIDER=plato.",
-    });
-  }
-
-  if (!process.env.HAPPYHORSE_API_KEY && !process.env.YUNWU_HAPPYHORSE_API_KEY && !process.env.YUNWU_API_KEY) {
-    issues.push({
-      name: "HAPPYHORSE_API_KEY or YUNWU_API_KEY",
-      category: "feature-required",
-      severity: "warning",
-      message: "HAPPYHORSE_API_KEY or YUNWU_API_KEY is not set; AI video generation will fail when used.",
     });
   }
 

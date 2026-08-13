@@ -120,7 +120,7 @@ describe("environment contract", () => {
     ).toEqual({ ok: true, secrets: [strongSecret] });
   });
 
-  it("allows the shared Yunwu key as the HappyHorse video fallback", () => {
+  it("does not require a HappyHorse env fallback now that video is admin-configured", () => {
     process.env.YUNWU_API_KEY = "shared-yunwu-key";
 
     expect(validateEnv({ nodeEnv: "development" })).not.toEqual(

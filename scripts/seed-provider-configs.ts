@@ -4,6 +4,7 @@ import { encryptProviderSecret } from "../lib/api/model-provider-secrets";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const minimaxKey = process.env.MINIMAX_API_KEY ?? "";
+const minimaxVideoKey = process.env.MINIMAX_VIDEO_API_KEY ?? "";
 const newBiKey = process.env.PLATO_API_KEY || process.env.YUNWU_NATIVE_API_KEY || "";
 
 if (!supabaseUrl || !serviceRoleKey) {
@@ -11,6 +12,9 @@ if (!supabaseUrl || !serviceRoleKey) {
 }
 if (!minimaxKey.trim() || !newBiKey.trim()) {
   throw new Error("MINIMAX_API_KEY and a new.bi key are required");
+}
+if (!minimaxVideoKey.trim()) {
+  throw new Error("MINIMAX_VIDEO_API_KEY is required for video.providers seeding");
 }
 
 const admin = createClient(supabaseUrl, serviceRoleKey, {
@@ -75,6 +79,21 @@ async function main() {
         apiKey: encryptProviderSecret(minimaxKey),
         upstreamModel: "MiniMax-M3",
         responseType: "openai-chat",
+      },
+    },
+    updatedFrom: "scripts.seed-provider-configs",
+    updatedAt: new Date().toISOString(),
+  });
+
+  await publishConfig("video.providers", {
+    models: {
+      video: {
+        enabled: true,
+        provider: "minimax",
+        baseUrl: "https://api.minimaxi.com",
+        apiKey: encryptProviderSecret(minimaxVideoKey),
+        upstreamModel: "MiniMax-H3",
+        responseType: "minimax-video",
       },
     },
     updatedFrom: "scripts.seed-provider-configs",
