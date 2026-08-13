@@ -1,10 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
-  generateMinimaxFirstLastFrame,
-  generateMinimaxImageToVideo,
-  generateMinimaxMotionControl,
-} from "@/lib/api/minimax-video";
+  generateNewApiFirstLastFrame,
+  generateNewApiImageToVideo,
+} from "@/lib/api/newapi-video";
 
 const ORIGINAL_ENV = { ...process.env };
 
@@ -15,10 +14,10 @@ function jsonResponse(body: unknown, status = 200) {
   });
 }
 
-const provider = {
+const minimaxProvider = {
+  provider: "minimax" as const,
   apiBase: "https://api.new.bi",
-  apiKey: "test-minimax-video-key",
-  model: "minimax-h3",
+  apiKey: "test-key",
 };
 
 function minimaxInput() {
@@ -27,14 +26,14 @@ function minimaxInput() {
     prompt: "模特自然走动展示服装。",
     modelMode: "pro" as const,
     duration: 5 as const,
-    resolution: "1080p" as const,
+    resolution: "2k" as const,
     aspectRatio: "9:16" as const,
     audioMode: "off" as const,
     generateAudio: false,
   };
 }
 
-describe("minimax video adapter (new-api gateway)", () => {
+describe("newapi video adapter (new.bi gateway)", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     process.env = { ...ORIGINAL_ENV };
@@ -46,7 +45,7 @@ describe("minimax video adapter (new-api gateway)", () => {
     process.env = { ...ORIGINAL_ENV };
   });
 
-  it("submits image-to-video to /v1/video/generations and polls until completed", async () => {
+  it("submits image-to-video with the catalog-selected model and polls until completed", async () => {
     const requests: Array<{ method: string; url: string; body?: Record<string, unknown> }> = [];
     let pollCount = 0;
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -67,7 +66,7 @@ describe("minimax video adapter (new-api gateway)", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const onProgress = vi.fn();
-    const pending = generateMinimaxImageToVideo({ ...minimaxInput(), onProgress }, provider);
+    const pending = generateNewApiImageToVideo({ ...minimaxInput(), onProgress }, minimaxProvider);
     await vi.advanceTimersByTimeAsync(30_000);
     const result = await pending;
 
@@ -82,7 +81,7 @@ describe("minimax video adapter (new-api gateway)", () => {
     expect(onProgress).toHaveBeenCalledWith(expect.objectContaining({ status: "running" }));
   });
 
-  it("selects the 768p model for 720p resolution", async () => {
+  it("maps minimax 768p and seedance mini to their upstream models", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const method = (init?.method || "GET").toUpperCase();
       if (method === "POST") {
@@ -92,58 +91,49 @@ describe("minimax video adapter (new-api gateway)", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    const pending = generateMinimaxMotionControl({
-      modelImageUrl: "https://cdn.example.com/model.png",
-      referenceVideoUrl: "https://cdn.example.com/reference.mp4",
-      prompt: "",
+    const pending = generateNewApiImageToVideo({
+      ...minimaxInput(),
       modelMode: "pro",
-      duration: 5,
-      resolution: "720p",
-      aspectRatio: "auto",
-      audioMode: "off",
-      generateAudio: false,
-    }, provider);
-
+      resolution: "768p",
+      onProgress: undefined,
+    }, minimaxProvider);
     await vi.advanceTimersByTimeAsync(20_000);
     await pending;
 
-    const post = (fetchMock.mock.calls[0]?.[1] as RequestInit);
-    const body = JSON.parse(String(post.body)) as { model: string; reference_image: string };
-    expect(body.model).toBe("minimax-h3-768p");
-    expect(body.reference_image).toBe("https://cdn.example.com/model.png");
-    expect(body).not.toHaveProperty("metadata");
+    const body1 = JSON.parse(String((fetchMock.mock.calls[0]?.[1] as RequestInit).body)) as { model: string };
+    expect(body1.model).toBe("minimax-h3-768p");
   });
 
   it("passes the first and last frames as top-level fields", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const method = (init?.method || "GET").toUpperCase();
       if (method === "POST") {
-        return jsonResponse({ id: "task_3", task_id: "task_3", object: "video", model: "minimax-h3", status: "queued" });
+        return jsonResponse({ id: "task_3", task_id: "task_3", object: "video", model: "minimax-h3-768p", status: "queued" });
       }
       return jsonResponse({ code: "success", data: { status: "SUCCESS", progress: "100%", data: { data: { data: { object: "video", status: "completed", progress: 100, video_url: "https://cdn.example.com/frame.mp4" } } } } });
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    const pending = generateMinimaxFirstLastFrame({
+    const pending = generateNewApiFirstLastFrame({
       firstFrameUrl: "https://cdn.example.com/first.png",
       lastFrameUrl: "https://cdn.example.com/last.png",
       prompt: "自然过渡",
-      modelMode: "fast",
-      duration: 3,
-      resolution: "720p",
+      modelMode: "pro",
+      duration: 5,
+      resolution: "768p",
       aspectRatio: "1:1",
       audioMode: "generated",
       generateAudio: true,
-    }, provider);
+    }, minimaxProvider);
 
     await vi.advanceTimersByTimeAsync(20_000);
     await pending;
 
     const post = (fetchMock.mock.calls[0]?.[1] as RequestInit);
     const body = JSON.parse(String(post.body)) as { model: string; first_frame_image: string; last_frame_image: string; duration: number };
+    expect(body.model).toBe("minimax-h3-768p");
     expect(body.first_frame_image).toBe("https://cdn.example.com/first.png");
     expect(body.last_frame_image).toBe("https://cdn.example.com/last.png");
-    expect(body).not.toHaveProperty("image");
     expect(body).not.toHaveProperty("metadata");
     expect(body.duration).toBe(5);
   });

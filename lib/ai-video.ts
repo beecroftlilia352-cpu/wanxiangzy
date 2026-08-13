@@ -1,10 +1,10 @@
 import { VIDEO_CREDIT_RATES } from "@/lib/model-pricing";
 
-export type AiVideoResolution = "720p" | "1080p";
+export type AiVideoResolution = "480p" | "720p" | "768p" | "1080p" | "2k";
 export type AiVideoDuration = 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15;
 export type AiVideoFixedAspectRatio = "3:4" | "9:16" | "1:1" | "4:3" | "16:9";
 export type AiVideoAspectRatio = "auto" | AiVideoFixedAspectRatio;
-export type AiVideoModelMode = "fast" | "pro";
+export type AiVideoModelMode = "mini" | "fast" | "pro";
 export type AiVideoAudioMode = "generated" | "custom" | "off";
 export type AiVideoMode = "image-to-video" | "motion-control" | "first-last-frame";
 export type AiVideoGenerationKind = "videoImageToVideo" | "videoMotion" | "videoFirstLastFrame";
@@ -142,16 +142,20 @@ export const AI_VIDEO_ACTION_TEMPLATES: AiVideoActionTemplate[] = [
 
 export function normalizeAiVideoModelMode(value: unknown, kind?: AiVideoMode | AiVideoGenerationKind): AiVideoModelMode {
   if (kind === "first-last-frame" || kind === "videoFirstLastFrame") return "pro";
-  return value === "fast" ? "fast" : "pro";
+  if (value === "mini" || value === "fast") return value;
+  return "pro";
 }
 
 export function getAiVideoResolutionOptions(modelMode: AiVideoModelMode) {
   return modelMode === "fast" ? AI_VIDEO_FAST_RESOLUTION_OPTIONS : AI_VIDEO_RESOLUTION_OPTIONS;
 }
 
-export function normalizeAiVideoResolution(value: unknown, modelMode: AiVideoModelMode = "pro"): AiVideoResolution {
-  if (modelMode === "fast") return "720p";
-  return value === "1080p" ? "1080p" : "720p";
+export function normalizeAiVideoResolution(value: unknown, _modelMode: AiVideoModelMode = "pro"): AiVideoResolution {
+  const token = typeof value === "string" ? value.toLowerCase() : "";
+  if (token === "480p" || token === "720p" || token === "768p" || token === "1080p" || token === "2k") {
+    return token as AiVideoResolution;
+  }
+  return "720p";
 }
 
 export function normalizeAiVideoDuration(value: unknown): AiVideoDuration {
@@ -228,9 +232,10 @@ export function getAiVideoCreditCost(input: {
     audioMode: input.audioMode,
     generateAudio: input.generateAudio,
   });
+  const proResolution = resolution === "1080p" ? "1080p" : "720p";
   const rate = modelMode === "fast"
     ? VIDEO_CREDIT_RATES.fast["720p"]
-    : VIDEO_CREDIT_RATES.pro[resolution];
+    : VIDEO_CREDIT_RATES.pro[proResolution];
   const perVideoCost = Math.max(rate.minimum, Math.ceil(duration * rate.perSecond));
   return (perVideoCost + audioCost) * genCount;
 }

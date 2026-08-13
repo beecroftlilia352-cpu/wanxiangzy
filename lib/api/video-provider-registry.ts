@@ -1,9 +1,8 @@
-import { normalizeOpenAiCompatibleBaseUrl } from "@/lib/api/url-utils";
+import { getVideoProviderBaseUrl, type VideoProviderName } from "@/lib/api/video-catalog";
 
 export const VIDEO_PROVIDERS_CONFIG_KEY = "video.providers";
 
-export type VideoProviderName = "minimax" | "happyhorse";
-export type VideoProviderResponseType = "minimax-video" | "happyhorse-video";
+export type VideoProviderResponseType = "newapi-video";
 
 export type VideoProviderOverride = {
   enabled: boolean;
@@ -14,21 +13,11 @@ export type VideoProviderOverride = {
   responseType: VideoProviderResponseType;
 };
 
-export const DEFAULT_MINIMAX_VIDEO_MODEL = "minimax-h3";
-export const DEFAULT_HAPPYHORSE_VIDEO_MODEL = "happyhorse-1.0-i2v";
+export const DEFAULT_VIDEO_BASE_URL = "https://api.new.bi";
 
-export const DEFAULT_MINIMAX_VIDEO_BASE_URL = "https://api.new.bi";
-export const DEFAULT_HAPPYHORSE_VIDEO_BASE_URL = "https://yunwu.ai";
+export const VIDEO_RESPONSE_TYPES: ReadonlyArray<VideoProviderResponseType> = ["newapi-video"];
 
-export const VIDEO_RESPONSE_TYPES: ReadonlyArray<VideoProviderResponseType> = [
-  "minimax-video",
-  "happyhorse-video",
-];
-
-export const VIDEO_PROVIDER_NAMES: ReadonlyArray<VideoProviderName> = [
-  "minimax",
-  "happyhorse",
-];
+export const VIDEO_PROVIDER_NAMES: ReadonlyArray<VideoProviderName> = ["minimax", "seedance"];
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -36,61 +25,36 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 export function normalizeVideoProviderName(value: unknown): VideoProviderName {
   const token = typeof value === "string" ? value.trim().toLowerCase() : "";
-  if (token === "minimax" || token === "hailuo" || token === "minimax-h3") return "minimax";
-  if (token === "happyhorse" || token === "yunwu" || token === "alibailian") return "happyhorse";
+  if (token === "seedance" || token === "doubao" || token === "doubao-seedance") return "seedance";
+  if (token === "minimax" || token === "hailuo" || token === "minimax-h3" || token === "") return "minimax";
   return "minimax";
 }
 
 export function normalizeVideoProviderResponseType(value: unknown): VideoProviderResponseType | null {
-  if (value === "minimax-video" || value === "happyhorse-video") return value;
+  if (value === "newapi-video" || value === "minimax-video" || value === "seedance-video" || value === "happyhorse-video") {
+    return "newapi-video";
+  }
   return null;
 }
 
-function defaultResponseType(provider: VideoProviderName): VideoProviderResponseType {
-  return provider === "minimax" ? "minimax-video" : "happyhorse-video";
-}
-
-function defaultBaseUrl(provider: VideoProviderName): string {
-  return provider === "minimax" ? DEFAULT_MINIMAX_VIDEO_BASE_URL : DEFAULT_HAPPYHORSE_VIDEO_BASE_URL;
-}
-
 export function normalizeVideoProviderBaseUrl(value: string | undefined, provider: VideoProviderName): string {
-  const fallback = defaultBaseUrl(provider);
-  if (provider === "minimax") {
-    const base = (value || fallback).trim().replace(/\/+$/, "");
-    return base.replace(/\/v2$/i, "") || fallback;
-  }
-  return normalizeOpenAiCompatibleBaseUrl(value || fallback);
+  const fallback = getVideoProviderBaseUrl(provider);
+  const base = (value || fallback).trim().replace(/\/+$/, "");
+  return base.replace(/\/v2$/i, "") || fallback;
 }
 
 export function getEnvVideoProviderOverride(): VideoProviderOverride {
-  const provider = normalizeVideoProviderName(
-    process.env.VIDEO_PROVIDER || process.env.HAPPYHORSE_VIDEO_PROVIDER || "minimax",
-  );
-  if (provider === "happyhorse") {
-    return {
-      enabled: true,
-      provider: "happyhorse",
-      baseUrl: normalizeVideoProviderBaseUrl(
-        process.env.HAPPYHORSE_BASE_URL || process.env.YUNWU_HAPPYHORSE_BASE_URL || process.env.YUNWU_API_BASE_URL,
-        "happyhorse",
-      ),
-      apiKey: process.env.HAPPYHORSE_API_KEY?.trim() || process.env.YUNWU_HAPPYHORSE_API_KEY?.trim() || process.env.YUNWU_API_KEY?.trim(),
-      upstreamModel: process.env.HAPPYHORSE_VIDEO_MODEL?.trim() || DEFAULT_HAPPYHORSE_VIDEO_MODEL,
-      responseType: "happyhorse-video",
-    };
-  }
-
+  const provider = normalizeVideoProviderName(process.env.VIDEO_PROVIDER);
   return {
     enabled: true,
-    provider: "minimax",
+    provider,
     baseUrl: normalizeVideoProviderBaseUrl(
-      process.env.MINIMAX_VIDEO_BASE_URL || process.env.MINIMAX_BASE_URL,
-      "minimax",
+      process.env.VIDEO_BASE_URL || process.env.MINIMAX_VIDEO_BASE_URL || process.env.MINIMAX_BASE_URL,
+      provider,
     ),
-    apiKey: process.env.MINIMAX_VIDEO_API_KEY?.trim() || process.env.MINIMAX_API_KEY?.trim(),
-    upstreamModel: process.env.MINIMAX_VIDEO_MODEL?.trim() || DEFAULT_MINIMAX_VIDEO_MODEL,
-    responseType: "minimax-video",
+    apiKey: process.env.VIDEO_API_KEY?.trim() || process.env.MINIMAX_VIDEO_API_KEY?.trim() || process.env.MINIMAX_API_KEY?.trim(),
+    upstreamModel: "",
+    responseType: "newapi-video",
   };
 }
 
@@ -101,7 +65,7 @@ export function parseVideoProviderOverride(value: unknown): VideoProviderOverrid
 
   const fallback = getEnvVideoProviderOverride();
   const provider = normalizeVideoProviderName(raw.provider ?? fallback.provider);
-  const responseType = normalizeVideoProviderResponseType(raw.responseType) ?? defaultResponseType(provider);
+  const responseType = normalizeVideoProviderResponseType(raw.responseType) ?? "newapi-video";
   const baseUrl =
     typeof raw.baseUrl === "string" && raw.baseUrl.trim()
       ? normalizeVideoProviderBaseUrl(raw.baseUrl, provider)
@@ -112,10 +76,7 @@ export function parseVideoProviderOverride(value: unknown): VideoProviderOverrid
     provider,
     baseUrl,
     apiKey: typeof raw.apiKey === "string" && raw.apiKey.trim() ? raw.apiKey.trim() : fallback.apiKey,
-    upstreamModel:
-      typeof raw.upstreamModel === "string" && raw.upstreamModel.trim()
-        ? raw.upstreamModel.trim()
-        : fallback.upstreamModel,
+    upstreamModel: typeof raw.upstreamModel === "string" ? raw.upstreamModel.trim() : "",
     responseType,
   };
 }

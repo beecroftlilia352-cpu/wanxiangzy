@@ -35,15 +35,9 @@ import {
   AI_VIDEO_DEFAULT_AUDIO_MODE,
   AI_VIDEO_DEFAULT_DURATION,
   AI_VIDEO_DEFAULT_FIXED_ASPECT_RATIO,
-  AI_VIDEO_DEFAULT_RESOLUTION,
-  AI_VIDEO_DURATION_OPTIONS,
-  AI_VIDEO_MODEL_MODE_OPTIONS,
   getClosestAiVideoAspectRatio,
-  getAiVideoPerVideoCreditCost,
-  getAiVideoCreditCost,
   getAiVideoKind,
   getAiVideoPath,
-  getAiVideoResolutionOptions,
   normalizeAiVideoAspectRatio,
   normalizeAiVideoAudioMode,
   normalizeAiVideoDuration,
@@ -60,6 +54,17 @@ import {
   type AiVideoModelMode,
   type AiVideoResolution,
 } from "@/lib/ai-video";
+import {
+  getVideoCreditCost,
+  getVideoDefaultMode,
+  getVideoDefaultResolution,
+  getVideoDurationOptions,
+  getVideoModes,
+  getVideoPerVideoCreditCost,
+  getVideoResolutions,
+  resolveVideoSelection,
+  type VideoProviderName,
+} from "@/lib/api/video-catalog";
 import { fetchHistoryApplyDetail, getHistoryApplyFailureMessage, isHistoryApplyRowFailed, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
 import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
@@ -111,6 +116,26 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
   const applyPath = getAiVideoPath(generationKind);
 
   const { authChecked, isAuthenticated, userId, credits, setCredits, refreshAuth } = useStudioAuth();
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/video/options", { cache: "no-store" });
+        const data = await res.json().catch(() => ({}));
+        if (cancelled) return;
+        if (data?.enabled && (data.provider === "minimax" || data.provider === "seedance")) {
+          const provider = data.provider as VideoProviderName;
+          setVideoProvider(provider);
+          setModelMode(getVideoDefaultMode(provider));
+          setResolution(getVideoDefaultResolution(provider, getVideoDefaultMode(provider)));
+        }
+      } catch {
+        // keep defaults when options are unavailable
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
   const [imageUrl, setImageUrl] = useState("");
   const [modelImageUrl, setModelImageUrl] = useState("");
   const [firstFrameUrl, setFirstFrameUrl] = useState("");
@@ -123,7 +148,8 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
   const [prompt, setPrompt] = useState(isFirstLastFrame ? "" : isMotion ? "" : AI_VIDEO_ACTION_TEMPLATES[0]?.promptContent || "");
   const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(isFirstLastFrame || isMotion ? null : AI_VIDEO_ACTION_TEMPLATES[0]?.id || null);
   const [modelMode, setModelMode] = useState<AiVideoModelMode>("pro");
-  const [resolution, setResolution] = useState<AiVideoResolution>(AI_VIDEO_DEFAULT_RESOLUTION);
+  const [resolution, setResolution] = useState<AiVideoResolution>("720p");
+  const [videoProvider, setVideoProvider] = useState<VideoProviderName | null>(null);
   const [aspectRatio, setAspectRatio] = useState<AiVideoAspectRatio>("auto");
   const [duration, setDuration] = useState<AiVideoDuration>(AI_VIDEO_DEFAULT_DURATION);
   const [audioMode, setAudioMode] = useState<AiVideoAudioMode>(AI_VIDEO_DEFAULT_AUDIO_MODE);
@@ -155,6 +181,7 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
     applyPath,
   });
   const authIsAnonymous = authChecked && !isAuthenticated;
+  const providerKey: VideoProviderName = videoProvider ?? "minimax";
   const effectiveModelMode = isFirstLastFrame ? "pro" : modelMode;
   const generateAudio = audioMode !== "off";
   const detectedAspectRatio = isFirstLastFrame
@@ -167,10 +194,14 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
     : normalizeAiVideoFixedAspectRatio(aspectRatio);
   const aspectRatioSummary = aspectRatio === "auto" ? `智能(${effectiveAspectRatio})` : effectiveAspectRatio;
   const resolutionOptions = useMemo(
-    () => getAiVideoResolutionOptions(effectiveModelMode),
-    [effectiveModelMode]
+    () => getVideoResolutions(providerKey, effectiveModelMode).map((item) => ({
+      value: item.value,
+      label: item.label,
+      description: item.description,
+    })),
+    [providerKey, effectiveModelMode]
   );
-  const cost = getAiVideoCreditCost({ modelMode: effectiveModelMode, resolution, duration, genCount, audioMode });
+  const cost = getVideoCreditCost({ provider: providerKey, modelMode: effectiveModelMode, resolution, duration, genCount, audioMode });
   const inputThumbnails = isFirstLastFrame
     ? [firstFrameUrl, lastFrameUrl].filter(Boolean)
     : isMotion
@@ -241,22 +272,24 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
     [selectedTemplateId]
   );
   const modelModeOptions = useMemo(
-    () => AI_VIDEO_MODEL_MODE_OPTIONS.map((item) => ({
+    () => getVideoModes(providerKey).map((item) => ({
       value: item.value,
       label: item.label,
-      description: isFirstLastFrame && item.value === "fast" ? "首尾帧需高清模式" : item.description,
-      disabled: isFirstLastFrame && item.value === "fast",
+      description: isFirstLastFrame && item.value !== "pro" ? "首尾帧需高清模式" : item.description,
+      disabled: isFirstLastFrame && item.value !== "pro",
     })),
-    [isFirstLastFrame]
+    [providerKey, isFirstLastFrame]
   );
-  const perVideoCost = getAiVideoPerVideoCreditCost({ modelMode: effectiveModelMode, resolution, duration, audioMode });
+  const perVideoCost = getVideoPerVideoCreditCost({ provider: providerKey, modelMode: effectiveModelMode, resolution, duration, audioMode });
 
   useEffect(() => {
-    const nextMode = isFirstLastFrame ? "pro" : normalizeAiVideoModelMode(modelMode);
-    if (nextMode !== modelMode) setModelMode(nextMode);
-    const nextResolution = normalizeAiVideoResolution(resolution, nextMode);
-    if (nextResolution !== resolution) setResolution(nextResolution);
-  }, [isFirstLastFrame, modelMode, resolution]);
+    if (!videoProvider) return;
+    const requestedMode = isFirstLastFrame ? "pro" : normalizeAiVideoModelMode(modelMode, generationKind);
+    const requestedResolution = normalizeAiVideoResolution(resolution, requestedMode);
+    const selection = resolveVideoSelection(providerKey, requestedMode, requestedResolution);
+    if (selection.mode !== modelMode) setModelMode(selection.mode);
+    if (selection.resolution !== resolution) setResolution(selection.resolution);
+  }, [isFirstLastFrame, modelMode, resolution, videoProvider]);
 
   useEffect(() => {
     const sourceImage = takeSourceImageFromLocation();
@@ -720,8 +753,8 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
     setLastFrameRatio(null);
     setPrompt(isFirstLastFrame ? "" : isMotion ? "" : AI_VIDEO_ACTION_TEMPLATES[0]?.promptContent || "");
     setSelectedTemplateId(isFirstLastFrame || isMotion ? null : AI_VIDEO_ACTION_TEMPLATES[0]?.id || null);
-    setModelMode("pro");
-    setResolution(AI_VIDEO_DEFAULT_RESOLUTION);
+    setModelMode(videoProvider ? getVideoDefaultMode(videoProvider) : "pro");
+    setResolution(videoProvider ? getVideoDefaultResolution(videoProvider, videoProvider ? getVideoDefaultMode(videoProvider) : "pro") : "720p");
     setAspectRatio("auto");
     setDuration(AI_VIDEO_DEFAULT_DURATION);
     setAudioMode(AI_VIDEO_DEFAULT_AUDIO_MODE);
@@ -1014,10 +1047,10 @@ export function AiVideoExperience({ mode }: AiVideoExperienceProps) {
         <section>
           <h3 className="mb-3 text-sm font-black text-codex-ink">视频时长</h3>
           <StudioOptionGrid
-            options={AI_VIDEO_DURATION_OPTIONS.map((item) => ({
-              value: String(item.value),
-              label: item.label,
-              description: `${getAiVideoPerVideoCreditCost({ modelMode: effectiveModelMode, resolution, duration: item.value, audioMode })} 灵点/条`,
+            options={getVideoDurationOptions(providerKey).map((value) => ({
+              value: String(value),
+              label: `${value}秒`,
+              description: `${getVideoPerVideoCreditCost({ provider: providerKey, modelMode: effectiveModelMode, resolution, duration: value, audioMode })} 灵点/条`,
             }))}
             value={String(duration)}
             onChange={(value) => setDuration(normalizeAiVideoDuration(value))}

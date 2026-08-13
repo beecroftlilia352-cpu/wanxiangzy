@@ -1,23 +1,19 @@
-import type { VideoProviderName } from "@/lib/api/video-provider-registry";
-import type {
-  HappyHorseFirstLastFrameInput,
-  HappyHorseImageToVideoInput,
-  HappyHorseMotionControlInput,
-  VideoGenerationResult,
-} from "@/lib/api/happyhorse-video";
 import {
-  generateHappyHorseFirstLastFrame,
-  generateHappyHorseImageToVideo,
-  generateHappyHorseMotionControl,
-  type ProviderConfig as HappyHorseProviderConfig,
-} from "@/lib/api/happyhorse-video";
+  supportsVideoMotionControl,
+  type VideoProviderName,
+} from "@/lib/api/video-catalog";
 import {
-  generateMinimaxFirstLastFrame,
-  generateMinimaxImageToVideo,
-  generateMinimaxMotionControl,
-  type MiniMaxVideoProviderConfig,
-} from "@/lib/api/minimax-video";
+  generateNewApiFirstLastFrame,
+  generateNewApiImageToVideo,
+} from "@/lib/api/newapi-video";
 import { getEnvVideoProviderOverride } from "@/lib/api/video-provider-registry";
+import type {
+  NewApiVideoProviderConfig,
+  VideoFirstLastFrameInput,
+  VideoGenerationResult,
+  VideoImageToVideoInput,
+  VideoMotionControlInput,
+} from "@/lib/api/video-types";
 
 export type VideoProviderConfig = {
   provider: VideoProviderName;
@@ -29,10 +25,10 @@ export type VideoProviderConfig = {
 export async function getVideoProviderConfig(): Promise<VideoProviderConfig> {
   if (process.env.NODE_ENV === "test") {
     const env = getEnvVideoProviderOverride();
-    if (!env.enabled || !env.apiKey?.trim()) {
+    if (!env.apiKey?.trim()) {
       throw new Error("视频供应商 API Key 未配置（test env fallback）");
     }
-    return { provider: env.provider, apiKey: env.apiKey.trim(), baseUrl: env.baseUrl, model: env.upstreamModel };
+    return { provider: env.provider, apiKey: env.apiKey.trim(), baseUrl: env.baseUrl, model: "" };
   }
 
   const { getAdminVideoProviderOverride } = await import("@/lib/api/video-provider-registry.server");
@@ -52,34 +48,26 @@ export async function getVideoProviderConfig(): Promise<VideoProviderConfig> {
   };
 }
 
-function toHappyHorseProvider(config: VideoProviderConfig): HappyHorseProviderConfig {
-  return { apiBase: config.baseUrl, apiKey: config.apiKey };
+function toNewApiProvider(config: VideoProviderConfig): NewApiVideoProviderConfig {
+  return { provider: config.provider, apiBase: config.baseUrl, apiKey: config.apiKey };
 }
 
-function toMiniMaxProvider(config: VideoProviderConfig): MiniMaxVideoProviderConfig {
-  return { apiBase: config.baseUrl, apiKey: config.apiKey, model: config.model };
-}
-
-export async function generateVideoImageToVideo(input: HappyHorseImageToVideoInput): Promise<VideoGenerationResult> {
+export async function generateVideoImageToVideo(input: VideoImageToVideoInput): Promise<VideoGenerationResult> {
   const config = await getVideoProviderConfig();
-  if (config.provider === "happyhorse") {
-    return generateHappyHorseImageToVideo(input, toHappyHorseProvider(config));
-  }
-  return generateMinimaxImageToVideo(input, toMiniMaxProvider(config));
+  return generateNewApiImageToVideo(input, toNewApiProvider(config));
 }
 
-export async function generateVideoMotionControl(input: HappyHorseMotionControlInput): Promise<VideoGenerationResult> {
+export async function generateVideoMotionControl(input: VideoMotionControlInput): Promise<VideoGenerationResult> {
   const config = await getVideoProviderConfig();
-  if (config.provider === "happyhorse") {
-    return generateHappyHorseMotionControl(input, toHappyHorseProvider(config));
+  if (!supportsVideoMotionControl(config.provider)) {
+    throw new Error("当前视频供应商暂不支持参考视频动作模仿，请使用图生视频或首尾帧功能。");
   }
-  return generateMinimaxMotionControl(input, toMiniMaxProvider(config));
+  // Kept as a backstop; reference-video generation is currently unavailable
+  // through the new.bi gateway for all supported providers.
+  throw new Error("当前视频供应商暂不支持参考视频动作模仿。");
 }
 
-export async function generateVideoFirstLastFrame(input: HappyHorseFirstLastFrameInput): Promise<VideoGenerationResult> {
+export async function generateVideoFirstLastFrame(input: VideoFirstLastFrameInput): Promise<VideoGenerationResult> {
   const config = await getVideoProviderConfig();
-  if (config.provider === "happyhorse") {
-    return generateHappyHorseFirstLastFrame(input, toHappyHorseProvider(config));
-  }
-  return generateMinimaxFirstLastFrame(input, toMiniMaxProvider(config));
+  return generateNewApiFirstLastFrame(input, toNewApiProvider(config));
 }

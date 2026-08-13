@@ -5,16 +5,13 @@ import { useRouter } from "next/navigation";
 import { Loader2, Save } from "lucide-react";
 import { AdminStatusBadge } from "@/components/admin/AdminPrimitives";
 
-type VideoProviderName = "minimax" | "happyhorse";
-type VideoResponseType = "minimax-video" | "happyhorse-video";
+type VideoProviderName = "minimax" | "seedance";
 
 type SnapshotEntry = {
   key: "video";
   enabled: boolean;
   provider: VideoProviderName;
   baseUrl: string;
-  upstreamModel: string;
-  responseType: VideoResponseType;
   apiKeyConfigured: boolean;
   apiKeyMasked: string;
   source: "admin" | "env";
@@ -28,13 +25,13 @@ type Snapshot = {
 };
 
 const PROVIDER_OPTIONS = [
-  { value: "minimax", label: "MiniMax H3" },
-  { value: "happyhorse", label: "HappyHorse (Yunwu)" },
+  { value: "minimax", label: "MiniMax H3（768p / 2K）" },
+  { value: "seedance", label: "豆包 Seedance 2.0（mini / fast / 标准）" },
 ] as const;
 
-const PROVIDER_DEFAULTS: Record<VideoProviderName, { baseUrl: string; model: string }> = {
-  minimax: { baseUrl: "https://api.new.bi", model: "minimax-h3" },
-  happyhorse: { baseUrl: "https://yunwu.ai", model: "happyhorse-1.0-i2v" },
+const PROVIDER_BASE_URLS: Record<VideoProviderName, string> = {
+  minimax: "https://api.new.bi",
+  seedance: "https://api.new.bi",
 };
 
 export function AdminVideoProviderConfigForm() {
@@ -75,13 +72,7 @@ export function AdminVideoProviderConfigForm() {
   }
 
   function updateProvider(provider: VideoProviderName) {
-    const defaults = PROVIDER_DEFAULTS[provider];
-    update({
-      provider,
-      baseUrl: defaults.baseUrl,
-      upstreamModel: defaults.model,
-      responseType: provider === "minimax" ? "minimax-video" : "happyhorse-video",
-    });
+    update({ provider, baseUrl: PROVIDER_BASE_URLS[provider] });
   }
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
@@ -95,8 +86,6 @@ export function AdminVideoProviderConfigForm() {
         enabled: entry.enabled,
         provider: entry.provider,
         baseUrl: entry.baseUrl,
-        upstreamModel: entry.upstreamModel,
-        responseType: entry.responseType,
         apiKey: apiKey.trim() || "",
       },
     };
@@ -168,28 +157,6 @@ export function AdminVideoProviderConfigForm() {
             placeholder="https://api.new.bi"
             className="h-9 w-full rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-2 font-mono text-xs font-semibold text-[var(--admin-fg)]"
           />
-        </label>
-
-        <label className="block space-y-1">
-          <span className="text-[11px] font-black text-[var(--admin-muted)]">Upstream Model</span>
-          <input
-            value={entry.upstreamModel}
-            onChange={(event) => update({ upstreamModel: event.target.value })}
-            placeholder="minimax-h3"
-            className="h-9 w-full rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-2 font-mono text-xs font-semibold text-[var(--admin-fg)]"
-          />
-        </label>
-
-        <label className="block space-y-1">
-          <span className="text-[11px] font-black text-[var(--admin-muted)]">响应类型</span>
-          <select
-            value={entry.responseType}
-            onChange={(event) => update({ responseType: event.target.value as VideoResponseType })}
-            className="h-9 w-full rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-2 text-xs font-bold text-[var(--admin-fg)]"
-          >
-            <option value="minimax-video">minimax-video (MiniMax 原生视频)</option>
-            <option value="happyhorse-video">happyhorse-video (Yunwu HappyHorse)</option>
-          </select>
         </label>
 
         <label className="block space-y-1">

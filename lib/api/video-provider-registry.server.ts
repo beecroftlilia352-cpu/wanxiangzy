@@ -5,7 +5,6 @@ import {
   getEnvVideoProviderOverride,
   parseVideoProviderOverride,
   type VideoProviderOverride,
-  type VideoProviderResponseType,
 } from "@/lib/api/video-provider-registry";
 import { decryptProviderSecret, maskProviderSecret } from "@/lib/api/model-provider-secrets";
 
@@ -64,8 +63,6 @@ export type AdminVideoProviderSnapshotEntry = {
   enabled: boolean;
   provider: VideoProviderOverride["provider"];
   baseUrl: string;
-  upstreamModel: string;
-  responseType: VideoProviderResponseType;
   apiKeyConfigured: boolean;
   apiKeyMasked: string;
   source: "admin" | "env";
@@ -93,8 +90,6 @@ export async function getAdminVideoProviderSnapshot(): Promise<{
         enabled: active.enabled,
         provider: active.provider,
         baseUrl: active.baseUrl,
-        upstreamModel: active.upstreamModel,
-        responseType: active.responseType,
         apiKeyConfigured: Boolean(active.apiKey),
         apiKeyMasked: active.apiKey ? maskProviderSecret(active.apiKey) : "",
         source,

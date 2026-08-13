@@ -6,8 +6,6 @@ import { handleGenerationStatusGet } from "@/lib/api/generation-status";
 import { getPublicBaseUrlFromRequest } from "@/lib/api/image-inputs.server";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 import {
-  getAiVideoCreditCost,
-  getAiVideoHappyHorseModel,
   normalizeAiVideoAudioMode,
   normalizeAiVideoAspectRatio,
   normalizeAiVideoDuration,
@@ -15,6 +13,13 @@ import {
   normalizeAiVideoModelMode,
   normalizeAiVideoResolution,
 } from "@/lib/ai-video";
+import {
+  clampVideoDuration,
+  getVideoCreditCost,
+  resolveUpstreamVideoModel,
+  resolveVideoSelection,
+} from "@/lib/api/video-catalog";
+import { getVideoProviderConfig } from "@/lib/api/video-provider";
 
 export const maxDuration = 60;
 
@@ -34,9 +39,9 @@ export async function POST(request: NextRequest) {
     const firstFrameUrl = typeof body.firstFrameUrl === "string" ? body.firstFrameUrl.trim() : "";
     const lastFrameUrl = typeof body.lastFrameUrl === "string" ? body.lastFrameUrl.trim() : "";
     const prompt = typeof body.prompt === "string" ? body.prompt.trim() : "";
-    const modelMode = normalizeAiVideoModelMode(body.modelMode, "videoFirstLastFrame");
+    const requestedMode = normalizeAiVideoModelMode(body.modelMode, "videoFirstLastFrame");
+    const requestedResolution = normalizeAiVideoResolution(body.resolution, requestedMode);
     const duration = normalizeAiVideoDuration(body.duration);
-    const resolution = normalizeAiVideoResolution(body.resolution, modelMode);
     const aspectRatio = normalizeAiVideoAspectRatio(body.aspectRatio);
     const genCount = normalizeAiVideoGenCount(body.genCount);
     const audioMode = normalizeAiVideoAudioMode(body.audioMode);
@@ -48,8 +53,20 @@ export async function POST(request: NextRequest) {
     if (!prompt) return NextResponse.json({ error: "请描述首尾帧之间的动态衔接过程" }, { status: 400 });
     if (audioMode === "custom" && !audioUrl) return NextResponse.json({ error: "请先上传音频或切换为智能音效" }, { status: 400 });
 
-    const aiModel = getAiVideoHappyHorseModel(modelMode, "videoFirstLastFrame");
-    const totalCost = getAiVideoCreditCost({ modelMode, resolution, duration, genCount, audioMode });
+    const providerConfig = await getVideoProviderConfig();
+    const selection = resolveVideoSelection(providerConfig.provider, requestedMode, requestedResolution);
+    const modelMode = selection.mode;
+    const resolution = selection.resolution;
+    const effectiveDuration = clampVideoDuration(providerConfig.provider, duration) as typeof duration;
+    const aiModel = resolveUpstreamVideoModel(providerConfig.provider, modelMode, resolution);
+    const totalCost = getVideoCreditCost({
+      provider: providerConfig.provider,
+      modelMode,
+      resolution,
+      duration: effectiveDuration,
+      genCount,
+      audioMode,
+    });
     const jobPayload: GenerationJobPayload = {
       kind: "videoFirstLastFrame",
       publicBaseUrl: getPublicBaseUrlFromRequest(request),
@@ -57,7 +74,7 @@ export async function POST(request: NextRequest) {
       lastFrameUrl,
       prompt,
       modelMode,
-      duration,
+      duration: effectiveDuration,
       resolution,
       aspectRatio,
       audioMode,
@@ -75,8 +92,8 @@ export async function POST(request: NextRequest) {
       referenceUrl: null,
       creditsCost: totalCost,
       aiModel,
-      imageSize: `${resolution} · ${aspectRatio} · ${duration}s`,
-      reason: `首尾帧视频 (${modelMode}, ${aiModel}, ${resolution}, ${aspectRatio}, ${duration}s, ${getAudioReasonLabel(audioMode)} × ${genCount})`,
+      imageSize: `${resolution} · ${aspectRatio} · ${effectiveDuration}s`,
+      reason: `首尾帧视频 (${modelMode}, ${aiModel}, ${resolution}, ${aspectRatio}, ${effectiveDuration}s, ${getAudioReasonLabel(audioMode)} × ${genCount})`,
       jobPayload,
     });
 

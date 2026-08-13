@@ -47,11 +47,7 @@ export async function POST(request: Request) {
     provider,
   );
   const upstreamModel = typeof input.upstreamModel === "string" ? input.upstreamModel.trim() : "";
-  if (!upstreamModel) {
-    return NextResponse.json({ error: "video 的 upstreamModel 不能为空" }, { status: 400 });
-  }
-  const responseType = normalizeVideoProviderResponseType(input.responseType)
-    ?? (provider === "minimax" ? "minimax-video" : "happyhorse-video");
+  const responseType = normalizeVideoProviderResponseType(input.responseType) ?? "newapi-video";
 
   let apiKey = typeof input.apiKey === "string" ? input.apiKey.trim() : "";
   if (apiKey && !isEncryptedProviderSecret(apiKey) && !isEnvProviderSecret(apiKey)) {

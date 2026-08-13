@@ -6,8 +6,6 @@ import { handleGenerationStatusGet } from "@/lib/api/generation-status";
 import { getPublicBaseUrlFromRequest } from "@/lib/api/image-inputs.server";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 import {
-  getAiVideoCreditCost,
-  getAiVideoHappyHorseModel,
   getAiVideoTemplate,
   normalizeAiVideoAudioMode,
   normalizeAiVideoAspectRatio,
@@ -16,6 +14,14 @@ import {
   normalizeAiVideoModelMode,
   normalizeAiVideoResolution,
 } from "@/lib/ai-video";
+import {
+  clampVideoDuration,
+  getVideoCreditCost,
+  resolveUpstreamVideoModel,
+  resolveVideoSelection,
+  supportsVideoMotionControl,
+} from "@/lib/api/video-catalog";
+import { getVideoProviderConfig } from "@/lib/api/video-provider";
 
 export const maxDuration = 60;
 
@@ -24,6 +30,11 @@ export async function POST(request: NextRequest) {
     const supabase = await createServerSupabase();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "请先登录" }, { status: 401 });
+
+    const providerConfig = await getVideoProviderConfig();
+    if (!supportsVideoMotionControl(providerConfig.provider)) {
+      return NextResponse.json({ error: "当前视频供应商暂不支持参考视频动作模仿，请使用图生视频或首尾帧功能。" }, { status: 400 });
+    }
 
     const limit = await checkRateLimit(`video-motion-control:${user.id}`, 12, 60_000);
     if (!limit.ok) return rateLimitResponse(limit.retryAfterSeconds);
@@ -50,8 +61,17 @@ export async function POST(request: NextRequest) {
     if (!referenceVideoUrl) return NextResponse.json({ error: "请先上传参考视频" }, { status: 400 });
     if (audioMode === "custom" && !audioUrl) return NextResponse.json({ error: "请先上传音频或切换为智能音效" }, { status: 400 });
 
-    const aiModel = getAiVideoHappyHorseModel(modelMode, "videoMotion");
-    const totalCost = getAiVideoCreditCost({ modelMode, resolution, duration, genCount, audioMode });
+    const selection = resolveVideoSelection(providerConfig.provider, modelMode, resolution);
+    const effectiveDuration = clampVideoDuration(providerConfig.provider, duration) as typeof duration;
+    const aiModel = resolveUpstreamVideoModel(providerConfig.provider, selection.mode, selection.resolution);
+    const totalCost = getVideoCreditCost({
+      provider: providerConfig.provider,
+      modelMode: selection.mode,
+      resolution: selection.resolution,
+      duration: effectiveDuration,
+      genCount,
+      audioMode,
+    });
     const jobPayload: GenerationJobPayload = {
       kind: "videoMotion",
       publicBaseUrl: getPublicBaseUrlFromRequest(request),

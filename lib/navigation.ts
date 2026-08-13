@@ -75,6 +75,8 @@ export type FeatureNavItem = {
   badge?: "NEW";
   comingSoon?: boolean;
   hiddenFromNav?: boolean;
+  disabled?: boolean;
+  disabledReason?: string;
 };
 
 const SHOW_INTERNAL_NAV =
@@ -243,6 +245,8 @@ export const FEATURE_ITEMS: FeatureNavItem[] = [
     shortLabel: "动作",
     description: "用参考视频驱动模特动作",
     icon: PlaySquare,
+    disabled: true,
+    disabledReason: "暂不支持参考视频",
   },
   {
     key: "videoFirstLastFrame",

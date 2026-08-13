@@ -17,7 +17,7 @@ import {
   generateVideoImageToVideo,
   generateVideoMotionControl,
 } from "@/lib/api/video-provider";
-import type { VideoGenerationResult, VideoTaskProgress } from "@/lib/api/happyhorse-video";
+import type { VideoGenerationResult, VideoTaskProgress } from "@/lib/api/video-types";
 import type { OutfitFusionHistoryAsset } from "@/lib/history-apply";
 import { getOutfitFusionDisplayPrompt, resolveOutfitFusionSmartAspectImage } from "@/lib/outfit-fusion";
 import { syncGenerationTaskQueueById } from "@/lib/task-queue-store";

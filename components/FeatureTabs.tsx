@@ -34,6 +34,25 @@ export function FeatureTabs({ active }: { active: FeatureKey }) {
         {visibleItems.map((item) => {
           const Icon = item.icon;
           const isActive = active === item.key;
+          const title = item.disabled ? item.disabledReason || item.description : item.description;
+
+          if (item.disabled) {
+            return (
+              <span
+                key={item.key}
+                aria-disabled="true"
+                title={title}
+                className="studio-nav-item group flex h-14 min-w-[92px] cursor-not-allowed flex-col items-center justify-center gap-1 rounded-2xl px-2 text-[10px] font-black opacity-45 lg:h-[72px] lg:min-w-0"
+              >
+                <span className="relative flex h-6 w-6 items-center justify-center text-codex-faint">
+                  <Icon className="h-5 w-5" aria-hidden="true" />
+                </span>
+                <span className="max-w-full text-center leading-tight [overflow-wrap:anywhere]">{item.label}</span>
+                <span className="text-[8px] font-bold text-codex-faint">{item.disabledReason}</span>
+              </span>
+            );
+          }
+
           return (
             <Link
               key={item.key}
