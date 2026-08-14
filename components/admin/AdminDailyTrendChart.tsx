@@ -20,6 +20,7 @@ type TrendPoint = {
   completed: number;
   failed: number;
   creditsSpent: number;
+  newUsers: number;
 };
 
 /**
@@ -34,6 +35,7 @@ export function AdminDailyTrendChart({ stats, days }: { stats: AdminOverview["da
       completed: item.completed,
       failed: item.failed,
       creditsSpent: Math.round(item.creditsSpent),
+      newUsers: item.newUsers,
     }));
     return rows.length ? rows : [];
   }, [stats]);
@@ -67,6 +69,10 @@ export function AdminDailyTrendChart({ stats, days }: { stats: AdminOverview["da
             <span className="inline-flex items-center gap-1.5">
               <span aria-hidden="true" className="h-2 w-2 rounded-full bg-[#a855f7]" />
               灵点结算（右轴）
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span aria-hidden="true" className="h-2 w-2 rounded-full bg-[#06b6d4]" />
+              新用户（右轴）
             </span>
           </div>
           <div className="h-[280px] w-full">
@@ -145,6 +151,15 @@ export function AdminDailyTrendChart({ stats, days }: { stats: AdminOverview["da
                   strokeWidth={2}
                   dot={false}
                   activeDot={{ r: 4 }}
+                />
+                <Line
+                  yAxisId="right"
+                  type="monotone"
+                  dataKey="newUsers"
+                  name="新用户"
+                  stroke="#06b6d4"
+                  strokeWidth={1.5}
+                  dot={false}
                 />
               </LineChart>
             </ResponsiveContainer>

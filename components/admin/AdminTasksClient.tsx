@@ -120,7 +120,7 @@ export function AdminTasksClient({ tasks, q, status, module, stale, page, pageSi
       ) : null}
       <div className="admin-page-hero">
         <div>
-          <Typography.Text className="admin-page-eyebrow">Tasks</Typography.Text>
+          <Typography.Text className="admin-page-eyebrow">任务中心</Typography.Text>
           <Typography.Title level={2} className="!mb-1 !mt-1">任务中心</Typography.Title>
           <Typography.Paragraph className="!mb-0 !text-[var(--admin-muted)]">
             统一查看生成任务和工作流任务；支持长时间未完成任务重新处理、结束任务和退还灵点。

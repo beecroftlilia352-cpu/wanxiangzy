@@ -28,6 +28,7 @@ import {
 import { AdminDashboardCharts } from "@/components/admin/AdminDashboardCharts";
 import { AdminDailyTrendChart } from "@/components/admin/AdminDailyTrendChart";
 import { AdminModuleBarChart } from "@/components/admin/AdminModuleBarChart";
+import { AdminOpsAlerts } from "@/components/admin/AdminOpsAlerts";
 import type { AdminOverview, AdminTaskListItem } from "@/lib/admin/data";
 import type { TaskStatusGroup } from "@/lib/task-queue";
 
@@ -167,6 +168,8 @@ export function AdminDashboardClient({ overview, days, fetchError }: AdminDashbo
           description={overview.warnings.slice(0, 3).join("；")}
         />
       )}
+
+      <AdminOpsAlerts overview={overview} />
 
       <section aria-label="关键指标" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <AdminMetricCard

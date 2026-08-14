@@ -33,7 +33,6 @@ const moduleOptions = [
   { label: "首页", value: "home" },
   { label: "模特图", value: "aiShoots" },
   { label: "商品图", value: "productImages" },
-  { label: "工作流助手", value: "assistant" },
   { label: "素材生成", value: "tools" },
   { label: "AI 视频", value: "aiVideo" },
   { label: "作品库", value: "works" },
@@ -233,7 +232,7 @@ export function AdminFeaturesClient({ registry }: AdminFeaturesClientProps) {
     <Space orientation="vertical" size={16} className="w-full">
       <div className="admin-page-hero">
         <div>
-          <Typography.Text className="admin-page-eyebrow">Features</Typography.Text>
+          <Typography.Text className="admin-page-eyebrow">功能管理</Typography.Text>
           <Typography.Title level={2} className="!mb-1 !mt-1">
             功能管理
           </Typography.Title>

@@ -71,7 +71,7 @@ export function AdminUsersClient({ users, q }: AdminUsersClientProps) {
     <Space orientation="vertical" size={16} className="w-full">
       <div className="admin-page-hero">
         <div>
-          <Typography.Text className="admin-page-eyebrow">Users</Typography.Text>
+          <Typography.Text className="admin-page-eyebrow">用户管理</Typography.Text>
           <Typography.Title level={2} className="!mb-1 !mt-1">用户管理</Typography.Title>
           <Typography.Paragraph className="!mb-0 !text-[var(--admin-muted)]">
             查看用户余额、灵点消耗、生成活跃度和运营控制状态；详情页可编辑资料、调整灵点、暂停生成。

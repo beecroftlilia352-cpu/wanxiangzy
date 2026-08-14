@@ -94,7 +94,7 @@ export function AdminAssetsClient({ assets, q, module }: AdminAssetsClientProps)
     <Space orientation="vertical" size={16} className="w-full">
       <div className="admin-page-hero">
         <div>
-          <Typography.Text className="admin-page-eyebrow">Assets</Typography.Text>
+          <Typography.Text className="admin-page-eyebrow">内容管理</Typography.Text>
           <Typography.Title level={2} className="!mb-1 !mt-1">资产与作品</Typography.Title>
           <Typography.Paragraph className="!mb-0 !text-[var(--admin-muted)]">
             统一查看生成结果、输入图、预设参考图和商品套图收藏方案。

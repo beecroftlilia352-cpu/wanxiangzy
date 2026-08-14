@@ -81,6 +81,7 @@ export type AdminOverview = {
     failed: number;
     failureRate: number;
   };
+  pendingApprovals: number;
   dailyStats: Array<{
     date: string;
     tasks: number;
@@ -88,6 +89,7 @@ export type AdminOverview = {
     failed: number;
     creditsSpent: number;
     creditsRefunded: number;
+    newUsers: number;
   }>;
   creditHealth: {
     sampledBalance: number;
@@ -597,6 +599,7 @@ async function fetchAdminOverview(args: { days?: number } = {}): Promise<AdminOv
     recentGenerationRows,
     recentTasks,
     dailyStats,
+    pendingApprovals,
   ] = await Promise.all([
     countRows(admin.from("profiles").select("id", { count: "planned", head: true }), "profiles total", warnings),
     countRows(admin.from("profiles").select("id", { count: "planned", head: true }).gte("created_at", todayIso), "profiles today", warnings),
@@ -614,6 +617,7 @@ async function fetchAdminOverview(args: { days?: number } = {}): Promise<AdminOv
     loadRecentGenerationRows(warnings, { sinceIso: windowStartIso }),
     listAdminTasks({ limit: 8, diversifyBy: "module", estimatedCount: true }),
     loadDailyStats(days, warnings),
+    countPendingOperationRequests().catch(() => 0),
   ]);
 
   const aggregate = aggregateGenerations(recentGenerationRows);
@@ -650,6 +654,7 @@ async function fetchAdminOverview(args: { days?: number } = {}): Promise<AdminOv
   const failureRate = generationTotal > 0 ? generationFailed / generationTotal : 0;
 
   return {
+    pendingApprovals,
     dailyStats,
     metrics: [
       { label: "用户总数", value: totalUsers, hint: `24h 新增 ${newUsers}`, tone: "neutral" },
@@ -2213,7 +2218,7 @@ async function loadDailyStats(
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
   since.setUTCHours(0, 0, 0, 0);
   const sinceIso = since.toISOString();
-  const [generations, creditLogs] = await Promise.all([
+  const [generations, creditLogs, profiles] = await Promise.all([
     runQuery<Record<string, unknown>[]>(
       getAdminClient()
         .from("generations")
@@ -2236,6 +2241,17 @@ async function loadDailyStats(
       warnings,
       true,
     ),
+    runQuery<Record<string, unknown>[]>(
+      getAdminClient()
+        .from("profiles")
+        .select("created_at")
+        .gte("created_at", sinceIso)
+        .order("created_at", { ascending: true })
+        .limit(4000),
+      "daily new user stats",
+      warnings,
+      true,
+    ),
   ]);
 
   const byDate = new Map<string, AdminOverview["dailyStats"][number]>();
@@ -2243,7 +2259,7 @@ async function loadDailyStats(
   for (const row of generations.data || []) {
     const key = dayKeyOf(stringValue(row.created_at));
     if (!key) continue;
-    const entry = byDate.get(key) || { date: key, tasks: 0, completed: 0, failed: 0, creditsSpent: 0, creditsRefunded: 0 };
+    const entry = byDate.get(key) || { date: key, tasks: 0, completed: 0, failed: 0, creditsSpent: 0, creditsRefunded: 0, newUsers: 0 };
     entry.tasks += 1;
     const status = String(row.status || "").toLowerCase();
     if (status === "completed") entry.completed += 1;
@@ -2255,9 +2271,16 @@ async function loadDailyStats(
   for (const row of creditLogs.data || []) {
     const key = dayKeyOf(stringValue(row.created_at));
     if (!key) continue;
-    const entry = byDate.get(key) || { date: key, tasks: 0, completed: 0, failed: 0, creditsSpent: 0, creditsRefunded: 0 };
+    const entry = byDate.get(key) || { date: key, tasks: 0, completed: 0, failed: 0, creditsSpent: 0, creditsRefunded: 0, newUsers: 0 };
     const amount = numberValue(row.amount);
     if (amount > 0) entry.creditsRefunded += amount;
+    byDate.set(key, entry);
+  }
+  for (const row of profiles.data || []) {
+    const key = dayKeyOf(stringValue(row.created_at));
+    if (!key) continue;
+    const entry = byDate.get(key) || { date: key, tasks: 0, completed: 0, failed: 0, creditsSpent: 0, creditsRefunded: 0, newUsers: 0 };
+    entry.newUsers += 1;
     byDate.set(key, entry);
   }
   return Array.from(byDate.values()).sort((a, b) => a.date.localeCompare(b.date));
