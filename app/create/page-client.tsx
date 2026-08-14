@@ -387,7 +387,7 @@ export default function CreatePage() {
   );
 
   // 未保存输入离开拦截：有服装图/参考图/提示词时提醒
-  useUnsavedChangesGuard(Boolean(
+  const { unsavedDialog: unsavedChangesDialog } = useUnsavedChangesGuard(Boolean(
     uploadedClothingUrls.length || effectiveReferenceUrls.length || store.promptUsed.trim() || promptOverride?.trim()
   ));
   const activeReferenceAnalysisKey = useMemo(() => {
@@ -3562,6 +3562,7 @@ export default function CreatePage() {
       />
 
       <TryOnLightbox image={lightboxImage} onClose={() => setLightboxImage(null)} />
+      {unsavedChangesDialog}
 
     </>
   );

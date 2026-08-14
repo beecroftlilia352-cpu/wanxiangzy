@@ -1,14 +1,20 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 /**
  * 未保存输入离开拦截：
- * - 页面有输入（图片/提示词/参考图等）时，点击站内导航链接会提示确认
+ * - 页面有输入（图片/提示词/参考图等）时，点击站内导航链接弹出内部确认框
  * - 刷新/关闭标签页走浏览器原生 beforeunload 提示
  * - 生成成功、清空内容后由调用方把 isDirty 置回 false
+ *
+ * 用法：
+ *   const { unsavedDialog } = useUnsavedChangesGuard(isDirty);
+ *   在 JSX 末尾渲染 {unsavedDialog}
  */
 export function useUnsavedChangesGuard(isDirty: boolean) {
+  const { confirm, confirmDialog } = useConfirm();
   const dirtyRef = useRef(isDirty);
   dirtyRef.current = isDirty;
 
@@ -36,11 +42,19 @@ export function useUnsavedChangesGuard(isDirty: boolean) {
       if (url.pathname === window.location.pathname) return;
 
       event.preventDefault();
-      if (window.confirm("当前页面有未保存的输入内容，确定要离开吗？")) {
-        window.location.href = href;
-      }
+      confirm({
+        title: "离开当前页面？",
+        content: "当前页面有未保存的输入内容，离开后这些内容将丢失。",
+        okText: "离开",
+        cancelText: "继续编辑",
+        onOk: () => {
+          window.location.href = href;
+        },
+      });
     };
     document.addEventListener("click", onClick, true);
     return () => document.removeEventListener("click", onClick, true);
-  }, []);
+  }, [confirm]);
+
+  return { unsavedDialog: confirmDialog };
 }

@@ -464,7 +464,7 @@ export default function PosePage() {
   const isPoseReferenceMode = poseCreationMode === "reference";
 
   // 未保存输入离开拦截：有主图/参考图/提示词时提醒
-  useUnsavedChangesGuard(Boolean(mainImage || prompt.trim() || supplementPrompt.trim() || activePoseReferenceUrls.length));
+  const { unsavedDialog: unsavedChangesDialog } = useUnsavedChangesGuard(Boolean(mainImage || prompt.trim() || supplementPrompt.trim() || activePoseReferenceUrls.length));
   const activePoseReferenceCopies = normalizePoseReferenceCopies(poseReferenceCopies, Math.max(activePoseReferenceUrls.length, 1));
   const poseReferenceOutputCount = isPoseReferenceMode
     ? Math.max(activePoseReferenceUrls.length * activePoseReferenceCopies, 1)
@@ -2650,6 +2650,7 @@ export default function PosePage() {
         alt="姿势参考预览"
         onClose={() => setLightboxSrc(null)}
       />
+      {unsavedChangesDialog}
     </div>
   );
 }
