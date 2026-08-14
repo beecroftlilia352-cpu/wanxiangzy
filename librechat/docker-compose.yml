@@ -1,0 +1,31 @@
+# LibreChat 生产部署 —— 万象智艺 AI 对话
+# 仅暴露 API 端口 3080，由宿主机 Nginx 反代（见 deploy-librechat.sh）。
+services:
+  api:
+    image: ghcr.io/danny-avila/librechat-dev-api:latest
+    restart: always
+    depends_on:
+      - mongodb
+    ports:
+      - "127.0.0.1:3080:3080"
+    env_file:
+      - .env
+    environment:
+      - HOST=0.0.0.0
+      - PORT=3080
+      - MONGO_URI=mongodb://mongodb:27017/LibreChat
+      - CONFIG_PATH=/app/librechat.yaml
+    volumes:
+      - ./librechat.yaml:/app/librechat.yaml
+      - ./images:/app/client/public/images
+      - ./logs:/app/api/logs
+
+  mongodb:
+    image: mongo:7
+    restart: always
+    command: mongod --noauth
+    volumes:
+      - mongodb_data:/data/db
+
+volumes:
+  mongodb_data:
