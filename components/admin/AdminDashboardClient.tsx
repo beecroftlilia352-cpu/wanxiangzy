@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import Link from "next/link";
 import {
   Activity,
@@ -25,6 +26,8 @@ import {
   formatNumber as formatNumberPrimitive,
 } from "@/components/admin/AdminPrimitives";
 import { AdminDashboardCharts } from "@/components/admin/AdminDashboardCharts";
+import { AdminDailyTrendChart } from "@/components/admin/AdminDailyTrendChart";
+import { AdminModuleBarChart } from "@/components/admin/AdminModuleBarChart";
 import type { AdminOverview, AdminTaskListItem } from "@/lib/admin/data";
 import type { TaskStatusGroup } from "@/lib/task-queue";
 
@@ -57,6 +60,7 @@ const exceptionSurfaceHover: Record<ExceptionEntry["tone"], string> = {
 };
 
 export function AdminDashboardClient({ overview, days, fetchError }: AdminDashboardClientProps) {
+  const deltas = useMemo(() => computeKpiDeltas(overview.dailyStats), [overview.dailyStats]);
   const failureRate = overview.generationHealth.failureRate;
 
   const exceptionEntries: ExceptionEntry[] = [
@@ -170,6 +174,7 @@ export function AdminDashboardClient({ overview, days, fetchError }: AdminDashbo
           value={formatNumberPrimitive(overview.generationHealth.total)}
           hint={`今日 ${formatNumberPrimitive(overview.generationHealth.today)}`}
           icon={<Sparkles aria-hidden="true" className="h-4 w-4" />}
+          delta={deltas.tasks}
         />
         <AdminMetricCard
           label="成功率"
@@ -177,6 +182,7 @@ export function AdminDashboardClient({ overview, days, fetchError }: AdminDashbo
           suffix="%"
           tone={failureRate > 20 ? "danger" : "good"}
           icon={<ShieldCheck aria-hidden="true" className="h-4 w-4" />}
+          delta={deltas.successRate}
         />
         <AdminMetricCard
           label="失败率"
@@ -184,6 +190,7 @@ export function AdminDashboardClient({ overview, days, fetchError }: AdminDashbo
           suffix="%"
           tone={failureRate > 15 ? "danger" : failureRate > 5 ? "warning" : "good"}
           icon={<AlertTriangle aria-hidden="true" className="h-4 w-4" />}
+          delta={deltas.failureRate}
         />
         <AdminMetricCard
           label="近期消耗"
@@ -204,8 +211,15 @@ export function AdminDashboardClient({ overview, days, fetchError }: AdminDashbo
         />
       </section>
 
-      <section aria-label="异常入口" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {exceptionEntries.map((entry) => (
+      <div key={days} aria-busy="false" className="grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
+        <AdminDailyTrendChart stats={overview.dailyStats} days={days} />
+        <AdminDashboardCharts overview={overview} days={days} />
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        <AdminModuleBarChart stats={overview.moduleStats} days={days} />
+        <section aria-label="异常入口" className="flex flex-col gap-3">
+          {exceptionEntries.map((entry) => (
           <Link
             key={entry.label}
             href={entry.href}
@@ -234,11 +248,8 @@ export function AdminDashboardClient({ overview, days, fetchError }: AdminDashbo
               className="h-4 w-4 shrink-0 text-[var(--admin-faint)] motion-safe:transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-[var(--admin-fg)]"
             />
           </Link>
-        ))}
-      </section>
-
-      <div key={days} aria-busy="false">
-        <AdminDashboardCharts overview={overview} days={days} />
+          ))}
+        </section>
       </div>
 
       <AdminSection
@@ -268,4 +279,31 @@ export function AdminDashboardClient({ overview, days, fetchError }: AdminDashbo
       </AdminSection>
     </div>
   );
+}
+
+type KpiDelta = { value: number; hint: string } | undefined;
+
+function computeKpiDeltas(stats: AdminOverview["dailyStats"]) {
+  const tasks = stats.map((row) => row.tasks);
+  const failureRate = stats.map((row) => (row.tasks > 0 ? (row.failed / row.tasks) * 100 : 0));
+  const successRate = stats.map((row) => (row.tasks > 0 ? ((row.tasks - row.failed) / row.tasks) * 100 : 0));
+  return {
+    tasks: deltaFor(tasks, "positiveIsGood"),
+    successRate: deltaFor(successRate, "positiveIsGood"),
+    failureRate: deltaFor(failureRate, "positiveIsBad"),
+  };
+}
+
+function deltaFor(values: number[], direction: "positiveIsGood" | "positiveIsBad"): KpiDelta {
+  if (values.length < 2) return undefined;
+  const latest = values[values.length - 1];
+  const prior = values.slice(0, -1);
+  const priorAvg = prior.reduce((sum, value) => sum + value, 0) / prior.length;
+  if (!Number.isFinite(priorAvg) || priorAvg === 0) {
+    if (latest === 0) return { value: 0, hint: "vs 此前平均" };
+    return { value: latest > 0 ? 100 : -100, hint: "vs 此前平均" };
+  }
+  const raw = ((latest - priorAvg) / Math.abs(priorAvg)) * 100;
+  const signed = direction === "positiveIsBad" ? -raw : raw;
+  return { value: Math.round(signed * 10) / 10, hint: "vs 此前平均" };
 }

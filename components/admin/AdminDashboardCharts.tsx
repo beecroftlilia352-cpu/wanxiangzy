@@ -16,9 +16,7 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart";
-import { AdminTopList, type AdminTopListItem } from "@/components/admin/AdminTopList";
 import type { AdminOverview } from "@/lib/admin/data";
-import { moduleIcon } from "@/components/admin/module-icon";
 
 type AdminDashboardChartsProps = {
   overview: AdminOverview;
@@ -66,15 +64,11 @@ function formatPercent(value: number) {
 
 export function AdminDashboardCharts({ overview, days }: AdminDashboardChartsProps) {
   const taskStatusData = useMemo(() => buildTaskStatusData(overview), [overview]);
-  const moduleRankItems = useMemo(
-    () => buildModuleListItems(overview.moduleStats),
-    [overview.moduleStats],
-  );
   const totalTasks = taskStatusData.reduce((sum, item) => sum + item.value, 0);
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid gap-4 xl:grid-cols-2">
+      <div className="grid gap-4">
         <AdminSection title="任务状态" description="实时分布 · 点击行查看队列">
           {totalTasks > 0 ? (
             <div className="flex flex-col gap-4 p-2 pb-3">
@@ -185,27 +179,6 @@ export function AdminDashboardCharts({ overview, days }: AdminDashboardChartsPro
           )}
         </AdminSection>
 
-        <AdminSection
-          title="模块排行"
-          description={`近 ${days} 天内按任务数排序`}
-          actions={
-            <Link
-              href="/admin/generations"
-              className="inline-flex items-center gap-1 text-xs font-black text-[var(--admin-link)] hover:text-[var(--admin-fg)]"
-            >
-              查看全部
-              <ArrowUpRight aria-hidden="true" className="h-3 w-3" />
-            </Link>
-          }
-        >
-          <AdminTopList
-            items={moduleRankItems}
-            emptyTitle={`近 ${days} 天暂无模块任务`}
-            emptyDescription="扩大时间窗口（30 天）或前往任务中心查看历史数据"
-            tone="accent"
-            valueFormatter={(value) => formatNumber(value)}
-          />
-        </AdminSection>
       </div>
     </div>
   );
@@ -247,15 +220,4 @@ function buildTaskStatusData(overview: AdminOverview) {
     big.push({ status: "other", type: "其他", value: otherValue });
   }
   return big.sort((a, b) => b.value - a.value);
-}
-
-function buildModuleListItems(stats: AdminOverview["moduleStats"]): AdminTopListItem[] {
-  return stats.slice(0, 8).map((item) => ({
-    key: item.key,
-    label: item.label,
-    icon: moduleIcon(item.key),
-    value: item.count,
-    secondary: `失败 ${formatNumber(item.failed)}`,
-    href: `/admin/generations?module=${encodeURIComponent(item.key)}`,
-  }));
 }

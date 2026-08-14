@@ -81,6 +81,14 @@ export type AdminOverview = {
     failed: number;
     failureRate: number;
   };
+  dailyStats: Array<{
+    date: string;
+    tasks: number;
+    completed: number;
+    failed: number;
+    creditsSpent: number;
+    creditsRefunded: number;
+  }>;
   creditHealth: {
     sampledBalance: number;
     sampledConsumed: number;
@@ -588,6 +596,7 @@ async function fetchAdminOverview(args: { days?: number } = {}): Promise<AdminOv
     creditHealth,
     recentGenerationRows,
     recentTasks,
+    dailyStats,
   ] = await Promise.all([
     countRows(admin.from("profiles").select("id", { count: "planned", head: true }), "profiles total", warnings),
     countRows(admin.from("profiles").select("id", { count: "planned", head: true }).gte("created_at", todayIso), "profiles today", warnings),
@@ -604,6 +613,7 @@ async function fetchAdminOverview(args: { days?: number } = {}): Promise<AdminOv
     loadCreditHealth(sevenDaysIso, warnings),
     loadRecentGenerationRows(warnings, { sinceIso: windowStartIso }),
     listAdminTasks({ limit: 8, diversifyBy: "module", estimatedCount: true }),
+    loadDailyStats(days, warnings),
   ]);
 
   const aggregate = aggregateGenerations(recentGenerationRows);
@@ -640,6 +650,7 @@ async function fetchAdminOverview(args: { days?: number } = {}): Promise<AdminOv
   const failureRate = generationTotal > 0 ? generationFailed / generationTotal : 0;
 
   return {
+    dailyStats,
     metrics: [
       { label: "用户总数", value: totalUsers, hint: `24h 新增 ${newUsers}`, tone: "neutral" },
       { label: "24h 生成", value: generationToday, hint: `累计 ${generationTotal}`, tone: "good" },
@@ -2177,6 +2188,63 @@ async function loadCreditHealth(sinceIso: string, warnings: string[]) {
     recentSpend: Math.abs(logRows.filter((row) => numberValue(row.amount) < 0).reduce((sum, row) => sum + numberValue(row.amount), 0)),
     recentRefund: logRows.filter((row) => numberValue(row.amount) > 0).reduce((sum, row) => sum + numberValue(row.amount), 0),
   };
+}
+
+async function loadDailyStats(
+  days: number,
+  warnings: string[]
+): Promise<AdminOverview["dailyStats"]> {
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+  since.setUTCHours(0, 0, 0, 0);
+  const sinceIso = since.toISOString();
+  const [generations, creditLogs] = await Promise.all([
+    runQuery<Record<string, unknown>[]>(
+      getAdminClient()
+        .from("generations")
+        .select("created_at,status,credits_cost")
+        .gte("created_at", sinceIso)
+        .order("created_at", { ascending: true })
+        .limit(4000),
+      "daily generation stats",
+      warnings,
+      true,
+    ),
+    runQuery<Record<string, unknown>[]>(
+      getAdminClient()
+        .from("credit_logs")
+        .select("amount,created_at")
+        .gte("created_at", sinceIso)
+        .order("created_at", { ascending: true })
+        .limit(4000),
+      "daily credit stats",
+      warnings,
+      true,
+    ),
+  ]);
+
+  const byDate = new Map<string, AdminOverview["dailyStats"][number]>();
+  const dayKeyOf = (value: string | null | undefined) => (value || "").slice(0, 10);
+  for (const row of generations.data || []) {
+    const key = dayKeyOf(stringValue(row.created_at));
+    if (!key) continue;
+    const entry = byDate.get(key) || { date: key, tasks: 0, completed: 0, failed: 0, creditsSpent: 0, creditsRefunded: 0 };
+    entry.tasks += 1;
+    const status = String(row.status || "").toLowerCase();
+    if (status === "completed") entry.completed += 1;
+    if (status === "failed") entry.failed += 1;
+    const cost = numberValue(row.credits_cost);
+    if (status === "completed" && cost > 0) entry.creditsSpent += cost;
+    byDate.set(key, entry);
+  }
+  for (const row of creditLogs.data || []) {
+    const key = dayKeyOf(stringValue(row.created_at));
+    if (!key) continue;
+    const entry = byDate.get(key) || { date: key, tasks: 0, completed: 0, failed: 0, creditsSpent: 0, creditsRefunded: 0 };
+    const amount = numberValue(row.amount);
+    if (amount > 0) entry.creditsRefunded += amount;
+    byDate.set(key, entry);
+  }
+  return Array.from(byDate.values()).sort((a, b) => a.date.localeCompare(b.date));
 }
 
 async function loadRecentGenerationRows(
