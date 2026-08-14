@@ -438,7 +438,7 @@ export default function HistoryPage() {
         </p>
         <p className="mt-3 text-sm leading-6 text-red-500">{errMsg}</p>
         <p className="mt-2 text-xs leading-5 text-slate-500">
-          重试会按当前 URL 中的 module/status 筛选重新加载。
+          重试会按当前分类与状态筛选重新加载。
         </p>
         <div className="mt-6 flex flex-col justify-center gap-2 sm:flex-row">
           <button type="button" onClick={retryHistoryLoad} className="h-11 rounded-full border border-slate-200 bg-white px-6 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50">重试</button>
@@ -489,7 +489,7 @@ export default function HistoryPage() {
         <div>
           <p className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-[11px] font-black text-slate-600">
             <ImageIcon className="h-3.5 w-3.5" />
-            Asset Library
+            作品库
           </p>
           <h1 className="mt-3 text-3xl font-black text-slate-950">作品资产</h1>
           <p className="mt-2 text-sm leading-6 text-slate-500">已加载 {rows.length} 条作品，当前显示 {filteredRows.length} 条。{filterState.activeDescription} 可查看大图、下载结果并套用完整参数。</p>
@@ -843,7 +843,7 @@ export default function HistoryPage() {
 
               <aside className="space-y-5 overflow-y-auto border-l border-white/70 bg-white/75 p-4 backdrop-blur-xl sm:p-5 lg:max-h-[calc(92vh-57px)]">
                 <section className="rounded-2xl border border-slate-200 bg-slate-50/80 p-3">
-                  <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">Reuse Center</p>
+                  <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">复用参数</p>
                   <h4 className="mt-1 text-sm font-black text-slate-950">复用这个作品</h4>
                   <p className="mt-1 text-xs leading-5 text-slate-500">套用完整参数或下载当前预览结果。</p>
                   <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-1">

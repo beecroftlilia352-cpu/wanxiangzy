@@ -564,14 +564,14 @@ function AccountSidebar({ activeTab, onSelect }: { activeTab: AccountTab; onSele
                   "flex h-10 w-full items-center gap-3 rounded-md px-3 text-left text-[15px] font-medium transition-colors",
                   expanded
                     ? "bg-white/90 text-slate-950 shadow-sm ring-1 ring-[rgba(91,124,255,0.28)]"
-                    : "text-slate-500 hover:bg-white/70 hover:text-slate-900",
+                    : "text-slate-500 dark:text-stone-400 hover:bg-white/70 hover:text-slate-900",
                 )}
                 aria-current={expanded && single ? "page" : undefined}
                 aria-expanded={group.children.length > 1 ? expanded : undefined}
               >
-                <Icon className={cn("h-4 w-4", expanded ? "text-[#5b7cff]" : "text-slate-500")} />
+                <Icon className={cn("h-4 w-4", expanded ? "text-[#5b7cff]" : "text-slate-500 dark:text-stone-400")} />
                 <span className="flex-1">{group.label}</span>
-                {group.children.length > 1 ? <ChevronDown className={cn("h-4 w-4 text-slate-500 transition", expanded && "rotate-180 text-[#5b7cff]")} /> : null}
+                {group.children.length > 1 ? <ChevronDown className={cn("h-4 w-4 text-slate-500 dark:text-stone-400 transition", expanded && "rotate-180 text-[#5b7cff]")} /> : null}
               </button>
               {group.children.length > 1 && expanded ? (
                 <div className="mt-2 space-y-1 pl-7">
@@ -584,7 +584,7 @@ function AccountSidebar({ activeTab, onSelect }: { activeTab: AccountTab; onSele
                         "relative flex h-8 w-full items-center rounded-md px-4 text-left text-sm transition-colors",
                         activeTab === item.key
                           ? "bg-[#e9eeff] font-medium text-[#3154d4]"
-                          : "text-slate-500 hover:bg-white/70 hover:text-slate-900",
+                          : "text-slate-500 dark:text-stone-400 hover:bg-white/70 hover:text-slate-900",
                       )}
                       aria-current={activeTab === item.key ? "page" : undefined}
                     >
@@ -653,14 +653,13 @@ function AccountInfoPanel({
 
 function AccountAssetCard({ displayName, maskedAccount, credits }: { displayName: string; maskedAccount: string; credits: number }) {
   return (
-    <section className="rounded-xl bg-[#eef3f4] px-7 py-5">
+    <section className="rounded-xl bg-[#eef3f4] px-7 py-5 dark:bg-stone-900">
       <div className="mb-4 flex items-center gap-3">
         <Avatar size={28} src="/logo.png" className="!bg-[#f9d66d]" />
         <span className="text-sm font-semibold">{maskedAccount || displayName}</span>
-        <span className="tracking-[8px] text-white">••••••••</span>
       </div>
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_332px]">
-        <div className="relative min-h-[128px] overflow-hidden rounded-xl bg-gradient-to-r from-[#edf4f4] to-[#dfe7e6] px-7 py-6">
+        <div className="relative min-h-[128px] overflow-hidden rounded-xl bg-gradient-to-r from-[#edf4f4] to-[#dfe7e6] dark:from-stone-800 dark:to-stone-900 px-7 py-6">
           <div className="pointer-events-none absolute right-16 top-[-20px] h-28 w-28 rounded-full bg-white/45 blur-xl" />
           <p className="text-lg font-semibold">免费版</p>
           <div className="mt-16 flex flex-wrap gap-5 text-sm text-slate-600">
@@ -912,9 +911,9 @@ function HelpPanel() {
     <Panel title="帮助中心" description="常见问题与测试指引">
       <div className="space-y-3">
         {helpItems.map((item) => (
-          <div key={item.title} className="rounded-md border border-slate-200 bg-white p-4">
+          <div key={item.title} className="rounded-md border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-stone-900">
             <p className="font-medium">{item.title}</p>
-            <p className="mt-2 text-sm leading-6 text-slate-500">{item.body}</p>
+            <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-stone-400">{item.body}</p>
           </div>
         ))}
       </div>
@@ -948,7 +947,7 @@ function MessagesPanel({ orders, tickets, ticketError }: { orders: BillingOrder[
               </span>
               <div>
                 <p className="font-medium">{message.title}</p>
-                <p className="mt-1 text-sm text-slate-500">{message.text}</p>
+                <p className="mt-1 text-sm text-slate-500 dark:text-stone-400">{message.text}</p>
               </div>
             </div>
           ))}
@@ -1010,9 +1009,9 @@ function ComingSoonPanel({ tab }: { tab: AccountTab }) {
   return (
     <Panel title={item.title} description={item.description}>
       <div className="flex min-h-[280px] flex-col items-center justify-center rounded-md border border-dashed border-slate-200 bg-slate-50 text-center">
-        <span className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-white text-slate-500 shadow-sm">{item.icon}</span>
+        <span className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-white text-slate-500 dark:text-stone-400 shadow-sm">{item.icon}</span>
         <p className="font-medium">模块已预留</p>
-        <p className="mt-2 text-sm text-slate-500">当前版本先保留入口，后续可接入完整后台配置。</p>
+        <p className="mt-2 text-sm text-slate-500 dark:text-stone-400">当前版本先保留入口，后续可接入完整后台配置。</p>
       </div>
     </Panel>
   );
@@ -1024,7 +1023,7 @@ function Panel({ title, description, children }: { title: string; description: s
       title={
         <div className="py-1">
           <div className="text-lg font-medium">{title}</div>
-          <div className="mt-1 text-sm font-normal text-slate-500">{description}</div>
+          <div className="mt-1 text-sm font-normal text-slate-500 dark:text-stone-400">{description}</div>
         </div>
       }
       className="border-slate-200"
@@ -1051,7 +1050,7 @@ function InfoLine({ label, value, hint, action }: { label: string; value: string
       <div className="font-medium">{label}</div>
       <div className="min-w-0">
         <p className="break-words text-slate-700">{value || "-"}</p>
-        {hint ? <p className="mt-1 text-sm text-slate-500">{hint}</p> : null}
+        {hint ? <p className="mt-1 text-sm text-slate-500 dark:text-stone-400">{hint}</p> : null}
       </div>
       {action ? <Button>{action}</Button> : <span />}
     </div>
@@ -1060,7 +1059,7 @@ function InfoLine({ label, value, hint, action }: { label: string; value: string
 
 function SmallMetric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-md border border-slate-200 bg-white px-4 py-3">
+    <div className="rounded-md border border-slate-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-stone-900">
       <Statistic title={label} value={value} styles={{ content: { fontSize: 18, fontWeight: 600 } }} />
     </div>
   );

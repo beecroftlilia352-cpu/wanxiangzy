@@ -212,7 +212,7 @@ export default function HomePage() {
           </div>
 
           <p className="mt-8 text-[13px] font-semibold text-[#29354d]/58">
-            Available for 服装上身、AI 视频、融图、姿势裂变、商品套图和种草封面
+            覆盖服装上身、AI 视频、融图、姿势裂变、商品套图和种草封面
           </p>
 
           <HeroConsole />
