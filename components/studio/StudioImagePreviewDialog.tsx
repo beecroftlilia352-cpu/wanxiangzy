@@ -43,7 +43,20 @@ export function StudioImagePreviewDialog({
         if (!nextOpen) onClose();
       }}
     >
-      <DialogContent className={cn("studio-image-preview-dialog-content", className)}>
+      <DialogContent
+        className={cn("studio-image-preview-dialog-content", className)}
+        onKeyDown={(event) => {
+          const total = session.results.length;
+          if (!total || total <= 1) return;
+          if (event.key === "ArrowLeft") {
+            event.preventDefault();
+            onSelectedIndexChange?.(selectedIndex > 0 ? selectedIndex - 1 : total - 1);
+          } else if (event.key === "ArrowRight") {
+            event.preventDefault();
+            onSelectedIndexChange?.((selectedIndex + 1) % total);
+          }
+        }}
+      >
         <DialogTitle className="sr-only">{session.title}预览</DialogTitle>
         <DialogDescription className="sr-only">查看图片结果、输入参考、生成信息和后续可用动作。</DialogDescription>
         <StudioImagePreviewWorkspace

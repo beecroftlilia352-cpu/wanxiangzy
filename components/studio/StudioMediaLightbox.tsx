@@ -13,6 +13,8 @@ type StudioMediaLightboxProps = {
   caption?: string;
   mediaClassName?: string;
   returnFocusRef?: RefObject<HTMLElement | null>;
+  onPrev?: () => void;
+  onNext?: () => void;
 };
 
 export function StudioMediaLightbox({
@@ -23,6 +25,8 @@ export function StudioMediaLightbox({
   caption,
   mediaClassName,
   returnFocusRef,
+  onPrev,
+  onNext,
 }: StudioMediaLightboxProps) {
   return (
     <Dialog
@@ -33,6 +37,15 @@ export function StudioMediaLightbox({
     >
       <DialogContent
         returnFocusRef={returnFocusRef}
+        onKeyDown={(event) => {
+          if (event.key === "ArrowLeft") {
+            event.preventDefault();
+            onPrev?.();
+          } else if (event.key === "ArrowRight") {
+            event.preventDefault();
+            onNext?.();
+          }
+        }}
         overlayClassName="z-[240] bg-slate-950/70 backdrop-blur-xl"
         className="z-[241] max-h-[calc(100dvh-2rem)] max-w-[calc(100vw-2rem)] place-items-center gap-0 overflow-hidden bg-transparent p-0 text-white ring-0 shadow-none sm:max-w-[calc(100vw-3rem)]"
       >
