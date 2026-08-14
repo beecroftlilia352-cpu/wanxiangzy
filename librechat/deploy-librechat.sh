@@ -5,7 +5,7 @@
 set -euo pipefail
 
 APP_DIR="/home/ec2-user/apps/librechat"
-DOMAIN="${LIBRECHAT_DOMAIN:-chat.pixel-diffusion.com}"
+DOMAIN="${LIBRECHAT_DOMAIN:-chat.wanxiangzy.com}"
 
 echo "==> 准备目录"
 mkdir -p "$APP_DIR"
