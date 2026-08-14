@@ -83,7 +83,7 @@ export function PreviewGuide({
                           {icon || <span className="text-4xl font-black text-slate-300 dark:text-stone-600">{index + 1}</span>}
                         </div>
                       )}
-                      <span className="absolute left-3 top-3 inline-flex h-7 items-center rounded-lg bg-[var(--codex-accent)] px-2.5 text-[11px] font-black leading-none text-white shadow-[0_8px_18px_rgba(91,124,255,0.32)]">
+                      <span className="absolute left-3 top-3 inline-flex h-7 items-center gap-1 rounded-lg border border-[rgba(91,124,255,0.28)] bg-[rgba(91,124,255,0.1)] px-2.5 text-[11px] font-black leading-none text-[var(--codex-accent)] backdrop-blur-sm">
                         {step.badge || `步骤 ${index + 1}`}
                       </span>
                     </div>
