@@ -17,10 +17,12 @@ export function useUnsavedChangesGuard(isDirty: boolean) {
   const { confirm, confirmDialog } = useConfirm();
   const dirtyRef = useRef(isDirty);
   dirtyRef.current = isDirty;
+  // 用户已确认离开后放行本次卸载，避免浏览器再弹原生 beforeunload 提示
+  const allowNavigationRef = useRef(false);
 
   useEffect(() => {
     const beforeUnload = (event: BeforeUnloadEvent) => {
-      if (!dirtyRef.current) return;
+      if (!dirtyRef.current || allowNavigationRef.current) return;
       event.preventDefault();
       event.returnValue = "";
     };
@@ -48,6 +50,7 @@ export function useUnsavedChangesGuard(isDirty: boolean) {
         okText: "离开",
         cancelText: "继续编辑",
         onOk: () => {
+          allowNavigationRef.current = true;
           window.location.href = href;
         },
       });
