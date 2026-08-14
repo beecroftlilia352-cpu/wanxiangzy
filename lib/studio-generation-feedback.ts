@@ -7,17 +7,24 @@ export function summarizeGenerationError(message?: unknown) {
   const nestedMessage = readNestedErrorMessage(raw);
   if (nestedMessage && nestedMessage !== raw) return summarizeGenerationError(nestedMessage);
 
-  const lower = raw.toLowerCase();
+  // 先剥离 "API 错误 NNN: " 前缀，让后续 JSON 解析和关键词判断更准
+  const withoutApiPrefix = raw.replace(/^API 错误\s+\d+\s*[:：]\s*/, "");
+  const lower = withoutApiPrefix.toLowerCase();
+
+  // 限流类特征要精确：绝不能因为响应 JSON 里带 "upstream_error" 类型标签
+  // 就把敏感词拦截、内容违规等具体原因误判成限流
   if (
-    raw.includes("429") ||
+    withoutApiPrefix.includes("429") ||
     lower.includes("rate limit") ||
-    lower.includes("upstream load") ||
-    lower.includes("upstream")
+    lower.includes("too many requests") ||
+    lower.includes("负载已饱和") ||
+    lower.includes("请求过于频繁")
   ) {
     return "上游模型繁忙或限流，本张已按失败结算。";
   }
 
-  return raw.length > 96 ? `${raw.slice(0, 96)}...` : raw;
+  const display = withoutApiPrefix || raw;
+  return display.length > 96 ? `${display.slice(0, 96)}...` : display;
 }
 
 export function buildFailedTaskDetail(message?: unknown) {
@@ -46,6 +53,9 @@ function readNestedErrorMessage(raw: string) {
     if (typeof parsed.error === "string") return parsed.error;
     if (typeof parsed.message === "string") return parsed.message;
   } catch {
+    // JSON 截断/不完整时的降级：用正则提取 error message 或 message 字段的字符串值
+    const messageField = match[0].match(/["']message["']\s*:\s*["']([^"']{4,})["']/i);
+    if (messageField) return messageField[1];
     return "";
   }
   return "";
