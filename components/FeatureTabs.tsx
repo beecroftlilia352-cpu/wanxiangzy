@@ -69,6 +69,14 @@ export function FeatureTabs({ active }: { active: FeatureKey }) {
             >
               <span className={`relative flex h-6 w-6 items-center justify-center ${isActive ? "text-[var(--codex-accent)]" : "text-codex-faint group-hover:text-codex-ink"}`}>
                 <Icon className="h-5 w-5" aria-hidden="true" />
+                {item.badge && (
+                  <span
+                    aria-hidden="true"
+                    className="absolute -right-2 -top-1.5 inline-flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-gradient-to-r from-rose-500 to-red-500 px-1 text-[7px] font-black leading-none text-white ring-2 ring-white/90 dark:ring-stone-900/80"
+                  >
+                    {item.badge}
+                  </span>
+                )}
               </span>
               <span className="max-w-full text-center leading-tight [overflow-wrap:anywhere]">{item.label}</span>
             </Link>
