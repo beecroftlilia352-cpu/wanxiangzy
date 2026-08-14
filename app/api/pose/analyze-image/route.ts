@@ -18,7 +18,7 @@ import {
   type PoseVisualAnalysis,
 } from "@/lib/pose-analysis";
 
-const DEFAULT_TIMEOUT_MS = 12_000;
+const DEFAULT_TIMEOUT_MS = 30_000;
 const POSE_ANALYSIS_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const POSE_ANALYSIS_CACHE_MAX_ENTRIES = 300;
 const POSE_ANALYSIS_CACHE_MIN_CONFIDENCE = 0.5;
@@ -247,7 +247,7 @@ async function requestPoseVisualAnalysis(input: {
             ],
           },
         ],
-        max_tokens: 900,
+        max_tokens: 1600,
       }),
     });
 
@@ -344,7 +344,7 @@ function readContentPartText(item: unknown) {
 }
 
 function parseJsonObject(content: string): unknown {
-  const trimmed = stripJsonCodeFence(content.trim());
+  const trimmed = stripJsonCodeFence(stripReasoningTags(content.trim()));
   if (!trimmed) return {};
   try {
     return JSON.parse(trimmed);
@@ -364,6 +364,15 @@ function parseJsonObject(content: string): unknown {
 function stripJsonCodeFence(value: string) {
   const fenceMatch = value.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
   return fenceMatch ? fenceMatch[1] : value;
+}
+
+// MiniMax-M3 等推理模型会在 content 里输出 <think>...</think> 思维链，
+// 思维链会挤占 max_tokens 并破坏 JSON 解析，这里统一剥离（含被截断的孤立标签）。
+function stripReasoningTags(value: string) {
+  return value
+    .replace(/<think>[\s\S]*?<\/think>/gi, "")
+    .replace(/<\/?think>/gi, "")
+    .trim();
 }
 
 function redactProviderUrl(baseUrl: string) {

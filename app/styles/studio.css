@@ -848,6 +848,7 @@
     linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(244, 248, 255, 0.92)),
     rgba(255, 255, 255, 0.9);
   box-shadow: 0 12px 28px rgba(91, 124, 255, 0.11);
+  animation: studio-visual-analysis-glow 1.85s ease-in-out infinite;
 }
 
 .studio-visual-analysis-card[data-tone="loading"]::before {
@@ -1009,7 +1010,13 @@
   font-weight: 700;
   line-height: 14px;
   box-shadow: inset 0 0 0 1px rgba(91, 124, 255, 0.1);
+  animation: studio-visual-analysis-tag-in 0.32s ease-out both;
 }
+
+.studio-visual-analysis-tag:nth-child(2) { animation-delay: 60ms; }
+.studio-visual-analysis-tag:nth-child(3) { animation-delay: 120ms; }
+.studio-visual-analysis-tag:nth-child(4) { animation-delay: 180ms; }
+.studio-visual-analysis-tag:nth-child(5) { animation-delay: 240ms; }
 
 .studio-visual-analysis-tag > span {
   min-width: 0;
@@ -5960,4 +5967,44 @@ header .animate-spin {
   background: rgba(91, 140, 255, 0.22) !important;
   color: #5b8cff !important;
   box-shadow: 0 0 0 1px rgba(91, 140, 255, 0.30) inset !important;
+}
+
+/* ===== 视觉识别状态卡动画（keyframes 全局定义，供各 studio 模块共用） ===== */
+@keyframes studio-visual-analysis-spinner {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes studio-visual-analysis-ring {
+  0% { transform: scale(0.76); opacity: 0.72; }
+  72% { transform: scale(1.2); opacity: 0; }
+  100% { transform: scale(1.2); opacity: 0; }
+}
+
+@keyframes studio-visual-analysis-dot {
+  0%, 80%, 100% { opacity: 0.32; transform: translateY(0); }
+  38% { opacity: 1; transform: translateY(-2px); }
+}
+
+@keyframes studio-visual-analysis-progress {
+  0% { transform: translateX(-110%); opacity: 0; }
+  15% { opacity: 1; }
+  86% { opacity: 1; }
+  100% { transform: translateX(250%); opacity: 0; }
+}
+
+@keyframes studio-visual-analysis-scan {
+  0% { transform: translateX(0) skewX(-16deg); opacity: 0; }
+  18% { opacity: 1; }
+  78% { opacity: 0.85; }
+  100% { transform: translateX(360%) skewX(-16deg); opacity: 0; }
+}
+
+@keyframes studio-visual-analysis-glow {
+  0%, 100% { box-shadow: 0 12px 28px rgba(91, 124, 255, 0.11); }
+  50% { box-shadow: 0 14px 36px rgba(91, 124, 255, 0.26); }
+}
+
+@keyframes studio-visual-analysis-tag-in {
+  0% { opacity: 0; transform: translateY(4px); }
+  100% { opacity: 1; transform: translateY(0); }
 }
