@@ -1975,6 +1975,17 @@ export default function CreatePage() {
     const selection = beginTaskSelection(item.id, railSelection?.reason ?? "manual");
     setActiveTaskReferences([]);
 
+    // 其他模块的任务：不套用本页状态，直接跳转到任务所属模块页面
+    if (item.module && item.module !== "tryon") {
+      if (item.applyUrl) {
+        router.push(item.applyUrl);
+      } else {
+        toast.info("该任务不属于服装上身模块，请到对应模块查看");
+      }
+      selection.finish();
+      return;
+    }
+
     if (isTaskRunning(item)) {
       const expectedCount = clampTaskExpectedCount(item, 1, MAX_TRYON_OUTPUT_IMAGES);
       const partialResultUrls = safeTaskQueueUrls(item.resultThumbnails);

@@ -43,6 +43,20 @@ export function ModuleTaskRail({
   };
 
   const handleSelectTask = async (item: TaskQueueItem, session: TaskSelectionSession) => {
+    // 其他模块的任务：不调用本页 handler 污染页面状态，直接跳转到任务所属模块
+    if (item.module && item.module !== module) {
+      if (item.applyUrl) {
+        const target = new URL(item.applyUrl, window.location.origin);
+        if (target.pathname === window.location.pathname) {
+          window.history.replaceState(window.history.state, "", `${target.pathname}${target.search}${target.hash}`);
+          window.dispatchEvent(new CustomEvent("wanxiang:history-apply", { detail: { id: item.id, module: item.module } }));
+        } else {
+          router.push(`${target.pathname}${target.search}${target.hash}`);
+        }
+      }
+      return;
+    }
+
     if (isTaskRunning(item)) {
       await onRunningTask?.(item, session);
       const applied = await applyTask(item, session);
