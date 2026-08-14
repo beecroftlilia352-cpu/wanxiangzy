@@ -499,8 +499,8 @@ export function AdminTryOnReferenceConsole({
       <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
         <div className="flex flex-col gap-3 border-b border-slate-200 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h2 className="text-sm font-black text-slate-950">生产配置流程</h2>
-            <p className="mt-1 text-xs leading-5 text-slate-500">推荐按“草稿导入 → 预览命中 → 发布版本 → 前台生效”走，避免直接改线上配置。</p>
+            <h2 className="text-sm font-black text-[var(--admin-fg)]">生产配置流程</h2>
+            <p className="mt-1 text-xs leading-5 text-[var(--admin-muted)]">推荐按“草稿导入 → 预览命中 → 发布版本 → 前台生效”走，避免直接改线上配置。</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <button type="button" onClick={() => run(refresh)} disabled={isPending} className="admin-tryon-btn admin-tryon-btn-secondary">
@@ -526,8 +526,8 @@ export function AdminTryOnReferenceConsole({
           ].map(([step, title, text]) => (
             <div key={step} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
               <span className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-slate-950 text-xs font-black text-white">{step}</span>
-              <p className="mt-3 text-sm font-black text-slate-950">{title}</p>
-              <p className="mt-1 text-xs leading-5 text-slate-500">{text}</p>
+              <p className="mt-3 text-sm font-black text-[var(--admin-fg)]">{title}</p>
+              <p className="mt-1 text-xs leading-5 text-[var(--admin-muted)]">{text}</p>
             </div>
           ))}
         </div>
@@ -549,7 +549,7 @@ export function AdminTryOnReferenceConsole({
             key={value}
             type="button"
             onClick={() => setTab(value as typeof tab)}
-            className={`h-9 rounded-lg px-3 text-xs font-black ${tab === value ? "bg-slate-950 text-white" : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`}
+            className={`h-9 rounded-lg px-3 text-xs font-black ${tab === value ? "bg-[var(--admin-fg)] text-[var(--admin-bg)]" : "border border-[var(--admin-border)] bg-[var(--admin-surface)] text-[var(--admin-muted)] hover:bg-[var(--admin-surface-soft)]"}`}
           >
             {label}
           </button>
@@ -661,9 +661,9 @@ export function AdminTryOnReferenceConsole({
 function Metric({ label, value, hint }: { label: string; value: string | number; hint: string }) {
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-      <p className="text-xs font-black uppercase tracking-[0.1em] text-slate-400">{label}</p>
-      <p className="mt-3 text-2xl font-black text-slate-950">{value}</p>
-      <p className="mt-2 text-xs font-semibold text-slate-500">{hint}</p>
+      <p className="text-xs font-black uppercase tracking-[0.1em] text-[var(--admin-faint)]">{label}</p>
+      <p className="mt-3 text-2xl font-black text-[var(--admin-fg)]">{value}</p>
+      <p className="mt-2 text-xs font-semibold text-[var(--admin-muted)]">{hint}</p>
     </div>
   );
 }
@@ -722,8 +722,8 @@ function CategoryForm({
     <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
       <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
         <div>
-          <h2 className="text-sm font-black text-slate-950">类目编辑</h2>
-          <p className="mt-1 text-xs text-slate-500">识别模型输出必须最终落到这些 code。</p>
+          <h2 className="text-sm font-black text-[var(--admin-fg)]">类目编辑</h2>
+          <p className="mt-1 text-xs text-[var(--admin-muted)]">识别模型输出必须最终落到这些 code。</p>
         </div>
         <button type="button" onClick={onSeed} disabled={loading} className="admin-tryon-btn admin-tryon-btn-secondary">
           <DatabaseZap className="h-3.5 w-3.5" />
@@ -735,7 +735,7 @@ function CategoryForm({
         <div className="grid gap-3 sm:grid-cols-2">
           <Select label="Level" value={form.level} onChange={(value) => onChange({ ...form, level: value })} options={[["1", "一级"], ["2", "二级"]]} />
           <label className="space-y-1.5">
-            <span className="text-xs font-black text-slate-500">Parent</span>
+            <span className="text-xs font-black text-[var(--admin-muted)]">Parent</span>
             <select value={form.parent_code} onChange={(event) => onChange({ ...form, parent_code: event.target.value })} className="admin-tryon-input h-10">
               <option value="">无</option>
               {parents.map((parent) => <option key={parent.code} value={parent.code}>{parent.name_zh} · {parent.code}</option>)}
@@ -756,11 +756,11 @@ function CategoryForm({
           <Field label="默认镜头 tags" value={form.default_view_tags} onChange={(value) => onChange({ ...form, default_view_tags: value })} />
           <Field label="默认裁切 tags" value={form.default_crop_tags} onChange={(value) => onChange({ ...form, default_crop_tags: value })} />
         </div>
-        <label className="flex items-center gap-2 text-xs font-bold text-slate-600">
+        <label className="flex items-center gap-2 text-xs font-bold text-[var(--admin-muted)]">
           <input type="checkbox" checked={form.is_intimate} onChange={(event) => onChange({ ...form, is_intimate: event.target.checked })} />
           成人/内衣敏感类目
         </label>
-        <label className="flex items-center gap-2 text-xs font-bold text-slate-600">
+        <label className="flex items-center gap-2 text-xs font-bold text-[var(--admin-muted)]">
           <input type="checkbox" checked={form.enabled} onChange={(event) => onChange({ ...form, enabled: event.target.checked })} />
           启用
         </label>
@@ -786,15 +786,15 @@ function CategoryTable({
   return (
     <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
       <div className="border-b border-slate-200 px-4 py-3">
-        <h2 className="text-sm font-black text-slate-950">分类体系</h2>
-        <p className="mt-1 text-xs text-slate-500">一级/二级树结构，禁用后不会参与发布校验和推荐匹配。</p>
+        <h2 className="text-sm font-black text-[var(--admin-fg)]">分类体系</h2>
+        <p className="mt-1 text-xs text-[var(--admin-muted)]">一级/二级树结构，禁用后不会参与发布校验和推荐匹配。</p>
       </div>
       <div className="max-h-[720px] overflow-auto">
         <table className="min-w-full divide-y divide-slate-200 text-sm">
           <thead className="sticky top-0 bg-slate-50">
             <tr>
               {["类目", "Slot", "状态", "默认标签", "操作"].map((item) => (
-                <th key={item} className="px-4 py-2 text-left text-xs font-black uppercase tracking-[0.08em] text-slate-400">{item}</th>
+                <th key={item} className="px-4 py-2 text-left text-xs font-black uppercase tracking-[0.08em] text-[var(--admin-faint)]">{item}</th>
               ))}
             </tr>
           </thead>
@@ -802,12 +802,12 @@ function CategoryTable({
             {categories.map((category) => (
               <tr key={category.code} className={category.level === 1 ? "bg-slate-50/60" : "bg-white"}>
                 <td className="px-4 py-3">
-                  <p className="text-sm font-black text-slate-950">{category.level === 2 ? "└ " : ""}{category.name_zh}</p>
-                  <p className="font-mono text-[11px] text-slate-400">{category.code}</p>
+                  <p className="text-sm font-black text-[var(--admin-fg)]">{category.level === 2 ? "└ " : ""}{category.name_zh}</p>
+                  <p className="font-mono text-[11px] text-[var(--admin-faint)]">{category.code}</p>
                 </td>
-                <td className="px-4 py-3 text-xs font-bold text-slate-600">{category.slot}</td>
+                <td className="px-4 py-3 text-xs font-bold text-[var(--admin-muted)]">{category.slot}</td>
                 <td className="px-4 py-3"><AdminStatusBadge status={category.enabled ? "active" : "disabled"} /></td>
-                <td className="px-4 py-3 text-xs text-slate-500">
+                <td className="px-4 py-3 text-xs text-[var(--admin-muted)]">
                   {[...category.default_view_tags, ...category.default_crop_tags].slice(0, 4).join(", ") || "-"}
                 </td>
                 <td className="px-4 py-3">
@@ -841,8 +841,8 @@ function SceneForm({
   return (
     <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
       <div className="border-b border-slate-200 px-4 py-3">
-        <h2 className="text-sm font-black text-slate-950">场景编辑</h2>
-        <p className="mt-1 text-xs text-slate-500">主场景展示在顶部，raw_config.children 会作为下方子图集。</p>
+        <h2 className="text-sm font-black text-[var(--admin-fg)]">场景编辑</h2>
+        <p className="mt-1 text-xs text-[var(--admin-muted)]">主场景展示在顶部，raw_config.children 会作为下方子图集。</p>
       </div>
       <form onSubmit={onSubmit} className="grid gap-3 p-4">
         <Field label="Scene Key" value={form.scene_key} onChange={(value) => onChange({ ...form, scene_key: value })} placeholder="scene_107237" required />
@@ -854,7 +854,7 @@ function SceneForm({
           <Field label="排序" value={form.sort_order} onChange={(value) => onChange({ ...form, sort_order: value })} />
         </div>
         <label className="space-y-1.5">
-          <span className="text-xs font-black text-slate-500">绑定类目</span>
+          <span className="text-xs font-black text-[var(--admin-muted)]">绑定类目</span>
           <select
             value=""
             onChange={(event) => {
@@ -921,18 +921,18 @@ function SceneList({
     <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
       <div className="flex flex-col gap-3 border-b border-slate-200 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <h2 className="text-sm font-black text-slate-950">系统参考图</h2>
-          <p className="mt-1 text-xs text-slate-500">Active 会进入前台推荐；Draft 可用于后台预览。</p>
+          <h2 className="text-sm font-black text-[var(--admin-fg)]">系统参考图</h2>
+          <p className="mt-1 text-xs text-[var(--admin-muted)]">Active 会进入前台推荐；Draft 可用于后台预览。</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <select value={status} onChange={(event) => onFilterStatus(event.target.value)} className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs font-bold text-slate-600">
+          <select value={status} onChange={(event) => onFilterStatus(event.target.value)} className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs font-bold text-[var(--admin-muted)]">
             <option value="active">active</option>
             <option value="draft">draft</option>
             <option value="archived">archived</option>
             <option value="all">all</option>
           </select>
           <div className="relative">
-            <Search className="pointer-events-none absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
+            <Search className="pointer-events-none absolute left-2.5 top-2.5 h-3.5 w-3.5 text-[var(--admin-faint)]" />
             <input value={search} onChange={(event) => onSearch(event.target.value)} className="h-9 w-56 rounded-lg border border-slate-200 bg-white pl-8 pr-3 text-xs font-semibold outline-none focus:border-slate-400" placeholder="搜索名称 / 类目 / tag" />
           </div>
         </div>
@@ -947,18 +947,18 @@ function SceneList({
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <AdminStatusBadge status={scene.status} />
-                    <span className="text-xs font-black text-slate-400">score +{scene.priority}</span>
+                    <span className="text-xs font-black text-[var(--admin-faint)]">score +{scene.priority}</span>
                   </div>
-                  <p className="mt-2 truncate text-sm font-black text-slate-950">{scene.name}</p>
-                  <p className="truncate font-mono text-[11px] text-slate-400">{scene.scene_key}</p>
-                  <p className="mt-2 text-xs font-semibold text-slate-500">
+                  <p className="mt-2 truncate text-sm font-black text-[var(--admin-fg)]">{scene.name}</p>
+                  <p className="truncate font-mono text-[11px] text-[var(--admin-faint)]">{scene.scene_key}</p>
+                  <p className="mt-2 text-xs font-semibold text-[var(--admin-muted)]">
                     {scene.cloth_categories.slice(0, 3).map((code) => categoryByCode.get(code)?.name_zh || code).join(" / ") || "未绑定类目"}
                   </p>
-                  <p className="mt-1 text-[11px] font-bold text-slate-400">子图集 {children} · {scene.gender} · {scene.age_ranges.join(",")}</p>
+                  <p className="mt-1 text-[11px] font-bold text-[var(--admin-faint)]">子图集 {children} · {scene.gender} · {scene.age_ranges.join(",")}</p>
                 </div>
               </div>
               <div className="flex items-center justify-between gap-2 border-t border-slate-100 px-3 py-2">
-                <span className="text-[11px] font-semibold text-slate-400">{formatDateTime(scene.updated_at)}</span>
+                <span className="text-[11px] font-semibold text-[var(--admin-faint)]">{formatDateTime(scene.updated_at)}</span>
 	                <div className="flex gap-2">
 	                  <button type="button" onClick={() => onEdit(scene)} className="admin-tryon-mini-btn">编辑</button>
 	                  {scene.status !== "active" && <button type="button" onClick={() => onStatus(scene.scene_key, "active")} className="admin-tryon-mini-btn text-emerald-700"><Rocket className="h-3 w-3" />上架</button>}
@@ -1000,8 +1000,8 @@ function ImportPanel({
   return (
     <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
       <div className="border-b border-slate-200 px-4 py-3">
-        <h2 className="text-sm font-black text-slate-950">批量导入主场景 / 子图集</h2>
-        <p className="mt-1 text-xs leading-5 text-slate-500">主场景粘贴「场景主.txt」，子图集粘贴「场景子.txt」。导入器兼容 data.list 和 data[id].children。</p>
+        <h2 className="text-sm font-black text-[var(--admin-fg)]">批量导入主场景 / 子图集</h2>
+        <p className="mt-1 text-xs leading-5 text-[var(--admin-muted)]">主场景粘贴「场景主.txt」，子图集粘贴「场景子.txt」。导入器兼容 data.list 和 data[id].children。</p>
       </div>
       <form onSubmit={onSubmit} className="grid gap-4 p-4">
         <div className="grid gap-4 xl:grid-cols-2">
@@ -1009,7 +1009,7 @@ function ImportPanel({
           <Textarea label="子图集 childRawText" value={childRawText} onChange={onChildRawText} rows={14} placeholder='{"success":true,"data":{"107237":{"children":[...]}}}' />
         </div>
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <label className="flex items-center gap-2 text-xs font-bold text-slate-600">
+          <label className="flex items-center gap-2 text-xs font-bold text-[var(--admin-muted)]">
             <input type="checkbox" checked={publish} onChange={(event) => onPublish(event.target.checked)} />
             导入后直接设为 active
           </label>
@@ -1069,19 +1069,19 @@ function PreviewPanel({
   return (
     <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
       <div className="border-b border-slate-200 px-4 py-3">
-        <h2 className="text-sm font-black text-slate-950">推荐排序预览</h2>
-        <p className="mt-1 text-xs text-slate-500">上线前用真实类目预览前台“推荐场景”的排序和命中原因。</p>
+        <h2 className="text-sm font-black text-[var(--admin-fg)]">推荐排序预览</h2>
+        <p className="mt-1 text-xs text-[var(--admin-muted)]">上线前用真实类目预览前台“推荐场景”的排序和命中原因。</p>
       </div>
       <form onSubmit={onSubmit} className="flex flex-wrap items-end gap-3 p-4">
         <label className="space-y-1.5">
-          <span className="text-xs font-black text-slate-500">二级类目</span>
-          <select value={subcategory} onChange={(event) => onSubcategory(event.target.value)} className="h-10 w-64 rounded-lg border border-slate-200 bg-white px-2 text-sm font-bold text-slate-700">
+          <span className="text-xs font-black text-[var(--admin-muted)]">二级类目</span>
+          <select value={subcategory} onChange={(event) => onSubcategory(event.target.value)} className="h-10 w-64 rounded-lg border border-slate-200 bg-white px-2 text-sm font-bold text-[var(--admin-fg)]">
             {categories.map((category) => <option key={category.code} value={category.code}>{category.name_zh} · {category.code}</option>)}
           </select>
         </label>
         <Select label="人群" value={audience} onChange={onAudience} options={[["women", "女装"], ["men", "男装"], ["unisex", "通用"]]} />
         <Select label="年龄" value={age} onChange={onAge} options={[["adult", "成人"], ["teen", "青少年"], ["big_child", "大童"], ["all", "全部"]]} />
-        <label className="flex h-10 items-center gap-2 text-xs font-bold text-slate-600">
+        <label className="flex h-10 items-center gap-2 text-xs font-bold text-[var(--admin-muted)]">
           <input type="checkbox" checked={includeDraft} onChange={(event) => onIncludeDraft(event.target.checked)} />
           包含草稿
         </label>
@@ -1097,12 +1097,12 @@ function PreviewPanel({
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={scene.imageUrl} alt={scene.name} className="h-full w-full object-cover" loading="lazy" />
               <span className="absolute left-2 top-2 rounded-md bg-slate-950 px-2 py-1 text-xs font-black text-white">#{index + 1}</span>
-              <span className="absolute right-2 top-2 rounded-md bg-white/90 px-2 py-1 text-xs font-black text-slate-700">{scene.score}</span>
+              <span className="absolute right-2 top-2 rounded-md bg-white/90 px-2 py-1 text-xs font-black text-[var(--admin-fg)]">{scene.score}</span>
             </div>
             <div className="p-3">
-              <p className="line-clamp-2 text-sm font-black text-slate-950">{scene.name}</p>
-              <p className="mt-1 font-mono text-[11px] text-slate-400">{scene.sceneKey}</p>
-              <p className="mt-2 text-xs font-semibold text-slate-500">{scene.matchReasons.slice(0, 3).join(" / ") || "默认排序"}</p>
+              <p className="line-clamp-2 text-sm font-black text-[var(--admin-fg)]">{scene.name}</p>
+              <p className="mt-1 font-mono text-[11px] text-[var(--admin-faint)]">{scene.sceneKey}</p>
+              <p className="mt-2 text-xs font-semibold text-[var(--admin-muted)]">{scene.matchReasons.slice(0, 3).join(" / ") || "默认排序"}</p>
             </div>
           </article>
         ))}
@@ -1115,16 +1115,16 @@ function SceneOverview({ scenes }: { scenes: TryOnAdminSceneRow[] }) {
   return (
     <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
       <div className="border-b border-slate-200 px-4 py-3">
-        <h2 className="text-sm font-black text-slate-950">前台 Active 场景</h2>
-        <p className="mt-1 text-xs text-slate-500">这些数据会进入用户侧“系统生成参考图”。</p>
+        <h2 className="text-sm font-black text-[var(--admin-fg)]">前台 Active 场景</h2>
+        <p className="mt-1 text-xs text-[var(--admin-muted)]">这些数据会进入用户侧“系统生成参考图”。</p>
       </div>
       <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-3">
         {scenes.map((scene) => (
           <div key={scene.scene_key} className="rounded-lg border border-slate-200 p-3">
             <ThumbnailStrip urls={[scene.image_url]} />
-            <p className="mt-3 truncate text-sm font-black text-slate-950">{scene.name}</p>
-            <p className="truncate font-mono text-[11px] text-slate-400">{scene.scene_key}</p>
-            <p className="mt-2 text-xs font-bold text-slate-500">{scene.cloth_categories.slice(0, 3).join(", ") || "fallback tags"}</p>
+            <p className="mt-3 truncate text-sm font-black text-[var(--admin-fg)]">{scene.name}</p>
+            <p className="truncate font-mono text-[11px] text-[var(--admin-faint)]">{scene.scene_key}</p>
+            <p className="mt-2 text-xs font-bold text-[var(--admin-muted)]">{scene.cloth_categories.slice(0, 3).join(", ") || "fallback tags"}</p>
           </div>
         ))}
       </div>
@@ -1136,8 +1136,8 @@ function VersionPanel({ versions, onRollback }: { versions: TryOnAdminConfigVers
   return (
     <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
       <div className="border-b border-slate-200 px-4 py-3">
-        <h2 className="text-sm font-black text-slate-950">配置版本</h2>
-        <p className="mt-1 text-xs text-slate-500">发布、回滚都会写审计日志。</p>
+        <h2 className="text-sm font-black text-[var(--admin-fg)]">配置版本</h2>
+        <p className="mt-1 text-xs text-[var(--admin-muted)]">发布、回滚都会写审计日志。</p>
       </div>
       <div className="divide-y divide-slate-100">
         {versions.slice(0, 8).map((version) => {
@@ -1149,9 +1149,9 @@ function VersionPanel({ versions, onRollback }: { versions: TryOnAdminConfigVers
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <AdminStatusBadge status={version.status} />
-                  <span className="font-mono text-[11px] font-bold text-slate-400">{version.id.slice(0, 8)}</span>
+                  <span className="font-mono text-[11px] font-bold text-[var(--admin-faint)]">{version.id.slice(0, 8)}</span>
                 </div>
-                <p className="mt-1 text-xs font-semibold text-slate-500">{categoryCount} 类目 · {sceneCount} 场景 · {formatDateTime(version.published_at || version.created_at)}</p>
+                <p className="mt-1 text-xs font-semibold text-[var(--admin-muted)]">{categoryCount} 类目 · {sceneCount} 场景 · {formatDateTime(version.published_at || version.created_at)}</p>
               </div>
               <button type="button" onClick={() => onRollback(version.id)} className="admin-tryon-mini-btn">
                 <RotateCcw className="h-3 w-3" />
@@ -1168,7 +1168,7 @@ function VersionPanel({ versions, onRollback }: { versions: TryOnAdminConfigVers
 function Field({ label, value, onChange, placeholder, required }: { label: string; value: string; onChange: (value: string) => void; placeholder?: string; required?: boolean }) {
   return (
     <label className="space-y-1.5">
-      <span className="text-xs font-black text-slate-500">{label}</span>
+      <span className="text-xs font-black text-[var(--admin-muted)]">{label}</span>
       <input value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} required={required} className="admin-tryon-input h-10" />
     </label>
   );
@@ -1177,7 +1177,7 @@ function Field({ label, value, onChange, placeholder, required }: { label: strin
 function Textarea({ label, value, onChange, rows, placeholder }: { label: string; value: string; onChange: (value: string) => void; rows: number; placeholder?: string }) {
   return (
     <label className="space-y-1.5">
-      <span className="text-xs font-black text-slate-500">{label}</span>
+      <span className="text-xs font-black text-[var(--admin-muted)]">{label}</span>
       <textarea value={value} onChange={(event) => onChange(event.target.value)} rows={rows} placeholder={placeholder} className="admin-tryon-input min-h-0 py-2 font-mono text-xs" />
     </label>
   );
@@ -1186,7 +1186,7 @@ function Textarea({ label, value, onChange, rows, placeholder }: { label: string
 function Select({ label, value, onChange, options }: { label: string; value: string; onChange: (value: string) => void; options: string[][] }) {
   return (
     <label className="space-y-1.5">
-      <span className="text-xs font-black text-slate-500">{label}</span>
+      <span className="text-xs font-black text-[var(--admin-muted)]">{label}</span>
       <select value={value} onChange={(event) => onChange(event.target.value)} className="admin-tryon-input h-10">
         {options.map(([optionValue, labelText]) => <option key={optionValue} value={optionValue}>{labelText}</option>)}
       </select>

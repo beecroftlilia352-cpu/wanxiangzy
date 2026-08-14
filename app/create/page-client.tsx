@@ -2630,7 +2630,7 @@ export default function CreatePage() {
                 type="checkbox"
                 checked={isIntimateGarment}
                 onChange={(event) => updateIntimateGarment(event.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded border-slate-300 text-violet-600 focus:ring-violet-500"
+                className="mt-0.5 h-4 w-4 rounded border-slate-300 text-violet-600 accent-[var(--codex-accent)] focus:ring-violet-500 dark:border-stone-600 dark:bg-stone-800"
               />
               <span>
                 <span className="font-semibold">上传服装为内衣、泳衣、情趣内衣类服装</span>

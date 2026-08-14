@@ -282,7 +282,7 @@ function AdminRouteLoading({ active, id }: { active: boolean; id?: string }) {
         <div className="admin-route-loading-bar motion-safe:animate-pulse" />
         <div className="admin-route-loading-card">
           <Spin size="small" />
-          <Typography.Text className="!text-xs !font-bold !text-slate-700">页面加载中…</Typography.Text>
+          <Typography.Text className="!text-xs !font-bold !text-[var(--admin-fg)]">页面加载中…</Typography.Text>
         </div>
       </div>
       <span id={id} className="sr-only" role="status" aria-live="polite">页面加载中</span>
@@ -298,7 +298,7 @@ function AdminBrand({ collapsed, compact = false }: { collapsed: boolean; compac
       </span>
       {!collapsed && (
         <span className="min-w-0">
-          <Typography.Text strong className="block !text-slate-950">
+          <Typography.Text strong className="block !text-[var(--admin-fg)]">
             产品管理后台
           </Typography.Text>
           <Typography.Text type="secondary" className="block truncate !text-xs">

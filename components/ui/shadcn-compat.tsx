@@ -959,7 +959,7 @@ export function Table<T extends Record<string, any>>({ columns = [], dataSource 
                       }) : [];
                       rowSelection.onChange?.(keys);
                     }}
-                    className="h-4 w-4 cursor-pointer"
+                    className="h-4 w-4 cursor-pointer accent-[var(--codex-accent)]"
                   />
                 </th>
               ) : null}
@@ -1002,7 +1002,7 @@ export function Table<T extends Record<string, any>>({ columns = [], dataSource 
                           else current.delete(key);
                           rowSelection.onChange?.(Array.from(current));
                         }}
-                        className="h-4 w-4 cursor-pointer"
+                        className="h-4 w-4 cursor-pointer accent-[var(--codex-accent)]"
                       />
                     </td>
                   ) : null}

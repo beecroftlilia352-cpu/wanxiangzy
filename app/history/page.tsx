@@ -421,7 +421,7 @@ export default function HistoryPage() {
         <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-lg shadow-slate-300/40">
           <ImageIcon className="h-7 w-7 text-slate-500" />
         </div>
-        <h1 className="text-2xl font-black text-slate-950">登录后查看作品资产</h1>
+        <h1 className="text-2xl font-black text-slate-950 dark:text-stone-100">登录后查看作品资产</h1>
         <p className="mt-3 text-sm leading-6 text-slate-500">你的生成结果、输入图片、生成参数和套用记录都会保存在这里。</p>
         <button type="button" onClick={openLogin} className="gradient-brand mt-6 inline-flex h-11 items-center justify-center rounded-full px-6 text-sm font-black text-white shadow-xl shadow-slate-300/40">去登录</button>
       </div>
@@ -432,7 +432,7 @@ export default function HistoryPage() {
     <div className="studio-empty-stage flex min-h-[calc(100dvh-64px)] items-center justify-center px-4 py-16">
       <div className="w-full max-w-lg rounded-[30px] border border-white/80 bg-white/75 p-8 text-center shadow-[0_24px_80px_rgba(15,23,42,0.12)] backdrop-blur-2xl">
         <XCircle className="mx-auto mb-4 h-12 w-12 text-red-300" />
-        <h1 className="text-xl font-black text-slate-950">作品加载失败</h1>
+        <h1 className="text-xl font-black text-slate-950 dark:text-stone-100">作品加载失败</h1>
         <p className="mx-auto mt-3 max-w-sm rounded-2xl bg-red-50 px-4 py-3 text-sm font-bold leading-6 text-red-600">
           {filterState.summary}
         </p>
@@ -456,7 +456,7 @@ export default function HistoryPage() {
     <div className="studio-empty-stage flex min-h-[calc(100dvh-64px)] items-center justify-center px-4 py-16">
       <div className="w-full max-w-lg rounded-[30px] border border-white/80 bg-white/75 p-8 text-center shadow-[0_24px_80px_rgba(15,23,42,0.12)] backdrop-blur-2xl">
         <Clock className="mx-auto mb-4 h-12 w-12 text-slate-300" />
-        <h1 className="text-2xl font-black text-slate-950">{filterState.emptyTitle}</h1>
+        <h1 className="text-2xl font-black text-slate-950 dark:text-stone-100">{filterState.emptyTitle}</h1>
         <p className="mx-auto mt-3 max-w-sm rounded-2xl bg-white/80 px-4 py-3 text-sm font-bold leading-6 text-slate-700">
           {filterState.summary}
         </p>
@@ -541,7 +541,7 @@ export default function HistoryPage() {
                 ) : (
                   <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-gray-300">
                     <ImageIcon className="h-9 w-9" />
-                    <span className="text-xs text-gray-400">暂无结果</span>
+                    <span className="text-xs text-gray-400 dark:text-stone-500">暂无结果</span>
                   </div>
                 )}
                 <span className={`absolute left-2 top-2 rounded-full px-2 py-0.5 text-[10px] font-bold backdrop-blur ${getStatusClasses(g.status)}`}>
@@ -605,7 +605,7 @@ export default function HistoryPage() {
         {filteredRows.length === 0 && !loadingMore && (
           <div className="col-span-full rounded-[28px] border border-white/80 bg-white/70 p-8 text-center shadow-[0_18px_54px_rgba(15,23,42,0.07)] backdrop-blur-2xl">
             <ImageIcon className="mx-auto mb-3 h-10 w-10 text-slate-300" />
-            <h2 className="text-base font-black text-slate-950">没有匹配的作品</h2>
+            <h2 className="text-base font-black text-slate-950 dark:text-stone-100">没有匹配的作品</h2>
             <p className="mx-auto mt-3 max-w-md rounded-2xl bg-white/75 px-4 py-3 text-sm font-bold leading-6 text-slate-700">
               {filterState.summary}
             </p>
@@ -629,13 +629,13 @@ export default function HistoryPage() {
             type="button"
             onClick={loadMore}
             disabled={loadingMore}
-            className="inline-flex items-center gap-2 rounded-full border bg-white px-5 py-2.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-full border bg-white px-5 py-2.5 text-sm font-medium text-gray-700 dark:text-stone-300 shadow-sm hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {loadingMore ? <Loader2 className="h-4 w-4 animate-spin" /> : <Clock className="h-4 w-4" />}
             {loadingMore ? "加载中…" : "加载更多"}
           </button>
         ) : (
-          <p className="text-xs text-gray-400">已加载全部历史作品</p>
+          <p className="text-xs text-gray-400 dark:text-stone-500">已加载全部历史作品</p>
         )}
       </div>
       <DetailLoadingSkeleton open={detailLoading} />
@@ -656,9 +656,9 @@ export default function HistoryPage() {
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <DialogTitle className="text-sm font-bold leading-5">{formatKind(detailPayload?.kind)}</DialogTitle>
-                  <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] text-gray-500">{formatStatus(detailRow.status)}</span>
+                  <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] text-gray-500 dark:text-stone-400">{formatStatus(detailRow.status)}</span>
                 </div>
-                <p className="text-[11px] text-gray-400 mt-0.5">{fmt(detailRow.created_at)}</p>
+                <p className="text-[11px] text-gray-400 dark:text-stone-500 mt-0.5">{fmt(detailRow.created_at)}</p>
                 <DialogDescription className="sr-only">
                   查看生成结果、输入素材、生成参数，并复用当前历史作品。
                 </DialogDescription>
@@ -668,7 +668,7 @@ export default function HistoryPage() {
                   type="button"
                   onClick={() => selectedResultUrl && downloadHistoryResult(detailRow, selectedResultUrl, selectedResultIndex)}
                   disabled={!selectedResultUrl}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white/75 px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm backdrop-blur hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white/75 px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-stone-300 shadow-sm backdrop-blur hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Download className="w-3.5 h-3.5" />
                   下载
@@ -708,30 +708,30 @@ export default function HistoryPage() {
                         alt={`生成结果 ${selectedResultIndex + 1}`}
                         controls
                       />
-                      <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full border border-white/70 bg-white/80 px-2.5 py-1 text-[11px] text-gray-700 opacity-0 shadow-sm backdrop-blur transition-opacity group-hover:opacity-100">
+                      <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full border border-white/70 bg-white/80 px-2.5 py-1 text-[11px] text-gray-700 dark:text-stone-300 opacity-0 shadow-sm backdrop-blur transition-opacity group-hover:opacity-100">
                         <Maximize2 className="w-3 h-3" />
                         放大
                       </span>
                     </button>
                   ) : (
-                    <div className="max-w-sm px-5 text-center text-sm text-gray-500">
+                    <div className="max-w-sm px-5 text-center text-sm text-gray-500 dark:text-stone-400">
                       {detailFailureCopy ? (
                         <>
                           <p className="font-bold text-red-600">{detailFailureCopy.title}</p>
-                          <p className="mt-2 text-xs leading-5 text-gray-500">{detailFailureCopy.recoveryHint}</p>
+                          <p className="mt-2 text-xs leading-5 text-gray-500 dark:text-stone-400">{detailFailureCopy.recoveryHint}</p>
                         </>
                       ) : normalizeHistoryStatusFilter(detailRow.status) === "completed" ? "暂无结果图片" : formatStatus(detailRow.status)}
                     </div>
                   )}
                   {detailResults.length > 0 && (
-                    <div className="absolute left-3 top-3 rounded-full border border-white/70 bg-white/80 px-2.5 py-1 text-[11px] font-medium text-gray-700 shadow-sm backdrop-blur">
+                    <div className="absolute left-3 top-3 rounded-full border border-white/70 bg-white/80 px-2.5 py-1 text-[11px] font-medium text-gray-700 dark:text-stone-300 shadow-sm backdrop-blur">
                       {selectedResultIndex + 1} / {detailResults.length}
                     </div>
                   )}
                 </div>
 
                 <div className="flex flex-col gap-3 px-1 sm:flex-row sm:items-center">
-                  <div className="flex items-center gap-2 text-xs font-medium text-gray-500">
+                  <div className="flex items-center gap-2 text-xs font-medium text-gray-500 dark:text-stone-400">
                     <ZoomOut className="h-4 w-4" />
                     <input
                       type="range"
@@ -744,12 +744,12 @@ export default function HistoryPage() {
                       aria-label="缩放生成结果"
                     />
                     <ZoomIn className="h-4 w-4" />
-                    <span className="w-10 text-right tabular-nums text-gray-700">{detailZoom}%</span>
+                    <span className="w-10 text-right tabular-nums text-gray-700 dark:text-stone-300">{detailZoom}%</span>
                   </div>
                   <button
                     type="button"
                     onClick={() => setDetailZoom(100)}
-                    className="rounded-full border border-gray-200/80 bg-white/50 px-3 py-1.5 text-xs font-medium text-gray-600 backdrop-blur hover:bg-white/80"
+                    className="rounded-full border border-gray-200/80 bg-white/50 px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-stone-400 backdrop-blur hover:bg-white/80"
                   >
                     重置
                   </button>
@@ -779,7 +779,7 @@ export default function HistoryPage() {
               <aside className="space-y-5 overflow-y-auto border-l border-white/70 bg-white/75 p-4 backdrop-blur-xl sm:p-5 lg:max-h-[calc(92vh-57px)]">
                 <section className="rounded-2xl border border-slate-200 bg-slate-50/80 p-3">
                   <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">复用参数</p>
-                  <h4 className="mt-1 text-sm font-black text-slate-950">复用这个作品</h4>
+                  <h4 className="mt-1 text-sm font-black text-slate-950 dark:text-stone-100">复用这个作品</h4>
                   <p className="mt-1 text-xs leading-5 text-slate-500">套用完整参数或下载当前预览结果。</p>
                   <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-1">
                     {detailPayload && (
@@ -803,11 +803,11 @@ export default function HistoryPage() {
                 </section>
 
                 <section>
-                  <h4 className="mb-2 text-xs font-bold text-gray-900">生成信息</h4>
+                  <h4 className="mb-2 text-xs font-bold text-gray-900 dark:text-stone-100">生成信息</h4>
                   <div className="grid grid-cols-2 gap-x-4 gap-y-3">
                     {getParameterItems(detailRow).map((item) => (
                       <div key={item.label} className="min-w-0 border-b border-gray-100 pb-2">
-                        <p className="text-[10px] text-gray-400">{item.label}</p>
+                        <p className="text-[10px] text-gray-400 dark:text-stone-500">{item.label}</p>
                         <p className="mt-0.5 break-words text-xs font-medium text-gray-800">{item.value}</p>
                       </div>
                     ))}
@@ -822,7 +822,7 @@ export default function HistoryPage() {
 
                 {detailImages.length > 0 && (
                   <section>
-                    <h4 className="mb-2 text-xs font-bold text-gray-900">输入图片</h4>
+                    <h4 className="mb-2 text-xs font-bold text-gray-900 dark:text-stone-100">输入图片</h4>
                     <div className="grid grid-cols-3 gap-2">
                       {detailImages.map((image, index) => (
                         <button
@@ -839,12 +839,12 @@ export default function HistoryPage() {
                               alt={image.label}
                             />
                             <div className="absolute inset-0 flex items-center justify-center bg-slate-950/0 transition duration-200 group-hover:bg-slate-950/18 group-focus-visible:bg-slate-950/18">
-                              <span className="flex h-8 w-8 scale-90 items-center justify-center rounded-full border border-white/70 bg-white/85 text-gray-700 opacity-0 shadow-sm backdrop-blur transition duration-200 group-hover:scale-100 group-hover:opacity-100 group-focus-visible:scale-100 group-focus-visible:opacity-100">
+                              <span className="flex h-8 w-8 scale-90 items-center justify-center rounded-full border border-white/70 bg-white/85 text-gray-700 dark:text-stone-300 opacity-0 shadow-sm backdrop-blur transition duration-200 group-hover:scale-100 group-hover:opacity-100 group-focus-visible:scale-100 group-focus-visible:opacity-100">
                                 <ZoomIn className="h-4 w-4" />
                               </span>
                             </div>
                           </div>
-                          <p className="mt-1 truncate text-[10px] text-gray-500">{image.label}</p>
+                          <p className="mt-1 truncate text-[10px] text-gray-500 dark:text-stone-400">{image.label}</p>
                         </button>
                       ))}
                     </div>
@@ -1155,7 +1155,7 @@ function getStatusClasses(status: string) {
   if (normalizedStatus === "failed") return "bg-red-50 text-red-600";
   if (normalizedStatus === "processing") return "bg-amber-50 text-amber-700";
   if (normalizedStatus === "pending") return "bg-sky-50 text-sky-700";
-  return "bg-gray-100 text-gray-600";
+  return "bg-gray-100 text-gray-600 dark:text-stone-400";
 }
 
 class HistoryAuthError extends Error {}
