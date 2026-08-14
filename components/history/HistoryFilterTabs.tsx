@@ -26,18 +26,16 @@ export function HistoryFilterTabs<T extends string>({
 }: HistoryFilterTabsProps<T>) {
   return (
     <section className={cn("min-w-0", className)} aria-label={label}>
-      <p className="mb-1.5 px-1 text-[10px] font-black uppercase tracking-[0.12em] text-slate-400">
-        {label}
-      </p>
       <div className="relative min-w-0">
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-y-0 right-0 z-10 w-8 bg-gradient-to-l from-white/95 to-transparent sm:hidden"
+          className="pointer-events-none absolute inset-y-0 right-0 z-10 w-6 bg-gradient-to-l from-white to-transparent sm:hidden dark:from-stone-900"
         />
         <div
           role="group"
-          className="scrollbar-none flex snap-x snap-mandatory gap-2 overflow-x-auto overscroll-x-contain px-0.5 py-1 pr-8 sm:flex-wrap sm:overflow-visible sm:pr-0"
+          className="scrollbar-none flex snap-x snap-mandatory items-center gap-1.5 overflow-x-auto overscroll-x-contain py-0.5 pr-7 sm:flex-wrap sm:overflow-visible sm:pr-0"
         >
+          <span className="mr-1 flex-none text-[11px] font-bold text-[var(--codex-faint)]">{label}</span>
           {options.map((item) => {
             const active = value === item.value;
 
@@ -48,12 +46,10 @@ export function HistoryFilterTabs<T extends string>({
                 aria-pressed={active}
                 onClick={() => onChange(item.value)}
                 className={cn(
-                  "btn-press h-9 flex-none snap-start rounded-full border px-3.5 text-xs font-bold outline-none transition-[color,background-color,border-color,box-shadow] duration-150 focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2",
-                  active && tone === "brand"
-                    ? "border-transparent bg-slate-950 text-white shadow-[0_6px_16px_rgba(15,23,42,0.18)]"
-                    : active
-                      ? "border-slate-300 bg-slate-100 text-slate-800 shadow-sm"
-                      : "border-slate-200/90 bg-white/80 text-slate-500 shadow-sm hover:border-slate-300 hover:bg-white hover:text-slate-800"
+                  "btn-press h-8 flex-none snap-start rounded-full px-3 text-xs font-bold outline-none transition-[color,background-color,border-color,box-shadow] duration-150 focus-visible:ring-2 focus-visible:ring-[rgba(91,124,255,0.5)] focus-visible:ring-offset-2",
+                  active
+                    ? "border border-[rgba(91,124,255,0.35)] bg-[rgba(91,124,255,0.12)] text-[var(--codex-accent)] shadow-[0_2px_8px_rgba(91,124,255,0.14)] dark:bg-[rgba(91,140,255,0.18)] dark:text-[#aeb8ff]"
+                    : "border border-[var(--codex-border)] bg-[var(--codex-surface-soft)] text-[var(--codex-muted)] hover:border-[rgba(91,124,255,0.3)] hover:text-[var(--codex-ink)] dark:hover:text-stone-100"
                 )}
               >
                 {item.label}

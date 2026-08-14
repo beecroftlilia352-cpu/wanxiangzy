@@ -907,16 +907,22 @@ function HistoryLoadingSkeleton() {
   return (
     <div className="studio-workbench history-workbench min-h-[calc(100dvh-64px)] px-4 py-6 sm:py-8">
       <HistorySkeletonStyles />
-      <div className="mx-auto mb-6 flex max-w-7xl flex-col gap-4 rounded-[28px] border border-white/80 bg-white/72 p-5 shadow-[0_18px_60px_rgba(15,23,42,0.08)] backdrop-blur-2xl sm:flex-row sm:items-end sm:justify-between">
-        <div className="space-y-3">
-          <SkeletonBlock className="h-3 w-16 rounded-full" />
-          <SkeletonBlock className="h-8 w-36 rounded-xl" />
-          <SkeletonBlock className="h-4 w-44 rounded-full" />
+      <div className="mx-auto mb-5 max-w-7xl rounded-2xl border border-[var(--codex-border)] bg-[var(--codex-surface-strong)] p-4 shadow-sm">
+        <div className="flex items-center justify-between gap-3">
+          <div className="space-y-2">
+            <SkeletonBlock className="h-5 w-28 rounded-full" />
+            <SkeletonBlock className="h-3 w-40 rounded-full" />
+          </div>
+          <SkeletonBlock className="h-9 w-24 rounded-full" />
         </div>
-        <SkeletonBlock className="h-10 w-full rounded-full sm:w-28" />
+        <div className="mt-3 flex gap-2 border-t border-[var(--codex-border)] pt-3">
+          {Array.from({ length: 6 }).map((_, index) => (
+            <SkeletonBlock key={index} className="h-8 w-16 rounded-full" />
+          ))}
+        </div>
       </div>
-      <div className="mx-auto grid max-w-7xl grid-cols-1 gap-4 lg:grid-cols-2">
-        {Array.from({ length: 6 }).map((_, index) => (
+      <div className="mx-auto grid max-w-7xl grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
+        {Array.from({ length: 8 }).map((_, index) => (
           <HistoryCardSkeleton key={index} />
         ))}
       </div>
