@@ -1692,6 +1692,15 @@
   background: linear-gradient(180deg, transparent 0%, rgba(12, 12, 16, 0.8) 100%) !important;
 }
 
+/* 深色模式：soft-light 在暗底上几乎不可见，改 screen 提亮并保证动效可见 */
+.dark .home-hero-aurora,
+.dark .home-hero-tide,
+.dark .home-hero-sheen,
+.dark .home-hero-current {
+  mix-blend-mode: screen !important;
+  opacity: 0.75;
+}
+
 .dark .home-hero-video-scrim {
   background: linear-gradient(180deg, rgba(12, 12, 16, 0.18) 0%, rgba(12, 12, 16, 0.55) 100%) !important;
 }
@@ -1701,7 +1710,7 @@
   content: "";
   position: absolute;
   inset: -18%;
-  z-index: 1;
+  z-index: 4;
   pointer-events: none;
   background:
     radial-gradient(circle at 28% 22%, rgba(91, 140, 255, 0.24) 0 10%, transparent 38%),
