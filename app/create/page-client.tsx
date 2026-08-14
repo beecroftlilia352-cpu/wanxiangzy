@@ -4,6 +4,8 @@ import type { ChangeEvent, KeyboardEvent } from "react";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRulesPopover } from "@/hooks/use-rules-popover";
 import { useUnsavedChangesGuard } from "@/hooks/use-unsaved-changes-guard";
+import { ensureNotificationPermission, notifyGenerationComplete } from "@/lib/notifications";
+import { OnboardingCoach, hasSeenOnboarding } from "@/components/studio/OnboardingCoach";
 import { useRouter } from "next/navigation";
 import {
   Upload, UserRound, Image as ImageIcon, Sparkles,
@@ -387,6 +389,20 @@ export default function CreatePage() {
   );
 
   // 未保存输入离开拦截：有服装图/参考图/提示词时提醒
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
+  // 新注册用户首次进入时显示三步引导（本地标记完成后不再出现）
+  useEffect(() => {
+    if (!authChecked || !isAuthenticated) return;
+    if (hasSeenOnboarding()) return;
+    if (uploadedClothingUrls.length || store.clothingFiles.length) return;
+    setShowOnboarding(true);
+    const onDismiss = () => setShowOnboarding(false);
+    window.addEventListener("pxd:onboarding-dismiss", onDismiss);
+    return () => window.removeEventListener("pxd:onboarding-dismiss", onDismiss);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authChecked, isAuthenticated]);
+
   const { unsavedDialog: unsavedChangesDialog } = useUnsavedChangesGuard(Boolean(
     uploadedClothingUrls.length || effectiveReferenceUrls.length || store.promptUsed.trim() || promptOverride?.trim()
   ));
@@ -1658,6 +1674,11 @@ export default function CreatePage() {
               store.updateProgress(100);
               store.setResult(resultUrls);
               toast.success("生成完成");
+              notifyGenerationComplete({
+                title: "服装上身完成",
+                body: "成片已生成，点击查看。",
+                url: "/history",
+              });
             }
             if (completedError) void refreshCredits();
             updateActiveTask({
@@ -3563,6 +3584,7 @@ export default function CreatePage() {
 
       <TryOnLightbox image={lightboxImage} onClose={() => setLightboxImage(null)} />
       {unsavedChangesDialog}
+      <OnboardingCoach show={showOnboarding} />
 
     </>
   );

@@ -1,4 +1,5 @@
 "use client";
+import { useUnsavedChangesGuard } from "@/hooks/use-unsaved-changes-guard";
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useRulesPopover } from "@/hooks/use-rules-popover";
@@ -129,6 +130,9 @@ export default function GrassPage() {
   const [uploadedReferenceName, setUploadedReferenceName] = useState("");
   const [changeModel, setChangeModel] = useState(true);
   const [userPrompt, setUserPrompt] = useState("");
+
+  // 未保存输入离开拦截
+  const { unsavedDialog } = useUnsavedChangesGuard(Boolean(garmentUrl || userPrompt.trim()));
   const [supplementPrompt, setSupplementPrompt] = useState("");
   const [aiModel, setAiModel] = useState<LingyaModel>("nano-banana-2");
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("auto");
@@ -976,6 +980,7 @@ export default function GrassPage() {
         alt="种草输入图预览"
         onClose={() => setLightboxSrc(null)}
       />
+      {unsavedDialog}
 
     </div>
   );

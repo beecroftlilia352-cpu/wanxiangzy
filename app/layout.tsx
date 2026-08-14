@@ -22,11 +22,44 @@ const geist = Geist({
 });
 
 export const metadata: Metadata = {
-  title: "Pixel Diffusion - AI 服装视觉生产工作台",
-  description: "面向服装品牌、电商团队和内容创作者的 AI 服装视觉生产工作台。",
+  title: {
+    default: "Pixel Diffusion - AI 服装视觉生产工作台",
+    template: "%s | Pixel Diffusion",
+  },
+  description: "Pixel Diffusion 面向服装品牌、电商团队和内容创作者的 AI 服装视觉生产工作台：服装上身、姿势裂变、商品套图、种草封面，一次上传生成整套商业成片。",
+  keywords: ["AI 服装", "服装上身", "AI 模特", "姿势裂变", "商品套图", "电商视觉", "种草图", "Pixel Diffusion"],
   icons: {
     icon: [{ url: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/gemini-icon.png", type: "image/png" }],
     apple: [{ url: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/gemini-icon.png", type: "image/png" }],
+  },
+  openGraph: {
+    type: "website",
+    locale: "zh_CN",
+    url: "https://pixel-diffusion.com",
+    siteName: "Pixel Diffusion",
+    title: "Pixel Diffusion - AI 服装视觉生产工作台",
+    description: "服装上身、姿势裂变、商品套图、种草封面——一次上传，生成整套电商商业成片。",
+    images: [
+      {
+        url: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/screen-hero-workspace.png",
+        width: 1200,
+        height: 630,
+        alt: "Pixel Diffusion AI 服装视觉生产工作台",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Pixel Diffusion - AI 服装视觉生产工作台",
+    description: "服装上身、姿势裂变、商品套图、种草封面——一次上传，生成整套电商商业成片。",
+    images: ["https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/screen-hero-workspace.png"],
+  },
+  alternates: {
+    canonical: "https://pixel-diffusion.com",
+  },
+  robots: {
+    index: true,
+    follow: true,
   },
 };
 

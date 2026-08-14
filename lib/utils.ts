@@ -293,7 +293,10 @@ export async function compressImageForAgent(file: File): Promise<File> {
 /**
  * 上传图片到 imgbb（通过服务端 API 代理）
  */
-export async function uploadImage(file: File): Promise<UploadResult> {
+export async function uploadImage(
+  file: File,
+  options: { onProgress?: (percent: number) => void } = {},
+): Promise<UploadResult> {
   const uploadLimitMB = file.size > UPLOAD_TRANSPORT_SAFE_SIZE_MB * 1024 * 1024
     ? UPLOAD_TRANSPORT_SAFE_SIZE_MB
     : MAX_FILE_SIZE_MB;
@@ -302,23 +305,35 @@ export async function uploadImage(file: File): Promise<UploadResult> {
   form.append("image", compressed);
   form.append("name", file.name.replace(/\.[^.]+$/, ""));
 
-  const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), IMAGE_UPLOAD_CLIENT_TIMEOUT_MS);
-  let res: Response;
-  try {
-    res = await fetch("/api/upload-image", {
-      method: "POST",
-      body: form,
-      signal: controller.signal,
-    });
-  } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") {
-      throw new Error("图片上传超时，请稍后重试");
-    }
-    throw error;
-  } finally {
-    window.clearTimeout(timeout);
-  }
+  // XHR 上传以支持进度回调（fetch 不支持 upload progress）
+  const res = await new Promise<Response>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", "/api/upload-image");
+    const timeout = window.setTimeout(() => {
+      xhr.abort();
+      reject(new Error("图片上传超时，请稍后重试"));
+    }, IMAGE_UPLOAD_CLIENT_TIMEOUT_MS);
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable && event.total > 0) {
+        options.onProgress?.(Math.round((event.loaded / event.total) * 100));
+      }
+    };
+    xhr.onload = () => {
+      window.clearTimeout(timeout);
+      const { status, statusText, responseText } = xhr;
+      const headers = new Headers({ "content-type": "application/json" });
+      resolve(new Response(responseText, { status, statusText, headers }));
+    };
+    xhr.onerror = () => {
+      window.clearTimeout(timeout);
+      reject(new Error("网络连接异常，上传失败"));
+    };
+    xhr.onabort = () => {
+      window.clearTimeout(timeout);
+      reject(new Error("图片上传超时，请稍后重试"));
+    };
+    xhr.send(form);
+  });
 
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));

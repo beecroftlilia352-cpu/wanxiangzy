@@ -1,4 +1,5 @@
 "use client";
+import { useUnsavedChangesGuard } from "@/hooks/use-unsaved-changes-guard";
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useRulesPopover } from "@/hooks/use-rules-popover";
@@ -149,7 +150,10 @@ export default function ModelBackgroundPage() {
   const [backgroundPresetId, setBackgroundPresetId] = useState<BackgroundPresetId>("cafe-courtyard");
   const [backgroundReferenceUrl, setBackgroundReferenceUrl] = useState(BACKGROUND_PRESETS[0].imageUrl);
   const [backgroundText, setBackgroundText] = useState(DEFAULT_BACKGROUND_TEXT);
+
   const [userPrompt, setUserPrompt] = useState("");
+  // 未保存输入离开拦截
+  const { unsavedDialog } = useUnsavedChangesGuard(Boolean(sourceUrls.length || backgroundText.trim() || userPrompt.trim()));
   const [aiModel, setAiModel] = useState<LingyaModel>("nano-banana-2");
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("auto");
   const [imageSize, setImageSize] = useState<ImageSize>("1K");
@@ -1144,6 +1148,7 @@ export default function ModelBackgroundPage() {
         alt="模特换背景预览"
         onClose={() => setLightboxSrc(null)}
       />
+      {unsavedDialog}
     </div>
   );
 }

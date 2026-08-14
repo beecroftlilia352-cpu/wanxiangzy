@@ -113,6 +113,7 @@ export async function GET(request: Request) {
     const cursor = searchParams.get("cursor");
     const moduleFilter = normalizeModuleFilter(searchParams.get("module"));
     const statusFilter = normalizeStatusFilter(searchParams.get("status"));
+    const q = (searchParams.get("q") || "").trim();
     const requestedLimit = Number(searchParams.get("limit"));
     const pageSize = Number.isFinite(requestedLimit)
       ? Math.min(Math.max(Math.trunc(requestedLimit), 1), MAX_PAGE_SIZE)
@@ -132,6 +133,11 @@ export async function GET(request: Request) {
 
     if (statusFilter) {
       query = query.in("status", HISTORY_STATUS_FILTERS[statusFilter]);
+    }
+
+    if (q && q.length >= 2) {
+      // job_payload 文本搜索（含提示词/模块名/参数）
+      query = query.ilike("job_payload::text", `%${q}%`);
     }
 
     if (cursor) {

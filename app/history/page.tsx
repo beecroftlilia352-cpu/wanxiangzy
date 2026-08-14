@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Download, Clock, XCircle, Loader2, Coins, X, RotateCcw, Maximize2, Eye, ImageIcon, ZoomIn, ZoomOut, Plus, Play } from "lucide-react";
+import { Download, Clock, Search, XCircle, Loader2, Coins, X, RotateCcw, Maximize2, Eye, ImageIcon, ZoomIn, ZoomOut, Plus, Play } from "lucide-react";
 import { downloadImage, generateDownloadFilename } from "@/lib/utils";
 import { getImageVariantUrl } from "@/lib/image-variants";
 import { getApplyPath, type HistoryJobPayload } from "@/lib/history-apply";
@@ -145,6 +145,8 @@ export default function HistoryPage() {
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const [detailRow, setDetailRow] = useState<HistoryRow | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchInput, setSearchInput] = useState("");
   const [detailResultIndex, setDetailResultIndex] = useState(0);
   const [detailZoom, setDetailZoom] = useState(100);
   const [initialFilters] = useState(getInitialHistoryFilters);
@@ -199,9 +201,18 @@ export default function HistoryPage() {
     })();
 
     return () => { cancelled = true; };
-  }, [moduleFilter, statusFilter]);
+  }, [moduleFilter, statusFilter, searchQuery]);
 
   const loadMoreSentinelRef = useRef<HTMLDivElement | null>(null);
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function handleSearchChange(value: string) {
+    setSearchInput(value);
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = setTimeout(() => {
+      setSearchQuery(value.trim());
+    }, 400);
+  }
 
   // 触底自动加载（保留底部按钮作手动兜底）
   useEffect(() => {
@@ -228,6 +239,7 @@ export default function HistoryPage() {
         cursor: nextCursor,
         moduleFilter,
         statusFilter,
+        q: searchQuery,
       });
       const incomingRows = payload.rows || [];
       setRows((current) => {
@@ -528,6 +540,17 @@ export default function HistoryPage() {
             value={statusFilter}
             onChange={handleStatusFilterChange}
           />
+          <label className="ml-auto flex h-8 min-w-0 items-center gap-2 rounded-full border border-[var(--codex-border)] bg-[var(--codex-surface-soft)] px-3 sm:w-56">
+            <Search className="h-3.5 w-3.5 shrink-0 text-[var(--codex-faint)]" />
+            <input
+              type="search"
+              value={searchInput}
+              onChange={(event) => handleSearchChange(event.target.value)}
+              placeholder="搜索提示词 / 模型"
+              aria-label="搜索作品"
+              className="min-w-0 flex-1 bg-transparent text-xs font-semibold text-[var(--codex-ink)] outline-none placeholder:text-[var(--codex-faint)]"
+            />
+          </label>
         </div>
       </div>
 
@@ -1192,15 +1215,18 @@ async function requestHistoryPage({
   cursor,
   moduleFilter,
   statusFilter,
+  q,
   signal,
 }: {
   cursor?: string | null;
   moduleFilter?: HistoryModuleFilter;
   statusFilter?: HistoryStatusFilter;
+  q?: string;
   signal?: AbortSignal;
 }) {
   const params = new URLSearchParams({ limit: String(HISTORY_PAGE_SIZE) });
   if (cursor) params.set("cursor", cursor);
+  if (q && q.trim()) params.set("q", q.trim());
   if (moduleFilter && moduleFilter !== "all") params.set("module", moduleFilter);
   if (statusFilter && statusFilter !== "all") params.set("status", statusFilter);
 

@@ -70,6 +70,7 @@ import { createAdaptivePollDelay, fetchWithAbortAndTimeout, getTotalPollBudgetMs
 import { useRulesPopover } from "@/hooks/use-rules-popover";
 import { StudioClearButton } from "@/components/studio/StudioClearButton";
 import { useUnsavedChangesGuard } from "@/hooks/use-unsaved-changes-guard";
+import { ensureNotificationPermission, notifyGenerationComplete } from "@/lib/notifications";
 import {
   GARMENT_ANGLE_TARGET_OPTIONS,
   GARMENT_ANGLE_UPLOAD_FOOTNOTE,
@@ -393,6 +394,7 @@ export default function PosePage() {
   const [imageSize, setImageSize] = useState<ImageSize>("1K");
   const [mainImage, setMainImage] = useState<string>("");
   const [mainImageFileName, setMainImageFileName] = useState<string | null>(null);
+  const [mainImageUploadProgress, setMainImageUploadProgress] = useState<number | null>(null);
   const [prompt, setPrompt] = useState(DEFAULT_POSE_PROMPT);
   const [supplementPrompt, setSupplementPrompt] = useState("");
   const [outputMode, setOutputMode] = useState<PoseOutputMode>("separate");
@@ -1124,8 +1126,9 @@ export default function PosePage() {
     }
     toast.info("正在上传主图…");
     setIsUploading(true);
+    setMainImageUploadProgress(0);
     try {
-      const result = await uploadImage(file);
+      const result = await uploadImage(file, { onProgress: setMainImageUploadProgress });
       setMainImage(result.url);
       setMainImageFileName(file.name);
       toast.success("主图已选择");
@@ -1135,6 +1138,7 @@ export default function PosePage() {
       toast.error("主图上传失败，请重试");
     } finally {
       setIsUploading(false);
+      setMainImageUploadProgress(null);
     }
   }
 
@@ -1389,6 +1393,7 @@ export default function PosePage() {
       if (isCurrentRun()) {
         setIsSubmitting(false);
         toast.success("任务已提交，可继续创建");
+        void ensureNotificationPermission();
       }
 
       // 共享轮询原语：预算按期望张数缩放、退避跟随 attempts、tab 隐藏时节流
@@ -1453,6 +1458,11 @@ export default function PosePage() {
               toast.warning(`姿势裂变部分完成：已生成 ${finalResultCount}/${expectedResultCount} 张，失败图片灵点会自动退回`);
             } else {
               toast.success("姿势裂变完成");
+              notifyGenerationComplete({
+                title: "姿势裂变完成",
+                body: `已生成 ${expectedResultCount} 张姿势图，点击查看。`,
+                url: "/history",
+              });
             }
             setIsGenerating(false);
           }
@@ -1680,6 +1690,7 @@ export default function PosePage() {
               imageAlt="姿势裂变主图"
               isDragging={isDragging}
               loading={isUploading}
+              loadingLabel={mainImageUploadProgress !== null ? `上传中 ${mainImageUploadProgress}%` : undefined}
               onUploadClick={() => fileInputRef.current?.click()}
               onLibraryClick={() => toast.info("作品库选择即将接入")}
               onPreview={mainImage ? () => setLightboxSrc(mainImage) : undefined}
