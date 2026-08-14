@@ -3,11 +3,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
+  Images,
+  Monitor,
+  Crop,
   ImagePlus,
   Loader2,
   Trash2,
   Brush,
   X,
+  Sparkles,
 } from "lucide-react";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { toast } from "sonner";
@@ -774,7 +778,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
           </div>
 
           <section>
-            <h3 className="mb-3 font-bold text-sm">生成模型</h3>
+            <h3 className="mb-3 flex items-center gap-2 font-bold text-sm"><Sparkles className="h-4 w-4 text-purple-500" /> 生成模型</h3>
             <StudioModelSelector
               models={MODELS}
               value={aiModel}
@@ -784,7 +788,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
           </section>
 
           <section>
-            <h3 className="mb-3 font-bold text-sm">图片比例</h3>
+            <h3 className="mb-3 flex items-center gap-2 font-bold text-sm"><Crop className="h-4 w-4 text-purple-500" /> 图片比例</h3>
             <StudioOptionGrid
               options={ASPECTS.map((item) => ({
                 value: item.value,
@@ -798,7 +802,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
           </section>
 
           <section>
-            <h3 className="mb-3 font-bold text-sm">分辨率</h3>
+            <h3 className="mb-3 flex items-center gap-2 font-bold text-sm"><Monitor className="h-4 w-4 text-purple-500" /> 分辨率</h3>
             <StudioOptionGrid
               options={supportedSizes.map((size) => ({
                 value: size,
@@ -813,7 +817,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
           </section>
 
           <section>
-            <h3 className="mb-3 font-bold text-sm">生成数量</h3>
+            <h3 className="mb-3 flex items-center gap-2 font-bold text-sm"><Images className="h-4 w-4 text-purple-500" /> 生成数量</h3>
             <StudioGenerationCountSelector
               value={genCount}
               onChange={setGenCount}

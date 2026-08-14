@@ -1456,9 +1456,9 @@
   display: flex;
   flex-direction: column;
   flex: none;
-  gap: 11px;
+  gap: 8px;
   border-top: 1px solid rgba(17, 24, 39, 0.08);
-  padding: 16px 16px max(18px, env(safe-area-inset-bottom));
+  padding: 10px 14px max(14px, env(safe-area-inset-bottom));
 }
 
 /* 移动端生成栏常驻可见（不再需要滚到页尾找按钮） */
@@ -1493,7 +1493,7 @@
 
 .studio-primary-action {
   display: inline-flex;
-  min-height: 50px;
+  min-height: 44px;
   width: 100%;
   align-items: center;
   justify-content: center;

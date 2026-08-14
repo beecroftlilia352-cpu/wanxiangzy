@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, ChevronRight, Loader2, Minus, PenLine, Plus, Sparkles, X, XCircle } from "lucide-react";
+import {
+  Layers, CheckCircle2, ChevronRight, Loader2, Minus, PenLine, Plus, Sparkles, X, XCircle, PersonStanding, Crop, Monitor } from "lucide-react";
 import { toast } from "sonner";
 import { isLikelyImageFile, MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
@@ -1688,7 +1689,7 @@ export default function PosePage() {
 
           <section className="space-y-3">
             <div>
-              <h3 className="font-bold text-sm">创作模式</h3>
+              <h3 className="flex items-center gap-2 font-bold text-sm"><Layers className="h-4 w-4 text-purple-500" /> 创作模式</h3>
               <p className="mt-1 text-[11px] leading-relaxed text-slate-400 dark:text-stone-500">
                 自由模式按商业动作库生成；参考图模式只借鉴参考图姿势，不复制人物、服装和背景。
               </p>
@@ -2023,7 +2024,7 @@ export default function PosePage() {
           <section className="space-y-3">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h3 className="font-bold text-sm">生成姿势</h3>
+                <h3 className="flex items-center gap-2 font-bold text-sm"><PersonStanding className="h-4 w-4 text-purple-500" /> 生成姿势</h3>
                 <p className="mt-1 text-[11px] leading-relaxed text-slate-400 dark:text-stone-500">
                   选择想要的成片方向，系统会自动补动作、表情和构图。
                 </p>
@@ -2165,7 +2166,7 @@ export default function PosePage() {
           )}
 
           <section>
-            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">画布比例</h3>
+            <h3 className="flex items-center gap-2 font-bold text-sm mb-3 text-slate-900 dark:text-stone-100"><Crop className="h-4 w-4 text-purple-500" /> 画布比例</h3>
             <StudioOptionGrid
               options={ASPECTS}
               value={aspectRatio}
@@ -2180,7 +2181,7 @@ export default function PosePage() {
 
           {imageSizes.length > 1 && (
             <section>
-              <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">分辨率</h3>
+              <h3 className="flex items-center gap-2 font-bold text-sm mb-3 text-slate-900 dark:text-stone-100"><Monitor className="h-4 w-4 text-purple-500" /> 分辨率</h3>
               <StudioOptionGrid
                 options={imageSizes.map((size) => ({
                   value: size,

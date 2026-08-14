@@ -8,6 +8,7 @@ import {
   Upload, UserRound, Image as ImageIcon, Sparkles,
   X, Camera, ChevronRight, Wand, Loader2, ZoomIn,
   FolderOpen, CheckCircle2, XCircle,
+  Crop, Monitor, Images, ListChecks, PenLine,
 } from "lucide-react";
 import { useTryOnStore } from "@/lib/store/tryon-store";
 import { createLocalImagePreview, isLikelyImageFile, MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
@@ -3279,14 +3280,14 @@ export default function CreatePage() {
 
           {/* ---- 比例 ---- */}
           <section>
-            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">图片比例</h3>
+            <h3 className="font-bold text-sm mb-3 flex items-center gap-2 text-slate-900 dark:text-stone-100"><Crop className="h-4 w-4 text-purple-500" /> 图片比例</h3>
             <StudioOptionGrid options={aspects} value={aspectRatio} onChange={setAspectRatio} ariaLabel="图片比例" />
           </section>
 
           {/* ---- 分辨率 ---- */}
           {imageSizes.length > 1 && (
             <section>
-              <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">分辨率</h3>
+              <h3 className="font-bold text-sm mb-3 flex items-center gap-2 text-slate-900 dark:text-stone-100"><Monitor className="h-4 w-4 text-purple-500" /> 分辨率</h3>
               <StudioOptionGrid
                 options={imageSizes.map((size) => ({ value: size, label: `${size} · ${getCreditCost(aiModel, size, aspectRatio)}灵点` }))}
                 value={imageSize}

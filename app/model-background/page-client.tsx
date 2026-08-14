@@ -4,6 +4,9 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
 import { useRulesPopover } from "@/hooks/use-rules-popover";
 import { useRouter } from "next/navigation";
 import {
+  Monitor,
+  Crop,
+  Layers,
   Camera,
   CheckCircle2,
   ChevronRight,
@@ -720,7 +723,7 @@ export default function ModelBackgroundPage() {
           </StudioUploadSection>
 
           <section>
-            <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">操作模式</h3>
+            <h3 className="flex items-center gap-2 font-bold text-sm mb-3 text-slate-900 dark:text-stone-100"><Layers className="h-4 w-4 text-purple-500" /> 操作模式</h3>
             <StudioOptionGrid
               options={MODE_OPTIONS.map((item) => ({
                 value: item.value,
@@ -939,12 +942,12 @@ export default function ModelBackgroundPage() {
           </section>
 
           <section>
-            <h3 className="mb-3 text-sm font-bold text-slate-950 dark:text-stone-100">图片比例</h3>
+            <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-950 dark:text-stone-100"><Crop className="h-4 w-4 text-purple-500" /> 图片比例</h3>
             <StudioOptionGrid options={ASPECTS} value={aspectRatio} onChange={setAspectRatio} columns={3} ariaLabel="图片比例" />
           </section>
 
           <section>
-            <h3 className="mb-3 text-sm font-bold text-slate-950 dark:text-stone-100">分辨率</h3>
+            <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-950 dark:text-stone-100"><Monitor className="h-4 w-4 text-purple-500" /> 分辨率</h3>
             <StudioOptionGrid
               options={imageSizes.map((size) => ({
                 value: size,
@@ -957,7 +960,7 @@ export default function ModelBackgroundPage() {
             />
           </section>
           <section>
-            <h3 className="mb-3 text-sm font-bold text-slate-950 dark:text-stone-100">生成数量</h3>
+            <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-950 dark:text-stone-100"><Images className="h-4 w-4 text-purple-500" /> 生成数量</h3>
             <StudioGenerationCountSelector
               value={genCount}
               onChange={setGenCount}
