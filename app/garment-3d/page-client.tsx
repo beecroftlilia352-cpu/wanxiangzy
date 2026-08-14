@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRulesPopover } from "@/hooks/use-rules-popover";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, ChevronRight, Loader2, Plus, Wand, XCircle, ZoomIn } from "lucide-react";
 import { toast } from "sonner";
@@ -95,8 +96,6 @@ export default function Garment3dPage() {
   const router = useRouter();
   const garmentInputRef = useRef<HTMLInputElement>(null);
   const referenceInputRef = useRef<HTMLInputElement>(null);
-  const rulesButtonRef = useRef<HTMLButtonElement>(null);
-  const rulesHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const {
     authChecked,
@@ -108,6 +107,15 @@ export default function Garment3dPage() {
     refreshAuth,
   } = useStudioAuth();
 
+  const {
+    buttonRef: rulesButtonRef,
+    show: showGarmentRules,
+    style: rulesPopoverStyle,
+    open: openRulesPopover,
+    scheduleHide: scheduleRulesHide,
+    close: closeRulesPopover,
+    cancelHide: cancelRulesHide,
+  } = useRulesPopover({ width: 760 });
   const [garmentUrl, setGarmentUrl] = useState("");
   const [garmentName, setGarmentName] = useState("");
   const [garmentType, setGarmentType] = useState<GarmentType>("上装");
@@ -134,8 +142,6 @@ export default function Garment3dPage() {
   const [error, setError] = useState<string | null>(null);
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
-  const [showGarmentRules, setShowGarmentRules] = useState(false);
-  const [rulesPopoverStyle, setRulesPopoverStyle] = useState<{ top: number; left: number; maxHeight: number } | null>(null);
 
   const imageSizes = getSupportedImageSizes(aiModel, aspectRatio);
   const costPerImage = getCreditCost(aiModel, imageSize, aspectRatio);
@@ -218,40 +224,6 @@ export default function Garment3dPage() {
     : credits !== null && credits < totalCost
       ? `灵点不足，生成需要 ${totalCost} 灵点`
       : undefined;
-
-  const cancelRulesHide = () => {
-    if (rulesHideTimerRef.current) {
-      clearTimeout(rulesHideTimerRef.current);
-      rulesHideTimerRef.current = null;
-    }
-  };
-
-  const openRulesPopover = () => {
-    cancelRulesHide();
-    const rect = rulesButtonRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    const width = Math.min(760, window.innerWidth - 32);
-    const top = Math.max(16, Math.min(rect.top - 10, window.innerHeight - 360));
-    const left = Math.max(16, Math.min(rect.right + 12, window.innerWidth - width - 16));
-    setRulesPopoverStyle({
-      top,
-      left,
-      maxHeight: Math.max(320, window.innerHeight - top - 16),
-    });
-    setShowGarmentRules(true);
-  };
-
-  const scheduleRulesHide = () => {
-    cancelRulesHide();
-    rulesHideTimerRef.current = setTimeout(() => {
-      setShowGarmentRules(false);
-      setRulesPopoverStyle(null);
-    }, 180);
-  };
-
-  useEffect(() => {
-    return () => cancelRulesHide();
-  }, []);
 
   useEffect(() => {
     const nextSizes = getSupportedImageSizes(aiModel, aspectRatio);
@@ -628,8 +600,7 @@ export default function Garment3dPage() {
     setGarmentName(demo.title);
     setGarmentType(demo.garmentType);
     setPromptOverride(null);
-    setShowGarmentRules(false);
-    setRulesPopoverStyle(null);
+    closeRulesPopover();
     toast.success(`已套用${demo.title}`);
   }
 
@@ -682,8 +653,7 @@ export default function Garment3dPage() {
     setResultUrls([]);
     setError(null);
     setLightboxSrc(null);
-    setShowGarmentRules(false);
-    setRulesPopoverStyle(null);
+    closeRulesPopover();
     if (garmentInputRef.current) garmentInputRef.current.value = "";
     if (referenceInputRef.current) referenceInputRef.current.value = "";
   }

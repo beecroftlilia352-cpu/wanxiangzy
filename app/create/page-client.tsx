@@ -2,6 +2,7 @@
 
 import type { ChangeEvent, KeyboardEvent } from "react";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useRulesPopover } from "@/hooks/use-rules-popover";
 import { useRouter } from "next/navigation";
 import {
   Upload, UserRound, Image as ImageIcon, Sparkles,
@@ -221,8 +222,6 @@ export default function CreatePage() {
     setError: setStoreError,
   } = store;
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const rulesButtonRef = useRef<HTMLButtonElement>(null);
-  const rulesHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeGenerationRef = useRef<string | null>(null);
   const generationSubmitRef = useRef<{ id: string; controller: AbortController } | null>(null);
   const watchedGenerationIdsRef = useRef<Set<string>>(new Set());
@@ -232,6 +231,15 @@ export default function CreatePage() {
     begin: beginTaskSelection,
     cancel: cancelTaskSelection,
   } = useTaskSelectionSession();
+  const {
+    buttonRef: rulesButtonRef,
+    show: showClothingRules,
+    style: rulesPopoverStyle,
+    open: openRulesPopover,
+    scheduleHide: scheduleRulesHide,
+    close: closeRulesPopover,
+    cancelHide: cancelRulesHide,
+  } = useRulesPopover({ width: 760 });
   const [genCount, setGenCount] = useState(1);
 
   const {
@@ -263,8 +271,6 @@ export default function CreatePage() {
   const [ageGroup, setAgeGroup] = useState<TryOnAgeGroup>("adult");
   const [isIntimateGarment, setIsIntimateGarment] = useState(false);
   const [pendingClothingRole, setPendingClothingRole] = useState<TryOnClothingRole>("upper");
-  const [showClothingRules, setShowClothingRules] = useState(false);
-  const [rulesPopoverStyle, setRulesPopoverStyle] = useState<{ top: number; left: number; maxHeight: number } | null>(null);
 
   const [customModelPreview, setCustomModelPreview] = useState<string | null>(null);
   const [customRefUploads, setCustomRefUploads] = useState<CustomReferenceUpload[]>([]);
@@ -436,36 +442,6 @@ export default function CreatePage() {
     action();
   };
 
-  const cancelRulesHide = () => {
-    if (rulesHideTimerRef.current) {
-      clearTimeout(rulesHideTimerRef.current);
-      rulesHideTimerRef.current = null;
-    }
-  };
-
-  const openRulesPopover = () => {
-    cancelRulesHide();
-    const rect = rulesButtonRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    const width = Math.min(760, window.innerWidth - 32);
-    const top = Math.max(16, Math.min(rect.top - 10, window.innerHeight - 360));
-    const left = Math.max(16, Math.min(rect.right + 12, window.innerWidth - width - 16));
-    setRulesPopoverStyle({
-      top,
-      left,
-      maxHeight: Math.max(320, window.innerHeight - top - 16),
-    });
-    setShowClothingRules(true);
-  };
-
-  const scheduleRulesHide = () => {
-    cancelRulesHide();
-    rulesHideTimerRef.current = setTimeout(() => {
-      setShowClothingRules(false);
-      setRulesPopoverStyle(null);
-    }, 120);
-  };
-
   const resetScenePrompt = () => {
     setPromptOverride(null);
     store.setPromptUsed("");
@@ -626,10 +602,6 @@ export default function CreatePage() {
       toast.error(getErrorMessage(err, "删除失败"));
     }
   };
-
-  useEffect(() => {
-    return () => cancelRulesHide();
-  }, []);
 
   useEffect(() => {
     const statusWatcherControllers = statusWatcherControllersRef.current;
@@ -1190,8 +1162,7 @@ export default function CreatePage() {
       url: image.url,
       role: image.role,
     })));
-    setShowClothingRules(false);
-    setRulesPopoverStyle(null);
+    closeRulesPopover();
     toast.success(`已套用${demo.title}`);
   };
 

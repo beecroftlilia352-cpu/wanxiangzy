@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRulesPopover } from "@/hooks/use-rules-popover";
 import { useRouter } from "next/navigation";
 import { Camera, CheckCircle2, ChevronRight, Sparkles, UserRound, XCircle } from "lucide-react";
 import { toast } from "sonner";
@@ -107,8 +108,6 @@ export default function ModelPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const hairInputRef = useRef<HTMLInputElement>(null);
   const hairColorInputRef = useRef<HTMLInputElement>(null);
-  const rulesButtonRef = useRef<HTMLButtonElement>(null);
-  const rulesHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const {
     authChecked,
@@ -119,6 +118,15 @@ export default function ModelPage() {
     refreshCredits,
     refreshAuth,
   } = useStudioAuth();
+  const {
+    buttonRef: rulesButtonRef,
+    show: showModelRules,
+    style: rulesPopoverStyle,
+    open: openRulesPopover,
+    scheduleHide: scheduleRulesHide,
+    close: closeRulesPopover,
+    cancelHide: cancelRulesHide,
+  } = useRulesPopover({ width: 760 });
   const [referenceUrls, setReferenceUrls] = useState<string[]>([]);
   const [isReferenceDragging, setIsReferenceDragging] = useState(false);
   const [isUploadingReference, setIsUploadingReference] = useState(false);
@@ -143,8 +151,6 @@ export default function ModelPage() {
   const [error, setError] = useState("");
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const [referencePreviewIndex, setReferencePreviewIndex] = useState<number | null>(null);
-  const [showModelRules, setShowModelRules] = useState(false);
-  const [rulesPopoverStyle, setRulesPopoverStyle] = useState<{ top: number; left: number; maxHeight: number } | null>(null);
 
   const imageSizes = getSupportedImageSizes(aiModel, aspectRatio);
   const cost = getCreditCost(aiModel, imageSize, aspectRatio);
@@ -232,45 +238,11 @@ export default function ModelPage() {
     applyPath: "/model",
   });
 
-  const cancelRulesHide = () => {
-    if (rulesHideTimerRef.current) {
-      clearTimeout(rulesHideTimerRef.current);
-      rulesHideTimerRef.current = null;
-    }
-  };
-
-  const openRulesPopover = () => {
-    cancelRulesHide();
-    const rect = rulesButtonRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    const width = Math.min(760, window.innerWidth - 32);
-    const top = Math.max(16, Math.min(rect.top - 10, window.innerHeight - 360));
-    const left = Math.max(16, Math.min(rect.right + 12, window.innerWidth - width - 16));
-    setRulesPopoverStyle({
-      top,
-      left,
-      maxHeight: Math.max(320, window.innerHeight - top - 16),
-    });
-    setShowModelRules(true);
-  };
-
-  const scheduleRulesHide = () => {
-    cancelRulesHide();
-    rulesHideTimerRef.current = setTimeout(() => {
-      setShowModelRules(false);
-      setRulesPopoverStyle(null);
-    }, 180);
-  };
-
   useEffect(() => {
     if (!promptTouched) {
       setPrompt(defaultPrompt);
     }
   }, [defaultPrompt, promptTouched]);
-
-  useEffect(() => {
-    return () => cancelRulesHide();
-  }, []);
 
   useEffect(() => {
     const nextSizes = getSupportedImageSizes(aiModel, aspectRatio);
@@ -693,8 +665,7 @@ export default function ModelPage() {
   function applyRuleDemo(demo: ModelRuleDemo) {
     setReferenceUrls(demo.imageUrls.slice(0, 3));
     setPromptTouched(false);
-    setShowModelRules(false);
-    setRulesPopoverStyle(null);
+    closeRulesPopover();
     toast.success(`已套用${demo.title}`);
   }
 
@@ -751,8 +722,7 @@ export default function ModelPage() {
     setError("");
     setPreviewIndex(null);
     setReferencePreviewIndex(null);
-    setShowModelRules(false);
-    setRulesPopoverStyle(null);
+    closeRulesPopover();
     if (fileInputRef.current) fileInputRef.current.value = "";
     if (hairInputRef.current) hairInputRef.current.value = "";
     if (hairColorInputRef.current) hairColorInputRef.current.value = "";

@@ -60,7 +60,7 @@ import {
   uploadImage,
 } from "@/lib/utils";
 import { showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
-import { setCachedProfileCredits } from "@/lib/supabase/client";
+import { applyGenerationResponseStatus } from "@/lib/ui/credit-copy";
 import { fetchHistoryApplyDetail, getHistoryApplyFailureMessage, isHistoryApplyRowFailed, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
 import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
 import { createFaceSwapPreviewSession, type ImagePreviewAction } from "@/lib/studio-image-preview";
@@ -411,7 +411,7 @@ export default function FaceSwapPage() {
   }, [clearPolling, faceUrl, progress, refreshCredits, requestedFaceSwapResultCount, sourceUrls, taskQueue]);
 
   useEffect(() => {
-    if (!isAuthenticated || status !== "idle" || generationId || sourceUrls.length > 0 || faceUrl) return;
+    if (!isAuthenticated || status !== "idle" || generationId) return;
     if (skipActiveRestoreRef.current) return;
     if (historyApplyConsumedRef.current) return;
     if (typeof window !== "undefined" && new URLSearchParams(window.location.search).has("apply")) return;
@@ -436,8 +436,9 @@ export default function FaceSwapPage() {
         }
 
         setGenerationId(job.generationId);
-        setSourceUrls(jobSourceUrls);
-        setFaceUrl(job.faceUrl);
+        // 用户已填的输入不覆盖：恢复的是任务进度，不是清空用户正在准备的新任务
+        if (sourceUrls.length === 0) setSourceUrls(jobSourceUrls);
+        if (!faceUrl) setFaceUrl(job.faceUrl);
         setResultUrls(job.resultUrls || []);
         setProgress(job.progress || 0);
         setGenCount(normalizeFaceSwapCount(job.genCount));
@@ -449,8 +450,10 @@ export default function FaceSwapPage() {
           expectedCount: Math.max(1, jobSourceUrls.length * normalizeFaceSwapCount(job.genCount)),
           inputThumbnails: [...jobSourceUrls, job.faceUrl].filter(Boolean),
         });
-      } catch {
-        // 恢复进行中任务失败不阻断正常使用。
+      } catch (error) {
+        // 恢复失败要告知用户：进行中的任务不会出现在页面上，灵点已扣需要人工排查
+        console.warn("[face-swap] resume active task failed:", error);
+        toast.error("恢复进行中的换脸任务失败，请刷新重试或在任务中心查看进度");
       }
     })();
 
@@ -465,6 +468,10 @@ export default function FaceSwapPage() {
     const validFiles = files.filter((file) => {
       if (!file.type.startsWith("image/")) {
         toast.error(`"${file.name}" 不是图片格式`);
+        return false;
+      }
+      if (file.size === 0) {
+        toast.error(`"${file.name}" 是空文件，请重新选择`);
         return false;
       }
       if (file.size > MAX_FILE_SIZE) {
@@ -575,29 +582,28 @@ export default function FaceSwapPage() {
           router.push("/login");
           return;
         }
-        if (res.status === 402) {
-          const nextCredits = data.balance ?? 0;
-          setCredits(nextCredits);
-          if (userId) setCachedProfileCredits(userId, nextCredits);
-        }
+        applyGenerationResponseStatus({
+          res,
+          data,
+          userId,
+          setCredits,
+          fallbackError: "提交换脸任务失败",
+        });
         throw new Error(data.error || "提交换脸任务失败");
       }
+      if (typeof data.generation_id !== "string" || !data.generation_id) {
+        throw new Error(data.error || "服务端未返回任务编号，请稍后重试");
+      }
       setGenerationId(data.generation_id);
-      if (typeof data.generation_id === "string" && data.generation_id) {
-        const serverTask = taskQueue.replaceWithServerTask(activeTaskId, {
-          id: data.generation_id,
-          expectedCount: displayExpectedCount,
-          inputThumbnails: taskInputThumbnails,
-          status: data.status || "processing_tryon",
-          progress: 5,
-        });
-        setActiveQueueTask(serverTask);
-        activeTaskId = serverTask.id;
-      }
-      if (typeof data.credits_remaining === "number") {
-        setCredits(data.credits_remaining);
-        if (userId) setCachedProfileCredits(userId, data.credits_remaining);
-      }
+      const serverTask = taskQueue.replaceWithServerTask(activeTaskId, {
+        id: data.generation_id,
+        expectedCount: displayExpectedCount,
+        inputThumbnails: taskInputThumbnails,
+        status: data.status || "processing_tryon",
+        progress: 5,
+      });
+      setActiveQueueTask(serverTask);
+      activeTaskId = serverTask.id;
       pollGeneration(data.generation_id, true, {
         expectedCount: displayExpectedCount,
         inputThumbnails: taskInputThumbnails,

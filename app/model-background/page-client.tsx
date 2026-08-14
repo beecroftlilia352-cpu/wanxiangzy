@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useRulesPopover } from "@/hooks/use-rules-popover";
 import { useRouter } from "next/navigation";
 import {
   Camera,
@@ -31,12 +32,12 @@ import { ResultImageGrid } from "@/components/ResultImageGrid";
 
 import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
 import { StudioMediaLightbox } from "@/components/studio/StudioMediaLightbox";
-import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
 import { fetchHistoryApplyDetail, getHistoryApplyFailureMessage, isHistoryApplyRowFailed, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
 import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem, type TaskStatusGroup } from "@/lib/task-queue";
 import { showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
+import { applyGenerationResponseStatus } from "@/lib/ui/credit-copy";
 import { createGenericImagePreviewSession, takeSourceImageFromLocation, type ImagePreviewAction } from "@/lib/studio-image-preview";
 import { FAILED_RETRY_NOTICE, buildPartialFailureDetail, summarizeGenerationError } from "@/lib/studio-generation-feedback";
 import {
@@ -118,8 +119,6 @@ export default function ModelBackgroundPage() {
   const sourceInputRef = useRef<HTMLInputElement>(null);
   const modelInputRef = useRef<HTMLInputElement>(null);
   const backgroundInputRef = useRef<HTMLInputElement>(null);
-  const rulesButtonRef = useRef<HTMLButtonElement>(null);
-  const rulesHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const {
     authChecked,
@@ -130,6 +129,15 @@ export default function ModelBackgroundPage() {
     refreshCredits,
     refreshAuth,
   } = useStudioAuth();
+  const {
+    buttonRef: rulesButtonRef,
+    show: showRules,
+    style: rulesPopoverStyle,
+    open: openRulesPopover,
+    scheduleHide: scheduleRulesHide,
+    close: closeRulesPopover,
+    cancelHide: cancelRulesHide,
+  } = useRulesPopover({ width: 760 });
   const [sourceUrls, setSourceUrls] = useState<string[]>([]);
   const [mode, setMode] = useState<ModelBackgroundMode>("background_only");
   const [modelReferenceUrl, setModelReferenceUrl] = useState("");
@@ -151,8 +159,6 @@ export default function ModelBackgroundPage() {
   const [resultUrls, setResultUrls] = useState<string[]>([]);
   const [runningExpectedCount, setRunningExpectedCount] = useState<number | null>(null);
   const [error, setError] = useState("");
-  const [showRules, setShowRules] = useState(false);
-  const [rulesPopoverStyle, setRulesPopoverStyle] = useState<{ top: number; left: number; maxHeight: number } | null>(null);
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const hasModelReference = mode !== "background_only" && Boolean(modelReferenceUrl);
@@ -343,38 +349,15 @@ export default function ModelBackgroundPage() {
     };
   }, []);
 
-  useEffect(() => () => {
-    if (rulesHideTimerRef.current) clearTimeout(rulesHideTimerRef.current);
-  }, []);
-
-  const cancelRulesHide = () => {
-    if (rulesHideTimerRef.current) clearTimeout(rulesHideTimerRef.current);
-  };
-
-  const openRulesPopover = () => {
-    cancelRulesHide();
-    const rect = rulesButtonRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    const width = Math.min(760, window.innerWidth - 32);
-    const top = Math.max(16, Math.min(rect.top - 10, window.innerHeight - 360));
-    const left = Math.max(16, Math.min(rect.right + 12, window.innerWidth - width - 16));
-    setRulesPopoverStyle({ top, left, maxHeight: Math.max(320, window.innerHeight - top - 16) });
-    setShowRules(true);
-  };
-
-  const scheduleRulesHide = () => {
-    cancelRulesHide();
-    rulesHideTimerRef.current = setTimeout(() => {
-      setShowRules(false);
-      setRulesPopoverStyle(null);
-    }, 120);
-  };
-
   async function handleUpload(files: File[], target: UploadTarget) {
     const validFiles = files.filter((file) => {
       if (!file.type.startsWith("image/")) {
         toast.error(`"${file.name}" 不是图片格式`);
         return false;
+      }
+      if (file.size === 0) {
+        toast.error("图片文件为空，请重新选择");
+        return;
       }
       if (file.size > MAX_FILE_SIZE) {
         toast.error(`"${file.name}" 超过 ${MAX_FILE_SIZE_MB}MB`);
@@ -421,8 +404,7 @@ export default function ModelBackgroundPage() {
   function applyDemo(demo: { title: string; imageUrl: string }) {
     setSourceUrls([demo.imageUrl]);
     setPromptOverride(null);
-    setShowRules(false);
-    setRulesPopoverStyle(null);
+    closeRulesPopover();
     toast.success("已套用示例图");
   }
 
@@ -501,16 +483,14 @@ export default function ModelBackgroundPage() {
           router.push("/login");
           return;
         }
-        if (res.status === 402) {
-          const nextCredits = data.balance ?? 0;
-          setCredits(nextCredits);
-          if (userId) setCachedProfileCredits(userId, nextCredits);
-        }
+        applyGenerationResponseStatus({
+          res,
+          data,
+          userId,
+          setCredits,
+          fallbackError: "生成失败",
+        });
         throw new Error(data.error || "生成失败");
-      }
-      if (data.credits_remaining !== undefined) {
-        setCredits(data.credits_remaining);
-        if (userId) setCachedProfileCredits(userId, data.credits_remaining);
       }
       setProgress(25);
       if (typeof data.generation_id === "string" && data.generation_id) {
@@ -659,8 +639,7 @@ export default function ModelBackgroundPage() {
     setResultUrls([]);
     setError("");
     setLightboxSrc(null);
-    setShowRules(false);
-    setRulesPopoverStyle(null);
+    closeRulesPopover();
     if (sourceInputRef.current) sourceInputRef.current.value = "";
     if (modelInputRef.current) modelInputRef.current.value = "";
     if (backgroundInputRef.current) backgroundInputRef.current.value = "";
@@ -1125,7 +1104,7 @@ export default function ModelBackgroundPage() {
                 <h3 className="text-base font-black text-slate-950 dark:text-stone-100">{MODEL_BACKGROUND_UPLOAD_RULE.title}</h3>
                 <p className="mt-1 text-xs text-slate-400">{MODEL_BACKGROUND_UPLOAD_RULE.uploadSpecText}</p>
               </div>
-              <button type="button" onClick={() => setShowRules(false)} aria-label="关闭" className="rounded-full p-1.5 hover:bg-slate-100"><X className="h-4 w-4" /></button>
+              <button type="button" onClick={closeRulesPopover} aria-label="关闭" className="rounded-full p-1.5 hover:bg-slate-100"><X className="h-4 w-4" /></button>
             </div>
             <div className="studio-scrollbar-hide overflow-y-auto px-5 py-4" style={{ maxHeight: rulesPopoverStyle.maxHeight - 88 }}>
               <div className="grid gap-3 md:grid-cols-4">

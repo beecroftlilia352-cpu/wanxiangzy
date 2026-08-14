@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useRulesPopover } from "@/hooks/use-rules-popover";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, ChevronRight, Loader2, Sparkles, Upload, X, XCircle, ZoomIn } from "lucide-react";
 import { toast } from "sonner";
@@ -100,8 +101,6 @@ export default function GrassPage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const referenceInputRef = useRef<HTMLInputElement>(null);
-  const rulesButtonRef = useRef<HTMLButtonElement>(null);
-  const rulesHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const {
     authChecked,
@@ -112,6 +111,15 @@ export default function GrassPage() {
     refreshCredits,
     refreshAuth,
   } = useStudioAuth();
+  const {
+    buttonRef: rulesButtonRef,
+    show: showRules,
+    style: rulesPopoverStyle,
+    open: openRulesPopover,
+    scheduleHide: scheduleRulesHide,
+    close: closeRulesPopover,
+    cancelHide: cancelRulesHide,
+  } = useRulesPopover({ width: 720 });
   const [garmentUrl, setGarmentUrl] = useState("");
   const [garmentName, setGarmentName] = useState("");
   const [templateId, setTemplateId] = useState<GrassTemplateId>("street");
@@ -136,8 +144,6 @@ export default function GrassPage() {
   const [resultUrls, setResultUrls] = useState<string[]>([]);
   const [runningExpectedCount, setRunningExpectedCount] = useState<number | null>(null);
   const [error, setError] = useState("");
-  const [showRules, setShowRules] = useState(false);
-  const [rulesPopoverStyle, setRulesPopoverStyle] = useState<{ top: number; left: number; maxHeight: number } | null>(null);
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const referenceDrag = useStableFileDrag<HTMLDivElement>({
@@ -323,31 +329,6 @@ export default function GrassPage() {
     };
   }, []);
 
-  useEffect(() => () => {
-    if (rulesHideTimerRef.current) clearTimeout(rulesHideTimerRef.current);
-  }, []);
-
-  const cancelRulesHide = () => {
-    if (rulesHideTimerRef.current) clearTimeout(rulesHideTimerRef.current);
-  };
-  const openRulesPopover = () => {
-    cancelRulesHide();
-    const rect = rulesButtonRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    const width = Math.min(720, window.innerWidth - 32);
-    const top = Math.max(16, Math.min(rect.top - 10, window.innerHeight - 360));
-    const left = Math.max(16, Math.min(rect.right + 12, window.innerWidth - width - 16));
-    setRulesPopoverStyle({ top, left, maxHeight: Math.max(320, window.innerHeight - top - 16) });
-    setShowRules(true);
-  };
-  const scheduleRulesHide = () => {
-    cancelRulesHide();
-    rulesHideTimerRef.current = setTimeout(() => {
-      setShowRules(false);
-      setRulesPopoverStyle(null);
-    }, 180);
-  };
-
   async function handleFile(file?: File) {
     if (!file) return;
     if (!file.type.startsWith("image/")) return toast.error("请上传图片文件");
@@ -392,7 +373,7 @@ export default function GrassPage() {
     setGarmentUrl(demo.imageUrl);
     setGarmentName(demo.title);
     setPromptOverride(null);
-    setShowRules(false);
+    closeRulesPopover();
     toast.success("已套用示例图");
   }
 
@@ -980,7 +961,7 @@ export default function GrassPage() {
       {showRules && rulesPopoverStyle && (
         <ClientPortal>
           <div id="grass-rules-popover" role="region" aria-labelledby="grass-rules-title" className="fixed z-[240] w-[min(720px,calc(100vw-32px))] overflow-hidden rounded-[24px] border border-white/80 bg-white/[0.96] shadow-[0_28px_90px_rgba(15,23,42,0.18)] backdrop-blur-2xl animate-fade-in" style={{ top: rulesPopoverStyle.top, left: rulesPopoverStyle.left, maxHeight: rulesPopoverStyle.maxHeight }} onMouseEnter={cancelRulesHide} onMouseLeave={scheduleRulesHide}>
-            <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4"><div><h3 id="grass-rules-title" className="text-base font-black text-slate-950">{GRASS_UPLOAD_RULE.title}</h3><p className="mt-1 text-xs text-slate-400">{GRASS_UPLOAD_RULE.uploadSpecText}</p></div><button type="button" onClick={() => setShowRules(false)} className="rounded-full p-1.5 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500" aria-label="关闭图片规则"><X aria-hidden="true" className="h-4 w-4" /></button></div>
+            <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4"><div><h3 id="grass-rules-title" className="text-base font-black text-slate-950">{GRASS_UPLOAD_RULE.title}</h3><p className="mt-1 text-xs text-slate-400">{GRASS_UPLOAD_RULE.uploadSpecText}</p></div><button type="button" onClick={closeRulesPopover} className="rounded-full p-1.5 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500" aria-label="关闭图片规则"><X aria-hidden="true" className="h-4 w-4" /></button></div>
             <div className="max-h-[inherit] overflow-y-auto p-5">
               <div className="grid grid-cols-5 gap-3">{GRASS_UPLOAD_RULE.demos.map((demo) => <div key={demo.imageUrl} className="rounded-2xl border border-slate-100 bg-slate-50/70 p-2"><div className="relative overflow-hidden rounded-xl bg-white"><RawPreviewImage src={demo.imageUrl} alt={demo.title} className="aspect-[3/4] w-full object-cover" /><CheckCircle2 className="absolute right-2 top-2 h-5 w-5 rounded-full bg-white text-emerald-500" /></div><p className="mt-2 text-center text-xs text-slate-600">{demo.title}</p><button type="button" onClick={() => applyDemo(demo)} className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 hover:text-violet-600">试一试</button></div>)}</div>
               <p className="my-4 text-center text-xs font-medium text-slate-500">请勿上传以下错误图片，会极大影响生成效果</p>

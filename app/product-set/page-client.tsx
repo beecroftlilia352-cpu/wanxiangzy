@@ -24,13 +24,13 @@ import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 import { useStableFileDrag } from "@/components/studio/useStableFileDrag";
 import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGeneration";
 import { StudioMediaLightbox } from "@/components/studio/StudioMediaLightbox";
-import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { fetchHistoryApplyDetail, getHistoryApplyFailureMessage, isHistoryApplyRowFailed, takeApplyDetail } from "@/lib/history-apply";
 import { getImageVariantUrl } from "@/lib/image-variants";
 import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
 import { downloadImage, generateDownloadFilename, MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
-import { showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
+import { applyGenerationResponseStatus, showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
+import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { buildPartialFailureDetail, summarizeGenerationError } from "@/lib/studio-generation-feedback";
 import { createProductSetPreviewSession, takeSourceImageFromLocation, type ImagePreviewResultStatus } from "@/lib/studio-image-preview";
 import {
@@ -511,6 +511,8 @@ export default function ProductSetPage() {
     if (!freeSlots) return toast.error("最多上传 3 张商品图");
     const filesToUpload = incoming.slice(0, freeSlots);
     if (incoming.length > filesToUpload.length) toast.info("商品图最多 3 张，已自动忽略超出的图片");
+    const emptyFile = filesToUpload.find((file) => file.size === 0);
+    if (emptyFile) return toast.error(`${emptyFile.name} 是空文件，请重新选择`);
     const oversized = filesToUpload.find((file) => file.size > MAX_FILE_SIZE);
     if (oversized) return toast.error(`${oversized.name} 超过 ${MAX_FILE_SIZE_MB}MB`);
 
@@ -653,6 +655,7 @@ export default function ProductSetPage() {
   async function uploadCustomReference(kind: "style" | "model" | "other", file?: File) {
     if (!file) return;
     if (!file.type.startsWith("image/")) return toast.error("请上传图片文件");
+    if (file.size === 0) return toast.error("图片文件为空，请重新选择");
     if (file.size > MAX_FILE_SIZE) return toast.error(`图片不能超过 ${MAX_FILE_SIZE_MB}MB`);
     setMode("custom");
     setPlanSourceTab("upload");
@@ -1093,16 +1096,14 @@ export default function ProductSetPage() {
           router.push("/login");
           return;
         }
-        if (res.status === 402) {
-          const nextCredits = data.balance ?? 0;
-          setCredits(nextCredits);
-          if (userId) setCachedProfileCredits(userId, nextCredits);
-        }
+        applyGenerationResponseStatus({
+          res,
+          data,
+          userId,
+          setCredits,
+          fallbackError: "生成失败",
+        });
         throw new Error(data.error || "生成失败");
-      }
-      if (data.credits_remaining !== undefined) {
-        setCredits(data.credits_remaining);
-        if (userId) setCachedProfileCredits(userId, data.credits_remaining);
       }
       const initialModules = readModuleResults(data.module_results);
       if (initialModules.length) setModuleResults(initialModules);
@@ -1122,6 +1123,7 @@ export default function ProductSetPage() {
         activeTaskId = serverTask.id;
       }
 
+      let completedWithoutAllResultsTicks = 0;
       for (let attempts = 0; attempts < 900; attempts++) {
         await new Promise((resolve) => setTimeout(resolve, 2000));
         const poll = await fetch(`/api/product-set?generation_id=${encodeURIComponent(data.generation_id)}`);
@@ -1164,7 +1166,12 @@ export default function ProductSetPage() {
           setResultUrls(nextUrls);
         }
         if (state.status === "completed") {
-          if (!hasAllResults) continue;
+          // worker 已标记完成但模块尚未全部结算：最多再等 10 个 tick（20 秒），
+          // 超时按当前已有结果收尾，避免旧逻辑挂满 30 分钟才报超时
+          if (!hasAllResults) {
+            completedWithoutAllResultsTicks += 1;
+            if (completedWithoutAllResultsTicks < 10) continue;
+          }
           setProgress(100);
           const partialFailure = state.partial_failure && typeof state.partial_failure === "object"
             ? state.partial_failure as { message?: unknown }
