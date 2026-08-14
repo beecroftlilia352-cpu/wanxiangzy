@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase/server";
-import { syncChatBalance } from "@/lib/chat/balance-sync";
 import { issueAuthorizationCode } from "@/lib/oidc/provider";
 
 export const dynamic = "force-dynamic";
@@ -51,14 +50,6 @@ export async function GET(request: NextRequest) {
       codeChallengeMethod: codeChallengeMethod || "S256",
     } : {},
   );
-
-  // 顺手同步灵点余额到 LibreChat（不阻塞 SSO 流程）
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("credits")
-    .eq("id", user.id)
-    .maybeSingle();
-  void syncChatBalance(user.email, Number(profile?.credits ?? 0));
 
   const redirect = new URL(redirectUri);
   redirect.searchParams.set("code", code);
