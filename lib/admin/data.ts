@@ -653,8 +653,8 @@ export type AdminRiskOverview = {
 type CountQuery = PromiseLike<unknown>;
 type SupabaseQuery = PromiseLike<unknown>;
 
-const QUERY_TIMEOUT_MS = 7_000;
-const SHORT_QUERY_TIMEOUT_MS = 3_500;
+const QUERY_TIMEOUT_MS = 15_000;
+const SHORT_QUERY_TIMEOUT_MS = 8_000;
 const PROFILE_COLUMNS = "id,email,display_name,credits,total_credits_used,created_at,updated_at";
 const PROFILE_COLUMNS_FALLBACK = "id,email,display_name,credits,created_at,updated_at";
 const ADMIN_STALE_TASK_MINUTES = 20;
@@ -4928,7 +4928,12 @@ function isUrl(value: string) {
 
 function isMissingTableError(error: { code?: string; message?: string }) {
   const message = `${error.code || ""} ${error.message || ""}`.toLowerCase();
-  return message.includes("42p01") || message.includes("does not exist");
+  return (
+    message.includes("42p01") ||
+    message.includes("does not exist") ||
+    message.includes("schema cache") ||
+    message.includes("pgrst")
+  );
 }
 
 function toMessage(error: unknown) {
