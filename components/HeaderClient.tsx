@@ -488,6 +488,10 @@ function DesktopTopNav({ activeModule }: { activeModule: string }) {
               rel="noopener noreferrer"
               className={className}
               title={`${item.label}（新窗口打开）`}
+              onClick={() => {
+                // 进入 AI 对话前同步灵点余额（不阻塞跳转）
+                void fetch("/api/chat/balance-sync", { method: "POST" }).catch(() => undefined);
+              }}
             >
               <Icon className="h-3.5 w-3.5" />
               {item.label}
