@@ -287,10 +287,17 @@
   will-change: background-position;
   transform: translateZ(0);
   background:
-    linear-gradient(105deg, transparent 38%, rgba(255,255,255,0.5) 48%, transparent 58%),
-    linear-gradient(180deg, #e6ecf5 0%, #eef2f9 50%, #e6ecf5 100%);
-  background-size: 220% 100%, 100% 100%;
-  animation: studio-skeleton-shimmer 1.8s ease-in-out infinite;
+    linear-gradient(105deg, transparent 34%, rgba(91, 124, 255, 0.16) 46%, rgba(174, 184, 255, 0.28) 52%, transparent 64%),
+    linear-gradient(180deg, #dfe7f5 0%, #ecf2fb 46%, #dfe7f5 100%);
+  background-size: 230% 100%, 100% 100%;
+  animation: studio-skeleton-shimmer 1.6s ease-in-out infinite;
+}
+
+.dark .studio-skeleton-shimmer {
+  background:
+    linear-gradient(105deg, transparent 34%, rgba(91, 140, 255, 0.22) 46%, rgba(124, 134, 232, 0.3) 52%, transparent 64%),
+    linear-gradient(180deg, #1e2129 0%, #242833 46%, #1e2129 100%);
+  background-size: 230% 100%, 100% 100%;
 }
 
 @keyframes studio-rail-enter {
@@ -313,6 +320,15 @@
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+@keyframes studio-skeleton-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.studio-workbench[aria-busy="true"] {
+  animation: studio-skeleton-fade-in 260ms ease-out both;
 }
 
 @keyframes studio-skeleton-shimmer {
