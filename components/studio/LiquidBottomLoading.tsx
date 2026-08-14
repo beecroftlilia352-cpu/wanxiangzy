@@ -1,16 +1,19 @@
 "use client";
 
 /**
- * Deep dark "liquid" loading layer that churns at the bottom of a generating
- * card. The blob morphs its border-radius + drifts to read as a viscous fluid,
- * with a lighter foam tide along its top edge.
+ * Dark gooey "liquid" that churns at the bottom of a generating card.
+ * Overlapping blurred/contrast-merged blobs rise and fall like boiling liquid,
+ * with a lighter foam rim along the surface (DeepSeek / Jimeng style).
  */
 export function LiquidBottomLoading() {
   return (
     <div className="studio-liquid-bottom-loading" aria-hidden="true">
-      <span className="studio-liquid-blob studio-liquid-blob-a" />
-      <span className="studio-liquid-blob studio-liquid-blob-b" />
-      <span className="studio-liquid-blob studio-liquid-blob-c" />
+      <span className="studio-liquid-goo">
+        <span className="studio-liquid-dot studio-liquid-dot-1" />
+        <span className="studio-liquid-dot studio-liquid-dot-2" />
+        <span className="studio-liquid-dot studio-liquid-dot-3" />
+        <span className="studio-liquid-dot studio-liquid-dot-4" />
+      </span>
       <span className="studio-liquid-foam" />
     </div>
   );

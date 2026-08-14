@@ -3502,121 +3502,70 @@
 /* Liquid dark blob churning at the card bottom (DeepSeek / Jimeng style). */
 .studio-liquid-bottom-loading {
   position: absolute;
-  left: -22%;
-  right: -22%;
-  bottom: -20%;
-  height: 66%;
+  left: -16%;
+  right: -16%;
+  bottom: -12%;
+  height: 58%;
   z-index: 0;
   overflow: hidden;
-  isolation: isolate;
   pointer-events: none;
 }
 
-.studio-liquid-bottom-loading::before {
-  content: "";
+/* Gooey merge container: blur then contrast collapses soft blob edges into liquid. */
+.studio-liquid-goo {
   position: absolute;
-  inset: 4% -6% -16%;
-  border-radius: 46% 54% 58% 42% / 42% 46% 54% 58%;
-  background:
-    radial-gradient(ellipse at 16% 76%, rgba(4, 17, 72, 0.98) 0 26%, rgba(24, 49, 150, 0.72) 48%, transparent 74%),
-    radial-gradient(ellipse at 62% 62%, rgba(21, 31, 118, 0.92) 0 30%, transparent 68%),
-    radial-gradient(ellipse at 88% 84%, rgba(7, 12, 62, 0.98) 0 32%, transparent 72%),
-    linear-gradient(96deg, rgba(5, 15, 68, 0.96) 0%, rgba(30, 52, 146, 0.8) 46%, rgba(12, 20, 94, 0.98) 100%);
-  filter: blur(22px) saturate(1.24) contrast(1.04);
-  mix-blend-mode: multiply;
-  transform-origin: 50% 100%;
-  animation: studio-liquid-blob-churn 11s ease-in-out infinite;
+  inset: 0;
+  filter: blur(14px) contrast(18);
 }
 
-.studio-liquid-blob {
+.studio-liquid-dot {
   position: absolute;
-  pointer-events: none;
-  mix-blend-mode: multiply;
-  will-change: transform, border-radius;
+  bottom: 0;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 34% 28%, #4a58d6 0%, #17256d 46%, #080f3a 84%);
+  will-change: transform;
 }
 
-.studio-liquid-blob-a {
-  left: -16%;
-  bottom: -10%;
-  width: 78%;
-  height: 76%;
-  border-radius: 44% 56% 62% 38% / 40% 48% 52% 60%;
-  background:
-    radial-gradient(ellipse at 22% 72%, rgba(4, 20, 86, 0.96) 0 24%, rgba(29, 58, 172, 0.64) 46%, transparent 72%),
-    linear-gradient(100deg, rgba(8, 26, 112, 0.92), rgba(50, 76, 202, 0.66));
-  filter: blur(18px) saturate(1.2);
-  animation: studio-liquid-blob-churn-a 9.6s ease-in-out infinite;
-}
-
-.studio-liquid-blob-b {
-  right: -14%;
-  bottom: -16%;
-  width: 66%;
-  height: 70%;
-  border-radius: 58% 42% 44% 56% / 52% 60% 40% 48%;
-  background:
-    radial-gradient(ellipse at 70% 64%, rgba(21, 30, 130, 0.94) 0 26%, transparent 68%),
-    radial-gradient(ellipse at 34% 78%, rgba(6, 13, 62, 0.98) 0 30%, transparent 72%),
-    linear-gradient(112deg, rgba(40, 44, 162, 0.82), rgba(10, 18, 86, 0.96));
-  filter: blur(20px) saturate(1.18);
-  animation: studio-liquid-blob-churn-b 12.6s ease-in-out infinite;
-}
-
-.studio-liquid-blob-c {
-  left: 16%;
-  right: 26%;
-  bottom: -22%;
-  height: 54%;
-  border-radius: 52% 48% 42% 58% / 56% 42% 58% 44%;
-  background:
-    radial-gradient(ellipse at 30% 60%, rgba(12, 26, 104, 0.9) 0 26%, transparent 68%),
-    radial-gradient(ellipse at 68% 74%, rgba(32, 40, 158, 0.76) 0 24%, transparent 66%);
-  filter: blur(24px) saturate(1.16);
-  animation: studio-liquid-blob-churn-c 10.8s ease-in-out infinite;
-}
+.studio-liquid-dot-1 { left: 1%;  width: 54%; aspect-ratio: 1; animation: studio-liquid-rise-a 7.6s ease-in-out infinite; }
+.studio-liquid-dot-2 { left: 25%; width: 48%; aspect-ratio: 1; animation: studio-liquid-rise-b 9.4s ease-in-out infinite; }
+.studio-liquid-dot-3 { left: 50%; width: 54%; aspect-ratio: 1; animation: studio-liquid-rise-c 8.4s ease-in-out infinite; }
+.studio-liquid-dot-4 { left: 72%; width: 44%; aspect-ratio: 1; animation: studio-liquid-rise-d 10.6s ease-in-out infinite; }
 
 .studio-liquid-foam {
   position: absolute;
-  left: -22%;
-  right: -22%;
-  bottom: -3%;
-  height: 24%;
+  left: -12%;
+  right: -12%;
+  bottom: 30%;
+  height: 16%;
   border-radius: 50%;
   background:
-    radial-gradient(ellipse at 24% 28%, rgba(214, 236, 255, 0.5) 0 8%, rgba(132, 192, 255, 0.22) 30%, transparent 64%),
-    radial-gradient(ellipse at 74% 20%, rgba(255, 255, 255, 0.42) 0 7%, transparent 58%);
-  filter: blur(10px);
+    radial-gradient(ellipse at 22% 30%, rgba(216, 238, 255, 0.6) 0 9%, rgba(136, 196, 255, 0.26) 32%, transparent 66%),
+    radial-gradient(ellipse at 74% 20%, rgba(255, 255, 255, 0.52) 0 8%, transparent 60%);
+  filter: blur(8px);
   mix-blend-mode: screen;
-  opacity: 0.72;
-  animation: studio-liquid-foam-tide 7.4s ease-in-out infinite;
+  opacity: 0.7;
+  animation: studio-liquid-foam-tide 7.2s ease-in-out infinite;
 }
 
-@keyframes studio-liquid-blob-churn {
-  0% { transform: translate3d(-8%, 6%, 0) rotate(-4deg) scale(1.04); border-radius: 46% 54% 58% 42% / 42% 46% 54% 58%; }
-  34% { transform: translate3d(6%, -4%, 0) rotate(3deg) scale(1.12); border-radius: 60% 40% 46% 54% / 58% 40% 60% 42%; }
-  67% { transform: translate3d(11%, 5%, 0) rotate(-2deg) scale(1.08); border-radius: 38% 62% 58% 42% / 62% 42% 58% 38%; }
-  100% { transform: translate3d(-8%, 6%, 0) rotate(-4deg) scale(1.04); border-radius: 46% 54% 58% 42% / 42% 46% 54% 58%; }
+@keyframes studio-liquid-rise-a {
+  0%, 100% { transform: translate3d(0, 16%, 0) scale(1); }
+  50% { transform: translate3d(-8%, -30%, 0) scale(1.16); }
 }
 
-@keyframes studio-liquid-blob-churn-a {
-  0% { transform: translate3d(-7%, 5%, 0) rotate(-3deg) scale(1.05); border-radius: 44% 56% 62% 38% / 40% 48% 52% 60%; }
-  38% { transform: translate3d(6%, -5%, 0) rotate(2deg) scale(1.12); border-radius: 62% 38% 46% 54% / 56% 42% 58% 44%; }
-  72% { transform: translate3d(10%, 4%, 0) rotate(-1deg) scale(1.07); border-radius: 36% 64% 58% 42% / 60% 40% 60% 40%; }
-  100% { transform: translate3d(-7%, 5%, 0) rotate(-3deg) scale(1.05); border-radius: 44% 56% 62% 38% / 40% 48% 52% 60%; }
+@keyframes studio-liquid-rise-b {
+  0%, 100% { transform: translate3d(0, 10%, 0) scale(1.02); }
+  50% { transform: translate3d(7%, -36%, 0) scale(1.24); }
 }
 
-@keyframes studio-liquid-blob-churn-b {
-  0% { transform: translate3d(7%, 5%, 0) rotate(3deg) scale(1.06); border-radius: 58% 42% 44% 56% / 52% 60% 40% 48%; }
-  40% { transform: translate3d(-5%, -6%, 0) rotate(-3deg) scale(1.14); border-radius: 40% 60% 62% 38% / 60% 40% 58% 42%; }
-  74% { transform: translate3d(-10%, 3%, 0) rotate(2deg) scale(1.1); border-radius: 64% 36% 40% 60% / 42% 60% 40% 58%; }
-  100% { transform: translate3d(7%, 5%, 0) rotate(3deg) scale(1.06); border-radius: 58% 42% 44% 56% / 52% 60% 40% 48%; }
+@keyframes studio-liquid-rise-c {
+  0%, 100% { transform: translate3d(0, 18%, 0) scale(1.04); }
+  50% { transform: translate3d(-5%, -24%, 0) scale(1.12); }
 }
 
-@keyframes studio-liquid-blob-churn-c {
-  0% { transform: translate3d(5%, 4%, 0) rotate(2deg) scale(1.04); border-radius: 52% 48% 42% 58% / 56% 42% 58% 44%; }
-  44% { transform: translate3d(-6%, -5%, 0) rotate(-2deg) scale(1.12); border-radius: 42% 58% 58% 42% / 44% 58% 42% 56%; }
-  78% { transform: translate3d(-9%, 2%, 0) rotate(1deg) scale(1.08); border-radius: 62% 38% 46% 54% / 52% 46% 54% 48%; }
-  100% { transform: translate3d(5%, 4%, 0) rotate(2deg) scale(1.04); border-radius: 52% 48% 42% 58% / 56% 42% 58% 44%; }
+@keyframes studio-liquid-rise-d {
+  0%, 100% { transform: translate3d(0, 8%, 0) scale(1); }
+  50% { transform: translate3d(9%, -32%, 0) scale(1.2); }
 }
 
 @keyframes studio-liquid-foam-tide {
@@ -3626,8 +3575,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .studio-liquid-bottom-loading::before,
-  .studio-liquid-blob,
+  .studio-liquid-dot,
   .studio-liquid-foam {
     animation: none !important;
   }
