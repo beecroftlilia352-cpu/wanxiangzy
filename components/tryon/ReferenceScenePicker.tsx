@@ -109,7 +109,7 @@ export function ReferenceScenePicker<TItem extends ReferenceScenePickerItem = Re
           className
         )}
       >
-        <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_28px_90px_rgba(15,23,42,0.22)]">
+        <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_28px_90px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-stone-900">
           <header className="relative flex h-16 shrink-0 items-center justify-center border-b border-slate-100 px-12">
             <div className="min-w-0 text-center">
               <DialogTitle className="truncate text-[13px] font-bold leading-normal text-slate-950">{title}</DialogTitle>
@@ -138,7 +138,7 @@ export function ReferenceScenePicker<TItem extends ReferenceScenePickerItem = Re
                         "h-8 rounded-full px-4 text-[11px] font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2",
                         activeTab === item.value
                           ? "bg-violet-100 text-[var(--codex-accent)]"
-                          : "bg-white text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+                          : "bg-white text-slate-500 hover:bg-slate-100 hover:text-slate-700 dark:bg-stone-900 dark:text-stone-400 dark:hover:bg-stone-800 dark:hover:text-stone-200"
                       )}
                     >
                       {item.label}
@@ -149,10 +149,10 @@ export function ReferenceScenePicker<TItem extends ReferenceScenePickerItem = Re
                   <button type="button" className="h-7 rounded-full bg-violet-100 px-3 text-[10px] font-bold text-[var(--codex-accent)]">
                     全部场景
                   </button>
-                  <button type="button" className="h-7 rounded-full bg-white px-3 text-[10px] font-medium text-slate-500">
+                  <button type="button" className="h-7 rounded-full bg-white px-3 text-[10px] font-medium text-slate-500 dark:bg-stone-900 dark:text-stone-400">
                     棚拍Look图
                   </button>
-                  <button type="button" className="h-7 rounded-full bg-white px-3 text-[10px] font-medium text-slate-500">
+                  <button type="button" className="h-7 rounded-full bg-white px-3 text-[10px] font-medium text-slate-500 dark:bg-stone-900 dark:text-stone-400">
                     实景拍摄
                   </button>
                 </div>
@@ -162,7 +162,7 @@ export function ReferenceScenePicker<TItem extends ReferenceScenePickerItem = Re
                 <select
                   value={viewFilter}
                   onChange={(event) => onViewFilterChange(event.target.value as ReferenceScenePickerViewFilter)}
-                  className="h-8 rounded-lg border border-slate-200 bg-white px-3 text-[11px] font-medium text-slate-500 focus:border-[var(--codex-accent)] focus:outline-none"
+                  className="h-8 rounded-lg border border-slate-200 bg-white px-3 text-[11px] font-medium text-slate-500 focus:border-[var(--codex-accent)] focus:outline-none dark:border-white/10 dark:bg-stone-900 dark:text-stone-400"
                   aria-label="正背面筛选"
                 >
                   <option value="all">正/背面</option>
@@ -172,7 +172,7 @@ export function ReferenceScenePicker<TItem extends ReferenceScenePickerItem = Re
                 <select
                   value={bodyFilter}
                   onChange={(event) => onBodyFilterChange(event.target.value as ReferenceScenePickerBodyFilter)}
-                  className="h-8 rounded-lg border border-slate-200 bg-white px-3 text-[11px] font-medium text-slate-500 focus:border-[var(--codex-accent)] focus:outline-none"
+                  className="h-8 rounded-lg border border-slate-200 bg-white px-3 text-[11px] font-medium text-slate-500 focus:border-[var(--codex-accent)] focus:outline-none dark:border-white/10 dark:bg-stone-900 dark:text-stone-400"
                   aria-label="身体范围筛选"
                 >
                   <option value="all">全/半身</option>
@@ -181,7 +181,7 @@ export function ReferenceScenePicker<TItem extends ReferenceScenePickerItem = Re
                   <option value="lower">下半身</option>
                 </select>
                 {categoryLabels.slice(0, 2).map((category) => (
-                  <span key={category} className="inline-flex h-8 max-w-[210px] items-center rounded-lg bg-white px-2.5 text-[11px] font-medium text-slate-600">
+                  <span key={category} className="inline-flex h-8 max-w-[210px] items-center rounded-lg bg-white px-2.5 text-[11px] font-medium text-slate-600 dark:bg-stone-800 dark:text-stone-300">
                     <span className="truncate">{category}</span>
                     <X className="ml-1 h-3 w-3 text-slate-400" />
                   </span>
