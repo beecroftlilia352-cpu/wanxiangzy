@@ -375,6 +375,7 @@ export type AdminTaskDetail = {
   id: string;
   sourceType: "generation" | "workflow";
   task: AdminTaskListItem | null;
+  userEmail: string | null;
   payload: Record<string, unknown>;
   resultUrls: string[];
   errorMessage: string | null;
@@ -1371,14 +1372,16 @@ export async function getAdminTaskDetail(id: string): Promise<AdminTaskDetail> {
 
   if (generation.row) {
     const task = mapGenerationRow(generation.row);
-    const [creditLogs, auditLogs] = await Promise.all([
+    const [creditLogs, auditLogs, emails] = await Promise.all([
       loadCreditLogsByGeneration(id, warnings),
       loadAuditLogsByResource(id, warnings),
+      task.userId ? loadProfileEmails([task.userId], warnings) : Promise.resolve(new Map<string, string>()),
     ]);
     return {
       id,
       sourceType: "generation",
       task,
+      userEmail: task.userId ? emails.get(task.userId) || null : null,
       payload: isRecord(generation.row.job_payload) ? generation.row.job_payload : {},
       resultUrls: arrayOfStrings(generation.row.result_urls),
       errorMessage: nullableString(generation.row.error_message),
@@ -1393,15 +1396,17 @@ export async function getAdminTaskDetail(id: string): Promise<AdminTaskDetail> {
 
   if (workflow.row) {
     const task = mapWorkflowRow(workflow.row);
-    const [steps, events, auditLogs] = await Promise.all([
+    const [steps, events, auditLogs, emails] = await Promise.all([
       loadWorkflowSteps(id, warnings),
       loadWorkflowEvents(id, warnings),
       loadAuditLogsByResource(id, warnings),
+      task.userId ? loadProfileEmails([task.userId], warnings) : Promise.resolve(new Map<string, string>()),
     ]);
     return {
       id,
       sourceType: "workflow",
       task,
+      userEmail: task.userId ? emails.get(task.userId) || null : null,
       payload: workflow.row,
       resultUrls: extractUrls(workflow.row.final_outputs),
       errorMessage: nullableString(workflow.row.error_message),
@@ -1418,6 +1423,9 @@ export async function getAdminTaskDetail(id: string): Promise<AdminTaskDetail> {
     id,
     sourceType: queueItem?.sourceType || "generation",
     task: queueItem,
+    userEmail: queueItem?.userId
+      ? (await loadProfileEmails([queueItem.userId], warnings)).get(queueItem.userId) || null
+      : null,
     payload: {},
     resultUrls: queueItem?.resultThumbnails || [],
     errorMessage: queueItem?.errorMessage || null,

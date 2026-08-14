@@ -160,7 +160,16 @@ export default async function AdminInviteCodesPage({ searchParams }: PageProps) 
             {
               key: "user",
               label: "用户",
-              render: (row) => <span className="font-mono text-xs font-semibold text-[var(--admin-muted)]">{row.userId ? row.userId.slice(0, 8) : "-"}</span>,
+              render: (row) => (
+                <div className="min-w-[200px]">
+                  <p className="truncate text-sm font-bold text-[var(--admin-fg)]">{row.email || "-"}</p>
+                  {row.userId ? (
+                    <a href={`/admin/users/${row.userId}`} className="text-[11px] font-semibold text-[var(--admin-link)] hover:underline">
+                      查看用户详情
+                    </a>
+                  ) : null}
+                </div>
+              ),
             },
             {
               key: "reason",

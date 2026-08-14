@@ -126,7 +126,7 @@ export default async function AdminTaskDetailPage({ params }: PageProps) {
         <AdminSection title="任务摘要">
           <div className="grid gap-4 p-4 sm:grid-cols-2 xl:grid-cols-5">
             <DetailItem label="任务编号" value={shortAdminCode(task.sourceId, "任务")} />
-            <DetailItem label="用户" value={shortAdminCode(task.userId, "用户")} href={`/admin/users/${task.userId}`} />
+            <DetailItem label="用户" value={detail.userEmail || shortAdminCode(task.userId, "用户")} href={`/admin/users/${task.userId}`} />
             <DetailItem label="模块" value={task.moduleLabel} />
             <DetailItem label="处理状态" value={task.isStale ? `长时间未完成 ${task.staleMinutes} 分钟` : "正常推进"} />
             <div>
