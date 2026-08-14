@@ -3500,7 +3500,7 @@
   z-index: 0;
   overflow: hidden;
   border-radius: inherit;
-  background: radial-gradient(circle at 50% 0%, #1a2157 0%, #0b1234 52%, #060a22 100%);
+  background: radial-gradient(circle at 50% 0%, #2b3276 0%, #161d4d 52%, #101540 100%);
   pointer-events: none;
 }
 
@@ -3515,29 +3515,30 @@
 .studio-liquid-blob {
   position: absolute;
   border-radius: 50%;
-  filter: blur(46px) saturate(1.12);
+  filter: blur(32px) saturate(1.28);
   mix-blend-mode: screen;
+  opacity: 0.96;
   will-change: transform;
 }
 
 .studio-liquid-blob-a {
   left: -12%; top: -14%; width: 72%; height: 72%;
-  background: radial-gradient(circle, rgba(99, 102, 241, 0.88) 0%, rgba(59, 72, 200, 0.52) 44%, transparent 72%);
+  background: radial-gradient(circle, rgba(110, 114, 255, 0.95) 0%, rgba(66, 79, 215, 0.58) 44%, transparent 72%);
 }
 
 .studio-liquid-blob-b {
   right: -14%; top: -8%; width: 64%; height: 64%;
-  background: radial-gradient(circle, rgba(139, 92, 246, 0.82) 0%, rgba(67, 56, 202, 0.46) 44%, transparent 72%);
+  background: radial-gradient(circle, rgba(152, 105, 255, 0.9) 0%, rgba(74, 61, 214, 0.52) 44%, transparent 72%);
 }
 
 .studio-liquid-blob-c {
   left: 8%; bottom: -18%; width: 68%; height: 68%;
-  background: radial-gradient(circle, rgba(59, 130, 246, 0.8) 0%, rgba(30, 64, 175, 0.5) 44%, transparent 72%);
+  background: radial-gradient(circle, rgba(66, 140, 255, 0.88) 0%, rgba(33, 70, 186, 0.55) 44%, transparent 72%);
 }
 
 .studio-liquid-blob-d {
   right: 4%; bottom: -22%; width: 60%; height: 60%;
-  background: radial-gradient(circle, rgba(79, 70, 229, 0.82) 0%, rgba(49, 46, 129, 0.5) 44%, transparent 72%);
+  background: radial-gradient(circle, rgba(88, 78, 240, 0.9) 0%, rgba(54, 50, 138, 0.55) 44%, transparent 72%);
 }
 
 @keyframes studio-spin {
@@ -3545,7 +3546,7 @@
 }
 
 .gen-card:has(.studio-home-hero-loading-bg) {
-  background: #0b1234 !important;
+  background: #161d4d !important;
   animation: none !important;
 }
 
@@ -6007,4 +6008,24 @@ header .animate-spin {
 @keyframes studio-visual-analysis-tag-in {
   0% { opacity: 0; transform: translateY(4px); }
   100% { opacity: 1; transform: translateY(0); }
+}
+
+/* 左侧功能菜单：独立滚动（滚到底不链动页面）+ 精致细滚动条 */
+.studio-nav-scroller {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(91, 124, 255, 0.28) transparent;
+}
+
+.studio-nav-scroller::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+.studio-nav-scroller::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(91, 124, 255, 0.28);
+}
+
+.studio-nav-scroller::-webkit-scrollbar-track {
+  background: transparent;
 }
