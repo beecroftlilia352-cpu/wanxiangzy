@@ -36,3 +36,4 @@ tmp-*.json
 laozhang-*.jpg
 yunwu-image-test.png
 wanxiangzy/
+lib/supabase/admin.ts.bak
