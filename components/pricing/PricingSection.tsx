@@ -288,7 +288,7 @@ export function PricingSection() {
   }
 
   return (
-    <section className="min-h-screen bg-zinc-50 px-4 py-16 transition-colors sm:px-6 dark:bg-stone-950" aria-labelledby="pricing-title">
+    <section className="min-h-screen px-4 py-16 transition-colors sm:px-6" aria-labelledby="pricing-title" style={{ backgroundImage: "var(--codex-gradient-page)", backgroundAttachment: "fixed" }}>
       <div className="mx-auto max-w-7xl">
         <div className="mb-12 text-center">
           <p className="mb-2 text-xs font-black uppercase tracking-widest text-amber-700">AI 电商视觉灵点</p>
