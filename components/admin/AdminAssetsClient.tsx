@@ -28,6 +28,36 @@ const moduleOptions = [
 
 export function AdminAssetsClient({ assets, q, module }: AdminAssetsClientProps) {
   const [moduleValue, setModuleValue] = useState(module);
+  const [selectedKeys, setSelectedKeys] = useState<string[]>([]);
+  const [batchReason, setBatchReason] = useState("");
+  const [batchLoading, setBatchLoading] = useState(false);
+
+  const selectedRows = assets.rows.filter((row) => selectedKeys.includes(`${row.sourceType}:${row.id}`));
+
+  async function runBatch(action: string) {
+    if (!selectedRows.length) return;
+    const reason = batchReason.trim();
+    if (!reason) {
+      alert("请先填写审核原因");
+      return;
+    }
+    setBatchLoading(true);
+    let ok = 0;
+    for (const row of selectedRows) {
+      try {
+        const res = await fetch(`/api/admin/assets/${encodeURIComponent(row.id)}/moderate`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sourceType: row.sourceType, action, reason }),
+        });
+        if (res.ok) ok += 1;
+      } catch { /* 单条失败继续 */ }
+    }
+    setBatchLoading(false);
+    setSelectedKeys([]);
+    setBatchReason("");
+    window.location.reload();
+  }
 
   const columns = useMemo<ColumnsType<AdminAssetListItem>>(() => [
     { title: "预览", width: 110, render: (_, row) => <Preview urls={row.urls.length ? row.urls : row.inputUrls} /> },
@@ -101,9 +131,33 @@ export function AdminAssetsClient({ assets, q, module }: AdminAssetsClientProps)
           </form>
         }
       >
+        {selectedKeys.length > 0 ? (
+          <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] px-3 py-2">
+            <span className="text-xs font-black text-[var(--admin-fg)]">已选 {selectedKeys.length} 项</span>
+            <input
+              value={batchReason}
+              onChange={(event) => setBatchReason(event.target.value)}
+              placeholder="批量审核原因（必填）"
+              className="h-8 w-56 rounded-md border border-[var(--admin-border)] bg-[var(--admin-surface)] px-2 text-xs font-semibold outline-none"
+            />
+            <Button size="small" type="primary" disabled={batchLoading} onClick={() => void runBatch("pass")}>
+              批量通过
+            </Button>
+            <Button size="small" danger disabled={batchLoading} onClick={() => void runBatch("hide")}>
+              批量下架
+            </Button>
+            <Button size="small" onClick={() => { setSelectedKeys([]); setBatchReason(""); }}>
+              取消选择
+            </Button>
+          </div>
+        ) : null}
         <Table<AdminAssetListItem>
           size="small"
           rowKey={(row) => `${row.sourceType}:${row.id}`}
+          rowSelection={{
+            selectedRowKeys: selectedKeys,
+            onChange: (keys) => setSelectedKeys(keys as string[]),
+          }}
           columns={columns}
           dataSource={assets.rows}
           scroll={{ x: 1250 }}

@@ -11,8 +11,14 @@ import { listAdminMembers, type AdminMemberListItem } from "@/lib/admin/data";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminMembersPage() {
-  const members = await listAdminMembers({ limit: 80 });
+type PageProps = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function AdminMembersPage({ searchParams }: PageProps) {
+  const params = (await searchParams) || {};
+  const q = getSearchParam(params.q);
+  const members = await listAdminMembers({ limit: 200, q: q || undefined });
 
   return (
     <div className="space-y-5">
@@ -33,7 +39,29 @@ export default async function AdminMembersPage() {
         <AdminMemberForm />
       </AdminSection>
 
-      <AdminSection title="成员列表" description="写操作通过服务端权限校验和审计记录，不在浏览器暴露 service role。">
+      <AdminSection
+        title="成员列表"
+        description={`共 ${members.rows.length} 名成员${q ? ` · 搜索：${q}` : ""}`}
+        actions={
+          <form action="/admin/members" className="flex items-center gap-2">
+            <input
+              name="q"
+              type="search"
+              defaultValue={q}
+              placeholder="按邮箱搜索成员"
+              className="h-9 w-52 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-xs font-semibold text-[var(--admin-fg)] outline-none focus:border-[var(--admin-accent)]"
+            />
+            <button type="submit" className="h-9 rounded-lg bg-[var(--admin-fg)] px-4 text-xs font-black text-white hover:opacity-90">
+              搜索
+            </button>
+            {q ? (
+              <a href="/admin/members" className="inline-flex h-9 items-center rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-xs font-bold text-[var(--admin-fg)] hover:bg-[var(--admin-surface-soft)]">
+                清除
+              </a>
+            ) : null}
+          </form>
+        }
+      >
         <AdminTable<AdminMemberListItem>
           rows={members.rows}
           rowKey={(row) => row.userId || row.email || row.role}
@@ -63,6 +91,10 @@ export default async function AdminMembersPage() {
       </AdminSection>
     </div>
   );
+}
+
+function getSearchParam(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] || "" : value || "";
 }
 
 function roleLabel(role: string) {

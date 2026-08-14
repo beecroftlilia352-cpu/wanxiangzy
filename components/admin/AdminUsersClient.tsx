@@ -92,8 +92,8 @@ export function AdminUsersClient({ users, q }: AdminUsersClientProps) {
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Metric title="匹配用户" value={users.total} suffix={q ? `搜索：${q}` : "当前列表"} />
-        <Metric title="样本余额" value={totalCredits} suffix="当前页合计" />
-        <Metric title="样本消耗" value={totalUsed} suffix="当前页合计" />
+        <Metric title="当前页余额合计" value={totalCredits} suffix="仅统计当前页用户" />
+        <Metric title="当前页消耗合计" value={totalUsed} suffix="仅统计当前页用户" />
         <Metric title="暂停生成" value={paused} suffix="当前页运营控制" tone={paused ? "warning" : "neutral"} />
       </div>
 

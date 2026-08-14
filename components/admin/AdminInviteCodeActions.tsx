@@ -28,9 +28,17 @@ export function AdminInviteCodeActions({ id, status }: { id: string; status: "ac
   return (
     <button
       type="button"
-      onClick={submit}
       disabled={loading}
-      className="inline-flex h-8 items-center gap-1 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-xs font-black text-[var(--admin-fg)] hover:bg-[var(--admin-surface-soft)] disabled:opacity-60"
+      onClick={() => {
+        const actionLabel = status === "active" ? "停用" : "启用";
+        const confirmed = window.confirm(
+          status === "active"
+            ? `确定停用该邀请码吗？停用后此码无法再用于注册，已有用户不受影响。`
+            : `确定启用该邀请码吗？启用后新用户可凭此码完成注册。`,
+        );
+        if (confirmed) void submit();
+      }}
+      className="inline-flex h-8 cursor-pointer items-center gap-1 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-xs font-black text-[var(--admin-fg)] hover:bg-[var(--admin-surface-soft)] disabled:cursor-not-allowed disabled:opacity-60"
     >
       {loading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
       {status === "active" ? "停用" : "启用"}

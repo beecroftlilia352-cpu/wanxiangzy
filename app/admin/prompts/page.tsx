@@ -31,8 +31,8 @@ export default async function AdminPromptsPage() {
     <div className="space-y-5">
       <AdminPageHeader
         eyebrow="提示词实验"
-        title="Prompt 模板与 A/B 实验"
-        description="用配置版本管理模块提示词、实验分流、指标门禁和回滚。V1 先落地可审计的 prompt.experiments 管理面，运行时代码消费与自动门禁可继续扩展。"
+        title="提示词模板与 A/B 实验"
+        description="管理各模块提示词和实验版本。⚠️ 本页为技术角色专用：误改提示词会直接影响生成效果，非技术人员请勿操作。"
         actions={
           <Link
             href="/admin/prompts"

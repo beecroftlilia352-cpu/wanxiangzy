@@ -45,8 +45,14 @@ export default async function AdminSettingsPage() {
       )}
       {settings.warnings.length > 0 && <AdminNotice tone="info">配置数据源提示：{settings.warnings.slice(0, 3).join("；")}</AdminNotice>}
 
-      <AdminSection title="运行时环境" description="各项服务的连接状态，只显示是否配置，不显示密钥内容。">
-        <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-3">
+      <details className="rounded-xl border border-[var(--admin-border)] bg-[var(--admin-surface)]">
+        <summary className="cursor-pointer list-none px-4 py-3 text-sm font-black text-[var(--admin-fg)] [&::-webkit-details-marker]:hidden">
+          运行时环境（高级）
+          <span className="ml-2 text-xs font-semibold text-[var(--admin-muted)]">
+            各项服务的连接状态 · 仅技术角色排查用 · 点击展开
+          </span>
+        </summary>
+        <div className="grid gap-3 p-4 pt-0 md:grid-cols-2 xl:grid-cols-3">
           {settings.runtime.map((item) => (
             <div key={item.key} className="rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] p-3">
               <div className="flex items-center justify-between gap-3">
@@ -60,7 +66,7 @@ export default async function AdminSettingsPage() {
             </div>
           ))}
         </div>
-      </AdminSection>
+      </details>
 
       <AdminSection title="历史配置版本" description="各配置项的发布记录，支持回滚。内容为技术细节，仅作排查参考。">
         <AdminTable<AdminConfigVersion>

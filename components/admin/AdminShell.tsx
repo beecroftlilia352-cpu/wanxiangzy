@@ -35,6 +35,7 @@ type AdminShellProps = {
     role: AdminRole;
     source: "table" | "bootstrap-env";
   };
+  pendingApprovals?: number;
   children: React.ReactNode;
 };
 
@@ -42,6 +43,8 @@ type AdminNavItem = {
   href: string;
   label: string;
   icon: React.ReactNode;
+  badgeKey?: string;
+  techOnly?: boolean;
 };
 
 const navGroups: Array<{ key: string; label: string; children: AdminNavItem[] }> = [
@@ -60,7 +63,7 @@ const navGroups: Array<{ key: string; label: string; children: AdminNavItem[] }>
       { href: "/admin/users", label: "用户账户", icon: <TeamOutlined aria-hidden="true" /> },
       { href: "/admin/invite-codes", label: "邀请码", icon: <KeyOutlined aria-hidden="true" /> },
       { href: "/admin/generations", label: "任务中心", icon: <ControlOutlined aria-hidden="true" /> },
-      { href: "/admin/requests", label: "审批中心", icon: <CheckCircleOutlined aria-hidden="true" /> },
+      { href: "/admin/requests", label: "审批中心", icon: <CheckCircleOutlined aria-hidden="true" />, badgeKey: "requests" },
     ],
   },
   {
@@ -72,7 +75,7 @@ const navGroups: Array<{ key: string; label: string; children: AdminNavItem[] }>
       { href: "/admin/moderation", label: "内容审核", icon: <SafetyCertificateOutlined aria-hidden="true" /> },
       { href: "/admin/tryon", label: "试衣配置", icon: <AppstoreOutlined aria-hidden="true" /> },
       { href: "/admin/product-retouch-skill", label: "商品精修", icon: <ExperimentOutlined aria-hidden="true" /> },
-      { href: "/admin/prompts", label: "Prompt 实验", icon: <ExperimentOutlined aria-hidden="true" /> },
+      { href: "/admin/prompts", label: "提示词实验", icon: <ExperimentOutlined aria-hidden="true" />, techOnly: true },
     ],
   },
   {
@@ -87,16 +90,16 @@ const navGroups: Array<{ key: string; label: string; children: AdminNavItem[] }>
     key: "system",
     label: "系统",
     children: [
-      { href: "/admin/providers", label: "模型通道", icon: <ApiOutlined aria-hidden="true" /> },
-      { href: "/admin/workers", label: "任务队列", icon: <ToolOutlined aria-hidden="true" /> },
+      { href: "/admin/providers", label: "模型通道", icon: <ApiOutlined aria-hidden="true" />, techOnly: true },
+      { href: "/admin/workers", label: "任务队列", icon: <ToolOutlined aria-hidden="true" />, techOnly: true },
       { href: "/admin/members", label: "成员权限", icon: <UserOutlined aria-hidden="true" /> },
-      { href: "/admin/settings", label: "系统配置", icon: <SettingOutlined aria-hidden="true" /> },
+      { href: "/admin/settings", label: "系统配置", icon: <SettingOutlined aria-hidden="true" />, techOnly: true },
       { href: "/admin/audit", label: "审计日志", icon: <AuditOutlined aria-hidden="true" /> },
     ],
   },
 ];
 
-export function AdminShell({ admin, children }: AdminShellProps) {
+export function AdminShell({ admin, pendingApprovals = 0, children }: AdminShellProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [collapsed, setCollapsed] = useState(false);
@@ -110,9 +113,21 @@ export function AdminShell({ admin, children }: AdminShellProps) {
   const routeKey = `${pathname}?${searchParams.toString()}`;
   const lastRouteKeyRef = useRef(routeKey);
   const openKeys = useMemo(() => navGroups.filter((group) => group.children.some((item) => item.href === activeHref)).map((group) => group.key), [activeHref]);
+  // 技术向菜单（任务队列/模型通道/系统配置）只对负责人和技术角色显示
+  const technicalRoles: AdminRole[] = ["owner", "engineer"];
+  const visibleGroups = useMemo(
+    () => navGroups
+      .map((group) => ({
+        ...group,
+        children: group.children.filter((item) => item.techOnly !== true || technicalRoles.includes(admin.role)),
+      }))
+      .filter((group) => group.children.length > 0),
+    [admin.role],
+  );
+
   const menuItems = useMemo<MenuProps["items"]>(
     () =>
-      navGroups.map((group) => ({
+      visibleGroups.map((group) => ({
         key: group.key,
         label: group.label,
         type: "group" as const,
@@ -128,8 +143,12 @@ export function AdminShell({ admin, children }: AdminShellProps) {
                 if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
                 setDrawerOpen(false);
               }}
+              className="inline-flex items-center gap-2"
             >
               {item.label}
+              {item.badgeKey === "requests" && pendingApprovals > 0 ? (
+                <span className="admin-nav-badge">{pendingApprovals > 99 ? "99+" : pendingApprovals}</span>
+              ) : null}
             </Link>
           ),
         })),

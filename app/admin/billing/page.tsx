@@ -58,6 +58,11 @@ export default async function AdminBillingPage() {
         ))}
       </div>
 
+      <details className="rounded-xl border border-[var(--admin-border)] bg-[var(--admin-surface)]">
+        <summary className="cursor-pointer list-none px-4 py-3 text-sm font-black text-[var(--admin-fg)] [&::-webkit-details-marker]:hidden">
+          支付渠道配置（高级）
+          <span className="ml-2 text-xs font-semibold text-[var(--admin-muted)]">商品、价格与回调事件 · 仅技术角色排查用 · 点击展开</span>
+        </summary>
       <AdminSection title="配置状态" description="只显示是否配置，不暴露密钥明文。表状态来自约定的 Billing 后台数据表。">
         <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-4">
           {billing.configStatus.map((item) => (
@@ -218,6 +223,7 @@ export default async function AdminBillingPage() {
           ]}
         />
       </AdminSection>
+      </details>
     </div>
   );
 }

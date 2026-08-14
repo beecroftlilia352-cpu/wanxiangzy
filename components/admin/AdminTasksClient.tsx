@@ -152,6 +152,17 @@ export function AdminTasksClient({ tasks, q, status, module, stale, page, pageSi
         <Metric title="长时间未完成" value={staleCount} tone="warning" note="当前页" />
       </div>
 
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs font-black text-[var(--admin-muted)]">快捷筛选</span>
+        <QuickFilter href="/admin/generations" label="全部" active={!status && !module} />
+        <QuickFilter href="/admin/generations?status=failed" label="失败" active={status === "failed"} />
+        <QuickFilter href="/admin/generations?status=queued" label="排队中" active={status === "queued"} />
+        <QuickFilter href="/admin/generations?status=running" label="运行中" active={status === "running"} />
+        <QuickFilter href="/admin/generations?status=failed&module=tryon" label="失败·服装上身" active={status === "failed" && module === "tryon"} />
+        <QuickFilter href="/admin/generations?status=failed&module=pose" label="失败·姿势裂变" active={status === "failed" && module === "pose"} />
+        <QuickFilter href="/admin/generations?stale=1" label="长时间未完成" active={Boolean(stale)} />
+      </div>
+
       <Card
         title="任务列表"
         extra={
@@ -281,3 +292,20 @@ function buildTaskListUrl(args: { q: string; status: string; module: string; sta
   params.set("pageSize", String(args.pageSize));
   return `/admin/generations?${params.toString()}`;
 }
+
+function QuickFilter({ href, label, active }: { href: string; label: string; active: boolean }) {
+  return (
+    <Link
+      href={href}
+      aria-pressed={active}
+      className={`inline-flex h-8 items-center rounded-full border px-3 text-xs font-black transition ${
+        active
+          ? "border-[var(--admin-fg)] bg-[var(--admin-fg)] text-white"
+          : "border-[var(--admin-border)] bg-[var(--admin-surface)] text-[var(--admin-fg)] hover:border-[var(--admin-border-strong)]"
+      }`}
+    >
+      {label}
+    </Link>
+  );
+}
+

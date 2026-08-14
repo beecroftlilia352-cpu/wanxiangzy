@@ -40,6 +40,12 @@ export default async function AdminCreditsPage({ searchParams }: PageProps) {
         <AdminMetricCard label="影响用户" value={formatNumber(credits.metrics.affectedUsers)} />
       </div>
 
+      <div className="grid gap-3 sm:grid-cols-3">
+        <ReasonGroupCard title="充值类入账" rows={credits.rows} reasons={["充值", "购买", "recharge", "purchase", "邀请奖励", "invite"]} />
+        <ReasonGroupCard title="生成消耗" rows={credits.rows} reasons={["生成", "generation", "扣费", "消费", "deduct"]} />
+        <ReasonGroupCard title="退款与补偿" rows={credits.rows} reasons={["退款", "refund", "补偿", "退回", "失败退还"]} />
+      </div>
+
       <AdminSection
         title="人工调整"
         description="适合财务或负责人直接处理已核实的问题，例如补发灵点、扣回误发灵点。"
@@ -112,3 +118,16 @@ export default async function AdminCreditsPage({ searchParams }: PageProps) {
 function getSearchParam(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] || "" : value || "";
 }
+
+function ReasonGroupCard({ title, rows, reasons }: { title: string; rows: AdminCreditLogItem[]; reasons: string[] }) {
+  const matched = rows.filter((row) => reasons.some((key) => row.reason.toLowerCase().includes(key)));
+  const total = matched.reduce((sum, row) => sum + Math.abs(row.amount), 0);
+  return (
+    <div className="rounded-xl border border-[var(--admin-border)] bg-[var(--admin-surface)] p-4">
+      <p className="text-xs font-black uppercase tracking-[0.08em] text-[var(--admin-faint)]">{title}</p>
+      <p className="mt-2 text-2xl font-black tabular-nums text-[var(--admin-fg)]">{formatNumber(total)}</p>
+      <p className="mt-1 text-[11px] font-semibold text-[var(--admin-muted)]">当前页 {matched.length} 条流水</p>
+    </div>
+  );
+}
+

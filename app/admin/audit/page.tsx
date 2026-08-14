@@ -175,9 +175,8 @@ export default async function AdminAuditPage({ searchParams }: PageProps) {
               key: "actor",
               label: "操作者",
               render: (row) => (
-                <div className="min-w-[220px]">
+                <div className="min-w-[200px]">
                   <p className="truncate text-sm font-bold text-[var(--admin-fg)]">{row.actorEmail || "-"}</p>
-                  <p className="mt-0.5 text-[11px] font-semibold text-[var(--admin-faint)]">{shortAdminCode(row.actorUserId, "用户")}</p>
                 </div>
               ),
             },

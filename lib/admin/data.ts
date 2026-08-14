@@ -1134,6 +1134,19 @@ export async function listAdminModerationCases(args: { q?: string; limit?: numbe
   };
 }
 
+export async function countPendingOperationRequests(): Promise<number> {
+  const result = await runQuery<{ count?: number | null } | null>(
+    getAdminClient()
+      .from("admin_operation_requests")
+      .select("id", { count: "planned", head: true })
+      .eq("status", "pending"),
+    "pending operation requests count",
+    [],
+    true,
+  );
+  return Number(result.data?.count || 0);
+}
+
 export async function listAdminOperationRequests(args: {
   q?: string;
   status?: string;
@@ -1171,15 +1184,18 @@ export async function listAdminOperationRequests(args: {
   };
 }
 
-export async function listAdminMembers(args: { limit?: number } = {}): Promise<AdminMemberList> {
+export async function listAdminMembers(args: { limit?: number; q?: string } = {}): Promise<AdminMemberList> {
   const warnings: string[] = [];
-  const limit = clampLimit(args.limit, 10, 100, 50);
+  const limit = clampLimit(args.limit, 10, 500, 50);
+  const q = (args.q || "").trim().toLowerCase();
+  let query = getAdminClient()
+    .from("admin_members")
+    .select(ADMIN_MEMBER_COLUMNS)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (q) query = query.ilike("email", `%${q}%`);
   const result = await runQuery<Record<string, unknown>[]>(
-    getAdminClient()
-      .from("admin_members")
-      .select(ADMIN_MEMBER_COLUMNS)
-      .order("created_at", { ascending: false })
-      .limit(limit),
+    query,
     "admin members",
     warnings,
     true,

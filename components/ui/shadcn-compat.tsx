@@ -928,7 +928,7 @@ export function Space({ orientation, direction, size = 8, wrap, align, className
   );
 }
 
-export function Table<T extends Record<string, any>>({ columns = [], dataSource = [], rowKey, rowClassName, loading, scroll, pagination, locale, className }: { size?: "small" | "middle"; rowKey?: keyof T | ((row: T) => string); rowClassName?: string | ((row: T, index: number) => string); columns?: ColumnsType<T>; dataSource?: T[]; loading?: boolean; tableLayout?: CSSProperties["tableLayout"]; scroll?: { x?: number | string }; pagination?: false | { current?: number; pageSize?: number; total?: number; pageSizeOptions?: Array<number | string>; showSizeChanger?: boolean; showTotal?: (total: number, range: [number, number]) => ReactNode; onChange?: (page: number, pageSize: number) => void }; locale?: { emptyText?: ReactNode }; className?: string }) {
+export function Table<T extends Record<string, any>>({ columns = [], dataSource = [], rowKey, rowClassName, loading, scroll, pagination, locale, className, rowSelection }: { size?: "small" | "middle"; rowKey?: keyof T | ((row: T) => string); rowClassName?: string | ((row: T, index: number) => string); columns?: ColumnsType<T>; dataSource?: T[]; loading?: boolean; tableLayout?: CSSProperties["tableLayout"]; scroll?: { x?: number | string }; pagination?: false | { current?: number; pageSize?: number; total?: number; pageSizeOptions?: Array<number | string>; showSizeChanger?: boolean; showTotal?: (total: number, range: [number, number]) => ReactNode; onChange?: (page: number, pageSize: number) => void }; locale?: { emptyText?: ReactNode }; className?: string; rowSelection?: { selectedRowKeys?: string[]; onChange?: (keys: string[]) => void } }) {
   const paging = pagination === false ? undefined : pagination;
   const total = paging ? paging.total ?? dataSource.length : dataSource.length;
   const page = paging ? paging.current ?? 1 : 1;
@@ -946,6 +946,23 @@ export function Table<T extends Record<string, any>>({ columns = [], dataSource 
         <table className="w-full caption-bottom text-sm" style={{ minWidth: scroll?.x }}>
           <thead className="bg-muted">
             <tr>
+              {rowSelection ? (
+                <th className="w-10 border-b border-border px-3 py-2">
+                  <input
+                    type="checkbox"
+                    aria-label="全选"
+                    checked={dataSource.length > 0 && rowSelection.selectedRowKeys?.length === dataSource.length}
+                    onChange={(event) => {
+                      const keys = event.target.checked ? dataSource.map((row, index) => {
+                        const key = typeof rowKey === "function" ? rowKey(row) : rowKey ? String(row[rowKey]) : String(index);
+                        return key;
+                      }) : [];
+                      rowSelection.onChange?.(keys);
+                    }}
+                    className="h-4 w-4 cursor-pointer"
+                  />
+                </th>
+              ) : null}
               {columns.map((column, index) => (
                 <th key={index} className={cn("border-b border-border px-3 py-2 text-left font-semibold text-foreground", column.align === "center" && "text-center", column.align === "right" && "text-right")} style={{ width: column.width }}>
                   {column.title}
@@ -973,6 +990,22 @@ export function Table<T extends Record<string, any>>({ columns = [], dataSource 
               const key = typeof rowKey === "function" ? rowKey(row) : rowKey ? String(row[rowKey]) : String(rowIndex);
               return (
                 <tr key={key} className={cn("border-b border-border last:border-0 hover:bg-muted/70", typeof rowClassName === "function" ? rowClassName(row, rowIndex) : rowClassName)}>
+                  {rowSelection ? (
+                    <td className="w-10 px-3 py-2 align-top">
+                      <input
+                        type="checkbox"
+                        aria-label="选择此行"
+                        checked={Boolean(rowSelection.selectedRowKeys?.includes(key))}
+                        onChange={(event) => {
+                          const current = new Set(rowSelection.selectedRowKeys || []);
+                          if (event.target.checked) current.add(key);
+                          else current.delete(key);
+                          rowSelection.onChange?.(Array.from(current));
+                        }}
+                        className="h-4 w-4 cursor-pointer"
+                      />
+                    </td>
+                  ) : null}
                   {columns.map((column, columnIndex) => {
                     const value = getValue(row, column.dataIndex);
                     const isNumeric = typeof value === "number";

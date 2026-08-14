@@ -1,8 +1,9 @@
 "use client";
 
+import { toast } from "sonner";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Save } from "lucide-react";
+import { Loader2, Plug, Save } from "lucide-react";
 import { AdminStatusBadge } from "@/components/admin/AdminPrimitives";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import type { PricedImageModel } from "@/lib/model-pricing";
@@ -68,6 +69,32 @@ export function AdminModelProviderConfigForm() {
   }, []);
 
   const models = useMemo(() => snapshot?.models || [], [snapshot]);
+  const [testingModel, setTestingModel] = useState<string | null>(null);
+
+  async function testConnection(model: PricedImageModel) {
+    const entry = models.find((item) => item.model === model);
+    if (!entry) return;
+    const key = apiKeys[model]?.trim() || (entry.apiKeyConfigured ? "" : "");
+    if (!key && !entry.apiKeyConfigured) {
+      toast.error("请先填写该模型的 API Key");
+      return;
+    }
+    setTestingModel(model);
+    try {
+      const res = await fetch("/api/admin/model-providers/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model, baseUrl: entry.baseUrl, apiKey: key || undefined }),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload.error || `测试失败 (${res.status})`);
+      toast.success(payload.message || "连接成功：密钥有效，可正常访问模型接口");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "连接测试失败");
+    } finally {
+      setTestingModel(null);
+    }
+  }
 
   function updateModel(model: PricedImageModel, patch: Partial<SnapshotEntry>) {
     setSnapshot((current) => current ? {
@@ -210,7 +237,16 @@ export function AdminModelProviderConfigForm() {
         ))}
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          disabled={Boolean(testingModel)}
+          onClick={() => void testConnection(models[0]?.model)}
+          className="inline-flex h-10 items-center gap-2 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-4 text-sm font-black text-[var(--admin-fg)] disabled:opacity-60"
+        >
+          {testingModel ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plug className="h-4 w-4" />}
+          测试连接
+        </button>
         <button
           type="submit"
           disabled={saving}
