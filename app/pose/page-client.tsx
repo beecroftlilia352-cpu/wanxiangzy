@@ -2535,7 +2535,7 @@ export default function PosePage() {
           <div className="studio-result-stage min-h-[260px] sm:min-h-[360px] overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:h-full flex flex-col animate-fade-in">
             {isGenerating && (
               <div className="mb-4 rounded-xl border border-purple-100 bg-white/80 dark:bg-white/5 px-3 py-2 text-xs font-medium text-purple-600 shadow-sm">
-                已生成 {resultUrls.length}{` / ${runningExpectedCount || poseExpectedCount}`}，剩余图片生成中...
+                已生成 {resultUrls.filter(Boolean).length}{` / ${Math.max(runningExpectedCount || poseExpectedCount || 1, resultUrls.filter(Boolean).length)}`}，剩余图片生成中...
               </div>
             )}
             <div className="flex min-h-0 flex-1 items-start justify-start">
