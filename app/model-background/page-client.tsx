@@ -911,7 +911,7 @@ export default function ModelBackgroundPage() {
                 <StudioPromptTextarea value={backgroundText} onChange={(e) => { setBackgroundText(e.target.value); setPromptOverride(null); }} rows={4} className="studio-prompt-textarea-compact" placeholder="描述你想要的背景…" />
                   <div className="flex flex-wrap gap-2">
                     {BACKGROUND_TEXT_PRESETS.map((preset) => (
-                      <button key={preset} type="button" onClick={() => { setBackgroundText(preset); setPromptOverride(null); }} className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] text-slate-600 hover:text-purple-600">
+                      <button key={preset} type="button" onClick={() => { setBackgroundText(preset); setPromptOverride(null); }} className="inline-flex min-h-9 items-center rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] text-slate-600 transition-colors duration-150 hover:border-[rgba(91,124,255,0.45)] hover:text-[var(--codex-accent)] dark:border-white/10 dark:bg-white/5 dark:text-stone-300">
                         {preset}
                       </button>
                     ))}
