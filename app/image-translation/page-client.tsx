@@ -863,12 +863,12 @@ export default function ImageTranslationPage() {
                 <button
                   type="button"
                   onClick={() => setLightboxSrc(primarySourceUrl)}
-                  className="absolute right-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/85 text-slate-500 shadow-sm hover:text-violet-600"
+                  className="absolute right-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded-full bg-white dark:bg-white/10/85 text-slate-500 shadow-sm hover:text-violet-600"
                   aria-label="放大预览"
                 >
                   <ZoomIn className="h-3.5 w-3.5" />
                 </button>
-                <CheckCircle2 className="absolute left-2 top-2 h-5 w-5 rounded-full bg-white text-emerald-500" />
+                <CheckCircle2 className="absolute left-2 top-2 h-5 w-5 rounded-full bg-white dark:bg-white/10 text-emerald-500" />
               </div>
             </section>
           ) : null}

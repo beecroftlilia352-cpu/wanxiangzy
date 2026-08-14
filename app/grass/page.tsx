@@ -695,13 +695,13 @@ export default function GrassPage() {
                       <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); setLightboxSrc(tpl.imageUrl); }}
-                        className="absolute right-1 top-1 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-white/85 text-slate-600 opacity-0 shadow-sm transition-opacity group-hover:opacity-100 focus:opacity-100 hover:bg-white hover:text-violet-600"
+                        className="absolute right-1 top-1 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-white dark:bg-white/10/85 text-slate-600 opacity-0 shadow-sm transition-opacity group-hover:opacity-100 focus:opacity-100 hover:bg-white hover:text-violet-600"
                         title="放大预览"
                       >
                         <ZoomIn className="h-3.5 w-3.5" />
                       </button>
                       <div className="pointer-events-none absolute inset-0">
-                        {templateId === tpl.id && <CheckCircle2 className="absolute left-1.5 top-1.5 h-4 w-4 rounded-full bg-white text-emerald-500" />}
+                        {templateId === tpl.id && <CheckCircle2 className="absolute left-1.5 top-1.5 h-4 w-4 rounded-full bg-white dark:bg-white/10 text-emerald-500" />}
                       </div>
                     </div>
                   ))}
@@ -730,12 +730,12 @@ export default function GrassPage() {
                   <div className="group studio-fixed-upload-preview relative overflow-hidden rounded-xl bg-slate-100" style={{ "--studio-fixed-preview-height": "208px" } as CSSProperties}>
                     <RawPreviewImage src={uploadedReferenceUrl} alt="种草参考图" className="h-full w-full object-contain p-2" />
                     <div className="absolute inset-x-2 top-2 flex items-center justify-between gap-2">
-                      <span className="truncate rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-medium text-slate-600 shadow-sm">{uploadedReferenceName || "已上传参考图"}</span>
+                      <span className="truncate rounded-full bg-white dark:bg-white/10/90 px-2.5 py-1 text-[11px] font-medium text-slate-600 shadow-sm">{uploadedReferenceName || "已上传参考图"}</span>
                       <span className="flex gap-1">
                         <button
                           type="button"
                           onClick={() => setLightboxSrc(uploadedReferenceUrl)}
-                          className="flex h-7 w-7 items-center justify-center rounded-full bg-white/85 text-slate-600 opacity-0 shadow-sm transition-opacity group-hover:opacity-100 focus:opacity-100 hover:bg-white hover:text-violet-600"
+                          className="flex h-7 w-7 items-center justify-center rounded-full bg-white dark:bg-white/10/85 text-slate-600 opacity-0 shadow-sm transition-opacity group-hover:opacity-100 focus:opacity-100 hover:bg-white hover:text-violet-600"
                           title="放大预览"
                         >
                           <ZoomIn className="h-3.5 w-3.5" />
@@ -743,7 +743,7 @@ export default function GrassPage() {
                         <button
                           type="button"
                           onClick={() => { setUploadedReferenceUrl(""); setUploadedReferenceName(""); setPromptOverride(null); }}
-                          className="flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-slate-600 shadow-sm hover:bg-white"
+                          className="flex h-8 w-8 items-center justify-center rounded-full bg-white dark:bg-white/10/90 text-slate-600 shadow-sm hover:bg-white"
                         >
                           <X className="h-4 w-4" />
                         </button>
@@ -963,9 +963,9 @@ export default function GrassPage() {
           <div id="grass-rules-popover" role="region" aria-labelledby="grass-rules-title" className="fixed z-[240] w-[min(720px,calc(100vw-32px))] overflow-hidden rounded-[24px] border border-white/80 bg-white/[0.96] shadow-[0_28px_90px_rgba(15,23,42,0.18)] backdrop-blur-2xl animate-fade-in" style={{ top: rulesPopoverStyle.top, left: rulesPopoverStyle.left, maxHeight: rulesPopoverStyle.maxHeight }} onMouseEnter={cancelRulesHide} onMouseLeave={scheduleRulesHide}>
             <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4"><div><h3 id="grass-rules-title" className="text-base font-black text-slate-950">{GRASS_UPLOAD_RULE.title}</h3><p className="mt-1 text-xs text-slate-400">{GRASS_UPLOAD_RULE.uploadSpecText}</p></div><button type="button" onClick={closeRulesPopover} className="rounded-full p-1.5 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500" aria-label="关闭图片规则"><X aria-hidden="true" className="h-4 w-4" /></button></div>
             <div className="max-h-[inherit] overflow-y-auto p-5">
-              <div className="grid grid-cols-5 gap-3">{GRASS_UPLOAD_RULE.demos.map((demo) => <div key={demo.imageUrl} className="rounded-2xl border border-slate-100 bg-slate-50/70 p-2"><div className="relative overflow-hidden rounded-xl bg-white"><RawPreviewImage src={demo.imageUrl} alt={demo.title} className="aspect-[3/4] w-full object-cover" /><CheckCircle2 className="absolute right-2 top-2 h-5 w-5 rounded-full bg-white text-emerald-500" /></div><p className="mt-2 text-center text-xs text-slate-600">{demo.title}</p><button type="button" onClick={() => applyDemo(demo)} className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 hover:text-violet-600">试一试</button></div>)}</div>
+              <div className="grid grid-cols-5 gap-3">{GRASS_UPLOAD_RULE.demos.map((demo) => <div key={demo.imageUrl} className="rounded-2xl border border-slate-100 bg-slate-50/70 p-2"><div className="relative overflow-hidden rounded-xl bg-white"><RawPreviewImage src={demo.imageUrl} alt={demo.title} className="aspect-[3/4] w-full object-cover" /><CheckCircle2 className="absolute right-2 top-2 h-5 w-5 rounded-full bg-white dark:bg-white/10 text-emerald-500" /></div><p className="mt-2 text-center text-xs text-slate-600">{demo.title}</p><button type="button" onClick={() => applyDemo(demo)} className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 hover:text-violet-600">试一试</button></div>)}</div>
               <p className="my-4 text-center text-xs font-medium text-slate-500">请勿上传以下错误图片，会极大影响生成效果</p>
-              <div className="mx-auto grid max-w-md grid-cols-3 gap-3">{GRASS_UPLOAD_RULE.badExamples.map((image) => <div key={image.title} className="rounded-2xl border border-red-100 bg-white/70 p-2 text-center"><div className="relative overflow-hidden rounded-xl bg-white"><RawPreviewImage src={image.imageUrl} alt={image.title} className="aspect-square w-full object-cover" /><XCircle className="absolute right-2 top-2 h-5 w-5 rounded-full bg-white text-red-500" /></div><p className="mt-1 text-xs text-slate-500">{image.title}</p></div>)}</div>
+              <div className="mx-auto grid max-w-md grid-cols-3 gap-3">{GRASS_UPLOAD_RULE.badExamples.map((image) => <div key={image.title} className="rounded-2xl border border-red-100 bg-white/70 p-2 text-center"><div className="relative overflow-hidden rounded-xl bg-white"><RawPreviewImage src={image.imageUrl} alt={image.title} className="aspect-square w-full object-cover" /><XCircle className="absolute right-2 top-2 h-5 w-5 rounded-full bg-white dark:bg-white/10 text-red-500" /></div><p className="mt-1 text-xs text-slate-500">{image.title}</p></div>)}</div>
             </div>
           </div>
         </ClientPortal>

@@ -492,7 +492,7 @@ export default function HistoryPage() {
             作品库
           </p>
           <h1 className="mt-3 text-3xl font-black text-slate-950">作品资产</h1>
-          <p className="mt-2 text-sm leading-6 text-slate-500">已加载 {rows.length} 条作品，当前显示 {filteredRows.length} 条。{filterState.activeDescription} 可查看大图、下载结果并套用完整参数。</p>
+          <p className="mt-2 text-sm leading-6 text-slate-500">当前显示 {filteredRows.length} 条作品。{filterState.activeDescription} 可查看大图、下载结果并套用完整参数。</p>
         </div>
         <button type="button" onClick={openCreate} className="gradient-brand inline-flex h-11 w-full items-center justify-center gap-2 rounded-full px-5 text-sm font-black text-white shadow-xl shadow-slate-300/40 sm:w-auto">
           <Plus className="h-4 w-4" />
@@ -612,7 +612,7 @@ export default function HistoryPage() {
                           key={`${url}-${index}`}
                           onClick={() => openDetail(g, index)}
                           aria-label={`查看第 ${index + 1} 张结果`}
-                          className="h-12 w-10 flex-shrink-0 overflow-hidden rounded-md border bg-gray-50"
+                          className="h-12 w-12 flex-shrink-0 overflow-hidden rounded-md border bg-gray-50"
                         >
                           <HistoryMediaPreview url={url} variant="thumb" alt={`结果 ${index + 1}`} />
                         </button>
@@ -622,7 +622,7 @@ export default function HistoryPage() {
                           type="button"
                           onClick={() => openDetail(g, 5)}
                           aria-label={`查看剩余 ${resultUrls.length - 5} 张结果`}
-                          className="h-12 w-10 flex-shrink-0 rounded-md border bg-gray-50 text-[10px] font-medium text-gray-500"
+                          className="h-12 w-12 flex-shrink-0 rounded-md border bg-gray-50 text-[10px] font-medium text-gray-500"
                         >
                           +{resultUrls.length - 5}
                         </button>

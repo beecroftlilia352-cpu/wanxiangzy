@@ -1044,7 +1044,7 @@ function ProgressLine({ value, label }: { value: number; label: string }) {
         <span>{label}</span>
         <span>{display}%</span>
       </div>
-      <div className="mt-3 h-2 overflow-hidden rounded-full bg-white">
+      <div className="mt-3 h-2 overflow-hidden rounded-full bg-white dark:bg-white/10">
         <div className="h-full rounded-full bg-slate-950 transition-[width] duration-500" style={{ width: `${Math.max(display, 4)}%` }} />
       </div>
     </div>
@@ -1145,7 +1145,7 @@ function PlanningPreview({
 function GenerationSkeleton({ title, progress }: { title: string; progress: number }) {
   return (
     <div className="flex aspect-[3/4] flex-col items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-center">
-      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-slate-500 shadow-sm">
+      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white dark:bg-white/10 text-slate-500 shadow-sm">
         <PackageCheck aria-hidden="true" className="h-6 w-6" />
       </div>
       <p className="mt-4 text-sm font-black text-slate-700">{title}</p>
@@ -1215,7 +1215,7 @@ function ResultGrid({
 
 function IconButton({ label, icon, onClick }: { label: string; icon: ReactNode; onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} title={label} aria-label={label} className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-slate-700 shadow-lg hover:bg-slate-100">
+    <button type="button" onClick={onClick} title={label} aria-label={label} className="flex h-10 w-10 items-center justify-center rounded-full bg-white dark:bg-white/10 text-slate-700 shadow-lg hover:bg-slate-100">
       {icon}
     </button>
   );

@@ -102,7 +102,7 @@ const MODE_OPTIONS: { value: ModelBackgroundMode; desc: string }[] = [
 
 const BACKGROUND_SOURCE_OPTIONS: BackgroundSourceMode[] = ["preset", "upload", "text"];
 const CARD_ZOOM_BUTTON_CLASS =
-  "absolute right-1 top-1 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-white/85 text-slate-600 opacity-0 shadow-sm transition-opacity hover:bg-white hover:text-violet-600 focus-visible:opacity-100 group-hover:opacity-100";
+  "absolute right-1 top-1 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-white dark:bg-white/10/85 text-slate-600 opacity-0 shadow-sm transition-opacity hover:bg-white hover:text-violet-600 focus-visible:opacity-100 group-hover:opacity-100";
 
 const MODEL_BACKGROUND_PREVIEW_ACTIONS: ImagePreviewAction[] = [
   { kind: "download", label: "下载图片" },
@@ -785,7 +785,7 @@ export default function ModelBackgroundPage() {
                     >
                       <ZoomIn className="h-3.5 w-3.5" />
                     </button>
-                    {modelReferenceUrl === model.imageUrl ? <CheckCircle2 className="absolute left-1.5 top-1.5 h-4 w-4 rounded-full bg-white text-emerald-500" /> : null}
+                    {modelReferenceUrl === model.imageUrl ? <CheckCircle2 className="absolute left-1.5 top-1.5 h-4 w-4 rounded-full bg-white dark:bg-white/10 text-emerald-500" /> : null}
                   </div>
                 ))}
                 <div className={`group relative overflow-hidden rounded-lg border-2 border-dashed transition-colors ${modelReferenceUrl && !PRESET_BACKGROUND_MODELS.some((item) => item.imageUrl === modelReferenceUrl) ? "border-purple-400 bg-purple-50" : "border-gray-200 hover:bg-purple-50/40"}`}>
@@ -878,7 +878,7 @@ export default function ModelBackgroundPage() {
                         >
                           <ZoomIn className="h-3.5 w-3.5" />
                         </button>
-                        {backgroundPresetId === item.id ? <CheckCircle2 className="absolute left-2 top-2 h-4 w-4 rounded-full bg-white text-emerald-500" /> : null}
+                        {backgroundPresetId === item.id ? <CheckCircle2 className="absolute left-2 top-2 h-4 w-4 rounded-full bg-white dark:bg-white/10 text-emerald-500" /> : null}
                       </div>
                     ))}
                   </div>
@@ -1115,7 +1115,7 @@ export default function ModelBackgroundPage() {
                   <div key={demo.imageUrl} className="rounded-2xl border border-slate-100 bg-slate-50/70 p-2">
                     <div className="relative overflow-hidden rounded-xl bg-white">
                       <RawPreviewImage src={demo.imageUrl} alt={demo.title} className="aspect-[3/4] w-full object-cover" />
-                      <CheckCircle2 className="absolute right-2 top-2 h-5 w-5 rounded-full bg-white text-emerald-500" />
+                      <CheckCircle2 className="absolute right-2 top-2 h-5 w-5 rounded-full bg-white dark:bg-white/10 text-emerald-500" />
                     </div>
                     <p className="mt-2 text-center text-xs font-semibold text-slate-700">{demo.title}</p>
                     <button type="button" onClick={() => applyDemo(demo)} className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 hover:text-violet-600">试一试</button>

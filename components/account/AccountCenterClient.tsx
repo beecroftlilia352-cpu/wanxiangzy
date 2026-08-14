@@ -637,7 +637,7 @@ function AccountInfoPanel({
           <InfoLine label="用户ID" value={shortUserId(userId, 12)} />
           <InfoLine label="用户名" value={displayName} hint="用户名半年内仅支持修改一次 请谨慎修改哦" action="用户名修改" />
           <InfoLine label="手机号" value={maskedAccount.includes("@") ? "未绑定手机号" : maskedAccount} action="更改绑定" />
-          <InfoLine label="邮箱" value={email || "当前未绑定，绑定后当你手机号不可用时，可通过邮箱验证更换手机号或者找回密码"} action={email ? "更改邮箱" : "绑定邮箱"} />
+          <InfoLine label="邮箱" value={email || "未绑定"} action={email ? "更改邮箱" : "绑定邮箱"} />
           <InfoLine label="密码" value="请设置密码，可通过登录账号+密码进行登录" action="设置密码" />
         </div>
         <div className="mt-6 grid gap-3 sm:grid-cols-4">
@@ -1060,7 +1060,7 @@ function InfoLine({ label, value, hint, action }: { label: string; value: string
 function SmallMetric({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-md border border-slate-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-stone-900">
-      <Statistic title={label} value={value} styles={{ content: { fontSize: 18, fontWeight: 600 } }} />
+      <Statistic title={label} value={value} styles={{ content: { fontSize: 18, fontWeight: 600, fontVariantNumeric: "tabular-nums" } }} />
     </div>
   );
 }
