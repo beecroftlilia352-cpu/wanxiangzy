@@ -423,29 +423,35 @@ export function AccountCenterClient() {
         algorithm: uiTheme.compactAlgorithm,
         token: {
           colorPrimary: "#5b7cff",
-          colorInfo: "#1677ff",
-          colorSuccess: "#0f8a5f",
-          colorWarning: "#b56a00",
-          colorError: "#e5484d",
+          colorInfo: "#5b7cff",
+          colorSuccess: "#22885f",
+          colorWarning: "#a66a00",
+          colorError: "#d13b35",
           colorTextBase: "#111827",
-          colorBgLayout: "#ffffff",
-          borderRadius: 4,
-          borderRadiusLG: 6,
-          fontFamily: 'Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif',
+          colorBgLayout: "transparent",
+          borderRadius: 10,
+          borderRadiusLG: 16,
+          borderRadiusSM: 8,
+          fontFamily: 'var(--codex-font)',
           fontSize: 14,
           motion: false,
+          controlHeight: 36,
+          colorBgContainer: "rgba(255,255,255,0.86)",
+          colorBorder: "var(--codex-border)",
+          colorBorderSecondary: "var(--codex-border)",
+          colorSplit: "rgba(17,24,39,0.08)",
         },
         components: {
-          Button: { borderRadius: 18, controlHeight: 34 },
-          Card: { borderRadiusLG: 4, headerBg: "#ffffff" },
-          DatePicker: { borderRadius: 4, controlHeight: 40 },
-          Input: { borderRadius: 4, controlHeight: 40 },
-          Select: { borderRadius: 4, controlHeight: 40 },
-          Table: { headerBg: "#fafafa", rowHoverBg: "#fafafa", cellPaddingBlockSM: 13, cellPaddingInlineSM: 12 },
+          Button: { borderRadius: 12, controlHeight: 36, primaryShadow: "0 1px 2px rgba(5,5,5,0.08)" },
+          Card: { borderRadiusLG: 16, headerBg: "transparent" },
+          DatePicker: { borderRadius: 10, controlHeight: 36 },
+          Input: { borderRadius: 10, controlHeight: 36 },
+          Select: { borderRadius: 10, controlHeight: 36 },
+          Table: { headerBg: "rgba(91,124,255,0.05)", rowHoverBg: "rgba(91,124,255,0.05)", cellPaddingBlockSM: 13, cellPaddingInlineSM: 12 },
         },
       }}
     >
-      <main className="min-h-screen bg-white px-4 py-6 text-slate-950 sm:px-6 lg:px-10">
+      <main className="min-h-screen px-4 py-6 text-slate-950 sm:px-6 lg:px-10" style={{ backgroundImage: "var(--codex-gradient-page)", backgroundAttachment: "fixed" }}>
         <div className="mx-auto grid w-full max-w-[1360px] gap-6 lg:grid-cols-[206px_minmax(0,1fr)] lg:items-start">
           <AccountSidebar activeTab={activeTab} onSelect={selectTab} />
 
@@ -544,7 +550,7 @@ export function AccountCenterClient() {
 function AccountSidebar({ activeTab, onSelect }: { activeTab: AccountTab; onSelect: (tab: AccountTab) => void }) {
   return (
     <aside className="hidden w-[206px] shrink-0 lg:block">
-      <nav className="sticky top-24 min-h-[720px] w-[206px] bg-[#f5f7ff] px-4 py-5" aria-label="个人中心模块">
+      <nav className="sticky top-24 min-h-[720px] w-[206px] rounded-2xl border border-[var(--codex-border)] bg-[var(--codex-surface-soft)] px-4 py-5 backdrop-blur-xl" aria-label="个人中心模块">
         {accountGroups.map((group) => {
           const Icon = group.icon;
           const expanded = group.children.some((item) => item.key === activeTab);
@@ -557,7 +563,7 @@ function AccountSidebar({ activeTab, onSelect }: { activeTab: AccountTab; onSele
                 className={cn(
                   "flex h-10 w-full items-center gap-3 rounded-md px-3 text-left text-[15px] font-medium transition-colors",
                   expanded
-                    ? "bg-white text-slate-950 shadow-sm ring-1 ring-[#d8e0ff]"
+                    ? "bg-white/90 text-slate-950 shadow-sm ring-1 ring-[rgba(91,124,255,0.28)]"
                     : "text-slate-500 hover:bg-white/70 hover:text-slate-900",
                 )}
                 aria-current={expanded && single ? "page" : undefined}
