@@ -1,5 +1,5 @@
 import { supportsVideoMotionControl, type VideoProviderName } from "@/lib/api/video-catalog";
-import { generateNewApiFirstLastFrame, generateNewApiImageToVideo } from "@/lib/api/newapi-video";
+import { generateNewApiFirstLastFrame, generateNewApiImageToVideo, generateNewApiMotionControl } from "@/lib/api/newapi-video";
 import { getEnvVideoProviderOverrides } from "@/lib/api/video-provider-registry";
 import type {
   NewApiVideoProviderConfig,
@@ -58,7 +58,7 @@ export async function generateVideoMotionControl(input: VideoMotionControlInput)
   if (!supportsVideoMotionControl(config.provider)) {
     throw new Error("当前视频供应商暂不支持参考视频动作模仿，请使用图生视频或首尾帧功能。");
   }
-  throw new Error("当前视频供应商暂不支持参考视频动作模仿。");
+  return generateNewApiMotionControl(input, toNewApiProvider(config));
 }
 
 export async function generateVideoFirstLastFrame(input: VideoFirstLastFrameInput): Promise<VideoGenerationResult> {

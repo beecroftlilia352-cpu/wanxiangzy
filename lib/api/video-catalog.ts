@@ -255,10 +255,10 @@ function getVideoAudioCreditCost(audioMode?: AiVideoAudioMode): number {
   return 0;
 }
 
-export function supportsVideoMotionControl(_provider: VideoProviderName): boolean {
-  // new.bi's openai-video gateway drops `reference_video` for both MiniMax H3
-  // and Seedance, so motion-from-reference-video is not available.
-  return false;
+export function supportsVideoMotionControl(provider: VideoProviderName): boolean {
+  // Seedance 2.0 natively supports motion from a reference video;
+  // MiniMax H3 does not.
+  return provider === "seedance";
 }
 
 export function supportsVideoFirstLastFrame(_provider: VideoProviderName): boolean {

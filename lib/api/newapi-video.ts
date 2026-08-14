@@ -15,6 +15,7 @@ import type {
   VideoFirstLastFrameInput,
   VideoGenerationResult,
   VideoImageToVideoInput,
+  VideoMotionControlInput,
   VideoTaskProgress,
 } from "@/lib/api/video-types";
 
@@ -39,6 +40,24 @@ export async function generateNewApiImageToVideo(
     model,
     prompt,
     image: input.imageUrl,
+    duration: clampVideoDuration(provider.provider, input.duration),
+  });
+
+  const completed = await runTask(provider, body, input.onProgress);
+  return toVideoResult(completed, prompt, body);
+}
+
+export async function generateNewApiMotionControl(
+  input: VideoMotionControlInput,
+  provider: NewApiVideoProviderConfig,
+): Promise<VideoGenerationResult> {
+  const model = resolveUpstreamVideoModel(provider.provider, input.modelMode, input.resolution);
+  const prompt = buildPrompt(buildMotionControlPrompt(input.prompt || "", input.aspectRatio), input.audioMode, input.audioPrompt);
+  const body = buildTaskBody({
+    model,
+    prompt,
+    image: input.modelImageUrl,
+    referenceVideo: input.referenceVideoUrl,
     duration: clampVideoDuration(provider.provider, input.duration),
   });
 
@@ -83,6 +102,7 @@ function buildTaskBody(params: {
   image?: string;
   firstFrameImage?: string;
   lastFrameImage?: string;
+  referenceVideo?: string;
   duration: number;
 }) {
   const body: Record<string, unknown> = {
@@ -93,6 +113,7 @@ function buildTaskBody(params: {
   if (params.image) body.image = params.image;
   if (params.firstFrameImage) body.first_frame_image = params.firstFrameImage;
   if (params.lastFrameImage) body.last_frame_image = params.lastFrameImage;
+  if (params.referenceVideo) body.reference_video = params.referenceVideo;
   return body;
 }
 
@@ -115,6 +136,16 @@ function buildImageToVideoPrompt(prompt: string, aspectRatio: AiVideoAspectRatio
     trimmed,
     "以输入首帧图片作为人物、服装和画面风格参考，保持主体身份、服装结构、颜色、材质和比例一致。",
     "生成真实商业摄影风格的短视频，镜头稳定，动作自然，不添加字幕、水印或无关人物。",
+    buildAspectRatioPrompt(aspectRatio),
+  ].filter(Boolean).join("\n");
+}
+
+function buildMotionControlPrompt(prompt: string, aspectRatio: AiVideoAspectRatio) {
+  const trimmed = prompt.trim();
+  return [
+    trimmed || "模仿参考视频里的动作和镜头运动，生成自然衔接的短视频。",
+    "参考视频只提供动作和运镜参考，不要复制视频里的场景、人物身份或服装；输出画面以输入图片中的人物、服装和场景为准。",
+    "保持人物身份、服装结构、颜色、材质和画面主体一致，动作幅度与参考视频一致，使用稳定商业摄影运镜，不添加字幕、水印、额外人物或无关物体。",
     buildAspectRatioPrompt(aspectRatio),
   ].filter(Boolean).join("\n");
 }
