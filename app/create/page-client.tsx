@@ -2527,7 +2527,7 @@ export default function CreatePage() {
           <StudioSection
             title="上传服装"
             description={currentUploadRule.uploadSpecText}
-            badge={isUploading ? <Loader2 className="h-3.5 w-3.5 animate-spin text-violet-500" /> : null}
+            badge={isUploading ? <Loader2 className="h-3.5 w-3.5 animate-spin text-purple-500" /> : null}
             className="studio-clothing-upload-section studio-stable-upload-boundary relative rounded-xl transition-[box-shadow]"
           >
             <input
@@ -2674,7 +2674,7 @@ export default function CreatePage() {
                   影响人物性别线和年龄比例，默认女装成人。
                 </p>
               </div>
-              <span className="shrink-0 rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-medium text-violet-500 dark:bg-[rgba(167,139,250,0.18)] dark:text-purple-300">
+              <span className="shrink-0 rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-medium text-purple-500 dark:bg-[rgba(167,139,250,0.18)] dark:text-purple-300">
                 影响比例
               </span>
             </div>
@@ -2786,7 +2786,7 @@ export default function CreatePage() {
                         <p className="mt-2 truncate text-[10px] font-semibold text-[var(--codex-accent)]">已识别：{clothingAnalysisLabel}</p>
                       )}
                       {(isAnalyzingClothing || isLoadingSystemReferences) && (
-                        <p className="mt-2 inline-flex items-center gap-1 text-[10px] font-medium text-violet-500">
+                        <p className="mt-2 inline-flex items-center gap-1 text-[10px] font-medium text-purple-500">
                           <Loader2 className="h-3 w-3 animate-spin" />
                           {isAnalyzingClothing ? "识别服装中" : "推荐场景中"}
                         </p>

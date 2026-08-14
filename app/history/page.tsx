@@ -485,44 +485,35 @@ export default function HistoryPage() {
   return (
     <div className="studio-workbench history-workbench min-h-[calc(100dvh-64px)] px-4 py-6 sm:py-8">
       <HistorySkeletonStyles />
-      <div className="mx-auto mb-6 flex max-w-7xl flex-col gap-4 rounded-[28px] border border-white/80 bg-white/72 p-5 shadow-[0_18px_60px_rgba(15,23,42,0.08)] backdrop-blur-2xl sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-[11px] font-black text-slate-600">
-            <ImageIcon className="h-3.5 w-3.5" />
-            作品库
-          </p>
-          <h1 className="mt-3 text-3xl font-black text-slate-950">作品资产</h1>
-          <p className="mt-2 text-sm leading-6 text-slate-500">当前显示 {filteredRows.length} 条作品。{filterState.activeDescription} 可查看大图、下载结果并套用完整参数。</p>
+      <div className="mx-auto mb-5 flex max-w-7xl flex-col gap-4 rounded-2xl border border-[var(--codex-border)] bg-[var(--codex-surface-strong)] p-4 shadow-[0_14px_44px_rgba(15,23,42,0.06)] backdrop-blur-xl">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="text-xl font-black text-[var(--codex-ink)]">作品库</h1>
+            <p className="mt-0.5 text-xs text-[var(--codex-faint)]">当前显示 {filteredRows.length} 条作品{filterState.activeDescription ? ` · ${filterState.activeDescription}` : ""}</p>
+          </div>
+          <button type="button" onClick={openCreate} className="inline-flex h-9 items-center gap-1.5 rounded-full bg-[var(--codex-accent)] px-4 text-xs font-black text-white shadow-[0_8px_20px_rgba(91,124,255,0.3)] transition hover:opacity-90">
+            <Plus className="h-4 w-4" />
+            新创作
+          </button>
         </div>
-        <button type="button" onClick={openCreate} className="gradient-brand inline-flex h-11 w-full items-center justify-center gap-2 rounded-full px-5 text-sm font-black text-white shadow-xl shadow-slate-300/40 sm:w-auto">
-          <Plus className="h-4 w-4" />
-          新创作
-        </button>
-      </div>
-
-      <div className="mx-auto mb-4 max-w-7xl rounded-[16px] border border-white/80 bg-white/68 p-3 shadow-[0_14px_44px_rgba(15,23,42,0.06)] backdrop-blur-2xl sm:p-4">
-        <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-start xl:gap-5">
+        <div className="flex flex-wrap items-center gap-3 border-t border-[var(--codex-border)] pt-3">
           <HistoryFilterTabs
-            label="作品分类"
+            label="分类"
             options={MODULE_FILTERS}
             value={moduleFilter}
             onChange={handleModuleFilterChange}
             tone="brand"
           />
           <HistoryFilterTabs
-            label="任务状态"
+            label="状态"
             options={STATUS_FILTERS}
             value={statusFilter}
             onChange={handleStatusFilterChange}
           />
         </div>
-        <div className="mt-3 flex flex-col gap-2 border-t border-white/70 pt-3 text-xs leading-5 text-slate-500 sm:flex-row sm:items-center sm:justify-between">
-          <span className="font-bold text-slate-700">{filterState.summary}</span>
-          <span>打开详情会保留当前筛选；点击套用会带 apply 参数回到对应创作模块。</span>
-        </div>
       </div>
 
-      <div className="mx-auto grid max-w-7xl grid-cols-1 gap-4 lg:grid-cols-2">
+      <div className="mx-auto grid max-w-7xl grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
         {filteredRows.map((g: HistoryRow) => {
           const payload = getPayload(g);
           const resultUrls = g.result_urls || [];
@@ -535,135 +526,79 @@ export default function HistoryPage() {
             errorMessage: g.error_message,
             hasApplyParams: Boolean(payload?.kind),
           });
-          const inputSummary = getHistoryInputSummary(payload);
-          const outputSummary = getHistoryOutputSummary(g, payload);
           const reuseLabel = failureCopy?.applyLabel || getHistoryReuseLabel(payload);
 
           return (
-            <article key={g.id} className="group overflow-hidden rounded-[16px] border border-white/80 bg-white/78 shadow-[0_18px_54px_rgba(15,23,42,0.08)] backdrop-blur-xl transition hover:-translate-y-0.5 hover:shadow-[0_24px_76px_rgba(15,23,42,0.12)]">
-              <div className="flex flex-col sm:flex-row">
-                <button
-                  type="button"
-                  onClick={() => openDetail(g)}
-                  aria-label={`查看${moduleLabel}详情`}
-                  className="relative aspect-[4/5] overflow-hidden bg-slate-100 sm:w-44 sm:flex-shrink-0 sm:aspect-[3/4] md:w-52"
-                >
-                  {coverUrl ? (
-                    <HistoryMediaPreview url={coverUrl} variant="card" className="transition duration-300 group-hover:scale-[1.03]" alt="历史作品封面" />
-                  ) : (
-                    <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-gray-300">
-                      <ImageIcon className="h-9 w-9" />
-                      <span className="text-xs text-gray-400">暂无结果</span>
-                    </div>
-                  )}
-                  <span className={`absolute left-3 top-3 rounded-full px-2.5 py-1 text-[11px] font-medium ${getStatusClasses(g.status)}`}>
-                    {status}
+            <article key={g.id} className="group relative overflow-hidden rounded-2xl border border-[var(--codex-border)] bg-[var(--codex-surface-strong)] shadow-[0_10px_30px_rgba(15,23,42,0.06)] transition-[transform,box-shadow] duration-150 hover:-translate-y-1 hover:shadow-[0_20px_52px_rgba(15,23,42,0.12)]">
+              <button
+                type="button"
+                onClick={() => openDetail(g)}
+                aria-label={`查看${moduleLabel}详情`}
+                className="relative aspect-[3/4] w-full overflow-hidden bg-slate-100"
+              >
+                {coverUrl ? (
+                  <HistoryMediaPreview url={coverUrl} variant="card" className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.04]" alt="历史作品封面" />
+                ) : (
+                  <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-gray-300">
+                    <ImageIcon className="h-9 w-9" />
+                    <span className="text-xs text-gray-400">暂无结果</span>
+                  </div>
+                )}
+                <span className={`absolute left-2 top-2 rounded-full px-2 py-0.5 text-[10px] font-bold backdrop-blur ${getStatusClasses(g.status)}`}>
+                  {status}
+                </span>
+                {resultUrls.length > 1 && (
+                  <span className="absolute right-2 top-2 rounded-full bg-black/45 px-2 py-0.5 text-[10px] font-bold text-white backdrop-blur">
+                    {resultUrls.length} 张
                   </span>
-                  {resultUrls.length > 1 && (
-                    <span className="absolute bottom-3 left-3 rounded-full border border-white/70 bg-white/80 px-2.5 py-1 text-[11px] font-medium text-gray-700 shadow-sm backdrop-blur">
-                      {resultUrls.length} 个结果
-                    </span>
-                  )}
-                </button>
-
-                <div className="flex min-w-0 flex-1 flex-col p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <h2 className="truncate text-base font-semibold text-gray-950">{moduleLabel}</h2>
-                      <p className="mt-0.5 text-xs text-gray-400">{fmt(g.created_at)}</p>
-                    </div>
-                    <span className="inline-flex flex-shrink-0 items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700">
-                      <Coins className="h-3.5 w-3.5" />
-                      {credits}
-                    </span>
-                  </div>
-
-                  <div className="mt-4 grid grid-cols-3 gap-3 text-xs">
-                    <div className="min-w-0">
-                      <p className="text-[10px] text-gray-400">模型</p>
-                      <p className="mt-0.5 truncate font-medium text-gray-800">{g.ai_model || payload?.aiModel || "-"}</p>
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-[10px] text-gray-400">尺寸</p>
-                      <p className="mt-0.5 truncate font-medium text-gray-800">{g.image_size || getPayloadDisplaySize(payload) || "-"}</p>
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-[10px] text-gray-400">结果</p>
-                      <p className="mt-0.5 truncate font-medium text-gray-800">{resultUrls.length || 0} 个</p>
-                    </div>
-                  </div>
-
-                  <div className="mt-3 grid gap-2 text-xs">
-                    <div className="rounded-lg border border-slate-100 bg-slate-50/70 px-3 py-2">
-                      <p className="text-[10px] font-bold text-slate-400">输入摘要</p>
-                      <p className="mt-0.5 line-clamp-2 font-medium leading-5 text-slate-700">{inputSummary}</p>
-                    </div>
-                    <div className="rounded-lg border border-slate-100 bg-white/78 px-3 py-2">
-                      <p className="text-[10px] font-bold text-slate-400">输出摘要</p>
-                      <p className="mt-0.5 line-clamp-2 font-medium leading-5 text-slate-700">{outputSummary}</p>
-                    </div>
-                  </div>
-
-                  {resultUrls.length > 1 && (
-                    <div className="mt-4 flex gap-1.5 overflow-x-auto pb-1">
-                      {resultUrls.slice(0, 5).map((url, index) => (
-                        <button
-                          type="button"
-                          key={`${url}-${index}`}
-                          onClick={() => openDetail(g, index)}
-                          aria-label={`查看第 ${index + 1} 张结果`}
-                          className="h-12 w-12 flex-shrink-0 overflow-hidden rounded-md border bg-gray-50"
-                        >
-                          <HistoryMediaPreview url={url} variant="thumb" alt={`结果 ${index + 1}`} />
-                        </button>
-                      ))}
-                      {resultUrls.length > 5 && (
-                        <button
-                          type="button"
-                          onClick={() => openDetail(g, 5)}
-                          aria-label={`查看剩余 ${resultUrls.length - 5} 张结果`}
-                          className="h-12 w-12 flex-shrink-0 rounded-md border bg-gray-50 text-[10px] font-medium text-gray-500"
-                        >
-                          +{resultUrls.length - 5}
-                        </button>
-                      )}
-                    </div>
-                  )}
-
-                  {failureCopy ? (
-                    <HistoryFailureNotice copy={failureCopy} />
-                  ) : g.error_message && (
-                    <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">{g.error_message}</p>
-                  )}
-
-                  <div className="mt-auto flex flex-wrap items-center gap-2 pt-4">
-                    <button
-                      onClick={() => openDetail(g)}
-                      disabled={detailLoading}
-                      className="gradient-brand inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold text-white shadow-lg shadow-slate-200 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      <Eye className="h-3.5 w-3.5" />
-                      查看作品
-                    </button>
-                    <button
-                      onClick={() => applyHistoryRow(g)}
-                      disabled={detailLoading}
-                      className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      <RotateCcw className="h-3.5 w-3.5" />
-                      {reuseLabel}
-                    </button>
-                    <button
-                      onClick={() => coverUrl && downloadHistoryResult(g, coverUrl, 0)}
-                      disabled={!coverUrl}
-                      className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white/70 px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      <Download className="h-3.5 w-3.5" />
-                      下载
-                    </button>
-                  </div>
+                )}
+                {/* hover 操作浮层 */}
+                <span className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-1.5 bg-gradient-to-t from-black/55 to-transparent p-3 pt-8 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+                  <span
+                    role="button"
+                    tabIndex={-1}
+                    onClick={(event) => { event.stopPropagation(); openDetail(g); }}
+                    className="inline-flex h-8 items-center gap-1 rounded-full bg-white/92 px-3 text-[11px] font-bold text-slate-800 shadow-sm backdrop-blur transition hover:bg-white"
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                    查看
+                  </span>
+                  <span
+                    role="button"
+                    tabIndex={-1}
+                    onClick={(event) => { event.stopPropagation(); applyHistoryRow(g); }}
+                    className="inline-flex h-8 items-center gap-1 rounded-full bg-white/92 px-3 text-[11px] font-bold text-slate-800 shadow-sm backdrop-blur transition hover:bg-white"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" />
+                    {reuseLabel}
+                  </span>
+                  <span
+                    role="button"
+                    tabIndex={-1}
+                    onClick={(event) => { event.stopPropagation(); if (coverUrl) downloadHistoryResult(g, coverUrl, 0); }}
+                    className={`inline-flex h-8 items-center gap-1 rounded-full bg-white/92 px-3 text-[11px] font-bold text-slate-800 shadow-sm backdrop-blur transition hover:bg-white ${!coverUrl ? "cursor-not-allowed opacity-50" : ""}`}
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    下载
+                  </span>
+                </span>
+              </button>
+              <div className="flex items-center justify-between gap-2 px-3 py-2.5">
+                <div className="min-w-0">
+                  <p className="truncate text-[13px] font-bold text-[var(--codex-ink)]">{moduleLabel}</p>
+                  <p className="mt-0.5 truncate text-[11px] text-[var(--codex-faint)]">{fmt(g.created_at)} · {g.ai_model || payload?.aiModel || ""}</p>
                 </div>
+                <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
+                  <Coins className="h-3 w-3" />
+                  {credits}
+                </span>
               </div>
+
+              {failureCopy ? (
+                <HistoryFailureNotice copy={failureCopy} />
+              ) : g.error_message && (
+                <p className="mx-3 mb-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">{g.error_message}</p>
+              )}
             </article>
           );
         })}
@@ -969,37 +904,14 @@ function HistoryLoadingSkeleton() {
 
 function HistoryCardSkeleton() {
   return (
-    <article className="history-skeleton-card overflow-hidden rounded-2xl border border-white/80 bg-white/85 shadow-sm">
-      <div className="flex flex-col sm:flex-row">
-        <SkeletonBlock className="aspect-[4/5] rounded-none sm:w-44 sm:flex-shrink-0 sm:aspect-[3/4] md:w-52" />
-        <div className="flex flex-1 flex-col p-4">
-          <div className="flex items-start justify-between gap-3">
-            <div className="space-y-2">
-              <SkeletonBlock className="h-5 w-24 rounded-full" />
-              <SkeletonBlock className="h-3 w-20 rounded-full" />
-            </div>
-            <SkeletonBlock className="h-7 w-14 rounded-full" />
-          </div>
-          <div className="mt-5 grid grid-cols-3 gap-3">
-            <div className="space-y-2">
-              <SkeletonBlock className="h-3 w-8 rounded-full" />
-              <SkeletonBlock className="h-4 w-16 rounded-full" />
-            </div>
-            <div className="space-y-2">
-              <SkeletonBlock className="h-3 w-8 rounded-full" />
-              <SkeletonBlock className="h-4 w-12 rounded-full" />
-            </div>
-            <div className="space-y-2">
-              <SkeletonBlock className="h-3 w-8 rounded-full" />
-              <SkeletonBlock className="h-4 w-10 rounded-full" />
-            </div>
-          </div>
-          <div className="mt-5 flex gap-2">
-            <SkeletonBlock className="h-8 w-24 rounded-full" />
-            <SkeletonBlock className="h-8 w-16 rounded-full" />
-            <SkeletonBlock className="h-8 w-16 rounded-full" />
-          </div>
+    <article className="history-skeleton-card overflow-hidden rounded-2xl border border-[var(--codex-border)] bg-[var(--codex-surface-strong)] shadow-sm">
+      <SkeletonBlock className="aspect-[3/4] rounded-none" />
+      <div className="flex items-center justify-between gap-2 px-3 py-3">
+        <div className="min-w-0 flex-1 space-y-2">
+          <SkeletonBlock className="h-3.5 w-24 rounded-full" />
+          <SkeletonBlock className="h-2.5 w-32 rounded-full" />
         </div>
+        <SkeletonBlock className="h-5 w-12 rounded-full" />
       </div>
     </article>
   );
@@ -1307,65 +1219,6 @@ function getRowPayload(row: HistoryRow) {
   return undefined;
 }
 
-function getHistoryInputSummary(payload?: HistoryJobPayload) {
-  if (!payload) return "打开详情后可加载完整输入参数";
-
-  if (payload.kind === "tryon") {
-    const mode = payload.clothingMode === "multi" ? "多件上身" : "单件上身";
-    const modelFace = payload.modelFaceUrl ? "模特脸" : "无模特脸";
-    const referenceCount = getTryonReferenceUrls(payload).length;
-    const reference = referenceCount ? `${referenceCount} 张参考图` : "无参考图";
-    return `${mode} · ${payload.clothingUrls.length} 张服装 · ${modelFace} · ${reference}`;
-  }
-  if (payload.kind === "grass") {
-    const sceneControl = payload.sceneMode === "custom_prompt"
-      ? "提示词场景"
-      : formatGrassSceneBackgroundMode(payload.sceneBackgroundMode);
-    return `服装图 · ${formatGrassSceneMode(payload.sceneMode)} · ${payload.changeModel ? "改变模特" : "保持模特"} · ${sceneControl}`;
-  }
-  if (payload.kind === "productSet") {
-    return `${payload.productImageUrls.length} 张商品图 · ${payload.mode === "custom" ? "自定义套图" : "智能套图"}`;
-  }
-  if (payload.kind === "productRetouch") {
-    const sourceCount = Math.ceil(payload.expectedCount / Math.max(1, payload.variantsPerSource));
-    return `${sourceCount} 张商品原图 · 每张 ${payload.variantsPerSource} 个结果 · ${getProductRetouchModeLabel(payload.mode)}`;
-  }
-  if (payload.kind === "modelBackground") {
-    const sourceCount = normalizeModelBackgroundSourceUrls(payload.sourceUrls, payload.sourceUrl).length || 1;
-    return `${sourceCount} 张原图 · ${MODEL_BACKGROUND_MODE_LABELS[payload.mode]} · ${BACKGROUND_SOURCE_LABELS[payload.backgroundSource]}`;
-  }
-  if (payload.kind === "materialEnhancement") {
-    return `原图 + 高清服装图 · ${payload.garmentType || "服装"} · ${getMaterialEnhancementLevelLabel(payload.enhancementLevel)}`;
-  }
-  if (payload.kind === "generalImage" || payload.kind === "outfitFusion") {
-    return `${payload.kind === "outfitFusion" ? "搭配融图" : payload.mode === "text-to-image" ? "文生图" : "图生图"} · ${payload.referenceUrls.length} 张参考图`;
-  }
-  if (payload.kind === "model") {
-    return `${payload.gender === "male" ? "男模" : "女模"} · ${payload.referenceUrls.length} 张人物参考 · ${getModelShootStyleLabel(payload.modelStyle)}`;
-  }
-  if (payload.kind === "pose") {
-    const referenceCount = getPoseReferenceUrls(payload).length;
-    return referenceCount
-      ? `主图 · 参考图模式 · ${referenceCount} 张姿势参考`
-      : `主图 · ${getPoseSeriesStyleLabel(payload.poseStyle)}`;
-  }
-  if (payload.kind === "videoImageToVideo") {
-    return `输入图 · ${payload.templateTitle || "自定义动作"} · ${getVideoModeLabel(payload.modelMode)} · ${payload.resolution} · ${payload.aspectRatio || "9:16"} · ${payload.duration || 5}秒 · ${getVideoAudioLabel(payload)}`;
-  }
-  if (payload.kind === "videoMotion") {
-    return `模特图 + 参考视频 · ${payload.templateTitle || "动作模仿"} · ${getVideoModeLabel(payload.modelMode)} · ${payload.resolution} · ${payload.aspectRatio || "9:16"} · ${payload.duration || 5}秒 · ${getVideoAudioLabel(payload)}`;
-  }
-  if (payload.kind === "videoFirstLastFrame") {
-    return `首帧 + 尾帧 · ${getVideoModeLabel(payload.modelMode)} · ${payload.resolution} · ${payload.aspectRatio || "9:16"} · ${payload.duration || 5}秒 · ${getVideoAudioLabel(payload)}`;
-  }
-  if (payload.kind === "garment3d") {
-    return `服装图 · ${payload.outputMode === "reference" ? "参考图模式" : "提示词模式"} · ${getGarment3dDisplayStyleLabel(payload.displayStyle)}`;
-  }
-  if (payload.kind === "faceSwap") {
-    return `原始模特图 · 目标脸图 · ${getFaceSwapModeLabel(payload.faceSwapMode)}`;
-  }
-  return "已保存输入参数";
-}
 
 function getTryonReferenceUrls(payload: Extract<HistoryJobPayload, { kind: "tryon" }>) {
   const seen = new Set<string>();
@@ -1404,14 +1257,6 @@ function uniqueUrlList(value: unknown) {
   return urls;
 }
 
-function getHistoryOutputSummary(row: HistoryRow, payload?: HistoryJobPayload) {
-  const resultCount = row.result_urls?.length || 0;
-  const model = payload?.aiModel || row.ai_model || "模型未记录";
-  const size = getPayloadDisplaySize(payload) || row.image_size || "尺寸未记录";
-  const status = formatStatus(row.status);
-  const unit = payload?.kind === "videoImageToVideo" || payload?.kind === "videoMotion" || payload?.kind === "videoFirstLastFrame" ? "个视频" : "张结果";
-  return `${status} · ${resultCount} ${unit} · ${model} · ${size}`;
-}
 
 function getPayloadDisplaySize(payload?: HistoryJobPayload) {
   if (!payload) return "";

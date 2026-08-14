@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useUnsavedChangesGuard } from "@/hooks/use-unsaved-changes-guard";
 import { useRouter } from "next/navigation";
 import {
   Check,
@@ -161,6 +162,9 @@ export default function FaceSwapPage() {
   const [genCount, setGenCount] = useState(1);
   const [prompt, setPrompt] = useState("");
   const [textureEnhance, setTextureEnhance] = useState(DEFAULT_FACE_SWAP_TEXTURE_ENHANCE);
+
+  // 未保存输入离开拦截：有原图/脸图/提示词时提醒
+  const { unsavedDialog } = useUnsavedChangesGuard(Boolean(sourceUrls.length || faceUrl || prompt.trim()));
   const [faceSwapMode, setFaceSwapMode] = useState<FaceSwapMode>(DEFAULT_FACE_SWAP_MODE);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [genderFilter, setGenderFilter] = useState<GenderFilter>("female");
@@ -1104,6 +1108,7 @@ export default function FaceSwapPage() {
         onClose={closeLightbox}
       />
       {confirmDialog}
+      {unsavedDialog}
     </div>
   );
 }

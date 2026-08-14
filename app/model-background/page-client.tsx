@@ -900,7 +900,7 @@ export default function ModelBackgroundPage() {
                     </div>
                   ) : (
                     <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-sm">
-                      <Images className="h-7 w-7 text-violet-500" />
+                      <Images className="h-7 w-7 text-purple-500" />
                     </div>
                   )}
                   <span className="text-sm font-semibold text-slate-800">{backgroundReferenceUrl ? "更换背景参考图" : "上传背景参考图"}</span>

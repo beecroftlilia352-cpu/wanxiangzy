@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useUnsavedChangesGuard } from "@/hooks/use-unsaved-changes-guard";
 import { useRouter } from "next/navigation";
 import {
   Images,
@@ -105,6 +106,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
   const [mode, setMode] = useState<GeneralImageMode>(initialMode);
   const [prompt, setPrompt] = useState("");
   const [referenceImages, setReferenceImages] = useState<ReferenceImage[]>([]);
+
   const {
     authChecked,
     isAuthenticated,
@@ -128,6 +130,8 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const [showImagePromptModal, setShowImagePromptModal] = useState(false);
   const [imagePromptImage, setImagePromptImage] = useState<ImagePromptSource | null>(null);
+  // 未保存输入离开拦截：有参考图/提示词/图片时提醒
+  const { unsavedDialog } = useUnsavedChangesGuard(Boolean(referenceImages.length || prompt.trim() || imagePromptImage?.url));
   const [imagePromptText, setImagePromptText] = useState("");
   const [isImagePromptUploading, setIsImagePromptUploading] = useState(false);
   const [isImagePromptGenerating, setIsImagePromptGenerating] = useState(false);
