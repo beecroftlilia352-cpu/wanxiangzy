@@ -181,12 +181,12 @@ describe("pose plan", () => {
   it("builds dynamic pose plans from angle counts", () => {
     const plan = buildFallbackPosePlan({
       poseStyle: "fashion_editorial",
-      angleCounts: { front: 2, side: 2, back: 1, detail: 1 },
+      angleCounts: { front: 2, side: 2, back: 1, detail: 1, garment: 1, seated: 1 },
     });
 
-    expect(plan.slots).toHaveLength(6);
-    expect(plan.angleCounts).toEqual({ front: 2, side: 2, back: 1, detail: 1 });
-    expect(plan.slots.map((slot) => slot.angle).sort()).toEqual(["back", "detail", "front", "front", "side", "side"]);
+    expect(plan.slots).toHaveLength(8);
+    expect(plan.angleCounts).toEqual({ front: 2, side: 2, back: 1, detail: 1, garment: 1, seated: 1 });
+    expect(plan.slots.map((slot) => slot.angle).sort()).toEqual(["back", "detail", "front", "front", "garment", "seated", "side", "side"]);
   });
 
   it("turns user custom poses into an edited pose plan", () => {

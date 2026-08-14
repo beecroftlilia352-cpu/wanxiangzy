@@ -39,8 +39,8 @@ describe("video catalog", () => {
     expect(getVideoCreditCost({ provider: "seedance", modelMode: "pro", resolution: "1080p", duration: 5 })).toBe(100);
   });
 
-  it("disables reference-video motion control for all providers", () => {
+  it("enables reference-video motion control for Seedance only", () => {
     expect(supportsVideoMotionControl("minimax")).toBe(false);
-    expect(supportsVideoMotionControl("seedance")).toBe(false);
+    expect(supportsVideoMotionControl("seedance")).toBe(true);
   });
 });
