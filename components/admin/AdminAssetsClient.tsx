@@ -1,4 +1,5 @@
 "use client";
+import { AdminPageHeader } from "@/components/admin/AdminPrimitives";
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
@@ -92,22 +93,20 @@ export function AdminAssetsClient({ assets, q, module }: AdminAssetsClientProps)
 
   return (
     <Space orientation="vertical" size={16} className="w-full">
-      <div className="admin-page-hero">
-        <div>
-          <Typography.Text className="admin-page-eyebrow">内容管理</Typography.Text>
-          <Typography.Title level={2} className="!mb-1 !mt-1">资产与作品</Typography.Title>
-          <Typography.Paragraph className="!mb-0 !text-[var(--admin-muted)]">
-            统一查看生成结果、输入图、预设参考图和商品套图收藏方案。
-          </Typography.Paragraph>
-        </div>
-        <Link
-          href="/admin/assets/lifecycle"
-          className="inline-flex h-9 items-center gap-2 rounded-md border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm font-semibold text-[var(--admin-fg)] shadow-sm transition-colors hover:border-[var(--admin-border-strong)] hover:text-[var(--admin-fg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-fg)] focus-visible:ring-offset-2"
-        >
-          <DatabaseOutlined aria-hidden="true" />
-          生命周期
-        </Link>
-      </div>
+      <AdminPageHeader
+        eyebrow="内容管理"
+        title="资产与作品"
+        description="统一查看生成结果、输入图、预设参考图和商品套图收藏方案。"
+        actions={
+          <Link
+            href="/admin/assets/lifecycle"
+            className="inline-flex h-9 items-center gap-2 rounded-md border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm font-semibold text-[var(--admin-fg)] shadow-sm transition-colors hover:border-[var(--admin-border-strong)] hover:text-[var(--admin-fg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-fg)] focus-visible:ring-offset-2"
+          >
+            <DatabaseOutlined aria-hidden="true" />
+            生命周期
+          </Link>
+        }
+      />
 
       {assets.warnings.length > 0 && <Alert type="warning" showIcon message="资产数据源提示" description={assets.warnings.slice(0, 3).join("；")} />}
 

@@ -21,7 +21,8 @@ type PageProps = {
 export default async function AdminCreditsPage({ searchParams }: PageProps) {
   const params = (await searchParams) || {};
   const q = getSearchParam(params.q);
-  const credits = await listAdminCreditLogs({ q, limit: q ? 100 : 60 });
+  const since = getSearchParam(params.since);
+  const credits = await listAdminCreditLogs({ q, limit: q ? 100 : 60, since: since || undefined });
 
   return (
     <div className="space-y-5">
@@ -64,19 +65,33 @@ export default async function AdminCreditsPage({ searchParams }: PageProps) {
         title="灵点流水"
         description="来自 credit_logs，按时间倒序。"
         actions={
-          <form action="/admin/credits" className="flex items-center gap-2">
+          <form action="/admin/credits" className="flex flex-wrap items-center gap-2">
             <div className="relative">
               <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--admin-faint)]" />
               <input
                 name="q"
                 defaultValue={q}
                 placeholder="搜索邮箱 / 原因 / 任务"
-                className="h-9 w-64 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] pl-8 pr-3 text-sm font-semibold outline-none focus:border-[var(--admin-border-strong)]"
+                className="h-9 w-56 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] pl-8 pr-3 text-sm font-semibold outline-none focus:border-[var(--admin-border-strong)]"
               />
             </div>
+            <label className="flex items-center gap-1.5 text-xs font-bold text-[var(--admin-muted)]">
+              起始日期
+              <input
+                name="since"
+                type="date"
+                defaultValue={since}
+                className="h-9 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-2 text-xs font-semibold text-[var(--admin-fg)] outline-none focus:border-[var(--admin-border-strong)]"
+              />
+            </label>
             <button className="h-9 rounded-lg bg-[var(--admin-fg)] px-3 text-xs font-black text-white" type="submit">
-              搜索
+              筛选
             </button>
+            {since ? (
+              <a href="/admin/credits" className="inline-flex h-9 items-center rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-xs font-bold text-[var(--admin-fg)] hover:bg-[var(--admin-surface-soft)]">
+                清除
+              </a>
+            ) : null}
           </form>
         }
       >

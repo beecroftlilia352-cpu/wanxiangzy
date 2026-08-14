@@ -1,4 +1,5 @@
 "use client";
+import { AdminPageHeader } from "@/components/admin/AdminPrimitives";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -118,27 +119,25 @@ export function AdminTasksClient({ tasks, q, status, module, stale, page, pageSi
           <button type="button" onClick={() => window.location.reload()} className="ml-3 underline hover:no-underline">重试</button>
         </div>
       ) : null}
-      <div className="admin-page-hero">
-        <div>
-          <Typography.Text className="admin-page-eyebrow">任务中心</Typography.Text>
-          <Typography.Title level={2} className="!mb-1 !mt-1">任务中心</Typography.Title>
-          <Typography.Paragraph className="!mb-0 !text-[var(--admin-muted)]">
-            统一查看生成任务和工作流任务；支持长时间未完成任务重新处理、结束任务和退还灵点。
-          </Typography.Paragraph>
-        </div>
-        <button
-          type="button"
-          onClick={() => {
-            if (window.confirm("立即运行一轮任务处理？这会启动一次排队任务的处理流程，通常用于任务卡住后的手动恢复。")) {
-              window.location.href = "/api/jobs/process-generations";
-            }
-          }}
-          className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-md border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm font-semibold text-[var(--admin-fg)] shadow-sm transition-colors hover:border-[var(--admin-border-strong)] hover:text-[var(--admin-fg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-fg)] focus-visible:ring-offset-2"
-        >
-          <ApiOutlined aria-hidden="true" />
-          立即处理排队任务
-        </button>
-      </div>
+      <AdminPageHeader
+        eyebrow="任务中心"
+        title="任务中心"
+        description="统一查看生成任务和工作流任务；支持长时间未完成任务重新处理、结束任务和退还灵点。"
+        actions={
+          <button
+            type="button"
+            onClick={() => {
+              if (window.confirm("立即运行一轮任务处理？这会启动一次排队任务的处理流程，通常用于任务卡住后的手动恢复。")) {
+                window.location.href = "/api/jobs/process-generations";
+              }
+            }}
+            className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-md border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm font-semibold text-[var(--admin-fg)] shadow-sm transition-colors hover:border-[var(--admin-border-strong)] hover:text-[var(--admin-fg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-fg)] focus-visible:ring-offset-2"
+          >
+            <ApiOutlined aria-hidden="true" />
+            立即处理排队任务
+          </button>
+        }
+      />
 
       {taskWarnings.length > 0 && <Alert type="warning" showIcon message="任务数据提示" description={taskWarnings.slice(0, 3).join("；")} />}
       {tasks.source === "fallback" && (

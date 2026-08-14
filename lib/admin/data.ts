@@ -857,16 +857,20 @@ export async function listAdminAuditLogs(args: {
   };
 }
 
-export async function listAdminCreditLogs(args: { q?: string; limit?: number } = {}): Promise<AdminCreditList> {
+export async function listAdminCreditLogs(args: { q?: string; limit?: number; since?: string } = {}): Promise<AdminCreditList> {
   const warnings: string[] = [];
   const limit = clampLimit(args.limit, 10, 200, 80);
   const q = (args.q || "").trim().toLowerCase();
+  let query = getAdminClient()
+    .from("credit_logs")
+    .select(CREDIT_LOG_COLUMNS, { count: "exact" })
+    .order("created_at", { ascending: false })
+    .limit(q ? Math.min(limit * 4, 300) : limit);
+  if (args.since && /^\d{4}-\d{2}-\d{2}$/.test(args.since)) {
+    query = query.gte("created_at", `${args.since}T00:00:00.000Z`);
+  }
   const result = await runQuery<Record<string, unknown>[]>(
-    getAdminClient()
-      .from("credit_logs")
-      .select(CREDIT_LOG_COLUMNS, { count: "exact" })
-      .order("created_at", { ascending: false })
-      .limit(q ? Math.min(limit * 4, 300) : limit),
+    query,
     "credit logs",
     warnings,
     true,
@@ -1182,6 +1186,14 @@ export async function listAdminOperationRequests(args: {
 
   let rows = result.data.map(mapOperationRequest);
   if (q) rows = rows.filter((row) => matchesOperationRequestSearch(row, q));
+  // 未指定状态时待审批置顶，避免被最新已处理的单子淹没
+  if (!status) {
+    rows = rows.sort((a, b) => {
+      if (a.status === "pending" && b.status !== "pending") return -1;
+      if (b.status === "pending" && a.status !== "pending") return 1;
+      return Date.parse(b.createdAt || "") - Date.parse(a.createdAt || "");
+    });
+  }
 
   return {
     rows: rows.slice(0, limit),
