@@ -3493,96 +3493,52 @@
   z-index: 0;
   overflow: hidden;
   border-radius: inherit;
-  background:
-    radial-gradient(circle at 50% 6%, rgba(255, 255, 255, 0.92) 0 16%, transparent 50%),
-    linear-gradient(180deg, #f6f8ff 0%, #e8eeff 46%, #d5dfff 100%);
+  background: radial-gradient(circle at 50% 0%, #1a2157 0%, #0b1234 52%, #060a22 100%);
   pointer-events: none;
 }
 
-/* Liquid dark blob churning at the card bottom (DeepSeek / Jimeng style). */
-.studio-liquid-bottom-loading {
+/* Full-card dark liquid aurora. framer-motion drives the blob drift so it runs on every route. */
+.studio-liquid-scene {
   position: absolute;
-  left: -16%;
-  right: -16%;
-  bottom: -12%;
-  height: 58%;
-  z-index: 0;
+  inset: -32%;
   overflow: hidden;
   pointer-events: none;
 }
 
-/* Gooey merge container: blur then contrast collapses soft blob edges into liquid. */
-.studio-liquid-goo {
+.studio-liquid-blob {
   position: absolute;
-  inset: 0;
-  filter: blur(14px) contrast(18);
-}
-
-.studio-liquid-dot {
-  position: absolute;
-  bottom: 0;
   border-radius: 50%;
-  background:
-    radial-gradient(circle at 34% 28%, #4a58d6 0%, #17256d 46%, #080f3a 84%);
+  filter: blur(46px) saturate(1.12);
+  mix-blend-mode: screen;
   will-change: transform;
 }
 
-.studio-liquid-dot-1 { left: 1%;  width: 54%; aspect-ratio: 1; animation: studio-liquid-rise-a 7.6s ease-in-out infinite; }
-.studio-liquid-dot-2 { left: 25%; width: 48%; aspect-ratio: 1; animation: studio-liquid-rise-b 9.4s ease-in-out infinite; }
-.studio-liquid-dot-3 { left: 50%; width: 54%; aspect-ratio: 1; animation: studio-liquid-rise-c 8.4s ease-in-out infinite; }
-.studio-liquid-dot-4 { left: 72%; width: 44%; aspect-ratio: 1; animation: studio-liquid-rise-d 10.6s ease-in-out infinite; }
-
-.studio-liquid-foam {
-  position: absolute;
-  left: -12%;
-  right: -12%;
-  bottom: 30%;
-  height: 16%;
-  border-radius: 50%;
-  background:
-    radial-gradient(ellipse at 22% 30%, rgba(216, 238, 255, 0.6) 0 9%, rgba(136, 196, 255, 0.26) 32%, transparent 66%),
-    radial-gradient(ellipse at 74% 20%, rgba(255, 255, 255, 0.52) 0 8%, transparent 60%);
-  filter: blur(8px);
-  mix-blend-mode: screen;
-  opacity: 0.7;
-  animation: studio-liquid-foam-tide 7.2s ease-in-out infinite;
+.studio-liquid-blob-a {
+  left: -12%; top: -14%; width: 72%; height: 72%;
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.88) 0%, rgba(59, 72, 200, 0.52) 44%, transparent 72%);
 }
 
-@keyframes studio-liquid-rise-a {
-  0%, 100% { transform: translate3d(0, 16%, 0) scale(1); }
-  50% { transform: translate3d(-8%, -30%, 0) scale(1.16); }
+.studio-liquid-blob-b {
+  right: -14%; top: -8%; width: 64%; height: 64%;
+  background: radial-gradient(circle, rgba(139, 92, 246, 0.82) 0%, rgba(67, 56, 202, 0.46) 44%, transparent 72%);
 }
 
-@keyframes studio-liquid-rise-b {
-  0%, 100% { transform: translate3d(0, 10%, 0) scale(1.02); }
-  50% { transform: translate3d(7%, -36%, 0) scale(1.24); }
+.studio-liquid-blob-c {
+  left: 8%; bottom: -18%; width: 68%; height: 68%;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.8) 0%, rgba(30, 64, 175, 0.5) 44%, transparent 72%);
 }
 
-@keyframes studio-liquid-rise-c {
-  0%, 100% { transform: translate3d(0, 18%, 0) scale(1.04); }
-  50% { transform: translate3d(-5%, -24%, 0) scale(1.12); }
+.studio-liquid-blob-d {
+  right: 4%; bottom: -22%; width: 60%; height: 60%;
+  background: radial-gradient(circle, rgba(79, 70, 229, 0.82) 0%, rgba(49, 46, 129, 0.5) 44%, transparent 72%);
 }
 
-@keyframes studio-liquid-rise-d {
-  0%, 100% { transform: translate3d(0, 8%, 0) scale(1); }
-  50% { transform: translate3d(9%, -32%, 0) scale(1.2); }
-}
-
-@keyframes studio-liquid-foam-tide {
-  0% { transform: translate3d(-4%, 0, 0) scale(1.02); opacity: 0.56; }
-  50% { transform: translate3d(4%, -3%, 0) scale(1.1); opacity: 0.86; }
-  100% { transform: translate3d(-4%, 0, 0) scale(1.02); opacity: 0.56; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .studio-liquid-dot,
-  .studio-liquid-foam {
-    animation: none !important;
-  }
+@keyframes studio-spin {
+  to { transform: rotate(360deg); }
 }
 
 .gen-card:has(.studio-home-hero-loading-bg) {
-  background: #e8e9f7 !important;
+  background: #0b1234 !important;
   animation: none !important;
 }
 
