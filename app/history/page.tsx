@@ -201,6 +201,24 @@ export default function HistoryPage() {
     return () => { cancelled = true; };
   }, [moduleFilter, statusFilter]);
 
+  const loadMoreSentinelRef = useRef<HTMLDivElement | null>(null);
+
+  // 触底自动加载（保留底部按钮作手动兜底）
+  useEffect(() => {
+    const sentinel = loadMoreSentinelRef.current;
+    if (!sentinel) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          void loadMore();
+        }
+      },
+      { rootMargin: "600px" },
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMore, nextCursor, loadingMore, moduleFilter, statusFilter]);
+
   const loadMore = async () => {
     if (!hasMore || !nextCursor || loadingMore) return;
 
@@ -594,10 +612,13 @@ export default function HistoryPage() {
                 </span>
               </div>
 
-              {failureCopy ? (
-                <HistoryFailureNotice copy={failureCopy} />
-              ) : g.error_message && (
-                <p className="mx-3 mb-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">{g.error_message}</p>
+              {(failureCopy || g.error_message) && (
+                <p
+                  className="mx-3 mb-2.5 truncate rounded-md bg-red-50 px-2.5 py-1 text-[11px] font-semibold text-red-600 dark:bg-red-950/40 dark:text-red-300"
+                  title={failureCopy ? `${failureCopy.title}：${failureCopy.reason}` : g.error_message || undefined}
+                >
+                  {failureCopy ? failureCopy.title : g.error_message}
+                </p>
               )}
             </article>
           );
@@ -624,6 +645,7 @@ export default function HistoryPage() {
       </div>
 
       <div className="mt-8 flex justify-center">
+        <div ref={loadMoreSentinelRef} className="h-1 w-full" aria-hidden="true" />
         {hasMore ? (
           <button
             type="button"
