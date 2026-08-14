@@ -392,6 +392,7 @@ export default function PosePage() {
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("auto");
   const [imageSize, setImageSize] = useState<ImageSize>("1K");
   const [mainImage, setMainImage] = useState<string>("");
+  const [mainImageFileName, setMainImageFileName] = useState<string | null>(null);
   const [prompt, setPrompt] = useState(DEFAULT_POSE_PROMPT);
   const [supplementPrompt, setSupplementPrompt] = useState("");
   const [outputMode, setOutputMode] = useState<PoseOutputMode>("separate");
@@ -1126,9 +1127,11 @@ export default function PosePage() {
     try {
       const result = await uploadImage(file);
       setMainImage(result.url);
+      setMainImageFileName(file.name);
       toast.success("主图已选择");
     } catch {
       setMainImage("");
+      setMainImageFileName(null);
       toast.error("主图上传失败，请重试");
     } finally {
       setIsUploading(false);
@@ -1629,6 +1632,7 @@ export default function PosePage() {
                   disabled={!mainImage && activePoseReferenceUrls.length === 0}
                   onClear={() => {
                     setMainImage("");
+                    setMainImageFileName(null);
                     setPoseReferenceUrls([]);
                     setPrompt("");
                     setSupplementPrompt("");
@@ -1672,6 +1676,7 @@ export default function PosePage() {
               title="上传模特图"
               description="图1作为服装、人物关系和构图基础，建议主体完整、服装清晰。"
               imageUrl={mainImage || null}
+              fileName={mainImageFileName}
               imageAlt="姿势裂变主图"
               isDragging={isDragging}
               loading={isUploading}

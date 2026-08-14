@@ -10,6 +10,8 @@ import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
 
 export type StudioUploadTileProps = {
   title: string;
+  /** 已上传文件名，便于确认上传的是哪张 */
+  fileName?: string | null;
   description?: string;
   imageUrl?: string | null;
   imageAlt: string;
@@ -47,6 +49,7 @@ export function StudioUploadTile({
   title,
   description,
   imageUrl,
+  fileName,
   imageAlt,
   isDragging,
   disabled,
@@ -137,6 +140,9 @@ export function StudioUploadTile({
             aria-label={`预览${title}`}
           >
             <RawPreviewImage src={getImageVariantUrl(imageUrl, "card")} alt={imageAlt} className="h-full w-full object-contain p-3" />
+            {fileName ? (
+              <span className="studio-upload-tile-filename" title={fileName}>{fileName}</span>
+            ) : null}
           </button>
         ) : (
           <div className="studio-upload-tile-empty" aria-label={`上传${title}`}>
