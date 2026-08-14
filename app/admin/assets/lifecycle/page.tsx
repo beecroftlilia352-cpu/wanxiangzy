@@ -48,7 +48,7 @@ export default async function AdminAssetLifecyclePage({ searchParams }: PageProp
   return (
     <div className="space-y-5">
       <AdminPageHeader
-        eyebrow="Asset Lifecycle"
+        eyebrow="资产生命周期"
         title="素材生命周期与批量迁移"
         description="统一识别 OSS、ImgBB、外部 URL、临时输入图、收藏素材和审核下架结果；V1 先创建可审计计划，真实迁移/删除由后续异步 worker 执行。"
         actions={

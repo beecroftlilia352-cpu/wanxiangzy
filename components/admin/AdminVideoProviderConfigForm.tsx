@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Save } from "lucide-react";
 import { AdminStatusBadge } from "@/components/admin/AdminPrimitives";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 type VideoProviderName = "minimax" | "seedance";
 
@@ -38,6 +39,7 @@ const EMPTY_KEYS: Record<VideoProviderName, string> = { minimax: "", seedance: "
 
 export function AdminVideoProviderConfigForm() {
   const router = useRouter();
+  const { confirm, confirmDialog } = useConfirm();
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -77,9 +79,18 @@ export function AdminVideoProviderConfigForm() {
     setApiKeys((current) => ({ ...current, [key]: value }));
   }
 
-  async function submit(event: React.FormEvent<HTMLFormElement>) {
+  function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!snapshot) return;
+    void confirm({
+      title: "确认发布视频生成配置？",
+      content: "发布后视频生成会立即切换供应商，请确认配置无误。",
+      okText: "确认发布",
+      onOk: doSubmit,
+    });
+  }
+
+  async function doSubmit() {
     setSaving(true);
     setMessage("");
 
@@ -102,7 +113,7 @@ export function AdminVideoProviderConfigForm() {
       });
       const result = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(result.error || `保存失败 (${res.status})`);
-      setMessage("已发布 video.providers，视频生成会立即使用新的供应商配置。");
+      setMessage("已发布，视频生成会立即使用新的供应商配置。");
       setApiKeys({ ...EMPTY_KEYS });
       await load();
       router.refresh();
@@ -117,6 +128,8 @@ export function AdminVideoProviderConfigForm() {
   if (error || !snapshot) return <p className="p-4 text-sm font-bold text-[var(--admin-danger)]">{error || "暂无配置"}</p>;
 
   return (
+    <>
+    {confirmDialog}
     <form onSubmit={submit} className="space-y-4 p-4">
       <div className="flex items-center justify-between gap-3 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] px-3 py-2 text-xs text-[var(--admin-muted)]">
         <span>配置键 <code className="font-black text-[var(--admin-fg)]">{snapshot.configKey}</code>；每个模型可独立启停并配置 API Key（AES-256-GCM 加密落库）。</span>
@@ -183,5 +196,6 @@ export function AdminVideoProviderConfigForm() {
         )}
       </div>
     </form>
+    </>
   );
 }

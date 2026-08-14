@@ -30,7 +30,7 @@ export default async function AdminInviteCodesPage({ searchParams }: PageProps) 
   return (
     <div className="space-y-5">
       <AdminPageHeader
-        eyebrow="Invites"
+        eyebrow="邀请码"
         title="邀请码"
         description="临时限制注册入口。支持批量生成、生效期、过期时间、使用次数、批次渠道、启停状态和注册使用记录。"
         actions={
@@ -59,7 +59,7 @@ export default async function AdminInviteCodesPage({ searchParams }: PageProps) 
 
       {!overview.available && (
         <AdminNotice>
-          邀请码数据表尚未初始化。请先在 Supabase SQL Editor 执行 supabase/invite-codes.sql。
+          邀请码数据尚未就绪。请联系技术支持完成数据初始化后刷新本页。
         </AdminNotice>
       )}
       {overview.warnings.length > 0 && <AdminNotice tone="info">邀请码数据源提示：{overview.warnings.slice(0, 3).join("；")}</AdminNotice>}

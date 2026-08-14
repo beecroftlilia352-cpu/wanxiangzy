@@ -8,7 +8,7 @@ import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 
-type WorkerTarget = "generations" | "agent-workflows";
+type WorkerTarget = "generations";
 
 type AdminWorkerRunFormProps = {
   defaultTarget?: WorkerTarget;
@@ -19,7 +19,6 @@ type AdminWorkerRunFormProps = {
 
 const WORKER_OPTIONS: Array<{ value: WorkerTarget; label: string }> = [
   { value: "generations", label: "生成任务" },
-  { value: "agent-workflows", label: "工作流助手" },
 ];
 
 export function AdminWorkerRunForm({

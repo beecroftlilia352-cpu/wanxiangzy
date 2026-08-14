@@ -26,7 +26,7 @@ export default async function AdminCreditsPage({ searchParams }: PageProps) {
   return (
     <div className="space-y-5">
       <AdminPageHeader
-        eyebrow="Credits"
+        eyebrow="灵点流水"
         title="灵点管理"
         description="查看灵点流水、扣费和补偿记录；人工调整必须选择用户并填写原因，系统会自动保存审计记录。"
       />
@@ -34,8 +34,8 @@ export default async function AdminCreditsPage({ searchParams }: PageProps) {
       {credits.warnings.length > 0 && <AdminNotice>灵点数据源提示：{credits.warnings.slice(0, 3).join("；")}</AdminNotice>}
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <AdminMetricCard label="当前页消耗" value={formatNumber(credits.metrics.debits)} hint="amount < 0" />
-        <AdminMetricCard label="当前页入账" value={formatNumber(credits.metrics.credits)} hint="amount > 0" />
+        <AdminMetricCard label="当前页消耗" value={formatNumber(credits.metrics.debits)} hint="扣减流水" />
+        <AdminMetricCard label="当前页入账" value={formatNumber(credits.metrics.credits)} hint="增加流水" />
         <AdminMetricCard label="净变化" value={formatNumber(credits.metrics.net)} tone={credits.metrics.net < 0 ? "warning" : "good"} />
         <AdminMetricCard label="影响用户" value={formatNumber(credits.metrics.affectedUsers)} />
       </div>

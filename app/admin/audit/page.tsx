@@ -11,16 +11,60 @@ import { listAdminAuditLogs, type AdminAuditLog } from "@/lib/admin/data";
 
 export const dynamic = "force-dynamic";
 
-const ACTION_GROUPS: Array<{ label: string; actions: string[] }> = [
-  { label: "试衣配置", actions: ["tryon.categories.seed_defaults", "tryon.category.disable", "tryon.category.upsert", "tryon.reference_config.publish", "tryon.reference_config.rollback", "tryon.reference_config.validate", "tryon.reference_scene.archive", "tryon.reference_scene.patch", "tryon.reference_scene.upsert", "tryon.reference_scenes.import"] },
-  { label: "支付账单", actions: ["billing.catalog.sync_stripe", "billing.order.refund", "billing.price.create", "billing.product.upsert", "billing.webhook_event.replay"] },
-  { label: "邀请码", actions: ["invite_code.create", "invite_code.status.update"] },
-  { label: "审批中心", actions: ["operation_request.approve", "operation_request.create", "operation_request.reject"] },
-  { label: "用户账户", actions: ["user.control.update", "user.profile.update"] },
-  { label: "配置版本", actions: ["config_version.create", "prompt_experiment_config.create", "product_retouch_skill.create_draft", "product_retouch_skill.publish"] },
-  { label: "成员权限", actions: ["admin_member.upsert"] },
-  { label: "资产作品", actions: ["asset_lifecycle.plan.create"] },
+const ACTION_GROUPS: Array<{ label: string; actions: Array<{ value: string; label: string }> }> = [
+  { label: "试衣配置", actions: [
+    { value: "tryon.categories.seed_defaults", label: "初始化服装分类" },
+    { value: "tryon.category.disable", label: "停用服装分类" },
+    { value: "tryon.category.upsert", label: "保存服装分类" },
+    { value: "tryon.reference_config.publish", label: "发布试衣配置" },
+    { value: "tryon.reference_config.rollback", label: "回滚试衣配置" },
+    { value: "tryon.reference_config.validate", label: "校验试衣配置" },
+    { value: "tryon.reference_scene.archive", label: "归档参考场景" },
+    { value: "tryon.reference_scene.patch", label: "修改参考场景" },
+    { value: "tryon.reference_scene.upsert", label: "保存参考场景" },
+    { value: "tryon.reference_scenes.import", label: "导入参考场景" },
+  ]},
+  { label: "支付账单", actions: [
+    { value: "billing.catalog.sync_stripe", label: "同步支付商品" },
+    { value: "billing.order.refund", label: "订单退款" },
+    { value: "billing.price.create", label: "新建价格" },
+    { value: "billing.product.upsert", label: "保存支付商品" },
+    { value: "billing.webhook_event.replay", label: "重放支付回调" },
+  ]},
+  { label: "邀请码", actions: [
+    { value: "invite_code.create", label: "创建邀请码" },
+    { value: "invite_code.status.update", label: "变更邀请码状态" },
+  ]},
+  { label: "审批中心", actions: [
+    { value: "operation_request.approve", label: "通过审批" },
+    { value: "operation_request.create", label: "创建审批" },
+    { value: "operation_request.reject", label: "驳回审批" },
+  ]},
+  { label: "用户账户", actions: [
+    { value: "user.control.update", label: "更新账户管控" },
+    { value: "user.profile.update", label: "更新用户资料" },
+  ]},
+  { label: "配置版本", actions: [
+    { value: "config_version.create", label: "创建配置版本" },
+    { value: "prompt_experiment_config.create", label: "保存提示词实验" },
+    { value: "product_retouch_skill.create_draft", label: "保存精修草稿" },
+    { value: "product_retouch_skill.publish", label: "发布精修配置" },
+  ]},
+  { label: "成员权限", actions: [
+    { value: "admin_member.upsert", label: "保存成员" },
+  ]},
+  { label: "资产作品", actions: [
+    { value: "asset_lifecycle.plan.create", label: "创建生命周期计划" },
+  ]},
 ];
+
+const ACTION_LABELS = new Map<string, string>(
+  ACTION_GROUPS.flatMap((group) => group.actions.map((item) => [item.value, item.label])),
+);
+
+function actionLabel(value: string) {
+  return ACTION_LABELS.get(value) || value;
+}
 
 type PageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -42,14 +86,14 @@ export default async function AdminAuditPage({ searchParams }: PageProps) {
   return (
     <div className="space-y-5">
       <AdminPageHeader
-        eyebrow="Audit"
+        eyebrow="审计日志"
         title="审计日志"
         description="追踪后台所有写操作（发布配置、退款、审批、邀请码等），确认谁在什么时候处理了什么问题。"
       />
 
       {!audit.available && (
         <AdminNotice>
-          操作记录数据尚未初始化。请先执行 supabase 初始化脚本中的 admin_audit_logs 建表语句（supabase/admin-console.sql），完成后刷新本页即会显示真实操作记录。
+          操作记录数据尚未就绪。请联系技术支持完成数据初始化后刷新本页。
         </AdminNotice>
       )}
       {audit.warnings.length > 0 && <AdminNotice tone="info">审计数据源提示：{audit.warnings.slice(0, 3).join("；")}</AdminNotice>}
@@ -69,8 +113,8 @@ export default async function AdminAuditPage({ searchParams }: PageProps) {
                 <option value="">全部</option>
                 {ACTION_GROUPS.map((group) => (
                   <optgroup key={group.label} label={group.label}>
-                    {group.actions.map((value) => (
-                      <option key={value} value={value}>{value}</option>
+                    {group.actions.map((item) => (
+                      <option key={item.value} value={item.value}>{item.label}</option>
                     ))}
                   </optgroup>
                 ))}
@@ -122,7 +166,7 @@ export default async function AdminAuditPage({ searchParams }: PageProps) {
               label: "动作",
               render: (row) => (
                 <div className="min-w-[180px]">
-                  <p className="font-mono text-sm font-black text-[var(--admin-fg)]">{row.action}</p>
+                  <p className="text-sm font-black text-[var(--admin-fg)]">{actionLabel(row.action)}</p>
                   <p className="mt-1 text-xs font-semibold text-[var(--admin-muted)]">{resourceTypeLabel(row.resourceType)}</p>
                 </div>
               ),

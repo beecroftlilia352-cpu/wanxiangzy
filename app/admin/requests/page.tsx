@@ -37,14 +37,14 @@ export default async function AdminRequestsPage({ searchParams }: PageProps) {
   return (
     <div className="space-y-5">
       <AdminPageHeader
-        eyebrow="Approvals"
+        eyebrow="审批中心"
         title="审批中心"
         description="集中处理高风险或需要授权的运营动作。当前支持灵点补偿审批，通过后会自动完成补偿并保留操作记录。"
       />
 
       {!requests.available && (
         <AdminNotice>
-          admin_operation_requests 表尚未安装。执行 supabase/admin-console.sql 后可启用审批单。
+          审批数据尚未就绪。请联系技术支持完成数据初始化后刷新本页。
         </AdminNotice>
       )}
       {requests.warnings.length > 0 && <AdminNotice tone="info">审批数据源提示：{requests.warnings.slice(0, 3).join("；")}</AdminNotice>}

@@ -7,7 +7,7 @@ import {
 import { getActiveModelRoutingConfig } from "@/lib/api/model-routing-config.server";
 import { getConfiguredProcessorSecrets } from "@/lib/env";
 import { getPublishedLlmProviderRawValue } from "@/lib/api/llm-provider-registry.server";
-import { getPublishedModelProviderRawValue } from "@/lib/api/model-provider-registry.server";
+import { getAdminModelProviderSnapshot, getPublishedModelProviderRawValue } from "@/lib/api/model-provider-registry.server";
 import { getPublishedVideoProviderRawValue } from "@/lib/api/video-provider-registry.server";
 import { getAdminClient } from "@/lib/supabase/admin";
 import type { TaskStatusGroup } from "@/lib/task-queue";
@@ -189,23 +189,18 @@ export type AdminAuditList = {
 
 export type AdminProviderCatalog = {
   defaultModel: LingyaModel;
-  routing: {
-    source: ModelRoutingConfig["source"];
-    configKey: string;
-    versionId?: string;
-    publishedAt?: string | null;
-    gptImageProvider: GptImageProviderName;
-    nanoBananaProvider: NanoBananaProviderName;
-  };
   providerPublish: {
     llm: boolean;
     model: boolean;
     video: boolean;
   };
-  models: Array<{
+  modelProviders: Array<{
     model: LingyaModel;
-    provider: string;
-    endpointKind: string;
+    enabled: boolean;
+    baseUrl: string;
+    upstreamModel: string;
+    apiKeyConfigured: boolean;
+    source: "admin" | "env";
     costs: Record<ImageSize, number>;
     notes: string;
   }>;
@@ -302,7 +297,7 @@ export type AdminSettingsOverview = {
     key: string;
     label: string;
     configured: boolean;
-    scope: "auth" | "storage" | "provider" | "queue" | "admin";
+    scope: string;
   }>;
   warnings: string[];
 };
@@ -1448,64 +1443,46 @@ export async function getAdminWorkerOverview(): Promise<AdminWorkerOverview> {
   };
 }
 
-function getAdminNanoBananaProviderLabel(provider: NanoBananaProviderName) {
-  if (provider === "catrouter") return "CatRouter";
-  if (provider === "laozhang") return "LaoZhang";
-  return "Yunwu";
-}
 
-function getAdminGptImageProviderLabel(provider: GptImageProviderName) {
-  return provider === "catrouter" ? "CatRouter" : "Plato";
-}
 
 export async function getAdminProviderCatalog(): Promise<AdminProviderCatalog> {
-  const routing = await getActiveModelRoutingConfig();
-  const nanoBananaProvider = getAdminNanoBananaProviderLabel(routing.nanoBananaProvider);
-  const gptImageProvider = getAdminGptImageProviderLabel(routing.gptImageProvider);
-  const [llmRaw, modelRaw, videoRaw] = await Promise.all([
+  const [llmRaw, modelRaw, videoRaw, modelSnapshot] = await Promise.all([
     getPublishedLlmProviderRawValue().catch(() => null),
     getPublishedModelProviderRawValue().catch(() => null),
     getPublishedVideoProviderRawValue().catch(() => null),
+    getAdminModelProviderSnapshot().catch(() => null),
   ]);
+
+  const MODEL_NOTES: Record<LingyaModel, string> = {
+    "nano-banana-2": "默认主力模型，适合批量生产和姿势裂变。",
+    "gpt-image-2": "适合稳定编辑类任务。",
+    "nano-banana-pro": "高质量模型，建议用于品牌大片和复杂参考图。",
+  };
 
   return {
     defaultModel: DEFAULT_LINGYA_MODEL,
-    routing: {
-      source: routing.source,
-      configKey: routing.configKey,
-      versionId: routing.versionId,
-      publishedAt: routing.publishedAt,
-      gptImageProvider: routing.gptImageProvider,
-      nanoBananaProvider: routing.nanoBananaProvider,
-    },
     providerPublish: {
       llm: Boolean(llmRaw),
       model: Boolean(modelRaw),
       video: Boolean(videoRaw),
     },
-    models: [
-      {
-        model: "nano-banana-2",
-        provider: nanoBananaProvider,
-        endpointKind: "Gemini native image",
-        costs: CREDIT_COSTS["nano-banana-2"],
-        notes: "默认低成本主力模型，适合批量生产和姿势裂变。",
-      },
-      {
-        model: "gpt-image-2",
-        provider: gptImageProvider,
-        endpointKind: "OpenAI-compatible image",
-        costs: CREDIT_COSTS["gpt-image-2"],
-        notes: "适合稳定编辑类任务。",
-      },
-      {
-        model: "nano-banana-pro",
-        provider: nanoBananaProvider,
-        endpointKind: "Gemini native image",
-        costs: CREDIT_COSTS["nano-banana-pro"],
-        notes: "高价格高质量模型，仅建议用于品牌大片和复杂参考图。",
-      },
-    ],
+    modelProviders: (modelSnapshot?.models || (["nano-banana-2", "gpt-image-2", "nano-banana-pro"] as const).map((model) => ({
+      model,
+      enabled: false,
+      baseUrl: "",
+      upstreamModel: "",
+      apiKeyConfigured: false,
+      source: "env" as const,
+    }))).map((entry) => ({
+      model: entry.model,
+      enabled: entry.enabled,
+      baseUrl: entry.baseUrl,
+      upstreamModel: entry.upstreamModel,
+      apiKeyConfigured: entry.apiKeyConfigured,
+      source: entry.source,
+      costs: CREDIT_COSTS[entry.model],
+      notes: MODEL_NOTES[entry.model],
+    })),
     modules: [
       { key: "tryon", label: "服装上身", route: "/create", adminHref: "/admin/tryon", risk: "medium" },
       { key: "pose", label: "姿势裂变", route: "/pose", adminHref: "/admin/generations?module=pose", risk: "medium" },
@@ -2059,18 +2036,18 @@ function normalizeOperationRequestStatus(value?: string) {
 
 function getRuntimeSettingHealth(): AdminSettingsOverview["runtime"] {
   return [
-    { key: "NEXT_PUBLIC_SUPABASE_URL", label: "Supabase URL", configured: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL), scope: "auth" },
-    { key: "NEXT_PUBLIC_SUPABASE_ANON_KEY", label: "Supabase anon key", configured: Boolean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY), scope: "auth" },
-    { key: "SUPABASE_SERVICE_ROLE_KEY", label: "Supabase service role", configured: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY), scope: "admin" },
-    { key: "ADMIN_BOOTSTRAP_EMAILS", label: "Bootstrap admin emails", configured: Boolean(process.env.ADMIN_BOOTSTRAP_EMAILS || process.env.ADMIN_EMAILS), scope: "admin" },
-    { key: "TASK_QUEUE_CACHE_MODE", label: "Task queue cache mode", configured: Boolean(process.env.TASK_QUEUE_CACHE_MODE), scope: "queue" },
-    { key: "UPSTASH_REDIS_REST_URL", label: "Upstash Redis", configured: Boolean(process.env.UPSTASH_REDIS_REST_URL), scope: "queue" },
-    { key: "IMAGE_STORAGE_PROVIDER", label: "Image storage provider", configured: Boolean(process.env.IMAGE_STORAGE_PROVIDER), scope: "storage" },
-    { key: "ALIYUN_OSS_BUCKET", label: "Aliyun OSS bucket", configured: Boolean(process.env.ALIYUN_OSS_BUCKET), scope: "storage" },
-    { key: "LAOZHANG_API_KEY", label: "LaoZhang API", configured: Boolean(process.env.LAOZHANG_API_KEY), scope: "provider" },
-    { key: "MINIMAX_VIDEO_API_KEY", label: "MiniMax H3 Video API (seed)", configured: Boolean(process.env.MINIMAX_VIDEO_API_KEY), scope: "provider" },
-    { key: "PLATO_API_KEY", label: "Plato API", configured: Boolean(process.env.PLATO_API_KEY), scope: "provider" },
-    { key: "LINGYA_API_KEY", label: "Lingya API", configured: Boolean(process.env.LINGYA_API_KEY), scope: "provider" },
+    { key: "NEXT_PUBLIC_SUPABASE_URL", label: "用户数据服务", configured: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL), scope: "登录与数据" },
+    { key: "NEXT_PUBLIC_SUPABASE_ANON_KEY", label: "前台访问密钥", configured: Boolean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY), scope: "登录与数据" },
+    { key: "SUPABASE_SERVICE_ROLE_KEY", label: "后台管理密钥", configured: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY), scope: "后台" },
+    { key: "ADMIN_BOOTSTRAP_EMAILS", label: "初始管理员邮箱", configured: Boolean(process.env.ADMIN_BOOTSTRAP_EMAILS || process.env.ADMIN_EMAILS), scope: "后台" },
+    { key: "TASK_QUEUE_CACHE_MODE", label: "任务缓存模式", configured: Boolean(process.env.TASK_QUEUE_CACHE_MODE), scope: "任务队列" },
+    { key: "UPSTASH_REDIS_REST_URL", label: "任务队列缓存", configured: Boolean(process.env.UPSTASH_REDIS_REST_URL), scope: "任务队列" },
+    { key: "IMAGE_STORAGE_PROVIDER", label: "图片存储服务", configured: Boolean(process.env.IMAGE_STORAGE_PROVIDER), scope: "存储" },
+    { key: "ALIYUN_OSS_BUCKET", label: "对象存储空间", configured: Boolean(process.env.ALIYUN_OSS_BUCKET), scope: "存储" },
+    { key: "LAOZHANG_API_KEY", label: "旧版生图通道", configured: Boolean(process.env.LAOZHANG_API_KEY), scope: "供应商（已废弃）" },
+    { key: "MINIMAX_VIDEO_API_KEY", label: "视频生成服务", configured: Boolean(process.env.MINIMAX_VIDEO_API_KEY), scope: "供应商" },
+    { key: "PLATO_API_KEY", label: "旧版精修通道", configured: Boolean(process.env.PLATO_API_KEY), scope: "供应商（已废弃）" },
+    { key: "LINGYA_API_KEY", label: "生图主服务", configured: Boolean(process.env.LINGYA_API_KEY), scope: "供应商" },
   ];
 }
 
@@ -2082,28 +2059,6 @@ function getWorkerProcessors(): AdminWorkerProcessor[] {
       endpoint: "/api/jobs/process-generations",
       batchSize: clampLimit(process.env.GENERATION_JOB_BATCH_SIZE, 1, 10, 2),
       candidates: [
-        { name: "JOB_PROCESSOR_SECRET", value: process.env.JOB_PROCESSOR_SECRET },
-        { name: "CRON_SECRET", value: process.env.CRON_SECRET },
-      ],
-    }),
-    workerProcessor({
-      key: "agent-workflows",
-      label: "工作流助手处理",
-      endpoint: "/api/jobs/process-agent-workflows",
-      batchSize: clampLimit(process.env.AGENT_WORKFLOW_BATCH_SIZE, 1, 10, 2),
-      candidates: [
-        { name: "AGENT_WORKFLOW_PROCESSOR_SECRET", value: process.env.AGENT_WORKFLOW_PROCESSOR_SECRET },
-        { name: "JOB_PROCESSOR_SECRET", value: process.env.JOB_PROCESSOR_SECRET },
-        { name: "CRON_SECRET", value: process.env.CRON_SECRET },
-      ],
-    }),
-    workerProcessor({
-      key: "agent-evals",
-      label: "回归评测处理",
-      endpoint: "/api/jobs/run-agent-evals",
-      batchSize: clampLimit(process.env.AGENT_EVAL_MAX_USERS, 1, 100, 20),
-      candidates: [
-        { name: "AGENT_EVAL_PROCESSOR_SECRET", value: process.env.AGENT_EVAL_PROCESSOR_SECRET },
         { name: "JOB_PROCESSOR_SECRET", value: process.env.JOB_PROCESSOR_SECRET },
         { name: "CRON_SECRET", value: process.env.CRON_SECRET },
       ],

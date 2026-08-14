@@ -34,7 +34,7 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
   return (
     <div className="space-y-5">
       <AdminPageHeader
-        eyebrow="User Detail"
+        eyebrow="用户详情"
         title={profile?.email || "用户详情"}
         description="集中查看用户资料、灵点流水、任务历史和资产作品，并提供资料、灵点和生成权限管理。"
         actions={

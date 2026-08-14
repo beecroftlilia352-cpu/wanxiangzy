@@ -47,7 +47,7 @@ const moduleOptions = [
   { value: "allCategoryProductImage", label: "全品类商品图" },
   { value: "outfitFusion", label: "搭配融图" },
   { value: "video", label: "AI 视频" },
-  { value: "workflow", label: "Agent 工作流" },
+  { value: "workflow", label: "历史工作流" },
 ];
 
 const TASK_PAGE_SIZE_OPTIONS = [20, 50] as const;
@@ -126,13 +126,18 @@ export function AdminTasksClient({ tasks, q, status, module, stale, page, pageSi
             统一查看生成任务和工作流任务；支持长时间未完成任务重新处理、结束任务和退还灵点。
           </Typography.Paragraph>
         </div>
-        <Link
-          href="/api/jobs/process-generations"
-          className="inline-flex h-9 items-center gap-2 rounded-md border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm font-semibold text-[var(--admin-fg)] shadow-sm transition-colors hover:border-[var(--admin-border-strong)] hover:text-[var(--admin-fg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-fg)] focus-visible:ring-offset-2"
+        <button
+          type="button"
+          onClick={() => {
+            if (window.confirm("立即运行一轮任务处理？这会启动一次排队任务的处理流程，通常用于任务卡住后的手动恢复。")) {
+              window.location.href = "/api/jobs/process-generations";
+            }
+          }}
+          className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-md border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm font-semibold text-[var(--admin-fg)] shadow-sm transition-colors hover:border-[var(--admin-border-strong)] hover:text-[var(--admin-fg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-fg)] focus-visible:ring-offset-2"
         >
           <ApiOutlined aria-hidden="true" />
-          处理入口
-        </Link>
+          立即处理排队任务
+        </button>
       </div>
 
       {taskWarnings.length > 0 && <Alert type="warning" showIcon message="任务数据提示" description={taskWarnings.slice(0, 3).join("；")} />}

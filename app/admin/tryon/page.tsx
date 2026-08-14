@@ -97,7 +97,7 @@ export default async function AdminTryOnPage() {
   return (
     <div className="space-y-5">
       <AdminPageHeader
-        eyebrow="Try-on Config"
+        eyebrow="试衣配置"
         title="试衣参考图配置"
         description="管理服装分类、系统参考图和发布版本。前台推荐排序优先读取这里发布的版本；未发布时回退使用 active 状态的场景。"
       />

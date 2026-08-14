@@ -31,7 +31,7 @@ export default async function AdminBillingPage() {
   return (
     <div className="space-y-5">
       <AdminPageHeader
-        eyebrow="Billing"
+        eyebrow="支付账单"
         title="账单控制台"
         description="集中查看 Stripe 商品、价格、支付流水、订阅、Webhook 事件和运行配置状态。当前页面只读取后台数据，并预留管理操作入口。"
         actions={<AdminBillingActionButton action="sync" />}

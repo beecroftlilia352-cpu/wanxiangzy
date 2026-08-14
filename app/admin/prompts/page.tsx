@@ -30,7 +30,7 @@ export default async function AdminPromptsPage() {
   return (
     <div className="space-y-5">
       <AdminPageHeader
-        eyebrow="Prompt Ops"
+        eyebrow="提示词实验"
         title="Prompt 模板与 A/B 实验"
         description="用配置版本管理模块提示词、实验分流、指标门禁和回滚。V1 先落地可审计的 prompt.experiments 管理面，运行时代码消费与自动门禁可继续扩展。"
         actions={
@@ -46,7 +46,7 @@ export default async function AdminPromptsPage() {
 
       {!overview.available && (
         <AdminNotice>
-          admin_config_versions 表尚未安装。执行 supabase/admin-console.sql 后，可创建 prompt.experiments 版本并进行发布/归档。
+          配置数据尚未就绪。请联系技术支持完成数据初始化后刷新本页。
         </AdminNotice>
       )}
       {overview.warnings.length > 0 && (

@@ -17,7 +17,7 @@ export default async function AdminMembersPage() {
   return (
     <div className="space-y-5">
       <AdminPageHeader
-        eyebrow="Members"
+        eyebrow="成员权限"
         title="后台成员"
         description="给已注册用户开通后台访问权限。运营只需要搜索账号、选择角色和状态。"
       />

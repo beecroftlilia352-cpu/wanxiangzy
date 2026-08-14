@@ -34,7 +34,7 @@ export default async function AdminTaskDetailPage({ params }: PageProps) {
   return (
     <div className="space-y-5">
       <AdminPageHeader
-        eyebrow="Task Detail"
+        eyebrow="任务详情"
         title={task?.title || "任务详情"}
         description="集中处理生成任务的状态、图片结果、灵点变动和操作记录，适合排查失败、卡住和补偿问题。"
         actions={

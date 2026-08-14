@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Save } from "lucide-react";
 import { AdminStatusBadge } from "@/components/admin/AdminPrimitives";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import type { PricedImageModel } from "@/lib/model-pricing";
 
 type ResponseType = "openai-image" | "gemini-native";
@@ -39,6 +40,7 @@ const RESPONSE_TYPE_OPTIONS: ReadonlyArray<{ value: ResponseType; label: string 
 
 export function AdminModelProviderConfigForm() {
   const router = useRouter();
+  const { confirm, confirmDialog } = useConfirm();
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -74,8 +76,18 @@ export function AdminModelProviderConfigForm() {
     } : current);
   }
 
-  async function submit(event: React.FormEvent<HTMLFormElement>) {
+  function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!snapshot) return;
+    void confirm({
+      title: "确认发布生图供应商配置？",
+      content: "发布后新生成任务会立即使用新的供应商连接，请确认配置无误。",
+      okText: "确认发布",
+      onOk: doSubmit,
+    });
+  }
+
+  async function doSubmit() {
     if (!snapshot) return;
     setSaving(true);
     setMessage("");
@@ -101,7 +113,7 @@ export function AdminModelProviderConfigForm() {
       });
       const payload = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(payload.error || `保存失败 (${res.status})`);
-      setMessage("已发布 model.providers，新生成任务会立即使用新的供应商配置。");
+      setMessage("已发布，新生成任务会立即使用新的供应商配置。");
       setApiKeys({});
       await load();
       router.refresh();
@@ -121,6 +133,8 @@ export function AdminModelProviderConfigForm() {
   }
 
   return (
+    <>
+    {confirmDialog}
     <form onSubmit={submit} className="space-y-4 p-4">
       <div className="flex items-center justify-between gap-3 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] px-3 py-2 text-xs text-[var(--admin-muted)]">
         <span>配置键 <code className="font-black text-[var(--admin-fg)]">{snapshot.configKey}</code>；API Key 使用 AES-256-GCM 加密后落库，页面只显示脱敏值。</span>
@@ -142,7 +156,7 @@ export function AdminModelProviderConfigForm() {
                   onChange={(event) => updateModel(entry.model, { enabled: event.target.checked })}
                   className="h-4 w-4"
                 />
-                可见
+                启用
               </label>
             </div>
 
@@ -212,5 +226,6 @@ export function AdminModelProviderConfigForm() {
         )}
       </div>
     </form>
+    </>
   );
 }

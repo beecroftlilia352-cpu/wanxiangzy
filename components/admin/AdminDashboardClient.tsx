@@ -171,7 +171,7 @@ export function AdminDashboardClient({ overview, days, fetchError }: AdminDashbo
         </div>
       ) : null}
       <AdminPageHeader
-        eyebrow="Console"
+        eyebrow="运营总览"
         title="运营总览"
         description="生成任务、灵点流水与队列健康统一看板。"
         actions={

@@ -234,8 +234,8 @@ export function AdminShell({ admin, children }: AdminShellProps) {
             />
           </Space>
           <Space size={8}>
-            {admin.source === "bootstrap-env" && <Tag color="gold">Bootstrap</Tag>}
-            <Tag color="blue">{admin.role}</Tag>
+            {admin.source === "bootstrap-env" && <Tag color="gold">初始管理员</Tag>}
+            <Tag color="blue">{roleDisplayName(admin.role)}</Tag>
             <ThemeToggle className="admin-theme-toggle" />
           </Space>
         </Layout.Header>
@@ -283,7 +283,7 @@ function AdminBrand({ collapsed, compact = false }: { collapsed: boolean; compac
             产品管理后台
           </Typography.Text>
           <Typography.Text type="secondary" className="block truncate !text-xs">
-            VastWearGen Console
+            万象智艺运营台
           </Typography.Text>
         </span>
       )}
@@ -298,10 +298,10 @@ function AdminAccount({ admin, collapsed }: { admin: AdminShellProps["admin"]; c
       {!collapsed && (
         <div className="min-w-0">
           <Typography.Text strong className="block truncate">
-            {admin.role}
+            {roleDisplayName(admin.role)}
           </Typography.Text>
           <Typography.Text type="secondary" className="block truncate !text-xs">
-            {admin.email || "no email"}
+            {admin.email || "未绑定邮箱"}
           </Typography.Text>
         </div>
       )}
@@ -321,4 +321,18 @@ function getActiveHref(pathname: string) {
 
 function currentTitle(pathname: string) {
   return navGroups.flatMap((group) => group.children).find((item) => item.href === getActiveHref(pathname))?.label || "总览";
+}
+
+const ROLE_DISPLAY_NAMES: Record<string, string> = {
+  owner: "负责人",
+  ops: "运营",
+  support: "客服",
+  finance: "财务",
+  reviewer: "审核",
+  engineer: "技术",
+  viewer: "只读",
+};
+
+function roleDisplayName(role: string) {
+  return ROLE_DISPLAY_NAMES[role] || role;
 }

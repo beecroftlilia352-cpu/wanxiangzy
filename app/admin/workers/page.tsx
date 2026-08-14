@@ -22,7 +22,7 @@ export default async function AdminWorkersPage() {
   return (
     <div className="space-y-5">
       <AdminPageHeader
-        eyebrow="Queue"
+        eyebrow="任务队列"
         title="任务队列与处理服务"
         description="查看队列积压、长时间未完成任务和处理服务健康状态，并在有操作记录的前提下手动触发处理。"
         actions={

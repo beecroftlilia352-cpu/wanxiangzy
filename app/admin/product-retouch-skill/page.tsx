@@ -42,7 +42,7 @@ export default async function AdminProductRetouchSkillPage() {
   return (
     <div className="space-y-5">
       <AdminPageHeader
-        eyebrow="Product Retouch"
+        eyebrow="商品精修"
         title="商品精修 Skill 配置"
         description="统一管理商品精修 Skill 的运行时版本。草稿用于内部评审，发布后会立即在 /product-retouch 前台生效，并在审计日志留下操作原因。"
       />

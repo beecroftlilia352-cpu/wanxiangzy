@@ -25,14 +25,14 @@ export default async function AdminModerationPage({ searchParams }: PageProps) {
   return (
     <div className="space-y-5">
       <AdminPageHeader
-        eyebrow="Moderation"
+        eyebrow="内容审核"
         title="内容审核"
         description="集中查看素材、结果图和运营处理记录。下架类动作保留证据包和审计日志，避免直接物理删除。"
       />
 
       {!cases.available && (
         <AdminNotice>
-          moderation_cases 表尚未安装。执行 supabase/admin-console.sql 后可记录审核、下架和复核案件。
+          审核数据尚未就绪。请联系技术支持完成数据初始化后刷新本页。
         </AdminNotice>
       )}
       {cases.warnings.length > 0 && <AdminNotice tone="info">审核数据源提示：{cases.warnings.slice(0, 3).join("；")}</AdminNotice>}
