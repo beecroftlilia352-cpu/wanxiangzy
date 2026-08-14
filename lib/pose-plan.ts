@@ -16,7 +16,7 @@ import {
 
 export type PosePlanOutputMode = "grid" | "separate";
 export type PosePlanSource = "vision_plan" | "fallback" | "cache" | "history" | "user_custom";
-export type PosePlanAngle = "front" | "side" | "back" | "detail";
+export type PosePlanAngle = "front" | "side" | "back" | "detail" | "garment" | "seated";
 export type PoseAngleCounts = Record<PosePlanAngle, number>;
 
 export type PoseStylePolicy = {
@@ -58,18 +58,24 @@ export const DEFAULT_POSE_ANGLE_COUNTS: PoseAngleCounts = {
   side: 2,
   back: 0,
   detail: 1,
+  garment: 0,
+  seated: 0,
 };
 export const POSE_PLAN_ANGLE_LABELS: Record<PosePlanAngle, string> = {
   front: "正面",
   side: "侧面",
   back: "背面",
   detail: "细节",
+  garment: "服饰细节",
+  seated: "坐姿",
 };
 export const POSE_PLAN_ANGLE_DESCRIPTIONS: Record<PosePlanAngle, string> = {
   front: "正面轮廓、版型和整体穿搭",
   side: "侧身、三分之二角度和身体线条",
   back: "背面、侧后和转身角度",
   detail: "领口、袖口、衣摆、面料和轻动作",
+  garment: "只拍服饰/配饰局部，画面不含头脸",
+  seated: "坐姿、靠坐或屈膝坐展示",
 };
 
 export type CommercialPoseActionPreset = {
@@ -194,6 +200,15 @@ export const COMMERCIAL_POSE_ACTION_PRESETS: Record<PosePlanAngle, CommercialPos
       handAction: "靠后侧手臂自然贴近身体，前侧手可轻触腰侧、衣摆或包袋；动作克制",
       cameraHint: "近全身商业构图，肩线和身体比例清楚",
       matchKeywords: ["依靠", "肩部", "靠墙", "lean", "shoulder"],
+    },
+    {
+      id: "front-walking",
+      angle: "front",
+      label: "行走姿态",
+      bodyAction: "正面自然行走瞬间，双腿前后错落、重心轻移，衣摆和裤腿随步伐出现自然摆动，整体舒展不僵硬",
+      handAction: "双臂随步伐自然摆动，幅度克制；可以单手提包或轻持配饰，不遮挡正面廓形",
+      cameraHint: "全身商业构图，留出脚下和前进方向空间，抓拍感但不模糊",
+      matchKeywords: ["行走", "走姿", "步伐", "walking", "stride"],
     },
   ],
   side: [
@@ -423,6 +438,64 @@ export const COMMERCIAL_POSE_ACTION_PRESETS: Record<PosePlanAngle, CommercialPos
       matchKeywords: ["面料", "质感", "纹理", "织法", "texture"],
     },
   ],
+  garment: [
+    {
+      id: "garment-collar",
+      angle: "garment",
+      label: "领口细节特写",
+      bodyAction: "只拍领口到肩部上方区域，头脸完全不入画，展示领型、肩线、缝线和面料层次",
+      handAction: "手指轻触领口边缘或自然靠近锁骨下方，指示细节但不遮挡领型",
+      cameraHint: "无头局部特写构图，画面从颈部以下开始，不出现人脸",
+      matchKeywords: ["领口", "领型", "肩线", "collar", "neckline"],
+    },
+    {
+      id: "garment-accessory",
+      angle: "garment",
+      label: "配饰特写",
+      bodyAction: "只拍腰带、包袋、鞋履或配饰所在区域，头脸不入画，突出配饰质感与服装搭配关系",
+      handAction: "手部轻持或靠近配饰做指示动作，不遮挡配饰主体结构",
+      cameraHint: "无头局部特写，画面聚焦配饰与相邻服装区域",
+      matchKeywords: ["配饰", "腰带", "包袋", "鞋履", "accessory", "belt", "bag"],
+    },
+    {
+      id: "garment-hem",
+      angle: "garment",
+      label: "下摆/袖口特写",
+      bodyAction: "只拍衣摆、裤脚、裙摆或袖口区域，头脸不入画，展示下摆形状、面料垂坠和边缘工艺",
+      handAction: "手指轻带下摆或袖口边缘，让褶皱与垂坠自然呈现",
+      cameraHint: "无头局部特写，画面保持下半部分服装结构完整",
+      matchKeywords: ["下摆", "袖口", "裤脚", "裙摆", "hem", "cuff"],
+    },
+  ],
+  seated: [
+    {
+      id: "seated-forward",
+      angle: "seated",
+      label: "正坐直背",
+      bodyAction: "坐姿正面展示，背部自然挺直，双腿并拢或自然放置，坐姿下腰线、裤装/裙摆和上衣下摆关系清楚",
+      handAction: "双手自然搭在腿上或轻放膝盖上方，不遮挡腰部结构",
+      cameraHint: "坐姿全身或近全身商业构图，椅凳不抢镜，脚部尽量完整",
+      matchKeywords: ["正坐", "直背", "端坐", "sitting", "seated"],
+    },
+    {
+      id: "seated-cross",
+      angle: "seated",
+      label: "叠腿坐姿",
+      bodyAction: "坐姿跷腿或叠腿，身体轻微侧转，展示坐姿下的裤装垂坠、裙摆层次和鞋履搭配",
+      handAction: "一只手轻搭膝盖或扶椅面，另一只手自然垂放，动作克制",
+      cameraHint: "坐姿七分身或近全身构图，腿部叠放关系清楚",
+      matchKeywords: ["叠腿", "跷腿", "cross", "legs"],
+    },
+    {
+      id: "seated-lean",
+      angle: "seated",
+      label: "靠坐放松",
+      bodyAction: "靠坐椅背或沙发，肩颈放松，身体轻微后倾，展示休闲场景下服装的松弛廓形和垂坠感",
+      handAction: "双手自然搭放于扶手、腿上或轻扶一侧，姿态放松不垮塌",
+      cameraHint: "坐姿商业构图，保留椅背或沙发的环境线索，人物比例清楚",
+      matchKeywords: ["靠坐", "沙发", "放松", "lean", "sofa"],
+    },
+  ],
 };
 
 export const COMMERCIAL_POSE_EXPRESSION_PRESETS: CommercialPoseExpressionPreset[] = [
@@ -540,6 +613,8 @@ export function getCommercialPoseActionPresets(angle?: PosePlanAngle) {
 export function getCommercialPoseExpressionPresets(angle?: PosePlanAngle, suppressFacePlanning = false) {
   if (suppressFacePlanning) return [];
   const safeAngle = angle || "front";
+  // 服饰细节不露脸，不提供任何表情/视线选项
+  if (safeAngle === "garment") return [];
   const options = COMMERCIAL_POSE_EXPRESSION_PRESETS.filter((preset) => !preset.angles || preset.angles.includes(safeAngle));
   return options.length ? options : COMMERCIAL_POSE_EXPRESSION_PRESETS.filter((preset) => !preset.angles || preset.angles.includes("front"));
 }
@@ -567,7 +642,7 @@ export function getPoseAngleTotal(counts: Partial<Record<PosePlanAngle, unknown>
 
 export function buildDefaultPoseAngleCounts(count = 4): PoseAngleCounts {
   const safeCount = normalizePosePlanCount(count);
-  const counts: PoseAngleCounts = { front: 0, side: 0, back: 0, detail: 0 };
+  const counts: PoseAngleCounts = { front: 0, side: 0, back: 0, detail: 0, garment: 0, seated: 0 };
   const sequence: PosePlanAngle[] = ["front", "side", "side", "detail", "back", "front", "side", "back"];
   sequence.slice(0, safeCount).forEach((angle) => {
     counts[angle] += 1;
@@ -585,7 +660,7 @@ export function normalizePoseAngleCounts(
     const num = Number(raw);
     next[key] = Number.isFinite(num) ? clamp(Math.floor(num), 0, POSE_PLAN_MAX_COUNT) : 0;
     return next;
-  }, { front: 0, side: 0, back: 0, detail: 0 } as PoseAngleCounts);
+  }, { front: 0, side: 0, back: 0, detail: 0, garment: 0, seated: 0 } as PoseAngleCounts);
 
   let total = keys.reduce((sum, key) => sum + counts[key], 0);
   if (total < POSE_PLAN_MIN_COUNT) return { ...DEFAULT_POSE_ANGLE_COUNTS };
@@ -601,7 +676,7 @@ export function buildPoseAngleSequence(counts: Partial<Record<PosePlanAngle, unk
   const normalized = normalizePoseAngleCounts(counts);
   const remaining = { ...normalized };
   const sequence: PosePlanAngle[] = [];
-  const preferredOrder: PosePlanAngle[] = ["front", "side", "back", "detail", "side", "front", "detail", "back"];
+  const preferredOrder: PosePlanAngle[] = ["front", "side", "back", "detail", "garment", "seated", "side", "front", "detail", "garment", "back", "seated"];
   while (sequence.length < POSE_PLAN_MAX_COUNT && Object.values(remaining).some((count) => count > 0)) {
     let progressed = false;
     for (const angle of preferredOrder) {
@@ -863,6 +938,13 @@ function buildDirectionalSlot(
   const crop = analysis.bodyCrop;
   const avoid = buildAvoidRules(policy, analysis);
   const cameraBase = getCameraBase(policy, analysis);
+  // 角度模板优先于源图裁切分发：服饰细节强制无头，坐姿走坐姿动作库
+  if (angle === "garment") {
+    return buildGarmentDirectionalSlot(index, variant, cameraBase, avoid);
+  }
+  if (angle === "seated") {
+    return buildSeatedDirectionalSlot(index, variant, cameraBase, avoid);
+  }
   if (isPoseHeadlessCrop(analysis) || crop === "lower_body") {
     return buildLowerBodyDirectionalSlot(index, angle, variant, cameraBase, avoid);
   }
@@ -873,6 +955,49 @@ function buildDirectionalSlot(
     return buildCloseupDirectionalSlot(index, angle, variant, cameraBase, avoid);
   }
   return buildFullBodyDirectionalSlot(index, angle, variant, cameraBase, avoid);
+}
+
+function buildGarmentDirectionalSlot(
+  index: number,
+  variant: number,
+  cameraBase: string,
+  avoid: string[]
+): PoseSlotPlan {
+  const actionPreset = pickCommercialPoseActionPreset("garment", variant);
+  return createSlot(
+    index,
+    "garment",
+    actionPreset.label,
+    actionPreset.bodyAction,
+    actionPreset.handAction,
+    "",
+    `无头服饰/配饰局部特写，画面不含头脸；${cameraBase}`,
+    getCommercialGarmentReadabilityRule("garment"),
+    avoid,
+    0.72
+  );
+}
+
+function buildSeatedDirectionalSlot(
+  index: number,
+  variant: number,
+  cameraBase: string,
+  avoid: string[]
+): PoseSlotPlan {
+  const actionPreset = pickCommercialPoseActionPreset("seated", variant);
+  const expressionPreset = pickCommercialPoseExpressionPreset("seated", variant);
+  return createSlot(
+    index,
+    "seated",
+    actionPreset.label,
+    actionPreset.bodyAction,
+    actionPreset.handAction,
+    expressionPreset?.text || "",
+    `坐姿商业构图，椅凳或沙发不抢镜；${cameraBase}`,
+    getCommercialGarmentReadabilityRule("seated"),
+    avoid,
+    0.74
+  );
 }
 
 function getCameraBase(policy: PoseStylePolicy, analysis: PoseVisualAnalysis) {
@@ -932,6 +1057,12 @@ function getCommercialGarmentReadabilityRule(angle: PosePlanAngle) {
   }
   if (angle === "side") {
     return "侧面轮廓、肩线、腰线、侧缝、衣身厚度、面料垂坠和关键细节必须清楚";
+  }
+  if (angle === "garment") {
+    return "只展示服饰/配饰局部：领型、袖型、扣位、图案、缝线、下摆、面料纹理和配饰细节必须清楚；画面不得出现头脸";
+  }
+  if (angle === "seated") {
+    return "坐姿下腰线、裤装/裙摆垂坠、上衣下摆和鞋履关系必须清楚；坐姿不改变服装结构和版型";
   }
   return "服装正面轮廓、肩线、腰线、廓形、面料垂坠、图案和关键细节必须清楚";
 }
@@ -1225,7 +1356,7 @@ const LEGACY_DISPLAY_SLOT_DETAILS = [
 ];
 
 function derivePoseAngleCounts(slots: PoseSlotPlan[], fallback: PoseAngleCounts): PoseAngleCounts {
-  const counts: PoseAngleCounts = { front: 0, side: 0, back: 0, detail: 0 };
+  const counts: PoseAngleCounts = { front: 0, side: 0, back: 0, detail: 0, garment: 0, seated: 0 };
   slots.forEach((slot) => {
     if (slot.angle) counts[slot.angle] += 1;
   });
@@ -1244,6 +1375,8 @@ function normalizePosePlanAngle(value: unknown): PosePlanAngle | undefined {
   if (value === "side" || value === "three_quarter" || value === "侧面" || value === "侧身") return "side";
   if (value === "back" || value === "侧后" || value === "背面") return "back";
   if (value === "detail" || value === "motion" || value === "细节" || value === "动态") return "detail";
+  if (value === "garment" || value === "服饰细节" || value === "配饰细节" || value === "特写") return "garment";
+  if (value === "seated" || value === "sitting" || value === "坐姿") return "seated";
   return undefined;
 }
 

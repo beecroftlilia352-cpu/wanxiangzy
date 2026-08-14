@@ -4,7 +4,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, ChevronRight, Loader2, Minus, PenLine, Plus, Sparkles, X, XCircle } from "lucide-react";
 import { toast } from "sonner";
-import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { isLikelyImageFile, MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
 import { FeatureTabs } from "@/components/FeatureTabs";
@@ -58,6 +57,7 @@ import { useTaskQueueGeneration } from "@/components/studio/useTaskQueueGenerati
 import { fetchHistoryApplyDetail, getHistoryApplyFailureMessage, isHistoryApplyRowFailed, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
 import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
 import { showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
+import { applyGenerationResponseStatus } from "@/lib/ui/credit-copy";
 import { createGenericImagePreviewSession, takeSourceImageFromLocation, type ImagePreviewAction } from "@/lib/studio-image-preview";
 import { FAILED_RETRY_NOTICE, buildPartialFailureDetail, summarizeGenerationError } from "@/lib/studio-generation-feedback";
 import {
@@ -65,6 +65,8 @@ import {
   type PoseSeriesStyle,
 } from "@/lib/module-style-presets";
 import { POSE_UPLOAD_RULE, type PoseRuleDemo } from "@/lib/pose-upload-rules";
+import { createAdaptivePollDelay, fetchWithAbortAndTimeout, getTotalPollBudgetMs, isAbortLikeError } from "@/lib/poll/status-poll";
+import { useRulesPopover } from "@/hooks/use-rules-popover";
 import {
   GARMENT_ANGLE_TARGET_OPTIONS,
   GARMENT_ANGLE_UPLOAD_FOOTNOTE,
@@ -91,10 +93,6 @@ const MODELS: { value: LingyaModel; label: string; desc: string; badge?: string;
   { value: "nano-banana-pro", label: "Nano-Banana-Pro", desc: "最高4K", badge: "高质精修", icon: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/model-icons/gemini.png" },
 ];
 
-const POSE_GENERATION_POLL_TIMEOUT_MS = 4 * 60 * 1000;
-const POSE_GENERATION_POLL_FAST_WINDOW_MS = 30 * 1000;
-const POSE_GENERATION_POLL_FAST_MS = 3 * 1000;
-const POSE_GENERATION_POLL_SLOW_MS = 5 * 1000;
 const POSE_ANALYSIS_CLIENT_CACHE_MIN_CONFIDENCE = 0.5;
 
 const POSE_PREVIEW_ACTIONS: ImagePreviewAction[] = [
@@ -197,6 +195,18 @@ const POSE_ANGLE_OPTIONS: Array<{
     desc: "生成领口、袖口、腰线、面料等近景成片。",
     hint: "这是输出画面类型，不是上传服装细节图。",
   },
+  {
+    value: "garment",
+    label: "服饰/配饰细节",
+    desc: "只拍服饰和配饰局部特写，画面不含头脸。",
+    hint: "适合卖点特写：领型、腰带、包袋、鞋履等。",
+  },
+  {
+    value: "seated",
+    label: "坐姿展示",
+    desc: "正坐、叠腿或靠坐，展示坐姿下的版型和垂坠。",
+    hint: "适合通勤、休闲场景和橱窗摆拍感。",
+  },
 ];
 
 const POSE_ANGLE_PRESETS: Array<{
@@ -209,23 +219,23 @@ const POSE_ANGLE_PRESETS: Array<{
   {
     id: "recommended",
     label: "推荐组合",
-    countLabel: "4 张",
-    desc: "正面 + 侧身 + 近景",
-    counts: { front: 1, side: 2, back: 0, detail: 1 },
+    countLabel: "5 张",
+    desc: "正面 + 侧身 + 近景 + 服饰细节",
+    counts: { front: 1, side: 2, back: 0, detail: 1, garment: 1, seated: 0 },
   },
   {
     id: "commerce",
     label: "电商四视角",
     countLabel: "4 张",
     desc: "含背面",
-    counts: { front: 1, side: 1, back: 1, detail: 1 },
+    counts: { front: 1, side: 1, back: 1, detail: 1, garment: 0, seated: 0 },
   },
   {
     id: "sequence",
     label: "连拍扩展",
     countLabel: "8 张",
-    desc: "更多动作变化",
-    counts: { front: 2, side: 3, back: 1, detail: 2 },
+    desc: "更多动作变化 + 坐姿",
+    counts: { front: 2, side: 2, back: 1, detail: 1, garment: 1, seated: 1 },
   },
 ];
 
@@ -282,6 +292,8 @@ function getPoseAngleBadgeClass(angle?: PosePlanAngle) {
   if (angle === "side") return `${base} bg-indigo-50 text-indigo-700 ring-indigo-100`;
   if (angle === "back") return `${base} bg-amber-50 text-amber-700 ring-amber-100`;
   if (angle === "detail") return `${base} bg-teal-50 text-teal-700 ring-teal-100`;
+  if (angle === "garment") return `${base} bg-rose-50 text-rose-700 ring-rose-100`;
+  if (angle === "seated") return `${base} bg-violet-50 text-violet-700 ring-violet-100`;
   return `${base} bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-stone-400 ring-slate-200`;
 }
 
@@ -295,7 +307,7 @@ function resolvePoseAngleCountsFromPayload(payload: PoseHistoryPayload): PoseAng
   const slotCounts = payload.posePlan?.slots?.reduce((counts, slot) => {
     if (slot.angle) counts[slot.angle] += 1;
     return counts;
-  }, { front: 0, side: 0, back: 0, detail: 0 } as PoseAngleCounts);
+  }, { front: 0, side: 0, back: 0, detail: 0, garment: 0, seated: 0 } as PoseAngleCounts);
   if (slotCounts && getPoseAngleTotal(slotCounts) > 0) return normalizePoseAngleCounts(slotCounts);
   const payloadCount = payload.poseCount || payload.posePlan?.slots?.length || payload.genCount || 4;
   return buildDefaultPoseAngleCounts(normalizePosePlanCount(payloadCount));
@@ -316,16 +328,6 @@ function stripLegacyRuleDemoText(value: string) {
     .replace(/\n?姿势裂变拍摄风格档位：[^\n]*(?:\n|$)/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
-}
-
-function getPoseGenerationPollDelay(elapsedMs: number) {
-  return elapsedMs < POSE_GENERATION_POLL_FAST_WINDOW_MS
-    ? POSE_GENERATION_POLL_FAST_MS
-    : POSE_GENERATION_POLL_SLOW_MS;
-}
-
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 class PoseGenerationPollTimeoutError extends Error {
@@ -361,8 +363,6 @@ export default function PosePage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const poseReferenceInputRef = useRef<HTMLInputElement>(null);
   const garmentDetailInputRef = useRef<HTMLInputElement>(null);
-  const rulesButtonRef = useRef<HTMLButtonElement>(null);
-  const rulesHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const generationRunRef = useRef(0);
   const poseAnalysisCacheRef = useRef(new Map<string, PoseAnalysisEntry>());
   const poseAnalysisInflightRef = useRef(new Map<string, Promise<PoseAnalysisEntry>>());
@@ -373,6 +373,7 @@ export default function PosePage() {
   const lastPosePlanKeyRef = useRef("");
   const posePlanSeqRef = useRef(0);
   const posePlanBypassCacheRef = useRef(false);
+  const pollAbortRef = useRef<AbortController | null>(null);
   const applyPoseHistoryPayloadRef = useRef<((payload: PoseHistoryPayload, historyResultUrls?: string[], options?: { silent?: boolean }) => void) | null>(null);
 
   const {
@@ -427,8 +428,15 @@ export default function PosePage() {
   const [error, setError] = useState("");
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
-  const [showPoseRules, setShowPoseRules] = useState(false);
-  const [rulesPopoverStyle, setRulesPopoverStyle] = useState<{ top: number; left: number; maxHeight: number } | null>(null);
+  const {
+    buttonRef: rulesButtonRef,
+    show: showPoseRules,
+    style: rulesPopoverStyle,
+    open: openRulesPopover,
+    scheduleHide: scheduleRulesHide,
+    close: closeRulesPopover,
+    cancelHide: cancelRulesHide,
+  } = useRulesPopover({ width: 720 });
   const mainImageDrag = useStableFileDrag<HTMLDivElement>({
     isDragging,
     setDragging: setIsDragging,
@@ -571,36 +579,6 @@ export default function PosePage() {
   useEffect(() => {
     setPoseReferenceCopies((count) => normalizePoseReferenceCopies(count, Math.max(activePoseReferenceUrls.length, 1)));
   }, [activePoseReferenceUrls.length]);
-
-  const cancelRulesHide = () => {
-    if (rulesHideTimerRef.current) {
-      clearTimeout(rulesHideTimerRef.current);
-      rulesHideTimerRef.current = null;
-    }
-  };
-
-  const openRulesPopover = () => {
-    cancelRulesHide();
-    const rect = rulesButtonRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    const width = Math.min(720, window.innerWidth - 32);
-    const top = Math.max(16, Math.min(rect.top - 10, window.innerHeight - 360));
-    const left = Math.max(16, Math.min(rect.right + 12, window.innerWidth - width - 16));
-    setRulesPopoverStyle({
-      top,
-      left,
-      maxHeight: Math.max(320, window.innerHeight - top - 16),
-    });
-    setShowPoseRules(true);
-  };
-
-  const scheduleRulesHide = () => {
-    cancelRulesHide();
-    rulesHideTimerRef.current = setTimeout(() => {
-      setShowPoseRules(false);
-      setRulesPopoverStyle(null);
-    }, 180);
-  };
 
   function setPoseAnalysisEntry(entry: PoseAnalysisEntry | null, analysisKey = "") {
     setPoseAnalysisEntryKey(entry ? analysisKey : "");
@@ -809,8 +787,9 @@ export default function PosePage() {
     }
   }, []);
 
+  // 组件卸载时中止在途的生成状态轮询
   useEffect(() => {
-    return () => cancelRulesHide();
+    return () => pollAbortRef.current?.abort();
   }, []);
 
   useEffect(() => {
@@ -1128,6 +1107,10 @@ export default function PosePage() {
       toast.error("请上传图片文件");
       return;
     }
+    if (file.size === 0) {
+      toast.error("图片文件为空，请重新选择");
+      return;
+    }
     if (file.size > MAX_FILE_SIZE) {
       toast.error(`图片不能超过 ${MAX_FILE_SIZE_MB}MB`);
       return;
@@ -1165,6 +1148,7 @@ export default function PosePage() {
     const validFiles: File[] = [];
     for (const file of limited) {
       if (!isLikelyImageFile(file)) { toast.error(`${file.name} 不是图片`); continue; }
+      if (file.size === 0) { toast.error(`${file.name} 是空文件`); continue; }
       if (file.size > MAX_FILE_SIZE) { toast.error(`${file.name} 超过 ${MAX_FILE_SIZE_MB}MB`); continue; }
       validFiles.push(file);
     }
@@ -1220,6 +1204,7 @@ export default function PosePage() {
     const validFiles: File[] = [];
     for (const file of limited) {
       if (!isLikelyImageFile(file)) { toast.error(`${file.name} 不是图片`); continue; }
+      if (file.size === 0) { toast.error(`${file.name} 是空文件`); continue; }
       if (file.size > MAX_FILE_SIZE) { toast.error(`${file.name} 超过 ${MAX_FILE_SIZE_MB}MB`); continue; }
       validFiles.push(file);
     }
@@ -1257,8 +1242,7 @@ export default function PosePage() {
   function applyRuleDemo(demo: PoseRuleDemo) {
     setMainImage(demo.imageUrl);
     setPrompt((prev) => stripLegacyRuleDemoText(prev));
-    setShowPoseRules(false);
-    setRulesPopoverStyle(null);
+    closeRulesPopover();
     toast.success("已套用示例图");
   }
 
@@ -1374,16 +1358,14 @@ export default function PosePage() {
           }
           return;
         }
-        if (res.status === 402) {
-          const nextCredits = data.balance ?? 0;
-          setCredits(nextCredits);
-          if (userId) setCachedProfileCredits(userId, nextCredits);
-        }
+        applyGenerationResponseStatus({
+          res,
+          data,
+          userId,
+          setCredits,
+          fallbackError: "生成失败",
+        });
         throw new Error(data.error || "生成失败");
-      }
-      if (data.credits_remaining !== undefined) {
-        setCredits(data.credits_remaining);
-        if (userId) setCachedProfileCredits(userId, data.credits_remaining);
       }
       if (typeof data.generation_id === "string" && data.generation_id) {
         const serverTask = taskQueue.replaceWithServerTask(activeTaskId, {
@@ -1400,12 +1382,22 @@ export default function PosePage() {
         toast.success("任务已提交，可继续创建");
       }
 
+      // 共享轮询原语：预算按期望张数缩放、退避跟随 attempts、tab 隐藏时节流
+      const budgetMs = getTotalPollBudgetMs(displayExpectedCount);
+      const pollDelay = createAdaptivePollDelay();
+      const pollController = new AbortController();
+      pollAbortRef.current = pollController;
+      const pollStartedAt = Date.now();
       let elapsedMs = 0;
-      while (elapsedMs < POSE_GENERATION_POLL_TIMEOUT_MS) {
-        const pollDelayMs = getPoseGenerationPollDelay(elapsedMs);
-        await sleep(pollDelayMs);
-        elapsedMs += pollDelayMs;
-        const poll = await fetch(`/api/pose?generation_id=${data.generation_id}`);
+      let attempts = 0;
+      while (elapsedMs < budgetMs) {
+        await pollDelay(attempts, pollController.signal);
+        attempts += 1;
+        elapsedMs = Date.now() - pollStartedAt;
+        const poll = await fetchWithAbortAndTimeout(
+          `/api/pose?generation_id=${data.generation_id}`,
+          pollController.signal,
+        );
         if (!poll.ok) continue;
         const state = await poll.json();
         if (state.status === "processing_tryon" || state.status === "processing" || state.status === "pending") {
@@ -1414,7 +1406,7 @@ export default function PosePage() {
             latestTaskResultUrls = nextResultUrls;
             if (isCurrentRun()) setResultUrls(nextResultUrls);
           }
-          const runningProgress = Math.min(25 + (elapsedMs / POSE_GENERATION_POLL_TIMEOUT_MS) * 65, 90);
+          const runningProgress = Math.min(25 + (elapsedMs / budgetMs) * 65, 90);
           taskQueue.markRunning(activeTaskId, {
             expectedCount: displayExpectedCount,
             inputThumbnails: taskInputThumbnails,
@@ -1428,7 +1420,10 @@ export default function PosePage() {
           const finalResultCount = finalUrls.filter(Boolean).length;
           const expectedResultCount = retryResultIndex !== null
             ? displayExpectedCount
-            : Math.max(Number(state.expected_count) || runExpectedCount, runExpectedCount);
+            : Math.min(
+                Math.max(Number(state.expected_count) || runExpectedCount, runExpectedCount),
+                POSE_PLAN_MAX_COUNT,
+              );
           const partialFailure = state.partial_failure && typeof state.partial_failure === "object"
             ? state.partial_failure as { message?: unknown }
             : null;
@@ -1459,6 +1454,8 @@ export default function PosePage() {
       }
       throw new PoseGenerationPollTimeoutError();
     } catch (err: unknown) {
+      // 组件卸载或新任务接管导致的中止：静默退出，不打扰用户
+      if (isAbortLikeError(err)) return;
       const message = summarizeGenerationError(err instanceof Error ? err.message : "生成失败");
       if (err instanceof PoseGenerationPollTimeoutError) {
         taskQueue.markRunning(activeTaskId, {
@@ -1557,8 +1554,7 @@ export default function PosePage() {
     setResultUrls([]);
     setError("");
     setLightboxSrc(null);
-    setShowPoseRules(false);
-    setRulesPopoverStyle(null);
+    closeRulesPopover();
     if (fileInputRef.current) fileInputRef.current.value = "";
     if (poseReferenceInputRef.current) poseReferenceInputRef.current.value = "";
     if (garmentDetailInputRef.current) garmentDetailInputRef.current.value = "";
@@ -2083,6 +2079,7 @@ export default function PosePage() {
                 const total = posePlanTargetCount;
                 const isBack = item.value === "back";
                 const isDetail = item.value === "detail";
+                const isGarment = item.value === "garment";
                 return (
                   <div key={item.value} className="border-b border-slate-100 dark:border-white/5 p-3 last:border-b-0">
                     <div className="flex items-center gap-3">
@@ -2091,6 +2088,9 @@ export default function PosePage() {
                           <p className="text-sm font-black text-slate-950 dark:text-stone-100">{item.label}</p>
                           {isDetail ? (
                             <span className="rounded-full bg-slate-100 dark:bg-white/5 px-2 py-0.5 text-[10px] font-bold text-slate-500 dark:text-stone-400">输出近景</span>
+                          ) : null}
+                          {isGarment ? (
+                            <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-700">不露脸特写</span>
                           ) : null}
                           {isBack && count > 0 ? (
                             <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700">建议补背面图</span>
@@ -2370,7 +2370,7 @@ export default function PosePage() {
                                     disabled={suppressPoseFaceControls || selectedExpressionPresets.length === 0}
                                     className="h-10 w-full rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 text-xs font-bold text-slate-950 dark:text-stone-100 shadow-sm outline-none transition hover:border-blue-200 dark:hover:border-blue-400/40 focus:border-blue-300 dark:focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-500/40 disabled:cursor-not-allowed disabled:bg-slate-50 dark:disabled:bg-white/4 dark:bg-white/4 disabled:text-slate-400 dark:text-stone-500"
                                   >
-                                    <option value="current">{suppressPoseFaceControls ? "主图无清晰脸部" : "按计划表情/视线"}</option>
+                                    <option value="current">{selectedPosePlanSlot?.angle === "garment" ? "不露脸特写" : suppressPoseFaceControls ? "主图无清晰脸部" : "按计划表情/视线"}</option>
                                     {selectedExpressionPresets.map((preset) => (
                                       <option key={preset.id} value={preset.id}>{preset.label}</option>
                                     ))}
