@@ -226,10 +226,10 @@ modelSpecs:
 # 对话行为
 interface:
   privacyPolicy:
-    externalUrl: "https://wanxiangzy.com/pricing"
+    externalUrl: "https://pixel-diffusion.com/pricing"
     openNewTab: true
   termsOfService:
-    externalUrl: "https://wanxiangzy.com/pricing"
+    externalUrl: "https://pixel-diffusion.com/pricing"
     openNewTab: true
 
 # 计费：管理员在后台「Balance」面板按模型配置 token 单价；

@@ -93,7 +93,7 @@ export const TOP_MODULES: TopModuleNavItem[] = [
     icon: PackageOpen,
     badge: "NEW",
   },
-  { key: "assistant", href: "https://chat.wanxiangzy.com", label: "AI 对话", icon: Bot, external: true, badge: "NEW" },
+  { key: "assistant", href: "https://chat.pixel-diffusion.com", label: "AI 对话", icon: Bot, external: true, badge: "NEW" },
   { key: "tools", href: "/general-image", label: "素材生成", icon: Images },
   { key: "aiVideo", href: "/video", label: "AI视频", icon: Clapperboard, badge: "NEW" },
   { key: "works", href: "/history", label: "作品库", icon: GalleryHorizontalEnd },
