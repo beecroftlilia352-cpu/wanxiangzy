@@ -257,9 +257,9 @@ function MarketingHeader({ account, overlay }: { account: HeaderAccountState; ov
         <Link
           href="/"
           className="home-marketing-logo shrink-0 text-[18px] font-semibold leading-none"
-          aria-label="VastWearGen 首页"
+          aria-label="Pixel Diffusion 首页"
         >
-          VastWearGen
+          Pixel Diffusion
         </Link>
 
         <nav className="home-marketing-nav hidden flex-1 items-center gap-8 pl-4 text-[14px] font-semibold leading-none lg:flex" aria-label="主导航">
@@ -425,7 +425,7 @@ function AppHeader({ pathname }: { pathname: string }) {
 
 function BrandMark() {
   return (
-    <Link href="/" className="studio-brand-mark flex min-w-0 items-center gap-3" aria-label="VastWearGen 首页">
+    <Link href="/" className="studio-brand-mark flex min-w-0 items-center gap-3" aria-label="Pixel Diffusion 首页">
       <span className="studio-brand-logo relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/70 bg-white/88 shadow-sm dark:border-stone-700 dark:bg-stone-800/90">
         <Image
           src={codexTheme.brand.logo}

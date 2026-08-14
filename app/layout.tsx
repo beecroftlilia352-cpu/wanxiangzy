@@ -22,7 +22,7 @@ const geist = Geist({
 });
 
 export const metadata: Metadata = {
-  title: "VastWearGen - AI 服装视觉生产工作台",
+  title: "Pixel Diffusion - AI 服装视觉生产工作台",
   description: "面向服装品牌、电商团队和内容创作者的 AI 服装视觉生产工作台。",
   icons: {
     icon: [{ url: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/gemini-icon.png", type: "image/png" }],

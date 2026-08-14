@@ -4,7 +4,7 @@ import { AccountCenterClient } from "@/components/account/AccountCenterClient";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export const metadata: Metadata = {
-  title: "个人中心 | VastWearGen",
+  title: "个人中心 | Pixel Diffusion",
 };
 
 export default function AccountPage() {

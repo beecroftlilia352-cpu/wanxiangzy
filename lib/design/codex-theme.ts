@@ -1,6 +1,6 @@
 export const codexTheme = {
   brand: {
-    name: "VastWearGen",
+    name: "Pixel Diffusion",
     subtitle: "AI 服装视觉生产工作台",
     tagline: "面向服装品牌和电商团队的 AI 服装视觉生产工作台。",
     description: "上传服装、模特和参考图，生成上身图、商品套图、种草封面和场景版本。",

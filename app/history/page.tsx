@@ -1289,7 +1289,7 @@ function downloadHistoryResult(row: HistoryRow, url: string, index: number) {
     ? new Date(row.created_at).toISOString().slice(0, 10).replace(/-/g, "")
     : "";
   const filename = dateStr
-    ? `vastweargen-history-${dateStr}-${String(index + 1).padStart(2, "0")}.${ext}`
+    ? `pixel-diffusion-${dateStr}-${String(index + 1).padStart(2, "0")}.${ext}`
     : generateDownloadFilename("history", index, ext);
 
   downloadImage(url, filename);

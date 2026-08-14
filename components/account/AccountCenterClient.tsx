@@ -227,7 +227,7 @@ const featureOptions = [
 
 const productOptions = [
   { value: "all", label: "全部" },
-  { value: "vastweargen", label: "VastWearGen" },
+  { value: "vastweargen", label: "Pixel Diffusion" },
 ];
 
 const feedbackCategories = [
@@ -298,7 +298,7 @@ export function AccountCenterClient() {
     void loadOrdersRef.current();
   }, [orderFilters, orderPage, orderPageSize]);
 
-  const displayName = profile.profile?.displayName || profile.user?.email?.split("@")[0] || "VastWearGen用户";
+  const displayName = profile.profile?.displayName || profile.user?.email?.split("@")[0] || "Pixel Diffusion用户";
   const maskedAccount = profile.user?.email ? maskAccountLabel(profile.user.email) : displayName;
   const userId = profile.user?.id || "--";
   const latestBalance = profile.credits ?? creditLogs[0]?.balance ?? 0;
@@ -720,7 +720,7 @@ function CreditLogsPanel({
   const [form] = Form.useForm<CreditFilters & { range?: DateRangeValue }>();
   const columns = useMemo<ColumnsType<CreditLog>>(
     () => [
-      { title: "产品", width: 120, render: () => "VastWearGen" },
+      { title: "产品", width: 120, render: () => "Pixel Diffusion" },
       { title: "功能", width: 170, render: (_, log) => featureLabel(log.reason) },
       { title: "消耗方式", width: 130, render: (_, log) => (log.amount < 0 ? "SAAS调用" : "充值入账") },
       { title: "时间", dataIndex: "created_at", width: 170, render: formatDateTime },

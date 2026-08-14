@@ -10,7 +10,7 @@ type AuthView = "login" | "signup" | "check-email" | "forgot-password" | "reset-
 
 const viewCopy: Record<AuthView, { title: string; desc: string }> = {
   login: {
-    title: "登录 VastWearGen",
+    title: "登录 Pixel Diffusion",
     desc: "继续管理你的服装视觉资产和生成记录。",
   },
   signup: {
@@ -194,13 +194,13 @@ export default function LoginPage() {
             <div className="relative z-10">
               <Link href="/" className="studio-button studio-button-compact">
                 <CheckCircle aria-hidden="true" className="h-4 w-4 text-[var(--codex-accent)]" />
-                VastWearGen
+                Pixel Diffusion
               </Link>
               <h1 className="mt-10 max-w-xl text-5xl font-black leading-[0.95] tracking-[-0.04em] text-codex-ink">
                 把每一次上新，做成统一的品牌视觉。
               </h1>
               <p className="mt-5 max-w-lg text-base leading-8 text-codex-muted">
-                从服装上身到姿势裂变，从专属模特到商品质感图，VastWearGen 帮你把分散的素材变成可持续复用的视觉资产。
+                从服装上身到姿势裂变，从专属模特到商品质感图，Pixel Diffusion 帮你把分散的素材变成可持续复用的视觉资产。
               </p>
 
               <div className="mt-10 grid grid-cols-4 gap-3" aria-hidden="true">

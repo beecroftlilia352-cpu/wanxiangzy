@@ -12,7 +12,7 @@ export function getStripe() {
 
   stripeClient = new Stripe(secretKey, {
     appInfo: {
-      name: "VastWearGen",
+      name: "Pixel Diffusion",
       version: "1.0.0",
     },
     typescript: true,

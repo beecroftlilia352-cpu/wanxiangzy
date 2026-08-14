@@ -243,7 +243,7 @@ export default function HomePage() {
           <div className="mx-auto max-w-[760px] text-center">
             <h2 className="text-[36px] font-semibold leading-tight sm:text-[46px]">在每个上新场景中使用同一智能体</h2>
             <p className="mt-5 text-[15px] leading-7 text-[#4b5563]">
-              在多个页面和环境中使用 VastWearGen，并通过你的团队素材库实现统一连接。
+              在多个页面和环境中使用 Pixel Diffusion，并通过你的团队素材库实现统一连接。
             </p>
             <Link href="/create" className="home-button home-button-dark mt-8">
               进入工作台
@@ -304,7 +304,7 @@ export default function HomePage() {
           </video>
           <div className="home-final-video-scrim" aria-hidden="true" />
           <div className="relative z-[3] mx-auto flex min-h-[475px] max-w-[1440px] flex-col items-center justify-center px-5 py-20 text-center text-[#050505] sm:px-8 lg:px-10">
-            <h2 className="text-[44px] font-semibold leading-tight sm:text-[65px]">立即试用 VastWearGen</h2>
+            <h2 className="text-[44px] font-semibold leading-tight sm:text-[65px]">立即试用 Pixel Diffusion</h2>
             <p className="mt-6 max-w-[660px] text-[16px] font-medium leading-7 text-[#111827]/84">
               把服装视觉生产交给同一个 AI 工作流，从第一张参考图开始，到可复用的上新模板结束。
             </p>
@@ -418,7 +418,7 @@ function Footer() {
     <footer className="border-t border-[#ececec] bg-white text-[#050505]">
       <div className="mx-auto grid max-w-[1440px] gap-12 px-5 py-16 sm:px-8 md:grid-cols-[1.1fr_repeat(4,1fr)] lg:px-10">
         <div>
-          <p className="text-[18px] font-semibold text-[#050505]">VastWearGen</p>
+          <p className="text-[18px] font-semibold text-[#050505]">Pixel Diffusion</p>
           <p className="mt-4 max-w-[260px] text-[14px] leading-7 text-[#6b7280]">
             面向服装品牌、电商团队和内容团队的 AI 服装视觉生产工作台。
           </p>

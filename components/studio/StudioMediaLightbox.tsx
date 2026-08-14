@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import type { RefObject } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
@@ -28,6 +29,11 @@ export function StudioMediaLightbox({
   onPrev,
   onNext,
 }: StudioMediaLightboxProps) {
+  const [zoomed, setZoomed] = useState(false);
+  useEffect(() => {
+    if (!src) setZoomed(false);
+  }, [src]);
+
   return (
     <Dialog
       open={Boolean(src)}
@@ -37,6 +43,7 @@ export function StudioMediaLightbox({
     >
       <DialogContent
         returnFocusRef={returnFocusRef}
+        onDoubleClick={() => setZoomed((value) => !value)}
         onKeyDown={(event) => {
           if (event.key === "ArrowLeft") {
             event.preventDefault();
@@ -67,15 +74,19 @@ export function StudioMediaLightbox({
               )}
             />
           ) : (
-            <RawPreviewImage
-              src={src}
-              alt={alt}
-              decoding="async"
-              className={cn(
-                "max-h-[calc(100dvh-3rem)] max-w-full rounded-2xl object-contain shadow-[0_32px_120px_rgba(0,0,0,0.45)]",
-                mediaClassName
-              )}
-            />
+            <div className={cn("max-h-[calc(100dvh-3rem)] max-w-full", zoomed && "overflow-auto")}>
+              <RawPreviewImage
+                src={src}
+                alt={alt}
+                decoding="async"
+                style={{ transform: zoomed ? "scale(1.9)" : undefined, transformOrigin: "center center", transition: "transform 220ms ease" }}
+                className={cn(
+                  "max-h-[calc(100dvh-3rem)] max-w-full cursor-zoom-in rounded-2xl object-contain shadow-[0_32px_120px_rgba(0,0,0,0.45)]",
+                  zoomed && "cursor-zoom-out",
+                  mediaClassName
+                )}
+              />
+            </div>
           )
         ) : null}
         {caption ? (
