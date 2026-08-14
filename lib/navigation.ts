@@ -62,7 +62,6 @@ export type TopModuleNavItem = {
   icon: LucideIcon;
   badge?: "NEW";
   comingSoon?: boolean;
-  external?: boolean;
 };
 
 export type FeatureNavItem = {
@@ -93,13 +92,13 @@ export const TOP_MODULES: TopModuleNavItem[] = [
     icon: PackageOpen,
     badge: "NEW",
   },
-  { key: "assistant", href: "https://chat.wanxiangzy.com", label: "AI 对话", icon: Bot, external: true, badge: "NEW" },
+  { key: "assistant", href: "/agent", label: "工作流助手", icon: Bot },
   { key: "tools", href: "/general-image", label: "素材生成", icon: Images },
   { key: "aiVideo", href: "/video", label: "AI视频", icon: Clapperboard, badge: "NEW" },
   { key: "works", href: "/history", label: "作品库", icon: GalleryHorizontalEnd },
 ];
 
-export const VISIBLE_TOP_MODULES: TopModuleNavItem[] = TOP_MODULES;
+export const VISIBLE_TOP_MODULES: TopModuleNavItem[] = TOP_MODULES.filter((item) => item.key !== "assistant");
 
 export const FEATURE_ITEMS: FeatureNavItem[] = [
   {
