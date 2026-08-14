@@ -456,7 +456,7 @@ function PlanCard({
       </div>
 
       <div className="mb-6 flex items-baseline gap-1">
-        <span className="text-4xl font-black text-zinc-900">¥{formatNumber(plan.price)}</span>
+        <span className="text-4xl font-black tabular-nums text-zinc-900">¥{formatNumber(plan.price)}</span>
         {mode === "subscription" ? <span className="text-sm font-medium text-zinc-700">/连续包月</span> : null}
       </div>
 

@@ -664,7 +664,7 @@ function AccountMenuHeader({
           切换账号
         </Link>
       </div>
-      <p className="mt-2 text-xs font-medium text-slate-500 dark:text-stone-400">
+      <p className="mt-2 text-xs font-medium tabular-nums text-slate-500 dark:text-stone-400">
         可用灵点 {creditsReady ? credits ?? "--" : "--"}
       </p>
     </div>
