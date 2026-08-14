@@ -19,6 +19,24 @@ NEWBI_API_KEY=${NEWBI_API_KEY:?请先设置 NEWBI_API_KEY 环境变量}
 JWT_SECRET=$(openssl rand -hex 32)
 CREDS_KEY=$(openssl rand -hex 32)
 CREDS_IV=$(openssl rand -hex 16)
+
+# 单点登录：与主站 OIDC Provider 打通（用户体系互通）
+# 这些值必须与主站 env.local 中的 OIDC_CLIENT_ID / OIDC_CLIENT_SECRET 一致
+OIDC_CLIENT_ID=${OIDC_CLIENT_ID:?请设置 OIDC_CLIENT_ID（与主站 env.local 一致）}
+OIDC_CLIENT_SECRET=${OIDC_CLIENT_SECRET:?请设置 OIDC_CLIENT_SECRET（与主站 env.local 一致）}
+OPENID_CLIENT_ID=${OIDC_CLIENT_ID}
+OPENID_CLIENT_SECRET=${OIDC_CLIENT_SECRET}
+OPENID_ISSUER=https://pixel-diffusion.com
+OPENID_SESSION_SECRET=$(openssl rand -hex 32)
+OPENID_SCOPE="openid profile email"
+OPENID_CALLBACK_URL=/oauth/openid/callback
+OPENID_BUTTON_LABEL="使用万象智艺账号登录"
+OPENID_USERNAME_CLAIM=email
+OPENID_ROLE_SYNC_ENABLED=false
+
+# 关闭本地注册：所有用户统一走主站单点登录
+ALLOW_REGISTRATION=false
+ALLOW_EMAIL_LOGIN=false
 EOF
 fi
 

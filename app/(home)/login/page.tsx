@@ -41,7 +41,9 @@ const showcaseImages = [
 function getSafeAuthRedirectTarget() {
   if (typeof window === "undefined") return "/create";
   const next = new URLSearchParams(window.location.search).get("next") || "";
-  if (!next.startsWith("/") || next.startsWith("//") || next.startsWith("/api/")) return "/create";
+  // 仅允许站内路径；/api/ 默认拒绝，OIDC 授权端点白名单放行（LibreChat SSO 回跳）
+  if (!next.startsWith("/") || next.startsWith("//")) return "/create";
+  if (next.startsWith("/api/") && !next.startsWith("/api/oidc/authorize")) return "/create";
   return next;
 }
 
