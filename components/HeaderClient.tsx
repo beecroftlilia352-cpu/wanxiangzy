@@ -457,7 +457,7 @@ function DesktopTopNav({ activeModule }: { activeModule: string }) {
         const Icon = item.icon;
         const className = `relative inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-sm font-black transition ${
           active
-            ? "bg-white text-codex-ink shadow-sm ring-1 ring-[rgba(91,124,255,0.22)] dark:bg-stone-800 dark:text-stone-100 dark:ring-[rgba(91,124,255,0.4)]"
+            ? "bg-[rgba(91,124,255,0.12)] text-[var(--codex-accent)] shadow-sm ring-1 ring-[rgba(91,124,255,0.3)] dark:bg-[rgba(91,140,255,0.18)] dark:text-[#aeb8ff] dark:ring-[rgba(91,140,255,0.45)]"
             : "text-codex-muted hover:bg-white/72 hover:text-codex-ink dark:text-stone-400 dark:hover:bg-stone-800/60 dark:hover:text-stone-100"
         }`;
 
@@ -542,7 +542,7 @@ function UserCreditActions({
     <>
       <Link
         href="/pricing"
-        className="hidden h-8 shrink-0 items-center gap-1.5 rounded-full bg-[#3b2415] px-3 text-xs font-black text-[#ffe5b4] shadow-sm transition hover:-translate-y-0.5 hover:bg-[#2c1a0f] dark:bg-[rgba(255,159,10,0.14)] dark:text-[#ffd194] dark:ring-1 dark:ring-[rgba(255,159,10,0.45)] dark:hover:bg-[rgba(255,159,10,0.22)] sm:inline-flex"
+        className="hidden h-8 shrink-0 items-center gap-1.5 rounded-full bg-[var(--codex-accent)] px-3 text-xs font-black text-white shadow-[0_4px_14px_rgba(91,124,255,0.3)] transition hover:-translate-y-0.5 hover:opacity-90 dark:bg-[rgba(91,140,255,0.85)] sm:inline-flex"
         title="充值中心"
       >
         <CreditCard className="h-3.5 w-3.5" />
@@ -550,10 +550,10 @@ function UserCreditActions({
       </Link>
       <Link
         href="/account?tab=credits"
-        className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-[#ffd59c] bg-[#fff0dc] px-3 text-xs font-black text-[#9a5a00] shadow-sm transition hover:-translate-y-0.5 hover:bg-[#ffe7c2] dark:border-[rgba(255,159,10,0.45)] dark:bg-[rgba(255,159,10,0.10)] dark:text-[#ffd194] dark:hover:bg-[rgba(255,159,10,0.18)]"
+        className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-[rgba(91,124,255,0.3)] bg-[rgba(91,124,255,0.1)] px-3 text-xs font-black text-[var(--codex-accent)] shadow-sm transition hover:-translate-y-0.5 hover:bg-[rgba(91,124,255,0.16)] dark:border-[rgba(91,140,255,0.4)] dark:bg-[rgba(91,140,255,0.14)] dark:text-[#aeb8ff] dark:hover:bg-[rgba(91,140,255,0.22)]"
         title="灵点明细"
       >
-        <Coins className="h-3.5 w-3.5 text-[#f59e0b]" />
+        <Coins className="h-3.5 w-3.5" />
         {creditsReady ? <span>{credits ?? "--"}</span> : <span className="h-3 w-5 animate-pulse rounded bg-slate-200 dark:bg-white/10" />}
       </Link>
       <HeaderHelpDropdown />

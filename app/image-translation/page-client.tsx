@@ -679,7 +679,7 @@ export default function ImageTranslationPage() {
             title="图片翻译"
             tooltip="上传需要本地化的商品图，选择 1~20 种目标语言，模型会按图1 中的可见文字逐处翻译，保留品牌、Logo、产品名、参数和价格原样。"
             actions={(
-              <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-black text-violet-600">
+              <span className="rounded-full bg-[rgba(91,124,255,0.1)] px-2 py-0.5 text-[10px] font-black text-[var(--codex-accent)]">
                 NEW
               </span>
             )}
@@ -738,7 +738,7 @@ export default function ImageTranslationPage() {
           <section>
             <div className="mb-2 flex items-center justify-between">
               <h3 className="flex items-center gap-2 text-sm font-bold text-slate-900">
-                <LanguagesIcon className="h-4 w-4 text-violet-500" />
+                <LanguagesIcon className="h-4 w-4 text-[var(--codex-accent)]" />
                 目标语言 <span className="text-xs font-normal text-slate-400">· 可多选</span>
               </h3>
               <span className="text-xs text-slate-400">已选 {languages.length}/{MAX_IMAGE_TRANSLATION_LANGUAGES}</span>
@@ -746,7 +746,7 @@ export default function ImageTranslationPage() {
             <button
               type="button"
               onClick={() => setLanguageModalOpen(true)}
-              className="flex w-full items-center justify-between rounded-2xl border border-dashed border-violet-200 bg-violet-50/40 px-4 py-3 text-sm font-semibold text-violet-700 transition hover:border-violet-300 hover:bg-violet-50"
+              className="flex w-full items-center justify-between rounded-2xl border border-dashed border-violet-200 bg-[rgba(91,124,255,0.1)]/40 px-4 py-3 text-sm font-semibold text-violet-700 transition hover:border-violet-300 hover:bg-[rgba(91,124,255,0.1)]"
             >
               <span className="truncate">
                 {languageLabels.length
@@ -786,7 +786,7 @@ export default function ImageTranslationPage() {
 
           <section>
             <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-900">
-              <ImagesIcon className="h-4 w-4 text-violet-500" />
+              <ImagesIcon className="h-4 w-4 text-[var(--codex-accent)]" />
               补充说明 <span className="text-xs font-normal text-slate-400">· 可选</span>
             </h3>
             <StudioPromptTextarea
@@ -805,7 +805,7 @@ export default function ImageTranslationPage() {
 
           <section>
             <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-900">
-              <Sparkles className="h-4 w-4 text-violet-500" />
+              <Sparkles className="h-4 w-4 text-[var(--codex-accent)]" />
               生成模型
             </h3>
             <StudioModelSelector
@@ -863,7 +863,7 @@ export default function ImageTranslationPage() {
                 <button
                   type="button"
                   onClick={() => setLightboxSrc(primarySourceUrl)}
-                  className="absolute right-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded-full bg-white dark:bg-white/10/85 text-slate-500 shadow-sm hover:text-violet-600"
+                  className="absolute right-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded-full bg-white dark:bg-white/10/85 text-slate-500 shadow-sm hover:text-[var(--codex-accent)]"
                   aria-label="放大预览"
                 >
                   <ZoomIn className="h-3.5 w-3.5" />

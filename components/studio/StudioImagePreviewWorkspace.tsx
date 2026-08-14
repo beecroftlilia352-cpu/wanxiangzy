@@ -45,6 +45,7 @@ import {
   type ImagePreviewResult,
   type ImagePreviewSession,
 } from "@/lib/studio-image-preview";
+import { downloadImagesAsZip } from "@/lib/download-batch";
 import { cn, downloadImage, generateDownloadFilename } from "@/lib/utils";
 
 type StudioImagePreviewWorkspaceProps = {
@@ -291,6 +292,8 @@ export function StudioImagePreviewWorkspace({
             activeResult={activeResult}
             onRunAction={runAction}
             onRouteWithSource={routeWithSource}
+            resultUrls={session.results.map((item) => item.url).filter((url): url is string => Boolean(url))}
+            filenamePrefix={filenamePrefix}
           />
         </div>
 
@@ -601,12 +604,16 @@ function PreviewActionBar({
   activeResult,
   onRunAction,
   onRouteWithSource,
+  resultUrls,
+  filenamePrefix,
 }: {
   actions: ImagePreviewAction[];
   activeUrl: string;
   activeResult: ImagePreviewResult;
   onRunAction: (action: ImagePreviewAction) => void | Promise<void>;
   onRouteWithSource: (path: string) => void;
+  resultUrls?: string[];
+  filenamePrefix?: string;
 }) {
   const actionMap = new Map(actions.map((action) => [action.kind, action]));
   const downloadAction = actionMap.get("download");
@@ -661,6 +668,17 @@ function PreviewActionBar({
               onClick={() => void onRunAction(downloadAction)}
               className="studio-image-preview-action-download"
             />
+            {resultUrls && resultUrls.length > 1 && (
+              <PreviewActionButton
+                action={{ kind: "download", label: `打包全部 ${resultUrls.length} 张` }}
+                onClick={() => void downloadImagesAsZip({
+                  urls: resultUrls,
+                  filename: `pixel-diffusion-${filenamePrefix || "results"}`,
+                  label: "结果",
+                })}
+                className="studio-image-preview-action-download"
+              />
+            )}
           </div>
         )}
       </div>

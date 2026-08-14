@@ -8,6 +8,7 @@ import {
 } from "@/components/admin/AdminPrimitives";
 import { AdminConfigActions } from "@/components/admin/AdminConfigActions";
 import { getAdminSettingsOverview, type AdminConfigVersion } from "@/lib/admin/data";
+import { AdminMonitoringConfigForm } from "@/components/admin/AdminMonitoringConfigForm";
 
 export const dynamic = "force-dynamic";
 
@@ -67,6 +68,13 @@ export default async function AdminSettingsPage() {
           ))}
         </div>
       </details>
+
+      <AdminSection
+        title="监控与 SEO 配置"
+        description="Sentry 错误监控与站点分享卡片文案统一在此管理，发布后运行时自动读取（含 5 分钟缓存）。"
+      >
+        <AdminMonitoringConfigForm />
+      </AdminSection>
 
       <AdminSection title="历史配置版本" description="各配置项的发布记录，支持回滚。内容为技术细节，仅作排查参考。">
         <AdminTable<AdminConfigVersion>

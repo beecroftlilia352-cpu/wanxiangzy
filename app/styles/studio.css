@@ -736,7 +736,7 @@
   flex: none;
   align-items: center;
   justify-content: center;
-  color: #a855f7;
+  color: var(--codex-accent);
 }
 
 .studio-section-title-icon > svg {

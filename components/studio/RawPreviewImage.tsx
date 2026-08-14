@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-img-element, jsx-a11y/alt-text */
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { ImgHTMLAttributes } from "react";
 import { cn } from "@/lib/utils";
 
@@ -18,6 +18,8 @@ export function RawPreviewImage(props: RawPreviewImageProps) {
   // Default to lazy + async decoding (below-fold previews); callers can override via {...props}.
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
+  // 偶发网络失败自动重试一次；仍失败后显示占位（点击占位可手动重载）
+  const retryCountRef = useRef(0);
 
   return (
     <img
@@ -25,15 +27,32 @@ export function RawPreviewImage(props: RawPreviewImageProps) {
       loading="lazy"
       decoding="async"
       src={failed ? ERROR_PLACEHOLDER : props.src}
-      onLoad={() => setLoaded(true)}
+      onLoad={() => {
+        setLoaded(true);
+        retryCountRef.current = 0;
+      }}
       onError={() => {
+        if (retryCountRef.current === 0 && typeof props.src === "string") {
+          retryCountRef.current += 1;
+          // 换一个带时间戳的 URL 强制绕过缓存重试
+          const nextSrc = `${props.src}${props.src.includes("?") ? "&" : "?"}retry=1`;
+          (document.querySelector(`img[src="${props.src}"]`) as HTMLImageElement | null)?.setAttribute("src", nextSrc);
+          return;
+        }
         setFailed(true);
         setLoaded(true);
       }}
+      onClick={failed ? () => {
+        retryCountRef.current = 0;
+        setFailed(false);
+        setLoaded(false);
+      } : props.onClick}
+      title={failed ? "点击重新加载图片" : props.title}
       className={cn(
         // 加载中：透明 + 浅灰底；完成后 300ms 淡入并移除灰底
         "transition-opacity duration-300",
         loaded ? "opacity-100" : "opacity-0 bg-slate-100/70",
+        failed && "cursor-pointer",
         props.className,
       )}
     />

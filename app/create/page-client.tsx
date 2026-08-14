@@ -2548,7 +2548,7 @@ export default function CreatePage() {
           <StudioSection
             title="上传服装"
             description={currentUploadRule.uploadSpecText}
-            badge={isUploading ? <Loader2 className="h-3.5 w-3.5 animate-spin text-purple-500" /> : null}
+            badge={isUploading ? <Loader2 className="h-3.5 w-3.5 animate-spin text-[var(--codex-accent)]" /> : null}
             className="studio-clothing-upload-section studio-stable-upload-boundary relative rounded-xl transition-[box-shadow]"
           >
             <input
@@ -2646,12 +2646,12 @@ export default function CreatePage() {
               </div>
             )}
 
-            <label className="mt-3 flex cursor-pointer items-start gap-2 rounded-xl border border-slate-100 bg-white/70 px-3 py-2 text-xs text-slate-700 transition-colors hover:border-violet-200 dark:border-white/10 dark:bg-[#1c1c1e] dark:text-stone-200 dark:hover:border-[rgba(167,139,250,0.45)]">
+            <label className="mt-3 flex cursor-pointer items-start gap-2 rounded-xl border border-slate-100 bg-white/70 px-3 py-2 text-xs text-slate-700 transition-colors hover:border-[rgba(91,124,255,0.3)] dark:border-white/10 dark:bg-[#1c1c1e] dark:text-stone-200 dark:hover:border-[rgba(167,139,250,0.45)]">
               <input
                 type="checkbox"
                 checked={isIntimateGarment}
                 onChange={(event) => updateIntimateGarment(event.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded border-slate-300 text-violet-600 accent-[var(--codex-accent)] focus:ring-violet-500 dark:border-stone-600 dark:bg-stone-800"
+                className="mt-0.5 h-4 w-4 rounded border-slate-300 text-[var(--codex-accent)] accent-[var(--codex-accent)] focus:ring-violet-500 dark:border-stone-600 dark:bg-stone-800"
               />
               <span>
                 <span className="font-semibold">上传服装为内衣、泳衣、情趣内衣类服装</span>
@@ -2695,7 +2695,7 @@ export default function CreatePage() {
                   影响人物性别线和年龄比例，默认女装成人。
                 </p>
               </div>
-              <span className="shrink-0 rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-medium text-purple-500 dark:bg-[rgba(167,139,250,0.18)] dark:text-purple-300">
+              <span className="shrink-0 rounded-full bg-[rgba(91,124,255,0.1)] px-2 py-0.5 text-[10px] font-medium text-[var(--codex-accent)] dark:bg-[rgba(167,139,250,0.18)] dark:text-purple-300">
                 影响比例
               </span>
             </div>
@@ -2709,8 +2709,8 @@ export default function CreatePage() {
                   aria-pressed={garmentAudience === value}
                   className={`rounded-lg border px-2 py-1.5 text-[11px] font-medium leading-none transition-[color,background-color,border-color,box-shadow] ${
                     garmentAudience === value
-                      ? "border-violet-400 bg-violet-50 text-violet-700 shadow-sm dark:border-[rgba(167,139,250,0.6)] dark:bg-[rgba(167,139,250,0.18)] dark:text-purple-200"
-                      : "border-slate-200 bg-white text-slate-500 hover:border-violet-200 hover:text-violet-600 dark:border-white/10 dark:bg-[#26262a] dark:text-stone-300 dark:hover:border-[rgba(167,139,250,0.45)] dark:hover:text-purple-300"
+                      ? "border-violet-400 bg-[rgba(91,124,255,0.1)] text-violet-700 shadow-sm dark:border-[rgba(167,139,250,0.6)] dark:bg-[rgba(167,139,250,0.18)] dark:text-purple-200"
+                      : "border-slate-200 bg-white text-slate-500 hover:border-[rgba(91,124,255,0.3)] hover:text-[var(--codex-accent)] dark:border-white/10 dark:bg-[#26262a] dark:text-stone-300 dark:hover:border-[rgba(167,139,250,0.45)] dark:hover:text-purple-300"
                   }`}
                 >
                   {TRYON_GARMENT_AUDIENCE_LABELS[value]}
@@ -2728,8 +2728,8 @@ export default function CreatePage() {
                     aria-pressed={ageGroup === value}
                     className={`rounded-lg border px-1.5 py-1.5 text-[11px] font-medium leading-none transition-[color,background-color,border-color,box-shadow] ${
                       ageGroup === value
-                        ? "border-violet-400 bg-violet-50 text-violet-700 shadow-sm dark:border-[rgba(167,139,250,0.6)] dark:bg-[rgba(167,139,250,0.18)] dark:text-purple-200"
-                        : "border-slate-200 bg-white text-slate-500 hover:border-violet-200 hover:text-violet-600 dark:border-white/10 dark:bg-[#26262a] dark:text-stone-300 dark:hover:border-[rgba(167,139,250,0.45)] dark:hover:text-purple-300"
+                        ? "border-violet-400 bg-[rgba(91,124,255,0.1)] text-violet-700 shadow-sm dark:border-[rgba(167,139,250,0.6)] dark:bg-[rgba(167,139,250,0.18)] dark:text-purple-200"
+                        : "border-slate-200 bg-white text-slate-500 hover:border-[rgba(91,124,255,0.3)] hover:text-[var(--codex-accent)] dark:border-white/10 dark:bg-[#26262a] dark:text-stone-300 dark:hover:border-[rgba(167,139,250,0.45)] dark:hover:text-purple-300"
                     }`}
                   >
                     {TRYON_AGE_GROUP_LABELS[value]}
@@ -2755,12 +2755,12 @@ export default function CreatePage() {
             <div className="mb-3 flex items-center justify-between gap-2">
               <div>
                 <h3 className="font-bold text-sm flex items-center gap-2">
-                  <ImageIcon className="w-4 h-4 text-purple-500" /> 参考图 / 场景
+                  <ImageIcon className="w-4 h-4 text-[var(--codex-accent)]" /> 参考图 / 场景
                 </h3>
                 <p className="mt-1 text-[11px] text-gray-400">默认上传参考图；切换 tab 会保留记录，生成只使用当前 tab 的参考图</p>
               </div>
               {sceneMode !== "auto_design" && (
-                <span className="rounded-full bg-violet-50 px-2 py-1 text-[10px] font-semibold text-[var(--codex-accent)]">
+                <span className="rounded-full bg-[rgba(91,124,255,0.1)] px-2 py-1 text-[10px] font-semibold text-[var(--codex-accent)]">
                   最多 {MAX_TRYON_REFERENCE_IMAGES} 张
                 </span>
               )}
@@ -2807,7 +2807,7 @@ export default function CreatePage() {
                         <p className="mt-2 truncate text-[10px] font-semibold text-[var(--codex-accent)]">已识别：{clothingAnalysisLabel}</p>
                       )}
                       {(isAnalyzingClothing || isLoadingSystemReferences) && (
-                        <p className="mt-2 inline-flex items-center gap-1 text-[10px] font-medium text-purple-500">
+                        <p className="mt-2 inline-flex items-center gap-1 text-[10px] font-medium text-[var(--codex-accent)]">
                           <Loader2 className="h-3 w-3 animate-spin" />
                           {isAnalyzingClothing ? "识别服装中" : "推荐场景中"}
                         </p>
@@ -2837,7 +2837,7 @@ export default function CreatePage() {
                           setActiveReferenceSceneUrl((prev) => prev || recommendedSystemReferences[0]?.url || allSystemReferences[0]?.url || null);
                           setIsReferenceScenePanelOpen(true);
                         }}
-                        className="flex aspect-[3/4] flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-200 bg-white text-slate-400 transition hover:border-[var(--codex-accent)] hover:bg-violet-50/40 hover:text-[var(--codex-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 dark:border-white/10 dark:bg-white/5 dark:text-stone-500 dark:hover:bg-violet-500/15 dark:hover:text-violet-300"
+                        className="flex aspect-[3/4] flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-200 bg-white text-slate-400 transition hover:border-[var(--codex-accent)] hover:bg-[rgba(91,124,255,0.1)]/40 hover:text-[var(--codex-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 dark:border-white/10 dark:bg-white/5 dark:text-stone-500 dark:hover:bg-[rgba(91,124,255,0.1)]0/15 dark:hover:text-violet-300"
                         aria-label="添加系统参考图"
                       >
                         <ChevronRight className="mb-1 h-6 w-6" />
@@ -2935,7 +2935,7 @@ export default function CreatePage() {
                       type="button"
                       onClick={() => customRefInputRef.current?.click()}
                       disabled={selectedReferenceCount >= MAX_TRYON_REFERENCE_IMAGES || isReferenceUploadBusy}
-                      className={`flex aspect-[3/4] flex-col items-center justify-center overflow-hidden rounded-lg border-2 border-dashed bg-white text-slate-400 transition-[color,background-color,border-color,box-shadow] hover:border-[var(--codex-accent)] hover:bg-violet-50/40 hover:text-[var(--codex-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white/5 dark:text-stone-500 dark:hover:bg-violet-500/15 dark:hover:text-violet-300 ${isDraggingRef ? "border-[var(--codex-accent)] bg-violet-50 text-[var(--codex-accent)] dark:bg-violet-500/20" : "border-gray-200 dark:border-white/10"}`}
+                      className={`flex aspect-[3/4] flex-col items-center justify-center overflow-hidden rounded-lg border-2 border-dashed bg-white text-slate-400 transition-[color,background-color,border-color,box-shadow] hover:border-[var(--codex-accent)] hover:bg-[rgba(91,124,255,0.1)]/40 hover:text-[var(--codex-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white/5 dark:text-stone-500 dark:hover:bg-[rgba(91,124,255,0.1)]0/15 dark:hover:text-violet-300 ${isDraggingRef ? "border-[var(--codex-accent)] bg-[rgba(91,124,255,0.1)] text-[var(--codex-accent)] dark:bg-[rgba(91,124,255,0.1)]0/20" : "border-gray-200 dark:border-white/10"}`}
                       aria-label="上传参考图"
                     >
                       <ChevronRight className="mb-1 h-6 w-6" />
@@ -3115,13 +3115,13 @@ export default function CreatePage() {
             <div className="mb-3 flex items-start justify-between gap-3">
               <div>
                 <h3 className="flex items-center gap-2 text-[13px] font-bold text-slate-900 dark:text-stone-100">
-                  <UserRound className="h-4 w-4 text-purple-500" />
+                  <UserRound className="h-4 w-4 text-[var(--codex-accent)]" />
                   模特
                   <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-400 dark:bg-white/10 dark:text-stone-400">可选</span>
                 </h3>
                 <p className="mt-1 text-[11px] text-gray-400 dark:text-stone-500">默认不选；上传或选择模特时只控制脸部身份</p>
               </div>
-              <span className="shrink-0 rounded-full bg-violet-50 px-2 py-1 text-[10px] font-semibold text-[var(--codex-accent)] dark:bg-[rgba(167,139,250,0.18)] dark:text-purple-300">
+              <span className="shrink-0 rounded-full bg-[rgba(91,124,255,0.1)] px-2 py-1 text-[10px] font-semibold text-[var(--codex-accent)] dark:bg-[rgba(167,139,250,0.18)] dark:text-purple-300">
                 可拖拽上传
               </span>
             </div>
@@ -3141,7 +3141,7 @@ export default function CreatePage() {
                 className={`group relative overflow-hidden rounded-xl border bg-white text-center transition-[color,background-color,border-color,box-shadow,transform] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-[#1c1c1e] ${
                   !store.selectedModel
                     ? "border-[var(--codex-accent)] bg-[rgba(91,124,255,0.10)] dark:bg-[rgba(91,124,255,0.18)] shadow-sm ring-1 ring-blue-100 dark:ring-[rgba(91,140,255,0.45)]"
-                    : "border-slate-200 dark:border-white/10 hover:border-[rgba(91,124,255,0.34)] hover:bg-violet-50/30 dark:hover:bg-[rgba(91,140,255,0.10)]"
+                    : "border-slate-200 dark:border-white/10 hover:border-[rgba(91,124,255,0.34)] hover:bg-[rgba(91,124,255,0.1)]/30 dark:hover:bg-[rgba(91,140,255,0.10)]"
                 }`}
               >
                 <span className="flex aspect-[4/5] items-center justify-center">
@@ -3220,7 +3220,7 @@ export default function CreatePage() {
                 } ${
                   isCustomModelSelected
                     ? "border-[var(--codex-accent)] shadow-sm ring-1 ring-blue-100 dark:ring-[rgba(91,140,255,0.45)]"
-                    : "border-dashed border-slate-200 hover:border-[rgba(91,124,255,0.38)] hover:bg-violet-50/30"
+                    : "border-dashed border-slate-200 hover:border-[rgba(91,124,255,0.38)] hover:bg-[rgba(91,124,255,0.1)]/30"
                 }`}
                 aria-label={customModelImageUrl ? "更换上传模特图" : "上传模特图"}
               >
@@ -3278,7 +3278,7 @@ export default function CreatePage() {
           {/* ---- 生成模型 ---- */}
           <section>
             <h3 className="font-bold text-sm mb-3 flex items-center gap-2 text-slate-900 dark:text-stone-100">
-              <Sparkles className="w-4 h-4 text-purple-500" /> 生成模型
+              <Sparkles className="w-4 h-4 text-[var(--codex-accent)]" /> 生成模型
             </h3>
             <StudioModelSelector
               models={selectableModels}
@@ -3307,14 +3307,14 @@ export default function CreatePage() {
 
           {/* ---- 比例 ---- */}
           <section>
-            <h3 className="font-bold text-sm mb-3 flex items-center gap-2 text-slate-900 dark:text-stone-100"><Crop className="h-4 w-4 text-purple-500" /> 图片比例</h3>
+            <h3 className="font-bold text-sm mb-3 flex items-center gap-2 text-slate-900 dark:text-stone-100"><Crop className="h-4 w-4 text-[var(--codex-accent)]" /> 图片比例</h3>
             <StudioOptionGrid options={aspects} value={aspectRatio} onChange={setAspectRatio} ariaLabel="图片比例" />
           </section>
 
           {/* ---- 分辨率 ---- */}
           {imageSizes.length > 1 && (
             <section>
-              <h3 className="font-bold text-sm mb-3 flex items-center gap-2 text-slate-900 dark:text-stone-100"><Monitor className="h-4 w-4 text-purple-500" /> 分辨率</h3>
+              <h3 className="font-bold text-sm mb-3 flex items-center gap-2 text-slate-900 dark:text-stone-100"><Monitor className="h-4 w-4 text-[var(--codex-accent)]" /> 分辨率</h3>
               <StudioOptionGrid
                 options={imageSizes.map((size) => ({ value: size, label: `${size} · ${getCreditCost(aiModel, size, aspectRatio)}灵点` }))}
                 value={imageSize}
@@ -3350,7 +3350,7 @@ export default function CreatePage() {
               {STYLE_PRESETS.map((s, i) => (
                 <button key={i} onClick={() => { setCustomStyle(s); setPromptOverride(null); store.setPromptUsed(""); }}
                   aria-pressed={customStyle === s}
-                  className="rounded-full border bg-gray-50 px-2 py-0.5 text-[10px] text-gray-500 transition-colors hover:bg-purple-50 hover:text-purple-600 dark:border-white/10 dark:bg-white/5 dark:text-stone-400 dark:hover:bg-violet-500/15 dark:hover:text-violet-300">{s}</button>
+                  className="rounded-full border bg-gray-50 px-2 py-0.5 text-[10px] text-gray-500 transition-colors hover:bg-purple-50 hover:text-purple-600 dark:border-white/10 dark:bg-white/5 dark:text-stone-400 dark:hover:bg-[rgba(91,124,255,0.1)]0/15 dark:hover:text-violet-300">{s}</button>
               ))}
             </div>
 

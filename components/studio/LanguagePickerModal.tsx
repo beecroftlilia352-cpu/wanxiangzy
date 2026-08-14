@@ -104,7 +104,7 @@ export function LanguagePickerModal({
               <p className="mt-1 text-xs text-slate-500">
                 {description || "支持 180+ 国家与地区语言，本地化写法保留变音符号、简繁与字符集。"}
               </p>
-              <p className="mt-1 text-[11px] font-semibold text-violet-600">
+              <p className="mt-1 text-[11px] font-semibold text-[var(--codex-accent)]">
                 已选 {totalSelected}
                 {max > 0 ? `/${max}` : ""} 种
               </p>
@@ -120,7 +120,7 @@ export function LanguagePickerModal({
           </div>
 
           <div className="border-b border-slate-100 px-5 py-3">
-            <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm shadow-inner focus-within:border-violet-300 focus-within:ring-2 focus-within:ring-violet-100">
+            <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm shadow-inner focus-within:border-[rgba(91,124,255,0.45)] focus-within:ring-2 focus-within:ring-[rgba(91,124,255,0.15)]">
               <Search className="h-4 w-4 text-slate-400" />
               <input
                 type="text"
@@ -235,8 +235,8 @@ function LanguageChip({
       className={cn(
         "group relative flex min-h-[58px] flex-col items-center justify-center gap-1 rounded-2xl border px-3 py-2 text-center transition",
         checked
-          ? "border-violet-500 bg-violet-50 text-violet-700 shadow-sm ring-1 ring-violet-200"
-          : "border-slate-200 bg-white text-slate-700 hover:border-violet-200 hover:bg-violet-50/40",
+          ? "border-violet-500 bg-[rgba(91,124,255,0.1)] text-violet-700 shadow-sm ring-1 ring-violet-200"
+          : "border-slate-200 bg-white text-slate-700 hover:border-[rgba(91,124,255,0.3)] hover:bg-[rgba(91,124,255,0.1)]/40",
         disabled && "cursor-not-allowed opacity-40 hover:border-slate-200 hover:bg-white"
       )}
     >
@@ -245,7 +245,7 @@ function LanguageChip({
         {lang.enLabel}
       </span>
       {checked ? (
-        <span className="absolute right-1.5 top-1.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-violet-500 text-white">
+        <span className="absolute right-1.5 top-1.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-[rgba(91,124,255,0.1)]0 text-white">
           <Check className="h-3 w-3" />
         </span>
       ) : null}

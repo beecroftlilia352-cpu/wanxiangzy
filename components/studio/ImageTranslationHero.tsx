@@ -61,7 +61,7 @@ export function ImageTranslationHero({
           </div>
           {actions ? (
             <div className="flex flex-wrap items-center justify-center gap-2 border-t border-slate-100/80 bg-white/70 px-4 py-3 text-[12px] font-semibold text-slate-500 backdrop-blur dark:border-white/10 dark:bg-stone-900/40 dark:text-stone-300 sm:gap-3">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-violet-50 px-2.5 py-1 text-violet-700 dark:bg-violet-500/15 dark:text-violet-200">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-[rgba(91,124,255,0.1)] px-2.5 py-1 text-violet-700 dark:bg-[rgba(91,124,255,0.1)]0/15 dark:text-violet-200">
                 <Sparkles className="h-3 w-3" />
                 一键多语言本地化
               </span>

@@ -11,6 +11,8 @@ import { RouteProgress } from "@/components/ui/route-progress";
 import "@/lib/env";
 import { Geist } from "next/font/google";
 import { cn } from "@/lib/utils";
+import { getSiteMonitoringConfig } from "@/lib/site-config";
+import { SentryBootstrap } from "@/components/SentryBootstrap";
 
 const geist = Geist({
   subsets: ["latin"],
@@ -20,6 +22,46 @@ const geist = Geist({
   fallback: ["system-ui", "arial"],
   adjustFontFallback: false,
 });
+
+export async function generateMetadata(): Promise<Metadata> {
+  const configured = await getSiteMonitoringConfig().catch(() => null);
+  return {
+    title: {
+      default: configured?.seoTitle || "Pixel Diffusion - AI 服装视觉生产工作台",
+      template: "%s | Pixel Diffusion",
+    },
+    description: configured?.seoDescription || "Pixel Diffusion 面向服装品牌、电商团队和内容创作者的 AI 服装视觉生产工作台：服装上身、姿势裂变、商品套图、种草封面，一次上传生成整套商业成片。",
+    keywords: ["AI 服装", "服装上身", "AI 模特", "姿势裂变", "商品套图", "电商视觉", "种草图", "Pixel Diffusion"],
+    icons: {
+      icon: [{ url: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/gemini-icon.png", type: "image/png" }],
+      apple: [{ url: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/gemini-icon.png", type: "image/png" }],
+    },
+    openGraph: {
+      type: "website",
+      locale: "zh_CN",
+      url: "https://pixel-diffusion.com",
+      siteName: "Pixel Diffusion",
+      title: configured?.seoTitle || "Pixel Diffusion - AI 服装视觉生产工作台",
+      description: configured?.seoDescription || "服装上身、姿势裂变、商品套图、种草封面——一次上传，生成整套电商商业成片。",
+      images: [
+        {
+          url: "https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/screen-hero-workspace.png",
+          width: 1200,
+          height: 630,
+          alt: "Pixel Diffusion AI 服装视觉生产工作台",
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: configured?.seoTitle || "Pixel Diffusion - AI 服装视觉生产工作台",
+      description: configured?.seoDescription || "服装上身、姿势裂变、商品套图、种草封面——一次上传，生成整套电商商业成片。",
+      images: ["https://vasthk.oss-cn-hongkong.aliyuncs.com/site-assets/original/home-showcase/screen-hero-workspace.png"],
+    },
+    alternates: { canonical: "https://pixel-diffusion.com" },
+    robots: { index: true, follow: true },
+  };
+}
 
 export const metadata: Metadata = {
   title: {
@@ -99,6 +141,7 @@ export default function RootLayout({
         <link rel="dns-prefetch" href="https://yunwu.ai" />
       </head>
       <body className="min-h-screen antialiased transition-colors">
+        <SentryBootstrap />
         <a
           href="#main"
           className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-md focus:bg-codex-ink focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white focus:shadow-lg focus:outline-none focus:ring-2 focus:ring-codex-accent focus:ring-offset-2"

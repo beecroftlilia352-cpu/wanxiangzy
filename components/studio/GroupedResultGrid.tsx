@@ -266,7 +266,7 @@ const ResultCellView = memo(function ResultCellView({
         "group relative overflow-hidden rounded-2xl border bg-white shadow-sm transition-shadow",
         completed && "border-emerald-200 hover:shadow-md",
         failed && "border-rose-200 bg-rose-50/40",
-        running && "border-violet-300 bg-violet-50/30 shadow-[0_0_0_1px_rgba(91,124,255,0.18)]",
+        running && "border-violet-300 bg-[rgba(91,124,255,0.1)]/30 shadow-[0_0_0_1px_rgba(91,124,255,0.18)]",
         !completed && !failed && !running && "border-slate-200 bg-slate-50/40"
       )}
       style={cellStyle}
@@ -323,7 +323,7 @@ const ResultCellView = memo(function ResultCellView({
             </>
           ) : running ? (
             <>
-              <Loader2 className="h-6 w-6 animate-spin text-violet-500" />
+              <Loader2 className="h-6 w-6 animate-spin text-[var(--codex-accent)]" />
               <p className="text-[12px] font-black text-violet-700">{progress ? `${progress}%` : "生成中"}</p>
             </>
           ) : (

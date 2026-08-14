@@ -103,7 +103,7 @@ const MODE_OPTIONS: { value: ModelBackgroundMode; desc: string }[] = [
 
 const BACKGROUND_SOURCE_OPTIONS: BackgroundSourceMode[] = ["preset", "upload", "text"];
 const CARD_ZOOM_BUTTON_CLASS =
-  "absolute right-1 top-1 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-white dark:bg-white/10/85 text-slate-600 opacity-0 shadow-sm transition-opacity hover:bg-white hover:text-violet-600 focus-visible:opacity-100 group-hover:opacity-100";
+  "absolute right-1 top-1 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-white dark:bg-white/10/85 text-slate-600 opacity-0 shadow-sm transition-opacity hover:bg-white hover:text-[var(--codex-accent)] focus-visible:opacity-100 group-hover:opacity-100";
 
 const MODEL_BACKGROUND_PREVIEW_ACTIONS: ImagePreviewAction[] = [
   { kind: "download", label: "下载图片" },
@@ -727,7 +727,7 @@ export default function ModelBackgroundPage() {
           </StudioUploadSection>
 
           <section>
-            <h3 className="flex items-center gap-2 font-bold text-sm mb-3 text-slate-900 dark:text-stone-100"><Layers className="h-4 w-4 text-purple-500" /> 操作模式</h3>
+            <h3 className="flex items-center gap-2 font-bold text-sm mb-3 text-slate-900 dark:text-stone-100"><Layers className="h-4 w-4 text-[var(--codex-accent)]" /> 操作模式</h3>
             <StudioOptionGrid
               options={MODE_OPTIONS.map((item) => ({
                 value: item.value,
@@ -744,7 +744,7 @@ export default function ModelBackgroundPage() {
           {mode !== "background_only" ? (
             <section>
               <h3 className="font-bold text-sm mb-1 flex items-center gap-2">
-                <UserRound className="w-4 h-4 text-purple-500" /> 模特参考 <span className="text-purple-400 font-normal text-xs">· 必选</span>
+                <UserRound className="w-4 h-4 text-[var(--codex-accent)]" /> 模特参考 <span className="text-purple-400 font-normal text-xs">· 必选</span>
                 <span className="px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-600 text-[9px]">请选择</span>
               </h3>
               <p className="text-[11px] text-gray-400 mb-3">
@@ -817,7 +817,7 @@ export default function ModelBackgroundPage() {
           {mode !== "model_only" ? (
             <section>
               <h3 className="mb-1 flex items-center gap-2 text-sm font-bold text-slate-950 dark:text-stone-100">
-                <Images className="h-4 w-4 text-purple-500" /> 参考图 / 场景
+                <Images className="h-4 w-4 text-[var(--codex-accent)]" /> 参考图 / 场景
               </h3>
               <p className="mb-3 text-[11px] text-slate-400">预设背景、上传背景和文生背景互斥；选择参考图后会优先锁定场景、光线和构图氛围。</p>
               <div className="mb-3">
@@ -904,7 +904,7 @@ export default function ModelBackgroundPage() {
                     </div>
                   ) : (
                     <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-sm">
-                      <Images className="h-7 w-7 text-purple-500" />
+                      <Images className="h-7 w-7 text-[var(--codex-accent)]" />
                     </div>
                   )}
                   <span className="text-sm font-semibold text-slate-800">{backgroundReferenceUrl ? "更换背景参考图" : "上传背景参考图"}</span>
@@ -946,12 +946,12 @@ export default function ModelBackgroundPage() {
           </section>
 
           <section>
-            <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-950 dark:text-stone-100"><Crop className="h-4 w-4 text-purple-500" /> 图片比例</h3>
+            <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-950 dark:text-stone-100"><Crop className="h-4 w-4 text-[var(--codex-accent)]" /> 图片比例</h3>
             <StudioOptionGrid options={ASPECTS} value={aspectRatio} onChange={setAspectRatio} columns={3} ariaLabel="图片比例" />
           </section>
 
           <section>
-            <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-950 dark:text-stone-100"><Monitor className="h-4 w-4 text-purple-500" /> 分辨率</h3>
+            <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-950 dark:text-stone-100"><Monitor className="h-4 w-4 text-[var(--codex-accent)]" /> 分辨率</h3>
             <StudioOptionGrid
               options={imageSizes.map((size) => ({
                 value: size,
@@ -964,7 +964,7 @@ export default function ModelBackgroundPage() {
             />
           </section>
           <section>
-            <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-950 dark:text-stone-100"><Images className="h-4 w-4 text-purple-500" /> 生成数量</h3>
+            <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-950 dark:text-stone-100"><Images className="h-4 w-4 text-[var(--codex-accent)]" /> 生成数量</h3>
             <StudioGenerationCountSelector
               value={genCount}
               onChange={setGenCount}
@@ -1122,7 +1122,7 @@ export default function ModelBackgroundPage() {
                       <CheckCircle2 className="absolute right-2 top-2 h-5 w-5 rounded-full bg-white dark:bg-white/10 text-emerald-500" />
                     </div>
                     <p className="mt-2 text-center text-xs font-semibold text-slate-700">{demo.title}</p>
-                    <button type="button" onClick={() => applyDemo(demo)} className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 hover:text-violet-600">试一试</button>
+                    <button type="button" onClick={() => applyDemo(demo)} className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 hover:text-[var(--codex-accent)]">试一试</button>
                   </div>
                 ))}
               </div>

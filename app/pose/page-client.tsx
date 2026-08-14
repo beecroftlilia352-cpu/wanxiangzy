@@ -297,7 +297,7 @@ function getPoseAngleBadgeClass(angle?: PosePlanAngle) {
   if (angle === "back") return `${base} bg-amber-50 text-amber-700 ring-amber-100`;
   if (angle === "detail") return `${base} bg-teal-50 text-teal-700 ring-teal-100`;
   if (angle === "garment") return `${base} bg-rose-50 text-rose-700 ring-rose-100`;
-  if (angle === "seated") return `${base} bg-violet-50 text-violet-700 ring-violet-100`;
+  if (angle === "seated") return `${base} bg-[rgba(91,124,255,0.1)] text-violet-700 ring-violet-100`;
   return `${base} bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-stone-400 ring-slate-200`;
 }
 
@@ -467,7 +467,7 @@ export default function PosePage() {
   const isPoseReferenceMode = poseCreationMode === "reference";
 
   // 未保存输入离开拦截：有主图/参考图/提示词时提醒
-  const { unsavedDialog: unsavedChangesDialog } = useUnsavedChangesGuard(Boolean(mainImage || prompt.trim() || supplementPrompt.trim() || activePoseReferenceUrls.length));
+  const { unsavedDialog: unsavedChangesDialog } = useUnsavedChangesGuard(Boolean(mainImage || (prompt.trim() && prompt !== DEFAULT_POSE_PROMPT) || supplementPrompt.trim() || activePoseReferenceUrls.length));
   const activePoseReferenceCopies = normalizePoseReferenceCopies(poseReferenceCopies, Math.max(activePoseReferenceUrls.length, 1));
   const poseReferenceOutputCount = isPoseReferenceMode
     ? Math.max(activePoseReferenceUrls.length * activePoseReferenceCopies, 1)
@@ -1724,7 +1724,7 @@ export default function PosePage() {
 
           <section className="space-y-3">
             <div>
-              <h3 className="flex items-center gap-2 font-bold text-sm"><Layers className="h-4 w-4 text-purple-500" /> 创作模式</h3>
+              <h3 className="flex items-center gap-2 font-bold text-sm"><Layers className="h-4 w-4 text-[var(--codex-accent)]" /> 创作模式</h3>
               <p className="mt-1 text-[11px] leading-relaxed text-slate-400 dark:text-stone-500">
                 自由模式按商业动作库生成；参考图模式只借鉴参考图姿势，不复制人物、服装和背景。
               </p>
@@ -2059,7 +2059,7 @@ export default function PosePage() {
           <section className="space-y-3">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h3 className="flex items-center gap-2 font-bold text-sm"><PersonStanding className="h-4 w-4 text-purple-500" /> 生成姿势</h3>
+                <h3 className="flex items-center gap-2 font-bold text-sm"><PersonStanding className="h-4 w-4 text-[var(--codex-accent)]" /> 生成姿势</h3>
                 <p className="mt-1 text-[11px] leading-relaxed text-slate-400 dark:text-stone-500">
                   选择想要的成片方向，系统会自动补动作、表情和构图。
                 </p>
@@ -2201,7 +2201,7 @@ export default function PosePage() {
           )}
 
           <section>
-            <h3 className="flex items-center gap-2 font-bold text-sm mb-3 text-slate-900 dark:text-stone-100"><Crop className="h-4 w-4 text-purple-500" /> 画布比例</h3>
+            <h3 className="flex items-center gap-2 font-bold text-sm mb-3 text-slate-900 dark:text-stone-100"><Crop className="h-4 w-4 text-[var(--codex-accent)]" /> 画布比例</h3>
             <StudioOptionGrid
               options={ASPECTS}
               value={aspectRatio}
@@ -2216,7 +2216,7 @@ export default function PosePage() {
 
           {imageSizes.length > 1 && (
             <section>
-              <h3 className="flex items-center gap-2 font-bold text-sm mb-3 text-slate-900 dark:text-stone-100"><Monitor className="h-4 w-4 text-purple-500" /> 分辨率</h3>
+              <h3 className="flex items-center gap-2 font-bold text-sm mb-3 text-slate-900 dark:text-stone-100"><Monitor className="h-4 w-4 text-[var(--codex-accent)]" /> 分辨率</h3>
               <StudioOptionGrid
                 options={imageSizes.map((size) => ({
                   value: size,
@@ -2615,11 +2615,11 @@ export default function PosePage() {
           >
             <div className="flex items-start justify-between gap-4 border-b border-slate-100 dark:border-white/5 px-5 py-4">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-violet-500">{POSE_UPLOAD_RULE.shortTitle}</p>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--codex-accent)]">{POSE_UPLOAD_RULE.shortTitle}</p>
                 <h3 className="mt-1 text-base font-bold text-slate-950 dark:text-stone-100">{POSE_UPLOAD_RULE.title}</h3>
                 <p className="mt-1 text-xs text-slate-500 dark:text-stone-400">{POSE_UPLOAD_RULE.uploadSpecText}</p>
               </div>
-              <span className="rounded-full bg-violet-50 px-2.5 py-1 text-[11px] font-medium text-violet-600">Hover 预览</span>
+              <span className="rounded-full bg-[rgba(91,124,255,0.1)] px-2.5 py-1 text-[11px] font-medium text-[var(--codex-accent)]">Hover 预览</span>
             </div>
 
             <div className="studio-scrollbar-hide overflow-y-auto px-5 py-4" style={{ maxHeight: rulesPopoverStyle.maxHeight - 88 }}>
@@ -2634,7 +2634,7 @@ export default function PosePage() {
                     <button
                       type="button"
                       onClick={() => applyRuleDemo(demo)}
-                      className="mt-2 w-full rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 px-2.5 py-1 text-[11px] font-medium text-slate-600 dark:text-stone-300 hover:border-violet-200 hover:text-violet-600"
+                      className="mt-2 w-full rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 px-2.5 py-1 text-[11px] font-medium text-slate-600 dark:text-stone-300 hover:border-[rgba(91,124,255,0.3)] hover:text-[var(--codex-accent)]"
                     >
                       试一试
                     </button>

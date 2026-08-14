@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Download, Clock, Search, XCircle, Loader2, Coins, X, RotateCcw, Maximize2, Eye, ImageIcon, ZoomIn, ZoomOut, Plus, Play } from "lucide-react";
+import { downloadImagesAsZip } from "@/lib/download-batch";
 import { downloadImage, generateDownloadFilename } from "@/lib/utils";
 import { getImageVariantUrl } from "@/lib/image-variants";
 import { getApplyPath, type HistoryJobPayload } from "@/lib/history-apply";
@@ -616,11 +617,18 @@ export default function HistoryPage() {
                   <span
                     role="button"
                     tabIndex={-1}
-                    onClick={(event) => { event.stopPropagation(); if (coverUrl) downloadHistoryResult(g, coverUrl, 0); }}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      if (resultUrls.length > 1) {
+                        void downloadImagesAsZip({ urls: resultUrls, filename: `pixel-diffusion-${g.id.slice(0, 8)}`, label: "作品" });
+                      } else if (coverUrl) {
+                        downloadHistoryResult(g, coverUrl, 0);
+                      }
+                    }}
                     className={`inline-flex h-8 items-center gap-1 rounded-full bg-white/92 px-3 text-[11px] font-bold text-slate-800 shadow-sm backdrop-blur transition hover:bg-white ${!coverUrl ? "cursor-not-allowed opacity-50" : ""}`}
                   >
                     <Download className="h-3.5 w-3.5" />
-                    下载
+                    {resultUrls.length > 1 ? "打包" : "下载"}
                   </span>
                 </span>
               </button>
@@ -842,8 +850,21 @@ export default function HistoryPage() {
                       disabled={!selectedResultUrl}
                       className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-white/80 bg-white/85 px-3 text-xs font-bold text-slate-700 shadow-sm hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      <Download className="h-3.5 w-3.5" /> 下载结果
+                      <Download className="h-3.5 w-3.5" /> 下载单张
                     </button>
+                    {detailResults.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => void downloadImagesAsZip({
+                          urls: detailResults,
+                          filename: `pixel-diffusion-${detailRow.id.slice(0, 8)}`,
+                          label: "作品",
+                        })}
+                        className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-[rgba(91,124,255,0.4)] bg-[rgba(91,124,255,0.1)] px-3 text-xs font-bold text-[var(--codex-accent)] shadow-sm transition hover:bg-[rgba(91,124,255,0.16)]"
+                      >
+                        <Download className="h-3.5 w-3.5" /> 打包全部 {detailResults.length} 张
+                      </button>
+                    )}
                   </div>
                 </section>
 

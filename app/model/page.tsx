@@ -879,7 +879,7 @@ export default function ModelPage() {
                 className={`relative rounded-lg border-2 border-dashed p-2 text-center transition-[background-color,border-color,box-shadow,color] aspect-[3/4] flex flex-col items-center justify-center overflow-hidden ${
                   hairReferenceUrl
                     ? "studio-checkerboard border-purple-500 text-purple-700 ring-2 ring-purple-200 shadow-[0_14px_34px_rgba(124,58,237,0.18)]"
-                    : "border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/4 text-slate-400 dark:text-stone-500 hover:border-purple-300 hover:bg-purple-50/60 hover:text-purple-500"
+                    : "border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/4 text-slate-400 dark:text-stone-500 hover:border-purple-300 hover:bg-purple-50/60 hover:text-[var(--codex-accent)]"
                 }`}
               >
                 {hairReferenceUrl ? (
@@ -955,7 +955,7 @@ export default function ModelPage() {
                 className={`relative rounded-lg border-2 border-dashed p-2 text-center transition-[background-color,border-color,box-shadow,color] aspect-[3/4] flex flex-col items-center justify-center overflow-hidden ${
                   hairColorReferenceUrl
                     ? "studio-checkerboard border-purple-500 text-purple-700 ring-2 ring-purple-200 shadow-[0_14px_34px_rgba(124,58,237,0.18)]"
-                    : "border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/4 text-slate-400 dark:text-stone-500 hover:border-purple-300 hover:bg-purple-50/60 hover:text-purple-500"
+                    : "border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/4 text-slate-400 dark:text-stone-500 hover:border-purple-300 hover:bg-purple-50/60 hover:text-[var(--codex-accent)]"
                 }`}
               >
                 {hairColorReferenceUrl ? (
@@ -994,7 +994,7 @@ export default function ModelPage() {
 
           <section>
             <h3 className="font-bold text-sm mb-3 flex items-center gap-2 text-slate-900 dark:text-stone-100">
-              <Sparkles className="w-4 h-4 text-purple-500" /> 生成模型
+              <Sparkles className="w-4 h-4 text-[var(--codex-accent)]" /> 生成模型
             </h3>
             <StudioModelSelector
               models={MODELS}
@@ -1155,11 +1155,11 @@ export default function ModelPage() {
           >
             <div className="flex items-start justify-between gap-4 border-b border-slate-100 dark:border-white/5 px-5 py-4">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-violet-500">{MODEL_UPLOAD_RULE.shortTitle}</p>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--codex-accent)]">{MODEL_UPLOAD_RULE.shortTitle}</p>
                 <h3 className="mt-1 text-base font-bold text-slate-950 dark:text-stone-100">{MODEL_UPLOAD_RULE.title}</h3>
                 <p className="mt-1 text-xs text-slate-500 dark:text-stone-400">{MODEL_UPLOAD_RULE.uploadSpecText}</p>
               </div>
-              <span className="rounded-full bg-violet-50 px-2.5 py-1 text-[11px] font-medium text-violet-600">Hover 预览</span>
+              <span className="rounded-full bg-[rgba(91,124,255,0.1)] px-2.5 py-1 text-[11px] font-medium text-[var(--codex-accent)]">Hover 预览</span>
             </div>
 
             <div className="studio-scrollbar-hide overflow-y-auto px-5 py-4" style={{ maxHeight: rulesPopoverStyle.maxHeight - 88 }}>
@@ -1179,7 +1179,7 @@ export default function ModelPage() {
                     <button
                       type="button"
                       onClick={() => applyRuleDemo(demo)}
-                      className="mt-auto w-full rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 px-2.5 py-1 text-[11px] font-medium text-slate-600 dark:text-stone-300 hover:border-violet-200 hover:text-violet-600"
+                      className="mt-auto w-full rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 px-2.5 py-1 text-[11px] font-medium text-slate-600 dark:text-stone-300 hover:border-[rgba(91,124,255,0.3)] hover:text-[var(--codex-accent)]"
                     >
                       试一试
                     </button>
