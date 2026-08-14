@@ -13,12 +13,18 @@ import { useConfirm } from "@/components/ui/confirm-dialog";
  *   const { unsavedDialog } = useUnsavedChangesGuard(isDirty);
  *   在 JSX 末尾渲染 {unsavedDialog}
  */
-export function useUnsavedChangesGuard(isDirty: boolean) {
+export function useUnsavedChangesGuard(
+  isDirty: boolean,
+  options: { exemptPaths?: string[] } = {},
+) {
   const { confirm, confirmDialog } = useConfirm();
   const dirtyRef = useRef(isDirty);
   dirtyRef.current = isDirty;
   // 用户已确认离开后放行本次卸载，避免浏览器再弹原生 beforeunload 提示
   const allowNavigationRef = useRef(false);
+  // 组内切换白名单：同功能的不同视图之间跳转不拦截（如文生图<->图生图）
+  const exemptPathsRef = useRef(options.exemptPaths || []);
+  exemptPathsRef.current = options.exemptPaths || [];
 
   useEffect(() => {
     const beforeUnload = (event: BeforeUnloadEvent) => {
@@ -42,6 +48,7 @@ export function useUnsavedChangesGuard(isDirty: boolean) {
       const url = new URL(href, window.location.origin);
       if (url.origin !== window.location.origin) return;
       if (url.pathname === window.location.pathname) return;
+      if (exemptPathsRef.current.includes(url.pathname)) return;
 
       event.preventDefault();
       confirm({

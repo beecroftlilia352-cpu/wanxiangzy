@@ -130,8 +130,11 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const [showImagePromptModal, setShowImagePromptModal] = useState(false);
   const [imagePromptImage, setImagePromptImage] = useState<ImagePromptSource | null>(null);
-  // 未保存输入离开拦截：有参考图/提示词/图片时提醒
-  const { unsavedDialog } = useUnsavedChangesGuard(Boolean(referenceImages.length || prompt.trim() || imagePromptImage?.url));
+  // 未保存输入离开拦截：有参考图/提示词/图片时提醒；文生图<->图生图组内切换不拦截
+  const { unsavedDialog } = useUnsavedChangesGuard(
+    Boolean(referenceImages.length || prompt.trim() || imagePromptImage?.url),
+    { exemptPaths: ["/general-image", "/general-image/image-to-image"] },
+  );
   const [imagePromptText, setImagePromptText] = useState("");
   const [isImagePromptUploading, setIsImagePromptUploading] = useState(false);
   const [isImagePromptGenerating, setIsImagePromptGenerating] = useState(false);

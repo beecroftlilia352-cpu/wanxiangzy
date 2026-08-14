@@ -18,6 +18,7 @@ import { ModuleHeader } from "@/components/ModuleHeader";
 import { PreviewGuide } from "@/components/PreviewGuide";
 import { ResultImageGrid } from "@/components/ResultImageGrid";
 
+import { StudioClearButton } from "@/components/studio/StudioClearButton";
 import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
 import { StudioMediaLightbox } from "@/components/studio/StudioMediaLightbox";
 import { StudioSideDrawer } from "@/components/studio/StudioSideDrawer";
@@ -746,6 +747,14 @@ export default function FaceSwapPage() {
           <ModuleHeader
             title="换脸"
             tooltip="上传原始模特图与目标脸图，可选择仅换五官，或同步目标脸发型肤色；原图服装、姿势和场景保持不变。"
+            actions={
+              <StudioClearButton
+                label="清空"
+                disabled={!sourceUrls.length && !faceUrl}
+                onClear={clearAll}
+                description="已上传的原图和脸图将被清空，已生成的结果不受影响。"
+              />
+            }
           />
 
           <StudioUploadSection
@@ -943,11 +952,7 @@ export default function FaceSwapPage() {
           primaryLabel={status === "running" ? "生成中" : authIsAnonymous ? "登录后生成" : "开始换脸"}
           isLoading={status === "running"}
           onPrimaryAction={() => void generate()}
-          secondaryActions={(
-            <button type="button" onClick={confirmClearAll} className="studio-button studio-tone-neutral studio-button-compact">
-              清空
-            </button>
-          )}
+          secondaryActions={undefined}
         />
       </aside>
 
