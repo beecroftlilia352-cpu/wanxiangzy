@@ -1,9 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { App, Button, Form, Input, InputNumber, Typography } from "@/components/ui/shadcn-compat";
 import { FileAddOutlined, PlusCircleOutlined } from "@/components/ui/ant-icons-compat";
-import { AdminUserPicker } from "@/components/admin/AdminUserPicker";
+import { AdminUserPicker, type AdminUserOption } from "@/components/admin/AdminUserPicker";
 
 type CreditAdjustValue = {
   userId: string;
@@ -20,6 +21,7 @@ export function AdminCreditAdjustForm({
   const router = useRouter();
   const { message, modal } = App.useApp();
   const [form] = Form.useForm<CreditAdjustValue>();
+  const [selectedUser, setSelectedUser] = useState<AdminUserOption | null>(null);
   const isRequest = mode === "request";
 
   async function submit(values: CreditAdjustValue) {
@@ -72,7 +74,7 @@ export function AdminCreditAdjustForm({
       title: confirmTitle,
       content: (
         <Typography.Paragraph className="!mb-0">
-          将对用户 <Typography.Text strong>{values.userId}</Typography.Text> 直接 {summary}。
+          将对用户 <Typography.Text strong>{selectedUser?.email || values.userId}</Typography.Text> 直接 {summary}。
           此操作会立即生效并写入审计日志，无法撤销。
         </Typography.Paragraph>
       ),
@@ -94,7 +96,7 @@ export function AdminCreditAdjustForm({
     >
       <div className="grid gap-3 lg:grid-cols-[minmax(240px,1fr)_140px_minmax(220px,1fr)_minmax(260px,1fr)_auto]">
         <Form.Item name="userId" label="选择用户" rules={[{ required: true, message: "请先搜索并选择用户" }]}>
-          <AdminUserPicker />
+          <AdminUserPicker onUserChange={(user) => setSelectedUser(user)} />
         </Form.Item>
         <Form.Item name="amount" label="调整数量" rules={[{ required: true, message: "请输入调整数量" }]}>
           <InputNumber className="!w-full" min={-10000} max={10000} placeholder="+10 / -5" />

@@ -552,7 +552,7 @@ export const DEFAULT_PROMPT_EXPERIMENT_CONFIG = {
 
 // 运营总览进程内缓存：后台数据所有管理员共享同一份，30 秒窗口内直接命中，
 // 避免每个页面访问都触发 15+ 条数据库查询（多实例部署时各实例独立缓存，可接受）。
-const ADMIN_OVERVIEW_CACHE_TTL_MS = 30_000;
+const ADMIN_OVERVIEW_CACHE_TTL_MS = 60_000;
 const adminOverviewCache = new Map<number, { expiresAt: number; value: AdminOverview }>();
 
 export async function getAdminOverview(args: { days?: number } = {}): Promise<AdminOverview> {

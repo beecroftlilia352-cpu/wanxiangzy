@@ -41,6 +41,7 @@ export default async function AdminGenerationsPage({ searchParams }: PageProps) 
       page: query.page,
       pageSize: query.pageSize,
       hydratePreviews: false,
+      estimatedCount: true,
     });
   } catch (err) {
     fetchError = err instanceof Error ? err.message : "任务列表加载失败";

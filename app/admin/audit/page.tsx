@@ -183,7 +183,19 @@ export default async function AdminAuditPage({ searchParams }: PageProps) {
             {
               key: "resource",
               label: "处理对象",
-              render: (row) => <span className="text-xs font-semibold text-[var(--admin-fg)]">{shortAdminCode(row.resourceId, "编号")}</span>,
+              render: (row) => {
+                const code = shortAdminCode(row.resourceId, "编号");
+                const href = row.resourceType === "generation"
+                  ? `/admin/generations/${row.resourceId}`
+                  : row.resourceType === "user"
+                    ? `/admin/users/${row.resourceId}`
+                    : null;
+                return href ? (
+                  <a href={href} className="text-xs font-bold text-[var(--admin-link)] hover:underline">{code}</a>
+                ) : (
+                  <span className="text-xs font-semibold text-[var(--admin-fg)]">{code}</span>
+                );
+              },
             },
             {
               key: "reason",
