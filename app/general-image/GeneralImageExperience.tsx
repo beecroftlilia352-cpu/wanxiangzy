@@ -756,6 +756,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
               placeholder={isImageMode ? IMAGE_PROMPT_PLACEHOLDER : "输入文本描述内容，如：1个中国女性模特身着丝绸质感粉色连衣裙，妆容柔和高级，背景为玫瑰金纯色，整体氛围浪漫而精致"}
               rows={6}
               className="studio-prompt-textarea-compact"
+              onSubmitOnEnter={() => { if (prompt.trim() && !isGenerating) void generate(); }}
             />
             <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
               <div className="flex flex-wrap gap-2">

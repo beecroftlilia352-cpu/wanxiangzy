@@ -6123,3 +6123,33 @@ header .animate-spin {
 @media (prefers-reduced-motion: reduce) {
   .history-skeleton { animation: none; background: rgba(226, 232, 240, 0.7); }
 }
+
+/* 移动端抽屉下拉关闭把手 */
+.studio-side-drawer-grab-handle {
+  display: none;
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  z-index: 2;
+  height: 20px;
+  width: 44px;
+  transform: translateX(-50%);
+  cursor: grab;
+  touch-action: none;
+}
+
+.studio-side-drawer-grab-handle::before {
+  content: "";
+  position: absolute;
+  top: 7px;
+  left: 50%;
+  height: 4px;
+  width: 36px;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.5);
+}
+
+@media (max-width: 1023px) {
+  .studio-side-drawer-grab-handle { display: block; }
+}

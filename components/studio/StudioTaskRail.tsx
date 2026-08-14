@@ -75,6 +75,7 @@ export function StudioTaskRail({
   const [hasMore, setHasMore] = useState(false);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const loadInFlightRef = useRef(false);
+  const snapshotHasFailedRef = useRef(false);
   const lastLoadStartedAtRef = useRef(0);
   const autoSelectSignatureRef = useRef("");
   const runningSelectionRef = useRef<string | null>(null);
@@ -153,6 +154,7 @@ export function StudioTaskRail({
           preserveLocal: !append && !isExpanded && isModuleOnly && !searchQuery,
         });
       } else {
+        snapshotHasFailedRef.current = false;
         setModuleLoadingFailed(module, false);
       }
       setHasMore(Boolean(payload.hasMore));
@@ -170,7 +172,12 @@ export function StudioTaskRail({
       return { rowCount: nextRows.length, hasMore: Boolean(payload.hasMore) };
     } catch (error) {
       console.warn("[task-rail] queue load failed:", error instanceof Error ? error.message : error);
+      const wasFailed = snapshotHasFailedRef.current;
+      snapshotHasFailedRef.current = true;
       setModuleLoadingFailed(module, true);
+      if (!wasFailed) {
+        toast.error("网络连接异常", { description: "任务列表加载失败，请检查网络后重试" });
+      }
       return null;
     } finally {
       loadInFlightRef.current = false;

@@ -66,5 +66,26 @@ export function useUnsavedChangesGuard(
     return () => document.removeEventListener("click", onClick, true);
   }, [confirm]);
 
+  // 浏览器前进/后退：popstate 无法阻止，用 pushState 锚定当前 URL 并弹确认，
+  // 确认离开后才放行历史导航
+  useEffect(() => {
+    const onPopState = () => {
+      if (!dirtyRef.current || allowNavigationRef.current) return;
+      window.history.pushState(null, "", window.location.href);
+      confirm({
+        title: "离开当前页面？",
+        content: "当前页面有未保存的输入内容，离开后这些内容将丢失。",
+        okText: "离开",
+        cancelText: "继续编辑",
+        onOk: () => {
+          allowNavigationRef.current = true;
+          window.history.back();
+        },
+      });
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [confirm]);
+
   return { unsavedDialog: confirmDialog };
 }

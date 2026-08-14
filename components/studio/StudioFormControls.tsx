@@ -284,12 +284,16 @@ export function StudioPromptTextarea({
   description,
   action,
   className,
+  onSubmitOnEnter,
+  onKeyDown,
   ...props
 }: TextareaHTMLAttributes<HTMLTextAreaElement> & {
   title?: ReactNode;
   badge?: ReactNode;
   description?: ReactNode;
   action?: ReactNode;
+  /** Enter 提交（Shift+Enter 换行）；桌面端快捷生成 */
+  onSubmitOnEnter?: () => void;
 }) {
   return (
     <section className="studio-prompt-control">
@@ -302,6 +306,13 @@ export function StudioPromptTextarea({
       <div className="studio-prompt-field">
         <textarea
           {...props}
+          onKeyDown={(event) => {
+            onKeyDown?.(event);
+            if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing && onSubmitOnEnter) {
+              event.preventDefault();
+              onSubmitOnEnter();
+            }
+          }}
           className={cn("studio-prompt-textarea", action && "studio-prompt-textarea-with-action", className)}
         />
         {action ? <div className="studio-prompt-inline-action">{action}</div> : null}
