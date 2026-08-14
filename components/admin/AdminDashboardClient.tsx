@@ -2,14 +2,12 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo } from "react";
 import {
   Activity,
   AlertTriangle,
   ArrowUpRight,
   Clock3,
   Coins,
-  Flame,
   RefreshCw,
   ShieldCheck,
   Sparkles,
@@ -32,12 +30,11 @@ import {
   formatNumber as formatNumberPrimitive,
 } from "@/components/admin/AdminPrimitives";
 import { AdminDashboardCharts } from "@/components/admin/AdminDashboardCharts";
-import type { AdminCostReport, AdminOverview, AdminTaskListItem } from "@/lib/admin/data";
+import type { AdminOverview, AdminTaskListItem } from "@/lib/admin/data";
 import type { TaskStatusGroup } from "@/lib/task-queue";
 
 type AdminDashboardClientProps = {
   overview: AdminOverview;
-  report: AdminCostReport;
   days: number;
   fetchError?: string | null;
 };
@@ -71,10 +68,9 @@ const exceptionSurfaceHover: Record<ExceptionEntry["tone"], string> = {
   info: "hover:border-[var(--admin-info-border)]",
 };
 
-export function AdminDashboardClient({ overview, report, days, fetchError }: AdminDashboardClientProps) {
+export function AdminDashboardClient({ overview, days, fetchError }: AdminDashboardClientProps) {
   const router = useRouter();
   const failureRate = overview.generationHealth.failureRate;
-  const fulfillmentCredits = report.metrics.generationSettledCredits + report.metrics.workflowSettledCredits;
 
   const exceptionEntries: ExceptionEntry[] = [
     {
@@ -99,16 +95,13 @@ export function AdminDashboardClient({ overview, report, days, fetchError }: Adm
       icon: <Activity aria-hidden="true" className="h-4 w-4" />,
     },
     {
-      label: "失败锁定灵点",
-      value: report.metrics.failedReservedCredits,
-      href: "/admin/reports",
-      tone: "danger",
-      icon: <Flame aria-hidden="true" className="h-4 w-4" />,
+      label: "近期退款",
+      value: overview.creditHealth.recentRefund,
+      href: "/admin/credits?reason=refund",
+      tone: overview.creditHealth.recentRefund > 0 ? "warning" : "good",
+      icon: <Coins aria-hidden="true" className="h-4 w-4" />,
     },
   ];
-
-  const dailySeries = useMemo(() => buildDailySeries(report.daily), [report.daily]);
-  const deltas = useMemo(() => computeKpiDeltas(dailySeries), [dailySeries]);
 
   const recentTaskColumns = [
     {
@@ -180,7 +173,7 @@ export function AdminDashboardClient({ overview, report, days, fetchError }: Adm
       <AdminPageHeader
         eyebrow="Console"
         title="运营总览"
-        description="生成任务、收入灵点、模型成本、队列健康和异常处理统一看板。"
+        description="生成任务、灵点流水与队列健康统一看板。"
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <span id="dashboard-days-help" className="sr-only">
@@ -216,12 +209,6 @@ export function AdminDashboardClient({ overview, report, days, fetchError }: Adm
           description={overview.warnings.slice(0, 3).join("；")}
         />
       )}
-      {report.warnings.length > 0 && (
-        <ErrorState
-          title="报表数据源提示"
-          description={report.warnings.slice(0, 3).join("；")}
-        />
-      )}
 
       <section aria-label="关键指标" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <AdminMetricCard
@@ -229,7 +216,6 @@ export function AdminDashboardClient({ overview, report, days, fetchError }: Adm
           value={formatNumberPrimitive(overview.generationHealth.total)}
           hint={`今日 ${formatNumberPrimitive(overview.generationHealth.today)}`}
           icon={<Sparkles aria-hidden="true" className="h-4 w-4" />}
-          delta={deltas.tasks}
         />
         <AdminMetricCard
           label="成功率"
@@ -237,7 +223,6 @@ export function AdminDashboardClient({ overview, report, days, fetchError }: Adm
           suffix="%"
           tone={failureRate > 20 ? "danger" : "good"}
           icon={<ShieldCheck aria-hidden="true" className="h-4 w-4" />}
-          delta={deltas.successRate}
         />
         <AdminMetricCard
           label="失败率"
@@ -245,27 +230,23 @@ export function AdminDashboardClient({ overview, report, days, fetchError }: Adm
           suffix="%"
           tone={failureRate > 15 ? "danger" : failureRate > 5 ? "warning" : "good"}
           icon={<AlertTriangle aria-hidden="true" className="h-4 w-4" />}
-          delta={deltas.failureRate}
         />
         <AdminMetricCard
-          label="净收入灵点"
-          value={formatNumberPrimitive(report.metrics.netCredits)}
-          tone="good"
+          label="近期消耗"
+          value={formatNumberPrimitive(overview.creditHealth.recentSpend)}
+          hint={`采样余额 ${formatNumberPrimitive(overview.creditHealth.sampledBalance)}`}
           icon={<Coins aria-hidden="true" className="h-4 w-4" />}
-          delta={deltas.marginCredits}
         />
         <AdminMetricCard
-          label="退款补偿"
-          value={formatNumberPrimitive(report.metrics.refundCredits)}
-          tone={report.metrics.refundCredits > 0 ? "warning" : "neutral"}
+          label="近期退款"
+          value={formatNumberPrimitive(overview.creditHealth.recentRefund)}
+          tone={overview.creditHealth.recentRefund > 0 ? "warning" : "good"}
           icon={<TrendingDown aria-hidden="true" className="h-4 w-4" />}
-          delta={deltas.refundCredits}
         />
         <AdminMetricCard
-          label="履约成本"
-          value={formatNumberPrimitive(fulfillmentCredits)}
+          label="采样已消耗"
+          value={formatNumberPrimitive(overview.creditHealth.sampledConsumed)}
           icon={<TrendingUp aria-hidden="true" className="h-4 w-4" />}
-          delta={deltas.settledCredits}
         />
       </section>
 
@@ -303,7 +284,7 @@ export function AdminDashboardClient({ overview, report, days, fetchError }: Adm
       </section>
 
       <div key={days} aria-busy="false">
-        <AdminDashboardCharts overview={overview} report={report} days={days} />
+        <AdminDashboardCharts overview={overview} days={days} />
       </div>
 
       <AdminSection
@@ -333,68 +314,4 @@ export function AdminDashboardClient({ overview, report, days, fetchError }: Adm
       </AdminSection>
     </div>
   );
-}
-
-type DailySeries = {
-  tasks: number[];
-  successRate: number[];
-  failureRate: number[];
-  marginCredits: number[];
-  refundCredits: number[];
-  settledCredits: number[];
-};
-
-function buildDailySeries(rows: AdminCostReport["daily"]): DailySeries {
-  const tasks = rows.map((row) => row.tasks);
-  const failureRate = rows.map((row) => (row.tasks > 0 ? (row.failed / row.tasks) * 100 : 0));
-  const successRate = rows.map((row) => (row.tasks > 0 ? ((row.tasks - row.failed) / row.tasks) * 100 : 0));
-  const marginCredits = rows.map((row) => row.marginCredits);
-  const refundCredits = rows.map((row) => row.refundCredits);
-  const settledCredits = rows.map((row) => row.generationSettledCredits + row.workflowSettledCredits);
-  return { tasks, successRate, failureRate, marginCredits, refundCredits, settledCredits };
-}
-
-/**
- * Per-KPI delta vs prior period. Compares the latest value in each series
- * against the mean of the prior values. When there are fewer than 2 prior
- * data points, returns `null` so the AdminDeltaIndicator is omitted (no fake
- * delta against a single point).
- *
- * Direction note: for `successRate` / `marginCredits` an upward delta is
- * "good" (default tone); for `failureRate` / `refundCredits` an upward delta
- * is "bad" — we negate the value so the indicator reads consistently.
- */
-function computeKpiDeltas(series: DailySeries) {
-  const tasksDelta = deltaFor(series.tasks, "positiveIsGood");
-  const successRateDelta = deltaFor(series.successRate, "positiveIsGood");
-  const failureRateDelta = deltaFor(series.failureRate, "positiveIsBad");
-  const marginDelta = deltaFor(series.marginCredits, "positiveIsGood");
-  const refundDelta = deltaFor(series.refundCredits, "positiveIsBad");
-  const settledDelta = deltaFor(series.settledCredits, "positiveIsGood");
-  return {
-    tasks: tasksDelta,
-    successRate: successRateDelta,
-    failureRate: failureRateDelta,
-    marginCredits: marginDelta,
-    refundCredits: refundDelta,
-    settledCredits: settledDelta,
-  };
-}
-
-function deltaFor(
-  values: number[],
-  direction: "positiveIsGood" | "positiveIsBad"
-): { value: number; hint: string } | undefined {
-  if (values.length < 2) return undefined;
-  const latest = values[values.length - 1];
-  const prior = values.slice(0, -1);
-  const priorAvg = prior.reduce((sum, v) => sum + v, 0) / prior.length;
-  if (!Number.isFinite(priorAvg) || priorAvg === 0) {
-    if (latest === 0) return { value: 0, hint: "vs 此前平均" };
-    // Use absolute growth as a proxy when prior avg is 0
-    return { value: latest > 0 ? 100 : -100, hint: "vs 此前平均" };
-  }
-  const raw = ((latest - priorAvg) / Math.abs(priorAvg)) * 100;
-  const signed = direction === "positiveIsBad" ? -raw : raw;
-  return { value: Math.round(signed * 10) / 10, hint: "vs 此前平均" };
 }

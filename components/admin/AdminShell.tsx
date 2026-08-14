@@ -4,20 +4,16 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useId, useMemo, useRef, useState, useTransition } from "react";
 import {
-  AlertOutlined,
   ApiOutlined,
   AppstoreOutlined,
   AuditOutlined,
-  BarChartOutlined,
   CheckCircleOutlined,
   ControlOutlined,
   CreditCardOutlined,
   DashboardOutlined,
   DatabaseOutlined,
   DollarOutlined,
-  DownloadOutlined,
   ExperimentOutlined,
-  FileProtectOutlined,
   KeyOutlined,
   MenuFoldOutlined,
   MenuOutlined,
@@ -54,7 +50,6 @@ const navGroups: Array<{ key: string; label: string; children: AdminNavItem[] }>
     label: "总览",
     children: [
       { href: "/admin", label: "运营总览", icon: <DashboardOutlined aria-hidden="true" /> },
-      { href: "/admin/diagnostics", label: "异常诊断", icon: <AlertOutlined aria-hidden="true" /> },
     ],
   },
   {
@@ -65,7 +60,6 @@ const navGroups: Array<{ key: string; label: string; children: AdminNavItem[] }>
       { href: "/admin/users", label: "用户账户", icon: <TeamOutlined aria-hidden="true" /> },
       { href: "/admin/invite-codes", label: "邀请码", icon: <KeyOutlined aria-hidden="true" /> },
       { href: "/admin/generations", label: "任务中心", icon: <ControlOutlined aria-hidden="true" /> },
-      { href: "/admin/support", label: "客服工单", icon: <FileProtectOutlined aria-hidden="true" /> },
       { href: "/admin/requests", label: "审批中心", icon: <CheckCircleOutlined aria-hidden="true" /> },
     ],
   },
@@ -87,16 +81,12 @@ const navGroups: Array<{ key: string; label: string; children: AdminNavItem[] }>
     children: [
       { href: "/admin/credits", label: "灵点流水", icon: <DollarOutlined aria-hidden="true" /> },
       { href: "/admin/billing", label: "支付账单", icon: <CreditCardOutlined aria-hidden="true" /> },
-      { href: "/admin/reports", label: "成本报表", icon: <BarChartOutlined aria-hidden="true" /> },
-      { href: "/admin/exports", label: "导出视图", icon: <DownloadOutlined aria-hidden="true" /> },
-      { href: "/admin/risk", label: "智能风控", icon: <AlertOutlined aria-hidden="true" /> },
     ],
   },
   {
     key: "system",
     label: "系统",
     children: [
-      { href: "/admin/evals", label: "回归评测", icon: <ExperimentOutlined aria-hidden="true" /> },
       { href: "/admin/providers", label: "模型通道", icon: <ApiOutlined aria-hidden="true" /> },
       { href: "/admin/workers", label: "任务队列", icon: <ToolOutlined aria-hidden="true" /> },
       { href: "/admin/members", label: "成员权限", icon: <UserOutlined aria-hidden="true" /> },

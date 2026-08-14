@@ -4,14 +4,9 @@ import Link from "next/link";
 import { useMemo } from "react";
 import { ArrowUpRight } from "lucide-react";
 import {
-  Area,
-  AreaChart,
-  CartesianGrid,
   Cell,
   Pie,
   PieChart,
-  XAxis,
-  YAxis,
 } from "recharts";
 import { EmptyState } from "@/components/ui/empty-state";
 import { AdminSection, formatNumber } from "@/components/admin/AdminPrimitives";
@@ -22,12 +17,11 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart";
 import { AdminTopList, type AdminTopListItem } from "@/components/admin/AdminTopList";
-import type { AdminCostDailyItem, AdminCostReport, AdminOverview } from "@/lib/admin/data";
+import type { AdminOverview } from "@/lib/admin/data";
 import { moduleIcon } from "@/components/admin/module-icon";
 
 type AdminDashboardChartsProps = {
   overview: AdminOverview;
-  report: AdminCostReport;
   days: number;
 };
 
@@ -41,17 +35,6 @@ type AdminDashboardChartsProps = {
  * config; the SVG then references them as `var(--color-X)`, which DOES
  * resolve in modern browsers (the injected value is a valid hex color).
  * -------------------------------------------------------------------------- */
-const trendConfig = {
-  tasks: {
-    label: "任务数",
-    theme: { light: "#5b7cff", dark: "#5b8cff" },
-  },
-  failureRate: {
-    label: "失败率",
-    theme: { light: "#d13b35", dark: "#ff453a" },
-  },
-} satisfies ChartConfig;
-
 const taskStatusConfig = {
   queued: {
     label: "排队中",
@@ -75,130 +58,23 @@ const taskStatusConfig = {
   },
 } satisfies ChartConfig;
 
-/* ----------------------------------------------------------------------------
- * Local formatters — Intl.NumberFormat with `compact` notation keeps axis
- * ticks from being crushed when counts climb into the thousands.
- * -------------------------------------------------------------------------- */
-const compactNumber = new Intl.NumberFormat("zh-CN", { notation: "compact", maximumFractionDigits: 1 });
 const percentNumber = new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 1 });
-
-function formatCompact(value: number) {
-  return compactNumber.format(value);
-}
 
 function formatPercent(value: number) {
   return `${percentNumber.format(value)}%`;
 }
 
-export function AdminDashboardCharts({ overview, report, days }: AdminDashboardChartsProps) {
-  const trendData = useMemo(() => buildTrendData(report.daily), [report.daily]);
+export function AdminDashboardCharts({ overview, days }: AdminDashboardChartsProps) {
   const taskStatusData = useMemo(() => buildTaskStatusData(overview), [overview]);
   const moduleRankItems = useMemo(
     () => buildModuleListItems(overview.moduleStats),
     [overview.moduleStats],
   );
-  const modelRankItems = useMemo(
-    () => buildModelListItems(report.models),
-    [report.models],
-  );
   const totalTasks = taskStatusData.reduce((sum, item) => sum + item.value, 0);
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(360px,1fr)]">
-        <AdminSection
-          title="每日趋势"
-          description={`近 ${days} 天 · 任务量与失败率`}
-          actions={
-            <span className="text-xs font-semibold text-[var(--admin-muted)]">
-              {trendData.length} 个数据点
-            </span>
-          }
-        >
-          {trendData.length ? (
-            <div className="p-2 pb-3">
-              <ChartContainer config={trendConfig} className="h-[300px] w-full">
-                <AreaChart accessibilityLayer data={trendData} margin={{ top: 8, left: 8, right: 16, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="trend-tasks-fill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="var(--color-tasks)" stopOpacity={0.32} />
-                      <stop offset="100%" stopColor="var(--color-tasks)" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--admin-border)" vertical={false} />
-                  <XAxis
-                    dataKey="date"
-                    tickLine={false}
-                    axisLine={false}
-                    tickMargin={8}
-                    minTickGap={24}
-                    tickFormatter={(value: string) => value.slice(5)}
-                  />
-                  <YAxis
-                    yAxisId="left"
-                    tickLine={false}
-                    axisLine={false}
-                    tickMargin={8}
-                    width={48}
-                    tickFormatter={formatCompact}
-                  />
-                  <YAxis
-                    yAxisId="right"
-                    orientation="right"
-                    tickLine={false}
-                    axisLine={false}
-                    tickMargin={8}
-                    width={40}
-                    tickFormatter={(value: number) => formatPercent(value)}
-                    domain={[0, 100]}
-                  />
-                  <ChartTooltip
-                    content={<ChartTooltipContent indicator="line" />}
-                    cursor={{ stroke: "var(--admin-border-strong)", strokeDasharray: "3 3" }}
-                  />
-                  <Area
-                    yAxisId="left"
-                    type="monotone"
-                    dataKey="tasks"
-                    name="任务数"
-                    stroke="var(--color-tasks)"
-                    strokeWidth={2}
-                    fill="url(#trend-tasks-fill)"
-                    activeDot={{ r: 4, strokeWidth: 0, fill: "var(--color-tasks)" }}
-                  />
-                  <Area
-                    yAxisId="right"
-                    type="monotone"
-                    dataKey="failureRate"
-                    name="失败率"
-                    stroke="var(--color-failureRate)"
-                    strokeWidth={1.5}
-                    strokeOpacity={0.85}
-                    fill="transparent"
-                    dot={false}
-                    activeDot={{ r: 3, strokeWidth: 0, fill: "var(--color-failureRate)" }}
-                  />
-                </AreaChart>
-              </ChartContainer>
-              <div className="mt-3 flex flex-wrap items-center gap-3 px-2 text-[11px] font-black text-[var(--admin-muted)]">
-                <span className="inline-flex items-center gap-1.5">
-                  <span aria-hidden="true" className="h-1.5 w-3 rounded-full bg-[var(--color-tasks)]" />
-                  任务数（左轴）
-                </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <span aria-hidden="true" className="h-1.5 w-3 rounded-full bg-[var(--color-failureRate)]" />
-                  失败率（右轴）
-                </span>
-              </div>
-            </div>
-          ) : (
-            <EmptyChart
-              title="暂无趋势数据"
-              description={`近 ${days} 天内没有可绘制的聚合记录。`}
-            />
-          )}
-        </AdminSection>
-
+      <div className="grid gap-4 xl:grid-cols-2">
         <AdminSection title="任务状态" description="实时分布 · 点击行查看队列">
           {totalTasks > 0 ? (
             <div className="flex flex-col gap-4 p-2 pb-3">
@@ -308,9 +184,7 @@ export function AdminDashboardCharts({ overview, report, days }: AdminDashboardC
             />
           )}
         </AdminSection>
-      </div>
 
-      <div className="grid gap-4 xl:grid-cols-2">
         <AdminSection
           title="模块排行"
           description={`近 ${days} 天内按任务数排序`}
@@ -330,28 +204,6 @@ export function AdminDashboardCharts({ overview, report, days }: AdminDashboardC
             emptyDescription="扩大时间窗口（30 天）或前往任务中心查看历史数据"
             tone="accent"
             valueFormatter={(value) => formatNumber(value)}
-          />
-        </AdminSection>
-
-        <AdminSection
-          title="模型毛利代理"
-          description={`近 ${days} 天按净收入灵点排名的模型`}
-          actions={
-            <Link
-              href="/admin/reports"
-              className="inline-flex items-center gap-1 text-xs font-black text-[var(--admin-link)] hover:text-[var(--admin-fg)]"
-            >
-              进入报表
-              <ArrowUpRight aria-hidden="true" className="h-3 w-3" />
-            </Link>
-          }
-        >
-          <AdminTopList
-            items={modelRankItems}
-            emptyTitle={`近 ${days} 天等待模型结算`}
-            emptyDescription="任务结算并写入灵点流水后会自动按模型汇总毛利"
-            tone="success"
-            valueFormatter={(value) => `${formatNumber(Math.round(value * 10) / 10)}`}
           />
         </AdminSection>
       </div>
@@ -405,28 +257,5 @@ function buildModuleListItems(stats: AdminOverview["moduleStats"]): AdminTopList
     value: item.count,
     secondary: `失败 ${formatNumber(item.failed)}`,
     href: `/admin/generations?module=${encodeURIComponent(item.key)}`,
-  }));
-}
-
-function buildModelListItems(stats: AdminCostReport["models"]): AdminTopListItem[] {
-  return stats.slice(0, 8).map((item) => {
-    const tone: "success" | "warning" | "danger" | "neutral" =
-      item.netCredits > 0 ? "success" : item.netCredits < 0 ? "danger" : "neutral";
-    return {
-      key: item.key,
-      label: item.label,
-      value: item.netCredits,
-      secondary: `毛利 ${formatNumber(Math.round(item.marginCredits * 10) / 10)} · 失败 ${formatNumber(item.failed)}`,
-      tone,
-      href: "/admin/reports",
-    };
-  });
-}
-
-function buildTrendData(rows: AdminCostDailyItem[]) {
-  return rows.map((row) => ({
-    date: row.date,
-    tasks: row.tasks,
-    failureRate: row.tasks > 0 ? (row.failed / row.tasks) * 100 : 0,
   }));
 }

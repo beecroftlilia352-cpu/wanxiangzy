@@ -37,7 +37,7 @@ const moduleAdminHref: Record<AppModuleKey, string> = {
   home: "/admin",
   aiShoots: "/admin/generations",
   productImages: "/admin/product-retouch-skill",
-  assistant: "/admin/evals",
+  assistant: "/admin",
   tools: "/admin/generations",
   aiVideo: "/admin/generations",
   works: "/admin/assets",

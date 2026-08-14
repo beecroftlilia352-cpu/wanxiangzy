@@ -5,12 +5,10 @@ import {
   type NanoBananaProviderName,
 } from "@/lib/api/model-routing-config";
 import { getActiveModelRoutingConfig } from "@/lib/api/model-routing-config.server";
-// Agent module is temporarily disabled; eval cases are stubbed as empty.
-// Restore the import from "@/lib/agent/brain/eval-cases" once the agent
-// module is brought back from `refactor/extract-agent-module`.
-type BrainEvalCase = never;
-const BRAIN_EVAL_CASES: BrainEvalCase[] = [];
 import { getConfiguredProcessorSecrets } from "@/lib/env";
+import { getPublishedLlmProviderRawValue } from "@/lib/api/llm-provider-registry.server";
+import { getPublishedModelProviderRawValue } from "@/lib/api/model-provider-registry.server";
+import { getPublishedVideoProviderRawValue } from "@/lib/api/video-provider-registry.server";
 import { getAdminClient } from "@/lib/supabase/admin";
 import type { TaskStatusGroup } from "@/lib/task-queue";
 import { normalizeModule } from "@/lib/task-queue-index";
@@ -41,7 +39,6 @@ import {
   type AdminBillingSubscription,
   type AdminBillingWebhookEvent,
 } from "./billing";
-import type { AdminCostBreakdownItem, AdminCostDailyItem, AdminCostReport } from "./reports";
 import type { AdminBreakdownItem, AdminMetric } from "./shared";
 
 export type {
@@ -65,7 +62,6 @@ export type {
   AdminBillingSubscription,
   AdminBillingWebhookEvent,
 } from "./billing";
-export type { AdminCostBreakdownItem, AdminCostDailyItem, AdminCostReport } from "./reports";
 export type { AdminBreakdownItem, AdminMetric } from "./shared";
 
 export type AdminOverview = {
@@ -201,12 +197,15 @@ export type AdminProviderCatalog = {
     gptImageProvider: GptImageProviderName;
     nanoBananaProvider: NanoBananaProviderName;
   };
+  providerPublish: {
+    llm: boolean;
+    model: boolean;
+    video: boolean;
+  };
   models: Array<{
     model: LingyaModel;
     provider: string;
     endpointKind: string;
-    configured: boolean;
-    envKeys: string[];
     costs: Record<ImageSize, number>;
     notes: string;
   }>;
@@ -214,9 +213,8 @@ export type AdminProviderCatalog = {
     key: string;
     label: string;
     route: string;
-    readModel: string;
+    adminHref: string;
     risk: "low" | "medium" | "high";
-    adminV1: string;
   }>;
 };
 
@@ -266,101 +264,6 @@ export type AdminOperationRequest = {
 
 export type AdminOperationRequestList = {
   rows: AdminOperationRequest[];
-  available: boolean;
-  warnings: string[];
-};
-
-export type AdminSupportTicketStatus = "open" | "pending" | "waiting_user" | "resolved" | "closed";
-export type AdminSupportTicketPriority = "low" | "medium" | "high" | "urgent";
-export type AdminSupportTicketCategory =
-  | "generation_failure"
-  | "credit_issue"
-  | "content_moderation"
-  | "billing"
-  | "account"
-  | "technical"
-  | "other";
-
-export type AdminSupportTicket = {
-  id: string;
-  ticketNo: string;
-  status: AdminSupportTicketStatus;
-  priority: AdminSupportTicketPriority;
-  category: AdminSupportTicketCategory;
-  source: string;
-  userId: string | null;
-  userEmail: string | null;
-  generationId: string | null;
-  assetSourceType: string | null;
-  assetSourceId: string | null;
-  title: string;
-  description: string;
-  resolution: string | null;
-  tags: string[];
-  metadata: Record<string, unknown>;
-  assignedTo: string | null;
-  assignedToEmail: string | null;
-  createdBy: string | null;
-  createdByEmail: string | null;
-  createdByRole: string | null;
-  resolvedAt: string | null;
-  createdAt: string | null;
-  updatedAt: string | null;
-};
-
-export type AdminSupportTicketList = {
-  rows: AdminSupportTicket[];
-  available: boolean;
-  total: number;
-  metrics: {
-    open: number;
-    pending: number;
-    waitingUser: number;
-    resolved: number;
-    closed: number;
-    urgent: number;
-    linkedGenerations: number;
-  };
-  warnings: string[];
-};
-
-export type AdminSavedView = {
-  id: string;
-  ownerUserId: string | null;
-  ownerEmail: string | null;
-  name: string;
-  resource: string;
-  visibility: "private" | "team";
-  filters: Record<string, unknown>;
-  columns: unknown[];
-  sort: Record<string, unknown>;
-  createdAt: string | null;
-  updatedAt: string | null;
-};
-
-export type AdminSavedViewList = {
-  rows: AdminSavedView[];
-  available: boolean;
-  warnings: string[];
-};
-
-export type AdminExportJob = {
-  id: string;
-  exportType: string;
-  status: string;
-  requestedBy: string | null;
-  requestedByEmail: string | null;
-  requestedByRole: string | null;
-  filters: Record<string, unknown>;
-  rowCount: number;
-  downloadToken: string;
-  expiresAt: string | null;
-  errorMessage: string | null;
-  createdAt: string | null;
-};
-
-export type AdminExportJobList = {
-  rows: AdminExportJob[];
   available: boolean;
   warnings: string[];
 };
@@ -504,152 +407,6 @@ export type AdminWorkerOverview = {
   warnings: string[];
 };
 
-export type AdminAgentEvalRunStatus = "pass" | "failed" | "empty";
-
-export type AdminAgentEvalRun = {
-  id: string;
-  userId: string;
-  email: string | null;
-  total: number;
-  passed: number;
-  failed: number;
-  score: number;
-  latencyMs: number;
-  status: AdminAgentEvalRunStatus;
-  summary: Record<string, unknown>;
-  createdAt: string | null;
-};
-
-export type AdminAgentEvalResult = {
-  id: string;
-  runId: string;
-  userId: string;
-  email: string | null;
-  caseId: string;
-  title: string;
-  ok: boolean;
-  failures: string[];
-  action: string | null;
-  module: string | null;
-  confidence: number;
-  traceId: string | null;
-  createdAt: string | null;
-};
-
-export type AdminAgentEvalCase = {
-  id: string;
-  title: string;
-  expected: string[];
-  imageCount: number;
-};
-
-export type AdminAgentEvalOverview = {
-  available: boolean;
-  generatedAt: string;
-  processor: AdminWorkerProcessor;
-  metrics: {
-    totalRuns: number;
-    recentRuns: number;
-    avgScore: number;
-    passRate: number;
-    failedRuns: number;
-    failedCases: number;
-    uniqueUsers: number;
-    averageLatencyMs: number;
-    latestRunAt: string | null;
-  };
-  runs: AdminAgentEvalRun[];
-  failures: AdminAgentEvalResult[];
-  baselineCases: AdminAgentEvalCase[];
-  warnings: string[];
-};
-
-export type AdminDiagnosticSeverity = "critical" | "warning" | "info";
-
-export type AdminDiagnosticItem = {
-  id: string;
-  severity: AdminDiagnosticSeverity;
-  category: "queue" | "worker" | "finance" | "content" | "approval" | "provider" | "data";
-  title: string;
-  summary: string;
-  impact: string;
-  recommendation: string;
-  evidence: Array<{ label: string; value: string | number }>;
-  links: Array<{ href: string; label: string }>;
-  createdAt: string;
-};
-
-export type AdminDiagnosticsReport = {
-  generatedAt: string;
-  summary: {
-    total: number;
-    critical: number;
-    warning: number;
-    info: number;
-  };
-  items: AdminDiagnosticItem[];
-  warnings: string[];
-};
-
-export type AdminRiskLevel = "low" | "medium" | "high" | "critical";
-
-export type AdminRiskSignal = {
-  key: string;
-  label: string;
-  severity: AdminRiskLevel;
-  score: number;
-  detail: string;
-  evidence: Array<{ label: string; value: string | number }>;
-};
-
-export type AdminRiskUserItem = {
-  userId: string;
-  email: string | null;
-  displayName: string | null;
-  credits: number;
-  totalCreditsUsed: number;
-  generationCount: number;
-  failedGenerations: number;
-  refundCredits: number;
-  adjustmentCredits: number;
-  moderationHits: number;
-  supportTickets: number;
-  urgentSupportTickets: number;
-  latestActivityAt: string | null;
-  score: number;
-  level: AdminRiskLevel;
-  signals: AdminRiskSignal[];
-  recommendedAction: string;
-  detailUrl: string;
-};
-
-export type AdminRiskPolicy = {
-  id: string;
-  title: string;
-  description: string;
-  score: number;
-  level: AdminRiskLevel;
-};
-
-export type AdminRiskOverview = {
-  generatedAt: string;
-  days: number;
-  rows: AdminRiskUserItem[];
-  policies: AdminRiskPolicy[];
-  metrics: {
-    sampledUsers: number;
-    criticalUsers: number;
-    highUsers: number;
-    mediumUsers: number;
-    failedGenerations: number;
-    refundCredits: number;
-    moderationHits: number;
-    urgentSupportTickets: number;
-    averageScore: number;
-  };
-  warnings: string[];
-};
-
 type CountQuery = PromiseLike<unknown>;
 type SupabaseQuery = PromiseLike<unknown>;
 
@@ -748,36 +505,6 @@ const OPERATION_REQUEST_COLUMNS = [
   "updated_at",
   "approved_at",
 ].join(",");
-const SUPPORT_TICKET_COLUMNS = [
-  "id",
-  "ticket_no",
-  "status",
-  "priority",
-  "category",
-  "source",
-  "user_id",
-  "user_email",
-  "generation_id",
-  "asset_source_type",
-  "asset_source_id",
-  "title",
-  "description",
-  "resolution",
-  "tags",
-  "metadata",
-  "assigned_to",
-  "assigned_to_email",
-  "created_by",
-  "created_by_email",
-  "created_by_role",
-  "resolved_at",
-  "created_at",
-  "updated_at",
-].join(",");
-const SAVED_VIEW_COLUMNS = "id,owner_user_id,owner_email,name,resource,visibility,filters,columns,sort,created_at,updated_at";
-const EXPORT_JOB_COLUMNS = "id,export_type,status,requested_by,requested_by_email,requested_by_role,filters,row_count,download_token,expires_at,error_message,created_at";
-const AGENT_EVAL_RUN_COLUMNS = "id,user_id,total,passed,failed,score,latency_ms,summary,created_at";
-const AGENT_EVAL_RESULT_COLUMNS = "id,run_id,user_id,case_id,title,ok,failures,action,module,confidence,trace_id,created_at";
 export const PROMPT_EXPERIMENT_CONFIG_KEY = "prompt.experiments" as const;
 export const DEFAULT_PROMPT_EXPERIMENT_CONFIG = {
   schemaVersion: 1,
@@ -933,852 +660,6 @@ export async function getAdminOverview(args: { days?: number } = {}): Promise<Ad
   };
 }
 
-export async function getAdminCostReport(args: { days?: number } = {}): Promise<AdminCostReport> {
-  const admin = getAdminClient();
-  const warnings: string[] = [];
-  const days = clampLimit(args.days, 1, 90, 14);
-  const until = new Date();
-  const since = new Date(until.getTime() - (days - 1) * 24 * 60 * 60 * 1000);
-  since.setUTCHours(0, 0, 0, 0);
-  const sinceIso = since.toISOString();
-
-  const [generationResult, creditLogResult, workflowResult] = await Promise.all([
-    runQuery<Record<string, unknown>[]>(
-      admin
-        .from("generations")
-        .select(GENERATION_COLUMNS)
-        .gte("created_at", sinceIso)
-        .order("created_at", { ascending: false })
-        .limit(2500),
-      "cost report generations",
-      warnings,
-      true,
-    ),
-    runQuery<Record<string, unknown>[]>(
-      admin
-        .from("credit_logs")
-        .select(CREDIT_LOG_COLUMNS)
-        .gte("created_at", sinceIso)
-        .order("created_at", { ascending: false })
-        .limit(4000),
-      "cost report credit logs",
-      warnings,
-      true,
-    ),
-    runQuery<Record<string, unknown>[]>(
-      admin
-        .from("agent_workflows")
-        .select(WORKFLOW_COLUMNS)
-        .gte("created_at", sinceIso)
-        .order("created_at", { ascending: false })
-        .limit(1500),
-      "cost report workflows",
-      warnings,
-      true,
-    ),
-  ]);
-
-  const creditLogs = creditLogResult.data || [];
-  const generations = generationResult.data || [];
-  const workflows = workflowResult.data || [];
-  const debitsByGeneration = new Map<string, number>();
-  const refundsByGeneration = new Map<string, number>();
-  let grossCredits = 0;
-  let refundCredits = 0;
-  let adjustmentCredits = 0;
-
-  for (const row of creditLogs) {
-    const amount = numberValue(row.amount);
-    const generationId = nullableString(row.generation_id);
-    if (amount < 0) {
-      const debit = Math.abs(amount);
-      grossCredits += debit;
-      if (generationId) debitsByGeneration.set(generationId, (debitsByGeneration.get(generationId) || 0) + debit);
-    } else if (amount > 0 && generationId) {
-      refundCredits += amount;
-      refundsByGeneration.set(generationId, (refundsByGeneration.get(generationId) || 0) + amount);
-    } else if (amount > 0) {
-      adjustmentCredits += amount;
-    }
-  }
-
-  const modules = new Map<string, AdminCostBreakdownItem>();
-  const models = new Map<string, AdminCostBreakdownItem>();
-  const daily = createCostDailyMap(since, days);
-  let generationReservedCredits = 0;
-  let generationSettledCredits = 0;
-  let inFlightCredits = 0;
-  let failedReservedCredits = 0;
-  let completedCount = 0;
-  let failedCount = 0;
-  let runningCount = 0;
-
-  for (const row of generations) {
-    const payload = isRecord(row.job_payload) ? row.job_payload : {};
-    const id = stringValue(row.id);
-    const resultCount = arrayOfStrings(row.result_urls).length;
-    const module = normalizeModuleFilter(stringValue(payload.kind) || stringValue(payload.module) || inferModuleFromPayload(payload)) || "tryon";
-    const model = stringValue(row.ai_model) || stringValue(payload.aiModel) || "unknown";
-    const statusGroup = normalizeTaskStatusGroup(stringValue(row.status), resultCount);
-    const reservedCredits = Math.max(0, numberValue(row.credits_cost));
-    const rawUsed = Math.max(0, numberValue(row.credits_used));
-    const settledCredits = statusGroup === "completed" ? (rawUsed || reservedCredits) : 0;
-    const debitCredits = debitsByGeneration.get(id) || reservedCredits;
-    const inferredRefund = statusGroup === "failed" || statusGroup === "completed"
-      ? Math.max(0, reservedCredits - settledCredits)
-      : 0;
-    const generationRefund = refundsByGeneration.get(id) ?? inferredRefund;
-    const netCredits = Math.max(0, debitCredits - generationRefund);
-    const rowInFlight = statusGroup === "queued" || statusGroup === "running" ? reservedCredits : 0;
-    const rowFailedReserved = statusGroup === "failed" ? reservedCredits : 0;
-
-    generationReservedCredits += reservedCredits;
-    generationSettledCredits += settledCredits;
-    inFlightCredits += rowInFlight;
-    failedReservedCredits += rowFailedReserved;
-    if (statusGroup === "completed") completedCount += 1;
-    if (statusGroup === "failed") failedCount += 1;
-    if (statusGroup === "queued" || statusGroup === "running") runningCount += 1;
-
-    const snapshot = {
-      count: 1,
-      completed: statusGroup === "completed" ? 1 : 0,
-      failed: statusGroup === "failed" ? 1 : 0,
-      running: statusGroup === "queued" || statusGroup === "running" ? 1 : 0,
-      grossCredits: debitCredits,
-      refundCredits: generationRefund,
-      netCredits,
-      settledCredits,
-      inFlightCredits: rowInFlight,
-      marginCredits: netCredits - settledCredits,
-    };
-    bumpCostBreakdown(modules, module, moduleLabel(module), snapshot);
-    bumpCostBreakdown(models, model, model, snapshot);
-    bumpDailyGeneration(daily, nullableString(row.created_at), {
-      settledCredits,
-      failed: statusGroup === "failed" ? 1 : 0,
-    });
-  }
-
-  let workflowReservedCredits = 0;
-  let workflowSettledCredits = 0;
-  for (const row of workflows) {
-    const statusGroup = normalizeTaskStatusGroup(stringValue(row.status));
-    const reservedCredits = Math.max(0, numberValue(row.cost_reserved));
-    const settledCredits = statusGroup === "completed"
-      ? Math.max(0, numberValue(row.cost_settled) || reservedCredits)
-      : Math.max(0, numberValue(row.cost_settled));
-    workflowReservedCredits += reservedCredits;
-    workflowSettledCredits += settledCredits;
-    if (statusGroup === "completed") completedCount += 1;
-    if (statusGroup === "failed") failedCount += 1;
-    if (statusGroup === "queued" || statusGroup === "running") runningCount += 1;
-    bumpDailyWorkflow(daily, nullableString(row.created_at), settledCredits);
-  }
-
-  for (const row of creditLogs) {
-    bumpDailyCreditLog(daily, nullableString(row.created_at), row);
-  }
-
-  const netCredits = Math.max(0, grossCredits - refundCredits);
-  const fulfillmentCredits = generationSettledCredits + workflowSettledCredits;
-  const marginCredits = netCredits - fulfillmentCredits;
-  const sortedModules = finalizeCostBreakdowns(modules);
-  const sortedModels = finalizeCostBreakdowns(models);
-
-  return {
-    days,
-    since: sinceIso,
-    until: until.toISOString(),
-    metrics: {
-      grossCredits,
-      refundCredits,
-      adjustmentCredits,
-      netCredits,
-      generationReservedCredits,
-      generationSettledCredits,
-      workflowReservedCredits,
-      workflowSettledCredits,
-      inFlightCredits,
-      failedReservedCredits,
-      marginCredits,
-      marginRate: netCredits > 0 ? marginCredits / netCredits : 0,
-      generationCount: generations.length,
-      workflowCount: workflows.length,
-      completedCount,
-      failedCount,
-      runningCount,
-    },
-    modules: sortedModules,
-    models: sortedModels,
-    daily: Array.from(daily.values()).sort((a, b) => a.date.localeCompare(b.date)),
-    assumptions: [
-      "收入使用 credit_logs 中 amount < 0 的灵点扣费作为收入代理。",
-      "退款使用带 generation_id 的正向 credit_logs；老数据缺少流水时按 credits_cost - credits_used 推断。",
-      "真实 provider 账单尚未接入，本报表的成本为灵点履约口径，可用于运营毛利代理和异常排查。",
-    ],
-    warnings: uniqueStrings(warnings),
-  };
-}
-
-export async function getAdminDiagnostics(): Promise<AdminDiagnosticsReport> {
-  const generatedAt = new Date().toISOString();
-  const [
-    overview,
-    workers,
-    costReport,
-    moderation,
-    pendingRequests,
-    failedTasks,
-  ] = await Promise.all([
-    getAdminOverview(),
-    getAdminWorkerOverview(),
-    getAdminCostReport({ days: 7 }),
-    listAdminModerationCases({ limit: 60 }),
-    listAdminOperationRequests({ status: "pending", limit: 40 }),
-    listAdminTasks({ status: "failed", limit: 50 }),
-  ]);
-  const providerCatalog = await getAdminProviderCatalog();
-  const items: AdminDiagnosticItem[] = [];
-
-  pushDiagnostic(items, {
-    id: "queue-stale",
-    severity: workers.queue.stale >= 3 ? "critical" : workers.queue.stale > 0 ? "warning" : null,
-    category: "queue",
-    title: "存在长时间未完成任务",
-    summary: `${workers.queue.stale} 个任务运行超过 ${workers.queue.staleMinutes} 分钟无进展。`,
-    impact: "用户侧会持续看到处理中，可能重复轮询并引发投诉。",
-    recommendation: "进入任务队列页面查看样本，先确认模型通道状态和灵点结算，再手动重新处理或做定向退款处理。",
-    evidence: [
-      { label: "长时间未完成", value: workers.queue.stale },
-      { label: "阈值分钟", value: workers.queue.staleMinutes },
-      { label: "采样任务", value: workers.queue.sampled },
-    ],
-    links: [
-      { href: "/admin/workers", label: "查看任务队列" },
-      { href: "/admin/generations?status=running", label: "运行中任务" },
-    ],
-    createdAt: generatedAt,
-  });
-
-  const backlog = workers.queue.queued + workers.queue.running;
-  pushDiagnostic(items, {
-    id: "queue-backlog",
-    severity: backlog >= 80 ? "critical" : backlog >= 20 ? "warning" : null,
-    category: "queue",
-    title: "队列积压偏高",
-    summary: `当前队列中排队/运行任务合计 ${backlog} 个。`,
-    impact: "生成等待时间会拉长，用户可能反复提交或刷新。",
-    recommendation: "确认处理服务配置、模型通道可用性和任务失败分布；必要时提高处理频率或临时关闭高成本模型。",
-    evidence: [
-      { label: "排队中", value: workers.queue.queued },
-      { label: "运行中", value: workers.queue.running },
-      { label: "失败", value: workers.queue.failed },
-    ],
-    links: [
-      { href: "/admin/workers", label: "任务队列" },
-      { href: "/admin/providers", label: "模型通道健康" },
-    ],
-    createdAt: generatedAt,
-  });
-
-  pushDiagnostic(items, {
-    id: "generation-failure-rate",
-    severity: overview.generationHealth.failureRate >= 0.08 ? "critical" : overview.generationHealth.failureRate >= 0.03 ? "warning" : null,
-    category: "provider",
-    title: "生成失败率升高",
-    summary: `当前累计失败率 ${Math.round(overview.generationHealth.failureRate * 1000) / 10}%。`,
-    impact: "会增加退款、占用处理队列，并拉低近期产出质量。",
-    recommendation: "按失败任务列表聚合功能模块和模型，优先检查最近模型通道错误、提示词变更和素材可访问性。",
-    evidence: [
-      { label: "生成总数", value: overview.generationHealth.total },
-      { label: "失败任务", value: overview.generationHealth.failed },
-      { label: "失败样本", value: failedTasks.rows.length },
-    ],
-    links: [
-      { href: "/admin/generations?status=failed", label: "失败任务" },
-      { href: "/admin/reports", label: "成本报表" },
-    ],
-    createdAt: generatedAt,
-  });
-
-  const missingProcessors = workers.processors.filter((processor) => !processor.configured);
-  pushDiagnostic(items, {
-    id: "worker-secret-missing",
-    severity: missingProcessors.length ? "critical" : null,
-    category: "worker",
-    title: "处理服务配置未完整",
-    summary: `${missingProcessors.length} 条处理服务缺少可用配置。`,
-    impact: "定时任务或手动触发会失败，队列无法稳定消化。",
-    recommendation: "补齐对应运行配置后重启服务，再在任务队列页面手动触发一次验证。",
-    evidence: missingProcessors.map((processor) => ({ label: processor.key, value: processor.secretNames.join(" / ") })),
-    links: [
-      { href: "/admin/workers", label: "处理服务健康" },
-      { href: "/admin/settings", label: "运行时配置" },
-    ],
-    createdAt: generatedAt,
-  });
-
-  const pendingModeration = moderation.rows.filter((row) => !row.resolvedAt && row.status !== "resolved");
-  const escalatedModeration = pendingModeration.filter((row) => row.action === "escalate");
-  pushDiagnostic(items, {
-    id: "moderation-pending",
-    severity: escalatedModeration.length >= 5 ? "critical" : pendingModeration.length >= 5 ? "warning" : null,
-    category: "content",
-    title: "内容审核积压",
-    summary: `${pendingModeration.length} 条审核案件未解决，其中 ${escalatedModeration.length} 条需要复核。`,
-    impact: "违规结果可能停留在作品库，或正常素材无法恢复展示。",
-    recommendation: "优先处理 escalate 和 hide 相关案件，确保下架结果在历史列表与任务队列中同步过滤。",
-    evidence: [
-      { label: "pending", value: pendingModeration.length },
-      { label: "escalated", value: escalatedModeration.length },
-      { label: "available", value: moderation.available ? "yes" : "no" },
-    ],
-    links: [
-      { href: "/admin/moderation", label: "审核中心" },
-      { href: "/admin/assets", label: "资产列表" },
-    ],
-    createdAt: generatedAt,
-  });
-
-  const highRiskRequests = pendingRequests.rows.filter((row) => row.riskLevel === "high");
-  pushDiagnostic(items, {
-    id: "operation-requests-pending",
-    severity: highRiskRequests.length > 0 ? "critical" : pendingRequests.rows.length >= 5 ? "warning" : null,
-    category: "approval",
-    title: "高危审批待处理",
-    summary: `${pendingRequests.rows.length} 条操作审批待处理，其中 ${highRiskRequests.length} 条高风险。`,
-    impact: "补偿、下架、配置变更等操作可能停在半路，影响用户恢复或运营 SLA。",
-    recommendation: "Finance/Owner 优先处理高风险和超过当天的审批单；低风险可批量复核原因后通过。",
-    evidence: [
-      { label: "pending", value: pendingRequests.rows.length },
-      { label: "highRisk", value: highRiskRequests.length },
-      { label: "available", value: pendingRequests.available ? "yes" : "no" },
-    ],
-    links: [
-      { href: "/admin/requests?status=pending", label: "审批中心" },
-      { href: "/admin/audit", label: "审计日志" },
-    ],
-    createdAt: generatedAt,
-  });
-
-  pushDiagnostic(items, {
-    id: "refund-ratio",
-    severity: costReport.metrics.netCredits > 0 && costReport.metrics.refundCredits / costReport.metrics.netCredits >= 0.2
-      ? "warning"
-      : null,
-    category: "finance",
-    title: "退款占比偏高",
-    summary: `近 7 天退款 ${costReport.metrics.refundCredits} 灵点，净收入 ${costReport.metrics.netCredits} 灵点。`,
-    impact: "高退款通常对应模型通道不稳定、部分失败结算或误扣费体验问题。",
-    recommendation: "在成本报表中按模块和模型拆分，优先修复退款贡献最高的模块。",
-    evidence: [
-      { label: "退款灵点", value: costReport.metrics.refundCredits },
-      { label: "净收入灵点", value: costReport.metrics.netCredits },
-      { label: "失败锁定灵点", value: costReport.metrics.failedReservedCredits },
-    ],
-    links: [
-      { href: "/admin/reports?days=7", label: "近 7 天报表" },
-      { href: "/admin/credits", label: "灵点流水" },
-    ],
-    createdAt: generatedAt,
-  });
-
-  const missingProviders = providerCatalog.models.filter((model) => !model.configured);
-  pushDiagnostic(items, {
-    id: "provider-config-missing",
-    severity: missingProviders.length ? "warning" : null,
-    category: "provider",
-    title: "模型通道配置不完整",
-    summary: `${missingProviders.length} 个模型缺少可用通道配置。`,
-    impact: "用户选择相关模型时会失败，或降级路径无法覆盖。",
-    recommendation: "补齐模型通道配置，或在模型路由配置中临时关闭未配置模型。",
-    evidence: missingProviders.map((model) => ({ label: model.model, value: model.provider })),
-    links: [
-      { href: "/admin/providers", label: "模型供应商" },
-      { href: "/admin/settings", label: "配置版本" },
-    ],
-    createdAt: generatedAt,
-  });
-
-  const dataWarnings = uniqueStrings([
-    ...overview.warnings,
-    ...workers.warnings,
-    ...costReport.warnings,
-    ...moderation.warnings,
-    ...pendingRequests.warnings,
-    ...failedTasks.warnings,
-  ]);
-  pushDiagnostic(items, {
-    id: "admin-data-warnings",
-    severity: dataWarnings.length ? "info" : null,
-    category: "data",
-    title: "后台数据源存在提示",
-    summary: `本次诊断收集到 ${dataWarnings.length} 条数据源提示。`,
-    impact: "部分统计表或可选表缺失时，诊断会退回样本估算。",
-    recommendation: "优先完成后台管理数据初始化，并确认生产环境管理服务权限。",
-    evidence: dataWarnings.slice(0, 6).map((warning, index) => ({ label: `warning_${index + 1}`, value: warning })),
-    links: [
-      { href: "/admin/settings", label: "运行时配置" },
-      { href: "/admin/workers", label: "处理服务健康" },
-    ],
-    createdAt: generatedAt,
-  });
-
-  const sortedItems = items.sort((a, b) => severityRank(b.severity) - severityRank(a.severity));
-  return {
-    generatedAt,
-    summary: {
-      total: sortedItems.length,
-      critical: sortedItems.filter((item) => item.severity === "critical").length,
-      warning: sortedItems.filter((item) => item.severity === "warning").length,
-      info: sortedItems.filter((item) => item.severity === "info").length,
-    },
-    items: sortedItems,
-    warnings: dataWarnings,
-  };
-}
-
-export async function getAdminRiskOverview(args: {
-  q?: string;
-  level?: string;
-  days?: number;
-  limit?: number;
-} = {}): Promise<AdminRiskOverview> {
-  const warnings: string[] = [];
-  const admin = getAdminClient();
-  const days = clampRiskDays(args.days);
-  const limit = clampLimit(args.limit, 10, 160, 80);
-  const q = (args.q || "").trim().toLowerCase();
-  const level = normalizeRiskLevel(args.level);
-  const sinceIso = new Date(Date.now() - days * 86_400_000).toISOString();
-
-  let profileQuery = admin
-    .from("profiles")
-    .select(PROFILE_COLUMNS)
-    .order("updated_at", { ascending: false })
-    .limit(Math.min(limit * 4, 500));
-  if (q) profileQuery = profileQuery.ilike("email", `%${q}%`);
-
-  let profileResult = await runQuery<Record<string, unknown>[]>(
-    profileQuery,
-    "risk profiles",
-    warnings,
-    true,
-  );
-  if (!profileResult.data && profileResult.error?.toLowerCase().includes("total_credits_used")) {
-    let fallbackQuery = admin
-      .from("profiles")
-      .select(PROFILE_COLUMNS_FALLBACK)
-      .order("updated_at", { ascending: false })
-      .limit(Math.min(limit * 4, 500));
-    if (q) fallbackQuery = fallbackQuery.ilike("email", `%${q}%`);
-    profileResult = await runQuery<Record<string, unknown>[]>(
-      fallbackQuery,
-      "risk profiles fallback",
-      warnings,
-      true,
-    );
-  }
-
-  const [generationResult, creditResult, moderationResult, supportResult] = await Promise.all([
-    runQuery<Record<string, unknown>[]>(
-      admin
-        .from("generations")
-        .select("id,user_id,status,result_urls,credits_used,credits_cost,created_at,updated_at,completed_at")
-        .gte("created_at", sinceIso)
-        .order("created_at", { ascending: false })
-        .limit(2500),
-      "risk generations",
-      warnings,
-      true,
-    ),
-    runQuery<Record<string, unknown>[]>(
-      admin
-        .from("credit_logs")
-        .select(CREDIT_LOG_COLUMNS)
-        .gte("created_at", sinceIso)
-        .order("created_at", { ascending: false })
-        .limit(2500),
-      "risk credit logs",
-      warnings,
-      true,
-    ),
-    runQuery<Record<string, unknown>[]>(
-      admin
-        .from("moderation_cases")
-        .select(MODERATION_CASE_COLUMNS)
-        .gte("created_at", sinceIso)
-        .order("created_at", { ascending: false })
-        .limit(1000),
-      "risk moderation cases",
-      warnings,
-      true,
-    ),
-    runQuery<Record<string, unknown>[]>(
-      admin
-        .from("admin_support_tickets")
-        .select(SUPPORT_TICKET_COLUMNS)
-        .gte("created_at", sinceIso)
-        .order("created_at", { ascending: false })
-        .limit(1000),
-      "risk support tickets",
-      warnings,
-      true,
-    ),
-  ]);
-
-  const profileMap = new Map<string, AdminUserListItem>();
-  for (const row of profileResult.data || []) {
-    const profile = mapProfileRow(row);
-    if (profile.id) profileMap.set(profile.id, profile);
-  }
-
-  const stats = new Map<string, RiskUserStats>();
-  const generationOwnerMap = new Map<string, string>();
-  for (const row of generationResult.data || []) {
-    const userId = stringValue(row.user_id);
-    const generationId = stringValue(row.id);
-    if (!userId) continue;
-    if (generationId) generationOwnerMap.set(generationId, userId);
-    const stat = getRiskStats(stats, userId);
-    const resultCount = arrayOfStrings(row.result_urls).length;
-    const statusGroup = normalizeTaskStatusGroup(stringValue(row.status), resultCount);
-    stat.generationCount += 1;
-    if (statusGroup === "failed") stat.failedGenerations += 1;
-    stat.generationCredits += Math.max(0, numberValue(row.credits_used) || numberValue(row.credits_cost));
-    stat.latestActivityAt = latestDate(stat.latestActivityAt, nullableString(row.updated_at) || nullableString(row.completed_at) || nullableString(row.created_at));
-  }
-
-  for (const row of creditResult.data || []) {
-    const userId = stringValue(row.user_id);
-    if (!userId) continue;
-    const stat = getRiskStats(stats, userId);
-    const amount = numberValue(row.amount);
-    const reason = stringValue(row.reason).toLowerCase();
-    if (amount > 0 && (stringValue(row.generation_id) || /refund|compens|退|补偿|失败/.test(reason))) {
-      stat.refundCredits += amount;
-    }
-    if (/admin|manual|adjust|后台|人工|客服|补偿/.test(reason)) {
-      stat.adjustmentCredits += Math.abs(amount);
-    }
-    stat.latestActivityAt = latestDate(stat.latestActivityAt, nullableString(row.created_at));
-  }
-
-  for (const row of moderationResult.data || []) {
-    const action = stringValue(row.action);
-    if (action !== "hide" && action !== "escalate") continue;
-    const userId = generationOwnerMap.get(stringValue(row.source_id));
-    if (!userId) continue;
-    const stat = getRiskStats(stats, userId);
-    stat.moderationHits += action === "hide" ? 2 : 1;
-    stat.latestActivityAt = latestDate(stat.latestActivityAt, nullableString(row.created_at));
-  }
-
-  for (const row of supportResult.data || []) {
-    const userId = stringValue(row.user_id);
-    if (!userId) continue;
-    const stat = getRiskStats(stats, userId);
-    const status = stringValue(row.status);
-    if (status !== "resolved" && status !== "closed") stat.supportTickets += 1;
-    if (stringValue(row.priority) === "urgent") stat.urgentSupportTickets += 1;
-    stat.latestActivityAt = latestDate(stat.latestActivityAt, nullableString(row.updated_at) || nullableString(row.created_at));
-  }
-
-  for (const userId of stats.keys()) {
-    if (!profileMap.has(userId)) {
-      profileMap.set(userId, {
-        id: userId,
-        email: "",
-        displayName: null,
-        credits: 0,
-        totalCreditsUsed: 0,
-        accountStatus: "active",
-        generateEnabled: true,
-        supportLevel: "standard",
-        controlReason: null,
-        controlNote: null,
-        controlExpiresAt: null,
-        createdAt: null,
-        updatedAt: null,
-        generationCount: 0,
-        workflowCount: 0,
-        latestGenerationAt: null,
-      });
-    }
-  }
-
-  let rows = Array.from(profileMap.values()).map((profile) => buildRiskUserItem(profile, stats.get(profile.id) || createRiskStats()));
-  if (q) rows = rows.filter((row) => matchesRiskSearch(row, q));
-  if (level) rows = rows.filter((row) => row.level === level);
-  rows = rows.sort((a, b) => b.score - a.score || Date.parse(b.latestActivityAt || "") - Date.parse(a.latestActivityAt || "")).slice(0, limit);
-
-  return {
-    generatedAt: new Date().toISOString(),
-    days,
-    rows,
-    policies: RISK_SCORE_POLICIES,
-    metrics: createRiskMetrics(rows),
-    warnings: uniqueStrings(warnings),
-  };
-}
-
-type RiskUserStats = {
-  generationCount: number;
-  failedGenerations: number;
-  generationCredits: number;
-  refundCredits: number;
-  adjustmentCredits: number;
-  moderationHits: number;
-  supportTickets: number;
-  urgentSupportTickets: number;
-  latestActivityAt: string | null;
-};
-
-const RISK_SCORE_POLICIES: AdminRiskPolicy[] = [
-  {
-    id: "moderation",
-    title: "内容风险",
-    description: "审核下架和升级复核是最高优先级风险信号，需先确认是否需要限制公开展示。",
-    score: 35,
-    level: "critical",
-  },
-  {
-    id: "refunds",
-    title: "退款/补偿异常",
-    description: "短期内多次退款、补偿或人工调整，优先核对任务失败原因与灵点流水。",
-    score: 30,
-    level: "high",
-  },
-  {
-    id: "failure-rate",
-    title: "生成失败异常",
-    description: "任务量足够时失败率偏高，可能意味着素材质量、提示词、provider 或滥用问题。",
-    score: 30,
-    level: "high",
-  },
-  {
-    id: "support",
-    title: "客服压力",
-    description: "未完结工单和紧急工单会抬高风险分，避免重复补偿或遗漏用户承诺。",
-    score: 25,
-    level: "medium",
-  },
-];
-
-function createRiskStats(): RiskUserStats {
-  return {
-    generationCount: 0,
-    failedGenerations: 0,
-    generationCredits: 0,
-    refundCredits: 0,
-    adjustmentCredits: 0,
-    moderationHits: 0,
-    supportTickets: 0,
-    urgentSupportTickets: 0,
-    latestActivityAt: null,
-  };
-}
-
-function getRiskStats(map: Map<string, RiskUserStats>, userId: string) {
-  const existing = map.get(userId);
-  if (existing) return existing;
-  const created = createRiskStats();
-  map.set(userId, created);
-  return created;
-}
-
-function buildRiskUserItem(profile: AdminUserListItem, stats: RiskUserStats): AdminRiskUserItem {
-  const signals: AdminRiskSignal[] = [];
-  const failedRate = stats.generationCount > 0 ? stats.failedGenerations / stats.generationCount : 0;
-
-  if (profile.credits < 0) {
-    signals.push({
-      key: "negative_balance",
-      label: "余额为负",
-      severity: "critical",
-      score: 35,
-      detail: "用户灵点余额为负，需要核对扣费、退款或人工调整链路。",
-      evidence: [{ label: "credits", value: profile.credits }],
-    });
-  }
-  if (stats.moderationHits >= 3) {
-    signals.push({
-      key: "moderation_high",
-      label: "多次审核命中",
-      severity: "critical",
-      score: 35,
-      detail: "近期存在多次下架或升级复核，建议优先人工复查内容和账户行为。",
-      evidence: [{ label: "hits", value: stats.moderationHits }],
-    });
-  } else if (stats.moderationHits > 0) {
-    signals.push({
-      key: "moderation",
-      label: "审核命中",
-      severity: "high",
-      score: 20,
-      detail: "近期存在下架或复核记录，建议跟进内容安全上下文。",
-      evidence: [{ label: "hits", value: stats.moderationHits }],
-    });
-  }
-  if (stats.generationCount >= 5 && failedRate >= 0.6) {
-    signals.push({
-      key: "failure_rate",
-      label: "失败率偏高",
-      severity: "high",
-      score: 30,
-      detail: "生成任务失败率超过 60%，需确认素材质量、provider 或重复提交行为。",
-      evidence: [
-        { label: "failed", value: stats.failedGenerations },
-        { label: "total", value: stats.generationCount },
-      ],
-    });
-  } else if (stats.failedGenerations >= 10) {
-    signals.push({
-      key: "failure_count",
-      label: "失败次数偏高",
-      severity: "medium",
-      score: 18,
-      detail: "近期失败任务数量偏高，建议客服和工程联动检查。",
-      evidence: [{ label: "failed", value: stats.failedGenerations }],
-    });
-  }
-  if (stats.refundCredits >= 100) {
-    signals.push({
-      key: "refund_high",
-      label: "退款补偿偏高",
-      severity: "high",
-      score: 30,
-      detail: "近期退款或补偿灵点偏高，需核对是否存在重复补偿或批量失败。",
-      evidence: [{ label: "refundCredits", value: stats.refundCredits }],
-    });
-  } else if (stats.refundCredits >= 30) {
-    signals.push({
-      key: "refund_medium",
-      label: "退款补偿增加",
-      severity: "medium",
-      score: 15,
-      detail: "近期存在较多退款或补偿，建议保留客服上下文。",
-      evidence: [{ label: "refundCredits", value: stats.refundCredits }],
-    });
-  }
-  if (stats.adjustmentCredits >= 50) {
-    signals.push({
-      key: "manual_adjustment",
-      label: "人工调整偏多",
-      severity: "medium",
-      score: 15,
-      detail: "近期人工调整灵点较多，应核对审批和客服记录。",
-      evidence: [{ label: "adjustmentCredits", value: stats.adjustmentCredits }],
-    });
-  }
-  if (stats.urgentSupportTickets > 0) {
-    signals.push({
-      key: "urgent_support",
-      label: "紧急工单",
-      severity: "high",
-      score: 25,
-      detail: "存在未完结紧急客服工单，建议先处理用户承诺和风险动作。",
-      evidence: [{ label: "urgent", value: stats.urgentSupportTickets }],
-    });
-  } else if (stats.supportTickets >= 3) {
-    signals.push({
-      key: "support_backlog",
-      label: "工单积压",
-      severity: "medium",
-      score: 10,
-      detail: "未完结工单较多，可能影响后续补偿和账户处理判断。",
-      evidence: [{ label: "openTickets", value: stats.supportTickets }],
-    });
-  }
-  if (stats.generationCount >= 40) {
-    signals.push({
-      key: "burst_usage",
-      label: "短期高频生成",
-      severity: "medium",
-      score: 12,
-      detail: "近期生成频次偏高，建议观察是否为批量任务或异常脚本行为。",
-      evidence: [{ label: "generationCount", value: stats.generationCount }],
-    });
-  }
-
-  const score = Math.min(100, signals.reduce((sum, signal) => sum + signal.score, 0));
-  const level = score >= 80 ? "critical" : score >= 55 ? "high" : score >= 25 ? "medium" : "low";
-
-  return {
-    userId: profile.id,
-    email: profile.email || null,
-    displayName: profile.displayName,
-    credits: profile.credits,
-    totalCreditsUsed: profile.totalCreditsUsed,
-    generationCount: stats.generationCount,
-    failedGenerations: stats.failedGenerations,
-    refundCredits: stats.refundCredits,
-    adjustmentCredits: stats.adjustmentCredits,
-    moderationHits: stats.moderationHits,
-    supportTickets: stats.supportTickets,
-    urgentSupportTickets: stats.urgentSupportTickets,
-    latestActivityAt: latestDate(stats.latestActivityAt, profile.updatedAt || profile.createdAt),
-    score,
-    level,
-    signals,
-    recommendedAction: riskRecommendedAction(level),
-    detailUrl: `/admin/users/${profile.id}`,
-  };
-}
-
-function createRiskMetrics(rows: AdminRiskUserItem[]): AdminRiskOverview["metrics"] {
-  const totalScore = rows.reduce((sum, row) => sum + row.score, 0);
-  return {
-    sampledUsers: rows.length,
-    criticalUsers: rows.filter((row) => row.level === "critical").length,
-    highUsers: rows.filter((row) => row.level === "high").length,
-    mediumUsers: rows.filter((row) => row.level === "medium").length,
-    failedGenerations: rows.reduce((sum, row) => sum + row.failedGenerations, 0),
-    refundCredits: rows.reduce((sum, row) => sum + row.refundCredits, 0),
-    moderationHits: rows.reduce((sum, row) => sum + row.moderationHits, 0),
-    urgentSupportTickets: rows.reduce((sum, row) => sum + row.urgentSupportTickets, 0),
-    averageScore: rows.length ? Math.round(totalScore / rows.length) : 0,
-  };
-}
-
-function matchesRiskSearch(row: AdminRiskUserItem, q: string) {
-  return [
-    row.userId,
-    row.email || "",
-    row.displayName || "",
-    row.level,
-    row.recommendedAction,
-    row.signals.map((signal) => signal.label).join(" "),
-  ].some((value) => value.toLowerCase().includes(q));
-}
-
-function normalizeRiskLevel(value: unknown): AdminRiskLevel | "" {
-  const normalized = stringValue(value).toLowerCase();
-  return normalized === "low" || normalized === "medium" || normalized === "high" || normalized === "critical"
-    ? normalized
-    : "";
-}
-
-function clampRiskDays(value: unknown) {
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) return 30;
-  return Math.min(90, Math.max(7, Math.floor(parsed)));
-}
-
-function latestDate(a: string | null | undefined, b: string | null | undefined) {
-  if (!a) return b || null;
-  if (!b) return a;
-  return Date.parse(a) >= Date.parse(b) ? a : b;
-}
-
-function riskRecommendedAction(level: AdminRiskLevel) {
-  if (level === "critical") return "立即人工复核，必要时限制公开展示和大额补偿。";
-  if (level === "high") return "进入风控复核队列，先核对任务、灵点、审核和客服记录。";
-  if (level === "medium") return "观察并保留上下文，后续补偿或下架前复核。";
-  return "低风险，保持正常观察。";
-}
-
 export async function listAdminUsers(args: { q?: string; limit?: number } = {}): Promise<AdminUserList> {
   const admin = getAdminClient();
   const warnings: string[] = [];
@@ -1912,15 +793,31 @@ export async function listAdminTasks(args: {
   };
 }
 
-export async function listAdminAuditLogs(args: { limit?: number } = {}): Promise<AdminAuditList> {
+export async function listAdminAuditLogs(args: {
+  limit?: number;
+  action?: string;
+  q?: string;
+  since?: string;
+} = {}): Promise<AdminAuditList> {
   const warnings: string[] = [];
   const limit = clampLimit(args.limit, 10, 100, 50);
+  let query = getAdminClient()
+    .from("admin_audit_logs")
+    .select("id,actor_user_id,actor_email,actor_role,action,resource_type,resource_id,reason,metadata,created_at")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (args.action && typeof args.action === "string") {
+    query = query.eq("action", args.action);
+  }
+  if (args.q && typeof args.q === "string") {
+    query = query.ilike("actor_email", `%${args.q.trim()}%`);
+  }
+  if (args.since && typeof args.since === "string" && /^\d{4}-\d{2}-\d{2}$/.test(args.since)) {
+    query = query.gte("created_at", `${args.since}T00:00:00.000Z`);
+  }
+
   const result = await runQuery<Record<string, unknown>[]>(
-    getAdminClient()
-      .from("admin_audit_logs")
-      .select("id,actor_user_id,actor_email,actor_role,action,resource_type,resource_id,reason,metadata,created_at")
-      .order("created_at", { ascending: false })
-      .limit(limit),
+    query,
     "admin audit logs",
     warnings,
     true,
@@ -2257,113 +1154,6 @@ export async function listAdminOperationRequests(args: {
   };
 }
 
-export async function listAdminSupportTickets(args: {
-  q?: string;
-  status?: string;
-  priority?: string;
-  category?: string;
-  limit?: number;
-} = {}): Promise<AdminSupportTicketList> {
-  const warnings: string[] = [];
-  const limit = clampLimit(args.limit, 10, 160, 80);
-  const q = (args.q || "").trim().toLowerCase();
-  const status = normalizeSupportTicketStatus(args.status);
-  const priority = normalizeSupportTicketPriority(args.priority);
-  const category = normalizeSupportTicketCategory(args.category);
-  let query = getAdminClient()
-    .from("admin_support_tickets")
-    .select(SUPPORT_TICKET_COLUMNS, { count: "exact" })
-    .order("created_at", { ascending: false })
-    .limit(q ? Math.min(limit * 4, 400) : limit);
-
-  if (status) query = query.eq("status", status);
-  if (priority) query = query.eq("priority", priority);
-  if (category) query = query.eq("category", category);
-
-  const result = await runQuery<Record<string, unknown>[]>(
-    query,
-    "support tickets",
-    warnings,
-    true,
-  );
-
-  if (!result.data) {
-    return {
-      rows: [],
-      available: false,
-      total: 0,
-      metrics: createSupportTicketMetrics([]),
-      warnings: uniqueStrings(warnings),
-    };
-  }
-
-  let rows = result.data.map(mapSupportTicket);
-  if (q) rows = rows.filter((row) => matchesSupportTicketSearch(row, q));
-  const visibleRows = rows.slice(0, limit);
-
-  return {
-    rows: visibleRows,
-    available: true,
-    total: result.count ?? rows.length,
-    metrics: createSupportTicketMetrics(visibleRows),
-    warnings: uniqueStrings(warnings),
-  };
-}
-
-export async function listAdminSavedViews(args: { resource?: string; limit?: number } = {}): Promise<AdminSavedViewList> {
-  const warnings: string[] = [];
-  const limit = clampLimit(args.limit, 10, 120, 60);
-  const resource = (args.resource || "").trim();
-  let query = getAdminClient()
-    .from("admin_saved_views")
-    .select(SAVED_VIEW_COLUMNS)
-    .order("created_at", { ascending: false })
-    .limit(limit);
-  if (resource) query = query.eq("resource", resource);
-
-  const result = await runQuery<Record<string, unknown>[]>(
-    query,
-    "saved views",
-    warnings,
-    true,
-  );
-
-  if (!result.data) {
-    return { rows: [], available: false, warnings: uniqueStrings(warnings) };
-  }
-
-  return {
-    rows: result.data.map(mapSavedView),
-    available: true,
-    warnings: uniqueStrings(warnings),
-  };
-}
-
-export async function listAdminExportJobs(args: { limit?: number } = {}): Promise<AdminExportJobList> {
-  const warnings: string[] = [];
-  const limit = clampLimit(args.limit, 10, 120, 60);
-  const result = await runQuery<Record<string, unknown>[]>(
-    getAdminClient()
-      .from("admin_export_jobs")
-      .select(EXPORT_JOB_COLUMNS)
-      .order("created_at", { ascending: false })
-      .limit(limit),
-    "export jobs",
-    warnings,
-    true,
-  );
-
-  if (!result.data) {
-    return { rows: [], available: false, warnings: uniqueStrings(warnings) };
-  }
-
-  return {
-    rows: result.data.map(mapExportJob),
-    available: true,
-    warnings: uniqueStrings(warnings),
-  };
-}
-
 export async function listAdminMembers(args: { limit?: number } = {}): Promise<AdminMemberList> {
   const warnings: string[] = [];
   const limit = clampLimit(args.limit, 10, 100, 50);
@@ -2658,104 +1448,6 @@ export async function getAdminWorkerOverview(): Promise<AdminWorkerOverview> {
   };
 }
 
-export async function getAdminAgentEvalOverview(args: { q?: string; limit?: number } = {}): Promise<AdminAgentEvalOverview> {
-  const warnings: string[] = [];
-  const limit = clampLimit(args.limit, 10, 120, 50);
-  const q = (args.q || "").trim().toLowerCase();
-  const generatedAt = new Date().toISOString();
-  const processor = getWorkerProcessors().find((item) => item.key === "agent-evals") || getWorkerProcessors()[2];
-  const admin = getAdminClient();
-  const [runsResult, failuresResult] = await Promise.all([
-    runQuery<Record<string, unknown>[]>(
-      admin
-        .from("agent_eval_runs")
-        .select(AGENT_EVAL_RUN_COLUMNS, { count: "exact" })
-        .order("created_at", { ascending: false })
-        .limit(q ? Math.min(limit * 4, 300) : limit),
-      "agent eval runs",
-      warnings,
-      true,
-    ),
-    runQuery<Record<string, unknown>[]>(
-      admin
-        .from("agent_eval_results")
-        .select(AGENT_EVAL_RESULT_COLUMNS)
-        .eq("ok", false)
-        .order("created_at", { ascending: false })
-        .limit(q ? Math.min(limit * 4, 300) : 80),
-      "agent eval failed results",
-      warnings,
-      true,
-    ),
-  ]);
-
-  if (!runsResult.data) {
-    return {
-      available: false,
-      generatedAt,
-      processor,
-      metrics: emptyAgentEvalMetrics(),
-      runs: [],
-      failures: [],
-      baselineCases: BRAIN_EVAL_CASES.map(mapBrainEvalCase),
-      warnings: uniqueStrings([
-        ...warnings,
-        runsResult.error
-          ? `agent_eval_runs: ${runsResult.error}`
-          : "agent_eval_runs table is not ready. Run supabase/agent-brain-traces.sql first.",
-      ]),
-    };
-  }
-
-  if (failuresResult.error) {
-    warnings.push(`agent_eval_results: ${failuresResult.error}`);
-  }
-
-  const userIds = uniqueStrings([
-    ...runsResult.data.map((row) => stringValue(row.user_id)),
-    ...((failuresResult.data || []).map((row) => stringValue(row.user_id))),
-  ]);
-  const emails = await loadProfileEmails(userIds, warnings);
-  let runs = runsResult.data.map((row) => mapAgentEvalRun(row, emails));
-  let failures = (failuresResult.data || []).map((row) => mapAgentEvalResult(row, emails));
-
-  if (q) {
-    runs = runs.filter((row) => matchesAgentEvalRunSearch(row, q));
-    failures = failures.filter((row) => matchesAgentEvalResultSearch(row, q));
-  }
-
-  runs = runs.slice(0, limit);
-  failures = failures.slice(0, Math.min(limit, 80));
-  const totalCases = runs.reduce((sum, row) => sum + row.total, 0);
-  const passedCases = runs.reduce((sum, row) => sum + row.passed, 0);
-  const latencySamples = runs.filter((row) => row.latencyMs > 0);
-  const avgScore = runs.length ? Math.round(runs.reduce((sum, row) => sum + row.score, 0) / runs.length) : 0;
-  const averageLatencyMs = latencySamples.length
-    ? Math.round(latencySamples.reduce((sum, row) => sum + row.latencyMs, 0) / latencySamples.length)
-    : 0;
-
-  return {
-    available: true,
-    generatedAt,
-    processor,
-    metrics: {
-      totalRuns: q ? runs.length : runsResult.count ?? runs.length,
-      recentRuns: runs.length,
-      avgScore,
-      passRate: totalCases ? Math.round((passedCases / totalCases) * 100) : 0,
-      failedRuns: runs.filter((row) => row.failed > 0 || row.total === 0).length,
-      failedCases: failures.length,
-      uniqueUsers: new Set(runs.map((row) => row.userId).filter(Boolean)).size,
-      averageLatencyMs,
-      latestRunAt: runs[0]?.createdAt || null,
-    },
-    runs,
-    failures,
-    baselineCases: BRAIN_EVAL_CASES.map(mapBrainEvalCase),
-    warnings: uniqueStrings(warnings),
-  };
-}
-
 function getAdminNanoBananaProviderLabel(provider: NanoBananaProviderName) {
   if (provider === "catrouter") return "CatRouter";
   if (provider === "laozhang") return "LaoZhang";
@@ -2770,27 +1462,11 @@ export async function getAdminProviderCatalog(): Promise<AdminProviderCatalog> {
   const routing = await getActiveModelRoutingConfig();
   const nanoBananaProvider = getAdminNanoBananaProviderLabel(routing.nanoBananaProvider);
   const gptImageProvider = getAdminGptImageProviderLabel(routing.gptImageProvider);
-  const nanoBananaConfigured = routing.nanoBananaProvider === "catrouter"
-    ? Boolean(process.env.CATROUTER_API_KEY?.trim())
-    : routing.nanoBananaProvider === "laozhang"
-      ? Boolean(process.env.LAOZHANG_API_KEY?.trim())
-      : Boolean(process.env.YUNWU_NATIVE_API_KEY?.trim() || process.env.YUNWU_API_KEY?.trim());
-  const gptImageConfigured = routing.gptImageProvider === "catrouter"
-    ? Boolean(process.env.CATROUTER_API_KEY?.trim())
-    : Boolean(process.env.PLATO_API_KEY?.trim() || process.env.LINGYA_API_KEY?.trim());
-  const nanoBananaEnvKeys = routing.nanoBananaProvider === "catrouter"
-    ? ["NANO_BANANA_PROVIDER", "CATROUTER_API_KEY", "CATROUTER_BASE_URL", "CATROUTER_NANO_BANANA_MODEL"]
-    : routing.nanoBananaProvider === "laozhang"
-      ? ["NANO_BANANA_PROVIDER", "LAOZHANG_API_KEY", "LAOZHANG_BASE_URL", "LAOZHANG_NANO_BANANA_MODEL"]
-      : ["NANO_BANANA_PROVIDER", "YUNWU_NATIVE_API_KEY", "YUNWU_NATIVE_BASE_URL", "YUNWU_NANO_BANANA_MODEL"];
-  const nanoBananaProEnvKeys = routing.nanoBananaProvider === "catrouter"
-    ? ["NANO_BANANA_PROVIDER", "CATROUTER_API_KEY", "CATROUTER_BASE_URL", "CATROUTER_NANO_BANANA_PRO_MODEL"]
-    : routing.nanoBananaProvider === "laozhang"
-      ? ["NANO_BANANA_PROVIDER", "LAOZHANG_API_KEY", "LAOZHANG_BASE_URL", "LAOZHANG_NANO_BANANA_PRO_MODEL"]
-      : ["NANO_BANANA_PROVIDER", "YUNWU_NATIVE_API_KEY", "YUNWU_NATIVE_BASE_URL", "YUNWU_NANO_BANANA_PRO_MODEL"];
-  const gptImageEnvKeys = routing.gptImageProvider === "catrouter"
-    ? ["GPT_IMAGE_PROVIDER", "CATROUTER_API_KEY", "CATROUTER_BASE_URL", "CATROUTER_GPT_IMAGE_MODEL"]
-    : ["GPT_IMAGE_PROVIDER", "PLATO_API_KEY", "PLATO_BASE_URL", "PLATO_GPT_IMAGE_MODEL"];
+  const [llmRaw, modelRaw, videoRaw] = await Promise.all([
+    getPublishedLlmProviderRawValue().catch(() => null),
+    getPublishedModelProviderRawValue().catch(() => null),
+    getPublishedVideoProviderRawValue().catch(() => null),
+  ]);
 
   return {
     defaultModel: DEFAULT_LINGYA_MODEL,
@@ -2802,13 +1478,16 @@ export async function getAdminProviderCatalog(): Promise<AdminProviderCatalog> {
       gptImageProvider: routing.gptImageProvider,
       nanoBananaProvider: routing.nanoBananaProvider,
     },
+    providerPublish: {
+      llm: Boolean(llmRaw),
+      model: Boolean(modelRaw),
+      video: Boolean(videoRaw),
+    },
     models: [
       {
         model: "nano-banana-2",
         provider: nanoBananaProvider,
         endpointKind: "Gemini native image",
-        configured: nanoBananaConfigured,
-        envKeys: nanoBananaEnvKeys,
         costs: CREDIT_COSTS["nano-banana-2"],
         notes: "默认低成本主力模型，适合批量生产和姿势裂变。",
       },
@@ -2816,31 +1495,26 @@ export async function getAdminProviderCatalog(): Promise<AdminProviderCatalog> {
         model: "gpt-image-2",
         provider: gptImageProvider,
         endpointKind: "OpenAI-compatible image",
-        configured: gptImageConfigured,
-        envKeys: gptImageEnvKeys,
         costs: CREDIT_COSTS["gpt-image-2"],
-        notes: "适合稳定编辑类任务，Plato 未配置时回退 LINGYA_API_KEY。",
+        notes: "适合稳定编辑类任务。",
       },
       {
         model: "nano-banana-pro",
         provider: nanoBananaProvider,
         endpointKind: "Gemini native image",
-        configured: nanoBananaConfigured,
-        envKeys: nanoBananaProEnvKeys,
         costs: CREDIT_COSTS["nano-banana-pro"],
         notes: "高价格高质量模型，仅建议用于品牌大片和复杂参考图。",
       },
     ],
     modules: [
-      { key: "tryon", label: "服装上身", route: "/create", readModel: "generations + task_queue_items", risk: "medium", adminV1: "只读诊断" },
-      { key: "pose", label: "姿势裂变", route: "/pose", readModel: "generations + prompt trace", risk: "medium", adminV1: "只读诊断" },
-      { key: "model", label: "专属模特", route: "/model", readModel: "generations", risk: "medium", adminV1: "只读诊断" },
-      { key: "modelBackground", label: "模特换背景", route: "/model-background", readModel: "generations", risk: "medium", adminV1: "只读诊断" },
-      { key: "grass", label: "种草图", route: "/grass", readModel: "generations", risk: "low", adminV1: "只读诊断" },
-      { key: "productSet", label: "商品套图", route: "/product-set", readModel: "generations + favorites", risk: "medium", adminV1: "只读诊断" },
-      { key: "garment3d", label: "服装 3D", route: "/garment-3d", readModel: "generations", risk: "low", adminV1: "只读诊断" },
-      { key: "faceSwap", label: "换脸", route: "/face-swap", readModel: "generations", risk: "high", adminV1: "只读诊断" },
-      { key: "workflow", label: "Agent 工作流", route: "/agent", readModel: "agent_workflows + steps/events", risk: "high", adminV1: "只读诊断" },
+      { key: "tryon", label: "服装上身", route: "/create", adminHref: "/admin/tryon", risk: "medium" },
+      { key: "pose", label: "姿势裂变", route: "/pose", adminHref: "/admin/generations?module=pose", risk: "medium" },
+      { key: "model", label: "专属模特", route: "/model", adminHref: "/admin/generations?module=model", risk: "medium" },
+      { key: "modelBackground", label: "模特换背景", route: "/model-background", adminHref: "/admin/generations?module=model-background", risk: "medium" },
+      { key: "grass", label: "种草图", route: "/grass", adminHref: "/admin/generations?module=grass", risk: "low" },
+      { key: "productSet", label: "商品套图", route: "/product-set", adminHref: "/admin/generations?module=product-set", risk: "medium" },
+      { key: "garment3d", label: "服装 3D", route: "/garment-3d", adminHref: "/admin/generations?module=garment-3d", risk: "low" },
+      { key: "faceSwap", label: "换脸", route: "/face-swap", adminHref: "/admin/generations?module=face-swap", risk: "high" },
     ],
   };
 }
@@ -3383,40 +2057,6 @@ function normalizeOperationRequestStatus(value?: string) {
     : "";
 }
 
-export function normalizeSupportTicketStatus(value: unknown): AdminSupportTicketStatus | "" {
-  const normalized = stringValue(value).toLowerCase();
-  return normalized === "open" ||
-    normalized === "pending" ||
-    normalized === "waiting_user" ||
-    normalized === "resolved" ||
-    normalized === "closed"
-    ? normalized
-    : "";
-}
-
-export function normalizeSupportTicketPriority(value: unknown): AdminSupportTicketPriority | "" {
-  const normalized = stringValue(value).toLowerCase();
-  return normalized === "low" ||
-    normalized === "medium" ||
-    normalized === "high" ||
-    normalized === "urgent"
-    ? normalized
-    : "";
-}
-
-export function normalizeSupportTicketCategory(value: unknown): AdminSupportTicketCategory | "" {
-  const normalized = stringValue(value).toLowerCase();
-  return normalized === "generation_failure" ||
-    normalized === "credit_issue" ||
-    normalized === "content_moderation" ||
-    normalized === "billing" ||
-    normalized === "account" ||
-    normalized === "technical" ||
-    normalized === "other"
-    ? normalized
-    : "";
-}
-
 function getRuntimeSettingHealth(): AdminSettingsOverview["runtime"] {
   return [
     { key: "NEXT_PUBLIC_SUPABASE_URL", label: "Supabase URL", configured: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL), scope: "auth" },
@@ -3496,20 +2136,6 @@ function workerProcessor({
   };
 }
 
-function pushDiagnostic(
-  items: AdminDiagnosticItem[],
-  item: Omit<AdminDiagnosticItem, "severity"> & { severity: AdminDiagnosticSeverity | null },
-) {
-  if (!item.severity) return;
-  items.push(item as AdminDiagnosticItem);
-}
-
-function severityRank(severity: AdminDiagnosticSeverity) {
-  if (severity === "critical") return 3;
-  if (severity === "warning") return 2;
-  return 1;
-}
-
 function isTaskStale(row: AdminTaskListItem, staleMinutes: number) {
   const timestamp = Date.parse(row.updatedAt || row.createdAt || "");
   if (!Number.isFinite(timestamp)) return false;
@@ -3550,138 +2176,6 @@ function bumpBreakdown(
   if (statusGroup === "failed") item.failed += 1;
   if (statusGroup === "queued" || statusGroup === "running") item.running += 1;
   map.set(key, item);
-}
-
-function bumpCostBreakdown(
-  map: Map<string, AdminCostBreakdownItem>,
-  key: string,
-  label: string,
-  snapshot: {
-    count: number;
-    completed: number;
-    failed: number;
-    running: number;
-    grossCredits: number;
-    refundCredits: number;
-    netCredits: number;
-    settledCredits: number;
-    inFlightCredits: number;
-    marginCredits: number;
-  },
-) {
-  const item = map.get(key) || {
-    key,
-    label,
-    count: 0,
-    completed: 0,
-    failed: 0,
-    running: 0,
-    grossCredits: 0,
-    refundCredits: 0,
-    netCredits: 0,
-    settledCredits: 0,
-    inFlightCredits: 0,
-    marginCredits: 0,
-    averageCredits: 0,
-    failureRate: 0,
-  };
-  item.count += snapshot.count;
-  item.completed += snapshot.completed;
-  item.failed += snapshot.failed;
-  item.running += snapshot.running;
-  item.grossCredits += snapshot.grossCredits;
-  item.refundCredits += snapshot.refundCredits;
-  item.netCredits += snapshot.netCredits;
-  item.settledCredits += snapshot.settledCredits;
-  item.inFlightCredits += snapshot.inFlightCredits;
-  item.marginCredits += snapshot.marginCredits;
-  map.set(key, item);
-}
-
-function finalizeCostBreakdowns(map: Map<string, AdminCostBreakdownItem>) {
-  return Array.from(map.values())
-    .map((item) => ({
-      ...item,
-      averageCredits: item.count > 0 ? item.netCredits / item.count : 0,
-      failureRate: item.count > 0 ? item.failed / item.count : 0,
-    }))
-    .sort((a, b) => b.netCredits - a.netCredits)
-    .slice(0, 12);
-}
-
-function createCostDailyMap(since: Date, days: number) {
-  const map = new Map<string, AdminCostDailyItem>();
-  for (let index = days - 1; index >= 0; index -= 1) {
-    const day = new Date(since.getTime() + (days - 1 - index) * 24 * 60 * 60 * 1000);
-    const key = dayKey(day.toISOString());
-    map.set(key, createCostDailyItem(key));
-  }
-  return map;
-}
-
-function bumpDailyCreditLog(
-  map: Map<string, AdminCostDailyItem>,
-  createdAt: string | null,
-  row: Record<string, unknown>,
-) {
-  const day = getCostDailyItem(map, createdAt);
-  if (!day) return;
-  const amount = numberValue(row.amount);
-  if (amount < 0) day.grossCredits += Math.abs(amount);
-  if (amount > 0 && nullableString(row.generation_id)) day.refundCredits += amount;
-  if (amount > 0 && !nullableString(row.generation_id)) day.adjustmentCredits += amount;
-  refreshDailyMargin(day);
-}
-
-function bumpDailyGeneration(
-  map: Map<string, AdminCostDailyItem>,
-  createdAt: string | null,
-  snapshot: { settledCredits: number; failed: number },
-) {
-  const day = getCostDailyItem(map, createdAt);
-  if (!day) return;
-  day.tasks += 1;
-  day.failed += snapshot.failed;
-  day.generationSettledCredits += snapshot.settledCredits;
-  refreshDailyMargin(day);
-}
-
-function bumpDailyWorkflow(map: Map<string, AdminCostDailyItem>, createdAt: string | null, settledCredits: number) {
-  const day = getCostDailyItem(map, createdAt);
-  if (!day) return;
-  day.workflowSettledCredits += settledCredits;
-  refreshDailyMargin(day);
-}
-
-function getCostDailyItem(map: Map<string, AdminCostDailyItem>, value: string | null) {
-  if (!value) return null;
-  const key = dayKey(value);
-  if (!map.has(key)) return null;
-  return map.get(key) || null;
-}
-
-function createCostDailyItem(date: string): AdminCostDailyItem {
-  return {
-    date,
-    grossCredits: 0,
-    refundCredits: 0,
-    adjustmentCredits: 0,
-    generationSettledCredits: 0,
-    workflowSettledCredits: 0,
-    marginCredits: 0,
-    tasks: 0,
-    failed: 0,
-  };
-}
-
-function refreshDailyMargin(day: AdminCostDailyItem) {
-  day.marginCredits = day.grossCredits - day.refundCredits - day.generationSettledCredits - day.workflowSettledCredits;
-}
-
-function dayKey(value: string) {
-  const time = Date.parse(value);
-  if (!Number.isFinite(time)) return value.slice(0, 10);
-  return new Date(time).toISOString().slice(0, 10);
 }
 
 async function loadCreditHealth(sinceIso: string, warnings: string[]) {
@@ -4245,96 +2739,6 @@ function emptyPromptExperimentMetrics(): AdminPromptExperimentOverview["metrics"
   };
 }
 
-function mapAgentEvalRun(row: Record<string, unknown>, emails: Map<string, string>): AdminAgentEvalRun {
-  const userId = stringValue(row.user_id);
-  const total = numberValue(row.total);
-  const failed = numberValue(row.failed);
-  return {
-    id: stringValue(row.id),
-    userId,
-    email: emails.get(userId) || null,
-    total,
-    passed: numberValue(row.passed),
-    failed,
-    score: numberValue(row.score),
-    latencyMs: numberValue(row.latency_ms),
-    status: total === 0 ? "empty" : failed > 0 ? "failed" : "pass",
-    summary: isRecord(row.summary) ? row.summary : {},
-    createdAt: nullableString(row.created_at),
-  };
-}
-
-function mapAgentEvalResult(row: Record<string, unknown>, emails: Map<string, string>): AdminAgentEvalResult {
-  const userId = stringValue(row.user_id);
-  return {
-    id: stringValue(row.id),
-    runId: stringValue(row.run_id),
-    userId,
-    email: emails.get(userId) || null,
-    caseId: stringValue(row.case_id),
-    title: stringValue(row.title),
-    ok: row.ok === true,
-    failures: arrayOfStrings(row.failures),
-    action: nullableString(row.action),
-    module: nullableString(row.module),
-    confidence: numberValue(row.confidence),
-    traceId: nullableString(row.trace_id),
-    createdAt: nullableString(row.created_at),
-  };
-}
-
-function mapBrainEvalCase(testCase: BrainEvalCase): AdminAgentEvalCase {
-  // Agent module disabled: BRAIN_EVAL_CASES is an empty stub, so this
-  // function is unreachable at runtime. Restore the typed implementation
-  // when bringing back the agent module from `refactor/extract-agent-module`.
-  void testCase;
-  return {
-    id: "",
-    title: "",
-    expected: [],
-    imageCount: 0,
-  };
-}
-
-function emptyAgentEvalMetrics(): AdminAgentEvalOverview["metrics"] {
-  return {
-    totalRuns: 0,
-    recentRuns: 0,
-    avgScore: 0,
-    passRate: 0,
-    failedRuns: 0,
-    failedCases: 0,
-    uniqueUsers: 0,
-    averageLatencyMs: 0,
-    latestRunAt: null,
-  };
-}
-
-function matchesAgentEvalRunSearch(row: AdminAgentEvalRun, q: string) {
-  return [
-    row.id,
-    row.userId,
-    row.email || "",
-    row.status,
-    String(row.score),
-    JSON.stringify(row.summary),
-  ].some((value) => value.toLowerCase().includes(q));
-}
-
-function matchesAgentEvalResultSearch(row: AdminAgentEvalResult, q: string) {
-  return [
-    row.id,
-    row.runId,
-    row.userId,
-    row.email || "",
-    row.caseId,
-    row.title,
-    row.action || "",
-    row.module || "",
-    row.failures.join(" "),
-  ].some((value) => value.toLowerCase().includes(q));
-}
-
 function mapModerationCase(row: Record<string, unknown>): AdminModerationCase {
   return {
     id: stringValue(row.id),
@@ -4372,76 +2776,6 @@ function mapOperationRequest(row: Record<string, unknown>): AdminOperationReques
     updatedAt: nullableString(row.updated_at),
     approvedAt: nullableString(row.approved_at),
   };
-}
-
-function mapSupportTicket(row: Record<string, unknown>): AdminSupportTicket {
-  return {
-    id: stringValue(row.id),
-    ticketNo: stringValue(row.ticket_no),
-    status: normalizeSupportTicketStatus(row.status) || "open",
-    priority: normalizeSupportTicketPriority(row.priority) || "medium",
-    category: normalizeSupportTicketCategory(row.category) || "other",
-    source: stringValue(row.source) || "admin",
-    userId: nullableString(row.user_id),
-    userEmail: nullableString(row.user_email),
-    generationId: nullableString(row.generation_id),
-    assetSourceType: nullableString(row.asset_source_type),
-    assetSourceId: nullableString(row.asset_source_id),
-    title: stringValue(row.title),
-    description: stringValue(row.description),
-    resolution: nullableString(row.resolution),
-    tags: arrayOfStrings(row.tags),
-    metadata: isRecord(row.metadata) ? row.metadata : {},
-    assignedTo: nullableString(row.assigned_to),
-    assignedToEmail: nullableString(row.assigned_to_email),
-    createdBy: nullableString(row.created_by),
-    createdByEmail: nullableString(row.created_by_email),
-    createdByRole: nullableString(row.created_by_role),
-    resolvedAt: nullableString(row.resolved_at),
-    createdAt: nullableString(row.created_at),
-    updatedAt: nullableString(row.updated_at),
-  };
-}
-
-function createSupportTicketMetrics(rows: AdminSupportTicket[]): AdminSupportTicketList["metrics"] {
-  return rows.reduce((metrics, row) => {
-    if (row.status === "open") metrics.open += 1;
-    if (row.status === "pending") metrics.pending += 1;
-    if (row.status === "waiting_user") metrics.waitingUser += 1;
-    if (row.status === "resolved") metrics.resolved += 1;
-    if (row.status === "closed") metrics.closed += 1;
-    if (row.priority === "urgent") metrics.urgent += 1;
-    if (row.generationId) metrics.linkedGenerations += 1;
-    return metrics;
-  }, {
-    open: 0,
-    pending: 0,
-    waitingUser: 0,
-    resolved: 0,
-    closed: 0,
-    urgent: 0,
-    linkedGenerations: 0,
-  });
-}
-
-function matchesSupportTicketSearch(row: AdminSupportTicket, q: string) {
-  return [
-    row.id,
-    row.ticketNo,
-    row.status,
-    row.priority,
-    row.category,
-    row.userId || "",
-    row.userEmail || "",
-    row.generationId || "",
-    row.assetSourceType || "",
-    row.assetSourceId || "",
-    row.title,
-    row.description,
-    row.assignedToEmail || "",
-    row.createdByEmail || "",
-    row.tags.join(" "),
-  ].some((value) => value.toLowerCase().includes(q));
 }
 
 function mapBillingProduct(row: Record<string, unknown>): AdminBillingProduct {
@@ -4617,40 +2951,6 @@ function compareDateDesc(a: string | null | undefined, b: string | null | undefi
 
 function toMajorCurrency(value: number) {
   return Math.round((value / 100) * 100) / 100;
-}
-
-function mapSavedView(row: Record<string, unknown>): AdminSavedView {
-  const visibility = stringValue(row.visibility);
-  return {
-    id: stringValue(row.id),
-    ownerUserId: nullableString(row.owner_user_id),
-    ownerEmail: nullableString(row.owner_email),
-    name: stringValue(row.name),
-    resource: stringValue(row.resource),
-    visibility: visibility === "team" ? "team" : "private",
-    filters: isRecord(row.filters) ? row.filters : {},
-    columns: Array.isArray(row.columns) ? row.columns : [],
-    sort: isRecord(row.sort) ? row.sort : {},
-    createdAt: nullableString(row.created_at),
-    updatedAt: nullableString(row.updated_at),
-  };
-}
-
-function mapExportJob(row: Record<string, unknown>): AdminExportJob {
-  return {
-    id: stringValue(row.id),
-    exportType: stringValue(row.export_type),
-    status: stringValue(row.status) || "ready",
-    requestedBy: nullableString(row.requested_by),
-    requestedByEmail: nullableString(row.requested_by_email),
-    requestedByRole: nullableString(row.requested_by_role),
-    filters: isRecord(row.filters) ? row.filters : {},
-    rowCount: numberValue(row.row_count),
-    downloadToken: stringValue(row.download_token),
-    expiresAt: nullableString(row.expires_at),
-    errorMessage: nullableString(row.error_message),
-    createdAt: nullableString(row.created_at),
-  };
 }
 
 async function countRows(query: CountQuery, label: string, warnings: string[], optional = false) {

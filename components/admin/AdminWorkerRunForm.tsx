@@ -8,7 +8,7 @@ import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 
-type WorkerTarget = "generations" | "agent-workflows" | "agent-evals";
+type WorkerTarget = "generations" | "agent-workflows";
 
 type AdminWorkerRunFormProps = {
   defaultTarget?: WorkerTarget;
@@ -20,7 +20,6 @@ type AdminWorkerRunFormProps = {
 const WORKER_OPTIONS: Array<{ value: WorkerTarget; label: string }> = [
   { value: "generations", label: "生成任务" },
   { value: "agent-workflows", label: "工作流助手" },
-  { value: "agent-evals", label: "回归评测" },
 ];
 
 export function AdminWorkerRunForm({
@@ -31,11 +30,11 @@ export function AdminWorkerRunForm({
 }: AdminWorkerRunFormProps) {
   const router = useRouter();
   const [target, setTarget] = useState<WorkerTarget>(defaultTarget);
-  const [limit, setLimit] = useState(defaultLimit || (defaultTarget === "agent-evals" ? 20 : 2));
+  const [limit, setLimit] = useState(defaultLimit || 2);
   const [reason, setReason] = useState(defaultReason);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
-  const maxLimit = target === "agent-evals" ? 100 : 10;
+  const maxLimit = 10;
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -73,7 +72,7 @@ export function AdminWorkerRunForm({
             onChange={(event) => {
               const nextTarget = event.target.value as WorkerTarget;
               setTarget(nextTarget);
-              setLimit(nextTarget === "agent-evals" ? 20 : 2);
+              setLimit(2);
             }}
             className="h-10 border-[var(--admin-border)] bg-[var(--admin-surface)] px-2 text-sm font-bold text-[var(--admin-fg)] focus-visible:border-[var(--admin-border-strong)] focus-visible:ring-0"
           >

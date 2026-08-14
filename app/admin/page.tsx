@@ -1,6 +1,6 @@
 import { AdminDashboardClient } from "@/components/admin/AdminDashboardClient";
-import { getAdminCostReport, getAdminOverview } from "@/lib/admin/data";
-import type { AdminOverview, AdminCostReport } from "@/lib/admin/data";
+import { getAdminOverview } from "@/lib/admin/data";
+import type { AdminOverview } from "@/lib/admin/data";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 30;
@@ -22,71 +22,23 @@ const EMPTY_OVERVIEW: AdminOverview = {
   warnings: [],
 };
 
-const EMPTY_REPORT: AdminCostReport = {
-  days: 7,
-  since: "",
-  until: "",
-  metrics: {
-    grossCredits: 0,
-    refundCredits: 0,
-    adjustmentCredits: 0,
-    netCredits: 0,
-    generationReservedCredits: 0,
-    generationSettledCredits: 0,
-    workflowReservedCredits: 0,
-    workflowSettledCredits: 0,
-    inFlightCredits: 0,
-    failedReservedCredits: 0,
-    marginCredits: 0,
-    marginRate: 0,
-    generationCount: 0,
-    workflowCount: 0,
-    completedCount: 0,
-    failedCount: 0,
-    runningCount: 0,
-  },
-  modules: [],
-  models: [],
-  daily: [],
-  assumptions: [],
-  warnings: [],
-};
-
 export default async function AdminDashboardPage({ searchParams }: PageProps) {
   const params = (await searchParams) || {};
   const days = normalizeDays(getSearchParam(params.days));
 
   let overview: AdminOverview = EMPTY_OVERVIEW;
-  let report: AdminCostReport = EMPTY_REPORT;
   let fetchError: string | null = null;
 
   try {
-    const results = await Promise.allSettled([
-      getAdminOverview({ days }),
-      getAdminCostReport({ days }),
-    ]);
-
-    if (results[0].status === "fulfilled") {
-      overview = results[0].value;
-    } else {
-      fetchError = results[0].reason instanceof Error ? results[0].reason.message : "运营数据加载失败";
-      console.error("[admin dashboard] overview fetch failed:", results[0].reason);
-    }
-
-    if (results[1].status === "fulfilled") {
-      report = results[1].value;
-    } else {
-      console.error("[admin dashboard] report fetch failed:", results[1].reason);
-    }
+    overview = await getAdminOverview({ days });
   } catch (err) {
-    fetchError = err instanceof Error ? err.message : "管理后台数据加载异常";
-    console.error("[admin dashboard] unexpected error:", err);
+    fetchError = err instanceof Error ? err.message : "运营数据加载失败";
+    console.error("[admin dashboard] overview fetch failed:", err);
   }
 
   return (
     <AdminDashboardClient
       overview={overview}
-      report={report}
       days={days}
       fetchError={fetchError}
     />

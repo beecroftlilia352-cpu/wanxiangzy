@@ -12,6 +12,7 @@ import {
   Loader2,
   Rocket,
   Sparkles,
+  Wand2,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -31,7 +32,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import type { ProductRetouchSkillDefinition } from "@/lib/product-retouch";
+import {
+  parseProductRetouchSkillDefinition,
+  type ProductRetouchSkillDefinition,
+} from "@/lib/product-retouch";
 
 const ENDPOINT_BASE = "/api/admin/product-retouch-skill/configs";
 
@@ -71,41 +75,60 @@ export function AdminProductRetouchSkillConsole({
   >(null);
   const [actionReason, setActionReason] = useState("");
   const [acting, setActing] = useState<string | null>(null);
+  const [publishDialogOpen, setPublishDialogOpen] = useState(false);
+  const [publishReason, setPublishReason] = useState("");
 
   const activeVersion = versions.find((row) => row.id === activeVersionId) || null;
   const summary = useMemo(() => summarize(versions, activeVersionId), [versions, activeVersionId]);
 
-  async function handleCreate(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  // 实时校验：语法错误、Schema 错误、校验通过三种状态，提交前必须通过
+  const draftValidation = useMemo(() => validateDraftJson(draftJson), [draftJson]);
+
+  function formatDraftJson() {
+    const parsed = tryParseJson(draftJson);
+    if (!parsed.ok) {
+      toast.error(`无法格式化：${parsed.error}`);
+      return;
+    }
+    setDraftJson(JSON.stringify(parsed.value, null, 2));
+  }
+
+  async function submitCreate(reason: string) {
     setSubmitting(true);
     try {
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(draftJson);
-      } catch {
-        throw new Error("配置内容必须是合法 JSON");
-      }
-      const reason = draftStatus === "published"
-        ? window.prompt("发布配置：请填写至少 6 个字符的操作原因", "") || ""
-        : "";
-      if (draftStatus === "published" && reason.trim().length < 6) {
-        throw new Error("发布配置需要填写至少 6 个字符的原因");
-      }
+      const parsed = tryParseJson(draftJson);
+      if (!parsed.ok) throw new Error(`配置内容不是合法 JSON：${parsed.error}`);
       const res = await fetch(ENDPOINT_BASE, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: draftStatus, value: parsed, reason }),
+        body: JSON.stringify({ status: draftStatus, value: parsed.value, reason }),
       });
       const payload = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(payload.error || `保存失败 (${res.status})`);
       toast.success(draftStatus === "published" ? "Skill 已发布并生效" : "草稿已保存");
       setDraftStatus("draft");
+      setPublishDialogOpen(false);
+      setPublishReason("");
       router.refresh();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "保存失败");
     } finally {
       setSubmitting(false);
     }
+  }
+
+  function handleCreate(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!draftValidation.ok) {
+      toast.error("请先修正配置内容，通过校验后再提交");
+      return;
+    }
+    if (draftStatus === "published") {
+      setPublishReason("");
+      setPublishDialogOpen(true);
+      return;
+    }
+    void submitCreate("");
   }
 
   function openAction(row: ProductRetouchSkillVersionRow, action: "publish" | "archive") {
@@ -189,7 +212,7 @@ export function AdminProductRetouchSkillConsole({
         title="创建配置版本"
         description="把待发布内容粘贴为 JSON，必须通过严格 Schema 校验才能落地。发布时需填写操作原因。"
         actions={
-          <div className="flex items-center gap-2 text-xs text-[var(--admin-muted)]">
+          <div className="flex items-center gap-2">
             <Button
               type="button"
               variant="ghost"
@@ -197,6 +220,15 @@ export function AdminProductRetouchSkillConsole({
               onClick={() => setDraftJson(builtInJson)}
             >
               载入内置 Skill
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={formatDraftJson}
+            >
+              <Wand2 aria-hidden="true" className="h-3.5 w-3.5" />
+              格式化
             </Button>
           </div>
         }
@@ -215,7 +247,7 @@ export function AdminProductRetouchSkillConsole({
               </select>
             </label>
             <span className="text-xs text-[var(--admin-muted)]">
-              选择「立即发布」会弹窗要求填写操作原因（≥6 字符）。
+              选择「立即发布」会弹窗要求填写操作原因（≥6 字符），并写入审计日志。
             </span>
           </div>
           <Textarea
@@ -225,14 +257,37 @@ export function AdminProductRetouchSkillConsole({
             spellCheck={false}
             className="font-mono text-xs"
             placeholder="粘贴商品精修 Skill JSON"
+            aria-invalid={!draftValidation.ok}
           />
+          <div
+            role="status"
+            aria-live="polite"
+            className={`rounded-lg border px-3 py-2 text-xs font-bold leading-5 ${
+              draftValidation.ok
+                ? "border-[var(--admin-success-border)] bg-[var(--admin-success-soft)] text-[var(--admin-success)]"
+                : "border-[var(--admin-danger-border)] bg-[var(--admin-danger-soft)] text-[var(--admin-danger)]"
+            }`}
+          >
+            {draftValidation.ok ? (
+              <span className="inline-flex items-center gap-1.5">
+                <CheckCircle2 aria-hidden="true" className="h-3.5 w-3.5" />
+                校验通过{draftValidation.version ? ` · v${draftValidation.version}` : ""}，可以提交。
+              </span>
+            ) : (
+              <span className="inline-flex items-start gap-1.5">
+                <AlertTriangle aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <span>
+                  校验未通过：{draftValidation.error}
+                  {" "}要求 id=product-retouch、schemaVersion=1，并包含 modes / categoryProfiles / invariants / promptTemplates / modelPolicy / limits / hardValidation。
+                </span>
+              </span>
+            )}
+          </div>
           <div className="flex items-center justify-between gap-3">
             <p className="text-xs text-[var(--admin-muted)]">
-              校验规则：id 必须是 product-retouch，schemaVersion 必须为 1，
-              必须包含 modes / categoryProfiles / invariants / promptTemplates /
-              modelPolicy / limits / hardValidation。
+              修改后实时校验；「格式化」会自动整理缩进，「载入内置 Skill」恢复出厂内容。
             </p>
-            <Button type="submit" disabled={submitting} className="gap-2">
+            <Button type="submit" disabled={submitting || !draftValidation.ok} className="gap-2">
               {submitting ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : <FilePlus2 aria-hidden="true" className="h-4 w-4" />}
               {draftStatus === "published" ? "发布新版本" : "保存草稿"}
             </Button>
@@ -364,6 +419,45 @@ export function AdminProductRetouchSkillConsole({
       </Dialog>
 
       <Dialog
+        open={publishDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) setPublishDialogOpen(false);
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>发布 Skill 新版本</DialogTitle>
+            <DialogDescription>
+              请填写至少 6 个字符的操作原因，将写入审计日志；发布后前台商品精修立即生效。
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            value={publishReason}
+            onChange={(event) => setPublishReason(event.target.value)}
+            rows={4}
+            placeholder="例如：v1.1.0 修复白底阴影溢出"
+          />
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setPublishDialogOpen(false)}>
+              取消
+            </Button>
+            <Button
+              onClick={() => void submitCreate(publishReason)}
+              disabled={submitting || publishReason.trim().length < 6}
+              className="gap-2"
+            >
+              {submitting ? (
+                <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+              ) : (
+                <Rocket aria-hidden="true" className="h-4 w-4" />
+              )}
+              确认发布
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
         open={Boolean(pendingAction)}
         onOpenChange={(open) => {
           if (!open) setPendingAction(null);
@@ -403,6 +497,27 @@ export function AdminProductRetouchSkillConsole({
       </Dialog>
     </div>
   );
+}
+
+function tryParseJson(raw: string): { ok: true; value: unknown } | { ok: false; error: string } {
+  const trimmed = raw.trim();
+  if (!trimmed) return { ok: false, error: "内容为空" };
+  try {
+    return { ok: true, value: JSON.parse(trimmed) };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return { ok: false, error: `JSON 语法错误：${message}` };
+  }
+}
+
+function validateDraftJson(raw: string): { ok: boolean; error?: string; version?: string } {
+  const parsed = tryParseJson(raw);
+  if (!parsed.ok) return { ok: false, error: parsed.error };
+  const definition = parseProductRetouchSkillDefinition(parsed.value);
+  if (!definition) {
+    return { ok: false, error: "内容不符合 Skill Schema" };
+  }
+  return { ok: true, version: definition.version };
 }
 
 function summarize(

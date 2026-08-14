@@ -53,6 +53,8 @@ const SCENE_SELECT = [
   "updated_at",
 ].join(",");
 
+const SCENE_LIST_LIMIT = 1000;
+
 export default async function AdminTryOnPage() {
   const warnings: string[] = [];
   const admin = getAdminClient();
@@ -72,7 +74,7 @@ export default async function AdminTryOnPage() {
         .select(SCENE_SELECT)
         .order("sort_order", { ascending: true })
         .order("priority", { ascending: false })
-        .limit(240),
+        .limit(SCENE_LIST_LIMIT),
       "系统参考图表",
       warnings,
     ),
@@ -88,12 +90,16 @@ export default async function AdminTryOnPage() {
     ),
   ]);
 
+  if (scenes.length >= SCENE_LIST_LIMIT) {
+    warnings.push(`系统参考图已超过 ${SCENE_LIST_LIMIT} 张，后台仅展示前 ${SCENE_LIST_LIMIT} 张；请使用搜索或状态筛选定位其余场景。`);
+  }
+
   return (
     <div className="space-y-5">
       <AdminPageHeader
         eyebrow="Try-on Config"
         title="试衣参考图配置"
-        description="后台统一管理服装分类、系统参考图、子图集导入、推荐预览和发布版本。前台上传服装后会读取这里的 active 配置进行推荐排序。"
+        description="管理服装分类、系统参考图和发布版本。前台推荐排序优先读取这里发布的版本；未发布时回退使用 active 状态的场景。"
       />
       <AdminTryOnReferenceConsole
         initialCategories={categories}
