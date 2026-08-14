@@ -3,6 +3,7 @@
 import type { ChangeEvent, KeyboardEvent } from "react";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRulesPopover } from "@/hooks/use-rules-popover";
+import { useUnsavedChangesGuard } from "@/hooks/use-unsaved-changes-guard";
 import { useRouter } from "next/navigation";
 import {
   Upload, UserRound, Image as ImageIcon, Sparkles,
@@ -384,6 +385,11 @@ export default function CreatePage() {
     () => selectedReferenceImages.map((item) => item.url).filter(Boolean),
     [selectedReferenceImages]
   );
+
+  // 未保存输入离开拦截：有服装图/参考图/提示词时提醒
+  useUnsavedChangesGuard(Boolean(
+    uploadedClothingUrls.length || effectiveReferenceUrls.length || store.promptUsed.trim() || promptOverride?.trim()
+  ));
   const activeReferenceAnalysisKey = useMemo(() => {
     if (sceneMode === "auto_design" || !effectiveReferenceUrls.length) return "";
     return buildReferenceAnalysisKey({ urls: effectiveReferenceUrls, clothingMode, clothingRoles, garmentAudience, ageGroup });
@@ -3330,7 +3336,7 @@ export default function CreatePage() {
           </section>
 
           {/* ---- 生成数量 ---- */}
-          <StudioSection title="生成数量" description="结果张数越多，消耗灵点越高。">
+          <StudioSection title="生成数量" description="结果张数越多，消耗灵点越高。" icon={<Images className="h-4 w-4" />}>
             <StudioGenerationCountSelector
               value={genCount}
               onChange={setGenCount}

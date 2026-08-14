@@ -6,7 +6,7 @@ import {CircleDollarSign,
   ImageIcon,
   Square,
   SunMedium,
-  WandSparkles,} from "lucide-react";
+  WandSparkles, Wand2, Settings2,} from "lucide-react";
 import { toast } from "sonner";
 import { ModuleHeader } from "@/components/ModuleHeader";
 import { PreviewGuide } from "@/components/PreviewGuide";
@@ -721,6 +721,7 @@ export function ProductRetouchExperience() {
               <StudioSection
                 title="精修方案"
                 description="按成片用途选择；所有方案均严格保留商品结构、颜色、材质、Logo 和文字。"
+                icon={<Wand2 className="h-4 w-4" />}
               >
                 <StudioOptionGrid
                   options={MODE_OPTIONS}
@@ -736,6 +737,7 @@ export function ProductRetouchExperience() {
               <StudioSection
                 title="生产设置"
                 description="默认使用高一致性的 GPT Image 2 与 2K 输出。"
+                icon={<Settings2 className="h-4 w-4" />}
               >
                 <StudioModelSelector
                   models={MODEL_OPTIONS}

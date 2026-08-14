@@ -68,6 +68,8 @@ import {
 import { POSE_UPLOAD_RULE, type PoseRuleDemo } from "@/lib/pose-upload-rules";
 import { createAdaptivePollDelay, fetchWithAbortAndTimeout, getTotalPollBudgetMs, isAbortLikeError } from "@/lib/poll/status-poll";
 import { useRulesPopover } from "@/hooks/use-rules-popover";
+import { StudioClearButton } from "@/components/studio/StudioClearButton";
+import { useUnsavedChangesGuard } from "@/hooks/use-unsaved-changes-guard";
 import {
   GARMENT_ANGLE_TARGET_OPTIONS,
   GARMENT_ANGLE_UPLOAD_FOOTNOTE,
@@ -460,6 +462,9 @@ export default function PosePage() {
     [poseCreationMode, poseReferenceUrls]
   );
   const isPoseReferenceMode = poseCreationMode === "reference";
+
+  // 未保存输入离开拦截：有主图/参考图/提示词时提醒
+  useUnsavedChangesGuard(Boolean(mainImage || prompt.trim() || supplementPrompt.trim() || activePoseReferenceUrls.length));
   const activePoseReferenceCopies = normalizePoseReferenceCopies(poseReferenceCopies, Math.max(activePoseReferenceUrls.length, 1));
   const poseReferenceOutputCount = isPoseReferenceMode
     ? Math.max(activePoseReferenceUrls.length * activePoseReferenceCopies, 1)
@@ -1618,18 +1623,32 @@ export default function PosePage() {
             title="姿势裂变"
             tooltip="基于图1人物、服装、场景和光线，按选择的角度数量生成同一套视觉里的姿势变化，适合主图延展、搭配展示和社媒排版。"
             actions={(
-              <button
-                ref={rulesButtonRef}
-                type="button"
-                onMouseEnter={openRulesPopover}
-                onMouseLeave={scheduleRulesHide}
-                onFocus={openRulesPopover}
-                onBlur={scheduleRulesHide}
-                aria-expanded={showPoseRules}
-                className="studio-upload-rule-button"
-              >
-                图片规则 <ChevronRight aria-hidden="true" className="h-3 w-3" />
-              </button>
+              <>
+                <StudioClearButton
+                  label="清空"
+                  disabled={!mainImage && activePoseReferenceUrls.length === 0}
+                  onClear={() => {
+                    setMainImage("");
+                    setPoseReferenceUrls([]);
+                    setPrompt("");
+                    setSupplementPrompt("");
+                    closeRulesPopover?.();
+                    toast.info("已清空输入内容");
+                  }}
+                />
+                <button
+                  ref={rulesButtonRef}
+                  type="button"
+                  onMouseEnter={openRulesPopover}
+                  onMouseLeave={scheduleRulesHide}
+                  onFocus={openRulesPopover}
+                  onBlur={scheduleRulesHide}
+                  aria-expanded={showPoseRules}
+                  className="studio-upload-rule-button"
+                >
+                  图片规则 <ChevronRight aria-hidden="true" className="h-3 w-3" />
+                </button>
+              </>
             )}
           />
           <section

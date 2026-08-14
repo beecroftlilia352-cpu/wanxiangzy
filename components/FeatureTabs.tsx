@@ -72,7 +72,8 @@ export function FeatureTabs({ active }: { active: FeatureKey }) {
                 {item.badge && (
                   <span
                     aria-hidden="true"
-                    className="absolute -right-2 -top-1.5 inline-flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-gradient-to-r from-rose-500 to-red-500 px-1 text-[7px] font-black leading-none text-white ring-2 ring-white/90 dark:ring-stone-900/80"
+                    title={`${item.label} · 新功能`}
+                    className="absolute right-0 top-0 inline-flex h-3 min-w-[12px] -translate-y-0.5 translate-x-0.5 items-center justify-center rounded-full bg-gradient-to-r from-rose-500 to-red-500 px-[3px] text-[6px] font-black leading-none text-white ring-1 ring-white dark:ring-stone-900"
                   >
                     {item.badge}
                   </span>

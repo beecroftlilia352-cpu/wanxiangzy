@@ -541,7 +541,7 @@
 .studio-module-heading-title {
   color: var(--codex-ink);
   font-size: 16px;
-  font-weight: 760;
+  font-weight: 700;
   letter-spacing: 0;
   line-height: 1.1;
 }
@@ -604,7 +604,7 @@
 .studio-section:has(.studio-fixed-upload-slot) .studio-section-title,
 .studio-section:has(.studio-upload-dropzone) .studio-section-title {
   font-size: 14px;
-  font-weight: 780;
+  font-weight: 700;
 }
 
 .studio-upload-section {
@@ -626,7 +626,7 @@
   min-width: 0;
   color: var(--codex-ink);
   font-size: 15px;
-  font-weight: 780;
+  font-weight: 700;
   line-height: 1.25;
   letter-spacing: 0;
 }
@@ -731,11 +731,24 @@
   min-width: 0;
 }
 
+.studio-section-title-icon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  color: #8b5cf6;
+}
+
+.studio-section-title-icon > svg {
+  height: 16px;
+  width: 16px;
+}
+
 .studio-section-title,
 .mac-panel-title {
   color: var(--codex-ink);
   font-size: 14px;
-  font-weight: 760;
+  font-weight: 700;
   line-height: 1.25;
 }
 
@@ -1116,7 +1129,7 @@
   padding: 8px 12px;
   text-align: center;
   font-size: 12px;
-  font-weight: 780;
+  font-weight: 700;
   transition: border-color 180ms ease, background 180ms ease, color 180ms ease;
 }
 
@@ -1862,7 +1875,7 @@
 .studio-multi-image-add-card small {
   color: var(--codex-faint);
   font-size: 10px;
-  font-weight: 760;
+  font-weight: 700;
 }
 
 .studio-multi-image-add-card:hover:not(:disabled) {
@@ -1969,7 +1982,7 @@
   padding: 0 10px;
   color: #64748b;
   font-size: 12px;
-  font-weight: 760;
+  font-weight: 700;
   line-height: 1;
   transition: border-color 160ms ease, background-color 160ms ease, color 160ms ease;
 }
@@ -2369,7 +2382,7 @@
 .studio-upload-tile-example-label {
   color: var(--codex-faint);
   font-size: 11px;
-  font-weight: 780;
+  font-weight: 700;
   line-height: 1.18;
   text-align: center;
 }
@@ -2433,7 +2446,7 @@
   padding: 0 12px;
   color: var(--codex-faint);
   font-size: 11px;
-  font-weight: 760;
+  font-weight: 700;
   line-height: 1;
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
   cursor: pointer;
@@ -2618,7 +2631,7 @@
   min-height: 38px;
   padding: 0 16px !important;
   font-size: 12px !important;
-  font-weight: 760 !important;
+  font-weight: 700 !important;
 }
 
 .studio-fixed-upload-slot button:first-of-type:not(.studio-icon-button),
@@ -2751,7 +2764,7 @@
 
 .studio-model-title-row {
   font-size: 12px;
-  font-weight: 780;
+  font-weight: 700;
   line-height: 1.25;
 }
 
@@ -2774,7 +2787,7 @@
   color: var(--codex-accent);
   padding: 2px 6px;
   font-size: 10px;
-  font-weight: 760;
+  font-weight: 700;
 }
 
 .studio-option-pill-grid {
@@ -2787,7 +2800,7 @@
   min-height: 38px;
   padding: 0 10px;
   font-size: 12px;
-  font-weight: 760;
+  font-weight: 700;
   line-height: 1.2;
 }
 
@@ -2804,6 +2817,11 @@
     overflow: hidden;
     grid-template-columns: var(--studio-nav-rail-width) var(--studio-task-rail-width) var(--studio-sidebar-width) minmax(0, 1fr);
     grid-template-areas: "nav tasks controls canvas";
+  }
+
+  /* 任务栏展开时给足 340px，否则展开视图被挤在 92px 窄栏里 */
+  .face-swap-workbench:has(> .studio-task-rail-expanded) {
+    grid-template-columns: var(--studio-nav-rail-width) 340px var(--studio-sidebar-width) minmax(0, 1fr);
   }
 
   .face-swap-workbench > .studio-parameters {
