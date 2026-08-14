@@ -2690,7 +2690,7 @@ export default function CreatePage() {
               ))}
             </div>
 
-            <div className="mt-2 grid grid-cols-6 gap-1.5">
+            <div className="mt-2 grid grid-cols-3 gap-1.5">
               {AGE_GROUP_OPTIONS.map((value) => {
                 return (
                   <button
@@ -2876,7 +2876,7 @@ export default function CreatePage() {
                         <button
                           type="button"
                           onClick={() => setSelectedReferences(selectedReferenceImages.filter((item) => item.url !== ref.url))}
-                          className="absolute left-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/88 text-slate-500 shadow-sm transition hover:text-red-500"
+                          className="absolute left-1 top-1 inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/92 text-slate-600 shadow-sm transition-colors duration-150 hover:text-red-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[rgba(91,124,255,0.55)]"
                           aria-label={`移除参考图：${ref.label}`}
                         >
                           <X className="h-3.5 w-3.5" />

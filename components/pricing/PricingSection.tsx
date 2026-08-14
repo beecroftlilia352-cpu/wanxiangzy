@@ -295,7 +295,7 @@ export function PricingSection() {
           <h1 id="pricing-title" className="mb-4 text-4xl font-black tracking-tight text-zinc-900" style={{ textWrap: "balance" }}>
             赋能您的电商视觉
           </h1>
-          <p className="mx-auto flex max-w-2xl flex-wrap items-center justify-center gap-x-1 text-base font-medium leading-relaxed text-zinc-500">
+          <p className="mx-auto flex max-w-2xl flex-wrap items-center justify-center gap-x-1 text-base font-medium leading-relaxed text-zinc-700">
             <span>已服务</span>
             <span className="text-2xl font-black leading-none text-zinc-900">50000+</span>
             <span>电商商家，主图点击率平均提升 25%</span>
@@ -308,7 +308,7 @@ export function PricingSection() {
             aria-pressed={mode === "credits"}
             onClick={() => setMode("credits")}
             className={cn(
-              "group order-1 inline-flex items-center justify-center gap-2 rounded-xl text-sm font-bold text-zinc-500 transition-[background-color,color,box-shadow] duration-150",
+              "group order-1 inline-flex items-center justify-center gap-2 rounded-xl text-sm font-bold text-zinc-700 transition-[background-color,color,box-shadow] duration-150",
               mode === "credits" && "bg-white text-zinc-900 shadow-sm"
             )}
           >
@@ -320,8 +320,8 @@ export function PricingSection() {
                 mode === "credits" ? "opacity-95" : "opacity-60"
               )}
             >
-              <span className="inline-flex h-5 w-5 items-center justify-center rounded bg-[#1677ff] text-[10px] font-black text-white">支</span>
-              <span className="inline-flex h-5 w-5 items-center justify-center rounded bg-[#2aae67] text-[10px] font-black text-white">微</span>
+              <span className="inline-flex h-5 w-5 items-center justify-center rounded bg-[var(--codex-accent)] text-[10px] font-black text-white">支</span>
+              <span className="inline-flex h-5 w-5 items-center justify-center rounded bg-[var(--codex-success)] text-[10px] font-black text-white">微</span>
             </span>
           </button>
           <button
@@ -329,7 +329,7 @@ export function PricingSection() {
             aria-pressed={mode === "subscription"}
             onClick={() => setMode("subscription")}
             className={cn(
-              "order-2 inline-flex items-center justify-center rounded-xl text-sm font-bold text-zinc-500 transition-[background-color,color,box-shadow] duration-150",
+              "order-2 inline-flex items-center justify-center rounded-xl text-sm font-bold text-zinc-700 transition-[background-color,color,box-shadow] duration-150",
               mode === "subscription" && "bg-white text-zinc-900 shadow-sm"
             )}
           >
@@ -396,7 +396,7 @@ export function PricingSection() {
               {usageRules.map((rule) => (
                 <div key={rule.value} className="rounded-xl bg-zinc-50 p-4">
                   <p className="mb-2 text-lg font-black text-zinc-900">{rule.value}</p>
-                  <p className="text-xs font-medium leading-relaxed text-zinc-500">{rule.label}</p>
+                  <p className="text-xs font-medium leading-relaxed text-zinc-700">{rule.label}</p>
                 </div>
               ))}
             </div>
@@ -457,7 +457,7 @@ function PlanCard({
 
       <div className="mb-6 flex items-baseline gap-1">
         <span className="text-4xl font-black text-zinc-900">¥{formatNumber(plan.price)}</span>
-        {mode === "subscription" ? <span className="text-sm font-medium text-zinc-500">/连续包月</span> : null}
+        {mode === "subscription" ? <span className="text-sm font-medium text-zinc-700">/连续包月</span> : null}
       </div>
 
       <ul className="mb-8 flex-1 space-y-3">

@@ -1154,9 +1154,9 @@
 
 .studio-option-control {
   min-width: 0;
-  min-height: 34px;
+  min-height: 44px;
   border: 1px solid rgb(229, 231, 235);
-  border-radius: 8px;
+  border-radius: 10px;
   background: rgba(255, 255, 255, 0.72);
   padding: 8px 10px;
   color: #0f172a;
@@ -1164,7 +1164,23 @@
   font-size: 12px;
   font-weight: 500;
   box-shadow: none;
-  transition: border-color 140ms ease, background 140ms ease, color 140ms ease;
+  transition: border-color 140ms ease, background 140ms ease, color 140ms ease, transform 120ms ease;
+}
+
+.studio-option-control:active {
+  transform: scale(0.97);
+}
+
+.studio-option-control:focus-visible {
+  outline: 2px solid rgba(91, 124, 255, 0.55);
+  outline-offset: 2px;
+}
+
+.studio-segmented-option:focus-visible,
+.studio-model-option:focus-visible,
+.studio-model-selector [role="radio"]:focus-visible {
+  outline: 2px solid rgba(91, 124, 255, 0.55);
+  outline-offset: 2px;
 }
 
 .studio-option-control-start {
@@ -1291,9 +1307,9 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: rgb(148, 163, 184);
+  color: rgb(100, 116, 139);
   font-size: 10px;
-  font-weight: 400;
+  font-weight: 500;
   line-height: 1.2;
 }
 
@@ -1424,6 +1440,20 @@
   padding: 16px 16px max(18px, env(safe-area-inset-bottom));
 }
 
+/* 移动端生成栏常驻可见（不再需要滚到页尾找按钮） */
+@media (max-width: 1023px) {
+  .studio-runbar,
+  .studio-runbar-v2 {
+    position: sticky;
+    bottom: 0;
+    z-index: 30;
+    background: var(--codex-surface, rgba(255, 255, 255, 0.94));
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    box-shadow: 0 -10px 28px rgba(15, 23, 42, 0.1);
+  }
+}
+
 .studio-runbar-v2 > .flex:first-child {
   line-height: 1.35;
 }
@@ -1451,7 +1481,16 @@
   font-size: 14px;
   font-weight: 820;
   padding-inline: 18px;
-  transition: transform 180ms ease, box-shadow 180ms ease;
+  transition: transform 180ms ease, box-shadow 180ms ease, opacity 180ms ease;
+}
+
+.studio-primary-action:active:not(:disabled) {
+  transform: scale(0.985);
+}
+
+.studio-primary-action:focus-visible {
+  outline: 3px solid rgba(91, 124, 255, 0.45);
+  outline-offset: 3px;
 }
 
 .studio-runbar-actions {
@@ -6028,4 +6067,20 @@ header .animate-spin {
 
 .studio-nav-scroller::-webkit-scrollbar-track {
   background: transparent;
+}
+
+/* 历史页骨架：柔和脉冲动画（尊重减少动态偏好） */
+.history-skeleton {
+  background: linear-gradient(100deg, rgba(226, 232, 240, 0.7) 40%, rgba(241, 245, 249, 0.95) 50%, rgba(226, 232, 240, 0.7) 60%);
+  background-size: 200% 100%;
+  animation: history-skeleton-shimmer 1.6s ease-in-out infinite;
+}
+
+@keyframes history-skeleton-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .history-skeleton { animation: none; background: rgba(226, 232, 240, 0.7); }
 }

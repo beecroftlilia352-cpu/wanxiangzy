@@ -722,7 +722,7 @@ export function GeneralImageExperience({ initialMode = "text-to-image" }: { init
                             <button
                               type="button"
                               onClick={() => { setReferenceImages((prev) => prev.filter((image) => image.id !== item.id)); }}
-                              className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-slate-900/80 text-white opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100"
+                              className="absolute right-1 top-1 flex h-9 w-9 items-center justify-center rounded-full bg-slate-900/75 text-white opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 max-lg:opacity-100"
                               aria-label={`移除图${index + 1}`}
                             >
                               <X className="h-3 w-3" />

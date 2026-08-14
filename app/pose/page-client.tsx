@@ -1985,7 +1985,7 @@ export default function PosePage() {
                                 <button
                                   type="button"
                                   onClick={() => removeGarmentDetail(ref.url)}
-                                  className="absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/88 dark:bg-white/5 text-slate-500 dark:text-stone-400 shadow-sm transition hover:text-red-500"
+                                  className="absolute right-1 top-1 inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/92 dark:bg-white/8 text-slate-600 dark:text-stone-300 shadow-sm transition-colors duration-150 hover:text-red-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[rgba(91,124,255,0.55)]"
                                   aria-label={`移除${label}`}
                                 >
                                   <X className="h-3.5 w-3.5" />
