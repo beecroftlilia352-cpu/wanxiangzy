@@ -540,7 +540,21 @@ export const DEFAULT_PROMPT_EXPERIMENT_CONFIG = {
   ],
 };
 
+// 运营总览进程内缓存：后台数据所有管理员共享同一份，30 秒窗口内直接命中，
+// 避免每个页面访问都触发 15+ 条数据库查询（多实例部署时各实例独立缓存，可接受）。
+const ADMIN_OVERVIEW_CACHE_TTL_MS = 30_000;
+const adminOverviewCache = new Map<number, { expiresAt: number; value: AdminOverview }>();
+
 export async function getAdminOverview(args: { days?: number } = {}): Promise<AdminOverview> {
+  const cacheDays = clampLimit(args.days, 1, 90, 7);
+  const cached = adminOverviewCache.get(cacheDays);
+  if (cached && cached.expiresAt > Date.now()) return cached.value;
+  const value = await fetchAdminOverview({ days: cacheDays });
+  adminOverviewCache.set(cacheDays, { expiresAt: Date.now() + ADMIN_OVERVIEW_CACHE_TTL_MS, value });
+  return value;
+}
+
+async function fetchAdminOverview(args: { days?: number } = {}): Promise<AdminOverview> {
   const admin = getAdminClient();
   const warnings: string[] = [];
   const now = Date.now();
@@ -571,8 +585,6 @@ export async function getAdminOverview(args: { days?: number } = {}): Promise<Ad
     taskRunning,
     taskCompleted,
     taskFailed,
-    workflowRunning,
-    workflowFailed,
     creditHealth,
     recentGenerationRows,
     recentTasks,
@@ -589,11 +601,9 @@ export async function getAdminOverview(args: { days?: number } = {}): Promise<Ad
     countRows(admin.from("task_queue_items").select("id", { count: "planned", head: true }).eq("status_group", "running"), "task queue running", warnings, true),
     countRows(admin.from("task_queue_items").select("id", { count: "planned", head: true }).eq("status_group", "completed"), "task queue completed", warnings, true),
     countRows(admin.from("task_queue_items").select("id", { count: "planned", head: true }).eq("status_group", "failed"), "task queue failed", warnings, true),
-    countRows(admin.from("agent_workflows").select("id", { count: "planned", head: true }).in("status", ["queued", "running"]), "workflow running", warnings, true),
-    countRows(admin.from("agent_workflows").select("id", { count: "planned", head: true }).in("status", ["failed", "cancelled", "canceled"]), "workflow failed", warnings, true),
     loadCreditHealth(sevenDaysIso, warnings),
     loadRecentGenerationRows(warnings, { sinceIso: windowStartIso }),
-    listAdminTasks({ limit: 8, diversifyBy: "module" }),
+    listAdminTasks({ limit: 8, diversifyBy: "module", estimatedCount: true }),
   ]);
 
   const aggregate = aggregateGenerations(recentGenerationRows);
@@ -623,9 +633,9 @@ export async function getAdminOverview(args: { days?: number } = {}): Promise<Ad
   }
   const taskHealth = {
     queued: taskQueued || generationQueued,
-    running: taskRunning || generationRunning + workflowRunning,
+    running: taskRunning || generationRunning,
     completed: taskCompleted || generationCompleted,
-    failed: taskFailed || generationFailed + workflowFailed,
+    failed: taskFailed || generationFailed,
   };
   const failureRate = generationTotal > 0 ? generationFailed / generationTotal : 0;
 
@@ -738,6 +748,7 @@ export async function listAdminTasks(args: {
   limit?: number;
   hydratePreviews?: boolean;
   diversifyBy?: "module" | "none";
+  estimatedCount?: boolean;
 } = {}): Promise<AdminTaskList> {
   const admin = getAdminClient();
   const warnings: string[] = [];
@@ -753,7 +764,7 @@ export async function listAdminTasks(args: {
 
   let query = admin
     .from("task_queue_items")
-    .select(TASK_QUEUE_COLUMNS, { count: "exact" })
+    .select(TASK_QUEUE_COLUMNS, { count: args.estimatedCount ? "planned" : "exact" })
     .order("created_at", { ascending: false });
   if (status) query = query.eq("status_group", status);
   if (moduleFilter) query = query.eq("module", moduleFilter);
@@ -2140,7 +2151,7 @@ async function loadCreditHealth(sinceIso: string, warnings: string[]) {
         .from("profiles")
         .select("credits,total_credits_used")
         .order("updated_at", { ascending: false })
-        .limit(1000),
+        .limit(300),
       "credit profile sample",
       warnings,
       true,
@@ -2151,7 +2162,7 @@ async function loadCreditHealth(sinceIso: string, warnings: string[]) {
         .select("amount,balance,reason,created_at")
         .gte("created_at", sinceIso)
         .order("created_at", { ascending: false })
-        .limit(1000),
+        .limit(300),
       "credit logs sample",
       warnings,
       true,
@@ -2173,7 +2184,7 @@ async function loadRecentGenerationRows(
   options: { sinceIso?: string; limit?: number } = {}
 ) {
   const sinceIso = options.sinceIso || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-  const limit = options.limit ?? 500;
+  const limit = options.limit ?? 200;
   const result = await runQuery<Record<string, unknown>[]>(
     getAdminClient()
       .from("generations")

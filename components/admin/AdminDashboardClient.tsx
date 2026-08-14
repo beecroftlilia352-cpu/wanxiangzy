@@ -1,26 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
   Activity,
   AlertTriangle,
   ArrowUpRight,
   Clock3,
   Coins,
-  RefreshCw,
   ShieldCheck,
   Sparkles,
   TrendingDown,
   TrendingUp,
 } from "lucide-react";
-import { Segmented } from "@/components/ui/shadcn-compat";
-import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
 import {
-  AdminPageHeader,
   AdminSection,
   AdminMetricCard,
   AdminTable,
@@ -38,13 +33,6 @@ type AdminDashboardClientProps = {
   days: number;
   fetchError?: string | null;
 };
-
-const dayOptions = [
-  { label: "今天", value: 1 },
-  { label: "近 7 天", value: 7 },
-  { label: "近 14 天", value: 14 },
-  { label: "近 30 天", value: 30 },
-];
 
 type ExceptionEntry = {
   label: string;
@@ -69,7 +57,6 @@ const exceptionSurfaceHover: Record<ExceptionEntry["tone"], string> = {
 };
 
 export function AdminDashboardClient({ overview, days, fetchError }: AdminDashboardClientProps) {
-  const router = useRouter();
   const failureRate = overview.generationHealth.failureRate;
 
   const exceptionEntries: ExceptionEntry[] = [
@@ -170,39 +157,6 @@ export function AdminDashboardClient({ overview, days, fetchError }: AdminDashbo
           <button type="button" onClick={() => window.location.reload()} className="ml-3 underline hover:no-underline">重试</button>
         </div>
       ) : null}
-      <AdminPageHeader
-        eyebrow="运营总览"
-        title="运营总览"
-        description="生成任务、灵点流水与队列健康统一看板。"
-        actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <span id="dashboard-days-help" className="sr-only">
-              改变下方所有图表和 KPI 趋势线的时间窗口
-            </span>
-            <Segmented
-              value={days}
-              options={dayOptions}
-              onChange={(value) => {
-                const href = value === 7 ? "/admin" : `/admin?days=${value}`;
-                router.push(href);
-              }}
-              aria-label="选择时间窗口"
-              aria-describedby="dashboard-days-help"
-            />
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => router.push(`/admin?days=${days}`)}
-              aria-label="刷新运营总览"
-            >
-              <RefreshCw aria-hidden="true" className="h-3.5 w-3.5" />
-              刷新
-            </Button>
-          </div>
-        }
-      />
-
       {overview.warnings.length > 0 && (
         <ErrorState
           title="部分数据源暂不可用"
