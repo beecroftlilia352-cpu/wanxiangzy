@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import {
   consumeAuthorizationCode,
   getOidcDiscoveryDocument,
@@ -11,6 +11,12 @@ import {
 } from "@/lib/oidc/provider";
 
 describe("OIDC provider", () => {
+  beforeAll(() => {
+    process.env.OIDC_JWT_SECRET = "test-secret";
+    process.env.OIDC_CLIENT_ID = "librechat-client";
+    process.env.OIDC_CLIENT_SECRET = "test-client-secret";
+  });
+
   it("issues and consumes authorization codes with user claims", () => {
     const claims = { sub: "user-123", email: "a@b.com", name: "Alice" };
     const code = issueAuthorizationCode(claims);
