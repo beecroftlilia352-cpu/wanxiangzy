@@ -871,7 +871,10 @@
       "roleSingle": "Tek parça / tam görünüm",
       "roleUpper": "Üst",
       "roleLower": "Alt",
-      "roleExtra": "Aksesuar"
+      "roleExtra": "Aksesuar",
+      "modeMulti": "Üst ve alt",
+      "modeSingle": "Tek parça",
+      "modeLabel": "{mode}"
     },
     "favorite": {
       "loginRequired": "Favorileri kaydetmek için lütfen giriş yapın",

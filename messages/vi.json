@@ -871,7 +871,10 @@
       "roleSingle": "Đồ liền thân / nguyên bộ",
       "roleUpper": "Áo",
       "roleLower": "Quần/váy",
-      "roleExtra": "Phụ kiện"
+      "roleExtra": "Phụ kiện",
+      "modeMulti": "Áo trên & dưới",
+      "modeSingle": "Liền thân",
+      "modeLabel": "{mode}"
     },
     "favorite": {
       "loginRequired": "Vui lòng đăng nhập để lưu yêu thích",

@@ -3247,7 +3247,10 @@
       "roleSingle": "ชิ้นเดียว / ลุคเต็มตัว",
       "roleUpper": "เสื้อ",
       "roleLower": "กางเกง/กระโปรง",
-      "roleExtra": "ไอเท็มเข้าชุด"
+      "roleExtra": "ไอเท็มเข้าชุด",
+      "modeMulti": "เสื้อและกางเกง",
+      "modeSingle": "ชิ้นเดียว",
+      "modeLabel": "{mode}"
     },
     "favorite": {
       "loginRequired": "กรุณาเข้าสู่ระบบก่อนเก็บ",

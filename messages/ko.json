@@ -871,7 +871,10 @@
       "roleSingle": "원피스/전신",
       "roleUpper": "상의",
       "roleLower": "하의",
-      "roleExtra": "코디 아이템"
+      "roleExtra": "코디 아이템",
+      "modeMulti": "상하의 교체",
+      "modeSingle": "원피스",
+      "modeLabel": "{mode}"
     },
     "favorite": {
       "loginRequired": "즐겨찾기하려면 먼저 로그인하세요",

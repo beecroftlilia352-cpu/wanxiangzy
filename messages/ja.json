@@ -3602,7 +3602,10 @@
       "roleSingle": "ワンピース/全身",
       "roleUpper": "トップス",
       "roleLower": "ボトムス",
-      "roleExtra": "合わせるアイテム"
+      "roleExtra": "合わせるアイテム",
+      "modeMulti": "上下セット",
+      "modeSingle": "ワンピース",
+      "modeLabel": "{mode}"
     },
     "favorite": {
       "loginRequired": "まずログインして保存してください",

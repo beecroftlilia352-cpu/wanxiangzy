@@ -864,7 +864,10 @@
       "roleSingle": "Einzelteil / kompletter Look",
       "roleUpper": "Oberteil",
       "roleLower": "Unterteil",
-      "roleExtra": "Accessoire"
+      "roleExtra": "Accessoire",
+      "modeMulti": "Oberteil & Hose",
+      "modeSingle": "Ein Teiler",
+      "modeLabel": "{mode}"
     },
     "common": {
       "add": "Hinzufügen",

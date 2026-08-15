@@ -871,7 +871,10 @@
       "roleSingle": "Pakaian satu potong / look lengkap",
       "roleUpper": "Atasan",
       "roleLower": "Bawahan",
-      "roleExtra": "Aksesori"
+      "roleExtra": "Aksesori",
+      "modeMulti": "Atas & bawah",
+      "modeSingle": "Satu potong",
+      "modeLabel": "{mode}"
     },
     "favorite": {
       "loginRequired": "Silakan masuk untuk menyimpan favorit",

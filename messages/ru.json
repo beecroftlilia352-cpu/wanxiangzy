@@ -871,7 +871,10 @@
       "roleSingle": "Цельный / полный лук",
       "roleUpper": "Верх",
       "roleLower": "Низ",
-      "roleExtra": "Аксессуар"
+      "roleExtra": "Аксессуар",
+      "modeMulti": "Верх и низ",
+      "modeSingle": "Цельный",
+      "modeLabel": "{mode}"
     },
     "favorite": {
       "loginRequired": "Войдите, чтобы сохранять избранное",

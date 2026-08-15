@@ -871,7 +871,10 @@
       "roleSingle": "قطعة واحدة / إطلالة كاملة",
       "roleUpper": "الجزء العلوي",
       "roleLower": "الجزء السفلي",
-      "roleExtra": "إكسسوار"
+      "roleExtra": "إكسسوار",
+      "modeMulti": "الجزء العلوي والسفلي",
+      "modeSingle": "قطعة واحدة",
+      "modeLabel": "{mode}"
     },
     "favorite": {
       "loginRequired": "سجّل الدخول لحفظ المفضلة",

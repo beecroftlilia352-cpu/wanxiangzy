@@ -871,7 +871,10 @@
       "roleSingle": "连体/全身",
       "roleUpper": "上装",
       "roleLower": "下装",
-      "roleExtra": "搭配单品"
+      "roleExtra": "搭配单品",
+      "modeMulti": "换上下装",
+      "modeSingle": "换连体",
+      "modeLabel": "{mode}"
     },
     "favorite": {
       "loginRequired": "请先登录后收藏",

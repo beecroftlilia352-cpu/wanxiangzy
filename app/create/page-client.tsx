@@ -2407,7 +2407,7 @@ export default function CreatePage() {
       promptText: customStyle,
       errors: tryonPreviewErrors,
       metaItems: [
-        { label: t("meta.clothingMode"), value: TRYON_CLOTHING_MODE_LABELS[clothingMode] },
+        { label: t("meta.clothingMode"), value: t("clothing.modeLabel", { mode: clothingMode === "single" ? t("clothing.modeSingle") : t("clothing.modeMulti") }) },
         { label: t("meta.sceneMode"), value: SCENE_MODE_LABELS[sceneMode] },
         { label: t("meta.audience"), value: TRYON_GARMENT_AUDIENCE_LABELS[garmentAudience] },
         { label: t("meta.age"), value: TRYON_AGE_GROUP_LABELS[ageGroup] },
@@ -2582,8 +2582,8 @@ export default function CreatePage() {
               ariaLabel={t("clothing.modeAriaLabel")}
               onChange={switchClothingMode}
               options={[
-                { value: "multi", label: TRYON_CLOTHING_MODE_LABELS.multi, description: t("clothing.modeMultiDesc"), disabled: isUploading },
-                { value: "single", label: TRYON_CLOTHING_MODE_LABELS.single, description: t("clothing.modeSingleDesc"), disabled: isUploading },
+                { value: "multi", label: t("clothing.modeMulti"), description: t("clothing.modeMultiDesc"), disabled: isUploading },
+                { value: "single", label: t("clothing.modeSingle"), description: t("clothing.modeSingleDesc"), disabled: isUploading },
               ]}
             />
 
@@ -3379,7 +3379,7 @@ export default function CreatePage() {
         runBar={(
           <StudioRunBar
             summary={t("runBar.summary", {
-              mode: TRYON_CLOTHING_MODE_LABELS[clothingMode],
+              mode: t("clothing.modeLabel", { mode: clothingMode === "single" ? t("clothing.modeSingle") : t("clothing.modeMulti") }),
               clothingCount: store.clothingFiles.length,
               detailCount: activeGarmentDetailUrls.length,
               scene: sceneMode === "auto_design" ? t("common.autoDesign") : t("runBar.refCount", { count: selectedReferenceCount }),

@@ -3247,7 +3247,10 @@
       "roleSingle": "Една част / пълен лук",
       "roleUpper": "Горна дреха",
       "roleLower": "Долна дреха",
-      "roleExtra": "Аксесоар"
+      "roleExtra": "Аксесоар",
+      "modeMulti": "Горна и долна част",
+      "modeSingle": "Цял тоалет",
+      "modeLabel": "{mode}"
     },
     "favorite": {
       "loginRequired": "Моля влезте първо преди запазване",

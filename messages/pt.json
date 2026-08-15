@@ -871,7 +871,10 @@
       "roleSingle": "Peça única / look completo",
       "roleUpper": "Parte de cima",
       "roleLower": "Parte de baixo",
-      "roleExtra": "Acessório"
+      "roleExtra": "Acessório",
+      "modeMulti": "Top e parte de baixo",
+      "modeSingle": "Peça única",
+      "modeLabel": "{mode}"
     },
     "favorite": {
       "loginRequired": "Entre para salvar favoritos",

@@ -871,7 +871,10 @@
       "roleSingle": "वन-पीस / फुल लुक",
       "roleUpper": "ऊपरी",
       "roleLower": "निचला",
-      "roleExtra": "एक्सेसरी"
+      "roleExtra": "एक्सेसरी",
+      "modeMulti": "ऊपर और नीचे",
+      "modeSingle": "एक पीस",
+      "modeLabel": "{mode}"
     },
     "favorite": {
       "loginRequired": "फ़ेवरेट सेव करने के लिए कृपया साइन इन करें",

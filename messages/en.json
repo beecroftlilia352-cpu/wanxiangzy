@@ -871,7 +871,10 @@
       "roleSingle": "One-piece / Full look",
       "roleUpper": "Top",
       "roleLower": "Bottom",
-      "roleExtra": "Accessory"
+      "roleExtra": "Accessory",
+      "modeMulti": "Top & bottom",
+      "modeSingle": "One-piece",
+      "modeLabel": "{mode}"
     },
     "favorite": {
       "loginRequired": "Please sign in to save favorites",

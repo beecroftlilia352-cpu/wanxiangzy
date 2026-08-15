@@ -864,7 +864,10 @@
       "roleSingle": "Pièce unique / tenue complète",
       "roleUpper": "Haut",
       "roleLower": "Bas",
-      "roleExtra": "Accessoire"
+      "roleExtra": "Accessoire",
+      "modeMulti": "Haut et bas",
+      "modeSingle": "Pièce unique",
+      "modeLabel": "{mode}"
     },
     "common": {
       "add": "Ajouter",
