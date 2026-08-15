@@ -409,9 +409,9 @@ a,
     --mac-shadow-lg: var(--codex-shadow-lg);
     --studio-sidebar-width: 472px;
     --studio-sidebar-min-width: 472px;
-    --studio-control-padding: 12px;
-    --studio-control-padding-top: 8px;
-    --studio-control-gap: 12px;
+    --studio-control-padding: 16px;
+    --studio-control-padding-top: 12px;
+    --studio-control-gap: 16px;
     --studio-top-header-padding: 8px;
     --studio-top-content-gap: 6px;
     --studio-task-rail-width: 92px;

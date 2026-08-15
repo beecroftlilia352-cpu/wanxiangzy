@@ -438,6 +438,13 @@
   margin-bottom: 0 !important;
 }
 
+/* 设计层：参数区 section 标题层级（14px -> 15px + 微负字距，强化分组感） */
+.studio-control-panel h3,
+.studio-parameters-scroll h3 {
+  font-size: 15px;
+  letter-spacing: -0.01em;
+}
+
 .studio-shell-canvas,
 .studio-canvas {
   position: relative;
