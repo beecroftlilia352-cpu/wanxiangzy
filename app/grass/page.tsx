@@ -28,7 +28,7 @@ import { StudioMediaLightbox } from "@/components/studio/StudioMediaLightbox";
 import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
-import { useStudioImageModelOptions } from "@/lib/studio-models";
+import { useImageSizeOptions, useStudioImageModelOptions } from "@/lib/studio-models";
 import {
   buildGrassPrompt,
   GRASS_PROMPT_REFERENCES,
@@ -854,7 +854,7 @@ export default function GrassPage() {
           <section>
             <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">{t("resolutionTitle")}</h3>
             <StudioOptionGrid
-              options={imageSizes.map((s) => ({ value: s, label: `${s} · ${getCreditCost(aiModel, s, aspectRatio)}${t("resolutionCreditUnit")}` }))}
+              options={useImageSizeOptions(imageSizes, (s) => getCreditCost(aiModel, s, aspectRatio), t("resolutionCreditUnit"))}
               value={imageSize}
               onChange={setImageSize}
               ariaLabel={t("resolutionAria")}

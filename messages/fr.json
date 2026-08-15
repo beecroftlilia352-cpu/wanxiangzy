@@ -1130,7 +1130,8 @@
     "referenceUploading": "L'image de référence est en cours de téléversement, veuillez patienter",
     "resolution": {
       "option": "{size} · {cost} crédits",
-      "title": "Résolution"
+      "title": "Résolution",
+      "creditUnit": "crédits"
     },
     "runBar": {
       "costBalance": "Coût {total} · Solde {balance}",
@@ -1567,7 +1568,8 @@
     "runBar": {
       "estimateReady": "Environ 1 à 2 min pour {count} images",
       "estimateGenerating": "Génération en cours, patientez…"
-    }
+    },
+    "sizeUnit": "crédits"
   },
   "GeneralImage": {
     "actionAiVideo": "Vidéo IA",
@@ -4294,7 +4296,10 @@
       "stable": "Valeur par défaut stable"
     },
     "modelDesc": {
-      "max4k": "Jusqu’à 4K"
+      "max4k": "Jusqu’à 4K",
+      "fastGeneral": "Rapide et polyvalent",
+      "fineDetail": "Détails fins",
+      "commercialRetouch": "Retouche commerciale"
     },
     "aspect": {
       "auto": "Auto",
@@ -4333,7 +4338,10 @@
     "nextMonth": "Mois suivant",
     "searchQuery": "Rechercher",
     "confirmNotInitialized": "Dialogue de confirmation non initialisé — action non exécutée",
-    "operationFailed": "L'opération a échoué"
+    "operationFailed": "L'opération a échoué",
+    "resolutionStandard": "Standard",
+    "resolutionHD": "HD",
+    "resolutionUltra": "Ultra"
   },
   "Video": {
     "actionTemplateSection": "Modèle de mouvement",

@@ -1056,7 +1056,8 @@
     },
     "resolution": {
       "title": "分辨率",
-      "option": "{size} · {cost}灵点"
+      "option": "{size} · {cost}灵点",
+      "creditUnit": "灵点"
     },
     "genCount": {
       "title": "生成数量",
@@ -1567,7 +1568,8 @@
     "runBar": {
       "estimateReady": "预计 {count} 张图 1-2 分钟",
       "estimateGenerating": "正在生成，请稍候…"
-    }
+    },
+    "sizeUnit": "灵点"
   },
   "GeneralImage": {
     "modeImageToImage": "图生图",
@@ -4294,7 +4296,10 @@
       "stable": "默认稳图"
     },
     "modelDesc": {
-      "max4k": "最高4K"
+      "max4k": "最高4K",
+      "fastGeneral": "快速通用",
+      "fineDetail": "细腻质感",
+      "commercialRetouch": "商业精修"
     },
     "aspect": {
       "auto": "智能",
@@ -4333,7 +4338,10 @@
     "nextMonth": "下个月",
     "searchQuery": "查询",
     "confirmNotInitialized": "确认弹窗未初始化，操作未执行",
-    "operationFailed": "操作失败"
+    "operationFailed": "操作失败",
+    "resolutionStandard": "标清",
+    "resolutionHD": "高清",
+    "resolutionUltra": "超清"
   },
   "Video": {
     "moduleFirstLastFrame": "首尾帧",

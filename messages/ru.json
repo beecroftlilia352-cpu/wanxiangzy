@@ -1056,7 +1056,8 @@
     },
     "resolution": {
       "title": "Разрешение",
-      "option": "{size} · {cost} кредитов"
+      "option": "{size} · {cost} кредитов",
+      "creditUnit": "кредитов"
     },
     "genCount": {
       "title": "Количество генераций",
@@ -1567,7 +1568,8 @@
     "runBar": {
       "estimateReady": "Около 1–2 мин на {count} изображений",
       "estimateGenerating": "Идёт генерация, подождите…"
-    }
+    },
+    "sizeUnit": "кредитов"
   },
   "GeneralImage": {
     "modeImageToImage": "Изображение в изображение",
@@ -4294,7 +4296,10 @@
       "stable": "Стабильно по умолчанию"
     },
     "modelDesc": {
-      "max4k": "До 4K"
+      "max4k": "До 4K",
+      "fastGeneral": "Быстрая универсальная",
+      "fineDetail": "Тонкая детализация",
+      "commercialRetouch": "Коммерческая ретушь"
     },
     "aspect": {
       "auto": "Авто",
@@ -4333,7 +4338,10 @@
     "nextMonth": "Следующий месяц",
     "searchQuery": "Поиск",
     "confirmNotInitialized": "Диалог подтверждения не инициализирован — действие не выполнено",
-    "operationFailed": "Операция не удалась"
+    "operationFailed": "Операция не удалась",
+    "resolutionStandard": "Стандарт",
+    "resolutionHD": "HD",
+    "resolutionUltra": "Ультра"
   },
   "Video": {
     "moduleFirstLastFrame": "Первый и последний кадр",

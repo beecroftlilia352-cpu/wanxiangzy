@@ -23,7 +23,7 @@ import type { TaskSelectionSession } from "@/components/studio/useTaskSelectionS
 import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
-import { useStudioImageModelOptions } from "@/lib/studio-models";
+import { useImageSizeOptions, useStudioImageModelOptions } from "@/lib/studio-models";
 import { fetchHistoryApplyDetail, getHistoryApplyFailureMessage, isHistoryApplyRowFailed, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
 import { GARMENT_TYPE_OPTIONS, type GarmentType } from "@/lib/garment-types";
 import { applyGenerationResponseStatus, showInsufficientCreditsToast } from "@/lib/ui/credit-copy";
@@ -672,10 +672,7 @@ export default function MaterialEnhancementPage() {
           <section>
             <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">{t("section.resolution")}</h3>
             <StudioOptionGrid
-              options={imageSizes.map((size) => ({
-                value: size,
-                label: `${size} · ${getCreditCost(aiModel, size, aspectRatio)}${t("common.lingpoints")}`,
-              }))}
+              options={useImageSizeOptions(imageSizes, (size) => getCreditCost(aiModel, size, aspectRatio), t("common.lingpoints"))}
               value={imageSize}
               onChange={setImageSize}
               columns={2}

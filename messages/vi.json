@@ -1056,7 +1056,8 @@
     },
     "resolution": {
       "title": "Độ phân giải",
-      "option": "{size} · {cost} Credit"
+      "option": "{size} · {cost} Credit",
+      "creditUnit": "Credit"
     },
     "genCount": {
       "title": "Số lượng tạo",
@@ -1567,7 +1568,8 @@
     "runBar": {
       "estimateReady": "Khoảng 1-2 phút cho {count} ảnh",
       "estimateGenerating": "Đang tạo, vui lòng chờ…"
-    }
+    },
+    "sizeUnit": "Credit"
   },
   "GeneralImage": {
     "modeImageToImage": "Ảnh sang ảnh",
@@ -4294,7 +4296,10 @@
       "stable": "Mặc định ổn định"
     },
     "modelDesc": {
-      "max4k": "Tối đa 4K"
+      "max4k": "Tối đa 4K",
+      "fastGeneral": "Nhanh, đa dụng",
+      "fineDetail": "Chi tiết tinh tế",
+      "commercialRetouch": "Chỉnh sửa thương mại"
     },
     "aspect": {
       "auto": "Tự động",
@@ -4333,7 +4338,10 @@
     "nextMonth": "Tháng sau",
     "searchQuery": "Tìm kiếm",
     "confirmNotInitialized": "Hộp thoại xác nhận chưa khởi tạo — thao tác chưa được thực hiện",
-    "operationFailed": "Thao tác thất bại"
+    "operationFailed": "Thao tác thất bại",
+    "resolutionStandard": "Chuẩn",
+    "resolutionHD": "HD",
+    "resolutionUltra": "Siêu nét"
   },
   "Video": {
     "moduleFirstLastFrame": "Khung đầu-cuối",

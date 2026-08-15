@@ -1056,7 +1056,8 @@
     },
     "resolution": {
       "title": "Çözünürlük",
-      "option": "{size} · {cost} kredi"
+      "option": "{size} · {cost} kredi",
+      "creditUnit": "kredi"
     },
     "genCount": {
       "title": "Üretim adedi",
@@ -1567,7 +1568,8 @@
     "runBar": {
       "estimateReady": "{count} görsel için yaklaşık 1-2 dk",
       "estimateGenerating": "Oluşturuluyor, lütfen bekleyin…"
-    }
+    },
+    "sizeUnit": "kredi"
   },
   "GeneralImage": {
     "modeImageToImage": "Görselden Görsele",
@@ -4294,7 +4296,10 @@
       "stable": "Kararlı varsayılan"
     },
     "modelDesc": {
-      "max4k": "4K’ya kadar"
+      "max4k": "4K’ya kadar",
+      "fastGeneral": "Hızlı ve çok yönlü",
+      "fineDetail": "İnce detay",
+      "commercialRetouch": "Ticari rötuş"
     },
     "aspect": {
       "auto": "Otomatik",
@@ -4333,7 +4338,10 @@
     "nextMonth": "Sonraki ay",
     "searchQuery": "Ara",
     "confirmNotInitialized": "Onay penceresi başlatılmadı — işlem gerçekleştirilmedi",
-    "operationFailed": "İşlem başarısız"
+    "operationFailed": "İşlem başarısız",
+    "resolutionStandard": "Standart",
+    "resolutionHD": "HD",
+    "resolutionUltra": "Ultra"
   },
   "Video": {
     "moduleFirstLastFrame": "İlk ve Son Kare",

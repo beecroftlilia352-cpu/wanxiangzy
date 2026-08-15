@@ -15,6 +15,8 @@ export type StudioChoiceOption<T extends string = string> = {
   disabled?: boolean;
   /** 比例预览（如 "3:4"）：渲染一个该比例的小矩形 + 下方比例文字 */
   ratio?: string;
+  /** 角落徽章（如「推荐」），用于给选项分层 */
+  badge?: string;
 };
 
 export function StudioOptionGrid<T extends string>({
@@ -66,6 +68,11 @@ export function StudioOptionGrid<T extends string>({
               selected && "studio-option-control-selected"
             )}
           >
+            {option.badge ? (
+              <span className="pointer-events-none absolute right-1.5 top-1.5 rounded-full bg-[rgba(91,124,255,0.12)] px-1.5 py-0.5 text-[9px] font-black leading-none text-[var(--codex-accent)]">
+                {option.badge}
+              </span>
+            ) : null}
             {option.ratio ? (
               <span className="flex flex-col items-center gap-1.5">
                 <span
@@ -170,7 +177,7 @@ export function StudioModelSelector<T extends string>({
             </span>
             <span className="min-w-0 flex-1">
               <span className="studio-model-option-title">
-                <span className="truncate">{model.labelKey ? t(model.labelKey) : model.label}</span>
+                <span className="leading-tight [overflow-wrap:anywhere]">{model.labelKey ? t(model.labelKey) : model.label}</span>
                 {model.badge && <span className="studio-model-option-badge">{model.badgeKey ? t(model.badgeKey) : model.badge}</span>}
               </span>
               <span className="studio-model-option-desc">{getMeta?.(model) ?? (model.descKey ? t(model.descKey) : model.desc)}</span>

@@ -1130,7 +1130,8 @@
     "referenceUploading": "Referenzbild wird hochgeladen, bitte warten",
     "resolution": {
       "option": "{size} · {cost} Credits",
-      "title": "Auflösung"
+      "title": "Auflösung",
+      "creditUnit": "Credits"
     },
     "runBar": {
       "costBalance": "Kosten {total} · Guthaben {balance}",
@@ -1567,7 +1568,8 @@
     "runBar": {
       "estimateReady": "Ca. 1–2 Min. für {count} Bilder",
       "estimateGenerating": "Wird generiert, bitte warten…"
-    }
+    },
+    "sizeUnit": "Credits"
   },
   "GeneralImage": {
     "actionAiVideo": "KI-Video",
@@ -4294,7 +4296,10 @@
       "stable": "Stabile Voreinstellung"
     },
     "modelDesc": {
-      "max4k": "Bis zu 4K"
+      "max4k": "Bis zu 4K",
+      "fastGeneral": "Schnell & vielseitig",
+      "fineDetail": "Feine Details",
+      "commercialRetouch": "Kommerzielle Retusche"
     },
     "aspect": {
       "auto": "Auto",
@@ -4333,7 +4338,10 @@
     "nextMonth": "Nächster Monat",
     "searchQuery": "Suchen",
     "confirmNotInitialized": "Bestätigungsdialog nicht initialisiert — Aktion wurde nicht ausgeführt",
-    "operationFailed": "Vorgang fehlgeschlagen"
+    "operationFailed": "Vorgang fehlgeschlagen",
+    "resolutionStandard": "Standard",
+    "resolutionHD": "HD",
+    "resolutionUltra": "Ultra"
   },
   "Video": {
     "actionTemplateSection": "Bewegungsvorlage",

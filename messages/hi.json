@@ -1056,7 +1056,8 @@
     },
     "resolution": {
       "title": "रेज़ोल्यूशन",
-      "option": "{size} · {cost} क्रेडिट"
+      "option": "{size} · {cost} क्रेडिट",
+      "creditUnit": "क्रेडिट"
     },
     "genCount": {
       "title": "जेनरेशन संख्या",
@@ -1567,7 +1568,8 @@
     "runBar": {
       "estimateReady": "{count} इमेज के लिए लगभग 1-2 मिनट",
       "estimateGenerating": "बनाया जा रहा है, कृपया प्रतीक्षा करें…"
-    }
+    },
+    "sizeUnit": "क्रेडिट"
   },
   "GeneralImage": {
     "modeImageToImage": "इमेज से इमेज",
@@ -4294,7 +4296,10 @@
       "stable": "स्थिर डिफ़ॉल्ट"
     },
     "modelDesc": {
-      "max4k": "4K तक"
+      "max4k": "4K तक",
+      "fastGeneral": "तेज़ और बहुमुखी",
+      "fineDetail": "बारीक विवरण",
+      "commercialRetouch": "व्यावसायिक रीटच"
     },
     "aspect": {
       "auto": "स्वचालित",
@@ -4333,7 +4338,10 @@
     "nextMonth": "अगला महीना",
     "searchQuery": "खोजें",
     "confirmNotInitialized": "कन्फर्म डायलॉग प्रारंभ नहीं हुआ — कार्रवाई निष्पादित नहीं हुई",
-    "operationFailed": "कार्रवाई विफल"
+    "operationFailed": "कार्रवाई विफल",
+    "resolutionStandard": "स्टैंडर्ड",
+    "resolutionHD": "HD",
+    "resolutionUltra": "अल्ट्रा"
   },
   "Video": {
     "moduleFirstLastFrame": "फर्स्ट और लास्ट फ्रेम",

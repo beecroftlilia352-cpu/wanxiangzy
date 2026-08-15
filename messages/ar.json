@@ -1056,7 +1056,8 @@
     },
     "resolution": {
       "title": "الدقة",
-      "option": "{size} · {cost} رصيد"
+      "option": "{size} · {cost} رصيد",
+      "creditUnit": "رصيد"
     },
     "genCount": {
       "title": "عدد التوليد",
@@ -1567,7 +1568,8 @@
     "runBar": {
       "estimateReady": "حوالي 1-2 دقيقة لـ {count} صورة",
       "estimateGenerating": "جارٍ الإنشاء، يرجى الانتظار…"
-    }
+    },
+    "sizeUnit": "رصيد"
   },
   "GeneralImage": {
     "modeImageToImage": "من صورة إلى صورة",
@@ -4294,7 +4296,10 @@
       "stable": "افتراضي مستقر"
     },
     "modelDesc": {
-      "max4k": "حتى 4K"
+      "max4k": "حتى 4K",
+      "fastGeneral": "سريع ومتعدد الاستخدامات",
+      "fineDetail": "تفاصيل دقيقة",
+      "commercialRetouch": "تنقيح تجاري"
     },
     "aspect": {
       "auto": "تلقائي",
@@ -4333,7 +4338,10 @@
     "nextMonth": "الشهر التالي",
     "searchQuery": "بحث",
     "confirmNotInitialized": "نافذة التأكيد غير مهيأة — لم يتم تنفيذ العملية",
-    "operationFailed": "فشلت العملية"
+    "operationFailed": "فشلت العملية",
+    "resolutionStandard": "قياسي",
+    "resolutionHD": "عالية الدقة",
+    "resolutionUltra": "فائق"
   },
   "Video": {
     "moduleFirstLastFrame": "الإطار الأول/الأخير",

@@ -1056,7 +1056,8 @@
     },
     "resolution": {
       "title": "Resolusi",
-      "option": "{size} · {cost} kredit"
+      "option": "{size} · {cost} kredit",
+      "creditUnit": "kredit"
     },
     "genCount": {
       "title": "Jumlah generasi",
@@ -1567,7 +1568,8 @@
     "runBar": {
       "estimateReady": "Sekitar 1-2 menit untuk {count} gambar",
       "estimateGenerating": "Sedang membuat, mohon tunggu…"
-    }
+    },
+    "sizeUnit": "kredit"
   },
   "GeneralImage": {
     "modeImageToImage": "Gambar ke Gambar",
@@ -4294,7 +4296,10 @@
       "stable": "Default stabil"
     },
     "modelDesc": {
-      "max4k": "Hingga 4K"
+      "max4k": "Hingga 4K",
+      "fastGeneral": "Cepat & serbaguna",
+      "fineDetail": "Detail halus",
+      "commercialRetouch": "Retouch komersial"
     },
     "aspect": {
       "auto": "Otomatis",
@@ -4333,7 +4338,10 @@
     "nextMonth": "Bulan berikutnya",
     "searchQuery": "Cari",
     "confirmNotInitialized": "Dialog konfirmasi belum siap — tindakan tidak dijalankan",
-    "operationFailed": "Operasi gagal"
+    "operationFailed": "Operasi gagal",
+    "resolutionStandard": "Standar",
+    "resolutionHD": "HD",
+    "resolutionUltra": "Ultra"
   },
   "Video": {
     "moduleFirstLastFrame": "Frame Awal-Akhir",

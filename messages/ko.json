@@ -1056,7 +1056,8 @@
     },
     "resolution": {
       "title": "해상도",
-      "option": "{size} · {cost} 크레딧"
+      "option": "{size} · {cost} 크레딧",
+      "creditUnit": "크레딧"
     },
     "genCount": {
       "title": "생성 수량",
@@ -1567,7 +1568,8 @@
     "runBar": {
       "estimateReady": "{count}장 이미지 약 1-2분",
       "estimateGenerating": "생성 중입니다. 잠시만 기다려 주세요…"
-    }
+    },
+    "sizeUnit": "크레딧"
   },
   "GeneralImage": {
     "modeImageToImage": "이미지 투 이미지",
@@ -4294,7 +4296,10 @@
       "stable": "안정 기본값"
     },
     "modelDesc": {
-      "max4k": "최대 4K"
+      "max4k": "최대 4K",
+      "fastGeneral": "빠른 범용",
+      "fineDetail": "섬세한 질감",
+      "commercialRetouch": "상업용 리터치"
     },
     "aspect": {
       "auto": "자동",
@@ -4333,7 +4338,10 @@
     "nextMonth": "다음 달",
     "searchQuery": "검색",
     "confirmNotInitialized": "확인 대화상자가 초기화되지 않아 작업이 실행되지 않았습니다",
-    "operationFailed": "작업 실패"
+    "operationFailed": "작업 실패",
+    "resolutionStandard": "표준",
+    "resolutionHD": "HD",
+    "resolutionUltra": "울트라"
   },
   "Video": {
     "moduleFirstLastFrame": "첫/끝 프레임",

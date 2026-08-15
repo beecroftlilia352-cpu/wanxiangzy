@@ -1813,7 +1813,8 @@
     "runBar": {
       "estimateReady": "預計 {count} 張圖 1-2 分鐘",
       "estimateGenerating": "正在生成，請稍候…"
-    }
+    },
+    "sizeUnit": "點數"
   },
   "FaceSwap": {
     "moduleLabel": "換臉",
@@ -3444,7 +3445,10 @@
       "stable": "預設穩圖"
     },
     "modelDesc": {
-      "max4k": "最高4K"
+      "max4k": "最高4K",
+      "fastGeneral": "快速通用",
+      "fineDetail": "細膩質感",
+      "commercialRetouch": "商業精修"
     },
     "aspect": {
       "auto": "智能",
@@ -3483,7 +3487,10 @@
     "nextMonth": "下個月",
     "searchQuery": "查詢",
     "confirmNotInitialized": "確認彈窗未初始化，操作未執行",
-    "operationFailed": "操作失敗"
+    "operationFailed": "操作失敗",
+    "resolutionStandard": "標清",
+    "resolutionHD": "高清",
+    "resolutionUltra": "超清"
   },
   "Video": {
     "moduleFirstLastFrame": "首尾幀",
@@ -4284,7 +4291,8 @@
     },
     "resolution": {
       "title": "解析度",
-      "option": "{size} · {cost}點數"
+      "option": "{size} · {cost}點數",
+      "creditUnit": "點數"
     },
     "genCount": {
       "title": "生成數量",

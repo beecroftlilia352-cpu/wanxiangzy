@@ -1813,7 +1813,8 @@
     "runBar": {
       "estimateReady": "{count}枚の画像で約1〜2分",
       "estimateGenerating": "生成中です。お待ちください…"
-    }
+    },
+    "sizeUnit": "クレジット"
   },
   "FaceSwap": {
     "moduleLabel": "顔交換",
@@ -3444,7 +3445,10 @@
       "stable": "安定デフォルト"
     },
     "modelDesc": {
-      "max4k": "最大4K"
+      "max4k": "最大4K",
+      "fastGeneral": "高速・汎用",
+      "fineDetail": "繊細な質感",
+      "commercialRetouch": "商業レタッチ"
     },
     "aspect": {
       "auto": "自動",
@@ -3483,7 +3487,10 @@
     "nextMonth": "次の月",
     "searchQuery": "検索",
     "confirmNotInitialized": "確認ダイアログが初期化されていないため、操作は実行されませんでした",
-    "operationFailed": "操作に失敗しました"
+    "operationFailed": "操作に失敗しました",
+    "resolutionStandard": "標準",
+    "resolutionHD": "HD",
+    "resolutionUltra": "超高精細"
   },
   "Video": {
     "moduleFirstLastFrame": "始点終点フレーム",
@@ -4284,7 +4291,8 @@
     },
     "resolution": {
       "title": "解像度",
-      "option": "{size} · {cost}クレジット"
+      "option": "{size} · {cost}クレジット",
+      "creditUnit": "クレジット"
     },
     "genCount": {
       "title": "生成数",

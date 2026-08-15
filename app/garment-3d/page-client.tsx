@@ -26,7 +26,7 @@ import { StudioMediaLightbox } from "@/components/studio/StudioMediaLightbox";
 import { setCachedProfileCredits } from "@/lib/supabase/client";
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB, uploadImage } from "@/lib/utils";
 import { getCreditCost, getSupportedImageSizes, type AspectRatio, type ImageSize, type LingyaModel } from "@/lib/api/lingya";
-import { useStudioImageModelOptions } from "@/lib/studio-models";
+import { useImageSizeOptions, useStudioImageModelOptions } from "@/lib/studio-models";
 import { fetchHistoryApplyDetail, getHistoryApplyFailureMessage, isHistoryApplyRowFailed, takeApplyDetail, type HistoryJobPayload } from "@/lib/history-apply";
 import { clampTaskExpectedCount, safeTaskQueueUrls, type TaskQueueItem } from "@/lib/task-queue";
 import { GARMENT_TYPE_OPTIONS, type GarmentType } from "@/lib/garment-types";
@@ -897,10 +897,7 @@ export default function Garment3dPage() {
           <section>
             <h3 className="font-bold text-sm mb-3 text-slate-900 dark:text-stone-100">{t("sizeSectionTitle")}</h3>
             <StudioOptionGrid
-              options={imageSizes.map((size) => ({
-                value: size,
-                label: t("sizeOption", { size, cost: getCreditCost(aiModel, size, aspectRatio) }),
-              }))}
+              options={useImageSizeOptions(imageSizes, (size) => getCreditCost(aiModel, size, aspectRatio), t("sizeUnit"))}
               value={imageSize}
               onChange={setImageSize}
               columns={2}

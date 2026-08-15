@@ -1056,7 +1056,8 @@
     },
     "resolution": {
       "title": "Resolução",
-      "option": "{size} · {cost} créditos"
+      "option": "{size} · {cost} créditos",
+      "creditUnit": "créditos"
     },
     "genCount": {
       "title": "Quantidade de geração",
@@ -1567,7 +1568,8 @@
     "runBar": {
       "estimateReady": "Aprox. 1-2 min para {count} imagens",
       "estimateGenerating": "Gerando, aguarde…"
-    }
+    },
+    "sizeUnit": "créditos"
   },
   "GeneralImage": {
     "modeImageToImage": "Imagem para imagem",
@@ -4294,7 +4296,10 @@
       "stable": "Padrão estável"
     },
     "modelDesc": {
-      "max4k": "Até 4K"
+      "max4k": "Até 4K",
+      "fastGeneral": "Rápido e versátil",
+      "fineDetail": "Detalhe fino",
+      "commercialRetouch": "Retoque comercial"
     },
     "aspect": {
       "auto": "Automático",
@@ -4333,7 +4338,10 @@
     "nextMonth": "Próximo mês",
     "searchQuery": "Buscar",
     "confirmNotInitialized": "Diálogo de confirmação não inicializado — ação não executada",
-    "operationFailed": "A operação falhou"
+    "operationFailed": "A operação falhou",
+    "resolutionStandard": "Padrão",
+    "resolutionHD": "HD",
+    "resolutionUltra": "Ultra"
   },
   "Video": {
     "moduleFirstLastFrame": "Primeiro e último frame",

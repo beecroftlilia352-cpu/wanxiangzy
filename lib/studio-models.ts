@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { useTranslations } from "next-intl";
 
-import type { LingyaModel } from "@/lib/api/lingya";
+import type { ImageSize, LingyaModel } from "@/lib/api/lingya";
 
 /**
  * Studio 图像模型选项的单一事实来源。
@@ -21,25 +21,56 @@ export const STUDIO_IMAGE_MODEL_META: Record<
 > = {
   "nano-banana-2": {
     label: "Nano-Banana-2",
-    descKey: "Shared.modelDesc.max4k",
+    descKey: "Shared.modelDesc.fastGeneral",
     badgeKey: "Shared.modelBadge.recommended",
     icon: "/model-icons/gemini.png",
   },
   "gpt-image-2": {
     label: "GPT-Image-2",
-    descKey: "Shared.modelDesc.max4k",
+    descKey: "Shared.modelDesc.fineDetail",
     badgeKey: "Shared.modelBadge.latest",
     icon: "/model-icons/openai.svg",
   },
   "nano-banana-pro": {
     label: "Nano-Banana-Pro",
-    descKey: "Shared.modelDesc.max4k",
+    descKey: "Shared.modelDesc.commercialRetouch",
     badgeKey: "Shared.modelBadge.highQuality",
     icon: "/model-icons/gemini.png",
   },
 };
 
 const ALL_CURATED_MODELS = Object.keys(STUDIO_IMAGE_MODEL_META) as LingyaModel[];
+
+/**
+ * 清晰度选项（1K/2K/4K）的统一分层：
+ * - 标签只显 "1K"/"2K"/"4K"，档位名（标清/高清/超清）与单价放在描述行
+ * - 2K 为推荐档，带「推荐」徽章；层次分明不再平铺
+ */
+export function useImageSizeOptions(
+  sizes: ImageSize[],
+  getCost: (size: ImageSize) => number,
+  creditsUnit: string,
+) {
+  const tRoot = useTranslations();
+  return useMemo(
+    () =>
+      sizes.map((size) => {
+        const tierKey =
+          size === "1K"
+            ? "Shared.resolutionStandard"
+            : size === "2K"
+              ? "Shared.resolutionHD"
+              : "Shared.resolutionUltra";
+        return {
+          value: size,
+          label: size,
+          description: `${tRoot(tierKey)} · ${getCost(size)}${creditsUnit}`,
+          badge: size === "2K" ? tRoot("Shared.modelBadge.recommended") : undefined,
+        };
+      }),
+    [sizes, getCost, creditsUnit, tRoot],
+  );
+}
 
 export function useStudioImageModelOptions() {
   const tRoot = useTranslations();

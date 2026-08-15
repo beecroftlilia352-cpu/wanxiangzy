@@ -1123,7 +1123,10 @@
       "stable": "Стабилно по подразбиране"
     },
     "modelDesc": {
-      "max4k": "До 4K"
+      "max4k": "До 4K",
+      "fastGeneral": "Бърз и универсален",
+      "fineDetail": "Фина детайлност",
+      "commercialRetouch": "Комерсиален ретуш"
     },
     "aspect": {
       "auto": "Авто",
@@ -1162,7 +1165,10 @@
     "nextMonth": "Следващ месец",
     "searchQuery": "Търсене",
     "confirmNotInitialized": "Диалогът за потвърждение не е инициализиран — действието не е изпълнено",
-    "operationFailed": "Операцията не успя"
+    "operationFailed": "Операцията не успя",
+    "resolutionStandard": "Стандарт",
+    "resolutionHD": "HD",
+    "resolutionUltra": "Ултра"
   },
   "ModelBackground": {
     "title": "Смяна на фон",
@@ -2025,7 +2031,8 @@
     "runBar": {
       "estimateReady": "Около 1–2 мин за {count} изображения",
       "estimateGenerating": "Генерира се, моля изчакайте…"
-    }
+    },
+    "sizeUnit": "кредита"
   },
   "History": {
     "title": "Библиотека с произведения",
@@ -3925,7 +3932,8 @@
     },
     "resolution": {
       "title": "Резолюция",
-      "option": "{size} · {cost} кредита"
+      "option": "{size} · {cost} кредита",
+      "creditUnit": "кредита"
     },
     "genCount": {
       "title": "Брой генерирания",
