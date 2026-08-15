@@ -3684,7 +3684,16 @@
       "phone": "Mobile portrait",
       "wide": "Widescreen"
     },
-    "countLabel": "Generation count"
+    "countLabel": "Generation count",
+    "modelPickerPlaceholder": "Select model",
+    "moduleHeaderAria": "{title} info",
+    "videoResultPreview": "Generated video {index} preview",
+    "videoResultPlay": "Play generated video {index}",
+    "videoResultDownload": "Download generated video {index}",
+    "videoResultAria": "Generated video {index}",
+    "videoResultBadge": "Result",
+    "videoGeneratingState": "Generating video",
+    "videoEstimatedTime": "Estimated 2-5 min"
   },
   "Video": {
     "moduleFirstLastFrame": "First & Last Frame",

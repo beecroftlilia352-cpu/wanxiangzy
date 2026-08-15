@@ -1125,7 +1125,16 @@
       "phone": "แนวตั้งมือถือ",
       "wide": "จอกว้าง"
     },
-    "countLabel": "จำนวนการสร้าง"
+    "countLabel": "จำนวนการสร้าง",
+    "modelPickerPlaceholder": "เลือกรุ่น",
+    "moduleHeaderAria": "ข้อมูล {title}",
+    "videoResultPreview": "ดูตัวอย่างวิดีโอที่สร้าง {index}",
+    "videoResultPlay": "เล่นวิดีโอที่สร้าง {index}",
+    "videoResultDownload": "ดาวน์โหลดวิดีโอที่สร้าง {index}",
+    "videoResultAria": "วิดีโอที่สร้าง {index}",
+    "videoResultBadge": "ผลลัพธ์",
+    "videoGeneratingState": "กำลังสร้างวิดีโอ",
+    "videoEstimatedTime": "ประมาณ 2-5 นาที"
   },
   "ModelBackground": {
     "title": "เปลี่ยนพื้นหลัง",

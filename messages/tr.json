@@ -3684,7 +3684,16 @@
       "phone": "Mobil dikey",
       "wide": "Geniş ekran"
     },
-    "countLabel": "Üretim sayısı"
+    "countLabel": "Üretim sayısı",
+    "modelPickerPlaceholder": "Model seç",
+    "moduleHeaderAria": "{title} bilgi",
+    "videoResultPreview": "Oluşturulan video {index} önizleme",
+    "videoResultPlay": "Oluşturulan videoyu oynat {index}",
+    "videoResultDownload": "Oluşturulan videoyu indir {index}",
+    "videoResultAria": "Oluşturulan video {index}",
+    "videoResultBadge": "Sonuç",
+    "videoGeneratingState": "Video oluşturuluyor",
+    "videoEstimatedTime": "Yaklaşık 2-5 dk"
   },
   "Video": {
     "moduleFirstLastFrame": "İlk ve Son Kare",

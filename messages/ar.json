@@ -3684,7 +3684,16 @@
       "phone": "عمودي للجوال",
       "wide": "شاشة عريضة"
     },
-    "countLabel": "عدد الأجيال"
+    "countLabel": "عدد الأجيال",
+    "modelPickerPlaceholder": "اختر نموذجًا",
+    "moduleHeaderAria": "معلومات {title}",
+    "videoResultPreview": "معاينة الفيديو المُنشأ {index}",
+    "videoResultPlay": "تشغيل الفيديو المُنشأ {index}",
+    "videoResultDownload": "تنزيل الفيديو المُنشأ {index}",
+    "videoResultAria": "الفيديو المُنشأ {index}",
+    "videoResultBadge": "النتيجة",
+    "videoGeneratingState": "جارٍ إنشاء الفيديو",
+    "videoEstimatedTime": "حوالي 2-5 دقائق"
   },
   "Video": {
     "moduleFirstLastFrame": "الإطار الأول/الأخير",

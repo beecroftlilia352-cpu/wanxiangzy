@@ -3684,7 +3684,16 @@
       "phone": "手机竖屏",
       "wide": "宽屏"
     },
-    "countLabel": "生成张数"
+    "countLabel": "生成张数",
+    "modelPickerPlaceholder": "选择模型",
+    "moduleHeaderAria": "{title}说明",
+    "videoResultPreview": "生成视频 {index} 预览",
+    "videoResultPlay": "播放生成视频 {index}",
+    "videoResultDownload": "下载生成视频 {index}",
+    "videoResultAria": "生成视频 {index}",
+    "videoResultBadge": "结果",
+    "videoGeneratingState": "视频生成中",
+    "videoEstimatedTime": "预计 2-5 分钟"
   },
   "Video": {
     "moduleFirstLastFrame": "首尾帧",

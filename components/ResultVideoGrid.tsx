@@ -111,6 +111,7 @@ function VideoResultCard({
   onOpen: (url: string, index: number) => void;
 }) {
   const layout = getVideoResultLayout(aspectRatio);
+  const t = useTranslations("Shared");
 
   if (!url) {
     return (
@@ -124,9 +125,9 @@ function VideoResultCard({
             </div>
           </div>
           <p className="relative z-[1] text-xs font-semibold text-white/90">
-            {running ? "视频生成中" : "等待生成"}
+            {running ? t("videoGeneratingState") : t("waitingToGenerate")}
           </p>
-          <p className="relative z-[1] text-[11px] font-medium text-white/80">预计 2-5 分钟</p>
+          <p className="relative z-[1] text-[11px] font-medium text-white/80">{t("videoEstimatedTime")}</p>
         </div>
       </div>
     );
@@ -136,7 +137,7 @@ function VideoResultCard({
     <div className="studio-result-card group relative w-full justify-self-start overflow-hidden bg-black" style={layout}>
       <div
         role="region"
-        aria-label={`生成视频 ${index + 1} 预览`}
+        aria-label={t("videoResultPreview", { index: index + 1 })}
         className="relative block w-full bg-black text-left"
         style={{ aspectRatio: "inherit" }}
       >
@@ -144,9 +145,9 @@ function VideoResultCard({
           type="button"
           onClick={() => onOpen(url, index)}
           className="absolute inset-0 z-[1] cursor-zoom-in"
-          aria-label={`播放生成视频 ${index + 1}`}
+          aria-label={t("videoResultPlay", { index: index + 1 })}
         >
-          <span className="sr-only">播放生成视频 {index + 1}</span>
+          <span className="sr-only">{t("videoResultPlay", { index: index + 1 })}</span>
         </button>
         <video
           src={url}
@@ -154,11 +155,11 @@ function VideoResultCard({
           playsInline
           preload="metadata"
           className="relative h-full w-full bg-black object-contain"
-          aria-label={`生成视频 ${index + 1}`}
+          aria-label={t("videoResultAria", { index: index + 1 })}
         />
         <span className="pointer-events-none absolute left-3 top-3 z-[2] inline-flex items-center gap-1 rounded-full bg-black/66 px-2.5 py-1 text-[11px] font-black text-white shadow-sm backdrop-blur">
           <Play className="h-3 w-3" aria-hidden="true" />
-          结果
+          {t("videoResultBadge")}
         </span>
       </div>
       <button
@@ -168,8 +169,8 @@ function VideoResultCard({
           downloadMedia(url, generateDownloadFilename(filenamePrefix, index, "mp4"));
         }}
         className="absolute right-3 top-3 z-[3] flex h-9 w-9 items-center justify-center rounded-full bg-white/92 text-slate-700 opacity-100 shadow-lg ring-1 ring-slate-200/70 backdrop-blur transition-[background-color,color,opacity] hover:bg-white hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
-        aria-label={`下载生成视频 ${index + 1}`}
-        title={`下载生成视频 ${index + 1}`}
+        aria-label={t("videoResultDownload", { index: index + 1 })}
+        title={t("videoResultDownload", { index: index + 1 })}
       >
         <Download className="h-4 w-4" aria-hidden="true" />
       </button>

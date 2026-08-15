@@ -2986,7 +2986,16 @@
       "phone": "スマホ縦画面",
       "wide": "ワイド"
     },
-    "countLabel": "生成枚数"
+    "countLabel": "生成枚数",
+    "modelPickerPlaceholder": "モデルを選択",
+    "moduleHeaderAria": "{title}の説明",
+    "videoResultPreview": "生成動画 {index} プレビュー",
+    "videoResultPlay": "生成動画 {index} を再生",
+    "videoResultDownload": "生成動画 {index} をダウンロード",
+    "videoResultAria": "生成動画 {index}",
+    "videoResultBadge": "結果",
+    "videoGeneratingState": "動画生成中",
+    "videoEstimatedTime": "約 2〜5 分"
   },
   "Video": {
     "moduleFirstLastFrame": "始点終点フレーム",

@@ -3684,7 +3684,16 @@
       "phone": "Mobiles Hochformat",
       "wide": "Breitbild"
     },
-    "countLabel": "Anzahl Generierungen"
+    "countLabel": "Anzahl Generierungen",
+    "modelPickerPlaceholder": "Modell wählen",
+    "moduleHeaderAria": "{title}-Info",
+    "videoResultPreview": "Vorschau des generierten Videos {index}",
+    "videoResultPlay": "Generiertes Video {index} abspielen",
+    "videoResultDownload": "Generiertes Video {index} herunterladen",
+    "videoResultAria": "Generiertes Video {index}",
+    "videoResultBadge": "Ergebnis",
+    "videoGeneratingState": "Video wird generiert",
+    "videoEstimatedTime": "Ca. 2–5 Min."
   },
   "Video": {
     "actionTemplateSection": "Bewegungsvorlage",

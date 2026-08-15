@@ -98,21 +98,21 @@ const DEFAULT_ACTIONS: ImagePreviewAction[] = [
 ];
 
 const MORE_TOOL_ITEMS = [
-  { label: "商品重绘", path: "/general-image/image-to-image" },
-  { label: "AI扩图", path: "/general-image/image-to-image" },
-  { label: "高清修复", path: "/general-image/image-to-image" },
-  { label: "智能抠图", path: "/general-image/image-to-image" },
-  { label: "消除笔", path: "/general-image/image-to-image" },
-  { label: "AI换色", path: "/general-image/image-to-image" },
-  { label: "文字编辑", path: "/general-image/image-to-image" },
-  { label: "印花修复", path: "/general-image/image-to-image" },
+  { label: "商品重绘", labelKey: "toolProductRepaint", path: "/general-image/image-to-image" },
+  { label: "AI扩图", labelKey: "toolAiExpand", path: "/general-image/image-to-image" },
+  { label: "高清修复", labelKey: "toolHdRestore", path: "/general-image/image-to-image" },
+  { label: "智能抠图", labelKey: "toolSmartCutout", path: "/general-image/image-to-image" },
+  { label: "消除笔", labelKey: "toolEraser", path: "/general-image/image-to-image" },
+  { label: "AI换色", labelKey: "toolAiRecolor", path: "/general-image/image-to-image" },
+  { label: "文字编辑", labelKey: "toolTextEdit", path: "/general-image/image-to-image" },
+  { label: "印花修复", labelKey: "toolPrintRestore", path: "/general-image/image-to-image" },
 ];
 
 const VIDEO_TOOL_ITEMS = [
-  { label: "图生视频", path: "/video" },
-  { label: "动作复刻", path: "/video/motion-control" },
-  { label: "多图成片", path: "/video/first-last-frame" },
-  { label: "模特替换", path: "/model-background" },
+  { label: "图生视频", labelKey: "videoToolImageToVideo", path: "/video" },
+  { label: "动作复刻", labelKey: "videoToolMotionReplicate", path: "/video/motion-control" },
+  { label: "多图成片", labelKey: "videoToolMultiToVideo", path: "/video/first-last-frame" },
+  { label: "模特替换", labelKey: "videoToolModelReplace", path: "/model-background" },
 ];
 
 export function StudioImagePreviewWorkspace({
@@ -737,7 +737,7 @@ function MoreToolsPopover({ onSelect }: { onSelect: (path: string) => void }) {
             onClick={() => onSelect(item.path)}
           >
             <WandSparkles className="h-4 w-4" />
-            <span>{item.label}</span>
+            <span>{item.labelKey ? t(item.labelKey) : item.label}</span>
           </Button>
         ))}
       </PopoverContent>
@@ -770,7 +770,7 @@ function VideoToolsPopover({ onSelect }: { onSelect: (path: string) => void }) {
             onClick={() => onSelect(item.path)}
           >
             <Clapperboard className="h-4 w-4" />
-            <span>{item.label}</span>
+            <span>{item.labelKey ? t(item.labelKey) : item.label}</span>
           </Button>
         ))}
       </PopoverContent>

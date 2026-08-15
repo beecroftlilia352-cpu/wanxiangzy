@@ -3684,7 +3684,16 @@
       "phone": "모바일 세로",
       "wide": "와이드"
     },
-    "countLabel": "생성 매수"
+    "countLabel": "생성 매수",
+    "modelPickerPlaceholder": "모델 선택",
+    "moduleHeaderAria": "{title} 설명",
+    "videoResultPreview": "생성된 동영상 {index} 미리보기",
+    "videoResultPlay": "생성된 동영상 {index} 재생",
+    "videoResultDownload": "생성된 동영상 {index} 다운로드",
+    "videoResultAria": "생성된 동영상 {index}",
+    "videoResultBadge": "결과",
+    "videoGeneratingState": "동영상 생성 중",
+    "videoEstimatedTime": "약 2-5분 소요"
   },
   "Video": {
     "moduleFirstLastFrame": "첫/끝 프레임",

@@ -3684,7 +3684,16 @@
       "phone": "Retrato móvel",
       "wide": "Widescreen"
     },
-    "countLabel": "Quantidade de gerações"
+    "countLabel": "Quantidade de gerações",
+    "modelPickerPlaceholder": "Selecionar modelo",
+    "moduleHeaderAria": "Informações de {title}",
+    "videoResultPreview": "Pré-visualização do vídeo gerado {index}",
+    "videoResultPlay": "Reproduzir o vídeo gerado {index}",
+    "videoResultDownload": "Baixar o vídeo gerado {index}",
+    "videoResultAria": "Vídeo gerado {index}",
+    "videoResultBadge": "Resultado",
+    "videoGeneratingState": "Gerando vídeo",
+    "videoEstimatedTime": "Cerca de 2-5 min"
   },
   "Video": {
     "moduleFirstLastFrame": "Primeiro e último frame",

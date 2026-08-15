@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, type ReactNode } from "react";
+import { useTranslations } from "next-intl";
 import { CircleHelp } from "lucide-react";
 import { ClientPortal } from "@/components/ClientPortal";
 
@@ -11,6 +12,7 @@ type ModuleHeaderProps = {
 };
 
 export function ModuleHeader({ title, tooltip, actions }: ModuleHeaderProps) {
+  const t = useTranslations("Shared");
   const buttonRef = useRef<HTMLButtonElement>(null);
   const [tooltipStyle, setTooltipStyle] = useState<{ top: number; left: number } | null>(null);
 
@@ -30,7 +32,7 @@ export function ModuleHeader({ title, tooltip, actions }: ModuleHeaderProps) {
         <button
           ref={buttonRef}
           type="button"
-          aria-label={`${title}说明`}
+          aria-label={t("moduleHeaderAria", { title })}
           onMouseEnter={showTooltip}
           onMouseLeave={() => setTooltipStyle(null)}
           onFocus={showTooltip}

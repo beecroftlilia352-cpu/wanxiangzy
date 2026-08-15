@@ -3684,7 +3684,16 @@
       "phone": "मोबाइल पोर्ट्रेट",
       "wide": "वाइडस्क्रीन"
     },
-    "countLabel": "जनरेशन संख्या"
+    "countLabel": "जनरेशन संख्या",
+    "modelPickerPlaceholder": "मॉडल चुनें",
+    "moduleHeaderAria": "{title} जानकारी",
+    "videoResultPreview": "जनित वीडियो {index} पूर्वावलोकन",
+    "videoResultPlay": "जनित वीडियो {index} चलाएँ",
+    "videoResultDownload": "जनित वीडियो {index} डाउनलोड करें",
+    "videoResultAria": "जनित वीडियो {index}",
+    "videoResultBadge": "परिणाम",
+    "videoGeneratingState": "वीडियो जनरेट हो रहा है",
+    "videoEstimatedTime": "लगभग 2-5 मिनट"
   },
   "Video": {
     "moduleFirstLastFrame": "फर्स्ट और लास्ट फ्रेम",

@@ -3684,7 +3684,16 @@
       "phone": "Dọc điện thoại",
       "wide": "Màn hình rộng"
     },
-    "countLabel": "Số lượng tạo"
+    "countLabel": "Số lượng tạo",
+    "modelPickerPlaceholder": "Chọn mô hình",
+    "moduleHeaderAria": "Thông tin {title}",
+    "videoResultPreview": "Xem trước video đã tạo {index}",
+    "videoResultPlay": "Phát video đã tạo {index}",
+    "videoResultDownload": "Tải video đã tạo {index}",
+    "videoResultAria": "Video đã tạo {index}",
+    "videoResultBadge": "Kết quả",
+    "videoGeneratingState": "Đang tạo video",
+    "videoEstimatedTime": "Khoảng 2-5 phút"
   },
   "Video": {
     "moduleFirstLastFrame": "Khung đầu-cuối",

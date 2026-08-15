@@ -1125,7 +1125,16 @@
       "phone": "Мобилен портрет",
       "wide": "Широк екран"
     },
-    "countLabel": "Брой генерирания"
+    "countLabel": "Брой генерирания",
+    "modelPickerPlaceholder": "Избор на модел",
+    "moduleHeaderAria": "Информация за {title}",
+    "videoResultPreview": "Преглед на генерирано видео {index}",
+    "videoResultPlay": "Пускане на генерирано видео {index}",
+    "videoResultDownload": "Изтегляне на генерирано видео {index}",
+    "videoResultAria": "Генерирано видео {index}",
+    "videoResultBadge": "Резултат",
+    "videoGeneratingState": "Генериране на видео",
+    "videoEstimatedTime": "Около 2-5 мин"
   },
   "ModelBackground": {
     "title": "Смяна на фон",

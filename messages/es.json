@@ -3684,7 +3684,16 @@
       "phone": "Vertical móvil",
       "wide": "Panorámico"
     },
-    "countLabel": "Cantidad de generaciones"
+    "countLabel": "Cantidad de generaciones",
+    "modelPickerPlaceholder": "Seleccionar modelo",
+    "moduleHeaderAria": "Información de {title}",
+    "videoResultPreview": "Vista previa del video generado {index}",
+    "videoResultPlay": "Reproducir el video generado {index}",
+    "videoResultDownload": "Descargar el video generado {index}",
+    "videoResultAria": "Video generado {index}",
+    "videoResultBadge": "Resultado",
+    "videoGeneratingState": "Generando video",
+    "videoEstimatedTime": "Unos 2-5 min"
   },
   "Video": {
     "moduleFirstLastFrame": "Primer y último fotograma",

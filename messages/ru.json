@@ -3684,7 +3684,16 @@
       "phone": "Мобильный портрет",
       "wide": "Широкий экран"
     },
-    "countLabel": "Количество генераций"
+    "countLabel": "Количество генераций",
+    "modelPickerPlaceholder": "Выбрать модель",
+    "moduleHeaderAria": "Справка: {title}",
+    "videoResultPreview": "Предпросмотр сгенерированного видео {index}",
+    "videoResultPlay": "Воспроизвести сгенерированное видео {index}",
+    "videoResultDownload": "Скачать сгенерированное видео {index}",
+    "videoResultAria": "Сгенерированное видео {index}",
+    "videoResultBadge": "Результат",
+    "videoGeneratingState": "Генерация видео",
+    "videoEstimatedTime": "Примерно 2–5 мин"
   },
   "Video": {
     "moduleFirstLastFrame": "Первый и последний кадр",

@@ -3684,7 +3684,16 @@
       "phone": "Potret ponsel",
       "wide": "Lebar"
     },
-    "countLabel": "Jumlah generasi"
+    "countLabel": "Jumlah generasi",
+    "modelPickerPlaceholder": "Pilih model",
+    "moduleHeaderAria": "Info {title}",
+    "videoResultPreview": "Pratinjau video yang dihasilkan {index}",
+    "videoResultPlay": "Putar video yang dihasilkan {index}",
+    "videoResultDownload": "Unduh video yang dihasilkan {index}",
+    "videoResultAria": "Video yang dihasilkan {index}",
+    "videoResultBadge": "Hasil",
+    "videoGeneratingState": "Membuat video",
+    "videoEstimatedTime": "Sekitar 2-5 menit"
   },
   "Video": {
     "moduleFirstLastFrame": "Frame Awal-Akhir",
