@@ -61,8 +61,7 @@ button {
 .home-landing-hero .home-hero-frame > *:nth-child(7) { animation-delay: 0.47s; }
 
 /* ---- 4. 生成按钮呼吸微光（引导主操作） ---- */
-.studio-run-button,
-.studio-button--primary {
+.studio-primary-action {
   animation: motion-breathe 2.6s ease-in-out infinite;
 }
 

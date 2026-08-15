@@ -247,6 +247,7 @@ export default function LoginPage() {
                   <Mail aria-hidden="true" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 rtl:left-auto rtl:right-3 dark:text-slate-500" />
                   <input
                     id="login-email"
+                    autoFocus
                     name="email"
                     type="email"
                     value={email}
@@ -352,6 +353,7 @@ export default function LoginPage() {
                   <Mail aria-hidden="true" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 rtl:left-auto rtl:right-3 dark:text-slate-500" />
                   <input
                     id="signup-email"
+                    autoFocus
                     name="email"
                     type="email"
                     value={email}
