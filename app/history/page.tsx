@@ -156,6 +156,8 @@ export default function HistoryPage() {
   const [initialDetailId] = useState(getInitialHistoryDetailId);
   const [pendingDetailId, setPendingDetailId] = useState(initialDetailId);
   const [moduleFilter, setModuleFilter] = useState<HistoryModuleFilter>(initialFilters.moduleFilter);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const hasLoadedOnceRef = useRef(false);
   const [statusFilter, setStatusFilter] = useState<HistoryStatusFilter>(initialFilters.statusFilter);
   const [reloadToken, setReloadToken] = useState(0);
   const filterState = useMemo(
@@ -179,11 +181,15 @@ export default function HistoryPage() {
 
   useEffect(() => {
     let cancelled = false;
-    setState("loading");
+    // 筛选切换时保留旧列表（stale-while-revalidate），仅首次加载显示骨架
+    const hasLoadedOnce = hasLoadedOnceRef.current;
+    if (hasLoadedOnce) {
+      setIsRefreshing(true);
+    } else {
+      setState("loading");
+      hasLoadedOnceRef.current = true;
+    }
     setErrMsg("");
-    setRows([]);
-    setHasMore(false);
-    setNextCursor(null);
 
     (async () => {
       try {
@@ -201,14 +207,22 @@ export default function HistoryPage() {
         setHasMore(Boolean(payload.hasMore));
         setNextCursor(payload.nextCursor || null);
         setState(data.length ? "ready" : "empty");
+        setIsRefreshing(false);
       } catch (e: unknown) {
         if (cancelled) return;
+        setIsRefreshing(false);
         if (e instanceof HistoryAuthError) {
           setState("noauth");
           return;
         }
         const isAbortError = e instanceof DOMException && e.name === "AbortError";
-        setErrMsg(isAbortError ? t("historyLoadTimeout") : e instanceof Error ? e.message : t("genericError"));
+        const message = isAbortError ? t("historyLoadTimeout") : e instanceof Error ? e.message : t("genericError");
+        // 刷新失败时保留旧列表，只提示错误；首次加载失败才整页报错
+        if (hasLoadedOnce) {
+          toast.error(message);
+          return;
+        }
+        setErrMsg(message);
         setState("error");
       }
     })();
@@ -567,6 +581,9 @@ export default function HistoryPage() {
         </div>
       </div>
 
+      {isRefreshing ? (
+        <div className="mx-auto mb-3 h-[3px] w-24 animate-pulse rounded-full bg-[var(--codex-accent)]/60" aria-hidden="true" />
+      ) : null}
       <div className="mx-auto grid max-w-7xl grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4" key={`${moduleFilter}-${statusFilter}`} style={{ animation: "motion-rise-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) both" }}>
         {filteredRows.map((g: HistoryRow) => {
           const payload = getPayload(g);

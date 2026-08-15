@@ -148,8 +148,10 @@ export default function ModelBackgroundPage() {
   const [backgroundText, setBackgroundText] = useState(DEFAULT_BACKGROUND_TEXT);
 
   const [userPrompt, setUserPrompt] = useState("");
-  // 未保存输入离开拦截
-  const { unsavedDialog } = useUnsavedChangesGuard(Boolean(sourceUrls.length || backgroundText.trim() || userPrompt.trim()));
+  // 未保存输入离开拦截：backgroundText 初始即默认文案，需排除（否则进页面就误判为脏）
+  const { unsavedDialog } = useUnsavedChangesGuard(
+    Boolean(sourceUrls.length || userPrompt.trim() || (backgroundText.trim() && backgroundText !== DEFAULT_BACKGROUND_TEXT)),
+  );
   const [aiModel, setAiModel] = useState<LingyaModel>("nano-banana-2");
   const modelOptions = useStudioImageModelOptions();
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("auto");

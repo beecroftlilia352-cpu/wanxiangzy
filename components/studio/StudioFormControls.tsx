@@ -13,6 +13,8 @@ export type StudioChoiceOption<T extends string = string> = {
   description?: ReactNode;
   icon?: ComponentType<{ className?: string }>;
   disabled?: boolean;
+  /** 比例预览（如 "3:4"）：渲染一个该比例的小矩形 + 下方比例文字 */
+  ratio?: string;
 };
 
 export function StudioOptionGrid<T extends string>({
@@ -48,6 +50,7 @@ export function StudioOptionGrid<T extends string>({
       {options.map((option) => {
         const selected = value === option.value;
         const Icon = option.icon;
+        const labelText = option.labelKey ? t(option.labelKey) : option.label;
         return (
           <button
             key={option.value}
@@ -56,37 +59,50 @@ export function StudioOptionGrid<T extends string>({
             aria-checked={selected}
             disabled={option.disabled}
             onClick={() => onChange(option.value)}
+            title={typeof labelText === "string" ? labelText : undefined}
             className={cn(
               "studio-option-control",
               textAlign === "start" && "studio-option-control-start",
               selected && "studio-option-control-selected"
             )}
           >
-            <span className={cn("min-w-0", Icon && "flex items-start gap-2.5")}>
-              {Icon && (
+            {option.ratio ? (
+              <span className="flex flex-col items-center gap-1.5">
                 <span
                   aria-hidden="true"
-                  className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-[rgba(91,124,255,0.1)] text-[var(--codex-accent)]"
-                >
-                  <Icon className="h-3.5 w-3.5" />
-                </span>
-              )}
-              <span className="min-w-0">
-                <span className="block truncate">{option.labelKey ? t(option.labelKey) : option.label}</span>
-                {option.description && (
+                  className="block w-7 rounded-[3px] border-[1.6px] border-current"
+                  style={{ aspectRatio: option.ratio, maxHeight: "26px" }}
+                />
+                <span className="truncate text-[11px] font-bold leading-none">{option.ratio}</span>
+                <span className="sr-only">{labelText}</span>
+              </span>
+            ) : (
+              <span className={cn("min-w-0", Icon && "flex items-start gap-2.5")}>
+                {Icon && (
                   <span
-                    className={cn(
-                      "mt-0.5 block text-[11px] font-semibold opacity-65",
-                      descriptionMode === "wrap"
-                        ? "whitespace-normal break-words leading-4"
-                        : "truncate"
-                    )}
+                    aria-hidden="true"
+                    className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-[rgba(91,124,255,0.1)] text-[var(--codex-accent)]"
                   >
-                    {option.description}
+                    <Icon className="h-3.5 w-3.5" />
                   </span>
                 )}
+                <span className="min-w-0">
+                  <span className="block truncate">{labelText}</span>
+                  {option.description && (
+                    <span
+                      className={cn(
+                        "mt-0.5 block text-[11px] font-semibold opacity-65",
+                        descriptionMode === "wrap"
+                          ? "whitespace-normal break-words leading-4"
+                          : "truncate"
+                      )}
+                    >
+                      {option.description}
+                    </span>
+                  )}
+                </span>
               </span>
-            </span>
+            )}
           </button>
         );
       })}
