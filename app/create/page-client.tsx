@@ -8,7 +8,7 @@ import { ensureNotificationPermission, notifyGenerationComplete } from "@/lib/no
 import { OnboardingCoach, hasSeenOnboarding } from "@/components/studio/OnboardingCoach";
 import { useRouter } from "next/navigation";
 import {
-  Upload, UserRound, Image as ImageIcon, Sparkles,
+  Upload, UserRound, Image as ImageIcon, Cpu,
   X, Camera, ChevronRight, Wand, Loader2, ZoomIn,
   FolderOpen, CheckCircle2, XCircle,
   Crop, Monitor, Images, ListChecks, PenLine,
@@ -3305,7 +3305,7 @@ export default function CreatePage() {
           {/* ---- 生成模型 ---- */}
           <section>
             <h3 className="font-bold text-sm mb-3 flex items-center gap-2 text-slate-900 dark:text-stone-100">
-              <Sparkles className="w-4 h-4 text-[var(--codex-accent)]" /> {t("model.sectionTitle")}
+              <Cpu className="w-4 h-4 text-[var(--codex-accent)]" /> {t("model.sectionTitle")}
             </h3>
             <StudioModelSelector
               models={selectableModels}

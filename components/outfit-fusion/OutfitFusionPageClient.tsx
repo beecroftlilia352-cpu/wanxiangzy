@@ -21,7 +21,6 @@ import { ModuleTaskRail } from "@/components/studio/ModuleTaskRail";
 import { OutfitFusionComposer } from "@/components/outfit-fusion/OutfitFusionComposer";
 import { OutfitFusionExampleGallery } from "@/components/outfit-fusion/OutfitFusionExampleGallery";
 import { RawPreviewImage } from "@/components/studio/RawPreviewImage";
-import { StudioHomeHeroLoadingBackdrop } from "@/components/studio/StudioHomeHeroLoadingBackdrop";
 import { StudioImagePreviewDialog } from "@/components/studio/StudioImagePreviewDialog";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";

@@ -11,27 +11,28 @@
  * ============================================================================ */
 
 :root {
-  /* Surfaces */
+  /* Surfaces — prefer codex tokens where they match; admin keeps its own
+     blue-gray page tint and antd-blue accent for visual identity. */
   --admin-bg: #f6f8fb;
-  --admin-sider-bg: #ffffff;
+  --admin-sider-bg: var(--codex-surface);
   --admin-sider-border: #e5e7eb;
   --admin-topbar-bg: rgba(255, 255, 255, 0.92);
   --admin-topbar-border: rgba(226, 232, 240, 0.9);
   --admin-route-loading-card-bg: rgba(255, 255, 255, 0.94);
   --admin-route-loading-card-border: rgba(226, 232, 240, 0.92);
 
-  --admin-surface: #ffffff;
+  --admin-surface: var(--codex-surface);
   --admin-surface-soft: #f8fafc;
-  --admin-surface-strong: #ffffff;
+  --admin-surface-strong: var(--codex-surface-strong);
   --admin-border: #e5e7eb;
   --admin-border-strong: #cbd5e1;
   --admin-account-border: #e5e7eb;
   --admin-account-bg: #f8fafc;
 
   /* Foreground */
-  --admin-fg: #0f172a;
+  --admin-fg: var(--codex-ink);
   --admin-muted: #64748b;       /* 11px+ 800 weight — passes AA on both surfaces */
-  --admin-faint: #94a3b8;
+  --admin-faint: var(--codex-faint);
   --admin-link: #1e293b;
 
   /* Brand mark — kept as light-on-dark for consistency with sidebar tone */
@@ -91,10 +92,10 @@
   --admin-account-bg: rgba(255, 255, 255, 0.04);
 
   /* Foreground */
-  --admin-fg: #f5f5f7;
+  --admin-fg: var(--codex-ink);
   --admin-muted: #9ca3af;
   --admin-faint: #6b7280;
-  --admin-link: #f5f5f7;
+  --admin-link: var(--codex-ink);
 
   /* Brand mark inverts — light tile with dark glyph */
   --admin-brand-bg: #f5f5f7;

@@ -158,7 +158,7 @@ export default async function HomePage() {
             <Image src="/gemini-icon.png" alt="" width={52} height={52} className="h-[52px] w-[52px] object-contain" priority />
           </div>
 
-          <h1 className="mt-8 text-[58px] font-semibold leading-[0.95] text-[#050505] sm:text-[72px] lg:text-[88px] dark:text-white">
+          <h1 className="mt-8 text-[48px] font-semibold leading-[0.98] tracking-[-0.022em] text-[#050505] sm:text-[52px] lg:text-[56px] dark:text-white">
             {codexTheme.brand.name}
           </h1>
           <p className="mt-7 max-w-[720px] text-[18px] font-semibold leading-8 text-[#111827]/84 sm:text-[20px] dark:text-stone-200/85">
@@ -208,7 +208,7 @@ export default async function HomePage() {
 
         <section id="same-agent" className="mx-auto max-w-[1440px] px-5 pb-24 sm:px-8 lg:px-10">
           <div className="mx-auto max-w-[760px] text-center">
-            <h2 className="text-[36px] font-semibold leading-tight sm:text-[46px]">{t("sameAgentTitle")}</h2>
+            <h2 className="text-[32px] font-semibold leading-tight tracking-[-0.014em] sm:text-[36px]">{t("sameAgentTitle")}</h2>
             <p className="mt-5 text-[15px] leading-7 text-[#4b5563] dark:text-stone-400">
               {t("sameAgentDesc")}
             </p>
@@ -246,7 +246,7 @@ export default async function HomePage() {
         </section>
 
         <section id="testimonials" className="mx-auto max-w-[1440px] px-5 pb-28 sm:px-8 lg:px-10">
-          <h2 className="text-center text-[42px] font-semibold leading-tight sm:text-[56px]">{t("testimonialsTitle")}</h2>
+          <h2 className="text-center text-[32px] font-semibold leading-tight tracking-[-0.014em] sm:text-[40px]">{t("testimonialsTitle")}</h2>
           <div className="mt-14 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
             {testimonials.map((item, index) => (
               <article key={item.initials} className="home-testimonial">
@@ -271,7 +271,7 @@ export default async function HomePage() {
           </video>
           <div className="home-final-video-scrim" aria-hidden="true" />
           <div className="relative z-[3] mx-auto flex min-h-[475px] max-w-[1440px] flex-col items-center justify-center px-5 py-20 text-center text-[#050505] sm:px-8 lg:px-10">
-            <h2 className="text-[44px] font-semibold leading-tight sm:text-[65px]">{t("finalCtaTitle")}</h2>
+            <h2 className="text-[32px] font-semibold leading-tight tracking-[-0.014em] sm:text-[40px]">{t("finalCtaTitle")}</h2>
             <p className="mt-6 max-w-[660px] text-[16px] font-medium leading-7 text-[#111827]/84">
               {t("finalCtaDesc")}
             </p>

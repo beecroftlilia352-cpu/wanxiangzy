@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { AlertCircle, ArrowLeft, CheckCircle, Eye, EyeOff, Gift, KeyRound, Lock, Mail } from "lucide-react";
@@ -48,6 +49,7 @@ function getSafeAuthRedirectTarget() {
 
 export default function LoginPage() {
   const supabase = useMemo(() => createClient(), []);
+  const router = useRouter();
   const t = useTranslations("Login");
 
   const [view, setView] = useState<AuthView>("login");
@@ -73,7 +75,7 @@ export default function LoginPage() {
     supabase.auth
       .getUser()
       .then(({ data }) => {
-        if (mounted && data.user) window.location.replace(getSafeAuthRedirectTarget());
+        if (mounted && data.user) router.replace(getSafeAuthRedirectTarget());
       })
       .catch(() => undefined);
 
@@ -81,7 +83,7 @@ export default function LoginPage() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_IN" && session && window.location.pathname === "/login") {
-        window.location.replace(getSafeAuthRedirectTarget());
+        router.replace(getSafeAuthRedirectTarget());
       }
     });
 
@@ -119,7 +121,7 @@ export default function LoginPage() {
         return;
       }
 
-      window.location.href = getSafeAuthRedirectTarget();
+      router.push(getSafeAuthRedirectTarget());
     } catch {
       setError(t("errors.network"));
     } finally {
@@ -165,7 +167,7 @@ export default function LoginPage() {
       }
 
       if (payload.session) {
-        window.location.href = getSafeAuthRedirectTarget();
+        router.push(getSafeAuthRedirectTarget());
         return;
       }
 

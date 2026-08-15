@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
 import { useTranslations } from "next-intl";
 import { useRulesPopover } from "@/hooks/use-rules-popover";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, ChevronRight, Loader2, Sparkles, Upload, X, ZoomIn } from "lucide-react";
+import { CheckCircle2, ChevronRight, Cpu, Loader2, Upload, X, ZoomIn } from "lucide-react";
 import { toast } from "sonner";
 import { FeatureTabs } from "@/components/FeatureTabs";
 import { ModuleHeader } from "@/components/ModuleHeader";
@@ -844,7 +844,7 @@ export default function GrassPage() {
           )}
 
           <section>
-            <h3 className="font-bold text-sm mb-3 flex items-center gap-2 text-slate-900 dark:text-stone-100"><Sparkles className="w-4 h-4 text-[var(--codex-accent)]" /> {t("generationModelTitle")}</h3>
+            <h3 className="font-bold text-sm mb-3 flex items-center gap-2 text-slate-900 dark:text-stone-100"><Cpu className="w-4 h-4 text-[var(--codex-accent)]" /> {t("generationModelTitle")}</h3>
             <StudioModelSelector models={modelOptions} value={aiModel} onChange={setAiModel} ariaLabel={t("generationModelAria")} />
           </section>
 

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useRulesPopover } from "@/hooks/use-rules-popover";
 import { useRouter } from "next/navigation";
-import { Camera, CheckCircle2, ChevronRight, Sparkles, UserRound } from "lucide-react";
+import { Camera, CheckCircle2, ChevronRight, Cpu, UserRound } from "lucide-react";
 import { toast } from "sonner";
 import { FeatureTabs } from "@/components/FeatureTabs";
 import { ModuleHeader } from "@/components/ModuleHeader";
@@ -986,7 +986,7 @@ export default function ModelPage() {
 
           <section>
             <h3 className="font-bold text-sm mb-3 flex items-center gap-2 text-slate-900 dark:text-stone-100">
-              <Sparkles className="w-4 h-4 text-[var(--codex-accent)]" /> {t("genModel")}
+              <Cpu className="w-4 h-4 text-[var(--codex-accent)]" /> {t("genModel")}
             </h3>
             <StudioModelSelector
               models={modelOptions}
