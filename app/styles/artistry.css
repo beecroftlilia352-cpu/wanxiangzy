@@ -162,3 +162,35 @@
     transition: none !important;
   }
 }
+
+/* ---- 7. 工作台头部柔和阴影（sticky 悬浮层次） ---- */
+.studio-app-header {
+  box-shadow: 0 8px 32px rgba(14, 18, 38, 0.06) !important;
+}
+
+.dark .studio-app-header {
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* ---- 8. 模块导航项激活指示（studio-nav-item） ---- */
+.studio-nav-item {
+  position: relative;
+}
+
+.studio-nav-item-active::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 24px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #7c3aed, #5b7cff);
+}
+
+/* ---- 9. 上传区 hover 边框高亮统一 ---- */
+.studio-upload-tile:hover,
+.studio-stable-upload-boundary:hover {
+  border-color: rgba(91, 124, 255, 0.45) !important;
+}
