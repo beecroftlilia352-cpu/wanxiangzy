@@ -463,7 +463,7 @@ export function AccountCenterClient() {
         <div className="mx-auto grid w-full max-w-[1360px] gap-6 lg:grid-cols-[206px_minmax(0,1fr)] lg:items-start">
           <AccountSidebar activeTab={activeTab} onSelect={selectTab} />
 
-          <section className="min-w-0">
+          <section className="min-w-0" key={activeTab} style={{ animation: "motion-rise-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) both" }}>
             <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
               <div>
                 <Title level={3} className="!mb-0 !text-[22px] !font-semibold">
